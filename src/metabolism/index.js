@@ -253,3 +253,5 @@ export { createPopulation } from './population.js';
 export { createProvenance, memoryStore } from './persist.js';
 export { createJudge, buildJudgeRequest, parseVerdict, JUDGE_MODEL, buildInterpretationRequest, parseInterp, createPanel, createJudgePool } from './judge.js';
 export { liftOf, gapClosed, liftFitness, transfers, keptFitness, transferReading, createProxy, liftWorld } from './lift.js';
+export { createHorizon, knownHorizon } from './horizon.js';
+export { createAgent, reputationOf, decide, simulate, classifyRoom, isWrongRoom, population } from './reputation.js';
