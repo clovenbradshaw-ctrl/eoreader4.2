@@ -66,7 +66,7 @@ export { deriveNull, boundedNull, createNoiseFloor, extremeValueZ, MIN_SAMPLES,
 // column is omnimodal for free, and shaped to feed deriveNull (the Born rule) above.
 export { buildDensity, eigenLenses, vonNeumann, relEntropy, commutator,
          projectorFrom, symmetricEig, applyStance, SIG, REC, EVA, NUL, CON } from './spectral.js';
-export { surpriseAt, forwardDist, noveltyAmplitude, noveltyFromLensEntropy, NOVELTY_RESERVE } from './surprise.js';
+export { surpriseAt, forwardDist, forwardScore, noveltyAmplitude, noveltyFromLensEntropy, NOVELTY_RESERVE } from './surprise.js';
 // The connectivity surprise — the structural sibling of surpriseAt. The mass channel
 // moves on what arrived; this one moves on how a bond COLLAPSES the prior separation
 // between its (coref-resolved) endpoints, the structural reveal the mass KL is blind to.

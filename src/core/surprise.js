@@ -147,4 +147,53 @@ export const forwardDist = (profile, { novelty = NOVELTY_RESERVE } = {}) => {
   return { dist, reserve: novelty / Z, Z };
 };
 
+// forwardScore(profile, arrival, { novelty, axisLabel }) → the FORWARD PREDICTIVE CHANNEL (Track A).
+//
+// surpriseAt is the BACKWARD object — how far belief MOVED once the arrival landed. This is the
+// FORWARD object SCORED: −log₂ p(arrival) under p(next | profile), the honest predictive surprisal
+// the "ad-hoc floored mean" (reading.js) stands in for. "Reading scores the arrival under p(next);
+// generation draws from p(next)" — this is that scoring, the same forward object either way.
+//
+// ONE FORWARD MODEL, POINTED TWO WAYS (enactor/efference.js §5). Fed the WORLD's arrival it is
+// perceptual surprise (a miss is news); fed the predicted return of the self's OWN commit it is the
+// efference copy, deepened here from the identity stub into a real transformed-consequence forward
+// model — the SAME function, the source of the arrival the only difference. The self/world split
+// (attenuate the reafferent, keep the exafferent) is drawn by the monitor ONE layer up; this core
+// only scores, so it stays modality-blind: profile/arrival are Map<atom,mass> in ANY basis
+// (propositions, tonal moves, motion, cells), the front-end map the only modality-specific code.
+//
+// Purely ADDITIVE: nothing scores against it until the gated Track-A adoption wires it into the
+// reading's surprisal (RULES_REV + a parallel golden), so the text path stays byte-identical.
+export const forwardScore = (profile, arrival, { novelty = NOVELTY_RESERVE, axisLabel = (k) => k } = {}) => {
+  const { dist, reserve, Z } = forwardDist(profile, { novelty });
+  // Opening / empty-arrival guard: no forward mass yet, or nothing arrived → nothing to have foreseen,
+  // so the honest predictive surprise is zero (mirrors surpriseAt's opening guard).
+  if (!(Z > 0) || !arrival || arrival.size === 0) {
+    return { predBits: 0, predMeanBits: 0, predBy: {}, novel: 0, reserve: round(reserve || 0) };
+  }
+  const p = new Map(dist);                                   // atom → probability under p(next)
+  const newcomers = [...arrival.keys()].filter((a) => !p.has(a));
+  // Co-arriving newcomers SPLIT the reserve, so the unseen mass is never multiply-counted — the same
+  // discipline surpriseAt uses for the prior reserve (a lone newcomer takes all of it).
+  const newShare = newcomers.length ? reserve / newcomers.length : reserve;
+
+  let predBits = 0, totalMass = 0;
+  const predBy = {};
+  for (const [a, m] of arrival) {
+    const pa = Math.max(p.has(a) ? p.get(a) : newShare, 1e-12);   // floored so an opening never diverges
+    const bits = -Math.log2(pa);
+    predBits += m * bits;                                    // mass-weighted joint surprisal of the arrival
+    totalMass += m;
+    const lab = axisLabel(a);
+    if (bits > 0) predBy[lab] = round((predBy[lab] || 0) + m * bits);   // the axes the reader failed to foresee
+  }
+  return {
+    predBits: round(predBits),                              // total −log₂ p(arrival), mass-weighted
+    predMeanBits: round(totalMass > 0 ? predBits / totalMass : 0),   // per-unit-mass — the comparable, calibratable number
+    predBy,                                                  // per-dimension predictive surprise — the steer axis (REC reads it)
+    novel: newcomers.length,                                // arrivals the forward model had never seen (drew the reserve)
+    reserve: round(reserve),                                // protention mass share held for the unseen
+  };
+};
+
 const round = (x) => Math.round(x * 100) / 100;
