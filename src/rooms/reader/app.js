@@ -25,6 +25,7 @@ import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
 import { readIngest } from '../../organs/ingest/read.js';
+import { answerSmalltalk } from '../../enactor/answer/index.js';
 import { figureSurface } from '../../perceiver/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 
@@ -156,6 +157,12 @@ export const createReaderApp = ({ audit } = {}) => {
     if (!state.topics.find((t) => t.id === state.activeTopicId)) state.activeTopicId = state.topics[0].id;
     state.ready = true;
     emit('ready');
+    // The model prewarms the moment the session is up (4.1's mount posture) so the
+    // first question never pays the download stall. Browser only — never in tests —
+    // and the ladder inside ensureModel already falls back webllm → wllama → echo.
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      setTimeout(() => { ensureModel().catch(() => { /* logged by the ladder */ }); }, 600);
+    }
   };
 
   // ── topics ─────────────────────────────────────────────────────────────────
@@ -324,17 +331,18 @@ export const createReaderApp = ({ audit } = {}) => {
     try { const v = localStorage.getItem('eo_backend'); if (v) return v; } catch { /* default */ }
     return (typeof navigator !== 'undefined' && navigator.gpu) ? 'webllm' : 'wllama';
   };
-  let model = null, modelLoading = null;
+  let model = null, modelLoading = null, modelGen = 0;
   const setBackend = (name) => {
     backendOverride = name;
     try { localStorage.setItem('eo_backend', name); } catch { /* session-only */ }
-    model = null; modelLoading = null;
+    model = null; modelLoading = null; modelGen++;   // orphan any in-flight load
     state.model = { backend: name, state: 'cold', progress: 0, note: '' };
     emit('model');
   };
   const ensureModel = async () => {
     if (model?.isLoaded?.()) return model;
     if (modelLoading) return modelLoading;
+    const gen = ++modelGen;
     const name = backendPref();
     state.model = { backend: name, state: 'loading', progress: 0, note: 'starting…' };
     emit('model');
@@ -349,22 +357,33 @@ export const createReaderApp = ({ audit } = {}) => {
         });
         return m;
       };
-      const ladder = [...new Set([name, 'wllama', 'echo'])];
+      // LLM-first, always: webllm → wllama, and NO echo in the ladder — a silent
+      // fall to the echo skeleton reads as garbage, not an answer. If no LLM can
+      // load, the surface says so plainly and offers a retry instead of faking it.
+      const ladder = [...new Set([name, 'wllama'])];
       let lastErr = null;
       for (const backend of ladder) {
         try {
           const m = await tryLoad(backend);
+          if (gen !== modelGen) return m;   // superseded by a newer setBackend — don't commit
           state.model = { backend, state: 'ready', progress: 1, note: backend === name ? '' : `fell back from ${name}` };
           emit('model');
           model = m;
           return m;
         } catch (e) {
           lastErr = e;
-          logIt('skip', `Model ${backend} failed to load — ${String(e?.message || e).slice(0, 120)}`);
+          if (gen !== modelGen) throw e;    // superseded — stop the orphaned ladder quietly
+          const why = backend === 'webllm'
+            ? 'needs WebGPU (chrome://flags or Chrome/Edge); falling back to the CPU model'
+            : String(e?.message || e).slice(0, 120);
+          logIt('skip', `Model ${backend} failed to load — ${why}`);
         }
       }
-      state.model = { backend: name, state: 'error', progress: 0, note: String(lastErr?.message || lastErr) };
-      emit('model');
+      if (gen === modelGen) {
+        state.model = { backend: name, state: 'error', progress: 0,
+          note: `No local model could load — ${String(lastErr?.message || lastErr).slice(0, 140)}` };
+        emit('model');
+      }
       throw lastErr;
     })();
     try { return await modelLoading; } finally { modelLoading = null; }
@@ -400,8 +419,19 @@ export const createReaderApp = ({ audit } = {}) => {
     emit('messages');
 
     if (!docs.length) {
-      pending.text = 'Nothing is recorded yet, so there is nothing I can answer from. Read a URL, drop a file, paste text, or search the web above — once a source is recorded, I answer only from it.';
-      pending.pending = false; pending.route = 'empty';
+      // An empty record is not a dead end. Greetings get the mechanical smalltalk
+      // answer; anything substantive becomes a one-click web-search proposal, so
+      // the first real question can go fetch its own sources.
+      const small = answerSmalltalk(q);
+      if (small) {
+        pending.text = small.text.replace(/the document/g, 'what you record');
+        pending.route = 'smalltalk';
+      } else {
+        pending.text = 'Nothing is on the record yet, so I can\'t ground an answer to that. I can search the web and record what comes back — or read any URL, file, or pasted text you drop in the bar above.';
+        pending.route = 'empty';
+        pending.webProposal = { query: q, rationale: 'no sources recorded yet' };
+      }
+      pending.pending = false;
       persist(); emit('messages');
       return pending;
     }
@@ -426,7 +456,9 @@ export const createReaderApp = ({ audit } = {}) => {
       });
       finishMessage(pending, result);
     } catch (e) {
-      pending.text = pending.text || `Something failed mid-turn: ${String(e?.message || e)}`;
+      pending.text = pending.text || (state.model.state === 'error'
+        ? `${state.model.note}. A WebGPU browser (Chrome/Edge) runs Llama 3.2; anything else runs SmolLM2 on CPU — check the connection, then retry from the model chip in the header.`
+        : `Something failed mid-turn: ${String(e?.message || e)}`);
       pending.pending = false; pending.route = 'error';
     } finally {
       abort = null; setBusy(null);

@@ -39,7 +39,7 @@ table{border-collapse:collapse;width:100%}
 </style>
 </helmet>
 
-<div data-screen-label="EOReader" ref="{{ setRoot }}" style="position:relative;display:flex;flex-direction:column;height:100vh;width:100%;background:#F4F4F7;color:#1B1B22;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased">
+<div data-screen-label="EOReader" style="position:relative;display:flex;flex-direction:column;height:100vh;width:100%;background:#F4F4F7;color:#1B1B22;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased">
 
   <header style="height:50px;flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:0 14px;background:#fff;border-bottom:1px solid #EAEAEF;position:relative;z-index:5">
     <div style="display:flex;align-items:center;gap:9px;padding-right:2px">
@@ -935,6 +935,7 @@ class Component extends DCLogic {
       this._app.subscribe((kind) => this._onEngine(kind));
       if (window.EO.audit && window.EO.audit.subscribe) window.EO.audit.subscribe(() => this._poke());
     }
+    this._wireDom();
   }
 
   _pref(k, dflt) { try { const v = localStorage.getItem(k); return v == null ? dflt : v === '1'; } catch { return dflt; } }
@@ -954,20 +955,32 @@ class Component extends DCLogic {
     setTimeout(() => { const el = this._chatEl; if (el) el.scrollTop = el.scrollHeight; }, 30);
   }
   setChatScroll(el) { this._chatEl = el; if (el) el.scrollTop = el.scrollHeight; }
-  setRoot(el) {
-    if (!el || this._rootWired) return;
-    this._rootWired = true;
-    el.addEventListener('dragover', (e) => { e.preventDefault(); if (!this.state.dragOver) this.setState({ dragOver: true }); });
-    el.addEventListener('dragleave', (e) => { if (e.target === el) this.setState({ dragOver: false }); });
-    el.addEventListener('drop', (e) => {
-      e.preventDefault(); this.setState({ dragOver: false });
-      const files = [...(e.dataTransfer && e.dataTransfer.files || [])];
-      files.forEach((f) => this._ingestFile(f));
+  // Drag-drop rides on window (never lost to a re-render); the file input lives on
+  // document.body and is minted lazily on first use — nothing depends on refs.
+  _wireDom() {
+    if (typeof window === 'undefined') return;
+    window.__eoUI = this;
+    if (window.__eoDomWired) return;
+    window.__eoDomWired = true;
+    window.addEventListener('dragover', (e) => { e.preventDefault(); const ui = window.__eoUI; if (ui && !ui.state.dragOver) ui.setState({ dragOver: true }); });
+    window.addEventListener('dragleave', (e) => { const ui = window.__eoUI; if (ui && !e.relatedTarget) ui.setState({ dragOver: false }); });
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const ui = window.__eoUI; if (!ui) return;
+      ui.setState({ dragOver: false });
+      [...(e.dataTransfer && e.dataTransfer.files || [])].forEach((f) => ui._ingestFile(f));
     });
+  }
+  _ensureFileInput() {
+    if (this._fileInput && document.body.contains(this._fileInput)) return this._fileInput;
     const inp = document.createElement('input');
-    inp.type = 'file'; inp.multiple = true; inp.style.display = 'none';
+    inp.type = 'file'; inp.multiple = true;
+    inp.setAttribute('data-eo-file', '1');
+    inp.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0';
     inp.addEventListener('change', () => { [...inp.files].forEach((f) => this._ingestFile(f)); inp.value = ''; });
-    el.appendChild(inp); this._fileInput = inp;
+    document.body.appendChild(inp);
+    this._fileInput = inp;
+    return inp;
   }
 
   // ── ingest ────────────────────────────────────────────────────────────────
@@ -1009,7 +1022,7 @@ class Component extends DCLogic {
     this._app.ingestFile(f).then((s) => this.showToast(`Recorded ${s.reg} — ${s.title}`))
       .catch((err) => this.showToast(`Couldn't read ${f.name}: ${String(err && err.message || err).slice(0, 90)}`));
   }
-  pickFile() { if (this._fileInput) this._fileInput.click(); }
+  pickFile() { this._ensureFileInput().click(); }
   openPaste() { this.setState({ pasteOpen: true, pasteTitle: '', pasteBody: '' }); }
   closePaste() { this.setState({ pasteOpen: false }); }
   onPasteTitle(e) { this.setState({ pasteTitle: e.target.value }); }
@@ -1246,7 +1259,6 @@ class Component extends DCLogic {
     const modelChip = m.state === 'loading' ? `${m.backend} · ${Math.round((m.progress || 0) * 100)}%`
       : m.state === 'ready' ? m.backend : (m.backend || app.backendPref());
     const BACKENDS = [
-      ['echo', 'Echo (instant, offline)', 'No download. Answers by quoting the retrieved passages verbatim — the grounded skeleton with no phrasing.'],
       ['wllama', 'SmolLM2 · CPU', 'Small and universal — runs on WASM everywhere, ~90 MB download, cached after the first load.'],
       ['webllm', 'Llama 3.2 · WebGPU', 'The full local talker — 1–2 GB download, needs WebGPU (Chrome/Edge). Picked adaptively for your GPU.'],
     ];
@@ -1302,11 +1314,14 @@ class Component extends DCLogic {
         label: f.id, fg: /contradic|unbound/.test(f.id) ? '#B23A2E' : '#9A6B12',
         bg: /contradic|unbound/.test(f.id) ? '#FBE9E6' : '#FBF1DA', bd: /contradic|unbound/.test(f.id) ? '#F2D3CD' : '#EEDCA9',
       }));
+      const loading = app.state.model.state === 'loading';
       return {
         isUser: false, isAgent: true, text: mm.text, pending: !!mm.pending,
-        pendingLabel: mm.text ? '● phrasing' : '● reading the record',
+        pendingLabel: mm.text ? '● phrasing'
+          : loading ? `● loading ${app.state.model.backend} · ${Math.round((app.state.model.progress || 0) * 100)}%`
+          : '● reading the record',
         plain: !rich, rich: !!rich, paras: rich ? this._segsFor(mm) : [],
-        showBadge: done && !!mm.route && mm.route !== 'empty',
+        showBadge: done && !!mm.route && mm.route !== 'empty' && mm.route !== 'smalltalk',
         badge: mm.grounded ? 'grounded' : (mm.route === 'error' ? 'error' : mm.unbound ? 'unbound' : mm.route || ''),
         badgeFg: mm.grounded ? '#1E8A50' : '#9A6B12', badgeBg: mm.grounded ? '#E7F6EC' : '#FBF1DA',
         hasCites: done && cites.length > 0, cites,
@@ -1639,7 +1654,6 @@ class Component extends DCLogic {
       logActionsFg: st.logMode === 'actions' ? '#1B1B22' : '#8A8A95', logActionsBg: st.logMode === 'actions' ? '#fff' : 'transparent',
       logReasoningFg: st.logMode === 'reasoning' ? '#1B1B22' : '#8A8A95', logReasoningBg: st.logMode === 'reasoning' ? '#fff' : 'transparent',
       logView, logEmpty: logView.length === 0, turnViews, turnsEmpty: turnViews.length === 0,
-      setRoot: (el) => this.setRoot(el),
     };
   }
 
