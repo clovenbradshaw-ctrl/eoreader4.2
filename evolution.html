@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EO Reader — Evolution</title>
+<link rel="icon" href="favicon.svg" />
+<style>
+  :root{
+    --bg:#0c0e12; --panel:#14171e; --panel2:#1b1f28; --ink:#e7ecf3; --dim:#8b93a2; --line:#252b36;
+    --founder:#4aa3df; --grown:#5bd08a; --desert:#2a2f3a; --forbidden:#e0555f; --void:#b98bff;
+    --frozen:#e0a24a; --open:#5bd08a; --accent:#7bd0ff; --warn:#e0a24a;
+    --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme:light){
+    :root{ --bg:#f4f6fa; --panel:#fff; --panel2:#eef1f6; --ink:#141821; --dim:#5a6474; --line:#dde3ec;
+      --desert:#e2e7ef; --founder:#2b7fc4; --grown:#2fa564; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5}
+  a{color:var(--accent)}
+  .wrap{max-width:1240px;margin:0 auto;padding:18px}
+  header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px;margin-bottom:4px}
+  h1{font-family:var(--mono);font-size:19px;font-weight:600;margin:0;letter-spacing:.2px}
+  .sub{color:var(--dim);font-size:12.5px;max-width:70ch}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0;padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+  button{font-family:var(--sans);font-size:13px;padding:7px 13px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--ink);cursor:pointer;transition:.12s}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#08121b;border-color:transparent;font-weight:600}
+  button.ghost{background:transparent}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  select,input[type=range]{font-family:var(--sans);font-size:13px;background:var(--panel2);color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  label{color:var(--dim);font-size:12px;display:inline-flex;gap:6px;align-items:center}
+  .grid{display:grid;grid-template-columns:1.35fr 1fr;gap:14px}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+  .panel h2{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin:0 0 10px}
+  .row{display:flex;flex-wrap:wrap;gap:10px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 11px;min-width:88px}
+  .stat .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim)}
+  .stat .v{font-family:var(--mono);font-size:17px;font-weight:600;margin-top:1px}
+  .stat .v small{font-size:11px;color:var(--dim);font-weight:400}
+  /* the cube */
+  .cube{display:grid;grid-template-columns:auto repeat(3,1fr);gap:5px}
+  .cube .hd{font-family:var(--mono);font-size:10px;color:var(--dim);text-align:center;padding:2px;text-transform:uppercase;letter-spacing:.5px}
+  .cube .oplbl{font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;align-items:center;justify-content:flex-end;padding-right:6px}
+  .cell{position:relative;border-radius:8px;border:1px solid var(--line);background:var(--desert);
+    min-height:46px;padding:5px 6px;overflow:hidden;transition:.2s}
+  .cell .cn{font-family:var(--mono);font-size:9.5px;color:var(--dim);opacity:.7}
+  .cell .sp{font-size:11px;font-weight:600;margin-top:2px;line-height:1.15}
+  .cell.founder{background:color-mix(in srgb,var(--founder) 22%,var(--panel));border-color:var(--founder)}
+  .cell.grown{background:color-mix(in srgb,var(--grown) 26%,var(--panel));border-color:var(--grown);box-shadow:0 0 0 1px var(--grown) inset}
+  .cell.forbidden{background:repeating-linear-gradient(45deg,transparent,transparent 5px,color-mix(in srgb,var(--forbidden) 20%,transparent) 5px,color-mix(in srgb,var(--forbidden) 20%,transparent) 10px);border-color:var(--forbidden)}
+  .cell.pulse{animation:pop .6s ease}
+  @keyframes pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:11.5px;color:var(--dim)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  /* lineage */
+  .log{max-height:230px;overflow:auto;font-family:var(--mono);font-size:11.5px}
+  .log .e{padding:4px 6px;border-radius:6px;margin-bottom:3px;background:var(--panel2);border-left:2px solid var(--line)}
+  .log .e.grow{border-left-color:var(--grown)} .log .e.prune{border-left-color:var(--warn)}
+  .log .e.fuse{border-left-color:var(--void)} .log .e.inherit,.log .e.promote{border-left-color:var(--founder)}
+  .log .e .p{color:var(--dim)}
+  /* boundary */
+  .bands{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .band h3{font-family:var(--mono);font-size:11px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.6px}
+  .band.open h3{color:var(--open)} .band.frozen h3{color:var(--frozen)}
+  .chip{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:3px 7px;border-radius:20px;margin:0 3px 4px 0;border:1px solid var(--line);background:var(--panel2)}
+  .band.open .chip{border-color:color-mix(in srgb,var(--open) 40%,var(--line))}
+  .band.frozen .chip{border-color:color-mix(in srgb,var(--frozen) 40%,var(--line))}
+  .ground{margin-top:10px;padding:9px 11px;border-radius:9px;border:1px dashed var(--void);background:color-mix(in srgb,var(--void) 8%,transparent);font-size:12px}
+  .ground b{color:var(--void)}
+  /* forage */
+  .doc{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:7px}
+  .doc .t{font-weight:600;font-size:13px}
+  .doc .s{font-family:var(--mono);font-size:10.5px;color:var(--accent)}
+  .doc .x{color:var(--dim);font-size:12px;margin-top:3px;max-height:3.2em;overflow:hidden}
+  .pill{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:20px;background:var(--panel2);border:1px solid var(--line);color:var(--dim)}
+  .flag{font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:6px}
+  .flag.prov{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+  .flag.anch{background:color-mix(in srgb,var(--open) 18%,transparent);color:var(--open)}
+  .muted{color:var(--dim);font-size:12px}
+  .barrow{display:flex;align-items:center;gap:8px;margin:3px 0;font-family:var(--mono);font-size:11px}
+  .bar{height:8px;border-radius:5px;background:var(--panel2);flex:1;overflow:hidden}
+  .bar > i{display:block;height:100%;background:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>EO Reader · Evolution</h1>
+    <span class="sub">The metabolism grows a <b>body</b>, not just tunes its dials. Watch organs grow into the sparse cells of the cube, earn their keep or get pruned when the season turns — and where the population may go, and where it may never.</span>
+  </header>
+
+  <div class="controls">
+    <button id="run" class="primary">▶ Start</button>
+    <button id="step" class="ghost">Step</button>
+    <button id="reset" class="ghost">Reset</button>
+    <label>Regime
+      <select id="regime"><option value="seasonal" selected>seasonal</option><option value="harsh">harsh</option><option value="plenty">plenty</option></select>
+    </label>
+    <label>Ration <input type="range" id="ration" min="600" max="2400" step="100" value="1600" /></label>
+    <button id="famine" class="ghost">Impose famine</button>
+    <span style="flex:1"></span>
+    <label>Speed <input type="range" id="speed" min="120" max="1000" step="40" value="380" /></label>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>The body on the cube — where they grow</h2>
+        <div id="cube" class="cube"></div>
+        <div class="legend">
+          <span><i style="background:var(--founder)"></i>founder (ship-with)</span>
+          <span><i style="background:var(--grown)"></i>grown organ</span>
+          <span><i style="background:var(--desert)"></i>desert (unexpressed phenotype)</span>
+          <span><i style="background:var(--forbidden)"></i>forbidden — fabricate-from-Void (SYN·Ground)</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Season & vitals</h2>
+        <div class="row" id="vitals"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Lineage — the genome edits, DNA-only</h2>
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>The freeze boundary — how deep evolution goes</h2>
+        <div class="bands">
+          <div class="band open"><h3>open · evolves</h3><div id="open"></div></div>
+          <div class="band frozen"><h3>frozen · the human's pen</h3><div id="frozen"></div></div>
+        </div>
+        <div class="ground" id="ground"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Void-respect — the investigator, not the clerk</h2>
+        <div id="void"></div>
+        <div class="muted" style="margin-top:8px">Holding a thread earns nothing. Only the held thread that <i>later binds</i> pays — retroactively, scaled by precision. A fabricated thread never binds, so the delayed judge starves the liar.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Human interaction — in time, the primary evolver</h2>
+        <div class="row" style="align-items:center">
+          <button id="endorse" class="primary">👍 Endorse the champion</button>
+          <button id="reject" class="ghost">👎 Reject</button>
+          <span id="humanState" class="muted"></span>
+        </div>
+        <div class="muted" style="margin-top:8px">Your judgement is the strongest anchor — un-authorable, and the one thing the population cannot game. It selects genomes directly.</div>
+      </div>
+
+      <div class="panel">
+        <h2>The judge's material — foraged from the real world</h2>
+        <div class="row" style="margin-bottom:9px">
+          <button id="forage">🌐 Forage diverse sources</button>
+          <span id="forageState" class="muted"></span>
+        </div>
+        <div id="docs"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Ecology</h2>
+        <div class="row" id="ecology"></div>
+      </div>
+    </div>
+  </div>
+  <p class="muted" style="text-align:center;margin-top:8px">Evolution goes as deep as the body. Judgement stays with you. That division is the design.</p>
+</div>
+
+<script type="module">
+import { createMetabolism, createScarcity, createOrganism, createSoma, createPopulation, CONSTITUTION, forage } from './src/metabolism/index.js';
+import { DIAGONAL_CELLS } from './src/core/cube.js';
+
+const HELIX = ['NUL','SIG','INS','SEG','CON','SYN','DEF','EVA','REC'];
+const GRAINS = ['Ground','Figure','Pattern'];
+const $ = (id) => document.getElementById(id);
+const cellFor = (op,grain) => Object.values(DIAGONAL_CELLS).find(c => c.op===op && c.grain===grain);
+const FORBIDDEN = 'SYN_Cultivating_Field';
+
+let metab, timer=null, period=0, pendingEndorse=null, foraged=[], lastGrown=new Set();
+
+function build(){
+  const regime = $('regime').value, ration = +$('ration').value;
+  const scarcity = createScarcity({ regime, ration });
+  const population = createPopulation({ scarcity, founder: createOrganism({ soma: createSoma({ maxOrgans: 11 }) }), size: 16, capacity: 30, reservoir: 3 });
+  metab = createMetabolism({ scarcity, population });
+  period = 0; pendingEndorse = null;
+  renderCubeSkeleton();
+  render();
+}
+
+// one metabolic beat: synthesize a turn outcome from the champion's allocation, fold in any human
+// endorsement and any foraged validation, then metabolize (the ecology competes internally).
+function step(){
+  const a = metab.allocation();
+  const warm = a.modelGate < 0.55;
+  // a self-consistent synthetic quality: warming buys some quality; a richer body covers more.
+  const bodyN = a.soma ? a.soma.count : 5;
+  const base = (warm?0.72:0.6) + Math.min(0.18, 0.02*(bodyN-5));
+  const wobble = 0.06*Math.sin(period/3) ;
+  const outcome = {
+    warmedModel: warm, tokens: warm? a.maxTokens: 40, timeMs: 900, fetches: a.retrieveK,
+    grounded: 2+(warm?1:0), claimed: 3, coherence: 0.8, covered: Math.min(1, base+wobble), delivered: true,
+    validated: Math.max(0.2, Math.min(1, base + wobble)),
+  };
+  // a held thread occasionally binds later — the investigator's payoff (demo signal).
+  if(period>4 && period%5===0){ outcome.groundedOnDelay = 1; outcome.heldForBinding = 1; }
+  if(pendingEndorse!=null){ outcome.endorsed = pendingEndorse; pendingEndorse=null; }
+  metab.metabolize(outcome);
+  period++;
+  render();
+}
+
+function renderCubeSkeleton(){
+  const cube = $('cube');
+  cube.innerHTML = '<div class="hd"></div>' + GRAINS.map(g=>`<div class="hd">${g}</div>`).join('');
+  for(const op of HELIX){
+    cube.insertAdjacentHTML('beforeend', `<div class="oplbl">${op}</div>`);
+    for(const g of GRAINS){
+      const c = cellFor(op,g);
+      const key = c ? c.key : `${op}_x_${g}`;
+      const forbidden = key===FORBIDDEN;
+      cube.insertAdjacentHTML('beforeend',
+        `<div class="cell ${forbidden?'forbidden':''}" data-key="${key}">
+           <div class="cn">${op}·${g[0]}</div>
+           <div class="sp">${forbidden?'⊘ Void':''}</div>
+         </div>`);
+    }
+  }
+}
+
+function paintCube(soma){
+  document.querySelectorAll('.cell').forEach(el=>{ el.classList.remove('founder','grown'); if(el.dataset.key!==FORBIDDEN){ el.querySelector('.sp').textContent=''; }});
+  if(!soma) return;
+  const nowGrown = new Set();
+  for(const o of soma.organs){
+    const key = o.cell;
+    const el = document.querySelector(`.cell[data-key="${key}"]`);
+    if(!el) continue;
+    const isFounder = o.origin==='founder';
+    el.classList.add(isFounder?'founder':'grown');
+    el.querySelector('.sp').textContent = o.kind.length>13? o.kind.slice(0,12)+'…' : o.kind;
+    if(!isFounder){ nowGrown.add(key); if(!lastGrown.has(key)){ el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); } }
+  }
+  lastGrown = nowGrown;
+}
+
+function stat(k,v,sub){ return `<div class="stat"><div class="k">${k}</div><div class="v">${v}${sub?` <small>${sub}</small>`:''}</div></div>`; }
+
+function render(){
+  const v = metab.vitals();
+  paintCube(v.soma);
+
+  // vitals
+  const c = v.condition, s = v.season;
+  $('vitals').innerHTML =
+    stat('period', s.period)
+    + stat('season', s.name, `×${s.mult}`)
+    + stat('budget', Math.round(s.budget))
+    + stat('fitness', (c.fitness||0).toFixed(2))
+    + stat('quality', (c.quality||0).toFixed(2))
+    + stat('energy', (c.energy||0).toFixed(1))
+    + stat('organs', v.soma? v.soma.count : 5, v.soma? `upkeep ${v.soma.upkeep}`:'')
+    + stat('desert', v.desert!=null? v.desert : '—', 'cells to grow into')
+    + `<div class="stat"><div class="k">honesty</div><div class="v"><span class="flag ${v.provisional?'prov':'anch'}">${v.provisional?'provisional':'anchored'}</span></div></div>`;
+
+  // void-respect
+  $('void').innerHTML =
+    barRow('void-respect (recent)', c.voidRespect||0, 3)
+    + barRow('anchored by human', c.humanRate||0, 1)
+    + `<div class="row" style="margin-top:6px">${stat('threads bound later', c.boundLater||0)}${stat('anchor rate', (c.anchorRate||0).toFixed(2))}</div>`;
+
+  // lineage
+  const evs = v.lineage.slice(-14).reverse();
+  $('log').innerHTML = evs.length? evs.map(e=>{
+    const kind = e.kind || (e.structural?'promote':'') || 'edit';
+    const cls = /grow/.test(e.note||'')?'grow': /prune/.test(e.note||'')?'prune': /fuse/.test(e.note||'')?'fuse': kind;
+    return `<div class="e ${cls}"><span class="p">p${e.period??'·'}</span> ${escapeHtml(e.note||kind)}</div>`;
+  }).join('') : '<div class="muted">no genome edits yet — run the metabolism</div>';
+
+  // ecology
+  const e = v.ecology;
+  $('ecology').innerHTML = e? (stat('alive', e.size) + stat('diversity', (e.diversity||0).toFixed(2))
+      + (e.last? stat('births', e.last.births) + stat('mean energy', (e.last.meanEnergy||0).toFixed(1)) : '')) : '<span class="muted">—</span>';
+
+  // human state
+  $('humanState').textContent = `humanRate ${((c.humanRate||0)*100).toFixed(0)}%`;
+}
+
+function barRow(label,val,max){
+  const pct = Math.max(0,Math.min(100, 100*val/max));
+  return `<div class="barrow"><span style="width:150px;color:var(--dim)">${label}</span><span class="bar"><i style="width:${pct}%"></i></span><span>${val.toFixed(2)}</span></div>`;
+}
+
+// the freeze boundary (static — it is the same every run, by design)
+function renderBoundary(){
+  const openL = CONSTITUTION.openLoci(), frozenL = CONSTITUTION.frozenLoci();
+  $('open').innerHTML = openL.map(k=>`<span class="chip" title="${escapeHtml(CONSTITUTION.open[k].why)}">${k} · ${CONSTITUTION.open[k].band}</span>`).join('');
+  $('frozen').innerHTML = frozenL.map(k=>`<span class="chip" title="${escapeHtml(CONSTITUTION.frozen[k].why)}">${k} · ${CONSTITUTION.frozen[k].band}</span>`).join('');
+  $('ground').innerHTML = `<b>The ground that cannot be tuned away.</b> You may <b>dwell</b> in the Void (hold a thread, NUL·Ground) — you may never <b>fabricate</b> from it (SYN·Ground, the desert cell). Enforced by the coherence guard, which validates every organ and is validated by none.`;
+}
+
+// foraging real material
+async function doForage(){
+  $('forageState').textContent = 'foraging the real world…';
+  try{
+    const docs = await forage({ fetch: window.fetch.bind(window), n: 4, pick: period+Math.floor(Date.now()/1000)%7 });
+    foraged = docs;
+    $('docs').innerHTML = docs.length? docs.map(d=>`
+      <div class="doc"><div class="s">${escapeHtml(d.source)} · <span class="pill">${escapeHtml(d.genre)}</span></div>
+      <div class="t">${escapeHtml(d.title)}</div><div class="x">${escapeHtml(d.text)}</div>
+      ${d.url?`<a href="${escapeHtml(d.url)}" target="_blank" rel="noopener" class="muted">source →</a>`:''}</div>`).join('')
+      : '<div class="muted">no sources reachable from here (network/CORS). The forager degrades gracefully — breadth over completeness.</div>';
+    $('forageState').textContent = docs.length? `${docs.length} sources: ${[...new Set(docs.map(d=>d.source))].join(', ')}` : 'no reachable sources';
+  }catch(err){ $('forageState').textContent = 'forage failed: '+err.message; }
+}
+
+const escapeHtml = (s)=>String(s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+
+// controls
+$('run').onclick = ()=>{ if(timer){ clearInterval(timer); timer=null; $('run').textContent='▶ Start'; $('run').classList.add('primary'); }
+  else { timer=setInterval(step, +$('speed').value); $('run').textContent='⏸ Pause'; $('run').classList.remove('primary'); } };
+$('step').onclick = step;
+$('reset').onclick = ()=>{ if(timer){clearInterval(timer);timer=null;$('run').textContent='▶ Start';$('run').classList.add('primary');} lastGrown=new Set(); build(); };
+$('regime').onchange = ()=>{ $('reset').click(); };
+$('ration').onchange = ()=>{ $('reset').click(); };
+$('speed').onchange = ()=>{ if(timer){ clearInterval(timer); timer=setInterval(step, +$('speed').value); } };
+$('famine').onclick = ()=>{ // fast-forward to the next famine period so pruning is visible now
+  for(let k=1;k<=24;k++){ const p=period+k; if(metab.scarcity.season(p).name==='famine'){ metab.setPeriod(p); period=p; break; } } render(); };
+$('endorse').onclick = ()=>{ pendingEndorse = 0.95; if(!timer) step(); };
+$('reject').onclick = ()=>{ pendingEndorse = 0.15; if(!timer) step(); };
+$('forage').onclick = doForage;
+
+renderBoundary();
+build();
+</script>
+</body>
+</html>

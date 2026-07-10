@@ -281,3 +281,4 @@ export { CONSTITUTION, BANDS, admits, permitsCell, wellFormedOrgan } from './con
 export { createOrgan, foundingOrgans, FOUNDING_ORGANS, UPKEEP_BY_OP, RESOURCE_BY_OP } from './organ.js';
 export { createSoma, foundingSoma, PERMITTED_CELLS } from './soma.js';
 export { createOrganism, hasSoma } from './organism.js';
+export { forage, createForager, SOURCES } from './forage.js';

@@ -188,7 +188,7 @@ const defaultWorld = () => {
     // in the sparse Ground/Pattern rows the designer never filled). Occupying an empty niche pays
     // where a redundant organ does not — the frequency-dependent reward that pushes the body to grow
     // the species we could not build. Capped and saturating; upkeep still prunes it when the season turns.
-    const bodyBonus = alloc.soma ? Math.min(0.4, 0.05 * ((alloc.soma.serves || []).length) + 0.06 * (alloc.soma.niche || 0)) : 0;
+    const bodyBonus = alloc.soma ? Math.min(0.6, 0.05 * ((alloc.soma.serves || []).length) + 0.09 * (alloc.soma.niche || 0)) : 0;
     const upkeepTime = (Number(alloc.upkeep) || 0) * 2;   // the body's upkeep as metabolic time-energy
     const quality = gain * (0.62 + 0.38 * (1 - Math.exp(-3 * effort))) + bodyBonus;
     const spend = {
