@@ -152,8 +152,8 @@ export const runWebFollowup = async (args, first, {
   // verify (chat) and gap both want to FIND the answer in the wild, so auto-route and pull the
   // actual result pages (real websites) — the content a good web-grounded answer is built from.
   const opts = proposal.trigger === 'witness'
-    ? { k, kind: 'wikipedia' }
-    : { k, kind: 'auto', fetchPages: true };
+    ? { k, kind: 'wikipedia', signal: args?.signal }
+    : { k, kind: 'auto', fetchPages: true, signal: args?.signal };
   let admitted = [];
   try { admitted = await webSearch(q, opts); } catch { admitted = []; }
   const webDocs = (admitted || []).map(a => a?.doc).filter(Boolean);

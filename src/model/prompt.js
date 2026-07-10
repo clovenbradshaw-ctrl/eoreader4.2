@@ -77,6 +77,11 @@ Answer the way you naturally would: say what those lines show, in your own words
 
 export const SYSTEM_CHAT = `You are a helpful, knowledgeable assistant. Answer their question directly and accurately, drawing on the conversation and your general knowledge. Be clear and concise.`;
 
+// The LONG-FORM directive — appended (only) when the ask is for a developed piece (an essay,
+// a detailed report). It overrides the default "be clear and concise" register: 4.2 answered
+// even "write me an essay" in two sentences because every register told the model to be brief.
+export const LONGFORM_DIRECTIVE = `This is a request for a DEVELOPED, long-form piece — an essay or detailed write-up, not a quick answer. Write it out in FULL: several substantial paragraphs that build on each other — an opening that frames the subject, body paragraphs that each develop a distinct point with specifics, and a closing. Aim for depth and length; do not stop after a sentence or two.`;
+
 // The STRICT grounded register — answer from the reading first (the Grounded chip). The same honest
 // frame, said plainly: the lines below are what the reading found, and that is the window onto the
 // source. When they don't cover the question the honest report is "I didn't find it in what I read,"
@@ -541,13 +546,15 @@ export const buildCursorMessages = ({
 // The chat (no-doc) path: a chat model wants turns as turns, so the recent verbatim
 // window rides as real {role,content} message history and the surfed recap folds into
 // the system message (docs/session-fold.md).
-export const buildChatMessages = ({ question, history = [], notes = '', free = false, now = null } = {}) => {
+export const buildChatMessages = ({ question, history = [], notes = '', free = false, now = null, longform = false } = {}) => {
   const base   = free ? SYSTEM_FREE : SYSTEM_CHAT;
   const moment = currentMomentLine(now);
   const withMoment = moment ? `${base}\n\n${moment}` : base;
+  // A long-form ask overrides the default concise register (default off → byte-identical).
+  const withForm = longform ? `${withMoment}\n\n${LONGFORM_DIRECTIVE}` : withMoment;
   const system = notes
-    ? `${withMoment}\n\nNotes about our conversation before this:\n${notes}`
-    : withMoment;
+    ? `${withForm}\n\nNotes about our conversation before this:\n${notes}`
+    : withForm;
   return [
     { role: 'system', content: system },
     ...history,

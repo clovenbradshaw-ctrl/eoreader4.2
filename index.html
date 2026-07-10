@@ -273,7 +273,11 @@ table{border-collapse:collapse;width:100%}
 
     <main style="flex:1;display:flex;flex-direction:column;min-width:0">
 
-      <div class="eo-scroll" style="flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:0 12px;border-bottom:1px solid #EAEAEF;background:#fff;height:46px;overflow-x:auto">
+      <div style="flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:0 12px;border-bottom:1px solid #EAEAEF;background:#fff;height:46px">
+        <!-- Only the TABS scroll horizontally. The export menu + flag line sit OUTSIDE this
+             overflow-x container so the export dropdown can drop below the 46px bar without
+             being clipped (overflow-x:auto also clips overflow-y — the bug that hid it). -->
+        <div class="eo-scroll" style="flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:2px;height:46px;overflow-x:auto">
         <sc-for list="{{ tabs }}" as="tb">
           <button onClick="{{ tb.select }}" style="flex:0 0 auto;height:46px;display:flex;align-items:center;gap:7px;padding:0 14px;color:{{ tb.fg }};font-size:13px;font-weight:{{ tb.weight }};border-bottom:2px solid {{ tb.ul }};margin-bottom:-1px">
             {{ tb.label }}
@@ -289,9 +293,9 @@ table{border-collapse:collapse;width:100%}
             <button onClick="{{ sct.close }}" title="Close tab" style="width:17px;height:17px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;border-radius:5px;color:#9A9AA4" style-hover="background:#EEEEF2;color:#6E6E78"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
           </div>
         </sc-for>
-        <span style="flex:1;min-width:16px"></span>
+        </div>
         <sc-if value="{{ hasChatExport }}">
-          <div style="position:relative;margin-right:8px">
+          <div style="position:relative;margin-right:8px;margin-left:8px">
             <button onClick="{{ toggleExportMenu }}" title="Export this chat with its full audit trail folded under each turn" style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:{{ exportFg }};background:{{ exportBg }};border:1px solid {{ exportBd }};border-radius:7px;padding:4px 10px" style-hover="background:#E7E2FD">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
               Export chat

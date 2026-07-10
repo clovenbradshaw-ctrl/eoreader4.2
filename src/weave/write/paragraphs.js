@@ -151,7 +151,10 @@ export const streamParagraphs = async ({
   model, messages, onToken = null, budget = 384, maxParagraphs = null, signal = null,
 } = {}) => {
   if (!model || !Array.isArray(messages) || !messages.length) return null;
-  const cap = maxParagraphs ?? Math.max(1, Math.min(4, Math.round(budget / 128)));
+  // A pointed answer settles in a few paragraphs; a long-form ask (a large budget from the
+  // reader's essay lane) is allowed to develop up to ten, so "write me an essay" is a real
+  // piece, not two sentences. The saliency/opener dedup and the stall watchdog still bound it.
+  const cap = maxParagraphs ?? Math.max(1, Math.min(budget >= 1000 ? 10 : 4, Math.round(budget / 128)));
   const perCall = Math.max(64, Math.min(256, budget));
 
   const paragraphs = [];

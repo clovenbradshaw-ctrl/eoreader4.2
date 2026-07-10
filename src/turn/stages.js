@@ -144,7 +144,10 @@ export const stages = {
     // (the downstream strict refusal answers the absence); 'free' forces ungrounded chat,
     // ignoring the document entirely; 'auto' (the default) keeps the original behaviour —
     // a document grounds the turn, its absence falls to chat.
-    const reg = taskOf(ctx.question);
+    const taskReg = taskOf(ctx.question);
+    // An explicit budget from the caller (the reader's long-form lane, LONGFORM_MAX_TOKENS) wins
+    // over the per-task default so "write me an essay …" can develop past the pointed-answer cap.
+    const reg = ctx.maxTokens ? { ...taskReg, maxTokens: ctx.maxTokens } : taskReg;
     // The META-CONVERSATIONAL register (intent.js): a question ABOUT the conversation.
     // Orthogonal to the route and task — it rides alongside, opening the assistant side of
     // the session fold to the grounded prompt (the `prompt` stage reads it). A chat turn
@@ -670,6 +673,7 @@ export const stages = {
           notes:    ctx.conversation?.notes || '',
           free:     ctx.grounding === 'free',   // general-knowledge register, explicitly ungrounded
           now:      ctx.now || null,            // the running app knows the moment; the weights don't (null in tests → byte-identical)
+          longform: ctx.longform || false,      // a "write me an essay" ask develops the piece, not a 2-liner
         });
     // Weave in the read corpus (the mind) when the user opted into weave mode. Null
     // otherwise — the present prompt is untouched, golden parses byte-identical.
