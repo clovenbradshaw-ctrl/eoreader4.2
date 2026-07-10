@@ -34,9 +34,20 @@ import { createSelection } from './select.js';
 
 // createMetabolism — the bloodstream. Everything is injectable so a test can pin the
 // world (a fixed scarcity clock) and the surface can drive it (starve/feed at will).
+//
+//   population   an optional competitive ecology (population.js). When present, it OWNS
+//                genome selection — the live system runs its champion, each real turn
+//                CALIBRATES the ecology's world-model, and a promotion (the champion's DNA
+//                changing) is the genome edit. When absent, the single-lineage select.js
+//                path runs (champion vs challenger).
+//   provenance   an optional provenance chain (persist.js). When present, ONLY genome
+//                edits — a promotion or an inherit, never a cull or a beat — are recorded
+//                to it, hash-chained, and (if armed) committed to the permanent archive.
 export const createMetabolism = ({
   scarcity = createScarcity({ regime: 'plenty' }),   // DEFAULT plenty → inert until scarcity is imposed from outside
   genome = createGenome(),
+  population = null,
+  provenance = null,
   now = () => Date.now(),
   anchorWeight = 0.6,
   capacity = 512,
@@ -44,6 +55,7 @@ export const createMetabolism = ({
 } = {}) => {
   const fitness = createFitness({ energyOf: scarcity.energyOf, anchorWeight });
   const selection = createSelection({ genome, ...selOpts });
+  let lastDemo = null;               // the ecology's latest demographics, when a population runs
 
   let period = 0;
   let pending = null;                 // a challenger allocation queued for the next turn, or null
@@ -74,10 +86,15 @@ export const createMetabolism = ({
     return a;
   };
 
-  // whoRunsNext / allocation — the phenotype the next turn should spend against. If a
-  // challenger is queued, it runs (so its genotype gets evaluated); otherwise the champion.
-  const runsNext = () => (pending ? 'challenger' : 'champion');
-  const runningAllocation = () => (pending ? pending.allocation : selection.champion().express());
+  // the reigning genome the live turn runs. With a population, it is the ecology's
+  // champion (the best competitor); otherwise the single lineage's champion.
+  const reigning = () => (population ? population.champion() : selection.champion());
+
+  // whoRunsNext / allocation — the phenotype the next turn should spend against. With a
+  // population the live system always runs the reigning champion (the ecology does its
+  // competing internally); on the single-lineage path a queued challenger runs to be judged.
+  const runsNext = () => (!population && pending ? 'challenger' : 'champion');
+  const runningAllocation = () => (!population && pending ? pending.allocation : reigning().express());
   const allocation = () => Object.freeze(clampToSeason(runningAllocation(), scarcity.season(period)));
 
   // metabolize — the beat. Feed one turn's outcome (its spend + quality signals). The
@@ -92,26 +109,45 @@ export const createMetabolism = ({
     led.charge(spend);
 
     const fit = fitness.observe({ ...outcome, spend });
-    // tell selection what ran and how it did; get any inheritance/cull event + the strain.
-    const { event, strain } = selection.record({ ran, fitness: fit.fitness, season, bill: led.bill, period });
 
-    // decide the next turn's runner. A challenger that just ran has been judged (inherited
-    // or culled) inside selection, so clear it. Then, only off a champion turn with slack,
-    // spawn the next challenger — a mutant compared against the champion's own baseline.
-    pending = null;
-    if (ran === 'champion') {
-      const probe = selection.maybeExplore(led.headroom(), season, strain, period);
-      if (probe) pending = { allocation: probe.allocation, mutation: probe.mutation };
+    // GENOME SELECTION — two paths. With a population, the ecology owns it: the real turn
+    // calibrates the world-model, one period of virtual competition runs, and a PROMOTION
+    // (the champion's DNA changing) is the genome edit. Without one, the single lineage's
+    // champion/challenger tournament runs, and an INHERIT is the genome edit.
+    let event = null;
+    if (population) {
+      population.calibrate({ quality: fit.quality });
+      lastDemo = population.compete(period);
+      event = lastDemo.promoted || null;
+    } else {
+      const r = selection.record({ ran, fitness: fit.fitness, season, bill: led.bill, period });
+      event = r.event;
+      // spawn the next challenger (slack-gated) — a mutant judged against the champion's baseline.
+      pending = null;
+      if (ran === 'champion') {
+        const probe = selection.maybeExplore(led.headroom(), season, r.strain, period);
+        if (probe) pending = { allocation: probe.allocation, mutation: probe.mutation };
+      }
+    }
+
+    // PERSIST ONLY GENOME EDITS. A promotion or an inherit — the DNA actually moved — is
+    // committed to the provenance chain (DNA only). A cull or an ordinary beat is not: the
+    // record is the lineage of the genome, not the churn of search. Fire-and-forget; the
+    // chain and the loop never block on the archive.
+    let persisted = null;
+    if (provenance && event && (event.kind === 'promote' || event.kind === 'inherit')) {
+      try { persisted = provenance.record(event); } catch { /* provenance is best-effort */ }
     }
 
     const beat = Object.freeze({
       seq: seq++, t: outcome.t ?? now(), period,
       season: { name: season.name, mult: season.mult, budget: season.budget, regime: season.regime },
-      ran, spend, energy: fit.energy,
+      ran, spend, energy: fit.energy,   // 'champion' with a population; champion|challenger on the single lineage
       fitness: fit.fitness, quality: fit.quality, provisional: fit.provisional, viable: fit.viable,
       spent: led.spent, headroom: led.headroom(), starved: led.starved(),
-      champion: selection.champion().genotype(),
-      event,                          // the REC (inherit) / SEG (cull) mutation this beat, or null
+      champion: reigning().genotype(),
+      event,                          // a genome edit (promote/inherit), a cull, or null
+      persisted: persisted ? { hash: persisted.block.hash, fired: persisted.fired, seq: persisted.block.seq } : null,
     });
     beats.push(beat);
     while (beats.length > capacity) beats.shift();
@@ -125,9 +161,8 @@ export const createMetabolism = ({
   // maintain. This is the "inside" the metabolism grants, rendered for the surface.
   const vitals = () => {
     const season = scarcity.season(period);
-    const champ = selection.champion();
+    const champ = reigning();
     const cond = fitness.condition();
-    const ch = selection.challenger();
     const last = beats[beats.length - 1] || null;
     return Object.freeze({
       season: { period, name: season.name, regime: season.regime, budget: season.budget, mult: season.mult },
@@ -135,12 +170,18 @@ export const createMetabolism = ({
       champion: champ.genotype(),
       championNotation: champ.notation(),
       championFit: selection.championFit(),
-      exploring: ch,                         // the challenger under trial, or null
+      exploring: population ? null : selection.challenger(),   // single-lineage challenger under trial, or null
+      // the competitive ecology, when present: how many virtual systems are alive, how
+      // diverse the gene pool is, and the last period's demographics (births / mean energy).
+      ecology: population ? { size: population.size(), diversity: population.diversity(), last: lastDemo } : null,
+      // the provenance chain, when present: the genome-edit ledger's length, head hash,
+      // whether it is armed to write, and whether it verifies (tamper-evidence).
+      chain: provenance ? { length: provenance.length(), head: provenance.head(), armed: provenance.armed(), intact: provenance.verify().ok } : null,
       allocation: allocation(),              // what the next turn is cleared to spend (clamped)
       viable: last ? last.viable : true,
       provisional: last ? last.provisional : true,   // Goodhart honesty: is fitness self-reported?
       anchorRate: cond.anchorRate,
-      lineage: selection.lineage().slice(-12),
+      lineage: (population ? population.promotions() : selection.lineage()).slice(-12),
       beats: beats.length,
       starved: last ? last.starved : false,
     });
@@ -155,9 +196,13 @@ export const createMetabolism = ({
     vitals,
     subscribe(fn) { subscribers.add(fn); return () => subscribers.delete(fn); },
     beats: () => beats.slice(),
-    lineage: () => selection.lineage(),
-    genome: () => selection.champion().genotype(),
+    lineage: () => (population ? population.promotions() : selection.lineage()),
+    genome: () => reigning().genotype(),
     condition: () => fitness.condition(),
+    // the optional organs, exposed so the surface / a deployment can read demographics,
+    // inspect or arm the provenance chain, etc.
+    population,
+    provenance,
     // world control — impose or lift the external constraint (the surface / a deployment)
     season: () => scarcity.season(period),
     scarcity,
@@ -187,3 +232,5 @@ export { createScarcity, COSTS, REGIMES, energyOf, seasonName } from './scarcity
 export { createGenome, GENES, GENE_NAMES, defaultGenotype } from './genome.js';
 export { createFitness, score } from './fitness.js';
 export { createSelection } from './select.js';
+export { createPopulation } from './population.js';
+export { createProvenance, memoryStore } from './persist.js';
