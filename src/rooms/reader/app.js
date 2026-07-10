@@ -987,12 +987,18 @@ export const createReaderApp = ({ audit } = {}) => {
     if (!lex.length) return rest ? [{ t: 'text', s: rest }] : [];
     // one pass, longest-label-first alternation; word-bounded, case-sensitive first letter
     const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(`\\b(${lex.map((e) => escRe(e.label)).join('|')})\\b`, 'g');
+    const re = new RegExp(`\\b(${lex.map((e) => escRe(e.label)).join('|')})\\b`, 'gi');
     let last = 0, mArr;
     while ((mArr = re.exec(rest)) !== null) {
       if (mArr.index > last) segs.push({ t: 'text', s: rest.slice(last, mArr.index) });
-      const hit = lex.find((e) => e.label === mArr[1]);
-      segs.push({ t: 'ent', s: mArr[1], docId: hit?.docId, entId: hit?.entId });
+      // exact-case wins; else a case-insensitive hit, so a lowercase mention of a capitalised
+      // figure ("dolphins" for the admitted "Dolphins") still renders as its entity — but the
+      // relaxed match is only trusted for labels long enough that it can't grab a common word off
+      // a short acronym ("who" for "WHO"), which falls back to plain text.
+      const exact = lex.find((e) => e.label === mArr[1]);
+      const hit = exact || lex.find((e) => e.label.toLowerCase() === mArr[1].toLowerCase());
+      if (hit && (exact || hit.label.length >= 4)) segs.push({ t: 'ent', s: mArr[1], docId: hit.docId, entId: hit.entId });
+      else segs.push({ t: 'text', s: mArr[1] });
       last = mArr.index + mArr[1].length;
     }
     if (last < rest.length) segs.push({ t: 'text', s: rest.slice(last) });
@@ -1112,11 +1118,14 @@ export const createReaderApp = ({ audit } = {}) => {
     };
     const focus = addEnt(entId, p.label);
     edges.push({ a: 'src', b: focus, tier: 0, gl: '●', code: 'INS' });
-    for (const r of p.relations.slice(0, 24)) {
+    // Render the whole bonded neighbourhood figureSurface returns (already salience-bounded to
+    // FOCUS_MAX_BONDS), not a 24-edge slice of it — the graph's own de-overlap and collision-culled
+    // labels keep it readable, so every entity the focus actually bonds to gets a node.
+    for (const r of p.relations) {
       const a = addEnt(r.srcId, r.srcLabel), b = addEnt(r.tgtId, r.tgtLabel);
       edges.push({ a, b, tier: 1, gl: r.op === 'SIG' ? '△' : '⋈', code: r.via || r.op });
     }
-    p.defs.slice(0, 8).forEach((d, i) => {
+    p.defs.slice(0, 16).forEach((d, i) => {
       const id = `c:${i}`;
       nodes.push({ id, tier: 2, label: d.value, kind: 'claim' });
       edges.push({ a: focus, b: id, tier: 2, gl: '⊢', code: 'DEF' });
