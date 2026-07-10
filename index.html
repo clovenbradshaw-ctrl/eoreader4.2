@@ -962,7 +962,7 @@ table{border-collapse:collapse;width:100%}
             <span style="flex:1"></span>
             <button onClick="{{ closeMonologue }}" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
           </div>
-          <div style="font-size:12px;color:#8A8A95;margin-top:3px">Everything that touched the record — every action, and the reasoning behind it.</div>
+          <div style="font-size:12px;color:#8A8A95;margin-top:3px">Everything that touched the record — every action, the reasoning behind it, and what the reading reflects at rest.</div>
         </div>
 
         <div style="padding:16px 18px">
@@ -978,6 +978,7 @@ table{border-collapse:collapse;width:100%}
           <div style="display:flex;gap:4px;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px;margin-bottom:16px">
             <button onClick="{{ setLogActions }}" style="flex:1;padding:6px 0;border-radius:6px;font-size:12px;font-weight:600;text-align:center;color:{{ logActionsFg }};background:{{ logActionsBg }}">Actions</button>
             <button onClick="{{ setLogReasoning }}" style="flex:1;padding:6px 0;border-radius:6px;font-size:12px;font-weight:600;text-align:center;color:{{ logReasoningFg }};background:{{ logReasoningBg }}">Reasoning</button>
+            <button onClick="{{ setLogReflections }}" style="flex:1;padding:6px 0;border-radius:6px;font-size:12px;font-weight:600;text-align:center;color:{{ logReflectionsFg }};background:{{ logReflectionsBg }}">Reflections</button>
           </div>
 
           <sc-if value="{{ logActions }}">
@@ -1023,6 +1024,23 @@ table{border-collapse:collapse;width:100%}
                     </div>
                   </sc-for>
                 </div>
+              </div>
+            </sc-for>
+          </sc-if>
+
+          <sc-if value="{{ logReflections }}">
+            <div style="font-size:11.5px;color:#8A8A95;line-height:1.5;margin-bottom:14px">When no turn is running and you go quiet, the reading turns back on the record and reflects at the place of most interest. Each note is the reading's own act, held <b style="color:#6E6E78">open</b> — it can never become a cited fact.</div>
+            <sc-if value="{{ reflectionsEmpty }}">
+              <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:16px 14px;font-size:12px;color:#9A9AA4;line-height:1.5">Nothing reflected yet — record a source, then leave the reader idle for a moment and the monologue fills here.</div>
+            </sc-if>
+            <sc-for list="{{ reflectionViews }}" as="rf">
+              <div style="border:1px solid #EFEFF3;border-left:3px solid {{ rf.dot }};border-radius:9px;padding:11px 13px;margin-bottom:11px">
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+                  <span style="font-size:9px;font-weight:700;letter-spacing:.04em;color:{{ rf.vFg }};background:{{ rf.vBg }};border-radius:4px;padding:1px 6px">{{ rf.vLabel }}</span>
+                  <span style="font-size:11px;color:#9A9AA4;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ rf.place }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ rf.t }}</span>
+                </div>
+                <div style="font-size:13px;color:#2A2A32;line-height:1.5;font-family:'Newsreader',Georgia,serif">{{ rf.note }}</div>
               </div>
             </sc-for>
           </sc-if>
@@ -1863,7 +1881,7 @@ class Component extends DCLogic {
     });
 
     // monologue
-    const LOGL = { record: 'RECORD', hash: 'HASH', eot: 'EOT', claim: 'CLAIM', conflict: 'CONFLICT', search: 'SEARCH', open: 'OPEN', skip: 'SKIP' };
+    const LOGL = { record: 'RECORD', hash: 'HASH', eot: 'EOT', claim: 'CLAIM', conflict: 'CONFLICT', search: 'SEARCH', open: 'OPEN', skip: 'SKIP', reflection: 'REFLECT' };
     const logView = app.state.log.slice().reverse().map((l) => ({
       label: LOGL[l.kind] || l.kind.toUpperCase(), t: String(l.t).slice(11, 19),
       text: l.text, effect: l.effect, hasEffect: !!l.effect,
@@ -1885,6 +1903,15 @@ class Component extends DCLogic {
       { value: String(findings.stats.claims), label: 'claims traced', color: '#1E8A50' },
       { value: String(contradictions), label: 'contradictions', color: contradictions ? '#B23A2E' : '#8A8A95' },
     ];
+    // reflections — the inner monologue at rest (band void; each is reafference, never a fact)
+    const reflectionViews = (app.state.reflections || []).slice().reverse().map((r) => ({
+      note: r.note, t: String(r.t).slice(11, 19),
+      place: r.title ? `${r.reg || r.sn || ''} · ${r.title}`.trim().replace(/^· /, '') : (r.sn || 'record'),
+      vLabel: r.verdict === 'strain' ? 'strain' : r.verdict === 'confirm' ? 'confirm' : 'noted',
+      vFg: r.verdict === 'strain' ? '#B23A2E' : r.verdict === 'confirm' ? '#1E8A50' : '#6E6E78',
+      vBg: r.verdict === 'strain' ? '#FBE9E6' : r.verdict === 'confirm' ? '#E7F6EC' : '#F2F2F6',
+      dot: r.verdict === 'strain' ? '#B23A2E' : r.verdict === 'confirm' ? '#59C08A' : '#8A8A95',
+    }));
 
     return {
       // chrome
@@ -1981,11 +2008,14 @@ class Component extends DCLogic {
       setWebGraphEl: (el) => this.setWebGraphEl(el), closeWebGraph: () => this.closeWebGraph(),
       // monologue
       monologueOpen: st.monologueOpen, logCount: String(app.state.log.length),
-      auditStats, logActions: st.logMode === 'actions', logReasoning: st.logMode === 'reasoning',
+      auditStats, logActions: st.logMode === 'actions', logReasoning: st.logMode === 'reasoning', logReflections: st.logMode === 'reflections',
       setLogActions: () => this.setState({ logMode: 'actions' }), setLogReasoning: () => this.setState({ logMode: 'reasoning' }),
+      setLogReflections: () => this.setState({ logMode: 'reflections' }),
       logActionsFg: st.logMode === 'actions' ? '#1B1B22' : '#8A8A95', logActionsBg: st.logMode === 'actions' ? '#fff' : 'transparent',
       logReasoningFg: st.logMode === 'reasoning' ? '#1B1B22' : '#8A8A95', logReasoningBg: st.logMode === 'reasoning' ? '#fff' : 'transparent',
+      logReflectionsFg: st.logMode === 'reflections' ? '#1B1B22' : '#8A8A95', logReflectionsBg: st.logMode === 'reflections' ? '#fff' : 'transparent',
       logView, logEmpty: logView.length === 0, turnViews, turnsEmpty: turnViews.length === 0,
+      reflectionViews, reflectionsEmpty: reflectionViews.length === 0, reflectionCount: String(reflectionViews.length),
     };
   }
 

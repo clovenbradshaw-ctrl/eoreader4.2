@@ -28,6 +28,8 @@ import { readIngest } from '../../organs/ingest/read.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
 import { figureSurface } from '../../perceiver/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
+import { createDeepReader } from '../../surfer/fold/deep-reading.js';
+import { surfFold } from '../../surfer/index.js';
 import { buildChatExport } from './chat-export.js';
 
 // ── the proxy chain ───────────────────────────────────────────────────────────
@@ -109,6 +111,7 @@ export const createReaderApp = ({ audit } = {}) => {
     topics: [],            // { id, title, created, sourceSns:[], messages:[], memo:'' }
     activeTopicId: null,
     log: [],               // activity ledger: { id, t, kind, text, effect }
+    reflections: [],       // the inner monologue: reflections the reading has at rest (band void)
     model: { backend: null, state: 'cold', progress: 0, note: '' },
     busy: null,            // { kind, label } while a long op runs
     ready: false,          // restore finished
@@ -163,6 +166,9 @@ export const createReaderApp = ({ audit } = {}) => {
     // and the ladder inside ensureModel already falls back webllm → wllama → echo.
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       setTimeout(() => { ensureModel().catch(() => { /* logged by the ladder */ }); }, 600);
+      // The inner monologue starts at rest: the governor wakes the reading in the lulls
+      // between turns and reflects on what's on the record (no-op until something is recorded).
+      deepIdleStart();
     }
   };
 
@@ -175,7 +181,7 @@ export const createReaderApp = ({ audit } = {}) => {
     return t;
   };
   const topic = () => state.topics.find((t) => t.id === state.activeTopicId) || state.topics[0];
-  const setTopic = (id) => { if (state.topics.find((t) => t.id === id)) { state.activeTopicId = id; persist(); emit('topics'); } };
+  const setTopic = (id) => { if (state.topics.find((t) => t.id === id)) { state.activeTopicId = id; deepWake(); persist(); emit('topics'); } };
   const topicRename = (id, title) => { const t = state.topics.find((x) => x.id === id); if (t && title) { t.title = title; persist(); emit('topics'); } };
   const topicDelete = (id) => {
     if (state.topics.length <= 1) return;
@@ -220,6 +226,7 @@ export const createReaderApp = ({ audit } = {}) => {
     if (t && !t.sourceSns.includes(id)) t.sourceSns.push(id);
     logIt('record', `Recorded ${src.domain} — ${src.title}`, src.reg);
     logIt('hash', `Fixity sha ${shaShort(src.sha)} · ${src.bytes.toLocaleString()} bytes`, src.reg);
+    deepWake();   // the record grew — let the reading reflect on the new places at rest
     persist(); emit('sources');
     // Every source is READ into EoT at the moment of record — every proposition the
     // parse admitted (any modality: the organs all land on the same spine) rendered
@@ -913,6 +920,125 @@ export const createReaderApp = ({ audit } = {}) => {
   // ── memo ───────────────────────────────────────────────────────────────────
   const setMemo = (text) => { const t = topic(); if (t) { t.memo = String(text); persist(); emit('memo'); } };
 
+  // ── deep reading: the inner monologue at rest ────────────────────────────────
+  // When no turn is generating and the reader is quiet, the reading turns back on the
+  // record: it surfs to the place of most interest (Bayesian surprise), folds it, and
+  // voices a reflection — an ENACTED EVA held at band VOID. The firewall is the TYPE:
+  // canWitness(reflection.prov) === false, so a reflection can never be mistaken for a
+  // witnessed fact or ground an answer (docs/deep-reading.md, docs/monologue-significance.md).
+  // Model-free and embedder-free — thinking needs no weights. Reflections stream into
+  // state.reflections; the surface shows them in the master-log drawer's "Reflections" mode.
+  // The reader never self-polls: an idle governor wakes it only in the lulls between turns.
+  const deepReaders = new Map();     // docId → { reader, doc, anchor }
+  let deepSettled = false, deepRunning = false, deepTimer = null, lastActivity = 0;
+
+  // A reflection deposits onto the log; layer it over the source's log in an overlay so the
+  // stored record stays append-only truth and a reload re-reads clean.
+  const overlayDoc = (base) => {
+    const extra = [];
+    const log = {
+      append: (e) => { extra.push(e); return e; },
+      snapshot: () => base.log.snapshot().concat(extra),
+      get length() { return base.log.snapshot().length + extra.length; },
+    };
+    return { log, units: base.units, sentences: base.sentences, tokensBySentence: base.tokensBySentence, docId: base.docId };
+  };
+
+  // A figure the reading named by opaque id → its readable label, so the inner note reads as
+  // prose; id-shaped tokens with no known label drop to "something" rather than show raw.
+  const cleanLabels = (s, doc) => String(s ?? '').replace(/\b[a-z][a-z0-9]{4,}\b/g, (tok) => {
+    if (!/[0-9]/.test(tok)) return tok;
+    let lab = null; try { lab = doc?.admission?.labelOf?.(tok) ?? null; } catch { /* pass */ }
+    if (lab && lab !== tok) return lab;
+    return /^[a-z][0-9]/.test(tok) ? 'something' : tok;
+  });
+
+  const deepReaderFor = (src) => {
+    const doc = docFor(src);
+    if (!doc || !(doc.sentences || doc.units || []).length) return null;
+    let entry = deepReaders.get(src.docId);
+    if (!entry) {
+      try {
+        const od = overlayDoc(doc);
+        entry = { reader: createDeepReader({ doc: od, surf: surfFold }), doc: od, base: doc, anchor: 0 };
+        deepReaders.set(src.docId, entry);
+      } catch { return null; }
+    }
+    return entry;
+  };
+
+  // The record grew (a source landed) or the topic changed — wake the loop so the new
+  // places get read at rest. Readers keep their per-place habituation (the rumination cure).
+  const deepWake = () => { deepSettled = false; };
+
+  // ONE governed pass over the topic's sources — arrive() runs until it quiesces (never spins).
+  // Called by the idle governor, and by the surface's "Reflect now" (manual=true).
+  const deepTick = (manual = false) => {
+    if (deepRunning) return; deepRunning = true;
+    try {
+      if (state.busy && !manual) return;            // engaged — a turn is decoding
+      if (deepSettled && !manual) return;           // quiesced until the record grows
+      const srcs = topicSources();
+      if (!srcs.length) return;
+      let anyFresh = false, allSettled = true;
+      for (const src of srcs) {
+        const entry = deepReaderFor(src);
+        if (!entry) continue;
+        const n = (entry.doc.sentences || entry.doc.units || []).length; if (!n) continue;
+        let res; try { res = entry.reader.arrive({ anchor: entry.anchor }); } catch { continue; }
+        const fresh = (res && res.reflections) || [];
+        if (fresh.length) {
+          anyFresh = true;
+          for (const r of fresh) {
+            state.reflections.push({
+              id: `R${state.reflections.length + 1}`, t: nowIso(),
+              docId: src.docId, sn: src.sn, title: src.title,
+              peak: r.peak, note: cleanLabels(r.body, entry.base), verdict: r.verdict || '',
+              surprise: r.surprise, canWitness: r.canWitness,   // false — the firewall, surfaced
+            });
+          }
+          if (state.reflections.length > 200) state.reflections.splice(0, state.reflections.length - 200);
+          entry.anchor = Math.min(n - 1, fresh[fresh.length - 1].peak + 1);
+        } else {
+          entry.anchor += 8;
+        }
+        if (entry.anchor < n - 1 || fresh.length) allSettled = false;
+      }
+      deepSettled = allSettled && !anyFresh;
+      if (anyFresh) {
+        logIt('reflection', `Reflected at rest — ${state.reflections.length} note${state.reflections.length === 1 ? '' : 's'} so far`);
+        persist(); emit('reflections');
+      }
+    } finally { deepRunning = false; }
+  };
+
+  // The idle governor: a light interval that fires a deep pass only when NOT engaged — no turn
+  // generating, and the user quiet for a beat. A keystroke or tap resets the clock, so deep
+  // reading never competes with an active reader; it fills the lulls. Browser only (no timers,
+  // no window in tests — the whole loop is inert under node).
+  const markActivity = () => { lastActivity = Date.now(); };
+  const deepIdleStart = () => {
+    if (deepTimer || typeof window === 'undefined') return;
+    lastActivity = Date.now();
+    const bump = () => markActivity();
+    try {
+      window.addEventListener('keydown', bump, { passive: true });
+      window.addEventListener('pointerdown', bump, { passive: true });
+    } catch { /* no window events — the governor still ticks on time alone */ }
+    const IDLE_MS = 12000;
+    deepTimer = setInterval(() => {
+      try {
+        if (state.busy) return;                             // engaged
+        if (deepSettled) return;                            // quiesced until the record grows
+        if (Date.now() - lastActivity < IDLE_MS) return;    // the user is active
+        if (!topicSources().length) return;                 // nothing recorded yet
+        deepTick(false);
+      } catch { /* a bad pass never breaks the governor */ }
+    }, 4000);
+  };
+
+  const reflections = () => state.reflections.slice();
+
   restore();
 
   return Object.freeze({
@@ -924,6 +1050,8 @@ export const createReaderApp = ({ audit } = {}) => {
     sourceBySn, removeSource, topicSources,
     // chat
     ask, stop, exportChat,
+    // deep reading — the inner monologue at rest (reflections stream into state.reflections)
+    deepTick, reflections,
     // web-search mode (off | confirm | auto)
     webMode, setWebMode,
     // model
