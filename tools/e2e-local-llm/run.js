@@ -78,7 +78,10 @@ const main = async () => {
       console.log('  [route] MISSING runtime file:', rel);
       return route.abort();
     }
-    if (url.includes('smollm2-135m-instruct-q8_0.gguf')) {
+    // Case-insensitive: the default weights are now a ladder of mirrors
+    // (model/wllama.js DEFAULT_MODEL_URLS) and the mirrors case the same
+    // filename differently (SmolLM2-135M-Instruct-Q8_0.gguf vs all-lowercase).
+    if (/smollm2-135m-instruct-q8_0\.gguf/i.test(url)) {
       // 302 onto the local static server: the 145MB file streams natively
       // instead of riding the CDP wire as one fulfill payload.
       return route.fulfill({ status: 302, headers: { Location: 'http://127.0.0.1:8777/__model.gguf' } });

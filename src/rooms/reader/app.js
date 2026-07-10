@@ -18,6 +18,7 @@
 import { parseText } from '../../perceiver/parse/index.js';
 import { projectGraph } from '../../core/index.js';
 import { createModel, describeModel } from '../../model/interface.js';
+import { probeOrigins, explainReach } from '../../model/reach.js';
 import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
          runTurnWithResearch, researchAnnouncement } from '../../turn/index.js';
@@ -531,17 +532,42 @@ export const createReaderApp = ({ audit } = {}) => {
     modelLoading = (async () => {
       const tryLoad = async (backend) => {
         const m = createModel(backend);
-        await m.load((p) => {
-          // Every backend reports progress as { phase, pct } (the shape is spelled out in
-          // model/wllama.js and emitted the same by model/webllm.js / anthropic.js). The old
-          // code read p.progress / p.text — fields NO backend emits — so `frac` was always 0 and
-          // `note` always '': the chip sat at "webllm · 0%" through a multi-GB download and read
-          // as stuck / "not loading" until it abruptly finished. Read the real fields.
-          const frac = typeof p === 'number' ? p : (p?.pct ?? 0);
-          const note = typeof p === 'object' ? (p?.phase || '') : '';
-          state.model = { backend, state: 'loading', progress: Math.round(frac * 100) / 100, note };
+        // THE STALL CLOCK. webllm reports progress per fetched CHUNK, and its first
+        // chunk is 130–200 MB — on a slow link the chip legitimately sits at
+        // "Start to fetch params — 0%" for minutes with no callback at all, which
+        // reads as broken ("all models having problems loading") when it is merely
+        // mute. And when the network really is blocking the host, that same silent
+        // 0% is all the user ever sees. So: count the quiet seconds since the last
+        // progress callback and SAY them — first as patience ("the first chunk is
+        // large"), and past 90s as the honest suspicion (a blocked host) with a way
+        // out. The clock only annotates; it never aborts a slow-but-alive download.
+        let lastCb = Date.now(), lastNote = 'starting…';
+        const stallClock = setInterval(() => {
+          if (gen !== modelGen) return;                      // superseded — not ours to narrate
+          const quiet = Math.round((Date.now() - lastCb) / 1000);
+          if (quiet < 20) return;
+          const hint = (backend === 'webllm' && quiet < 90)
+            ? `no data for ${quiet}s — the first chunk is 130–200 MB, a slow link sits at 0% a while`
+            : `no data for ${quiet}s — if this never moves, this network may be blocking ` +
+              `${backend === 'claude' ? 'api.anthropic.com' : 'huggingface.co'}; pick another model from the chip`;
+          state.model = { backend, state: 'loading', progress: state.model.progress || 0, note: `${lastNote} · ${hint}` };
           emit('model');
-        });
+        }, 10000);
+        try {
+          await m.load((p) => {
+            // Every backend reports progress as { phase, pct } (the shape is spelled out in
+            // model/wllama.js and emitted the same by model/webllm.js / anthropic.js). The old
+            // code read p.progress / p.text — fields NO backend emits — so `frac` was always 0 and
+            // `note` always '': the chip sat at "webllm · 0%" through a multi-GB download and read
+            // as stuck / "not loading" until it abruptly finished. Read the real fields.
+            const frac = typeof p === 'number' ? p : (p?.pct ?? 0);
+            const note = typeof p === 'object' ? (p?.phase || '') : '';
+            lastCb = Date.now();
+            if (note) lastNote = note;
+            state.model = { backend, state: 'loading', progress: Math.round(frac * 100) / 100, note };
+            emit('model');
+          });
+        } finally { clearInterval(stallClock); }
         return m;
       };
       // LLM-first, always: webllm → wllama, and NO echo in the ladder — a silent
@@ -573,15 +599,25 @@ export const createReaderApp = ({ audit } = {}) => {
         } catch (e) {
           lastErr = e;
           if (gen !== modelGen) throw e;    // superseded — stop the orphaned ladder quietly
-          const why = backend === 'webllm'
+          // Blame WebGPU only when WebGPU is actually absent. webllm also fails on a
+          // blocked CDN or weights host, and the old note pointed every such user at
+          // chrome://flags — a fix for a problem they didn't have, hiding the real one.
+          const noGpu = backend === 'webllm' && !(typeof navigator !== 'undefined' && navigator.gpu);
+          const why = noGpu
             ? 'needs WebGPU (chrome://flags or Chrome/Edge); falling back to the CPU model'
             : String(e?.message || e).slice(0, 120);
           logIt('skip', `Model ${backend} failed to load — ${why}`);
         }
       }
       if (gen === modelGen) {
+        // The whole ladder is down — the one moment a network probe pays for itself.
+        // The runtimes' own errors can't tell "your GPU" from "your firewall"; a
+        // 3.5s no-cors HEAD per model host can (model/reach.js), and names the
+        // blocked origin in the note instead of leaving an opaque failure.
+        let reach = '';
+        try { reach = explainReach(await probeOrigins()); } catch { /* nothing provable — say nothing */ }
         state.model = { backend: name, state: 'error', progress: 0,
-          note: `No local model could load — ${String(lastErr?.message || lastErr).slice(0, 140)}` };
+          note: `No local model could load — ${String(lastErr?.message || lastErr).slice(0, 140)}${reach ? ` · ${reach}` : ''}` };
         emit('model');
       }
       throw lastErr;
