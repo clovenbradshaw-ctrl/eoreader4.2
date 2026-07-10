@@ -28,6 +28,7 @@ import { readIngest } from '../../organs/ingest/read.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
 import { figureSurface } from '../../perceiver/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
+import { buildChatExport } from './chat-export.js';
 
 // ── the proxy chain ───────────────────────────────────────────────────────────
 // The primary is the n8n feed proxy (webfetch's default); when it fails the two
@@ -500,6 +501,21 @@ export const createReaderApp = ({ audit } = {}) => {
       `${msg.cites.length} citation${msg.cites.length === 1 ? '' : 's'}`);
   };
 
+  // Export one whole chat (a topic) with its full audit trail folded under each turn — the
+  // conversation is the record, the audit ring the receipt. The app is the one place that
+  // holds BOTH the topics and the audit, so it assembles the bundle; chat-export.js renders
+  // it (Markdown or JSON). Returns { text, ext, mime, filename } for the surface to Blob-
+  // download, or null when the topic has nothing to export.
+  const exportChat = (topicId = state.activeTopicId, format = 'md') => {
+    const t = state.topics.find((x) => x.id === topicId) || topic();
+    if (!t) return null;
+    return buildChatExport(
+      { topic: t, turns: (audit && audit.turns) || [], sources: state.sources },
+      format,
+      t.title || 'chat',
+    );
+  };
+
   // ── answer/viewer segmentation (text | entity | cite) ─────────────────────
   // The entity lexicon for a doc set: admitted label → { docId, entId }, longest
   // labels first so "New York City" wins over "New York".
@@ -748,7 +764,7 @@ export const createReaderApp = ({ audit } = {}) => {
     ingestUrl, ingestText, ingestFile, search, recordHit,
     sourceBySn, removeSource, topicSources,
     // chat
-    ask, stop,
+    ask, stop, exportChat,
     // model
     ensureModel, setBackend, backendPref,
     // projections for the surface
