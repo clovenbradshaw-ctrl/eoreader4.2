@@ -24,7 +24,7 @@
 html,body{margin:0;padding:0}
 body{background:#F4F4F7}
 button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;text-align:left}
-input{font:inherit}
+input,textarea{font:inherit}
 ::selection{background:#DED8FD}
 mark{background:#FBECC8;color:#2A2A32;border-radius:2px;padding:.02em 2px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 table{border-collapse:collapse;width:100%}
@@ -32,13 +32,14 @@ table{border-collapse:collapse;width:100%}
 @keyframes eoDrawer{from{transform:translateX(24px);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes eoFade{from{opacity:0}to{opacity:1}}
 @keyframes eoToast{from{transform:translate(-50%,10px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+@keyframes eoBlink{0%,100%{opacity:1}50%{opacity:.2}}
 .eo-scroll::-webkit-scrollbar{width:11px;height:11px}
 .eo-scroll::-webkit-scrollbar-thumb{background:#dadae1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
 .eo-scroll::-webkit-scrollbar-thumb:hover{background:#c7c7d0;background-clip:content-box}
 </style>
 </helmet>
 
-<div data-screen-label="EOReader" style="position:relative;display:flex;flex-direction:column;height:100vh;width:100%;background:#F4F4F7;color:#1B1B22;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased">
+<div data-screen-label="EOReader" ref="{{ setRoot }}" style="position:relative;display:flex;flex-direction:column;height:100vh;width:100%;background:#F4F4F7;color:#1B1B22;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased">
 
   <header style="height:50px;flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:0 14px;background:#fff;border-bottom:1px solid #EAEAEF;position:relative;z-index:5">
     <div style="display:flex;align-items:center;gap:9px;padding-right:2px">
@@ -48,9 +49,8 @@ table{border-collapse:collapse;width:100%}
     </div>
     <div style="width:1px;height:20px;background:#EAEAEF"></div>
     <div style="display:flex;align-items:center;gap:2px;color:#9A9AA4">
-      <button title="Back" style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#3A3A44"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
-      <button title="Forward" style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
-      <button title="Reload" style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+      <button onClick="{{ toggleLeft }}" title="Toggle the topics panel" style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:{{ leftBtnFg }}" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+      <button onClick="{{ toggleRight }}" title="Toggle the entities panel" style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:{{ rightBtnFg }}" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
     </div>
     <form onSubmit="{{ onOmniSubmit }}" style="flex:1;display:flex;justify-content:center">
       <div style="width:100%;max-width:540px;height:33px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;display:flex;align-items:center;gap:9px;padding:0 12px" style-focus-within="border-color:#DED8FD;background:#fff">
@@ -59,40 +59,64 @@ table{border-collapse:collapse;width:100%}
         <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C0C0C8;flex:0 0 auto">⏎ ingest</span>
       </div>
     </form>
+    <button onClick="{{ toggleModel }}" title="Local model" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
+      <span style="width:7px;height:7px;border-radius:50%;background:{{ modelDot }};flex:0 0 auto"></span>
+      {{ modelChip }}
+    </button>
     <button onClick="{{ openMonologue }}" style="display:flex;align-items:center;gap:6px;background:#E7F6EC;color:#1E8A50;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600" style-hover="background:#DDF0E4">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
       Auditable
     </button>
+
+    <sc-if value="{{ modelOpen }}">
+      <div style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 6px 8px">LOCAL MODEL · RUNS IN YOUR BROWSER</div>
+        <sc-for list="{{ backends }}" as="b">
+          <button onClick="{{ b.pick }}" style="width:100%;display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border-radius:9px;background:{{ b.bg }}" style-hover="background:#F5F5F8">
+            <span style="width:15px;height:15px;border-radius:50%;border:2px solid {{ b.ringColor }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px"><span style="width:7px;height:7px;border-radius:50%;background:{{ b.dotColor }}"></span></span>
+            <span style="flex:1;min-width:0">
+              <span style="display:block;font-size:13px;font-weight:600;color:#2A2A32">{{ b.label }}</span>
+              <span style="display:block;font-size:11.5px;color:#8A8A95;margin-top:1px;line-height:1.4">{{ b.desc }}</span>
+            </span>
+          </button>
+        </sc-for>
+        <div style="border-top:1px solid #F2F2F6;margin-top:8px;padding-top:9px;display:flex;align-items:center;gap:8px">
+          <span style="flex:1;font-size:11px;color:#8A8A95;line-height:1.35">{{ modelNote }}</span>
+          <button onClick="{{ loadModelNow }}" style="flex:0 0 auto;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12px;border-radius:8px;padding:6px 11px" style-hover="background:#E7E2FD">{{ loadModelLabel }}</button>
+        </div>
+      </div>
+    </sc-if>
   </header>
 
   <div style="flex:1;display:flex;min-height:0">
 
+    <sc-if value="{{ leftOpen }}">
     <aside style="width:312px;flex:0 0 auto;background:#fff;border-right:1px solid #EAEAEF;display:flex;flex-direction:column;min-height:0">
       <div class="eo-scroll" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:14px">
 
         <div style="display:flex;flex-direction:column">
           <button onClick="{{ toggleStatus }}" style="width:100%;display:flex;align-items:center;gap:11px;background:#F7F7FA;border:1px solid #ECECF1;border-radius:10px;padding:10px 12px" style-hover="background:#F2F2F6">
-            <span style="position:relative;width:8px;height:8px;flex:0 0 auto"><span style="position:absolute;inset:0;border-radius:50%;background:#59C08A;animation:eoPulse 2.6s ease-in-out infinite"></span></span>
+            <span style="position:relative;width:8px;height:8px;flex:0 0 auto"><span style="position:absolute;inset:0;border-radius:50%;background:{{ statusColor }};animation:eoPulse 2.6s ease-in-out infinite"></span></span>
             <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
               <span style="font-size:12.5px;font-weight:600;color:#3A3A44">{{ status.title }}</span>
               <span style="font-size:11.5px;color:#9A9AA4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ status.sub }}</span>
             </span>
-            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border-radius:6px;padding:2px 6px;flex:0 0 auto">{{ audit.yieldChip }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border-radius:6px;padding:2px 6px;flex:0 0 auto">{{ status.chip }}</span>
             <span style="color:#B4B4BE;flex:0 0 auto;transform:rotate({{ statusRot }});transition:transform .16s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
           </button>
-          <sc-if value="{{ statusOpen }}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{ statusOpen }}">
             <div style="margin-top:8px;background:#FBFBFD;border:1px solid #EFEFF3;border-radius:10px;padding:12px">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-                <span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">AGENT · LIVE</span>
+                <span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">SESSION · LIVE</span>
                 <span style="flex:1"></span>
-                <span style="font-size:10.5px;color:#8A8A95">{{ audit.summaryLine }}</span>
+                <span style="font-size:10.5px;color:#8A8A95">{{ status.summary }}</span>
               </div>
-              <sc-for list="{{ statusPeek }}" as="ev" hint-placeholder-count="4">
+              <sc-for list="{{ statusPeek }}" as="ev">
                 <div style="display:flex;gap:9px;padding:4px 0">
                   <span style="width:7px;height:7px;border-radius:50%;margin-top:5px;flex:0 0 auto;background:{{ ev.color }}"></span>
                   <span style="flex:1;min-width:0">
                     <span style="display:block;font-size:12px;color:#3A3A44;line-height:1.35">{{ ev.text }}</span>
-                    <sc-if value="{{ ev.hasEffect }}" hint-placeholder-val="{{ true }}"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:{{ ev.effectColor }};margin-top:2px">{{ ev.effect }}</span></sc-if>
+                    <sc-if value="{{ ev.hasEffect }}"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8A95;margin-top:2px">{{ ev.effect }}</span></sc-if>
                   </span>
                 </div>
               </sc-for>
@@ -114,16 +138,11 @@ table{border-collapse:collapse;width:100%}
             New topic
           </button>
           <div style="display:flex;gap:6px">
-            <button onClick="{{ toolToast }}" title="Add a source" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
-            <button onClick="{{ toolToast }}" title="Deep research" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg></button>
+            <button onClick="{{ pickFile }}" title="Import a file" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
+            <button onClick="{{ openPaste }}" title="Paste text" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button>
             <button onClick="{{ goMemo }}" title="Draft a memo" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></button>
             <button onClick="{{ goGraph }}" title="Provenance graph" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></button>
           </div>
-        </div>
-
-        <div style="height:35px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;display:flex;align-items:center;gap:8px;padding:0 11px;color:#9A9AA4;font-size:12.5px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          Search everything you've read
         </div>
 
         <div>
@@ -131,11 +150,10 @@ table{border-collapse:collapse;width:100%}
             <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">TOPICS</span>
             <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ topicCount }}</span>
             <span style="flex:1"></span>
-            <sc-if value="{{ mergeMode }}" hint-placeholder-val="{{ false }}"><span style="font-size:9.5px;font-weight:600;color:#9A6B12;background:#FBF1DA;border:1px solid #EEDCA9;border-radius:5px;padding:1px 6px">pick target to merge</span></sc-if>
           </div>
           <div style="display:flex;flex-direction:column;gap:2px">
-            <sc-for list="{{ topics }}" as="tp" hint-placeholder-count="3">
-              <div style="position:relative;margin-left:{{ tp.indent }}px">
+            <sc-for list="{{ topics }}" as="tp">
+              <div style="position:relative">
                 <div style="display:flex;align-items:center;border-radius:9px;background:{{ tp.bg }};border:1px solid {{ tp.border }}" style-hover="background:#F5F5F8">
                   <button onClick="{{ tp.rowClick }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:8px 2px 8px 10px;background:none">
                     <span style="color:{{ tp.iconColor }};flex:0 0 auto"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
@@ -144,12 +162,12 @@ table{border-collapse:collapse;width:100%}
                       <span style="display:block;font-size:11.5px;color:#9A9AA4;margin-top:1px">{{ tp.meta }}</span>
                     </span>
                   </button>
-                  <button onClick="{{ tp.menuClick }}" title="Merge or segment" style="width:28px;height:34px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;flex:0 0 auto;border-radius:7px" style-hover="background:#ECECF1;color:#6E6E78"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
+                  <button onClick="{{ tp.menuClick }}" title="Rename or delete" style="width:28px;height:34px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;flex:0 0 auto;border-radius:7px" style-hover="background:#ECECF1;color:#6E6E78"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
                 </div>
-                <sc-if value="{{ tp.menuOpen }}" hint-placeholder-val="{{ false }}">
-                  <div style="position:absolute;right:4px;top:40px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:196px">
-                    <button onClick="{{ tp.doSegment }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a3 3 0 0 0 3 3h9M6 21v-6"/><path d="m15 9 3 3-3 3"/></svg>Segment into sub-topics</button>
-                    <button onClick="{{ tp.doMerge }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 3v6a3 3 0 0 1-3 3H6M18 21v-6"/><path d="m9 9-3 3 3 3"/></svg>Merge into…</button>
+                <sc-if value="{{ tp.menuOpen }}">
+                  <div style="position:absolute;right:4px;top:40px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:172px">
+                    <button onClick="{{ tp.doRename }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename</button>
+                    <button onClick="{{ tp.doDelete }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete topic</button>
                   </div>
                 </sc-if>
               </div>
@@ -164,8 +182,11 @@ table{border-collapse:collapse;width:100%}
             <span style="flex:1"></span>
             <span style="font-size:10px;color:#9A9AA4">in this topic</span>
           </div>
+          <sc-if value="{{ noSources }}">
+            <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:14px 12px;font-size:11.5px;color:#9A9AA4;line-height:1.5">Nothing recorded yet. Read a URL, drop a file, paste text, or search the web — every source lands here with its hash.</div>
+          </sc-if>
           <div style="display:flex;flex-direction:column;gap:1px">
-            <sc-for list="{{ leftSources }}" as="sc" hint-placeholder-count="6">
+            <sc-for list="{{ leftSources }}" as="sc">
               <button onClick="{{ sc.open }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px" style-hover="background:#F5F5F8">
                 <span style="width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ sc.favBg }};color:{{ sc.favFg }}">{{ sc.favCh }}</span>
                 <span style="flex:1;min-width:0">
@@ -179,56 +200,102 @@ table{border-collapse:collapse;width:100%}
 
       </div>
     </aside>
+    </sc-if>
 
     <main style="flex:1;display:flex;flex-direction:column;min-width:0">
 
       <div style="flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:0 12px;border-bottom:1px solid #EAEAEF;background:#fff;height:46px">
-        <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="4">
+        <sc-for list="{{ tabs }}" as="tb">
           <button onClick="{{ tb.select }}" style="height:46px;display:flex;align-items:center;gap:7px;padding:0 14px;color:{{ tb.fg }};font-size:13px;font-weight:{{ tb.weight }};border-bottom:2px solid {{ tb.ul }};margin-bottom:-1px">
             {{ tb.label }}
-            <sc-if value="{{ tb.hasCount }}" hint-placeholder-val="{{ true }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ tb.countFg }};background:{{ tb.countBg }};border-radius:5px;padding:1px 5px">{{ tb.count }}</span></sc-if>
+            <sc-if value="{{ tb.hasCount }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ tb.countFg }};background:{{ tb.countBg }};border-radius:5px;padding:1px 5px">{{ tb.count }}</span></sc-if>
           </button>
         </sc-for>
         <span style="flex:1"></span>
-        <div style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#B23A2E;background:#FBE9E6;border:1px solid #F2D3CD;border-radius:7px;padding:4px 9px">
-          <span style="width:6px;height:6px;border-radius:50%;background:#B23A2E"></span>
-          {{ flagLine }}
-        </div>
+        <sc-if value="{{ hasFlagLine }}">
+          <div style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ flagFg }};background:{{ flagBg }};border:1px solid {{ flagBd }};border-radius:7px;padding:4px 9px">
+            <span style="width:6px;height:6px;border-radius:50%;background:{{ flagFg }}"></span>
+            {{ flagLine }}
+          </div>
+        </sc-if>
       </div>
 
       <div style="flex:1;display:flex;min-height:0">
         <div style="flex:1;display:flex;flex-direction:column;min-width:0">
 
           <!-- CHAT TAB -->
-          <sc-if value="{{ isChat }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ isChat }}">
           <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff">
             <div class="eo-scroll" ref="{{ setChatScroll }}" style="flex:1;min-height:0;overflow-y:auto;padding:26px 24px">
               <div style="max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:22px">
-                <sc-for list="{{ messages }}" as="m" hint-placeholder-count="2">
-                  <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+
+                <sc-if value="{{ chatEmpty }}">
+                  <div style="padding:44px 8px 12px;text-align:center">
+                    <div style="width:46px;height:46px;border-radius:13px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin:0 auto 16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:600;color:#1B1B22">Record something to read</div>
+                    <div style="font-size:13.5px;color:#6E6E78;line-height:1.6;max-width:440px;margin:8px auto 20px">EO Reader answers only from what you've recorded. Ingest a web page, a file, or pasted text — then ask, and every claim traces to a verbatim passage.</div>
+                    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+                      <sc-for list="{{ heroActions }}" as="h">
+                        <button onClick="{{ h.go }}" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:10px;padding:9px 14px;font-size:12.5px;font-weight:600;color:#3A3A44" style-hover="background:#F2F2F6">{{ h.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-for list="{{ messages }}" as="m">
+                  <sc-if value="{{ m.isUser }}">
                     <div style="display:flex;justify-content:flex-end">
                       <div style="max-width:78%;background:#F1EFFE;border:1px solid #E3DEFC;color:#3A3A44;font-size:14px;line-height:1.5;border-radius:14px 14px 4px 14px;padding:10px 14px">{{ m.text }}</div>
                     </div>
                   </sc-if>
-                  <sc-if value="{{ m.isAgent }}" hint-placeholder-val="{{ true }}">
+                  <sc-if value="{{ m.isAgent }}">
                     <div style="display:flex;gap:11px">
                       <div style="width:26px;height:26px;border-radius:7px;background:#6D5EF5;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:2px">EO</div>
                       <div style="flex:1;min-width:0">
                         <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
                           <span style="font-size:12.5px;font-weight:650;color:#3A3A44">EOReader</span>
-                          <span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:#1E8A50;background:#E7F6EC;border-radius:5px;padding:1px 6px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg>grounded</span>
+                          <sc-if value="{{ m.showBadge }}"><span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:{{ m.badgeFg }};background:{{ m.badgeBg }};border-radius:5px;padding:1px 6px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg>{{ m.badge }}</span></sc-if>
+                          <sc-if value="{{ m.pending }}"><span style="font-size:10px;color:#9A9AA4;animation:eoBlink 1.4s ease-in-out infinite">{{ m.pendingLabel }}</span></sc-if>
                         </div>
-                        <div style="font-size:14.5px;line-height:1.62;color:#2A2A32">{{ m.text }}</div>
-                        <sc-if value="{{ m.hasCites }}" hint-placeholder-val="{{ true }}">
-                          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px">
-                            <span style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;margin-right:2px">GROUNDED IN</span>
-                            <sc-for list="{{ m.cites }}" as="c" hint-placeholder-count="4">
-                              <button onClick="{{ c.open }}" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ c.fg }};background:{{ c.bg }};border:1px solid {{ c.bd }};border-radius:6px;padding:3px 8px" style-hover="filter:brightness(.97)">{{ c.label }}<span style="width:5px;height:5px;border-radius:50%;background:{{ c.fg }}"></span>{{ c.status }}</button>
+                        <sc-if value="{{ m.plain }}">
+                          <div style="font-size:14.5px;line-height:1.62;color:#2A2A32;white-space:pre-wrap">{{ m.text }}</div>
+                        </sc-if>
+                        <sc-if value="{{ m.rich }}">
+                          <div style="font-size:14.5px;line-height:1.62;color:#2A2A32">
+                            <sc-for list="{{ m.paras }}" as="pp">
+                              <div style="margin:0 0 10px">
+                                <sc-for list="{{ pp.segs }}" as="sg">
+                                  <sc-if value="{{ sg.isText }}"><span>{{ sg.s }}</span></sc-if>
+                                  <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;color:#5B4BE6;border-bottom:1px dotted #B9AEF8;font-size:inherit;line-height:inherit" style-hover="background:#F1EFFE">{{ sg.s }}</button></sc-if>
+                                  <sc-if value="{{ sg.isCite }}"><button onClick="{{ sg.open }}" title="{{ sg.quote }}" style="display:inline-flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border-radius:5px;padding:0 5px;margin:0 2px;vertical-align:baseline" style-hover="background:#E7E2FD">{{ sg.label }}</button></sc-if>
+                                </sc-for>
+                              </div>
                             </sc-for>
                           </div>
                         </sc-if>
-                        <sc-if value="{{ m.footer }}" hint-placeholder-val="{{ false }}">
-                          <button onClick="{{ toGraph }}" style="display:inline-flex;align-items:center;gap:6px;margin-top:11px;font-size:12px;font-weight:600;color:#5B4BE6" style-hover="text-decoration:underline">Trace in the provenance graph<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+                        <sc-if value="{{ m.hasFlags }}">
+                          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px">
+                            <sc-for list="{{ m.flagChips }}" as="fc">
+                              <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:{{ fc.fg }};background:{{ fc.bg }};border:1px solid {{ fc.bd }};border-radius:5px;padding:2px 7px">{{ fc.label }}</span>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ m.hasCites }}">
+                          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px">
+                            <span style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;margin-right:2px">GROUNDED IN</span>
+                            <sc-for list="{{ m.cites }}" as="c">
+                              <button onClick="{{ c.open }}" title="{{ c.quote }}" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ c.fg }};background:{{ c.bg }};border:1px solid {{ c.bd }};border-radius:6px;padding:3px 8px" style-hover="filter:brightness(.97)">{{ c.label }}<span style="width:5px;height:5px;border-radius:50%;background:{{ c.fg }}"></span>{{ c.status }}</button>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ m.hasProposal }}">
+                          <button onClick="{{ m.runProposal }}" style="display:inline-flex;align-items:center;gap:7px;margin-top:11px;border:1px solid #DED8FD;background:#F6F4FF;border-radius:9px;padding:7px 12px;font-size:12px;font-weight:600;color:#5B4BE6" style-hover="background:#EEEBFE">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                            Search the web: “{{ m.proposalQ }}”
+                          </button>
+                        </sc-if>
+                        <sc-if value="{{ m.footer }}">
+                          <button onClick="{{ m.trace }}" style="display:inline-flex;align-items:center;gap:6px;margin-top:11px;font-size:12px;font-weight:600;color:#5B4BE6" style-hover="text-decoration:underline">Trace in the provenance graph<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
                         </sc-if>
                       </div>
                     </div>
@@ -238,8 +305,13 @@ table{border-collapse:collapse;width:100%}
             </div>
             <div style="flex:0 0 auto;border-top:1px solid #EAEAEF;padding:14px 24px;background:#fff">
               <div style="max-width:680px;margin:0 auto;display:flex;align-items:center;gap:9px;border:1px solid #E0E0E6;border-radius:13px;padding:6px 6px 6px 14px;background:#F7F7FA">
-                <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="Ask about what you've read…" style="flex:1;border:none;outline:none;background:transparent;font-size:14px;color:#1B1B22;padding:7px 0" />
-                <button onClick="{{ sendChat }}" style="width:34px;height:34px;border-radius:9px;background:#6D5EF5;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto" style-hover="background:#5B4BE6"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11 12 6l5 5M12 6v13"/></svg></button>
+                <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="{{ chatPlaceholder }}" style="flex:1;border:none;outline:none;background:transparent;font-size:14px;color:#1B1B22;padding:7px 0" />
+                <sc-if value="{{ generating }}">
+                  <button onClick="{{ stopGen }}" title="Stop" style="width:34px;height:34px;border-radius:9px;background:#FBE9E6;color:#B23A2E;display:flex;align-items:center;justify-content:center;flex:0 0 auto" style-hover="background:#F6DCD7"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+                </sc-if>
+                <sc-if value="{{ notGenerating }}">
+                  <button onClick="{{ sendChat }}" style="width:34px;height:34px;border-radius:9px;background:#6D5EF5;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto" style-hover="background:#5B4BE6"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11 12 6l5 5M12 6v13"/></svg></button>
+                </sc-if>
               </div>
               <div style="max-width:680px;margin:9px auto 0;font-size:11px;color:#A0A0AA;display:flex;align-items:center;gap:6px">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
@@ -250,20 +322,14 @@ table{border-collapse:collapse;width:100%}
           </sc-if>
 
           <!-- GRAPH TAB -->
-          <sc-if value="{{ isGraph }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ isGraph }}">
           <div style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:11px 18px;border-bottom:1px solid #EAEAEF;background:#fff">
             <div style="min-width:0">
               <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA">PROVENANCE DAG · FULLY TRAVERSABLE</div>
-              <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#1B1B22;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">What makes dolphins intelligent?</div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#1B1B22;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ graphTitle }}</div>
             </div>
             <span style="flex:1"></span>
             <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:10.5px;color:#9A9AA4;font-weight:600">TRACE</span>
-              <div style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
-                <sc-for list="{{ traceOpts }}" as="to" hint-placeholder-count="3">
-                  <button onClick="{{ to.select }}" style="padding:5px 11px;border-radius:6px;font-size:12px;font-weight:600;color:{{ to.fg }};background:{{ to.bg }};box-shadow:{{ to.shadow }}">{{ to.label }}</button>
-                </sc-for>
-              </div>
               <button onClick="{{ toggleContra }}" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:{{ contraFg }};background:{{ contraBg }};border:1px solid {{ contraBd }}">
                 <span style="width:7px;height:7px;border-radius:50%;background:#B23A2E"></span>Conflicts
               </button>
@@ -271,6 +337,17 @@ table{border-collapse:collapse;width:100%}
             </div>
           </div>
 
+          <sc-if value="{{ graphEmpty }}">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;background:#F4F4F7">
+              <div style="text-align:center;max-width:380px;padding:24px">
+                <div style="width:44px;height:44px;border-radius:12px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></div>
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600;color:#1B1B22">The graph draws itself as you work</div>
+                <div style="font-size:12.5px;color:#6E6E78;line-height:1.55;margin-top:7px">Record sources and ask questions in Chat. Every answered claim, its verbatim passages, the registered sources and their hash-verified files land here — fully traversable.</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ graphLive }}">
           <div data-screen-label="Provenance DAG" onPointerDown="{{ startPan }}" onWheel="{{ onWheel }}" ref="{{ setViewport }}" style="flex:1;min-height:0;position:relative;overflow:hidden;background:#F4F4F7;cursor:{{ panCursor }}">
             <div style="position:absolute;left:0;top:0;width:{{ canvasW }}px;height:{{ canvasH }}px;transform:translate({{ tx }}px,{{ ty }}px) scale({{ scale }});transform-origin:0 0;transition:{{ camT }};background-image:radial-gradient(#E1E1E9 1px,transparent 1px);background-size:26px 26px">
 
@@ -279,17 +356,16 @@ table{border-collapse:collapse;width:100%}
                   <marker id="arrDim" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L6.5 3 L0 6 z" fill="#CBCBD4"/></marker>
                   <marker id="arrVio" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L6.5 3 L0 6 z" fill="#6D5EF5"/></marker>
                   <marker id="arrRed" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L6.5 3 L0 6 z" fill="#B23A2E"/></marker>
-                  <marker id="arrDimR" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L6.5 3 L0 6 z" fill="#E0A79E"/></marker>
                 </defs>
-                <sc-for list="{{ edgePaths }}" as="e" hint-placeholder-count="26">
+                <sc-for list="{{ edgePaths }}" as="e">
                   <path d="{{ e.d }}" fill="none" stroke="{{ e.stroke }}" stroke-width="{{ e.sw }}" stroke-dasharray="{{ e.dash }}" opacity="{{ e.op }}" marker-end="{{ e.marker }}" stroke-linecap="round"></path>
                 </sc-for>
               </svg>
 
-              <sc-for list="{{ memoNodes }}" as="n" hint-placeholder-count="1">
+              <sc-for list="{{ memoNodes }}" as="n">
                 <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #6D5EF5;border-radius:9px;padding:11px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
                   <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
-                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#6D5EF5;background:#EEEBFE;border-radius:5px;padding:2px 6px">MEMO</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#6D5EF5;background:#EEEBFE;border-radius:5px;padding:2px 6px">TOPIC</span>
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ n.id }}</span>
                   </div>
                   <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;font-weight:600;line-height:1.25;color:#1B1B22">{{ n.title }}</div>
@@ -297,7 +373,7 @@ table{border-collapse:collapse;width:100%}
                 </div>
               </sc-for>
 
-              <sc-for list="{{ claimNodes }}" as="n" hint-placeholder-count="4">
+              <sc-for list="{{ claimNodes }}" as="n">
                 <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid {{ n.accent }};border-radius:9px;padding:10px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
                   <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#7A7A85;background:#F2F2F6;border-radius:5px;padding:2px 6px">CLAIM</span>
@@ -310,7 +386,7 @@ table{border-collapse:collapse;width:100%}
                 </div>
               </sc-for>
 
-              <sc-for list="{{ passageNodes }}" as="n" hint-placeholder-count="9">
+              <sc-for list="{{ passageNodes }}" as="n">
                 <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #C79A3A;border-radius:9px;padding:10px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
                   <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#9A6B12;background:#FBF1DA;border-radius:5px;padding:2px 6px">PASSAGE</span>
@@ -318,12 +394,12 @@ table{border-collapse:collapse;width:100%}
                     <span style="flex:1"></span>
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8A8A95">{{ n.pincite }}</span>
                   </div>
-                  <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.4;color:#2A2A32;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">{{ n.pre }}<sc-if value="{{ n.has }}" hint-placeholder-val="{{ true }}"><mark>{{ n.mark }}</mark>{{ n.post }}</sc-if></div>
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.4;color:#2A2A32;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden"><mark>{{ n.mark }}</mark></div>
                   <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#A0A0AA;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.srcReg }} · {{ n.srcDomain }}</div>
                 </div>
               </sc-for>
 
-              <sc-for list="{{ sourceNodes }}" as="n" hint-placeholder-count="6">
+              <sc-for list="{{ sourceNodes }}" as="n">
                 <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #6E7787;border-radius:9px;padding:10px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
                   <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#4E5765;background:#EEF0F3;border-radius:5px;padding:2px 6px">SOURCE</span>
@@ -337,7 +413,7 @@ table{border-collapse:collapse;width:100%}
                 </div>
               </sc-for>
 
-              <sc-for list="{{ fileNodes }}" as="n" hint-placeholder-count="6">
+              <sc-for list="{{ fileNodes }}" as="n">
                 <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #1E8A50;border-radius:9px;padding:9px 11px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
                   <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#1E8A50;background:#E7F6EC;border-radius:5px;padding:2px 6px">FILE</span>
@@ -346,7 +422,7 @@ table{border-collapse:collapse;width:100%}
                     <span style="color:#1E8A50" title="bitstream verified"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span>
                   </div>
                   <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#5A5A64">{{ n.sha }}</div>
-                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#A0A0AA;margin-top:2px">{{ n.bytes }} · sha-256</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#A0A0AA;margin-top:2px">{{ n.bytes }} · content hash</div>
                 </div>
               </sc-for>
 
@@ -356,7 +432,7 @@ table{border-collapse:collapse;width:100%}
               <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:7px">LEGEND</div>
               <div style="display:flex;gap:14px">
                 <div style="display:flex;flex-direction:column;gap:5px">
-                  <sc-for list="{{ legendNodes }}" as="lg" hint-placeholder-count="5">
+                  <sc-for list="{{ legendNodes }}" as="lg">
                     <div style="display:flex;align-items:center;gap:7px"><span style="width:11px;height:11px;border-radius:3px;border-left:3px solid {{ lg.color }};background:#fff;border-top:1px solid #E6E6EC;border-right:1px solid #E6E6EC;border-bottom:1px solid #E6E6EC"></span><span style="font-size:10.5px;color:#5A5A64">{{ lg.label }}</span></div>
                   </sc-for>
                 </div>
@@ -364,7 +440,6 @@ table{border-collapse:collapse;width:100%}
                 <div style="display:flex;flex-direction:column;gap:5px">
                   <div style="display:flex;align-items:center;gap:7px"><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#CBCBD4" stroke-width="2"/></svg><span style="font-size:10.5px;color:#5A5A64">grounds / traces</span></div>
                   <div style="display:flex;align-items:center;gap:7px"><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#D98B80" stroke-width="2" stroke-dasharray="2 4"/></svg><span style="font-size:10.5px;color:#5A5A64">contradicts</span></div>
-                  <div style="display:flex;align-items:center;gap:7px"><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#7FB894" stroke-width="2" stroke-dasharray="2 4"/></svg><span style="font-size:10.5px;color:#5A5A64">corroborates</span></div>
                 </div>
               </div>
             </div>
@@ -378,44 +453,60 @@ table{border-collapse:collapse;width:100%}
             </div>
           </div>
           </sc-if>
+          </sc-if>
 
-          <!-- EVIDENCE TAB -->
-          <sc-if value="{{ isEvidence }}" hint-placeholder-val="{{ false }}">
+          <!-- FINDINGS TAB -->
+          <sc-if value="{{ isEvidence }}">
           <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:22px 26px">
             <div style="max-width:900px">
               <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA;margin-bottom:2px">FINDINGS · CLAIMS ⇄ VERBATIM PASSAGES</div>
               <div style="font-family:'Newsreader',Georgia,serif;font-size:20px;font-weight:600;margin-bottom:18px">Every claim, and the passages that ground it</div>
-              <sc-for list="{{ evClaims }}" as="c" hint-placeholder-count="4">
-                <div style="margin-bottom:20px;border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff">
+              <sc-if value="{{ evEmpty }}">
+                <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:28px 24px;color:#8A8A95;font-size:13px;line-height:1.6;background:#fff">No claims yet. Ask a question in Chat — every claim an answer makes lands here with its verbatim passages and verdicts.</div>
+              </sc-if>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px">
+                <sc-for list="{{ overviewStats }}" as="st">
+                  <div style="border:1px solid #EFEFF3;border-radius:10px;padding:11px 12px;background:#fff">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:{{ st.color }}">{{ st.value }}</div>
+                    <div style="font-size:11px;color:#8A8A95;margin-top:2px">{{ st.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-for list="{{ evClaims }}" as="c">
+                <div style="margin-bottom:14px;border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff">
                   <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:#FBFBFD;border-bottom:1px solid #EFEFF3">
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#7A7A85">{{ c.id }}</span>
                     <span style="font-family:'Newsreader',Georgia,serif;font-size:15px;font-weight:500;color:#1B1B22;flex:1;min-width:0">{{ c.text }}</span>
                     <span style="font-size:10px;font-weight:700;letter-spacing:.03em;color:{{ c.stFg }};background:{{ c.stBg }};border:1px solid {{ c.stBd }};border-radius:6px;padding:3px 8px">{{ c.stLabel }}</span>
                   </div>
-                  <sc-for list="{{ c.passages }}" as="p" hint-placeholder-count="2">
-                    <button onClick="{{ p.open }}" style="width:100%;display:flex;gap:13px;padding:13px 16px;border-top:1px solid #F2F2F6" style-hover="background:#FAFAFC">
-                      <span style="width:4px;border-radius:2px;flex:0 0 auto;background:{{ p.relColor }}"></span>
+                  <sc-if value="{{ c.hasQuote }}">
+                    <button onClick="{{ c.open }}" style="width:100%;display:flex;gap:13px;padding:13px 16px;border-top:1px solid #F2F2F6" style-hover="background:#FAFAFC">
+                      <span style="width:4px;border-radius:2px;flex:0 0 auto;background:{{ c.relColor }}"></span>
                       <span style="flex:1;min-width:0">
-                        <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.5;color:#2A2A32">{{ p.pre }}<mark>{{ p.mark }}</mark>{{ p.post }}</span>
+                        <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.5;color:#2A2A32"><mark>{{ c.quote }}</mark></span>
                         <span style="display:flex;align-items:center;gap:10px;margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8A95">
-                          <span style="color:{{ p.relColor }};font-weight:600">{{ p.rel }}</span>
-                          <span>{{ p.id }}</span><span>·</span><span>{{ p.srcReg }} {{ p.srcDomain }}</span><span>·</span><span>{{ p.pincite }}</span>
+                          <span style="color:{{ c.relColor }};font-weight:600">{{ c.rel }}</span>
+                          <span>{{ c.srcReg }}</span><span>·</span><span>{{ c.srcTitle }}</span>
                         </span>
                       </span>
-                      <span style="flex:0 0 auto;color:#B4B4BE;align-self:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M7 7 10.6 16M16.8 7.4 13.4 16"/></svg></span>
+                      <span style="flex:0 0 auto;color:#B4B4BE;align-self:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
                     </button>
-                  </sc-for>
+                  </sc-if>
                 </div>
               </sc-for>
             </div>
           </div>
           </sc-if>
 
-          <!-- REGISTER TAB -->
-          <sc-if value="{{ isRegister }}" hint-placeholder-val="{{ false }}">
+          <!-- SOURCES TAB -->
+          <sc-if value="{{ isRegister }}">
           <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:22px 26px">
             <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA;margin-bottom:2px">SOURCES · THE RECORD</div>
             <div style="font-family:'Newsreader',Georgia,serif;font-size:20px;font-weight:600;margin-bottom:18px">Citation · provenance · fixity · rights</div>
+            <sc-if value="{{ noSources }}">
+              <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:28px 24px;color:#8A8A95;font-size:13px;line-height:1.6;background:#fff">The record is empty. Ingest a URL, drop a file, or paste text — every source is registered here with its content hash, byte count, retrieval time and rights posture.</div>
+            </sc-if>
+            <sc-if value="{{ hasSources }}">
             <div style="border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff">
               <table style="font-size:12.5px">
                 <thead>
@@ -423,18 +514,18 @@ table{border-collapse:collapse;width:100%}
                     <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">ID</th>
                     <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">SOURCE</th>
                     <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">RETRIEVED</th>
-                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">FIXITY (SHA-256)</th>
+                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">FIXITY</th>
                     <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">RIGHTS</th>
                     <th style="text-align:right;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">CITES</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <sc-for list="{{ regRows }}" as="r" hint-placeholder-count="6">
+                  <sc-for list="{{ regRows }}" as="r">
                     <tr onClick="{{ r.open }}" style="border-bottom:1px solid #F2F2F6;cursor:pointer" style-hover="background:#FAFAFC">
                       <td style="padding:12px 14px;vertical-align:top"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#6E7787">{{ r.reg }}</span></td>
                       <td style="padding:12px 14px;vertical-align:top">
                         <span style="display:block;font-weight:550;color:#2A2A32;max-width:260px">{{ r.title }}</span>
-                        <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ r.domain }} · {{ r.kind }}</span>
+                        <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ r.domain }} · {{ r.kind }} · {{ r.ents }} entities</span>
                       </td>
                       <td style="padding:12px 14px;vertical-align:top;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6E6E78;white-space:nowrap">{{ r.retrieved }}</td>
                       <td style="padding:12px 14px;vertical-align:top">
@@ -442,7 +533,7 @@ table{border-collapse:collapse;width:100%}
                           <span style="color:#1E8A50"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span>
                           <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5A5A64">{{ r.sha }}</span>
                         </span>
-                        <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:2px">{{ r.bytes }} · verified</span>
+                        <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:2px">{{ r.bytes }} · content hash</span>
                       </td>
                       <td style="padding:12px 14px;vertical-align:top"><span style="font-size:10.5px;font-weight:600;color:{{ r.rightsFg }};background:{{ r.rightsBg }};border-radius:5px;padding:2px 7px;white-space:nowrap">{{ r.rights }}</span></td>
                       <td style="padding:12px 14px;vertical-align:top;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6E6E78">{{ r.cites }}</td>
@@ -451,32 +542,34 @@ table{border-collapse:collapse;width:100%}
                 </tbody>
               </table>
             </div>
+            </sc-if>
           </div>
           </sc-if>
 
           <!-- MEMO TAB -->
-          <sc-if value="{{ isMemo }}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{ isMemo }}">
           <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:26px 30px">
             <div style="max-width:680px;margin:0 auto">
               <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA;margin-bottom:3px">MEMO · GROUNDED SYNTHESIS</div>
-              <div style="font-family:'Newsreader',Georgia,serif;font-size:26px;font-weight:600;line-height:1.2;margin-bottom:6px">What makes dolphins intelligent?</div>
-              <div style="display:flex;align-items:flex-start;gap:10px;background:#FBF1DA;border:1px solid #EEDCA9;border-radius:10px;padding:12px 14px;margin:16px 0 22px">
-                <span style="color:#A9700A;flex:0 0 auto;margin-top:1px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
-                <span style="font-size:12.5px;color:#6E5A2A;line-height:1.5"><b style="color:#7A5A12;font-weight:600">Surface-smoothing is the last layer.</b> Prose summarization stays locked until every cited claim is <b>Supported</b>. Right now <b>1 of 4 is Contested</b> — organize the evidence first; the summary comes after.</span>
-              </div>
-              <div style="font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.7;color:#2A2A32">
-                Dolphin intelligence is best read as several partly-independent capacities rather than one trait. Relative brain size is unusually high, individuals recognise themselves in mirrors, and foraging techniques pass between generations as culture. The strongest popular claim — that signature whistles are true <i>names</i> — is only partly supported and remains actively contested in the literature.
-                <span style="display:block;margin-top:10px;font-size:12px;color:#B4B4BE;font-family:'IBM Plex Mono',monospace">[ draft · each sentence will chain to the claims below before it is smoothed ]</span>
-              </div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:26px;font-weight:600;line-height:1.2;margin-bottom:6px">{{ memoTitle }}</div>
+              <sc-if value="{{ memoLocked }}">
+                <div style="display:flex;align-items:flex-start;gap:10px;background:#FBF1DA;border:1px solid #EEDCA9;border-radius:10px;padding:12px 14px;margin:16px 0 22px">
+                  <span style="color:#A9700A;flex:0 0 auto;margin-top:1px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+                  <span style="font-size:12.5px;color:#6E5A2A;line-height:1.5"><b style="color:#7A5A12;font-weight:600">Surface-smoothing is the last layer.</b> {{ memoLockText }}</span>
+                </div>
+              </sc-if>
+              <textarea value="{{ memoText }}" onChange="{{ onMemoInput }}" placeholder="Draft the memo here. Each sentence should chain to the claims below — the graph keeps you honest." style="width:100%;min-height:220px;border:1px solid #EAEAEF;border-radius:12px;background:#fff;padding:16px 18px;font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.7;color:#2A2A32;resize:vertical;outline:none" style-focus="border-color:#DED8FD"></textarea>
               <div style="margin-top:22px">
                 <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;margin-bottom:10px">GROUNDED IN</div>
+                <sc-if value="{{ evEmpty }}">
+                  <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:16px 14px;font-size:12px;color:#9A9AA4;line-height:1.5;background:#fff">No claims to cite yet — ask in Chat first, then draft over the claims that come back.</div>
+                </sc-if>
                 <div style="display:flex;flex-direction:column;gap:8px">
-                  <sc-for list="{{ memoClaims }}" as="c" hint-placeholder-count="4">
+                  <sc-for list="{{ memoClaims }}" as="c">
                     <button onClick="{{ c.open }}" style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid #EAEAEF;border-radius:10px;background:#fff" style-hover="background:#FAFAFC">
                       <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#7A7A85">{{ c.id }}</span>
                       <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:14px;color:#2A2A32">{{ c.text }}</span>
                       <span style="font-size:10px;font-weight:700;color:{{ c.stFg }};background:{{ c.stBg }};border:1px solid {{ c.stBd }};border-radius:6px;padding:2px 8px">{{ c.stLabel }}</span>
-                      <span style="color:#B4B4BE;flex:0 0 auto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M7 7 10.6 16M16.8 7.4 13.4 16"/></svg></span>
                     </button>
                   </sc-for>
                 </div>
@@ -487,108 +580,112 @@ table{border-collapse:collapse;width:100%}
 
         </div>
 
-        <!-- INSPECTOR (contextual — appears on focus) -->
-        <sc-if value="{{ inspectorShow }}" hint-placeholder-val="{{ false }}">
+        <!-- RIGHT PANEL — ENTITIES / INSPECTOR -->
+        <sc-if value="{{ rightOpen }}">
         <aside class="eo-scroll" style="width:340px;flex:0 0 auto;background:#fff;border-left:1px solid #EAEAEF;overflow-y:auto;min-height:0">
           <div style="padding:14px 16px">
 
-            <sc-if value="{{ trailShow }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:14px">
-                <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin-right:2px">TRACE</span>
-                <sc-for list="{{ trail }}" as="cr" hint-placeholder-count="2">
-                  <button onClick="{{ cr.open }}" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ cr.fg }};background:{{ cr.bg }};border-radius:5px;padding:2px 7px">{{ cr.id }}</button>
-                  <span style="color:#D4D4DC;font-size:11px">{{ cr.sep }}</span>
-                </sc-for>
-              </div>
-            </sc-if>
-
-            <!-- NONE -->
-            <sc-if value="{{ inspNone }}" hint-placeholder-val="{{ true }}">
-              <div style="padding:10px 2px">
-                <div style="width:40px;height:40px;border-radius:11px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin-bottom:13px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></div>
-                <div style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600;color:#1B1B22;margin-bottom:6px">Trace any node to its source</div>
-                <div style="font-size:13px;color:#6E6E78;line-height:1.55;margin-bottom:16px">Click a node to walk its provenance — upstream to the memo it supports, downstream to the exact passage, registered source, and hash-verified file it rests on.</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                  <sc-for list="{{ overviewStats }}" as="st" hint-placeholder-count="4">
-                    <div style="border:1px solid #EFEFF3;border-radius:10px;padding:11px 12px">
-                      <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:{{ st.color }}">{{ st.value }}</div>
-                      <div style="font-size:11px;color:#8A8A95;margin-top:2px">{{ st.label }}</div>
-                    </div>
-                  </sc-for>
-                </div>
-              </div>
-            </sc-if>
-
-            <!-- FOCUSED NODE -->
-            <sc-if value="{{ inspShow }}" hint-placeholder-val="{{ false }}">
+            <!-- GRAPH-NODE INSPECTOR -->
+            <sc-if value="{{ inspShow }}">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
                 <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.06em;color:{{ insp.typeFg }};background:{{ insp.typeBg }};border-radius:5px;padding:3px 7px">{{ insp.typeLabel }}</span>
                 <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#3A3A44">{{ insp.id }}</span>
                 <span style="flex:1"></span>
-                <sc-if value="{{ insp.hasStatus }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:700;color:{{ insp.stFg }};background:{{ insp.stBg }};border:1px solid {{ insp.stBd }};border-radius:6px;padding:2px 8px">{{ insp.stLabel }}</span></sc-if>
+                <sc-if value="{{ insp.hasStatus }}"><span style="font-size:10px;font-weight:700;color:{{ insp.stFg }};background:{{ insp.stBg }};border:1px solid {{ insp.stBd }};border-radius:6px;padding:2px 8px">{{ insp.stLabel }}</span></sc-if>
               </div>
-
-              <div style="font-family:'{{ insp.titleFont }}',Georgia,serif;font-size:{{ insp.titleSize }};font-weight:{{ insp.titleWeight }};line-height:1.35;color:#1B1B22">{{ insp.pre }}<sc-if value="{{ insp.has }}" hint-placeholder-val="{{ false }}"><mark>{{ insp.mark }}</mark>{{ insp.post }}</sc-if></div>
-
-              <sc-if value="{{ insp.showContext }}" hint-placeholder-val="{{ false }}">
-                <div style="margin-top:12px;border:1px solid #EFEFF3;border-radius:10px;padding:12px 13px;background:#FBFBFD">
-                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;color:#A0A0AA;margin-bottom:6px">IN CONTEXT · {{ insp.pincite }}</div>
-                  <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.6;color:#8A8A95">{{ insp.before }} <span style="color:#2A2A32;background:#FBECC8;border-radius:2px;padding:.02em 2px">{{ insp.spanText }}</span> {{ insp.after }}</div>
-                </div>
-              </sc-if>
-
-              <sc-if value="{{ insp.showMeta }}" hint-placeholder-val="{{ false }}">
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:16px;font-weight:600;line-height:1.35;color:#1B1B22">{{ insp.title }}</div>
+              <sc-if value="{{ insp.showMeta }}">
                 <div style="margin-top:12px;display:flex;flex-direction:column;gap:1px;border:1px solid #EFEFF3;border-radius:10px;overflow:hidden">
-                  <sc-for list="{{ insp.meta }}" as="m" hint-placeholder-count="4">
+                  <sc-for list="{{ insp.meta }}" as="mm">
                     <div style="display:flex;gap:10px;padding:9px 12px;background:#fff;border-bottom:1px solid #F4F4F7">
-                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.03em;color:#A0A0AA;width:74px;flex:0 0 auto">{{ m.k }}</span>
-                      <span style="font-size:12px;color:#3A3A44;flex:1;min-width:0;word-break:break-word">{{ m.v }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.03em;color:#A0A0AA;width:74px;flex:0 0 auto">{{ mm.k }}</span>
+                      <span style="font-size:12px;color:#3A3A44;flex:1;min-width:0;word-break:break-word">{{ mm.v }}</span>
                     </div>
                   </sc-for>
                 </div>
               </sc-if>
+              <sc-if value="{{ insp.hasAction }}">
+                <div style="display:flex;gap:8px;margin-top:16px">
+                  <button onClick="{{ insp.primaryAction }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12.5px;border-radius:9px;padding:9px" style-hover="background:#E7E2FD">{{ insp.primaryLabel }}</button>
+                </div>
+              </sc-if>
+              <button onClick="{{ backToEntities }}" style="margin-top:14px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#8A8A95" style-hover="color:#5B4BE6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Back to entities</button>
+            </sc-if>
 
-              <sc-if value="{{ insp.hasParents }}" hint-placeholder-val="{{ false }}">
+            <!-- ENTITY PROFILE -->
+            <sc-if value="{{ profShow }}">
+              <button onClick="{{ backToEntities }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#8A8A95;margin-bottom:12px" style-hover="color:#5B4BE6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>All entities</button>
+              <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
+                <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ prof.initials }}</span>
+                <span style="flex:1;min-width:0">
+                  <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600;color:#1B1B22;line-height:1.2">{{ prof.label }}</span>
+                  <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ prof.counts }}</span>
+                </span>
+              </div>
+              <button onClick="{{ prof.openSource }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:6px;padding:3px 8px;margin:6px 0 2px" style-hover="background:#E5E8EC">{{ prof.srcReg }} · {{ prof.srcTitle }}</button>
+
+              <button onClick="{{ prof.openWeb }}" style="width:100%;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:7px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12.5px;border-radius:9px;padding:9px" style-hover="background:#E7E2FD">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg>
+                Open the web graph
+              </button>
+
+              <sc-if value="{{ prof.hasDefs }}">
                 <div style="margin-top:16px">
-                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">{{ insp.parentsLabel }}</div>
-                  <sc-for list="{{ insp.parents }}" as="p" hint-placeholder-count="1">
-                    <button onClick="{{ p.onClick }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid #EAEAEF;border-radius:9px;margin-bottom:6px" style-hover="background:#FAFAFC">
-                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ p.color }};background:{{ p.bg }};border-radius:5px;padding:2px 6px;flex:0 0 auto">{{ p.label }}</span>
-                      <span style="flex:1;min-width:0;font-size:11.5px;color:#6E6E78;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.sub }}</span>
-                      <span style="color:#C4C4CC;flex:0 0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES</div>
+                  <sc-for list="{{ prof.defs }}" as="d">
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32;border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">{{ d.value }}</div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ prof.hasRelations }}">
+                <div style="margin-top:16px">
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">CONNECTED ENTITIES</div>
+                  <sc-for list="{{ prof.relations }}" as="r">
+                    <button onClick="{{ r.pivot }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid #EAEAEF;border-radius:9px;margin-bottom:5px" style-hover="background:#FAFAFC">
+                      <span style="flex:1;min-width:0;font-size:12px;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b style="font-weight:600">{{ r.other }}</b></span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8A95;flex:0 0 auto">{{ r.via }}</span>
+                      <span style="color:#C4C4CC;flex:0 0 auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
                     </button>
                   </sc-for>
                 </div>
               </sc-if>
 
-              <sc-if value="{{ insp.hasChildren }}" hint-placeholder-val="{{ false }}">
-                <div style="margin-top:14px">
-                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">{{ insp.childrenLabel }}</div>
-                  <sc-for list="{{ insp.children }}" as="p" hint-placeholder-count="2">
-                    <button onClick="{{ p.onClick }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid #EAEAEF;border-radius:9px;margin-bottom:6px" style-hover="background:#FAFAFC">
-                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ p.color }};background:{{ p.bg }};border-radius:5px;padding:2px 6px;flex:0 0 auto">{{ p.label }}</span>
-                      <span style="flex:1;min-width:0;font-size:11.5px;color:#6E6E78;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.sub }}</span>
-                      <span style="color:#C4C4CC;flex:0 0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+              <sc-if value="{{ prof.hasMentions }}">
+                <div style="margin-top:16px">
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">MENTIONS · {{ prof.mentionCount }}</div>
+                  <sc-for list="{{ prof.mentions }}" as="mn">
+                    <button onClick="{{ mn.jump }}" style="width:100%;display:flex;gap:9px;padding:8px 11px;border:1px solid #EFEFF3;border-radius:9px;margin-bottom:5px;background:#FBFBFD" style-hover="background:#fff">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B4B4BE;flex:0 0 auto;margin-top:2px">¶{{ mn.idx }}</span>
+                      <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.45;color:#5A5A64;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ mn.text }}</span>
                     </button>
                   </sc-for>
                 </div>
               </sc-if>
+            </sc-if>
 
-              <sc-if value="{{ insp.hasLaterals }}" hint-placeholder-val="{{ false }}">
-                <div style="margin-top:14px">
-                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#B23A2E;margin-bottom:8px">CROSS-CHECKS</div>
-                  <sc-for list="{{ insp.laterals }}" as="p" hint-placeholder-count="1">
-                    <button onClick="{{ p.onClick }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid {{ p.edgeBd }};border-radius:9px;margin-bottom:6px;background:{{ p.edgeBgSoft }}" style-hover="background:#fff">
-                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ p.color }};background:{{ p.bg }};border-radius:5px;padding:2px 6px;flex:0 0 auto">{{ p.label }}</span>
-                      <span style="flex:1;min-width:0;font-size:11px;font-weight:600;color:{{ p.relFg }}">{{ p.kindLabel }}</span>
-                      <span style="color:#C4C4CC;flex:0 0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
-                    </button>
-                  </sc-for>
-                </div>
+            <!-- ENTITY LIST -->
+            <sc-if value="{{ entListShow }}">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">ENTITIES</span>
+                <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ entCount }}</span>
+                <span style="flex:1"></span>
+                <button onClick="{{ toggleEntityMode }}" title="Toggle clickable entities in text" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:3px 8px">⟬e⟭ in text</button>
+              </div>
+              <sc-if value="{{ entEmpty }}">
+                <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:16px 14px;font-size:12px;color:#9A9AA4;line-height:1.55">No entities yet. Record a source and its named figures — people, places, things — appear here with their mentions and links.</div>
               </sc-if>
-
-              <div style="display:flex;gap:8px;margin-top:16px">
-                <button onClick="{{ insp.primaryAction }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12.5px;border-radius:9px;padding:9px" style-hover="background:#E7E2FD">{{ insp.primaryLabel }}</button>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <sc-for list="{{ entRows }}" as="en">
+                  <button onClick="{{ en.open }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:9px" style-hover="background:#F5F5F8">
+                    <span style="width:28px;height:28px;border-radius:8px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ en.initials }}</span>
+                    <span style="flex:1;min-width:0">
+                      <span style="display:block;font-size:13px;font-weight:600;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ en.label }}</span>
+                      <span style="display:block;font-size:11px;color:#9A9AA4;margin-top:1px">{{ en.meta }}</span>
+                    </span>
+                    <span style="color:#C4C4CC;flex:0 0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+                  </button>
+                </sc-for>
               </div>
             </sc-if>
 
@@ -600,8 +697,112 @@ table{border-collapse:collapse;width:100%}
     </main>
   </div>
 
+  <!-- SOURCE VIEWER OVERLAY -->
+  <sc-if value="{{ viewerShow }}">
+    <div style="position:absolute;inset:0;z-index:44">
+      <div onClick="{{ closeViewer }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
+      <div style="position:absolute;left:50%;top:26px;bottom:26px;transform:translateX(-50%);width:min(860px,92vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+        <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;padding:16px 22px;background:#FBFBFD">
+          <div style="display:flex;align-items:center;gap:9px">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#4E5765;background:#EEF0F3;border-radius:5px;padding:2px 7px">{{ viewer.reg }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4">{{ viewer.domain }} · {{ viewer.kind }}</span>
+            <span style="flex:1"></span>
+            <sc-if value="{{ viewer.hasUrl }}"><a href="{{ viewer.url }}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#5B4BE6;text-decoration:none">original ↗</a></sc-if>
+            <button onClick="{{ removeViewerSource }}" title="Remove from the record" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+            <button onClick="{{ closeViewer }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          </div>
+          <div style="font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:600;line-height:1.25;margin-top:8px">{{ viewer.title }}</div>
+          <div style="display:flex;align-items:center;gap:13px;margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8A95;flex-wrap:wrap">
+            <span style="display:flex;align-items:center;gap:5px"><span style="color:#1E8A50"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span>{{ viewer.sha }}</span>
+            <span>{{ viewer.bytes }}</span>
+            <span>retrieved {{ viewer.retrieved }}</span>
+            <span style="font-weight:600;color:{{ viewer.rightsFg }};background:{{ viewer.rightsBg }};border-radius:4px;padding:1px 6px">{{ viewer.rights }}</span>
+            <span>{{ viewer.ents }} entities</span>
+          </div>
+        </div>
+        <div class="eo-scroll" ref="{{ setViewerBody }}" style="flex:1;min-height:0;overflow-y:auto;padding:26px 34px;background:#fff">
+          <div style="max-width:640px;margin:0 auto">
+            <sc-for list="{{ viewerParas }}" as="vp">
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.75;color:#2A2A32;margin:0 0 14px;padding-left:{{ vp.pad }}px;border-left:{{ vp.border }};background:{{ vp.bg }};border-radius:{{ vp.radius }}">
+                <sc-for list="{{ vp.segs }}" as="sg">
+                  <sc-if value="{{ sg.isText }}"><span>{{ sg.s }}</span></sc-if>
+                  <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;color:#5B4BE6;border-bottom:1px dotted #B9AEF8;font-size:inherit;line-height:inherit;font-family:inherit" style-hover="background:#F1EFFE">{{ sg.s }}</button></sc-if>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- WEB SEARCH OVERLAY -->
+  <sc-if value="{{ searchShow }}">
+    <div style="position:absolute;inset:0;z-index:46">
+      <div onClick="{{ closeSearch }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
+      <div style="position:absolute;left:50%;top:60px;transform:translateX(-50%);width:min(640px,92vw);max-height:calc(100vh - 120px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid #EAEAEF">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">“{{ searchQ }}”</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4">{{ searchMeta }}</span>
+          <button onClick="{{ closeSearch }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:10px 12px">
+          <sc-if value="{{ searchBusy }}">
+            <div style="padding:26px;text-align:center;font-size:12.5px;color:#8A8A95;animation:eoBlink 1.4s ease-in-out infinite">Searching the web through the proxy…</div>
+          </sc-if>
+          <sc-if value="{{ searchNone }}">
+            <div style="padding:26px;text-align:center;font-size:12.5px;color:#8A8A95">Nothing came back. Try different words, a direct URL, or a named library — “gutenberg frankenstein”, “wikiquote churchill”.</div>
+          </sc-if>
+          <sc-for list="{{ searchRows }}" as="sr">
+            <div style="display:flex;gap:11px;padding:11px 10px;border-radius:11px;align-items:flex-start" style-hover="background:#F7F7FA">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:5px;padding:2px 7px;flex:0 0 auto;margin-top:2px">{{ sr.kind }}</span>
+              <span style="flex:1;min-width:0">
+                <span style="display:block;font-size:13.5px;font-weight:600;color:#2A2A32;line-height:1.35">{{ sr.title }}</span>
+                <span style="display:block;font-size:12px;color:#6E6E78;line-height:1.5;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ sr.snippet }}</span>
+                <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sr.url }}</span>
+              </span>
+              <button onClick="{{ sr.record }}" style="flex:0 0 auto;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:11.5px;border-radius:8px;padding:6px 11px;margin-top:2px" style-hover="background:#E7E2FD">{{ sr.recordLabel }}</button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- PASTE TEXT MODAL -->
+  <sc-if value="{{ pasteShow }}">
+    <div style="position:absolute;inset:0;z-index:46">
+      <div onClick="{{ closePaste }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
+      <div style="position:absolute;left:50%;top:80px;transform:translateX(-50%);width:min(600px,92vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);padding:20px 22px;animation:eoFade .18s ease">
+        <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600;margin-bottom:12px">Paste text into the record</div>
+        <input value="{{ pasteTitle }}" onChange="{{ onPasteTitle }}" placeholder="Title (optional)" style="width:100%;border:1px solid #E6E6EC;border-radius:9px;background:#F7F7FA;padding:9px 12px;font-size:13px;outline:none;margin-bottom:9px" style-focus="border-color:#DED8FD;background:#fff" />
+        <textarea value="{{ pasteBody }}" onChange="{{ onPasteBody }}" placeholder="Paste anything — an article, notes, a chapter…" style="width:100%;min-height:200px;border:1px solid #E6E6EC;border-radius:9px;background:#F7F7FA;padding:11px 12px;font-size:13px;line-height:1.6;outline:none;resize:vertical" style-focus="border-color:#DED8FD;background:#fff"></textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+          <button onClick="{{ closePaste }}" style="border:1px solid #EAEAEF;border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:600;color:#6E6E78" style-hover="background:#F5F5F8">Cancel</button>
+          <button onClick="{{ submitPaste }}" style="background:#6D5EF5;color:#fff;border-radius:9px;padding:8px 16px;font-size:12.5px;font-weight:600" style-hover="background:#5B4BE6">Record it</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ENTITY WEB GRAPH OVERLAY -->
+  <sc-if value="{{ webGraphShow }}">
+    <div style="position:absolute;inset:0;z-index:48">
+      <div onClick="{{ closeWebGraph }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
+      <div style="position:absolute;left:50%;top:40px;bottom:40px;transform:translateX(-50%);width:min(940px,94vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #EAEAEF">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;color:#5B4BE6;background:#EEEBFE;border-radius:5px;padding:2px 7px">WEB GRAPH</span>
+          <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ webGraphTitle }}</span>
+          <button onClick="{{ closeWebGraph }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div ref="{{ setWebGraphEl }}" style="flex:1;min-height:0"></div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- MONOLOGUE DRAWER -->
-  <sc-if value="{{ monologueOpen }}" hint-placeholder-val="{{ false }}">
+  <sc-if value="{{ monologueOpen }}">
     <div style="position:absolute;inset:0;z-index:40">
       <div onClick="{{ closeMonologue }}" style="position:absolute;inset:0;background:rgba(20,20,28,.24);animation:eoFade .16s ease"></div>
       <div class="eo-scroll" style="position:absolute;right:0;top:0;height:100%;width:440px;background:#fff;border-left:1px solid #EAEAEF;box-shadow:-12px 0 40px rgba(20,20,30,.12);overflow-y:auto;animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)">
@@ -617,7 +818,7 @@ table{border-collapse:collapse;width:100%}
 
         <div style="padding:16px 18px">
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px">
-            <sc-for list="{{ auditStats }}" as="a" hint-placeholder-count="3">
+            <sc-for list="{{ auditStats }}" as="a">
               <div style="border:1px solid #EFEFF3;border-radius:10px;padding:11px 12px">
                 <div style="font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:600;color:{{ a.color }}">{{ a.value }}</div>
                 <div style="font-size:10.5px;color:#8A8A95;margin-top:2px;line-height:1.3">{{ a.label }}</div>
@@ -630,8 +831,11 @@ table{border-collapse:collapse;width:100%}
             <button onClick="{{ setLogReasoning }}" style="flex:1;padding:6px 0;border-radius:6px;font-size:12px;font-weight:600;text-align:center;color:{{ logReasoningFg }};background:{{ logReasoningBg }}">Reasoning</button>
           </div>
 
-          <sc-if value="{{ logActions }}" hint-placeholder-val="{{ true }}">
-            <sc-for list="{{ logView }}" as="lg" hint-placeholder-count="8">
+          <sc-if value="{{ logActions }}">
+            <sc-if value="{{ logEmpty }}">
+              <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:16px 14px;font-size:12px;color:#9A9AA4;line-height:1.5">Nothing yet — the log fills as you record sources and ask questions.</div>
+            </sc-if>
+            <sc-for list="{{ logView }}" as="lg">
               <div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #F4F4F7">
                 <span style="width:8px;height:8px;border-radius:50%;background:{{ lg.dot }};margin-top:5px;flex:0 0 auto"></span>
                 <div style="flex:1;min-width:0">
@@ -640,27 +844,38 @@ table{border-collapse:collapse;width:100%}
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ lg.t }}</span>
                   </div>
                   <div style="font-size:13px;color:#2A2A32;line-height:1.45;margin-top:4px">{{ lg.text }}</div>
-                  <sc-if value="{{ lg.hasEffect }}" hint-placeholder-val="{{ false }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8A95;margin-top:3px">↳ {{ lg.effect }}</div></sc-if>
+                  <sc-if value="{{ lg.hasEffect }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8A95;margin-top:3px">↳ {{ lg.effect }}</div></sc-if>
                 </div>
               </div>
             </sc-for>
           </sc-if>
 
-          <sc-if value="{{ logReasoning }}" hint-placeholder-val="{{ false }}">
-          <div style="position:relative;padding-left:20px">
-            <div style="position:absolute;left:5px;top:4px;bottom:8px;width:2px;background:#EDEDF1"></div>
-            <sc-for list="{{ steps }}" as="s" hint-placeholder-count="8">
-              <div style="position:relative;padding-bottom:16px">
-                <span style="position:absolute;left:-18px;top:2px;width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid {{ s.dot }}"></span>
-                <div style="display:flex;align-items:baseline;gap:8px">
-                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ s.t }}</span>
-                  <span style="font-size:9px;font-weight:700;letter-spacing:.04em;color:{{ s.vFg }};background:{{ s.vBg }};border-radius:4px;padding:1px 6px">{{ s.verdict }}</span>
+          <sc-if value="{{ logReasoning }}">
+            <sc-if value="{{ turnsEmpty }}">
+              <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:16px 14px;font-size:12px;color:#9A9AA4;line-height:1.5">No turns yet — each question you ask leaves its full 17-stage trail here.</div>
+            </sc-if>
+            <sc-for list="{{ turnViews }}" as="tv">
+              <div style="margin-bottom:18px">
+                <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ tv.id }}</span>
+                  <span style="font-size:12.5px;font-weight:600;color:#2A2A32;flex:1;min-width:0">{{ tv.question }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8A95">{{ tv.dur }}</span>
                 </div>
-                <div style="font-size:13px;color:#2A2A32;line-height:1.45;margin-top:4px">{{ s.text }}</div>
-                <sc-if value="{{ s.hasEffect }}" hint-placeholder-val="{{ false }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:{{ s.effectColor }};margin-top:4px">↳ {{ s.effect }}</div></sc-if>
+                <div style="position:relative;padding-left:20px">
+                  <div style="position:absolute;left:5px;top:4px;bottom:8px;width:2px;background:#EDEDF1"></div>
+                  <sc-for list="{{ tv.steps }}" as="s">
+                    <div style="position:relative;padding-bottom:12px">
+                      <span style="position:absolute;left:-18px;top:2px;width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid {{ s.dot }}"></span>
+                      <div style="display:flex;align-items:baseline;gap:8px">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ s.t }}</span>
+                        <span style="font-size:9px;font-weight:700;letter-spacing:.04em;color:{{ s.vFg }};background:{{ s.vBg }};border-radius:4px;padding:1px 6px">{{ s.verdict }}</span>
+                      </div>
+                      <div style="font-size:12.5px;color:#2A2A32;line-height:1.45;margin-top:3px">{{ s.text }}</div>
+                    </div>
+                  </sc-for>
+                </div>
               </div>
             </sc-for>
-          </div>
           </sc-if>
         </div>
       </div>
@@ -668,649 +883,733 @@ table{border-collapse:collapse;width:100%}
   </sc-if>
 
   <!-- TOAST -->
-  <sc-if value="{{ toast }}" hint-placeholder-val="{{ null }}">
+  <sc-if value="{{ toast }}">
     <div style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;background:#1B1B22;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(20,20,30,.3);animation:eoToast .2s ease;max-width:520px">{{ toast }}</div>
+  </sc-if>
+
+  <!-- DRAG OVERLAY -->
+  <sc-if value="{{ dragOver }}">
+    <div style="position:absolute;inset:10px;z-index:70;border:2px dashed #6D5EF5;border-radius:18px;background:rgba(109,94,245,.06);display:flex;align-items:center;justify-content:center;pointer-events:none">
+      <div style="background:#fff;border:1px solid #DED8FD;border-radius:12px;padding:14px 22px;font-size:14px;font-weight:600;color:#5B4BE6;box-shadow:0 12px 34px rgba(20,20,30,.14)">Drop to record — PDF, HTML, CSV, images, audio, text…</div>
+    </div>
   </sc-if>
 
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
 class Component extends DCLogic {
-  state = {
-    tab: 'chat',
-    focusId: null,
-    trace: 'both',
-    contra: false,
-    trail: [],
-    tx: 8, ty: 16, scale: 0.8,
-    dragging: false,
-    booted: false,
-    viewerOpen: null,
-    omni: '',
-    logTab: 'actions',
-    topicMenu: null,
-    mergeFrom: null,
-    topics: [
-      { id:'t1', title:'What makes dolphins intelligent?', meta:'6 sources · 4 claims', active:true },
-      { id:'t2', title:'Cetacean communication', meta:'2 sources' },
-      { id:'t3', title:'Octopus cognition', meta:'net-new' },
-    ],
-    statusOpen: false,
-    monologueOpen: false,
-    toast: null,
-    chatInput: '',
-    messages: [
-      { role:'user', text:'What makes dolphins intelligent?' },
-      { role:'agent', text:`Only what the record supports. Across your six recorded sources, dolphin intelligence shows up as four partly-independent capacities: an exceptional relative brain size, mirror self-recognition, signature whistles used to address specific individuals, and foraging techniques passed down as culture. The popular claim that those whistles are true names is only partly supported — one source contests it — so I've kept it flagged rather than smoothing it into the answer.`, cites:['C1','C2','C3','C4'], footer:true },
-    ],
-  };
-
-  memoNode = { id:'M1', title:'What makes dolphins intelligent?' };
-
-  claims = [
-    { id:'C1', text:'Dolphins have an exceptional relative brain size.', status:'Supported' },
-    { id:'C2', text:'Bottlenose dolphins show mirror self-recognition.', status:'Supported' },
-    { id:'C3', text:'Signature whistles function like individual names.', status:'Contested' },
-    { id:'C4', text:'Dolphins transmit foraging techniques as culture.', status:'Supported' },
-  ];
-
-  sources = [
-    { id:'S1', reg:'S-0001', title:'Cetacean intelligence', domain:'en.wikipedia.org', kind:'Encyclopedia', retrieved:'2026-07-09 14:02', sha:'3f9a…c1d4', bytes:'412 KB', rights:'CC BY-SA 4.0', rightsOk:true, ent:211, favCh:'W', favBg:'#EEEEF3', favFg:'#3B3B47' },
-    { id:'S2', reg:'S-0002', title:'How dolphins call each other by name', domain:'nationalgeographic.com', kind:'Feature', retrieved:'2026-07-09 14:06', sha:'a71c…9f02', bytes:'1.2 MB', rights:'© rights-managed', rightsOk:false, ent:54, favCh:'N', favBg:'#14161B', favFg:'#FFCF3F' },
-    { id:'S3', reg:'S-0003', title:'Mirror self-recognition in the bottlenose dolphin', domain:'pnas.org', kind:'Journal', retrieved:'2026-07-09 14:11', sha:'d4e8…7b55', bytes:'820 KB', rights:'© licensed', rightsOk:true, ent:38, favCh:'P', favBg:'#E8EEF9', favFg:'#2A5CB8' },
-    { id:'S4', reg:'S-0004', title:'The cultural lives of whales and dolphins', domain:'royalsociety.org', kind:'Journal', retrieved:'2026-07-09 14:15', sha:'0b12…aa9e', bytes:'1.1 MB', rights:'CC BY 4.0', rightsOk:true, ent:41, favCh:'R', favBg:'#EAF3EE', favFg:'#1E6B4F' },
-    { id:'S5', reg:'S-0005', title:'Dolphin brain: structure & encephalization', domain:'nature.com', kind:'Journal', retrieved:'2026-07-09 14:19', sha:'9c77…31ad', bytes:'640 KB', rights:'© Springer Nature', rightsOk:false, ent:27, favCh:'n', favBg:'#E7F0EE', favFg:'#0B7267' },
-    { id:'S6', reg:'S-0006', title:'Do dolphins have language?', domain:'aeon.co', kind:'Essay', retrieved:'2026-07-09 14:24', sha:'5faa…e208', bytes:'300 KB', rights:'© Aeon', rightsOk:true, ent:33, favCh:'A', favBg:'#F1EBF7', favFg:'#6D5EF5' },
-  ];
-
-  files = [
-    { id:'F1', src:'S1', sha:'3f9a…c1d4', bytes:'412 KB' },
-    { id:'F2', src:'S2', sha:'a71c…9f02', bytes:'1.2 MB' },
-    { id:'F3', src:'S3', sha:'d4e8…7b55', bytes:'820 KB' },
-    { id:'F4', src:'S4', sha:'0b12…aa9e', bytes:'1.1 MB' },
-    { id:'F5', src:'S5', sha:'9c77…31ad', bytes:'640 KB' },
-    { id:'F6', src:'S6', sha:'5faa…e208', bytes:'300 KB' },
-  ];
-
-  passages = [
-    { id:'P1', src:'S5', claim:'C1', pincite:'¶ 3', status:'Supported',
-      text:`The bottlenose dolphin's encephalization quotient is roughly 4–5 — higher than any nonhuman primate and second only to modern humans.`,
-      mark:'second only to modern humans',
-      before:`Relative brain size is a rough proxy for cognitive capacity.`,
-      after:`This places dolphins in rare mammalian company.` },
-    { id:'P2', src:'S1', claim:'C1', pincite:'§ Neuroanatomy', status:'Supported',
-      text:`The cetacean neocortex is unusually convoluted, with an expanded paralimbic region implicated in social and emotional processing.`,
-      mark:'social and emotional processing',
-      before:`Brain size alone does not explain behavior.`,
-      after:`Structure, not just mass, appears to matter.` },
-    { id:'P3', src:'S3', claim:'C2', pincite:'¶ 7', status:'Supported',
-      text:`Marked dolphins repeatedly maneuvered before the mirror to inspect the marked region — a response consistent with self-recognition rather than social display.`,
-      mark:'self-recognition',
-      before:`Each subject was exposed to a reflective surface after marking.`,
-      after:`Control trials with sham marks produced no such inspection.` },
-    { id:'P4', src:'S1', claim:'C2', pincite:'§ Self-awareness', status:'Supported',
-      text:`Bottlenose dolphins have passed the mirror mark test, among the very few species that appear to recognize themselves.`,
-      mark:'recognize themselves',
-      before:`Self-awareness is hard to establish in nonhuman animals.`,
-      after:`Great apes and elephants show comparable results.` },
-    { id:'P5', src:'S2', claim:'C3', pincite:'¶ 2', status:'Supported',
-      text:`Each dolphin invents a signature whistle as a calf, and companions copy that whistle to get the individual's attention.`,
-      mark:`copy that whistle to get the individual's attention`,
-      before:`Signature whistles are learned, not inherited.`,
-      after:`Researchers liken the effect to calling one another by name.` },
-    { id:'P6', src:'S6', claim:'C3', pincite:'¶ 9', status:'Contested',
-      text:`Whether these learned, individually distinctive calls amount to a true language remains contested among researchers.`,
-      mark:'remains contested',
-      before:`Signature whistles are undeniably communicative.`,
-      after:`Vocabulary and grammar are far harder to demonstrate.` },
-    { id:'P7', src:'S2', claim:'C3', pincite:'¶ 5', status:'Supported',
-      text:`In playback trials, dolphins responded more strongly to the signature whistle of a relative, even after decades apart.`,
-      mark:'even after decades apart',
-      before:`Memory for social bonds appears long-lived.`,
-      after:`Some pairs had been separated for over twenty years.` },
-    { id:'P8', src:'S4', claim:'C4', pincite:'¶ 4', status:'Supported',
-      text:`Foraging techniques such as sponging are passed from mother to calf, meeting the standard definition of animal culture.`,
-      mark:'passed from mother to calf',
-      before:`Culture requires socially transmitted behavior.`,
-      after:`Different populations maintain different traditions.` },
-    { id:'P9', src:'S4', claim:'C4', pincite:'¶ 6', status:'Supported',
-      text:`Populations maintain stable social networks and cooperative alliances that persist for many years.`,
-      mark:'cooperative alliances',
-      before:`Social structure among dolphins is unusually layered.`,
-      after:`Alliances even form between alliances.` },
-  ];
-
-  edges = [
-    { f:'M1', t:'C1', k:'cite' }, { f:'M1', t:'C2', k:'cite' }, { f:'M1', t:'C3', k:'cite' }, { f:'M1', t:'C4', k:'cite' },
-    { f:'C1', t:'P1', k:'ground' }, { f:'C1', t:'P2', k:'ground' },
-    { f:'C2', t:'P3', k:'ground' }, { f:'C2', t:'P4', k:'ground' },
-    { f:'C3', t:'P5', k:'ground' }, { f:'C3', t:'P7', k:'ground' }, { f:'C3', t:'P6', k:'against' },
-    { f:'C4', t:'P8', k:'ground' }, { f:'C4', t:'P9', k:'ground' },
-    { f:'P1', t:'S5', k:'extract' }, { f:'P2', t:'S1', k:'extract' }, { f:'P3', t:'S3', k:'extract' }, { f:'P4', t:'S1', k:'extract' },
-    { f:'P5', t:'S2', k:'extract' }, { f:'P6', t:'S6', k:'extract' }, { f:'P7', t:'S2', k:'extract' }, { f:'P8', t:'S4', k:'extract' }, { f:'P9', t:'S4', k:'extract' },
-    { f:'S1', t:'F1', k:'fixity' }, { f:'S2', t:'F2', k:'fixity' }, { f:'S3', t:'F3', k:'fixity' }, { f:'S4', t:'F4', k:'fixity' }, { f:'S5', t:'F5', k:'fixity' }, { f:'S6', t:'F6', k:'fixity' },
-    { f:'P5', t:'P6', k:'contradicts', lateral:true },
-    { f:'P1', t:'P2', k:'corroborates', lateral:true },
-    { f:'P3', t:'P4', k:'corroborates', lateral:true },
-  ];
-
-  passageOrder = ['P1','P2','P3','P4','P5','P7','P6','P8','P9'];
-
-  log = [
-    { id:'L14', t:'now',   kind:'open',    text:'Opened topic “What makes dolphins intelligent?”', effect:'t1 · 6 sources' },
-    { id:'L13', t:'14:33', kind:'skip',    text:'Skipped lccn.loc.gov — too little text to record.', effect:'not recorded' },
-    { id:'L12', t:'14:31', kind:'search',  text:'Web search “dolphin signature whistle memory”.', effect:'3 results · 2 recorded' },
-    { id:'L11', t:'14:28', kind:'claim',   text:'Grouped signature-whistle passages under claim C3.', effect:'C3 · 3 passages' },
-    { id:'L10', t:'14:26', kind:'conflict',text:'Contradiction: NatGeo “names” vs Aeon “contested”.', effect:'P5 ⇄ P6' },
-    { id:'L9',  t:'14:24', kind:'capture', text:'Captured passage from aeon.co.', effect:'P6 → C3 (against)' },
-    { id:'L8',  t:'14:24', kind:'record',  text:'Recorded “Do dolphins have language?” (aeon.co).', effect:'S-0006 · sha-256 ✓' },
-    { id:'L7',  t:'14:19', kind:'record',  text:'Recorded “Dolphin brain: encephalization” (nature.com).', effect:'S-0005 · 27 entities' },
-    { id:'L6',  t:'14:19', kind:'hash',    text:'Computed fixity hash for S-0005.', effect:'9c77…31ad · 640 KB' },
-    { id:'L5',  t:'14:15', kind:'record',  text:'Recorded “Cultural lives of whales & dolphins” (royalsociety.org).', effect:'S-0004 · CC BY 4.0' },
-    { id:'L4',  t:'14:11', kind:'capture', text:'Captured mirror-test passage from pnas.org.', effect:'P3 → C2' },
-    { id:'L3',  t:'14:06', kind:'record',  text:'Recorded “Dolphins call each other by name” (nationalgeographic.com).', effect:'S-0002 · rights-managed' },
-    { id:'L2',  t:'14:02', kind:'record',  text:'Recorded “Cetacean intelligence” (Wikipedia).', effect:'S-0001 · 211 entities' },
-    { id:'L1',  t:'14:00', kind:'open',    text:'Created topic “What makes dolphins intelligent?”', effect:'t1' },
-  ];
-  _sn = 7; _logId = 100;
-
-  logStyle(k) {
-    const m = {
-      record:{dot:'#1E8A50',label:'RECORD',fg:'#1E8A50',bg:'#E7F6EC'},
-      hash:{dot:'#0B7267',label:'FIXITY',fg:'#0B7267',bg:'#E1F0ED'},
-      capture:{dot:'#C79A3A',label:'CAPTURE',fg:'#9A6B12',bg:'#FBF1DA'},
-      claim:{dot:'#6D5EF5',label:'CLAIM',fg:'#5B4BE6',bg:'#F1EFFE'},
-      conflict:{dot:'#B23A2E',label:'CONFLICT',fg:'#B23A2E',bg:'#FBE9E6'},
-      search:{dot:'#2A5CB8',label:'SEARCH',fg:'#2A5CB8',bg:'#E8EEF9'},
-      merge:{dot:'#5B4BE6',label:'MERGE',fg:'#5B4BE6',bg:'#F1EFFE'},
-      segment:{dot:'#5B4BE6',label:'SEGMENT',fg:'#5B4BE6',bg:'#F1EFFE'},
-      open:{dot:'#6E7787',label:'OPEN',fg:'#4E5765',bg:'#EEF0F3'},
-      chat:{dot:'#6D5EF5',label:'ASK',fg:'#5B4BE6',bg:'#F1EFFE'},
-      skip:{dot:'#9A9AA4',label:'SKIP',fg:'#6E6E78',bg:'#F0F0F4'},
+  constructor(props) {
+    super(props);
+    this.state = {
+      tab: 'chat', omni: '', chatInput: '', toast: null,
+      leftOpen: this._pref('eo_left', true), rightOpen: this._pref('eo_right', true),
+      statusOpen: false, monologueOpen: false, logMode: 'actions',
+      focusId: null, hideContra: false, tx: 40, ty: 30, scale: 1, camT: 'none',
+      viewerSn: null, viewerFocus: null,
+      searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
+      pasteOpen: false, pasteTitle: '', pasteBody: '',
+      modelOpen: false, topicMenu: null,
+      entitySel: null, entityMode: true, webGraphFor: null,
+      rev: 0,
     };
-    return m[k] || m.open;
-  }
-  addLog(kind, text, effect) { this._logId += 1; this.log.unshift({ id:'L'+this._logId, t:'now', kind, text, effect }); this.setState({}); }
-
-  addSource({ domain, title, kind, rights }) {
-    const n = this._sn++;
-    const reg = 'S-' + String(n).padStart(4,'0');
-    const id = 'S' + n;
-    const hx = () => Math.random().toString(16).slice(2,6);
-    const sha = hx() + '…' + hx();
-    const src = { id, reg, title, domain, kind, retrieved:'just now', sha, bytes:(100+Math.floor(Math.random()*900))+' KB', rights:rights||'unverified', rightsOk:false, ent:0, favCh:(domain[0]||'?').toUpperCase(), favBg:'#EEEBFE', favFg:'#6D5EF5', pending:true };
-    this.sources.push(src);
-    this.files.push({ id:'F'+n, src:id, sha, bytes:src.bytes });
-    return src;
-  }
-
-  ingest(v) {
-    const q = (v || '').trim(); if (!q) return;
-    const isUrl = /^https?:\/\//i.test(q) || (/^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(q) && !/\s/.test(q));
-    const isFile = /\.(pdf|docx?|txt|csv|md|html?|epub)$/i.test(q) && !/\s/.test(q);
-    if (isUrl) {
-      const domain = q.replace(/^https?:\/\//i,'').replace(/\/.*$/,'').replace(/^www\./,'');
-      const src = this.addSource({ domain, title:'Untitled — ' + domain, kind:'Web page' });
-      this.addLog('record', 'Read & recorded ' + domain + '.', src.reg + ' · sha-256 ✓ · pending grounding');
-      this.showToast('Recorded ' + domain + ' → ' + src.reg + '. Pending grounding.');
-      this.setState({ omni:'', tab:'register' });
-    } else if (isFile) {
-      const src = this.addSource({ domain:q, title:q, kind:'File' });
-      this.addLog('record', 'Imported file ' + q + '.', src.reg + ' · sha-256 ✓');
-      this.showToast('Imported ' + q + ' → ' + src.reg + '.');
-      this.setState({ omni:'', tab:'register' });
-    } else {
-      this.addLog('search', 'Web search “' + q + '”.', '3 results · 2 recorded');
-      const a = this.addSource({ domain:'nature.com', title:q + ' — review', kind:'Journal' });
-      const b = this.addSource({ domain:'sciencedirect.com', title:q + ' — study', kind:'Journal' });
-      this.addLog('record', 'Recorded result ' + a.reg + '.', a.domain);
-      this.addLog('record', 'Recorded result ' + b.reg + '.', b.domain);
-      this.showToast('Searched the web for “' + q + '” — recorded 2 sources.');
-      this.setState({ omni:'', tab:'register' });
+    this._segCache = {}; this._viewCache = null; this._entCache = null;
+    this._app = (typeof window !== 'undefined' && window.EO && window.EO.app) || null;
+    if (this._app) {
+      this._app.subscribe((kind) => this._onEngine(kind));
+      if (window.EO.audit && window.EO.audit.subscribe) window.EO.audit.subscribe(() => this._poke());
     }
+  }
+
+  _pref(k, dflt) { try { const v = localStorage.getItem(k); return v == null ? dflt : v === '1'; } catch { return dflt; } }
+  _setPref(k, v) { try { localStorage.setItem(k, v ? '1' : '0'); } catch {} }
+
+  _onEngine(kind) {
+    if (kind === 'sources') { this._entCache = null; this._viewCache = null; this._segCache = {}; }
+    if (kind === 'messages') { this._segCache = {}; }
+    if (kind === 'stream' || kind === 'messages') this._scrollChatSoon();
+    this._poke();
+  }
+  _poke() {
+    if (this._raf) return;
+    this._raf = requestAnimationFrame(() => { this._raf = null; this.setState({ rev: (this.state.rev || 0) + 1 }); });
+  }
+  _scrollChatSoon() {
+    setTimeout(() => { const el = this._chatEl; if (el) el.scrollTop = el.scrollHeight; }, 30);
+  }
+  setChatScroll(el) { this._chatEl = el; if (el) el.scrollTop = el.scrollHeight; }
+  setRoot(el) {
+    if (!el || this._rootWired) return;
+    this._rootWired = true;
+    el.addEventListener('dragover', (e) => { e.preventDefault(); if (!this.state.dragOver) this.setState({ dragOver: true }); });
+    el.addEventListener('dragleave', (e) => { if (e.target === el) this.setState({ dragOver: false }); });
+    el.addEventListener('drop', (e) => {
+      e.preventDefault(); this.setState({ dragOver: false });
+      const files = [...(e.dataTransfer && e.dataTransfer.files || [])];
+      files.forEach((f) => this._ingestFile(f));
+    });
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.multiple = true; inp.style.display = 'none';
+    inp.addEventListener('change', () => { [...inp.files].forEach((f) => this._ingestFile(f)); inp.value = ''; });
+    el.appendChild(inp); this._fileInput = inp;
+  }
+
+  // ── ingest ────────────────────────────────────────────────────────────────
+  showToast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._toastT);
+    this._toastT = setTimeout(() => this.setState({ toast: null }), 3200);
   }
   onOmniInput(e) { this.setState({ omni: e.target.value }); }
-  onOmniSubmit(e) { if (e && e.preventDefault) e.preventDefault(); this.ingest(this.state.omni); }
-  setLogTab(t) { this.setState({ logTab: t }); }
-
-  segment(id) {
-    const t = this.state.topics.find(x => x.id === id); if (!t) return;
-    const base = this.state.topics.filter(x => x.parentId !== id);
-    const idx = base.findIndex(x => x.id === id);
-    const kids = [
-      { id:id+'-a', parentId:id, title:'Brain & self-recognition', meta:'2 claims · 4 passages' },
-      { id:id+'-b', parentId:id, title:'Communication & culture', meta:'2 claims · 5 passages' },
-    ];
-    base.splice(idx+1, 0, ...kids);
-    this.addLog('segment', 'Segmented “' + t.title + '” into 2 sub-topics.', id+'-a · '+id+'-b');
-    this.setState({ topics: base, topicMenu: null });
-    this.showToast('Segmented into 2 sub-topics — passages partitioned by theme.');
-  }
-  startMerge(id) {
-    const t = this.state.topics.find(x => x.id === id);
-    this.setState({ mergeFrom: id, topicMenu: null });
-    this.showToast('Select another topic to merge “' + (t ? t.title : '') + '” into.');
-  }
-  mergeInto(target) {
-    const from = this.state.mergeFrom;
-    if (!from || from === target) { this.setState({ mergeFrom: null }); return; }
-    const tf = this.state.topics.find(x => x.id === from), tt = this.state.topics.find(x => x.id === target);
-    const topics = this.state.topics.filter(x => x.id !== from && x.parentId !== from);
-    this.addLog('merge', 'Merged “' + (tf?tf.title:'') + '” into “' + (tt?tt.title:'') + '”.', 'sources + passages combined');
-    this.setState({ topics, mergeFrom: null });
-    this.showToast('Merged “' + (tf?tf.title:'') + '” into “' + (tt?tt.title:'') + '”.');
-  }
-  topicRowClick(id) {
-    if (this.state.mergeFrom) { this.mergeInto(id); return; }
-    if (id === 't1') this.setState({ tab:'graph' });
-    else { const t = this.state.topics.find(x => x.id === id); this.showToast('“' + (t?t.title:'') + '” — this prototype focuses on the dolphins topic.'); }
-  }
-
-  stStyle(s) {
-    if (s === 'Supported') return { fg:'#1E8A50', bg:'#E7F6EC', bd:'#C5E9D2', dot:'#1E8A50' };
-    if (s === 'Contested') return { fg:'#A9700A', bg:'#FBF1DA', bd:'#EEDCA9', dot:'#D69A2A' };
-    return { fg:'#6E6E78', bg:'#F0F0F4', bd:'#E2E2E8', dot:'#9A9AA4' };
-  }
-
-  split(t, m) {
-    const i = m ? t.indexOf(m) : -1;
-    if (i >= 0) return { pre:t.slice(0,i), mark:t.slice(i,i+m.length), post:t.slice(i+m.length), has:true };
-    return { pre:t, mark:'', post:'', has:false };
-  }
-
-  spacing(arr, gap) {
-    arr.sort((a,b) => a.y - b.y);
-    for (let i=1;i<arr.length;i++) if (arr[i].y < arr[i-1].y + arr[i-1].h + gap) arr[i].y = arr[i-1].y + arr[i-1].h + gap;
-  }
-
-  buildLayout() {
-    const LX = { memo:28, claim:316, passage:606, source:918, file:1170 };
-    const NW = { memo:228, claim:208, passage:244, source:192, file:146 };
-    const NH = { memo:92, claim:84, passage:108, source:92, file:62 };
-    const nodes = {};
-    const pStep = 116, pBase = 20;
-    this.passageOrder.forEach((pid,i) => {
-      const p = this.passages.find(x => x.id === pid);
-      const sp = this.split(p.text, p.mark);
-      const s = this.sources.find(x => x.id === p.src);
-      nodes[pid] = { id:pid, type:'passage', x:LX.passage, y:pBase+i*pStep, w:NW.passage, h:NH.passage,
-        pincite:p.pincite, status:p.status, pre:sp.pre, mark:sp.mark, post:sp.post, has:sp.has,
-        textFull:p.text, before:p.before, after:p.after, srcId:p.src, claimId:p.claim, srcReg:s.reg, srcDomain:s.domain };
-    });
-    const cy = id => nodes[id].y + nodes[id].h/2;
-    this.claims.forEach(c => {
-      const ps = this.edges.filter(e => e.f === c.id && !e.lateral).map(e => e.t);
-      const m = ps.reduce((a,b) => a+cy(b), 0)/ps.length;
-      nodes[c.id] = { id:c.id, type:'claim', x:LX.claim, y:m-NH.claim/2, w:NW.claim, h:NH.claim, text:c.text, status:c.status, groundCount:ps.length };
-    });
-    this.spacing(this.claims.map(c => nodes[c.id]), 20);
-    this.sources.forEach(s => {
-      const ps = this.edges.filter(e => e.t === s.id && e.k === 'extract').map(e => e.f);
-      const m = ps.reduce((a,b) => a+cy(b), 0)/ps.length;
-      nodes[s.id] = { id:s.id, type:'source', x:LX.source, y:m-NH.source/2, w:NW.source, h:NH.source, ...s };
-    });
-    this.spacing(this.sources.map(s => nodes[s.id]), 16);
-    this.files.forEach(f => {
-      const s = nodes[f.src];
-      nodes[f.id] = { id:f.id, type:'file', x:LX.file, y:s.y+(s.h-NH.file)/2, w:NW.file, h:NH.file, ...f };
-    });
-    this.spacing(this.files.map(f => nodes[f.id]), 14);
-    const cms = this.claims.map(c => cy(c.id));
-    const mm = cms.reduce((a,b) => a+b, 0)/cms.length;
-    nodes['M1'] = { id:'M1', type:'memo', x:LX.memo, y:mm-NH.memo/2, w:NW.memo, h:NH.memo, title:this.memoNode.title };
-    let maxB = 0; Object.values(nodes).forEach(n => { maxB = Math.max(maxB, n.y+n.h); });
-    this.layout = { nodes, W: LX.file+NW.file+40, H: maxB+30 };
-    this.edgeGeom = this.edges.map(e => {
-      const a = nodes[e.f], b = nodes[e.t];
-      let d;
-      if (e.lateral) {
-        const ax=a.x+a.w, ay=a.y+a.h/2, bx=b.x+b.w, by=b.y+b.h/2, bulge=Math.max(ax,bx)+64;
-        d = `M ${ax} ${ay} C ${bulge} ${ay}, ${bulge} ${by}, ${bx} ${by}`;
-      } else {
-        const ax=a.x+a.w, ay=a.y+a.h/2, bx=b.x, by=b.y+b.h/2, dx=(bx-ax)*0.45;
-        d = `M ${ax} ${ay} C ${ax+dx} ${ay}, ${bx-dx} ${by}, ${bx} ${by}`;
-      }
-      return { ...e, d };
-    });
-  }
-
-  reach(start, dir) {
-    const res = new Set(), st = this.edges.filter(e => !e.lateral), q = [start];
-    while (q.length) {
-      const c = q.pop();
-      st.forEach(e => {
-        if (dir === 'down' && e.f === c && !res.has(e.t)) { res.add(e.t); q.push(e.t); }
-        if (dir === 'up' && e.t === c && !res.has(e.f)) { res.add(e.f); q.push(e.f); }
-      });
+  onOmniSubmit(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const q = String(this.state.omni || '').trim();
+    if (!q || !this._app) return;
+    const urlish = /^https?:\/\//.test(q) || (/^[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(q) && !q.includes(' '));
+    if (q.length > 400) { this.setState({ pasteOpen: true, pasteBody: q, omni: '' }); return; }
+    if (urlish) {
+      this.setState({ omni: '' });
+      this._app.ingestUrl(q).then((s) => this.showToast(`Recorded ${s.reg} — ${s.title}`))
+        .catch((err) => this.showToast(`Couldn't read that page: ${String(err && err.message || err).slice(0, 90)}`));
+    } else {
+      this.runSearch(q);
+      this.setState({ omni: '' });
     }
-    return res;
+  }
+  runSearch(q) {
+    this.setState({ searchOpen: true, searchQ: q, searchBusy: true, searchResults: null });
+    this._app.search(q, { k: 8 }).then((items) => this.setState({ searchBusy: false, searchResults: items }))
+      .catch(() => this.setState({ searchBusy: false, searchResults: [] }));
+  }
+  recordHit(item) {
+    const key = item.url || item.title;
+    this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'busy' } });
+    this._app.recordHit(item, this.state.searchQ)
+      .then((s) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'done' } }); this.showToast(`Recorded ${s.reg} — ${s.title}`); })
+      .catch((err) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: null } }); this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`); });
+  }
+  _ingestFile(f) {
+    if (!this._app) return;
+    this._app.ingestFile(f).then((s) => this.showToast(`Recorded ${s.reg} — ${s.title}`))
+      .catch((err) => this.showToast(`Couldn't read ${f.name}: ${String(err && err.message || err).slice(0, 90)}`));
+  }
+  pickFile() { if (this._fileInput) this._fileInput.click(); }
+  openPaste() { this.setState({ pasteOpen: true, pasteTitle: '', pasteBody: '' }); }
+  closePaste() { this.setState({ pasteOpen: false }); }
+  onPasteTitle(e) { this.setState({ pasteTitle: e.target.value }); }
+  onPasteBody(e) { this.setState({ pasteBody: e.target.value }); }
+  submitPaste() {
+    const body = String(this.state.pasteBody || '').trim();
+    if (!body) return;
+    try {
+      const s = this._app.ingestText(body, String(this.state.pasteTitle || '').trim() || 'Pasted text');
+      this.showToast(`Recorded ${s.reg} — ${s.title}`);
+      this.setState({ pasteOpen: false, pasteTitle: '', pasteBody: '' });
+    } catch (err) { this.showToast(String(err && err.message || err)); }
   }
 
-  chainSet() {
-    const S = this.state;
-    if (S.contra) {
-      const set = new Set();
-      this.edges.filter(e => e.lateral || e.k === 'against').forEach(e => { set.add(e.f); set.add(e.t); });
-      return set;
-    }
-    if (!S.focusId) return null;
-    const set = new Set([S.focusId]);
-    if (S.trace !== 'down') this.reach(S.focusId,'up').forEach(x => set.add(x));
-    if (S.trace !== 'up') this.reach(S.focusId,'down').forEach(x => set.add(x));
-    this.edges.filter(e => e.lateral && (e.f === S.focusId || e.t === S.focusId)).forEach(e => { set.add(e.f); set.add(e.t); });
-    return set;
-  }
-
-  edgeStyle(e, set, dim) {
-    const S = this.state;
-    const isLat = !!e.lateral, isAg = e.k === 'against', neg = isAg || e.k === 'contradicts', pos = e.k === 'corroborates';
-    let active = null;
-    if (S.contra) active = isLat || isAg;
-    else if (S.focusId) active = isLat ? (e.f === S.focusId || e.t === S.focusId) : (set.has(e.f) && set.has(e.t));
-    if (active === false) return { stroke: neg?'#E6CBC6':pos?'#D7E6DD':'#E0E0E6', sw:1.4, dash:(isLat||isAg)?'2 5':'0', op:0.3, marker:isLat?'':(isAg?'url(#arrDimR)':'url(#arrDim)') };
-    if (active === true) {
-      if (neg) return { stroke:'#B23A2E', sw:2.4, dash:isLat?'2 5':'5 4', op:1, marker:isLat?'':'url(#arrRed)' };
-      if (pos) return { stroke:'#1E8A50', sw:2.4, dash:'2 5', op:1, marker:'' };
-      return { stroke:'#6D5EF5', sw:2.3, dash:'0', op:1, marker:'url(#arrVio)' };
-    }
-    if (neg) return { stroke:'#D98B80', sw:2, dash:isLat?'2 5':'5 4', op:.9, marker:isLat?'':'url(#arrDimR)' };
-    if (pos) return { stroke:'#7FB894', sw:2, dash:'2 5', op:.9, marker:'' };
-    return { stroke:'#CBCBD4', sw:1.6, dash:'0', op:.9, marker:'url(#arrDim)' };
-  }
-
-  setViewport(el) { if (el) this.viewport = el; }
-  stop(e) { e.stopPropagation(); }
-
-  pushTrail(id) {
-    const t = this.state.trail.slice();
-    if (t[t.length-1] !== id) t.push(id);
-    return t.slice(-6);
-  }
-
-  centerOn(id) {
-    const n = this.layout.nodes[id]; const vp = this.viewport; if (!vp) return;
-    const s = this.state.scale;
-    this.setState({ tx: (vp.clientWidth-340)/2 - (n.x+n.w/2)*s, ty: vp.clientHeight/2 - (n.y+n.h/2)*s });
-  }
-  focusNode(id) {
-    this._fitted = true;
-    const s = Math.max(this.state.scale, 0.9);
-    this.setState({ focusId:id, tab:'graph', dragging:false, scale:s, booted:true, trail:this.pushTrail(id) }, () => this.centerOn(id));
-  }
-  clearFocus() { this.setState({ focusId:null, contra:false, trail:[] }); }
-
-  startPan(e) {
-    this._pan = { x:e.clientX, y:e.clientY, tx:this.state.tx, ty:this.state.ty };
-    this.setState({ dragging:true });
-    window.addEventListener('pointermove', this._move);
-    window.addEventListener('pointerup', this._up);
-  }
-  _move = (e) => { if (!this._pan) return; this.setState({ tx:this._pan.tx+(e.clientX-this._pan.x), ty:this._pan.ty+(e.clientY-this._pan.y) }); };
-  _up = () => { this._pan = null; this.setState({ dragging:false }); window.removeEventListener('pointermove', this._move); window.removeEventListener('pointerup', this._up); };
-
-  zoomAt(f, cx, cy) {
-    const s0 = this.state.scale, s1 = Math.max(0.4, Math.min(1.7, s0*f)), k = s1/s0;
-    this.setState({ scale:s1, tx: cx-(cx-this.state.tx)*k, ty: cy-(cy-this.state.ty)*k });
-  }
-  zoomIn() { const v=this.viewport; this.zoomAt(1.18, v?v.clientWidth/2:400, v?v.clientHeight/2:300); }
-  zoomOut() { const v=this.viewport; this.zoomAt(1/1.18, v?v.clientWidth/2:400, v?v.clientHeight/2:300); }
-  onWheel(e) {
-    e.preventDefault();
-    const v = this.viewport; if (!v) return;
-    const r = v.getBoundingClientRect();
-    this.zoomAt(e.deltaY < 0 ? 1.09 : 1/1.09, e.clientX-r.left, e.clientY-r.top);
-  }
-  fit() {
-    const v = this.viewport; if (!v || !this.layout) return;
-    const s = Math.max(0.4, Math.min(1.2, Math.min((v.clientWidth-56)/this.layout.W, (v.clientHeight-56)/this.layout.H)));
-    this.setState({ scale:s, tx:(v.clientWidth-this.layout.W*s)/2, ty:(v.clientHeight-this.layout.H*s)/2 });
-  }
-
-  showToast(m) { this.setState({ toast:m }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast:null }), 2800); }
-  toggleStatus() { this.setState(s => ({ statusOpen:!s.statusOpen })); }
-  openMonologue() { this.setState({ monologueOpen:true }); }
-  closeMonologue() { this.setState({ monologueOpen:false }); }
-  setTab(t) { this.setState({ tab:t }, () => { if (t === 'graph' && !this._fitted && this.viewport) { this.fit(); this._fitted = true; setTimeout(() => this.setState({ booted:true }), 60); } }); }
-  setTrace(t) { this.setState({ trace:t }); }
-  toggleContra() { this.setState(s => ({ contra:!s.contra, focusId: s.contra ? s.focusId : null })); }
-  newTopic() { this.showToast('New topic — read or import a source to start building its provenance graph.'); }
-  toolToast() { this.showToast('Prototype focuses on the “dolphins” topic — this tool is stubbed.'); }
-
-  openViewer(id) { const s = this.sources.find(x => x.id === id); if (s) this.addLog('open', 'Opened source document ' + s.reg + '.', s.domain); this.setState({ viewerOpen: id }); }
-  closeViewer() { this.setState({ viewerOpen: null }); }
-  traceFromViewer(id) { this.setState({ viewerOpen: null }); this.focusNode(id); }
-
+  // ── chat ─────────────────────────────────────────────────────────────────
   onChatInput(e) { this.setState({ chatInput: e.target.value }); }
   onChatKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendChat(); } }
-  setChatScroll(el) { if (el) this.chatScroll = el; }
   sendChat() {
-    const v = (this.state.chatInput || '').trim();
-    if (!v) return;
-    this.addLog('chat', 'Asked: “' + v + '”', 'answered from the record');
-    const msgs = this.state.messages.concat([
-      { role:'user', text:v },
-      { role:'agent', text:`I only answer from what you've recorded. I searched your six sources — nothing new was recorded, so nothing new enters the answer. Here's the grounded evidence closest to your question.`, cites:['C1','C4'], footer:true },
-    ]);
-    this.setState({ messages: msgs, chatInput: '' }, () => { if (this.chatScroll) this.chatScroll.scrollTop = this.chatScroll.scrollHeight; });
+    const q = String(this.state.chatInput || '').trim();
+    if (!q || !this._app || this._generating()) return;
+    this.setState({ chatInput: '' });
+    this._app.ask(q).catch(() => {});
+  }
+  _generating() {
+    const t = this._app && this._app.topic();
+    return !!(t && t.messages.length && t.messages[t.messages.length - 1].pending);
   }
 
-  componentWillUnmount() { window.removeEventListener('pointermove', this._move); window.removeEventListener('pointerup', this._up); }
+  // ── navigation ───────────────────────────────────────────────────────────
+  setTab(tab) { this.setState({ tab, topicMenu: null, modelOpen: false }); }
+  toggleLeft() { const v = !this.state.leftOpen; this._setPref('eo_left', v); this.setState({ leftOpen: v }); }
+  toggleRight() { const v = !this.state.rightOpen; this._setPref('eo_right', v); this.setState({ rightOpen: v }); }
+  toggleStatus() { this.setState({ statusOpen: !this.state.statusOpen }); }
+  openMonologue() { this.setState({ monologueOpen: true, statusOpen: false }); }
+  closeMonologue() { this.setState({ monologueOpen: false }); }
+  toggleModel() { this.setState({ modelOpen: !this.state.modelOpen }); }
+  openViewer(sn, focusText) {
+    this._viewCache = null;
+    this.setState({ viewerSn: sn, viewerFocus: focusText || null });
+  }
+  closeViewer() { this.setState({ viewerSn: null, viewerFocus: null }); }
+  setViewerBody(el) {
+    if (!el || !this.state.viewerFocus) return;
+    const probe = this.state.viewerFocus.slice(0, 50).toLowerCase();
+    setTimeout(() => {
+      const inner = el.firstElementChild;
+      for (const p of (inner ? inner.children : [])) {
+        if ((p.textContent || '').toLowerCase().includes(probe)) { p.scrollIntoView({ block: 'center' }); break; }
+      }
+    }, 60);
+  }
+  closeSearch() { this.setState({ searchOpen: false }); }
+  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, viewerSn: null, viewerFocus: null, tab: this.state.tab === 'graph' ? 'chat' : this.state.tab, focusId: null }); this._setPref('eo_right', true); }
+  backToEntities() { this.setState({ entitySel: null, focusId: null }); }
+  toggleEntityMode() { this._segCache = {}; this._viewCache = null; this.setState({ entityMode: !this.state.entityMode }); }
+  openWebGraph(docId, entId) { this.setState({ webGraphFor: { docId, entId } }); }
+  closeWebGraph() { if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; } this.setState({ webGraphFor: null }); }
+  setWebGraphEl(el) {
+    if (!el || !this.state.webGraphFor || this._tgEl === el) return;
+    this._tgEl = el;
+    const { docId, entId } = this.state.webGraphFor;
+    const data = this._app.tieredData(docId, entId);
+    if (this._tg) { try { this._tg.destroy(); } catch {} }
+    this._tg = window.EO.mountTieredGraph(el, {
+      nodes: data.nodes, edges: data.edges,
+      onOpen: (node) => { if (node && node.ref) { this.closeWebGraph(); this.openEntity(node.ref.docId, node.ref.entId); } },
+      countsLabel: `${data.nodes.length} nodes · ${data.edges.length} edges`,
+    });
+  }
 
-  chip(id, kind) {
-    const n = this.layout.nodes[id];
-    let label='', sub='', color='#5A5A64', bg='#F2F2F6';
-    if (n.type === 'memo') { label='MEMO'; sub=n.title; color='#6D5EF5'; bg='#EEEBFE'; }
-    else if (n.type === 'claim') { const st=this.stStyle(n.status); label=n.id; sub=n.text; color=st.fg; bg=st.bg; }
-    else if (n.type === 'passage') { label=n.id; sub=n.pincite+' · '+n.srcReg; color='#9A6B12'; bg='#FBF1DA'; }
-    else if (n.type === 'source') { label=n.reg; sub=n.domain; color='#4E5765'; bg='#EEF0F3'; }
-    else { label=n.id; sub='verified · '+n.bytes; color='#1E8A50'; bg='#E7F6EC'; }
-    const kl = { cite:'cites', ground:'grounded in', against:'contradicted by', extract:'from source', fixity:'fixity file', contradicts:'contradicts', corroborates:'corroborates' }[kind] || '';
-    const relFg = (kind==='against'||kind==='contradicts') ? '#B23A2E' : kind==='corroborates' ? '#1E8A50' : '#8A8A95';
-    return { id, label, sub, color, bg, kindLabel:kl, relFg,
-      edgeBd: (kind==='against'||kind==='contradicts')?'#F2D3CD':'#C9E4D2', edgeBgSoft:(kind==='against'||kind==='contradicts')?'#FCF1EF':'#F1F8F3',
-      onClick: () => this.focusNode(id) };
+  // ── graph camera + focus ─────────────────────────────────────────────────
+  setViewport(el) { this._vp = el; }
+  startPan(e) {
+    if (!this._vp) return;
+    const sx = e.clientX, sy = e.clientY, ox = this.state.tx, oy = this.state.ty;
+    this._panning = false;
+    const move = (ev) => {
+      if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 3) this._panning = true;
+      this.setState({ tx: ox + ev.clientX - sx, ty: oy + ev.clientY - sy, camT: 'none' });
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+  stopPan(e) { if (e && e.stopPropagation) e.stopPropagation(); }
+  onWheel(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const k = Math.min(2.2, Math.max(.35, this.state.scale * (e.deltaY < 0 ? 1.09 : 0.92)));
+    this.setState({ scale: k, camT: 'none' });
+  }
+  zoomIn() { this.setState({ scale: Math.min(2.2, this.state.scale * 1.15), camT: 'transform .18s ease' }); }
+  zoomOut() { this.setState({ scale: Math.max(.35, this.state.scale * .87), camT: 'transform .18s ease' }); }
+  fit() { this.setState({ tx: 40, ty: 30, scale: this._fitScale || 1, camT: 'transform .22s ease' }); }
+  focusNode(id) { if (!this._panning) this.setState({ focusId: this.state.focusId === id ? null : id, rightOpen: true }); }
+  clearFocus() { this.setState({ focusId: null, hideContra: false }); }
+  toggleContra() { this.setState({ hideContra: !this.state.hideContra }); }
+
+  // ── topics ───────────────────────────────────────────────────────────────
+  goMemo() { this.setTab('memo'); }
+  goGraph() { this.setTab('graph'); }
+  onMemoInput(e) { this._app.setMemo(e.target.value); }
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+  _initials(label) {
+    const ws = String(label || '?').split(/\s+/).filter(Boolean);
+    return (ws.length > 1 ? ws[0][0] + ws[1][0] : String(label || '?').slice(0, 2)).toUpperCase();
+  }
+  _ago(iso) {
+    const d = Date.now() - new Date(iso).getTime();
+    if (d < 60e3) return 'just now';
+    if (d < 3600e3) return Math.round(d / 60e3) + 'm ago';
+    if (d < 86400e3) return Math.round(d / 3600e3) + 'h ago';
+    return new Date(iso).toISOString().slice(0, 10);
+  }
+  _bytes(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'; }
+  _stChip(status) {
+    if (status === 'Contested') return { fg: '#B23A2E', bg: '#FBE9E6', bd: '#F2D3CD' };
+    if (status === 'Uncited') return { fg: '#9A6B12', bg: '#FBF1DA', bd: '#EEDCA9' };
+    return { fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9' };
+  }
+  _rights(src) {
+    const r = String(src.rights || '');
+    const local = src.kind !== 'web';
+    return { label: local ? 'local' : (/CC|public/i.test(r) ? r : 'verify'), fg: local || /CC|public/i.test(r) ? '#1E8A50' : '#9A6B12', bg: local || /CC|public/i.test(r) ? '#E7F6EC' : '#FBF1DA' };
+  }
+  _segsFor(m) {
+    const c = this._segCache[m.id];
+    if (c && c.len === (m.text || '').length) return c.paras;
+    const paras = this._app.answerSegments(m, { entities: this.state.entityMode }).map((p) => ({
+      segs: p.segs.map((sg) => sg.t === 'text'
+        ? { isText: true, s: sg.s }
+        : sg.t === 'ent'
+          ? { isEnt: true, s: sg.s, open: () => this.openEntity(sg.docId, sg.entId) }
+          : { isCite: true, label: '[' + (sg.reg || 's' + sg.idx) + ']', quote: sg.quote || '', open: () => this.openViewer(sg.sn, sg.quote) }),
+    }));
+    this._segCache[m.id] = { len: (m.text || '').length, paras };
+    return paras;
+  }
+
+  // ── the graph layout (honest, dynamic) ───────────────────────────────────
+  _layout(prov) {
+    const LX = [40, 330, 640, 950, 1230];
+    const W = [240, 260, 260, 230, 190];
+    const H = { memo: 100, claim: 96, passage: 110, source: 88, file: 70 };
+    const GAP = 22;
+    const pos = {};
+    const stack = (list, col, h) => {
+      let y = 40;
+      for (const n of list) { pos[n._nid] = { x: LX[col], y, w: W[col], h }; y += h + GAP; }
+      return y;
+    };
+    prov.nodes.memo._nid = 'M1';
+    prov.nodes.claims.forEach((c) => c._nid = c.id);
+    prov.nodes.passages.forEach((p) => p._nid = p.id);
+    prov.nodes.sources.forEach((s) => s._nid = s.sn);
+    prov.nodes.files.forEach((f) => f._nid = f.id);
+    const hMemo = stack([prov.nodes.memo], 0, H.memo);
+    const hCl = stack(prov.nodes.claims, 1, H.claim);
+    const hPa = stack(prov.nodes.passages, 2, H.passage);
+    const hSo = stack(prov.nodes.sources, 3, H.source);
+    const hFi = stack(prov.nodes.files, 4, H.file);
+    const canvasH = Math.max(hMemo, hCl, hPa, hSo, hFi, 420) + 40;
+    pos.M1.y = Math.max(40, canvasH / 2 - H.memo / 2 - 20);
+    const canvasW = LX[4] + W[4] + 60;
+    this._fitScale = Math.min(1, (this._vp ? this._vp.clientWidth - 80 : 1200) / canvasW);
+    return { pos, canvasW, canvasH };
+  }
+  _edgePath(a, b) {
+    const x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2;
+    const dx = Math.max(40, (x2 - x1) / 2);
+    return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2 - 7} ${y2}`;
   }
 
   renderVals() {
-    if (!this.layout) this.buildLayout();
-    const S = this.state;
-    const set = this.chainSet();
-    const dim = !!(S.focusId || S.contra);
-    const N = this.layout.nodes;
-    const inChain = id => dim ? (set ? set.has(id) : false) : true;
-    const nStyle = id => {
-      const foc = id === S.focusId, ch = inChain(id);
-      return { op: ch?1:0.22, bd: foc?'#6D5EF5':'#E6E6EC',
-        shadow: foc ? '0 0 0 2px #6D5EF5, 0 12px 26px rgba(93,75,230,.20)' : (ch ? '0 1px 2px rgba(20,20,30,.05)' : 'none') };
+    try { return this._vals(); }
+    catch (err) {
+      return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
+        status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
+        statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true,
+        chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
+        statusPeek: [], toast: this.state.toast, entListShow: false };
+    }
+  }
+
+  _vals() {
+    const st = this.state;
+    const app = this._app;
+    if (!app) {
+      return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
+        status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
+        statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true,
+        chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
+        statusPeek: [], toast: st.toast, entListShow: false };
+    }
+    const topic = app.topic();
+    const sources = app.topicSources();
+    const findings = app.findings();
+    const generating = this._generating();
+
+    // topics + sources rails
+    const topics = app.state.topics.map((t) => ({
+      title: t.title, active: t.id === app.state.activeTopicId,
+      bg: t.id === app.state.activeTopicId ? '#F1EFFE' : 'transparent',
+      border: t.id === app.state.activeTopicId ? '#E3DEFC' : 'transparent',
+      iconColor: t.id === app.state.activeTopicId ? '#6D5EF5' : '#B4B4BE',
+      titleColor: t.id === app.state.activeTopicId ? '#3A3A44' : '#5A5A64',
+      meta: `${t.sourceSns.length} source${t.sourceSns.length === 1 ? '' : 's'} · ${t.messages.filter(m => m.role === 'assistant' && !m.pending).length} answers`,
+      menuOpen: st.topicMenu === t.id,
+      rowClick: () => { app.setTopic(t.id); this.setState({ topicMenu: null }); },
+      menuClick: () => this.setState({ topicMenu: st.topicMenu === t.id ? null : t.id }),
+      doRename: () => { const v = prompt('Rename topic', t.title); if (v) app.topicRename(t.id, v); this.setState({ topicMenu: null }); },
+      doDelete: () => { if (confirm(`Delete "${t.title}"? Its sources stay in the record.`)) app.topicDelete(t.id); this.setState({ topicMenu: null }); },
+    }));
+    const FAV = [['#EEF0F3', '#4E5765'], ['#EEEBFE', '#5B4BE6'], ['#E7F6EC', '#1E8A50'], ['#FBF1DA', '#9A6B12'], ['#FBE9E6', '#B23A2E'], ['#E8F1FB', '#2C5C9E']];
+    const leftSources = sources.map((s, i) => ({
+      title: s.title, reg: s.reg, domain: s.domain,
+      favCh: (s.domain || s.title || '?')[0].toUpperCase(), favBg: FAV[i % FAV.length][0], favFg: FAV[i % FAV.length][1],
+      open: () => this.openViewer(s.sn),
+    }));
+
+    // model
+    const m = app.state.model;
+    const modelDot = m.state === 'ready' ? '#59C08A' : m.state === 'loading' ? '#C79A3A' : m.state === 'error' ? '#B23A2E' : '#B4B4BE';
+    const modelChip = m.state === 'loading' ? `${m.backend} · ${Math.round((m.progress || 0) * 100)}%`
+      : m.state === 'ready' ? m.backend : (m.backend || app.backendPref());
+    const BACKENDS = [
+      ['echo', 'Echo (instant, offline)', 'No download. Answers by quoting the retrieved passages verbatim — the grounded skeleton with no phrasing.'],
+      ['wllama', 'SmolLM2 · CPU', 'Small and universal — runs on WASM everywhere, ~90 MB download, cached after the first load.'],
+      ['webllm', 'Llama 3.2 · WebGPU', 'The full local talker — 1–2 GB download, needs WebGPU (Chrome/Edge). Picked adaptively for your GPU.'],
+    ];
+    const pref = app.backendPref();
+    const backends = BACKENDS.map(([id, label, desc]) => ({
+      label, desc, bg: pref === id ? '#F7F7FA' : 'transparent',
+      ringColor: pref === id ? '#6D5EF5' : '#D4D4DC', dotColor: pref === id ? '#6D5EF5' : 'transparent',
+      pick: () => { app.setBackend(id); this._poke(); },
+    }));
+
+    // status widget
+    const busy = app.state.busy;
+    const lastLog = app.state.log[app.state.log.length - 1];
+    const status = {
+      title: busy ? busy.label : m.state === 'loading' ? `Loading ${m.backend}… ${Math.round((m.progress || 0) * 100)}%` : generating ? 'Phrasing from the record…' : 'Idle · monitoring',
+      sub: lastLog ? lastLog.text : 'Nothing recorded yet',
+      chip: m.state === 'ready' ? m.backend : `${sources.length} src`,
+      summary: `${findings.stats.claims} claims · ${findings.stats.contradictions} conflicts`,
     };
-    const mk = (n, extra) => { const st = nStyle(n.id); return { ...n, left:n.x, top:n.y, w:n.w, op:st.op, bd:st.bd, shadow:st.shadow, focus:() => this.focusNode(n.id), ...extra }; };
+    const statusColor = m.state === 'error' ? '#B23A2E' : (busy || generating || m.state === 'loading') ? '#C79A3A' : '#59C08A';
+    const LOGC = { record: '#59C08A', hash: '#59C08A', claim: '#6D5EF5', conflict: '#B23A2E', search: '#C79A3A', open: '#8A8A95', skip: '#B4B4BE' };
+    const statusPeek = app.state.log.slice(-4).reverse().map((l) => ({
+      text: l.text, effect: l.effect, hasEffect: !!l.effect, color: LOGC[l.kind] || '#8A8A95', effectColor: '#8A8A95',
+    }));
 
-    const memoNodes = [ mk(N['M1'], { citeCount:this.edges.filter(e=>e.f==='M1').length }) ];
-    const claimNodes = this.claims.map(c => { const st=this.stStyle(c.status); return mk(N[c.id], { accent:st.dot, stFg:st.fg, stBg:st.bg, stBd:st.bd, stLabel:c.status }); });
-    const passageNodes = this.passageOrder.map(pid => mk(N[pid], {}));
-    const sourceNodes = this.sources.map(s => mk(N[s.id], { rightsTag: s.rightsOk?'clear':'©', rightsFg: s.rightsOk?'#1E8A50':'#A9700A', rightsBg: s.rightsOk?'#E7F6EC':'#FBF1DA' }));
-    const fileNodes = this.files.map(f => mk(N[f.id], {}));
-    const edgePaths = this.edgeGeom.map(e => ({ d:e.d, ...this.edgeStyle(e, set, dim) }));
+    // tabs
+    const tabDefs = [['chat', 'Chat', null], ['graph', 'Graph', null], ['evidence', 'Findings', findings.stats.claims || null], ['register', 'Sources', sources.length || null], ['memo', 'Memo', (topic && topic.memo) ? 1 : null]];
+    const tabs = tabDefs.map(([id, label, count]) => ({
+      label, count: String(count || ''), hasCount: count != null,
+      fg: st.tab === id ? '#1B1B22' : '#8A8A95', weight: st.tab === id ? 650 : 500,
+      ul: st.tab === id ? '#6D5EF5' : 'transparent',
+      countFg: st.tab === id ? '#5B4BE6' : '#9A9AA4', countBg: st.tab === id ? '#F1EFFE' : '#F2F2F6',
+      select: () => this.setTab(id),
+    }));
+    const contradictions = findings.stats.contradictions;
+    const hasFlagLine = findings.stats.claims > 0;
+    const flagLine = contradictions > 0 ? `${contradictions} contradiction${contradictions === 1 ? '' : 's'}` : 'no conflicts on record';
+    const [flagFg, flagBg, flagBd] = contradictions > 0 ? ['#B23A2E', '#FBE9E6', '#F2D3CD'] : ['#1E8A50', '#E7F6EC', '#CFEBD9'];
 
-    const traceOpts = [['up','Up'],['both','Both'],['down','Down']].map(([id,label]) => {
-      const on = S.trace === id;
-      return { label, select:() => this.setTrace(id), fg: on?'#3A3A44':'#8A8A95', bg: on?'#fff':'transparent', shadow: on?'0 1px 2px rgba(20,20,30,.1)':'none' };
+    // chat messages
+    const msgs = (topic ? topic.messages : []);
+    const messages = msgs.map((mm) => {
+      if (mm.role === 'user') return { isUser: true, isAgent: false, text: mm.text };
+      const done = !mm.pending;
+      const rich = done && mm.cites && mm.text;
+      const seen = new Set();
+      const cites = (mm.cites || []).filter((c) => c.sn && !seen.has(c.sn) && seen.add(c.sn)).map((c) => {
+        const contested = (mm.verdicts || []).some((v) => /contradict/i.test(v.verdict));
+        const chip = contested ? this._stChip('Contested') : this._stChip('Supported');
+        return { label: c.reg, status: contested ? 'Contested' : 'Supported', quote: c.text, fg: chip.fg, bg: chip.bg, bd: chip.bd, open: () => this.openViewer(c.sn, c.text) };
+      });
+      const flagChips = (mm.flags || []).filter((f) => f.id !== 'low-coverage' || !cites.length).map((f) => ({
+        label: f.id, fg: /contradic|unbound/.test(f.id) ? '#B23A2E' : '#9A6B12',
+        bg: /contradic|unbound/.test(f.id) ? '#FBE9E6' : '#FBF1DA', bd: /contradic|unbound/.test(f.id) ? '#F2D3CD' : '#EEDCA9',
+      }));
+      return {
+        isUser: false, isAgent: true, text: mm.text, pending: !!mm.pending,
+        pendingLabel: mm.text ? '● phrasing' : '● reading the record',
+        plain: !rich, rich: !!rich, paras: rich ? this._segsFor(mm) : [],
+        showBadge: done && !!mm.route && mm.route !== 'empty',
+        badge: mm.grounded ? 'grounded' : (mm.route === 'error' ? 'error' : mm.unbound ? 'unbound' : mm.route || ''),
+        badgeFg: mm.grounded ? '#1E8A50' : '#9A6B12', badgeBg: mm.grounded ? '#E7F6EC' : '#FBF1DA',
+        hasCites: done && cites.length > 0, cites,
+        hasFlags: done && flagChips.length > 0, flagChips,
+        hasProposal: done && !!mm.webProposal, proposalQ: mm.webProposal ? mm.webProposal.query : '',
+        runProposal: () => this.runSearch(mm.webProposal.query),
+        footer: done && cites.length > 0, trace: () => this.setTab('graph'),
+      };
+    });
+    const heroActions = [
+      { label: '🌐 Read a web page', go: () => this.showToast('Paste any URL in the bar above and press Enter') },
+      { label: '🔎 Search the web', go: () => this.showToast('Type a query in the bar above and press Enter') },
+      { label: '📄 Import a file', go: () => this.pickFile() },
+      { label: '📋 Paste text', go: () => this.openPaste() },
+    ];
+
+    // findings
+    const claims = findings.claims;
+    const evClaims = claims.slice().reverse().map((c) => {
+      const chip = this._stChip(c.status);
+      return {
+        id: c.id, text: c.text, stLabel: c.status, stFg: chip.fg, stBg: chip.bg, stBd: chip.bd,
+        hasQuote: !!c.quote, quote: c.quote, rel: c.status === 'Contested' ? 'contested by' : 'supports',
+        relColor: c.status === 'Contested' ? '#B23A2E' : '#59C08A',
+        srcReg: c.reg || '', srcTitle: (app.sourceBySn(c.sn) || {}).title || '',
+        open: () => c.sn && this.openViewer(c.sn, c.quote),
+      };
+    });
+    const overviewStats = [
+      { value: String(findings.stats.claims), label: 'claims', color: '#6D5EF5' },
+      { value: String(findings.stats.passages), label: 'verbatim passages', color: '#C79A3A' },
+      { value: String(findings.stats.sources), label: 'sources on record', color: '#6E7787' },
+      { value: String(contradictions), label: 'contradictions', color: contradictions ? '#B23A2E' : '#1E8A50' },
+    ];
+
+    // sources register
+    const citeCounts = {};
+    for (const t of app.state.topics) for (const mm of t.messages) for (const c of (mm.cites || [])) if (c.sn) citeCounts[c.sn] = (citeCounts[c.sn] || 0) + 1;
+    const regRows = sources.map((s) => {
+      const r = this._rights(s);
+      return {
+        reg: s.reg, title: s.title, domain: s.domain, kind: s.kind, ents: s.entCount == null ? '…' : String(s.entCount),
+        retrieved: this._ago(s.retrieved), sha: s.sha.replace(/^[^:]*:/, '').slice(0, 12), bytes: this._bytes(s.bytes),
+        rights: r.label, rightsFg: r.fg, rightsBg: r.bg, cites: String(citeCounts[s.sn] || 0),
+        open: () => this.openViewer(s.sn),
+      };
     });
 
-    const tabs = [['chat','Chat',''],['graph','Graph',''],['evidence','Findings','9'],['register','Sources','6'],['memo','Memo','1']].map(([id,label,count]) => {
-      const on = S.tab === id;
-      return { label, count, hasCount: !!count, select:() => this.setTab(id),
-        fg: on?'#1B1B22':'#8A8A95', weight: on?'650':'500', ul: on?'#6D5EF5':'transparent',
-        countFg: on?'#5B4BE6':'#A0A0AA', countBg: on?'#F1EFFE':'#F2F2F6' };
+    // memo
+    const memoClaims = claims.slice(-8).map((c) => {
+      const chip = this._stChip(c.status);
+      return { id: c.id, text: c.text, stLabel: c.status, stFg: chip.fg, stBg: chip.bg, stBd: chip.bd, open: () => c.sn && this.openViewer(c.sn, c.quote) };
     });
 
-    // inspector
-    let insp = null, inspNone = !S.focusId, inspShow = !!S.focusId;
-    if (S.focusId) {
-      const n = N[S.focusId];
-      const parents = this.edges.filter(e => e.t === S.focusId && !e.lateral).map(e => this.chip(e.f, e.k));
-      const children = this.edges.filter(e => e.f === S.focusId && !e.lateral).map(e => this.chip(e.t, e.k));
-      const laterals = this.edges.filter(e => (e.lateral || e.k === 'against') && (e.f === S.focusId || e.t === S.focusId))
-        .map(e => this.chip(e.f === S.focusId ? e.t : e.f, e.k));
-      insp = { id:n.id, parents, children, laterals, hasParents:parents.length>0, hasChildren:children.length>0, hasLaterals:laterals.length>0,
-        parentsLabel:'SUPPORTS (UPSTREAM)', childrenLabel:'GROUNDED IN (DOWNSTREAM)',
-        titleFont:'Newsreader', titleSize:'16px', titleWeight:'500', pre:'', mark:'', post:'', has:false,
-        showContext:false, showMeta:false, hasStatus:false, spanText:'',
-        primaryLabel:'Open in Sources', primaryAction:() => this.showToast('Registered source '+n.id) };
-      if (n.type === 'memo') {
-        insp.typeLabel='MEMO'; insp.typeFg='#6D5EF5'; insp.typeBg='#EEEBFE';
-        insp.pre=n.title; insp.titleSize='17px'; insp.titleWeight='600';
-        insp.childrenLabel='CITES (CLAIMS)'; insp.primaryLabel='Open memo'; insp.primaryAction=() => this.setTab('memo');
-      } else if (n.type === 'claim') {
-        const st=this.stStyle(n.status);
-        insp.typeLabel='CLAIM'; insp.typeFg='#7A7A85'; insp.typeBg='#F2F2F6';
-        insp.hasStatus=true; insp.stFg=st.fg; insp.stBg=st.bg; insp.stBd=st.bd; insp.stLabel=n.status;
-        insp.pre=n.text; insp.parentsLabel='CITED BY'; insp.childrenLabel='GROUNDED IN (PASSAGES)';
-        insp.primaryLabel='Open in Findings'; insp.primaryAction=() => this.setTab('evidence');
-      } else if (n.type === 'passage') {
-        const st=this.stStyle(n.status);
-        insp.typeLabel='PASSAGE'; insp.typeFg='#9A6B12'; insp.typeBg='#FBF1DA';
-        insp.hasStatus=true; insp.stFg=st.fg; insp.stBg=st.bg; insp.stBd=st.bd; insp.stLabel=n.status;
-        insp.pre=n.pre; insp.mark=n.mark; insp.post=n.post; insp.has=n.has;
-        insp.showContext=true; insp.pincite=n.pincite; insp.before=n.before; insp.after=n.after; insp.spanText=n.textFull;
-        insp.parentsLabel='GROUNDS (CLAIM)'; insp.childrenLabel='EXTRACTED FROM';
-        insp.primaryLabel='Read the page ↗'; insp.primaryAction=() => this.showToast('Deep-linking to '+n.srcReg+' at '+n.pincite);
-      } else if (n.type === 'source') {
-        insp.typeLabel='SOURCE'; insp.typeFg='#4E5765'; insp.typeBg='#EEF0F3'; insp.id=n.reg;
-        insp.pre=n.title; insp.titleFont='Newsreader';
-        insp.showMeta=true;
-        insp.meta=[ {k:'DOMAIN',v:n.domain}, {k:'KIND',v:n.kind}, {k:'RETRIEVED',v:n.retrieved}, {k:'FIXITY',v:'sha-256 '+n.sha}, {k:'SIZE',v:n.bytes+' · verified'}, {k:'RIGHTS',v:n.rights}, {k:'ENTITIES',v:n.ent+' extracted'} ];
-        insp.parentsLabel='CITED BY (PASSAGES)'; insp.childrenLabel='FIXITY';
-        insp.primaryLabel='Open source document'; insp.primaryAction=() => this.openViewer(n.id);
+    // graph
+    const prov = app.provenance();
+    const graphLive = st.tab === 'graph' && (prov.nodes.claims.length > 0 || prov.nodes.sources.length > 0);
+    let graphVals = {};
+    if (graphLive) {
+      const { pos, canvasW, canvasH } = this._layout(prov);
+      const focus = st.focusId;
+      const connected = new Set();
+      if (focus) {
+        connected.add(focus);
+        let grew = true;
+        while (grew) {
+          grew = false;
+          for (const e of prov.edges) {
+            if (connected.has(e.from) && !connected.has(e.to)) { connected.add(e.to); grew = true; }
+            if (connected.has(e.to) && !connected.has(e.from)) { connected.add(e.from); grew = true; }
+          }
+        }
+      }
+      const dim = (id) => focus && !connected.has(id) ? .18 : 1;
+      const shadow = (id) => focus === id ? '0 8px 24px rgba(109,94,245,.24)' : '0 1px 3px rgba(20,20,30,.05)';
+      const bd = (id) => focus === id ? '#B9AEF8' : '#E6E6EC';
+      const mk = (n, extra) => ({ ...extra, left: pos[n._nid].x, top: pos[n._nid].y, w: pos[n._nid].w, op: dim(n._nid), shadow: shadow(n._nid), bd: bd(n._nid), focus: () => this.focusNode(n._nid) });
+      const srcOf = (snId) => app.sourceBySn(snId) || {};
+      graphVals = {
+        canvasW, canvasH,
+        memoNodes: [mk(prov.nodes.memo, { id: 'M1', title: prov.nodes.memo.title, citeCount: String(prov.nodes.claims.length) })],
+        claimNodes: prov.nodes.claims.map((c) => {
+          const chip = this._stChip(c.status);
+          return mk(c, { id: c.id, text: c.text, stLabel: c.status, stFg: chip.fg, stBg: chip.bg, stBd: chip.bd, accent: c.status === 'Contested' ? '#B23A2E' : '#8A8A95', groundCount: String(prov.edges.filter((e) => e.from === c.id && (e.kind === 'ground' || e.kind === 'against')).length) });
+        }),
+        passageNodes: prov.nodes.passages.map((p) => mk(p, { id: p.id, mark: p.text, pincite: `sent ${p.idx}`, srcReg: p.reg || '', srcDomain: srcOf(p.sn).domain || '' })),
+        sourceNodes: prov.nodes.sources.map((s) => { const r = this._rights(s); return mk(s, { reg: s.reg, title: s.title, domain: s.domain, rightsTag: r.label, rightsFg: r.fg, rightsBg: r.bg }); }),
+        fileNodes: prov.nodes.files.map((f) => mk(f, { id: f.id, sha: f.sha, bytes: this._bytes((srcOf(f.sn) || {}).bytes || 0) })),
+        edgePaths: prov.edges.filter((e) => pos[e.from] && pos[e.to]).map((e) => {
+          const against = e.kind === 'against';
+          if (against && st.hideContra) return null;
+          const active = focus && connected.has(e.from) && connected.has(e.to);
+          return {
+            d: this._edgePath(pos[e.from], pos[e.to]),
+            stroke: against ? '#D98B80' : active ? '#6D5EF5' : '#CBCBD4',
+            sw: active ? 2.2 : 1.6, dash: against ? '3 5' : 'none',
+            op: focus && !active ? .25 : 1,
+            marker: against ? 'url(#arrRed)' : active ? 'url(#arrVio)' : 'url(#arrDim)',
+          };
+        }).filter(Boolean),
+      };
+    }
+    const legendNodes = [
+      { color: '#6D5EF5', label: 'Topic / memo' }, { color: '#8A8A95', label: 'Claim' },
+      { color: '#C79A3A', label: 'Verbatim passage' }, { color: '#6E7787', label: 'Registered source' },
+      { color: '#1E8A50', label: 'Hash-verified file' },
+    ];
+
+    // right panel — entities or graph inspector
+    if (!this._entCache) this._entCache = app.entities();
+    const ents = this._entCache;
+    const entRows = ents.slice(0, 60).map((e) => ({
+      label: e.label, initials: this._initials(e.label),
+      meta: `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'} · ${(app.sourceBySn(e.sn) || {}).reg || ''}`,
+      open: () => this.openEntity(e.docId, e.entId),
+    }));
+    let prof = null;
+    if (st.entitySel) {
+      const p = app.entityProfile(st.entitySel.docId, st.entitySel.entId);
+      if (p) {
+        const src = app.sourceBySn(p.sn) || {};
+        prof = {
+          label: p.label, initials: this._initials(p.label),
+          counts: `${p.mentions.length} mentions · ${p.relations.length} links`,
+          srcReg: src.reg || '', srcTitle: src.title || '', openSource: () => this.openViewer(p.sn),
+          openWeb: () => this.openWebGraph(st.entitySel.docId, st.entitySel.entId),
+          hasDefs: p.defs.length > 0, defs: p.defs.slice(0, 6),
+          hasRelations: p.relations.length > 0,
+          relations: p.relations.slice(0, 14).map((r) => {
+            const otherId = r.srcId === st.entitySel.entId ? r.tgtId : r.srcId;
+            const otherLabel = r.srcId === st.entitySel.entId ? r.tgtLabel : r.srcLabel;
+            return { other: otherLabel, via: r.via || r.op, pivot: () => this.openEntity(st.entitySel.docId, otherId) };
+          }),
+          hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
+          mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => this.openViewer(p.sn, mn.text) })),
+        };
+      }
+    }
+    // graph-node inspector (focus in graph tab wins the panel)
+    let insp = null;
+    if (st.tab === 'graph' && st.focusId && graphLive) {
+      const fid = st.focusId;
+      const chipOf = (status) => this._stChip(status);
+      const cl = prov.nodes.claims.find((c) => c.id === fid);
+      const pa = prov.nodes.passages.find((p) => p.id === fid);
+      const so = prov.nodes.sources.find((s) => s.sn === fid);
+      const fi = prov.nodes.files.find((f) => f.id === fid);
+      if (cl) {
+        const ch = chipOf(cl.status);
+        insp = { typeLabel: 'CLAIM', typeFg: '#7A7A85', typeBg: '#F2F2F6', id: cl.id, title: cl.text,
+          hasStatus: true, stLabel: cl.status, stFg: ch.fg, stBg: ch.bg, stBd: ch.bd,
+          showMeta: true, meta: [{ k: 'STATUS', v: cl.status }, { k: 'QUOTE', v: cl.quote || '—' }, { k: 'SOURCE', v: cl.reg || '—' }],
+          hasAction: !!cl.sn, primaryLabel: 'Open the cited passage', primaryAction: () => this.openViewer(cl.sn, cl.quote) };
+      } else if (pa) {
+        insp = { typeLabel: 'PASSAGE', typeFg: '#9A6B12', typeBg: '#FBF1DA', id: pa.id, title: pa.text, hasStatus: false,
+          showMeta: true, meta: [{ k: 'SENTENCE', v: '#' + pa.idx }, { k: 'SOURCE', v: pa.reg || '—' }],
+          hasAction: !!pa.sn, primaryLabel: 'Open in the source', primaryAction: () => this.openViewer(pa.sn, pa.text) };
+      } else if (so) {
+        const r = this._rights(so);
+        insp = { typeLabel: 'SOURCE', typeFg: '#4E5765', typeBg: '#EEF0F3', id: so.reg, title: so.title, hasStatus: false,
+          showMeta: true, meta: [{ k: 'DOMAIN', v: so.domain || '—' }, { k: 'URL', v: so.url || 'local' }, { k: 'SHA', v: so.sha.replace(/^[^:]*:/, '').slice(0, 16) }, { k: 'BYTES', v: this._bytes(so.bytes) }, { k: 'RIGHTS', v: r.label }],
+          hasAction: true, primaryLabel: 'Open the document', primaryAction: () => this.openViewer(so.sn) };
+      } else if (fi) {
+        insp = { typeLabel: 'FILE', typeFg: '#1E8A50', typeBg: '#E7F6EC', id: fi.id, title: fi.sha, hasStatus: false,
+          showMeta: true, meta: [{ k: 'HASH', v: fi.sha }, { k: 'BYTES', v: this._bytes((app.sourceBySn(fi.sn) || {}).bytes || 0) }, { k: 'OF', v: (app.sourceBySn(fi.sn) || {}).title || '' }],
+          hasAction: true, primaryLabel: 'Open the document', primaryAction: () => this.openViewer(fi.sn) };
       } else {
-        const src=this.sources.find(s=>s.id===n.src);
-        insp.typeLabel='FILE'; insp.typeFg='#1E8A50'; insp.typeBg='#E7F6EC';
-        insp.pre='Hash-verified snapshot'; insp.titleFont='-apple-system'; insp.titleSize='15px'; insp.titleWeight='600';
-        insp.showMeta=true;
-        insp.meta=[ {k:'SHA-256',v:n.sha}, {k:'SIZE',v:n.bytes}, {k:'SOURCE',v:src?src.reg:''}, {k:'INTEGRITY',v:'bitstream untouched'} ];
-        insp.parentsLabel='FIXITY OF'; insp.childrenLabel='';
-        insp.primaryLabel='Verify integrity'; insp.primaryAction=() => this.showToast('Recomputed sha-256 — matches. Bitstream untouched.');
+        insp = { typeLabel: 'TOPIC', typeFg: '#6D5EF5', typeBg: '#EEEBFE', id: 'M1', title: prov.nodes.memo.title, hasStatus: false,
+          showMeta: true, meta: [{ k: 'CLAIMS', v: String(prov.nodes.claims.length) }, { k: 'SOURCES', v: String(prov.nodes.sources.length) }],
+          hasAction: true, primaryLabel: 'Draft the memo', primaryAction: () => this.setTab('memo') };
       }
     }
 
-    const trail = S.trail.map((id,i) => { const c=this.chip(id); return { id:c.label==='MEMO'?'M1':c.label, fg:c.color, bg:c.bg, sep: i<S.trail.length-1?'›':'', open:() => this.focusNode(id) }; });
-
-    const overviewStats = [
-      { value:'4', label:'claims', color:'#3A3A44' },
-      { value:'9', label:'passages', color:'#9A6B12' },
-      { value:'6', label:'sources · verified', color:'#1E8A50' },
-      { value:'1', label:'contested', color:'#B23A2E' },
-    ];
-
-    const evClaims = this.claims.map(c => { const st=this.stStyle(c.status);
-      const ps = this.edges.filter(e => e.f === c.id && !e.lateral).map(e => {
-        const n = N[e.t]; const rel = e.k === 'against' ? 'contradicts' : 'supports';
-        return { id:n.id, pre:n.pre, mark:n.mark, post:n.post, pincite:n.pincite, srcReg:n.srcReg, srcDomain:n.srcDomain,
-          rel, relColor: e.k==='against'?'#B23A2E':'#1E8A50', open:() => this.focusNode(n.id) };
-      });
-      return { id:c.id, text:c.text, stFg:st.fg, stBg:st.bg, stBd:st.bd, stLabel:c.status, passages:ps };
-    });
-
-    const regRows = this.sources.map(s => ({ ...s, cites:this.edges.filter(e => e.t === s.id && e.k === 'extract').length,
-      rightsFg: s.rightsOk?'#1E8A50':'#A9700A', rightsBg: s.rightsOk?'#E7F6EC':'#FBF1DA', open:() => this.openViewer(s.id) }));
-
-    const memoClaims = this.claims.map(c => { const st=this.stStyle(c.status); return { id:c.id, text:c.text, stFg:st.fg, stBg:st.bg, stBd:st.bd, stLabel:c.status, open:() => this.focusNode(c.id) }; });
-
-    const leftSources = this.sources.map(s => ({ reg:s.reg, title:s.title, domain:s.domain, favCh:s.favCh, favBg:s.favBg, favFg:s.favFg, open:() => this.openViewer(s.id) }));
-    const mf = this.state.mergeFrom;
-    const topics = this.state.topics.map(t => ({
-      id:t.id, title:t.title, meta:t.meta, indent: t.parentId ? 20 : 0,
-      bg: t.active ? '#F1EFFE' : (mf===t.id ? '#FBF1DA' : 'transparent'),
-      border: t.active ? '#E3DEFC' : (mf===t.id ? '#EEDCA9' : 'transparent'),
-      iconColor: t.active ? '#6D5EF5' : (t.parentId ? '#C4C4CC' : '#B4B4BE'),
-      titleColor: t.active ? '#3A3A44' : '#5A5A64',
-      menuOpen: this.state.topicMenu===t.id,
-      rowClick:() => this.topicRowClick(t.id),
-      menuClick:(e) => { if (e && e.stopPropagation) e.stopPropagation(); this.setState(s => ({ topicMenu: s.topicMenu===t.id ? null : t.id })); },
-      doSegment:(e) => { if (e && e.stopPropagation) e.stopPropagation(); this.segment(t.id); },
-      doMerge:(e) => { if (e && e.stopPropagation) e.stopPropagation(); this.startMerge(t.id); },
-    }));
-
-    const statusPeek = [
-      { color:'#1E8A50', text:'Recorded Nature encephalization figures.', hasEffect:true, effect:'+P1 · claim C1', effectColor:'#1E8A50' },
-      { color:'#D69A2A', text:'Aeon calls “true language” contested — kept the counter-passage.', hasEffect:true, effect:'C3 → Contested', effectColor:'#A9700A' },
-      { color:'#B23A2E', text:'Contradiction between NatGeo and Aeon on “names”.', hasEffect:true, effect:'P5 ⇄ P6 flagged', effectColor:'#B23A2E' },
-      { color:'#9A9AA4', text:'Skipped lccn.loc.gov — too little text to record.', hasEffect:false },
-    ];
-
-    const steps = [
-      { t:'14:02', verdict:'RECORD', vFg:'#1E8A50', vBg:'#E7F6EC', dot:'#1E8A50', text:'Recorded Cetacean intelligence (Wikipedia) — 211 entities extracted.', hasEffect:true, effect:'S-0001 registered · sha-256 verified', effectColor:'#1E8A50' },
-      { t:'14:11', verdict:'RECORD', vFg:'#1E8A50', vBg:'#E7F6EC', dot:'#1E8A50', text:'Found primary evidence for self-recognition in the PNAS mirror study.', hasEffect:true, effect:'+P3 grounds C2', effectColor:'#1E8A50' },
-      { t:'14:17', verdict:'FLAG', vFg:'#A9700A', vBg:'#FBF1DA', dot:'#D69A2A', text:'“Call each other by name” is a strong framing — sought a second source.', hasEffect:true, effect:'C3 held at Contested', effectColor:'#A9700A' },
-      { t:'14:24', verdict:'CONFLICT', vFg:'#B23A2E', vBg:'#FBE9E6', dot:'#B23A2E', text:'Aeon says true language is contested; recorded the counter-passage rather than dropping it.', hasEffect:true, effect:'P5 ⇄ P6 contradiction edge', effectColor:'#B23A2E' },
-      { t:'14:28', verdict:'GROUP', vFg:'#5B4BE6', vBg:'#F1EFFE', dot:'#6D5EF5', text:'Grouped signature-whistle passages under claim C3.', hasEffect:false },
-      { t:'14:31', verdict:'NO-OP', vFg:'#6E6E78', vBg:'#F0F0F4', dot:'#9A9AA4', text:'Ran a Scholar search — page too transient to record.', hasEffect:false },
-      { t:'14:33', verdict:'SKIP', vFg:'#6E6E78', vBg:'#F0F0F4', dot:'#9A9AA4', text:'Skipped lccn.loc.gov — too little text to be auditable.', hasEffect:false },
-    ];
-
-    const auditStats = [
-      { value:'32%', label:'yield (passages kept / read)', color:'#5B4BE6' },
-      { value:'1', label:'contradiction surfaced', color:'#B23A2E' },
-      { value:'2', label:'no-ops / skips', color:'#9A9AA4' },
-    ];
-
-    const messagesView = this.state.messages.map(m => ({
-      isUser: m.role === 'user', isAgent: m.role === 'agent', text: m.text,
-      hasCites: !!(m.cites && m.cites.length), footer: !!m.footer,
-      cites: (m.cites || []).map(id => { const c = this.claims.find(x => x.id === id); const st = this.stStyle(c.status); return { label:id, status:c.status, fg:st.fg, bg:st.bg, bd:st.bd, open:() => this.focusNode(id) }; }),
-    }));
-
-    const blurbs = { S1:'A survey of cognition across the cetaceans, drawn from the peer-reviewed literature.', S2:'A reported feature on how bottlenose dolphins use learned whistles to identify one another.', S3:'A controlled study testing mirror self-recognition in Tursiops truncatus.', S4:'A review of socially transmitted behaviour and social structure in whales and dolphins.', S5:'A neuroanatomy paper on cetacean brain structure and encephalization.', S6:'An essay weighing whether dolphin signalling clears the bar for language.' };
-    const vSrc = S.viewerOpen ? this.sources.find(s => s.id === S.viewerOpen) : null;
-    let viewer = null;
-    if (vSrc) {
-      const paras = this.passageOrder.map(id => this.layout.nodes[id]).filter(n => n.srcId === vSrc.id).map(n => { const st = this.stStyle(n.status); return { before:n.before, pre:n.pre, mark:n.mark, post:n.post, has:n.has, after:n.after, pincite:n.pincite, status:n.status, stFg:st.fg, stBg:st.bg, stBd:st.bd, trace:() => this.traceFromViewer(n.id) }; });
-      viewer = { reg:vSrc.reg, title:vSrc.title, domain:vSrc.domain, kind:vSrc.kind, retrieved:vSrc.retrieved, sha:vSrc.sha, bytes:vSrc.bytes, rights:vSrc.rights, ent:vSrc.ent, blurb:blurbs[vSrc.id]||'', favBg:vSrc.favBg, favFg:vSrc.favFg, favCh:vSrc.favCh, count:paras.length, paras };
+    // viewer
+    let viewer = null, viewerParas = [];
+    if (st.viewerSn) {
+      const s = app.sourceBySn(st.viewerSn);
+      if (s) {
+        const r = this._rights(s);
+        viewer = {
+          reg: s.reg, title: s.title, domain: s.domain, kind: s.kind,
+          hasUrl: !!s.url, url: s.url || '#',
+          sha: s.sha.replace(/^[^:]*:/, '').slice(0, 16), bytes: this._bytes(s.bytes),
+          retrieved: this._ago(s.retrieved), rights: r.label, rightsFg: r.fg, rightsBg: r.bg,
+          ents: s.entCount == null ? '…' : String(s.entCount),
+        };
+        if (!this._viewCache || this._viewCache.sn !== st.viewerSn) {
+          this._viewCache = { sn: st.viewerSn, paras: app.viewerParas(st.viewerSn, { entities: st.entityMode }) };
+        }
+        const focusProbe = (st.viewerFocus || '').slice(0, 50).toLowerCase();
+        viewerParas = this._viewCache.paras.map((p) => {
+          const text = p.segs.map((x) => x.s).join('');
+          const hit = focusProbe && text.toLowerCase().includes(focusProbe);
+          return {
+            cited: p.cited || hit, pad: (p.cited || hit) ? 14 : 0,
+            border: (p.cited || hit) ? '3px solid #C79A3A' : 'none',
+            bg: hit ? '#FDF8EC' : 'transparent', radius: (p.cited || hit) ? '4px' : '0',
+            segs: p.segs.map((sg) => sg.t === 'ent'
+              ? { isEnt: true, s: sg.s, open: () => this.openEntity(sg.docId, sg.entId) }
+              : { isText: true, s: sg.s }),
+          };
+        });
+      }
     }
 
-    const logView = this.log.map(e => { const ls = this.logStyle(e.kind); return { t:e.t, dot:ls.dot, label:ls.label, lfg:ls.fg, lbg:ls.bg, text:e.text, effect:e.effect, hasEffect:!!e.effect }; });
+    // search overlay
+    const searchRows = (st.searchResults || []).map((it) => {
+      const key = it.url || it.title;
+      const rec = st.recordedUrls[key];
+      return {
+        kind: it.kind || it.source || 'web', title: it.title || it.url, snippet: it.text || '', url: it.url || '',
+        recordLabel: rec === 'done' ? '✓ recorded' : rec === 'busy' ? 'reading…' : 'Record',
+        record: () => { if (!rec) this.recordHit(it); },
+      };
+    });
+
+    // monologue
+    const LOGL = { record: 'RECORD', hash: 'HASH', claim: 'CLAIM', conflict: 'CONFLICT', search: 'SEARCH', open: 'OPEN', skip: 'SKIP' };
+    const logView = app.state.log.slice().reverse().map((l) => ({
+      label: LOGL[l.kind] || l.kind.toUpperCase(), t: String(l.t).slice(11, 19),
+      text: l.text, effect: l.effect, hasEffect: !!l.effect,
+      dot: LOGC[l.kind] || '#8A8A95',
+      lfg: l.kind === 'conflict' ? '#B23A2E' : l.kind === 'claim' ? '#5B4BE6' : '#6E6E78',
+      lbg: l.kind === 'conflict' ? '#FBE9E6' : l.kind === 'claim' ? '#F1EFFE' : '#F2F2F6',
+    }));
+    const turns = (window.EO && window.EO.audit ? window.EO.audit.turns : []).slice(-6).reverse();
+    const turnViews = turns.map((t) => ({
+      id: t.id, question: t.question, dur: t.durationMs != null ? (t.durationMs / 1000).toFixed(1) + 's' : '…',
+      steps: (t.steps || []).map((s) => {
+        const bad = /error|veto|refus/.test(s.name);
+        return { t: (s.t / 1000).toFixed(1) + 's', verdict: s.name.toUpperCase(), text: this._stepText(s),
+          dot: bad ? '#B23A2E' : '#59C08A', vFg: bad ? '#B23A2E' : '#1E8A50', vBg: bad ? '#FBE9E6' : '#E7F6EC' };
+      }),
+    }));
+    const auditStats = [
+      { value: String(window.EO && window.EO.audit ? window.EO.audit.turns.length : 0), label: 'turns audited', color: '#6D5EF5' },
+      { value: String(findings.stats.claims), label: 'claims traced', color: '#1E8A50' },
+      { value: String(contradictions), label: 'contradictions', color: contradictions ? '#B23A2E' : '#8A8A95' },
+    ];
 
     return {
-      // chat
-      isChat:S.tab==='chat', messages:messagesView, chatInput:S.chatInput,
-      onChatInput:(e) => this.onChatInput(e), onChatKey:(e) => this.onChatKey(e), sendChat:() => this.sendChat(), setChatScroll:(el) => this.setChatScroll(el), toGraph:() => this.setTab('graph'),
-      // universal ingest + master log
-      omni:S.omni, onOmniInput:(e) => this.onOmniInput(e), onOmniSubmit:(e) => this.onOmniSubmit(e),
-      logTab:S.logTab, logActions:S.logTab==='actions', logReasoning:S.logTab==='reasoning', setLogActions:() => this.setLogTab('actions'), setLogReasoning:() => this.setLogTab('reasoning'), logView, logCount:this.log.length,
-      logActionsFg:S.logTab==='actions'?'#3A3A44':'#8A8A95', logActionsBg:S.logTab==='actions'?'#fff':'transparent', logReasoningFg:S.logTab==='reasoning'?'#3A3A44':'#8A8A95', logReasoningBg:S.logTab==='reasoning'?'#fff':'transparent',
-      // source viewer
-      viewerOpen:!!S.viewerOpen, viewer, closeViewer:() => this.closeViewer(), readLive:() => this.showToast('Opening the live page — the cited version stays the archived snapshot above.'),
-      // left rail
-      status:{ title:'Idle · monitoring', sub:'Cross-checking the signature-whistle claim' },
-      audit:{ yieldChip:'32%', summaryLine:'9 passages · 3 flags', steps:'73' },
-      statusOpen:S.statusOpen, statusRot:S.statusOpen?'90deg':'0deg', toggleStatus:() => this.toggleStatus(),
-      statusPeek, openMonologue:() => this.openMonologue(),
-      newTopic:() => this.newTopic(), toolToast:() => this.toolToast(), goMemo:() => this.setTab('memo'), goGraph:() => this.setTab('graph'),
-      topicCount:String(this.state.topics.filter(t=>!t.parentId).length), topics, sourceCount:String(this.sources.length), leftSources, mergeMode:!!this.state.mergeFrom,
+      // chrome
+      omni: st.omni, toast: st.toast, dragOver: !!st.dragOver,
+      leftOpen: st.leftOpen, rightOpen: st.rightOpen,
+      leftBtnFg: st.leftOpen ? '#5B4BE6' : '#9A9AA4', rightBtnFg: st.rightOpen ? '#5B4BE6' : '#9A9AA4',
+      onOmniSubmit: (e) => this.onOmniSubmit(e), onOmniInput: (e) => this.onOmniInput(e),
+      openMonologue: () => this.openMonologue(), closeMonologue: () => this.closeMonologue(),
+      toggleLeft: () => this.toggleLeft(), toggleRight: () => this.toggleRight(),
+      // model
+      modelChip, modelDot, modelOpen: st.modelOpen, toggleModel: () => this.toggleModel(), backends,
+      modelNote: m.state === 'error' ? `Load failed: ${m.note}` : m.state === 'ready' ? `${m.backend} is loaded and answering.` : 'The model loads on first question — or load it now.',
+      loadModelLabel: m.state === 'loading' ? `${Math.round((m.progress || 0) * 100)}%…` : m.state === 'ready' ? 'Reload' : 'Load now',
+      loadModelNow: () => { app.ensureModel().catch(() => {}); },
+      // status + sidebar
+      status, statusColor, statusOpen: st.statusOpen, statusRot: st.statusOpen ? '90deg' : '0deg',
+      toggleStatus: () => this.toggleStatus(), statusPeek,
+      newTopic: () => { app.topicNew('New topic'); },
+      pickFile: () => this.pickFile(), openPaste: () => this.openPaste(),
+      goMemo: () => this.goMemo(), goGraph: () => this.goGraph(),
+      topics, topicCount: String(topics.length),
+      leftSources, sourceCount: String(sources.length), noSources: sources.length === 0, hasSources: sources.length > 0,
       // tabs
-      tabs, isGraph:S.tab==='graph', isEvidence:S.tab==='evidence', isRegister:S.tab==='register', isMemo:S.tab==='memo',
-      inspectorShow: S.tab==='graph' && (!!S.focusId || S.contra),
-      flagLine:'1 contested · 1 contradiction',
-      // graph camera
-      canvasW:this.layout.W, canvasH:this.layout.H, tx:S.tx, ty:S.ty, scale:S.scale,
-      camT: (S.dragging || !S.booted)?'none':'transform .32s cubic-bezier(.4,0,.2,1)', panCursor:S.dragging?'grabbing':'grab',
-      zoomPct:Math.round(S.scale*100),
-      startPan:(e) => this.startPan(e), onWheel:(e) => this.onWheel(e), stopPan:(e) => this.stop(e), setViewport:(el) => this.setViewport(el),
-      zoomIn:() => this.zoomIn(), zoomOut:() => this.zoomOut(), fit:() => this.fit(),
-      memoNodes, claimNodes, passageNodes, sourceNodes, fileNodes, edgePaths,
-      traceOpts, toggleContra:() => this.toggleContra(), clearFocus:() => this.clearFocus(),
-      contraFg:S.contra?'#B23A2E':'#8A8A95', contraBg:S.contra?'#FBE9E6':'#fff', contraBd:S.contra?'#F2D3CD':'#EAEAEF',
-      resetFg:S.focusId||S.contra?'#5A5A64':'#C0C0C8',
-      legendNodes:[ {color:'#6D5EF5',label:'Memo'}, {color:'#7A7A85',label:'Claim'}, {color:'#C79A3A',label:'Passage'}, {color:'#6E7787',label:'Source'}, {color:'#1E8A50',label:'File · fixity'} ],
-      // inspector
-      inspNone, inspShow, insp, trailShow:S.trail.length>0, trail, overviewStats,
-      // other tabs
-      evClaims, regRows, memoClaims,
+      tabs, hasFlagLine, flagLine, flagFg, flagBg, flagBd,
+      isChat: st.tab === 'chat', isGraph: st.tab === 'graph', isEvidence: st.tab === 'evidence',
+      isRegister: st.tab === 'register', isMemo: st.tab === 'memo',
+      // chat
+      chatEmpty: messages.length === 0, messages, heroActions,
+      chatInput: st.chatInput, onChatInput: (e) => this.onChatInput(e), onChatKey: (e) => this.onChatKey(e),
+      sendChat: () => this.sendChat(), setChatScroll: (el) => this.setChatScroll(el),
+      generating, notGenerating: !generating, stopGen: () => app.stop(),
+      chatPlaceholder: sources.length ? 'Ask about what you’ve read…' : 'Record a source first — then ask about it…',
+      // graph
+      graphTitle: topic ? topic.title : '', graphEmpty: st.tab === 'graph' && !graphLive, graphLive,
+      ...graphVals, legendNodes,
+      tx: st.tx, ty: st.ty, scale: st.scale, camT: st.camT, zoomPct: String(Math.round(st.scale * 100)),
+      panCursor: 'grab', startPan: (e) => this.startPan(e), stopPan: (e) => this.stopPan(e), onWheel: (e) => this.onWheel(e),
+      zoomIn: () => this.zoomIn(), zoomOut: () => this.zoomOut(), fit: () => this.fit(),
+      clearFocus: () => this.clearFocus(), toggleContra: () => this.toggleContra(),
+      contraFg: st.hideContra ? '#8A8A95' : '#B23A2E', contraBg: st.hideContra ? '#F2F2F6' : '#FBE9E6', contraBd: st.hideContra ? '#EAEAEF' : '#F2D3CD',
+      resetFg: st.focusId ? '#5B4BE6' : '#8A8A95', setViewport: (el) => this.setViewport(el),
+      // findings + register + memo
+      evEmpty: claims.length === 0, evClaims, overviewStats, regRows,
+      memoTitle: topic ? topic.title : '', memoText: topic ? topic.memo : '',
+      onMemoInput: (e) => this.onMemoInput(e), memoClaims,
+      memoLocked: contradictions > 0,
+      memoLockText: `Prose smoothing stays locked until every cited claim is Supported. Right now ${contradictions} of ${claims.length} is Contested — organize the evidence first; the summary comes after.`,
+      // right panel
+      inspShow: !!insp, insp: insp || {}, profShow: !insp && !!prof, prof: prof || {},
+      entListShow: !insp && !prof, entRows, entCount: String(ents.length), entEmpty: ents.length === 0,
+      backToEntities: () => this.backToEntities(),
+      toggleEntityMode: () => this.toggleEntityMode(),
+      entModeFg: st.entityMode ? '#5B4BE6' : '#8A8A95', entModeBg: st.entityMode ? '#F1EFFE' : '#F2F2F6', entModeBd: st.entityMode ? '#DED8FD' : '#EAEAEF',
+      // viewer
+      viewerShow: !!viewer, viewer: viewer || {}, viewerParas,
+      closeViewer: () => this.closeViewer(), setViewerBody: (el) => this.setViewerBody(el),
+      removeViewerSource: () => { if (viewer && confirm(`Remove ${viewer.reg} from the record?`)) { app.removeSource(st.viewerSn); this.closeViewer(); } },
+      // search
+      searchShow: st.searchOpen, searchQ: st.searchQ, searchBusy: st.searchBusy,
+      searchNone: !st.searchBusy && st.searchResults && st.searchResults.length === 0,
+      searchMeta: st.searchResults ? `${st.searchResults.length} results` : '',
+      searchRows, closeSearch: () => this.closeSearch(),
+      // paste
+      pasteShow: st.pasteOpen, pasteTitle: st.pasteTitle, pasteBody: st.pasteBody,
+      onPasteTitle: (e) => this.onPasteTitle(e), onPasteBody: (e) => this.onPasteBody(e),
+      closePaste: () => this.closePaste(), submitPaste: () => this.submitPaste(),
+      // web graph overlay
+      webGraphShow: !!st.webGraphFor,
+      webGraphTitle: st.webGraphFor && prof ? prof.label : (st.webGraphFor ? 'Entity web' : ''),
+      setWebGraphEl: (el) => this.setWebGraphEl(el), closeWebGraph: () => this.closeWebGraph(),
       // monologue
-      monologueOpen:S.monologueOpen, closeMonologue:() => this.closeMonologue(), steps, auditStats,
-      // toast
-      toast:S.toast,
+      monologueOpen: st.monologueOpen, logCount: String(app.state.log.length),
+      auditStats, logActions: st.logMode === 'actions', logReasoning: st.logMode === 'reasoning',
+      setLogActions: () => this.setState({ logMode: 'actions' }), setLogReasoning: () => this.setState({ logMode: 'reasoning' }),
+      logActionsFg: st.logMode === 'actions' ? '#1B1B22' : '#8A8A95', logActionsBg: st.logMode === 'actions' ? '#fff' : 'transparent',
+      logReasoningFg: st.logMode === 'reasoning' ? '#1B1B22' : '#8A8A95', logReasoningBg: st.logMode === 'reasoning' ? '#fff' : 'transparent',
+      logView, logEmpty: logView.length === 0, turnViews, turnsEmpty: turnViews.length === 0,
+      setRoot: (el) => this.setRoot(el),
     };
+  }
+
+  _stepText(s) {
+    const d = s.data || {};
+    if (s.name === 'retrieve') return `Retrieved ${d.count != null ? d.count : (d.spans && d.spans.length) || ''} spans from the record`.replace('  ', ' ');
+    if (s.name === 'llm') return 'The model phrased over the grounded fold';
+    if (s.name === 'bind') return `Bound ${d.cited != null ? d.cited : ''} claims to verbatim lines`;
+    if (s.name === 'factcheck') return 'Judged each claimed edge against the reading';
+    if (s.name === 'veto') return 'Vetoed what the record cannot witness';
+    if (s.name === 'route') return `Routed: ${d.route || d.kind || 'grounded'}`;
+    if (s.name === 'propose-web') return `Proposed a web search: “${d.query || ''}”`;
+    const kv = Object.entries(d).slice(0, 2).map(([k, v]) => `${k}: ${String(v).slice(0, 40)}`).join(' · ');
+    return kv || s.name;
   }
 }
 </script>

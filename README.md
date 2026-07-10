@@ -48,22 +48,26 @@ cube coherence, and no desert cell on every run.
 `index.html` is the new dc surface (screens: **EOReader** and **Provenance DAG**),
 running on `support.js` (the dc runtime) + vendored React. It boots the engine
 bridge at `src/rooms/reader/boot.js`, which exposes exactly one membrane to the
-surface: `window.EO` — parse, readingAt, groundSpans, factCheck, the DAG cursors,
-the audit log, and the workspace. The surface never imports engine internals.
+surface: `window.EO` — the reader session controller (`app`), parse, readingAt,
+groundSpans, factCheck, the DAG cursors, the audit log, the workspace, and the
+tiered-graph mount. The surface never imports engine internals.
 
-### Seams (mock → engine, in progress)
+### Seams (all live — the seeds are gone)
 
-The surface still seeds demo data where the wiring is not yet pulled through the
-membrane. Each seed has a named engine home:
+Every surface element renders the engine's real state through
+`rooms/reader/app.js` (the session controller). There is no demo data; the app
+opens empty and fills as you record.
 
-| surface seed | engine home |
+| surface | engine wiring |
 |---|---|
-| topic list | `rooms/research` session projections |
-| chat exchange | `turn/` pipeline (`runTurn`) |
-| S-registry (sha, rights, fixity) | `perceiver/credence` + `rooms/archive` |
-| claim → passage pincites | `enactor/ground/spans.js` (`groundSpans`) |
-| DAG nodes/edges | `surfer/dag` (`discourseDag` / `assertedDag`) |
-| monologue steps | `rooms/audit` (`createAuditLog`) |
+| ingest bar (URL / file / paste / web search) | `organs/ingest` web client + admission core, `rooms/reader/import-file.js` extractors, proxy chain with public fallbacks |
+| chat exchange | `turn/` pipeline (`runTurn`) — streamed, cited, fact-checked; model backends from `model/` (webllm · wllama · echo), picked adaptively |
+| S-registry (sha, bytes, rights, fixity) | `organs/ingest/websource.js` records + the controller's registry |
+| claim → passage pincites | the turn's `bound`/`citeOrigins`/`citeTexts` (from `enactor/ground`) |
+| provenance DAG nodes/edges | derived from real turns: topic → claims → passages → sources → files |
+| document viewer (click any source) | the recorded text, cited passages marked, entities clickable |
+| entity explorer (right panel) | `projectGraph` entities + `perceiver` `figureSurface`; web graph via `rooms/reader/tiered-graph.js` |
+| monologue steps | `rooms/audit` (`createAuditLog`) — live subscription, per-stage trail |
 
 ## What stayed behind in 4.1
 

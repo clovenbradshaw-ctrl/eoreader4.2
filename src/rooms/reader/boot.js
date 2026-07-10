@@ -5,7 +5,10 @@
 // dc script never imports engine internals (one entrance per holon, one membrane
 // for the surface).
 //
-// What is wired today (live):
+// What is wired (all live — the seeds are gone):
+//   app         the reader session controller (rooms/reader/app.js): the
+//               S-registry, topics, ingest (URL/search/file/paste), the chat
+//               turn through turn/runTurn, entities, findings, provenance
 //   parse       text → the append-only event log + doc     (perceiver)
 //   readingAt   L3 reading at a cursor (γ-mass + surprise)  (perceiver)
 //   groundSpans span → source-line provenance + badge       (enactor/ground)
@@ -13,11 +16,7 @@
 //   dag         discourse vs asserted causal cursors        (surfer/dag)
 //   audit       the ring buffer the monologue drawer reads  (rooms/audit)
 //   workspace   folders/pins persistence                    (rooms/workspace)
-//
-// What is still seeded in the dc script (mock, to be rewired through this seam):
-//   the topic list, the demo chat exchange, the S1–S6 source registry, and the
-//   P1–P9 passage set. Each has a named engine home (research, converse/turn,
-//   credence, ground/spans) — see README §seams.
+//   mountTieredGraph  the entity explorer's web graph       (rooms/reader)
 
 import { createParser } from '../../perceiver/parse/index.js';
 import { readingAt } from '../../perceiver/reading.js';
@@ -26,8 +25,11 @@ import { factCheck } from '../../enactor/factcheck/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createAuditLog } from '../audit/index.js';
 import * as workspace from '../workspace/index.js';
+import { createReaderApp } from './app.js';
+import { mountTieredGraph } from './tiered-graph.js';
 
 const audit = createAuditLog({ capacity: 512 });
+const app = createReaderApp({ audit });
 
 const parse = (text, opts = {}) => {
   const parser = createParser(opts);
@@ -35,6 +37,7 @@ const parse = (text, opts = {}) => {
 };
 
 window.EO = Object.freeze({
+  app,
   parse,
   readingAt,
   groundSpans, groundSummary, supportVerdict,
@@ -42,6 +45,7 @@ window.EO = Object.freeze({
   discourseDag, assertedDag,
   audit,
   workspace,
+  mountTieredGraph,
   version: '4.2',
 });
 
