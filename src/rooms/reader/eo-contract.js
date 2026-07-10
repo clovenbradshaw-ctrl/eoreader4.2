@@ -5,6 +5,7 @@
 import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
+  'src/rooms/reader/app.js': contract({ ops: ['CON', 'INS'], targets: ['Network', 'Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'the reader session controller' }),
   'src/rooms/reader/boot.js': contract({ ops: ['CON', 'SIG'], targets: ['Network', 'Field'], products: ['Link'], stances: ['Binding', 'Tending'], note: 'the surface↔engine membrane' }),
   'src/rooms/reader/eo-gen.js': contract({ ops: ['EVA', 'DEF'], targets: ['Lens', 'Link'], products: ['Lens', 'Atmosphere'], stances: ['Tracing', 'Making'], note: 'browser grounding seam' }),
   'src/rooms/reader/eo/chorus.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field', 'Paradigm'], products: ['Paradigm'], stances: ['Tracing'], note: 'chorus Born-measure reader' }),
