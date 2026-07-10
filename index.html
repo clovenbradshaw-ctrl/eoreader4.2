@@ -68,6 +68,59 @@ table{border-collapse:collapse;width:100%}
       Auditable
     </button>
 
+    <button onClick="{{ toggleAccount }}" title="Matrix account (optional)" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5"/></svg>
+      <span style="width:7px;height:7px;border-radius:50%;background:{{ acctDot }};flex:0 0 auto"></span>
+      {{ acctLabel }}
+    </button>
+
+    <sc-if value="{{ acctOpen }}">
+      <div style="position:absolute;right:14px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:308px">
+        <sc-if value="{{ signedOut }}">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 4px 8px">MATRIX ACCOUNT · OPTIONAL</div>
+          <div style="font-size:12.5px;color:#6E6E78;line-height:1.5;padding:0 4px 11px">The reader works fully signed out. Sign in with a Matrix account only to save permanent, attributed checkpoints of a source to Archive.org.</div>
+          <button onClick="{{ openLogin }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12.5px;border-radius:9px;padding:9px" style-hover="background:#E7E2FD">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5M15 12H3"/></svg>
+            Sign in with Matrix
+          </button>
+        </sc-if>
+        <sc-if value="{{ signedIn }}">
+          <div style="display:flex;align-items:center;gap:9px;padding:2px 4px 11px;border-bottom:1px solid #F2F2F6;margin-bottom:10px">
+            <span style="width:30px;height:30px;border-radius:50%;background:#EEEBFE;color:#5B4BE6;display:flex;align-items:center;justify-content:center;flex:0 0 auto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5"/></svg></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+              <span style="font-size:12.5px;font-weight:650;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ acctUserId }}</span>
+              <span style="font-size:11px;color:#9A9AA4">signed in · {{ acctHomeserver }}</span>
+            </span>
+          </div>
+          <button onClick="{{ toggleGenomeOnline }}" title="Save the system genome to Archive.org automatically" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;text-align:left;margin-bottom:4px" style-hover="background:#F7F7FA">
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+              <span style="font-size:12.5px;font-weight:600;color:#3A3A44">Save system genome online</span>
+              <span style="font-size:11px;color:#9A9AA4">{{ genomeStatus }}</span>
+            </span>
+            <span style="position:relative;width:34px;height:19px;border-radius:999px;background:{{ genomeTrackBg }};flex:0 0 auto;transition:background .16s"><span style="position:absolute;top:2px;left:{{ genomeKnobX }};width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .16s"></span></span>
+          </button>
+          <sc-if value="{{ hasLastCp }}">
+            <button onClick="{{ openLastCp }}" style="width:100%;display:flex;align-items:center;gap:6px;padding:4px 6px 9px;text-align:left" style-hover="text-decoration:underline">
+              <span style="font-size:11px;color:#8A8A95">last checkpoint</span><span style="color:#C0C0C8"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+            </button>
+          </sc-if>
+          <div style="display:flex;align-items:center;gap:6px;padding:0 4px 7px;border-top:1px solid #F2F2F6;padding-top:10px"><span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">CHECKPOINTS</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#5B4BE6;background:#F1EFFE;border-radius:5px;padding:1px 6px">{{ checkpointCount }}</span></div>
+          <sc-for list="{{ checkpoints }}" as="cp">
+            <button onClick="{{ cp.open }}" title="{{ cp.id }}" style="width:100%;display:flex;align-items:center;gap:7px;padding:6px 6px;border-radius:7px;text-align:left" style-hover="background:#F5F5F8">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A8A95" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg>
+              <span style="flex:1;min-width:0;font-size:12px;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cp.title }}</span>
+              <span style="color:#C0C0C8;flex:0 0 auto"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+            </button>
+          </sc-for>
+          <sc-if value="{{ hasCheckpoints }}"><div style="font-size:10.5px;color:#B4B4BE;padding:5px 6px 9px;line-height:1.4">Content-addressed — re-archiving the same source reuses its item, never a duplicate.</div></sc-if>
+          <button onClick="{{ signOut }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;border:1px solid #EAEAEF;border-radius:9px;padding:8px;font-size:12.5px;font-weight:600;color:#6E6E78;margin-top:2px" style-hover="background:#F5F5F8">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+            Sign out
+          </button>
+        </sc-if>
+      </div>
+    </sc-if>
+
     <sc-if value="{{ modelOpen }}">
       <div style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
         <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 6px 8px">LOCAL MODEL · RUNS IN YOUR BROWSER</div>
@@ -803,6 +856,59 @@ table{border-collapse:collapse;width:100%}
     </div>
   </sc-if>
 
+  <!-- MATRIX SIGN-IN (OPTIONAL) -->
+  <sc-if value="{{ loginShow }}">
+    <div style="position:absolute;inset:0;z-index:47">
+      <div onClick="{{ closeLogin }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
+      <div style="position:absolute;left:50%;top:90px;transform:translateX(-50%);width:min(420px,92vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);padding:22px;animation:eoFade .18s ease">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:5px">
+          <span style="width:26px;height:26px;border-radius:7px;background:#EEEBFE;color:#5B4BE6;display:flex;align-items:center;justify-content:center;flex:0 0 auto"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5"/></svg></span>
+          <span style="font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600">Sign in with Matrix</span>
+        </div>
+        <div style="font-size:12px;color:#8A8A95;line-height:1.5;margin-bottom:14px">Optional. Your homeserver validates the login; EO Reader only keeps the token to attribute your archive checkpoints. Nothing is sent anywhere else.</div>
+        <label style="display:block;font-size:11px;font-weight:600;color:#8A8A95;margin-bottom:5px">Username or @user:server</label>
+        <input value="{{ loginId }}" onChange="{{ onLoginId }}" onKeyDown="{{ onLoginKey }}" placeholder="@you:hyphae.social" style="width:100%;border:1px solid #E6E6EC;border-radius:9px;background:#F7F7FA;padding:9px 12px;font-size:13px;outline:none;margin-bottom:11px" style-focus="border-color:#DED8FD;background:#fff" />
+        <label style="display:block;font-size:11px;font-weight:600;color:#8A8A95;margin-bottom:5px">Password</label>
+        <input value="{{ loginPass }}" onChange="{{ onLoginPass }}" onKeyDown="{{ onLoginKey }}" type="password" placeholder="••••••••" style="width:100%;border:1px solid #E6E6EC;border-radius:9px;background:#F7F7FA;padding:9px 12px;font-size:13px;outline:none;margin-bottom:11px" style-focus="border-color:#DED8FD;background:#fff" />
+        <label style="display:block;font-size:11px;font-weight:600;color:#8A8A95;margin-bottom:5px">Homeserver <span style="color:#B4B4BE;font-weight:500">— optional, defaults to hyphae.social</span></label>
+        <input value="{{ loginHs }}" onChange="{{ onLoginHs }}" onKeyDown="{{ onLoginKey }}" placeholder="https://hyphae.social" style="width:100%;border:1px solid #E6E6EC;border-radius:9px;background:#F7F7FA;padding:9px 12px;font-size:13px;outline:none" style-focus="border-color:#DED8FD;background:#fff" />
+        <sc-if value="{{ loginErrShow }}"><div style="margin-top:11px;font-size:12px;color:#B23A2E;background:#FBE9E6;border:1px solid #F2D3CD;border-radius:8px;padding:8px 11px">{{ loginErr }}</div></sc-if>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+          <button onClick="{{ closeLogin }}" style="border:1px solid #EAEAEF;border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:600;color:#6E6E78" style-hover="background:#F5F5F8">Cancel</button>
+          <button onClick="{{ submitLogin }}" style="background:#6D5EF5;color:#fff;border-radius:9px;padding:8px 18px;font-size:12.5px;font-weight:600" style-hover="background:#5B4BE6">{{ loginBtnLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- TURN ON "SAVE SYSTEM GENOME ONLINE?" — ONE-TIME CONSENT -->
+  <sc-if value="{{ archiveShow }}">
+    <div style="position:absolute;inset:0;z-index:47">
+      <div onClick="{{ closeArchive }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
+      <div style="position:absolute;left:50%;top:80px;transform:translateX(-50%);width:min(480px,92vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);padding:22px;animation:eoFade .18s ease">
+        <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600;margin-bottom:4px">Save system genome online?</div>
+        <div style="font-size:12.5px;color:#6E6E78;line-height:1.55;margin-bottom:15px">While this is on, the whole system genome is checkpointed to Archive.org automatically whenever it changes — quietly, with no further prompts. It's content-addressed, so an unchanged genome is never re-uploaded and there are no duplicates. You can turn it off anytime. First, acknowledge once:</div>
+        <button onClick="{{ toggleAckPermanence }}" style="width:100%;display:flex;align-items:flex-start;gap:10px;padding:9px 4px;text-align:left">
+          <span style="width:17px;height:17px;border-radius:5px;border:2px solid {{ ackPermanenceBd }};background:{{ ackPermanenceBox }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span style="flex:1;font-size:12.5px;color:#3A3A44;line-height:1.45"><b>Permanence</b> — these are public, permanent records and cannot be quietly deleted.</span>
+        </button>
+        <button onClick="{{ toggleAckPrivacy }}" style="width:100%;display:flex;align-items:flex-start;gap:10px;padding:9px 4px;text-align:left">
+          <span style="width:17px;height:17px;border-radius:5px;border:2px solid {{ ackPrivacyBd }};background:{{ ackPrivacyBox }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span style="flex:1;font-size:12.5px;color:#3A3A44;line-height:1.45"><b>Privacy</b> — I keep private matter out of the record; redact before it's read in, not after.</span>
+        </button>
+        <button onClick="{{ toggleAckRights }}" style="width:100%;display:flex;align-items:flex-start;gap:10px;padding:9px 4px;text-align:left">
+          <span style="width:17px;height:17px;border-radius:5px;border:2px solid {{ ackRightsBd }};background:{{ ackRightsBox }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span style="flex:1;font-size:12.5px;color:#3A3A44;line-height:1.45"><b>Rights</b> — I hold the rights to share what I archive under CC-BY-4.0.</span>
+        </button>
+        <sc-if value="{{ archiveMsgShow }}"><div style="margin-top:11px;font-size:12px;color:#B23A2E;background:#FBE9E6;border:1px solid #F2D3CD;border-radius:8px;padding:8px 11px">{{ archiveMsg }}</div></sc-if>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+          <button onClick="{{ closeArchive }}" style="border:1px solid #EAEAEF;border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:600;color:#6E6E78" style-hover="background:#F5F5F8">Cancel</button>
+          <button onClick="{{ enableGenomeOnline }}" style="background:{{ archiveBtnBg }};color:#fff;border-radius:9px;padding:8px 16px;font-size:12.5px;font-weight:600" style-hover="filter:brightness(.96)">Turn on</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- ENTITY WEB GRAPH OVERLAY -->
   <sc-if value="{{ webGraphShow }}">
     <div style="position:absolute;inset:0;z-index:48">
@@ -927,14 +1033,24 @@ class Component extends DCLogic {
       pasteOpen: false, pasteTitle: '', pasteBody: '',
       modelOpen: false, topicMenu: null,
       entitySel: null, entityMode: true, webGraphFor: null,
+      // optional Matrix account login
+      acctOpen: false,
+      loginShow: false, loginId: '', loginPass: '', loginHs: '', loginBusy: false, loginErr: null,
+      // "save system genome online?" — one quiet opt-in setting + its one-time enable confirm
+      archiveShow: false, archiveBusy: false, archiveMsg: null,
+      ackPermanence: false, ackPrivacy: false, ackRights: false,
       rev: 0,
     };
     this._segCache = {}; this._viewCache = null; this._entCache = null;
     this._app = (typeof window !== 'undefined' && window.EO && window.EO.app) || null;
+    this._matrix = (typeof window !== 'undefined' && window.EO && window.EO.matrix) || null;
+    this._genome = (typeof window !== 'undefined' && window.EO && window.EO.genome) || null;
     if (this._app) {
       this._app.subscribe((kind) => this._onEngine(kind));
       if (window.EO.audit && window.EO.audit.subscribe) window.EO.audit.subscribe(() => this._poke());
     }
+    if (this._matrix && this._matrix.subscribe) this._matrix.subscribe(() => this._poke());
+    if (this._genome && this._genome.subscribe) this._genome.subscribe(() => this._poke());
     this._wireDom();
   }
 
@@ -1035,6 +1151,72 @@ class Component extends DCLogic {
       this.showToast(`Recorded ${s.reg} — ${s.title}`);
       this.setState({ pasteOpen: false, pasteTitle: '', pasteBody: '' });
     } catch (err) { this.showToast(String(err && err.message || err)); }
+  }
+
+  // ── optional Matrix account login ──────────────────────────────────────────
+  // Signing in is never required: the reader is whole signed-out. A login only
+  // unlocks the permanent archive path, which the webhook gates behind a real
+  // homeserver identity. The token is held by the engine's matrix session; the
+  // surface only ever moves credentials into login() and reads back the user id.
+  toggleAccount() { this.setState({ acctOpen: !this.state.acctOpen }); }
+  closeAccount() { this.setState({ acctOpen: false }); }
+  openLogin() { this.setState({ loginShow: true, acctOpen: false, loginErr: null, loginPass: '' }); }
+  closeLogin() { this.setState({ loginShow: false, loginBusy: false }); }
+  onLoginId(e) { this.setState({ loginId: e.target.value }); }
+  onLoginPass(e) { this.setState({ loginPass: e.target.value }); }
+  onLoginHs(e) { this.setState({ loginHs: e.target.value }); }
+  onLoginKey(e) { if (e.key === 'Enter') { e.preventDefault(); this.submitLogin(); } }
+  submitLogin() {
+    if (!this._matrix || this.state.loginBusy) return;
+    const id = String(this.state.loginId || '').trim();
+    const password = String(this.state.loginPass || '');
+    const homeserver = String(this.state.loginHs || '').trim() || null;
+    if (!id || !password) { this.setState({ loginErr: 'Enter a username and password.' }); return; }
+    this.setState({ loginBusy: true, loginErr: null });
+    this._matrix.login({ id, password, homeserver }).then((r) => {
+      if (r && r.ok) {
+        this.setState({ loginShow: false, loginBusy: false, loginPass: '', loginErr: null });
+        this.showToast(`Signed in as ${r.userId}`);
+      } else {
+        this.setState({ loginBusy: false, loginErr: (r && r.error) || 'Sign-in failed.' });
+      }
+    }).catch((err) => this.setState({ loginBusy: false, loginErr: String(err && err.message || err) }));
+  }
+  signOut() {
+    if (!this._matrix) return;
+    const who = this._matrix.state.userId;
+    this.setState({ acctOpen: false });
+    this._matrix.logout().then(() => this.showToast(`Signed out${who ? ' — ' + who : ''}`)).catch(() => {});
+  }
+
+  // ── "save system genome online?" ───────────────────────────────────────────
+  // One quiet, opt-in setting. We never push it. OFF by default; turning it ON asks
+  // once for the standing consent, then the whole genome is checkpointed to
+  // Archive.org silently on change (content-addressed, so no duplicates). Turning it
+  // off is immediate. There is no per-source prompt.
+  toggleGenomeOnline() {
+    const g = this._genome;
+    if (!g) return;
+    if (g.isEnabled()) { g.setEnabled(false); this.showToast('System genome archiving off'); return; }
+    if (!this._matrix || !this._matrix.isLoggedIn()) { this.openLogin(); return; }
+    this.setState({ archiveShow: true, acctOpen: false, archiveMsg: null, ackPermanence: false, ackPrivacy: false, ackRights: false });
+  }
+  closeArchive() { this.setState({ archiveShow: false, archiveBusy: false }); }
+  toggleAck(which) { const k = 'ack' + which; this.setState({ [k]: !this.state[k] }); }
+  enableGenomeOnline() {
+    const st = this.state;
+    if (!this._genome) return;
+    const consent = [];
+    if (st.ackPermanence) consent.push('permanence');
+    if (st.ackPrivacy) consent.push('privacy');
+    if (st.ackRights) consent.push('rights');
+    if (window.EO && window.EO.archive) {
+      const missing = window.EO.archive.missingConsent(consent);
+      if (missing.length) { this.setState({ archiveMsg: `Acknowledge: ${missing.join(', ')}` }); return; }
+    }
+    this._genome.setEnabled(true);   // captures the current genome now, then saves quietly on change
+    this.setState({ archiveShow: false });
+    this.showToast('System genome archiving on — saves quietly on change');
   }
 
   // ── chat ─────────────────────────────────────────────────────────────────
@@ -1206,6 +1388,68 @@ class Component extends DCLogic {
     return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2 - 7} ${y2}`;
   }
 
+  // The account chip + login modal view-model, computed straight off the matrix
+  // session so it is correct in EVERY render branch (booting, broken, or live) —
+  // the header renders in all of them. Signed-out and signed-in are the two faces.
+  _acctVals() {
+    const st = this.state;
+    const mx = this._matrix;
+    const ms = mx ? mx.state : { status: 'anon', userId: null, homeserver: null };
+    const signedIn = !!(mx && mx.isLoggedIn && mx.isLoggedIn());
+    const short = signedIn && ms.userId ? ms.userId.split(':')[0] : '';   // @michael
+    const cps = (typeof window !== 'undefined' && window.EO && window.EO.archive && window.EO.archive.checkpoints) ? window.EO.archive.checkpoints() : [];
+    const g = this._genome;
+    const gEnabled = !!(g && g.isEnabled && g.isEnabled());
+    const gState = g ? g.state : { status: 'idle', lastCheckpoint: null };
+    const lastCp = gState.lastCheckpoint || null;
+    const acks = st.ackPermanence && st.ackPrivacy && st.ackRights;
+    return {
+      matrixAvailable: !!mx,
+      signedIn, signedOut: !signedIn,
+      // "save system genome online?" — the quiet toggle + its silent status (never pushed)
+      genomeEnabled: gEnabled,
+      genomeTrackBg: gEnabled ? '#59C08A' : '#D4D4DC',
+      genomeKnobX: gEnabled ? '17px' : '2px',
+      genomeStatus: gState.status === 'saving' ? 'saving…' : gState.status === 'error' ? 'last save failed' : gEnabled ? 'on · saves quietly on change' : 'off',
+      toggleGenomeOnline: () => this.toggleGenomeOnline(),
+      hasLastCp: !!(lastCp && lastCp.url), lastCpUrl: (lastCp && lastCp.url) || '',
+      openLastCp: () => { try { if (lastCp && lastCp.url) window.open(lastCp.url, '_blank', 'noopener'); } catch { /* ignore */ } },
+      // one-time enable confirm (the standing consent for automatic archiving)
+      archiveShow: st.archiveShow, archiveMsg: st.archiveMsg, archiveMsgShow: !!st.archiveMsg,
+      ackPermanence: st.ackPermanence, ackPrivacy: st.ackPrivacy, ackRights: st.ackRights,
+      ackPermanenceBox: st.ackPermanence ? '#5B4BE6' : '#fff', ackPermanenceBd: st.ackPermanence ? '#5B4BE6' : '#D4D4DC',
+      ackPrivacyBox: st.ackPrivacy ? '#5B4BE6' : '#fff', ackPrivacyBd: st.ackPrivacy ? '#5B4BE6' : '#D4D4DC',
+      ackRightsBox: st.ackRights ? '#5B4BE6' : '#fff', ackRightsBd: st.ackRights ? '#5B4BE6' : '#D4D4DC',
+      archiveReady: acks, archiveDisabled: !acks,
+      archiveBtnBg: acks ? '#6D5EF5' : '#C9C4F3',
+      toggleAckPermanence: () => this.toggleAck('Permanence'), toggleAckPrivacy: () => this.toggleAck('Privacy'), toggleAckRights: () => this.toggleAck('Rights'),
+      enableGenomeOnline: () => this.enableGenomeOnline(), closeArchive: () => this.closeArchive(),
+      // the local index of permanent checkpoints — retrievable later without a round-trip
+      checkpoints: cps.slice(0, 6).map((c) => ({
+        title: c.title || c.identifier, id: c.identifier, url: c.url,
+        open: () => { try { window.open(c.url, '_blank', 'noopener'); } catch { /* ignore */ } },
+      })),
+      checkpointCount: String(cps.length), hasCheckpoints: cps.length > 0,
+      acctLabel: signedIn ? short : 'Sign in',
+      acctUserId: ms.userId || '',
+      acctHomeserver: (ms.homeserver || '').replace(/^https?:\/\//, ''),
+      acctDot: signedIn ? '#59C08A' : '#B4B4BE',
+      acctOpen: st.acctOpen,
+      toggleAccount: () => this.toggleAccount(),
+      closeAccount: () => this.closeAccount(),
+      openLogin: () => this.openLogin(),
+      signOut: () => this.signOut(),
+      // login modal
+      loginShow: st.loginShow,
+      loginId: st.loginId, loginPass: st.loginPass, loginHs: st.loginHs,
+      loginBusy: st.loginBusy, loginErr: st.loginErr, loginErrShow: !!st.loginErr,
+      loginBtnLabel: st.loginBusy ? 'Signing in…' : 'Sign in',
+      onLoginId: (e) => this.onLoginId(e), onLoginPass: (e) => this.onLoginPass(e),
+      onLoginHs: (e) => this.onLoginHs(e), onLoginKey: (e) => this.onLoginKey(e),
+      submitLogin: () => this.submitLogin(), closeLogin: () => this.closeLogin(),
+    };
+  }
+
   renderVals() {
     try { return this._vals(); }
     catch (err) {
@@ -1213,7 +1457,7 @@ class Component extends DCLogic {
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: this.state.toast, entListShow: false };
+        statusPeek: [], toast: this.state.toast, entListShow: false, ...this._acctVals() };
     }
   }
 
@@ -1225,7 +1469,7 @@ class Component extends DCLogic {
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
         statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: st.toast, entListShow: false };
+        statusPeek: [], toast: st.toast, entListShow: false, ...this._acctVals() };
     }
     const topic = app.topic();
     const sources = app.topicSources();
@@ -1643,6 +1887,8 @@ class Component extends DCLogic {
       pasteShow: st.pasteOpen, pasteTitle: st.pasteTitle, pasteBody: st.pasteBody,
       onPasteTitle: (e) => this.onPasteTitle(e), onPasteBody: (e) => this.onPasteBody(e),
       closePaste: () => this.closePaste(), submitPaste: () => this.submitPaste(),
+      // optional Matrix account + the quiet "save system genome online?" setting
+      ...this._acctVals(),
       // web graph overlay
       webGraphShow: !!st.webGraphFor,
       webGraphTitle: st.webGraphFor && prof ? prof.label : (st.webGraphFor ? 'Entity web' : ''),

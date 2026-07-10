@@ -17,6 +17,10 @@
 //   audit       the ring buffer the monologue drawer reads  (rooms/audit)
 //   workspace   folders/pins persistence                    (rooms/workspace)
 //   mountTieredGraph  the entity explorer's web graph       (rooms/reader)
+//   matrix      OPTIONAL Matrix account login (rooms/archive/matrix) — signed-out
+//               the reader is whole; signing in only unlocks the permanent archive
+//   archive     authenticated deposit to Archive.org via the Matrix-gated webhook
+//               (rooms/archive/deposit), bound to the matrix session's token
 
 import { createParser } from '../../perceiver/parse/index.js';
 import { readingAt } from '../../perceiver/reading.js';
@@ -27,14 +31,49 @@ import { createAuditLog } from '../audit/index.js';
 import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
 import { mountTieredGraph } from './tiered-graph.js';
+import { createMatrixSession } from '../archive/matrix.js';
+import { depositToArchive, missingConsent, archiveMediatype, REQUIRED_CONSENT, KINDS, ARCHIVE_CASES_WEBHOOK } from '../archive/deposit.js';
+import { createCheckpointLog, checkpointId } from '../archive/checkpoints.js';
+import { createGenomeAutosave } from '../archive/autosave.js';
 
 const audit = createAuditLog({ capacity: 512 });
 const app = createReaderApp({ audit });
+
+// The optional identity. Restores a persisted session from localStorage without a
+// network hit (signed-in survives reload and works offline), then revalidates the
+// token against the homeserver in the background — a definitive 401 signs you out,
+// a network fault is left alone.
+const matrix = createMatrixSession();
+matrix.restoreAndRevalidate().catch(() => { /* stays signed-out */ });
 
 const parse = (text, opts = {}) => {
   const parser = createParser(opts);
   return parser.parse(String(text ?? ''));
 };
+
+// The local checkpoint ledger — the index of what's been archived, so the surface can
+// list and re-open permanent items without a round-trip, and so a repeat deposit of
+// the same content is short-circuited (no duplicate item on archive.org).
+const checkpoints = createCheckpointLog();
+
+// The archive membrane the surface calls: deposit is pre-bound to the live matrix
+// session AND the checkpoint ledger, so the surface never handles the token itself
+// and never has to dedup — it just supplies the bytes, the kind, and the consent
+// acknowledgements, and gets back a permanent, content-addressed checkpoint.
+const deposit = (opts = {}) => depositToArchive({ session: matrix, ledger: checkpoints, ...opts });
+const archive = Object.freeze({
+  deposit,
+  checkpoints: () => checkpoints.list(),
+  checkpointId,
+  missingConsent, archiveMediatype,
+  REQUIRED_CONSENT, KINDS, endpoint: ARCHIVE_CASES_WEBHOOK,
+});
+
+// "Save system genome online?" — one quiet, opt-in setting. OFF by default; it never
+// prompts. When on and signed in, the whole genome is checkpointed on change,
+// debounced and deduped, silently in the background. Subscribes itself to record and
+// session changes at construction.
+const genome = createGenomeAutosave({ app, matrix, deposit });
 
 window.EO = Object.freeze({
   app,
@@ -46,6 +85,9 @@ window.EO = Object.freeze({
   audit,
   workspace,
   mountTieredGraph,
+  matrix,
+  archive,
+  genome,
   version: '4.2',
 });
 
