@@ -134,8 +134,20 @@ human's thumb nor the population's strategy — the world's measurement. `condit
 `signalRate` (how much of the weight is measured vs. the transfer-floor prior), so *how much of the
 weighting is actual contextual signal* is legible at runtime. What stays frozen is only the
 **structure** — retroactive-only, precision-gated, that a held-then-bound thread is rewarded at all
-— because that is the part a cheater would weaken. The one residual is the prior itself, now named,
-tied to the transfer floor, and as conservative as it can be.
+— because that is the part a cheater would weaken.
+
+### Standing up model B — the floor is measured, not asserted
+
+`liftA`/`liftB` only mean something if the second frozen model actually exists. `transfer.js`
+(`createTransferProbe`) stands it up: it runs the surfer's output through **two** frozen models,
+bare and scaffolded, scores each against the held source (the judge — faithfulness, checkable), and
+computes the **kept** lift `= min(liftA, liftB)` for real. A prompt hack that lifts one model and
+not the other collapses to kept ≈ 0 and its overfit tax is surfaced — the talker/grounder split
+enforced by measurement, not doctrine. That measured kept lift is exactly what the Void-respect
+exchange rate reads, so the transfer floor is now **measured, not decreed**. `modelRunner` adapts a
+real `src/model` backend (echo / webllm / wllama) into a probe runner; `judgeScorer` grades with the
+judge and falls back to an un-authored overlap proxy offline. It is the slow true signal — run on
+survivors and to re-anchor the cheap proxy, not every turn. The surface runs it live.
 
 **Human interaction** is added as the strongest anchor — un-authorable by construction and, in
 time, the primary evolver. It selects genomes directly.
