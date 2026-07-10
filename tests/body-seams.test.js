@@ -62,21 +62,21 @@ test('foresight refuses to grade what has no answer key', () => {
   assert.equal(foresightOf([new Map([['a', 1]])], { gamma: 0.7 }), null);
 });
 
-test('the world anchor outranks the judge, and only the human outranks the world', () => {
+test('the prediction anchor outranks the judge, and only the human outranks the world', () => {
   const judged = score({ grounded: 2, claimed: 2, delivered: true, validated: 0.9 });
   assert.equal(judged.anchoredBy, 'judge');
-  const world = score({ grounded: 2, claimed: 2, delivered: true, validated: 0.9, foresight: 0.4 });
-  assert.equal(world.anchoredBy, 'world', 'predictive skill on held-out reality beats the judge’s taste');
+  const world = score({ grounded: 2, claimed: 2, delivered: true, validated: 0.9, predicted: 0.4 });
+  assert.equal(world.anchoredBy, 'prediction', 'predictive skill on held-out reality beats the judge’s taste');
   assert.equal(world.anchor, 0.4);
-  const human = score({ grounded: 2, claimed: 2, delivered: true, foresight: 0.4, endorsed: 1 });
+  const human = score({ grounded: 2, claimed: 2, delivered: true, predicted: 0.4, endorsed: 1 });
   assert.equal(human.anchoredBy, 'human');
 });
 
-test('metabolize grades arrivals with the RUNNING genome’s gamma and anchors on the world', () => {
+test('metabolize grades arrivals with the RUNNING genome’s gamma and anchors on prediction', () => {
   const meta = createMetabolism();
   const arrivals = arrivalsOfDoc(cycleMelody());
   const r = meta.metabolize({ delivered: true, grounded: 1, claimed: 1, arrivals });
-  assert.equal(r.fitness.anchoredBy, 'world', 'the loop is graded by what it predicted, not by taste');
+  assert.equal(r.fitness.anchoredBy, 'prediction', 'the loop is graded by what it predicted, not by taste');
   assert.equal(r.fitness.provisional, false);
 });
 

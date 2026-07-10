@@ -55,6 +55,9 @@ export const createMetabolism = ({
   population = null,
   provenance = null,
   judge = null,                      // an optional external judge (judge.js) — the un-authored fitness anchor
+  proposer = null,                   // an optional THIRD Claude channel (proposer.js) — reads the grader's
+                                     // critiques and OFFERS a heritable tweak as a challenger the population
+                                     // must still ratify. Dry-run / null → nothing offered (disarmed-safe).
   now = () => Date.now(),
   anchorWeight = 0.6,
   capacity = 512,
@@ -115,12 +118,14 @@ export const createMetabolism = ({
   const metabolize = (outcome = {}) => {
     // THE TRUTH SEAM (foresight.js): when the turn carries its arrival sequence — the
     // per-unit deposits of what the world actually sent — grade the RUNNING genome's
-    // gamma against the held-out tail and let that skill anchor fitness as `foresight`.
-    // Reality supplies its own answer key; the judge's taste no longer has to. An
-    // explicit outcome.foresight (a caller that graded elsewhere) is never overwritten.
-    if (outcome.foresight == null && Array.isArray(outcome.arrivals) && outcome.arrivals.length) {
+    // gamma against the held-out tail and let that skill anchor fitness as `predicted`
+    // (the same anchor the Born-measure competency feeds: one truth signal, two
+    // instruments). Reality supplies its own answer key; the judge's taste no longer
+    // has to. An explicit outcome.predicted (a caller that graded elsewhere, e.g.
+    // competencyAnchor) is never overwritten.
+    if (outcome.predicted == null && Array.isArray(outcome.arrivals) && outcome.arrivals.length) {
       const f = foresightOf(outcome.arrivals, { gamma: runningAllocation().gamma });
-      if (f) outcome = { ...outcome, foresight: f.skill, foresightReading: f };
+      if (f) outcome = { ...outcome, predicted: f.skill, foresightReading: f };
     }
     const ran = runsNext();
     const season = scarcity.season(period);
@@ -175,6 +180,27 @@ export const createMetabolism = ({
     period += 1;                      // one turn = one metabolic period; the world's clock ticks
     notify();
     return Object.freeze({ fitness: fit, beat, event });
+  };
+
+  // proposeAndSeat — the async proposer path, the sibling of metabolizeJudged's judge path. Consult
+  // the breeder with the reigning unit and the grader's recent CRITIQUES; if it offers a legal
+  // challenger, seat it into the population to compete the coming period. It never promotes — the
+  // tournament does (the firewall). No proposer / no population / dry-run → null and nothing is
+  // seated, so an unarmed third channel leaves the loop byte-identical. Returns the proposal (for the
+  // surface to render) or null.
+  const proposeAndSeat = async ({ critiques = [] } = {}) => {
+    if (!proposer || typeof proposer.propose !== 'function' || !population || typeof population.offer !== 'function') return null;
+    let prop = null;
+    try {
+      prop = await proposer.propose({
+        unit: reigning(),
+        critiques,
+        lineage: (typeof population.promotions === 'function' ? population.promotions() : []).slice(-6),
+        season: scarcity.season(period),
+      });
+    } catch { return null; }             // a proposer outage must not stall the loop
+    if (prop && prop.challenger && prop.challenger.unit) population.offer(prop.challenger.unit);
+    return prop;
   };
 
   // vitals — the viability readout: the state the organism maintains and can fail to
@@ -233,8 +259,10 @@ export const createMetabolism = ({
     // the loop
     metabolize,
     metabolizeJudged,    // async: grade with the external judge (anchor), then metabolize
+    proposeAndSeat,      // async: consult the breeder (third channel), seat its challenger to compete
     allocation,          // consumers read this BEFORE a turn to know what to spend
     runsNext,
+    championUnit: reigning,   // the reigning heritable unit (organism/genome), for the proposer to tweak
     // the membrane / readout
     vitals,
     subscribe(fn) { subscribers.add(fn); return () => subscribers.delete(fn); },
@@ -247,6 +275,7 @@ export const createMetabolism = ({
     population,
     provenance,
     judge,
+    proposer,
     // world control — impose or lift the external constraint (the surface / a deployment)
     season: () => scarcity.season(period),
     scarcity,
@@ -299,6 +328,7 @@ export { createTransferProbe, modelRunner, judgeScorer } from './transfer.js';
 export { createChallenger, runChallengeCycle, buildChallengeMessages, buildSatisfactionMessages, CHALLENGER_MODEL } from './challenger.js';
 // the truth seam — the one surprise wired to selection (reality's own answer key):
 export { foresightOf, arrivalsOfDoc } from './foresight.js';
+export { createProposer, buildProposeMessages, mutationSurface, validateProposal, realize, clampGene, ORGAN_ROUTES, PROPOSER_MODEL } from './proposer.js';
 export { buildAudit, auditToJSON, auditToMarkdown } from './audit.js';
 export { createSanctionLadder, controlledDeath, RUNGS } from './sanction.js';
 export { createHomeostat } from './homeostat.js';

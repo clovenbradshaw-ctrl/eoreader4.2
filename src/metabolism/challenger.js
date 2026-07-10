@@ -135,7 +135,7 @@ export const runChallengeCycle = async ({ challenger, answerer, material = null,
     answer: String(answer || ''), sources: sources || null, trail: trail || null,
     // the outcome fields fitness.observe consumes. The judge's grounded+flowing satisfaction
     // feeds `validated`; the answerer's arrival sequences ride as `arrivals` so metabolize
-    // can grade the genome's predictions against the held-out world (`foresight` — the
+    // can grade the genome's predictions against the held-out world (`predicted` — the
     // truth seam), which OUTRANKS the judge's taste as the anchor when both are present.
     satisfaction: sat,                                  // { grounded, flowing, satisfied, resolved, critique } or null
     outcome: (sat || arrivals) ? Object.freeze({

@@ -62,12 +62,16 @@ must be found in the reserve split across everything the reader forgot (an unspl
 reserve would let amnesia grade as calibration). Measured on a distance-4 motif:
 γ=0.5 → 0, γ=0.7 → 0.02, γ=0.9 → 0.21 — a real gradient for selection to climb.
 
-In `fitness.js` the result (`outcome.foresight`) is a new un-authored anchor, `world`,
-that **outranks the judge** — only the human outranks the world. `metabolize` computes
-it automatically when arrivals ride the outcome; the research answerer
-(`metabolism/answerer.js`) now returns the kept pages' arrival sequences, and the
-challenge cycle carries them through, so an evolve turn is graded by what it predicted,
-not only by what a judge believed.
+In `fitness.js` the result feeds the un-authored `predicted` anchor (`anchoredBy:
+'prediction'`) that **outranks the judge** — only the human outranks the world. Two
+graders now feed that one anchor — this log-atom foresight, and the Born-measure
+competency over significance vectors (`surfer/predictive-competency.js`, which arrived
+on main by convergent evolution while this seam was being closed): one truth signal,
+two instruments. `metabolize` computes foresight automatically when arrivals ride the
+outcome (never overwriting an explicit `predicted`); the research answerer
+(`metabolism/answerer.js`) returns the kept pages' arrival sequences, and the challenge
+cycle carries them through, so an evolve turn is graded by what it predicted, not only
+by what a judge believed.
 
 ## 3. The omnimodal seam — one more jack was the currency itself
 
