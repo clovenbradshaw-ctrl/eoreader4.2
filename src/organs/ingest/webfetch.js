@@ -232,18 +232,36 @@ export const createWebClient = ({
 } = {}) => {
   const proxyBase = proxy.replace(/\/feed\/?$/, '');     // .../webhook — the sibling-webhook root
   const proxied = (url) => `${proxy}?url=${encodeURIComponent(url)}`;
-  const fetchRaw = async (url) => {
+  // `opts` carries the caller's abort `signal` down to the injected fetch (chainFetch in the
+  // app), so a Stop / stall-watchdog abort cancels the in-flight request rather than the turn
+  // waiting out the full timeout. A fetchImpl that ignores the 2nd arg (plain `fetch`, a test
+  // fake) is unaffected.
+  const fetchRaw = async (url, opts = {}) => {
     if (!fetchImpl) throw new Error('webfetch: no fetch implementation available');
-    const res = await fetchImpl(url);
+    const res = await fetchImpl(url, opts);
     return { url, text: await res.text(), ok: res.ok !== false, status: res.status ?? 200 };
   };
-  const fetchUrl = (url) => fetchRaw(proxied(url));       // a page, through the feed proxy
+  const fetchUrl = (url, opts = {}) => fetchRaw(proxied(url), opts);   // a page, through the feed proxy
   const ctx = { proxyBase, proxied, fetchRaw, fetchUrl, searchUrl };
-  const search = async (query, { kind = 'auto', k = 8 } = {}) => {
+  const search = async (query, { kind = 'auto', k = 8, signal = null } = {}) => {
     const resolved = kind === 'auto' ? routeKind(query) : kind;
-    const fn = SEARCH_SOURCES[resolved] || SEARCH_SOURCES.wikipedia;
-    try { return (await fn(ctx, query, k)).map((it) => ({ ...it, kind: resolved })); }
-    catch { return []; }
+    // Bind the abort signal into the ctx a KIND reads, so its ctx.fetchUrl calls carry it
+    // without every kind threading it by hand.
+    const sctx = signal
+      ? { ...ctx, fetchUrl: (u, o = {}) => fetchUrl(u, { signal, ...o }), fetchRaw: (u, o = {}) => fetchRaw(u, { signal, ...o }) }
+      : ctx;
+    const run = async (which) => {
+      const fn = SEARCH_SOURCES[which] || SEARCH_SOURCES.wikipedia;
+      try { return (await fn(sctx, query, k)).map((it) => ({ ...it, kind: which })); }
+      catch { return []; }
+    };
+    let hits = await run(resolved);
+    // A single provider must never be the whole story (4.1's rule, dropped in 4.2): when the
+    // routed kind comes back empty — a proxy hiccup, a bot-wall, a niche query it doesn't cover —
+    // fall back to Wikipedia so a generic ask still lands a real source instead of "nothing came
+    // back" and a dead, ungrounded turn.
+    if (!hits.length && resolved !== 'wikipedia' && !signal?.aborted) hits = await run('wikipedia');
+    return hits;
   };
   return { proxy, proxyBase, proxied, fetchRaw, fetchUrl, search };
 };
@@ -284,11 +302,18 @@ export const fetchAndAdmit = async (url, { client, store = null, rawStore = null
 // top results. By default the result's snippet/summary is admitted as a light source; with
 // `fetchPages` each result's full page is fetched THROUGH the proxy — the engine pulling the
 // actual website ("find random websites as needed"). Returns [{ item, doc, record, … }].
-export const searchAndAdmit = async (query, { client, store = null, rawStore = null, k = 5, kind = 'auto', fetchPages = false, fetched_at = nowIso() } = {}) => {
+export const searchAndAdmit = async (query, { client, store = null, rawStore = null, k = 5, kind = 'auto', fetchPages = false, fetched_at = nowIso(), signal = null } = {}) => {
   const c = client || createWebClient();
-  const items = await c.search(query, { kind, k });
+  // A signal-bound view of the client so the search, each full-page / extract read, and the
+  // fallback page fetch all honour the turn's Stop / stall abort — the FULL_TEXT hooks read
+  // through client.fetchUrl, so binding it here threads the signal without touching each kind.
+  const fc = signal
+    ? { ...c, fetchUrl: (u, o = {}) => c.fetchUrl(u, { signal, ...o }), fetchRaw: (u, o = {}) => c.fetchRaw(u, { signal, ...o }) }
+    : c;
+  const items = await c.search(query, { kind, k, signal });
   const out = [];
   for (const it of items) {
+    if (signal?.aborted) break;
     let text = it.text || it.title || '';
     if (fetchPages && it.url) {
       try {
@@ -297,8 +322,8 @@ export const searchAndAdmit = async (query, { client, store = null, rawStore = n
         // Anything else → fetch the page and reduce its HTML, with the chrome stripped.
         const full = FULL_TEXT[it.source] || FULL_TEXT[it.kind];
         text = (full
-          ? await full(c, it)
-          : htmlToText((await c.fetchUrl(it.url)).text)) || text;
+          ? await full(fc, it)
+          : htmlToText((await fc.fetchUrl(it.url)).text)) || text;
       } catch { /* keep the snippet */ }
     }
     const payload = { url: it.url || c.proxied(query), title: it.title, text,

@@ -42,7 +42,10 @@ import { foldNarrative } from './fold-narrative.js';
 // page fetches all inherit the fallback without knowing it exists.
 const PROXY_FORMS = [
   (u) => `https://n8n.intelechia.com/webhook/feed?url=${encodeURIComponent(u)}`,
-  (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  // corsproxy.io was dropped: its free tier now returns a 200 HTML landing page (no CORS
+  // header) for every request, so it poisoned the chain — a fake "success" that hid a real
+  // failure and blocked the working fallback below. allorigins is the public backstop for a
+  // fully-down primary; n8n (the reader's own feed proxy) carries the normal load.
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
 
@@ -51,22 +54,36 @@ const targetOf = (proxiedUrl) => {
   catch { return proxiedUrl; }
 };
 
-const fetchTimed = (url, ms = 25000) => {
+// fetchTimed cuts a stalled proxy connection loose two ways: a per-request TIMEOUT and the
+// caller's abort `signal` (the Stop button / the turn's stall watchdog). 4.1's proxyFetch
+// chained the caller signal so Stop halted an in-flight fetch; 4.2 had dropped it, so a
+// hung fetch ignored Stop and the turn ground through the full timeout with no way out.
+const fetchTimed = (url, { ms = 20000, signal = null } = {}) => {
   const c = new AbortController();
   const t = setTimeout(() => c.abort(), ms);
-  return fetch(url, { signal: c.signal }).finally(() => clearTimeout(t));
+  const relay = () => { try { c.abort(); } catch { /* already aborted */ } };
+  if (signal) { if (signal.aborted) relay(); else signal.addEventListener('abort', relay, { once: true }); }
+  return fetch(url, { signal: c.signal }).finally(() => {
+    clearTimeout(t);
+    if (signal) signal.removeEventListener('abort', relay);
+  });
 };
 
-const chainFetch = async (proxiedUrl) => {
+const chainFetch = async (proxiedUrl, { signal = null } = {}) => {
+  if (signal?.aborted) throw new Error('aborted');
   const target = targetOf(proxiedUrl);
   let lastErr = null;
   for (const form of PROXY_FORMS) {
+    if (signal?.aborted) throw new Error('aborted');
     try {
-      const res = await fetchTimed(form(target));
-      if (!res.ok && res.status >= 500) { lastErr = new Error(`HTTP ${res.status}`); continue; }
-      if (!res.ok && res.status === 429) { lastErr = new Error('HTTP 429'); continue; }
+      const res = await fetchTimed(form(target), { signal });
+      if (!res.ok && (res.status >= 500 || res.status === 429)) { lastErr = new Error(`HTTP ${res.status}`); continue; }
       return res;
-    } catch (e) { lastErr = e; }
+    } catch (e) {
+      // A user/turn abort is final — don't keep walking the chain waiting on a stopped turn.
+      if (signal?.aborted) throw e;
+      lastErr = e;
+    }
   }
   throw lastErr || new Error('fetch failed');
 };
@@ -107,6 +124,15 @@ const nowMs = () => { try { return Date.now(); } catch { return 0; } };
 // chat answer over the slow local model stays responsive — the walk self-limits well short of this
 // via strayPatience + frontier exhaustion, so most asks take fewer hops.
 const RESEARCH_HOPS = 5;
+// Does the ask want a DEVELOPED, multi-paragraph piece — an essay, a report, a detailed
+// write-up — rather than a pointed answer? 4.1 had a system-decided long-form route; 4.2 had
+// dropped it, so EVERY reader turn was capped at the small per-task budgets (answer 384 tokens)
+// and "write me an essay about dolphins" came back as two sentences. This restores a long-form
+// lane: when the ask names a long-form artifact, the turn gets a much larger budget and the
+// paragraph loop is allowed to develop the piece. Mirrors 4.1's _longformIntent keyword floor.
+const LONGFORM_RE = /\b(essays?|treatise|report|deep[\s-]?dive|comprehensive(?:ly)?|in[\s-]?depth|at\s+length|long[\s-]?form|thorough(?:ly)?|detailed|\d{3,}\s*words?|(?:write|compose|draft|create|produce|generate|give)\s+(?:me\s+|us\s+)?(?:a|an|the|some)\b[^.?!]{0,40}?\b(?:essay|report|overview|account|piece|article|guide|breakdown|story|analysis|write[-\s]?up|blog\s*post|review))\b/i;
+const wantsLongform = (q) => LONGFORM_RE.test(String(q || ''));
+const LONGFORM_MAX_TOKENS = 1600;
 const domainOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
 const shaShort = (h) => String(h || '').replace(/^[^:]*:/, '').slice(0, 12);
 const bytesOf = (text) => { try { return new TextEncoder().encode(text).length; } catch { return String(text).length; } };
@@ -145,6 +171,7 @@ export const createReaderApp = ({ audit } = {}) => {
   // label with nothing rendered. These helpers rebuild that trail on the message as plain data the
   // surface renders. `beat` appends one step (deduped against the previous), `emit`ing so it streams.
   const beat = (msg, kind, text, mode = 'research') => {
+    stallGuard?.feed();   // a research beat is progress — re-arm the no-progress watchdog
     const t = String(text || '').trim();
     if (!msg || !t) return;
     if (!msg.research) msg.research = { steps: [], mode, t0: nowMs(), tEnd: 0, done: false, summary: '' };
@@ -577,7 +604,40 @@ export const createReaderApp = ({ audit } = {}) => {
 
   // ── chat ───────────────────────────────────────────────────────────────────
   let abort = null;
+  let stallGuard = null;
   const stop = () => { try { abort?.abort(); } catch { /* already done */ } };
+
+  // A NO-PROGRESS WATCHDOG — 4.1's `_stallGuard`, which 4.2 had dropped (the regression behind
+  // "it gets stuck and I can't even hit Stop"). A turn's model decode or a web fetch can stall
+  // OUTRIGHT — a promise that neither resolves nor rejects — leaving the answer bubble spinning
+  // with nothing able to recover it. This aborts the turn's signal AND rejects `race` when no
+  // progress (a streamed token, a pipeline step, a research beat) arrives for `ms`, so the turn
+  // always settles, the `finally` always runs, and the bubble always finalizes with whatever
+  // streamed. `feed()` re-arms the deadline on every sign of life; a live-but-slow model runs on.
+  const makeStallGuard = (ms = 45000) => {
+    let timer = null, tripped = false, trip = null;
+    const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
+    const doTrip = (err) => { if (tripped) return; tripped = true; clear(); if (trip) trip(err); };
+    const feed = () => {
+      if (tripped) return;
+      clear();
+      timer = setTimeout(() => {
+        try { abort?.abort(); } catch { /* already aborted */ }
+        doTrip(Object.assign(new Error('the turn stalled — no progress'), { stalled: true }));
+      }, ms);
+    };
+    const race = new Promise((_, rej) => { trip = rej; });
+    race.catch(() => {});   // a tripped guard nobody is racing must never surface as unhandled
+    // A user Stop settles the turn AT ONCE — the bubble finalizes immediately even if the
+    // backend is slow to unwind its decode, so Stop never feels dead.
+    if (abort?.signal) abort.signal.addEventListener('abort',
+      () => doTrip(Object.assign(new Error('stopped'), { stopped: true })), { once: true });
+    feed();
+    return { feed, clear, race, tripped: () => tripped };
+  };
+  // Race a turn await against the live watchdog: if the op stalls, `race` rejects (and the signal
+  // is aborted) so control returns instead of hanging. A no-op when no guard is armed.
+  const raceGuard = (p) => stallGuard ? Promise.race([p, stallGuard.race]) : p;
 
   // answerFromWeb(pending, q) — the empty-record auto path. Nothing is on the record, but the ask
   // is substantive, so REACH for the web the way 4.1 did: not a single fetch but a multi-hop
@@ -589,34 +649,37 @@ export const createReaderApp = ({ audit } = {}) => {
   // fetch + a model); in Node it degrades to the "couldn't pull anything" line rather than throwing.
   const answerFromWeb = async (pending, q, { onToken = null } = {}) => {
     warmMinilm();
+    // Arm the abort + watchdog BEFORE the first await, so a stalled model load or a hung fetch
+    // is always recoverable (and Stop always has something to abort), not just the walk itself.
+    abort = new AbortController();
+    stallGuard = makeStallGuard();
     try {
-      const m = await ensureModel();
+      const m = await raceGuard(ensureModel());
       setBusy({ kind: 'search', label: 'Looking this up on the web…' });
-      const query = await formulateSearchQuery({ model: m, question: q, history: [], fallback: q });
+      const query = await raceGuard(formulateSearchQuery({ model: m, question: q, history: [], fallback: q }));
       beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
       setBusy({ kind: 'search', label: `Searching the web — ${query}` });
       logIt('search', `Web research "${query}"`, 'auto · nothing on record');
-      abort = new AbortController();
-      const result = await runTurnWithResearch({
+      const result = await raceGuard(runTurnWithResearch({
         question: q, docs: [], model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
         auditLog: audit, history: [],
         stream: true,
-        onToken: (tok) => { pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
+        onToken: (tok) => { stallGuard?.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: abort.signal,
-        onStep: (name, _ctx, data) => { setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
+        onStep: (name, _ctx, data) => { stallGuard?.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
       }, {
         search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
         onHop: (h) => hopBeat(pending, h, query),
         onHopDone: (h) => hopDoneBeat(pending, h),
         signal: abort.signal,
-      });
+      }));
       const gathered = (result.research && result.research.results) || 0;
       if (!gathered) {
         beat(pending, 'warn', `Couldn't pull anything readable for “${query}”.`);
         settleTrail(pending, result.research);
-        pending.text = `I searched the web for “${query}” but couldn't pull anything readable back. Try rephrasing, or drop a URL, file, or pasted text in the bar above.`;
+        pending.text = `I searched the web for “${query}” but couldn't pull anything readable back. The web proxy may be unreachable — try again, or drop a URL, file, or pasted text in the bar above.`;
         pending.route = 'empty';
         return pending;
       }
@@ -629,11 +692,18 @@ export const createReaderApp = ({ audit } = {}) => {
         },
       });
     } catch (e) {
-      pending.text = pending.text || (state.model.state === 'error'
-        ? `${state.model.note}. Pick a model from the chip in the header, then retry — or drop a URL, file, or pasted text in the bar above.`
-        : `The web lookup failed: ${String(e?.message || e)}`);
-      pending.route = 'error';
+      // A stall (watchdog) or a user Stop keeps whatever streamed; only a genuine fault gets the
+      // error line, so a stopped/stalled turn never reads as a crash.
+      const stoppedOrStalled = stallGuard?.tripped() || abort?.signal?.aborted;
+      settleTrail(pending, null);
+      pending.text = pending.text || (stoppedOrStalled
+        ? 'The web lookup stalled and was stopped before it could finish. Try again, or drop a URL, file, or pasted text in the bar above.'
+        : (state.model.state === 'error'
+          ? `${state.model.note}. Pick a model from the chip in the header, then retry — or drop a URL, file, or pasted text in the bar above.`
+          : `The web lookup failed: ${String(e?.message || e)}`));
+      pending.route = stoppedOrStalled ? 'stopped' : 'error';
     } finally {
+      stallGuard?.clear(); stallGuard = null;
       finishTrail(pending);   // stop the trail clock on the empty/error paths too (finishMessage
                               // does it on the success path; the early returns bypass it)
       abort = null; setBusy(null);
@@ -683,24 +753,29 @@ export const createReaderApp = ({ audit } = {}) => {
     }
 
     warmMinilm();
+    abort = new AbortController();
+    stallGuard = makeStallGuard();
     try {
-      const m = await ensureModel();
-      abort = new AbortController();
+      const m = await raceGuard(ensureModel());
       const history = t.messages
         .filter((x) => !x.pending && x.text)
         .slice(0, -2)
         .map((x) => ({ role: x.role, content: x.text, ...(x.unbound ? { unbound: true } : {}) }));
+      // A long-form ask ("write me an essay …") gets a large budget so the answer can develop
+      // past the pointed-answer cap; a normal ask keeps the per-task budget the pipeline picks.
+      const longform = wantsLongform(q);
       const args = {
         question: q, docs, model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
         auditLog: audit, history,
         stream: true,
-        onToken: (tok) => { pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
+        ...(longform ? { maxTokens: LONGFORM_MAX_TOKENS, longform: true } : {}),
+        onToken: (tok) => { stallGuard?.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: abort.signal,
-        onStep: (name, _ctx, data) => { setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
+        onStep: (name, _ctx, data) => { stallGuard?.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
       };
-      let result = await runTurn(args);
+      let result = await raceGuard(runTurn(args));
       // The document turn measured a gap it couldn't close (or an answer worth confirming
       // against the world). In `auto` we take the go-ahead the moment it's proposed.
       // `off`/`confirm` leave the proposal for the in-chat "Search the web" button.
@@ -710,16 +785,16 @@ export const createReaderApp = ({ audit } = {}) => {
           // A GAP the record couldn't close — go WIDE the way 4.1 did: a multi-hop curiosity walk,
           // not one fetch, streaming its search/read beats into the trail. Clear the first ("not in
           // the document") draft so the grounded re-run's stream replaces it rather than appends.
-          const query = await formulateSearchQuery({ model: m, question: proposal.query, history, fallback: proposal.query });
+          const query = await raceGuard(formulateSearchQuery({ model: m, question: proposal.query, history, fallback: proposal.query }));
           beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
           setBusy({ kind: 'search', label: `Searching the web — ${query}` });
           pending.text = ''; emit('stream');
-          const walked = await runTurnWithResearch(args, {
+          const walked = await raceGuard(runTurnWithResearch(args, {
             search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
             onHop: (h) => hopBeat(pending, h, query),
             onHopDone: (h) => hopDoneBeat(pending, h),
             signal: abort.signal,
-          });
+          }));
           settleTrail(pending, walked.research);
           result = {
             ...walked, webProposal: proposal,
@@ -735,7 +810,7 @@ export const createReaderApp = ({ audit } = {}) => {
           setBusy({ kind: 'search', label: note || 'Searching the web…' });
           if (note) beat(pending, 'start', note);
           if (proposal.trigger !== 'verify') { pending.text = ''; emit('stream'); }
-          result = await runWebFollowup(args, result, { webSearch: webSearchAdmit, k: 4 });
+          result = await raceGuard(runWebFollowup(args, result, { webSearch: webSearchAdmit, k: 4 }));
           const n = (result.webFetched && result.webFetched.results) || 0;
           if (result.webFetched) beat(pending, 'read', `Read ${n} web source${n === 1 ? '' : 's'}`);
           if (pending.research) pending.research.summary = `Checked ${n} web source${n === 1 ? '' : 's'}`;
@@ -744,11 +819,17 @@ export const createReaderApp = ({ audit } = {}) => {
       }
       finishMessage(pending, result);
     } catch (e) {
-      pending.text = pending.text || (state.model.state === 'error'
-        ? `${state.model.note}. A WebGPU browser (Chrome/Edge) runs Llama 3.2; anything else runs SmolLM2 on CPU — or pick Claude (hosted API, needs a key) from the model chip in the header, then retry.`
-        : `Something failed mid-turn: ${String(e?.message || e)}`);
-      pending.pending = false; pending.route = 'error';
+      // A stall (watchdog trip) or a user Stop keeps whatever streamed rather than blanking the
+      // bubble to an error — only a genuine mid-turn fault gets the error line.
+      const stoppedOrStalled = stallGuard?.tripped() || abort?.signal?.aborted;
+      pending.text = pending.text || (stoppedOrStalled
+        ? 'Stopped before the answer finished. Ask again to retry.'
+        : (state.model.state === 'error'
+          ? `${state.model.note}. A WebGPU browser (Chrome/Edge) runs Llama 3.2; anything else runs SmolLM2 on CPU — or pick Claude (hosted API, needs a key) from the model chip in the header, then retry.`
+          : `Something failed mid-turn: ${String(e?.message || e)}`));
+      pending.pending = false; pending.route = stoppedOrStalled ? 'stopped' : 'error';
     } finally {
+      stallGuard?.clear(); stallGuard = null;
       finishTrail(pending);   // stop the trail clock even if the turn threw/aborted mid-walk, so a
                               // running trail can never be left spinning forever on an errored turn
       abort = null; setBusy(null);

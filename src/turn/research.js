@@ -235,7 +235,7 @@ export const runCuriousResearch = async (seed, {
     if (onHop) { try { onHop({ index: hops.length + 1, query: node.query, term: node.term }); } catch { /* a progress beat must never break the walk */ } }
 
     let admitted = [];
-    try { admitted = await search(node.query, { k, ...searchOpts }); } catch { admitted = []; }
+    try { admitted = await search(node.query, { k, signal, ...searchOpts }); } catch { admitted = []; }
     const hopDocs = (admitted || []).map(a => a?.doc).filter(Boolean);
     const arrival = profileOf(hopDocs.map(d => pageText(d)).join('\n'));
     const isSeed = node.priority === Infinity;
