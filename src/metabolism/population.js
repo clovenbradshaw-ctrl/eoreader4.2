@@ -54,6 +54,10 @@ export const createPopulation = ({
 
   let championId = organisms[0].id;
   let championGenotype = founder.genotype();
+  // rebuild the full heritable unit from a genotype — an organism (weights ⊕ body) reconstructs
+  // its whole self; a plain genome just re-expresses its weights. This is how a champion carries
+  // its STRUCTURE forward, not only its dials. Feature-detected so a plain-genome pool is unchanged.
+  const rebuild = typeof founder.rebuild === 'function' ? founder.rebuild : (gt) => createGenome(gt);
   const promotions = [];   // every time the champion's genome changes — the genome edits
 
   // compete — run one period of the ecology. Returns the period's demographics + whether
@@ -155,7 +159,7 @@ export const createPopulation = ({
   return Object.freeze({
     compete,
     calibrate: world.calibrate,        // feed a real turn's ground truth into the world-model
-    champion: () => createGenome(championGenotype),
+    champion: () => rebuild(championGenotype),
     championGenotype: () => ({ ...championGenotype }),
     promotions: () => promotions.slice(),
     demographics: () => organisms.map((o) => ({ id: o.id, energy: round(o.energy), age: o.age, wins: o.wins, parentId: o.parentId })),
@@ -177,10 +181,19 @@ const defaultWorld = () => {
     const warm = alloc.modelGate < 0.55 ? 1 : 0;
     const effort = 0.5 * warm + 0.3 * norm(alloc.maxTokens, 96, 512) + 0.2 * norm(alloc.retrieveK, 2, 12);
     // quality saturates: most of it is available at modest effort; extra spend barely adds.
-    const quality = gain * (0.62 + 0.38 * (1 - Math.exp(-3 * effort)));
+    // A richer BODY adds a little quality (more senses cover more of the ask), saturating and
+    // capped — but every organ's UPKEEP is paid in energy every turn, so structure wins only when
+    // it earns more grounded quality than it costs. With a plain genome (no soma) both terms are 0.
+    // a richer body earns two ways: distinct SENSES (resources covered) and occupied NICHES (organs
+    // in the sparse Ground/Pattern rows the designer never filled). Occupying an empty niche pays
+    // where a redundant organ does not — the frequency-dependent reward that pushes the body to grow
+    // the species we could not build. Capped and saturating; upkeep still prunes it when the season turns.
+    const bodyBonus = alloc.soma ? Math.min(0.6, 0.05 * ((alloc.soma.serves || []).length) + 0.09 * (alloc.soma.niche || 0)) : 0;
+    const upkeepTime = (Number(alloc.upkeep) || 0) * 2;   // the body's upkeep as metabolic time-energy
+    const quality = gain * (0.62 + 0.38 * (1 - Math.exp(-3 * effort))) + bodyBonus;
     const spend = {
       model: warm, tokens: warm ? alloc.maxTokens : 0,
-      time: warm ? 8 : 1.2, fetch: alloc.retrieveK, storage: 0,
+      time: (warm ? 8 : 1.2) + upkeepTime, fetch: alloc.retrieveK, storage: 0,
     };
     return { quality: round(quality), spend };
   };
@@ -193,8 +206,11 @@ const defaultWorld = () => {
   return { evaluate, calibrate, get gain() { return gain; } };
 };
 
-// dominantStrain — the resource an organism's genome spends most on, so its offspring is
-// directed to spend less of it (mutation shaped by the pressure the parent lived under).
+// dominantStrain — the resource an organism's genome spends most on, so its offspring is directed
+// to spend less of it (mutation shaped by the pressure the parent lived under). The MAGNITUDE
+// carries the season: a lean season presses hard (magnitude high → the offspring sheds structure
+// it cannot afford), a plentiful one presses lightly (magnitude ~1 → the offspring may grow into a
+// niche). So the body grows when structure earns its keep and sheds it when the season turns.
 const dominantStrain = (genome, season) => {
   const a = clampToSeason(genome.express(), season);
   const weighted = {
@@ -205,7 +221,8 @@ const dominantStrain = (genome, season) => {
   };
   let resource = 'tokens', top = 0;
   for (const [k, v] of Object.entries(weighted)) if (v > top) { top = v; resource = k; }
-  return { resource, magnitude: 1 };
+  const press = season && season.mult != null ? Math.max(0, 1 - season.mult) : 0;   // 0 in plenty → ~0.9 in famine
+  return { resource, magnitude: round(1 + 2 * press) };   // plenty → grow; famine → shed (magnitude ≥ 1.5)
 };
 
 // clampToSeason — the shared clamp (kept in step with index.js): the season presses the
@@ -226,12 +243,24 @@ const clampToSeason = (allocation, season) => {
 };
 
 const norm = (x, lo, hi) => Math.max(0, Math.min(1, (x - lo) / (hi - lo)));
-const sameGenotype = (a, b) => GENE_NAMES.every((n) => a[n] === b[n]);
+// a stable structural signature of a genotype's body (the cells its organs claim). Empty for a
+// plain genome (no soma), so the equality/diff below reduce EXACTLY to the weight-only tests.
+const somaSig = (gt) => (gt && gt.soma && gt.soma.organs)
+  ? gt.soma.organs.map((o) => (o.cells || []).map((c) => `${c.op}${c.grain}`).join('')).sort().join('|')
+  : '';
+const sameGenotype = (a, b) => GENE_NAMES.every((n) => a[n] === b[n]) && somaSig(a) === somaSig(b);
 const diffGenotype = (before, after, meta) => {
   const changed = GENE_NAMES.filter((n) => before[n] !== after[n])
     .map((n) => ({ gene: n, before: before[n], after: after[n], delta: round(after[n] - before[n]) }));
-  return Object.freeze({ op: 'REC', kind: 'promote', changes: changed, ...meta,
-    note: `promote ${changed.map((c) => `${c.gene}:${c.before}→${c.after}`).join(', ') || '(founder)'}` });
+  // a change in the BODY plan (an organ grown, pruned, or fused) is a genome edit too — recorded
+  // as a structural change so a promotion of the body plan is auditable, DNA-only, like a weight edit.
+  const structural = somaSig(before) !== somaSig(after)
+    ? { from: (before.soma?.organs || []).length, to: (after.soma?.organs || []).length, cells: after.soma?.organs?.map((o) => o.cells?.map((c) => c.op + c.grain).join('')) }
+    : null;
+  const bits = [...changed.map((c) => `${c.gene}:${c.before}→${c.after}`)];
+  if (structural) bits.push(`body:${structural.from}→${structural.to} organs`);
+  return Object.freeze({ op: 'REC', kind: 'promote', changes: changed, structural, ...meta,
+    note: `promote ${bits.join(', ') || '(founder)'}` });
 };
 const genotypeSpread = (organisms) => {
   if (organisms.length < 2) return 0;
@@ -242,7 +271,17 @@ const genotypeSpread = (organisms) => {
     const mean = vals.reduce((s, v) => s + v, 0) / vals.length;
     d += Math.sqrt(vals.reduce((s, v) => s + ((v - mean) / span) ** 2, 0) / vals.length); n++;
   }
-  return round(d / n);
+  let base = round(d / n);
+  // when the pool carries BODIES, blend in the mean pairwise structural distance, so the diversity
+  // gauge (and the reservoir that protects it) sees an organism that grew a new organ as genuinely
+  // diverse — not just its weights. Plain-genome pools have no body → base is returned unchanged.
+  const bodied = organisms.filter((o) => typeof o.genome.body === 'function');
+  if (bodied.length >= 2) {
+    let sd = 0, pairs = 0;
+    for (let i = 0; i < bodied.length; i++) for (let j = i + 1; j < bodied.length; j++) { sd += bodied[i].genome.distanceTo(bodied[j].genome); pairs += 1; }
+    base = round(0.5 * base + 0.5 * (pairs ? sd / pairs : 0));
+  }
+  return base;
 };
 // seatWithReservoir — seat `capacity` survivors: the energy elite first, then hold the
 // remaining seats for the most genome-distant variants among the rest (farthest-point, ties

@@ -43,6 +43,31 @@ The EO contracts are mechanically enforced: `src/core/contracts.js` merges every
 holon's manifest and `tests/contracts.test.js` proves 100% coverage, no orphans,
 cube coherence, and no desert cell on every run.
 
+## Evolution — the body grows itself
+
+The metabolism (`src/metabolism/`) no longer only **tunes weights** on a fixed body
+plan; it can **grow the body**. An organism is a regulatory genome (weights) *and* a
+structural soma (organs on a holon substrate). An organ *is* a contract claiming one
+cell of the cube; growth (`soma.js`) drifts into the sparse Ground/Pattern cells the
+designer never filled — duplicating, recombining, or fusing organs, each passing its
+own checkpoint and the body's re-closure before it can wire. Scarcity pays for the
+organs, so structure grows when it earns its keep and is pruned when the season turns.
+
+The floor is explicit (`constitution.js`): **core** (the alphabet) and the
+**constitution** (fitness, the guard, the firewall, the log, the hidden horizon) are
+frozen — the human holds the pen; **body** and **operational** are open; everything is
+frozen by default. Beneath all of it, one law that cannot be tuned away: you may *dwell*
+in the Void (hold an unbound thread) but may never *fabricate* from it (SYN·Ground, the
+desert cell). Fitness rewards only the held thread that **later binds** — the
+investigator, not the clerk — and human interaction is the strongest anchor.
+
+Open **`evolution.html`** (`npm run serve`) to start the evolution and watch the body
+grow on the cube as the season turns. And — with a Claude key — **evolve against a user**:
+Claude poses a real challenge, the local model answers, Claude scores whether it was
+*satisfied*, and that satisfaction (not a synthetic number) is what the population evolves
+toward. It grades; it never touches a weight. Full write-up:
+[`docs/organ-level-evolution.md`](docs/organ-level-evolution.md).
+
 ## The surface
 
 `index.html` is the new dc surface (screens: **EOReader** and **Provenance DAG**),
