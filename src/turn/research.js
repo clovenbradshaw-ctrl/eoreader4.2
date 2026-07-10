@@ -174,7 +174,8 @@ export const runCuriousResearch = async (seed, {
   strayPatience = 2,
   k = 3,
   searchOpts = {},
-  onHop = null,           // (｛ index, query, term ｝) → void — a progress beat fired before each hop's fetch
+  onHop = null,           // (｛ index, query, term ｝) → void — a progress beat fired BEFORE each hop's fetch
+  onHopDone = null,       // (hop) → void — a progress beat fired AFTER each hop, carrying its outcome
   signal = null,          // an AbortSignal (the Stop button): stop the walk between hops, keeping what it gathered
   clock = () => Date.now(),  // the archive's `now` — injected so a reading's shred time is deterministic in a test
   shredTtlOpts = {},      // { msPerChar, min, max } — how the archive scales a reading's lease by content processed
@@ -198,6 +199,11 @@ export const runCuriousResearch = async (seed, {
   const archive = makeArchive({ clock, ...shredTtlOpts });   // parsed-but-strayed readings, leased by content then shredded
   const seenDocIds = new Set();       // docIds already grounded — never archive a page that is a source
   const hops = [];
+  // record(hop) → append the hop AND fire the after-the-fetch progress beat. A hop is pushed at
+  // four sites below (seed-kept, seed-empty, strayed/empty, kept); routing them all through here
+  // gives the host ONE place to learn a hop's OUTCOME (results / kept / strayed) the moment it is
+  // known — the live "read N sources" / "set aside" beat, the sibling of `onHop`'s pre-fetch line.
+  const record = (h) => { hops.push(h); if (onHopDone) { try { onHopDone(h); } catch { /* a progress beat must never break the walk */ } } };
   const visited = new Set();          // normalized queries already fetched — never re-fetch
   const seenLeads = new Set();        // lead terms already chased or already in a query — never re-chase
   for (const t of researchTerms(anchor)) seenLeads.add(t);   // the anchor's own words are not "discoveries"
@@ -251,10 +257,10 @@ export const runCuriousResearch = async (seed, {
         prior = foldInto(prior, arrival, gamma);
         const leads = leadsFrom(by, { seen: seenLeads, max: 4 });
         for (const lead of leads) { pushLead(lead, salience); seenLeads.add(lead.term); }
-        hops.push({ query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience),
-                    results: hopDocs.length, leads: leads.map(l => l.term), kept: true });
+        record({ query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience),
+                 results: hopDocs.length, leads: leads.map(l => l.term), kept: true });
       } else {
-        hops.push({ query: node.query, term: node.term, curiosity: 0, salience: 0, results: 0, leads: [], kept: false, reason: 'empty' });
+        record({ query: node.query, term: node.term, curiosity: 0, salience: 0, results: 0, leads: [], kept: false, reason: 'empty' });
       }
       stray = 0;
       continue;
@@ -278,8 +284,8 @@ export const runCuriousResearch = async (seed, {
         archive.file(d, { query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience), reason: 'strayed' });
         archived += 1;
       }
-      hops.push({ query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience),
-                  results: hopDocs.length, leads: [], kept: false, reason: strayed ? 'strayed' : 'empty', archived });
+      record({ query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience),
+               results: hopDocs.length, leads: [], kept: false, reason: strayed ? 'strayed' : 'empty', archived });
       if (++stray >= strayPatience) break;     // wandered off the question — stop, well short of maxHops
       continue;
     }
@@ -294,8 +300,8 @@ export const runCuriousResearch = async (seed, {
     const novel = bits >= curiosityFloor;
     const leads = novel ? leadsFrom(by, { seen: seenLeads, max: 4 }) : [];
     for (const lead of leads) { pushLead(lead, salience); seenLeads.add(lead.term); }
-    hops.push({ query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience),
-                results: hopDocs.length, leads: leads.map(l => l.term), kept: true, exhausted: !novel });
+    record({ query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience),
+             results: hopDocs.length, leads: leads.map(l => l.term), kept: true, exhausted: !novel });
   }
 
   return { docs, archive: archive.entries(), hops, frontier, prior, topic };
@@ -324,9 +330,12 @@ export const runTurnWithResearch = async (args, {
   strayPatience = 2,
   k = 3,
   searchOpts = { kind: 'auto', fetchPages: true },
+  onHop = null,           // forwarded to the walk — the pre-fetch "searching for…" beat
+  onHopDone = null,       // forwarded to the walk — the after-fetch "read N sources" beat
+  signal = null,          // forwarded to the walk — the Stop button stops it between hops
 } = {}) => {
   const q0 = String(seed || args?.question || '').trim();
-  const walk = await runCuriousResearch(q0, { search, anchor: q0, maxHops, gamma, curiosityFloor, salienceRatio, strayPatience, k, searchOpts });
+  const walk = await runCuriousResearch(q0, { search, anchor: q0, maxHops, gamma, curiosityFloor, salienceRatio, strayPatience, k, searchOpts, onHop, onHopDone, signal });
 
   const baseDocs = args?.docs || (args?.doc ? [args.doc] : []);
   const turnArgs = walk.docs.length

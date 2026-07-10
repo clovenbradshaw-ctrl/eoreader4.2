@@ -19,7 +19,8 @@ import { parseText } from '../../perceiver/parse/index.js';
 import { projectGraph } from '../../core/index.js';
 import { createModel } from '../../model/interface.js';
 import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
-import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement } from '../../turn/index.js';
+import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
+         runTurnWithResearch, researchAnnouncement } from '../../turn/index.js';
 import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
@@ -99,6 +100,12 @@ const kv = async (mode, fn) => {
 };
 
 const nowIso = () => new Date().toISOString();
+const nowMs = () => { try { return Date.now(); } catch { return 0; } };
+// How far a reader web-search walks. 4.1 reached the net by a multi-hop curiosity walk (follow the
+// surprise while it stays on topic), not a single fetch; this restores that depth. Kept modest so a
+// chat answer over the slow local model stays responsive — the walk self-limits well short of this
+// via strayPatience + frontier exhaustion, so most asks take fewer hops.
+const RESEARCH_HOPS = 5;
 const domainOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
 const shaShort = (h) => String(h || '').replace(/^[^:]*:/, '').slice(0, 12);
 const bytesOf = (text) => { try { return new TextEncoder().encode(text).length; } catch { return String(text).length; } };
@@ -128,6 +135,64 @@ export const createReaderApp = ({ audit } = {}) => {
     state.log.push({ id: `L${++ln}`, t: nowIso(), kind, text, effect });
     if (state.log.length > 400) state.log.shift();
     emit('log');
+  };
+
+  // ── the research trail — the live "what am I researching / thinking" stream ────
+  // 4.1 surfaced a web search as a collapsible, Claude-style THINKING TRAIL in the answer bubble:
+  // one typed beat per search / page read / lead followed / page set aside, ticking a clock, then
+  // settling to "Researched N sources · M hops". 4.2 had regressed this to a single transient busy
+  // label with nothing rendered. These helpers rebuild that trail on the message as plain data the
+  // surface renders. `beat` appends one step (deduped against the previous), `emit`ing so it streams.
+  const beat = (msg, kind, text) => {
+    const t = String(text || '').trim();
+    if (!msg || !t) return;
+    if (!msg.research) msg.research = { steps: [], mode: 'research', t0: nowMs(), tEnd: 0, done: false, summary: '' };
+    const steps = msg.research.steps;
+    const last = steps[steps.length - 1];
+    if (last && last.kind === kind && last.text === t) return;   // don't stack a repeated status
+    steps.push({ kind, text: t });
+    emit('messages');
+  };
+  // The pre-fetch beat: what the walk is about to search THIS hop. A followed lead names the term it
+  // is chasing ("Following 'X' — searching 'Y'"); the seed / a plain hop just names the query.
+  const hopBeat = (msg, hop, seed) => {
+    if (!hop) return;
+    const q = String(hop.query || '').trim();
+    if (!q) return;
+    if (hop.term && q.toLowerCase() !== String(seed || '').toLowerCase())
+      beat(msg, 'lead', `Following “${hop.term}” — searching “${q}”`);
+    else
+      beat(msg, 'search', `Searching the web for “${q}”`);
+  };
+  // The after-fetch beat: the hop's OUTCOME — what it read, or why it was set aside. Mirrors 4.1's
+  // honest "Kept / Set aside" narration so the leash is legible, not a black box.
+  const hopDoneBeat = (msg, hop) => {
+    if (!hop) return;
+    if (hop.kept && hop.results) {
+      const lead = (hop.leads && hop.leads.length) ? ` — picked up ${hop.leads.slice(0, 3).join(', ')}` : '';
+      beat(msg, 'read', `Read ${hop.results} source${hop.results === 1 ? '' : 's'}${lead}`);
+    } else if (hop.reason === 'strayed') {
+      beat(msg, 'warn', `Set aside “${hop.query}” — drifted off the question`);
+    } else if (hop.reason === 'empty') {
+      beat(msg, 'warn', `Nothing came back for “${hop.query}”`);
+    }
+  };
+  // Settle the trail: the one-line summary the collapsed header shows. `research` is the walk trace
+  // (turn/research.js). Called once the gather is done, before the answer is phrased.
+  const settleTrail = (msg, research) => {
+    if (!msg?.research) return;
+    if (research) {
+      const nH = (research.hops || []).length;
+      const n = research.results || 0;
+      msg.research.summary = `Researched ${n} source${n === 1 ? '' : 's'} · ${nH} hop${nH === 1 ? '' : 's'}`;
+    }
+    beat(msg, 'done', msg.research.summary || 'Done researching');
+  };
+  // Mark the trail finished (the clock stops). The surface reads `done`/`tEnd` to collapse it.
+  const finishTrail = (msg) => {
+    if (!msg?.research) return;
+    msg.research.done = true;
+    msg.research.tEnd = nowMs();
   };
 
   // ── persistence ────────────────────────────────────────────────────────────
@@ -473,30 +538,26 @@ export const createReaderApp = ({ audit } = {}) => {
   let abort = null;
   const stop = () => { try { abort?.abort(); } catch { /* already done */ } };
 
-  // answerFromWeb(pending, q) — the empty-record auto path. Nothing is on the record, but
-  // the ask is substantive, so REACH for the web: formulate a real search query from the
-  // turn (the "write me an essay about dolphins" → "dolphins" rewrite lives in web.js),
-  // fetch+admit real pages, and answer GROUNDED in them — the same runTurn the recorded
-  // path uses, now over web sources. Browser-only in practice (needs fetch + a model);
-  // in Node it degrades to the "couldn't pull anything" line rather than throwing.
+  // answerFromWeb(pending, q) — the empty-record auto path. Nothing is on the record, but the ask
+  // is substantive, so REACH for the web the way 4.1 did: not a single fetch but a multi-hop
+  // CURIOSITY WALK (runTurnWithResearch) — formulate a real query (the "write me an essay about
+  // dolphins" → "dolphins" rewrite lives in web.js), then follow what surprises it while it stays on
+  // topic, fold every kept page in, and answer GROUNDED over the seam it mined. Each hop streams a
+  // beat into the answer's research trail, so the user SEES what it is searching and reading — the
+  // disclosure 4.1 had and 4.2 had dropped to a lone busy label. Browser-only in practice (needs
+  // fetch + a model); in Node it degrades to the "couldn't pull anything" line rather than throwing.
   const answerFromWeb = async (pending, q, { onToken = null } = {}) => {
     warmMinilm();
     try {
       const m = await ensureModel();
       setBusy({ kind: 'search', label: 'Looking this up on the web…' });
       const query = await formulateSearchQuery({ model: m, question: q, history: [], fallback: q });
+      beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
       setBusy({ kind: 'search', label: `Searching the web — ${query}` });
-      logIt('search', `Web search "${query}"`, 'auto · nothing on record');
-      const admitted = await webSearchAdmit(query, { kind: 'auto', fetchPages: true, k: 5 });
-      const webDocs = (admitted || []).map((a) => a.doc).filter(Boolean);
-      if (!webDocs.length) {
-        pending.text = `I searched the web for “${query}” but couldn't pull anything readable back. Try rephrasing, or drop a URL, file, or pasted text in the bar above.`;
-        pending.route = 'empty';
-        return pending;
-      }
+      logIt('search', `Web research "${query}"`, 'auto · nothing on record');
       abort = new AbortController();
-      const result = await runTurn({
-        question: q, docs: webDocs, model: m,
+      const result = await runTurnWithResearch({
+        question: q, docs: [], model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
         auditLog: audit, history: [],
@@ -504,12 +565,26 @@ export const createReaderApp = ({ audit } = {}) => {
         onToken: (tok) => { pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: abort.signal,
         onStep: (name) => { setBusy({ kind: 'turn', label: stageLabel(name) }); },
+      }, {
+        search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
+        onHop: (h) => hopBeat(pending, h, query),
+        onHopDone: (h) => hopDoneBeat(pending, h),
+        signal: abort.signal,
       });
+      const gathered = (result.research && result.research.results) || 0;
+      if (!gathered) {
+        beat(pending, 'warn', `Couldn't pull anything readable for “${query}”.`);
+        settleTrail(pending, result.research);
+        pending.text = `I searched the web for “${query}” but couldn't pull anything readable back. Try rephrasing, or drop a URL, file, or pasted text in the bar above.`;
+        pending.route = 'empty';
+        return pending;
+      }
+      settleTrail(pending, result.research);
       finishMessage(pending, {
         ...result,
         webFetched: {
-          query, trigger: 'gap', results: webDocs.length,
-          sources: webDocs.map((d) => ({ docId: d.docId, title: d.web?.title || d.title || '', url: d.web?.url || d.web?.final_url || '' })),
+          query, trigger: 'gap', results: gathered,
+          sources: (result.research && result.research.sources) || [],
         },
       });
     } catch (e) {
@@ -518,6 +593,8 @@ export const createReaderApp = ({ audit } = {}) => {
         : `The web lookup failed: ${String(e?.message || e)}`);
       pending.route = 'error';
     } finally {
+      finishTrail(pending);   // stop the trail clock on the empty/error paths too (finishMessage
+                              // does it on the success path; the early returns bypass it)
       abort = null; setBusy(null);
       pending.pending = false;
       persist(); emit('messages');
@@ -584,18 +661,45 @@ export const createReaderApp = ({ audit } = {}) => {
       };
       let result = await runTurn(args);
       // The document turn measured a gap it couldn't close (or an answer worth confirming
-      // against the world). In `auto` we take the go-ahead the moment it's proposed:
-      // fetch+admit the web sources and RE-RUN — or, for a chat-route verify, AUGMENT — so
-      // the answer stands on what the search brought back (turn/web.js runWebFollowup).
+      // against the world). In `auto` we take the go-ahead the moment it's proposed.
       // `off`/`confirm` leave the proposal for the in-chat "Search the web" button.
       if (result.webProposal && mode === 'auto') {
-        setBusy({ kind: 'search', label: searchAnnouncement(result.webProposal) || 'Searching the web…' });
-        // A gap/witness re-runs the whole answer over the web sources — clear the first
-        // (usually "not in the document") draft so the re-run's stream replaces it rather
-        // than appends. A verify keeps the model's answer and adds a "From the web"
-        // addendum, so leave the streamed text in place.
-        if (result.webProposal.trigger !== 'verify') { pending.text = ''; emit('stream'); }
-        result = await runWebFollowup(args, result, { webSearch: webSearchAdmit, k: 4 });
+        const proposal = result.webProposal;
+        if (proposal.trigger === 'gap') {
+          // A GAP the record couldn't close — go WIDE the way 4.1 did: a multi-hop curiosity walk,
+          // not one fetch, streaming its search/read beats into the trail. Clear the first ("not in
+          // the document") draft so the grounded re-run's stream replaces it rather than appends.
+          const query = await formulateSearchQuery({ model: m, question: proposal.query, history, fallback: proposal.query });
+          beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
+          setBusy({ kind: 'search', label: `Searching the web — ${query}` });
+          pending.text = ''; emit('stream');
+          const walked = await runTurnWithResearch(args, {
+            search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
+            onHop: (h) => hopBeat(pending, h, query),
+            onHopDone: (h) => hopDoneBeat(pending, h),
+            signal: abort.signal,
+          });
+          settleTrail(pending, walked.research);
+          result = {
+            ...walked, webProposal: proposal,
+            webFetched: {
+              query, trigger: 'gap', results: (walked.research && walked.research.results) || 0,
+              sources: (walked.research && walked.research.sources) || [],
+            },
+          };
+        } else {
+          // A verify (check the general-knowledge answer, keep it) or witness (confirm the reading)
+          // is a targeted single-shot, not a walk — augment/re-run through runWebFollowup as before.
+          const note = searchAnnouncement(proposal);
+          setBusy({ kind: 'search', label: note || 'Searching the web…' });
+          if (note) beat(pending, 'start', note);
+          if (proposal.trigger !== 'verify') { pending.text = ''; emit('stream'); }
+          result = await runWebFollowup(args, result, { webSearch: webSearchAdmit, k: 4 });
+          const n = (result.webFetched && result.webFetched.results) || 0;
+          if (result.webFetched) beat(pending, 'read', `Read ${n} web source${n === 1 ? '' : 's'}`);
+          if (pending.research) pending.research.summary = `Checked ${n} web source${n === 1 ? '' : 's'}`;
+          settleTrail(pending, null);
+        }
       }
       finishMessage(pending, result);
     } catch (e) {
@@ -604,6 +708,8 @@ export const createReaderApp = ({ audit } = {}) => {
         : `Something failed mid-turn: ${String(e?.message || e)}`);
       pending.pending = false; pending.route = 'error';
     } finally {
+      finishTrail(pending);   // stop the trail clock even if the turn threw/aborted mid-walk, so a
+                              // running trail can never be left spinning forever on an errored turn
       abort = null; setBusy(null);
       pending.pending = false;
       persist(); emit('messages');
@@ -619,6 +725,7 @@ export const createReaderApp = ({ audit } = {}) => {
   }[name] || `${name}…`);
 
   const finishMessage = (msg, result) => {
+    finishTrail(msg);   // stop the research trail's clock; the surface collapses it to its summary
     msg.text = result.answer || msg.text;
     msg.route = result.route;
     msg.grounding = result.grounding;

@@ -289,3 +289,32 @@ names the formulated query directly (`🔎 Looking this up: "…"`). Either way 
 - **Cross-source promotion** — the deep part above (the web completes the local graph).
 - **Speculative-hop audit** — surface the prefetch network hops in the trace too, so a
   warmed-but-discarded fetch is visible, not just the taken one.
+
+## The reader's reach — a multi-hop walk, shown as it happens (4.2)
+
+The engine modules above (the proposer, `runWebFollowup`, the curiosity walks) were ported to 4.2,
+but for a while the reader chat drove only the *single-shot* half: a gap fired one query, read the
+pages, answered once, and disclosed it as a lone transient "Searching the web…" busy label. That
+regressed both the search depth and the legibility 4.1 had. The reader now closes both gaps:
+
+- **Multi-hop reach.** The two web-reaching chat paths — `answerFromWeb` (empty record) and a `gap`
+  proposal in `auto` mode (`src/rooms/reader/app.js`) — run the **curiosity walk**
+  (`turn/research.js` `runTurnWithResearch`, `RESEARCH_HOPS` hops) instead of a single fetch: seed it
+  with the discourse-aware formulated query, follow leads under the saliency leash, fold every kept
+  page into the answer scope, and answer in one grounded pass over the seam it mined. A `verify` /
+  `witness` stays the targeted single-shot it should be (`runWebFollowup`).
+
+- **The research trail — the fetch steps rendered inline, at last.** The walk streams a live,
+  collapsible trail into the answer bubble (this is the "fetch steps rendered inline in the trace"
+  named under *What is next*, now built for the chat). Each hop fires two beats — `onHop` before it
+  fetches ("Searching the web for …" / "Following '<lead>' — searching …") and `onHopDone` after
+  ("Read N sources — picked up …" / "Set aside <host> — drifted off the question"). `app.js` collects
+  them onto `msg.research.steps`; the surface (`index.html`) renders each with a typed glyph + colour
+  (start · search · lead · read · warn · done), a ticking clock, and a one-line summary the trail
+  collapses to when it settles ("Researched N sources · M hops"). The set-aside beats make the
+  saliency leash legible — the user sees what it read AND what it declined, and why. The Stop button
+  aborts the walk between hops (`signal`), keeping whatever it had already gathered.
+
+  Mechanically this needed one engine seam: `runTurnWithResearch` now **forwards `onHop` and
+  `signal`** to the walk (both were previously dropped), and the walk gained **`onHopDone`** — an
+  after-the-fetch beat carrying each hop's outcome. Locked by `tests/research-trail.test.js`.
