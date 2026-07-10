@@ -33,6 +33,7 @@ table{border-collapse:collapse;width:100%}
 @keyframes eoFade{from{opacity:0}to{opacity:1}}
 @keyframes eoToast{from{transform:translate(-50%,10px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 @keyframes eoBlink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes eoSpin{to{transform:rotate(360deg)}}
 .eo-scroll::-webkit-scrollbar{width:11px;height:11px}
 .eo-scroll::-webkit-scrollbar-thumb{background:#dadae1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
 .eo-scroll::-webkit-scrollbar-thumb:hover{background:#c7c7d0;background-clip:content-box}
@@ -331,6 +332,28 @@ table{border-collapse:collapse;width:100%}
                           <sc-if value="{{ m.showBadge }}"><span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:{{ m.badgeFg }};background:{{ m.badgeBg }};border-radius:5px;padding:1px 6px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg>{{ m.badge }}</span></sc-if>
                           <sc-if value="{{ m.pending }}"><span style="font-size:10px;color:#9A9AA4;animation:eoBlink 1.4s ease-in-out infinite">{{ m.pendingLabel }}</span></sc-if>
                         </div>
+                        <sc-if value="{{ m.hasTrail }}">
+                          <div style="margin:2px 0 10px;border:1px solid #E8E6F4;background:#FAFAFE;border-radius:9px;overflow:hidden">
+                            <button onClick="{{ m.toggleTrail }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:7px 10px;text-align:left" style-hover="background:#F4F2FD">
+                              <sc-if value="{{ m.trailRunning }}"><span style="width:11px;height:11px;border:2px solid #C9C2F2;border-top-color:#6D5EF5;border-radius:50%;display:inline-block;animation:eoSpin .7s linear infinite;flex:0 0 auto"></span></sc-if>
+                              <sc-if value="{{ m.trailIdle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></sc-if>
+                              <span style="font-size:11.5px;font-weight:600;color:#5A5A64;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.trailSummary }}</span>
+                              <span style="flex:1"></span>
+                              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;flex:0 0 auto">{{ m.trailClock }}</span>
+                              <span style="font-size:10px;color:#A0A0AA;flex:0 0 auto">{{ m.trailCaret }}</span>
+                            </button>
+                            <sc-if value="{{ m.trailOpen }}">
+                              <div style="max-height:220px;overflow-y:auto;padding:2px 10px 9px;border-top:1px solid #EFEDF9">
+                                <sc-for list="{{ m.trailSteps }}" as="ts">
+                                  <div style="display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:11.5px;line-height:1.5;color:#4A4A54">
+                                    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ ts.fg }};flex:0 0 auto;width:12px;text-align:center">{{ ts.glyph }}</span>
+                                    <span style="min-width:0">{{ ts.text }}</span>
+                                  </div>
+                                </sc-for>
+                              </div>
+                            </sc-if>
+                          </div>
+                        </sc-if>
                         <sc-if value="{{ m.plain }}">
                           <div style="font-size:14.5px;line-height:1.62;color:#2A2A32;white-space:pre-wrap">{{ m.text }}</div>
                         </sc-if>
@@ -1083,6 +1106,7 @@ class Component extends DCLogic {
       // "save system genome online?" — one quiet opt-in setting + its one-time enable confirm
       archiveShow: false, archiveBusy: false, archiveMsg: null,
       ackPermanence: false, ackPrivacy: false, ackRights: false,
+      trailOpen: {},   // per-message override for the research trail's open/closed state
       rev: 0,
     };
     this._segCache = {}; this._viewCache = null; this._entCache = null;
@@ -1402,6 +1426,21 @@ class Component extends DCLogic {
     if (status === 'Uncited') return { fg: '#9A6B12', bg: '#FBF1DA', bd: '#EEDCA9' };
     return { fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9' };
   }
+  // The research trail: one typed beat per step (turn/research.js → app.js beats). Each kind gets a
+  // glyph + colour so the stream reads at a glance — searching (blue), reading (amber), a lead
+  // followed (accent), a page set aside (red), settled (green). Mirrors 4.1's collapsible trail.
+  _trailStyle(kind) {
+    return ({
+      start:  { glyph: '✦', fg: '#6D5EF5' },
+      search: { glyph: '⌕', fg: '#2563EB' },
+      lead:   { glyph: '↳', fg: '#6D5EF5' },
+      read:   { glyph: '▤', fg: '#B45309' },
+      warn:   { glyph: '⚠', fg: '#C2410C' },
+      done:   { glyph: '✓', fg: '#1E8A50' },
+      think:  { glyph: '·', fg: '#9A9AA4' },
+    }[kind] || { glyph: '·', fg: '#9A9AA4' });
+  }
+  toggleTrail(id, cur) { this.setState({ trailOpen: { ...this.state.trailOpen, [id]: !cur } }); }
   _rights(src) {
     const r = String(src.rights || '');
     const local = src.kind !== 'web';
@@ -1646,8 +1685,24 @@ class Component extends DCLogic {
         bg: /contradic|unbound/.test(f.id) ? '#FBE9E6' : '#FBF1DA', bd: /contradic|unbound/.test(f.id) ? '#F2D3CD' : '#EEDCA9',
       }));
       const loading = app.state.model.state === 'loading';
+      // the research trail — the live "what am I researching / thinking" stream (app.js beats)
+      const tr = mm.research;
+      const trailSteps = (tr && tr.steps || []).map((s) => {
+        const st = this._trailStyle(s.kind);
+        return { glyph: st.glyph, fg: st.fg, text: s.text };
+      });
+      const trailRunning = !!tr && !tr.done;
+      const trOverride = this.state.trailOpen[mm.id];
+      const trailOpen = !!tr && (trOverride != null ? trOverride : trailRunning);
+      const nowT = (() => { try { return Date.now(); } catch { return 0; } })();
+      const trSecs = tr ? Math.max(0, Math.round(((tr.done ? tr.tEnd : nowT) - tr.t0) / 1000)) : 0;
+      const trClock = trSecs >= 60 ? `${Math.floor(trSecs / 60)}:${String(trSecs % 60).padStart(2, '0')}` : `${trSecs}s`;
       return {
         isUser: false, isAgent: true, text: mm.text, pending: !!mm.pending,
+        hasTrail: !!tr && trailSteps.length > 0, trailOpen, trailRunning, trailIdle: !!tr && !trailRunning, trailSteps,
+        trailSummary: tr ? (tr.summary || (trailRunning ? 'Researching…' : `Thought for ${trClock}`)) : '',
+        trailClock: trClock, trailCaret: trailOpen ? '▾' : '▸',
+        toggleTrail: () => this.toggleTrail(mm.id, trailOpen),
         pendingLabel: mm.text ? '● phrasing'
           : loading ? `● loading ${app.state.model.backend} · ${Math.round((app.state.model.progress || 0) * 100)}%`
           : '● reading the record',
