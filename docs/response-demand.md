@@ -40,8 +40,9 @@ whitelist was — the string is not self-contained, and the vocabulary is unboun
 
 Your instinct — *a tiny model that listens for a short response, the larger model for
 planning* — is the right architecture, and it maps onto tiers this codebase already
-has (`src/model/wllama.js` runs SmolLM2‑135M at page‑open cost 0; `src/model/webllm.js`
-has the **Fast 1B / Fluent 3B** lever). Render it as a two-tier cascade, each tier
+onto tiers this codebase already has: `src/model/webllm.js` exposes a **Fast 1B / Fluent 3B**
+lever, both q4‑quantized (`src/model/wllama.js`'s SmolLM2‑135M is the deeper CPU‑only fallback).
+The listener is the quantized 1B, the planner the quantized 3B. Render it as a two-tier cascade, each tier
 gated by the one before it:
 
 ```
@@ -71,9 +72,12 @@ way every other gate here is built — **propose a structure, measure it against
 chance null, act only when it beats chance** (the "witness does not decide" rule, from
 answerability and `read/voidnull.js`):
 
-- **A basis, `phatic ⟂ substantive`.** Two members so the crosstalk null is finite and
-  the pair holds each other apart — exactly the shape of `clarify ⟂ actionable`,
-  `develop ⟂ brief`, `creative ⟂ grounded`, `revise ⟂ fresh` in `meta-route.js`.
+- **A `phatic` direction in the route measurement.** As built, `phatic` is a fifth
+  member of `ROUTE_EXEMPLARS` beside `compose | ground | research | isolate | continue`,
+  so its **substantive contrast is the other directions themselves** — the crosstalk
+  null is derived against a rich background (every work direction's exemplars), which
+  keeps it finite and holds phatic apart from them structurally, the same mechanics as
+  `clarify ⟂ actionable` / `develop ⟂ brief` but with the work directions as the null.
   The exemplars are **metacognition speech** (the model describing the turn), not the
   user's words:
   - *phatic* — "they are just greeting me, a friendly hello, nothing to look up";
@@ -81,9 +85,9 @@ answerability and `read/voidnull.js`):
     acknowledgement, a thanks, a nod — no task, nothing to research or compose";
     "they are saying goodbye, closing the chat kindly"; "checking in on how I am —
     a light exchange, no work to do."
-  - *substantive* — "a real question that needs an answer"; "they want something
-    found out, looked up, or worked through"; "a task to do — grounded, researched,
-    or composed"; "this turns on the reading or the world, not a pleasantry."
+  - *the substantive alternatives* are the standing directions — a `ground`
+    doc-question, a `research` "found out in the wider world", a `compose` "piece
+    made". A read that lands on any of those clears their nulls, not phatic's.
 - **Two ways to source the read, and they compose (cold → warm, continuously):**
   1. **The instant floor — no model at all.** Measure the *user's own words* against
      the phatic basis (and keep `answerSmalltalk` as the seed, folded in at `SEED`
@@ -94,9 +98,9 @@ answerability and `read/voidnull.js`):
   2. **The graded layer — the tiny model speaks, and is measured.** For the paraphrase
      the floor misses (`"you around?"`, `"was just checking in"`), the same one-line
      discourse read the planner would take (`discoursePrompt`) is measured for
-     phatic-ness *first*. Pin that read to SmolLM2‑135M or the 1B **Fast** build — it
-     only has to say *"they're just saying hello"* legibly, which a tiny model does
-     well. Reserve the 3B **Fluent** talker for turns that survive the gate. **You do
+     phatic-ness *first*. Pin that read to the **quantized 1B (Fast)** build — it
+     only has to say *"they're just saying hello"* legibly, which the small quantized
+     model does well. Reserve the **quantized 3B (Fluent)** talker for turns that survive the gate. **You do
      not warm the big model to say good morning.** That is the compute your two-tier
      framing buys, made concrete.
 
@@ -127,6 +131,91 @@ the router's own physics rather than inventing new gating:
 That is the literal meaning of *leverage the discourse and the fold*: the discourse
 read says "this looks social," the fold says "but we are mid-composition," and the
 relaxation resolves the two without a hand-written rule.
+
+## Levels: reflex, continuation, attention — and why brevity is not the signal
+
+The gate is one cut in a ladder of attentiveness, and naming the whole ladder keeps rung 4
+honest:
+
+- **Reflex** — the small model, immediate. A self-contained light turn ("Good morning",
+  "thanks") is answered *by the small model itself*, warmly, with no deliberation and no
+  reading. The reflex tier both recognises the turn and voices the reply; the big model
+  never wakes.
+- **Continuation** — the fold. A short turn that *points back* ("do again", "no", "shorter",
+  "that one") is resolved by what it references and continues the incumbent act — re-run it,
+  refine it, reject and redirect it.
+- **Attention** — the big model, deliberate. A novel substantive ask is planned and grounded
+  or researched.
+
+The trap rung 4 must not fall into: **brevity is not reflex.** "do again" and "no" are the
+shortest turns there are and they reference the *most* — their meaning is entirely in the
+thread they point at. A reflex tier that answered on surface length would fire its canned
+warmth at "no" and drop the whole prior operation on the floor. What licenses a reflex is
+**referential emptiness**, not shortness: a greeting references nothing; "do again" references
+everything just done. Same length, opposite depth.
+
+This is already the guard rungs 1–3 install, and it is why `phatic` is a *direction in the
+relaxation* rather than a length threshold: a short referential turn arrives with a live
+incumbent carrying its `REST` potential and the `continue` current, so it settles on
+continuation, not phatic — the reflex responder is never reached. Only a read that is both
+light *and* points nowhere out-competes the incumbent to `PHATIC`. The small model may answer
+the greeting; it never answers "no".
+
+## Prediction is the demand meter — grading the referential turn
+
+The law above ("do again" / "no" are short but reference the thread) raises the real question:
+given the fold, can we tell whether a bare "no" is simple or one that *requires attention*? The
+codebase already carries the instrument — the forward predictive channel (`src/core/surprise.js`:
+`forwardDist`, `feltSurprise`; `src/surfer/predictive-competency.js`: `predictiveCompetency`).
+Point it at the discourse and the demand of a referential turn is **its surprise against what
+the fold predicted**:
+
+- The fold carries a forward prediction. After an assistant turn that opened a fork — "Shall I
+  also cover the treaty?", a yes/no, an offered choice — `forwardDist` over the fold's profile
+  concentrates on that fork's answers. "no" then arrives at **low felt-surprise**: the fold
+  already holds both branches, so the resolution is mechanical (drop the offered branch) — a
+  simple turn, handled at the reflex/continuation tier, no big model.
+- When nothing in the fold framed a fork — "no" rejects a substantive answer with the
+  redirection unstated — the arrival is **high felt-surprise**: the fold did not scope it, so
+  *what* is negated and *what to do* next is exactly the open question the attentive tier exists
+  for.
+
+So surprise is the demand meter, and phatic / continuation / attention are its bands: a
+referentially-empty greeting reads phatic; a *predicted* referential turn ("do again" mid-
+compose, "no" to a fork) is low-surprise continuation; an *unpredicted* one is high-surprise
+attention. One axis — deviation from the fold's own prediction — grades all three, and it is
+model-free measurement: it decides whether to spend a model without spending one.
+
+**"Sufficiently?" — competency is the sufficiency gate, and it fails safe.** `predictiveCompetency`
+says whether the fold is even in a position to predict. Reflex/continuation is licensed only
+when the prediction is *competent* **and** the surprise is *low*; a low-competency fold (it
+never scoped a fork) or a surprise that clears its null defaults to attention. We never reflex a
+complex "no" — the cost of an uncertain read is one unnecessary attentive turn, the safe
+direction, the same discipline answerability keeps: *assume an answer until the void is
+measured; here, assume attention until simplicity is measured.*
+
+## Do we need a corpus? — the fork is free, the general prior is trained
+
+Mostly no, and where yes it fails safe. There are two sources of prediction, and only one needs
+training:
+
+- **The fork — an efference copy, no corpus.** When the assistant's own last turn opened a fork
+  ("shall I also cover the treaty?", a yes/no, an offered choice), it already holds an outstanding
+  *copy* of the answer-space. A matching "no" is **reafferent** — the system sensing the consequence
+  of its own question — and `feltSurprise` attenuates it to **zero**
+  (`tests/demand-prediction.test.js`: a predicted "no" scores 0 bits; the same "no" out of nowhere
+  scores 3.32). The fold only has to carry the question-copies the assistant emits when it asks;
+  nothing is trained.
+- **The general continuation — the flow-prior, trained.** A softer follow-up that no explicit fork
+  offered — "shorter", "more like that one", the predictable next move after an essay — is *not* in
+  the conversation's own atoms, so the backward profile cannot foresee it. That is where a
+  corpus-trained forward model (`src/perceiver/predict`, a grammar over discourse sequences) earns
+  its keep: it has learned the shape of what follows what. Without it, `forwardScore` knows only the
+  atoms that have already arrived.
+
+Both degrade the safe way: no outstanding copy **and** no trained prior → the arrival is exafferent →
+high surprise → attention. So the fork case ships now, corpus-free; the trained flow-prior is a later
+lift that only ever *reduces* unnecessary attentive turns — it can never cause a wrong reflex.
 
 ## Good morning vs Waterloo Street — the worked contrast
 
@@ -164,15 +253,16 @@ so `"Good morning"` at an open book gets a hello instead of a grounded non-answe
 
 ## Build ladder
 
-| Rung | What | Model? | Cost |
-| ---- | ---- | ------ | ---- |
-| **1** | `PHATIC_EXEMPLARS` (`phatic ⟂ substantive`) + `phaticDrive` in `meta-route.js`, tested like every other basis (`tests/meta-route.test.js` pins that neither clears the other's null). | no | small |
-| **2** | Add `phatic` to `ROUTE_ALPHABET`; `VERDICT_OF.phatic = 'PHATIC'`; seed from `answerSmalltalk`. The fold physics come for free. | no | small |
-| **3** | Wire the caller: in `app.js` `ask`, run the gate **before** the `!docs.length` branch; on `PHATIC` return a warm one-line reply regardless of docs; else fall through to the existing path. | no | small |
-| **4** | The tiny-model triage: pin the pre-planner read to SmolLM2‑135M / 1B‑Fast; only warm 3B‑Fluent for work turns. Bench the compute saved. | yes | medium |
+| Rung | What | Model? | Status |
+| ---- | ---- | ------ | ------ |
+| **1** | `phatic` exemplars (metacognition speech) added to the route bases + a `phaticDrive` export in `meta-route.js`; its crosstalk null is derived against the other directions (which *are* the substantive alternatives). Tested like every other basis — `tests/meta-route.test.js` pins self-recovery and the phatic⟂isolate separation. | no | **done** |
+| **2** | `phatic` in `ROUTE_ALPHABET`; `VERDICT_OF.phatic = 'PHATIC'`; small-talk moved out of `isolate`; the social case named in `discoursePrompt`. The fold's incumbent/`REST` physics come for free. | no | **done** |
+| **3** | The caller: `app.js` `ask` runs `answerSmalltalk` (now doc-aware) **before** the `!docs.length` branch, so a doc-loaded greeting short-circuits to a warm line instead of grounding. | no | **done** |
+| **4** | The tiny-model triage: measure the pre-planner discourse read for phatic-ness on the quantized **1B (Fast)**; only warm the quantized **3B (Fluent)** for work turns. Bench the compute saved. | yes | pending |
 
-Rung 3 alone fixes the bug you named (a doc-loaded greeting) with **no model** and no
-new physics. Rung 4 is the "tiny listener, big planner" optimisation on top.
+Rungs 1–3 are landed here — the bug you named (a doc-loaded greeting) is fixed with **no
+model** and no new physics, and the measured `phatic` direction is ready for the read to be
+live-wired. Rung 4 is the "tiny listener, big planner" optimisation on top.
 
 ## Non-goals
 
@@ -194,7 +284,7 @@ new physics. Rung 4 is the "tiny listener, big planner" optimisation on top.
 - the floor it seeds from, now a seed not a decision: `src/enactor/answer/mechanical.js`
   (`answerSmalltalk`)
 - the caller, gate before the docs branch: `src/rooms/reader/app.js` (`ask`)
-- the model tiers the triage rides: `src/model/wllama.js` (SmolLM2‑135M),
-  `src/model/webllm.js` (Fast 1B / Fluent 3B)
+- the model tiers the triage rides: `src/model/webllm.js` (quantized Fast 1B / Fluent 3B),
+  with `src/model/wllama.js` (SmolLM2‑135M) as the CPU-only fallback
 - the sibling gate on the other axis: 4.1 `docs/answerability.md`
 - tests: `tests/meta-route.test.js`

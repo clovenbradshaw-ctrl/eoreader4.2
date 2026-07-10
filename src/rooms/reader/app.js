@@ -766,20 +766,28 @@ export const createReaderApp = ({ audit } = {}) => {
 
     const mode = webMode();
 
+    // The demand gate (docs/response-demand.md), rung-3 floor: a phatic turn — a greeting, a
+    // thanks, a goodbye, a how-are-you — wants a warm word back, not the grounding pipeline. Run
+    // it BEFORE the docs branch so it fires WITH a document open too: a "Good morning" at an open
+    // book now gets a hello instead of being grounded against the reading (the bug this closes).
+    // answerSmalltalk is the no-model floor; the measured `phatic` direction (turn/meta-route.js)
+    // is the graded layer this floor seeds, live-wired with the discourse read at rung 4. With no
+    // doc, keep the old "what you record" flavour; with a doc, the greeter is told one is open so
+    // it does not say "open a document" at a loaded book.
+    const small = answerSmalltalk(q, { hasDoc: docs.length > 0 });
+    if (small) {
+      pending.text = docs.length ? small.text : small.text.replace(/the document/g, 'what you record');
+      pending.route = 'smalltalk';
+      pending.pending = false;
+      persist(); emit('messages');
+      return pending;
+    }
+
     if (!docs.length) {
-      // An empty record is not a dead end. Greetings get the mechanical smalltalk
-      // answer; a substantive ask reaches for the web when web mode allows it — `auto`
-      // fetches real pages and answers grounded in them (answerFromWeb); `confirm`/`off`
-      // leave it as a one-click web-search proposal so the first question fetches its own
-      // sources on the button.
-      const small = answerSmalltalk(q);
-      if (small) {
-        pending.text = small.text.replace(/the document/g, 'what you record');
-        pending.route = 'smalltalk';
-        pending.pending = false;
-        persist(); emit('messages');
-        return pending;
-      }
+      // An empty record is not a dead end for a substantive ask: it reaches for the web when web
+      // mode allows it — `auto` fetches real pages and answers grounded in them (answerFromWeb);
+      // `confirm`/`off` leave it as a one-click web-search proposal so the first question fetches
+      // its own sources on the button. (Greetings were handled by the demand gate above.)
       if (mode === 'auto') return answerFromWeb(pending, q, { onToken });
       pending.text = 'Nothing is on the record yet, so I can\'t ground an answer to that. I can search the web and record what comes back — or read any URL, file, or pasted text you drop in the bar above.';
       pending.route = 'empty';
