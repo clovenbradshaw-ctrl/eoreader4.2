@@ -17,6 +17,7 @@ export const CONTRACTS = Object.freeze({
   'src/turn/propose.js': contract({ ops: ['EVA', 'DEF'], targets: ['Lens', 'Void'], products: ['Lens'], stances: ['Binding', 'Dissecting'], note: 'web-search proposer' }),
   'src/turn/reread.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field', 'Lens'], products: ['Field'], stances: ['Binding', 'Tending'], note: 'active-inference re-read' }),
   'src/turn/research.js': contract({ ops: ['EVA', 'SYN'], targets: ['Network', 'Field'], products: ['Network'], stances: ['Tracing', 'Composing'], note: 'curiosity-guided multi-hop research' }),
+  'src/turn/sense.js': contract({ ops: ['EVA', 'SEG'], targets: ['Network', 'Field'], products: ['Lens', 'Network'], stances: ['Tracing', 'Dissecting'], note: 'subject-sense-collision gate (Stage 1)' }),
   'src/turn/shape.js': contract({ ops: ['REC', 'EVA'], targets: ['Field', 'Lens'], products: ['Paradigm', 'Lens'], stances: ['Composing', 'Binding'], note: 'answer-form predictor (learned shapes)' }),
   'src/turn/stage-faces.js': contract({ ops: ['SIG', 'EVA'], targets: ['Paradigm', 'Kind'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'stages spelled on three faces' }),
   'src/turn/stages.js': contract({ ops: ['SEG', 'INS', 'EVA'], targets: ['Field', 'Network'], products: ['Entity', 'Lens', 'Network'], stances: ['Dissecting', 'Making', 'Binding'], note: 'the named pipeline stages' }),

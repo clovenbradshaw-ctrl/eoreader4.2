@@ -242,6 +242,9 @@ export const POLAR_ANSWER_SPACE = Object.freeze([...YES_TOKENS, ...NO_TOKENS, 'm
 const POLAR_RE = /\b(yes|yeah|yep|yup|sure|okay|ok|please|definitely|absolutely|nope|nah|no|never|skip|pass)\b/i;
 const NEG_RE = /\b(no|nope|nah|never|don'?t|do not|skip|pass|negative|stop)\b/i;
 const POS_RE = /\b(yes|yeah|yep|yup|sure|okay|ok|please|definitely|absolutely|go ahead|do it)\b/i;
+// Filler that carries no answer content, so "the cetacean one" reads as the option "cetacean", not a
+// redirect. Kept minimal — pure function words, never anything that could mark a fresh ask.
+const ANSWER_FILLER = new Set(['the', 'a', 'an', 'one', 'ones', 'please', 'thanks', 'thank', 'just', 'really', 'kindly', 'that', 'this']);
 
 // A yes/no shape: an auxiliary-led opener or an explicit offer. wh-openers are OPEN questions.
 const POLAR_OPENER = /^\s*(shall|should|would|could|can|do|does|did|is|are|was|were|will|have|has|had|may|might|want)\b/i;
@@ -304,7 +307,7 @@ export function answersAwaited(fold, message, { profile = null } = {}) {
   }
   const predicted = new Set(awaiting.answerSpace);
   const arrival = new Map();
-  for (const t of tok(msg)) arrival.set(t, (arrival.get(t) || 0) + 1);
+  for (const t of tok(msg)) { if (ANSWER_FILLER.has(t)) continue; arrival.set(t, (arrival.get(t) || 0) + 1); }
   let prof = profile;
   if (!prof) { prof = new Map(); for (const t of tok(awaiting.question)) prof.set(t, (prof.get(t) || 0) + 1); }
   const fs = feltSurprise(prof, arrival, { predicted });
