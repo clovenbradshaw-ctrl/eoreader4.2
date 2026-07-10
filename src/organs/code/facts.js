@@ -411,6 +411,7 @@ const patternIdents = (code, from, to, { stopAtOfIn = false } = {}) => {
 const LANG_BY_EXT = {
   js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript',
   ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript',
+  py: 'python', pyi: 'python',
 };
 
 export const extractFacts = (src, { path = null } = {}) => {

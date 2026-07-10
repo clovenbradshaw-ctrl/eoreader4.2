@@ -135,6 +135,14 @@ export const eotOfModule = (facts, { resolveEdge = null } = {}) => {
     }
   }
 
+  // hazards — WITNESSED behavioral shapes (a bare except at L129 is structure,
+  // checkable against the file); the judgment on them is the fold's
+  for (const hz of facts.hazards ?? []) {
+    const sign = `hz:${M}:L${hz.line}:c${hz.col}:${hz.law}`;
+    push(`${sign} : Hazard`);
+    push(`${sign}.detail = ${valueLiteral(hz.detail)}`);
+  }
+
   // references — one CON per site; kind and position ride in the sign
   for (const u of facts.uses) {
     push(`${useSign(M, u)} -> ${scopeSign(M, facts.scopes[u.scopeId])} : within`);

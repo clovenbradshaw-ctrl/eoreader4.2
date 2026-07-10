@@ -32,6 +32,7 @@
 // is asserted that the record can't witness.
 
 import { parseSign } from './eot.js';
+import { PY_BUILTINS } from './python.js';
 
 // ── severities ─────────────────────────────────────────────────────────────────
 const SEV = { error: 0, warn: 1, note: 2 };
@@ -87,6 +88,7 @@ const modelsOf = (events) => {
         declBySign: new Map(),
         exports: [],                             // { name, local, from, source }
         uses: [],                                // { sign, kind, name, line, col, scopeId }
+        hazards: [],                             // { sign, law, line, col, detail } — witnessed shapes
         edges: new Set(),                        // dependency module signs
       });
     }
@@ -118,6 +120,11 @@ const modelsOf = (events) => {
         model(`mod:${p.mod}`).exports.push({ sign: t, name: p.name, local: null, from: null, source: null });
         continue;
       }
+      if (kind === 'hz') {
+        const p = parseSign(t);
+        model(`mod:${p.mod}`).hazards.push({ sign: t, law: p.name, line: p.line, col: p.col, detail: null });
+        continue;
+      }
       continue;                                  // mem: etc — decoration
     }
     if (e.op === 'DEF') {
@@ -141,6 +148,10 @@ const modelsOf = (events) => {
           if (field === 'source') ex.source = String(e.operand?.value ?? '');
           if (field === 'name') ex.name = String(e.operand?.value ?? '');
         }
+      } else if (rk === 'hz' && field === 'detail') {
+        const p = parseSign(root);
+        const hz = model(`mod:${p.mod}`).hazards.find((x) => x.sign === root);
+        if (hz) hz.detail = String(e.operand?.value ?? '');
       }
       continue;
     }
@@ -167,7 +178,7 @@ const modelsOf = (events) => {
       const rel = e.operand?.relation;
       const to = e.operand?.to;
       if (rel === 'imports' || rel === 'reexports') { model(t).edges.add(to); continue; }
-      if (rel === 'in') { const d = declOf(t); d.scopeId = parseSign(to).scopeId ?? 0; continue; }
+      if (rel === 'in') { if (kind === 'dcl') declOf(t).scopeId = parseSign(to).scopeId ?? 0; continue; }
       if (rel === 'from') { declOf(t).importTarget = to; continue; }
       if (rel === 'reexportOf') {
         const p = parseSign(t);
@@ -241,6 +252,14 @@ const resolvesExport = (tables, M, name, touch, seen = new Set()) => {
   return false;
 };
 
+// ── the behavioral hazards — severities of the witnessed shapes ─────────────────
+// Four are unambiguous defects; two (resource, tail) have legitimate-use tails and
+// judge at warn. Each law's EO reading is in the provider that witnesses it.
+const HAZARD_SEVERITY = Object.freeze({
+  'bare-except': 'error', 'shared-default': 'error', 'dangling-task': 'error',
+  'void-identity': 'error', 'unbounded-resource': 'warn', 'tail-drop': 'warn',
+});
+
 // ── the fold ────────────────────────────────────────────────────────────────────
 // findIssues(events, order, opts) → findings, most severe first.
 //   order        from helix.js dependencyOrder(events)
@@ -283,6 +302,10 @@ export const findIssues = (events, order, opts = {}) => {
   for (const M of order.order) {
     const m = models.get(M);
     if (!m || !m.present) continue;              // ext:… — the open world
+    // the ambient names are the module's HOST language's, not the organ's
+    const ambient = m.lang === 'python'
+      ? (opts.globals ? new Set([...PY_BUILTINS, ...opts.globals]) : PY_BUILTINS)
+      : globals;
 
     // scope machinery
     const parentOf = (id) => m.scopes.get(id)?.parent ?? -1;
@@ -316,6 +339,11 @@ export const findIssues = (events, order, opts = {}) => {
       }
       return null;
     };
+
+    // 2a′ · hazards — the witnessed behavioral shapes, judged
+    for (const hz of m.hazards) {
+      add(hz.law, HAZARD_SEVERITY[hz.law] ?? 'warn', m, hz, hz.detail ?? hz.law);
+    }
 
     // 2a · collisions — two INS claim one name in one scope
     for (const [, names] of byScope) {
@@ -357,7 +385,7 @@ export const findIssues = (events, order, opts = {}) => {
       const d = resolve(u.name, u.scopeId);
       if (!d) {
         if (u.kind === 'tst') continue;                                        // typeof-guarded — legal dwelling
-        if (globals.has(u.name)) continue;                                     // the host, not the Void
+        if (ambient.has(u.name)) continue;                                     // the host, not the Void
         add('unbound', 'error', m, u,
           u.kind === 'asg' || u.kind === 'upd'
             ? `assignment to undeclared '${u.name}' — a write into the Void (ReferenceError in module code)`
@@ -383,7 +411,9 @@ export const findIssues = (events, order, opts = {}) => {
       }
 
       // contract-violation — a write outside the binding's declared width
-      if ((u.kind === 'asg' || u.kind === 'upd') && (d.kind === 'Const' || d.kind === 'Import')) {
+      // (a Python name bound by import is legally rebindable — shadowing, not violation)
+      if ((u.kind === 'asg' || u.kind === 'upd') && (d.kind === 'Const' || d.kind === 'Import') &&
+          !(d.kind === 'Import' && m.lang === 'python')) {
         add('contract-violation', 'error', m, u,
           `assignment to ${d.kind === 'Const' ? `const '${u.name}'` : `import binding '${u.name}'`} — the binding's contract does not include EVA-to-a-new-value (declare let, or bind a new name)`);
       }
@@ -411,6 +441,7 @@ export const findIssues = (events, order, opts = {}) => {
       }
       if (d.usedRead) continue;
       if (d.kind === 'Function' && kindOf(d.scopeId) === 'fn') continue;       // an expression's self-name
+      if (kindOf(d.scopeId) === 'class') continue;                             // a class's surface (fields, methods) — read via instances
       add('dead-entity', 'note', m, d,
         d.usedWrite
           ? `'${d.name}' is written but never read — an INS no CON ever witnesses`
@@ -451,6 +482,8 @@ const VERDICT = {
   fabrication: 'fabricated', unbound: 'unbound', 'contract-violation': 'refused',
   collision: 'collided', 'cycle-tdz': 'hazard', 'dead-entity': 'dead',
   dwell: 'dwelling', 'dead-export': 'unread', medium: 'unparsed',
+  'bare-except': 'unkeyed', 'shared-default': 'grain-mixed', 'tail-drop': 'partial',
+  'unbounded-resource': 'unbounded', 'dangling-task': 'dead', 'void-identity': 'voided',
 };
 
 export const issuesToEot = (findings, { agent = 'organ:code' } = {}) => {

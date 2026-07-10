@@ -17,8 +17,8 @@
 //               unbound thread, writes outside a binding's contract, dead entities;
 //               rendered back out as `!eva` lines through the enactor door
 //
-// readCodebase(files, opts) is the organ's one mouth: files are [{ path, text }]
-// (the organ never touches a filesystem — hosts feed it, like every other organ).
+// readCodebase(files, opts) is the organ's one mouth (read.js): files are
+// [{ path, text }] — the organ never touches a filesystem; hosts feed it.
 //
 //   const { issues, report, eotText, order, doc } = readCodebase([
 //     { path: 'src/a.js', text: '…' },
@@ -26,33 +26,14 @@
 //   ]);
 //
 // opts: { closedWorld, entries, globals, docId, agent, doc:false to skip the log }
+// mergeIssues(files, opts) folds the fixable findings into the PRESERVED originals
+// and re-reads to verify (fix.js) — the fixer and the barrel both stand on read.js,
+// which this organ's own no-order law demanded (it caught the cycle in its own PR).
 
-import { extractorFor } from './facts.js';
-import { lowerCorpus, codeDoc } from './eot.js';
-import { dependencyOrder } from './helix.js';
-import { findIssues, issuesToEot, reportText } from './issues.js';
-import { parseEOT } from '../ingest/eot.js';
-
-export const readCodebase = (files, opts = {}) => {
-  const factsList = (files ?? []).map((f) =>
-    extractorFor(f.path)(f.text, { path: f.path ?? null }));
-  const { eotText } = lowerCorpus(factsList);
-  const parsed = parseEOT(eotText, { frame: 'code', door: 'perceiver', agent: opts.agent || 'organ:code' });
-  const order = dependencyOrder(parsed.events);
-  const issues = findIssues(parsed.events, order, { ...opts, diagnostics: parsed.diagnostics });
-  return Object.freeze({
-    factsList,
-    eotText,
-    events: parsed.events,
-    order,
-    issues,
-    issuesEot: issuesToEot(issues, { agent: opts.agent || 'organ:code' }),
-    report: reportText(issues),
-    doc: opts.doc === false ? null : codeDoc(factsList, opts),
-  });
-};
-
-export { extractFacts, registerExtractor, extractorFor, seg, modSeg, resolveSpec, scrub } from './facts.js';
+export { readCodebase } from './read.js';
+export { extractFacts, registerExtractor, extractorFor, seg, nameSeg, modSeg, resolveSpec, scrub } from './facts.js';
+export { extractPyFacts, PY_BUILTINS, pyScrub } from './python.js';
 export { eotOfModule, lowerCorpus, codeDoc, parseSign, declSign, scopeSign, useSign } from './eot.js';
 export { dependencyOrder, moduleGraphOf, tarjanSCC, helixRank, HELIX } from './helix.js';
 export { findIssues, issuesToEot, reportText, DEFAULT_GLOBALS, SEVERITIES } from './issues.js';
+export { mergeIssues, FIXABLE_LAWS } from './fix.js';

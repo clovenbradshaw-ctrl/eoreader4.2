@@ -123,6 +123,49 @@ dozen genuine `dwell`/`dead-entity` notes. During its own construction the
 organ caught a dead `const { line, col }` its author had just orphaned in
 `facts.js` — the first issue it ever found was in itself.
 
+## The membrane, proven — Python
+
+`python.js` is the second provider, mounted with `registerExtractor('python', …)`:
+an indentation-scoped structural reading (Python is line-regular where JS is
+brace-regular; only def/class carve binding scopes; a name binds on its FIRST
+binding per scope, so legal rebinding never trips the collision law, while a
+module-level use before the first binding is the real NameError and a def-local
+read before the first write is the real UnboundLocalError — Python's TDZ). It
+emits the same fact shape, lowers through the same medium, and every law
+downstream runs unchanged.
+
+It also WITNESSES six behavioral shapes — hazards, each with an EO reading:
+`bare-except` (a SEG with no key), `shared-default` (a def-time Pattern-grain INS
+read as a per-call Figure: grain-mixed), `tail-drop` (a partition that provably
+excludes its tail), `unbounded-resource` (an INS whose clearing binds to no
+boundary), `dangling-task` (an INS no CON ever witnesses — the dead-entity law at
+expression grain), `void-identity` (`== float("nan")` — an EVA that can never
+bind). A hazard is witnessed structure (perceiver door); the judgment is the
+fold's.
+
+**The benchmark** (`tests/fixtures/`): a 298-line pipeline with six planted
+behavioral defects and a line-parallel clean twin. The organ scores it exactly —
+all six at the manifest's own lines, zero error/warn on the clean twin, and the
+only buggy-only notes are the two shadows the manifest itself describes (`math`
+imported but never drawn on; `last_exc` assigned but never raised).
+
+## The merge — fixes into the preserved original
+
+The medium was never lossy: the organ holds the SOURCE beside the reading, the
+way an eotDoc keeps its sentences. So `fix.js` does not decompile tuples — it
+RECs the preserved original at the sites the findings witness, then runs the
+checkpoint the helix demands: **re-read the merged corpus and require the mended
+laws gone.** `mergeIssues(files)` returns the new texts, the applied/skipped log,
+and the before/after verdicts of the organ's own re-read.
+
+On the benchmark: all six fold in (`except Exception:`, the `is None` guard,
+`range(len(x))`, `with open(…) as fh:` with the block re-bound, `await`, and
+`math.isnan` — inserting `import math` when the thread wouldn't bind), the
+re-read comes back clean of every mended law, and the merged file passes
+`python3 -m py_compile`. What stays a report stays a report: raising `last_exc`,
+narrowing `Exception`, choosing `gather` over serial awaits — semantic calls,
+flagged and left to the human.
+
 ## Run it
 
 ```js
