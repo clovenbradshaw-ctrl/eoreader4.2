@@ -40,8 +40,9 @@ whitelist was — the string is not self-contained, and the vocabulary is unboun
 
 Your instinct — *a tiny model that listens for a short response, the larger model for
 planning* — is the right architecture, and it maps onto tiers this codebase already
-has (`src/model/wllama.js` runs SmolLM2‑135M at page‑open cost 0; `src/model/webllm.js`
-has the **Fast 1B / Fluent 3B** lever). Render it as a two-tier cascade, each tier
+onto tiers this codebase already has: `src/model/webllm.js` exposes a **Fast 1B / Fluent 3B**
+lever, both q4‑quantized (`src/model/wllama.js`'s SmolLM2‑135M is the deeper CPU‑only fallback).
+The listener is the quantized 1B, the planner the quantized 3B. Render it as a two-tier cascade, each tier
 gated by the one before it:
 
 ```
@@ -71,9 +72,12 @@ way every other gate here is built — **propose a structure, measure it against
 chance null, act only when it beats chance** (the "witness does not decide" rule, from
 answerability and `read/voidnull.js`):
 
-- **A basis, `phatic ⟂ substantive`.** Two members so the crosstalk null is finite and
-  the pair holds each other apart — exactly the shape of `clarify ⟂ actionable`,
-  `develop ⟂ brief`, `creative ⟂ grounded`, `revise ⟂ fresh` in `meta-route.js`.
+- **A `phatic` direction in the route measurement.** As built, `phatic` is a fifth
+  member of `ROUTE_EXEMPLARS` beside `compose | ground | research | isolate | continue`,
+  so its **substantive contrast is the other directions themselves** — the crosstalk
+  null is derived against a rich background (every work direction's exemplars), which
+  keeps it finite and holds phatic apart from them structurally, the same mechanics as
+  `clarify ⟂ actionable` / `develop ⟂ brief` but with the work directions as the null.
   The exemplars are **metacognition speech** (the model describing the turn), not the
   user's words:
   - *phatic* — "they are just greeting me, a friendly hello, nothing to look up";
@@ -81,9 +85,9 @@ answerability and `read/voidnull.js`):
     acknowledgement, a thanks, a nod — no task, nothing to research or compose";
     "they are saying goodbye, closing the chat kindly"; "checking in on how I am —
     a light exchange, no work to do."
-  - *substantive* — "a real question that needs an answer"; "they want something
-    found out, looked up, or worked through"; "a task to do — grounded, researched,
-    or composed"; "this turns on the reading or the world, not a pleasantry."
+  - *the substantive alternatives* are the standing directions — a `ground`
+    doc-question, a `research` "found out in the wider world", a `compose` "piece
+    made". A read that lands on any of those clears their nulls, not phatic's.
 - **Two ways to source the read, and they compose (cold → warm, continuously):**
   1. **The instant floor — no model at all.** Measure the *user's own words* against
      the phatic basis (and keep `answerSmalltalk` as the seed, folded in at `SEED`
@@ -94,9 +98,9 @@ answerability and `read/voidnull.js`):
   2. **The graded layer — the tiny model speaks, and is measured.** For the paraphrase
      the floor misses (`"you around?"`, `"was just checking in"`), the same one-line
      discourse read the planner would take (`discoursePrompt`) is measured for
-     phatic-ness *first*. Pin that read to SmolLM2‑135M or the 1B **Fast** build — it
-     only has to say *"they're just saying hello"* legibly, which a tiny model does
-     well. Reserve the 3B **Fluent** talker for turns that survive the gate. **You do
+     phatic-ness *first*. Pin that read to the **quantized 1B (Fast)** build — it
+     only has to say *"they're just saying hello"* legibly, which the small quantized
+     model does well. Reserve the **quantized 3B (Fluent)** talker for turns that survive the gate. **You do
      not warm the big model to say good morning.** That is the compute your two-tier
      framing buys, made concrete.
 
@@ -164,15 +168,16 @@ so `"Good morning"` at an open book gets a hello instead of a grounded non-answe
 
 ## Build ladder
 
-| Rung | What | Model? | Cost |
-| ---- | ---- | ------ | ---- |
-| **1** | `PHATIC_EXEMPLARS` (`phatic ⟂ substantive`) + `phaticDrive` in `meta-route.js`, tested like every other basis (`tests/meta-route.test.js` pins that neither clears the other's null). | no | small |
-| **2** | Add `phatic` to `ROUTE_ALPHABET`; `VERDICT_OF.phatic = 'PHATIC'`; seed from `answerSmalltalk`. The fold physics come for free. | no | small |
-| **3** | Wire the caller: in `app.js` `ask`, run the gate **before** the `!docs.length` branch; on `PHATIC` return a warm one-line reply regardless of docs; else fall through to the existing path. | no | small |
-| **4** | The tiny-model triage: pin the pre-planner read to SmolLM2‑135M / 1B‑Fast; only warm 3B‑Fluent for work turns. Bench the compute saved. | yes | medium |
+| Rung | What | Model? | Status |
+| ---- | ---- | ------ | ------ |
+| **1** | `phatic` exemplars (metacognition speech) added to the route bases + a `phaticDrive` export in `meta-route.js`; its crosstalk null is derived against the other directions (which *are* the substantive alternatives). Tested like every other basis — `tests/meta-route.test.js` pins self-recovery and the phatic⟂isolate separation. | no | **done** |
+| **2** | `phatic` in `ROUTE_ALPHABET`; `VERDICT_OF.phatic = 'PHATIC'`; small-talk moved out of `isolate`; the social case named in `discoursePrompt`. The fold's incumbent/`REST` physics come for free. | no | **done** |
+| **3** | The caller: `app.js` `ask` runs `answerSmalltalk` (now doc-aware) **before** the `!docs.length` branch, so a doc-loaded greeting short-circuits to a warm line instead of grounding. | no | **done** |
+| **4** | The tiny-model triage: measure the pre-planner discourse read for phatic-ness on the quantized **1B (Fast)**; only warm the quantized **3B (Fluent)** for work turns. Bench the compute saved. | yes | pending |
 
-Rung 3 alone fixes the bug you named (a doc-loaded greeting) with **no model** and no
-new physics. Rung 4 is the "tiny listener, big planner" optimisation on top.
+Rungs 1–3 are landed here — the bug you named (a doc-loaded greeting) is fixed with **no
+model** and no new physics, and the measured `phatic` direction is ready for the read to be
+live-wired. Rung 4 is the "tiny listener, big planner" optimisation on top.
 
 ## Non-goals
 
@@ -194,7 +199,7 @@ new physics. Rung 4 is the "tiny listener, big planner" optimisation on top.
 - the floor it seeds from, now a seed not a decision: `src/enactor/answer/mechanical.js`
   (`answerSmalltalk`)
 - the caller, gate before the docs branch: `src/rooms/reader/app.js` (`ask`)
-- the model tiers the triage rides: `src/model/wllama.js` (SmolLM2‑135M),
-  `src/model/webllm.js` (Fast 1B / Fluent 3B)
+- the model tiers the triage rides: `src/model/webllm.js` (quantized Fast 1B / Fluent 3B),
+  with `src/model/wllama.js` (SmolLM2‑135M) as the CPU-only fallback
 - the sibling gate on the other axis: 4.1 `docs/answerability.md`
 - tests: `tests/meta-route.test.js`

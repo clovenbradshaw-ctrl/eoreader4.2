@@ -45,9 +45,14 @@ import { stanceDescOf } from '../core/conversation-fold.js';
 // The route alphabet — the directions the relaxation settles over. `research` is a real
 // direction (the discourse says the world has to answer), but it maps to the GROUND verdict
 // for routeStance: reaching outward is the web proposer's move, not a stance of its own.
-export const ROUTE_ALPHABET = ['compose', 'ground', 'research', 'isolate'];
+// `phatic` is the light-turn short-circuit (docs/response-demand.md): a greeting, a thanks, a
+// goodbye — the turn asks for a word back, not work — settling to the PHATIC verdict, which the
+// caller answers with one warm line, spending neither the planner nor the reading. It is a real
+// direction here (so the fold's incumbent/REST physics keep a mid-thread acknowledgement on
+// continuation instead of a social exit), the response-scale twin of the answerability VOID gate.
+export const ROUTE_ALPHABET = ['compose', 'ground', 'research', 'isolate', 'phatic'];
 
-const VERDICT_OF = { compose: 'COMPOSE', ground: 'GROUND', research: 'GROUND', isolate: 'ISOLATE' };
+const VERDICT_OF = { compose: 'COMPOSE', ground: 'GROUND', research: 'GROUND', isolate: 'ISOLATE', phatic: 'PHATIC' };
 
 // The direction bases — exemplar phrases in the vocabulary a small model naturally uses when
 // it DESCRIBES a discourse (not the user's vocabulary: the metacognition re-speaks the turn).
@@ -81,7 +86,7 @@ export const ROUTE_EXEMPLARS = Object.freeze({
   isolate: [
     'a fresh question, unrelated to anything prior',
     'a new topic, disconnected from earlier talk',
-    'small talk, idle chatter, unconnected',
+    'a brand-new question about something else entirely',
     'they changed topics entirely',
     'starting over on something new',
     'no relation to the conversation so far',
@@ -93,6 +98,20 @@ export const ROUTE_EXEMPLARS = Object.freeze({
     'still the same thread, the same subject',
     'the next iteration of the ongoing work',
     'carry on where we left off',
+  ],
+  // phatic — the light turn (docs/response-demand.md): a social move, not a task. Held apart from
+  // `isolate` (a fresh but SUBSTANTIVE question) by the crosstalk null — small talk used to live in
+  // isolate's exemplars and misrouted a greeting into a whole fresh-topic turn. These are
+  // METACOGNITION speech (the model describing the turn), like every basis here, never the user's
+  // words. When this current out-competes the work directions AND the incumbent, the turn is a word
+  // back and nothing more; the caller answers one warm line without the planner or the reading.
+  phatic: [
+    'they are just greeting me — a friendly hello, nothing to look up',
+    'a social pleasantry; they want a warm word back, not an answer',
+    'an acknowledgement — a thanks, a nod; no task, nothing to research or compose',
+    'they are saying goodbye, closing the chat kindly',
+    'checking in on how I am doing — a light exchange, no work to do',
+    'small talk, a passing courtesy — no question about the reading or the world',
   ],
 });
 
@@ -599,6 +618,19 @@ export const developDrive = (speech, bases = defaultBases()) => {
   return w > b.null ? w : 0;
 };
 
+// phaticDrive(speech, bases) → the null-gated `phatic` current as a graded scalar, exposed
+// REGARDLESS of the winning route — the response-SCALE twin of `researchDrive`. Where researchDrive
+// says "the WORLD has to answer this," phaticDrive says "this asks for a word back, not work." A
+// caller thresholds it to return one warm social line instead of spending the planner or grounding
+// against the reading. 0 when the phatic basis is absent or the speech does not clear its crosstalk
+// null. The basis lives in the route group (phatic is a route direction), so this reads it there.
+export const phaticDrive = (speech, bases = defaultBases()) => {
+  const b = bases && bases.route && bases.route.get('phatic');
+  if (!b) return 0;
+  const w = bornSalience(b.profile, new Set(tok(String(speech || ''))));
+  return w > b.null ? w : 0;
+};
+
 // reviseDemandOf(speech, bases) → 'revise' | 'fresh' | '' — does the read say the turn EDITS
 // the standing piece or asks for a NEW one? Argmax over the null-gated revise weights,
 // ORTHOGONAL to the route (a ground/continue turn can each be an edit-in-place). '' when the
@@ -648,6 +680,10 @@ export const reviseOpOf = (speech, bases = defaultBases()) => {
 //   researchDrive  the null-gated research current, EXPOSED REGARDLESS of the winner — the
 //                  discourse-level gap trigger the web proposer folds in (propose.js). A
 //                  paragraph can settle on ground AND say "the document can't answer this."
+//   phaticDrive    the null-gated `phatic` current, exposed regardless of the winner — the
+//                  response-scale twin of researchDrive: "this asks for a word back, not work."
+//                  When the route settles PHATIC the caller answers one warm line and spends
+//                  neither the planner nor the reading (docs/response-demand.md).
 //   lengthDemand   'develop' | 'brief' | '' — the development demand, ORTHOGONAL to the route:
 //                  does the discourse want a long, multi-section piece or a short answer? Read
 //                  on EVERY route (a ground turn has a length too), so the longform gate can
@@ -687,6 +723,7 @@ export const metaRoute = (speech, fold = null, { bases = defaultBases(), seed = 
     kind,
     steerKind,
     researchDrive: currents.research || 0,
+    phaticDrive: phaticDrive(speech, bases),
     lengthDemand: lengthDemandOf(speech, bases),
     developDrive: developDrive(speech, bases),
     registerDemand: registerDemandOf(speech, bases),
@@ -753,7 +790,9 @@ export const discoursePrompt = (message, fold = null, { exchange = '', now = nul
     'out or clarified. Name a gap only when the ask genuinely turns on a choice the reading cannot ' +
     'settle. If that gap is something only they can settle — their request is ambiguous or ' +
     'underspecified and you would have to ask them to clarify which one, whose, or what exactly ' +
-    'they mean — say so. Speak naturally.'
+    'they mean — say so. If they are only being social — a greeting, a thanks, a goodbye, or ' +
+    'asking how you are — say that plainly: a warm word back is all that is needed, there is ' +
+    'nothing to look up or work out. Speak naturally.'
   );
 };
 
