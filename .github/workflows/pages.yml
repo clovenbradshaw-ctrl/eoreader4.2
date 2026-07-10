@@ -1,0 +1,53 @@
+name: pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# First-launch note: in the repo's Settings → Pages, set "Build and deployment"
+# Source = "GitHub Actions". Until that's set once, this deploy step 404s on the
+# very first run even though the build is fine — it is the one manual step Actions
+# can't do for you. `enablement: true` below asks the API to turn Pages on, which
+# covers most cases; the Settings toggle is the fallback if the org disallows it.
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: Stage the site (exclude repo cruft)
+        run: |
+          mkdir -p _site
+          rsync -a --delete \
+            --exclude='.git' \
+            --exclude='_site' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            ./ _site/
+          touch _site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

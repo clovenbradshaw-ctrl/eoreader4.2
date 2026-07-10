@@ -1,0 +1,42 @@
+// EO contracts for the core holon — the Act/Site/Stance faces of every module,
+// with the Site face split into targets (what it reads) and products (what it writes).
+// Generated from the per-holon analysis; validated by tests/contracts.test.js against
+// the cube's coherence guard. See docs/eo-for-coders.md and docs/spec-good-watchmaker.md.
+import { contract } from './contract.js';
+
+export const CONTRACTS = Object.freeze({
+  'src/core/address.js': contract({ ops: ['SIG'], targets: ['Entity'], products: ['Lens'], stances: ['Binding'], note: 'event to cube address', floor: true }),
+  'src/core/asterisk.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Network', 'Link'], products: ['Entity', 'Void'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'the ontological asterisk (identity)' }),
+  'src/core/bridge.js': contract({ ops: ['EVA'], targets: ['Network'], products: ['Link', 'Atmosphere'], stances: ['Tracing'], note: 'connectivity / bridge surprise' }),
+  'src/core/cognition.js': contract({ ops: ['NUL', 'SIG'], targets: ['Kind'], products: ['Kind', 'Paradigm'], stances: ['Clearing', 'Tending'], note: 'the cognition triad' }),
+  'src/core/contract.js': contract({ ops: ['DEF', 'EVA'], targets: ['Kind'], products: ['Paradigm', 'Lens'], stances: ['Dissecting', 'Binding'], note: 'EO contract factory + validation', floor: true }),
+  'src/core/conventions/corpus.js': contract({ ops: ['REC'], targets: ['Field'], products: ['Kind'], stances: ['Composing'], note: 'corpus conventions as prior' }),
+  'src/core/conventions/english-verbs.js': contract({ ops: ['NUL'], targets: ['Kind'], products: ['Kind'], stances: ['Clearing'], note: 'irregular verb morphology' }),
+  'src/core/conventions/index.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Field'], products: ['Kind', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'barrel' }),
+  'src/core/conventions/induce.js': contract({ ops: ['REC'], targets: ['Field'], products: ['Kind'], stances: ['Composing'], note: 'attribution-verb induction (Pass 0)' }),
+  'src/core/conventions/ledger.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Field'], products: ['Kind', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'the conventions ledger' }),
+  'src/core/conversation-fold.js': contract({ ops: ['SYN', 'DEF', 'EVA'], targets: ['Field'], products: ['Network', 'Lens'], stances: ['Composing', 'Dissecting', 'Tracing'], note: 'the conversation fold' }),
+  'src/core/cube.js': contract({ ops: ['NUL', 'EVA'], targets: ['Kind'], products: ['Kind', 'Lens'], stances: ['Clearing', 'Binding'], note: 'cube geometry + coherence guard', floor: true }),
+  'src/core/enacted/frame.js': contract({ ops: ['INS', 'NUL'], targets: ['Field'], products: ['Lens'], stances: ['Making', 'Clearing'], note: 'the enacted frame' }),
+  'src/core/enacted/index.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Field', 'Atmosphere'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'barrel' }),
+  'src/core/enacted/loop.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Field', 'Atmosphere'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'enacted DEF-EVA-REC loop' }),
+  'src/core/enacted/stance.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Field', 'Atmosphere'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'recalibration as logged REC' }),
+  'src/core/event.js': contract({ ops: ['INS'], targets: ['Void'], products: ['Entity'], stances: ['Making'], note: 'event constructor op(Site,Res)', floor: true }),
+  'src/core/faces.js': contract({ ops: ['SIG', 'NUL'], targets: ['Entity'], products: ['Lens'], stances: ['Binding', 'Clearing'], note: 'the three faces of a cell', floor: true }),
+  'src/core/holder.js': contract({ ops: ['INS', 'DEF'], targets: ['Entity'], products: ['Entity', 'Lens'], stances: ['Making', 'Dissecting'], note: 'holder root + nested belief' }),
+  'src/core/holon.js': contract({ ops: ['SEG', 'INS'], targets: ['Void'], products: ['Entity', 'Network'], stances: ['Dissecting', 'Making'], note: 'holonic Site addressing' }),
+  'src/core/index.js': contract({ ops: ['NUL', 'SIG', 'INS', 'SEG', 'CON', 'SYN', 'DEF', 'EVA', 'REC'], targets: ['Void', 'Field', 'Network', 'Lens'], products: ['Entity', 'Network', 'Lens', 'Paradigm'], stances: ['Clearing', 'Making', 'Composing'], note: 'barrel' }),
+  'src/core/log.js': contract({ ops: ['INS', 'SEG', 'SIG'], targets: ['Entity'], products: ['Field', 'Entity'], stances: ['Making', 'Dissecting', 'Binding'], note: 'the append-only log (write)', floor: true }),
+  'src/core/operators.js': contract({ ops: ['NUL'], targets: ['Kind'], products: ['Kind'], stances: ['Clearing'], note: 'the nine operators (Act face)', floor: true }),
+  'src/core/project.js': contract({ ops: ['SYN', 'EVA'], targets: ['Field'], products: ['Network', 'Entity'], stances: ['Composing', 'Tracing'], note: 'projectGraph — the read fold', floor: true }),
+  'src/core/proposition.js': contract({ ops: ['SYN'], targets: ['Void'], products: ['Link'], stances: ['Making'], note: 'the proposition (floor of meaning)' }),
+  'src/core/provenance.js': contract({ ops: ['DEF', 'INS'], targets: ['Entity'], products: ['Lens', 'Entity'], stances: ['Dissecting', 'Making'], note: 'me-ness type law', floor: true }),
+  'src/core/relation-types.js': contract({ ops: ['DEF', 'EVA'], targets: ['Kind', 'Link'], products: ['Kind', 'Lens'], stances: ['Dissecting', 'Binding'], note: 'relation typing bridge' }),
+  'src/core/resolution-spectrum.js': contract({ ops: ['DEF', 'EVA'], targets: ['Network', 'Paradigm'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Tracing'], note: 'witness axis of coref' }),
+  'src/core/self/index.js': contract({ ops: ['NUL', 'SIG'], targets: ['Entity'], products: ['Entity'], stances: ['Clearing', 'Tending'], note: 'the self/world line' }),
+  'src/core/spectral.js': contract({ ops: ['SYN', 'DEF', 'EVA'], targets: ['Field', 'Lens'], products: ['Lens', 'Paradigm'], stances: ['Composing', 'Dissecting', 'Tracing'], note: 'the density operator rho' }),
+  'src/core/surprise.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field'], products: ['Field', 'Atmosphere'], stances: ['Tracing', 'Tending'], note: 'the one surprise (KL)' }),
+  'src/core/unit.js': contract({ ops: ['NUL', 'INS'], targets: ['Void'], products: ['Void'], stances: ['Clearing', 'Cultivating'], note: 'the bare unit (ingestion floor)' }),
+  'src/core/verdicts.js': contract({ ops: ['NUL'], targets: ['Lens'], products: ['Lens'], stances: ['Clearing'], note: 'verdict vocabulary' }),
+  'src/core/voidnull.js': contract({ ops: ['DEF', 'SEG'], targets: ['Field'], products: ['Void', 'Field'], stances: ['Clearing', 'Dissecting', 'Unraveling'], note: 'derived void null (Born)' }),
+});

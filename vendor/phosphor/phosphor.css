@@ -1,0 +1,24 @@
+/* Phosphor Icons (https://phosphoricons.com) — Regular weight, MIT licensed.
+   Vendored locally so the reader stays self-contained and offline: only the woff2
+   ships, and icons are placed by Unicode codepoint (a \uXXXX glyph in a span whose
+   font-family is 'Phosphor'). No per-icon class CSS is needed — the codepoints live
+   inline at the call sites (RICON / FEED maps in app.dc.js, &#x…; entities in view). */
+@font-face {
+  font-family: "Phosphor";
+  src: url("vendor/phosphor/Phosphor.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+/* Base helper for any markup that prefers a class to an inline font-family. */
+.ph {
+  font-family: "Phosphor" !important;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  speak: never;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
