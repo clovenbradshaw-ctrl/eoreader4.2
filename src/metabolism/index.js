@@ -31,6 +31,9 @@ import { createScarcity } from './scarcity.js';
 import { createGenome } from './genome.js';
 import { createFitness } from './fitness.js';
 import { createSelection } from './select.js';
+import { createOrganism } from './organism.js';
+import { createSoma } from './soma.js';
+import { CONSTITUTION } from './constitution.js';
 
 // createMetabolism — the bloodstream. Everything is injectable so a test can pin the
 // world (a fixed scarcity clock) and the surface can drive it (starve/feed at will).
@@ -46,6 +49,8 @@ import { createSelection } from './select.js';
 export const createMetabolism = ({
   scarcity = createScarcity({ regime: 'plenty' }),   // DEFAULT plenty → inert until scarcity is imposed from outside
   genome = createGenome(),
+  soma = null,                       // opt-in: give the metabolism a BODY to grow/prune, not just weights to tune
+  organism = null,                   // or a pre-built organism (genome ⊕ soma); with neither, the unit is today's plain genome
   population = null,
   provenance = null,
   judge = null,                      // an optional external judge (judge.js) — the un-authored fitness anchor
@@ -54,8 +59,12 @@ export const createMetabolism = ({
   capacity = 512,
   ...selOpts
 } = {}) => {
+  // The heritable unit. When structure is opted into (a `soma` or a pre-built `organism`), the
+  // unit is an ORGANISM — weights AND a body plan, evolving as one, so the SAME selection loop
+  // grows organs and not just tunes dials. With neither, it is the plain weight-genome (today).
+  const unit = organism || (soma ? createOrganism({ genome, soma }) : genome);
   const fitness = createFitness({ energyOf: scarcity.energyOf, anchorWeight });
-  const selection = createSelection({ genome, ...selOpts });
+  const selection = createSelection({ genome: unit, ...selOpts });
   let lastDemo = null;               // the ecology's latest demographics, when a population runs
 
   let period = 0;
@@ -163,14 +172,22 @@ export const createMetabolism = ({
   const vitals = () => {
     const season = scarcity.season(period);
     const champ = reigning();
+    const body = typeof champ.body === 'function' ? champ.body() : null;   // the champion's soma, when structure is opted in
     const cond = fitness.condition();
     const last = beats[beats.length - 1] || null;
     return Object.freeze({
       season: { period, name: season.name, regime: season.regime, budget: season.budget, mult: season.mult },
-      condition: cond,                       // recent fitness / quality / energy / anchorRate
+      condition: cond,                       // recent fitness / quality / energy / anchorRate / voidRespect / humanRate
       champion: champ.genotype(),
       championNotation: champ.notation(),
       championFit: selection.championFit(),
+      // the BODY the champion runs: its organs, their upkeep, and the desert it could still grow
+      // into (the unexpressed phenotype). null on the plain-genome path (weight-tuning only).
+      soma: body ? body.express() : null,
+      desert: body ? body.desert().length : null,
+      // the freeze boundary made visible: what evolution may touch and what is held immortal
+      // beneath it (core alphabet + constitution), and the one ground law — never fabricate from the Void.
+      constitution: { open: CONSTITUTION.openLoci(), frozen: CONSTITUTION.frozenLoci(), notation: CONSTITUTION.notation() },
       exploring: population ? null : selection.challenger(),   // single-lineage challenger under trial, or null
       // the competitive ecology, when present: how many virtual systems are alive, how
       // diverse the gene pool is, and the last period's demographics (births / mean energy).
@@ -236,7 +253,11 @@ export const createMetabolism = ({
 const deriveSpend = (outcome, alloc) => ({
   model: outcome.warmedModel ? 1 : 0,
   tokens: outcome.tokens ?? (outcome.warmedModel ? alloc.maxTokens : 0),
-  time: outcome.timeMs != null ? outcome.timeMs / 100 : 1,
+  // wall-clock, PLUS the body's upkeep: every organ costs resource to run, every turn, forever,
+  // so a body that grows more than it can feed spends more energy and is selected against — the
+  // metabolism paying for the organs. Upkeep is already energy; charged as metabolic time
+  // (COSTS.time = 0.5 → ×2 time units). With a plain genome (no body) `alloc.upkeep` is absent → 0.
+  time: (outcome.timeMs != null ? outcome.timeMs / 100 : 1) + (Number(alloc.upkeep) || 0) * 2,
   fetch: outcome.fetches ?? 0,
   storage: outcome.storage ?? 0,
 });
@@ -255,3 +276,8 @@ export { createJudge, buildJudgeRequest, parseVerdict, JUDGE_MODEL, buildInterpr
 export { liftOf, gapClosed, liftFitness, transfers, keptFitness, transferReading, createProxy, liftWorld } from './lift.js';
 export { createHorizon, knownHorizon } from './horizon.js';
 export { createAgent, reputationOf, decide, simulate, classifyRoom, isWrongRoom, population } from './reputation.js';
+// organ-level evolution — the body plan, its organs, and the floor evolution stands on:
+export { CONSTITUTION, BANDS, admits, permitsCell, wellFormedOrgan } from './constitution.js';
+export { createOrgan, foundingOrgans, FOUNDING_ORGANS, UPKEEP_BY_OP, RESOURCE_BY_OP } from './organ.js';
+export { createSoma, foundingSoma, PERMITTED_CELLS } from './soma.js';
+export { createOrganism, hasSoma } from './organism.js';

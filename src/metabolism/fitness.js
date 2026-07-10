@@ -35,8 +35,26 @@
 //     viable,                // did it complete within budget with validated work? (bool)
 //     corrections,           // EXTERNAL: corrections applied downstream (lower is better)
 //     validated,             // EXTERNAL: an un-authored pass/verdict (0..1), or null
+//     endorsed,              // EXTERNAL: a HUMAN interaction's reward (0..1) — the strongest anchor
+//     held,                  // unbound threads HELD OPEN this turn (Void-respect) — earns nothing now
+//     groundedOnDelay,       // previously-held threads that bound THIS turn (retroactive credit)
+//     heldForBinding,        // held threads that were candidates to bind — the spray baseline
 //     spend,                 // { model, tokens, time, fetch, storage } charged this turn
 //   }
+//
+// THE VOID-RESPECT TERM — the axis the clerk and the investigator finally come apart on. The old
+// numerator scored only the Figure column (a bound claim), so it could not tell the two apart:
+// confabulation FILLS the Void (a binding with no source — forbidden outright at the floor,
+// organ.js / constitution.js), while Void-respect HOLDS a true-but-unbindable apprehension open
+// until the world grounds it. It is breedable exactly one way, and only this way. You never
+// reward the unbound claim — that is the confabulator, and it is unmeasurable besides. You never
+// reward the HOLDING — that breeds the false vigil, the courtier who fakes patience with empty
+// threads. You reward only the held thread that LATER BINDS, credited retroactively across the
+// append-only log to the genome that kept it alive, and scaled by PRECISION over a spray baseline
+// so holding-everything-cheaply cannot harvest coincidental bindings. A fabricated thread never
+// binds; the delayed judge starves the liar and feeds the one who waited. Courage rendered as
+// patience — and un-gameable, because faking it requires actually predicting the future. The
+// value (that this is what we reward) is the human's frozen sentence; the mechanism lives here.
 export const score = (outcome = {}, { energyOf, anchorWeight = 0.6 } = {}) => {
   const grounded = num(outcome.grounded);
   const claimed  = Math.max(grounded, num(outcome.claimed));
@@ -54,20 +72,39 @@ export const score = (outcome = {}, { energyOf, anchorWeight = 0.6 } = {}) => {
     * (0.5 + 0.5 * coherence)
     * (0.5 + 0.5 * bindFraction);
 
-  // The UN-AUTHORED anchor. `validated` is a direct external verdict; `corrections`
-  // penalize (each correction is the world pushing back on a claim that didn't hold).
-  // null validated → unanchored → the reading is provisional.
-  const hasAnchor = outcome.validated != null || outcome.corrections != null;
-  const anchor = outcome.validated != null
-    ? clamp01(outcome.validated)
+  // VOID-RESPECT — retroactive credit for the held thread that finally bound. `held` (the posture
+  // of patience) never enters the numerator; only `groundedOnDelay` (a realized delayed binding)
+  // does, scaled by precision over the spray baseline `heldForBinding`. A sprayer that holds
+  // everything binds at the base rate and earns little per binding; a true holder binds precisely
+  // and earns fully. The false vigil starves beside the confabulator.
+  const held = num(outcome.held);
+  const boundLater = num(outcome.groundedOnDelay);
+  const heldCandidates = Math.max(boundLater, num(outcome.heldForBinding));
+  const precision = heldCandidates > 0 ? boundLater / heldCandidates : 0;   // lift over spray
+  const voidRespect = boundLater * (0.5 + 0.5 * precision);
+
+  // The UN-AUTHORED anchor. Human interaction (`endorsed`) is the strongest — un-authorable by
+  // construction and, in time, the PRIMARY evolver — then the judge's `validated`, then a realized
+  // delayed binding (the world itself grounding a held thread), then the `corrections` penalty.
+  // null everything → unanchored → the reading is honestly provisional.
+  const hasHuman = outcome.endorsed != null;
+  const hasAnchor = hasHuman || outcome.validated != null || boundLater > 0 || outcome.corrections != null;
+  const anchoredBy = hasHuman ? 'human'
+    : outcome.validated != null ? 'judge'
+    : boundLater > 0 ? 'delayed-binding'
+    : outcome.corrections != null ? 'corrections' : null;
+  const anchor = hasHuman ? clamp01(outcome.endorsed)
+    : outcome.validated != null ? clamp01(outcome.validated)
+    : boundLater > 0 ? Math.min(1, 0.5 + 0.5 * precision)
     : Math.max(0, 1 - num(outcome.corrections) * 0.25);
 
-  // Blend: when anchored, the un-authored signal carries `anchorWeight` of the quality,
-  // so fitness is tethered to being right, not to looking thrifty. When unanchored,
-  // quality is the authored estimate alone, and the reading is flagged provisional.
-  const quality = hasAnchor
+  // Blend: when anchored, the un-authored signal carries `anchorWeight` of the quality, so fitness
+  // is tethered to being right, not to looking thrifty. Void-respect adds ON TOP — a held thread
+  // that grounded is fitness the authored/anchor blend never credited, the investigator's payoff.
+  const blended = hasAnchor
     ? (1 - anchorWeight) * authoredQuality + anchorWeight * anchor * Math.max(authoredQuality, grounded || 1)
     : authoredQuality;
+  const quality = blended + voidRespect;
 
   const energy = typeof energyOf === 'function' ? energyOf(outcome.spend || {}) : rawEnergy(outcome.spend);
   // fitness = quality / resource. The +1 keeps a zero-spend turn finite (a mechanical
@@ -85,7 +122,12 @@ export const score = (outcome = {}, { energyOf, anchorWeight = 0.6 } = {}) => {
     coherence: round(coherence),
     anchor: hasAnchor ? round(anchor) : null,
     anchored: hasAnchor,           // false → fitness is a self-reported hypothesis
+    anchoredBy,                    // 'human' | 'judge' | 'delayed-binding' | 'corrections' | null
     provisional: !hasAnchor,       // the Goodhart honesty flag, carried forward to the surface
+    held,                          // threads held open this turn (Void-respect posture — unrewarded)
+    boundLater,                    // held threads that grounded this turn (the retroactive reward)
+    voidRespect: round(voidRespect),
+    precision: round(precision),   // held→bound precision — the false-vigil falsifier's lift term
     viable: outcome.viable !== false && outcome.delivered !== false,
   });
 };
@@ -95,7 +137,7 @@ export const score = (outcome = {}, { energyOf, anchorWeight = 0.6 } = {}) => {
 // now, which is what its viability turns on). `anchorRate` reports how much of the
 // recent record was externally anchored vs self-reported — the honesty gauge.
 export const createFitness = ({ energyOf, anchorWeight = 0.6, gamma = 0.8 } = {}) => {
-  let mass = 0, wfit = 0, wqual = 0, wenergy = 0, anchoredMass = 0;
+  let mass = 0, wfit = 0, wqual = 0, wenergy = 0, anchoredMass = 0, wvoid = 0, boundTotal = 0, humanMass = 0;
   const history = [];
   return Object.freeze({
     observe(outcome) {
@@ -105,6 +147,9 @@ export const createFitness = ({ energyOf, anchorWeight = 0.6, gamma = 0.8 } = {}
       wqual = gamma * wqual + s.quality;
       wenergy = gamma * wenergy + s.energy;
       anchoredMass = gamma * anchoredMass + (s.anchored ? 1 : 0);
+      wvoid = gamma * wvoid + s.voidRespect;
+      humanMass = gamma * humanMass + (s.anchoredBy === 'human' ? 1 : 0);
+      boundTotal += s.boundLater;                 // lifetime realized delayed bindings — the investigator's tally
       history.push(s);
       if (history.length > 256) history.shift();
       return s;
@@ -116,6 +161,9 @@ export const createFitness = ({ energyOf, anchorWeight = 0.6, gamma = 0.8 } = {}
         quality: mass > 0 ? round(wqual / mass) : 0,
         energy:  mass > 0 ? round(wenergy / mass) : 0,
         anchorRate: mass > 0 ? round(anchoredMass / mass) : 0,   // 1 = fully anchored; 0 = all self-reported
+        humanRate: mass > 0 ? round(humanMass / mass) : 0,       // how much of the recent record a human evolved
+        voidRespect: mass > 0 ? round(wvoid / mass) : 0,         // recent retroactive credit — the investigator's payoff
+        boundLater: boundTotal,                                  // lifetime held threads that grounded
         samples: history.length,
       });
     },
