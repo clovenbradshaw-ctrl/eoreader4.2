@@ -131,8 +131,14 @@ const HANG_GUARD = 2_000_000;
 export const admitWebSource = (payload = {}, { hangGuard = HANG_GUARD } = {}) => {
   const record = webRecord(payload);
   const docId  = engineDocId(record.id);
-  const doc    = parseText(stripWebBoilerplate(String(payload.text || '')).slice(0, hangGuard), { docId });
+  const stripped = stripWebBoilerplate(String(payload.text || ''));
+  const doc    = parseText(stripped.slice(0, hangGuard), { docId });
   doc.sourceKind = 'web-source';
+  // When the backstop DOES trip, it says so — a coverage receipt, never a silent cut.
+  // The full original is still retained as binary by the fetch layer (opfs-store.js).
+  if (stripped.length > hangGuard)
+    doc.coverage = { complete: false, chars: hangGuard, sourceChars: stripped.length,
+                     dropped: [`hang-guard: read the first ${hangGuard.toLocaleString()} of ${stripped.length.toLocaleString()} chars (raise hangGuard for a whole read)`] };
   doc.web = {
     url: record.url, final_url: record.final_url, title: record.title,
     fetched_at: record.fetched_at, published: record.published, content_hash: record.content_hash,

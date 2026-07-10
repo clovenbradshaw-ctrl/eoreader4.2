@@ -18,6 +18,7 @@ import { createLog }         from '../../core/index.js';
 import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
+import { attachReading }     from '../ingest/index.js';
 
 const typeOf = (v) => v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v; // object|array|string|number|boolean|null
 const isContainer = (v) => v !== null && typeof v === 'object';
@@ -83,6 +84,11 @@ export const ingestJson = (input = {}) => {
     projectGraph: (frame = {}) => projectGraph(log, frame),
   };
   doc.leafAt = (i) => nodes.filter(n => n.leaf)[i] || null;
+
+  // Every source encodes into EoT: the lazy `doc.reading()` renders the whole tree's log —
+  // container-INS, leaf-DEF, contains-CON — as canonical EoT (ingest/read.js), the same
+  // three-faced events every other modality lands on the spine.
+  attachReading(doc);
 
   const vecByOrgan = new Map();
   doc.sentenceEmbeddings = async (embedder) => {

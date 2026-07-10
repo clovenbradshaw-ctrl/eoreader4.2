@@ -23,6 +23,7 @@
 import { createLog }         from '../../core/index.js';
 import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
+import { attachReading }     from '../ingest/index.js';
 
 // A partial lands in a bin if it falls within TOL of it — a frequency-resolution
 // grain, the finest distinction the reader is asked to make. It is NOT a scale:
@@ -85,6 +86,9 @@ export const ingestFrequencies = (spec = {}) => {
   // to retrieveLexical(doc, query) and the engine ranks every other note by
   // shared overtones — harmonic relatedness, measured by hits/qLen and nothing else.
   doc.spectrumQuery = (i) => partialTokens[i].join(' ');
+
+  // Every source encodes into EoT (ingest/read.js) — a note's overtone events included.
+  attachReading(doc);
 
   return doc;
 };

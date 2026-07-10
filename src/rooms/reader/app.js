@@ -296,8 +296,24 @@ export const createReaderApp = ({ audit } = {}) => {
     try {
       const { importAnyFile } = await import('./import-file.js');
       const got = await importAnyFile(file, { onProgress: (msg) => setBusy({ kind: 'file', label: String(msg) }) });
-      const doc = parseText(got.text, { docId: `doc-${shaShort(webContentHash(got.text))}` });
-      return addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc });
+      // For a structured modality the ORGAN doc is the reading: a table's cells, a JSON
+      // tree's leaves, a binary's string runs ARE its propositions — three-faced events
+      // already on the log — and re-parsing their rendered lines as prose would drop
+      // them. Prose-bearing modalities (pdf, webpage, ocr, audio transcript, plain text)
+      // parse as text so the entity/relation read runs over the actual sentences.
+      const structured = ['table', 'json', 'binary'].includes(got.meta?.modality) && got.meta?.doc;
+      const doc = structured ? got.meta.doc : parseText(got.text, { docId: `doc-${shaShort(webContentHash(got.text))}` });
+      const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc });
+      // The coverage receipt — proof that 100% of the file was processed, or the named
+      // account of what could not be (import-file.js) — rides the source and the ledger.
+      const cov = got.meta?.coverage;
+      if (cov && src) {
+        src.coverage = cov;
+        if (cov.complete) logIt('record', `Coverage — 100% of ${file.name} processed`, src.reg);
+        else logIt('skip', `Partial read of ${file.name} — ${(cov.dropped || []).join('; ')}`, src.reg);
+        persist();
+      }
+      return src;
     } finally { setBusy(null); }
   };
 

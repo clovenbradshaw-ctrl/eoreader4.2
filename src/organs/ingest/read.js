@@ -57,8 +57,12 @@ const round = (x) => (typeof x === 'number' ? Math.round(x * 100) / 100 : x);
 // Pure over the append-only log (like significanceSpine): computed at most once per doc for
 // the default options, memoised by identity. Explicit options recompute and are not cached.
 export const readIngest = (doc, opts = {}) => {
-  const { max = 400, k = 12, budget, enacted } = opts;
-  const isDefault = max === 400 && k === 12 && budget == null && typeof enacted !== 'function';
+  // The STRUCTURE layer is uncapped by default: an ingest's EoT read carries 100% of the
+  // log — every event of every source, whatever its modality — or it is not the read of
+  // the ingest. A caller that wants a bounded render passes `max` explicitly, and the
+  // truncation is then reported in `structure.skipped` (over-max), never silent.
+  const { max = Infinity, k = 12, budget, enacted } = opts;
+  const isDefault = max === Infinity && k === 12 && budget == null && typeof enacted !== 'function';
   if (isDefault) { const memo = cache.get(doc); if (memo) return memo; }
 
   const units = doc?.units || doc?.sentences || [];
@@ -122,6 +126,10 @@ const renderReading = ({ docId, units, spine, structure, turns, frame }) => {
   rule('what it takes to exist and connect');
   if (structure.lines.length) L.push(...structure.lines);
   else c('(nothing extracted — an empty or unstructured spine)');
+  // An explicitly capped render says so on its face — the surface never passes off a
+  // truncated structure as the whole reading (the log itself always holds everything).
+  const overMax = (structure.skipped || []).filter((s) => s.reason === 'over-max').length;
+  if (overMax) c(`(capped render — ${overMax} further event${overMax === 1 ? '' : 's'} withheld by max; the log holds them all)`);
   L.push('');
 
   rule('where the reading turned — prediction · surprisal · Δbelief');

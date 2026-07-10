@@ -28,6 +28,7 @@ import { createLog }         from '../../core/index.js';
 import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
+import { attachReading }     from '../ingest/index.js';
 
 const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
 
@@ -211,6 +212,12 @@ export const ingestAudio = (transcript = {}) => {
 
   // Temporal grounding: the utterance sounding at time t, and the words in a window.
   // This is what an EVA event points at when it wants to replay a passage.
+  // Every source encodes into EoT, speech included: the lazy `doc.reading()` renders the
+  // full hearing — every word-INS with its clock, witness and confidence DEFs, the
+  // then/pause CONs of the reading line of time, the contested EVAs — as canonical EoT
+  // (ingest/read.js). A word is a holon, not a proposition; it is still three-faced.
+  attachReading(doc);
+
   doc.utteranceAt = (t) => {
     for (let i = 0; i < timings.length; i++) if (t >= timings[i][0] - 0.05 && t <= timings[i][1] + 0.05) return i;
     return -1;

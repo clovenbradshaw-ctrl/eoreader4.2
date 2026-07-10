@@ -152,7 +152,10 @@ export const emitEot = (logOrEvents, { max = Infinity } = {}) => {
   };
 
   for (const e of events) {
-    if (lines.length >= max) break;
+    // An explicit cap truncates HONESTLY: every event past it is reported as skipped
+    // (reason 'over-max'), never silently dropped — the same discipline as the
+    // inexpressible-event skips below. Uncapped (the default), every event renders.
+    if (lines.length >= max) { if (!retracted.has(e.seq)) skip(e, 'over-max'); continue; }
     if (retracted.has(e.seq)) continue;
     const meta = metaTrailer(e.agent && e.agent !== 'model:eot' ? e.agent : null, e.ts);
 
