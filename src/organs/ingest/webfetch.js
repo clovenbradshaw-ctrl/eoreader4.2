@@ -11,6 +11,8 @@
 import { admitWebSource } from './websource.js';
 import { GUTENBERG_SOURCES, GUTENBERG_FULLTEXT } from './gutenberg.js';
 import { WIKIMEDIA_SOURCES, WIKIMEDIA_FULLTEXT } from './wikimedia.js';
+import { ARXIV_SOURCES, ARXIV_FULLTEXT } from './arxiv.js';
+import { OPENALEX_SOURCES, OPENALEX_FULLTEXT } from './openalex.js';
 
 // The proxy the user pointed us at. Overridable per client; no auto-fire is wired here — a
 // caller (a confirmed user action) constructs the client and admits the results into scope.
@@ -179,10 +181,14 @@ export const SEARCH_SOURCES = {
     return parseFeed((await ctx.fetchUrl(query)).text).slice(0, k)
       .map((it) => ({ title: it.title, text: it.summary || it.title, url: it.link, source: 'feed' }));
   },
-  // THE LIBRARY — Project Gutenberg (whole books, gutenberg.js) and the Wikimedia reference
-  // shelf + Wikidata (wikimedia.js), each a kind on the same (ctx, query, k) contract.
+  // THE LIBRARY — Project Gutenberg (whole books, gutenberg.js), the Wikimedia reference shelf +
+  // Wikidata (wikimedia.js), and the OPEN ACADEMIC SHELVES: arXiv preprints read whole (arxiv.js)
+  // and the OpenAlex catalog for scholarly discovery + the citation prior (openalex.js). Each a
+  // kind on the same (ctx, query, k) contract.
   ...GUTENBERG_SOURCES,
   ...WIKIMEDIA_SOURCES,
+  ...ARXIV_SOURCES,
+  ...OPENALEX_SOURCES,
 };
 
 // FULL_TEXT: kind → async (client, item) → the WHOLE content behind a search hit, for the
@@ -194,13 +200,16 @@ const FULL_TEXT = {
   wikipedia: (client, item) => wikiExtract(client, item?.title),
   ...GUTENBERG_FULLTEXT,
   ...WIKIMEDIA_FULLTEXT,
+  ...ARXIV_FULLTEXT,
+  ...OPENALEX_FULLTEXT,
 };
 
 // A query that NAMES a library source is routed to it outright — "wikiquote churchill" means
 // search Wikiquote, "gutenberg frankenstein" means the library. `commons` alone is ambiguous
 // prose ("House of Commons"), so it requires the full "wikimedia commons".
 const NAMED_KIND = [
-  ['gutenberg', /\bgutenberg\b/], ['wikidata', /\bwikidata\b/], ['wiktionary', /\bwiktionary\b/],
+  ['gutenberg', /\bgutenberg\b/], ['arxiv', /\barxiv\b/], ['openalex', /\bopenalex\b/],
+  ['wikidata', /\bwikidata\b/], ['wiktionary', /\bwiktionary\b/],
   ['wikiquote', /\bwikiquote\b/], ['wikisource', /\bwikisource\b/], ['wikibooks', /\bwikibooks\b/],
   ['wikiversity', /\bwikiversity\b/], ['wikinews', /\bwikinews\b/], ['wikivoyage', /\bwikivoyage\b/],
   ['wikispecies', /\bwikispecies\b/], ['commons', /\bwikimedia commons\b/],
@@ -213,11 +222,16 @@ const NAMED_KIND = [
 export const routeKind = (query) => {
   const q = String(query || '').toLowerCase();
   for (const [kind, re] of NAMED_KIND) if (re.test(q)) return kind;
+  if (/\b(preprint|e-?print)\b/.test(q)) return 'arxiv';   // an unambiguous scholarly signal beats "recent" → news
   if (/\b(latest|news|today|recent|recently|breaking|this week|right now|currently)\b/.test(q)) return 'news';
   if (/^https?:\/\//.test(query) || /\b(rss|feed|atom)\b/.test(q)) return 'feed';
   if (/\b(novel|novella|full text|whole book|entire book|read the book)\b/.test(q)) return 'gutenberg';
   if (/\b(define|definition|meaning of|etymology)\b/.test(q)) return 'wiktionary';
   if (/\b(quote|quotes|quotation|quotations)\b/.test(q)) return 'wikiquote';
+  // THE OPEN ACADEMIC SHELVES — scholarly-discovery phrasing reaches the OpenAlex catalog (breadth
+  // + the citation prior). arXiv's own signals (named source, "preprint") are handled above; this
+  // is kept late so a named source, a URL, or plain factual phrasing still win.
+  if (/\b(papers?|study|studies|research(?:\s+(?:on|into|about))?|scholarly|academic|journal|citation|peer[-\s]?review(?:ed)?|literature\s+review|meta[-\s]?analysis|systematic\s+review|state[-\s]of[-\s]the[-\s]art)\b/.test(q)) return 'openalex';
   return 'wikipedia';
 };
 

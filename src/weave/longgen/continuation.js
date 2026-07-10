@@ -67,6 +67,7 @@ export const runContinuation = async ({
   confine = false,        // holonic-token-confinement — record each atom's address→confinement
   dynamics = false,       // decision-as-relaxation — occupancy currents settle into the move (no gauge)
   nul = true,             // nul — hold uncohered ground honestly instead of hedging (default on)
+  grammar = null,         // commission — an exemplar's learned move-grammar; leans the move draw toward its form
   signal = null,
 } = {}) => {
   // RECONSTRUCT — the tail and the fold, reused wholesale. Computed once: the same
@@ -139,6 +140,7 @@ export const runContinuation = async ({
       phaseBias: arc ? phaseBias(phase) : undefined,
       semanticStrain,                        // the self-fold licenses REC on a clean turn
       strainByCursor: field?.strainByCursor, // the field read overrides the lexical proxy
+      grammar,                               // commission — the exemplar's move-grammar, when shaping
     });
     // The prior going flat quiesces the READOUT path; under dynamics the occupancy decides,
     // so a flat prior is not a stop (the relaxation quiesces on spent occupancy, below).

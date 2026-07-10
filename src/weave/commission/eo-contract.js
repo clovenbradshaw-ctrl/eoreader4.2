@@ -1,0 +1,16 @@
+// EO contracts for the commission holon — the Act/Site/Stance faces of every module,
+// with the Site face split into targets (what it reads) and products (what it writes).
+// Validated by tests/contracts.test.js against the cube's coherence guard.
+// See docs/eo-for-coders.md and docs/commission.md.
+import { contract } from '../../core/contract.js';
+
+export const CONTRACTS = Object.freeze({
+  'src/weave/commission/brief.js': contract({ ops: ['DEF', 'SEG'], targets: ['Field'], products: ['Lens'], stances: ['Dissecting', 'Binding'], note: 'read the ask into a brief' }),
+  'src/weave/commission/commission.js': contract({ ops: ['SYN', 'REC', 'EVA'], targets: ['Field', 'Network', 'Paradigm'], products: ['Network'], stances: ['Composing', 'Tracing'], note: 'the commission, run forward' }),
+  'src/weave/commission/hunt.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Field'], stances: ['Binding', 'Making'], note: 'hunt the exemplar on the open internet' }),
+  'src/weave/commission/index.js': contract({ ops: ['SYN', 'INS', 'EVA'], targets: ['Field', 'Network', 'Atmosphere'], products: ['Network', 'Paradigm', 'Lens'], stances: ['Composing', 'Making', 'Tracing'], note: 'barrel' }),
+  'src/weave/commission/inspire.js': contract({ ops: ['EVA', 'CON'], targets: ['Network', 'Paradigm'], products: ['Lens'], stances: ['Tracing', 'Binding'], note: 'decide what would be a good inspiration' }),
+  'src/weave/commission/plan.js': contract({ ops: ['DEF', 'SYN'], targets: ['Paradigm', 'Field'], products: ['Network'], stances: ['Dissecting', 'Composing'], note: 'draft the multi-response plan' }),
+  'src/weave/commission/shape.js': contract({ ops: ['EVA', 'SIG'], targets: ['Paradigm', 'Network'], products: ['Lens'], stances: ['Tracing', 'Binding'], note: 'shape the response toward the EOT structure' }),
+  'src/weave/commission/template.js': contract({ ops: ['REC', 'SYN'], targets: ['Field', 'Network'], products: ['Paradigm'], stances: ['Composing', 'Making'], note: 'the EOT structure template' }),
+});

@@ -133,7 +133,9 @@ export const predictDirection = (units = [], opts = {}) => {
   }
   const log = selfMoveLog(units, { semanticStrain: opts.semanticStrain, strainByCursor: opts.strainByCursor });
   const i = log.moves.length - 1;            // predict the move AFTER the last unit
-  const pred = predictNextMove(log, i, { weights: opts.weights });
+  // `grammar`, when given, is an EXEMPLAR's learned move-grammar (weave/commission): the draw then
+  // follows that exemplar's discourse syntax, not the frozen default. Absent → the default grammar.
+  const pred = predictNextMove(log, i, { weights: opts.weights, grammar: opts.grammar });
 
   // The significance-arc lean, when a phase bias is given (§8) — reweight, renormalise.
   const posterior = opts.phaseBias
