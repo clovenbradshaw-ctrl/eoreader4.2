@@ -132,6 +132,91 @@ That is the literal meaning of *leverage the discourse and the fold*: the discou
 read says "this looks social," the fold says "but we are mid-composition," and the
 relaxation resolves the two without a hand-written rule.
 
+## Levels: reflex, continuation, attention — and why brevity is not the signal
+
+The gate is one cut in a ladder of attentiveness, and naming the whole ladder keeps rung 4
+honest:
+
+- **Reflex** — the small model, immediate. A self-contained light turn ("Good morning",
+  "thanks") is answered *by the small model itself*, warmly, with no deliberation and no
+  reading. The reflex tier both recognises the turn and voices the reply; the big model
+  never wakes.
+- **Continuation** — the fold. A short turn that *points back* ("do again", "no", "shorter",
+  "that one") is resolved by what it references and continues the incumbent act — re-run it,
+  refine it, reject and redirect it.
+- **Attention** — the big model, deliberate. A novel substantive ask is planned and grounded
+  or researched.
+
+The trap rung 4 must not fall into: **brevity is not reflex.** "do again" and "no" are the
+shortest turns there are and they reference the *most* — their meaning is entirely in the
+thread they point at. A reflex tier that answered on surface length would fire its canned
+warmth at "no" and drop the whole prior operation on the floor. What licenses a reflex is
+**referential emptiness**, not shortness: a greeting references nothing; "do again" references
+everything just done. Same length, opposite depth.
+
+This is already the guard rungs 1–3 install, and it is why `phatic` is a *direction in the
+relaxation* rather than a length threshold: a short referential turn arrives with a live
+incumbent carrying its `REST` potential and the `continue` current, so it settles on
+continuation, not phatic — the reflex responder is never reached. Only a read that is both
+light *and* points nowhere out-competes the incumbent to `PHATIC`. The small model may answer
+the greeting; it never answers "no".
+
+## Prediction is the demand meter — grading the referential turn
+
+The law above ("do again" / "no" are short but reference the thread) raises the real question:
+given the fold, can we tell whether a bare "no" is simple or one that *requires attention*? The
+codebase already carries the instrument — the forward predictive channel (`src/core/surprise.js`:
+`forwardDist`, `feltSurprise`; `src/surfer/predictive-competency.js`: `predictiveCompetency`).
+Point it at the discourse and the demand of a referential turn is **its surprise against what
+the fold predicted**:
+
+- The fold carries a forward prediction. After an assistant turn that opened a fork — "Shall I
+  also cover the treaty?", a yes/no, an offered choice — `forwardDist` over the fold's profile
+  concentrates on that fork's answers. "no" then arrives at **low felt-surprise**: the fold
+  already holds both branches, so the resolution is mechanical (drop the offered branch) — a
+  simple turn, handled at the reflex/continuation tier, no big model.
+- When nothing in the fold framed a fork — "no" rejects a substantive answer with the
+  redirection unstated — the arrival is **high felt-surprise**: the fold did not scope it, so
+  *what* is negated and *what to do* next is exactly the open question the attentive tier exists
+  for.
+
+So surprise is the demand meter, and phatic / continuation / attention are its bands: a
+referentially-empty greeting reads phatic; a *predicted* referential turn ("do again" mid-
+compose, "no" to a fork) is low-surprise continuation; an *unpredicted* one is high-surprise
+attention. One axis — deviation from the fold's own prediction — grades all three, and it is
+model-free measurement: it decides whether to spend a model without spending one.
+
+**"Sufficiently?" — competency is the sufficiency gate, and it fails safe.** `predictiveCompetency`
+says whether the fold is even in a position to predict. Reflex/continuation is licensed only
+when the prediction is *competent* **and** the surprise is *low*; a low-competency fold (it
+never scoped a fork) or a surprise that clears its null defaults to attention. We never reflex a
+complex "no" — the cost of an uncertain read is one unnecessary attentive turn, the safe
+direction, the same discipline answerability keeps: *assume an answer until the void is
+measured; here, assume attention until simplicity is measured.*
+
+## Do we need a corpus? — the fork is free, the general prior is trained
+
+Mostly no, and where yes it fails safe. There are two sources of prediction, and only one needs
+training:
+
+- **The fork — an efference copy, no corpus.** When the assistant's own last turn opened a fork
+  ("shall I also cover the treaty?", a yes/no, an offered choice), it already holds an outstanding
+  *copy* of the answer-space. A matching "no" is **reafferent** — the system sensing the consequence
+  of its own question — and `feltSurprise` attenuates it to **zero**
+  (`tests/demand-prediction.test.js`: a predicted "no" scores 0 bits; the same "no" out of nowhere
+  scores 3.32). The fold only has to carry the question-copies the assistant emits when it asks;
+  nothing is trained.
+- **The general continuation — the flow-prior, trained.** A softer follow-up that no explicit fork
+  offered — "shorter", "more like that one", the predictable next move after an essay — is *not* in
+  the conversation's own atoms, so the backward profile cannot foresee it. That is where a
+  corpus-trained forward model (`src/perceiver/predict`, a grammar over discourse sequences) earns
+  its keep: it has learned the shape of what follows what. Without it, `forwardScore` knows only the
+  atoms that have already arrived.
+
+Both degrade the safe way: no outstanding copy **and** no trained prior → the arrival is exafferent →
+high surprise → attention. So the fork case ships now, corpus-free; the trained flow-prior is a later
+lift that only ever *reduces* unnecessary attentive turns — it can never cause a wrong reflex.
+
 ## Good morning vs Waterloo Street — the worked contrast
 
 | Turn (fresh chat, a doc loaded) | phatic | substantive | ground/research | Settles | What runs |
