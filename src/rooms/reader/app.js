@@ -19,8 +19,8 @@ import { parseText } from '../../perceiver/parse/index.js';
 import { projectGraph } from '../../core/index.js';
 import { createModel } from '../../model/interface.js';
 import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
-import { runTurn } from '../../turn/index.js';
-import { createWebClient, htmlToText, wikiExtract } from '../../organs/ingest/webfetch.js';
+import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement } from '../../turn/index.js';
+import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
@@ -294,6 +294,28 @@ export const createReaderApp = ({ audit } = {}) => {
     } finally { setBusy(null); }
   };
 
+  // webSearchAdmit(query, opts) → the fetch+admit primitive the turn's web loop consumes.
+  // Search a source (or auto-route), pull each hit's FULL page through the proxy chain
+  // (fetchPages), admit it as a frozen web source (websource.js), AND register it in the
+  // S-registry so its cited spans resolve to a real chip and it persists with the topic —
+  // a fetched page becoming "a normal prose source that joins the answer scope"
+  // (docs/web-search.md). Returns the admitted [{ item, doc, record }] for the turn to
+  // stand on; addSource dedupes by content hash and never overwrites, so re-fetching the
+  // same page is a no-op on the registry while the doc still rides the turn.
+  const webSearchAdmit = async (query, opts = {}) => {
+    const admitted = await searchAndAdmit(query, { client, k: 5, kind: 'auto', fetchPages: true, ...opts });
+    for (const a of admitted || []) {
+      if (!a?.doc || !a?.record) continue;
+      try {
+        addSource({
+          title: a.record.title || a.item?.title, url: a.record.url || a.item?.url || null,
+          text: a.doc.text, kind: 'web', record: a.record, doc: a.doc,
+        });
+      } catch { /* empty page or dup — the doc still grounds the turn */ }
+    }
+    return admitted || [];
+  };
+
   const ingestText = (text, title = 'Pasted text') => {
     const doc = parseText(String(text), { docId: `doc-${shaShort(webContentHash(text))}` });
     return addSource({ title, text: String(text), kind: 'text', doc });
@@ -420,9 +442,81 @@ export const createReaderApp = ({ audit } = {}) => {
     } catch { minilmWarming = false; }
   };
 
+  // ── web-search mode ──────────────────────────────────────────────────────────
+  // off     — never reach the net (proposer-only stays silent; the answer rides its flag)
+  // confirm — the turn proposes; the fetch waits on the user's click on the in-chat button
+  // auto    — the engine fetches on a measured gap without a prompt: 4.1's internet-native
+  //           default (docs/web-search.md), so an unrecorded question can go get its own
+  //           sources. Persisted in localStorage; the surface reads webMode()/setWebMode().
+  let webModeOverride = null;
+  const webMode = () => {
+    if (webModeOverride) return webModeOverride;
+    try { const v = localStorage.getItem('eo_web_mode'); if (v === 'off' || v === 'confirm' || v === 'auto') return v; } catch { /* default */ }
+    return 'auto';
+  };
+  const setWebMode = (mode) => {
+    if (!['off', 'confirm', 'auto'].includes(mode)) return;
+    webModeOverride = mode;
+    try { localStorage.setItem('eo_web_mode', mode); } catch { /* session-only */ }
+    logIt('web', `Web search set to ${mode}`);
+    emit('web');
+  };
+
   // ── chat ───────────────────────────────────────────────────────────────────
   let abort = null;
   const stop = () => { try { abort?.abort(); } catch { /* already done */ } };
+
+  // answerFromWeb(pending, q) — the empty-record auto path. Nothing is on the record, but
+  // the ask is substantive, so REACH for the web: formulate a real search query from the
+  // turn (the "write me an essay about dolphins" → "dolphins" rewrite lives in web.js),
+  // fetch+admit real pages, and answer GROUNDED in them — the same runTurn the recorded
+  // path uses, now over web sources. Browser-only in practice (needs fetch + a model);
+  // in Node it degrades to the "couldn't pull anything" line rather than throwing.
+  const answerFromWeb = async (pending, q, { onToken = null } = {}) => {
+    warmMinilm();
+    try {
+      const m = await ensureModel();
+      setBusy({ kind: 'search', label: 'Looking this up on the web…' });
+      const query = await formulateSearchQuery({ model: m, question: q, history: [], fallback: q });
+      setBusy({ kind: 'search', label: `Searching the web — ${query}` });
+      logIt('search', `Web search "${query}"`, 'auto · nothing on record');
+      const admitted = await webSearchAdmit(query, { kind: 'auto', fetchPages: true, k: 5 });
+      const webDocs = (admitted || []).map((a) => a.doc).filter(Boolean);
+      if (!webDocs.length) {
+        pending.text = `I searched the web for “${query}” but couldn't pull anything readable back. Try rephrasing, or drop a URL, file, or pasted text in the bar above.`;
+        pending.route = 'empty';
+        return pending;
+      }
+      abort = new AbortController();
+      const result = await runTurn({
+        question: q, docs: webDocs, model: m,
+        embedder: hashEmb,
+        geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
+        auditLog: audit, history: [],
+        stream: true,
+        onToken: (tok) => { pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
+        signal: abort.signal,
+        onStep: (name) => { setBusy({ kind: 'turn', label: stageLabel(name) }); },
+      });
+      finishMessage(pending, {
+        ...result,
+        webFetched: {
+          query, trigger: 'gap', results: webDocs.length,
+          sources: webDocs.map((d) => ({ docId: d.docId, title: d.web?.title || d.title || '', url: d.web?.url || d.web?.final_url || '' })),
+        },
+      });
+    } catch (e) {
+      pending.text = pending.text || (state.model.state === 'error'
+        ? `${state.model.note}. Pick a model from the chip in the header, then retry — or drop a URL, file, or pasted text in the bar above.`
+        : `The web lookup failed: ${String(e?.message || e)}`);
+      pending.route = 'error';
+    } finally {
+      abort = null; setBusy(null);
+      pending.pending = false;
+      persist(); emit('messages');
+    }
+    return pending;
+  };
 
   const ask = async (question, { onToken = null } = {}) => {
     const t = topic();
@@ -437,19 +531,27 @@ export const createReaderApp = ({ audit } = {}) => {
     t.messages.push(pending);
     emit('messages');
 
+    const mode = webMode();
+
     if (!docs.length) {
       // An empty record is not a dead end. Greetings get the mechanical smalltalk
-      // answer; anything substantive becomes a one-click web-search proposal, so
-      // the first real question can go fetch its own sources.
+      // answer; a substantive ask reaches for the web when web mode allows it — `auto`
+      // fetches real pages and answers grounded in them (answerFromWeb); `confirm`/`off`
+      // leave it as a one-click web-search proposal so the first question fetches its own
+      // sources on the button.
       const small = answerSmalltalk(q);
       if (small) {
         pending.text = small.text.replace(/the document/g, 'what you record');
         pending.route = 'smalltalk';
-      } else {
-        pending.text = 'Nothing is on the record yet, so I can\'t ground an answer to that. I can search the web and record what comes back — or read any URL, file, or pasted text you drop in the bar above.';
-        pending.route = 'empty';
-        pending.webProposal = { query: q, rationale: 'no sources recorded yet' };
+        pending.pending = false;
+        persist(); emit('messages');
+        return pending;
       }
+      if (mode === 'auto') return answerFromWeb(pending, q, { onToken });
+      pending.text = 'Nothing is on the record yet, so I can\'t ground an answer to that. I can search the web and record what comes back — or read any URL, file, or pasted text you drop in the bar above.';
+      pending.route = 'empty';
+      // Offer the one-click search button in confirm mode; in off, respect the opt-out.
+      if (mode === 'confirm') pending.webProposal = { query: q, rationale: 'no sources recorded yet', trigger: 'gap' };
       pending.pending = false;
       persist(); emit('messages');
       return pending;
@@ -463,7 +565,7 @@ export const createReaderApp = ({ audit } = {}) => {
         .filter((x) => !x.pending && x.text)
         .slice(0, -2)
         .map((x) => ({ role: x.role, content: x.text, ...(x.unbound ? { unbound: true } : {}) }));
-      const result = await runTurn({
+      const args = {
         question: q, docs, model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
@@ -472,7 +574,22 @@ export const createReaderApp = ({ audit } = {}) => {
         onToken: (tok) => { pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: abort.signal,
         onStep: (name) => { setBusy({ kind: 'turn', label: stageLabel(name) }); },
-      });
+      };
+      let result = await runTurn(args);
+      // The document turn measured a gap it couldn't close (or an answer worth confirming
+      // against the world). In `auto` we take the go-ahead the moment it's proposed:
+      // fetch+admit the web sources and RE-RUN — or, for a chat-route verify, AUGMENT — so
+      // the answer stands on what the search brought back (turn/web.js runWebFollowup).
+      // `off`/`confirm` leave the proposal for the in-chat "Search the web" button.
+      if (result.webProposal && mode === 'auto') {
+        setBusy({ kind: 'search', label: searchAnnouncement(result.webProposal) || 'Searching the web…' });
+        // A gap/witness re-runs the whole answer over the web sources — clear the first
+        // (usually "not in the document") draft so the re-run's stream replaces it rather
+        // than appends. A verify keeps the model's answer and adds a "From the web"
+        // addendum, so leave the streamed text in place.
+        if (result.webProposal.trigger !== 'verify') { pending.text = ''; emit('stream'); }
+        result = await runWebFollowup(args, result, { webSearch: webSearchAdmit, k: 4 });
+      }
       finishMessage(pending, result);
     } catch (e) {
       pending.text = pending.text || (state.model.state === 'error'
@@ -502,7 +619,11 @@ export const createReaderApp = ({ audit } = {}) => {
     msg.unbound = !!result.unbound;
     msg.stopped = !!result.stopped;
     msg.grounded = (result.sources || []).length > 0 && !result.unbound;
-    msg.webProposal = result.webProposal ? { query: result.webProposal.query, rationale: result.webProposal.rationale || '' } : null;
+    // The "Search the web" button belongs to confirm mode only: auto already fetched (and
+    // suppresses via webFetched), and off means the user opted out of reaching the net — so
+    // a proposal is offered as a button only when the user asked to be the one to approve it.
+    msg.webProposal = (result.webProposal && !result.webFetched && webMode() === 'confirm')
+      ? { query: result.webProposal.query, rationale: result.webProposal.rationale || '' } : null;
     msg.bound = (result.bound || []).map((b) => ({ claim: b.claim, citation: b.citation || null, cited: b.cited || b.text || null }));
     msg.verdicts = (result.verdicts || []).map((v) => ({
       verdict: v.verdict || v.status || '', claim: v.claim || v.text || [v.src, v.via, v.tgt].filter(Boolean).join(' '),
@@ -512,8 +633,28 @@ export const createReaderApp = ({ audit } = {}) => {
       return { idx: Number(idx), docId, sn: src?.sn || null, reg: src?.reg || null, title: src?.title || docId, text: (result.citeTexts || {})[idx] || '' };
     });
     msg.reflection = result.reflection || null;
+    // What the web search brought back — the query, why, and the sources it fetched. The
+    // gap/witness answer already streamed the re-run over these; a verify AUGMENTS instead,
+    // so append what the web said (with its sources) as a plainly-marked addendum, keeping
+    // the model's own answer above it untouched (docs/web-search.md, "verify — don't restrict").
+    msg.webFetched = result.webFetched
+      ? {
+          query: result.webFetched.query || '', trigger: result.webFetched.trigger || '',
+          results: result.webFetched.results || 0,
+          sources: (result.webFetched.sources || []).map((s) => ({ title: s.title || '', url: s.url || '', docId: s.docId || '' })),
+        }
+      : null;
+    const aug = result.webFetched && result.webFetched.augmented;
+    if (aug && aug.answer) {
+      const add = String(aug.answer).replace(/\[s\d+(?:,\s*s?\d+)*\]/g, '').replace(/[ \t]+\n/g, '\n').trim();
+      const srcLines = (aug.sources || []).slice(0, 4).map((s) => `· ${s.title || s.url || s.docId}`).filter(Boolean).join('\n');
+      if (add) msg.text = `${msg.text}\n\n— From the web —\n${add}${srcLines ? `\n\nSources:\n${srcLines}` : ''}`;
+    }
     for (const f of msg.flags) {
       if (/contradic/i.test(f.id)) logIt('conflict', `Contradiction flagged — ${f.note || f.id}`);
+    }
+    if (msg.webFetched) {
+      logIt('search', `Grounded in ${msg.webFetched.results} web source${msg.webFetched.results === 1 ? '' : 's'}`, `"${msg.webFetched.query}"`);
     }
     logIt('claim', `Answered "${msg.text.slice(0, 60)}${msg.text.length > 60 ? '…' : ''}"`,
       `${msg.cites.length} citation${msg.cites.length === 1 ? '' : 's'}`);
@@ -779,10 +920,12 @@ export const createReaderApp = ({ audit } = {}) => {
     // topics
     topicNew, setTopic, topicRename, topicDelete, topic,
     // ingest
-    ingestUrl, ingestText, ingestFile, search, recordHit,
+    ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit,
     sourceBySn, removeSource, topicSources,
     // chat
     ask, stop, exportChat,
+    // web-search mode (off | confirm | auto)
+    webMode, setWebMode,
     // model
     ensureModel, setBackend, backendPref,
     // projections for the surface
