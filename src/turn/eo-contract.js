@@ -7,6 +7,7 @@ import { contract } from '../core/contract.js';
 export const CONTRACTS = Object.freeze({
   'src/turn/archive.js': contract({ ops: ['NUL', 'SIG'], targets: ['Entity'], products: ['Entity'], stances: ['Clearing', 'Tending'], note: 'leased store + shredder' }),
   'src/turn/deep-research.js': contract({ ops: ['SYN', 'EVA'], targets: ['Network', 'Field'], products: ['Network'], stances: ['Composing', 'Tracing'], note: 'deep multi-branch research + report' }),
+  'src/turn/disambiguate.js': contract({ ops: ['DEF', 'EVA', 'SEG'], targets: ['Field', 'Lens'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Binding'], note: 'sense-disambiguation prior — commit before gather' }),
   'src/turn/expect.js': contract({ ops: ['DEF', 'EVA'], targets: ['Field'], products: ['Atmosphere', 'Lens'], stances: ['Clearing', 'Binding'], note: 'answer expectation' }),
   'src/turn/feed.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Field'], stances: ['Clearing', 'Dissecting'], note: 'what the model would be fed' }),
   'src/turn/index.js': contract({ ops: ['SYN', 'EVA', 'DEF'], targets: ['Network', 'Field', 'Lens'], products: ['Network', 'Entity', 'Lens'], stances: ['Composing', 'Binding', 'Dissecting'], note: 'barrel' }),
