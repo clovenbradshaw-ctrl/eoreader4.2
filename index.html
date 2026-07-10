@@ -493,7 +493,7 @@ table{border-collapse:collapse;width:100%}
               </svg>
 
               <sc-for list="{{ memoNodes }}" as="n">
-                <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #6D5EF5;border-radius:9px;padding:11px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
+                <div onClick="{{ n.focus }}" onMouseEnter="{{ n.hoverEnter }}" onMouseLeave="{{ n.hoverLeave }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #6D5EF5;border-radius:9px;padding:11px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
                   <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#6D5EF5;background:#EEEBFE;border-radius:5px;padding:2px 6px">TOPIC</span>
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ n.id }}</span>
@@ -504,7 +504,7 @@ table{border-collapse:collapse;width:100%}
               </sc-for>
 
               <sc-for list="{{ claimNodes }}" as="n">
-                <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid {{ n.accent }};border-radius:9px;padding:10px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
+                <div onClick="{{ n.focus }}" onMouseEnter="{{ n.hoverEnter }}" onMouseLeave="{{ n.hoverLeave }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid {{ n.accent }};border-radius:9px;padding:10px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
                   <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#7A7A85;background:#F2F2F6;border-radius:5px;padding:2px 6px">CLAIM</span>
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ n.id }}</span>
@@ -517,7 +517,7 @@ table{border-collapse:collapse;width:100%}
               </sc-for>
 
               <sc-for list="{{ passageNodes }}" as="n">
-                <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #C79A3A;border-radius:9px;padding:10px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
+                <div onClick="{{ n.focus }}" onMouseEnter="{{ n.hoverEnter }}" onMouseLeave="{{ n.hoverLeave }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #C79A3A;border-radius:9px;padding:10px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
                   <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#9A6B12;background:#FBF1DA;border-radius:5px;padding:2px 6px">PASSAGE</span>
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ n.id }}</span>
@@ -530,7 +530,7 @@ table{border-collapse:collapse;width:100%}
               </sc-for>
 
               <sc-for list="{{ sourceNodes }}" as="n">
-                <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #6E7787;border-radius:9px;padding:10px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
+                <div onClick="{{ n.focus }}" onMouseEnter="{{ n.hoverEnter }}" onMouseLeave="{{ n.hoverLeave }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #6E7787;border-radius:9px;padding:10px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
                   <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#4E5765;background:#EEF0F3;border-radius:5px;padding:2px 6px">SOURCE</span>
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#6E7787">{{ n.reg }}</span>
@@ -544,7 +544,7 @@ table{border-collapse:collapse;width:100%}
               </sc-for>
 
               <sc-for list="{{ fileNodes }}" as="n">
-                <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #1E8A50;border-radius:9px;padding:9px 11px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
+                <div onClick="{{ n.focus }}" onMouseEnter="{{ n.hoverEnter }}" onMouseLeave="{{ n.hoverLeave }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #1E8A50;border-radius:9px;padding:9px 11px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
                   <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#1E8A50;background:#E7F6EC;border-radius:5px;padding:2px 6px">FILE</span>
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ n.id }}</span>
@@ -1666,6 +1666,7 @@ class Component extends DCLogic {
   zoomOut() { this.setState({ scale: Math.max(.35, this.state.scale * .87), camT: 'transform .18s ease' }); }
   fit() { this.setState({ tx: 40, ty: 30, scale: this._fitScale || 1, camT: 'transform .22s ease' }); }
   focusNode(id) { if (!this._panning) this.setState({ focusId: this.state.focusId === id ? null : id, rightOpen: true }); }
+  hoverNode(id) { if (!this._panning && this.state.hoverId !== id) this.setState({ hoverId: id }); }
   clearFocus() { this.setState({ focusId: null, hideContra: false }); }
   toggleContra() { this.setState({ hideContra: !this.state.hideContra }); }
 
@@ -2065,9 +2066,13 @@ class Component extends DCLogic {
     if (graphLive) {
       const { pos, canvasW, canvasH } = this._layout(prov);
       const focus = st.focusId;
+      // A hover PREVIEWS the same neighbourhood a click commits to: the hovered node and every
+      // node reachable from it light up, the rest dim — so hovering any node reveals the entities
+      // it connects to (a click additionally opens the entity panel and persists). Focus wins.
+      const hi = focus || st.hoverId;
       const connected = new Set();
-      if (focus) {
-        connected.add(focus);
+      if (hi) {
+        connected.add(hi);
         let grew = true;
         while (grew) {
           grew = false;
@@ -2077,10 +2082,10 @@ class Component extends DCLogic {
           }
         }
       }
-      const dim = (id) => focus && !connected.has(id) ? .18 : 1;
-      const shadow = (id) => focus === id ? '0 8px 24px rgba(109,94,245,.24)' : '0 1px 3px rgba(20,20,30,.05)';
-      const bd = (id) => focus === id ? '#B9AEF8' : '#E6E6EC';
-      const mk = (n, extra) => ({ ...extra, left: pos[n._nid].x, top: pos[n._nid].y, w: pos[n._nid].w, op: dim(n._nid), shadow: shadow(n._nid), bd: bd(n._nid), focus: () => this.focusNode(n._nid) });
+      const dim = (id) => hi && !connected.has(id) ? .18 : 1;
+      const shadow = (id) => hi === id ? '0 8px 24px rgba(109,94,245,.24)' : '0 1px 3px rgba(20,20,30,.05)';
+      const bd = (id) => hi === id ? '#B9AEF8' : '#E6E6EC';
+      const mk = (n, extra) => ({ ...extra, left: pos[n._nid].x, top: pos[n._nid].y, w: pos[n._nid].w, op: dim(n._nid), shadow: shadow(n._nid), bd: bd(n._nid), focus: () => this.focusNode(n._nid), hoverEnter: () => this.hoverNode(n._nid), hoverLeave: () => this.hoverNode(null) });
       const srcOf = (snId) => app.sourceBySn(snId) || {};
       graphVals = {
         canvasW, canvasH,
@@ -2095,12 +2100,12 @@ class Component extends DCLogic {
         edgePaths: prov.edges.filter((e) => pos[e.from] && pos[e.to]).map((e) => {
           const against = e.kind === 'against';
           if (against && st.hideContra) return null;
-          const active = focus && connected.has(e.from) && connected.has(e.to);
+          const active = hi && connected.has(e.from) && connected.has(e.to);
           return {
             d: this._edgePath(pos[e.from], pos[e.to]),
             stroke: against ? '#D98B80' : active ? '#6D5EF5' : '#CBCBD4',
             sw: active ? 2.2 : 1.6, dash: against ? '3 5' : 'none',
-            op: focus && !active ? .25 : 1,
+            op: hi && !active ? .25 : 1,
             marker: against ? 'url(#arrRed)' : active ? 'url(#arrVio)' : 'url(#arrDim)',
           };
         }).filter(Boolean),

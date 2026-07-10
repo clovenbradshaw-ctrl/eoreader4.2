@@ -278,10 +278,15 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
       cands = nodes.filter((n) => state.tiers[n.tier])
         .sort((x, y) => (x.kind === 'doc' ? -1 : y.kind === 'doc' ? 1 : deg[y.id] - deg[x.id]));
     }
-    // the hovered node's full name ALWAYS shows, whatever the names toggle says
+    // the hovered node's full name ALWAYS shows, whatever the names toggle says — and so do the
+    // names of the entities it connects to, so a hover reveals the whole local neighbourhood
+    // rather than only the single node under the cursor. The neighbours lead the label priority,
+    // so they place before unrelated culled labels.
     if (state.hover && !state.sel) {
       const hn = byId[state.hover];
-      cands = [hn].concat(cands.filter((n) => n.id !== hn.id));
+      const nb = neighborSet(hn.id);
+      const neigh = Object.keys(nb).map((x) => byId[x]).filter((n) => n && state.tiers[n.tier]);
+      cands = [hn, ...neigh].concat(cands.filter((n) => n.id !== hn.id && !nb[n.id]));
       nodeEls[hn.id].c.setAttribute('r', hn.kind === 'doc' ? 11 : 9);
     } else if (!state.sel) {
       nodes.forEach((n) => nodeEls[n.id].c.setAttribute('r', n.kind === 'doc' ? 9 : 7));
