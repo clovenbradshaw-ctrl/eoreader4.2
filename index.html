@@ -1602,7 +1602,7 @@ class Component extends DCLogic {
       toggleLeft: () => this.toggleLeft(), toggleRight: () => this.toggleRight(),
       // model
       modelChip, modelDot, modelOpen: st.modelOpen, toggleModel: () => this.toggleModel(), backends,
-      modelNote: m.state === 'error' ? `Load failed: ${m.note}` : m.state === 'ready' ? `${m.backend} is loaded and answering.` : 'The model loads on first question — or load it now.',
+      modelNote: m.state === 'error' ? `Load failed: ${m.note}` : m.state === 'ready' ? `${m.backend} is loaded and answering.` : m.state === 'loading' ? `Loading ${m.backend}${m.note ? ` · ${m.note}` : ''} — ${Math.round((m.progress || 0) * 100)}%` : 'The model loads on first question — or load it now.',
       loadModelLabel: m.state === 'loading' ? `${Math.round((m.progress || 0) * 100)}%…` : m.state === 'ready' ? 'Reload' : 'Load now',
       loadModelNow: () => { app.ensureModel().catch(() => {}); },
       // status + sidebar

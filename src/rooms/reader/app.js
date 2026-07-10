@@ -350,8 +350,13 @@ export const createReaderApp = ({ audit } = {}) => {
       const tryLoad = async (backend) => {
         const m = createModel(backend);
         await m.load((p) => {
-          const frac = typeof p === 'number' ? p : (p?.progress ?? 0);
-          const note = typeof p === 'object' ? (p?.text || p?.note || '') : '';
+          // Every backend reports progress as { phase, pct } (the shape is spelled out in
+          // model/wllama.js and emitted the same by model/webllm.js / anthropic.js). The old
+          // code read p.progress / p.text — fields NO backend emits — so `frac` was always 0 and
+          // `note` always '': the chip sat at "webllm · 0%" through a multi-GB download and read
+          // as stuck / "not loading" until it abruptly finished. Read the real fields.
+          const frac = typeof p === 'number' ? p : (p?.pct ?? 0);
+          const note = typeof p === 'object' ? (p?.phase || '') : '';
           state.model = { backend, state: 'loading', progress: Math.round(frac * 100) / 100, note };
           emit('model');
         });
@@ -366,6 +371,19 @@ export const createReaderApp = ({ audit } = {}) => {
         try {
           const m = await tryLoad(backend);
           if (gen !== modelGen) return m;   // superseded by a newer setBackend — don't commit
+          // WARM THE PIPELINE ("shoot a message to get warm"). A local WebGPU/WASM backend pays
+          // its shader/kernel warmup on the FIRST decode — silent, no progress tick — so a cold
+          // first answer stalls seconds after the download already read "done". Spend it now on a
+          // throwaway one-token draw with the chip showing "warming…", so the first real question
+          // answers fast (4.1's mount posture). Best-effort and gen-checked: a warmup fault never
+          // demotes a model that already loaded; claude (remote) proves itself in load() and the
+          // instant skeletons no-op through it.
+          if (m.kind === 'local') {
+            state.model = { backend, state: 'loading', progress: 1, note: 'warming…' };
+            emit('model');
+            try { await m.phrase([{ role: 'user', content: '.' }], { maxTokens: 1, temperature: 0 }); } catch { /* warmed or not, it loaded */ }
+            if (gen !== modelGen) return m;
+          }
           state.model = { backend, state: 'ready', progress: 1, note: backend === name ? '' : `fell back from ${name}` };
           emit('model');
           model = m;
