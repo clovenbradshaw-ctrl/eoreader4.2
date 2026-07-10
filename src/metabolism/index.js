@@ -251,5 +251,5 @@ export { createFitness, score } from './fitness.js';
 export { createSelection } from './select.js';
 export { createPopulation } from './population.js';
 export { createProvenance, memoryStore } from './persist.js';
-export { createJudge, buildJudgeRequest, parseVerdict, JUDGE_MODEL } from './judge.js';
+export { createJudge, buildJudgeRequest, parseVerdict, JUDGE_MODEL, buildInterpretationRequest, parseInterp, createPanel, createJudgePool } from './judge.js';
 export { liftOf, gapClosed, liftFitness, transfers, keptFitness, transferReading, createProxy, liftWorld } from './lift.js';
