@@ -82,6 +82,7 @@
     <button id="run" class="primary">▶ Start</button>
     <button id="step">Step</button>
     <button id="reset">Reset</button>
+    <button id="audit" title="Download a complete, inspectable audit of this run (JSON + a readable Markdown evaluation)">⬇ Export audit</button>
     <label>Season
       <select id="regime">
         <option value="seasonal" selected>seasonal (grows &amp; prunes)</option>
@@ -111,12 +112,20 @@
   <div class="panel">
     <h2>Evolve against Claude — the user in the loop</h2>
     <div class="row" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
-      <button id="claude">🧠 Let Claude challenge it</button>
-      <label style="margin-left:0"><input type="checkbox" id="claudeAuto" style="accent-color:var(--accent)"> keep challenging</label>
-      <span id="claudeState" class="muted" style="flex:1"></span>
+      <button id="claude">🧠 Let Claude ask a real question</button>
+      <label style="margin-left:0"><input type="checkbox" id="claudeAuto" style="accent-color:var(--accent)"> keep asking</label>
+      <label style="margin-left:0">EOReader answers with
+        <select id="answerModel">
+          <option value="echo">echo (fast · verbatim)</option>
+          <option value="wllama">SmolLM2 (CPU)</option>
+          <option value="webllm">Llama 3.2 (WebGPU)</option>
+        </select>
+      </label>
+      <span id="claudeState" class="muted" style="flex:1;min-width:180px"></span>
     </div>
+    <div id="trail" class="muted" style="font-size:12px;line-height:1.5;margin-bottom:8px;white-space:pre-wrap"></div>
     <div id="claudeOut"></div>
-    <div class="muted" style="margin-top:8px">Claude plays a <b>normal user</b>: it poses a real challenge, the local model answers, and Claude scores whether the answer <b>satisfied</b> it. That satisfaction — not a synthetic number — is what the population evolves toward. It grades; it never touches a weight.</div>
+    <div class="muted" style="margin-top:8px">Claude plays a <b>normal user</b>: it poses a real question and EOReader answers it by running a <b>real turn</b> — it searches the <b>live web</b>, folds every page it keeps, and renders a grounded answer (exactly the reader's pipeline). Claude then scores how well that answer turned the pages it <b>retrieved</b> into <b>grounded, flowing</b> output — never fact-checked against Claude's own knowledge. That score is what the population evolves toward. Claude grades; it never touches a weight, and it never answers its own question.</div>
   </div>
 
   <footer>
@@ -127,9 +136,13 @@
 
 <script type="module">
 import { createMetabolism, createScarcity, createOrganism, createSoma, createPopulation,
-         createChallenger, runChallengeCycle, forage } from './src/metabolism/index.js';
+         createChallenger, runChallengeCycle, buildAudit, auditToJSON, auditToMarkdown,
+         createSanctionLadder, createHomeostat } from './src/metabolism/index.js';
+import { createResearchAnswerer } from './src/metabolism/answerer.js';
 import { DIAGONAL_CELLS } from './src/core/cube.js';
-import { createModel, EXCERPTS_HEADER } from './src/model/index.js';
+import { createModel, createHashEmbedder } from './src/model/index.js';
+import { createAuditLog } from './src/rooms/audit/index.js';
+import { createWebClient, searchAndAdmit } from './src/organs/ingest/webfetch.js';
 
 const HELIX = ['NUL','SIG','INS','SEG','CON','SYN','DEF','EVA','REC'];
 const GRAINS = ['Ground','Figure','Pattern'];
@@ -138,22 +151,65 @@ const $ = (id) => document.getElementById(id);
 const cellFor = (op,g) => Object.values(DIAGONAL_CELLS).find(c => c.op===op && c.grain===g);
 const escapeHtml = (s)=>String(s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 
-let metab, timer=null, claudeTimer=null, period=0, lastGrown=new Set(), lastMaterial=null;
+let metab, timer=null, claudeTimer=null, period=0, lastGrown=new Set(), challengeLog=[], challengeBusy=false, trailLines=[];
+const pct = (x)=> (x==null ? '—' : (x*100).toFixed(0)+'%');
 
-// Claude in the loop: the `claude` backend (the user's own key, in localStorage) is the challenger's
-// transport; a local `echo` leaf answers, grounded in the material — Claude poses and judges, it does
-// not answer its own exam. A real deployment would run the reader pipeline as the answerer.
+// ── Evolve turns are REAL turns ────────────────────────────────────────────────
+// Claude is the USER: the `claude` backend (the user's own key, in localStorage) is the challenger's
+// transport. It poses a real question and grades the answer — it NEVER answers its own exam (the
+// firewall). EOReader answers by running the SAME turn pipeline a real chat runs
+// (metabolism/answerer.js → turn/runTurnWithResearch): it formulates a query, walks the LIVE web,
+// folds every kept page, and renders a grounded answer. Web search fires as needed; here it is the
+// whole answer, because the question arrives with nothing on the record — the model must go find its
+// own sources, not fold info from a log.
 const hasKey = ()=>{ try{ return !!(localStorage.getItem('eo_claude_key')||'').trim(); }catch{ return false; } };
 const claudeBackend = createModel('claude');
-const echoLeaf = createModel('echo');
-const challenger = createChallenger({ enabled:true, budget:{ calls:80 },
+const challenger = createChallenger({ enabled:true, budget:{ calls:60 },
   generate: async (msgs, opts)=>{ if(!claudeBackend.isLoaded()) await claudeBackend.load(); return claudeBackend.phrase(msgs, opts); } });
-const excerptLines = (s)=>String(s||'').split(/(?<=[.!?])\s+/).filter(Boolean).join('\n');
-const answerer = (material)=> async (ch)=> echoLeaf.phrase([{ role:'user', content:`${ch.question}\n\n${EXCERPTS_HEADER}\n${excerptLines(material)}` }]);
+
+// EOReader's OWN answering model — never Claude — plus the live web primitive: fetch each hit's full
+// page through the proxy and admit it as a frozen source (exactly the reader's webSearchAdmit).
+const hashEmb = createHashEmbedder();
+const turnAudit = createAuditLog({ capacity: 256 });
+const webClient = createWebClient({ fetchImpl: (u,o)=>window.fetch(u,o) });
+const webSearch = (query, opts={})=> searchAndAdmit(query, { client: webClient, k:5, kind:'auto', fetchPages:true, ...opts });
+let answerModel=null, answerModelName=null;
+async function ensureAnswerModel(){
+  const want = ($('answerModel') && $('answerModel').value) || 'echo';
+  if(answerModel?.isLoaded?.() && answerModelName===want) return answerModel;
+  answerModelName = want;
+  if(want!=='echo') $('claudeState').textContent = `loading the answering model (${want})…`;
+  try{
+    const m = createModel(want);
+    await m.load?.((p)=>{ if(p&&p.pct!=null && want!=='echo') $('claudeState').textContent = `loading ${want}… ${Math.round(p.pct*100)}%`; });
+    answerModel = m;
+  }catch{ answerModel = createModel('echo'); answerModelName='echo'; await answerModel.load?.(); if($('answerModel')) $('answerModel').value='echo'; }
+  return answerModel;
+}
+
+// the live research trail — the hops the answerer takes, shown as they happen (the disclosure the reader has).
+function onResearch(ev){
+  if(ev.phase==='start') trailLines = [`🔎 researching “${ev.query}”`];
+  else if(ev.phase==='hop') trailLines.push(`· hop ${ev.hop?.index??''}: ${ev.hop?.query??''}`);
+  else if(ev.phase==='hopDone'){ const h=ev.hop||{}; const i=trailLines.length-1; if(i>=0 && trailLines[i].startsWith('· hop')) trailLines[i] = `${trailLines[i]} → ${h.kept?`read ${h.results||0}`:'set aside'}`; }
+  else if(ev.phase==='done') trailLines.push(`grounded on ${ev.sources?.length||0} page${(ev.sources?.length||0)===1?'':'s'}`);
+  else if(ev.phase==='error') trailLines.push(`⚠ ${ev.error||'research failed'}`);
+  const el=$('trail'); if(el) el.innerHTML = trailLines.map(escapeHtml).join('<br>');
+}
+
+// the answerer: EOReader runs the real turn (its own model, lazy-loaded), web search as needed.
+const researchAnswerer = createResearchAnswerer({
+  model: ()=>ensureAnswerModel(), embedder: hashEmb, auditLog: turnAudit,
+  search: webSearch, maxHops: 4, k: 3, onResearch,
+});
+function scheduleNextChallenge(){ if(claudeTimer) clearTimeout(claudeTimer); claudeTimer=setTimeout(()=>{ if($('claudeAuto').checked) doChallenge(); }, 1500); }
 
 function build(){
   const scarcity = createScarcity({ regime: $('regime').value, ration: 1600 });
-  const population = createPopulation({ scarcity, founder: createOrganism({ soma: createSoma({ maxOrgans: 11 }) }), size: 16, capacity: 30, reservoir: 3 });
+  // graduated selection: the ladder (demote/shed/probation/cull with a path back), controlled death,
+  // and a homeostat holding diversity in a critical band — all recorded into the audit.
+  const population = createPopulation({ scarcity, founder: createOrganism({ soma: createSoma({ maxOrgans: 11 }) }), size: 16, capacity: 30, reservoir: 3,
+    sanction: createSanctionLadder(), homeostat: createHomeostat({ target: 0.12, band: 0.05 }) });
   metab = createMetabolism({ scarcity, population });
   period = 0; lastGrown = new Set();
   renderCubeSkeleton();
@@ -221,41 +277,68 @@ function render(){
     : '<div class="muted">Press Start. Genome edits — organs grown, pruned, or fused — appear here as they happen.</div>';
 }
 
-// one real beat driven by Claude: it poses a challenge (about foraged material when reachable), the
-// local leaf answers, Claude scores satisfaction, and that satisfaction feeds the population as the
-// un-authored anchor — a model put in charge of output-satisfaction evaluation.
+// one real beat driven by Claude: it poses a STANDALONE real question (no material fed in), EOReader
+// RESEARCHES it on the live web through the real turn pipeline, and Claude scores how well the answer
+// rendered the pages it fetched into grounded, flowing output. That satisfaction feeds the population
+// as the un-authored anchor. Research turns are slow by design, so they run strictly one at a time.
 async function doChallenge(){
   if(!hasKey()){ $('claudeState').innerHTML = 'add a Claude key to let Claude in — open the <a href="index.html">reader</a>, pick “Claude · hosted”, paste a key (it stays in your browser), then come back.'; if($('claudeAuto').checked) $('claudeAuto').checked=false; return; }
-  $('claudeState').textContent = 'Claude is posing a challenge…';
+  if(challengeBusy) return;
+  challengeBusy = true; $('claude').disabled = true;
+  if($('trail')) $('trail').innerHTML=''; trailLines=[];
+  $('claudeState').textContent = 'Claude is posing a real question…';
   try{
-    let material = lastMaterial;
-    try{ const docs = await forage({ fetch: window.fetch.bind(window), n:1, pick: period }); if(docs[0]) material = lastMaterial = `${docs[0].title}. ${docs[0].text}`; }catch{}
-    if(!material) material = 'The reactor core reached criticality at noon; operators vented steam and the temperature fell within the hour.';
-    const r = await runChallengeCycle({ challenger, answerer: answerer(material), material });
+    // Claude poses; EOReader answers by real web research; Claude grades grounded/flowing vs the pages.
+    const r = await runChallengeCycle({ challenger, answerer: researchAnswerer });
     if(!r){ $('claudeState').textContent = challenger.budget().exhausted ? 'Claude budget spent for this session (reset to refill)' : 'Claude did not respond — check the key/network'; return; }
-    if(r.outcome) metab.metabolize({ ...r.outcome, warmedModel:false });   // satisfaction IS the anchor
+    if(r.outcome) metab.metabolize({ ...r.outcome, warmedModel:false });   // grounded/flowing satisfaction IS the anchor
+    challengeLog.push(r);   // recorded for the audit — question, answer, retrieved sources, research trail, scores
     period++; render();
     const sat = r.satisfaction;
+    const srcs = (r.sources||[]).slice(0,5).map(s=>`<div>· <a href="${escapeHtml(s.url||'#')}" target="_blank" rel="noopener">${escapeHtml((s.title||s.url||'source').slice(0,72))}</a></div>`).join('');
     $('claudeOut').innerHTML =
-      `<div class="doc"><div class="s">user challenge · ${escapeHtml(r.difficulty||'')}</div>`
+      `<div class="doc"><div class="s">user question · ${escapeHtml(r.difficulty||'')}</div>`
       + `<div class="t">${escapeHtml(r.question)}</div>`
-      + `<div class="x"><b>answer:</b> ${escapeHtml(r.answer.slice(0,200))||'(no answer)'}</div>`
-      + (sat ? `<div class="vitals" style="margin-top:8px">${stat('satisfied',(sat.satisfied*100).toFixed(0)+'%')}${stat('resolved',sat.resolved?'yes':'no')}</div><div class="muted" style="margin-top:5px">“${escapeHtml(sat.critique||'')}”</div>` : '<div class="muted" style="margin-top:5px">no satisfaction verdict came back</div>')
+      + (r.trail ? `<div class="muted" style="margin-top:6px">researched “${escapeHtml(r.trail.seed||'')}” · ${r.trail.results||0} fetched · ${(r.trail.hops||[]).length} hop${(r.trail.hops||[]).length===1?'':'s'}</div>` : '')
+      + (srcs ? `<div class="muted" style="margin-top:4px;line-height:1.6">${srcs}</div>` : '')
+      + `<div class="x" style="margin-top:6px"><b>answer:</b> ${escapeHtml((r.answer||'').slice(0,340))||'(no answer — nothing readable came back from the web)'}</div>`
+      + (sat ? `<div class="vitals" style="margin-top:8px">${stat('grounded',pct(sat.grounded))}${stat('flowing',pct(sat.flowing))}${stat('satisfied',pct(sat.satisfied))}${stat('resolved',sat.resolved?'yes':'no')}</div><div class="muted" style="margin-top:5px">“${escapeHtml(sat.critique||'')}”</div>` : '<div class="muted" style="margin-top:5px">no satisfaction verdict came back</div>')
       + `</div>`;
-    $('claudeState').textContent = sat ? `satisfaction ${(sat.satisfied*100).toFixed(0)}% now drives selection · ${challenger.budget().remaining} Claude calls left` : '';
+    $('claudeState').textContent = sat ? `grounded ${pct(sat.grounded)} · flowing ${pct(sat.flowing)} now drives selection · ${challenger.budget().remaining} Claude calls left` : '';
   }catch(err){ $('claudeState').textContent = 'challenge failed: ' + err.message; if($('claudeAuto').checked) $('claudeAuto').checked=false; }
+  finally{ challengeBusy=false; $('claude').disabled=false; if($('claudeAuto').checked) scheduleNextChallenge(); }
+}
+
+// export a complete, inspectable audit of the run — the JSON (the full record) and a Markdown
+// evaluation (findings, lineage, challenges, timeline). The evolution, fully auditable.
+function download(name, text, type){ const blob=new Blob([text],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 1500); }
+function exportAudit(){
+  const meta = { at:new Date().toISOString(), regime:$('regime').value, ration:1600 };
+  const audit = buildAudit({ metabolism: metab, challenges: challengeLog, meta });
+  download('evolution-audit.json', auditToJSON(audit), 'application/json');
+  download('evolution-audit.md', auditToMarkdown(audit), 'text/markdown');
 }
 
 $('run').onclick = ()=>{ if(timer){ clearInterval(timer); timer=null; $('run').textContent='▶ Start'; $('run').classList.add('primary'); }
   else { timer=setInterval(step, 420); $('run').textContent='⏸ Pause'; $('run').classList.remove('primary'); } };
 $('step').onclick = step;
+$('audit').onclick = exportAudit;
 $('reset').onclick = ()=>{ if(timer){ clearInterval(timer); timer=null; $('run').textContent='▶ Start'; $('run').classList.add('primary'); }
-  if(claudeTimer){ clearInterval(claudeTimer); claudeTimer=null; } $('claudeAuto').checked=false; $('claudeOut').innerHTML=''; build(); showKeyHint(); };
+  if(claudeTimer){ clearTimeout(claudeTimer); claudeTimer=null; } $('claudeAuto').checked=false; $('claudeOut').innerHTML=''; if($('trail')) $('trail').innerHTML=''; trailLines=[]; challengeLog=[]; build(); showKeyHint(); };
 $('regime').onchange = ()=>$('reset').click();
 $('claude').onclick = doChallenge;
-$('claudeAuto').onchange = (e)=>{ if(e.target.checked){ doChallenge(); claudeTimer=setInterval(doChallenge, 6500); } else if(claudeTimer){ clearInterval(claudeTimer); claudeTimer=null; } };
+// research turns are slow, so "keep asking" self-schedules the next one only AFTER the current finishes.
+$('claudeAuto').onchange = (e)=>{ if(e.target.checked){ doChallenge(); } else if(claudeTimer){ clearTimeout(claudeTimer); claudeTimer=null; } };
 
-function showKeyHint(){ if(!hasKey()) $('claudeState').innerHTML = 'optional — add a Claude key (in the <a href="index.html">reader</a>) to let a real user-model challenge and grade the system.'; }
+function showKeyHint(){ if(!hasKey()) $('claudeState').innerHTML = 'optional — add a Claude key (in the <a href="index.html">reader</a>) to let a real user-model ask questions the system answers by live web research.'; }
+
+// Default the answering model to the one the user actually chats with in the reader — but NEVER
+// 'claude' (that is the judge; it must not answer its own question). Unknown/absent → echo.
+(function initAnswerModel(){
+  let pref = 'echo';
+  try{ const b = localStorage.getItem('eo_backend'); if(b==='wllama'||b==='webllm') pref = b; }catch{}
+  if($('answerModel')) $('answerModel').value = pref;
+})();
 
 build();
 showKeyHint();

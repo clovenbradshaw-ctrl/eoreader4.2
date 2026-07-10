@@ -20,6 +20,7 @@
 // enters here; the ecology competes on how it SPENDS, never on what it read.
 
 import { createGenome, GENE_NAMES, GENES } from './genome.js';
+import { controlledDeath } from './sanction.js';
 
 // createPopulation — the ecology. `scarcity` supplies the shared ration per period (the
 // carrying capacity of the world); `founder` seeds the gene pool.
@@ -39,6 +40,11 @@ export const createPopulation = ({
   reproduceCost = 10,      // energy an organism spends to make one offspring
   valuePerQuality = 20,    // energy an organism banks per unit of quality it produces when fed
   world = defaultWorld(),  // the calibratable quality/cost model the virtual turns run against
+  // OPT-IN through-line (sanction.js / homeostat.js). With NEITHER, the ecology is byte-identical to
+  // today's binary cull. With them: graduated sanctions with a path back, controlled resource-returning
+  // death, and a homeostat that renormalizes the reservoir to hold diversity in a critical band.
+  sanction = null,
+  homeostat = null,
 } = {}) => {
   let nextId = 1;
   const mk = (genome, parentId, period) => ({ id: nextId++, genome, energy: 6, age: 0, born: period, parentId, wins: 0 });
@@ -59,12 +65,28 @@ export const createPopulation = ({
   // its STRUCTURE forward, not only its dials. Feature-detected so a plain-genome pool is unchanged.
   const rebuild = typeof founder.rebuild === 'function' ? founder.rebuild : (gt) => createGenome(gt);
   const promotions = [];   // every time the champion's genome changes — the genome edits
+  const events = [];       // sanctions, controlled deaths, homeostat band-transitions — the auditable ledger
+  const standingOrgans = []; // organs released by controlled death — standing variation the reservoir inherits
+  let recycled = 0;        // energy returned by controlled death → added to the NEXT period's shared pool
+  let lastBand = null;
 
   // compete — run one period of the ecology. Returns the period's demographics + whether
   // the champion changed (a genome edit worth persisting).
   const compete = (period = 0) => {
     const season = scarcity.season(period);
-    let pool = season.budget;          // the shared food this period — the thing competed for
+    // returned rations from last period's controlled deaths feed this one (ecological inheritance of
+    // resource — apoptosis is cooperative). Guarded: with no sanction ladder, the pool is unchanged.
+    let pool = season.budget + (sanction ? recycled : 0);
+    if (sanction) recycled = 0;
+
+    // the HOMEOSTAT reads the CURRENT gene-pool diversity and renormalizes selection for this period:
+    // freezing toward monoculture → RELAX (a deeper death floor so diverse-but-poor variants survive,
+    // a wider reservoir to protect standing variation); churning → TIGHTEN. Guarded; with no homeostat,
+    // the floor and reservoir are unchanged.
+    const hObs = homeostat ? homeostat.observe(genotypeSpread(organisms), period) : null;
+    if (hObs && hObs.band !== lastBand) { events.push(hObs.event); lastBand = hObs.band; }
+    const effDieBelow = hObs ? round(dieBelow * (2 - hObs.pressure)) : dieBelow;
+    const effReservoir = hObs ? hObs.reservoir : reservoir;
 
     // 1. each organism expresses its genome, clamped by the season, and the world-model
     //    predicts what it would earn (quality/fitness) and what it would spend (energy).
@@ -101,8 +123,39 @@ export const createPopulation = ({
       o.age += 1;
     }
 
-    // 3. DEATH: the starved fall below the viability floor and are removed.
-    let living = organisms.filter((o) => o.energy > dieBelow);
+    // 3. DEATH: with no ladder, the starved fall below the floor and are removed (today's binary cull).
+    //    With a ladder, failure is GRADUATED — a deficit escalates a rung (demote → shed a limb →
+    //    probation → cull), a surplus forgives one back, and only the last rung dies. Death is then
+    //    CONTROLLED: the ration returns to the pool (recycled), the grown organs join the reservoir's
+    //    standing variation, the lineage is preserved — apoptosis, not necrosis. Every step is logged.
+    let living;
+    if (sanction) {
+      living = [];
+      for (const o of organisms) {
+        const hasBody = typeof o.genome.body === 'function';
+        const grown = hasBody && o.genome.body().grownCount() > 0;
+        const s = sanction.assess(o.id, { failing: o.energy < 0, hasGrownOrgan: grown, period });
+        if (s.action !== 'hold') events.push(s.event);
+        if (s.cull || o.energy <= effDieBelow) {
+          const d = controlledDeath({
+            id: o.id, energy: o.energy, cause: s.cull ? 'cull' : 'starved', period,
+            organs: hasBody ? o.genome.body().organs().map((x) => ({ kind: x.kind, origin: x.origin, cells: x.cellKeys() })) : [],
+            genotype: o.genome.genotype(),
+          });
+          recycled += d.energyReturned; standingOrgans.push(...d.organsReleased); events.push(d.event);
+          continue;                                    // dies — but cleanly, feeding the pool
+        }
+        if (s.shed && grown) {                          // shed a limb: relieve upkeep, recover its cost — a real off-ramp
+          const before = o.genome.body().upkeep();
+          o.genome = o.genome.vary({ strain: { resource: 'model', magnitude: 2 } }).genome;
+          const after = typeof o.genome.body === 'function' ? o.genome.body().upkeep() : before;
+          o.energy += Math.max(0, before - after);
+        }
+        living.push(o);                                 // demote / probation / ok all SURVIVE — the graduated path back
+      }
+    } else {
+      living = organisms.filter((o) => o.energy > effDieBelow);   // effDieBelow === dieBelow when no homeostat
+    }
 
     // 4. REPRODUCTION: organisms with surplus spawn a mutated offspring, directed by the
     //    resource they spent most on (spend less of it) — the strain that shapes the child.
@@ -121,11 +174,26 @@ export const createPopulation = ({
     //    the environment cannot sustain everyone, and scarcity, not preference, decides.
     //    BUT a reservoir of slots is held for neutral variation: after the energy elite are
     //    seated, the remaining seats go to the most genome-distant variants, not the next-
-    //    richest, so directed selection keeps a diverse base to escape local optima from.
+    //    richest, so directed selection keeps a diverse base to escape local optima from. The
+    //    homeostat's renormalized reservoir (effReservoir, computed at period start) widens this base
+    //    when the pool is freezing toward monoculture.
     living.sort((a, b) => b.energy - a.energy);
-    const survivors = (reservoir > 0 && living.length > capacity)
-      ? seatWithReservoir(living, capacity, reservoir)
+    const survivors = (effReservoir > 0 && living.length > capacity)
+      ? seatWithReservoir(living, capacity, effReservoir)
       : living.slice(0, capacity);
+    // CONTROLLED capacity death: the organisms dropped for space are not silently deleted — they die
+    // cleanly, returning their (positive) ration to the pool and their grown organs to the reservoir.
+    if (sanction && living.length > survivors.length) {
+      const kept = new Set(survivors.map((o) => o.id));
+      for (const o of living) {
+        if (kept.has(o.id)) continue;
+        const hasBody = typeof o.genome.body === 'function';
+        const d = controlledDeath({ id: o.id, energy: o.energy, cause: 'capacity', period,
+          organs: hasBody ? o.genome.body().organs().map((x) => ({ kind: x.kind, origin: x.origin, cells: x.cellKeys() })) : [],
+          genotype: o.genome.genotype() });
+        recycled += d.energyReturned; standingOrgans.push(...d.organsReleased); events.push(d.event);
+      }
+    }
 
     // 6. keep the pool non-empty of lineages: if competition wiped everyone, reseed from the
     //    last champion (extinction guard — a dead ecology cannot evolve).
@@ -165,6 +233,10 @@ export const createPopulation = ({
     demographics: () => organisms.map((o) => ({ id: o.id, energy: round(o.energy), age: o.age, wins: o.wins, parentId: o.parentId })),
     size: () => organisms.length,
     diversity: () => genotypeSpread(organisms),
+    // the through-line's auditable ledger + the standing variation controlled death has released.
+    events: () => events.slice(),
+    standingOrgans: () => standingOrgans.slice(),
+    recycled: () => round(recycled),
   });
 };
 
