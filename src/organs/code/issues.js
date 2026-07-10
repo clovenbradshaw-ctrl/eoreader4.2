@@ -65,6 +65,7 @@ export const DEFAULT_GLOBALS = new Set([
   'alert', 'confirm', 'prompt', 'getComputedStyle', 'matchMedia', 'scrollTo',
   'btoa', 'atob', 'Image', 'Audio', 'AudioContext', 'OfflineAudioContext',
   'HTMLElement', 'HTMLCanvasElement', 'SVGElement', 'Node', 'NodeList', 'Element',
+  'customElements', 'ShadowRoot', 'CSSStyleSheet', 'DocumentTimeline',
   'DocumentFragment', 'Range', 'Selection', 'CSS', 'FontFace', 'Notification',
   'XMLHttpRequest', 'ImageData', 'OffscreenCanvas', 'createImageBitmap', 'reportError',
   'CompressionStream', 'DecompressionStream', 'CryptoKey', 'SubtleCrypto',
