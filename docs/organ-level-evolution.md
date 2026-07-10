@@ -158,21 +158,32 @@ time, the primary evolver. It selects genomes directly.
 cannot see whether the answer actually *helped*. `challenger.js` is the other anchor: a stand-in
 **user**. Claude does two un-authored things the population cannot game because they sit outside it:
 
-- **`challenge()`** — pose a realistic query the way a normal user would (a genuine need, varied,
-  sometimes hard or adversarial), optionally about foraged material. *Doing what a normal user would
-  be doing.*
-- **`evaluate()`** — score the answer's **satisfaction** in `[0,1]` as that user: did it resolve the
-  need, is it usable and honest — not merely was every clause groundable.
+- **`challenge()`** — pose a realistic **standalone** question the way a normal user would (a genuine
+  need, varied, sometimes hard or adversarial). *Doing what a normal user would be doing.*
+- **`evaluate()`** — score how well the answer turned the sources it **retrieved** into **grounded,
+  flowing** output in `[0,1]` — *not* whether those sources are true about the world. A confident
+  claim the retrieved pages don't support is ungrounded however true it sounds; a faithful "the
+  sources don't cover X" is a win. The goal is not "is the crawl correct?" but "did EOReader render
+  what it found into grounded prose?"
 
-`runChallengeCycle` ties it together: Claude poses a challenge, the **system under evolution** answers
-it with a local (frozen) model configured by the champion genome — *Claude poses and judges, a local
-leaf answers its exam* — and Claude scores satisfaction. That satisfaction becomes the fitness anchor
-(`fitness.js`'s `validated`), so the population evolves toward configurations a demanding simulated
-user is satisfied by. It is the frontier judge as the environment: it selects by feeding and
-starving and **never touches a weight** (the proposer/disposer firewall). The transport is the
-`claude` model backend (the user's own key, in the browser; key never in the tab), gated and
-budget-capped so wiring Claude up can never run away with the API; dry-run → the loop falls back
-offline. The evolve surface runs it live under "Evolve against Claude."
+`runChallengeCycle` ties it together, and the answer is a **real turn, not an echo**. Claude poses a
+question with nothing on the record, so the **system under evolution** must go find its own sources:
+`answerer.js` runs the *same* pipeline a real chat runs — `turn/runTurnWithResearch` — formulating a
+query, walking the **live web** (the reader's own fetch-and-admit primitive), folding every kept page,
+and rendering a grounded answer. *Claude poses and judges; EOReader answers by real research; Claude
+never answers its own question* (and the answering model is never Claude — the firewall). The
+retrieved pages ride back with the answer so Claude grades grounding **against them**, and the
+composite grounded/flowing score becomes the fitness anchor (`fitness.js`'s `validated`), so the
+population evolves toward configurations whose live-researched output a demanding user is satisfied
+by. It **never touches a weight** (the proposer/disposer firewall). The challenger transport is the
+`claude` backend (the user's own key, in the browser; key never in the tab), gated and budget-capped
+so it can never run away with the API; dry-run → the loop falls back offline.
+
+Every real turn is **auditable**: `audit.js` records each challenge's research trail — the seed query,
+the hops, and the URLs of the live pages the answer grounded on — so the audit export proves the web
+research happened and against which sources, rather than asserting it. The evolve surface runs it live
+under "Evolve against Claude," where you pick which model EOReader answers with and watch the research
+trail hop by hop.
 
 ## The judge's material is foraged from the real world
 

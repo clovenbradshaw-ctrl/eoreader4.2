@@ -63,12 +63,23 @@ export const buildAudit = ({ metabolism, challenges = [], meta = {} } = {}) => {
   // ── the challenges Claude posed, and how it scored them (grounded/flowing, not truth) ──
   const chs = (challenges || []).filter(Boolean);
   const sat = chs.map((c) => c.satisfaction).filter(Boolean);
+  // the web-research trail: when the answerer ran a REAL turn (metabolism/answerer.js), each challenge
+  // carries the walk that produced its answer — the seed query, the hops, the live pages it grounded
+  // on. Aggregated here so "EOReader did real web research" is an audited fact, not a claim.
+  const trails = chs.map((c) => c.trail).filter(Boolean);
+  const webResearch = trails.length ? {
+    challengesResearched: trails.length,
+    sources: trails.reduce((s, t) => s + ((t.sources && t.sources.length) || 0), 0),
+    hops: trails.reduce((s, t) => s + ((t.hops && t.hops.length) || 0), 0),
+    urls: [...new Set(trails.flatMap((t) => (t.sources || []).map((x) => x.url).filter(Boolean)))].slice(0, 40),
+  } : null;
   const challengeSummary = chs.length ? {
     n: chs.length,
     meanGrounded: mean(sat.map((s) => s.grounded).filter((x) => x != null)),
     meanFlowing: mean(sat.map((s) => s.flowing).filter((x) => x != null)),
     meanSatisfied: mean(sat.map((s) => s.satisfied)),
     resolvedRate: sat.length ? round(sat.filter((s) => s.resolved).length / sat.length) : 0,
+    research: webResearch,
   } : null;
 
   // ── the through-line's governance ledger (sanction.js / homeostat.js), when wired: every graduated
@@ -101,6 +112,7 @@ export const buildAudit = ({ metabolism, challenges = [], meta = {} } = {}) => {
   if (cond.humanRate > 0) findings.push(`Human interaction evolved ${Math.round(cond.humanRate * 100)}% of the recent record.`);
   if (cond.voidRespect > 0) findings.push(`Void-respect (held threads that later bound) earning ${round(cond.voidRespect)} recently; exchange rate ${round(cond.voidValue ?? 0)} (${Math.round((cond.signalRate ?? 0) * 100)}% measured signal).`);
   if (challengeSummary) findings.push(`Claude posed ${challengeSummary.n} challenge${challengeSummary.n === 1 ? '' : 's'}; grounded ${challengeSummary.meanGrounded}, flowing ${challengeSummary.meanFlowing}, resolved ${Math.round(challengeSummary.resolvedRate * 100)}%.`);
+  if (webResearch) findings.push(`EOReader answered by REAL web research: ${webResearch.challengesResearched} challenge${webResearch.challengesResearched === 1 ? '' : 's'} ran the live turn pipeline, fetching ${webResearch.sources} source${webResearch.sources === 1 ? '' : 's'} across ${webResearch.hops} hop${webResearch.hops === 1 ? '' : 's'} — grounding was judged against the pages it retrieved, not a folded log.`);
   if (vitals.ecology) {
     if (vitals.ecology.size <= 1) { findings.push('COLLAPSE: the population fell to one lineage.'); flags.push('collapse'); }
     if ((vitals.ecology.diversity ?? 1) < 0.02) { findings.push('MONOCULTURE: gene-pool diversity ≈ 0 — the population converged to one strategy (de-differentiation / mode collapse).'); flags.push('monoculture'); }
@@ -132,6 +144,14 @@ export const buildAudit = ({ metabolism, challenges = [], meta = {} } = {}) => {
       question: c.question, intent: c.intent, difficulty: c.difficulty,
       answer: (c.answer || '').slice(0, 2000),
       sources: summarizeSources(c.sources),
+      // the web-research trail behind the answer — the seed query, the hops, the pages it grounded on.
+      trail: c.trail ? Object.freeze({
+        seed: c.trail.seed || null,
+        results: c.trail.results ?? null,
+        kept: c.trail.kept ?? null,
+        hops: Object.freeze((c.trail.hops || []).slice(0, 12).map((h) => Object.freeze({ query: h.query, results: h.results ?? null, kept: !!h.kept }))),
+        sources: Object.freeze((c.trail.sources || []).slice(0, 12).map((s) => Object.freeze({ title: s.title || null, url: s.url || null }))),
+      }) : null,
       satisfaction: c.satisfaction || null,
     }))),
     constitution: vitals.constitution || null,
@@ -170,11 +190,22 @@ export const auditToMarkdown = (audit) => {
   }
   if (audit.challenges.length) {
     L.push('\n## Claude challenges — grounded / flowing (judged against retrieved sources, not truth)');
-    L.push('| # | question | grounded | flowing | satisfied | critique |'); L.push('|---|---|---|---|---|---|');
+    if (s.challenges?.research) L.push(`_EOReader ran the live turn pipeline on ${s.challenges.research.challengesResearched} challenge(s): ${s.challenges.research.sources} web source(s) across ${s.challenges.research.hops} hop(s)._\n`);
+    L.push('| # | question | grounded | flowing | satisfied | web sources | critique |'); L.push('|---|---|---|---|---|---|---|');
     audit.challenges.forEach((c, i) => {
       const sat = c.satisfaction || {};
-      L.push(`| ${i + 1} | ${(c.question || '').slice(0, 80).replace(/\|/g, '\\|')} | ${sat.grounded ?? '·'} | ${sat.flowing ?? '·'} | ${sat.satisfied ?? '·'} | ${(sat.critique || '').slice(0, 80).replace(/\|/g, '\\|')} |`);
+      const nSrc = c.trail ? (c.trail.sources || []).length : (c.sources ? c.sources.length : 0);
+      L.push(`| ${i + 1} | ${(c.question || '').slice(0, 70).replace(/\|/g, '\\|')} | ${sat.grounded ?? '·'} | ${sat.flowing ?? '·'} | ${sat.satisfied ?? '·'} | ${nSrc || '·'} | ${(sat.critique || '').slice(0, 70).replace(/\|/g, '\\|')} |`);
     });
+    // the actual pages it grounded on — the web research, spelled out so a reader can go check them.
+    const withTrail = audit.challenges.filter((c) => c.trail && (c.trail.sources || []).length);
+    if (withTrail.length) {
+      L.push('\n### Web research trail — the live pages each answer grounded on');
+      withTrail.slice(-6).forEach((c, i) => {
+        L.push(`\n**${(c.question || '').slice(0, 90)}** — searched “${c.trail.seed || ''}”, ${c.trail.results ?? '?'} fetched:`);
+        for (const src of (c.trail.sources || []).slice(0, 8)) L.push(`- ${src.title || '(untitled)'}${src.url ? ` — ${src.url}` : ''}`);
+      });
+    }
   }
   if (audit.timeline.length) {
     L.push('\n## Timeline (last 24 beats)');
