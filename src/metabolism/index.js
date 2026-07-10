@@ -276,6 +276,9 @@ export { createJudge, buildJudgeRequest, parseVerdict, JUDGE_MODEL, buildInterpr
 export { liftOf, gapClosed, liftFitness, transfers, keptFitness, transferReading, createProxy, liftWorld, TRANSFER_FLOOR } from './lift.js';
 export { createHorizon, knownHorizon } from './horizon.js';
 export { createAgent, reputationOf, decide, simulate, classifyRoom, isWrongRoom, population } from './reputation.js';
+// the commons + multi-level selection (main's niche-construction line):
+export { createCommons } from './commons.js';
+export { demeProductivity, multiLevelSelect, traitFrequency, partition } from './demes.js';
 // organ-level evolution — the body plan, its organs, and the floor evolution stands on:
 export { CONSTITUTION, BANDS, admits, permitsCell, wellFormedOrgan } from './constitution.js';
 export { createOrgan, foundingOrgans, FOUNDING_ORGANS, UPKEEP_BY_OP, RESOURCE_BY_OP } from './organ.js';
