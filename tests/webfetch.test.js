@@ -84,8 +84,9 @@ test('routeKind picks the source: facts → wikipedia, current → news, a URL �
   assert.equal(routeKind('latest news on the strike'), 'news');
   assert.equal(routeKind('https://example.org/feed.xml'), 'feed');
   assert.deepEqual(Object.keys(SEARCH_SOURCES).sort(), [
-    'commons', 'feed', 'gutenberg', 'news', 'wikibooks', 'wikidata', 'wikinews', 'wikipedia',
-    'wikiquote', 'wikisource', 'wikispecies', 'wikiversity', 'wikivoyage', 'wiktionary',
+    'arxiv', 'commons', 'feed', 'gutenberg', 'news', 'openalex', 'wikibooks', 'wikidata',
+    'wikinews', 'wikipedia', 'wikiquote', 'wikisource', 'wikispecies', 'wikiversity',
+    'wikivoyage', 'wiktionary',
   ]);
 });
 

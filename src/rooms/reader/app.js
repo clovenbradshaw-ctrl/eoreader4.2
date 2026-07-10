@@ -17,10 +17,11 @@
 
 import { parseText } from '../../perceiver/parse/index.js';
 import { projectGraph } from '../../core/index.js';
-import { createModel } from '../../model/interface.js';
+import { createModel, describeModel } from '../../model/interface.js';
+import { probeOrigins, explainReach } from '../../model/reach.js';
 import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
-         runTurnWithResearch, researchAnnouncement } from '../../turn/index.js';
+         runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement } from '../../turn/index.js';
 import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
@@ -34,6 +35,7 @@ import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
 import { buildChatExport } from './chat-export.js';
+import { composeProvenance, repoRef, readBuild, fetchLatestCommit, APP_NAME, APP_VERSION } from './provenance.js';
 import { foldNarrative } from './fold-narrative.js';
 
 // ── the proxy chain ───────────────────────────────────────────────────────────
@@ -284,6 +286,9 @@ export const createReaderApp = ({ audit } = {}) => {
     // and the ladder inside ensureModel already falls back webllm → wllama → echo.
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       setTimeout(() => { ensureModel().catch(() => { /* logged by the ladder */ }); }, 600);
+      // Pull the build/latest provenance in the background so the first export already names the
+      // exact build and how current it is against GitHub — best-effort, never on the critical path.
+      refreshProvenance().catch(() => { /* offline / unreachable — the export degrades gracefully */ });
       // The inner monologue starts at rest: the governor wakes the reading in the lulls
       // between turns and reflects on what's on the record (no-op until something is recorded).
       deepIdleStart();
@@ -527,17 +532,42 @@ export const createReaderApp = ({ audit } = {}) => {
     modelLoading = (async () => {
       const tryLoad = async (backend) => {
         const m = createModel(backend);
-        await m.load((p) => {
-          // Every backend reports progress as { phase, pct } (the shape is spelled out in
-          // model/wllama.js and emitted the same by model/webllm.js / anthropic.js). The old
-          // code read p.progress / p.text — fields NO backend emits — so `frac` was always 0 and
-          // `note` always '': the chip sat at "webllm · 0%" through a multi-GB download and read
-          // as stuck / "not loading" until it abruptly finished. Read the real fields.
-          const frac = typeof p === 'number' ? p : (p?.pct ?? 0);
-          const note = typeof p === 'object' ? (p?.phase || '') : '';
-          state.model = { backend, state: 'loading', progress: Math.round(frac * 100) / 100, note };
+        // THE STALL CLOCK. webllm reports progress per fetched CHUNK, and its first
+        // chunk is 130–200 MB — on a slow link the chip legitimately sits at
+        // "Start to fetch params — 0%" for minutes with no callback at all, which
+        // reads as broken ("all models having problems loading") when it is merely
+        // mute. And when the network really is blocking the host, that same silent
+        // 0% is all the user ever sees. So: count the quiet seconds since the last
+        // progress callback and SAY them — first as patience ("the first chunk is
+        // large"), and past 90s as the honest suspicion (a blocked host) with a way
+        // out. The clock only annotates; it never aborts a slow-but-alive download.
+        let lastCb = Date.now(), lastNote = 'starting…';
+        const stallClock = setInterval(() => {
+          if (gen !== modelGen) return;                      // superseded — not ours to narrate
+          const quiet = Math.round((Date.now() - lastCb) / 1000);
+          if (quiet < 20) return;
+          const hint = (backend === 'webllm' && quiet < 90)
+            ? `no data for ${quiet}s — the first chunk is 130–200 MB, a slow link sits at 0% a while`
+            : `no data for ${quiet}s — if this never moves, this network may be blocking ` +
+              `${backend === 'claude' ? 'api.anthropic.com' : 'huggingface.co'}; pick another model from the chip`;
+          state.model = { backend, state: 'loading', progress: state.model.progress || 0, note: `${lastNote} · ${hint}` };
           emit('model');
-        });
+        }, 10000);
+        try {
+          await m.load((p) => {
+            // Every backend reports progress as { phase, pct } (the shape is spelled out in
+            // model/wllama.js and emitted the same by model/webllm.js / anthropic.js). The old
+            // code read p.progress / p.text — fields NO backend emits — so `frac` was always 0 and
+            // `note` always '': the chip sat at "webllm · 0%" through a multi-GB download and read
+            // as stuck / "not loading" until it abruptly finished. Read the real fields.
+            const frac = typeof p === 'number' ? p : (p?.pct ?? 0);
+            const note = typeof p === 'object' ? (p?.phase || '') : '';
+            lastCb = Date.now();
+            if (note) lastNote = note;
+            state.model = { backend, state: 'loading', progress: Math.round(frac * 100) / 100, note };
+            emit('model');
+          });
+        } finally { clearInterval(stallClock); }
         return m;
       };
       // LLM-first, always: webllm → wllama, and NO echo in the ladder — a silent
@@ -569,15 +599,25 @@ export const createReaderApp = ({ audit } = {}) => {
         } catch (e) {
           lastErr = e;
           if (gen !== modelGen) throw e;    // superseded — stop the orphaned ladder quietly
-          const why = backend === 'webllm'
+          // Blame WebGPU only when WebGPU is actually absent. webllm also fails on a
+          // blocked CDN or weights host, and the old note pointed every such user at
+          // chrome://flags — a fix for a problem they didn't have, hiding the real one.
+          const noGpu = backend === 'webllm' && !(typeof navigator !== 'undefined' && navigator.gpu);
+          const why = noGpu
             ? 'needs WebGPU (chrome://flags or Chrome/Edge); falling back to the CPU model'
             : String(e?.message || e).slice(0, 120);
           logIt('skip', `Model ${backend} failed to load — ${why}`);
         }
       }
       if (gen === modelGen) {
+        // The whole ladder is down — the one moment a network probe pays for itself.
+        // The runtimes' own errors can't tell "your GPU" from "your firewall"; a
+        // 3.5s no-cors HEAD per model host can (model/reach.js), and names the
+        // blocked origin in the note instead of leaving an opaque failure.
+        let reach = '';
+        try { reach = explainReach(await probeOrigins()); } catch { /* nothing provable — say nothing */ }
         state.model = { backend: name, state: 'error', progress: 0,
-          note: `No local model could load — ${String(lastErr?.message || lastErr).slice(0, 140)}` };
+          note: `No local model could load — ${String(lastErr?.message || lastErr).slice(0, 140)}${reach ? ` · ${reach}` : ''}` };
         emit('model');
       }
       throw lastErr;
@@ -595,6 +635,24 @@ export const createReaderApp = ({ audit } = {}) => {
       minilm = createMiniLMEmbedder();
       minilm.warm().then(() => emit('model')).catch(() => { minilm = null; }).finally(() => { minilmWarming = false; });
     } catch { minilmWarming = false; }
+  };
+
+  // ── export provenance (rooms/reader/provenance.js) ───────────────────────────
+  // WHAT PRODUCED THIS. The chat export must be able to name its own maker — the app + the exact
+  // published build, the latest build on GitHub, and the model that answered. The build/latest reads
+  // are network (version.json + the GitHub API); do them ONCE, best-effort, at boot and cache them,
+  // so `exportChat` stays synchronous and composes the fresh model + clock over the cached pieces.
+  // The repo/site is derived from the running location; in Node/tests there is no fetch, so the
+  // cache stays empty and the export degrades to app + model, never a throw or a hang.
+  const provRepo = repoRef(typeof location !== 'undefined' ? location : null);
+  let provBuild = null, provLatest = null;
+  const refreshProvenance = async () => {
+    if (typeof fetch === 'undefined') return;   // no network here — the synchronous core still exports
+    const f = fetch.bind(globalThis);           // detached window.fetch throws "Illegal invocation" in some browsers
+    const base = (typeof location !== 'undefined' && location.href) || null;
+    provBuild  = await readBuild(f, base).catch(() => null);
+    provLatest = await fetchLatestCommit(f, provRepo.slug).catch(() => null);
+    emit('model');   // a header badge can reflect the build/freshness once it's in
   };
 
   // ── web-search mode ──────────────────────────────────────────────────────────
@@ -687,10 +745,15 @@ export const createReaderApp = ({ audit } = {}) => {
         onStep: (name, _ctx, data) => { stallGuard?.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
       }, {
         search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
+        // The thumb: when the subject is a homonym, commit to ONE sense before gathering and search
+        // for it, so "dolphins" doesn't fetch a mix of the animal and the football team (disambiguate.js).
+        disambiguate: modelDisambiguator(m, { history: [], question: q }),
         onHop: (h) => hopBeat(pending, h, query),
         onHopDone: (h) => hopDoneBeat(pending, h),
         signal: abort.signal,
       }));
+      const committedSense = senseAnnouncement(result.research && result.research.sense);
+      if (committedSense) beat(pending, 'read', committedSense);
       const gathered = (result.research && result.research.results) || 0;
       if (!gathered) {
         beat(pending, 'warn', `Couldn't pull anything readable for “${query}”.`);
@@ -744,20 +807,28 @@ export const createReaderApp = ({ audit } = {}) => {
 
     const mode = webMode();
 
+    // The demand gate (docs/response-demand.md), rung-3 floor: a phatic turn — a greeting, a
+    // thanks, a goodbye, a how-are-you — wants a warm word back, not the grounding pipeline. Run
+    // it BEFORE the docs branch so it fires WITH a document open too: a "Good morning" at an open
+    // book now gets a hello instead of being grounded against the reading (the bug this closes).
+    // answerSmalltalk is the no-model floor; the measured `phatic` direction (turn/meta-route.js)
+    // is the graded layer this floor seeds, live-wired with the discourse read at rung 4. With no
+    // doc, keep the old "what you record" flavour; with a doc, the greeter is told one is open so
+    // it does not say "open a document" at a loaded book.
+    const small = answerSmalltalk(q, { hasDoc: docs.length > 0 });
+    if (small) {
+      pending.text = docs.length ? small.text : small.text.replace(/the document/g, 'what you record');
+      pending.route = 'smalltalk';
+      pending.pending = false;
+      persist(); emit('messages');
+      return pending;
+    }
+
     if (!docs.length) {
-      // An empty record is not a dead end. Greetings get the mechanical smalltalk
-      // answer; a substantive ask reaches for the web when web mode allows it — `auto`
-      // fetches real pages and answers grounded in them (answerFromWeb); `confirm`/`off`
-      // leave it as a one-click web-search proposal so the first question fetches its own
-      // sources on the button.
-      const small = answerSmalltalk(q);
-      if (small) {
-        pending.text = small.text.replace(/the document/g, 'what you record');
-        pending.route = 'smalltalk';
-        pending.pending = false;
-        persist(); emit('messages');
-        return pending;
-      }
+      // An empty record is not a dead end for a substantive ask: it reaches for the web when web
+      // mode allows it — `auto` fetches real pages and answers grounded in them (answerFromWeb);
+      // `confirm`/`off` leave it as a one-click web-search proposal so the first question fetches
+      // its own sources on the button. (Greetings were handled by the demand gate above.)
       if (mode === 'auto') return answerFromWeb(pending, q, { onToken });
       pending.text = 'Nothing is on the record yet, so I can\'t ground an answer to that. I can search the web and record what comes back — or read any URL, file, or pasted text you drop in the bar above.';
       pending.route = 'empty';
@@ -808,10 +879,14 @@ export const createReaderApp = ({ audit } = {}) => {
           pending.text = ''; emit('stream');
           const walked = await raceGuard(runTurnWithResearch(args, {
             search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
+            // The thumb: commit to one sense of a homonymous subject before gathering (disambiguate.js).
+            disambiguate: modelDisambiguator(m, { history, question: proposal.query }),
             onHop: (h) => hopBeat(pending, h, query),
             onHopDone: (h) => hopDoneBeat(pending, h),
             signal: abort.signal,
           }));
+          const committedSense = senseAnnouncement(walked.research && walked.research.sense);
+          if (committedSense) beat(pending, 'read', committedSense);
           settleTrail(pending, walked.research);
           result = {
             ...walked, webProposal: proposal,
@@ -923,8 +998,19 @@ export const createReaderApp = ({ audit } = {}) => {
   const exportChat = (topicId = state.activeTopicId, format = 'md') => {
     const t = state.topics.find((x) => x.id === topicId) || topic();
     if (!t) return null;
+    // Compose the provenance fresh: the app + the build/latest cached at boot, plus the CURRENT
+    // talker (describeModel) and the export clock. chat-export.js also reads each turn's own model
+    // record, so a conversation that switched models mid-way names each — this is the session's
+    // current one, and the header's app/build/freshness. Pure and total: null pieces just render as
+    // "unstamped"/"not recorded", never blocking the download.
+    const provenance = composeProvenance({
+      app: APP_NAME, version: APP_VERSION,
+      build: provBuild, latest: provLatest, repo: provRepo,
+      model: describeModel(model),
+      exportedAt: nowIso(),
+    });
     return buildChatExport(
-      { topic: t, turns: (audit && audit.turns) || [], sources: state.sources },
+      { topic: t, turns: (audit && audit.turns) || [], sources: state.sources, provenance },
       format,
       t.title || 'chat',
     );
@@ -952,22 +1038,30 @@ export const createReaderApp = ({ audit } = {}) => {
     const segs = [];
     let rest = String(text);
     if (!lex.length) return rest ? [{ t: 'text', s: rest }] : [];
-    // one pass, longest-label-first alternation; word-bounded, case-sensitive first letter
+    // one pass, longest-label-first alternation; word-bounded, case-insensitive so EVERY
+    // mention links — "the dolphin's sonar" reaches the same entity as "Dolphin" in a heading.
     const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(`\\b(${lex.map((e) => escRe(e.label)).join('|')})\\b`, 'g');
+    const re = new RegExp(`\\b(${lex.map((e) => escRe(e.label)).join('|')})\\b`, 'gi');
     let last = 0, mArr;
     while ((mArr = re.exec(rest)) !== null) {
       if (mArr.index > last) segs.push({ t: 'text', s: rest.slice(last, mArr.index) });
-      const hit = lex.find((e) => e.label === mArr[1]);
-      segs.push({ t: 'ent', s: mArr[1], docId: hit?.docId, entId: hit?.entId });
+      // exact-case wins; else a case-insensitive hit, so a lowercase mention of a capitalised
+      // figure ("dolphins" for the admitted "Dolphins") still renders as its entity — but the
+      // relaxed match is only trusted for labels long enough that it can't grab a common word off
+      // a short acronym ("who" for "WHO"), which falls back to plain text.
+      const exact = lex.find((e) => e.label === mArr[1]);
+      const hit = exact || lex.find((e) => e.label.toLowerCase() === mArr[1].toLowerCase());
+      if (hit && (exact || hit.label.length >= 4)) segs.push({ t: 'ent', s: mArr[1], docId: hit.docId, entId: hit.entId });
+      else segs.push({ t: 'text', s: mArr[1] });
       last = mArr.index + mArr[1].length;
     }
     if (last < rest.length) segs.push({ t: 'text', s: rest.slice(last) });
     return segs;
   };
 
-  // Answer text → paragraphs of segments; [sN] markers become cite chips.
-  const answerSegments = (msg, { entities = true } = {}) => {
+  // Answer text → paragraphs of segments; [sN] markers become cite chips. With cites off the
+  // markers are still consumed (never rendered as raw [sN] text) but no chip seg is emitted.
+  const answerSegments = (msg, { entities = true, cites = true } = {}) => {
     const docs = topicDocs();
     const lex = entities ? entityLexicon(docs) : [];
     const citeOf = new Map((msg.cites || []).map((c) => [c.idx, c]));
@@ -980,7 +1074,7 @@ export const createReaderApp = ({ audit } = {}) => {
       let m2;
       while ((m2 = re.exec(para)) !== null) {
         if (m2.index > last) segs.push(...linkifySegs(para.slice(last, m2.index), lex));
-        for (const idxStr of m2[0].match(/\d+/g) || []) {
+        if (cites) for (const idxStr of m2[0].match(/\d+/g) || []) {
           const c = citeOf.get(Number(idxStr));
           if (c) segs.push({ t: 'cite', idx: c.idx, sn: c.sn, reg: c.reg, title: c.title, quote: c.text });
         }
@@ -1079,11 +1173,14 @@ export const createReaderApp = ({ audit } = {}) => {
     };
     const focus = addEnt(entId, p.label);
     edges.push({ a: 'src', b: focus, tier: 0, gl: '●', code: 'INS' });
-    for (const r of p.relations.slice(0, 24)) {
+    // Render the whole bonded neighbourhood figureSurface returns (already salience-bounded to
+    // FOCUS_MAX_BONDS), not a 24-edge slice of it — the graph's own de-overlap and collision-culled
+    // labels keep it readable, so every entity the focus actually bonds to gets a node.
+    for (const r of p.relations) {
       const a = addEnt(r.srcId, r.srcLabel), b = addEnt(r.tgtId, r.tgtLabel);
       edges.push({ a, b, tier: 1, gl: r.op === 'SIG' ? '△' : '⋈', code: r.via || r.op });
     }
-    p.defs.slice(0, 8).forEach((d, i) => {
+    p.defs.slice(0, 16).forEach((d, i) => {
       const id = `c:${i}`;
       nodes.push({ id, tier: 2, label: d.value, kind: 'claim' });
       edges.push({ a: focus, b: id, tier: 2, gl: '⊢', code: 'DEF' });
@@ -1298,6 +1395,14 @@ export const createReaderApp = ({ audit } = {}) => {
     sourceBySn, removeSource, topicSources,
     // chat
     ask, stop, exportChat,
+    // export provenance — WHAT produced this session: app + published build + latest-on-GitHub +
+    // the current talker. Composed live so a surface badge can show the build/freshness/model.
+    provenance: () => composeProvenance({
+      app: APP_NAME, version: APP_VERSION,
+      build: provBuild, latest: provLatest, repo: provRepo,
+      model: describeModel(model), exportedAt: nowIso(),
+    }),
+    refreshProvenance,
     // deep reading — the inner monologue at rest (reflections stream into state.reflections)
     deepTick, reflections,
     // web-search mode (off | confirm | auto)

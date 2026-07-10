@@ -7,7 +7,9 @@ import { contract } from '../../core/contract.js';
 export const CONTRACTS = Object.freeze({
   'src/organs/ingest/eot-emit.js': contract({ ops: ['NUL'], targets: ['Network'], products: ['Void'], stances: ['Clearing'], note: 'inverse renderer: log -> EOT surface' }),
   'src/organs/ingest/eot.js': contract({ ops: ['INS', 'SIG', 'DEF'], targets: ['Field'], products: ['Entity', 'Network'], stances: ['Making', 'Binding', 'Dissecting'], note: 'EOT ingester: surface -> tuples/log' }),
+  'src/organs/ingest/arxiv.js': contract({ ops: ['SIG', 'SEG', 'INS'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Binding', 'Clearing', 'Making'], note: 'arXiv library — whole papers via ar5iv' }),
   'src/organs/ingest/gutenberg.js': contract({ ops: ['SIG', 'SEG', 'INS'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Binding', 'Clearing', 'Making'], note: 'Project Gutenberg library — whole books' }),
+  'src/organs/ingest/openalex.js': contract({ ops: ['SIG', 'SEG', 'INS'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Binding', 'Clearing', 'Making'], note: 'OpenAlex catalog — scholarly discovery + citation prior' }),
   'src/organs/ingest/index.js': contract({ ops: ['SIG', 'INS', 'SEG', 'NUL'], targets: ['Void', 'Field', 'Network'], products: ['Entity', 'Field', 'Network', 'Void'], stances: ['Binding', 'Making', 'Clearing'], note: 'barrel' }),
   'src/organs/ingest/opfs-store.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Tending'], note: 'raw web-content store (OPFS binary)' }),
   'src/organs/ingest/read.js': contract({ ops: ['EVA', 'SYN'], targets: ['Network'], products: ['Network', 'Lens'], stances: ['Tracing', 'Composing'], note: 'read a doc into layered EoT' }),

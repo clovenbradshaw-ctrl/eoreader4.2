@@ -21,6 +21,7 @@ import { siteTerrainAt } from '../surfer/index.js';
 import { assembleBrief } from '../weave/write/index.js';
 import { reflectAnswer } from '../enactor/ground/reflect.js';
 import { senseReturn, commitVoice } from '../enactor/selfline.js';
+import { describeModel } from '../model/interface.js';
 
 // The documents a turn's citations actually drew on. For a composite (several selected
 // documents folded into one), map each cited sentence index back through the provenance
@@ -318,6 +319,7 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
     turn.finish({
       route:     ctx.route || 'grounded',
       grounding,                                  // the register the user selected (audit trail)
+      model:     describeModel(model),            // WHAT produced this answer — the talker + its exact model
       reading:   buildReading(ctx),               // the full mechanical reading: spans · surf field · note
       prompt:    ctx.promptText || null,
       rawOutput: ctx.rawOutput  || null,
@@ -381,6 +383,7 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
     turn.finish({
       route:   'error',
       grounding,
+      model:   describeModel(model),   // name the talker even on a failed turn — the receipt still says who
       answer:  `Error: ${err?.message || err}`,
       sources: [],
       flags:   [],

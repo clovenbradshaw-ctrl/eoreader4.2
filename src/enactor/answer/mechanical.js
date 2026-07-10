@@ -271,14 +271,18 @@ const HOWRU  = /\b(how\s+are\s+you|how'?s\s+it\s+going|how\s+do\s+you\s+do|what'
 const JUSTHI = /^\s*(i'?m\s+)?just\s+saying\s+(hi|hello|hey)\b[\s!.,]*$/i;
 const THANKS = /^\s*(many\s+)?(thanks|thank\s+you|thx|ty|cheers)\b[\s!.,]*$/i;
 
-export const answerSmalltalk = (question) => {
+// `hasDoc` tells the greeter a document is already open, so it does not tell the user to "open a
+// document" at a book already loaded (docs/response-demand.md — the demand gate now runs WITH a doc
+// in scope, not only on an empty record). Defaults false → the text is byte-identical to before for
+// every existing caller (tryMechanical, the no-docs path).
+export const answerSmalltalk = (question, { hasDoc = false } = {}) => {
   const s = String(question || '').trim();
   if (!s) return null;
   const talk = (text) => ({ route: 'smalltalk', text, sources: [] });
-  if (JUSTHI.test(s)) return talk('Hi there! Ask me anything about the document.');
-  if (GREET.test(s))  return talk('Hello! Open a document and ask me about it, or ask me anything.');
+  if (JUSTHI.test(s)) return talk(hasDoc ? 'Hi there! Ask me anything about what you have open.' : 'Hi there! Ask me anything about the document.');
+  if (GREET.test(s))  return talk(hasDoc ? 'Hello! Ask me anything about what you have open — or anything else.' : 'Hello! Open a document and ask me about it, or ask me anything.');
   if (BYE.test(s))    return talk('Goodbye.');
-  if (HOWRU.test(s))  return talk('Doing well — ready when you are. Ask me about the document.');
+  if (HOWRU.test(s))  return talk(hasDoc ? 'Doing well — ready when you are. Ask me about what you have open.' : 'Doing well — ready when you are. Ask me about the document.');
   if (THANKS.test(s)) return talk("You're welcome.");
   return null;
 };

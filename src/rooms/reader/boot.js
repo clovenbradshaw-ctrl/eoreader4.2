@@ -30,6 +30,7 @@ import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createAuditLog } from '../audit/index.js';
 import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
+import { APP_NAME, APP_VERSION } from './provenance.js';
 import { mountTieredGraph } from './tiered-graph.js';
 import * as readerRender from './reader-render.js';
 import { createMatrixSession } from '../archive/matrix.js';
@@ -90,7 +91,8 @@ window.EO = Object.freeze({
   matrix,
   archive,
   genome,
-  version: '4.2',
+  app_name: APP_NAME,
+  version: APP_VERSION,
 });
 
 console.info('[EO] engine bridge up — window.EO', Object.keys(window.EO));

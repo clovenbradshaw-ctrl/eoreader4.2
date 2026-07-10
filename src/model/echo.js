@@ -16,6 +16,9 @@ registerBackend('echo', () => {
   return {
     id: 'echo',
     kind: 'local',
+    // PROVENANCE (describeModel): echo is no model at all — it returns document excerpts verbatim.
+    // Naming it plainly keeps an export honest if the pipeline ran before any real talker loaded.
+    describe: () => ({ backend: 'echo', kind: 'local', model: 'echo — verbatim excerpts (no model)', label: 'echo · skeleton' }),
     isLoaded: () => true,
     async load(onProgress) {
       onProgress?.({ phase: 'ready', pct: 1 });
