@@ -20,6 +20,7 @@ import { createCompositeDoc } from '../organs/in/index.js';
 import { siteTerrainAt } from '../surfer/index.js';
 import { assembleBrief } from '../weave/write/index.js';
 import { reflectAnswer } from '../enactor/ground/reflect.js';
+import { senseReturn, commitVoice } from '../enactor/selfline.js';
 
 // The documents a turn's citations actually drew on. For a composite (several selected
 // documents folded into one), map each cited sentence index back through the provenance
@@ -121,14 +122,18 @@ const llmBrief = (ctx) => {
 // SYN/CON/REC steps to the document's log on an OPEN turn (explain / compose) only, after the
 // answerability floor has had its chance to refuse — a gated turn terminates and the walk is
 // never run — and before the prompt reads the graph the walk just grew.
+// `absence` sits between `veto` and `settle`: the void reaching the voice (the honesty
+// seam). When the field measured an absence and the answer, after bind + factcheck +
+// revise, still earned no witness at all, the typed absence the measurement rendered
+// replaces the unwitnessed draft — preserved beside it in `revisions`, never erased.
 const PIPELINE = [
-  'route', 'expect', 'converse', 'retrieve', 'inquire', 'fold', 'predict', 'answerable', 'gate', 'reason', 'prompt', 'llm', 'bind', 'factcheck', 'revise', 'veto', 'settle',
+  'route', 'expect', 'converse', 'retrieve', 'inquire', 'fold', 'predict', 'answerable', 'gate', 'reason', 'prompt', 'llm', 'bind', 'factcheck', 'revise', 'veto', 'absence', 'settle',
 ];
 
 // `classifier`/`adjacency` are the geometric organ the edge-grounding fact-check needs
 // for its meaning-distance verdicts; threaded through like `embedder`, optional, and
 // degrading honestly to the embedder-free symbolic algebra when absent.
-export const runTurn = async ({ question, doc, docs, model, embedder, geometricEmbedder, classifier, adjacency, centroids, auditLog, onStep, history = [], grounding = 'auto', stream = false, onToken = null, alpha, mindSpans = null, inquire = false, horizon = null, cast = null, reread = false, witnessSource = null, shapeLibrary = null, groundGraph = false, broadcastArc = false, now = null, lensPort = false, voicePref = null, signal = null, maxTokens = null, longform = false }) => {
+export const runTurn = async ({ question, doc, docs, model, embedder, geometricEmbedder, classifier, adjacency, centroids, auditLog, onStep, history = [], grounding = 'auto', stream = false, onToken = null, alpha, mindSpans = null, inquire = false, horizon = null, cast = null, reread = false, witnessSource = null, shapeLibrary = null, groundGraph = false, broadcastArc = false, now = null, lensPort = false, voicePref = null, signal = null, maxTokens = null, longform = false, monitor = null, ledger = null }) => {
   // Ground against a SELECTED SET of documents when one is given: several parsed docs
   // are folded into one composite doc (organs/in/composite.js) the pipeline reads as a
   // single document — referents stay distinct per source unless cross-doc SYN'd. A
@@ -258,6 +263,58 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
       } catch { reflection = null; }
     }
 
+    // THE SELF LINE (enactor/selfline.js): with a session monitor threaded, the turn is
+    // one beat of the closed loop. First SENSE the question against the copies held from
+    // earlier turns — an echo of the voice's own words is SELF (attenuated: never
+    // independent confirmation), a push-back on a committed claim is SELF_MISMATCH (news,
+    // and a correction the ledger records). Then COMMIT this answer's propositions as
+    // fresh efference copies, held outstanding for the turns to come. Sense-before-commit
+    // keeps the line causal: a turn can never match its own output. Best-effort — the
+    // self line must never cost the answer.
+    let selfLine = null;
+    if (monitor && groundingDoc && !ctx.stopped) {
+      try {
+        const cursor = ctx.surf?.peak ?? Infinity;
+        const sensed = senseReturn(monitor, { text: question, doc: groundingDoc, cursor });
+        const committed = ctx.answer && !ctx.voidSpoken
+          ? commitVoice(monitor, { text: ctx.answer, doc: groundingDoc, cursor })
+          : null;
+        if (sensed || committed) {
+          selfLine = { ...(sensed || {}), committed: committed?.committed || 0,
+                       outstanding: committed?.outstanding ?? monitor.outstanding().length,
+                       expired: committed?.expired || [] };
+          turn.step('self', {
+            observed: selfLine.observed || 0, self: selfLine.self || 0,
+            world: selfLine.world || 0, mismatched: selfLine.mismatched || 0,
+            committed: selfLine.committed, outstanding: selfLine.outstanding,
+          });
+          if (selfLine.self > 0) flags.push({
+            id: 'self-echo', refuses: false,
+            message: `The question hands back what I said earlier (${selfLine.echoes.slice(0, 2).join(' · ')}) — my own words returning are not independent confirmation.`,
+          });
+          if (selfLine.mismatched > 0) flags.push({
+            id: 'self-corrected', refuses: false,
+            message: 'You pushed back on something I committed earlier — recorded as a correction against my prior answer.',
+          });
+        }
+      } catch { selfLine = null; }
+    }
+
+    // THE COMMITMENT LEDGER (enactor/ledger.js): append this turn's public word — each
+    // claim as a relay (cited) or an authored assertion (uncited, the system's own name)
+    // — and every correction beside what it corrects: superseded drafts, record-denied
+    // relations, the world's push-back, the typed absence. Best-effort and append-only.
+    if (ledger) {
+      try {
+        ledger.recordTurn({
+          question, answer: ctx.answer, route: ctx.route || 'grounded',
+          bound: ctx.bound, verdicts: ctx.factcheck?.edgeVerdicts,
+          reflection, revisions: ctx.revisions, selfLine,
+          gated: ctx.gated || false, voidSpoken: ctx.voidSpoken || false,
+        });
+      } catch { /* the ledger must never cost the answer */ }
+    }
+
     turn.finish({
       route:     ctx.route || 'grounded',
       grounding,                                  // the register the user selected (audit trail)
@@ -300,6 +357,10 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
       // The EOT reflection of the answer against the graph — every lowered proposition with
       // its verdict and the independent origins that witness it. Null on an ungrounded turn.
       reflection,
+      // The self/world line's reading for this turn (enactor/selfline.js): what the question
+      // handed back of the voice's own prior word (self / mismatched), what this answer
+      // committed, and what is still outstanding. Null without a threaded session monitor.
+      selfLine,
       // The per-PROPOSITION record the transparency view reads: every claim the answer makes
       // (`bound` — its text + the sentence it cited) and every relation the fact-check judged
       // against the source (`verdicts` — corroborated / contradicted / unsupported / …). Together
@@ -462,6 +523,11 @@ const summarize = (name, ctx, ms) => {
                               // audit shows the engine catching itself and beginning again
                               superseded: (ctx.revisions || []).map(r => r.draft),
                               reasons:    (ctx.revisions || []).map(r => r.why).filter(Boolean) };
+    // The absence stage spoke: the typed absence replaced an unwitnessed draft at a
+    // measured void (the draft rides in `revisions`). Silent pass-through shows only ms.
+    case 'absence':  return ctx.voidSpoken
+      ? { ...base, spoken: true, kind: ctx.voidMeasure?.kind || null, rode: ctx.voidMeasure?.rode ?? null }
+      : base;
     case 'veto':     return { ...base,
                               fired:   ctx.vetoes?.map(v => v.id) || [],
                               // the active witness-seek, when it ran: which figures it read the

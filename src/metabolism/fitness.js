@@ -36,7 +36,10 @@ import { TRANSFER_FLOOR, keptFitness } from './lift.js';
 //     delivered,             // did the turn produce a usable answer at all? (bool)
 //     viable,                // did it complete within budget with validated work? (bool)
 //     corrections,           // EXTERNAL: corrections applied downstream (lower is better)
-//     predicted,             // EXTERNAL: held-out PREDICTION competency (0..1) — reality's own grade, no judge
+//     predicted,             // EXTERNAL: held-out PREDICTION competency (0..1) — reality's own grade,
+//                            //   no judge. Fed by EITHER grader of the one truth signal: the Born-measure
+//                            //   competency (surfer/predictive-competency.js) or the log-atom foresight
+//                            //   (metabolism/foresight.js, computed by metabolize from outcome.arrivals)
 //     validated,             // EXTERNAL: an un-authored pass/verdict (0..1), or null (fluency; a judge's taste)
 //     endorsed,              // EXTERNAL: a HUMAN interaction's reward (0..1) — the strongest anchor
 //     held,                  // unbound threads HELD OPEN this turn (Void-respect) — earns nothing now
@@ -99,13 +102,15 @@ export const score = (outcome = {}, { energyOf, anchorWeight = 0.6, voidValue = 
   const voidRespect = boundLater * (0.5 + 0.5 * precision) * (Number.isFinite(+voidValue) ? +voidValue : 1);
 
   // The UN-AUTHORED anchor. Human interaction (`endorsed`) is the strongest — un-authorable by
-  // construction and, in time, the PRIMARY evolver. Then `predicted` — held-out PREDICTION competency
-  // (surfer/predictive-competency.js): reality itself supplies the answer key, so it is objective and
-  // needs no subject with taste, which is why it ranks ABOVE the judge's `validated` (fluency, a
-  // verdict a frontier model authors). Then a realized delayed binding (the world grounding a held
-  // thread), then the `corrections` penalty. null everything → unanchored → honestly provisional.
-  // Making prediction the anchor is what collapses "quality per energy" into "prediction per energy":
-  // the numerator now rewards foreseeing the world, not looking thrifty or sounding fluent.
+  // construction and, in time, the PRIMARY evolver. Then `predicted` — held-out PREDICTION competency:
+  // reality itself supplies the answer key, so it is objective and needs no subject with taste, which
+  // is why it ranks ABOVE the judge's `validated` (fluency, a verdict a frontier model authors). Two
+  // graders feed this one anchor — the Born-measure competency over significance vectors
+  // (surfer/predictive-competency.js) and the log-atom foresight over any adapter's arrivals
+  // (metabolism/foresight.js) — one truth signal, two instruments. Then a realized delayed binding
+  // (the world grounding a held thread), then the `corrections` penalty. null everything → unanchored
+  // → honestly provisional. Making prediction the anchor is what collapses "quality per energy" into
+  // "prediction per energy": the numerator rewards foreseeing the world, not sounding fluent.
   const hasHuman = outcome.endorsed != null;
   const hasPredicted = outcome.predicted != null;
   const hasAnchor = hasHuman || hasPredicted || outcome.validated != null || boundLater > 0 || outcome.corrections != null;

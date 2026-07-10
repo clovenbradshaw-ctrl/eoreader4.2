@@ -11,4 +11,6 @@ export const CONTRACTS = Object.freeze({
   'src/enactor/index.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Network', 'Link'], products: ['Lens', 'Atmosphere'], stances: ['Binding', 'Making', 'Composing'], note: 'barrel' }),
   'src/enactor/monitor.js': contract({ ops: ['EVA', 'SIG'], targets: ['Link', 'Entity'], products: ['Atmosphere'], stances: ['Binding', 'Tending'], note: 'the one monitor' }),
   'src/enactor/props.js': contract({ ops: ['DEF', 'EVA'], targets: ['Field', 'Link'], products: ['Link'], stances: ['Dissecting', 'Binding'], note: 'proposition unit + EVA measure' }),
+  'src/enactor/selfline.js': contract({ ops: ['SIG', 'EVA'], targets: ['Link', 'Entity'], products: ['Atmosphere'], stances: ['Tending', 'Binding'], note: 'the honesty seam — the self/world line wired to the live turn' }),
+  'src/enactor/ledger.js': contract({ ops: ['INS', 'CON', 'SIG'], targets: ['Entity', 'Link'], products: ['Entity', 'Network'], stances: ['Making', 'Binding', 'Tending'], note: 'the ledger seam — the persisting line of commitments and corrections' }),
 });

@@ -27,6 +27,8 @@ import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
 import { readIngest } from '../../organs/ingest/read.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
+import { createMonitor } from '../../enactor/monitor.js';
+import { createCommitmentLedger } from '../../enactor/ledger.js';
 import { figureSurface } from '../../perceiver/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
@@ -153,6 +155,16 @@ export const createReaderApp = ({ audit } = {}) => {
   let sn = 0, tn = 0, ln = 0, mn = 0;
   const client = createWebClient({ fetchImpl: chainFetch });
 
+  // THE SESSION'S SELF AND SPINE. One monitor for the whole session (one loop, one me):
+  // every turn commits its answer's propositions as efference copies and senses the next
+  // question against them — an echo of the voice's own words is never independent
+  // confirmation; a push-back is a recorded correction. One commitment ledger beside it:
+  // the persisting line of what was asserted (relay vs authored) and every correction
+  // appended next to what it corrects. The ledger is serialized with the session, so the
+  // record survives reload; the monitor's copies are per-session working state.
+  const monitor = createMonitor();
+  const ledger = createCommitmentLedger({ now: nowIso });
+
   // change fan-out — the dc surface subscribes once and re-renders on any emit
   const subs = new Set();
   const subscribe = (fn) => { subs.add(fn); return () => subs.delete(fn); };
@@ -240,6 +252,8 @@ export const createReaderApp = ({ audit } = {}) => {
     log: state.log.slice(-120),
     topics: state.topics,
     sources: state.sources.map(({ _doc, ...rest }) => rest),
+    // the commitment ledger — assertions and corrections survive reload (the spine)
+    ledger: ledger.serialize(),
   });
   let saveTimer = null;
   const persist = () => {
@@ -258,6 +272,7 @@ export const createReaderApp = ({ audit } = {}) => {
         state.topics = snap.topics || [];
         state.activeTopicId = snap.activeTopicId;
         state.log = snap.log || [];
+        if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
       }
     } catch { /* fresh session */ }
     if (!state.topics.length) topicNew('New topic', { silent: true });
@@ -668,6 +683,7 @@ export const createReaderApp = ({ audit } = {}) => {
         stream: true,
         onToken: (tok) => { stallGuard?.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: abort.signal,
+        monitor, ledger,   // the session's self/world line and commitment ledger (enactor)
         onStep: (name, _ctx, data) => { stallGuard?.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
       }, {
         search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
@@ -773,6 +789,7 @@ export const createReaderApp = ({ audit } = {}) => {
         ...(longform ? { maxTokens: LONGFORM_MAX_TOKENS, longform: true } : {}),
         onToken: (tok) => { stallGuard?.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: abort.signal,
+        monitor, ledger,   // the session's self/world line and commitment ledger (enactor)
         onStep: (name, _ctx, data) => { stallGuard?.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
       };
       let result = await raceGuard(runTurn(args));
@@ -869,6 +886,8 @@ export const createReaderApp = ({ audit } = {}) => {
       return { idx: Number(idx), docId, sn: src?.sn || null, reg: src?.reg || null, title: src?.title || docId, text: (result.citeTexts || {})[idx] || '' };
     });
     msg.reflection = result.reflection || null;
+    // the self/world line's reading for this turn (echoes / push-back / commitments)
+    msg.selfLine = result.selfLine || null;
     // What the web search brought back — the query, why, and the sources it fetched. The
     // gap/witness answer already streamed the re-run over these; a verify AUGMENTS instead,
     // so append what the web said (with its sources) as a plainly-marked addendum, keeping
@@ -1288,6 +1307,18 @@ export const createReaderApp = ({ audit } = {}) => {
     // projections for the surface
     answerSegments, viewerParas, entities, entityProfile, tieredData,
     findings, provenance, dagFor, setMemo, eotFor,
+    // the commitment ledger (assertions + corrections, persisted) and the session's
+    // self/world line readout — the honesty and ledger seams, readable from the surface
+    ledger: () => ledger.entries(),
+    ledgerExport: () => ledger.exportJSONL(),
+    selfModel: () => ({
+      observations: monitor.self.size,
+      self: monitor.self.count('self'),
+      world: monitor.self.count('world'),
+      mismatched: monitor.self.count('self-mismatch'),
+      outstanding: monitor.outstanding().length,
+      corrections: monitor.corrections().length,
+    }),
     // the raw doc, for anything the surface wants to inspect
     docFor: (snId) => docFor(sourceBySn(snId)),
   });

@@ -34,6 +34,7 @@ import { createSelection } from './select.js';
 import { createOrganism } from './organism.js';
 import { createSoma } from './soma.js';
 import { CONSTITUTION } from './constitution.js';
+import { foresightOf } from './foresight.js';
 
 // createMetabolism — the bloodstream. Everything is injectable so a test can pin the
 // world (a fixed scarcity clock) and the surface can drive it (starve/feed at will).
@@ -115,6 +116,17 @@ export const createMetabolism = ({
   // from the running allocation and whether the model was warmed, so a caller can feed a
   // minimal outcome and still get an honest energy charge.
   const metabolize = (outcome = {}) => {
+    // THE TRUTH SEAM (foresight.js): when the turn carries its arrival sequence — the
+    // per-unit deposits of what the world actually sent — grade the RUNNING genome's
+    // gamma against the held-out tail and let that skill anchor fitness as `predicted`
+    // (the same anchor the Born-measure competency feeds: one truth signal, two
+    // instruments). Reality supplies its own answer key; the judge's taste no longer
+    // has to. An explicit outcome.predicted (a caller that graded elsewhere, e.g.
+    // competencyAnchor) is never overwritten.
+    if (outcome.predicted == null && Array.isArray(outcome.arrivals) && outcome.arrivals.length) {
+      const f = foresightOf(outcome.arrivals, { gamma: runningAllocation().gamma });
+      if (f) outcome = { ...outcome, predicted: f.skill, foresightReading: f };
+    }
     const ran = runsNext();
     const season = scarcity.season(period);
     const led = scarcity.ledger(period);
@@ -314,6 +326,8 @@ export { createOrganism, hasSoma } from './organism.js';
 export { forage, createForager, SOURCES } from './forage.js';
 export { createTransferProbe, modelRunner, judgeScorer } from './transfer.js';
 export { createChallenger, runChallengeCycle, buildChallengeMessages, buildSatisfactionMessages, CHALLENGER_MODEL } from './challenger.js';
+// the truth seam — the one surprise wired to selection (reality's own answer key):
+export { foresightOf, arrivalsOfDoc } from './foresight.js';
 export { createProposer, buildProposeMessages, mutationSurface, validateProposal, realize, clampGene, ORGAN_ROUTES, PROPOSER_MODEL } from './proposer.js';
 export { buildAudit, auditToJSON, auditToMarkdown } from './audit.js';
 export { createSanctionLadder, controlledDeath, RUNGS } from './sanction.js';
