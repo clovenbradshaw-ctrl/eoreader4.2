@@ -32,6 +32,7 @@ import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
 import { buildChatExport } from './chat-export.js';
+import { foldNarrative } from './fold-narrative.js';
 
 // ── the proxy chain ───────────────────────────────────────────────────────────
 // The primary is the n8n feed proxy (webfetch's default); when it fails the two
@@ -143,15 +144,25 @@ export const createReaderApp = ({ audit } = {}) => {
   // settling to "Researched N sources · M hops". 4.2 had regressed this to a single transient busy
   // label with nothing rendered. These helpers rebuild that trail on the message as plain data the
   // surface renders. `beat` appends one step (deduped against the previous), `emit`ing so it streams.
-  const beat = (msg, kind, text) => {
+  const beat = (msg, kind, text, mode = 'research') => {
     const t = String(text || '').trim();
     if (!msg || !t) return;
-    if (!msg.research) msg.research = { steps: [], mode: 'research', t0: nowMs(), tEnd: 0, done: false, summary: '' };
+    if (!msg.research) msg.research = { steps: [], mode, t0: nowMs(), tEnd: 0, done: false, summary: '' };
     const steps = msg.research.steps;
     const last = steps[steps.length - 1];
     if (last && last.kind === kind && last.text === t) return;   // don't stack a repeated status
     steps.push({ kind, text: t });
     emit('messages');
+  };
+  // Narrate the fold: turn each completed pipeline stage into one trail beat, so the answer
+  // bubble shows the reading think — read the record, fold it, phrase, bind, check — BEFORE
+  // the answer lands (never a dead, labelless wait). onStep hands (name, ctx, data); we pass
+  // only the SAFE `data` projection to fold-narrative.js. mode 'think' so a plain document
+  // turn's trail reads "Thinking…", not "Researching…" (a web walk creates the trail first,
+  // with mode 'research', and the first-writer's mode wins).
+  const foldBeat = (msg, name, data) => {
+    const b = foldNarrative(name, data || {});
+    if (b) beat(msg, b.kind, b.text, 'think');
   };
   // The pre-fetch beat: what the walk is about to search THIS hop. A followed lead names the term it
   // is chasing ("Following 'X' — searching 'Y'"); the seed / a plain hop just names the query.
@@ -594,7 +605,7 @@ export const createReaderApp = ({ audit } = {}) => {
         stream: true,
         onToken: (tok) => { pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: abort.signal,
-        onStep: (name) => { setBusy({ kind: 'turn', label: stageLabel(name) }); },
+        onStep: (name, _ctx, data) => { setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
       }, {
         search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
         onHop: (h) => hopBeat(pending, h, query),
@@ -687,7 +698,7 @@ export const createReaderApp = ({ audit } = {}) => {
         stream: true,
         onToken: (tok) => { pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: abort.signal,
-        onStep: (name) => { setBusy({ kind: 'turn', label: stageLabel(name) }); },
+        onStep: (name, _ctx, data) => { setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
       };
       let result = await runTurn(args);
       // The document turn measured a gap it couldn't close (or an answer worth confirming

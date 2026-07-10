@@ -13,6 +13,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/eo/embed.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Atmosphere'], stances: ['Tending'], note: 'MiniLM meaning embedder organ' }),
   'src/rooms/reader/eo/phasepost.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field', 'Kind'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'geometric cell classifier' }),
   'src/rooms/reader/eo/vision.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Atmosphere'], stances: ['Making', 'Tending'], note: 'Florence-2 vision organ eye' }),
+  'src/rooms/reader/fold-narrative.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'narrate the fold — stage → trail beat' }),
   'src/rooms/reader/import-file.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Field'], stances: ['Making', 'Tending'], note: 'file import router (organs)' }),
   'src/rooms/reader/model-entry.js': contract({ ops: ['INS', 'SYN', 'DEF'], targets: ['Field', 'Network'], products: ['Entity', 'Lens'], stances: ['Making', 'Composing'], note: 'barrel: models + longgen' }),
   'src/rooms/reader/monologue-surface.js': contract({ ops: ['NUL', 'EVA'], targets: ['Atmosphere', 'Network'], products: ['Void'], stances: ['Clearing', 'Tending'], note: 'inner-monologue surface' }),

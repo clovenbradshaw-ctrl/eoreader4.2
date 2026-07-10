@@ -1188,6 +1188,13 @@ class Component extends DCLogic {
       rev: 0,
     };
     this._segCache = {}; this._viewCache = null; this._entCache = null; this._readerCache = {};
+    // Per-character reveal (the typewriter): the engine writes the streamed answer to
+    // m.text as fast as tokens decode; the surface REVEALS it one character at a time on a
+    // steady rAF clock, with catch-up so a fast burst never lags far behind. _reveal maps a
+    // message id → chars shown so far; a settled or historical message (first seen not
+    // pending) is shown whole. prefers-reduced-motion turns the reveal off entirely.
+    this._reveal = {}; this._typeRaf = null; this._typeLast = 0;
+    try { this._rmq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(prefers-reduced-motion: reduce)') : null; } catch { this._rmq = null; }
     this._app = (typeof window !== 'undefined' && window.EO && window.EO.app) || null;
     this._render = (typeof window !== 'undefined' && window.EO && window.EO.readerRender) || null;
     this._matrix = (typeof window !== 'undefined' && window.EO && window.EO.matrix) || null;
@@ -1220,8 +1227,68 @@ class Component extends DCLogic {
   _onEngine(kind) {
     if (kind === 'sources') { this._entCache = null; this._viewCache = null; this._segCache = {}; }
     if (kind === 'messages') { this._segCache = {}; }
-    if (kind === 'stream' || kind === 'messages') this._scrollChatSoon();
+    if (kind === 'stream' || kind === 'messages') { this._seedLive(); this._scrollChatSoon(); this._ensureTyping(); }
     this._poke();
+  }
+  // ── the typewriter: reveal streamed text one character at a time ──────────────────────
+  _reduceMotion() { try { return !!(this._rmq && this._rmq.matches); } catch { return false; } }
+  // Mark a freshly-created answer "live" so it types from 0. A new answer is emitted pending
+  // (empty text) BEFORE it streams, so we catch it here; seeding now means even an
+  // instant-settling backend still types out, while restored history — first seen already
+  // settled, never seeded — shows whole and never re-types on load.
+  _seedLive() {
+    const topics = (this._app && this._app.state && this._app.state.topics) || [];
+    for (const t of topics) for (const m of (t.messages || [])) {
+      if (m.role === 'assistant' && m.pending && this._reveal[m.id] === undefined) this._reveal[m.id] = 0;
+    }
+  }
+  // How many chars this message has revealed. Seeded on first sight: a pending message starts
+  // at 0 and types in; a message first seen already settled (restored history) shows whole, so
+  // reopening a chat never re-types the past. reduced-motion → always whole.
+  _revealLen(m) {
+    const full = (m.text || '').length;
+    if (this._reduceMotion()) return full;
+    let s = this._reveal[m.id];
+    if (s === undefined) { s = m.pending ? 0 : full; this._reveal[m.id] = s; }
+    return Math.min(s, full);
+  }
+  // Chars to advance this frame: a floor (~60/s) so it always reads as typing, scaling with the
+  // backlog so a big decode burst catches up within a few frames (cap ~1200/s). Time-based, so
+  // the speed holds across frame rates.
+  _revealStep(backlog, dt) {
+    const perSec = Math.max(60, Math.min(1200, backlog * 16));
+    return Math.max(1, Math.round(perSec * dt / 1000));
+  }
+  _advanceReveals(dt) {
+    // Walk every topic, not just the active one: a message that settles while the reader is
+    // looking at another topic must still finish revealing, or returning to it would find the
+    // answer stuck truncated at wherever the reveal paused.
+    const topics = (this._app && this._app.state && this._app.state.topics) || [];
+    let active = false;
+    for (const t of topics) {
+      for (const m of (t.messages || [])) {
+        if (m.role !== 'assistant') continue;
+        const full = (m.text || '').length;
+        let s = this._reveal[m.id];
+        if (s === undefined) s = m.pending ? 0 : full;
+        if (s < full) { s = Math.min(full, s + this._revealStep(full - s, dt)); active = true; }
+        this._reveal[m.id] = s;
+      }
+    }
+    return active;
+  }
+  _ensureTyping() {
+    if (this._typeRaf || this._reduceMotion()) return;
+    const step = (ts) => {
+      this._typeRaf = null;
+      const dt = this._typeLast ? Math.min(120, ts - this._typeLast) : 16;
+      this._typeLast = ts;
+      const active = this._advanceReveals(dt);
+      this.setState({ rev: (this.state.rev || 0) + 1 });
+      if (active) this._typeRaf = requestAnimationFrame(step);
+      else this._typeLast = 0;
+    };
+    this._typeRaf = requestAnimationFrame(step);
   }
   _poke() {
     if (this._raf) return;
@@ -1630,6 +1697,10 @@ class Component extends DCLogic {
       search: { glyph: '⌕', fg: '#2563EB' },
       lead:   { glyph: '↳', fg: '#6D5EF5' },
       read:   { glyph: '▤', fg: '#B45309' },
+      fold:   { glyph: '❖', fg: '#6D5EF5' },
+      phrase: { glyph: '✎', fg: '#2563EB' },
+      bind:   { glyph: '※', fg: '#1E8A50' },
+      check:  { glyph: '⊹', fg: '#B45309' },
       warn:   { glyph: '⚠', fg: '#C2410C' },
       done:   { glyph: '✓', fg: '#1E8A50' },
       think:  { glyph: '·', fg: '#9A9AA4' },
@@ -1885,7 +1956,15 @@ class Component extends DCLogic {
     const messages = msgs.map((mm) => {
       if (mm.role === 'user') return { isUser: true, isAgent: false, text: mm.text };
       const done = !mm.pending;
-      const rich = done && mm.cites && mm.text;
+      // per-character reveal: hold the plain streaming view until the reveal has caught up —
+      // a beat past settle if need be — so the answer finishes typing before it flips to the
+      // rich (cited) view, with no jump. reduced-motion collapses this to the old behavior.
+      const full = mm.text || '';
+      const shown = this._revealLen(mm);
+      const revealedText = this._reduceMotion() ? full : full.slice(0, shown);
+      const animating = !this._reduceMotion() && shown < full.length;
+      const finished = done && !animating;
+      const rich = finished && mm.cites && mm.text;
       const seen = new Set();
       const cites = (mm.cites || []).filter((c) => c.sn && !seen.has(c.sn) && seen.add(c.sn)).map((c) => {
         const contested = (mm.verdicts || []).some((v) => /contradict/i.test(v.verdict));
@@ -1904,29 +1983,30 @@ class Component extends DCLogic {
         return { glyph: st.glyph, fg: st.fg, text: s.text };
       });
       const trailRunning = !!tr && !tr.done;
+      const trMode = tr ? (tr.mode || 'research') : 'research';
       const trOverride = this.state.trailOpen[mm.id];
       const trailOpen = !!tr && (trOverride != null ? trOverride : trailRunning);
       const nowT = (() => { try { return Date.now(); } catch { return 0; } })();
       const trSecs = tr ? Math.max(0, Math.round(((tr.done ? tr.tEnd : nowT) - tr.t0) / 1000)) : 0;
       const trClock = trSecs >= 60 ? `${Math.floor(trSecs / 60)}:${String(trSecs % 60).padStart(2, '0')}` : `${trSecs}s`;
       return {
-        isUser: false, isAgent: true, text: mm.text, pending: !!mm.pending,
+        isUser: false, isAgent: true, text: revealedText, pending: !!mm.pending,
         hasTrail: !!tr && trailSteps.length > 0, trailOpen, trailRunning, trailIdle: !!tr && !trailRunning, trailSteps,
-        trailSummary: tr ? (tr.summary || (trailRunning ? 'Researching…' : `Thought for ${trClock}`)) : '',
+        trailSummary: tr ? (tr.summary || (trailRunning ? (trMode === 'research' ? 'Researching…' : 'Thinking…') : `Thought for ${trClock}`)) : '',
         trailClock: trClock, trailCaret: trailOpen ? '▾' : '▸',
         toggleTrail: () => this.toggleTrail(mm.id, trailOpen),
         pendingLabel: mm.text ? '● phrasing'
           : loading ? `● loading ${app.state.model.backend} · ${Math.round((app.state.model.progress || 0) * 100)}%`
           : '● reading the record',
         plain: !rich, rich: !!rich, paras: rich ? this._segsFor(mm) : [],
-        showBadge: done && !!mm.route && mm.route !== 'empty' && mm.route !== 'smalltalk',
+        showBadge: finished && !!mm.route && mm.route !== 'empty' && mm.route !== 'smalltalk',
         badge: mm.grounded ? 'grounded' : (mm.route === 'error' ? 'error' : mm.unbound ? 'unbound' : mm.route || ''),
         badgeFg: mm.grounded ? '#1E8A50' : '#9A6B12', badgeBg: mm.grounded ? '#E7F6EC' : '#FBF1DA',
-        hasCites: done && cites.length > 0, cites,
-        hasFlags: done && flagChips.length > 0, flagChips,
-        hasProposal: done && !!mm.webProposal, proposalQ: mm.webProposal ? mm.webProposal.query : '',
+        hasCites: finished && cites.length > 0, cites,
+        hasFlags: finished && flagChips.length > 0, flagChips,
+        hasProposal: finished && !!mm.webProposal, proposalQ: mm.webProposal ? mm.webProposal.query : '',
         runProposal: () => this.runSearch(mm.webProposal.query),
-        footer: done && cites.length > 0, trace: () => this.setTab('graph'),
+        footer: finished && cites.length > 0, trace: () => this.setTab('graph'),
       };
     });
     const heroActions = [
