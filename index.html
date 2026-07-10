@@ -1205,6 +1205,10 @@ class Component extends DCLogic {
       this._app.subscribe((kind) => this._onEngine(kind));
       if (window.EO.audit && window.EO.audit.subscribe) window.EO.audit.subscribe(() => this._poke());
     }
+    // The topic whose entities the surface last showed — _onEngine compares against it so a
+    // real topic change (new/switch/delete) drops the entity selection, while a mere rename
+    // (same active topic, same 'topics' emit) leaves an open profile alone.
+    this._topicSeen = this._app && this._app.state ? this._app.state.activeTopicId : null;
     if (this._matrix && this._matrix.subscribe) this._matrix.subscribe(() => this._poke());
     if (this._genome && this._genome.subscribe) this._genome.subscribe(() => this._poke());
     this._wireDom();
@@ -1228,6 +1232,19 @@ class Component extends DCLogic {
 
   _onEngine(kind) {
     if (kind === 'sources') { this._entCache = null; this._viewCache = null; this._segCache = {}; }
+    if (kind === 'topics') {
+      // Entities are SILOED PER TOPIC: the explorer derives from the active topic's sources,
+      // so any cached list is stale the moment topics change — a fresh topic must open with
+      // no entities. And a profile or web overlay opened under the previous topic must not
+      // follow us in: on a real switch the selection drops back to the (empty) list.
+      this._entCache = null;
+      const tid = this._app && this._app.state ? this._app.state.activeTopicId : null;
+      if (tid !== this._topicSeen) {
+        this._topicSeen = tid;
+        if (this.state.webGraphFor) this.closeWebGraph();
+        if (this.state.entitySel) this.setState({ entitySel: null });
+      }
+    }
     if (kind === 'messages') { this._segCache = {}; }
     if (kind === 'stream' || kind === 'messages') { this._seedLive(); this._scrollChatSoon(); this._ensureTyping(); }
     this._poke();
