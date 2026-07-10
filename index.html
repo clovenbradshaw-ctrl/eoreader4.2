@@ -389,7 +389,12 @@ table{border-collapse:collapse;width:100%}
               </div>
               <div style="max-width:680px;margin:9px auto 0;font-size:11px;color:#A0A0AA;display:flex;align-items:center;gap:6px">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
-                Answers only from your recorded sources — nothing enters an answer unrecorded.
+                <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Answers only from your recorded sources — nothing enters an answer unrecorded.</span>
+                <span style="flex:1"></span>
+                <button onClick="{{ cycleWebMode }}" title="{{ webModeTitle }}" style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ webModeFg }};background:{{ webModeBg }};border:1px solid {{ webModeBd }}" style-hover="filter:brightness(.97)">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.6 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.6-3.8-9s1.3-6.5 3.8-9z"/></svg>
+                  {{ webModeLabel }}
+                </button>
               </div>
             </div>
           </div>
@@ -1253,6 +1258,16 @@ class Component extends DCLogic {
     const t = this._app && this._app.topic();
     return !!(t && t.messages.length && t.messages[t.messages.length - 1].pending);
   }
+  cycleWebMode() {
+    if (!this._app || !this._app.setWebMode) return;
+    const order = ['auto', 'confirm', 'off'];
+    const cur = this._app.webMode();
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    this._app.setWebMode(next);
+    this.showToast(next === 'auto' ? 'Web search: auto — I fetch on a measured gap and record what I read'
+      : next === 'confirm' ? 'Web search: confirm — I propose a query; you click to search'
+      : 'Web search: off — I answer only from what you record');
+  }
 
   // ── navigation ───────────────────────────────────────────────────────────
   setTab(tab) { this.setState({ tab, topicMenu: null, modelOpen: false, exportMenuOpen: false }); }
@@ -1509,6 +1524,7 @@ class Component extends DCLogic {
     const sources = app.topicSources();
     const findings = app.findings();
     const generating = this._generating();
+    const webMode = app.webMode ? app.webMode() : 'auto';
 
     // topics + sources rails
     const topics = app.state.topics.map((t) => ({
@@ -1907,6 +1923,17 @@ class Component extends DCLogic {
       exportFg: st.exportMenuOpen ? '#5B4BE6' : '#6E6E78', exportBg: st.exportMenuOpen ? '#F1EFFE' : '#F7F7FA', exportBd: st.exportMenuOpen ? '#DED8FD' : '#E6E6EC',
       toggleExportMenu: () => this.toggleExportMenu(),
       exportChatMd: () => this.exportChatAs('md'), exportChatJson: () => this.exportChatAs('json'),
+      // web-search mode toggle (off | confirm | auto) — cycles on click
+      webModeLabel: webMode === 'auto' ? 'Web · auto' : webMode === 'confirm' ? 'Web · confirm' : 'Web · off',
+      webModeTitle: webMode === 'auto'
+        ? 'Web search fires automatically on a measured gap, and records what it reads. Click to require confirmation.'
+        : webMode === 'confirm'
+        ? 'Web search proposes a query; you click the in-chat button to fetch. Click to turn it off.'
+        : 'Web search is off — answers come only from what you record. Click to enable auto.',
+      webModeFg: webMode === 'off' ? '#8A8A95' : '#5B4BE6',
+      webModeBg: webMode === 'off' ? '#F2F2F6' : '#F1EFFE',
+      webModeBd: webMode === 'off' ? '#E4E4EA' : '#DED8FD',
+      cycleWebMode: () => this.cycleWebMode(),
       // graph
       graphTitle: topic ? topic.title : '', graphEmpty: st.tab === 'graph' && !graphLive, graphLive,
       ...graphVals, legendNodes,
