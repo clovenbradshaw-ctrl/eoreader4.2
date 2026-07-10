@@ -341,6 +341,28 @@ table{border-collapse:collapse;width:100%}
                           <sc-if value="{{ m.showBadge }}"><span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:{{ m.badgeFg }};background:{{ m.badgeBg }};border-radius:5px;padding:1px 6px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg>{{ m.badge }}</span></sc-if>
                           <sc-if value="{{ m.pending }}"><span style="font-size:10px;color:#9A9AA4;animation:eoBlink 1.4s ease-in-out infinite">{{ m.pendingLabel }}</span></sc-if>
                         </div>
+                        <sc-if value="{{ m.hasTrail }}">
+                          <div style="margin:2px 0 10px;border:1px solid #E8E6F4;background:#FAFAFE;border-radius:9px;overflow:hidden">
+                            <button onClick="{{ m.toggleTrail }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:7px 10px;text-align:left" style-hover="background:#F4F2FD">
+                              <sc-if value="{{ m.trailRunning }}"><span style="width:11px;height:11px;border:2px solid #C9C2F2;border-top-color:#6D5EF5;border-radius:50%;display:inline-block;animation:eoSpin .7s linear infinite;flex:0 0 auto"></span></sc-if>
+                              <sc-if value="{{ m.trailIdle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></sc-if>
+                              <span style="font-size:11.5px;font-weight:600;color:#5A5A64;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.trailSummary }}</span>
+                              <span style="flex:1"></span>
+                              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;flex:0 0 auto">{{ m.trailClock }}</span>
+                              <span style="font-size:10px;color:#A0A0AA;flex:0 0 auto">{{ m.trailCaret }}</span>
+                            </button>
+                            <sc-if value="{{ m.trailOpen }}">
+                              <div style="max-height:220px;overflow-y:auto;padding:2px 10px 9px;border-top:1px solid #EFEDF9">
+                                <sc-for list="{{ m.trailSteps }}" as="ts">
+                                  <div style="display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:11.5px;line-height:1.5;color:#4A4A54">
+                                    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ ts.fg }};flex:0 0 auto;width:12px;text-align:center">{{ ts.glyph }}</span>
+                                    <span style="min-width:0">{{ ts.text }}</span>
+                                  </div>
+                                </sc-for>
+                              </div>
+                            </sc-if>
+                          </div>
+                        </sc-if>
                         <sc-if value="{{ m.plain }}">
                           <div style="font-size:14.5px;line-height:1.62;color:#2A2A32;white-space:pre-wrap">{{ m.text }}</div>
                         </sc-if>
@@ -399,7 +421,12 @@ table{border-collapse:collapse;width:100%}
               </div>
               <div style="max-width:680px;margin:9px auto 0;font-size:11px;color:#A0A0AA;display:flex;align-items:center;gap:6px">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
-                Answers only from your recorded sources — nothing enters an answer unrecorded.
+                <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Answers only from your recorded sources — nothing enters an answer unrecorded.</span>
+                <span style="flex:1"></span>
+                <button onClick="{{ cycleWebMode }}" title="{{ webModeTitle }}" style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ webModeFg }};background:{{ webModeBg }};border:1px solid {{ webModeBd }}" style-hover="filter:brightness(.97)">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.6 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.6-3.8-9s1.3-6.5 3.8-9z"/></svg>
+                  {{ webModeLabel }}
+                </button>
               </div>
             </div>
           </div>
@@ -1015,7 +1042,7 @@ table{border-collapse:collapse;width:100%}
             <span style="flex:1"></span>
             <button onClick="{{ closeMonologue }}" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
           </div>
-          <div style="font-size:12px;color:#8A8A95;margin-top:3px">Everything that touched the record — every action, and the reasoning behind it.</div>
+          <div style="font-size:12px;color:#8A8A95;margin-top:3px">Everything that touched the record — every action, the reasoning behind it, and what the reading reflects at rest.</div>
         </div>
 
         <div style="padding:16px 18px">
@@ -1031,6 +1058,7 @@ table{border-collapse:collapse;width:100%}
           <div style="display:flex;gap:4px;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px;margin-bottom:16px">
             <button onClick="{{ setLogActions }}" style="flex:1;padding:6px 0;border-radius:6px;font-size:12px;font-weight:600;text-align:center;color:{{ logActionsFg }};background:{{ logActionsBg }}">Actions</button>
             <button onClick="{{ setLogReasoning }}" style="flex:1;padding:6px 0;border-radius:6px;font-size:12px;font-weight:600;text-align:center;color:{{ logReasoningFg }};background:{{ logReasoningBg }}">Reasoning</button>
+            <button onClick="{{ setLogReflections }}" style="flex:1;padding:6px 0;border-radius:6px;font-size:12px;font-weight:600;text-align:center;color:{{ logReflectionsFg }};background:{{ logReflectionsBg }}">Reflections</button>
           </div>
 
           <sc-if value="{{ logActions }}">
@@ -1079,6 +1107,23 @@ table{border-collapse:collapse;width:100%}
               </div>
             </sc-for>
           </sc-if>
+
+          <sc-if value="{{ logReflections }}">
+            <div style="font-size:11.5px;color:#8A8A95;line-height:1.5;margin-bottom:14px">When no turn is running and you go quiet, the reading turns back on the record and reflects at the place of most interest. Each note is the reading's own act, held <b style="color:#6E6E78">open</b> — it can never become a cited fact.</div>
+            <sc-if value="{{ reflectionsEmpty }}">
+              <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:16px 14px;font-size:12px;color:#9A9AA4;line-height:1.5">Nothing reflected yet — record a source, then leave the reader idle for a moment and the monologue fills here.</div>
+            </sc-if>
+            <sc-for list="{{ reflectionViews }}" as="rf">
+              <div style="border:1px solid #EFEFF3;border-left:3px solid {{ rf.dot }};border-radius:9px;padding:11px 13px;margin-bottom:11px">
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+                  <span style="font-size:9px;font-weight:700;letter-spacing:.04em;color:{{ rf.vFg }};background:{{ rf.vBg }};border-radius:4px;padding:1px 6px">{{ rf.vLabel }}</span>
+                  <span style="font-size:11px;color:#9A9AA4;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ rf.place }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ rf.t }}</span>
+                </div>
+                <div style="font-size:13px;color:#2A2A32;line-height:1.5;font-family:'Newsreader',Georgia,serif">{{ rf.note }}</div>
+              </div>
+            </sc-for>
+          </sc-if>
         </div>
       </div>
     </div>
@@ -1124,6 +1169,7 @@ class Component extends DCLogic {
       // "save system genome online?" — one quiet opt-in setting + its one-time enable confirm
       archiveShow: false, archiveBusy: false, archiveMsg: null,
       ackPermanence: false, ackPrivacy: false, ackRights: false,
+      trailOpen: {},   // per-message override for the research trail's open/closed state
       rev: 0,
     };
     this._segCache = {}; this._viewCache = null; this._entCache = null; this._readerCache = {};
@@ -1330,6 +1376,16 @@ class Component extends DCLogic {
   _generating() {
     const t = this._app && this._app.topic();
     return !!(t && t.messages.length && t.messages[t.messages.length - 1].pending);
+  }
+  cycleWebMode() {
+    if (!this._app || !this._app.setWebMode) return;
+    const order = ['auto', 'confirm', 'off'];
+    const cur = this._app.webMode();
+    const next = order[(order.indexOf(cur) + 1) % order.length];
+    this._app.setWebMode(next);
+    this.showToast(next === 'auto' ? 'Web search: auto — I fetch on a measured gap and record what I read'
+      : next === 'confirm' ? 'Web search: confirm — I propose a query; you click to search'
+      : 'Web search: off — I answer only from what you record');
   }
 
   // ── navigation ───────────────────────────────────────────────────────────
@@ -1550,6 +1606,21 @@ class Component extends DCLogic {
     if (status === 'Uncited') return { fg: '#9A6B12', bg: '#FBF1DA', bd: '#EEDCA9' };
     return { fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9' };
   }
+  // The research trail: one typed beat per step (turn/research.js → app.js beats). Each kind gets a
+  // glyph + colour so the stream reads at a glance — searching (blue), reading (amber), a lead
+  // followed (accent), a page set aside (red), settled (green). Mirrors 4.1's collapsible trail.
+  _trailStyle(kind) {
+    return ({
+      start:  { glyph: '✦', fg: '#6D5EF5' },
+      search: { glyph: '⌕', fg: '#2563EB' },
+      lead:   { glyph: '↳', fg: '#6D5EF5' },
+      read:   { glyph: '▤', fg: '#B45309' },
+      warn:   { glyph: '⚠', fg: '#C2410C' },
+      done:   { glyph: '✓', fg: '#1E8A50' },
+      think:  { glyph: '·', fg: '#9A9AA4' },
+    }[kind] || { glyph: '·', fg: '#9A9AA4' });
+  }
+  toggleTrail(id, cur) { this.setState({ trailOpen: { ...this.state.trailOpen, [id]: !cur } }); }
   _rights(src) {
     const r = String(src.rights || '');
     const local = src.kind !== 'web';
@@ -1690,6 +1761,7 @@ class Component extends DCLogic {
     const sources = app.topicSources();
     const findings = app.findings();
     const generating = this._generating();
+    const webMode = app.webMode ? app.webMode() : 'auto';
 
     // topics + sources rails
     const topics = app.state.topics.map((t) => ({
@@ -1793,8 +1865,24 @@ class Component extends DCLogic {
         bg: /contradic|unbound/.test(f.id) ? '#FBE9E6' : '#FBF1DA', bd: /contradic|unbound/.test(f.id) ? '#F2D3CD' : '#EEDCA9',
       }));
       const loading = app.state.model.state === 'loading';
+      // the research trail — the live "what am I researching / thinking" stream (app.js beats)
+      const tr = mm.research;
+      const trailSteps = (tr && tr.steps || []).map((s) => {
+        const st = this._trailStyle(s.kind);
+        return { glyph: st.glyph, fg: st.fg, text: s.text };
+      });
+      const trailRunning = !!tr && !tr.done;
+      const trOverride = this.state.trailOpen[mm.id];
+      const trailOpen = !!tr && (trOverride != null ? trOverride : trailRunning);
+      const nowT = (() => { try { return Date.now(); } catch { return 0; } })();
+      const trSecs = tr ? Math.max(0, Math.round(((tr.done ? tr.tEnd : nowT) - tr.t0) / 1000)) : 0;
+      const trClock = trSecs >= 60 ? `${Math.floor(trSecs / 60)}:${String(trSecs % 60).padStart(2, '0')}` : `${trSecs}s`;
       return {
         isUser: false, isAgent: true, text: mm.text, pending: !!mm.pending,
+        hasTrail: !!tr && trailSteps.length > 0, trailOpen, trailRunning, trailIdle: !!tr && !trailRunning, trailSteps,
+        trailSummary: tr ? (tr.summary || (trailRunning ? 'Researching…' : `Thought for ${trClock}`)) : '',
+        trailClock: trClock, trailCaret: trailOpen ? '▾' : '▸',
+        toggleTrail: () => this.toggleTrail(mm.id, trailOpen),
         pendingLabel: mm.text ? '● phrasing'
           : loading ? `● loading ${app.state.model.backend} · ${Math.round((app.state.model.progress || 0) * 100)}%`
           : '● reading the record',
@@ -2062,7 +2150,7 @@ class Component extends DCLogic {
     });
 
     // monologue
-    const LOGL = { record: 'RECORD', hash: 'HASH', eot: 'EOT', claim: 'CLAIM', conflict: 'CONFLICT', search: 'SEARCH', open: 'OPEN', skip: 'SKIP' };
+    const LOGL = { record: 'RECORD', hash: 'HASH', eot: 'EOT', claim: 'CLAIM', conflict: 'CONFLICT', search: 'SEARCH', open: 'OPEN', skip: 'SKIP', reflection: 'REFLECT' };
     const logView = app.state.log.slice().reverse().map((l) => ({
       label: LOGL[l.kind] || l.kind.toUpperCase(), t: String(l.t).slice(11, 19),
       text: l.text, effect: l.effect, hasEffect: !!l.effect,
@@ -2084,6 +2172,15 @@ class Component extends DCLogic {
       { value: String(findings.stats.claims), label: 'claims traced', color: '#1E8A50' },
       { value: String(contradictions), label: 'contradictions', color: contradictions ? '#B23A2E' : '#8A8A95' },
     ];
+    // reflections — the inner monologue at rest (band void; each is reafference, never a fact)
+    const reflectionViews = (app.state.reflections || []).slice().reverse().map((r) => ({
+      note: r.note, t: String(r.t).slice(11, 19),
+      place: r.title ? `${r.reg || r.sn || ''} · ${r.title}`.trim().replace(/^· /, '') : (r.sn || 'record'),
+      vLabel: r.verdict === 'strain' ? 'strain' : r.verdict === 'confirm' ? 'confirm' : 'noted',
+      vFg: r.verdict === 'strain' ? '#B23A2E' : r.verdict === 'confirm' ? '#1E8A50' : '#6E6E78',
+      vBg: r.verdict === 'strain' ? '#FBE9E6' : r.verdict === 'confirm' ? '#E7F6EC' : '#F2F2F6',
+      dot: r.verdict === 'strain' ? '#B23A2E' : r.verdict === 'confirm' ? '#59C08A' : '#8A8A95',
+    }));
 
     return {
       // chrome
@@ -2122,6 +2219,17 @@ class Component extends DCLogic {
       exportFg: st.exportMenuOpen ? '#5B4BE6' : '#6E6E78', exportBg: st.exportMenuOpen ? '#F1EFFE' : '#F7F7FA', exportBd: st.exportMenuOpen ? '#DED8FD' : '#E6E6EC',
       toggleExportMenu: () => this.toggleExportMenu(),
       exportChatMd: () => this.exportChatAs('md'), exportChatJson: () => this.exportChatAs('json'),
+      // web-search mode toggle (off | confirm | auto) — cycles on click
+      webModeLabel: webMode === 'auto' ? 'Web · auto' : webMode === 'confirm' ? 'Web · confirm' : 'Web · off',
+      webModeTitle: webMode === 'auto'
+        ? 'Web search fires automatically on a measured gap, and records what it reads. Click to require confirmation.'
+        : webMode === 'confirm'
+        ? 'Web search proposes a query; you click the in-chat button to fetch. Click to turn it off.'
+        : 'Web search is off — answers come only from what you record. Click to enable auto.',
+      webModeFg: webMode === 'off' ? '#8A8A95' : '#5B4BE6',
+      webModeBg: webMode === 'off' ? '#F2F2F6' : '#F1EFFE',
+      webModeBd: webMode === 'off' ? '#E4E4EA' : '#DED8FD',
+      cycleWebMode: () => this.cycleWebMode(),
       // graph
       graphTitle: topic ? topic.title : '', graphEmpty: st.tab === 'graph' && !graphLive, graphLive,
       ...graphVals, legendNodes,
@@ -2184,11 +2292,14 @@ class Component extends DCLogic {
       setWebGraphEl: (el) => this.setWebGraphEl(el), closeWebGraph: () => this.closeWebGraph(),
       // monologue
       monologueOpen: st.monologueOpen, logCount: String(app.state.log.length),
-      auditStats, logActions: st.logMode === 'actions', logReasoning: st.logMode === 'reasoning',
+      auditStats, logActions: st.logMode === 'actions', logReasoning: st.logMode === 'reasoning', logReflections: st.logMode === 'reflections',
       setLogActions: () => this.setState({ logMode: 'actions' }), setLogReasoning: () => this.setState({ logMode: 'reasoning' }),
+      setLogReflections: () => this.setState({ logMode: 'reflections' }),
       logActionsFg: st.logMode === 'actions' ? '#1B1B22' : '#8A8A95', logActionsBg: st.logMode === 'actions' ? '#fff' : 'transparent',
       logReasoningFg: st.logMode === 'reasoning' ? '#1B1B22' : '#8A8A95', logReasoningBg: st.logMode === 'reasoning' ? '#fff' : 'transparent',
+      logReflectionsFg: st.logMode === 'reflections' ? '#1B1B22' : '#8A8A95', logReflectionsBg: st.logMode === 'reflections' ? '#fff' : 'transparent',
       logView, logEmpty: logView.length === 0, turnViews, turnsEmpty: turnViews.length === 0,
+      reflectionViews, reflectionsEmpty: reflectionViews.length === 0, reflectionCount: String(reflectionViews.length),
     };
   }
 

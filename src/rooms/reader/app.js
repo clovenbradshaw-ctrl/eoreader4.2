@@ -19,8 +19,9 @@ import { parseText } from '../../perceiver/parse/index.js';
 import { projectGraph } from '../../core/index.js';
 import { createModel } from '../../model/interface.js';
 import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
-import { runTurn } from '../../turn/index.js';
-import { createWebClient, htmlToText, wikiExtract } from '../../organs/ingest/webfetch.js';
+import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
+         runTurnWithResearch, researchAnnouncement } from '../../turn/index.js';
+import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
@@ -28,6 +29,8 @@ import { readIngest } from '../../organs/ingest/read.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
 import { figureSurface } from '../../perceiver/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
+import { createDeepReader } from '../../surfer/fold/deep-reading.js';
+import { surfFold } from '../../surfer/index.js';
 import { buildChatExport } from './chat-export.js';
 
 // ── the proxy chain ───────────────────────────────────────────────────────────
@@ -97,6 +100,12 @@ const kv = async (mode, fn) => {
 };
 
 const nowIso = () => new Date().toISOString();
+const nowMs = () => { try { return Date.now(); } catch { return 0; } };
+// How far a reader web-search walks. 4.1 reached the net by a multi-hop curiosity walk (follow the
+// surprise while it stays on topic), not a single fetch; this restores that depth. Kept modest so a
+// chat answer over the slow local model stays responsive — the walk self-limits well short of this
+// via strayPatience + frontier exhaustion, so most asks take fewer hops.
+const RESEARCH_HOPS = 5;
 const domainOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
 const shaShort = (h) => String(h || '').replace(/^[^:]*:/, '').slice(0, 12);
 const bytesOf = (text) => { try { return new TextEncoder().encode(text).length; } catch { return String(text).length; } };
@@ -109,6 +118,7 @@ export const createReaderApp = ({ audit } = {}) => {
     topics: [],            // { id, title, created, sourceSns:[], messages:[], memo:'' }
     activeTopicId: null,
     log: [],               // activity ledger: { id, t, kind, text, effect }
+    reflections: [],       // the inner monologue: reflections the reading has at rest (band void)
     model: { backend: null, state: 'cold', progress: 0, note: '' },
     busy: null,            // { kind, label } while a long op runs
     ready: false,          // restore finished
@@ -125,6 +135,64 @@ export const createReaderApp = ({ audit } = {}) => {
     state.log.push({ id: `L${++ln}`, t: nowIso(), kind, text, effect });
     if (state.log.length > 400) state.log.shift();
     emit('log');
+  };
+
+  // ── the research trail — the live "what am I researching / thinking" stream ────
+  // 4.1 surfaced a web search as a collapsible, Claude-style THINKING TRAIL in the answer bubble:
+  // one typed beat per search / page read / lead followed / page set aside, ticking a clock, then
+  // settling to "Researched N sources · M hops". 4.2 had regressed this to a single transient busy
+  // label with nothing rendered. These helpers rebuild that trail on the message as plain data the
+  // surface renders. `beat` appends one step (deduped against the previous), `emit`ing so it streams.
+  const beat = (msg, kind, text) => {
+    const t = String(text || '').trim();
+    if (!msg || !t) return;
+    if (!msg.research) msg.research = { steps: [], mode: 'research', t0: nowMs(), tEnd: 0, done: false, summary: '' };
+    const steps = msg.research.steps;
+    const last = steps[steps.length - 1];
+    if (last && last.kind === kind && last.text === t) return;   // don't stack a repeated status
+    steps.push({ kind, text: t });
+    emit('messages');
+  };
+  // The pre-fetch beat: what the walk is about to search THIS hop. A followed lead names the term it
+  // is chasing ("Following 'X' — searching 'Y'"); the seed / a plain hop just names the query.
+  const hopBeat = (msg, hop, seed) => {
+    if (!hop) return;
+    const q = String(hop.query || '').trim();
+    if (!q) return;
+    if (hop.term && q.toLowerCase() !== String(seed || '').toLowerCase())
+      beat(msg, 'lead', `Following “${hop.term}” — searching “${q}”`);
+    else
+      beat(msg, 'search', `Searching the web for “${q}”`);
+  };
+  // The after-fetch beat: the hop's OUTCOME — what it read, or why it was set aside. Mirrors 4.1's
+  // honest "Kept / Set aside" narration so the leash is legible, not a black box.
+  const hopDoneBeat = (msg, hop) => {
+    if (!hop) return;
+    if (hop.kept && hop.results) {
+      const lead = (hop.leads && hop.leads.length) ? ` — picked up ${hop.leads.slice(0, 3).join(', ')}` : '';
+      beat(msg, 'read', `Read ${hop.results} source${hop.results === 1 ? '' : 's'}${lead}`);
+    } else if (hop.reason === 'strayed') {
+      beat(msg, 'warn', `Set aside “${hop.query}” — drifted off the question`);
+    } else if (hop.reason === 'empty') {
+      beat(msg, 'warn', `Nothing came back for “${hop.query}”`);
+    }
+  };
+  // Settle the trail: the one-line summary the collapsed header shows. `research` is the walk trace
+  // (turn/research.js). Called once the gather is done, before the answer is phrased.
+  const settleTrail = (msg, research) => {
+    if (!msg?.research) return;
+    if (research) {
+      const nH = (research.hops || []).length;
+      const n = research.results || 0;
+      msg.research.summary = `Researched ${n} source${n === 1 ? '' : 's'} · ${nH} hop${nH === 1 ? '' : 's'}`;
+    }
+    beat(msg, 'done', msg.research.summary || 'Done researching');
+  };
+  // Mark the trail finished (the clock stops). The surface reads `done`/`tEnd` to collapse it.
+  const finishTrail = (msg) => {
+    if (!msg?.research) return;
+    msg.research.done = true;
+    msg.research.tEnd = nowMs();
   };
 
   // ── persistence ────────────────────────────────────────────────────────────
@@ -163,6 +231,9 @@ export const createReaderApp = ({ audit } = {}) => {
     // and the ladder inside ensureModel already falls back webllm → wllama → echo.
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       setTimeout(() => { ensureModel().catch(() => { /* logged by the ladder */ }); }, 600);
+      // The inner monologue starts at rest: the governor wakes the reading in the lulls
+      // between turns and reflects on what's on the record (no-op until something is recorded).
+      deepIdleStart();
     }
   };
 
@@ -175,7 +246,7 @@ export const createReaderApp = ({ audit } = {}) => {
     return t;
   };
   const topic = () => state.topics.find((t) => t.id === state.activeTopicId) || state.topics[0];
-  const setTopic = (id) => { if (state.topics.find((t) => t.id === id)) { state.activeTopicId = id; persist(); emit('topics'); } };
+  const setTopic = (id) => { if (state.topics.find((t) => t.id === id)) { state.activeTopicId = id; deepWake(); persist(); emit('topics'); } };
   const topicRename = (id, title) => { const t = state.topics.find((x) => x.id === id); if (t && title) { t.title = title; persist(); emit('topics'); } };
   const topicDelete = (id) => {
     if (state.topics.length <= 1) return;
@@ -220,6 +291,7 @@ export const createReaderApp = ({ audit } = {}) => {
     if (t && !t.sourceSns.includes(id)) t.sourceSns.push(id);
     logIt('record', `Recorded ${src.domain} — ${src.title}`, src.reg);
     logIt('hash', `Fixity sha ${shaShort(src.sha)} · ${src.bytes.toLocaleString()} bytes`, src.reg);
+    deepWake();   // the record grew — let the reading reflect on the new places at rest
     persist(); emit('sources');
     // Every source is READ into EoT at the moment of record — every proposition the
     // parse admitted (any modality: the organs all land on the same spine) rendered
@@ -295,13 +367,35 @@ export const createReaderApp = ({ audit } = {}) => {
   };
 
   // The page's own HTML, fetched through the same proxy chain ingest uses — for the source
-  // viewer's native "Page" tab, which renders the REAL website (sanitized + sandboxed by the
+  // viewer's native "Native" tab, which renders the REAL website (sanitized + sandboxed by the
   // surface) rather than the reduced text. Browser only; in Node (no fetch) client.fetchUrl
   // throws, which the surface catches into the tab's error state.
   const fetchPage = async (url) => {
     const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
     const res = await client.fetchUrl(norm);
     return { html: res.text || '', url: res.url || norm, ok: res.ok !== false };
+  };
+
+  // webSearchAdmit(query, opts) → the fetch+admit primitive the turn's web loop consumes.
+  // Search a source (or auto-route), pull each hit's FULL page through the proxy chain
+  // (fetchPages), admit it as a frozen web source (websource.js), AND register it in the
+  // S-registry so its cited spans resolve to a real chip and it persists with the topic —
+  // a fetched page becoming "a normal prose source that joins the answer scope"
+  // (docs/web-search.md). Returns the admitted [{ item, doc, record }] for the turn to
+  // stand on; addSource dedupes by content hash and never overwrites, so re-fetching the
+  // same page is a no-op on the registry while the doc still rides the turn.
+  const webSearchAdmit = async (query, opts = {}) => {
+    const admitted = await searchAndAdmit(query, { client, k: 5, kind: 'auto', fetchPages: true, ...opts });
+    for (const a of admitted || []) {
+      if (!a?.doc || !a?.record) continue;
+      try {
+        addSource({
+          title: a.record.title || a.item?.title, url: a.record.url || a.item?.url || null,
+          text: a.doc.text, kind: 'web', record: a.record, doc: a.doc,
+        });
+      } catch { /* empty page or dup — the doc still grounds the turn */ }
+    }
+    return admitted || [];
   };
 
   const ingestText = (text, title = 'Pasted text') => {
@@ -430,9 +524,93 @@ export const createReaderApp = ({ audit } = {}) => {
     } catch { minilmWarming = false; }
   };
 
+  // ── web-search mode ──────────────────────────────────────────────────────────
+  // off     — never reach the net (proposer-only stays silent; the answer rides its flag)
+  // confirm — the turn proposes; the fetch waits on the user's click on the in-chat button
+  // auto    — the engine fetches on a measured gap without a prompt: 4.1's internet-native
+  //           default (docs/web-search.md), so an unrecorded question can go get its own
+  //           sources. Persisted in localStorage; the surface reads webMode()/setWebMode().
+  let webModeOverride = null;
+  const webMode = () => {
+    if (webModeOverride) return webModeOverride;
+    try { const v = localStorage.getItem('eo_web_mode'); if (v === 'off' || v === 'confirm' || v === 'auto') return v; } catch { /* default */ }
+    return 'auto';
+  };
+  const setWebMode = (mode) => {
+    if (!['off', 'confirm', 'auto'].includes(mode)) return;
+    webModeOverride = mode;
+    try { localStorage.setItem('eo_web_mode', mode); } catch { /* session-only */ }
+    logIt('web', `Web search set to ${mode}`);
+    emit('web');
+  };
+
   // ── chat ───────────────────────────────────────────────────────────────────
   let abort = null;
   const stop = () => { try { abort?.abort(); } catch { /* already done */ } };
+
+  // answerFromWeb(pending, q) — the empty-record auto path. Nothing is on the record, but the ask
+  // is substantive, so REACH for the web the way 4.1 did: not a single fetch but a multi-hop
+  // CURIOSITY WALK (runTurnWithResearch) — formulate a real query (the "write me an essay about
+  // dolphins" → "dolphins" rewrite lives in web.js), then follow what surprises it while it stays on
+  // topic, fold every kept page in, and answer GROUNDED over the seam it mined. Each hop streams a
+  // beat into the answer's research trail, so the user SEES what it is searching and reading — the
+  // disclosure 4.1 had and 4.2 had dropped to a lone busy label. Browser-only in practice (needs
+  // fetch + a model); in Node it degrades to the "couldn't pull anything" line rather than throwing.
+  const answerFromWeb = async (pending, q, { onToken = null } = {}) => {
+    warmMinilm();
+    try {
+      const m = await ensureModel();
+      setBusy({ kind: 'search', label: 'Looking this up on the web…' });
+      const query = await formulateSearchQuery({ model: m, question: q, history: [], fallback: q });
+      beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
+      setBusy({ kind: 'search', label: `Searching the web — ${query}` });
+      logIt('search', `Web research "${query}"`, 'auto · nothing on record');
+      abort = new AbortController();
+      const result = await runTurnWithResearch({
+        question: q, docs: [], model: m,
+        embedder: hashEmb,
+        geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
+        auditLog: audit, history: [],
+        stream: true,
+        onToken: (tok) => { pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
+        signal: abort.signal,
+        onStep: (name) => { setBusy({ kind: 'turn', label: stageLabel(name) }); },
+      }, {
+        search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
+        onHop: (h) => hopBeat(pending, h, query),
+        onHopDone: (h) => hopDoneBeat(pending, h),
+        signal: abort.signal,
+      });
+      const gathered = (result.research && result.research.results) || 0;
+      if (!gathered) {
+        beat(pending, 'warn', `Couldn't pull anything readable for “${query}”.`);
+        settleTrail(pending, result.research);
+        pending.text = `I searched the web for “${query}” but couldn't pull anything readable back. Try rephrasing, or drop a URL, file, or pasted text in the bar above.`;
+        pending.route = 'empty';
+        return pending;
+      }
+      settleTrail(pending, result.research);
+      finishMessage(pending, {
+        ...result,
+        webFetched: {
+          query, trigger: 'gap', results: gathered,
+          sources: (result.research && result.research.sources) || [],
+        },
+      });
+    } catch (e) {
+      pending.text = pending.text || (state.model.state === 'error'
+        ? `${state.model.note}. Pick a model from the chip in the header, then retry — or drop a URL, file, or pasted text in the bar above.`
+        : `The web lookup failed: ${String(e?.message || e)}`);
+      pending.route = 'error';
+    } finally {
+      finishTrail(pending);   // stop the trail clock on the empty/error paths too (finishMessage
+                              // does it on the success path; the early returns bypass it)
+      abort = null; setBusy(null);
+      pending.pending = false;
+      persist(); emit('messages');
+    }
+    return pending;
+  };
 
   const ask = async (question, { onToken = null } = {}) => {
     const t = topic();
@@ -447,19 +625,27 @@ export const createReaderApp = ({ audit } = {}) => {
     t.messages.push(pending);
     emit('messages');
 
+    const mode = webMode();
+
     if (!docs.length) {
       // An empty record is not a dead end. Greetings get the mechanical smalltalk
-      // answer; anything substantive becomes a one-click web-search proposal, so
-      // the first real question can go fetch its own sources.
+      // answer; a substantive ask reaches for the web when web mode allows it — `auto`
+      // fetches real pages and answers grounded in them (answerFromWeb); `confirm`/`off`
+      // leave it as a one-click web-search proposal so the first question fetches its own
+      // sources on the button.
       const small = answerSmalltalk(q);
       if (small) {
         pending.text = small.text.replace(/the document/g, 'what you record');
         pending.route = 'smalltalk';
-      } else {
-        pending.text = 'Nothing is on the record yet, so I can\'t ground an answer to that. I can search the web and record what comes back — or read any URL, file, or pasted text you drop in the bar above.';
-        pending.route = 'empty';
-        pending.webProposal = { query: q, rationale: 'no sources recorded yet' };
+        pending.pending = false;
+        persist(); emit('messages');
+        return pending;
       }
+      if (mode === 'auto') return answerFromWeb(pending, q, { onToken });
+      pending.text = 'Nothing is on the record yet, so I can\'t ground an answer to that. I can search the web and record what comes back — or read any URL, file, or pasted text you drop in the bar above.';
+      pending.route = 'empty';
+      // Offer the one-click search button in confirm mode; in off, respect the opt-out.
+      if (mode === 'confirm') pending.webProposal = { query: q, rationale: 'no sources recorded yet', trigger: 'gap' };
       pending.pending = false;
       persist(); emit('messages');
       return pending;
@@ -473,7 +659,7 @@ export const createReaderApp = ({ audit } = {}) => {
         .filter((x) => !x.pending && x.text)
         .slice(0, -2)
         .map((x) => ({ role: x.role, content: x.text, ...(x.unbound ? { unbound: true } : {}) }));
-      const result = await runTurn({
+      const args = {
         question: q, docs, model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
@@ -482,7 +668,49 @@ export const createReaderApp = ({ audit } = {}) => {
         onToken: (tok) => { pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: abort.signal,
         onStep: (name) => { setBusy({ kind: 'turn', label: stageLabel(name) }); },
-      });
+      };
+      let result = await runTurn(args);
+      // The document turn measured a gap it couldn't close (or an answer worth confirming
+      // against the world). In `auto` we take the go-ahead the moment it's proposed.
+      // `off`/`confirm` leave the proposal for the in-chat "Search the web" button.
+      if (result.webProposal && mode === 'auto') {
+        const proposal = result.webProposal;
+        if (proposal.trigger === 'gap') {
+          // A GAP the record couldn't close — go WIDE the way 4.1 did: a multi-hop curiosity walk,
+          // not one fetch, streaming its search/read beats into the trail. Clear the first ("not in
+          // the document") draft so the grounded re-run's stream replaces it rather than appends.
+          const query = await formulateSearchQuery({ model: m, question: proposal.query, history, fallback: proposal.query });
+          beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
+          setBusy({ kind: 'search', label: `Searching the web — ${query}` });
+          pending.text = ''; emit('stream');
+          const walked = await runTurnWithResearch(args, {
+            search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
+            onHop: (h) => hopBeat(pending, h, query),
+            onHopDone: (h) => hopDoneBeat(pending, h),
+            signal: abort.signal,
+          });
+          settleTrail(pending, walked.research);
+          result = {
+            ...walked, webProposal: proposal,
+            webFetched: {
+              query, trigger: 'gap', results: (walked.research && walked.research.results) || 0,
+              sources: (walked.research && walked.research.sources) || [],
+            },
+          };
+        } else {
+          // A verify (check the general-knowledge answer, keep it) or witness (confirm the reading)
+          // is a targeted single-shot, not a walk — augment/re-run through runWebFollowup as before.
+          const note = searchAnnouncement(proposal);
+          setBusy({ kind: 'search', label: note || 'Searching the web…' });
+          if (note) beat(pending, 'start', note);
+          if (proposal.trigger !== 'verify') { pending.text = ''; emit('stream'); }
+          result = await runWebFollowup(args, result, { webSearch: webSearchAdmit, k: 4 });
+          const n = (result.webFetched && result.webFetched.results) || 0;
+          if (result.webFetched) beat(pending, 'read', `Read ${n} web source${n === 1 ? '' : 's'}`);
+          if (pending.research) pending.research.summary = `Checked ${n} web source${n === 1 ? '' : 's'}`;
+          settleTrail(pending, null);
+        }
+      }
       finishMessage(pending, result);
     } catch (e) {
       pending.text = pending.text || (state.model.state === 'error'
@@ -490,6 +718,8 @@ export const createReaderApp = ({ audit } = {}) => {
         : `Something failed mid-turn: ${String(e?.message || e)}`);
       pending.pending = false; pending.route = 'error';
     } finally {
+      finishTrail(pending);   // stop the trail clock even if the turn threw/aborted mid-walk, so a
+                              // running trail can never be left spinning forever on an errored turn
       abort = null; setBusy(null);
       pending.pending = false;
       persist(); emit('messages');
@@ -505,6 +735,7 @@ export const createReaderApp = ({ audit } = {}) => {
   }[name] || `${name}…`);
 
   const finishMessage = (msg, result) => {
+    finishTrail(msg);   // stop the research trail's clock; the surface collapses it to its summary
     msg.text = result.answer || msg.text;
     msg.route = result.route;
     msg.grounding = result.grounding;
@@ -512,7 +743,11 @@ export const createReaderApp = ({ audit } = {}) => {
     msg.unbound = !!result.unbound;
     msg.stopped = !!result.stopped;
     msg.grounded = (result.sources || []).length > 0 && !result.unbound;
-    msg.webProposal = result.webProposal ? { query: result.webProposal.query, rationale: result.webProposal.rationale || '' } : null;
+    // The "Search the web" button belongs to confirm mode only: auto already fetched (and
+    // suppresses via webFetched), and off means the user opted out of reaching the net — so
+    // a proposal is offered as a button only when the user asked to be the one to approve it.
+    msg.webProposal = (result.webProposal && !result.webFetched && webMode() === 'confirm')
+      ? { query: result.webProposal.query, rationale: result.webProposal.rationale || '' } : null;
     msg.bound = (result.bound || []).map((b) => ({ claim: b.claim, citation: b.citation || null, cited: b.cited || b.text || null }));
     msg.verdicts = (result.verdicts || []).map((v) => ({
       verdict: v.verdict || v.status || '', claim: v.claim || v.text || [v.src, v.via, v.tgt].filter(Boolean).join(' '),
@@ -522,8 +757,28 @@ export const createReaderApp = ({ audit } = {}) => {
       return { idx: Number(idx), docId, sn: src?.sn || null, reg: src?.reg || null, title: src?.title || docId, text: (result.citeTexts || {})[idx] || '' };
     });
     msg.reflection = result.reflection || null;
+    // What the web search brought back — the query, why, and the sources it fetched. The
+    // gap/witness answer already streamed the re-run over these; a verify AUGMENTS instead,
+    // so append what the web said (with its sources) as a plainly-marked addendum, keeping
+    // the model's own answer above it untouched (docs/web-search.md, "verify — don't restrict").
+    msg.webFetched = result.webFetched
+      ? {
+          query: result.webFetched.query || '', trigger: result.webFetched.trigger || '',
+          results: result.webFetched.results || 0,
+          sources: (result.webFetched.sources || []).map((s) => ({ title: s.title || '', url: s.url || '', docId: s.docId || '' })),
+        }
+      : null;
+    const aug = result.webFetched && result.webFetched.augmented;
+    if (aug && aug.answer) {
+      const add = String(aug.answer).replace(/\[s\d+(?:,\s*s?\d+)*\]/g, '').replace(/[ \t]+\n/g, '\n').trim();
+      const srcLines = (aug.sources || []).slice(0, 4).map((s) => `· ${s.title || s.url || s.docId}`).filter(Boolean).join('\n');
+      if (add) msg.text = `${msg.text}\n\n— From the web —\n${add}${srcLines ? `\n\nSources:\n${srcLines}` : ''}`;
+    }
     for (const f of msg.flags) {
       if (/contradic/i.test(f.id)) logIt('conflict', `Contradiction flagged — ${f.note || f.id}`);
+    }
+    if (msg.webFetched) {
+      logIt('search', `Grounded in ${msg.webFetched.results} web source${msg.webFetched.results === 1 ? '' : 's'}`, `"${msg.webFetched.query}"`);
     }
     logIt('claim', `Answered "${msg.text.slice(0, 60)}${msg.text.length > 60 ? '…' : ''}"`,
       `${msg.cites.length} citation${msg.cites.length === 1 ? '' : 's'}`);
@@ -782,6 +1037,125 @@ export const createReaderApp = ({ audit } = {}) => {
   // ── memo ───────────────────────────────────────────────────────────────────
   const setMemo = (text) => { const t = topic(); if (t) { t.memo = String(text); persist(); emit('memo'); } };
 
+  // ── deep reading: the inner monologue at rest ────────────────────────────────
+  // When no turn is generating and the reader is quiet, the reading turns back on the
+  // record: it surfs to the place of most interest (Bayesian surprise), folds it, and
+  // voices a reflection — an ENACTED EVA held at band VOID. The firewall is the TYPE:
+  // canWitness(reflection.prov) === false, so a reflection can never be mistaken for a
+  // witnessed fact or ground an answer (docs/deep-reading.md, docs/monologue-significance.md).
+  // Model-free and embedder-free — thinking needs no weights. Reflections stream into
+  // state.reflections; the surface shows them in the master-log drawer's "Reflections" mode.
+  // The reader never self-polls: an idle governor wakes it only in the lulls between turns.
+  const deepReaders = new Map();     // docId → { reader, doc, anchor }
+  let deepSettled = false, deepRunning = false, deepTimer = null, lastActivity = 0;
+
+  // A reflection deposits onto the log; layer it over the source's log in an overlay so the
+  // stored record stays append-only truth and a reload re-reads clean.
+  const overlayDoc = (base) => {
+    const extra = [];
+    const log = {
+      append: (e) => { extra.push(e); return e; },
+      snapshot: () => base.log.snapshot().concat(extra),
+      get length() { return base.log.snapshot().length + extra.length; },
+    };
+    return { log, units: base.units, sentences: base.sentences, tokensBySentence: base.tokensBySentence, docId: base.docId };
+  };
+
+  // A figure the reading named by opaque id → its readable label, so the inner note reads as
+  // prose; id-shaped tokens with no known label drop to "something" rather than show raw.
+  const cleanLabels = (s, doc) => String(s ?? '').replace(/\b[a-z][a-z0-9]{4,}\b/g, (tok) => {
+    if (!/[0-9]/.test(tok)) return tok;
+    let lab = null; try { lab = doc?.admission?.labelOf?.(tok) ?? null; } catch { /* pass */ }
+    if (lab && lab !== tok) return lab;
+    return /^[a-z][0-9]/.test(tok) ? 'something' : tok;
+  });
+
+  const deepReaderFor = (src) => {
+    const doc = docFor(src);
+    if (!doc || !(doc.sentences || doc.units || []).length) return null;
+    let entry = deepReaders.get(src.docId);
+    if (!entry) {
+      try {
+        const od = overlayDoc(doc);
+        entry = { reader: createDeepReader({ doc: od, surf: surfFold }), doc: od, base: doc, anchor: 0 };
+        deepReaders.set(src.docId, entry);
+      } catch { return null; }
+    }
+    return entry;
+  };
+
+  // The record grew (a source landed) or the topic changed — wake the loop so the new
+  // places get read at rest. Readers keep their per-place habituation (the rumination cure).
+  const deepWake = () => { deepSettled = false; };
+
+  // ONE governed pass over the topic's sources — arrive() runs until it quiesces (never spins).
+  // Called by the idle governor, and by the surface's "Reflect now" (manual=true).
+  const deepTick = (manual = false) => {
+    if (deepRunning) return; deepRunning = true;
+    try {
+      if (state.busy && !manual) return;            // engaged — a turn is decoding
+      if (deepSettled && !manual) return;           // quiesced until the record grows
+      const srcs = topicSources();
+      if (!srcs.length) return;
+      let anyFresh = false, allSettled = true;
+      for (const src of srcs) {
+        const entry = deepReaderFor(src);
+        if (!entry) continue;
+        const n = (entry.doc.sentences || entry.doc.units || []).length; if (!n) continue;
+        let res; try { res = entry.reader.arrive({ anchor: entry.anchor }); } catch { continue; }
+        const fresh = (res && res.reflections) || [];
+        if (fresh.length) {
+          anyFresh = true;
+          for (const r of fresh) {
+            state.reflections.push({
+              id: `R${state.reflections.length + 1}`, t: nowIso(),
+              docId: src.docId, sn: src.sn, title: src.title,
+              peak: r.peak, note: cleanLabels(r.body, entry.base), verdict: r.verdict || '',
+              surprise: r.surprise, canWitness: r.canWitness,   // false — the firewall, surfaced
+            });
+          }
+          if (state.reflections.length > 200) state.reflections.splice(0, state.reflections.length - 200);
+          entry.anchor = Math.min(n - 1, fresh[fresh.length - 1].peak + 1);
+        } else {
+          entry.anchor += 8;
+        }
+        if (entry.anchor < n - 1 || fresh.length) allSettled = false;
+      }
+      deepSettled = allSettled && !anyFresh;
+      if (anyFresh) {
+        logIt('reflection', `Reflected at rest — ${state.reflections.length} note${state.reflections.length === 1 ? '' : 's'} so far`);
+        persist(); emit('reflections');
+      }
+    } finally { deepRunning = false; }
+  };
+
+  // The idle governor: a light interval that fires a deep pass only when NOT engaged — no turn
+  // generating, and the user quiet for a beat. A keystroke or tap resets the clock, so deep
+  // reading never competes with an active reader; it fills the lulls. Browser only (no timers,
+  // no window in tests — the whole loop is inert under node).
+  const markActivity = () => { lastActivity = Date.now(); };
+  const deepIdleStart = () => {
+    if (deepTimer || typeof window === 'undefined') return;
+    lastActivity = Date.now();
+    const bump = () => markActivity();
+    try {
+      window.addEventListener('keydown', bump, { passive: true });
+      window.addEventListener('pointerdown', bump, { passive: true });
+    } catch { /* no window events — the governor still ticks on time alone */ }
+    const IDLE_MS = 12000;
+    deepTimer = setInterval(() => {
+      try {
+        if (state.busy) return;                             // engaged
+        if (deepSettled) return;                            // quiesced until the record grows
+        if (Date.now() - lastActivity < IDLE_MS) return;    // the user is active
+        if (!topicSources().length) return;                 // nothing recorded yet
+        deepTick(false);
+      } catch { /* a bad pass never breaks the governor */ }
+    }, 4000);
+  };
+
+  const reflections = () => state.reflections.slice();
+
   restore();
 
   return Object.freeze({
@@ -789,10 +1163,14 @@ export const createReaderApp = ({ audit } = {}) => {
     // topics
     topicNew, setTopic, topicRename, topicDelete, topic,
     // ingest
-    ingestUrl, ingestText, ingestFile, search, recordHit, fetchPage,
+    ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage,
     sourceBySn, removeSource, topicSources,
     // chat
     ask, stop, exportChat,
+    // deep reading — the inner monologue at rest (reflections stream into state.reflections)
+    deepTick, reflections,
+    // web-search mode (off | confirm | auto)
+    webMode, setWebMode,
     // model
     ensureModel, setBackend, backendPref,
     // projections for the surface

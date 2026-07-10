@@ -50,16 +50,25 @@ export const liftFitness = ({ withSurfer = 0, bare = 0, resource = 0, ceiling = 
 };
 
 // ── The transfer falsifier ───────────────────────────────────────────────────
+// TRANSFER_FLOOR — the boundary of a CREDITABLE transferable gain: a lift must clear it on BOTH
+// frozen models to count as real rather than prompt-overfit. It is also the conservative PRIOR
+// for any un-evidenced transferable quantity: before measurement, a gain is worth only what just
+// barely transfers — the floor itself. So the Void-respect born prior sits HERE (fitness.js reads
+// it): a held thread is worth, a priori, the worst-case transferable minimum, and nothing beyond
+// it until the measured kept lift (the min across two frozen models) proves the transfer. This is
+// the one remaining prior, named and tied to its meaning — not a free parameter someone dialed.
+export const TRANSFER_FLOOR = 0;
+
 // transfers(liftA, liftB) — did the gain survive the leaf swap? Both frozen models must be
 // lifted above the floor. keptFitness — what you actually keep: the weaker lift, so a gain
 // on one model that fails on the other is capped at the failing one (≈ 0 for a prompt hack).
-export const transfers = (liftA, liftB, { floor = 0 } = {}) => liftA > floor && liftB > floor;
+export const transfers = (liftA, liftB, { floor = TRANSFER_FLOOR } = {}) => liftA > floor && liftB > floor;
 export const keptFitness = (liftA, liftB) => round(Math.min(liftA, liftB));
 
 // transferReading({ modelA, modelB, floor }) — the full verdict for a survivor run on two
 // held-out frozen models. Each of `modelA`/`modelB` is a { withSurfer, bare, resource, ceiling? }.
 // `overfit` surfaces how much of A's apparent gain failed to transfer — the prompt tax, visible.
-export const transferReading = ({ modelA = {}, modelB = {}, floor = 0 } = {}) => {
+export const transferReading = ({ modelA = {}, modelB = {}, floor = TRANSFER_FLOOR } = {}) => {
   const a = liftFitness(modelA), b = liftFitness(modelB);
   return Object.freeze({
     liftA: a, liftB: b,
