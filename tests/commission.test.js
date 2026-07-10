@@ -11,9 +11,13 @@ import {
   arcOf, surfaceOf, PHASE_OPS,
   targetStyleVector, chooseInspiration, rankCandidates, nameAnchor, qualityPrior, scoreByStructure,
   huntQueries, libraryKindsFor, huntCandidates, fetchExemplar, STYLE_ROLE,
+  shapeOptions, styleGuidance, draftPlan, describePlan,
+  openCommission, confirmCommission, advanceCommission, nextResponseOptions,
+  serializeCommission, resumeCommission,
 } from '../src/weave/commission/index.js';
 import { MOVE_ALPHABET } from '../src/perceiver/predict/index.js';
-import { gutenbergBookUrl } from '../src/organs/ingest/gutenberg.js';
+import { predictDirection } from '../src/weave/longgen/index.js';
+import { gutenbergBookUrl, gutenbergTextUrl } from '../src/organs/ingest/gutenberg.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fixture = readFileSync(path.join(ROOT, 'data/metamorphosis.txt'), 'utf8');
@@ -233,4 +237,120 @@ test('hunt: fetchExemplar admits a whole Gutenberg book, role-tagged', async () 
   // and its EOT structure can be read straight off the admitted doc
   const t = extractStyleTemplate(got.doc, { name: 'Montaigne', source: 'gutenberg' });
   assert.equal(t.grammar.alphabet.length, MOVE_ALPHABET.length);
+});
+
+// ── shape.js — the exemplar grammar bends the move draw ──────────────────────
+
+test('shape: shapeOptions carries the grammar and leans on it', () => {
+  const t = extractStyleTemplate(parseText(fixture, { docId: 'shp' }), { name: 'Kafka' });
+  const opts = shapeOptions(t, {});
+  assert.equal(opts.grammar, t.grammar);
+  assert.ok(opts.weights.grammar > 1, 'the borrowed form is felt');
+  assert.equal(opts.arc, true);
+  assert.equal(shapeOptions(null, { a: 1 }).a, 1);      // no template → passthrough
+});
+
+test('shape: styleGuidance names the exemplar and its voice', () => {
+  const chatty = parseText('I wonder, and I wander. I ask, do you see? I feel it, I do. '
+    + 'I turn it over, I. We wonder. I muse; I digress (often).', { docId: 'g1' });
+  const t = extractStyleTemplate(chatty, { name: 'Montaigne' });
+  const g = styleGuidance(t, { deliverable: 'essay' });
+  assert.match(g, /manner of Montaigne/);
+  assert.match(g, /essay/);
+});
+
+test('shape: an exemplar grammar actually changes the predicted direction', () => {
+  const units = [{ move: 'DEF', boundFraction: 1 }, { move: 'CON', boundFraction: 1 }];
+  const forced = { alphabet: MOVE_ALPHABET, marginal: Object.fromEntries(MOVE_ALPHABET.map((o) => [o, 0.1])),
+    trans: { CON: Object.fromEntries(MOVE_ALPHABET.map((o) => [o, o === 'SYN' ? 0.9 : 0.0111])) } };
+  const withGrammar = predictDirection(units, { grammar: forced });
+  const without = predictDirection(units, {});
+  const p = (post, op) => (post.find(([o]) => o === op) || [, 0])[1];
+  assert.ok(p(withGrammar.posterior, 'SYN') > p(without.posterior, 'SYN'),
+    'the exemplar transition CON→SYN lifts SYN in the draw');
+});
+
+// ── plan.js — the drafted multi-response plan ────────────────────────────────
+
+test('plan: a longform essay is planned across responses, arced', () => {
+  const brief = readCommission('write me an essay in the style of Montaigne');
+  const t = extractStyleTemplate(parseText(fixture, { docId: 'pl' }), { name: 'Montaigne', source: 'gutenberg' });
+  const plan = draftPlan(brief, t);
+  assert.equal(plan.kind, 'commission-plan');
+  assert.ok(plan.sections.length >= 3);
+  assert.ok(plan.responses >= 2 && plan.responses <= 3, 'a longform piece spans multiple responses');
+  const mapped = plan.map.flat().sort((a, b) => a - b);
+  assert.deepEqual(mapped, plan.sections.map((s) => s.id), 'every section lands in some response');
+  assert.equal(plan.arc[0], 'open');
+  assert.equal(plan.arc[plan.arc.length - 1], 'close');
+  assert.match(describePlan(plan), /Montaigne/);
+});
+
+test('plan: an unread inspiration is marked pending', () => {
+  const plan = draftPlan(readCommission('write me an essay on time'), null);
+  assert.equal(plan.inspirationPending, true);
+  assert.match(describePlan(plan), /Inspiration still to be chosen/);
+});
+
+// ── commission.js — the whole arc, run offline ───────────────────────────────
+
+const MONTAIGNE_BOOK = 'Title: Essays\nAuthor: Michel de Montaigne\n\n'
+  + '*** START OF THE PROJECT GUTENBERG EBOOK ESSAYS ***\n'
+  + 'Of the education of children. I have never seen a greater monster than myself. '
+  + 'We are all patchwork, and so shapeless and diverse a contexture. The soul discharges '
+  + 'her passions upon false objects where the true are wanting. I speak truth, not so much '
+  + 'as I would, but as much as I dare. Every man carries the entire form of the human condition. '
+  + '*** END OF THE PROJECT GUTENBERG EBOOK ESSAYS ***';
+
+const fakeMontaigneSearch = async (q, kind) => (kind === 'gutenberg'
+  ? [{ title: 'Essays — Michel de Montaigne', text: 'the complete essays', source: 'gutenberg', url: gutenbergBookUrl(3600), gutenbergId: 3600 }]
+  : []);
+const fakeClient = { fetchUrl: async (u) => ({ text: u === gutenbergTextUrl(3600) ? MONTAIGNE_BOOK : '', ok: true, status: 200 }) };
+
+test('commission: open reads the ask, hunts Gutenberg, reads the work, drafts the plan', async () => {
+  const c = await openCommission('write me an essay in the style of Montaigne', {
+    client: fakeClient, search: fakeMontaigneSearch, policy: 'auto',
+  });
+  assert.ok(c, 'a commission opened');
+  assert.equal(c.brief.exemplar.name, 'Montaigne');
+  assert.equal(c.exemplars.length, 1);
+  assert.equal(c.exemplars[0].role, STYLE_ROLE);
+  assert.equal(c.exemplars[0].source, 'gutenberg');
+  assert.ok(c.template, 'the EOT structure was taken');
+  assert.equal(c.template.grammar.alphabet.length, MOVE_ALPHABET.length);
+  assert.match(c.shape.guidance, /manner of Montaigne/);
+  assert.ok(c.plan.sections.length >= 3);
+  assert.equal(c.committed, true);
+});
+
+test('commission: not a commission → null', async () => {
+  assert.equal(await openCommission('what is the capital of France?', { client: fakeClient }), null);
+});
+
+test('commission: propose policy waits, confirm commits', async () => {
+  const c = await openCommission('write me an essay in the style of Montaigne', {
+    client: fakeClient, search: fakeMontaigneSearch, policy: 'propose',
+  });
+  assert.equal(c.committed, false);
+  assert.equal(confirmCommission(c).committed, true);
+});
+
+test('commission: serialize/resume preserves the form across a reload', async () => {
+  const c = await openCommission('write me an essay in the style of Montaigne', {
+    client: fakeClient, search: fakeMontaigneSearch, policy: 'auto',
+  });
+  const round = resumeCommission(JSON.parse(JSON.stringify(serializeCommission(c))));
+  assert.equal(round.template.grammar.marginal.EVA, c.template.grammar.marginal.EVA);
+  assert.match(round.shape.guidance, /Montaigne/);
+  // and the shaped options still carry the grammar for the next response
+  const { options } = nextResponseOptions(round);
+  assert.equal(options.grammar.alphabet.length, MOVE_ALPHABET.length);
+});
+
+test('commission: advances across responses', async () => {
+  const c = await openCommission('write me an essay in the style of Montaigne', {
+    client: fakeClient, search: fakeMontaigneSearch, policy: 'auto',
+  });
+  const next = advanceCommission(c, { units: [{ move: 'DEF' }] });
+  assert.equal(next.state.responsesDone, 1);
 });

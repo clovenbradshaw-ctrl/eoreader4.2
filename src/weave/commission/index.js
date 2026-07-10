@@ -9,9 +9,9 @@
 //   template.js   an exemplar reading → the EOT StyleTemplate (grammar·arc·voice)  (the STRUCTURE)
 //   inspire.js    navigate structure-space to decide what would be a good model    (the CHOICE)
 //   hunt.js       fetch the chosen exemplar(s) from the libraries, role-tagged      (the READING)
-//   shape.js      thread the template into the generation loop                      (the SHAPING)  [later]
-//   plan.js       draft the multi-response spine, arced to the exemplar             (the PLAN)     [later]
-//   commission.js the orchestrator, resumable across responses                      (the CLOSURE)  [later]
+//   shape.js      thread the template into the generation loop                      (the SHAPING)
+//   plan.js       draft the multi-response spine, arced to the exemplar             (the PLAN)
+//   commission.js the orchestrator, resumable across responses                      (the CLOSURE)
 
 export {
   readCommission, describeBrief,
@@ -30,3 +30,16 @@ export {
 export {
   huntCandidates, fetchExemplar, huntQueries, libraryKindsFor, STYLE_ROLE,
 } from './hunt.js';
+
+export {
+  shapeOptions, styleGuidance, arcBiasAt, shapeTrace,
+} from './shape.js';
+
+export {
+  draftPlan, describePlan,
+} from './plan.js';
+
+export {
+  openCommission, confirmCommission, advanceCommission, nextResponseOptions,
+  currentSection, serializeCommission, resumeCommission, excerptForTemplate,
+} from './commission.js';
