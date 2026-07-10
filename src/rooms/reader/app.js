@@ -27,6 +27,8 @@ import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
 import { readIngest } from '../../organs/ingest/read.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
+import { outstandingQuestion, answersAwaited } from '../../core/conversation-fold.js';
+import { senseGate } from '../../turn/sense.js';
 import { createMonitor } from '../../enactor/monitor.js';
 import { createCommitmentLedger } from '../../enactor/ledger.js';
 import { figureSurface } from '../../perceiver/index.js';
@@ -798,6 +800,40 @@ export const createReaderApp = ({ audit } = {}) => {
       return pending;
     }
 
+    // ── rung 8: subject-sense disambiguation (docs/response-demand.md, Stage 1) ──────────────────
+    // Before grounding/searching, check the recorded corpus for a sense collision on the question's
+    // subject. If it is ambiguous and nothing resolves it, ASK a choice question and stop — the fold
+    // reads the reply next turn. If THIS turn is that reply, resolve the chosen sense back into the
+    // original ask and answer that (so "the cetacean one" becomes "…essay on dolphins cetacean",
+    // not a bare fragment). Model-free and fail-soft: a fault here must never cost the turn.
+    let effectiveQ = q;
+    try {
+      const settled = t.messages.filter((mm) => !mm.pending && mm.text);
+      // the current user turn (q) is already appended; the fold before this turn drops it, so the
+      // "outstanding" question is the assistant's clarify, not read past by the new message.
+      const awaiting = outstandingQuestion(settled.slice(0, -1));
+      const prior = awaiting ? answersAwaited({ awaiting }, q) : null;
+      if (prior && prior.answered) {
+        let original = '';
+        for (let i = settled.length - 1; i >= 0 && !original; i--) {
+          if (settled[i].role === 'assistant') {
+            for (let j = i - 1; j >= 0; j--) if (settled[j].role === 'user') { original = String(settled[j].text || ''); break; }
+          }
+        }
+        const scope = (prior.choice && prior.choice.length ? prior.choice : (prior.polarity ? [prior.polarity] : [])).join(' ');
+        if (original) effectiveQ = scope ? `${original} ${scope}` : original;
+      } else {
+        const gate = senseGate(q, docs);
+        if (gate && gate.resolution === 'ask') {
+          pending.text = gate.ask.question;
+          pending.route = 'clarify';
+          pending.pending = false;
+          persist(); emit('messages');
+          return pending;
+        }
+      }
+    } catch (_) { /* disambiguation is best-effort; fall through to the normal turn */ }
+
     warmMinilm();
     abort = new AbortController();
     stallGuard = makeStallGuard();
@@ -809,9 +845,9 @@ export const createReaderApp = ({ audit } = {}) => {
         .map((x) => ({ role: x.role, content: x.text, ...(x.unbound ? { unbound: true } : {}) }));
       // A long-form ask ("write me an essay …") gets a large budget so the answer can develop
       // past the pointed-answer cap; a normal ask keeps the per-task budget the pipeline picks.
-      const longform = wantsLongform(q);
+      const longform = wantsLongform(effectiveQ);
       const args = {
-        question: q, docs, model: m,
+        question: effectiveQ, docs, model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
         auditLog: audit, history,

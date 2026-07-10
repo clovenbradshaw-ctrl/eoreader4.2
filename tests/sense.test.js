@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { senseCollision, senseBasins, discriminatingAnchor, SENSE_FLOOR } from '../src/turn/sense.js';
+import { senseCollision, senseBasins, discriminatingAnchor, senseGate, SENSE_FLOOR } from '../src/turn/sense.js';
 import { projectFold, clearFoldMemo, answersAwaited } from '../src/core/conversation-fold.js';
 
 // Stage 1 of the disambiguated-query pipeline (docs/response-demand.md): before a query is
@@ -86,6 +86,29 @@ test('discriminatingAnchor prefers a neighbor present only in the target basin',
   const target = { id: 't', neighbors: ['cetacean', 'ocean'] };
   const other = { id: 'o', neighbors: ['nfl', 'ocean'] };
   assert.equal(discriminatingAnchor(target, [other]), 'cetacean');   // ocean is shared, cetacean is not
+});
+
+test('senseGate finds the colliding subject inside a whole question (no subject extractor)', () => {
+  const ask = senseGate('write me an essay on dolphins', [], { entities: dolphins });
+  assert.equal(ask.resolution, 'ask');
+  assert.ok(/Miami Dolphins/.test(ask.ask.question));
+  // a question whose only recorded subject has one sense → shortcut, no ask
+  const clear = senseGate('explain photosynthesis to me', [], { entities: dolphins });
+  assert.equal(clear.resolution, 'shortcut');
+  // a concrete hint in play steers instead of asking
+  const steer = senseGate('essay on dolphins', [], { entities: dolphins, hints: ['nfl'] });
+  assert.equal(steer.resolution, 'steer');
+  assert.equal(steer.target.label, 'Miami Dolphins');
+});
+
+test('the fold reads role:"assistant" (the live app convention), not only "asst"', () => {
+  clearFoldMemo();
+  const f = projectFold([
+    { role: 'user', text: 'write me an essay on dolphins' },
+    { role: 'assistant', text: 'Which dolphins do you mean — Miami Dolphins (nfl) or Dolphin (cetacean)?' },
+  ]);
+  assert.equal(f.awaiting.kind, 'choice');
+  assert.equal(answersAwaited(f, 'miami').demand, 'continuation');
 });
 
 test('Stage 1 → fold: the ask question feeds answersAwaited, and a choice reply resolves cheaply', () => {

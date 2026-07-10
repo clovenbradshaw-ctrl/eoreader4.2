@@ -145,7 +145,7 @@ function turnsOf(events) {
   for (const m of events || []) {
     if (!m || m.pending) continue;
     if (m.role === 'user') { lastUser = String(m.text || ''); lastUserFrame = m.frame || null; continue; }
-    if (m.role === 'asst' && m.stance) {
+    if ((m.role === 'asst' || m.role === 'assistant') && m.stance) {
       out.push({
         stance: m.stance,
         user: lastUser,
@@ -261,7 +261,7 @@ const lastSentenceOf = (text) => {
 const lastAsstText = (events) => {
   const settled = (events || []).filter((m) => m && !m.pending && m.text != null);
   for (let i = settled.length - 1; i >= 0; i--) {
-    if (settled[i].role === 'asst') return String(settled[i].text || '');
+    if (settled[i].role === 'asst' || settled[i].role === 'assistant') return String(settled[i].text || '');
     if (settled[i].role === 'user') return '';
   }
   return '';

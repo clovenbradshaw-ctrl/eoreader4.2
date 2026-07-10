@@ -164,3 +164,28 @@ export const senseEntities = (docs = []) => {
   }
   return out;
 };
+
+// senseGate(question, docs, { hints }) → the Stage-1 verdict for a whole QUESTION: run the gate over
+// each of its content terms and return the strongest collision. No subject extractor needed — a term
+// only produces a collision if it names ≥ 2 recorded senses. Returns the ASK with the most senses if
+// any term is ambiguous; else the first STEER a hint resolved; else a shortcut (nothing collides).
+// Pure and model-free; the caller wraps it fail-soft. `docs` are the topic's documents.
+export const senseGate = (question, docs = [], { hints = [], entities: injected = null } = {}) => {
+  const shortcut = { subject: '', resolution: 'shortcut', ambiguous: false, basins: [], target: null, anchor: '', ask: null };
+  let entities = injected;
+  if (!entities) { try { entities = senseEntities(docs); } catch (_) { return shortcut; } }
+  if (!entities.length) return shortcut;
+  // original (unstemmed) tokens so the ask reads "Which dolphins"; senseCollision stems for matching.
+  const terms = [...new Set(tok(String(question || '')))].filter((t) => t.length > 2);
+  let bestAsk = null, bestStrength = 0, steer = null;
+  for (const t of terms) {
+    const r = senseCollision(t, entities, { hints });
+    if (r.resolution === 'ask') {
+      const strength = r.basins.filter((b) => b.weight >= SENSE_FLOOR).length;   // more real senses = a stronger collision
+      if (strength > bestStrength) { bestStrength = strength; bestAsk = r; }
+    } else if (r.resolution === 'steer' && !steer) {
+      steer = r;
+    }
+  }
+  return bestAsk || steer || shortcut;
+};

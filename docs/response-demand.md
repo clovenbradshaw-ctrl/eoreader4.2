@@ -335,7 +335,8 @@ so `"Good morning"` at an open book gets a hello instead of a grounded non-answe
 | **5** | The question-copy: `fold.awaiting` (`outstandingQuestion`) + `answersAwaited` grade a reply to a fork (polar/choice) as a reafferent continuation, else attention. Model-free, `tests/fold-awaiting.test.js`. | no | **done** |
 | **6** | The producer: wire `helixGenerate`/`renderContinuation` as the prediction-driven first-draft for reflex/continuation turns, so the cheap path never wakes (or stalls) the big model. | no (draft) | pending |
 | **7** | Stage 1 — the subject-sense-collision gate: `senseCollision` over the recorded graph, three exits (shortcut/steer/ask), the ask feeding `fold.awaiting`. Model-free, `tests/sense.test.js`. | no | **done** |
-| **8** | Wire Stage 1 into the live turn before `formulateSearchQuery`: pass the anchor on steer/shortcut, pose the choice question on ask; then Stages 4–5 (typed query validation + result-basin escalation). | no | pending |
+| **8** | Wire Stage 1 into the live turn (`app.js` `ask`): on ambiguity pose the choice question and stop; when the reply answers it, fold the chosen sense back into the original ask (`effectiveQ`). Model-free, fail-soft. | no | **done** |
+| **9** | Thread the steer `anchor` into `formulateSearchQuery`/grounding, then Stages 4–5 (typed query validation + result-basin escalation with bounded retry). | no | pending |
 
 Rungs 1–3 are landed here — the bug you named (a doc-loaded greeting) is fixed with **no
 model** and no new physics, and the measured `phatic` direction is ready for the read to be
