@@ -37,3 +37,4 @@ export { eotOfModule, lowerCorpus, codeDoc, parseSign, declSign, scopeSign, useS
 export { dependencyOrder, moduleGraphOf, tarjanSCC, helixRank, HELIX } from './helix.js';
 export { findIssues, issuesToEot, reportText, DEFAULT_GLOBALS, SEVERITIES } from './issues.js';
 export { mergeIssues, FIXABLE_LAWS } from './fix.js';
+export { composeProgram, composeAndVerify } from './compose.js';

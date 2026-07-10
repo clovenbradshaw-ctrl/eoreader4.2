@@ -846,6 +846,7 @@ export const extractFacts = (src, { path = null } = {}) => {
     if (KEYWORDS.has(name)) continue;
     const before = prevSig(code, o);
     if (before.ch === '.' && !(code[before.at - 1] === '.' && code[before.at - 2] === '.')) continue;   // property position (`...spread` stays a reference)
+    if (code[o - 1] === '#') continue;                                 // #private member — `this.#x` / `#x` decl, never a free name
     const beforeTok = prevToken(code, o);
     if (beforeTok.word === 'break' || beforeTok.word === 'continue') continue;   // labels
     if (beforeTok.word === 'get' || beforeTok.word === 'set') {

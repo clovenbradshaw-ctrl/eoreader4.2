@@ -166,6 +166,55 @@ re-read comes back clean of every mended law, and the merged file passes
 narrowing `Exception`, choosing `gather` over serial awaits — semantic calls,
 flagged and left to the human.
 
+## The generative direction — NL → EOT → code that works
+
+The reading direction is code → EOT → issues. `compose.js` is its inverse at the
+**structural** grain: a program **blueprint** written in the same EOT the engine
+speaks → a real ES module, emitted in dependency order, then **read back by the
+organ and gated before anyone runs it**. The generator cannot emit code that
+breaks the dependency laws without its own reader (the fold) flagging it — the
+`!EVA` checkpoint of `eo-for-coders.md`, run backwards. perceive → surf → enact,
+closed on itself.
+
+**The boundary, stated honestly.** EOT carries a program's *structure* — which
+functions and constants exist, their signatures, the call graph, the emit order,
+the steps a body folds through, what is exported. It does **not** carry the leaf
+expressions; those are the irreducible content the natural-language spec provides
+(a model's job — structured translation is what LLMs are good at). The composer
+*places, wires, orders, and validates* the leaves; it does not invent them. This
+is the EO-for-coders thesis at code grain: compose contracted structure in
+dependency order; don't fabricate the leaves.
+
+```
+natural language
+  │  a model fills the blueprint form (blueprintPrompt / composeFromModel — the seam)
+  ▼
+EOT blueprint          add : Function · add.expr = "a + b" · !sig add : exported …
+  │  composeProgram — emit order INFERRED from the leaf code (the reader's own scrubber)
+  ▼
+ES module              const add = …; export const … — dependencies first
+  │  composeAndVerify — readCodebase over the OUTPUT (the checkpoint)
+  ▼
+{ ok, findings }       ok ⟺ no error-grade finding — else it is not run
+  │  import() + call
+  ▼
+correct output         proven by execution, not asserted
+```
+
+The loop runs for real in `tests/code-compose.test.js`: factorial (self-recursion),
+fizzbuzz (a helper emitted before its caller — order inferred), sum-of-even-squares
+(a dataflow body whose `const` steps order by reference), a load-time greeting (a
+module const whose function is ordered ahead of it), mutually-recursive even/odd
+(Tarjan keeps the pair), and average = sum/count. Each is **emitted, gated by the
+organ, imported, and called** — the assertion is the runtime answer. A blueprint
+that calls an undefined helper is **rejected by the organ before it runs** (the
+checkpoint), and the emitted call graph, read back through the analyzer, matches
+the blueprint's intent (the structure survives NL → EOT → code → read-back).
+
+The one arrow that needs a model — NL → blueprint — is a named seam
+(`blueprintPrompt`, `composeFromModel`), versioned with the grammar it teaches, so
+any `model/` backend plugs in; everything downstream is deterministic and tested.
+
 ## Run it
 
 ```js
