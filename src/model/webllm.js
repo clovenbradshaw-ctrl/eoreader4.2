@@ -47,6 +47,11 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   const pinned = opts.model || defaults.model || null;
   let engine  = null;
   let loading = null;
+  // The MLC artifact this backend actually loaded. A pin is known up front; the adaptive
+  // pick (pickModel) is only decided inside load(), so it is captured there. Held for
+  // PROVENANCE (describe below) — the audit/export must be able to name the exact build,
+  // not just "webllm", since the artifact (1B/3B, f16/f32, or a coder variant) is the model.
+  let resolved = pinned || null;
 
   // A user can pin an explicit MLC artifact through localStorage (eo_webllm_model) to
   // override every heuristic below — an escape hatch for testing a bigger/smaller build
@@ -118,12 +123,17 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   return {
     id,
     kind: 'local',
+    // PROVENANCE (model/interface.js describeModel): the exact MLC build in play — the pin, or the
+    // adaptive pick once load() has run (before load, the pin or a plain "(adaptive)" placeholder).
+    // In-browser and local, so the chat export can say the answer never left the machine.
+    describe: () => ({ backend: id, kind: 'local', model: resolved || '(adaptive — resolved at load)', label: 'web-llm · WebGPU, in-browser' }),
     isLoaded: () => !!engine,
     async load(onProgress) {
       if (engine)  return;
       if (loading) return loading;
       loading = (async () => {
         const model = pinned || await pickModel();
+        resolved = model;   // remember the exact artifact for provenance (describe)
         const mod = await import(/* @vite-ignore */ WEBLLM_URL);
         engine = await mod.CreateMLCEngine(model, {
           initProgressCallback: (p) =>

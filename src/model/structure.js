@@ -23,6 +23,9 @@ registerBackend('structure', () => {
   return {
     id: 'structure',
     kind: 'local',
+    // PROVENANCE (describeModel): nothing distributional anywhere — the reply is realised from the
+    // engine's own concept graph. The export should say so: this is a structural retelling, not a model.
+    describe: () => ({ backend: 'structure', kind: 'local', model: 'structural retelling (no LLM)', label: 'structure · graph traversal' }),
     isLoaded: () => true,
     async load(onProgress) { onProgress?.({ phase: 'ready', pct: 1 }); },
     async phrase(messages, opts = {}) {

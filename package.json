@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "description": "EO Reader — holonic document-chat over an append-only event log, nested by faculty on the EO cube",
+  "homepage": "https://clovenbradshaw-ctrl.github.io/eoreader4.2/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clovenbradshaw-ctrl/eoreader4.2"
+  },
   "scripts": {
     "test": "node --test tests/*.test.js",
     "serve": "python3 -m http.server 8000"

@@ -49,6 +49,17 @@ const DEFAULT_MODEL_URL =
 
 const ARRAYBUFFER_MAX = 2 ** 31 - 1;   // 2,147,483,647 — the per-file ceiling
 
+// A readable model name from a GGUF URL — the file's own basename (…/smollm2-135m-instruct-q8_0.gguf
+// → "smollm2-135m-instruct-q8_0.gguf"). For PROVENANCE (describe): a weights URL is the model's
+// identity here, but the whole URL is noise in an export, so the audit names the file. Exported for
+// the coder backends (model/coders.js) that share this load path. Fail-soft: any fault ⇒ the raw URL.
+export const wllamaModelName = (url) => {
+  try {
+    const clean = String(url || '').split(/[?#]/)[0];
+    return decodeURIComponent(clean.split('/').filter(Boolean).pop() || '') || String(url || '');
+  } catch { return String(url || ''); }
+};
+
 // Recover an honest error from an opaque one. An oversized model surfaces only as
 // "network error"; on any load failure we make a best-effort HEAD to read the
 // real size and, if that is the cause, name it. Best-effort: if the HEAD itself
@@ -101,6 +112,9 @@ registerBackend('wllama', (opts = {}) => {
   return {
     id: 'wllama',
     kind: 'local',
+    // PROVENANCE (model/interface.js describeModel): the GGUF this backend runs, named by its file
+    // (wllamaModelName). CPU/WASM and in-browser — the export can state the answer stayed local.
+    describe: () => ({ backend: 'wllama', kind: 'local', model: wllamaModelName(modelUrl), label: 'wllama · CPU/WASM, in-browser' }),
     isLoaded: () => !!inst,
     async load(onProgress) {
       if (inst)    return;
