@@ -6,6 +6,8 @@ import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
   'src/weave/commission/brief.js': contract({ ops: ['DEF', 'SEG'], targets: ['Field'], products: ['Lens'], stances: ['Dissecting', 'Binding'], note: 'read the ask into a brief' }),
+  'src/weave/commission/hunt.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Field'], stances: ['Binding', 'Making'], note: 'hunt the exemplar on the open internet' }),
   'src/weave/commission/index.js': contract({ ops: ['SYN', 'INS', 'EVA'], targets: ['Field', 'Network', 'Atmosphere'], products: ['Network', 'Paradigm', 'Lens'], stances: ['Composing', 'Making', 'Tracing'], note: 'barrel' }),
+  'src/weave/commission/inspire.js': contract({ ops: ['EVA', 'CON'], targets: ['Network', 'Paradigm'], products: ['Lens'], stances: ['Tracing', 'Binding'], note: 'decide what would be a good inspiration' }),
   'src/weave/commission/template.js': contract({ ops: ['REC', 'SYN'], targets: ['Field', 'Network'], products: ['Paradigm'], stances: ['Composing', 'Making'], note: 'the EOT structure template' }),
 });

@@ -7,8 +7,8 @@
 // One entrance. Sub-modules:
 //   brief.js      read the ask → { deliverable, exemplar, topic, register }        (DIFFERENTIATE)
 //   template.js   an exemplar reading → the EOT StyleTemplate (grammar·arc·voice)  (the STRUCTURE)
-//   inspire.js    navigate structure-space to decide what would be a good model    (the CHOICE)   [later]
-//   hunt.js       fetch the chosen exemplar(s) from the libraries, role-tagged      (the READING)  [later]
+//   inspire.js    navigate structure-space to decide what would be a good model    (the CHOICE)
+//   hunt.js       fetch the chosen exemplar(s) from the libraries, role-tagged      (the READING)
 //   shape.js      thread the template into the generation loop                      (the SHAPING)  [later]
 //   plan.js       draft the multi-response spine, arced to the exemplar             (the PLAN)     [later]
 //   commission.js the orchestrator, resumable across responses                      (the CLOSURE)  [later]
@@ -18,6 +18,15 @@ export {
 } from './brief.js';
 
 export {
-  extractStyleTemplate, styleVectorOf, styleDistance, describeTemplate, blendTemplates,
-  surfaceOf, arcOf, fingerprintOf, PHASE_OPS, STYLE_DIMS,
+  extractStyleTemplate, styleVectorOf, styleVectorFrom, styleDistance, describeTemplate,
+  blendTemplates, surfaceOf, arcOf, fingerprintOf, PHASE_OPS, STYLE_DIMS,
 } from './template.js';
+
+export {
+  targetStyleVector, chooseInspiration, rankCandidates, scoreCandidate, scoreByStructure,
+  nameAnchor, formFit, qualityPrior, topicResonance, DELIVERABLE_TARGETS,
+} from './inspire.js';
+
+export {
+  huntCandidates, fetchExemplar, huntQueries, libraryKindsFor, STYLE_ROLE,
+} from './hunt.js';

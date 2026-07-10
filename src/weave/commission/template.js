@@ -191,19 +191,22 @@ export const STYLE_DIMS = Object.freeze([
   'surf.digressionRate', 'surf.longSentenceRate', 'surf.lexicalDiversity', 'surf.subordination',
 ]);
 
-export const styleVectorOf = (template) => {
-  const f = template.fingerprint || {};
-  const s = template.surface || {};
+// The one place the vector layout lives — a fingerprint (move mix) and a surface (voice) folded
+// into the ordered STYLE_DIMS and L2-normalised. Both a real template and a target SHAPE (the
+// inspiration selector's "what a good X looks like") build their point in structure-space here.
+export const styleVectorFrom = (fingerprint = {}, surface = {}) => {
   const raw = [
-    ...MOVE_ALPHABET.map((o) => f[o] || 0),
-    Math.min(1, (s.meanWords || 0) / 40),          // squashed to ~[0,1] so length doesn't dominate
-    s.quotationRate || 0, s.firstPersonRate || 0, s.questionRate || 0,
-    s.digressionRate || 0, s.longSentenceRate || 0, s.lexicalDiversity || 0,
-    Math.min(1, (s.meanChars || 0) / 220),
+    ...MOVE_ALPHABET.map((o) => fingerprint[o] || 0),
+    Math.min(1, (surface.meanWords || 0) / 40),     // squashed to ~[0,1] so length doesn't dominate
+    surface.quotationRate || 0, surface.firstPersonRate || 0, surface.questionRate || 0,
+    surface.digressionRate || 0, surface.longSentenceRate || 0, surface.lexicalDiversity || 0,
+    Math.min(1, (surface.meanChars || 0) / 220),
   ];
   const norm = Math.hypot(...raw) || 1;
   return Object.freeze(raw.map((x) => round(x / norm, 5)));
 };
+
+export const styleVectorOf = (template) => styleVectorFrom(template.fingerprint || {}, template.surface || {});
 
 export const styleDistance = (a, b) => {
   const va = Array.isArray(a) ? a : styleVectorOf(a);
