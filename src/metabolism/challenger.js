@@ -34,10 +34,13 @@ const CHALLENGE_SYSTEM = [
 ].join('\n');
 
 const SATISFACTION_SYSTEM = [
-  'You are the USER who asked the question, judging whether the assistant\'s ANSWER actually SATISFIED you.',
-  'Score SATISFACTION, not mere grounding. A fluent answer that dodges your need is unsatisfying; a blunt answer that resolves it is satisfying; a correct "the source does not say" when it genuinely does not is satisfying, not a dodge.',
-  'Judge: did it resolve my intent, is it usable and honest, would I trust it again. Be demanding but fair.',
-  'Return ONLY compact JSON: {"satisfied": 0.0-1.0, "resolved": true|false, "critique": "one sentence — what would have satisfied me more"}',
+  'You are the USER who asked the question. You are judging how well the assistant turned the SOURCES it retrieved into GROUNDED, FLOWING output — NOT whether those sources are true about the world.',
+  'CRITICAL: do NOT fact-check against your own knowledge. You are not the oracle of reality here. If the retrieved sources are wrong or thin, that is not the assistant\'s fault to answer for. Judge ONLY what the assistant DID with what it found:',
+  '  grounded  — is every claim in the answer supported by the provided SOURCES (not invented, not smuggled in from outside knowledge)? A confident claim the sources do not support is UNGROUNDED, however true it sounds.',
+  '  flowing   — is the output readable, coherent prose (or a clean instance of whatever format was asked for), not a heap of disconnected fragments or quotes?',
+  '  resolved  — does it actually address the question, and honestly say where the sources fall short (a faithful "the sources do not cover X" is a WIN, not a dodge)?',
+  'Return ONLY compact JSON: {"grounded": 0.0-1.0, "flowing": 0.0-1.0, "satisfied": 0.0-1.0, "resolved": true|false, "critique": "one sentence — what would make it more grounded or better-formed"}',
+  'satisfied is your overall read of the output\'s quality AS A RENDERING OF ITS SOURCES — grounded and well-formed and responsive.',
 ].join('\n');
 
 // buildChallengeMessages / buildSatisfactionMessages — the exact message lists handed to generate().
@@ -48,9 +51,12 @@ export const buildChallengeMessages = ({ material = null, persona = null } = {})
   return [{ role: 'system', content: sys }, { role: 'user', content: `Pose your question now.${src}` }];
 };
 
-export const buildSatisfactionMessages = ({ question, answer, intent = null, persona = null } = {}) => {
+export const buildSatisfactionMessages = ({ question, answer, intent = null, sources = null, persona = null } = {}) => {
   const sys = persona ? `${SATISFACTION_SYSTEM}\nYour user type: ${persona}.` : SATISFACTION_SYSTEM;
-  const body = `YOUR QUESTION:\n${question || '(none)'}${intent ? `\n\nWHAT YOU WANTED:\n${intent}` : ''}\n\nTHE ASSISTANT'S ANSWER:\n${answer || '(no answer)'}\n\nHow satisfied are you?`;
+  // the retrieved SOURCES are shown so grounding is judged against THEM (what the crawler got), not
+  // against the evaluator's own knowledge. Absent → it can still judge flow/responsiveness.
+  const src = sources ? `\n\nSOURCES THE ASSISTANT RETRIEVED (judge grounding against THESE, not your own knowledge):\n${excerpt(sources, 2400)}` : '';
+  const body = `YOUR QUESTION:\n${question || '(none)'}${intent ? `\n\nWHAT YOU WANTED:\n${intent}` : ''}${src}\n\nTHE ASSISTANT'S ANSWER:\n${answer || '(no answer)'}\n\nHow well did it render its sources into grounded, flowing output?`;
   return [{ role: 'system', content: sys }, { role: 'user', content: body }];
 };
 
@@ -82,13 +88,20 @@ export const createChallenger = ({ generate = null, enabled = false, budget = {}
       if (!v || !v.question) return null;
       return Object.freeze({ question: String(v.question), intent: v.intent ? String(v.intent) : null, difficulty: v.difficulty || 'medium' });
     },
-    // evaluate the answer's SATISFACTION as that user. Returns null when dry-run.
-    async evaluate({ question, answer, intent = null, persona: lens = null } = {}) {
-      const text = await send(buildSatisfactionMessages({ question, answer, intent, persona: lens ?? persona }));
+    // evaluate how well the answer RENDERS ITS SOURCES into grounded, flowing output — holding the
+    // retrieved `sources` so grounding is judged against them, never the evaluator's own knowledge.
+    // Returns { grounded, flowing, satisfied, resolved, critique } or null when dry-run.
+    async evaluate({ question, answer, intent = null, sources = null, persona: lens = null } = {}) {
+      const text = await send(buildSatisfactionMessages({ question, answer, intent, sources, persona: lens ?? persona }));
       if (!text) return null;
       const v = parseJSON(text);
-      if (!v || v.satisfied == null) return null;
-      return Object.freeze({ satisfied: clamp01(v.satisfied), resolved: !!v.resolved, critique: v.critique ? String(v.critique).slice(0, 240) : null });
+      if (!v || (v.satisfied == null && v.grounded == null)) return null;
+      const grounded = v.grounded != null ? clamp01(v.grounded) : null;
+      const flowing = v.flowing != null ? clamp01(v.flowing) : null;
+      // satisfied defaults to the mean of grounded+flowing when the model reported only the parts.
+      const satisfied = v.satisfied != null ? clamp01(v.satisfied)
+        : (grounded != null && flowing != null ? Math.round(((grounded + flowing) / 2) * 1000) / 1000 : clamp01(grounded ?? flowing));
+      return Object.freeze({ grounded, flowing, satisfied, resolved: !!v.resolved, critique: v.critique ? String(v.critique).slice(0, 240) : null });
     },
     budget: budgetState,
     armed: () => armed,
@@ -99,28 +112,35 @@ export const createChallenger = ({ generate = null, enabled = false, budget = {}
 };
 
 // runChallengeCycle — the loop, in one call: Claude poses a challenge, the SYSTEM UNDER EVOLUTION
-// answers it, Claude scores satisfaction. `answerer(challenge) → Promise<string>` is the system's
-// output (a local model configured by the champion genome — the frozen leaf the surfer works
-// through; Claude judges, it does not answer its own exam). Returns the full record, or null if the
-// challenger is dry-run. The satisfaction feeds fitness.observe as the un-authored `validated` anchor.
+// RESEARCHES and answers it, Claude scores how well it turned its RETRIEVED SOURCES into grounded,
+// flowing output. `answerer(challenge)` returns the system's output — either a string, or
+// `{ answer, sources }` where `sources` is what it actually retrieved (the web pages / spans it
+// grounded on). The sources are handed to the evaluator so grounding is judged against THEM, never
+// the evaluator's own knowledge — the goal is not "is the crawl true?" but "did EOReader render what
+// it found into grounded, flowing prose?". Claude judges; it does not answer its own exam. The
+// composite `satisfied` feeds fitness.observe as the un-authored `validated` anchor.
 export const runChallengeCycle = async ({ challenger, answerer, material = null, persona = null } = {}) => {
   if (!challenger || typeof answerer !== 'function') return null;
   const ch = await challenger.challenge({ material, persona });
   if (!ch) return null;
-  let answer = '';
-  try { answer = await answerer(ch); } catch { answer = ''; }
-  const sat = await challenger.evaluate({ question: ch.question, answer, intent: ch.intent, persona });
+  let answer = '', sources = null, trail = null;
+  try {
+    const out = await answerer(ch);
+    if (out && typeof out === 'object') { answer = out.answer ?? ''; sources = out.sources ?? null; trail = out.trail ?? null; }
+    else { answer = out ?? ''; }
+  } catch { answer = ''; }
+  const sat = await challenger.evaluate({ question: ch.question, answer, intent: ch.intent, sources, persona });
   return Object.freeze({
     question: ch.question, intent: ch.intent, difficulty: ch.difficulty,
-    answer: String(answer || ''),
-    satisfaction: sat,                                  // { satisfied, resolved, critique } or null
-    // the outcome fields fitness.observe consumes — satisfaction IS the un-authored anchor.
-    outcome: sat ? Object.freeze({ validated: sat.satisfied, covered: sat.resolved ? 1 : 0.5, delivered: !!answer }) : null,
+    answer: String(answer || ''), sources: sources || null, trail: trail || null,
+    satisfaction: sat,                                  // { grounded, flowing, satisfied, resolved, critique } or null
+    // the outcome fields fitness.observe consumes — grounded+flowing satisfaction IS the anchor.
+    outcome: sat ? Object.freeze({ validated: sat.satisfied, covered: sat.resolved ? 1 : 0.5, grounded: sat.grounded != null ? Math.round(sat.grounded * 3) : undefined, claimed: sat.grounded != null ? 3 : undefined, delivered: !!answer }) : null,
   });
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-const excerpt = (m) => { const t = typeof m === 'string' ? m : (m?.text ?? `${m?.title ?? ''} ${m?.extract ?? ''}`); return String(t).slice(0, 1200); };
+const excerpt = (m, max = 1200) => { const t = typeof m === 'string' ? m : Array.isArray(m) ? m.map((x) => (typeof x === 'string' ? x : `${x?.title ?? ''} ${x?.text ?? x?.extract ?? ''}`)).join('\n\n') : (m?.text ?? `${m?.title ?? ''} ${m?.extract ?? ''}`); return String(t).slice(0, max); };
 const clamp01 = (x) => (Number.isFinite(+x) ? Math.max(0, Math.min(1, +x)) : 0);
 // parseJSON — pull the first JSON object out of a model's reply (it may wrap it in prose or a fence).
 const parseJSON = (text) => {

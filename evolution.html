@@ -82,6 +82,7 @@
     <button id="run" class="primary">▶ Start</button>
     <button id="step">Step</button>
     <button id="reset">Reset</button>
+    <button id="audit" title="Download a complete, inspectable audit of this run (JSON + a readable Markdown evaluation)">⬇ Export audit</button>
     <label>Season
       <select id="regime">
         <option value="seasonal" selected>seasonal (grows &amp; prunes)</option>
@@ -127,7 +128,7 @@
 
 <script type="module">
 import { createMetabolism, createScarcity, createOrganism, createSoma, createPopulation,
-         createChallenger, runChallengeCycle, forage } from './src/metabolism/index.js';
+         createChallenger, runChallengeCycle, forage, buildAudit, auditToJSON, auditToMarkdown } from './src/metabolism/index.js';
 import { DIAGONAL_CELLS } from './src/core/cube.js';
 import { createModel, EXCERPTS_HEADER } from './src/model/index.js';
 
@@ -138,7 +139,7 @@ const $ = (id) => document.getElementById(id);
 const cellFor = (op,g) => Object.values(DIAGONAL_CELLS).find(c => c.op===op && c.grain===g);
 const escapeHtml = (s)=>String(s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 
-let metab, timer=null, claudeTimer=null, period=0, lastGrown=new Set(), lastMaterial=null;
+let metab, timer=null, claudeTimer=null, period=0, lastGrown=new Set(), lastMaterial=null, challengeLog=[];
 
 // Claude in the loop: the `claude` backend (the user's own key, in localStorage) is the challenger's
 // transport; a local `echo` leaf answers, grounded in the material — Claude poses and judges, it does
@@ -234,6 +235,7 @@ async function doChallenge(){
     const r = await runChallengeCycle({ challenger, answerer: answerer(material), material });
     if(!r){ $('claudeState').textContent = challenger.budget().exhausted ? 'Claude budget spent for this session (reset to refill)' : 'Claude did not respond — check the key/network'; return; }
     if(r.outcome) metab.metabolize({ ...r.outcome, warmedModel:false });   // satisfaction IS the anchor
+    challengeLog.push(r);   // recorded for the audit — every challenge, answer, and grounded/flowing score
     period++; render();
     const sat = r.satisfaction;
     $('claudeOut').innerHTML =
@@ -246,11 +248,22 @@ async function doChallenge(){
   }catch(err){ $('claudeState').textContent = 'challenge failed: ' + err.message; if($('claudeAuto').checked) $('claudeAuto').checked=false; }
 }
 
+// export a complete, inspectable audit of the run — the JSON (the full record) and a Markdown
+// evaluation (findings, lineage, challenges, timeline). The evolution, fully auditable.
+function download(name, text, type){ const blob=new Blob([text],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 1500); }
+function exportAudit(){
+  const meta = { at:new Date().toISOString(), regime:$('regime').value, ration:1600 };
+  const audit = buildAudit({ metabolism: metab, challenges: challengeLog, meta });
+  download('evolution-audit.json', auditToJSON(audit), 'application/json');
+  download('evolution-audit.md', auditToMarkdown(audit), 'text/markdown');
+}
+
 $('run').onclick = ()=>{ if(timer){ clearInterval(timer); timer=null; $('run').textContent='▶ Start'; $('run').classList.add('primary'); }
   else { timer=setInterval(step, 420); $('run').textContent='⏸ Pause'; $('run').classList.remove('primary'); } };
 $('step').onclick = step;
+$('audit').onclick = exportAudit;
 $('reset').onclick = ()=>{ if(timer){ clearInterval(timer); timer=null; $('run').textContent='▶ Start'; $('run').classList.add('primary'); }
-  if(claudeTimer){ clearInterval(claudeTimer); claudeTimer=null; } $('claudeAuto').checked=false; $('claudeOut').innerHTML=''; build(); showKeyHint(); };
+  if(claudeTimer){ clearInterval(claudeTimer); claudeTimer=null; } $('claudeAuto').checked=false; $('claudeOut').innerHTML=''; challengeLog=[]; build(); showKeyHint(); };
 $('regime').onchange = ()=>$('reset').click();
 $('claude').onclick = doChallenge;
 $('claudeAuto').onchange = (e)=>{ if(e.target.checked){ doChallenge(); claudeTimer=setInterval(doChallenge, 6500); } else if(claudeTimer){ clearInterval(claudeTimer); claudeTimer=null; } };

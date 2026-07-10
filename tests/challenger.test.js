@@ -14,7 +14,7 @@ import { createChallenger, runChallengeCycle, buildChallengeMessages } from '../
 const stub = (satisfied = 0.8) => async (messages) => {
   const sys = messages.find((m) => m.role === 'system')?.content || '';
   if (/pose one question|REAL USER/i.test(sys)) return JSON.stringify({ question: 'What does the reactor log say happened at noon?', intent: 'understand the incident', difficulty: 'medium' });
-  return '```json\n' + JSON.stringify({ satisfied, resolved: satisfied >= 0.5, critique: 'more specifics would help' }) + '\n```';   // fenced, to test extraction
+  return '```json\n' + JSON.stringify({ grounded: satisfied, flowing: satisfied, satisfied, resolved: satisfied >= 0.5, critique: 'more specifics would help' }) + '\n```';   // fenced, to test extraction
 };
 
 test('challenger: poses a realistic user question and behaves like a user, not the author', async () => {
@@ -27,11 +27,24 @@ test('challenger: poses a realistic user question and behaves like a user, not t
   assert.match(msgs[0].content, /REAL USER/, 'the challenge system prompt casts Claude as the user');
 });
 
-test('challenger: scores SATISFACTION (not mere grounding), parsing JSON even when fenced', async () => {
-  const c = createChallenger({ generate: stub(0.9), enabled: true });
-  const s = await c.evaluate({ question: 'q', answer: 'a grounded, useful answer', intent: 'resolve it' });
-  assert.equal(s.satisfied, 0.9, 'a satisfaction score in [0,1] comes back');
-  assert.equal(s.resolved, true);
+test('challenger: scores GROUNDED + FLOWING against the retrieved sources, not truth-vs-its-own-knowledge', async () => {
+  // the evaluator is handed the SOURCES and told to judge grounding against THEM, not the world.
+  let sawSources = false, sawNoFactCheck = false;
+  const gen = async (messages) => {
+    const sys = messages.find((m) => m.role === 'system')?.content || '';
+    const usr = messages.find((m) => m.role === 'user')?.content || '';
+    if (/pose one question|REAL USER/i.test(sys)) return JSON.stringify({ question: 'q', intent: 'i', difficulty: 'easy' });
+    if (/SOURCES THE ASSISTANT RETRIEVED/i.test(usr)) sawSources = true;
+    if (/do NOT fact-check against your own knowledge/i.test(sys)) sawNoFactCheck = true;
+    return JSON.stringify({ grounded: 0.9, flowing: 0.6, resolved: true, critique: 'tighten the prose' });
+  };
+  const c = createChallenger({ generate: gen, enabled: true });
+  const s = await c.evaluate({ question: 'q', answer: 'an answer', sources: [{ title: 'Reactor log', text: 'criticality at noon' }] });
+  assert.ok(sawSources, 'the retrieved sources are handed to the evaluator');
+  assert.ok(sawNoFactCheck, 'the evaluator is told NOT to fact-check against its own knowledge — the goal is grounded+flowing, not truth');
+  assert.equal(s.grounded, 0.9);
+  assert.equal(s.flowing, 0.6);
+  assert.ok(Math.abs(s.satisfied - 0.75) < 1e-9, 'satisfied defaults to the mean of grounded+flowing when not reported directly');
   assert.ok(s.critique, 'a one-line critique is kept as signal');
 });
 
