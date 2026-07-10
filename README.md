@@ -30,7 +30,7 @@ src/
     retrieve/  fold/  flow/  dag/  reason/
   enactor/       gating — nothing is asserted that the record can't witness
     enact/  ground/  factcheck/  answer/
-  model/         the leaf — backends (webllm, qwen-coders, echo), prompt, stream
+  model/         the leaf — backends (webllm, wllama, claude API, qwen-coders, echo), prompt, stream
   turn/          the fold of 17 stages (see src/turn/stage-faces.js)
     converse/      the conversation fold + dialogue state
   weave/         generation — long form, multi-prompt, over a moving fold
