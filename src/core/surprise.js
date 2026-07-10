@@ -19,6 +19,10 @@
 // Operations and their ORDER are preserved exactly from reading.js so the text path stays
 // byte-identical: the parity gate is `node --test tests/*.test.js` (docs/spec-one-surprise.md).
 
+// The self/world tags the efference split writes — the SAME line core/self draws, so the surprise
+// core and the monitor speak one vocabulary (one loop, one me). Leaf import, no cycle.
+import { SELF, WORLD } from './self/index.js';
+
 export const NOVELTY_RESERVE = 1.0;   // reserved prior mass for an as-yet-unseen atom — the SEED
 
 // noveltyAmplitude — the SIGNAL-DERIVED reserve (the protention learning its own amplitude).
@@ -193,6 +197,51 @@ export const forwardScore = (profile, arrival, { novelty = NOVELTY_RESERVE, axis
     predBy,                                                  // per-dimension predictive surprise — the steer axis (REC reads it)
     novel: newcomers.length,                                // arrivals the forward model had never seen (drew the reserve)
     reserve: round(reserve),                                // protention mass share held for the unseen
+  };
+};
+
+// feltSurprise(profile, arrival, { predicted, attenuation, novelty, axisLabel }) → the surprise a
+// SUBJECT actually feels, forwardScore split along the efference self/world line (enactor/efference.js,
+// enactor/monitor.js, core/self).
+//
+// forwardScore treats every arrival as exafferent — world-caused. But a subject predicts the sensed
+// consequence of its OWN commits (the efference copy), so an arriving atom that MATCHES an outstanding
+// copy is REAFFERENT: the system sensing what it produced — me-ness — carrying no news it did not
+// already author. It is ATTENUATED (you cannot tickle yourself). An atom matching NO copy is
+// EXAFFERENT: the world, unbidden — the real surprise, the learning signal. `predicted` is the set of
+// atom keys the self predicted (its outstanding copies reduced to the arrival's basis) — modality-blind,
+// exactly as the efference copy is "one copy form, one self." No predicted set → every atom is world →
+// this is forwardScore exactly (the disarmed-safe degradation).
+//
+//   worldBits — EXAFFERENT: what the subject did NOT cause. The truth / fitness / learning signal.
+//   feltBits  — worldBits + (1 − attenuation)·selfBits: what the subject experiences, self damped.
+//   attenuation 1 → self zeroed (the strict tickle law); 0 → self felt in full (no self/world discount).
+//
+// The world and self streams are scored SEPARATELY (each its own reserve split), because they are two
+// sources; with an empty predicted set there is no self stream and the result is forwardScore untouched.
+export const feltSurprise = (profile, arrival, { predicted = null, attenuation = 1, novelty = NOVELTY_RESERVE, axisLabel = (k) => k } = {}) => {
+  const pred = predicted instanceof Set ? predicted : new Set(predicted || []);
+  const att = Math.max(0, Math.min(1, attenuation));
+  const world = new Map(), self = new Map();
+  const tags = {};
+  for (const [a, m] of (arrival || new Map())) {
+    if (pred.size && pred.has(a)) { self.set(a, m); tags[axisLabel(a)] = SELF; }
+    else { world.set(a, m); tags[axisLabel(a)] = WORLD; }
+  }
+  const w = forwardScore(profile, world, { novelty, axisLabel });
+  const s = self.size
+    ? forwardScore(profile, self, { novelty, axisLabel })
+    : { predBits: 0, predMeanBits: 0, predBy: {}, novel: 0 };
+  return {
+    feltBits: round(w.predBits + (1 - att) * s.predBits),   // what the subject experiences (self damped)
+    worldBits: w.predBits,                                  // EXAFFERENT — the news / learning / fitness signal
+    selfBits: s.predBits,                                   // REAFFERENT (raw, pre-attenuation) — me-ness undamped
+    worldMeanBits: w.predMeanBits,                          // per-mass exafferent — the comparable number
+    worldBy: w.predBy,                                      // which UNBIDDEN atoms drove the surprise (the steer axis)
+    attenuation: att,
+    tags,                                                   // atom label → 'self' | 'world'
+    worldNovel: w.novel,                                    // exafferent newcomers — genuinely new world
+    selfCount: self.size,                                   // how much of the arrival was self-caused (me-ness mass)
   };
 };
 
