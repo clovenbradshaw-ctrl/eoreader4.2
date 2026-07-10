@@ -24,6 +24,7 @@ import { createWebClient, htmlToText, wikiExtract } from '../../organs/ingest/we
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
+import { readIngest } from '../../organs/ingest/read.js';
 import { figureSurface } from '../../perceiver/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 
@@ -212,7 +213,26 @@ export const createReaderApp = ({ audit } = {}) => {
     logIt('record', `Recorded ${src.domain} — ${src.title}`, src.reg);
     logIt('hash', `Fixity sha ${shaShort(src.sha)} · ${src.bytes.toLocaleString()} bytes`, src.reg);
     persist(); emit('sources');
+    // Every source is READ into EoT at the moment of record — every proposition the
+    // parse admitted (any modality: the organs all land on the same spine) rendered
+    // in the canonical surface, with the reading's own thinking layered as comments.
+    // Deferred a tick so the record lands (toast, registry) before the read runs.
+    setTimeout(() => {
+      try {
+        const r = eotFor(id);
+        if (r) logIt('eot', `Encoded ${src.reg} into EoT — ${r.structure?.lines?.length ?? 0} propositions, ${r.turns?.length ?? 0} turning points`, src.reg);
+      } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+    }, 0);
     return src;
+  };
+
+  // The source's reading as one EoT document (structure + thinking). Memoised on the
+  // source; readIngest itself memoises per doc, so this is computed once per record.
+  const eotFor = (snId) => {
+    const src = sourceBySn(snId);
+    if (!src) return null;
+    if (!src._eot) src._eot = readIngest(docFor(src));
+    return src._eot;
   };
 
   const removeSource = (id) => {
@@ -685,7 +705,7 @@ export const createReaderApp = ({ audit } = {}) => {
     ensureModel, setBackend, backendPref,
     // projections for the surface
     answerSegments, viewerParas, entities, entityProfile, tieredData,
-    findings, provenance, dagFor, setMemo,
+    findings, provenance, dagFor, setMemo, eotFor,
     // the raw doc, for anything the surface wants to inspect
     docFor: (snId) => docFor(sourceBySn(snId)),
   });

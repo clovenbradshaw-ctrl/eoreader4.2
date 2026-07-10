@@ -66,6 +66,7 @@ opens empty and fills as you record.
 | claim → passage pincites | the turn's `bound`/`citeOrigins`/`citeTexts` (from `enactor/ground`) |
 | provenance DAG nodes/edges | derived from real turns: topic → claims → passages → sources → files |
 | document viewer (click any source) | the recorded text, cited passages marked, entities clickable |
+| EoT encoding (every source, any modality) | `organs/ingest/read.js` `readIngest` at record time — every admitted proposition in the canonical surface + the reading's thinking, viewable and exportable per source |
 | entity explorer (right panel) | `projectGraph` entities + `perceiver` `figureSurface`; web graph via `rooms/reader/tiered-graph.js` |
 | monologue steps | `rooms/audit` (`createAuditLog`) — live subscription, per-stage trail |
 

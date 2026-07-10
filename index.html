@@ -718,9 +718,16 @@ table{border-collapse:collapse;width:100%}
             <span>retrieved {{ viewer.retrieved }}</span>
             <span style="font-weight:600;color:{{ viewer.rightsFg }};background:{{ viewer.rightsBg }};border-radius:4px;padding:1px 6px">{{ viewer.rights }}</span>
             <span>{{ viewer.ents }} entities</span>
+            <span style="flex:1"></span>
+            <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:7px;padding:2px">
+              <button onClick="{{ viewerModeText }}" style="padding:3px 10px;border-radius:5px;font-size:10.5px;font-weight:600;color:{{ vmTextFg }};background:{{ vmTextBg }}">Document</button>
+              <button onClick="{{ viewerModeEot }}" style="padding:3px 10px;border-radius:5px;font-size:10.5px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">EoT · {{ viewer.eotCount }}</button>
+            </span>
+            <sc-if value="{{ viewerIsEot }}"><button onClick="{{ downloadEot }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:3px 9px" style-hover="background:#E7E2FD">↓ .eot</button></sc-if>
           </div>
         </div>
         <div class="eo-scroll" ref="{{ setViewerBody }}" style="flex:1;min-height:0;overflow-y:auto;padding:26px 34px;background:#fff">
+          <sc-if value="{{ viewerIsText }}">
           <div style="max-width:640px;margin:0 auto">
             <sc-for list="{{ viewerParas }}" as="vp">
               <div style="font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.75;color:#2A2A32;margin:0 0 14px;padding-left:{{ vp.pad }}px;border-left:{{ vp.border }};background:{{ vp.bg }};border-radius:{{ vp.radius }}">
@@ -731,6 +738,16 @@ table{border-collapse:collapse;width:100%}
               </div>
             </sc-for>
           </div>
+          </sc-if>
+          <sc-if value="{{ viewerIsEot }}">
+          <div style="max-width:720px;margin:0 auto">
+            <div style="font-size:11.5px;color:#8A8A95;line-height:1.55;border:1px solid #EFEFF3;background:#FBFBFD;border-radius:10px;padding:10px 13px;margin-bottom:16px">Every proposition this reading admitted, in the canonical EoT surface — the structure layer round-trips through <span style="font-family:'IBM Plex Mono',monospace">parseEOT</span> unchanged; <span style="color:#B4B4BE">#</span>-lines carry the reading's own thinking (predictions, surprise, turning points).</div>
+            <sc-for list="{{ eotLines }}" as="el">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:{{ el.color }}">{{ el.s }}</div>
+            </sc-for>
+            <sc-if value="{{ eotTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9A9AA4;margin-top:14px">… {{ eotMore }} more lines — download the full .eot above.</div></sc-if>
+          </div>
+          </sc-if>
         </div>
       </div>
     </div>
@@ -1031,7 +1048,18 @@ class Component extends DCLogic {
   toggleModel() { this.setState({ modelOpen: !this.state.modelOpen }); }
   openViewer(sn, focusText) {
     this._viewCache = null;
-    this.setState({ viewerSn: sn, viewerFocus: focusText || null });
+    this.setState({ viewerSn: sn, viewerFocus: focusText || null, viewerMode: 'text' });
+  }
+  setViewerMode(mode) { this.setState({ viewerMode: mode }); }
+  downloadEot() {
+    const s = this._app.sourceBySn(this.state.viewerSn);
+    const r = s && this._app.eotFor(s.sn);
+    if (!r) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([r.text], { type: 'text/plain' }));
+    a.download = (s.reg || 'source') + '.eot';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
   closeViewer() { this.setState({ viewerSn: null, viewerFocus: null }); }
   setViewerBody(el) {
@@ -1239,7 +1267,7 @@ class Component extends DCLogic {
       summary: `${findings.stats.claims} claims · ${findings.stats.contradictions} conflicts`,
     };
     const statusColor = m.state === 'error' ? '#B23A2E' : (busy || generating || m.state === 'loading') ? '#C79A3A' : '#59C08A';
-    const LOGC = { record: '#59C08A', hash: '#59C08A', claim: '#6D5EF5', conflict: '#B23A2E', search: '#C79A3A', open: '#8A8A95', skip: '#B4B4BE' };
+    const LOGC = { record: '#59C08A', hash: '#59C08A', eot: '#6D5EF5', claim: '#6D5EF5', conflict: '#B23A2E', search: '#C79A3A', open: '#8A8A95', skip: '#B4B4BE' };
     const statusPeek = app.state.log.slice(-4).reverse().map((l) => ({
       text: l.text, effect: l.effect, hasEffect: !!l.effect, color: LOGC[l.kind] || '#8A8A95', effectColor: '#8A8A95',
     }));
@@ -1453,18 +1481,29 @@ class Component extends DCLogic {
     }
 
     // viewer
-    let viewer = null, viewerParas = [];
+    let viewer = null, viewerParas = [], eotLines = [], eotTruncated = false, eotMore = '';
+    const vMode = st.viewerMode || 'text';
     if (st.viewerSn) {
       const s = app.sourceBySn(st.viewerSn);
       if (s) {
         const r = this._rights(s);
+        let eot = null;
+        try { eot = app.eotFor(s.sn); } catch { eot = null; }
         viewer = {
           reg: s.reg, title: s.title, domain: s.domain, kind: s.kind,
           hasUrl: !!s.url, url: s.url || '#',
           sha: s.sha.replace(/^[^:]*:/, '').slice(0, 16), bytes: this._bytes(s.bytes),
           retrieved: this._ago(s.retrieved), rights: r.label, rightsFg: r.fg, rightsBg: r.bg,
           ents: s.entCount == null ? '…' : String(s.entCount),
+          eotCount: eot && eot.structure ? String(eot.structure.lines ? eot.structure.lines.length : 0) : '0',
         };
+        if (vMode === 'eot' && eot) {
+          const all = String(eot.text || '').split('\n');
+          const CAP = 1600;
+          eotLines = all.slice(0, CAP).map((ln) => ({ s: ln === '' ? ' ' : ln, color: ln.trimStart().startsWith('#') ? '#9A9AA4' : '#2A2A32' }));
+          eotTruncated = all.length > CAP;
+          eotMore = String(all.length - CAP);
+        }
         if (!this._viewCache || this._viewCache.sn !== st.viewerSn) {
           this._viewCache = { sn: st.viewerSn, paras: app.viewerParas(st.viewerSn, { entities: st.entityMode }) };
         }
@@ -1496,7 +1535,7 @@ class Component extends DCLogic {
     });
 
     // monologue
-    const LOGL = { record: 'RECORD', hash: 'HASH', claim: 'CLAIM', conflict: 'CONFLICT', search: 'SEARCH', open: 'OPEN', skip: 'SKIP' };
+    const LOGL = { record: 'RECORD', hash: 'HASH', eot: 'EOT', claim: 'CLAIM', conflict: 'CONFLICT', search: 'SEARCH', open: 'OPEN', skip: 'SKIP' };
     const logView = app.state.log.slice().reverse().map((l) => ({
       label: LOGL[l.kind] || l.kind.toUpperCase(), t: String(l.t).slice(11, 19),
       text: l.text, effect: l.effect, hasEffect: !!l.effect,
@@ -1573,6 +1612,11 @@ class Component extends DCLogic {
       entModeFg: st.entityMode ? '#5B4BE6' : '#8A8A95', entModeBg: st.entityMode ? '#F1EFFE' : '#F2F2F6', entModeBd: st.entityMode ? '#DED8FD' : '#EAEAEF',
       // viewer
       viewerShow: !!viewer, viewer: viewer || {}, viewerParas,
+      viewerIsText: vMode === 'text', viewerIsEot: vMode === 'eot',
+      viewerModeText: () => this.setViewerMode('text'), viewerModeEot: () => this.setViewerMode('eot'),
+      vmTextFg: vMode === 'text' ? '#1B1B22' : '#8A8A95', vmTextBg: vMode === 'text' ? '#fff' : 'transparent',
+      vmEotFg: vMode === 'eot' ? '#1B1B22' : '#8A8A95', vmEotBg: vMode === 'eot' ? '#fff' : 'transparent',
+      eotLines, eotTruncated, eotMore, downloadEot: () => this.downloadEot(),
       closeViewer: () => this.closeViewer(), setViewerBody: (el) => this.setViewerBody(el),
       removeViewerSource: () => { if (viewer && confirm(`Remove ${viewer.reg} from the record?`)) { app.removeSource(st.viewerSn); this.closeViewer(); } },
       // search
