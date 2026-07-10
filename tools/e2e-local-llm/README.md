@@ -27,11 +27,16 @@ mkdir -p assets && cd assets
 # the wllama runtime, pinned to the version src/model/wllama.js pins
 npm pack @wllama/wllama@2.3.7 && tar xzf wllama-wllama-2.3.7.tgz
 
-# the weights. HuggingFace direct is the app's default URL; if your egress
-# rejects it (some proxies 401 anonymous HF), the Ollama registry serves the
-# SAME q8_0 GGUF as an anonymous blob:
+# the weights — the first rung of the app's own mirror ladder
+# (src/model/wllama.js DEFAULT_MODEL_URLS; the canonical HuggingFaceTB repo
+# went 401 in mid-2026, which is why the ladder exists):
 curl -L -o smollm2-135m-instruct-q8_0.gguf \
-  "https://registry.ollama.ai/v2/library/smollm2/blobs/sha256:40f7094960b6ede829145d102ca79451b364b27d9d8694d4406e002024cff357"
+  "https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf"
+
+# …or, if your egress rejects anonymous HF, the Ollama registry serves the
+# SAME q8_0 GGUF as an anonymous blob:
+#   curl -L -o smollm2-135m-instruct-q8_0.gguf \
+#     "https://registry.ollama.ai/v2/library/smollm2/blobs/sha256:40f7094960b6ede829145d102ca79451b364b27d9d8694d4406e002024cff357"
 
 cd .. && npm init -y && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm i playwright
 ```

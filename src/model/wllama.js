@@ -44,8 +44,24 @@ const WLLAMA_WASM = {
   'multi-thread/wllama.wasm':  `${WLLAMA_BASE}/multi-thread/wllama.wasm`,
 };
 
-const DEFAULT_MODEL_URL =
-  'https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct-GGUF/resolve/main/smollm2-135m-instruct-q8_0.gguf';
+// THE DEFAULT WEIGHTS ARE A LADDER, NOT A URL. The canonical HuggingFaceTB GGUF
+// repo went 401 (gated/private) in mid-2026 — which killed not just this backend
+// but the webllm→wllama fallback rung above it, so ANY webllm hiccup ended in
+// "no local model could load". A single upstream URL is a single point of failure
+// we do not control; the default is now the same SmolLM2-135M-Instruct Q8_0 quant
+// on independently-maintained public mirrors, tried in order at load(). The
+// canonical repo stays last so it is picked back up the moment it reopens.
+export const DEFAULT_MODEL_URLS = Object.freeze([
+  'https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf',
+  'https://huggingface.co/unsloth/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf',
+  'https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct-GGUF/resolve/main/smollm2-135m-instruct-q8_0.gguf',
+]);
+
+// The URLs a load() attempt will walk, in order: an explicit pin is honoured
+// alone (the caller chose an exact artifact — silently substituting a mirror
+// would break provenance), no pin ⇒ the default ladder. Pure, for the tests.
+export const wllamaCandidates = (pinned) =>
+  pinned ? [pinned] : [...DEFAULT_MODEL_URLS];
 
 const ARRAYBUFFER_MAX = 2 ** 31 - 1;   // 2,147,483,647 — the per-file ceiling
 
@@ -67,6 +83,15 @@ export const wllamaModelName = (url) => {
 const diagnoseLoadFailure = async (url, err) => {
   try {
     const res = await fetch(url, { method: 'HEAD' });
+    // A gone repo answers before a byte moves: 401/403 is a repo that went
+    // gated/private, 404 a file that moved. Name it — the runtime's own error
+    // for these is an opaque "network error" that reads as the user's wifi.
+    if (res.status === 401 || res.status === 403 || res.status === 404) {
+      return new Error(
+        `the weights are no longer public at ${wllamaModelName(url)}'s repo ` +
+        `(HTTP ${res.status}) — the file moved or its repo went gated/private`,
+      );
+    }
     const size = Number(
       res.headers.get('content-length') || res.headers.get('x-linked-size') || 0,
     );
@@ -107,7 +132,11 @@ export const loadWllamaModel = async (modelUrl, onProgress) => {
 registerBackend('wllama', (opts = {}) => {
   let inst = null;
   let loading = null;
-  const modelUrl = opts.modelUrl || DEFAULT_MODEL_URL;
+  // The GGUF actually in play. Before load: the pin or the ladder's head, so
+  // describe() can already name the expected artifact; after load: whichever
+  // candidate actually answered — the mirror that served the file IS the model's
+  // provenance, so the resolved URL replaces the guess.
+  let modelUrl = opts.modelUrl || DEFAULT_MODEL_URLS[0];
 
   return {
     id: 'wllama',
@@ -119,7 +148,17 @@ registerBackend('wllama', (opts = {}) => {
     async load(onProgress) {
       if (inst)    return;
       if (loading) return loading;
-      loading = loadWllamaModel(modelUrl, onProgress).then((i) => { inst = i; });
+      loading = (async () => {
+        let lastErr = null;
+        for (const url of wllamaCandidates(opts.modelUrl)) {
+          try {
+            const i = await loadWllamaModel(url, onProgress);
+            inst = i; modelUrl = url;
+            return;
+          } catch (err) { lastErr = err; }   // this mirror is out — walk on
+        }
+        throw lastErr || new Error('wllama: no weights URL to load');
+      })();
       return loading;
     },
     async phrase(messages, opts = {}) {

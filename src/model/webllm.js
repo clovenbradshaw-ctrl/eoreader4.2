@@ -18,7 +18,12 @@
 
 import { registerBackend } from './interface.js';
 
-const WEBLLM_URL = 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2/+esm';
+// Pinned exactly, the same posture as wllama's runtime and the Anthropic SDK: a
+// floating '@0.2' re-resolves to every new minor jsdelivr publishes, so the app
+// could break overnight with no commit to blame. 0.2.84's whole artifact chain is
+// verified live: the +esm bundle, its Llama-3.2 MLC weights on HF, and its
+// v0_2_84 kernel wasm on raw.githubusercontent.com.
+const WEBLLM_URL = 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.84/+esm';
 
 // THE RENDER-SPEED LEVER: which SIZE build to run. The Llama artifacts are already
 // at web-llm's 4-bit floor (there is no sub-4-bit Llama-3.2 prebuilt), so the knob

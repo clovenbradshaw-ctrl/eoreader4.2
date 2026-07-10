@@ -1971,7 +1971,7 @@ class Component extends DCLogic {
     const modelChip = m.state === 'loading' ? `${m.backend} · ${Math.round((m.progress || 0) * 100)}%`
       : m.state === 'ready' ? m.backend : (m.backend || app.backendPref());
     const BACKENDS = [
-      ['wllama', 'SmolLM2 · CPU', 'Small and universal — runs on WASM everywhere, ~90 MB download, cached after the first load.'],
+      ['wllama', 'SmolLM2 · CPU', 'Small and universal — runs on WASM everywhere, ~140 MB download, cached after the first load.'],
       ['webllm', 'Llama 3.2 · WebGPU', 'The full local talker — 1–2 GB download, needs WebGPU (Chrome/Edge). Picked adaptively for your GPU.'],
       ['claude', 'Claude · hosted API', 'Anthropic’s hosted models — nothing to download, frontier answers in seconds. Needs an API key (console.anthropic.com), stored only in this browser. Pick again to change the key.'],
     ];
