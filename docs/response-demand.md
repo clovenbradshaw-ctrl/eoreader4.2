@@ -217,6 +217,33 @@ Both degrade the safe way: no outstanding copy **and** no trained prior → the 
 high surprise → attention. So the fork case ships now, corpus-free; the trained flow-prior is a later
 lift that only ever *reduces* unnecessary attentive turns — it can never cause a wrong reflex.
 
+## The question-copy, implemented — and who writes the cheap turn
+
+The fork half of the demand meter is now live machinery in the fold
+(`src/core/conversation-fold.js`), model-free and tested (`tests/fold-awaiting.test.js`):
+
+- `projectFold` exposes **`fold.awaiting`** — `outstandingQuestion(events)` reads the assistant's
+  own last turn and, if it was a question or offer, names the answer-space it opened: `polar`
+  (yes/no), `choice` (a disjunction — "the animal or the team?"), or `open` (a wh-question).
+- **`answersAwaited(fold, message)`** scores the next user turn against that copy with `feltSurprise`.
+  A reply drawn from the answer-space, adding nothing unbidden, is **reafferent** → `{answered: true,
+  demand: 'continuation'}` with the recovered `polarity` ("no") or `choice` (["animal"]). A reply that
+  adds world content — "no, tell me about whales instead" — is exafferent → `demand: 'attention'`.
+
+This is exactly the dolphins turn's missing half. Had the reader **asked** "the animal or the Miami
+Dolphins team?" instead of silently binding the animal at `margin 0.56`, the user's "the animal" would
+resolve here as a choice answer — a cheap continuation that re-scopes the essay, no re-planning.
+
+**Who then writes the cheap turn.** A continuation or a reflex reply should not wake the 3B — the
+model that stalled after the dolphins preamble (`route: "stopped"`, `rawOutput: null`). The
+prediction-driven generator is the producer: `helixGenerate` (a model-free forward draw over a
+learned sequence) and `renderContinuation` (`src/weave/longgen/render.js`) already emit
+natural-language drafts without the big model. That is the "prediction-driven first draft" — rough
+today (a low-order walk), sharpened by `docs/fold.md`'s grammar-licensing so the predictor only ever
+*ranks* what the grammar allows. Paired with the demand meter it closes the loop: the meter decides a
+turn is reflex/continuation, the prediction generator writes it, and the big model is spent only on
+the turns that measured as attention — the ones a stall actually costs something to lose.
+
 ## Good morning vs Waterloo Street — the worked contrast
 
 | Turn (fresh chat, a doc loaded) | phatic | substantive | ground/research | Settles | What runs |
@@ -259,6 +286,8 @@ so `"Good morning"` at an open book gets a hello instead of a grounded non-answe
 | **2** | `phatic` in `ROUTE_ALPHABET`; `VERDICT_OF.phatic = 'PHATIC'`; small-talk moved out of `isolate`; the social case named in `discoursePrompt`. The fold's incumbent/`REST` physics come for free. | no | **done** |
 | **3** | The caller: `app.js` `ask` runs `answerSmalltalk` (now doc-aware) **before** the `!docs.length` branch, so a doc-loaded greeting short-circuits to a warm line instead of grounding. | no | **done** |
 | **4** | The tiny-model triage: measure the pre-planner discourse read for phatic-ness on the quantized **1B (Fast)**; only warm the quantized **3B (Fluent)** for work turns. Bench the compute saved. | yes | pending |
+| **5** | The question-copy: `fold.awaiting` (`outstandingQuestion`) + `answersAwaited` grade a reply to a fork (polar/choice) as a reafferent continuation, else attention. Model-free, `tests/fold-awaiting.test.js`. | no | **done** |
+| **6** | The producer: wire `helixGenerate`/`renderContinuation` as the prediction-driven first-draft for reflex/continuation turns, so the cheap path never wakes (or stalls) the big model. | no (draft) | pending |
 
 Rungs 1–3 are landed here — the bug you named (a doc-loaded greeting) is fixed with **no
 model** and no new physics, and the measured `phatic` direction is ready for the read to be
