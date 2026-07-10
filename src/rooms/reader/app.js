@@ -444,6 +444,26 @@ export const createReaderApp = ({ audit } = {}) => {
     state.model = { backend: name, state: 'cold', progress: 0, note: '' };
     emit('model');
   };
+  // Fast/Fluent — the render-speed lever for the local Llama (webllm). 'fast' runs the
+  // 1B build (~2× faster load, ~2–3× faster decode), 'fluent' the 3B; the pick is read
+  // by model/webllm.js at load time. Only the size moves — grounding is mechanical and
+  // downstream, so the record it can witness is identical either way. null ⇒ adaptive.
+  const speedPref = () => {
+    try { const v = localStorage.getItem('eo_llm_speed'); if (v === 'fast' || v === 'fluent') return v; } catch { /* default */ }
+    return null;
+  };
+  const setSpeed = (speed) => {
+    if (speed !== 'fast' && speed !== 'fluent') return;
+    try { localStorage.setItem('eo_llm_speed', speed); } catch { /* session-only */ }
+    // Only webllm reads this. If it is the active backend, orphan the loaded build so the
+    // new size takes effect on the next load; for wllama/claude the pin sits dormant and
+    // nothing needs to move — just re-emit so the chip reflects the new choice.
+    if (backendPref() === 'webllm') {
+      model = null; modelLoading = null; modelGen++;
+      state.model = { backend: 'webllm', state: 'cold', progress: 0, note: '' };
+    }
+    emit('model');
+  };
   const ensureModel = async () => {
     if (model?.isLoaded?.()) return model;
     if (modelLoading) return modelLoading;
@@ -1172,7 +1192,7 @@ export const createReaderApp = ({ audit } = {}) => {
     // web-search mode (off | confirm | auto)
     webMode, setWebMode,
     // model
-    ensureModel, setBackend, backendPref,
+    ensureModel, setBackend, backendPref, setSpeed, speedPref,
     // projections for the surface
     answerSegments, viewerParas, entities, entityProfile, tieredData,
     findings, provenance, dagFor, setMemo, eotFor,

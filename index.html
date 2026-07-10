@@ -134,6 +134,21 @@ table{border-collapse:collapse;width:100%}
             </span>
           </button>
         </sc-for>
+        <sc-if value="{{ showSpeed }}">
+          <div style="border-top:1px solid #F2F2F6;margin-top:8px;padding-top:9px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:0 2px 7px">SPEED · LLAMA SIZE · GROUNDING UNAFFECTED</div>
+            <div style="display:flex;gap:7px">
+              <button onClick="{{ speedFast.pick }}" style="flex:1;display:flex;flex-direction:column;gap:2px;align-items:flex-start;border:1px solid {{ speedFast.bd }};background:{{ speedFast.bg }};border-radius:9px;padding:7px 9px;text-align:left" style-hover="background:#F5F5F8">
+                <span style="font-size:12.5px;font-weight:650;color:{{ speedFast.fg }}">{{ speedFast.label }}</span>
+                <span style="font-size:10.5px;color:#8A8A95;line-height:1.3">{{ speedFast.hint }}</span>
+              </button>
+              <button onClick="{{ speedFluent.pick }}" style="flex:1;display:flex;flex-direction:column;gap:2px;align-items:flex-start;border:1px solid {{ speedFluent.bd }};background:{{ speedFluent.bg }};border-radius:9px;padding:7px 9px;text-align:left" style-hover="background:#F5F5F8">
+                <span style="font-size:12.5px;font-weight:650;color:{{ speedFluent.fg }}">{{ speedFluent.label }}</span>
+                <span style="font-size:10.5px;color:#8A8A95;line-height:1.3">{{ speedFluent.hint }}</span>
+              </button>
+            </div>
+          </div>
+        </sc-if>
         <div style="border-top:1px solid #F2F2F6;margin-top:8px;padding-top:9px;display:flex;align-items:center;gap:8px">
           <span style="flex:1;font-size:11px;color:#8A8A95;line-height:1.35">{{ modelNote }}</span>
           <button onClick="{{ loadModelNow }}" style="flex:0 0 auto;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12px;border-radius:8px;padding:6px 11px" style-hover="background:#E7E2FD">{{ loadModelLabel }}</button>
@@ -1819,6 +1834,23 @@ class Component extends DCLogic {
       },
     }));
 
+    // Fast/Fluent — the render-speed lever for the local Llama. Shown only when webllm
+    // is the chosen backend (the others don't read it). Both builds are already 4-bit and
+    // ground identically; only the parameter count — how fast it loads and answers, how
+    // fluent the prose — moves. 'fluent' is the highlight when nothing is pinned (3B is the
+    // desktop default the adaptive pick lands on).
+    const showSpeed = pref === 'webllm';
+    const speedNow = app.speedPref() || 'fluent';
+    const mkSpeed = (id, label, hint) => ({
+      label, hint,
+      fg: speedNow === id ? '#5B4BE6' : '#8A8A95',
+      bg: speedNow === id ? '#F1EFFE' : 'transparent',
+      bd: speedNow === id ? '#DED8FD' : '#E6E6EC',
+      pick: () => { app.setSpeed(id); this._poke(); },
+    });
+    const speedFast   = mkSpeed('fast',   'Fast',   '1B · quicker to load & answer');
+    const speedFluent = mkSpeed('fluent', 'Fluent', '3B · fuller, more fluent prose');
+
     // status widget
     const busy = app.state.busy;
     const lastLog = app.state.log[app.state.log.length - 1];
@@ -2192,6 +2224,7 @@ class Component extends DCLogic {
       toggleLeft: () => this.toggleLeft(), toggleRight: () => this.toggleRight(),
       // model
       modelChip, modelDot, modelOpen: st.modelOpen, toggleModel: () => this.toggleModel(), backends,
+      showSpeed, speedFast, speedFluent,
       modelNote: m.state === 'error' ? `Load failed: ${m.note}` : m.state === 'ready' ? `${m.backend} is loaded and answering.` : m.state === 'loading' ? `Loading ${m.backend}${m.note ? ` · ${m.note}` : ''} — ${Math.round((m.progress || 0) * 100)}%` : 'The model loads on first question — or load it now.',
       loadModelLabel: m.state === 'loading' ? `${Math.round((m.progress || 0) * 100)}%…` : m.state === 'ready' ? 'Reload' : 'Load now',
       loadModelNow: () => { app.ensureModel().catch(() => {}); },

@@ -20,6 +20,22 @@ import { registerBackend } from './interface.js';
 
 const WEBLLM_URL = 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2/+esm';
 
+// THE RENDER-SPEED LEVER: which SIZE build to run. The Llama artifacts are already
+// at web-llm's 4-bit floor (there is no sub-4-bit Llama-3.2 prebuilt), so the knob
+// that actually moves how fast an answer renders is the parameter count, not the bit
+// width. The two builds trade fluency for speed:
+//   · '1B'  (Fast)   — ~0.9GB, loads ~2× faster, decodes ~2–3× faster, prose a touch plainer.
+//   · '3B'  (Fluent) — ~1.9GB, the fuller talker.
+// The GROUNDING is identical either way: binding and fact-check are mechanical and
+// downstream of the model (weave/write/paragraphs.js, enactor/ground), so the size pick
+// moves prose fluency, never what the record can witness. Pure and exported so the pick
+// is unit-testable without a DOM or a GPU. An explicit 'fast'/'fluent' pin wins; with no
+// pin the device class decides (small ⇒ 1B). Anything else ⇒ the adaptive default.
+export const pickSize = (speed, small) =>
+  speed === 'fast'   ? '1B'
+  : speed === 'fluent' ? '3B'
+  : (small ? '1B' : '3B');
+
 // The backend is a parameterised builder so a coding-model variant (model/coders.js)
 // can bind a different MLC artifact under its own id WITHOUT duplicating the engine
 // wiring below. `webllm` itself is just the builder with the Llama-3.2-3B default;
@@ -43,6 +59,18 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
     } catch { return null; }
   };
 
+  // The Fast/Fluent pick (eo_llm_speed), the size lever the surface's model chip sets.
+  // 'fast' ⇒ the 1B build, 'fluent' ⇒ 3B; empty/unreadable/any other value ⇒ null, i.e.
+  // fall back to the adaptive device-class default below. This is a size hint only — it
+  // composes with the fp16/fp32 dtype probe, never overrides the full-artifact pin above.
+  const speedPrefLS = () => {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      const v = localStorage.getItem('eo_llm_speed');
+      return (v === 'fast' || v === 'fluent') ? v : null;
+    } catch { return null; }
+  };
+
   // IS THIS A PHONE / LOW-MEMORY DEVICE. The 3B build is ~1.9GB to download and hold in
   // memory — on a phone or tablet that is a punishing first load and a real OOM risk, and
   // "the model takes forever to load" is almost always this. The 1B build (~0.9GB) loads
@@ -63,7 +91,8 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   };
 
   // PICK THE BUILD BY DEVICE CLASS × WHAT THE GPU CAN DO. Two axes:
-  //  · SIZE — 1B on a phone/low-memory device (fast to fetch, fits), 3B otherwise.
+  //  · SIZE — the Fast/Fluent pin (eo_llm_speed) if the user set one, else adaptive:
+  //    1B on a phone/low-memory device (fast to fetch, fits), 3B otherwise. See pickSize.
   //  · DTYPE — the suffix is the accumulation dtype, not the weight width (both are 4-bit):
   //    q4f16_1 accumulates in fp16 and decodes fast, but ONLY on a GPU exposing the WebGPU
   //    `shader-f16` feature. Without it (many integrated/older GPUs, some browsers) q4f16 runs
@@ -74,14 +103,16 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   const pickModel = async () => {
     const explicit = pinnedLS();
     if (explicit) return explicit;
-    const small = isSmallDevice();
-    const PORTABLE = small ? 'Llama-3.2-1B-Instruct-q4f32_1-MLC' : 'Llama-3.2-3B-Instruct-q4f32_1-MLC';
-    const FAST     = small ? 'Llama-3.2-1B-Instruct-q4f16_1-MLC' : 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
+    // SIZE (the render-speed lever): a Fast/Fluent pin wins; otherwise the device class
+    // decides (small ⇒ 1B). DTYPE is chosen independently below and multiplies onto it.
+    const size = pickSize(speedPrefLS(), isSmallDevice());
+    const f32Build = `Llama-3.2-${size}-Instruct-q4f32_1-MLC`;   // portable — fp32 accumulation
+    const f16Build = `Llama-3.2-${size}-Instruct-q4f16_1-MLC`;   // fast — needs the shader-f16 feature
     try {
-      if (typeof navigator === 'undefined' || !navigator.gpu) return PORTABLE;
+      if (typeof navigator === 'undefined' || !navigator.gpu) return f32Build;
       const adapter = await navigator.gpu.requestAdapter();
-      return (adapter && adapter.features && adapter.features.has('shader-f16')) ? FAST : PORTABLE;
-    } catch { return PORTABLE; }
+      return (adapter && adapter.features && adapter.features.has('shader-f16')) ? f16Build : f32Build;
+    } catch { return f32Build; }
   };
 
   return {
