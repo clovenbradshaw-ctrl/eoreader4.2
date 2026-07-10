@@ -27,6 +27,12 @@ export { fetchGutenbergBook, stripGutenbergBoilerplate, gutenbergIdOf,
          GUTENBERG_SOURCES, GUTENBERG_FULLTEXT } from './gutenberg.js';
 export { WIKIMEDIA_PROJECTS, WIKIMEDIA_SOURCES, WIKIMEDIA_FULLTEXT,
          mediaWikiExtract, renderWikidataEntity } from './wikimedia.js';
+// The open academic shelves: arXiv (search the API, read WHOLE PAPERS via ar5iv) and OpenAlex
+// (scholarly discovery across every field, with cited_by_count as the good-specimen prior).
+export { fetchArxivPaper, parseArxivAtom, arxivIdOf, reduceHtml,
+         ARXIV_SOURCES, ARXIV_FULLTEXT } from './arxiv.js';
+export { parseOpenAlex, deInvertAbstract, openalexIdOf,
+         OPENALEX_SOURCES, OPENALEX_FULLTEXT } from './openalex.js';
 // The raw web-content store: keep every fetched page in full, as binary, in OPFS (re-readable
 // without a refetch); degrades to in-memory where OPFS is absent.
 export { createRawStore, opfsAvailable, rawFileName, RAW_STORE_DIR } from './opfs-store.js';
