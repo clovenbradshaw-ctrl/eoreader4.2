@@ -54,6 +54,9 @@ export const createMetabolism = ({
   population = null,
   provenance = null,
   judge = null,                      // an optional external judge (judge.js) — the un-authored fitness anchor
+  proposer = null,                   // an optional THIRD Claude channel (proposer.js) — reads the grader's
+                                     // critiques and OFFERS a heritable tweak as a challenger the population
+                                     // must still ratify. Dry-run / null → nothing offered (disarmed-safe).
   now = () => Date.now(),
   anchorWeight = 0.6,
   capacity = 512,
@@ -167,6 +170,27 @@ export const createMetabolism = ({
     return Object.freeze({ fitness: fit, beat, event });
   };
 
+  // proposeAndSeat — the async proposer path, the sibling of metabolizeJudged's judge path. Consult
+  // the breeder with the reigning unit and the grader's recent CRITIQUES; if it offers a legal
+  // challenger, seat it into the population to compete the coming period. It never promotes — the
+  // tournament does (the firewall). No proposer / no population / dry-run → null and nothing is
+  // seated, so an unarmed third channel leaves the loop byte-identical. Returns the proposal (for the
+  // surface to render) or null.
+  const proposeAndSeat = async ({ critiques = [] } = {}) => {
+    if (!proposer || typeof proposer.propose !== 'function' || !population || typeof population.offer !== 'function') return null;
+    let prop = null;
+    try {
+      prop = await proposer.propose({
+        unit: reigning(),
+        critiques,
+        lineage: (typeof population.promotions === 'function' ? population.promotions() : []).slice(-6),
+        season: scarcity.season(period),
+      });
+    } catch { return null; }             // a proposer outage must not stall the loop
+    if (prop && prop.challenger && prop.challenger.unit) population.offer(prop.challenger.unit);
+    return prop;
+  };
+
   // vitals — the viability readout: the state the organism maintains and can fail to
   // maintain. This is the "inside" the metabolism grants, rendered for the surface.
   const vitals = () => {
@@ -223,8 +247,10 @@ export const createMetabolism = ({
     // the loop
     metabolize,
     metabolizeJudged,    // async: grade with the external judge (anchor), then metabolize
+    proposeAndSeat,      // async: consult the breeder (third channel), seat its challenger to compete
     allocation,          // consumers read this BEFORE a turn to know what to spend
     runsNext,
+    championUnit: reigning,   // the reigning heritable unit (organism/genome), for the proposer to tweak
     // the membrane / readout
     vitals,
     subscribe(fn) { subscribers.add(fn); return () => subscribers.delete(fn); },
@@ -237,6 +263,7 @@ export const createMetabolism = ({
     population,
     provenance,
     judge,
+    proposer,
     // world control — impose or lift the external constraint (the surface / a deployment)
     season: () => scarcity.season(period),
     scarcity,
