@@ -21,7 +21,7 @@ import { createModel, describeModel } from '../../model/interface.js';
 import { probeOrigins, explainReach } from '../../model/reach.js';
 import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
-         runTurnWithResearch, researchAnnouncement } from '../../turn/index.js';
+         runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement } from '../../turn/index.js';
 import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
@@ -745,10 +745,15 @@ export const createReaderApp = ({ audit } = {}) => {
         onStep: (name, _ctx, data) => { stallGuard?.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
       }, {
         search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
+        // The thumb: when the subject is a homonym, commit to ONE sense before gathering and search
+        // for it, so "dolphins" doesn't fetch a mix of the animal and the football team (disambiguate.js).
+        disambiguate: modelDisambiguator(m, { history: [], question: q }),
         onHop: (h) => hopBeat(pending, h, query),
         onHopDone: (h) => hopDoneBeat(pending, h),
         signal: abort.signal,
       }));
+      const committedSense = senseAnnouncement(result.research && result.research.sense);
+      if (committedSense) beat(pending, 'read', committedSense);
       const gathered = (result.research && result.research.results) || 0;
       if (!gathered) {
         beat(pending, 'warn', `Couldn't pull anything readable for “${query}”.`);
@@ -874,10 +879,14 @@ export const createReaderApp = ({ audit } = {}) => {
           pending.text = ''; emit('stream');
           const walked = await raceGuard(runTurnWithResearch(args, {
             search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
+            // The thumb: commit to one sense of a homonymous subject before gathering (disambiguate.js).
+            disambiguate: modelDisambiguator(m, { history, question: proposal.query }),
             onHop: (h) => hopBeat(pending, h, query),
             onHopDone: (h) => hopDoneBeat(pending, h),
             signal: abort.signal,
           }));
+          const committedSense = senseAnnouncement(walked.research && walked.research.sense);
+          if (committedSense) beat(pending, 'read', committedSense);
           settleTrail(pending, walked.research);
           result = {
             ...walked, webProposal: proposal,

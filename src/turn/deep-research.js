@@ -36,6 +36,7 @@
 
 import { profileOf, curiosityOf, foldInto, leadsFrom, nextQuery, researchTerms } from './research.js';
 import { bornSalience } from '../surfer/salience.js';
+import { chooseSense, biasTopic, sharpenSeed } from './disambiguate.js';
 import { makeArchive } from './archive.js';
 import { normalizeQuery } from './prefetch.js';
 import { runTurn } from './pipeline.js';
@@ -179,6 +180,8 @@ export const runDeepResearch = async (seed, {
   strayPatience = 3,
   k = 3,
   searchOpts = {},
+  disambiguate = null,    // async (subject) → sense prior | null — the injected thumb (disambiguate.js). Absent → no change.
+  sensePrior = null,      // a precomputed sense prior, letting a caller disambiguate once and reuse across walks
   onPlan = null,
   onHop = null,
   signal = null,          // an AbortSignal (the Stop button): stop the walk between hops, keeping what it gathered
@@ -186,13 +189,23 @@ export const runDeepResearch = async (seed, {
   shredTtlOpts = {},      // { msPerChar, min, max } — how the archive scales a reading's lease by content processed
 } = {}) => {
   const q0 = String(seed || '').trim();
-  const empty = { docs: [], sources: [], archive: [], hops: [], facets: [], frontier: [], prior: new Map(), topic: new Map() };
+  const empty = { docs: [], sources: [], archive: [], hops: [], facets: [], frontier: [], prior: new Map(), topic: new Map(), sense: null };
   if (typeof search !== 'function' || !q0) return empty;
+
+  // The disambiguation prior (opt-in), resolved once before the walk; applied at the first facet that
+  // grounds, where the frame freezes. No disambiguator/prior → commitPrior is null and the walk is
+  // byte-identical to before.
+  const commitPrior = sensePrior || (typeof disambiguate === 'function'
+    ? await Promise.resolve(disambiguate(anchor)).catch(() => null) : null);
+  let committed = null;   // the sense the seed grounding actually committed to (chooseSense), for the trace
 
   // 1. MULTIPLE PROMPT GENERATION — the facets, the mouths the search opens from.
   const facets = Array.isArray(presetFacets) && presetFacets.length
     ? (await planQueries(q0, { plan: () => presetFacets, max: maxFacets }))
     : (await planQueries(q0, { plan, max: maxFacets }));
+  // Sharpen the OVERVIEW facet (facet 0, the bare subject) to the committed sense so even the broad
+  // sweep opens on-sense, not on the dumb bare word (disambiguate.js sharpenSeed). No prior → unchanged.
+  if (commitPrior && facets.length) facets[0] = sharpenSeed(facets[0], commitPrior);
   if (onPlan) { try { onPlan(facets.slice()); } catch { /* a progress beat must never break the walk */ } }
 
   // 2. The FIXED topic frame the leash measures drift against — anchored on the ORIGINAL query
@@ -282,15 +295,25 @@ export const runDeepResearch = async (seed, {
     // facet still grounds, but we do not dig DOWN a thread that is already off the question.
     if (isFacet) {
       if (!hopDocs.length) { record(false, { leads: [], reason: 'empty' }); stray = 0; continue; }
+      // THE THUMB (opt-in): the first facet to ground commits the frame to ONE sense before it freezes —
+      // the seed grounding votes (chooseSense) and the sense's distinguishing terms press into the frame,
+      // so an off-sense discovered hop later strays. `effSalience` is this facet's salience to the frame
+      // AFTER the bias, so the leash it calibrates and the leash it is judged by speak one frame. No
+      // prior → effSalience is the untouched salience and the block is byte-identical.
+      let effSalience = salience;
       if (!topicFrozen) {
-        baseline = salience;
+        if (commitPrior && arrival.size) {
+          committed = chooseSense(new Set(arrival.keys()), commitPrior);
+          if (committed && committed.terms.length) { biasTopic(topic, committed.terms); effSalience = bornSalience(topic, new Set(arrival.keys())); }
+        }
+        baseline = effSalience;
         for (const t of arrival.keys()) topic.set(t, (topic.get(t) || 0) + 1);   // presence, not counts
         topicFrozen = true;
       }
-      const onLeash = baseline <= 0 || salience >= salienceRatio * baseline;
+      const onLeash = baseline <= 0 || effSalience >= salienceRatio * baseline;
       const novel = bits >= curiosityFloor || sources.length === 0;   // the very first arrival has no prior to diverge from
       const leads = (novel && onLeash) ? ground(leadsFrom(by, { seen: seenLeads, max: beam })) : (ground([]), []);
-      for (const lead of leads) { pushLead(lead, node, salience); seenLeads.add(lead.term); }
+      for (const lead of leads) { pushLead(lead, node, effSalience); seenLeads.add(lead.term); }
       record(true, { leads: leads.map(l => l.term), exhausted: !novel, strayed: !onLeash });
       stray = 0;
       continue;
@@ -326,7 +349,7 @@ export const runDeepResearch = async (seed, {
     record(true, { leads: leads.map(l => l.term), exhausted: !novel });
   }
 
-  return { docs, sources, archive: archive.entries(), hops, facets, frontier, prior, topic };
+  return { docs, sources, archive: archive.entries(), hops, facets, frontier, prior, topic, sense: committed };
 };
 
 // deepResearchReport(walk, { query, turn }) → the thorough summary WITH provenance — the deliverable.
@@ -358,6 +381,9 @@ export const deepResearchReport = (walk, { query = '', turn = null } = {}) => {
   const bits = hops.reduce((a, h) => a + (h.curiosity || 0), 0);
   return {
     query: String(query || '').trim(),
+    // The sense the walk committed to before gathering (disambiguate.js), or null when the subject was
+    // unambiguous / no disambiguator was injected — surfaced so the report discloses which sense it chose.
+    sense: walk?.sense || null,
     overview: String(turn?.answer || '').trim(),
     facets,
     sources,
@@ -407,13 +433,15 @@ export const runTurnWithDeepResearch = async (args, {
   strayPatience = 3,
   k = 3,
   searchOpts = { kind: 'auto', fetchPages: true },
+  disambiguate = null,    // forwarded to the walk — the injected sense thumb (disambiguate.js)
+  sensePrior = null,      // forwarded to the walk — a precomputed sense prior
   onPlan = null,
   onHop = null,
 } = {}) => {
   const q0 = String(seed || args?.question || '').trim();
   const walk = await runDeepResearch(q0, {
     search, plan, anchor: q0, maxFacets, maxHops, beam, gamma, curiosityFloor, salienceRatio,
-    strayPatience, k, searchOpts, onPlan, onHop,
+    strayPatience, k, searchOpts, disambiguate, sensePrior, onPlan, onHop,
   });
 
   const baseDocs = args?.docs || (args?.doc ? [args.doc] : []);

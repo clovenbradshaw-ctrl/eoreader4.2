@@ -26,6 +26,7 @@
 
 import { surpriseAt } from '../core/surprise.js';
 import { bornSalience } from '../surfer/salience.js';
+import { chooseSense, biasTopic, sharpenSeed } from './disambiguate.js';
 import { makeArchive } from './archive.js';
 import { normalizeQuery } from './prefetch.js';
 import { runTurn } from './pipeline.js';
@@ -174,6 +175,8 @@ export const runCuriousResearch = async (seed, {
   strayPatience = 2,
   k = 3,
   searchOpts = {},
+  disambiguate = null,    // async (subject) → sense prior | null — the injected thumb (disambiguate.js). Absent → no change.
+  sensePrior = null,      // a precomputed sense prior, letting a caller disambiguate once and reuse across walks
   onHop = null,           // (｛ index, query, term ｝) → void — a progress beat fired BEFORE each hop's fetch
   onHopDone = null,       // (hop) → void — a progress beat fired AFTER each hop, carrying its outcome
   signal = null,          // an AbortSignal (the Stop button): stop the walk between hops, keeping what it gathered
@@ -181,7 +184,14 @@ export const runCuriousResearch = async (seed, {
   shredTtlOpts = {},      // { msPerChar, min, max } — how the archive scales a reading's lease by content processed
 } = {}) => {
   const q0 = String(seed || '').trim();
-  if (typeof search !== 'function' || !q0) return { docs: [], archive: [], hops: [], frontier: [], prior: new Map(), topic: new Map() };
+  if (typeof search !== 'function' || !q0) return { docs: [], archive: [], hops: [], frontier: [], prior: new Map(), topic: new Map(), sense: null };
+
+  // The disambiguation prior (opt-in): the model's read of which sense of an ambiguous subject is meant,
+  // resolved ONCE before the walk. Applied at the seed, where the frame freezes. No disambiguator and no
+  // precomputed prior → commitPrior is null and the walk is byte-identical to before.
+  const commitPrior = sensePrior || (typeof disambiguate === 'function'
+    ? await Promise.resolve(disambiguate(anchor)).catch(() => null) : null);
+  let committed = null;   // the sense the seed grounding actually committed to (chooseSense), for the trace
 
   let prior = new Map();
   // The FIXED topic frame the saliency leash measures drift against. It is anchored PRIMARILY on the
@@ -207,11 +217,15 @@ export const runCuriousResearch = async (seed, {
   const visited = new Set();          // normalized queries already fetched — never re-fetch
   const seenLeads = new Set();        // lead terms already chased or already in a query — never re-chase
   for (const t of researchTerms(anchor)) seenLeads.add(t);   // the anchor's own words are not "discoveries"
+  // The committed sense's own vocabulary is the frame we chose, not a discovery to re-chase.
+  if (commitPrior) for (const t of commitPrior.senseTerms || []) seenLeads.add(t);
 
   // The frontier: { query, term, priority }. The seed leads at +∞ so it is always explored first;
   // a discovered lead's priority blends its surprise (the KL it carried) with the saliency of the
   // page it was found on — so the walk prefers leads that are both surprising AND still on-topic.
-  const frontier = [{ query: q0, term: null, priority: Infinity }];
+  // The seed query is SHARPENED to the committed sense (disambiguate.js sharpenSeed) so the first fetch
+  // is already on-sense — "dolphins" → "dolphins marine mammal" — not the dumb bare word. No prior → q0.
+  const frontier = [{ query: commitPrior ? sharpenSeed(q0, commitPrior) : q0, term: null, priority: Infinity }];
   const pushLead = (lead, salience) => {
     const query = nextQuery(anchor, lead);
     const key = normalizeQuery(query);
@@ -249,7 +263,16 @@ export const runCuriousResearch = async (seed, {
     // SEED: the question's own footing — always kept and folded, and it CALIBRATES the leash. Its
     // saliency becomes the baseline; the topic frame is enriched with its content, then frozen.
     if (isSeed) {
-      baseline = salience;
+      // THE THUMB (opt-in): with a sense prior, commit the frame to ONE sense before it freezes, so an
+      // off-sense hop (the Miami-Dolphins page under a marine-mammal ask) strays off the leash. The seed
+      // grounding votes — chooseSense lets the evidence overrule the model's guess when it concentrates
+      // on another sense (disambiguate.js). No prior → the frame and baseline are exactly what they were.
+      let biased = false;
+      if (commitPrior && !topicFrozen && arrival.size) {
+        committed = chooseSense(new Set(arrival.keys()), commitPrior);
+        if (committed && committed.terms.length) { biasTopic(topic, committed.terms); biased = true; }
+      }
+      baseline = biased ? bornSalience(topic, new Set(arrival.keys())) : salience;
       if (!topicFrozen) { for (const t of arrival.keys()) topic.set(t, (topic.get(t) || 0) + 1); topicFrozen = true; }   // presence, not counts
       if (hopDocs.length) {
         docs.push(...hopDocs);
@@ -304,7 +327,7 @@ export const runCuriousResearch = async (seed, {
              results: hopDocs.length, leads: leads.map(l => l.term), kept: true, exhausted: !novel });
   }
 
-  return { docs, archive: archive.entries(), hops, frontier, prior, topic };
+  return { docs, archive: archive.entries(), hops, frontier, prior, topic, sense: committed };
 };
 
 // The prose a hop reads from an admitted doc: the parsed text, falling back to the source's
@@ -330,12 +353,14 @@ export const runTurnWithResearch = async (args, {
   strayPatience = 2,
   k = 3,
   searchOpts = { kind: 'auto', fetchPages: true },
+  disambiguate = null,    // forwarded to the walk — the injected sense thumb (disambiguate.js)
+  sensePrior = null,      // forwarded to the walk — a precomputed sense prior
   onHop = null,           // forwarded to the walk — the pre-fetch "searching for…" beat
   onHopDone = null,       // forwarded to the walk — the after-fetch "read N sources" beat
   signal = null,          // forwarded to the walk — the Stop button stops it between hops
 } = {}) => {
   const q0 = String(seed || args?.question || '').trim();
-  const walk = await runCuriousResearch(q0, { search, anchor: q0, maxHops, gamma, curiosityFloor, salienceRatio, strayPatience, k, searchOpts, onHop, onHopDone, signal });
+  const walk = await runCuriousResearch(q0, { search, anchor: q0, maxHops, gamma, curiosityFloor, salienceRatio, strayPatience, k, searchOpts, disambiguate, sensePrior, onHop, onHopDone, signal });
 
   const baseDocs = args?.docs || (args?.doc ? [args.doc] : []);
   const turnArgs = walk.docs.length
@@ -358,6 +383,9 @@ export const runTurnWithResearch = async (args, {
         docId: d.docId, title: d.web?.title || d.title || '', url: d.web?.url || d.web?.final_url || '',
         fetched_at: d.web?.fetched_at || null,
       })),
+      // The sense the walk committed to (disambiguate.js), or null when the subject was unambiguous /
+      // no disambiguator was injected — surfaced so the trail can disclose which dolphins it chose.
+      sense: walk.sense || null,
     },
   };
 };
