@@ -24,6 +24,7 @@ src/
   organs/        the modality membrane
     in/  out/      raise (SIG) and render (INS) adapters
     ingest/        surface → EO tuples
+    code/          code → EOT → issues from the dependency order (docs/code-organ.md)
   perceiver/     reading — text → event log → the three reading levels
     parse/  predict/  credence/  classify/
   surfer/        relating — navigation over what the reading maintains
