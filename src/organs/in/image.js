@@ -17,6 +17,7 @@ import { createLog }        from '../../core/index.js';
 import { projectGraph }     from '../../core/index.js';
 import { createConventions }from '../../core/conventions/index.js';
 import { tok }              from '../../perceiver/parse/index.js';
+import { attachReading }    from '../ingest/index.js';
 
 const slug = (s) => String(s || 'thing').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
@@ -89,6 +90,10 @@ export const ingestImage = (detections = {}) => {
     if (!vecByOrgan.has(key)) vecByOrgan.set(key, Promise.all(sentences.map(s => embedder.embed(s))));
     return vecByOrgan.get(key);
   };
+
+  // Every source encodes into EoT (ingest/read.js): region-INS, spatial CONs, caption
+  // DEFs â the scene’s three-faced events, rendered whole on demand.
+  attachReading(doc);
 
   return doc;
 };

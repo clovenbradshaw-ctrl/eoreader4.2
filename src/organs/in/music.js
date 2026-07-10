@@ -23,6 +23,7 @@ import { createLog }         from '../../core/index.js';
 import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
+import { attachReading }     from '../ingest/index.js';
 
 const SEMITONE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const PC_NAME  = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -98,6 +99,9 @@ export const ingestMusic = (score = {}) => {
     if (!vecByOrgan.has(key)) vecByOrgan.set(key, Promise.all(sentences.map(s => embedder.embed(s))));
     return vecByOrgan.get(key);
   };
+
+  // Every source encodes into EoT (ingest/read.js) â the score’s note events included.
+  attachReading(doc);
 
   return doc;
 };

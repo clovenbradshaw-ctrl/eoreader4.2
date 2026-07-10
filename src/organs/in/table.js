@@ -18,17 +18,47 @@ import { createLog }         from '../../core/index.js';
 import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
+import { attachReading }     from '../ingest/index.js';
 
 const slugKey = (s) => String(s || '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || 'col';
+
+// Papaparse (header mode) parks the cells of a row that is WIDER than the header row
+// under this key. They are content — a ragged export's overflow cells — not noise.
+const EXTRA = '__parsed_extra';
+const extraOf = (row) => (row && !Array.isArray(row) && Array.isArray(row[EXTRA])) ? row[EXTRA] : [];
 
 // table: { name?, columns?:[string], rows:[ {..} | [..] ], keyColumn?, metadata? }
 // rows may be objects keyed by column, or arrays aligned to `columns`.
 export const ingestTable = (table = {}) => {
   const { name = `table-${Date.now()}`, rows = [], keyColumn } = table;
-  let columns = table.columns;
-  if (!columns && rows.length && !Array.isArray(rows[0])) columns = Object.keys(rows[0]);
-  columns = (columns || []).map(String);
-  const keys = columns.map(slugKey);
+  // The effective header is widened until EVERY cell of EVERY row has a column:
+  //   • an object row's keys are unioned across ALL rows (first-seen order), not read
+  //     off row 0 alone — a field that first appears on row 40 must not vanish;
+  //   • a row wider than the header (a ragged CSV/sheet, or Papaparse's __parsed_extra)
+  //     gets synthesized `col_N` names for its overflow cells.
+  // 100% of the content lands on the spine; nothing is silently dropped.
+  let columns = (table.columns || []).map(String);
+  const knownCols = new Set(columns);
+  let overflow = 0;
+  for (const row of rows) {
+    if (Array.isArray(row)) { overflow = Math.max(overflow, row.length - columns.length); continue; }
+    for (const k of Object.keys(row)) {
+      if (k === EXTRA) continue;
+      if (!knownCols.has(k)) { knownCols.add(k); columns.push(k); }
+    }
+    overflow = Math.max(overflow, extraOf(row).length);
+  }
+  const named = columns.length;
+  for (let i = 0; i < overflow; i++) columns.push(`col_${named + i + 1}`);
+  // Slug the headers into DEF keys, deduping collisions ("Name" and "name" both slug
+  // to `name`) with a positional suffix so one column can never overwrite another.
+  const seenKeys = new Map();
+  const keys = columns.map((c) => {
+    const base = slugKey(c);
+    const n = (seenKeys.get(base) || 0) + 1;
+    seenKeys.set(base, n);
+    return n === 1 ? base : `${base}_${n}`;
+  });
 
   const log = createLog({ docId: name });
   const units = [], sentences = [], records = [];
@@ -36,7 +66,11 @@ export const ingestTable = (table = {}) => {
   let prevId = null;
 
   rows.forEach((row, i) => {
-    const values = Array.isArray(row) ? row : columns.map(c => row[c]);
+    // An array row aligns positionally over the widened header; an object row reads its
+    // named cells then appends its overflow cells, so both shapes fill every column.
+    const values = Array.isArray(row)
+      ? row
+      : [...columns.slice(0, named).map(c => row[c]), ...extraOf(row)];
     const cells = {};
     keys.forEach((k, ci) => { cells[k] = values[ci] == null ? '' : String(values[ci]); });
 
@@ -70,6 +104,12 @@ export const ingestTable = (table = {}) => {
   };
   doc.rowAt = (i) => records[i] || null;
   doc.column = (col) => { const k = slugKey(col); return records.map(r => r.cells[k]); };
+
+  // Every source encodes into EoT, tabular included: the lazy `doc.reading()` renders the
+  // full log — every row-INS, every cell-DEF, every next-row CON — as canonical EoT lines
+  // (ingest/read.js). A row is not a proposition the way a sentence is, but it is the same
+  // three-faced event on the same spine, and the EoT surface carries all of it.
+  attachReading(doc);
 
   const vecByOrgan = new Map();
   doc.sentenceEmbeddings = async (embedder) => {

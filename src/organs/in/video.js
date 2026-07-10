@@ -24,6 +24,7 @@
 import { createLog }         from '../../core/index.js';
 import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
+import { attachReading }     from '../ingest/index.js';
 
 // 8-connected components of a set of "x,y" lit-pixel keys → blobs with centroid.
 const components = (on) => {
@@ -99,7 +100,7 @@ export const ingestFrames = (spec = {}) => {
     mentions.set(tr.id, [...(mentions.get(tr.id) || []), p.fi]);
   }
 
-  return {
+  const doc = {
     docId: name, modality: 'video', width: W, height: H, frameCount: frames.length,
     units: frames.map((_, i) => `frame ${i}`),
     frames, tracks, blobsByFrame,
@@ -110,4 +111,6 @@ export const ingestFrames = (spec = {}) => {
     metadata: spec.metadata || {},
     projectGraph: (frame = {}) => projectGraph(log, frame),
   };
+  // Every source encodes into EoT (ingest/read.js) — the clip's track events included.
+  return attachReading(doc);
 };

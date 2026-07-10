@@ -25,6 +25,7 @@
 import { createLog }         from '../../core/index.js';
 import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
+import { attachReading }     from '../ingest/index.js';
 
 // The prefix token set of a codon: its first base, its first two bases, … the whole
 // triplet. Position-tagged and lower-cased so `p1a` (first base A) never collides with
@@ -76,6 +77,9 @@ export const ingestCodons = (spec = {}) => {
   // this to retrieveLexical(doc, query) and the engine ranks every other codon by
   // shared prefixes — sequence relatedness, measured by hits/qLen and nothing else.
   doc.spectrumQuery = (i) => partialTokens[i].join(' ');
+
+  // Every source encodes into EoT (ingest/read.js) — a codon's prefix events included.
+  attachReading(doc);
 
   return doc;
 };
