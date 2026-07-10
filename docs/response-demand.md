@@ -274,8 +274,8 @@ turn needed.
 | 1 ambiguity gate | shortcut / steer / ask | **`turn/sense.js` (here)** |
 | 2 sense resolution + anchor | discriminating anchor, model-free | **`turn/sense.js` (here)** |
 | 3 query generation | the one steered LLM call | `turn/web.js` `formulateSearchQuery` |
-| 4 query validation | typed pre-flight checks | to build |
-| 5 search + basin check | verify results' basin, bounded escalate | `turn/research.js` walk + basin check |
+| 4 query validation | typed pre-flight checks | **`turn/sense.js` `validateQuery` (here)** |
+| 5 search + basin check | results in target basin vs collision → escalate | **`turn/sense.js` `resultBasinCheck` (here)** + `turn/research.js` walk |
 | 6 emit | `{query, results, senseResolved, escalations}` | caller |
 
 ### The two decisions
@@ -336,7 +336,8 @@ so `"Good morning"` at an open book gets a hello instead of a grounded non-answe
 | **6** | The producer: wire `helixGenerate`/`renderContinuation` as the prediction-driven first-draft for reflex/continuation turns, so the cheap path never wakes (or stalls) the big model. | no (draft) | pending |
 | **7** | Stage 1 — the subject-sense-collision gate: `senseCollision` over the recorded graph, three exits (shortcut/steer/ask), the ask feeding `fold.awaiting`. Model-free, `tests/sense.test.js`. | no | **done** |
 | **8** | Wire Stage 1 into the live turn (`app.js` `ask`): on ambiguity pose the choice question and stop; when the reply answers it, fold the chosen sense back into the original ask (`effectiveQ`). Model-free, fail-soft. | no | **done** |
-| **9** | Thread the steer `anchor` into `formulateSearchQuery`/grounding, then Stages 4–5 (typed query validation + result-basin escalation with bounded retry). | no | pending |
+| **9** | Stages 4–5 as pure functions: `steerQuery` (fold the anchor in), `validateQuery` (typed pre-flight), `resultBasinCheck` (post-flight basin verdict + escalate). Model-free, `tests/sense.test.js`. | no | **done** |
+| **10** | Live wiring: `formulateSearchQuery` takes the steer anchor and runs `validateQuery` (regenerate once on failure); the research walk runs `resultBasinCheck` and escalates with a bounded retry. | yes | pending |
 
 Rungs 1–3 are landed here — the bug you named (a doc-loaded greeting) is fixed with **no
 model** and no new physics, and the measured `phatic` direction is ready for the read to be

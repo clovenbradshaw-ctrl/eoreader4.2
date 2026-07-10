@@ -189,3 +189,55 @@ export const senseGate = (question, docs = [], { hints = [], entities: injected 
   }
   return bestAsk || steer || shortcut;
 };
+
+// ── Stage 2→3 tilt and Stage 4 validation (docs/response-demand.md) ───────────────────────────────
+// steerQuery(query, anchor, {budget}) → the query with the discriminating anchor folded in when it
+// is missing and there is room. The model-free tilt Stage 2 hands Stage 3 — Stage 3 then assembles
+// more than it reasons. '' anchor, already-present, or a full budget → unchanged.
+export const steerQuery = (query, anchor, { budget = 6 } = {}) => {
+  const q = String(query || '').trim();
+  const a = stem(anchor || '');
+  if (!a) return q;
+  const terms = tok(q).map(stem);
+  if (terms.includes(a) || terms.length >= budget) return q;
+  return q ? `${q} ${anchor}` : String(anchor || '');
+};
+
+// validateQuery(query, {subject, anchors, ambiguous, budget}) → { ok, reasons } — Stage 4, the typed
+// pre-flight that makes the pipeline honest instead of trust-the-model. Each failed check is named so
+// a regeneration can be told what to fix, rather than shipping a bad query. Model-free.
+export const validateQuery = (query, { subject = '', anchors = [], ambiguous = false, budget = 6 } = {}) => {
+  const raw = String(query || '');
+  const terms = tok(raw);
+  const set = new Set(terms.map(stem));
+  const reasons = [];
+  if (terms.length === 0) reasons.push('empty');
+  if (subject && !set.has(stem(subject))) reasons.push('missing-subject');
+  if (ambiguous && anchors.length && !anchors.some((a) => set.has(stem(a)))) reasons.push('missing-anchor');
+  if (terms.length > budget) reasons.push('over-budget');
+  if (/(^|\s)-\w/.test(raw) && anchors.length) reasons.push('exclusion-over-anchor');   // prefer a positive anchor
+  return { ok: reasons.length === 0, reasons };
+};
+
+// ── Stage 5 — result-basin check (docs/response-demand.md) ─────────────────────────────────────────
+// resultBasinCheck(results, {target, collision}) → after search, did the results land in the TARGET
+// sense or the COLLISION? Score each result's terms against the two basins' neighbor vocab; escalate
+// when the collision dominates. The same co-occurrence overlap the gate used, now over titles/snippets
+// — model-free. `results` are {title, snippet}. inBasin is null when neither basin is witnessed.
+export const resultBasinCheck = (results = [], { target = null, collision = null } = {}) => {
+  const bag = (b) => new Set((b && b.neighbors) || []);
+  const T = bag(target), C = bag(collision);
+  let t = 0, c = 0;
+  for (const r of results || []) {
+    const terms = new Set(tok(`${(r && r.title) || ''} ${(r && r.snippet) || ''}`).map(stem));
+    for (const term of terms) { if (T.has(term)) t++; if (C.has(term)) c++; }
+  }
+  const total = t + c;
+  return {
+    inBasin: total === 0 ? null : t >= c,
+    confidence: total === 0 ? 0 : Math.abs(t - c) / total,
+    targetHits: t,
+    collisionHits: c,
+    escalate: total > 0 && c > t,        // the collision basin dominates → add an anchor / exclusion and re-run
+  };
+};

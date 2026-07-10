@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { senseCollision, senseBasins, discriminatingAnchor, senseGate, SENSE_FLOOR } from '../src/turn/sense.js';
+import { senseCollision, senseBasins, discriminatingAnchor, senseGate, steerQuery, validateQuery, resultBasinCheck, SENSE_FLOOR } from '../src/turn/sense.js';
 import { projectFold, clearFoldMemo, answersAwaited } from '../src/core/conversation-fold.js';
 
 // Stage 1 of the disambiguated-query pipeline (docs/response-demand.md): before a query is
@@ -122,4 +122,47 @@ test('Stage 1 → fold: the ask question feeds answersAwaited, and a choice repl
   assert.equal(answersAwaited(fold, 'the cetacean one').demand, 'continuation');
   assert.equal(answersAwaited(fold, 'miami').demand, 'continuation');
   assert.equal(answersAwaited(fold, 'actually, tell me about whales').demand, 'attention');
+});
+
+// ── Stages 2→3 tilt and 4 (query validation) ──────────────────────────────────────────────────────
+
+test('steerQuery folds the anchor in when missing and there is room', () => {
+  assert.equal(steerQuery('dolphin behavior', 'cetacean'), 'dolphin behavior cetacean');
+  assert.equal(steerQuery('dolphin cetacean', 'cetacean'), 'dolphin cetacean');   // already present → unchanged
+  assert.equal(steerQuery('alpha beta gamma delta epsilon zeta', 'cetacean', { budget: 6 }), 'alpha beta gamma delta epsilon zeta');   // budget full → unchanged
+  assert.equal(steerQuery('dolphin', ''), 'dolphin');   // no anchor → unchanged
+});
+
+test('validateQuery catches the ways a query goes wrong', () => {
+  assert.equal(validateQuery('dolphin cetacean behavior', { subject: 'dolphin', anchors: ['cetacean'], ambiguous: true }).ok, true);
+  assert.deepEqual(validateQuery('cetacean behavior', { subject: 'dolphin' }).reasons, ['missing-subject']);
+  assert.deepEqual(validateQuery('dolphin behavior', { subject: 'dolphin', anchors: ['cetacean'], ambiguous: true }).reasons, ['missing-anchor']);
+  assert.ok(validateQuery('dolphin alpha beta gamma delta epsilon zeta', { subject: 'dolphin', budget: 6 }).reasons.includes('over-budget'));
+  assert.ok(validateQuery('dolphin -football', { subject: 'dolphin', anchors: ['cetacean'] }).reasons.includes('exclusion-over-anchor'));
+  assert.deepEqual(validateQuery('', {}).reasons, ['empty']);
+});
+
+// ── Stage 5 (result-basin check) ───────────────────────────────────────────────────────────────────
+
+test('resultBasinCheck escalates when the collision basin dominates the results', () => {
+  const target = { neighbors: ['cetacean', 'marine', 'mammal', 'ocean'] };
+  const collision = { neighbors: ['nfl', 'quarterback', 'touchdown', 'football'] };
+
+  const wrong = resultBasinCheck([
+    { title: 'Miami Dolphins quarterback throws for a touchdown', snippet: 'NFL football recap' },
+    { title: 'Dolphins add a kicker', snippet: 'the football roster' },
+  ], { target, collision });
+  assert.equal(wrong.escalate, true);
+  assert.equal(wrong.inBasin, false);
+
+  const right = resultBasinCheck([
+    { title: 'Dolphin (marine mammal)', snippet: 'a cetacean of the ocean' },
+  ], { target, collision });
+  assert.equal(right.escalate, false);
+  assert.equal(right.inBasin, true);
+
+  // neither basin witnessed → no verdict, no escalation
+  const neither = resultBasinCheck([{ title: 'the weather today', snippet: '' }], { target, collision });
+  assert.equal(neither.inBasin, null);
+  assert.equal(neither.escalate, false);
 });
