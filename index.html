@@ -382,15 +382,13 @@ table{border-collapse:collapse;width:100%}
                             </sc-if>
                           </div>
                         </sc-if>
-                        <sc-if value="{{ m.plain }}">
-                          <div style="font-size:14.5px;line-height:1.62;color:#2A2A32;white-space:pre-wrap">{{ m.text }}</div>
-                        </sc-if>
-                        <sc-if value="{{ m.rich }}">
+                        <sc-if value="{{ m.hasBody }}">
                           <div style="font-size:14.5px;line-height:1.62;color:#2A2A32">
                             <sc-for list="{{ m.paras }}" as="pp">
-                              <div style="margin:0 0 10px">
+                              <div style="{{ pp.style }}">
+                                <sc-if value="{{ pp.hasPrefix }}"><span style="color:#8A8A95">{{ pp.prefix }}</span></sc-if>
                                 <sc-for list="{{ pp.segs }}" as="sg">
-                                  <sc-if value="{{ sg.isText }}"><span>{{ sg.s }}</span></sc-if>
+                                  <sc-if value="{{ sg.isText }}"><span style="{{ sg.style }}">{{ sg.s }}</span></sc-if>
                                   <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;color:#5B4BE6;border-bottom:1px dotted #B9AEF8;font-size:inherit;line-height:inherit" style-hover="background:#F1EFFE">{{ sg.s }}</button></sc-if>
                                   <sc-if value="{{ sg.isCite }}"><button onClick="{{ sg.open }}" title="{{ sg.quote }}" style="display:inline-flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border-radius:5px;padding:0 5px;margin:0 2px;vertical-align:baseline" style-hover="background:#E7E2FD">{{ sg.label }}</button></sc-if>
                                 </sc-for>
@@ -1256,11 +1254,14 @@ class Component extends DCLogic {
     if (s === undefined) { s = m.pending ? 0 : full; this._reveal[m.id] = s; }
     return Math.min(s, full);
   }
-  // Chars to advance this frame: a floor (~60/s) so it always reads as typing, scaling with the
-  // backlog so a big decode burst catches up within a few frames (cap ~1200/s). Time-based, so
+  // Chars to advance this frame. A steady base pace so it ALWAYS reads as typing, one character
+  // at a time — even when the backend hands over a whole sentence (or the whole answer) in one
+  // burst. The pace scales with the backlog so a big burst still drains in a couple of seconds,
+  // but the cap stays low enough (~5 chars/frame at 60fps) that a burst is TYPED OUT, never
+  // popped in whole — the fix for text that used to appear a sentence at a time. Time-based, so
   // the speed holds across frame rates.
   _revealStep(backlog, dt) {
-    const perSec = Math.max(60, Math.min(1200, backlog * 16));
+    const perSec = Math.max(48, Math.min(320, 60 + backlog * 3));
     return Math.max(1, Math.round(perSec * dt / 1000));
   }
   _advanceReveals(dt) {
@@ -1281,16 +1282,38 @@ class Component extends DCLogic {
     }
     return active;
   }
+  // Generation is "live" while an assistant answer is still pending, or its research/thinking
+  // trail is still running. Across that whole window — crucially the quiet gap between the last
+  // "thinking" beat and the first streamed character — the clock must keep ticking and the
+  // typewriter must keep running, so the loop stays armed off THIS, not only off new text.
+  _liveActive() {
+    const topics = (this._app && this._app.state && this._app.state.topics) || [];
+    for (const t of topics) for (const m of (t.messages || [])) {
+      if (m.role !== 'assistant') continue;
+      if (m.pending) return true;
+      if (m.research && !m.research.done) return true;
+    }
+    return false;
+  }
   _ensureTyping() {
-    if (this._typeRaf || this._reduceMotion()) return;
+    if (this._typeRaf) return;
     const step = (ts) => {
       this._typeRaf = null;
       const dt = this._typeLast ? Math.min(120, ts - this._typeLast) : 16;
       this._typeLast = ts;
-      const active = this._advanceReveals(dt);
-      this.setState({ rev: (this.state.rev || 0) + 1 });
-      if (active) this._typeRaf = requestAnimationFrame(step);
-      else this._typeLast = 0;
+      // Advance the per-character reveal (skipped under reduced motion, which snaps to whole text).
+      const advanced = this._reduceMotion() ? false : this._advanceReveals(dt);
+      const live = this._liveActive();
+      // Re-render every frame while characters are actually revealing — a smooth typewriter. When
+      // only the "thinking" clock needs to move (generating, no new chars yet), re-render ~4×/s so
+      // the seconds tick up live without spinning the reconciler at 60fps through a long walk.
+      if (advanced || (live && ts - (this._tickLast || 0) >= 240)) {
+        this._tickLast = ts;
+        this.setState({ rev: (this.state.rev || 0) + 1 });
+      }
+      // Stay armed while text is still revealing OR generation is live; stand down once quiet.
+      if (advanced || live) this._typeRaf = requestAnimationFrame(step);
+      else { this._typeLast = 0; this._tickLast = 0; }
     };
     this._typeRaf = requestAnimationFrame(step);
   }
@@ -1716,18 +1739,85 @@ class Component extends DCLogic {
     const local = src.kind !== 'web';
     return { label: local ? 'local' : (/CC|public/i.test(r) ? r : 'verify'), fg: local || /CC|public/i.test(r) ? '#1E8A50' : '#9A6B12', bg: local || /CC|public/i.test(r) ? '#E7F6EC' : '#FBF1DA' };
   }
+  // ── markdown, rendered live as the answer streams ───────────────────────────
+  // The model is asked to shape answers with markdown (## headings, **bold**, bullet lists —
+  // model/prompt.js). Render it AS IT ARRIVES so the bubble never shows a raw ** or ##, and
+  // never flips format when the answer settles: the SAME typed-block structure carries the
+  // streamed prefix (plain markdown) and, once bound, the entity links + [sN] citation chips.
+
+  // One plain text run → inline-styled pieces: `code`, **bold**/__bold__, *italic*/_italic_.
+  // Non-nesting, left-to-right, safe on a half-typed marker — an unclosed ** stays literal until
+  // its closing pair streams in (a beat of flicker, exactly like any live markdown editor).
+  _inlineMd(s) {
+    const CODE = "font-family:'IBM Plex Mono',monospace;font-size:.92em;background:#EFEFF4;border-radius:4px;padding:.03em 4px";
+    const out = [];
+    const push = (t, style) => { if (t) out.push({ isText: true, s: t, style: style || '' }); };
+    const re = /(`+)([^`]+?)\1|(\*\*|__)([\s\S]+?)\3|(?<![A-Za-z0-9])([*_])([\s\S]+?)\5(?![A-Za-z0-9])/g;
+    let last = 0, mm;
+    while ((mm = re.exec(s)) !== null) {
+      if (mm.index > last) push(s.slice(last, mm.index));
+      if (mm[1]) push(mm[2], CODE);
+      else if (mm[3]) push(mm[4], 'font-weight:650');
+      else push(mm[6], 'font-style:italic');
+      last = re.lastIndex;
+    }
+    if (last < s.length) push(s.slice(last));
+    return out.length ? out : [{ isText: true, s, style: '' }];
+  }
+  // A paragraph's leading text → its block frame: wrapper style, an optional list/quote prefix,
+  // and the count of leading marker chars to strip. Headings, bullet + numbered lists,
+  // blockquotes; anything else is a plain paragraph.
+  _blockOf(lead) {
+    let m2;
+    if ((m2 = /^(#{1,6})\s+/.exec(lead))) {
+      const h = m2[1].length;
+      const style = h <= 1 ? 'font-size:1.22em;font-weight:650;line-height:1.3;margin:16px 0 7px'
+        : h === 2 ? 'font-size:1.12em;font-weight:650;line-height:1.3;margin:14px 0 6px'
+        : 'font-size:1.02em;font-weight:650;margin:12px 0 5px';
+      return { style, hasPrefix: false, prefix: '', cut: m2[0].length };
+    }
+    if ((m2 = /^\s*[-*+•]\s+/.exec(lead)))
+      return { style: 'margin:2px 0 4px;padding-left:17px;text-indent:-17px', hasPrefix: true, prefix: '• ', cut: m2[0].length };
+    if ((m2 = /^\s*(\d+)[.)]\s+/.exec(lead)))
+      return { style: 'margin:2px 0 4px;padding-left:22px;text-indent:-22px', hasPrefix: true, prefix: m2[1] + '. ', cut: m2[0].length };
+    if ((m2 = /^\s*>\s?/.exec(lead)))
+      return { style: 'margin:6px 0;padding:2px 0 2px 12px;border-left:3px solid #E3DEFC;color:#55555F', hasPrefix: false, prefix: '', cut: m2[0].length };
+    return { style: 'margin:0 0 10px', hasPrefix: false, prefix: '', cut: 0 };
+  }
+  // The settled body: the app's answer segments (entity links + [sN] cite chips bound), with the
+  // block frame and inline emphasis layered on. Cached by text length.
   _segsFor(m) {
     const c = this._segCache[m.id];
     if (c && c.len === (m.text || '').length) return c.paras;
-    const paras = this._app.answerSegments(m, { entities: this.state.entityMode }).map((p) => ({
-      segs: p.segs.map((sg) => sg.t === 'text'
-        ? { isText: true, s: sg.s }
-        : sg.t === 'ent'
-          ? { isEnt: true, s: sg.s, open: () => this.openEntity(sg.docId, sg.entId) }
-          : { isCite: true, label: '[' + (sg.reg || 's' + sg.idx) + ']', quote: sg.quote || '', open: () => this.openViewer(sg.sn, sg.quote) }),
-    }));
+    const paras = this._app.answerSegments(m, { entities: this.state.entityMode }).map((p) => {
+      const segsIn = p.segs.slice();
+      let blk = { style: 'margin:0 0 10px', hasPrefix: false, prefix: '', cut: 0 };
+      if (segsIn[0] && segsIn[0].t === 'text') {
+        blk = this._blockOf(segsIn[0].s);
+        if (blk.cut) segsIn[0] = { ...segsIn[0], s: segsIn[0].s.slice(blk.cut) };
+      }
+      const segs = [];
+      for (const sg of segsIn) {
+        if (sg.t === 'text') for (const piece of this._inlineMd(sg.s)) segs.push(piece);
+        else if (sg.t === 'ent') segs.push({ isEnt: true, s: sg.s, style: '', open: () => this.openEntity(sg.docId, sg.entId) });
+        else segs.push({ isCite: true, label: '[' + (sg.reg || 's' + sg.idx) + ']', quote: sg.quote || '', open: () => this.openViewer(sg.sn, sg.quote) });
+      }
+      return { style: blk.style, hasPrefix: blk.hasPrefix, prefix: blk.prefix, segs };
+    });
     this._segCache[m.id] = { len: (m.text || '').length, paras };
     return paras;
+  }
+  // The live body while the answer streams: the revealed prefix, split into the same blocks and
+  // inline-styled — no entity/cite pass yet (nothing is bound, and re-deriving the lexicon every
+  // frame would be wasteful). Those layer on at settle, when _segsFor takes over.
+  _streamParas(text) {
+    const out = [];
+    for (const para of String(text || '').split(/\n{2,}|\n(?=\s*(?:[-*+•]|\d+[.)]|#{1,6}|>)\s)/)) {
+      if (!para.trim()) continue;
+      const blk = this._blockOf(para);
+      out.push({ style: blk.style, hasPrefix: blk.hasPrefix, prefix: blk.prefix, segs: this._inlineMd(blk.cut ? para.slice(blk.cut) : para) });
+    }
+    return out;
   }
 
   // ── the graph layout (honest, dynamic) ───────────────────────────────────
@@ -1960,15 +2050,17 @@ class Component extends DCLogic {
     const messages = msgs.map((mm) => {
       if (mm.role === 'user') return { isUser: true, isAgent: false, text: mm.text };
       const done = !mm.pending;
-      // per-character reveal: hold the plain streaming view until the reveal has caught up —
-      // a beat past settle if need be — so the answer finishes typing before it flips to the
-      // rich (cited) view, with no jump. reduced-motion collapses this to the old behavior.
+      // Per-character reveal + live markdown: the body renders the REVEALED prefix as markdown the
+      // whole way through (headings, bold, lists — never raw ** or ##). While it streams we parse
+      // the prefix alone (_streamParas); once it settles — reveal caught up — _segsFor takes over
+      // and layers the bound entity links + [sN] citation chips on, with no format flip.
+      // reduced-motion snaps straight to the whole, settled body.
       const full = mm.text || '';
       const shown = this._revealLen(mm);
       const revealedText = this._reduceMotion() ? full : full.slice(0, shown);
       const animating = !this._reduceMotion() && shown < full.length;
       const finished = done && !animating;
-      const rich = finished && mm.cites && mm.text;
+      const paras = finished ? this._segsFor(mm) : this._streamParas(revealedText);
       const seen = new Set();
       const cites = (mm.cites || []).filter((c) => c.sn && !seen.has(c.sn) && seen.add(c.sn)).map((c) => {
         const contested = (mm.verdicts || []).some((v) => /contradict/i.test(v.verdict));
@@ -2002,7 +2094,7 @@ class Component extends DCLogic {
         pendingLabel: mm.text ? '● phrasing'
           : loading ? `● loading ${app.state.model.backend} · ${Math.round((app.state.model.progress || 0) * 100)}%`
           : '● reading the record',
-        plain: !rich, rich: !!rich, paras: rich ? this._segsFor(mm) : [],
+        hasBody: paras.length > 0, paras,
         showBadge: finished && !!mm.route && mm.route !== 'empty' && mm.route !== 'smalltalk',
         badge: mm.grounded ? 'grounded' : (mm.route === 'error' ? 'error' : mm.unbound ? 'unbound' : mm.route || ''),
         badgeFg: mm.grounded ? '#1E8A50' : '#9A6B12', badgeBg: mm.grounded ? '#E7F6EC' : '#FBF1DA',
