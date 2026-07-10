@@ -20,6 +20,7 @@
 // the research trail (the hops). All three flow into the audit — the web research is FULLY AUDITABLE.
 
 import { runTurnWithResearch, formulateSearchQuery } from '../turn/index.js';
+import { arrivalsOfDoc } from './foresight.js';
 
 export const createResearchAnswerer = ({
   model,                       // EOReader's answering model, or an async ()=>model resolver; NOT the judge
@@ -50,11 +51,13 @@ export const createResearchAnswerer = ({
     // Collect every fetched page's TEXT as the walk admits it. The research summary the walk returns
     // carries only titles/urls; the challenger grounds its verdict against the BODIES, so we keep them.
     const retrieved = new Map();   // id → { docId, title, url, text }
+    const parsedDocs = new Map();  // id → the parsed doc itself (its log feeds the foresight grading)
     const collectingSearch = async (query, opts = {}) => {
       const admitted = await search(query, opts);
       for (const a of admitted || []) {
         const d = a?.doc; if (!d) continue;
         const id = d.docId || d.web?.url || d.web?.final_url || `r${retrieved.size}`;
+        if (!parsedDocs.has(id)) parsedDocs.set(id, d);
         if (!retrieved.has(id)) retrieved.set(id, {
           docId: d.docId || null,
           title: d.web?.title || d.title || a.record?.title || a.item?.title || '',
@@ -96,6 +99,18 @@ export const createResearchAnswerer = ({
       sources: (research.sources || []).map((s) => Object.freeze({ title: s.title || '', url: s.url || '' })),
     });
     onResearch?.({ phase: 'done', sources, trail });
-    return { answer: String(result.answer || ''), sources, trail };
+    // THE WORLD'S ANSWER KEY (metabolism/foresight.js): the kept pages' own arrival
+    // sequences, read off their logs — modality-blind — so the metabolism can grade the
+    // running genome's predictions against the held-out remainder of what it fetched.
+    // Sequences are concatenated in kept order; a fault here never costs the answer.
+    let arrivals = null;
+    try {
+      const keptDocIds = new Set(sources.map((s) => s.docId).filter(Boolean));
+      const keptDocs = [...parsedDocs.values()]
+        .filter((d) => keptDocIds.size === 0 || (d.docId && keptDocIds.has(d.docId)));
+      const seqs = keptDocs.flatMap((d) => arrivalsOfDoc(d));
+      if (seqs.length) arrivals = seqs;
+    } catch { arrivals = null; }
+    return { answer: String(result.answer || ''), sources, trail, arrivals };
   };
 };

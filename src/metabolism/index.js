@@ -34,6 +34,7 @@ import { createSelection } from './select.js';
 import { createOrganism } from './organism.js';
 import { createSoma } from './soma.js';
 import { CONSTITUTION } from './constitution.js';
+import { foresightOf } from './foresight.js';
 
 // createMetabolism — the bloodstream. Everything is injectable so a test can pin the
 // world (a fixed scarcity clock) and the surface can drive it (starve/feed at will).
@@ -112,6 +113,15 @@ export const createMetabolism = ({
   // from the running allocation and whether the model was warmed, so a caller can feed a
   // minimal outcome and still get an honest energy charge.
   const metabolize = (outcome = {}) => {
+    // THE TRUTH SEAM (foresight.js): when the turn carries its arrival sequence — the
+    // per-unit deposits of what the world actually sent — grade the RUNNING genome's
+    // gamma against the held-out tail and let that skill anchor fitness as `foresight`.
+    // Reality supplies its own answer key; the judge's taste no longer has to. An
+    // explicit outcome.foresight (a caller that graded elsewhere) is never overwritten.
+    if (outcome.foresight == null && Array.isArray(outcome.arrivals) && outcome.arrivals.length) {
+      const f = foresightOf(outcome.arrivals, { gamma: runningAllocation().gamma });
+      if (f) outcome = { ...outcome, foresight: f.skill, foresightReading: f };
+    }
     const ran = runsNext();
     const season = scarcity.season(period);
     const led = scarcity.ledger(period);
@@ -287,6 +297,8 @@ export { createOrganism, hasSoma } from './organism.js';
 export { forage, createForager, SOURCES } from './forage.js';
 export { createTransferProbe, modelRunner, judgeScorer } from './transfer.js';
 export { createChallenger, runChallengeCycle, buildChallengeMessages, buildSatisfactionMessages, CHALLENGER_MODEL } from './challenger.js';
+// the truth seam — the one surprise wired to selection (reality's own answer key):
+export { foresightOf, arrivalsOfDoc } from './foresight.js';
 export { buildAudit, auditToJSON, auditToMarkdown } from './audit.js';
 export { createSanctionLadder, controlledDeath, RUNGS } from './sanction.js';
 export { createHomeostat } from './homeostat.js';

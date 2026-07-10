@@ -81,8 +81,18 @@ export const createMonitor = ({ self = createSelfModel() } = {}) => {
     return record({ prop: sensedProp, tag: WORLD, attenuated: false, modality });
   };
 
+  // expire — bound the outstanding set for a long-lived (session) monitor: drop the
+  // OLDEST copies beyond `keep` and return them. A dropped copy is a commitment whose
+  // predicted return never came — the voice's own production the world never handed
+  // back — surfaced to the caller (the ledger records them as never-witnessed) rather
+  // than silently accumulating forever.
+  const expire = (keep = 128) => {
+    const n = Math.max(0, outstanding.length - Math.max(0, keep | 0));
+    return n ? outstanding.splice(0, n) : [];
+  };
+
   return Object.freeze({
-    hold, observe,
+    hold, observe, expire,
     outstanding: () => outstanding.slice(),
     corrections: () => corrections.slice(),
     self,

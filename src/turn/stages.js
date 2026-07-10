@@ -24,7 +24,7 @@ import { answerFormError } from './shape.js';
 import { rereadOnUnsettled } from './reread.js';
 import { buildGroundedMessages, buildChatMessages, orientationLine } from '../model/index.js';
 import { bindCitations, renderBound } from '../enactor/ground/index.js';
-import { runVetoes, isUnbound, classifyProvenance } from '../enactor/ground/index.js';
+import { runVetoes, isUnbound, isAbstention, classifyProvenance } from '../enactor/ground/index.js';
 import { canGroundedSpeak, groundedSpeak, RULES_REV } from '../organs/out/speech/index.js';
 import { projectGraph, VERDICTS } from '../core/index.js';
 import { answerabilityGate } from '../weave/longgen/answerable.js';
@@ -479,7 +479,10 @@ export const stages = {
     // every turn; the measured void RIDES as terrain context (`voidMeasure`) so the
     // diagonal guard (P1) can catch a specific claim asserted where the reading typed
     // an absence — a figure at a void — instead of the void silently pre-empting it.
-    return { ...ctx, voidMeasure: v.void };
+    // The typed absence PROSE rides too (`voidText`): if the talker's answer comes back
+    // with no witness at all, the `absence` stage speaks it (the honesty seam) — absence
+    // is an available thing to assert, not just a terrain annotation.
+    return { ...ctx, voidMeasure: v.void, voidText: v.text };
   },
 
   // Build messages. Grounded when we have spans; plain chat when we don't.
@@ -1034,6 +1037,35 @@ export const stages = {
       edgeVerdicts: ctx.edgeVerdicts,
     });
     return { ...ctx, vetoes: fired, witnessSought };
+  },
+
+  // THE ABSENCE STAGE — the void reaching the voice (the honesty seam). The `answerable`
+  // stage measured the field and found nothing (voidMeasure), the talker spoke anyway
+  // (P0.2 — so the diagonal guard could adjudicate), bind found no span to cite,
+  // factcheck earned no citation from the graph, and revise had its one rewrite. When
+  // after ALL of that the answer still carries no witness — no claim cited, lexically
+  // or by an edge — the honest word is the typed absence the measurement already
+  // rendered, not an invention wearing the shape of an answer. The draft is preserved
+  // BESIDE the absence in `revisions` (the SEG/retract law: correction beside error,
+  // nothing unwritten), the turn is marked `gated`, and a non-refusing flag tells the
+  // user what happened. A talker that already abstained in its own words keeps them —
+  // this stage never replaces honesty with different honesty. Streaming and stopped
+  // turns are exempt (suppress-never-erase); a turn with any citation ships untouched.
+  async absence(ctx) {
+    if (!ctx.voidMeasure || !ctx.voidText || ctx.stopped || ctx.streamed) return ctx;
+    const cited = (ctx.bound || []).some((b) => b.citation) || (ctx.sources || []).length > 0;
+    if (cited) return ctx;
+    if (isAbstention(ctx.rawOutput || ctx.answer)) return ctx;
+    const revisions = [...(ctx.revisions || []), Object.freeze({
+      draft: ctx.answer ?? ctx.rawOutput ?? '',
+      replacedBy: ctx.voidText,
+      why: 'the field measured an absence and no source witnessed the draft',
+    })];
+    const vetoes = [...(ctx.vetoes || []), Object.freeze({
+      id: 'void-asserted', refuses: false,
+      message: `The reading measured an absence (${ctx.voidMeasure.receipt || ctx.voidMeasure.kind}); the unwitnessed draft was replaced by the typed absence and kept in the trail.`,
+    })];
+    return { ...ctx, answer: ctx.voidText, sources: [], gated: true, voidSpoken: true, revisions, vetoes };
   },
 
   // Settle: fold this turn's reading into the session's persistent Horizon (surfing-next.md

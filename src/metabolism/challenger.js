@@ -123,19 +123,26 @@ export const runChallengeCycle = async ({ challenger, answerer, material = null,
   if (!challenger || typeof answerer !== 'function') return null;
   const ch = await challenger.challenge({ material, persona });
   if (!ch) return null;
-  let answer = '', sources = null, trail = null;
+  let answer = '', sources = null, trail = null, arrivals = null;
   try {
     const out = await answerer(ch);
-    if (out && typeof out === 'object') { answer = out.answer ?? ''; sources = out.sources ?? null; trail = out.trail ?? null; }
+    if (out && typeof out === 'object') { answer = out.answer ?? ''; sources = out.sources ?? null; trail = out.trail ?? null; arrivals = out.arrivals ?? null; }
     else { answer = out ?? ''; }
   } catch { answer = ''; }
   const sat = await challenger.evaluate({ question: ch.question, answer, intent: ch.intent, sources, persona });
   return Object.freeze({
     question: ch.question, intent: ch.intent, difficulty: ch.difficulty,
     answer: String(answer || ''), sources: sources || null, trail: trail || null,
+    // the outcome fields fitness.observe consumes. The judge's grounded+flowing satisfaction
+    // feeds `validated`; the answerer's arrival sequences ride as `arrivals` so metabolize
+    // can grade the genome's predictions against the held-out world (`foresight` — the
+    // truth seam), which OUTRANKS the judge's taste as the anchor when both are present.
     satisfaction: sat,                                  // { grounded, flowing, satisfied, resolved, critique } or null
-    // the outcome fields fitness.observe consumes — grounded+flowing satisfaction IS the anchor.
-    outcome: sat ? Object.freeze({ validated: sat.satisfied, covered: sat.resolved ? 1 : 0.5, grounded: sat.grounded != null ? Math.round(sat.grounded * 3) : undefined, claimed: sat.grounded != null ? 3 : undefined, delivered: !!answer }) : null,
+    outcome: (sat || arrivals) ? Object.freeze({
+      ...(sat ? { validated: sat.satisfied, covered: sat.resolved ? 1 : 0.5, grounded: sat.grounded != null ? Math.round(sat.grounded * 3) : undefined, claimed: sat.grounded != null ? 3 : undefined } : {}),
+      ...(arrivals ? { arrivals } : {}),
+      delivered: !!answer,
+    }) : null,
   });
 };
 

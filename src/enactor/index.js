@@ -28,3 +28,7 @@ export { parseProps, correspondProp, propKey, relKey } from './props.js';
 export { EFFERENCE, efferenceCopy, efferenceCopiesOf } from './efference.js';
 export { createMonitor, MISMATCH_FLOOR } from './monitor.js';
 export { SELF, WORLD, SELF_MISMATCH, isSelf, attenuates, createSelfModel } from '../core/self/index.js';
+// the honesty seam — the self/world line wired to the live turn (turn/pipeline.js):
+export { senseReturn, commitVoice, OUTSTANDING_KEEP } from './selfline.js';
+// the ledger seam — the persisting line of commitments and corrections:
+export { createCommitmentLedger } from './ledger.js';
