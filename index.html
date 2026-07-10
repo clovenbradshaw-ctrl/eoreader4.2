@@ -1,1 +1,1318 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EO Reader</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#F4F4F7">
+<script src="vendor/react.production.min.js"></script>
+<script src="vendor/react-dom.production.min.js"></script>
+<script src="./support.js"></script>
+<script type="module" src="src/rooms/reader/boot.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:#F4F4F7}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;text-align:left}
+input{font:inherit}
+::selection{background:#DED8FD}
+mark{background:#FBECC8;color:#2A2A32;border-radius:2px;padding:.02em 2px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+table{border-collapse:collapse;width:100%}
+@keyframes eoPulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
+@keyframes eoDrawer{from{transform:translateX(24px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes eoFade{from{opacity:0}to{opacity:1}}
+@keyframes eoToast{from{transform:translate(-50%,10px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+.eo-scroll::-webkit-scrollbar{width:11px;height:11px}
+.eo-scroll::-webkit-scrollbar-thumb{background:#dadae1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
+.eo-scroll::-webkit-scrollbar-thumb:hover{background:#c7c7d0;background-clip:content-box}
+</style>
+</helmet>
 
+<div data-screen-label="EOReader" style="position:relative;display:flex;flex-direction:column;height:100vh;width:100%;background:#F4F4F7;color:#1B1B22;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased">
+
+  <header style="height:50px;flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:0 14px;background:#fff;border-bottom:1px solid #EAEAEF;position:relative;z-index:5">
+    <div style="display:flex;align-items:center;gap:9px;padding-right:2px">
+      <div style="width:25px;height:25px;border-radius:7px;background:#6D5EF5;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">EO</div>
+      <span style="font-size:14.5px;font-weight:650">Reader</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE;background:#F2F2F6;border-radius:5px;padding:2px 6px">4.2</span>
+    </div>
+    <div style="width:1px;height:20px;background:#EAEAEF"></div>
+    <div style="display:flex;align-items:center;gap:2px;color:#9A9AA4">
+      <button title="Back" style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#3A3A44"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+      <button title="Forward" style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+      <button title="Reload" style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+    </div>
+    <form onSubmit="{{ onOmniSubmit }}" style="flex:1;display:flex;justify-content:center">
+      <div style="width:100%;max-width:540px;height:33px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;display:flex;align-items:center;gap:9px;padding:0 12px" style-focus-within="border-color:#DED8FD;background:#fff">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.8" style="flex:0 0 auto"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
+        <input value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Read a URL, drop a file, paste text, or search the web…" style="flex:1;border:none;outline:none;background:transparent;font-size:13px;color:#1B1B22" />
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C0C0C8;flex:0 0 auto">⏎ ingest</span>
+      </div>
+    </form>
+    <button onClick="{{ openMonologue }}" style="display:flex;align-items:center;gap:6px;background:#E7F6EC;color:#1E8A50;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600" style-hover="background:#DDF0E4">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
+      Auditable
+    </button>
+  </header>
+
+  <div style="flex:1;display:flex;min-height:0">
+
+    <aside style="width:312px;flex:0 0 auto;background:#fff;border-right:1px solid #EAEAEF;display:flex;flex-direction:column;min-height:0">
+      <div class="eo-scroll" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:14px">
+
+        <div style="display:flex;flex-direction:column">
+          <button onClick="{{ toggleStatus }}" style="width:100%;display:flex;align-items:center;gap:11px;background:#F7F7FA;border:1px solid #ECECF1;border-radius:10px;padding:10px 12px" style-hover="background:#F2F2F6">
+            <span style="position:relative;width:8px;height:8px;flex:0 0 auto"><span style="position:absolute;inset:0;border-radius:50%;background:#59C08A;animation:eoPulse 2.6s ease-in-out infinite"></span></span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+              <span style="font-size:12.5px;font-weight:600;color:#3A3A44">{{ status.title }}</span>
+              <span style="font-size:11.5px;color:#9A9AA4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ status.sub }}</span>
+            </span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border-radius:6px;padding:2px 6px;flex:0 0 auto">{{ audit.yieldChip }}</span>
+            <span style="color:#B4B4BE;flex:0 0 auto;transform:rotate({{ statusRot }});transition:transform .16s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+          </button>
+          <sc-if value="{{ statusOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:8px;background:#FBFBFD;border:1px solid #EFEFF3;border-radius:10px;padding:12px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">AGENT · LIVE</span>
+                <span style="flex:1"></span>
+                <span style="font-size:10.5px;color:#8A8A95">{{ audit.summaryLine }}</span>
+              </div>
+              <sc-for list="{{ statusPeek }}" as="ev" hint-placeholder-count="4">
+                <div style="display:flex;gap:9px;padding:4px 0">
+                  <span style="width:7px;height:7px;border-radius:50%;margin-top:5px;flex:0 0 auto;background:{{ ev.color }}"></span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-size:12px;color:#3A3A44;line-height:1.35">{{ ev.text }}</span>
+                    <sc-if value="{{ ev.hasEffect }}" hint-placeholder-val="{{ true }}"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:{{ ev.effectColor }};margin-top:2px">{{ ev.effect }}</span></sc-if>
+                  </span>
+                </div>
+              </sc-for>
+              <button onClick="{{ openMonologue }}" style="width:100%;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:7px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12.5px;border-radius:8px;padding:8px" style-hover="background:#E7E2FD">
+                Open master log
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+              <div style="display:flex;gap:8px;margin-top:11px;padding-top:11px;border-top:1px solid #EFEFF3">
+                <span style="color:#1E8A50;flex:0 0 auto;margin-top:1px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg></span>
+                <span style="font-size:11.5px;color:#6E6E78;line-height:1.45"><b style="color:#3A3A44;font-weight:600">Auditable.</b> Every claim traces to a passage, a stored source, and a hash-verified file — and forward to whatever contradicts it.</span>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button onClick="{{ newTopic }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:13.5px;border-radius:10px;padding:11px" style-hover="background:#E7E2FD">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            New topic
+          </button>
+          <div style="display:flex;gap:6px">
+            <button onClick="{{ toolToast }}" title="Add a source" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
+            <button onClick="{{ toolToast }}" title="Deep research" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg></button>
+            <button onClick="{{ goMemo }}" title="Draft a memo" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></button>
+            <button onClick="{{ goGraph }}" title="Provenance graph" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></button>
+          </div>
+        </div>
+
+        <div style="height:35px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;display:flex;align-items:center;gap:8px;padding:0 11px;color:#9A9AA4;font-size:12.5px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          Search everything you've read
+        </div>
+
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;padding:0 4px 8px">
+            <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">TOPICS</span>
+            <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ topicCount }}</span>
+            <span style="flex:1"></span>
+            <sc-if value="{{ mergeMode }}" hint-placeholder-val="{{ false }}"><span style="font-size:9.5px;font-weight:600;color:#9A6B12;background:#FBF1DA;border:1px solid #EEDCA9;border-radius:5px;padding:1px 6px">pick target to merge</span></sc-if>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <sc-for list="{{ topics }}" as="tp" hint-placeholder-count="3">
+              <div style="position:relative;margin-left:{{ tp.indent }}px">
+                <div style="display:flex;align-items:center;border-radius:9px;background:{{ tp.bg }};border:1px solid {{ tp.border }}" style-hover="background:#F5F5F8">
+                  <button onClick="{{ tp.rowClick }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:8px 2px 8px 10px;background:none">
+                    <span style="color:{{ tp.iconColor }};flex:0 0 auto"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+                    <span style="flex:1;min-width:0">
+                      <span style="display:block;font-size:13px;font-weight:600;color:{{ tp.titleColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tp.title }}</span>
+                      <span style="display:block;font-size:11.5px;color:#9A9AA4;margin-top:1px">{{ tp.meta }}</span>
+                    </span>
+                  </button>
+                  <button onClick="{{ tp.menuClick }}" title="Merge or segment" style="width:28px;height:34px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;flex:0 0 auto;border-radius:7px" style-hover="background:#ECECF1;color:#6E6E78"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
+                </div>
+                <sc-if value="{{ tp.menuOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute;right:4px;top:40px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:196px">
+                    <button onClick="{{ tp.doSegment }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a3 3 0 0 0 3 3h9M6 21v-6"/><path d="m15 9 3 3-3 3"/></svg>Segment into sub-topics</button>
+                    <button onClick="{{ tp.doMerge }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 3v6a3 3 0 0 1-3 3H6M18 21v-6"/><path d="m9 9-3 3 3 3"/></svg>Merge into…</button>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;padding:0 4px 8px">
+            <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">SOURCES</span>
+            <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ sourceCount }}</span>
+            <span style="flex:1"></span>
+            <span style="font-size:10px;color:#9A9AA4">in this topic</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:1px">
+            <sc-for list="{{ leftSources }}" as="sc" hint-placeholder-count="6">
+              <button onClick="{{ sc.open }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px" style-hover="background:#F5F5F8">
+                <span style="width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ sc.favBg }};color:{{ sc.favFg }}">{{ sc.favCh }}</span>
+                <span style="flex:1;min-width:0">
+                  <span style="display:block;font-size:12.5px;font-weight:550;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.title }}</span>
+                  <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.reg }} · {{ sc.domain }}</span>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <main style="flex:1;display:flex;flex-direction:column;min-width:0">
+
+      <div style="flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:0 12px;border-bottom:1px solid #EAEAEF;background:#fff;height:46px">
+        <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="4">
+          <button onClick="{{ tb.select }}" style="height:46px;display:flex;align-items:center;gap:7px;padding:0 14px;color:{{ tb.fg }};font-size:13px;font-weight:{{ tb.weight }};border-bottom:2px solid {{ tb.ul }};margin-bottom:-1px">
+            {{ tb.label }}
+            <sc-if value="{{ tb.hasCount }}" hint-placeholder-val="{{ true }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ tb.countFg }};background:{{ tb.countBg }};border-radius:5px;padding:1px 5px">{{ tb.count }}</span></sc-if>
+          </button>
+        </sc-for>
+        <span style="flex:1"></span>
+        <div style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#B23A2E;background:#FBE9E6;border:1px solid #F2D3CD;border-radius:7px;padding:4px 9px">
+          <span style="width:6px;height:6px;border-radius:50%;background:#B23A2E"></span>
+          {{ flagLine }}
+        </div>
+      </div>
+
+      <div style="flex:1;display:flex;min-height:0">
+        <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+
+          <!-- CHAT TAB -->
+          <sc-if value="{{ isChat }}" hint-placeholder-val="{{ true }}">
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff">
+            <div class="eo-scroll" ref="{{ setChatScroll }}" style="flex:1;min-height:0;overflow-y:auto;padding:26px 24px">
+              <div style="max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:22px">
+                <sc-for list="{{ messages }}" as="m" hint-placeholder-count="2">
+                  <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;justify-content:flex-end">
+                      <div style="max-width:78%;background:#F1EFFE;border:1px solid #E3DEFC;color:#3A3A44;font-size:14px;line-height:1.5;border-radius:14px 14px 4px 14px;padding:10px 14px">{{ m.text }}</div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ m.isAgent }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;gap:11px">
+                      <div style="width:26px;height:26px;border-radius:7px;background:#6D5EF5;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:2px">EO</div>
+                      <div style="flex:1;min-width:0">
+                        <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+                          <span style="font-size:12.5px;font-weight:650;color:#3A3A44">EOReader</span>
+                          <span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:#1E8A50;background:#E7F6EC;border-radius:5px;padding:1px 6px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg>grounded</span>
+                        </div>
+                        <div style="font-size:14.5px;line-height:1.62;color:#2A2A32">{{ m.text }}</div>
+                        <sc-if value="{{ m.hasCites }}" hint-placeholder-val="{{ true }}">
+                          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px">
+                            <span style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;margin-right:2px">GROUNDED IN</span>
+                            <sc-for list="{{ m.cites }}" as="c" hint-placeholder-count="4">
+                              <button onClick="{{ c.open }}" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ c.fg }};background:{{ c.bg }};border:1px solid {{ c.bd }};border-radius:6px;padding:3px 8px" style-hover="filter:brightness(.97)">{{ c.label }}<span style="width:5px;height:5px;border-radius:50%;background:{{ c.fg }}"></span>{{ c.status }}</button>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ m.footer }}" hint-placeholder-val="{{ false }}">
+                          <button onClick="{{ toGraph }}" style="display:inline-flex;align-items:center;gap:6px;margin-top:11px;font-size:12px;font-weight:600;color:#5B4BE6" style-hover="text-decoration:underline">Trace in the provenance graph<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </sc-if>
+                </sc-for>
+              </div>
+            </div>
+            <div style="flex:0 0 auto;border-top:1px solid #EAEAEF;padding:14px 24px;background:#fff">
+              <div style="max-width:680px;margin:0 auto;display:flex;align-items:center;gap:9px;border:1px solid #E0E0E6;border-radius:13px;padding:6px 6px 6px 14px;background:#F7F7FA">
+                <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="Ask about what you've read…" style="flex:1;border:none;outline:none;background:transparent;font-size:14px;color:#1B1B22;padding:7px 0" />
+                <button onClick="{{ sendChat }}" style="width:34px;height:34px;border-radius:9px;background:#6D5EF5;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto" style-hover="background:#5B4BE6"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11 12 6l5 5M12 6v13"/></svg></button>
+              </div>
+              <div style="max-width:680px;margin:9px auto 0;font-size:11px;color:#A0A0AA;display:flex;align-items:center;gap:6px">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
+                Answers only from your recorded sources — nothing enters an answer unrecorded.
+              </div>
+            </div>
+          </div>
+          </sc-if>
+
+          <!-- GRAPH TAB -->
+          <sc-if value="{{ isGraph }}" hint-placeholder-val="{{ true }}">
+          <div style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:11px 18px;border-bottom:1px solid #EAEAEF;background:#fff">
+            <div style="min-width:0">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA">PROVENANCE DAG · FULLY TRAVERSABLE</div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#1B1B22;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">What makes dolphins intelligent?</div>
+            </div>
+            <span style="flex:1"></span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:10.5px;color:#9A9AA4;font-weight:600">TRACE</span>
+              <div style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
+                <sc-for list="{{ traceOpts }}" as="to" hint-placeholder-count="3">
+                  <button onClick="{{ to.select }}" style="padding:5px 11px;border-radius:6px;font-size:12px;font-weight:600;color:{{ to.fg }};background:{{ to.bg }};box-shadow:{{ to.shadow }}">{{ to.label }}</button>
+                </sc-for>
+              </div>
+              <button onClick="{{ toggleContra }}" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:{{ contraFg }};background:{{ contraBg }};border:1px solid {{ contraBd }}">
+                <span style="width:7px;height:7px;border-radius:50%;background:#B23A2E"></span>Conflicts
+              </button>
+              <button onClick="{{ clearFocus }}" style="padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:{{ resetFg }};border:1px solid #EAEAEF" style-hover="background:#F5F5F8">Reset</button>
+            </div>
+          </div>
+
+          <div data-screen-label="Provenance DAG" onPointerDown="{{ startPan }}" onWheel="{{ onWheel }}" ref="{{ setViewport }}" style="flex:1;min-height:0;position:relative;overflow:hidden;background:#F4F4F7;cursor:{{ panCursor }}">
+            <div style="position:absolute;left:0;top:0;width:{{ canvasW }}px;height:{{ canvasH }}px;transform:translate({{ tx }}px,{{ ty }}px) scale({{ scale }});transform-origin:0 0;transition:{{ camT }};background-image:radial-gradient(#E1E1E9 1px,transparent 1px);background-size:26px 26px">
+
+              <svg width="{{ canvasW }}" height="{{ canvasH }}" style="position:absolute;left:0;top:0;overflow:visible;pointer-events:none">
+                <defs>
+                  <marker id="arrDim" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L6.5 3 L0 6 z" fill="#CBCBD4"/></marker>
+                  <marker id="arrVio" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L6.5 3 L0 6 z" fill="#6D5EF5"/></marker>
+                  <marker id="arrRed" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L6.5 3 L0 6 z" fill="#B23A2E"/></marker>
+                  <marker id="arrDimR" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L6.5 3 L0 6 z" fill="#E0A79E"/></marker>
+                </defs>
+                <sc-for list="{{ edgePaths }}" as="e" hint-placeholder-count="26">
+                  <path d="{{ e.d }}" fill="none" stroke="{{ e.stroke }}" stroke-width="{{ e.sw }}" stroke-dasharray="{{ e.dash }}" opacity="{{ e.op }}" marker-end="{{ e.marker }}" stroke-linecap="round"></path>
+                </sc-for>
+              </svg>
+
+              <sc-for list="{{ memoNodes }}" as="n" hint-placeholder-count="1">
+                <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #6D5EF5;border-radius:9px;padding:11px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#6D5EF5;background:#EEEBFE;border-radius:5px;padding:2px 6px">MEMO</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ n.id }}</span>
+                  </div>
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;font-weight:600;line-height:1.25;color:#1B1B22">{{ n.title }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-top:8px">cites {{ n.citeCount }} claims → synthesis</div>
+                </div>
+              </sc-for>
+
+              <sc-for list="{{ claimNodes }}" as="n" hint-placeholder-count="4">
+                <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid {{ n.accent }};border-radius:9px;padding:10px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#7A7A85;background:#F2F2F6;border-radius:5px;padding:2px 6px">CLAIM</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ n.id }}</span>
+                    <span style="flex:1"></span>
+                    <span style="font-size:9.5px;font-weight:700;letter-spacing:.03em;color:{{ n.stFg }};background:{{ n.stBg }};border:1px solid {{ n.stBd }};border-radius:5px;padding:1px 6px">{{ n.stLabel }}</span>
+                  </div>
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.32;color:#2A2A32;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ n.text }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-top:7px">grounded in {{ n.groundCount }} passages</div>
+                </div>
+              </sc-for>
+
+              <sc-for list="{{ passageNodes }}" as="n" hint-placeholder-count="9">
+                <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #C79A3A;border-radius:9px;padding:10px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#9A6B12;background:#FBF1DA;border-radius:5px;padding:2px 6px">PASSAGE</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ n.id }}</span>
+                    <span style="flex:1"></span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8A8A95">{{ n.pincite }}</span>
+                  </div>
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.4;color:#2A2A32;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">{{ n.pre }}<sc-if value="{{ n.has }}" hint-placeholder-val="{{ true }}"><mark>{{ n.mark }}</mark>{{ n.post }}</sc-if></div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#A0A0AA;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.srcReg }} · {{ n.srcDomain }}</div>
+                </div>
+              </sc-for>
+
+              <sc-for list="{{ sourceNodes }}" as="n" hint-placeholder-count="6">
+                <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #6E7787;border-radius:9px;padding:10px 12px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#4E5765;background:#EEF0F3;border-radius:5px;padding:2px 6px">SOURCE</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#6E7787">{{ n.reg }}</span>
+                  </div>
+                  <div style="font-size:12.5px;font-weight:550;line-height:1.28;color:#2A2A32;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ n.title }}</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:7px">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#A0A0AA;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.domain }}</span>
+                    <span style="font-size:9px;font-weight:600;color:{{ n.rightsFg }};background:{{ n.rightsBg }};border-radius:4px;padding:1px 5px">{{ n.rightsTag }}</span>
+                  </div>
+                </div>
+              </sc-for>
+
+              <sc-for list="{{ fileNodes }}" as="n" hint-placeholder-count="6">
+                <div onClick="{{ n.focus }}" onPointerDown="{{ stopPan }}" style="position:absolute;left:{{ n.left }}px;top:{{ n.top }}px;width:{{ n.w }}px;background:#fff;border:1px solid {{ n.bd }};border-left:3px solid #1E8A50;border-radius:9px;padding:9px 11px;box-shadow:{{ n.shadow }};opacity:{{ n.op }};transition:opacity .18s,box-shadow .18s;cursor:pointer">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;color:#1E8A50;background:#E7F6EC;border-radius:5px;padding:2px 6px">FILE</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ n.id }}</span>
+                    <span style="flex:1"></span>
+                    <span style="color:#1E8A50" title="bitstream verified"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span>
+                  </div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#5A5A64">{{ n.sha }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#A0A0AA;margin-top:2px">{{ n.bytes }} · sha-256</div>
+                </div>
+              </sc-for>
+
+            </div>
+
+            <div style="position:absolute;left:14px;bottom:14px;background:rgba(255,255,255,.94);border:1px solid #EAEAEF;border-radius:10px;padding:9px 11px;box-shadow:0 4px 14px rgba(20,20,30,.06);backdrop-filter:blur(3px)">
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:7px">LEGEND</div>
+              <div style="display:flex;gap:14px">
+                <div style="display:flex;flex-direction:column;gap:5px">
+                  <sc-for list="{{ legendNodes }}" as="lg" hint-placeholder-count="5">
+                    <div style="display:flex;align-items:center;gap:7px"><span style="width:11px;height:11px;border-radius:3px;border-left:3px solid {{ lg.color }};background:#fff;border-top:1px solid #E6E6EC;border-right:1px solid #E6E6EC;border-bottom:1px solid #E6E6EC"></span><span style="font-size:10.5px;color:#5A5A64">{{ lg.label }}</span></div>
+                  </sc-for>
+                </div>
+                <div style="width:1px;background:#EEEEF2"></div>
+                <div style="display:flex;flex-direction:column;gap:5px">
+                  <div style="display:flex;align-items:center;gap:7px"><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#CBCBD4" stroke-width="2"/></svg><span style="font-size:10.5px;color:#5A5A64">grounds / traces</span></div>
+                  <div style="display:flex;align-items:center;gap:7px"><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#D98B80" stroke-width="2" stroke-dasharray="2 4"/></svg><span style="font-size:10.5px;color:#5A5A64">contradicts</span></div>
+                  <div style="display:flex;align-items:center;gap:7px"><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#7FB894" stroke-width="2" stroke-dasharray="2 4"/></svg><span style="font-size:10.5px;color:#5A5A64">corroborates</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div style="position:absolute;right:16px;bottom:16px;display:flex;align-items:center;gap:5px;background:#fff;border:1px solid #E6E6EC;border-radius:10px;padding:5px;box-shadow:0 4px 14px rgba(20,20,30,.08)">
+              <button onClick="{{ zoomOut }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#5A5A64" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8A95;width:40px;text-align:center">{{ zoomPct }}%</span>
+              <button onClick="{{ zoomIn }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#5A5A64" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+              <div style="width:1px;height:18px;background:#EAEAEF;margin:0 2px"></div>
+              <button onClick="{{ fit }}" style="height:28px;padding:0 10px;display:flex;align-items:center;border-radius:7px;font-size:11.5px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">Fit</button>
+            </div>
+          </div>
+          </sc-if>
+
+          <!-- EVIDENCE TAB -->
+          <sc-if value="{{ isEvidence }}" hint-placeholder-val="{{ false }}">
+          <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:22px 26px">
+            <div style="max-width:900px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA;margin-bottom:2px">FINDINGS · CLAIMS ⇄ VERBATIM PASSAGES</div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:20px;font-weight:600;margin-bottom:18px">Every claim, and the passages that ground it</div>
+              <sc-for list="{{ evClaims }}" as="c" hint-placeholder-count="4">
+                <div style="margin-bottom:20px;border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff">
+                  <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:#FBFBFD;border-bottom:1px solid #EFEFF3">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#7A7A85">{{ c.id }}</span>
+                    <span style="font-family:'Newsreader',Georgia,serif;font-size:15px;font-weight:500;color:#1B1B22;flex:1;min-width:0">{{ c.text }}</span>
+                    <span style="font-size:10px;font-weight:700;letter-spacing:.03em;color:{{ c.stFg }};background:{{ c.stBg }};border:1px solid {{ c.stBd }};border-radius:6px;padding:3px 8px">{{ c.stLabel }}</span>
+                  </div>
+                  <sc-for list="{{ c.passages }}" as="p" hint-placeholder-count="2">
+                    <button onClick="{{ p.open }}" style="width:100%;display:flex;gap:13px;padding:13px 16px;border-top:1px solid #F2F2F6" style-hover="background:#FAFAFC">
+                      <span style="width:4px;border-radius:2px;flex:0 0 auto;background:{{ p.relColor }}"></span>
+                      <span style="flex:1;min-width:0">
+                        <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.5;color:#2A2A32">{{ p.pre }}<mark>{{ p.mark }}</mark>{{ p.post }}</span>
+                        <span style="display:flex;align-items:center;gap:10px;margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8A95">
+                          <span style="color:{{ p.relColor }};font-weight:600">{{ p.rel }}</span>
+                          <span>{{ p.id }}</span><span>·</span><span>{{ p.srcReg }} {{ p.srcDomain }}</span><span>·</span><span>{{ p.pincite }}</span>
+                        </span>
+                      </span>
+                      <span style="flex:0 0 auto;color:#B4B4BE;align-self:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M7 7 10.6 16M16.8 7.4 13.4 16"/></svg></span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          </sc-if>
+
+          <!-- REGISTER TAB -->
+          <sc-if value="{{ isRegister }}" hint-placeholder-val="{{ false }}">
+          <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:22px 26px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA;margin-bottom:2px">SOURCES · THE RECORD</div>
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:20px;font-weight:600;margin-bottom:18px">Citation · provenance · fixity · rights</div>
+            <div style="border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff">
+              <table style="font-size:12.5px">
+                <thead>
+                  <tr style="background:#FBFBFD;border-bottom:1px solid #EAEAEF">
+                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">ID</th>
+                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">SOURCE</th>
+                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">RETRIEVED</th>
+                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">FIXITY (SHA-256)</th>
+                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">RIGHTS</th>
+                    <th style="text-align:right;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">CITES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ regRows }}" as="r" hint-placeholder-count="6">
+                    <tr onClick="{{ r.open }}" style="border-bottom:1px solid #F2F2F6;cursor:pointer" style-hover="background:#FAFAFC">
+                      <td style="padding:12px 14px;vertical-align:top"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#6E7787">{{ r.reg }}</span></td>
+                      <td style="padding:12px 14px;vertical-align:top">
+                        <span style="display:block;font-weight:550;color:#2A2A32;max-width:260px">{{ r.title }}</span>
+                        <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ r.domain }} · {{ r.kind }}</span>
+                      </td>
+                      <td style="padding:12px 14px;vertical-align:top;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6E6E78;white-space:nowrap">{{ r.retrieved }}</td>
+                      <td style="padding:12px 14px;vertical-align:top">
+                        <span style="display:flex;align-items:center;gap:6px">
+                          <span style="color:#1E8A50"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span>
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5A5A64">{{ r.sha }}</span>
+                        </span>
+                        <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:2px">{{ r.bytes }} · verified</span>
+                      </td>
+                      <td style="padding:12px 14px;vertical-align:top"><span style="font-size:10.5px;font-weight:600;color:{{ r.rightsFg }};background:{{ r.rightsBg }};border-radius:5px;padding:2px 7px;white-space:nowrap">{{ r.rights }}</span></td>
+                      <td style="padding:12px 14px;vertical-align:top;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6E6E78">{{ r.cites }}</td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          </sc-if>
+
+          <!-- MEMO TAB -->
+          <sc-if value="{{ isMemo }}" hint-placeholder-val="{{ false }}">
+          <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:26px 30px">
+            <div style="max-width:680px;margin:0 auto">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA;margin-bottom:3px">MEMO · GROUNDED SYNTHESIS</div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:26px;font-weight:600;line-height:1.2;margin-bottom:6px">What makes dolphins intelligent?</div>
+              <div style="display:flex;align-items:flex-start;gap:10px;background:#FBF1DA;border:1px solid #EEDCA9;border-radius:10px;padding:12px 14px;margin:16px 0 22px">
+                <span style="color:#A9700A;flex:0 0 auto;margin-top:1px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+                <span style="font-size:12.5px;color:#6E5A2A;line-height:1.5"><b style="color:#7A5A12;font-weight:600">Surface-smoothing is the last layer.</b> Prose summarization stays locked until every cited claim is <b>Supported</b>. Right now <b>1 of 4 is Contested</b> — organize the evidence first; the summary comes after.</span>
+              </div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.7;color:#2A2A32">
+                Dolphin intelligence is best read as several partly-independent capacities rather than one trait. Relative brain size is unusually high, individuals recognise themselves in mirrors, and foraging techniques pass between generations as culture. The strongest popular claim — that signature whistles are true <i>names</i> — is only partly supported and remains actively contested in the literature.
+                <span style="display:block;margin-top:10px;font-size:12px;color:#B4B4BE;font-family:'IBM Plex Mono',monospace">[ draft · each sentence will chain to the claims below before it is smoothed ]</span>
+              </div>
+              <div style="margin-top:22px">
+                <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;margin-bottom:10px">GROUNDED IN</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <sc-for list="{{ memoClaims }}" as="c" hint-placeholder-count="4">
+                    <button onClick="{{ c.open }}" style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid #EAEAEF;border-radius:10px;background:#fff" style-hover="background:#FAFAFC">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#7A7A85">{{ c.id }}</span>
+                      <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:14px;color:#2A2A32">{{ c.text }}</span>
+                      <span style="font-size:10px;font-weight:700;color:{{ c.stFg }};background:{{ c.stBg }};border:1px solid {{ c.stBd }};border-radius:6px;padding:2px 8px">{{ c.stLabel }}</span>
+                      <span style="color:#B4B4BE;flex:0 0 auto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M7 7 10.6 16M16.8 7.4 13.4 16"/></svg></span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+          </sc-if>
+
+        </div>
+
+        <!-- INSPECTOR (contextual — appears on focus) -->
+        <sc-if value="{{ inspectorShow }}" hint-placeholder-val="{{ false }}">
+        <aside class="eo-scroll" style="width:340px;flex:0 0 auto;background:#fff;border-left:1px solid #EAEAEF;overflow-y:auto;min-height:0">
+          <div style="padding:14px 16px">
+
+            <sc-if value="{{ trailShow }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:14px">
+                <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin-right:2px">TRACE</span>
+                <sc-for list="{{ trail }}" as="cr" hint-placeholder-count="2">
+                  <button onClick="{{ cr.open }}" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ cr.fg }};background:{{ cr.bg }};border-radius:5px;padding:2px 7px">{{ cr.id }}</button>
+                  <span style="color:#D4D4DC;font-size:11px">{{ cr.sep }}</span>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- NONE -->
+            <sc-if value="{{ inspNone }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:10px 2px">
+                <div style="width:40px;height:40px;border-radius:11px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin-bottom:13px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></div>
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600;color:#1B1B22;margin-bottom:6px">Trace any node to its source</div>
+                <div style="font-size:13px;color:#6E6E78;line-height:1.55;margin-bottom:16px">Click a node to walk its provenance — upstream to the memo it supports, downstream to the exact passage, registered source, and hash-verified file it rests on.</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <sc-for list="{{ overviewStats }}" as="st" hint-placeholder-count="4">
+                    <div style="border:1px solid #EFEFF3;border-radius:10px;padding:11px 12px">
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:{{ st.color }}">{{ st.value }}</div>
+                      <div style="font-size:11px;color:#8A8A95;margin-top:2px">{{ st.label }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- FOCUSED NODE -->
+            <sc-if value="{{ inspShow }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.06em;color:{{ insp.typeFg }};background:{{ insp.typeBg }};border-radius:5px;padding:3px 7px">{{ insp.typeLabel }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#3A3A44">{{ insp.id }}</span>
+                <span style="flex:1"></span>
+                <sc-if value="{{ insp.hasStatus }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:700;color:{{ insp.stFg }};background:{{ insp.stBg }};border:1px solid {{ insp.stBd }};border-radius:6px;padding:2px 8px">{{ insp.stLabel }}</span></sc-if>
+              </div>
+
+              <div style="font-family:'{{ insp.titleFont }}',Georgia,serif;font-size:{{ insp.titleSize }};font-weight:{{ insp.titleWeight }};line-height:1.35;color:#1B1B22">{{ insp.pre }}<sc-if value="{{ insp.has }}" hint-placeholder-val="{{ false }}"><mark>{{ insp.mark }}</mark>{{ insp.post }}</sc-if></div>
+
+              <sc-if value="{{ insp.showContext }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:12px;border:1px solid #EFEFF3;border-radius:10px;padding:12px 13px;background:#FBFBFD">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;color:#A0A0AA;margin-bottom:6px">IN CONTEXT · {{ insp.pincite }}</div>
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.6;color:#8A8A95">{{ insp.before }} <span style="color:#2A2A32;background:#FBECC8;border-radius:2px;padding:.02em 2px">{{ insp.spanText }}</span> {{ insp.after }}</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ insp.showMeta }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:12px;display:flex;flex-direction:column;gap:1px;border:1px solid #EFEFF3;border-radius:10px;overflow:hidden">
+                  <sc-for list="{{ insp.meta }}" as="m" hint-placeholder-count="4">
+                    <div style="display:flex;gap:10px;padding:9px 12px;background:#fff;border-bottom:1px solid #F4F4F7">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.03em;color:#A0A0AA;width:74px;flex:0 0 auto">{{ m.k }}</span>
+                      <span style="font-size:12px;color:#3A3A44;flex:1;min-width:0;word-break:break-word">{{ m.v }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ insp.hasParents }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:16px">
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">{{ insp.parentsLabel }}</div>
+                  <sc-for list="{{ insp.parents }}" as="p" hint-placeholder-count="1">
+                    <button onClick="{{ p.onClick }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid #EAEAEF;border-radius:9px;margin-bottom:6px" style-hover="background:#FAFAFC">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ p.color }};background:{{ p.bg }};border-radius:5px;padding:2px 6px;flex:0 0 auto">{{ p.label }}</span>
+                      <span style="flex:1;min-width:0;font-size:11.5px;color:#6E6E78;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.sub }}</span>
+                      <span style="color:#C4C4CC;flex:0 0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ insp.hasChildren }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:14px">
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">{{ insp.childrenLabel }}</div>
+                  <sc-for list="{{ insp.children }}" as="p" hint-placeholder-count="2">
+                    <button onClick="{{ p.onClick }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid #EAEAEF;border-radius:9px;margin-bottom:6px" style-hover="background:#FAFAFC">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ p.color }};background:{{ p.bg }};border-radius:5px;padding:2px 6px;flex:0 0 auto">{{ p.label }}</span>
+                      <span style="flex:1;min-width:0;font-size:11.5px;color:#6E6E78;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.sub }}</span>
+                      <span style="color:#C4C4CC;flex:0 0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ insp.hasLaterals }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:14px">
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#B23A2E;margin-bottom:8px">CROSS-CHECKS</div>
+                  <sc-for list="{{ insp.laterals }}" as="p" hint-placeholder-count="1">
+                    <button onClick="{{ p.onClick }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid {{ p.edgeBd }};border-radius:9px;margin-bottom:6px;background:{{ p.edgeBgSoft }}" style-hover="background:#fff">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ p.color }};background:{{ p.bg }};border-radius:5px;padding:2px 6px;flex:0 0 auto">{{ p.label }}</span>
+                      <span style="flex:1;min-width:0;font-size:11px;font-weight:600;color:{{ p.relFg }}">{{ p.kindLabel }}</span>
+                      <span style="color:#C4C4CC;flex:0 0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <div style="display:flex;gap:8px;margin-top:16px">
+                <button onClick="{{ insp.primaryAction }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12.5px;border-radius:9px;padding:9px" style-hover="background:#E7E2FD">{{ insp.primaryLabel }}</button>
+              </div>
+            </sc-if>
+
+          </div>
+        </aside>
+        </sc-if>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- MONOLOGUE DRAWER -->
+  <sc-if value="{{ monologueOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:40">
+      <div onClick="{{ closeMonologue }}" style="position:absolute;inset:0;background:rgba(20,20,28,.24);animation:eoFade .16s ease"></div>
+      <div class="eo-scroll" style="position:absolute;right:0;top:0;height:100%;width:440px;background:#fff;border-left:1px solid #EAEAEF;box-shadow:-12px 0 40px rgba(20,20,30,.12);overflow-y:auto;animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)">
+        <div style="position:sticky;top:0;background:#fff;border-bottom:1px solid #EAEAEF;padding:15px 18px;z-index:2">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600">Master log</div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#5B4BE6;background:#F1EFFE;border-radius:6px;padding:2px 7px">{{ logCount }} events</span>
+            <span style="flex:1"></span>
+            <button onClick="{{ closeMonologue }}" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          </div>
+          <div style="font-size:12px;color:#8A8A95;margin-top:3px">Everything that touched the record — every action, and the reasoning behind it.</div>
+        </div>
+
+        <div style="padding:16px 18px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px">
+            <sc-for list="{{ auditStats }}" as="a" hint-placeholder-count="3">
+              <div style="border:1px solid #EFEFF3;border-radius:10px;padding:11px 12px">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:600;color:{{ a.color }}">{{ a.value }}</div>
+                <div style="font-size:10.5px;color:#8A8A95;margin-top:2px;line-height:1.3">{{ a.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex;gap:4px;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px;margin-bottom:16px">
+            <button onClick="{{ setLogActions }}" style="flex:1;padding:6px 0;border-radius:6px;font-size:12px;font-weight:600;text-align:center;color:{{ logActionsFg }};background:{{ logActionsBg }}">Actions</button>
+            <button onClick="{{ setLogReasoning }}" style="flex:1;padding:6px 0;border-radius:6px;font-size:12px;font-weight:600;text-align:center;color:{{ logReasoningFg }};background:{{ logReasoningBg }}">Reasoning</button>
+          </div>
+
+          <sc-if value="{{ logActions }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ logView }}" as="lg" hint-placeholder-count="8">
+              <div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #F4F4F7">
+                <span style="width:8px;height:8px;border-radius:50%;background:{{ lg.dot }};margin-top:5px;flex:0 0 auto"></span>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <span style="font-size:9px;font-weight:700;letter-spacing:.04em;color:{{ lg.lfg }};background:{{ lg.lbg }};border-radius:4px;padding:1px 6px">{{ lg.label }}</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ lg.t }}</span>
+                  </div>
+                  <div style="font-size:13px;color:#2A2A32;line-height:1.45;margin-top:4px">{{ lg.text }}</div>
+                  <sc-if value="{{ lg.hasEffect }}" hint-placeholder-val="{{ false }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8A95;margin-top:3px">↳ {{ lg.effect }}</div></sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </sc-if>
+
+          <sc-if value="{{ logReasoning }}" hint-placeholder-val="{{ false }}">
+          <div style="position:relative;padding-left:20px">
+            <div style="position:absolute;left:5px;top:4px;bottom:8px;width:2px;background:#EDEDF1"></div>
+            <sc-for list="{{ steps }}" as="s" hint-placeholder-count="8">
+              <div style="position:relative;padding-bottom:16px">
+                <span style="position:absolute;left:-18px;top:2px;width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid {{ s.dot }}"></span>
+                <div style="display:flex;align-items:baseline;gap:8px">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE">{{ s.t }}</span>
+                  <span style="font-size:9px;font-weight:700;letter-spacing:.04em;color:{{ s.vFg }};background:{{ s.vBg }};border-radius:4px;padding:1px 6px">{{ s.verdict }}</span>
+                </div>
+                <div style="font-size:13px;color:#2A2A32;line-height:1.45;margin-top:4px">{{ s.text }}</div>
+                <sc-if value="{{ s.hasEffect }}" hint-placeholder-val="{{ false }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:{{ s.effectColor }};margin-top:4px">↳ {{ s.effect }}</div></sc-if>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- TOAST -->
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ null }}">
+    <div style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;background:#1B1B22;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(20,20,30,.3);animation:eoToast .2s ease;max-width:520px">{{ toast }}</div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = {
+    tab: 'chat',
+    focusId: null,
+    trace: 'both',
+    contra: false,
+    trail: [],
+    tx: 8, ty: 16, scale: 0.8,
+    dragging: false,
+    booted: false,
+    viewerOpen: null,
+    omni: '',
+    logTab: 'actions',
+    topicMenu: null,
+    mergeFrom: null,
+    topics: [
+      { id:'t1', title:'What makes dolphins intelligent?', meta:'6 sources · 4 claims', active:true },
+      { id:'t2', title:'Cetacean communication', meta:'2 sources' },
+      { id:'t3', title:'Octopus cognition', meta:'net-new' },
+    ],
+    statusOpen: false,
+    monologueOpen: false,
+    toast: null,
+    chatInput: '',
+    messages: [
+      { role:'user', text:'What makes dolphins intelligent?' },
+      { role:'agent', text:`Only what the record supports. Across your six recorded sources, dolphin intelligence shows up as four partly-independent capacities: an exceptional relative brain size, mirror self-recognition, signature whistles used to address specific individuals, and foraging techniques passed down as culture. The popular claim that those whistles are true names is only partly supported — one source contests it — so I've kept it flagged rather than smoothing it into the answer.`, cites:['C1','C2','C3','C4'], footer:true },
+    ],
+  };
+
+  memoNode = { id:'M1', title:'What makes dolphins intelligent?' };
+
+  claims = [
+    { id:'C1', text:'Dolphins have an exceptional relative brain size.', status:'Supported' },
+    { id:'C2', text:'Bottlenose dolphins show mirror self-recognition.', status:'Supported' },
+    { id:'C3', text:'Signature whistles function like individual names.', status:'Contested' },
+    { id:'C4', text:'Dolphins transmit foraging techniques as culture.', status:'Supported' },
+  ];
+
+  sources = [
+    { id:'S1', reg:'S-0001', title:'Cetacean intelligence', domain:'en.wikipedia.org', kind:'Encyclopedia', retrieved:'2026-07-09 14:02', sha:'3f9a…c1d4', bytes:'412 KB', rights:'CC BY-SA 4.0', rightsOk:true, ent:211, favCh:'W', favBg:'#EEEEF3', favFg:'#3B3B47' },
+    { id:'S2', reg:'S-0002', title:'How dolphins call each other by name', domain:'nationalgeographic.com', kind:'Feature', retrieved:'2026-07-09 14:06', sha:'a71c…9f02', bytes:'1.2 MB', rights:'© rights-managed', rightsOk:false, ent:54, favCh:'N', favBg:'#14161B', favFg:'#FFCF3F' },
+    { id:'S3', reg:'S-0003', title:'Mirror self-recognition in the bottlenose dolphin', domain:'pnas.org', kind:'Journal', retrieved:'2026-07-09 14:11', sha:'d4e8…7b55', bytes:'820 KB', rights:'© licensed', rightsOk:true, ent:38, favCh:'P', favBg:'#E8EEF9', favFg:'#2A5CB8' },
+    { id:'S4', reg:'S-0004', title:'The cultural lives of whales and dolphins', domain:'royalsociety.org', kind:'Journal', retrieved:'2026-07-09 14:15', sha:'0b12…aa9e', bytes:'1.1 MB', rights:'CC BY 4.0', rightsOk:true, ent:41, favCh:'R', favBg:'#EAF3EE', favFg:'#1E6B4F' },
+    { id:'S5', reg:'S-0005', title:'Dolphin brain: structure & encephalization', domain:'nature.com', kind:'Journal', retrieved:'2026-07-09 14:19', sha:'9c77…31ad', bytes:'640 KB', rights:'© Springer Nature', rightsOk:false, ent:27, favCh:'n', favBg:'#E7F0EE', favFg:'#0B7267' },
+    { id:'S6', reg:'S-0006', title:'Do dolphins have language?', domain:'aeon.co', kind:'Essay', retrieved:'2026-07-09 14:24', sha:'5faa…e208', bytes:'300 KB', rights:'© Aeon', rightsOk:true, ent:33, favCh:'A', favBg:'#F1EBF7', favFg:'#6D5EF5' },
+  ];
+
+  files = [
+    { id:'F1', src:'S1', sha:'3f9a…c1d4', bytes:'412 KB' },
+    { id:'F2', src:'S2', sha:'a71c…9f02', bytes:'1.2 MB' },
+    { id:'F3', src:'S3', sha:'d4e8…7b55', bytes:'820 KB' },
+    { id:'F4', src:'S4', sha:'0b12…aa9e', bytes:'1.1 MB' },
+    { id:'F5', src:'S5', sha:'9c77…31ad', bytes:'640 KB' },
+    { id:'F6', src:'S6', sha:'5faa…e208', bytes:'300 KB' },
+  ];
+
+  passages = [
+    { id:'P1', src:'S5', claim:'C1', pincite:'¶ 3', status:'Supported',
+      text:`The bottlenose dolphin's encephalization quotient is roughly 4–5 — higher than any nonhuman primate and second only to modern humans.`,
+      mark:'second only to modern humans',
+      before:`Relative brain size is a rough proxy for cognitive capacity.`,
+      after:`This places dolphins in rare mammalian company.` },
+    { id:'P2', src:'S1', claim:'C1', pincite:'§ Neuroanatomy', status:'Supported',
+      text:`The cetacean neocortex is unusually convoluted, with an expanded paralimbic region implicated in social and emotional processing.`,
+      mark:'social and emotional processing',
+      before:`Brain size alone does not explain behavior.`,
+      after:`Structure, not just mass, appears to matter.` },
+    { id:'P3', src:'S3', claim:'C2', pincite:'¶ 7', status:'Supported',
+      text:`Marked dolphins repeatedly maneuvered before the mirror to inspect the marked region — a response consistent with self-recognition rather than social display.`,
+      mark:'self-recognition',
+      before:`Each subject was exposed to a reflective surface after marking.`,
+      after:`Control trials with sham marks produced no such inspection.` },
+    { id:'P4', src:'S1', claim:'C2', pincite:'§ Self-awareness', status:'Supported',
+      text:`Bottlenose dolphins have passed the mirror mark test, among the very few species that appear to recognize themselves.`,
+      mark:'recognize themselves',
+      before:`Self-awareness is hard to establish in nonhuman animals.`,
+      after:`Great apes and elephants show comparable results.` },
+    { id:'P5', src:'S2', claim:'C3', pincite:'¶ 2', status:'Supported',
+      text:`Each dolphin invents a signature whistle as a calf, and companions copy that whistle to get the individual's attention.`,
+      mark:`copy that whistle to get the individual's attention`,
+      before:`Signature whistles are learned, not inherited.`,
+      after:`Researchers liken the effect to calling one another by name.` },
+    { id:'P6', src:'S6', claim:'C3', pincite:'¶ 9', status:'Contested',
+      text:`Whether these learned, individually distinctive calls amount to a true language remains contested among researchers.`,
+      mark:'remains contested',
+      before:`Signature whistles are undeniably communicative.`,
+      after:`Vocabulary and grammar are far harder to demonstrate.` },
+    { id:'P7', src:'S2', claim:'C3', pincite:'¶ 5', status:'Supported',
+      text:`In playback trials, dolphins responded more strongly to the signature whistle of a relative, even after decades apart.`,
+      mark:'even after decades apart',
+      before:`Memory for social bonds appears long-lived.`,
+      after:`Some pairs had been separated for over twenty years.` },
+    { id:'P8', src:'S4', claim:'C4', pincite:'¶ 4', status:'Supported',
+      text:`Foraging techniques such as sponging are passed from mother to calf, meeting the standard definition of animal culture.`,
+      mark:'passed from mother to calf',
+      before:`Culture requires socially transmitted behavior.`,
+      after:`Different populations maintain different traditions.` },
+    { id:'P9', src:'S4', claim:'C4', pincite:'¶ 6', status:'Supported',
+      text:`Populations maintain stable social networks and cooperative alliances that persist for many years.`,
+      mark:'cooperative alliances',
+      before:`Social structure among dolphins is unusually layered.`,
+      after:`Alliances even form between alliances.` },
+  ];
+
+  edges = [
+    { f:'M1', t:'C1', k:'cite' }, { f:'M1', t:'C2', k:'cite' }, { f:'M1', t:'C3', k:'cite' }, { f:'M1', t:'C4', k:'cite' },
+    { f:'C1', t:'P1', k:'ground' }, { f:'C1', t:'P2', k:'ground' },
+    { f:'C2', t:'P3', k:'ground' }, { f:'C2', t:'P4', k:'ground' },
+    { f:'C3', t:'P5', k:'ground' }, { f:'C3', t:'P7', k:'ground' }, { f:'C3', t:'P6', k:'against' },
+    { f:'C4', t:'P8', k:'ground' }, { f:'C4', t:'P9', k:'ground' },
+    { f:'P1', t:'S5', k:'extract' }, { f:'P2', t:'S1', k:'extract' }, { f:'P3', t:'S3', k:'extract' }, { f:'P4', t:'S1', k:'extract' },
+    { f:'P5', t:'S2', k:'extract' }, { f:'P6', t:'S6', k:'extract' }, { f:'P7', t:'S2', k:'extract' }, { f:'P8', t:'S4', k:'extract' }, { f:'P9', t:'S4', k:'extract' },
+    { f:'S1', t:'F1', k:'fixity' }, { f:'S2', t:'F2', k:'fixity' }, { f:'S3', t:'F3', k:'fixity' }, { f:'S4', t:'F4', k:'fixity' }, { f:'S5', t:'F5', k:'fixity' }, { f:'S6', t:'F6', k:'fixity' },
+    { f:'P5', t:'P6', k:'contradicts', lateral:true },
+    { f:'P1', t:'P2', k:'corroborates', lateral:true },
+    { f:'P3', t:'P4', k:'corroborates', lateral:true },
+  ];
+
+  passageOrder = ['P1','P2','P3','P4','P5','P7','P6','P8','P9'];
+
+  log = [
+    { id:'L14', t:'now',   kind:'open',    text:'Opened topic “What makes dolphins intelligent?”', effect:'t1 · 6 sources' },
+    { id:'L13', t:'14:33', kind:'skip',    text:'Skipped lccn.loc.gov — too little text to record.', effect:'not recorded' },
+    { id:'L12', t:'14:31', kind:'search',  text:'Web search “dolphin signature whistle memory”.', effect:'3 results · 2 recorded' },
+    { id:'L11', t:'14:28', kind:'claim',   text:'Grouped signature-whistle passages under claim C3.', effect:'C3 · 3 passages' },
+    { id:'L10', t:'14:26', kind:'conflict',text:'Contradiction: NatGeo “names” vs Aeon “contested”.', effect:'P5 ⇄ P6' },
+    { id:'L9',  t:'14:24', kind:'capture', text:'Captured passage from aeon.co.', effect:'P6 → C3 (against)' },
+    { id:'L8',  t:'14:24', kind:'record',  text:'Recorded “Do dolphins have language?” (aeon.co).', effect:'S-0006 · sha-256 ✓' },
+    { id:'L7',  t:'14:19', kind:'record',  text:'Recorded “Dolphin brain: encephalization” (nature.com).', effect:'S-0005 · 27 entities' },
+    { id:'L6',  t:'14:19', kind:'hash',    text:'Computed fixity hash for S-0005.', effect:'9c77…31ad · 640 KB' },
+    { id:'L5',  t:'14:15', kind:'record',  text:'Recorded “Cultural lives of whales & dolphins” (royalsociety.org).', effect:'S-0004 · CC BY 4.0' },
+    { id:'L4',  t:'14:11', kind:'capture', text:'Captured mirror-test passage from pnas.org.', effect:'P3 → C2' },
+    { id:'L3',  t:'14:06', kind:'record',  text:'Recorded “Dolphins call each other by name” (nationalgeographic.com).', effect:'S-0002 · rights-managed' },
+    { id:'L2',  t:'14:02', kind:'record',  text:'Recorded “Cetacean intelligence” (Wikipedia).', effect:'S-0001 · 211 entities' },
+    { id:'L1',  t:'14:00', kind:'open',    text:'Created topic “What makes dolphins intelligent?”', effect:'t1' },
+  ];
+  _sn = 7; _logId = 100;
+
+  logStyle(k) {
+    const m = {
+      record:{dot:'#1E8A50',label:'RECORD',fg:'#1E8A50',bg:'#E7F6EC'},
+      hash:{dot:'#0B7267',label:'FIXITY',fg:'#0B7267',bg:'#E1F0ED'},
+      capture:{dot:'#C79A3A',label:'CAPTURE',fg:'#9A6B12',bg:'#FBF1DA'},
+      claim:{dot:'#6D5EF5',label:'CLAIM',fg:'#5B4BE6',bg:'#F1EFFE'},
+      conflict:{dot:'#B23A2E',label:'CONFLICT',fg:'#B23A2E',bg:'#FBE9E6'},
+      search:{dot:'#2A5CB8',label:'SEARCH',fg:'#2A5CB8',bg:'#E8EEF9'},
+      merge:{dot:'#5B4BE6',label:'MERGE',fg:'#5B4BE6',bg:'#F1EFFE'},
+      segment:{dot:'#5B4BE6',label:'SEGMENT',fg:'#5B4BE6',bg:'#F1EFFE'},
+      open:{dot:'#6E7787',label:'OPEN',fg:'#4E5765',bg:'#EEF0F3'},
+      chat:{dot:'#6D5EF5',label:'ASK',fg:'#5B4BE6',bg:'#F1EFFE'},
+      skip:{dot:'#9A9AA4',label:'SKIP',fg:'#6E6E78',bg:'#F0F0F4'},
+    };
+    return m[k] || m.open;
+  }
+  addLog(kind, text, effect) { this._logId += 1; this.log.unshift({ id:'L'+this._logId, t:'now', kind, text, effect }); this.setState({}); }
+
+  addSource({ domain, title, kind, rights }) {
+    const n = this._sn++;
+    const reg = 'S-' + String(n).padStart(4,'0');
+    const id = 'S' + n;
+    const hx = () => Math.random().toString(16).slice(2,6);
+    const sha = hx() + '…' + hx();
+    const src = { id, reg, title, domain, kind, retrieved:'just now', sha, bytes:(100+Math.floor(Math.random()*900))+' KB', rights:rights||'unverified', rightsOk:false, ent:0, favCh:(domain[0]||'?').toUpperCase(), favBg:'#EEEBFE', favFg:'#6D5EF5', pending:true };
+    this.sources.push(src);
+    this.files.push({ id:'F'+n, src:id, sha, bytes:src.bytes });
+    return src;
+  }
+
+  ingest(v) {
+    const q = (v || '').trim(); if (!q) return;
+    const isUrl = /^https?:\/\//i.test(q) || (/^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(q) && !/\s/.test(q));
+    const isFile = /\.(pdf|docx?|txt|csv|md|html?|epub)$/i.test(q) && !/\s/.test(q);
+    if (isUrl) {
+      const domain = q.replace(/^https?:\/\//i,'').replace(/\/.*$/,'').replace(/^www\./,'');
+      const src = this.addSource({ domain, title:'Untitled — ' + domain, kind:'Web page' });
+      this.addLog('record', 'Read & recorded ' + domain + '.', src.reg + ' · sha-256 ✓ · pending grounding');
+      this.showToast('Recorded ' + domain + ' → ' + src.reg + '. Pending grounding.');
+      this.setState({ omni:'', tab:'register' });
+    } else if (isFile) {
+      const src = this.addSource({ domain:q, title:q, kind:'File' });
+      this.addLog('record', 'Imported file ' + q + '.', src.reg + ' · sha-256 ✓');
+      this.showToast('Imported ' + q + ' → ' + src.reg + '.');
+      this.setState({ omni:'', tab:'register' });
+    } else {
+      this.addLog('search', 'Web search “' + q + '”.', '3 results · 2 recorded');
+      const a = this.addSource({ domain:'nature.com', title:q + ' — review', kind:'Journal' });
+      const b = this.addSource({ domain:'sciencedirect.com', title:q + ' — study', kind:'Journal' });
+      this.addLog('record', 'Recorded result ' + a.reg + '.', a.domain);
+      this.addLog('record', 'Recorded result ' + b.reg + '.', b.domain);
+      this.showToast('Searched the web for “' + q + '” — recorded 2 sources.');
+      this.setState({ omni:'', tab:'register' });
+    }
+  }
+  onOmniInput(e) { this.setState({ omni: e.target.value }); }
+  onOmniSubmit(e) { if (e && e.preventDefault) e.preventDefault(); this.ingest(this.state.omni); }
+  setLogTab(t) { this.setState({ logTab: t }); }
+
+  segment(id) {
+    const t = this.state.topics.find(x => x.id === id); if (!t) return;
+    const base = this.state.topics.filter(x => x.parentId !== id);
+    const idx = base.findIndex(x => x.id === id);
+    const kids = [
+      { id:id+'-a', parentId:id, title:'Brain & self-recognition', meta:'2 claims · 4 passages' },
+      { id:id+'-b', parentId:id, title:'Communication & culture', meta:'2 claims · 5 passages' },
+    ];
+    base.splice(idx+1, 0, ...kids);
+    this.addLog('segment', 'Segmented “' + t.title + '” into 2 sub-topics.', id+'-a · '+id+'-b');
+    this.setState({ topics: base, topicMenu: null });
+    this.showToast('Segmented into 2 sub-topics — passages partitioned by theme.');
+  }
+  startMerge(id) {
+    const t = this.state.topics.find(x => x.id === id);
+    this.setState({ mergeFrom: id, topicMenu: null });
+    this.showToast('Select another topic to merge “' + (t ? t.title : '') + '” into.');
+  }
+  mergeInto(target) {
+    const from = this.state.mergeFrom;
+    if (!from || from === target) { this.setState({ mergeFrom: null }); return; }
+    const tf = this.state.topics.find(x => x.id === from), tt = this.state.topics.find(x => x.id === target);
+    const topics = this.state.topics.filter(x => x.id !== from && x.parentId !== from);
+    this.addLog('merge', 'Merged “' + (tf?tf.title:'') + '” into “' + (tt?tt.title:'') + '”.', 'sources + passages combined');
+    this.setState({ topics, mergeFrom: null });
+    this.showToast('Merged “' + (tf?tf.title:'') + '” into “' + (tt?tt.title:'') + '”.');
+  }
+  topicRowClick(id) {
+    if (this.state.mergeFrom) { this.mergeInto(id); return; }
+    if (id === 't1') this.setState({ tab:'graph' });
+    else { const t = this.state.topics.find(x => x.id === id); this.showToast('“' + (t?t.title:'') + '” — this prototype focuses on the dolphins topic.'); }
+  }
+
+  stStyle(s) {
+    if (s === 'Supported') return { fg:'#1E8A50', bg:'#E7F6EC', bd:'#C5E9D2', dot:'#1E8A50' };
+    if (s === 'Contested') return { fg:'#A9700A', bg:'#FBF1DA', bd:'#EEDCA9', dot:'#D69A2A' };
+    return { fg:'#6E6E78', bg:'#F0F0F4', bd:'#E2E2E8', dot:'#9A9AA4' };
+  }
+
+  split(t, m) {
+    const i = m ? t.indexOf(m) : -1;
+    if (i >= 0) return { pre:t.slice(0,i), mark:t.slice(i,i+m.length), post:t.slice(i+m.length), has:true };
+    return { pre:t, mark:'', post:'', has:false };
+  }
+
+  spacing(arr, gap) {
+    arr.sort((a,b) => a.y - b.y);
+    for (let i=1;i<arr.length;i++) if (arr[i].y < arr[i-1].y + arr[i-1].h + gap) arr[i].y = arr[i-1].y + arr[i-1].h + gap;
+  }
+
+  buildLayout() {
+    const LX = { memo:28, claim:316, passage:606, source:918, file:1170 };
+    const NW = { memo:228, claim:208, passage:244, source:192, file:146 };
+    const NH = { memo:92, claim:84, passage:108, source:92, file:62 };
+    const nodes = {};
+    const pStep = 116, pBase = 20;
+    this.passageOrder.forEach((pid,i) => {
+      const p = this.passages.find(x => x.id === pid);
+      const sp = this.split(p.text, p.mark);
+      const s = this.sources.find(x => x.id === p.src);
+      nodes[pid] = { id:pid, type:'passage', x:LX.passage, y:pBase+i*pStep, w:NW.passage, h:NH.passage,
+        pincite:p.pincite, status:p.status, pre:sp.pre, mark:sp.mark, post:sp.post, has:sp.has,
+        textFull:p.text, before:p.before, after:p.after, srcId:p.src, claimId:p.claim, srcReg:s.reg, srcDomain:s.domain };
+    });
+    const cy = id => nodes[id].y + nodes[id].h/2;
+    this.claims.forEach(c => {
+      const ps = this.edges.filter(e => e.f === c.id && !e.lateral).map(e => e.t);
+      const m = ps.reduce((a,b) => a+cy(b), 0)/ps.length;
+      nodes[c.id] = { id:c.id, type:'claim', x:LX.claim, y:m-NH.claim/2, w:NW.claim, h:NH.claim, text:c.text, status:c.status, groundCount:ps.length };
+    });
+    this.spacing(this.claims.map(c => nodes[c.id]), 20);
+    this.sources.forEach(s => {
+      const ps = this.edges.filter(e => e.t === s.id && e.k === 'extract').map(e => e.f);
+      const m = ps.reduce((a,b) => a+cy(b), 0)/ps.length;
+      nodes[s.id] = { id:s.id, type:'source', x:LX.source, y:m-NH.source/2, w:NW.source, h:NH.source, ...s };
+    });
+    this.spacing(this.sources.map(s => nodes[s.id]), 16);
+    this.files.forEach(f => {
+      const s = nodes[f.src];
+      nodes[f.id] = { id:f.id, type:'file', x:LX.file, y:s.y+(s.h-NH.file)/2, w:NW.file, h:NH.file, ...f };
+    });
+    this.spacing(this.files.map(f => nodes[f.id]), 14);
+    const cms = this.claims.map(c => cy(c.id));
+    const mm = cms.reduce((a,b) => a+b, 0)/cms.length;
+    nodes['M1'] = { id:'M1', type:'memo', x:LX.memo, y:mm-NH.memo/2, w:NW.memo, h:NH.memo, title:this.memoNode.title };
+    let maxB = 0; Object.values(nodes).forEach(n => { maxB = Math.max(maxB, n.y+n.h); });
+    this.layout = { nodes, W: LX.file+NW.file+40, H: maxB+30 };
+    this.edgeGeom = this.edges.map(e => {
+      const a = nodes[e.f], b = nodes[e.t];
+      let d;
+      if (e.lateral) {
+        const ax=a.x+a.w, ay=a.y+a.h/2, bx=b.x+b.w, by=b.y+b.h/2, bulge=Math.max(ax,bx)+64;
+        d = `M ${ax} ${ay} C ${bulge} ${ay}, ${bulge} ${by}, ${bx} ${by}`;
+      } else {
+        const ax=a.x+a.w, ay=a.y+a.h/2, bx=b.x, by=b.y+b.h/2, dx=(bx-ax)*0.45;
+        d = `M ${ax} ${ay} C ${ax+dx} ${ay}, ${bx-dx} ${by}, ${bx} ${by}`;
+      }
+      return { ...e, d };
+    });
+  }
+
+  reach(start, dir) {
+    const res = new Set(), st = this.edges.filter(e => !e.lateral), q = [start];
+    while (q.length) {
+      const c = q.pop();
+      st.forEach(e => {
+        if (dir === 'down' && e.f === c && !res.has(e.t)) { res.add(e.t); q.push(e.t); }
+        if (dir === 'up' && e.t === c && !res.has(e.f)) { res.add(e.f); q.push(e.f); }
+      });
+    }
+    return res;
+  }
+
+  chainSet() {
+    const S = this.state;
+    if (S.contra) {
+      const set = new Set();
+      this.edges.filter(e => e.lateral || e.k === 'against').forEach(e => { set.add(e.f); set.add(e.t); });
+      return set;
+    }
+    if (!S.focusId) return null;
+    const set = new Set([S.focusId]);
+    if (S.trace !== 'down') this.reach(S.focusId,'up').forEach(x => set.add(x));
+    if (S.trace !== 'up') this.reach(S.focusId,'down').forEach(x => set.add(x));
+    this.edges.filter(e => e.lateral && (e.f === S.focusId || e.t === S.focusId)).forEach(e => { set.add(e.f); set.add(e.t); });
+    return set;
+  }
+
+  edgeStyle(e, set, dim) {
+    const S = this.state;
+    const isLat = !!e.lateral, isAg = e.k === 'against', neg = isAg || e.k === 'contradicts', pos = e.k === 'corroborates';
+    let active = null;
+    if (S.contra) active = isLat || isAg;
+    else if (S.focusId) active = isLat ? (e.f === S.focusId || e.t === S.focusId) : (set.has(e.f) && set.has(e.t));
+    if (active === false) return { stroke: neg?'#E6CBC6':pos?'#D7E6DD':'#E0E0E6', sw:1.4, dash:(isLat||isAg)?'2 5':'0', op:0.3, marker:isLat?'':(isAg?'url(#arrDimR)':'url(#arrDim)') };
+    if (active === true) {
+      if (neg) return { stroke:'#B23A2E', sw:2.4, dash:isLat?'2 5':'5 4', op:1, marker:isLat?'':'url(#arrRed)' };
+      if (pos) return { stroke:'#1E8A50', sw:2.4, dash:'2 5', op:1, marker:'' };
+      return { stroke:'#6D5EF5', sw:2.3, dash:'0', op:1, marker:'url(#arrVio)' };
+    }
+    if (neg) return { stroke:'#D98B80', sw:2, dash:isLat?'2 5':'5 4', op:.9, marker:isLat?'':'url(#arrDimR)' };
+    if (pos) return { stroke:'#7FB894', sw:2, dash:'2 5', op:.9, marker:'' };
+    return { stroke:'#CBCBD4', sw:1.6, dash:'0', op:.9, marker:'url(#arrDim)' };
+  }
+
+  setViewport(el) { if (el) this.viewport = el; }
+  stop(e) { e.stopPropagation(); }
+
+  pushTrail(id) {
+    const t = this.state.trail.slice();
+    if (t[t.length-1] !== id) t.push(id);
+    return t.slice(-6);
+  }
+
+  centerOn(id) {
+    const n = this.layout.nodes[id]; const vp = this.viewport; if (!vp) return;
+    const s = this.state.scale;
+    this.setState({ tx: (vp.clientWidth-340)/2 - (n.x+n.w/2)*s, ty: vp.clientHeight/2 - (n.y+n.h/2)*s });
+  }
+  focusNode(id) {
+    this._fitted = true;
+    const s = Math.max(this.state.scale, 0.9);
+    this.setState({ focusId:id, tab:'graph', dragging:false, scale:s, booted:true, trail:this.pushTrail(id) }, () => this.centerOn(id));
+  }
+  clearFocus() { this.setState({ focusId:null, contra:false, trail:[] }); }
+
+  startPan(e) {
+    this._pan = { x:e.clientX, y:e.clientY, tx:this.state.tx, ty:this.state.ty };
+    this.setState({ dragging:true });
+    window.addEventListener('pointermove', this._move);
+    window.addEventListener('pointerup', this._up);
+  }
+  _move = (e) => { if (!this._pan) return; this.setState({ tx:this._pan.tx+(e.clientX-this._pan.x), ty:this._pan.ty+(e.clientY-this._pan.y) }); };
+  _up = () => { this._pan = null; this.setState({ dragging:false }); window.removeEventListener('pointermove', this._move); window.removeEventListener('pointerup', this._up); };
+
+  zoomAt(f, cx, cy) {
+    const s0 = this.state.scale, s1 = Math.max(0.4, Math.min(1.7, s0*f)), k = s1/s0;
+    this.setState({ scale:s1, tx: cx-(cx-this.state.tx)*k, ty: cy-(cy-this.state.ty)*k });
+  }
+  zoomIn() { const v=this.viewport; this.zoomAt(1.18, v?v.clientWidth/2:400, v?v.clientHeight/2:300); }
+  zoomOut() { const v=this.viewport; this.zoomAt(1/1.18, v?v.clientWidth/2:400, v?v.clientHeight/2:300); }
+  onWheel(e) {
+    e.preventDefault();
+    const v = this.viewport; if (!v) return;
+    const r = v.getBoundingClientRect();
+    this.zoomAt(e.deltaY < 0 ? 1.09 : 1/1.09, e.clientX-r.left, e.clientY-r.top);
+  }
+  fit() {
+    const v = this.viewport; if (!v || !this.layout) return;
+    const s = Math.max(0.4, Math.min(1.2, Math.min((v.clientWidth-56)/this.layout.W, (v.clientHeight-56)/this.layout.H)));
+    this.setState({ scale:s, tx:(v.clientWidth-this.layout.W*s)/2, ty:(v.clientHeight-this.layout.H*s)/2 });
+  }
+
+  showToast(m) { this.setState({ toast:m }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast:null }), 2800); }
+  toggleStatus() { this.setState(s => ({ statusOpen:!s.statusOpen })); }
+  openMonologue() { this.setState({ monologueOpen:true }); }
+  closeMonologue() { this.setState({ monologueOpen:false }); }
+  setTab(t) { this.setState({ tab:t }, () => { if (t === 'graph' && !this._fitted && this.viewport) { this.fit(); this._fitted = true; setTimeout(() => this.setState({ booted:true }), 60); } }); }
+  setTrace(t) { this.setState({ trace:t }); }
+  toggleContra() { this.setState(s => ({ contra:!s.contra, focusId: s.contra ? s.focusId : null })); }
+  newTopic() { this.showToast('New topic — read or import a source to start building its provenance graph.'); }
+  toolToast() { this.showToast('Prototype focuses on the “dolphins” topic — this tool is stubbed.'); }
+
+  openViewer(id) { const s = this.sources.find(x => x.id === id); if (s) this.addLog('open', 'Opened source document ' + s.reg + '.', s.domain); this.setState({ viewerOpen: id }); }
+  closeViewer() { this.setState({ viewerOpen: null }); }
+  traceFromViewer(id) { this.setState({ viewerOpen: null }); this.focusNode(id); }
+
+  onChatInput(e) { this.setState({ chatInput: e.target.value }); }
+  onChatKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendChat(); } }
+  setChatScroll(el) { if (el) this.chatScroll = el; }
+  sendChat() {
+    const v = (this.state.chatInput || '').trim();
+    if (!v) return;
+    this.addLog('chat', 'Asked: “' + v + '”', 'answered from the record');
+    const msgs = this.state.messages.concat([
+      { role:'user', text:v },
+      { role:'agent', text:`I only answer from what you've recorded. I searched your six sources — nothing new was recorded, so nothing new enters the answer. Here's the grounded evidence closest to your question.`, cites:['C1','C4'], footer:true },
+    ]);
+    this.setState({ messages: msgs, chatInput: '' }, () => { if (this.chatScroll) this.chatScroll.scrollTop = this.chatScroll.scrollHeight; });
+  }
+
+  componentWillUnmount() { window.removeEventListener('pointermove', this._move); window.removeEventListener('pointerup', this._up); }
+
+  chip(id, kind) {
+    const n = this.layout.nodes[id];
+    let label='', sub='', color='#5A5A64', bg='#F2F2F6';
+    if (n.type === 'memo') { label='MEMO'; sub=n.title; color='#6D5EF5'; bg='#EEEBFE'; }
+    else if (n.type === 'claim') { const st=this.stStyle(n.status); label=n.id; sub=n.text; color=st.fg; bg=st.bg; }
+    else if (n.type === 'passage') { label=n.id; sub=n.pincite+' · '+n.srcReg; color='#9A6B12'; bg='#FBF1DA'; }
+    else if (n.type === 'source') { label=n.reg; sub=n.domain; color='#4E5765'; bg='#EEF0F3'; }
+    else { label=n.id; sub='verified · '+n.bytes; color='#1E8A50'; bg='#E7F6EC'; }
+    const kl = { cite:'cites', ground:'grounded in', against:'contradicted by', extract:'from source', fixity:'fixity file', contradicts:'contradicts', corroborates:'corroborates' }[kind] || '';
+    const relFg = (kind==='against'||kind==='contradicts') ? '#B23A2E' : kind==='corroborates' ? '#1E8A50' : '#8A8A95';
+    return { id, label, sub, color, bg, kindLabel:kl, relFg,
+      edgeBd: (kind==='against'||kind==='contradicts')?'#F2D3CD':'#C9E4D2', edgeBgSoft:(kind==='against'||kind==='contradicts')?'#FCF1EF':'#F1F8F3',
+      onClick: () => this.focusNode(id) };
+  }
+
+  renderVals() {
+    if (!this.layout) this.buildLayout();
+    const S = this.state;
+    const set = this.chainSet();
+    const dim = !!(S.focusId || S.contra);
+    const N = this.layout.nodes;
+    const inChain = id => dim ? (set ? set.has(id) : false) : true;
+    const nStyle = id => {
+      const foc = id === S.focusId, ch = inChain(id);
+      return { op: ch?1:0.22, bd: foc?'#6D5EF5':'#E6E6EC',
+        shadow: foc ? '0 0 0 2px #6D5EF5, 0 12px 26px rgba(93,75,230,.20)' : (ch ? '0 1px 2px rgba(20,20,30,.05)' : 'none') };
+    };
+    const mk = (n, extra) => { const st = nStyle(n.id); return { ...n, left:n.x, top:n.y, w:n.w, op:st.op, bd:st.bd, shadow:st.shadow, focus:() => this.focusNode(n.id), ...extra }; };
+
+    const memoNodes = [ mk(N['M1'], { citeCount:this.edges.filter(e=>e.f==='M1').length }) ];
+    const claimNodes = this.claims.map(c => { const st=this.stStyle(c.status); return mk(N[c.id], { accent:st.dot, stFg:st.fg, stBg:st.bg, stBd:st.bd, stLabel:c.status }); });
+    const passageNodes = this.passageOrder.map(pid => mk(N[pid], {}));
+    const sourceNodes = this.sources.map(s => mk(N[s.id], { rightsTag: s.rightsOk?'clear':'©', rightsFg: s.rightsOk?'#1E8A50':'#A9700A', rightsBg: s.rightsOk?'#E7F6EC':'#FBF1DA' }));
+    const fileNodes = this.files.map(f => mk(N[f.id], {}));
+    const edgePaths = this.edgeGeom.map(e => ({ d:e.d, ...this.edgeStyle(e, set, dim) }));
+
+    const traceOpts = [['up','Up'],['both','Both'],['down','Down']].map(([id,label]) => {
+      const on = S.trace === id;
+      return { label, select:() => this.setTrace(id), fg: on?'#3A3A44':'#8A8A95', bg: on?'#fff':'transparent', shadow: on?'0 1px 2px rgba(20,20,30,.1)':'none' };
+    });
+
+    const tabs = [['chat','Chat',''],['graph','Graph',''],['evidence','Findings','9'],['register','Sources','6'],['memo','Memo','1']].map(([id,label,count]) => {
+      const on = S.tab === id;
+      return { label, count, hasCount: !!count, select:() => this.setTab(id),
+        fg: on?'#1B1B22':'#8A8A95', weight: on?'650':'500', ul: on?'#6D5EF5':'transparent',
+        countFg: on?'#5B4BE6':'#A0A0AA', countBg: on?'#F1EFFE':'#F2F2F6' };
+    });
+
+    // inspector
+    let insp = null, inspNone = !S.focusId, inspShow = !!S.focusId;
+    if (S.focusId) {
+      const n = N[S.focusId];
+      const parents = this.edges.filter(e => e.t === S.focusId && !e.lateral).map(e => this.chip(e.f, e.k));
+      const children = this.edges.filter(e => e.f === S.focusId && !e.lateral).map(e => this.chip(e.t, e.k));
+      const laterals = this.edges.filter(e => (e.lateral || e.k === 'against') && (e.f === S.focusId || e.t === S.focusId))
+        .map(e => this.chip(e.f === S.focusId ? e.t : e.f, e.k));
+      insp = { id:n.id, parents, children, laterals, hasParents:parents.length>0, hasChildren:children.length>0, hasLaterals:laterals.length>0,
+        parentsLabel:'SUPPORTS (UPSTREAM)', childrenLabel:'GROUNDED IN (DOWNSTREAM)',
+        titleFont:'Newsreader', titleSize:'16px', titleWeight:'500', pre:'', mark:'', post:'', has:false,
+        showContext:false, showMeta:false, hasStatus:false, spanText:'',
+        primaryLabel:'Open in Sources', primaryAction:() => this.showToast('Registered source '+n.id) };
+      if (n.type === 'memo') {
+        insp.typeLabel='MEMO'; insp.typeFg='#6D5EF5'; insp.typeBg='#EEEBFE';
+        insp.pre=n.title; insp.titleSize='17px'; insp.titleWeight='600';
+        insp.childrenLabel='CITES (CLAIMS)'; insp.primaryLabel='Open memo'; insp.primaryAction=() => this.setTab('memo');
+      } else if (n.type === 'claim') {
+        const st=this.stStyle(n.status);
+        insp.typeLabel='CLAIM'; insp.typeFg='#7A7A85'; insp.typeBg='#F2F2F6';
+        insp.hasStatus=true; insp.stFg=st.fg; insp.stBg=st.bg; insp.stBd=st.bd; insp.stLabel=n.status;
+        insp.pre=n.text; insp.parentsLabel='CITED BY'; insp.childrenLabel='GROUNDED IN (PASSAGES)';
+        insp.primaryLabel='Open in Findings'; insp.primaryAction=() => this.setTab('evidence');
+      } else if (n.type === 'passage') {
+        const st=this.stStyle(n.status);
+        insp.typeLabel='PASSAGE'; insp.typeFg='#9A6B12'; insp.typeBg='#FBF1DA';
+        insp.hasStatus=true; insp.stFg=st.fg; insp.stBg=st.bg; insp.stBd=st.bd; insp.stLabel=n.status;
+        insp.pre=n.pre; insp.mark=n.mark; insp.post=n.post; insp.has=n.has;
+        insp.showContext=true; insp.pincite=n.pincite; insp.before=n.before; insp.after=n.after; insp.spanText=n.textFull;
+        insp.parentsLabel='GROUNDS (CLAIM)'; insp.childrenLabel='EXTRACTED FROM';
+        insp.primaryLabel='Read the page ↗'; insp.primaryAction=() => this.showToast('Deep-linking to '+n.srcReg+' at '+n.pincite);
+      } else if (n.type === 'source') {
+        insp.typeLabel='SOURCE'; insp.typeFg='#4E5765'; insp.typeBg='#EEF0F3'; insp.id=n.reg;
+        insp.pre=n.title; insp.titleFont='Newsreader';
+        insp.showMeta=true;
+        insp.meta=[ {k:'DOMAIN',v:n.domain}, {k:'KIND',v:n.kind}, {k:'RETRIEVED',v:n.retrieved}, {k:'FIXITY',v:'sha-256 '+n.sha}, {k:'SIZE',v:n.bytes+' · verified'}, {k:'RIGHTS',v:n.rights}, {k:'ENTITIES',v:n.ent+' extracted'} ];
+        insp.parentsLabel='CITED BY (PASSAGES)'; insp.childrenLabel='FIXITY';
+        insp.primaryLabel='Open source document'; insp.primaryAction=() => this.openViewer(n.id);
+      } else {
+        const src=this.sources.find(s=>s.id===n.src);
+        insp.typeLabel='FILE'; insp.typeFg='#1E8A50'; insp.typeBg='#E7F6EC';
+        insp.pre='Hash-verified snapshot'; insp.titleFont='-apple-system'; insp.titleSize='15px'; insp.titleWeight='600';
+        insp.showMeta=true;
+        insp.meta=[ {k:'SHA-256',v:n.sha}, {k:'SIZE',v:n.bytes}, {k:'SOURCE',v:src?src.reg:''}, {k:'INTEGRITY',v:'bitstream untouched'} ];
+        insp.parentsLabel='FIXITY OF'; insp.childrenLabel='';
+        insp.primaryLabel='Verify integrity'; insp.primaryAction=() => this.showToast('Recomputed sha-256 — matches. Bitstream untouched.');
+      }
+    }
+
+    const trail = S.trail.map((id,i) => { const c=this.chip(id); return { id:c.label==='MEMO'?'M1':c.label, fg:c.color, bg:c.bg, sep: i<S.trail.length-1?'›':'', open:() => this.focusNode(id) }; });
+
+    const overviewStats = [
+      { value:'4', label:'claims', color:'#3A3A44' },
+      { value:'9', label:'passages', color:'#9A6B12' },
+      { value:'6', label:'sources · verified', color:'#1E8A50' },
+      { value:'1', label:'contested', color:'#B23A2E' },
+    ];
+
+    const evClaims = this.claims.map(c => { const st=this.stStyle(c.status);
+      const ps = this.edges.filter(e => e.f === c.id && !e.lateral).map(e => {
+        const n = N[e.t]; const rel = e.k === 'against' ? 'contradicts' : 'supports';
+        return { id:n.id, pre:n.pre, mark:n.mark, post:n.post, pincite:n.pincite, srcReg:n.srcReg, srcDomain:n.srcDomain,
+          rel, relColor: e.k==='against'?'#B23A2E':'#1E8A50', open:() => this.focusNode(n.id) };
+      });
+      return { id:c.id, text:c.text, stFg:st.fg, stBg:st.bg, stBd:st.bd, stLabel:c.status, passages:ps };
+    });
+
+    const regRows = this.sources.map(s => ({ ...s, cites:this.edges.filter(e => e.t === s.id && e.k === 'extract').length,
+      rightsFg: s.rightsOk?'#1E8A50':'#A9700A', rightsBg: s.rightsOk?'#E7F6EC':'#FBF1DA', open:() => this.openViewer(s.id) }));
+
+    const memoClaims = this.claims.map(c => { const st=this.stStyle(c.status); return { id:c.id, text:c.text, stFg:st.fg, stBg:st.bg, stBd:st.bd, stLabel:c.status, open:() => this.focusNode(c.id) }; });
+
+    const leftSources = this.sources.map(s => ({ reg:s.reg, title:s.title, domain:s.domain, favCh:s.favCh, favBg:s.favBg, favFg:s.favFg, open:() => this.openViewer(s.id) }));
+    const mf = this.state.mergeFrom;
+    const topics = this.state.topics.map(t => ({
+      id:t.id, title:t.title, meta:t.meta, indent: t.parentId ? 20 : 0,
+      bg: t.active ? '#F1EFFE' : (mf===t.id ? '#FBF1DA' : 'transparent'),
+      border: t.active ? '#E3DEFC' : (mf===t.id ? '#EEDCA9' : 'transparent'),
+      iconColor: t.active ? '#6D5EF5' : (t.parentId ? '#C4C4CC' : '#B4B4BE'),
+      titleColor: t.active ? '#3A3A44' : '#5A5A64',
+      menuOpen: this.state.topicMenu===t.id,
+      rowClick:() => this.topicRowClick(t.id),
+      menuClick:(e) => { if (e && e.stopPropagation) e.stopPropagation(); this.setState(s => ({ topicMenu: s.topicMenu===t.id ? null : t.id })); },
+      doSegment:(e) => { if (e && e.stopPropagation) e.stopPropagation(); this.segment(t.id); },
+      doMerge:(e) => { if (e && e.stopPropagation) e.stopPropagation(); this.startMerge(t.id); },
+    }));
+
+    const statusPeek = [
+      { color:'#1E8A50', text:'Recorded Nature encephalization figures.', hasEffect:true, effect:'+P1 · claim C1', effectColor:'#1E8A50' },
+      { color:'#D69A2A', text:'Aeon calls “true language” contested — kept the counter-passage.', hasEffect:true, effect:'C3 → Contested', effectColor:'#A9700A' },
+      { color:'#B23A2E', text:'Contradiction between NatGeo and Aeon on “names”.', hasEffect:true, effect:'P5 ⇄ P6 flagged', effectColor:'#B23A2E' },
+      { color:'#9A9AA4', text:'Skipped lccn.loc.gov — too little text to record.', hasEffect:false },
+    ];
+
+    const steps = [
+      { t:'14:02', verdict:'RECORD', vFg:'#1E8A50', vBg:'#E7F6EC', dot:'#1E8A50', text:'Recorded Cetacean intelligence (Wikipedia) — 211 entities extracted.', hasEffect:true, effect:'S-0001 registered · sha-256 verified', effectColor:'#1E8A50' },
+      { t:'14:11', verdict:'RECORD', vFg:'#1E8A50', vBg:'#E7F6EC', dot:'#1E8A50', text:'Found primary evidence for self-recognition in the PNAS mirror study.', hasEffect:true, effect:'+P3 grounds C2', effectColor:'#1E8A50' },
+      { t:'14:17', verdict:'FLAG', vFg:'#A9700A', vBg:'#FBF1DA', dot:'#D69A2A', text:'“Call each other by name” is a strong framing — sought a second source.', hasEffect:true, effect:'C3 held at Contested', effectColor:'#A9700A' },
+      { t:'14:24', verdict:'CONFLICT', vFg:'#B23A2E', vBg:'#FBE9E6', dot:'#B23A2E', text:'Aeon says true language is contested; recorded the counter-passage rather than dropping it.', hasEffect:true, effect:'P5 ⇄ P6 contradiction edge', effectColor:'#B23A2E' },
+      { t:'14:28', verdict:'GROUP', vFg:'#5B4BE6', vBg:'#F1EFFE', dot:'#6D5EF5', text:'Grouped signature-whistle passages under claim C3.', hasEffect:false },
+      { t:'14:31', verdict:'NO-OP', vFg:'#6E6E78', vBg:'#F0F0F4', dot:'#9A9AA4', text:'Ran a Scholar search — page too transient to record.', hasEffect:false },
+      { t:'14:33', verdict:'SKIP', vFg:'#6E6E78', vBg:'#F0F0F4', dot:'#9A9AA4', text:'Skipped lccn.loc.gov — too little text to be auditable.', hasEffect:false },
+    ];
+
+    const auditStats = [
+      { value:'32%', label:'yield (passages kept / read)', color:'#5B4BE6' },
+      { value:'1', label:'contradiction surfaced', color:'#B23A2E' },
+      { value:'2', label:'no-ops / skips', color:'#9A9AA4' },
+    ];
+
+    const messagesView = this.state.messages.map(m => ({
+      isUser: m.role === 'user', isAgent: m.role === 'agent', text: m.text,
+      hasCites: !!(m.cites && m.cites.length), footer: !!m.footer,
+      cites: (m.cites || []).map(id => { const c = this.claims.find(x => x.id === id); const st = this.stStyle(c.status); return { label:id, status:c.status, fg:st.fg, bg:st.bg, bd:st.bd, open:() => this.focusNode(id) }; }),
+    }));
+
+    const blurbs = { S1:'A survey of cognition across the cetaceans, drawn from the peer-reviewed literature.', S2:'A reported feature on how bottlenose dolphins use learned whistles to identify one another.', S3:'A controlled study testing mirror self-recognition in Tursiops truncatus.', S4:'A review of socially transmitted behaviour and social structure in whales and dolphins.', S5:'A neuroanatomy paper on cetacean brain structure and encephalization.', S6:'An essay weighing whether dolphin signalling clears the bar for language.' };
+    const vSrc = S.viewerOpen ? this.sources.find(s => s.id === S.viewerOpen) : null;
+    let viewer = null;
+    if (vSrc) {
+      const paras = this.passageOrder.map(id => this.layout.nodes[id]).filter(n => n.srcId === vSrc.id).map(n => { const st = this.stStyle(n.status); return { before:n.before, pre:n.pre, mark:n.mark, post:n.post, has:n.has, after:n.after, pincite:n.pincite, status:n.status, stFg:st.fg, stBg:st.bg, stBd:st.bd, trace:() => this.traceFromViewer(n.id) }; });
+      viewer = { reg:vSrc.reg, title:vSrc.title, domain:vSrc.domain, kind:vSrc.kind, retrieved:vSrc.retrieved, sha:vSrc.sha, bytes:vSrc.bytes, rights:vSrc.rights, ent:vSrc.ent, blurb:blurbs[vSrc.id]||'', favBg:vSrc.favBg, favFg:vSrc.favFg, favCh:vSrc.favCh, count:paras.length, paras };
+    }
+
+    const logView = this.log.map(e => { const ls = this.logStyle(e.kind); return { t:e.t, dot:ls.dot, label:ls.label, lfg:ls.fg, lbg:ls.bg, text:e.text, effect:e.effect, hasEffect:!!e.effect }; });
+
+    return {
+      // chat
+      isChat:S.tab==='chat', messages:messagesView, chatInput:S.chatInput,
+      onChatInput:(e) => this.onChatInput(e), onChatKey:(e) => this.onChatKey(e), sendChat:() => this.sendChat(), setChatScroll:(el) => this.setChatScroll(el), toGraph:() => this.setTab('graph'),
+      // universal ingest + master log
+      omni:S.omni, onOmniInput:(e) => this.onOmniInput(e), onOmniSubmit:(e) => this.onOmniSubmit(e),
+      logTab:S.logTab, logActions:S.logTab==='actions', logReasoning:S.logTab==='reasoning', setLogActions:() => this.setLogTab('actions'), setLogReasoning:() => this.setLogTab('reasoning'), logView, logCount:this.log.length,
+      logActionsFg:S.logTab==='actions'?'#3A3A44':'#8A8A95', logActionsBg:S.logTab==='actions'?'#fff':'transparent', logReasoningFg:S.logTab==='reasoning'?'#3A3A44':'#8A8A95', logReasoningBg:S.logTab==='reasoning'?'#fff':'transparent',
+      // source viewer
+      viewerOpen:!!S.viewerOpen, viewer, closeViewer:() => this.closeViewer(), readLive:() => this.showToast('Opening the live page — the cited version stays the archived snapshot above.'),
+      // left rail
+      status:{ title:'Idle · monitoring', sub:'Cross-checking the signature-whistle claim' },
+      audit:{ yieldChip:'32%', summaryLine:'9 passages · 3 flags', steps:'73' },
+      statusOpen:S.statusOpen, statusRot:S.statusOpen?'90deg':'0deg', toggleStatus:() => this.toggleStatus(),
+      statusPeek, openMonologue:() => this.openMonologue(),
+      newTopic:() => this.newTopic(), toolToast:() => this.toolToast(), goMemo:() => this.setTab('memo'), goGraph:() => this.setTab('graph'),
+      topicCount:String(this.state.topics.filter(t=>!t.parentId).length), topics, sourceCount:String(this.sources.length), leftSources, mergeMode:!!this.state.mergeFrom,
+      // tabs
+      tabs, isGraph:S.tab==='graph', isEvidence:S.tab==='evidence', isRegister:S.tab==='register', isMemo:S.tab==='memo',
+      inspectorShow: S.tab==='graph' && (!!S.focusId || S.contra),
+      flagLine:'1 contested · 1 contradiction',
+      // graph camera
+      canvasW:this.layout.W, canvasH:this.layout.H, tx:S.tx, ty:S.ty, scale:S.scale,
+      camT: (S.dragging || !S.booted)?'none':'transform .32s cubic-bezier(.4,0,.2,1)', panCursor:S.dragging?'grabbing':'grab',
+      zoomPct:Math.round(S.scale*100),
+      startPan:(e) => this.startPan(e), onWheel:(e) => this.onWheel(e), stopPan:(e) => this.stop(e), setViewport:(el) => this.setViewport(el),
+      zoomIn:() => this.zoomIn(), zoomOut:() => this.zoomOut(), fit:() => this.fit(),
+      memoNodes, claimNodes, passageNodes, sourceNodes, fileNodes, edgePaths,
+      traceOpts, toggleContra:() => this.toggleContra(), clearFocus:() => this.clearFocus(),
+      contraFg:S.contra?'#B23A2E':'#8A8A95', contraBg:S.contra?'#FBE9E6':'#fff', contraBd:S.contra?'#F2D3CD':'#EAEAEF',
+      resetFg:S.focusId||S.contra?'#5A5A64':'#C0C0C8',
+      legendNodes:[ {color:'#6D5EF5',label:'Memo'}, {color:'#7A7A85',label:'Claim'}, {color:'#C79A3A',label:'Passage'}, {color:'#6E7787',label:'Source'}, {color:'#1E8A50',label:'File · fixity'} ],
+      // inspector
+      inspNone, inspShow, insp, trailShow:S.trail.length>0, trail, overviewStats,
+      // other tabs
+      evClaims, regRows, memoClaims,
+      // monologue
+      monologueOpen:S.monologueOpen, closeMonologue:() => this.closeMonologue(), steps, auditStats,
+      // toast
+      toast:S.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+{
+ "kind": "eo-flow-prior-registry",
+ "version": "1",
+ "priors": [
+  {
+   "name": "expository-en-science",
+   "file": "expository-en-science.json",
+   "facets": {
+    "lang": "en",
+    "region": "global",
+    "era": "contemporary",
+    "domain": "science",
+    "register": "expository"
+   },
+   "books": 32,
+   "segment": "sections",
+   "grid": 24,
+   "sourceSha256": "3a86d64ca529c379",
+   "generated": "2026-07-07T19:16:58.283456Z"
+  },
+  {
+   "name": "mixed-en-pooled",
+   "file": "mixed-en-pooled.json",
+   "facets": {
+    "lang": "en",
+    "region": "global",
+    "era": "mixed",
+    "domain": "general",
+    "register": "mixed"
+   },
+   "books": 1626,
+   "segment": "sections",
+   "grid": 24,
+   "sourceSha256": "07f088646de9eded",
+   "generated": "2026-07-08T22:33:35.458308Z"
+  },
+  {
+   "name": "narrative-en-1900s",
+   "file": "narrative-en-1900s.json",
+   "facets": {
+    "lang": "en",
+    "region": "gb-us",
+    "era": "1900s",
+    "domain": "literature",
+    "register": "narrative"
+   },
+   "books": 36,
+   "segment": "sections",
+   "grid": 24,
+   "sourceSha256": "0311125566e29467",
+   "generated": "2026-07-07T19:16:58.115613Z"
+  },
+  {
+   "name": "reference-en-gov",
+   "file": "reference-en-gov.json",
+   "facets": {
+    "lang": "en",
+    "region": "us",
+    "era": "contemporary",
+    "domain": "government",
+    "register": "reference"
+   },
+   "books": 36,
+   "segment": "sections",
+   "grid": 24,
+   "sourceSha256": "2365e37a2b125574",
+   "generated": "2026-07-08T22:33:41.986407Z"
+  }
+ ]
+}
