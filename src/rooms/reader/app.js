@@ -17,7 +17,7 @@
 
 import { parseText } from '../../perceiver/parse/index.js';
 import { projectGraph } from '../../core/index.js';
-import { createModel } from '../../model/interface.js';
+import { createModel, describeModel } from '../../model/interface.js';
 import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
          runTurnWithResearch, researchAnnouncement } from '../../turn/index.js';
@@ -34,6 +34,7 @@ import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
 import { buildChatExport } from './chat-export.js';
+import { composeProvenance, repoRef, readBuild, fetchLatestCommit, APP_NAME, APP_VERSION } from './provenance.js';
 import { foldNarrative } from './fold-narrative.js';
 
 // ── the proxy chain ───────────────────────────────────────────────────────────
@@ -284,6 +285,9 @@ export const createReaderApp = ({ audit } = {}) => {
     // and the ladder inside ensureModel already falls back webllm → wllama → echo.
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       setTimeout(() => { ensureModel().catch(() => { /* logged by the ladder */ }); }, 600);
+      // Pull the build/latest provenance in the background so the first export already names the
+      // exact build and how current it is against GitHub — best-effort, never on the critical path.
+      refreshProvenance().catch(() => { /* offline / unreachable — the export degrades gracefully */ });
       // The inner monologue starts at rest: the governor wakes the reading in the lulls
       // between turns and reflects on what's on the record (no-op until something is recorded).
       deepIdleStart();
@@ -595,6 +599,24 @@ export const createReaderApp = ({ audit } = {}) => {
       minilm = createMiniLMEmbedder();
       minilm.warm().then(() => emit('model')).catch(() => { minilm = null; }).finally(() => { minilmWarming = false; });
     } catch { minilmWarming = false; }
+  };
+
+  // ── export provenance (rooms/reader/provenance.js) ───────────────────────────
+  // WHAT PRODUCED THIS. The chat export must be able to name its own maker — the app + the exact
+  // published build, the latest build on GitHub, and the model that answered. The build/latest reads
+  // are network (version.json + the GitHub API); do them ONCE, best-effort, at boot and cache them,
+  // so `exportChat` stays synchronous and composes the fresh model + clock over the cached pieces.
+  // The repo/site is derived from the running location; in Node/tests there is no fetch, so the
+  // cache stays empty and the export degrades to app + model, never a throw or a hang.
+  const provRepo = repoRef(typeof location !== 'undefined' ? location : null);
+  let provBuild = null, provLatest = null;
+  const refreshProvenance = async () => {
+    if (typeof fetch === 'undefined') return;   // no network here — the synchronous core still exports
+    const f = fetch.bind(globalThis);           // detached window.fetch throws "Illegal invocation" in some browsers
+    const base = (typeof location !== 'undefined' && location.href) || null;
+    provBuild  = await readBuild(f, base).catch(() => null);
+    provLatest = await fetchLatestCommit(f, provRepo.slug).catch(() => null);
+    emit('model');   // a header badge can reflect the build/freshness once it's in
   };
 
   // ── web-search mode ──────────────────────────────────────────────────────────
@@ -923,8 +945,19 @@ export const createReaderApp = ({ audit } = {}) => {
   const exportChat = (topicId = state.activeTopicId, format = 'md') => {
     const t = state.topics.find((x) => x.id === topicId) || topic();
     if (!t) return null;
+    // Compose the provenance fresh: the app + the build/latest cached at boot, plus the CURRENT
+    // talker (describeModel) and the export clock. chat-export.js also reads each turn's own model
+    // record, so a conversation that switched models mid-way names each — this is the session's
+    // current one, and the header's app/build/freshness. Pure and total: null pieces just render as
+    // "unstamped"/"not recorded", never blocking the download.
+    const provenance = composeProvenance({
+      app: APP_NAME, version: APP_VERSION,
+      build: provBuild, latest: provLatest, repo: provRepo,
+      model: describeModel(model),
+      exportedAt: nowIso(),
+    });
     return buildChatExport(
-      { topic: t, turns: (audit && audit.turns) || [], sources: state.sources },
+      { topic: t, turns: (audit && audit.turns) || [], sources: state.sources, provenance },
       format,
       t.title || 'chat',
     );
@@ -1298,6 +1331,14 @@ export const createReaderApp = ({ audit } = {}) => {
     sourceBySn, removeSource, topicSources,
     // chat
     ask, stop, exportChat,
+    // export provenance — WHAT produced this session: app + published build + latest-on-GitHub +
+    // the current talker. Composed live so a surface badge can show the build/freshness/model.
+    provenance: () => composeProvenance({
+      app: APP_NAME, version: APP_VERSION,
+      build: provBuild, latest: provLatest, repo: provRepo,
+      model: describeModel(model), exportedAt: nowIso(),
+    }),
+    refreshProvenance,
     // deep reading — the inner monologue at rest (reflections stream into state.reflections)
     deepTick, reflections,
     // web-search mode (off | confirm | auto)

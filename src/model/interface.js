@@ -48,3 +48,27 @@ export const createModel = (name, opts = {}) => {
   if (!factory) throw new Error(`unknown backend: ${name}`);
   return factory(opts);
 };
+
+// A backend's self-description, for PROVENANCE: the audit records WHAT produced an answer, but
+// the specific model (webllm's resolved MLC artifact, wllama's GGUF, Claude's model id) lives
+// inside each backend's own closure. `describe()` is the backend's optional answer — a plain
+// { backend, kind, model, label }. This reads it and falls back to the coarse { id, kind } every
+// backend already carries, so a model is ALWAYS nameable, even one that never implements describe().
+// Pure and total: a null model, a missing method, or a throwing describe() all resolve to a record
+// (or null), never an exception — provenance must never cost the caller its answer or its export.
+export const describeModel = (model) => {
+  if (!model) return null;
+  const id = model.id ?? null, kind = model.kind ?? null;
+  try {
+    const d = typeof model.describe === 'function' ? model.describe() : null;
+    if (d && typeof d === 'object') {
+      return {
+        backend: d.backend ?? id,
+        kind:    d.kind    ?? kind,
+        model:   d.model   ?? null,
+        label:   d.label   ?? null,
+      };
+    }
+  } catch { /* a describe() fault must never sink the caller */ }
+  return { backend: id, kind, model: null, label: null };
+};

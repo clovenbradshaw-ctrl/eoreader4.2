@@ -38,6 +38,23 @@ jobs:
             --exclude='node_modules' \
             ./ _site/
           touch _site/.nojekyll
+      - name: Stamp the build version (what produced this)
+        # Write the exact commit this deploy came from beside the site. The running app fetches it
+        # as ./version.json (rooms/reader/provenance.js) so every exported conversation audit can
+        # name its producer — the app, the build, and how current that build is against GitHub.
+        run: |
+          cat > _site/version.json <<JSON
+          {
+            "app": "EO Reader",
+            "version": "4.2",
+            "commit": "${{ github.sha }}",
+            "shortCommit": "$(echo "${{ github.sha }}" | cut -c1-7)",
+            "ref": "${{ github.ref_name }}",
+            "builtAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "repo": "${{ github.repository }}",
+            "runId": "${{ github.run_id }}"
+          }
+          JSON
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

@@ -30,7 +30,7 @@
 
 import { registerBackend } from './interface.js';
 import { makeWebllmBackend } from './webllm.js';
-import { loadWllamaModel, toPrompt } from './wllama.js';
+import { loadWllamaModel, toPrompt, wllamaModelName } from './wllama.js';
 
 // ── the catalog ────────────────────────────────────────────────────────────────
 // One row per model the field offers, ordered light → heavy. `tier` is the hardware
@@ -107,6 +107,9 @@ for (const m of CODER_MODELS) {
       return {
         id: m.id,
         kind: 'local',
+        // PROVENANCE (model/interface.js describeModel): the coder's own catalog label and its GGUF,
+        // so the export names the exact coding model in play — not a generic "wllama".
+        describe: () => ({ backend: m.id, kind: 'local', model: wllamaModelName(modelUrl), label: `${m.label} · CPU/WASM, in-browser` }),
         isLoaded: () => !!inst,
         async load(onProgress) {
           if (inst)    return;

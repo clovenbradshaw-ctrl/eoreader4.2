@@ -74,6 +74,11 @@ registerBackend('claude', (opts = {}) => {
   return {
     id: 'claude',
     kind: 'remote',
+    // PROVENANCE (model/interface.js describeModel): the exact hosted model this backend talks to
+    // — the pin (opts / eo_claude_model) or the frozen default — so the audit and the chat export
+    // can name what produced an answer. `model()` already resolves the pin/default, and reads it
+    // fresh so a mid-session model switch is reflected.
+    describe: () => ({ backend: 'claude', kind: 'remote', model: model(), label: 'Claude · hosted API (Anthropic)' }),
     isLoaded: () => !!client,
     async load(onProgress) {
       if (client)  return;

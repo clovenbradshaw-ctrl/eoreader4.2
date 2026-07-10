@@ -29,6 +29,8 @@ export const createAuditLog = ({ capacity = 300 } = {}) => {
       durationMs: null,
       route: null,
       grounding: null,   // the register the user selected: 'auto' | 'grounded' | 'free'
+      model: null,       // WHAT produced the answer: { backend, kind, model, label } (describeModel).
+                         // Set at finish; null on a turn that never reached a talker (or pre-load).
       steps: [],
       reading: null,     // the MECHANICAL reading the surfer/retrieval delivered to the phraser:
                          // the spans (idx + text + via + score), the surfer's per-cursor field
@@ -85,6 +87,7 @@ export const createAuditLog = ({ capacity = 300 } = {}) => {
         durationMs: t.durationMs,
         route:      t.route,
         grounding:  t.grounding ?? null,
+        model:      t.model ?? null,
         steps:      t.steps,
         reading:    t.reading ?? null,
         prompt:     t.prompt,
