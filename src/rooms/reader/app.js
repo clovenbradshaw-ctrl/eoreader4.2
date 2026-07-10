@@ -366,6 +366,16 @@ export const createReaderApp = ({ audit } = {}) => {
     } finally { setBusy(null); }
   };
 
+  // The page's own HTML, fetched through the same proxy chain ingest uses — for the source
+  // viewer's native "Native" tab, which renders the REAL website (sanitized + sandboxed by the
+  // surface) rather than the reduced text. Browser only; in Node (no fetch) client.fetchUrl
+  // throws, which the surface catches into the tab's error state.
+  const fetchPage = async (url) => {
+    const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
+    const res = await client.fetchUrl(norm);
+    return { html: res.text || '', url: res.url || norm, ok: res.ok !== false };
+  };
+
   // webSearchAdmit(query, opts) → the fetch+admit primitive the turn's web loop consumes.
   // Search a source (or auto-route), pull each hit's FULL page through the proxy chain
   // (fetchPages), admit it as a frozen web source (websource.js), AND register it in the
@@ -1153,7 +1163,7 @@ export const createReaderApp = ({ audit } = {}) => {
     // topics
     topicNew, setTopic, topicRename, topicDelete, topic,
     // ingest
-    ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit,
+    ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage,
     sourceBySn, removeSource, topicSources,
     // chat
     ask, stop, exportChat,
