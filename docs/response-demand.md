@@ -217,6 +217,79 @@ Both degrade the safe way: no outstanding copy **and** no trained prior → the 
 high surprise → attention. So the fork case ships now, corpus-free; the trained flow-prior is a later
 lift that only ever *reduces* unnecessary attentive turns — it can never cause a wrong reflex.
 
+## The question-copy, implemented — and who writes the cheap turn
+
+The fork half of the demand meter is now live machinery in the fold
+(`src/core/conversation-fold.js`), model-free and tested (`tests/fold-awaiting.test.js`):
+
+- `projectFold` exposes **`fold.awaiting`** — `outstandingQuestion(events)` reads the assistant's
+  own last turn and, if it was a question or offer, names the answer-space it opened: `polar`
+  (yes/no), `choice` (a disjunction — "the animal or the team?"), or `open` (a wh-question).
+- **`answersAwaited(fold, message)`** scores the next user turn against that copy with `feltSurprise`.
+  A reply drawn from the answer-space, adding nothing unbidden, is **reafferent** → `{answered: true,
+  demand: 'continuation'}` with the recovered `polarity` ("no") or `choice` (["animal"]). A reply that
+  adds world content — "no, tell me about whales instead" — is exafferent → `demand: 'attention'`.
+
+This is exactly the dolphins turn's missing half. Had the reader **asked** "the animal or the Miami
+Dolphins team?" instead of silently binding the animal at `margin 0.56`, the user's "the animal" would
+resolve here as a choice answer — a cheap continuation that re-scopes the essay, no re-planning.
+
+**Who then writes the cheap turn.** A continuation or a reflex reply should not wake the 3B — the
+model that stalled after the dolphins preamble (`route: "stopped"`, `rawOutput: null`). The
+prediction-driven generator is the producer: `helixGenerate` (a model-free forward draw over a
+learned sequence) and `renderContinuation` (`src/weave/longgen/render.js`) already emit
+natural-language drafts without the big model. That is the "prediction-driven first draft" — rough
+today (a low-order walk), sharpened by `docs/fold.md`'s grammar-licensing so the predictor only ever
+*ranks* what the grammar allows. Paired with the demand meter it closes the loop: the meter decides a
+turn is reflex/continuation, the prediction generator writes it, and the big model is spent only on
+the turns that measured as attention — the ones a stall actually costs something to lose.
+
+## Stage 1, implemented — the subject-sense-collision gate
+
+The disambiguation pipeline's first gate is now live machinery (`src/turn/sense.js`), model-free and
+tested (`tests/sense.test.js`). Before a query is generated, `senseCollision(subject, entities,
+{hints})` reads the recorded entity graph (`senseEntities` builds the rows from `projectGraph`) and
+returns one of three exits:
+
+- **shortcut** — one real sense ("photosynthesis") → a trivial query, no steer.
+- **steer** — several senses but a concrete hint resolves one → a *discriminating anchor* ("cetacean"
+  for the animal, chosen because it co-occurs with that sense and never the collision), model-free.
+- **ask** — several senses, nothing resolves → a choice question ("Which dolphins — Miami Dolphins
+  (nfl) or Dolphin (cetacean)?") that feeds `fold.awaiting`, so the reply resolves through
+  `answersAwaited` as a cheap continuation. This is the branch the dolphins turn skipped.
+
+**The ambiguity test is a real-sense floor, not a margin.** The reader's existing confidence
+(`perceiver/referent.js`, margin 0.15) is *post-retrieval* — in the audit it read `concentrated:true`
+at margin 0.56 *after* retrieval had already committed to a basin. That is the wrong signal: a
+football-heavy corpus makes the team dominate salience, yet the animal (51 mentions) is still a real
+sense. Collision is "≥ 2 basins each clear a real-sense floor", so a salience-dominant sense that
+co-exists with another strong one is *still* ambiguous and still asked — exactly what the dolphins
+turn needed.
+
+### The pipeline, mapped to code
+
+| Stage | What | Where |
+| --- | --- | --- |
+| 0 intent | subject + senseHints | caller |
+| 1 ambiguity gate | shortcut / steer / ask | **`turn/sense.js` (here)** |
+| 2 sense resolution + anchor | discriminating anchor, model-free | **`turn/sense.js` (here)** |
+| 3 query generation | the one steered LLM call | `turn/web.js` `formulateSearchQuery` |
+| 4 query validation | typed pre-flight checks | **`turn/sense.js` `validateQuery` (here)** |
+| 5 search + basin check | results in target basin vs collision → escalate | **`turn/sense.js` `resultBasinCheck` (here)** + `turn/research.js` walk |
+| 6 emit | `{query, results, senseResolved, escalations}` | caller |
+
+### The two decisions
+
+- **Sense clusters are corpus-derived, not a lexicon.** The engine has no standing sense lexicon (the
+  centroids are EO-cell-grain), the basins *are* the recorded graph, and only corpus co-occurrence can
+  score a *discriminating* anchor. Drift is guarded by the real-sense floor (the null); provenance falls
+  out. A cold subject (no basin) routes to ask/fetch, never a lexicon guess; any lexicon should be a
+  decaying seed the corpus overrides the moment it has signal.
+- **The stage is pure `(subject, entities)`, so sync/batch is the driver's call.** The interactive
+  reader runs it synchronously — the gate shortcuts every unambiguous subject, so the cost is paid only
+  on real collisions. A batch harvester groups the single steered inference across subjects and keeps
+  the typed checks per-item and streaming (a pipeline, not a barrier).
+
 ## Good morning vs Waterloo Street — the worked contrast
 
 | Turn (fresh chat, a doc loaded) | phatic | substantive | ground/research | Settles | What runs |
@@ -259,6 +332,12 @@ so `"Good morning"` at an open book gets a hello instead of a grounded non-answe
 | **2** | `phatic` in `ROUTE_ALPHABET`; `VERDICT_OF.phatic = 'PHATIC'`; small-talk moved out of `isolate`; the social case named in `discoursePrompt`. The fold's incumbent/`REST` physics come for free. | no | **done** |
 | **3** | The caller: `app.js` `ask` runs `answerSmalltalk` (now doc-aware) **before** the `!docs.length` branch, so a doc-loaded greeting short-circuits to a warm line instead of grounding. | no | **done** |
 | **4** | The tiny-model triage: measure the pre-planner discourse read for phatic-ness on the quantized **1B (Fast)**; only warm the quantized **3B (Fluent)** for work turns. Bench the compute saved. | yes | pending |
+| **5** | The question-copy: `fold.awaiting` (`outstandingQuestion`) + `answersAwaited` grade a reply to a fork (polar/choice) as a reafferent continuation, else attention. Model-free, `tests/fold-awaiting.test.js`. | no | **done** |
+| **6** | The producer: wire `helixGenerate`/`renderContinuation` as the prediction-driven first-draft for reflex/continuation turns, so the cheap path never wakes (or stalls) the big model. | no (draft) | pending |
+| **7** | Stage 1 — the subject-sense-collision gate: `senseCollision` over the recorded graph, three exits (shortcut/steer/ask), the ask feeding `fold.awaiting`. Model-free, `tests/sense.test.js`. | no | **done** |
+| **8** | Wire Stage 1 into the live turn (`app.js` `ask`): on ambiguity pose the choice question and stop; when the reply answers it, fold the chosen sense back into the original ask (`effectiveQ`). Model-free, fail-soft. | no | **done** |
+| **9** | Stages 4–5 as pure functions: `steerQuery` (fold the anchor in), `validateQuery` (typed pre-flight), `resultBasinCheck` (post-flight basin verdict + escalate). Model-free, `tests/sense.test.js`. | no | **done** |
+| **10** | Live wiring: `formulateSearchQuery` takes the steer anchor and runs `validateQuery` (regenerate once on failure); the research walk runs `resultBasinCheck` and escalates with a bounded retry. | yes | pending |
 
 Rungs 1–3 are landed here — the bug you named (a doc-loaded greeting) is fixed with **no
 model** and no new physics, and the measured `phatic` direction is ready for the read to be

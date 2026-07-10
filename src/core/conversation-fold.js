@@ -34,6 +34,7 @@ import { openEvent, bindEvent } from '../frame/events.js';
 import { projectFrameStack } from '../frame/project.js';
 import { decideBind } from '../frame/bind.js';
 import { tok } from '../perceiver/parse/tokenize.js';
+import { feltSurprise } from './surprise.js';
 
 // The compose grammar, kept in sync with app.dc.js's _CV()/_CK(). A creative
 // KIND (poem, story, song…) plus a compose VERB is an explicit compose marker;
@@ -144,7 +145,7 @@ function turnsOf(events) {
   for (const m of events || []) {
     if (!m || m.pending) continue;
     if (m.role === 'user') { lastUser = String(m.text || ''); lastUserFrame = m.frame || null; continue; }
-    if (m.role === 'asst' && m.stance) {
+    if ((m.role === 'asst' || m.role === 'assistant') && m.stance) {
       out.push({
         stance: m.stance,
         user: lastUser,
@@ -227,6 +228,99 @@ function frameStackOf(turns) {
   return { log, subjects, srcs, focusOf };
 }
 
+// ── the outstanding question-copy (docs/response-demand.md) ──────────────────
+// When the assistant's OWN last settled turn was a question or an offer, it holds an efference
+// copy of the answer-space it opened. The next user turn is scored against that copy: a polar
+// "no"/"yes" is REAFFERENT — the answer the question predicted, carrying no news → a simple
+// continuation, no planner — and a substantive redirect is EXAFFERENT → the attentive tier. This
+// is corpus-free: a fork predicts its own answers (a yes/no question predicts {yes, no}). Detection
+// is on the assistant's own text — a structural fact about OUR output, not a classification of the
+// user — and stays model-free.
+const YES_TOKENS = ['yes', 'yeah', 'yep', 'yup', 'sure', 'ok', 'okay', 'please', 'definitely', 'absolutely'];
+const NO_TOKENS = ['no', 'nope', 'nah', 'never', 'skip', 'pass', 'negative', 'stop'];
+export const POLAR_ANSWER_SPACE = Object.freeze([...YES_TOKENS, ...NO_TOKENS, 'maybe', 'do', 'dont']);
+const POLAR_RE = /\b(yes|yeah|yep|yup|sure|okay|ok|please|definitely|absolutely|nope|nah|no|never|skip|pass)\b/i;
+const NEG_RE = /\b(no|nope|nah|never|don'?t|do not|skip|pass|negative|stop)\b/i;
+const POS_RE = /\b(yes|yeah|yep|yup|sure|okay|ok|please|definitely|absolutely|go ahead|do it)\b/i;
+// Filler that carries no answer content, so "the cetacean one" reads as the option "cetacean", not a
+// redirect. Kept minimal — pure function words, never anything that could mark a fresh ask.
+const ANSWER_FILLER = new Set(['the', 'a', 'an', 'one', 'ones', 'please', 'thanks', 'thank', 'just', 'really', 'kindly', 'that', 'this']);
+
+// A yes/no shape: an auxiliary-led opener or an explicit offer. wh-openers are OPEN questions.
+const POLAR_OPENER = /^\s*(shall|should|would|could|can|do|does|did|is|are|was|were|will|have|has|had|may|might|want)\b/i;
+const OFFER = /\b(would you like|do you want|want me to|shall i|should i|like me to|shall i go on|want more|should i continue)\b/i;
+const WH = /^\s*(what|why|how|when|where|who|whom|whose|which)\b/i;
+
+const lastSentenceOf = (text) => {
+  const parts = String(text || '').split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : String(text || '').trim();
+};
+
+// The text of the last settled ASSISTANT message, or '' when a user turn already followed it
+// (the question is answered/superseded) — the turn immediately before the one being routed.
+const lastAsstText = (events) => {
+  const settled = (events || []).filter((m) => m && !m.pending && m.text != null);
+  for (let i = settled.length - 1; i >= 0; i--) {
+    if (settled[i].role === 'asst' || settled[i].role === 'assistant') return String(settled[i].text || '');
+    if (settled[i].role === 'user') return '';
+  }
+  return '';
+};
+
+// Content tokens of a span — drop the function words so the "answer space" of a question is the
+// things it NAMED (a choice's options, an ask's subject), not its scaffolding.
+const QSTOP = new Set(['the', 'a', 'an', 'to', 'of', 'and', 'or', 'do', 'does', 'did', 'is', 'are', 'was', 'were', 'will', 'would', 'could', 'should', 'shall', 'can', 'may', 'might', 'have', 'has', 'had', 'i', 'you', 'me', 'it', 'that', 'this', 'these', 'those', 'their', 'them', 'they', 'we', 'us', 'your', 'my', 'on', 'in', 'for', 'about', 'with', 'also', 'so', 'then', 'now', 'just', 'like', 'want', 'which', 'what', 'why', 'how', 'when', 'where', 'who', 'whom', 'whose', 'one', 'kind']);
+const contentTokens = (text) => [...new Set(tok(String(text || '')).filter((t) => !QSTOP.has(t)))];
+
+// outstandingQuestion(events) → { kind: 'polar'|'choice'|'open', answerSpace, options?, question } | null.
+//   polar   a yes/no question or offer ("Shall I …?") → the answer-space is {yes, no, …}.
+//   choice  a disjunction ("… the animal or the team?") → the answer-space is the options it named,
+//           so a bare "the animal" is a reafferent answer, not a fresh ask (the dolphins case).
+//   open    a wh-question ("What would you like?") → the answer is substantive; answersAwaited leaves
+//           it to the attentive tier (only polar/choice resolve as a cheap continuation).
+export function outstandingQuestion(events) {
+  const text = lastAsstText(events);
+  if (!text) return null;
+  const tail = lastSentenceOf(text);
+  const endsQ = /\?\s*$/.test(tail);
+  if (!endsQ && !OFFER.test(text)) return null;          // not question-shaped, no offer → nothing awaited
+  const opts = contentTokens(tail);
+  if (/\bor\b/i.test(tail)) return { kind: 'choice', answerSpace: [...opts, ...POLAR_ANSWER_SPACE], options: opts, question: tail };
+  if (WH.test(tail)) return { kind: 'open', answerSpace: opts, question: tail };
+  if (OFFER.test(tail) || POLAR_OPENER.test(tail)) return { kind: 'polar', answerSpace: POLAR_ANSWER_SPACE.slice(), question: tail };
+  return { kind: 'open', answerSpace: opts, question: tail };   // a bare "?" that is neither → open
+}
+
+// answersAwaited(fold, message, { profile }) → grade a user turn against the fold's outstanding
+// question-copy. A polar answer whose content IS the predicted yes/no space (nothing more) is
+// reafferent → resolves as a simple CONTINUATION with the recovered polarity, no planner. A
+// message that adds substance beyond the answer-space (a redirect, a fresh ask) is exafferent →
+// attention. No outstanding polar question → attention (fail-safe: assume attention until
+// simplicity is measured). Model-free; `feltSurprise` is the graded world-surprise meter, and the
+// profile defaults to the question's own atoms so an off-question redirect registers as world.
+export function answersAwaited(fold, message, { profile = null } = {}) {
+  const awaiting = fold && fold.awaiting;
+  const msg = String(message || '');
+  const kind = awaiting && awaiting.kind;
+  if (!awaiting || (kind !== 'polar' && kind !== 'choice')) {
+    return { answered: false, reafferent: false, demand: 'attention', worldBits: null, polarity: null, choice: null, awaiting: awaiting || null };
+  }
+  const predicted = new Set(awaiting.answerSpace);
+  const arrival = new Map();
+  for (const t of tok(msg)) { if (ANSWER_FILLER.has(t)) continue; arrival.set(t, (arrival.get(t) || 0) + 1); }
+  let prof = profile;
+  if (!prof) { prof = new Map(); for (const t of tok(awaiting.question)) prof.set(t, (prof.get(t) || 0) + 1); }
+  const fs = feltSurprise(prof, arrival, { predicted });
+  // a reply drawn from the predicted answer-space, adding nothing unbidden → reafferent.
+  const drawsOnAnswer = POLAR_RE.test(msg) || [...arrival.keys()].some((t) => predicted.has(t));
+  const answered = drawsOnAnswer && fs.worldBits === 0;
+  const polarity = answered && kind === 'polar'
+    ? (NEG_RE.test(msg) && !POS_RE.test(msg) ? 'no' : POS_RE.test(msg) && !NEG_RE.test(msg) ? 'yes' : null)
+    : null;
+  const choice = answered && kind === 'choice' ? (awaiting.options || []).filter((o) => arrival.has(o)) : null;
+  return { answered, reafferent: answered, demand: answered ? 'continuation' : 'attention', worldBits: fs.worldBits, polarity, choice, awaiting };
+}
+
 function computeFold(events, rules) {
   const turns = turnsOf(events);
   const last = turns.length ? turns[turns.length - 1] : null;
@@ -268,6 +362,10 @@ function computeFold(events, rules) {
 
   const fold = { stance, focus, warm };
   fold.stanceDesc = stanceDescOf(fold);
+  // The outstanding question-copy: was the assistant's own last turn a question/offer whose
+  // answer this next turn might simply be? Pure over the same settled events; the answer-scoring
+  // is answersAwaited (docs/response-demand.md).
+  fold.awaiting = outstandingQuestion(events);
 
   // THE FRAME STACK (docs/frame-holon.md, Phase B) — the same settled turns,
   // projected through the SHARED interior holon. Additive: every legacy field
@@ -300,7 +398,7 @@ function computeFold(events, rules) {
 const MEMO = new Map();
 const MEMO_CAP = 64;
 
-// projectFold(events, frame) → ConversationFold {stance, focus, warm, stanceDesc}.
+// projectFold(events, frame) → ConversationFold {stance, focus, warm, stanceDesc, awaiting, …}.
 // PURE: a function of the event sequence and the frame's decay rules only — no
 // wall-clock, no ambient state (§4). Rehydrate by replaying the log.
 export function projectFold(events, frame = {}) {
