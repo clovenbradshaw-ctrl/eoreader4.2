@@ -48,6 +48,7 @@ export const createMetabolism = ({
   genome = createGenome(),
   population = null,
   provenance = null,
+  judge = null,                      // an optional external judge (judge.js) — the un-authored fitness anchor
   now = () => Date.now(),
   anchorWeight = 0.6,
   capacity = 512,
@@ -187,9 +188,24 @@ export const createMetabolism = ({
     });
   };
 
+  // metabolizeJudged — the async path: if an external judge is attached, grade the turn's
+  // answer for the un-authored `validated` anchor, fold it into the outcome, THEN metabolize.
+  // The judge sees the turn's content; only its scalar verdict reaches fitness. With no judge
+  // (or dry-run), it degrades to a plain metabolize and fitness stays honestly provisional.
+  const metabolizeJudged = async (outcome = {}) => {
+    if (judge && typeof judge.grade === 'function' && outcome.answer != null) {
+      try {
+        const verdict = await judge.grade({ question: outcome.question, answer: outcome.answer, spans: outcome.spans });
+        if (verdict) outcome = { ...outcome, validated: verdict.validated, covered: verdict.covered ?? outcome.covered, judged: true };
+      } catch { /* a judge outage must not stall the metabolism */ }
+    }
+    return metabolize(outcome);
+  };
+
   return Object.freeze({
     // the loop
     metabolize,
+    metabolizeJudged,    // async: grade with the external judge (anchor), then metabolize
     allocation,          // consumers read this BEFORE a turn to know what to spend
     runsNext,
     // the membrane / readout
@@ -200,9 +216,10 @@ export const createMetabolism = ({
     genome: () => reigning().genotype(),
     condition: () => fitness.condition(),
     // the optional organs, exposed so the surface / a deployment can read demographics,
-    // inspect or arm the provenance chain, etc.
+    // inspect or arm the provenance chain, arm the external judge, etc.
     population,
     provenance,
+    judge,
     // world control — impose or lift the external constraint (the surface / a deployment)
     season: () => scarcity.season(period),
     scarcity,
@@ -234,3 +251,4 @@ export { createFitness, score } from './fitness.js';
 export { createSelection } from './select.js';
 export { createPopulation } from './population.js';
 export { createProvenance, memoryStore } from './persist.js';
+export { createJudge, buildJudgeRequest, parseVerdict, JUDGE_MODEL } from './judge.js';
