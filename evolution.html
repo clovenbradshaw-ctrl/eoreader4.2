@@ -63,6 +63,11 @@
   .log .e.fuse{border-left-color:var(--void)} .log .e.inherit,.log .e.promote{border-left-color:var(--founder)}
   .log .e .p{color:var(--dim);margin-right:4px}
   .muted{color:var(--dim);font-size:12px}
+  .doc{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .doc .s{font-family:var(--mono);font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
+  .doc .t{font-weight:600;font-size:13.5px;margin-top:3px;line-height:1.3}
+  .doc .x{color:var(--dim);font-size:12px;margin-top:4px}
+  input[type=checkbox]{vertical-align:-1px;margin-right:2px}
   footer{color:var(--dim);font-size:12px;text-align:center;margin-top:6px;line-height:1.6}
 </style>
 </head>
@@ -103,6 +108,17 @@
     <div id="log" class="log"></div>
   </div>
 
+  <div class="panel">
+    <h2>Evolve against Claude — the user in the loop</h2>
+    <div class="row" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
+      <button id="claude">🧠 Let Claude challenge it</button>
+      <label style="margin-left:0"><input type="checkbox" id="claudeAuto" style="accent-color:var(--accent)"> keep challenging</label>
+      <span id="claudeState" class="muted" style="flex:1"></span>
+    </div>
+    <div id="claudeOut"></div>
+    <div class="muted" style="margin-top:8px">Claude plays a <b>normal user</b>: it poses a real challenge, the local model answers, and Claude scores whether the answer <b>satisfied</b> it. That satisfaction — not a synthetic number — is what the population evolves toward. It grades; it never touches a weight.</div>
+  </div>
+
   <footer>
     Evolution goes as deep as the body; judgement stays with you.<br>
     The deeper mechanics — the freeze boundary, Void-respect, and the transfer probe — live in <a href="docs/organ-level-evolution.md">docs/organ-level-evolution.md</a>.
@@ -110,8 +126,10 @@
 </div>
 
 <script type="module">
-import { createMetabolism, createScarcity, createOrganism, createSoma, createPopulation } from './src/metabolism/index.js';
+import { createMetabolism, createScarcity, createOrganism, createSoma, createPopulation,
+         createChallenger, runChallengeCycle, forage } from './src/metabolism/index.js';
 import { DIAGONAL_CELLS } from './src/core/cube.js';
+import { createModel, EXCERPTS_HEADER } from './src/model/index.js';
 
 const HELIX = ['NUL','SIG','INS','SEG','CON','SYN','DEF','EVA','REC'];
 const GRAINS = ['Ground','Figure','Pattern'];
@@ -120,7 +138,18 @@ const $ = (id) => document.getElementById(id);
 const cellFor = (op,g) => Object.values(DIAGONAL_CELLS).find(c => c.op===op && c.grain===g);
 const escapeHtml = (s)=>String(s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 
-let metab, timer=null, period=0, lastGrown=new Set();
+let metab, timer=null, claudeTimer=null, period=0, lastGrown=new Set(), lastMaterial=null;
+
+// Claude in the loop: the `claude` backend (the user's own key, in localStorage) is the challenger's
+// transport; a local `echo` leaf answers, grounded in the material — Claude poses and judges, it does
+// not answer its own exam. A real deployment would run the reader pipeline as the answerer.
+const hasKey = ()=>{ try{ return !!(localStorage.getItem('eo_claude_key')||'').trim(); }catch{ return false; } };
+const claudeBackend = createModel('claude');
+const echoLeaf = createModel('echo');
+const challenger = createChallenger({ enabled:true, budget:{ calls:80 },
+  generate: async (msgs, opts)=>{ if(!claudeBackend.isLoaded()) await claudeBackend.load(); return claudeBackend.phrase(msgs, opts); } });
+const excerptLines = (s)=>String(s||'').split(/(?<=[.!?])\s+/).filter(Boolean).join('\n');
+const answerer = (material)=> async (ch)=> echoLeaf.phrase([{ role:'user', content:`${ch.question}\n\n${EXCERPTS_HEADER}\n${excerptLines(material)}` }]);
 
 function build(){
   const scarcity = createScarcity({ regime: $('regime').value, ration: 1600 });
@@ -192,13 +221,44 @@ function render(){
     : '<div class="muted">Press Start. Genome edits — organs grown, pruned, or fused — appear here as they happen.</div>';
 }
 
+// one real beat driven by Claude: it poses a challenge (about foraged material when reachable), the
+// local leaf answers, Claude scores satisfaction, and that satisfaction feeds the population as the
+// un-authored anchor — a model put in charge of output-satisfaction evaluation.
+async function doChallenge(){
+  if(!hasKey()){ $('claudeState').innerHTML = 'add a Claude key to let Claude in — open the <a href="index.html">reader</a>, pick “Claude · hosted”, paste a key (it stays in your browser), then come back.'; if($('claudeAuto').checked) $('claudeAuto').checked=false; return; }
+  $('claudeState').textContent = 'Claude is posing a challenge…';
+  try{
+    let material = lastMaterial;
+    try{ const docs = await forage({ fetch: window.fetch.bind(window), n:1, pick: period }); if(docs[0]) material = lastMaterial = `${docs[0].title}. ${docs[0].text}`; }catch{}
+    if(!material) material = 'The reactor core reached criticality at noon; operators vented steam and the temperature fell within the hour.';
+    const r = await runChallengeCycle({ challenger, answerer: answerer(material), material });
+    if(!r){ $('claudeState').textContent = challenger.budget().exhausted ? 'Claude budget spent for this session (reset to refill)' : 'Claude did not respond — check the key/network'; return; }
+    if(r.outcome) metab.metabolize({ ...r.outcome, warmedModel:false });   // satisfaction IS the anchor
+    period++; render();
+    const sat = r.satisfaction;
+    $('claudeOut').innerHTML =
+      `<div class="doc"><div class="s">user challenge · ${escapeHtml(r.difficulty||'')}</div>`
+      + `<div class="t">${escapeHtml(r.question)}</div>`
+      + `<div class="x"><b>answer:</b> ${escapeHtml(r.answer.slice(0,200))||'(no answer)'}</div>`
+      + (sat ? `<div class="vitals" style="margin-top:8px">${stat('satisfied',(sat.satisfied*100).toFixed(0)+'%')}${stat('resolved',sat.resolved?'yes':'no')}</div><div class="muted" style="margin-top:5px">“${escapeHtml(sat.critique||'')}”</div>` : '<div class="muted" style="margin-top:5px">no satisfaction verdict came back</div>')
+      + `</div>`;
+    $('claudeState').textContent = sat ? `satisfaction ${(sat.satisfied*100).toFixed(0)}% now drives selection · ${challenger.budget().remaining} Claude calls left` : '';
+  }catch(err){ $('claudeState').textContent = 'challenge failed: ' + err.message; if($('claudeAuto').checked) $('claudeAuto').checked=false; }
+}
+
 $('run').onclick = ()=>{ if(timer){ clearInterval(timer); timer=null; $('run').textContent='▶ Start'; $('run').classList.add('primary'); }
   else { timer=setInterval(step, 420); $('run').textContent='⏸ Pause'; $('run').classList.remove('primary'); } };
 $('step').onclick = step;
-$('reset').onclick = ()=>{ if(timer){ clearInterval(timer); timer=null; $('run').textContent='▶ Start'; $('run').classList.add('primary'); } build(); };
+$('reset').onclick = ()=>{ if(timer){ clearInterval(timer); timer=null; $('run').textContent='▶ Start'; $('run').classList.add('primary'); }
+  if(claudeTimer){ clearInterval(claudeTimer); claudeTimer=null; } $('claudeAuto').checked=false; $('claudeOut').innerHTML=''; build(); showKeyHint(); };
 $('regime').onchange = ()=>$('reset').click();
+$('claude').onclick = doChallenge;
+$('claudeAuto').onchange = (e)=>{ if(e.target.checked){ doChallenge(); claudeTimer=setInterval(doChallenge, 6500); } else if(claudeTimer){ clearInterval(claudeTimer); claudeTimer=null; } };
+
+function showKeyHint(){ if(!hasKey()) $('claudeState').innerHTML = 'optional — add a Claude key (in the <a href="index.html">reader</a>) to let a real user-model challenge and grade the system.'; }
 
 build();
+showKeyHint();
 </script>
 </body>
 </html>

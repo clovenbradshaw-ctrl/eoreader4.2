@@ -61,9 +61,11 @@ in the Void (hold an unbound thread) but may never *fabricate* from it (SYN·Gro
 desert cell). Fitness rewards only the held thread that **later binds** — the
 investigator, not the clerk — and human interaction is the strongest anchor.
 
-Open **`evolution.html`** (`npm run serve`) to start the evolution and watch it: the
-body growing on the cube, the season turning, the lineage, the freeze boundary, and the
-judge's material foraged from a wide range of real sources. Full write-up:
+Open **`evolution.html`** (`npm run serve`) to start the evolution and watch the body
+grow on the cube as the season turns. And — with a Claude key — **evolve against a user**:
+Claude poses a real challenge, the local model answers, Claude scores whether it was
+*satisfied*, and that satisfaction (not a synthetic number) is what the population evolves
+toward. It grades; it never touches a weight. Full write-up:
 [`docs/organ-level-evolution.md`](docs/organ-level-evolution.md).
 
 ## The surface
