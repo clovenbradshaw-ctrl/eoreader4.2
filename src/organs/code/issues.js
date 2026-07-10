@@ -256,8 +256,12 @@ const resolvesExport = (tables, M, name, touch, seen = new Set()) => {
 // Four are unambiguous defects; two (resource, tail) have legitimate-use tails and
 // judge at warn. Each law's EO reading is in the provider that witnesses it.
 const HAZARD_SEVERITY = Object.freeze({
+  // python.js
   'bare-except': 'error', 'shared-default': 'error', 'dangling-task': 'error',
   'void-identity': 'error', 'unbounded-resource': 'warn', 'tail-drop': 'warn',
+  // facts.js (JS behavioral)
+  'loop-off-by-one': 'error', 'assign-in-condition': 'error', 'async-foreach': 'error',
+  'unguarded-parse': 'warn', 'unstable-sort': 'warn', 'var-capture': 'warn',
 });
 
 // ── the fold ────────────────────────────────────────────────────────────────────
@@ -484,6 +488,8 @@ const VERDICT = {
   dwell: 'dwelling', 'dead-export': 'unread', medium: 'unparsed',
   'bare-except': 'unkeyed', 'shared-default': 'grain-mixed', 'tail-drop': 'partial',
   'unbounded-resource': 'unbounded', 'dangling-task': 'dead', 'void-identity': 'voided',
+  'loop-off-by-one': 'overrun', 'unguarded-parse': 'unguarded', 'assign-in-condition': 'mistaken',
+  'async-foreach': 'unawaited', 'unstable-sort': 'unordered', 'var-capture': 'captured',
 };
 
 export const issuesToEot = (findings, { agent = 'organ:code' } = {}) => {

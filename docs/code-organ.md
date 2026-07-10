@@ -123,6 +123,35 @@ dozen genuine `dwell`/`dead-entity` notes. During its own construction the
 organ caught a dead `const { line, col }` its author had just orphaned in
 `facts.js` — the first issue it ever found was in itself.
 
+## The membrane across four languages
+
+`facts.js` (JS/TS), `python.js`, `go.js`, `rust.js` — each mounts via
+`registerExtractor` and emits the same fact shape. JS and Python carry full
+structural readings *and* witnessed hazards; Go and Rust are **hazard-only**
+providers (the behavioral tier their compilers wave through — races, aliasing,
+panics, float identity — without full binding analysis, because `go build` and
+`rustc` already do binding). Every hazard is an EO reading: a Go data race is a
+SYN with no boundary, a nil-map write an INS into a Field never made, Rust's
+`== <float>` the void-identity law ported.
+
+On the uploaded multi-language benchmark (`tests/fixtures/multilang/`, three
+buggy/clean pairs, six idiomatic defects each, all compiling clean):
+
+| language | planted | flagged | clean-twin false positives |
+|---|---|---|---|
+| JavaScript | 6 | 6 | 0 |
+| Go | 6 | 6 | 0 |
+| Rust | 6 | 6 | 0 |
+| **total** | **18** | **18** | **0** |
+
+The benchmark's own tool floor: `go vet` catches 1 of 6 Go defects, `rustc` and
+`node --check` catch 0 — **1 of 18**. Tuning honesty: the JS hazards were caught
+over-firing on the engine's *own* code during the self-read (`i <= x.length`
+loops that never index at the bound, bare `JSON.parse`), and were tightened
+(require `arr[i]` in the body) and down-graded (`unguarded-parse` is a warn, a
+smell not a proven bug) until the engine reads error-clean — the self-read is the
+regression gate for the detector's precision.
+
 ## The membrane, proven — Python
 
 `python.js` is the second provider, mounted with `registerExtractor('python', …)`:
@@ -214,6 +243,48 @@ the blueprint's intent (the structure survives NL → EOT → code → read-back
 The one arrow that needs a model — NL → blueprint — is a named seam
 (`blueprintPrompt`, `composeFromModel`), versioned with the grammar it teaches, so
 any `model/` backend plugs in; everything downstream is deterministic and tested.
+
+## The widget target — a full HTML widget from a blueprint
+
+`widget.js` emits the generative direction at UI grain: an EOT widget blueprint
+(state, template with `{{slot}}` interpolation and `data-on="event:handler"`
+bindings, styles, handler bodies) → one complete, self-contained HTML document
+with a ~15-line inlined reactive shell — no build, no dependency. The behavior is
+real JS, emitted in dependency order and **read back through the organ**: a
+template slot referencing a field the state never declares becomes an unbound
+reference in the render scope, caught before the widget is trusted. Proven two
+ways: a DOM-stub test drives render + clicks (`tests/code-widget.test.js`), and
+the emitted HTML renders and responds in real Chromium (the counter goes
+0 → 3 → 2 → 0 through actual clicks, zero console errors). `composeWidgetFromModel`
+wires the NL → blueprint arrow to the engine's own **local** backends
+(`model/webllm.js`, `model/wllama.js`) — the whole loop runs on the user's
+machine, no network.
+
+## The harvest — the model holds method, not facts
+
+`harvest.js` is the deepest turn of the thesis: **a model need not hold in its
+weights how to build anything.** It supplies STRUCTURE — a seed that names the
+pieces it needs — and the knowledge is fetched on demand. The loop is not "fill
+the holes from memory"; it is the organ's own `unbound` findings naming exactly
+what is still missing, and a retriever fetching precisely those names, round
+after round, until the record closes. When a fetched piece itself references
+something unbound, that becomes the next round's search — the dependency chain
+resolves itself, gap by witnessed gap. Every fetched piece comes through the
+**perceiver door**, so the assembled program carries a **provenance trail**:
+which line came from which URL, cited like any reading.
+
+Proven live: a seed referencing `escapeRegexp` drove a real npm search,
+`escape-string-regexp@5.0.0` was fetched from unpkg, the organ confirmed the gap
+closed, and the assembled program ran correctly. The retriever is injected (pure
+organ, injected world) — `createWebRetriever` is the live npm/unpkg path;
+`tests/code-harvest.test.js` injects a fixed corpus with a dependency chain.
+
+**An honest boundary this surfaced.** The organ validates the *dependency laws*
+(bindings, order, cycles), **not syntax** — a truncated fetched function has no
+unbound name yet will not parse. So `harvestProgram` takes an injectable
+`verify` gate (the syntax/run check the organ deliberately is not): `ok` requires
+organ-clean AND parses AND, ultimately, runs. "The organ passed it" is necessary,
+not sufficient; the runtime is the final arbiter.
 
 ## Run it
 

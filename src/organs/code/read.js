@@ -11,6 +11,8 @@
 
 import { extractorFor } from './facts.js';
 import './python.js';                       // mounts the Python provider on the membrane
+import './go.js';                           // …and Go
+import './rust.js';                         // …and Rust
 import { lowerCorpus, codeDoc } from './eot.js';
 import { dependencyOrder } from './helix.js';
 import { findIssues, issuesToEot, reportText } from './issues.js';
