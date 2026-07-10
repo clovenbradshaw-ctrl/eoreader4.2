@@ -265,6 +265,27 @@ table{border-collapse:collapse;width:100%}
           </button>
         </sc-for>
         <span style="flex:1"></span>
+        <sc-if value="{{ hasChatExport }}">
+          <div style="position:relative;margin-right:8px">
+            <button onClick="{{ toggleExportMenu }}" title="Export this chat with its full audit trail folded under each turn" style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:{{ exportFg }};background:{{ exportBg }};border:1px solid {{ exportBd }};border-radius:7px;padding:4px 10px" style-hover="background:#E7E2FD">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+              Export chat
+            </button>
+            <sc-if value="{{ exportMenuOpen }}">
+              <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:35;background:#fff;border:1px solid #EAEAEF;border-radius:11px;box-shadow:0 14px 40px rgba(20,20,30,.16);padding:6px;width:270px;animation:eoFade .14s ease">
+                <div style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;padding:6px 8px 4px">CHAT + AUDIT · {{ exportCount }}</div>
+                <button onClick="{{ exportChatMd }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:8px 9px;font-size:12.5px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF">
+                  Markdown
+                  <div style="font-size:10.5px;font-weight:500;color:#8A8A95;margin-top:1px">Readable — the audit folded under each turn</div>
+                </button>
+                <button onClick="{{ exportChatJson }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:8px 9px;font-size:12.5px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF">
+                  JSON
+                  <div style="font-size:10.5px;font-weight:500;color:#8A8A95;margin-top:1px">Structured — every exchange paired to its trail</div>
+                </button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
         <sc-if value="{{ hasFlagLine }}">
           <div style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ flagFg }};background:{{ flagBg }};border:1px solid {{ flagBd }};border-radius:7px;padding:4px 9px">
             <span style="width:6px;height:6px;border-radius:50%;background:{{ flagFg }}"></span>
@@ -1031,7 +1052,7 @@ class Component extends DCLogic {
       viewerSn: null, viewerFocus: null,
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
       pasteOpen: false, pasteTitle: '', pasteBody: '',
-      modelOpen: false, topicMenu: null,
+      modelOpen: false, topicMenu: null, exportMenuOpen: false,
       entitySel: null, entityMode: true, webGraphFor: null,
       // optional Matrix account login
       acctOpen: false,
@@ -1234,7 +1255,7 @@ class Component extends DCLogic {
   }
 
   // ── navigation ───────────────────────────────────────────────────────────
-  setTab(tab) { this.setState({ tab, topicMenu: null, modelOpen: false }); }
+  setTab(tab) { this.setState({ tab, topicMenu: null, modelOpen: false, exportMenuOpen: false }); }
   toggleLeft() { const v = !this.state.leftOpen; this._setPref('eo_left', v); this.setState({ leftOpen: v }); }
   toggleRight() { const v = !this.state.rightOpen; this._setPref('eo_right', v); this.setState({ rightOpen: v }); }
   toggleStatus() { this.setState({ statusOpen: !this.state.statusOpen }); }
@@ -1255,6 +1276,19 @@ class Component extends DCLogic {
     a.download = (s.reg || 'source') + '.eot';
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  toggleExportMenu() { this.setState({ exportMenuOpen: !this.state.exportMenuOpen }); }
+  exportChatAs(format) {
+    this.setState({ exportMenuOpen: false });
+    const t = this._app && this._app.topic();
+    const out = t && this._app.exportChat(t.id, format);
+    if (!out) { this.showToast('Nothing to export yet — ask something first.'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([out.text], { type: out.mime }));
+    a.download = out.filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    this.showToast('Chat exported — ' + out.filename);
   }
   closeViewer() { this.setState({ viewerSn: null, viewerFocus: null }); }
   setViewerBody(el) {
@@ -1867,6 +1901,12 @@ class Component extends DCLogic {
       sendChat: () => this.sendChat(), setChatScroll: (el) => this.setChatScroll(el),
       generating, notGenerating: !generating, stopGen: () => app.stop(),
       chatPlaceholder: sources.length ? 'Ask about what you’ve read…' : 'Record a source first — then ask about it…',
+      // export chat (+ audit)
+      hasChatExport: st.tab === 'chat' && messages.length > 0,
+      exportMenuOpen: st.exportMenuOpen, exportCount: `${msgs.length} message${msgs.length === 1 ? '' : 's'}`,
+      exportFg: st.exportMenuOpen ? '#5B4BE6' : '#6E6E78', exportBg: st.exportMenuOpen ? '#F1EFFE' : '#F7F7FA', exportBd: st.exportMenuOpen ? '#DED8FD' : '#E6E6EC',
+      toggleExportMenu: () => this.toggleExportMenu(),
+      exportChatMd: () => this.exportChatAs('md'), exportChatJson: () => this.exportChatAs('json'),
       // graph
       graphTitle: topic ? topic.title : '', graphEmpty: st.tab === 'graph' && !graphLive, graphLive,
       ...graphVals, legendNodes,
