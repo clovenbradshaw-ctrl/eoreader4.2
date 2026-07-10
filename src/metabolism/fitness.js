@@ -36,7 +36,8 @@ import { TRANSFER_FLOOR, keptFitness } from './lift.js';
 //     delivered,             // did the turn produce a usable answer at all? (bool)
 //     viable,                // did it complete within budget with validated work? (bool)
 //     corrections,           // EXTERNAL: corrections applied downstream (lower is better)
-//     validated,             // EXTERNAL: an un-authored pass/verdict (0..1), or null
+//     predicted,             // EXTERNAL: held-out PREDICTION competency (0..1) — reality's own grade, no judge
+//     validated,             // EXTERNAL: an un-authored pass/verdict (0..1), or null (fluency; a judge's taste)
 //     endorsed,              // EXTERNAL: a HUMAN interaction's reward (0..1) — the strongest anchor
 //     held,                  // unbound threads HELD OPEN this turn (Void-respect) — earns nothing now
 //     groundedOnDelay,       // previously-held threads that bound THIS turn (retroactive credit)
@@ -98,16 +99,23 @@ export const score = (outcome = {}, { energyOf, anchorWeight = 0.6, voidValue = 
   const voidRespect = boundLater * (0.5 + 0.5 * precision) * (Number.isFinite(+voidValue) ? +voidValue : 1);
 
   // The UN-AUTHORED anchor. Human interaction (`endorsed`) is the strongest — un-authorable by
-  // construction and, in time, the PRIMARY evolver — then the judge's `validated`, then a realized
-  // delayed binding (the world itself grounding a held thread), then the `corrections` penalty.
-  // null everything → unanchored → the reading is honestly provisional.
+  // construction and, in time, the PRIMARY evolver. Then `predicted` — held-out PREDICTION competency
+  // (surfer/predictive-competency.js): reality itself supplies the answer key, so it is objective and
+  // needs no subject with taste, which is why it ranks ABOVE the judge's `validated` (fluency, a
+  // verdict a frontier model authors). Then a realized delayed binding (the world grounding a held
+  // thread), then the `corrections` penalty. null everything → unanchored → honestly provisional.
+  // Making prediction the anchor is what collapses "quality per energy" into "prediction per energy":
+  // the numerator now rewards foreseeing the world, not looking thrifty or sounding fluent.
   const hasHuman = outcome.endorsed != null;
-  const hasAnchor = hasHuman || outcome.validated != null || boundLater > 0 || outcome.corrections != null;
+  const hasPredicted = outcome.predicted != null;
+  const hasAnchor = hasHuman || hasPredicted || outcome.validated != null || boundLater > 0 || outcome.corrections != null;
   const anchoredBy = hasHuman ? 'human'
+    : hasPredicted ? 'prediction'
     : outcome.validated != null ? 'judge'
     : boundLater > 0 ? 'delayed-binding'
     : outcome.corrections != null ? 'corrections' : null;
   const anchor = hasHuman ? clamp01(outcome.endorsed)
+    : hasPredicted ? clamp01(outcome.predicted)
     : outcome.validated != null ? clamp01(outcome.validated)
     : boundLater > 0 ? Math.min(1, 0.5 + 0.5 * precision)
     : Math.max(0, 1 - num(outcome.corrections) * 0.25);
@@ -136,7 +144,7 @@ export const score = (outcome = {}, { energyOf, anchorWeight = 0.6, voidValue = 
     coherence: round(coherence),
     anchor: hasAnchor ? round(anchor) : null,
     anchored: hasAnchor,           // false → fitness is a self-reported hypothesis
-    anchoredBy,                    // 'human' | 'judge' | 'delayed-binding' | 'corrections' | null
+    anchoredBy,                    // 'human' | 'prediction' | 'judge' | 'delayed-binding' | 'corrections' | null
     provisional: !hasAnchor,       // the Goodhart honesty flag, carried forward to the surface
     held,                          // threads held open this turn (Void-respect posture — unrewarded)
     boundLater,                    // held threads that grounded this turn (the retroactive reward)
