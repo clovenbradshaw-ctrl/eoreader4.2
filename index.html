@@ -59,7 +59,7 @@ table{border-collapse:collapse;width:100%}
         <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C0C0C8;flex:0 0 auto">⏎ ingest</span>
       </div>
     </form>
-    <button onClick="{{ toggleModel }}" title="Local model" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
+    <button onClick="{{ toggleModel }}" title="Model" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
       <span style="width:7px;height:7px;border-radius:50%;background:{{ modelDot }};flex:0 0 auto"></span>
       {{ modelChip }}
     </button>
@@ -70,7 +70,7 @@ table{border-collapse:collapse;width:100%}
 
     <sc-if value="{{ modelOpen }}">
       <div style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 6px 8px">LOCAL MODEL · RUNS IN YOUR BROWSER</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 6px 8px">MODEL · IN YOUR BROWSER, OR HOSTED WITH YOUR KEY</div>
         <sc-for list="{{ backends }}" as="b">
           <button onClick="{{ b.pick }}" style="width:100%;display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border-radius:9px;background:{{ b.bg }}" style-hover="background:#F5F5F8">
             <span style="width:15px;height:15px;border-radius:50%;border:2px solid {{ b.ringColor }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px"><span style="width:7px;height:7px;border-radius:50%;background:{{ b.dotColor }}"></span></span>
@@ -1261,12 +1261,31 @@ class Component extends DCLogic {
     const BACKENDS = [
       ['wllama', 'SmolLM2 · CPU', 'Small and universal — runs on WASM everywhere, ~90 MB download, cached after the first load.'],
       ['webllm', 'Llama 3.2 · WebGPU', 'The full local talker — 1–2 GB download, needs WebGPU (Chrome/Edge). Picked adaptively for your GPU.'],
+      ['claude', 'Claude · hosted API', 'Anthropic’s hosted models — nothing to download, frontier answers in seconds. Needs an API key (console.anthropic.com), stored only in this browser. Pick again to change the key.'],
     ];
     const pref = app.backendPref();
     const backends = BACKENDS.map(([id, label, desc]) => ({
       label, desc, bg: pref === id ? '#F7F7FA' : 'transparent',
       ringColor: pref === id ? '#6D5EF5' : '#D4D4DC', dotColor: pref === id ? '#6D5EF5' : 'transparent',
-      pick: () => { app.setBackend(id); this._poke(); },
+      pick: () => {
+        if (id === 'claude') {
+          // The key lives only in this browser. No key yet → ask for one; picking
+          // Claude again while it is already selected re-asks, so a stale key can
+          // be replaced without any extra UI.
+          let key = null;
+          try { key = localStorage.getItem('eo_claude_key'); } catch { /* no storage */ }
+          if (!key || pref === 'claude') {
+            const v = prompt('Anthropic API key (sk-ant-…) — stored only in this browser');
+            if (v && v.trim()) { try { localStorage.setItem('eo_claude_key', v.trim()); } catch { /* session-only */ } }
+            else if (!key) return;   // nothing entered and nothing stored — stay put
+          }
+          app.setBackend(id);
+          app.ensureModel().catch(() => {});   // validate the key now — the chip shows the verdict
+        } else {
+          app.setBackend(id);
+        }
+        this._poke();
+      },
     }));
 
     // status widget

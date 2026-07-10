@@ -457,7 +457,7 @@ export const createReaderApp = ({ audit } = {}) => {
       finishMessage(pending, result);
     } catch (e) {
       pending.text = pending.text || (state.model.state === 'error'
-        ? `${state.model.note}. A WebGPU browser (Chrome/Edge) runs Llama 3.2; anything else runs SmolLM2 on CPU — check the connection, then retry from the model chip in the header.`
+        ? `${state.model.note}. A WebGPU browser (Chrome/Edge) runs Llama 3.2; anything else runs SmolLM2 on CPU — or pick Claude (hosted API, needs a key) from the model chip in the header, then retry.`
         : `Something failed mid-turn: ${String(e?.message || e)}`);
       pending.pending = false; pending.route = 'error';
     } finally {

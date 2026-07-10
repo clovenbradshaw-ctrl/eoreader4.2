@@ -18,4 +18,5 @@ import './echo.js';
 import './structure.js';
 import './wllama.js';
 import './webllm.js';
+import './anthropic.js';
 import './coders.js';
