@@ -28,6 +28,11 @@ export const createPopulation = ({
   founder = createGenome(),
   size = 12,               // founding / sustainable population
   capacity = 24,           // carrying capacity — the world sustains only so many
+  reservoir = 0,           // slots protected for NEUTRAL variation — the most genome-distant
+                           // variants survive the cull even when low-energy, so directed REC
+                           // has a diverse base to propose from and the population can escape a
+                           // local optimum it would otherwise keep polishing (Kimura's reservoir).
+                           // 0 = off (pure energy cull). Deterministic (farthest-point), not RNG.
   reproduceAt = 24,        // energy surplus at which an organism reproduces
   dieBelow = -6,           // energy deficit at which it starves out
   metabolicTax = 2,        // baseline upkeep every organism pays each period — the cost of merely existing
@@ -110,8 +115,13 @@ export const createPopulation = ({
 
     // 5. CARRYING CAPACITY: if the world is over-full, the least-energy organisms die —
     //    the environment cannot sustain everyone, and scarcity, not preference, decides.
+    //    BUT a reservoir of slots is held for neutral variation: after the energy elite are
+    //    seated, the remaining seats go to the most genome-distant variants, not the next-
+    //    richest, so directed selection keeps a diverse base to escape local optima from.
     living.sort((a, b) => b.energy - a.energy);
-    const survivors = living.slice(0, capacity);
+    const survivors = (reservoir > 0 && living.length > capacity)
+      ? seatWithReservoir(living, capacity, reservoir)
+      : living.slice(0, capacity);
 
     // 6. keep the pool non-empty of lineages: if competition wiped everyone, reseed from the
     //    last champion (extinction guard — a dead ecology cannot evolve).
@@ -233,6 +243,32 @@ const genotypeSpread = (organisms) => {
     d += Math.sqrt(vals.reduce((s, v) => s + ((v - mean) / span) ** 2, 0) / vals.length); n++;
   }
   return round(d / n);
+};
+// seatWithReservoir — seat `capacity` survivors: the energy elite first, then hold the
+// remaining seats for the most genome-distant variants among the rest (farthest-point, ties
+// by lowest id → replay-stable). The reservoir is neutral STANDING variation the population
+// draws future adaptation from, not fresh randomness — deterministic by construction.
+const seatWithReservoir = (living, capacity, reservoir) => {
+  const elite = Math.max(0, capacity - reservoir);
+  const kept = living.slice(0, elite);
+  const pool = living.slice(elite);
+  const seats = capacity - kept.length;
+  const chosen = [];
+  while (chosen.length < seats && pool.length) {
+    let best = 0, bestD = -1;
+    for (let i = 0; i < pool.length; i++) {
+      const d = minGeneDistance(pool[i], kept.length + chosen.length ? kept.concat(chosen) : []);
+      if (d > bestD || (d === bestD && pool[i].id < pool[best].id)) { bestD = d; best = i; }
+    }
+    chosen.push(pool.splice(best, 1)[0]);
+  }
+  return kept.concat(chosen);
+};
+const minGeneDistance = (o, set) => {
+  if (!set.length) return Infinity;
+  let m = Infinity;
+  for (const s of set) { const d = o.genome.distanceTo(s.genome); if (d < m) m = d; }
+  return m;
 };
 const lerp = (a, b, t) => a + (b - a) * t;
 const round = (x) => Math.round(x * 1000) / 1000;
