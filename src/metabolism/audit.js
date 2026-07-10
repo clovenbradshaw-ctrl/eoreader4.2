@@ -71,6 +71,20 @@ export const buildAudit = ({ metabolism, challenges = [], meta = {} } = {}) => {
     resolvedRate: sat.length ? round(sat.filter((s) => s.resolved).length / sat.length) : 0,
   } : null;
 
+  // ── the through-line's governance ledger (sanction.js / homeostat.js), when wired: every graduated
+  //    sanction, controlled death, and homeostat band-transition — so selection is auditable, not silent ──
+  const popEvents = typeof metabolism?.population?.events === 'function' ? metabolism.population.events() : [];
+  const sanctions = popEvents.filter((e) => e.kind === 'sanction');
+  const deaths = popEvents.filter((e) => e.kind === 'death');
+  const homeostatEvents = popEvents.filter((e) => e.kind === 'homeostat');
+  const governance = popEvents.length ? {
+    sanctions: { n: sanctions.length, forgiven: sanctions.filter((e) => e.action === 'forgive').length,
+      culls: sanctions.filter((e) => e.rung === 'cull').length, shed: sanctions.filter((e) => e.rung === 'shed').length },
+    deaths: { n: deaths.length, energyReturned: round(deaths.reduce((s, e) => s + (e.returned || 0), 0)),
+      organsReleased: deaths.reduce((s, e) => s + (e.released || 0), 0), byCause: countBy(deaths, (e) => e.cause) },
+    homeostat: { bands: [...new Set(homeostatEvents.map((e) => e.band))], transitions: homeostatEvents.length },
+  } : null;
+
   // ── the provenance chain (persist.js), when armed: the tamper-evidence of the DNA record ──
   const chain = vitals.chain || null;
 
@@ -91,7 +105,11 @@ export const buildAudit = ({ metabolism, challenges = [], meta = {} } = {}) => {
     if (vitals.ecology.size <= 1) { findings.push('COLLAPSE: the population fell to one lineage.'); flags.push('collapse'); }
     if ((vitals.ecology.diversity ?? 1) < 0.02) { findings.push('MONOCULTURE: gene-pool diversity ≈ 0 — the population converged to one strategy (de-differentiation / mode collapse).'); flags.push('monoculture'); }
   }
-  if (chain) findings.push(`Provenance chain: ${chain.length} block${chain.length === 1 ? '' : 's'}, ${chain.intact ? 'intact (verifies)' : 'BROKEN — tamper detected'}.${chain.intact ? '' : ' '}`);
+  if (governance) {
+    findings.push(`Selection was graduated, not binary: ${governance.sanctions.n} sanction transition${governance.sanctions.n === 1 ? '' : 's'} (${governance.sanctions.forgiven} forgiven — paths back to ok), ${governance.deaths.n} controlled death${governance.deaths.n === 1 ? '' : 's'} releasing ${governance.deaths.organsReleased} organ${governance.deaths.organsReleased === 1 ? '' : 's'} as standing variation.`);
+    if (governance.homeostat.bands.length) findings.push(`Homeostat governed diversity across bands: ${governance.homeostat.bands.join(', ')}${governance.homeostat.bands.includes('freezing') ? ' (relaxed selection when freezing toward monoculture)' : ''}.`);
+  }
+  if (chain) findings.push(`Provenance chain: ${chain.length} block${chain.length === 1 ? '' : 's'}, ${chain.intact ? 'intact (verifies)' : 'BROKEN — tamper detected'}.`);
 
   return Object.freeze({
     kind: 'evolution-audit', version: 1,
@@ -103,7 +121,7 @@ export const buildAudit = ({ metabolism, challenges = [], meta = {} } = {}) => {
       edits: { total: edits.length, structural: structural.length, promotions: promotions.length, culls: culls.length },
       fitness, honesty: { anchorRate: round(cond.anchorRate ?? 0), provisionalRate, humanRate: round(cond.humanRate ?? 0) },
       voidRespect: { recent: round(cond.voidRespect ?? 0), boundLater: cond.boundLater ?? 0, exchangeRate: round(cond.voidValue ?? 0), signalRate: round(cond.signalRate ?? 0) },
-      body, ecology: vitals.ecology || null, provenance: chain,
+      body, ecology: vitals.ecology || null, provenance: chain, governance,
       challenges: challengeSummary,
       champion: { notation: vitals.championNotation ?? null, genotype: vitals.champion ?? null },
       findings: Object.freeze(findings), flags: Object.freeze(flags),
@@ -117,8 +135,12 @@ export const buildAudit = ({ metabolism, challenges = [], meta = {} } = {}) => {
       satisfaction: c.satisfaction || null,
     }))),
     constitution: vitals.constitution || null,
+    // the through-line ledger, whole (capped) — every sanction, death, and homeostat transition.
+    governanceLedger: Object.freeze(popEvents.slice(-200).map((e) => Object.freeze({ ...e }))),
   });
 };
+
+const countBy = (xs, key) => { const m = {}; for (const x of xs) { const k = key(x) || 'other'; m[k] = (m[k] || 0) + 1; } return m; };
 
 export const auditToJSON = (audit) => JSON.stringify(audit, null, 2);
 
@@ -139,6 +161,7 @@ export const auditToMarkdown = (audit) => {
   if (s.body) L.push(`- **body**: ${s.body.founding} → ${s.body.final} organs (peak ${s.body.peak}), upkeep ${s.body.upkeep}${s.body.species.length ? `, species ${[...new Set(s.body.species)].join(', ')}` : ''}`);
   if (s.ecology) L.push(`- **ecology**: ${s.ecology.size} alive, diversity ${s.ecology.diversity}`);
   if (s.provenance) L.push(`- **provenance**: ${s.provenance.length} blocks, ${s.provenance.intact ? 'intact' : 'BROKEN'}`);
+  if (s.governance) L.push(`- **selection (graduated)**: ${s.governance.sanctions.n} sanctions (${s.governance.sanctions.forgiven} forgiven), ${s.governance.deaths.n} controlled deaths releasing ${s.governance.deaths.organsReleased} organs, homeostat bands ${s.governance.homeostat.bands.join('/') || '·'}`);
   if (s.champion?.notation) L.push(`- **champion**: \`${s.champion.notation}\``);
   if (audit.lineage.length) {
     L.push('\n## Lineage — every genome edit');

@@ -128,7 +128,8 @@
 
 <script type="module">
 import { createMetabolism, createScarcity, createOrganism, createSoma, createPopulation,
-         createChallenger, runChallengeCycle, forage, buildAudit, auditToJSON, auditToMarkdown } from './src/metabolism/index.js';
+         createChallenger, runChallengeCycle, forage, buildAudit, auditToJSON, auditToMarkdown,
+         createSanctionLadder, createHomeostat } from './src/metabolism/index.js';
 import { DIAGONAL_CELLS } from './src/core/cube.js';
 import { createModel, EXCERPTS_HEADER } from './src/model/index.js';
 
@@ -154,7 +155,10 @@ const answerer = (material)=> async (ch)=> echoLeaf.phrase([{ role:'user', conte
 
 function build(){
   const scarcity = createScarcity({ regime: $('regime').value, ration: 1600 });
-  const population = createPopulation({ scarcity, founder: createOrganism({ soma: createSoma({ maxOrgans: 11 }) }), size: 16, capacity: 30, reservoir: 3 });
+  // graduated selection: the ladder (demote/shed/probation/cull with a path back), controlled death,
+  // and a homeostat holding diversity in a critical band — all recorded into the audit.
+  const population = createPopulation({ scarcity, founder: createOrganism({ soma: createSoma({ maxOrgans: 11 }) }), size: 16, capacity: 30, reservoir: 3,
+    sanction: createSanctionLadder(), homeostat: createHomeostat({ target: 0.12, band: 0.05 }) });
   metab = createMetabolism({ scarcity, population });
   period = 0; lastGrown = new Set();
   renderCubeSkeleton();

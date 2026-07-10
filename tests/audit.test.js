@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createMetabolism, createScarcity, createSoma, buildAudit, auditToJSON, auditToMarkdown } from '../src/metabolism/index.js';
+import { createMetabolism, createScarcity, createSoma, createOrganism, createPopulation, createSanctionLadder, createHomeostat, buildAudit, auditToJSON, auditToMarkdown } from '../src/metabolism/index.js';
 
 // The audit (metabolism/audit.js) makes the evolution FULLY AUDITABLE: the append-only record
 // projected into one complete, inspectable, exportable artifact — and an honest evaluation of what
@@ -47,6 +47,22 @@ test('audit: the Claude challenges are recorded with grounded/flowing scores (ju
   assert.equal(a.summary.challenges.meanGrounded, 0.9, 'the grounded score is aggregated');
   assert.ok(a.challenges[0].sources && a.challenges[0].sources.length === 1, 'the retrieved sources are recorded — grounding is auditable against them');
   assert.ok(a.summary.findings.some((f) => /Claude posed 1 challenge/.test(f)));
+});
+
+test('audit: the through-line is auditable — graduated sanctions, controlled deaths, homeostat, all captured', () => {
+  // a metabolism whose ecology runs the ladder + homeostat under fierce scarcity.
+  const scarcity = createScarcity({ regime: 'harsh', ration: 280 });
+  const population = createPopulation({ scarcity, founder: createOrganism({ soma: createSoma({ maxOrgans: 11 }) }), size: 20, capacity: 24,
+    sanction: createSanctionLadder(), homeostat: createHomeostat({ target: 0.12, band: 0.05 }) });
+  const m = createMetabolism({ scarcity, population });
+  for (let i = 0; i < 100; i++) m.metabolize({ warmedModel: false, grounded: 2, claimed: 3, covered: 1, delivered: true, validated: 0.7 });
+  const a = buildAudit({ metabolism: m });
+  assert.ok(a.summary.governance, 'the governance ledger is captured — selection is not silent');
+  assert.ok(a.summary.governance.sanctions.n > 0, 'graduated sanctions are recorded');
+  assert.ok(a.summary.governance.deaths.n > 0 && a.summary.governance.deaths.organsReleased >= 0, 'controlled deaths (with released organs) are recorded');
+  assert.ok(a.governanceLedger.length > 0, 'the full ledger is exported for inspection');
+  assert.ok(a.summary.findings.some((f) => /graduated, not binary/.test(f)), 'and stated in plain words in the findings');
+  assert.ok(/selection \(graduated\)/.test(auditToMarkdown(a)), 'the Markdown carries the graduated-selection line');
 });
 
 test('audit: it is PORTABLE — round-trips JSON and renders a readable Markdown evaluation', () => {

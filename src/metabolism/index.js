@@ -288,3 +288,5 @@ export { forage, createForager, SOURCES } from './forage.js';
 export { createTransferProbe, modelRunner, judgeScorer } from './transfer.js';
 export { createChallenger, runChallengeCycle, buildChallengeMessages, buildSatisfactionMessages, CHALLENGER_MODEL } from './challenger.js';
 export { buildAudit, auditToJSON, auditToMarkdown } from './audit.js';
+export { createSanctionLadder, controlledDeath, RUNGS } from './sanction.js';
+export { createHomeostat } from './homeostat.js';
