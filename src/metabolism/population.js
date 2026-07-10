@@ -47,7 +47,10 @@ export const createPopulation = ({
   homeostat = null,
 } = {}) => {
   let nextId = 1;
-  const mk = (genome, parentId, period) => ({ id: nextId++, genome, energy: 6, age: 0, born: period, parentId, wins: 0 });
+  // `origin` tags where a lineage came from — null for internal variation, 'claude' for a unit the
+  // breeder (proposer.js) offered. It rides through reproduction so a promoted descendant of a
+  // proposed challenger still attributes back to Claude in the genome-edit event.
+  const mk = (genome, parentId, period, origin = null) => ({ id: nextId++, genome, energy: 6, age: 0, born: period, parentId, wins: 0, origin });
 
   // Found the population as directed variants of the founder, so there is variation to
   // select on from period 0. Deterministic: gene i of the founder is nudged for organism i.
@@ -69,6 +72,17 @@ export const createPopulation = ({
   const standingOrgans = []; // organs released by controlled death — standing variation the reservoir inherits
   let recycled = 0;        // energy returned by controlled death → added to the NEXT period's shared pool
   let lastBand = null;
+  const proposalQueue = []; // externally-PROPOSED challengers (proposer.js) awaiting intake next compete
+
+  // offer — the intake for a Claude-proposed challenger (the breeder's third channel). It only
+  // ENQUEUES; the unit competes for the pool on its own efficiency next `compete`, and is promoted
+  // only if it out-earns the champion (the firewall — Claude proposes, the budget disposes). A unit
+  // must expose the genome interface (express/vary/genotype); anything else is ignored. Absent any
+  // offer the queue stays empty and the ecology is byte-identical to internal-variation-only search.
+  const offer = (unit) => {
+    if (unit && typeof unit.genotype === 'function' && typeof unit.express === 'function') proposalQueue.push(unit);
+    return proposalQueue.length;
+  };
 
   // compete — run one period of the ecology. Returns the period's demographics + whether
   // the champion changed (a genome edit worth persisting).
@@ -87,6 +101,18 @@ export const createPopulation = ({
     if (hObs && hObs.band !== lastBand) { events.push(hObs.event); lastBand = hObs.band; }
     const effDieBelow = hObs ? round(dieBelow * (2 - hObs.pressure)) : dieBelow;
     const effReservoir = hObs ? hObs.reservoir : reservoir;
+
+    // INTAKE: seat any externally-PROPOSED challengers (proposer.js — Claude the breeder) into the
+    // living set so they compete for the pool THIS period on their own efficiency. Disarmed-safe: an
+    // empty queue leaves everything below byte-identical. A proposal is not privileged — it eats and
+    // starves by the same rule as any organism, and is promoted only if it wins. Overflow past the
+    // carrying capacity is dropped rather than force-seated (the world sustains only so many).
+    if (proposalQueue.length) {
+      for (const unit of proposalQueue.splice(0)) {
+        if (organisms.length >= capacity) break;
+        organisms.push(mk(unit, championId, period, 'claude'));
+      }
+    }
 
     // 1. each organism expresses its genome, clamped by the season, and the world-model
     //    predicts what it would earn (quality/fitness) and what it would spend (energy).
@@ -165,7 +191,7 @@ export const createPopulation = ({
         o.energy -= reproduceCost;
         const strain = dominantStrain(o.genome, season);
         const { genome } = o.genome.vary({ strain });
-        births.push(mk(genome, o.id, period));
+        births.push(mk(genome, o.id, period, o.origin));   // a proposed lineage keeps its provenance
       }
     }
     living = living.concat(births);
@@ -209,7 +235,7 @@ export const createPopulation = ({
     if (!sameGenotype(top.genome.genotype(), championGenotype)) {
       const before = championGenotype;
       championId = top.id; championGenotype = top.genome.genotype();
-      promoted = diffGenotype(before, championGenotype, { period, energy: round(top.energy), pop: survivors.length });
+      promoted = diffGenotype(before, championGenotype, { period, energy: round(top.energy), pop: survivors.length, ...(top.origin ? { origin: top.origin } : {}) });
       promotions.push(promoted);
     } else {
       championId = top.id;
@@ -230,7 +256,9 @@ export const createPopulation = ({
     champion: () => rebuild(championGenotype),
     championGenotype: () => ({ ...championGenotype }),
     promotions: () => promotions.slice(),
-    demographics: () => organisms.map((o) => ({ id: o.id, energy: round(o.energy), age: o.age, wins: o.wins, parentId: o.parentId })),
+    offer,                             // seat a Claude-proposed challenger into the next competition
+    pendingProposals: () => proposalQueue.length,
+    demographics: () => organisms.map((o) => ({ id: o.id, energy: round(o.energy), age: o.age, wins: o.wins, parentId: o.parentId, origin: o.origin })),
     size: () => organisms.length,
     diversity: () => genotypeSpread(organisms),
     // the through-line's auditable ledger + the standing variation controlled death has released.
