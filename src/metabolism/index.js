@@ -255,3 +255,5 @@ export { createJudge, buildJudgeRequest, parseVerdict, JUDGE_MODEL, buildInterpr
 export { liftOf, gapClosed, liftFitness, transfers, keptFitness, transferReading, createProxy, liftWorld } from './lift.js';
 export { createHorizon, knownHorizon } from './horizon.js';
 export { createAgent, reputationOf, decide, simulate, classifyRoom, isWrongRoom, population } from './reputation.js';
+export { createCommons } from './commons.js';
+export { demeProductivity, multiLevelSelect, traitFrequency, partition } from './demes.js';
