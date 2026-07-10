@@ -294,6 +294,16 @@ export const createReaderApp = ({ audit } = {}) => {
     } finally { setBusy(null); }
   };
 
+  // The page's own HTML, fetched through the same proxy chain ingest uses — for the source
+  // viewer's native "Page" tab, which renders the REAL website (sanitized + sandboxed by the
+  // surface) rather than the reduced text. Browser only; in Node (no fetch) client.fetchUrl
+  // throws, which the surface catches into the tab's error state.
+  const fetchPage = async (url) => {
+    const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
+    const res = await client.fetchUrl(norm);
+    return { html: res.text || '', url: res.url || norm, ok: res.ok !== false };
+  };
+
   const ingestText = (text, title = 'Pasted text') => {
     const doc = parseText(String(text), { docId: `doc-${shaShort(webContentHash(text))}` });
     return addSource({ title, text: String(text), kind: 'text', doc });
@@ -779,7 +789,7 @@ export const createReaderApp = ({ audit } = {}) => {
     // topics
     topicNew, setTopic, topicRename, topicDelete, topic,
     // ingest
-    ingestUrl, ingestText, ingestFile, search, recordHit,
+    ingestUrl, ingestText, ingestFile, search, recordHit, fetchPage,
     sourceBySn, removeSource, topicSources,
     // chat
     ask, stop, exportChat,

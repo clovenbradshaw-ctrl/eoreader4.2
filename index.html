@@ -33,6 +33,7 @@ table{border-collapse:collapse;width:100%}
 @keyframes eoFade{from{opacity:0}to{opacity:1}}
 @keyframes eoToast{from{transform:translate(-50%,10px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 @keyframes eoBlink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes eoSpin{to{transform:rotate(360deg)}}
 .eo-scroll::-webkit-scrollbar{width:11px;height:11px}
 .eo-scroll::-webkit-scrollbar-thumb{background:#dadae1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
 .eo-scroll::-webkit-scrollbar-thumb:hover{background:#c7c7d0;background-clip:content-box}
@@ -771,58 +772,117 @@ table{border-collapse:collapse;width:100%}
     </main>
   </div>
 
-  <!-- SOURCE VIEWER OVERLAY -->
+  <!-- SOURCE VIEWER OVERLAY — a modal that opens the recorded source in front of everything,
+       with tabs: Reader (themed book, great for Gutenberg) · Page (the real website, native) ·
+       Document (paragraphs + entity links) · EoT (the reading). -->
   <sc-if value="{{ viewerShow }}">
     <div style="position:absolute;inset:0;z-index:44">
       <div onClick="{{ closeViewer }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
-      <div style="position:absolute;left:50%;top:26px;bottom:26px;transform:translateX(-50%);width:min(860px,92vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
-        <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;padding:16px 22px;background:#FBFBFD">
+      <div style="position:absolute;left:50%;top:26px;bottom:26px;transform:translateX(-50%);width:{{ viewerPanelW }};background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease;transition:width .18s ease">
+        <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;padding:15px 20px;background:#FBFBFD">
           <div style="display:flex;align-items:center;gap:9px">
             <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#4E5765;background:#EEF0F3;border-radius:5px;padding:2px 7px">{{ viewer.reg }}</span>
             <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4">{{ viewer.domain }} · {{ viewer.kind }}</span>
             <span style="flex:1"></span>
             <sc-if value="{{ viewer.hasUrl }}"><a href="{{ viewer.url }}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#5B4BE6;text-decoration:none">original ↗</a></sc-if>
+            <button onClick="{{ toggleViewerWide }}" title="{{ viewerWideTitle }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95;font-size:15px" style-hover="background:#F2F2F6">{{ viewerWideIcon }}</button>
             <button onClick="{{ removeViewerSource }}" title="Remove from the record" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
             <button onClick="{{ closeViewer }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
           </div>
-          <div style="font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:600;line-height:1.25;margin-top:8px">{{ viewer.title }}</div>
-          <div style="display:flex;align-items:center;gap:13px;margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8A95;flex-wrap:wrap">
+          <div style="font-family:'Newsreader',Georgia,serif;font-size:21px;font-weight:600;line-height:1.25;margin-top:7px">{{ viewer.title }}</div>
+          <div style="display:flex;align-items:center;gap:13px;margin-top:7px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8A95;flex-wrap:wrap">
             <span style="display:flex;align-items:center;gap:5px"><span style="color:#1E8A50"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span>{{ viewer.sha }}</span>
             <span>{{ viewer.bytes }}</span>
             <span>retrieved {{ viewer.retrieved }}</span>
             <span style="font-weight:600;color:{{ viewer.rightsFg }};background:{{ viewer.rightsBg }};border-radius:4px;padding:1px 6px">{{ viewer.rights }}</span>
             <span>{{ viewer.ents }} entities</span>
-            <span style="flex:1"></span>
-            <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:7px;padding:2px">
-              <button onClick="{{ viewerModeText }}" style="padding:3px 10px;border-radius:5px;font-size:10.5px;font-weight:600;color:{{ vmTextFg }};background:{{ vmTextBg }}">Document</button>
-              <button onClick="{{ viewerModeEot }}" style="padding:3px 10px;border-radius:5px;font-size:10.5px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">EoT · {{ viewer.eotCount }}</button>
+          </div>
+          <!-- TAB BAR + per-tab controls -->
+          <div style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap">
+            <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
+              <button onClick="{{ viewerModeReader }}" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
+              <sc-if value="{{ viewerCanPage }}"><button onClick="{{ viewerModePage }}" title="Render the real website" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPageFg }};background:{{ vmPageBg }}">Page</button></sc-if>
+              <button onClick="{{ viewerModeText }}" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmTextFg }};background:{{ vmTextBg }}">Document</button>
+              <button onClick="{{ viewerModeEot }}" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">EoT · {{ viewer.eotCount }}</button>
             </span>
-            <sc-if value="{{ viewerIsEot }}"><button onClick="{{ downloadEot }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:3px 9px" style-hover="background:#E7E2FD">↓ .eot</button></sc-if>
+            <span style="flex:1"></span>
+            <sc-if value="{{ viewerIsReader }}">
+              <sc-if value="{{ hasToc }}"><button onClick="{{ toggleToc }}" title="Contents" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">☰ Contents</button></sc-if>
+              <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px">
+                <button onClick="{{ readSizeDown }}" title="Smaller" style="font-size:12px;font-weight:700;color:#6E6E78;padding:3px 9px">A−</button>
+                <button onClick="{{ readSizeUp }}" title="Larger" style="font-size:12px;font-weight:700;color:#6E6E78;padding:3px 9px">A+</button>
+              </span>
+              <button onClick="{{ toggleReadFont }}" title="Type family" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">{{ readFontLabel }}</button>
+              <button onClick="{{ cycleReadWidth }}" title="Column width" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">▤ {{ readWidthLabel }}</button>
+              <button onClick="{{ cycleReadTheme }}" title="Paper theme" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">{{ readThemeLabel }}</button>
+            </sc-if>
+            <sc-if value="{{ viewerIsEot }}"><button onClick="{{ downloadEot }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ .eot</button></sc-if>
           </div>
         </div>
-        <div class="eo-scroll" ref="{{ setViewerBody }}" style="flex:1;min-height:0;overflow-y:auto;padding:26px 34px;background:#fff">
-          <sc-if value="{{ viewerIsText }}">
-          <div style="max-width:640px;margin:0 auto">
-            <sc-for list="{{ viewerParas }}" as="vp">
-              <div style="font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.75;color:#2A2A32;margin:0 0 14px;padding-left:{{ vp.pad }}px;border-left:{{ vp.border }};background:{{ vp.bg }};border-radius:{{ vp.radius }}">
-                <sc-for list="{{ vp.segs }}" as="sg">
-                  <sc-if value="{{ sg.isText }}"><span>{{ sg.s }}</span></sc-if>
-                  <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;color:#5B4BE6;border-bottom:1px dotted #B9AEF8;font-size:inherit;line-height:inherit;font-family:inherit" style-hover="background:#F1EFFE">{{ sg.s }}</button></sc-if>
+
+        <!-- READER: the themed book, in a same-origin iframe the surface retints live -->
+        <sc-if value="{{ viewerIsReader }}">
+          <div style="flex:1;min-height:0;position:relative;background:#fff">
+            <iframe ref="{{ setReaderFrame }}" srcdoc="{{ readerDoc }}" sandbox="allow-same-origin allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
+            <sc-if value="{{ tocOpen }}">
+              <div class="eo-scroll" style="position:absolute;top:10px;left:10px;bottom:10px;width:262px;overflow-y:auto;background:#fff;border:1px solid #EAEAEF;border-radius:12px;box-shadow:0 14px 44px rgba(20,20,30,.18);padding:9px">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#9A9AA4;padding:4px 8px 8px">Contents</div>
+                <sc-for list="{{ readerToc }}" as="c">
+                  <button onClick="{{ c.go }}" style="display:block;width:100%;text-align:left;font-family:'Newsreader',Georgia,serif;font-size:13.5px;color:#2A2A32;border-radius:7px;padding:7px 10px 7px {{ c.pad }}px" style-hover="background:#F2F2F6">{{ c.label }}</button>
                 </sc-for>
               </div>
-            </sc-for>
+            </sc-if>
           </div>
-          </sc-if>
-          <sc-if value="{{ viewerIsEot }}">
-          <div style="max-width:720px;margin:0 auto">
-            <div style="font-size:11.5px;color:#8A8A95;line-height:1.55;border:1px solid #EFEFF3;background:#FBFBFD;border-radius:10px;padding:10px 13px;margin-bottom:16px">Every proposition this reading admitted, in the canonical EoT surface — the structure layer round-trips through <span style="font-family:'IBM Plex Mono',monospace">parseEOT</span> unchanged; <span style="color:#B4B4BE">#</span>-lines carry the reading's own thinking (predictions, surprise, turning points).</div>
-            <sc-for list="{{ eotLines }}" as="el">
-              <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:{{ el.color }}">{{ el.s }}</div>
-            </sc-for>
-            <sc-if value="{{ eotTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9A9AA4;margin-top:14px">… {{ eotMore }} more lines — download the full .eot above.</div></sc-if>
+        </sc-if>
+
+        <!-- PAGE: the real website, fetched + sanitized, in a sandboxed iframe -->
+        <sc-if value="{{ viewerIsPage }}">
+          <div style="flex:1;min-height:0;position:relative;background:#fff">
+            <sc-if value="{{ pageBusy }}">
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#9A9AA4">
+                <span style="width:26px;height:26px;border-radius:50%;border:3px solid #EDEBFB;border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box"></span>
+                <span style="font-size:12.5px">Loading the live page…</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ hasPageErr }}">
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:34px;text-align:center;color:#6E6E78">
+                <span style="font-size:13px;line-height:1.55">Couldn’t render this page here.<br><a href="{{ viewer.url }}" target="_blank" rel="noopener" style="color:#5B4BE6;font-weight:600">Open the original in a new tab ↗</a>&nbsp; · &nbsp;<button onClick="{{ retryPage }}" style="color:#5B4BE6;font-weight:600;display:inline">retry</button></span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ pageShow }}">
+              <iframe srcdoc="{{ pageDoc }}" sandbox="allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
+            </sc-if>
           </div>
-          </sc-if>
-        </div>
+        </sc-if>
+
+        <!-- DOCUMENT: the reduced text as paragraphs, with entity links + cited highlights -->
+        <sc-if value="{{ viewerIsText }}">
+          <div class="eo-scroll" ref="{{ setViewerBody }}" style="flex:1;min-height:0;overflow-y:auto;padding:26px 34px;background:#fff">
+            <div style="max-width:640px;margin:0 auto">
+              <sc-for list="{{ viewerParas }}" as="vp">
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.75;color:#2A2A32;margin:0 0 14px;padding-left:{{ vp.pad }}px;border-left:{{ vp.border }};background:{{ vp.bg }};border-radius:{{ vp.radius }}">
+                  <sc-for list="{{ vp.segs }}" as="sg">
+                    <sc-if value="{{ sg.isText }}"><span>{{ sg.s }}</span></sc-if>
+                    <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;color:#5B4BE6;border-bottom:1px dotted #B9AEF8;font-size:inherit;line-height:inherit;font-family:inherit" style-hover="background:#F1EFFE">{{ sg.s }}</button></sc-if>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- EOT: the reading, in the canonical EoT surface -->
+        <sc-if value="{{ viewerIsEot }}">
+          <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:26px 34px;background:#fff">
+            <div style="max-width:720px;margin:0 auto">
+              <div style="font-size:11.5px;color:#8A8A95;line-height:1.55;border:1px solid #EFEFF3;background:#FBFBFD;border-radius:10px;padding:10px 13px;margin-bottom:16px">Every proposition this reading admitted, in the canonical EoT surface — the structure layer round-trips through <span style="font-family:'IBM Plex Mono',monospace">parseEOT</span> unchanged; <span style="color:#B4B4BE">#</span>-lines carry the reading's own thinking (predictions, surprise, turning points).</div>
+              <sc-for list="{{ eotLines }}" as="el">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:{{ el.color }}">{{ el.s }}</div>
+              </sc-for>
+              <sc-if value="{{ eotTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9A9AA4;margin-top:14px">… {{ eotMore }} more lines — download the full .eot above.</div></sc-if>
+            </div>
+          </div>
+        </sc-if>
       </div>
     </div>
   </sc-if>
@@ -1049,7 +1109,10 @@ class Component extends DCLogic {
       leftOpen: this._pref('eo_left', true), rightOpen: this._pref('eo_right', true),
       statusOpen: false, monologueOpen: false, logMode: 'actions',
       focusId: null, hideContra: false, tx: 40, ty: 30, scale: 1, camT: 'none',
-      viewerSn: null, viewerFocus: null,
+      viewerSn: null, viewerFocus: null, viewerMode: 'reader', viewerWide: false, tocOpen: false,
+      readPrefs: this._readPrefs(),
+      // native "Page" tab: fetched HTML memoised per source, with its own load/err state
+      pageSn: null, pageDoc: null, pageBusy: false, pageErr: null,
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
       pasteOpen: false, pasteTitle: '', pasteBody: '',
       modelOpen: false, topicMenu: null, exportMenuOpen: false,
@@ -1062,8 +1125,9 @@ class Component extends DCLogic {
       ackPermanence: false, ackPrivacy: false, ackRights: false,
       rev: 0,
     };
-    this._segCache = {}; this._viewCache = null; this._entCache = null;
+    this._segCache = {}; this._viewCache = null; this._entCache = null; this._readerCache = null;
     this._app = (typeof window !== 'undefined' && window.EO && window.EO.app) || null;
+    this._render = (typeof window !== 'undefined' && window.EO && window.EO.readerRender) || null;
     this._matrix = (typeof window !== 'undefined' && window.EO && window.EO.matrix) || null;
     this._genome = (typeof window !== 'undefined' && window.EO && window.EO.genome) || null;
     if (this._app) {
@@ -1077,6 +1141,19 @@ class Component extends DCLogic {
 
   _pref(k, dflt) { try { const v = localStorage.getItem(k); return v == null ? dflt : v === '1'; } catch { return dflt; } }
   _setPref(k, v) { try { localStorage.setItem(k, v ? '1' : '0'); } catch {} }
+  // The e-book reading preferences (paper theme, type family, size, width) — persisted whole
+  // as JSON, clamped by the render module so a hand-edited value can't break the reader.
+  _readPrefs() {
+    const dflt = (this._render && this._render.DEFAULT_READ_PREFS) || { fs: 19, lh: 1.7, w: 720, theme: 'light', font: 'serif' };
+    let saved = null; try { saved = JSON.parse(localStorage.getItem('eo_readprefs') || 'null'); } catch {}
+    const rp = { ...dflt, ...(saved && typeof saved === 'object' ? saved : {}) };
+    return this._render ? this._render.clampReadPrefs(rp) : rp;
+  }
+  _saveReadPrefs(rp) { try { localStorage.setItem('eo_readprefs', JSON.stringify(rp)); } catch {} }
+  // Per-source reading position (a 0–1 scroll fraction), so reopening a book returns to the page.
+  _readPosKey(sn) { return 'eo_pos_' + sn; }
+  _loadReadPos(sn) { try { const v = parseFloat(localStorage.getItem(this._readPosKey(sn))); return isFinite(v) ? Math.max(0, Math.min(1, v)) : 0; } catch { return 0; } }
+  _saveReadPos(sn, f) { try { localStorage.setItem(this._readPosKey(sn), String(Math.max(0, Math.min(1, f)))); } catch {} }
 
   _onEngine(kind) {
     if (kind === 'sources') { this._entCache = null; this._viewCache = null; this._segCache = {}; }
@@ -1263,10 +1340,86 @@ class Component extends DCLogic {
   closeMonologue() { this.setState({ monologueOpen: false }); }
   toggleModel() { this.setState({ modelOpen: !this.state.modelOpen }); }
   openViewer(sn, focusText) {
-    this._viewCache = null;
-    this.setState({ viewerSn: sn, viewerFocus: focusText || null, viewerMode: 'text' });
+    this._viewCache = null; this._readerCache = null; this._readerFrame = null;
+    // A jump-to-passage (from a citation) opens the reading and scrolls it there; a plain open
+    // starts in the reader — the themed book view is the front door for a recorded source.
+    this.setState({ viewerSn: sn, viewerFocus: focusText || null, viewerMode: 'reader', viewerWide: false,
+      tocOpen: false, pageSn: null, pageDoc: null, pageBusy: false, pageErr: null });
   }
-  setViewerMode(mode) { this.setState({ viewerMode: mode }); }
+  setViewerMode(mode) {
+    this.setState({ viewerMode: mode, tocOpen: false });
+    if (mode === 'page') this.loadPage();
+  }
+  toggleViewerWide() { this.setState({ viewerWide: !this.state.viewerWide }); }
+  // The native "Page" tab — fetch the real page's HTML through the app's proxy, sanitize it, and
+  // hand it to a sandboxed iframe. Memoised per source; a plain-text URL reflows into the reader.
+  loadPage() {
+    const s = this._app && this._app.sourceBySn(this.state.viewerSn);
+    if (!s || !s.url || !this._app.fetchPage) return;
+    if (this.state.pageSn === s.sn && (this.state.pageDoc || this.state.pageBusy)) return;
+    this.setState({ pageSn: s.sn, pageDoc: null, pageErr: null, pageBusy: true });
+    const sn = s.sn, url = s.url;
+    this._app.fetchPage(url).then((r) => {
+      if (this.state.viewerSn !== sn) return;
+      const doc = this._render.nativePageHtml(r.html, { baseUrl: r.url || url, prefs: this.state.readPrefs });
+      this.setState({ pageDoc: doc, pageBusy: false });
+    }).catch((e) => {
+      if (this.state.viewerSn !== sn) return;
+      this.setState({ pageBusy: false, pageErr: String((e && e.message) || e) });
+    });
+  }
+  // Reading-preference setters — persist, then apply LIVE to the open book iframe via CSS
+  // variables (no reload, so scroll position survives), exactly as eoreader4.1 did.
+  _applyRead(patch) {
+    const rp = (this._render ? this._render.clampReadPrefs({ ...this.state.readPrefs, ...patch }) : { ...this.state.readPrefs, ...patch });
+    this._saveReadPrefs(rp);
+    this.setState({ readPrefs: rp });
+    const d = this._readerFrame && this._readerFrame.contentDocument;
+    if (d && this._render) this._render.applyThemeVars(d, rp);
+  }
+  cycleReadTheme() { const o = ['light', 'sepia', 'dark']; const i = o.indexOf(this.state.readPrefs.theme); this._applyRead({ theme: o[(i + 1) % o.length] }); }
+  toggleReadFont() { this._applyRead({ font: this.state.readPrefs.font === 'sans' ? 'serif' : 'sans' }); }
+  bumpReadFont(d) { this._applyRead({ fs: (this.state.readPrefs.fs || 19) + d }); }
+  cycleReadWidth() { const o = [600, 720, 860]; const i = o.indexOf(this.state.readPrefs.w); this._applyRead({ w: o[(i + 1) % o.length] }); }
+  toggleToc() { this.setState({ tocOpen: !this.state.tocOpen }); }
+  gotoChapter(id) {
+    const d = this._readerFrame && this._readerFrame.contentDocument;
+    if (d && this._render) this._render.scrollToAnchor(d, id);
+    this.setState({ tocOpen: false });
+  }
+  // The reader iframe ref — capture it, restore the saved scroll position, apply the current
+  // theme, and (on a citation jump) scroll to the cited passage. Runs once per mount.
+  setReaderFrame(el) {
+    if (!el) { return; }
+    this._readerFrame = el;
+    const sn = this.state.viewerSn, focus = this.state.viewerFocus, rp = this.state.readPrefs, R = this._render;
+    // Ref callbacks re-fire on every re-render; init ONCE per loaded document (flagged on the
+    // document) so a live theme change — applied via _applyRead's CSS variables — never re-runs
+    // this and jumps the scroll. A fresh document (new source, or the reader tab remounted)
+    // clears the flag, so its scroll position restores as expected.
+    const settle = () => {
+      const d = el.contentDocument; if (!d || !d.body || d.__eoInit) { return; }
+      d.__eoInit = true;
+      try { R && R.applyThemeVars(d, rp); } catch {}
+      const win = d.defaultView;
+      if (focus && R) { R.scrollToText(d, focus); }
+      else if (win) {
+        const pos = this._loadReadPos(sn);
+        if (pos > 0) { const max = Math.max(1, (d.documentElement.scrollHeight || 0) - win.innerHeight); win.scrollTo(0, pos * max); }
+      }
+      // Track scroll so reopening returns to the page (throttled).
+      if (win) {
+        win.addEventListener('scroll', () => {
+          const max = Math.max(1, (d.documentElement.scrollHeight || 0) - win.innerHeight);
+          if (this._posT) return; this._posT = setTimeout(() => { this._posT = null; this._saveReadPos(sn, win.scrollY / max); }, 200);
+        }, { passive: true });
+      }
+    };
+    // srcdoc loads async — apply on load, and retry a couple of times in case it's already parsing.
+    el.addEventListener('load', settle, { once: true });
+    let n = 0; const tick = () => { if (el.contentDocument && el.contentDocument.body) settle(); else if (n++ < 20) setTimeout(tick, 40); };
+    setTimeout(tick, 30);
+  }
   downloadEot() {
     const s = this._app.sourceBySn(this.state.viewerSn);
     const r = s && this._app.eotFor(s.sn);
@@ -1290,7 +1443,7 @@ class Component extends DCLogic {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     this.showToast('Chat exported — ' + out.filename);
   }
-  closeViewer() { this.setState({ viewerSn: null, viewerFocus: null }); }
+  closeViewer() { this._readerCache = null; this._readerFrame = null; this.setState({ viewerSn: null, viewerFocus: null, tocOpen: false, pageSn: null, pageDoc: null, pageBusy: false, pageErr: null }); }
   setViewerBody(el) {
     if (!el || !this.state.viewerFocus) return;
     const probe = this.state.viewerFocus.slice(0, 50).toLowerCase();
@@ -1794,7 +1947,9 @@ class Component extends DCLogic {
 
     // viewer
     let viewer = null, viewerParas = [], eotLines = [], eotTruncated = false, eotMore = '';
-    const vMode = st.viewerMode || 'text';
+    let readerDoc = '', readerToc = [], pageDoc = '', pageBusy = false, pageErr = '';
+    const vMode = st.viewerMode || 'reader';
+    const rp = st.readPrefs || {};
     if (st.viewerSn) {
       const s = app.sourceBySn(st.viewerSn);
       if (s) {
@@ -1809,6 +1964,23 @@ class Component extends DCLogic {
           ents: s.entCount == null ? '…' : String(s.entCount),
           eotCount: eot && eot.structure ? String(eot.structure.lines ? eot.structure.lines.length : 0) : '0',
         };
+        // The themed book — built once per source (prefs are baked in, then applied LIVE on the
+        // mounted iframe, so a theme change never rebuilds this string / reloads the reader).
+        if (this._render) {
+          if (!this._readerCache || this._readerCache.sn !== st.viewerSn) {
+            try { this._readerCache = { sn: st.viewerSn, ...this._render.buildReaderDoc(s, st.readPrefs) }; }
+            catch { this._readerCache = { sn: st.viewerSn, html: '', toc: [] }; }
+          }
+          readerDoc = this._readerCache.html;
+          readerToc = (this._readerCache.toc || []).map((c) => ({
+            label: c.label, level: c.level, pad: String(11 + ((c.level || 1) - 1) * 14),
+            go: () => this.gotoChapter(c.id),
+          }));
+        }
+        // The native page tab reads its memoised fetch from state (loadPage fills it).
+        pageBusy = !!st.pageBusy && st.pageSn === s.sn;
+        pageErr = (st.pageErr && st.pageSn === s.sn) ? st.pageErr : '';
+        pageDoc = (st.pageDoc && st.pageSn === s.sn) ? st.pageDoc : '';
         if (vMode === 'eot' && eot) {
           const all = String(eot.text || '').split('\n');
           const CAP = 1600;
@@ -1930,10 +2102,27 @@ class Component extends DCLogic {
       entModeFg: st.entityMode ? '#5B4BE6' : '#8A8A95', entModeBg: st.entityMode ? '#F1EFFE' : '#F2F2F6', entModeBd: st.entityMode ? '#DED8FD' : '#EAEAEF',
       // viewer
       viewerShow: !!viewer, viewer: viewer || {}, viewerParas,
-      viewerIsText: vMode === 'text', viewerIsEot: vMode === 'eot',
+      viewerWide: !!st.viewerWide, toggleViewerWide: () => this.toggleViewerWide(),
+      viewerWideIcon: st.viewerWide ? '⤡' : '⤢', viewerWideTitle: st.viewerWide ? 'Read narrow' : 'Read wide',
+      viewerPanelW: st.viewerWide ? 'min(1180px,95vw)' : 'min(900px,92vw)',
+      // four tabs: Reader (themed book) · Page (native site) · Document (paragraphs) · EoT
+      viewerCanPage: !!viewer && viewer.hasUrl,
+      viewerIsReader: vMode === 'reader', viewerIsPage: vMode === 'page', viewerIsText: vMode === 'text', viewerIsEot: vMode === 'eot',
+      viewerModeReader: () => this.setViewerMode('reader'), viewerModePage: () => this.setViewerMode('page'),
       viewerModeText: () => this.setViewerMode('text'), viewerModeEot: () => this.setViewerMode('eot'),
+      vmReaderFg: vMode === 'reader' ? '#1B1B22' : '#8A8A95', vmReaderBg: vMode === 'reader' ? '#fff' : 'transparent',
+      vmPageFg: vMode === 'page' ? '#1B1B22' : '#8A8A95', vmPageBg: vMode === 'page' ? '#fff' : 'transparent',
       vmTextFg: vMode === 'text' ? '#1B1B22' : '#8A8A95', vmTextBg: vMode === 'text' ? '#fff' : 'transparent',
       vmEotFg: vMode === 'eot' ? '#1B1B22' : '#8A8A95', vmEotBg: vMode === 'eot' ? '#fff' : 'transparent',
+      // reader body + controls
+      readerDoc, setReaderFrame: (el) => this.setReaderFrame(el),
+      readerToc, hasToc: readerToc.length > 1, tocOpen: !!st.tocOpen, toggleToc: () => this.toggleToc(),
+      readThemeLabel: { light: '☀ Light', sepia: '❦ Sepia', dark: '☾ Night' }[rp.theme] || 'Paper',
+      readFontLabel: rp.font === 'sans' ? 'Aa Sans' : 'Aa Serif', readWidthLabel: String(rp.w || 720),
+      cycleReadTheme: () => this.cycleReadTheme(), toggleReadFont: () => this.toggleReadFont(),
+      readSizeUp: () => this.bumpReadFont(1), readSizeDown: () => this.bumpReadFont(-1), cycleReadWidth: () => this.cycleReadWidth(),
+      // native page body
+      pageDoc, pageShow: !!pageDoc, pageBusy, pageErr, hasPageErr: !!pageErr, retryPage: () => this.loadPage(),
       eotLines, eotTruncated, eotMore, downloadEot: () => this.downloadEot(),
       closeViewer: () => this.closeViewer(), setViewerBody: (el) => this.setViewerBody(el),
       removeViewerSource: () => { if (viewer && confirm(`Remove ${viewer.reg} from the record?`)) { app.removeSource(st.viewerSn); this.closeViewer(); } },

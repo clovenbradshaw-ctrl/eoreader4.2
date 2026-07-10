@@ -31,6 +31,7 @@ import { createAuditLog } from '../audit/index.js';
 import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
 import { mountTieredGraph } from './tiered-graph.js';
+import * as readerRender from './reader-render.js';
 import { createMatrixSession } from '../archive/matrix.js';
 import { depositToArchive, missingConsent, archiveMediatype, REQUIRED_CONSENT, KINDS, ARCHIVE_CASES_WEBHOOK } from '../archive/deposit.js';
 import { createCheckpointLog, checkpointId } from '../archive/checkpoints.js';
@@ -85,6 +86,7 @@ window.EO = Object.freeze({
   audit,
   workspace,
   mountTieredGraph,
+  readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   matrix,
   archive,
   genome,
