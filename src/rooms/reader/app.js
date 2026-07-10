@@ -985,7 +985,8 @@ export const createReaderApp = ({ audit } = {}) => {
     const segs = [];
     let rest = String(text);
     if (!lex.length) return rest ? [{ t: 'text', s: rest }] : [];
-    // one pass, longest-label-first alternation; word-bounded, case-sensitive first letter
+    // one pass, longest-label-first alternation; word-bounded, case-insensitive so EVERY
+    // mention links — "the dolphin's sonar" reaches the same entity as "Dolphin" in a heading.
     const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const re = new RegExp(`\\b(${lex.map((e) => escRe(e.label)).join('|')})\\b`, 'gi');
     let last = 0, mArr;
@@ -1005,8 +1006,9 @@ export const createReaderApp = ({ audit } = {}) => {
     return segs;
   };
 
-  // Answer text → paragraphs of segments; [sN] markers become cite chips.
-  const answerSegments = (msg, { entities = true } = {}) => {
+  // Answer text → paragraphs of segments; [sN] markers become cite chips. With cites off the
+  // markers are still consumed (never rendered as raw [sN] text) but no chip seg is emitted.
+  const answerSegments = (msg, { entities = true, cites = true } = {}) => {
     const docs = topicDocs();
     const lex = entities ? entityLexicon(docs) : [];
     const citeOf = new Map((msg.cites || []).map((c) => [c.idx, c]));
@@ -1019,7 +1021,7 @@ export const createReaderApp = ({ audit } = {}) => {
       let m2;
       while ((m2 = re.exec(para)) !== null) {
         if (m2.index > last) segs.push(...linkifySegs(para.slice(last, m2.index), lex));
-        for (const idxStr of m2[0].match(/\d+/g) || []) {
+        if (cites) for (const idxStr of m2[0].match(/\d+/g) || []) {
           const c = citeOf.get(Number(idxStr));
           if (c) segs.push({ t: 'cite', idx: c.idx, sn: c.sn, reg: c.reg, title: c.title, quote: c.text });
         }

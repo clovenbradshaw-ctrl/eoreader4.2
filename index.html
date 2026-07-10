@@ -440,6 +440,7 @@ table{border-collapse:collapse;width:100%}
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
                 <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Answers only from your recorded sources — nothing enters an answer unrecorded.</span>
                 <span style="flex:1"></span>
+                <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }}" style-hover="filter:brightness(.97)">⟬e⟭ {{ entModeLabel }}</button>
                 <button onClick="{{ cycleWebMode }}" title="{{ webModeTitle }}" style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ webModeFg }};background:{{ webModeBg }};border:1px solid {{ webModeBd }}" style-hover="filter:brightness(.97)">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.6 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.6-3.8-9s1.3-6.5 3.8-9z"/></svg>
                   {{ webModeLabel }}
@@ -902,7 +903,7 @@ table{border-collapse:collapse;width:100%}
                 <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">ENTITIES</span>
                 <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ entCount }}</span>
                 <span style="flex:1"></span>
-                <button onClick="{{ toggleEntityMode }}" title="Toggle clickable entities in text" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:3px 8px">⟬e⟭ in text</button>
+                <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:3px 8px">⟬e⟭ in text</button>
               </div>
               <sc-if value="{{ entEmpty }}">
                 <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:16px 14px;font-size:12px;color:#9A9AA4;line-height:1.55">No entities yet. Record a source and its named figures — people, places, things — appear here with their mentions and links.</div>
@@ -1179,7 +1180,7 @@ class Component extends DCLogic {
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
       pasteOpen: false, pasteTitle: '', pasteBody: '',
       modelOpen: false, topicMenu: null, exportMenuOpen: false,
-      entitySel: null, entityMode: true, webGraphFor: null,
+      entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null,
       // optional Matrix account login
       acctOpen: false,
       loginShow: false, loginId: '', loginPass: '', loginHs: '', loginBusy: false, loginErr: null,
@@ -1667,7 +1668,7 @@ class Component extends DCLogic {
   closeSearch() { this.setState({ searchOpen: false }); }
   openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'chat' : this.state.tab, focusId: null }); this._setPref('eo_right', true); }
   backToEntities() { this.setState({ entitySel: null, focusId: null }); }
-  toggleEntityMode() { this._segCache = {}; this._viewCache = null; this.setState({ entityMode: !this.state.entityMode }); }
+  toggleEntityMode() { const on = !this.state.entityMode; this._setPref('eo_entmode', on); this._segCache = {}; this._viewCache = null; this.setState({ entityMode: on }); }
   openWebGraph(docId, entId) { this.setState({ webGraphFor: { docId, entId } }); }
   closeWebGraph() { if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; } this.setState({ webGraphFor: null }); }
   setWebGraphEl(el) {
@@ -1803,11 +1804,13 @@ class Component extends DCLogic {
     return { style: 'margin:0 0 10px', hasPrefix: false, prefix: '', cut: 0 };
   }
   // The settled body: the app's answer segments (entity links + [sN] cite chips bound), with the
-  // block frame and inline emphasis layered on. Cached by text length.
+  // block frame and inline emphasis layered on. Cached by text length. entityMode gates BOTH the
+  // entity links and the inline cite chips — off, the answer reads as plain prose (the GROUNDED IN
+  // footer still names the sources).
   _segsFor(m) {
     const c = this._segCache[m.id];
     if (c && c.len === (m.text || '').length) return c.paras;
-    const paras = this._app.answerSegments(m, { entities: this.state.entityMode }).map((p) => {
+    const paras = this._app.answerSegments(m, { entities: this.state.entityMode, cites: this.state.entityMode }).map((p) => {
       const segsIn = p.segs.slice();
       let blk = { style: 'margin:0 0 10px', hasPrefix: false, prefix: '', cut: 0 };
       if (segsIn[0] && segsIn[0].t === 'text') {
@@ -2482,6 +2485,10 @@ class Component extends DCLogic {
       backToEntities: () => this.backToEntities(),
       toggleEntityMode: () => this.toggleEntityMode(),
       entModeFg: st.entityMode ? '#5B4BE6' : '#8A8A95', entModeBg: st.entityMode ? '#F1EFFE' : '#F2F2F6', entModeBd: st.entityMode ? '#DED8FD' : '#EAEAEF',
+      entModeLabel: st.entityMode ? 'Links · on' : 'Links · off',
+      entModeTitle: st.entityMode
+        ? 'Every entity mention is clickable and inline citation chips are shown. Click to hide both.'
+        : 'Entity links and inline citation chips are hidden — the text reads plain. Click to show them.',
       // source viewer — sources are TABS IN THE MAIN STAGE; srcTabs render in the main tab bar,
       // and when a source tab is active the stage shows it (isSource) instead of a fixed view.
       srcTabs, hasSrcTabs: srcTabs.length > 0, isSource: !!viewer, viewer: viewer || {}, viewerParas,
