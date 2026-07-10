@@ -1,6 +1,8 @@
 // EO: EVA(Field,Network → Lens,Atmosphere, Binding·Tracing·Tending) — the metabolic ratio
 // metabolism/fitness.js — fitness as quality per unit resource, anchored against the
 // one exploit that would otherwise eat the whole design.
+
+import { TRANSFER_FLOOR, keptFitness } from './lift.js';
 //
 // Fitness is efficiency, and efficiency is only meaningful because the resource in
 // the denominator is scarce. The numerator is quality — grounded claims delivered,
@@ -151,8 +153,9 @@ export const score = (outcome = {}, { energyOf, anchorWeight = 0.6, voidValue = 
 // recent record was externally anchored vs self-reported — the honesty gauge.
 export const createFitness = ({
   energyOf, anchorWeight = 0.6, gamma = 0.8,
-  bornVoidValue = 1,        // the born PRIOR: how much a precise delayed binding is worth before any
-                            // evidence — a small innate weight, NOT the final answer, only a bootstrap.
+  bornVoidValue = TRANSFER_FLOOR,   // the born PRIOR is the TRANSFER FLOOR (lift.js): a held thread is
+                            // worth, a priori, the worst-case transferable minimum — nothing beyond it
+                            // until measured. Not a free 1.0; the one prior, tied to the transfer discipline.
   voidCap = 4,              // the transfer ceiling — the measured exchange rate cannot self-inflate past this.
   voidCalibration = 0.15,   // EMA weight: how fast the measured lift pulls voidValue off the born prior.
 } = {}) => {
@@ -162,12 +165,17 @@ export const createFitness = ({
   const history = [];
   return Object.freeze({
     observe(outcome) {
-      // CALIBRATE the magnitude from the world, not a constant. `outcome.lift` is the UN-AUTHORED
-      // value a held-then-bound thread actually delivered (lift.js — with-surfer minus bare, judged
-      // over the held source). Only an external lift moves voidValue; the population cannot author
-      // the weight of its own reward. Absent lift, the rate stays at the born prior and says so.
-      if (outcome.lift != null && Number.isFinite(+outcome.lift) && num(outcome.groundedOnDelay) > 0) {
-        const observed = Math.max(0, Math.min(voidCap, +outcome.lift));
+      // CALIBRATE the magnitude from the world, not a constant. The signal is the WORST-CASE
+      // transferable lift — `keptFitness` = min(liftA, liftB) across TWO frozen models (lift.js),
+      // so the exchange rate is what a held thread is worth when the leaf is swapped, never a
+      // gain overfit to one model. Only this un-authored lift moves voidValue; the population
+      // cannot author the weight of its own reward. A single `lift` is used but is not
+      // transfer-verified. Absent lift, the rate stays at the transfer-floor prior and says so.
+      const kept = (outcome.liftA != null && outcome.liftB != null)
+        ? keptFitness(+outcome.liftA, +outcome.liftB)
+        : (outcome.lift != null && Number.isFinite(+outcome.lift) ? +outcome.lift : null);
+      if (kept != null && Number.isFinite(kept) && num(outcome.groundedOnDelay) > 0) {
+        const observed = Math.max(0, Math.min(voidCap, kept));
         voidValue = round((1 - voidCalibration) * voidValue + voidCalibration * observed);
         voidObs += 1;
       }

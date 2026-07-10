@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  createMetabolism, createScarcity, createGenome, score, energyOf, createFitness,
+  createMetabolism, createScarcity, createGenome, score, energyOf, createFitness, TRANSFER_FLOOR,
   CONSTITUTION, admits, permitsCell,
   createOrgan, foundingOrgans,
   createSoma, PERMITTED_CELLS,
@@ -163,19 +163,26 @@ test('fitness: the Void-respect term — holding earns nothing, the delayed bind
   assert.equal(score({ delivered: true, grounded: 2, claimed: 2, covered: 1, endorsed: 0.9, spend: {} }, { energyOf: eo }).anchoredBy, 'human');
 });
 
-test('fitness: the Void-respect MAGNITUDE is measured, not a hard rule — a born prior that floats on un-authored lift', () => {
+test('fitness: the Void-respect MAGNITUDE is the transfer floor, floated by the worst-case measured lift', () => {
   const f = createFitness({ energyOf, voidCap: 4, voidCalibration: 0.15 });
-  // before any evidence, the exchange rate is the born PRIOR and it says so: zero measured signal.
+  // before any evidence the exchange rate is the TRANSFER-FLOOR prior (lift.js) — a held thread is
+  // worth only what provably transfers, i.e. nothing yet — and it reports that honestly.
   f.observe({ delivered: true, grounded: 2, claimed: 2, covered: 1, validated: 0.8, spend: {} });
   const c0 = f.condition();
-  assert.equal(c0.voidValue, 1, 'the magnitude starts at the born prior — a bootstrap, not the answer');
+  assert.equal(c0.voidValue, TRANSFER_FLOOR, 'the magnitude starts at the transfer floor — the conservative prior, not a free 1.0');
   assert.equal(c0.signalRate, 0, 'and it reports honestly: 0% of the weight is measured signal yet');
-  // un-authored lift (lift.js — with-surfer minus bare) pulls the rate off the prior toward reality.
-  for (let i = 0; i < 12; i++) f.observe({ delivered: true, groundedOnDelay: 1, heldForBinding: 1, lift: 3.2, spend: {} });
+  // the calibration signal is the WORST-CASE transferable lift — kept = min across two frozen
+  // models — so a gain overfit to one leaf cannot inflate the rate.
+  for (let i = 0; i < 12; i++) f.observe({ delivered: true, groundedOnDelay: 1, heldForBinding: 1, liftA: 3.2, liftB: 2.9, spend: {} });
   const c1 = f.condition();
-  assert.ok(c1.voidValue > 2 && c1.signalRate > 0.8, 'after real lift the magnitude is measured, not posited — the answer to "how much is signal" rises');
-  // the population cannot author the weight of its own reward, and it cannot self-inflate past transfer.
-  for (let i = 0; i < 40; i++) f.observe({ delivered: true, groundedOnDelay: 1, heldForBinding: 1, lift: 999, spend: {} });
+  assert.ok(c1.voidValue > 1.5 && c1.voidValue <= 2.9, 'the rate floats toward the KEPT (worst-of-two-models) lift, never the better one');
+  assert.ok(c1.signalRate > 0.8, 'the answer to "how much of the weight is measured" rises with evidence');
+  // a gain that fails to transfer (huge on A, floor on B) barely moves the rate — no overfit reward.
+  const g = createFitness({ energyOf });
+  for (let i = 0; i < 12; i++) g.observe({ delivered: true, groundedOnDelay: 1, heldForBinding: 1, liftA: 3.5, liftB: 0.02, spend: {} });
+  assert.ok(g.condition().voidValue < 0.2, 'a prompt-overfit lift (great on one model, nil on the other) earns almost nothing — transfer caps it');
+  // it cannot self-inflate past the transfer ceiling either.
+  for (let i = 0; i < 40; i++) f.observe({ delivered: true, groundedOnDelay: 1, heldForBinding: 1, liftA: 999, liftB: 999, spend: {} });
   assert.ok(f.condition().voidValue <= 4, 'the transfer ceiling caps the exchange rate — no runaway self-reward');
 });
 

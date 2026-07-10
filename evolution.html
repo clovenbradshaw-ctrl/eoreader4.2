@@ -212,8 +212,14 @@ function step(){
     grounded: 2+(warm?1:0), claimed: 3, coherence: 0.8, covered: Math.min(1, base+wobble), delivered: true,
     validated: Math.max(0.2, Math.min(1, base + wobble)),
   };
-  // a held thread occasionally binds later — the investigator's payoff (demo signal).
-  if(period>4 && period%5===0){ outcome.groundedOnDelay = 1; outcome.heldForBinding = 1; }
+  // a held thread occasionally binds later — the investigator's payoff (demo signal). We also feed
+  // a synthetic WORST-CASE transferable lift (two frozen models) so the exchange rate calibrates
+  // live off the transfer-floor prior — the Born-rule magnitude, measured rather than posited.
+  if(period>4 && period%5===0){
+    outcome.groundedOnDelay = 1; outcome.heldForBinding = 1;
+    const l = 1.4 + 1.2*Math.max(0, (outcome.validated||0.6)-0.6);
+    outcome.liftA = l; outcome.liftB = l*0.85;   // kept = min → the value when the leaf is swapped
+  }
   if(pendingEndorse!=null){ outcome.endorsed = pendingEndorse; pendingEndorse=null; }
   metab.metabolize(outcome);
   period++;

@@ -273,7 +273,7 @@ export { createSelection } from './select.js';
 export { createPopulation } from './population.js';
 export { createProvenance, memoryStore } from './persist.js';
 export { createJudge, buildJudgeRequest, parseVerdict, JUDGE_MODEL, buildInterpretationRequest, parseInterp, createPanel, createJudgePool } from './judge.js';
-export { liftOf, gapClosed, liftFitness, transfers, keptFitness, transferReading, createProxy, liftWorld } from './lift.js';
+export { liftOf, gapClosed, liftFitness, transfers, keptFitness, transferReading, createProxy, liftWorld, TRANSFER_FLOOR } from './lift.js';
 export { createHorizon, knownHorizon } from './horizon.js';
 export { createAgent, reputationOf, decide, simulate, classifyRoom, isWrongRoom, population } from './reputation.js';
 // organ-level evolution — the body plan, its organs, and the floor evolution stands on:

@@ -118,14 +118,24 @@ predicting the future.
 *How much* one precise delayed binding is worth against a joule is **not a hard rule**. A
 hand-picked constant is domain-blind; a population-tuned weight gets optimized to zero (the clerk
 scores today). So the magnitude is `voidValue` — an **exchange rate read off the observed
-structure**, calibrated from the un-authored **lift** a held-then-bound thread actually delivered
-(`lift.js` — with-surfer minus bare, judged over the held source), capped by transfer so it cannot
-self-inflate. A small **born prior** lets it bootstrap before evidence; every observation pulls it
-toward measured reality. Neither the human's thumb nor the population's strategy — the world's
-measurement. `condition()` surfaces `signalRate` (how much of the weight is measured vs. the born
-prior), so *how much of the weighting is actual contextual signal* is legible at runtime. What
-stays frozen is only the **structure** — retroactive-only, precision-gated, that a held-then-bound
-thread is rewarded at all — because that is the part a cheater would weaken.
+structure**, calibrated from the un-authored lift a held-then-bound thread actually delivered.
+
+The prior and the signal are both folded into the **transfer discipline** (`lift.js`), so no free
+constant is left:
+
+- The **born prior is the `TRANSFER_FLOOR`** — before any evidence a held thread is worth only what
+  provably transfers, i.e. nothing beyond the floor. Conservative by construction, not a free 1.0.
+- The **calibration signal is the *kept* lift** — `keptFitness = min(liftA, liftB)` across two
+  frozen models: what the gain is worth *when the leaf is swapped*. A gain overfit to one model
+  (great on A, nil on B) barely moves the rate; a transfer ceiling caps runaway self-reward.
+
+Every observation pulls the rate off the floor toward the measured worst-case value. Neither the
+human's thumb nor the population's strategy — the world's measurement. `condition()` surfaces
+`signalRate` (how much of the weight is measured vs. the transfer-floor prior), so *how much of the
+weighting is actual contextual signal* is legible at runtime. What stays frozen is only the
+**structure** — retroactive-only, precision-gated, that a held-then-bound thread is rewarded at all
+— because that is the part a cheater would weaken. The one residual is the prior itself, now named,
+tied to the transfer floor, and as conservative as it can be.
 
 **Human interaction** is added as the strongest anchor — un-authorable by construction and, in
 time, the primary evolver. It selects genomes directly.
