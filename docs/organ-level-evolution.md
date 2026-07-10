@@ -113,6 +113,20 @@ A fabricated thread never binds, so the delayed judge starves the liar and feeds
 waited. Courage rendered as patience — un-gameable, because faking it requires actually
 predicting the future.
 
+### Structure frozen, magnitude measured (the Born-rule move)
+
+*How much* one precise delayed binding is worth against a joule is **not a hard rule**. A
+hand-picked constant is domain-blind; a population-tuned weight gets optimized to zero (the clerk
+scores today). So the magnitude is `voidValue` — an **exchange rate read off the observed
+structure**, calibrated from the un-authored **lift** a held-then-bound thread actually delivered
+(`lift.js` — with-surfer minus bare, judged over the held source), capped by transfer so it cannot
+self-inflate. A small **born prior** lets it bootstrap before evidence; every observation pulls it
+toward measured reality. Neither the human's thumb nor the population's strategy — the world's
+measurement. `condition()` surfaces `signalRate` (how much of the weight is measured vs. the born
+prior), so *how much of the weighting is actual contextual signal* is legible at runtime. What
+stays frozen is only the **structure** — retroactive-only, precision-gated, that a held-then-bound
+thread is rewarded at all — because that is the part a cheater would weaken.
+
 **Human interaction** is added as the strongest anchor — un-authorable by construction and, in
 time, the primary evolver. It selects genomes directly.
 

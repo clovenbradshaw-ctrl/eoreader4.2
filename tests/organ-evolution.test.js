@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  createMetabolism, createScarcity, createGenome, score, energyOf,
+  createMetabolism, createScarcity, createGenome, score, energyOf, createFitness,
   CONSTITUTION, admits, permitsCell,
   createOrgan, foundingOrgans,
   createSoma, PERMITTED_CELLS,
@@ -161,6 +161,22 @@ test('fitness: the Void-respect term — holding earns nothing, the delayed bind
   assert.ok(bound.voidRespect > spray.voidRespect, 'holding-everything-cheaply cannot harvest coincidental bindings — precision wins');
   // human interaction is the STRONGEST anchor — the primary evolver, in time.
   assert.equal(score({ delivered: true, grounded: 2, claimed: 2, covered: 1, endorsed: 0.9, spend: {} }, { energyOf: eo }).anchoredBy, 'human');
+});
+
+test('fitness: the Void-respect MAGNITUDE is measured, not a hard rule — a born prior that floats on un-authored lift', () => {
+  const f = createFitness({ energyOf, voidCap: 4, voidCalibration: 0.15 });
+  // before any evidence, the exchange rate is the born PRIOR and it says so: zero measured signal.
+  f.observe({ delivered: true, grounded: 2, claimed: 2, covered: 1, validated: 0.8, spend: {} });
+  const c0 = f.condition();
+  assert.equal(c0.voidValue, 1, 'the magnitude starts at the born prior — a bootstrap, not the answer');
+  assert.equal(c0.signalRate, 0, 'and it reports honestly: 0% of the weight is measured signal yet');
+  // un-authored lift (lift.js — with-surfer minus bare) pulls the rate off the prior toward reality.
+  for (let i = 0; i < 12; i++) f.observe({ delivered: true, groundedOnDelay: 1, heldForBinding: 1, lift: 3.2, spend: {} });
+  const c1 = f.condition();
+  assert.ok(c1.voidValue > 2 && c1.signalRate > 0.8, 'after real lift the magnitude is measured, not posited — the answer to "how much is signal" rises');
+  // the population cannot author the weight of its own reward, and it cannot self-inflate past transfer.
+  for (let i = 0; i < 40; i++) f.observe({ delivered: true, groundedOnDelay: 1, heldForBinding: 1, lift: 999, spend: {} });
+  assert.ok(f.condition().voidValue <= 4, 'the transfer ceiling caps the exchange rate — no runaway self-reward');
 });
 
 test('metabolism: an organism metabolism charges upkeep, surfaces the body + the floor, and stays deterministic', () => {

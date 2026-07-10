@@ -145,7 +145,7 @@
       <div class="panel">
         <h2>Void-respect — the investigator, not the clerk</h2>
         <div id="void"></div>
-        <div class="muted" style="margin-top:8px">Holding a thread earns nothing. Only the held thread that <i>later binds</i> pays — retroactively, scaled by precision. A fabricated thread never binds, so the delayed judge starves the liar.</div>
+        <div class="muted" style="margin-top:8px">Holding a thread earns nothing. Only the held thread that <i>later binds</i> pays — retroactively, scaled by precision. The <b>structure</b> is frozen; the <b>magnitude</b> (how much a binding is worth against a joule) is <i>not</i> a hard rule — it is an exchange rate measured from the un-authored lift patience actually delivered, capped by transfer. The bar shows how much of it is measured signal vs. the born prior.</div>
       </div>
 
       <div class="panel">
@@ -276,8 +276,9 @@ function render(){
   // void-respect
   $('void').innerHTML =
     barRow('void-respect (recent)', c.voidRespect||0, 3)
+    + barRow('exchange rate is measured', c.signalRate||0, 1)
     + barRow('anchored by human', c.humanRate||0, 1)
-    + `<div class="row" style="margin-top:6px">${stat('threads bound later', c.boundLater||0)}${stat('anchor rate', (c.anchorRate||0).toFixed(2))}</div>`;
+    + `<div class="row" style="margin-top:6px">${stat('threads bound later', c.boundLater||0)}${stat('exchange rate', (c.voidValue!=null?c.voidValue:1).toFixed(2), (c.signalRate!=null?`${Math.round(c.signalRate*100)}% signal`:''))}${stat('anchor rate', (c.anchorRate||0).toFixed(2))}</div>`;
 
   // lineage
   const evs = v.lineage.slice(-14).reverse();

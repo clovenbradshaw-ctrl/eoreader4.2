@@ -53,9 +53,18 @@
 // append-only log to the genome that kept it alive, and scaled by PRECISION over a spray baseline
 // so holding-everything-cheaply cannot harvest coincidental bindings. A fabricated thread never
 // binds; the delayed judge starves the liar and feeds the one who waited. Courage rendered as
-// patience — and un-gameable, because faking it requires actually predicting the future. The
-// value (that this is what we reward) is the human's frozen sentence; the mechanism lives here.
-export const score = (outcome = {}, { energyOf, anchorWeight = 0.6 } = {}) => {
+// patience — and un-gameable, because faking it requires actually predicting the future.
+//
+// STRUCTURE frozen, MAGNITUDE measured (the Born-rule move). What is a preference a cheater would
+// weaken — retroactive-only, precision-gated, that a held-then-bound thread is rewarded AT ALL —
+// is frozen. But HOW MUCH one precise delayed binding is worth against a joule is NOT a hard
+// constant anyone sets: a hand-picked weight is domain-blind, and a population-tuned weight gets
+// optimized to zero (the clerk scores today). So the magnitude is `voidValue` — an EXCHANGE RATE
+// read off the observed structure, calibrated from the UN-AUTHORED lift a held thread actually
+// delivered (createFitness, below), capped by transfer so it cannot self-inflate. A small born
+// PRIOR lets it bootstrap before evidence; every observation moves it toward measured reality.
+// Neither the human's thumb nor the population's strategy — the world's measurement.
+export const score = (outcome = {}, { energyOf, anchorWeight = 0.6, voidValue = 1 } = {}) => {
   const grounded = num(outcome.grounded);
   const claimed  = Math.max(grounded, num(outcome.claimed));
   const bindFraction = claimed > 0 ? grounded / claimed : 0;
@@ -80,8 +89,11 @@ export const score = (outcome = {}, { energyOf, anchorWeight = 0.6 } = {}) => {
   const held = num(outcome.held);
   const boundLater = num(outcome.groundedOnDelay);
   const heldCandidates = Math.max(boundLater, num(outcome.heldForBinding));
-  const precision = heldCandidates > 0 ? boundLater / heldCandidates : 0;   // lift over spray
-  const voidRespect = boundLater * (0.5 + 0.5 * precision);
+  const precision = heldCandidates > 0 ? boundLater / heldCandidates : 0;   // lift over spray (measured)
+  // magnitude is the MEASURED exchange rate `voidValue`, not a posited constant — how much a
+  // precise delayed binding is worth, read off the world (calibrated in createFitness). The shape
+  // (retroactive, precision-gated) is the frozen structure; the scale floats on reality.
+  const voidRespect = boundLater * (0.5 + 0.5 * precision) * (Number.isFinite(+voidValue) ? +voidValue : 1);
 
   // The UN-AUTHORED anchor. Human interaction (`endorsed`) is the strongest — un-authorable by
   // construction and, in time, the PRIMARY evolver — then the judge's `validated`, then a realized
@@ -127,6 +139,7 @@ export const score = (outcome = {}, { energyOf, anchorWeight = 0.6 } = {}) => {
     held,                          // threads held open this turn (Void-respect posture — unrewarded)
     boundLater,                    // held threads that grounded this turn (the retroactive reward)
     voidRespect: round(voidRespect),
+    voidValue: round(Number.isFinite(+voidValue) ? +voidValue : 1),   // the measured exchange rate applied
     precision: round(precision),   // held→bound precision — the false-vigil falsifier's lift term
     viable: outcome.viable !== false && outcome.delivered !== false,
   });
@@ -136,12 +149,29 @@ export const score = (outcome = {}, { energyOf, anchorWeight = 0.6 } = {}) => {
 // engine compares recent efficiency, not lifetime average (the organism's condition
 // now, which is what its viability turns on). `anchorRate` reports how much of the
 // recent record was externally anchored vs self-reported — the honesty gauge.
-export const createFitness = ({ energyOf, anchorWeight = 0.6, gamma = 0.8 } = {}) => {
+export const createFitness = ({
+  energyOf, anchorWeight = 0.6, gamma = 0.8,
+  bornVoidValue = 1,        // the born PRIOR: how much a precise delayed binding is worth before any
+                            // evidence — a small innate weight, NOT the final answer, only a bootstrap.
+  voidCap = 4,              // the transfer ceiling — the measured exchange rate cannot self-inflate past this.
+  voidCalibration = 0.15,   // EMA weight: how fast the measured lift pulls voidValue off the born prior.
+} = {}) => {
   let mass = 0, wfit = 0, wqual = 0, wenergy = 0, anchoredMass = 0, wvoid = 0, boundTotal = 0, humanMass = 0;
+  // the MEASURED exchange rate for Void-respect, and how far off the born prior it has been pulled.
+  let voidValue = bornVoidValue, voidObs = 0;
   const history = [];
   return Object.freeze({
     observe(outcome) {
-      const s = score(outcome, { energyOf, anchorWeight });
+      // CALIBRATE the magnitude from the world, not a constant. `outcome.lift` is the UN-AUTHORED
+      // value a held-then-bound thread actually delivered (lift.js — with-surfer minus bare, judged
+      // over the held source). Only an external lift moves voidValue; the population cannot author
+      // the weight of its own reward. Absent lift, the rate stays at the born prior and says so.
+      if (outcome.lift != null && Number.isFinite(+outcome.lift) && num(outcome.groundedOnDelay) > 0) {
+        const observed = Math.max(0, Math.min(voidCap, +outcome.lift));
+        voidValue = round((1 - voidCalibration) * voidValue + voidCalibration * observed);
+        voidObs += 1;
+      }
+      const s = score(outcome, { energyOf, anchorWeight, voidValue });
       mass = gamma * mass + 1;
       wfit = gamma * wfit + s.fitness;
       wqual = gamma * wqual + s.quality;
@@ -164,6 +194,12 @@ export const createFitness = ({ energyOf, anchorWeight = 0.6, gamma = 0.8 } = {}
         humanRate: mass > 0 ? round(humanMass / mass) : 0,       // how much of the recent record a human evolved
         voidRespect: mass > 0 ? round(wvoid / mass) : 0,         // recent retroactive credit — the investigator's payoff
         boundLater: boundTotal,                                  // lifetime held threads that grounded
+        // the Void-respect MAGNITUDE, and how much of it is measured signal vs the born prior. This is
+        // the honest answer to "how much weighting is actual contextual signal?" — 1 - bornRate.
+        voidValue: round(voidValue),
+        voidObs,
+        bornRate: round(Math.pow(1 - voidCalibration, voidObs)),   // residual weight of the born prior (1 = all prior, 0 = all measured)
+        signalRate: round(1 - Math.pow(1 - voidCalibration, voidObs)),
         samples: history.length,
       });
     },
