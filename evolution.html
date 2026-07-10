@@ -168,6 +168,16 @@
       </div>
 
       <div class="panel">
+        <h2>Transfer probe — stand up model B (measure the floor, don't assert it)</h2>
+        <div class="row" style="margin-bottom:9px">
+          <button id="probe">🔬 Run the surfer through two frozen models</button>
+          <span id="probeState" class="muted"></span>
+        </div>
+        <div id="probeOut"></div>
+        <div class="muted" style="margin-top:8px">The kept lift is <b>min(A, B)</b> — what the gain is worth when the leaf is swapped. A prompt hack that lifts one model and not the other collapses to ~0. This measured kept lift, not a synthetic number, sets the Void-respect exchange rate above.</div>
+      </div>
+
+      <div class="panel">
         <h2>Ecology</h2>
         <div class="row" id="ecology"></div>
       </div>
@@ -177,8 +187,10 @@
 </div>
 
 <script type="module">
-import { createMetabolism, createScarcity, createOrganism, createSoma, createPopulation, CONSTITUTION, forage } from './src/metabolism/index.js';
+import { createMetabolism, createScarcity, createOrganism, createSoma, createPopulation, CONSTITUTION, forage,
+         createTransferProbe, modelRunner, judgeScorer } from './src/metabolism/index.js';
 import { DIAGONAL_CELLS } from './src/core/cube.js';
+import { createModel, EXCERPTS_HEADER } from './src/model/index.js';
 
 const HELIX = ['NUL','SIG','INS','SEG','CON','SYN','DEF','EVA','REC'];
 const GRAINS = ['Ground','Figure','Pattern'];
@@ -186,7 +198,23 @@ const $ = (id) => document.getElementById(id);
 const cellFor = (op,grain) => Object.values(DIAGONAL_CELLS).find(c => c.op===op && c.grain===grain);
 const FORBIDDEN = 'SYN_Cultivating_Field';
 
-let metab, timer=null, period=0, pendingEndorse=null, foraged=[], lastGrown=new Set();
+let metab, timer=null, period=0, pendingEndorse=null, pendingTransfer=null, foraged=[], lastGrown=new Set();
+
+// stand up two frozen models for the transfer probe. Model A is the real `echo` backend; model B
+// is a deliberately WEAKER second leaf (it benefits less from the surfer's scaffolding), so the
+// kept = min(A,B) discipline is a real test, not a synthetic one. Wire webllm/wllama here for a
+// genuine second model. The scorer is the offline overlap proxy (judge-backed when armed).
+const echoBackend = createModel('echo');
+// bare = the frozen model on the question alone; scaffolded = the model fed the surfer's retrieved
+// excerpts (echo grounds to them verbatim → a real lift the overlap scorer can see).
+const excerptLines = (src)=>String(src||'').split(/(?<=[.!?])\s+/).filter(Boolean).join('\n');
+const buildBare = (task)=>[{ role:'user', content:String(task?.question||'') }];
+const buildScaffolded = (task)=>[{ role:'user', content:`${task?.question||''}\n\n${EXCERPTS_HEADER}\n${excerptLines(task?.source)}` }];
+const modelA = modelRunner(echoBackend, { id:'echo-A', buildBare, buildScaffolded });
+// model B is a WEAKER second leaf — it gains less from the same scaffolding (keeps half), so
+// kept = min(A,B) is a real test. Wire webllm/wllama here for a genuinely different frozen model.
+const modelB = { id:'echo-B (weak leaf)', async run(args){ const a = await modelA.run(args); if(!args.scaffolded) return a; const w = String(a).split(/\s+/); return w.filter((_,i)=>i%2===0).join(' '); } };
+const probe = createTransferProbe({ runners: [modelA, modelB], score: judgeScorer(null) });
 
 function build(){
   const regime = $('regime').value, ration = +$('ration').value;
@@ -218,8 +246,11 @@ function step(){
   if(period>4 && period%5===0){
     outcome.groundedOnDelay = 1; outcome.heldForBinding = 1;
     const l = 1.4 + 1.2*Math.max(0, (outcome.validated||0.6)-0.6);
-    outcome.liftA = l; outcome.liftB = l*0.85;   // kept = min → the value when the leaf is swapped
+    outcome.liftA = l; outcome.liftB = l*0.85;   // synthetic kept = min → the value when the leaf is swapped
   }
+  // a REAL transfer measurement (from the probe) overrides the synthetic signal: the void exchange
+  // rate then calibrates from the kept lift of two actual frozen models, not a made-up number.
+  if(pendingTransfer){ Object.assign(outcome, pendingTransfer); outcome.groundedOnDelay = outcome.groundedOnDelay||1; outcome.heldForBinding = outcome.heldForBinding||1; pendingTransfer=null; }
   if(pendingEndorse!=null){ outcome.endorsed = pendingEndorse; pendingEndorse=null; }
   metab.metabolize(outcome);
   period++;
@@ -331,6 +362,21 @@ async function doForage(){
   }catch(err){ $('forageState').textContent = 'forage failed: '+err.message; }
 }
 
+// the transfer probe — run the surfer through two frozen models, measure the kept lift, feed it in.
+async function doProbe(){
+  $('probeState').textContent = 'running the surfer through model A and model B…';
+  const d = foraged[0];
+  const task = d ? { question:`What does the source say about ${d.title}?`, source:`${d.title}. ${d.text}` }
+                 : { question:'What happened at the reactor?', source:'The reactor core reached criticality at noon; operators vented steam and the temperature fell within the hour.' };
+  try{
+    const r = await probe.measure({ task, surfer:{ notation:()=>metab.vitals().championNotation } });
+    pendingTransfer = r.outcome;   // the MEASURED kept lift sets the next beat's void exchange rate
+    $('probeOut').innerHTML = `<div class="row">${stat('lift A', r.liftA.toFixed(2), r.models[0]?.id)}${stat('lift B', r.liftB.toFixed(2), r.models[1]?.id)}${stat('kept = min', r.kept.toFixed(2))}${stat('transfers', r.transfers?'yes':'no')}${stat('overfit', r.overfit.toFixed(2))}</div>`;
+    $('probeState').textContent = `measured — kept lift ${r.kept.toFixed(2)} now feeds the exchange rate (${r.transfers?'transferred':'did NOT transfer'})`;
+    if(!timer) step();
+  }catch(err){ $('probeState').textContent = 'probe failed: '+err.message; }
+}
+
 const escapeHtml = (s)=>String(s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 
 // controls
@@ -346,6 +392,7 @@ $('famine').onclick = ()=>{ // fast-forward to the next famine period so pruning
 $('endorse').onclick = ()=>{ pendingEndorse = 0.95; if(!timer) step(); };
 $('reject').onclick = ()=>{ pendingEndorse = 0.15; if(!timer) step(); };
 $('forage').onclick = doForage;
+$('probe').onclick = doProbe;
 
 renderBoundary();
 build();

@@ -282,3 +282,4 @@ export { createOrgan, foundingOrgans, FOUNDING_ORGANS, UPKEEP_BY_OP, RESOURCE_BY
 export { createSoma, foundingSoma, PERMITTED_CELLS } from './soma.js';
 export { createOrganism, hasSoma } from './organism.js';
 export { forage, createForager, SOURCES } from './forage.js';
+export { createTransferProbe, modelRunner, judgeScorer } from './transfer.js';
