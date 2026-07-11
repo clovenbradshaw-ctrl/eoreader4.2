@@ -20,6 +20,9 @@ export { admitWebSource, createWebStore, webRecord, webContentHash,
 // The live fetch/search client over a CORS feed proxy (search-by-feed → admit into scope).
 export { createWebClient, searchAndAdmit, fetchAndAdmit, parseFeed, htmlToText,
          SEARCH_SOURCES, routeKind, DEFAULT_FEED_PROXY } from './webfetch.js';
+// Which endpoints answer a browser cross-origin, so the fetch can skip the proxy chain entirely —
+// the Wikimedia API family and OpenAlex. Keeps the common search routes alive through a proxy outage.
+export { directCorsUrl } from './direct-cors.js';
 // The library sources: Project Gutenberg (search the catalog, read ENTIRE BOOKS as needed) and
 // the Wikimedia reference shelf — every sister project plus Wikidata — as search kinds that ride
 // the same fetch-through-proxy, admit-with-provenance path (docs/web-search.md).

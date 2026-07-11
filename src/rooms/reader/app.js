@@ -23,6 +23,7 @@ import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
          runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement } from '../../turn/index.js';
 import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
+import { directCorsUrl } from '../../organs/ingest/direct-cors.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
@@ -78,8 +79,17 @@ const fetchTimed = (url, { ms = 20000, signal = null } = {}) => {
 const chainFetch = async (proxiedUrl, { signal = null } = {}) => {
   if (signal?.aborted) throw new Error('aborted');
   const target = targetOf(proxiedUrl);
+  // CORS-DIRECT FIRST. The Wikimedia API family (the default search route) and OpenAlex (the
+  // academic route) answer cross-origin with `Access-Control-Allow-Origin: *`, so fetch them
+  // straight from the browser with no proxy — the reliability fix: the two most common routes no
+  // longer go dark when BOTH proxies are down or rate-limited, and each hop is a hop faster. A
+  // direct miss (an unexpected CORS failure, an offline tab, a transient 5xx) simply falls through
+  // to the proxy chain below, so this only ADDS a path, never removes one. Everything else — article
+  // pages, arXiv/ar5iv, news RSS, feeds — has no CORS header and still rides the proxy.
+  const direct = directCorsUrl(target);
+  const forms = direct ? [() => direct, ...PROXY_FORMS] : PROXY_FORMS;
   let lastErr = null;
-  for (const form of PROXY_FORMS) {
+  for (const form of forms) {
     if (signal?.aborted) throw new Error('aborted');
     try {
       const res = await fetchTimed(form(target), { signal });
@@ -448,7 +458,12 @@ export const createReaderApp = ({ audit } = {}) => {
   // stand on; addSource dedupes by content hash and never overwrites, so re-fetching the
   // same page is a no-op on the registry while the doc still rides the turn.
   const webSearchAdmit = async (query, opts = {}) => {
-    const admitted = await searchAndAdmit(query, { client, k: 5, kind: 'auto', fetchPages: true, ...opts });
+    // Each fetched+admitted page re-arms the no-progress watchdog: a hop pulling five full pages
+    // through the proxy is slow but ALIVE, and without this beat the 45s stall guard was aborting
+    // the whole turn mid-walk ("the web lookup stalled"). onAdmit is set AFTER the spread so the
+    // stall feed always runs — the caller still tunes k/kind/fetchPages, but can't drop the beat.
+    const admitted = await searchAndAdmit(query, {
+      client, k: 5, kind: 'auto', fetchPages: true, ...opts, onAdmit: () => stallGuard?.feed() });
     for (const a of admitted || []) {
       if (!a?.doc || !a?.record) continue;
       try {
