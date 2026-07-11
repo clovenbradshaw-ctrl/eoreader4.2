@@ -415,23 +415,182 @@ export const classifyEotLine = (line) => {
   return 'note';
 };
 
-// facingReadingLines(eotText, opts) → { lines, legend, truncated, more, total }
-//   lines   [{ n, kind, label, color, s, dim }] — one per surface line, coloured by element type
-//           (n is the 1-based line number for the terminal gutter; s is the raw line, blanks
-//           rendered as a single space so the row keeps its height; dim flags the muted layers)
-//   legend  the element types actually PRESENT, in EOT_KIND_ORDER — [{ kind, label, color }]
+// ── entity kinds — colouring the THINGS a proposition connects, not only its operator ─────────
+// classifyEotLine above colours a line by its OPERATOR — the shape of the move. But a reading is
+// mostly the entities it moves: people, places, dates, works, quantities. Those get their own hue
+// here, so `Trump`, `Congress`, `July` and `"SAVE AMERICA ACT"` read as different KINDS of thing
+// at a glance — the way identifiers, numbers and strings differ in an editor.
+//
+// A kind is recovered the same honest way an element type is: from the SURFACE, never by re-running
+// the engine. When the reading DECLARED a type (an is-a line `X : Type`, emitted from a
+// `SIG via:'is'`), that word IS the kind and drives a stable colour everywhere the sign appears.
+// Otherwise a small, conservative heuristic buckets the token — a presentation aid, not a claim.
+export const EOT_ENTITY_KINDS = {
+  proper:   { label: 'name',     color: '#9CDCFE' },  // a capitalised named thing (person / place)
+  org:      { label: 'org',      color: '#F9CE7B' },  // an acronym, or an -Inc/-Party/-Dept/… body
+  time:     { label: 'time',     color: '#D7B4F3' },  // a date, month, weekday, year or clock time
+  quantity: { label: 'quantity', color: '#F7A98C' },  // money, percent or a bare number
+  work:     { label: 'work',     color: '#F2A9C4' },  // a titled work / named act (quoted or CAPS)
+  term:     { label: 'term',     color: '#9DA7B3' },  // a common noun / lowercased id — muted default
+};
+// The entity-kind legend order — the vivid, specific kinds first, the muted `term` last.
+export const EOT_ENTITY_KIND_ORDER = ['proper', 'org', 'time', 'quantity', 'work', 'term'];
+
+// Declared types (the reading's OWN vocabulary) take a stable colour off this bright-tint ring,
+// picked by a cheap string hash so one type is always one hue within a reading. The ring shares no
+// hex with the six heuristic kinds above, so a declared type never collides with a guessed bucket.
+const DECLARED_TINTS = ['#C3E88D', '#89DDC8', '#B5CEA8', '#7FB3FF', '#E0A3FF', '#FFC499', '#8FD9D2', '#D2B48C'];
+const hashTint = (s) => {
+  let h = 0; const str = String(s);
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return DECLARED_TINTS[Math.abs(h) % DECLARED_TINTS.length];
+};
+
+// A titled value rides quoted on the surface (`"SAVE AMERICA ACT"`); strip the quotes for matching.
+const unquoteTok = (s) => {
+  const t = String(s == null ? '' : s).trim();
+  return t.length >= 2 && t[0] === '"' && t[t.length - 1] === '"' ? t.slice(1, -1) : t;
+};
+const kindSpec = (k) => ({ key: k, label: EOT_ENTITY_KINDS[k].label, color: EOT_ENTITY_KINDS[k].color });
+
+// heuristic shapes — conservative, most-specific first. Each is a form a reader can recognise
+// without a gazetteer, so a wrong bucket is rare and, being only a colour, harmless.
+const RE_TIME = /^(?:\d{4}|\d{1,2}:\d{2}|(?:Mon|Tues?|Wednes|Thurs?|Fri|Satur|Sun)day|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?)$/;
+const RE_TZ = /\b(?:AM|PM)\b|\b[AECMP][SD]?T\b/;           // "AM ET", "9 PM", "EST"
+const RE_QUANTITY = /^[$€£]?\d[\d,.]*\s?(?:%|percent|bn|billion|million|trillion|k|m|b)?$/i;
+const RE_ACRONYM = /^[A-Z][A-Z0-9]{1,5}$/;                 // NATO, NPR, FBI, G7
+const RE_ORG_SUFFIX = /\b(?:Inc|Corp|LLC|Ltd|Co|Company|Party|Committee|Department|Dept|Agency|Council|Union|Association|Assn|Bureau|Commission|Court|Bank|University|Institute|Foundation|Group|Board|Office|Senate|House|Congress|Parliament|NATO|UN|EU)\.?$/;
+const RE_WORK_SUFFIX = /\b(?:Act|Bill|Amendment|Resolution|Treaty|Accord|Plan|Report|Programme?)$/;
+
+// entityKind(token, declaredTypes) → { key, label, color }. declaredTypes: Map<sign, Type>.
+export const entityKind = (token, declaredTypes) => {
+  const raw = String(token == null ? '' : token).trim();
+  const bare = unquoteTok(raw);
+  const declared = (declaredTypes && (declaredTypes.get(raw) || declaredTypes.get(bare))) || null;
+  if (declared) return { key: 'is:' + declared, label: declared, color: hashTint(declared) };
+  if (!bare) return kindSpec('term');
+  const words = bare.split(/\s+/).filter(Boolean);
+  const allCaps = words.length >= 2 && words.every((w) => /^[A-Z][A-Z0-9'.-]*$/.test(w));
+  if (raw !== bare && /^[A-Za-z]/.test(bare)) return kindSpec('work');   // a quoted title
+  if (RE_TIME.test(bare) || RE_TZ.test(bare)) return kindSpec('time');
+  if (RE_QUANTITY.test(bare)) return kindSpec('quantity');
+  if (allCaps || RE_WORK_SUFFIX.test(bare)) return kindSpec('work');     // SAVE AMERICA ACT
+  if (RE_ACRONYM.test(bare) || RE_ORG_SUFFIX.test(bare)) return kindSpec('org');
+  if (/^[A-Z]/.test(bare)) return kindSpec('proper');
+  return kindSpec('term');
+};
+
+// splitFirstOutsideQuotes(str, needle) → [before, after] at the FIRST needle OUTSIDE double quotes,
+// or null. Mirrors classifyEotLine's value-safety: a quoted value carrying the glyph never splits.
+const splitFirstOutsideQuotes = (str, needle) => {
+  let inQ = false;
+  for (let i = 0; i + needle.length <= str.length; i++) {
+    if (str[i] === '"' && str[i - 1] !== '\\') inQ = !inQ;
+    if (!inQ && str.startsWith(needle, i)) return [str.slice(0, i), str.slice(i + needle.length)];
+  }
+  return null;
+};
+
+// facingSegments(raw, kind, declaredTypes) → [{ s, color, role, kindKey? }] — one surface line as
+// coloured runs: entities by their KIND, the operator by its element-type colour, labels/values in
+// a calm accent, provenance dimmed. Lossless: the segments' text re-joins to `raw` exactly. Comment
+// and section-rule lines stay one run (their whole-line colour is the reading's own voice).
+export const facingSegments = (raw, kind, declaredTypes) => {
+  const line = String(raw == null ? '' : raw);
+  if (kind === 'blank') return [{ s: line === '' ? ' ' : line, color: 'transparent', role: 'blank' }];
+  const opColorOf = (k) => (EOT_ELEMENT_TYPES[k] || EOT_ELEMENT_TYPES.note).color;
+  if (kind === 'note' || kind === 'rule') return [{ s: line, color: opColorOf(kind), role: kind }];
+
+  const DIM = '#5a6272', VALUE = '#ABB2BF';
+  const ent = (tok) => { const k = entityKind(tok, declaredTypes); return { s: tok, color: k.color, role: 'ent', kindKey: k.key }; };
+  const dim = (tok) => ({ s: tok, color: DIM, role: 'meta' });
+  const valueSeg = (v) => {
+    const t = v.trim();
+    if (t === 'nil' || t === '∅' || t === 'true' || t === 'false') return { s: v, color: '#C678DD', role: 'const' };
+    if (/^-?\d/.test(t)) return { s: v, color: '#D19A66', role: 'num' };
+    if (t[0] === '"') return { s: v, color: '#98C379', role: 'str' };
+    return { s: v, color: VALUE, role: 'val' };
+  };
+  const out = [];
+  // peel a trailing provenance clause (` @agent`, ` ~ts`) — each a single token — off the end.
+  let body = line, tail = '';
+  const mt = /(?: @\S+)?(?: ~\S+)?$/.exec(body);
+  if (mt && mt[0]) { tail = mt[0]; body = body.slice(0, body.length - tail.length); }
+  // peel a leading flag (!sig / !clm / !eva / !rec); the tagged body carries its own shape.
+  let eff = kind;
+  const flag = /^(!(?:sig|clm|eva|rec))(\s+)/.exec(body);
+  if (flag) { out.push({ s: flag[1], color: opColorOf(kind), role: 'flag' }, dim(flag[2])); body = body.slice(flag[0].length); eff = classifyEotLine(body); }
+  const opC = opColorOf(eff);
+  const op = (glyph) => ({ s: glyph, color: opC, role: 'op' });
+  const entPath = (lhs) => { const d = lhs.indexOf('.'); if (d > 0) out.push(ent(lhs.slice(0, d)), dim(lhs.slice(d))); else out.push(ent(lhs)); };
+
+  let parts;
+  if (eff === 'identity' && (parts = splitFirstOutsideQuotes(body, ' == '))) {
+    out.push(ent(parts[0]), op(' == '), ent(parts[1]));
+  } else if (eff === 'compose' && (parts = splitFirstOutsideQuotes(body, ' <- '))) {
+    out.push(ent(parts[0]), op(' <- '));
+    const inner = parts[1].replace(/^\[/, '').replace(/\]$/, '');
+    out.push(dim('['));
+    inner.split(/(,\s*)/).forEach((piece) => { if (/^,/.test(piece)) out.push(dim(piece)); else if (piece) out.push(ent(piece)); });
+    out.push(dim(']'));
+  } else if (eff === 'absence' && (parts = splitFirstOutsideQuotes(body, ' = '))) {
+    entPath(parts[0]); out.push(op(' = '), { s: parts[1], color: opColorOf('absence'), role: 'const' });
+  } else if (eff === 'attr' && (parts = splitFirstOutsideQuotes(body, ' = '))) {
+    entPath(parts[0]); out.push(op(' = '), valueSeg(parts[1]));
+  } else if (eff === 'link' && (parts = splitFirstOutsideQuotes(body, ' -> '))) {
+    out.push(ent(parts[0]), op(' -> '));
+    const lbl = splitFirstOutsideQuotes(parts[1], ' : ');
+    if (lbl) {
+      out.push(ent(lbl[0]), dim(' : '));
+      const neg = /^not-/.exec(lbl[1]);
+      if (neg) out.push({ s: neg[0], color: opColorOf('absence'), role: 'neg' }, valueSeg(lbl[1].slice(neg[0].length)));
+      else out.push(valueSeg(lbl[1]));
+    } else out.push(ent(parts[1]));
+  } else if (eff === 'segment' && (parts = splitFirstOutsideQuotes(body, ' | '))) {
+    out.push(ent(parts[0]), op(' | '), valueSeg(parts[1]));
+  } else if (eff === 'type' && (parts = splitFirstOutsideQuotes(body, ' : '))) {
+    out.push(ent(parts[0]), op(' : '), { s: parts[1], color: hashTint(parts[1].trim()), role: 'type' });
+  } else {
+    // eva / rec / anything unrecognised — a generic pass: entities coloured, glyphs dimmed, spacing kept.
+    body.split(/(\s+)/).forEach((tok) => { if (!tok) return; if (/^\s+$/.test(tok)) out.push(dim(tok)); else if (/^[A-Za-z0-9"$€£]/.test(tok)) out.push(ent(tok)); else out.push(dim(tok)); });
+  }
+  if (tail) out.push(dim(tail));
+  return out;
+};
+
+// facingReadingLines(eotText, opts) → { lines, legend, kindLegend, truncated, more, total }
+//   lines   [{ n, kind, label, color, s, dim, segs }] — one per surface line. `color`/`s` remain
+//           the whole-line element colour and raw text (the terminal gutter uses `n`); `segs` is
+//           the per-token breakdown [{ s, color, role }] the pane paints, so a line shows entities
+//           by KIND, its operator by element type, and values in a calm accent. `dim` flags muted.
+//   legend      the element TYPES present, in EOT_KIND_ORDER — [{ kind, label, color }] (operators)
+//   kindLegend  the entity KINDS present, vivid-first then declared types — [{ kind, label, color }]
 //   truncated/more/total  honest bound reporting, mirroring the EoT view's cap
 // Pure: takes the reading's EoT text (app.eotFor(sn).text) and lays it out for the terminal pane.
 export const facingReadingLines = (eotText, { max = 2400 } = {}) => {
   const all = String(eotText == null ? '' : eotText).split('\n');
   const shown = all.slice(0, max);
+  // pass 1 — the reading's DECLARED types (`X : Type`, plus `!sig`/`!clm` re-designations) →
+  // sign → Type, so a typed sign gets its declared colour on EVERY line, not only where it's typed.
+  const declaredTypes = new Map();
+  for (const raw of shown) {
+    const k = classifyEotLine(raw);
+    if (k === 'type') { const p = splitFirstOutsideQuotes(String(raw), ' : '); if (p) declaredTypes.set(p[0].trim(), p[1].trim()); }
+    else if (k === 'sig') { const p = splitFirstOutsideQuotes(String(raw).replace(/^!(?:sig|clm)\s+/, ''), ' : '); if (p) declaredTypes.set(p[0].trim(), p[1].trim()); }
+  }
+  // pass 2 — lay out each line, colouring its tokens and noting which kinds actually appear.
   const present = new Set();
+  const kindsPresent = new Set();
   const lines = shown.map((raw, i) => {
     const kind = classifyEotLine(raw);
     const spec = EOT_ELEMENT_TYPES[kind] || EOT_ELEMENT_TYPES.note;
     if (kind !== 'blank') present.add(kind);
-    return { n: i + 1, kind, label: spec.label, color: spec.color, s: raw === '' ? ' ' : raw, dim: kind === 'note' || kind === 'blank' };
+    const segs = facingSegments(raw, kind, declaredTypes);
+    for (const sg of segs) if (sg.role === 'ent' && sg.kindKey) kindsPresent.add(sg.kindKey);
+    return { n: i + 1, kind, label: spec.label, color: spec.color, s: raw === '' ? ' ' : raw, dim: kind === 'note' || kind === 'blank', segs };
   });
   const legend = EOT_KIND_ORDER.filter((k) => present.has(k)).map((k) => ({ kind: k, label: EOT_ELEMENT_TYPES[k].label, color: EOT_ELEMENT_TYPES[k].color }));
-  return { lines, legend, truncated: all.length > max, more: Math.max(0, all.length - max), total: all.length };
+  const kindLegend = EOT_ENTITY_KIND_ORDER.filter((k) => kindsPresent.has(k)).map((k) => ({ kind: k, label: EOT_ENTITY_KINDS[k].label, color: EOT_ENTITY_KINDS[k].color }));
+  for (const key of [...kindsPresent].filter((k) => k.startsWith('is:')).sort()) kindLegend.push({ kind: key, label: key.slice(3), color: hashTint(key.slice(3)) });
+  return { lines, legend, kindLegend, truncated: all.length > max, more: Math.max(0, all.length - max), total: all.length };
 };
