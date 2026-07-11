@@ -37,3 +37,10 @@ export { eotOfModule, lowerCorpus, codeDoc, parseSign, declSign, scopeSign, useS
 export { dependencyOrder, moduleGraphOf, tarjanSCC, helixRank, HELIX } from './helix.js';
 export { findIssues, issuesToEot, reportText, DEFAULT_GLOBALS, SEVERITIES } from './issues.js';
 export { mergeIssues, FIXABLE_LAWS } from './fix.js';
+export { composeProgram, composeAndVerify, composeFromModel, blueprintPrompt } from './compose.js';
+export { composeWidget, composeWidgetAndVerify, composeWidgetFromModel, widgetPrompt, specToWidgetBlueprint } from './widget.js';
+export { harvestProgram, createWebRetriever } from './harvest.js';
+export { composePage, composePageAndVerify, foragePageCss, PAGE_CSS_SOURCES } from './page.js';
+export { interpretStyleEdit, styleCheck, contrastRatio, overridesToCss, parseColor } from './style.js';
+export { extractGoFacts } from './go.js';
+export { extractRustFacts } from './rust.js';

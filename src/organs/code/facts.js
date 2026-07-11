@@ -412,6 +412,7 @@ const LANG_BY_EXT = {
   js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript',
   ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript',
   py: 'python', pyi: 'python',
+  go: 'go', rs: 'rust',
 };
 
 export const extractFacts = (src, { path = null } = {}) => {
@@ -846,6 +847,7 @@ export const extractFacts = (src, { path = null } = {}) => {
     if (KEYWORDS.has(name)) continue;
     const before = prevSig(code, o);
     if (before.ch === '.' && !(code[before.at - 1] === '.' && code[before.at - 2] === '.')) continue;   // property position (`...spread` stays a reference)
+    if (code[o - 1] === '#') continue;                                 // #private member — `this.#x` / `#x` decl, never a free name
     const beforeTok = prevToken(code, o);
     if (beforeTok.word === 'break' || beforeTok.word === 'continue') continue;   // labels
     if (beforeTok.word === 'get' || beforeTok.word === 'set') {
@@ -915,7 +917,92 @@ export const extractFacts = (src, { path = null } = {}) => {
   decls.sort((a, b) => a.offset - b.offset);
   return Object.freeze({
     module, scopes, decls, members, imports, exports: exportsList, edges, uses, calls,
+    hazards: scanJsHazards(code, at, pairs),
   });
+};
+
+// ── the JS behavioral hazards — witnessed shapes, the sibling of python.js's ────────
+// Each is a runtime defect no type-checker or `node --check` catches, read off the
+// SCRUBBED code (never a match in a string or comment), with its EO reading. A hazard
+// is witnessed structure (perceiver door); the judgment is the fold's (issues.js).
+const scanJsHazards = (code, at, pairs) => {
+  const hz = [];
+  const add = (law, offset, detail) => hz.push({ law, ...at(offset), detail });
+
+  // off-by-one: a for-loop bounded `i <= arr.length` WHOSE BODY reads arr[i] — that is
+  // the real overrun (arr[arr.length] = undefined). `i <= x.length` alone is not a bug
+  // (fence-post counters, `.slice(0, k)`, `x.length - 1` bounds all use it legitimately),
+  // so the body-indexes-arr[i] check is what keeps this precise (verified against the
+  // engine's own <= .length loops, none of which index at the bound).
+  for (const m of code.matchAll(/\bfor\s*\(/g)) {
+    const popen = m.index + m[0].length - 1;
+    const pclose = pairs.paren.get(popen);
+    if (pclose == null) continue;
+    const header = code.slice(popen + 1, pclose);
+    const cond = /(?:^|;)\s*([A-Za-z_$][\w$]*)\s*<=\s*([A-Za-z_$][\w$.]*)\.length\b/.exec(header);
+    if (!cond) continue;
+    const [, iv, arr] = cond;
+    const nx = nextSig(code, pclose + 1);
+    let body;
+    if (nx.ch === '{') { const bc = pairs.brace.get(nx.at); body = bc != null ? code.slice(nx.at + 1, bc) : ''; }
+    else { let j = nx.at; while (j < code.length && code[j] !== ';') j++; body = code.slice(nx.at, j); }
+    if (new RegExp(`\\b${arr.replace(/\./g, '\\.')}\\s*\\[\\s*${iv}\\b`).test(body))
+      add('loop-off-by-one', popen + 1 + cond.index + header.slice(cond.index).indexOf('<='),
+        `a for-loop bounded \`${iv} <= ${arr}.length\` reads ${arr}[${iv}] at ${arr}.length = undefined — the walk runs one past the last INS`);
+  }
+
+  // default sort: `.sort()` with no comparator orders by STRING form — objects alike
+  for (const m of code.matchAll(/\.sort\s*\(\s*\)/g))
+    add('unstable-sort', m.index + m[0].indexOf('sort'),
+      '.sort() with no comparator compares string forms — objects all stringify alike, so the order is a no-op, not by value');
+
+  // var loop counter: every closure in the loop shares the one function-scoped `i`
+  for (const m of code.matchAll(/\bfor\s*\(\s*var\b/g))
+    add('var-capture', m.index + m[0].lastIndexOf('var'),
+      'for (var …) — a function-scoped counter every closure made in the loop shares; each reads the final value, not its own');
+
+  // async forEach: promises nobody awaits — the caller returns before they settle
+  for (const m of code.matchAll(/\.forEach\s*\(\s*async\b/g))
+    add('async-foreach', m.index + m[0].indexOf('forEach'),
+      'forEach(async …) fires promises the loop never awaits — the caller returns before they settle and rejections vanish (use for-of + await, or Promise.all(map))');
+
+  // assignment in a condition: `if (x = 0)` mutates and tests the assigned value
+  for (const m of code.matchAll(/\b(if|while)\s*\(/g)) {
+    const open = m.index + m[0].length - 1;
+    const close = pairs.paren.get(open);
+    if (close == null) continue;
+    const cond = code.slice(open + 1, close);
+    let depth = 0;
+    for (let i = 0; i < cond.length; i++) {
+      const c = cond[i];
+      if (c === '(' || c === '[' || c === '{') depth++;
+      else if (c === ')' || c === ']' || c === '}') depth--;
+      else if (c === '=' && depth === 0) {
+        const p = cond[i - 1], n = cond[i + 1];
+        if (n === '=' || p === '=' || p === '!' || p === '<' || p === '>') { if (n === '=') i++; continue; }
+        add('assign-in-condition', open + 1 + i,
+          `assignment (=) inside an ${m[1]} condition — it writes and tests the assigned value, not an equality (=== was meant)`);
+        break;
+      }
+    }
+  }
+
+  // unguarded JSON.parse: not lexically inside a try{} — one bad input kills the batch
+  const tryRanges = [];
+  for (const m of code.matchAll(/\btry\s*\{/g)) {
+    const open = m.index + m[0].length - 1;
+    const close = pairs.brace.get(open);
+    if (close != null) tryRanges.push([open, close]);
+  }
+  for (const m of code.matchAll(/\bJSON\s*\.\s*parse\s*\(/g)) {
+    const o = m.index;
+    if (!tryRanges.some(([a, b]) => o > a && o < b))
+      add('unguarded-parse', o,                     // warn: a smell, not a proven bug — bare JSON.parse is common and often fine
+        'JSON.parse with no enclosing try/catch — one malformed input throws uncaught; guard it if the input is untrusted');
+  }
+
+  hz.sort((a, b) => (a.line - b.line) || (a.col - b.col));
+  return hz;
 };
 
 // ── the provider membrane ─────────────────────────────────────────────────────────
