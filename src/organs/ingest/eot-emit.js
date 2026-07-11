@@ -120,17 +120,27 @@ export const tuplesToEot = (tuples) => {
 //   lines    the EOT surface, in seq order, deduped, no-ops dropped
 //   text     lines.join('\n')
 //   skipped  [{ seq, op, reason }] — what EOT cannot express, reported not discarded (§9)
-export const emitEot = (logOrEvents, { max = Infinity } = {}) => {
+//
+// `alias` (optional) is the REDACTION MEMBRANE (weave/write/redact.js): a Map<surface, token>
+// that swaps every real referent surface — an entity label OR a DEF/EVA literal value — for an
+// opaque token BEFORE it reaches the line, so a remote talker reads the full EOT richness over
+// tokens and never learns the who/what. Absent → byte-identical (a no-op when nothing leaves
+// the box). Structure — the operators, relations, field keys, type designations — passes
+// through: the model loses reference, not shape.
+export const emitEot = (logOrEvents, { max = Infinity, alias = null } = {}) => {
   const events = Array.isArray(logOrEvents)
     ? logOrEvents
     : (typeof logOrEvents?.snapshot === 'function' ? logOrEvents.snapshot()
        : Array.isArray(logOrEvents?.events) ? logOrEvents.events : []);
 
+  // A — apply the redaction alias to a resolved surface (the ONE place identity → token).
+  const A = (v) => { const k = String(v); return alias && alias.has(k) ? alias.get(k) : v; };
+
   // id → label, from every INS (and the SEG-carved segment INS). The label is the sign the
   // surface speaks; an unknown id falls back to itself so nothing is rendered as a dangling code.
   const labels = new Map();
   for (const e of events) if (e.op === 'INS' && e.id != null) labels.set(e.id, e.label ?? e.id);
-  const sign = (id) => labels.get(id) ?? String(id);
+  const sign = (id) => A(labels.get(id) ?? String(id));
 
   // Retractions (SEG kind:'retract') undo a referenced event — the retracted event is not part
   // of the reading, so it does not reach the surface (mirrors project.js's first pass).
@@ -191,7 +201,7 @@ export const emitEot = (logOrEvents, { max = Infinity } = {}) => {
         }
         props.set(id, { ...(cur || {}), [field]: value });
         const path = e.kind === 'meta' ? id : `${sign(id)}.${field}`;   // meta ids are already path-shaped
-        push(`${path} = ${valueLiteral(value)}${meta}`);
+        push(`${path} = ${valueLiteral(A(value))}${meta}`);             // the value is identity — aliased
         break;
       }
 
@@ -238,8 +248,8 @@ export const emitEot = (logOrEvents, { max = Infinity } = {}) => {
         const id = e.id ?? e.src;
         const field = e.via ?? 'state';
         push(e.from == null
-          ? `!eva ${sign(id)}.${field} -> ${valueLiteral(e.to)}${meta}`
-          : `!eva ${sign(id)}.${field} : ${valueLiteral(e.from)} -> ${valueLiteral(e.to)}${meta}`);
+          ? `!eva ${sign(id)}.${field} -> ${valueLiteral(A(e.to))}${meta}`
+          : `!eva ${sign(id)}.${field} : ${valueLiteral(A(e.from))} -> ${valueLiteral(A(e.to))}${meta}`);
         break;
       }
 

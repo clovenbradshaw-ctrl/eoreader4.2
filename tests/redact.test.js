@@ -2,9 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  redact, restore, realizeRestored, fixArticles, buildTable, redactionTable, assertNoNameLeak,
+  redact, redactEot, EOT_LEGEND, restore, realizeRestored, fixArticles,
+  buildTable, redactionTable, assertNoNameLeak,
 } from '../src/weave/write/redact.js';
 import { briefRDF } from '../src/weave/write/rdf.js';
+import { emitEot } from '../src/organs/ingest/eot-emit.js';
 
 // A tiny EOT-shaped doc: two entities and a date literal, related by two edges. The real
 // surfaces (the who/what a remote model must never see) are the entity labels and the literal.
@@ -109,6 +111,70 @@ test('buildTable / redactionTable are deterministic and order-stable', () => {
     { label: 'A', kind: 'entity' }, { label: 'x', kind: 'literal' }, { label: 'B', kind: 'entity' },
   ]);
   assert.deepEqual([...alias.entries()], [['A', 'Referent1'], ['x', 'Value1'], ['B', 'Referent2']]);
+});
+
+// A richer reading, exercising the operators the RDF projection cannot carry: an attribute
+// (DEF), an asserted absence (NUL), a state transition (EVA), and a NEGATED relation (CON −).
+const richDoc = () => ({
+  log: {
+    events: [
+      { op: 'INS', id: 1, label: 'Dr. Awad' },
+      { op: 'INS', id: 2, label: 'Patient X' },
+      { op: 'SIG', src: 1, via: 'is', tgt: 'physician', sentIdx: 0 },
+      { op: 'DEF', id: 1, key: 'clinic', value: 'Meridian', sentIdx: 0 },
+      { op: 'NUL', id: 1, key: 'license', sentIdx: 1 },
+      { op: 'EVA', id: 1, via: 'status', from: 'suspended', to: 'active', sentIdx: 1 },
+      { op: 'CON', src: 1, via: 'treated', tgt: 2, polarity: '−', sentIdx: 2 },
+    ],
+  },
+});
+
+const RICH_SECRETS = ['Dr. Awad', 'Patient X', 'Meridian', 'suspended', 'active'];
+
+test('redactEot: the EOT carrier redacts entity labels AND literal values, structure passes', () => {
+  const { prompt, table } = redactEot(richDoc());
+  const u = prompt.user;
+  for (const s of RICH_SECRETS) assert.ok(!u.includes(s), `EOT leaked: ${s}`);
+  // entities and values became tokens; the type, fields, relation and operators stayed (structure)
+  assert.match(u, /Referent1 : physician/);          // type designation carried (physician = structure)
+  assert.match(u, /Referent1\.clinic = Value1/);      // attribute: value redacted, field key kept
+  assert.match(u, /Referent1\.license = nil/);        // ABSENCE — dropped entirely by RDF
+  assert.match(u, /!eva Referent1\.status : Value2 -> Value3/);   // TRANSITION — dropped by RDF
+  assert.match(u, /Referent1 -> Referent2 : not-treated/);       // NEGATED relation — mangled by RDF
+  assert.equal(table.get('Referent1'), 'Dr. Awad');
+  assert.equal(table.get('Value1'), 'Meridian');
+  // the legend that teaches the notation rides in the system prompt
+  assert.ok(prompt.system.includes(EOT_LEGEND.slice(0, 24)));
+});
+
+test('EOT carries richness the RDF projection loses (the whole point of the carrier choice)', () => {
+  const doc = richDoc();
+  const eotUser = redactEot(doc).prompt.user;
+  const rdfUser = redact(doc).prompt.user;
+  // the absence and the transition exist in EOT, not in RDF
+  assert.ok(eotUser.includes('= nil') && !rdfUser.includes('nil'));
+  assert.ok(eotUser.includes('!eva') && !rdfUser.includes('eva'));
+  // the relation's NEGATION survives in EOT; the RDF edge drops the polarity (says "treated")
+  assert.ok(eotUser.includes('not-treated'));
+  assert.ok(!rdfUser.includes('not-treated'));
+});
+
+test('emitEot alias is a no-op when absent — byte-identical to the unredacted surface', () => {
+  const plain = emitEot(richDoc().log).text;
+  assert.ok(plain.includes('Dr. Awad.clinic = Meridian'));      // real names/values, as before
+  assert.ok(plain.includes('!eva Dr. Awad.status : suspended -> active'));
+});
+
+test('redactEot: restore round-trips the fuller surface, no leak throughout', () => {
+  const { prompt, table } = redactEot(richDoc());
+  assert.ok(!RICH_SECRETS.some((s) => `${prompt.system}${prompt.user}`.includes(s)));
+  const modelOutput = 'Referent1, a physician at Value1, treated no one — notably not Referent2 — '
+    + 'and moved from Value2 to Value3, though Referent1 held no license.';
+  assert.equal(
+    restore(modelOutput, table),
+    'Dr. Awad, a physician at Meridian, treated no one — notably not Patient X — '
+    + 'and moved from suspended to active, though Dr. Awad held no license.',
+  );
 });
 
 test('end-to-end: redact → (model echoes tokens) → restore → local cleanup, no leak throughout', () => {

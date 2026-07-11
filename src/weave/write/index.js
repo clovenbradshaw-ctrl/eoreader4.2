@@ -72,7 +72,11 @@ export { phraserBrief, realizationPrompt, talkThenVerify, speakTriples } from '.
 // only opaque tokens (confidentiality). The talker structures the typed EO graph over tokens;
 // de-pseudonymization and the a/an grammar fix run locally after, on the real names it never
 // saw. assertNoNameLeak is the mechanical membrane (mirror of assertNoLeak).
-export { redact, restore, realizeRestored, fixArticles, buildTable, redactionTable, assertNoNameLeak } from './redact.js';
+// Two carriers: redact() feeds RDF-star (familiar to the model, but only CON/SIG edges + five
+// annotations survive); redactEot() feeds native EOT with the notation taught in-message — the
+// fuller richness (NUL absence, EVA transitions, SYN, SEG, polarity, the claim register) the
+// RDF projection drops. Both share the one membrane (assertNoNameLeak) and the local restore.
+export { redact, redactEot, EOT_LEGEND, restore, realizeRestored, fixArticles, buildTable, redactionTable, assertNoNameLeak } from './redact.js';
 // The brief as RDF-star: the x→relation→y triple an LLM already knows, annotated with the EO
 // richness a flat triple loses — the operator, the site terrain, the resolution band (how
 // definitely it holds), the arrow of time, the provenance door. The triple is the fact; the

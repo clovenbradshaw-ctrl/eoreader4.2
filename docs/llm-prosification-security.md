@@ -193,6 +193,41 @@ text. The propositional veto (step 8) is unchanged and still closes the loop:
 even a compromised remote model cannot make us assert something the document does
 not witness, because grounding is adjudicated **after** restoration, locally.
 
+## 4a. RDF-star or EOT? — the carrier choice (and what it costs)
+
+The talker needs a *notation* to read the redacted structure in. Two are available, and
+the choice is about richness, not security (redaction is loss-neutral either way — it
+only swaps referent surfaces for tokens; every annotation and operator passes through).
+
+**RDF-star (`write/rdf.js`, `redact()`)** is familiar to any model, but its projection is
+narrow: `briefRDF` emits **only `CON`/`SIG` edges** (`if (!((e.op==='CON'||e.op==='SIG')
+&& e.via && e.src)) continue`) with five annotations hung on them (op · site · band ·
+order · door). Everything else in the reading is silently dropped: `NUL` (an asserted
+**absence**), `DEF` (attributes), `SYN` (identity/composition), `SEG` (partition), `EVA`
+(a judgement **with its from→to transition**), `REC` (remap), `CON` **polarity** (a
+negated relation renders as its positive — a *correctness* loss, not just a richness one),
+the **claim-vs-designation register**, and `@agent`. So RDF is the familiar-but-lossy
+carrier.
+
+**EOT (`organs/ingest/eot-emit.js`, `redactEot()`)** is the system's native surface and
+carries all of it — one dense line per event — and we already own a **lossless** log→EOT
+emitter that reports honestly (`skipped`) what it cannot express. A capable model does not
+need EOT to be *familiar*; it needs it *taught*, once, per message — which is what
+`EOT_LEGEND` is: a compact system-prompt legend for a regular, line-oriented notation. EOT
+is also **cheaper per unit richness** (one line vs a triple + its RDF-star annotation +
+prefixes + type declarations).
+
+**Decision.** Feed **EOT outbound** for the fuller reading, keep **RDF-star as the
+familiar fallback**, and keep **EOT as the on-box source of truth** regardless. Both
+carriers apply the redaction alias at the *projection boundary* (`briefRDF`/`emitEot` take
+an optional `alias` Map that is a no-op when absent), so the carrier is swappable and the
+membrane (`assertNoNameLeak`) is identical over either. Identity is tokenized (entity
+labels + literal values); **structure passes** (operators, relations, field keys, type
+designations, the eo: annotations) — the model loses reference, not shape. One consequence
+to disclose: because type designations and field keys ride through as structure, a *schema
+that is itself sensitive* (a diagnosis-as-type) is not covered by default — add those
+surfaces to the alias when the schema is the secret.
+
 ## 5. Threat model & leak vectors
 
 The membrane is only as good as its enumeration of what "identity" is. Spans and

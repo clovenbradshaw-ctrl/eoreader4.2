@@ -32,6 +32,7 @@
 // residual risk to disclose, not defeat. See docs/llm-prosification-security.md.
 
 import { rdfRealizationPrompt } from './rdf.js';
+import { emitEot } from '../../organs/ingest/eot-emit.js';
 
 // ── tokens ───────────────────────────────────────────────────────────────────
 // Opaque, per-referent, stable within a turn. Chosen to be RDF-QName-safe (alnum, so
@@ -144,6 +145,77 @@ export const redact = (doc, { only = null, max = 24 } = {}) => {
   const names = [...alias.keys()];
   assertNoNameLeak(prompt, names);                // throws on any leak, before anything leaves
   return Object.freeze({ prompt, table: back, names, alias });
+};
+
+// ── the EOT carrier — the fuller richness, taught in-message ─────────────────────
+// The RDF-star projection (rdf.js) carries ONLY CON/SIG edges + five annotations; it silently
+// drops NUL (absence), DEF (attributes), SYN (identity/composition), SEG (partition), EVA
+// (a judgment WITH its from→to transition), REC (remap), CON polarity (not-r), the claim vs
+// designation register, and @agent. EOT — the system's native surface — carries all of it, in
+// ONE dense line per event, and we already own a lossless log→EOT emitter (eot-emit.js). A
+// capable model does not need EOT to be familiar; it needs it TAUGHT, once, per message — which
+// is what the legend is. So this carrier hands the talker the full reading over tokens.
+
+// EOT_LEGEND — the notation, taught in the system prompt each message. Compact by design: EOT
+// is regular and line-oriented, so a short legend is enough for the model to read every shape.
+export const EOT_LEGEND =
+  'The reading is given as EOT — one fact per line, in this notation:\n'
+  + '  X : T            X is a T (a kind / type)\n'
+  + '  X.f = v          X\'s f is v (an attribute)\n'
+  + '  X.f = nil        X has no f (a real, asserted ABSENCE — say it as an absence)\n'
+  + '  X -> Y : r       X stands in relation r to Y\n'
+  + '  X -> Y : not-r   X does NOT stand in relation r to Y (a negated relation)\n'
+  + '  X == Y           X and Y are the same thing\n'
+  + '  X <- [A, B]      X is composed of A and B\n'
+  + '  X | k            X is partitioned / divided by k\n'
+  + '  !eva X.f : a -> b   a JUDGEMENT: X\'s f changed from a to b (narrate the change)\n'
+  + '  !sig X : T       X is (re)designated a T;  !clm marks it a claim, not a settled fact\n'
+  + '  trailing @who ~when   who read it / when — provenance, not part of the sentence\n';
+
+const EOT_SYSTEM =
+  'You are the voice that turns a reading into words. '
+  + EOT_LEGEND
+  + '\nSay the reading as fluent, natural speech — join related facts, use pronouns, let it '
+  + 'flow, and honour the shapes: an absence is an absence, a negated relation stays negated, a '
+  + '!clm is tentative ("reportedly"), an !eva is a change over time. Keep strictly to the '
+  + 'facts given — add no relation the lines do not contain.';
+
+// scanReferentsEot(doc, { max }) → the referents the EOT surface would expose, in stable order:
+// every entity label (introduced by INS) as an entity, then every DEF/EVA literal VALUE. One
+// token per surface (entity claims it first). Field keys, relations, types and operators are
+// STRUCTURE and pass through — the same identity/structure line the RDF carrier draws.
+const scanReferentsEot = (doc, { max = Infinity } = {}) => {
+  const events = snapshot(doc);
+  const refs = [];
+  const claimed = new Set();
+  const add = (lab, kind) => {
+    const k = String(lab);
+    if (!k || claimed.has(k)) return;
+    claimed.add(k);
+    refs.push({ label: k, kind });
+  };
+  let n = 0;
+  for (const e of events) { if (n >= max) break; if (e.op === 'INS' && e.label != null) { add(e.label, 'entity'); n += 1; } }
+  for (const e of events) {
+    if (e.op === 'DEF' && e.kind !== 'void') { const v = e.value !== undefined ? e.value : e.tgt; if (v != null && v !== '') add(v, 'literal'); }
+    if (e.op === 'EVA') { if (e.from != null) add(e.from, 'literal'); if (e.to != null) add(e.to, 'literal'); }
+  }
+  return refs;
+};
+
+// redactEot(doc, { max }) → the REDACTED EOT talker payload + the local-only restore table.
+// Same membrane contract as redact(), but the carrier is native EOT (fuller richness) with the
+// legend taught in the system prompt. assertNoNameLeak proves the whole prompt clean first.
+export const redactEot = (doc, { max = Infinity } = {}) => {
+  const refs = scanReferentsEot(doc, { max });
+  const { alias, back } = buildTable(refs);
+  const body = emitEot(doc?.log ?? doc, { max, alias });   // emitEot takes the log, not the doc
+  const prompt = Object.freeze({
+    system: EOT_SYSTEM,
+    user: `${body.text}\n\nNow say this reading as natural speech:`,
+  });
+  assertNoNameLeak(prompt, [...alias.keys()]);       // fail-closed: throws on any surviving surface
+  return Object.freeze({ prompt, table: back, names: [...alias.keys()], alias, skipped: body.skipped });
 };
 
 // ── restoration + local grammar cleanup ─────────────────────────────────────────
