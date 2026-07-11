@@ -159,6 +159,22 @@ export const namedSubjects = (question = '') => {
   return [...out];
 };
 
+// The question's content words, lowercased and de-duped — what a held snippet should
+// be centred on so the fragment shown carries the part that bears on the ask, not the
+// lead-in that merely comes first. Same STOPWORDS the subject test drops, but caps-
+// independent: "what is the tallest house?" yields [tallest, house] where namedSubjects,
+// being proper-noun-only, finds nothing to centre on.
+export const queryTerms = (question = '') => {
+  const out = [];
+  const seen = new Set();
+  for (const m of String(question || '').toLowerCase().match(/[a-z0-9][a-z0-9'’-]{2,}/g) || []) {
+    if (STOPWORDS.has(m) || seen.has(m)) continue;
+    seen.add(m);
+    out.push(m);
+  }
+  return out;
+};
+
 // The corpus's known figure labels. From the graph the gate is handed — projectGraph's
 // `entities` Map (label per id), plus any explicit relation surfaces — lowercased for a
 // case-insensitive contains test. Empty when no graph is available (the test then no-ops
@@ -220,6 +236,7 @@ const MISSING_PHRASE = Object.freeze({
 export const answerabilityGate = ({ question = '', ground = [], graph = null } = {}) => {
   if (!question) return { licensed: true, wantedType: null, reason: null, refusal: null };
   const wantedType = classifyWantedType(question);
+  const focus = queryTerms(question);   // centre the held snippets on what the question asked
 
   // The named-subject test runs FIRST: a question whose every named subject is absent
   // from the corpus is unanswerable whatever its wanted type, and this is the one the
@@ -232,7 +249,7 @@ export const answerabilityGate = ({ question = '', ground = [], graph = null } =
       wantedType,
       reason: 'no-subject',
       missing: subj.missing,
-      refusal: refusalAtom('no-subject', ground, subj.missing),
+      refusal: refusalAtom('no-subject', ground, subj.missing, focus),
     };
   }
 
@@ -242,14 +259,14 @@ export const answerabilityGate = ({ question = '', ground = [], graph = null } =
     licensed: false,
     wantedType,
     reason: supply.reason,
-    refusal: refusalAtom(supply.reason, ground),
+    refusal: refusalAtom(supply.reason, ground, [], focus),
   };
 };
 
 // The refusal atom — one unit: the sources do not contain <wanted type>, here is
 // what they DO hold. Grounded on the held spans (so it cites, never invents), and
 // short by construction (the honest one-sentence answer).
-export const refusalAtom = (reason, ground = [], missing = []) => {
+export const refusalAtom = (reason, ground = [], missing = [], focus = []) => {
   const phrase = reason === 'no-subject' && missing.length
     ? `anything about ${missing.join(' or ')}`
     : (MISSING_PHRASE[reason] || 'what was asked');
@@ -258,8 +275,13 @@ export const refusalAtom = (reason, ground = [], missing = []) => {
     .sort((a, b) => (b.score || 0) - (a.score || 0))
     .slice(0, 3);
   const sources = held.map(s => s.idx).filter(Number.isInteger);
+  // Each held span is a display fragment centred on the ask; a member's own full stop
+  // is redundant before the '; ' separator, so drop it. The closing '.' is added only
+  // when the list does not already end in an ellipsis — no more "…." at the seam.
+  const parts = held.map(s => trim(s.text, 80, focus).replace(/\.$/, ''));
+  const list = parts.join('; ');
   const heldText = held.length
-    ? ' They do hold: ' + held.map(s => trim(s.text)).join('; ') + '.'
+    ? ' They do hold: ' + list + (/…$/.test(list) ? '' : '.')
     : '';
   const text = `The sources do not contain ${phrase}.` + heldText;
   return Object.freeze({ refusal: true, reason, text, sources, spans: held });
@@ -290,10 +312,67 @@ export const developableRegions = (ground = [], covered = new Set(), { max = 3 }
 export const followUpOffer = (ground = [], covered = new Set()) => {
   const regions = developableRegions(ground, covered);
   if (!regions.length) return '';
-  return 'I can go deeper on: ' + regions.map(r => r.topic).join('; ') + '.';
+  const list = regions.map(r => r.topic.replace(/\.$/, '')).join('; ');
+  return 'I can go deeper on: ' + list + (/…$/.test(list) ? '' : '.');
 };
 
-const trim = (s, n = 80) => {
+const ELLIPSIS = '…';
+
+// Index one past the last sentence terminator ('.', '!', '?' followed by a space or the
+// string's end) that sits at or beyond `min`; 0 when there is none. The trailing-space
+// guard keeps a decimal point ("4.4 meters") from reading as a sentence break.
+const lastSentenceBreak = (window, min) => {
+  let cut = 0;
+  for (let i = Math.max(0, min); i < window.length; i++) {
+    const c = window[i];
+    if ((c === '.' || c === '!' || c === '?') && (i + 1 >= window.length || window[i + 1] === ' '))
+      cut = i + 1;
+  }
+  return cut;
+};
+
+// Collapse one held span to a display fragment of at most `n` characters. The plain
+// version cut a flat `n` from the head and stuck an ellipsis on, so it showed each
+// source's lead-in — severing the very clause that bore on the ask — and could leave a
+// dangling "…, 1977,…". Three disciplines instead:
+//   • centred — when a `focus` term (the question's content words) hides past the head
+//     window, slide the window onto it and mark the dropped head with a leading '…';
+//   • bounded — close on a sentence break inside the window when one sits late enough,
+//     so the fragment ends as a sentence rather than a guillotined word;
+//   • clean — otherwise drop the trailing partial word and any ',;:—' before the mark.
+const trim = (s, n = 80, focus = []) => {
   const t = String(s || '').replace(/\s+/g, ' ').trim();
-  return t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, '') + '…';
+  if (t.length <= n) return t;
+
+  // Centre: the earliest focus hit the head window [0,n) would not already show.
+  let start = 0;
+  if (Array.isArray(focus) && focus.length) {
+    const lower = t.toLowerCase();
+    let hit = -1;
+    for (const term of focus) {
+      const i = term ? lower.indexOf(term) : -1;
+      if (i >= 0 && (hit < 0 || i < hit)) hit = i;
+    }
+    if (hit >= 0 && hit + Math.min(12, n) > n) {
+      start = Math.max(0, hit - Math.floor(n * 0.3));
+      const sp = t.indexOf(' ', start);            // open on a word, not mid-token
+      if (start > 0 && sp >= 0 && sp - start < 16) start = sp + 1;
+    }
+  }
+
+  const lead = start > 0 ? ELLIPSIS + ' ' : '';
+  const room = Math.max(1, n - lead.length);
+  const end = Math.min(t.length, start + room);
+  const window = t.slice(start, end);
+
+  // The window runs to the end of the span — nothing was cut off the tail, no mark.
+  if (end >= t.length) return (lead + window).trim();
+
+  // Bounded: close on the last sentence break that still leaves a substantial fragment.
+  const boundary = lastSentenceBreak(window, Math.floor(room * 0.55));
+  if (boundary > 0) return (lead + window.slice(0, boundary)).trim();
+
+  // Clean: drop the dangling partial word and trailing clause punctuation, then mark.
+  const cut = window.replace(/\s+\S*$/, '').replace(/[\s,;:—-]+$/, '');
+  return (lead + cut + ELLIPSIS).trim();
 };
