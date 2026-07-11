@@ -7,7 +7,7 @@
 // is trusted.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { composeWidget, composeWidgetAndVerify } from '../src/organs/code/widget.js';
+import { composeWidget, composeWidgetAndVerify, specToWidgetBlueprint } from '../src/organs/code/widget.js';
 
 const COUNTER = `
 counter : Widget
@@ -132,6 +132,36 @@ dec -> c : handlerOf`, { path: 'malformed' });
   assert.equal(v.ok, false);
   assert.ok(v.findings.some((f) => f.law === 'malformed-binding'),
     "data-on='click=dec' is not event:handler form — the button would be dead");
+});
+
+// ── the syntax-owning layer: a plain spec → valid EOT the model never has to write ──
+// A small model answers narrow NL questions into a spec (name, fields, buttons); THIS
+// owns every piece of syntax it fumbles (prefixes, colons, arrows, handlerOf).
+
+test('specToWidgetBlueprint turns a plain spec into an organ-clean widget', () => {
+  const bp = specToWidgetBlueprint({
+    name: 'counter', title: 'Counter',
+    state: [{ field: 'count', value: '0' }],
+    buttons: [
+      { label: '+', handler: 'inc', body: 'state.count += 1;' },
+      { label: '-', handler: 'dec', body: 'state.count -= 1;' },
+    ],
+  });
+  const v = composeWidgetAndVerify(bp, { path: 'counter' });
+  assert.ok(v.ok, v.report);
+  assert.ok(bp.includes("data-on='click:inc'") && bp.includes('inc -> counter : handlerOf'));
+});
+
+test('the assembler reconciles a display field to real state case (the glue an LLM fumbles)', () => {
+  // the model answered "Fahrenheit" for the shown field, but the field is "fahrenheit"
+  const bp = specToWidgetBlueprint({
+    name: 'temp',
+    state: [{ field: 'celsius', value: '0' }, { field: 'fahrenheit', value: '32' }],
+    show: 'Fahrenheit',
+    buttons: [{ label: 'reset', handler: 'reset', body: 'state.celsius = 0;' }],
+  });
+  assert.ok(bp.includes('{{fahrenheit}}'), 'the display slot uses the real field casing');
+  assert.ok(composeWidgetAndVerify(bp, { path: 'temp' }).ok, 'so it validates instead of an unbound');
 });
 
 test('the widget is deterministic — same blueprint, byte-identical HTML', () => {

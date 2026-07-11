@@ -245,6 +245,50 @@ ${script}
 </html>
 `;
 
+// ── the syntax-owning layer: a structured spec → a valid blueprint ─────────────────
+// A small model is good at answering narrow natural-language questions and bad at
+// emitting structured syntax (prefixes, colons, arrows). So the model never writes EOT:
+// it DESCRIBES — over as many prompts as it takes — into a plain spec, and THIS builds
+// the blueprint deterministically, owning every piece of punctuation the model fumbles.
+//
+//   spec = {
+//     name, title?,
+//     state:   [{ field, value }],           // "count", "0"
+//     show?:   "count" | "{{count}} of {{n}}" // the display (a field, or a template frag)
+//     buttons: [{ label, handler?, body }],   // handler defaults to a slug of the label
+//     style?,
+//   }
+const slug = (s) => String(s ?? '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/^(\d)/, '_$1') || 'h';
+const q = (s) => String(s ?? '').replace(/"/g, '');            // values are quoted; strip stray quotes
+export const specToWidgetBlueprint = (spec = {}) => {
+  const name = slug(spec.name || 'app');
+  const lines = [`${name} : Widget`];
+  if (spec.title) lines.push(`${name}.title = "${q(spec.title)}"`);
+  const state = (spec.state ?? []).filter((s) => s && s.field);
+  if (state.length) lines.push(`${name}.state = "${state.map((s) => `${slug(s.field)}: ${q(s.value ?? 0)}`).join(', ')}"`);
+
+  const buttons = (spec.buttons ?? []).map((b) => ({ ...b, handler: slug(b.handler || b.label) }));
+  // reconcile the display field to a REAL state field, case-insensitively — a small model
+  // answers "Fahrenheit" when the field is "fahrenheit"; owning the glue here spares the
+  // organ a spurious unbound and the model a repair round.
+  const fieldOf = (nm) => state.find((s) => slug(s.field).toLowerCase() === slug(nm).toLowerCase())?.field;
+  const show = spec.show
+    ? (/\{\{/.test(spec.show) ? spec.show : `{{${slug(fieldOf(spec.show) || spec.show)}}}`)
+    : (state[0] ? `{{${slug(state[0].field)}}}` : '');
+  const cells = [show ? `<div class='display'>${show}</div>` : '']
+    .concat(buttons.map((b) => `<button data-on='click:${b.handler}'>${q(b.label ?? b.handler)}</button>`))
+    .filter(Boolean).join('');
+  lines.push(`${name}.template = "${cells}"`);
+  if (spec.style) lines.push(`${name}.style = "${q(spec.style)}"`);
+
+  for (const b of buttons) {
+    lines.push(`${b.handler} : Handler`);
+    lines.push(`${b.handler}.body = "${q(b.body ?? '').trim()}"`);
+    lines.push(`${b.handler} -> ${name} : handlerOf`);
+  }
+  return lines.join('\n');
+};
+
 // ── the local-model seam ──────────────────────────────────────────────────────────────
 // composeWidgetFromModel(spec, model, opts) — the whole loop with a LOCAL backend
 // (model/webllm.js, model/wllama.js — the engine's own in-browser models; model.phrase

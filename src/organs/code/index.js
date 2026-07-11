@@ -38,7 +38,7 @@ export { dependencyOrder, moduleGraphOf, tarjanSCC, helixRank, HELIX } from './h
 export { findIssues, issuesToEot, reportText, DEFAULT_GLOBALS, SEVERITIES } from './issues.js';
 export { mergeIssues, FIXABLE_LAWS } from './fix.js';
 export { composeProgram, composeAndVerify, composeFromModel, blueprintPrompt } from './compose.js';
-export { composeWidget, composeWidgetAndVerify, composeWidgetFromModel, widgetPrompt } from './widget.js';
+export { composeWidget, composeWidgetAndVerify, composeWidgetFromModel, widgetPrompt, specToWidgetBlueprint } from './widget.js';
 export { harvestProgram, createWebRetriever } from './harvest.js';
 export { extractGoFacts } from './go.js';
 export { extractRustFacts } from './rust.js';
