@@ -152,6 +152,10 @@ all the rules of how grammar works" is not aspirational here — it is `write/`:
 | Defeasible grammar rules (hold/break/defeat) | `write/eva.js` `createRule` |
 | Triples → clean sentences without a model | `write/brief.js` `speakTriples` |
 
+The morphology table (`english-verbs.js`) is already **derived from UniMorph**
+(`scripts/build-morphology.mjs`) — the cross-linguistic paradigm database — so
+the seam to scale this layer past English already exists (see §7).
+
 Critically, the local realizer is **fabrication-incapable and identity-aware**.
 Substituting a token back to a real name can break grammar (a pronoun the model
 chose for `⟪E7⟫` may not agree with "Dr. Awad"; an article may be wrong; a name
@@ -245,7 +249,58 @@ surface on-box. It is the cube's own discipline — *nothing is asserted that th
 record can't witness* — extended one axis further, to *nothing is disclosed that
 the referent didn't authorize.*
 
-## 7. Smallest first step
+## 7. Scaling the local cleanup across languages — glass-box, off-box
+
+The redaction membrane's security guarantee *depends* on the cleanup layer being
+local: the moment grammar needs a remote model, the plaintext egresses again. So
+the multilingual story cannot be "call a bigger model for language X" — it has to
+be "carry language X's rules as data/code and run them on-box." That is exactly
+the shape of the cross-linguistic *rule databases* (linguistic typology), and it
+fits the repo's glass-box, local-first, fabrication-incapable posture cleanly.
+These are databases of grammar, not models to call — most are *descriptive*
+(facts about a language's grammar); one is *executable*.
+
+**The executable one — Apertium (the eoreader-shaped fit).** Apertium ships
+per-language **finite-state transducers**: morphological paradigms (inflection
+rules) + lexicon, plus transfer rules per language pair, for a large set of
+languages. It is the runnable, glass-box generalization of what `morph.js` +
+`english-verbs.js` do for English today — auditable rule tables, no neural model,
+and the FST toolchain (HFST/Foma) compiles toward WASM, i.e. it can run *in the
+browser, on-box*, alongside the EO operators. If the local realizer needs to
+inflect and generate surface for a non-English language without leaking, this is
+the first thing to reach for.
+
+**The paradigm/annotation sources — UniMorph & UD.** `english-verbs.js` is
+already a UniMorph extract; **UniMorph 4.0** is ~122M inflections across 182
+languages normalized to a universal feature schema (case/tense/aspect/mood/
+evidentiality/…). It is the direct source for extending the irregular/inflection
+tables `morph.js` consults. **Universal Dependencies** is the running-sentence
+counterpart — the same schema as annotated morphosyntax in CoNLL-U — useful as
+evidence for the agreement/reference rules `refer.js`/`genders.js` encode.
+
+**The per-language rule matrices — Grambank / WALS via CLDF + Glottolog.** The
+realizer's *choices* (numeral–noun order, article presence, whether gender is
+even grammaticalized, subject-drop) are language-specific rules. **Grambank**
+(2,467 varieties × 195 mostly-binary features) and its classic predecessor
+**WALS** encode exactly these as a near-boolean feature matrix per language —
+essentially a typed attribute schema over a language inventory, which will feel
+native to the EO contract style. They join through **Glottolog** (stable
+glottocodes) and read through **CLDF** (one parsing story across all of them, all
+under the CLLD umbrella). Caveat worth carrying: the two databases disagree
+(~69% agreement on shared features) and each covers only ~30–40% of languages, so
+they configure defaults, they are not ground truth. **URIEL / lang2vec** distills
+these into per-language feature *vectors* if a numeric handle is wanted.
+
+None of these is a generation engine on its own — the pipeline stays: Grambank/
+WALS/Glottolog-via-CLDF configure *which* rules apply for the target language,
+UniMorph/UD supply the *paradigms and evidence*, and Apertium (or the existing
+`write/` realizer for English) *executes* the surface pass. All deterministic,
+all local, all auditable — so multilingual prosification keeps the plaintext
+on-box just as the English path does. (Add these as vendored data/FST assets only
+when a second language is actually targeted; English needs nothing beyond what is
+already vendored.)
+
+## 8. Smallest first step
 
 1. Add `assertNoNameLeak` beside `assertNoLeak` in `write/cursor.js` and a
    `pseudonymize`/`depseudonymize` pair (hashId ⇄ opaque token, table memory-local).
