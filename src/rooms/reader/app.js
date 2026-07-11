@@ -41,6 +41,7 @@ import { buildChatExport } from './chat-export.js';
 import { wikiReferent } from './wiki-referent.js';
 import { composeProvenance, repoRef, readBuild, fetchLatestCommit, APP_NAME, APP_VERSION } from './provenance.js';
 import { foldNarrative } from './fold-narrative.js';
+import { deriveTopicTitle, isDefaultTopicTitle, DEFAULT_TOPIC_TITLE } from './topic-name.js';
 
 // ── the proxy chain ───────────────────────────────────────────────────────────
 // The primary is the n8n feed proxy (webfetch's default); when it fails the two
@@ -348,6 +349,11 @@ export const createReaderApp = ({ audit } = {}) => {
       if (!t.workspaceId || !state.workspaces.find((w) => w.id === t.workspaceId)) t.workspaceId = defWs;
       if (t.parentId === undefined) t.parentId = null;
       if (t.collapsed === undefined) t.collapsed = false;
+      // Older sessions predate `named`: a title that differs from the placeholder was chosen
+      // by hand, so pin it; a lingering "New topic" wasn't, so BACKFILL its auto-name from
+      // the content it already holds (sources restored above, messages on the topic).
+      if (t.named === undefined) t.named = !isDefaultTopicTitle(t.title);
+      topicAutoName(t, { silent: true });
     }
     if (!state.topics.length) topicNew('New topic', { silent: true });
     if (!state.topics.find((t) => t.id === state.activeTopicId)) state.activeTopicId = state.topics[0].id;
@@ -384,9 +390,12 @@ export const createReaderApp = ({ audit } = {}) => {
     while (t && guard++ < 200) { if (t.collapsed) t.collapsed = false; t = t.parentId ? topicById(t.parentId) : null; }
   };
 
-  const topicNew = (title = 'New topic', { silent = false, parentId = null, workspaceId = null } = {}) => {
+  const topicNew = (title = DEFAULT_TOPIC_TITLE, { silent = false, parentId = null, workspaceId = null } = {}) => {
     const wsId = workspaceId || state.activeWorkspaceId || (state.workspaces[0] && state.workspaces[0].id) || null;
-    const t = { id: `t${++tn}`, title, created: nowIso(), workspaceId: wsId, parentId: parentId ?? null, collapsed: false, sourceSns: [], messages: [], memo: '' };
+    // `named` — was this title CHOSEN (passed in as a real name, or set by a manual rename)?
+    // While false the topic auto-names itself from its content (topicAutoName); a chosen
+    // name is never overwritten.
+    const t = { id: `t${++tn}`, title, created: nowIso(), workspaceId: wsId, parentId: parentId ?? null, collapsed: false, named: !isDefaultTopicTitle(title), sourceSns: [], messages: [], memo: '' };
     state.topics.push(t);
     state.activeTopicId = t.id;
     if (t.parentId) expandAncestors(t.parentId);   // a sub-topic opens its ancestors
@@ -395,7 +404,20 @@ export const createReaderApp = ({ audit } = {}) => {
   };
   const topic = () => state.topics.find((t) => t.id === state.activeTopicId) || state.topics[0];
   const setTopic = (id) => { if (state.topics.find((t) => t.id === id)) { state.activeTopicId = id; deepWake(); persist(); emit('topics'); } };
-  const topicRename = (id, title) => { const t = topicById(id); if (t && title) { t.title = title; persist(); emit('topics'); } };
+  const topicRename = (id, title) => { const t = topicById(id); if (t && title) { t.title = title; t.named = true; persist(); emit('topics'); } };
+  // AUTO-NAMING. A topic still wearing the "New topic" placeholder names itself from what
+  // it holds — its first question, else its first source (topic-name.js) — the moment
+  // either lands. Recomputed on every such event while un-`named`: the derivation reads
+  // only the topic's FIRST question/source, so the title upgrades exactly once per kind
+  // (source-derived → question-derived) and never jitters as the topic grows. A manual
+  // rename (topicRename) pins the title for good.
+  const topicAutoName = (t, { silent = false } = {}) => {
+    if (!t || t.named) return;
+    const title = deriveTopicTitle({ messages: t.messages, sources: (t.sourceSns || []).map(sourceBySn).filter(Boolean) });
+    if (!title || title === t.title) return;
+    t.title = title;
+    if (!silent) { persist(); emit('topics'); }
+  };
   // Re-parent a topic (null = the workspace root). Rejects a cycle (into itself or a
   // descendant) and a cross-workspace move — a topic tree never spans workspaces.
   const topicMove = (id, parentId = null) => {
@@ -520,6 +542,7 @@ export const createReaderApp = ({ audit } = {}) => {
     state.sources.push(src);
     const t = topic();
     if (t && !t.sourceSns.includes(id)) t.sourceSns.push(id);
+    if (t) topicAutoName(t, { silent: true });   // a first source names a placeholder topic (persist/emit follow below)
     logIt('record', `Recorded ${src.domain} — ${src.title}`, src.reg);
     logIt('hash', `Fixity sha ${shaShort(src.sha)} · ${src.bytes.toLocaleString()} bytes`, src.reg);
     deepWake();   // the record grew — let the reading reflect on the new places at rest
@@ -998,6 +1021,7 @@ export const createReaderApp = ({ audit } = {}) => {
     const userMsg = { id: `m${++mn}`, role: 'user', text: q, at: nowIso() };
     t.messages.push(userMsg);
     emit('messages');
+    topicAutoName(t);   // the first question names a placeholder topic, live in the sidebar
 
     const docs = topicDocs();
     const pending = { id: `m${++mn}`, role: 'assistant', text: '', at: nowIso(), pending: true, cites: [], grounded: false };
