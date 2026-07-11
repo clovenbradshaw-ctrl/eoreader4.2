@@ -58,6 +58,26 @@ export const firstSentenceOf = (s) => {
   return m ? String(s).slice(0, m.index + m[0].length) : null;
 };
 
+// A paragraph BREAK is a blank line the model put after a real, developed passage — not the
+// per-sentence blank line a small instruct model sprinkles after every sentence (the "one
+// sentence on its own line" habit that reads as choppy). A segment is SUBSTANTIAL once it
+// carries a second sentence (or ~a couple of lines of prose); a blank line closing only a
+// single-sentence segment is treated as intra-paragraph and collapsed to a space below, so
+// sentences flow into paragraphs instead of each becoming its own. The threshold is a shape
+// floor, not a length policy — length stays emergent (the loop still ends when the model closes).
+const SUBSTANCE_CHARS = 220;
+const substantialSegment = (t) => {
+  const s = String(t).trim();
+  if (s.length >= SUBSTANCE_CHARS) return true;
+  return (s.match(SENT_END_RE()) || []).length >= 2;
+};
+
+// Collapse an intra-paragraph whitespace run that contains a newline (a deferred thin break,
+// or a stray single line break) to one space, so the forwarded text flows as prose. A real
+// paragraph break is the loop's own '\n\n' join between separate paragraphs and is emitted
+// directly, never routed through here — so genuine paragraphing survives.
+const flowInline = (s) => String(s).replace(/\s*\n\s*/g, ' ');
+
 // draw one paragraph through the boundary gate. Returns { text, halted, sawDone }:
 // `text` is EXACTLY what was forwarded to `onToken` (after the paragraph join, which
 // the gate also owns); `halted` means the loop should stop (the model closed with
@@ -75,6 +95,7 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
   let closed = -1;        // index where the first blank line closed the paragraph
   let forwarded = -1;     // buf index emitted so far
   let droppedTail = '';   // a mid-sentence tail the per-decode ceiling cut (a bound guard, logged upstream)
+  let emitted = '';       // EXACTLY what was forwarded to onToken (thin breaks collapsed) — the returned text
 
   const lastSentenceEnd = () => {
     const re = SENT_END_RE();
@@ -135,8 +156,17 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
       if (!isFirst) onToken?.('\n\n');       // the join between paragraphs
     }
     if (closed < 0) {
-      const br = /\n[ \t]*\n/.exec(buf.slice(start));
-      if (br) { closed = start + br.index; inner?.abort(); }
+      // Close only at a blank line whose PRECEDING segment is substantial — a real paragraph
+      // break. A blank line that closes only a single-sentence segment is the per-sentence
+      // habit: skip it (it collapses to a space in the flow below) and keep reading, so the
+      // sentences develop into a paragraph instead of each ending one.
+      const rel = buf.slice(start);
+      const re = /\n[ \t]*\n/g;
+      let m, segStart = 0;
+      while ((m = re.exec(rel))) {
+        if (substantialSegment(rel.slice(segStart, m.index))) { closed = start + m.index; inner?.abort(); break; }
+        segStart = m.index + m[0].length;
+      }
     }
     let upTo;
     if (closed >= 0) upTo = closed;
@@ -152,7 +182,14 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
       else upTo = end;
     }
     while (upTo > forwarded && /\s/.test(buf[upTo - 1])) upTo--;
-    if (upTo > forwarded) { onToken?.(buf.slice(forwarded, upTo)); forwarded = upTo; }
+    if (upTo > forwarded) {
+      // Forward the new span with any intra-paragraph thin break collapsed to a space; `emitted`
+      // is the flowed text, kept as the paragraph's returned value so the stored draft stays
+      // byte-identical to what was streamed (the streamed===draft invariant).
+      const chunk = flowInline(buf.slice(forwarded, upTo));
+      if (chunk) { onToken?.(chunk); emitted += chunk; }
+      forwarded = upTo;
+    }
   };
 
   const sink = (piece) => {
@@ -176,7 +213,7 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
   if (!buf && returned) buf = returned;
   pump(true);
 
-  const text = !suppressed && opened && forwarded > start ? buf.slice(start, forwarded) : '';
+  const text = !suppressed && opened && emitted ? emitted : '';
   return { text, halted: suppressed, sawDone, droppedTail };
 };
 
