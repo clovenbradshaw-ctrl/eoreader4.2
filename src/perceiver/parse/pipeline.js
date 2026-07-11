@@ -245,6 +245,17 @@ export const createParser = ({
         log.append({ op: 'NUL', kind: 'chrome', sentIdx, text: sent });
         return;
       }
+      // ── The 1:1 retention layer — formatting, not reading ──────────────────────
+      // Every contentful sentence is HELD VERBATIM in the log before a single figure is
+      // read off it, so the append-only log is a 1:1 formatting of the input into the
+      // grammar: the prose reconstructs from the log alone, and a sentence the reader
+      // extracts NOTHING from (a barren line — no name, no relation) is still on the
+      // record, not silently absent. The extraction below rides ON TOP as defeasible
+      // reafference; it never rewrites the span. NUL is exactly right — non-transformation,
+      // the line held as-is: project.js has no NUL case and reading.js ignores it, so the
+      // retention adds no node, edge, or surprise (the formatting is information-neutral).
+      // `kind:'span'` marks it a retention hold, distinct from the chrome/frame holds above.
+      log.append({ op: 'NUL', kind: 'span', id: `unit:${sentIdx}`, sentIdx, text: sent });
       // Snapshot the field before this line's own entities are folded in, so
       // a subject pronoun looks backward for its antecedent. The last-INS register
       // is snapshotted the same way — a subjectless clause defaults to the referent

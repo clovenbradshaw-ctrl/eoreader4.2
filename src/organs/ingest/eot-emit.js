@@ -207,6 +207,7 @@ export const emitEot = (logOrEvents, { max = Infinity, alias = null } = {}) => {
 
       case 'NUL': {
         if (e.kind === 'chrome') { skip(e, 'chrome/frame drop — not a slot absence'); break; }
+        if (e.kind === 'span')   { skip(e, 'verbatim retention span — the 1:1 formatting layer, not a reading assertion'); break; }
         const id = e.id ?? e.src;
         const field = e.key ?? e.via ?? 'value';
         push(`${sign(id)}.${field} = nil${meta}`);
