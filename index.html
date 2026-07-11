@@ -163,6 +163,41 @@ table{border-collapse:collapse;width:100%}
     <aside style="width:312px;flex:0 0 auto;background:#fff;border-right:1px solid #EAEAEF;display:flex;flex-direction:column;min-height:0">
       <div class="eo-scroll" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:14px">
 
+        <!-- WORKSPACE SWITCHER — the top-level container the topic tree lives in. Personal
+             by default; shared workspaces (a Matrix room) slot in with a "shared" badge. -->
+        <div style="position:relative">
+          <button onClick="{{ toggleWsMenu }}" title="Switch workspace" style="width:100%;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #ECECF1;border-radius:10px;padding:8px 10px" style-hover="background:#F7F7FA">
+            <span style="width:24px;height:24px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;background:{{ wsDot }}">{{ wsInitial }}</span>
+            <span style="flex:1;min-width:0;text-align:left">
+              <span style="display:block;font-size:13px;font-weight:650;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ wsName }}</span>
+              <span style="display:block;font-size:10.5px;color:#9A9AA4">Workspace</span>
+            </span>
+            <sc-if value="{{ wsShared }}"><span title="Shared workspace" style="flex:0 0 auto;color:#5B4BE6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span></sc-if>
+            <span style="color:#B4B4BE;flex:0 0 auto"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+          </button>
+          <sc-if value="{{ wsMenuOpen }}">
+            <div style="position:absolute;left:0;right:0;top:52px;z-index:20;background:#fff;border:1px solid #E6E6EC;border-radius:11px;box-shadow:0 12px 30px rgba(20,20,30,.16);padding:6px">
+              <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:5px 8px 6px">WORKSPACES</div>
+              <sc-for list="{{ workspaces }}" as="w">
+                <div style="display:flex;align-items:center;border-radius:8px;background:{{ w.bg }}" style-hover="background:#F5F5F8">
+                  <button onClick="{{ w.pick }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:7px 8px;background:none;text-align:left">
+                    <span style="width:22px;height:22px;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;color:#fff;background:{{ w.dot }}">{{ w.initial }}</span>
+                    <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ w.name }}</span>
+                    <sc-if value="{{ w.shared }}"><span title="Shared" style="flex:0 0 auto;color:#8A82F0"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span></sc-if>
+                    <span style="flex:0 0 auto;font-size:10.5px;color:#B4B4BE;font-family:'IBM Plex Mono',monospace">{{ w.count }}</span>
+                  </button>
+                  <button onClick="{{ w.doRename }}" title="Rename workspace" style="width:26px;height:32px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;flex:0 0 auto;border-radius:6px" style-hover="color:#6E6E78"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg></button>
+                  <sc-if value="{{ w.canDelete }}"><button onClick="{{ w.doDelete }}" title="Delete workspace" style="width:26px;height:32px;display:flex;align-items:center;justify-content:center;color:#C9A6A0;flex:0 0 auto;border-radius:6px" style-hover="color:#B23A2E"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></sc-if>
+                </div>
+              </sc-for>
+              <button onClick="{{ newWorkspace }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px;margin-top:4px;border-top:1px solid #F2F2F6;color:#5B4BE6;font-size:12.5px;font-weight:600;border-radius:0 0 8px 8px" style-hover="background:#F7F7FA">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                New workspace
+              </button>
+            </div>
+          </sc-if>
+        </div>
+
         <div style="display:flex;flex-direction:column">
           <button onClick="{{ toggleStatus }}" style="width:100%;display:flex;align-items:center;gap:11px;background:#F7F7FA;border:1px solid #ECECF1;border-radius:10px;padding:10px 12px" style-hover="background:#F2F2F6">
             <span style="position:relative;width:8px;height:8px;flex:0 0 auto"><span style="position:absolute;inset:0;border-radius:50%;background:{{ statusColor }};animation:eoPulse 2.6s ease-in-out infinite"></span></span>
@@ -219,23 +254,33 @@ table{border-collapse:collapse;width:100%}
             <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">TOPICS</span>
             <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ topicCount }}</span>
             <span style="flex:1"></span>
+            <button onClick="{{ newTopic }}" title="New topic at the top level" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#B4B4BE" style-hover="background:#F2F2F6;color:#5B4BE6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
           </div>
           <div style="display:flex;flex-direction:column;gap:2px">
             <sc-for list="{{ topics }}" as="tp">
               <div style="position:relative">
                 <div style="display:flex;align-items:center;border-radius:9px;background:{{ tp.bg }};border:1px solid {{ tp.border }}" style-hover="background:#F5F5F8">
-                  <button onClick="{{ tp.rowClick }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:8px 2px 8px 10px;background:none">
+                  <!-- depth indent, then a disclosure caret (or a spacer keeping leaves aligned) -->
+                  <span style="flex:0 0 auto;width:{{ tp.indent }}"></span>
+                  <sc-if value="{{ tp.hasChildren }}">
+                    <button onClick="{{ tp.toggle }}" title="Collapse / expand" style="width:20px;height:34px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;flex:0 0 auto;background:none" style-hover="color:#6E6E78"><span style="display:flex;transform:rotate({{ tp.caretRot }});transition:transform .14s"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span></button>
+                  </sc-if>
+                  <sc-if value="{{ tp.noChildren }}">
+                    <span style="width:20px;flex:0 0 auto"></span>
+                  </sc-if>
+                  <button onClick="{{ tp.rowClick }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:8px 2px;background:none">
                     <span style="color:{{ tp.iconColor }};flex:0 0 auto"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
                     <span style="flex:1;min-width:0">
                       <span style="display:block;font-size:13px;font-weight:600;color:{{ tp.titleColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tp.title }}</span>
                       <span style="display:block;font-size:11.5px;color:#9A9AA4;margin-top:1px">{{ tp.meta }}</span>
                     </span>
                   </button>
-                  <button onClick="{{ tp.menuClick }}" title="Rename or delete" style="width:28px;height:34px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;flex:0 0 auto;border-radius:7px" style-hover="background:#ECECF1;color:#6E6E78"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
+                  <button onClick="{{ tp.menuClick }}" title="Rename, add a sub-topic, or delete" style="width:28px;height:34px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;flex:0 0 auto;border-radius:7px" style-hover="background:#ECECF1;color:#6E6E78"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
                 </div>
                 <sc-if value="{{ tp.menuOpen }}">
-                  <div style="position:absolute;right:4px;top:40px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:172px">
+                  <div style="position:absolute;right:4px;top:40px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:186px">
                     <button onClick="{{ tp.doRename }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename</button>
+                    <button onClick="{{ tp.doAddChild }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v4M10 13h4"/></svg>Add sub-topic</button>
                     <button onClick="{{ tp.doDelete }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete topic</button>
                   </div>
                 </sc-if>
@@ -1213,6 +1258,8 @@ class Component extends DCLogic {
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
       pasteOpen: false, pasteTitle: '', pasteBody: '',
       modelOpen: false, topicMenu: null, exportMenuOpen: false,
+      // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
+      wsMenuOpen: false, wsRenameId: null,
       entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null,
       // optional Matrix account login
       acctOpen: false,
@@ -2034,6 +2081,7 @@ class Component extends DCLogic {
     try { return this._vals(); }
     catch (err) {
       return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
+        workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
@@ -2046,6 +2094,7 @@ class Component extends DCLogic {
     const app = this._app;
     if (!app) {
       return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
+        workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
         statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
@@ -2057,19 +2106,41 @@ class Component extends DCLogic {
     const generating = this._generating();
     const webMode = app.webMode ? app.webMode() : 'auto';
 
-    // topics + sources rails
-    const topics = app.state.topics.map((t) => ({
+    // workspace switcher — the top-level container the topic tree lives in. A shared
+    // workspace (future) is a Matrix room; `shared` already tints its badge here.
+    const activeWs = app.activeWorkspace ? app.activeWorkspace() : null;
+    const workspaces = (app.state.workspaces || []).map((w) => ({
+      name: w.name, active: w.id === app.state.activeWorkspaceId,
+      dot: w.color || '#6D5EF5', shared: !!w.shared,
+      initial: ((w.name || '?').trim()[0] || '?').toUpperCase(),
+      count: `${app.state.topics.filter((t) => t.workspaceId === w.id).length}`,
+      bg: w.id === app.state.activeWorkspaceId ? '#F5F5F8' : 'transparent',
+      canDelete: (app.state.workspaces || []).length > 1,
+      pick: () => { app.setWorkspace(w.id); this.setState({ wsMenuOpen: false, topicMenu: null }); },
+      doRename: () => { const v = prompt('Rename workspace', w.name); if (v) app.workspaceRename(w.id, v); this.setState({ wsMenuOpen: false }); },
+      doDelete: () => { if ((app.state.workspaces || []).length <= 1) { this.setState({ wsMenuOpen: false }); return; } if (confirm(`Delete workspace “${w.name}”? Its topics move to another workspace — nothing is lost.`)) app.workspaceDelete(w.id); this.setState({ wsMenuOpen: false }); },
+    }));
+
+    // topics — a nested tree (Notion pages / sub-pages). Each VISIBLE row carries its
+    // depth (indent), whether it has children (a disclosure caret), and whether that
+    // caret is folded — the subtree under a collapsed topic is dropped from the walk.
+    const topics = app.topicRows().map(({ topic: t, depth, hasChildren, collapsed }) => ({
       title: t.title, active: t.id === app.state.activeTopicId,
       bg: t.id === app.state.activeTopicId ? '#F1EFFE' : 'transparent',
       border: t.id === app.state.activeTopicId ? '#E3DEFC' : 'transparent',
       iconColor: t.id === app.state.activeTopicId ? '#6D5EF5' : '#B4B4BE',
       titleColor: t.id === app.state.activeTopicId ? '#3A3A44' : '#5A5A64',
       meta: `${t.sourceSns.length} source${t.sourceSns.length === 1 ? '' : 's'} · ${t.messages.filter(m => m.role === 'assistant' && !m.pending).length} answers`,
+      indent: `${depth * 15}px`,
+      hasChildren, noChildren: !hasChildren,
+      caretRot: collapsed ? '0deg' : '90deg',
+      toggle: (e) => { if (e && e.stopPropagation) e.stopPropagation(); app.topicToggleCollapse(t.id); },
       menuOpen: st.topicMenu === t.id,
       rowClick: () => { app.setTopic(t.id); this.setState({ topicMenu: null }); },
       menuClick: () => this.setState({ topicMenu: st.topicMenu === t.id ? null : t.id }),
       doRename: () => { const v = prompt('Rename topic', t.title); if (v) app.topicRename(t.id, v); this.setState({ topicMenu: null }); },
-      doDelete: () => { if (confirm(`Delete "${t.title}"? Its sources stay in the record.`)) app.topicDelete(t.id); this.setState({ topicMenu: null }); },
+      doAddChild: () => { app.topicNew('New sub-topic', { parentId: t.id }); this.setState({ topicMenu: null }); },
+      doDelete: () => { if (confirm(`Delete “${t.title}”? Any sub-topics rise to its parent; its sources stay in the record.`)) app.topicDelete(t.id); this.setState({ topicMenu: null }); },
     }));
     const FAV = [['#EEF0F3', '#4E5765'], ['#EEEBFE', '#5B4BE6'], ['#E7F6EC', '#1E8A50'], ['#FBF1DA', '#9A6B12'], ['#FBE9E6', '#B23A2E'], ['#E8F1FB', '#2C5C9E']];
     const leftSources = sources.map((s, i) => ({
@@ -2585,7 +2656,15 @@ class Component extends DCLogic {
       newTopic: () => { app.topicNew('New topic'); },
       pickFile: () => this.pickFile(), openPaste: () => this.openPaste(),
       goMemo: () => this.goMemo(), goGraph: () => this.goGraph(),
-      topics, topicCount: String(topics.length),
+      // workspace switcher
+      workspaces, wsMenuOpen: st.wsMenuOpen,
+      toggleWsMenu: () => this.setState({ wsMenuOpen: !st.wsMenuOpen, topicMenu: null }),
+      wsName: activeWs ? activeWs.name : 'Workspace',
+      wsDot: activeWs ? (activeWs.color || '#6D5EF5') : '#6D5EF5',
+      wsInitial: activeWs ? (((activeWs.name || '?').trim()[0] || '?').toUpperCase()) : '?',
+      wsShared: activeWs ? !!activeWs.shared : false,
+      newWorkspace: () => { const v = prompt('New workspace name', 'New workspace'); if (v) app.workspaceNew(v); this.setState({ wsMenuOpen: false }); },
+      topics, topicCount: String((app.state.topics || []).filter((t) => t.workspaceId === app.state.activeWorkspaceId).length),
       leftSources, sourceCount: String(sources.length), noSources: sources.length === 0, hasSources: sources.length > 0,
       // tabs
       tabs, hasFlagLine, flagLine, flagFg, flagBg, flagBd,
