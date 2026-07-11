@@ -10,7 +10,7 @@
 // The user sees what the model actually said, with a flag pinned to it.
 
 import { answerVoid, answerMathAsync } from '../enactor/answer/index.js';
-import { retrieveHybrid, reserveBySource, pickRetrievalEmbedder, selectExcerpts, retrieveStructural, retrieveNetwork, queryTouchesDoc, retrieveLexical } from '../surfer/retrieve/index.js';
+import { retrieveHybrid, reserveBySource, pickRetrievalEmbedder, selectExcerpts, retrieveStructural, retrieveNetwork, queryTouchesDoc, querySubjectTerms, dropReferenceChrome, retrieveLexical } from '../surfer/retrieve/index.js';
 import { parseText } from '../perceiver/parse/index.js';
 import { think, worthSayingAloud, inferGenders } from '../weave/write/index.js';
 import { foldNote }         from '../surfer/fold/index.js';
@@ -257,6 +257,29 @@ export const stages = {
     const spans = hasWebSource
       ? reserveBySource(pool, ctx.doc.origin, isWebSource, { k: 6 })
       : pool.slice(0, 6);
+
+    // STRUCTURAL FALLBACK — read the document's own skeleton when a BROAD ask made no real
+    // contact with the page. The early Pattern-grain gate above catches the clean meta-query
+    // ("summarize this"); this catches the COLLOQUIAL one the grain missed and the incidental-
+    // term trap `queryTouchesDoc` could not see. The observed failure: "whats the news today?"
+    // over an NPR homepage retrieved the site title (dropped as nav chrome) and a bare "news"
+    // nav label — the only lexical contact — so the talker, shown a stray word, said it found
+    // no news while every actual story went unread. A broad ask names NO subject (`querySubject-
+    // Terms` is empty once the asking/scope and content-demand words are removed): "whats the
+    // news", "what's here", "what's happening", "tell me about this". When such a query's best
+    // REAL (non-chrome) span is weak — below the floor, i.e. the query barely touched the page —
+    // read the structural skeleton (opening · headings · spread · turning points), or the member
+    // network for a list, so the question engages the document instead of a fragment. Scoped to
+    // the broad, weak case: a pointed question (any named subject) and a broad ask that matched
+    // strong content are both byte-identical, as is a subject the document genuinely lacks.
+    const STRUCTURAL_FALLBACK_FLOOR = 0.5;
+    const bestScore = dropReferenceChrome(spans).reduce((m, s) => Math.max(m, s.score || 0), 0);
+    if (querySubjectTerms(query).length === 0 && bestScore < STRUCTURAL_FALLBACK_FLOOR) {
+      const network = ctx.terrain === 'Network';
+      const whole = network ? retrieveNetwork(ctx.doc, 12) : retrieveStructural(ctx.doc, 12);
+      if (whole.length) return { ...ctx, spans: whole, retrievalQuery: query, retrieval: network ? 'network' : 'structural' };
+    }
+
     if (spans.length === 0) {
       // Strict grounded mode never falls through to free generation: it stays on the
       // grounded route and answers the absence ("the document doesn't cover this")

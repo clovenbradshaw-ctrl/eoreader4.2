@@ -68,6 +68,31 @@ export const queryTouchesDoc = (doc, query) => {
   return terms.some(t => vocab.has(t));
 };
 
+// CONTENT-DEMAND words — a query built of these asks for the page's CONTENT AT LARGE
+// ("what's the news today", "anything new", "what's happening", "the latest headlines"),
+// naming no specific subject. Like META they are about the ASKING, not the document's
+// topic — a recency/coverage demand, not a term to retrieve ON. Kept SEPARATE from META
+// so `queryTouchesDoc` and the early Pattern-grain structural gate are byte-identical;
+// this set only widens what `querySubjectTerms` treats as non-subject. The failure it
+// answers: "whats the news today?" over an NPR page retrieved the site title and a bare
+// "news" nav label (the only lexical contact) and the talker, shown a stray word, said it
+// found no news — while the page's actual stories were never read.
+const CONTENT_DEMAND = new Set([
+  'news', 'headline', 'headlines', 'latest', 'recent', 'recently',
+  'update', 'updates', 'updated', 'current', 'currently',
+  'today', 'todays', 'tonight', 'happening', 'happened', 'happen', 'happens',
+  'new', 'newest', 'now', 'going', 'on', 'anything', 'something', 'here',
+  'whats', 'up', 'stories',
+]);
+
+// The query's SUBJECT terms — the tokens that name what it is ABOUT, once the asking/scope
+// (META) and content-demand words are removed. A query that reduces to NONE of these named
+// no subject: it wants the document's content at large, and the structural skeleton — not a
+// stray token that happened to match — is what answers it. Doc-independent (surface tokens
+// only); the caller decides what to do with them. Byte-identical to `tok` minus the two sets.
+export const querySubjectTerms = (query) =>
+  tok(query).filter((t) => !META.has(t) && !CONTENT_DEMAND.has(t));
+
 export const retrieveStructural = (doc, k = 12) => {
   const units = doc.units || doc.sentences || [];
   if (!units.length) return [];
