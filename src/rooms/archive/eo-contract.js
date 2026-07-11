@@ -14,4 +14,5 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/archive/mxc.js': contract({ ops: ['SIG', 'CON'], targets: ['Network'], products: ['Link'], stances: ['Binding', 'Tending'], note: 'mxc: Matrix media repository client' }),
   'src/rooms/archive/chain.js': contract({ ops: ['CON'], targets: ['Field'], products: ['Link', 'Network'], stances: ['Binding', 'Tracing'], note: 'chain: append-only hash-linked block ledger' }),
   'src/rooms/archive/vault.js': contract({ ops: ['CON', 'INS'], targets: ['Network', 'Field'], products: ['Link', 'Entity'], stances: ['Binding', 'Making'], note: 'vault: encrypted hash-chained media store' }),
+  'src/rooms/archive/vault-mount.js': contract({ ops: ['SIG', 'INS'], targets: ['Field'], products: ['Entity'], stances: ['Making', 'Binding'], note: 'vault-mount: the vault panel DOM surface' }),
 });

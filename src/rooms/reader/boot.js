@@ -46,6 +46,7 @@ import { createGenomeAutosave } from '../archive/autosave.js';
 import { createChatRoom } from '../chat/index.js';
 import { mountChat, mountChatLauncher } from '../chat/mount.js';
 import { createVault } from '../archive/vault.js';
+import { mountVaultLauncher } from '../archive/vault-mount.js';
 
 const audit = createAuditLog({ capacity: 512 });
 const app = createReaderApp({ audit });
@@ -142,3 +143,7 @@ console.info('[EO] engine bridge up — window.EO', Object.keys(window.EO));
 // session is live (reusing the archive login) and never touches the reader surface.
 try { if (typeof document !== 'undefined') mountChatLauncher(document.body, { chat, matrix }); }
 catch (e) { console.warn('[EO] chat launcher not mounted', e); }
+
+// …and the encrypted-vault launcher, gated the same way (sits just above the chat FAB).
+try { if (typeof document !== 'undefined') mountVaultLauncher(document.body, { vault, matrix }); }
+catch (e) { console.warn('[EO] vault launcher not mounted', e); }

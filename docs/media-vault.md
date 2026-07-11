@@ -66,10 +66,16 @@ const { text }  = await EO.vault.open(block.index);  // → 'hello'
 await EO.vault.verify();                             // → { ok: true, length: N }
 ```
 
+## Surface
+
+A floating 🗄 launcher (`vault-mount.js`, mounted by `boot.js`, gated on a live Matrix
+login and sitting just above the chat 💬 FAB) opens a panel that saves typed text or an
+uploaded file, lists the chain newest-first, opens an item back (text inline, binary as
+a download), and shows a live integrity badge from `verify()`. Presentation only — the
+engine (`save`/`open`/`verify`) is what the tests exercise.
+
 ## Deliberately follow-up
 
-- A surface entry (a "Save to encrypted vault" action in the reader / a vault panel) —
-  the engine membrane is wired and tested; the UI hook is next.
 - Key backup: today losing the OPFS chain loses the keys. A future step can wrap the
   chain itself as an encrypted item and pin its head (via `deposit.js`) for recovery.
 - Sharing a vault item with another user (re-encrypting the per-file key to their device
