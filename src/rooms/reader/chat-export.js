@@ -379,6 +379,7 @@ export const toMarkdown = ({ topic, turns = [], sources = [], provenance = null 
       if (a.grounding && a.grounding !== 'auto') tags.push(a.grounding);
       if (a.grounded) tags.push('grounded'); else if (a.unbound) tags.push('unbound');
       if (a.stopped) tags.push('stopped');
+      if (a.unverified) tags.push('unverified');
       const tagLine = [...new Set(tags)].join(' · ');
       L.push(`### EOReader${tagLine ? ` · ${tagLine}` : ''}`);
       L.push('');
@@ -478,6 +479,9 @@ export const toJSON = ({ topic, turns = [], sources = [], provenance = null } = 
         grounded: !!ex.assistant.grounded,
         unbound: !!ex.assistant.unbound,
         stopped: !!ex.assistant.stopped,
+        // a stopped/stalled turn whose frozen draft never reached the grounding checks (app.js
+        // markStoppedPartial) — the receipt says so, so an export can never read it as verified
+        unverified: !!ex.assistant.unverified,
         flags: (ex.assistant.flags || []).map((f) => f.id || f).filter(Boolean),
         cites: dedupeCites(ex.assistant.cites, sources),
         // The websites this answer searched — {url, title} per page, links only (no page content).
