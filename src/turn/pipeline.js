@@ -63,6 +63,38 @@ const citeTextsOf = (doc, sources) => {
 
 const round3 = (x) => (typeof x === 'number' && Number.isFinite(x) ? Math.round(x * 1000) / 1000 : null);
 
+// The surf's reading PATH — the walk the surfer took, assembled human-auditable. surfFold
+// (surfer/surf.js) reports its route as bare cursor indices (anchor · stops · peak); to AUDIT
+// the surf, not merely count its stops, the reader needs the walk itself: the ordered cursors
+// it arrested on, each with the sentence read there and the Bayesian surprise that stopped it.
+// The anchor (where retrieval set the surfer down), every stop (a surprise peak or a broken
+// frame), and the field peak — deduped, in reading order. Pure and capped, so it rides both the
+// live thinking trail (fold-narrative.js) and the JSONL audit without bloat. `units[idx]` IS the
+// sentence text (enactor/basis.js reads the surf the same way).
+export const buildSurfPath = (surf, doc) => {
+  if (!surf) return [];
+  const units = doc?.units || doc?.sentences || [];
+  const bayesByIdx = new Map((surf.field || []).map(f => [f.idx, f.bayes]));
+  const stops = Array.isArray(surf.stops) ? surf.stops : [];
+  const { anchor, peak } = surf;
+  const idxs = [...new Set([anchor, ...stops, peak])]
+    .filter(i => Number.isInteger(i) && i >= 0)
+    .sort((a, b) => a - b);
+  return idxs.slice(0, 12).map((idx) => {
+    const raw = units[idx];
+    const text = String((typeof raw === 'string' ? raw : raw?.text) || '')
+      .replace(/\s+/g, ' ').trim().slice(0, 220);
+    return {
+      idx,
+      bayes: round3(bayesByIdx.has(idx) ? bayesByIdx.get(idx) : 0) ?? 0,
+      text,
+      anchor: idx === anchor,
+      peak: idx === peak,
+      stop: stops.includes(idx),
+    };
+  });
+};
+
 // The MECHANICAL reading, assembled for the audit: every piece that came through between the
 // question and the phrase. The spans the surfer/retrieval delivered (idx + text + how it was
 // found + score), the surfer's own per-cursor field (the surprise/warmth trace, its peak and
@@ -447,6 +479,10 @@ const summarize = (name, ctx, ms) => {
                               surf: ctx.surf ? {
                                 anchor: ctx.surf.anchor, peak: ctx.surf.peak, stops: ctx.surf.stops,
                                 focus:  ctx.surf.focus,  recs: ctx.surf.recCursors, rode: ctx.surf.rode,
+                                // the human-auditable reading walk — the cursors the surf arrested on,
+                                // each with its sentence and surprise (buildSurfPath, above). Rides both
+                                // the live trail's "Folded the reading" beat and the persisted audit.
+                                path: buildSurfPath(ctx.surf, ctx.doc),
                                 // The Significance column, when it rode (meaning embedder + prior present):
                                 // the interpretive Atmosphere (departure · tone · verdict), the Lens spread
                                 // (lensEntropy = the predictive uncertainty of the next unit), and the

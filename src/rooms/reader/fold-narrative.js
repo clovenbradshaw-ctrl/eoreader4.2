@@ -16,6 +16,30 @@
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + 's')}`;
 
+// A label if the value is a non-empty string or a finite number; else null. Keeps the surf's
+// interpretive read from ever rendering "[object Object]" out of an unexpected shape.
+const lab = (v) => (typeof v === 'string' && v.trim()) ? v.trim()
+  : (typeof v === 'number' && Number.isFinite(v)) ? String(v) : null;
+
+// How the surf arrested — the discipline it rode. 'bayesian-void' stops only where the surprise
+// beat the document's own noise floor (the hallucination-budget boundary); the default
+// 'bayesian-figure' stops on the reach's surprise peaks.
+const surfRode = (surf) => surf?.rode === 'bayesian-void' ? 'arrested on the void boundary'
+  : surf?.rode === 'bayesian-figure' ? 'arrested on surprise peaks' : null;
+
+// The interpretive read, present only when the significance column rode (a meaning embedder and
+// prior were supplied): the atmosphere's verdict and tone, the paradigm call, and whether the
+// confabulation guard held. A compact "·"-joined line, or null on the plain structural surf.
+const surfRead = (surf) => {
+  if (!surf) return null;
+  const parts = [];
+  const v = lab(surf.atmosphere?.verdict); if (v) parts.push(v);
+  const tone = lab(surf.atmosphere?.tone); if (tone) parts.push(tone);
+  const para = lab(surf.paradigm); if (para) parts.push(para);
+  if (surf.stance && surf.stance.guard) parts.push('guard held');
+  return parts.length ? parts.join(' · ') : null;
+};
+
 // The stages worth speaking, each mapped to the honest line its `data` supports. Kept in
 // step order for reading; a stage absent here (expect, converse, predict, answerable, gate,
 // settle) is internal book-keeping the reader needn't watch, so it returns null and the
@@ -36,7 +60,14 @@ export const foldNarrative = (name, data = {}) => {
     case 'fold': {
       const raw = d.surf && d.surf.stops;
       const stops = Array.isArray(raw) ? raw.length : raw;   // surf.stops is the stop cursors
-      return { kind: 'fold', text: stops > 0 ? `Folded the reading — ${plural(stops, 'stop')}` : 'Folded the reading' };
+      const text = stops > 0 ? `Folded the reading — ${plural(stops, 'stop')}` : 'Folded the reading';
+      // AUDIT THE SURF: when the fold carries the surfer's reading path (pipeline.js buildSurfPath),
+      // ride it onto the beat so the trail can be OPENED onto the walk itself — the cursors it
+      // arrested on, what it read at each, and the surprise that stopped it. Absent a path (a doc
+      // with no stops, or an older record), the beat is exactly the line it has always been.
+      const path = (d.surf && Array.isArray(d.surf.path) ? d.surf.path : []).filter(p => p && p.text);
+      if (!path.length) return { kind: 'fold', text };
+      return { kind: 'fold', text, surf: { path, rode: surfRode(d.surf), read: surfRead(d.surf) } };
     }
     case 'predict':
       // the engine's own grounded generation (src/write) — the draft the fluent reply is
