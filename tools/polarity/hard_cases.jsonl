@@ -1,0 +1,50 @@
+{"id": "HC01", "category": "antonym_not_negation", "lang": "en", "text": "The door is closed.", "label": "1", "rationale": "Antonym of 'open', but an AFFIRMATIVE assertion. A valence-confounded axis scores this as 'no'."}
+{"id": "HC02", "category": "antonym_not_negation", "lang": "en", "text": "The door is not closed.", "label": "0", "rationale": "Negation of an antonym. Truth-conditionally ≈ HC-open, but the polarity marker is present."}
+{"id": "HC03", "category": "antonym_not_negation", "lang": "en", "text": "The task is impossible.", "label": "1", "rationale": "Affixal antonym. Affirmative assertion carrying a negative morpheme."}
+{"id": "HC04", "category": "antonym_not_negation", "lang": "en", "text": "The task is not possible.", "label": "0", "rationale": "Syntactic negation. Near-synonymous with HC03 but structurally opposite."}
+{"id": "HC05", "category": "double_negation", "lang": "en", "text": "It is not impossible.", "label": "1", "rationale": "Two negations, net affirmative — and weaker than plain 'possible'."}
+{"id": "HC06", "category": "litotes", "lang": "en", "text": "She is not unhappy.", "label": "1", "rationale": "Litotes. Net positive, hedged. Cosine-similar to 'She is unhappy'."}
+{"id": "HC07", "category": "double_negation", "lang": "en", "text": "I never said I didn't do it.", "label": "1", "rationale": "Stacked negation with scope interaction."}
+{"id": "HC08", "category": "negative_concord", "lang": "es", "text": "No vi nada.", "label": "0", "rationale": "Two negative words, one negation. Token-counting probes read this as double."}
+{"id": "HC09", "category": "negative_concord", "lang": "ru", "text": "Я никогда никому ничего не говорил.", "label": "0", "rationale": "Four negative words, one negation."}
+{"id": "HC10", "category": "negative_concord", "lang": "he", "text": "אף אחד לא הגיע.", "label": "0", "rationale": "Obligatory concord: af echad + lo."}
+{"id": "HC11", "category": "downward_entailing", "lang": "en", "text": "Few people attended.", "label": "1", "rationale": "Downward-entailing, licenses NPIs, but NOT negation."}
+{"id": "HC12", "category": "downward_entailing", "lang": "en", "text": "She rarely eats meat.", "label": "1", "rationale": "Adverbial quantifier, not sentential negation."}
+{"id": "HC13", "category": "downward_entailing", "lang": "en", "text": "He left without saying goodbye.", "label": "1", "rationale": "'without' is inherently negative but the clause is asserted."}
+{"id": "HC14", "category": "downward_entailing", "lang": "en", "text": "I doubt he will come.", "label": "1", "rationale": "Lexical negativity inside an affirmative matrix."}
+{"id": "HC15", "category": "downward_entailing", "lang": "en", "text": "He failed to submit the form.", "label": "0", "rationale": "Implicative verb: entails he did not submit. No negative morpheme at all."}
+{"id": "HC16", "category": "scope_ambiguity", "lang": "en", "text": "All that glitters is not gold.", "label": "?", "rationale": "¬∀ vs ∀¬. Genuinely ambiguous; DO NOT use as a labelled example."}
+{"id": "HC17", "category": "scope_ambiguity", "lang": "en", "text": "I didn't come because I was tired.", "label": "?", "rationale": "Negation can scope over the verb or over the because-clause."}
+{"id": "HC18", "category": "neg_raising", "lang": "en", "text": "I don't think he will come.", "label": "0", "rationale": "Neg-raising: surface matrix negation, semantic complement negation."}
+{"id": "HC19", "category": "neg_raising", "lang": "en", "text": "I think he will not come.", "label": "0", "rationale": "Same meaning as HC18, different structure. Should sit at the same place on the axis."}
+{"id": "HC20", "category": "embedded_negation", "lang": "en", "text": "He said the door is not open.", "label": "1", "rationale": "The speaker asserts a report. The negation belongs to the reported clause."}
+{"id": "HC21", "category": "embedded_negation", "lang": "en", "text": "It is false that the door is not open.", "label": "1", "rationale": "Negation under a falsity operator."}
+{"id": "HC22", "category": "embedded_negation", "lang": "en", "text": "She denied that she had signed the contract.", "label": "0", "rationale": "Negation carried by the matrix verb, not by a particle."}
+{"id": "HC23", "category": "embedded_negation", "lang": "en", "text": "The report does not say the permit was denied.", "label": "?", "rationale": "Two negations at different levels. Metalinguistic scope."}
+{"id": "HC24", "category": "negative_question", "lang": "en", "text": "Isn't the door open?", "label": "?", "rationale": "Negative polar question: biased toward the POSITIVE. Not an assertion."}
+{"id": "HC25", "category": "negative_question", "lang": "en", "text": "Is the door not open?", "label": "?", "rationale": "Same surface negation, different bias. Never label as 'no'."}
+{"id": "HC26", "category": "tag_question", "lang": "en", "text": "The door is open, isn't it?", "label": "1", "rationale": "Affirmative assertion with negative tag."}
+{"id": "HC27", "category": "metalinguistic", "lang": "en", "text": "He didn't walk — he ran.", "label": "1", "rationale": "Metalinguistic negation: the event happened, the description is corrected."}
+{"id": "HC28", "category": "contrastive_focus", "lang": "en", "text": "I didn't buy the RED car.", "label": "?", "rationale": "Focus-sensitive negation; scope depends on prosody, invisible in text."}
+{"id": "HC29", "category": "npi", "lang": "en", "text": "I don't have any money.", "label": "0", "rationale": "'any' licensed by negation."}
+{"id": "HC30", "category": "npi", "lang": "en", "text": "If you have any questions, ask.", "label": "1", "rationale": "'any' licensed by a conditional, not negation."}
+{"id": "HC31", "category": "answer_particle", "lang": "en", "text": "Q: You don't smoke? A: No. (= I don't smoke)", "label": "0", "rationale": "English NO agrees with the negative question."}
+{"id": "HC32", "category": "answer_particle", "lang": "ja", "text": "Q: たばこを吸わないんですか。 A: はい。(= 吸いません)", "label": "0", "rationale": "Japanese HAI on a negative question means 'correct, I don't'. Surface 'yes', semantic 'no'."}
+{"id": "HC33", "category": "answer_particle", "lang": "ko", "text": "Q: 담배 안 피우세요? A: 네. (= 안 피웁니다)", "label": "0", "rationale": "Same inversion as Japanese."}
+{"id": "HC34", "category": "answer_particle", "lang": "fr", "text": "Q: Tu ne fumes pas ? A: Si. (= je fume)", "label": "1", "rationale": "French SI: a 'yes' word that only exists to contradict a negative."}
+{"id": "HC35", "category": "answer_particle", "lang": "de", "text": "Q: Du rauchst nicht? A: Doch. (= ich rauche)", "label": "1", "rationale": "German DOCH, same function."}
+{"id": "HC36", "category": "answer_particle", "lang": "ar", "text": "Q: ألا تدخن؟ A: بلى. (= أدخن)", "label": "1", "rationale": "Arabic BALĀ contradicts the negative; NAʿAM would confirm it."}
+{"id": "HC37", "category": "answer_particle", "lang": "ga", "text": "Q: An bhfuil an doras oscailte? A: Níl.", "label": "0", "rationale": "Irish has no 'no'. The negative answer IS the negated verb."}
+{"id": "HC38", "category": "answer_particle", "lang": "zh", "text": "Q: 你去不去? A: 不去。", "label": "0", "rationale": "Mandarin has no general 'no'. The answer negates the echoed verb."}
+{"id": "HC39", "category": "answer_particle", "lang": "fi", "text": "Q: Tuletko? A: En.", "label": "0", "rationale": "Finnish 'en' is a first-person-singular NEGATIVE VERB, not a particle."}
+{"id": "HC40", "category": "not_yet", "lang": "id", "text": "Dia belum makan.", "label": "0", "rationale": "'Not yet' — presupposes the event is still expected. ≠ 'tidak makan'."}
+{"id": "HC41", "category": "not_yet", "lang": "vi", "text": "Anh ấy chưa ăn.", "label": "0", "rationale": "chưa ≠ không. Different lexeme, different presupposition."}
+{"id": "HC42", "category": "inability", "lang": "ka", "text": "მე ვერ ვცურავ.", "label": "0", "rationale": "Georgian VER: negation of ability, distinct from plain AR."}
+{"id": "HC43", "category": "inability", "lang": "ko", "text": "나는 수영을 못 한다.", "label": "0", "rationale": "Korean 못: inability, distinct from 안."}
+{"id": "HC44", "category": "length_confound", "lang": "en", "text": "The door, which had been painted last spring by the previous tenant, is open.", "label": "1", "rationale": "LONG affirmative. Guards against a probe that is really measuring length."}
+{"id": "HC45", "category": "length_confound", "lang": "en", "text": "Not open.", "label": "0", "rationale": "SHORT negative. Same guard, opposite direction."}
+{"id": "HC46", "category": "valence_confound", "lang": "en", "text": "I do not like this restaurant.", "label": "0", "rationale": "Negative polarity AND negative sentiment. Aligned."}
+{"id": "HC47", "category": "valence_confound", "lang": "en", "text": "I do not dislike this restaurant.", "label": "0", "rationale": "Negative polarity, POSITIVE-ish sentiment. Anti-aligned — the key control."}
+{"id": "HC48", "category": "valence_confound", "lang": "en", "text": "This restaurant is terrible.", "label": "1", "rationale": "Affirmative polarity, negative sentiment. Anti-aligned."}
+{"id": "HC49", "category": "rhetorical", "lang": "en", "text": "Who doesn't love a good story?", "label": "1", "rationale": "Rhetorical negative question = strong affirmative."}
+{"id": "HC50", "category": "expletive_negation", "lang": "fr", "text": "J'ai peur qu'il ne vienne.", "label": "1", "rationale": "Expletive 'ne': a negative morpheme with NO negative meaning."}
