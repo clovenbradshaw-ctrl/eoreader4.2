@@ -28,6 +28,7 @@ import { resolveProposition, EDGE_OPS } from './resolve.js';
 import { answerabilityGate, followUpOffer } from './answerable.js';
 import { arcPhase, phaseBias } from './shape.js';
 import { speculateNext, readWindow } from './prompt.js';
+import { realizeProse } from './render.js';
 import { fieldStrain, MIN_FIELD } from './field.js';
 import { holonicConfinement } from './confine.js';
 import { relaxMove } from './relax.js';
@@ -68,6 +69,11 @@ export const runContinuation = async ({
   dynamics = false,       // decision-as-relaxation — occupancy currents settle into the move (no gauge)
   nul = true,             // nul — hold uncohered ground honestly instead of hedging (default on)
   grammar = null,         // commission — an exemplar's learned move-grammar; leans the move draw toward its form
+  prose = false,          // paragraph-grain realizer — render each atom as a paragraph CONTINUATION of
+                          //   the running document (render.js), not one isolated grounded sentence. The
+                          //   planner still decides the move; only the writing changes. Default off ⇒ the
+                          //   REALIZE call is byte-identical to today (the rev-flag parity contract).
+  genre = '',             // the cold-start register line for prose mode (render.js DEFAULT_GENRE when '')
   signal = null,
 } = {}) => {
   // RECONSTRUCT — the tail and the fold, reused wholesale. Computed once: the same
@@ -236,10 +242,16 @@ export const runContinuation = async ({
     }
 
     // REALIZE (§4.3) — the talker renders the proposition, with the fold + the
-    // read-window (the prose tail, witnessed not re-bound, §5) as context.
+    // read-window (the prose tail, witnessed not re-bound, §5) as context. Under
+    // `prose`, realize at PARAGRAPH grain — a continuation of the running document
+    // (render.js), the planner's move preserved but the writing no longer one
+    // isolated sentence per atom. Default: the arc's per-atom generateSection.
     const window = readWindow(units, 2);
-    let gen = await generateSection(prop, { doc, model, signal, conversation, tail: window });
-    let gated = bindAndVeto(gen.rawOutput, prop.spans, { doc, question: prop.subClaim, task: 'answer' });
+    const realize = (corrective = '') => prose
+      ? realizeProse({ proposition: prop, units, model, genre, signal })
+      : generateSection(prop, { doc, model, corrective, signal, conversation, tail: window }).then(g => g.rawOutput);
+    let rawOut = await realize();
+    let gated = bindAndVeto(rawOut, prop.spans, { doc, question: prop.subClaim, task: 'answer' });
     let action = 'append';
 
     // FLOOR — the arc's faithfulness gate, run forward. bound → append; partly
@@ -253,11 +265,11 @@ export const runContinuation = async ({
       else action = 'drop';
     } else {
       const corrective = stripUnboundCorrective(gated.bound);
-      const gen2 = await generateSection(prop, { doc, model, corrective, signal, conversation, tail: window });
-      const gated2 = bindAndVeto(gen2.rawOutput, prop.spans, { doc, question: prop.subClaim, task: 'answer' });
+      const rawOut2 = await realize(corrective);
+      const gated2 = bindAndVeto(rawOut2, prop.spans, { doc, question: prop.subClaim, task: 'answer' });
       if (gated2.boundFraction >= REBIND_THRESHOLD) {
         const prefix2 = boundPrefixText(gated2.bound);
-        if (prefix2) { gen = gen2; gated = bindAndVeto(prefix2, prop.spans, { doc, question: prop.subClaim, task: 'answer' }); action = 'regenerate'; }
+        if (prefix2) { gated = bindAndVeto(prefix2, prop.spans, { doc, question: prop.subClaim, task: 'answer' }); action = 'regenerate'; }
         else action = 'drop';
       } else {
         action = 'drop';
