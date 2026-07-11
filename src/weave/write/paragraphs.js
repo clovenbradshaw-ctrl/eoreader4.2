@@ -28,6 +28,8 @@
 // backend honours a signal), and a fragment the token cap cut mid-sentence is
 // dropped BEFORE it is shown — never un-streamed after.
 
+import { retreads } from '../../surfer/salience.js';
+
 // The continuation cue — one paragraph forward, or a clean close. DONE is the
 // model's own stop: it is held back by the gate and never reaches the surface.
 export const CONTINUE_CUE =
@@ -55,7 +57,7 @@ export const firstSentenceOf = (s) => {
 // `text` is EXACTLY what was forwarded to `onToken` (after the paragraph join, which
 // the gate also owns); `halted` means the loop should stop (the model closed with
 // DONE, or looped back onto an opener it already wrote).
-const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFirst, seenOpeners }) => {
+const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFirst, seenOpeners, prior = '' }) => {
   const inner = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const onOuterAbort = () => inner?.abort();
   if (signal) signal.addEventListener('abort', onOuterAbort, { once: true });
@@ -84,6 +86,26 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
       start = i;
     }
     if (!opened) {
+      // A continuation paragraph tends to open with the model's OWN ellipsis — its
+      // literal reading of the CONTINUE_CUE ("pick up where you left off"). It is a
+      // seam artifact, never answer content, so skip a leading run of "…"/"." (and the
+      // space after it) before the paragraph opens: the strike lands on `start`, so the
+      // ellipsis is never streamed to onToken and never enters the draft — no flicker,
+      // unlike a post-hoc trim. Gated to continuation paragraphs (the first never sees
+      // the cue), so a "0.5 kg…" opener — which only a first paragraph would carry — is
+      // never touched. The run may arrive a dot at a time (a lone "." reads as a whole
+      // sentence to the gate below, so it must be caught HERE): while nothing but dots
+      // has landed we wait; once real content follows we skip the whole run; if the
+      // decode ends on nothing but dots the paragraph suppresses like an empty one.
+      if (!isFirst) {
+        const lead = buf.slice(start);
+        const run = /^[.…]+[ \t]*/.exec(lead);
+        if (run) {
+          if (lead.length > run[0].length) start += run[0].length;        // real content follows
+          else if (final) { suppressed = true; inner?.abort(); return; }   // only dots ever arrived
+          else return;                                                     // still streaming — wait
+        }
+      }
       // Hold until the first sentence lands (or the decode ends), then decide once:
       // a bare DONE stops the loop unstreamed; an opener the answer already used
       // means the model is looping — stop rather than stream a repeat.
@@ -95,6 +117,14 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
         suppressed = true; sawDone = true; inner?.abort(); return;
       }
       if (seenOpeners.has(norm(opener))) { suppressed = true; inner?.abort(); return; }
+      // A continuation whose opener only re-covers already-said ground is the model looping to
+      // fill the cap once it has said its piece. The measured self-repetition read (surfer/
+      // salience.js retreads) — the engine's OWN surprise, the same the walk stops a non-novel hop
+      // on, read as the self-normalized onBits>offBits crossing so a ubiquitous topic word never
+      // false-fires. It generalises the exact-match seenOpeners above (which misses a paraphrased
+      // repeat); stops here before a byte is forwarded, so nothing un-streams. Byte-identical when
+      // the paragraph brings new surprise, which every non-degenerate continuation does.
+      if (!isFirst && prior && retreads(prior, opener)) { suppressed = true; inner?.abort(); return; }
       opened = true;
       forwarded = start;
       if (!isFirst) onToken?.('\n\n');       // the join between paragraphs
@@ -201,7 +231,7 @@ export const streamParagraphs = async ({
     try {
       out = await drawParagraph({
         model, messages: input, maxTokens: perCall, onToken, signal,
-        isFirst: paragraphs.length === 0, seenOpeners,
+        isFirst: paragraphs.length === 0, seenOpeners, prior: paragraphs.join('\n\n'),
       });
     } catch { break; }   // a decode fault ends the loop with what we have — never a dead turn
     if (out.sawDone) done = true;

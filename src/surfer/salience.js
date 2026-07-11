@@ -26,6 +26,7 @@
 // when it is not — bounded by relevance, not by a window.
 
 import { tok } from '../perceiver/parse/index.js';
+import { surpriseAt } from '../core/surprise.js';
 
 // threadBasis({ query, history, cast, doc }) → the activated thread, in TWO channels:
 //   terms    a sparse term vector (Map<term, weight>) — the prompt weighted fullest, the
@@ -88,6 +89,40 @@ export const bornSalience = (basis, tokenSet) => {
   if (d <= 1e-12) return 0;
   const o = dot / d;
   return o * o;
+};
+
+// termMass(text) → Map<term, mass>, unit mass per token occurrence — the shape surpriseAt reads.
+const termMass = (text) => {
+  const m = new Map();
+  for (const t of tok(String(text || ''))) m.set(t, (m.get(t) || 0) + 1);
+  return m;
+};
+
+// retreads(said, candidate, { gamma }) → is the candidate span RE-COVERING already-said ground
+// rather than adding to it? The self-repetition read a small model needs (the 3B loops whole
+// sentences to fill the paragraph cap once it has said its piece — the woodpecker answer's third
+// paragraph re-ran its first two). Measured, never a sampling constant.
+//
+// The measure is the engine's ONE surprise (core/surprise.js), the same turn/research.js stops a
+// non-novel web hop on — turned on the answer's OWN prior text. surpriseAt gives the per-term
+// belief-shift (`bayesBy`, the KL each term carries); we split that shift into the mass landing on
+// terms ALREADY said (onBits) and on newcomers (offBits) and read the SELF-NORMALIZED crossing:
+// onBits > offBits — the belief moving mostly back onto what is already held rather than out to
+// something new. It is the frameMassPartition doctrine (chorus/born.js) in surprise space: the two
+// shares of ONE surprise decide, "not a chosen bar." No constant, and — because a ubiquitous topic
+// term carries ≈0 KL — the ever-present subject word never dominates the way a raw squared-mass
+// crossing would. Empty/no-surprise ⇒ false (the honest no-mass; never judged into a stop).
+export const retreads = (said, candidate, { gamma = 0.8 } = {}) => {
+  const prior = termMass(said);
+  const arrival = termMass(candidate);
+  if (arrival.size === 0 || prior.size === 0) return false;
+  const { bayesBits, bayesBy } = surpriseAt(prior, arrival, { gamma });
+  if (!(bayesBits > 0)) return false;
+  let onBits = 0, offBits = 0;
+  for (const [term, bits] of Object.entries(bayesBy)) {
+    if (prior.has(term)) onBits += bits; else offBits += bits;
+  }
+  return onBits > offBits;
 };
 
 // linkSalience(threadFigures, link) → the Born weight of a LINK against the thread.
