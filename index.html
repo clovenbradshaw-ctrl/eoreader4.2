@@ -393,8 +393,8 @@ table{border-collapse:collapse;width:100%}
                                 <sc-if value="{{ pp.hasPrefix }}"><span style="color:#8A8A95">{{ pp.prefix }}</span></sc-if>
                                 <sc-for list="{{ pp.segs }}" as="sg">
                                   <sc-if value="{{ sg.isText }}"><span style="{{ sg.style }}">{{ sg.s }}</span></sc-if>
-                                  <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;color:#5B4BE6;border-bottom:1px dotted #B9AEF8;font-size:inherit;line-height:inherit" style-hover="background:#F1EFFE">{{ sg.s }}</button></sc-if>
-                                  <sc-if value="{{ sg.isCite }}"><button onClick="{{ sg.open }}" title="{{ sg.quote }}" style="display:inline-flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border-radius:5px;padding:0 5px;margin:0 2px;vertical-align:baseline" style-hover="background:#E7E2FD">{{ sg.label }}</button></sc-if>
+                                  <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;color:#5B4BE6;font-weight:550;font-size:inherit;line-height:inherit;{{ sg.hl }}" style-hover="filter:brightness(.97)">{{ sg.s }}</button></sc-if>
+                                  <sc-if value="{{ sg.isCite }}"><button onClick="{{ sg.open }}" title="{{ sg.quote }}" style="display:inline-flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.02em;color:{{ sg.cfg }};background:{{ sg.cbg }};border-radius:4px;padding:1px 4px;margin:0 1px 0 2px;vertical-align:baseline" style-hover="filter:brightness(.96)">{{ sg.label }}</button></sc-if>
                                 </sc-for>
                               </div>
                             </sc-for>
@@ -407,12 +407,13 @@ table{border-collapse:collapse;width:100%}
                             </sc-for>
                           </div>
                         </sc-if>
-                        <sc-if value="{{ m.hasCites }}">
+                        <sc-if value="{{ m.hasProvRow }}">
                           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px">
-                            <span style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;margin-right:2px">GROUNDED IN</span>
+                            <sc-if value="{{ m.hasCites }}"><span style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;margin-right:2px">GROUNDED IN</span></sc-if>
                             <sc-for list="{{ m.cites }}" as="c">
-                              <button onClick="{{ c.open }}" title="{{ c.quote }}" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ c.fg }};background:{{ c.bg }};border:1px solid {{ c.bd }};border-radius:6px;padding:3px 8px" style-hover="filter:brightness(.97)">{{ c.label }}<span style="width:5px;height:5px;border-radius:50%;background:{{ c.fg }}"></span>{{ c.status }}</button>
+                              <button onClick="{{ c.open }}" title="{{ c.quote }}" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ c.fg }};background:{{ c.bg }};border:1px solid {{ c.bd }};border-radius:6px;padding:3px 8px" style-hover="filter:brightness(.97)"><sc-if value="{{ c.hasSwatch }}"><span style="width:9px;height:9px;border-radius:3px;background:{{ c.swatch }};flex:0 0 auto"></span></sc-if>{{ c.label }}<span style="width:5px;height:5px;border-radius:50%;background:{{ c.fg }}"></span>{{ c.status }}</button>
                             </sc-for>
+                            <sc-if value="{{ m.hasUngroundedChip }}"><span title="Some spans have no source behind them — the model's own framing or connective text, shown with a colourless wash." style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#8A7A57;background:#F7F2E7;border:1px solid #E7DCC2;border-radius:6px;padding:3px 8px"><span style="width:9px;height:9px;border-radius:3px;background:hsl(41 40% 82%);box-shadow:inset 0 0 0 1px hsl(40 22% 72%);flex:0 0 auto"></span>ungrounded</span></sc-if>
                           </div>
                         </sc-if>
                         <sc-if value="{{ m.hasProposal }}">
@@ -444,7 +445,7 @@ table{border-collapse:collapse;width:100%}
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
                 <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Answers only from your recorded sources — nothing enters an answer unrecorded.</span>
                 <span style="flex:1"></span>
-                <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }}" style-hover="filter:brightness(.97)">⟬e⟭ {{ entModeLabel }}</button>
+                <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }}" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ entModeLabel }}</button>
                 <button onClick="{{ cycleWebMode }}" title="{{ webModeTitle }}" style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ webModeFg }};background:{{ webModeBg }};border:1px solid {{ webModeBd }}" style-hover="filter:brightness(.97)">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.6 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.6-3.8-9s1.3-6.5 3.8-9z"/></svg>
                   {{ webModeLabel }}
@@ -920,7 +921,7 @@ table{border-collapse:collapse;width:100%}
                 <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">ENTITIES</span>
                 <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ entCount }}</span>
                 <span style="flex:1"></span>
-                <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:3px 8px">⟬e⟭ in text</button>
+                <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:3px 8px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>in text</button>
               </div>
               <sc-if value="{{ entEmpty }}">
                 <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:16px 14px;font-size:12px;color:#9A9AA4;line-height:1.55">No entities yet. Record a source and its named figures — people, places, things — appear here with their mentions and links.</div>
@@ -1758,6 +1759,27 @@ class Component extends DCLogic {
     if (status === 'Uncited') return { fg: '#9A6B12', bg: '#FBF1DA', bd: '#EEDCA9' };
     return { fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9' };
   }
+  // A stable highlighter colour per source (S1, S2, …) so a span's marker swipe, its baseline, and
+  // its citation chip all read as the SAME source across the whole answer. Hue is picked off the
+  // source's own number, so a given source keeps its colour turn after turn.
+  _sourceColor(sn) {
+    const HUES = [212, 266, 150, 28, 332, 190, 96, 44, 306, 168];
+    const n = parseInt(String(sn || '').replace(/\D/g, ''), 10) || 1;
+    const h = HUES[(n - 1) % HUES.length];
+    return { band: `hsl(${h} 86% 88%)`, line: `hsl(${h} 55% 56%)`, fg: `hsl(${h} 58% 40%)`, chipBg: `hsl(${h} 82% 95%)` };
+  }
+  // The span highlight, as a highlighter swipe rather than a filled box: an inset box-shadow lays a
+  // soft translucent band over the LOWER portion of the text (so wrapped lines still breathe), and
+  // grounded spans get a crisp baseline in their source's hue. Ungrounded spans take a colourless
+  // warm band with a faint neutral baseline — disclosed as a span, but plainly anchored to nothing.
+  // box-decoration-break:clone keeps the swipe unbroken across line wraps.
+  _groundStyle(gsn, isEnt) {
+    const tail = ';border-radius:2px;-webkit-box-decoration-break:clone;box-decoration-break:clone';
+    // entities carry their own colour + hover, so they take the swipe ALONE (no baseline) to avoid
+    // stacking underlines; plain prose gets the swipe plus a crisp baseline in the source's hue.
+    if (gsn) { const c = this._sourceColor(gsn); return (isEnt ? `box-shadow:inset 0 -0.78em 0 ${c.band}` : `box-shadow:inset 0 -0.11em 0 ${c.line}, inset 0 -0.78em 0 ${c.band}`) + tail; }
+    return (isEnt ? `box-shadow:inset 0 -0.78em 0 hsl(41 44% 92%)` : `box-shadow:inset 0 -0.09em 0 hsl(40 22% 78%), inset 0 -0.78em 0 hsl(41 44% 92%)`) + tail;
+  }
   // The research trail: one typed beat per step (turn/research.js → app.js beats). Each kind gets a
   // glyph + colour so the stream reads at a glance — searching (blue), reading (amber), a lead
   // followed (accent), a page set aside (red), settled (green). Mirrors 4.1's collapsible trail.
@@ -1834,7 +1856,15 @@ class Component extends DCLogic {
   _segsFor(m) {
     const c = this._segCache[m.id];
     if (c && c.len === (m.text || '').length) return c.paras;
-    const paras = this._app.answerSegments(m, { entities: this.state.entityMode, cites: this.state.entityMode }).map((p) => {
+    // Links mode (entityMode) now also HIGHLIGHTS every span by the source that grounds it — a soft
+    // highlighter swipe in the source's hue, or a colourless warm swipe where nothing grounds it —
+    // so the answer discloses its provenance inline, not just in the footer chips. Connective
+    // punctuation (the "." after a citation, the " — " between clauses) stays PLAIN: a span is words,
+    // and only words can be grounded or stand ungrounded, so lone stops never carry a stray swipe.
+    const hl = this.state.entityMode;
+    const wordful = (s) => /[\p{L}\p{N}]/u.test(s || '');
+    let ungrounded = false;
+    const paras = this._app.answerSegments(m, { entities: hl, cites: hl, sources: hl }).map((p) => {
       const segsIn = p.segs.slice();
       let blk = { style: 'margin:0 0 10px', hasPrefix: false, prefix: '', cut: 0 };
       if (segsIn[0] && segsIn[0].t === 'text') {
@@ -1843,13 +1873,23 @@ class Component extends DCLogic {
       }
       const segs = [];
       for (const sg of segsIn) {
-        if (sg.t === 'text') for (const piece of this._inlineMd(sg.s)) segs.push(piece);
-        else if (sg.t === 'ent') segs.push({ isEnt: true, s: sg.s, style: '', open: () => this.openEntity(sg.docId, sg.entId) });
-        else segs.push({ isCite: true, label: '[' + (sg.reg || 's' + sg.idx) + ']', quote: sg.quote || '', open: () => this.openViewer(sg.sn, sg.quote) });
+        if (hl && (sg.t === 'text' || sg.t === 'ent') && !sg.gsn && wordful(sg.s)) ungrounded = true;
+        if (sg.t === 'text') {
+          for (const piece of this._inlineMd(sg.s)) {
+            const gs = (hl && wordful(piece.s)) ? this._groundStyle(sg.gsn) : '';
+            if (gs) piece.style = piece.style ? piece.style + ';' + gs : gs;
+            segs.push(piece);
+          }
+        } else if (sg.t === 'ent') {
+          segs.push({ isEnt: true, s: sg.s, hl: hl ? this._groundStyle(sg.gsn, true) : '', open: () => this.openEntity(sg.docId, sg.entId) });
+        } else {
+          const cc = hl ? this._sourceColor(sg.sn) : null;
+          segs.push({ isCite: true, label: '[' + (sg.reg || 's' + sg.idx) + ']', quote: sg.quote || '', cfg: cc ? cc.fg : '#5B4BE6', cbg: cc ? cc.chipBg : '#F1EFFE', open: () => this.openViewer(sg.sn, sg.quote) });
+        }
       }
       return { style: blk.style, hasPrefix: blk.hasPrefix, prefix: blk.prefix, segs };
     });
-    this._segCache[m.id] = { len: (m.text || '').length, paras };
+    this._segCache[m.id] = { len: (m.text || '').length, paras, ungrounded };
     return paras;
   }
   // The live body while the answer streams: the revealed prefix, split into the same blocks and
@@ -2123,11 +2163,13 @@ class Component extends DCLogic {
       const animating = !this._reduceMotion() && shown < full.length;
       const finished = done && !animating;
       const paras = finished ? this._segsFor(mm) : this._streamParas(revealedText);
+      // links mode marks spans with no source behind them; the footer carries the matching key
+      const hasUngrounded = finished && this.state.entityMode && !!(this._segCache[mm.id] && this._segCache[mm.id].ungrounded);
       const seen = new Set();
       const cites = (mm.cites || []).filter((c) => c.sn && !seen.has(c.sn) && seen.add(c.sn)).map((c) => {
         const contested = (mm.verdicts || []).some((v) => /contradict/i.test(v.verdict));
         const chip = contested ? this._stChip('Contested') : this._stChip('Supported');
-        return { label: c.reg, status: contested ? 'Contested' : 'Supported', quote: c.text, fg: chip.fg, bg: chip.bg, bd: chip.bd, open: () => this.openViewer(c.sn, c.text) };
+        return { label: c.reg, status: contested ? 'Contested' : 'Supported', quote: c.text, fg: chip.fg, bg: chip.bg, bd: chip.bd, hasSwatch: this.state.entityMode, swatch: this._sourceColor(c.sn).line, open: () => this.openViewer(c.sn, c.text) };
       });
       const flagChips = (mm.flags || []).filter((f) => f.id !== 'low-coverage' || !cites.length).map((f) => ({
         label: f.id, fg: /contradic|unbound/.test(f.id) ? '#B23A2E' : '#9A6B12',
@@ -2161,6 +2203,7 @@ class Component extends DCLogic {
         badge: mm.grounded ? 'grounded' : (mm.route === 'error' ? 'error' : mm.unbound ? 'unbound' : mm.route || ''),
         badgeFg: mm.grounded ? '#1E8A50' : '#9A6B12', badgeBg: mm.grounded ? '#E7F6EC' : '#FBF1DA',
         hasCites: finished && cites.length > 0, cites,
+        hasProvRow: finished && (cites.length > 0 || hasUngrounded), hasUngroundedChip: hasUngrounded,
         hasFlags: finished && flagChips.length > 0, flagChips,
         hasProposal: finished && !!mm.webProposal, proposalQ: mm.webProposal ? mm.webProposal.query : '',
         runProposal: () => this.runSearch(mm.webProposal.query),
@@ -2576,8 +2619,8 @@ class Component extends DCLogic {
       entModeFg: st.entityMode ? '#5B4BE6' : '#8A8A95', entModeBg: st.entityMode ? '#F1EFFE' : '#F2F2F6', entModeBd: st.entityMode ? '#DED8FD' : '#EAEAEF',
       entModeLabel: st.entityMode ? 'Links · on' : 'Links · off',
       entModeTitle: st.entityMode
-        ? 'Every entity mention is clickable and inline citation chips are shown. Click to hide both.'
-        : 'Entity links and inline citation chips are hidden — the text reads plain. Click to show them.',
+        ? 'Entity links, citation chips, and every span highlighted by the source that grounds it — ungrounded stretches shown with a colourless wash. Click to hide.'
+        : 'Show entity links, citation chips, and every span highlighted by its source. Click to show.',
       // source viewer — sources are TABS IN THE MAIN STAGE; srcTabs render in the main tab bar,
       // and when a source tab is active the stage shows it (isSource) instead of a fixed view.
       srcTabs, hasSrcTabs: srcTabs.length > 0, isSource: !!viewer, viewer: viewer || {}, viewerParas,
