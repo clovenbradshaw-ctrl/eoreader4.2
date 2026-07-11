@@ -141,11 +141,13 @@ export const nextQuery = (anchor, lead) => {
 //            testable with a fake.
 //   anchor   the standing subject that keeps every hop's query coherent (defaults to the seed)
 //   maxHops  the hard ceiling on hops — "max number of hops". Generous; the saliency leash is the
-//            real governor, this is only the backstop so the walk can never run away. Default 6.
+//            real governor, this is only the backstop so the walk can never run away. Default 8.
 //   gamma    the cross-hop horizon for the γ-decayed prior. Default 0.8.
 //   curiosityFloor  bits below which a hop, though on-topic, taught us nothing NEW, so it spawns no
-//            fresh leads (it is still kept as ground). Default 0.15 bits. NOT a stop condition —
-//            an exhausted-but-relevant page is fine; it is straying that ends the walk.
+//            fresh leads (it is still kept as ground). Default 0.08 bits — deliberately LOW, so a
+//            page that mostly corroborates but adds a little still opens threads and the frontier
+//            stays alive; walks that reach several hops are the norm, not the exception. NOT a stop
+//            condition — an exhausted-but-relevant page is fine; it is straying that ends the walk.
 //   salienceRatio   the LEASH. Surprise pulls the walk OUTWARD (the most surprising lead is often the
 //            most off-topic); saliency pulls it BACK toward the original question. Each hop's content
 //            is scored for saliency to the FIXED topic frame (the seed query + what the seed page
@@ -153,7 +155,12 @@ export const nextQuery = (anchor, lead) => {
 //            saliency falls below `salienceRatio × the seed page's own saliency` has STRAYED TOO FAR
 //            — it is dropped (not grounded, not expanded). Default 0.34: a thread a third as on-topic
 //            as the seed is off the leash. `strayPatience` consecutive strays end the walk early.
-//   strayPatience   how many consecutive off-leash hops to tolerate before stopping. Default 2.
+//   strayPatience   how many consecutive off-leash hops to tolerate before stopping. Default 3 —
+//            a walk gets to shrug off a brief wander (or a couple of dead fetches) and recover on
+//            the next thread, instead of quitting the moment two hops in a row disappoint.
+//   leadsPerHop  how many of a novel page's heaviest surprises join the frontier. Default 6. The
+//            depth of the frontier is what lets the walk keep going when one thread dies — more
+//            candidate threads per good page means the budget, not lead starvation, sets the pace.
 //   k        results per hop, passed through to search. Default 3 — focused, not a fan-out.
 //   searchOpts  extra options merged into every search call (e.g. { kind:'auto', fetchPages }).
 //
@@ -168,11 +175,12 @@ export const nextQuery = (anchor, lead) => {
 export const runCuriousResearch = async (seed, {
   search,
   anchor = seed,
-  maxHops = 6,
+  maxHops = 8,
   gamma = 0.8,
-  curiosityFloor = 0.15,
+  curiosityFloor = 0.08,
   salienceRatio = 0.34,
-  strayPatience = 2,
+  strayPatience = 3,
+  leadsPerHop = 6,
   k = 3,
   searchOpts = {},
   disambiguate = null,    // async (subject) → sense prior | null — the injected thumb (disambiguate.js). Absent → no change.
@@ -283,7 +291,7 @@ export const runCuriousResearch = async (seed, {
         docs.push(...hopDocs);
         for (const d of hopDocs) seenDocIds.add(d.docId);
         prior = foldInto(prior, arrival, gamma);
-        const leads = leadsFrom(by, { seen: seenLeads, max: 4 });
+        const leads = leadsFrom(by, { seen: seenLeads, max: leadsPerHop });
         for (const lead of leads) { pushLead(lead, salience); seenLeads.add(lead.term); }
         record({ query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience),
                  results: hopDocs.length, leads: leads.map(l => l.term), kept: true, sources: srcList(hopDocs) });
@@ -326,7 +334,7 @@ export const runCuriousResearch = async (seed, {
     for (const d of hopDocs) seenDocIds.add(d.docId);
     prior = foldInto(prior, arrival, gamma);
     const novel = bits >= curiosityFloor;
-    const leads = novel ? leadsFrom(by, { seen: seenLeads, max: 4 }) : [];
+    const leads = novel ? leadsFrom(by, { seen: seenLeads, max: leadsPerHop }) : [];
     for (const lead of leads) { pushLead(lead, salience); seenLeads.add(lead.term); }
     record({ query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience),
              results: hopDocs.length, leads: leads.map(l => l.term), kept: true, exhausted: !novel, sources: srcList(hopDocs) });
@@ -351,11 +359,12 @@ export const runTurnWithResearch = async (args, {
   search,
   runTurnImpl = runTurn,
   seed,
-  maxHops = 6,
+  maxHops = 8,
   gamma = 0.8,
-  curiosityFloor = 0.15,
+  curiosityFloor = 0.08,
   salienceRatio = 0.34,
-  strayPatience = 2,
+  strayPatience = 3,
+  leadsPerHop = 6,
   k = 3,
   searchOpts = { kind: 'auto', fetchPages: true },
   disambiguate = null,    // forwarded to the walk — the injected sense thumb (disambiguate.js)
@@ -365,7 +374,7 @@ export const runTurnWithResearch = async (args, {
   signal = null,          // forwarded to the walk — the Stop button stops it between hops
 } = {}) => {
   const q0 = String(seed || args?.question || '').trim();
-  const walk = await runCuriousResearch(q0, { search, anchor: q0, maxHops, gamma, curiosityFloor, salienceRatio, strayPatience, k, searchOpts, disambiguate, sensePrior, onHop, onHopDone, signal });
+  const walk = await runCuriousResearch(q0, { search, anchor: q0, maxHops, gamma, curiosityFloor, salienceRatio, strayPatience, leadsPerHop, k, searchOpts, disambiguate, sensePrior, onHop, onHopDone, signal });
 
   const baseDocs = args?.docs || (args?.doc ? [args.doc] : []);
   const turnArgs = walk.docs.length
@@ -401,7 +410,7 @@ export const runTurnWithResearch = async (args, {
 // the QUERY it's about to fire (`seed`, the LLM-formulated search from formulateSearchQuery, not the
 // raw chat turn), so "here's what I'm searching for" is literal, not a black box. Pure string-mapping,
 // no model call — the model already ran to produce `seed`; this only promotes it into voice.
-export const researchAnnouncement = (seed, { maxHops = 6 } = {}) => {
+export const researchAnnouncement = (seed, { maxHops = 8 } = {}) => {
   const q = String(seed || '').trim();
   if (!q) return null;
   return `I'm going to research this. Here's what I'm searching for: “${q}” — I'll follow what surprises me while it stays on topic, up to ${maxHops} hops.`;

@@ -34,7 +34,7 @@ here, by construction — there is no second metric to keep in sync.
 
 ## The loop — best-first over curiosity, not breadth-first
 
-`runCuriousResearch(seed, { search, maxHops, gamma, curiosityFloor, patience, k })`
+`runCuriousResearch(seed, { search, maxHops, gamma, curiosityFloor, strayPatience, leadsPerHop, k })`
 (`src/turn/research.js`):
 
 1. **Front-end map.** `profileOf(text)` reduces a page to a term-frequency `Map` — the surprise
@@ -48,14 +48,17 @@ here, by construction — there is no second metric to keep in sync.
    `k` results — not a fan-out), and measures *realized* curiosity against the running prior:
    - **Alive** (`bits ≥ curiosityFloor`, or the seed): the pages join the ground, the arrival
      folds into the prior (`foldInto` — γ-decay incumbents, deposit the new), and its surprising
-     terms (`leadsFrom`) push onto the frontier. Deeper threads can now out-rank shallow ones, so
-     the walk follows where the information actually is.
+     terms (`leadsFrom`, the heaviest `leadsPerHop = 6`) push onto the frontier. Deeper threads can
+     now out-rank shallow ones, so the walk follows where the information actually is. The floor is
+     deliberately low (default `0.08` bits): a page that mostly corroborates but adds a little still
+     opens threads, so the frontier stays deep and multi-hop walks are the **common case**, not the
+     lucky one.
    - **Dead** (`bits < curiosityFloor`, or an empty fetch): dropped. It is **not** folded in and
      spawns **no** leads — the discipline that stops the loop wandering into ever-more-tangential
      pages.
 4. **Stops** at one of three boundaries: the walk strays too far from the question (the **saliency
    leash**, below — the real governor), the frontier empties (nothing left to be curious about), or
-   the hop budget `maxHops` is spent (the hard backstop, default 6 — only ever a runaway guard).
+   the hop budget `maxHops` is spent (the hard backstop, default 8 — only ever a runaway guard).
 
 Every next query is kept coherent by the **anchor** (the seed's standing subject):
 `nextQuery("X-Files revival", "coogler")` → `"X-Files revival coogler"`, never the bare term — the
@@ -85,7 +88,9 @@ the same projection the surfer uses to decide what a *conversation* is about.
   paragraph-long one have very different absolute overlaps, but "a third as relevant as the seed"
   means the same thing for both.
 - A strayed hop is **dropped** — not grounded, not expanded. `strayPatience` consecutive strays
-  (default 2) end the walk: the search has left the question's orbit and isn't coming back.
+  (default 3) end the walk: the search has left the question's orbit and isn't coming back. Three,
+  not two — a brief wander (or a couple of dead fetches) shouldn't end an otherwise healthy walk
+  when an on-topic thread is still waiting on the frontier.
 
 Saliency also shapes the frontier, not just the stop: a lead's priority is its surprise **×** the
 saliency of the page it was found on (`weight × (0.1 + salience)`). So a surprising term discovered
@@ -146,8 +151,8 @@ over `[web + docs]`, with a `research` trace (hops + curiosity per hop + kept so
 `runTurnImpl` and `search` are injected, so the whole flow is offline-testable
 (`tests/research.test.js`).
 
-In the app (`src/ui/app.js`), the `auto` gather now runs the walk instead of the single search.
-`STATE.researchHops` (default 4) is the budget. The feedback runs in the order the work happens:
+In the reader (`src/rooms/reader/app.js`), the `auto` gather runs the walk instead of the single
+search. `RESEARCH_HOPS` (8) is the budget. The feedback runs in the order the work happens:
 first `formulateSearchQuery` (web.js) rewrites the chat turn into a standalone search query with an
 LLM call — surfaced as `🔎 I'm going to research this — working out what to search for…` while it
 runs — then `researchAnnouncement(q)` promotes that query into voice

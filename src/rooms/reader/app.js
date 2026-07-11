@@ -136,10 +136,11 @@ const kv = async (mode, fn) => {
 const nowIso = () => new Date().toISOString();
 const nowMs = () => { try { return Date.now(); } catch { return 0; } };
 // How far a reader web-search walks. 4.1 reached the net by a multi-hop curiosity walk (follow the
-// surprise while it stays on topic), not a single fetch; this restores that depth. Kept modest so a
-// chat answer over the slow local model stays responsive — the walk self-limits well short of this
-// via strayPatience + frontier exhaustion, so most asks take fewer hops.
-const RESEARCH_HOPS = 5;
+// surprise while it stays on topic), not a single fetch; this restores that depth. The budget is
+// generous ON PURPOSE: the walk's own knobs (a low curiosity floor, a deep frontier, strayPatience)
+// are tuned so multi-hop walks are the COMMON case, and the saliency leash — not this cap — is what
+// ends a walk that has left the question. The cap only stops a runaway.
+const RESEARCH_HOPS = 8;
 // Does the ask want a DEVELOPED, multi-paragraph piece — an essay, a report, a detailed
 // write-up — rather than a pointed answer? 4.1 had a system-decided long-form route; 4.2 had
 // dropped it, so EVERY reader turn was capped at the small per-task budgets (answer 384 tokens)
