@@ -379,7 +379,19 @@ table{border-collapse:collapse;width:100%}
                                 <sc-for list="{{ m.trailSteps }}" as="ts">
                                   <div style="display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:11.5px;line-height:1.5;color:#4A4A54">
                                     <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ ts.fg }};flex:0 0 auto;width:12px;text-align:center">{{ ts.glyph }}</span>
-                                    <span style="min-width:0">{{ ts.text }}</span>
+                                    <div style="min-width:0;flex:1">
+                                      <span style="min-width:0">{{ ts.text }}</span>
+                                      <sc-if value="{{ ts.hasSources }}">
+                                        <div style="display:flex;flex-direction:column;gap:2px;margin-top:3px">
+                                          <sc-for list="{{ ts.sources }}" as="tsrc">
+                                            <button onClick="{{ tsrc.open }}" title="{{ tsrc.url }}" style="display:flex;align-items:center;gap:5px;text-align:left;font-size:11px;color:#5B4BE6;padding:1px 0;min-width:0" style-hover="filter:brightness(.9)">
+                                              <span style="flex:0 0 auto;color:#A0A0AA">↗</span>
+                                              <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ tsrc.title }}</span>
+                                            </button>
+                                          </sc-for>
+                                        </div>
+                                      </sc-if>
+                                    </div>
                                   </div>
                                 </sc-for>
                               </div>
@@ -2180,7 +2192,16 @@ class Component extends DCLogic {
       const tr = mm.research;
       const trailSteps = (tr && tr.steps || []).map((s) => {
         const st = this._trailStyle(s.kind);
-        return { glyph: st.glyph, fg: st.fg, text: s.text };
+        // A "Read N sources" beat carries the pages the surf returned (app.js hopDoneBeat) —
+        // surface them as click-through links so the thinking box opens onto what it actually read.
+        const sources = (s.sources || []).filter((sc) => sc && (sc.url || sc.title)).map((sc) => {
+          const url = String(sc.url || '');
+          return {
+            title: sc.title || url || 'source', url, hasUrl: !!url,
+            open: () => { try { if (url) window.open(url, '_blank', 'noopener'); } catch { /* ignore */ } },
+          };
+        });
+        return { glyph: st.glyph, fg: st.fg, text: s.text, hasSources: sources.length > 0, sources };
       });
       const trailRunning = !!tr && !tr.done;
       const trMode = tr ? (tr.mode || 'research') : 'research';
