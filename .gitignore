@@ -2,3 +2,5 @@ node_modules/
 # Stamped at deploy by .github/workflows/pages.yml — never committed; a local run is "unstamped".
 version.json
 _site/
+# Screenshot artifact written by tools/verify-console.mjs on each headless run.
+tools/console-verify.png
