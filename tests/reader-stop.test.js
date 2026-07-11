@@ -85,6 +85,38 @@ test('Stop freezes the answer bubble even when the backend keeps decoding', asyn
   await askP;
 });
 
+// A web fetch that hangs until its signal aborts — never resolving on its own. It proves the
+// STANDALONE ingest path (a URL fetch, NOT a chat turn) is now cancellable: before this, Stop only
+// reached a turn's streaming, so a hung `Reading example.com…` fetch had no Stop and ground on until
+// its own timeout. Injected as the reader's fetchImpl (the web client's transport).
+const hangingFetch = (_url, opts = {}) => new Promise((_res, reject) => {
+  const sig = opts && opts.signal;
+  const bail = () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+  if (sig) { if (sig.aborted) bail(); else sig.addEventListener('abort', bail, { once: true }); }
+});
+
+test('Stop is universal — a standalone URL ingest aborts and clears busy when Stop is hit', async () => {
+  const app = createReaderApp({ audit: createAuditLog({ capacity: 16 }), fetchImpl: hangingFetch });
+  if (!app.state.ready) {
+    await new Promise((res) => { const un = app.subscribe((k) => { if (k === 'ready') { un(); res(); } }); });
+  }
+
+  // Start recording a URL. The fetch hangs, so without a working Stop this never settles.
+  const outcome = app.ingestUrl('example.com').then(() => 'resolved', () => 'rejected');
+
+  // Wait until the ingest is actually in flight — the busy pill names the fetch, which is the
+  // Stop target the header now surfaces (canStop) for any op, not just a generating turn.
+  const t0 = Date.now();
+  while (!app.state.busy && Date.now() - t0 < 3000) await delay(10);
+  assert.ok(app.state.busy, 'the URL ingest armed a busy state — something for Stop to act on');
+  assert.equal(app.state.busy.kind, 'fetch', 'the in-flight op is the URL fetch');
+
+  app.stop();
+
+  assert.equal(await outcome, 'rejected', 'Stop aborted the hung ingest — it did not run on to a resolve');
+  assert.equal(app.state.busy, null, 'Stop cleared the busy indicator at once — the pill is not left spinning');
+});
+
 test('a turn that runs to completion still streams the whole answer (the guard only bites on abort)', async () => {
   const app = await freshApp();
   app.ingestText(

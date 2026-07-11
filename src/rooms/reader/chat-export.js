@@ -53,6 +53,13 @@ const fence = (body, lang = '') => {
 
 const shortSha = (s) => str(s).replace(/[^0-9a-f]/gi, '').slice(0, 7);
 
+// A Markdown link whose text can't break the `[ ]` span and whose URL can't break the `( )` — so a
+// page title carrying brackets, or a URL carrying parens/spaces (a Wikipedia article), still renders
+// as one clean, clickable link. `( ) space` in the URL are percent-encoded; brackets are stripped
+// from the visible text. The whole point of the searched-sites list: a hyperlink, never the content.
+const mdLink = (text, url) =>
+  `[${collapse(text).replace(/[[\]]/g, '')}](${str(url).replace(/[()\s]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())})`;
+
 // A model record (model/interface.js describeModel: { backend, kind, model, label }) as ONE human
 // line — the exact model first, then its backend/label and locality: what actually produced a turn.
 // "claude-opus-4-8 — Claude · hosted API (Anthropic) · hosted". Null for an empty/absent record.
@@ -181,6 +188,29 @@ const dedupeCites = (cites, /* sources */ _s) => {
 };
 
 const citeLabel = (c) => `${c.reg || (c.sn ? 'S-' + c.sn : 'source')}${c.title ? ` (${collapse(c.title)})` : ''}`;
+
+// The web pages a turn actually SEARCHED — read straight off the answer's own research trail, whose
+// live "Read N sources" beats each carry {title, url} per page (rooms/reader/app.js hopDoneBeat). We
+// want the sites it went out to, not what they said: a hyperlink each, never the page text. Deduped
+// by URL in first-seen order. A turn answered off the record (no web walk) has no trail → []. Only
+// url-bearing pages are linkable, so a hit that came back with a title but no URL is dropped — there
+// is nothing to link to. The audit trail folded below still carries the full grounding either way.
+export const searchedSites = (assistant) => {
+  const steps = assistant && assistant.research && Array.isArray(assistant.research.steps)
+    ? assistant.research.steps : [];
+  const seen = new Set();
+  const out = [];
+  for (const s of steps) {
+    const srcs = s && Array.isArray(s.sources) ? s.sources : [];
+    for (const src of srcs) {
+      const url = collapse(src && src.url);
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      out.push({ url, title: collapse(src.title) || url });
+    }
+  }
+  return out;
+};
 
 // One audit step as a single line — its name, when it fired, and a compact read of its data.
 const stepDetail = (s) => {
@@ -358,6 +388,15 @@ export const toMarkdown = ({ topic, turns = [], sources = [], provenance = null 
       if (cites.length) { L.push(`**Grounded in:** ${cites.map(citeLabel).join(' · ')}`); L.push(''); }
       const flags = (a.flags || []).map((f) => f.id || f).filter(Boolean);
       if (flags.length) { L.push(`**Flags:** ${flags.join(', ')}`); L.push(''); }
+      // WHERE IT LOOKED — the websites this answer searched, as hyperlinks (never the content). A turn
+      // that answered from the record alone searched nothing and prints no such line.
+      const searched = searchedSites(a);
+      if (searched.length) {
+        L.push(`**Searched the web** (${searched.length} ${searched.length === 1 ? 'site' : 'sites'}):`);
+        L.push('');
+        searched.forEach((s) => L.push(`- ${mdLink(s.title, s.url)}`));
+        L.push('');
+      }
     }
     L.push(...auditLines(ex.audit));
     L.push('---');
@@ -441,6 +480,8 @@ export const toJSON = ({ topic, turns = [], sources = [], provenance = null } = 
         stopped: !!ex.assistant.stopped,
         flags: (ex.assistant.flags || []).map((f) => f.id || f).filter(Boolean),
         cites: dedupeCites(ex.assistant.cites, sources),
+        // The websites this answer searched — {url, title} per page, links only (no page content).
+        searched: searchedSites(ex.assistant),
       } : null,
       audit: cleanTurn(ex.audit),
     })),

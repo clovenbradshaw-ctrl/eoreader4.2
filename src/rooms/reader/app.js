@@ -182,7 +182,7 @@ export const keepGuardAlive = (guard, p, { every = 8000, maxMs = 180000, now = (
 };
 
 // ── the app ──────────────────────────────────────────────────────────────────
-export const createReaderApp = ({ audit } = {}) => {
+export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   const state = {
     sources: [],           // registry entries (serializable minus _doc)
     // A workspace is the top-level container (Notion's workspace/teamspace): it owns a
@@ -201,7 +201,7 @@ export const createReaderApp = ({ audit } = {}) => {
     ready: false,          // restore finished
   };
   let sn = 0, tn = 0, ln = 0, mn = 0, wn = 0;
-  const client = createWebClient({ fetchImpl: chainFetch });
+  const client = createWebClient({ fetchImpl });
 
   // THE SESSION'S SELF AND SPINE. One monitor for the whole session (one loop, one me):
   // every turn commits its answer's propositions as efference copies and senses the next
@@ -583,52 +583,76 @@ export const createReaderApp = ({ audit } = {}) => {
   const topicDocs = () => topicSources().map(docFor).filter(Boolean);
 
   // ── ingest: URL / search / file / paste ───────────────────────────────────
+  // The two cancellable-op controllers, declared here (not just in the chat section) so `stop()`
+  // reaches ANY long op, not only a chat turn — that is what makes the Stop button universal. A chat
+  // turn owns `abort` + its `stallGuard` (armed in ask/answerFromWeb, below); every OTHER long op —
+  // a URL fetch, a web search, a page/file import — owns `opAbort`, armed through `runCancellable`.
+  // Kept separate so an ingest started over the top of a live turn can't clobber the turn's signal
+  // (and vice-versa); `stop()` trips whichever are in flight.
+  let abort = null;
+  let stallGuard = null;
+  let opAbort = null;
   const setBusy = (busy) => { state.busy = busy; emit('busy'); };
 
-  const ingestUrl = async (url) => {
-    const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
-    setBusy({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` });
+  // runCancellable(busy, fn) — the seam that makes Stop universal for the non-turn ops. It arms a
+  // fresh abort the Stop button can trip (via `stop()`), shows the busy label, hands `fn` the signal
+  // to thread into the actual fetch (so a hung proxy is cut loose, not just the chat turn), and
+  // clears busy + abort when it settles. Every guard is gated on THIS op still being the current one,
+  // so a `stop()` — or a second op started over the top — can never have the loser's finally clear
+  // the winner's state. `fn(signal, progress)`: `progress(busy)` re-labels the pill mid-op (a
+  // multi-step file import), itself gated so a superseded op can't repaint the pill after it lost.
+  const runCancellable = async (busy, fn) => {
+    const ac = new AbortController();
+    opAbort = ac;
+    setBusy(busy);
     try {
-      const raw = (await client.fetchUrl(norm)).text;
+      return await fn(ac.signal, (next) => { if (opAbort === ac) setBusy(next); });
+    } finally {
+      if (opAbort === ac) { opAbort = null; setBusy(null); }
+    }
+  };
+
+  const ingestUrl = (url) => {
+    const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
+    return runCancellable({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` }, async (signal) => {
+      const raw = (await client.fetchUrl(norm, { signal })).text;
       const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
       const text = htmlToText(raw);
       const { doc, record } = admitWebSource({ url: norm, title, text, fetched_at: nowIso(), engine: 'feed-proxy' });
       return addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc });
-    } finally { setBusy(null); }
+    });
   };
 
-  const search = async (query, { kind = 'auto', k = 8 } = {}) => {
-    setBusy({ kind: 'search', label: `Searching the web — ${query}` });
-    try {
-      const items = await client.search(query, { kind, k });
+  const search = (query, { kind = 'auto', k = 8 } = {}) =>
+    runCancellable({ kind: 'search', label: `Searching the web — ${query}` }, async (signal) => {
+      const items = await client.search(query, { kind, k, signal });
       logIt('search', `Web search "${query}"`, `${items.length} results`);
       return items;
-    } finally { setBusy(null); }
-  };
+    });
 
-  const recordHit = async (item, query = null) => {
-    setBusy({ kind: 'fetch', label: `Reading ${item.title || item.url}…` });
-    try {
+  const recordHit = (item, query = null) =>
+    runCancellable({ kind: 'fetch', label: `Reading ${item.title || item.url}…` }, async (signal) => {
       const full = FULL_TEXT[item.source] || FULL_TEXT[item.kind];
       let text = '';
-      try { text = full ? await full(client, item) : htmlToText((await client.fetchUrl(item.url)).text); } catch { /* fall through */ }
+      try { text = full ? await full(client, item) : htmlToText((await client.fetchUrl(item.url, { signal })).text); } catch (e) { if (signal.aborted) throw e; /* else fall through */ }
       if (!text) text = item.text || item.title || '';
       const { doc, record } = admitWebSource({
         url: item.url, title: item.title, text,
         retrieval_query: query, engine: `web:${item.source || item.kind || 'search'}`, fetched_at: nowIso(),
       });
       return addSource({ title: item.title, url: item.url, text: doc.text, kind: 'web', record, doc });
-    } finally { setBusy(null); }
-  };
+    });
 
   // The page's own HTML, fetched through the same proxy chain ingest uses — for the source
   // viewer's native "Native" tab, which renders the REAL website (sanitized + sandboxed by the
   // surface) rather than the reduced text. Browser only; in Node (no fetch) client.fetchUrl
   // throws, which the surface catches into the tab's error state.
-  const fetchPage = async (url) => {
+  const fetchPage = (url) => {
     const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
-    const res = await client.fetchUrl(norm);
-    return { html: res.text || '', url: res.url || norm, ok: res.ok !== false };
+    return runCancellable({ kind: 'fetch', label: `Loading ${domainOf(norm)}…` }, async (signal) => {
+      const res = await client.fetchUrl(norm, { signal });
+      return { html: res.text || '', url: res.url || norm, ok: res.ok !== false };
+    });
   };
 
   // webSearchAdmit(query, opts) → the fetch+admit primitive the turn's web loop consumes.
@@ -663,11 +687,10 @@ export const createReaderApp = ({ audit } = {}) => {
     return addSource({ title, text: String(text), kind: 'text', doc });
   };
 
-  const ingestFile = async (file) => {
-    setBusy({ kind: 'file', label: `Reading ${file.name}…` });
-    try {
+  const ingestFile = (file) =>
+    runCancellable({ kind: 'file', label: `Reading ${file.name}…` }, async (signal, progress) => {
       const { importAnyFile } = await import('./import-file.js');
-      const got = await importAnyFile(file, { onProgress: (msg) => setBusy({ kind: 'file', label: String(msg) }) });
+      const got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) });
       // For a structured modality the ORGAN doc is the reading: a table's cells, a JSON
       // tree's leaves, a binary's string runs ARE its propositions — three-faced events
       // already on the log — and re-parsing their rendered lines as prose would drop
@@ -686,8 +709,7 @@ export const createReaderApp = ({ audit } = {}) => {
         persist();
       }
       return src;
-    } finally { setBusy(null); }
-  };
+    });
 
   // ── model ──────────────────────────────────────────────────────────────────
   let backendOverride = null;
@@ -884,9 +906,17 @@ export const createReaderApp = ({ audit } = {}) => {
   };
 
   // ── chat ───────────────────────────────────────────────────────────────────
-  let abort = null;
-  let stallGuard = null;
-  const stop = () => { try { abort?.abort(); } catch { /* already done */ } };
+  // `abort` (turn) + `opAbort` (ingest) + `stallGuard` are declared up in the ingest section so
+  // `stop()` reaches EVERY long op, not just a chat turn — the universal Stop. Stop trips whichever
+  // signals are in flight (turn, ingest, or both) and clears the busy label AT ONCE, so the UI
+  // reflects "stopped" immediately even when a slow backend or a hung proxy is still unwinding in
+  // the background (the op's own finally is a no-op by then). It never throws: a settled op has
+  // already nulled its controller.
+  const stop = () => {
+    try { abort?.abort(); } catch { /* already done */ }
+    try { opAbort?.abort(); } catch { /* already done */ }
+    setBusy(null);
+  };
 
   // A NO-PROGRESS WATCHDOG — 4.1's `_stallGuard`, which 4.2 had dropped (the regression behind
   // "it gets stuck and I can't even hit Stop"). A turn's model decode or a web fetch can stall

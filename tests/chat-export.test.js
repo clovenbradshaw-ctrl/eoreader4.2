@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  pairExchanges, toMarkdown, toJSON, buildChatExport, hasChat, FORMATS,
+  pairExchanges, toMarkdown, toJSON, buildChatExport, hasChat, FORMATS, searchedSites,
 } from '../src/rooms/reader/chat-export.js';
 
 // The chat + audit export — prove the two records fold into one document: the conversation
@@ -219,4 +219,66 @@ test('buildChatExport: threads a provenance bundle through to the rendered file'
   const md = buildChatExport({ topic, turns, sources, provenance }, 'md', 'Dolphins');
   assert.match(md.text, /## Produced by/);
   assert.match(md.text, /claude-opus-4-8/);
+});
+
+// ── the websites it searched, as hyperlinks (not content) ────────────────────────
+// A grounded web turn records what pages it went to in its research trail (each "Read N sources"
+// beat carries {title, url}). The export must surface those as LINKS — where it looked — without
+// dumping the page text. A turn answered from the record alone searched nothing and prints no line.
+
+const webAnswer = {
+  role: 'assistant', text: 'Ryan Coogler directed it [s1].', route: 'grounded',
+  research: { steps: [
+    { kind: 'search', text: 'Searching the web for “who directed Sinners”' },   // a query beat — no page, no url
+    { kind: 'read', text: 'Read 2 sources', sources: [
+      { docId: 'd1', title: 'Ryan Coogler — Wikipedia', url: 'https://en.wikipedia.org/wiki/Ryan_Coogler' },
+      { docId: 'd2', title: 'Sinners (2025 film)', url: 'https://en.wikipedia.org/wiki/Sinners_(2025_film)' },
+    ] },
+    { kind: 'read', text: 'Read 1 source', sources: [
+      { docId: 'd1', title: 'Ryan Coogler — Wikipedia', url: 'https://en.wikipedia.org/wiki/Ryan_Coogler' },  // dup URL
+      { docId: 'd3', title: 'A page that came back without a URL', url: '' },   // nothing to link to — dropped
+    ] },
+  ] },
+};
+
+test('searchedSites: pulls the searched pages off the research trail, deduped by URL, url-less dropped', () => {
+  const sites = searchedSites(webAnswer);
+  assert.deepEqual(sites, [
+    { url: 'https://en.wikipedia.org/wiki/Ryan_Coogler', title: 'Ryan Coogler — Wikipedia' },
+    { url: 'https://en.wikipedia.org/wiki/Sinners_(2025_film)', title: 'Sinners (2025 film)' },
+  ]);
+  assert.deepEqual(searchedSites({ role: 'assistant', text: 'from the record' }), [], 'no trail → no sites');
+});
+
+test('toMarkdown renders searched sites as hyperlinks (parens encoded), never the page content', () => {
+  const t = { id: 't', title: 'Sinners', created: '2026-07-10T00:00:00.000Z', messages: [
+    { id: 'u', role: 'user', text: 'Who directed Sinners?', at: '2026-07-10T00:00:01.000Z' },
+    webAnswer,
+  ] };
+  const md = toMarkdown({ topic: t, turns: [], sources: [], provenance: null });
+  assert.ok(md.includes('**Searched the web** (2 sites):'), 'a Searched-the-web heading with the count');
+  assert.ok(md.includes('- [Ryan Coogler — Wikipedia](https://en.wikipedia.org/wiki/Ryan_Coogler)'), 'a plain link');
+  assert.ok(md.includes('- [Sinners (2025 film)](https://en.wikipedia.org/wiki/Sinners_%282025_film%29)'),
+    'a URL with parens is percent-encoded so the link never breaks');
+  assert.equal((md.match(/en\.wikipedia\.org\/wiki\/Ryan_Coogler\)/g) || []).length, 1, 'the duplicate URL is listed once');
+});
+
+test('toMarkdown omits the Searched line for a turn that did no web walk', () => {
+  const t = { id: 't', title: 'x', messages: [
+    { role: 'user', text: 'q' },
+    { role: 'assistant', text: 'answered from the record alone' },
+  ] };
+  assert.doesNotMatch(toMarkdown({ topic: t, turns: [], sources: [] }), /Searched the web/);
+});
+
+test('toJSON carries searched[] of {url,title} per answer — [] when the turn searched nothing', () => {
+  const t = { id: 't', title: 'x', messages: [
+    { role: 'user', text: 'q1' }, webAnswer,
+    { role: 'user', text: 'q2' }, { role: 'assistant', text: 'from the record' },
+  ] };
+  const out = JSON.parse(toJSON({ topic: t, turns: [], sources: [] }));
+  assert.deepEqual(out.exchanges[0].answer.searched.map((s) => s.url), [
+    'https://en.wikipedia.org/wiki/Ryan_Coogler', 'https://en.wikipedia.org/wiki/Sinners_(2025_film)',
+  ]);
+  assert.deepEqual(out.exchanges[1].answer.searched, [], 'a record-only answer searched nothing');
 });
