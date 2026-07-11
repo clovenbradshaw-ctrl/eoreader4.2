@@ -84,6 +84,26 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
       start = i;
     }
     if (!opened) {
+      // A continuation paragraph tends to open with the model's OWN ellipsis — its
+      // literal reading of the CONTINUE_CUE ("pick up where you left off"). It is a
+      // seam artifact, never answer content, so skip a leading run of "…"/"." (and the
+      // space after it) before the paragraph opens: the strike lands on `start`, so the
+      // ellipsis is never streamed to onToken and never enters the draft — no flicker,
+      // unlike a post-hoc trim. Gated to continuation paragraphs (the first never sees
+      // the cue), so a "0.5 kg…" opener — which only a first paragraph would carry — is
+      // never touched. The run may arrive a dot at a time (a lone "." reads as a whole
+      // sentence to the gate below, so it must be caught HERE): while nothing but dots
+      // has landed we wait; once real content follows we skip the whole run; if the
+      // decode ends on nothing but dots the paragraph suppresses like an empty one.
+      if (!isFirst) {
+        const lead = buf.slice(start);
+        const run = /^[.…]+[ \t]*/.exec(lead);
+        if (run) {
+          if (lead.length > run[0].length) start += run[0].length;        // real content follows
+          else if (final) { suppressed = true; inner?.abort(); return; }   // only dots ever arrived
+          else return;                                                     // still streaming — wait
+        }
+      }
       // Hold until the first sentence lands (or the decode ends), then decide once:
       // a bare DONE stops the loop unstreamed; an opener the answer already used
       // means the model is looping — stop rather than stream a repeat.
