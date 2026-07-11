@@ -34,16 +34,27 @@ const bandOf = (e) => {
   return w >= 1 ? 'firm' : 'hedged';
 };
 
-// briefRDF(doc, { max }) → the document's grounded edges as RDF-star Turtle, each triple
-// annotated with its EO richness (operator · site terrain · resolution band · order · door).
-// The OWL line types the figures and relations so the ontology travels too. Entity-valued
-// objects are ex: resources; literal objects (a noun the graph did not admit) are strings.
-export const briefRDF = (doc, { max = 12, only = null } = {}) => {
+// briefRDF(doc, { max, alias }) → the document's grounded edges as RDF-star Turtle, each
+// triple annotated with its EO richness (operator · site terrain · resolution band · order ·
+// door). The OWL line types the figures and relations so the ontology travels too. Entity-
+// valued objects are ex: resources; literal objects (a noun the graph did not admit) are
+// strings.
+//
+// `alias` (optional) is the REDACTION MEMBRANE (write/redact.js): a Map<label, token> that
+// swaps every real referent surface for an opaque token BEFORE it is written into the graph,
+// so a remote talker structures over `ex:Referent1` and never learns the real who/what.
+// Absent → byte-identical to before (the membrane is a no-op when nothing leaves the box).
+// Only the referents (subjects and objects) are aliased; the relation predicates and the eo:
+// annotations are structure, not identity, and pass through — the model loses reference, not
+// shape.
+export const briefRDF = (doc, { max = 12, only = null, alias = null } = {}) => {
   const events = typeof doc?.log?.snapshot === 'function' ? doc.log.snapshot() : (doc?.log?.events || []);
   const label = new Map();
   for (const e of events) if (e.op === 'INS' && e.id != null && !label.has(e.id)) label.set(e.id, e.label);
   const isEntity = (id) => label.has(id);
   const L = (id) => label.get(id) ?? id;
+  // A — apply the redaction alias to a resolved label (the ONE place identity → token).
+  const A = (lab) => { const k = String(lab); return alias && alias.has(k) ? alias.get(k) : lab; };
 
   const figures = new Set();
   const relations = new Set();
@@ -54,10 +65,10 @@ export const briefRDF = (doc, { max = 12, only = null } = {}) => {
     if (only && e.sentIdx != null && !only.has(e.sentIdx)) continue;   // restrict to the salient stops
     if (n >= max) break;
     n += 1;
-    const s = ent(L(e.src));
+    const s = ent(A(L(e.src)));
     const p = rel(e.via);
     const oIsEnt = e.tgt != null && isEntity(e.tgt);
-    const o = e.tgt == null ? '""' : (oIsEnt ? ent(L(e.tgt)) : JSON.stringify(String(L(e.tgt))));
+    const o = e.tgt == null ? '""' : (oIsEnt ? ent(A(L(e.tgt))) : JSON.stringify(String(A(L(e.tgt)))));
     figures.add(s);
     if (oIsEnt) figures.add(o);
     relations.add(p);
@@ -82,7 +93,7 @@ export const briefRDF = (doc, { max = 12, only = null } = {}) => {
 // READ the annotations as delivery cues. The triple is the fact; the eo: annotations are how
 // to say it (band → certainty, order → sequence, site → one-off vs recurring). The veto
 // (talkThenVerify) still strips any edge it invents — grounding enforced after, not nagged.
-export const rdfRealizationPrompt = (doc, { max = 12, only = null } = {}) => Object.freeze({
+export const rdfRealizationPrompt = (doc, { max = 12, only = null, alias = null } = {}) => Object.freeze({
   system: 'You are the voice that turns a reading into words. You are given a small RDF graph '
     + 'of relations from a text (Turtle, with RDF-star annotations). Each `s p o` triple is a '
     + 'fact; the `<< s p o >> eo:…` annotation is HOW to say it: eo:band "firm" → assert it, '
@@ -90,5 +101,5 @@ export const rdfRealizationPrompt = (doc, { max = 12, only = null } = {}) => Obj
     + 'sequence to narrate in; eo:site "Network" is a recurring pattern, "Link" a single '
     + 'relation. Say it as fluent, natural speech, honouring those cues. Keep to the graph — '
     + 'add no relation it does not contain.',
-  user: `${briefRDF(doc, { max, only })}\n\nNow say this graph as natural speech:`,
+  user: `${briefRDF(doc, { max, only, alias })}\n\nNow say this graph as natural speech:`,
 });

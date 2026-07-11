@@ -67,6 +67,16 @@ export { inferGenders } from './genders.js';
 // veto. phraserBrief packages the determined content; talkThenVerify realises it and strips
 // any proposition the talker added that the document does not witness.
 export { phraserBrief, realizationPrompt, talkThenVerify, speakTriples } from './brief.js';
+// The redaction membrane — the cursor run BACKWARDS (write/redact.js). cursor.js keeps hashIds
+// out so the model sees clean names (correctness); this keeps NAMES out so a REMOTE model sees
+// only opaque tokens (confidentiality). The talker structures the typed EO graph over tokens;
+// de-pseudonymization and the a/an grammar fix run locally after, on the real names it never
+// saw. assertNoNameLeak is the mechanical membrane (mirror of assertNoLeak).
+// Two carriers: redact() feeds RDF-star (familiar to the model, but only CON/SIG edges + five
+// annotations survive); redactEot() feeds native EOT with the notation taught in-message — the
+// fuller richness (NUL absence, EVA transitions, SYN, SEG, polarity, the claim register) the
+// RDF projection drops. Both share the one membrane (assertNoNameLeak) and the local restore.
+export { redact, redactEot, EOT_LEGEND, restore, realizeRestored, fixArticles, buildTable, redactionTable, assertNoNameLeak } from './redact.js';
 // The brief as RDF-star: the x→relation→y triple an LLM already knows, annotated with the EO
 // richness a flat triple loses — the operator, the site terrain, the resolution band (how
 // definitely it holds), the arrow of time, the provenance door. The triple is the fact; the
