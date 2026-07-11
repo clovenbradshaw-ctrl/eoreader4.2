@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   metaRoute, phaticDrive, speechCurrents, defaultBases,
-  ROUTE_ALPHABET, ROUTE_EXEMPLARS,
+  ROUTE_ALPHABET, ROUTE_EXEMPLARS, modelClarifyGate, clarifyDemandOf,
 } from '../src/turn/meta-route.js';
 import { answerSmalltalk } from '../src/enactor/answer/index.js';
 
@@ -107,4 +107,49 @@ test('answerSmalltalk stays byte-identical for existing callers (no hasDoc)', ()
   assert.match(greet.text, /open a document/i);
   // and a real question is still not smalltalk — the anchors keep "hi, who is Gregor?" out.
   assert.equal(answerSmalltalk('who is Gregor?'), null);
+});
+
+// ── modelClarifyGate: the decision to disambiguate is a MODEL response read with the physics ──
+// The corpus sense gate (turn/sense.js) fires a choice question on any SPELLING collision — the bug
+// that looped "Which dolphin — Miami Dolphins or Dolphins?" forever. This gate makes the DECISION a
+// metacognition speech measured through the clarify Born physics: a clear ask reads `actionable` and
+// is never questioned back; only a genuinely underspecified one clears `clarify`.
+
+// The two metacognition reads the small model would speak — one clear, one genuinely ambiguous.
+const CLEAR_READ = 'They are asking a straightforward factual question about which dolphin species is the smallest; the answer is a specific fact and the request is perfectly clear, so I can just answer it.';
+const AMBIGUOUS_READ = 'Their request is ambiguous — dolphins could mean the marine animal or the football team, and only they can say which one they mean, so I would have to ask them to clarify before I can answer.';
+
+test('the two metacognition reads land on opposite clarify verdicts (the physics floor)', () => {
+  assert.equal(clarifyDemandOf(CLEAR_READ), 'actionable');
+  assert.equal(clarifyDemandOf(AMBIGUOUS_READ), 'clarify');
+});
+
+test('modelClarifyGate abstains (never asks) with no model — the fallback contract', async () => {
+  const off = await modelClarifyGate(null, {})('what is the smallest dolphin');
+  assert.equal(off.clarify, false);
+  assert.equal(off.demand, '');
+});
+
+test('modelClarifyGate does NOT ask when the model reads a clear ask as actionable', async () => {
+  // "what is the smallest dolphin" over a football-heavy corpus: the corpus collides, but the model
+  // knows the animal is meant, and the physics reads actionable → the gate refuses to question it.
+  const model = { phrase: async () => CLEAR_READ };
+  const g = await modelClarifyGate(model, {})('what is the smallest dolphin');
+  assert.equal(g.demand, 'actionable');
+  assert.equal(g.clarify, false);
+});
+
+test('modelClarifyGate asks only when the model reads the gap as the user\'s to close', async () => {
+  const model = { phrase: async () => AMBIGUOUS_READ };
+  const g = await modelClarifyGate(model, {})('tell me about dolphins');
+  assert.equal(g.demand, 'clarify');
+  assert.equal(g.clarify, true);
+  assert.ok(g.drive > 0, 'the clarify current should be exposed for the trail');
+});
+
+test('modelClarifyGate is fail-soft: a throwing or empty-speech model abstains', async () => {
+  const thrower = { phrase: async () => { throw new Error('cold'); } };
+  assert.equal((await modelClarifyGate(thrower, {})('x')).clarify, false);
+  const empty = { phrase: async () => '' };
+  assert.equal((await modelClarifyGate(empty, {})('x')).clarify, false);
 });

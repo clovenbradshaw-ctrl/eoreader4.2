@@ -21,7 +21,8 @@ import { createModel, describeModel } from '../../model/interface.js';
 import { probeOrigins, explainReach } from '../../model/reach.js';
 import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
-         runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement } from '../../turn/index.js';
+         runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
+         modelClarifyGate } from '../../turn/index.js';
 import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
 import { directCorsUrl } from '../../organs/ingest/direct-cors.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
@@ -1038,35 +1039,63 @@ export const createReaderApp = ({ audit } = {}) => {
     }
 
     // ── rung 8: subject-sense disambiguation (docs/response-demand.md, Stage 1) ──────────────────
-    // Before grounding/searching, check the recorded corpus for a sense collision on the question's
-    // subject. If it is ambiguous and nothing resolves it, ASK a choice question and stop — the fold
-    // reads the reply next turn. If THIS turn is that reply, resolve the chosen sense back into the
-    // original ask and answer that (so "the cetacean one" becomes "…essay on dolphins cetacean",
-    // not a bare fragment). Model-free and fail-soft: a fault here must never cost the turn.
+    // Before grounding/searching, decide whether the question turns on a sense the user must pin down.
+    // The recorded corpus (senseGate) can only see that a subject's SPELLING collides across entities
+    // — "dolphin" names the animal AND the Miami Dolphins — so on its own it asks a choice question on
+    // ANY such collision, including a plainly clear ask ("what is the smallest dolphin"), and then on
+    // every generic word of the reply ("animal", "mammal"), so the clarify never resolves and loops.
+    // The DECISION to disambiguate is therefore the MODEL's, read with the router's Born physics
+    // (turn/meta-route.js modelClarifyGate): the metacognition speaks about the turn and its `clarify`
+    // current is measured against the crosstalk null. The corpus supplies the OPTIONS; the physics
+    // decides whether to ask at all. If THIS turn is a reply to a question we asked, we NEVER reopen
+    // disambiguation on it — the reply folds back onto the original ask (a literal choice recovers the
+    // chosen option; any other reply rides in whole as a sense hint), so a bare "the animal" becomes
+    // "…the smallest dolphin the animal", not a fresh collision. Fail-soft: a fault here never costs
+    // the turn, and with no model the physics gate abstains and nothing is asked (the safe direction).
     let effectiveQ = q;
     try {
       const settled = t.messages.filter((mm) => !mm.pending && mm.text);
       // the current user turn (q) is already appended; the fold before this turn drops it, so the
       // "outstanding" question is the assistant's clarify, not read past by the new message.
       const awaiting = outstandingQuestion(settled.slice(0, -1));
-      const prior = awaiting ? answersAwaited({ awaiting }, q) : null;
-      if (prior && prior.answered) {
-        let original = '';
-        for (let i = settled.length - 1; i >= 0 && !original; i--) {
+      // the ask a question of ours was ABOUT: the user turn before our last assistant message.
+      const originalAsk = () => {
+        for (let i = settled.length - 1; i >= 0; i--) {
           if (settled[i].role === 'assistant') {
-            for (let j = i - 1; j >= 0; j--) if (settled[j].role === 'user') { original = String(settled[j].text || ''); break; }
+            for (let j = i - 1; j >= 0; j--) if (settled[j].role === 'user') return String(settled[j].text || '');
+            return '';
           }
         }
-        const scope = (prior.choice && prior.choice.length ? prior.choice : (prior.polarity ? [prior.polarity] : [])).join(' ');
-        if (original) effectiveQ = scope ? `${original} ${scope}` : original;
+        return '';
+      };
+      if (awaiting) {
+        // A REPLY to a question we posed. Never re-open disambiguation on it (the loop); fold it back
+        // onto the original ask so the subject is not lost.
+        const prior = answersAwaited({ awaiting }, q);
+        const original = originalAsk();
+        if (prior && prior.answered) {
+          const scope = (prior.choice && prior.choice.length ? prior.choice : (prior.polarity ? [prior.polarity] : [])).join(' ');
+          if (original) effectiveQ = scope ? `${original} ${scope}` : original;
+        } else if (original) {
+          effectiveQ = `${original} ${q}`;
+        }
       } else {
+        // A FRESH ask. Only a real corpus collision is even a candidate for disambiguation; whether to
+        // ACT on it is the model's judgment. Warm the model (the turn needs it anyway) and let the
+        // clarify physics decide — a collision the model reads as actionable is answered, not asked.
         const gate = senseGate(q, docs);
         if (gate && gate.resolution === 'ask') {
-          pending.text = gate.ask.question;
-          pending.route = 'clarify';
-          pending.pending = false;
-          persist(); emit('messages');
-          return pending;
+          const m = await raceGuard(ensureModel());
+          const history = settled.slice(0, -1).map((x) => ({ role: x.role, content: x.text }));
+          const clar = await raceGuard(keepAlive(modelClarifyGate(m, { history, now: new Date(), scope: t.title || '' })(q)));
+          if (clar.clarify) {
+            pending.text = gate.ask.question;
+            pending.route = 'clarify';
+            pending.pending = false;
+            persist(); emit('messages');
+            return pending;
+          }
+          // the physics read the ask as actionable → do not question it back; fall through and answer.
         }
       }
     } catch (_) { /* disambiguation is best-effort; fall through to the normal turn */ }

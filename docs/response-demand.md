@@ -258,6 +258,23 @@ returns one of three exits:
   (nfl) or Dolphin (cetacean)?") that feeds `fold.awaiting`, so the reply resolves through
   `answersAwaited` as a cheap continuation. This is the branch the dolphins turn skipped.
 
+**The DECISION to ask is the model's, not the graph's (`modelClarifyGate`).** The corpus gate can
+only see that a subject's *spelling* collides across recorded entities — it fires **ask** on
+"dolphin" whether the corpus holds the animal or only football teams, and, worse, on every generic
+word of the *reply* ("animal", "mammal"), so a bare "the animal" opens a fresh collision and the
+clarify **loops forever**. Whether the ask is genuinely underspecified is a metacognitive judgment
+the graph cannot make, so the live turn (rung 8) no longer lets the corpus decide: it warms the
+model, takes the same one-paragraph metacognition read the router takes (`discoursePrompt`), and
+measures its **`clarify` current against the crosstalk null** (`clarifyDemand`/`clarifyDrive`,
+`meta-route.js`). "What is the smallest dolphin" reads **actionable** — the model knows the animal is
+meant — so the gate answers it instead of asking, even over a football-heavy corpus; only a read that
+names the gap as *the user's to close* clears `clarify` and poses the corpus's choice question. The
+graph supplies the **options**; the physics decides **whether to ask at all**. And a reply to a
+question we posed never re-opens disambiguation — it folds back onto the original ask (a literal
+choice recovers the chosen option; any other reply rides in whole as a sense hint), so the loop
+cannot restart. Fail-soft: no model, empty speech, or any throw → the gate abstains and the turn
+answers, the safe direction.
+
 **The ambiguity test is a real-sense floor, not a margin.** The reader's existing confidence
 (`perceiver/referent.js`, margin 0.15) is *post-retrieval* — in the audit it read `concentrated:true`
 at margin 0.56 *after* retrieval had already committed to a basin. That is the wrong signal: a
@@ -335,7 +352,7 @@ so `"Good morning"` at an open book gets a hello instead of a grounded non-answe
 | **5** | The question-copy: `fold.awaiting` (`outstandingQuestion`) + `answersAwaited` grade a reply to a fork (polar/choice) as a reafferent continuation, else attention. Model-free, `tests/fold-awaiting.test.js`. | no | **done** |
 | **6** | The producer: wire `helixGenerate`/`renderContinuation` as the prediction-driven first-draft for reflex/continuation turns, so the cheap path never wakes (or stalls) the big model. | no (draft) | pending |
 | **7** | Stage 1 — the subject-sense-collision gate: `senseCollision` over the recorded graph, three exits (shortcut/steer/ask), the ask feeding `fold.awaiting`. Model-free, `tests/sense.test.js`. | no | **done** |
-| **8** | Wire Stage 1 into the live turn (`app.js` `ask`): on ambiguity pose the choice question and stop; when the reply answers it, fold the chosen sense back into the original ask (`effectiveQ`). Model-free, fail-soft. | no | **done** |
+| **8** | Wire Stage 1 into the live turn (`app.js` `ask`): the corpus gate proposes candidates, but the DECISION to ask is the model's, read with the clarify physics (`modelClarifyGate` — `discoursePrompt` → `clarifyDemand`/`clarifyDrive`), so a clear ask over a colliding corpus is answered, not questioned back; a reply to our own clarify never re-opens disambiguation (the loop), it folds back onto the original ask (`effectiveQ`). Fail-soft. | yes | **done** |
 | **9** | Stages 4–5 as pure functions: `steerQuery` (fold the anchor in), `validateQuery` (typed pre-flight), `resultBasinCheck` (post-flight basin verdict + escalate). Model-free, `tests/sense.test.js`. | no | **done** |
 | **10** | Live wiring: `formulateSearchQuery` takes the steer anchor and runs `validateQuery` (regenerate once on failure); the research walk runs `resultBasinCheck` and escalates with a bounded retry. | yes | pending |
 
