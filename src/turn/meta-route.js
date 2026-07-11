@@ -796,6 +796,51 @@ export const discoursePrompt = (message, fold = null, { exchange = '', now = nul
   );
 };
 
+// lastExchange(history) → the last user/assistant turn pair, rendered for discoursePrompt's
+// "The last exchange:" block. Kept short (the metacognition reads the discourse, not the corpus)
+// and role-labelled the way the prompt expects. '' when there is nothing prior — a fresh turn.
+const lastExchange = (history = []) => (Array.isArray(history) ? history : [])
+  .filter((m) => m && m.content != null)
+  .slice(-2)
+  .map((m) => `${m.role === 'user' ? 'Them' : 'You'}: ${String(m.content).replace(/\s+/g, ' ').trim().slice(0, 320)}`)
+  .join('\n');
+
+// modelClarifyGate(model, { history, fold, now, scope, standing, bases }) → async (message) →
+//   { clarify, demand, drive, speech } — the DECISION to disambiguate, made by the MODEL and read
+//   with the router's own Born physics, NOT by a corpus-graph collision.
+//
+// The corpus sense gate (turn/sense.js) can only see that a subject's SPELLING collides across
+// recorded entities — "dolphin" names the animal AND the Miami Dolphins — and it asks a choice
+// question on any such collision. But whether the ASK is genuinely underspecified — a choice only
+// the user can settle — is a metacognitive judgment the graph cannot make: it fires on "what is the
+// smallest dolphin" (plainly the animal) exactly as it would on a real ambiguity, and, worse, on
+// every generic word of the reply ("animal", "mammal"), so the clarify never resolves and the turn
+// loops. This gate closes that: the model speaks a plain paragraph about what the turn is doing and
+// whether it turns on a gap only the user can close (discoursePrompt), and the clarify current of
+// that speech is measured against its crosstalk null (clarifyDemand/clarifyDrive). A read that names
+// the gap as the user's clears `clarify`; a clear, actionable ask clears `actionable` and is NOT
+// questioned back — even over a football-heavy corpus. The corpus still supplies the OPTIONS once
+// the model has decided to ask; it no longer decides whether to.
+//
+// Same discipline as modelDisambiguator (disambiguate.js): a tiny temperature-0 call, discourse-
+// aware, returning a safe { clarify:false } on a cold model, empty speech, or any throw — so with no
+// model, or a model that declines, the caller falls straight through and answers (never asks), the
+// safe direction. Exported so the app injects it and the physics stays offline-testable through
+// clarifyDemandOf/clarifyDrive over any metacognition speech.
+export const modelClarifyGate = (model, { history = [], fold = null, now = null, scope = '', standing = '', bases = defaultBases() } = {}) => async (message) => {
+  const msg = String(message || '').trim();
+  const off = { clarify: false, demand: '', drive: 0, speech: '' };
+  if (!model?.phrase || !msg) return off;
+  const prompt = discoursePrompt(msg, fold, { exchange: lastExchange(history), now, scope, standing });
+  try {
+    const out = await model.phrase([{ role: 'user', content: prompt }], { maxTokens: 200, temperature: 0, minPredict: 0 });
+    const speech = String(out || '').trim();
+    if (!speech) return off;
+    const demand = clarifyDemandOf(speech, bases);
+    return { clarify: demand === 'clarify', demand, drive: clarifyDrive(speech, bases), speech };
+  } catch { return off; }
+};
+
 // leadsOf(speech, {known}) → the novel content terms the metacognition introduced — the words
 // of its paragraph that are neither in the conversation it was shown (`known`) nor part of the
 // direction bases' own scaffold vocabulary. When the paragraph names what must be found out
