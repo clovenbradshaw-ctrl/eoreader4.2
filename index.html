@@ -463,6 +463,9 @@ table{border-collapse:collapse;width:100%}
             </div>
             <span style="flex:1"></span>
             <div style="display:flex;align-items:center;gap:8px">
+              <sc-if value="{{ graphLive }}">
+              <button onClick="{{ toggleAllTiers }}" title="{{ allTiersTitle }}" style="padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#5A5A64;border:1px solid #EAEAEF" style-hover="background:#F5F5F8">{{ allTiersLabel }}</button>
+              </sc-if>
               <button onClick="{{ toggleContra }}" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:{{ contraFg }};background:{{ contraBg }};border:1px solid {{ contraBd }}">
                 <span style="width:7px;height:7px;border-radius:50%;background:#B23A2E"></span>Conflicts
               </button>
@@ -503,6 +506,16 @@ table{border-collapse:collapse;width:100%}
                   </div>
                   <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;font-weight:600;line-height:1.25;color:#1B1B22">{{ n.title }}</div>
                   <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-top:8px">cites {{ n.citeCount }} claims → synthesis</div>
+                </div>
+              </sc-for>
+
+              <!-- Collapsible tier headers — each group of nodes folds to this row (collapsed by default). -->
+              <sc-for list="{{ tierHeaders }}" as="h">
+                <div onClick="{{ h.toggle }}" onPointerDown="{{ stopPan }}" title="{{ h.hint }}" style="position:absolute;left:{{ h.left }}px;top:{{ h.top }}px;width:{{ h.w }}px;height:40px;box-sizing:border-box;background:#FBFBFD;border:1px solid #E6E6EC;border-left:3px solid {{ h.accent }};border-radius:9px;padding:0 11px;box-shadow:0 1px 3px rgba(20,20,30,.05);opacity:{{ h.op }};transition:opacity .18s;cursor:pointer;display:flex;align-items:center;gap:8px" style-hover="background:#F4F4F7">
+                  <span style="display:inline-flex;color:#9A9AA4;transition:transform .15s;transform:rotate({{ h.caret }}deg)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.06em;color:{{ h.chipFg }};background:{{ h.chipBg }};border-radius:5px;padding:2px 7px">{{ h.label }}</span>
+                  <span style="flex:1"></span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#8A8A95">{{ h.count }}</span>
                 </div>
               </sc-for>
 
@@ -1174,6 +1187,9 @@ class Component extends DCLogic {
       leftOpen: this._pref('eo_left', true), rightOpen: this._pref('eo_right', true),
       statusOpen: false, monologueOpen: false, logMode: 'actions',
       focusId: null, hideContra: false, tx: 40, ty: 30, scale: 1, camT: 'none',
+      // Graph tiers fold like NotebookLM sections — collapsed by default; the user opens
+      // the groups (claims / passages / sources / files) they want to trace. Absent/false = folded.
+      graphOpen: {},
       // Sources open as TABS IN THE MAIN STAGE — each recorded source you open becomes a tab in
       // the main tab bar (alongside Chat / Graph / …) and fills the stage; no overlay. state.tab
       // holds the active tab, and when it is a source's sn, that source is what the stage shows.
@@ -1714,6 +1730,10 @@ class Component extends DCLogic {
   hoverNode(id) { if (!this._panning && this.state.hoverId !== id) this.setState({ hoverId: id }); }
   clearFocus() { this.setState({ focusId: null, hideContra: false }); }
   toggleContra() { this.setState({ hideContra: !this.state.hideContra }); }
+  // Fold / unfold one graph tier (a NotebookLM-style section). A collapsed tier's card can
+  // stay selected in the inspector — its group header simply stands in for it on the canvas.
+  toggleTier(key) { const o = this.state.graphOpen || {}; this.setState({ graphOpen: { ...o, [key]: !o[key] } }); }
+  setAllTiers(open) { this.setState({ graphOpen: { claim: open, passage: open, source: open, file: open } }); }
 
   // ── topics ───────────────────────────────────────────────────────────────
   goMemo() { this.setTab('memo'); }
@@ -1846,28 +1866,45 @@ class Component extends DCLogic {
   }
 
   // ── the graph layout (honest, dynamic) ───────────────────────────────────
-  _layout(prov) {
+  _layout(prov, open = {}) {
     const LX = [40, 330, 640, 950, 1230];
     const W = [240, 260, 260, 230, 190];
     const H = { memo: 100, claim: 96, passage: 110, source: 88, file: 70 };
-    const GAP = 22;
+    const HEADER_H = 40, HEAD_GAP = 12, GAP = 22;
     const pos = {};
-    const stack = (list, col, h) => {
-      let y = 40;
-      for (const n of list) { pos[n._nid] = { x: LX[col], y, w: W[col], h }; y += h + GAP; }
-      return y;
-    };
     prov.nodes.memo._nid = 'M1';
     prov.nodes.claims.forEach((c) => c._nid = c.id);
     prov.nodes.passages.forEach((p) => p._nid = p.id);
     prov.nodes.sources.forEach((s) => s._nid = s.sn);
     prov.nodes.files.forEach((f) => f._nid = f.id);
-    const hMemo = stack([prov.nodes.memo], 0, H.memo);
-    const hCl = stack(prov.nodes.claims, 1, H.claim);
-    const hPa = stack(prov.nodes.passages, 2, H.passage);
-    const hSo = stack(prov.nodes.sources, 3, H.source);
-    const hFi = stack(prov.nodes.files, 4, H.file);
-    const canvasH = Math.max(hMemo, hCl, hPa, hSo, hFi, 420) + 40;
+    // The memo is the single root card (col 0) — always shown, vertically centred below.
+    pos.M1 = { x: LX[0], y: 40, w: W[0], h: H.memo };
+    // The four collapsible tiers: a fold header sits at each column's top, and its cards
+    // stack below ONLY when the tier is open. A collapsed tier's cards fold into the header
+    // (they share its position) so edges into/out of the group route to the header, not to
+    // scattered points, and are not drawn as cards.
+    const tiers = [
+      ['claim', 1, prov.nodes.claims, H.claim],
+      ['passage', 2, prov.nodes.passages, H.passage],
+      ['source', 3, prov.nodes.sources, H.source],
+      ['file', 4, prov.nodes.files, H.file],
+    ];
+    let colBottom = 40 + H.memo;
+    for (const [key, col, list, h] of tiers) {
+      if (!list.length) continue;
+      const hid = 'H_' + key;
+      let y = 40;
+      pos[hid] = { x: LX[col], y, w: W[col], h: HEADER_H };
+      y += HEADER_H;
+      if (open[key]) {
+        y += HEAD_GAP;
+        for (const n of list) { pos[n._nid] = { x: LX[col], y, w: W[col], h }; y += h + GAP; }
+      } else {
+        for (const n of list) pos[n._nid] = pos[hid];
+      }
+      colBottom = Math.max(colBottom, y);
+    }
+    const canvasH = Math.max(colBottom, 420) + 40;
     pos.M1.y = Math.max(40, canvasH / 2 - H.memo / 2 - 20);
     const canvasW = LX[4] + W[4] + 60;
     this._fitScale = Math.min(1, (this._vp ? this._vp.clientWidth - 80 : 1200) / canvasW);
@@ -2178,9 +2215,15 @@ class Component extends DCLogic {
     // graph
     const prov = app.provenance();
     const graphLive = st.tab === 'graph' && (prov.nodes.claims.length > 0 || prov.nodes.sources.length > 0);
+    // Which tiers are folded (collapsed by default): a tier is open only when graphOpen[key] is
+    // explicitly true. The Expand-all / Collapse-all control reads whether every present tier is open.
+    const gOpen = st.graphOpen || {};
+    const gTiers = [['claim', prov.nodes.claims], ['passage', prov.nodes.passages], ['source', prov.nodes.sources], ['file', prov.nodes.files]].filter(([, l]) => l.length);
+    const allTiersOpen = gTiers.length > 0 && gTiers.every(([k]) => gOpen[k]);
     let graphVals = {};
     if (graphLive) {
-      const { pos, canvasW, canvasH } = this._layout(prov);
+      const open = gOpen;
+      const { pos, canvasW, canvasH } = this._layout(prov, open);
       const focus = st.focusId;
       // A hover PREVIEWS the same neighbourhood a click commits to: the hovered node and every
       // node reachable from it light up, the rest dim — so hovering any node reveals the entities
@@ -2203,28 +2246,67 @@ class Component extends DCLogic {
       const bd = (id) => hi === id ? '#B9AEF8' : '#E6E6EC';
       const mk = (n, extra) => ({ ...extra, left: pos[n._nid].x, top: pos[n._nid].y, w: pos[n._nid].w, op: dim(n._nid), shadow: shadow(n._nid), bd: bd(n._nid), focus: () => this.focusNode(n._nid), hoverEnter: () => this.hoverNode(n._nid), hoverLeave: () => this.hoverNode(null) });
       const srcOf = (snId) => app.sourceBySn(snId) || {};
+
+      // The fold headers — one per non-empty tier, sitting at each column's top. Each shows its
+      // kind + count and a caret; collapsed by default, click to open. A header stays lit while
+      // any of its nodes is in the highlighted neighbourhood, so a hover never dims a live group.
+      const TIERS = [
+        { key: 'claim',   label: 'CLAIMS',   accent: '#8A8A95', chipFg: '#7A7A85', chipBg: '#F2F2F6', list: prov.nodes.claims },
+        { key: 'passage', label: 'PASSAGES', accent: '#C79A3A', chipFg: '#9A6B12', chipBg: '#FBF1DA', list: prov.nodes.passages },
+        { key: 'source',  label: 'SOURCES',  accent: '#6E7787', chipFg: '#4E5765', chipBg: '#EEF0F3', list: prov.nodes.sources },
+        { key: 'file',    label: 'FILES',    accent: '#1E8A50', chipFg: '#1E8A50', chipBg: '#E7F6EC', list: prov.nodes.files },
+      ];
+      const tierLit = (list) => !hi || list.some((n) => connected.has(n._nid));
+      const tierHeaders = TIERS.filter((t) => t.list.length && pos['H_' + t.key]).map((t) => {
+        const hp = pos['H_' + t.key], isOpen = !!open[t.key];
+        return {
+          left: hp.x, top: hp.y, w: hp.w, accent: t.accent, chipFg: t.chipFg, chipBg: t.chipBg,
+          label: t.label, count: String(t.list.length), caret: isOpen ? 90 : 0,
+          hint: isOpen ? 'Collapse this group' : 'Expand this group', op: tierLit(t.list) ? 1 : .18,
+          toggle: () => this.toggleTier(t.key),
+        };
+      });
+
+      // A collapsed tier's nodes route their edges to the tier header; dedupe so N folded
+      // claim→passage edges become one header→header line rather than N stacked identical paths.
+      const tierByNid = {};
+      prov.nodes.claims.forEach((c) => tierByNid[c._nid] = 'claim');
+      prov.nodes.passages.forEach((p) => tierByNid[p._nid] = 'passage');
+      prov.nodes.sources.forEach((s) => tierByNid[s._nid] = 'source');
+      prov.nodes.files.forEach((f) => tierByNid[f._nid] = 'file');
+      const remap = (id) => { const k = tierByNid[id]; return (k && !open[k]) ? ('H_' + k) : id; };
+
       graphVals = {
-        canvasW, canvasH,
+        canvasW, canvasH, tierHeaders,
         memoNodes: [mk(prov.nodes.memo, { id: 'M1', title: prov.nodes.memo.title, citeCount: String(prov.nodes.claims.length) })],
-        claimNodes: prov.nodes.claims.map((c) => {
+        claimNodes: open.claim ? prov.nodes.claims.map((c) => {
           const chip = this._stChip(c.status);
           return mk(c, { id: c.id, text: c.text, stLabel: c.status, stFg: chip.fg, stBg: chip.bg, stBd: chip.bd, accent: c.status === 'Contested' ? '#B23A2E' : '#8A8A95', groundCount: String(prov.edges.filter((e) => e.from === c.id && (e.kind === 'ground' || e.kind === 'against')).length) });
-        }),
-        passageNodes: prov.nodes.passages.map((p) => mk(p, { id: p.id, mark: p.text, pincite: `sent ${p.idx}`, srcReg: p.reg || '', srcDomain: srcOf(p.sn).domain || '' })),
-        sourceNodes: prov.nodes.sources.map((s) => { const r = this._rights(s); return mk(s, { reg: s.reg, title: s.title, domain: s.domain, rightsTag: r.label, rightsFg: r.fg, rightsBg: r.bg }); }),
-        fileNodes: prov.nodes.files.map((f) => mk(f, { id: f.id, sha: f.sha, bytes: this._bytes((srcOf(f.sn) || {}).bytes || 0) })),
-        edgePaths: prov.edges.filter((e) => pos[e.from] && pos[e.to]).map((e) => {
-          const against = e.kind === 'against';
-          if (against && st.hideContra) return null;
-          const active = hi && connected.has(e.from) && connected.has(e.to);
-          return {
-            d: this._edgePath(pos[e.from], pos[e.to]),
+        }) : [],
+        passageNodes: open.passage ? prov.nodes.passages.map((p) => mk(p, { id: p.id, mark: p.text, pincite: `sent ${p.idx}`, srcReg: p.reg || '', srcDomain: srcOf(p.sn).domain || '' })) : [],
+        sourceNodes: open.source ? prov.nodes.sources.map((s) => { const r = this._rights(s); return mk(s, { reg: s.reg, title: s.title, domain: s.domain, rightsTag: r.label, rightsFg: r.fg, rightsBg: r.bg }); }) : [],
+        fileNodes: open.file ? prov.nodes.files.map((f) => mk(f, { id: f.id, sha: f.sha, bytes: this._bytes((srcOf(f.sn) || {}).bytes || 0) })) : [],
+        edgePaths: (() => {
+          const agg = new Map();
+          for (const e of prov.edges) {
+            const against = e.kind === 'against';
+            if (against && st.hideContra) continue;
+            const from = remap(e.from), to = remap(e.to);
+            if (from === to || !pos[from] || !pos[to]) continue;
+            const active = !!(hi && connected.has(e.from) && connected.has(e.to));
+            const key = from + '›' + to + '›' + (against ? 'a' : 'g');
+            const prev = agg.get(key);
+            if (prev) { prev.active = prev.active || active; }
+            else agg.set(key, { from, to, against, active });
+          }
+          return [...agg.values()].map(({ from, to, against, active }) => ({
+            d: this._edgePath(pos[from], pos[to]),
             stroke: against ? '#D98B80' : active ? '#6D5EF5' : '#CBCBD4',
             sw: active ? 2.2 : 1.6, dash: against ? '3 5' : 'none',
             op: hi && !active ? .25 : 1,
             marker: against ? 'url(#arrRed)' : active ? 'url(#arrVio)' : 'url(#arrDim)',
-          };
-        }).filter(Boolean),
+          }));
+        })(),
       };
     }
     const legendNodes = [
@@ -2475,6 +2557,9 @@ class Component extends DCLogic {
       panCursor: 'grab', startPan: (e) => this.startPan(e), stopPan: (e) => this.stopPan(e), onWheel: (e) => this.onWheel(e),
       zoomIn: () => this.zoomIn(), zoomOut: () => this.zoomOut(), fit: () => this.fit(),
       clearFocus: () => this.clearFocus(), toggleContra: () => this.toggleContra(),
+      toggleAllTiers: () => this.setAllTiers(!allTiersOpen),
+      allTiersLabel: allTiersOpen ? 'Collapse all' : 'Expand all',
+      allTiersTitle: allTiersOpen ? 'Fold every group back to its header' : 'Open every group in the graph',
       contraFg: st.hideContra ? '#8A8A95' : '#B23A2E', contraBg: st.hideContra ? '#F2F2F6' : '#FBE9E6', contraBd: st.hideContra ? '#EAEAEF' : '#F2D3CD',
       resetFg: st.focusId ? '#5B4BE6' : '#8A8A95', setViewport: (el) => this.setViewport(el),
       // findings + register + memo
