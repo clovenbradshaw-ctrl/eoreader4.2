@@ -784,7 +784,9 @@ export const stages = {
     const paras = String(ctx.rawOutput || '').split(/\n[ \t]*\n+/).map(p => p.trim()).filter(Boolean);
     const boundParas = paras.map(p => bindCitations(p, ctx.spans, { doc: ctx.doc, cursor }));
     const bound = boundParas.flat();
-    const answer = boundParas.map(renderBound).join('\n\n');
+    // Mark the zero-contact claims — a grounded answer wears its provenance at claim
+    // grain, so an unsourced sentence can no longer read as sourced (bind.js UNSOURCED_MARK).
+    const answer = boundParas.map(p => renderBound(p, { mark: true })).join('\n\n');
     const sources = [...new Set(
       bound.filter(b => b.citation).map(b => parseInt(b.citation.slice(1), 10))
     )];
@@ -845,7 +847,7 @@ export const stages = {
           changed = true;
           return { ...b, citation: hit.citation, edgeGrounded: true };
         });
-        if (changed) answer = renderBound(bound);
+        if (changed) answer = renderBound(bound, { mark: true });
         else bound = ctx.bound;
       }
     }
