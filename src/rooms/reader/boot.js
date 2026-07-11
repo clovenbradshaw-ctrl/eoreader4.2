@@ -17,6 +17,8 @@
 //   audit       the ring buffer the monologue drawer reads  (rooms/audit)
 //   workspace   folders/pins persistence                    (rooms/workspace)
 //   mountTieredGraph  the entity explorer's web graph       (rooms/reader)
+//   mountDagSurface   the two-cursor causal DAG surface       (surfer/dag) —
+//               topic-wide + per-entity focus, with entity on/off toggles
 //   matrix      OPTIONAL Matrix account login (rooms/archive/matrix) — signed-out
 //               the reader is whole; signing in only unlocks the permanent archive
 //   archive     authenticated deposit to Archive.org via the Matrix-gated webhook
@@ -32,7 +34,7 @@ import { createParser } from '../../perceiver/parse/index.js';
 import { readingAt } from '../../perceiver/reading.js';
 import { groundSpans, groundSummary, supportVerdict } from '../../enactor/ground/spans.js';
 import { factCheck } from '../../enactor/factcheck/index.js';
-import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
+import { discourseDag, assertedDag, mountDagSurface } from '../../surfer/dag/index.js';
 import { createAuditLog } from '../audit/index.js';
 import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
@@ -143,6 +145,7 @@ window.EO = Object.freeze({
   audit,
   workspace,
   mountTieredGraph,
+  mountDagSurface,   // the two-cursor causal DAG surface (surfer/dag) — topic-wide + per-entity, with toggles
   readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   matrix,
   chat,

@@ -10,7 +10,7 @@
 //
 // Nothing it shows is a fact: every edge is a reading, traced to the passage that made it.
 
-import { assertedDag, corpusDag, distinguishingEvidence } from './index.js';
+import { assertedDag, corpusDag, distinguishingEvidence, scopeAssertedDag } from './index.js';
 import { discourseDag } from './discourse.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -95,6 +95,10 @@ const CSS = `
 .dagsurf .dg-intra{display:inline-block;font-family:var(--mono,monospace);font-size:10px;padding:1px 6px;border-radius:999px;margin:2px 4px 0 0;border:1px solid var(--dg-line)}
 .dagsurf .dg-empty{padding:22px 4px;color:var(--dg-muted);font-size:13px;max-width:60ch}
 .dagsurf .dg-hidden{display:none}
+.dagsurf .dg-scope{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--dg-muted);background:var(--dg-panel2);border:1px solid var(--dg-line);border-radius:8px;padding:6px 10px;margin:8px 0 2px}
+.dagsurf .dg-scope b{color:var(--dg-ink);font-weight:600}
+.dagsurf .dg-scope-clear{margin-left:auto;border:1px solid var(--dg-line);background:var(--dg-panel);color:var(--dg-focus);border-radius:999px;font-size:11px;font-weight:600;padding:3px 10px;cursor:pointer}
+.dagsurf .dg-scope-clear:hover{background:var(--dg-panel2)}
 `;
 
 const SC = { essential: 'var(--dg-ess)', generative: 'var(--dg-gen)', accidental: 'var(--dg-acc)' };
@@ -102,7 +106,7 @@ const DC = { contrast: 'var(--dg-con)', consequence: 'var(--dg-gen)', reason: 'v
 
 // Mount the surface into `root`. `sources` is [{ docId, sentences }]; `primaryId` names the
 // document cursor 1 reads (defaults to the first). Returns { destroy }.
-export function mountDagSurface(root, { sources = [], primaryId = null } = {}) {
+export function mountDagSurface(root, { sources = [], primaryId = null, hidden = null, focus = null, focusLabel = null, onFocusClear = null, onFocus = null } = {}) {
   if (!document.getElementById(STYLE_ID)) document.head.appendChild(el('style', { id: STYLE_ID, text: CSS }));
   root.innerHTML = '';
   const wrap = el('div', { class: 'dagsurf' });
@@ -114,20 +118,45 @@ export function mountDagSurface(root, { sources = [], primaryId = null } = {}) {
     return { destroy() { wrap.remove(); } };
   }
 
+  // Cursor 2 over the whole corpus, then SCOPED to what the viewer left on (entity on/off toggles)
+  // and, when a focus entity is named, to that entity's causal neighbourhood — the "DAG for this
+  // one entity". The unscoped graph is kept so a "show all" clears back to the entire topic.
   const asserted = assertedDag(usable);
-  const dist = distinguishingEvidence(corpusDag(usable));
+  const scoped = scopeAssertedDag(asserted, { hidden, focus });
+  const visKeys = new Set(scoped.nodes.map((n) => n.key));
+  const dist = distinguishingEvidence(corpusDag(usable))
+    .filter((d) => d.edge.split('→').every((k) => visKeys.has(k)));
   const primary = usable.find((s) => s.docId === primaryId) || usable[0];
   const discourse = discourseDag({ docId: primary.docId, sentences: primary.sentences });
+  const isScoped = scoped !== asserted;   // hidden and/or focus are in force
 
   wrap.appendChild(el('p', { class: 'dg-thesis', html:
     'A causal effect is a counterfactual — not in any text. So this never says “X causes Y.” It shows what the reader <b>reads the sources as claiming</b>, traced to the passage, typed by the stance the source proposed — and never upgraded, because only a design can.' }));
 
   const chips = el('div', { class: 'dg-chips' });
-  [['edges', asserted.edges.length], ['nodes', asserted.nodes.length], ['sources', usable.length],
-   ['contested', asserted.edges.filter((e) => e.contested).length],
-   ['confounders', asserted.complexities.confounding.length], ['mechanisms', asserted.complexities.mechanism.length]]
+  [['edges', scoped.edges.length], ['nodes', scoped.nodes.length], ['sources', usable.length],
+   ['contested', scoped.edges.filter((e) => e.contested).length],
+   ['confounders', scoped.complexities.confounding.length], ['mechanisms', scoped.complexities.mechanism.length]]
     .forEach(([k, v]) => chips.appendChild(el('span', { class: 'dg-chip' }, [el('b', { text: String(v) }), document.createTextNode(' ' + k)])));
   wrap.appendChild(chips);
+
+  // The scope banner — names what is being shown (one entity's neighbourhood, and/or a count of
+  // entities turned off) and offers one click back to the whole topic. The toggles themselves are
+  // the host's control column; this only reflects and clears the scope.
+  if (isScoped) {
+    const banner = el('div', { class: 'dg-scope' });
+    const focusName = focus ? (focusLabel || focus) : null;
+    const nHidden = hidden ? (hidden instanceof Set ? hidden.size : (hidden.length || 0)) : 0;
+    banner.appendChild(document.createTextNode(focusName ? 'Showing ' : 'Showing the whole topic'));
+    if (focusName) banner.appendChild(el('b', { text: focusName }));
+    if (nHidden) banner.appendChild(document.createTextNode(` · ${nHidden} ${nHidden === 1 ? 'entity' : 'entities'} hidden`));
+    if (onFocusClear) {
+      const clr = el('button', { class: 'dg-scope-clear', text: focusName ? 'show the whole topic' : 'show all entities' });
+      clr.onclick = () => { try { onFocusClear(); } catch (e) { /* host owns the reset */ } };
+      banner.appendChild(clr);
+    }
+    wrap.appendChild(banner);
+  }
 
   const tabs = el('div', { class: 'dg-tabs', role: 'tablist' });
   const t2 = el('button', { class: 'dg-tab', role: 'tab', 'aria-selected': 'true', text: 'Cursor 2 · what the sources assert' });
@@ -140,7 +169,7 @@ export function mountDagSurface(root, { sources = [], primaryId = null } = {}) {
   t2.onclick = () => { t2.setAttribute('aria-selected', 'true'); t1.setAttribute('aria-selected', 'false'); view2.classList.remove('dg-hidden'); view1.classList.add('dg-hidden'); };
   t1.onclick = () => { t1.setAttribute('aria-selected', 'true'); t2.setAttribute('aria-selected', 'false'); view1.classList.remove('dg-hidden'); view2.classList.add('dg-hidden'); };
 
-  buildCursor2(view2, asserted, dist);
+  buildCursor2(view2, scoped, dist, { onFocus, focus });
   buildCursor1(view1, discourse, primary.docId);
 
   return { destroy() { wrap.remove(); } };
@@ -155,7 +184,7 @@ function legendLine(color, dash) {
 const markerLabel = (m) => (m === 'cause-link' ? 'because' : m);
 const STANCE_HINT = { essential: 'claims a cause', generative: 'shows a mechanism', accidental: 'correlation only' };
 
-function buildCursor2(root, a, dist) {
+function buildCursor2(root, a, dist, opts = {}) {
   root.appendChild(el('p', { class: 'dg-note', html: 'Each box is something the sources talk about; an arrow means a source claims the upper box <b>affects</b> the lower one. Colour shows how strongly it’s claimed. An <span style="color:var(--dg-warm);font-weight:600">amber</span> arrow marks a <b>common cause</b> — the sources say one thing drives <em>both</em> ends of another arrow, so that arrow may be coincidence, not cause. Tap an arrow to read the exact sentences behind it — nothing here is a fact, only what the sources are read as claiming.' }));
   if (!a.edges.length) {
     root.appendChild(el('div', { class: 'dg-empty', text: 'No causal claim was read in these sources. The reader fires only on an explicit causal or association word — a floor on what the corpus states, never a ceiling.' }));
@@ -245,8 +274,17 @@ function buildCursor2(root, a, dist) {
     svg.querySelectorAll('.dg-node').forEach((g) => { if (g.getAttribute('data-node') !== n.key) g.classList.add('dim'); else g.classList.add('sel'); });
     svg.querySelectorAll('.dg-edge').forEach((p) => { const [f, t] = p.getAttribute('data-edge').split('→'); if (f !== n.key && t !== n.key) p.classList.add('dim'); });
     insp.innerHTML = '';
-    insp.appendChild(el('div', { class: 'dg-insp-head' }, [el('span', { class: 'dg-insp-title', text: n.key }),
-      el('span', { class: 'dg-insp-sub', text: `talked about in ${n.sources.length} source${n.sources.length > 1 ? 's' : ''}: ${n.sources.join(', ')}` })]));
+    const head = el('div', { class: 'dg-insp-head' }, [el('span', { class: 'dg-insp-title', text: n.key }),
+      el('span', { class: 'dg-insp-sub', text: `talked about in ${n.sources.length} source${n.sources.length > 1 ? 's' : ''}: ${n.sources.join(', ')}` })]);
+    // "focus the DAG here" — scope cursor 2 to this node's causal neighbourhood (the DAG for this
+    // one entity). Offered only when the host wired a focus handler and this isn't already the focus.
+    if (opts.onFocus && opts.focus !== n.key) {
+      const fb = el('button', { class: 'dg-scope-clear', text: 'focus the DAG here →' });
+      fb.style.marginLeft = 'auto';
+      fb.onclick = () => { try { opts.onFocus(n.key, n.key); } catch (e) { /* host owns focus */ } };
+      head.appendChild(fb);
+    }
+    insp.appendChild(head);
     insp.appendChild(el('div', { class: 'dg-claims' }, [el('div', { class: 'dg-passage', text: 'read from: ' + n.labels.map((l) => '“' + l + '”').join('  ') })]));
   }
   function edgeInspector(e) {

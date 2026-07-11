@@ -1679,6 +1679,80 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return { nodes, edges };
   };
 
+  // The WHOLE-TOPIC entity graph for mountTieredGraph — the sibling of tieredData's single-entity
+  // web, drawn over the entire topic at once. Every source sits at tier 0; the salient figures
+  // across the topic at tier 1, MERGED across sources by normalised label so the same figure named
+  // in two sources is one node (opaque per-doc ids never coincide, so a label merge is the honest
+  // topic view); the bonds among them, aggregated across sources, are the tier-1 edges. Returns the
+  // FULL graph — the surface's entity on/off toggles filter it for display, so a hidden entity can
+  // still be turned back on. Entity nodes carry a representative { docId, entId } so a click opens
+  // the entity panel, exactly like the single-entity web.
+  const topicTieredData = () => {
+    const srcs = topicSources();
+    const nodes = [], edges = [], seen = new Set();
+    const push = (id, tier, label, kind, ref) => { if (!seen.has(id)) { seen.add(id); nodes.push({ id, tier, label, kind, ref }); } };
+    const norm = (s) => String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const urlish = (s) => /^(https?:\/\/|www\.)/i.test(String(s || '')) || String(s || '').includes('://');
+    const merged = new Map();       // normLabel → { id, label, mentions, sns:Set, ref }
+    const mapKey = new Map();        // `${docId}#${repId}` → normLabel  (to map bond endpoints)
+    for (const src of srcs) {
+      const doc = docFor(src); if (!doc?.log) continue;
+      const g = projectGraph(doc.log);
+      const rep = g.representative || ((x) => x);
+      const done = new Set();
+      for (const [id, ent] of g.entities || []) {
+        const r = rep(id); if (done.has(r)) continue; done.add(r);
+        const label = doc.admission?.labelOf?.(r) || ent.label || r;
+        const nl = norm(label); if (!nl || urlish(label)) continue;
+        mapKey.set(`${doc.docId}#${r}`, nl);
+        let m = merged.get(nl);
+        if (!m) merged.set(nl, m = { id: `e:${nl}`, label, mentions: 0, sns: new Set(), ref: { docId: doc.docId, entId: r } });
+        m.mentions += ent.sightings || 0; m.sns.add(src.sn);
+      }
+    }
+    // rank by salience and cap — the graph's own collision-culling keeps it legible, but a hard cap
+    // keeps the toggle list and the layout from swelling on a large topic.
+    const ranked = [...merged.values()].sort((a, b) => b.mentions - a.mentions).slice(0, 40);
+    const shown = new Set(ranked.map((m) => norm(m.label)));
+    const srcById = new Map(srcs.map((s) => [s.sn, s]));
+    for (const m of ranked) push(m.id, 1, m.label, 'entity', m.ref);
+    for (const m of ranked) {
+      for (const sn of m.sns) {
+        const sid = `src:${sn}`; const s = srcById.get(sn);
+        push(sid, 0, s ? (s.title || s.reg || 'source') : 'source', 'source', null);
+        edges.push({ a: sid, b: m.id, tier: 0, gl: '●', code: 'INS' });
+      }
+    }
+    const agg = new Map();
+    for (const src of srcs) {
+      const doc = docFor(src); if (!doc?.log) continue;
+      const g = projectGraph(doc.log);
+      const rep = g.representative || ((x) => x);
+      for (const e of g.edges || []) {
+        const an = mapKey.get(`${doc.docId}#${rep(e.from)}`), bn = mapKey.get(`${doc.docId}#${rep(e.to)}`);
+        if (!an || !bn || an === bn || !shown.has(an) || !shown.has(bn)) continue;
+        const key = an + '' + bn; let b = agg.get(key);
+        if (!b) agg.set(key, b = { a: `e:${an}`, b: `e:${bn}`, w: 0, via: null });
+        b.w += (e.weight != null ? e.weight : 1) || 0.001;
+        const via = e.relType || e.via; if (!b.via && via) b.via = via;
+      }
+    }
+    [...agg.values()].sort((x, y) => y.w - x.w).slice(0, 80).forEach((b) => {
+      edges.push({ a: b.a, b: b.b, tier: 1, gl: '⋈', code: b.via || 'CON' });
+    });
+    return { nodes, edges };
+  };
+
+  // The topic's sources shaped for the causal DAG surface (mountDagSurface). A readable id (the
+  // source title) rides in front of the parsed sentences + log the two cursors read: cursor 2 runs
+  // over ALL of them so cross-source confounders and disagreements surface; cursor 1 reads the
+  // primary. Sources with no readable sentences drop out.
+  const dagSources = () => topicSources().map((src) => {
+    const doc = docFor(src);
+    if (!doc || !(doc.sentences || []).length) return null;
+    return { docId: src.title || src.url || src.docId, sn: src.sn, sentences: doc.sentences, log: doc.log };
+  }).filter(Boolean);
+
   // ── findings + provenance (the graph tab, honest) ──────────────────────────
   const findings = () => {
     const t = topic();
@@ -1904,8 +1978,8 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     // model
     ensureModel, setBackend, backendPref, setSpeed, speedPref,
     // projections for the surface
-    answerSegments, viewerParas, entities, entityProfile, entityWiki, tieredData,
-    findings, provenance, dagFor, setMemo, eotFor,
+    answerSegments, viewerParas, entities, entityProfile, entityWiki, tieredData, topicTieredData,
+    findings, provenance, dagFor, dagSources, setMemo, eotFor,
     // the commitment ledger (assertions + corrections, persisted) and the session's
     // self/world line readout — the honesty and ledger seams, readable from the surface
     ledger: () => ledger.entries(),
