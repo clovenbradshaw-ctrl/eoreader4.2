@@ -1827,18 +1827,47 @@ class Component extends DCLogic {
   // its closing pair streams in (a beat of flicker, exactly like any live markdown editor).
   _inlineMd(s) {
     const CODE = "font-family:'IBM Plex Mono',monospace;font-size:.92em;background:#EFEFF4;border-radius:4px;padding:.03em 4px";
+    // The ungrounded-FACT underline. The grounder (enactor/ground/bind.js) marks an
+    // unsourced assertion of fact with a trailing [no source]; it never marks creative
+    // prose. Here that marker becomes a wavy amber underline on the claim it trails — a
+    // provenance cue that rides in EVERY mode (Links on or off, chat or long-form), so an
+    // ungrounded fact is disclosed as an underline and never reads as sourced. The literal
+    // tag is dropped in favour of the underline.
+    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#C99A3A;text-underline-offset:2px';
     const out = [];
     const push = (t, style) => { if (t) out.push({ isText: true, s: t, style: style || '' }); };
-    const re = /(`+)([^`]+?)\1|(\*\*|__)([\s\S]+?)\3|(?<![A-Za-z0-9])([*_])([\s\S]+?)\5(?![A-Za-z0-9])/g;
-    let last = 0, mm;
-    while ((mm = re.exec(s)) !== null) {
-      if (mm.index > last) push(s.slice(last, mm.index));
-      if (mm[1]) push(mm[2], CODE);
-      else if (mm[3]) push(mm[4], 'font-weight:650');
-      else push(mm[6], 'font-style:italic');
-      last = re.lastIndex;
+    // Emphasis parse for one run, with an optional base style layered under `code`/**bold**/*italic*.
+    const emph = (str, base) => {
+      const under = (extra) => (base ? (extra ? base + ';' + extra : base) : (extra || ''));
+      const re = /(`+)([^`]+?)\1|(\*\*|__)([\s\S]+?)\3|(?<![A-Za-z0-9])([*_])([\s\S]+?)\5(?![A-Za-z0-9])/g;
+      let last = 0, mm;
+      while ((mm = re.exec(str)) !== null) {
+        if (mm.index > last) push(str.slice(last, mm.index), under(''));
+        if (mm[1]) push(mm[2], under(CODE));
+        else if (mm[3]) push(mm[4], under('font-weight:650'));
+        else push(mm[6], under('font-style:italic'));
+        last = re.lastIndex;
+      }
+      if (last < str.length) push(str.slice(last), under(''));
+    };
+    // Split the run around each [no source] marker: the claim it trails (back to the prior
+    // sentence break) is underlined; everything else renders plainly. No marker ⇒ one plain
+    // run, byte-identical to the old path.
+    const MARK = '[no source]';
+    let rest = s, at;
+    while ((at = rest.indexOf(MARK)) >= 0) {
+      const b = rest.slice(0, at).replace(/\s+$/, '');        // the claim, trailing space trimmed
+      // Find where the marked sentence begins — the last sentence break BEFORE its own
+      // terminal punctuation (drop the final char from the search so the claim's own "."
+      // is never mistaken for the boundary). Anything before that is preceding, grounded prose.
+      const inner = b.slice(0, -1);
+      const brk = Math.max(inner.lastIndexOf('. '), inner.lastIndexOf('! '), inner.lastIndexOf('? '), inner.lastIndexOf('\n'));
+      const cut = brk >= 0 ? brk + 2 : 0;
+      if (cut > 0) emph(b.slice(0, cut), '');                 // the grounded lead-in, plain
+      emph(b.slice(cut), UNSOURCED);                          // the unsourced claim, underlined
+      rest = rest.slice(at + MARK.length).replace(/^[ \t]+/, ' ');
     }
-    if (last < s.length) push(s.slice(last));
+    emph(rest, '');
     return out.length ? out : [{ isText: true, s, style: '' }];
   }
   // A paragraph's leading text → its block frame: wrapper style, an optional list/quote prefix,

@@ -979,7 +979,11 @@ export const createReaderApp = ({ audit } = {}) => {
 
   const finishMessage = (msg, result) => {
     finishTrail(msg);   // stop the research trail's clock; the surface collapses it to its summary
-    msg.text = result.answer || msg.text;
+    // Prefer the marked projection — the answer with ungrounded FACTS underlined ([no source],
+    // creative prose left clean) — so the disclosure rides in every mode. The chat answer
+    // already carries its marks in `answer` (turn/stages.js bind), so `marked` is undefined
+    // there and this falls through unchanged; the long-form modes supply `marked` explicitly.
+    msg.text = result.marked || result.answer || msg.text;
     msg.route = result.route;
     msg.grounding = result.grounding;
     msg.flags = (result.flags || []).map((f) => ({ id: f.id, note: f.note || '' }));

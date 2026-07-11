@@ -56,11 +56,15 @@ export const plainPath = async ({ ground = [], model, doc = null, graph = null, 
   // The void gate: bind the free generation against the spans and keep only what
   // ties to a source — a name or number with no line behind it is struck.
   const gated = floorBind(gen.rawOutput, spans, { doc, question: section.subClaim, task: 'answer' });
-  const unit = { i: 0, move: null, text: gated.answer, sources: gated.sources,
+  const unit = { i: 0, move: null, text: gated.answer, marked: gated.marked, sources: gated.sources,
     boundFraction: gated.boundFraction, vetoes: gated.vetoes, action: 'plain' };
   return {
     mode: 'plain',
     answer: gated.answer,
+    // The display projection — the answer with every ungrounded FACT underlined ([no source]),
+    // creative prose left clean (enactor/ground). `answer` stays clean for anything that reads
+    // it back; `marked` is what a surface renders so the disclosure rides in the long-form mode too.
+    marked: gated.marked,
     units: [unit],
     sources: [...new Set(gated.sources)].sort((a, b) => a - b),
     stop: 'plain',
