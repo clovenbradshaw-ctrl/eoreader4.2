@@ -80,21 +80,40 @@ export const createChain = ({ store, now = null } = {}) => {
   const get = (index) => blocks.find((b) => b.index === index) || null;
   const findByContentHash = (h) => blocks.find((b) => b.contentHash === h) || null;
 
-  // Walk the chain, recomputing each block's hash and checking the prev-linkage and
-  // index continuity. Returns { ok, length, brokenAt? , reason? } — the integrity proof.
-  const verify = async () => {
-    await ensure();
-    let prev = GENESIS_PREV;
-    for (let i = 0; i < blocks.length; i++) {
-      const b = blocks[i];
-      if (b.index !== i) return { ok: false, brokenAt: i, reason: 'index-gap' };
-      if (b.prev !== prev) return { ok: false, brokenAt: i, reason: 'prev-mismatch' };
-      const recomputed = await hashBlock(b);
-      if (recomputed !== b.hash) return { ok: false, brokenAt: i, reason: 'hash-mismatch' };
-      prev = b.hash;
-    }
-    return { ok: true, length: blocks.length };
+  const verify = async () => { await ensure(); return verifyBlocks(blocks); };
+
+  // The whole chain as a plain, JSON-safe array — what the encrypted backup wraps.
+  const exportBlocks = async () => { await ensure(); return blocks.slice(); };
+
+  // Replace the local chain with an imported one (recovery on a fresh device). The
+  // import is VALIDATED before it is committed — a broken backup is refused, never
+  // written — then persisted block-by-block with a fresh head. Returns the verify()
+  // result ({ ok, length } on success). Idempotent-ish: it overwrites blocks 0..n.
+  const importBlocks = async (incoming) => {
+    const arr = Array.isArray(incoming) ? incoming : [];
+    const v = await verifyBlocks(arr);
+    if (!v.ok) return v;                                      // refuse a broken chain
+    for (let i = 0; i < arr.length; i++) await store.setJson(blockKey(i), arr[i]);
+    if (arr.length) await store.setJson(HEAD_KEY, { index: arr.length - 1, hash: arr[arr.length - 1].hash });
+    blocks = arr.slice();
+    loaded = true;
+    return v;
   };
 
-  return Object.freeze({ load, append, list, get, findByContentHash, head, verify });
+  return Object.freeze({ load, append, list, get, findByContentHash, head, verify, exportBlocks, importBlocks });
+};
+
+// Pure integrity check over an array of blocks — recompute each hash, check the
+// prev-linkage and index continuity. Shared by verify() and importBlocks().
+export const verifyBlocks = async (blocks) => {
+  let prev = GENESIS_PREV;
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    if (!b || b.index !== i) return { ok: false, brokenAt: i, reason: 'index-gap' };
+    if (b.prev !== prev) return { ok: false, brokenAt: i, reason: 'prev-mismatch' };
+    const recomputed = await hashBlock(b);
+    if (recomputed !== b.hash) return { ok: false, brokenAt: i, reason: 'hash-mismatch' };
+    prev = b.hash;
+  }
+  return { ok: true, length: blocks.length };
 };

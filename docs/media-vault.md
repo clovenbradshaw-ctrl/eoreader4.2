@@ -74,9 +74,25 @@ uploaded file, lists the chain newest-first, opens an item back (text inline, bi
 a download), and shows a live integrity badge from `verify()`. Presentation only — the
 engine (`save`/`open`/`verify`) is what the tests exercise.
 
+## Key backup & recovery (`vault-backup.js`)
+
+Because the chain *is* the keyring, losing the OPFS profile would lose the vault — so a
+backup is available, **encrypted, to the Matrix media store** (deliberately not
+Archive.org: a backup of key material must be private and deletable, not a permanent
+public commons). `vault.backup(passphrase)` serializes the whole chain, wraps it under a
+**passphrase** (PBKDF2 → AES-256-GCM, `file-crypto.wrapWithPassphrase`), uploads that
+ciphertext as one more media blob, and writes the pointer (the `mxc`, no secret) to
+Matrix **account data** (`org.eoreader.vault.backup`). `vault.restore(passphrase)`
+reverses it on any signed-in device: read the pointer → download → unwrap → import the
+chain (validated before it is committed). The passphrase never leaves the browser and is
+never uploaded; forget it and the backup is unrecoverable. A wrong passphrase fails the
+GCM tag and imports nothing. `tests/vault-backup.test.js` proves cross-device recovery,
+that the stored blob is ciphertext, and the wrong-passphrase / no-backup paths.
+
+The 🗄 panel exposes this under a "🔑 Backup & recovery" disclosure.
+
 ## Deliberately follow-up
 
-- Key backup: today losing the OPFS chain loses the keys. A future step can wrap the
-  chain itself as an encrypted item and pin its head (via `deposit.js`) for recovery.
 - Sharing a vault item with another user (re-encrypting the per-file key to their device
   over the existing Olm channel).
+- Auto-backup after N new blocks, and a "backup exists" hint on a fresh device.

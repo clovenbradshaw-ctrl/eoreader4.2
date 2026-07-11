@@ -81,3 +81,42 @@ export const decryptFile = async (ciphertext, file) => {
 };
 
 export const bytesToText = (bytes) => new TextDecoder().decode(bytes);
+
+// ── Passphrase-wrapped encryption (for the encrypted key backup) ──
+// PBKDF2 → AES-256-GCM. Unlike the attachment scheme above (AES-CTR, key-in-manifest),
+// this derives the key from a human passphrase and uses GCM's authentication tag, so a
+// wrong passphrase or a tampered envelope fails to decrypt instead of yielding garbage.
+// The envelope carries the KDF salt and iterations (public) but never the passphrase or
+// the key — it is safe to store the envelope on an untrusted server.
+const PBKDF2_ITERATIONS = 210000;
+
+const deriveGcmKey = async (passphrase, salt, iterations, usage) => {
+  const base = await subtle().importKey('raw', new TextEncoder().encode(String(passphrase)), 'PBKDF2', false, ['deriveKey']);
+  return subtle().deriveKey(
+    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, usage);
+};
+
+// wrapWithPassphrase(input, passphrase) → a self-describing envelope object (JSON-safe).
+export const wrapWithPassphrase = async (input, passphrase, { iterations = PBKDF2_ITERATIONS } = {}) => {
+  if (!passphrase) throw Object.assign(new Error('a passphrase is required'), { code: 'NO_PASSPHRASE' });
+  const data = input instanceof Uint8Array ? input : new TextEncoder().encode(String(input));
+  const salt = randomBytes(16);
+  const iv = randomBytes(12);
+  const key = await deriveGcmKey(passphrase, salt, iterations, ['encrypt']);
+  const ct = new Uint8Array(await subtle().encrypt({ name: 'AES-GCM', iv }, key, data));
+  return { v: 'eo-pw-1', kdf: { alg: 'PBKDF2', hash: 'SHA-256', iterations, salt: toB64(salt) }, iv: toB64(iv), ct: toB64(ct) };
+};
+
+// unwrapWithPassphrase(envelope, passphrase) → Uint8Array. Throws WRONG_PASSPHRASE on a
+// bad passphrase or tampered envelope (the GCM tag fails).
+export const unwrapWithPassphrase = async (env, passphrase) => {
+  if (!env || env.v !== 'eo-pw-1' || !env.kdf || !env.iv || !env.ct) throw new Error('bad backup envelope');
+  const salt = fromB64(env.kdf.salt);
+  const iv = fromB64(env.iv);
+  const key = await deriveGcmKey(passphrase, salt, env.kdf.iterations || PBKDF2_ITERATIONS, ['decrypt']);
+  try {
+    const pt = await subtle().decrypt({ name: 'AES-GCM', iv }, key, fromB64(env.ct));
+    return new Uint8Array(pt);
+  } catch { throw Object.assign(new Error('wrong passphrase or corrupted backup'), { code: 'WRONG_PASSPHRASE' }); }
+};

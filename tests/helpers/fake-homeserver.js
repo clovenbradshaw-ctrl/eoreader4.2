@@ -11,6 +11,7 @@ export const createFakeHomeserver = ({ base = 'https://hs.test' } = {}) => {
   const toDevice = new Map();               // userId -> deviceId -> [ content-with-type ]
   const syncPos = new Map();                // token -> { timeline: idx, td: drained flag }
   const mediaStore = new Map();             // mediaId -> Uint8Array (opaque ciphertext)
+  const accountData = new Map();            // userId -> type -> object
   let eventSeq = 0;
   let mediaSeq = 0;
 
@@ -50,6 +51,16 @@ export const createFakeHomeserver = ({ base = 'https://hs.test' } = {}) => {
 
     const body = opts.body ? JSON.parse(opts.body) : null;
     const P = '/_matrix/client/v3';
+
+    // Account data: PUT/GET /user/{userId}/account_data/{type}
+    let ad = path.match(new RegExp(`${P}/user/([^/]+)/account_data/([^/]+)$`));
+    if (ad) {
+      const uid = decodeURIComponent(ad[1]); const type = decodeURIComponent(ad[2]);
+      const um = accountData.get(uid) || {};
+      if (opts.method === 'PUT') { um[type] = body; accountData.set(uid, um); return jsonRes(200, {}); }
+      if (um[type]) return jsonRes(200, um[type]);
+      return jsonRes(404, { errcode: 'M_NOT_FOUND', error: 'no account data' });
+    }
 
     // POST /keys/upload
     if (path === `${P}/keys/upload`) {

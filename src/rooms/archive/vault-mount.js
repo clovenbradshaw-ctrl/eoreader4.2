@@ -24,6 +24,11 @@ const CSS = `
 .eo-vault__open{margin-top:6px;font-size:12.5px;white-space:pre-wrap;word-break:break-word;background:rgba(128,128,128,.1);border-radius:7px;padding:6px}
 .eo-vault__badge{font-size:11px;padding:6px 12px;border-top:1px solid rgba(128,128,128,.25);opacity:.8}
 .eo-vault__empty{margin:auto;opacity:.6;padding:20px;text-align:center}
+.eo-vault__backup{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border-top:1px solid rgba(128,128,128,.25)}
+.eo-vault__backup summary{cursor:pointer;font-size:12px;opacity:.8}
+.eo-vault__backup input{width:100%;padding:6px 8px;border-radius:7px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit}
+.eo-vault__backup button{padding:6px 10px;border-radius:7px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;cursor:pointer;font-size:12px}
+.eo-vault__backup .eo-vault__row button:first-child{background:#7c3aed;color:#fff;border:0}
 `;
 
 const fmtBytes = (n) => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
@@ -49,8 +54,39 @@ export function mountVaultPanel(root, vault) {
   saveBox.append(ta, row, fileInput);
   const list = el('div', 'eo-vault__list');
   const badge = el('div', 'eo-vault__badge');
-  wrap.append(saveBox, list, badge);
+
+  // Encrypted backup / recovery — passphrase-wrapped, to the Matrix media store.
+  const backup = el('details', 'eo-vault__backup');
+  backup.appendChild(el('summary', null, '🔑 Backup & recovery'));
+  const pass = el('input'); pass.type = 'password'; pass.placeholder = 'Backup passphrase';
+  const bRow = el('div', 'eo-vault__row');
+  const backupBtn = el('button', null, 'Back up encrypted');
+  const restoreBtn = el('button', null, 'Restore');
+  const bStatus = el('span', 'eo-vault__meta');
+  bRow.append(backupBtn, restoreBtn, bStatus);
+  const bHint = el('div', 'eo-vault__meta', 'Encrypted under your passphrase and stored on your homeserver. The passphrase never leaves this device — if you forget it, the backup cannot be recovered.');
+  backup.append(pass, bRow, bHint);
+
+  wrap.append(saveBox, list, badge, backup);
   root.innerHTML = ''; root.appendChild(wrap);
+
+  const doBackup = async () => {
+    if (!pass.value) { bStatus.textContent = 'enter a passphrase'; return; }
+    backupBtn.disabled = restoreBtn.disabled = true; bStatus.textContent = 'backing up…';
+    const r = await vault.backup(pass.value);
+    backupBtn.disabled = restoreBtn.disabled = false;
+    bStatus.textContent = r.ok ? `backed up ${r.count} block${r.count === 1 ? '' : 's'}` : `failed: ${r.error || ''}`;
+  };
+  const doRestore = async () => {
+    if (!pass.value) { bStatus.textContent = 'enter a passphrase'; return; }
+    backupBtn.disabled = restoreBtn.disabled = true; bStatus.textContent = 'restoring…';
+    const r = await vault.restore(pass.value);
+    backupBtn.disabled = restoreBtn.disabled = false;
+    bStatus.textContent = r.ok ? `restored ${r.count} block${r.count === 1 ? '' : 's'}` : `failed: ${r.error || ''}`;
+    if (r.ok) { pass.value = ''; render(); renderBadge(); }
+  };
+  backupBtn.addEventListener('click', doBackup);
+  restoreBtn.addEventListener('click', doRestore);
 
   const setNote = (t) => { note.textContent = t || ''; };
 

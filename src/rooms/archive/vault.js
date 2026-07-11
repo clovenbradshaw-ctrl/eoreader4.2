@@ -19,6 +19,7 @@
 import { createOpfsStore } from '../chat/opfs-store.js';
 import { createMediaStore } from './mxc.js';
 import { createChain } from './chain.js';
+import { createVaultBackup } from './vault-backup.js';
 import { encryptFile, decryptFile, sha256Hex, bytesToText } from './file-crypto.js';
 
 const asBytes = (input) => {
@@ -41,7 +42,7 @@ export const createVault = ({
   const emit = (kind = 'state') => { for (const fn of subs) { try { fn(state, kind); } catch { /* surface's problem */ } } };
   const setState = (patch, kind) => { Object.assign(state, patch); emit(kind); };
 
-  let store = null, media = null, chain = null;
+  let store = null, media = null, chain = null, backupCtl = null;
 
   const refreshBlocks = () => { state.blocks = chain ? chain.list().slice().reverse() : []; };   // newest first for the surface
 
@@ -54,6 +55,7 @@ export const createVault = ({
     store = await createOpfsStore({ navigator: nav, root: storeRoot });
     media = createMediaStore({ session: matrix, fetch: fetchImpl });
     chain = createChain({ store });
+    backupCtl = createVaultBackup({ chain, media, session: matrix, fetch: fetchImpl });
     await chain.load();
     refreshBlocks();
     setState({ status: 'live', persistent: store.persistent }, 'blocks');
@@ -113,7 +115,27 @@ export const createVault = ({
   const verify = async () => (chain ? chain.verify() : { ok: true, length: 0 });
   const head = () => (chain ? chain.head() : null);
 
-  return Object.freeze({ state, subscribe, start, save, open, list, verify, head });
+  // Encrypt the chain-with-keys under `passphrase` and back it up to the Matrix media
+  // store (pointer in account data). Returns { ok, mxc, count }.
+  const backup = async (passphrase) => {
+    if (state.status !== 'live') { const s = await start(); if (!s.ok) return s; }
+    setState({ error: null }, 'backup');
+    const r = await backupCtl.backup(passphrase);
+    emit('backup');
+    return r;
+  };
+  // Recover the chain from the account's backup using `passphrase`, replacing the local
+  // chain. Returns { ok, count }.
+  const restore = async (passphrase) => {
+    if (state.status !== 'live') { const s = await start(); if (!s.ok) return s; }
+    const r = await backupCtl.restore(passphrase);
+    if (r.ok) { refreshBlocks(); emit('blocks'); }
+    return r;
+  };
+  // Whether a backup exists for this account (for the surface to show a Restore hint).
+  const backupPointer = async () => (backupCtl ? backupCtl.pointer() : null);
+
+  return Object.freeze({ state, subscribe, start, save, open, list, verify, head, backup, restore, backupPointer });
 };
 
 const safeText = (bytes, mime) => {
