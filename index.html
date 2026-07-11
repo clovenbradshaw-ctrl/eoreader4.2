@@ -10,6 +10,9 @@
 <meta name="theme-color" content="#F4F4F7">
 <script src="vendor/react.production.min.js"></script>
 <script src="vendor/react-dom.production.min.js"></script>
+<!-- libolm (vendored) — the Olm/Megolm primitive behind the optional E2EE chat. Sets
+     window.Olm; the wasm is fetched lazily on Olm.init() the first time chat opens. -->
+<script defer src="vendor/olm/olm.js"></script>
 <script src="./support.js"></script>
 <script type="module" src="src/rooms/reader/boot.js"></script>
 </head>

@@ -21,6 +21,9 @@
 //               the reader is whole; signing in only unlocks the permanent archive
 //   archive     authenticated deposit to Archive.org via the Matrix-gated webhook
 //               (rooms/archive/deposit), bound to the matrix session's token
+//   chat        OPTIONAL end-to-end-encrypted chat (rooms/chat) — reuses the matrix
+//               identity, libolm crypto, keys pickled to OPFS; lazily started when
+//               the floating launcher is opened (docs/element-e2ee.md)
 
 import { createParser } from '../../perceiver/parse/index.js';
 import { readingAt } from '../../perceiver/reading.js';
@@ -37,6 +40,8 @@ import { createMatrixSession } from '../archive/matrix.js';
 import { depositToArchive, missingConsent, archiveMediatype, REQUIRED_CONSENT, KINDS, ARCHIVE_CASES_WEBHOOK } from '../archive/deposit.js';
 import { createCheckpointLog, checkpointId } from '../archive/checkpoints.js';
 import { createGenomeAutosave } from '../archive/autosave.js';
+import { createChatRoom } from '../chat/index.js';
+import { mountChat, mountChatLauncher } from '../chat/mount.js';
 
 const audit = createAuditLog({ capacity: 512 });
 const app = createReaderApp({ audit });
@@ -63,6 +68,29 @@ const checkpoints = createCheckpointLog();
 // and never has to dedup — it just supplies the bytes, the kind, and the consent
 // acknowledgements, and gets back a permanent, content-addressed checkpoint.
 const deposit = (opts = {}) => depositToArchive({ session: matrix, ledger: checkpoints, ...opts });
+
+// The E2EE chat room — an OPTIONAL, lazily-started companion to the reader. It reuses
+// the SAME Matrix identity as the archive (no second login) and only comes alive when
+// the user opens it, at which point libolm (vendored at vendor/olm, loaded by the
+// <script> tag in index.html as window.Olm) is initialised and the sync loop starts.
+// Everything the E2EE keystore needs is persisted to OPFS (rooms/chat/opfs-store).
+let chatController = null;
+const chat = {
+  get controller() { return chatController; },
+  // Start (or resume) the chat session, initialising libolm on first call. Returns
+  // { ok, error? } — never throws — so the launcher can show a reason on failure.
+  async start() {
+    const Olm = (typeof window !== 'undefined' && window.Olm) || null;
+    if (!Olm) return { ok: false, error: 'encryption library not loaded' };
+    try { await Olm.init(); } catch { return { ok: false, error: 'could not initialise encryption' }; }
+    if (!chatController) chatController = createChatRoom({ matrix, Olm });
+    return chatController.start();
+  },
+  stop() { if (chatController) chatController.stop(); },
+  // Mount the chat UI into an element the surface controls (an alternative to the
+  // floating launcher, if the dc surface later hosts chat in a screen of its own).
+  mount(el) { return chatController ? mountChat(el, chatController) : (() => {}); },
+};
 const archive = Object.freeze({
   deposit,
   checkpoints: () => checkpoints.list(),
@@ -89,6 +117,7 @@ window.EO = Object.freeze({
   mountTieredGraph,
   readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   matrix,
+  chat,
   archive,
   genome,
   app_name: APP_NAME,
@@ -96,3 +125,8 @@ window.EO = Object.freeze({
 });
 
 console.info('[EO] engine bridge up — window.EO', Object.keys(window.EO));
+
+// Drop the floating E2EE-chat launcher into the page. It stays hidden until a Matrix
+// session is live (reusing the archive login) and never touches the reader surface.
+try { if (typeof document !== 'undefined') mountChatLauncher(document.body, { chat, matrix }); }
+catch (e) { console.warn('[EO] chat launcher not mounted', e); }
