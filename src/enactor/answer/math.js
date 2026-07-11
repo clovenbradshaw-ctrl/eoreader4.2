@@ -83,7 +83,33 @@ export const extractExpression = (question) => {
   return s;
 };
 
-export const isMathQuery = (question) => extractExpression(question) != null;
+export const isMathQuery = (question) => extractExpression(question) != null || extractExpression(nlToExpression(question)) != null;
+
+// ── NL → expression (the fluent surface) ─────────────────────────────────────
+// Reduce a NUMBER-ONLY natural phrasing to a bare expression the gate accepts: magnitude
+// suffixes ("410k" → 410000, "1.5m" → 1500000), percentages ("20% of 410k" → (20/100)*410000,
+// a lone "50%" → (50/100)), spelled operators ("plus" / "times" / "divided by"), and a few
+// fraction idioms ("half of 500"). Currency symbols and thousands-commas are dropped. This
+// does NOT relax the gate — the result is still run through extractExpression, so any residual
+// real word (a column name, a document term) makes the whole thing not-math and it falls
+// through untouched. So "20% of 410k" computes, but "how many accounts are green" does not.
+const MAG = { k: 1e3, thousand: 1e3, thousands: 1e3, m: 1e6, million: 1e6, millions: 1e6, b: 1e9, bn: 1e9, billion: 1e9, billions: 1e9 };
+const FRACTION = { half: '0.5', third: '(1/3)', quarter: '(1/4)' };
+export const nlToExpression = (question) => {
+  let s = String(question || '').toLowerCase();
+  s = s.replace(/[$£€¥₹]/g, ' ');                                  // currency symbols are not operators
+  s = s.replace(/(\d),(?=\d{3}(\D|$))/g, '$1');                    // thousands separators inside numbers
+  s = s.replace(/(\d+(?:\.\d+)?)\s*(k|m|bn|b|thousands?|millions?|billions?)\b/g,
+    (_, n, mag) => String(parseFloat(n) * (MAG[mag] || 1)));       // magnitude suffixes
+  s = s.replace(/(\d+(?:\.\d+)?)\s*(?:%|percent|per cent)\s+of\b/g, '($1/100)*');  // "X% of Y"
+  s = s.replace(/(\d+(?:\.\d+)?)\s*(?:%|percent|per cent)/g, '($1/100)');          // lone "X%"
+  for (const [word, frac] of Object.entries(FRACTION)) s = s.replace(new RegExp(`\\b${word}\\s+of\\b`, 'g'), `${frac}*`);
+  s = s.replace(/\b(?:double|twice)\s+(?:of\s+)?/g, '2*').replace(/\btriple\s+(?:of\s+)?/g, '3*');
+  s = s.replace(/\s+(?:plus|added to)\s+/g, ' + ').replace(/\s+(?:minus|less)\s+/g, ' - ')
+       .replace(/\s+(?:times|multiplied by)\s+/g, ' * ').replace(/\s+(?:divided by)\s+/g, ' / ')
+       .replace(/\s+to the power of\s+/g, ' ^ ');
+  return s;
+};
 
 // ── the offline evaluator ──────────────────────────────────────────────────
 // A safe recursive-descent calculator. Tokenises then parses; never executes the input
@@ -351,7 +377,7 @@ export const traceExpression = (expr, engine = 'math.js') => {
 // The async answerer the route stage uses — math.js (or the fallback) responds to a math
 // problem. Returns the mechanical answer shape, or null when the question is not math.
 export const answerMath = async (question) => {
-  const expr = extractExpression(question);
+  const expr = extractExpression(question) || extractExpression(nlToExpression(question));
   if (expr == null) return null;
   const v = await evaluateMath(expr);
   if (v == null || !Number.isFinite(v)) return null;
@@ -362,7 +388,7 @@ export const answerMath = async (question) => {
 // A synchronous variant (built-in evaluator only — no mathjs/network) for the legacy
 // mechanical path (tryMechanical) and unit tests that want a pure, sync answer.
 export const answerMathSync = (question) => {
-  const expr = extractExpression(question);
+  const expr = extractExpression(question) || extractExpression(nlToExpression(question));
   if (expr == null) return null;
   const v = evalExpression(expr);
   if (v == null || !Number.isFinite(v)) return null;

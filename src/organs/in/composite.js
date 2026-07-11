@@ -207,6 +207,14 @@ const compositeCoref = (originAt) => {
   };
 };
 
+// The READABLE axis of a doc — the units the composite lays on its shared sentence axis
+// and hands to retrieval / the prompt. For a TABLE, `doc.units` are bare row LABELS
+// ("row 3") while the readable cell projection ("account: …; arr: …") lives in
+// `doc.sentences` — so a table composited off `units` grounds as "row 2 next-row row 3",
+// never its data. Prose's units ARE its sentences, and other structured modalities keep
+// their intended `units`, so the switch is scoped to tables: nothing else changes.
+const readableAxis = (doc) => (doc.modality === 'table' ? (doc.sentences || doc.units) : (doc.units || doc.sentences)) || [];
+
 // Build a composite document from several parsed docs. A single document is returned
 // untouched (the one-doc path is byte-identical to today). Two or more are folded into
 // one doc on the universal contract, with namespaced referents and, by default, the
@@ -220,7 +228,7 @@ export const createCompositeDoc = (docs, { crossDocSyn = true, heldIdentity = HE
   const parts = [];
   let offset = 0;
   for (const doc of list) {
-    const sentences = doc.units || doc.sentences || [];
+    const sentences = readableAxis(doc);
     parts.push({ doc, docId: doc.docId, offset, count: sentences.length });
     offset += sentences.length;
   }
@@ -231,7 +239,7 @@ export const createCompositeDoc = (docs, { crossDocSyn = true, heldIdentity = HE
   const tokensBySentence = [];
   const origin = new Array(totalUnits);
   for (const part of parts) {
-    const units = part.doc.units || part.doc.sentences || [];
+    const units = readableAxis(part.doc);
     const toks  = part.doc.tokensBySentence || [];
     for (let i = 0; i < units.length; i++) {
       const ci = part.offset + i;

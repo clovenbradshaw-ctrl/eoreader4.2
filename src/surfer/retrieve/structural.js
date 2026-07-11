@@ -93,8 +93,13 @@ const CONTENT_DEMAND = new Set([
 export const querySubjectTerms = (query) =>
   tok(query).filter((t) => !META.has(t) && !CONTENT_DEMAND.has(t));
 
+// A TABLE's `units` are bare row labels ("row 3"); its readable skeleton is the cell
+// projection in `sentences`. Read the readable axis for a table so a table "summary" is
+// built from real cells, not "row 2 next-row row 3". Prose is unchanged (units = sentences).
+const readableUnits = (doc) => (doc.modality === 'table' ? (doc.sentences || doc.units) : (doc.units || doc.sentences)) || [];
+
 export const retrieveStructural = (doc, k = 12) => {
-  const units = doc.units || doc.sentences || [];
+  const units = readableUnits(doc);
   if (!units.length) return [];
   const sites = siteIndices(doc);
   const usable = (i) => !sites.has(i) && !isBlank(units[i]);
@@ -151,7 +156,7 @@ export const retrieveStructural = (doc, k = 12) => {
 // opening so the list still says what it is OF. Degrades to the structural skeleton when
 // the graph carries no figures (a doc with no entities), so a list is never empty.
 export const retrieveNetwork = (doc, k = 12) => {
-  const units = doc.units || doc.sentences || [];
+  const units = readableUnits(doc);
   if (!units.length) return [];
   if (!doc.log) return retrieveStructural(doc, k);      // no log to fold → fall back to the skeleton
   const sites = siteIndices(doc);
