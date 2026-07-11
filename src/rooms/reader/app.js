@@ -23,6 +23,7 @@ import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
          runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement } from '../../turn/index.js';
 import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
+import { directCorsUrl } from '../../organs/ingest/direct-cors.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
@@ -78,8 +79,17 @@ const fetchTimed = (url, { ms = 20000, signal = null } = {}) => {
 const chainFetch = async (proxiedUrl, { signal = null } = {}) => {
   if (signal?.aborted) throw new Error('aborted');
   const target = targetOf(proxiedUrl);
+  // CORS-DIRECT FIRST. The Wikimedia API family (the default search route) and OpenAlex (the
+  // academic route) answer cross-origin with `Access-Control-Allow-Origin: *`, so fetch them
+  // straight from the browser with no proxy — the reliability fix: the two most common routes no
+  // longer go dark when BOTH proxies are down or rate-limited, and each hop is a hop faster. A
+  // direct miss (an unexpected CORS failure, an offline tab, a transient 5xx) simply falls through
+  // to the proxy chain below, so this only ADDS a path, never removes one. Everything else — article
+  // pages, arXiv/ar5iv, news RSS, feeds — has no CORS header and still rides the proxy.
+  const direct = directCorsUrl(target);
+  const forms = direct ? [() => direct, ...PROXY_FORMS] : PROXY_FORMS;
   let lastErr = null;
-  for (const form of PROXY_FORMS) {
+  for (const form of forms) {
     if (signal?.aborted) throw new Error('aborted');
     try {
       const res = await fetchTimed(form(target), { signal });
@@ -144,11 +154,41 @@ const shaShort = (h) => String(h || '').replace(/^[^:]*:/, '').slice(0, 12);
 const bytesOf = (text) => { try { return new TextEncoder().encode(text).length; } catch { return String(text).length; } };
 const esc = (s) => String(s ?? '');
 
+// keepGuardAlive(guard, p, opts) → p, but while p is pending the no-progress `guard` is FED on a
+// fixed interval, so an OPAQUE model call — formulateSearchQuery, the sense disambiguator — that
+// streams no token and fires no step still reads as a sign of life. This is the fix for the false
+// "the web lookup stalled" abort: the sense disambiguator alone is a 220-token temperature-0 decode
+// (disambiguate.js), and it runs BEFORE the first hop's progress beat; on a modest device (or a first
+// cold decode) that one call outlasts the 45s stall guard, which then aborts the turn mid-think and
+// blames the web before a single page is ever fetched. A ping every `every` ms says "the engine is
+// working" — the same sign-of-life the token / step / hop feeds carry for the phases that CAN report
+// progress. It never masks a real hang: the interval is cleared the instant the call settles
+// (`finally`), a Stop or a stall tripped elsewhere still settles the turn (a fed guard that is already
+// tripped is a no-op), and a hard `maxMs` ceiling stops the feed so a genuinely stuck call is released
+// to trip well past any real decode. Pure and injectable (`now`) so the cadence is unit-testable.
+export const keepGuardAlive = (guard, p, { every = 8000, maxMs = 180000, now = () => Date.now() } = {}) => {
+  const done = Promise.resolve(p);
+  if (!guard || !every) return done;
+  const t0 = now();
+  const iv = setInterval(() => {
+    if (guard.tripped?.() || (maxMs && now() - t0 >= maxMs)) { clearInterval(iv); return; }
+    try { guard.feed?.(); } catch { /* feeding a settled guard is harmless */ }
+  }, every);
+  return done.finally(() => clearInterval(iv));
+};
+
 // ── the app ──────────────────────────────────────────────────────────────────
 export const createReaderApp = ({ audit } = {}) => {
   const state = {
     sources: [],           // registry entries (serializable minus _doc)
-    topics: [],            // { id, title, created, sourceSns:[], messages:[], memo:'' }
+    // A workspace is the top-level container (Notion's workspace/teamspace): it owns a
+    // nested tree of topics. A topic scopes a source set, a chat and a memo, and now
+    // carries `workspaceId` (which container it lives in) + `parentId` (its parent topic,
+    // null at the root) + `collapsed` (whether its subtree is folded in the sidebar), so
+    // the flat list becomes a navigable tree that stays legible at scale.
+    workspaces: [],        // { id, name, color, shared, created }
+    activeWorkspaceId: null,
+    topics: [],            // { id, title, created, workspaceId, parentId, collapsed, sourceSns:[], messages:[], memo:'' }
     activeTopicId: null,
     log: [],               // activity ledger: { id, t, kind, text, effect }
     reflections: [],       // the inner monologue: reflections the reading has at rest (band void)
@@ -156,7 +196,7 @@ export const createReaderApp = ({ audit } = {}) => {
     busy: null,            // { kind, label } while a long op runs
     ready: false,          // restore finished
   };
-  let sn = 0, tn = 0, ln = 0, mn = 0;
+  let sn = 0, tn = 0, ln = 0, mn = 0, wn = 0;
   const client = createWebClient({ fetchImpl: chainFetch });
 
   // THE SESSION'S SELF AND SPINE. One monitor for the whole session (one loop, one me):
@@ -254,8 +294,10 @@ export const createReaderApp = ({ audit } = {}) => {
 
   // ── persistence ────────────────────────────────────────────────────────────
   const serialize = () => ({
-    v: 1, sn, tn, ln, mn,
+    v: 1, sn, tn, ln, mn, wn,
     activeTopicId: state.activeTopicId,
+    activeWorkspaceId: state.activeWorkspaceId,
+    workspaces: state.workspaces,
     log: state.log.slice(-120),
     topics: state.topics,
     sources: state.sources.map(({ _doc, ...rest }) => rest),
@@ -275,13 +317,33 @@ export const createReaderApp = ({ audit } = {}) => {
       const snap = await kv('readonly', (store) => store.get('session'));
       if (snap && snap.v === 1) {
         ({ sn, tn, ln, mn } = snap);
+        wn = snap.wn || 0;
         state.sources = (snap.sources || []).map((s) => ({ ...s, _doc: null }));
         state.topics = snap.topics || [];
         state.activeTopicId = snap.activeTopicId;
+        state.workspaces = Array.isArray(snap.workspaces) ? snap.workspaces : [];
+        state.activeWorkspaceId = snap.activeWorkspaceId || null;
         state.log = snap.log || [];
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
       }
     } catch { /* fresh session */ }
+    // ── migrate to the workspace / topic-tree model ──────────────────────────
+    // Older sessions had no workspaces and a flat topic list. Give them a single
+    // "Personal" workspace, home every topic in it at the root, and default the new
+    // nesting fields. Idempotent: a session already on the new model is untouched.
+    if (!state.workspaces.length) {
+      state.workspaces = [{ id: 'ws1', name: 'Personal', color: WS_COLORS[0], shared: false, created: nowIso() }];
+      wn = Math.max(wn, 1);
+    }
+    if (!state.activeWorkspaceId || !state.workspaces.find((w) => w.id === state.activeWorkspaceId)) {
+      state.activeWorkspaceId = state.workspaces[0].id;
+    }
+    const defWs = state.workspaces[0].id;
+    for (const t of state.topics) {
+      if (!t.workspaceId || !state.workspaces.find((w) => w.id === t.workspaceId)) t.workspaceId = defWs;
+      if (t.parentId === undefined) t.parentId = null;
+      if (t.collapsed === undefined) t.collapsed = false;
+    }
     if (!state.topics.length) topicNew('New topic', { silent: true });
     if (!state.topics.find((t) => t.id === state.activeTopicId)) state.activeTopicId = state.topics[0].id;
     state.ready = true;
@@ -300,21 +362,122 @@ export const createReaderApp = ({ audit } = {}) => {
     }
   };
 
-  // ── topics ─────────────────────────────────────────────────────────────────
-  const topicNew = (title = 'New topic', { silent = false } = {}) => {
-    const t = { id: `t${++tn}`, title, created: nowIso(), sourceSns: [], messages: [], memo: '' };
+  // ── topics — a nested tree within a workspace (Notion's pages / sub-pages) ────
+  const topicById = (id) => state.topics.find((t) => t.id === id) || null;
+  // Every topic strictly below `id` in the tree — the guard against a move that would
+  // fold a topic under one of its own descendants (a cycle out of the tree).
+  const topicDescendants = (id) => {
+    const out = [];
+    const walk = (pid) => { for (const t of state.topics) if ((t.parentId ?? null) === pid) { out.push(t.id); walk(t.id); } };
+    walk(id);
+    return out;
+  };
+  // Un-fold a topic's whole ancestor chain, so a freshly made or moved sub-topic is
+  // never hidden inside a collapsed parent the moment it appears.
+  const expandAncestors = (id) => {
+    let t = topicById(id), guard = 0;
+    while (t && guard++ < 200) { if (t.collapsed) t.collapsed = false; t = t.parentId ? topicById(t.parentId) : null; }
+  };
+
+  const topicNew = (title = 'New topic', { silent = false, parentId = null, workspaceId = null } = {}) => {
+    const wsId = workspaceId || state.activeWorkspaceId || (state.workspaces[0] && state.workspaces[0].id) || null;
+    const t = { id: `t${++tn}`, title, created: nowIso(), workspaceId: wsId, parentId: parentId ?? null, collapsed: false, sourceSns: [], messages: [], memo: '' };
     state.topics.push(t);
     state.activeTopicId = t.id;
+    if (t.parentId) expandAncestors(t.parentId);   // a sub-topic opens its ancestors
     if (!silent) { logIt('open', `New topic — ${title}`); persist(); emit('topics'); }
     return t;
   };
   const topic = () => state.topics.find((t) => t.id === state.activeTopicId) || state.topics[0];
   const setTopic = (id) => { if (state.topics.find((t) => t.id === id)) { state.activeTopicId = id; deepWake(); persist(); emit('topics'); } };
-  const topicRename = (id, title) => { const t = state.topics.find((x) => x.id === id); if (t && title) { t.title = title; persist(); emit('topics'); } };
+  const topicRename = (id, title) => { const t = topicById(id); if (t && title) { t.title = title; persist(); emit('topics'); } };
+  // Re-parent a topic (null = the workspace root). Rejects a cycle (into itself or a
+  // descendant) and a cross-workspace move — a topic tree never spans workspaces.
+  const topicMove = (id, parentId = null) => {
+    const t = topicById(id); if (!t) return;
+    const np = parentId ?? null;
+    if (np === id || topicDescendants(id).includes(np)) return;
+    const p = np ? topicById(np) : null;
+    if (p && p.workspaceId !== t.workspaceId) return;
+    t.parentId = np;
+    if (np) expandAncestors(np);
+    persist(); emit('topics');
+  };
+  const topicToggleCollapse = (id) => { const t = topicById(id); if (t) { t.collapsed = !t.collapsed; persist(); emit('topics'); } };
   const topicDelete = (id) => {
     if (state.topics.length <= 1) return;
+    const gone = topicById(id); if (!gone) return;
+    const parentId = gone.parentId ?? null;
+    // Lift the direct children up one level (the subtree rises rather than vanishing).
+    for (const t of state.topics) if ((t.parentId ?? null) === id) t.parentId = parentId;
     state.topics = state.topics.filter((t) => t.id !== id);
-    if (state.activeTopicId === id) state.activeTopicId = state.topics[0].id;
+    if (state.activeTopicId === id) {
+      const sib = state.topics.find((t) => t.workspaceId === gone.workspaceId) || state.topics[0];
+      state.activeTopicId = sib.id;
+    }
+    persist(); emit('topics');
+  };
+  // The topic forest of a workspace (default: active), nested by parentId in creation
+  // order. Each node: { topic, depth, children }.
+  const topicTree = (workspaceId = null) => {
+    const wsId = workspaceId || state.activeWorkspaceId;
+    const inWs = state.topics.filter((t) => (t.workspaceId ?? null) === (wsId ?? null));
+    const build = (parentId, depth) => inWs
+      .filter((t) => (t.parentId ?? null) === (parentId ?? null))
+      .map((t) => ({ topic: t, depth, children: build(t.id, depth + 1) }));
+    return build(null, 0);
+  };
+  // A flat pre-order walk of the forest for an indented sidebar render, HIDING the
+  // subtree under any collapsed node. Each row: { topic, depth, hasChildren, collapsed }.
+  const topicRows = (workspaceId = null) => {
+    const out = [];
+    const walk = (nodes) => { for (const n of nodes) {
+      const hasChildren = n.children.length > 0;
+      out.push({ topic: n.topic, depth: n.depth, hasChildren, collapsed: !!n.topic.collapsed });
+      if (hasChildren && !n.topic.collapsed) walk(n.children);
+    } };
+    walk(topicTree(workspaceId));
+    return out;
+  };
+
+  // ── workspaces — the top-level containers a topic tree lives in ──────────────
+  // The accent palette a new workspace cycles through; the seed "Personal" takes the
+  // app default. A shared workspace (future) is a Matrix room — `shared` is the hook
+  // the switcher already reads, so the collaborative case slots in without a reshape.
+  const WS_COLORS = ['#6D5EF5', '#2563EB', '#0F766E', '#B45309', '#A91D1D', '#BE185D', '#15803D'];
+  const activeWorkspace = () => state.workspaces.find((w) => w.id === state.activeWorkspaceId) || state.workspaces[0] || null;
+  const workspaceNew = (name = 'New workspace', { silent = false, shared = false } = {}) => {
+    const w = { id: `ws${++wn}`, name: String(name || 'New workspace'), color: WS_COLORS[state.workspaces.length % WS_COLORS.length], shared: !!shared, created: nowIso() };
+    state.workspaces.push(w);
+    state.activeWorkspaceId = w.id;
+    topicNew('New topic', { silent: true, workspaceId: w.id });   // a workspace always opens onto a topic
+    if (!silent) { logIt('open', `New workspace — ${name}`); persist(); emit('topics'); }
+    return w;
+  };
+  const setWorkspace = (id) => {
+    const w = state.workspaces.find((x) => x.id === id);
+    if (!w || state.activeWorkspaceId === id) return;
+    state.activeWorkspaceId = id;
+    // Land on a topic that actually lives in this workspace (make one if it is empty).
+    const first = state.topics.find((t) => t.workspaceId === id);
+    state.activeTopicId = first ? first.id : topicNew('New topic', { silent: true, workspaceId: id }).id;
+    deepWake(); persist(); emit('topics');
+  };
+  const workspaceRename = (id, name) => { const w = state.workspaces.find((x) => x.id === id); if (w && name) { w.name = String(name); persist(); emit('topics'); } };
+  const workspaceDelete = (id) => {
+    if (state.workspaces.length <= 1) return;   // the shell always keeps one workspace
+    const idx = state.workspaces.findIndex((w) => w.id === id);
+    if (idx < 0) return;
+    state.workspaces = state.workspaces.filter((w) => w.id !== id);
+    // Re-home this workspace's topics into the previous sibling, flattened to its root,
+    // so nothing filed here is lost when the container goes.
+    const dest = state.workspaces[Math.max(0, idx - 1)] || state.workspaces[0];
+    for (const t of state.topics) if (t.workspaceId === id) { t.workspaceId = dest.id; t.parentId = null; }
+    if (state.activeWorkspaceId === id) {
+      state.activeWorkspaceId = dest.id;
+      const f = state.topics.find((t) => t.workspaceId === dest.id);
+      state.activeTopicId = f ? f.id : topicNew('New topic', { silent: true, workspaceId: dest.id }).id;
+    }
     persist(); emit('topics');
   };
 
@@ -448,7 +611,12 @@ export const createReaderApp = ({ audit } = {}) => {
   // stand on; addSource dedupes by content hash and never overwrites, so re-fetching the
   // same page is a no-op on the registry while the doc still rides the turn.
   const webSearchAdmit = async (query, opts = {}) => {
-    const admitted = await searchAndAdmit(query, { client, k: 5, kind: 'auto', fetchPages: true, ...opts });
+    // Each fetched+admitted page re-arms the no-progress watchdog: a hop pulling five full pages
+    // through the proxy is slow but ALIVE, and without this beat the 45s stall guard was aborting
+    // the whole turn mid-walk ("the web lookup stalled"). onAdmit is set AFTER the spread so the
+    // stall feed always runs — the caller still tunes k/kind/fetchPages, but can't drop the beat.
+    const admitted = await searchAndAdmit(query, {
+      client, k: 5, kind: 'auto', fetchPages: true, ...opts, onAdmit: () => stallGuard?.feed() });
     for (const a of admitted || []) {
       if (!a?.doc || !a?.record) continue;
       try {
@@ -569,6 +737,12 @@ export const createReaderApp = ({ audit } = {}) => {
             const note = typeof p === 'object' ? (p?.phase || '') : '';
             lastCb = Date.now();
             if (note) lastNote = note;
+            // A downloaded chunk is progress: when a turn is already waiting on this load (the user
+            // asked mid-download over a slow link), keep its no-progress watchdog alive so the slow
+            // download is not mistaken for a hang and aborted as a stall. A truly blocked host emits
+            // no chunk, so the guard still trips — this only credits genuine forward motion. No-op
+            // during the at-rest prewarm, where no guard is armed (stallGuard is null).
+            stallGuard?.feed();
             state.model = { backend, state: 'loading', progress: Math.round(frac * 100) / 100, note };
             emit('model');
           });
@@ -716,6 +890,12 @@ export const createReaderApp = ({ audit } = {}) => {
   // Race a turn await against the live watchdog: if the op stalls, `race` rejects (and the signal
   // is aborted) so control returns instead of hanging. A no-op when no guard is armed.
   const raceGuard = (p) => stallGuard ? Promise.race([p, stallGuard.race]) : p;
+  // Feed the watchdog while an OPAQUE model call runs (keepGuardAlive, above): the query
+  // formulation and the sense disambiguation stream nothing, so without this a slow local decode
+  // trips the 45s guard before any web progress and reads as a stall. `keepAliveFn` wraps an
+  // injected async utility (the disambiguator the walk calls) so its in-flight decode is fed too.
+  const keepAlive = (p, opts) => keepGuardAlive(stallGuard, p, opts);
+  const keepAliveFn = (fn) => (typeof fn === 'function' ? (...a) => keepAlive(fn(...a)) : fn);
 
   // answerFromWeb(pending, q) — the empty-record auto path. Nothing is on the record, but the ask
   // is substantive, so REACH for the web the way 4.1 did: not a single fetch but a multi-hop
@@ -734,7 +914,7 @@ export const createReaderApp = ({ audit } = {}) => {
     try {
       const m = await raceGuard(ensureModel());
       setBusy({ kind: 'search', label: 'Looking this up on the web…' });
-      const query = await raceGuard(formulateSearchQuery({ model: m, question: q, history: [], fallback: q }));
+      const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: q, history: [], fallback: q })));
       beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
       setBusy({ kind: 'search', label: `Searching the web — ${query}` });
       logIt('search', `Web research "${query}"`, 'auto · nothing on record');
@@ -752,7 +932,8 @@ export const createReaderApp = ({ audit } = {}) => {
         search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
         // The thumb: when the subject is a homonym, commit to ONE sense before gathering and search
         // for it, so "dolphins" doesn't fetch a mix of the animal and the football team (disambiguate.js).
-        disambiguate: modelDisambiguator(m, { history: [], question: q }),
+        // keepAliveFn: this 220-token decode runs before the first hop's beat — feed the guard while it thinks.
+        disambiguate: keepAliveFn(modelDisambiguator(m, { history: [], question: q })),
         onHop: (h) => hopBeat(pending, h, query),
         onHopDone: (h) => hopDoneBeat(pending, h),
         signal: abort.signal,
@@ -912,14 +1093,15 @@ export const createReaderApp = ({ audit } = {}) => {
           // A GAP the record couldn't close — go WIDE the way 4.1 did: a multi-hop curiosity walk,
           // not one fetch, streaming its search/read beats into the trail. Clear the first ("not in
           // the document") draft so the grounded re-run's stream replaces it rather than appends.
-          const query = await raceGuard(formulateSearchQuery({ model: m, question: proposal.query, history, fallback: proposal.query }));
+          const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: proposal.query, history, fallback: proposal.query })));
           beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
           setBusy({ kind: 'search', label: `Searching the web — ${query}` });
           pending.text = ''; emit('stream');
           const walked = await raceGuard(runTurnWithResearch(args, {
             search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
             // The thumb: commit to one sense of a homonymous subject before gathering (disambiguate.js).
-            disambiguate: modelDisambiguator(m, { history, question: proposal.query }),
+            // keepAliveFn feeds the guard through this pre-hop decode so a slow model can't false-stall the walk.
+            disambiguate: keepAliveFn(modelDisambiguator(m, { history, question: proposal.query })),
             onHop: (h) => hopBeat(pending, h, query),
             onHopDone: (h) => hopDoneBeat(pending, h),
             signal: abort.signal,
@@ -979,7 +1161,11 @@ export const createReaderApp = ({ audit } = {}) => {
 
   const finishMessage = (msg, result) => {
     finishTrail(msg);   // stop the research trail's clock; the surface collapses it to its summary
-    msg.text = result.answer || msg.text;
+    // Prefer the marked projection — the answer with ungrounded FACTS underlined ([no source],
+    // creative prose left clean) — so the disclosure rides in every mode. The chat answer
+    // already carries its marks in `answer` (turn/stages.js bind), so `marked` is undefined
+    // there and this falls through unchanged; the long-form modes supply `marked` explicitly.
+    msg.text = result.marked || result.answer || msg.text;
     msg.route = result.route;
     msg.grounding = result.grounding;
     msg.flags = (result.flags || []).map((f) => ({ id: f.id, note: f.note || '' }));
@@ -1434,8 +1620,11 @@ export const createReaderApp = ({ audit } = {}) => {
 
   return Object.freeze({
     state, subscribe,
-    // topics
+    // topics — a nested tree within a workspace
     topicNew, setTopic, topicRename, topicDelete, topic,
+    topicMove, topicToggleCollapse, topicTree, topicRows,
+    // workspaces — the top-level containers (Matrix-shared workspaces slot in via `shared`)
+    workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
     // ingest
     ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage,
     sourceBySn, removeSource, topicSources,

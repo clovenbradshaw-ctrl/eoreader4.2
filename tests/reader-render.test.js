@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   readerModel, readerHtml, buildReaderDoc, detectStructure,
   stripGutenbergMarkers, nativePageHtml, clampReadPrefs, READ_THEMES,
+  classifyEotLine, facingReadingLines, EOT_ELEMENT_TYPES,
 } from '../src/rooms/reader/reader-render.js';
 
 // A Project-Gutenberg-shaped book: license header, labeled front matter, the START/END markers,
@@ -118,6 +119,73 @@ test('nativePageHtml reflows a plain-text URL instead of dumping raw', () => {
   const out = nativePageHtml(txt, { baseUrl: 'https://example.com/book.txt' });
   assert.ok(out.startsWith('<!doctype html>'), 'rendered through the reader');
   assert.ok(out.includes('eo-book'), 'themed book shell');
+});
+
+// ── the facing page: classify every EoT surface line by its element type ────────────────────
+test('classifyEotLine recognises each EoT element type by shape', () => {
+  assert.equal(classifyEotLine('widget : Gadget'), 'type');
+  assert.equal(classifyEotLine('widget -> gadget : becomes'), 'link');
+  assert.equal(classifyEotLine('widget -> gadget : not-becomes'), 'link');
+  assert.equal(classifyEotLine('widget.color = "green"'), 'attr');
+  assert.equal(classifyEotLine('widget.owner = nil'), 'absence');
+  assert.equal(classifyEotLine('widget == gadget'), 'identity');
+  assert.equal(classifyEotLine('machine <- [gear, spring, dial]'), 'compose');
+  assert.equal(classifyEotLine('day | morning'), 'segment');
+  assert.equal(classifyEotLine('!sig widget : Gizmo'), 'sig');
+  assert.equal(classifyEotLine('!clm widget : Claim'), 'sig');
+  assert.equal(classifyEotLine('!eva widget.state -> ok'), 'eva');
+  assert.equal(classifyEotLine('!rec topic {a,b} => {c}'), 'rec');
+  assert.equal(classifyEotLine('# ── where the reading turned ──'), 'rule');
+  assert.equal(classifyEotLine('# reading — doc: 42 units'), 'note');
+  assert.equal(classifyEotLine(''), 'blank');
+  assert.equal(classifyEotLine('   '), 'blank');
+});
+
+test('classifyEotLine is value-safe: an assignment whose value contains -> or : stays an attribute', () => {
+  // The value literal carries relational glyphs, but the line is a DEF, not a relation — the
+  // assignment form is tested before the relational form so the value never steals the type.
+  assert.equal(classifyEotLine('note.text = "a -> b : see below"'), 'attr');
+  assert.equal(classifyEotLine('note.text = "morning | evening"'), 'attr');
+});
+
+test('every classifyEotLine key resolves to a palette entry with a colour', () => {
+  const kinds = ['type', 'link', 'attr', 'absence', 'identity', 'compose', 'segment', 'sig', 'eva', 'rec', 'rule', 'note', 'blank'];
+  for (const k of kinds) {
+    assert.ok(EOT_ELEMENT_TYPES[k], `palette has ${k}`);
+    assert.ok(typeof EOT_ELEMENT_TYPES[k].color === 'string', `${k} has a colour`);
+  }
+});
+
+test('facingReadingLines lays out a reading with numbered, coloured lines and a legend', () => {
+  const eot = [
+    '# reading — doc: 3 units, turned at 1 point',
+    '',
+    '# ── what it takes to exist and connect ──',
+    'widget : Gadget',
+    'widget -> gadget : becomes',
+    'widget.color = "green"',
+  ].join('\n');
+  const { lines, legend, truncated, total } = facingReadingLines(eot);
+  assert.equal(total, 6);
+  assert.equal(truncated, false);
+  assert.equal(lines.length, 6);
+  // Gutter numbers are 1-based and every line carries a colour.
+  assert.equal(lines[0].n, 1);
+  assert.ok(lines.every((l) => typeof l.color === 'string'));
+  // The blank line keeps its height (rendered as a single space, not empty).
+  assert.equal(lines[1].kind, 'blank');
+  assert.equal(lines[1].s, ' ');
+  // Distinct element types present, ordered structure-first, no blank in the legend.
+  assert.deepEqual(legend.map((e) => e.kind), ['type', 'link', 'attr', 'rule', 'note']);
+});
+
+test('facingReadingLines caps long readings honestly', () => {
+  const eot = Array.from({ length: 50 }, (_, i) => `w${i} : Gadget`).join('\n');
+  const { lines, truncated, more, total } = facingReadingLines(eot, { max: 10 });
+  assert.equal(lines.length, 10);
+  assert.equal(total, 50);
+  assert.equal(truncated, true);
+  assert.equal(more, 40);
 });
 
 test('clampReadPrefs bounds size, line-height, width, theme and font', () => {

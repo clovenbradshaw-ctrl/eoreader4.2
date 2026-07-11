@@ -362,3 +362,76 @@ export const scrollToAnchor = (doc, id) => {
     try { win.scrollTo({ top: Math.max(0, top), behavior: 'smooth' }); } catch { win.scrollTo(0, Math.max(0, top)); }
   } catch { /* iframe not reachable */ }
 };
+
+// ── the FACING PAGE — how the system read the source, syntax-lit like a terminal ─────────────
+// A bilingual book prints the original on one leaf and its translation on the facing leaf. The
+// facing view does the same for a reading: the source's own prose on the left, and on the right
+// the EoT surface the engine extracted from it (ingest/read.js → eot-emit.js) — every admitted
+// proposition, one line, coloured by its ELEMENT TYPE. The colour IS the reading: you see at a
+// glance where the engine found a type, a relation, an attribute, an identity, a judgement.
+//
+// The element type of a line is its EoT operator, recovered from the line's SHAPE (the same
+// shapes emitEot writes; docs/eot-surface-syntax.md). This is a presentation classifier — it
+// reads the surface back, it does not re-run the engine — so it lives with the other render
+// helpers, not in the ingest leaf. One terminal palette (a dark One-Dark-ish scheme), keyed by
+// element type, drives both the lines and the legend.
+export const EOT_ELEMENT_TYPES = {
+  type:     { label: 'is-a · type',      color: '#56B6C2', hint: 'x : Type' },
+  link:     { label: 'relation',         color: '#E5C07B', hint: 'x -> y : rel' },
+  attr:     { label: 'attribute',        color: '#98C379', hint: 'x.k = v' },
+  absence:  { label: 'absence',          color: '#E06C75', hint: 'x.k = nil' },
+  identity: { label: 'identity',         color: '#C678DD', hint: 'a == b' },
+  compose:  { label: 'composition',      color: '#61AFEF', hint: 'x <- [..]' },
+  segment:  { label: 'partition',        color: '#D19A66', hint: 'x | key' },
+  sig:      { label: 're-designation',   color: '#4EC9B0', hint: '!sig / !clm' },
+  eva:      { label: 'judgement',        color: '#F191C4', hint: '!eva' },
+  rec:      { label: 'reframe',          color: '#FF5C57', hint: '!rec' },
+  rule:     { label: 'section',          color: '#7AA2F7', hint: '# ── … ──' },
+  note:     { label: 'the reading',      color: '#6B7280', hint: '# …' },
+  blank:    { label: '',                 color: 'transparent', hint: '' },
+};
+// Legend / display order — structure first (what it takes to exist and connect), then the
+// flagged judgements, then the reading's own thinking last.
+export const EOT_KIND_ORDER = ['type', 'link', 'attr', 'absence', 'identity', 'compose', 'segment', 'sig', 'eva', 'rec', 'rule', 'note'];
+
+// classifyEotLine(line) → element-type key (a key of EOT_ELEMENT_TYPES). Pure over one surface
+// line; recognises the operator by shape. Order matters: a value-bearing form (`==`, `= nil`,
+// `=`) is tested before the relational/typing forms so a quoted value that happens to contain
+// `->` or `:` is never mistaken for a relation or a type.
+export const classifyEotLine = (line) => {
+  const t = String(line == null ? '' : line).trim();
+  if (t === '') return 'blank';
+  if (t.startsWith('#')) return /^#+\s*──/.test(t) ? 'rule' : 'note';
+  if (t.startsWith('!eva')) return 'eva';
+  if (t.startsWith('!rec')) return 'rec';
+  if (t.startsWith('!sig') || t.startsWith('!clm')) return 'sig';
+  if (/\s==\s/.test(t)) return 'identity';
+  if (/\s<-\s\[/.test(t)) return 'compose';
+  if (/=\s*nil\b/.test(t)) return 'absence';
+  if (/\s=\s/.test(t)) return 'attr';
+  if (/\s->\s/.test(t)) return 'link';
+  if (/\s\|\s/.test(t)) return 'segment';
+  if (/\s:\s/.test(t)) return 'type';
+  return 'note';
+};
+
+// facingReadingLines(eotText, opts) → { lines, legend, truncated, more, total }
+//   lines   [{ n, kind, label, color, s, dim }] — one per surface line, coloured by element type
+//           (n is the 1-based line number for the terminal gutter; s is the raw line, blanks
+//           rendered as a single space so the row keeps its height; dim flags the muted layers)
+//   legend  the element types actually PRESENT, in EOT_KIND_ORDER — [{ kind, label, color }]
+//   truncated/more/total  honest bound reporting, mirroring the EoT view's cap
+// Pure: takes the reading's EoT text (app.eotFor(sn).text) and lays it out for the terminal pane.
+export const facingReadingLines = (eotText, { max = 2400 } = {}) => {
+  const all = String(eotText == null ? '' : eotText).split('\n');
+  const shown = all.slice(0, max);
+  const present = new Set();
+  const lines = shown.map((raw, i) => {
+    const kind = classifyEotLine(raw);
+    const spec = EOT_ELEMENT_TYPES[kind] || EOT_ELEMENT_TYPES.note;
+    if (kind !== 'blank') present.add(kind);
+    return { n: i + 1, kind, label: spec.label, color: spec.color, s: raw === '' ? ' ' : raw, dim: kind === 'note' || kind === 'blank' };
+  });
+  const legend = EOT_KIND_ORDER.filter((k) => present.has(k)).map((k) => ({ kind: k, label: EOT_ELEMENT_TYPES[k].label, color: EOT_ELEMENT_TYPES[k].color }));
+  return { lines, legend, truncated: all.length > max, more: Math.max(0, all.length - max), total: all.length };
+};

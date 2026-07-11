@@ -47,6 +47,7 @@ import { createChatRoom } from '../chat/index.js';
 import { mountChat, mountChatLauncher } from '../chat/mount.js';
 import { createVault } from '../archive/vault.js';
 import { mountVaultLauncher } from '../archive/vault-mount.js';
+import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 
 const audit = createAuditLog({ capacity: 512 });
 const app = createReaderApp({ audit });
@@ -117,6 +118,21 @@ const archive = Object.freeze({
 // session changes at construction.
 const genome = createGenomeAutosave({ app, matrix, deposit });
 
+// The version time-machine the surface's Settings panel calls. Every merge to `main` is a deployed
+// GitHub Pages build, so the merged-PR history is the published-build history; `load()` lists them
+// (best-effort over the public GitHub API) and each carries a raw.githack.com URL that re-opens that
+// exact build. `currentCommit` comes from the deployed version.json the app already caches, so the
+// panel can mark which prior PR is live now. Fail-soft: no network / rate-limit ⇒ a worded empty list.
+const versions = Object.freeze({
+  host: GITHACK_HOST,
+  rollbackUrl,
+  load: () => loadVersions({
+    fetch: typeof fetch !== 'undefined' ? fetch.bind(globalThis) : null,
+    location: typeof location !== 'undefined' ? location : null,
+    currentCommit: (() => { try { return app.provenance().build?.commit || null; } catch { return null; } })(),
+  }),
+});
+
 window.EO = Object.freeze({
   app,
   parse,
@@ -133,6 +149,7 @@ window.EO = Object.freeze({
   vault,
   archive,
   genome,
+  versions,       // the version time-machine — list prior merged-PR builds, roll back to any
   app_name: APP_NAME,
   version: APP_VERSION,
 });

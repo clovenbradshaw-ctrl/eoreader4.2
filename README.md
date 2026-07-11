@@ -86,6 +86,7 @@ opens empty and fills as you record.
 
 | surface | engine wiring |
 |---|---|
+| workspace switcher → nested topic tree | `rooms/reader/app.js` — a **workspace** is the top-level container (Notion's workspace/teamspace; a shared workspace is a Matrix room, via `shared`), and **topics nest** into a collapsible tree (`parentId` / `collapsed`, walked by `topicRows`). Sources stay scoped to the active topic. |
 | ingest bar (URL / file / paste / web search) | `organs/ingest` web client + admission core, `rooms/reader/import-file.js` extractors, proxy chain with public fallbacks |
 | chat exchange | `turn/` pipeline (`runTurn`) — streamed, cited, fact-checked; model backends from `model/` (webllm · wllama · echo), picked adaptively |
 | S-registry (sha, bytes, rights, fixity) | `organs/ingest/websource.js` records + the controller's registry |

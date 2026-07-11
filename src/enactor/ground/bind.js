@@ -333,8 +333,31 @@ const bestMatch = (claim, spans, { idf = () => 1, fieldByIdx = null } = {}) => {
 // existing caller (bindAndVeto, the weld witness) is byte-identical.
 export const UNSOURCED_MARK = '[no source]';
 
+// The CREATIVE / FACTUAL split. The mark exists to flag a fact-from-nowhere — a claim
+// STATED AS BEING THE CASE that nothing read witnesses. It has no business on CREATIVE
+// output: a story, a poem, an imagined scene are meant to come from the writer, and a
+// "[no source]" hung on invented prose is noise, not honesty. So the mark is owed only
+// by an ASSERTION OF FACT. A line that asserts no checkable fact — a question, an
+// invitation to imagine, an interjection — is not a grounding leak and rides clean.
+//
+// Conservative by design: the user cares most about NOT MISSING an ungrounded fact, so
+// anything that reads as a plain declarative statement is treated as factual (marked if
+// unsourced). Only the overt non-assertions are exempted — a narrow, high-confidence set,
+// so a real ungrounded claim is never waved through as "creative".
+const NON_FACT_QUESTION = /\?\s*$/;
+const NON_FACT_OPENER = /^\s*(?:imagine|picture|envision|suppose|behold|hark|lo|pretend)\b/i;
+const NON_FACT_INTERJECTION = /^\s*(?:oh|ah|alas|hark|lo|hey|wow|hmm|ha|oh no)\b[\s,!—-]/i;
+export const isFactualClaim = (claim = '') => {
+  const t = String(claim || '').trim();
+  if (!t) return false;
+  if (NON_FACT_QUESTION.test(t)) return false;          // a question asserts nothing
+  if (NON_FACT_OPENER.test(t)) return false;            // an invitation to imagine — creative
+  if (NON_FACT_INTERJECTION.test(t)) return false;      // an interjection — expressive, not factual
+  return true;
+};
+
 const isProseFromNowhere = (b) =>
-  !b.citation && !b.edgeGrounded && (b.score || 0) <= CONTACT_FLOOR;
+  !b.citation && !b.edgeGrounded && (b.score || 0) <= CONTACT_FLOOR && isFactualClaim(b.claim);
 
 export const renderBound = (bound, { mark = false } = {}) =>
   bound
