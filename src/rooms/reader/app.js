@@ -22,14 +22,13 @@ import { probeOrigins, explainReach } from '../../model/reach.js';
 import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
          runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
-         modelClarifyGate } from '../../turn/index.js';
+         readDiscourse, phaticFromSpeech, clarifyDemandOf } from '../../turn/index.js';
 import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
 import { directCorsUrl } from '../../organs/ingest/direct-cors.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
 import { readIngest } from '../../organs/ingest/read.js';
-import { answerSmalltalk } from '../../enactor/answer/index.js';
 import { outstandingQuestion, answersAwaited } from '../../core/conversation-fold.js';
 import { senseGate } from '../../turn/sense.js';
 import { createMonitor } from '../../enactor/monitor.js';
@@ -1161,6 +1160,27 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return pending;
   };
 
+  // phaticReply(model, {question, hasDoc, …}) → one short warm social line IN THE MODEL'S OWN
+  // VOICE — the phatic door's whole answer. No regex and no canned classification: the same model
+  // that read the turn as social (the discourse statement) now says the word back. With a document
+  // in scope it closes on an invitation to ask about it; with none it mentions recording a source.
+  // Fail-soft to a single neutral line if the decode comes back empty, so the door always speaks.
+  const phaticReply = async (model, { question, hasDoc, signal, raceGuard, keepAlive }) => {
+    const sys = hasDoc
+      ? 'The user sent a social message — a greeting, a thanks, or a goodbye — while a document is open. Reply in ONE short, warm, natural sentence, and gently invite them to ask about what they have open. Do not answer a question they did not ask; no lists.'
+      : 'The user sent a social message — a greeting, a thanks, or a goodbye. Reply in ONE short, warm, natural sentence. You may mention that they can record a source (a URL, a file, or pasted text) and ask about it. No lists.';
+    try {
+      const out = await raceGuard(keepAlive(model.phrase(
+        [{ role: 'system', content: sys }, { role: 'user', content: String(question || '') }],
+        { maxTokens: 64, temperature: 0.6, signal })));
+      const text = String(out || '').replace(/\s+/g, ' ').trim();
+      if (text) return text;
+    } catch { /* fall through to the neutral line */ }
+    return hasDoc
+      ? 'Hey — ask me anything about what you have open.'
+      : 'Hey — record a source and ask me about it, or ask me anything.';
+  };
+
   const ask = async (question, { onToken = null } = {}) => {
     const t = topic();
     const q = String(question || '').trim();
@@ -1177,28 +1197,47 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
 
     const mode = webMode();
 
-    // The demand gate (docs/response-demand.md), rung-3 floor: a phatic turn — a greeting, a
-    // thanks, a goodbye, a how-are-you — wants a warm word back, not the grounding pipeline. Run
-    // it BEFORE the docs branch so it fires WITH a document open too: a "Good morning" at an open
-    // book now gets a hello instead of being grounded against the reading (the bug this closes).
-    // answerSmalltalk is the no-model floor; the measured `phatic` direction (turn/meta-route.js)
-    // is the graded layer this floor seeds, live-wired with the discourse read at rung 4. With no
-    // doc, keep the old "what you record" flavour; with a doc, the greeter is told one is open so
-    // it does not say "open a document" at a loaded book.
-    const small = answerSmalltalk(q, { hasDoc: docs.length > 0 });
-    if (small) {
-      pending.text = docs.length ? small.text : small.text.replace(/the document/g, 'what you record');
-      pending.route = 'smalltalk';
-      pending.pending = false;
-      persist(); emit('messages');
-      return pending;
-    }
+    // ── THE FRONT DOOR — physics, not a regex (docs/response-demand.md) ───────────────────────────
+    // The engine warms the model and reads ONE plain discourse statement about this turn
+    // (readDiscourse): the model says, in its own words, what the user is doing. Every door is then
+    // a CURRENT measured off that single paragraph. This replaces the old answerSmalltalk regex
+    // floor: a phatic turn — a greeting, a thanks, a goodbye, a how-are-you — is the PHATIC CURRENT
+    // winning the route relaxation (phaticFromSpeech → metaRoute), a physical fact of the statement
+    // rather than a matched spelling. It runs BEFORE the empty-record and grounding branches, so a
+    // greeting answers with one warm line and NEVER reaches the web (the "why did it search for
+    // 'how are you'" bug). The same statement is reused below to decide clarify, so the model speaks
+    // once per turn. Fail-soft by construction: no model, an empty read, or any throw abstains, and
+    // the turn proceeds exactly as a substantive one would.
+    warmMinilm();
+    // This turn's cancellation kit, armed BEFORE the front-door decode so even that read is watched,
+    // stoppable, and signal-threaded (see answerFromWeb) — never a fresh way for a turn to hang.
+    const turn = armTurn();
+    const { raceGuard, keepAlive, keepAliveFn } = turn;
+    const turnSignal = turn.ctrl.signal;
+
+    const settledMsgs = t.messages.filter((mm) => !mm.pending && mm.text);
+    const priorHistory = settledMsgs.slice(0, -1).map((x) => ({ role: x.role, content: x.text }));
+    let discourse = '';
+    try {
+      setBusy({ kind: 'turn', label: 'Reading the turn…' });
+      const m0 = await raceGuard(ensureModel());
+      discourse = await raceGuard(keepAlive(readDiscourse(m0, { history: priorHistory, now: new Date(), scope: t.title || '', signal: turnSignal })(q)));
+      if (phaticFromSpeech(discourse).phatic) {
+        pending.text = await phaticReply(m0, { question: q, hasDoc: docs.length > 0, signal: turnSignal, raceGuard, keepAlive });
+        pending.route = 'phatic';
+        pending.pending = false;
+        turn.disarm(); setBusy(null);   // the warm word IS this turn's answer — release its kit
+        persist(); emit('messages');
+        return pending;
+      }
+    } catch (_) { /* the front-door read is best-effort; a fault just proceeds to the normal turn */ }
 
     if (!docs.length) {
       // An empty record is not a dead end for a substantive ask: it reaches for the web when web
       // mode allows it — `auto` fetches real pages and answers grounded in them (answerFromWeb);
       // `confirm`/`off` leave it as a one-click web-search proposal so the first question fetches
-      // its own sources on the button. (Greetings were handled by the demand gate above.)
+      // its own sources on the button. (A phatic turn was already answered by the front door above.)
+      turn.disarm(); setBusy(null);   // answerFromWeb arms its own kit; the off/confirm lines need none
       if (mode === 'auto') return answerFromWeb(pending, q, { onToken });
       pending.text = 'Nothing is on the record yet, so I can\'t ground an answer to that. I can search the web and record what comes back — or read any URL, file, or pasted text you drop in the bar above.';
       pending.route = 'empty';
@@ -1209,32 +1248,21 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       return pending;
     }
 
-    // ── rung 8: subject-sense disambiguation (docs/response-demand.md, Stage 1) ──────────────────
-    // Before grounding/searching, decide whether the question turns on a sense the user must pin down.
-    // The recorded corpus (senseGate) can only see that a subject's SPELLING collides across entities
-    // — "dolphin" names the animal AND the Miami Dolphins — so on its own it asks a choice question on
-    // ANY such collision, including a plainly clear ask ("what is the smallest dolphin"), and then on
-    // every generic word of the reply ("animal", "mammal"), so the clarify never resolves and loops.
-    // The DECISION to disambiguate is therefore the MODEL's, read with the router's Born physics
-    // (turn/meta-route.js modelClarifyGate): the metacognition speaks about the turn and its `clarify`
-    // current is measured against the crosstalk null. The corpus supplies the OPTIONS; the physics
-    // decides whether to ask at all. If THIS turn is a reply to a question we asked, we NEVER reopen
-    // disambiguation on it — the reply folds back onto the original ask (a literal choice recovers the
-    // chosen option; any other reply rides in whole as a sense hint), so a bare "the animal" becomes
-    // "…the smallest dolphin the animal", not a fresh collision. Fail-soft: a fault here never costs
-    // the turn, and with no model the physics gate abstains and nothing is asked (the safe direction).
-    warmMinilm();
-    // This turn's own cancellation kit (armTurn) — see answerFromWeb: the captured signal/guard
-    // gate this turn's callbacks after Stop, never the module refs. Armed BEFORE the clarify
-    // physics below, so even that pre-turn decode is watched, stoppable, and signal-threaded —
-    // unguarded it was a fresh way for a turn to hang unstoppable before the pipeline ever ran.
-    const turn = armTurn();
-    const { raceGuard, keepAlive, keepAliveFn } = turn;
-    const turnSignal = turn.ctrl.signal;
-
+    // ── subject-sense disambiguation (docs/response-demand.md, Stage 1) ──────────────────────────
+    // Before grounding/searching, decide whether the question turns on a sense the user must pin
+    // down. The recorded corpus (senseGate) can only see that a subject's SPELLING collides across
+    // entities — "dolphin" names the animal AND the Miami Dolphins — so on its own it asks a choice
+    // question on ANY such collision, including a plainly clear ask ("what is the smallest dolphin").
+    // Whether to ACT on it is the physics' call, read with the router's Born currents off the SAME
+    // discourse statement the front door already spoke (clarifyDemandOf on `discourse`) — no second
+    // decode. The corpus supplies the OPTIONS; the physics decides whether to ask at all. If THIS
+    // turn is a reply to a question we asked, we NEVER reopen disambiguation on it — the reply folds
+    // back onto the original ask (a literal choice recovers the chosen option; any other reply rides
+    // in whole as a sense hint). Fail-soft: a fault here never costs the turn, and with no discourse
+    // the clarify current is empty and nothing is asked (the safe direction).
     let effectiveQ = q;
     try {
-      const settled = t.messages.filter((mm) => !mm.pending && mm.text);
+      const settled = settledMsgs;
       // the current user turn (q) is already appended; the fold before this turn drops it, so the
       // "outstanding" question is the assistant's clarify, not read past by the new message.
       const awaiting = outstandingQuestion(settled.slice(0, -1));
@@ -1260,23 +1288,16 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
           effectiveQ = `${original} ${q}`;
         }
       } else {
-        // A FRESH ask. Only a real corpus collision is even a candidate for disambiguation; whether to
-        // ACT on it is the model's judgment. Warm the model (the turn needs it anyway) and let the
-        // clarify physics decide — a collision the model reads as actionable is answered, not asked.
+        // A FRESH ask. Only a real corpus collision is even a candidate for disambiguation; whether
+        // to ACT is the physics' call, read off the discourse the front door already spoke.
         const gate = senseGate(q, docs);
-        if (gate && gate.resolution === 'ask') {
-          const m = await raceGuard(ensureModel());
-          const history = settled.slice(0, -1).map((x) => ({ role: x.role, content: x.text }));
-          const clar = await raceGuard(keepAlive(modelClarifyGate(m, { history, now: new Date(), scope: t.title || '', signal: turnSignal })(q)));
-          if (clar.clarify) {
-            pending.text = gate.ask.question;
-            pending.route = 'clarify';
-            pending.pending = false;
-            turn.disarm(); setBusy(null);   // the clarify IS this turn's answer — release its kit
-            persist(); emit('messages');
-            return pending;
-          }
-          // the physics read the ask as actionable → do not question it back; fall through and answer.
+        if (gate && gate.resolution === 'ask' && clarifyDemandOf(discourse) === 'clarify') {
+          pending.text = gate.ask.question;
+          pending.route = 'clarify';
+          pending.pending = false;
+          turn.disarm(); setBusy(null);   // the clarify IS this turn's answer — release its kit
+          persist(); emit('messages');
+          return pending;
         }
       }
     } catch (_) { /* disambiguation is best-effort; fall through to the normal turn */ }

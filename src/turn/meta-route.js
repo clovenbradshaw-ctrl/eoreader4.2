@@ -843,6 +843,35 @@ export const modelClarifyGate = (model, { history = [], fold = null, now = null,
   } catch { return off; }
 };
 
+// readDiscourse(model, opts)(message) → the metacognition's free-speech paragraph about THIS turn,
+// or '' fail-soft. This is the ONE statement the door physics reads: build discoursePrompt, decode
+// once at temperature 0, and hand the paragraph back so a caller can measure EVERY current off it
+// (phatic, clarify, route) without a decode per gate — a turn speaks its discourse once. Same
+// fallback contract as modelClarifyGate: a cold model, an empty message, or any throw returns ''
+// and the caller proceeds exactly as it would have with no read.
+export const readDiscourse = (model, { history = [], fold = null, now = null, scope = '', standing = '', signal = null } = {}) => async (message) => {
+  const msg = String(message || '').trim();
+  if (!model?.phrase || !msg) return '';
+  const prompt = discoursePrompt(msg, fold, { exchange: lastExchange(history), now, scope, standing });
+  try {
+    const out = await model.phrase([{ role: 'user', content: prompt }], { maxTokens: 200, temperature: 0, minPredict: 0, signal });
+    return String(out || '').trim();
+  } catch { return ''; }
+};
+
+// phaticFromSpeech(speech, fold, bases) → { phatic, drive, route } — the phatic DOOR read off an
+// already-spoken discourse paragraph (readDiscourse). Phatic when the phatic current WINS the route
+// relaxation over the five doors (metaRoute → relaxRoute), not merely when it is nonzero — a
+// substantive ask that happens to open warmly still routes to its work door. `drive` is the graded
+// phatic current exposed regardless of the winner; `route` is the full door verdict for the caller
+// that wants it. Empty speech → not phatic, so the caller answers as normal (the safe direction).
+export const phaticFromSpeech = (speech, fold = null, bases = defaultBases()) => {
+  const s = String(speech || '').trim();
+  if (!s) return { phatic: false, drive: 0, route: null };
+  const m = metaRoute(s, fold, { bases });
+  return { phatic: m.route === 'phatic', drive: m.phaticDrive, route: m.route };
+};
+
 // leadsOf(speech, {known}) → the novel content terms the metacognition introduced — the words
 // of its paragraph that are neither in the conversation it was shown (`known`) nor part of the
 // direction bases' own scaffold vocabulary. When the paragraph names what must be found out

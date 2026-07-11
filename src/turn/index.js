@@ -13,5 +13,5 @@ export { planQueries, modelPlanner, runDeepResearch, deepResearchReport,
          runTurnWithDeepResearch, deepResearchAnnouncement } from './deep-research.js';
 export { modelDisambiguator, chooseSense, biasTopic, sharpenSeed, parseSensePrior,
          discriminate, senseAnnouncement, SENSE_W } from './disambiguate.js';
-export { modelClarifyGate } from './meta-route.js';
+export { modelClarifyGate, readDiscourse, phaticFromSpeech, clarifyDemandOf } from './meta-route.js';
 export { shredTtl, makeArchive, shredExpired, nextShredTime } from './archive.js';
