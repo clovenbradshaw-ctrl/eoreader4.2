@@ -10,7 +10,9 @@ export const createFakeHomeserver = ({ base = 'https://hs.test' } = {}) => {
   const rooms = new Map();                  // roomId -> { members:Set, timeline:[event] }
   const toDevice = new Map();               // userId -> deviceId -> [ content-with-type ]
   const syncPos = new Map();                // token -> { timeline: idx, td: drained flag }
+  const mediaStore = new Map();             // mediaId -> Uint8Array (opaque ciphertext)
   let eventSeq = 0;
+  let mediaSeq = 0;
 
   const register = (token, userId, deviceId) => {
     tokens.set(token, { userId, deviceId });
@@ -22,6 +24,7 @@ export const createFakeHomeserver = ({ base = 'https://hs.test' } = {}) => {
   };
 
   const jsonRes = (status, body) => ({ ok: status < 400, status, json: async () => body });
+  const bytesRes = (status, bytes) => ({ ok: status < 400, status, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), json: async () => ({}) });
 
   const fetch = async (url, opts = {}) => {
     const u = new URL(url);
@@ -30,6 +33,21 @@ export const createFakeHomeserver = ({ base = 'https://hs.test' } = {}) => {
     const token = auth.replace(/^Bearer /, '');
     const who = tokens.get(token);
     if (!who) return jsonRes(401, { errcode: 'M_UNKNOWN_TOKEN', error: 'bad token' });
+
+    // ── Media repository (raw bytes, not JSON) ──
+    if (path === '/_matrix/media/v3/upload') {
+      const mediaId = `m${mediaSeq++}`;
+      const raw = opts.body instanceof Uint8Array ? opts.body : new Uint8Array(opts.body || []);
+      mediaStore.set(mediaId, raw);
+      return jsonRes(200, { content_uri: `mxc://${base.replace(/^https?:\/\//, '')}/${mediaId}` });
+    }
+    let dm = path.match(/\/_matrix\/(?:client\/v1|media\/v3)\/(?:media\/)?download\/[^/]+\/([^/]+)$/);
+    if (dm) {
+      const bytes = mediaStore.get(dm[1]);
+      if (!bytes) return jsonRes(404, { errcode: 'M_NOT_FOUND', error: 'no media' });
+      return bytesRes(200, bytes);
+    }
+
     const body = opts.body ? JSON.parse(opts.body) : null;
     const P = '/_matrix/client/v3';
 
@@ -134,5 +152,5 @@ export const createFakeHomeserver = ({ base = 'https://hs.test' } = {}) => {
     return { identity: () => ({ homeserver: base, token, userId, deviceId }) };
   };
 
-  return { fetch, sessionFor, joinRoom, register };
+  return { fetch, sessionFor, joinRoom, register, mediaStore };
 };

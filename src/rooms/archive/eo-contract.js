@@ -10,4 +10,8 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/archive/deposit.js': contract({ ops: ['INS', 'CON'], targets: ['Entity', 'Field'], products: ['Link'], stances: ['Making', 'Binding'], note: 'deposit: authenticated permanent archive' }),
   'src/rooms/archive/checkpoints.js': contract({ ops: ['CON'], targets: ['Field'], products: ['Link', 'Network'], stances: ['Binding', 'Tracing'], note: 'checkpoints: content-addressed archive ledger' }),
   'src/rooms/archive/autosave.js': contract({ ops: ['INS', 'CON'], targets: ['Network', 'Field'], products: ['Link'], stances: ['Making', 'Binding'], note: 'autosave: silent opt-in genome checkpoints' }),
+  'src/rooms/archive/file-crypto.js': contract({ ops: ['INS', 'CON'], targets: ['Void', 'Field'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'file-crypto: encrypted-attachment (AES-CTR) crypto' }),
+  'src/rooms/archive/mxc.js': contract({ ops: ['SIG', 'CON'], targets: ['Network'], products: ['Link'], stances: ['Binding', 'Tending'], note: 'mxc: Matrix media repository client' }),
+  'src/rooms/archive/chain.js': contract({ ops: ['CON'], targets: ['Field'], products: ['Link', 'Network'], stances: ['Binding', 'Tracing'], note: 'chain: append-only hash-linked block ledger' }),
+  'src/rooms/archive/vault.js': contract({ ops: ['CON', 'INS'], targets: ['Network', 'Field'], products: ['Link', 'Entity'], stances: ['Binding', 'Making'], note: 'vault: encrypted hash-chained media store' }),
 });

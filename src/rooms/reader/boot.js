@@ -24,6 +24,9 @@
 //   chat        OPTIONAL end-to-end-encrypted chat (rooms/chat) — reuses the matrix
 //               identity, libolm crypto, keys pickled to OPFS; lazily started when
 //               the floating launcher is opened (docs/element-e2ee.md)
+//   vault       OPTIONAL encrypted, hash-chained media store (rooms/archive/vault) —
+//               encrypts each item, uploads only ciphertext to the homeserver media
+//               repo, records a tamper-evident block in an OPFS chain (docs/media-vault.md)
 
 import { createParser } from '../../perceiver/parse/index.js';
 import { readingAt } from '../../perceiver/reading.js';
@@ -42,6 +45,7 @@ import { createCheckpointLog, checkpointId } from '../archive/checkpoints.js';
 import { createGenomeAutosave } from '../archive/autosave.js';
 import { createChatRoom } from '../chat/index.js';
 import { mountChat, mountChatLauncher } from '../chat/mount.js';
+import { createVault } from '../archive/vault.js';
 
 const audit = createAuditLog({ capacity: 512 });
 const app = createReaderApp({ audit });
@@ -91,6 +95,13 @@ const chat = {
   // floating launcher, if the dc surface later hosts chat in a screen of its own).
   mount(el) { return chatController ? mountChat(el, chatController) : (() => {}); },
 };
+
+// The encrypted, hash-chained media vault (rooms/archive/vault). Reuses the SAME
+// Matrix identity as the archive/chat, encrypts each item with a per-file key
+// (Web Crypto), stores only the ciphertext in the homeserver media repo, and records
+// a tamper-evident block (content address + mxc + key) in an OPFS-persisted chain.
+// Signed-out it is inert; `save`/`open`/`verify` lazily start it. See docs/media-vault.md.
+const vault = createVault({ matrix });
 const archive = Object.freeze({
   deposit,
   checkpoints: () => checkpoints.list(),
@@ -118,6 +129,7 @@ window.EO = Object.freeze({
   readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   matrix,
   chat,
+  vault,
   archive,
   genome,
   app_name: APP_NAME,
