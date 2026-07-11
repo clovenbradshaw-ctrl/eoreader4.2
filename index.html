@@ -976,12 +976,16 @@ table{border-collapse:collapse;width:100%}
                     <sc-for list="{{ facingLegend }}" as="lg">
                       <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8b93a3"><span style="width:9px;height:9px;border-radius:2px;background:{{ lg.color }};flex:0 0 auto"></span>{{ lg.label }}</span>
                     </sc-for>
+                    <sc-if value="{{ facingHasKinds }}"><span title="entities, coloured by their kind" style="width:1px;height:12px;background:#252b36;flex:0 0 auto"></span></sc-if>
+                    <sc-for list="{{ facingKindLegend }}" as="kl">
+                      <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8b93a3"><span style="width:9px;height:9px;border-radius:50%;background:{{ kl.color }};flex:0 0 auto"></span>{{ kl.label }}</span>
+                    </sc-for>
                   </div>
                   <div class="eo-scroll" style="flex:1;min-height:0;overflow:auto;padding:16px 4px 22px">
                     <sc-for list="{{ facingLines }}" as="fl">
                       <div style="display:flex;align-items:baseline;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.65;white-space:pre;background:{{ fl.rowBg }}">
                         <span style="flex:0 0 auto;width:46px;text-align:right;padding-right:14px;color:#3a4150;user-select:none">{{ fl.n }}</span>
-                        <span style="flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;color:{{ fl.color }};opacity:{{ fl.opacity }}">{{ fl.s }}</span>
+                        <span style="flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;opacity:{{ fl.opacity }}"><sc-for list="{{ fl.segs }}" as="sg"><span style="color:{{ sg.color }}">{{ sg.s }}</span></sc-for></span>
                       </div>
                     </sc-for>
                     <sc-if value="{{ facingTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#5a6272;padding:14px 0 0 60px">… {{ facingMore }} more lines — the EoT tab downloads the whole reading.</div></sc-if>
@@ -2319,7 +2323,7 @@ class Component extends DCLogic {
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], ...this._acctVals(), ...this._versionVals() };
+        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
     }
   }
 
@@ -2332,7 +2336,7 @@ class Component extends DCLogic {
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
         statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], ...this._acctVals(), ...this._versionVals() };
+        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
     }
     const topic = app.topic();
     const sources = app.topicSources();
@@ -2758,7 +2762,7 @@ class Component extends DCLogic {
     // ── the source viewer: sources open as TABS IN THE MAIN STAGE ──────────────
     let viewer = null;
     let viewerParas = [], eotLines = [], eotTruncated = false, eotMore = '';
-    let facingLines = [], facingLegend = [], facingTruncated = false, facingMore = '';
+    let facingLines = [], facingLegend = [], facingKindLegend = [], facingTruncated = false, facingMore = '';
     let readerDoc = '', readerToc = [], pageDoc = '', pageBusy = false, pageErr = '';
     let vMode = 'reader';
     const rp = st.readPrefs || {};
@@ -2821,8 +2825,10 @@ class Component extends DCLogic {
           facingLines = fr.lines.map((l) => ({
             n: String(l.n), s: l.s, color: l.color, opacity: l.dim ? '0.72' : '1',
             rowBg: l.kind === 'rule' ? 'rgba(122,162,247,0.07)' : 'transparent',
+            segs: (l.segs || [{ s: l.s, color: l.color }]).map((sg) => ({ s: sg.s, color: sg.color })),
           }));
           facingLegend = fr.legend;
+          facingKindLegend = fr.kindLegend || [];
           facingTruncated = fr.truncated; facingMore = String(fr.more);
         }
         if (!this._viewCache || this._viewCache.sn !== activeSn) {
@@ -2996,7 +3002,7 @@ class Component extends DCLogic {
       // native render body
       pageDoc, pageShow: !!pageDoc, pageBusy, pageErr, hasPageErr: !!pageErr, retryPage: () => this.retryPage(),
       eotLines, eotTruncated, eotMore, downloadEot: () => this.downloadEot(),
-      facingLines, facingLegend, facingTruncated, facingMore,
+      facingLines, facingLegend, facingKindLegend, facingHasKinds: facingKindLegend.length > 0, facingTruncated, facingMore,
       setViewerBody: (el) => this.setViewerBody(el),
       removeViewerSource: () => { const a = this._activeSrc(); if (a && confirm(`Remove ${viewer.reg} from the record?`)) { app.removeSource(a); this.closeTab(a); } },
       // search

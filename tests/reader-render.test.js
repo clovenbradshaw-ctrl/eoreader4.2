@@ -5,6 +5,7 @@ import {
   readerModel, readerHtml, buildReaderDoc, detectStructure,
   stripGutenbergMarkers, nativePageHtml, clampReadPrefs, READ_THEMES,
   classifyEotLine, facingReadingLines, EOT_ELEMENT_TYPES,
+  entityKind, facingSegments, EOT_ENTITY_KINDS, EOT_ENTITY_KIND_ORDER,
 } from '../src/rooms/reader/reader-render.js';
 
 // A Project-Gutenberg-shaped book: license header, labeled front matter, the START/END markers,
@@ -186,6 +187,83 @@ test('facingReadingLines caps long readings honestly', () => {
   assert.equal(total, 50);
   assert.equal(truncated, true);
   assert.equal(more, 40);
+});
+
+// ── the facing page: colouring the THINGS, not only the operator ─────────────────────────────
+test('entityKind buckets a token by its surface shape', () => {
+  assert.equal(entityKind('Trump').key, 'proper');            // a capitalised name
+  assert.equal(entityKind('Ankara').key, 'proper');
+  assert.equal(entityKind('NATO').key, 'org');                // an acronym
+  assert.equal(entityKind('Congress').key, 'org');            // an -org-suffix body
+  assert.equal(entityKind('July').key, 'time');               // a month
+  assert.equal(entityKind('AM ET').key, 'time');              // a clock/zone
+  assert.equal(entityKind('30').key, 'quantity');             // a bare number
+  assert.equal(entityKind('$4').key, 'quantity');
+  assert.equal(entityKind('SAVE AMERICA ACT').key, 'work');   // ALL-CAPS multiword
+  assert.equal(entityKind('"The Odyssey"').key, 'work');      // a quoted title
+  assert.equal(entityKind('housing-act').key, 'term');        // a lowercased id
+  assert.equal(entityKind('affordability').key, 'term');
+  // every bucket resolves to a real palette colour
+  for (const k of EOT_ENTITY_KIND_ORDER) assert.equal(typeof EOT_ENTITY_KINDS[k].color, 'string');
+});
+
+test('entityKind prefers a DECLARED type over the heuristic, with a stable colour', () => {
+  const dt = new Map([['Trump', 'Person'], ['Housing', 'Policy']]);
+  const a = entityKind('Trump', dt);
+  assert.equal(a.key, 'is:Person');
+  assert.equal(a.label, 'Person');
+  assert.equal(entityKind('Trump', dt).color, a.color);        // deterministic
+  // the declared colour never reuses a heuristic bucket's colour — no duplicate legend swatch
+  const heur = new Set(EOT_ENTITY_KIND_ORDER.map((k) => EOT_ENTITY_KINDS[k].color));
+  for (const t of ['Person', 'Place', 'Org', 'Event', 'Money', 'Policy', 'Widget', 'Claim'])
+    assert.ok(!heur.has(entityKind(t, new Map([[t, t]])).color), `declared ${t} distinct from heuristics`);
+});
+
+test('facingSegments is lossless: the runs re-join to the raw line, every shape', () => {
+  const shapes = [
+    'widget : Gadget', 'widget -> gadget : becomes', 'Congress -> Trump : not-passes',
+    'widget.color = "green"', 'widget.owner = nil', 'widget == gadget',
+    'machine <- [gear, spring, dial]', 'day | morning', '!sig widget : Gizmo',
+    '!eva widget.state -> ok', '# ── where the reading turned ──', '# reading — doc: 42 units',
+    'Housing.cost = 30 @model:eot ~t12', '',
+  ];
+  for (const line of shapes) {
+    const segs = facingSegments(line, classifyEotLine(line));
+    assert.equal(segs.map((s) => s.s).join(''), line === '' ? ' ' : line, `lossless: ${JSON.stringify(line)}`);
+  }
+});
+
+test('facingSegments colours the operator by element type and value-safely keeps a quoted value whole', () => {
+  const dt = new Map([['Trump', 'Person']]);
+  const segs = facingSegments('Housing -> Trump : affordability', 'link', dt);
+  const op = segs.find((s) => s.role === 'op');
+  assert.equal(op.s, ' -> ');
+  assert.equal(op.color, EOT_ELEMENT_TYPES.link.color);        // the arrow carries the relation hue
+  const trump = segs.find((s) => s.s === 'Trump');
+  assert.equal(trump.role, 'ent');
+  assert.equal(trump.kindKey, 'is:Person');                    // and Trump takes its declared kind
+  // a quoted value that carries relational glyphs is never split
+  const attr = facingSegments('note.text = "a -> b : see"', 'attr');
+  assert.equal(attr.map((s) => s.s).join(''), 'note.text = "a -> b : see"');
+  assert.equal(attr.find((s) => s.role === 'str').s, '"a -> b : see"');
+});
+
+test('facingReadingLines attaches per-token segs and a kind legend of the kinds present', () => {
+  const eot = [
+    'Trump : Person',
+    'Housing -> Trump : affordability',
+    'AM ET -> July : originally',
+    'NATO -> Ankara : points',
+  ].join('\n');
+  const { lines, kindLegend } = facingReadingLines(eot);
+  // every line carries a segs breakdown that rejoins to its raw text
+  assert.ok(lines.every((l) => Array.isArray(l.segs) && l.segs.map((s) => s.s).join('') === l.s));
+  const kinds = kindLegend.map((k) => k.kind);
+  assert.ok(kinds.includes('time'), 'AM ET / July → time');
+  assert.ok(kinds.includes('org'), 'NATO → org');
+  assert.ok(kinds.includes('proper'), 'Housing / Ankara → name');
+  // declared types come after the heuristic kinds in the legend
+  assert.equal(kinds[kinds.length - 1], 'is:Person');
 });
 
 test('clampReadPrefs bounds size, line-height, width, theme and font', () => {
