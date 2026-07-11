@@ -614,6 +614,11 @@ table{border-collapse:collapse;width:100%}
             </div>
             <span style="flex:1"></span>
             <div style="display:flex;align-items:center;gap:8px">
+              <sc-if value="{{ graphHasSources }}">
+              <button onClick="{{ openTopicEntities }}" title="The entity web across the whole topic — with entity on/off toggles" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #E4E0FB" style-hover="filter:brightness(.98)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M7 7.2 10.6 16M16.8 7.4 13.4 16M7 6h10"/></svg>Entities</button>
+              <button onClick="{{ openTopicCausal }}" title="The causal DAG the sources are read as asserting — whole-topic or per-entity, with toggles" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#0B8E7E;background:#E4F6F1;border:1px solid #CBEBE3" style-hover="filter:brightness(.98)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v6m0 0-3 4m3-4 3 4M6 20h.01M12 20h.01M18 20h.01"/></svg>Causal DAG</button>
+              <span style="width:1px;height:20px;background:#EAEAEF;margin:0 2px"></span>
+              </sc-if>
               <sc-if value="{{ graphLive }}">
               <button onClick="{{ toggleAllTiers }}" title="{{ allTiersTitle }}" style="padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#5A5A64;border:1px solid #EAEAEF" style-hover="background:#F5F5F8">{{ allTiersLabel }}</button>
               </sc-if>
@@ -1263,17 +1268,50 @@ table{border-collapse:collapse;width:100%}
     </div>
   </sc-if>
 
-  <!-- ENTITY WEB GRAPH OVERLAY -->
+  <!-- GRAPH EXPLORER OVERLAY — entity web + causal DAG · whole-topic + per-entity · entity toggles -->
   <sc-if value="{{ webGraphShow }}">
     <div style="position:absolute;inset:0;z-index:48">
       <div onClick="{{ closeWebGraph }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
-      <div style="position:absolute;left:50%;top:40px;bottom:40px;transform:translateX(-50%);width:min(940px,94vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
-        <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #EAEAEF">
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;color:#5B4BE6;background:#EEEBFE;border-radius:5px;padding:2px 7px">WEB GRAPH</span>
-          <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ webGraphTitle }}</span>
+      <div style="position:absolute;left:50%;top:34px;bottom:34px;transform:translateX(-50%);width:min(1060px,95vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #EAEAEF">
+          <div style="display:flex;gap:3px;background:#F4F4F7;border-radius:9px;padding:3px">
+            <button onClick="{{ setWebKindEntity }}" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindEntFg }};background:{{ webKindEntBg }}">Entities</button>
+            <button onClick="{{ setWebKindCausal }}" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCausalFg }};background:{{ webKindCausalBg }}">Causal DAG</button>
+          </div>
+          <span style="font-family:'Newsreader',Georgia,serif;font-size:16px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ webGraphTitle }}</span>
           <button onClick="{{ closeWebGraph }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         </div>
-        <div ref="{{ setWebGraphEl }}" style="flex:1;min-height:0"></div>
+        <div style="flex:1;min-height:0;display:flex">
+          <div style="flex:0 0 232px;border-right:1px solid #EEEEF2;display:flex;flex-direction:column;overflow:hidden;background:#FCFCFD">
+            <div style="padding:11px 13px;border-bottom:1px solid #EEEEF2">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#A0A0AA;margin-bottom:6px">SCOPE</div>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <button onClick="{{ setWebScopeTopic }}" style="text-align:left;padding:7px 10px;border-radius:8px;font-size:12px;font-weight:600;color:{{ webScopeTopicFg }};background:{{ webScopeTopicBg }};border:1px solid {{ webScopeTopicBd }}">Whole topic</button>
+                <sc-if value="{{ webHasFocus }}">
+                  <div style="text-align:left;padding:7px 10px;border-radius:8px;font-size:12px;font-weight:600;color:{{ webScopeFocusFg }};background:{{ webScopeFocusBg }};border:1px solid {{ webScopeFocusBd }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Focus · {{ webFocusName }}</div>
+                </sc-if>
+              </div>
+              <div style="font-size:10.5px;color:#9A9AA4;line-height:1.5;margin-top:8px">{{ webKindNote }}</div>
+            </div>
+            <div style="padding:10px 13px 7px;display:flex;align-items:center;gap:7px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#A0A0AA;flex:1;min-width:0">{{ webToggleHead }}</div>
+              <button onClick="{{ webAllOn }}" style="font-size:10.5px;font-weight:600;color:#5B4BE6;padding:2px 7px;border-radius:6px" style-hover="background:#F1EFFE">All</button>
+              <button onClick="{{ webNoneOn }}" style="font-size:10.5px;font-weight:600;color:#8A8A95;padding:2px 7px;border-radius:6px" style-hover="background:#F2F2F6">None</button>
+            </div>
+            <div class="eo-scroll" style="flex:1;min-height:60px;overflow-y:auto;padding:0 8px 12px">
+              <sc-for list="{{ webToggles }}" as="t">
+                <div onClick="{{ t.toggle }}" title="{{ t.label }}" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12px;color:{{ t.fg }}" style-hover="background:#F4F4F7">
+                  <span style="width:15px;height:15px;border-radius:4px;border:1.5px solid {{ t.boxBd }};background:{{ t.boxBg }};flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;line-height:1">{{ t.check }}</span>
+                  <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ webTogglesEmpty }}">
+                <div style="padding:12px 6px;font-size:11.5px;color:#9A9AA4;line-height:1.5">{{ webTogglesEmptyMsg }}</div>
+              </sc-if>
+            </div>
+          </div>
+          <div ref="{{ setWebGraphEl }}" class="eo-scroll" style="flex:1;min-width:0;overflow:auto"></div>
+        </div>
       </div>
     </div>
   </sc-if>
@@ -1415,7 +1453,7 @@ class Component extends DCLogic {
       modelOpen: false, topicMenu: null, exportMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
-      entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null,
+      entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null, webGraphTick: 0,
       // The entity panel's Wikipedia referent, per 'docId#entId': { busy } while the
       // engine searches, then the confirmed referent (or { none }) — see _ensureWiki.
       wikiDefs: {},
@@ -1949,19 +1987,191 @@ class Component extends DCLogic {
     });
   }
   toggleEntityMode() { const on = !this.state.entityMode; this._setPref('eo_entmode', on); this._segCache = {}; this._viewCache = null; this.setState({ entityMode: on }); }
-  openWebGraph(docId, entId) { this.setState({ webGraphFor: { docId, entId } }); }
-  closeWebGraph() { if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; } this.setState({ webGraphFor: null }); }
+  // ── the graph explorer overlay ──────────────────────────────────────────────
+  // Two graphs (the entity web + the two-cursor causal DAG), each scoped to the whole topic OR to
+  // one entity, each with entity on/off toggles. `this._wg` is the LIVE config the surface draws
+  // from — mutated and redrawn imperatively (instant), because React's setState is async and must
+  // not drive the draw. `state.webGraphFor` mirrors only what the control column renders; each draw
+  // ends with a setState(tick) so the checkboxes and counts catch up.
+  openWebGraph(docId, entId) {
+    const label = (this._app.entityProfile(docId, entId) || {}).label || '';
+    this._wg = { kind: 'entity', scope: 'entity', docId, entId, entLabel: label, focusKey: null, focusLabel: null, hidden: new Set() };
+    this._tgToggles = [];
+    this.setState({ webGraphFor: this._wgMirror() });
+    if (this._tgEl) this._drawWebGraph();   // already open (e.g. re-opened from the entity panel) — redraw in place
+  }
+  openTopicGraph(kind) {
+    this._wg = { kind: kind === 'causal' ? 'causal' : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+    this._tgToggles = [];
+    this.setState({ webGraphFor: this._wgMirror() });
+    if (this._tgEl) this._drawWebGraph();   // already open — redraw with the new kind/scope in place
+  }
+  _wgMirror() {
+    const w = this._wg; if (!w) return null;
+    return { kind: w.kind, scope: w.scope, docId: w.docId, entId: w.entId, entLabel: w.entLabel, focusLabel: w.focusLabel };
+  }
+  closeWebGraph() {
+    if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; }
+    this._tgEl = null; this._wg = null; this._tgToggles = [];
+    this.setState({ webGraphFor: null });
+  }
   setWebGraphEl(el) {
-    if (!el || !this.state.webGraphFor || this._tgEl === el) return;
+    if (!el) return;
+    if (this._tgEl === el) return;   // same container across re-renders — already drawn
     this._tgEl = el;
-    const { docId, entId } = this.state.webGraphFor;
-    const data = this._app.tieredData(docId, entId);
-    if (this._tg) { try { this._tg.destroy(); } catch {} }
+    this._drawWebGraph();
+  }
+  setWebKind(kind) {
+    if (!this._wg || this._wg.kind === kind) return;
+    this._wg.kind = kind;                                   // the two graphs' node vocabularies differ,
+    this._wg.hidden = new Set();                            // so reset the toggles and any focus and
+    this._wg.focusKey = null; this._wg.focusLabel = null;  // land on the whole topic in the new kind
+    this._wg.scope = 'topic';
+    this.setState({ webGraphFor: this._wgMirror() });
+    this._drawWebGraph();
+  }
+  setWebScope(scope) {
+    if (!this._wg) return;
+    this._wg.scope = scope; this._wg.hidden = new Set();
+    if (scope === 'topic') { this._wg.focusKey = null; this._wg.focusLabel = null; }
+    this.setState({ webGraphFor: this._wgMirror() });
+    this._drawWebGraph();
+  }
+  toggleWebEntity(id) {
+    if (!this._wg) return;
+    const h = this._wg.hidden;
+    if (h.has(id)) h.delete(id); else h.add(id);
+    this._drawWebGraph();
+  }
+  webEntitiesAll(on) {
+    if (!this._wg) return;
+    this._wg.hidden = on ? new Set() : new Set((this._tgToggles || []).map((t) => t.id));
+    this._drawWebGraph();
+  }
+  _webFocusEntity(ref) {   // entity-kind: focus the tiered web on a clicked entity node
+    if (!this._wg || !ref) return;
+    this._wg.scope = 'entity'; this._wg.docId = ref.docId; this._wg.entId = ref.entId;
+    this._wg.entLabel = (this._app.entityProfile(ref.docId, ref.entId) || {}).label || '';
+    this._wg.hidden = new Set();
+    this.setState({ webGraphFor: this._wgMirror() });
+    this._drawWebGraph();
+  }
+  _webFocusCausal(key, label) {   // causal-kind: scope cursor 2 to a clicked node's neighbourhood
+    if (!this._wg) return;
+    this._wg.scope = 'entity'; this._wg.focusKey = key; this._wg.focusLabel = label || key;
+    this.setState({ webGraphFor: this._wgMirror() });
+    this._drawWebGraph();
+  }
+  _drawWebGraph() {
+    const el = this._tgEl, w = this._wg;
+    if (!el || !w) return;
+    if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; }
+    el.innerHTML = '';
+    try {
+      if (w.kind === 'causal') this._drawCausal(el, w);
+      else this._drawEntity(el, w);
+    } catch (e) {
+      el.innerHTML = '<div style="padding:20px;color:#B23A2E;font-size:12.5px">Graph failed to draw: ' + String((e && e.message) || e) + '</div>';
+      this._tgToggles = [];
+    }
+    this.setState({ webGraphTick: (this.state.webGraphTick || 0) + 1 });
+  }
+  _drawEntity(el, w) {
+    const data = (w.scope === 'entity' && w.entId != null)
+      ? this._app.tieredData(w.docId, w.entId)
+      : this._app.topicTieredData();
+    this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
+      .map((n) => ({ id: n.id, label: n.label }))
+      .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    const show = this._filterTiered(data, w.hidden);
     this._tg = window.EO.mountTieredGraph(el, {
-      nodes: data.nodes, edges: data.edges,
-      onOpen: (node) => { if (node && node.ref) { this.closeWebGraph(); this.openEntity(node.ref.docId, node.ref.entId); } },
-      countsLabel: `${data.nodes.length} nodes · ${data.edges.length} edges`,
+      nodes: show.nodes, edges: show.edges,
+      onOpen: (node) => { if (node && node.ref) this._webFocusEntity(node.ref); },
+      countsLabel: `${show.nodes.length} nodes · ${show.edges.length} edges`,
     });
+  }
+  _filterTiered(data, hidden) {
+    if (!hidden || !hidden.size) return data;
+    const nodes = data.nodes.filter((n) => !(n.kind === 'entity' && hidden.has(n.id)));
+    const live = new Set(nodes.map((n) => n.id));
+    let edges = data.edges.filter((e) => live.has(e.a) && live.has(e.b));
+    // an entity turned off shouldn't leave its lone source/claim node floating — drop context nodes
+    // left with no surviving edge, but keep entity nodes even if isolated so they stay clickable.
+    const deg = new Map();
+    for (const e of edges) { deg.set(e.a, (deg.get(e.a) || 0) + 1); deg.set(e.b, (deg.get(e.b) || 0) + 1); }
+    const kept = nodes.filter((n) => n.kind === 'entity' || (deg.get(n.id) || 0) > 0);
+    const keptIds = new Set(kept.map((n) => n.id));
+    return { nodes: kept, edges: edges.filter((e) => keptIds.has(e.a) && keptIds.has(e.b)) };
+  }
+  _drawCausal(el, w) {
+    const sources = this._app.dagSources();
+    if (!sources.length) {
+      el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:60ch">No source read yet — record a URL or import a document, then reopen this panel.</div>';
+      this._tgToggles = [];
+      return;
+    }
+    const full = window.EO.assertedDag(sources);   // the toggle universe = the DAG's own nodes
+    this._tgToggles = (full.nodes || []).map((n) => ({ id: n.key, label: (n.labels && n.labels[0]) || n.key }))
+      .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    const viewSn = this._activeSrc ? this._activeSrc() : null;   // the active viewer tab's source sn, or null
+    const inView = viewSn ? sources.find((x) => x.sn === viewSn) : null;
+    const primaryId = inView ? inView.docId : sources[0].docId;
+    const focus = (w.scope === 'entity' && w.focusKey) ? w.focusKey : null;
+    this._tg = window.EO.mountDagSurface(el, {
+      sources, primaryId, hidden: w.hidden, focus, focusLabel: w.focusLabel,
+      onFocus: (key, label) => this._webFocusCausal(key, label),
+      onFocusClear: () => this.setWebScope('topic'),
+    });
+  }
+  // The overlay's render values — kind tabs, scope, the entity/node toggle list. Read from the live
+  // `this._wg` (the draw's source of truth) and `this._tgToggles` (the current graph's node universe,
+  // filled by the last draw); `state.webGraphTick` bumps to re-run this after each imperative draw.
+  _webGraphVals() {
+    const wg = this._wg;
+    const noop = (el) => this.setWebGraphEl(el);
+    if (!this.state.webGraphFor || !wg) {
+      return { webGraphShow: false, setWebGraphEl: noop, closeWebGraph: () => this.closeWebGraph(),
+        webToggles: [], webTogglesEmpty: false, webHasFocus: false };
+    }
+    void this.state.webGraphTick;
+    const kind = wg.kind, scope = wg.scope, hidden = wg.hidden || new Set();
+    const toggles = this._tgToggles || [];
+    const onCount = toggles.reduce((n, t) => n + (hidden.has(t.id) ? 0 : 1), 0);
+    const isEnt = kind === 'entity';
+    const focusName = isEnt ? (wg.entLabel || 'this entity') : (wg.focusLabel || 'this node');
+    const hasFocus = scope === 'entity' && (isEnt ? wg.entId != null : !!wg.focusKey);
+    return {
+      webGraphShow: true,
+      setWebGraphEl: noop,
+      closeWebGraph: () => this.closeWebGraph(),
+      setWebKindEntity: () => this.setWebKind('entity'),
+      setWebKindCausal: () => this.setWebKind('causal'),
+      webKindEntFg: isEnt ? '#1B1B22' : '#8A8A95', webKindEntBg: isEnt ? '#fff' : 'transparent',
+      webKindCausalFg: !isEnt ? '#1B1B22' : '#8A8A95', webKindCausalBg: !isEnt ? '#fff' : 'transparent',
+      webGraphTitle: hasFocus ? focusName : 'Whole topic',
+      setWebScopeTopic: () => this.setWebScope('topic'),
+      webScopeTopicFg: scope === 'topic' ? '#1B1B22' : '#5A5A64',
+      webScopeTopicBg: scope === 'topic' ? '#EEEBFE' : '#fff',
+      webScopeTopicBd: scope === 'topic' ? '#DED8FD' : '#EAEAEF',
+      webHasFocus: hasFocus, webFocusName: focusName,
+      webScopeFocusFg: '#1B1B22', webScopeFocusBg: '#EEEBFE', webScopeFocusBd: '#DED8FD',
+      webKindNote: isEnt
+        ? 'Figures across the topic and the bonds among them. Click a node to focus its web.'
+        : 'What the sources are read as asserting causes what. Open a node, then “focus the DAG here”.',
+      webToggleHead: `${isEnt ? 'ENTITIES' : 'NODES'} ${onCount}/${toggles.length}`,
+      webAllOn: () => this.webEntitiesAll(true),
+      webNoneOn: () => this.webEntitiesAll(false),
+      webToggles: toggles.map((t) => {
+        const on = !hidden.has(t.id);
+        return { id: t.id, label: t.label, toggle: () => this.toggleWebEntity(t.id),
+          fg: on ? '#33333B' : '#9A9AA4', boxBg: on ? '#5B4BE6' : 'transparent',
+          boxBd: on ? '#5B4BE6' : '#CBCBD4', check: on ? '✓' : '' };
+      }),
+      webTogglesEmpty: toggles.length === 0,
+      webTogglesEmptyMsg: isEnt
+        ? 'No entities in this topic yet — record a source first.'
+        : 'No causal claims read in these sources yet.',
+    };
   }
 
   // ── graph camera + focus ─────────────────────────────────────────────────
@@ -3091,10 +3301,11 @@ class Component extends DCLogic {
       ...this._acctVals(),
       // Settings → roll back to a prior PR (the version time-machine)
       ...this._versionVals(),
-      // web graph overlay
-      webGraphShow: !!st.webGraphFor,
-      webGraphTitle: st.webGraphFor && prof ? prof.label : (st.webGraphFor ? 'Entity web' : ''),
-      setWebGraphEl: (el) => this.setWebGraphEl(el), closeWebGraph: () => this.closeWebGraph(),
+      // graph explorer overlay (entity web + causal DAG · whole-topic + per-entity · entity toggles)
+      ...this._webGraphVals(),
+      graphHasSources: sources.length > 0,
+      openTopicEntities: () => this.openTopicGraph('entity'),
+      openTopicCausal: () => this.openTopicGraph('causal'),
       // monologue
       monologueOpen: st.monologueOpen, logCount: String(app.state.log.length),
       auditStats, logActions: st.logMode === 'actions', logReasoning: st.logMode === 'reasoning', logReflections: st.logMode === 'reflections',

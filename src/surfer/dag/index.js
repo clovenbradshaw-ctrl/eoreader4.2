@@ -188,6 +188,45 @@ export const distinguishingEvidence = (corpus) => {
   }));
 };
 
+// Scope an already-built asserted DAG (cursor 2) to a subset of its nodes — the display filter
+// behind the surface's entity on/off toggles and its per-entity focus. It NEVER re-reads the
+// corpus (it is not a floor change) and it NEVER invents an edge; it only hides what the viewer
+// turned off and, when a `focus` node is named, keeps that node's whole weakly-connected
+// neighbourhood so a mechanism X→M→…→Y around the focus survives intact. The four complexities are
+// RECOMPUTED on the scoped subgraph — a confounder or mechanism that only held through a
+// now-hidden node honestly disappears, rather than dangling against a node no longer shown.
+//   hidden: iterable of node keys to drop.
+//   focus:  a node key to scope to (its connected component over the surviving edges), or null.
+export const scopeAssertedDag = (asserted, { hidden = null, focus = null } = {}) => {
+  if (!asserted || !Array.isArray(asserted.nodes)) return asserted;
+  const hiddenSet = hidden instanceof Set ? hidden : new Set(hidden || []);
+  if (!hiddenSet.size && !focus) return asserted;   // nothing to scope — hand back the whole graph
+  let nodes = asserted.nodes.filter((n) => !hiddenSet.has(n.key));
+  let edges = asserted.edges.filter((e) => !hiddenSet.has(e.from) && !hiddenSet.has(e.to));
+  if (focus && !hiddenSet.has(focus)) {
+    const adj = new Map();
+    const link = (a, b) => { if (!adj.has(a)) adj.set(a, []); adj.get(a).push(b); };
+    for (const e of edges) { link(e.from, e.to); link(e.to, e.from); }
+    const keep = new Set([focus]); const stack = [focus];
+    while (stack.length) { const x = stack.pop(); for (const y of adj.get(x) || []) if (!keep.has(y)) { keep.add(y); stack.push(y); } }
+    nodes = nodes.filter((n) => keep.has(n.key));
+    edges = edges.filter((e) => keep.has(e.from) && keep.has(e.to));
+  }
+  return Object.freeze({
+    ...asserted,
+    nodes: Object.freeze(nodes),
+    edges: Object.freeze(edges),
+    complexities: Object.freeze({
+      confounding: confounders(edges),
+      reverse: reversePairs(edges),
+      mechanism: mechanisms(edges),
+      construct: constructConcerns(nodes),
+    }),
+    scoped: true,
+    focus: focus || null,
+  });
+};
+
 // The one-call convenience: both cursors over one doc (or a corpus), for a caller who wants the
 // whole reading in one object. Explicitly two SEPARATE graphs — the shape of the argument and
 // the shape of the described world are never merged.
