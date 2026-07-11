@@ -91,6 +91,49 @@ broken.template = "<div>{{count}} of {{total}}</div>"`, { path: 'broken' });
     'the organ names the undeclared slot inside the render function');
 });
 
+// ── completeness — the laws that catch a WEAK model's incomplete output ──────────
+// A reference check alone passes an empty widget trivially (no refs → nothing unbound),
+// so these were added after a real 0.5B model's malformed output slipped through as
+// "clean". Each is the UI-grain analog of a binding law.
+
+test('an empty / un-prefixed blueprint (what a weak model emits) is rejected, not passed', () => {
+  // `state = …` / `template = …` without the `NAME.` prefix never attach — the widget
+  // ends up empty. The old reference-only gate called this clean; completeness does not.
+  const v = composeWidgetAndVerify(`
+counter : Widget
+state = "count: 0"
+template = "<div>{{count}}</div>"`, { path: 'weak' });
+  assert.equal(v.ok, false);
+  assert.ok(v.findings.some((f) => f.law === 'no-template'), 'a widget with no attached template is caught');
+});
+
+test('a button bound to a handler that does not exist is rejected (unbound-handler)', () => {
+  const v = composeWidgetAndVerify(`
+c : Widget
+c.state = "n: 0"
+c.template = "<button data-on='click:increment'>+</button>"`, { path: 'nohandler' });
+  assert.equal(v.ok, false);
+  assert.ok(v.findings.some((f) => f.law === 'unbound-handler' && f.name === 'increment'),
+    'a button wired into the Void is named');
+});
+
+test('a malformed binding (= instead of :) is rejected (a dead button)', () => {
+  // exactly the typo a 1.5B model made: data-on='click=dec'
+  const v = composeWidgetAndVerify(`
+c : Widget
+c.state = "n: 0"
+c.template = "<button data-on='click:inc'>+</button><button data-on='click=dec'>-</button>"
+inc : Handler
+inc.body = "state.n += 1;"
+inc -> c : handlerOf
+dec : Handler
+dec.body = "state.n -= 1;"
+dec -> c : handlerOf`, { path: 'malformed' });
+  assert.equal(v.ok, false);
+  assert.ok(v.findings.some((f) => f.law === 'malformed-binding'),
+    "data-on='click=dec' is not event:handler form — the button would be dead");
+});
+
 test('the widget is deterministic — same blueprint, byte-identical HTML', () => {
   assert.equal(composeWidget(COUNTER).html, composeWidget(COUNTER).html);
 });

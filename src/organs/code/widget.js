@@ -43,16 +43,19 @@ import { scrub } from './facts.js';
 
 // ── the tiny reactive shell (inlined — no dependency) ─────────────────────────────
 // state → render(state) → innerHTML; every [data-on="ev:name"] binds handlers[name],
-// re-rendering after it runs. Deterministic, ~15 lines, the whole runtime.
+// re-rendering after it runs. `refresh` is the redraw handle a handler calls to drive
+// animation off a timer (setInterval → mutate state → refresh) — a real app primitive,
+// module-scope so a handler body resolves it (deferred; declared here). Deterministic,
+// still ~15 lines, the whole runtime.
 const SHELL = (mount) => `  const __root = document.getElementById(${JSON.stringify(mount)});
-  const __draw = () => {
+  const refresh = () => {
     __root.innerHTML = render(state);
     for (const el of __root.querySelectorAll('[data-on]')) {
       const [ev, name] = el.getAttribute('data-on').split(':');
-      if (handlers[name]) el.addEventListener(ev, (event) => { handlers[name](event); __draw(); });
+      if (handlers[name]) el.addEventListener(ev, (event) => { handlers[name](event); refresh(); });
     }
   };
-  __draw();`;
+  refresh();`;
 
 // ── template → a render function body ──────────────────────────────────────────────
 // Escape the HTML so it is a safe template literal, then turn `{{expr}}` into `${expr}`.
@@ -173,16 +176,45 @@ export const composeWidget = (blueprintEot, opts = {}) => {
   return Object.freeze({ html, script, widget, handlers, helpers, state: stateBody, stateKeys, diagnostics });
 };
 
+// ── completeness — the UI-grain laws the reference check alone misses ───────────────
+// Binding-validation passes an EMPTY widget trivially (no references → nothing unbound),
+// so a weak model's incomplete output slips through as "clean". These laws close that:
+// a widget must actually BE one, and every button must be wired to a handler that exists
+// (the UI analog of `unbound` — a data-on into the Void).
+const completeness = (w) => {
+  const out = [];
+  const flag = (law, severity, message, name = null) => out.push({ law, severity, message, name, mod: 'widget' });
+  if (!w.widget || !w.widget.name) { flag('no-widget', 'error', 'no `X : Widget` in the blueprint — nothing to build'); return out; }
+  if (w.widget.template == null) flag('no-template', 'error', `widget '${w.widget.name}' has no .template — it would render empty`);
+  if (w.widget.state == null && w.handlers.length === 0) flag('no-behavior', 'error', `widget '${w.widget.name}' has neither .state nor a handler — it is inert`);
+
+  const defined = new Set(w.handlers.map((h) => h.name));
+  const wired = new Set();
+  // read EVERY data-on, then validate its shape — a malformed binding (a `=` for the
+  // `:`, an empty handler) renders a dead button, so it must be caught, not skipped.
+  for (const m of String(w.widget.template ?? '').matchAll(/data-on=['"]([^'"]*)['"]/g)) {
+    const shape = /^([A-Za-z]+):([A-Za-z_$][\w$]*)$/.exec(m[1]);
+    if (!shape) { flag('malformed-binding', 'error', `data-on='${m[1]}' is not in event:handler form (e.g. click:inc) — the button would be dead`, m[1]); continue; }
+    wired.add(shape[2]);
+    if (!defined.has(shape[2]))
+      flag('unbound-handler', 'error', `the template binds data-on '${shape[2]}' but no handler '${shape[2]}' is defined — a button wired into the Void`, shape[2]);
+  }
+  for (const h of w.handlers)
+    if (!wired.has(h.name)) flag('unused-handler', 'note', `handler '${h.name}' is defined but no data-on binds it — a dwelling handler`, h.name);
+  return out;
+};
+
 // ── the checkpoint — read the emitted behavior back through the organ ───────────────
 // composeWidgetAndVerify(blueprintEot, opts) → { html, script, findings, ok, ... }
-// The <script> is extracted and read as a module: state declared, render/handlers wired,
-// every template slot and handler reference resolved — or the widget is not trusted.
+// Two passes: the reference/dependency laws over the emitted <script> (state declared,
+// every template slot and handler reference resolved), AND the completeness laws above.
+// A widget is trusted only when BOTH are clean — so a weak model's empty or half-wired
+// output is caught, not passed.
 export const composeWidgetAndVerify = (blueprintEot, opts = {}) => {
   const w = composeWidget(blueprintEot, opts);
-  // wrap the script so a bare re-render/handlers read as a module the analyzer can walk
   const asModule = w.script.replace(/document\.getElementById/g, '/* dom */ (() => ({}))');
   const read = readCodebase([{ path: (opts.path ?? 'widget') + '.js', text: asModule }], { doc: false, globals: ['document'] });
-  const findings = read.issues;
+  const findings = [...read.issues, ...completeness(w)];
   const ok = !findings.some((f) => f.severity === 'error');
   return Object.freeze({ ...w, findings, ok, report: read.report });
 };
