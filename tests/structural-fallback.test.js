@@ -78,6 +78,32 @@ test('retrieve: an honest absence is preserved — a subject the document lacks 
   assert.equal(out.spans.length, 0, 'strict grounded mode keeps the empty set for the honest-absence answer');
 });
 
+test('end to end: auto mode never free-associates over a loaded doc — no contact answers the absence', async () => {
+  const doc = nprDoc();
+  // "dolphins" is a pointed subject the NPR page never mentions → zero lexical contact. The old auto
+  // default flipped this to route 'chat' and let the model write a general-knowledge essay (the
+  // observed "wild" → orca drift); the reader's promise is "answers only from your recorded sources".
+  const r = await runTurn({
+    question: 'tell me about dolphins',
+    doc, model: createModel('echo'), embedder, auditLog: createAuditLog(), grounding: 'auto',
+  });
+  assert.equal(r.route, 'grounded', 'a doc-loaded no-contact turn stays grounded, not free chat');
+  assert.equal((r.sources || []).length, 0, 'nothing is cited — there was no contact to cite');
+  assert.match(r.answer, /does not say|doesn.t (say|cover)|nothing here|no .*information/i,
+    `the answer is the typed absence, not a general-knowledge essay (got: ${r.answer})`);
+  assert.ok(r.webProposal && r.webProposal.trigger === 'gap',
+    'the unclosable gap is offered to the web (fetch real, recordable sources) rather than filled from memory');
+});
+
+test('end to end: free-form mode still answers from general knowledge (the escape hatch is intact)', async () => {
+  const doc = nprDoc();
+  const r = await runTurn({
+    question: 'tell me about dolphins',
+    doc, model: createModel('echo'), embedder, auditLog: createAuditLog(), grounding: 'free',
+  });
+  assert.equal(r.route, 'chat', 'free mode ignores the document and answers as chat, as asked');
+});
+
 test('end to end: the broad ask now engages the document instead of shrugging', async () => {
   const doc = nprDoc();
   const audit = createAuditLog({ capacity: 64 });

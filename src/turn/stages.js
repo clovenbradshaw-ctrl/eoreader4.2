@@ -293,11 +293,18 @@ export const stages = {
     }
 
     if (spans.length === 0) {
-      // Strict grounded mode never falls through to free generation: it stays on the
-      // grounded route and answers the absence ("the document doesn't cover this")
-      // rather than inventing from outside knowledge.
-      if (ctx.grounding === 'grounded') return { ...ctx, spans: [], retrievalQuery: query };
-      // Auto / default: doc loaded but nothing matches — fall through to ungrounded chat.
+      // NO CONTACT — the reading made no lexical contact with the document at all. A reader whose
+      // whole promise is "answers only from your recorded sources — nothing enters an answer
+      // unrecorded" must not free-associate an essay from outside knowledge here (the observed
+      // "wild" → orca-essay drift: the model itself narrated "I didn't find any information ... in
+      // the text, but from general knowledge …" and then wrote four paragraphs anyway). So stay on
+      // the GROUNDED route and answer the typed absence ("the document doesn't cover this") — and,
+      // in web-auto, propose the gap search that fetches real, recordable sources. This unifies the
+      // auto default with strict-grounded mode: leaving the grounding chip on its default is no
+      // longer a licence to invent. Only an explicit 'free' turn (the user asked to ignore the
+      // document) — or a doc-less turn — still falls through to ungrounded chat. A subject the
+      // corpus genuinely lacks was already handled this way in strict mode; auto now matches.
+      if (ctx.grounding !== 'free' && ctx.doc) return { ...ctx, spans: [], retrievalQuery: query };
       return { ...ctx, spans: [], route: 'chat', retrievalQuery: query };
     }
     return { ...ctx, spans, retrievalQuery: query };
