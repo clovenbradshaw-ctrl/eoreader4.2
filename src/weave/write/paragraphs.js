@@ -30,12 +30,17 @@
 
 import { retreads } from '../../surfer/salience.js';
 
-// The continuation cue — one paragraph forward, or a clean close. DONE is the
-// model's own stop: it is held back by the gate and never reaches the surface.
+// The continuation cue — one NEW paragraph forward, or a clean close. A close is the
+// default: left told merely to "continue", a small talker pads the answer to length by
+// re-covering ground it already made in fresh words (the orca run said "large brain →
+// intelligence" across four paragraphs). So the cue makes DONE the easy path and forbids
+// reworded restatement outright — continue only when there is a genuinely new point. DONE
+// is the model's own stop: it is held back by the gate and never reaches the surface.
 export const CONTINUE_CUE =
-  'Continue your answer with the next paragraph. Pick up where you left off — do not ' +
-  'repeat or rephrase what you already wrote, and stay grounded in what you read. ' +
-  'If your answer is already complete, reply with only DONE.';
+  'Continue ONLY if you have a genuinely new point to make — one you have not made yet. ' +
+  'If you do, add just that point, grounded in what you read, and pick up where you left ' +
+  'off; do not restate, re-explain, or reword anything you already wrote, even in other ' +
+  'words. If you have already made your points, do not pad the answer out — reply with only DONE.';
 
 // The model's close, alone on its reply. Anchored to the WHOLE trimmed text so a real
 // sentence that happens to open with "Done…" is never swallowed.

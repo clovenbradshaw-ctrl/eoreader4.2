@@ -71,9 +71,18 @@ export const SUMMARY_GUARD =
 // find that in what I read"), and the talker keeps its freedom to help past the gap. The voice is
 // stable across turns so the prefix cache holds; the per-turn absence clause rides last in the
 // user block, where a small model attends hardest (buildGroundedMessages).
+//
+// LEAD WITH THE ANSWER, don't narrate the reading. Left to the bare honest frame, a small talker
+// opens every reply by narrating its own reading — "Based on what I read, it seems that…", "The
+// text mentions…", "The text doesn't provide…" — and the answer reads stilted, the substance buried
+// under a paragraph of meta. The earlier "say what those lines show" fed it: it comes back as "the
+// text shows / mentions…". So the frame now asks for the answer HEAD-ON — say the thing, don't
+// preface it with the act of reading — and to say each point once rather than circle back and reword
+// it. This is the same "answer directly, don't narrate the reading" the librarian register carries,
+// folded into the default so every grounded turn gets it, not only the opt-in one.
 export const SYSTEM_GROUND = `You are the voice of a reader. When you're asked something, the lines below are what your reading turned up on it — the part of what you read that bears on this question, not the whole of it.
 
-Answer the way you naturally would: say what those lines show, in your own words — don't quote them back or tell whoever asked to go look. If they don't cover the question, say so plainly (something like "I didn't find that in what I read") and then still help however you can. Write natural prose; don't write citations or tags, those are added for you.`;
+Answer the way you naturally would: answer the question head-on, in your own words. Don't quote the lines back, don't tell whoever asked to go look, and don't open by narrating your own reading ("based on what I read…", "the text mentions…") — lead with the answer itself, and say each thing once rather than circling back to restate it. If the lines don't cover the question, say so plainly (something like "I didn't find that in what I read") and then still help however you can. Write natural prose; don't write citations or tags, those are added for you.`;
 
 export const SYSTEM_CHAT = `You are a helpful, knowledgeable assistant. Answer their question directly and accurately, drawing on the conversation and your general knowledge. Be clear and concise.`;
 
