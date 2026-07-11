@@ -97,6 +97,15 @@ export const foldNarrative = (name, data = {}) => {
       return (d.fired && d.fired.length)
         ? { kind: 'warn', text: `Flagged ${plural(d.fired.length, 'unsupported claim')}` }
         : null;
+    case 'validate':
+      // The model-prompt check ("does this sound right?") speaks only when it ran and could
+      // not support the draft — the reader read its own answer back against the lines. On a
+      // one-shot turn it holds the draft back (gated); while streaming the answer is already
+      // shown, so it rides flagged. A pass or a no-op is silent — a beat the reader needn't watch.
+      if (!d.ran || d.verdict !== 'unsupported') return null;
+      return { kind: 'warn', text: d.gated
+        ? 'Checked the draft against the lines — unsupported, so I held it back'
+        : "Checked the draft against the lines — couldn't support it" };
     default:
       return null;
   }

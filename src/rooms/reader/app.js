@@ -1198,6 +1198,12 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
         auditLog: audit, history,
         stream: true,
+        // Arm the model-prompt validation ("does this sound right?"): when a grounded answer
+        // earned no witness and the mechanical read already doubts it, the reader checks its
+        // own draft against the lines. While streaming (the reader has already seen the text)
+        // an unsupported verdict rides as a refusing flag; a one-shot turn gates to an honest
+        // absence. Off elsewhere by default — the golden turns stay byte-identical.
+        validate: true,
         ...(longform ? { maxTokens: LONGFORM_MAX_TOKENS, longform: true } : {}),
         // A backend slow (or unable) to honor the abort keeps handing us tokens after Stop; appending
         // them to the already-finalized bubble is the "I hit Stop but it kept typing" bug. Once the

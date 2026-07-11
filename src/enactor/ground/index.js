@@ -33,3 +33,8 @@ export { contentTerms } from './spans.js';
 // the document graph, and judge the groundedness of what the graph holds — counting the
 // diverse, independent origins that witness each claim (docs/creative-grounded-modes.md).
 export { reflectAnswer, eotLineOf } from './reflect.js';
+// The model-prompt validation ("does this sound right?"): the semantic check the lexical
+// veto battery cannot make. Handed its own draft beside the lines it read, the reader
+// judges whether the answer actually follows from them — catching a fabrication that shares
+// the retrieved passages' vocabulary but ties to nothing (the `unbound-contact` that rides).
+export { validateAnswer, parseValidationVerdict, buildValidationMessages, SYSTEM_VALIDATE } from './validate.js';

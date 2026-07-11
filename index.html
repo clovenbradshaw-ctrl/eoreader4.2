@@ -2550,8 +2550,8 @@ class Component extends DCLogic {
       // 'unverified' rides as a full banner above the body (a stopped/stalled draft the grounding
       // pipeline never checked), so it does not also need a cryptic footer chip — drop it here.
       const flagChips = (mm.flags || []).filter((f) => (f.id !== 'low-coverage' || !cites.length) && f.id !== 'unverified').map((f) => ({
-        label: f.id, fg: /contradic|unbound/.test(f.id) ? '#B23A2E' : '#9A6B12',
-        bg: /contradic|unbound/.test(f.id) ? '#FBE9E6' : '#FBF1DA', bd: /contradic|unbound/.test(f.id) ? '#F2D3CD' : '#EEDCA9',
+        label: f.id, fg: /contradic|unbound|validation/.test(f.id) ? '#B23A2E' : '#9A6B12',
+        bg: /contradic|unbound|validation/.test(f.id) ? '#FBE9E6' : '#FBF1DA', bd: /contradic|unbound|validation/.test(f.id) ? '#F2D3CD' : '#EEDCA9',
       }));
       const loading = app.state.model.state === 'loading';
       // the research trail — the live "what am I researching / thinking" stream (app.js beats)
