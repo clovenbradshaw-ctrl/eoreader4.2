@@ -319,7 +319,28 @@ const bestMatch = (claim, spans, { idf = () => 1, fieldByIdx = null } = {}) => {
   return best;
 };
 
-export const renderBound = (bound) =>
+// The claim-grain honesty marker. A cited claim renders with its [sN]. An UNcited
+// claim that made NO lexical contact with any span (score ≤ CONTACT_FLOOR, and no
+// edge-grounding) is "prose from nowhere" — the model's own assertion, not anything
+// the reading turned up. Under `mark`, that claim is surfaced at claim grain the way a
+// citation is, so a grounded answer can no longer pass an unsourced sentence off as
+// sourced. This is the leak the shipped woodpeckers turn showed: "They're social birds
+// and are often seen in flocks." bound at score 0 (false, in no source) and rode
+// indistinguishable from the cited claims — then became the premise of the next turn.
+// Flag-and-tell, never gag: the claim still ships, it just wears its provenance. A
+// contacted-but-uncited paraphrase (0 < score < the citation bar) is NOT marked — it
+// touched a span; only the zero-contact claim is called out. Default off ⇒ every
+// existing caller (bindAndVeto, the weld witness) is byte-identical.
+export const UNSOURCED_MARK = '[no source]';
+
+const isProseFromNowhere = (b) =>
+  !b.citation && !b.edgeGrounded && (b.score || 0) <= CONTACT_FLOOR;
+
+export const renderBound = (bound, { mark = false } = {}) =>
   bound
-    .map(b => (b.citation ? `${b.claim} [${b.citation}]` : b.claim))
+    .map(b => {
+      if (b.citation) return `${b.claim} [${b.citation}]`;
+      if (mark && isProseFromNowhere(b)) return `${b.claim} ${UNSOURCED_MARK}`;
+      return b.claim;
+    })
     .join(' ');
