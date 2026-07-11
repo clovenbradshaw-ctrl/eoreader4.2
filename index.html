@@ -262,15 +262,23 @@ table{border-collapse:collapse;width:100%}
         </div>
 
         <div style="display:flex;flex-direction:column">
-          <button onClick="{{ toggleStatus }}" style="width:100%;display:flex;align-items:center;gap:11px;background:#F7F7FA;border:1px solid #ECECF1;border-radius:10px;padding:10px 12px" style-hover="background:#F2F2F6">
-            <span style="position:relative;width:8px;height:8px;flex:0 0 auto"><span style="position:absolute;inset:0;border-radius:50%;background:{{ statusColor }};animation:eoPulse 2.6s ease-in-out infinite"></span></span>
-            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
-              <span style="font-size:12.5px;font-weight:600;color:#3A3A44">{{ status.title }}</span>
-              <span style="font-size:11.5px;color:#9A9AA4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ status.sub }}</span>
-            </span>
-            <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border-radius:6px;padding:2px 6px;flex:0 0 auto">{{ status.chip }}</span>
-            <span style="color:#B4B4BE;flex:0 0 auto;transform:rotate({{ statusRot }});transition:transform .16s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
-          </button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button onClick="{{ toggleStatus }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:11px;background:#F7F7FA;border:1px solid #ECECF1;border-radius:10px;padding:10px 12px" style-hover="background:#F2F2F6">
+              <span style="position:relative;width:8px;height:8px;flex:0 0 auto"><span style="position:absolute;inset:0;border-radius:50%;background:{{ statusColor }};animation:eoPulse 2.6s ease-in-out infinite"></span></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+                <span style="font-size:12.5px;font-weight:600;color:#3A3A44">{{ status.title }}</span>
+                <span style="font-size:11.5px;color:#9A9AA4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ status.sub }}</span>
+              </span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border-radius:6px;padding:2px 6px;flex:0 0 auto">{{ status.chip }}</span>
+              <span style="color:#B4B4BE;flex:0 0 auto;transform:rotate({{ statusRot }});transition:transform .16s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+            </button>
+            <!-- The UNIVERSAL Stop — shown whenever anything long is running (a chat turn OR an ingest:
+                 a URL fetch, a web search, a page/file import), so Stop is reachable no matter which op
+                 is in flight or which tab is open. app.stop() trips the current op's signal at once. -->
+            <sc-if value="{{ canStop }}">
+              <button onClick="{{ stopGen }}" title="Stop" aria-label="Stop" style="flex:0 0 auto;width:40px;height:40px;border-radius:10px;background:#FBE9E6;color:#B23A2E;border:1px solid #F3D5CF;display:flex;align-items:center;justify-content:center" style-hover="background:#F6DCD7"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+            </sc-if>
+          </div>
           <sc-if value="{{ statusOpen }}">
             <div style="margin-top:8px;background:#FBFBFD;border:1px solid #EFEFF3;border-radius:10px;padding:12px">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
@@ -2359,7 +2367,7 @@ class Component extends DCLogic {
       return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
-        statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true,
+        statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {},
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
     }
@@ -2372,7 +2380,7 @@ class Component extends DCLogic {
       return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
-        statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true,
+        statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {},
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
     }
@@ -2980,6 +2988,9 @@ class Component extends DCLogic {
       chatInput: st.chatInput, onChatInput: (e) => this.onChatInput(e), onChatKey: (e) => this.onChatKey(e),
       sendChat: () => this.sendChat(), setChatScroll: (el) => this.setChatScroll(el),
       generating, notGenerating: !generating, stopGen: () => app.stop(),
+      // Stop is reachable whenever ANY long op is in flight — a chat turn (generating) or an ingest
+      // (app.state.busy: a URL fetch, a web search, a page/file import) — not just during a turn.
+      canStop: !!(busy || generating),
       chatPlaceholder: sources.length ? 'Ask about what you’ve read…' : 'Record a source first — then ask about it…',
       // export chat (+ audit)
       hasChatExport: st.tab === 'chat' && messages.length > 0,
