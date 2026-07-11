@@ -276,8 +276,12 @@ table{border-collapse:collapse;width:100%}
       <div style="flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:0 12px;border-bottom:1px solid #EAEAEF;background:#fff;height:46px">
         <!-- Only the TABS scroll horizontally. The export menu + flag line sit OUTSIDE this
              overflow-x container so the export dropdown can drop below the 46px bar without
-             being clipped (overflow-x:auto also clips overflow-y — the bug that hid it). -->
-        <div class="eo-scroll" style="flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:2px;height:46px;overflow-x:auto">
+             being clipped (overflow-x:auto also clips overflow-y — the bug that hid it).
+             overflow-y:hidden is REQUIRED: a lone overflow-x:auto computes overflow-y to
+             `auto`, and the tabs' `border-bottom:2px` + `margin-bottom:-1px` push the content
+             1px past the 46px bar — enough to render a stray vertical scrollbar right before
+             the export button. Pinning overflow-y:hidden keeps this a horizontal-only rail. -->
+        <div class="eo-scroll" style="flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:2px;height:46px;overflow-x:auto;overflow-y:hidden">
         <sc-for list="{{ tabs }}" as="tb">
           <button onClick="{{ tb.select }}" style="flex:0 0 auto;height:46px;display:flex;align-items:center;gap:7px;padding:0 14px;color:{{ tb.fg }};font-size:13px;font-weight:{{ tb.weight }};border-bottom:2px solid {{ tb.ul }};margin-bottom:-1px">
             {{ tb.label }}
