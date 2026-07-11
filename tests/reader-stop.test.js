@@ -82,6 +82,16 @@ test('Stop freezes the answer bubble even when the backend keeps decoding', asyn
   assert.equal(pending.pending, false, 'the turn settled the moment Stop was hit');
   assert.equal(pending.route, 'stopped', 'the settled turn is marked stopped, not errored');
 
+  // The stop path bypasses finishMessage, so the grounding pipeline (bind/factcheck/veto) never ran
+  // over the frozen partial. markStoppedPartial reconciles the metadata so the draft can never read
+  // as a checked answer — in the bubble or a later export. (The "New topic" export showed the bug:
+  // route "stopped" while `stopped` stayed false, `flags` empty.)
+  assert.equal(pending.stopped, true, 'route AND the stopped flag now agree — no metadata contradiction');
+  assert.equal(pending.grounded, false, 'a stopped partial is never grounded');
+  assert.equal(pending.unverified, true, 'the frozen partial is flagged unverified — grounding never checked it');
+  assert.ok((pending.flags || []).some((f) => f.id === 'unverified'),
+    'the unverified flag rides so the export/audit records why the draft is unchecked');
+
   await askP;
 });
 
@@ -97,4 +107,5 @@ test('a turn that runs to completion still streams the whole answer (the guard o
   assert.notEqual(msg.route, 'error', 'an un-stopped turn does not error');
   assert.ok((msg.text || '').length > 20, 'the full answer streamed through when never stopped');
   assert.equal(msg.pending, false, 'the completed turn settled');
+  assert.ok(!msg.unverified, 'a completed answer is not flagged unverified — it ran the grounding pipeline');
 });

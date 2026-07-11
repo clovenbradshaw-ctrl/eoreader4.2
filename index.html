@@ -522,6 +522,12 @@ table{border-collapse:collapse;width:100%}
                             </sc-if>
                           </div>
                         </sc-if>
+                        <sc-if value="{{ m.unverified }}">
+                          <div style="display:flex;align-items:flex-start;gap:7px;margin:2px 0 9px;padding:7px 10px;background:#FBF1DA;border:1px solid #EEDCA9;border-radius:8px;font-size:12px;line-height:1.5;color:#8A6A12">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;margin-top:1px"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
+                            <span>Stopped before this could be checked against your record — the text below is the model's unverified draft, not a grounded answer.</span>
+                          </div>
+                        </sc-if>
                         <sc-if value="{{ m.hasBody }}">
                           <div style="font-size:14.5px;line-height:1.62;color:#2A2A32">
                             <sc-for list="{{ m.paras }}" as="pp">
@@ -2492,7 +2498,9 @@ class Component extends DCLogic {
         const chip = contested ? this._stChip('Contested') : this._stChip('Supported');
         return { label: c.reg, status: contested ? 'Contested' : 'Supported', quote: c.text, fg: chip.fg, bg: chip.bg, bd: chip.bd, hasSwatch: this.state.entityMode, swatch: this._sourceColor(c.sn).line, open: () => this.openViewer(c.sn, c.text) };
       });
-      const flagChips = (mm.flags || []).filter((f) => f.id !== 'low-coverage' || !cites.length).map((f) => ({
+      // 'unverified' rides as a full banner above the body (a stopped/stalled draft the grounding
+      // pipeline never checked), so it does not also need a cryptic footer chip — drop it here.
+      const flagChips = (mm.flags || []).filter((f) => (f.id !== 'low-coverage' || !cites.length) && f.id !== 'unverified').map((f) => ({
         label: f.id, fg: /contradic|unbound/.test(f.id) ? '#B23A2E' : '#9A6B12',
         bg: /contradic|unbound/.test(f.id) ? '#FBE9E6' : '#FBF1DA', bd: /contradic|unbound/.test(f.id) ? '#F2D3CD' : '#EEDCA9',
       }));
@@ -2535,6 +2543,10 @@ class Component extends DCLogic {
           : loading ? `● loading ${app.state.model.backend} · ${Math.round((app.state.model.progress || 0) * 100)}%`
           : '● reading the record',
         hasBody: paras.length > 0, paras,
+        // A stopped/stalled turn froze whatever streamed BEFORE the grounding pipeline could check
+        // it (app.js markStoppedPartial) — banner it as an unverified draft so it never reads as a
+        // grounded answer, independent of links mode or the badge.
+        unverified: finished && !!mm.unverified,
         showBadge: finished && !!mm.route && mm.route !== 'empty' && mm.route !== 'smalltalk',
         badge: mm.grounded ? 'grounded' : (mm.route === 'error' ? 'error' : mm.unbound ? 'unbound' : mm.route || ''),
         badgeFg: mm.grounded ? '#1E8A50' : '#9A6B12', badgeBg: mm.grounded ? '#E7F6EC' : '#FBF1DA',

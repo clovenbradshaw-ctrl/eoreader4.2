@@ -901,6 +901,28 @@ export const createReaderApp = ({ audit } = {}) => {
   const keepAlive = (p, opts) => keepGuardAlive(stallGuard, p, opts);
   const keepAliveFn = (fn) => (typeof fn === 'function' ? (...a) => keepAlive(fn(...a)) : fn);
 
+  // markStoppedPartial(pending, stoppedOrStalled, hadPartial) — reconcile a STOPPED/STALLED turn's
+  // metadata on the catch path. Stop (or the 45s watchdog) settles the turn by rejecting the guard
+  // race, so the catch below runs and finishMessage NEVER does — which means the grounding pipeline
+  // (bind → factcheck → veto, plus the "underline the unsourced facts" marking) never ran over
+  // whatever streamed. Left alone, the frozen partial reads as a normal answer wearing only a small
+  // "ungrounded" chip, and its metadata lies: the "New topic" export showed route "stopped" while
+  // `stopped` stayed false, `grounding` null, `flags` empty — the fingerprint of finishMessage being
+  // skipped. Set the record straight so a frozen partial can never read — in the bubble OR a later
+  // export/audit — as a checked answer: `stopped` true (finishMessage would have set it), never
+  // grounded, and — when real prose streamed before the cut — flagged `unverified` so the surface
+  // bands it as an unchecked draft. A stop with nothing streamed (only the fallback line) needs no
+  // draft banner: the honest stopped/route flags already say it.
+  const markStoppedPartial = (pending, stoppedOrStalled, hadPartial) => {
+    if (!stoppedOrStalled) return;
+    pending.stopped = true;
+    pending.grounded = false;
+    if (hadPartial) {
+      pending.unverified = true;
+      pending.flags = [{ id: 'unverified', note: 'Stopped before grounding — this draft was not checked against your record.' }];
+    }
+  };
+
   // answerFromWeb(pending, q) — the empty-record auto path. Nothing is on the record, but the ask
   // is substantive, so REACH for the web the way 4.1 did: not a single fetch but a multi-hop
   // CURIOSITY WALK (runTurnWithResearch) — formulate a real query (the "write me an essay about
@@ -972,6 +994,7 @@ export const createReaderApp = ({ audit } = {}) => {
       // A stall (watchdog) or a user Stop keeps whatever streamed; only a genuine fault gets the
       // error line, so a stopped/stalled turn never reads as a crash.
       const stoppedOrStalled = stallGuard?.tripped() || abort?.signal?.aborted;
+      const hadPartial = !!pending.text;   // the walk streamed prose before the stop cut in
       settleTrail(pending, null);
       pending.text = pending.text || (stoppedOrStalled
         ? 'The web lookup stalled and was stopped before it could finish. Try again, or drop a URL, file, or pasted text in the bar above.'
@@ -979,6 +1002,7 @@ export const createReaderApp = ({ audit } = {}) => {
           ? `${state.model.note}. Pick a model from the chip in the header, then retry — or drop a URL, file, or pasted text in the bar above.`
           : `The web lookup failed: ${String(e?.message || e)}`));
       pending.route = stoppedOrStalled ? 'stopped' : 'error';
+      markStoppedPartial(pending, stoppedOrStalled, hadPartial);
     } finally {
       stallGuard?.clear(); stallGuard = null;
       finishTrail(pending);   // stop the trail clock on the empty/error paths too (finishMessage
@@ -1151,12 +1175,14 @@ export const createReaderApp = ({ audit } = {}) => {
       // A stall (watchdog trip) or a user Stop keeps whatever streamed rather than blanking the
       // bubble to an error — only a genuine mid-turn fault gets the error line.
       const stoppedOrStalled = stallGuard?.tripped() || abort?.signal?.aborted;
+      const hadPartial = !!pending.text;   // the model streamed prose before the stop cut in
       pending.text = pending.text || (stoppedOrStalled
         ? 'Stopped before the answer finished. Ask again to retry.'
         : (state.model.state === 'error'
           ? `${state.model.note}. A WebGPU browser (Chrome/Edge) runs Llama 3.2; anything else runs SmolLM2 on CPU — or pick Claude (hosted API, needs a key) from the model chip in the header, then retry.`
           : `Something failed mid-turn: ${String(e?.message || e)}`));
       pending.pending = false; pending.route = stoppedOrStalled ? 'stopped' : 'error';
+      markStoppedPartial(pending, stoppedOrStalled, hadPartial);
     } finally {
       stallGuard?.clear(); stallGuard = null;
       finishTrail(pending);   // stop the trail clock even if the turn threw/aborted mid-walk, so a
