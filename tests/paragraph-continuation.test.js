@@ -75,6 +75,23 @@ test('a continuation that is nothing but an ellipsis is dropped, not shown', asy
   assert.equal(streamed, res.draft, 'the emitted stream is byte-identical to the draft');
 });
 
+test('a continuation that only re-covers already-said ground is dropped', async () => {
+  let streamed = '';
+  const model = scriptedModel([
+    'Woodpeckers drum on trees to communicate and excavate insects with strong chisel-like beaks.',
+    'Woodpeckers excavate insects with their strong chisel-like beaks and drum on trees to communicate.',
+    'This paragraph must never be reached.',
+  ]);
+
+  const res = await streamParagraphs({ model, messages, onToken: (s) => { streamed += s; }, budget: 384 });
+
+  assert.ok(res, 'a draft was realised');
+  assert.equal(res.paragraphs.length, 1, 'the retreading continuation halts the loop before it streams');
+  assert.ok(/drum on trees to communicate/.test(res.paragraphs[0]));
+  assert.ok(!/must never be reached/.test(streamed), 'nothing past the retread was reached');
+  assert.equal(streamed, res.draft, 'the emitted stream is byte-identical to the draft');
+});
+
 test('a genuine first-paragraph opener is never mistaken for the seam artifact', async () => {
   // The first paragraph never sees CONTINUE_CUE, so its opening is left exactly as written —
   // the strip is scoped to continuations. (A lone leading period is also not an ellipsis.)
