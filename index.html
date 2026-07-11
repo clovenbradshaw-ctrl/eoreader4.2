@@ -1483,6 +1483,7 @@ class Component extends DCLogic {
     // message id → chars shown so far; a settled or historical message (first seen not
     // pending) is shown whole. prefers-reduced-motion turns the reveal off entirely.
     this._reveal = {}; this._typeRaf = null; this._typeLast = 0;
+    this._chatStick = true;   // is the chat parked at the live bottom? (drives stream auto-scroll)
     try { this._rmq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(prefers-reduced-motion: reduce)') : null; } catch { this._rmq = null; }
     this._app = (typeof window !== 'undefined' && window.EO && window.EO.app) || null;
     this._render = (typeof window !== 'undefined' && window.EO && window.EO.readerRender) || null;
@@ -1613,7 +1614,10 @@ class Component extends DCLogic {
       // the seconds tick up live without spinning the reconciler at 60fps through a long walk.
       if (advanced || (live && ts - (this._tickLast || 0) >= 240)) {
         this._tickLast = ts;
-        this.setState({ rev: (this.state.rev || 0) + 1 });
+        // Re-render, then ride the freshly-grown bottom (setState's callback fires post-commit)
+        // so the view follows the answer as it streams/types out — unless the reader has scrolled
+        // up to re-read, in which case _pinChatBottom stands down.
+        this.setState({ rev: (this.state.rev || 0) + 1 }, () => this._pinChatBottom());
       }
       // Stay armed while text is still revealing OR generation is live; stand down once quiet.
       if (advanced || live) this._typeRaf = requestAnimationFrame(step);
@@ -1626,9 +1630,30 @@ class Component extends DCLogic {
     this._raf = requestAnimationFrame(() => { this._raf = null; this.setState({ rev: (this.state.rev || 0) + 1 }); });
   }
   _scrollChatSoon() {
-    setTimeout(() => { const el = this._chatEl; if (el) el.scrollTop = el.scrollHeight; }, 30);
+    setTimeout(() => this._pinChatBottom(), 30);
   }
-  setChatScroll(el) { this._chatEl = el; if (el) el.scrollTop = el.scrollHeight; }
+  // Ride the chat to the bottom as data flows out — but only while the reader is parked there.
+  // Scroll up to re-read and auto-follow stands down; return to the bottom and it resumes.
+  _pinChatBottom() {
+    const el = this._chatEl;
+    if (!el || !el.isConnected || this._chatStick === false) return;
+    el.scrollTop = el.scrollHeight;
+  }
+  setChatScroll(el) {
+    this._chatEl = el;
+    if (!el) return;
+    // Wire the "stuck to bottom" tracker once per mounted scroller: the reader is considered
+    // parked at the live edge while the last line sits within ~a line or two of the fold; a
+    // deliberate scroll up past that clears it, so streaming text stops yanking the view down.
+    if (!el.__eoChatWired) {
+      el.__eoChatWired = true;
+      this._chatStick = true;
+      el.addEventListener('scroll', () => {
+        this._chatStick = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      }, { passive: true });
+    }
+    el.scrollTop = el.scrollHeight;
+  }
   // Drag-drop rides on window (never lost to a re-render); the file input lives on
   // document.body and is minted lazily on first use — nothing depends on refs.
   _wireDom() {
@@ -1806,6 +1831,7 @@ class Component extends DCLogic {
     const q = String(this.state.chatInput || '').trim();
     if (!q || !this._app || this._generating()) return;
     this.setState({ chatInput: '' });
+    this._chatStick = true;   // a deliberate send always returns to the live bottom
     this._app.ask(q).catch(() => {});
   }
   _generating() {
