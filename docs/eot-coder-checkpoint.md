@@ -104,6 +104,42 @@ Add `Field` to the room's schema and the same chain checkpoints clean. The typed
 error names the face that failed and the address it failed at — no runtime
 traceback, because none is needed.
 
+## The semantic mask — Stage 1, the top block made unsamplable
+
+`src/coder/mask.js` is the first half of roadmap Stage 1: it relocates the four
+**token-block** errors from a check we run afterward to a property of the surface
+we emit on. Given an event drafted so far, `maskField(face, draft, partial)` returns
+the legal completions of that face — filtered against the cube's coherence guard,
+the desert cell, and the part's declared region:
+
+```js
+import { maskField, maskEvent } from './src/coder/mask.js';
+
+const partial = { contract: { ops: ['INS', 'DEF', 'SEG'], terrains: ['Entity', 'Field'], stances: ['Making', 'Dissecting'] } };
+maskEvent({}, partial).op;                        // ['SEG', 'DEF', 'INS']  — region only
+maskField('terrain', { op: 'INS' }, partial);     // ['Entity']            — INS is Existence
+maskField('stance', { op: 'INS', terrain: 'Entity' }, partial);  // ['Making'] — the third face is pinned
+maskField('stance', { op: 'SYN', terrain: 'Field' });            // []       — the desert cell is unreachable
+```
+
+Two roadmap claims, now executable:
+
+- **Once two faces are fixed, the third is constrained to a computable set.** Fix an
+  operator (which fixes Mode and Domain) and a terrain (which fixes grain), and the
+  stance mask is a singleton — there is exactly one coherent completion.
+- **The desert cell is unreachable.** SYN at Ground (`SYN·Field`) has *no* legal
+  stance, so a decoder constrained by the mask can never sample it.
+
+**The no-drift invariant.** `admits(partial, event)` — the mask's ground truth — is
+defined *through* `checkpoint()`, so the mask can never permit an event the
+checkpoint would flag with a token-block error. `tests/coder-mask.test.js` proves
+the face masks agree with `admits` **exhaustively across the whole cube** (every
+op × terrain × stance): the executable statement of "the mask must be derivable
+from the same kernel source as the checkpoint." What remains for Stage 1 is the
+purely mechanical outer layer — compiling these per-step masks into a token-level
+logit mask against a specific tokenizer — which needs a model and a grammar
+back-end, not more algebra.
+
 ## What it catches, and what it does not
 
 This catches **incoherence**, not **inappropriateness**. A perfectly coherent,

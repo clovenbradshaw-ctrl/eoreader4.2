@@ -8,3 +8,7 @@ export {
   ERROR_TAXONOMY, detectionPoint, MIGRATES_TO_DECODER, STAYS_AT_CHECKPOINT,
 } from './checkpoint.js';
 export { CATALOG, SURFACE_NAMES, hasSurface, surfaceOf } from './catalog.js';
+export {
+  maskField, maskEvent, admits, legalRefs,
+  TOKEN_EVENT_ERRORS, OP_IDS, FIELD_VOCAB,
+} from './mask.js';

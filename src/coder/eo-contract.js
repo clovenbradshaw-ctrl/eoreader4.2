@@ -6,5 +6,6 @@ import { contract } from '../core/contract.js';
 export const CONTRACTS = Object.freeze({
   'src/coder/checkpoint.js': contract({ ops: ['EVA', 'SIG'], targets: ['Network', 'Entity'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'the assembly checkpoint — Appendix B typed errors read off the algebra (enactor door)' }),
   'src/coder/catalog.js': contract({ ops: ['DEF'], targets: ['Lens'], products: ['Paradigm'], stances: ['Dissecting'], note: 'the closed surface catalog — a pre-built vocabulary, never generated' }),
-  'src/coder/index.js': contract({ ops: ['EVA', 'SIG', 'DEF'], targets: ['Network', 'Entity', 'Lens'], products: ['Lens', 'Paradigm'], stances: ['Binding', 'Tracing', 'Dissecting'], note: 'barrel' }),
+  'src/coder/mask.js': contract({ ops: ['SEG', 'EVA'], targets: ['Lens'], products: ['Paradigm'], stances: ['Unraveling', 'Tracing'], note: 'the semantic emission mask — the token-block errors made unsamplable (Stage 1)' }),
+  'src/coder/index.js': contract({ ops: ['EVA', 'SIG', 'DEF', 'SEG'], targets: ['Network', 'Entity', 'Lens'], products: ['Lens', 'Paradigm'], stances: ['Binding', 'Tracing', 'Dissecting', 'Unraveling'], note: 'barrel' }),
 });
