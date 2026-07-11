@@ -290,12 +290,54 @@ export const buildReaderDoc = (source, prefs, opts) => {
 };
 
 // ── native page render (the "render a website natively" tab) ────────────────────────────────
-// Given the page's own fetched HTML, make it safe to drop into a sandboxed <iframe srcdoc>: strip
-// scripts / noscript / meta-refresh (so it can't navigate or run), and inject a <base href> so its
-// relative CSS and images still resolve. A plain-text URL (a .txt, a Gutenberg book) has no markup
-// to render, so it falls through to the same reflow the reader uses. (eoreader4.1 loadCenter/
-// loadEmbed native branch.)
+// Given the page's own fetched HTML, make it render like the REAL website inside a sandboxed
+// <iframe srcdoc> that runs no JavaScript. The iframe has no `allow-scripts`, so nothing here can
+// execute — but a modern page hides most of its look behind script, so a naive "strip and drop in"
+// paints a field of blank boxes. Four moves recover the real page without running a line of it:
+//   • sanitize   — cut <script>/<meta refresh> so the markup can't navigate or leave dead nodes.
+//   • re-base    — drop the page's own <base> and inject our own <base href> = the real URL, so
+//                  every relative stylesheet/image/font resolves against the site (not the srcdoc's
+//                  opaque origin), plus <meta referrer=no-referrer> and a CSP that upgrades any
+//                  http asset to https (else it's blocked as mixed content on our https host).
+//   • un-lazy    — promote each image's real URL out of its data-* attribute into src/srcset, the
+//                  job the site's lazy-loader script would have done, so images actually appear.
+//   • un-noscript— UNWRAP <noscript> rather than delete it: its contents ARE the author's own
+//                  no-JS fallback (usually the plain <img> or a fallback stylesheet), which is
+//                  exactly the state we're rendering.
+// A plain-text URL (a .txt, a Gutenberg book) has no markup to render, so it falls through to the
+// same reflow the reader uses. (eoreader4.1 loadCenter/loadEmbed native branch.)
 const looksHtml = (text) => /<(?:!doctype|html|head|body|div|p|table|article|section|main|h[1-6])\b/i.test(String(text || '').slice(0, 3000));
+
+// Lazy-load conventions: a placeholder sits in `src` while the REAL image waits in a data-* attr
+// for a script to swap in on scroll. These cover lazysizes (data-src/data-srcset — the common
+// one), jQuery.lazyload (data-original), and their usual variants. The `\s*=` guard makes
+// `data-src` never match the `data-srcset` prefix.
+const LAZY_SRC = ['data-src', 'data-lazy-src', 'data-original'];
+const LAZY_SRCSET = ['data-srcset', 'data-lazy-srcset'];
+const attrVal = (tag, name) => {
+  const m = new RegExp('\\b' + name + '\\s*=\\s*("([^"]*)"|\'([^\']*)\'|([^\\s"\'>]+))', 'i').exec(tag);
+  return m ? (m[2] ?? m[3] ?? m[4]) : null;
+};
+const setAttr = (tag, name, value) => {
+  const re = new RegExp('\\b' + name + '\\s*=\\s*("[^"]*"|\'[^\']*\'|[^\\s"\'>]+)', 'i');
+  const attr = name + '="' + escAttr(value) + '"';
+  return re.test(tag) ? tag.replace(re, attr) : tag.replace(/^<([a-z0-9]+)/i, '<$1 ' + attr);
+};
+// One <img>/<source> tag → the same tag with its real image promoted into src/srcset.
+const revealLazyTag = (tag) => {
+  const src = LAZY_SRC.map((a) => attrVal(tag, a)).find((v) => v != null && v !== '');
+  const srcset = LAZY_SRCSET.map((a) => attrVal(tag, a)).find((v) => v != null && v !== '');
+  let out = tag;
+  if (src) out = setAttr(out, 'src', src);
+  if (srcset) out = setAttr(out, 'srcset', srcset);
+  return out;
+};
+// Match a whole <img>/<source> start tag WITHOUT tripping on a `>` inside a quoted attribute —
+// a lazy placeholder `src` is often an inline SVG data-URI (`data:image/svg+xml,<svg …>`), whose
+// `>` would end a naive `[^>]*` match early and hide the data-src that follows. The alternation
+// skips over single/double-quoted runs; since `[^>"']` excludes both quotes, exactly one branch
+// can start at any position, so there is no runaway backtracking.
+const revealLazyImages = (html) => html.replace(/<(?:img|source)\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi, revealLazyTag);
 
 export const nativePageHtml = (rawHtml, { baseUrl = '', prefs = {} } = {}) => {
   const text = String(rawHtml || '');
@@ -304,14 +346,21 @@ export const nativePageHtml = (rawHtml, { baseUrl = '', prefs = {} } = {}) => {
     const model = readerModel({ text, url: baseUrl });
     return readerHtml(model, prefs).html;
   }
+  // sanitize + re-base: cut scripts and meta-refresh, and drop the page's own <base> (a `<base
+  // href="/">` meant for the site's origin would misdirect every relative asset here). The iframe
+  // sandbox lacks allow-scripts, so this strip is defence-in-depth, not the sole guard.
   let doc = text
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, '')
-    .replace(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, '');
-  const baseTag = '<base href="' + escAttr(baseUrl) + '" target="_blank"><meta name="referrer" content="no-referrer">';
-  if (/<head[^>]*>/i.test(doc)) doc = doc.replace(/<head([^>]*)>/i, '<head$1>' + baseTag);
-  else if (/<html[^>]*>/i.test(doc)) doc = doc.replace(/<html([^>]*)>/i, '<html$1><head>' + baseTag + '</head>');
-  else doc = baseTag + doc;
+    .replace(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, '')
+    .replace(/<base\b[^>]*>/gi, '');
+  // un-lazy, then un-noscript (unwrap, keeping the fallback content the site meant for no-JS).
+  doc = revealLazyImages(doc).replace(/<\/?noscript\b[^>]*>/gi, '');
+  const head = '<base href="' + escAttr(baseUrl) + '" target="_blank">' +
+    '<meta name="referrer" content="no-referrer">' +
+    '<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">';
+  if (/<head[^>]*>/i.test(doc)) doc = doc.replace(/<head([^>]*)>/i, '<head$1>' + head);
+  else if (/<html[^>]*>/i.test(doc)) doc = doc.replace(/<html([^>]*)>/i, '<html$1><head>' + head + '</head>');
+  else doc = head + doc;
   return doc;
 };
 
