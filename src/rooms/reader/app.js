@@ -154,6 +154,29 @@ const shaShort = (h) => String(h || '').replace(/^[^:]*:/, '').slice(0, 12);
 const bytesOf = (text) => { try { return new TextEncoder().encode(text).length; } catch { return String(text).length; } };
 const esc = (s) => String(s ?? '');
 
+// keepGuardAlive(guard, p, opts) → p, but while p is pending the no-progress `guard` is FED on a
+// fixed interval, so an OPAQUE model call — formulateSearchQuery, the sense disambiguator — that
+// streams no token and fires no step still reads as a sign of life. This is the fix for the false
+// "the web lookup stalled" abort: the sense disambiguator alone is a 220-token temperature-0 decode
+// (disambiguate.js), and it runs BEFORE the first hop's progress beat; on a modest device (or a first
+// cold decode) that one call outlasts the 45s stall guard, which then aborts the turn mid-think and
+// blames the web before a single page is ever fetched. A ping every `every` ms says "the engine is
+// working" — the same sign-of-life the token / step / hop feeds carry for the phases that CAN report
+// progress. It never masks a real hang: the interval is cleared the instant the call settles
+// (`finally`), a Stop or a stall tripped elsewhere still settles the turn (a fed guard that is already
+// tripped is a no-op), and a hard `maxMs` ceiling stops the feed so a genuinely stuck call is released
+// to trip well past any real decode. Pure and injectable (`now`) so the cadence is unit-testable.
+export const keepGuardAlive = (guard, p, { every = 8000, maxMs = 180000, now = () => Date.now() } = {}) => {
+  const done = Promise.resolve(p);
+  if (!guard || !every) return done;
+  const t0 = now();
+  const iv = setInterval(() => {
+    if (guard.tripped?.() || (maxMs && now() - t0 >= maxMs)) { clearInterval(iv); return; }
+    try { guard.feed?.(); } catch { /* feeding a settled guard is harmless */ }
+  }, every);
+  return done.finally(() => clearInterval(iv));
+};
+
 // ── the app ──────────────────────────────────────────────────────────────────
 export const createReaderApp = ({ audit } = {}) => {
   const state = {
@@ -584,6 +607,12 @@ export const createReaderApp = ({ audit } = {}) => {
             const note = typeof p === 'object' ? (p?.phase || '') : '';
             lastCb = Date.now();
             if (note) lastNote = note;
+            // A downloaded chunk is progress: when a turn is already waiting on this load (the user
+            // asked mid-download over a slow link), keep its no-progress watchdog alive so the slow
+            // download is not mistaken for a hang and aborted as a stall. A truly blocked host emits
+            // no chunk, so the guard still trips — this only credits genuine forward motion. No-op
+            // during the at-rest prewarm, where no guard is armed (stallGuard is null).
+            stallGuard?.feed();
             state.model = { backend, state: 'loading', progress: Math.round(frac * 100) / 100, note };
             emit('model');
           });
@@ -731,6 +760,12 @@ export const createReaderApp = ({ audit } = {}) => {
   // Race a turn await against the live watchdog: if the op stalls, `race` rejects (and the signal
   // is aborted) so control returns instead of hanging. A no-op when no guard is armed.
   const raceGuard = (p) => stallGuard ? Promise.race([p, stallGuard.race]) : p;
+  // Feed the watchdog while an OPAQUE model call runs (keepGuardAlive, above): the query
+  // formulation and the sense disambiguation stream nothing, so without this a slow local decode
+  // trips the 45s guard before any web progress and reads as a stall. `keepAliveFn` wraps an
+  // injected async utility (the disambiguator the walk calls) so its in-flight decode is fed too.
+  const keepAlive = (p, opts) => keepGuardAlive(stallGuard, p, opts);
+  const keepAliveFn = (fn) => (typeof fn === 'function' ? (...a) => keepAlive(fn(...a)) : fn);
 
   // answerFromWeb(pending, q) — the empty-record auto path. Nothing is on the record, but the ask
   // is substantive, so REACH for the web the way 4.1 did: not a single fetch but a multi-hop
@@ -749,7 +784,7 @@ export const createReaderApp = ({ audit } = {}) => {
     try {
       const m = await raceGuard(ensureModel());
       setBusy({ kind: 'search', label: 'Looking this up on the web…' });
-      const query = await raceGuard(formulateSearchQuery({ model: m, question: q, history: [], fallback: q }));
+      const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: q, history: [], fallback: q })));
       beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
       setBusy({ kind: 'search', label: `Searching the web — ${query}` });
       logIt('search', `Web research "${query}"`, 'auto · nothing on record');
@@ -767,7 +802,8 @@ export const createReaderApp = ({ audit } = {}) => {
         search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
         // The thumb: when the subject is a homonym, commit to ONE sense before gathering and search
         // for it, so "dolphins" doesn't fetch a mix of the animal and the football team (disambiguate.js).
-        disambiguate: modelDisambiguator(m, { history: [], question: q }),
+        // keepAliveFn: this 220-token decode runs before the first hop's beat — feed the guard while it thinks.
+        disambiguate: keepAliveFn(modelDisambiguator(m, { history: [], question: q })),
         onHop: (h) => hopBeat(pending, h, query),
         onHopDone: (h) => hopDoneBeat(pending, h),
         signal: abort.signal,
@@ -927,14 +963,15 @@ export const createReaderApp = ({ audit } = {}) => {
           // A GAP the record couldn't close — go WIDE the way 4.1 did: a multi-hop curiosity walk,
           // not one fetch, streaming its search/read beats into the trail. Clear the first ("not in
           // the document") draft so the grounded re-run's stream replaces it rather than appends.
-          const query = await raceGuard(formulateSearchQuery({ model: m, question: proposal.query, history, fallback: proposal.query }));
+          const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: proposal.query, history, fallback: proposal.query })));
           beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
           setBusy({ kind: 'search', label: `Searching the web — ${query}` });
           pending.text = ''; emit('stream');
           const walked = await raceGuard(runTurnWithResearch(args, {
             search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
             // The thumb: commit to one sense of a homonymous subject before gathering (disambiguate.js).
-            disambiguate: modelDisambiguator(m, { history, question: proposal.query }),
+            // keepAliveFn feeds the guard through this pre-hop decode so a slow model can't false-stall the walk.
+            disambiguate: keepAliveFn(modelDisambiguator(m, { history, question: proposal.query })),
             onHop: (h) => hopBeat(pending, h, query),
             onHopDone: (h) => hopDoneBeat(pending, h),
             signal: abort.signal,
