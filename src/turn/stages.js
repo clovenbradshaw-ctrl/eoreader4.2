@@ -25,7 +25,7 @@ import { answerFormError } from './shape.js';
 import { rereadOnUnsettled } from './reread.js';
 import { buildGroundedMessages, buildChatMessages, orientationLine } from '../model/index.js';
 import { bindCitations, renderBound } from '../enactor/ground/index.js';
-import { runVetoes, isUnbound, isAbstention, classifyProvenance } from '../enactor/ground/index.js';
+import { runVetoes, isUnbound, isAbstention, classifyProvenance, validateAnswer } from '../enactor/ground/index.js';
 import { canGroundedSpeak, groundedSpeak, RULES_REV } from '../organs/out/speech/index.js';
 import { projectGraph, VERDICTS } from '../core/index.js';
 import { answerabilityGate } from '../weave/longgen/answerable.js';
@@ -1112,6 +1112,65 @@ export const stages = {
     return { ...ctx, answer: ctx.voidText, sources: [], gated: true, voidSpoken: true, revisions, vetoes };
   },
 
+  // THE VALIDATE STAGE — the model-prompt check ("does this sound right?"). The mechanical
+  // battery FLAGS a thin grounding but, by deliberate design (ground/veto.js; the §5 gate
+  // that once forced an ungrounded answer toward "I did not find it" is OFF), never gates:
+  // an `unbound-contact` answer RIDES, shown as grounded. That leaves one gap the LEXICAL
+  // binder cannot see — a confident claim that shares the retrieved (but off-topic) spans'
+  // vocabulary binds as unbound-contact and ships, though nothing in the lines supports it
+  // (the audit-export straw-hut fabrication). A reader asked to check its OWN draft against
+  // the lines catches exactly that. Opt-in (ctx.validate; default off → byte-identical, so
+  // the golden turns are untouched and the "flag, never gate" default stands), model-gated,
+  // and SCOPED to the ambiguous middle: a pointed answer that made claims, earned NO witness
+  // (nothing cited), did not already abstain or gate, and that the mechanical read already
+  // doubts. On a clear "not supported" verdict the unwitnessed draft is replaced by an honest
+  // "I didn't find that in what I read", preserved beside it in `revisions` (the SEG/retract
+  // law) — the SAME seam as `absence`, driven by a model check instead of a measured void.
+  // SUPPORTED or an unclear verdict never gates — the paraphrase-that-rides stays protected,
+  // and the check never manufactures a refusal. A validation fault degrades to no-op.
+  async validate(ctx) {
+    if (!ctx.validate || !ctx.model || !ctx.spans?.length || !ctx.rawOutput) return ctx;
+    if (ctx.stopped || ctx.gated || ctx.voidSpoken) return ctx;              // already settled honestly
+    if ((ctx.task || 'answer') !== 'answer') return ctx;                     // pointed questions only
+    const cited = (ctx.bound || []).some((b) => b.citation) || (ctx.sources || []).length > 0;
+    if (cited) return ctx;                                                   // has a witness — leave it to the flag battery
+    if (isAbstention(ctx.rawOutput || ctx.answer)) return ctx;              // the talker already declined
+    // Spend the check only where the mechanical read already doubts the grounding — the
+    // exact flags the export fired on the fabrication. Anywhere the binder was content, the
+    // check does not run, so a well-grounded turn pays nothing.
+    const weak = (ctx.vetoes || []).some(
+      (v) => v.id === 'unbound' || v.id === 'unbound-contact' || v.id === 'low-coverage');
+    if (!weak) return ctx;
+    const check = await validateAnswer({
+      model: ctx.model, question: ctx.question, spans: ctx.spans,
+      answer: ctx.rawOutput, maxTokens: VALIDATE_MAX_TOKENS, signal: ctx.signal,
+    });
+    if (!check || check.verdict !== 'unsupported') return { ...ctx, validation: check || null };
+    // The reader's own check refused the draft. On a ONE-SHOT turn, gate: replace the
+    // unwitnessed draft with the honest absence and keep the draft beside it in `revisions`
+    // (the SEG/retract law), exactly as `absence` does for a measured void. On the STREAMING
+    // path the draft is already on the reader's screen; the suppress-never-erase law forbids
+    // un-streaming it (the same exemption revise/absence take), so the correction rides as a
+    // refusing flag and a trail beat instead — the answer stays, loudly marked unsupported.
+    const streamed = !!ctx.streamed;
+    const vetoes = [...(ctx.vetoes || []), Object.freeze({
+      id: 'validation-unsupported', refuses: true,
+      message: streamed
+        ? 'Asked to check its own draft against the lines, the reader could not support it — the answer is shown, flagged unsupported.'
+        : 'Asked to check its own draft against the lines, the reader found it unsupported — the unwitnessed draft was replaced by an honest absence and kept in the trail.',
+    })];
+    if (streamed) return { ...ctx, validation: check, vetoes };
+    const draft = ctx.answer ?? ctx.rawOutput ?? '';
+    const revisions = [...(ctx.revisions || []), Object.freeze({
+      draft,
+      replacedBy: VALIDATION_ABSENCE,
+      why: check.reason
+        ? `the reader's own check found the answer unsupported by the lines: ${check.reason}`
+        : "the reader's own check found the answer unsupported by the lines",
+    })];
+    return { ...ctx, answer: VALIDATION_ABSENCE, sources: [], gated: true, voidSpoken: true, validation: check, revisions, vetoes };
+  },
+
   // Settle: fold this turn's reading into the session's persistent Horizon (surfing-next.md
   // §4) — the moved density operator that accumulates across turns, curing the surf's
   // per-turn amnesia. Observe-only and AFTER the answer is formed, so it never changes the
@@ -1142,6 +1201,13 @@ export const stages = {
 // One corrective rewrite. The user's rule: on confabulation, trigger a rewrite; if it
 // still fails, put it through with the span tagged. One pass is the "a rewrite".
 const REWRITE_ATTEMPTS = 1;
+
+// The `validate` stage's budget and its typed absence. The check is a one-word verdict plus
+// a short reason, so a small cap keeps it cheap; the absence is the canonical honest miss
+// (the same phrasing SYSTEM_GROUND names and register-plainspoken.test.js pins), spoken when
+// the reader's own check refuses an unwitnessed draft.
+const VALIDATE_MAX_TOKENS = 160;
+const VALIDATION_ABSENCE = "I didn't find that in what I read.";
 
 // The corrective handed to the talker on the rewrite pass — a REFINE, not a retreat. It
 // names the specific over-reach (a connection the passages don't support) and asks for a

@@ -2,7 +2,7 @@
 // The pipeline, spelled on all three faces — migration step 1 of
 // docs/spec-good-watchmaker.md ("Print the faces").
 //
-// The turn is a fold of 18 named stages (turn/pipeline.js). Each stage has a
+// The turn is a fold of 19 named stages (turn/pipeline.js). Each stage has a
 // human LABEL that a person reads in the trace under deadline — `route`,
 // `retrieve`, `settle` — and, underneath, a canonical spelling in the cube's own
 // notation: operator(Site, Stance). The label is the Act face alone; the spelling
@@ -64,7 +64,7 @@ const grainForCell = ({ op, terrain, stance }) => {
   return grainOfTerrain(terrain) ?? grainOfStance(stance);
 };
 
-// ── the 18 stages, transcribed from the spec's §5 table ───────────────────────
+// ── the 19 stages, transcribed from the spec's §5 table ───────────────────────
 // `faculty` is the §5 column the stage belongs to; `spec` is the verbatim §5
 // spelling as cells; `connector` joins a multi-cell phrase the way §5 wrote it
 // (→ sequence, · walk, + pair); `note` is §5's parenthetical (grain:edge, budget…).
@@ -111,6 +111,8 @@ const STAGE_SPEC = Object.freeze({
   absence:    { faculty: 'enactor', connector: ' · ', note: 'the void reaching the voice',
                 spec: [{ op: 'NUL', terrain: 'Void', stance: 'Clearing' },
                        { op: 'DEF', terrain: 'Void', stance: 'Clearing' }] },
+  validate:   { faculty: 'enactor', connector: ' · ', note: 'does this sound right?',
+                spec: [{ op: 'EVA', terrain: 'Lens', stance: 'Dissecting' }] },
   settle:     { faculty: 'enactor', connector: ' · ', note: 'commit',
                 spec: [{ op: 'DEF', terrain: 'Lens', stance: 'Making' }] },
 });

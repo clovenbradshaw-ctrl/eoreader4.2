@@ -159,14 +159,20 @@ const llmBrief = (ctx) => {
 // seam). When the field measured an absence and the answer, after bind + factcheck +
 // revise, still earned no witness at all, the typed absence the measurement rendered
 // replaces the unwitnessed draft — preserved beside it in `revisions`, never erased.
+// `validate` sits between `absence` and `settle`: the model-prompt check ("does this
+// sound right?"). Opt-in (ctx.validate; default off → byte-identical). Where `absence`
+// gates on a MEASURED void, `validate` gates on the residual the void measure never sees —
+// retrieval returned tangential spans (no void), yet the answer earned no witness and shares
+// only the passages' vocabulary. It asks the reader to judge its own draft against the lines
+// and, on a clear "not supported", replaces the unwitnessed draft with an honest absence.
 const PIPELINE = [
-  'route', 'expect', 'converse', 'retrieve', 'inquire', 'fold', 'predict', 'answerable', 'gate', 'reason', 'prompt', 'llm', 'bind', 'factcheck', 'revise', 'veto', 'absence', 'settle',
+  'route', 'expect', 'converse', 'retrieve', 'inquire', 'fold', 'predict', 'answerable', 'gate', 'reason', 'prompt', 'llm', 'bind', 'factcheck', 'revise', 'veto', 'absence', 'validate', 'settle',
 ];
 
 // `classifier`/`adjacency` are the geometric organ the edge-grounding fact-check needs
 // for its meaning-distance verdicts; threaded through like `embedder`, optional, and
 // degrading honestly to the embedder-free symbolic algebra when absent.
-export const runTurn = async ({ question, doc, docs, model, embedder, geometricEmbedder, classifier, adjacency, centroids, auditLog, onStep, history = [], grounding = 'auto', stream = false, onToken = null, alpha, mindSpans = null, inquire = false, horizon = null, cast = null, reread = false, witnessSource = null, shapeLibrary = null, groundGraph = false, broadcastArc = false, now = null, lensPort = false, voicePref = null, signal = null, maxTokens = null, longform = false, monitor = null, ledger = null }) => {
+export const runTurn = async ({ question, doc, docs, model, embedder, geometricEmbedder, classifier, adjacency, centroids, auditLog, onStep, history = [], grounding = 'auto', stream = false, onToken = null, alpha, mindSpans = null, inquire = false, horizon = null, cast = null, reread = false, witnessSource = null, shapeLibrary = null, groundGraph = false, broadcastArc = false, now = null, lensPort = false, voicePref = null, signal = null, maxTokens = null, longform = false, monitor = null, ledger = null, validate = false }) => {
   // Ground against a SELECTED SET of documents when one is given: several parsed docs
   // are folded into one composite doc (organs/in/composite.js) the pipeline reads as a
   // single document — referents stay distinct per source unless cross-doc SYN'd. A
@@ -230,7 +236,11 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
   // on, the surf's own dynamics — the focus's trajectory segmented at the RECs, turns
   // weighted by rewrite magnitude — ride into the talker's window as a plain-language arc
   // block, so the answer voices the turn as a turn. Off by default → byte-identical.
-  const ctx0      = { question, doc: groundingDoc, sourceDocs, model, embedder, geometricEmbedder, classifier, adjacency, centroids, history, grounding, stream, onToken, alpha, mindSpans, inquire, horizon, cast, reread, witnessSource, shapeLibrary, groundGraph, broadcastArc, now, lensPort, voicePref, signal, maxTokens, longform };
+  // `validate` arms the model-prompt validation stage (turn/stages.js `validate`): on a
+  // grounded answer turn whose draft earned no witness AND the mechanical read already
+  // doubts, the reader is asked whether its own draft follows from the lines, and a clear
+  // "no" replaces it with an honest absence. Off by default → byte-identical.
+  const ctx0      = { question, doc: groundingDoc, sourceDocs, model, embedder, geometricEmbedder, classifier, adjacency, centroids, history, grounding, stream, onToken, alpha, mindSpans, inquire, horizon, cast, reread, witnessSource, shapeLibrary, groundGraph, broadcastArc, now, lensPort, voicePref, signal, maxTokens, longform, validate };
 
   // The answer is FORMED at `bind` and only ANNOTATED after it (factcheck, revise,
   // veto, settle). Those annotation stages must never discard an answer the model
@@ -577,6 +587,15 @@ const summarize = (name, ctx, ms) => {
                               // the active witness-seek, when it ran: which figures it read the
                               // source on, and whether the source confirmed the interpretation
                               ...(ctx.witnessSought ? { witness: ctx.witnessSought } : {}) };
+    // The model-prompt validation ("does this sound right?"): whether it ran, the reader's
+    // verdict on its own draft (supported / unsupported / unclear), whether that gated the
+    // draft to an honest absence, and the reason it gave. Absent (base only) when the stage
+    // no-oped — the flag was off, the draft had a witness, or the grounding was not in doubt.
+    case 'validate': return ctx.validation ? { ...base,
+                              ran: true,
+                              verdict: ctx.validation.verdict,
+                              gated: ctx.voidSpoken === true && ctx.validation.verdict === 'unsupported',
+                              reason: String(ctx.validation.reason || '').slice(0, 200) } : base;
     // The session Horizon's reading after this turn folded in (surfing-next.md §4): how far
     // the accumulated ρ has left σ, the running ∫ surprise, and the turn's own surprise
     // against the prior memory. Present only when a Horizon was threaded; absent otherwise.
