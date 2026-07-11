@@ -914,6 +914,11 @@ export const createReaderApp = ({ audit } = {}) => {
     // Arm the abort + watchdog BEFORE the first await, so a stalled model load or a hung fetch
     // is always recoverable (and Stop always has something to abort), not just the walk itself.
     abort = new AbortController();
+    // Capture THIS turn's signal so its streaming callbacks can go inert the instant it is
+    // stopped (guarded below). `abort` itself is nulled in the finally when the turn settles, so
+    // the callbacks — which outlive it while a slow backend unwinds its decode — must read the
+    // captured signal, not the (by-then null) `abort`.
+    const turnSignal = abort.signal;
     stallGuard = makeStallGuard();
     try {
       const m = await raceGuard(ensureModel());
@@ -928,10 +933,13 @@ export const createReaderApp = ({ audit } = {}) => {
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
         auditLog: audit, history: [],
         stream: true,
-        onToken: (tok) => { stallGuard?.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
+        // A backend slow (or unable) to honor the abort keeps handing us tokens after Stop; appending
+        // them to the already-finalized bubble is the "I hit Stop but it kept typing" bug. Once the
+        // turn's signal is aborted the bubble is settled and no longer ours to write — drop them.
+        onToken: (tok) => { if (turnSignal.aborted) return; stallGuard?.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: abort.signal,
         monitor, ledger,   // the session's self/world line and commitment ledger (enactor)
-        onStep: (name, _ctx, data) => { stallGuard?.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
+        onStep: (name, _ctx, data) => { if (turnSignal.aborted) return; stallGuard?.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
       }, {
         search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
         // The thumb: when the subject is a homonym, commit to ONE sense before gathering and search
@@ -1065,6 +1073,7 @@ export const createReaderApp = ({ audit } = {}) => {
 
     warmMinilm();
     abort = new AbortController();
+    const turnSignal = abort.signal;   // see answerFromWeb — the captured signal gates this turn's callbacks after Stop
     stallGuard = makeStallGuard();
     try {
       const m = await raceGuard(ensureModel());
@@ -1082,10 +1091,13 @@ export const createReaderApp = ({ audit } = {}) => {
         auditLog: audit, history,
         stream: true,
         ...(longform ? { maxTokens: LONGFORM_MAX_TOKENS, longform: true } : {}),
-        onToken: (tok) => { stallGuard?.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
+        // A backend slow (or unable) to honor the abort keeps handing us tokens after Stop; appending
+        // them to the already-finalized bubble is the "I hit Stop but it kept typing" bug. Once the
+        // turn's signal is aborted the bubble is settled and no longer ours to write — drop them.
+        onToken: (tok) => { if (turnSignal.aborted) return; stallGuard?.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: abort.signal,
         monitor, ledger,   // the session's self/world line and commitment ledger (enactor)
-        onStep: (name, _ctx, data) => { stallGuard?.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
+        onStep: (name, _ctx, data) => { if (turnSignal.aborted) return; stallGuard?.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
       };
       let result = await raceGuard(runTurn(args));
       // The document turn measured a gap it couldn't close (or an answer worth confirming
