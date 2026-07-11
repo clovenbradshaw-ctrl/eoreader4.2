@@ -27,6 +27,7 @@
 // network — so a model is fetched once and then opens from disk.
 
 import { registerBackend } from './interface.js';
+import { makeDecodeGate } from './decode-gate.js';
 
 // Pinned to 2.3.7, the last release before wllama 2.4.0 made Memory64 (wasm64) a
 // hard requirement. 2.4.0 drops Safari and any browser without memory64 support,
@@ -132,6 +133,10 @@ export const loadWllamaModel = async (modelUrl, onProgress) => {
 registerBackend('wllama', (opts = {}) => {
   let inst = null;
   let loading = null;
+  // ONE DECODE AT A TIME. A single llama.cpp context in a single WASM instance —
+  // a second createCompletion during a decode corrupts it. phrase() and propose()
+  // both enter through this gate (model/decode-gate.js).
+  const gate = makeDecodeGate();
   // The GGUF actually in play. Before load: the pin or the ladder's head, so
   // describe() can already name the expected artifact; after load: whichever
   // candidate actually answered — the mirror that served the file IS the model's
@@ -174,19 +179,25 @@ registerBackend('wllama', (opts = {}) => {
       const signal = opts.signal || null;
       if (signal?.aborted) return '';
       const onToken = typeof opts.onToken === 'function' ? opts.onToken : null;
-      let last = '';
-      const out = await inst.createCompletion(toPrompt(messages), {
-        nPredict: opts.maxTokens ?? 256,
-        sampling: { temp: opts.temperature ?? 0.7 },
-        onNewToken: (_tok, _piece, currentText, optsCb) => {
-          const text = String(currentText ?? '');
-          const delta = text.startsWith(last) ? text.slice(last.length) : text;
-          last = text;
-          if (delta && onToken) onToken(delta);
-          if (signal?.aborted) optsCb?.abortSignal?.();   // user stopped — halt the decode
-        },
+      // The gate serializes decodes; a call whose signal aborted while it queued
+      // skips the engine entirely (the per-token check above only fires once a
+      // decode is already running).
+      return gate(async () => {
+        if (signal?.aborted) return '';
+        let last = '';
+        const out = await inst.createCompletion(toPrompt(messages), {
+          nPredict: opts.maxTokens ?? 256,
+          sampling: { temp: opts.temperature ?? 0.7 },
+          onNewToken: (_tok, _piece, currentText, optsCb) => {
+            const text = String(currentText ?? '');
+            const delta = text.startsWith(last) ? text.slice(last.length) : text;
+            last = text;
+            if (delta && onToken) onToken(delta);
+            if (signal?.aborted) optsCb?.abortSignal?.();   // user stopped — halt the decode
+          },
+        });
+        return String(out || '').trim();
       });
-      return String(out || '').trim();
     },
     // The grounded-speech capability (model/interface.js §). wllama exposes the
     // decode path, so the talker can drive it under the gate. This is the
@@ -206,7 +217,7 @@ registerBackend('wllama', (opts = {}) => {
         if (piece) queue.push(piece);
         if (resolve) { const r = resolve; resolve = null; r(); }
       };
-      const completion = inst.createCompletion(toPrompt(messages), {
+      const completion = gate(() => inst.createCompletion(toPrompt(messages), {
         nPredict: opts.maxTokens ?? 256,
         sampling: { temp: 0 },                 // greedy — no internal sampling
         onNewToken: (_tok, _piece, currentText, optsCb) => {
@@ -214,7 +225,7 @@ registerBackend('wllama', (opts = {}) => {
           push(currentText);
           if (optsCb && optsCb.abortSignal) { /* the gate has no abort yet */ }
         },
-      }).then(() => { done = true; push(null); }, () => { done = true; push(null); });
+      })).then(() => { done = true; push(null); }, () => { done = true; push(null); });
 
       let last = '';
       while (true) {

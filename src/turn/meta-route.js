@@ -827,13 +827,15 @@ const lastExchange = (history = []) => (Array.isArray(history) ? history : [])
 // model, or a model that declines, the caller falls straight through and answers (never asks), the
 // safe direction. Exported so the app injects it and the physics stays offline-testable through
 // clarifyDemandOf/clarifyDrive over any metacognition speech.
-export const modelClarifyGate = (model, { history = [], fold = null, now = null, scope = '', standing = '', bases = defaultBases() } = {}) => async (message) => {
+export const modelClarifyGate = (model, { history = [], fold = null, now = null, scope = '', standing = '', bases = defaultBases(), signal = null } = {}) => async (message) => {
   const msg = String(message || '').trim();
   const off = { clarify: false, demand: '', drive: 0, speech: '' };
   if (!model?.phrase || !msg) return off;
   const prompt = discoursePrompt(msg, fold, { exchange: lastExchange(history), now, scope, standing });
   try {
-    const out = await model.phrase([{ role: 'user', content: prompt }], { maxTokens: 200, temperature: 0, minPredict: 0 });
+    // The turn's signal rides along so a Stop/stall halts this decode too — unabortable,
+    // it would outlive the turn as an orphan holding the local engine.
+    const out = await model.phrase([{ role: 'user', content: prompt }], { maxTokens: 200, temperature: 0, minPredict: 0, signal });
     const speech = String(out || '').trim();
     if (!speech) return off;
     const demand = clarifyDemandOf(speech, bases);

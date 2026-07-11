@@ -86,7 +86,7 @@ export const planQueries = async (seed, { plan, max = 4 } = {}) => {
 // re-guessing the topic from the seed string alone. The firewall holds (only the grounded referent
 // label and the user's open-intent text ride, never the talker's claims). Returns [] (the seed
 // stands alone) on any failure or a refusal. Exported so the app injects it, engine stays testable.
-export const modelPlanner = (model, { history = [], question = '' } = {}) => async (seed, { max = 4 } = {}) => {
+export const modelPlanner = (model, { history = [], question = '', signal = null } = {}) => async (seed, { max = 4 } = {}) => {
   if (!model?.phrase) return [];
   const n = Math.max(2, max - 1);                     // facet 0 is the seed itself; plan the rest
   // Read discourse off the RAW user turn when the app threads it (the referent/operator live in the
@@ -107,7 +107,7 @@ export const modelPlanner = (model, { history = [], question = '' } = {}) => asy
     { role: 'user', content: `${frame ? `Discourse state:\n${frame}\n\n` : ''}Topic: ${seed}\n\n${n} research queries:` },
   ];
   try {
-    const out = await model.phrase(messages, { maxTokens: 96, temperature: 0, minPredict: 0 });
+    const out = await model.phrase(messages, { maxTokens: 96, temperature: 0, minPredict: 0, signal });
     return String(out || '')
       .split('\n')
       .map(s => s.replace(/^\s*[-*\d.)\]]+\s*/, '').replace(/^(query|search)\s*:\s*/i, '').replace(/^["'`]+|["'`]+$/g, '').trim())

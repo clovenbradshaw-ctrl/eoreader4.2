@@ -65,7 +65,7 @@ export const verifyAgainstWeb = (answer, corpus, { question = '', floor = 0.5 } 
 // invented "Chris Carter, Frank Darabont" that once became the literal next search). Fully guarded:
 // a discourse-read fault, no model, a thin/odd rewrite, or any throw → the discourse-anchored query
 // (worst case the raw turn) stands, so behaviour only ever improves. Returns a plain string.
-export const formulateSearchQuery = async ({ model, question, history = [], fallback = '' } = {}) => {
+export const formulateSearchQuery = async ({ model, question, history = [], fallback = '', signal = null } = {}) => {
   const base = String(question || fallback || '').trim();
   if (!base) return base;
 
@@ -122,7 +122,9 @@ export const formulateSearchQuery = async ({ model, question, history = [], fall
     // (pleias / onnx) otherwise pad every call up to their 384–768 token floor, turning this tiny
     // utility call into a second full-length decode (~80s on CPU/WASM) for no reason — a large
     // share of the "chat is slow" in auto mode, where this runs before every answer.
-    const out = await model.phrase(messages, { maxTokens: 32, temperature: 0, minPredict: 0 });
+    // The turn's signal rides along so a Stop/stall actually halts this decode —
+    // unabortable, it kept running as an orphan and held the engine against the next turn.
+    const out = await model.phrase(messages, { maxTokens: 32, temperature: 0, minPredict: 0, signal });
     const q = String(out || '')
       .split('\n').map(s => s.trim()).find(Boolean) || '';     // first non-empty line
     const cleaned = q.replace(/^(search query|query)\s*:\s*/i, '').replace(/^["'`]+|["'`]+$/g, '').trim();
@@ -146,7 +148,7 @@ export const runWebFollowup = async (args, first, {
   // proposal's raw query against the conversation so the engine gets keywords, not chat filler.
   const q = (query != null && String(query).trim())
     ? String(query).trim()
-    : await formulate({ model: args?.model, question: proposal.query, history: args?.history || [], fallback: proposal.query });
+    : await formulate({ model: args?.model, question: proposal.query, history: args?.history || [], fallback: proposal.query, signal: args?.signal });
 
   // Pick the source per trigger: a WITNESS confirms an interpretation against FACTS (Wikipedia);
   // verify (chat) and gap both want to FIND the answer in the wild, so auto-route and pull the

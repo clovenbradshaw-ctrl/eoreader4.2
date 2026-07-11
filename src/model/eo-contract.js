@@ -7,6 +7,7 @@ import { contract } from '../core/contract.js';
 export const CONTRACTS = Object.freeze({
   'src/model/anthropic.js': contract({ ops: ['INS'], targets: ['Field'], products: ['Entity'], stances: ['Making'], note: 'claude hosted-API backend' }),
   'src/model/coders.js': contract({ ops: ['NUL', 'INS', 'SEG'], targets: ['Kind'], products: ['Kind', 'Entity'], stances: ['Clearing', 'Making'], note: 'coder catalog + registration' }),
+  'src/model/decode-gate.js': contract({ ops: ['SEG'], targets: ['Field'], products: ['Field'], stances: ['Dissecting'], note: 'per-engine decode serializer' }),
   'src/model/echo.js': contract({ ops: ['INS', 'NUL'], targets: ['Field'], products: ['Entity'], stances: ['Making', 'Clearing'], note: 'echo backend, verbatim excerpts' }),
   'src/model/embed-hash.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Atmosphere'], stances: ['Tending'], note: 'hash embedder' }),
   'src/model/embed.js': contract({ ops: ['SIG', 'INS'], targets: ['Field'], products: ['Atmosphere', 'Entity'], stances: ['Tending', 'Making'], note: 'MiniLM semantic embedder' }),
