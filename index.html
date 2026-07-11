@@ -762,6 +762,7 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ viewerModeReader }}" title="Read it as a clean book" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <sc-if value="{{ viewerCanPage }}"><button onClick="{{ viewerModePage }}" title="Render the real website" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPageFg }};background:{{ vmPageBg }}">Native</button></sc-if>
                   <button onClick="{{ viewerModeText }}" title="Paragraphs with entity links" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmTextFg }};background:{{ vmTextBg }}">Document</button>
+                  <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">Facing</button>
                   <button onClick="{{ viewerModeEot }}" title="The reading, as EoT" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">EoT · {{ viewer.eotCount }}</button>
                 </span>
                 <span style="flex:1"></span>
@@ -823,6 +824,44 @@ table{border-collapse:collapse;width:100%}
                       </sc-for>
                     </div>
                   </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ viewerIsFacing }}">
+              <div style="flex:1;min-height:0;display:flex;background:#0d1017">
+                <!-- LEFT LEAF — the source's own prose, exactly as recorded -->
+                <div class="eo-scroll" style="flex:1;min-width:0;overflow-y:auto;padding:26px 30px;background:#fff;border-right:1px solid #E2E2E8">
+                  <div style="max-width:620px;margin:0 auto">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#B4B4BE;margin-bottom:18px">The document</div>
+                    <sc-for list="{{ viewerParas }}" as="vp">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:15.5px;line-height:1.72;color:#2A2A32;margin:0 0 13px;padding-left:{{ vp.pad }}px;border-left:{{ vp.border }};background:{{ vp.bg }};border-radius:{{ vp.radius }}">
+                        <sc-for list="{{ vp.segs }}" as="sg">
+                          <sc-if value="{{ sg.isText }}"><span>{{ sg.s }}</span></sc-if>
+                          <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;color:#5B4BE6;border-bottom:1px dotted #B9AEF8;font-size:inherit;line-height:inherit;font-family:inherit" style-hover="background:#F1EFFE">{{ sg.s }}</button></sc-if>
+                        </sc-for>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+                <!-- RIGHT LEAF — how the system READ it: the EoT surface, coloured by element type -->
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#0d1017">
+                  <div style="flex:0 0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 18px;border-bottom:1px solid #1d222c;background:#0a0d13">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5a6272">How it read it</span>
+                    <span style="flex:1"></span>
+                    <sc-for list="{{ facingLegend }}" as="lg">
+                      <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8b93a3"><span style="width:9px;height:9px;border-radius:2px;background:{{ lg.color }};flex:0 0 auto"></span>{{ lg.label }}</span>
+                    </sc-for>
+                  </div>
+                  <div class="eo-scroll" style="flex:1;min-height:0;overflow:auto;padding:16px 4px 22px">
+                    <sc-for list="{{ facingLines }}" as="fl">
+                      <div style="display:flex;align-items:baseline;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.65;white-space:pre;background:{{ fl.rowBg }}">
+                        <span style="flex:0 0 auto;width:46px;text-align:right;padding-right:14px;color:#3a4150;user-select:none">{{ fl.n }}</span>
+                        <span style="flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;color:{{ fl.color }};opacity:{{ fl.opacity }}">{{ fl.s }}</span>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ facingTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#5a6272;padding:14px 0 0 60px">… {{ facingMore }} more lines — the EoT tab downloads the whole reading.</div></sc-if>
+                  </div>
                 </div>
               </div>
             </sc-if>
@@ -2037,7 +2076,7 @@ class Component extends DCLogic {
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], ...this._acctVals() };
+        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], ...this._acctVals() };
     }
   }
 
@@ -2049,7 +2088,7 @@ class Component extends DCLogic {
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
         statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], ...this._acctVals() };
+        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], ...this._acctVals() };
     }
     const topic = app.topic();
     const sources = app.topicSources();
@@ -2447,6 +2486,7 @@ class Component extends DCLogic {
     // ── the source viewer: sources open as TABS IN THE MAIN STAGE ──────────────
     let viewer = null;
     let viewerParas = [], eotLines = [], eotTruncated = false, eotMore = '';
+    let facingLines = [], facingLegend = [], facingTruncated = false, facingMore = '';
     let readerDoc = '', readerToc = [], pageDoc = '', pageBusy = false, pageErr = '';
     let vMode = 'reader';
     const rp = st.readPrefs || {};
@@ -2501,6 +2541,17 @@ class Component extends DCLogic {
           eotLines = all.slice(0, CAP).map((ln) => ({ s: ln === '' ? ' ' : ln, color: ln.trimStart().startsWith('#') ? '#9A9AA4' : '#2A2A32' }));
           eotTruncated = all.length > CAP;
           eotMore = String(all.length - CAP);
+        }
+        // The FACING page's right leaf — the reading's EoT surface, coloured by element type
+        // (reader-render.facingReadingLines). The left leaf reuses viewerParas (the document).
+        if (vMode === 'facing' && eot && this._render) {
+          const fr = this._render.facingReadingLines(eot.text || '');
+          facingLines = fr.lines.map((l) => ({
+            n: String(l.n), s: l.s, color: l.color, opacity: l.dim ? '0.72' : '1',
+            rowBg: l.kind === 'rule' ? 'rgba(122,162,247,0.07)' : 'transparent',
+          }));
+          facingLegend = fr.legend;
+          facingTruncated = fr.truncated; facingMore = String(fr.more);
         }
         if (!this._viewCache || this._viewCache.sn !== activeSn) {
           this._viewCache = { sn: activeSn, paras: app.viewerParas(activeSn, { entities: st.entityMode }) };
@@ -2647,12 +2698,13 @@ class Component extends DCLogic {
       srcTabs, hasSrcTabs: srcTabs.length > 0, isSource: !!viewer, viewer: viewer || {}, viewerParas,
       // per-source render modes: Reader (themed book) · Native (real site) · Document · EoT
       viewerCanPage: !!viewer && viewer.hasUrl,
-      viewerIsReader: vMode === 'reader', viewerIsPage: vMode === 'native', viewerIsText: vMode === 'text', viewerIsEot: vMode === 'eot',
+      viewerIsReader: vMode === 'reader', viewerIsPage: vMode === 'native', viewerIsText: vMode === 'text', viewerIsFacing: vMode === 'facing', viewerIsEot: vMode === 'eot',
       viewerModeReader: () => this.setSourceMode('reader'), viewerModePage: () => this.setSourceMode('native'),
-      viewerModeText: () => this.setSourceMode('text'), viewerModeEot: () => this.setSourceMode('eot'),
+      viewerModeText: () => this.setSourceMode('text'), viewerModeFacing: () => this.setSourceMode('facing'), viewerModeEot: () => this.setSourceMode('eot'),
       vmReaderFg: vMode === 'reader' ? '#1B1B22' : '#8A8A95', vmReaderBg: vMode === 'reader' ? '#fff' : 'transparent',
       vmPageFg: vMode === 'native' ? '#1B1B22' : '#8A8A95', vmPageBg: vMode === 'native' ? '#fff' : 'transparent',
       vmTextFg: vMode === 'text' ? '#1B1B22' : '#8A8A95', vmTextBg: vMode === 'text' ? '#fff' : 'transparent',
+      vmFacingFg: vMode === 'facing' ? '#1B1B22' : '#8A8A95', vmFacingBg: vMode === 'facing' ? '#fff' : 'transparent',
       vmEotFg: vMode === 'eot' ? '#1B1B22' : '#8A8A95', vmEotBg: vMode === 'eot' ? '#fff' : 'transparent',
       // reader body + controls
       readerDoc, setReaderFrame: (el) => this.setReaderFrame(el),
@@ -2664,6 +2716,7 @@ class Component extends DCLogic {
       // native render body
       pageDoc, pageShow: !!pageDoc, pageBusy, pageErr, hasPageErr: !!pageErr, retryPage: () => this.retryPage(),
       eotLines, eotTruncated, eotMore, downloadEot: () => this.downloadEot(),
+      facingLines, facingLegend, facingTruncated, facingMore,
       setViewerBody: (el) => this.setViewerBody(el),
       removeViewerSource: () => { const a = this._activeSrc(); if (a && confirm(`Remove ${viewer.reg} from the record?`)) { app.removeSource(a); this.closeTab(a); } },
       // search
