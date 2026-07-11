@@ -72,6 +72,40 @@ test('runTurnWithResearch forwards onHop/onHopDone to the walk and returns the r
   assert.equal(out.answer, 'grounded');
 });
 
+test('a novel page opens a deep frontier — up to 6 leads, not 4', async () => {
+  // One seed page carrying eight distinct novel content terms. The frontier depth is what keeps a
+  // walk alive past its first threads, so the heaviest SIX join it (leadsPerHop), not the old four.
+  const richSearch = async (query) => {
+    const slug = String(query).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const text = 'coral reefs zooxanthellae acidification symbiosis polyps bleaching calcification biodiversity mangroves';
+    return [{ doc: { docId: `web-${slug}`, text, web: { title: query, url: `https://example.test/${slug}` } } }];
+  };
+  const walk = await runCuriousResearch('coral reefs', { search: richSearch, maxHops: 1, k: 1 });
+  assert.equal(walk.hops[0].kept, true);
+  assert.equal(walk.hops[0].leads.length, 6, 'a novel hop opens six threads');
+});
+
+test('the walk survives two consecutive strays and recovers on the next on-topic thread', async () => {
+  // The seed spawns three leads whose priority order is set by term mass: bleaching (3×) >
+  // symbiosis (2×) > polyps (1×). The first two threads come back off-topic (zero overlap with
+  // the frame → strayed); the third is on-topic again. Under the old strayPatience of 2 the walk
+  // died after the second stray with the good thread still on the frontier — now it recovers.
+  const page = (slug, text) => [{ doc: { docId: `web-${slug}`, text, web: { title: slug, url: `https://example.test/${slug}` } } }];
+  const forkSearch = async (query) => {
+    const q = String(query).toLowerCase();
+    if (q.includes('bleaching')) return page('stray-1', 'quantum chromodynamics lattice gauge renormalization');
+    if (q.includes('symbiosis')) return page('stray-2', 'sourdough hydration crumb fermentation proofing');
+    if (q.includes('polyps'))    return page('back-on', 'coral reefs coral reefs polyps bleaching symbiosis');
+    return page('seed', 'coral reefs ocean bleaching bleaching bleaching symbiosis symbiosis polyps');
+  };
+  const walk = await runCuriousResearch('coral reefs', { search: forkSearch, maxHops: 8, k: 1 });
+
+  const reasons = walk.hops.map((h) => (h.kept ? 'kept' : h.reason));
+  assert.deepEqual(reasons.slice(0, 4), ['kept', 'strayed', 'strayed', 'kept'],
+    'two strays in a row must not end the walk while an on-topic thread waits');
+  assert.ok(walk.docs.some((d) => d.docId === 'web-back-on'), 'the recovering page grounds the answer');
+});
+
 test('an aborted signal stops the walk before it fetches — the Stop button', async () => {
   const controller = new AbortController();
   controller.abort();
