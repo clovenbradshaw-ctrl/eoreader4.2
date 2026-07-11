@@ -316,7 +316,13 @@ export const fetchAndAdmit = async (url, { client, store = null, rawStore = null
 // top results. By default the result's snippet/summary is admitted as a light source; with
 // `fetchPages` each result's full page is fetched THROUGH the proxy — the engine pulling the
 // actual website ("find random websites as needed"). Returns [{ item, doc, record, … }].
-export const searchAndAdmit = async (query, { client, store = null, rawStore = null, k = 5, kind = 'auto', fetchPages = false, fetched_at = nowIso(), signal = null } = {}) => {
+//
+// `onAdmit(admitted, index)` fires once per result the moment it is fetched+admitted — the PROGRESS
+// signal a caller feeds to a stall watchdog. `fetchPages` pulls each hit's full page sequentially,
+// and through the proxy that batch can outlast a no-progress watchdog (the "web lookup stalled" abort
+// the reader was hitting on a slow proxy): a per-result beat proves the walk is alive, so a slow but
+// advancing fetch is not mistaken for a hang. Best-effort — a throw in the hook never breaks admission.
+export const searchAndAdmit = async (query, { client, store = null, rawStore = null, k = 5, kind = 'auto', fetchPages = false, fetched_at = nowIso(), signal = null, onAdmit = null } = {}) => {
   const c = client || createWebClient();
   // A signal-bound view of the client so the search, each full-page / extract read, and the
   // fallback page fetch all honour the turn's Stop / stall abort — the FULL_TEXT hooks read
@@ -345,6 +351,7 @@ export const searchAndAdmit = async (query, { client, store = null, rawStore = n
     const admitted = store ? store.admit(payload) : admitWebSource(payload);
     await keepRaw(rawStore, admitted, text);   // retain the full page bytes (OPFS) when threaded
     out.push({ item: it, ...admitted });
+    if (onAdmit) { try { onAdmit(admitted, out.length); } catch { /* a progress beat must never break the fetch */ } }
   }
   return out;
 };

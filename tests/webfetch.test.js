@@ -139,6 +139,36 @@ test('fetchPages pulls the actual website for each result (find random sites as 
   assert.match(admitted[0].doc.text, /full article body about Grete Samsa/, 'the actual page text was admitted, not the snippet');
 });
 
+test('searchAndAdmit fires onAdmit once per result — the progress beat that keeps a slow walk alive', async () => {
+  // A hop pulling several full pages through a slow proxy must PROVE it is advancing, or the
+  // reader's no-progress watchdog aborts the turn mid-walk ("the web lookup stalled"). onAdmit is
+  // that proof: one beat per fetched+admitted page, carrying the running count.
+  const searchUrl = (q) => `https://news.example/rss?q=${encodeURIComponent(q)}`;
+  const client = createWebClient({
+    proxy: 'https://p.example/feed', searchUrl,
+    fetchImpl: fakeFetch({
+      [searchUrl('grete')]: RSS,
+      'https://example.org/a': '<p>Page A body, long enough to admit.</p>',
+      'https://example.org/b': '<p>Page B body, long enough to admit.</p>',
+    }),
+  });
+  const beats = [];
+  const admitted = await searchAndAdmit('grete', {
+    client, kind: 'news', k: 2, fetchPages: true, onAdmit: (a, i) => beats.push(i),
+  });
+  assert.equal(admitted.length, 2);
+  assert.deepEqual(beats, [1, 2], 'one beat per result, in order, carrying the running count');
+});
+
+test('a throwing onAdmit never breaks admission (a progress beat must not cost the fetch)', async () => {
+  const wikiUrl = 'https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=capital%20of%20france&format=json&srlimit=2';
+  const client = createWebClient({ proxy: 'https://p.example/feed', fetchImpl: fakeFetch({ [wikiUrl]: WIKI }) });
+  const admitted = await searchAndAdmit('capital of france', {
+    client, kind: 'wikipedia', k: 2, onAdmit: () => { throw new Error('beat blew up'); },
+  });
+  assert.equal(admitted.length, 2, 'results still admitted despite a throwing onAdmit');
+});
+
 test('fetchAndAdmit pulls a page through the proxy and admits its text', async () => {
   const client = createWebClient({
     proxy: 'https://p.example/feed',

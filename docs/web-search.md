@@ -163,6 +163,28 @@ carries both fetch and search.
 Verified end to end against the live proxy (`tests/webfetch.test.js`, the `LIVE` case behind
 `EO_LIVE_PROXY=1`); the default test run injects a fake fetch and stays offline.
 
+### Reliability — the proxy is not a single point of failure (built)
+
+The proxy is one instance (n8n) with one public backstop (allorigins). When **both** stall or
+rate-limit, every search that must go through them dies — the "not reliably searching the internet"
+and "the web lookup stalled" reports. Two seams keep search alive:
+
+- **CORS-direct for the common routes.** The default route is the Wikimedia API (`routeKind →
+  wikipedia`) and the academic route is OpenAlex — and both emit `Access-Control-Allow-Origin: *`,
+  so the browser can fetch them with **no proxy at all**. `src/organs/ingest/direct-cors.js`
+  (`directCorsUrl(target)`) names those endpoints; the reader's fetch chain (`app.js` `chainFetch`)
+  tries the direct URL FIRST and falls through to the proxy chain on any miss — so a proxy outage
+  only degrades the long tail (arbitrary article pages, arXiv/ar5iv, news RSS), never the common
+  case. MediaWiki emits its CORS header only with `origin=*` on the query, so the helper appends it.
+- **The stall watchdog is fed per fetched page.** A research hop pulls the search hit plus up to
+  five full pages, sequentially. Through a slow proxy that batch outlasts the 45s no-progress
+  watchdog, which then aborts the whole turn mid-walk. `searchAndAdmit`'s `onAdmit(admitted, i)`
+  hook fires once per admitted page, and `app.js` `webSearchAdmit` feeds the watchdog on each — a
+  slow-but-advancing walk is kept alive, while a true hang (no page for 45s) still trips it.
+
+`directCorsUrl` is pure and offline-tested (`tests/direct-cors.test.js`); the `onAdmit` beat is
+tested in `tests/webfetch.test.js`.
+
 ## Proposer + confirm + auto (built)
 
 The turn proposes; a go-ahead fetches. `src/turn/propose.js` `proposeWebSearch(ctx)` reads the
