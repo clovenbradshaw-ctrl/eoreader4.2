@@ -1020,13 +1020,29 @@ table{border-collapse:collapse;width:100%}
             </sc-if>
 
             <sc-if value="{{ viewerIsEot }}">
-              <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:26px 34px;background:#fff">
-                <div style="max-width:720px;margin:0 auto">
-                  <div style="font-size:11.5px;color:#8A8A95;line-height:1.55;border:1px solid #EFEFF3;background:#FBFBFD;border-radius:10px;padding:10px 13px;margin-bottom:16px">Every proposition this reading admitted, in the canonical EoT surface — the structure layer round-trips through <span style="font-family:'IBM Plex Mono',monospace">parseEOT</span> unchanged; <span style="color:#B4B4BE">#</span>-lines carry the reading's own thinking (predictions, surprise, turning points).</div>
-                  <sc-for list="{{ eotLines }}" as="el">
-                    <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:{{ el.color }}">{{ el.s }}</div>
+              <!-- The EoT tab renders the reading's surface exactly as the facing page's right leaf
+                   does: syntax-lit by element type, entities coloured by their kind, numbered lines
+                   on the terminal. Full width here (no document leaf), the whole reading in one pane. -->
+              <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#0d1017">
+                <div style="flex:0 0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 18px;border-bottom:1px solid #1d222c;background:#0a0d13">
+                  <span title="Every proposition this reading admitted, in the canonical EoT surface — the structure layer round-trips through parseEOT unchanged; #-lines carry the reading's own thinking (predictions, surprise, turning points)." style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5a6272">The reading, as EoT</span>
+                  <span style="flex:1"></span>
+                  <sc-for list="{{ eotLegend }}" as="lg">
+                    <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8b93a3"><span style="width:9px;height:9px;border-radius:2px;background:{{ lg.color }};flex:0 0 auto"></span>{{ lg.label }}</span>
                   </sc-for>
-                  <sc-if value="{{ eotTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9A9AA4;margin-top:14px">… {{ eotMore }} more lines — download the full .eot above.</div></sc-if>
+                  <sc-if value="{{ eotHasKinds }}"><span title="entities, coloured by their kind" style="width:1px;height:12px;background:#252b36;flex:0 0 auto"></span></sc-if>
+                  <sc-for list="{{ eotKindLegend }}" as="kl">
+                    <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8b93a3"><span style="width:9px;height:9px;border-radius:50%;background:{{ kl.color }};flex:0 0 auto"></span>{{ kl.label }}</span>
+                  </sc-for>
+                </div>
+                <div class="eo-scroll" style="flex:1;min-height:0;overflow:auto;padding:16px 4px 22px">
+                  <sc-for list="{{ eotLines }}" as="el">
+                    <div style="display:flex;align-items:baseline;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.65;white-space:pre;background:{{ el.rowBg }}">
+                      <span style="flex:0 0 auto;width:46px;text-align:right;padding-right:14px;color:#3a4150;user-select:none">{{ el.n }}</span>
+                      <span style="flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;opacity:{{ el.opacity }}"><sc-for list="{{ el.segs }}" as="sg"><span style="color:{{ sg.color }}">{{ sg.s }}</span></sc-for></span>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ eotTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#5a6272;padding:14px 0 0 60px">… {{ eotMore }} more lines — download the full .eot above.</div></sc-if>
                 </div>
               </div>
             </sc-if>
@@ -2620,7 +2636,7 @@ class Component extends DCLogic {
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {},
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
+        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
     }
   }
 
@@ -2633,7 +2649,7 @@ class Component extends DCLogic {
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
         statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {},
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
+        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
     }
     const topic = app.topic();
     const sources = app.topicSources();
@@ -3073,7 +3089,7 @@ class Component extends DCLogic {
 
     // ── the source viewer: sources open as TABS IN THE MAIN STAGE ──────────────
     let viewer = null;
-    let viewerParas = [], eotLines = [], eotTruncated = false, eotMore = '';
+    let viewerParas = [], eotLines = [], eotLegend = [], eotKindLegend = [], eotTruncated = false, eotMore = '';
     let facingLines = [], facingLegend = [], facingKindLegend = [], facingTruncated = false, facingMore = '';
     let readerDoc = '', readerToc = [], pageDoc = '', pageBusy = false, pageErr = '';
     let vMode = 'reader';
@@ -3123,12 +3139,28 @@ class Component extends DCLogic {
         // The native render reads its memoised fetch from state (loadPage fills it).
         const pg = st.viewerPages[activeSn] || {};
         pageBusy = !!pg.busy; pageErr = pg.err || ''; pageDoc = pg.doc || '';
-        if (vMode === 'eot' && eot) {
+        // The EoT tab renders the reading's surface exactly as the facing page's right leaf does —
+        // syntax-lit by element type, entities coloured by kind (reader-render.facingReadingLines) —
+        // just full-width, without the paired document leaf.
+        if (vMode === 'eot' && eot && this._render) {
+          const fr = this._render.facingReadingLines(eot.text || '');
+          eotLines = fr.lines.map((l) => ({
+            n: String(l.n), s: l.s, color: l.color, opacity: l.dim ? '0.72' : '1',
+            rowBg: l.kind === 'rule' ? 'rgba(122,162,247,0.07)' : 'transparent',
+            segs: (l.segs || [{ s: l.s, color: l.color }]).map((sg) => ({ s: sg.s, color: sg.color })),
+          }));
+          eotLegend = fr.legend;
+          eotKindLegend = fr.kindLegend || [];
+          eotTruncated = fr.truncated; eotMore = String(fr.more);
+        } else if (vMode === 'eot' && eot) {
+          // Render module not mounted — flat, still numbered, tinted for the terminal background.
           const all = String(eot.text || '').split('\n');
-          const CAP = 1600;
-          eotLines = all.slice(0, CAP).map((ln) => ({ s: ln === '' ? ' ' : ln, color: ln.trimStart().startsWith('#') ? '#9A9AA4' : '#2A2A32' }));
-          eotTruncated = all.length > CAP;
-          eotMore = String(all.length - CAP);
+          const CAP = 2400;
+          eotLines = all.slice(0, CAP).map((ln, i) => ({
+            n: String(i + 1), s: ln === '' ? ' ' : ln, opacity: '1', rowBg: 'transparent',
+            segs: [{ s: ln === '' ? ' ' : ln, color: ln.trimStart().startsWith('#') ? '#6B7280' : '#c7d0da' }],
+          }));
+          eotTruncated = all.length > CAP; eotMore = String(all.length - CAP);
         }
         // The FACING page's right leaf — the reading's EoT surface, coloured by element type
         // (reader-render.facingReadingLines). The left leaf reuses viewerParas (the document).
@@ -3316,7 +3348,7 @@ class Component extends DCLogic {
       readSizeUp: () => this.bumpReadFont(1), readSizeDown: () => this.bumpReadFont(-1), cycleReadWidth: () => this.cycleReadWidth(),
       // native render body
       pageDoc, pageShow: !!pageDoc, pageBusy, pageErr, hasPageErr: !!pageErr, retryPage: () => this.retryPage(),
-      eotLines, eotTruncated, eotMore, downloadEot: () => this.downloadEot(),
+      eotLines, eotLegend, eotKindLegend, eotHasKinds: eotKindLegend.length > 0, eotTruncated, eotMore, downloadEot: () => this.downloadEot(),
       facingLines, facingLegend, facingKindLegend, facingHasKinds: facingKindLegend.length > 0, facingTruncated, facingMore,
       setViewerBody: (el) => this.setViewerBody(el),
       removeViewerSource: () => { const a = this._activeSrc(); if (a && confirm(`Remove ${viewer.reg} from the record?`)) { app.removeSource(a); this.closeTab(a); } },
