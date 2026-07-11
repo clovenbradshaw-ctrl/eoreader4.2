@@ -25,6 +25,38 @@ test('the visible stages each speak from their data', () => {
   assert.equal(foldNarrative('predict', {}), null, 'no draft → no beat');
 });
 
+test('audit the surf — the fold beat carries the reading path when one was assembled', () => {
+  const beat = foldNarrative('fold', { surf: {
+    stops: [2, 4], anchor: 0, peak: 4, rode: 'bayesian-figure',
+    atmosphere: { verdict: 'coheres', tone: 'measured' },
+    stance: { guard: true },
+    path: [
+      { idx: 0, bayes: 0.10, text: 'It opens here.',  anchor: true,  stop: false, peak: false },
+      { idx: 2, bayes: 0.40, text: 'The turn.',        anchor: false, stop: true,  peak: false },
+      { idx: 4, bayes: 0.91, text: 'The crisis lands.', anchor: false, stop: true,  peak: true  },
+    ],
+  } });
+  assert.equal(beat.kind, 'fold');
+  assert.equal(beat.text, 'Folded the reading — 2 stops', 'the line is unchanged — the audit rides beside it');
+  assert.ok(beat.surf, 'the reading path rides on the beat');
+  assert.equal(beat.surf.path.length, 3, 'anchor + two stops (the peak is one of them)');
+  assert.equal(beat.surf.path[2].peak, true);
+  assert.match(beat.surf.rode, /surprise/, 'the discipline it rode is humanised');
+  assert.match(beat.surf.read, /coheres/, 'the interpretive read folds in the atmosphere verdict');
+  assert.match(beat.surf.read, /guard held/, '…and whether the confabulation guard held');
+});
+
+test('audit the surf — no path, or a path of only empty text, adds nothing to the beat', () => {
+  assert.equal(foldNarrative('fold', { surf: { stops: [2, 4] } }).surf, undefined, 'no path → no audit payload');
+  assert.equal(
+    foldNarrative('fold', { surf: { stops: [1], path: [{ idx: 1, text: '' }] } }).surf, undefined,
+    'a textless path is nothing to audit',
+  );
+  // and the interpretive read stays silent on the plain structural surf (no atmosphere/stance)
+  const bare = foldNarrative('fold', { surf: { stops: [1], path: [{ idx: 1, text: 'x', stop: true }] } });
+  assert.equal(bare.surf.read, null);
+});
+
 test('retrieve tells the truth when the record had nothing', () => {
   assert.deepEqual(foldNarrative('retrieve', { n: 0 }), { kind: 'warn', text: 'The record had nothing close' });
 });

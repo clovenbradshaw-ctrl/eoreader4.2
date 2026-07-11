@@ -246,7 +246,10 @@ export const createReaderApp = ({ audit } = {}) => {
   // with mode 'research', and the first-writer's mode wins).
   const foldBeat = (msg, name, data) => {
     const b = foldNarrative(name, data || {});
-    if (b) beat(msg, b.kind, b.text, 'think');
+    // Carry the surf audit (the reading path fold-narrative folded off the fold stage) onto the
+    // beat, so the trail's "Folded the reading" line can be OPENED to audit the surf — the same
+    // way a "Read N sources" beat carries its pages (hopDoneBeat).
+    if (b) beat(msg, b.kind, b.text, 'think', b.surf ? { surf: b.surf } : null);
   };
   // The pre-fetch beat: what the walk is about to search THIS hop. A followed lead names the term it
   // is chasing ("Following 'X' — searching 'Y'"); the seed / a plain hop just names the query.

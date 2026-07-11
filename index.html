@@ -499,6 +499,22 @@ table{border-collapse:collapse;width:100%}
                                           </sc-for>
                                         </div>
                                       </sc-if>
+                                      <sc-if value="{{ ts.hasSurf }}">
+                                        <div style="margin-top:4px;padding:6px 8px;background:#F4F2FD;border:1px solid #E6E2F7;border-radius:7px">
+                                          <div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#9A93C4;margin-bottom:4px">READING PATH</div>
+                                          <sc-for list="{{ ts.surfStops }}" as="sp">
+                                            <div title="{{ sp.text }}" style="display:flex;align-items:center;gap:7px;padding:2px 0;font-size:11px;color:#4A4A54">
+                                              <span style="font-family:'IBM Plex Mono',monospace;color:{{ sp.markFg }};flex:0 0 auto;width:10px;text-align:center">{{ sp.mark }}</span>
+                                              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4;flex:0 0 auto;width:26px">{{ sp.loc }}</span>
+                                              <span style="flex:0 0 auto;width:30px;height:4px;background:#E1DCF3;border-radius:2px;overflow:hidden"><span style="display:block;height:100%;width:{{ sp.barW }};background:#8A78F0"></span></span>
+                                              <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ sp.text }}</span>
+                                            </div>
+                                          </sc-for>
+                                          <sc-if value="{{ ts.surfHasMeta }}">
+                                            <div style="margin-top:4px;font-size:9.5px;color:#8A84A8">{{ ts.surfMeta }}</div>
+                                          </sc-if>
+                                        </div>
+                                      </sc-if>
                                     </div>
                                   </div>
                                 </sc-for>
@@ -1985,6 +2001,25 @@ class Component extends DCLogic {
       think:  { glyph: '·', fg: '#9A9AA4' },
     }[kind] || { glyph: '·', fg: '#9A9AA4' });
   }
+  // The surf audit — the reader's view-model for one "Folded the reading" beat's reading path
+  // (app.js foldBeat ← turn/pipeline.js buildSurfPath). Each cursor the surf arrested on becomes a
+  // row: a role marker (⌂ anchor · • stop · ▲ peak), its sentence index, a surprise bar scaled to
+  // the walk's own peak, and the sentence read there. The footer names how the surf arrested and,
+  // when the significance column rode, its interpretive read. Pre-flattened (one-dot fields) so the
+  // template never has to resolve a nested path.
+  _surfAudit(surf) {
+    const path = (surf && surf.path) || [];
+    const maxB = Math.max(1e-9, ...path.map((p) => p.bayes || 0));
+    const stops = path.map((p) => ({
+      mark: p.peak ? '▲' : p.anchor ? '⌂' : '•',
+      markFg: p.peak ? '#6D5EF5' : p.anchor ? '#8A8A95' : '#B04AE0',
+      loc: 's' + p.idx,
+      barW: Math.max(3, Math.round(100 * (p.bayes || 0) / maxB)) + '%',   // ≥3% so a flat stop still ticks
+      text: p.text,
+    }));
+    const meta = [surf.rode, surf.read].filter(Boolean).join(' · ');
+    return { stops, meta, hasMeta: !!meta };
+  }
   toggleTrail(id, cur) { this.setState({ trailOpen: { ...this.state.trailOpen, [id]: !cur } }); }
   _rights(src) {
     const r = String(src.rights || '');
@@ -2471,7 +2506,13 @@ class Component extends DCLogic {
             open: () => { try { if (url) window.open(url, '_blank', 'noopener'); } catch { /* ignore */ } },
           };
         });
-        return { glyph: st.glyph, fg: st.fg, text: s.text, hasSources: sources.length > 0, sources };
+        // A "Folded the reading" beat carries the surfer's reading PATH (app.js foldBeat) — render
+        // it as the auditable walk: each cursor it arrested on, its surprise, and what it read.
+        const surf = (s.surf && Array.isArray(s.surf.path) && s.surf.path.length) ? this._surfAudit(s.surf) : null;
+        return {
+          glyph: st.glyph, fg: st.fg, text: s.text, hasSources: sources.length > 0, sources,
+          hasSurf: !!surf, surfStops: surf ? surf.stops : [], surfMeta: surf ? surf.meta : '', surfHasMeta: !!(surf && surf.hasMeta),
+        };
       });
       const trailRunning = !!tr && !tr.done;
       const trMode = tr ? (tr.mode || 'research') : 'research';
