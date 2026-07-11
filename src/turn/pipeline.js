@@ -130,9 +130,16 @@ const buildReading = (ctx) => {
 
 // the LLM-facing brief for the audit — assembled from the doc and the activated thread, with
 // any fault degrading to null rather than sinking the turn record.
+//
+// It is handed the surf the turn ALREADY did (the fold stage's ctx.surf) so it reconstructs the
+// brief from that rather than re-surfing the whole document from scratch. Without this, assembleBrief
+// runs an adaptive surf that reads readingAt at every unit — O(S) — which on a large document (a big
+// source, or several fetched pages folded in) takes tens of seconds AFTER the answer is already done,
+// so the turn appears to hang between `self` and the record's completion. Reusing ctx.surf keeps this
+// diagnostic effectively free and faithful to what was actually read (assemble.js).
 const llmBrief = (ctx) => {
   try {
-    const b = assembleBrief(ctx.doc, { question: ctx.question, history: ctx.history });
+    const b = assembleBrief(ctx.doc, { question: ctx.question, history: ctx.history, surf: ctx.surf });
     return { system: b.prompt.system, user: b.prompt.user, focus: b.surf.focus, thread: b.thread, draft: b.draft };
   } catch { return null; }
 };
