@@ -19,4 +19,5 @@ export const CONTRACTS = Object.freeze({
   'src/organs/code/go.js': contract({ ops: ['SEG', 'SIG'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Dissecting', 'Tending'], note: 'Go provider — witnessed concurrency/aliasing hazards (membrane)' }),
   'src/organs/code/rust.js': contract({ ops: ['SEG', 'SIG'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Dissecting', 'Tending'], note: 'Rust provider — witnessed panic/identity hazards (membrane)' }),
   'src/organs/code/page.js': contract({ ops: ['SYN', 'CON', 'EVA'], targets: ['Network', 'Lens'], products: ['Lens'], stances: ['Composing', 'Binding', 'Tracing'], note: 'generic element tree → a whole page, styling foraged not hardcoded' }),
+  'src/organs/code/style.js': contract({ ops: ['DEF', 'EVA', 'SIG'], targets: ['Atmosphere'], products: ['Lens', 'Atmosphere'], stances: ['Making', 'Binding', 'Tending'], note: 'holon-addressed style edits + the Atmosphere contrast checkpoint' }),
 });

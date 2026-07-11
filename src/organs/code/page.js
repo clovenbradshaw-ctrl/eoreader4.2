@@ -26,6 +26,8 @@
 import { parseEOT } from '../ingest/eot.js';
 import { readCodebase } from './read.js';
 import { composeWidget, widgetCompleteness } from './widget.js';
+import { joinHolon } from '../../core/holon.js';
+import { overridesToCss } from './style.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const escAttr = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -73,9 +75,29 @@ export const composePage = (blueprintEot, opts = {}) => {
   const page = all.find((n) => n.type === 'Page') ?? { attrs: {} };
   const rootName = page.attrs.root || all.find((n) => n.type === 'El')?.name;
 
+  // EDITS — every edit is a DEF/REC at a HOLON ADDRESS, on a face. Style-face edits layer
+  // as overrides (holon-addressed CSS); content-face edits (text/html/tag) mutate the
+  // addressed node before render. One uniform operation, whatever the face.
+  const resolveNodes = (e) => {
+    if (e.node && nodes.has(e.node)) return [nodes.get(e.node)];
+    if (e.holon) { const leaf = String(e.holon).split('.').pop(); return nodes.has(leaf) ? [nodes.get(leaf)] : []; }
+    if (e.tag) return all.filter((n) => (n.tag || (n.type === 'Widget' ? 'widget' : 'div')) === e.tag);
+    return [];
+  };
+  const styleEdits = [];
+  for (const e of opts.edits ?? []) {
+    if ((e.face ?? 'style') === 'style') { styleEdits.push(e); continue; }
+    for (const t of resolveNodes(e)) {
+      if (e.face === 'text') { t.text = e.value; t.html = null; t.children = []; }
+      else if (e.face === 'html') { t.html = e.value; }
+      else if (e.face === 'tag') { t.tag = e.value; }
+    }
+  }
+
   const scripts = [];
   const widgets = [];
   const islandFindings = [];        // completeness of each embedded widget (dead buttons etc.)
+  const holons = [];                // the holon index: every node's address + tag
   const seen = new Set();
 
   const attrStr = (n) => {
@@ -86,7 +108,11 @@ export const composePage = (blueprintEot, opts = {}) => {
     return a.length ? ' ' + a.join(' ') : '';
   };
 
-  const render = (name, depth = 0) => {
+  // every element carries its HOLON ADDRESS (its path from the root) and its tag, so an
+  // edit — style, content, structure — can target it by address, not by an invented
+  // selector: `[data-h="site.root.hero.h1"]` IS the holon. A tag-class edit ("the
+  // buttons") targets `[data-h-tag="button"]`. The holon path is the selector.
+  const render = (name, path, depth = 0) => {
     const n = nodes.get(name);
     if (!n || seen.has(name) || depth > 64) return '';
     seen.add(name);
@@ -96,25 +122,29 @@ export const composePage = (blueprintEot, opts = {}) => {
       widgets.push(n.name);
       islandFindings.push(...widgetCompleteness(w));
       scripts.push(`(() => {\n${w.script}\n})();`);
-      return `<div id="${mount}"></div>`;
+      return `<div id="${mount}" data-h="${escAttr(path)}" data-h-tag="widget"></div>`;
     }
     const tag = (n.tag || 'div').replace(/[^A-Za-z0-9-]/g, '') || 'div';
-    if (VOID_TAGS.has(tag)) return `<${tag}${attrStr(n)}>`;
+    holons.push({ path, tag, name });
+    const addr = ` data-h="${escAttr(path)}" data-h-tag="${tag}"`;
+    if (VOID_TAGS.has(tag)) return `<${tag}${attrStr(n)}${addr}>`;
     const inner = n.html != null ? n.html
-      : n.children.length ? n.children.map((c) => render(c, depth + 1)).join('')
+      : n.children.length ? n.children.map((c) => render(c, joinHolon(path, c), depth + 1)).join('')
       : esc(n.text ?? '');
-    return `<${tag}${attrStr(n)}>${inner}</${tag}>`;
+    return `<${tag}${attrStr(n)}${addr}>${inner}</${tag}>`;
   };
 
-  const bodyInner = rootName ? render(rootName) : '';
+  const bodyInner = rootName ? render(rootName, rootName) : '';
+  const overrides = [opts.overrides ?? '', overridesToCss(styleEdits)].filter((s) => s && s.trim()).join('\n');
   const html = pageHtml({
     title: page.attrs.title ?? 'Page',
     css: opts.css ?? '',
     accent: page.attrs.accent ?? null,
+    overrides,                            // the holon-addressed edit layer, cascading over the base
     bodyInner,
     script: scripts.join('\n\n'),
   });
-  return Object.freeze({ html, script: scripts.join('\n\n'), widgets, islandFindings, nodes, diagnostics });
+  return Object.freeze({ html, script: scripts.join('\n\n'), widgets, islandFindings, holons, nodes, diagnostics });
 };
 
 // ── the checkpoint — the page's interactive behavior, read back through the organ ────
@@ -146,7 +176,7 @@ export const foragePageCss = async (fetchText, which = 'pico') => {
 };
 
 // ── the scaffold — only a neutral reset; the LOOK is the injected/foraged sheet ─────
-const pageHtml = ({ title, css, accent, bodyInner, script }) => `<!doctype html>
+const pageHtml = ({ title, css, accent, overrides, bodyInner, script }) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -155,6 +185,7 @@ const pageHtml = ({ title, css, accent, bodyInner, script }) => `<!doctype html>
 <style>*{box-sizing:border-box}</style>
 ${css ? `<style>\n${css}\n</style>` : ''}
 ${accent ? `<style>:root{--pico-primary:${accent};--links:${accent};accent-color:${accent}}</style>` : ''}
+${overrides ? `<style id="edits">\n${overrides}\n</style>` : ''}
 </head>
 <body>
 ${bodyInner}

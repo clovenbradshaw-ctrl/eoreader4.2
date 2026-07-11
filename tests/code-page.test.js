@@ -35,10 +35,13 @@ b.tag = "li"
 b.text = "two"`;
 
 test('the generic renderer walks an arbitrary tree — no per-kind templates', () => {
-  const { html } = composePage(TREE, { css: '' });
-  assert.ok(html.includes('<main><header><h1>Hello &lt;world&gt;</h1></header>'), 'nesting + escaping from the tree');
-  assert.ok(html.includes('<ul><li>one</li><li>two</li></ul>'), 'a list is a <ul> because the tree says so');
+  const { html, holons } = composePage(TREE, { css: '' });
+  assert.ok(/<h1[^>]*>Hello &lt;world&gt;<\/h1>/.test(html), 'nesting + escaping from the tree');
+  assert.ok(/<ul[^>]*><li[^>]*>one<\/li><li[^>]*>two<\/li><\/ul>/.test(html), 'a list is a <ul> because the tree says so');
   assert.ok(html.includes('<title>Demo</title>'));
+  // every element is holon-addressed — the address IS the selector
+  assert.deepEqual(holons.map((h) => h.path), ['root', 'root.head', 'root.head.title', 'root.list', 'root.list.a', 'root.list.b']);
+  assert.ok(html.includes('data-h="root.head.title"'), 'the h1 carries its holon address');
 });
 
 test('attributes, ids, classes, raw html, and void tags all render generically', () => {
@@ -57,9 +60,18 @@ img.attr.src = "a.png"
 raw : El
 raw.tag = "div"
 raw.html = "<b>bold</b> & <i>it</i>"`, { css: '' });
-  assert.ok(html.includes('<section id="sec" class="wrap big" data-role="panel">'));
-  assert.ok(html.includes('<img src="a.png">') && !html.includes('</img>'), 'a void tag has no close');
+  assert.ok(html.includes('<section id="sec" class="wrap big" data-role="panel"'), 'attrs render');
+  assert.ok(html.includes('<img src="a.png"') && !html.includes('</img>'), 'a void tag has no close');
   assert.ok(html.includes('<b>bold</b> & <i>it</i>'), 'raw html passes through unescaped');
+});
+
+test('holon-addressed edits hit any face: style layers, content mutates the node', () => {
+  const styled = composePage(TREE, { css: '', edits: [{ holon: 'root.head.title', decls: { color: 'red' } }] });
+  assert.ok(styled.html.includes('[data-h="root.head.title"] { color: red }'), 'a style edit is a rule keyed on the holon address');
+  const content = composePage(TREE, { css: '', edits: [{ holon: 'root.head.title', face: 'text', value: 'Changed' }] });
+  assert.ok(/<h1[^>]*>Changed<\/h1>/.test(content.html), 'a content edit at the same address mutates that node');
+  const byClass = composePage(TREE, { css: '', edits: [{ tag: 'li', decls: { 'font-weight': 'bold' } }] });
+  assert.ok(byClass.html.includes('[data-h-tag="li"] { font-weight: bold }'), 'a tag edit targets the holon class');
 });
 
 test('styling is injected, not hardcoded — the organ ships no look', () => {

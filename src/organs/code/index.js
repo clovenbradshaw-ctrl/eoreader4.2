@@ -41,5 +41,6 @@ export { composeProgram, composeAndVerify, composeFromModel, blueprintPrompt } f
 export { composeWidget, composeWidgetAndVerify, composeWidgetFromModel, widgetPrompt, specToWidgetBlueprint } from './widget.js';
 export { harvestProgram, createWebRetriever } from './harvest.js';
 export { composePage, composePageAndVerify, foragePageCss, PAGE_CSS_SOURCES } from './page.js';
+export { interpretStyleEdit, styleCheck, contrastRatio, overridesToCss, parseColor } from './style.js';
 export { extractGoFacts } from './go.js';
 export { extractRustFacts } from './rust.js';
