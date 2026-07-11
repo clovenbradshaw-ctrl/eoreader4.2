@@ -51,13 +51,25 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   // An explicit pin (a caller's opts.model / a coder variant's defaults.model) is honoured as-is;
   // otherwise the default 3B build is chosen ADAPTIVELY at load, keyed to the GPU (pickModel below).
   const pinned = opts.model || defaults.model || null;
+  // The engine constructor. Production imports web-llm from the pinned CDN url and calls
+  // CreateMLCEngine; a test injects a fake through opts.createEngine to exercise the load / wedge /
+  // reset lifecycle without a GPU or a network. Same contract either way:
+  // (model, { initProgressCallback }) → engine. The default path is byte-identical to before.
+  const createEngine = typeof opts.createEngine === 'function'
+    ? opts.createEngine
+    : async (model, cfg) => {
+        const mod = await import(/* @vite-ignore */ WEBLLM_URL);
+        return mod.CreateMLCEngine(model, cfg);
+      };
   let engine  = null;
   let loading = null;
   // ONE DECODE AT A TIME. The MLC engine runs a single generation loop; a second
   // chat.completions.create while one decodes collides inside the runtime (the
   // intermittent "it hangs this time" when a stopped turn's decode was still
   // unwinding as the next question fired). Every phrase() enters through this gate.
-  const gate = makeDecodeGate();
+  // `let`, not `const`: reset() swaps in a FRESH gate so a wedged decode's never-settling
+  // queue entry can't block the decodes that run after the engine is rebuilt.
+  let gate = makeDecodeGate();
   // The MLC artifact this backend actually loaded. A pin is known up front; the adaptive
   // pick (pickModel) is only decided inside load(), so it is captured there. Held for
   // PROVENANCE (describe below) — the audit/export must be able to name the exact build,
@@ -145,11 +157,25 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
       loading = (async () => {
         const model = pinned || await pickModel();
         resolved = model;   // remember the exact artifact for provenance (describe)
-        const mod = await import(/* @vite-ignore */ WEBLLM_URL);
-        engine = await mod.CreateMLCEngine(model, {
+        const eng = await createEngine(model, {
           initProgressCallback: (p) =>
             onProgress?.({ phase: p.text || 'loading', pct: p.progress ?? 0 }),
         });
+        engine = eng;
+        // WEDGE GUARD (rooms/reader/app.js resetWedgedLocalModel is the other half). The WebGPU
+        // device behind this engine can be lost out from under us — a backgrounded tab, memory
+        // pressure from the ~1.9GB weights, a driver/GPU reset. When it goes the engine is a
+        // zombie: isLoaded() still says true, but every decode hangs on dead GPU state and no
+        // retry recovers it (load() early-returns on the non-null engine, above). Listen for the
+        // loss and drop the singleton so the NEXT load() rebuilds fresh. Best-effort: not every
+        // build exposes the device, and an ordinary 'destroyed' loss on teardown is not a fault.
+        try {
+          const dev = typeof eng.getGPUDevice === 'function' ? eng.getGPUDevice() : null;
+          dev?.lost?.then?.((info) => {
+            if (info && info.reason === 'destroyed') return;   // deliberate teardown, not a wedge
+            if (engine === eng) { engine = null; loading = null; }   // reload on next use
+          });
+        } catch { /* no device handle — reset() on a stalled turn still covers the wedge */ }
       })();
       return loading;
     },
@@ -203,6 +229,21 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
           return out.choices?.[0]?.message?.content?.trim() || '';
         } finally { if (signal) signal.removeEventListener('abort', onAbort); }
       });
+    },
+    // TEAR DOWN A WEDGED ENGINE (rooms/reader/app.js resetWedgedLocalModel). A local decode that
+    // stalled with nothing streamed has almost certainly lost its GPU device; the engine is a
+    // write-once singleton that would otherwise keep answering isLoaded() true and hang every retry
+    // — the "Ask again to retry" that never works. Drop the handle so the next load() rebuilds a
+    // fresh engine (or the smaller/CPU backup one rung down the ladder takes over), free the GPU
+    // memory on the way out, and give the backend a FRESH decode gate so a never-settling queue
+    // entry from the wedged decode can't block the rebuilt engine. Idempotent and fail-soft: an
+    // already-dead or never-loaded engine simply has nothing to unload, and a hung unload never
+    // blocks the caller (it awaits its own promise).
+    async reset() {
+      const eng = engine;
+      engine = null; loading = null;   // isLoaded() → false; load() rebuilds fresh on next use
+      gate = makeDecodeGate();         // a clear queue for the rebuilt engine
+      try { await eng?.unload?.(); } catch { /* engine already gone — the handle drop IS the reset */ }
     },
   };
 };

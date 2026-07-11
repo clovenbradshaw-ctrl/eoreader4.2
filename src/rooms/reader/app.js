@@ -719,6 +719,9 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return (typeof navigator !== 'undefined' && navigator.gpu) ? 'webllm' : 'wllama';
   };
   let model = null, modelLoading = null, modelGen = 0;
+  // Consecutive in-browser decode wedges (a lost / OOM'd WebGPU device). A clean answer clears it
+  // (finishMessage); a second straight wedge steps DOWN to the smaller/CPU backup (resetWedgedLocalModel).
+  let localWedges = 0;
   const setBackend = (name) => {
     backendOverride = name;
     try { localStorage.setItem('eo_backend', name); } catch { /* session-only */ }
@@ -855,6 +858,49 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     try { return await modelLoading; } finally { modelLoading = null; }
   };
 
+  // RECOVER A WEDGED IN-BROWSER MODEL. The no-progress watchdog fired on a LOCAL turn with nothing
+  // streamed — the WebGPU engine has almost certainly lost its device (a backgrounded tab, memory
+  // pressure from the ~1.9GB 3B weights, a driver reset). That engine is a write-once singleton that
+  // still claims isLoaded(), so every "Ask again to retry" calls into the corpse and stalls the same
+  // way — the loop behind "why's it stuck". (The decode gate in model/webllm.js serializes decodes so
+  // an OVERLAP can't wedge the runtime; this is the other failure — the device dying under a lone
+  // decode — which the gate can't reach.) Tear it down so the NEXT ask reloads a fresh engine, and
+  // keep the user's backup: a SECOND straight wedge steps DOWN the ladder — Fluent 3B → Fast 1B, then
+  // 1B → the CPU model (wllama) — so a machine that can't hold the big build still answers. Whichever
+  // model ends up talking is named in the record: every turn stamps describeModel(model)
+  // (turn/pipeline.js) and the export dedups them, so a mid-session downgrade shows both. Synchronous
+  // and fire-and-forget: the answer bubble settles now; recovery runs behind it.
+  const resetWedgedLocalModel = () => {
+    const m = model;
+    if (!m || m.kind !== 'local') return;   // a remote talker (claude) has no engine; a healthy model is never sent here
+    localWedges += 1;
+    // Drop the app's handle FIRST so a slow/hung unload can never block the reload; free the GPU
+    // memory in the background (webllm.reset → engine.unload), never awaited.
+    model = null; modelLoading = null; modelGen++;
+    Promise.resolve().then(() => m.reset?.()).catch(() => { /* already dead — the handle drop is the reset */ });
+    if (localWedges >= 2) {
+      // A repeat wedge — this device likely can't hold the current build. Step to the backup; setSpeed/
+      // setBackend persist the pick, reset the handle, and re-emit the chip, so it sticks for the session.
+      if (backendPref() === 'webllm' && speedPref() !== 'fast') {
+        logIt('skip', 'In-browser model kept stalling — dropping to the faster 1B build');
+        setSpeed('fast');
+      } else if (backendPref() === 'webllm') {
+        logIt('skip', 'WebGPU model kept stalling — switching to the CPU model');
+        setBackend('wllama');
+      } else {
+        state.model = { backend: backendPref(), state: 'cold', progress: 0, note: 'reloading — the model stopped responding' };
+        emit('model');
+      }
+      localWedges = 0;
+    } else {
+      state.model = { backend: backendPref(), state: 'cold', progress: 0, note: 'the in-browser model stopped responding — reloading' };
+      emit('model');
+    }
+    // Warm the fresh pick in the background so the retry answers fast instead of paying the reload on
+    // the critical path (the mount-time prewarm posture). Browser only; a manual retry also triggers it.
+    if (typeof window !== 'undefined') setTimeout(() => { ensureModel().catch(() => { /* the ladder logs its own failure */ }); }, 200);
+  };
+
   // embedders — hash is instant; MiniLM warms in the background on first ask
   const hashEmb = createHashEmbedder();
   let minilm = null, minilmWarming = false;
@@ -935,13 +981,14 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   // always settles, the `finally` always runs, and the bubble always finalizes with whatever
   // streamed. `feed()` re-arms the deadline on every sign of life; a live-but-slow model runs on.
   const makeStallGuard = (ctrl, ms = 45000) => {
-    let timer = null, tripped = false, trip = null;
+    let timer = null, tripped = false, stalled = false, trip = null;
     const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
     const doTrip = (err) => { if (tripped) return; tripped = true; clear(); if (trip) trip(err); };
     const feed = () => {
       if (tripped) return;
       clear();
       timer = setTimeout(() => {
+        stalled = true;   // the WATCHDOG fired — no progress for `ms`, distinct from a user Stop
         try { ctrl?.abort(); } catch { /* already aborted */ }
         doTrip(Object.assign(new Error('the turn stalled — no progress'), { stalled: true }));
       }, ms);
@@ -953,7 +1000,9 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     if (ctrl?.signal) ctrl.signal.addEventListener('abort',
       () => doTrip(Object.assign(new Error('stopped'), { stopped: true })), { once: true });
     feed();
-    return { feed, clear, race, tripped: () => tripped };
+    // `stalled()` is true ONLY when the no-progress timer fired (a wedge to recover from), never on a
+    // user Stop — resetWedgedLocalModel keys off it so a deliberate Stop never reloads a healthy model.
+    return { feed, clear, race, tripped: () => tripped, stalled: () => stalled };
   };
 
   // armTurn() → one turn's whole cancellation kit, SCOPED TO THAT TURN:
@@ -1077,14 +1126,21 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     } catch (e) {
       // A stall (watchdog) or a user Stop keeps whatever streamed; only a genuine fault gets the
       // error line, so a stopped/stalled turn never reads as a crash.
+      const stalledOut = turn.guard.stalled();   // the no-progress WATCHDOG fired — a wedge, not a user Stop
       const stoppedOrStalled = turn.guard.tripped() || turnSignal.aborted;
       const hadPartial = !!pending.text;   // the walk streamed prose before the stop cut in
       settleTrail(pending, null);
-      pending.text = pending.text || (stoppedOrStalled
-        ? 'The web lookup stalled and was stopped before it could finish. Try again, or drop a URL, file, or pasted text in the bar above.'
-        : (state.model.state === 'error'
-          ? `${state.model.note}. Pick a model from the chip in the header, then retry — or drop a URL, file, or pasted text in the bar above.`
-          : `The web lookup failed: ${String(e?.message || e)}`));
+      // A wedged local engine (watchdog fired, nothing streamed) — reload it / fall to the backup so
+      // "try again" isn't advice to re-hit a dead singleton. Read `model` before the reset nulls it.
+      const wedged = stalledOut && model?.kind === 'local' && !hadPartial;
+      if (wedged) resetWedgedLocalModel();
+      pending.text = pending.text || (wedged
+        ? 'The in-browser model stopped responding, so I’m reloading it — try again in a moment.'
+        : stoppedOrStalled
+          ? 'The web lookup stalled and was stopped before it could finish. Try again, or drop a URL, file, or pasted text in the bar above.'
+          : (state.model.state === 'error'
+            ? `${state.model.note}. Pick a model from the chip in the header, then retry — or drop a URL, file, or pasted text in the bar above.`
+            : `The web lookup failed: ${String(e?.message || e)}`));
       pending.route = stoppedOrStalled ? 'stopped' : 'error';
       markStoppedPartial(pending, stoppedOrStalled, hadPartial);
     } finally {
@@ -1303,13 +1359,21 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     } catch (e) {
       // A stall (watchdog trip) or a user Stop keeps whatever streamed rather than blanking the
       // bubble to an error — only a genuine mid-turn fault gets the error line.
+      const stalledOut = turn.guard.stalled();   // the no-progress WATCHDOG fired — a wedge, not a user Stop
       const stoppedOrStalled = turn.guard.tripped() || turnSignal.aborted;
       const hadPartial = !!pending.text;   // the model streamed prose before the stop cut in
-      pending.text = pending.text || (stoppedOrStalled
-        ? 'Stopped before the answer finished. Ask again to retry.'
-        : (state.model.state === 'error'
-          ? `${state.model.note}. A WebGPU browser (Chrome/Edge) runs Llama 3.2; anything else runs SmolLM2 on CPU — or pick Claude (hosted API, needs a key) from the model chip in the header, then retry.`
-          : `Something failed mid-turn: ${String(e?.message || e)}`));
+      // A local decode that went dark (watchdog fired, nothing streamed) has wedged its WebGPU
+      // engine — reload it (or fall to the smaller/CPU backup) so the retry we suggest can actually
+      // work, instead of hitting the same dead singleton. Compute this BEFORE the reset nulls `model`.
+      const wedged = stalledOut && model?.kind === 'local' && !hadPartial;
+      if (wedged) resetWedgedLocalModel();
+      pending.text = pending.text || (wedged
+        ? 'The in-browser model stopped responding, so I’m reloading it — ask again and it should answer.'
+        : stoppedOrStalled
+          ? 'Stopped before the answer finished. Ask again to retry.'
+          : (state.model.state === 'error'
+            ? `${state.model.note}. A WebGPU browser (Chrome/Edge) runs Llama 3.2; anything else runs SmolLM2 on CPU — or pick Claude (hosted API, needs a key) from the model chip in the header, then retry.`
+            : `Something failed mid-turn: ${String(e?.message || e)}`));
       pending.pending = false; pending.route = stoppedOrStalled ? 'stopped' : 'error';
       markStoppedPartial(pending, stoppedOrStalled, hadPartial);
     } finally {
@@ -1331,6 +1395,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   }[name] || `${name}…`);
 
   const finishMessage = (msg, result) => {
+    localWedges = 0;    // a completed answer means the engine is alive — clear the wedge streak
     finishTrail(msg);   // stop the research trail's clock; the surface collapses it to its summary
     // Prefer the marked projection — the answer with ungrounded FACTS underlined ([no source],
     // creative prose left clean) — so the disclosure rides in every mode. The chat answer
