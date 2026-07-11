@@ -7,6 +7,7 @@ import { contract } from '../../core/contract.js';
 export const CONTRACTS = Object.freeze({
   'src/rooms/data/index.js': contract({ ops: ['NUL', 'SIG', 'EVA'], targets: ['Field'], products: ['Lens', 'Void'], stances: ['Binding', 'Clearing'], note: 'barrel' }),
   'src/rooms/data/query.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field'], products: ['Lens'], stances: ['Binding'], note: 'table Q&A / answerTable' }),
+  'src/rooms/data/values.js': contract({ ops: ['EVA', 'DEF'], targets: ['Field'], products: ['Lens'], stances: ['Binding', 'Dissecting'], note: 'cell value / money / date parsing' }),
   'src/rooms/data/render.js': contract({ ops: ['NUL'], targets: ['Field'], products: ['Void'], stances: ['Clearing'], note: 'table->HTML renderer' }),
   'src/rooms/data/surface.js': contract({ ops: ['NUL'], targets: ['Field'], products: ['Void'], stances: ['Clearing'], note: 'data view mount' }),
 });

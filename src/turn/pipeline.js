@@ -140,6 +140,11 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
   // single document — referents stay distinct per source unless cross-doc SYN'd. A
   // single doc passes through untouched; the legacy `doc` argument still works.
   const groundingDoc = (Array.isArray(docs) && docs.length) ? createCompositeDoc(docs) : (doc || null);
+  // The ORIGINAL source docs, before compositing — kept on the ctx so the route stage can
+  // reach a table's addressable cells (records/columns/column()). The composite flattens
+  // every doc to prose row-lines for retrieval; a COMPUTATION over a table (the data room's
+  // answerTable) needs the typed cells themselves, which only the pre-composite doc carries.
+  const sourceDocs = (Array.isArray(docs) && docs.length) ? docs : (doc ? [doc] : []);
   const turn      = auditLog.turn(question);
   // Print the faces (docs/spec-good-watchmaker.md, migration step 1): every stage
   // carries its canonical notate(event) spelling — operator(Site, Stance) — beside
@@ -193,7 +198,7 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
   // on, the surf's own dynamics — the focus's trajectory segmented at the RECs, turns
   // weighted by rewrite magnitude — ride into the talker's window as a plain-language arc
   // block, so the answer voices the turn as a turn. Off by default → byte-identical.
-  const ctx0      = { question, doc: groundingDoc, model, embedder, geometricEmbedder, classifier, adjacency, centroids, history, grounding, stream, onToken, alpha, mindSpans, inquire, horizon, cast, reread, witnessSource, shapeLibrary, groundGraph, broadcastArc, now, lensPort, voicePref, signal, maxTokens, longform };
+  const ctx0      = { question, doc: groundingDoc, sourceDocs, model, embedder, geometricEmbedder, classifier, adjacency, centroids, history, grounding, stream, onToken, alpha, mindSpans, inquire, horizon, cast, reread, witnessSource, shapeLibrary, groundGraph, broadcastArc, now, lensPort, voicePref, signal, maxTokens, longform };
 
   // The answer is FORMED at `bind` and only ANNOTATED after it (factcheck, revise,
   // veto, settle). Those annotation stages must never discard an answer the model

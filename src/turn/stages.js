@@ -10,6 +10,7 @@
 // The user sees what the model actually said, with a flag pinned to it.
 
 import { answerVoid, answerMathAsync } from '../enactor/answer/index.js';
+import { answerOverTables } from '../rooms/data/query.js';
 import { retrieveHybrid, reserveBySource, pickRetrievalEmbedder, selectExcerpts, retrieveStructural, retrieveNetwork, queryTouchesDoc, querySubjectTerms, dropReferenceChrome, retrieveLexical } from '../surfer/retrieve/index.js';
 import { parseText } from '../perceiver/parse/index.js';
 import { think, worthSayingAloud, inferGenders } from '../weave/write/index.js';
@@ -135,6 +136,17 @@ export const stages = {
     // so a non-math turn never awaits the evaluator or the CDN load — it returns null at once.
     const math = await answerMathAsync(ctx.question);
     if (math) return { ...ctx, ...math, mechanical: true, terminate: true };
+
+    // The TABLE short-circuit — a quantitative / derived question over an imported table
+    // (a filtered count, a currency-aware sum or average, a ranking, a share) computes
+    // through math.js and terminates here the same way arithmetic does. The figure is
+    // provably correct GIVEN the cells it names, and it carries an auditable, cell-cited
+    // record (rooms/data/query.js), so there is nothing for the grounding layer to
+    // adjudicate. The gate is strict: a SUBTEXT question over the same table ("what's the
+    // tell?", "who is acme working for?", "rank by unspoken frustration") resolves no
+    // column and returns null, falling through to the grounded reading below unchanged.
+    const table = answerOverTables(ctx.question, ctx.sourceDocs);
+    if (table) return { ...ctx, ...table, mechanical: true, terminate: true };
 
     // Read the TASK register (intent.js): the prompt register (summary guard) and the
     // token ceiling — the real length bound.
