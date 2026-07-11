@@ -594,3 +594,84 @@ export const facingReadingLines = (eotText, { max = 2400 } = {}) => {
   for (const key of [...kindsPresent].filter((k) => k.startsWith('is:')).sort()) kindLegend.push({ kind: key, label: key.slice(3), color: hashTint(key.slice(3)) });
   return { lines, legend, kindLegend, truncated: all.length > max, more: Math.max(0, all.length - max), total: all.length };
 };
+
+// ── inline markdown OVER A SEGMENT STREAM (the settled answer) ────────────────────────────────
+// The answer body is rendered per-character as `*italic*` / `**bold**` / `code`, and — once it
+// settles — split into typed SEGMENTS by the entity linker and the [sN] citation chips
+// (app.answerSegments). That split is the bug: an emphasised run that WRAPS an entity or a chip
+// (`*Swept Away*`, where "Swept Away" is a linked entity) lands its opening `*` in one text
+// segment and its closing `*` in another, so parsing each text segment in isolation never pairs
+// the markers and the raw `*` shows through. This resolves emphasis (and the [no source]
+// underline) ONCE across the WHOLE paragraph — entities/cites standing in as a single opaque
+// placeholder each — then maps the result back onto the segments, so a marker that straddles an
+// entity is honoured and the entity inside it inherits the emphasis.
+//
+// Pure and view-agnostic: it emits semantic MARKS (kind: ''|'code'|'strong'|'em', unsourced:bool),
+// never CSS, and the surface maps marks → styles. Same emphasis grammar as the live streaming
+// renderer, so a span never flips shape when the answer settles.
+//   input  segsIn = [{ t:'text', s }, { t:'ent', s, … }, { t:'cite', … }, …]  (one paragraph)
+//   output { pieces, opaque } — arrays indexed to segsIn:
+//            pieces[i] = [{ s, kind, unsourced }]  for a text seg (markers removed), else null
+//            opaque[i] = { kind, unsourced }        for an ent/cite seg, else null
+const NO_SOURCE_MARK = '[no source]';
+export const inlineMdMarks = (segsIn) => {
+  const segs = Array.isArray(segsIn) ? segsIn : [];
+  // Concatenate the paragraph: text contributes its characters, an ent/cite contributes ONE
+  // object-replacement char (U+FFFC) — never a marker, never a word char, so it neither opens nor
+  // breaks emphasis, but can sit INSIDE a run and inherit its style. `owner`/`off` map every
+  // char in `full` back to its segment (off = −1 marks the opaque stand-in).
+  let full = '';
+  const owner = [], off = [];
+  for (let si = 0; si < segs.length; si++) {
+    const sg = segs[si];
+    if (sg && sg.t === 'text') {
+      const s = String(sg.s == null ? '' : sg.s);
+      for (let k = 0; k < s.length; k++) { owner.push(si); off.push(k); }
+      full += s;
+    } else { owner.push(si); off.push(-1); full += '\uFFFC'; }
+  }
+  const kind = new Array(full.length).fill('');    // '' | 'code' | 'strong' | 'em'
+  const under = new Array(full.length).fill(false); // the [no source] wavy underline
+  const drop = new Array(full.length).fill(false);  // marker chars removed from the output
+
+  // [no source]: the grounder trails an unsourced assertion of fact with this marker. Underline
+  // the claim it trails — back to the prior sentence break — and drop the marker (and the space
+  // before it, so no gap is left). The claim may itself span an entity, so this too runs over `full`.
+  for (let at = full.indexOf(NO_SOURCE_MARK); at >= 0; at = full.indexOf(NO_SOURCE_MARK, at + 1)) {
+    let lead = at;
+    while (lead > 0 && /\s/.test(full[lead - 1])) lead--;                 // trim trailing space off the claim
+    const inner = full.slice(0, Math.max(0, lead - 1));                   // …minus the claim's own terminal punct
+    const brk = Math.max(inner.lastIndexOf('. '), inner.lastIndexOf('! '), inner.lastIndexOf('? '), inner.lastIndexOf('\n'));
+    const from = brk >= 0 ? brk + 2 : 0;
+    for (let i = from; i < lead; i++) under[i] = true;
+    for (let i = lead; i < at + NO_SOURCE_MARK.length; i++) drop[i] = true;
+  }
+
+  // Emphasis: the SAME left-to-right, non-nesting grammar the live renderer uses — `code` first
+  // (its content is opaque to bold/italic), then **bold**/__bold__, then *italic*/_italic_ guarded
+  // so an intra-word `_` or a lone `*` stays literal. A matched span drops its markers and paints
+  // its interior; a half-typed marker with no partner simply never matches and shows through.
+  const re = /(`+)([^`]+?)\1|(\*\*|__)([\s\S]+?)\3|(?<![A-Za-z0-9])([*_])([\s\S]+?)\5(?![A-Za-z0-9])/g;
+  let mm;
+  while ((mm = re.exec(full)) !== null) {
+    const s0 = mm.index, e0 = re.lastIndex;
+    const ml = mm[1] ? mm[1].length : mm[3] ? 2 : 1;                      // marker width, both sides
+    const k = mm[1] ? 'code' : mm[3] ? 'strong' : 'em';
+    for (let i = s0; i < s0 + ml; i++) drop[i] = true;
+    for (let i = e0 - ml; i < e0; i++) drop[i] = true;
+    for (let i = s0 + ml; i < e0 - ml; i++) kind[i] = k;                  // last match wins (non-nesting)
+  }
+
+  // Map back onto the segments, coalescing adjacent same-mark characters into one piece.
+  const pieces = segs.map((sg) => (sg && sg.t === 'text') ? [] : null);
+  const opaque = segs.map(() => null);
+  for (let i = 0; i < full.length; i++) {
+    const si = owner[i];
+    if (off[i] < 0) { opaque[si] = { kind: kind[i], unsourced: under[i] }; continue; }
+    if (drop[i]) continue;
+    const arr = pieces[si], top = arr[arr.length - 1];
+    if (top && top.kind === kind[i] && top.unsourced === under[i]) top.s += full[i];
+    else arr.push({ s: full[i], kind: kind[i], unsourced: under[i] });
+  }
+  return { pieces, opaque };
+};
