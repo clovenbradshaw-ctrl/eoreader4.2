@@ -38,6 +38,7 @@ import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
 import { buildChatExport } from './chat-export.js';
+import { wikiReferent } from './wiki-referent.js';
 import { composeProvenance, repoRef, readBuild, fetchLatestCommit, APP_NAME, APP_VERSION } from './provenance.js';
 import { foldNarrative } from './fold-narrative.js';
 
@@ -1406,6 +1407,29 @@ export const createReaderApp = ({ audit } = {}) => {
     };
   };
 
+  // ── the wiki referent (the entity panel's encyclopedia lookup) ─────────────
+  // 4.1's entity panel searched Wikipedia for the open entity and showed the settled
+  // referent — the general meaning behind the local name — but only when the article
+  // could be CONFIRMED against what the record says (wiki-referent.js). 4.2 dropped it
+  // with the old shell; this restores it as one cached lookup per (doc, entity). The
+  // promise is cached first so a double-open never double-fetches; a failure caches
+  // null, and the surface words that as "no confirmed match", never an error.
+  const wikiCache = new Map();
+  const entityWiki = (docId, entId) => {
+    const key = `${docId}#${entId}`;
+    if (wikiCache.has(key)) return Promise.resolve(wikiCache.get(key));
+    const p = entityProfile(docId, entId);
+    if (!p || !p.label) return Promise.resolve(null);
+    const pending = wikiReferent(client, {
+      label: p.label,
+      statements: [...p.defs.map((d) => d.value), ...p.mentions.map((m) => m.text)],
+      neighbors: p.relations.map((r) => (r.srcId === entId ? r.tgtLabel : r.srcLabel)),
+      pageTitles: p.sourceTitle ? [p.sourceTitle] : [],
+    }).catch(() => null).then((def) => { wikiCache.set(key, def); return def; });
+    wikiCache.set(key, pending);
+    return pending;
+  };
+
   // The honest tiered data for mountTieredGraph: the source at the radial centre
   // (tier 0), the focus + bonded figures (tier 1), the standing claims (tier 2).
   const tieredData = (docId, entId) => {
@@ -1661,7 +1685,7 @@ export const createReaderApp = ({ audit } = {}) => {
     // model
     ensureModel, setBackend, backendPref, setSpeed, speedPref,
     // projections for the surface
-    answerSegments, viewerParas, entities, entityProfile, tieredData,
+    answerSegments, viewerParas, entities, entityProfile, entityWiki, tieredData,
     findings, provenance, dagFor, setMemo, eotFor,
     // the commitment ledger (assertions + corrections, persisted) and the session's
     // self/world line readout — the honesty and ledger seams, readable from the surface
