@@ -46,6 +46,10 @@ export const planSections = ({ scopeClass, clusters, totalMass, coverage = 'stan
   const byMass = [...clusters].sort((a, b) => b.mass - a.mass);
   const selected = coverageCut(byMass, totalMass, coverage);
   const count = reconcile(scopeClass, selected.length, clusters.length, { maxSections });
+  // MAX_SECTIONS is a runaway guard, not policy (§5.7): it binds only when demand AND
+  // supply both wanted more sections than the backstop allows. Surface that so a bound
+  // guard is logged upstream, never a silent truncation of the plan.
+  const guardBound = scopeClass !== 'point' && maxSections < Math.min(selected.length, clusters.length);
 
   // `point` always takes the single strongest cluster; otherwise the coverage
   // selection, truncated to the reconciled count.
@@ -63,5 +67,5 @@ export const planSections = ({ scopeClass, clusters, totalMass, coverage = 'stan
     ceiling:  ceilingFor(c),
   }));
 
-  return { sections, order, coverageSelected: selected.length, clusterCount: clusters.length };
+  return { sections, order, coverageSelected: selected.length, clusterCount: clusters.length, guardBound };
 };

@@ -67,6 +67,7 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
   let sawDone = false;
   let closed = -1;        // index where the first blank line closed the paragraph
   let forwarded = -1;     // buf index emitted so far
+  let droppedTail = '';   // a mid-sentence tail the per-decode ceiling cut (a bound guard, logged upstream)
 
   const lastSentenceEnd = () => {
     const re = SENT_END_RE();
@@ -107,10 +108,13 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
     else if (!final) upTo = lastSentenceEnd();          // hold back the trailing partial sentence
     else {
       // Decode over with no blank line: keep it whole when it ends cleanly; when the
-      // token cap cut it mid-sentence, drop the fragment (it was never forwarded).
+      // per-decode ceiling cut it mid-sentence, forward the complete sentences and
+      // record the dropped tail as a bound guard (logged upstream, never silent).
       const end = start + buf.slice(start).trimEnd().length;
       const lse = lastSentenceEnd();
-      upTo = lse >= end ? end : (lse > start ? lse : end);
+      if (lse >= end) upTo = end;
+      else if (lse > start) { upTo = lse; droppedTail = buf.slice(lse, end).trim(); }
+      else upTo = end;
     }
     while (upTo > forwarded && /\s/.test(buf[upTo - 1])) upTo--;
     if (upTo > forwarded) { onToken?.(buf.slice(forwarded, upTo)); forwarded = upTo; }
@@ -138,30 +142,55 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
   pump(true);
 
   const text = !suppressed && opened && forwarded > start ? buf.slice(start, forwarded) : '';
-  return { text, halted: suppressed, sawDone };
+  return { text, halted: suppressed, sawDone, droppedTail };
 };
 
-// streamParagraphs — realise the grounded answer one paragraph per model call,
-// streaming through `onToken`. `messages` is the turn's grounded prompt exactly as
-// the one-shot path would send it; `budget` is the turn's token ceiling and sets the
-// paragraph cap. Returns { draft, paragraphs, done, stopped } — the draft is
-// byte-identical to the emitted stream — or null when nothing was realised (the
-// caller falls back to the one-shot draw, non-breaking by construction).
+// ── Runaway guards — NOT length policy ──────────────────────────────────────
+// Length is EMERGENT: the loop ends when the model CLOSES — a bare DONE, a
+// paragraph that loops back onto an opener already used, or an empty draw. None of
+// the numbers below shapes a real answer; each only catches a backend that will not
+// close (a decode that never says DONE, a paragraph that never breaks). When one
+// binds it is logged loudly and recorded on the returned `guards` — a bound guard is
+// a signal worth reading, never a silent truncation. (Same posture as the arc's
+// MAX_SECTIONS / MAX_TOTAL_TOKENS backstops, arc/constants.js §5.7.)
+const RUNAWAY_PARAGRAPHS = 24;   // was a 3–4 shaping cap; now a pathology backstop, far above any real answer
+const PER_CALL_FLOOR = 1024;     // generous per-decode rope — a paragraph closes on its blank line far under it
+const PER_CALL_MAX   = 4096;     // per-decode cost backstop for a paragraph that never breaks (budget may raise, never past this)
+
+// A bound guard is loud: stderr AND the returned `guards` list, so it is auditable the
+// way the arc records its guard steps. Wrapped so a console-less host never throws.
+const warnGuard = (guard, detail) => {
+  try { console.warn(`streamParagraphs: guard bound — ${guard}`, detail); } catch { /* no console host */ }
+};
+
+// streamParagraphs — realise the grounded answer paragraph by paragraph, streaming
+// through `onToken`. `messages` is the turn's grounded prompt exactly as the one-shot
+// path would send it. Length is EMERGENT — the loop develops paragraphs until the
+// model closes (DONE / a repeated opener / an empty draw), NOT to a budget-derived
+// count. `maxParagraphs`, when the caller passes it, is an explicit request honoured
+// as given; otherwise the only bound is the runaway guard, and `budget` only raises
+// the per-decode rope (never shrinks a paragraph to a choppy cap). Returns
+// { draft, paragraphs, done, stopped, guards } — the draft is byte-identical to the
+// emitted stream, `guards` lists any backstop that bound — or null when nothing was
+// realised (the caller falls back to the one-shot draw, non-breaking by construction).
 export const streamParagraphs = async ({
   model, messages, onToken = null, budget = 384, maxParagraphs = null, signal = null,
 } = {}) => {
   if (!model || !Array.isArray(messages) || !messages.length) return null;
-  // A pointed answer settles in a few paragraphs; a long-form ask (a large budget from the
-  // reader's essay lane) is allowed to develop up to ten, so "write me an essay" is a real
-  // piece, not two sentences. The saliency/opener dedup and the stall watchdog still bound it.
-  const cap = maxParagraphs ?? Math.max(1, Math.min(budget >= 1000 ? 10 : 4, Math.round(budget / 128)));
-  const perCall = Math.max(64, Math.min(256, budget));
+  // The paragraph count is emergent (the model closes when it is done); `cap` is only the
+  // runaway backstop, or the caller's explicit `maxParagraphs`. The per-decode ceiling is
+  // generous — a real paragraph closes on its blank line far under it, so it is a guard,
+  // not a shape. Either binding is logged; neither shapes a normal answer.
+  const cap = maxParagraphs ?? RUNAWAY_PARAGRAPHS;
+  const perCall = Math.min(PER_CALL_MAX, Math.max(PER_CALL_FLOOR, budget | 0));
 
   const paragraphs = [];
   const seenOpeners = new Set();
+  const guards = [];
   let done = false;
 
-  for (let i = 0; i < cap; i++) {
+  let i = 0;
+  for (; i < cap; i++) {
     if (signal?.aborted) break;
     const input = i === 0 ? messages : [
       ...messages,
@@ -176,9 +205,23 @@ export const streamParagraphs = async ({
       });
     } catch { break; }   // a decode fault ends the loop with what we have — never a dead turn
     if (out.sawDone) done = true;
+    if (out.droppedTail) {
+      // The per-decode ceiling cut this paragraph mid-sentence — rare by construction
+      // (paragraphs close on their blank line far under PER_CALL_MAX). Log the bound
+      // guard with the dropped text; it is not silently discarded.
+      const g = { guard: 'per-call-ceiling', paragraph: paragraphs.length, dropped: out.droppedTail };
+      guards.push(g); warnGuard('per-call-ceiling', g);
+    }
     if (out.halted || !out.text) break;
     paragraphs.push(out.text);
     seenOpeners.add(norm(firstSentenceOf(out.text) || out.text));
+  }
+  // The loop reached its bound with the model still going (no DONE, not aborted): a
+  // backend that will not close. The draft is whole up to here — but the STOP was a
+  // guard, not saturation, so it is logged rather than passed off as a finished answer.
+  if (i >= cap && !done && !signal?.aborted) {
+    const g = { guard: maxParagraphs != null ? 'max-paragraphs' : 'runaway-paragraphs', paragraphs: paragraphs.length };
+    guards.push(g); warnGuard(g.guard, g);
   }
 
   if (!paragraphs.length) return null;
@@ -187,5 +230,6 @@ export const streamParagraphs = async ({
     paragraphs: Object.freeze(paragraphs.slice()),
     done,
     stopped: !!signal?.aborted,
+    guards: Object.freeze(guards),
   });
 };

@@ -110,6 +110,12 @@ export const runArc = async ({
     planned: plan.sections.length, order: plan.order,
   });
 
+  // MAX_SECTIONS bound the plan — a runaway guard, not policy (§5.7). Logged loudly,
+  // the same way the MAX_TOTAL_TOKENS backstop is, so a capped plan is never silent.
+  if (plan.guardBound) {
+    rec.step('guard', { guard: 'max-sections', maxSections: MAX_SECTIONS, clusters: clusters.length, coverageSelected: plan.coverageSelected });
+  }
+
   // Mass per span index, for the saturation gate's covered-mass accounting.
   const massByIdx = new Map(bindable.map(s => [s.idx, s.score || 0]));
 
