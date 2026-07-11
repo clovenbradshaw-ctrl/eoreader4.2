@@ -1,7 +1,7 @@
 // EO: CON·EVA(Field,Link,Network → Link,Lens, Binding,Tracing) — barrel
 // The ground holon: cite-or-veto. The integrity guarantee.
 
-export { bindCitations, renderBound } from './bind.js';
+export { bindCitations, renderBound, isFactualClaim, UNSOURCED_MARK } from './bind.js';
 export { runVetoes, VETOES, isUnbound, isAbstention } from './veto.js';
 // The per-section cite-then-flag the arc reuses (spec-the-arc §5.5): the turn's
 // bind+veto guarantee, run at section grain against a cluster's own span set.

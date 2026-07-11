@@ -309,6 +309,10 @@ export const runContinuation = async ({
       band: prop.band,
       subClaim: prop.subClaim,
       text: gated.answer,
+      // The display projection — the same prose with each ungrounded FACT underlined
+      // ([no source]); `text` stays clean because it is fed back as the next beat's
+      // left-context and a mark there would derail the continuation (enactor/ground).
+      marked: gated.marked,
       sources: gated.sources,
       boundFraction: gated.boundFraction,
       vetoes: gated.vetoes,
@@ -350,10 +354,15 @@ export const runContinuation = async ({
   if (!stop) stop = 'max-steps';
 
   const answer = units.map(u => u.text).filter(Boolean).join('\n\n');
+  // The display projection — the assembled prose with ungrounded facts underlined. Built
+  // AFTER the walk, so it never feeds back as left-context; a surface renders `marked` to
+  // disclose provenance in the long-form mode, `answer` stays the clean text.
+  const marked = units.map(u => u.marked || u.text).filter(Boolean).join('\n\n');
   const sources = [...new Set(units.flatMap(u => u.sources || []))].sort((a, b) => a - b);
 
   return {
     answer,
+    marked,
     units,
     sources,
     stop,
