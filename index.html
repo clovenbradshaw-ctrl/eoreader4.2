@@ -69,11 +69,71 @@ table{border-collapse:collapse;width:100%}
       Auditable
     </button>
 
+    <button onClick="{{ toggleSettings }}" title="Settings — roll back to a prior version" style="width:31px;height:31px;display:flex;align-items:center;justify-content:center;border:1px solid #E6E6EC;background:{{ settingsBtnBg }};border-radius:999px;color:{{ settingsBtnFg }};flex:0 0 auto" style-hover="background:#F2F2F6">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+
     <button onClick="{{ toggleAccount }}" title="Matrix account (optional)" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5"/></svg>
       <span style="width:7px;height:7px;border-radius:50%;background:{{ acctDot }};flex:0 0 auto"></span>
       {{ acctLabel }}
     </button>
+
+    <sc-if value="{{ settingsOpen }}">
+      <div style="position:absolute;right:14px;top:46px;z-index:31;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:344px">
+        <div style="display:flex;align-items:center;gap:8px;padding:2px 2px 10px;border-bottom:1px solid #F2F2F6;margin-bottom:10px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E6E78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span style="flex:1;font-size:12.5px;font-weight:700;letter-spacing:.02em;color:#2A2A32">Settings</span>
+          <sc-if value="{{ verHasHere }}"><span title="The build this live site is running" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#1E8A50;background:#E7F6EC;border-radius:5px;padding:2px 6px">on {{ verHereLabel }}</span></sc-if>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;padding:0 2px 4px">
+          <span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">ROLL BACK TO A PRIOR PR</span>
+          <sc-if value="{{ hasVersions }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#5B4BE6;background:#F1EFFE;border-radius:5px;padding:1px 6px">{{ verCount }}</span></sc-if>
+          <span style="flex:1"></span>
+          <button onClick="{{ refreshVersions }}" title="Refresh the version list" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#9A9AA4" style-hover="background:#F2F2F6;color:#5A5A64"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg></button>
+        </div>
+        <div style="font-size:11.5px;color:#8A8A95;line-height:1.5;padding:0 2px 9px">Every merge to <b style="color:#6E6E78;font-weight:600">main</b> is a deployed build. Open any prior PR's version — served from its commit — in a new tab.</div>
+
+        <sc-if value="{{ verBusy }}">
+          <div style="display:flex;align-items:center;gap:9px;padding:12px 4px;color:#8A8A95;font-size:12.5px">
+            <span style="width:13px;height:13px;border:2px solid #DED8FD;border-top-color:#5B4BE6;border-radius:50%;animation:eoSpin .7s linear infinite;flex:0 0 auto"></span>
+            Loading versions…
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ verErrShow }}">
+          <div style="padding:11px;background:#FBF6EC;border:1px solid #F0E3C8;border-radius:9px">
+            <div style="font-size:12px;color:#8A6A24;line-height:1.45">{{ verErrText }}</div>
+            <button onClick="{{ refreshVersions }}" style="margin-top:8px;font-size:12px;font-weight:600;color:#5B4BE6;background:#EEEBFE;border:1px solid #DED8FD;border-radius:8px;padding:5px 11px" style-hover="background:#E7E2FD">Try again</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ verEmpty }}">
+          <div style="padding:12px 4px;font-size:12.5px;color:#8A8A95;line-height:1.5">No prior merged PRs found for this repository.</div>
+        </sc-if>
+
+        <sc-if value="{{ hasVersions }}">
+          <div class="eo-scroll" style="max-height:322px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:2px">
+            <sc-for list="{{ versions }}" as="v">
+              <div style="border:1px solid {{ v.rowBd }};background:{{ v.rowBg }};border-radius:10px;padding:9px 10px">
+                <div style="display:flex;align-items:center;gap:7px">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#5B4BE6;flex:0 0 auto">{{ v.num }}</span>
+                  <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.title }}</span>
+                  <sc-if value="{{ v.isCurrent }}"><span style="font-size:9.5px;font-weight:700;letter-spacing:.04em;color:#1E8A50;background:#E7F6EC;border-radius:5px;padding:2px 6px;flex:0 0 auto">ON NOW</span></sc-if>
+                </div>
+                <div style="display:flex;align-items:center;gap:7px;margin-top:7px">
+                  <span style="flex:1;min-width:0;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.meta }}</span>
+                  <sc-if value="{{ v.hasPr }}"><button onClick="{{ v.openPr }}" title="Open the PR on GitHub" style="font-size:11px;font-weight:600;color:#6E6E78;border:1px solid #E6E6EC;border-radius:7px;padding:3px 8px;flex:0 0 auto" style-hover="background:#F2F2F6">PR</button></sc-if>
+                  <button onClick="{{ v.roll }}" title="Open this build in a new tab" style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#5B4BE6;background:#EEEBFE;border:1px solid #DED8FD;border-radius:7px;padding:3px 9px;flex:0 0 auto" style-hover="background:#E7E2FD">Roll back<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:10.5px;color:#B4B4BE;padding:9px 2px 2px;line-height:1.45">Opens in a new tab, served from the commit via raw.githack.com. Your recorded data stays here on the live site.</div>
+        </sc-if>
+      </div>
+    </sc-if>
 
     <sc-if value="{{ acctOpen }}">
       <div style="position:absolute;right:14px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:308px">
@@ -1300,6 +1360,10 @@ class Component extends DCLogic {
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
       entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null,
+      // Settings → roll back to a prior PR's deployed build (the version time-machine). verList is
+      // null until the panel is first opened (then an array, possibly empty); verErr is
+      // null | 'rate' | 'network' | 'http', worded for the surface by _versionVals().
+      settingsOpen: false, verList: null, verBusy: false, verErr: null, verSlug: null,
       // optional Matrix account login
       acctOpen: false,
       loginShow: false, loginId: '', loginPass: '', loginHs: '', loginBusy: false, loginErr: null,
@@ -1549,8 +1613,30 @@ class Component extends DCLogic {
   // unlocks the permanent archive path, which the webhook gates behind a real
   // homeserver identity. The token is held by the engine's matrix session; the
   // surface only ever moves credentials into login() and reads back the user id.
-  toggleAccount() { this.setState({ acctOpen: !this.state.acctOpen }); }
+  toggleAccount() { this.setState({ acctOpen: !this.state.acctOpen, settingsOpen: false }); }
   closeAccount() { this.setState({ acctOpen: false }); }
+
+  // ── Settings → roll back to a prior PR ───────────────────────────────────────
+  // The app is deployed per-merge to GitHub Pages, so every merged PR is a published build. The panel
+  // lists them (window.EO.versions.load, best-effort over the public GitHub API) and opens any one
+  // from raw.githack.com in a NEW TAB — a historical build in its own origin sandbox, so viewing an
+  // old version never touches the live site's recorded data. Loads lazily on first open, then caches.
+  toggleSettings() {
+    const open = !this.state.settingsOpen;
+    this.setState({ settingsOpen: open, acctOpen: false, modelOpen: false });
+    if (open && this.state.verList == null && !this.state.verBusy) this._loadVersions();
+  }
+  closeSettings() { this.setState({ settingsOpen: false }); }
+  refreshVersions() { this._loadVersions(true); }
+  _loadVersions(force) {
+    const api = typeof window !== 'undefined' && window.EO && window.EO.versions;
+    if (!api || !api.load) { this.setState({ verBusy: false, verList: [], verErr: 'network' }); return; }
+    if (this.state.verBusy) return;
+    this.setState({ verBusy: true, verErr: null, verList: force ? null : this.state.verList });
+    api.load()
+      .then((r) => this.setState({ verBusy: false, verList: Array.isArray(r && r.items) ? r.items : [], verErr: (r && r.error) || null, verSlug: (r && r.slug) || null }))
+      .catch(() => this.setState({ verBusy: false, verList: [], verErr: 'network' }));
+  }
   openLogin() { this.setState({ loginShow: true, acctOpen: false, loginErr: null, loginPass: '' }); }
   closeLogin() { this.setState({ loginShow: false, loginBusy: false }); }
   onLoginId(e) { this.setState({ loginId: e.target.value }); }
@@ -1648,7 +1734,7 @@ class Component extends DCLogic {
   toggleStatus() { this.setState({ statusOpen: !this.state.statusOpen }); }
   openMonologue() { this.setState({ monologueOpen: true, statusOpen: false }); }
   closeMonologue() { this.setState({ monologueOpen: false }); }
-  toggleModel() { this.setState({ modelOpen: !this.state.modelOpen }); }
+  toggleModel() { this.setState({ modelOpen: !this.state.modelOpen, settingsOpen: false }); }
   // ── the source viewer: a modal whose TABS ARE THE OPEN SOURCES ──────────────
   // openViewer(sn, focus) opens a source AS A TAB in front (or focuses it if already open). Several
   // sources stay open at once; each keeps its own render mode and citation focus.
@@ -2086,6 +2172,48 @@ class Component extends DCLogic {
   // The account chip + login modal view-model, computed straight off the matrix
   // session so it is correct in EVERY render branch (booting, broken, or live) —
   // the header renders in all of them. Signed-out and signed-in are the two faces.
+  // The Settings/version-history projection — pure over state + the cached provenance build, so the
+  // panel can name the live build ("you're on <sha>") and mark which prior PR is deployed now.
+  _versionVals() {
+    const st = this.state;
+    let build = null;
+    try { build = this._app && this._app.provenance ? this._app.provenance().build : null; } catch { build = null; }
+    const list = Array.isArray(st.verList) ? st.verList : [];
+    const errText = st.verErr === 'rate'
+      ? 'GitHub’s hourly rate limit was reached — try again in a little while.'
+      : st.verErr === 'http'
+      ? 'GitHub returned an error fetching the history.'
+      : 'Couldn’t reach GitHub — you may be offline.';
+    return {
+      settingsOpen: !!st.settingsOpen,
+      settingsBtnBg: st.settingsOpen ? '#F1EFFE' : '#F7F7FA',
+      settingsBtnFg: st.settingsOpen ? '#5B4BE6' : '#5A5A64',
+      toggleSettings: () => this.toggleSettings(),
+      closeSettings: () => this.closeSettings(),
+      refreshVersions: () => this.refreshVersions(),
+      verBusy: !!st.verBusy,
+      verErrShow: !!st.verErr && !st.verBusy,
+      verErrText: errText,
+      verEmpty: !st.verBusy && !st.verErr && st.verList != null && list.length === 0,
+      hasVersions: list.length > 0,
+      verCount: String(list.length),
+      verHasHere: !!(build && build.shortCommit),
+      verHereLabel: build && build.shortCommit ? build.shortCommit : '',
+      versions: list.map((v) => ({
+        num: v.number != null ? ('#' + v.number) : '',
+        title: v.title || '',
+        // one flat line — date · author · sha — so the row needs a single interpolation
+        meta: [v.date, v.author ? ('@' + v.author) : null, v.shortSha || null].filter(Boolean).join(' · '),
+        isCurrent: !!v.isCurrent,
+        rowBg: v.isCurrent ? '#F1FAF4' : '#fff',
+        rowBd: v.isCurrent ? '#CDEBD9' : '#EEEEF2',
+        hasPr: !!v.prUrl,
+        roll: () => { if (v.url) { try { window.open(v.url, '_blank', 'noopener'); } catch { /* ignore */ } } },
+        openPr: () => { if (v.prUrl) { try { window.open(v.prUrl, '_blank', 'noopener'); } catch { /* ignore */ } } },
+      })),
+    };
+  }
+
   _acctVals() {
     const st = this.state;
     const mx = this._matrix;
@@ -2153,7 +2281,7 @@ class Component extends DCLogic {
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], ...this._acctVals() };
+        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], ...this._acctVals(), ...this._versionVals() };
     }
   }
 
@@ -2166,7 +2294,7 @@ class Component extends DCLogic {
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
         statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], ...this._acctVals() };
+        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], facingLines: [], facingLegend: [], ...this._acctVals(), ...this._versionVals() };
     }
     const topic = app.topic();
     const sources = app.topicSources();
@@ -2838,6 +2966,8 @@ class Component extends DCLogic {
       closePaste: () => this.closePaste(), submitPaste: () => this.submitPaste(),
       // optional Matrix account + the quiet "save system genome online?" setting
       ...this._acctVals(),
+      // Settings → roll back to a prior PR (the version time-machine)
+      ...this._versionVals(),
       // web graph overlay
       webGraphShow: !!st.webGraphFor,
       webGraphTitle: st.webGraphFor && prof ? prof.label : (st.webGraphFor ? 'Entity web' : ''),
