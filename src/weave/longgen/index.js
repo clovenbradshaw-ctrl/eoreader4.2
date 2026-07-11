@@ -33,7 +33,7 @@ export { arcPhase, phaseBias, applyPhaseBias, shouldCollapse } from './shape.js'
 export { buildSkeleton, headingOf } from './skeleton.js';
 export {
   renderContinuation, seedFor, leadSentence, connectiveFor,
-  SYSTEM_CONTINUE, DEFAULT_GENRE,
+  realizeProse, SYSTEM_CONTINUE, DEFAULT_GENRE,
 } from './render.js';
 export { progressAgainst } from './progress.js';
 // The walk — the in-run multi-paragraph loop (the multi-paragraph-walk spec): given

@@ -145,3 +145,82 @@ export const renderContinuation = ({ beat = {}, slice = [], prior = '', coldStar
     { role: 'user', content: blocks.join('\n\n') },
   ];
 };
+
+// ── The paragraph-grain realizer for the closure (docs/long-generation.md) ────
+//
+// runContinuation's default REALIZE step renders ONE atom as ONE grounded sentence
+// (arc/generate.js generateSection): the planner does all the thinking, then hands
+// the writer the weakest job — "answer this span" — and the prose reads as a chain
+// of one-sentence paraphrases. That is the exact choppiness weave/write/paragraphs.js
+// already diagnosed ("the per-beat scaffolding over-constrained a small talker —
+// choppy, stilted beats"), and it violates the longform thesis's own rule that
+// RENDER flows at paragraph grain while only VERIFICATION is claim grain.
+//
+// realizeProse keeps the planner's decision (the resolved proposition) but renders it
+// as a PARAGRAPH continuation of the running document — the walk's posture (condition
+// the artifact, not the behavior): a grounded topic-sentence seed for a fresh node op,
+// a dangling connective for an edge/void op, the move carried as a soft arc directive,
+// the prior atom's prose as left-context so the seam flows. The floor (bindAndVeto)
+// runs downstream exactly as before, so coarse-generate / fine-verify is preserved.
+
+// The move's soft steer, off the resolved stance — a brief directive that shapes the
+// paragraph without becoming its text. Empty for the plain node ops (a fresh assertion
+// needs no steer; its seed already sets the terms).
+const ARC_DIRECTIVE = Object.freeze({
+  evaluate:    'weigh this against the point that set it up',
+  synthesize:  'draw the threads so far together',
+  restructure: 'recast the last point in light of what set it up',
+  hold:        'hold the line and add nothing new',
+  attribute:   'bring a new figure into view',
+});
+const arcDirectiveForProp = (prop = {}) => {
+  if (prop.band === 'void') return 'note this is unsettled — hold it open rather than assert it';
+  return ARC_DIRECTIVE[prop.stance] || '';
+};
+
+// Map a resolved proposition onto a beat the render understands. A fresh node op
+// (firm, external span) is LOAD-BEARING — its seed is the anchor span's own topic
+// sentence, grounded by construction. An edge or void op (a SYN close, an EVA/REC on
+// the self, a void hold) is CONNECTIVE — a dangling connective opens it and the
+// arc directive carries the move, so the paragraph develops what is already in play
+// rather than re-stating a span.
+const beatForProp = (prop = {}, units = []) => {
+  const firstIdx = (prop.spans && prop.spans[0] && (prop.spans[0].idx ?? 0)) || 0;
+  const loose = prop.selfOp || prop.band === 'void' || prop.closes;
+  return {
+    kind: loose ? 'connective' : 'load-bearing',
+    idx: firstIdx,
+    order: units.length,
+    role: units.length === 0 ? 'open' : 'continue',
+    heading: '',
+    topic: prop.subClaim || '',
+  };
+};
+
+// Render one proposition as a paragraph continuation and return the composed text
+// (seed + the model's continuation), the shape the floor consumes in place of
+// generateSection's rawOutput. Pure but for the model call.
+export const realizeProse = async ({ proposition = {}, units = [], model, genre = '', signal = null, prior = null } = {}) => {
+  const slice = proposition.spans || [];
+  const beat = beatForProp(proposition, units);
+  const left = prior != null ? prior : (units.length ? (units[units.length - 1].text || '') : '');
+  const messages = renderContinuation({
+    beat,
+    slice,
+    prior: left,
+    coldStart: units.length === 0,
+    genre,
+    arcDirective: arcDirectiveForProp(proposition),
+  });
+  const raw = await model.phrase(messages, {
+    maxTokens: proposition.ceiling,
+    minTokens: proposition.floor,
+    stop: ['\n##'],
+    signal,
+  });
+  // The paragraph is the seed (the DEF the model was handed) plus its continuation —
+  // the same seam the walk's composeBeat forms, so the binder sees the whole draft.
+  const seed = seedFor({ beat, slice });
+  const continuation = String(raw || '').trim();
+  return (seed ? `${seed} ${continuation}` : continuation).trim();
+};
