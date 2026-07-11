@@ -2004,26 +2004,29 @@ class Component extends DCLogic {
     if (status === 'Uncited') return { fg: '#9A6B12', bg: '#FBF1DA', bd: '#EEDCA9' };
     return { fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9' };
   }
-  // A stable highlighter colour per source (S1, S2, …) so a span's marker swipe, its baseline, and
-  // its citation chip all read as the SAME source across the whole answer. Hue is picked off the
-  // source's own number, so a given source keeps its colour turn after turn.
+  // A stable highlighter colour per source (S1, S2, …) so a span's wash, its citation chip, and its
+  // footer swatch all read as the SAME source across the whole answer. Hue is picked off the source's
+  // own number, so a given source keeps its colour turn after turn.
   _sourceColor(sn) {
     const HUES = [212, 266, 150, 28, 332, 190, 96, 44, 306, 168];
     const n = parseInt(String(sn || '').replace(/\D/g, ''), 10) || 1;
     const h = HUES[(n - 1) % HUES.length];
-    return { band: `hsl(${h} 86% 88%)`, line: `hsl(${h} 55% 56%)`, fg: `hsl(${h} 58% 40%)`, chipBg: `hsl(${h} 82% 95%)` };
+    return { wash: `hsl(${h} 80% 92%)`, line: `hsl(${h} 55% 56%)`, fg: `hsl(${h} 58% 40%)`, chipBg: `hsl(${h} 82% 95%)` };
   }
-  // The span highlight, as a highlighter swipe rather than a filled box: an inset box-shadow lays a
-  // soft translucent band over the LOWER portion of the text (so wrapped lines still breathe), and
-  // grounded spans get a crisp baseline in their source's hue. Ungrounded spans take a colourless
-  // warm band with a faint neutral baseline — disclosed as a span, but plainly anchored to nothing.
-  // box-decoration-break:clone keeps the swipe unbroken across line wraps.
+  // The span highlight, as a gentle highlighter wash: an inset box-shadow lays a soft, LIGHT band over
+  // the lower portion of the text in the grounding source's own hue (a warmer band where nothing
+  // grounds the span). It is kept light on purpose — the prose has to read FIRST, with the colour an
+  // ambient provenance tint rather than a mark competing with the letters. There is deliberately NO
+  // per-word baseline rule: a crisp underline under every word turned a single-source answer into a
+  // buzzy grid and was the readability complaint this fixes. Source stays legible span-to-span (the
+  // hue changes where the source changes; grounded reads cool, ungrounded warm), and the GROUNDED IN
+  // footer still names each source besides. box-decoration-break:clone keeps the wash unbroken across
+  // line wraps. (isEnt is now vestigial — an entity already carries its own colour and weight, so it
+  // takes the same wash as the prose around it.)
   _groundStyle(gsn, isEnt) {
     const tail = ';border-radius:2px;-webkit-box-decoration-break:clone;box-decoration-break:clone';
-    // entities carry their own colour + hover, so they take the swipe ALONE (no baseline) to avoid
-    // stacking underlines; plain prose gets the swipe plus a crisp baseline in the source's hue.
-    if (gsn) { const c = this._sourceColor(gsn); return (isEnt ? `box-shadow:inset 0 -0.78em 0 ${c.band}` : `box-shadow:inset 0 -0.11em 0 ${c.line}, inset 0 -0.78em 0 ${c.band}`) + tail; }
-    return (isEnt ? `box-shadow:inset 0 -0.78em 0 hsl(41 44% 92%)` : `box-shadow:inset 0 -0.09em 0 hsl(40 22% 78%), inset 0 -0.78em 0 hsl(41 44% 92%)`) + tail;
+    if (gsn) return `box-shadow:inset 0 -0.7em 0 ${this._sourceColor(gsn).wash}` + tail;
+    return `box-shadow:inset 0 -0.7em 0 hsl(41 55% 91%)` + tail;
   }
   // The research trail: one typed beat per step (turn/research.js → app.js beats). Each kind gets a
   // glyph + colour so the stream reads at a glance — searching (blue), reading (amber), a lead
