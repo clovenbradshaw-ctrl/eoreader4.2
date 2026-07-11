@@ -75,6 +75,7 @@ const makeFakeEngine = () => {
   return { engine, loseDevice: (reason) => loseDevice({ reason }) };
 };
 const tick = () => new Promise((r) => setTimeout(r, 0));
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 test('model/webllm: reset() tears the engine down so isLoaded() stops lying and load() rebuilds', async () => {
   let built = 0;
@@ -122,4 +123,90 @@ test('model/webllm: reset() on a never-loaded backend is a harmless no-op', asyn
   assert.equal(backend.isLoaded(), false);
   await assert.doesNotReject(() => backend.reset(), 'reset() must be fail-soft when there is no engine');
   assert.equal(backend.isLoaded(), false);
+});
+
+// ── the abort backstop ────────────────────────────────────────────────────────
+// The frozen-session failure: a decode wedges MID-generation, its promise never settles, and
+// the abort (Stop / the 45s watchdog) is ignored — so the orphan holds the decode gate and
+// every later turn queues behind it forever. phrase() now gives an aborted decode a grace
+// window to settle; past it the engine is declared wedged and torn down from inside, so the
+// stopped turn gets its partial back and the next ask meets a fresh engine, not the corpse.
+
+// An engine whose decode HANGS: streams `pieces` through the streaming path, then never
+// settles, and ignores interruptGenerate — the wedge exactly as exported.
+const makeWedgedEngine = (pieces = []) => ({
+  unload: async () => {},
+  interruptGenerate: () => { /* wedged — the interrupt is ignored */ },
+  chat: { completions: { create: async ({ stream }) => {
+    if (!stream) return new Promise(() => {});            // non-streaming draw: hangs forever
+    return (async function* () {
+      for (const p of pieces) yield { choices: [{ delta: { content: p } }] };
+      await new Promise(() => {});                        // dies mid-stream, holding the decode
+    })();
+  } } },
+});
+
+test('model/webllm: an abort the engine ignores tears it down within the grace and keeps the partial', async () => {
+  let built = 0;
+  const backend = makeWebllmBackend({ model: 'Fake-3B', abortGraceMs: 25 })({
+    createEngine: async () => { built += 1; return makeWedgedEngine(['The largest ', 'dolphin ']); },
+  });
+  await backend.load();
+
+  const ctrl = new AbortController();
+  const got = [];
+  const p = backend.phrase([{ role: 'user', content: 'write an essay' }],
+    { signal: ctrl.signal, onToken: (t) => got.push(t) });
+  await delay(10);                    // let the stream hand over its preamble, then wedge
+  ctrl.abort();                       // Stop / the watchdog — the engine ignores it
+
+  const text = await p;               // settles via the backstop, NOT the (dead) decode
+  assert.equal(text, 'The largest dolphin', 'the stopped turn keeps what streamed');
+  assert.deepEqual(got, ['The largest ', 'dolphin ']);
+  assert.equal(backend.isLoaded(), false, 'the wedged engine was torn down, not left claiming loaded');
+
+  await backend.load();
+  assert.equal(built, 2, 'the next ask rebuilds a fresh engine instead of re-hitting the corpse');
+});
+
+test('model/webllm: a decode queued behind a wedged one skips the dead engine instead of hanging', async () => {
+  const backend = makeWebllmBackend({ model: 'Fake-3B', abortGraceMs: 25 })({
+    createEngine: async () => makeWedgedEngine(),
+  });
+  await backend.load();
+
+  const first = new AbortController();
+  const p1 = backend.phrase([{ role: 'user', content: 'q1' }], { signal: first.signal });
+  const second = new AbortController();
+  const p2 = backend.phrase([{ role: 'user', content: 'q2' }], { signal: second.signal });   // queues behind q1
+
+  await delay(5);
+  first.abort();                      // q1's Stop; the engine ignores it → backstop resets
+
+  assert.equal(await p1, '', 'the wedged decode settles empty via the backstop');
+  assert.equal(await p2, '', 'the queued decode sees its engine was torn down and skips — it never hangs');
+  assert.equal(backend.isLoaded(), false);
+});
+
+test('model/webllm: a healthy decode that honours the abort settles through the normal path — no reset', async () => {
+  // The engine stops when asked: create() resolves promptly after interruptGenerate. The
+  // backstop must stay out of the way — the engine survives, no reload is paid.
+  let interrupted = false;
+  let release = null;
+  const engine = {
+    unload: async () => {},
+    interruptGenerate: () => { interrupted = true; if (release) release({ choices: [{ message: { content: 'partial answer' } }] }); },
+    chat: { completions: { create: async () => new Promise((res) => { release = res; }) } },
+  };
+  const backend = makeWebllmBackend({ model: 'Fake-3B', abortGraceMs: 5000 })({ createEngine: async () => engine });
+  await backend.load();
+
+  const ctrl = new AbortController();
+  const p = backend.phrase([{ role: 'user', content: 'q' }], { signal: ctrl.signal });
+  await delay(5);
+  ctrl.abort();
+
+  assert.equal(await p, 'partial answer', 'the honoured abort returns what the engine handed back');
+  assert.equal(interrupted, true, 'the abort reached interruptGenerate');
+  assert.equal(backend.isLoaded(), true, 'a healthy engine is never torn down by a mere Stop');
 });

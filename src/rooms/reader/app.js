@@ -858,9 +858,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     try { return await modelLoading; } finally { modelLoading = null; }
   };
 
-  // RECOVER A WEDGED IN-BROWSER MODEL. The no-progress watchdog fired on a LOCAL turn with nothing
-  // streamed — the WebGPU engine has almost certainly lost its device (a backgrounded tab, memory
-  // pressure from the ~1.9GB 3B weights, a driver reset). That engine is a write-once singleton that
+  // RECOVER A WEDGED IN-BROWSER MODEL. The no-progress watchdog fired on a LOCAL turn — the decode
+  // went dark before its first token, or streamed a preamble and then died mid-decode (the
+  // frozen-session shape) — the WebGPU engine has almost certainly lost its device (a backgrounded
+  // tab, memory pressure from the ~1.9GB 3B weights, a driver reset). That engine is a singleton that
   // still claims isLoaded(), so every "Ask again to retry" calls into the corpse and stalls the same
   // way — the loop behind "why's it stuck". (The decode gate in model/webllm.js serializes decodes so
   // an OVERLAP can't wedge the runtime; this is the other failure — the device dying under a lone
@@ -1130,9 +1131,15 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       const stoppedOrStalled = turn.guard.tripped() || turnSignal.aborted;
       const hadPartial = !!pending.text;   // the walk streamed prose before the stop cut in
       settleTrail(pending, null);
-      // A wedged local engine (watchdog fired, nothing streamed) — reload it / fall to the backup so
-      // "try again" isn't advice to re-hit a dead singleton. Read `model` before the reset nulls it.
-      const wedged = stalledOut && model?.kind === 'local' && !hadPartial;
+      // A wedged local engine — reload it / fall to the backup so "try again" isn't advice to
+      // re-hit a dead singleton. BOTH wedge shapes count: dark from the first token, and the
+      // frozen-session shape — a preamble streams, THEN the decode dies (the export that led
+      // here hung exactly so, and the old `nothing streamed` gate left that engine standing,
+      // wedging every turn after it). A 45s all-quiet stall can only be the decode: fetches
+      // self-cut at 20s and every beat feeds the guard. The partial is kept and banded
+      // unverified (markStoppedPartial); a user Stop (stalled() false) never reloads a healthy
+      // model. Read `model` before the reset nulls it.
+      const wedged = stalledOut && model?.kind === 'local';
       if (wedged) resetWedgedLocalModel();
       pending.text = pending.text || (wedged
         ? 'The in-browser model stopped responding, so I’m reloading it — try again in a moment.'
@@ -1362,10 +1369,15 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       const stalledOut = turn.guard.stalled();   // the no-progress WATCHDOG fired — a wedge, not a user Stop
       const stoppedOrStalled = turn.guard.tripped() || turnSignal.aborted;
       const hadPartial = !!pending.text;   // the model streamed prose before the stop cut in
-      // A local decode that went dark (watchdog fired, nothing streamed) has wedged its WebGPU
-      // engine — reload it (or fall to the smaller/CPU backup) so the retry we suggest can actually
-      // work, instead of hitting the same dead singleton. Compute this BEFORE the reset nulls `model`.
-      const wedged = stalledOut && model?.kind === 'local' && !hadPartial;
+      // A local decode the watchdog caught has wedged its WebGPU engine — reload it (or fall to
+      // the smaller/CPU backup) so the retry we suggest can actually work, instead of hitting the
+      // same dead singleton. BOTH wedge shapes count: dark from the first token, and the
+      // frozen-session shape — a preamble streams, THEN the decode dies mid-stream (the old
+      // `nothing streamed` gate left that engine standing, and every later turn queued behind
+      // its orphaned decode). The partial is kept and banded unverified (markStoppedPartial);
+      // a user Stop (stalled() false) never reloads a healthy model. Compute this BEFORE the
+      // reset nulls `model`.
+      const wedged = stalledOut && model?.kind === 'local';
       if (wedged) resetWedgedLocalModel();
       pending.text = pending.text || (wedged
         ? 'The in-browser model stopped responding, so I’m reloading it — ask again and it should answer.'

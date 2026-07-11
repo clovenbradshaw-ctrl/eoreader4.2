@@ -26,6 +26,30 @@ import { makeDecodeGate } from './decode-gate.js';
 // v0_2_84 kernel wasm on raw.githubusercontent.com.
 const WEBLLM_URL = 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.84/+esm';
 
+// THE WORKER ENGINE — the durable fix the wedge work (PR #76) named and deferred. The
+// main-thread engine (CreateMLCEngine) decodes ON the UI thread: a long generation makes the
+// page stutter, and a WEDGED decode freezes it outright — the Stop button can't be clicked,
+// the 45s no-progress watchdog can't fire ("Thought for 2:11"), and nothing short of a page
+// reload ever recovers. Running the engine in a dedicated worker
+// (CreateWebWorkerMLCEngine) moves every decode off the main thread, so:
+//   · the UI stays live while the model talks — Stop is always clickable;
+//   · the watchdog's timer fires ON TIME, so a stall is caught at 45s, not minutes late;
+//   · interruptGenerate() actually lands mid-decode (the worker's event loop is free);
+//   · reset() gains a guaranteed kill — worker.terminate() — where a wedged main-thread
+//     decode could not be stopped at all.
+// The worker is spun from a blob so the no-build static app needs no separate file; it
+// imports the SAME pinned bundle, so main thread and worker can never version-skew. The
+// weights cache (MLC's Cache API storage) is origin-scoped and shared either way.
+const WORKER_SRC =
+  `import { WebWorkerMLCEngineHandler } from '${WEBLLM_URL}';\n` +
+  `const handler = new WebWorkerMLCEngineHandler();\n` +
+  `self.onmessage = (msg) => handler.onmessage(msg);\n`;
+
+// How long an ABORTED decode may keep the engine before it is declared wedged and torn
+// down (phrase's backstop below). Generous next to a healthy interrupt (milliseconds),
+// tiny next to the 45s watchdog that usually precedes the abort.
+const ABORT_GRACE_MS = 4000;
+
 // THE RENDER-SPEED LEVER: which SIZE build to run. The Llama artifacts are already
 // at web-llm's 4-bit floor (there is no sub-4-bit Llama-3.2 prebuilt), so the knob
 // that actually moves how fast an answer renders is the parameter count, not the bit
@@ -51,18 +75,44 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   // An explicit pin (a caller's opts.model / a coder variant's defaults.model) is honoured as-is;
   // otherwise the default 3B build is chosen ADAPTIVELY at load, keyed to the GPU (pickModel below).
   const pinned = opts.model || defaults.model || null;
-  // The engine constructor. Production imports web-llm from the pinned CDN url and calls
-  // CreateMLCEngine; a test injects a fake through opts.createEngine to exercise the load / wedge /
-  // reset lifecycle without a GPU or a network. Same contract either way:
-  // (model, { initProgressCallback }) → engine. The default path is byte-identical to before.
+  let engine  = null;
+  let loading = null;
+  // The dedicated worker behind `engine` when the worker path built it (null for the
+  // main-thread fallback and for injected test engines). Held so reset() can terminate it —
+  // the one kill that works on a decode too wedged to answer messages.
+  let engineWorker = null;
+  // The engine constructor. Production imports web-llm from the pinned CDN url and builds the
+  // WORKER engine (see WORKER_SRC above), falling back to the main-thread CreateMLCEngine
+  // wherever the worker path can't run — no Worker/Blob (old browsers, odd embeds), a blocked
+  // blob worker, or a runtime without WebGPU-in-workers. A test injects a fake through
+  // opts.createEngine to exercise the load / wedge / reset lifecycle without a GPU or a
+  // network. Same contract either way: (model, { initProgressCallback }) → engine.
   const createEngine = typeof opts.createEngine === 'function'
     ? opts.createEngine
     : async (model, cfg) => {
         const mod = await import(/* @vite-ignore */ WEBLLM_URL);
+        if (typeof Worker === 'function' && typeof Blob === 'function'
+            && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+          let worker = null, blobUrl = null;
+          try {
+            blobUrl = URL.createObjectURL(new Blob([WORKER_SRC], { type: 'text/javascript' }));
+            worker = new Worker(blobUrl, { type: 'module' });
+            // A worker that can't even start (CSP on blob workers, a failed module import)
+            // errors on the Worker object without ever answering the engine handshake —
+            // race it so the fallback runs instead of hanging the load forever.
+            const failed = new Promise((_, rej) => {
+              worker.addEventListener('error',
+                (e) => rej(e?.error || new Error(String(e?.message || 'worker failed to start'))),
+                { once: true });
+            });
+            const eng = await Promise.race([mod.CreateWebWorkerMLCEngine(worker, model, cfg), failed]);
+            engineWorker = worker;
+            return eng;
+          } catch { try { worker?.terminate?.(); } catch { /* never started */ } }
+          finally { if (blobUrl) { try { URL.revokeObjectURL(blobUrl); } catch { /* already gone */ } } }
+        }
         return mod.CreateMLCEngine(model, cfg);
       };
-  let engine  = null;
-  let loading = null;
   // ONE DECODE AT A TIME. The MLC engine runs a single generation loop; a second
   // chat.completions.create while one decodes collides inside the runtime (the
   // intermittent "it hangs this time" when a stopped turn's decode was still
@@ -143,6 +193,26 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
     } catch { return f32Build; }
   };
 
+  // TEAR DOWN A WEDGED ENGINE (rooms/reader/app.js resetWedgedLocalModel, and phrase's own
+  // abort backstop below). A local decode that stalled has almost certainly lost its GPU
+  // device; the engine is a write-once singleton that would otherwise keep answering
+  // isLoaded() true and hang every retry — the "Ask again to retry" that never works. Drop
+  // the handle so the next load() rebuilds a fresh engine (or the smaller/CPU backup one
+  // rung down the ladder takes over), and give the backend a FRESH decode gate so a
+  // never-settling queue entry from the wedged decode can't block the rebuilt engine. A
+  // worker engine is KILLED, not asked: terminate() ends the decode and frees the GPU with
+  // the worker, and works even when the worker is too wedged to answer an unload message —
+  // the kill the main-thread engine never had. Idempotent and fail-soft: an already-dead or
+  // never-loaded engine simply has nothing to unload, and a hung unload never blocks the
+  // caller (it awaits its own promise).
+  const hardReset = async () => {
+    const eng = engine, w = engineWorker;
+    engine = null; loading = null; engineWorker = null;   // isLoaded() → false; load() rebuilds fresh
+    gate = makeDecodeGate();                              // a clear queue for the rebuilt engine
+    if (w) { try { w.terminate(); } catch { /* already dead */ } return; }
+    try { await eng?.unload?.(); } catch { /* engine already gone — the handle drop IS the reset */ }
+  };
+
   return {
     id,
     kind: 'local',
@@ -173,14 +243,19 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
           const dev = typeof eng.getGPUDevice === 'function' ? eng.getGPUDevice() : null;
           dev?.lost?.then?.((info) => {
             if (info && info.reason === 'destroyed') return;   // deliberate teardown, not a wedge
-            if (engine === eng) { engine = null; loading = null; }   // reload on next use
+            if (engine === eng) void hardReset();   // drop + fresh gate; the next load() rebuilds
           });
-        } catch { /* no device handle — reset() on a stalled turn still covers the wedge */ }
+        } catch { /* no device handle (the worker engine keeps its device worker-side) —
+                     phrase's abort backstop and reset() on a stalled turn still cover the wedge */ }
       })();
       return loading;
     },
     async phrase(messages, opts = {}) {
       if (!engine) throw new Error(`${id}: not loaded`);
+      // THIS call's engine. If a reset swaps the singleton while we sit in the queue, the
+      // decode we were promised is gone — skip rather than call into a torn-down (or
+      // rebuilt-and-busy) engine.
+      const eng = engine;
       // CANCELLATION (the Stop button / the turn's stall watchdog): an optional
       // AbortSignal lets the caller halt generation. Already aborted before we start
       // ⇒ draw nothing. Mid-decode we ask the engine to interruptGenerate() and
@@ -197,54 +272,69 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
         max_tokens:  opts.maxTokens ?? 256,
       };
       const onToken = typeof opts.onToken === 'function' ? opts.onToken : null;
+      const graceMs = opts.abortGraceMs ?? defaults.abortGraceMs ?? ABORT_GRACE_MS;
       // The gate serializes decodes; a call whose signal aborted while it queued
       // skips the engine entirely. The abort listener attaches only INSIDE the gate,
       // when the running generation is provably ours — attached while queued it
       // would interrupt someone else's decode.
       return gate(async () => {
-        if (signal?.aborted) return '';
-        const onAbort = () => { try { engine.interruptGenerate(); } catch { /* engine gone — the checks below still stop us */ } };
+        if (signal?.aborted || eng !== engine) return '';
+        let streamed = '';   // what has decoded so far — the wedge backstop hands it back
+        const onAbort = () => { try { eng.interruptGenerate(); } catch { /* engine gone — the checks below still stop us */ } };
         if (signal) signal.addEventListener('abort', onAbort, { once: true });
-        try {
-          // The streaming capability (model/stream.js §): when the turn hands an
-          // `onToken`, drive web-llm's streaming completion and emit each delta as it
-          // decodes, so the answer fills in live. The accumulated text is returned
-          // exactly as the non-streaming call would — byte-identical to before when no
-          // callback is handed.
-          if (onToken) {
-            try {
-              const chunks = await engine.chat.completions.create({ ...params, stream: true });
-              let text = '';
-              for await (const chunk of chunks) {
-                const piece = chunk.choices?.[0]?.delta?.content || '';
-                if (piece) { text += piece; onToken(piece); }
-                if (signal?.aborted) break;
-              }
-              if (signal?.aborted) return text.trim();   // user stopped — keep the partial answer
-              if (text.trim()) return text.trim();
-            } catch { /* a streaming hiccup degrades to the plain draw below — the answer still lands */ }
-          }
-          if (signal?.aborted) return '';
-          const out = await engine.chat.completions.create(params);
-          return out.choices?.[0]?.message?.content?.trim() || '';
-        } finally { if (signal) signal.removeEventListener('abort', onAbort); }
+        const decode = (async () => {
+          try {
+            // The streaming capability (model/stream.js §): when the turn hands an
+            // `onToken`, drive web-llm's streaming completion and emit each delta as it
+            // decodes, so the answer fills in live. The accumulated text is returned
+            // exactly as the non-streaming call would — byte-identical to before when no
+            // callback is handed.
+            if (onToken) {
+              try {
+                const chunks = await eng.chat.completions.create({ ...params, stream: true });
+                for await (const chunk of chunks) {
+                  const piece = chunk.choices?.[0]?.delta?.content || '';
+                  if (piece) { streamed += piece; onToken(piece); }
+                  if (signal?.aborted) break;
+                }
+                if (signal?.aborted) return streamed.trim();   // user stopped — keep the partial answer
+                if (streamed.trim()) return streamed.trim();
+              } catch { /* a streaming hiccup degrades to the plain draw below — the answer still lands */ }
+            }
+            if (signal?.aborted) return streamed.trim();
+            const out = await eng.chat.completions.create(params);
+            return out.choices?.[0]?.message?.content?.trim() || '';
+          } finally { if (signal) signal.removeEventListener('abort', onAbort); }
+        })();
+        if (!signal) return decode;
+        // THE WEDGE BACKSTOP. An abort asks the engine to stop; a HEALTHY engine settles in
+        // milliseconds. One that doesn't inside the grace window has wedged (a lost GPU
+        // device, a dead worker) — and its never-settling promise would otherwise hold the
+        // decode gate so EVERY later turn queued behind it forever: the frozen session where
+        // exchange 2 hangs and 3 and 4 hang identically behind it. Past the grace we tear the
+        // engine down ourselves (terminate the worker / drop the singleton — the next ask
+        // reloads fresh) and hand back whatever streamed.
+        return new Promise((resolve, reject) => {
+          let done = false, timer = null;
+          const settle = (fn) => (v) => {
+            if (done) return;
+            done = true;
+            if (timer) clearTimeout(timer);
+            signal.removeEventListener('abort', arm);
+            fn(v);
+          };
+          const ok = settle(resolve), fail = settle(reject);
+          const arm = () => {
+            if (done || timer) return;
+            timer = setTimeout(() => { void hardReset(); ok(streamed.trim()); }, graceMs);
+          };
+          decode.then(ok, fail);
+          if (signal.aborted) arm();
+          else signal.addEventListener('abort', arm, { once: true });
+        });
       });
     },
-    // TEAR DOWN A WEDGED ENGINE (rooms/reader/app.js resetWedgedLocalModel). A local decode that
-    // stalled with nothing streamed has almost certainly lost its GPU device; the engine is a
-    // write-once singleton that would otherwise keep answering isLoaded() true and hang every retry
-    // — the "Ask again to retry" that never works. Drop the handle so the next load() rebuilds a
-    // fresh engine (or the smaller/CPU backup one rung down the ladder takes over), free the GPU
-    // memory on the way out, and give the backend a FRESH decode gate so a never-settling queue
-    // entry from the wedged decode can't block the rebuilt engine. Idempotent and fail-soft: an
-    // already-dead or never-loaded engine simply has nothing to unload, and a hung unload never
-    // blocks the caller (it awaits its own promise).
-    async reset() {
-      const eng = engine;
-      engine = null; loading = null;   // isLoaded() → false; load() rebuilds fresh on next use
-      gate = makeDecodeGate();         // a clear queue for the rebuilt engine
-      try { await eng?.unload?.(); } catch { /* engine already gone — the handle drop IS the reset */ }
-    },
+    reset: hardReset,
   };
 };
 
