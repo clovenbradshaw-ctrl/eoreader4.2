@@ -18,4 +18,5 @@ export const CONTRACTS = Object.freeze({
   'src/organs/code/harvest.js': contract({ ops: ['CON', 'SYN', 'EVA'], targets: ['Void', 'Network'], products: ['Network', 'Lens'], stances: ['Binding', 'Composing', 'Tracing'], note: 'the record\'s gaps drive the search — pieces foraged off the web' }),
   'src/organs/code/go.js': contract({ ops: ['SEG', 'SIG'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Dissecting', 'Tending'], note: 'Go provider — witnessed concurrency/aliasing hazards (membrane)' }),
   'src/organs/code/rust.js': contract({ ops: ['SEG', 'SIG'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Dissecting', 'Tending'], note: 'Rust provider — witnessed panic/identity hazards (membrane)' }),
+  'src/organs/code/page.js': contract({ ops: ['SYN', 'CON', 'EVA'], targets: ['Network', 'Lens'], products: ['Lens'], stances: ['Composing', 'Binding', 'Tracing'], note: 'generic element tree → a whole page, styling foraged not hardcoded' }),
 });

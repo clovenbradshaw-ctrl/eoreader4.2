@@ -124,7 +124,8 @@ const referencedNames = (text, candidates) => {
 export const composeWidget = (blueprintEot, opts = {}) => {
   const { nodes, diagnostics } = collect(blueprintEot);
   const all = [...nodes.values()];
-  const widget = all.find((n) => n.type === 'Widget') ?? all.find((n) => n.template != null) ?? {};
+  const widget = (opts.widgetName && nodes.get(opts.widgetName))
+    ?? all.find((n) => n.type === 'Widget') ?? all.find((n) => n.template != null) ?? {};
   const handlers = all.filter((n) => n.type === 'Handler' || n.handlerOf === widget.name);
   const helpers = all.filter((n) => n.type === 'Function');
   const stateBody = (widget.state ?? '').trim();
@@ -181,7 +182,7 @@ export const composeWidget = (blueprintEot, opts = {}) => {
 // so a weak model's incomplete output slips through as "clean". These laws close that:
 // a widget must actually BE one, and every button must be wired to a handler that exists
 // (the UI analog of `unbound` — a data-on into the Void).
-const completeness = (w) => {
+export const widgetCompleteness = (w) => {
   const out = [];
   const flag = (law, severity, message, name = null) => out.push({ law, severity, message, name, mod: 'widget' });
   if (!w.widget || !w.widget.name) { flag('no-widget', 'error', 'no `X : Widget` in the blueprint — nothing to build'); return out; }
@@ -214,7 +215,7 @@ export const composeWidgetAndVerify = (blueprintEot, opts = {}) => {
   const w = composeWidget(blueprintEot, opts);
   const asModule = w.script.replace(/document\.getElementById/g, '/* dom */ (() => ({}))');
   const read = readCodebase([{ path: (opts.path ?? 'widget') + '.js', text: asModule }], { doc: false, globals: ['document'] });
-  const findings = [...read.issues, ...completeness(w)];
+  const findings = [...read.issues, ...widgetCompleteness(w)];
   const ok = !findings.some((f) => f.severity === 'error');
   return Object.freeze({ ...w, findings, ok, report: read.report });
 };
