@@ -186,7 +186,7 @@ export const createReaderApp = ({ audit } = {}) => {
   // settling to "Researched N sources · M hops". 4.2 had regressed this to a single transient busy
   // label with nothing rendered. These helpers rebuild that trail on the message as plain data the
   // surface renders. `beat` appends one step (deduped against the previous), `emit`ing so it streams.
-  const beat = (msg, kind, text, mode = 'research') => {
+  const beat = (msg, kind, text, mode = 'research', extra = null) => {
     stallGuard?.feed();   // a research beat is progress — re-arm the no-progress watchdog
     const t = String(text || '').trim();
     if (!msg || !t) return;
@@ -194,7 +194,7 @@ export const createReaderApp = ({ audit } = {}) => {
     const steps = msg.research.steps;
     const last = steps[steps.length - 1];
     if (last && last.kind === kind && last.text === t) return;   // don't stack a repeated status
-    steps.push({ kind, text: t });
+    steps.push({ kind, text: t, ...(extra || {}) });
     emit('messages');
   };
   // Narrate the fold: turn each completed pipeline stage into one trail beat, so the answer
@@ -224,7 +224,10 @@ export const createReaderApp = ({ audit } = {}) => {
     if (!hop) return;
     if (hop.kept && hop.results) {
       const lead = (hop.leads && hop.leads.length) ? ` — picked up ${hop.leads.slice(0, 3).join(', ')}` : '';
-      beat(msg, 'read', `Read ${hop.results} source${hop.results === 1 ? '' : 's'}${lead}`);
+      // Carry the actual pages this hop read onto the beat, so the trail's "Read N sources" line
+      // can be clicked through to what the surf returned (title + url per source), not just a count.
+      const sources = (hop.sources || []).filter((s) => s && (s.url || s.title));
+      beat(msg, 'read', `Read ${hop.results} source${hop.results === 1 ? '' : 's'}${lead}`, 'research', sources.length ? { sources } : null);
     } else if (hop.reason === 'strayed') {
       beat(msg, 'warn', `Set aside “${hop.query}” — drifted off the question`);
     } else if (hop.reason === 'empty') {

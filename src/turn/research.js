@@ -214,6 +214,11 @@ export const runCuriousResearch = async (seed, {
   // gives the host ONE place to learn a hop's OUTCOME (results / kept / strayed) the moment it is
   // known — the live "read N sources" / "set aside" beat, the sibling of `onHop`'s pre-fetch line.
   const record = (h) => { hops.push(h); if (onHopDone) { try { onHopDone(h); } catch { /* a progress beat must never break the walk */ } } };
+  // The sources a kept hop actually read — {title, url} per doc — so the "Read N sources" beat
+  // can be clicked through to the very pages the surf returned, not just their count.
+  const srcList = (ds) => ds.map(d => ({
+    docId: d.docId, title: d.web?.title || d.title || '', url: d.web?.url || d.web?.final_url || '',
+  }));
   const visited = new Set();          // normalized queries already fetched — never re-fetch
   const seenLeads = new Set();        // lead terms already chased or already in a query — never re-chase
   for (const t of researchTerms(anchor)) seenLeads.add(t);   // the anchor's own words are not "discoveries"
@@ -281,7 +286,7 @@ export const runCuriousResearch = async (seed, {
         const leads = leadsFrom(by, { seen: seenLeads, max: 4 });
         for (const lead of leads) { pushLead(lead, salience); seenLeads.add(lead.term); }
         record({ query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience),
-                 results: hopDocs.length, leads: leads.map(l => l.term), kept: true });
+                 results: hopDocs.length, leads: leads.map(l => l.term), kept: true, sources: srcList(hopDocs) });
       } else {
         record({ query: node.query, term: node.term, curiosity: 0, salience: 0, results: 0, leads: [], kept: false, reason: 'empty' });
       }
@@ -324,7 +329,7 @@ export const runCuriousResearch = async (seed, {
     const leads = novel ? leadsFrom(by, { seen: seenLeads, max: 4 }) : [];
     for (const lead of leads) { pushLead(lead, salience); seenLeads.add(lead.term); }
     record({ query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience),
-             results: hopDocs.length, leads: leads.map(l => l.term), kept: true, exhausted: !novel });
+             results: hopDocs.length, leads: leads.map(l => l.term), kept: true, exhausted: !novel, sources: srcList(hopDocs) });
   }
 
   return { docs, archive: archive.entries(), hops, frontier, prior, topic, sense: committed };

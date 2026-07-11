@@ -39,6 +39,15 @@ test('the walk fires onHop before each hop and onHopDone after, with the hop out
   assert.equal(walk.hops[0].kept, true);
   assert.ok(walk.docs.length >= 1);
   assert.ok(walk.hops.length > 1, 'the walk should follow at least one lead past the seed');
+
+  // A kept hop carries the very pages it read — {title, url} — so the trail's "Read N sources"
+  // beat can be clicked through to what the surf returned, not just its count.
+  const keptDone = after.find((h) => h.kept && h.results);
+  assert.ok(keptDone, 'at least one kept hop reached onHopDone');
+  assert.ok(Array.isArray(keptDone.sources) && keptDone.sources.length === keptDone.results,
+    'a kept hop reports one source per result');
+  assert.ok(keptDone.sources.every((s) => typeof s.url === 'string' && typeof s.title === 'string'),
+    'each source carries a title and a url to click through to');
 });
 
 test('runTurnWithResearch forwards onHop/onHopDone to the walk and returns the research trace', async () => {
