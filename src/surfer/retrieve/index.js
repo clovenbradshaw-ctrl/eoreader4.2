@@ -4,5 +4,5 @@
 export { retrieveLexical }  from './lexical.js';
 export { retrieveSemantic } from './semantic.js';
 export { retrieveHybrid, reserveBySource, fuseConcordance, pickRetrievalEmbedder, selectExcerpts } from './hybrid.js';
-export { retrieveStructural, retrieveNetwork, queryTouchesDoc } from './structural.js';
+export { retrieveStructural, retrieveNetwork, queryTouchesDoc, querySubjectTerms } from './structural.js';
 export { isReferenceChrome, dropReferenceChrome } from './chrome.js';
