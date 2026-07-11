@@ -190,8 +190,8 @@ test('checkpointChain — a valid prefix survives an invalid tail (interruptibil
 
 // ── The catalog is closed and its regions are real cube coordinates ───────────
 
-test('the catalog is ten pre-built surfaces', () => {
-  assert.equal(Object.keys(CATALOG).length, 10);
+test('the catalog is a set of pre-built surfaces, each fully contracted', () => {
+  assert.ok(Object.keys(CATALOG).length >= 10, 'at least the roadmap\'s ten surfaces');
   for (const [name, surf] of Object.entries(CATALOG)) {
     assert.ok(surf.home.length && surf.ops.length && surf.stances.length, `${name} has a full contract region`);
   }

@@ -147,6 +147,8 @@ Each stage is a set-down. It ships alone, validates alone, and the next stage do
 
 **Exit criteria.** A non-trivial real tool — one we would otherwise have hand-built — is generated end to end and put into production use. The catalog-gap rate on new requests drops below a set threshold.
 
+**Progress.** The catalog mechanism is in place: `src/coder/catalog.js` is a closed, contracted vocabulary (now twelve surfaces), and `reportCatalogGaps(findings)` turns the `unknown-surface` vetoes into a demand-ranked backlog — the coder naming what to build next. What remains is the human work of building surfaces and the "put into production use" bar, which is a product milestone, not a code one.
+
 **Risk.** This is where the non-goals get tested hardest. Every catalog addition is a request to widen the algebra, and most of those requests should be refused. Rule: a new surface is admissible only if its contract fits in the existing cube. If it needs a tenth operator, the answer is no, and the answer stays no.
 
 ---
@@ -167,6 +169,8 @@ Each stage is a set-down. It ships alone, validates alone, and the next stage do
 
 **Exit criteria.** Automated repair resolves the majority of remaining checkpoint failures within the cap. Veto messages are legible to a non-EO-literate person. No silent widening appears anywhere in the log.
 
+**Progress.** Implemented: `src/coder/repair.js` consumes the checkpoint's typed errors as keyed repair strategies (terrain-mismatch, closure-, narrowing-, contract-violation, grain-mixed, unassembled), applies the two-revision cap, and vetoes the rest with a legible message. Every widening is a logged `!REC` in the build ledger — no silent widening. What remains is the schema-elicitation surface (asking the person when the request is underdetermined), which needs a substrate form, not more algebra. See `docs/eot-coder-checkpoint.md`.
+
 **Risk.** Repair loops are where "helpful" becomes "quietly wrong." The cap and the veto are not conservatism; they are the feature. Resist every instinct to raise the cap.
 
 ---
@@ -183,6 +187,8 @@ Each stage is a set-down. It ships alone, validates alone, and the next stage do
 - **A human-readable build report.** Rendered from the ledger. This is what goes in the methods note of a story, or in the appendix of a records request, or in front of a court.
 
 **Exit criteria.** A tool built by the coder ships with a build report that a skeptical outside party — an editor, an opposing lawyer, a records officer — can read and check.
+
+**Progress.** Implemented: `src/coder/ledger.js` records every emission, divergence, checkpoint verdict, `!REC` widening, and veto to an append-only, **signed** chain (each signature folds the prior entry's, so tampering fails `verifyChain()`), and `buildReport()` renders it as prose. `build()` ships every app with one. The signing is a browser-safe hash chain today; the tie-in to the rooms' existing signed event streams is the remaining integration. See `docs/eot-coder-checkpoint.md`.
 
 **Why this is the moat.** Competitors cannot retrofit this. Provenance is not a feature you add to a probabilistic generator; it is a consequence of having a validated emission surface in the first place. Here "competitive" stops being the right word. The comparison stops applying.
 

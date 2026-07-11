@@ -140,6 +140,74 @@ purely mechanical outer layer — compiling these per-step masks into a token-le
 logit mask against a specific tokenizer — which needs a model and a grammar
 back-end, not more algebra.
 
+## The full pipeline — emit → checkpoint → repair → ledger
+
+`src/coder/build.js` closes the watchmaker loop on itself. Given a sequence of
+*intents* (a model's structured proposal — the one arrow that needs a model, kept a
+named seam), `build(intents)` emits each assembly through the mask, checkpoints it,
+repairs the typed errors within the cap, threads what each set-down leaves behind,
+and records the whole build to a signed ledger that renders a human-readable report.
+
+```
+intents (model)
+  │  constrainedEmit — the mask disposes what the model proposed     (Stage 1)
+  ▼
+assemblies      grain / desert / contract-clean by construction
+  │  checkpoint — the remaining typed errors, with addresses          (§4)
+  ▼
+verdicts        + repair — typed errors consumed, cap 2, else veto    (Stage 3)
+  │  ledger — every emission, verdict, widening, veto, signed          (Stage 4)
+  ▼
+build report    a skeptical outsider can read it and check the chain
+```
+
+**Stage 1 — `emit.js`, the model proposes, the mask disposes.** `constrainedEmit`
+re-emits each intended event face by face through `maskField`: it takes the model's
+proposed value if the mask permits it, else the nearest legal value, and logs the
+divergence. The result is free of grain-mixed, desert-cell, and contract-violation
+*by construction* — no matter what the model proposed. The divergence log is where a
+reviewer sees the model straining against the wall (Stage 1's requested research
+artifact). It guarantees well-formedness, never appropriateness.
+
+**Stage 3 — `repair.js`, typed errors as repair targets.** The checkpoint's typed,
+addressed errors are a small, mechanical repair space (unlike a runtime traceback):
+`terrain-mismatch` → add the surface's home to the room; `closure-violation` →
+recompute the envelope; `narrowing-violation` / `contract-violation` → a logged
+`!REC` widening; `grain-mixed` → re-align to one grain; `unassembled` → close it. The
+rest — `stance-violation`, `dependency`, `unknown-surface`, `desert-cell` — cannot be
+mended without inventing an engagement, reordering across assemblies, or widening the
+trusted catalog, so they **veto**: "this part cannot be built as asked, and here is
+exactly what failed." The cap is two revisions, and it is the feature.
+
+**Stage 4 — `ledger.js`, provenance as the product.** Every emission, divergence,
+verdict, widening, and veto is an entry in an append-only, **signed** chain: each
+signature folds in the prior entry's (a browser-safe FNV-1a, no crypto import), so a
+tampered or reordered ledger fails `verifyChain()`. `buildReport()` renders the chain
+as prose — what goes in the methods note of a story, the appendix of a records
+request, or in front of a court. An app whose *construction* is a signed ledger is a
+categorically different object from one generated in a chat window; a probabilistic
+generator cannot retrofit it.
+
+```js
+import { build } from './src/coder/index.js';
+
+const out = build([
+  { id: 'cases', kind: 'room',
+    contract: { ops: ['INS'], terrains: ['Entity'], stances: ['Making'] },
+    events: [{ op: 'INS', id: 'case', terrain: 'Entity', stance: 'Making' }] },
+  { id: 'case_board', kind: 'surface', surface: 'board', room: { terrains: ['Entity'] } }, // missing Field
+]);
+// out.ok === true — the terrain-mismatch was repaired within the cap
+// out.ledger.verifyChain() === true
+// out.report is the prose trace: emit · ↻ repair terrain-mismatch · ✓ checkpoint passed
+```
+
+**Stage 2 — the catalog widens, the algebra does not.** `catalog.js` grew two
+surfaces (`timeline`, `gallery`); a new surface is admissible only if its contract
+fits the existing cube (no tenth operator). `reportCatalogGaps(findings)` turns the
+`unknown-surface` vetoes into a prioritized backlog — the coder telling us what to
+build next, ranked by demand. A gap is reported, never invented.
+
 ## What it catches, and what it does not
 
 This catches **incoherence**, not **inappropriateness**. A perfectly coherent,
