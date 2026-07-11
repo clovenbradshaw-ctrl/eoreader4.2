@@ -6,7 +6,7 @@
 //   id:        't42',
 //   question:  string,
 //   startedAt: ms, finishedAt: ms, durationMs: ms,
-//   route:     'math' | 'metadata' | 'smalltalk' | 'grounded' | 'chat' | 'error',
+//   route:     'math' | 'metadata' | 'phatic' | 'clarify' | 'grounded' | 'chat' | 'empty' | 'error',
 //   grounding: 'auto' | 'grounded' | 'free',   // the register the user selected (the chip)
 //   model:     { backend, kind, model, label } | null,   // WHAT produced the answer — the talker
 //              // backend and its exact model (model/interface.js describeModel). The audit's whole
