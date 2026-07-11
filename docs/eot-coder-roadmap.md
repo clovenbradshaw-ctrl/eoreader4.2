@@ -229,6 +229,8 @@ In EO, issue detection is **not a linter bolted onto a generator.** It is the co
 
 Read the table as the branch's roadmap: **the top block migrates to the decoder; the bottom block gets a repair strategy.** Nothing gets a runtime traceback, because nothing needs one.
 
+This table is now code, not just a plan: `src/coder/checkpoint.js` implements the assembly checkpoint that reads off all ten typed errors with their addresses, and `detectionPoint(error)` / `MIGRATES_TO_DECODER` / `STAYS_AT_CHECKPOINT` expose the partition above as the single source of truth the Stage 1 mask must derive from. See `docs/eot-coder-checkpoint.md`.
+
 The honest caveat, restated because it is the one that will bite: this catches *incoherence*, not *inappropriateness*. A perfectly coherent, contract-satisfying app can still be the wrong app. The person is the judge of that, the elicitation form is how we ask them, and no amount of masking substitutes for it.
 
 ---
