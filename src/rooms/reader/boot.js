@@ -50,6 +50,7 @@ import { mountChat, mountChatLauncher } from '../chat/mount.js';
 import { createVault } from '../archive/vault.js';
 import { mountVaultLauncher } from '../archive/vault-mount.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
+import { mountConsole } from './console-surface.js';
 
 const audit = createAuditLog({ capacity: 512 });
 const app = createReaderApp({ audit });
@@ -167,3 +168,10 @@ catch (e) { console.warn('[EO] chat launcher not mounted', e); }
 // …and the encrypted-vault launcher, gated the same way (sits just above the chat FAB).
 try { if (typeof document !== 'undefined') mountVaultLauncher(document.body, { vault, matrix }); }
 catch (e) { console.warn('[EO] vault launcher not mounted', e); }
+
+// …and the audit console — a bottom-docked developer terminal that streams, live,
+// every turn stage, session event, engine log, and stall, tapping ONLY this membrane
+// (audit + app + console.*). Its own no-progress detector mirrors the engine's stall
+// watchdog in the surface, so a freeze like the essay hang is visible as it happens.
+try { if (typeof document !== 'undefined') mountConsole(document.body, { audit, app, appName: APP_NAME, version: APP_VERSION }); }
+catch (e) { console.warn('[EO] console not mounted', e); }
