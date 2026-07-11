@@ -122,6 +122,73 @@ test('nativePageHtml reflows a plain-text URL instead of dumping raw', () => {
   assert.ok(out.includes('eo-book'), 'themed book shell');
 });
 
+test('nativePageHtml promotes lazy images so they actually load without JS', () => {
+  const raw = '<html><head></head><body>'
+    + '<img src="data:image/gif;base64,placeholder" data-src="/real/hero.jpg" loading="lazy">'
+    + '<img data-original="//cdn.example.com/photo.jpg" alt="no initial src">'
+    + '<picture><source data-srcset="/real/wide.webp 1200w"><img data-src="/real/fallback.jpg"></picture>'
+    + '</body></html>';
+  const out = nativePageHtml(raw, { baseUrl: 'https://example.com/article' });
+  // the placeholder src is replaced by the real image, not left as the 1px stub
+  assert.ok(out.includes('src="/real/hero.jpg"'), 'data-src promoted into src');
+  assert.ok(!/src="data:image\/gif;base64,placeholder"/.test(out), 'placeholder src gone');
+  // an <img> that carried no src at all gains one from data-original
+  assert.ok(out.includes('src="//cdn.example.com/photo.jpg"'), 'data-original promoted, src added');
+  // a <picture>'s <source> gets its real srcset, and the inner <img> its real src
+  assert.ok(out.includes('srcset="/real/wide.webp 1200w"'), 'data-srcset promoted on <source>');
+  assert.ok(out.includes('src="/real/fallback.jpg"'), 'inner <img> data-src promoted');
+});
+
+test('nativePageHtml keeps data-srcset from stealing data-src (prefix guard)', () => {
+  // a tag with ONLY data-srcset must not have a bogus src invented from the data-src prefix
+  const raw = '<html><body><img data-srcset="/a.jpg 1x, /b.jpg 2x" alt="x"></body></html>';
+  const out = nativePageHtml(raw, { baseUrl: 'https://example.com/' });
+  assert.ok(out.includes('srcset="/a.jpg 1x, /b.jpg 2x"'), 'srcset promoted');
+  assert.ok(!/\ssrc=/i.test(out), 'no phantom src attribute invented (srcset != src)');
+});
+
+test('nativePageHtml promotes a lazy image even when the placeholder src is an inline-SVG data-URI', () => {
+  // A very common LQIP pattern: the placeholder in `src` is a data-URI SVG that contains a raw
+  // ">" — a naive <img[^>]*> match would stop there and never see data-src. This must still work.
+  const raw = '<html><body>'
+    + '<img src="data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'2\' height=\'1\'></svg>"'
+    + ' data-src="/real/photo.jpg" alt="x">'
+    + '</body></html>';
+  const out = nativePageHtml(raw, { baseUrl: 'https://example.com/' });
+  assert.ok(out.includes('src="/real/photo.jpg"'), 'data-src promoted past the "<svg …>" placeholder');
+  assert.ok(!out.includes('width=\'2\''), 'the 2×1 placeholder SVG is replaced, not kept');
+});
+
+test('nativePageHtml unwraps <noscript> so the author no-JS fallback survives', () => {
+  const raw = '<html><head></head><body>'
+    + '<img data-src="/lazy.jpg">'
+    + '<noscript><img src="/fallback.jpg" alt="real photo"></noscript>'
+    + '</body></html>';
+  const out = nativePageHtml(raw, { baseUrl: 'https://example.com/' });
+  // the fallback image inside <noscript> is revealed (old behaviour deleted it entirely)
+  assert.ok(out.includes('src="/fallback.jpg"'), 'noscript fallback image kept');
+  assert.ok(!/<noscript/i.test(out) && !/<\/noscript>/i.test(out), 'noscript wrapper unwrapped');
+});
+
+test('nativePageHtml re-bases: drops the page own <base> and injects the real URL + upgrade CSP', () => {
+  const raw = '<html><head><base href="/"><title>T</title></head><body><p>Body</p></body></html>';
+  const out = nativePageHtml(raw, { baseUrl: 'https://news.example.com/2026/story' });
+  assert.ok(!/<base href="\/"/.test(out), "page's own <base href=/> removed");
+  assert.ok(out.includes('<base href="https://news.example.com/2026/story"'), 'our base injected');
+  assert.ok(out.includes('upgrade-insecure-requests'), 'mixed content upgraded to https');
+  assert.ok(out.includes('<title>T</title>'), 'the rest of the head is preserved');
+});
+
+test('nativePageHtml never lets a script survive as live (defence-in-depth), incl. inside noscript', () => {
+  const raw = '<html><head></head><body>'
+    + '<script>evil()</script>'
+    + '<noscript><script>alsoEvil()</script><img src="/ok.jpg"></noscript>'
+    + '</body></html>';
+  const out = nativePageHtml(raw, { baseUrl: 'https://example.com/' });
+  assert.ok(!/<script/i.test(out), 'no <script> tag remains after sanitize');
+  assert.ok(out.includes('src="/ok.jpg"'), 'the noscript image still comes through');
+});
+
 // ── the facing page: classify every EoT surface line by its element type ────────────────────
 test('classifyEotLine recognises each EoT element type by shape', () => {
   assert.equal(classifyEotLine('widget : Gadget'), 'type');
