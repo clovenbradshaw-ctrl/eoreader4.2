@@ -1059,6 +1059,25 @@ table{border-collapse:collapse;width:100%}
                 Open the web graph
               </button>
 
+              <div style="margin-top:16px">
+                <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
+                <sc-if value="{{ prof.wikiWait }}">
+                  <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">Looking for a matching article…</div>
+                </sc-if>
+                <sc-if value="{{ prof.hasWiki }}">
+                  <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;background:#FBFBFD">
+                    <sc-if value="{{ prof.hasWikiDesc }}">
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ prof.wikiDesc }}</div>
+                    </sc-if>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ prof.wikiText }}</div>
+                    <a href="{{ prof.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:#5B4BE6;margin-top:7px;text-decoration:none">{{ prof.wikiTitle }} ↗</a>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ prof.wikiAbsent }}">
+                  <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">No confirmed Wikipedia match for this referent.</div>
+                </sc-if>
+              </div>
+
               <sc-if value="{{ prof.hasDefs }}">
                 <div style="margin-top:16px">
                   <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES</div>
@@ -1383,6 +1402,9 @@ class Component extends DCLogic {
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
       entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null,
+      // The entity panel's Wikipedia referent, per 'docId#entId': { busy } while the
+      // engine searches, then the confirmed referent (or { none }) — see _ensureWiki.
+      wikiDefs: {},
       // Settings → roll back to a prior PR's deployed build (the version time-machine). verList is
       // null until the panel is first opened (then an array, possibly empty); verErr is
       // null | 'rate' | 'network' | 'http', worded for the surface by _versionVals().
@@ -1894,8 +1916,24 @@ class Component extends DCLogic {
     }, 60);
   }
   closeSearch() { this.setState({ searchOpen: false }); }
-  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'chat' : this.state.tab, focusId: null }); this._setPref('eo_right', true); }
+  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'chat' : this.state.tab, focusId: null }); this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
   backToEntities() { this.setState({ entitySel: null, focusId: null }); }
+  // The wiki referent for the open entity — 4.1's entity-panel Wikipedia search, restored.
+  // Fired once per (doc, entity): the engine searches Wikipedia and confirms (or refuses)
+  // the settled referent against the entity's attested context; the surface only caches
+  // and renders. { busy } while in flight; a miss or an error becomes { none } — the
+  // panel says "no confirmed match", never an error.
+  _ensureWiki(docId, entId) {
+    if (!this._app || !this._app.entityWiki) return;
+    const key = docId + '#' + entId;
+    if (this.state.wikiDefs[key]) return;
+    this.setState({ wikiDefs: { ...this.state.wikiDefs, [key]: { busy: true } } });
+    this._app.entityWiki(docId, entId).then((def) => {
+      this.setState({ wikiDefs: { ...this.state.wikiDefs, [key]: def || { none: true } } });
+    }).catch(() => {
+      this.setState({ wikiDefs: { ...this.state.wikiDefs, [key]: { none: true } } });
+    });
+  }
   toggleEntityMode() { const on = !this.state.entityMode; this._setPref('eo_entmode', on); this._segCache = {}; this._viewCache = null; this.setState({ entityMode: on }); }
   openWebGraph(docId, entId) { this.setState({ webGraphFor: { docId, entId } }); }
   closeWebGraph() { if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; } this.setState({ webGraphFor: null }); }
@@ -2707,9 +2745,18 @@ class Component extends DCLogic {
       const p = app.entityProfile(st.entitySel.docId, st.entitySel.entId);
       if (p) {
         const src = app.sourceBySn(p.sn) || {};
+        // The Wikipedia referent (openEntity kicked the lookup off; render what landed).
+        // Shown only when CONFIRMED — an unconfirmed best guess reads as "no confirmed
+        // match", the same honesty rule the 4.1 panel held.
+        const wk = st.wikiDefs[st.entitySel.docId + '#' + st.entitySel.entId] || null;
+        const wkHit = !!(wk && wk.confirmed && wk.text);
         prof = {
           label: p.label, initials: this._initials(p.label),
           counts: `${p.mentions.length} mentions · ${p.relations.length} links`,
+          wikiWait: !!(wk && wk.busy), hasWiki: wkHit,
+          wikiText: wkHit ? wk.text : '', wikiTitle: wkHit ? wk.title : '', wikiUrl: wkHit ? wk.url : '',
+          wikiDesc: wkHit ? (wk.description || '') : '', hasWikiDesc: !!(wkHit && wk.description),
+          wikiAbsent: !!(wk && !wk.busy && !wkHit),
           srcReg: src.reg || '', srcTitle: src.title || '', openSource: () => this.openViewer(p.sn),
           openWeb: () => this.openWebGraph(st.entitySel.docId, st.entitySel.entId),
           hasDefs: p.defs.length > 0, defs: p.defs.slice(0, 6),
