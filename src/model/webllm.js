@@ -17,6 +17,7 @@
 // backend ever want the port back.
 
 import { registerBackend } from './interface.js';
+import { makeDecodeGate } from './decode-gate.js';
 
 // Pinned exactly, the same posture as wllama's runtime and the Anthropic SDK: a
 // floating '@0.2' re-resolves to every new minor jsdelivr publishes, so the app
@@ -52,6 +53,11 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   const pinned = opts.model || defaults.model || null;
   let engine  = null;
   let loading = null;
+  // ONE DECODE AT A TIME. The MLC engine runs a single generation loop; a second
+  // chat.completions.create while one decodes collides inside the runtime (the
+  // intermittent "it hangs this time" when a stopped turn's decode was still
+  // unwinding as the next question fired). Every phrase() enters through this gate.
+  const gate = makeDecodeGate();
   // The MLC artifact this backend actually loaded. A pin is known up front; the adaptive
   // pick (pickModel) is only decided inside load(), so it is captured there. Held for
   // PROVENANCE (describe below) — the audit/export must be able to name the exact build,
@@ -149,10 +155,14 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
     },
     async phrase(messages, opts = {}) {
       if (!engine) throw new Error(`${id}: not loaded`);
-      // CANCELLATION (the Stop button): an optional AbortSignal lets the caller halt
-      // generation. Already aborted before we start ⇒ draw nothing. Mid-stream we ask
-      // the engine to interruptGenerate() and return whatever decoded so far, so the
-      // user keeps the partial answer rather than losing the whole beat.
+      // CANCELLATION (the Stop button / the turn's stall watchdog): an optional
+      // AbortSignal lets the caller halt generation. Already aborted before we start
+      // ⇒ draw nothing. Mid-decode we ask the engine to interruptGenerate() and
+      // return whatever decoded so far, so the user keeps the partial answer rather
+      // than losing the whole beat. BOTH paths honour it — the non-streaming draw
+      // used to ignore the signal entirely, so every opaque utility decode (query
+      // formulation, sense disambiguation) a stop/stall abandoned kept running as an
+      // orphan and held the engine against the next turn.
       const signal = opts.signal || null;
       if (signal?.aborted) return '';
       const params = {
@@ -160,33 +170,39 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
         temperature: opts.temperature ?? 0.7,
         max_tokens:  opts.maxTokens ?? 256,
       };
-      // The streaming capability (model/stream.js §): when the turn hands an
-      // `onToken`, drive web-llm's streaming completion and emit each delta as it
-      // decodes, so the answer fills in live. The accumulated text is returned
-      // exactly as the non-streaming call would — byte-identical to before when no
-      // callback is handed.
       const onToken = typeof opts.onToken === 'function' ? opts.onToken : null;
-      if (onToken) {
-        // Halt the in-flight decode the moment the caller aborts — web-llm ends the
-        // streaming iterator on interruptGenerate().
-        const onAbort = () => { try { engine.interruptGenerate(); } catch { /* engine gone — the break below still stops us */ } };
+      // The gate serializes decodes; a call whose signal aborted while it queued
+      // skips the engine entirely. The abort listener attaches only INSIDE the gate,
+      // when the running generation is provably ours — attached while queued it
+      // would interrupt someone else's decode.
+      return gate(async () => {
+        if (signal?.aborted) return '';
+        const onAbort = () => { try { engine.interruptGenerate(); } catch { /* engine gone — the checks below still stop us */ } };
         if (signal) signal.addEventListener('abort', onAbort, { once: true });
         try {
-          const chunks = await engine.chat.completions.create({ ...params, stream: true });
-          let text = '';
-          for await (const chunk of chunks) {
-            const piece = chunk.choices?.[0]?.delta?.content || '';
-            if (piece) { text += piece; onToken(piece); }
-            if (signal?.aborted) break;
+          // The streaming capability (model/stream.js §): when the turn hands an
+          // `onToken`, drive web-llm's streaming completion and emit each delta as it
+          // decodes, so the answer fills in live. The accumulated text is returned
+          // exactly as the non-streaming call would — byte-identical to before when no
+          // callback is handed.
+          if (onToken) {
+            try {
+              const chunks = await engine.chat.completions.create({ ...params, stream: true });
+              let text = '';
+              for await (const chunk of chunks) {
+                const piece = chunk.choices?.[0]?.delta?.content || '';
+                if (piece) { text += piece; onToken(piece); }
+                if (signal?.aborted) break;
+              }
+              if (signal?.aborted) return text.trim();   // user stopped — keep the partial answer
+              if (text.trim()) return text.trim();
+            } catch { /* a streaming hiccup degrades to the plain draw below — the answer still lands */ }
           }
-          if (signal?.aborted) return text.trim();   // user stopped — keep the partial answer
-          if (text.trim()) return text.trim();
-        } catch { /* a streaming hiccup degrades to the plain draw below — the answer still lands */ }
-        finally { if (signal) signal.removeEventListener('abort', onAbort); }
-      }
-      if (signal?.aborted) return '';
-      const out = await engine.chat.completions.create(params);
-      return out.choices?.[0]?.message?.content?.trim() || '';
+          if (signal?.aborted) return '';
+          const out = await engine.chat.completions.create(params);
+          return out.choices?.[0]?.message?.content?.trim() || '';
+        } finally { if (signal) signal.removeEventListener('abort', onAbort); }
+      });
     },
   };
 };

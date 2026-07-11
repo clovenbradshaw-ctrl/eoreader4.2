@@ -970,6 +970,9 @@ export const stages = {
     let cur = ctx, attempts = 0;
     const revisions = [];
     while (attempts < REWRITE_ATTEMPTS && (regenNeeded(cur) || curForm)) {
+      // A Stop/stall mid-turn ends the rewrite loop with the draft that stands — never
+      // another full opaque decode after the user (or the watchdog) already called it.
+      if (ctx.signal?.aborted) break;
       attempts++;
       // Record the superseded draft BESIDE its successor — never erase it. The reason it was
       // made to answer again travels with it (the off-diagonal verdicts that condemned it,
@@ -998,7 +1001,7 @@ export const stages = {
         conversation: {},                     // history still withheld on the grounded path
         corrective,
       });
-      const raw = await ctx.model.phrase(messages, { maxTokens: ctx.maxTokens || TASK_MAX_TOKENS.answer });
+      const raw = await ctx.model.phrase(messages, { maxTokens: ctx.maxTokens || TASK_MAX_TOKENS.answer, signal: ctx.signal || null });
       cur = await stages.factcheck(await stages.bind({ ...cur, rawOutput: raw, messages }));
       curForm = await formErrOf(cur);
       revisions.push(Object.freeze({ draft: supersededDraft, offDiagonal: supersededVerdicts, replacedBy: raw, why }));

@@ -638,14 +638,20 @@ table{border-collapse:collapse;width:100%}
           <div data-screen-label="Provenance DAG" onPointerDown="{{ startPan }}" onWheel="{{ onWheel }}" ref="{{ setViewport }}" style="flex:1;min-height:0;position:relative;overflow:hidden;background:#F4F4F7;cursor:{{ panCursor }}">
             <div style="position:absolute;left:0;top:0;width:{{ canvasW }}px;height:{{ canvasH }}px;transform:translate({{ tx }}px,{{ ty }}px) scale({{ scale }});transform-origin:0 0;transition:{{ camT }};background-image:radial-gradient(#E1E1E9 1px,transparent 1px);background-size:26px 26px">
 
-              <svg width="{{ canvasW }}" height="{{ canvasH }}" style="position:absolute;left:0;top:0;overflow:visible;pointer-events:none">
+              <!-- sc-camel-width/-d etc.: the raw {{ }} placeholders are only compiled at mount, but this
+                   markup is LIVE DOM from the first parse — and unlike HTML, the SVG attribute parser
+                   rejects "{{ canvasW }}" loudly (three red console errors on every load, read as "it's
+                   broken"). The sc-camel- prefix is the compiler's own escape (support.js CAMEL_ATTR):
+                   it compiles to the same width/height/d props, while the browser sees only an unknown
+                   attribute and stays quiet. -->
+              <svg sc-camel-width="{{ canvasW }}" sc-camel-height="{{ canvasH }}" style="position:absolute;left:0;top:0;overflow:visible;pointer-events:none">
                 <defs>
                   <marker id="arrDim" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L6.5 3 L0 6 z" fill="#CBCBD4"/></marker>
                   <marker id="arrVio" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L6.5 3 L0 6 z" fill="#6D5EF5"/></marker>
                   <marker id="arrRed" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0 0 L6.5 3 L0 6 z" fill="#B23A2E"/></marker>
                 </defs>
                 <sc-for list="{{ edgePaths }}" as="e">
-                  <path d="{{ e.d }}" fill="none" stroke="{{ e.stroke }}" stroke-width="{{ e.sw }}" stroke-dasharray="{{ e.dash }}" opacity="{{ e.op }}" marker-end="{{ e.marker }}" stroke-linecap="round"></path>
+                  <path sc-camel-d="{{ e.d }}" fill="none" stroke="{{ e.stroke }}" stroke-width="{{ e.sw }}" stroke-dasharray="{{ e.dash }}" opacity="{{ e.op }}" marker-end="{{ e.marker }}" stroke-linecap="round"></path>
                 </sc-for>
               </svg>
 

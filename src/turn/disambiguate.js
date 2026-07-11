@@ -192,7 +192,7 @@ export const parseSensePrior = (text, subject = '') => {
 // null on an unambiguous subject (the Stage-1 gate, answered by the model), a refusal, or any throw —
 // so with no model, or a model that declines, the walk is byte-identical. Exported so the app injects it
 // and the engine stays offline-testable.
-export const modelDisambiguator = (model, { history = [], question = '', senseHints = [] } = {}) => async (subject) => {
+export const modelDisambiguator = (model, { history = [], question = '', senseHints = [], signal = null } = {}) => async (subject) => {
   const s = String(subject || '').trim();
   if (!model?.phrase || !s) return null;
   const { subject: focus, open } = discourseFrame(question || s, history);
@@ -222,7 +222,9 @@ export const modelDisambiguator = (model, { history = [], question = '', senseHi
       `${hints.length ? `Sense hints: ${hints.join(', ')}\n` : ''}${frame ? `Discourse state:\n${frame}\n\n` : ''}Subject: ${s}\n\nJSON:` },
   ];
   try {
-    const out = await model.phrase(messages, { maxTokens: 220, temperature: 0, minPredict: 0 });
+    // The turn's signal rides along: this 220-token decode runs before the first hop,
+    // and unabortable it outlived a Stop/stall as an orphan holding the engine.
+    const out = await model.phrase(messages, { maxTokens: 220, temperature: 0, minPredict: 0, signal });
     return parseSensePrior(out, s);
   } catch { return null; }
 };

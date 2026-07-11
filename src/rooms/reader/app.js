@@ -912,8 +912,16 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   // reflects "stopped" immediately even when a slow backend or a hung proxy is still unwinding in
   // the background (the op's own finally is a no-op by then). It never throws: a settled op has
   // already nulled its controller.
+  //
+  // The module `abort`/`stallGuard` refs only name the NEWEST turn — but turns can OVERLAP (ask
+  // in one topic, switch, ask in another), so every in-flight turn's controller is ALSO tracked
+  // in `liveTurns` and Stop halts them all; each turn cleans up only its own kit (armTurn below).
+  // When the module refs were the only handle, the first turn's finally cleared the second turn's
+  // live watchdog and nulled its controller — leaving that turn unstoppable and unsettleable:
+  // the eternal "● reading the record" with a dead Stop button.
+  const liveTurns = new Set();   // every in-flight turn's controller
   const stop = () => {
-    try { abort?.abort(); } catch { /* already done */ }
+    for (const c of [...liveTurns]) { try { c.abort(); } catch { /* already done */ } }
     try { opAbort?.abort(); } catch { /* already done */ }
     setBusy(null);
   };
@@ -921,11 +929,12 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   // A NO-PROGRESS WATCHDOG — 4.1's `_stallGuard`, which 4.2 had dropped (the regression behind
   // "it gets stuck and I can't even hit Stop"). A turn's model decode or a web fetch can stall
   // OUTRIGHT — a promise that neither resolves nor rejects — leaving the answer bubble spinning
-  // with nothing able to recover it. This aborts the turn's signal AND rejects `race` when no
+  // with nothing able to recover it. This aborts the turn's OWN signal (`ctrl`, captured — never
+  // the module ref, which by trip time may be another turn's) AND rejects `race` when no
   // progress (a streamed token, a pipeline step, a research beat) arrives for `ms`, so the turn
   // always settles, the `finally` always runs, and the bubble always finalizes with whatever
   // streamed. `feed()` re-arms the deadline on every sign of life; a live-but-slow model runs on.
-  const makeStallGuard = (ms = 45000) => {
+  const makeStallGuard = (ctrl, ms = 45000) => {
     let timer = null, tripped = false, trip = null;
     const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
     const doTrip = (err) => { if (tripped) return; tripped = true; clear(); if (trip) trip(err); };
@@ -933,7 +942,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       if (tripped) return;
       clear();
       timer = setTimeout(() => {
-        try { abort?.abort(); } catch { /* already aborted */ }
+        try { ctrl?.abort(); } catch { /* already aborted */ }
         doTrip(Object.assign(new Error('the turn stalled — no progress'), { stalled: true }));
       }, ms);
     };
@@ -941,20 +950,41 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     race.catch(() => {});   // a tripped guard nobody is racing must never surface as unhandled
     // A user Stop settles the turn AT ONCE — the bubble finalizes immediately even if the
     // backend is slow to unwind its decode, so Stop never feels dead.
-    if (abort?.signal) abort.signal.addEventListener('abort',
+    if (ctrl?.signal) ctrl.signal.addEventListener('abort',
       () => doTrip(Object.assign(new Error('stopped'), { stopped: true })), { once: true });
     feed();
     return { feed, clear, race, tripped: () => tripped };
   };
-  // Race a turn await against the live watchdog: if the op stalls, `race` rejects (and the signal
-  // is aborted) so control returns instead of hanging. A no-op when no guard is armed.
-  const raceGuard = (p) => stallGuard ? Promise.race([p, stallGuard.race]) : p;
-  // Feed the watchdog while an OPAQUE model call runs (keepGuardAlive, above): the query
-  // formulation and the sense disambiguation stream nothing, so without this a slow local decode
-  // trips the 45s guard before any web progress and reads as a stall. `keepAliveFn` wraps an
-  // injected async utility (the disambiguator the walk calls) so its in-flight decode is fed too.
-  const keepAlive = (p, opts) => keepGuardAlive(stallGuard, p, opts);
-  const keepAliveFn = (fn) => (typeof fn === 'function' ? (...a) => keepAlive(fn(...a)) : fn);
+
+  // armTurn() → one turn's whole cancellation kit, SCOPED TO THAT TURN:
+  //   ctrl       its AbortController (the walk's / the backends' signal)
+  //   guard      its no-progress watchdog
+  //   raceGuard  race a turn await against ITS watchdog: a stall rejects (and the signal
+  //              aborts) so control returns instead of hanging
+  //   keepAlive  feed ITS watchdog while an OPAQUE model call runs (keepGuardAlive above):
+  //              query formulation / sense disambiguation stream nothing, so without this a
+  //              slow local decode trips the 45s guard and reads as a stall. keepAliveFn
+  //              wraps an injected async utility (the walk's disambiguator) the same way.
+  //   disarm     the finally: clear ITS guard, drop ITS controller, and release the module
+  //              refs only if they are still its own — never another turn's.
+  const armTurn = () => {
+    const ctrl = new AbortController();
+    const guard = makeStallGuard(ctrl);
+    liveTurns.add(ctrl);
+    abort = ctrl; stallGuard = guard;   // the newest turn is what the beats feed
+    const keepAlive = (p, opts) => keepGuardAlive(guard, p, opts);
+    return {
+      ctrl, guard, keepAlive,
+      raceGuard: (p) => Promise.race([p, guard.race]),
+      keepAliveFn: (fn) => (typeof fn === 'function' ? (...a) => keepAlive(fn(...a)) : fn),
+      disarm: () => {
+        guard.clear();
+        liveTurns.delete(ctrl);
+        if (stallGuard === guard) stallGuard = null;
+        if (abort === ctrl) abort = null;
+      },
+    };
+  };
 
   // markStoppedPartial(pending, stoppedOrStalled, hadPartial) — reconcile a STOPPED/STALLED turn's
   // metadata on the catch path. Stop (or the 45s watchdog) settles the turn by rejecting the guard
@@ -990,17 +1020,16 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     warmMinilm();
     // Arm the abort + watchdog BEFORE the first await, so a stalled model load or a hung fetch
     // is always recoverable (and Stop always has something to abort), not just the walk itself.
-    abort = new AbortController();
-    // Capture THIS turn's signal so its streaming callbacks can go inert the instant it is
-    // stopped (guarded below). `abort` itself is nulled in the finally when the turn settles, so
-    // the callbacks — which outlive it while a slow backend unwinds its decode — must read the
-    // captured signal, not the (by-then null) `abort`.
-    const turnSignal = abort.signal;
-    stallGuard = makeStallGuard();
+    // The kit is THIS TURN'S OWN (armTurn): its callbacks — which outlive the turn while a slow
+    // backend unwinds its decode — read the captured signal/guard, never the module refs,
+    // which by then may belong to another turn (or be null).
+    const turn = armTurn();
+    const { raceGuard, keepAlive, keepAliveFn } = turn;
+    const turnSignal = turn.ctrl.signal;
     try {
       const m = await raceGuard(ensureModel());
       setBusy({ kind: 'search', label: 'Looking this up on the web…' });
-      const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: q, history: [], fallback: q })));
+      const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: q, history: [], fallback: q, signal: turnSignal })));
       beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
       setBusy({ kind: 'search', label: `Searching the web — ${query}` });
       logIt('search', `Web research "${query}"`, 'auto · nothing on record');
@@ -1013,19 +1042,19 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         // A backend slow (or unable) to honor the abort keeps handing us tokens after Stop; appending
         // them to the already-finalized bubble is the "I hit Stop but it kept typing" bug. Once the
         // turn's signal is aborted the bubble is settled and no longer ours to write — drop them.
-        onToken: (tok) => { if (turnSignal.aborted) return; stallGuard?.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
-        signal: abort.signal,
+        onToken: (tok) => { if (turnSignal.aborted) return; turn.guard.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
+        signal: turnSignal,
         monitor, ledger,   // the session's self/world line and commitment ledger (enactor)
-        onStep: (name, _ctx, data) => { if (turnSignal.aborted) return; stallGuard?.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
+        onStep: (name, _ctx, data) => { if (turnSignal.aborted) return; turn.guard.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
       }, {
         search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
         // The thumb: when the subject is a homonym, commit to ONE sense before gathering and search
         // for it, so "dolphins" doesn't fetch a mix of the animal and the football team (disambiguate.js).
         // keepAliveFn: this 220-token decode runs before the first hop's beat — feed the guard while it thinks.
-        disambiguate: keepAliveFn(modelDisambiguator(m, { history: [], question: q })),
+        disambiguate: keepAliveFn(modelDisambiguator(m, { history: [], question: q, signal: turnSignal })),
         onHop: (h) => hopBeat(pending, h, query),
         onHopDone: (h) => hopDoneBeat(pending, h),
-        signal: abort.signal,
+        signal: turnSignal,
       }));
       const committedSense = senseAnnouncement(result.research && result.research.sense);
       if (committedSense) beat(pending, 'read', committedSense);
@@ -1048,7 +1077,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     } catch (e) {
       // A stall (watchdog) or a user Stop keeps whatever streamed; only a genuine fault gets the
       // error line, so a stopped/stalled turn never reads as a crash.
-      const stoppedOrStalled = stallGuard?.tripped() || abort?.signal?.aborted;
+      const stoppedOrStalled = turn.guard.tripped() || turnSignal.aborted;
       const hadPartial = !!pending.text;   // the walk streamed prose before the stop cut in
       settleTrail(pending, null);
       pending.text = pending.text || (stoppedOrStalled
@@ -1059,10 +1088,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       pending.route = stoppedOrStalled ? 'stopped' : 'error';
       markStoppedPartial(pending, stoppedOrStalled, hadPartial);
     } finally {
-      stallGuard?.clear(); stallGuard = null;
+      turn.disarm();
       finishTrail(pending);   // stop the trail clock on the empty/error paths too (finishMessage
                               // does it on the success path; the early returns bypass it)
-      abort = null; setBusy(null);
+      setBusy(null);
       pending.pending = false;
       persist(); emit('messages');
     }
@@ -1131,6 +1160,15 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     // chosen option; any other reply rides in whole as a sense hint), so a bare "the animal" becomes
     // "…the smallest dolphin the animal", not a fresh collision. Fail-soft: a fault here never costs
     // the turn, and with no model the physics gate abstains and nothing is asked (the safe direction).
+    warmMinilm();
+    // This turn's own cancellation kit (armTurn) — see answerFromWeb: the captured signal/guard
+    // gate this turn's callbacks after Stop, never the module refs. Armed BEFORE the clarify
+    // physics below, so even that pre-turn decode is watched, stoppable, and signal-threaded —
+    // unguarded it was a fresh way for a turn to hang unstoppable before the pipeline ever ran.
+    const turn = armTurn();
+    const { raceGuard, keepAlive, keepAliveFn } = turn;
+    const turnSignal = turn.ctrl.signal;
+
     let effectiveQ = q;
     try {
       const settled = t.messages.filter((mm) => !mm.pending && mm.text);
@@ -1166,11 +1204,12 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         if (gate && gate.resolution === 'ask') {
           const m = await raceGuard(ensureModel());
           const history = settled.slice(0, -1).map((x) => ({ role: x.role, content: x.text }));
-          const clar = await raceGuard(keepAlive(modelClarifyGate(m, { history, now: new Date(), scope: t.title || '' })(q)));
+          const clar = await raceGuard(keepAlive(modelClarifyGate(m, { history, now: new Date(), scope: t.title || '', signal: turnSignal })(q)));
           if (clar.clarify) {
             pending.text = gate.ask.question;
             pending.route = 'clarify';
             pending.pending = false;
+            turn.disarm(); setBusy(null);   // the clarify IS this turn's answer — release its kit
             persist(); emit('messages');
             return pending;
           }
@@ -1179,10 +1218,6 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       }
     } catch (_) { /* disambiguation is best-effort; fall through to the normal turn */ }
 
-    warmMinilm();
-    abort = new AbortController();
-    const turnSignal = abort.signal;   // see answerFromWeb — the captured signal gates this turn's callbacks after Stop
-    stallGuard = makeStallGuard();
     try {
       const m = await raceGuard(ensureModel());
       const history = t.messages
@@ -1208,10 +1243,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         // A backend slow (or unable) to honor the abort keeps handing us tokens after Stop; appending
         // them to the already-finalized bubble is the "I hit Stop but it kept typing" bug. Once the
         // turn's signal is aborted the bubble is settled and no longer ours to write — drop them.
-        onToken: (tok) => { if (turnSignal.aborted) return; stallGuard?.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
-        signal: abort.signal,
+        onToken: (tok) => { if (turnSignal.aborted) return; turn.guard.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
+        signal: turnSignal,
         monitor, ledger,   // the session's self/world line and commitment ledger (enactor)
-        onStep: (name, _ctx, data) => { if (turnSignal.aborted) return; stallGuard?.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
+        onStep: (name, _ctx, data) => { if (turnSignal.aborted) return; turn.guard.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
       };
       let result = await raceGuard(runTurn(args));
       // The document turn measured a gap it couldn't close (or an answer worth confirming
@@ -1223,7 +1258,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
           // A GAP the record couldn't close — go WIDE the way 4.1 did: a multi-hop curiosity walk,
           // not one fetch, streaming its search/read beats into the trail. Clear the first ("not in
           // the document") draft so the grounded re-run's stream replaces it rather than appends.
-          const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: proposal.query, history, fallback: proposal.query })));
+          const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: proposal.query, history, fallback: proposal.query, signal: turnSignal })));
           beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
           setBusy({ kind: 'search', label: `Searching the web — ${query}` });
           pending.text = ''; emit('stream');
@@ -1231,10 +1266,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
             search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
             // The thumb: commit to one sense of a homonymous subject before gathering (disambiguate.js).
             // keepAliveFn feeds the guard through this pre-hop decode so a slow model can't false-stall the walk.
-            disambiguate: keepAliveFn(modelDisambiguator(m, { history, question: proposal.query })),
+            disambiguate: keepAliveFn(modelDisambiguator(m, { history, question: proposal.query, signal: turnSignal })),
             onHop: (h) => hopBeat(pending, h, query),
             onHopDone: (h) => hopDoneBeat(pending, h),
-            signal: abort.signal,
+            signal: turnSignal,
           }));
           const committedSense = senseAnnouncement(walked.research && walked.research.sense);
           if (committedSense) beat(pending, 'read', committedSense);
@@ -1253,7 +1288,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
           setBusy({ kind: 'search', label: note || 'Searching the web…' });
           if (note) beat(pending, 'start', note);
           if (proposal.trigger !== 'verify') { pending.text = ''; emit('stream'); }
-          result = await raceGuard(runWebFollowup(args, result, { webSearch: webSearchAdmit, k: 4 }));
+          // keepAlive: the verify re-run inside is a full grounded turn with the UI callbacks
+          // stripped (it must not stream over the live bubble) — so it feeds the watchdog
+          // nothing on its own, and an honest slow re-run read as a stall. The turn's signal
+          // (in args) still stops it for real; the guard only stops BLAMING it.
+          result = await raceGuard(keepAlive(runWebFollowup(args, result, { webSearch: webSearchAdmit, k: 4 })));
           const n = (result.webFetched && result.webFetched.results) || 0;
           if (result.webFetched) beat(pending, 'read', `Read ${n} web source${n === 1 ? '' : 's'}`);
           if (pending.research) pending.research.summary = `Checked ${n} web source${n === 1 ? '' : 's'}`;
@@ -1264,7 +1303,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     } catch (e) {
       // A stall (watchdog trip) or a user Stop keeps whatever streamed rather than blanking the
       // bubble to an error — only a genuine mid-turn fault gets the error line.
-      const stoppedOrStalled = stallGuard?.tripped() || abort?.signal?.aborted;
+      const stoppedOrStalled = turn.guard.tripped() || turnSignal.aborted;
       const hadPartial = !!pending.text;   // the model streamed prose before the stop cut in
       pending.text = pending.text || (stoppedOrStalled
         ? 'Stopped before the answer finished. Ask again to retry.'
@@ -1274,10 +1313,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       pending.pending = false; pending.route = stoppedOrStalled ? 'stopped' : 'error';
       markStoppedPartial(pending, stoppedOrStalled, hadPartial);
     } finally {
-      stallGuard?.clear(); stallGuard = null;
+      turn.disarm();
       finishTrail(pending);   // stop the trail clock even if the turn threw/aborted mid-walk, so a
                               // running trail can never be left spinning forever on an errored turn
-      abort = null; setBusy(null);
+      setBusy(null);
       pending.pending = false;
       persist(); emit('messages');
     }
