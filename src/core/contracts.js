@@ -6,6 +6,7 @@ import { CONTRACTS as answer } from '../enactor/answer/eo-contract.js';
 import { CONTRACTS as arc } from '../weave/arc/eo-contract.js';
 import { CONTRACTS as archive } from '../rooms/archive/eo-contract.js';
 import { CONTRACTS as audit } from '../rooms/audit/eo-contract.js';
+import { CONTRACTS as chat } from '../rooms/chat/eo-contract.js';
 import { CONTRACTS as chorus } from '../weave/chorus/eo-contract.js';
 import { CONTRACTS as classify } from '../perceiver/classify/eo-contract.js';
 import { CONTRACTS as code } from '../organs/code/eo-contract.js';
@@ -42,7 +43,7 @@ import { CONTRACTS as turn } from '../turn/eo-contract.js';
 import { CONTRACTS as workspace } from '../rooms/workspace/eo-contract.js';
 import { CONTRACTS as write } from '../weave/write/eo-contract.js';
 
-export const CONTRACTS = Object.freeze({ ...answer, ...arc, ...archive, ...audit, ...chorus, ...classify, ...code, ...coder, ...commission, ...converse, ...core_, ...credence, ...dag, ...data, ...doc, ...enact, ...enactor, ...essay, ...factcheck, ...flow, ...fold, ...frame, ...ground, ...ingest, ...longgen, ...metabolism, ...model, ...organs, ...perceiver, ...predict, ...reader, ...reason, ...research, ...retrieve, ...surfer, ...tasks, ...turn, ...workspace, ...write });
+export const CONTRACTS = Object.freeze({ ...answer, ...arc, ...archive, ...audit, ...chat, ...chorus, ...classify, ...code, ...coder, ...commission, ...converse, ...core_, ...credence, ...dag, ...data, ...doc, ...enact, ...enactor, ...essay, ...factcheck, ...flow, ...fold, ...frame, ...ground, ...ingest, ...longgen, ...metabolism, ...model, ...organs, ...perceiver, ...predict, ...reader, ...reason, ...research, ...retrieve, ...surfer, ...tasks, ...turn, ...workspace, ...write });
 
 export const contractOf = (repoRelPath) => CONTRACTS[repoRelPath] ?? null;
 export const contractedPaths = () => Object.freeze(Object.keys(CONTRACTS).sort());
