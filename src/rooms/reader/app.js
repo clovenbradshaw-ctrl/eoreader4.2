@@ -1097,7 +1097,11 @@ export const createReaderApp = ({ audit } = {}) => {
 
   // Answer text → paragraphs of segments; [sN] markers become cite chips. With cites off the
   // markers are still consumed (never rendered as raw [sN] text) but no chip seg is emitted.
-  const answerSegments = (msg, { entities = true, cites = true } = {}) => {
+  // With `sources` on, every prose seg carries the source that grounds it (gsn/greg): the run of
+  // text since the last citation is grounded in the source that citation resolves to, and a run
+  // with no trailing citation stays ungrounded (gsn null) — so the surface can disclose, span by
+  // span, exactly what stands behind each stretch of the answer.
+  const answerSegments = (msg, { entities = true, cites = true, sources = false } = {}) => {
     const docs = topicDocs();
     const lex = entities ? entityLexicon(docs) : [];
     const citeOf = new Map((msg.cites || []).map((c) => [c.idx, c]));
@@ -1105,15 +1109,18 @@ export const createReaderApp = ({ audit } = {}) => {
     for (const para of String(msg.text || '').split(/\n{2,}|\n(?=[-•*])/)) {
       if (!para.trim()) continue;
       const segs = [];
-      let last = 0;
+      let last = 0, runStart = 0;
+      // back-fill the current run's grounding when its [sN] marker arrives (the claim precedes
+      // its citation, so the source is only known once the marker is read)
+      const ground = (sn, reg) => { for (let k = runStart; k < segs.length; k++) if (segs[k].t === 'text' || segs[k].t === 'ent') { segs[k].gsn = sn; segs[k].greg = reg; } };
       const re = /\[s(\d+)(?:,\s*s?\d+)*\]/g;
       let m2;
       while ((m2 = re.exec(para)) !== null) {
         if (m2.index > last) segs.push(...linkifySegs(para.slice(last, m2.index), lex));
-        if (cites) for (const idxStr of m2[0].match(/\d+/g) || []) {
-          const c = citeOf.get(Number(idxStr));
-          if (c) segs.push({ t: 'cite', idx: c.idx, sn: c.sn, reg: c.reg, title: c.title, quote: c.text });
-        }
+        const resolved = (m2[0].match(/\d+/g) || []).map((n) => citeOf.get(Number(n))).filter(Boolean);
+        if (sources && resolved[0]) ground(resolved[0].sn, resolved[0].reg);
+        if (cites) for (const c of resolved) segs.push({ t: 'cite', idx: c.idx, sn: c.sn, reg: c.reg, title: c.title, quote: c.text });
+        runStart = segs.length;
         last = m2.index + m2[0].length;
       }
       if (last < para.length) segs.push(...linkifySegs(para.slice(last), lex));
