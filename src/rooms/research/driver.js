@@ -16,8 +16,13 @@
 //   corroboration        proposition equivalence, mechanical (an injected
 //                        embedder rides perceiver/proposition-equivalence.js;
 //                        offline, a transparent term-overlap fallback)
-//   asking               fires on the measured conditions only: VOID, fork,
-//                        REC, depth, and the corpus preliminary
+//   asking               fires on the measured conditions only: the preliminary
+//                        DISAMBIGUATE clarification (a homonym subject), VOID,
+//                        fork, REC, depth, and the corpus preliminary. Every ask
+//                        is ADVISORY — surfaced and logged, never a gate: the run
+//                        proceeds on its best-guess plan whether or not it is
+//                        answered (the injected `ask` is null by default, so the
+//                        run does not block on the human either)
 //   the model            confined to ONE phrasing call per section, fed
 //                        verbatim excerpts only, and bind-checked: every
 //                        summary sentence must bind to a source span above the
@@ -275,6 +280,16 @@ export const runGroundedResearch = async (question, opts = {}) => {
   const {
     sources = [], search = null, subQuestions = [],
     model = null, ask = null, fetch: netFetch = null, now = null, save = true,
+    // The sense thumb (turn/disambiguate.js), injected: async (subject) → a sense
+    // prior { sense, alternatives, collision } | null. Used ONLY to decide whether
+    // to surface the preliminary DISAMBIGUATE clarification below — it names the
+    // rival senses a homonym subject binds to. Absent (offline / no model) → no
+    // preliminary ask ever fires, so a model-free run is byte-identical to before.
+    disambiguate = null,
+    // Turn the advisory preliminary clarification off entirely (it is on by default
+    // but is itself gated by `disambiguate` finding a genuine homonym, so leaving it
+    // on costs nothing on an unambiguous subject).
+    clarify = true,
     alpha = ANSWERABLE_ALPHA, addressOf = addressOfSentence,
     maxSpansPerSource = 6, maxPerSection = 12,
     // compose:'essay' — let the model WRITE a flowing essay from the grounded
@@ -321,6 +336,28 @@ export const runGroundedResearch = async (question, opts = {}) => {
   // The root frame of THIS run. Sub-questions push child frames under it (the
   // frame stack); the depth guard is the shared runaway guard, reused unchanged.
   emit(openResearch({ id: rootId, question: q, subject, scope: { alpha }, depth: 0, t: tick() }));
+
+  // ── Preliminary clarification — advisory, never gating ──────────────────────
+  // Before anything is gathered, if the subject is genuinely AMBIGUOUS — it binds
+  // to more than one entity (a homonym: "dolphins" the marine mammal vs. the NFL
+  // team; "mercury" the planet, the metal, the god) — surface ONE clarifying ask
+  // so the user can say which they meant. Deliberately restrained, in exactly the
+  // three ways the human asked for:
+  //   • it does NOT trigger too often — it fires only on a MEASURED homonym (the
+  //     injected `disambiguate`, the only reader with the world knowledge to know
+  //     "dolphins" names two things, returning rival senses), at most ONCE per run,
+  //     and it is deduped against the shared session log so re-researching the same
+  //     subject never re-asks. No disambiguator → it never fires, so every
+  //     model-free run is byte-identical.
+  //   • it does NOT gate the research — the run neither waits on it (the injected
+  //     `ask` is null by default) nor changes what it gathers based on the reply;
+  //     the gather proceeds on the best-guess sense regardless, and the clarification
+  //     is surfaced (chat reply + trace) as an offer to refocus, not a prerequisite.
+  await maybeAskDisambiguate({
+    q, rootId, clarify, disambiguate, ask, emit, tick,
+    nextAskId: () => `ask:${askN++}`, log,
+  });
+
   const kids = effectiveSubQs.slice(0, MAX_FANOUT).map((sq, i) => {
     const id = `${rootId}.${i}`;
     emit(openResearch({ id, parentId: rootId, question: String(sq), subject: researchTerms(sq), depth: 1, t: tick() }));
@@ -655,6 +692,48 @@ export const runGroundedResearch = async (question, opts = {}) => {
 };
 
 const safeAsk = async (ask, ev) => { try { return await ask(ev); } catch { return null; } };
+
+// The preliminary DISAMBIGUATE clarification (see the call site). Kept a small pure
+// helper so the run body reads as one flow and the "don't nag / don't gate" rules
+// live in one place. It:
+//   1. no-ops unless clarification is on AND a disambiguator was injected;
+//   2. no-ops if a disambiguate ask was ALREADY raised for this exact question
+//      anywhere in the (session-wide) log — so a second ask about the same subject
+//      is silent (dedup across runs, not just within one);
+//   3. asks the disambiguator whether the subject is a homonym, and only when it
+//      names RIVAL senses (alternatives) emits ONE `disambiguate` ask — the
+//      committed sense plus the alternatives as options — then optionally awaits the
+//      injected `ask` and logs the reply. It returns either way; the caller carries on.
+// Any throw from the injected disambiguator is swallowed: an ambiguity check that
+// fails must never take the whole run down with it.
+const maybeAskDisambiguate = async ({ q, rootId, clarify, disambiguate, ask, emit, tick, nextAskId, log }) => {
+  if (!clarify || typeof disambiguate !== 'function') return;
+  // Dedup across the whole log: a disambiguate ask already raised for a frame whose
+  // question matches this one (case-insensitive) means we've offered this choice
+  // before — do not offer it again.
+  const qKey = q.trim().toLowerCase();
+  const qOfFrame = new Map(log.filter((e) => e.kind === 'open').map((e) => [e.id, String(e.question ?? '').trim().toLowerCase()]));
+  const askedBefore = log.some((e) => e.kind === 'ask' && e.trigger === 'disambiguate'
+    && e.frameId !== rootId && qOfFrame.get(e.frameId) === qKey);
+  if (askedBefore) return;
+
+  let prior = null;
+  try { prior = await disambiguate(q); } catch { prior = null; }
+  const alts = prior && Array.isArray(prior.alternatives)
+    ? prior.alternatives.map((a) => String(a?.sense || '').trim()).filter(Boolean) : [];
+  if (!prior || !prior.sense || !alts.length) return; // unambiguous (or nothing to offer) → stay quiet
+
+  const away = prior.collision ? ` (not ${prior.collision})` : '';
+  const a = askUser({
+    id: nextAskId(), frameId: rootId, trigger: 'disambiguate',
+    text: `“${q}” could mean more than one thing — I'm reading it as ${prior.sense}${away} and researching that. `
+        + `If you meant one of the others, tell me which and I'll refocus:`,
+    options: [prior.sense, ...alts], t: tick(),
+  });
+  emit(a);
+  const reply = ask ? await safeAsk(ask, a) : null;
+  if (reply != null) emit(answerAsk({ askId: a.id, reply, t: tick() }));
+};
 // Strip a leading instruction-echo the small model prepends to its summary — the
 // system prompt bounced back ("Here is a summary of … in plain prose, 2-5
 // sentences:", a bare "Summary:"/"In summary:"). Only a LEADING framing clause up

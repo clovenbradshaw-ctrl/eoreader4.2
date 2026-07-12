@@ -15,6 +15,7 @@
 import { createResearchSession } from './session.js';
 import { liveView, describeEvent } from './live.js';
 import { renderReportFragment, renderTraceFragment, renderReportHTML, REPORT_CSS } from './render.js';
+import { modelDisambiguator } from '../../turn/disambiguate.js';
 
 const PROXY = 'https://n8n.intelechia.com/webhook';
 
@@ -397,6 +398,10 @@ export const mountResearchSurface = (el, opts = {}) => {
         strategy: segValue('strategy') || 'holonic',
         search,
         model: opts.model || null,
+        // The sense thumb: with a talker connected, let the run notice a homonym
+        // subject and surface ONE up-front clarification (driver.js maybeAskDisambiguate).
+        // No model → null → the run never asks, exactly as before.
+        disambiguate: opts.model?.phrase ? modelDisambiguator(opts.model, { question: q }) : null,
         fetch: netFetch,
         now: () => Date.now(),
         alpha: parseFloat($('.drs-alpha').value) || 0.05,

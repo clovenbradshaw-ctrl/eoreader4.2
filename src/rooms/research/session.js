@@ -87,6 +87,17 @@ export const formatChatReply = (report, rootId = 'root') => {
   const anyPhrase = secs.some((s) => s.phrase);
   const lines = [];
 
+  // ── 0. THE CLARIFICATION, if the subject was ambiguous ──────────────────────
+  // A preliminary DISAMBIGUATE ask (driver.js) is the run telling the user the
+  // subject binds to more than one thing and which sense it chose. Since the
+  // surface wires no interactive `ask`, the question would otherwise live only in
+  // the trace — so lift an UNANSWERED one to the top of the reply as a one-line
+  // offer to refocus. It leads (the user should see it before the findings) but
+  // never blocks: the grounded answer to the best-guess sense follows right below.
+  const clarify = report.questions.find(({ ask, answer }) =>
+    ask.trigger === 'disambiguate' && ask.frameId === rootId && !answer);
+  if (clarify) lines.push(`> ${clarify.ask.text.replace(/\s+/g, ' ').trim()}`);
+
   // ── 1. THE ANSWER, first ────────────────────────────────────────────────────
   // Phrased sentences carry their citation; glue carries none. No model → the
   // significance-ordered spans below ARE the answer (never worse than the spans).
