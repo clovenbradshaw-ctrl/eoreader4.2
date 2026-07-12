@@ -293,7 +293,12 @@ export const streamParagraphs = async ({
   // guard, not saturation, so it is logged rather than passed off as a finished answer.
   if (i >= cap && !done && !signal?.aborted) {
     const g = { guard: maxParagraphs != null ? 'max-paragraphs' : 'runaway-paragraphs', paragraphs: paragraphs.length };
-    guards.push(g); warnGuard(g.guard, g);
+    guards.push(g);
+    // Only the RUNAWAY backstop is a pathology worth logging loudly (a backend that will
+    // not close). An explicit maxParagraphs the caller set — e.g. the single-paragraph
+    // pointed answer — being reached is the request honored, not a bound guard, so it is
+    // recorded for the audit but never warned (it would fire on every normal answer).
+    if (maxParagraphs == null) warnGuard(g.guard, g);
   }
 
   if (!paragraphs.length) return null;

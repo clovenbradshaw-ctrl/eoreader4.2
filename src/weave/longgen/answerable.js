@@ -244,6 +244,11 @@ const MISSING_PHRASE = Object.freeze({
   'no-definition': 'a definition',
   'no-ground': 'anything on this',
   'no-subject': 'anything on what was asked',
+  // The EOT diffusion floor (turn/stages.js `answerable`): the subject's words ARE on
+  // the record, but the fold's referent-binding never concentrated — the reading rode to
+  // the document's loudest figure, not the one asked about — so the corpus holds no
+  // answer to THIS question even though it lexically touches the subject.
+  'diffuse': 'a settled answer to this — the reading did not land on the figure it is about',
 });
 
 // The licensing decision. When a `question` is given, type it and test the ground
