@@ -1270,6 +1270,28 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       }
     } catch (_) { /* the front-door read is best-effort; a fault just proceeds to the normal turn */ }
 
+    // The front-door read shares THIS turn's abort signal. If it was stopped (the user hit Stop
+    // during "Reading the turn…") or the watchdog tripped, the signal is now aborted — and the
+    // grounded turn below would decode NOTHING, because every backend returns '' immediately on a
+    // pre-aborted signal. That is the empty "stopped" answer that STILL grinds the whole pipeline
+    // and even proposes a web search — the export's "llm outputLen:0 · ms:0 → propose-web →
+    // stopped" fingerprint. Settle it honestly and at once instead of running a doomed turn on a
+    // dead signal. Inert on every normal turn (the signal is only aborted on a Stop/stall).
+    if (turnSignal.aborted) {
+      const hadPartial = !!pending.text;               // did real prose stream first? (front door: usually none)
+      const stalledOut = turn.guard.stalled();         // the 45s watchdog fired — a wedge, not a user Stop
+      const wedged = stalledOut && model?.kind === 'local';
+      if (wedged) resetWedgedLocalModel();
+      pending.text = pending.text || (wedged
+        ? 'The in-browser model stopped responding, so I’m reloading it — ask again and it should answer.'
+        : 'Stopped before the answer finished. Ask again to retry.');
+      pending.route = 'stopped';
+      markStoppedPartial(pending, true, hadPartial);
+      turn.disarm(); finishTrail(pending); setBusy(null);
+      pending.pending = false; persist(); emit('messages');
+      return pending;
+    }
+
     if (!docs.length) {
       // An empty record is not a dead end for a substantive ask: it reaches for the web when web
       // mode allows it — `auto` fetches real pages and answers grounded in them (answerFromWeb);
