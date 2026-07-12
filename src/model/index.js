@@ -10,6 +10,9 @@ export { streamPhrase, surfaceTokens, emitSurface } from './stream.js';
 export { speak } from './speak.js';
 export { createHashEmbedder }   from './embed-hash.js';
 export { createMiniLMEmbedder } from './embed.js';
+// The persistence layer under any embedder: vectors survive the session in IndexedDB,
+// so a text embedded in ANY session is never embedded again.
+export { withPersistentEmbedCache } from './embed-cache.js';
 export { buildGroundedMessages, buildChatMessages, SYSTEM_GROUND, SYSTEM_CHAT,
          SYSTEM_GROUND_STRICT, SYSTEM_FREE,
          orientationLine, metadataBlock, orderSpansForFrame,

@@ -21,6 +21,7 @@ import { dirname, join } from 'node:path';
 
 import { learnGrammar } from '../src/perceiver/predict/grammar.js';
 import { ENACTED_MASK, DEPICTED_ALPHABET, depictedMoves } from './lib/moves.mjs';
+import { grammarMargin } from '../src/turn/shape-grammar.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const EXEMPLARS_PATH = join(ROOT, 'data', 'exemplars.jsonl');
@@ -55,6 +56,41 @@ const assertMaskedZero = (grammar, label) => {
 };
 
 const round = (x, k = 6) => (Number.isFinite(x) ? Math.round(x * 10 ** k) / 10 ** k : x);
+
+// Linear-interpolated percentile over a sorted copy. p in [0,1].
+const percentile = (values, p) => {
+  const v = [...values].sort((a, b) => a - b);
+  if (!v.length) return null;
+  const idx = p * (v.length - 1);
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  return v[lo] + (v[hi] - v[lo]) * (idx - lo);
+};
+
+// The data-driven threshold: each intent's leave-one-out margin distribution against
+// the assistant contrast. For exemplar i, fit the intent's grammar WITHOUT i, then score
+// i's margin (per-move bits under the LOO grammar minus under the contrast) — the score
+// an unseen draft of this kind would get. The p10 of these is the bar the runtime scorer
+// reads (shape-grammar.js): a draft below it scores worse against chatbot-ese than the
+// kind's own held-out examples do. This replaces the hand-tuned THRESHOLD constant in
+// turn/shape.js with a measured quantity, per intent.
+const looMarginStats = (moveSeqs, contrastGrammar) => {
+  if (!contrastGrammar) return null;
+  const margins = [];
+  for (let i = 0; i < moveSeqs.length; i++) {
+    const rest = moveSeqs.filter((_, j) => j !== i);
+    if (!rest.length) continue;
+    const loo = fitGrammar(rest);
+    const m = grammarMargin(moveSeqs[i], loo, contrastGrammar);
+    if (m) margins.push(m.margin);
+  }
+  if (!margins.length) return null;
+  return {
+    n: margins.length,
+    min: round(Math.min(...margins)),
+    p10: round(percentile(margins, 0.10)),
+    p50: round(percentile(margins, 0.50)),
+  };
+};
 
 // The CONTRAST grammars — the corpus as background distribution, not target. Fit one
 // grammar per register over data/nav-corpus.jsonl responses: 'assistant-synthetic'
@@ -101,6 +137,10 @@ function main() {
     byIntent.get(r.intent).push(r);
   }
 
+  // Contrast first: the per-intent LOO thresholds are measured against it.
+  const contrastFit = fitContrast();
+  const assistantContrast = contrastFit?.contrast?.['assistant-synthetic']?.grammar || null;
+
   const perIntent = {};
   const allMoveSeqs = [];
   for (const [intent, recs] of byIntent) {
@@ -108,16 +148,15 @@ function main() {
     allMoveSeqs.push(...moveSeqs);
     const grammar = fitGrammar(moveSeqs);
     assertMaskedZero(grammar, intent);
-    perIntent[intent] = { n: recs.length, grammar };
+    const marginStats = looMarginStats(moveSeqs, assistantContrast);
+    perIntent[intent] = { n: recs.length, grammar, ...(marginStats ? { marginStats } : {}) };
   }
 
   const background = fitGrammar(allMoveSeqs);
   assertMaskedZero(background, 'background');
 
-  const contrastFit = fitContrast();
-
   const out = {
-    version: 2,
+    version: 3,
     source: 'data/exemplars.jsonl',
     maskedOps: [...ENACTED_MASK],
     alphabet: DEPICTED_ALPHABET,
@@ -133,7 +172,10 @@ function main() {
   writeFileSync(OUT_PATH, JSON.stringify(out, null, 2) + '\n');
 
   console.log(`shape-fit: ${records.length} exemplars, ${byIntent.size} intents -> ${OUT_PATH}`);
-  for (const [intent, { n }] of Object.entries(perIntent)) console.log(`  ${intent}: n=${n}`);
+  for (const [intent, { n, marginStats }] of Object.entries(perIntent)) {
+    const t = marginStats ? ` (LOO margin p10=${marginStats.p10}, p50=${marginStats.p50})` : '';
+    console.log(`  ${intent}: n=${n}${t}`);
+  }
   console.log(`  background (pooled exemplars): n=${records.length}`);
   if (contrastFit) {
     for (const [register, { n }] of Object.entries(contrastFit.contrast)) console.log(`  contrast:${register}: n=${n}`);

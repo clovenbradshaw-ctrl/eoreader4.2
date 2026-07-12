@@ -974,9 +974,14 @@ export const stages = {
     // draft), inert without a threaded library / warm meaning embedder.
     const meaning = (() => { const e = pickRetrievalEmbedder(ctx); return (e?.measuresMeaning && e.isWarm?.()) ? e : null; })();
     const formErrOf = async (c) => {
-      if (!ctx.shapeLibrary || !ctx.shapeQueryVec || !meaning || !c.rawOutput) return null;
+      if (!ctx.shapeLibrary || !ctx.shapeQueryVec || !c.rawOutput) return null;
+      // Grammar mode scores the draft's TEXT (parse + likelihood, model-free); only the
+      // legacy cosine library needs the draft embedded, and so the warm meaning embedder.
+      const grammarMode = ctx.shapeLibrary.mode === 'grammar';
+      if (!grammarMode && !meaning) return null;
       try {
-        const e = answerFormError(ctx.shapeLibrary, ctx.shapeQueryVec, await meaning.embed(c.rawOutput));
+        const draft = grammarMode ? c.rawOutput : await meaning.embed(c.rawOutput);
+        const e = answerFormError(ctx.shapeLibrary, ctx.shapeQueryVec, draft);
         return e ? { ...e, gates: true, sample: ctx.shapeTarget?.promptMatch?.best_response || '' } : null;
       } catch { return null; }
     };
@@ -1080,11 +1085,14 @@ export const stages = {
     // question's sample answers predicted. A soft (non-gating) miss rides as a flag — taste is
     // not refusable. Embedder-gated and inert without a threaded library → byte-identical.
     if (ctx.shapeLibrary && ctx.shapeTarget && ctx.shapeQueryVec && ctx.rawOutput) {
-      const emb = pickRetrievalEmbedder(ctx);
-      if (emb?.measuresMeaning && emb.isWarm?.()) {
+      // Grammar mode scores the draft's text model-free; the legacy cosine path still
+      // embeds the draft and so still gates on the warm meaning embedder.
+      const grammarMode = ctx.shapeLibrary.mode === 'grammar';
+      const emb = grammarMode ? null : pickRetrievalEmbedder(ctx);
+      if (grammarMode || (emb?.measuresMeaning && emb.isWarm?.())) {
         try {
-          const draftVec = await emb.embed(ctx.rawOutput);
-          const formErr = answerFormError(ctx.shapeLibrary, ctx.shapeQueryVec, draftVec);
+          const draft = grammarMode ? ctx.rawOutput : await emb.embed(ctx.rawOutput);
+          const formErr = answerFormError(ctx.shapeLibrary, ctx.shapeQueryVec, draft);
           if (formErr) constraintErrors.push(formErr);
         } catch { /* the form check never breaks the answer */ }
       }
