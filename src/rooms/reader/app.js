@@ -180,6 +180,22 @@ export const keepGuardAlive = (guard, p, { every = 8000, maxMs = 180000, now = (
   return done.finally(() => clearInterval(iv));
 };
 
+// The at-rest record is a ring buffer: it keeps at most REFLECTION_CAP notes so a long session's
+// memory stays bounded (the oldest fall off the front). But the count we SURFACE — "… N notes so
+// far" — has to be the running total the reading has ever voiced, NOT the retained buffer size, or
+// it plateaus at the cap and reads as frozen the moment the session crosses it (the "200 notes"
+// that never moves). So recordReflections mints ids and advances the tally from a monotonic `seen`
+// that the trim never touches: the buffer caps, the count climbs, and ids stay unique past the cap
+// (no repeated R201). `make(r)` builds the stored note from each fresh reflection; the id is added
+// here. Returns the advanced `seen`. Pure and injectable (`cap`) so it is unit-testable without the
+// engine — which matters because below the cap the bug is invisible; it only shows past REFLECTION_CAP.
+export const REFLECTION_CAP = 200;
+export const recordReflections = (record, seen, fresh, make, cap = REFLECTION_CAP) => {
+  for (const r of fresh) { seen += 1; record.push({ id: `R${seen}`, ...make(r) }); }
+  if (record.length > cap) record.splice(0, record.length - cap);
+  return seen;
+};
+
 // ── the app ──────────────────────────────────────────────────────────────────
 export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   const state = {
@@ -195,6 +211,9 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     activeTopicId: null,
     log: [],               // activity ledger: { id, t, kind, text, effect }
     reflections: [],       // the inner monologue: reflections the reading has at rest (band void)
+    reflectionsSeen: 0,    // running total ever voiced this session — the honest "N notes so far".
+                           // reflections is capped at REFLECTION_CAP; this is not, and (like
+                           // reflections, which re-derive each load) is per-session, never persisted.
     model: { backend: null, state: 'cold', progress: 0, note: '' },
     busy: null,            // { kind, label } while a long op runs
     ready: false,          // restore finished
@@ -1932,15 +1951,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         const fresh = (res && res.reflections) || [];
         if (fresh.length) {
           anyFresh = true;
-          for (const r of fresh) {
-            state.reflections.push({
-              id: `R${state.reflections.length + 1}`, t: nowIso(),
-              docId: src.docId, sn: src.sn, title: src.title,
-              peak: r.peak, note: cleanLabels(r.body, entry.base), verdict: r.verdict || '',
-              surprise: r.surprise, canWitness: r.canWitness,   // false — the firewall, surfaced
-            });
-          }
-          if (state.reflections.length > 200) state.reflections.splice(0, state.reflections.length - 200);
+          state.reflectionsSeen = recordReflections(state.reflections, state.reflectionsSeen, fresh, (r) => ({
+            t: nowIso(), docId: src.docId, sn: src.sn, title: src.title,
+            peak: r.peak, note: cleanLabels(r.body, entry.base), verdict: r.verdict || '',
+            surprise: r.surprise, canWitness: r.canWitness,   // false — the firewall, surfaced
+          }));
           entry.anchor = Math.min(n - 1, fresh[fresh.length - 1].peak + 1);
         } else {
           entry.anchor += 8;
@@ -1949,7 +1964,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       }
       deepSettled = allSettled && !anyFresh;
       if (anyFresh) {
-        logIt('reflection', `Reflected at rest — ${state.reflections.length} note${state.reflections.length === 1 ? '' : 's'} so far`);
+        logIt('reflection', `Reflected at rest — ${state.reflectionsSeen} note${state.reflectionsSeen === 1 ? '' : 's'} so far`);
         persist(); emit('reflections');
       }
     } finally { deepRunning = false; }
