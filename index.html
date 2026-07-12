@@ -624,8 +624,8 @@ table{border-collapse:collapse;width:100%}
                 <sc-if value="{{ generating }}">
                   <button onClick="{{ stopGen }}" title="Stop" style="width:34px;height:34px;border-radius:9px;background:#FBE9E6;color:#B23A2E;display:flex;align-items:center;justify-content:center;flex:0 0 auto" style-hover="background:#F6DCD7"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
                 </sc-if>
-                <sc-if value="{{ notGenerating }}">
-                  <button onClick="{{ sendChat }}" style="width:34px;height:34px;border-radius:9px;background:#6D5EF5;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto" style-hover="background:#5B4BE6"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11 12 6l5 5M12 6v13"/></svg></button>
+                <sc-if value="{{ showSend }}">
+                  <button onClick="{{ sendChat }}" title="Send" style="width:34px;height:34px;border-radius:9px;background:#6D5EF5;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto" style-hover="background:#5B4BE6"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11 12 6l5 5M12 6v13"/></svg></button>
                 </sc-if>
               </div>
               <div style="max-width:680px;margin:9px auto 0;font-size:11px;color:#A0A0AA;display:flex;align-items:center;gap:6px">
@@ -1599,14 +1599,22 @@ class Component extends DCLogic {
     if (s === undefined) { s = m.pending ? 0 : full; this._reveal[m.id] = s; }
     return Math.min(s, full);
   }
-  // Chars to advance this frame. A steady base pace so it ALWAYS reads as typing, one character
-  // at a time — even when the backend hands over a whole sentence (or the whole answer) in one
-  // burst. The pace scales with the backlog so a big burst still drains in a couple of seconds,
-  // but the cap stays low enough (~5 chars/frame at 60fps) that a burst is TYPED OUT, never
-  // popped in whole — the fix for text that used to appear a sentence at a time. Time-based, so
-  // the speed holds across frame rates.
+  // Chars to advance the typewriter this frame. The old formula CAPPED the pace at ~5 chars/frame
+  // (perSec ≤ 320) no matter how far behind the reveal had fallen. A fast backend — the Anthropic
+  // API, or any quick local decode — streams far faster than 320 chars/sec, so the reveal trailed
+  // by THOUSANDS of characters and kept the rAF typewriter re-rendering the WHOLE app at 60fps for
+  // (backlog/300) seconds AFTER the answer had already settled: ~11.6s of pinned main thread for a
+  // single ~3900-char answer. That pinned thread is the "it slows down the computer / the tab
+  // freezes / I can't even hit Stop or start a new prompt" report — Stop clicks and keystrokes
+  // starve behind the render storm. The fix is a CONSTANT catch-up rate (not a per-backlog one,
+  // which decays into a Zeno tail) plus a hard backlog clamp (in _advanceReveals) — so the catch-up
+  // is bounded by TIME, independent of answer length, while a slow live stream still types gently.
+  // The pace + clamp live in src/rooms/reader/reveal.js (exposed as window.EO.reveal) so the freeze
+  // regression is CI-tested; the inline fallbacks below mirror it if the membrane is somehow absent.
   _revealStep(backlog, dt) {
-    const perSec = Math.max(48, Math.min(320, 60 + backlog * 3));
+    const r = window.EO && window.EO.reveal;
+    if (r && r.revealStep) return r.revealStep(backlog, dt);
+    const perSec = backlog > 24 ? 900 : 90;   // FALLBACK — keep in sync with reveal.js FLOOR/CATCHUP
     return Math.max(1, Math.round(perSec * dt / 1000));
   }
   _advanceReveals(dt) {
@@ -1621,7 +1629,19 @@ class Component extends DCLogic {
         const full = (m.text || '').length;
         let s = this._reveal[m.id];
         if (s === undefined) s = m.pending ? 0 : full;
-        if (s < full) { s = Math.min(full, s + this._revealStep(full - s, dt)); active = true; }
+        if (s < full) {
+          // advanceReveal clamps how far behind the reveal may fall (a fast backend can hand over
+          // the whole answer far faster than it types, and typing thousands of queued characters
+          // one frame at a time is the freeze) and then steps at the bounded pace — see reveal.js.
+          const r = window.EO && window.EO.reveal;
+          if (r && r.advanceReveal) {
+            s = r.advanceReveal(s, full, dt);
+          } else {
+            const b = (full - s > 180) ? full - 180 : s;   // FALLBACK — MAX_BACKLOG clamp, mirrors reveal.js
+            s = Math.min(full, b + this._revealStep(full - b, dt));
+          }
+          active = true;
+        }
         this._reveal[m.id] = s;
       }
     }
@@ -1869,10 +1889,23 @@ class Component extends DCLogic {
   onChatKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendChat(); } }
   sendChat() {
     const q = String(this.state.chatInput || '').trim();
-    if (!q || !this._app || this._generating()) return;
+    if (!q || !this._app) return;
     this.setState({ chatInput: '' });
     this._chatStick = true;   // a deliberate send always returns to the live bottom
-    this._app.ask(q).catch(() => {});
+    // A new prompt while a turn is still running used to be REFUSED outright (early-return on
+    // _generating, and the composer showed only Stop) — so a user who wanted to move on was stuck
+    // waiting for the turn, or hitting a Stop the pinned main thread serviced late. Instead,
+    // INTERRUPT: stop the in-flight turn, then ask on the next macrotask so its finally has
+    // settled (pending cleared, its decode aborted and off the one-at-a-time gate) before the new
+    // bubble is created — no double-pending, no local decode-gate overlap. stop() rejects the
+    // turn's guard.race synchronously, so a single yield is enough. On an idle composer this is the
+    // plain ask() path, byte-identical.
+    if (this._generating()) {
+      this._app.stop();
+      setTimeout(() => { this._app.ask(q).catch(() => {}); }, 0);
+    } else {
+      this._app.ask(q).catch(() => {});
+    }
   }
   _generating() {
     const t = this._app && this._app.topic();
@@ -2726,7 +2759,7 @@ class Component extends DCLogic {
       return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
-        statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {},
+        statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
     }
@@ -2739,7 +2772,7 @@ class Component extends DCLogic {
       return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
-        statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {},
+        statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
     }
@@ -3390,6 +3423,10 @@ class Component extends DCLogic {
       chatInput: st.chatInput, onChatInput: (e) => this.onChatInput(e), onChatKey: (e) => this.onChatKey(e),
       sendChat: () => this.sendChat(), setChatScroll: (el) => this.setChatScroll(el),
       generating, notGenerating: !generating, stopGen: () => app.stop(),
+      // Send is offered whenever the box has text — even mid-generation, so a new prompt can
+      // INTERRUPT the running turn (sendChat stops it, then asks) instead of the user being forced
+      // to find Stop first and wait. Idle: Send only. Generating + text: Stop AND Send.
+      showSend: !generating || !!(st.chatInput && st.chatInput.trim()),
       // Stop is reachable whenever ANY long op is in flight — a chat turn (generating) or an ingest
       // (app.state.busy: a URL fetch, a web search, a page/file import) — not just during a turn.
       canStop: !!(busy || generating),
