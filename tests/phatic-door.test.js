@@ -70,3 +70,37 @@ test('a substantive question over a document is NOT phatic — it proceeds to a 
   assert.notEqual(pending.route, 'phatic', 'a real question must not be routed phatic');
   assert.ok((pending.text || '').length > 0, 'it produced an answer');
 });
+
+// THE INSTANT FLOOR (docs/response-demand.md rung 3) — the OFFLINE layer the front-door refactor
+// dropped, restored. The graded model door only fires when the metacognition's discourse read lands
+// phatic; a tiny 1B on a one-word "hi" can fail to cohere there (the exported bug: a doc loaded, the
+// read blind, the greeting fell through to grounding → "The document does not say — scanned 4327
+// sentences", and in auto web mode a corpus-steered walk on a hello). This BLIND backend reads EVERY
+// turn as factual — greeting or not — so ONLY the floor (the user's own words) can catch the greeting.
+registerBackend('blind-discourse-fake', () => ({
+  id: 'blind-discourse-fake', kind: 'local', isLoaded: () => true,
+  describe: () => ({ backend: 'blind-discourse-fake', kind: 'local', model: 'blind-discourse-fake', label: 'fake' }),
+  async load(onProgress) { onProgress?.({ phase: 'ready', pct: 1 }); },
+  async phrase(messages, _opts = {}) {
+    const sys  = String(messages.find((m) => m.role === 'system')?.content || '');
+    const user = String(messages.filter((m) => m.role === 'user').map((m) => m.content).join('\n') || '');
+    // The discourse statement — read as factual for EVERYTHING, so the model door never fires.
+    if (/In two or three plain sentences/.test(user)) return GROUND;
+    if (/social message/.test(sys)) return 'Hey there — ask me anything you like.';
+    return 'Dolphins are marine mammals in the cetacean family.';
+  },
+}));
+
+test('a bare "hi" over a loaded doc settles phatic on the OFFLINE floor even when the model read is blind to it', async () => {
+  const app = createReaderApp({ audit: createAuditLog({ capacity: 64 }) });
+  if (!app.state.ready) {
+    await new Promise((res) => { const un = app.subscribe((k) => { if (k === 'ready') { un(); res(); } }); });
+  }
+  app.setBackend('blind-discourse-fake');
+  if (app.setWebMode) app.setWebMode('auto');   // the dangerous mode: a grounded void would auto-walk the web
+  app.ingestText('Dolphins are marine mammals. Dolphins live in the ocean. Dolphins hunt in pods.', 'Dolphins');
+  const pending = await app.ask('hi');
+  assert.equal(pending.route, 'phatic', 'the offline floor caught the greeting the blind model read missed');
+  assert.doesNotMatch(pending.text || '', /document does not say|does not cover|scanned|couldn.t|search/i,
+    'no grounded void answer and no web walk — the greeting never reached grounding');
+});

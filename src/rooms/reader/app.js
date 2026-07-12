@@ -33,6 +33,7 @@ import { outstandingQuestion, answersAwaited } from '../../core/conversation-fol
 import { senseGate } from '../../turn/sense.js';
 import { createMonitor } from '../../enactor/monitor.js';
 import { createCommitmentLedger } from '../../enactor/ledger.js';
+import { answerSmalltalk } from '../../enactor/answer/index.js';
 import { figureSurface } from '../../perceiver/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
@@ -1462,12 +1463,24 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
 
     const settledMsgs = t.messages.filter((mm) => !mm.pending && mm.text);
     const priorHistory = settledMsgs.slice(0, -1).map((x) => ({ role: x.role, content: x.text }));
+    // THE INSTANT FLOOR (docs/response-demand.md, rung 3) — the phatic gate's OFFLINE layer, read off
+    // the user's OWN words with no model. A bare greeting/thanks/goodbye is unmistakably social from
+    // the message alone, so it settles phatic HERE without depending on the tiny model's discourse read
+    // landing phatic. It composes with (does not replace) the graded model door below: the floor catches
+    // the clear cases deterministically, the read catches the paraphrases it misses ("you around?"). A
+    // FLOOR, not the decision — answerSmalltalk is folded in the way isExplicitCompose is at the route
+    // grain: it informs, it does not decide. This is the layer the front-door refactor dropped: without
+    // it, a one-word "hi" whose 1B discourse read did not cohere to the phatic door fell through to the
+    // grounding pipeline ("The document does not say — scanned N sentences") and, in auto web mode,
+    // spent a corpus-steered web walk on a hello.
+    const floorTalk = answerSmalltalk(q, { hasDoc: docs.length > 0 });
     let discourse = '';
     try {
       setBusy({ kind: 'turn', label: 'Reading the turn…' });
       const m0 = await raceGuard(ensureModel());
-      discourse = await raceGuard(keepAlive(readDiscourse(m0, { history: priorHistory, now: new Date(), scope: t.title || '', signal: turnSignal })(q)));
-      if (phaticFromSpeech(discourse).phatic) {
+      // The floor already settled a clear greeting — don't spend the discourse read on it.
+      discourse = floorTalk ? '' : await raceGuard(keepAlive(readDiscourse(m0, { history: priorHistory, now: new Date(), scope: t.title || '', signal: turnSignal })(q)));
+      if (floorTalk || phaticFromSpeech(discourse).phatic) {
         pending.text = await phaticReply(m0, { question: q, hasDoc: docs.length > 0, signal: turnSignal, raceGuard, keepAlive });
         pending.route = 'phatic';
         pending.pending = false;
@@ -1475,7 +1488,20 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         persist(); emit('messages');
         return pending;
       }
-    } catch (_) { /* the front-door read is best-effort; a fault just proceeds to the normal turn */ }
+    } catch (_) {
+      // The graded read is best-effort — a fault proceeds to the normal turn. But if the OFFLINE floor
+      // already found the turn social (and this was a real fault, not a user Stop), honor it with the
+      // floor's own warm line rather than grounding a greeting: the model may have failed to warm, and
+      // the floor never needed it.
+      if (floorTalk && !turnSignal.aborted) {
+        pending.text = floorTalk.text;
+        pending.route = 'phatic';
+        pending.pending = false;
+        turn.disarm(); setBusy(null);
+        persist(); emit('messages');
+        return pending;
+      }
+    }
 
     // The front-door read shares THIS turn's abort signal. If it was stopped (the user hit Stop
     // during "Reading the turn…") or the watchdog tripped, the signal is now aborted — and the
