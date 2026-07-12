@@ -1847,7 +1847,7 @@ class Component extends DCLogic {
     if (q.length > 400) { this.setState({ pasteOpen: true, pasteBody: q, omni: '' }); return; }
     if (urlish) {
       this.setState({ omni: '' });
-      this._app.ingestUrl(q).then((s) => this.showToast(`Recorded ${s.reg} — ${s.title}`))
+      this._app.ingestUrl(q).then((s) => { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
         .catch((err) => this.showToast(`Couldn't read that page: ${String(err && err.message || err).slice(0, 90)}`));
     } else {
       this.runSearch(q);
@@ -1863,13 +1863,32 @@ class Component extends DCLogic {
     const key = item.url || item.title;
     this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'busy' } });
     this._app.recordHit(item, this.state.searchQ)
-      .then((s) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'done' } }); this.showToast(`Recorded ${s.reg} — ${s.title}`); })
+      .then((s) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'done' } }); this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
       .catch((err) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: null } }); this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`); });
   }
   _ingestFile(f) {
     if (!this._app) return;
-    this._app.ingestFile(f).then((s) => this.showToast(`Recorded ${s.reg} — ${s.title}`))
+    this._app.ingestFile(f).then((s) => { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
       .catch((err) => this.showToast(`Couldn't read ${f.name}: ${String(err && err.message || err).slice(0, 90)}`));
+  }
+  // ── the import reveal — the first surface a new source renders ─────────────
+  // The moment a source lands (any modality — a PDF, a photo's scene, an audio
+  // transcript, a spreadsheet), open the engine's OWN reading of it before anything
+  // else: the causal DAG the source is read as asserting, or the entity web of its
+  // figures and bonds. No model runs — everything shown is the parser's and the graph
+  // projections' work. The organ that read the file picks the surface (first-surface.js,
+  // pure + CI-tested); the source also opens as the active tab so the DAG's document
+  // cursor reads IT. Best-effort: a reveal that fails leaves the toast + registry intact.
+  _revealImport(src) {
+    if (!src || !src.sn || !this._app) return;
+    try {
+      this.openViewer(src.sn);
+      let causalEdges = 0, entities = 0;
+      try { causalEdges = (window.EO.assertedDag(this._app.dagSources()).edges || []).length; } catch { /* no readable sentences yet */ }
+      try { entities = (this._app.topicTieredData().nodes || []).filter((n) => n.kind === 'entity').length; } catch { /* no entities yet */ }
+      const kind = window.EO.firstSurfaceKind({ modality: src.kind, causalEdges, entities });
+      if (kind) this.openTopicGraph(kind);
+    } catch { /* the record already landed — the reveal never blocks it */ }
   }
   pickFile() { this._ensureFileInput().click(); }
   openPaste() { this.setState({ pasteOpen: true, pasteTitle: '', pasteBody: '' }); }
@@ -1883,6 +1902,7 @@ class Component extends DCLogic {
       const s = this._app.ingestText(body, String(this.state.pasteTitle || '').trim() || 'Pasted text');
       this.showToast(`Recorded ${s.reg} — ${s.title}`);
       this.setState({ pasteOpen: false, pasteTitle: '', pasteBody: '' });
+      this._revealImport(s);
     } catch (err) { this.showToast(String(err && err.message || err)); }
   }
 
