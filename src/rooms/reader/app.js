@@ -18,6 +18,7 @@
 import { parseText } from '../../perceiver/parse/index.js';
 import { projectGraph } from '../../core/index.js';
 import { createModel, describeModel } from '../../model/interface.js';
+import { wrapRedacting } from '../../model/redact-remote.js';
 import { probeOrigins, explainReach } from '../../model/reach.js';
 import { createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
@@ -1243,6 +1244,33 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     emit('web');
   };
 
+  // ── redact-when-hosted (the confidentiality lever) ───────────────────────────
+  // When ON, a HOSTED talker (Claude · Anthropic) never sees a real entity name: the turn's
+  // messages pass through the privacy membrane (model/redact-remote.js) — every admitted entity
+  // collapses to an opaque token on the way out, and the answer is restored locally. A local
+  // in-browser model is untouched (it already runs where the names live), and the membrane is a
+  // transparent passthrough for it, so the flag only bites a remote backend. Persisted; OFF by
+  // default (the record is sent verbatim unless the user asks otherwise). Read redactRemote()/
+  // setRedactRemote() from the surface.
+  let redactRemoteOverride = null;
+  const redactRemote = () => {
+    if (redactRemoteOverride != null) return redactRemoteOverride;
+    try { return localStorage.getItem('eo_redact_remote') === '1'; } catch { return false; }
+  };
+  const setRedactRemote = (on) => {
+    redactRemoteOverride = !!on;
+    try { localStorage.setItem('eo_redact_remote', on ? '1' : '0'); } catch { /* session-only */ }
+    logIt('record', on
+      ? 'Hosted chat set to REDACTED — real entities are replaced with tokens before they leave the browser'
+      : 'Hosted chat set to send the record verbatim');
+    emit('model');
+  };
+  // The real entity surfaces across the active topic's docs (the admitted labels) — the names the
+  // membrane must keep off the wire. Reuses the same lexicon the answer/viewer segmentation reads.
+  const redactionNames = () => {
+    try { return entityLexicon(topicDocs()).map((e) => e.label); } catch { return []; }
+  };
+
   // ── chat ───────────────────────────────────────────────────────────────────
   // `abort` (turn) + `opAbort` (ingest) + `stallGuard` are declared up in the ingest section so
   // `stop()` reaches EVERY long op, not just a chat turn — the universal Stop. Stop trips whichever
@@ -1649,7 +1677,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     } catch (_) { /* disambiguation is best-effort; fall through to the normal turn */ }
 
     try {
-      const m = await raceGuard(ensureModel());
+      const m0 = await raceGuard(ensureModel());
+      // The confidentiality lever: when redact-when-hosted is on, wrap the talker in the privacy
+      // membrane so a REMOTE backend sees only tokens (a no-op for a local model, or when off).
+      const m = redactRemote() ? wrapRedacting(m0, redactionNames) : m0;
       const history = t.messages
         .filter((x) => !x.pending && x.text)
         .slice(0, -2)
@@ -2382,6 +2413,8 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     deepTick, reflections,
     // web-search mode (off | confirm | auto)
     webMode, setWebMode,
+    // redact-when-hosted — keep real entities off the wire when the talker is Claude (Anthropic)
+    redactRemote, setRedactRemote,
     // model
     ensureModel, setBackend, backendPref, setSpeed, speedPref,
     // projections for the surface

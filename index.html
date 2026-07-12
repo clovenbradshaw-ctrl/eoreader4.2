@@ -212,6 +212,18 @@ table{border-collapse:collapse;width:100%}
             </div>
           </div>
         </sc-if>
+        <sc-if value="{{ showRedact }}">
+          <div style="border-top:1px solid #F2F2F6;margin-top:8px;padding-top:9px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:0 2px 7px">PRIVACY · WHAT ANTHROPIC SEES</div>
+            <button onClick="{{ redactHosted.toggle }}" style="width:100%;display:flex;align-items:flex-start;gap:9px;border:1px solid {{ redactHosted.bd }};background:{{ redactHosted.bg }};border-radius:9px;padding:8px 10px;text-align:left" style-hover="background:#F5F5F8">
+              <span style="flex:0 0 auto;width:28px;height:16px;border-radius:8px;background:{{ redactHosted.trackBg }};position:relative;margin-top:1px;transition:background .12s"><span style="position:absolute;top:2px;left:{{ redactHosted.knobX }};width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .12s"></span></span>
+              <span style="flex:1;min-width:0">
+                <span style="display:block;font-size:12.5px;font-weight:650;color:{{ redactHosted.fg }}">{{ redactHosted.label }}</span>
+                <span style="display:block;font-size:10.5px;color:#8A8A95;line-height:1.35;margin-top:2px">{{ redactHosted.hint }}</span>
+              </span>
+            </button>
+          </div>
+        </sc-if>
         <div style="border-top:1px solid #F2F2F6;margin-top:8px;padding-top:9px;display:flex;align-items:center;gap:8px">
           <span style="flex:1;font-size:11px;color:#8A8A95;line-height:1.35">{{ modelNote }}</span>
           <button onClick="{{ loadModelNow }}" style="flex:0 0 auto;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12px;border-radius:8px;padding:6px 11px" style-hover="background:#E7E2FD">{{ loadModelLabel }}</button>
@@ -3125,6 +3137,26 @@ class Component extends DCLogic {
     const speedFast   = mkSpeed('fast',   'Fast',   '1B · quicker to load & answer');
     const speedFluent = mkSpeed('fluent', 'Fluent', '3B · fuller, more fluent prose');
 
+    // Redact-when-hosted — the confidentiality lever, shown only for the hosted talker (Claude).
+    // A local model runs in your browser, so it never leaves; only a remote backend can leak, and
+    // this replaces every admitted entity with an opaque token before the message is sent, then
+    // restores the real names in the answer locally.
+    const showRedact = pref === 'claude';
+    const redactOn = app.redactRemote ? app.redactRemote() : false;
+    const redactHosted = {
+      on: redactOn,
+      label: redactOn ? 'Send redacted' : 'Send verbatim',
+      hint: redactOn
+        ? 'Real entities are replaced with tokens before anything leaves the browser — Anthropic sees only the shape.'
+        : 'Anthropic receives the record as written, real names and all. Toggle on to redact entities first.',
+      fg: redactOn ? '#5B4BE6' : '#8A8A95',
+      bg: redactOn ? '#F1EFFE' : 'transparent',
+      bd: redactOn ? '#DED8FD' : '#E6E6EC',
+      trackBg: redactOn ? '#6D5EF5' : '#D4D4DC',
+      knobX: redactOn ? '15px' : '2px',
+      toggle: () => { app.setRedactRemote(!redactOn); this._poke(); },
+    };
+
     // status widget
     const busy = app.state.busy;
     const lastLog = app.state.log[app.state.log.length - 1];
@@ -3661,6 +3693,7 @@ class Component extends DCLogic {
       // model
       modelChip, modelDot, modelOpen: st.modelOpen, toggleModel: () => this.toggleModel(), backends,
       showSpeed, speedFast, speedFluent,
+      showRedact, redactHosted,
       modelNote: m.state === 'error' ? `Load failed: ${m.note}` : m.state === 'ready' ? `${m.backend} is loaded and answering.` : m.state === 'loading' ? `Loading ${m.backend}${m.note ? ` · ${m.note}` : ''} — ${Math.round((m.progress || 0) * 100)}%` : 'The model loads on first question — or load it now.',
       loadModelLabel: m.state === 'loading' ? `${Math.round((m.progress || 0) * 100)}%…` : m.state === 'ready' ? 'Reload' : 'Load now',
       loadModelNow: () => { app.ensureModel().catch(() => {}); },

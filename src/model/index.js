@@ -5,6 +5,8 @@
 // External backends call `registerBackend(name, factory)` at load time.
 
 export { registerBackend, availableBackends, createModel, describeModel } from './interface.js';
+// The remote-talk privacy membrane — redact real entities before a hosted talker sees them.
+export { wrapRedacting } from './redact-remote.js';
 export { streamPhrase, surfaceTokens, emitSurface } from './stream.js';
 // The one decode organ: a guarded phrase that returns the caller's fallback on any fault.
 export { speak } from './speak.js';
