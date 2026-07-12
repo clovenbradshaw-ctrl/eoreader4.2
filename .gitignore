@@ -4,3 +4,6 @@ version.json
 _site/
 # Screenshot artifact written by tools/verify-console.mjs on each headless run.
 tools/console-verify.png
+# Regenerable third-party corpus cache — tools/corpus-fetch.mjs rebuilds this from
+# HuggingFace on demand; ~30MB of licensed third-party data doesn't belong in git history.
+data/corpus/raw/
