@@ -153,6 +153,10 @@ registerBackend('wllama', (opts = {}) => {
   return {
     id: 'wllama',
     kind: 'local',
+    // The context window (model/context-budget.js): loadWllamaModel takes wllama's default n_ctx
+    // (4096), so the guard keeps any assembled prompt under it. Named here as local knowledge —
+    // the runtime this backend loads decides the ceiling, and it is 4096 unless that changes.
+    contextWindow: 4096,
     // PROVENANCE (model/interface.js describeModel): the GGUF this backend runs, named by its file
     // (wllamaModelName). CPU/WASM and in-browser — the export can state the answer stayed local.
     describe: () => ({ backend: 'wllama', kind: 'local', model: wllamaModelName(modelUrl), label: 'wllama · CPU/WASM, in-browser' }),

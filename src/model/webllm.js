@@ -222,6 +222,11 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   return {
     id,
     kind: 'local',
+    // The context window (model/context-budget.js): the Llama-3.2 MLC prebuilt artifacts (1B/3B,
+    // and the WebGPU coders that ride this same engine) are configured for a 4096-token window, so
+    // the guard keeps any assembled prompt under it. A pinned build with a wider window still fits —
+    // the guard only ever trims a prompt that would OVERFLOW this, never one already inside it.
+    contextWindow: 4096,
     // PROVENANCE (model/interface.js describeModel): the exact MLC build in play — the pin, or the
     // adaptive pick once load() has run (before load, the pin or a plain "(adaptive)" placeholder).
     // In-browser and local, so the chat export can say the answer never left the machine.

@@ -160,6 +160,9 @@ for (const m of CODER_MODELS) {
       return {
         id: m.id,
         kind: 'local',
+        // The context window (model/context-budget.js): loaded through the same wllama runtime, so
+        // the same default 4096-token n_ctx bounds it — the guard keeps the prompt under it.
+        contextWindow: 4096,
         // PROVENANCE (model/interface.js describeModel): the coder's own catalog label and its GGUF,
         // so the export names the exact coding model in play — not a generic "wllama".
         describe: () => ({ backend: m.id, kind: 'local', model: wllamaModelName(modelUrl), label: `${m.label} · CPU/WASM, in-browser` }),
