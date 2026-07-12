@@ -435,6 +435,125 @@ export const scrollToAnchor = (doc, id) => {
   } catch { /* iframe not reachable */ }
 };
 
+// ── the LIVE-SITE view — the real page, made to read like ours ───────────────────────────────
+// nativePageHtml renders the site's OWN markup (so it still looks like itself); the surface mounts
+// it in a same-origin sandboxed iframe (scripts stripped, no allow-scripts) and calls
+// decorateNativeDoc once the DOM is in. That lays the same reading layer the Reader bakes into the
+// reflowed book — clickable entity links, the cited-passage rule, a scroll-to-passage flash target,
+// and a contents list from the page's own headings — but onto the page's real DOM. It mutates the
+// passed document in place, and is idempotent per document (flags on the doc guard each pass), so a
+// re-fire of the ref callback (a live "Links" toggle, a re-render) never double-wraps.
+
+// #rrggbb (or #rgb) → rgba() with alpha — for the injected highlight tints.
+const hexA = (hex, a) => {
+  const h = String(hex || '').replace('#', '');
+  const n = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const r = parseInt(n.slice(0, 2), 16) || 0, g = parseInt(n.slice(2, 4), 16) || 0, b = parseInt(n.slice(4, 6), 16) || 0;
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+};
+// The reading-layer CSS for a live page — the site carries none of its own, so inject it, keyed to
+// the accent and gated on html.eo-links-on (the "Links" toggle), matching readerCss's rules so the
+// click delegate + scrollToText flash behave exactly as they do in the reader.
+const nativeLayerCss = (accent) => (
+  '.eo-ent{border-radius:2px;transition:background .12s}' +
+  '.eo-links-on .eo-ent{cursor:pointer;color:' + accent + ';border-bottom:1px dotted ' + hexA(accent, 0.85) + '}' +
+  '.eo-links-on .eo-ent:hover{background:' + hexA(accent, 0.13) + '}' +
+  '.eo-cited{scroll-margin-top:22px;border-radius:0 6px 6px 0;transition:background .2s,box-shadow .2s}' +
+  '.eo-links-on .eo-cited{background:' + hexA('#C79A3A', 0.13) + ';box-shadow:inset 3px 0 0 #C79A3A}' +
+  '.eo-focus{background:' + hexA(accent, 0.16) + ';box-shadow:0 0 0 5px ' + hexA(accent, 0.16) + ';border-radius:3px;transition:background .5s,box-shadow .5s}'
+);
+// A node in the article body, not the site chrome (nav/masthead/footer). Shared by both passes.
+const eoInChrome = (el) => !!(el && el.closest && el.closest('nav,header,footer,aside,[role="navigation"],[role="banner"],[role="contentinfo"]'));
+
+export const decorateNativeDoc = (doc, {
+  segsOf = null, isCited = null, accent = READ_ACCENT, linksOn = true, maxNodes = 20000, maxWraps = 8000,
+} = {}) => {
+  const out = { toc: [], entWraps: 0, cited: 0 };
+  try {
+    if (!doc || !doc.body) return out;
+    // 1) styles — id-stable, rewritten each pass so an accent change restyles without stacking.
+    let sTag = doc.getElementById('__eo_native_css');
+    if (!sTag) { sTag = doc.createElement('style'); sTag.id = '__eo_native_css'; (doc.head || doc.documentElement).appendChild(sTag); }
+    sTag.textContent = nativeLayerCss(accent);
+    try { doc.documentElement.classList.toggle('eo-links-on', !!linksOn); } catch { /* no root */ }
+
+    // 2) contents — from the page's OWN headings (skip chrome, dedupe by text, cap at 80). Each keeps
+    // its existing id or gets an eo-ch-N one, so the surface's scrollToAnchor drives it like the
+    // reader's TOC. Computed once per document and memoised on it.
+    if (doc.__eoNativeToc) { out.toc = doc.__eoNativeToc; }
+    else {
+      const toc = [], seen = new Set(); let n = 0;
+      doc.querySelectorAll('h1,h2,h3,h4').forEach((h) => {
+        if (n >= 80 || eoInChrome(h)) return;
+        const label = norm(h.textContent || '');
+        if (label.length < 2 || label.length > 90) return;
+        const key = label.toLowerCase(); if (seen.has(key)) return; seen.add(key);
+        const lv = Math.min(3, Math.max(1, +h.tagName.slice(1) || 1));
+        if (!h.id) h.id = 'eo-ch-' + n;
+        toc.push({ id: h.id, label, level: lv }); n++;
+      });
+      out.toc = toc.length >= 2 ? toc : [];   // one lone heading is not a contents
+      doc.__eoNativeToc = out.toc;
+    }
+
+    // 3) entity links — walk the visible prose and wrap known names as clickable .eo-ent spans, using
+    // the record's own segment stream (segsOf) so the live page links exactly what the reader does.
+    // Skip script/style/code and anything already inside a link or a prior wrap; cap the DOM work so
+    // a long article can't freeze the tab. Runs once per document.
+    if (segsOf && !doc.__eoNativeEnts) {
+      doc.__eoNativeEnts = true;
+      const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          const v = node.nodeValue;
+          if (!v || v.length < 3 || !v.trim()) return NodeFilter.FILTER_REJECT;
+          const p = node.parentNode;
+          if (!p || p.nodeType !== 1) return NodeFilter.FILTER_REJECT;
+          const tag = p.nodeName;
+          if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'TEXTAREA' || tag === 'CODE' || tag === 'PRE' || tag === 'A') return NodeFilter.FILTER_REJECT;
+          if (p.closest && p.closest('a,.eo-ent')) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        },
+      });
+      const nodes = []; let node;
+      while ((node = walker.nextNode()) && nodes.length < maxNodes) nodes.push(node);
+      for (const tn of nodes) {
+        if (out.entWraps > maxWraps) break;
+        let segs = null; try { segs = segsOf(tn.nodeValue); } catch { segs = null; }
+        if (!segs || !segs.some((sg) => sg && sg.t === 'ent')) continue;
+        const frag = doc.createDocumentFragment();
+        for (const sg of segs) {
+          if (sg && sg.t === 'ent' && out.entWraps <= maxWraps) {
+            const span = doc.createElement('span');
+            span.className = 'eo-ent';
+            span.setAttribute('data-doc', sg.docId == null ? '' : String(sg.docId));
+            span.setAttribute('data-ent', sg.entId == null ? '' : String(sg.entId));
+            span.textContent = sg.s; frag.appendChild(span); out.entWraps++;
+          } else {
+            frag.appendChild(doc.createTextNode(sg && sg.s != null ? sg.s : ''));
+          }
+        }
+        tn.parentNode.replaceChild(frag, tn);
+      }
+    }
+
+    // 4) cited passages — mark the article blocks whose text the record cites, so the gold rule lands
+    // on the live page too (revealed with the "Links" toggle). Runs once per document.
+    if (isCited && !doc.__eoNativeCited) {
+      doc.__eoNativeCited = true;
+      const blocks = [...doc.body.querySelectorAll('p,li,blockquote,h1,h2,h3,h4,td,dd')];
+      for (const el of blocks) {
+        if (out.cited >= 200) break;
+        if (eoInChrome(el)) continue;
+        const t = (el.textContent || '').trim();
+        if (t.length < 24) continue;
+        let hit = false; try { hit = !!isCited(t); } catch { hit = false; }
+        if (hit) { el.classList.add('eo-cited'); out.cited++; }
+      }
+    }
+  } catch { /* iframe not reachable / detached */ }
+  return out;
+};
+
 // ── the FACING PAGE — how the system read the source, syntax-lit like a terminal ─────────────
 // A bilingual book prints the original on one leaf and its translation on the facing leaf. The
 // facing view does the same for a reading: the source's own prose on the left, and on the right
