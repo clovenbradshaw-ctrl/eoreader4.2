@@ -29,7 +29,7 @@ import { bindCitations, renderBound } from '../enactor/ground/index.js';
 import { runVetoes, isUnbound, isAbstention, classifyProvenance, assessAnswer } from '../enactor/ground/index.js';
 import { canGroundedSpeak, groundedSpeak, RULES_REV } from '../organs/out/speech/index.js';
 import { projectGraph, VERDICTS } from '../core/index.js';
-import { answerabilityGate } from '../weave/longgen/answerable.js';
+import { answerabilityGate, refusalAtom } from '../weave/longgen/answerable.js';
 import { walkReasoning } from '../surfer/reason/index.js';
 import { factCheck, auditPropositions } from '../enactor/factcheck/index.js';
 import { streamParagraphs } from '../weave/write/index.js';
@@ -516,6 +516,51 @@ export const stages = {
     // void — "of the topics we discussed, which is in France?" must not come back "the
     // document does not say."
     if (!ctx.doc || ctx.meta || (ctx.task && ctx.task !== 'answer')) return ctx;
+
+    // THE EOT ANSWERABILITY FLOOR — score grounding in the ontology's own language, not
+    // lexical overlap. The lexical binder cannot tell a real answer from prose that quotes
+    // the source while missing the question ("relatively uncommon compared to whaling" cited
+    // for "the fastest dolphin"): it reads both as grounded. The trustworthy signal is the
+    // fold's referent-binding — the EVA that decides WHO/WHAT the reading is about. When it
+    // DIFFUSED (referential.concentrated === false) the surf rode to the document's loudest
+    // figure, not the one asked about, so the corpus holds no answer to THIS question even
+    // though it lexically touches the subject (the "fastest / most famous dolphin" asked over
+    // a dolphin + Miami-Dolphins + Vaporwave composite — quarried from the wrong figure). The
+    // fedGraph is ALREADY withheld on this exact measure (see `prompt` stage, landedOnReferent);
+    // here it withholds the ANSWER too, before the wasted decode. A typed decline rides as the
+    // honest word (grounded on the held spans, no model call), and proposeWebSearch — which
+    // already keys on concentrated === false — raises the gap so web-auto re-searches for the
+    // question and confirm/off offer the search button. Only a MEASURED diffusion (=== false)
+    // gates; an unmeasured referent (null — no corefField, most tests/single docs) is
+    // byte-identical, the same guard the fedGraph withhold uses.
+    //
+    // Two clauses make this safe against a FALSE refusal (worse than a missed one):
+    //   · id != null — the reading LANDED ON some referent (mirrors proposeWebSearch). An EMPTY
+    //     field (id null, w 0 — a small doc under the hash embedder, answer plainly in the
+    //     excerpts) is not a wander; it falls through to the void measure below, as before.
+    //   · margin ≤ FLAT_FIELD_MARGIN — the field is effectively FLAT: no figure leads, the top
+    //     referents are tied, so the reading has no basis to say what it is about (the dolphin
+    //     composite measured margin ≈ 0.00001). This is what separates a genuine wander from a
+    //     merely multi-entity page where one figure DOES lead (a Curie doc measured margin ≈ 0.14
+    //     and is perfectly answerable): `concentrated === false` alone conflated the two and
+    //     refused the answerable one. Conservative by construction — only a near-tie gates; a
+    //     value calibrated to distinguish a flat field from a led one, to be re-tuned on live data.
+    const FLAT_FIELD_MARGIN = 0.02;
+    if (ctx.referential?.concentrated === false && ctx.referential?.id != null
+        && (ctx.referential?.margin ?? 1) <= FLAT_FIELD_MARGIN) {
+      const ground = (ctx.spans || []).map((s, i) => ({ idx: s.idx ?? i, text: s.text, score: s.score }));
+      const r = refusalAtom('diffuse', ground, [], (ctx.question || '').split(/\s+/));
+      return {
+        ...ctx,
+        terminate: true,
+        gated: true,
+        answer: r.text,
+        sources: [...(r.sources || [])].sort((a, b) => a - b),
+        vetoes: [Object.freeze({ id: 'referent-diffuse', refuses: true,
+          message: 'The reading did not settle on the figure this question is about — the corpus holds the subject’s words but not an answer to this.' })],
+      };
+    }
+
     const v = answerVoid(ctx.doc, ctx.question, ctx.spans || [], { embedder: ctx.embedder });
     if (!v) return ctx;
     // P0.2: the void no longer auto-answers and terminates. The talker speaks for
@@ -787,9 +832,17 @@ export const stages = {
     const signal = ctx.signal || null;
     if (ctx.stream && ctx.route === 'grounded' && ctx.doc && ctx.spans?.length) {
       try {
+        // A pointed answer is ONE coherent decode, not a multi-call continuation loop.
+        // The per-paragraph loop feeds the answer-so-far back with CONTINUE_CUE each round;
+        // a small model follows that cue poorly and restates/contradicts itself across
+        // paragraphs ("the shortfin mako is indeed the fastest dolphin, but it's not the
+        // only one"). Only a genuine long-form ask (`ctx.longform`) develops multiple
+        // paragraphs; every other grounded answer caps at a single paragraph so the reply
+        // reads as one coherent piece, and the boundary gate (streamed===draft, mid-sentence
+        // tail drop) still governs it.
         const streamed = await streamParagraphs({
           model: ctx.model, messages: ctx.messages, onToken: ctx.onToken,
-          budget: maxTokens, signal,
+          budget: maxTokens, signal, maxParagraphs: ctx.longform ? null : 1,
         });
         if (streamed && streamed.draft) {
           // The user stopped mid-decode: the partial paragraphs are the answer —

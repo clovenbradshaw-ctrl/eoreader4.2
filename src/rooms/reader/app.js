@@ -431,7 +431,16 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     // first question never pays the download stall. Browser only — never in tests —
     // and the ladder inside ensureModel already falls back webllm → wllama → echo.
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-      setTimeout(() => { ensureModel().catch(() => { /* logged by the ladder */ }); }, 600);
+      setTimeout(() => {
+        ensureModel().catch(() => { /* logged by the ladder */ });
+        // Warm the MiniLM meaning embedder at boot too, not lazily on the first ask. Retrieval's
+        // semantic channel — and the fold's referent-binding that the EOT answerability floor
+        // reads — is only trustworthy when this is live; warming it here means the FIRST question
+        // already gets meaning-scored retrieval instead of the lexical-only fallback that sends
+        // the surf wandering (the cold-start "fastest dolphin over a Vaporwave composite" case).
+        // Fire-and-forget and IndexedDB-cached, so it costs nothing on a warm return.
+        warmMinilm();
+      }, 600);
       // THE MODEL KEEPER's triggers (healModel/verifyRestoredModel below): reload a model that
       // silently unloaded — a lost GPU device, a failed first load, an evicted engine — in the
       // background, at the moments recovery is likely to work, instead of on the next question's
@@ -1332,7 +1341,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     pending.grounded = false;
     if (hadPartial) {
       pending.unverified = true;
-      pending.flags = [{ id: 'unverified', note: 'Stopped before grounding — this draft was not checked against your record.' }];
+      // APPEND, don't overwrite: any flags the turn already surfaced (a referent-diffuse
+      // decline, a factcheck-limited note) are honest signals that must survive the stop, not
+      // be replaced wholesale by the lone 'unverified' band. De-dupe so a re-entry can't stack it.
+      const prior = Array.isArray(pending.flags) ? pending.flags.filter((f) => f && f.id !== 'unverified') : [];
+      pending.flags = [...prior, { id: 'unverified', note: 'Stopped before grounding — this draft was not checked against your record.' }];
     }
   };
 

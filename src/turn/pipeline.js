@@ -291,6 +291,18 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
     // refusing, the answer untouched. This is the DEF half of the fact-check the
     // edges-only veto cannot see.
     for (const f of (ctx.propositions?.fired || [])) flags.push({ id: f.id, message: f.message, refuses: false });
+    // THE FACT-CHECK'S BLIND CHANNEL. The edge-grounding fact-check adjudicates a claimed
+    // relation's MEANING with a live geometric classifier; without one every claim that reaches
+    // that gate degrades to `indeterminate` (held) — the answer ships UNCHECKED on the semantic
+    // channel, and until now silently (the "5/5 indeterminate" turns). When the turn ran the
+    // fact-check with no classifier AND a claim actually degraded for want of it, say so: a
+    // non-refusing flag, the answer shown but honestly qualified. The symbolic relation algebra
+    // still ran (it needs no classifier), so this never fires when the only claims were typed
+    // kinship/disjointness ones the algebra already settled.
+    if (!ctx.classifier && (ctx.factcheck?.edgeVerdicts || []).some(v => v.reason === 'no-classifier')) flags.push({
+      id: 'factcheck-limited', refuses: false,
+      message: 'The semantic fact-checker was not available, so the answer’s claims were not checked for meaning against your sources — only the symbolic checks ran.',
+    });
     // A post-answer annotation stage failed: the answer rides, with an honest flag
     // that the grounding check behind it could not complete.
     if (degraded.length) flags.push({

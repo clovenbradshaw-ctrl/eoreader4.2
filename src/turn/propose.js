@@ -74,8 +74,14 @@ export const proposeWebSearch = (ctx) => {
   // those irrelevant pages then pollute the answer scope. The reading's surf `focus` (the
   // figure the fold settled on, e.g. "Gregor Samsa") is the subject when no prediction or
   // referent target named one, so it backstops the fallback chain.
+  // When the fold's referent DIFFUSED (concentrated === false), the surf's focus is the
+  // WANDERING figure — the loud, wrong one the reading rode to (Vaporwave for "fastest
+  // dolphin") — so sharpening the query with it would send exactly the wrong subject to the
+  // world. In that case go with the bare question and let the caller's formulateSearchQuery /
+  // sense-commit disambiguate it afresh. Otherwise sharpen as before.
   const q = String(ctx.question || '').trim();
-  const figure = ctx.refTarget?.label || ctx.prediction?.primaryName || ctx.surf?.focus || '';
+  const diffuse = ctx.referential?.concentrated === false;
+  const figure = diffuse ? '' : (ctx.refTarget?.label || ctx.prediction?.primaryName || ctx.surf?.focus || '');
   const query = (figure && !q.toLowerCase().includes(String(figure).toLowerCase()))
     ? `${q} ${figure}`.trim() : q;
 
