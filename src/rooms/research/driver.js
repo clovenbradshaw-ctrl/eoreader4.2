@@ -318,6 +318,9 @@ export const runGroundedResearch = async (question, opts = {}) => {
   let askN = log.filter((e) => e.kind === 'ask').length;
   let pinN = log.filter((e) => e.kind === 'pin').length;
   let propN = log.filter((e) => e.kind === 'extract').length;
+  // The pins that actually yielded a grounded proposition — the numerator of the
+  // post-gather coherence check (how much of the gathered corpus bound to intent).
+  const boundPins = new Set();
 
   const q = String(question || '').trim();
   const subject = researchTerms(q);
@@ -351,12 +354,15 @@ export const runGroundedResearch = async (question, opts = {}) => {
   //     model-free run is byte-identical.
   //   • it does NOT gate the research — the run neither waits on it (the injected
   //     `ask` is null by default) nor changes what it gathers based on the reply;
-  //     the gather proceeds on the best-guess sense regardless, and the clarification
-  //     is surfaced (chat reply + trace) as an offer to refocus, not a prerequisite.
-  await maybeAskDisambiguate({
-    q, rootId, clarify, disambiguate, ask, emit, tick,
-    nextAskId: () => `ask:${askN++}`, log,
-  });
+  //     the gather proceeds on the best-guess plan regardless, and the clarification
+  //     is surfaced (chat reply + trace + a non-blocking popup) as an offer to
+  //     refocus, not a prerequisite.
+  // Two conditions can raise it up front — a HOMONYM subject (disambiguate) or a
+  // request that bundles SEVERAL distinct subjects (complex). At most ONE fires
+  // (homonym wins), so a run opens with a single scoping prompt, never a pile.
+  const askCtx = { q, rootId, clarify, ask, emit, tick, nextAskId: () => `ask:${askN++}`, log };
+  let raisedPrelim = await maybeAskDisambiguate({ ...askCtx, disambiguate });
+  if (!raisedPrelim) raisedPrelim = await maybeAskComplex(askCtx);
 
   const kids = effectiveSubQs.slice(0, MAX_FANOUT).map((sq, i) => {
     const id = `${rootId}.${i}`;
@@ -535,6 +541,7 @@ export const runGroundedResearch = async (question, opts = {}) => {
         id, frameId: frame.id, pinId: ex.pinId, span: { ...ex.span, sentence: ex.idx },
         terms, address: addressOf(ex.sentence), t: tick(),
       }));
+      boundPins.add(ex.pinId);   // this pin spoke to the subject — it counts toward coherence
       frameProps.push({ id, terms, sentence: ex.sentence, pinId: ex.pinId });
     }
 
@@ -688,51 +695,146 @@ export const runGroundedResearch = async (question, opts = {}) => {
     }
   }
 
+  // ── Post-gather coherence — did the search return what was asked for? ────────
+  // With the whole corpus read, judge how much of it actually bound to the subject.
+  // If a search gathered a real corpus but most of it drifted off-intent (below the
+  // coherence floor), surface a non-blocking `incoherent` clarification inviting the
+  // user to sharpen or narrow — the run STILL returns what it did find (never gated),
+  // this only offers to re-run better. Suppressed when a preliminary clarification
+  // already went out, or when the user supplied the structure (their own sources /
+  // sub-questions), or offline. Deduped across the session.
+  await maybeAskIncoherent({
+    ...askCtx, search, subQuestions, raisedPrelim,
+    gathered: pinned.length, aligned: boundPins.size,
+  });
+
   return { log, report: projectReport(log) };
 };
 
 const safeAsk = async (ask, ev) => { try { return await ask(ev); } catch { return null; } };
 
-// The preliminary DISAMBIGUATE clarification (see the call site). Kept a small pure
-// helper so the run body reads as one flow and the "don't nag / don't gate" rules
-// live in one place. It:
-//   1. no-ops unless clarification is on AND a disambiguator was injected;
-//   2. no-ops if a disambiguate ask was ALREADY raised for this exact question
-//      anywhere in the (session-wide) log — so a second ask about the same subject
-//      is silent (dedup across runs, not just within one);
-//   3. asks the disambiguator whether the subject is a homonym, and only when it
-//      names RIVAL senses (alternatives) emits ONE `disambiguate` ask — the
-//      committed sense plus the alternatives as options — then optionally awaits the
-//      injected `ask` and logs the reply. It returns either way; the caller carries on.
-// Any throw from the injected disambiguator is swallowed: an ambiguity check that
-// fails must never take the whole run down with it.
-const maybeAskDisambiguate = async ({ q, rootId, clarify, disambiguate, ask, emit, tick, nextAskId, log }) => {
-  if (!clarify || typeof disambiguate !== 'function') return;
-  // Dedup across the whole log: a disambiguate ask already raised for a frame whose
-  // question matches this one (case-insensitive) means we've offered this choice
-  // before — do not offer it again.
-  const qKey = q.trim().toLowerCase();
+// askedForQuestion(log, trigger, q, rootId) → has this exact clarification already
+// been offered for this subject in a PRIOR run on the shared log? The dedup that
+// keeps a clarification from nagging: match a same-trigger ask on a frame (not this
+// run's root) whose question is the same string, case-insensitive.
+const askedForQuestion = (log, trigger, q, rootId) => {
+  const qKey = String(q).trim().toLowerCase();
   const qOfFrame = new Map(log.filter((e) => e.kind === 'open').map((e) => [e.id, String(e.question ?? '').trim().toLowerCase()]));
-  const askedBefore = log.some((e) => e.kind === 'ask' && e.trigger === 'disambiguate'
+  return log.some((e) => e.kind === 'ask' && e.trigger === trigger
     && e.frameId !== rootId && qOfFrame.get(e.frameId) === qKey);
-  if (askedBefore) return;
+};
+
+// raise(...) → emit ONE ask, optionally await the injected human `ask` (null by
+// default, so the run never blocks), log the reply, and return true. The single
+// place every clarification goes through, so "emit → maybe await → log reply →
+// don't gate" is written once.
+const raise = async ({ emit, tick, nextAskId, ask }, { frameId, trigger, text, options = [] }) => {
+  const a = askUser({ id: nextAskId(), frameId, trigger, text, options, t: tick() });
+  emit(a);
+  const reply = ask ? await safeAsk(ask, a) : null;
+  if (reply != null) emit(answerAsk({ askId: a.id, reply, t: tick() }));
+  return true;
+};
+
+// ── splitSubjects — the "complex" (multi-subject) signal ────────────────────
+// A request naming more than one DISTINCT subject ("React vs Vue", "Tesla, Edison
+// and Marconi") is one the run cannot scope on its own: take all of it, one part, or
+// the relation between them? This splits on the connectors that join standalone
+// subjects and keeps a side only when it names its OWN capitalized entity and the
+// entities differ. Two guards keep it from nagging:
+//   • each side must carry a capitalized entity — a generic "origins and history of
+//     X" (no second entity) is NOT two subjects, so it stays quiet;
+//   • plain "and"/"," is often a single COMPOUND name ("Romeo and Juliet", "Bonnie
+//     and Clyde"), so it must name a genuine LIST of 3+ distinct entities before it
+//     counts. Only explicitly COMPARATIVE wording ("A vs B", "A compared with B") —
+//     an unambiguous juxtaposition — fires on just two.
+// Deliberately misses lower-cased and two-item "and" subjects rather than misfire.
+const COMPARE_CONNECTOR = /\s+(?:vs\.?|versus|compared\s+(?:to|with))\s+/i;
+const SUBJECT_SPLIT = /\s+(?:vs\.?|versus|compared\s+(?:to|with)|and)\s+|\s*,\s*|\s+&\s+/i;
+const ENTITY = /\b[A-Z][A-Za-z0-9'’.-]*(?:\s+[A-Z][A-Za-z0-9'’.-]*)*/;
+export const splitSubjects = (q) => {
+  const s = stripTaskFraming(q);
+  const parts = s.split(SUBJECT_SPLIT).map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return [];
+  const entities = [];
+  const seen = new Set();
+  for (const p of parts) {
+    const m = (p.match(ENTITY) || [])[0];
+    if (!m) continue;
+    const key = m.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key); entities.push(m.trim());
+  }
+  const enough = COMPARE_CONNECTOR.test(s) ? entities.length >= 2 : entities.length >= 3;
+  return enough ? entities.slice(0, MAX_FANOUT) : [];
+};
+
+// The preliminary DISAMBIGUATE clarification (homonym subject). Returns true if it
+// asked. No-op unless clarification is on and a disambiguator was injected; deduped
+// across the session; fires only when the disambiguator names RIVAL senses. Any
+// throw from the injected disambiguator is swallowed — an ambiguity check that fails
+// must never take the run down. See the call site for the full "don't nag / don't
+// gate" contract.
+const maybeAskDisambiguate = async (ctx) => {
+  const { q, rootId, clarify, disambiguate, log } = ctx;
+  if (!clarify || typeof disambiguate !== 'function') return false;
+  if (askedForQuestion(log, 'disambiguate', q, rootId)) return false;
 
   let prior = null;
   try { prior = await disambiguate(q); } catch { prior = null; }
   const alts = prior && Array.isArray(prior.alternatives)
     ? prior.alternatives.map((a) => String(a?.sense || '').trim()).filter(Boolean) : [];
-  if (!prior || !prior.sense || !alts.length) return; // unambiguous (or nothing to offer) → stay quiet
+  if (!prior || !prior.sense || !alts.length) return false; // unambiguous → stay quiet
 
   const away = prior.collision ? ` (not ${prior.collision})` : '';
-  const a = askUser({
-    id: nextAskId(), frameId: rootId, trigger: 'disambiguate',
+  return raise(ctx, {
+    frameId: rootId, trigger: 'disambiguate',
     text: `“${q}” could mean more than one thing — I'm reading it as ${prior.sense}${away} and leaning that way. `
         + `If you meant one of the others, pick it (or tell me exactly what to research) and I'll refocus:`,
-    options: [prior.sense, ...alts], t: tick(),
+    options: [prior.sense, ...alts],
   });
-  emit(a);
-  const reply = ask ? await safeAsk(ask, a) : null;
-  if (reply != null) emit(answerAsk({ askId: a.id, reply, t: tick() }));
+};
+
+// The preliminary COMPLEX clarification (the request bundles several subjects).
+// Returns true if it asked. Purely mechanical (splitSubjects); deduped across the
+// session. The first option is "all of it" — the broad run already under way, so
+// confirming it is a no-op in the UI; the rest are the individual subjects plus
+// their relationship, each a focused re-run.
+const maybeAskComplex = async (ctx) => {
+  const { q, rootId, clarify, log } = ctx;
+  if (!clarify) return false;
+  if (askedForQuestion(log, 'complex', q, rootId)) return false;
+  const subjects = splitSubjects(q);
+  if (subjects.length < 2) return false;
+
+  return raise(ctx, {
+    frameId: rootId, trigger: 'complex',
+    text: `“${q}” covers more than one thing — ${subjects.join(', ')}. I'm taking all of it; `
+        + `if you'd rather I focus on one, or on how they connect, pick it (or tell me exactly what to research):`,
+    options: ['all of it', ...subjects, `how ${subjects.join(' and ')} connect`],
+  });
+};
+
+// The post-gather INCOHERENT clarification: the search DID return a corpus, but most
+// of it did not bind to the subject — content came back that is not aligned with the
+// intent. Returns true if it asked. Fires only when a search actually gathered the
+// corpus, enough of it (≥3 sources) to judge, SOME of it bound (≥1 — a total miss is
+// a plain VOID, already spoken to per frame), and the bound share is below the floor.
+// Deduped across the session, and suppressed when a preliminary clarification already
+// went out this run (one scoping prompt is enough).
+const COHERENCE_FLOOR = 0.5;
+const maybeAskIncoherent = async (ctx) => {
+  const { q, rootId, clarify, search, subQuestions, raisedPrelim, gathered, aligned, log } = ctx;
+  if (!clarify || raisedPrelim || !search || subQuestions.length) return false;
+  if (gathered < 3 || aligned < 1 || aligned / gathered >= COHERENCE_FLOOR) return false;
+  if (askedForQuestion(log, 'incoherent', q, rootId)) return false;
+
+  return raise(ctx, {
+    frameId: rootId, trigger: 'incoherent',
+    text: `The sources I pulled up don't line up well with “${q}” — ${aligned} of ${gathered} actually spoke to it, `
+        + `so the rest may be off-target. Tell me more precisely what you're after (or narrow it) and I'll re-run:`,
+    options: [],
+  });
 };
 // Strip a leading instruction-echo the small model prepends to its summary — the
 // system prompt bounced back ("Here is a summary of … in plain prose, 2-5

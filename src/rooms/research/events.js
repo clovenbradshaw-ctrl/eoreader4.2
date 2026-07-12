@@ -156,14 +156,21 @@ export const voidAbsence = ({ frameId, terrain, receipt = '', term = null, t = 0
 
 // A question surfaced to the user, with the measured condition that fired it.
 // Triggers are MECHANICAL — never a schedule, never a model's whim:
-//   disambiguate  the subject binds to more than one entity
+//   disambiguate  the subject binds to more than one entity (a homonym)
+//   complex       the request names more than one distinct subject — the run does
+//                 not know whether to take all of it, one part, or the relation
+//   incoherent    the gather returned a corpus, but most of it did not bind to the
+//                 subject — content came back, but not aligned with the intent
 //   domain        the leading domain is unspecified (scopes the grid)
 //   corpus        the pinned set / window is unset
 //   void          a sub-question's field is measurably flat (fieldIsVoid)
 //   fork          two sources strain in opposite directions, no tie-break
 //   rec           a frame break — the topic just got reconceived
 //   depth         a resolved frame spawned more children than budget
-export const ASK_TRIGGERS = Object.freeze(['disambiguate', 'domain', 'corpus', 'void', 'fork', 'rec', 'depth']);
+// The first three are CLARIFICATIONS of what to research (surfaced by the UI as a
+// non-blocking popup, session.js CLARIFY_TRIGGERS); the rest report the state of a
+// run in flight. Every one is advisory — logged and offered, never a gate.
+export const ASK_TRIGGERS = Object.freeze(['disambiguate', 'complex', 'incoherent', 'domain', 'corpus', 'void', 'fork', 'rec', 'depth']);
 export const askUser = ({ id, frameId, trigger, text, options = [], t = 0 }) => {
   if (!id) throw new TypeError('askUser: id required');
   if (!ASK_TRIGGERS.includes(trigger)) throw new TypeError(`askUser: trigger must be one of ${ASK_TRIGGERS.join('|')}`);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { runGroundedResearch } from '../src/rooms/research/driver.js';
+import { runGroundedResearch, splitSubjects } from '../src/rooms/research/driver.js';
 import { createResearchSession, formatChatReply, pendingClarification, refocusQuery } from '../src/rooms/research/session.js';
 
 // The deep-research driver opens with a PRELIMINARY clarification: when the subject
@@ -142,6 +142,86 @@ test('refocusQuery sharpens the subject with the chosen sense', () => {
   assert.equal(refocusQuery('dolphins', 'NFL team'), 'dolphins NFL team');
   assert.equal(refocusQuery('mercury', 'the planet'), 'mercury the planet');
   assert.equal(refocusQuery('dolphins', ''), 'dolphins');   // empty sense → subject unchanged
+});
+
+// ── complex: the request bundles more than one distinct subject ─────────────
+
+test('splitSubjects: comparative fires on two, a plain "and" needs a list of three', () => {
+  assert.deepEqual(splitSubjects('React vs Vue'), ['React', 'Vue']);
+  assert.deepEqual(splitSubjects('Tesla compared with Edison'), ['Tesla', 'Edison']);
+  assert.deepEqual(splitSubjects('Tesla, Edison and Marconi'), ['Tesla', 'Edison', 'Marconi']);
+  // conservative — a two-item "and" is often ONE compound name, so it stays quiet
+  assert.deepEqual(splitSubjects('Romeo and Juliet'), []);
+  assert.deepEqual(splitSubjects('Tesla and Edison'), []);
+  // and a generic "X and Y" with no second entity is never two subjects
+  assert.deepEqual(splitSubjects('origins and history of dolphins'), []);
+  assert.deepEqual(splitSubjects('photosynthesis'), []);
+});
+
+test('fires ONE complex ask when the request names several subjects, with scope options', async () => {
+  const { log } = await runGroundedResearch('React vs Vue', runOpts());
+  const cx = asks(log).filter((e) => e.trigger === 'complex');
+  assert.equal(cx.length, 1);
+  assert.equal(cx[0].frameId, 'root');
+  assert.deepEqual(cx[0].options, ['all of it', 'React', 'Vue', 'how React and Vue connect']);
+});
+
+test('does not fire complex on a single-subject request', async () => {
+  const { log } = await runGroundedResearch('origins and history of dolphins', runOpts());
+  assert.equal(asks(log).filter((e) => e.trigger === 'complex').length, 0);
+});
+
+test('at most one preliminary clarification — a homonym wins over the complex check', async () => {
+  const { log } = await runGroundedResearch('React vs Vue', runOpts({ disambiguate: homonymDisambiguator }));
+  assert.equal(disambiguateAsks(log).length, 1, 'the homonym ask fires');
+  assert.equal(asks(log).filter((e) => e.trigger === 'complex').length, 0, 'so complex stays silent');
+});
+
+// ── incoherent: the gather returned a corpus that did not bind to the intent ──
+
+// A search whose corpus is mostly off-subject: one page about quokkas, three about
+// unrelated things. The naive gather pins them all; only one binds.
+const scatterSearch = async () => ([
+  { title: 'Quokkas', text: 'Quokkas are small marsupials native to Western Australia. Quokkas are known for a friendly facial expression and cope well around people. Quokkas feed at night on leaves and grasses.' },
+  { title: 'Aqueducts', text: 'Roman aqueducts carried water across long distances using gravity and carefully surveyed gradients. The engineering relied on arches and channels built from stone and concrete.' },
+  { title: 'Bebop', text: 'Bebop emerged in the nineteen forties as musicians pushed harmony and tempo beyond the swing era. Soloists improvised long lines over rapidly moving chord changes.' },
+  { title: 'Volcanoes', text: 'A stratovolcano is built from many layers of hardened lava and ash from successive eruptions. Its steep profile results from viscous magma that cools before it flows far.' },
+]);
+// A search whose corpus is all on-subject.
+const alignedSearch = async () => ([
+  { title: 'Quokkas 1', text: 'Quokkas are small marsupials native to Western Australia and nearby islands. Quokkas shelter in dense vegetation during the heat of the day.' },
+  { title: 'Quokkas 2', text: 'Quokkas breed once a year and carry a single joey in a pouch. Quokkas can survive long dry spells by drawing on fat stored in their tails.' },
+  { title: 'Quokkas 3', text: 'Quokkas were first recorded by European visitors who mistook them for large rats. Quokkas are now protected and concentrated on Rottnest Island.' },
+]);
+const gatherOpts = (search) => ({ sources: [], save: false, now: () => 0, search, size: 'standard', strategy: 'depth' });
+
+test('fires ONE incoherent ask when a gathered corpus mostly misses the subject', async () => {
+  const { log } = await runGroundedResearch('quokkas', gatherOpts(scatterSearch));
+  const inc = asks(log).filter((e) => e.trigger === 'incoherent');
+  assert.equal(inc.length, 1);
+  assert.equal(inc[0].frameId, 'root');
+  assert.match(inc[0].text, /don't line up well/);
+});
+
+test('does not fire incoherent when the gathered corpus is on-subject', async () => {
+  const { log } = await runGroundedResearch('quokkas', gatherOpts(alignedSearch));
+  assert.equal(asks(log).filter((e) => e.trigger === 'incoherent').length, 0);
+});
+
+test('does not fire incoherent without a search (the corpus is the user\'s own)', async () => {
+  // Only a pinned source that misses the subject → a plain VOID, not "incoherent".
+  const { log } = await runGroundedResearch('quokkas', runOpts());   // dolphinSource, no search
+  assert.equal(asks(log).filter((e) => e.trigger === 'incoherent').length, 0);
+});
+
+// ── the popup projection + chat reply cover every clarify trigger ────────────
+
+test('pendingClarification surfaces complex and incoherent asks too', async () => {
+  const cx = await runGroundedResearch('React vs Vue', runOpts());
+  assert.equal(pendingClarification(cx.log).ask.trigger, 'complex');
+
+  const inc = await runGroundedResearch('quokkas', gatherOpts(scatterSearch));
+  assert.equal(pendingClarification(inc.log).ask.trigger, 'incoherent');
 });
 
 test('the chat reply lifts an unanswered clarification to the top as an offer to refocus', async () => {

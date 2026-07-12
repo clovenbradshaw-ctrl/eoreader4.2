@@ -435,13 +435,18 @@ export const mountResearchSurface = (el, opts = {}) => {
   };
 
   // ── The clarification popup — an offer to refocus, never a gate ──────────────
-  // When the run logs a "which sense did you mean?" ask (a homonym subject), pop a
-  // card with each sense as a button PLUS a free field to type exactly what to
-  // research. It never blocks: the research is already running on the best guess,
-  // and the card only redirects it. Picking the sense already chosen (the first,
-  // marked ✓) just dismisses; a different sense or typed text starts a focused
-  // re-run (clarify off, so it doesn't re-ask). Acted-on asks are remembered so
-  // the same card never re-pops.
+  // When the run logs a clarification of WHAT to research — a homonym subject
+  // (disambiguate), a request bundling several subjects (complex), or a gather that
+  // came back off-intent (incoherent) — pop a card with the choices as buttons PLUS
+  // a free field to type exactly what to research. It never blocks: the research is
+  // already running on the best guess, and the card only redirects it.
+  //   • disambiguate — the options are senses; the first is the one it chose (a ✓
+  //     no-op to confirm), the rest refocus onto "<subject> <that sense>".
+  //   • complex — the options are "all of it" (a ✓ no-op) then each subject and
+  //     "how they connect"; each refocuses onto that phrase directly.
+  //   • incoherent — no preset options; the free field carries the sharper ask.
+  // A picked option or typed text starts a focused re-run (clarify off, so it doesn't
+  // re-ask); acted-on asks are remembered so the same card never re-pops.
   const resolvedAsks = new Set();
   let clarifyEl = null, clarifyAskId = null;
   const hideClarify = () => { if (clarifyEl) clarifyEl.remove(); clarifyEl = null; clarifyAskId = null; };
@@ -450,6 +455,11 @@ export const mountResearchSurface = (el, opts = {}) => {
     hideClarify();
     clarifyAskId = ask.id;
     const options = ask.options || [];
+    // Disambiguate senses combine with the subject ("dolphins" + "NFL team"); every
+    // other trigger's option is already a full research target. The first option is
+    // the run's current plan (a confirm/no-op) for the two prelim triggers.
+    const combine = ask.trigger === 'disambiguate';
+    const hasCurrent = ask.trigger === 'disambiguate' || ask.trigger === 'complex';
     const el = document.createElement('div');
     el.className = 'drs-clarify';
     el.innerHTML = `
@@ -458,9 +468,9 @@ export const mountResearchSurface = (el, opts = {}) => {
         <span class="drs-clarify-text">${esc(ask.text)}</span>
         <button class="drs-clarify-x" title="Dismiss — keep going as is">✕</button>
       </div>
-      <div class="drs-clarify-opts">
-        ${options.map((o, i) => `<button class="drs-clarify-opt${i === 0 ? ' cur' : ''}" data-i="${i}">${i === 0 ? '✓ ' : '⟳ '}${esc(o)}</button>`).join('')}
-      </div>
+      ${options.length ? `<div class="drs-clarify-opts">
+        ${options.map((o, i) => `<button class="drs-clarify-opt${i === 0 && hasCurrent ? ' cur' : ''}" data-i="${i}">${i === 0 && hasCurrent ? '✓ ' : '⟳ '}${esc(o)}</button>`).join('')}
+      </div>` : ''}
       <div class="drs-clarify-or">…or tell me exactly what to research</div>
       <div class="drs-clarify-row">
         <input type="text" class="drs-clarify-in" placeholder="e.g. bottlenose dolphin social behaviour" />
@@ -478,9 +488,10 @@ export const mountResearchSurface = (el, opts = {}) => {
     };
     el.querySelectorAll('.drs-clarify-opt').forEach((b) => b.addEventListener('click', () => {
       const i = +b.dataset.i;
-      // The first option is the sense the run already chose — confirming it is a
-      // no-op; any other sense refocuses onto "<subject> <that sense>".
-      resolve(i === 0 ? null : refocusQuery(question, options[i]));
+      // The current-plan option (first, when present) is a no-op confirm; the rest
+      // refocus — senses combine with the subject, other options are used verbatim.
+      if (i === 0 && hasCurrent) return resolve(null);
+      resolve(combine ? refocusQuery(question, options[i]) : options[i]);
     }));
     const submit = () => { const v = el.querySelector('.drs-clarify-in').value.trim(); if (v) resolve(v); };
     el.querySelector('.drs-clarify-go').addEventListener('click', submit);
