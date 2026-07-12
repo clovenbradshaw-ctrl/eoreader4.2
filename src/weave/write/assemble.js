@@ -87,7 +87,13 @@ const eotSalience = (doc, thread) => {
   return { stops, focus };
 };
 
-// assembleBrief(doc, { question, history, max }) → the LLM-facing payload + the reasoning.
+// Above this many units the from-scratch adaptive surf (readingAt at EVERY unit — O(S), the
+// whole document) is too costly to run on a caller's blocking path, so the fallback below drops
+// to the bounded windowed reach instead. Only reached when no `surf` was handed in; the reuse
+// path (the pipeline's audit brief always passes the turn's own surf) never pays this at all.
+const ADAPTIVE_SURF_MAX_UNITS = 400;
+
+// assembleBrief(doc, { question, history, max, surf }) → the LLM-facing payload + the reasoning.
 //   prompt        { system, user } — EXACTLY what the talker would be handed (RDF-star, EO-
 //                 annotated, restricted to the salient stops)
 //   propositions  the salient edges as plain triples (the no-LLM render reads these)
@@ -98,20 +104,36 @@ const eotSalience = (doc, thread) => {
 //   arc           the trajectory LIFTED (write/gravity.js): turns weighted by rewrite
 //                 magnitude, relations scored against the thread — the payload the draft
 //                 and the prompt now render, not just report
-export const assembleBrief = (doc, { question = '', history = [], max = 24 } = {}) => {
+//
+// `surf` (optional): the reading the CALLER already did (the turn's fold-stage surf). When given
+// it is reused verbatim instead of re-surfing the document from scratch. The default path below
+// runs surfFold with ADAPTIVE reach — readingAt at every unit, O(S) — which on a large document
+// (a big source, or several fetched pages folded into one) runs for tens of seconds; assembleBrief's
+// one caller invokes it after the answer is already produced, purely to reconstruct the audit brief,
+// so that cost lands as a post-answer hang the turn cannot make progress through. Reusing the surf
+// the turn ALREADY computed makes this diagnostic effectively free AND more faithful — it shows what
+// was actually read, not a second, idealized whole-document re-reading.
+export const assembleBrief = (doc, { question = '', history = [], max = 24, surf = null } = {}) => {
   const thread = threadBasis({ query: question, history, doc });
   const hasThread = thread.terms.size > 0 || thread.figures.size > 0;
 
-  // Two reading paths, one selector contract. An EOT document is a clean, curated graph with no
-  // prose surprise field, so its salience IS the link channel run over the log (eotSalience).
-  // A parsed-prose document has the surfer's bayes field, so it rides the adaptive surf
-  // conditioned by the same thread. Both yield a salient stop set + a focus.
+  // Three ways to a salient stop set + focus, one selector contract. An EOT document is a clean,
+  // curated graph with no prose surprise field, so its salience IS the link channel run over the
+  // log (eotSalience). Otherwise, if the caller handed in the reading it already did, reuse it;
+  // failing that, ride the adaptive surf (bounded on a large document — see the cap above).
   let stops; let focus; let recCursors = []; let surfRead = null;
   if (doc.eot) {
     const sel = eotSalience(doc, thread);
     stops = sel.stops; focus = sel.focus;
+  } else if (surf && Array.isArray(surf.stops)) {
+    surfRead = surf;
+    stops = new Set(surf.stops); focus = surf.focus ?? null; recCursors = surf.recCursors || [];
   } else {
-    surfRead = surfFold(doc, 0, hasThread ? { reach: 'adaptive', thread } : { reach: 'adaptive' });
+    const S = (doc.units || doc.sentences || []).length;
+    const reach = S <= ADAPTIVE_SURF_MAX_UNITS
+      ? (hasThread ? { reach: 'adaptive', thread } : { reach: 'adaptive' })  // small doc: as much as it needs
+      : (hasThread ? { thread } : {});                                       // large doc: the bounded window, never O(S)
+    surfRead = surfFold(doc, 0, reach);
     stops = new Set(surfRead.stops); focus = surfRead.focus; recCursors = surfRead.recCursors;
   }
   const only = stops.size ? stops : null;
