@@ -1,0 +1,289 @@
+pair_id,frame_id,frame_type,frame_probe,lang,lang_name,family,script,neg_strategy,affirmative,negative,neg_exponent,confidence
+F01-en,F01,copular_adjectival,predicate adjective negation,en,English,IE/Germanic,Latn,particle+do-support,The door is open.,The door is not open.,not,A
+F01-es,F01,copular_adjectival,predicate adjective negation,es,Spanish,IE/Romance,Latn,preverbal particle,La puerta está abierta.,La puerta no está abierta.,no,A
+F01-fr,F01,copular_adjectival,predicate adjective negation,fr,French,IE/Romance,Latn,bipartite ne...pas,La porte est ouverte.,La porte n'est pas ouverte.,ne...pas,A
+F01-pt,F01,copular_adjectival,predicate adjective negation,pt,Portuguese,IE/Romance,Latn,preverbal particle,A porta está aberta.,A porta não está aberta.,não,A
+F01-de,F01,copular_adjectival,predicate adjective negation,de,German,IE/Germanic,Latn,particle + kein,Die Tür ist offen.,Die Tür ist nicht offen.,nicht,A
+F01-ru,F01,copular_adjectival,predicate adjective negation,ru,Russian,IE/Slavic,Cyrl,particle + net,Дверь открыта.,Дверь не открыта.,не,A
+F01-pl,F01,copular_adjectival,predicate adjective negation,pl,Polish,IE/Slavic,Latn,particle nie,Drzwi są otwarte.,Drzwi nie są otwarte.,nie,B
+F01-el,F01,copular_adjectival,predicate adjective negation,el,Greek,IE/Hellenic,Grek,den / min,Η πόρτα είναι ανοιχτή.,Η πόρτα δεν είναι ανοιχτή.,δεν,B
+F01-hi,F01,copular_adjectival,predicate adjective negation,hi,Hindi,IE/Indo-Aryan,Deva,nahin / mat / na,दरवाज़ा खुला है।,दरवाज़ा खुला नहीं है।,नहीं,B
+F01-fa,F01,copular_adjectival,predicate adjective negation,fa,Persian,IE/Iranian,Arab,verbal prefix na-,در باز است.,در باز نیست.,نیست,B
+F01-ar,F01,copular_adjectival,predicate adjective negation,ar,Arabic MSA,Afro-Asiatic,Arab,la/ma/lam/lan/laysa,الباب مفتوح.,الباب ليس مفتوحًا.,ليس,B
+F01-he,F01,copular_adjectival,predicate adjective negation,he,Hebrew,Afro-Asiatic,Hebr,lo / ein / al,הדלת פתוחה.,הדלת לא פתוחה.,לא,B
+F01-tr,F01,copular_adjectival,predicate adjective negation,tr,Turkish,Turkic,Latn,suffix -mA-,Kapı açık.,Kapı açık değil.,değil,B
+F01-fi,F01,copular_adjectival,predicate adjective negation,fi,Finnish,Uralic,Latn,negative auxiliary verb,Ovi on auki.,Ovi ei ole auki.,ei,B
+F01-hu,F01,copular_adjectival,predicate adjective negation,hu,Hungarian,Uralic,Latn,nem / ne,Az ajtó nyitva van.,Az ajtó nincs nyitva.,nincs,B
+F01-zh,F01,copular_adjectival,predicate adjective negation,zh,Mandarin,Sino-Tibetan,Hans,bu / mei(you),门开着。,门没开着。,没,B
+F01-ja,F01,copular_adjectival,predicate adjective negation,ja,Japanese,Japonic,Jpan,suffix -nai,ドアは開いている。,ドアは開いていない。,-ない,B
+F01-ko,F01,copular_adjectival,predicate adjective negation,ko,Korean,Koreanic,Kore,an- / -ji anh- / mot,문이 열려 있다.,문이 열려 있지 않다.,-지 않다,B
+F01-vi,F01,copular_adjectival,predicate adjective negation,vi,Vietnamese,Austroasiatic,Latn,khong,Cửa đang mở.,Cửa không mở.,không,C
+F01-id,F01,copular_adjectival,predicate adjective negation,id,Indonesian,Austronesian,Latn,tidak / bukan,Pintu itu terbuka.,Pintu itu tidak terbuka.,tidak,B
+F01-sw,F01,copular_adjectival,predicate adjective negation,sw,Swahili,Niger-Congo,Latn,negative verb morphology,Mlango uko wazi.,Mlango hauko wazi.,hau-,C
+F01-ta,F01,copular_adjectival,predicate adjective negation,ta,Tamil,Dravidian,Taml,illai / alla,கதவு திறந்திருக்கிறது.,கதவு திறந்திருக்கவில்லை.,இல்லை,C
+F01-ga,F01,copular_adjectival,predicate adjective negation,ga,Irish,IE/Celtic,Latn,ni / nil / nior / na,Tá an doras oscailte.,Níl an doras oscailte.,níl,C
+F01-ka,F01,copular_adjectival,predicate adjective negation,ka,Georgian,Kartvelian,Geor,ar / ver / nu,კარი ღიაა.,კარი ღია არ არის.,არ,C
+F02-en,F02,existential,negative existential,en,English,IE/Germanic,Latn,particle+do-support,There is water in the glass.,There is no water in the glass.,no,A
+F02-es,F02,existential,negative existential,es,Spanish,IE/Romance,Latn,preverbal particle,Hay agua en el vaso.,No hay agua en el vaso.,no,A
+F02-fr,F02,existential,negative existential,fr,French,IE/Romance,Latn,bipartite ne...pas,Il y a de l'eau dans le verre.,Il n'y a pas d'eau dans le verre.,ne...pas + de,A
+F02-pt,F02,existential,negative existential,pt,Portuguese,IE/Romance,Latn,preverbal particle,Há água no copo.,Não há água no copo.,não,A
+F02-de,F02,existential,negative existential,de,German,IE/Germanic,Latn,particle + kein,Es ist Wasser im Glas.,Es ist kein Wasser im Glas.,kein,A
+F02-ru,F02,existential,negative existential,ru,Russian,IE/Slavic,Cyrl,particle + net,В стакане есть вода.,В стакане нет воды.,нет + GEN,A
+F02-pl,F02,existential,negative existential,pl,Polish,IE/Slavic,Latn,particle nie,W szklance jest woda.,W szklance nie ma wody.,nie ma + GEN,B
+F02-el,F02,existential,negative existential,el,Greek,IE/Hellenic,Grek,den / min,Υπάρχει νερό στο ποτήρι.,Δεν υπάρχει νερό στο ποτήρι.,δεν,B
+F02-hi,F02,existential,negative existential,hi,Hindi,IE/Indo-Aryan,Deva,nahin / mat / na,गिलास में पानी है।,गिलास में पानी नहीं है।,नहीं,B
+F02-fa,F02,existential,negative existential,fa,Persian,IE/Iranian,Arab,verbal prefix na-,در لیوان آب هست.,در لیوان آب نیست.,نیست,B
+F02-ar,F02,existential,negative existential,ar,Arabic MSA,Afro-Asiatic,Arab,la/ma/lam/lan/laysa,هناك ماء في الكوب.,لا يوجد ماء في الكوب.,لا يوجد,B
+F02-he,F02,existential,negative existential,he,Hebrew,Afro-Asiatic,Hebr,lo / ein / al,יש מים בכוס.,אין מים בכוס.,אין,B
+F02-tr,F02,existential,negative existential,tr,Turkish,Turkic,Latn,suffix -mA-,Bardakta su var.,Bardakta su yok.,yok,B
+F02-fi,F02,existential,negative existential,fi,Finnish,Uralic,Latn,negative auxiliary verb,Lasissa on vettä.,Lasissa ei ole vettä.,ei,B
+F02-hu,F02,existential,negative existential,hu,Hungarian,Uralic,Latn,nem / ne,Van víz a pohárban.,Nincs víz a pohárban.,nincs,B
+F02-zh,F02,existential,negative existential,zh,Mandarin,Sino-Tibetan,Hans,bu / mei(you),杯子里有水。,杯子里没有水。,没有,B
+F02-ja,F02,existential,negative existential,ja,Japanese,Japonic,Jpan,suffix -nai,コップに水がある。,コップに水がない。,ない,B
+F02-ko,F02,existential,negative existential,ko,Korean,Koreanic,Kore,an- / -ji anh- / mot,컵에 물이 있다.,컵에 물이 없다.,없다,B
+F02-vi,F02,existential,negative existential,vi,Vietnamese,Austroasiatic,Latn,khong,Trong cốc có nước.,Trong cốc không có nước.,không có,C
+F02-id,F02,existential,negative existential,id,Indonesian,Austronesian,Latn,tidak / bukan,Ada air di gelas.,Tidak ada air di gelas.,tidak ada,B
+F02-sw,F02,existential,negative existential,sw,Swahili,Niger-Congo,Latn,negative verb morphology,Kuna maji kwenye glasi.,Hakuna maji kwenye glasi.,hakuna,C
+F02-ta,F02,existential,negative existential,ta,Tamil,Dravidian,Taml,illai / alla,கண்ணாடியில் தண்ணீர் இருக்கிறது.,கண்ணாடியில் தண்ணீர் இல்லை.,இல்லை,C
+F02-ga,F02,existential,negative existential,ga,Irish,IE/Celtic,Latn,ni / nil / nior / na,Tá uisce sa ghloine.,Níl uisce sa ghloine.,níl,C
+F02-ka,F02,existential,negative existential,ka,Georgian,Kartvelian,Geor,ar / ver / nu,ჭიქაში წყალია.,ჭიქაში წყალი არ არის.,არ,C
+F03-en,F03,possessive,have-negation,en,English,IE/Germanic,Latn,particle+do-support,I have a key.,I do not have a key.,not,A
+F03-es,F03,possessive,have-negation,es,Spanish,IE/Romance,Latn,preverbal particle,Tengo una llave.,No tengo llave.,no,A
+F03-fr,F03,possessive,have-negation,fr,French,IE/Romance,Latn,bipartite ne...pas,J'ai une clé.,Je n'ai pas de clé.,ne...pas + de,A
+F03-pt,F03,possessive,have-negation,pt,Portuguese,IE/Romance,Latn,preverbal particle,Tenho uma chave.,Não tenho chave.,não,A
+F03-de,F03,possessive,have-negation,de,German,IE/Germanic,Latn,particle + kein,Ich habe einen Schlüssel.,Ich habe keinen Schlüssel.,kein,A
+F03-ru,F03,possessive,have-negation,ru,Russian,IE/Slavic,Cyrl,particle + net,У меня есть ключ.,У меня нет ключа.,нет + GEN,A
+F03-pl,F03,possessive,have-negation,pl,Polish,IE/Slavic,Latn,particle nie,Mam klucz.,Nie mam klucza.,nie + GEN,B
+F03-el,F03,possessive,have-negation,el,Greek,IE/Hellenic,Grek,den / min,Έχω ένα κλειδί.,Δεν έχω κλειδί.,δεν,B
+F03-hi,F03,possessive,have-negation,hi,Hindi,IE/Indo-Aryan,Deva,nahin / mat / na,मेरे पास एक चाबी है।,मेरे पास चाबी नहीं है।,नहीं,B
+F03-fa,F03,possessive,have-negation,fa,Persian,IE/Iranian,Arab,verbal prefix na-,من یک کلید دارم.,من کلید ندارم.,ن-,B
+F03-ar,F03,possessive,have-negation,ar,Arabic MSA,Afro-Asiatic,Arab,la/ma/lam/lan/laysa,عندي مفتاح.,ليس عندي مفتاح.,ليس,B
+F03-he,F03,possessive,have-negation,he,Hebrew,Afro-Asiatic,Hebr,lo / ein / al,יש לי מפתח.,אין לי מפתח.,אין,B
+F03-tr,F03,possessive,have-negation,tr,Turkish,Turkic,Latn,suffix -mA-,Bir anahtarım var.,Anahtarım yok.,yok,B
+F03-fi,F03,possessive,have-negation,fi,Finnish,Uralic,Latn,negative auxiliary verb,Minulla on avain.,Minulla ei ole avainta.,ei,B
+F03-hu,F03,possessive,have-negation,hu,Hungarian,Uralic,Latn,nem / ne,Van kulcsom.,Nincs kulcsom.,nincs,B
+F03-zh,F03,possessive,have-negation,zh,Mandarin,Sino-Tibetan,Hans,bu / mei(you),我有一把钥匙。,我没有钥匙。,没有,B
+F03-ja,F03,possessive,have-negation,ja,Japanese,Japonic,Jpan,suffix -nai,鍵を持っている。,鍵を持っていない。,-ない,B
+F03-ko,F03,possessive,have-negation,ko,Korean,Koreanic,Kore,an- / -ji anh- / mot,나는 열쇠가 있다.,나는 열쇠가 없다.,없다,B
+F03-vi,F03,possessive,have-negation,vi,Vietnamese,Austroasiatic,Latn,khong,Tôi có một chiếc chìa khóa.,Tôi không có chìa khóa.,không,C
+F03-id,F03,possessive,have-negation,id,Indonesian,Austronesian,Latn,tidak / bukan,Saya punya kunci.,Saya tidak punya kunci.,tidak,B
+F03-sw,F03,possessive,have-negation,sw,Swahili,Niger-Congo,Latn,negative verb morphology,Nina ufunguo.,Sina ufunguo.,si-,C
+F03-ta,F03,possessive,have-negation,ta,Tamil,Dravidian,Taml,illai / alla,என்னிடம் சாவி இருக்கிறது.,என்னிடம் சாவி இல்லை.,இல்லை,C
+F03-ga,F03,possessive,have-negation,ga,Irish,IE/Celtic,Latn,ni / nil / nior / na,Tá eochair agam.,Níl eochair agam.,níl,C
+F03-ka,F03,possessive,have-negation,ka,Georgian,Kartvelian,Geor,ar / ver / nu,მე მაქვს გასაღები.,მე არ მაქვს გასაღები.,არ,C
+F04-en,F04,dynamic_habitual,"standard negation, imperfective",en,English,IE/Germanic,Latn,particle+do-support,She drinks coffee.,She does not drink coffee.,not (do-support),A
+F04-es,F04,dynamic_habitual,"standard negation, imperfective",es,Spanish,IE/Romance,Latn,preverbal particle,Ella bebe café.,Ella no bebe café.,no,A
+F04-fr,F04,dynamic_habitual,"standard negation, imperfective",fr,French,IE/Romance,Latn,bipartite ne...pas,Elle boit du café.,Elle ne boit pas de café.,ne...pas + de,A
+F04-pt,F04,dynamic_habitual,"standard negation, imperfective",pt,Portuguese,IE/Romance,Latn,preverbal particle,Ela bebe café.,Ela não bebe café.,não,A
+F04-de,F04,dynamic_habitual,"standard negation, imperfective",de,German,IE/Germanic,Latn,particle + kein,Sie trinkt Kaffee.,Sie trinkt keinen Kaffee.,kein,A
+F04-ru,F04,dynamic_habitual,"standard negation, imperfective",ru,Russian,IE/Slavic,Cyrl,particle + net,Она пьёт кофе.,Она не пьёт кофе.,не,A
+F04-pl,F04,dynamic_habitual,"standard negation, imperfective",pl,Polish,IE/Slavic,Latn,particle nie,Ona pije kawę.,Ona nie pije kawy.,nie + GEN,B
+F04-el,F04,dynamic_habitual,"standard negation, imperfective",el,Greek,IE/Hellenic,Grek,den / min,Πίνει καφέ.,Δεν πίνει καφέ.,δεν,B
+F04-hi,F04,dynamic_habitual,"standard negation, imperfective",hi,Hindi,IE/Indo-Aryan,Deva,nahin / mat / na,वह कॉफ़ी पीती है।,वह कॉफ़ी नहीं पीती।,नहीं,B
+F04-fa,F04,dynamic_habitual,"standard negation, imperfective",fa,Persian,IE/Iranian,Arab,verbal prefix na-,او قهوه می‌نوشد.,او قهوه نمی‌نوشد.,نمی-,B
+F04-ar,F04,dynamic_habitual,"standard negation, imperfective",ar,Arabic MSA,Afro-Asiatic,Arab,la/ma/lam/lan/laysa,هي تشرب القهوة.,هي لا تشرب القهوة.,لا,B
+F04-he,F04,dynamic_habitual,"standard negation, imperfective",he,Hebrew,Afro-Asiatic,Hebr,lo / ein / al,היא שותה קפה.,היא לא שותה קפה.,לא,B
+F04-tr,F04,dynamic_habitual,"standard negation, imperfective",tr,Turkish,Turkic,Latn,suffix -mA-,O kahve içer.,O kahve içmez.,-mez,B
+F04-fi,F04,dynamic_habitual,"standard negation, imperfective",fi,Finnish,Uralic,Latn,negative auxiliary verb,Hän juo kahvia.,Hän ei juo kahvia.,ei,B
+F04-hu,F04,dynamic_habitual,"standard negation, imperfective",hu,Hungarian,Uralic,Latn,nem / ne,Ő kávét iszik.,Ő nem iszik kávét.,nem,B
+F04-zh,F04,dynamic_habitual,"standard negation, imperfective",zh,Mandarin,Sino-Tibetan,Hans,bu / mei(you),她喝咖啡。,她不喝咖啡。,不,B
+F04-ja,F04,dynamic_habitual,"standard negation, imperfective",ja,Japanese,Japonic,Jpan,suffix -nai,彼女はコーヒーを飲む。,彼女はコーヒーを飲まない。,-ない,B
+F04-ko,F04,dynamic_habitual,"standard negation, imperfective",ko,Korean,Koreanic,Kore,an- / -ji anh- / mot,그녀는 커피를 마신다.,그녀는 커피를 마시지 않는다.,-지 않다,B
+F04-vi,F04,dynamic_habitual,"standard negation, imperfective",vi,Vietnamese,Austroasiatic,Latn,khong,Cô ấy uống cà phê.,Cô ấy không uống cà phê.,không,C
+F04-id,F04,dynamic_habitual,"standard negation, imperfective",id,Indonesian,Austronesian,Latn,tidak / bukan,Dia minum kopi.,Dia tidak minum kopi.,tidak,B
+F04-sw,F04,dynamic_habitual,"standard negation, imperfective",sw,Swahili,Niger-Congo,Latn,negative verb morphology,Anakunywa kahawa.,Hanywi kahawa.,ha- ... -i,C
+F04-ta,F04,dynamic_habitual,"standard negation, imperfective",ta,Tamil,Dravidian,Taml,illai / alla,அவள் காபி குடிக்கிறாள்.,அவள் காபி குடிப்பதில்லை.,-இல்லை,C
+F04-ga,F04,dynamic_habitual,"standard negation, imperfective",ga,Irish,IE/Celtic,Latn,ni / nil / nior / na,Ólann sí caife.,Ní ólann sí caife.,ní,C
+F04-ka,F04,dynamic_habitual,"standard negation, imperfective",ka,Georgian,Kartvelian,Geor,ar / ver / nu,ის ყავას სვამს.,ის ყავას არ სვამს.,არ,C
+F05-en,F05,past_perfective,"standard negation, perfective",en,English,IE/Germanic,Latn,particle+do-support,He arrived yesterday.,He did not arrive yesterday.,not (do-support),A
+F05-es,F05,past_perfective,"standard negation, perfective",es,Spanish,IE/Romance,Latn,preverbal particle,Llegó ayer.,No llegó ayer.,no,A
+F05-fr,F05,past_perfective,"standard negation, perfective",fr,French,IE/Romance,Latn,bipartite ne...pas,Il est arrivé hier.,Il n'est pas arrivé hier.,ne...pas,A
+F05-pt,F05,past_perfective,"standard negation, perfective",pt,Portuguese,IE/Romance,Latn,preverbal particle,Ele chegou ontem.,Ele não chegou ontem.,não,A
+F05-de,F05,past_perfective,"standard negation, perfective",de,German,IE/Germanic,Latn,particle + kein,Er ist gestern angekommen.,Er ist gestern nicht angekommen.,nicht,A
+F05-ru,F05,past_perfective,"standard negation, perfective",ru,Russian,IE/Slavic,Cyrl,particle + net,Он приехал вчера.,Он не приехал вчера.,не,A
+F05-pl,F05,past_perfective,"standard negation, perfective",pl,Polish,IE/Slavic,Latn,particle nie,Przyjechał wczoraj.,Nie przyjechał wczoraj.,nie,B
+F05-el,F05,past_perfective,"standard negation, perfective",el,Greek,IE/Hellenic,Grek,den / min,Έφτασε χθες.,Δεν έφτασε χθες.,δεν,B
+F05-hi,F05,past_perfective,"standard negation, perfective",hi,Hindi,IE/Indo-Aryan,Deva,nahin / mat / na,वह कल आया।,वह कल नहीं आया।,नहीं,B
+F05-fa,F05,past_perfective,"standard negation, perfective",fa,Persian,IE/Iranian,Arab,verbal prefix na-,او دیروز رسید.,او دیروز نرسید.,ن-,B
+F05-ar,F05,past_perfective,"standard negation, perfective",ar,Arabic MSA,Afro-Asiatic,Arab,la/ma/lam/lan/laysa,وصل أمس.,لم يصل أمس.,لم + jussive,B
+F05-he,F05,past_perfective,"standard negation, perfective",he,Hebrew,Afro-Asiatic,Hebr,lo / ein / al,הוא הגיע אתמול.,הוא לא הגיע אתמול.,לא,B
+F05-tr,F05,past_perfective,"standard negation, perfective",tr,Turkish,Turkic,Latn,suffix -mA-,Dün geldi.,Dün gelmedi.,-me-,B
+F05-fi,F05,past_perfective,"standard negation, perfective",fi,Finnish,Uralic,Latn,negative auxiliary verb,Hän saapui eilen.,Hän ei saapunut eilen.,ei + past ptcp,B
+F05-hu,F05,past_perfective,"standard negation, perfective",hu,Hungarian,Uralic,Latn,nem / ne,Tegnap megérkezett.,Tegnap nem érkezett meg.,nem (+ preverb split),B
+F05-zh,F05,past_perfective,"standard negation, perfective",zh,Mandarin,Sino-Tibetan,Hans,bu / mei(you),他昨天到了。,他昨天没到。,没 (le drops),B
+F05-ja,F05,past_perfective,"standard negation, perfective",ja,Japanese,Japonic,Jpan,suffix -nai,彼は昨日着いた。,彼は昨日着かなかった。,-なかった,B
+F05-ko,F05,past_perfective,"standard negation, perfective",ko,Korean,Koreanic,Kore,an- / -ji anh- / mot,그는 어제 도착했다.,그는 어제 도착하지 않았다.,-지 않았다,B
+F05-vi,F05,past_perfective,"standard negation, perfective",vi,Vietnamese,Austroasiatic,Latn,khong,Anh ấy đã đến hôm qua.,Anh ấy đã không đến hôm qua.,không,C
+F05-id,F05,past_perfective,"standard negation, perfective",id,Indonesian,Austronesian,Latn,tidak / bukan,Dia tiba kemarin.,Dia tidak tiba kemarin.,tidak,B
+F05-sw,F05,past_perfective,"standard negation, perfective",sw,Swahili,Niger-Congo,Latn,negative verb morphology,Alifika jana.,Hakufika jana.,ha- + -ku-,C
+F05-ta,F05,past_perfective,"standard negation, perfective",ta,Tamil,Dravidian,Taml,illai / alla,அவன் நேற்று வந்தான்.,அவன் நேற்று வரவில்லை.,-வில்லை,C
+F05-ga,F05,past_perfective,"standard negation, perfective",ga,Irish,IE/Celtic,Latn,ni / nil / nior / na,Tháinig sé inné.,Níor tháinig sé inné.,níor (past),C
+F05-ka,F05,past_perfective,"standard negation, perfective",ka,Georgian,Kartvelian,Geor,ar / ver / nu,ის გუშინ ჩამოვიდა.,ის გუშინ არ ჩამოვიდა.,არ,C
+F06-en,F06,future,"standard negation, prospective",en,English,IE/Germanic,Latn,particle+do-support,They will come tomorrow.,They will not come tomorrow.,not,A
+F06-es,F06,future,"standard negation, prospective",es,Spanish,IE/Romance,Latn,preverbal particle,Vendrán mañana.,No vendrán mañana.,no,A
+F06-fr,F06,future,"standard negation, prospective",fr,French,IE/Romance,Latn,bipartite ne...pas,Ils viendront demain.,Ils ne viendront pas demain.,ne...pas,A
+F06-pt,F06,future,"standard negation, prospective",pt,Portuguese,IE/Romance,Latn,preverbal particle,Eles virão amanhã.,Eles não virão amanhã.,não,A
+F06-de,F06,future,"standard negation, prospective",de,German,IE/Germanic,Latn,particle + kein,Sie werden morgen kommen.,Sie werden morgen nicht kommen.,nicht,A
+F06-ru,F06,future,"standard negation, prospective",ru,Russian,IE/Slavic,Cyrl,particle + net,Они придут завтра.,Они не придут завтра.,не,A
+F06-pl,F06,future,"standard negation, prospective",pl,Polish,IE/Slavic,Latn,particle nie,Przyjdą jutro.,Nie przyjdą jutro.,nie,B
+F06-el,F06,future,"standard negation, prospective",el,Greek,IE/Hellenic,Grek,den / min,Θα έρθουν αύριο.,Δεν θα έρθουν αύριο.,δεν,B
+F06-hi,F06,future,"standard negation, prospective",hi,Hindi,IE/Indo-Aryan,Deva,nahin / mat / na,वे कल आएंगे।,वे कल नहीं आएंगे।,नहीं,B
+F06-fa,F06,future,"standard negation, prospective",fa,Persian,IE/Iranian,Arab,verbal prefix na-,آنها فردا می‌آیند.,آنها فردا نمی‌آیند.,نمی-,B
+F06-ar,F06,future,"standard negation, prospective",ar,Arabic MSA,Afro-Asiatic,Arab,la/ma/lam/lan/laysa,سيأتون غدًا.,لن يأتوا غدًا.,لن + subjunctive,B
+F06-he,F06,future,"standard negation, prospective",he,Hebrew,Afro-Asiatic,Hebr,lo / ein / al,הם יבואו מחר.,הם לא יבואו מחר.,לא,B
+F06-tr,F06,future,"standard negation, prospective",tr,Turkish,Turkic,Latn,suffix -mA-,Yarın gelecekler.,Yarın gelmeyecekler.,-me-,B
+F06-fi,F06,future,"standard negation, prospective",fi,Finnish,Uralic,Latn,negative auxiliary verb,He tulevat huomenna.,He eivät tule huomenna.,eivät (3PL),B
+F06-hu,F06,future,"standard negation, prospective",hu,Hungarian,Uralic,Latn,nem / ne,Holnap jönnek.,Holnap nem jönnek.,nem,B
+F06-zh,F06,future,"standard negation, prospective",zh,Mandarin,Sino-Tibetan,Hans,bu / mei(you),他们明天来。,他们明天不来。,不,B
+F06-ja,F06,future,"standard negation, prospective",ja,Japanese,Japonic,Jpan,suffix -nai,彼らは明日来る。,彼らは明日来ない。,-ない,B
+F06-ko,F06,future,"standard negation, prospective",ko,Korean,Koreanic,Kore,an- / -ji anh- / mot,그들은 내일 온다.,그들은 내일 오지 않는다.,-지 않다,B
+F06-vi,F06,future,"standard negation, prospective",vi,Vietnamese,Austroasiatic,Latn,khong,Họ sẽ đến vào ngày mai.,Họ sẽ không đến vào ngày mai.,không,C
+F06-id,F06,future,"standard negation, prospective",id,Indonesian,Austronesian,Latn,tidak / bukan,Mereka akan datang besok.,Mereka tidak akan datang besok.,tidak,B
+F06-sw,F06,future,"standard negation, prospective",sw,Swahili,Niger-Congo,Latn,negative verb morphology,Watakuja kesho.,Hawatakuja kesho.,hawa- + -ta-,C
+F06-ta,F06,future,"standard negation, prospective",ta,Tamil,Dravidian,Taml,illai / alla,அவர்கள் நாளை வருவார்கள்.,அவர்கள் நாளை வரமாட்டார்கள்.,-மாட்ட-,C
+F06-ga,F06,future,"standard negation, prospective",ga,Irish,IE/Celtic,Latn,ni / nil / nior / na,Tiocfaidh siad amárach.,Ní thiocfaidh siad amárach.,ní + lenition,C
+F06-ka,F06,future,"standard negation, prospective",ka,Georgian,Kartvelian,Geor,ar / ver / nu,ისინი ხვალ მოვლენ.,ისინი ხვალ არ მოვლენ.,არ,C
+F07-en,F07,nominal_predicate,negation of an NP predicate,en,English,IE/Germanic,Latn,particle+do-support,This is a book.,This is not a book.,not,A
+F07-es,F07,nominal_predicate,negation of an NP predicate,es,Spanish,IE/Romance,Latn,preverbal particle,Esto es un libro.,Esto no es un libro.,no,A
+F07-fr,F07,nominal_predicate,negation of an NP predicate,fr,French,IE/Romance,Latn,bipartite ne...pas,Ceci est un livre.,Ceci n'est pas un livre.,ne...pas,A
+F07-pt,F07,nominal_predicate,negation of an NP predicate,pt,Portuguese,IE/Romance,Latn,preverbal particle,Isto é um livro.,Isto não é um livro.,não,A
+F07-de,F07,nominal_predicate,negation of an NP predicate,de,German,IE/Germanic,Latn,particle + kein,Das ist ein Buch.,Das ist kein Buch.,kein,A
+F07-ru,F07,nominal_predicate,negation of an NP predicate,ru,Russian,IE/Slavic,Cyrl,particle + net,Это книга.,Это не книга.,не,A
+F07-pl,F07,nominal_predicate,negation of an NP predicate,pl,Polish,IE/Slavic,Latn,particle nie,To jest książka.,To nie jest książka.,nie,B
+F07-el,F07,nominal_predicate,negation of an NP predicate,el,Greek,IE/Hellenic,Grek,den / min,Αυτό είναι ένα βιβλίο.,Αυτό δεν είναι βιβλίο.,δεν,B
+F07-hi,F07,nominal_predicate,negation of an NP predicate,hi,Hindi,IE/Indo-Aryan,Deva,nahin / mat / na,यह एक किताब है।,यह किताब नहीं है।,नहीं,B
+F07-fa,F07,nominal_predicate,negation of an NP predicate,fa,Persian,IE/Iranian,Arab,verbal prefix na-,این یک کتاب است.,این کتاب نیست.,نیست,B
+F07-ar,F07,nominal_predicate,negation of an NP predicate,ar,Arabic MSA,Afro-Asiatic,Arab,la/ma/lam/lan/laysa,هذا كتاب.,ليس هذا كتابًا.,ليس (neg. copula),B
+F07-he,F07,nominal_predicate,negation of an NP predicate,he,Hebrew,Afro-Asiatic,Hebr,lo / ein / al,זה ספר.,זה לא ספר.,לא,B
+F07-tr,F07,nominal_predicate,negation of an NP predicate,tr,Turkish,Turkic,Latn,suffix -mA-,Bu bir kitap.,Bu bir kitap değil.,değil (nominal only),B
+F07-fi,F07,nominal_predicate,negation of an NP predicate,fi,Finnish,Uralic,Latn,negative auxiliary verb,Tämä on kirja.,Tämä ei ole kirja.,ei,B
+F07-hu,F07,nominal_predicate,negation of an NP predicate,hu,Hungarian,Uralic,Latn,nem / ne,Ez egy könyv.,Ez nem könyv.,nem,B
+F07-zh,F07,nominal_predicate,negation of an NP predicate,zh,Mandarin,Sino-Tibetan,Hans,bu / mei(you),这是一本书。,这不是一本书。,不是 (never 没是),B
+F07-ja,F07,nominal_predicate,negation of an NP predicate,ja,Japanese,Japonic,Jpan,suffix -nai,これは本だ。,これは本ではない。,ではない,B
+F07-ko,F07,nominal_predicate,negation of an NP predicate,ko,Korean,Koreanic,Kore,an- / -ji anh- / mot,이것은 책이다.,이것은 책이 아니다.,아니다 (suppletive),B
+F07-vi,F07,nominal_predicate,negation of an NP predicate,vi,Vietnamese,Austroasiatic,Latn,khong,Đây là một quyển sách.,Đây không phải là một quyển sách.,không phải,C
+F07-id,F07,nominal_predicate,negation of an NP predicate,id,Indonesian,Austronesian,Latn,tidak / bukan,Ini buku.,Ini bukan buku.,bukan (never tidak),B
+F07-sw,F07,nominal_predicate,negation of an NP predicate,sw,Swahili,Niger-Congo,Latn,negative verb morphology,Hiki ni kitabu.,Hiki si kitabu.,si (neg. copula),C
+F07-ta,F07,nominal_predicate,negation of an NP predicate,ta,Tamil,Dravidian,Taml,illai / alla,இது ஒரு புத்தகம்.,இது புத்தகம் அல்ல.,அல்ல (never இல்லை),C
+F07-ga,F07,nominal_predicate,negation of an NP predicate,ga,Irish,IE/Celtic,Latn,ni / nil / nior / na,Is leabhar é seo.,Ní leabhar é seo.,ní (copula),C
+F07-ka,F07,nominal_predicate,negation of an NP predicate,ka,Georgian,Kartvelian,Geor,ar / ver / nu,ეს წიგნია.,ეს წიგნი არ არის.,არ,C
+F08-en,F08,ability,negated potential,en,English,IE/Germanic,Latn,particle+do-support,I can swim.,I cannot swim.,not,A
+F08-es,F08,ability,negated potential,es,Spanish,IE/Romance,Latn,preverbal particle,Sé nadar.,No sé nadar.,no,A
+F08-fr,F08,ability,negated potential,fr,French,IE/Romance,Latn,bipartite ne...pas,Je sais nager.,Je ne sais pas nager.,ne...pas,A
+F08-pt,F08,ability,negated potential,pt,Portuguese,IE/Romance,Latn,preverbal particle,Sei nadar.,Não sei nadar.,não,A
+F08-de,F08,ability,negated potential,de,German,IE/Germanic,Latn,particle + kein,Ich kann schwimmen.,Ich kann nicht schwimmen.,nicht,A
+F08-ru,F08,ability,negated potential,ru,Russian,IE/Slavic,Cyrl,particle + net,Я умею плавать.,Я не умею плавать.,не,A
+F08-pl,F08,ability,negated potential,pl,Polish,IE/Slavic,Latn,particle nie,Umiem pływać.,Nie umiem pływać.,nie,B
+F08-el,F08,ability,negated potential,el,Greek,IE/Hellenic,Grek,den / min,Ξέρω να κολυμπάω.,Δεν ξέρω να κολυμπάω.,δεν,B
+F08-hi,F08,ability,negated potential,hi,Hindi,IE/Indo-Aryan,Deva,nahin / mat / na,मैं तैर सकता हूँ।,मैं तैर नहीं सकता।,नहीं,B
+F08-fa,F08,ability,negated potential,fa,Persian,IE/Iranian,Arab,verbal prefix na-,من می‌توانم شنا کنم.,من نمی‌توانم شنا کنم.,نمی-,B
+F08-ar,F08,ability,negated potential,ar,Arabic MSA,Afro-Asiatic,Arab,la/ma/lam/lan/laysa,أستطيع السباحة.,لا أستطيع السباحة.,لا,B
+F08-he,F08,ability,negated potential,he,Hebrew,Afro-Asiatic,Hebr,lo / ein / al,אני יודע לשחות.,אני לא יודע לשחות.,לא,B
+F08-tr,F08,ability,negated potential,tr,Turkish,Turkic,Latn,suffix -mA-,Yüzebilirim.,Yüzemem.,-eme- (impotential),B
+F08-fi,F08,ability,negated potential,fi,Finnish,Uralic,Latn,negative auxiliary verb,Osaan uida.,En osaa uida.,en (1SG),B
+F08-hu,F08,ability,negated potential,hu,Hungarian,Uralic,Latn,nem / ne,Tudok úszni.,Nem tudok úszni.,nem,B
+F08-zh,F08,ability,negated potential,zh,Mandarin,Sino-Tibetan,Hans,bu / mei(you),我会游泳。,我不会游泳。,不,B
+F08-ja,F08,ability,negated potential,ja,Japanese,Japonic,Jpan,suffix -nai,私は泳げる。,私は泳げない。,-ない,B
+F08-ko,F08,ability,negated potential,ko,Korean,Koreanic,Kore,an- / -ji anh- / mot,나는 수영할 수 있다.,나는 수영을 못 한다.,못 (inability),B
+F08-vi,F08,ability,negated potential,vi,Vietnamese,Austroasiatic,Latn,khong,Tôi biết bơi.,Tôi không biết bơi.,không,C
+F08-id,F08,ability,negated potential,id,Indonesian,Austronesian,Latn,tidak / bukan,Saya bisa berenang.,Saya tidak bisa berenang.,tidak,B
+F08-sw,F08,ability,negated potential,sw,Swahili,Niger-Congo,Latn,negative verb morphology,Ninaweza kuogelea.,Siwezi kuogelea.,si-,C
+F08-ta,F08,ability,negated potential,ta,Tamil,Dravidian,Taml,illai / alla,எனக்கு நீச்சல் தெரியும்.,எனக்கு நீச்சல் தெரியாது.,-ஆது,C
+F08-ga,F08,ability,negated potential,ga,Irish,IE/Celtic,Latn,ni / nil / nior / na,Tá snámh agam.,Níl snámh agam.,níl,C
+F08-ka,F08,ability,negated potential,ka,Georgian,Kartvelian,Geor,ar / ver / nu,მე შემიძლია ცურვა.,მე ვერ ვცურავ.,ვერ (inability),C
+F09-en,F09,prohibitive,negative imperative,en,English,IE/Germanic,Latn,particle+do-support,Open the window.,Do not open the window.,not,A
+F09-es,F09,prohibitive,negative imperative,es,Spanish,IE/Romance,Latn,preverbal particle,Abre la ventana.,No abras la ventana.,no + subjunctive,A
+F09-fr,F09,prohibitive,negative imperative,fr,French,IE/Romance,Latn,bipartite ne...pas,Ouvre la fenêtre.,N'ouvre pas la fenêtre.,ne...pas,A
+F09-pt,F09,prohibitive,negative imperative,pt,Portuguese,IE/Romance,Latn,preverbal particle,Abre a janela.,Não abras a janela.,não + subjunctive,A
+F09-de,F09,prohibitive,negative imperative,de,German,IE/Germanic,Latn,particle + kein,Öffne das Fenster.,Öffne das Fenster nicht.,nicht,A
+F09-ru,F09,prohibitive,negative imperative,ru,Russian,IE/Slavic,Cyrl,particle + net,Открой окно.,Не открывай окно.,не + imperfective,A
+F09-pl,F09,prohibitive,negative imperative,pl,Polish,IE/Slavic,Latn,particle nie,Otwórz okno.,Nie otwieraj okna.,nie + imperfective + GEN,B
+F09-el,F09,prohibitive,negative imperative,el,Greek,IE/Hellenic,Grek,den / min,Άνοιξε το παράθυρο.,Μην ανοίγεις το παράθυρο.,μην (not δεν),B
+F09-hi,F09,prohibitive,negative imperative,hi,Hindi,IE/Indo-Aryan,Deva,nahin / mat / na,खिड़की खोलो।,खिड़की मत खोलो।,मत (not नहीं),B
+F09-fa,F09,prohibitive,negative imperative,fa,Persian,IE/Iranian,Arab,verbal prefix na-,پنجره را باز کن.,پنجره را باز نکن.,ن-,B
+F09-ar,F09,prohibitive,negative imperative,ar,Arabic MSA,Afro-Asiatic,Arab,la/ma/lam/lan/laysa,افتح النافذة.,لا تفتح النافذة.,لا + jussive,B
+F09-he,F09,prohibitive,negative imperative,he,Hebrew,Afro-Asiatic,Hebr,lo / ein / al,פתח את החלון.,אל תפתח את החלון.,אל (not לא),B
+F09-tr,F09,prohibitive,negative imperative,tr,Turkish,Turkic,Latn,suffix -mA-,Pencereyi aç.,Pencereyi açma.,-ma,B
+F09-fi,F09,prohibitive,negative imperative,fi,Finnish,Uralic,Latn,negative auxiliary verb,Avaa ikkuna.,Älä avaa ikkunaa.,älä (neg. imperative verb),B
+F09-hu,F09,prohibitive,negative imperative,hu,Hungarian,Uralic,Latn,nem / ne,Nyisd ki az ablakot.,Ne nyisd ki az ablakot.,ne (not nem),B
+F09-zh,F09,prohibitive,negative imperative,zh,Mandarin,Sino-Tibetan,Hans,bu / mei(you),打开窗户。,别打开窗户。,别 (not 不),B
+F09-ja,F09,prohibitive,negative imperative,ja,Japanese,Japonic,Jpan,suffix -nai,窓を開けて。,窓を開けないで。,-ないで,B
+F09-ko,F09,prohibitive,negative imperative,ko,Korean,Koreanic,Kore,an- / -ji anh- / mot,창문을 열어라.,창문을 열지 마라.,-지 마라,B
+F09-vi,F09,prohibitive,negative imperative,vi,Vietnamese,Austroasiatic,Latn,khong,Hãy mở cửa sổ.,Đừng mở cửa sổ.,đừng (not không),C
+F09-id,F09,prohibitive,negative imperative,id,Indonesian,Austronesian,Latn,tidak / bukan,Buka jendelanya.,Jangan buka jendelanya.,jangan (not tidak),B
+F09-sw,F09,prohibitive,negative imperative,sw,Swahili,Niger-Congo,Latn,negative verb morphology,Fungua dirisha.,Usifungue dirisha.,u-si-,C
+F09-ta,F09,prohibitive,negative imperative,ta,Tamil,Dravidian,Taml,illai / alla,ஜன்னலைத் திற.,ஜன்னலைத் திறக்காதே.,-ஆதே,C
+F09-ga,F09,prohibitive,negative imperative,ga,Irish,IE/Celtic,Latn,ni / nil / nior / na,Oscail an fhuinneog.,Ná hoscail an fhuinneog.,ná (not ní),C
+F09-ka,F09,prohibitive,negative imperative,ka,Georgian,Kartvelian,Geor,ar / ver / nu,გააღე ფანჯარა.,ნუ გააღებ ფანჯარას.,ნუ (not არ),C
+F10-en,F10,negative_indefinite_subj,n-word in subject position,en,English,IE/Germanic,Latn,particle+do-support,Someone is in the room.,No one is in the room.,no one,A
+F10-es,F10,negative_indefinite_subj,n-word in subject position,es,Spanish,IE/Romance,Latn,preverbal particle,Alguien está en la habitación.,No hay nadie en la habitación.,no...nadie (concord),A
+F10-fr,F10,negative_indefinite_subj,n-word in subject position,fr,French,IE/Romance,Latn,bipartite ne...pas,Quelqu'un est dans la pièce.,Il n'y a personne dans la pièce.,ne...personne,A
+F10-pt,F10,negative_indefinite_subj,n-word in subject position,pt,Portuguese,IE/Romance,Latn,preverbal particle,Alguém está na sala.,Não está ninguém na sala.,não...ninguém,A
+F10-de,F10,negative_indefinite_subj,n-word in subject position,de,German,IE/Germanic,Latn,particle + kein,Jemand ist im Zimmer.,Niemand ist im Zimmer.,niemand (no concord),A
+F10-ru,F10,negative_indefinite_subj,n-word in subject position,ru,Russian,IE/Slavic,Cyrl,particle + net,Кто-то в комнате.,В комнате никого нет.,никого + нет (concord),A
+F10-pl,F10,negative_indefinite_subj,n-word in subject position,pl,Polish,IE/Slavic,Latn,particle nie,Ktoś jest w pokoju.,Nikogo nie ma w pokoju.,nikogo nie (concord),B
+F10-el,F10,negative_indefinite_subj,n-word in subject position,el,Greek,IE/Hellenic,Grek,den / min,Κάποιος είναι στο δωμάτιο.,Δεν είναι κανείς στο δωμάτιο.,δεν...κανείς,B
+F10-hi,F10,negative_indefinite_subj,n-word in subject position,hi,Hindi,IE/Indo-Aryan,Deva,nahin / mat / na,कमरे में कोई है।,कमरे में कोई नहीं है।,कोई नहीं,B
+F10-fa,F10,negative_indefinite_subj,n-word in subject position,fa,Persian,IE/Iranian,Arab,verbal prefix na-,کسی در اتاق است.,کسی در اتاق نیست.,کسی...نیست,B
+F10-ar,F10,negative_indefinite_subj,n-word in subject position,ar,Arabic MSA,Afro-Asiatic,Arab,la/ma/lam/lan/laysa,هناك أحد في الغرفة.,لا أحد في الغرفة.,لا أحد,B
+F10-he,F10,negative_indefinite_subj,n-word in subject position,he,Hebrew,Afro-Asiatic,Hebr,lo / ein / al,מישהו נמצא בחדר.,אף אחד לא נמצא בחדר.,אף אחד לא (concord),B
+F10-tr,F10,negative_indefinite_subj,n-word in subject position,tr,Turkish,Turkic,Latn,suffix -mA-,Odada biri var.,Odada kimse yok.,kimse yok,B
+F10-fi,F10,negative_indefinite_subj,n-word in subject position,fi,Finnish,Uralic,Latn,negative auxiliary verb,Huoneessa on joku.,Huoneessa ei ole ketään.,ei...ketään,B
+F10-hu,F10,negative_indefinite_subj,n-word in subject position,hu,Hungarian,Uralic,Latn,nem / ne,Van valaki a szobában.,Nincs senki a szobában.,nincs senki (concord),B
+F10-zh,F10,negative_indefinite_subj,n-word in subject position,zh,Mandarin,Sino-Tibetan,Hans,bu / mei(you),房间里有人。,房间里没有人。,没有人,B
+F10-ja,F10,negative_indefinite_subj,n-word in subject position,ja,Japanese,Japonic,Jpan,suffix -nai,部屋に誰かいる。,部屋に誰もいない。,誰も...ない,B
+F10-ko,F10,negative_indefinite_subj,n-word in subject position,ko,Korean,Koreanic,Kore,an- / -ji anh- / mot,방에 누군가 있다.,방에 아무도 없다.,아무도 없다,B
+F10-vi,F10,negative_indefinite_subj,n-word in subject position,vi,Vietnamese,Austroasiatic,Latn,khong,Có ai đó trong phòng.,Không có ai trong phòng.,không có ai,C
+F10-id,F10,negative_indefinite_subj,n-word in subject position,id,Indonesian,Austronesian,Latn,tidak / bukan,Ada seseorang di kamar.,Tidak ada siapa pun di kamar.,tidak ada siapa pun,B
+F10-sw,F10,negative_indefinite_subj,n-word in subject position,sw,Swahili,Niger-Congo,Latn,negative verb morphology,Kuna mtu chumbani.,Hakuna mtu chumbani.,hakuna,C
+F10-ta,F10,negative_indefinite_subj,n-word in subject position,ta,Tamil,Dravidian,Taml,illai / alla,அறையில் யாரோ இருக்கிறார்கள்.,அறையில் யாரும் இல்லை.,யாரும் இல்லை,C
+F10-ga,F10,negative_indefinite_subj,n-word in subject position,ga,Irish,IE/Celtic,Latn,ni / nil / nior / na,Tá duine éigin sa seomra.,Níl aon duine sa seomra.,níl aon,C
+F10-ka,F10,negative_indefinite_subj,n-word in subject position,ka,Georgian,Kartvelian,Geor,ar / ver / nu,ოთახში ვიღაც არის.,ოთახში არავინ არის.,არავინ,C
+F11-en,F11,not_yet,aspectual negation,en,English,IE/Germanic,Latn,particle+do-support,He has already eaten.,He has not eaten yet.,not...yet,A
+F11-es,F11,not_yet,aspectual negation,es,Spanish,IE/Romance,Latn,preverbal particle,Ya ha comido.,Todavía no ha comido.,todavía no,A
+F11-fr,F11,not_yet,aspectual negation,fr,French,IE/Romance,Latn,bipartite ne...pas,Il a déjà mangé.,Il n'a pas encore mangé.,ne...pas encore,A
+F11-pt,F11,not_yet,aspectual negation,pt,Portuguese,IE/Romance,Latn,preverbal particle,Ele já comeu.,Ele ainda não comeu.,ainda não,A
+F11-de,F11,not_yet,aspectual negation,de,German,IE/Germanic,Latn,particle + kein,Er hat schon gegessen.,Er hat noch nicht gegessen.,noch nicht,A
+F11-ru,F11,not_yet,aspectual negation,ru,Russian,IE/Slavic,Cyrl,particle + net,Он уже поел.,Он ещё не поел.,ещё не,A
+F11-pl,F11,not_yet,aspectual negation,pl,Polish,IE/Slavic,Latn,particle nie,On już zjadł.,On jeszcze nie zjadł.,jeszcze nie,B
+F11-el,F11,not_yet,aspectual negation,el,Greek,IE/Hellenic,Grek,den / min,Έχει ήδη φάει.,Δεν έχει φάει ακόμα.,δεν...ακόμα,B
+F11-hi,F11,not_yet,aspectual negation,hi,Hindi,IE/Indo-Aryan,Deva,nahin / mat / na,वह खा चुका है।,उसने अभी तक नहीं खाया।,अभी तक नहीं,B
+F11-fa,F11,not_yet,aspectual negation,fa,Persian,IE/Iranian,Arab,verbal prefix na-,او قبلاً غذا خورده است.,او هنوز غذا نخورده است.,هنوز ن-,B
+F11-ar,F11,not_yet,aspectual negation,ar,Arabic MSA,Afro-Asiatic,Arab,la/ma/lam/lan/laysa,لقد أكل بالفعل.,لم يأكل بعد.,لم...بعد,B
+F11-he,F11,not_yet,aspectual negation,he,Hebrew,Afro-Asiatic,Hebr,lo / ein / al,הוא כבר אכל.,הוא עדיין לא אכל.,עדיין לא,B
+F11-tr,F11,not_yet,aspectual negation,tr,Turkish,Turkic,Latn,suffix -mA-,Zaten yedi.,Henüz yemedi.,henüz -me-,B
+F11-fi,F11,not_yet,aspectual negation,fi,Finnish,Uralic,Latn,negative auxiliary verb,Hän on jo syönyt.,Hän ei ole vielä syönyt.,ei...vielä,B
+F11-hu,F11,not_yet,aspectual negation,hu,Hungarian,Uralic,Latn,nem / ne,Már evett.,Még nem evett.,még nem,B
+F11-zh,F11,not_yet,aspectual negation,zh,Mandarin,Sino-Tibetan,Hans,bu / mei(you),他已经吃了。,他还没吃。,还没 (never 还不),B
+F11-ja,F11,not_yet,aspectual negation,ja,Japanese,Japonic,Jpan,suffix -nai,彼はもう食べた。,彼はまだ食べていない。,まだ...ていない,B
+F11-ko,F11,not_yet,aspectual negation,ko,Korean,Koreanic,Kore,an- / -ji anh- / mot,그는 이미 먹었다.,그는 아직 먹지 않았다.,아직...않다,B
+F11-vi,F11,not_yet,aspectual negation,vi,Vietnamese,Austroasiatic,Latn,khong,Anh ấy đã ăn rồi.,Anh ấy chưa ăn.,chưa (LEXICALLY ≠ không),C
+F11-id,F11,not_yet,aspectual negation,id,Indonesian,Austronesian,Latn,tidak / bukan,Dia sudah makan.,Dia belum makan.,belum (LEXICALLY ≠ tidak),B
+F11-sw,F11,not_yet,aspectual negation,sw,Swahili,Niger-Congo,Latn,negative verb morphology,Amekwisha kula.,Bado hajala.,ha- + -ja- (not-yet tense),C
+F11-ta,F11,not_yet,aspectual negation,ta,Tamil,Dravidian,Taml,illai / alla,அவன் ஏற்கனவே சாப்பிட்டான்.,அவன் இன்னும் சாப்பிடவில்லை.,இன்னும்...இல்லை,C
+F11-ga,F11,not_yet,aspectual negation,ga,Irish,IE/Celtic,Latn,ni / nil / nior / na,Tá sé tar éis ithe cheana.,Níl sé tar éis ithe fós.,níl...fós,C
+F11-ka,F11,not_yet,aspectual negation,ka,Georgian,Kartvelian,Geor,ar / ver / nu,მან უკვე ჭამა.,მას ჯერ არ უჭამია.,ჯერ არ,C
+F12-en,F12,negative_indefinite_obj,n-word in object position,en,English,IE/Germanic,Latn,particle+do-support,I saw something.,I saw nothing.,nothing,A
+F12-es,F12,negative_indefinite_obj,n-word in object position,es,Spanish,IE/Romance,Latn,preverbal particle,Vi algo.,No vi nada.,no...nada (concord),A
+F12-fr,F12,negative_indefinite_obj,n-word in object position,fr,French,IE/Romance,Latn,bipartite ne...pas,J'ai vu quelque chose.,Je n'ai rien vu.,ne...rien,A
+F12-pt,F12,negative_indefinite_obj,n-word in object position,pt,Portuguese,IE/Romance,Latn,preverbal particle,Vi alguma coisa.,Não vi nada.,não...nada,A
+F12-de,F12,negative_indefinite_obj,n-word in object position,de,German,IE/Germanic,Latn,particle + kein,Ich habe etwas gesehen.,Ich habe nichts gesehen.,nichts,A
+F12-ru,F12,negative_indefinite_obj,n-word in object position,ru,Russian,IE/Slavic,Cyrl,particle + net,Я что-то видел.,Я ничего не видел.,ничего не (concord + GEN),A
+F12-pl,F12,negative_indefinite_obj,n-word in object position,pl,Polish,IE/Slavic,Latn,particle nie,Widziałem coś.,Nie widziałem niczego.,nie...niczego,B
+F12-el,F12,negative_indefinite_obj,n-word in object position,el,Greek,IE/Hellenic,Grek,den / min,Είδα κάτι.,Δεν είδα τίποτα.,δεν...τίποτα,B
+F12-hi,F12,negative_indefinite_obj,n-word in object position,hi,Hindi,IE/Indo-Aryan,Deva,nahin / mat / na,मैंने कुछ देखा।,मैंने कुछ नहीं देखा।,कुछ नहीं,B
+F12-fa,F12,negative_indefinite_obj,n-word in object position,fa,Persian,IE/Iranian,Arab,verbal prefix na-,من چیزی دیدم.,من چیزی ندیدم.,چیزی ن-,B
+F12-ar,F12,negative_indefinite_obj,n-word in object position,ar,Arabic MSA,Afro-Asiatic,Arab,la/ma/lam/lan/laysa,رأيت شيئًا.,لم أر شيئًا.,لم...شيئًا,B
+F12-he,F12,negative_indefinite_obj,n-word in object position,he,Hebrew,Afro-Asiatic,Hebr,lo / ein / al,ראיתי משהו.,לא ראיתי כלום.,לא...כלום,B
+F12-tr,F12,negative_indefinite_obj,n-word in object position,tr,Turkish,Turkic,Latn,suffix -mA-,Bir şey gördüm.,Hiçbir şey görmedim.,hiçbir şey -me-,B
+F12-fi,F12,negative_indefinite_obj,n-word in object position,fi,Finnish,Uralic,Latn,negative auxiliary verb,Näin jotain.,En nähnyt mitään.,en...mitään,B
+F12-hu,F12,negative_indefinite_obj,n-word in object position,hu,Hungarian,Uralic,Latn,nem / ne,Láttam valamit.,Nem láttam semmit.,nem...semmit (concord),B
+F12-zh,F12,negative_indefinite_obj,n-word in object position,zh,Mandarin,Sino-Tibetan,Hans,bu / mei(you),我看到了什么。,我什么也没看到。,什么也没,B
+F12-ja,F12,negative_indefinite_obj,n-word in object position,ja,Japanese,Japonic,Jpan,suffix -nai,何かを見た。,何も見なかった。,何も...なかった,B
+F12-ko,F12,negative_indefinite_obj,n-word in object position,ko,Korean,Koreanic,Kore,an- / -ji anh- / mot,나는 무언가를 보았다.,나는 아무것도 보지 못했다.,아무것도...못,B
+F12-vi,F12,negative_indefinite_obj,n-word in object position,vi,Vietnamese,Austroasiatic,Latn,khong,Tôi đã thấy một cái gì đó.,Tôi không thấy gì cả.,không...gì cả,C
+F12-id,F12,negative_indefinite_obj,n-word in object position,id,Indonesian,Austronesian,Latn,tidak / bukan,Saya melihat sesuatu.,Saya tidak melihat apa pun.,tidak...apa pun,B
+F12-sw,F12,negative_indefinite_obj,n-word in object position,sw,Swahili,Niger-Congo,Latn,negative verb morphology,Niliona kitu.,Sikuona kitu chochote.,si- + -ku-,C
+F12-ta,F12,negative_indefinite_obj,n-word in object position,ta,Tamil,Dravidian,Taml,illai / alla,நான் எதையோ பார்த்தேன்.,நான் எதுவும் பார்க்கவில்லை.,எதுவும்...இல்லை,C
+F12-ga,F12,negative_indefinite_obj,n-word in object position,ga,Irish,IE/Celtic,Latn,ni / nil / nior / na,Chonaic mé rud éigin.,Ní fhaca mé aon rud.,ní (suppletive fhaca),C
+F12-ka,F12,negative_indefinite_obj,n-word in object position,ka,Georgian,Kartvelian,Geor,ar / ver / nu,მე რაღაც ვნახე.,მე არაფერი ვნახე.,არაფერი,C

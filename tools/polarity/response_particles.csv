@@ -1,0 +1,51 @@
+lang,yes,no,contradict_negative,answer_system,note
+en,yes,no,(yes),polarity,'Yes' would confusingly affirm; English speakers hedge
+es,sí,no,sí,polarity,sí can contradict a negative
+fr,oui,non,si,3-form/polarity,si is the dedicated contradiction particle
+it,sì,no,sì,polarity,
+pt,sim,não,—,echo/polarity,preferred answer echoes the verb: 'Vais?' -> 'Vou.'
+ca,sí,no,sí,polarity,
+ro,da,nu,ba da,3-form/polarity,ba da contradicts
+de,ja,nein,doch,3-form/polarity,doch is the dedicated contradiction particle
+nl,ja,nee,jawel,3-form/polarity,
+sv,ja,nej,jo,3-form/polarity,
+no,ja,nei,jo,3-form/polarity,
+da,ja,nej,jo,3-form/polarity,
+is,já,nei,jú,3-form/polarity,
+ru,да,нет,нет,polarity/mixed,"'Да, не курю' is idiomatic: da can precede a negative"
+pl,tak,nie,—,polarity,
+cs,ano,ne,—,polarity,
+uk,так,ні,—,polarity,
+el,ναι,όχι,—,polarity,
+hi,हाँ,नहीं,—,polarity/mixed,
+bn,হ্যাঁ,না,—,polarity,
+fa,بله,نه,چرا,3-form/polarity,"چرا (cherā) = 'yes, on the contrary'"
+ar,نعم,لا,بلى,3-form/polarity,بلى (balā) contradicts a negative question
+he,כן,לא,—,polarity,
+tr,evet,hayır,—,polarity,
+fi,kyllä,ei,kyllä,echo/polarity,ei is a CONJUGATED VERB; natural answer echoes the verb
+et,jah,ei,—,echo/polarity,
+hu,igen,nem,de igen,3-form/polarity,'de igen' contradicts
+zh,是/对/嗯,不/不是,—,echo,no general yes-word; you repeat the verb: 去 / 不去
+yue,係,唔係,—,echo,
+ja,はい,いいえ,いいえ,TRUTH-BASED,"'You don't smoke?' -> はい = 'correct, I don't'"
+ko,네,아니요,아니요,TRUTH-BASED,"네 confirms the questioner, including a negative one"
+vi,vâng/dạ,không,—,truth/echo,không is also the yes-no question particle
+th,ใช่,ไม่,—,echo,polite particles carry most of the work; verb echo is normal
+id,ya,tidak/bukan,—,polarity,negative answer must match predicate type
+tl,oo,hindi,—,polarity,wala = 'none/there isn't'
+sw,ndiyo,hapana,—,polarity,
+yo,bẹ́ẹ̀ni,bẹ́ẹ̀kọ́,—,polarity,
+am,አዎ,አይደለም,—,polarity,
+ta,ஆமாம்,இல்லை,—,echo/polarity,illai doubles as the negative existential
+te,అవును,కాదు,—,polarity,
+ga,—,—,—,ECHO ONLY,Irish has NO word for yes or no. 'An bhfuil?' -> 'Tá.' / 'Níl.'
+cy,ie,nage,—,ECHO ONLY,ie/nage are marginal; you answer 'Ydw' / 'Nac ydw'
+gd,—,—,—,ECHO ONLY,
+la,ita/sic,minime/non,—,ECHO ONLY,classical Latin answers by repeating the verb
+eu,bai,ez,—,polarity,
+ka,დიახ/ki,არა,—,polarity,
+hy,այո,ոչ,—,polarity,
+sq,po,jo,—,polarity,
+mt,iva,le,—,polarity,
+mi,āe,kāo,—,polarity,

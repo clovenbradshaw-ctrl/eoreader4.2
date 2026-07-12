@@ -111,7 +111,7 @@ const STAGE_SPEC = Object.freeze({
   absence:    { faculty: 'enactor', connector: ' · ', note: 'the void reaching the voice',
                 spec: [{ op: 'NUL', terrain: 'Void', stance: 'Clearing' },
                        { op: 'DEF', terrain: 'Void', stance: 'Clearing' }] },
-  validate:   { faculty: 'enactor', connector: ' · ', note: 'does this sound right?',
+  validate:   { faculty: 'enactor', connector: ' · ', note: 'the reaction, Born-measured',
                 spec: [{ op: 'EVA', terrain: 'Lens', stance: 'Dissecting' }] },
   settle:     { faculty: 'enactor', connector: ' · ', note: 'commit',
                 spec: [{ op: 'DEF', terrain: 'Lens', stance: 'Making' }] },

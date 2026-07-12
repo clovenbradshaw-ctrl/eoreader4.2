@@ -236,10 +236,10 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
   // on, the surf's own dynamics — the focus's trajectory segmented at the RECs, turns
   // weighted by rewrite magnitude — ride into the talker's window as a plain-language arc
   // block, so the answer voices the turn as a turn. Off by default → byte-identical.
-  // `validate` arms the model-prompt validation stage (turn/stages.js `validate`): on a
-  // grounded answer turn whose draft earned no witness AND the mechanical read already
-  // doubts, the reader is asked whether its own draft follows from the lines, and a clear
-  // "no" replaces it with an honest absence. Off by default → byte-identical.
+  // `validate` arms the reaction-weighing stage (turn/stages.js `validate`): on a grounded
+  // answer turn whose draft earned no witness AND the mechanical read already doubts, the
+  // reader is asked to REACT to its own draft, the reaction is put through the Born rule, and
+  // a negative reaction sends the draft back (regenerate). Off by default → byte-identical.
   const ctx0      = { question, doc: groundingDoc, sourceDocs, model, embedder, geometricEmbedder, classifier, adjacency, centroids, history, grounding, stream, onToken, alpha, mindSpans, inquire, horizon, cast, reread, witnessSource, shapeLibrary, groundGraph, broadcastArc, now, lensPort, voicePref, signal, maxTokens, longform, validate };
 
   // The answer is FORMED at `bind` and only ANNOTATED after it (factcheck, revise,
@@ -587,15 +587,19 @@ const summarize = (name, ctx, ms) => {
                               // the active witness-seek, when it ran: which figures it read the
                               // source on, and whether the source confirmed the interpretation
                               ...(ctx.witnessSought ? { witness: ctx.witnessSought } : {}) };
-    // The model-prompt validation ("does this sound right?"): whether it ran, the reader's
-    // verdict on its own draft (supported / unsupported / unclear), whether that gated the
-    // draft to an honest absence, and the reason it gave. Absent (base only) when the stage
-    // no-oped — the flag was off, the draft had a witness, or the grounding was not in doubt.
-    case 'validate': return ctx.validation ? { ...base,
+    // The reader's Born-measured reaction to its own draft: whether it ran, the reaction's
+    // sign (positive → forward, negative → back), the Born mass off the "good answer" frame,
+    // whether the negative reaction sent the draft BACK (a regenerate) or, if it could not
+    // answer again, HELD it for the honest absence. Absent (base only) when the stage no-oped
+    // — the flag was off, the draft had a witness, or the grounding was not in doubt.
+    case 'validate': return ctx.assessment ? { ...base,
                               ran: true,
-                              verdict: ctx.validation.verdict,
-                              gated: ctx.voidSpoken === true && ctx.validation.verdict === 'unsupported',
-                              reason: String(ctx.validation.reason || '').slice(0, 200) } : base;
+                              positive: ctx.assessment.positive === true,
+                              rode: ctx.assessment.rode || null,          // 'embedding' (approval axis) or 'valence' (lexical)
+                              offMass: round3(ctx.assessment.offMass),
+                              ...(ctx.assessment.proj != null ? { proj: round3(ctx.assessment.proj) } : {}),   // approval-axis projection
+                              wentBack: ctx.wentBack === true,
+                              held: ctx.voidSpoken === true && ctx.assessment.positive === false } : base;
     // The session Horizon's reading after this turn folded in (surfing-next.md §4): how far
     // the accumulated ρ has left σ, the running ∫ surprise, and the turn's own surprise
     // against the prior memory. Present only when a Horizon was threaded; absent otherwise.

@@ -98,14 +98,16 @@ export const foldNarrative = (name, data = {}) => {
         ? { kind: 'warn', text: `Flagged ${plural(d.fired.length, 'unsupported claim')}` }
         : null;
     case 'validate':
-      // The model-prompt check ("does this sound right?") speaks only when it ran and could
-      // not support the draft — the reader read its own answer back against the lines. On a
-      // one-shot turn it holds the draft back (gated); while streaming the answer is already
-      // shown, so it rides flagged. A pass or a no-op is silent — a beat the reader needn't watch.
-      if (!d.ran || d.verdict !== 'unsupported') return null;
-      return { kind: 'warn', text: d.gated
-        ? 'Checked the draft against the lines — unsupported, so I held it back'
-        : "Checked the draft against the lines — couldn't support it" };
+      // The Born-measured reaction speaks only when it ran and weighed negative — the reader
+      // reacted to its own draft and the good frame did not hold. It either went BACK (a
+      // regenerate), was HELD for the honest absence, or, while streaming, rides flagged. A
+      // positive reaction or a no-op is silent — a beat the reader needn't watch.
+      if (!d.ran || d.positive) return null;
+      return { kind: 'warn', text: d.wentBack
+        ? 'Reacted to my own draft — negative, so I answered again'
+        : d.held
+          ? 'Reacted to my own draft — negative, so I held it back'
+          : "Reacted to my own draft — it didn't hold up" };
     default:
       return null;
   }
