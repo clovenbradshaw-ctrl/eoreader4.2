@@ -19,19 +19,12 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { parseText } from '../src/perceiver/parse/pipeline.js';
-import { buildMoveLog, MOVE_ALPHABET } from '../src/perceiver/predict/movelog.js';
 import { learnGrammar } from '../src/perceiver/predict/grammar.js';
+import { ENACTED_MASK, DEPICTED_ALPHABET, depictedMoves } from './lib/moves.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const EXEMPLARS_PATH = join(ROOT, 'data', 'exemplars.jsonl');
 const OUT_PATH = join(ROOT, 'data', 'shapes.json');
-
-// The enacted (cognition) ops — masked out at the move level, before the bigram fit, so
-// a judgment move never becomes a transition's context OR its target. The fitted
-// alphabet is the remainder: the ops a response's own DEPICTED content can emit.
-const ENACTED_MASK = new Set(['DEF', 'EVA', 'REC']);
-const DEPICTED_ALPHABET = MOVE_ALPHABET.filter((op) => !ENACTED_MASK.has(op));
 
 const parseExemplars = (text) => {
   const out = [];
@@ -44,13 +37,6 @@ const parseExemplars = (text) => {
     } catch { /* skip malformed line */ }
   }
   return out;
-};
-
-// response text -> the depicted-content move sequence (enacted register dropped).
-const depictedMoves = (text, docId) => {
-  const doc = parseText(text, { docId });
-  const { moves } = buildMoveLog(doc);
-  return moves.filter((m) => m.register === 'content' && !ENACTED_MASK.has(m.op));
 };
 
 const fitGrammar = (moveSeqs, alpha = 0.5) => learnGrammar(moveSeqs, DEPICTED_ALPHABET, { alpha });
