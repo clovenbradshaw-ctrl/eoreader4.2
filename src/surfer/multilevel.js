@@ -34,8 +34,9 @@ import { boundedNull } from '../core/index.js';
 // side of the source's salient anchor, clamped to the source. Bounds the readingAt cost on a
 // large source while still reading a generous neighbourhood of its most-relevant passage.
 const MAX_SOURCE_REACH = 40;
-const DEFAULT_PER_SOURCE_STOPS = 4;
-const DEFAULT_GLOBAL_STOPS = 8;   // buildSurfPath caps its walk at 12; stay comfortably under
+const DEFAULT_PER_SOURCE_STOPS = 3;   // few stops per source — the fold keeps only the best globally
+const DEFAULT_GLOBAL_STOPS = 6;       // HARD cap on the merged stop count (spans → the prompt)
+const MAX_KEPT_SOURCES = 5;           // surf at most this many of the most-relevant sources
 
 // sourceRanges(doc) → the contiguous [lo, hi] ranges the sources occupy on the shared axis,
 // each tagged with its docId. A non-composite doc is one source spanning the whole axis.
@@ -109,42 +110,45 @@ const mostSalientLocal = (sourceDoc, terms) => {
   return best;
 };
 
-// mergeSurfs — fold the per-source content reads back onto the COMPOSITE axis (each read's
-// local indices shifted by its source offset) into one surf-shaped object. Forced ground (the
-// original anchor, every source's frame-breaks and its own peak) is always kept; the remaining
-// stops are the most thread-relevant across ALL kept sources, capped. The peak and focus are
-// taken from the most-relevant source's read, so the eye sits in the source the question is
-// most about — never a neighbour source's warmth bleeding in (the isolated per-source read is
-// what prevents that).
+// mergeSurfs — FOLD the per-source reads (shifted onto the composite axis) into one small,
+// surf-shaped object. The reads are CONSOLIDATED, not concatenated: only the anchor and the
+// LEAD source's peak are forced ground; every other stop — other sources' peaks, frame-breaks,
+// content stops — competes on thread-relevance for the remaining budget, HARD-CAPPED at
+// globalStops. So a broad composite can never spam N sources × M stops into the reading; the
+// surf that becomes spans (and then the prompt) stays bounded. peak + focus come from the most-
+// relevant source's read (the isolated per-source read keeps a neighbour's warmth from bleeding
+// in), and only the frame-breaks / field entries that SURVIVE the fold are reported, so the
+// trajectory, turns, and audit column stay in step with the bounded reading.
 const mergeSurfs = (reads, { doc, anchor, terms, globalStops }) => {
   const toks = doc.tokensBySentence || [];
   const rel = (idx) => (terms ? bornSalience(terms, toks[idx]) : 0);
 
-  const fieldByIdx = new Map();
-  const recSet = new Set();
-  const recAxes = [];
-  const forced = new Set([anchor]);
-  const allStops = new Set();
-  for (const { sub, offset } of reads) {
-    for (const f of (sub.field || [])) { const idx = f.idx + offset; if (!fieldByIdx.has(idx)) fieldByIdx.set(idx, { ...f, idx }); }
-    for (const c of (sub.recCursors || [])) { recSet.add(c + offset); forced.add(c + offset); }
-    for (const ax of (sub.recAxes || [])) recAxes.push({ ...ax, cursor: ax.cursor + offset });
-    if (Number.isInteger(sub.peak)) forced.add(sub.peak + offset);
-    for (const s of (sub.stops || [])) allStops.add(s + offset);
-  }
-  const field = [...fieldByIdx.values()].sort((a, b) => a.idx - b.idx);
-  const recCursors = [...recSet].sort((a, b) => a - b);
-
-  // the most-relevant source drives peak + focus.
   const lead = reads.slice().sort((a, b) => (b.relevance - a.relevance) || (a.offset - b.offset))[0];
   const peak = Number.isInteger(lead?.sub?.peak) ? lead.sub.peak + lead.offset : anchor;
   const focus = lead?.sub?.focus ?? null;
 
-  // stops: forced first, then the most thread-relevant remaining stops across all sources.
-  const stops = new Set(forced);
-  const rest = [...allStops].filter((s) => !stops.has(s)).sort((x, y) => (rel(y) - rel(x)) || (x - y));
+  const fieldByIdx = new Map();
+  const recSet = new Set();
+  const recAxesByCursor = new Map();
+  const pool = new Set();
+  for (const { sub, offset } of reads) {
+    for (const f of (sub.field || [])) { const idx = f.idx + offset; if (!fieldByIdx.has(idx)) fieldByIdx.set(idx, { ...f, idx }); }
+    for (const c of (sub.recCursors || [])) { recSet.add(c + offset); pool.add(c + offset); }
+    for (const ax of (sub.recAxes || [])) recAxesByCursor.set(ax.cursor + offset, { ...ax, cursor: ax.cursor + offset });
+    if (Number.isInteger(sub.peak)) pool.add(sub.peak + offset);
+    for (const s of (sub.stops || [])) pool.add(s + offset);
+  }
+
+  // the fold: anchor + lead peak, then fill toward the cap by global thread-relevance. A salient
+  // frame-break earns a slot; a low-relevance one is folded away rather than spamming a span.
+  const stops = new Set([anchor, peak]);
+  const rest = [...pool].filter((s) => !stops.has(s)).sort((x, y) => (rel(y) - rel(x)) || (x - y));
   for (const s of rest) { if (stops.size >= globalStops) break; stops.add(s); }
   const stopList = [...stops].sort((a, b) => a - b);
+
+  const recCursors = stopList.filter((s) => recSet.has(s));
+  const recAxes = recCursors.map((c) => recAxesByCursor.get(c)).filter(Boolean);
+  const field = stopList.map((idx) => fieldByIdx.get(idx)).filter(Boolean);
 
   return { anchor, stops: stopList, peak, focus, field, recCursors, recAxes, rode: 'chorus-multilevel' };
 };
@@ -177,9 +181,21 @@ export const multiLevelSurf = (doc, anchor = 0, opts = {}) => {
   // Level 1 is a no-op: not a composite, or no thread to be relevant to. One chorus surf.
   if (!terms || !terms.size || ranges.length <= 1) return surfFold(doc, anchor, opts);
 
-  // LEVEL 1 — keep the relevant sources.
+  // LEVEL 1 — keep the relevant sources, then FOLD to at most MAX_KEPT_SOURCES of the most
+  // relevant (the anchor's source is always in). A broad composite (or an abstaining null that
+  // keeps everything) must not fan out into dozens of per-source reads — both a cost and a
+  // context bound. The dropped sources are the least thread-relevant, so nothing salient is lost.
   const { kept, relevance, anchorDoc } = keepSources(doc, thread, { alpha: opts.alpha ?? 0.05, anchor });
-  const keptRanges = ranges.filter((r) => kept.has(r.docId));
+  let keptRanges = ranges.filter((r) => kept.has(r.docId));
+  if (keptRanges.length > MAX_KEPT_SOURCES) {
+    const byRel = keptRanges.slice().sort((a, b) => (relevance.get(b.docId) ?? 0) - (relevance.get(a.docId) ?? 0));
+    const top = byRel.slice(0, MAX_KEPT_SOURCES);
+    if (!top.some((r) => r.docId === anchorDoc)) {
+      const anchorR = keptRanges.find((r) => r.docId === anchorDoc);
+      if (anchorR) top[top.length - 1] = anchorR;              // guarantee the anchor's source survives
+    }
+    keptRanges = ranges.filter((r) => top.includes(r));         // restore reading order
+  }
 
   // LEVEL 2 — the chorus content surf inside each kept source, on its ISOLATED standalone doc
   // (doc.origin(lo).doc) so its warmth/figure field is scoped to that source, then shifted back

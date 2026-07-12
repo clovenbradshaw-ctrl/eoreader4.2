@@ -113,3 +113,31 @@ test('multiLevelSurf peaks in the relevant source, not an off-topic neighbour', 
   // the focus is not the off-topic Twitter figure.
   assert.notEqual(String(ml.focus || '').toLowerCase(), 'jack dorsey');
 });
+
+// ── the FOLD: a broad composite is bounded, not spammed into the reading ─────────
+test('multiLevelSurf folds many sources into a bounded stop set', () => {
+  const rel = 'The best US presidents were Abraham Lincoln and George Washington. Historians rank these presidents highly. Franklin Roosevelt also ranks among the greatest presidents. Thomas Jefferson was an influential president.';
+  const off = (t) => t;
+  const mk = (id, t) => parseText(t, { docId: id });
+  const docs = [
+    mk('w-twitter', off('Twitter migrated from Ruby to Scala. Jack Dorsey built FlockDB. The JVM handled tweet volume. Finagle powers RPC.')),
+    mk('w-weather', off('A cold front swept the plains. Meteorologists warned of snow. The blizzard closed highways. Temperatures plunged.')),
+    mk('w-pres1', rel),
+    mk('w-cooking', off('The recipe needs flour and salt. Knead the dough smooth. Bake at high heat. Let it cool.')),
+    mk('w-pres2', 'Ranked surveys of US presidents place Lincoln first. Washington and Roosevelt follow. Historians debate the rest. Presidents are graded on leadership.'),
+    mk('w-sports', off('The striker scored a hat-trick. The keeper made a save. The stadium erupted. Fans celebrated.')),
+    mk('w-pres3', 'Presidents like Lincoln and Washington top historian rankings. Roosevelt is among the best presidents. Surveys agree on the top five.'),
+    mk('w-cars', off('The engine roared. The car cornered fast. The brakes held. The lap record fell.')),
+    mk('w-space', off('The rocket launched at dawn. The booster landed. The satellite deployed. Control cheered.')),
+  ];
+  const comp = createCompositeDoc(docs);
+  const thread = threadBasis({ query: QUERY, doc: comp });
+  const anchor = sourceRanges(comp).find(r => r.docId === 'w-pres1').lo;
+  const ml = multiLevelSurf(comp, anchor, { chorus: thread });
+  // the fold caps the merged stop set (DEFAULT_GLOBAL_STOPS = 6) no matter how many sources.
+  assert.ok(ml.stops.length <= 6, `stops folded to <= 6 (got ${ml.stops.length})`);
+  assert.equal(ml.field.length, ml.stops.length, 'field carries only the surviving stops');
+  // every surviving stop is from a presidents source — no off-topic span spams the reading.
+  const srcOf = (i) => comp.origin(i)?.docId;
+  for (const s of ml.stops) assert.match(String(srcOf(s)), /pres/, `stop ${s} is from a relevant source (${srcOf(s)})`);
+});

@@ -79,14 +79,14 @@ const weaveMemory = (messages, mindSpans) => {
 // real lens, the column still rides as a report (atmosphere + lenses) with the peak
 // unchanged. Degrades to {} on any embedding fault — a flaky meaning organ must never
 // crash the fold.
-// The CHORUS flag (surf-chorus / multi-level surf). Read once from the environment, the same
-// idiom as RULES_REV (speech/index.js:33): a bench or a script flips it (CHORUS_REV=1) without
-// touching code, and it defaults OFF so the fold's surf is byte-identical to today. ON, the
-// fold reads the document with the multi-level chorus surf (chorus.js / multilevel.js): the
-// arrest becomes discourse-aware (the activated thread conditions which spans stop) and, over a
-// composite of several sources, off-topic sources are dropped before their content is read.
+// The CHORUS flag (surf-chorus / multi-level surf). The fold reads the document with the multi-
+// level chorus surf (chorus.js / multilevel.js): the arrest is discourse-aware (the activated
+// thread conditions which spans stop) and, over a composite of several sources, off-topic sources
+// are dropped before their content is read, and the per-source reads are folded to a bounded stop
+// set so the reading never spams the prompt. ON by default; set CHORUS_REV=0/false/off to fall
+// back to the incumbent single-ride surf (the RULES_REV idiom, speech/index.js:33 — read once).
 export const CHORUS_REV =
-  (typeof process !== 'undefined' && process.env && /^(1|true|on)$/i.test(process.env.CHORUS_REV || '')) || false;
+  !(typeof process !== 'undefined' && process.env && /^(0|false|off)$/i.test(process.env.CHORUS_REV || ''));
 
 const significanceOpts = async (ctx, anchor) => {
   if (!ctx.doc) return {};
