@@ -726,8 +726,8 @@ const maybeAskDisambiguate = async ({ q, rootId, clarify, disambiguate, ask, emi
   const away = prior.collision ? ` (not ${prior.collision})` : '';
   const a = askUser({
     id: nextAskId(), frameId: rootId, trigger: 'disambiguate',
-    text: `“${q}” could mean more than one thing — I'm reading it as ${prior.sense}${away} and researching that. `
-        + `If you meant one of the others, tell me which and I'll refocus:`,
+    text: `“${q}” could mean more than one thing — I'm reading it as ${prior.sense}${away} and leaning that way. `
+        + `If you meant one of the others, pick it (or tell me exactly what to research) and I'll refocus:`,
     options: [prior.sense, ...alts], t: tick(),
   });
   emit(a);

@@ -12,7 +12,7 @@
 // (render.js) — every clause tethered to its span, pins, voids, the trace.
 // Both are projectReport(log) at a cursor; nothing here is a second state.
 
-import { createResearchSession } from './session.js';
+import { createResearchSession, pendingClarification, refocusQuery } from './session.js';
 import { liveView, describeEvent } from './live.js';
 import { renderReportFragment, renderTraceFragment, renderReportHTML, REPORT_CSS } from './render.js';
 import { modelDisambiguator } from '../../turn/disambiguate.js';
@@ -160,6 +160,23 @@ const SURFACE_CSS = `
 .drs-covnote{margin-top:8px;line-height:1.5}
 .drs-report-wrap{background:#fff;border:1px solid #e5e7eb;border-radius:11px;padding:14px 15px;margin-top:14px}
 .drs-mark{font-size:13px;font-weight:700;letter-spacing:.01em}
+/* — the disambiguation popup: an OFFER to refocus, never a block — */
+.drs-clarify{margin-top:12px;border:1px solid #d8ccf7;background:#faf8ff;border-radius:12px;padding:12px 13px;animation:drs-clarify-in .25s ease}
+@keyframes drs-clarify-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.drs-clarify-head{display:flex;align-items:flex-start;gap:8px}
+.drs-clarify-icon{flex:0 0 auto;font-size:14px;color:#5b34d6;line-height:1.3}
+.drs-clarify-text{font-size:12.5px;color:#2a2140;line-height:1.45;font-weight:600}
+.drs-clarify-x{margin-left:auto;flex:0 0 auto;border:none;background:none;color:#9aa1ab;cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
+.drs-clarify-x:hover{color:#5a626d}
+.drs-clarify-opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.drs-clarify-opt{font:inherit;font-size:12px;font-weight:600;color:#3730a3;background:#eef2ff;border:1px solid #c9d2fb;border-radius:99px;padding:5px 12px;cursor:pointer}
+.drs-clarify-opt:hover{background:#e0e7ff}
+.drs-clarify-opt.cur{color:#fff;background:#5b34d6;border-color:#5b34d6}
+.drs-clarify-or{margin-top:10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#9aa1ab}
+.drs-clarify-row{display:flex;gap:6px;margin-top:5px}
+.drs-clarify-in{flex:1;min-width:0;font:inherit;font-size:12px;border:1px solid #d7dbe2;border-radius:8px;padding:6px 9px}
+.drs-clarify-go{font:inherit;font-size:12px;font-weight:600;color:#fff;background:#5b34d6;border:1px solid #5b34d6;border-radius:8px;padding:6px 12px;cursor:pointer;flex:0 0 auto}
+.drs-clarify-go:hover{background:#4a29b8}
 ${REPORT_CSS}
 `;
 
@@ -311,9 +328,12 @@ export const mountResearchSurface = (el, opts = {}) => {
   });
 
   // The segmented controls (how much · how to look) and the Advanced disclosure.
-  // A blocking mid-run question card belongs in a conversation, not on a one-shot
-  // research page — so the run never parks on a modal here; the questions it
-  // raises surface READ-ONLY in the report's "what to check next" band.
+  // The run never PARKS on a modal — it does not stop and wait for an answer. The
+  // one question it may raise up front, "which sense of an ambiguous subject did
+  // you mean?", surfaces as a non-blocking OFFER card (syncClarify below): the
+  // research is already under way on the best guess, and the card just lets the
+  // user redirect it. Every other question it raises stays READ-ONLY in the
+  // report's "what to check next" band.
   const segValue = (group) => $(`.drs-seg[data-group="${group}"] button.on`)?.dataset.value;
   root.querySelectorAll('.drs-seg').forEach((seg) => seg.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
@@ -372,16 +392,16 @@ export const mountResearchSurface = (el, opts = {}) => {
   // Research button (re-asking stays one click away), so the live read owns the
   // panel's height instead of a tall setup form sitting above it.
   const enterRun = () => { const b = $('.drs-ask-box'); if (b) b.classList.add('running'); };
-  const unsubscribe = session.subscribe((log, event) => {
-    if (event) { enterRun(); $('.drs-live').style.display = ''; paintLive(log); }
-    else if (!session.running) { enterRun(); paintReport(); }
-  });
-  if (session.log.length) { enterRun(); $('.drs-live').style.display = ''; paintReport(); }
 
-  $('.drs-run').addEventListener('click', async () => {
-    if (session.running) return;
-    const q = $('.drs-q').value.trim();
-    if (!q) return showErr('A research question first.');
+  // ── One research run, from the panel OR from the clarification popup ─────────
+  // `clarify` is on for the user's typed question (so a homonym gets the offer) and
+  // OFF when the run IS the user resolving a homonym — they already chose, so the
+  // refocused run must not turn round and ask again.
+  // Safe to call while a run is in flight: session.research serializes, so a refocus
+  // chosen mid-run queues behind the best-guess run rather than racing it.
+  const startResearch = async (question, { clarify = true } = {}) => {
+    const q = String(question || '').trim();
+    if (!q) return;
     showErr('');
     const runBtn = $('.drs-run');
     runBtn.disabled = true; runBtn.textContent = 'Researching…';
@@ -402,6 +422,7 @@ export const mountResearchSurface = (el, opts = {}) => {
         // subject and surface ONE up-front clarification (driver.js maybeAskDisambiguate).
         // No model → null → the run never asks, exactly as before.
         disambiguate: opts.model?.phrase ? modelDisambiguator(opts.model, { question: q }) : null,
+        clarify,
         fetch: netFetch,
         now: () => Date.now(),
         alpha: parseFloat($('.drs-alpha').value) || 0.05,
@@ -411,6 +432,82 @@ export const mountResearchSurface = (el, opts = {}) => {
       showErr('Run failed: ' + (e?.message || e));
     }
     runBtn.disabled = false; runBtn.textContent = 'Research';
+  };
+
+  // ── The clarification popup — an offer to refocus, never a gate ──────────────
+  // When the run logs a "which sense did you mean?" ask (a homonym subject), pop a
+  // card with each sense as a button PLUS a free field to type exactly what to
+  // research. It never blocks: the research is already running on the best guess,
+  // and the card only redirects it. Picking the sense already chosen (the first,
+  // marked ✓) just dismisses; a different sense or typed text starts a focused
+  // re-run (clarify off, so it doesn't re-ask). Acted-on asks are remembered so
+  // the same card never re-pops.
+  const resolvedAsks = new Set();
+  let clarifyEl = null, clarifyAskId = null;
+  const hideClarify = () => { if (clarifyEl) clarifyEl.remove(); clarifyEl = null; clarifyAskId = null; };
+  const showClarify = (ask, question) => {
+    if (clarifyAskId === ask.id) return;              // already offering this one
+    hideClarify();
+    clarifyAskId = ask.id;
+    const options = ask.options || [];
+    const el = document.createElement('div');
+    el.className = 'drs-clarify';
+    el.innerHTML = `
+      <div class="drs-clarify-head">
+        <span class="drs-clarify-icon">◑</span>
+        <span class="drs-clarify-text">${esc(ask.text)}</span>
+        <button class="drs-clarify-x" title="Dismiss — keep going as is">✕</button>
+      </div>
+      <div class="drs-clarify-opts">
+        ${options.map((o, i) => `<button class="drs-clarify-opt${i === 0 ? ' cur' : ''}" data-i="${i}">${i === 0 ? '✓ ' : '⟳ '}${esc(o)}</button>`).join('')}
+      </div>
+      <div class="drs-clarify-or">…or tell me exactly what to research</div>
+      <div class="drs-clarify-row">
+        <input type="text" class="drs-clarify-in" placeholder="e.g. bottlenose dolphin social behaviour" />
+        <button class="drs-clarify-go">Research this</button>
+      </div>`;
+    const body = $('.drs-body');
+    body.insertBefore(el, body.firstChild);
+    clarifyEl = el;
+    // resolve(next) → mark this ask acted-on, close the card, and (if given) start a
+    // focused re-run. Called by every path: an option, the typed field, the ✕.
+    const resolve = (next) => {
+      resolvedAsks.add(ask.id);
+      hideClarify();
+      if (next) startResearch(next, { clarify: false });
+    };
+    el.querySelectorAll('.drs-clarify-opt').forEach((b) => b.addEventListener('click', () => {
+      const i = +b.dataset.i;
+      // The first option is the sense the run already chose — confirming it is a
+      // no-op; any other sense refocuses onto "<subject> <that sense>".
+      resolve(i === 0 ? null : refocusQuery(question, options[i]));
+    }));
+    const submit = () => { const v = el.querySelector('.drs-clarify-in').value.trim(); if (v) resolve(v); };
+    el.querySelector('.drs-clarify-go').addEventListener('click', submit);
+    el.querySelector('.drs-clarify-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    el.querySelector('.drs-clarify-x').addEventListener('click', () => resolve(null));
+  };
+  // syncClarify(log) → show the newest unanswered, un-resolved disambiguate ask, or
+  // hide the card if there is none. The "which card" decision is the pure
+  // pendingClarification fold (session.js); this only reflects it into the DOM.
+  const syncClarify = (log) => {
+    const pending = pendingClarification(log, resolvedAsks);
+    if (!pending) return hideClarify();
+    showClarify(pending.ask, pending.question);
+  };
+
+  const unsubscribe = session.subscribe((log, event) => {
+    if (event) { enterRun(); $('.drs-live').style.display = ''; paintLive(log); }
+    else if (!session.running) { enterRun(); paintReport(); }
+    syncClarify(log);
+  });
+  if (session.log.length) { enterRun(); $('.drs-live').style.display = ''; paintReport(); syncClarify(session.log); }
+
+  $('.drs-run').addEventListener('click', () => {
+    if (session.running) return;
+    const q = $('.drs-q').value.trim();
+    if (!q) return showErr('A research question first.');
+    startResearch(q);
   });
 
   const download = (name, content, type) => {

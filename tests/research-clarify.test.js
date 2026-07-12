@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { runGroundedResearch } from '../src/rooms/research/driver.js';
-import { createResearchSession, formatChatReply } from '../src/rooms/research/session.js';
+import { createResearchSession, formatChatReply, pendingClarification, refocusQuery } from '../src/rooms/research/session.js';
 
 // The deep-research driver opens with a PRELIMINARY clarification: when the subject
 // is a homonym — it binds to more than one entity — it surfaces ONE up-front ask so
@@ -106,6 +106,42 @@ test('does not gate: an injected ask is recorded but the findings are identical 
   // ...but the research is the same run either way: the grounded propositions match.
   const spans = (r) => r.report.propositions.map((p) => p.span.text).sort();
   assert.deepEqual(spans(answered), spans(unanswered), 'the reply never changes what was researched');
+});
+
+// ── The popup's projection (surface.js drives its non-blocking card off these) ──
+
+test('pendingClarification surfaces the newest unanswered, un-resolved disambiguate ask with its subject', async () => {
+  const { log } = await runGroundedResearch('dolphins', runOpts({ disambiguate: homonymDisambiguator }));
+  const pending = pendingClarification(log);
+  assert.ok(pending, 'a homonym run has a clarification to offer');
+  assert.equal(pending.ask.trigger, 'disambiguate');
+  assert.equal(pending.question, 'dolphins', 'it carries the subject the card refocuses from');
+  assert.deepEqual(pending.ask.options, ['marine mammal', 'NFL team']);
+});
+
+test('pendingClarification hides the card once the ask is answered or the user dismisses it', async () => {
+  const { log } = await runGroundedResearch('dolphins', runOpts({
+    disambiguate: homonymDisambiguator,
+    ask: async (ev) => (ev.trigger === 'disambiguate' ? 'marine mammal' : null),
+  }));
+  assert.equal(pendingClarification(log), null, 'an answered ask is no longer pending');
+
+  // And an un-answered ask the user dismissed in the UI (its id in `resolved`) is gone too.
+  const { log: log2 } = await runGroundedResearch('dolphins', runOpts({ disambiguate: homonymDisambiguator }));
+  const askId = log2.find((e) => e.kind === 'ask' && e.trigger === 'disambiguate').id;
+  assert.equal(pendingClarification(log2, new Set([askId])), null);
+  assert.ok(pendingClarification(log2), 'but it is pending until dismissed');
+});
+
+test('pendingClarification returns null when there was no clarification', async () => {
+  const { log } = await runGroundedResearch('dolphins', runOpts());   // offline, no disambiguator
+  assert.equal(pendingClarification(log), null);
+});
+
+test('refocusQuery sharpens the subject with the chosen sense', () => {
+  assert.equal(refocusQuery('dolphins', 'NFL team'), 'dolphins NFL team');
+  assert.equal(refocusQuery('mercury', 'the planet'), 'mercury the planet');
+  assert.equal(refocusQuery('dolphins', ''), 'dolphins');   // empty sense → subject unchanged
 });
 
 test('the chat reply lifts an unanswered clarification to the top as an offer to refocus', async () => {
