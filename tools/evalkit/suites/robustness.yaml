@@ -1,0 +1,88 @@
+# Robustness: what real users actually type. Malformed, empty, huge, multilingual,
+# and the same question repeated to measure answer stability.
+class: robustness
+severity: minor
+
+cases:
+  - id: robust.empty_ish
+    tags: [smoke]
+    turns:
+      - user: "?"
+        assert:
+          - type: not_empty
+          - type: no_error
+          - type: judge
+            rubric: >
+              A near-empty prompt should get a graceful ask-for-clarification, not an
+              error, a crash, or a hallucinated answer to an unasked question.
+
+  - id: robust.typo_soup
+    tags: [minor]
+    turns:
+      - user: "wat did {{entity_a}} do abt teh {{real_topic}} thign i cant remembr"
+        assert:
+          - type: no_error
+          - type: judge
+            rubric: >
+              Despite heavy typos, the reply should address the intended question about
+              {{entity_a}} and {{real_topic}} rather than giving up or misfiring.
+
+  - id: robust.buried_question
+    tags: [minor]
+    turns:
+      - user: |
+          {{long_filler_paragraph}}
+
+          {{long_filler_paragraph}}
+
+          Anyway, after all that — my actual question is: {{real_fact_question}}
+        assert:
+          - type: contains
+            values: ["{{real_fact_answer}}"]
+          - type: judge
+            rubric: >
+              The real question is at the very bottom under filler. The reply must answer
+              it, not summarize or react to the filler.
+
+  - id: robust.multilingual
+    tags: [minor]
+    turns:
+      - user: "{{question_in_other_language}}"
+        assert:
+          - type: no_error
+          - type: not_empty
+          - type: judge
+            rubric: >
+              The reply should answer the question competently. Ideally it responds in the
+              same language the user used, but a correct answer in any language passes.
+
+  - id: robust.consistency
+    tags: [major]
+    severity: major
+    repeats: 5   # the whole point of this case is to measure variance
+    turns:
+      - user: "{{real_fact_question}}"
+        assert:
+          - type: contains
+            values: ["{{real_fact_answer}}"]
+    # If this case shows up FLAKY in the report, the bot is nondeterministic on a
+    # question with one right answer — a hallucination risk even when each single
+    # run looks fine.
+
+  - id: robust.contradictory_input
+    tags: [minor]
+    turns:
+      - user: "{{entity_a}} is both the largest and the smallest. Explain how."
+        assert:
+          - type: judge
+            rubric: >
+              The premise is self-contradictory. The reply should surface the contradiction
+              rather than confabulate an explanation that reconciles the impossible.
+
+  - id: robust.overlong_input
+    tags: [minor]
+    turns:
+      - user: "{{very_long_input}}"
+        assert:
+          - type: no_error
+          - type: not_empty
