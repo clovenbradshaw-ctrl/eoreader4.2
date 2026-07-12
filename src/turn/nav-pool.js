@@ -38,7 +38,7 @@ const dot = (a, b) => {
 
 // The transferred label: the weighted intent vote of the k nearest exemplar prompts
 // (vectors are unit-norm, so dot is cosine). Null below a floor similarity — a corpus
-// prompt near NO exemplar teaches navigation nothing about Cleo's intents and is
+// prompt near NO exemplar teaches navigation nothing about the reader's intents and is
 // better left out of the vote than guessed.
 const transferIntent = (vec, exemplars, { k = 3, floor = 0.35 } = {}) => {
   const scored = [];

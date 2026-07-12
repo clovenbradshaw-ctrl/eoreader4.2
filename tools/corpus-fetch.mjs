@@ -1,7 +1,7 @@
 // Fetch samples of larger third-party corpora into data/corpus/raw/*.jsonl — a local,
 // regenerable pool for tools/nav-sample.mjs (navigation) and the background/negative
-// grammar fit (tools/shape-fit.mjs's --background mode). Nothing here is authored by
-// Cleo: it is a CONTRAST/NAVIGATION set, never a source for the per-intent shapes,
+// grammar fit (tools/shape-fit.mjs's --background mode). Nothing here is the reader's
+// own voice: it is a CONTRAST/NAVIGATION set, never a source for the per-intent shapes,
 // which stay sourced only from data/exemplars.jsonl.
 //
 // Sourced via the HuggingFace datasets-server `rows` API (JSON, paginated) rather than

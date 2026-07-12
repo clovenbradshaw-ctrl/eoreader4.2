@@ -4,8 +4,8 @@
 // response tagged by REGISTER — 'human-authored' (OASST2, Dolly15k: a person wrote it)
 // or 'assistant-synthetic' (HelpSteer2/3, Magpie-Pro: a model wrote it). The register
 // tag is what tools/shape-fit.mjs's background extension (--background) reads to fit
-// the chatbot-ese contrast grammar (s_yours − s_assistant) — never a source for Cleo's
-// own per-intent shapes, which stay data/exemplars.jsonl only.
+// the chatbot-ese contrast grammar (s_yours − s_assistant) — never a source for the
+// reader's own per-intent shapes, which stay data/exemplars.jsonl only.
 //
 // Output is ROUND-ROBIN INTERLEAVED across sources, not grouped, so a time-boxed runtime
 // embedder reading the file sequentially gets breadth across all five sources within the
