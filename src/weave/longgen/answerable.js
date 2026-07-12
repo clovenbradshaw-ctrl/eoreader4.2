@@ -44,7 +44,24 @@ export const classifyWantedType = (question = '') => {
     return 'procedure';
   if (/\b(compare|comparison|versus|\bvs\b|difference between|differ|better than|worse than|which is (better|worse))/.test(q))
     return 'comparison';
-  if (/^(what|whats|what's) (is|are|was|were)\b|\bdefine\b|\bdefinition of\b|\bmeaning of\b|what does .* mean/.test(q))
+  // A definition asks what a term MEANS — "what is a black hole", "define X", "what
+  // does X mean". It is NOT every "what is …" opener. "What is the capital OF France",
+  // "what is the population of Japan", "what is her name", "what is France's capital"
+  // each name a specific FACT of a specific thing, and the ground answers them with
+  // "…is Paris", not a dictionary "X is a …". Routing those attribute lookups to the
+  // strict definition test is exactly what refused "what is the capital of France?"
+  // against a page that plainly holds "…is Paris". So: explicit define/meaning markers
+  // are always a definition; a bare "what is <concept>" stays a definition; but a
+  // "what is … of …" or a possessive attribute falls through to the lenient `fact`,
+  // where the void/unbound vetoes still hold an invented answer. Leniency is the safe
+  // error here — the module's rule is that a false refusal is worse than a missed one.
+  if (/\bdefine\b|\bdefinition of\b|\bmeaning of\b|what does .* mean/.test(q))
+    return 'definition';
+  const attributeLookup =
+    /^(what|whats|what's)\s+(is|are|was|were)\b[^?]*\bof\b/.test(q)                      // "…the capital OF France"
+    || /^(what|whats|what's)\s+(is|are|was|were)\s+\w+['’]s\b/.test(q)                   // "…France's capital"
+    || /^(what|whats|what's)\s+(is|are|was|were)\s+(his|her|its|their|your|my|our)\b/.test(q); // "…her name"
+  if (/^(what|whats|what's) (is|are|was|were)\b/.test(q) && !attributeLookup)
     return 'definition';
   if (/\b(should\b|is it (good|bad|worth|right|wrong)|do you think|your opinion|evaluate|assess|is .* (better|worth it)|recommend)/.test(q))
     return 'judgment';
