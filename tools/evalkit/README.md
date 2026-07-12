@@ -99,11 +99,44 @@ subclassing `Target`.
   bot's behavior given its context; they don't audit the context. Keep your
   corpus curation separate.
 
+## The prompt-as-Site probes (config.probe.yaml)
+
+The battery doubles as the measurement harness for
+[docs/prompt-as-site.md](../../docs/prompt-as-site.md) Tier 2. The stock
+local-llm config feeds the model a hand-written static prompt
+(`prompts/local-bot.md`); `config.probe.yaml` instead routes through
+`targets/eo-prompt-shell.mjs`, which assembles the prompt with the ENGINE'S OWN
+band projection (`src/model/prompt.js` → `src/model/bands.js`) and applies the
+probe named in `EO_PROBE` — so a probe flips real bands, not a markdown
+stand-in. Only retrieval is a keyword-overlap stand-in, the same role the
+static prompt's pasted corpus plays.
+
+```bash
+# same local server as config.local-llm.yaml, then:
+python3 evalkit.py --config config.probe.yaml                # baseline
+EO_PROBE=p2 python3 evalkit.py --config config.probe.yaml    # Ground-row ablation
+EO_PROBE=p3 python3 evalkit.py --config config.probe.yaml    # grain-matched summary
+EO_PROBE=p4 python3 evalkit.py --config config.probe.yaml    # absence band first
+
+# offline, no model: see exactly what a probe changes in the assembled prompt
+echo '[{"role":"user","content":"When was the contract signed?"}]' \
+  | EO_PROBE=p4 EO_DRY=1 node targets/eo-prompt-shell.mjs
+```
+
+Run **P4 first** (baseline vs `EO_PROBE=p4`, diff `results/report.md`): it pits
+EO's helix ordering (the boundary precedes the bond and the synthesis, so the
+absence band leads) directly against the codebase's stated belief (a small
+model attends hardest at the end, so it rides last) on the grounding suite's
+false-reach cases. Each probe has a falsifier — see the doc — and a CPU run of
+the full battery takes on the order of hours; `--tag` a subset for iteration.
+
 ## Files
 
 ```
 config.yaml       target, judge, corpus, gates, and your vars
+config.probe.yaml the prompt-as-Site probe harness (real prompt assembly via shell target)
 targets.py        adapters (how the harness talks to the bot)
+targets/          eo-prompt-shell.mjs — the engine's band projection as a shell target
 assertions.py     deterministic checks + LLM-as-judge
 evalkit.py        runner: loads suites, runs conversations, scores, gates
 suites/*.yaml     the 48 cases, one file per class
