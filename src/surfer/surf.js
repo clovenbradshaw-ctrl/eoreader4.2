@@ -27,6 +27,7 @@ import { createEnactedLoop, calibrateReader } from '../enactor/enact/index.js';
 import { atmosphereFromActivations, corpusSigma, centroidBasis } from './atmosphere.js';
 import { updateStance } from './stance.js';
 import { bornSalience, figureSalience, linkSalience, linksBySentence } from './salience.js';
+import { chorusStops } from './chorus.js';
 
 // The reach: a little behind the anchor (to read the frame it sits inside), mostly
 // ahead (a surf rides forward, and the arrow of time orders the frame axis).
@@ -180,15 +181,29 @@ export const surfFold = (doc, anchor = 0, opts = {}) => {
   } else {
     isPeak = (f) => scoreOf(f) > band;
   }
-  const stops = new Set([a, ...recCursors]);
-  const peaks = field
-    .filter(f => isPeak(f) && !stops.has(f.idx))
-    .sort((x, y) => scoreOf(y) - scoreOf(x));
-  for (const p of peaks) {
-    if (stops.size >= maxStops) break;
-    stops.add(p.idx);
+  // THE CHORUS (opts.chorus, chorus.js). Off (the default) → `chorus` is null and the
+  // incumbent median-rule / void-boundary arrest below runs VERBATIM, byte-identical to
+  // today. On, several rides (significance, novelty, and — with a thread — the relevance
+  // channels) each nominate against their own noise null and merge born-soft; the chorus
+  // returns the stop list, or null to defer to the incumbent arrest when the reach was too
+  // thin to tell signal from chance. A pure read of the field/readings already computed.
+  const chorus = opts.chorus
+    ? chorusStops({ field, readings, a, recCursors, maxStops, doc, alpha: alpha ?? 0.05 }, opts)
+    : null;
+  let stopList;
+  if (chorus) {
+    stopList = chorus.stopList;
+  } else {
+    const stops = new Set([a, ...recCursors]);
+    const peaks = field
+      .filter(f => isPeak(f) && !stops.has(f.idx))
+      .sort((x, y) => scoreOf(y) - scoreOf(x));
+    for (const p of peaks) {
+      if (stops.size >= maxStops) break;
+      stops.add(p.idx);
+    }
+    stopList = [...stops].sort((x, y) => x - y);
   }
-  const stopList = [...stops].sort((x, y) => x - y);
 
   // The peak: the steepest stop — where to take the significance reading.
   let peak = a;
@@ -202,7 +217,7 @@ export const surfFold = (doc, anchor = 0, opts = {}) => {
   let best  = votes.get(focus) || 0;
   for (const [f, v] of votes) if (v > best) { best = v; focus = f; }
 
-  const base = { anchor: a, stops: stopList, peak, focus, field, recCursors, recAxes, rode: useBoundary ? 'bayesian-void' : 'bayesian-figure' };
+  const base = { anchor: a, stops: stopList, peak, focus, field, recCursors, recAxes, rode: chorus ? 'chorus' : (useBoundary ? 'bayesian-void' : 'bayesian-figure') };
 
   // THE SIGNIFICANCE COLUMN (Tracks B/C/D). Off unless activations are supplied AND at
   // least one significance opt is set — so the default surf is byte-identical (the new
@@ -217,7 +232,7 @@ export const surfFold = (doc, anchor = 0, opts = {}) => {
 // Build ρ over the document's significance activations and read the three terrains off
 // it. Memo-free (surf is not memoised); cheap at the 27-cell grain. `signs` rides the
 // EVA stance when supplied (a defeated reading subtracts), default +1 (asserting).
-const significancePass = (activations, opts, surf = {}) => {
+export const significancePass = (activations, opts, surf = {}) => {
   const out = {};
   const basis = opts.prior ? (opts.prior.keys ? opts.prior : centroidBasis(opts.prior)) : null;
   const { rho } = buildDensity(activations, opts.weights || null, opts.signs || null);

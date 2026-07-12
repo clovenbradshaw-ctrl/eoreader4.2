@@ -52,24 +52,32 @@ export const threadBasis = ({ query = '', history = [], cast = [], doc = null, g
 
   // resolve the thread's FIGURES against the doc: an entity is on the thread when any token of
   // its label is an activated term. ("gregor" in the thread → the figure "Gregor Samsa".)
+  return { terms, figures: threadFigures(terms, doc) };
+};
+
+// threadFigures(terms, doc) → the doc ENTITIES a thread's terms name (lowercased labels). Split
+// out of threadBasis so the SAME term basis can be resolved against a DIFFERENT doc — the
+// multi-level surf reuses one thread's terms (which are doc-independent) but must re-resolve the
+// figures against each source's OWN standalone doc, so figureSalience scores that source's
+// entities and never a neighbour source's. Empty when no doc or no terms.
+export const threadFigures = (terms, doc) => {
   const figures = new Set();
-  if (doc) {
-    // match a label token against the thread terms, possessive-tolerant ("grete's" → grete):
-    // a name in the query nearly always arrives possessive ("Grete's feeling"), and that must
-    // still activate the figure "Grete".
-    const norm = new Set([...terms.keys()].map((t) => t.replace(/['’]s$/, '')));
-    const onThread = (t) => terms.has(t) || norm.has(t);
-    const ev = typeof doc?.log?.snapshot === 'function' ? doc.log.snapshot() : (doc?.log?.events || []);
-    const seen = new Set();
-    for (const e of ev) {
-      if (e.op !== 'INS' || e.id == null) continue;
-      const label = String(e.label || '').toLowerCase();
-      if (!label || seen.has(label)) continue;
-      seen.add(label);
-      if (label.split(/\s+/).some(onThread)) figures.add(label);
-    }
+  if (!doc || !terms || terms.size === 0) return figures;
+  // match a label token against the thread terms, possessive-tolerant ("grete's" → grete):
+  // a name in the query nearly always arrives possessive ("Grete's feeling"), and that must
+  // still activate the figure "Grete".
+  const norm = new Set([...terms.keys()].map((t) => t.replace(/['’]s$/, '')));
+  const onThread = (t) => terms.has(t) || norm.has(t);
+  const ev = typeof doc?.log?.snapshot === 'function' ? doc.log.snapshot() : (doc?.log?.events || []);
+  const seen = new Set();
+  for (const e of ev) {
+    if (e.op !== 'INS' || e.id == null) continue;
+    const label = String(e.label || '').toLowerCase();
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    if (label.split(/\s+/).some(onThread)) figures.add(label);
   }
-  return { terms, figures };
+  return figures;
 };
 
 // bornSalience(basis, tokenSet) → |⟨T|s⟩|², the Born weight of a span against the thread.
