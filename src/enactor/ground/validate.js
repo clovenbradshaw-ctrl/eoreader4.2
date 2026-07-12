@@ -26,6 +26,7 @@
 // it never imports a backend, so a test passes a stub and the app the live talker.
 
 import { frameMassPartition } from '../../weave/chorus/born.js';
+import { speak } from '../../model/speak.js';
 
 export const SYSTEM_ASSESS = `You are reviewing a draft answer before it is shown to someone. You will see the exact lines a reader found in a source, the question that was asked, and a draft answer built from those lines. Say honestly what you make of the draft as an answer to that question, given only those lines: is it a good, well-supported answer, or not? Judge whether the lines actually back it up — ignore style. Answer plainly, in a sentence or two.`;
 
@@ -224,12 +225,8 @@ export const assessAnswer = async ({ model, question, spans = [], answer, embedd
     .slice(0, 8);
   if (!lines.length) return null;
   const messages = buildAssessmentMessages({ question, lines, answer });
-  let reaction;
-  try {
-    reaction = await model.phrase(messages, { maxTokens, ...(signal ? { signal } : {}) });
-  } catch {
-    return null; // a faulted reaction must never cost the answer
-  }
+  const reaction = await speak(model, messages, { fallback: null, maxTokens, ...(signal ? { signal } : {}) });
+  if (reaction == null) return null; // a faulted reaction must never cost the answer
   const useEmbed = embedder && (embedder.measuresMeaning ?? false) && (embedder.isWarm ? embedder.isWarm() : true);
   const measure = (useEmbed ? await embeddingAssessment(reaction, embedder) : null) || bornAssessment(reaction);
   return Object.freeze({ ...measure, reaction: String(reaction || '').slice(0, 500) });

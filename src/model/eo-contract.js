@@ -17,6 +17,7 @@ export const CONTRACTS = Object.freeze({
   'src/model/prompt.js': contract({ ops: ['SYN', 'DEF', 'SEG'], targets: ['Field'], products: ['Field', 'Lens'], stances: ['Dissecting', 'Composing'], note: 'grounded prompt assembler + frame' }),
   'src/model/prompt-checkpoint.js': contract({ ops: ['EVA'], targets: ['Paradigm'], products: ['Lens'], stances: ['Binding'], note: '!EVA prompt — input-side checkpoint' }),
   'src/model/reach.js': contract({ ops: ['SIG'], targets: ['Network'], products: ['Atmosphere'], stances: ['Tending'], note: 'model-host reachability probe' }),
+  'src/model/speak.js': contract({ ops: ['INS'], targets: ['Field'], products: ['Entity'], stances: ['Making'], note: 'speak — the one decode organ (guarded phrase)' }),
   'src/model/stream.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void', 'Field'], stances: ['Clearing', 'Dissecting'], note: 'streaming surfacer wrapper' }),
   'src/model/structure.js': contract({ ops: ['SYN', 'INS'], targets: ['Field', 'Network'], products: ['Entity'], stances: ['Composing', 'Making'], note: 'structure backend, graph retelling' }),
   'src/model/webllm.js': contract({ ops: ['INS', 'EVA'], targets: ['Field', 'Atmosphere'], products: ['Entity'], stances: ['Making', 'Tending'], note: 'webllm WebGPU backend' }),

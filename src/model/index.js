@@ -6,6 +6,8 @@
 
 export { registerBackend, availableBackends, createModel, describeModel } from './interface.js';
 export { streamPhrase, surfaceTokens, emitSurface } from './stream.js';
+// The one decode organ: a guarded phrase that returns the caller's fallback on any fault.
+export { speak } from './speak.js';
 export { createHashEmbedder }   from './embed-hash.js';
 export { createMiniLMEmbedder } from './embed.js';
 export { buildGroundedMessages, buildChatMessages, SYSTEM_GROUND, SYSTEM_CHAT,

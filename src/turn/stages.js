@@ -33,7 +33,7 @@ import { answerabilityGate } from '../weave/longgen/answerable.js';
 import { walkReasoning } from '../surfer/reason/index.js';
 import { factCheck, auditPropositions } from '../enactor/factcheck/index.js';
 import { streamParagraphs } from '../weave/write/index.js';
-import { streamPhrase }     from '../model/index.js';
+import { streamPhrase, speak } from '../model/index.js';
 import { buildConceptTokenMap } from '../weave/write/concept-tokens.js';
 import { mountPersonality, defaultPantheonBank, defaultStanceBanks, defaultSiteBank, stanceFamily, resolveOverlap, dialMultipliers } from '../weave/write/voice.js';
 
@@ -1192,15 +1192,12 @@ export const stages = {
     }
     // GO BACK — one regenerate pass, steered back onto the lines (the honest absence is a real
     // option), then re-bound and re-vetoed so the shipped redraft carries honest flags.
-    let redraft = null;
-    try {
-      const messages = buildGroundedMessages({
-        question: ctx.question, spans: selectExcerpts(ctx.spans),
-        orientation: orientationOf(ctx.doc), task: ctx.task, budget: ctx.budget,
-        conversation: {}, corrective: GROUNDING_CORRECTIVE,
-      });
-      redraft = await ctx.model.phrase(messages, { maxTokens: ctx.maxTokens || TASK_MAX_TOKENS.answer, ...(ctx.signal ? { signal: ctx.signal } : {}) });
-    } catch { redraft = null; }
+    const regenMessages = buildGroundedMessages({
+      question: ctx.question, spans: selectExcerpts(ctx.spans),
+      orientation: orientationOf(ctx.doc), task: ctx.task, budget: ctx.budget,
+      conversation: {}, corrective: GROUNDING_CORRECTIVE,
+    });
+    const redraft = await speak(ctx.model, regenMessages, { fallback: null, maxTokens: ctx.maxTokens || TASK_MAX_TOKENS.answer, ...(ctx.signal ? { signal: ctx.signal } : {}) });
     // Could not answer again → hold the draft back for the honest absence (it does not go forward).
     if (!redraft || !redraft.trim()) {
       const revisions = [...(ctx.revisions || []), Object.freeze({

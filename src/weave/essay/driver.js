@@ -37,6 +37,7 @@ import { makeProposition, propositionOf, numbersIn, propsConflict } from './prop
 import { renderChart, renderPullquote, renderDivider, validateSurface } from './renderers.js';
 import { projectEssay } from './project.js';
 import { reconcile } from './reconcile.js';
+import { speak } from '../../model/speak.js';
 
 export const KNOB_DEFAULTS = Object.freeze({
   candidates: 2,           // N candidate folds per section — two or three; N is a budget
@@ -767,8 +768,7 @@ const renderSeam = async ({ prev, section, survivors, carry, model, knobs, signa
     { role: 'system', content: 'You write one short connective sentence that carries a reader from one point to the next. Use only the ideas already on the page; add no new facts, names, or numbers.' },
     { role: 'user', content: `The previous section ended on: ${left}\nThe next section takes up: ${right}\nWrite the one transition sentence.` },
   ];
-  let raw = '';
-  try { raw = String((await model.phrase(messages, { maxTokens: 60, signal })) || ''); } catch { raw = ''; }
+  const raw = await speak(model, messages, { maxTokens: 60, signal });
   const sentence = (raw.trim().split(/(?<=[.!?])\s+/)[0] || '').trim();
   const allowedTerms = new Set([
     ...termsOf(left), ...termsOf(right),

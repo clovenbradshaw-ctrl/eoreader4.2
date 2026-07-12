@@ -15,6 +15,7 @@ import { runTurn } from './pipeline.js';
 import { createCompositeDoc } from '../organs/in/index.js';
 import { createAuditLog } from '../rooms/audit/index.js';
 import { discourseFrame } from './converse/index.js';
+import { speak } from '../model/speak.js';
 
 // verifyAgainstWeb(answer, corpus) → does the web corpus SUPPORT the answer? An embedder-free
 // lexical check: how many of the answer's salient (content) terms appear in the fetched text.
@@ -117,21 +118,22 @@ export const formulateSearchQuery = async ({ model, question, history = [], fall
     { role: 'user', content:
       `${frame ? `Discourse state:\n${frame}\n\n` : ''}${thread ? `User's earlier turns:\n${thread}\n\n` : ''}Latest turn: ${base}\n\nSearch query:` },
   ];
-  try {
-    // maxTokens 32 with minPredict 0: a query is a few words. The reasoning-floor backends
-    // (pleias / onnx) otherwise pad every call up to their 384–768 token floor, turning this tiny
-    // utility call into a second full-length decode (~80s on CPU/WASM) for no reason — a large
-    // share of the "chat is slow" in auto mode, where this runs before every answer.
-    // The turn's signal rides along so a Stop/stall actually halts this decode —
-    // unabortable, it kept running as an orphan and held the engine against the next turn.
-    const out = await model.phrase(messages, { maxTokens: 32, temperature: 0, minPredict: 0, signal });
+  // maxTokens 32 with minPredict 0: a query is a few words. The reasoning-floor backends
+  // (pleias / onnx) otherwise pad every call up to their 384–768 token floor, turning this tiny
+  // utility call into a second full-length decode (~80s on CPU/WASM) for no reason — a large
+  // share of the "chat is slow" in auto mode, where this runs before every answer.
+  // The turn's signal rides along so a Stop/stall actually halts this decode —
+  // unabortable, it kept running as an orphan and held the engine against the next turn.
+  const out = await speak(model, messages, { fallback: null, maxTokens: 32, temperature: 0, minPredict: 0, signal });
+  if (out != null) {
     const q = String(out || '')
       .split('\n').map(s => s.trim()).find(Boolean) || '';     // first non-empty line
     const cleaned = q.replace(/^(search query|query)\s*:\s*/i, '').replace(/^["'`]+|["'`]+$/g, '').trim();
     // Guard: a usable rewrite is short and not the model refusing/echoing. Else keep the
     // discourse-anchored query (still better than the raw turn — the subject is already bound in).
     if (cleaned && cleaned.length <= 120 && !/^i (cannot|can't|am unable)/i.test(cleaned)) return cleaned;
-  } catch { /* fall through to the discourse-anchored query */ }
+  }
+  // A faulted decode (fallback: null) falls through to the discourse-anchored query.
   return resolved;
 };
 

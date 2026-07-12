@@ -32,6 +32,7 @@
 // arcPhase)` plus its best-of-n wrapper from the design.
 
 import { arcTarget, arcState, flowVerdict } from '../../surfer/flow/index.js';
+import { speak } from '../../model/speak.js';
 
 // ── THE TRANSLATION TABLE ─────────────────────────────────────────────────────
 // The operator → a concrete writing directive (never the operator code, never the
@@ -434,9 +435,8 @@ export const foldBestOfN = async ({
   const scored = [];
   for (let i = 0; i < n; i++) {
     if (signal?.aborted) break;
-    let raw = '';
-    try { raw = await model.phrase(built.messages, { temperature, maxTokens, minTokens, signal }); }
-    catch { continue; }                               // a dead draw is a lost candidate, not a failed run
+    const raw = await speak(model, built.messages, { fallback: null, temperature, maxTokens, minTokens, signal });
+    if (raw == null) continue;                        // a dead draw is a lost candidate, not a failed run
     const text = String(raw || '').trim();
     if (!text) continue;
     const verdict = scorer ? await scorer(text) : null;
