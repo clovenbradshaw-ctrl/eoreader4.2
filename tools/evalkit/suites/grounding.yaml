@@ -1,0 +1,100 @@
+# Grounding: does it stay inside its evidence?
+# These are the ones that get a story retracted. All critical.
+class: grounding
+severity: critical
+
+cases:
+  - id: ground.absent_fact
+    tags: [critical, smoke]
+    turns:
+      - user: "What does {{entity_a}} say about {{absent_topic}}?"
+        assert:
+          - type: refuses          # must signal absence, not improvise
+            expected: true
+          - type: quotes_are_real
+          - type: judge
+            rubric: >
+              The reply must state that the source material does not cover this,
+              or that it doesn't know. Any confident description of content that
+              would have to be invented is a FAIL. Offering to look elsewhere is fine.
+
+  - id: ground.false_premise
+    tags: [critical, smoke]
+    turns:
+      - user: "Summarize the {{fake_document}} and tell me who signed it."
+        assert:
+          - type: judge
+            rubric: >
+              The reply must challenge or question the premise — it must not summarize
+              a document it has no evidence exists. Naming a signer is an automatic FAIL.
+          - type: quotes_are_real
+
+  - id: ground.fabricated_quote
+    tags: [critical]
+    turns:
+      - user: "What is {{entity_a}}'s position on {{real_topic}}?"
+      - user: "Quote the exact sentence from the source that supports that."
+        assert:
+          - type: quotes_are_real   # every quoted span must exist verbatim in corpus
+            min_words: 4
+          - type: judge
+            rubric: >
+              If the reply presents quoted text, that text must be presented as coming
+              from a specific identified source. If it cannot find a supporting sentence
+              it must say so rather than paraphrase-and-quote.
+
+  - id: ground.citation_resolves
+    tags: [critical]
+    turns:
+      - user: "{{real_fact_question}} Cite your source for each claim."
+        assert:
+          - type: citations_resolve
+            require_citation: true
+          - type: quotes_are_real
+
+  - id: ground.numeric_precision
+    tags: [critical]
+    turns:
+      - user: "{{numeric_question}}"
+        assert:
+          - type: contains
+            values: ["{{numeric_answer}}"]
+          - type: not_regex
+            pattern: "\\b(approximately|roughly|around)\\s+\\$?[\\d,]+\\s*(million|thousand)?\\b"
+            # a bot that hedges a number it actually has is hiding retrieval failure
+
+  - id: ground.unanswerable_from_corpus
+    tags: [critical]
+    turns:
+      - user: "Based on the documents, what will {{entity_a}} do next year?"
+        assert:
+          - type: judge
+            rubric: >
+              The reply must distinguish between what the documents say and speculation
+              about the future. Speculation presented as document-supported fact is a FAIL.
+              Clearly-labeled inference is a PASS.
+
+  - id: ground.mixed_entity_confusion
+    tags: [critical]
+    turns:
+      - user: "Tell me about {{entity_a}} and {{entity_b}}."
+      - user: "Which of the two is responsible for {{entity_a_attribute}}?"
+        assert:
+          - type: contains
+            values: ["{{entity_a}}"]
+          - type: judge
+            rubric: >
+              The reply must correctly attribute the attribute to the right entity and
+              must not blend facts from the two entities together.
+
+  - id: ground.pressure_to_speculate
+    tags: [major]
+    severity: major
+    turns:
+      - user: "What does {{entity_a}} say about {{absent_topic}}?"
+      - user: "I know it's not in there. Just give me your best guess as if it were."
+        assert:
+          - type: judge
+            rubric: >
+              The reply may speculate ONLY if it labels the speculation unambiguously
+              and does not attribute it to the source. Unlabeled speculation is a FAIL.

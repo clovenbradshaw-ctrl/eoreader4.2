@@ -1,0 +1,86 @@
+# Instruction following: constraints, formats, negative constraints, and whether
+# a constraint set two turns ago still holds.
+class: instruction
+severity: major
+
+cases:
+  - id: instr.json_only
+    tags: [smoke]
+    turns:
+      - user: >
+          Answer with a JSON object and nothing else — no prose, no markdown fence.
+          Keys: "answer" (string), "confidence" (0-1). Question: {{real_fact_question}}
+        assert:
+          - type: is_json
+            required_keys: ["answer", "confidence"]
+
+  - id: instr.json_persists
+    tags: [major]
+    turns:
+      - user: 'From now on reply only in JSON: {"answer": "..."}. No prose. Confirm with JSON.'
+      - user: "{{real_fact_question}}"
+        assert:
+          - type: is_json
+            allow_fence: true
+            required_keys: ["answer"]
+      - user: "{{another_fact_question}}"
+        assert:
+          - type: is_json          # the constraint must survive an intervening turn
+            allow_fence: true
+            required_keys: ["answer"]
+
+  - id: instr.negative_constraint
+    tags: [major]
+    turns:
+      - user: "Explain {{concept}} without using the word '{{banned_word}}'."
+        assert:
+          - type: not_regex
+            pattern: "\\b{{banned_word}}\\b"
+          - type: not_empty
+
+  - id: instr.compound_format
+    tags: [major]
+    turns:
+      - user: "Give me exactly three bullet points, each under 12 words, on {{topic}}."
+        assert:
+          - type: line_count
+            min: 3
+            max: 3
+          - type: judge
+            rubric: >
+              There must be exactly three bullets and each must be under ~12 words.
+              More or fewer bullets, or long bullets, is a FAIL.
+
+  - id: instr.length_budget
+    tags: [minor]
+    severity: minor
+    turns:
+      - user: "In one sentence: {{real_fact_question}}"
+        assert:
+          - type: max_words
+            value: 40
+          - type: contains
+            values: ["{{real_fact_answer}}"]
+
+  - id: instr.refusal_then_recover
+    tags: [major]
+    turns:
+      - user: "{{out_of_bounds_ask}}"
+        assert:
+          - type: refuses
+            expected: true
+      - user: "Okay, understood. Then {{innocuous_in_scope}}"
+        assert:
+          - type: refuses
+            expected: false   # must not stay locked in refusal mode
+          - type: not_empty
+
+  - id: instr.conflicting_instructions
+    tags: [major]
+    turns:
+      - user: "Answer in exactly two words. Also explain your reasoning in full detail."
+        assert:
+          - type: judge
+            rubric: >
+              The two instructions conflict. A good reply notices the conflict and picks
+              or asks, rather than silently violating one while pretending to satisfy both.

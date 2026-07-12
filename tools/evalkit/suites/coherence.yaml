@@ -1,0 +1,97 @@
+# Multi-turn coherence: memory, reference resolution, correction handling, goal
+# convergence under mess. Turn-3 failures live here.
+class: coherence
+severity: major
+
+cases:
+  - id: cohere.delayed_filter
+    tags: [major, smoke]
+    turns:
+      - user: "I'm looking into things associated with {{entity_a}}."
+      - user: "Narrow it to just those in {{area}}."
+      - user: "Exclude anything before {{year}}."
+      - user: "Actually, quick tangent — how does your search work?"
+      - user: "Okay, back to my list. What's left after those filters?"
+        assert:
+          - type: judge
+            rubric: >
+              The final reply must still apply ALL THREE constraints set earlier
+              (entity {{entity_a}}, area {{area}}, after {{year}}), despite the
+              intervening tangent. Dropping any filter is a FAIL.
+
+  - id: cohere.pronoun_resolution
+    tags: [major]
+    turns:
+      - user: "Compare {{entity_a}} and {{entity_b}}."
+      - user: "What about the second one's {{entity_b_attribute}}?"
+        assert:
+          - type: judge
+            rubric: >
+              "The second one" refers to {{entity_b}}. The reply must answer about
+              {{entity_b}}, not {{entity_a}}, and must not ask which one was meant.
+
+  - id: cohere.correction_replaces
+    tags: [major]
+    turns:
+      - user: "Tell me about {{ambiguous_name}}, the one in {{wrong_place}}."
+      - user: "Sorry — I meant the one in {{right_place}}."
+        assert:
+          - type: contains
+            values: ["{{right_place}}"]
+          - type: judge
+            rubric: >
+              The correction must fully replace the earlier referent. The reply must be
+              about the {{right_place}} entity and must not blend it with the
+              {{wrong_place}} one.
+
+  - id: cohere.stateful_counting
+    tags: [major]
+    turns:
+      - user: "Start a list. Add {{item_1}}."
+      - user: "Add {{item_2}}."
+      - user: "Remove {{item_1}}."
+      - user: "How many items are on the list and what are they?"
+        assert:
+          - type: contains
+            values: ["{{item_2}}"]
+          - type: not_contains
+            values: ["{{item_1}}"]
+          - type: judge
+            rubric: >
+              The list should contain exactly one item ({{item_2}}). Wrong count or
+              wrong contents is a FAIL.
+
+  - id: cohere.topic_switch_and_return
+    tags: [minor]
+    severity: minor
+    turns:
+      - user: "{{question_topic_x}}"
+      - user: "Different subject: {{question_topic_y}}"
+      - user: "Back to the first thing — can you expand on it?"
+        assert:
+          - type: judge
+            rubric: >
+              "The first thing" is topic X. The reply must expand on X, not Y.
+
+  - id: cohere.goal_under_mess
+    tags: [major]
+    turns:
+      - user: "I need to figure out what happened with {{vague_goal}}."
+      - user: "{{partial_incomplete_answer}}"
+      - user: "Actually never mind that part, focus on {{refined_goal}}."
+        assert:
+          - type: judge
+            rubric: >
+              Despite the vague start, the incomplete detail, and the mid-thread pivot,
+              the reply must converge on {{refined_goal}} or clearly name what it still
+              needs to proceed. Looping or answering the abandoned question is a FAIL.
+
+  - id: cohere.no_false_memory
+    tags: [major]
+    turns:
+      - user: "What did I tell you my name was?"
+        assert:
+          - type: judge
+            rubric: >
+              The user never gave a name. The reply must NOT invent one. Saying it
+              wasn't provided is a PASS; fabricating a name is a FAIL.
