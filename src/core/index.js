@@ -3,7 +3,7 @@
 // The evo allowlist boundary from eoreader3 — "MAY NOT touch: projectGraph,
 // the nine-operator vocabulary, the append-only log" — is this module.
 
-export { MODES, DOMAINS, GRAINS, OPERATORS, isOperator,
+export { MODES, DOMAINS, GRAINS, OPERATORS, isOperator, glyphOf,
          operatorsByMode, operatorsByDomain } from './operators.js';
 export { createLog, isLog } from './log.js';
 export { eoAddressOfEvent, eoNotation } from './address.js';
@@ -77,7 +77,7 @@ export { bridgeSurprise, BRIDGE_DINF } from './bridge.js';
 // answer reader and the input organs all read it too, so it lives in the genome,
 // not in any one faculty (its only dependency is VERDICTS, imported down).
 export {
-  PRIMITIVES, DISJOINT_PRIMITIVES, typeOf, isFunctional, isSymmetric,
+  PRIMITIVES, DISJOINT_PRIMITIVES, typeOf, operatorsOf, isFunctional, isSymmetric,
   relationPrior, areDisjoint, functionalClash, checkRelationConflict, checkRelationAgree,
   isObjectFunctional, objectFunctionalClash, checkObjectFunctionalConflict,
   attributesConflict,
