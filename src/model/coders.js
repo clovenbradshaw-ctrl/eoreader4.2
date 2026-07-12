@@ -70,6 +70,48 @@ export const CODER_MODELS = Object.freeze([
     pull: 'ollama pull qwen3.6:27b',
   },
   {
+    id: null, label: 'Qwen3.6 27B-FP8 · full-precision-ish, faster on Hopper/Ada',
+    family: 'Qwen3.6', params: '27B', runtime: 'native', tier: 'single 24–48GB GPU (4090/L40S/A6000)',
+    note: 'FP8 weights: near-BF16 quality at roughly half the VRAM, when the GPU has FP8 kernels.',
+    pull: 'serve Qwen/Qwen3.6-27B-FP8 via vLLM',
+  },
+  {
+    id: null, label: 'Qwen3.6 35B-A3B · MoE, 3B active — dense-27B quality, cheaper to run',
+    family: 'Qwen3.6', params: '36B (MoE, 3B active)', runtime: 'native', tier: 'single 24–48GB GPU',
+    note: 'Sparse mixture-of-experts: 36B total but only 3B params fire per token, so throughput tracks a small model. Multimodal (image-text-to-text).',
+    pull: 'ollama pull qwen3.6:35b-a3b',
+  },
+  {
+    id: null, label: 'Qwen3.6 35B-A3B-FP8 · MoE at FP8, best throughput/VRAM tradeoff',
+    family: 'Qwen3.6', params: '36B (MoE, 3B active)', runtime: 'native', tier: 'single 24GB GPU with FP8',
+    note: 'FP8-quantized MoE: the A3B sparsity plus FP8 make this the lightest way to run 36B-class quality.',
+    pull: 'serve Qwen/Qwen3.6-35B-A3B-FP8 via vLLM',
+  },
+  {
+    id: null, label: 'Qwen3-Coder-Next 80B · flagship open coder',
+    family: 'Qwen3-Coder-Next', params: '80B', runtime: 'native', tier: 'workstation / multi-GPU',
+    note: 'The 2026 top-tier open coding model; agentic, long-context, built for multi-file work.',
+    pull: 'serve Qwen/Qwen3-Coder-Next via vLLM',
+  },
+  {
+    id: null, label: 'Qwen3-Coder-Next 80B-FP8 · flagship coder at FP8',
+    family: 'Qwen3-Coder-Next', params: '80B', runtime: 'native', tier: 'workstation / multi-GPU (FP8)',
+    note: 'FP8 weights halve the VRAM of the 80B coder with negligible quality loss on FP8-capable GPUs.',
+    pull: 'serve Qwen/Qwen3-Coder-Next-FP8 via vLLM',
+  },
+  {
+    id: null, label: 'Qwen3-Coder-Next 80B-Base · pretrained base, not instruct-tuned',
+    family: 'Qwen3-Coder-Next', params: '80B', runtime: 'native', tier: 'workstation / multi-GPU',
+    note: 'The raw base checkpoint — for fine-tuning or completion, not chat. Use the instruct build above for Q&A.',
+    pull: 'serve Qwen/Qwen3-Coder-Next-Base via vLLM',
+  },
+  {
+    id: null, label: 'Qwen3-Coder-Next 80B-GGUF · quantized for llama.cpp/Ollama',
+    family: 'Qwen3-Coder-Next', params: '80B', runtime: 'native', tier: 'workstation, 48GB+ VRAM or CPU offload',
+    note: 'GGUF quants (Q4/Q5) let llama.cpp run the 80B coder on a single big GPU or with CPU offload — still far past a browser tab.',
+    pull: 'ollama pull qwen3-coder-next',
+  },
+  {
     id: null, label: 'Codestral 22B · fast IDE autocomplete',
     family: 'Codestral', params: '22B', runtime: 'native', tier: 'single 16–24GB GPU',
     note: 'Tuned for low-latency fill-in-the-middle completion.',
