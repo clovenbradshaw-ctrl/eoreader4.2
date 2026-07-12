@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import pathlib
 import re
 import subprocess
 import time
@@ -106,6 +107,10 @@ class OpenAICompatTarget(Target):
         self.url = cfg.get("url", "https://api.openai.com/v1/chat/completions")
         self.model = cfg["model"]
         self.system = cfg.get("system_prompt")
+        if not self.system and cfg.get("system_prompt_file"):
+            # long grounding prompts (rules + corpus) live better in a file
+            self.system = pathlib.Path(cfg["system_prompt_file"]).read_text()
+        self.max_tokens = cfg.get("max_tokens")  # None = server default
         self.temperature = cfg.get("temperature", 0.0)
         self.timeout = cfg.get("timeout_s", 90)
         key = _expand(cfg.get("api_key", "${OPENAI_API_KEY}"))
@@ -116,6 +121,8 @@ class OpenAICompatTarget(Target):
     def _send(self, messages: list[dict]) -> Reply:
         msgs = ([{"role": "system", "content": self.system}] if self.system else []) + messages
         body = {"model": self.model, "messages": msgs, "temperature": self.temperature}
+        if self.max_tokens:
+            body["max_tokens"] = self.max_tokens
         req = urllib.request.Request(
             self.url, data=json.dumps(body).encode(), headers=self.headers, method="POST"
         )

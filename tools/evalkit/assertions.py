@@ -222,14 +222,60 @@ Respond with JSON only, no prose, no code fence:
 
 
 class Judge:
+    """LLM-as-judge. Two providers:
+
+      anthropic      — the Messages API (default). Disabled without an API key.
+      openai_compat  — any /v1/chat/completions endpoint (llama.cpp, vLLM,
+                       Ollama, ...). No key required; ideal for a local model.
+                       Sends response_format json_object so even small models
+                       return a parseable verdict.
+    """
+
     def __init__(self, cfg: dict):
         self.enabled = bool(cfg.get("enabled", True))
+        self.provider = cfg.get("provider", "anthropic")
+        self.url = cfg.get("url", "https://api.anthropic.com/v1/messages")
         self.model = cfg.get("model", "claude-sonnet-4-6")
         self.key = os.environ.get(cfg.get("api_key_env", "ANTHROPIC_API_KEY"), "")
         self.timeout = cfg.get("timeout_s", 60)
         self.cache: dict[str, Outcome] = {}
-        if not self.key:
+        if self.provider == "anthropic" and not self.key:
             self.enabled = False
+
+    def _request(self, prompt: str) -> urllib.request.Request:
+        if self.provider == "openai_compat":
+            body = {
+                "model": self.model,
+                "max_tokens": 300,
+                "temperature": 0,
+                "response_format": {"type": "json_object"},
+                "messages": [
+                    {"role": "system", "content": JUDGE_SYSTEM},
+                    {"role": "user", "content": prompt},
+                ],
+            }
+            headers = {"Content-Type": "application/json"}
+            if self.key:
+                headers["Authorization"] = f"Bearer {self.key}"
+            return urllib.request.Request(
+                self.url, data=json.dumps(body).encode(), headers=headers, method="POST")
+        body = {
+            "model": self.model,
+            "max_tokens": 300,
+            "temperature": 0,
+            "system": JUDGE_SYSTEM,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        return urllib.request.Request(
+            self.url,
+            data=json.dumps(body).encode(),
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": self.key,
+                "anthropic-version": "2023-06-01",
+            },
+            method="POST",
+        )
 
     def score(self, ctx: Ctx, rubric: str) -> Outcome:
         if not self.enabled:
@@ -244,28 +290,15 @@ class Judge:
         if ck in self.cache:
             return self.cache[ck]
 
-        body = {
-            "model": self.model,
-            "max_tokens": 300,
-            "temperature": 0,
-            "system": JUDGE_SYSTEM,
-            "messages": [{"role": "user", "content": prompt}],
-        }
-        req = urllib.request.Request(
-            "https://api.anthropic.com/v1/messages",
-            data=json.dumps(body).encode(),
-            headers={
-                "Content-Type": "application/json",
-                "x-api-key": self.key,
-                "anthropic-version": "2023-06-01",
-            },
-            method="POST",
-        )
+        req = self._request(prompt)
         for attempt in range(3):
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                     payload = json.loads(resp.read().decode())
-                txt = "".join(b.get("text", "") for b in payload.get("content", []))
+                if self.provider == "openai_compat":
+                    txt = payload["choices"][0]["message"]["content"] or ""
+                else:
+                    txt = "".join(b.get("text", "") for b in payload.get("content", []))
                 txt = re.sub(r"^```(?:json)?|```$", "", txt.strip(), flags=re.M).strip()
                 obj = json.loads(txt)
                 out = Outcome(
