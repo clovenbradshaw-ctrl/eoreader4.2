@@ -79,6 +79,22 @@ const weaveMemory = (messages, mindSpans) => {
 // real lens, the column still rides as a report (atmosphere + lenses) with the peak
 // unchanged. Degrades to {} on any embedding fault — a flaky meaning organ must never
 // crash the fold.
+// Score a draft's FORM against the shape the question selected (turn/shape.js) — the ONE
+// dispatch for every call site (revise's rewrite trigger, veto's grounded flag, veto's
+// chat-route flag). Grammar mode scores the draft's TEXT (parse + likelihood, model-free);
+// the legacy cosine library embeds the draft and so gates on the warm meaning embedder.
+// Null when inert or in-basin; never throws — the form check never breaks the answer.
+const formErrorOf = async (ctx, rawOutput) => {
+  if (!ctx.shapeLibrary || !ctx.shapeQueryVec || !rawOutput) return null;
+  const grammarMode = ctx.shapeLibrary.mode === 'grammar';
+  const emb = grammarMode ? null : pickRetrievalEmbedder(ctx);
+  if (!grammarMode && !(emb?.measuresMeaning && emb.isWarm?.())) return null;
+  try {
+    const draft = grammarMode ? rawOutput : await emb.embed(rawOutput);
+    return answerFormError(ctx.shapeLibrary, ctx.shapeQueryVec, draft);
+  } catch { return null; }
+};
+
 const significanceOpts = async (ctx, anchor) => {
   if (!ctx.doc) return {};
   const emb = ctx.geometricEmbedder;
@@ -460,7 +476,23 @@ export const stages = {
   // that centers on a named figure the talker then drops is an under-answer (the mirror of a
   // confabulation). Fully guarded: a clumsy predictor must never break the answer.
   async predict(ctx) {
-    if (!ctx.doc || !ctx.spans?.length) return ctx;
+    // The FORM prediction runs on EVERY route, before the doc guard — a chat turn has no
+    // document to ground against, so the learned answer-form is the only contract it has.
+    // Embedder-gated (navigation is a kNN over prompt embeddings) and inert without a
+    // threaded library, so the default turn is byte-identical. The question's embedding
+    // rides to `veto`/`revise`, where the talker's answer is scored against this shape.
+    let shapeTarget = null, shapeQueryVec = null;
+    if (ctx.shapeLibrary) {
+      const emb = pickRetrievalEmbedder(ctx);
+      if (emb?.measuresMeaning && emb.isWarm?.()) {
+        try {
+          shapeQueryVec = await emb.embed(ctx.question);
+          shapeTarget = ctx.shapeLibrary.selectForQuestion(shapeQueryVec);
+        } catch { /* a clumsy predictor must never break the answer */ }
+      }
+    }
+    const shaped = { ...ctx, shapeTarget, shapeQueryVec };
+    if (!ctx.doc || !ctx.spans?.length) return shaped;
     try {
       const cursor = ctx.surf?.peak ?? ctx.spans[0]?.idx ?? 0;
       const t = think(ctx.doc, { cursor, genders: ctx.genders || {} });
@@ -474,23 +506,8 @@ export const stages = {
       const confident = !!ctx.referential?.concentrated;
       const prediction = { draft, entities, primaryName, confident };
 
-      // The FORM prediction, from the sample-answer library (turn/shape.js): read the wanted
-      // shape off the question's nearest sample answers. Embedder-gated — a cosine is meaning
-      // only under a meaning-measuring embedder — and inert without a threaded library, so the
-      // default turn is byte-identical. The question's embedding rides to `veto`, where the
-      // talker's answer is scored against this shape.
-      let shapeTarget = null, shapeQueryVec = null;
-      if (ctx.shapeLibrary) {
-        const emb = pickRetrievalEmbedder(ctx);
-        if (emb?.measuresMeaning && emb.isWarm?.()) {
-          try {
-            shapeQueryVec = await emb.embed(ctx.question);
-            shapeTarget = ctx.shapeLibrary.selectForQuestion(shapeQueryVec);
-          } catch { /* a clumsy predictor must never break the answer */ }
-        }
-      }
-      return { ...ctx, prediction, shapeTarget, shapeQueryVec };
-    } catch { return ctx; }
+      return { ...shaped, prediction };
+    } catch { return shaped; }
   },
 
   // The answerability gate — is there an answer to give, or is the field VOID?
@@ -972,18 +989,9 @@ export const stages = {
     // off-basin draft is a gating trigger here (a reshape), with the matched sample as the
     // target — flag-only in veto, but a reason to answer again here. Async (it embeds the
     // draft), inert without a threaded library / warm meaning embedder.
-    const meaning = (() => { const e = pickRetrievalEmbedder(ctx); return (e?.measuresMeaning && e.isWarm?.()) ? e : null; })();
     const formErrOf = async (c) => {
-      if (!ctx.shapeLibrary || !ctx.shapeQueryVec || !c.rawOutput) return null;
-      // Grammar mode scores the draft's TEXT (parse + likelihood, model-free); only the
-      // legacy cosine library needs the draft embedded, and so the warm meaning embedder.
-      const grammarMode = ctx.shapeLibrary.mode === 'grammar';
-      if (!grammarMode && !meaning) return null;
-      try {
-        const draft = grammarMode ? c.rawOutput : await meaning.embed(c.rawOutput);
-        const e = answerFormError(ctx.shapeLibrary, ctx.shapeQueryVec, draft);
-        return e ? { ...e, gates: true, sample: ctx.shapeTarget?.promptMatch?.best_response || '' } : null;
-      } catch { return null; }
+      const e = await formErrorOf(ctx, c.rawOutput);
+      return e ? { ...e, gates: true, sample: ctx.shapeTarget?.promptMatch?.best_response || '' } : null;
     };
     let curForm = await formErrOf(ctx);
     const regenNeeded = (c) => needsRegen(c) || gatingOf(c).length > 0;
@@ -1046,7 +1054,16 @@ export const stages = {
   // / revise loop's problem, not a reason to gag the answer here. Without a doc we skip the
   // grounding vetoes entirely.
   async veto(ctx) {
-    if (!ctx.spans?.length) return { ...ctx, vetoes: [] };
+    // The span-less (chat) path: no document, no grounding battery — but the FORM check
+    // needs no spans, and on a chat turn the learned answer-form is the only contract the
+    // reply has. An off-basin draft fires the same soft answer-shape-weak flag the
+    // grounded path raises, carrying the measured reason; the answer always rides.
+    if (!ctx.spans?.length) {
+      const formErr = await formErrorOf(ctx, ctx.rawOutput);
+      return { ...ctx, vetoes: formErr
+        ? [{ id: 'answer-shape-weak', message: formErr.reason, refuses: false }]
+        : [] };
+    }
     // The WITNESS check: classify the answer's propositions against the document's graph and
     // ask whether they rest on the WORLD (exafference) or only on the engine's own reading
     // (reafference — e.g. an EOT notes doc). When everything grounded is interpretation, the
@@ -1084,18 +1101,9 @@ export const stages = {
     // The FORM check (turn/shape.js): embed the answer and score it against the shape the
     // question's sample answers predicted. A soft (non-gating) miss rides as a flag — taste is
     // not refusable. Embedder-gated and inert without a threaded library → byte-identical.
-    if (ctx.shapeLibrary && ctx.shapeTarget && ctx.shapeQueryVec && ctx.rawOutput) {
-      // Grammar mode scores the draft's text model-free; the legacy cosine path still
-      // embeds the draft and so still gates on the warm meaning embedder.
-      const grammarMode = ctx.shapeLibrary.mode === 'grammar';
-      const emb = grammarMode ? null : pickRetrievalEmbedder(ctx);
-      if (grammarMode || (emb?.measuresMeaning && emb.isWarm?.())) {
-        try {
-          const draft = grammarMode ? ctx.rawOutput : await emb.embed(ctx.rawOutput);
-          const formErr = answerFormError(ctx.shapeLibrary, ctx.shapeQueryVec, draft);
-          if (formErr) constraintErrors.push(formErr);
-        } catch { /* the form check never breaks the answer */ }
-      }
+    {
+      const formErr = await formErrorOf(ctx, ctx.rawOutput);
+      if (formErr) constraintErrors.push(formErr);
     }
     const { fired } = runVetoes({
       draft: ctx.rawOutput, bound: ctx.bound, question: ctx.question,

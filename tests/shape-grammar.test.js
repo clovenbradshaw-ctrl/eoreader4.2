@@ -256,6 +256,39 @@ test('end-to-end: a grammar-mode library rides a full runTurn — shapeTarget se
   assert.ok(sawShapeTarget, 'the predict stage selected a target shape from the library');
 });
 
+test('end-to-end: the form alarm rides a CHAT turn (no document) and flags chatbot-ese', async () => {
+  const inner = fakeEmbedder();
+  const lib = await buildShapeLibrary(EXEMPLARS, (t) => inner.embed(t), { shapes: SHAPES });
+  const stub = (reply) => ({
+    id: 'stub', kind: 'local', isLoaded: () => true,
+    describe: () => ({ backend: 'stub', kind: 'local', model: 'stub', label: 'stub' }),
+    async load() {},
+    async phrase() { return reply; },
+  });
+  const ask = (model) => runTurn({
+    question: 'who wrote this', doc: null, model,
+    embedder: createHashEmbedder(), geometricEmbedder: inner,
+    shapeLibrary: lib, auditLog: createAuditLog({ capacity: 64 }),
+  });
+  const flagged = (r) => [...(r.flags || []), ...(r.vetoes || [])]
+    .some((f) => (f.id || f) === 'answer-shape-weak');
+
+  // A terse, lookup-shaped reply clears the intent's own measured bar — no flag.
+  const good = await ask(stub('Balzac. He wrote it in 1835.'));
+  assert.equal(good.route, 'chat');
+  assert.equal(flagged(good), false, 'an in-basin chat answer must not be flagged');
+
+  // Full assistant-listicle register — measured off-basin for lookup (falls under the
+  // LOO p10 threshold against the assistant-contrast grammar) — raises the soft flag.
+  const listy = await ask(stub(
+    'Great question! Here are the answers to both parts:\n\n' +
+    '1. **2014 World Series**: The San Francisco Giants won the 2014 World Series. They defeated the Kansas City Royals 4 games to 3.\n\n' +
+    '2. **Fastest land mammal**: The cheetah is the fastest land mammal, capable of reaching speeds of up to 70 mph (113 km/h).\n\n' +
+    'Let me know if you would like more details about either topic!'));
+  assert.equal(listy.route, 'chat');
+  assert.equal(flagged(listy), true, 'an off-basin chat answer must raise answer-shape-weak');
+});
+
 test('nav pool: budget honoured, cached prefix is free, labels transfer, best stays an exemplar', async () => {
   const inner = fakeEmbedder();
   const cached = withPersistentEmbedCache(inner, { useIDB: false });
