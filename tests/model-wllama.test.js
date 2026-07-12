@@ -60,3 +60,15 @@ test('model/wllama: registers with the shared backend shape', () => {
   // reach for first — so the chip and the export never show a dead URL's name.
   assert.equal(m.describe().model.toLowerCase(), 'smollm2-135m-instruct-q8_0.gguf');
 });
+
+test('model/wllama: reset() exists and is a harmless no-op before load', async () => {
+  // The wedge recovery (rooms/reader/app.js resetWedgedLocalModel) calls m.reset?.() on every
+  // local backend. wllama used to have none — the dropped WASM runtime (runtime + weights,
+  // hundreds of MB) just lingered, and repeated recoveries stacked instances. The live teardown
+  // (inst.exit()) is a browser concern; what is provable here is the contract: reset is a real
+  // method, fail-soft on a never-loaded backend, and leaves isLoaded() honest.
+  const m = createModel('wllama');
+  assert.equal(typeof m.reset, 'function', 'wllama carries the reset() the wedge recovery relies on');
+  await assert.doesNotReject(() => m.reset(), 'reset() before any load must be a no-op, never a throw');
+  assert.equal(m.isLoaded(), false);
+});

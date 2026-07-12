@@ -84,24 +84,31 @@ registerBackend('claude', (opts = {}) => {
       if (client)  return;
       if (loading) return loading;
       loading = (async () => {
-        const key = apiKey();
-        if (!key) throw new Error('no API key — pick "Claude · hosted" on the model chip and paste one (console.anthropic.com)');
-        onProgress?.({ phase: 'fetch-runtime', pct: 0.2 });
-        const mod = await import(/* @vite-ignore */ SDK_URL);
-        const base = opts.baseURL || ls('eo_claude_base');
-        const c = new mod.Anthropic({
-          apiKey: key,
-          dangerouslyAllowBrowser: true,
-          ...(base ? { baseURL: base } : {}),
-        });
-        // Prove the key + model + network NOW, so "ready" on the chip is earned,
-        // not hoped. count_tokens is the free endpoint — no generation is billed.
-        onProgress?.({ phase: 'checking key', pct: 0.7 });
         try {
-          await c.messages.countTokens({ model: model(), messages: [{ role: 'user', content: 'ping' }] });
-        } catch (err) { throw explain(err); }
-        client = c;
-        onProgress?.({ phase: 'ready', pct: 1 });
+          const key = apiKey();
+          if (!key) throw new Error('no API key — pick "Claude · hosted" on the model chip and paste one (console.anthropic.com)');
+          onProgress?.({ phase: 'fetch-runtime', pct: 0.2 });
+          const mod = await import(/* @vite-ignore */ SDK_URL);
+          const base = opts.baseURL || ls('eo_claude_base');
+          const c = new mod.Anthropic({
+            apiKey: key,
+            dangerouslyAllowBrowser: true,
+            ...(base ? { baseURL: base } : {}),
+          });
+          // Prove the key + model + network NOW, so "ready" on the chip is earned,
+          // not hoped. count_tokens is the free endpoint — no generation is billed.
+          onProgress?.({ phase: 'checking key', pct: 0.7 });
+          try {
+            await c.messages.countTokens({ model: model(), messages: [{ role: 'user', content: 'ping' }] });
+          } catch (err) { throw explain(err); }
+          client = c;
+          onProgress?.({ phase: 'ready', pct: 1 });
+        } catch (err) {
+          // A failed check must not poison this instance: the latch is cleared so the next
+          // load() re-reads the key (freshly pasted ones included) and re-proves it.
+          loading = null;
+          throw err;
+        }
       })();
       return loading;
     },

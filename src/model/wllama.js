@@ -124,6 +124,11 @@ export const loadWllamaModel = async (modelUrl, onProgress) => {
       },
     });
   } catch (err) {
+    // Free the half-built runtime before walking on. Each mirror attempt constructs a fresh
+    // Wllama (a whole WASM module + memory); without this, walking a ladder of dead mirrors
+    // stacked one abandoned runtime per rung — real memory pressure on the machines least
+    // able to afford it. Best-effort: exit() on a runtime that never fully started may throw.
+    try { await inst.exit?.(); } catch { /* nothing started — nothing to free */ }
     throw await diagnoseLoadFailure(modelUrl, err);
   }
   onProgress?.({ phase: 'ready', pct: 1 });
@@ -136,7 +141,9 @@ registerBackend('wllama', (opts = {}) => {
   // ONE DECODE AT A TIME. A single llama.cpp context in a single WASM instance —
   // a second createCompletion during a decode corrupts it. phrase() and propose()
   // both enter through this gate (model/decode-gate.js).
-  const gate = makeDecodeGate();
+  // `let`, not `const`: reset() swaps in a FRESH gate so a wedged decode's
+  // never-settling queue entry can't block the decodes after a rebuild.
+  let gate = makeDecodeGate();
   // The GGUF actually in play. Before load: the pin or the ladder's head, so
   // describe() can already name the expected artifact; after load: whichever
   // candidate actually answered — the mirror that served the file IS the model's
@@ -154,17 +161,38 @@ registerBackend('wllama', (opts = {}) => {
       if (inst)    return;
       if (loading) return loading;
       loading = (async () => {
-        let lastErr = null;
-        for (const url of wllamaCandidates(opts.modelUrl)) {
-          try {
-            const i = await loadWllamaModel(url, onProgress);
-            inst = i; modelUrl = url;
-            return;
-          } catch (err) { lastErr = err; }   // this mirror is out — walk on
+        try {
+          let lastErr = null;
+          for (const url of wllamaCandidates(opts.modelUrl)) {
+            try {
+              const i = await loadWllamaModel(url, onProgress);
+              inst = i; modelUrl = url;
+              return;
+            } catch (err) { lastErr = err; }   // this mirror is out — walk on
+          }
+          throw lastErr || new Error('wllama: no weights URL to load');
+        } catch (err) {
+          // A failed load must not poison this instance: left in place, the rejected
+          // promise answered every later load() forever and the backend could never
+          // retry (a transient network blip became a permanent "won't load").
+          loading = null;
+          throw err;
         }
-        throw lastErr || new Error('wllama: no weights URL to load');
       })();
       return loading;
+    },
+    // TEAR THE RUNTIME DOWN (the wedge recovery's other half — model/webllm.js has the same
+    // contract). Before this, wllama had no reset(): the app-side recovery dropped its handle
+    // and the whole WASM module — runtime + weights, hundreds of MB — just lingered until GC
+    // felt like it, and repeated recoveries STACKED instances; that memory pressure is itself
+    // a model-killer. Drop the handle first (isLoaded() → false at once, a hung exit can never
+    // block the reload), give the backend a fresh decode gate so a never-settling entry from a
+    // wedged decode can't block the rebuilt runtime, and free the module best-effort behind.
+    async reset() {
+      const dead = inst;
+      inst = null; loading = null;
+      gate = makeDecodeGate();
+      try { await dead?.exit?.(); } catch { /* already gone — the handle drop is the reset */ }
     },
     async phrase(messages, opts = {}) {
       if (!inst) throw new Error('wllama: not loaded');
