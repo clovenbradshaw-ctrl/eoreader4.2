@@ -29,105 +29,36 @@
 //   §1 — stop calling the spans "memory." A reader read some lines; that framing
 //        is what makes the boundary hold with no refusal instruction behind it.
 //
-// Structure stays in the grounder: in selection, in order (§3 below), and in the
+// Structure stays in the grounder: in selection, in order, and in the
 // edge-grounding veto on the way back. `serializeNotes` / the substrate stay
 // alive — they feed the grounder and the veto — they just never reach the talker.
 //
-// The system message carries the stable boundary + voice (prefix cache holds);
-// the per-turn user block carries the lines, the conversation so far, the
-// question, and the absence clause last, where a small model attends hardest.
+// THE PROMPT IS A SITE (docs/prompt-as-site.md). Every block the talker is handed is
+// a BAND with a declared Site terrain, and the catalog of bands lives in
+// model/bands.js — nine terrains, closed by derivation, instead of ad-hoc block
+// names. The three builders below are PROJECTIONS over that catalog (projectBands):
+// read-time, pure, byte-identical to the hand-rolled assembly they replaced
+// (tests/prompt-golden.test.js). The system message carries the stable boundary +
+// voice (prefix cache holds); the per-turn user block carries the lines, the
+// conversation so far, the question, and the absence clause last, where a small
+// model attends hardest.
 
-// The verbatim lines the reading turned up sit under this header — what the engine found
-// on this question when it read the source. Named as a reading RESULT, not a vague "what
-// comes to mind": the epistemics are plain about what the data is (lines that were read),
-// which is what lets the talker answer like itself instead of narrating a memory. Exported
-// so the echo backend (and pleias's RAG re-extraction) can find them. Recognition-free, and
-// in the reader's register — never "excerpts from the document."
-export const EXCERPTS_HEADER = 'What I found reading it:';
+import {
+  GROUNDED_BANDS, CURSOR_BANDS, CHAT_BANDS,
+  groundedView, cursorView, chatView, projectBands,
+} from './bands.js';
 
-// NO default length prescription. The earlier contract carried a sentence cap, which
-// a small model read as the TASK, not a ceiling — "summarize" came back as a literal
-// three-sentence stub. The real bound is max_tokens, set per task by the intent pass
-// (turn/intent.js). The empty budget means "say nothing about length"; a caller may
-// still pass an explicit { sentences } / { chars } budget to re-impose a cap for one
-// turn. See docs/prompt-assembly.md.
-export const DEFAULT_BUDGET = Object.freeze({});
-
-// The summary degeneracy guard — FAITHFULNESS, not length. Rides only on a summary
-// task (turn/intent.js). A small model handed a "summarize" turn tends to reword a
-// single excerpt as the whole answer; this asks it to draw the excerpts together.
-export const SUMMARY_GUARD =
-  'They want a summary: say what it is about in your own words, drawing the lines ' +
-  'together — never reword a single line as the whole answer.';
-
-// THE HONEST FRAME (§1). The talker is told plainly WHAT it is and WHERE its knowledge comes
-// from, rather than being made to pretend it read a whole document. The engine read the source
-// and the lines below are what that reading TURNED UP on this question — the honest ontology is
-// "here is what I found when I read it," stated as a reading result, not the vaguer "what comes
-// to mind." Being plain about what the data IS (lines that were read) is what frees the talker to
-// answer like itself: an over-steered frame ("that didn't come to mind", "the reading doesn't
-// say") made a small model answer more stiffly than it naturally would. So the boundary is still
-// there — what was found is not the whole source — but it is voiced as a person would ("I didn't
-// find that in what I read"), and the talker keeps its freedom to help past the gap. The voice is
-// stable across turns so the prefix cache holds; the per-turn absence clause rides last in the
-// user block, where a small model attends hardest (buildGroundedMessages).
-//
-// LEAD WITH THE ANSWER, don't narrate the reading. Left to the bare honest frame, a small talker
-// opens every reply by narrating its own reading — "Based on what I read, it seems that…", "The
-// text mentions…", "The text doesn't provide…" — and the answer reads stilted, the substance buried
-// under a paragraph of meta. The earlier "say what those lines show" fed it: it comes back as "the
-// text shows / mentions…". So the frame now asks for the answer HEAD-ON — say the thing, don't
-// preface it with the act of reading — and to say each point once rather than circle back and reword
-// it. This is the same "answer directly, don't narrate the reading" the librarian register carries,
-// folded into the default so every grounded turn gets it, not only the opt-in one.
-export const SYSTEM_GROUND = `You are the voice of a reader. When you're asked something, the lines below are what your reading turned up on it — the part of what you read that bears on this question, not the whole of it.
-
-Answer the way you naturally would: answer the question head-on, in your own words. Don't quote the lines back, don't tell whoever asked to go look, and don't open by narrating your own reading ("based on what I read…", "the text mentions…") — lead with the answer itself, and say each thing once rather than circling back to restate it. If the lines don't cover the question, say so plainly (something like "I didn't find that in what I read") and then still help however you can. Don't state a fact and then deny finding it: when the lines let you answer a part, just answer it — save "I didn't find that" for what they genuinely don't cover. Write natural prose; don't write citations or tags, those are added for you.`;
-
-export const SYSTEM_CHAT = `You are a helpful, knowledgeable assistant. Answer their question directly and accurately, drawing on the conversation and your general knowledge. Be clear and concise.`;
-
-// The LONG-FORM directive — appended (only) when the ask is for a developed piece (an essay,
-// a detailed report). It overrides the default "be clear and concise" register: 4.2 answered
-// even "write me an essay" in two sentences because every register told the model to be brief.
-export const LONGFORM_DIRECTIVE = `This is a request for a DEVELOPED, long-form piece — an essay or detailed write-up, not a quick answer. Write it out in FULL: several substantial paragraphs that build on each other — an opening that frames the subject, body paragraphs that each develop a distinct point with specifics, and a closing. Aim for depth and length; do not stop after a sentence or two.`;
-
-// The STRICT grounded register — answer from the reading first (the Grounded chip). The same honest
-// frame, said plainly: the lines below are what the reading found, and that is the window onto the
-// source. When they don't cover the question the honest report is "I didn't find it in what I read,"
-// after which the talker may still help from general knowledge if it says so — a faithful "I didn't
-// find that" is the right answer here, never a failure.
-export const SYSTEM_GROUND_STRICT = `You are the voice of a reader. When you're asked something, the lines below are what your reading turned up on it — the part of what you read that bears on this question, and your only window onto the source.
-
-Answer from those lines when they cover the question. When they don't, say so plainly — that you didn't find it in what you read — and then, if you can, you may answer from your general knowledge, making clear that part isn't from what you read. Never claim the lines said something they didn't. Speak of "what I read", never of "the reading". Write natural prose; don't write citations or tags, those are added for you.`;
-
-// The FREE register — general-knowledge chat that ignores the document (the Free form
-// chip). Distinct from SYSTEM_CHAT, which is the conversation-only fallback: this one
-// explicitly invites outside knowledge and labels itself ungrounded.
-export const SYSTEM_FREE = `You are a helpful, knowledgeable assistant. Answer their question directly and accurately, drawing on your general knowledge. Be clear and concise.
-
-(This reply is free-form — it is not grounded in any document they may have loaded.)`;
-
-// The current-moment line — AMBIENT CONTEXT, not an instruction. A small talker, asked "what
-// is today's date?", confabulates the "I have no real-time clock" boilerplate; handed the moment
-// as a plain known fact (the way it knows anything in its context), it just answers. So this is
-// stated as context the chat already has — no "use this", no "you do/don't have a clock", nothing
-// for the model to echo back about clocks at all. The browser is the ground truth; off by default
-// (`now` null → '' → byte-identical prompts and golden tests); the live turn passes `new Date()`.
-// Formatted from LOCAL components — the user's wall clock — with named day/month arrays so the
-// wording is locale-independent and deterministic to test.
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
-  'September', 'October', 'November', 'December'];
-const pad2 = (n) => String(n).padStart(2, '0');
-export const currentMomentLine = (now = null) => {
-  if (now == null) return '';
-  let d;
-  try { d = now instanceof Date ? now : new Date(now); } catch { return ''; }
-  if (!d || Number.isNaN(d.getTime())) return '';
-  const date = `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-  const time = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  return `Current date and time, for context: ${date}, ${time} (local time).`;
-};
+// The band literals and frame constants live with the catalog (model/bands.js);
+// re-exported here so every existing import site — and the model/index.js barrel —
+// keeps its surface byte-for-byte.
+export {
+  TERRAIN_GRAIN,
+  EXCERPTS_HEADER, DEFAULT_BUDGET, SUMMARY_GUARD,
+  SYSTEM_GROUND, SYSTEM_CHAT, SYSTEM_GROUND_STRICT, SYSTEM_FREE, SYSTEM_CURSOR,
+  LONGFORM_DIRECTIVE, currentMomentLine, orderSpansForFrame,
+  projectBands, projectGroundedBands, projectCursorBands, projectChatBands,
+  GROUNDED_BANDS, CURSOR_BANDS, CHAT_BANDS, groundedView, cursorView, chatView,
+} from './bands.js';
 
 // The orientation line: filename, type, length — and NOTHING that lets the talker
 // narrate a famous text from memory (§3). No title, no author, no genre: the epistemic
@@ -258,40 +189,14 @@ export const GROUNDING_CUE =
 // and a broad survey diverge because the metacognition read them differently, not because a word
 // matched. Deleting the export is intentional — no caller should key layout off the raw question.
 
-const budgetLine = (b) => {
-  if (!b) return '';
-  if (typeof b === 'string') return b;
-  const parts = [];
-  if (b.sentences) parts.push(`at most ${b.sentences} sentence${b.sentences > 1 ? 's' : ''}`);
-  if (b.chars)     parts.push(`under ${b.chars} characters`);
-  return parts.length ? `Reply in ${parts.join(', ')}.` : '';
-};
-
-// Order the lines for the frame (§3, position bias — Lost in the Middle / Context Rot):
-// strongest first (the cursor's argmax takes primacy), second-strongest last (the span
-// that most needs retaining takes recency), the weakest buried in the middle. Four to
-// eight lines. A read-only permutation over a fixed span set — the verbatim text is
-// untouched, only its order. Surfed spans (score 0) sort to the middle, as they should.
-export const orderSpansForFrame = (spans = [], { max = 8 } = {}) => {
-  const ranked = [...spans].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, max);
-  if (ranked.length <= 2) return ranked;
-  const first = ranked[0];                 // primacy — the argmax
-  const last  = ranked[1];                 // recency — the second-strongest
-  const middle = ranked.slice(2);          // the rest, weakest at the tail of this desc list
-  // Bury the weakest in the CENTRE: deal the middle outside-in, so the smallest lands
-  // in the middle of the middle and the stronger of the rest sit at the edges.
-  const left = [], right = [];
-  middle.forEach((s, i) => (i % 2 === 0 ? left : right).push(s));
-  return [first, ...left, ...right.reverse(), last];
-};
-
-// Build the grounded user turn as the SUBJECTIVE FRAME (§1–§3). One channel — the
-// verbatim lines, the only thing the reader read — framed as a reading, with the
-// question and the absence clause LAST where a small model attends hardest. No arrows
-// (§2): relational structure rode into span selection and order upstream, never as
-// `A -> B : rel` in the talker's input. No recognition (§3): orientation is
-// filename · type · length, never a title or author. The conversation rides in the same
-// reader's register (this reading so far), the USER's thread only — the talker's prior
+// Build the grounded user turn as the SUBJECTIVE FRAME (§1–§3), as a PROJECTION over
+// the band catalog (model/bands.js GROUNDED_BANDS — each band's rationale and Site
+// terrain live there, with the literals). One channel — the verbatim lines, the only
+// thing the reader read — framed as a reading, with the question and the absence
+// clause LAST where a small model attends hardest. No arrows (§2): relational
+// structure rode into span selection and order upstream. No recognition (§3):
+// orientation is filename · type · length, never a title or author. The conversation
+// rides in the same reader's register, the USER's thread only — the talker's prior
 // answers stay withheld (the poisoning channel), and an unbound one never folds in (§7).
 //
 // THE META-CONVERSATIONAL EXCEPTION (`meta:true`, turn/intent.js). When the question is
@@ -299,179 +204,14 @@ export const orderSpansForFrame = (spans = [], { max = 8 } = {}) => {
 // its SUBJECT, not a premise it might anchor a wrong fact to — so the full both-role thread
 // is fed and framed to be reasoned over, not skipped. The asymmetry is the point: the
 // firewall guards a prior ANSWER becoming a premise; here a prior topic is the question.
-export const buildGroundedMessages = ({
-  question,
-  spans = [],
-  orientation = '',
-  task = 'answer',
-  budget = DEFAULT_BUDGET,
-  conversation = {},
-  meta = false,
-  corrective = '',
-  exemplar = '',
-  strict = false,
-  now = null,
-  graph = '',
-  arc = '',                // the reading's own arc (write/gravity.js arcLines); '' → no block, byte-identical
-  reasoning = '',          // the reasoning walk's marked reaches (turn/stages.js `prompt`, src/reason);
-                           // '' → no block, byte-identical. Pre-rendered lines, each carrying its grade mark.
-  shape = '',              // the register bundle — LIBRARIAN (+ CAPABILITY on longform); no layout template. '' → no block, byte-identical
-  steer = '',              // the discourse read's BRIEF — what THIS user actually wants (app.dc.js _steerLine);
-                           // folded in just before the answer clause and echoed in it. '' → no block, byte-identical.
-  tail = '',              // the planner's read-window — the prose written so far this turn (spec-planner.md §5/§6)
-} = {}) => {
-  const blocks = [];
-  // A META-CONVERSATIONAL turn (the question is ABOUT the conversation) carries the full
-  // both-role thread as its SUBJECT, framed to be drawn on, not skipped. Every other
-  // grounded turn keeps the prior turns as context-to-skip (the firewall below).
-  const metaConv = meta && !!(conversation.notes || conversation.pastTurns?.length);
-
-  // What it was — filename · type · length, no recognition (§3).
-  if (orientation) blocks.push(`What it was: ${orientation}.`);
-
-  // THE FOLD — the reader's own SENSE of what it read, handed to the talker the way the talker
-  // hands back its answer: as language, not as a data structure. §2 keeps the fold's ARROWS out of
-  // the default frame because a small model reads a flat "A -> B" as a causal claim; so a caller
-  // that wants the fold in the window passes it ALREADY FOLDED INTO NEAR-PROSE (the reader's
-  // `foldProse`) — the central figures and what the reading joined them to, said plainly. The
-  // talker is then simply GIVEN the content, the way a person is handed it, without the machinery
-  // of where it arose from, and only makes it fluent: the folding did the thinking, not this
-  // prompt, which is why the frame stays one short line. It leads; the high-value verbatim lines
-  // follow as its grounding. Empty → no block, byte-identical.
-  if (graph)
-    blocks.push(`Here's the sense of it, from your reading:\n${graph}`);
-
-  // THE ARC — how the reading itself MOVED, opt-in (write/gravity.js, docs/weight-of-the-
-  // turn.md): the focus's relations phase to phase, segmented at the turns where the reading
-  // was rewritten, each turn weighted by how hard. This is the surf's own dynamics broadcast
-  // into the window — the arriving-at beside the conclusions — so the telling can carry the
-  // turn as a turn instead of flattening it into equal claims. The arc shows order and turns,
-  // never causes; the cue says so, and the connective leash holds the output to it. Empty on
-  // every default turn → no block → byte-identical.
-  if (arc)
-    blocks.push(`${arc}\n(Let this shape the telling — at first…, then… — with the heaviest ` +
-      `emphasis at the strongest turn; the arc shows order and turns, never causes, so don't ` +
-      `add a "therefore" it doesn't contain.)`);
-
-  // The planner's READ-WINDOW (spec-planner.md §5/§6): the prose written so far this
-  // turn, fed back so the next sentence opens with a real transition instead of cold.
-  // It is context for the SEAM only — already witnessed, NOT to be repeated or
-  // re-grounded — so it rides just BEFORE the source lines, the prose then the
-  // material then the ask. Empty (→ no block) on every non-planner caller, so
-  // byte-identical there.
-  if (tail)
-    blocks.push(`The answer so far (continue from it; do not repeat it, and add no new fact):\n${tail}`);
-
-  // What the reading found — the verbatim lines it turned up, ordered for the frame (§3). The ONE channel.
-  if (spans.length)
-    blocks.push(`${EXCERPTS_HEADER}\n${orderSpansForFrame(spans).map(s => s.text).join('\n')}`);
-
-  // THE MARKED REACHES — the reasoning walk's own inferences (src/reason/walk.js), each line
-  // already carrying its grade mark from the turn. The grade survives the membrane HERE: the
-  // lines above are asserted (the text says them); these are hedged (the reading inferred
-  // them). The instruction is the epistemics, said once — hedge an inference as an inference,
-  // never state it as what the text says. Empty on every turn the walk did not run →
-  // no block → byte-identical.
-  if (reasoning)
-    blocks.push(`${reasoning}\n(Those are your own inferences, not lines you read — if one helps the answer, offer it hedged, as a reading of the pattern (“this suggests…”, “it may be that…”), never as something the text states.)`);
-
-  // The conversation so far, in the reader's register — never document content (§1, §6).
-  if (metaConv) {
-    // META-CONVERSATIONAL: the question is ABOUT this conversation, so the prior turns are
-    // the SUBJECT, not a checklist to skip. Feed both sides (the surfed recap of older
-    // movers and the recent verbatim window), framed to be reasoned over — the opposite of
-    // the "answer just their latest" cue below, which would discard the very topics asked about.
-    const thread = [conversation.notes, ...(conversation.pastTurns || [])].filter(Boolean).join('\n');
-    blocks.push(`The conversation so far — what you two have already talked about ` +
-      `(their question below is ABOUT this conversation, so treat these prior topics as its ` +
-      `subject, not as background to skip):\n${thread}`);
-  } else {
-    // The prior turns ride as CONTEXT, not as a checklist: a small talker fed bare
-    // "You asked: …" lines answers every one of them (the audit's t5 regurgitated the
-    // whole thread as bullets), so the block names them as already-handled and points the
-    // talker at the single live question below.
-    if (conversation.notes)
-      blocks.push(`Earlier in this reading:\n${conversation.notes}\n(Those came before — for context only; answer just their latest question below.)`);
-    if (conversation.pastTurns?.length)
-      blocks.push(`They had asked you:\n${conversation.pastTurns.join('\n')}` +
-        // When `notes` rode above it already carried the firewall; a pastTurns-only
-        // thread (the reader chat) gets it here, so the prior turns read as already-handled
-        // context and not a checklist the talker re-answers (the "restated the old one" bug).
-        (conversation.notes ? '' : '\n(Those came before — for context only; answer just their latest question below.)'));
-    // The COMMON-GROUND cue (converse/dialogue-state.js): the facts already settled between
-    // you and the user. A small talker re-asserts "the mayor is X" every turn because the
-    // thread above reads as a checklist; naming the settled ground as already-held tells it
-    // to build on it instead of restating it. Only the settled QUESTION rides — never the
-    // prior answer (the firewall holds). Empty → no block → byte-identical.
-    if (conversation.settled?.length)
-      blocks.push(`Already settled with them — they know these; build on them, don't restate them:\n${conversation.settled.map(s => `- ${s}`).join('\n')}`);
-  }
-
-  // A SHAPE exemplar — the nearest sample answer the form library matched (turn/shape.js),
-  // offered so the FIRST draft is laid out in the right register and length. It is a FORM
-  // model only: it is about a different text, so the talker must copy its shape, never its
-  // facts. Empty (→ no block) on every turn with no library threaded — byte-identical.
-  if (exemplar)
-    blocks.push(`For the SHAPE only — here is the kind of answer this question wants (it is ` +
-      `about a different text; copy its register and length, NOT its facts):\n“${exemplar}”`);
-
-  // The live question — last of the material, just before the closing clause.
-  blocks.push(`They asked you: ${question}`);
-
-  // A confabulation-rewrite corrective, when the talker is re-prompted after the
-  // diagonal guard caught a figure-at-a-void (turn/stages.js `revise`).
-  if (corrective) blocks.push(corrective);
-
-  // The summary guard rides on a summary task only — faithfulness, not length.
-  if (task === 'summary') blocks.push(SUMMARY_GUARD);
-
-  // No length line by default (budget empty); a caller may re-impose a cap for a turn.
-  const budgetStr = budgetLine(budget);
-  if (budgetStr) blocks.push(budgetStr);
-
-  // The register bundle (LIBRARIAN, + CAPABILITY on a longform ask), just before the answer
-  // clause. No layout template rides here any more — how the reply is shaped is the discourse
-  // metacognition's call, carried by the steer below. Never on a budgeted (capped) reply.
-  if (shape && !budgetStr) blocks.push(shape);
-
-  // Strict mode with nothing to read: the reader had no lines on this at all. Name that
-  // absence so the talker says it plainly rather than reaching past the frame for outside
-  // knowledge (the strict system message already forbids that; this is the in-register cue).
-  if (strict && !spans.length)
-    blocks.push('Your reading turned up nothing bearing on their question — it is not covered by what you read. Say that plainly, the way a person would (for example: "I didn\'t find anything about that in what I read" — first person, never "the reading doesn\'t mention…"), then, if you can, answer from general knowledge, making clear that part is not from what you read.');
-
-  // THE DISCOURSE STEER — the metacognition's BRIEF on what THIS user is actually after, folded in
-  // as the last instruction before the answer clause (where a small model attends hardest). It is a
-  // note to the model about how to AIM the reply, not content to echo — so it decides what gets
-  // foregrounded, not what gets restated. The dolphins failure this fixes: a read that said the user
-  // wanted an overview of dolphins still answered with whatever spans surfaced (climate change, meat)
-  // because the read only rode along as passive "steering". Now it leads the answer clause. Empty
-  // (every non-steered caller) → no block → byte-identical.
-  if (steer) blocks.push(steer);
-
-  // The ANSWER CLAUSE, last (§1) — where a small model attends hardest. The restriction is
-  // lifted: the talker answers, from the lines when they cover it and from general knowledge
-  // when they don't (saying which). Not from document is FLAGGED downstream, not forbidden here.
-  //   When a prior thread rode above, the clause names the live question outright so the talker
-  //   answers THAT one and not the earlier turns it just saw.
-  //   When a steer rode above, the clause closes on it too — the last words the model reads are
-  //   "aim it at what they want", not a generic "answer them now" that discards the brief.
-  const aim = steer ? ' Keep the whole reply aimed at what they’re actually after (the brief just above) — lead with what your reading speaks to it, not with whatever else happened to surface.' : '';
-  blocks.push((metaConv
-    ? `Answer their question now — “${question}” — about the conversation above. Draw on those ` +
-      'prior topics as its subject, grounded in what your reading turned up where it bears ' +
-      'on the answer; say which part is from what you read and which from general knowledge.'
-    : (conversation.notes || conversation.pastTurns?.length)
-    ? `Answer their latest question now — “${question}” — in your own words. If what you read ` +
-      'doesn\'t cover it, answer from general knowledge and say that part isn\'t from what you read.'
-    : 'Answer them now, in your own words. If what you read doesn\'t cover it, answer from ' +
-      'general knowledge and say that part isn\'t from what you read.') + aim);
-
-  const sysBase = strict ? SYSTEM_GROUND_STRICT : SYSTEM_GROUND;
-  const moment = currentMomentLine(now);
+//
+// `probe` is the read-only research instrument (docs/prompt-as-site.md, Tier 2):
+// null on every production turn → byte-identical output, pinned by the golden test.
+export const buildGroundedMessages = (args = {}) => {
+  const bands = projectBands(GROUNDED_BANDS, groundedView(args), args.probe ?? null);
   return [
-    { role: 'system', content: moment ? `${sysBase}\n\n${moment}` : sysBase },
-    { role: 'user',   content: blocks.join('\n\n') },
+    { role: 'system', content: bands.filter(b => b.role === 'system').map(b => b.text).join('\n\n') },
+    { role: 'user',   content: bands.filter(b => b.role === 'user').map(b => b.text).join('\n\n') },
   ];
 };
 
@@ -485,88 +225,31 @@ export const buildGroundedMessages = ({
 // UNDER-specifies the output (natural form, he/Gregor, no repetition). Same relaxed
 // renderer posture as SYSTEM_GROUND; the surface discipline (§3) governs the whole
 // prompt — no hashes, no codes, no indices ever reach the model.
-export const SYSTEM_CURSOR = `You are a sharp reading companion writing one beat of a longer piece. You've read this document. Write in your OWN WORDS — synthesize, don't quote the passage back. Use what you've established so far; you don't need to reintroduce people already named. Refer to people naturally once they're established (he, she, by name) — don't repeat their full description.
-
-Write natural prose. Don't write citations, tags, or codes; those are added for you.`;
-
-// buildCursorMessages — assemble the prompt for ONE cell from the cursor's slots.
-// Every argument Site arrives as its INTEGRAL (full standing name, surface form);
-// the open (void) attributes arrive named as unsettled. A void-resolved beat (§3b)
-// carries a HEDGE instruction so the renderer withholds rather than overclaims. The
-// returned shape is the {system,user} pair model.phrase(messages, opts) consumes.
-export const buildCursorMessages = ({
-  orientation = '',
-  established = '',
-  integrals = [],          // [{ name }] — the full integral per argument Site (surface)
-  open = [],               // [string]  — void attributes, held open
-  edge = '',               // the typed relation in EOT surface: A -> B : tends
-  beat = '',               // OR a beat instruction (free prose target)
-  spans = [],              // grounded substance for this beat (exafference)
-  target = '',             // the shape instruction ("one plain past-tense sentence…")
-  band = 'firm',           // 'void' → hedge; 'firm' → assert (the propagated Resolution)
-  corrective = '',         // a forward correction the previous beat's seam carried (§3c)
-} = {}) => {
-  const blocks = [];
-  if (orientation) blocks.push(`You are reading ${orientation}. Read what is here; do not name or place the work.`);
-  if (established)  blocks.push(`Established so far: ${established}.`);
-
-  // Identity, collapsed AT THE CURSOR — the integral per argument Site (§5). A lone
-  // referent is the Focus (cursor.mjs); a relation labels Subject / Object so the
-  // model binds each slot to the right integral.
-  if (integrals.length) {
-    const focusLines = integrals
-      .map((g, i) => {
-        const label = integrals.length === 1 ? 'Focus'
-          : i === 0 ? 'Subject' : i === integrals.length - 1 ? 'Object' : 'Also';
-        return `  ${label}: ${g.name}`;
-      })
-      .join('\n');
-    blocks.push(`Who this beat is about (already established — refer to them naturally):\n${focusLines}`);
-  }
-  // The void attributes, named as unsettled — do not assert (§2 FIRM-ONLY, §5).
-  if (open.length)
-    blocks.push(`Unsettled — do NOT assert as fact, leave open: ${open.join('; ')}.`);
-
-  // The beat itself: a typed edge in surface, or a free instruction.
-  if (edge) blocks.push(`What happens (from the document):\n  ${edge}`);
-  if (beat) blocks.push(`The beat: ${beat}`);
-
-  // A forward correction the prior beat's seam carried (§3c): the reading drifted
-  // past the noise null, so the NEXT sentence acknowledges it in prose rather than
-  // un-saying the last one. Plain language, no machinery — the talker just writes
-  // the qualifier into its own sentence.
-  if (corrective) blocks.push(corrective);
-
-  if (spans.length)
-    blocks.push(`${EXCERPTS_HEADER}\n${spans.map(s => s.text).join('\n')}`);
-
-  // The SOFT gate, surfaced as posture (§3b): a void synthesis must hedge.
-  if (band === 'void')
-    blocks.push('This connection is not settled by the document — write it as a holding-open (suggests, stages, leaves open), never as a proven claim.');
-
-  if (target) blocks.push(`Write: ${target}.`);
-
+//
+// buildCursorMessages — assemble the prompt for ONE cell from the cursor's slots, as
+// a projection over CURSOR_BANDS. Every argument Site arrives as its INTEGRAL (full
+// standing name, surface form); the open (void) attributes arrive named as unsettled.
+// A void-resolved beat (§3b) carries a HEDGE instruction so the renderer withholds
+// rather than overclaims. The returned shape is the {system,user} pair
+// model.phrase(messages, opts) consumes.
+export const buildCursorMessages = (args = {}) => {
+  const bands = projectBands(CURSOR_BANDS, cursorView(args), args.probe ?? null);
   return [
-    { role: 'system', content: SYSTEM_CURSOR },
-    { role: 'user',   content: blocks.filter(Boolean).join('\n\n') },
+    { role: 'system', content: bands.filter(b => b.role === 'system').map(b => b.text).join('\n\n') },
+    { role: 'user',   content: bands.filter(b => b.role === 'user').map(b => b.text).filter(Boolean).join('\n\n') },
   ];
 };
 
 // The chat (no-doc) path: a chat model wants turns as turns, so the recent verbatim
 // window rides as real {role,content} message history and the surfed recap folds into
-// the system message (docs/session-fold.md).
-export const buildChatMessages = ({ question, history = [], notes = '', free = false, now = null, longform = false } = {}) => {
-  const base   = free ? SYSTEM_FREE : SYSTEM_CHAT;
-  const moment = currentMomentLine(now);
-  const withMoment = moment ? `${base}\n\n${moment}` : base;
-  // A long-form ask overrides the default concise register (default off → byte-identical).
-  const withForm = longform ? `${withMoment}\n\n${LONGFORM_DIRECTIVE}` : withMoment;
-  const system = notes
-    ? `${withForm}\n\nNotes about our conversation before this:\n${notes}`
-    : withForm;
+// the system message (docs/session-fold.md). The system side is a projection over
+// CHAT_BANDS; the history splices between it and the live question.
+export const buildChatMessages = (args = {}) => {
+  const { history = [] } = args;
+  const bands = projectBands(CHAT_BANDS, chatView(args), args.probe ?? null);
   return [
-    { role: 'system', content: system },
+    { role: 'system', content: bands.filter(b => b.role === 'system').map(b => b.text).join('\n\n') },
     ...history,
-    { role: 'user',   content: question },
+    { role: 'user',   content: bands.find(b => b.key === 'question')?.text ?? '' },
   ];
 };
