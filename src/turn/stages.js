@@ -15,7 +15,7 @@ import { retrieveHybrid, reserveBySource, pickRetrievalEmbedder, selectExcerpts,
 import { parseText } from '../perceiver/parse/index.js';
 import { think, worthSayingAloud, inferGenders } from '../weave/write/index.js';
 import { foldNote }         from '../surfer/fold/index.js';
-import { surfFold, centroidBasis, projectUnits, structuralActivations, siteTerrainAt, trajectory, threadBasis } from '../surfer/index.js';
+import { surfFold, multiLevelSurf, centroidBasis, projectUnits, structuralActivations, siteTerrainAt, trajectory, threadBasis } from '../surfer/index.js';
 import { arcGravity, arcLines } from '../weave/write/gravity.js';
 import { namedReferents, referentialConfidence, siteIndices, serializeEOT, figureSurface } from '../perceiver/index.js';
 import { foldConversation, resolveQuery, groundedThread, referenceTarget } from './converse/index.js';
@@ -79,6 +79,15 @@ const weaveMemory = (messages, mindSpans) => {
 // real lens, the column still rides as a report (atmosphere + lenses) with the peak
 // unchanged. Degrades to {} on any embedding fault — a flaky meaning organ must never
 // crash the fold.
+// The CHORUS flag (surf-chorus / multi-level surf). The fold reads the document with the multi-
+// level chorus surf (chorus.js / multilevel.js): the arrest is discourse-aware (the activated
+// thread conditions which spans stop) and, over a composite of several sources, off-topic sources
+// are dropped before their content is read, and the per-source reads are folded to a bounded stop
+// set so the reading never spams the prompt. ON by default; set CHORUS_REV=0/false/off to fall
+// back to the incumbent single-ride surf (the RULES_REV idiom, speech/index.js:33 — read once).
+export const CHORUS_REV =
+  !(typeof process !== 'undefined' && process.env && /^(0|false|off)$/i.test(process.env.CHORUS_REV || ''));
+
 const significanceOpts = async (ctx, anchor) => {
   if (!ctx.doc) return {};
   const emb = ctx.geometricEmbedder;
@@ -401,7 +410,18 @@ export const stages = {
     // there and the surf is byte-identical to today. This is the column improving the
     // chat only where it can honestly measure, and staying dark where it cannot.
     const sigOpts = await significanceOpts(ctx, anchor);
-    const surf   = ctx.doc ? surfFold(ctx.doc, anchor, sigOpts) : null;
+    // THE CHORUS / MULTI-LEVEL SURF (CHORUS_REV, chorus.js + multilevel.js). Off (the default)
+    // → the incumbent single-ride surf, byte-identical. On → the activated thread (the question
+    // + recent turns + cast, threadBasis) conditions a chorus of rides, and over a composite the
+    // sources are surfed high-level first and only the relevant ones read for content. Gated so
+    // an empty thread (no words to be relevant to) never opts in — it degrades to today's surf.
+    const thread = (CHORUS_REV && ctx.doc)
+      ? threadBasis({ query: ctx.question, history: ctx.history || [], doc: ctx.doc })
+      : null;
+    const useChorus = thread && (((thread.terms && thread.terms.size) || (thread.figures && thread.figures.size)));
+    const surf   = ctx.doc
+      ? (useChorus ? multiLevelSurf(ctx.doc, anchor, { ...sigOpts, chorus: thread }) : surfFold(ctx.doc, anchor, sigOpts))
+      : null;
 
     let spans = ctx.spans;
     if (surf) {
