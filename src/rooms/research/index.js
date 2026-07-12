@@ -16,6 +16,6 @@ export {
 export { projectReport } from './project.js';
 export { runGroundedResearch, addressOfSentence, termSimilarity, holonicFacets, stripTaskFraming } from './driver.js';
 export { liveView, describeEvent } from './live.js';
-export { createResearchSession, formatChatReply } from './session.js';
+export { createResearchSession, formatChatReply, pendingClarification, refocusQuery } from './session.js';
 export { renderReportFragment, renderTraceFragment, renderReportHTML, REPORT_CSS } from './render.js';
 export { mountResearchSurface } from './surface.js';
