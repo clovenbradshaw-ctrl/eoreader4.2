@@ -8,6 +8,7 @@ export const CONTRACTS = Object.freeze({
   'src/model/anthropic.js': contract({ ops: ['INS'], targets: ['Field'], products: ['Entity'], stances: ['Making'], note: 'claude hosted-API backend' }),
   'src/model/bands.js': contract({ ops: ['SEG', 'SIG'], targets: ['Field'], products: ['Field', 'Kind'], stances: ['Dissecting', 'Binding'], note: 'prompt band catalog + terrain projection' }),
   'src/model/coders.js': contract({ ops: ['NUL', 'INS', 'SEG'], targets: ['Kind'], products: ['Kind', 'Entity'], stances: ['Clearing', 'Making'], note: 'coder catalog + registration' }),
+  'src/model/context-budget.js': contract({ ops: ['SEG', 'CON'], targets: ['Field'], products: ['Field'], stances: ['Dissecting', 'Binding'], note: 'keep the prompt within the model\'s context window' }),
   'src/model/decode-gate.js': contract({ ops: ['SEG'], targets: ['Field'], products: ['Field'], stances: ['Dissecting'], note: 'per-engine decode serializer' }),
   'src/model/echo.js': contract({ ops: ['INS', 'NUL'], targets: ['Field'], products: ['Entity'], stances: ['Making', 'Clearing'], note: 'echo backend, verbatim excerpts' }),
   'src/model/embed-cache.js': contract({ ops: ['REC', 'NUL'], targets: ['Atmosphere'], products: ['Atmosphere'], stances: ['Composing', 'Clearing'], note: 'persistent embedding cache (IndexedDB)' }),

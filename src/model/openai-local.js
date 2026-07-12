@@ -145,6 +145,12 @@ const makeLocalServerBackend = (cfg) => (opts = {}) => {
   return {
     id: cfg.id,
     kind: 'remote',
+    // The context window (model/context-budget.js): a local server's window is set when the user
+    // launches it (llama-server -c, Ollama's num_ctx), so the client can't read it — they declare
+    // it with eo_${id}_ctx, and absent that we assume a conservative 8192 (the common default), so
+    // the guard still keeps a prompt from overflowing a modestly-configured server. A too-low guess
+    // only ever trims an already-huge prompt; it never touches an ordinary turn.
+    contextWindow: (() => { const v = Number(ls(`eo_${cfg.id}_ctx`)); return Number.isFinite(v) && v > 0 ? v : 8192; })(),
     // PROVENANCE (model/interface.js describeModel): the exact model the local server is
     // serving — resolved by load() (pin or auto-discovery) — so the audit and chat export
     // name what actually answered, not a generic "ollama".
