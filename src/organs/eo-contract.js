@@ -42,6 +42,7 @@ export const CONTRACTS = Object.freeze({
   'src/organs/out/publish/raster.js': contract({ ops: ['NUL', 'EVA'], targets: ['Void'], products: ['Void'], stances: ['Clearing', 'Binding'], note: 'SVG→PNG raster + static-subset guard' }),
   'src/organs/out/publish/standards.js': contract({ ops: ['NUL'], targets: ['Atmosphere'], products: ['Atmosphere'], stances: ['Clearing'], note: 'provenance standards — capability toggles (config)' }),
   'src/organs/out/speech/index.js': contract({ ops: ['SEG', 'EVA'], targets: ['Void', 'Network'], products: ['Field', 'Lens'], stances: ['Dissecting', 'Binding'], note: 'speech output organ (SEG murmur → enactor gate)' }),
+  'src/organs/out/speech/schema.js': contract({ ops: ['DEF', 'SEG'], targets: ['Network', 'Void'], products: ['Lens', 'Field'], stances: ['Dissecting', 'Binding'], note: 'STRUCTURE — seat committed props into the answer\'s typed frame' }),
   'src/organs/out/speech/segment.js': contract({ ops: ['SEG'], targets: ['Void'], products: ['Field'], stances: ['Dissecting'], note: 'SEG the murmur → candidate propositions' }),
   'src/organs/out/text.js': contract({ ops: ['NUL'], targets: ['Lens'], products: ['Void'], stances: ['Clearing'], note: 'text output organ (bare renderer)' }),
 });
