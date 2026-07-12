@@ -41,6 +41,7 @@ import { bornSalience } from '../surfer/salience.js';
 import { deriveNull } from '../core/voidnull.js';
 import { relax } from '../weave/longgen/relax.js';
 import { stanceDescOf } from '../core/conversation-fold.js';
+import { speak } from '../model/speak.js';
 
 // The route alphabet — the directions the relaxation settles over. `research` is a real
 // direction (the discourse says the world has to answer), but it maps to the GROUND verdict
@@ -832,15 +833,14 @@ export const modelClarifyGate = (model, { history = [], fold = null, now = null,
   const off = { clarify: false, demand: '', drive: 0, speech: '' };
   if (!model?.phrase || !msg) return off;
   const prompt = discoursePrompt(msg, fold, { exchange: lastExchange(history), now, scope, standing });
-  try {
-    // The turn's signal rides along so a Stop/stall halts this decode too — unabortable,
-    // it would outlive the turn as an orphan holding the local engine.
-    const out = await model.phrase([{ role: 'user', content: prompt }], { maxTokens: 200, temperature: 0, minPredict: 0, signal });
-    const speech = String(out || '').trim();
-    if (!speech) return off;
-    const demand = clarifyDemandOf(speech, bases);
-    return { clarify: demand === 'clarify', demand, drive: clarifyDrive(speech, bases), speech };
-  } catch { return off; }
+  // The turn's signal rides along so a Stop/stall halts this decode too — unabortable,
+  // it would outlive the turn as an orphan holding the local engine.
+  const out = await speak(model, [{ role: 'user', content: prompt }], { fallback: null, maxTokens: 200, temperature: 0, minPredict: 0, signal });
+  if (out == null) return off;
+  const speech = String(out || '').trim();
+  if (!speech) return off;
+  const demand = clarifyDemandOf(speech, bases);
+  return { clarify: demand === 'clarify', demand, drive: clarifyDrive(speech, bases), speech };
 };
 
 // readDiscourse(model, opts)(message) → the metacognition's free-speech paragraph about THIS turn,
@@ -853,10 +853,8 @@ export const readDiscourse = (model, { history = [], fold = null, now = null, sc
   const msg = String(message || '').trim();
   if (!model?.phrase || !msg) return '';
   const prompt = discoursePrompt(msg, fold, { exchange: lastExchange(history), now, scope, standing });
-  try {
-    const out = await model.phrase([{ role: 'user', content: prompt }], { maxTokens: 200, temperature: 0, minPredict: 0, signal });
-    return String(out || '').trim();
-  } catch { return ''; }
+  const out = await speak(model, [{ role: 'user', content: prompt }], { maxTokens: 200, temperature: 0, minPredict: 0, signal });
+  return String(out || '').trim();
 };
 
 // phaticFromSpeech(speech, fold, bases) → { phatic, drive, route } — the phatic DOOR read off an

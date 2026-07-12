@@ -42,6 +42,7 @@
 import { researchTerms } from './research.js';
 import { referentialConfidence, REFERENT_MARGIN } from '../perceiver/referent.js';
 import { discourseFrame } from './converse/index.js';
+import { speak } from '../model/speak.js';
 
 // The weight a committed sense's DISTINGUISHING terms carry in the topic frame — the pressure of the
 // thumb. Set to the walks' own ANCHOR_W (3): the sense vocabulary presses as hard as the subject
@@ -221,12 +222,11 @@ export const modelDisambiguator = (model, { history = [], question = '', senseHi
     { role: 'user', content:
       `${hints.length ? `Sense hints: ${hints.join(', ')}\n` : ''}${frame ? `Discourse state:\n${frame}\n\n` : ''}Subject: ${s}\n\nJSON:` },
   ];
-  try {
-    // The turn's signal rides along: this 220-token decode runs before the first hop,
-    // and unabortable it outlived a Stop/stall as an orphan holding the engine.
-    const out = await model.phrase(messages, { maxTokens: 220, temperature: 0, minPredict: 0, signal });
-    return parseSensePrior(out, s);
-  } catch { return null; }
+  // The turn's signal rides along: this 220-token decode runs before the first hop,
+  // and unabortable it outlived a Stop/stall as an orphan holding the engine.
+  const out = await speak(model, messages, { fallback: null, maxTokens: 220, temperature: 0, minPredict: 0, signal });
+  if (out == null) return null;
+  return parseSensePrior(out, s);
 };
 
 // senseAnnouncement(committed) → the first-person "I'm reading this as X" beat, or null. Promotes the

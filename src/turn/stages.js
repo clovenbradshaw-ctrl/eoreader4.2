@@ -23,7 +23,8 @@ import { taskOf, TASK_MAX_TOKENS, isMetaConversational } from './intent.js';
 import { expectAnswer, answerConstraintErrors, answerPredictionError, needsReferent } from './expect.js';
 import { answerFormError } from './shape.js';
 import { rereadOnUnsettled } from './reread.js';
-import { buildGroundedMessages, buildChatMessages, orientationLine } from '../model/index.js';
+import { buildGroundedMessages, buildChatMessages, orientationLine,
+         projectGroundedBands, judgePrompt } from '../model/index.js';
 import { bindCitations, renderBound } from '../enactor/ground/index.js';
 import { runVetoes, isUnbound, isAbstention, classifyProvenance, assessAnswer } from '../enactor/ground/index.js';
 import { canGroundedSpeak, groundedSpeak, RULES_REV } from '../organs/out/speech/index.js';
@@ -32,7 +33,7 @@ import { answerabilityGate } from '../weave/longgen/answerable.js';
 import { walkReasoning } from '../surfer/reason/index.js';
 import { factCheck, auditPropositions } from '../enactor/factcheck/index.js';
 import { streamParagraphs } from '../weave/write/index.js';
-import { streamPhrase }     from '../model/index.js';
+import { streamPhrase, speak } from '../model/index.js';
 import { buildConceptTokenMap } from '../weave/write/concept-tokens.js';
 import { mountPersonality, defaultPantheonBank, defaultStanceBanks, defaultSiteBank, stanceFamily, resolveOverlap, dialMultipliers } from '../weave/write/voice.js';
 
@@ -691,8 +692,10 @@ export const stages = {
     // anchor a wrong fact to (the asymmetry the history-poisoning firewall misses). Every
     // other grounded turn keeps the user-only thread, withholding the poisoning channel.
     const metaTurn = grounded && !!ctx.meta;
-    const messages = grounded
-      ? buildGroundedMessages({
+    // The grounded frame's arguments, named once: buildGroundedMessages projects the
+    // band catalog over them, and the !EVA prompt checkpoint below judges the SAME
+    // projection — one derivation, two reads (a projection is NUL, free to repeat).
+    const groundedArgs = grounded ? {
           question:     ctx.question,
           spans:        selectExcerpts(ctx.spans || []),  // the relevant few verbatim — the ONE channel (§2)
           orientation:  orientationOf(ctx.doc),       // filename · type · length — no recognition (§3)
@@ -711,7 +714,9 @@ export const stages = {
           // No layout template: the answer-first/sectioned shape is no longer keyed off the raw
           // question. How the reply is shaped is the discourse metacognition's call (the steer),
           // not a keyword regex over the scope — so nothing rides the `shape` slot here.
-        })
+        } : null;
+    const messages = grounded
+      ? buildGroundedMessages(groundedArgs)
       : buildChatMessages({
           question: ctx.question,
           history:  ctx.recentMessages || [],   // a chat model wants turns as turns
@@ -723,11 +728,24 @@ export const stages = {
     // Weave in the read corpus (the mind) when the user opted into weave mode. Null
     // otherwise — the present prompt is untouched, golden parses byte-identical.
     const woven = weaveMemory(messages, ctx.mindSpans);
+    // !EVA prompt (model/prompt-checkpoint.js, docs/prompt-as-site.md §4): judge the
+    // band assembly the talker is about to be handed, between `reason` and `llm` —
+    // the input-side twin of the coder checkpoint. READ-ONLY AND ADVISORY: the
+    // verdict rides the ctx for audit (typed findings — grain-mixed, desert-cell,
+    // ground-inflation — the visible worklist), and only a structural error (a band
+    // off the catalog) makes ok false; nothing here alters or vetoes the turn.
+    // Best-effort: a faulting judge must never cost the prompt.
+    let promptVerdict = null;
+    if (grounded) {
+      try { promptVerdict = judgePrompt(projectGroundedBands(groundedArgs), { id: 'turn.prompt' }); }
+      catch { promptVerdict = null; }
+    }
     return {
       ...ctx,
       messages: woven,
       fedGraph,   // the meaning graph handed to the talker this turn (empty unless groundGraph)
       arcBlock,   // the arc block handed to the talker this turn (empty unless broadcastArc)
+      promptVerdict,  // the !EVA prompt verdict (null on chat turns / judge fault)
       promptText: woven.map(m => `${m.role}: ${m.content}`).join('\n\n'),
     };
   },
@@ -1174,15 +1192,12 @@ export const stages = {
     }
     // GO BACK — one regenerate pass, steered back onto the lines (the honest absence is a real
     // option), then re-bound and re-vetoed so the shipped redraft carries honest flags.
-    let redraft = null;
-    try {
-      const messages = buildGroundedMessages({
-        question: ctx.question, spans: selectExcerpts(ctx.spans),
-        orientation: orientationOf(ctx.doc), task: ctx.task, budget: ctx.budget,
-        conversation: {}, corrective: GROUNDING_CORRECTIVE,
-      });
-      redraft = await ctx.model.phrase(messages, { maxTokens: ctx.maxTokens || TASK_MAX_TOKENS.answer, ...(ctx.signal ? { signal: ctx.signal } : {}) });
-    } catch { redraft = null; }
+    const regenMessages = buildGroundedMessages({
+      question: ctx.question, spans: selectExcerpts(ctx.spans),
+      orientation: orientationOf(ctx.doc), task: ctx.task, budget: ctx.budget,
+      conversation: {}, corrective: GROUNDING_CORRECTIVE,
+    });
+    const redraft = await speak(ctx.model, regenMessages, { fallback: null, maxTokens: ctx.maxTokens || TASK_MAX_TOKENS.answer, ...(ctx.signal ? { signal: ctx.signal } : {}) });
     // Could not answer again → hold the draft back for the honest absence (it does not go forward).
     if (!redraft || !redraft.trim()) {
       const revisions = [...(ctx.revisions || []), Object.freeze({

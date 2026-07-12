@@ -41,6 +41,7 @@ import { makeArchive } from './archive.js';
 import { normalizeQuery } from './prefetch.js';
 import { runTurn } from './pipeline.js';
 import { discourseFrame } from './converse/index.js';
+import { speak } from '../model/speak.js';
 
 // The prose a hop reads from an admitted doc — the parsed full text, falling back to the source's
 // excerpt (a snippet-only result still carries one). Same accessor the single walk uses.
@@ -106,13 +107,12 @@ export const modelPlanner = (model, { history = [], question = '', signal = null
       'search engine needs — no numbering, no question words, no quotes, no commentary.' },
     { role: 'user', content: `${frame ? `Discourse state:\n${frame}\n\n` : ''}Topic: ${seed}\n\n${n} research queries:` },
   ];
-  try {
-    const out = await model.phrase(messages, { maxTokens: 96, temperature: 0, minPredict: 0, signal });
-    return String(out || '')
-      .split('\n')
-      .map(s => s.replace(/^\s*[-*\d.)\]]+\s*/, '').replace(/^(query|search)\s*:\s*/i, '').replace(/^["'`]+|["'`]+$/g, '').trim())
-      .filter(isQueryLine);
-  } catch { return []; }
+  const out = await speak(model, messages, { fallback: null, maxTokens: 96, temperature: 0, minPredict: 0, signal });
+  if (out == null) return [];
+  return String(out || '')
+    .split('\n')
+    .map(s => s.replace(/^\s*[-*\d.)\]]+\s*/, '').replace(/^(query|search)\s*:\s*/i, '').replace(/^["'`]+|["'`]+$/g, '').trim())
+    .filter(isQueryLine);
 };
 
 // A planner line is a QUERY, not the model's framing around one. Small local

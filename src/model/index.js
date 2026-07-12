@@ -6,12 +6,20 @@
 
 export { registerBackend, availableBackends, createModel, describeModel } from './interface.js';
 export { streamPhrase, surfaceTokens, emitSurface } from './stream.js';
+// The one decode organ: a guarded phrase that returns the caller's fallback on any fault.
+export { speak } from './speak.js';
 export { createHashEmbedder }   from './embed-hash.js';
 export { createMiniLMEmbedder } from './embed.js';
 export { buildGroundedMessages, buildChatMessages, SYSTEM_GROUND, SYSTEM_CHAT,
          SYSTEM_GROUND_STRICT, SYSTEM_FREE,
          orientationLine, metadataBlock, orderSpansForFrame,
          EXCERPTS_HEADER, DEFAULT_BUDGET, SUMMARY_GUARD } from './prompt.js';
+// The prompt as a Site (docs/prompt-as-site.md): the band catalog + projections,
+// and the input-side checkpoint that judges what the talker is handed.
+export { GROUNDED_BANDS, CURSOR_BANDS, CHAT_BANDS, TERRAIN_GRAIN,
+         projectBands, projectGroundedBands, projectCursorBands, projectChatBands } from './bands.js';
+export { judgePrompt, terrainShares, deriveWidth,
+         PROMPT_ERROR_TAXONOMY, STANCE_GRAIN, GRADIENT_BACKGROUND } from './prompt-checkpoint.js';
 export { CODER_MODELS, browserCoders } from './coders.js';
 
 import './echo.js';
