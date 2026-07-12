@@ -6,6 +6,7 @@ import {
   refusalAtom,
   answerabilityGate,
   followUpOffer,
+  classifyWantedType,
 } from '../src/weave/longgen/answerable.js';
 
 // The refusal atom shows the spans the corpus DOES hold when it cannot answer. The
@@ -73,6 +74,39 @@ test('answerabilityGate threads the question focus all the way into the refusal'
   // proof the focus flowed through the gate: the centred clause is in the refusal text
   assert.match(gate.refusal.text, /Nauru House became the tallest building in Melbourne/);
   assert.doesNotMatch(gate.refusal.text, /…\./);
+});
+
+// The reported failure: "What is the capital of France?" against web ground that plainly
+// holds "…is Paris" came back "The sources do not contain a definition. They do hold: …"
+// with guillotined "…" fragments — because EVERY "what is …" opener was typed as a
+// `definition`, and the narrow defining-verb test then refused a ground that answers with
+// "…is Paris" rather than a dictionary "X is a …". A factual attribute lookup is a `fact`,
+// which the gate licenses; the walk runs and the answer (Paris) is given, not refused.
+test('classifyWantedType: "what is the X of Y" is a fact lookup, not a definition', () => {
+  assert.equal(classifyWantedType('What is the capital of France?'), 'fact');
+  assert.equal(classifyWantedType('What is the capital city of France?'), 'fact');
+  assert.equal(classifyWantedType('What is the population of Japan?'), 'fact');
+  assert.equal(classifyWantedType("What is France's capital?"), 'fact');
+  assert.equal(classifyWantedType('What is her name?'), 'fact');
+});
+
+test('classifyWantedType: a genuine "what is a X" / define / mean stays a definition', () => {
+  assert.equal(classifyWantedType('What is a black hole?'), 'definition');
+  assert.equal(classifyWantedType('What is entropy?'), 'definition');
+  assert.equal(classifyWantedType('define recursion'), 'definition');
+  assert.equal(classifyWantedType('What does ephemeral mean?'), 'definition');
+  // the worked refusal case above must keep typing as a definition
+  assert.equal(classifyWantedType('what is the tallest house?'), 'definition');
+});
+
+test('answerabilityGate LICENSES "what is the capital of France?" when the ground holds it', () => {
+  const ground = [
+    { idx: 0, score: 0.9, text: 'Its capital, largest city and main cultural and economic centre is Paris.' },
+    { idx: 1, score: 0.4, text: 'The oldest traces of archaic humans in what is now France date from 1.8 million years ago.' },
+  ];
+  const gate = answerabilityGate({ question: 'What is the capital city of France?', ground });
+  assert.equal(gate.licensed, true, 'the walk runs — a supplied answer must not be refused');
+  assert.equal(gate.refusal, null, 'no "sources do not contain a definition. They do hold: …" atom');
 });
 
 test('followUpOffer has the same clean seam (no "…." after a trimmed topic)', () => {
