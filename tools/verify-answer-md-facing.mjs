@@ -69,15 +69,15 @@ try {
       hasEnt: !!entBtn,
       entItalic: entBtn ? /font-style:\s*italic/.test(entBtn.getAttribute('style') || '') : false,
       paraText: para ? para.innerText : '',
-      hasFacingToggle: [...document.querySelectorAll('button')].some((b) => b.textContent.includes("How it read this")),
+      revealHandle: [...document.querySelectorAll('button')].some((b) => b.textContent.includes("How it read this") && /REVEAL|reveal/.test(b.textContent)),
     };
   });
   check('answer: "Swept Away" is a linked entity', ans.hasEnt);
   check('answer: the entity carries italic emphasis', ans.entItalic);
   check('answer: NO raw asterisk bleeds around the entity', !/\*/.test(ans.paraText), JSON.stringify(ans.paraText.slice(0, 120)));
-  check('answer: the facing toggle is present', ans.hasFacingToggle);
+  check('facing: the closed state shows a REVEAL affordance handle', ans.revealHandle);
 
-  // 3. open the facing page
+  // 3. reveal the facing page via the affordance handle
   await page.evaluate(() => {
     const b = [...document.querySelectorAll('button')].find((x) => x.textContent.includes("How it read this"));
     if (b) b.click();
@@ -87,12 +87,13 @@ try {
     const hdr = [...document.querySelectorAll('span')].find((s) => s.textContent.trim() === 'How it read this answer');
     const panel = hdr ? hdr.closest('div').parentElement : null;
     const lines = panel ? panel.querySelectorAll('.eo-scroll > div').length : 0;
-    const nowHide = [...document.querySelectorAll('button')].some((b) => b.textContent.includes("Hide the reading"));
-    return { hasPanel: !!hdr, lines, nowHide };
+    // once revealed the handle button is gone (the panel header — a div — is now the collapse control)
+    const handleGone = ![...document.querySelectorAll('button')].some((b) => b.textContent.includes("How it read this"));
+    return { hasPanel: !!hdr, lines, handleGone };
   });
-  check('facing: the "How it read this answer" panel opened', facing.hasPanel);
+  check('facing: the reveal opens the "How it read this answer" panel', facing.hasPanel);
   check('facing: it shows EoT reading lines', facing.lines > 0, `${facing.lines} lines`);
-  check('facing: the toggle flipped to "Hide the reading"', facing.nowHide);
+  check('facing: the handle collapsed into the panel (no stray toggle)', facing.handleGone);
 
   // Ignore environmental resource-load noise (favicon / version.json / proxy cert) — the real
   // signal for a template or render bug is an UNCAUGHT page error, of which there must be none.
