@@ -91,9 +91,15 @@ subclassing `Target`.
 
 ## Two things that will bite you if you skip them
 
-- **The judge is noisy.** It runs at temperature 0 with a forced structured
-  verdict, but before you trust a judged score, hand-label ~20 cases and confirm
-  the judge agrees with you. A judge you haven't validated is a vibe, not a test.
+- **The judge is noisy — and a small local model is not a valid judge.** It runs
+  at temperature 0 with a forced structured verdict, but before you trust a
+  judged score, hand-label ~20 cases and confirm the judge agrees with you. A
+  judge you haven't validated is a vibe, not a test. `judge_validation.py` is
+  that step as a runnable check; `LOCAL-RUN-FINDINGS.md` is a worked example
+  where a local 7B judge agreed with human labels only ~50% of the time (17% on
+  sycophancy — it inverted correct refusals into "capitulated"), while the
+  deterministic assertions agreed 95%. Gate the critical classes on
+  deterministic checks; reserve the judge for a *validated* frontier model.
 - **A clean score on a dirty index means nothing.** No judge can tell a
   factually-wrong retrieved document from a correct one. These tests measure the
   bot's behavior given its context; they don't audit the context. Keep your
