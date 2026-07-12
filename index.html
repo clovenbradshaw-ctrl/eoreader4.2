@@ -365,7 +365,7 @@ table{border-collapse:collapse;width:100%}
             <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">SOURCES</span>
             <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ sourceCount }}</span>
             <span style="flex:1"></span>
-            <span style="font-size:10px;color:#9A9AA4">in this topic</span>
+            <button onClick="{{ openCmdk }}" title="Search your sources (⌘K)" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:#8A8A95;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 7px" style-hover="background:#EAEAEF;color:#5B4BE6"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>⌘K</button>
           </div>
           <sc-if value="{{ noSources }}">
             <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:14px 12px;font-size:11.5px;color:#9A9AA4;line-height:1.5">Nothing recorded yet. Read a URL, drop a file, paste text, or search the web — every source lands here with its hash.</div>
@@ -963,6 +963,10 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ cycleReadTheme }}" title="Paper theme" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">{{ readThemeLabel }}</button>
                   <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ entModeLabel }}</button>
                 </sc-if>
+                <sc-if value="{{ viewerIsPage }}">
+                  <sc-if value="{{ hasNativeToc }}"><button onClick="{{ toggleNativeToc }}" title="On this page" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">☰ Contents</button></sc-if>
+                  <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ entModeLabel }}</button>
+                </sc-if>
                 <sc-if value="{{ viewerIsEot }}"><button onClick="{{ downloadEot }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ .eot</button></sc-if>
               </div>
             </div>
@@ -995,7 +999,15 @@ table{border-collapse:collapse;width:100%}
                   </div>
                 </sc-if>
                 <sc-if value="{{ pageShow }}">
-                  <iframe srcdoc="{{ pageDoc }}" sandbox="allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
+                  <iframe ref="{{ setNativeFrame }}" srcdoc="{{ pageDoc }}" sandbox="allow-same-origin allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
+                </sc-if>
+                <sc-if value="{{ nativeTocOpen }}">
+                  <div class="eo-scroll" style="position:absolute;top:10px;left:10px;bottom:10px;width:262px;overflow-y:auto;background:#fff;border:1px solid #EAEAEF;border-radius:12px;box-shadow:0 14px 44px rgba(20,20,30,.18);padding:9px">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#9A9AA4;padding:4px 8px 8px">On this page</div>
+                    <sc-for list="{{ nativeToc }}" as="c">
+                      <button onClick="{{ c.go }}" style="display:block;width:100%;text-align:left;font-family:'Newsreader',Georgia,serif;font-size:13.5px;color:#2A2A32;border-radius:7px;padding:7px 10px 7px {{ c.pad }}px" style-hover="background:#F2F2F6">{{ c.label }}</button>
+                    </sc-for>
+                  </div>
                 </sc-if>
               </div>
             </sc-if>
@@ -1240,6 +1252,41 @@ table{border-collapse:collapse;width:100%}
             </div>
           </sc-for>
         </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ⌘K SOURCE PALETTE — search THROUGH the record: titles, sites, and every recorded word -->
+  <sc-if value="{{ cmdkShow }}">
+    <div style="position:absolute;inset:0;z-index:55">
+      <div onClick="{{ closeCmdk }}" style="position:absolute;inset:0;background:rgba(18,18,26,.36);animation:eoFade .16s ease"></div>
+      <div style="position:absolute;left:50%;top:72px;transform:translateX(-50%);width:min(680px,94vw);max-height:calc(100vh - 150px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 28px 80px rgba(20,20,30,.32);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:11px;padding:15px 18px;border-bottom:1px solid #F0F0F4">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="eo-cmdk-input" value="{{ cmdkQuery }}" onChange="{{ onCmdkInput }}" onKeyDown="{{ onCmdkKey }}" placeholder="Search your sources — titles, sites, and every recorded word…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;font-size:15px;color:#1B1B22;background:transparent" />
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#B4B4BE;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:5px;padding:2px 6px">ESC</span>
+        </div>
+        <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:8px">
+          <sc-if value="{{ cmdkNone }}">
+            <div style="padding:30px 22px;text-align:center;font-size:12.5px;color:#9A9AA4;line-height:1.6">{{ cmdkEmptyMsg }}</div>
+          </sc-if>
+          <sc-if value="{{ cmdkHasHint }}">
+            <div style="padding:7px 12px 8px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.07em;color:#B4B4BE">{{ cmdkHint }}</div>
+          </sc-if>
+          <sc-for list="{{ cmdkRows }}" as="cr">
+            <button onClick="{{ cr.open }}" style="width:100%;display:flex;gap:12px;padding:11px 12px;border-radius:11px;align-items:flex-start;text-align:left;background:{{ cr.bg }}" style-hover="background:#F5F5F8">
+              <span style="width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ cr.favBg }};color:{{ cr.favFg }}">{{ cr.favCh }}</span>
+              <span style="flex:1;min-width:0">
+                <span style="display:block;font-size:13.5px;font-weight:600;color:#20202A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cr.title }}</span>
+                <sc-if value="{{ cr.hasSnippet }}">
+                  <span style="display:block;font-size:12px;color:#6E6E78;line-height:1.55;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"><sc-for list="{{ cr.snipSegs }}" as="sp"><sc-if value="{{ sp.hit }}"><b style="color:#4B3FD0;font-weight:700;background:#EFECFE;border-radius:3px;padding:0 1px">{{ sp.s }}</b></sc-if><sc-if value="{{ sp.plain }}"><span>{{ sp.s }}</span></sc-if></sc-for></span>
+                </sc-if>
+                <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A8A8B2;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cr.meta }}</span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:15px;padding:9px 16px;border-top:1px solid #F0F0F4;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A8A8B2"><span>↑↓ move</span><span>↵ open</span><span>⌘K toggle</span><span style="flex:1"></span><span>{{ cmdkCount }}</span></div>
       </div>
     </div>
   </sc-if>
@@ -1489,11 +1536,13 @@ class Component extends DCLogic {
       // Sources open as TABS IN THE MAIN STAGE — each recorded source you open becomes a tab in
       // the main tab bar (alongside Chat / Graph / …) and fills the stage; no overlay. state.tab
       // holds the active tab, and when it is a source's sn, that source is what the stage shows.
-      viewerTabs: [], viewerModes: {}, viewerFocus: {},
+      viewerTabs: [], viewerModes: {}, viewerFocus: {}, nativeToc: [],
       viewerPages: {},   // sn -> { doc, busy, err } for the native render, fetched on demand
       tocOpen: false,
       readPrefs: this._readPrefs(),
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
+      // ⌘K source palette — full-text search across every recorded source (title · site · body)
+      cmdkOpen: false, cmdkQuery: '', cmdkSel: 0,
       pasteOpen: false, pasteTitle: '', pasteBody: '',
       modelOpen: false, topicMenu: null, exportMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
@@ -1729,6 +1778,13 @@ class Component extends DCLogic {
       ui.setState({ dragOver: false });
       [...(e.dataTransfer && e.dataTransfer.files || [])].forEach((f) => ui._ingestFile(f));
     });
+    // ⌘K / Ctrl-K anywhere opens the source palette; Escape closes it. (Arrow/Enter navigation is
+    // handled by the palette input's own onKeyDown while it holds focus.)
+    window.addEventListener('keydown', (e) => {
+      const ui = window.__eoUI; if (!ui) return;
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); ui.toggleCmdk(); return; }
+      if (e.key === 'Escape' && ui.state.cmdkOpen) { e.preventDefault(); ui.closeCmdk(); }
+    });
   }
   _ensureFileInput() {
     if (this._fileInput && document.body.contains(this._fileInput)) return this._fileInput;
@@ -1942,7 +1998,7 @@ class Component extends DCLogic {
   // sources stay open at once; each keeps its own render mode and citation focus.
   openViewer(sn, focusText) {
     if (!this._app || !this._app.sourceBySn(sn)) return;
-    this._viewCache = null; this._readerFrame = null;
+    this._viewCache = null; this._readerFrame = null; this._nativeFrame = null;
     // Rebuild the book on open so freshly-cited passages and newly-admitted entities show — the
     // reader cache is otherwise held for the life of the tab (prefs apply live, no rebuild).
     delete this._readerCache[sn];
@@ -1950,7 +2006,7 @@ class Component extends DCLogic {
     const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = 'reader';
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
     // Open the source AS A TAB in the main stage and make it the active tab.
-    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false });
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, nativeToc: [] });
     if (modes[sn] === 'native') this.loadPage(sn);
   }
   closeTab(sn, e) {
@@ -1962,13 +2018,13 @@ class Component extends DCLogic {
     delete this._readerCache[sn];
     // If we're closing the ACTIVE source tab, fall to its left neighbour (or the Sources list).
     let tab = this.state.tab;
-    if (tab === sn) { const i = this.state.viewerTabs.indexOf(sn); tab = tabs[Math.max(0, i - 1)] || tabs[i] || 'register'; this._readerFrame = null; this._viewCache = null; }
-    this.setState({ viewerTabs: tabs, viewerModes: modes, viewerFocus: focus, viewerPages: pages, tab, tocOpen: false });
+    if (tab === sn) { const i = this.state.viewerTabs.indexOf(sn); tab = tabs[Math.max(0, i - 1)] || tabs[i] || 'register'; this._readerFrame = null; this._nativeFrame = null; this._viewCache = null; }
+    this.setState({ viewerTabs: tabs, viewerModes: modes, viewerFocus: focus, viewerPages: pages, tab, tocOpen: false, nativeToc: [] });
   }
   setSourceMode(mode) {
     const sn = this._activeSrc(); if (!sn) return;
-    this._readerFrame = null;
-    this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false });
+    this._readerFrame = null; this._nativeFrame = null;
+    this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [] });
     if (mode === 'native') this.loadPage(sn);
   }
   // The native render — fetch the real page's HTML through the app's proxy, sanitize it, hand it to
@@ -2054,6 +2110,64 @@ class Component extends DCLogic {
     let n = 0; const tick = () => { if (el.contentDocument && el.contentDocument.body) settle(); else if (n++ < 20) setTimeout(tick, 40); };
     setTimeout(tick, 30);
   }
+  // The native (live-site) iframe ref — the twin of setReaderFrame, but for the real page. Once the
+  // page's own DOM is in, reach in (allow-same-origin) and lay the reading layer over it:
+  // reader-render.decorateNativeDoc wraps known entities as clickable spans, marks cited passages,
+  // and lifts a contents list from the page's own headings; we delegate an entity click to the panel
+  // and restore scroll / jump to a cited passage — so the site LOOKS like itself yet reads like ours.
+  setNativeFrame(el) {
+    if (!el) { return; }
+    this._nativeFrame = el;
+    const sn = this._activeSrc(), focus = this.state.viewerFocus[this._activeSrc()], R = this._render, app = this._app;
+    const settle = () => {
+      const d = el.contentDocument; if (!d || !d.body || d.__eoNativeInit) { return; }
+      d.__eoNativeInit = true;
+      let link = null; try { link = (app && app.readerLink) ? app.readerLink(sn, { entities: true }) : null; } catch { link = null; }
+      let res = { toc: [] };
+      try {
+        res = R.decorateNativeDoc(d, {
+          segsOf: link ? link.linkify : null,
+          isCited: link ? link.isCited : null,
+          linksOn: !!this.state.entityMode,
+        });
+      } catch {}
+      // Same delegate the reader uses (only reachable because the frame is same-origin + scriptless):
+      // a click on a decorated entity opens its panel. One listener per document (runs once per load).
+      try {
+        d.addEventListener('click', (ev) => {
+          const a = ev.target && ev.target.closest && ev.target.closest('.eo-ent[data-doc][data-ent]');
+          if (!a || !this.state.entityMode) return;
+          ev.preventDefault();
+          this.openEntity(a.getAttribute('data-doc'), a.getAttribute('data-ent'));
+        });
+      } catch {}
+      // Publish the page's own contents into the drawer (only if it found a real one).
+      if (res && res.toc && res.toc.length) this.setState({ nativeToc: res.toc });
+      // Jump to a cited passage on open, else restore this page's saved scroll (a native-only key so
+      // the live page and the reflowed reader don't fight over one scroll fraction).
+      const win = d.defaultView;
+      if (focus && R) { R.scrollToText(d, focus); }
+      else if (win) {
+        const pos = this._loadReadPos(sn + ':native');
+        if (pos > 0) { const max = Math.max(1, (d.documentElement.scrollHeight || 0) - win.innerHeight); win.scrollTo(0, pos * max); }
+      }
+      if (win) {
+        win.addEventListener('scroll', () => {
+          const max = Math.max(1, (d.documentElement.scrollHeight || 0) - win.innerHeight);
+          if (this._posNT) return; this._posNT = setTimeout(() => { this._posNT = null; this._saveReadPos(sn + ':native', win.scrollY / max); }, 200);
+        }, { passive: true });
+      }
+    };
+    el.onload = settle;
+    let n = 0; const tick = () => { if (el.contentDocument && el.contentDocument.body) settle(); else if (n++ < 25) setTimeout(tick, 50); };
+    setTimeout(tick, 40);
+  }
+  toggleNativeToc() { this.setState({ tocOpen: !this.state.tocOpen }); }
+  gotoNativeChapter(id) {
+    const d = this._nativeFrame && this._nativeFrame.contentDocument;
+    if (d && this._render) this._render.scrollToAnchor(d, id);
+    this.setState({ tocOpen: false });
+  }
   downloadEot() {
     const s = this._app.sourceBySn(this._activeSrc());
     const r = s && this._app.eotFor(s.sn);
@@ -2078,6 +2192,85 @@ class Component extends DCLogic {
     this.showToast('Chat exported — ' + out.filename);
   }
   closeSearch() { this.setState({ searchOpen: false }); }
+  // ── ⌘K source palette — search THROUGH everything recorded (title · site · full body) ────────
+  toggleCmdk() {
+    const open = !this.state.cmdkOpen;
+    this.setState({ cmdkOpen: open, cmdkSel: 0, cmdkQuery: open ? '' : this.state.cmdkQuery });
+    if (open) setTimeout(() => { const i = document.getElementById('eo-cmdk-input'); if (i) { try { i.focus(); i.select(); } catch {} } }, 30);
+  }
+  openCmdk() { if (!this.state.cmdkOpen) this.toggleCmdk(); }
+  closeCmdk() { this.setState({ cmdkOpen: false }); }
+  onCmdkInput(e) { this.setState({ cmdkQuery: e && e.target ? e.target.value : '', cmdkSel: 0 }); }
+  onCmdkKey(e) {
+    const k = e.key;
+    if (k === 'Escape') { e.preventDefault(); this.closeCmdk(); return; }
+    if (k !== 'ArrowDown' && k !== 'ArrowUp' && k !== 'Enter') return;
+    const rows = this._cmdkResults();
+    if (k === 'Enter') { e.preventDefault(); const r = rows[Math.min(this.state.cmdkSel || 0, rows.length - 1)]; if (r) this._cmdkOpenResult(r); return; }
+    e.preventDefault();
+    const d = k === 'ArrowDown' ? 1 : -1;
+    const next = Math.max(0, Math.min(rows.length - 1, (this.state.cmdkSel || 0) + d));
+    this.setState({ cmdkSel: next });
+  }
+  // Rank every recorded source against the query. Title/site hits weigh above body hits; ALL terms
+  // must appear somewhere. An empty query lists the most recent reads so the palette is useful cold.
+  _cmdkResults() {
+    const app = this._app; if (!app || !app.topicSources) return [];
+    let sources = []; try { sources = app.topicSources() || []; } catch { sources = []; }
+    const q = String(this.state.cmdkQuery || '').trim().toLowerCase();
+    if (!q) return sources.slice(-9).reverse().map((s) => this._cmdkRowFor(s, null));
+    const terms = q.split(/\s+/).filter(Boolean);
+    const scored = [];
+    for (const s of sources) {
+      const title = String(s.title || '').toLowerCase();
+      const domain = String(s.domain || '').toLowerCase();
+      const text = String(s.text || '');
+      const low = text.toLowerCase();
+      let score = 0, firstIdx = -1, allPresent = true;
+      for (const t of terms) {
+        let hit = false;
+        if (title.includes(t)) { score += 9; hit = true; }
+        if (domain.includes(t)) { score += 4; hit = true; }
+        const idx = low.indexOf(t);
+        if (idx >= 0) { score += 2; hit = true; if (firstIdx < 0 || idx < firstIdx) firstIdx = idx; }
+        if (!hit) { allPresent = false; break; }
+      }
+      if (!allPresent || score === 0) continue;
+      scored.push({ s, score, snip: this._cmdkSnippet(text, firstIdx, terms) });
+    }
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, 24).map((r) => this._cmdkRowFor(r.s, r));
+  }
+  // A two-line preview window around the first body match, split into plain / highlighted segments,
+  // plus a clean 80-char focus string the reader/native view can scroll to on open.
+  _cmdkSnippet(text, idx, terms) {
+    if (idx == null || idx < 0) { const head = String(text || '').slice(0, 150).replace(/\s+/g, ' ').trim(); return { segs: head ? [{ s: head, plain: true }] : [], focus: '' }; }
+    const start = Math.max(0, text.lastIndexOf(' ', Math.max(0, idx - 42)) + 1);
+    const end = Math.min(text.length, idx + 110);
+    const win = text.slice(start, end).replace(/\s+/g, ' ').trim();
+    const low = win.toLowerCase();
+    const spans = [];
+    for (const t of terms) { let i = low.indexOf(t); while (i >= 0) { spans.push([i, i + t.length]); i = low.indexOf(t, i + t.length); } }
+    spans.sort((a, b) => a[0] - b[0]);
+    const segs = []; let last = 0;
+    for (const [a, b] of spans) { if (a < last) continue; if (a > last) segs.push({ s: win.slice(last, a), plain: true }); segs.push({ s: win.slice(a, b), hit: true }); last = b; }
+    if (last < win.length) segs.push({ s: win.slice(last), plain: true });
+    if (start > 0) segs.unshift({ s: '… ', plain: true });
+    if (end < text.length) segs.push({ s: ' …', plain: true });
+    return { segs, focus: text.slice(start, Math.min(text.length, start + 80)).replace(/\s+/g, ' ').trim() };
+  }
+  _cmdkRowFor(s, r) {
+    const title = s.title || s.domain || s.url || '(untitled source)';
+    return {
+      sn: s.sn, reg: s.reg || '', title, domain: s.domain || '', kind: s.kind || '',
+      snipSegs: r && r.snip ? r.snip.segs : [], hasSnippet: !!(r && r.snip && r.snip.segs && r.snip.segs.length),
+      focus: r && r.snip ? r.snip.focus : '',
+    };
+  }
+  _cmdkOpenResult(r) {
+    this.closeCmdk();
+    if (r && r.sn) this.openViewer(r.sn, r.focus || undefined);
+  }
   openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'chat' : this.state.tab, focusId: null }); this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
   backToEntities() { this.setState({ entitySel: null, focusId: null }); }
   // The wiki referent for the open entity — 4.1's entity-panel Wikipedia search, restored.
@@ -2102,6 +2295,10 @@ class Component extends DCLogic {
     // class the baked CSS keys off), so the toggle never reloads the iframe or loses scroll.
     const d = this._readerFrame && this._readerFrame.contentDocument;
     if (d && d.documentElement) { try { d.documentElement.classList.toggle('eo-links-on', on); } catch {} }
+    // The live-site view carries the same baked links — flip the class on it too, so the toggle works
+    // in Native without a reload (no scroll lost).
+    const nd = this._nativeFrame && this._nativeFrame.contentDocument;
+    if (nd && nd.documentElement) { try { nd.documentElement.classList.toggle('eo-links-on', on); } catch {} }
     this.setState({ entityMode: on });
   }
   // ── the graph explorer overlay ──────────────────────────────────────────────
@@ -3498,8 +3695,11 @@ class Component extends DCLogic {
       readFontLabel: rp.font === 'sans' ? 'Aa Sans' : 'Aa Serif', readWidthLabel: String(rp.w || 720),
       cycleReadTheme: () => this.cycleReadTheme(), toggleReadFont: () => this.toggleReadFont(),
       readSizeUp: () => this.bumpReadFont(1), readSizeDown: () => this.bumpReadFont(-1), cycleReadWidth: () => this.cycleReadWidth(),
-      // native render body
+      // native render body — the live site, plus its own contents lifted into the reader's drawer
       pageDoc, pageShow: !!pageDoc, pageBusy, pageErr, hasPageErr: !!pageErr, retryPage: () => this.retryPage(),
+      setNativeFrame: (el) => this.setNativeFrame(el),
+      nativeToc: (st.nativeToc || []).map((c) => ({ label: c.label, level: c.level, pad: String(11 + ((c.level || 1) - 1) * 14), go: () => this.gotoNativeChapter(c.id) })),
+      hasNativeToc: (st.nativeToc || []).length > 1, nativeTocOpen: !!st.tocOpen && vMode === 'native', toggleNativeToc: () => this.toggleNativeToc(),
       eotLines, eotLegend, eotKindLegend, eotHasKinds: eotKindLegend.length > 0, eotTruncated, eotMore, downloadEot: () => this.downloadEot(),
       facingLines, facingLegend, facingKindLegend, facingHasKinds: facingKindLegend.length > 0, facingTruncated, facingMore,
       removeViewerSource: () => { const a = this._activeSrc(); if (a && confirm(`Remove ${viewer.reg} from the record?`)) { app.removeSource(a); this.closeTab(a); } },
@@ -3508,6 +3708,30 @@ class Component extends DCLogic {
       searchNone: !st.searchBusy && st.searchResults && st.searchResults.length === 0,
       searchMeta: st.searchResults ? `${st.searchResults.length} results` : '',
       searchRows, closeSearch: () => this.closeSearch(),
+      // ⌘K source palette — search THROUGH the record (title · site · full body), jump to the passage
+      ...(() => {
+        const rows = st.cmdkOpen ? this._cmdkResults() : [];
+        const sel = rows.length ? Math.max(0, Math.min(st.cmdkSel || 0, rows.length - 1)) : 0;
+        const q = String(st.cmdkQuery || '').trim();
+        return {
+          cmdkShow: st.cmdkOpen, cmdkQuery: st.cmdkQuery,
+          onCmdkInput: (e) => this.onCmdkInput(e), onCmdkKey: (e) => this.onCmdkKey(e),
+          openCmdk: () => this.openCmdk(), closeCmdk: () => this.closeCmdk(),
+          cmdkRows: rows.map((r, i) => ({
+            ...r,
+            bg: i === sel ? '#F4F2FE' : 'transparent',
+            favCh: String(r.title || 'S').trim().charAt(0).toUpperCase() || 'S',
+            favBg: i === sel ? '#DED8FD' : '#EEF0F3', favFg: i === sel ? '#4B3FD0' : '#8A8A95',
+            meta: [r.domain, r.reg].filter(Boolean).join('  ·  '),
+            open: () => this._cmdkOpenResult(r),
+          })),
+          cmdkNone: st.cmdkOpen && rows.length === 0,
+          cmdkEmptyMsg: q ? ('No recorded source matches “' + q + '”.') : 'Nothing recorded yet — read a URL, drop a file, or paste text, then search it here.',
+          cmdkHasHint: st.cmdkOpen && !q && rows.length > 0,
+          cmdkHint: 'RECENT',
+          cmdkCount: rows.length ? (rows.length + ' source' + (rows.length === 1 ? '' : 's')) : '',
+        };
+      })(),
       // paste
       pasteShow: st.pasteOpen, pasteTitle: st.pasteTitle, pasteBody: st.pasteBody,
       onPasteTitle: (e) => this.onPasteTitle(e), onPasteBody: (e) => this.onPasteBody(e),
