@@ -2851,7 +2851,9 @@ class Component extends DCLogic {
             if (v && v.trim()) { try { localStorage.setItem('eo_claude_key', v.trim()); } catch { /* session-only */ } }
             else if (!key) return;   // nothing entered and nothing stored — stay put
           }
-          app.setBackend(id);
+          // force: the key may have just changed, and the client bakes the key in at build —
+          // re-picking the active backend otherwise keeps the loaded one (the stability guard).
+          app.setBackend(id, { force: true });
           app.ensureModel().catch(() => {});   // validate the key now — the chip shows the verdict
         } else {
           app.setBackend(id);

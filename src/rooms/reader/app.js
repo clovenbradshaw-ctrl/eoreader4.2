@@ -180,6 +180,26 @@ export const keepGuardAlive = (guard, p, { every = 8000, maxMs = 180000, now = (
   return done.finally(() => clearInterval(iv));
 };
 
+// probeModelAlive(m) → did the engine ANSWER a one-token decode inside the window? The wedge
+// recovery below (resetWedgedLocalModel) used to pattern-match: 45s of no progress ⇒ the engine is
+// dead ⇒ tear it down. But a no-progress stall has two very different causes — a genuinely wedged
+// engine (a lost WebGPU device, a dead worker) and a merely SLOW one (a long prefill on a weak GPU,
+// a CPU decode on a modest machine) — and tearing down a slow-but-alive engine forces a reload it
+// never needed, then counts a "wedge" toward the downgrade ladder. Two slow turns in a row and the
+// user's Llama pick silently became wllama: the model "didn't stay loaded". This probe is the
+// evidence: a truly dead engine throws at once (its backend already dropped the handle) or never
+// answers (the timeout catches it); a live one answers a 1-token draw in seconds. Resolves true/false,
+// never throws. Exported for the tests; `timeoutMs` injectable for the same reason.
+export const probeModelAlive = (m, { timeoutMs = 10000 } = {}) =>
+  new Promise((resolve) => {
+    let done = false;
+    const settle = (v) => { if (!done) { done = true; clearTimeout(timer); resolve(v); } };
+    const timer = setTimeout(() => settle(false), timeoutMs);
+    Promise.resolve()
+      .then(() => m.phrase([{ role: 'user', content: 'ok' }], { maxTokens: 1, temperature: 0 }))
+      .then(() => settle(true), () => settle(false));
+  });
+
 // The at-rest record is a ring buffer: it keeps at most REFLECTION_CAP notes so a long session's
 // memory stays bounded (the oldest fall off the front). But the count we SURFACE — "… N notes so
 // far" — has to be the running total the reading has ever voiced, NOT the retained buffer size, or
@@ -409,6 +429,15 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     // and the ladder inside ensureModel already falls back webllm → wllama → echo.
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       setTimeout(() => { ensureModel().catch(() => { /* logged by the ladder */ }); }, 600);
+      // THE MODEL KEEPER's triggers (healModel/verifyRestoredModel below): reload a model that
+      // silently unloaded — a lost GPU device, a failed first load, an evicted engine — in the
+      // background, at the moments recovery is likely to work, instead of on the next question's
+      // critical path. Browser-only, like the prewarm; the 30s watch is a few property reads
+      // when nothing is wrong.
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) healModel(); });
+      window.addEventListener('online', () => healModel());
+      window.addEventListener('pageshow', (e) => { if (e && e.persisted) verifyRestoredModel(); });
+      setInterval(() => healModel(), HEAL_WATCH_MS);
       // Pull the build/latest provenance in the background so the first export already names the
       // exact build and how current it is against GitHub — best-effort, never on the critical path.
       refreshProvenance().catch(() => { /* offline / unreachable — the export degrades gracefully */ });
@@ -785,10 +814,37 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   // Consecutive in-browser decode wedges (a lost / OOM'd WebGPU device). A clean answer clears it
   // (finishMessage); a second straight wedge steps DOWN to the smaller/CPU backup (resetWedgedLocalModel).
   let localWedges = 0;
-  const setBackend = (name) => {
+  // THE ADAPTIVE STALL BUDGET. Every turn arms a no-progress watchdog (makeStallGuard); 45s is
+  // right for most machines, but on a slow one a legitimate long prefill outlasts it, the turn
+  // is aborted as a "stall", and the engine gets torn down for the crime of being slow. When the
+  // wedge probe (probeModelAlive) proves the engine was alive all along, the budget DOUBLES (to a
+  // 3-minute ceiling) so later turns on this machine get the room they demonstrably need.
+  // Session-only — a fresh visit starts back at 45s.
+  let stallBudgetMs = 45000;
+  const STALL_BUDGET_MAX = 180000;
+  // Drop the loaded model + orphan any in-flight load, so the next ensureModel starts fresh.
+  const orphanModel = () => { model = null; modelLoading = null; modelGen++; };
+  // Free an engine the app no longer owns (a superseded load, a bfcache corpse). Fire-and-forget
+  // and fail-soft: reset() is optional (claude/echo have none) and an already-dead engine is fine.
+  const freeOrphan = (m) => { Promise.resolve().then(() => m?.reset?.()).catch(() => { /* already gone */ }); };
+  // `persist: false` is the AUTOMATIC path (the wedge ladder stepping down): the change holds for
+  // this session but never overwrites the user's own saved pick — a transient bad day (a
+  // backgrounded tab, one OOM) must not permanently hijack their choice of model, which is how
+  // "I picked Llama and it keeps coming back as SmolLM2" happened. `force: true` reloads even when
+  // the same backend is already up (the claude path re-keys through it).
+  const setBackend = (name, { persist = true, force = false } = {}) => {
+    const prev = backendPref();
     backendOverride = name;
-    try { localStorage.setItem('eo_backend', name); } catch { /* session-only */ }
-    model = null; modelLoading = null; modelGen++;   // orphan any in-flight load
+    if (persist) { try { localStorage.setItem('eo_backend', name); } catch { /* session-only */ } }
+    // RE-PICKING THE ACTIVE BACKEND MUST NOT UNLOAD IT. The picker calls this on every row click,
+    // including the row already selected — before this guard that click orphaned a fully loaded
+    // (or mid-download) engine and paid a whole reload for nothing. Loaded-for-this-name or
+    // loading-this-name ⇒ keep it; a prior FALLBACK (pref webllm, wllama actually loaded) does
+    // not count as live, so re-picking webllm genuinely retries it.
+    const live = (model?.isLoaded?.() && model.id === name)
+      || (!!modelLoading && state.model.backend === name && name === prev);
+    if (!force && live) { emit('model'); return; }
+    orphanModel();
     state.model = { backend: name, state: 'cold', progress: 0, note: '' };
     emit('model');
   };
@@ -796,21 +852,53 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   // 1B build (~2× faster load, ~2–3× faster decode), 'fluent' the 3B; the pick is read
   // by model/webllm.js at load time. Only the size moves — grounding is mechanical and
   // downstream, so the record it can witness is identical either way. null ⇒ adaptive.
+  // `speedOverride` is the session-only lane (the automatic 3B→1B step) — it wins over
+  // the saved pick but never touches it, and ensureModel hands the EFFECTIVE speed to
+  // the backend (opts.speed) so the override works without a localStorage write.
+  let speedOverride = null;
   const speedPref = () => {
+    if (speedOverride === 'fast' || speedOverride === 'fluent') return speedOverride;
     try { const v = localStorage.getItem('eo_llm_speed'); if (v === 'fast' || v === 'fluent') return v; } catch { /* default */ }
     return null;
   };
-  const setSpeed = (speed) => {
+  const setSpeed = (speed, { persist = true } = {}) => {
     if (speed !== 'fast' && speed !== 'fluent') return;
-    try { localStorage.setItem('eo_llm_speed', speed); } catch { /* session-only */ }
+    speedOverride = speed;
+    if (persist) { try { localStorage.setItem('eo_llm_speed', speed); } catch { /* session-only */ } }
     // Only webllm reads this. If it is the active backend, orphan the loaded build so the
     // new size takes effect on the next load; for wllama/claude the pin sits dormant and
-    // nothing needs to move — just re-emit so the chip reflects the new choice.
+    // nothing needs to move — just re-emit so the chip reflects the new choice. And if the
+    // WANTED size is already the loaded one (clicking Fluent when the adaptive pick landed
+    // on 3B, re-clicking the highlighted size), keep the engine — never reload a build that
+    // is already up.
     if (backendPref() === 'webllm') {
-      model = null; modelLoading = null; modelGen++;
+      const wantSize = speed === 'fast' ? '1B' : '3B';
+      const loadedBuild = (model?.isLoaded?.() && model.id === 'webllm' && describeModel(model)?.model) || '';
+      if (loadedBuild.includes(`-${wantSize}-`)) { emit('model'); return; }
+      orphanModel();
       state.model = { backend: 'webllm', state: 'cold', progress: 0, note: '' };
     }
     emit('model');
+  };
+  // KEEP THE DOWNLOADED WEIGHTS. Both weight caches are origin storage — wllama streams GGUFs to
+  // OPFS, web-llm keeps MLC shards in the Cache API — and un-persisted origin storage is exactly
+  // what a browser evicts first under disk pressure. Evicted weights mean the "cached after the
+  // first load" promise breaks and the next session silently re-downloads 140MB–2GB: the single
+  // biggest "the model didn't stay loaded" between visits. Ask ONCE for durable storage the first
+  // time a local model is about to load. Best-effort: Chrome grants silently on engagement,
+  // Firefox may prompt, a denial changes nothing — we just stay evictable, as today.
+  let persistAsked = false;
+  const ensurePersistentStorage = () => {
+    if (persistAsked) return;
+    persistAsked = true;
+    try {
+      const st = typeof navigator !== 'undefined' ? navigator.storage : null;
+      if (!st || typeof st.persist !== 'function') return;
+      Promise.resolve(typeof st.persisted === 'function' ? st.persisted() : false)
+        .then((already) => (already ? null : st.persist()))
+        .then((granted) => { if (granted) logIt('record', 'Storage marked persistent — the browser won’t evict the downloaded model weights'); })
+        .catch(() => { /* stays evictable — no worse than before */ });
+    } catch { /* no storage manager here */ }
   };
   const ensureModel = async () => {
     if (model?.isLoaded?.()) return model;
@@ -821,7 +909,12 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     emit('model');
     modelLoading = (async () => {
       const tryLoad = async (backend) => {
-        const m = createModel(backend);
+        // The EFFECTIVE speed rides in as an opt (session override included) so a
+        // persist:false downgrade reaches the backend without a localStorage write.
+        const m = createModel(backend, { speed: speedPref() });
+        // A local backend is about to put real weight into origin storage — ask (once)
+        // that the browser not evict it. Remote backends (claude) store nothing.
+        if (m.kind === 'local') ensurePersistentStorage();
         // THE STALL CLOCK. webllm reports progress per fetched CHUNK, and its first
         // chunk is 130–200 MB — on a slow link the chip legitimately sits at
         // "Start to fetch params — 0%" for minutes with no callback at all, which
@@ -874,7 +967,14 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       for (const backend of ladder) {
         try {
           const m = await tryLoad(backend);
-          if (gen !== modelGen) return m;   // superseded by a newer setBackend — don't commit
+          // SUPERSEDED by a newer setBackend/setSpeed/reset while we loaded. The old code
+          // returned the orphan uncommitted — every caller then decoded on a build the user
+          // had just switched away from, and NOTHING ever freed it: up to ~2GB of GPU/WASM
+          // memory leaked per click-during-load, which is exactly the memory pressure that
+          // loses WebGPU devices and wedges the NEXT model. Free the orphan and answer with
+          // the CURRENT pick instead (ensureModel dedupes, so this joins any load already
+          // in flight rather than starting a third).
+          if (gen !== modelGen) { freeOrphan(m); return ensureModel(); }
           // WARM THE PIPELINE ("shoot a message to get warm"). A local WebGPU/WASM backend pays
           // its shader/kernel warmup on the FIRST decode — silent, no progress tick — so a cold
           // first answer stalls seconds after the download already read "done". Spend it now on a
@@ -886,7 +986,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
             state.model = { backend, state: 'loading', progress: 1, note: 'warming…' };
             emit('model');
             try { await m.phrase([{ role: 'user', content: '.' }], { maxTokens: 1, temperature: 0 }); } catch { /* warmed or not, it loaded */ }
-            if (gen !== modelGen) return m;
+            if (gen !== modelGen) { freeOrphan(m); return ensureModel(); }   // superseded mid-warmup — same as above
           }
           state.model = { backend, state: 'ready', progress: 1, note: backend === name ? '' : `fell back from ${name}` };
           emit('model');
@@ -918,7 +1018,13 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       }
       throw lastErr;
     })();
-    try { return await modelLoading; } finally { modelLoading = null; }
+    // Release the latch ONLY if it is still ours. A setBackend/setSpeed mid-load nulls and
+    // may REPLACE modelLoading with a fresh load; when the superseded promise then settled,
+    // the old unconditional `modelLoading = null` dropped the NEW load's latch — so a third
+    // caller started yet another load over it, each supersede orphaning the last: a restart
+    // cascade that read as "the model never finishes loading".
+    const p = modelLoading;
+    try { return await p; } finally { if (modelLoading === p) modelLoading = null; }
   };
 
   // RECOVER A WEDGED IN-BROWSER MODEL. The no-progress watchdog fired on a LOCAL turn — the decode
@@ -934,35 +1040,108 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   // model ends up talking is named in the record: every turn stamps describeModel(model)
   // (turn/pipeline.js) and the export dedups them, so a mid-session downgrade shows both. Synchronous
   // and fire-and-forget: the answer bubble settles now; recovery runs behind it.
+  let wedgeProbe = null;   // the in-flight liveness check — concurrent stalls share one verdict
   const resetWedgedLocalModel = () => {
     const m = model;
     if (!m || m.kind !== 'local') return;   // a remote talker (claude) has no engine; a healthy model is never sent here
-    localWedges += 1;
-    // Drop the app's handle FIRST so a slow/hung unload can never block the reload; free the GPU
-    // memory in the background (webllm.reset → engine.unload), never awaited.
-    model = null; modelLoading = null; modelGen++;
-    Promise.resolve().then(() => m.reset?.()).catch(() => { /* already dead — the handle drop is the reset */ });
-    if (localWedges >= 2) {
-      // A repeat wedge — this device likely can't hold the current build. Step to the backup; setSpeed/
-      // setBackend persist the pick, reset the handle, and re-emit the chip, so it sticks for the session.
-      if (backendPref() === 'webllm' && speedPref() !== 'fast') {
-        logIt('skip', 'In-browser model kept stalling — dropping to the faster 1B build');
-        setSpeed('fast');
-      } else if (backendPref() === 'webllm') {
-        logIt('skip', 'WebGPU model kept stalling — switching to the CPU model');
-        setBackend('wllama');
+    if (wedgeProbe) return;                 // two turns stalling together get ONE probe, one strike, one budget bump
+    const gen = modelGen;
+    state.model = { ...state.model, note: 'the turn stalled — checking the in-browser model…' };
+    emit('model');
+    // THE EVIDENCE STEP (probeModelAlive above). A 45s no-progress stall has two causes that need
+    // OPPOSITE cures: a dead engine (lost GPU device / dead worker) must be torn down and rebuilt,
+    // but a slow-but-alive one must be LEFT ALONE — tearing it down pays a pointless reload and,
+    // two strikes later, silently downgrades the user's pick. So ask the engine itself: one token,
+    // raced against a window. A truly wedged webllm has already been killed from inside by its own
+    // abort backstop (isLoaded() false ⇒ the probe's phrase throws at once), so the dead verdict is
+    // usually immediate; the full window is only ever spent on an engine that is genuinely working.
+    wedgeProbe = (async () => {
+      const alive = await probeModelAlive(m);
+      // Superseded while probing (the user switched models, a retry already reloaded) — not ours.
+      if (gen !== modelGen || model !== m) return;
+      if (alive) {
+        // The engine answered: it never wedged, the machine is just SLOW. Keep it loaded — this
+        // is the whole point — clear the strike, and widen the stall budget so the next long
+        // prefill isn't aborted for lateness again.
+        localWedges = 0;
+        stallBudgetMs = Math.min(stallBudgetMs * 2, STALL_BUDGET_MAX);
+        logIt('record', `The in-browser model is alive, just slow — turns now get ${Math.round(stallBudgetMs / 1000)}s before a stall is called`);
+        state.model = { backend: state.model.backend || backendPref(), state: 'ready', progress: 1, note: 'slow but alive — kept loaded' };
+        emit('model');
+        return;
+      }
+      localWedges += 1;
+      // Drop the app's handle FIRST so a slow/hung unload can never block the reload; free the
+      // engine's memory in the background (reset → unload/terminate/exit), never awaited.
+      orphanModel();
+      freeOrphan(m);
+      if (localWedges >= 2) {
+        // A repeat PROVEN wedge — this device likely can't hold the current build. Step to the
+        // backup for THIS SESSION ONLY (persist: false): the user's saved pick stays theirs, so a
+        // transient bad day (a backgrounded tab, one OOM) can't permanently hijack it — the next
+        // visit tries their real choice again.
+        if (backendPref() === 'webllm' && speedPref() !== 'fast') {
+          logIt('skip', 'In-browser model kept dying — dropping to the faster 1B build for this session');
+          setSpeed('fast', { persist: false });
+        } else if (backendPref() === 'webllm') {
+          logIt('skip', 'WebGPU model kept dying — switching to the CPU model for this session');
+          setBackend('wllama', { persist: false });
+        } else {
+          state.model = { backend: backendPref(), state: 'cold', progress: 0, note: 'reloading — the model stopped responding' };
+          emit('model');
+        }
+        localWedges = 0;
       } else {
-        state.model = { backend: backendPref(), state: 'cold', progress: 0, note: 'reloading — the model stopped responding' };
+        state.model = { backend: backendPref(), state: 'cold', progress: 0, note: 'the in-browser model stopped responding — reloading' };
         emit('model');
       }
-      localWedges = 0;
-    } else {
-      state.model = { backend: backendPref(), state: 'cold', progress: 0, note: 'the in-browser model stopped responding — reloading' };
+      // Warm the fresh pick in the background so the retry answers fast instead of paying the reload on
+      // the critical path (the mount-time prewarm posture). Browser only; a manual retry also triggers it.
+      if (typeof window !== 'undefined') setTimeout(() => { ensureModel().catch(() => { /* the ladder logs its own failure */ }); }, 200);
+    })().catch(() => { /* recovery must never throw */ }).finally(() => { wedgeProbe = null; });
+  };
+
+  // ── THE MODEL KEEPER — the model heals itself instead of waiting to be asked ──────────────────
+  // A loaded engine can silently become unloaded between turns: webllm drops its own singleton when
+  // the WebGPU device is lost (a backgrounded tab, memory pressure, a driver reset), a failed load
+  // leaves the chip on "error" until someone retries, and a bfcache restore can revive the page
+  // around an engine whose GPU state died with the freeze. Before, ALL of these waited for the next
+  // question — which then paid the whole reload on the critical path and could trip the turn
+  // watchdog, reading as yet another wedge. The keeper reloads in the BACKGROUND at the moments a
+  // recovery is likely to work: the tab coming back to the foreground, the network returning, and a
+  // slow 30s watch for the quiet failures nothing announces. Exponential backoff (60s → 10min) on
+  // repeated failures so a blocked network is probed politely, not hammered; any success resets it.
+  let healFails = 0, healNotBefore = 0;
+  const HEAL_WATCH_MS = 30000;
+  const healModel = () => {
+    if (!state.ready) return;
+    if (typeof document !== 'undefined' && document.hidden) return;   // heal when the user can see it
+    if (model?.isLoaded?.() || modelLoading) return;                  // nothing to heal / already healing
+    if (Date.now() < healNotBefore) return;                           // backing off a failing load
+    ensureModel().then(
+      () => { healFails = 0; healNotBefore = 0; },
+      () => {
+        healFails = Math.min(healFails + 1, 6);
+        healNotBefore = Date.now() + Math.min(60000 * 2 ** (healFails - 1), 600000);
+      },
+    );
+  };
+  // A bfcache restore (pageshow persisted) revives the page's JS — including a `model` handle —
+  // around GPU state that may not have survived the freeze. isLoaded() answers true either way,
+  // so PROVE it with the same one-token probe the wedge recovery uses; a corpse is freed and
+  // reloaded quietly before the user ever asks it anything.
+  const verifyRestoredModel = () => {
+    const m = model;
+    if (!m || m.kind !== 'local' || !m.isLoaded?.()) { healModel(); return; }
+    const gen = modelGen;
+    void probeModelAlive(m).then((alive) => {
+      if (alive || gen !== modelGen || model !== m) return;
+      orphanModel();
+      freeOrphan(m);
+      state.model = { backend: backendPref(), state: 'cold', progress: 0, note: 'reloading — the restored tab’s model didn’t survive' };
       emit('model');
-    }
-    // Warm the fresh pick in the background so the retry answers fast instead of paying the reload on
-    // the critical path (the mount-time prewarm posture). Browser only; a manual retry also triggers it.
-    if (typeof window !== 'undefined') setTimeout(() => { ensureModel().catch(() => { /* the ladder logs its own failure */ }); }, 200);
+      healModel();
+    });
   };
 
   // embedders — hash is instant; MiniLM warms in the background on first ask
@@ -1082,7 +1261,9 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   //              refs only if they are still its own — never another turn's.
   const armTurn = () => {
     const ctrl = new AbortController();
-    const guard = makeStallGuard(ctrl);
+    // The watchdog runs on the ADAPTIVE budget: 45s until a stall-probe proves this machine is
+    // merely slow, then doubled per proof (capped) so honest long decodes stop being aborted.
+    const guard = makeStallGuard(ctrl, stallBudgetMs);
     liveTurns.add(ctrl);
     abort = ctrl; stallGuard = guard;   // the newest turn is what the beats feed
     const keepAlive = (p, opts) => keepGuardAlive(guard, p, opts);
@@ -1205,7 +1386,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       const wedged = stalledOut && model?.kind === 'local';
       if (wedged) resetWedgedLocalModel();
       pending.text = pending.text || (wedged
-        ? 'The in-browser model stopped responding, so I’m reloading it — try again in a moment.'
+        ? 'The turn stalled — I’m checking the in-browser model and will reload it if it died. Try again in a moment.'
         : stoppedOrStalled
           ? 'The web lookup stalled and was stopped before it could finish. Try again, or drop a URL, file, or pasted text in the bar above.'
           : (state.model.state === 'error'
@@ -1309,7 +1490,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       const wedged = stalledOut && model?.kind === 'local';
       if (wedged) resetWedgedLocalModel();
       pending.text = pending.text || (wedged
-        ? 'The in-browser model stopped responding, so I’m reloading it — ask again and it should answer.'
+        ? 'The turn stalled — I’m checking the in-browser model and will reload it if it died. Ask again and it should answer.'
         : 'Stopped before the answer finished. Ask again to retry.');
       pending.route = 'stopped';
       markStoppedPartial(pending, true, hadPartial);
@@ -1493,7 +1674,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       const wedged = stalledOut && model?.kind === 'local';
       if (wedged) resetWedgedLocalModel();
       pending.text = pending.text || (wedged
-        ? 'The in-browser model stopped responding, so I’m reloading it — ask again and it should answer.'
+        ? 'The turn stalled — I’m checking the in-browser model and will reload it if it died. Ask again and it should answer.'
         : stoppedOrStalled
           ? 'Stopped before the answer finished. Ask again to retry.'
           : (state.model.state === 'error'

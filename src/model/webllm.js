@@ -75,6 +75,11 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   // An explicit pin (a caller's opts.model / a coder variant's defaults.model) is honoured as-is;
   // otherwise the default 3B build is chosen ADAPTIVELY at load, keyed to the GPU (pickModel below).
   const pinned = opts.model || defaults.model || null;
+  // A SIZE pin handed in by the caller (the reader passes its effective Fast/Fluent pick,
+  // session-only overrides included, through createModel opts). It wins over the localStorage
+  // read below, so an automatic in-session downgrade works without writing the user's saved
+  // preference. Anything but 'fast'/'fluent' ⇒ no pin, exactly like speedPrefLS.
+  const speedPin = (opts.speed === 'fast' || opts.speed === 'fluent') ? opts.speed : null;
   let engine  = null;
   let loading = null;
   // The dedicated worker behind `engine` when the worker path built it (null for the
@@ -181,9 +186,10 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   const pickModel = async () => {
     const explicit = pinnedLS();
     if (explicit) return explicit;
-    // SIZE (the render-speed lever): a Fast/Fluent pin wins; otherwise the device class
-    // decides (small ⇒ 1B). DTYPE is chosen independently below and multiplies onto it.
-    const size = pickSize(speedPrefLS(), isSmallDevice());
+    // SIZE (the render-speed lever): a Fast/Fluent pin wins — the caller's opts.speed first
+    // (it carries session-only overrides), then the saved localStorage pick; otherwise the
+    // device class decides (small ⇒ 1B). DTYPE is chosen independently below and multiplies onto it.
+    const size = pickSize(speedPin || speedPrefLS(), isSmallDevice());
     const f32Build = `Llama-3.2-${size}-Instruct-q4f32_1-MLC`;   // portable — fp32 accumulation
     const f16Build = `Llama-3.2-${size}-Instruct-q4f16_1-MLC`;   // fast — needs the shader-f16 feature
     try {
@@ -227,10 +233,19 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
       loading = (async () => {
         const model = pinned || await pickModel();
         resolved = model;   // remember the exact artifact for provenance (describe)
-        const eng = await createEngine(model, {
-          initProgressCallback: (p) =>
-            onProgress?.({ phase: p.text || 'loading', pct: p.progress ?? 0 }),
-        });
+        let eng;
+        try {
+          eng = await createEngine(model, {
+            initProgressCallback: (p) =>
+              onProgress?.({ phase: p.text || 'loading', pct: p.progress ?? 0 }),
+          });
+        } catch (err) {
+          // A failed load must not poison this instance: left in place, the rejected
+          // promise answered every later load() forever — one CDN/network blip and the
+          // backend could never retry. Clear the latch so the next load() starts fresh.
+          loading = null;
+          throw err;
+        }
         engine = eng;
         // WEDGE GUARD (rooms/reader/app.js resetWedgedLocalModel is the other half). The WebGPU
         // device behind this engine can be lost out from under us — a backgrounded tab, memory

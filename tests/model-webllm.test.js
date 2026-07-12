@@ -125,6 +125,40 @@ test('model/webllm: reset() on a never-loaded backend is a harmless no-op', asyn
   assert.equal(backend.isLoaded(), false);
 });
 
+// ── load stability ────────────────────────────────────────────────────────────
+// Two "the model doesn't stay loaded" fixes at the backend layer: a failed load must not
+// poison the instance forever, and the app's session-only Fast/Fluent override must reach
+// the artifact pick through opts (no localStorage write required).
+
+test('model/webllm: a failed load clears the latch so the next load() actually retries', async () => {
+  let calls = 0;
+  const { engine } = makeFakeEngine();
+  const backend = makeWebllmBackend({ model: 'Fake-1B' })({
+    createEngine: async () => { calls += 1; if (calls === 1) throw new Error('cdn blip'); return engine; },
+  });
+  await assert.rejects(() => backend.load(), /cdn blip/);
+  assert.equal(backend.isLoaded(), false);
+  // Before the fix, this returned the SAME rejected promise forever — one network blip
+  // and the backend could never load again.
+  await backend.load();
+  assert.equal(backend.isLoaded(), true);
+  assert.equal(calls, 2, 'the retry reached the engine constructor');
+});
+
+test('model/webllm: an opts.speed pin picks the build size without touching storage', async () => {
+  // The reader passes its EFFECTIVE speed (session-only downgrades included) through
+  // createModel opts; it must win exactly like the localStorage pick would.
+  let picked = null;
+  const { engine } = makeFakeEngine();
+  const fast = makeWebllmBackend()({ speed: 'fast', createEngine: async (model) => { picked = model; return engine; } });
+  await fast.load();
+  assert.match(picked, /-1B-/, `fast ⇒ the 1B build, got ${picked}`);
+
+  const fluent = makeWebllmBackend()({ speed: 'fluent', createEngine: async (model) => { picked = model; return engine; } });
+  await fluent.load();
+  assert.match(picked, /-3B-/, `fluent ⇒ the 3B build, got ${picked}`);
+});
+
 // ── the abort backstop ────────────────────────────────────────────────────────
 // The frozen-session failure: a decode wedges MID-generation, its promise never settles, and
 // the abort (Stop / the 45s watchdog) is ignored — so the orphan holds the decode gate and
