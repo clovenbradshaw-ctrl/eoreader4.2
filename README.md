@@ -29,6 +29,7 @@ src/
     parse/  predict/  credence/  classify/
   surfer/        relating — navigation over what the reading maintains
     retrieve/  fold/  flow/  dag/  reason/
+    lineup/        a chorus of surfers — the nine-operator cast, cooperative + evolutionary (docs/cooperative-graph-surfers.md)
   enactor/       gating — nothing is asserted that the record can't witness
     enact/  ground/  factcheck/  answer/
   model/         the leaf — backends (webllm, wllama, claude API, qwen-coders, echo), prompt, stream
