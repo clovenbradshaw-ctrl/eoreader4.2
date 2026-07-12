@@ -746,7 +746,13 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
     return runCancellable({ kind: 'fetch', label: `Loading ${domainOf(norm)}…` }, async (signal) => {
       const res = await client.fetchUrl(norm, { signal });
-      return { html: res.text || '', url: res.url || norm, ok: res.ok !== false };
+      // Report the REAL page URL, never `res.url`: fetchUrl goes through the feed proxy, so
+      // res.url is the proxied `…/feed?url=…` address. The Native tab feeds this straight into
+      // the render's injected <base href>, and a proxy base makes every relative stylesheet/
+      // image (/w/load.php, /static/…) resolve against the proxy host — a blank, image-broken
+      // page. `norm` is the site's own URL, so its assets resolve against the site. (4.1 based
+      // the native render on the page URL for exactly this reason.)
+      return { html: res.text || '', url: norm, ok: res.ok !== false };
     });
   };
 
