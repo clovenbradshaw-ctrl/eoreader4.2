@@ -3375,11 +3375,29 @@ class Component extends DCLogic {
           openWeb: () => this.openWebGraph(st.entitySel.docId, st.entitySel.entId),
           hasDefs: p.defs.length > 0, defs: p.defs.slice(0, 6),
           hasRelations: p.relations.length > 0,
-          relations: p.relations.slice(0, 14).map((r) => {
-            const otherId = r.srcId === st.entitySel.entId ? r.tgtId : r.srcId;
-            const otherLabel = r.srcId === st.entitySel.entId ? r.tgtLabel : r.srcLabel;
-            return { other: otherLabel, via: r.via || r.op, pivot: () => this.openEntity(st.entitySel.docId, otherId) };
-          }),
+          // CONNECTED ENTITIES is a list of the DISTINCT neighbours the focus bonds to —
+          // one row per entity, not one per edge. figureSurface yields a separate relation
+          // for each (src, verb, tgt), so a neighbour reached through several verbs (Zerya
+          // touched / lived / realized …) would otherwise appear once per verb and read as
+          // many different entities. Collapse by the other endpoint's id, keeping the vias
+          // in the salience order figureSurface already ranked them; the strongest verb
+          // leads and a `+N` records the rest.
+          relations: (() => {
+            const byOther = new Map();
+            for (const r of p.relations) {
+              const otherId = r.srcId === st.entitySel.entId ? r.tgtId : r.srcId;
+              const otherLabel = r.srcId === st.entitySel.entId ? r.tgtLabel : r.srcLabel;
+              let g = byOther.get(otherId);
+              if (!g) { g = { otherId, other: otherLabel, vias: [] }; byOther.set(otherId, g); }
+              const via = r.via || r.op;
+              if (via && !g.vias.includes(via)) g.vias.push(via);
+            }
+            return [...byOther.values()].slice(0, 14).map((g) => ({
+              other: g.other,
+              via: g.vias.length > 1 ? `${g.vias[0]} +${g.vias.length - 1}` : (g.vias[0] || ''),
+              pivot: () => this.openEntity(st.entitySel.docId, g.otherId),
+            }));
+          })(),
           hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
           mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => this.openViewer(p.sn, mn.text) })),
         };
