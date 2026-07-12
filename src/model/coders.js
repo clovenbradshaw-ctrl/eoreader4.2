@@ -17,6 +17,12 @@
 // browser-feasible members are REGISTERED as live backends. The rest carry a
 // `runtime: 'native'` note and a pull command, documented, never silently pretended-runnable.
 //
+// BUT they are no longer out of reach. model/openai-local.js bridges the tab to a
+// native server (LM Studio or Ollama) over HTTP, so the browser stops being the runtime
+// and becomes the client. Every `runtime: 'native'` row below carries a `serve` block
+// naming the backend ('lmstudio' | 'ollama') and the model id to run — the chip can
+// offer "run this via LM Studio / Ollama" and the large Qwen coders answer in your tab.
+//
 // HOW they load. WebGPU coders reuse the webllm builder (model/webllm.js) bound to an
 // MLC artifact id — same engine, streaming and cancellation as the
 // Llama default. GGUF coders reuse loadWllamaModel + the ChatML prompt (model/wllama.js),
@@ -66,20 +72,67 @@ export const CODER_MODELS = Object.freeze([
   {
     id: null, label: 'Qwen3.6 27B (4-bit) · best all-round local coder',
     family: 'Qwen3.6', params: '27B', runtime: 'native', tier: 'single 16–24GB GPU (3090/4090)',
-    note: 'The 2026 default for native local coding; run via Ollama/llama.cpp.',
+    note: 'The 2026 default for native local coding; pull it once, then pick Ollama/LM Studio on the model chip to answer in your tab.',
     pull: 'ollama pull qwen3.6:27b',
+    serve: { via: ['ollama', 'lmstudio'], ollama: 'qwen3.6:27b' },
+  },
+  {
+    id: null, label: 'Qwen3.6 27B-FP8 · full-precision-ish, faster on Hopper/Ada',
+    family: 'Qwen3.6', params: '27B', runtime: 'native', tier: 'single 24–48GB GPU (4090/L40S/A6000)',
+    note: 'FP8 weights: near-BF16 quality at roughly half the VRAM, when the GPU has FP8 kernels.',
+    pull: 'serve Qwen/Qwen3.6-27B-FP8 via vLLM',
+  },
+  {
+    id: null, label: 'Qwen3.6 35B-A3B · MoE, 3B active — dense-27B quality, cheaper to run',
+    family: 'Qwen3.6', params: '36B (MoE, 3B active)', runtime: 'native', tier: 'single 24–48GB GPU',
+    note: 'Sparse mixture-of-experts: 36B total but only 3B params fire per token, so throughput tracks a small model. Multimodal (image-text-to-text). Pull it, then pick Ollama/LM Studio on the chip.',
+    pull: 'ollama pull qwen3.6:35b-a3b',
+    serve: { via: ['ollama', 'lmstudio'], ollama: 'qwen3.6:35b-a3b' },
+  },
+  {
+    id: null, label: 'Qwen3.6 35B-A3B-FP8 · MoE at FP8, best throughput/VRAM tradeoff',
+    family: 'Qwen3.6', params: '36B (MoE, 3B active)', runtime: 'native', tier: 'single 24GB GPU with FP8',
+    note: 'FP8-quantized MoE: the A3B sparsity plus FP8 make this the lightest way to run 36B-class quality.',
+    pull: 'serve Qwen/Qwen3.6-35B-A3B-FP8 via vLLM',
+  },
+  {
+    id: null, label: 'Qwen3-Coder-Next 80B · flagship open coder',
+    family: 'Qwen3-Coder-Next', params: '80B', runtime: 'native', tier: 'workstation / multi-GPU',
+    note: 'The 2026 top-tier open coding model; agentic, long-context, built for multi-file work.',
+    pull: 'serve Qwen/Qwen3-Coder-Next via vLLM',
+  },
+  {
+    id: null, label: 'Qwen3-Coder-Next 80B-FP8 · flagship coder at FP8',
+    family: 'Qwen3-Coder-Next', params: '80B', runtime: 'native', tier: 'workstation / multi-GPU (FP8)',
+    note: 'FP8 weights halve the VRAM of the 80B coder with negligible quality loss on FP8-capable GPUs.',
+    pull: 'serve Qwen/Qwen3-Coder-Next-FP8 via vLLM',
+  },
+  {
+    id: null, label: 'Qwen3-Coder-Next 80B-Base · pretrained base, not instruct-tuned',
+    family: 'Qwen3-Coder-Next', params: '80B', runtime: 'native', tier: 'workstation / multi-GPU',
+    note: 'The raw base checkpoint — for fine-tuning or completion, not chat. Use the instruct build above for Q&A.',
+    pull: 'serve Qwen/Qwen3-Coder-Next-Base via vLLM',
+  },
+  {
+    id: null, label: 'Qwen3-Coder-Next 80B-GGUF · quantized for llama.cpp/Ollama',
+    family: 'Qwen3-Coder-Next', params: '80B', runtime: 'native', tier: 'workstation, 48GB+ VRAM or CPU offload',
+    note: 'GGUF quants (Q4/Q5) let Ollama or LM Studio run the 80B coder on a single big GPU or with CPU offload — then pick that backend on the chip to reach it from your tab.',
+    pull: 'ollama pull qwen3-coder-next',
+    serve: { via: ['ollama', 'lmstudio'], ollama: 'qwen3-coder-next' },
   },
   {
     id: null, label: 'Codestral 22B · fast IDE autocomplete',
     family: 'Codestral', params: '22B', runtime: 'native', tier: 'single 16–24GB GPU',
     note: 'Tuned for low-latency fill-in-the-middle completion.',
     pull: 'ollama pull codestral',
+    serve: { via: ['ollama', 'lmstudio'], ollama: 'codestral' },
   },
   {
     id: null, label: 'Devstral · multi-file, agentic edits',
     family: 'Devstral', params: '24B', runtime: 'native', tier: 'single 16–24GB GPU',
     note: 'Built for autonomous multi-file work rather than single completions.',
     pull: 'ollama pull devstral',
+    serve: { via: ['ollama', 'lmstudio'], ollama: 'devstral' },
   },
   {
     id: null, label: 'GLM-5.2 · top open-source coding (LiveBench ≈79.65)',

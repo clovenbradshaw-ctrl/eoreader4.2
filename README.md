@@ -32,7 +32,8 @@ src/
     lineup/        a chorus of surfers — the nine-operator cast, cooperative + evolutionary (docs/cooperative-graph-surfers.md)
   enactor/       gating — nothing is asserted that the record can't witness
     enact/  ground/  factcheck/  answer/
-  model/         the leaf — backends (webllm, wllama, claude API, qwen-coders, echo), prompt, stream
+  model/         the leaf — backends (webllm, wllama, claude API, qwen-coders,
+                 lmstudio/ollama local servers, echo), prompt, stream
   turn/          the fold of 18 stages (see src/turn/stage-faces.js)
     converse/      the conversation fold + dialogue state
   weave/         generation — long form, multi-prompt, over a moving fold
@@ -89,7 +90,7 @@ opens empty and fills as you record.
 |---|---|
 | workspace switcher → nested topic tree | `rooms/reader/app.js` — a **workspace** is the top-level container (Notion's workspace/teamspace; a shared workspace is a Matrix room, via `shared`), and **topics nest** into a collapsible tree (`parentId` / `collapsed`, walked by `topicRows`). Sources stay scoped to the active topic. |
 | ingest bar (URL / file / paste / web search) | `organs/ingest` web client + admission core, `rooms/reader/import-file.js` extractors, proxy chain with public fallbacks |
-| chat exchange | `turn/` pipeline (`runTurn`) — streamed, cited, fact-checked; model backends from `model/` (webllm · wllama · echo), picked adaptively |
+| chat exchange | `turn/` pipeline (`runTurn`) — streamed, cited, fact-checked; model backends from `model/` (webllm · wllama · claude · lmstudio · ollama · echo), picked adaptively |
 | S-registry (sha, bytes, rights, fixity) | `organs/ingest/websource.js` records + the controller's registry |
 | claim → passage pincites | the turn's `bound`/`citeOrigins`/`citeTexts` (from `enactor/ground`) |
 | provenance DAG nodes/edges | derived from real turns: topic → claims → passages → sources → files |
@@ -99,6 +100,35 @@ opens empty and fills as you record.
 | monologue steps | `rooms/audit` (`createAuditLog`) — live subscription, per-stage trail |
 | E2EE chat (optional) | `rooms/chat` — libolm (vendored) Olm/Megolm over the existing `matrix` login; keys pickled to **OPFS**; a floating launcher `boot.js` mounts (see [`docs/element-e2ee.md`](docs/element-e2ee.md)) |
 | encrypted media vault (optional) | `rooms/archive/vault` — save content encrypted (Web Crypto), store only ciphertext in the Matrix media repo, record each save in a tamper-evident **hash-linked block chain** on **OPFS**; `window.EO.vault` + a floating 🗄 panel (see [`docs/media-vault.md`](docs/media-vault.md)) |
+
+## Run the big models locally (LM Studio / Ollama)
+
+The in-browser backends (`webllm`, `wllama`) run the weights *inside the tab*, so
+they top out at a few billion parameters. To use the **large** open models — the
+27–80B Qwen coders in the picker, GLM, DeepSeek — run them in a native server on the
+same machine and point the tab at it. The reader speaks the OpenAI
+`/v1/chat/completions` protocol, which both **LM Studio** and **Ollama** expose, so
+connecting is one click on the model chip.
+
+It is deliberately **dead simple** — you never type a model id. Pick the backend and it
+asks the server what's loaded and uses that (auto-discovery). Re-pick the active one to
+point at a non-default port or a LAN box.
+
+**LM Studio**
+1. Load a model (e.g. a Qwen3.6 / Qwen3-Coder-Next GGUF).
+2. **Developer → Start Server** (default port `1234`); leave **Enable CORS** on.
+3. On the model chip, pick **LM Studio · local server**. Done.
+
+**Ollama**
+1. Pull a model: `ollama pull qwen3-coder-next` (or `qwen3.6:27b`, `codestral`, …).
+2. Start it so the browser is allowed to reach it: `OLLAMA_ORIGINS=* ollama serve`.
+3. On the model chip, pick **Ollama · local server**. Done.
+
+Nothing leaves your machine — the tab talks only to `localhost`. (An https page is
+allowed to call `http://localhost` because browsers treat localhost as trustworthy.) If
+the server isn't reachable, the chip says exactly what to fix. Advanced pins live in
+`localStorage`: `eo_lmstudio_base` / `eo_ollama_base` (URL), `eo_lmstudio_model` /
+`eo_ollama_model` (force a specific model), `eo_{lmstudio,ollama}_key` (a gateway bearer).
 
 ## What stayed behind in 4.1
 

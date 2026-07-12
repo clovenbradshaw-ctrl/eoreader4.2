@@ -30,4 +30,5 @@ import './structure.js';
 import './wllama.js';
 import './webllm.js';
 import './anthropic.js';
+import './openai-local.js';
 import './coders.js';

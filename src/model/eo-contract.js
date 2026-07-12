@@ -15,6 +15,7 @@ export const CONTRACTS = Object.freeze({
   'src/model/embed.js': contract({ ops: ['SIG', 'INS'], targets: ['Field'], products: ['Atmosphere', 'Entity'], stances: ['Tending', 'Making'], note: 'MiniLM semantic embedder' }),
   'src/model/index.js': contract({ ops: ['INS', 'SYN', 'SIG'], targets: ['Field'], products: ['Entity', 'Field'], stances: ['Making', 'Tending'], note: 'barrel' }),
   'src/model/interface.js': contract({ ops: ['INS'], targets: ['Kind'], products: ['Entity'], stances: ['Making'], note: 'backend registry + createModel' }),
+  'src/model/openai-local.js': contract({ ops: ['INS'], targets: ['Field'], products: ['Entity'], stances: ['Making'], note: 'LM Studio / Ollama local-server backend' }),
   'src/model/prompt.js': contract({ ops: ['SYN', 'DEF', 'SEG'], targets: ['Field'], products: ['Field', 'Lens'], stances: ['Dissecting', 'Composing'], note: 'grounded prompt assembler + frame' }),
   'src/model/prompt-checkpoint.js': contract({ ops: ['EVA'], targets: ['Paradigm'], products: ['Lens'], stances: ['Binding'], note: '!EVA prompt — input-side checkpoint' }),
   'src/model/reach.js': contract({ ops: ['SIG'], targets: ['Network'], products: ['Atmosphere'], stances: ['Tending'], note: 'model-host reachability probe' }),
