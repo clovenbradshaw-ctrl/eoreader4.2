@@ -1657,7 +1657,8 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return paras;
   };
 
-  // The document viewer — full text as paragraphs; cited sentences marked.
+  // The document viewer — full text as paragraphs; cited sentences marked. (Still used by the
+  // Facing page's left leaf; the standalone Document tab is now folded into the Reader.)
   const viewerParas = (snId, { entities = true } = {}) => {
     const src = sourceBySn(snId);
     if (!src) return [];
@@ -1676,6 +1677,30 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       paras.push({ cited, segs: linkifySegs(para, lex) });
     }
     return paras;
+  };
+
+  // The Reader's link layer — the Document view merged INTO the themed book. reader-render reflows
+  // and themes the source; this supplies the two things the book can't know on its own: which words
+  // are entities (so it can underline them and open the entity panel on click) and which paragraphs
+  // a citation grounds (so they pick up the gold rule). Both reuse the Document view's own machinery
+  // over WHATEVER text reader-render hands back — the reflowed paragraph, not the raw newline split —
+  // so a Gutenberg book links the same as a web page. Returns { linkify, isCited } for readerHtml's
+  // opts.segsOf / opts.isCited; with `entities:false` no lexicon is built and nothing links.
+  const readerLink = (snId, { entities = true } = {}) => {
+    const src = sourceBySn(snId);
+    if (!src) return null;
+    const doc = docFor(src);
+    const lex = entities ? entityLexicon([doc]) : [];
+    const citedTexts = [];
+    for (const t of state.topics) {
+      for (const m of t.messages) {
+        for (const c of m.cites || []) if (c.docId === src.docId && c.text) citedTexts.push(c.text.slice(0, 80));
+      }
+    }
+    return {
+      linkify: (text) => linkifySegs(String(text == null ? '' : text), lex),
+      isCited: (text) => { const s = String(text == null ? '' : text); return citedTexts.some((ct) => ct.length > 20 && s.includes(ct.slice(0, Math.min(60, ct.length)))); },
+    };
   };
 
   // ── entities (the explorer) ────────────────────────────────────────────────
@@ -2077,7 +2102,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     // model
     ensureModel, setBackend, backendPref, setSpeed, speedPref,
     // projections for the surface
-    answerSegments, viewerParas, entities, entityProfile, entityWiki, tieredData, topicTieredData,
+    answerSegments, viewerParas, readerLink, entities, entityProfile, entityWiki, tieredData, topicTieredData,
     findings, provenance, dagFor, dagSources, setMemo, eotFor, answerEot,
     // the commitment ledger (assertions + corrections, persisted) and the session's
     // self/world line readout — the honesty and ledger seams, readable from the surface
