@@ -19,11 +19,15 @@
 // | Lens       | Figure  | the live question as framed, the walk's inferences      |
 // | Paradigm   | Pattern | what counts as an answer in this turn                   |
 //
-// A band is { key, terrain, role, when(view), render(view), prose } — `prose` lists
-// the band's FIXED instructional literals (headers, asides, whole static bands), the
-// mass tools/prompt-census measures against the corpus population gradient
-// (Figure > Pattern > Ground; docs/eo-wiki.md "Lexical Analysis v2"). Payload text
-// (spans, graph, a caller's steer brief) is the caller's, not counted here.
+// A band is { key, terrain, role, when(view), render(view), prose, cell? } — `prose`
+// lists the band's FIXED instructional literals (headers, asides, whole static
+// bands), the mass tools/prompt-census measures against the corpus population
+// gradient (Figure > Pattern > Ground; docs/eo-wiki.md "Lexical Analysis v2").
+// Payload text (spans, graph, a caller's steer brief) is the caller's, not counted
+// here. `cell` is the band's own Act/Stance reading — { op, stance } — declared ONLY
+// on bands that INSTRUCT (a stance asked of the talker); material bands carry none.
+// The prompt checkpoint (model/prompt-checkpoint.js) judges declared cells; it never
+// guesses one, so an undeclared instruction is a catalog gap, not a silent pass.
 //
 // The catalog is DATA and the builders in prompt.js are PROJECTIONS over it
 // (projectBands): read-time, pure, byte-identical to the hand-rolled assembly they
@@ -239,6 +243,7 @@ export const GROUNDED_BANDS = Object.freeze([
   // whole turn breathes — the honest frame is the interpretive weather, not a fact.
   {
     key: 'voice', terrain: 'Atmosphere', role: 'system',
+    cell: { op: 'EVA', stance: 'Tending' },
     when: () => true,
     render: (v) => (v.strict ? SYSTEM_GROUND_STRICT : SYSTEM_GROUND),
     prose: [SYSTEM_GROUND, SYSTEM_GROUND_STRICT],
@@ -364,6 +369,7 @@ export const GROUNDED_BANDS = Object.freeze([
   // it re-rules what counts as an answer for the retry.
   {
     key: 'corrective', terrain: 'Paradigm', role: 'user',
+    cell: { op: 'DEF', stance: 'Dissecting' },
     when: (v) => !!v.corrective,
     render: (v) => v.corrective,
     prose: [],
@@ -372,6 +378,7 @@ export const GROUNDED_BANDS = Object.freeze([
   // Paradigm: what counts as a summary. (The known grain-mix; see SUMMARY_GUARD.)
   {
     key: 'summary-guard', terrain: 'Paradigm', role: 'user',
+    cell: { op: 'SYN', stance: 'Composing' },
     when: (v) => v.task === 'summary',
     render: () => SUMMARY_GUARD,
     prose: [SUMMARY_GUARD],
@@ -380,6 +387,7 @@ export const GROUNDED_BANDS = Object.freeze([
   // turn. Kind: the reply's form.
   {
     key: 'budget', terrain: 'Kind', role: 'user',
+    cell: { op: 'SEG', stance: 'Dissecting' },
     when: (v) => !!v.budgetStr,
     render: (v) => v.budgetStr,
     prose: [],
@@ -388,6 +396,7 @@ export const GROUNDED_BANDS = Object.freeze([
   // answer clause. Never on a budgeted (capped) reply. Atmosphere: the voice.
   {
     key: 'register', terrain: 'Atmosphere', role: 'user',
+    cell: { op: 'EVA', stance: 'Tending' },
     when: (v) => !!v.shape && !v.budgetStr,
     render: (v) => v.shape,
     prose: [],
@@ -397,6 +406,7 @@ export const GROUNDED_BANDS = Object.freeze([
   // Void: the one band that carries what the reading did NOT find.
   {
     key: 'absence', terrain: 'Void', role: 'user',
+    cell: { op: 'DEF', stance: 'Clearing' },
     when: (v) => v.strict && !v.spans.length,
     render: () => STRICT_ABSENCE,
     prose: [STRICT_ABSENCE],
@@ -411,6 +421,7 @@ export const GROUNDED_BANDS = Object.freeze([
   // (advisory) until the re-rank lands; the flag is the worklist, not a veto.
   {
     key: 'steer', terrain: 'Atmosphere', role: 'user',
+    cell: { op: 'SYN', stance: 'Cultivating' },
     when: (v) => !!v.steer,
     render: (v) => v.steer,
     prose: [],
@@ -422,6 +433,7 @@ export const GROUNDED_BANDS = Object.freeze([
   // the model reads are "aim it at what they want", not a generic "answer them now".
   {
     key: 'answer', terrain: 'Paradigm', role: 'user',
+    cell: { op: 'DEF', stance: 'Dissecting' },
     when: () => true,
     render: (v) => {
       const aim = v.steer ? STEER_AIM : '';
@@ -460,6 +472,7 @@ export const CURSOR_BANDS = Object.freeze([
   // The cursor's stable voice — same relaxed renderer posture as SYSTEM_GROUND.
   {
     key: 'voice', terrain: 'Atmosphere', role: 'system',
+    cell: { op: 'EVA', stance: 'Tending' },
     when: () => true,
     render: () => SYSTEM_CURSOR,
     prose: [SYSTEM_CURSOR],
@@ -498,6 +511,7 @@ export const CURSOR_BANDS = Object.freeze([
   // The void attributes, named as unsettled — do not assert (§2 FIRM-ONLY, §5).
   {
     key: 'open', terrain: 'Void', role: 'user',
+    cell: { op: 'DEF', stance: 'Clearing' },
     when: (v) => v.open.length > 0,
     render: (v) => `${CURSOR_OPEN_FRAME} ${v.open.join('; ')}.`,
     prose: [CURSOR_OPEN_FRAME],
@@ -521,6 +535,7 @@ export const CURSOR_BANDS = Object.freeze([
   // machinery — the talker writes the qualifier into its own sentence. Paradigm.
   {
     key: 'corrective', terrain: 'Paradigm', role: 'user',
+    cell: { op: 'DEF', stance: 'Dissecting' },
     when: (v) => !!v.corrective,
     render: (v) => v.corrective,
     prose: [],
@@ -535,6 +550,7 @@ export const CURSOR_BANDS = Object.freeze([
   // the unsettledness itself is the content.
   {
     key: 'void-hedge', terrain: 'Void', role: 'user',
+    cell: { op: 'DEF', stance: 'Clearing' },
     when: (v) => v.band === 'void',
     render: () => CURSOR_VOID_HEDGE,
     prose: [CURSOR_VOID_HEDGE],
@@ -542,6 +558,7 @@ export const CURSOR_BANDS = Object.freeze([
   // The shape instruction. Kind: the form of the one sentence to write.
   {
     key: 'target', terrain: 'Kind', role: 'user',
+    cell: { op: 'SEG', stance: 'Dissecting' },
     when: (v) => !!v.target,
     render: (v) => `Write: ${v.target}.`,
     prose: ['Write:'],
@@ -560,6 +577,7 @@ const CHAT_NOTES_FRAME = 'Notes about our conversation before this:';
 export const CHAT_BANDS = Object.freeze([
   {
     key: 'voice', terrain: 'Atmosphere', role: 'system',
+    cell: { op: 'EVA', stance: 'Tending' },
     when: () => true,
     render: (v) => (v.free ? SYSTEM_FREE : SYSTEM_CHAT),
     prose: [SYSTEM_CHAT, SYSTEM_FREE],
@@ -574,6 +592,7 @@ export const CHAT_BANDS = Object.freeze([
   // byte-identical). Kind: the form of the piece being asked for.
   {
     key: 'longform', terrain: 'Kind', role: 'system',
+    cell: { op: 'SEG', stance: 'Dissecting' },
     when: (v) => !!v.longform,
     render: () => LONGFORM_DIRECTIVE,
     prose: [LONGFORM_DIRECTIVE],
@@ -623,6 +642,7 @@ export const projectBands = (bands, view, probe = null) => {
     terrain: b.terrain,
     grain: TERRAIN_GRAIN[b.terrain],
     role: b.role,
+    cell: b.cell ?? null,
     text: b.render(view),
   })));
 };

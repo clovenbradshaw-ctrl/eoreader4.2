@@ -15,6 +15,7 @@ export const CONTRACTS = Object.freeze({
   'src/model/index.js': contract({ ops: ['INS', 'SYN', 'SIG'], targets: ['Field'], products: ['Entity', 'Field'], stances: ['Making', 'Tending'], note: 'barrel' }),
   'src/model/interface.js': contract({ ops: ['INS'], targets: ['Kind'], products: ['Entity'], stances: ['Making'], note: 'backend registry + createModel' }),
   'src/model/prompt.js': contract({ ops: ['SYN', 'DEF', 'SEG'], targets: ['Field'], products: ['Field', 'Lens'], stances: ['Dissecting', 'Composing'], note: 'grounded prompt assembler + frame' }),
+  'src/model/prompt-checkpoint.js': contract({ ops: ['EVA'], targets: ['Paradigm'], products: ['Lens'], stances: ['Binding'], note: '!EVA prompt — input-side checkpoint' }),
   'src/model/reach.js': contract({ ops: ['SIG'], targets: ['Network'], products: ['Atmosphere'], stances: ['Tending'], note: 'model-host reachability probe' }),
   'src/model/stream.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void', 'Field'], stances: ['Clearing', 'Dissecting'], note: 'streaming surfacer wrapper' }),
   'src/model/structure.js': contract({ ops: ['SYN', 'INS'], targets: ['Field', 'Network'], products: ['Entity'], stances: ['Composing', 'Making'], note: 'structure backend, graph retelling' }),
