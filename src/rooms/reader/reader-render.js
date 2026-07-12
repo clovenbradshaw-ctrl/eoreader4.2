@@ -233,18 +233,40 @@ const readerCss = (rp) => {
     'p{margin:0 0 1.15em;}' +
     'p.eo-first::first-letter{font-size:3.1em;line-height:.86;float:left;padding:6px 10px 0 0;font-weight:700;color:var(--eo-acc);font-family:Georgia,serif;}' +
     'pre.eo-raw{white-space:pre-wrap;word-break:break-word;font:var(--eo-fs)/var(--eo-lh) var(--eo-ff);margin:0;}' +
+    // Entity links + cited-passage highlight ride INSIDE the book, but stay invisible until the
+    // reader turns links on (html.eo-links-on, flipped live from the surface — no reload). Off, the
+    // spans are plain prose so the book reads clean; on, they underline in the accent and the
+    // paragraphs a citation grounds pick up a gold margin rule (the merged Document apparatus).
+    '.eo-ent{color:inherit;text-decoration:none;}' +
+    '.eo-links-on .eo-ent{color:var(--eo-acc);border-bottom:1px dotted var(--eo-acc);cursor:pointer;}' +
+    '.eo-links-on .eo-ent:hover{background:var(--eo-flash);border-radius:3px;}' +
+    '.eo-links-on p.eo-cited,.eo-links-on pre.eo-cited{border-left:3px solid #C79A3A;padding-left:14px;margin-left:-17px;}' +
     '.eo-focus{background:var(--eo-flash);border-radius:5px;box-shadow:0 0 0 6px var(--eo-flash);transition:background .5s,box-shadow .5s;}';
 };
 
 // readerHtml(model, prefs, opts) → { html, toc }. `html` is a complete <!doctype> document for an
 // <iframe srcdoc>; `toc` is [{id,label,level}] for the surface's contents menu.
+// `opts.segsOf(text)` — when present, the surface's entity linker: a paragraph's TEXT → a segment
+// stream ([{ t:'text'|'ent', s, docId?, entId? }]), which we turn into escaped prose with .eo-ent
+// spans (so the reflowed book carries the same entity links the Document view had). `opts.isCited`
+// flags a paragraph a citation grounds; `opts.linksOn` bakes the initial links-visible state onto
+// <html> (the surface then flips it live). Absent, the book renders as plain escaped prose exactly
+// as before — the linker lives in the app (it needs the record's lexicon), never here.
 export const readerHtml = (model, prefsIn = {}, opts = {}) => {
   const rp = clampReadPrefs(prefsIn);
   const toc = [];
+  const segsOf = typeof opts.segsOf === 'function' ? opts.segsOf : null;
+  const isCited = typeof opts.isCited === 'function' ? opts.isCited : () => false;
+  const inner = (t) => segsOf
+    ? segsOf(t).map((sg) => (sg && sg.t === 'ent')
+        ? '<span class="eo-ent" data-doc="' + escAttr(sg.docId) + '" data-ent="' + escAttr(sg.entId) + '">' + esc(sg.s) + '</span>'
+        : esc(sg && sg.s != null ? sg.s : '')).join('')
+    : esc(t);
+  const citedCls = (t) => { try { return isCited(t) ? ' eo-cited' : ''; } catch { return ''; } };
   let bodyHtml;
   if (model.preRaw != null) {
     // No paragraph structure to find (verse / a single wrapped column) — keep every line break.
-    bodyHtml = '<pre class="eo-raw">' + esc(model.preRaw) + '</pre>';
+    bodyHtml = '<pre class="eo-raw' + citedCls(model.preRaw) + '">' + inner(model.preRaw) + '</pre>';
   } else {
     const secAt = new Map();
     model.sections.forEach((s, n) => secAt.set(s.paraIndex, { s, n }));
@@ -259,9 +281,10 @@ export const readerHtml = (model, prefsIn = {}, opts = {}) => {
         const cls = 'eo-chap' + (lv > 1 ? ' sub' : '');
         const ind = lv > 1 ? ' style="margin-left:' + ((lv - 1) * 1.15) + 'em"' : '';
         if (hit.s.kind === 'heading' || titleish(t)) { parts.push('<h2 class="' + cls + '" id="' + id + '"' + ind + '>' + esc(disp) + '</h2>'); chapStart = true; return; }
-        parts.push('<p id="' + id + '" class="eo-first">' + esc(t) + '</p>'); chapStart = false; return;
+        parts.push('<p id="' + id + '" class="eo-first' + citedCls(t) + '">' + inner(t) + '</p>'); chapStart = false; return;
       }
-      parts.push('<p' + (chapStart ? ' class="eo-first"' : '') + '>' + esc(t) + '</p>'); chapStart = false;
+      const cls = ((chapStart ? 'eo-first' : '') + citedCls(t)).trim();
+      parts.push('<p' + (cls ? ' class="' + cls + '"' : '') + '>' + inner(t) + '</p>'); chapStart = false;
     });
     bodyHtml = parts.join('\n');
   }
@@ -274,7 +297,7 @@ export const readerHtml = (model, prefsIn = {}, opts = {}) => {
     model.words ? mins + ' min read' : null,
     model.domain && !model.author ? esc(model.domain) : null,
   ].filter(Boolean).join(' · ') || 'read as a book';
-  const html = '<!doctype html><html><head><meta charset="utf-8"><base target="_blank">' +
+  const html = '<!doctype html><html' + (opts.linksOn ? ' class="eo-links-on"' : '') + '><head><meta charset="utf-8"><base target="_blank">' +
     '<style>' + readerCss(rp) + '</style></head><body><div class="eo-book">' +
     '<h1 class="eo-title">' + esc(model.title) + '</h1>' + authorHtml +
     '<div class="eo-byline">' + byline + '</div>' + bodyHtml +

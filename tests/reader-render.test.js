@@ -106,6 +106,42 @@ test('readerHtml keeps verse/one-column text verbatim via pre-wrap', () => {
   assert.ok(html.includes('Violets are blue'), 'lines preserved');
 });
 
+// ── the merged Document layer: entity links + cited rule baked into the reader ────────────────
+test('readerHtml bakes entity links + cited rule when the surface supplies a linker', () => {
+  const m = readerModel({ text: 'Ada met Babbage in London.\n\nThey built an engine together over many years of work.' });
+  const segsOf = (t) => {
+    // A tiny stand-in for the app's linkifier: mark "Babbage" as an entity, the rest plain text.
+    const out = []; let rest = String(t); const at = rest.indexOf('Babbage');
+    if (at < 0) return [{ t: 'text', s: rest }];
+    if (at > 0) out.push({ t: 'text', s: rest.slice(0, at) });
+    out.push({ t: 'ent', s: 'Babbage', docId: 'd1', entId: 'e_babbage' });
+    out.push({ t: 'text', s: rest.slice(at + 'Babbage'.length) });
+    return out;
+  };
+  const isCited = (t) => t.includes('built an engine');
+  const { html } = readerHtml(m, {}, { segsOf, isCited, linksOn: true });
+  assert.ok(html.includes('<html class="eo-links-on">'), 'links start visible when linksOn');
+  assert.ok(/<span class="eo-ent" data-doc="d1" data-ent="e_babbage">Babbage<\/span>/.test(html), 'entity wrapped as a clickable span carrying its ids');
+  assert.ok(/<p class="eo-cited">/.test(html), 'the cited paragraph carries the gold-rule class');
+  assert.ok(html.includes('.eo-links-on .eo-ent'), 'the links-on CSS gate is present');
+});
+
+test('readerHtml stays a clean book with no linker (links off, no spans)', () => {
+  const m = readerModel({ text: 'Ada met Babbage in London.\n\nThey built an engine together over many years of work.' });
+  const { html } = readerHtml(m, {});
+  assert.ok(html.startsWith('<!doctype html><html>'), 'no links class baked when off');
+  assert.ok(!html.includes('eo-ent"'), 'no entity spans without a linker');
+  assert.ok(!/class="[^"]*eo-cited/.test(html), 'no cited paragraphs without an isCited probe');
+});
+
+test('readerHtml still escapes entity text inside the baked span', () => {
+  const m = readerModel({ text: 'A <script> and more prose here.\n\nSecond paragraph to force blocks.' });
+  const segsOf = (t) => [{ t: 'ent', s: t, docId: 'd"1', entId: '<e>' }];
+  const { html } = readerHtml(m, {}, { segsOf, linksOn: false });
+  assert.ok(!/<script>/.test(html.replace(/data-[^=]*="[^"]*"/g, '')), 'body script escaped even inside a span');
+  assert.ok(html.includes('data-doc="d&quot;1"') && html.includes('data-ent="&lt;e&gt;"'), 'ids are attribute-escaped');
+});
+
 test('nativePageHtml sanitizes scripts and injects a base href', () => {
   const raw = '<html><head><title>Live</title></head><body><script>evil()</script><p>Hello <img src="/a.png"></p></body></html>';
   const out = nativePageHtml(raw, { baseUrl: 'https://example.com/page' });
