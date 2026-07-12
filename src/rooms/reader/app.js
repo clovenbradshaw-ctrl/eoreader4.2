@@ -16,7 +16,7 @@
 // touches the network.
 
 import { parseText } from '../../perceiver/parse/index.js';
-import { projectGraph } from '../../core/index.js';
+import { projectGraph, operatorsOf, glyphOf } from '../../core/index.js';
 import { createModel, describeModel } from '../../model/interface.js';
 import { wrapRedacting } from '../../model/redact-remote.js';
 import { probeOrigins, explainReach } from '../../model/reach.js';
@@ -2111,7 +2111,12 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     // labels keep it readable, so every entity the focus actually bonds to gets a node.
     for (const r of p.relations) {
       const a = addEnt(r.srcId, r.srcLabel), b = addEnt(r.tgtId, r.tgtLabel);
-      edges.push({ a, b, tier: 1, gl: r.op === 'SIG' ? '△' : '⋈', code: r.via || r.op });
+      // Type the edge by the ACT it records, not the bare CON fallback: a kinship via
+      // (mother/son) projects to INS, a metamorphosis to SEG·INS, and only a genuine
+      // bond stays CON. The glyph shows the dominant (most-specific) operator; the code
+      // carries the whole nested stack (§ operatorsOf).
+      const ops = operatorsOf(r.via, r.op || 'CON');
+      edges.push({ a, b, tier: 1, gl: glyphOf(ops[0]), code: ops.join('·') });
     }
     p.defs.slice(0, 16).forEach((d, i) => {
       const id = `c:${i}`;
@@ -2174,13 +2179,20 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         const an = mapKey.get(`${doc.docId}#${rep(e.from)}`), bn = mapKey.get(`${doc.docId}#${rep(e.to)}`);
         if (!an || !bn || an === bn || !shown.has(an) || !shown.has(bn)) continue;
         const key = an + '' + bn; let b = agg.get(key);
-        if (!b) agg.set(key, b = { a: `e:${an}`, b: `e:${bn}`, w: 0, via: null });
+        if (!b) agg.set(key, b = { a: `e:${an}`, b: `e:${bn}`, w: 0, via: null, op: null });
         b.w += (e.weight != null ? e.weight : 1) || 0.001;
         const via = e.relType || e.via; if (!b.via && via) b.via = via;
+        // The projection carries the real operator through (project.js stores it as
+        // e.kind — 'con'/'sig'/'syn'), so a SIG or SYN survives instead of being
+        // flattened to the hardcoded bond it was before.
+        if (!b.op && e.kind) b.op = String(e.kind).toUpperCase();
       }
     }
     [...agg.values()].sort((x, y) => y.w - x.w).slice(0, 80).forEach((b) => {
-      edges.push({ a: b.a, b: b.b, tier: 1, gl: '⋈', code: b.via || 'CON' });
+      // Type the aggregated topic edge by its act (INS for kinship, SEG·INS for a
+      // metamorphosis, SIG/SYN when the source read one) rather than a uniform CON.
+      const ops = operatorsOf(b.via, b.op || 'CON');
+      edges.push({ a: b.a, b: b.b, tier: 1, gl: glyphOf(ops[0]), code: ops.join('·') });
     });
     return { nodes, edges };
   };

@@ -17,19 +17,27 @@ export const GRAINS  = Object.freeze(['Ground', 'Figure', 'Pattern']);
 
 // NUL is non-transformation — it holds a thing as-is. It is NOT "clearing":
 // voiding a fact is a DEF to VOID (an assertion), never a NUL.
+// The glyph rides ON the operator, not in any one renderer. It is the domain-columns
+// mapping the tiered graph's tier legend already spoke by hand (existence ∅○●, structure
+// ｜⋈△, interpretation ⊢⊨⊛); making it authoritative here lets every surface draw the SAME
+// mark for a given act, so a graph edge and a legend chip never disagree.
 export const OPERATORS = Object.freeze({
-  NUL: Object.freeze({ id: 'NUL', mode: 'Differentiate', domain: 'Existence',      label: 'hold (non-transformation)' }),
-  SEG: Object.freeze({ id: 'SEG', mode: 'Differentiate', domain: 'Structure',      label: 'resplit' }),
-  DEF: Object.freeze({ id: 'DEF', mode: 'Differentiate', domain: 'Interpretation', label: 'assert/define' }),
-  SIG: Object.freeze({ id: 'SIG', mode: 'Relate',        domain: 'Existence',      label: 'attribute' }),
-  CON: Object.freeze({ id: 'CON', mode: 'Relate',        domain: 'Structure',      label: 'bond' }),
-  EVA: Object.freeze({ id: 'EVA', mode: 'Relate',        domain: 'Interpretation', label: 'evaluate' }),
-  INS: Object.freeze({ id: 'INS', mode: 'Generate',      domain: 'Existence',      label: 'instantiate' }),
-  SYN: Object.freeze({ id: 'SYN', mode: 'Generate',      domain: 'Structure',      label: 'synthesize' }),
-  REC: Object.freeze({ id: 'REC', mode: 'Generate',      domain: 'Interpretation', label: 'learn rule' }),
+  NUL: Object.freeze({ id: 'NUL', mode: 'Differentiate', domain: 'Existence',      label: 'hold (non-transformation)', glyph: '∅' }),
+  SEG: Object.freeze({ id: 'SEG', mode: 'Differentiate', domain: 'Structure',      label: 'resplit',                   glyph: '｜' }),
+  DEF: Object.freeze({ id: 'DEF', mode: 'Differentiate', domain: 'Interpretation', label: 'assert/define',             glyph: '⊢' }),
+  SIG: Object.freeze({ id: 'SIG', mode: 'Relate',        domain: 'Existence',      label: 'attribute',                 glyph: '○' }),
+  CON: Object.freeze({ id: 'CON', mode: 'Relate',        domain: 'Structure',      label: 'bond',                      glyph: '⋈' }),
+  EVA: Object.freeze({ id: 'EVA', mode: 'Relate',        domain: 'Interpretation', label: 'evaluate',                  glyph: '⊨' }),
+  INS: Object.freeze({ id: 'INS', mode: 'Generate',      domain: 'Existence',      label: 'instantiate',               glyph: '●' }),
+  SYN: Object.freeze({ id: 'SYN', mode: 'Generate',      domain: 'Structure',      label: 'synthesize',                glyph: '△' }),
+  REC: Object.freeze({ id: 'REC', mode: 'Generate',      domain: 'Interpretation', label: 'learn rule',                glyph: '⊛' }),
 });
 
 export const isOperator = (op) => typeof op === 'string' && op in OPERATORS;
+
+// The mark for an operator (falling back to a neutral mid-dot when the code is not one
+// of the nine — a display never throws on an unknown op, it just draws the dot).
+export const glyphOf = (op) => (op && OPERATORS[op] ? OPERATORS[op].glyph : '·');
 
 export const operatorsByMode = (mode) =>
   Object.values(OPERATORS).filter(o => o.mode === mode);

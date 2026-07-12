@@ -84,6 +84,52 @@ export const typeOf = (surfaceNoun) => {
   return e ? Object.freeze({ ...e, ...PRIMITIVES[e.type] }) : null;
 };
 
+// ── The operator projection — which ACT a typed relation records ────────────
+//
+// CON is the bond at Relate × Structure — the ACT of connecting, two things
+// stapled while each stays itself. It was doing double duty as the catch-all for
+// every verb-between-two-figures, so a graph came out uniform CON — and CON, being
+// what every edge trivially IS (a link), types nothing. This projects the surface
+// relation onto the operator(s) that actually name its act, so a graph reads in the
+// full vocabulary instead of one bond glyph.
+//
+// The value is a STACK, most-specific first: an edge can carry NESTED operators
+// because one relation can be more than one act at once. "Became" re-segments the
+// old form (SEG) AND instantiates the new state (INS); it is not one or the other.
+// The head of the stack is the dominant act (what the glyph shows); the tail is what
+// it rides on. Keyed on the PRIMITIVE, never the surface noun, so mother/father/mom
+// all reach `parent → INS` through the one gendered projection above.
+//
+//   parent · child · ancestor  → INS   generation of a being (a parent instantiates a child)
+//   authored                   → INS   the author instantiates the work
+//   becomes                    → SEG·INS  a metamorphosis: the old form re-split, the new one made
+//   sibling · spouse · social · leads · located → CON   genuine bonds — CON's true home
+//
+// An unmapped primitive, or an untyped surface noun (an ordinary verb), falls back to
+// the base operator the parser already assigned (CON/SIG/DEF) — the honest floor: a
+// witnessed link whose finer act was not read.
+const RELATION_OPERATORS = Object.freeze({
+  parent:   Object.freeze(['INS']),
+  child:    Object.freeze(['INS']),
+  ancestor: Object.freeze(['INS']),
+  authored: Object.freeze(['INS']),
+  becomes:  Object.freeze(['SEG', 'INS']),
+  sibling:  Object.freeze(['CON']),
+  spouse:   Object.freeze(['CON']),
+  social:   Object.freeze(['CON']),
+  leads:    Object.freeze(['CON']),
+  located:  Object.freeze(['CON']),
+});
+
+// The nested operator stack for a relation, most-specific first. `via` is the surface
+// noun/verb on the edge; `baseOp` is what the parser classified it as (the fallback for
+// an untyped verb). Pure — no log, no embedder — so any surface can call it.
+export const operatorsOf = (via, baseOp = 'CON') => {
+  const t = typeOf(via);
+  const proj = t && RELATION_OPERATORS[t.type];
+  return (proj && proj.length) ? proj : [baseOp || 'CON'];
+};
+
 export const isFunctional = (noun) => !!typeOf(noun)?.functional;
 export const isSymmetric  = (noun) => !!typeOf(noun)?.symmetric;
 // §4 — OBJECT-functional: one undergoer per resultant within a reading (the `becomes`
