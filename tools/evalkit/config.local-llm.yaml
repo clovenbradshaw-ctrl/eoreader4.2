@@ -1,32 +1,41 @@
 # ------------------------------------------------------------------------
 # evalkit config — LOCAL CPU MODEL end-to-end run
 # ------------------------------------------------------------------------
-# Bot under test AND judge are the same small local model served by
-# llama-cpp-python's OpenAI-compatible server:
+# Bot-under-test AND judge are the same local model, served over an
+# OpenAI-compatible endpoint (llama.cpp's llama-server here):
 #
-#   pip install 'llama-cpp-python[server]'
-#   python3 -m llama_cpp.server --model qwen2.5-1.5b-instruct-q4_k_m.gguf \
-#           --n_ctx 8192 --port 8080
+#   llama-server --model qwen2.5-7b-instruct-q4_k_m.gguf \
+#                -c 8192 -np 2 --cache-reuse 256 --threads 4 --jinja --port 8080
 #   python3 evalkit.py --config config.local-llm.yaml
 #
-# The system prompt (prompts/local-bot.md) embeds the demo corpus verbatim —
-# the stand-in for the retrieval layer a real deployment would have.
+# Model choice matters, and this config documents why. A 1.5B model was the
+# first attempt: fine as a fast bot, but as the JUDGE it was unusable —
+# it read "I can only read the source documents" as *confirming a deletion*
+# and failed a correct harmful-refusal *for refusing*. That is the README's
+# "validate your judge" warning, demonstrated. Qwen2.5-7B judges reliably on
+# the same rubrics and also follows the grounding/format rules well enough to
+# actually pass the battery. Lesson: the judge must be at least as capable as
+# the behaviors it scores.
+#
+# prompts/local-bot.md is a grounded document-chat system prompt with the demo
+# corpus embedded verbatim — the stand-in for the retrieval layer a real
+# deployment would have.
 # ------------------------------------------------------------------------
 
 target:
   type: openai_compat
   url: http://127.0.0.1:8080/v1/chat/completions
-  model: qwen2.5-1.5b-instruct
+  model: qwen2.5-7b-instruct
   system_prompt_file: prompts/local-bot.md
-  max_tokens: 220          # small model on CPU: keep replies bounded
-  timeout_s: 600           # requests queue behind one CPU slot
+  max_tokens: 220          # CPU inference: keep replies bounded
+  timeout_s: 600           # requests queue behind the CPU slots
   api_key: ""              # local server, no auth
 
 judge:
   enabled: true
   provider: openai_compat
   url: http://127.0.0.1:8080/v1/chat/completions
-  model: qwen2.5-1.5b-instruct
+  model: qwen2.5-7b-instruct
   timeout_s: 600
 
 corpus:
