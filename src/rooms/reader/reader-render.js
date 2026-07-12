@@ -578,7 +578,7 @@ export const EOT_ELEMENT_TYPES = {
   eva:      { label: 'judgement',        color: '#F191C4', hint: '!eva' },
   rec:      { label: 'reframe',          color: '#FF5C57', hint: '!rec' },
   rule:     { label: 'section',          color: '#7AA2F7', hint: '# ── … ──' },
-  note:     { label: 'the reading',      color: '#6B7280', hint: '# …' },
+  note:     { label: 'the reading',      color: '#9AA6BD', hint: '# …' },
   blank:    { label: '',                 color: 'transparent', hint: '' },
 };
 // Legend / display order — structure first (what it takes to exist and connect), then the
@@ -692,7 +692,7 @@ export const facingSegments = (raw, kind, declaredTypes) => {
   const opColorOf = (k) => (EOT_ELEMENT_TYPES[k] || EOT_ELEMENT_TYPES.note).color;
   if (kind === 'note' || kind === 'rule') return [{ s: line, color: opColorOf(kind), role: kind }];
 
-  const DIM = '#5a6272', VALUE = '#ABB2BF';
+  const DIM = '#8B93A3', VALUE = '#ABB2BF';
   const ent = (tok) => { const k = entityKind(tok, declaredTypes); return { s: tok, color: k.color, role: 'ent', kindKey: k.key }; };
   const dim = (tok) => ({ s: tok, color: DIM, role: 'meta' });
   const valueSeg = (v) => {

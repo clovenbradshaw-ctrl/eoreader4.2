@@ -58,7 +58,7 @@ const CSS = `
 .eo-con__head{display:flex;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid #1c2230;
   background:#0d1117;flex:0 0 auto;flex-wrap:wrap}
 .eo-con__title{font-weight:700;color:#e6edf3;letter-spacing:.02em}
-.eo-con__prov{color:#6e7681;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw}
+.eo-con__prov{color:#8a93a1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw}
 .eo-con__spacer{flex:1}
 .eo-con__head input.eo-con__filter{background:#0b0e14;border:1px solid #2b3240;color:#c9d1d9;border-radius:6px;
   padding:4px 8px;font:inherit;width:150px}
@@ -83,8 +83,8 @@ const CSS = `
 .eo-con__body::-webkit-scrollbar-thumb{background:#30363d;border-radius:5px}
 .eo-con__ln{display:flex;gap:8px;white-space:pre-wrap;word-break:break-word;padding:.5px 0}
 .eo-con__ln[hidden]{display:none}
-.eo-con__t{color:#484f58;flex:0 0 auto}
-.eo-con__c{flex:0 0 auto;width:52px;text-align:right;color:#6e7681;opacity:.9}
+.eo-con__t{color:#7c8592;flex:0 0 auto}
+.eo-con__c{flex:0 0 auto;width:52px;text-align:right;color:#7c8592;opacity:1}
 .eo-con__m{flex:1;min-width:0}
 .eo-con__ln--head .eo-con__m{color:#a5a5ff;font-weight:700}
 .eo-con__ln--ok .eo-con__m{color:#56d364}
@@ -93,11 +93,11 @@ const CSS = `
 .eo-con__ln--app .eo-con__m{color:#58a6ff}
 .eo-con__ln--warn .eo-con__m{color:#e3b341}
 .eo-con__ln--error .eo-con__m{color:#ff7b72}
-.eo-con__ln--muted .eo-con__m{color:#6e7681}
+.eo-con__ln--muted .eo-con__m{color:#8a93a1}
 .eo-con__ln--stall .eo-con__m{color:#f0883e;font-weight:600}
-.eo-con__eo{color:#484f58;font-size:10.5px}
-.eo-con__ms{color:#6e7681}
-.eo-con__empty{color:#6e7681;padding:14px 2px}
+.eo-con__eo{color:#7c8592;font-size:10.5px}
+.eo-con__ms{color:#8a93a1}
+.eo-con__empty{color:#8a93a1;padding:14px 2px}
 `;
 
 const CH = Object.freeze({
