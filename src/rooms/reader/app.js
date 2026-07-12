@@ -588,6 +588,25 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return src._eot;
   };
 
+  // The ANSWER's own reading as one EoT document. The source viewer's facing page reads a recorded
+  // document back through the predictive stack; this hands the chat the same lens on the machine's
+  // OWN reply — so "how it read it" is available for an answer, not only for its sources. Memoised
+  // per (message, length) in a transient cache: it is derived, re-derives in a tick, and must never
+  // ride into the persisted message (which would bloat the record with a re-computable projection).
+  const _answerEot = new Map();
+  const answerEot = (msg) => {
+    const text = String((msg && msg.text) || '');
+    if (!text.trim()) return null;
+    const key = `${(msg && msg.id) || ''}:${text.length}`;
+    if (_answerEot.has(key)) return _answerEot.get(key);
+    let eot = null;
+    try { eot = readIngest(parseText(text, { docId: `answer-${(msg && msg.id) || shaShort(webContentHash(text))}` })); }
+    catch { eot = null; }
+    if (_answerEot.size > 64) _answerEot.clear();   // a small, self-pruning cache — answers are transient
+    _answerEot.set(key, eot);
+    return eot;
+  };
+
   const removeSource = (id) => {
     state.sources = state.sources.filter((s) => s.sn !== id);
     for (const t of state.topics) t.sourceSns = t.sourceSns.filter((x) => x !== id);
@@ -2027,7 +2046,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     ensureModel, setBackend, backendPref, setSpeed, speedPref,
     // projections for the surface
     answerSegments, viewerParas, entities, entityProfile, entityWiki, tieredData, topicTieredData,
-    findings, provenance, dagFor, dagSources, setMemo, eotFor,
+    findings, provenance, dagFor, dagSources, setMemo, eotFor, answerEot,
     // the commitment ledger (assertions + corrections, persisted) and the session's
     // self/world line readout — the honesty and ledger seams, readable from the surface
     ledger: () => ledger.entries(),

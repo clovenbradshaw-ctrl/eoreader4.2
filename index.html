@@ -572,8 +572,40 @@ table{border-collapse:collapse;width:100%}
                             Search the web: “{{ m.proposalQ }}”
                           </button>
                         </sc-if>
-                        <sc-if value="{{ m.footer }}">
-                          <button onClick="{{ m.trace }}" style="display:inline-flex;align-items:center;gap:6px;margin-top:11px;font-size:12px;font-weight:600;color:#5B4BE6" style-hover="text-decoration:underline">Trace in the provenance graph<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+                        <sc-if value="{{ m.hasProvActions }}">
+                          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:11px">
+                            <sc-if value="{{ m.footer }}">
+                              <button onClick="{{ m.trace }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#5B4BE6" style-hover="text-decoration:underline">Trace in the provenance graph<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+                            </sc-if>
+                            <sc-if value="{{ m.hasFacing }}">
+                              <button onClick="{{ m.facingToggle }}" title="Read this answer through the same EoT stack a recorded source gets — the reply beside how the system reads it" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#5B4BE6" style-hover="text-decoration:underline"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10.5 5.5 8.5 5 6 5H3v13h3c2.5 0 4.5.5 6 1.5M12 6.5C13.5 5.5 15.5 5 18 5h3v13h-3c-2.5 0-4.5.5-6 1.5M12 6.5v13"/></svg>{{ m.facingLabel }}<span style="font-size:10px;color:#8A8A95">{{ m.facingCaret }}</span></button>
+                            </sc-if>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ m.facingOpen }}">
+                          <div style="margin-top:12px;border:1px solid #1d222c;border-radius:12px;overflow:hidden;background:#0d1017">
+                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 14px;border-bottom:1px solid #1d222c;background:#0a0d13">
+                              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5a6272">How it read this answer</span>
+                              <span style="flex:1"></span>
+                              <sc-for list="{{ m.facingLegend }}" as="lg">
+                                <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8b93a3"><span style="width:8px;height:8px;border-radius:2px;background:{{ lg.color }};flex:0 0 auto"></span>{{ lg.label }}</span>
+                              </sc-for>
+                              <sc-if value="{{ m.facingHasKinds }}"><span title="entities, coloured by their kind" style="width:1px;height:11px;background:#252b36;flex:0 0 auto"></span></sc-if>
+                              <sc-for list="{{ m.facingKindLegend }}" as="kl">
+                                <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8b93a3"><span style="width:8px;height:8px;border-radius:50%;background:{{ kl.color }};flex:0 0 auto"></span>{{ kl.label }}</span>
+                              </sc-for>
+                            </div>
+                            <div class="eo-scroll" style="max-height:360px;overflow:auto;padding:12px 4px 16px">
+                              <sc-for list="{{ m.facingLines }}" as="fl">
+                                <div style="display:flex;align-items:baseline;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.6;white-space:pre;background:{{ fl.rowBg }}">
+                                  <span style="flex:0 0 auto;width:40px;text-align:right;padding-right:12px;color:#3a4150;user-select:none">{{ fl.n }}</span>
+                                  <span style="flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;opacity:{{ fl.opacity }}"><sc-for list="{{ fl.segs }}" as="sg"><span style="color:{{ sg.color }}">{{ sg.s }}</span></sc-for></span>
+                                </div>
+                              </sc-for>
+                              <sc-if value="{{ m.facingEmpty }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5a6272;padding:8px 0 0 52px">No propositions were read from this answer.</div></sc-if>
+                              <sc-if value="{{ m.facingTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#5a6272;padding:10px 0 0 52px">… {{ m.facingMore }} more lines.</div></sc-if>
+                            </div>
+                          </div>
                         </sc-if>
                       </div>
                     </div>
@@ -1490,6 +1522,7 @@ class Component extends DCLogic {
       archiveShow: false, archiveBusy: false, archiveMsg: null,
       ackPermanence: false, ackPrivacy: false, ackRights: false,
       trailOpen: {},   // per-message override for the research trail's open/closed state
+      facingMsg: {},   // per-answer toggle: reveal the EoT "how it read it" facing page inline
       rev: 0,
     };
     this._segCache = {}; this._viewCache = null; this._entCache = null; this._readerCache = {};
@@ -2338,6 +2371,11 @@ class Component extends DCLogic {
     return { stops, meta, hasMeta: !!meta };
   }
   toggleTrail(id, cur) { this.setState({ trailOpen: { ...this.state.trailOpen, [id]: !cur } }); }
+  // The chat's facing page: reveal (or hide) the EoT "how it read it" reading for one answer, inline
+  // beneath the prose — the reply becomes the left leaf, its own reading the right. A toggle on the
+  // page, never a nav that swaps the view. The EoT is computed lazily (app.answerEot, memoised) the
+  // first time an answer is opened.
+  toggleAnswerFacing(id) { const cur = !!this.state.facingMsg[id]; this.setState({ facingMsg: { ...this.state.facingMsg, [id]: !cur } }); }
   _rights(src) {
     const r = String(src.rights || '');
     const local = src.kind !== 'web';
@@ -2417,6 +2455,19 @@ class Component extends DCLogic {
       return { style: 'margin:6px 0;padding:2px 0 2px 12px;border-left:3px solid #E3DEFC;color:#55555F', hasPrefix: false, prefix: '', cut: m2[0].length };
     return { style: 'margin:0 0 10px', hasPrefix: false, prefix: '', cut: 0 };
   }
+  // One inline-markdown MARK ({kind, unsourced} from reader-render.inlineMdMarks) → its CSS. Kept
+  // beside _inlineMd so the settled answer and the live stream style emphasis identically.
+  _markStyle(mk) {
+    if (!mk) return '';
+    const CODE = "font-family:'IBM Plex Mono',monospace;font-size:.92em;background:#EFEFF4;border-radius:4px;padding:.03em 4px";
+    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#C99A3A;text-underline-offset:2px';
+    const parts = [];
+    if (mk.kind === 'code') parts.push(CODE);
+    else if (mk.kind === 'strong') parts.push('font-weight:650');
+    else if (mk.kind === 'em') parts.push('font-style:italic');
+    if (mk.unsourced) parts.push(UNSOURCED);
+    return parts.join(';');
+  }
   // The settled body: the app's answer segments (entity links + [sN] cite chips bound), with the
   // block frame and inline emphasis layered on. Cached by text length. entityMode gates BOTH the
   // entity links and the inline cite chips — off, the answer reads as plain prose (the GROUNDED IN
@@ -2431,6 +2482,13 @@ class Component extends DCLogic {
     // and only words can be grounded or stand ungrounded, so lone stops never carry a stray swipe.
     const hl = this.state.entityMode;
     const wordful = (s) => /[\p{L}\p{N}]/u.test(s || '');
+    const join = (a, b) => a && b ? a + ';' + b : (a || b || '');
+    // Inline markdown is resolved across the WHOLE paragraph's segment stream (reader-render.
+    // inlineMdMarks), not per text segment — so an emphasis run that wraps an entity link or a [sN]
+    // chip (its `*` markers landing in different segments) is honoured and the entity inside it
+    // inherits the emphasis, instead of a raw `*` bleeding through. Fallback: if the render membrane
+    // is absent, style each text segment on its own (the old per-segment path).
+    const mdMarks = this._render && this._render.inlineMdMarks;
     let ungrounded = false;
     const paras = this._app.answerSegments(m, { entities: hl, cites: hl, sources: hl }).map((p) => {
       const segsIn = p.segs.slice();
@@ -2439,17 +2497,23 @@ class Component extends DCLogic {
         blk = this._blockOf(segsIn[0].s);
         if (blk.cut) segsIn[0] = { ...segsIn[0], s: segsIn[0].s.slice(blk.cut) };
       }
+      const plan = mdMarks ? mdMarks(segsIn) : null;
       const segs = [];
-      for (const sg of segsIn) {
+      for (let si = 0; si < segsIn.length; si++) {
+        const sg = segsIn[si];
         if (hl && (sg.t === 'text' || sg.t === 'ent') && !sg.gsn && wordful(sg.s)) ungrounded = true;
         if (sg.t === 'text') {
-          for (const piece of this._inlineMd(sg.s)) {
+          const pieces = plan
+            ? plan.pieces[si].map((pc) => ({ isText: true, s: pc.s, style: this._markStyle(pc) }))
+            : this._inlineMd(sg.s);
+          for (const piece of pieces) {
             const gs = (hl && wordful(piece.s)) ? this._groundStyle(sg.gsn) : '';
-            if (gs) piece.style = piece.style ? piece.style + ';' + gs : gs;
+            piece.style = join(piece.style, gs);
             segs.push(piece);
           }
         } else if (sg.t === 'ent') {
-          segs.push({ isEnt: true, s: sg.s, hl: hl ? this._groundStyle(sg.gsn, true) : '', open: () => this.openEntity(sg.docId, sg.entId) });
+          const em = plan ? this._markStyle(plan.opaque[si]) : '';
+          segs.push({ isEnt: true, s: sg.s, hl: join(hl ? this._groundStyle(sg.gsn, true) : '', em), open: () => this.openEntity(sg.docId, sg.entId) });
         } else {
           const cc = hl ? this._sourceColor(sg.sn) : null;
           segs.push({ isCite: true, label: '[' + (sg.reg || 's' + sg.idx) + ']', quote: sg.quote || '', cfg: cc ? cc.fg : '#5B4BE6', cbg: cc ? cc.chipBg : '#F1EFFE', open: () => this.openViewer(sg.sn, sg.quote) });
@@ -2459,6 +2523,31 @@ class Component extends DCLogic {
     });
     this._segCache[m.id] = { len: (m.text || '').length, paras, ungrounded };
     return paras;
+  }
+  // The chat's facing page for ONE answer: lay out the EoT "how it read it" reading (the same
+  // reader-render.facingReadingLines the source viewer's Facing tab uses) over the answer's own
+  // reading (app.answerEot, computed lazily + memoised). Returns the view-model the reveal paints;
+  // an honest empty when the reading can't be produced.
+  _answerFacingEmpty() {
+    return { facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, facingTruncated: false, facingMore: '', facingEmpty: false, facingCount: 0 };
+  }
+  _answerFacing(mm) {
+    if (!this._app || !this._app.answerEot || !this._render || !this._render.facingReadingLines) return this._answerFacingEmpty();
+    let eot = null;
+    try { eot = this._app.answerEot(mm); } catch { eot = null; }
+    if (!eot) return this._answerFacingEmpty();
+    const fr = this._render.facingReadingLines(eot.text || '', { max: 600 });
+    const lines = fr.lines.map((l) => ({
+      n: String(l.n), opacity: l.dim ? '0.72' : '1',
+      rowBg: l.kind === 'rule' ? 'rgba(122,162,247,0.07)' : 'transparent',
+      segs: (l.segs || [{ s: l.s, color: l.color }]).map((sg) => ({ s: sg.s, color: sg.color })),
+    }));
+    return {
+      facingLines: lines, facingLegend: fr.legend, facingKindLegend: fr.kindLegend || [],
+      facingHasKinds: (fr.kindLegend || []).length > 0,
+      facingTruncated: fr.truncated, facingMore: String(fr.more),
+      facingEmpty: lines.length === 0, facingCount: fr.total || lines.length,
+    };
   }
   // The live body while the answer streams: the revealed prefix, split into the same blocks and
   // inline-styled — no entity/cite pass yet (nothing is bound, and re-deriving the lexicon every
@@ -2840,6 +2929,10 @@ class Component extends DCLogic {
       const nowT = (() => { try { return Date.now(); } catch { return 0; } })();
       const trSecs = tr ? Math.max(0, Math.round(((tr.done ? tr.tEnd : nowT) - tr.t0) / 1000)) : 0;
       const trClock = trSecs >= 60 ? `${Math.floor(trSecs / 60)}:${String(trSecs % 60).padStart(2, '0')}` : `${trSecs}s`;
+      // The facing page (the EoT reading of this answer), revealed inline by a per-answer toggle —
+      // computed only while open so a closed answer never pays for a reading it isn't showing.
+      const facingOpen = finished && !!this.state.facingMsg[mm.id];
+      const facing = facingOpen ? this._answerFacing(mm) : this._answerFacingEmpty();
       return {
         isUser: false, isAgent: true, text: revealedText, pending: !!mm.pending,
         hasTrail: !!tr && trailSteps.length > 0, trailOpen, trailRunning, trailIdle: !!tr && !trailRunning, trailSteps,
@@ -2863,6 +2956,12 @@ class Component extends DCLogic {
         hasProposal: finished && !!mm.webProposal, proposalQ: mm.webProposal ? mm.webProposal.query : '',
         runProposal: () => this.runSearch(mm.webProposal.query),
         footer: finished && cites.length > 0, trace: () => this.setTab('graph'),
+        // the chat's facing page — a toggle that opens this answer's own EoT reading beneath it
+        hasProvActions: finished && paras.length > 0,
+        hasFacing: finished && paras.length > 0,
+        facingOpen, facingToggle: () => this.toggleAnswerFacing(mm.id),
+        facingCaret: facingOpen ? '▾' : '▸', facingLabel: facingOpen ? 'Hide the reading' : 'How it read this',
+        ...facing,
       };
     });
     const heroActions = [
