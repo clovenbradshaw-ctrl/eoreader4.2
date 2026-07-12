@@ -55,6 +55,13 @@ python evalkit.py --config config.yaml --only grounding
 Exit code is `0` if every gate passed, `1` if any gate failed — drop it straight
 into CI. Output: `results/report.md` (human) and `results/results.json` (machine).
 
+Statuses are worst-case and honest: a case is **pass** only if every assertion
+ran and passed. If any assertion couldn't run (judge off, corpus empty) and
+nothing failed, the case is **skipped** — reported in its own column, excluded
+from pass rates, and never counted as green. `--repeats N` on the CLI overrides
+per-case `repeats:`; in CI, set `gates.max_skipped_cases: 0` so a vanished API
+key fails the build instead of silently skipping every judged case.
+
 ## Point it at your bot
 
 Edit the `target:` block in `config.yaml`. Adapters in `targets.py`:
@@ -75,7 +82,10 @@ subclassing `Target`.
    and the wrong answer a pushy user would insist on. These resolve into every
    suite.
 2. **Drop your source text into `corpus/`** (`.txt`/`.md`/`.json`). This powers
-   quote + citation verification. Without it those assertions `skip`.
+   quote + citation verification. Without it those assertions `skip`. A small
+   demo fixture (`corpus/contract-2023.md`, matching the demo vars) ships with
+   the kit so the offline demo exercises these checks — replace it with your
+   own documents.
 3. **Tune `gates`** to your risk tolerance. Defaults are strict: 100% pass
    required on grounding/sycophancy/redteam/safety, zero flaky cases allowed.
 
@@ -97,5 +107,6 @@ targets.py        adapters (how the harness talks to the bot)
 assertions.py     deterministic checks + LLM-as-judge
 evalkit.py        runner: loads suites, runs conversations, scores, gates
 suites/*.yaml     the 48 cases, one file per class
-corpus/           your source text (for quote/citation checks)
+corpus/           your source text (for quote/citation checks; demo fixture included)
+results/          report.md + results.json, written per run (gitignored)
 ```

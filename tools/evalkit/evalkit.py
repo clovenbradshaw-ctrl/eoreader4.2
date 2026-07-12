@@ -33,6 +33,7 @@ import json
 import os
 import pathlib
 import random
+import re
 import statistics
 import sys
 import time
@@ -46,7 +47,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from targets import build_target, Target  # noqa: E402
 from assertions import Ctx, Judge, Outcome, run_assertion  # noqa: E402
 
-STATUS_RANK = {"pass": 0, "partial": 1, "skip": 0, "fail": 2}
+# "skip" outranks "pass" on purpose: a case whose assertions were not evaluated
+# must never surface as green. It stays below partial/fail — nothing failed.
+STATUS_RANK = {"pass": 0, "skip": 1, "partial": 2, "fail": 3}
 SEVERITY_ORDER = ["critical", "major", "minor"]
 
 
@@ -96,7 +99,9 @@ class CaseResult:
 
     @property
     def flaky(self) -> bool:
-        return len(set(self.statuses)) > 1
+        """Behavioral instability across evaluated runs. A transient judge
+        outage (skip) is not bot flakiness and must not trip the flaky gate."""
+        return len({s for s in self.statuses if s != "skip"}) > 1
 
     @property
     def p50_latency(self) -> int:
@@ -160,10 +165,33 @@ def interpolate_deep(obj: Any, vars: dict) -> Any:
     return obj
 
 
+def find_unresolved(cases: list[dict], vars: dict) -> set[str]:
+    """Placeholders used by the suites that have no config var. These would be
+    sent to the bot literally and quietly wreck contains/regex assertions."""
+    missing: set[str] = set()
+
+    def walk(obj: Any) -> None:
+        if isinstance(obj, str):
+            missing.update(m for m in re.findall(r"\{\{(\w+)\}\}", obj) if m not in vars)
+        elif isinstance(obj, list):
+            for x in obj:
+                walk(x)
+        elif isinstance(obj, dict):
+            for v in obj.values():
+                walk(v)
+
+    for c in cases:
+        walk(c.get("turns", []))
+    return missing
+
+
 # --------------------------------------------------------------------------
 def run_case(case: dict, target: Target, judge: Judge, corpus: str,
-             corpus_ids: set[str], vars: dict, repeats: int) -> CaseResult:
-    n = case.get("repeats", repeats)
+             corpus_ids: set[str], vars: dict, repeats: int,
+             repeats_override: int | None = None) -> CaseResult:
+    # Precedence: explicit --repeats beats per-case `repeats:` beats config default.
+    # (--tag smoke --repeats 5 must actually run everything 5x, per the README.)
+    n = repeats_override or case.get("repeats", repeats)
     runs = []
     for i in range(n):
         session = target.new_session()
@@ -201,12 +229,23 @@ def gate(results: list[CaseResult], cfg: dict) -> tuple[bool, list[str]]:
             problems.append(f"CRITICAL FAILURE: {r.id}")
 
     for cls, threshold in (g.get("min_pass_rate_by_class") or {}).items():
-        rs = [r for r in results if r.cls == cls]
+        # Rate over *evaluated* cases only. A judge-off run must not report
+        # skipped cases as failures — but see max_skipped_cases below for
+        # guarding CI against everything silently skipping.
+        rs = [r for r in results if r.cls == cls and r.status != "skip"]
         if not rs:
             continue
         rate = sum(r.status == "pass" for r in rs) / len(rs)
         if rate < threshold:
-            problems.append(f"class {cls}: pass rate {rate:.0%} < {threshold:.0%}")
+            problems.append(f"class {cls}: pass rate {rate:.0%} < {threshold:.0%} "
+                            f"({len(rs)} evaluated)")
+
+    if (mx := g.get("max_skipped_cases")) is not None:
+        skipped = [r for r in results if r.status == "skip"]
+        if len(skipped) > mx:
+            problems.append(f"{len(skipped)} skipped cases > {mx} allowed "
+                            f"(judge off or corpus missing?): "
+                            f"{', '.join(r.id for r in skipped[:5])}")
 
     if (mx := g.get("max_flaky_cases")) is not None:
         flaky = [r for r in results if r.flaky]
@@ -233,15 +272,16 @@ def report(results: list[CaseResult], problems: list[str], elapsed: float) -> st
     tally = Counter(r.status for r in results)
     lines.append(f"**{len(results)} cases** · "
                  f"{tally['pass']} pass · {tally['partial']} partial · {tally['fail']} fail · "
+                 f"{tally['skip']} skipped · "
                  f"{sum(r.flaky for r in results)} flaky · {elapsed:.1f}s")
     lines.append("")
-    lines.append("| class | pass | partial | fail | flaky | p50 latency |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| class | pass | partial | fail | skip | flaky | p50 latency |")
+    lines.append("|---|---|---|---|---|---|---|")
     for cls in sorted(by_class):
         rs = by_class[cls]
         t = Counter(r.status for r in rs)
         med = int(statistics.median([r.p50_latency for r in rs])) if rs else 0
-        lines.append(f"| {cls} | {t['pass']} | {t['partial']} | {t['fail']} | "
+        lines.append(f"| {cls} | {t['pass']} | {t['partial']} | {t['fail']} | {t['skip']} | "
                      f"{sum(r.flaky for r in rs)} | {med}ms |")
     lines.append("")
 
@@ -274,6 +314,10 @@ def report(results: list[CaseResult], problems: list[str], elapsed: float) -> st
         lines += [f"- ❌ {p}" for p in problems]
     else:
         lines.append("- ✅ all gates passed")
+    if tally["skip"]:
+        lines.append(f"- ℹ️ {tally['skip']} case(s) skipped (unevaluated assertions — "
+                     f"judge disabled or corpus missing); not counted toward pass rates. "
+                     f"Set `gates.max_skipped_cases` to fail the build on skips.")
     return "\n".join(lines)
 
 
@@ -296,16 +340,20 @@ def main() -> int:
     judge = Judge(cfg.get("judge", {}))
     corpus, corpus_ids = load_corpus(cfg.get("corpus", []))
     vars = cfg.get("vars", {})
-    repeats = args.repeats or cfg.get("repeats", 1)
+    repeats = cfg.get("repeats", 1)
 
     cases = load_suites(
         cfg.get("suites", ["suites"]),
-        set(args.only.split(",")) if args.only else None,
-        set(args.tag.split(",")) if args.tag else None,
+        {s.strip() for s in args.only.split(",") if s.strip()} if args.only else None,
+        {s.strip() for s in args.tag.split(",") if s.strip()} if args.tag else None,
     )
     if not cases:
         print("no cases matched", file=sys.stderr)
         return 2
+
+    if (missing := find_unresolved(cases, vars)):
+        print(f"⚠️  placeholders with no matching config var (sent literally): "
+              f"{', '.join(sorted(missing))}\n", file=sys.stderr)
 
     if not judge.enabled:
         judged = sum(any(a.get("type") == "judge" for t in c["turns"] for a in t.get("assert", []))
@@ -318,7 +366,8 @@ def main() -> int:
     results: list[CaseResult] = []
     with cf.ThreadPoolExecutor(max_workers=args.workers) as pool:
         futs = {
-            pool.submit(run_case, c, target, judge, corpus, corpus_ids, vars, repeats): c
+            pool.submit(run_case, c, target, judge, corpus, corpus_ids, vars,
+                        repeats, args.repeats): c
             for c in cases
         }
         for i, fut in enumerate(cf.as_completed(futs), 1):

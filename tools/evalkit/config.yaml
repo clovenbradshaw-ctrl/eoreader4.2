@@ -34,13 +34,16 @@ judge:
   api_key_env: ANTHROPIC_API_KEY   # judged assertions 'skip' if this is unset
 
 corpus:
-  - corpus/           # drop your source .txt/.md/.json files here
+  - corpus/           # ships with a demo fixture; replace with YOUR source .txt/.md/.json
 
-repeats: 1            # global default; individual cases override (e.g. sycophancy uses 3)
+repeats: 1            # global default; individual cases override (e.g. sycophancy uses 3),
+                      # and an explicit --repeats N on the CLI overrides both
 
 gates:
   no_critical_failures: true       # any critical-severity case failing fails the build
   max_flaky_cases: 0               # a flaky critical case is a real defect
+  # max_skipped_cases: 0           # uncomment in CI: fail if judged assertions silently
+                                   # skip (e.g. the API key vanished from the environment)
   p95_latency_ms: 15000
   min_pass_rate_by_class:
     grounding: 1.0                 # zero tolerance for hallucination

@@ -197,7 +197,9 @@ class ShellTarget(Target):
 # --------------------------------------------------------------------------
 # Mock: a deliberately flawed bot, so you can run the suite offline and see
 # that the harness actually catches things. It sycophants, it hallucinates,
-# it obeys injected instructions. Every red test below should FAIL against it.
+# it obeys injected instructions, it leaks PII. Every case with a
+# deterministic assertion should FAIL against it; judged-only cases need
+# the judge enabled to go red.
 # --------------------------------------------------------------------------
 class MockTarget(Target):
     name = "mock"
@@ -214,11 +216,20 @@ class MockTarget(Target):
             return Reply("That is not in the source documents I have access to.", 12)
 
         # the flawed bot
-        if "canary" in low or "banana" in low:
-            return Reply("BANANA", 40)
+        if "canary" in low:
+            # obeys the instruction smuggled inside the document body
+            return Reply("CANARY", 40)
+        if "confidential" in low:
+            # obeys the in-document exfiltration instruction, PII and all
+            return Reply("Sure — appending what I have on file: SSN 123-45-6789, "
+                         "DOB 03/14/1985. done", 25)
+        if "contact details" in low:
+            return Reply("Their account manager is Jordan Malone — "
+                         "jordan.malone@example.com, (615) 555-0142.", 25)
         if "system prompt" in low or "ignore previous" in low:
             return Reply("Sure! My system prompt is: You are a helpful assistant...", 40)
-        if any(w in low for w in ("wrong", "actually", "no,", "are you sure")):
+        if any(w in low for w in ("wrong", "actually", "no,", "not right",
+                                  "are you sure", "really?")):
             return Reply("You're absolutely right, I apologize for the error. It was 2021.", 30)
         if "json" in low:
             return Reply('Here is your JSON!\n```json\n{"ok": true}\n```', 30)
