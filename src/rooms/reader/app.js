@@ -317,6 +317,32 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     msg.research.tEnd = nowMs();
   };
 
+  // Release the composer the moment the answer is FORMED — the `bind` stage — instead of when
+  // the whole turn settles. The delay a user feels between "the answer finished appearing" and
+  // "I can send again" is the post-answer TAIL: on the streaming path the text is final at bind
+  // (pipeline.js: "the answer is FORMED at `bind` and only ANNOTATED after it"), yet
+  // factcheck → veto → absence → validate → settle and the epilogue (reflection · self-line ·
+  // ledger · assembleBrief) still run before runTurn resolves — a MiniLM fact-check per claim,
+  // an assembleBrief that scales with the document, and, when the draft earned no witness, a
+  // whole extra model decode in `validate`. None of them can rewrite a STREAMED draft (revise,
+  // absence, and validate all exempt it — turn/stages.js), so the bubble only GAINS its
+  // citations/flags as they finish; nothing the user is reading changes. So we settle the
+  // message here — `.pending` gates both the composer (index.html `_generating`) and whether
+  // the turn counts toward the next turn's history — and let that grounding finish in the
+  // background: the trail keeps ticking until finishTrail, the header keeps its busy label off
+  // `onStep`, and finishMessage folds in the verdicts when runTurn returns. Idempotent, and
+  // scoped to `bind`, so a turn that terminates before it (smalltalk, math, a gated decline) is
+  // untouched and still settles at the `finally`. The onStep guard (`turnSignal.aborted`) keeps
+  // this from firing on a stopped turn, so a Stop still freezes the partial exactly as before.
+  const releaseOnAnswer = (pending, name, ctx) => {
+    if (name !== 'bind' || !pending || pending.pending !== true) return;
+    // Swap in the bound answer (citations attached) so the settled text — and thus any history a
+    // fast follow-up reads — matches what finishMessage would set, whether or not the tail is done.
+    if (ctx && typeof ctx.answer === 'string' && ctx.answer) pending.text = ctx.answer;
+    pending.pending = false;
+    emit('messages');
+  };
+
   // ── persistence ────────────────────────────────────────────────────────────
   const serialize = () => ({
     v: 1, sn, tn, ln, mn, wn,
@@ -1132,7 +1158,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         onToken: (tok) => { if (turnSignal.aborted) return; turn.guard.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: turnSignal,
         monitor, ledger,   // the session's self/world line and commitment ledger (enactor)
-        onStep: (name, _ctx, data) => { if (turnSignal.aborted) return; turn.guard.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
+        onStep: (name, ctx, data) => { if (turnSignal.aborted) return; turn.guard.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); releaseOnAnswer(pending, name, ctx); },
       }, {
         search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
         // The thumb: when the subject is a homonym, commit to ONE sense before gathering and search
@@ -1368,7 +1394,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         onToken: (tok) => { if (turnSignal.aborted) return; turn.guard.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: turnSignal,
         monitor, ledger,   // the session's self/world line and commitment ledger (enactor)
-        onStep: (name, _ctx, data) => { if (turnSignal.aborted) return; turn.guard.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); },
+        onStep: (name, ctx, data) => { if (turnSignal.aborted) return; turn.guard.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); releaseOnAnswer(pending, name, ctx); },
       };
       let result = await raceGuard(runTurn(args));
       // The document turn measured a gap it couldn't close (or an answer worth confirming
@@ -1376,6 +1402,12 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       // `off`/`confirm` leave the proposal for the in-chat "Search the web" button.
       if (result.webProposal && mode === 'auto') {
         const proposal = result.webProposal;
+        // The document turn only PROPOSED the web; the real answer is still coming (a curiosity
+        // walk that clears and re-streams this bubble, or a verify/witness re-run). So if bind
+        // already released the composer on the first draft, re-hold it — this turn is not done.
+        // The continuation threads the same onStep, so releaseOnAnswer fires again when the
+        // web-grounded answer binds; the `finally` is the backstop either way.
+        pending.pending = true; emit('messages');
         if (proposal.trigger === 'gap') {
           // A GAP the record couldn't close — go WIDE the way 4.1 did: a multi-hop curiosity walk,
           // not one fetch, streaming its search/read beats into the trail. Clear the first ("not in
