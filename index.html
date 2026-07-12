@@ -187,7 +187,7 @@ table{border-collapse:collapse;width:100%}
 
     <sc-if value="{{ modelOpen }}">
       <div style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 6px 8px">MODEL · IN YOUR BROWSER, OR HOSTED WITH YOUR KEY</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 6px 8px">MODEL · IN YOUR BROWSER, HOSTED, OR YOUR LOCAL SERVER</div>
         <sc-for list="{{ backends }}" as="b">
           <button onClick="{{ b.pick }}" style="width:100%;display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border-radius:9px;background:{{ b.bg }}" style-hover="background:#F5F5F8">
             <span style="width:15px;height:15px;border-radius:50%;border:2px solid {{ b.ringColor }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px"><span style="width:7px;height:7px;border-radius:50%;background:{{ b.dotColor }}"></span></span>
@@ -3031,6 +3031,11 @@ class Component extends DCLogic {
       ['wllama', 'SmolLM2 · CPU', 'Small and universal — runs on WASM everywhere, ~140 MB download, cached after the first load.'],
       ['webllm', 'Llama 3.2 · WebGPU', 'The full local talker — 1–2 GB download, needs WebGPU (Chrome/Edge). Picked adaptively for your GPU.'],
       ['claude', 'Claude · hosted API', 'Anthropic’s hosted models — nothing to download, frontier answers in seconds. Needs an API key (console.anthropic.com), stored only in this browser. Pick again to change the key.'],
+      // The local-server bridge — run the BIG models (Qwen 27–80B, GLM, …) on this machine
+      // and reach them from the tab. Zero config here: pick it and it finds the model your
+      // app already has loaded. Re-pick to point at a different port / box.
+      ['lmstudio', 'LM Studio · local server', 'Run big models on this machine. Start LM Studio → Developer → Start Server, then pick this — it uses whatever model you’ve loaded. Re-pick to set a custom URL.'],
+      ['ollama', 'Ollama · local server', 'Run big models via Ollama on this machine. Start it with OLLAMA_ORIGINS=* ollama serve, then pick this — it uses whatever you’ve pulled. Re-pick to set a custom URL.'],
     ];
     const pref = app.backendPref();
     const backends = BACKENDS.map(([id, label, desc]) => ({
@@ -3052,6 +3057,28 @@ class Component extends DCLogic {
           // re-picking the active backend otherwise keeps the loaded one (the stability guard).
           app.setBackend(id, { force: true });
           app.ensureModel().catch(() => {});   // validate the key now — the chip shows the verdict
+        } else if (id === 'lmstudio' || id === 'ollama') {
+          // DEAD SIMPLE: pick it and connect. The backend auto-discovers the model the
+          // app already has loaded/pulled — nothing to type. Re-picking the ACTIVE one
+          // re-asks for a custom server URL (a non-default port, a LAN box), the mirror
+          // of claude's re-key; blank restores the default and Cancel changes nothing.
+          if (pref === id) {
+            const isLM = id === 'lmstudio';
+            const def = isLM ? 'http://localhost:1234/v1' : 'http://localhost:11434/v1';
+            let cur = ''; try { cur = localStorage.getItem('eo_' + id + '_base') || ''; } catch { /* no storage */ }
+            const v = prompt(`${isLM ? 'LM Studio' : 'Ollama'} server URL — blank = ${def}`, cur || def);
+            if (v !== null) {
+              try {
+                const t = v.trim();
+                if (t && t !== def) localStorage.setItem('eo_' + id + '_base', t);
+                else localStorage.removeItem('eo_' + id + '_base');
+              } catch { /* session-only */ }
+            }
+            app.setBackend(id, { force: true });
+          } else {
+            app.setBackend(id);
+          }
+          app.ensureModel().catch(() => {});   // connect + auto-discover now — the chip shows the verdict
         } else {
           app.setBackend(id);
         }

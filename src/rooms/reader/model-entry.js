@@ -25,6 +25,10 @@ export { CODER_MODELS, browserCoders } from '../../model/coders.js';
 import '../../model/echo.js';
 import '../../model/webllm.js';
 import '../../model/anthropic.js';
+// LM Studio / Ollama — the bridge to a locally-running model server, so the LARGE
+// coders (27–80B Qwen, GLM, …) that no tab can load are reachable over HTTP. Registers
+// the `lmstudio` and `ollama` backends; connects only when picked on the model chip.
+import '../../model/openai-local.js';
 // The local coding models (Qwen2.5-Coder family). Browser-runnable members register
 // here; each loads only when picked, like every other backend.
 import '../../model/coders.js';
