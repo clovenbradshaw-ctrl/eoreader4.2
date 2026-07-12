@@ -19,10 +19,12 @@ import { parseText } from '../../perceiver/parse/index.js';
 import { projectGraph } from '../../core/index.js';
 import { createModel, describeModel } from '../../model/interface.js';
 import { probeOrigins, explainReach } from '../../model/reach.js';
-import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
+import { createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
          runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
-         readDiscourse, phaticFromSpeech, clarifyDemandOf } from '../../turn/index.js';
+         readDiscourse, phaticFromSpeech, clarifyDemandOf, loadShapeLibrary } from '../../turn/index.js';
+import { loadShapeGrammars } from '../../turn/shape-grammar.js';
+import { extendLibraryWithNavPool } from '../../turn/nav-pool.js';
 import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
 import { directCorsUrl } from '../../organs/ingest/direct-cors.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
@@ -1145,16 +1147,47 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     });
   };
 
-  // embedders — hash is instant; MiniLM warms in the background on first ask
+  // embedders — hash is instant; MiniLM warms in the background on first ask. MiniLM is
+  // wrapped in the persistent cache (model/embed-cache.js): every vector it computes
+  // lands in IndexedDB, so a text embedded in ANY session is never embedded again — the
+  // reader gets measurably faster the more it operates.
   const hashEmb = createHashEmbedder();
   let minilm = null, minilmWarming = false;
   const warmMinilm = () => {
     if (minilm?.isWarm?.() || minilmWarming) return;
     minilmWarming = true;
     try {
-      minilm = createMiniLMEmbedder();
-      minilm.warm().then(() => emit('model')).catch(() => { minilm = null; }).finally(() => { minilmWarming = false; });
+      minilm = withPersistentEmbedCache(createMiniLMEmbedder());
+      minilm.warm().then(() => { emit('model'); buildShapeLib(); }).catch(() => { minilm = null; }).finally(() => { minilmWarming = false; });
     } catch { minilmWarming = false; }
+  };
+
+  // ── the form library (turn/shape.js) — built in the background once MiniLM is warm ──
+  // Grammar mode when data/shapes.json is present: navigation embeds the 430 exemplar
+  // prompts (a one-time cost the persistent cache amortises to zero across sessions);
+  // draft scoring is model-free (move-grammar likelihood vs the assistant contrast).
+  // Then the corpus navigation pool (data/nav-corpus.jsonl) extends the kNN under a
+  // wall-clock budget — however far it reaches, coverage is breadth-first, and the next
+  // session's budget starts where this one stopped (cached vectors cost no budget).
+  // Every step degrades to inert, never to a broken turn: no shapes.json → legacy
+  // cosine library; no exemplars → no library; a thrown build → shapeLib stays null.
+  const NAV_POOL_BUDGET_MS = 45_000;
+  let shapeLib = null, shapeLibBuilding = false;
+  const buildShapeLib = () => {
+    if (shapeLib || shapeLibBuilding || !minilm?.isWarm?.()) return;
+    shapeLibBuilding = true;
+    (async () => {
+      try {
+        const shapes = await loadShapeGrammars();
+        const lib = await loadShapeLibrary((t) => minilm.embed(t), { shapes });
+        if (!lib) return;
+        shapeLib = lib;
+        emit('model');
+        await extendLibraryWithNavPool(lib, minilm, { budgetMs: NAV_POOL_BUDGET_MS });
+        emit('model');
+      } catch { /* the form path stays inert — never a broken turn */ }
+      finally { shapeLibBuilding = false; }
+    })();
   };
 
   // ── export provenance (rooms/reader/provenance.js) ───────────────────────────
@@ -1332,6 +1365,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         question: q, docs: [], model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
+        shapeLibrary: shapeLib || undefined,   // the form predictor (turn/shape.js) — inert until built
         auditLog: audit, history: [],
         stream: true,
         // A backend slow (or unable) to honor the abort keeps handing us tokens after Stop; appending
@@ -1608,6 +1642,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         question: effectiveQ, docs, model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
+        shapeLibrary: shapeLib || undefined,   // the form predictor (turn/shape.js) — inert until built
         auditLog: audit, history,
         stream: true,
         // Arm the reaction-weighing stage: when a grounded answer earned no witness and the
