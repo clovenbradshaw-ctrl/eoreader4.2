@@ -7,3 +7,6 @@ tools/console-verify.png
 # Regenerable third-party corpus cache — tools/corpus-fetch.mjs rebuilds this from
 # HuggingFace on demand; ~30MB of licensed third-party data doesn't belong in git history.
 data/corpus/raw/
+# The contrast half of the audit export (~36MB) — regenerable byte-for-byte from the
+# committed data/nav-corpus.jsonl by tools/shape-audit.mjs (the parse is deterministic).
+data/shapes-audit-contrast.jsonl

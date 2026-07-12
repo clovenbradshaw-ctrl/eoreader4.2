@@ -15,7 +15,7 @@
 // register can emit. That is what makes scoring a draft against a shape safe as a
 // contract on the input side (docs/model-as-contracted-part.md): the shape cannot leak
 // a judgment because it was never fit from one.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -24,6 +24,7 @@ import { ENACTED_MASK, DEPICTED_ALPHABET, depictedMoves } from './lib/moves.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const EXEMPLARS_PATH = join(ROOT, 'data', 'exemplars.jsonl');
+const NAV_CORPUS_PATH = join(ROOT, 'data', 'nav-corpus.jsonl');
 const OUT_PATH = join(ROOT, 'data', 'shapes.json');
 
 const parseExemplars = (text) => {
@@ -55,6 +56,40 @@ const assertMaskedZero = (grammar, label) => {
 
 const round = (x, k = 6) => (Number.isFinite(x) ? Math.round(x * 10 ** k) / 10 ** k : x);
 
+// The CONTRAST grammars — the corpus as background distribution, not target. Fit one
+// grammar per register over data/nav-corpus.jsonl responses: 'assistant-synthetic'
+// (HelpSteer2/3, Magpie-Pro — chatbot-ese, the basin a draft should NOT sit in) and
+// 'human-authored' (OASST2, Dolly15k — the positive register control). Discards are
+// TYPED and counted, never silent: a corpus response that fails to parse or yields no
+// depicted moves is logged by kind, so the fit's coverage is on the record.
+const fitContrast = () => {
+  if (!existsSync(NAV_CORPUS_PATH)) {
+    console.log(`shape-fit: no ${NAV_CORPUS_PATH} — contrast grammars skipped (run tools/corpus-fetch.mjs + tools/nav-sample.mjs first)`);
+    return null;
+  }
+  const byRegister = new Map();
+  const discards = { 'no-response': 0, 'parse-failed': 0, 'no-depicted-moves': 0 };
+  for (const line of readFileSync(NAV_CORPUS_PATH, 'utf8').split('\n')) {
+    const t = line.trim();
+    if (!t) continue;
+    let r;
+    try { r = JSON.parse(t); } catch { continue; }
+    if (!r.register || typeof r.response !== 'string' || !r.response.trim()) { discards['no-response']++; continue; }
+    let moves;
+    try { moves = depictedMoves(r.response, r.id); } catch { discards['parse-failed']++; continue; }
+    if (!moves.length) { discards['no-depicted-moves']++; continue; }
+    if (!byRegister.has(r.register)) byRegister.set(r.register, []);
+    byRegister.get(r.register).push(moves);
+  }
+  const contrast = {};
+  for (const [register, moveSeqs] of byRegister) {
+    const grammar = fitGrammar(moveSeqs);
+    assertMaskedZero(grammar, `contrast:${register}`);
+    contrast[register] = { n: moveSeqs.length, grammar };
+  }
+  return { contrast, discards };
+};
+
 function main() {
   const raw = readFileSync(EXEMPLARS_PATH, 'utf8');
   const records = parseExemplars(raw);
@@ -79,20 +114,31 @@ function main() {
   const background = fitGrammar(allMoveSeqs);
   assertMaskedZero(background, 'background');
 
+  const contrastFit = fitContrast();
+
   const out = {
-    version: 1,
+    version: 2,
     source: 'data/exemplars.jsonl',
     maskedOps: [...ENACTED_MASK],
     alphabet: DEPICTED_ALPHABET,
     perIntent,
     background: { n: records.length, grammar: background },
+    ...(contrastFit ? {
+      contrast: contrastFit.contrast,
+      contrastSource: 'data/nav-corpus.jsonl',
+      contrastDiscards: contrastFit.discards,
+    } : {}),
   };
 
   writeFileSync(OUT_PATH, JSON.stringify(out, null, 2) + '\n');
 
   console.log(`shape-fit: ${records.length} exemplars, ${byIntent.size} intents -> ${OUT_PATH}`);
   for (const [intent, { n }] of Object.entries(perIntent)) console.log(`  ${intent}: n=${n}`);
-  console.log(`  background: n=${records.length}`);
+  console.log(`  background (pooled exemplars): n=${records.length}`);
+  if (contrastFit) {
+    for (const [register, { n }] of Object.entries(contrastFit.contrast)) console.log(`  contrast:${register}: n=${n}`);
+    console.log(`  contrast discards: ${JSON.stringify(contrastFit.discards)}`);
+  }
 }
 
 main();
