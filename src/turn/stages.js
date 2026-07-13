@@ -1468,16 +1468,36 @@ const terrainAtLocus = (ctx, cursor) => {
   return (t === 'Void' || t === 'Field') ? 'Entity' : t;   // only a MEASURED void is Void
 };
 
-// The orientation line: the talker is handed the FILENAME, type, and length, read off
-// `docId` (the ingest sets it from the file name) — and NOTHING that lets it narrate a
-// famous text from memory (§3). The document's own metadata (title, author, date) does
-// not ride here, nor anywhere in the content prompt; it is answered separately, as a
-// distinct fact, by the metadata answerer (answer/metadata.js, routed in `route`).
-const orientationOf = (doc) => {
+// The recognition-free stand-in for the orientation's "filename" slot. An uploaded FILE
+// keeps its name (`docId`, set from the file name). But a WEB source's docId is an opaque
+// content-hash (`web-df554d79bc5d5a1f`), and a COMPOSITE's docId is those hashes joined with
+// " + " (organs/in/composite.js) — internal identifiers, not anything the reader ever "saw".
+// Handed to the talker as a filename they are pure noise: the model tries to parse a wall of
+// hashes it can make no sense of. So a composite reduces to a COUNT of its sources ("29
+// sources"), and a lone web page to its HOST ("en.wikipedia.org") — the domain is a
+// filename-grade descriptor, recognition-free, never the page TITLE that §3 keeps out of the
+// content prompt. Everything else falls back to docId, exactly as before.
+const hostOfUrl = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
+const orientationName = (doc) => {
+  if (doc.isComposite) {
+    const n = Array.isArray(doc.docIds) ? doc.docIds.length : 0;
+    return n ? `${n} sources` : 'several sources';
+  }
+  if (doc.web || doc.sourceKind === 'web-source')
+    return hostOfUrl(doc.web?.final_url || doc.web?.url) || 'a web page';
+  return doc.docId || 'the document';
+};
+
+// The orientation line: the talker is handed a recognition-free NAME (orientationName), type,
+// and length — and NOTHING that lets it narrate a famous text from memory (§3). The document's
+// own metadata (title, author, date) does not ride here, nor anywhere in the content prompt; it
+// is answered separately, as a distinct fact, by the metadata answerer (answer/metadata.js,
+// routed in `route`).
+export const orientationOf = (doc) => {
   if (!doc) return '';
   const units = doc.units || doc.sentences || [];
   return orientationLine({
-    filename: doc.docId || 'the document',
+    filename: orientationName(doc),
     type:     doc.modality === 'image' ? 'image' : 'text',
     length:   units.length,
   });
