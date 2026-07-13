@@ -34,7 +34,7 @@ import { createParser } from '../../perceiver/parse/index.js';
 import { readingAt } from '../../perceiver/reading.js';
 import { groundSpans, groundSummary, supportVerdict } from '../../enactor/ground/spans.js';
 import { factCheck } from '../../enactor/factcheck/index.js';
-import { discourseDag, assertedDag, mountDagSurface } from '../../surfer/dag/index.js';
+import { discourseDag, assertedDag, mountDagSurface, dagNodeLabel } from '../../surfer/dag/index.js';
 import { createAuditLog } from '../audit/index.js';
 import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
@@ -144,7 +144,7 @@ window.EO = Object.freeze({
   readingAt,
   groundSpans, groundSummary, supportVerdict,
   factCheck,
-  discourseDag, assertedDag,
+  discourseDag, assertedDag, dagNodeLabel,
   audit,
   workspace,
   mountTieredGraph,

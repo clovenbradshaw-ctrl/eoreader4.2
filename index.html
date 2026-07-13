@@ -2479,7 +2479,9 @@ class Component extends DCLogic {
       return;
     }
     const full = window.EO.assertedDag(sources);   // the toggle universe = the DAG's own nodes
-    this._tgToggles = (full.nodes || []).map((n) => ({ id: n.key, label: (n.labels && n.labels[0]) || n.key }))
+    // toggle by the node's display phrase ("impervious pavement", not "pavement") — the
+    // same label the DAG surface draws in its boxes (dagNodeLabel).
+    this._tgToggles = (full.nodes || []).map((n) => ({ id: n.key, label: window.EO.dagNodeLabel(n) }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
     const viewSn = this._activeSrc ? this._activeSrc() : null;   // the active viewer tab's source sn, or null
     const inView = viewSn ? sources.find((x) => x.sn === viewSn) : null;

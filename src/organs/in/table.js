@@ -65,7 +65,9 @@ export const ingestTable = (table = {}) => {
   const mentions = new Map();
   let prevId = null;
 
-  rows.forEach((row, i) => {
+  // Every row's cells, computed up front so the key column can be inferred over the
+  // whole sheet before any row is labelled.
+  const allCells = rows.map((row) => {
     // An array row aligns positionally over the widened header; an object row reads its
     // named cells then appends its overflow cells, so both shapes fill every column.
     const values = Array.isArray(row)
@@ -73,9 +75,32 @@ export const ingestTable = (table = {}) => {
       : [...columns.slice(0, named).map(c => row[c]), ...extraOf(row)];
     const cells = {};
     keys.forEach((k, ci) => { cells[k] = values[ci] == null ? '' : String(values[ci]); });
+    return cells;
+  });
 
+  // The column that NAMES a row. When the caller doesn't pass keyColumn, infer it: the
+  // leftmost column whose values are all present, (nearly) all distinct, and mostly
+  // non-numeric — the column a person would point at to say WHICH row this is, so the
+  // row's entity reads "Springfield", not "row 3". Labelling only; every cell still
+  // lands as its own DEF fact regardless, and `units` keeps the positional "row N".
+  const inferKey = () => {
+    if (!allCells.length) return null;
+    for (const k of keys) {
+      const vals = allCells.map((c) => c[k]).filter((v) => v !== '');
+      if (vals.length < allCells.length) continue;                        // gaps — not an identifier
+      if (new Set(vals).size < vals.length * 0.9) continue;               // repeats — a category, not a key
+      if (vals.filter((v) => /^[\s$€£]*-?[\d,.\s]+%?$/.test(v)).length > vals.length / 2) continue;   // a measure
+      return k;
+    }
+    return null;
+  };
+  const keyK = keyColumn ? slugKey(keyColumn) : inferKey();
+
+  rows.forEach((row, i) => {
+    const cells = allCells[i];
     const id = `row-${i}`;
-    log.append({ op: 'INS', id, label: keyColumn ? String(cells[slugKey(keyColumn)] ?? `row ${i}`) : `row ${i}`, sentIdx: i });
+    const rowLabel = (keyK && cells[keyK]) ? String(cells[keyK]) : `row ${i}`;
+    log.append({ op: 'INS', id, label: rowLabel, sentIdx: i });
     mentions.set(id, [i]);
     for (const k of keys) if (cells[k] !== '') log.append({ op: 'DEF', id, key: k, value: cells[k], sentIdx: i });
     if (prevId) log.append({ op: 'CON', src: prevId, tgt: id, via: 'next-row', sentIdx: i });
