@@ -41,6 +41,8 @@ import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
 import { APP_NAME, APP_VERSION } from './provenance.js';
 import { mountTieredGraph } from './tiered-graph.js';
+import { mountFacingRenderer } from '../render/surface.js';
+import { assembleDocument, splitSource, runnableSrcdoc } from '../render/facing.js';
 import * as readerRender from './reader-render.js';
 import * as reveal from './reveal.js';
 import { firstSurfaceKind } from './first-surface.js';
@@ -163,8 +165,23 @@ const dashboards = Object.freeze({
   mountLauncher: (host) => mountDashboardLauncher(host, { fetchUrl: (u, o) => dashboardClient.fetchUrl(u, o), store: dashboardStore }),
 });
 
+// The facing-page WYSIWYG renderer (rooms/render). `open(source)` hands a source (a { html, css,
+// js } triple, a raw string, or a whole HTML document) to render.html via a localStorage handoff
+// and opens it; `mount(el, opts)` drops the renderer into a panel in place; the pure helpers are
+// exposed for programmatic assembly. (docs/library-search.md — "The facing renderer")
+const render = Object.freeze({
+  mount: mountFacingRenderer,
+  assembleDocument, splitSource, runnableSrcdoc,
+  open: (source, filename = '') => {
+    try { localStorage.setItem('eo_render_handoff', JSON.stringify({ source, filename })); } catch { /* handoff optional */ }
+    try { if (typeof window !== 'undefined' && window.open) return window.open('render.html', '_blank'); } catch { /* popup blocked */ }
+    return null;
+  },
+});
+
 window.EO = Object.freeze({
   app,
+  render,   // the facing-page WYSIWYG renderer — open a source (HTML/CSS/JS) rendered live beside its code
   parse,
   readingAt,
   groundSpans, groundSummary, supportVerdict,
@@ -180,6 +197,11 @@ window.EO = Object.freeze({
   firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
   projectTranscript, wordsToText,   // the interactive transcript fold (baseline + edits/redactions → live reading)
   encodeWav, applyRedactions,       // audio DSP for the Listen surface's redaction re-synthesis + WAV export
+
+  // the library shelf — the four search libraries as plain descriptors (article/book/media/code),
+  // each with its icon, placeholder, and example queries; the surface reads this to render each
+  // shelf's own search box and its hits as cards shaped for the thing (docs/library-search.md)
+  libraries: app.libraries,
 
   matrix,
   chat,

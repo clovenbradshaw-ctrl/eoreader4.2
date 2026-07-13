@@ -16,6 +16,7 @@ import { OPENALEX_SOURCES, OPENALEX_FULLTEXT } from './openalex.js';
 import { FEED_SOURCES, FEED_FULLTEXT } from './feed.js';
 import { API_SOURCES, API_FULLTEXT } from './api.js';
 import { CIVIC_SOURCES, CIVIC_FULLTEXT } from './civic.js';
+import { GITHUB_SOURCES, GITHUB_FULLTEXT } from './github.js';
 
 // The proxy the user pointed us at. Overridable per client; no auto-fire is wired here — a
 // caller (a confirmed user action) constructs the client and admits the results into scope.
@@ -192,10 +193,13 @@ export const SEARCH_SOURCES = {
   // Wikidata (wikimedia.js), and the OPEN ACADEMIC SHELVES: arXiv preprints read whole (arxiv.js)
   // and the OpenAlex catalog for scholarly discovery + the citation prior (openalex.js). Each a
   // kind on the same (ctx, query, k) contract.
+  // THE CODE SHELF — GitHub repositories (github.js): search the index, read READMEs, and — the
+  // deliberate path — INGEST whole codebases through the code organ. A kind on the same contract.
   ...GUTENBERG_SOURCES,
   ...WIKIMEDIA_SOURCES,
   ...ARXIV_SOURCES,
   ...OPENALEX_SOURCES,
+  ...GITHUB_SOURCES,
 };
 
 // FULL_TEXT: kind → async (client, item) → the WHOLE content behind a search hit, for the
@@ -212,6 +216,7 @@ const FULL_TEXT = {
   ...WIKIMEDIA_FULLTEXT,
   ...ARXIV_FULLTEXT,
   ...OPENALEX_FULLTEXT,
+  ...GITHUB_FULLTEXT,   // a repo hit reads its README (the project's account of itself)
 };
 
 // A query that NAMES a library source is routed to it outright — "wikiquote churchill" means
@@ -219,10 +224,15 @@ const FULL_TEXT = {
 // prose ("House of Commons"), so it requires the full "wikimedia commons".
 const NAMED_KIND = [
   ['gutenberg', /\bgutenberg\b/], ['arxiv', /\barxiv\b/], ['openalex', /\bopenalex\b/],
+  ['github', /\bgithub\b/],
   ['wikidata', /\bwikidata\b/], ['wiktionary', /\bwiktionary\b/],
   ['wikiquote', /\bwikiquote\b/], ['wikisource', /\bwikisource\b/], ['wikibooks', /\bwikibooks\b/],
   ['wikiversity', /\bwikiversity\b/], ['wikinews', /\bwikinews\b/], ['wikivoyage', /\bwikivoyage\b/],
-  ['wikispecies', /\bwikispecies\b/], ['commons', /\bwikimedia commons\b/],
+  ['wikispecies', /\bwikispecies\b/],
+  // Commons media (the pictures themselves) when the ask names Commons AND a media kind; plain
+  // "wikimedia commons …" still routes to the description-text `commons` kind below.
+  ['commonsmedia', /\b(?:wikimedia )?commons\b[\s\S]*\b(image|images|photo|photos|picture|pictures|media|svg|diagram|logo)\b/],
+  ['commons', /\bwikimedia commons\b/],
 ];
 
 // routeKind(query) → which source, when the caller asks for 'auto'. A named library source wins
@@ -248,7 +258,12 @@ export const routeKind = (query) => {
   if (/\b(latest|news|today|recent|recently|breaking|this week|right now|currently)\b/.test(q)) return 'news';
   if (/\b(rss|feed|atom)\b/.test(q)) return 'feed';
   if (/\b(json api|rest api|api endpoint|json endpoint)\b/.test(q)) return 'api';
+  // THE CODE SHELF — a repository / source-code ask reaches GitHub (whole codebases, read by the
+  // code organ). Kept before the book rule so "source code" never routes to Gutenberg.
+  if (/\b(source code|code repositor(?:y|ies)|repositor(?:y|ies)|codebase|open[-\s]?source (?:project|repo|library|implementation)|github repo)\b/.test(q)) return 'github';
   if (/\b(novel|novella|full text|whole book|entire book|read the book)\b/.test(q)) return 'gutenberg';
+  // Media-seeking phrasing reaches Commons (the pictures/clips themselves, not prose about them).
+  if (/\b(image of|images of|photo of|photos of|photograph of|picture of|pictures of|free media|public[-\s]?domain image|stock photo)\b/.test(q)) return 'commonsmedia';
   if (/\b(define|definition|meaning of|etymology)\b/.test(q)) return 'wiktionary';
   if (/\b(quote|quotes|quotation|quotations)\b/.test(q)) return 'wikiquote';
   // THE OPEN ACADEMIC SHELVES — scholarly-discovery phrasing reaches the OpenAlex catalog (breadth

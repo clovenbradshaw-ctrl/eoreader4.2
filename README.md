@@ -91,6 +91,7 @@ opens empty and fills as you record.
 |---|---|
 | workspace switcher → nested topic tree | `rooms/reader/app.js` — a **workspace** is the top-level container (Notion's workspace/teamspace; a shared workspace is a Matrix room, via `shared`), and **topics nest** into a collapsible tree (`parentId` / `collapsed`, walked by `topicRows`). Sources stay scoped to the active topic. |
 | ingest bar (URL / file / paste / web search) | `organs/ingest` web client + admission core, `rooms/reader/import-file.js` extractors, proxy chain with public fallbacks |
+| Libraries launcher → per-shelf search surface | `organs/ingest/libraries.js` — four easy search libraries, each with the surface its kind of thing deserves: **Wikipedia** (articles), **Project Gutenberg** (whole books), **Wikimedia Commons** (a media grid), **GitHub** (repos, with **Ingest code** → the code organ). One descriptor registry the surface reads to render each hit as a card shaped for the thing (`docs/library-search.md`) |
 | chat exchange | `turn/` pipeline (`runTurn`) — streamed, cited, fact-checked; model backends from `model/` (webllm · wllama · claude · lmstudio · ollama · echo), picked adaptively |
 | S-registry (sha, bytes, rights, fixity) | `organs/ingest/websource.js` records + the controller's registry |
 | claim → passage pincites | the turn's `bound`/`citeOrigins`/`citeTexts` (from `enactor/ground`) |
@@ -126,6 +127,19 @@ normalized, argmax — the same fold-decides discipline as `enactor/enact/replay
 arithmetic; it is reversible; it is auditable; and `tests/replay-collapse.test.js` pins it (all sources
 on ⇒ `drones .71`; MNPD off ⇒ `drums .43`; itself-only ⇒ the microphone alone). **Report the
 distribution. Never the decision.**
+
+## Render — write HTML/JS, see it live
+
+Open **`render.html`** (`npm run serve`) for the **facing-page WYSIWYG renderer** — the companion to
+the code shelf. The source (HTML · CSS · JS) on one side, the **live render** on the other: type on
+the left, the right pane re-renders, executing the HTML and the JavaScript, with a console strip
+under it showing every `console.*` and every thrown error. It is the replay idiom — source facing
+what it becomes — pointed at code. The engine (`src/rooms/render/`) is a **pure fold**
+(`facing.js`: panes → one sandboxed `srcdoc` + a console-capture shim, pinned by
+`tests/facing-render.test.js`) and a framework-free DOM surface (`surface.js`). Load a raw GitHub
+file with `render.html?src=<url>`, hand a source in from the reader via `window.EO.render.open(...)`,
+or start from the built-in demo. The iframe is sandboxed `allow-scripts` (no same-origin) so the
+rendered code runs its own JS but can't reach the page. Full write-up: [`docs/library-search.md`](docs/library-search.md).
 
 ## Run the big models locally (LM Studio / Ollama)
 

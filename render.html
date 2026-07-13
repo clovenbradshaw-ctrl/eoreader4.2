@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EO Reader — Facing Renderer</title>
+<link rel="icon" href="favicon.svg" />
+<style>
+  :root{ --bg:#0c0e12; --ink:#e7ecf3; --dim:#8b93a2; --accent:#7bd0ff; --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace; --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
+  @media (prefers-color-scheme:light){ :root{ --bg:#f4f6fa; --ink:#141821; --dim:#5a6474; --accent:#2a7fd0 } }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;display:flex;flex-direction:column}
+  #mount{flex:1 1 auto;min-height:0}
+  .fallback{padding:40px 20px;color:var(--dim);max-width:70ch;font-family:var(--sans)}
+  .fallback code{font-family:var(--mono);color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="mount"><div class="fallback">Loading the facing renderer… if this stays, serve the folder over HTTP (<code>npm run serve</code>) so the ES modules load — opening the file directly will not work.</div></div>
+
+<script type="module">
+  import { mountFacingRenderer } from './src/rooms/render/surface.js';
+  import { createWebClient } from './src/organs/ingest/webfetch.js';
+  import { directCorsUrl } from './src/organs/ingest/direct-cors.js';
+
+  const mount = document.getElementById('mount');
+
+  // A loader for the "load a URL" box: try the endpoint directly (raw.githubusercontent, a same-
+  // origin file, any CORS-* host), and fall back to the feed proxy for everything else — the same
+  // chain the reader's ingest uses, so a raw GitHub file or a public page loads into the editor.
+  const client = createWebClient();
+  const fetchUrl = async (url) => {
+    const direct = directCorsUrl(url) || (typeof location !== 'undefined' && url.startsWith(location.origin) ? url : null);
+    if (direct) { try { const r = await fetch(direct); if (r.ok) return { text: await r.text() }; } catch { /* fall to proxy */ } }
+    return client.fetchUrl(url);
+  };
+
+  // A source may be handed in three ways: ?src=<url> (fetched), a localStorage handoff from the
+  // reader (window.EO.render.open stashes here), or nothing → the built-in demo.
+  const params = new URLSearchParams(location.search);
+  const srcUrl = params.get('src');
+  let handoff = null;
+  try { const raw = localStorage.getItem('eo_render_handoff'); if (raw) { handoff = JSON.parse(raw); localStorage.removeItem('eo_render_handoff'); } } catch { /* none */ }
+
+  try {
+    mount.innerHTML = '';
+    const app = mountFacingRenderer(mount, {
+      source: handoff && (handoff.source || handoff) || undefined,
+      filename: handoff && handoff.filename || (srcUrl || ''),
+      fetchUrl,
+    });
+    // ?src= — fetch and load it into the editor once mounted.
+    if (srcUrl) {
+      fetchUrl(srcUrl).then((r) => app.setSource(r.text, srcUrl)).catch(() => { /* the demo stays */ });
+    }
+  } catch (e) {
+    mount.innerHTML = '<div class="fallback">Could not start the facing renderer: ' + String(e && e.message || e) + '</div>';
+    console.error(e);
+  }
+</script>
+</body>
+</html>
