@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { createReaderApp } from '../src/rooms/reader/app.js';
 import { ingestAudio } from '../src/organs/in/audio.js';
+import { ingestAcoustic } from '../src/organs/in/acoustic.js';
 
 // THE ENTITY EXPLORER PIVOTS INTO A SOURCE, AND READS IT AT A HOLONIC LEVEL.
 //
@@ -31,6 +32,27 @@ const asAudioClip = (app, transcript, title) => {
   const src = app.ingestText(transcript, title);
   src._doc = doc; src.docId = doc.docId; src.kind = 'audio'; src.text = transcript;
   src.sha = `sha-${title}`; src._nlDoc = null;
+  return src;
+};
+
+// A clip recorded from the ACOUSTIC reading only — decoded, its signal/noise holons separated, but
+// not yet transcribed. Its `text` is the placeholder acoustic SUMMARY, exactly as import does before
+// whisper runs; `_doc` is the acoustic (segments) doc, transcribed:false.
+const asRawClip = (app, title) => {
+  const holons = {
+    root: { children: [
+      { id: 'h0', kind: 'signal', start: 0, end: 1.2, dur: 1.2, db: -12, children: [] },
+      { id: 'h1', kind: 'noise',  start: 1.2, end: 1.8, dur: 0.6, db: -58, children: [] },
+    ] },
+    signalSpans: [{ start: 0, end: 1.2, dur: 1.2, db: -12 }],
+    noiseSpans: [{ start: 1.2, end: 1.8, dur: 0.6 }],
+    signalSeconds: 1.2, noiseSeconds: 0.6, signalRatio: 0.66, depth: 1,
+  };
+  const analysis = { duration: 1.8, sampleRate: 16000, peakDb: -3, rmsDb: -20, noiseFloorDb: -58, dynamicRangeDb: 27, silencePct: 21 };
+  const doc = ingestAcoustic({ name: `raw-${title}`, title, duration: 1.8, sampleRate: 16000, analysis, holons });
+  const src = app.ingestText(doc.text, title);
+  src._doc = doc; src.docId = doc.docId; src.kind = 'audio'; src.text = doc.text;
+  src.sha = `sha-raw-${title}`; src._nlDoc = null;
   return src;
 };
 
@@ -77,6 +99,45 @@ test('a referent read on top carries the ~nl docId, and its profile resolves bac
   assert.ok(prof, 'the ~nl docId resolves to a profile');
   assert.equal(prof.sn, src.sn, 'the profile points back at the real source, not the derived reading');
   assert.ok(prof.relations.length > 0, 'the referent carries its natural-language bonds');
+});
+
+test('an un-transcribed clip has NO referents yet — never the acoustic summary\'s own words', async () => {
+  const app = await freshApp();
+  const src = asRawClip(app, 'raw');
+  // The summary that stands in as `text` is exactly what used to be parsed into figures:
+  assert.ok(/Signal|Noise|Dynamic/.test(src.text), 'the acoustic summary really does name Signal/Noise/Dynamic');
+  const ref = app.sourceEntities(src.sn, { level: 'referent' });
+  assert.equal(ref.length, 0, 'the referent level is empty until a transcript lands — no summary words leak in');
+  const span = app.sourceEntities(src.sn, { level: 'span' });
+  assert.ok(span.length > 0, 'the base level still reads the acoustic segments');
+  // and the topic-wide names list is clean too (no Signal/Noise/Dynamic figures)
+  assert.ok(!app.entities({ level: 'names' }).some((e) => /^(signal|noise|dynamic)$/i.test(e.label)),
+    'the topic explorer names no acoustic-summary word as a figure');
+});
+
+test('the base spans are named for what they are — segments before transcription, words after', async () => {
+  const app = await freshApp();
+  const raw = asRawClip(app, 'raw');
+  assert.equal(app.sourceBaseNoun(raw.sn), 'Segments', 'an un-transcribed clip counts SEGMENTS, not entities');
+  assert.equal(app.sourceLevels(raw.sn)[1].label, 'Segments', 'the base-level tab reads Segments');
+
+  const clip = asAudioClip(app, TRANSCRIPT, 'clip');
+  assert.equal(app.sourceBaseNoun(clip.sn), 'Words', 'once transcribed the base spans are Words');
+  assert.equal(app.sourceLevels(clip.sn)[1].label, 'Words');
+
+  const page = app.ingestText(TRANSCRIPT, 'page');
+  assert.equal(app.sourceBaseNoun(page.sn), 'Entities', 'a prose source has no base beneath its referents — it counts entities');
+});
+
+test('a base word mention carries its clock, so a click can seek the clip there', async () => {
+  const app = await freshApp();
+  const src = asAudioClip(app, TRANSCRIPT, 'clip');
+  const span = app.sourceEntities(src.sn, { level: 'span' });
+  const word = span.find((e) => /elizabeth/i.test(e.label)) || span[0];
+  const prof = app.entityProfile(word.docId, word.entId);
+  assert.ok(prof.mentions.length > 0, 'a base word is mentioned at least once');
+  assert.ok(prof.mentions.every((m) => typeof m.t0 === 'number' && isFinite(m.t0)),
+    'every mention of a base word carries a start time to seek to');
 });
 
 test('a prose source has the one level — its base doc already is the reading', async () => {
