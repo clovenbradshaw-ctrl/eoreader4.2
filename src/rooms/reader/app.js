@@ -33,6 +33,7 @@ import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
 import { readIngest } from '../../organs/ingest/read.js';
 import { emitEot } from '../../organs/ingest/eot-emit.js';
+import { scopeSources } from './scope-sources.js';
 import { outstandingQuestion, answersAwaited } from '../../core/conversation-fold.js';
 import { senseGate } from '../../turn/sense.js';
 import { createMonitor } from '../../enactor/monitor.js';
@@ -1785,8 +1786,17 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       // A long-form ask ("write me an essay …") gets a large budget so the answer can develop
       // past the pointed-answer cap; a normal ask keeps the per-task budget the pipeline picks.
       const longform = wantsLongform(effectiveQ);
+      // Separate signal from noise: ground this turn on the sources that bear on the
+      // question (the substantial documents + any small source it distinctly names),
+      // not the whole topic pile. `docs` above still holds the full set for the front
+      // door and the disambiguation gate; only what the answer GROUNDS on is scoped.
+      // Set-aside is logged, never silent — the reader can see the focus it took.
+      const scopedDocs = scopeSources(effectiveQ, topicSources()).map(docFor).filter(Boolean);
+      const setAside = docs.length - scopedDocs.length;
+      if (setAside > 0) logIt('skip', `Focused on ${scopedDocs.length} of ${docs.length} sources for this question — set aside ${setAside} unrelated to it`, topic()?.id);
+      const groundDocs = scopedDocs.length ? scopedDocs : docs;
       const args = {
-        question: effectiveQ, docs, model: m,
+        question: effectiveQ, docs: groundDocs, model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
         shapeLibrary: shapeLib || undefined,   // the form predictor (turn/shape.js) — inert until built
