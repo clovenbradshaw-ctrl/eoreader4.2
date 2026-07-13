@@ -840,10 +840,90 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return addSource({ title, text: String(text), kind: 'text', doc });
   };
 
-  const ingestFile = (file) =>
+  // Fold a landed transcript back into an audio source that was already recorded from its
+  // acoustic reading: the words become the source's text, the word-level organ doc (with its
+  // timings, witness and carried-forward waveform/holons) becomes its reading, and the derived
+  // caches are dropped so the reader re-reads the transcript rather than the placeholder.
+  const applyTranscript = (src, text, doc, coverage) => {
+    const body = String(text || '').trim();
+    if (!body || !doc) return;
+    src.text = body;
+    src.bytes = bytesOf(body);
+    src.sha = webContentHash(body);
+    src._doc = doc;
+    src._eot = null;
+    deepReaders.delete(src.docId);
+    try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { /* keep prior */ }
+    if (coverage) src.coverage = coverage;
+    if (src._asr) src._asr = { ...src._asr, state: 'done', pct: 100, partial: '' };
+    logIt('record', `Transcribed ${src.reg} — ${body.length.toLocaleString()} chars`, src.reg);
+    setTimeout(() => {
+      try { const d = docFor(src); logIt('eot', `Encoded ${src.reg} into EoT — ${d?.log ? emitEot(d.log).lines.length : 0} propositions`, src.reg); }
+      catch { /* the record already stands */ }
+    }, 0);
+    persist(); emit('sources');
+  };
+
+  const ingestFile = (file, fileOpts = {}) =>
     runCancellable({ kind: 'file', label: `Reading ${file.name}…` }, async (signal, progress) => {
       const { importAnyFile } = await import('./import-file.js');
       const got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) });
+
+      // ── MEDIA — the source lands AT ONCE from its acoustic reading; transcription follows. ──
+      // An audio/video import returns a full pre-transcription reading (waveform + basic
+      // analysis + signal/noise nested holons) plus a deferred `transcribe` thunk. We record
+      // the source immediately (so it shows up as a source, playable, with its visualization),
+      // reveal it, THEN run transcription in the background — only if there was signal to hear.
+      if (got.meta?.modality === 'audio' && got.meta?.doc) {
+        const src = addSource({ title: got.title || file.name, text: got.text, kind: 'audio', rights: 'local file', doc: got.meta.doc });
+        if (src) {
+          // The playback + visualization artefacts ride the source as underscore fields, so they
+          // are session-only (never structure-cloned into the persisted snapshot; serialize()
+          // strips anything underscore-led) and re-derive on a fresh import.
+          src._media = got.meta.media ? { url: got.meta.media, kind: got.meta.mediaKind, isVideo: !!got.meta.isVideo } : null;
+          src._wave = got.meta.waveform || null;
+          src._analysis = got.meta.analysis || null;
+          src._holons = got.meta.holons || null;
+          src._asr = got.meta.transcribable
+            ? { state: 'pending', pct: 0, partial: '' }
+            : { state: 'skipped', reason: 'no signal above the noise floor', pct: 0, partial: '' };
+          const cov = got.meta.coverage;
+          if (cov) { src.coverage = cov; logIt(cov.complete ? 'record' : 'skip', `Coverage — ${cov.transcribable ? '100% of ' + file.name + ' read as sound; transcribing signal' : (cov.dropped || []).join('; ')}`, src.reg); }
+          persist(); emit('sources');
+          if (typeof fileOpts.onSource === 'function') { try { fileOpts.onSource(src); } catch { /* reveal is best-effort */ } }
+
+          if (got.meta.transcribe) {
+            src._asr = { ...src._asr, state: 'running' };
+            emit('sources');
+            progress({ kind: 'file', label: 'Transcribing the signal…' });
+            let lastPaint = 0;
+            try {
+              const res = await got.meta.transcribe({
+                signal,
+                twoWitness: !!state.auditReadings,
+                onPartial: (p) => {
+                  progress({ kind: 'file', label: `Transcribing… ${p.pct != null ? p.pct + '%' : ''}` });
+                  if (src._asr) { src._asr.pct = p.pct || 0; src._asr.partial = String(p.text || '').slice(-2000); }
+                  // Repaint the media panel's live transcript at most a few times a second.
+                  const now = nowMs();
+                  if (now - lastPaint > 350) { lastPaint = now; emit('sources'); }
+                },
+              });
+              if (res && res.empty) {
+                src._asr = { state: 'skipped', reason: 'no speech found in the signal', pct: 100, partial: '' };
+                emit('sources');
+              } else if (res && res.doc) {
+                applyTranscript(src, res.text, res.doc, res.coverage);
+              }
+            } catch (e) {
+              if (signal.aborted) { src._asr = { ...(src._asr || {}), state: 'stopped' }; }
+              else { src._asr = { ...(src._asr || {}), state: 'error', reason: String(e?.message || e).slice(0, 90) }; logIt('skip', `Transcription failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+              emit('sources');
+            }
+          }
+        }
+        return src;
+      }
       // For a structured modality the ORGAN doc is the reading: a table's cells, a JSON
       // tree's leaves, a binary's string runs ARE its propositions — three-faced events
       // already on the log — and re-parsing their rendered lines as prose would drop

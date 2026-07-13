@@ -485,13 +485,25 @@ export function _whisperUtterances(out, norm) {
 // to the absolute clock, and drop the duplicates the overlap produces. After every window
 // `onPartial({ text, pct })` fires — that is the "see it while it's processing" feed. A
 // clip ≤30s is a single window, byte-for-byte the old one-shot decode.
-export async function _transcribeWindows(asr, mono, SR, duration, norm, { onPartial } = {}) {
+export async function _transcribeWindows(asr, mono, SR, duration, norm, { onPartial, signalSpans, signal } = {}) {
   const WIN = 30, HOP = 25, DEDUP = 0.2;   // seconds: window, hop, overlap-dedup tolerance
   const denom = Math.max(duration, 0.001);
   const utterances = [];
+  // The signal/noise holons already told us where the sound is. A window that overlaps NO
+  // signal holon is silence/noise — whisper would hear nothing there — so we skip decoding it
+  // rather than pay 30s of model time to transcribe a hush. This is the "transcribe only the
+  // signal" half of "separate signal from noise, THEN transcribe if necessary".
+  const overlapsSignal = (a, b) => !signalSpans || !signalSpans.length
+    || signalSpans.some((s) => a < s.end && b > s.start);
   let lastEnd = -Infinity, acc = '';
   for (let a = 0; a === 0 || a < duration; a += HOP) {
+    if (signal && signal.aborted) throw new DOMException('aborted', 'AbortError');
     const b = Math.min(a + WIN, Math.max(duration, a + 0.001));   // a ≤30s window; a short clip is one pass
+    if (!overlapsSignal(a, b)) {
+      if (typeof onPartial === 'function') { try { onPartial({ text: acc, pct: Math.min(100, Math.round(b / denom * 100)) }); } catch {} }
+      if (b >= duration) break;
+      continue;
+    }
     const seg = mono.slice(Math.floor(a * SR), Math.max(Math.floor(a * SR) + 1, Math.ceil(b * SR)));
     const out = await asr(seg, { return_timestamps: true });
     for (const u of _whisperUtterances(out, norm)) {
@@ -512,6 +524,11 @@ export async function _transcribeWindows(asr, mono, SR, duration, norm, { onPart
   return { utterances, text: acc };
 }
 
+// The smallest total of signal (above the noise floor) that is worth loading a 150 MB speech
+// model for. Below it the clip reads as silence or steady noise: the source still lands, with
+// its waveform and its holons, but transcription is skipped — "THEN transcribe IF NECESSARY".
+const MIN_SIGNAL_SECONDS = 0.3;
+
 async function fromMedia(file, title, name, say, opts = {}) {
   const SR = 16000;
   // Decode to mono 16 kHz — the rate whisper wants — via an offline graph.
@@ -528,49 +545,78 @@ async function fromMedia(file, title, name, say, opts = {}) {
   const duration = decoded.duration;
   if (duration > 3 * 3600) throw new Error('this clip is too long to transcribe in the browser (over 3 hours) — split it first');
   const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(duration * SR)), SR);
-  const src = off.createBufferSource(); src.buffer = decoded; src.connect(off.destination); src.start();
+  const srcNode = off.createBufferSource(); srcNode.buffer = decoded; srcNode.connect(off.destination); srcNode.start();
   const mono = (await off.startRendering()).getChannelData(0);
   decoded = null;   // release the full-rate PCM before whisper holds the tab for minutes
 
+  const isVideo = !!opts.isVideo;
+  const mediaKind = isVideo ? 'video' : 'audio';
   // A playable handle on the original file, kept for the session so the source can be
   // heard/watched back with the transcript aligned. (Not revoked — playback needs it.)
   const media = (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(file) : null;
 
-  say('Loading the speech model…');
-  const { asr, dev } = await _loadWhisper();
+  // ── PHASE 1 — the pre-transcription reading, computed AT ONCE. ────────────────────────
+  // The waveform, the basic analysis, and the signal/noise nested holons — all cheap, all
+  // synchronous, all from the PCM we already have. This is what makes the source appear
+  // immediately, with a drawable waveform and a real reading, before a word is transcribed.
+  say('Reading the waveform…');
+  const { ingestAcoustic, waveformPeaks, analyzeAudio, separateHolons } = await IN();
+  const peaks = waveformPeaks(mono, 900);
+  const analysis = analyzeAudio(mono, SR);
+  const holons = separateHolons(mono, SR);
+  const acousticDoc = ingestAcoustic({ name, title, duration, sampleRate: SR, analysis, holons, peaks, media, mediaKind });
+
+  const necessary = holons.signalSeconds >= MIN_SIGNAL_SECONDS;
   const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
-  const witness = `whisper-base · ${dev}`;
 
-  say('Transcribing…');
-  // Live, windowed — the growing transcript streams back through onPartial so the reader
-  // sees it fill in as it lands, instead of watching a spinner until it's all done.
-  const { utterances, text: liveText } = await _transcribeWindows(asr, mono, SR, duration, norm, {
-    onPartial: (p) => { if (typeof opts.onPartial === 'function') opts.onPartial(p); },
-  });
+  // ── PHASE 2 — transcription, DEFERRED. ────────────────────────────────────────────────
+  // Handed back as a thunk the caller runs in the background AFTER the source has landed, so
+  // loading whisper never blocks the source from appearing. Null when there is no signal to
+  // hear (the "if necessary" gate). It transcribes only the windows a signal holon covers.
+  const transcribe = necessary ? async ({ onPartial, signal, twoWitness } = {}) => {
+    if (signal && signal.aborted) throw new DOMException('aborted', 'AbortError');
+    const { asr, dev } = await _loadWhisper();
+    const witness = `whisper-base · ${dev}`;
+    const { utterances, text: liveText } = await _transcribeWindows(asr, mono, SR, duration, norm, {
+      onPartial, signalSpans: holons.signalSpans, signal,
+    });
 
-  // A transcript is one READING, not the objective truth of the waveform. When "audit readings"
-  // is on, take a SECOND witness — the same model relistening with a different chunking — so its
-  // divergences from the first pass become auditable EVA events instead of a silent single answer.
-  const alternates = [];
-  if (opts.twoWitness) {
-    say('Relistening for a second reading…');
-    try {
-      const out2 = await asr(mono, { return_timestamps: true, chunk_length_s: 20, stride_length_s: 3 });
-      const altWords = _whisperUtterances(out2, norm).flatMap(u => u.words);
-      if (altWords.length) alternates.push({ label: `whisper-base relisten · ${dev}`, words: altWords });
-    } catch (e) { /* the second witness is best-effort; the first reading still stands */ }
-  }
+    // A transcript is one READING, not the objective truth of the waveform. When "audit
+    // readings" is on, take a SECOND witness — the same model relistening with a different
+    // chunking — so its divergences become auditable EVA events, not a silent single answer.
+    const alternates = [];
+    if (twoWitness) {
+      try {
+        const out2 = await asr(mono, { return_timestamps: true, chunk_length_s: 20, stride_length_s: 3 });
+        const altWords = _whisperUtterances(out2, norm).flatMap(u => u.words);
+        if (altWords.length) alternates.push({ label: `whisper-base relisten · ${dev}`, words: altWords });
+      } catch (e) { /* best-effort; the first reading still stands */ }
+    }
 
-  const fullText = (liveText || utterances.map(u => u.words.map(w => w.text).join(' ')).join(' ')).trim();
-  if (!fullText) throw new Error('no speech found in the file');
+    const fullText = (liveText || utterances.map(u => u.words.map(w => w.text).join(' ')).join(' ')).trim();
+    if (!fullText) return { text: '', doc: null, coverage: { complete: true, seconds: Math.round(duration * 10) / 10, utterances: 0, dropped: ['no speech found in the signal'] }, empty: true };
 
-  const { ingestAudio } = await IN();
-  const doc = ingestAudio({ name, duration, device: dev, witness, utterances, alternates, media });
-  // The windowed decode walks the WHOLE waveform (0 → duration, overlapping hops), so the
-  // clip is heard end to end; the receipt records how far the last heard word reaches.
-  const lastHeard = utterances.length ? utterances[utterances.length - 1].end : 0;
-  return { text: fullText, title, meta: { modality: 'audio', doc, duration, media, isVideo: !!opts.isVideo, mediaKind: opts.isVideo ? 'video' : 'audio',
-    coverage: { complete: true, seconds: Math.round(duration * 10) / 10, heardTo: Math.round(lastHeard * 10) / 10, utterances: utterances.length, dropped: [] } } };
+    const { ingestAudio } = await IN();
+    // The word-level doc carries the acoustic reading forward (waveform, analysis, holons,
+    // media) so the transcript's source keeps everything the pre-reading gave it.
+    const doc = ingestAudio({ name, duration, device: dev, witness, utterances, alternates, media, mediaKind, peaks, analysis, holons, sampleRate: SR });
+    const lastHeard = utterances.length ? utterances[utterances.length - 1].end : 0;
+    return { text: fullText, doc, coverage: { complete: true, seconds: Math.round(duration * 10) / 10, heardTo: Math.round(lastHeard * 10) / 10, utterances: utterances.length, dropped: [] } };
+  } : null;
+
+  const coverage = {
+    complete: true,
+    seconds: Math.round(duration * 10) / 10,
+    signalSeconds: Math.round(holons.signalSeconds * 10) / 10,
+    signalHolons: holons.signalSpans.length,
+    transcribable: necessary,
+    dropped: necessary ? [] : ['no signal above the noise floor — not transcribed'],
+  };
+  return { text: acousticDoc.text, title, meta: {
+    modality: 'audio', doc: acousticDoc, duration, media, isVideo, mediaKind,
+    waveform: peaks, analysis, holons, transcribe, transcribable: necessary,
+    coverage,
+  } };
 }
 
 // Data is data — the universal fallback, so importAnyFile refuses NOTHING. The byte
