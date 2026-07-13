@@ -1,5 +1,5 @@
 // EO: INS·EVA(Field,Atmosphere → Entity, Making,Tending) — webllm WebGPU backend
-// webllm backend — WebGPU. Llama-3.2-1B by default (the Fluent pin opts into 3B),
+// webllm backend — WebGPU. Llama-3.2-3B by default (the Fast pin drops to 1B),
 // with a Qwen2.5-1.5B sibling registered under 'qwen' on the same engine.
 //
 // Heavier than wllama; loads only when explicitly chosen. Same shape
@@ -60,10 +60,12 @@ const ABORT_GRACE_MS = 4000;
 // The GROUNDING is identical either way: binding and fact-check are mechanical and
 // downstream of the model (weave/write/paragraphs.js, enactor/ground), so the size pick
 // moves prose fluency, never what the record can witness. Pure and exported so the pick
-// is unit-testable without a DOM or a GPU. THE DEFAULT IS 1B — quick to fetch, fits
-// every device, and still talks; only an explicit 'fluent' pin opts into the 3B build.
-// Anything else (junk localStorage, no pin) resolves to 1B, never a broken artifact id.
-export const pickSize = (speed) => (speed === 'fluent' ? '3B' : '1B');
+// is unit-testable without a DOM or a GPU. THE DEFAULT IS 3B — the fuller talker; only an
+// explicit 'fast' pin drops to the lighter 1B build for a quicker fetch and decode. A device
+// that can't hold the 3B weights self-heals down the ladder (the wedge recovery in
+// rooms/reader/app.js steps 3B → 1B → the CPU model). Anything else (junk localStorage, no
+// pin) resolves to 3B, never a broken artifact id.
+export const pickSize = (speed) => (speed === 'fast' ? '1B' : '3B');
 
 // The backend is a parameterised builder so a coding-model variant (model/coders.js)
 // can bind a different MLC artifact under its own id WITHOUT duplicating the engine
@@ -72,7 +74,7 @@ export const pickSize = (speed) => (speed === 'fluent' ? '3B' : '1B');
 export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   const id    = defaults.id || 'webllm';
   // An explicit pin (a caller's opts.model / a coder variant's defaults.model) is honoured as-is;
-  // otherwise the build is chosen ADAPTIVELY at load — size by the Fast/Fluent pin (1B default),
+  // otherwise the build is chosen ADAPTIVELY at load — size by the Fast/Fluent pin (3B default),
   // dtype by what the GPU can do (pickModel below).
   const pinned = opts.model || defaults.model || null;
   // A SIZE pin handed in by the caller (the reader passes its effective Fast/Fluent pick,
@@ -172,7 +174,7 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   // PICK THE BUILD: SIZE × DTYPE. A variant backend (the Qwen talker below) hands its own
   // { f16, f32 } artifact pair through defaults.builds and only the dtype probe runs; the
   // Llama default sizes itself first — the Fast/Fluent pin (the caller's opts.speed carries
-  // session-only overrides, then the saved localStorage pick; no pin ⇒ the 1B default,
+  // session-only overrides, then the saved localStorage pick; no pin ⇒ the 3B default,
   // see pickSize) — and the dtype probe multiplies onto it. A localStorage-pinned artifact
   // (eo_webllm_model) beats everything: the escape hatch for testing an arbitrary build.
   const pickModel = async () => {

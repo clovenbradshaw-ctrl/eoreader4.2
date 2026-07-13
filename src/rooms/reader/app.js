@@ -1171,10 +1171,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         // backup for THIS SESSION ONLY (persist: false): the user's saved pick stays theirs, so a
         // transient bad day (a backgrounded tab, one OOM) can't permanently hijack it — the next
         // visit tries their real choice again.
-        // Only a 'fluent' pin has anywhere smaller to step to — the default IS the 1B build
-        // now, so an unpinned webllm goes straight to the CPU rung instead of wasting a
-        // wedge cycle reloading the same size.
-        if (backendPref() === 'webllm' && speedPref() === 'fluent') {
+        // The default IS the 3B build now, so any webllm that isn't explicitly pinned to
+        // 'fast' is on the big build and has the lighter 1B rung to step down to first; only
+        // an explicit 'fast' pin is already at the smallest webllm build and drops straight
+        // to the CPU rung instead of wasting a wedge cycle reloading the same size.
+        if (backendPref() === 'webllm' && speedPref() !== 'fast') {
           logIt('skip', 'In-browser model kept dying — dropping to the faster 1B build for this session');
           setSpeed('fast', { persist: false });
         } else if (isWebgpuTalker(backendPref())) {
