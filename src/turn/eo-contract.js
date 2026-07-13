@@ -6,6 +6,7 @@ import { contract } from '../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
   'src/turn/archive.js': contract({ ops: ['NUL', 'SIG'], targets: ['Entity'], products: ['Entity'], stances: ['Clearing', 'Tending'], note: 'leased store + shredder' }),
+  'src/turn/corroborate.js': contract({ ops: ['SYN', 'EVA', 'DEF'], targets: ['Network', 'Field', 'Link'], products: ['Network', 'Lens'], stances: ['Composing', 'Binding', 'Tracing'], note: 'hop-until-corroborated web walk' }),
   'src/turn/deep-research.js': contract({ ops: ['SYN', 'EVA'], targets: ['Network', 'Field'], products: ['Network'], stances: ['Composing', 'Tracing'], note: 'deep multi-branch research + report' }),
   'src/turn/depicted.js': contract({ ops: ['SEG'], targets: ['Field'], products: ['Field'], stances: ['Dissecting'], note: 'depicted-move reduction (enacted register masked)' }),
   'src/turn/nav-pool.js': contract({ ops: ['SIG', 'INS'], targets: ['Field'], products: ['Atmosphere'], stances: ['Tending', 'Making'], note: 'time-boxed corpus navigation pool' }),

@@ -23,6 +23,7 @@ import { probeOrigins, explainReach } from '../../model/reach.js';
 import { createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
          runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
+         runTurnWithCorroboration, corroborationAnnouncement, corroborationSettled,
          readDiscourse, clarifyDemandOf, loadShapeLibrary } from '../../turn/index.js';
 import { loadShapeGrammars } from '../../turn/shape-grammar.js';
 import { extendLibraryWithNavPool } from '../../turn/nav-pool.js';
@@ -2027,6 +2028,28 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
               sources: (walked.research && walked.research.sources) || [],
             },
           };
+        } else if (proposal.trigger === 'corroborate') {
+          // The answer is grounded but rests on a SINGLE meaningfully-distinct source. Keep the
+          // answer already streamed — go find an INDEPENDENT second source that corroborates it,
+          // hopping until it does or can be said not to exist (turn/corroborate.js). The trail
+          // streams the search; the outcome rides back as a flag, it never rewrites the answer.
+          const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: effectiveQ, history, fallback: effectiveQ, signal: turnSignal })));
+          beat(pending, 'start', corroborationAnnouncement(query) || `Looking for an independent source for “${query}”…`);
+          setBusy({ kind: 'search', label: `Corroborating — ${query}` });
+          // Enrich the answer's own sources with their host/byline so the walk knows which voices a
+          // corroborator must be distinct FROM (a same-host reprint is not a second source).
+          const enrich = {};
+          for (const s of (state.sources || [])) if (s.docId) enrich[s.docId] = { url: s.url || s.web?.url || s.host || '', author: s.byline || s.author || null };
+          result = await raceGuard(keepAlive(runTurnWithCorroboration(args, result, {
+            search: webSearchAdmit, enrich, k: 3, formulate: async () => query,
+            onHop: (h) => { turn.guard.feed(); hopBeat(pending, h, query); },
+            onHopDone: (h) => { turn.guard.feed(); hopDoneBeat(pending, h); },
+            signal: turnSignal,
+          })));
+          const settled = corroborationSettled(result.corroboration);
+          if (settled) beat(pending, 'read', settled);
+          if (result.corroboration) pending.research && (pending.research.summary = settled || 'Sought corroboration');
+          settleTrail(pending, null);
         } else {
           // A verify (check the general-knowledge answer, keep it) or witness (confirm the reading)
           // is a targeted single-shot, not a walk — augment/re-run through runWebFollowup as before.
@@ -2142,6 +2165,24 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       const add = String(aug.answer).replace(/\[s\d+(?:,\s*s?\d+)*\]/g, '').replace(/[ \t]+\n/g, '\n').trim();
       const srcLines = (aug.sources || []).slice(0, 4).map((s) => `· ${s.title || s.url || s.docId}`).filter(Boolean).join('\n');
       if (add) msg.text = `${msg.text}\n\n— From the web —\n${add}${srcLines ? `\n\nSources:\n${srcLines}` : ''}`;
+    }
+    // What the corroboration walk found (turn/corroborate.js): an independent second source that
+    // supports the answer, or — after real hops — the confident absence of one. Surfaced as a flag
+    // beside the answer (it never rewrites it) and, when found, as the source to click through to.
+    if (result.corroboration && result.corroboration.sought) {
+      const c = result.corroboration;
+      msg.corroboration = {
+        verdict: c.verdict, corroborated: !!c.corroborated, query: c.query || '',
+        sources: (c.sources || []).map((s) => ({ title: s.title || '', url: s.url || '' })),
+      };
+      const src = (c.sources || [])[0];
+      msg.flags = [...msg.flags, c.corroborated
+        ? { id: 'corroborated', note: `Independently corroborated${src ? ` — ${src.title || src.url}` : ''}.` }
+        : { id: 'single-source', note: 'Rests on a single source — I searched but couldn’t find an independent one that corroborates it.' }];
+      logIt(c.corroborated ? 'search' : 'skip',
+        c.corroborated ? `Corroborated by an independent source${src ? ` — ${src.title || src.url}` : ''}` : 'No independent corroboration found', `"${c.query || ''}"`);
+    } else {
+      msg.corroboration = null;
     }
     for (const f of msg.flags) {
       if (/contradic/i.test(f.id)) logIt('conflict', `Contradiction flagged — ${f.note || f.id}`);

@@ -33,6 +33,13 @@ export { contentTerms } from './spans.js';
 // the document graph, and judge the groundedness of what the graph holds — counting the
 // diverse, independent origins that witness each claim (docs/creative-grounded-modes.md).
 export { reflectAnswer, eotLineOf, senseOfModality } from './reflect.js';
+// The diversity half's other end: are the answer's witnesses MEANINGFULLY DISTINCT? reflectAnswer
+// counts independent root origins; this asks whether those origins are really independent VOICES
+// (not mirrors, reprints, or the same publisher) and whether they reach two — the "sourced from
+// multiple, meaningfully distinct sources" measure that keys the corroboration walk (turn/corroborate.js).
+export { registrableHost, witnessDescriptor, sameWitness, distinctVoices,
+         distinctWitnessCount, distinctEnough, reflectionWitnesses,
+         underCorroborated, corroborationCensus } from './corroboration.js';
 // The answer weighed by the reader's own reaction (the Born measure): the physics check the
 // lexical veto battery cannot make. The reader is asked to REACT to its own draft, and that
 // reaction is projected onto a valence basis and put through the Born rule — a positive

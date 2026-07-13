@@ -9,6 +9,8 @@ export { proposeWebSearch, searchAnnouncement, COST_NOTICE } from './propose.js'
 export { runTurnWithWeb, runWebFollowup, verifyAgainstWeb, formulateSearchQuery } from './web.js';
 export { runCuriousResearch, runTurnWithResearch, researchAnnouncement,
          curiosityOf, profileOf, foldInto, leadsFrom, plausibleLead, nextQuery, researchTerms } from './research.js';
+export { runCorroborationWalk, runTurnWithCorroboration, backingFromReflection,
+         isDistinctCorroborator, corroborationAnnouncement, corroborationSettled } from './corroborate.js';
 export { planQueries, modelPlanner, runDeepResearch, deepResearchReport,
          runTurnWithDeepResearch, deepResearchAnnouncement } from './deep-research.js';
 export { modelDisambiguator, chooseSense, biasTopic, sharpenSeed, parseSensePrior,
