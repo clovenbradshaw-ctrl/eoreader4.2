@@ -642,7 +642,7 @@ table{border-collapse:collapse;width:100%}
                         <sc-if value="{{ m.facingClosed }}">
                           <button onClick="{{ m.facingToggle }}" title="Reveal how this answer was made — the verbatim prompt the model was handed, and the reply beside its own EoT reading" style="position:relative;display:flex;align-items:center;gap:8px;width:100%;margin-top:12px;padding:9px 13px 10px;border:1px solid #E4E0FB;border-radius:11px;background:linear-gradient(180deg,#FBFAFF,#F3F1FD);color:#5B4BE6;box-shadow:0 3px 0 -1px #F1EFFB,0 6px 0 -2px #F6F4FD;text-align:left;overflow:hidden" style-hover="background:#EFEBFE">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="M12 6.5C10.5 5.5 8.5 5 6 5H3v13h3c2.5 0 4.5.5 6 1.5M12 6.5C13.5 5.5 15.5 5 18 5h3v13h-3c-2.5 0-4.5.5-6 1.5M12 6.5v13"/></svg>
-                            <span style="flex:0 0 auto;font-weight:600;font-size:12.5px;white-space:nowrap">How it read this</span>
+                            <span style="flex:0 0 auto;font-weight:600;font-size:12.5px;white-space:nowrap">What it was prompted</span>
                             <span style="flex:1 1 0;min-width:0;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;color:#9E96D6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">· reveal the verbatim prompt & the reading</span>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="m6 9 6 6 6-6"/></svg>
                           </button>
@@ -650,7 +650,7 @@ table{border-collapse:collapse;width:100%}
                         <sc-if value="{{ m.facingOpen }}">
                           <div style="margin-top:12px;border:1px solid #1d222c;border-radius:12px;overflow:hidden;background:#0d1017">
                             <div onClick="{{ m.facingToggle }}" title="Hide the reading" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 14px;border-bottom:1px solid #1d222c;background:#0a0d13;cursor:pointer" style-hover="background:#0e131b">
-                              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8B93A3">How it read this answer</span>
+                              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8B93A3">What it was prompted</span>
                               <span style="flex:1"></span>
                               <sc-for list="{{ m.facingLegend }}" as="lg">
                                 <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8b93a3"><span style="width:8px;height:8px;border-radius:2px;background:{{ lg.color }};flex:0 0 auto"></span>{{ lg.label }}</span>

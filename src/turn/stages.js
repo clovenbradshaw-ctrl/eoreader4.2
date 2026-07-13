@@ -30,7 +30,7 @@ import { recordBindingDefs, recordCorrespondenceDefs, recordReferenceDef, record
 import { runVetoes, isUnbound, isAbstention, classifyProvenance, assessAnswer } from '../enactor/ground/index.js';
 import { canGroundedSpeak, groundedSpeak, RULES_REV } from '../organs/out/speech/index.js';
 import { projectGraph, VERDICTS } from '../core/index.js';
-import { answerabilityGate, refusalAtom } from '../weave/longgen/answerable.js';
+import { answerabilityGate } from '../weave/longgen/answerable.js';
 import { walkReasoning } from '../surfer/reason/index.js';
 import { factCheck, auditPropositions } from '../enactor/factcheck/index.js';
 import { streamParagraphs } from '../weave/write/index.js';
@@ -573,17 +573,16 @@ export const stages = {
     const FLAT_FIELD_MARGIN = 0.02;
     if (ctx.referential?.concentrated === false && ctx.referential?.id != null
         && (ctx.referential?.margin ?? 1) <= FLAT_FIELD_MARGIN) {
-      const ground = (ctx.spans || []).map((s, i) => ({ idx: s.idx ?? i, text: s.text, score: s.score }));
-      const r = refusalAtom('diffuse', ground, [], (ctx.question || '').split(/\s+/));
-      return {
-        ...ctx,
-        terminate: true,
-        gated: true,
-        answer: r.text,
-        sources: [...(r.sources || [])].sort((a, b) => a - b),
-        vetoes: [Object.freeze({ id: 'referent-diffuse', refuses: true,
-          message: 'The reading did not settle on the figure this question is about — the corpus holds the subject’s words but not an answer to this.' })],
-      };
+      // The reading DIFFUSED — no figure leads, so the corpus holds the subject's words but
+      // not a settled answer to THIS question. This once rode as a mechanical raw-span decline
+      // (refusalAtom stitched the held spans and terminated the turn BEFORE the model), which
+      // surfaced ellipsis-cut fragments as the answer and left "no prompt on record". Now it
+      // rides as a HINT: the turn continues to the talker, which writes the honest "I didn't
+      // find a settled answer" itself — a model-authored reply, with the prompt captured. The
+      // diffusion is still measured on ctx.referential, which keys proposeWebSearch and the
+      // soft (non-refusing) `referent-ambiguous` veto; the `prompt` stage reads `referentDiffuse`
+      // to tell the talker to decline rather than pick a figure the reading didn't land on.
+      return { ...ctx, referentDiffuse: true };
     }
 
     const v = answerVoid(ctx.doc, ctx.question, ctx.spans || [], { embedder: ctx.embedder });
@@ -645,19 +644,15 @@ export const stages = {
     const ground = (ctx.spans || []).map((s, i) => ({ idx: s.idx ?? i, text: s.text, score: s.score }));
     const g = answerabilityGate({ question: ctx.question, ground, graph });
     if (g.licensed) return ctx;
-    const r = g.refusal;
-    // The refusal atom IS the answer — typed decline, grounded on the held spans, never a
-    // model call. `gated:true` records that the floor substituted a decline; the walk's
-    // downstream stages are skipped via `terminate`.
-    return {
-      ...ctx,
-      terminate: true,
-      gated: true,
-      answer: r.text,
-      sources: [...(r.sources || [])].sort((a, b) => a - b),
-      vetoes: [Object.freeze({ id: 'unanswerable', refuses: true,
-        message: `The corpus does not hold ${g.reason === 'no-subject' && g.missing?.length ? g.missing.join(' or ') : 'what was asked'}; the walk was not run.` })],
-    };
+    // The floor measured that the corpus does not supply what was asked (a named subject it
+    // never mentions, or a wanted type the ground can't fill). This once terminated the turn
+    // with the refusal atom AS the answer — a raw-span decline that never reached the model.
+    // Now the measurement rides as a soft, non-refusing marker and the turn CONTINUES to the
+    // talker: the answer is always model-authored (with a prompt on record), and the `prompt`
+    // stage reads `answerability` to tell the talker to say plainly it didn't find it rather
+    // than confabulate. The downstream bind/factcheck/veto/absence stages still police an
+    // invented claim after the model writes.
+    return { ...ctx, answerability: Object.freeze({ licensed: false, reason: g.reason, missing: g.missing || [] }) };
   },
 
   // THE REASONING WALK (src/reason/walk.js) — the one stage that COMMITS structure. It appends
@@ -784,6 +779,15 @@ export const stages = {
           graph:        fedGraph,         // the meaning graph (web path); empty → §2 subjective frame
           arc:          arcBlock,         // the reading's own arc (broadcastArc); empty → no block
           reasoning:    reasoningBlock,   // the walk's marked reaches (reason stage); empty → no block
+          // The answerability floor's measured decline, folded in as an honest-decline HINT
+          // (bands.js `decline`): the reading diffused (no figure leads) or the corpus does
+          // not name the subject asked about. Empty by default → byte-identical prompt. This
+          // is what keeps a model-authored reply from confabulating where the old mechanical
+          // gate used to hard-refuse: the talker is told to say plainly it didn't find it.
+          declineHint:  ctx.referentDiffuse ? 'diffuse'
+                        : (ctx.answerability && !ctx.answerability.licensed
+                            ? (ctx.answerability.reason === 'no-subject' ? 'absent' : 'diffuse')
+                            : ''),
           // No layout template: the answer-first/sectioned shape is no longer keyed off the raw
           // question. How the reply is shaped is the discourse metacognition's call (the steer),
           // not a keyword regex over the scope — so nothing rides the `shape` slot here.

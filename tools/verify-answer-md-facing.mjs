@@ -2,7 +2,7 @@
 //   1. reader-render.inlineMdMarks is loaded in-browser and pairs *…* across an entity boundary
 //   2. a SETTLED answer that italicises a linked entity renders with NO raw `*` and the entity
 //      carries the emphasis (the "* Swept Away *" bug from the screenshot)
-//   3. the per-answer "How it read this" FACING toggle opens this answer's EoT reading inline
+//   3. the per-answer "What it was prompted" FACING toggle opens this answer's EoT reading inline
 // Fails the process (exit 1) on any page/console error or failed check.
 import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
@@ -72,7 +72,7 @@ try {
       hasEnt: !!entBtn,
       entItalic: entBtn ? /font-style:\s*italic/.test(entBtn.getAttribute('style') || '') : false,
       paraText: para ? para.innerText : '',
-      revealHandle: [...document.querySelectorAll('button')].some((b) => b.textContent.includes("How it read this") && /REVEAL|reveal/.test(b.textContent)),
+      revealHandle: [...document.querySelectorAll('button')].some((b) => b.textContent.includes("What it was prompted") && /REVEAL|reveal/.test(b.textContent)),
     };
   });
   check('answer: "Swept Away" is a linked entity', ans.hasEnt);
@@ -82,20 +82,20 @@ try {
 
   // 3. reveal the facing page via the affordance handle
   await page.evaluate(() => {
-    const b = [...document.querySelectorAll('button')].find((x) => x.textContent.includes("How it read this"));
+    const b = [...document.querySelectorAll('button')].find((x) => x.textContent.includes("What it was prompted"));
     if (b) b.click();
   });
   await sleep(400);
   const facing = await page.evaluate(() => {
-    const hdr = [...document.querySelectorAll('span')].find((s) => s.textContent.trim() === 'How it read this answer');
+    const hdr = [...document.querySelectorAll('span')].find((s) => s.textContent.trim() === 'What it was prompted');
     const panel = hdr ? hdr.closest('div').parentElement : null;
     const lines = panel ? panel.querySelectorAll('.eo-scroll > div').length : 0;
     const text = panel ? panel.innerText : '';
     // once revealed the handle button is gone (the panel header — a div — is now the collapse control)
-    const handleGone = ![...document.querySelectorAll('button')].some((b) => b.textContent.includes("How it read this"));
+    const handleGone = ![...document.querySelectorAll('button')].some((b) => b.textContent.includes("What it was prompted"));
     return { hasPanel: !!hdr, lines, text, handleGone };
   });
-  check('facing: the reveal opens the "How it read this answer" panel', facing.hasPanel);
+  check('facing: the reveal opens the "What it was prompted" panel', facing.hasPanel);
   check('facing: it shows EoT reading lines', facing.lines > 0, `${facing.lines} lines`);
   check('facing: the handle collapsed into the panel (no stray toggle)', facing.handleGone);
   // the VERBATIM leaf — the panel leads with the exact prompt the model was handed
