@@ -54,7 +54,7 @@ import { mountVaultLauncher } from '../archive/vault-mount.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
 
-const audit = createAuditLog({ capacity: 512 });
+const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 const app = createReaderApp({ audit });
 
 // The optional identity. Restores a persisted session from localStorage without a

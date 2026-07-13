@@ -490,7 +490,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return t;
   };
   const topic = () => state.topics.find((t) => t.id === state.activeTopicId) || state.topics[0];
-  const setTopic = (id) => { if (state.topics.find((t) => t.id === id)) { state.activeTopicId = id; deepWake(); persist(); emit('topics'); } };
+  const setTopic = (id) => { if (state.topics.find((t) => t.id === id)) { state.activeTopicId = id; releaseParsesOutsideTopic(); deepWake(); persist(); emit('topics'); } };
   const topicRename = (id, title) => { const t = topicById(id); if (t && title) { t.title = title; t.named = true; persist(); emit('topics'); } };
   // AUTO-NAMING. A topic still wearing the "New topic" placeholder names itself from what
   // it holds — its first question, else its first source (topic-name.js) — the moment
@@ -676,9 +676,26 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   };
 
   const removeSource = (id) => {
+    const gone = sourceBySn(id);
+    if (gone) deepReaders.delete(gone.docId);   // or the deep reader keeps the removed doc resident
     state.sources = state.sources.filter((s) => s.sn !== id);
     for (const t of state.topics) t.sourceSns = t.sourceSns.filter((x) => x !== id);
     persist(); emit('sources');
+  };
+
+  // Release the derived readings the active topic no longer needs. A parse (_doc), its EoT
+  // reading (_eot — and readIngest's memo, a WeakMap keyed by the doc, dies with it), and the
+  // deep reader pinning the doc all re-derive lazily from src.text; holding EVERY topic's
+  // parses at once (each several times its text's size) is session-long growth the tab —
+  // already carrying model weights — cannot afford.
+  const releaseParsesOutsideTopic = () => {
+    const t = topic();
+    const keep = new Set(t ? t.sourceSns : []);
+    for (const s of state.sources) {
+      if (keep.has(s.sn)) continue;
+      deepReaders.delete(s.docId);
+      s._doc = null; s._eot = null;
+    }
   };
 
   const topicSources = () => {

@@ -140,7 +140,10 @@ const buildReading = (ctx) => {
 const llmBrief = (ctx) => {
   try {
     const b = assembleBrief(ctx.doc, { question: ctx.question, history: ctx.history, surf: ctx.surf });
-    return { system: b.prompt.system, user: b.prompt.user, focus: b.surf.focus, thread: b.thread, draft: b.draft };
+    // Bounded like every other audit field: the ring holds hundreds of turns, and an
+    // unbounded second copy of the whole assembled prompt per turn is session-long growth.
+    const clip = (s, n) => (s == null ? s : String(s).slice(0, n));
+    return { system: clip(b.prompt.system, 4000), user: clip(b.prompt.user, 4000), focus: b.surf.focus, thread: b.thread, draft: clip(b.draft, 4000) };
   } catch { return null; }
 };
 
@@ -387,8 +390,10 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
       grounding,                                  // the register the user selected (audit trail)
       model:     describeModel(model),            // WHAT produced this answer — the talker + its exact model
       reading:   buildReading(ctx),               // the full mechanical reading: spans · surf field · note
-      prompt:    ctx.promptText || null,
-      rawOutput: ctx.rawOutput  || null,
+      // Bounded copies: 16K chars keeps any real prompt/decode inspectable while capping
+      // what a single turn can pin in the ring for the rest of the session.
+      prompt:    ctx.promptText ? String(ctx.promptText).slice(0, 16000) : null,
+      rawOutput: ctx.rawOutput  ? String(ctx.rawOutput).slice(0, 16000)  : null,
       bound:     ctx.bound      || null,
       vetoes:    ctx.vetoes     || null,
       answer:    ctx.answer     || '',
