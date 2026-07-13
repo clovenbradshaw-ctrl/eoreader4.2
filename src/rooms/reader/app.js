@@ -626,12 +626,18 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return src._doc;
   };
 
-  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null }) => {
+  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null }) => {
     const body = String(text || '').trim();
     if (!body) throw new Error('nothing to record — the page had no readable text');
     const hash = record?.content_hash || webContentHash(body);
     const dup = state.sources.find((s) => s.sha === hash);
-    if (dup) { logIt('skip', `Already recorded — ${dup.title}`, dup.sn); return dup; }
+    // Re-visiting a page already recorded is a no-op on the registry, but if it now arrives UNDER a
+    // parent (a link we followed inside that parent's site) and had none before, adopt it — so a
+    // page first seen on its own, then reached by clicking through its site, nests where expected.
+    if (dup) {
+      if (parentSn && !dup.parentSn && dup.sn !== parentSn) { dup.parentSn = parentSn; persist(); emit('sources'); }
+      logIt('skip', `Already recorded — ${dup.title}`, dup.sn); return dup;
+    }
     const id = `S${++sn}`;
     const src = {
       sn: id, reg: `S-${String(sn).padStart(4, '0')}`,
@@ -639,6 +645,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       title: title || url || 'Untitled', url, domain: url ? domainOf(url) : (kind === 'file' ? 'local file' : 'pasted text'),
       kind, retrieved: nowIso(), recordedAt: nowMs(), sha: hash, bytes: bytesOf(body),
       rights: rights || (url ? 'web — verify before reuse' : 'local'),
+      // parentSn: a page reached by following a link inside another source's site is recorded as a
+      // SUB-OBJECT of that source — one site stays one source in the sidebar, its followed pages
+      // nested and (by default) folded under it. collapsed governs its OWN children's fold state.
+      parentSn: parentSn || null, collapsed: true,
       text: body, entCount: null, _doc: doc || null,
     };
     if (doc) { try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; } }
@@ -646,6 +656,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     const t = topic();
     if (t && !t.sourceSns.includes(id)) t.sourceSns.push(id);
     if (t) topicAutoName(t, { silent: true });   // a first source names a placeholder topic (persist/emit follow below)
+    if (parentSn) {
+      const par = sourceBySn(parentSn);
+      logIt('nav', `Followed link on ${par ? par.domain : 'a source'} → ${src.title}`, src.reg);
+    }
     logIt('record', `Recorded ${src.domain} — ${src.title}`, src.reg);
     logIt('hash', `Fixity sha ${shaShort(src.sha)} · ${src.bytes.toLocaleString()} bytes`, src.reg);
     deepWake();   // the record grew — let the reading reflect on the new places at rest
@@ -704,6 +718,8 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     const gone = sourceBySn(id);
     if (gone) deepReaders.delete(gone.docId);   // or the deep reader keeps the removed doc resident
     state.sources = state.sources.filter((s) => s.sn !== id);
+    // A removed source's sub-objects rise to the top level rather than vanish with their parent.
+    for (const s of state.sources) if (s.parentSn === id) s.parentSn = null;
     for (const t of state.topics) t.sourceSns = t.sourceSns.filter((x) => x !== id);
     persist(); emit('sources');
   };
@@ -806,6 +822,38 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       // the native render on the page URL for exactly this reason.)
       return { html: res.text || '', url: norm, ok: res.ok !== false };
     });
+  };
+
+  // Following a link INSIDE a source's native view: fetch the target page once, render it in place
+  // (the raw HTML rides back for the Native iframe), AND record it as a SUB-OBJECT of `parentSn` —
+  // one site stays one source, every page you click through logged beneath it (dedup keeps a
+  // re-visit a no-op on the registry). Returns { html, url, childSn } — childSn null if the page had
+  // no readable text (nothing to record) or admission failed; the page still renders either way.
+  const navigatePage = (parentSn, url) => {
+    const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
+    return runCancellable({ kind: 'fetch', label: `Loading ${domainOf(norm)}…` }, async (signal) => {
+      const res = await client.fetchUrl(norm, { signal });
+      const raw = res.text || '';
+      const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
+      let childSn = null;
+      try {
+        const text = htmlToText(raw);
+        if (text && text.trim()) {
+          const { doc, record } = admitWebSource({ url: norm, title, text, fetched_at: nowIso(), engine: 'feed-proxy' });
+          const child = addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, parentSn });
+          childSn = child.sn;
+        }
+      } catch { /* un-admittable (empty/dup-of-parent) — still render the page */ }
+      // Report the site's own URL for the iframe <base href> (not the proxied res.url), same as
+      // fetchPage — so the rendered page's relative assets resolve against the real site.
+      return { html: raw, url: norm, childSn, ok: res.ok !== false };
+    });
+  };
+
+  // Fold / unfold a source's sub-objects in the sidebar (persisted with the source).
+  const sourceToggleCollapse = (id) => {
+    const s = sourceBySn(id); if (!s) return;
+    s.collapsed = !s.collapsed; persist(); emit('sources');
   };
 
   // webSearchAdmit(query, opts) → the fetch+admit primitive the turn's web loop consumes.
@@ -2558,8 +2606,8 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     // workspaces — the top-level containers (Matrix-shared workspaces slot in via `shared`)
     workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
     // ingest
-    ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage,
-    sourceBySn, removeSource, topicSources,
+    ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage, navigatePage,
+    sourceBySn, removeSource, topicSources, sourceToggleCollapse,
     // chat
     ask, stop, exportChat,
     // export provenance — WHAT produced this session: app + published build + latest-on-GitHub +
