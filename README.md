@@ -100,6 +100,7 @@ opens empty and fills as you record.
 | monologue steps | `rooms/audit` (`createAuditLog`) — live subscription, per-stage trail |
 | E2EE chat (optional) | `rooms/chat` — libolm (vendored) Olm/Megolm over the existing `matrix` login; keys pickled to **OPFS**; a floating launcher `boot.js` mounts (see [`docs/element-e2ee.md`](docs/element-e2ee.md)) |
 | encrypted media vault (optional) | `rooms/archive/vault` — save content encrypted (Web Crypto), store only ciphertext in the Matrix media repo, record each save in a tamper-evident **hash-linked block chain** on **OPFS**; `window.EO.vault` + a floating 🗄 panel (see [`docs/media-vault.md`](docs/media-vault.md)) |
+| live dashboards (no-code web metrics) | `rooms/dashboard` — **click** any number/price/status on a fetched page (a sandboxed, script-free picker reads its selector for you) and pin it as a metric; each open re-pulls through the feed proxy and **appends a reading** to an append-only log the tile projects (value · trend · sparkline). `window.EO.dashboards` + a floating 📊 panel (see [`docs/dashboards.md`](docs/dashboards.md)) |
 
 ## Replay — watching something get read
 
