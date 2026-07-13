@@ -31,6 +31,7 @@
   "background": {
     "n": 430,
     "moves": 2150,
+    "external": false,
     "trans": {
       "NUL": {
         "NUL": 0.822188,
@@ -3209,6 +3210,7 @@
     "records": 430,
     "responsesRead": 430,
     "intents": 22,
+    "background": "target-pooled",
     "tool": "tools/shape-fit.mjs"
   }
 }

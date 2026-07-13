@@ -86,20 +86,37 @@ const fitGrammar = (moveSeqs, { alpha = 0.5 } = {}) =>
   toFullAlphabet(learnGrammar(moveSeqs, KEPT, { alpha }));
 
 // fitShapes(records, opts) → the shapes object written to data/shapes.json.
-//   records   parsed exemplars ({ intent, response, ... }); anything without a readable
-//             response contributes no sequence.
+//   records   role-tagged records ({ intent, response, role?, ... }); anything without a readable
+//             response contributes no sequence. role defaults to 'target'.
+//               target      → per-intent grammars (the shapes we ship).
+//               background  → pooled into the negative grammar (the register to be unlike).
+//               reference   → labelled assistant data; pooled into the background AND scored for
+//                            coverage (which target intents it can/cannot support).
+//             With no background/reference records the background falls back to the pooled TARGET,
+//             so the default self-contained run is byte-identical to fitting the corpus alone.
 //   opts      { alpha } — the grammar's add-α smoothing (matches the predictor's default 0.5).
 export const fitShapes = (records, { alpha = 0.5, source = null } = {}) => {
-  const byIntent = new Map();
-  const all = [];
+  const roleOf = (r) => r.role || 'target';
+  const byIntent = new Map();          // target only
+  const targetSeqs = [];
+  const bgSeqs = [];                    // background + reference, pooled
+  const refByIntent = new Map();        // reference coverage: mapped intent → count
   let read = 0;
+
   for (const r of records) {
     const seq = abstractResponse(r.response);
     if (!seq.length) continue;
     read++;
-    all.push(seq);
-    if (!byIntent.has(r.intent)) byIntent.set(r.intent, []);
-    byIntent.get(r.intent).push(seq);
+    const role = roleOf(r);
+    if (role === 'target') {
+      targetSeqs.push(seq);
+      if (!byIntent.has(r.intent)) byIntent.set(r.intent, []);
+      byIntent.get(r.intent).push(seq);
+    } else {
+      bgSeqs.push(seq);
+      if (role === 'reference' && r.intent && !String(r.intent).startsWith('dolly:') && r.intent !== '_bg')
+        refByIntent.set(r.intent, (refByIntent.get(r.intent) || 0) + 1);
+    }
   }
 
   const intents = {};
@@ -107,7 +124,31 @@ export const fitShapes = (records, { alpha = 0.5, source = null } = {}) => {
     const g = fitGrammar(seqs, { alpha });
     intents[intent] = { n: seqs.length, moves: seqs.reduce((s, x) => s + x.length, 0), trans: g.trans, marginal: g.marginal };
   }
-  const bg = fitGrammar(all, { alpha });
+
+  // The negative set — a separate assistant corpus when one was given, else the corpus's own
+  // register (self-contained fallback). A draft's honest contrast is s_intent − s_background.
+  const external = bgSeqs.length > 0;
+  const bgSource = external ? bgSeqs : targetSeqs;
+  const bg = fitGrammar(bgSource, { alpha });
+
+  // Coverage — the contrast-set proof. For each target intent, how much reference (assistant)
+  // support exists. The intents that come back 0 are the Cleo-distinctive half no assistant
+  // corpus contains; only computed when a reference corpus was supplied.
+  let coverage = null;
+  if (refByIntent.size || external) {
+    const covered = {}, contrastOnly = [];
+    for (const intent of Object.keys(intents)) {
+      const n = refByIntent.get(intent) || 0;
+      covered[intent] = n;
+      if (n === 0) contrastOnly.push(intent);
+    }
+    coverage = {
+      referenceSources: [...new Set(records.filter((r) => roleOf(r) !== 'target').map((r) => r.source).filter(Boolean))],
+      supported: Object.entries(covered).filter(([, n]) => n > 0).length,
+      contrastOnly,                    // intents with zero assistant analog — the finding
+      byIntent: covered,
+    };
+  }
 
   return {
     kind: 'eo-move-shapes',
@@ -116,33 +157,56 @@ export const fitShapes = (records, { alpha = 0.5, source = null } = {}) => {
     masked: [...MASKED],
     kept: [...KEPT],
     alpha,
-    // The negative set — the corpus's register as a whole. A draft's honest contrast is
-    // s_intent − s_background, not intent-against-its-own-siblings.
-    background: { n: all.length, moves: all.reduce((s, x) => s + x.length, 0), trans: bg.trans, marginal: bg.marginal },
+    background: {
+      n: bgSource.length,
+      moves: bgSource.reduce((s, x) => s + x.length, 0),
+      external,
+      trans: bg.trans, marginal: bg.marginal,
+    },
     intents,
+    ...(coverage ? { coverage } : {}),
     provenance: {
       source,
       records: records.length,
       responsesRead: read,
       intents: Object.keys(intents).length,
+      background: external ? 'external-corpus' : 'target-pooled',
       tool: 'tools/shape-fit.mjs',
     },
   };
 };
 
 // ── CLI ────────────────────────────────────────────────────────────────────────
+// node tools/shape-fit.mjs                         — self-contained: Cleo target, pooled background.
+// node tools/shape-fit.mjs --reference data/corpus/dolly.jsonl [--out data/shapes.enriched.json]
+//     — target grammars from Cleo; background from the assistant corpus; coverage reported.
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMain) {
+  const argv = process.argv.slice(2);
+  const arg = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : null; };
+  const refPath = arg('--reference');
+  const OUT = new URL(`../${arg('--out') || 'data/shapes.json'}`, import.meta.url);
   const CORPUS = new URL('../data/exemplars.jsonl', import.meta.url);
-  const OUT = new URL('../data/shapes.json', import.meta.url);
+
   const records = parseExemplars(readFileSync(CORPUS, 'utf8'));
-  const shapes = fitShapes(records, { source: 'data/exemplars.jsonl' });
-  writeFileSync(OUT, JSON.stringify(shapes, null, 2) + '\n');
+  if (refPath) {
+    const { fromDolly } = await import('./corpus/adapters.mjs');
+    const ref = fromDolly(readFileSync(new URL(`../${refPath}`, import.meta.url), 'utf8'), { role: 'reference' });
+    records.push(...ref);
+    console.log(`shape-fit: + ${ref.length} reference records from ${refPath}`);
+  }
+  const shapes = fitShapes(records, { source: refPath ? `data/exemplars.jsonl + ${refPath}` : 'data/exemplars.jsonl' });
+
   const top = (g) => Object.entries(g.marginal).filter(([, p]) => p > 0).sort((a, b) => b[1] - a[1]).slice(0, 3)
     .map(([op, p]) => `${op} ${Math.round(p * 100)}%`).join(' · ');
-  console.log(`shape-fit: ${shapes.provenance.responsesRead}/${records.length} responses → ${shapes.provenance.intents} intents`);
-  console.log(`  background (${shapes.background.n} seqs): ${top(shapes.background)}`);
+  console.log(`shape-fit: ${shapes.provenance.responsesRead} responses → ${shapes.provenance.intents} intents`);
+  console.log(`  background (${shapes.background.n} seqs, ${shapes.background.external ? 'external' : 'pooled'}): ${top(shapes.background)}`);
   for (const [intent, g] of Object.entries(shapes.intents))
     console.log(`  ${intent.padEnd(30)} n=${String(g.n).padStart(3)}  ${top(g)}`);
+  if (shapes.coverage) {
+    console.log(`\ncoverage (contrast-set proof): ${shapes.coverage.supported}/${shapes.provenance.intents} intents have assistant support`);
+    console.log(`  contrast-only (no assistant analog, Cleo's own): ${shapes.coverage.contrastOnly.join(', ')}`);
+  }
+  writeFileSync(OUT, JSON.stringify(shapes, null, 2) + '\n');
   console.log(`→ ${fileURLToPath(OUT)}`);
 }

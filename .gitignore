@@ -4,3 +4,7 @@ version.json
 _site/
 # Screenshot artifact written by tools/verify-console.mjs on each headless run.
 tools/console-verify.png
+
+# fetched external corpora — derived shapes.json is committed, raw data is not
+data/corpus/
+data/shapes.enriched.json
