@@ -13,7 +13,7 @@ import { murmurConfig } from './config.js';
 import { senseSignal, createSessionTopic, meanVec } from './sense/index.js';
 import { classify, dominant, createWorkingFeel } from './valence/index.js';
 import { bornCollapse, buildSteer, steerBias } from './steer/index.js';
-import { createNarrator } from './narrate/index.js';
+import { createNarrator, innerVoice } from './narrate/index.js';
 import { createImpressionSink } from './audit/index.js';
 import { createLearning } from './learn/index.js';
 import { nominateFromFeel, connectionKey } from './link/index.js';
@@ -149,7 +149,14 @@ export const createMurmur = ({
     //    (spec §5) and a future recognition can name this event as the one it echoes (phase 4).
     topic.pushReading(readingCentroid, signal.ref);
 
-    const snapshot = Object.freeze({ signal, registers, impressions: feel.feel(), collapse, steer, topicNote, at: now() });
+    // 8. VOICE it (narrate/voice.js) — surface the ACTUAL propositions the fold parsed
+    //    (rawSnapshot.propositions, realized to speech at the wiring site), tinted by the feeling, so
+    //    the strip reads like a mind reading, not a gauge cluster or a canned reaction (spec §6/§9.5:
+    //    a voicing, never a fact, never in the answer prompt). Rides the same READ side-channel (§9.4).
+    const feltNow = feel.feel();
+    const props = Array.isArray(rawSnapshot.propositions) ? rawSnapshot.propositions : [];
+    const voice = innerVoice({ signal, impressions: feltNow, propositions: props, passageText: rawSnapshot.passageText || '' });
+    const snapshot = Object.freeze({ signal, registers, impressions: feltNow, voice, propositions: props, collapse, steer, topicNote, at: now() });
     lastState = snapshot;
     notifyWatchers(snapshot);
     return snapshot;
@@ -169,10 +176,15 @@ export const createMurmur = ({
       at: now(),
     };
     const base = lastState || {};
+    const impressions = [imp, ...(feel.feel() || [])].slice(0, 6);
+    // VOICE the wander (narrate/voice.js): its own phrase leads verbatim (the murmur's words), then
+    // the last fold's parsed propositions trail — real content, tinted by the feeling, not gauges (§9.4).
+    const voice = innerVoice({ signal: base.signal || null, impressions, propositions: base.propositions || [], mutter: imp });
     const snapshot = Object.freeze({
-      signal: base.signal || null,          // keep the last gauges (drift/footing/novelty) if any
+      signal: base.signal || null,          // keep the last signal (drift/footing/novelty) if any
       registers: base.registers || [],
-      impressions: [imp, ...(feel.feel() || [])].slice(0, 6),
+      impressions,
+      voice,
       collapse: null, steer: null,
       mutter: imp,
       learning: learnedNote,                // the note just minted (audit-only, canWitness===false)
