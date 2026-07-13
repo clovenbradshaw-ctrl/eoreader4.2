@@ -822,35 +822,6 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       return src;
     });
 
-  // ── live recording — the microphone cochlea ────────────────────────────────
-  // The recorder itself (record-audio.js) is lazy like every heavy front-end: nothing —
-  // not whisper, not the module — loads until someone actually starts a recording. The
-  // surface drives { start, stop, cancel } and streams the live transcript; the finished
-  // take lands here.
-  const recordAudio = async (callbacks) => (await import('./record-audio.js')).createRecorder(callbacks);
-
-  // A finished live recording, admitted as a source WITHOUT re-hearing it — the words
-  // were transcribed while they were spoken (the recorder's windowed decode); here the
-  // transcript only lands on the spine, exactly the way an uploaded clip's does
-  // (ingestFile: audio is a prose-bearing modality, so the entity/relation read runs
-  // over the actual sentences), with the same coverage receipt on the source.
-  const ingestRecording = ({ utterances = [], text = '', duration = 0, witness = 'microphone', title = null } = {}) =>
-    runCancellable({ kind: 'file', label: 'Recording the transcript…' }, async () => {
-      const body = String(text || utterances.map(u => (u.words || []).map(w => w.text).join(' ')).join(' ')).trim();
-      if (!body) throw new Error('no speech was heard in the recording');
-      const name = title || `Recording — ${nowIso().slice(0, 16).replace('T', ' ')}`;
-      const doc = parseText(body, { docId: `doc-${shaShort(webContentHash(body))}` });
-      const src = addSource({ title: name, text: body, kind: 'audio', rights: 'live recording — transcribed on this device', doc });
-      if (src && !src.coverage) {
-        const heardTo = utterances.length ? utterances[utterances.length - 1].end : 0;
-        src.coverage = { complete: true, seconds: Math.round(duration * 10) / 10, heardTo: Math.round(heardTo * 10) / 10,
-                         utterances: utterances.length, witness, dropped: [] };
-        logIt('record', `Coverage — ${src.coverage.seconds}s of live audio heard end to end (${witness})`, src.reg);
-        persist();
-      }
-      return src;
-    });
-
   // ── model ──────────────────────────────────────────────────────────────────
   let backendOverride = null;
   const backendPref = () => {
@@ -858,6 +829,9 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     try { const v = localStorage.getItem('eo_backend'); if (v) return v; } catch { /* default */ }
     return (typeof navigator !== 'undefined' && navigator.gpu) ? 'webllm' : 'wllama';
   };
+  // The WebGPU talkers — both ride the web-llm engine, so they share the stall wording,
+  // the no-WebGPU blame check, and the wedge ladder's step down to the CPU model.
+  const isWebgpuTalker = (b) => b === 'webllm' || b === 'qwen';
   let model = null, modelLoading = null, modelGen = 0;
   // Consecutive in-browser decode wedges (a lost / OOM'd WebGPU device). A clean answer clears it
   // (finishMessage); a second straight wedge steps DOWN to the smaller/CPU backup (resetWedgedLocalModel).
@@ -977,7 +951,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
           if (gen !== modelGen) return;                      // superseded — not ours to narrate
           const quiet = Math.round((Date.now() - lastCb) / 1000);
           if (quiet < 20) return;
-          const hint = (backend === 'webllm' && quiet < 90)
+          const hint = (isWebgpuTalker(backend) && quiet < 90)
             ? `no data for ${quiet}s — the first chunk is 130–200 MB, a slow link sits at 0% a while`
             : `no data for ${quiet}s — if this never moves, this network may be blocking ` +
               `${backend === 'claude' ? 'api.anthropic.com' : 'huggingface.co'}; pick another model from the chip`;
@@ -1046,7 +1020,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
           // Blame WebGPU only when WebGPU is actually absent. webllm also fails on a
           // blocked CDN or weights host, and the old note pointed every such user at
           // chrome://flags — a fix for a problem they didn't have, hiding the real one.
-          const noGpu = backend === 'webllm' && !(typeof navigator !== 'undefined' && navigator.gpu);
+          const noGpu = isWebgpuTalker(backend) && !(typeof navigator !== 'undefined' && navigator.gpu);
           const why = noGpu
             ? 'needs WebGPU (chrome://flags or Chrome/Edge); falling back to the CPU model'
             : String(e?.message || e).slice(0, 120);
@@ -1128,10 +1102,13 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         // backup for THIS SESSION ONLY (persist: false): the user's saved pick stays theirs, so a
         // transient bad day (a backgrounded tab, one OOM) can't permanently hijack it — the next
         // visit tries their real choice again.
-        if (backendPref() === 'webllm' && speedPref() !== 'fast') {
+        // Only a 'fluent' pin has anywhere smaller to step to — the default IS the 1B build
+        // now, so an unpinned webllm goes straight to the CPU rung instead of wasting a
+        // wedge cycle reloading the same size.
+        if (backendPref() === 'webllm' && speedPref() === 'fluent') {
           logIt('skip', 'In-browser model kept dying — dropping to the faster 1B build for this session');
           setSpeed('fast', { persist: false });
-        } else if (backendPref() === 'webllm') {
+        } else if (isWebgpuTalker(backendPref())) {
           logIt('skip', 'WebGPU model kept dying — switching to the CPU model for this session');
           setBackend('wllama', { persist: false });
         } else {
@@ -2439,7 +2416,6 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
     // ingest
     ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage,
-    recordAudio, ingestRecording,
     sourceBySn, removeSource, topicSources,
     // chat
     ask, stop, exportChat,

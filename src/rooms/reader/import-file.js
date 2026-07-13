@@ -331,7 +331,6 @@ async function fromImage(file, title, name, say) {
 
 // Whisper's timestamped chunks → utterances of timed words. Each chunk is a breath group;
 // its words get interpolated times, so the audio organ keeps a clock on every word.
-// Exported: the live-microphone cochlea (record-audio.js) hears through the same ear.
 export function _whisperUtterances(out, norm) {
   const utterances = [];
   for (const ch of (out && out.chunks) || []) {

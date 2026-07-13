@@ -30,7 +30,9 @@
 //
 //   nodes: [{ id, tier: 0|1|2, label, kind, ref }]
 //   edges: [{ a, b, tier, gl, code }]   — a → b, gl = operator glyph
-//   onOpen(node)  optional — "open →" in the inspector for kinds that navigate
+//   onOpen(node)    optional — "open →" in the inspector for kinds that navigate
+//   onSelect(node)  optional — fires when a node is clicked/selected, so the host
+//                   can mirror the selection (e.g. the overlay's details panel)
 
 const TIER = {
   0: { fill: '#7F77DD', stroke: '#534AB7', edge: '#7F77DD', name: 'existence',    chipBg: '#EEEDFE', chipFg: '#3C3489', glyphs: '∅○●' },
@@ -57,7 +59,7 @@ const CSS = `
 
 const NS = 'http://www.w3.org/2000/svg';
 
-export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [], onOpen = null, countsLabel = '' } = {}) {
+export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [], onOpen = null, onSelect = null, countsLabel = '' } = {}) {
   if (!document.getElementById(STYLE_ID)) {
     const st = document.createElement('style'); st.id = STYLE_ID; st.textContent = CSS; document.head.appendChild(st);
   }
@@ -333,6 +335,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
       const b = el('button', { class: 'tg-btn', text: 'open →' }); b.style.marginLeft = 'auto'; b.style.flex = '0 0 auto';
       b.addEventListener('click', () => onOpen(n)); detail.appendChild(b);
     }
+    if (onSelect) { try { onSelect(n); } catch { /* the host's mirror must never break the select */ } }
   }
   function deselect() {
     state.sel = null;
