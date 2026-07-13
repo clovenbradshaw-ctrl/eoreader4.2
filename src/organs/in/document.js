@@ -60,10 +60,21 @@ export const assembleDocument = ({ name = `doc-${Date.now()}`, modality = 'docum
     // breaks a paragraph, a table cell breaks a line.
     text += (kind === 'cell' ? '\t' : '\n\n');
 
-    log.append({ op: 'INS', id, label: kind, sentIdx: i });
+    // The block's LOCUS — WHERE this passage sits, as a W3C Media Fragment: the page and
+    // bounding box when the source carries geometry (a PDF, an OCR, a Docling block), plus
+    // the char range into the reconstructed text, always. Rides on the event (the `^locus`
+    // trailer, docs/eot-surface-syntax.md), so a witness renders the highlighted passage —
+    // and the address survives serialization and compositing, which `doc.spans` does not.
+    const frag = [];
+    if (b.page != null) frag.push(`page=${b.page}`);
+    if (Array.isArray(b.bbox)) frag.push(`xywh=${b.bbox.join(',')}`);
+    frag.push(`char=${charStart},${charEnd}`);
+    const locus = `${name}#${frag.join('&')}`;
+
+    log.append({ op: 'INS', id, label: kind, sentIdx: i, locus });
     mentions.set(id, [i]);
-    if (b.level != null) log.append({ op: 'DEF', id, key: 'level', value: String(b.level), sentIdx: i });
-    if (prevId) log.append({ op: 'CON', src: prevId, tgt: id, via: 'flow', sentIdx: i });
+    if (b.level != null) log.append({ op: 'DEF', id, key: 'level', value: String(b.level), sentIdx: i, locus });
+    if (prevId) log.append({ op: 'CON', src: prevId, tgt: id, via: 'flow', sentIdx: i, locus });
     prevId = id;
 
     spans.push({ id, kind, level: b.level ?? null, charStart, charEnd, page: b.page ?? null, bbox: b.bbox ?? null, ref: b.ref ?? null, text: body });

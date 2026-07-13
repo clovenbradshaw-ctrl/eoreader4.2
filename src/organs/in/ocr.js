@@ -46,7 +46,10 @@ export const ingestOcr = (ocr = {}) => {
   const doc = assembleDocument({
     name, modality: 'ocr', blocks,
     metadata: ocr.metadata || {},
-    extra: { tier: 'tesseract' },
+    // An OCR is READ FROM a scan — a derived document, not an independent witness. When the
+    // caller ingested the source image too, it passes its docId here, and the reflection loop
+    // folds the OCR onto that root so a scan and its OCR corroborate as ONE origin, not two.
+    extra: { tier: 'tesseract', ...(ocr.derivedFrom != null ? { derivedFrom: ocr.derivedFrom } : {}) },
   });
   // Per-span confidence, for a reader that wants to see which passages the OCR was unsure of.
   doc.confidence = doc.spans.map(s => s.ref?.confidence ?? null);

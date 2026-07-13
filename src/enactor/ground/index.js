@@ -32,7 +32,7 @@ export { contentTerms } from './spans.js';
 // The reflection: parse the model's OUTPUT back into EOT, compare each proposition with
 // the document graph, and judge the groundedness of what the graph holds — counting the
 // diverse, independent origins that witness each claim (docs/creative-grounded-modes.md).
-export { reflectAnswer, eotLineOf } from './reflect.js';
+export { reflectAnswer, eotLineOf, senseOfModality } from './reflect.js';
 // The answer weighed by the reader's own reaction (the Born measure): the physics check the
 // lexical veto battery cannot make. The reader is asked to REACT to its own draft, and that
 // reaction is projected onto a valence basis and put through the Born rule — a positive

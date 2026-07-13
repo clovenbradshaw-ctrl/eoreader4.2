@@ -61,7 +61,9 @@ const witnessTableOf = (doc) => {
       const k = relKey({ subj: L(e.src), via: lc(e.via), obj: e.tgt != null ? L(e.tgt) : null });
       const door = e.door ?? e.prov?.door ?? 'perceiver';
       if (!byRel.has(k)) byRel.set(k, []);
-      byRel.get(k).push({ sentIdx: Number.isFinite(e.sentIdx) ? e.sentIdx : null, door });
+      // `locus` (WHERE the event was read — a bbox, a timecode, a cell) rides along so a
+      // witness can render the evidence itself, not the pseudo-sentence standing in for it.
+      byRel.get(k).push({ sentIdx: Number.isFinite(e.sentIdx) ? e.sentIdx : null, door, locus: e.locus ?? null });
     }
     if (e.op === 'DEF' && e.kind === 'attr' && e.id != null && e.key != null) {
       attrs.add(`${L(e.id)}|${lc(e.key)}|${lc(e.value)}`);
@@ -70,43 +72,81 @@ const witnessTableOf = (doc) => {
   return { byRel, attrs, figures: new Set(label.values()) };
 };
 
-// Where a composite sentence came from — the ORIGIN document, the provenance axis the
-// composite keeps per unit. A single document is its own origin.
-const originOf = (doc, idx) => {
+// The SENSE a document was read through — the organ's modality mapped onto the five doors
+// of the world (docs/multimodal-eot-foundation.md; the proposal's "doors, plural"). `modality` is
+// the organ label (image, audio, table); `sense` is the channel it stands for. Two origins
+// through ONE sense (paper twice) corroborate; through TWO senses (paper and tape) is a
+// stronger, cross-modal thing — a fact two independent channels of the world both hold.
+const SENSE_OF_MODALITY = {
+  text: 'text', pdf: 'text', ocr: 'text', docling: 'text', webpage: 'text', warc: 'text', document: 'text',
+  image: 'sight', scene: 'sight', video: 'sight',
+  audio: 'hearing', acoustic: 'hearing', hear: 'hearing', music: 'hearing', frequency: 'hearing',
+  table: 'tabular',
+  json: 'structural', code: 'structural', codon: 'structural',
+};
+export const senseOfModality = (modality) => SENSE_OF_MODALITY[String(modality ?? '').toLowerCase()] || 'text';
+
+// Where a composite sentence came from — the source document + its object, the provenance
+// axis the composite keeps per unit. A single document is its own source.
+const sourceOf = (doc, idx) => {
   if (typeof doc?.origin === 'function' && Number.isFinite(idx)) {
     const o = doc.origin(idx);
-    if (o?.docId != null) return o.docId;
+    if (o?.docId != null) return { docId: o.docId, doc: o.doc || doc };
   }
-  return doc?.docId ?? 'doc';
+  return { docId: doc?.docId ?? 'doc', doc };
 };
 
-// One claim's witnesses, folded to independent origins: each origin document contributes
-// one representative sentence; the DIVERSITY of the claim is how many distinct origins
-// witnessed it through the world's door (exafference). Enactor-door witnesses are kept
-// visible but never counted as sources — the engine's notes cannot corroborate the engine.
+// Walk a document to its DERIVATION ROOT: a transcript read from a recording, an OCR from
+// a scan, a WARC of a webpage — each declares `derivedFrom`, and the reflection loop counts
+// the root, not the copy, so a document and the note taken off it are ONE origin, not two.
+// A cycle guard keeps a malformed chain from looping. Missing map → the doc is its own root.
+const rootDocId = (doc, docId) => {
+  const map = doc?.derivedFrom;
+  if (!map || typeof map !== 'object') return docId;
+  let cur = docId;
+  const seen = new Set();
+  while (map[cur] != null && !seen.has(cur)) { seen.add(cur); cur = map[cur]; }
+  return cur;
+};
+
+// One claim's witnesses, folded to independent ROOT origins and to the SENSES they came
+// through: each root document contributes one representative witness (its sentence, plus
+// the locus and sense that let the UI render the evidence itself); the DIVERSITY of the
+// claim is how many distinct roots witnessed it through the world's door (exafference), and
+// how many senses those roots span. Enactor-door witnesses stay visible but never count as
+// sources — the engine's notes cannot corroborate the engine.
 const witnessesOf = (doc, sentences, hits) => {
-  const byOrigin = new Map();
+  const byRoot = new Map();
+  const senses = new Set();
   let exafferent = 0, reafferent = 0;
   for (const h of hits) {
     if (h.door === 'enactor') { reafferent += 1; continue; }
     exafferent += 1;
     if (h.sentIdx == null) continue;
-    const docId = originOf(doc, h.sentIdx);
-    if (!byOrigin.has(docId)) {
-      byOrigin.set(docId, {
-        docId, sentIdx: h.sentIdx,
+    const src = sourceOf(doc, h.sentIdx);
+    const root = rootDocId(doc, src.docId);
+    const rootModality = doc?.modalityByDoc?.[root] ?? src.doc?.modality;
+    const sense = senseOfModality(rootModality);
+    senses.add(sense);
+    if (!byRoot.has(root)) {
+      byRoot.set(root, {
+        docId: root, sentIdx: h.sentIdx, sense, locus: h.locus ?? null,
         text: squash(sentences[h.sentIdx]).slice(0, MAX_QUOTE),
       });
     }
   }
-  return { sources: [...byOrigin.values()].slice(0, MAX_WITNESSES), origins: byOrigin.size, exafferent, reafferent };
+  return {
+    sources: [...byRoot.values()].slice(0, MAX_WITNESSES),
+    origins: byRoot.size, senses, exafferent, reafferent,
+  };
 };
 
 // reflectAnswer({ answer, doc }) → { eot, summary } | null
 //   eot      one row per EOT line parsed from the answer, each with its verdict and
 //            witnesses: { line, kind, status, sources, origins, subj, via, obj }
-//   status   relation:  corroborated (≥2 independent origins) · single-source ·
-//                       interpretation (engine's notes only) · unwitnessed
+//   status   relation:  cross-modal (≥2 roots through ≥2 senses) · corroborated (≥2
+//                       independent roots, one sense) · single-source · interpretation
+//                       (engine's notes only) · unwitnessed
 //            entity:    known (in the graph) · novel
 //            attribute: matches · unwitnessed
 export const reflectAnswer = ({ answer, doc } = {}) => {
@@ -134,13 +174,17 @@ export const reflectAnswer = ({ answer, doc } = {}) => {
       const hits = table.byRel.get(relKey({ subj, via, obj })) || [];
       const w = witnessesOf(doc, sentences, hits);
       const verbatim = spanLC.some((s) => s.includes(subj) && s.includes(via) && (!obj || s.includes(obj)));
-      const status = w.origins >= 2 ? 'corroborated'
+      // The ladder gains a top rung: two or more independent roots through two or more
+      // SENSES is CROSS-MODAL — the paper and the tape, channels that never touched, both
+      // holding the fact. A stronger epistemic object than the same fact twice on paper.
+      const status = w.origins >= 2 && w.senses.size >= 2 ? 'cross-modal'
+        : w.origins >= 2 ? 'corroborated'
         : w.origins === 1 ? 'single-source'
         : w.reafferent > 0 ? 'interpretation'
         : 'unwitnessed';
       seenLine.add(line);
       eot.push({ line, kind: 'relation', status, verbatim, subj, via, obj,
-                 sources: w.sources, origins: w.origins });
+                 sources: w.sources, origins: w.origins, senses: [...w.senses] });
     } else if (e.op === 'DEF' && e.kind === 'attr' && e.id != null && e.key != null) {
       const matches = table.attrs.has(`${lc(L(e.id))}|${lc(e.key)}|${lc(e.value)}`);
       seenLine.add(line);
@@ -158,6 +202,7 @@ export const reflectAnswer = ({ answer, doc } = {}) => {
   const summary = {
     lines: eot.length,
     relations: rel.length,
+    crossModal:     rel.filter((r) => r.status === 'cross-modal').length,
     corroborated:   rel.filter((r) => r.status === 'corroborated').length,
     singleSource:   rel.filter((r) => r.status === 'single-source').length,
     interpretation: rel.filter((r) => r.status === 'interpretation').length,
