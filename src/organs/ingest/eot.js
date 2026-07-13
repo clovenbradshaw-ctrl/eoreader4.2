@@ -56,19 +56,29 @@ const stripComment = (line) => {
   return line;
 };
 
-// pull the trailing provenance trailer (§5.7): `@agent` and `~ts`, order-independent, both
-// optional, after the body. Returns { body, agent, ts }.
+// pull the trailing provenance trailer (§5.7): `@agent`, `~ts`, and `^locus`, order-
+// independent, all optional, after the body. Returns { body, agent, ts, locus }.
+//
+// The locus is the third sigil: WHERE the event was read — a URI fragment (W3C Media
+// Fragments: `#t=`, `#xywh=`, `#page=`, plus `#char=` for text and `#row=&col=` for
+// tables). The parser treats it as an OPAQUE string; only the organ that minted it can
+// open it. It rides QUOTED — `^"scene.jpg#xywh=210,88,64,64"` — because a fragment's `#`
+// is EOT's own comment sigil, and the (quote-aware) comment stripper would otherwise eat
+// everything from the `#` on. A bare `^token` with no `#` is also accepted for hand-writing.
 const splitMeta = (line) => {
   let body = line;
   let agent = null;
   let ts = null;
+  let locus = null;
   let m;
-  // a trailing @… or ~… token (whitespace-separated), stripped repeatedly so order is free.
-  while ((m = body.match(/\s+([@~])([^\s@~]+)\s*$/))) {
-    if (m[1] === '@') agent = m[2]; else ts = m[2];
+  // trailing @… / ~… / ^… tokens (whitespace-separated), stripped repeatedly so order is free.
+  while ((m = body.match(/\s+(?:\^"([^"]*)"|\^([^\s@~^"]+)|([@~])([^\s@~^]+))\s*$/))) {
+    if (m[1] != null || m[2] != null) locus = m[1] != null ? m[1] : m[2];
+    else if (m[3] === '@') agent = m[4];
+    else ts = m[4];
     body = body.slice(0, m.index).replace(/\s+$/, '');
   }
-  return { body, agent, ts };
+  return { body, agent, ts, locus };
 };
 
 // parse a value literal (§4.5): quoted string, ∅/nil, bool, number, else bareword string.
@@ -131,6 +141,7 @@ export const parseEOT = (text, context = {}) => {
       site,
       agent: meta.agent ?? ctx.agent,
       ts: meta.ts ?? ctx.ts,
+      locus: meta.locus ?? null,   // WHERE it was read — opaque URI fragment, never resolved here
       mode: ctx.mode,
       frame: ctx.frame,
       door: ctx.door,              // enactor (the model's notes) unless an external import
@@ -144,8 +155,8 @@ export const parseEOT = (text, context = {}) => {
     const raw = lines[i].replace(/\r$/, '');
     const noComment = stripComment(raw).trim();
     if (!noComment) continue;                                      // empty / comment-only (§4.2)
-    const { body, agent, ts } = splitMeta(noComment);
-    const meta = { agent, ts, lineNo, raw };
+    const { body, agent, ts, locus } = splitMeta(noComment);
+    const meta = { agent, ts, locus, lineNo, raw };
     const bad = (expected) => diagnostics.push({ line: lineNo, raw, expected });
 
     // ── tagged statements: the flag forces the operator (§5.4) ──
@@ -240,7 +251,10 @@ export const eotDoc = (text, context = {}) => {
   const door = context.door === 'perceiver' ? 'perceiver' : 'enactor';
   const frame = context.frame ?? 'eot';
   const prov = door === 'perceiver' ? fromPerceiver(frame) : fromEnactor(frame);
-  const app = (event) => log.append({ ...event, door, prov });
+  // The locus of the tuple currently being lowered — stamped onto every log event it mints
+  // (its INS, its relation), so `emitEot` can read the address back out onto the surface.
+  let curLocus = null;
+  const app = (event) => log.append({ ...event, door, prov, ...(curLocus ? { locus: curLocus } : {}) });
 
   const anchors = new Map();     // sign → immutable hashId (the coref identity)
   let seq = 0;
@@ -256,6 +270,7 @@ export const eotDoc = (text, context = {}) => {
 
   for (const t of tuples) {
     const sentIdx = (t.line ?? 1) - 1;
+    curLocus = t.locus ?? null;
     const op = t.op;
     if (op === 'INS') {
       const id = idOf(t.target, sentIdx);                          // mint the span, INS it

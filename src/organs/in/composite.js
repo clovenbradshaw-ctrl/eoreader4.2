@@ -323,6 +323,17 @@ export const createCompositeDoc = (docs, { crossDocSyn = true, heldIdentity = HE
     // Map a composite sentence index back to its source document + local index, so
     // the UI can highlight a citation in the document it actually came from.
     origin: originAt,
+    // The modality each member was constituted through, by docId — the raw organ label
+    // (image, audio, table, …). The reflection loop maps it to a SENSE (sight, hearing,
+    // tabular) to tell a claim two senses hold apart from one repeated twice on paper.
+    modalityByDoc: Object.fromEntries(list.map((d) => [d.docId, d.modality])),
+    // Derivation parents by docId: a document READ FROM another (a transcript from its
+    // recording, an OCR from its scan) records the source it depends on. Reflection walks
+    // this to the root before counting independent origins — a transcript is not a second
+    // witness to the room. Only members that declare `derivedFrom` appear here.
+    derivedFrom: Object.fromEntries(
+      list.filter((d) => d.derivedFrom != null).map((d) => [d.docId, d.derivedFrom]),
+    ),
     // The cross-document merges that were proposed (for inspection / the audit).
     crossDocSyn: crossSyn,
     // Provenance of a (possibly merged) referent: every member id with its document,

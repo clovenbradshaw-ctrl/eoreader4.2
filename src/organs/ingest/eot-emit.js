@@ -44,11 +44,14 @@ export const valueLiteral = (v) => {
   return needsQuote(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
 };
 
-// the trailing provenance clause (§5.7): `@agent ~ts`, both optional. Emitted only when present.
-const metaTrailer = (agent, ts) => {
+// the trailing provenance clause (§5.7): `@agent ~ts ^locus`, all optional. Emitted only
+// when present. The locus (WHERE the event was read) rides QUOTED so its URI-fragment `#`
+// survives the comment stripper on the round trip back through parseEOT (see eot.js splitMeta).
+const metaTrailer = (agent, ts, locus) => {
   let out = '';
   if (agent) out += ` @${agent}`;
   if (ts) out += ` ~${ts}`;
+  if (locus) out += ` ^"${String(locus).replace(/"/g, '')}"`;
   return out;
 };
 
@@ -59,7 +62,7 @@ const metaTrailer = (agent, ts) => {
 export const tupleToEotLine = (t) => {
   if (!t || !t.op) return null;
   const o = t.operand || {};
-  const meta = metaTrailer(t.agent && t.agent !== 'model:eot' ? t.agent : null, t.ts);
+  const meta = metaTrailer(t.agent && t.agent !== 'model:eot' ? t.agent : null, t.ts, t.locus);
   switch (t.op) {
     case 'INS': return `${t.target} : ${o.type}${meta}`;
     case 'SIG': {
@@ -167,7 +170,7 @@ export const emitEot = (logOrEvents, { max = Infinity, alias = null } = {}) => {
     // inexpressible-event skips below. Uncapped (the default), every event renders.
     if (lines.length >= max) { if (!retracted.has(e.seq)) skip(e, 'over-max'); continue; }
     if (retracted.has(e.seq)) continue;
-    const meta = metaTrailer(e.agent && e.agent !== 'model:eot' ? e.agent : null, e.ts);
+    const meta = metaTrailer(e.agent && e.agent !== 'model:eot' ? e.agent : null, e.ts, e.locus);
 
     switch (e.op) {
       case 'INS':

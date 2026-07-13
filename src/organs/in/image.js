@@ -21,6 +21,11 @@ import { attachReading }    from '../ingest/index.js';
 
 const slug = (s) => String(s || 'thing').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
+// The region's LOCUS — WHERE it was seen, as a W3C Media Fragment spatial box
+// (`#xywh=x,y,w,h`). Rides on the event (docs/eot-surface-syntax.md, the `^locus` trailer),
+// so a witness to an image claim can render the CROP, not the pseudo-sentence "person".
+const bboxLocus = (name, r) => (Array.isArray(r?.bbox) ? `${name}#xywh=${r.bbox.join(',')}` : null);
+
 export const ingestImage = (detections = {}) => {
   const {
     name = `image-${Date.now()}`,
@@ -49,9 +54,10 @@ export const ingestImage = (detections = {}) => {
     const id = n === 1 ? base : `${base}-${n}`;
     idByOriginalIndex.set(i, id);
 
-    log.append({ op: 'INS', id, label: r.label, sentIdx: unitIdx });
+    const locus = bboxLocus(name, r);
+    log.append({ op: 'INS', id, label: r.label, sentIdx: unitIdx, ...(locus ? { locus } : {}) });
     mentions.set(id, [unitIdx]);
-    if (r.attr) log.append({ op: 'DEF', id, key: 'predicate', value: r.attr, sentIdx: unitIdx });
+    if (r.attr) log.append({ op: 'DEF', id, key: 'predicate', value: r.attr, sentIdx: unitIdx, ...(locus ? { locus } : {}) });
 
     orderedRegions.push({ ...r, id, unitIdx });
     units.push(`${r.label} (region ${unitIdx})`);
@@ -63,8 +69,10 @@ export const ingestImage = (detections = {}) => {
     const tgt = idByOriginalIndex.get(rel.to);
     if (!src || !tgt || src === tgt) continue;
     const op = rel.kind === 'sig' ? 'SIG' : 'CON';
-    const sentIdx = orderedRegions.find(o => o.id === src)?.unitIdx ?? 0;
-    log.append({ op, src, tgt, via: rel.via || 'near', sentIdx });
+    const srcRegion = orderedRegions.find(o => o.id === src);
+    const sentIdx = srcRegion?.unitIdx ?? 0;
+    const locus = bboxLocus(name, srcRegion);   // the LINK is witnessed at the source region's box
+    log.append({ op, src, tgt, via: rel.via || 'near', sentIdx, ...(locus ? { locus } : {}) });
   }
 
   const tokensBySentence = sentences.map(s => new Set(tok(s)));
