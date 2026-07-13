@@ -66,6 +66,11 @@ export { readWarc, ingestWarc } from './warc.js';
 export { ingestMusic }       from './music.js';
 export { ingestFrequencies } from './frequency.js';
 export { ingestFrames }      from './video.js';
+export {
+  frameDeltas, motionPeaks, analyzeMotion, detectCuts, separateShots,
+  backgroundPlate, presenceTrack, persistence, dwellsLongerThan,
+  motionMask, motionSummary, ingestMotion, readVideo,
+} from './motion.js';
 export { ingestCodons }      from './codon.js';
 export { ingestCode }        from './code.js';
 export {
