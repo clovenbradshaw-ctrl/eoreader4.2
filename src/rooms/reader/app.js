@@ -23,7 +23,7 @@ import { probeOrigins, explainReach } from '../../model/reach.js';
 import { createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
          runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
-         readDiscourse, phaticFromSpeech, clarifyDemandOf, loadShapeLibrary } from '../../turn/index.js';
+         readDiscourse, clarifyDemandOf, loadShapeLibrary } from '../../turn/index.js';
 import { loadShapeGrammars } from '../../turn/shape-grammar.js';
 import { extendLibraryWithNavPool } from '../../turn/nav-pool.js';
 import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
@@ -1599,17 +1599,22 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
 
     const mode = webMode();
 
-    // ── THE FRONT DOOR — physics, not a regex (docs/response-demand.md) ───────────────────────────
-    // The engine warms the model and reads ONE plain discourse statement about this turn
-    // (readDiscourse): the model says, in its own words, what the user is doing. Every door is then
-    // a CURRENT measured off that single paragraph. This replaces the old answerSmalltalk regex
-    // floor: a phatic turn — a greeting, a thanks, a goodbye, a how-are-you — is the PHATIC CURRENT
-    // winning the route relaxation (phaticFromSpeech → metaRoute), a physical fact of the statement
-    // rather than a matched spelling. It runs BEFORE the empty-record and grounding branches, so a
-    // greeting answers with one warm line and NEVER reaches the web (the "why did it search for
-    // 'how are you'" bug). The same statement is reused below to decide clarify, so the model speaks
-    // once per turn. Fail-soft by construction: no model, an empty read, or any throw abstains, and
-    // the turn proceeds exactly as a substantive one would.
+    // ── THE FRONT DOOR — the phatic short-circuit is DETERMINISTIC (docs/response-demand.md) ──────
+    // A turn is answered with one warm social line (and NEVER reaches retrieval / grounding / the
+    // web) ONLY when the offline floor `answerSmalltalk` recognizes it as social from the user's own
+    // words — a greeting, a thanks, a goodbye, a how-are-you. The tiny-model discourse read
+    // (readDiscourse) is STILL taken once per turn, but it no longer decides phatic: it feeds only
+    // the clarify gate below. This reverses the earlier "physics, not a regex" phatic door, where the
+    // PHATIC CURRENT of the model's paragraph (phaticFromSpeech → metaRoute) could win the route
+    // relaxation and short-circuit the turn. On a 1B/1.5B model that read is unreliable AND biased —
+    // it routinely describes a real question ("what is the best elvis movie?") as a casual/social ask,
+    // and the phatic exemplars then out-score ground/research — so a genuine question was
+    // intermittently swallowed as chit-chat, the sources never consulted and no search fired, and the
+    // SAME question flipped answer to answer (the exported "works sometimes, not another" flakiness).
+    // Deciding phatic on the deterministic floor makes routing reproducible and can never discard a
+    // real question; the cost is a paraphrased greeting the floor misses ("you around?") gets a normal
+    // turn instead of a warm line — the safe direction. Fail-soft: no model / empty read / any throw
+    // still proceeds as a substantive turn; a clear greeting is honored even if the model faults.
     warmMinilm();
     // This turn's cancellation kit, armed BEFORE the front-door decode so even that read is watched,
     // stoppable, and signal-threaded (see answerFromWeb) — never a fresh way for a turn to hang.
@@ -1634,9 +1639,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     try {
       setBusy({ kind: 'turn', label: 'Reading the turn…' });
       const m0 = await raceGuard(ensureModel());
-      // The floor already settled a clear greeting — don't spend the discourse read on it.
+      // The floor already settled a clear greeting — don't spend the discourse read on it. Otherwise
+      // the read is taken for the clarify gate below (it no longer decides phatic).
       discourse = floorTalk ? '' : await raceGuard(keepAlive(readDiscourse(m0, { history: priorHistory, now: new Date(), scope: t.title || '', signal: turnSignal })(q)));
-      if (floorTalk || phaticFromSpeech(discourse).phatic) {
+      if (floorTalk) {
         pending.text = await phaticReply(m0, { question: q, hasDoc: docs.length > 0, signal: turnSignal, raceGuard, keepAlive });
         pending.route = 'phatic';
         pending.pending = false;
@@ -1756,9 +1762,17 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       // The confidentiality lever: when redact-when-hosted is on, wrap the talker in the privacy
       // membrane so a REMOTE backend sees only tokens (a no-op for a local model, or when off).
       const m = redactRemote() ? wrapRedacting(m0, redactionNames) : m0;
+      // The conversation handed to the turn is the settled dialogue MINUS this turn's own
+      // question (it rides separately as `question`). Drop exactly one — the current user turn,
+      // which is last after the empty pending assistant is filtered out — so the most recent
+      // assistant reply STAYS in. The old `-2` dropped that reply too, so the grounded prompt's
+      // "conversation so far" band only ever showed the user's turns (the exported bug: a bare
+      // "You: research elvis films…" with the answer it refers to missing), leaving a follow-up
+      // like "which is the best?" nothing to resolve against. `-1` matches priorHistory above.
+      // foldConversation then holds the recent window to its token budget and folds the rest.
       const history = t.messages
         .filter((x) => !x.pending && x.text)
-        .slice(0, -2)
+        .slice(0, -1)
         .map((x) => ({ role: x.role, content: x.text, ...(x.unbound ? { unbound: true } : {}) }));
       // A long-form ask ("write me an essay …") gets a large budget so the answer can develop
       // past the pointed-answer cap; a normal ask keeps the per-task budget the pipeline picks.
