@@ -51,13 +51,28 @@ export const ingestJson = (input = {}) => {
     sentences.push(/[.!?]$/.test(line) ? line : line + '.');
   };
 
+  // An array ITEM is keyed by its index, but an index names nothing. When the item is an
+  // object carrying its own identity field, that names the entity — crew[0] with
+  // { name: "Imani Okafor" } reads as "Imani Okafor", not "0". The path keeps the index.
+  const IDENTITY_KEYS = ['name', 'title', 'label', 'id', 'key', 'slug'];
+  const identityOf = (val) => {
+    if (typeOf(val) !== 'object') return null;
+    for (const k of IDENTITY_KEYS) {
+      const v = val[k];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+      if (typeof v === 'number') return String(v);
+    }
+    return null;
+  };
+
   // Depth-first, document order: a container is an entity + CON from its parent; a leaf is a
   // DEF fact of its nearest container. `nodes` keeps the walk order (with depth) for a viewer.
   const walk = (val, key, path, depth, parentId) => {
     if (isContainer(val) && depth <= DEPTH_CAP) {
       containers++;
       const id = `node-${entN++}`;
-      const label = key == null ? (name || 'root') : String(key);
+      const label = key == null ? (name || 'root')
+        : (typeof key === 'number' ? (identityOf(val) ?? String(key)) : String(key));
       log.append({ op: 'INS', id, label, sentIdx: null });
       mentions.set(id, []);
       if (parentId) log.append({ op: 'CON', src: parentId, tgt: id, via: 'contains', sentIdx: null });

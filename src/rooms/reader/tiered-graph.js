@@ -81,7 +81,9 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   order.forEach((id) => { const n = byId[id]; edges.forEach((e) => { if (e.b === id) n.rank = Math.max(n.rank, byId[e.a].rank + 1); }); });
   let maxRank = 0; nodes.forEach((n) => maxRank = Math.max(maxRank, n.rank));
 
-  const W = 680, H = 440, state = { layout: 'radial', orient: 'h', rot: 0, tiers: { 0: true, 1: true, 2: true }, sel: null, names: false, hover: null };
+  // names default ON — the first thing an import reveals must read as ITS OWN entities
+  // ("Springfield", "Imani Okafor"), not anonymous circles awaiting a hover.
+  const W = 680, H = 440, state = { layout: 'radial', orient: 'h', rot: 0, tiers: { 0: true, 1: true, 2: true }, sel: null, names: true, hover: null };
 
   // ── shell ────────────────────────────────────────────────────────────────
   const wrap = el('div', { class: 'eo-tg', role: 'region', 'aria-label': 'Interactive record graph: nodes across three helix tiers, connected by operator edges' });
@@ -94,7 +96,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
         '<button class="tg-btn on" data-layout="radial">◎ radial</button>' +
       '</div>' +
       '<button class="tg-btn" data-pivot>⟲ <span data-pivot-lbl>rotate</span></button>' +
-      '<button class="tg-btn" data-names title="Toggle persistent node names — hover always shows the full name">names</button>' +
+      '<button class="tg-btn on" data-names title="Toggle persistent node names — hover always shows the full name">names</button>' +
       '<div style="display:flex;gap:5px;margin-left:auto;">' +
         '<button class="tg-btn" data-zin aria-label="zoom in">+</button>' +
         '<button class="tg-btn" data-zout aria-label="zoom out">−</button>' +

@@ -32,7 +32,7 @@ const CSS = `
 :root[data-theme="dark"] .dagsurf{--dg-ess:#7c85f2;--dg-gen:#37bcaa;--dg-acc:#6c7684;--dg-warm:#e0942f;--dg-con:#e26a82;--dg-focus:#7c85f2}
 :root[data-theme="light"] .dagsurf{--dg-ess:#3b46c4;--dg-gen:#0c8f7f;--dg-acc:#8a94a6;--dg-warm:#c9760a;--dg-con:#c0344d;--dg-focus:#3b46c4}
 .dagsurf .dg-mono{font-family:var(--mono,ui-monospace,'SF Mono',Menlo,Consolas,monospace)}
-.dagsurf .dg-thesis{font-family:var(--serif,Georgia,serif);font-style:italic;font-size:14px;color:var(--dg-ink);max-width:60ch;margin:2px 0 12px;line-height:1.45}
+.dagsurf .dg-thesis{font-family:var(--serif,Georgia,serif);font-style:italic;font-size:12.5px;color:var(--dg-muted);max-width:70ch;margin:14px 0 0;line-height:1.5}
 .dagsurf .dg-chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
 .dagsurf .dg-chip{font-family:var(--mono,monospace);font-size:11px;background:var(--dg-panel2);border:1px solid var(--dg-line);border-radius:999px;padding:3px 9px;color:var(--dg-muted)}
 .dagsurf .dg-chip b{color:var(--dg-ink)}
@@ -49,14 +49,16 @@ const CSS = `
 .dagsurf .dg-scroll{overflow-x:auto}
 .dagsurf svg.dg-graph,.dagsurf svg.dg-flow{display:block;width:100%;height:auto;font-family:var(--mono,monospace)}
 .dagsurf svg.dg-graph{min-width:280px}.dagsurf svg.dg-flow{min-width:520px}
-.dagsurf .dg-node rect{fill:var(--dg-panel2);stroke:var(--dg-line);stroke-width:1.5}
-.dagsurf .dg-node text{fill:var(--dg-ink);font-size:12px}
+.dagsurf .dg-node rect{fill:var(--dg-panel);stroke:var(--dg-line);stroke-width:1.5;filter:drop-shadow(0 1px 2px rgba(20,20,30,.08))}
+.dagsurf .dg-node text{fill:var(--dg-ink);font-size:12.5px;font-weight:600;font-family:var(--sans,system-ui,sans-serif)}
 .dagsurf .dg-node .dg-sub{fill:var(--dg-muted);font-size:9px}
 .dagsurf .dg-node.dim{opacity:.3}.dagsurf .dg-node.warm rect{stroke:var(--dg-warm);stroke-width:2.5}
 .dagsurf .dg-node.sel rect{stroke:var(--dg-focus);stroke-width:2.5}
 .dagsurf .dg-edge{fill:none;cursor:pointer}.dagsurf .dg-edge.dim{opacity:.13}
 .dagsurf .dg-hit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer}
-.dagsurf .dg-elabel{font-size:9px;fill:var(--dg-muted)}
+.dagsurf .dg-elabel{font-size:10.5px;font-weight:600;font-family:var(--sans,system-ui,sans-serif);cursor:pointer;
+  paint-order:stroke;stroke:var(--dg-panel);stroke-width:4px;stroke-linejoin:round}
+.dagsurf .dg-elabel.dim{opacity:.13}
 .dagsurf .dg-cring{fill:none;stroke:var(--dg-con);stroke-width:1.3;stroke-dasharray:2 3;opacity:.85}
 .dagsurf .dg-cunder{fill:none;stroke:var(--dg-con);stroke-width:6;opacity:.18;stroke-linecap:round}
 .dagsurf .dg-edge{transition:opacity .15s}.dagsurf .dg-node rect{transition:opacity .15s}
@@ -130,13 +132,13 @@ export function mountDagSurface(root, { sources = [], primaryId = null, hidden =
   const discourse = discourseDag({ docId: primary.docId, sentences: primary.sentences });
   const isScoped = scoped !== asserted;   // hidden and/or focus are in force
 
-  wrap.appendChild(el('p', { class: 'dg-thesis', html:
-    'A causal effect is a counterfactual — not in any text. So this never says “X causes Y.” It shows what the reader <b>reads the sources as claiming</b>, traced to the passage, typed by the stance the source proposed — and never upgraded, because only a design can.' }));
-
+  // Counts — the always-true trio, plus the trouble counts only when they exist
+  // (a row of zeroes reads as noise, not reassurance).
   const chips = el('div', { class: 'dg-chips' });
   [['edges', scoped.edges.length], ['nodes', scoped.nodes.length], ['sources', usable.length],
    ['contested', scoped.edges.filter((e) => e.contested).length],
    ['confounders', scoped.complexities.confounding.length], ['mechanisms', scoped.complexities.mechanism.length]]
+    .filter(([k, v], i) => i < 3 || v > 0)
     .forEach(([k, v]) => chips.appendChild(el('span', { class: 'dg-chip' }, [el('b', { text: String(v) }), document.createTextNode(' ' + k)])));
   wrap.appendChild(chips);
 
@@ -159,8 +161,8 @@ export function mountDagSurface(root, { sources = [], primaryId = null, hidden =
   }
 
   const tabs = el('div', { class: 'dg-tabs', role: 'tablist' });
-  const t2 = el('button', { class: 'dg-tab', role: 'tab', 'aria-selected': 'true', text: 'Cursor 2 · what the sources assert' });
-  const t1 = el('button', { class: 'dg-tab', role: 'tab', 'aria-selected': 'false', text: 'Cursor 1 · the reading flow' });
+  const t2 = el('button', { class: 'dg-tab', role: 'tab', 'aria-selected': 'true', text: 'Causal map · what the sources claim' });
+  const t1 = el('button', { class: 'dg-tab', role: 'tab', 'aria-selected': 'false', text: 'Reading flow · sentence by sentence' });
   tabs.appendChild(t2); tabs.appendChild(t1); wrap.appendChild(tabs);
 
   const view2 = el('div');
@@ -173,9 +175,14 @@ export function mountDagSurface(root, { sources = [], primaryId = null, hidden =
   buildCursor1(view1, discourse, primary.docId);
 
   // No causal claim read in this scope — open on the reading flow, which renders for ANY
-  // doc with sentences, so the surface never lands on the empty-cursor message. Cursor 2
-  // (and its "no causal claim" account) stays one tab away.
+  // doc with sentences, so the surface never lands on the empty-cursor message. The causal
+  // map (and its "no causal claim" account) stays one tab away.
   if (!scoped.edges.length) t1.onclick();
+
+  // The honesty framing — real, but a footnote, not a gate the reader must climb over
+  // before seeing the graph.
+  wrap.appendChild(el('p', { class: 'dg-thesis', html:
+    'A causal effect is a counterfactual — not in any text. So nothing here says “X causes Y”: every arrow is what the reader <b>reads the sources as claiming</b>, traced to the passage, typed by the stance the source proposed — and never upgraded, because only a design can.' }));
 
   return { destroy() { wrap.remove(); } };
 }
@@ -189,16 +196,68 @@ function legendLine(color, dash) {
 const markerLabel = (m) => (m === 'cause-link' ? 'because' : m);
 const STANCE_HINT = { essential: 'claims a cause', generative: 'shows a mechanism', accidental: 'correlation only' };
 
+// The node's display label. The key stays the identity ("pavement"); the label is what
+// a person reads ("impervious pavement"). Each phrase is cleaned of the leading
+// connective/determiner an NP capture can drag along ("and runoff" → "runoff"), then the
+// SHORTEST cleaned phrase still fuller than the key wins — the fullest is often a misread
+// that swallowed the sentence frame ("some studies suggest tree cover"), the shortest
+// fuller one is the construct itself ("tree cover").
+const LEAD_NOISE = /^(?:and|or|but|so|nor|yet|the|a|an|its|their|his|her|our|your|my|this|that|these|those|some|any|also|then|thus|however)\s+/i;
+const cleanLabel = (s) => { let t = String(s).trim(); for (let i = 0; i < 3 && LEAD_NOISE.test(t); i++) t = t.replace(LEAD_NOISE, ''); return t; };
+export const dagNodeLabel = (n) => {
+  const key = String(n.key || '');
+  const cands = [...new Set((n.labels || []).map(cleanLabel).filter(Boolean))];
+  const fuller = cands.filter((l) => l.length > key.length).sort((a, b) => a.length - b.length);
+  return fuller[0] || cands[0] || key;
+};
+const bestLabel = dagNodeLabel;
+
+// Wrap a label to at most two lines, split at the space nearest the middle. A one-word
+// overflow is clipped with an ellipsis — the inspector shows the full phrase on click.
+const wrapLabel = (s, max = 16) => {
+  const t = String(s);
+  if (t.length <= max) return [t];
+  const ws = t.split(/\s+/).filter(Boolean);
+  const clip = (x) => (x.length > max + 8 ? x.slice(0, max + 7) + '…' : x);
+  if (ws.length === 1) return [clip(t)];
+  let cut = 1, diff = Infinity;
+  for (let i = 1; i < ws.length; i++) {
+    const d = Math.abs(ws.slice(0, i).join(' ').length - ws.slice(i).join(' ').length);
+    if (d < diff) { diff = d; cut = i; }
+  }
+  return [clip(ws.slice(0, cut).join(' ')), clip(ws.slice(cut).join(' '))];
+};
+
+// The verb to print on an arrow — the wording of the edge's most confidently read claim
+// ("reduces", "increases", "because"), with a count when several readings back it.
+const edgeVerb = (e) => {
+  const rep = e.claims.reduce((b, c) => (!b || c.readerConfidence > b.readerConfidence ? c : b), null);
+  const verb = rep ? markerLabel(rep.marker) : '';
+  return e.claims.length > 1 ? `${verb} ×${e.claims.length}` : verb;
+};
+
 function buildCursor2(root, a, dist, opts = {}) {
-  root.appendChild(el('p', { class: 'dg-note', html: 'Each box is something the sources talk about; an arrow means a source claims the upper box <b>affects</b> the lower one. Colour shows how strongly it’s claimed. An <span style="color:var(--dg-warm);font-weight:600">amber</span> arrow marks a <b>common cause</b> — the sources say one thing drives <em>both</em> ends of another arrow, so that arrow may be coincidence, not cause. Tap an arrow to read the exact sentences behind it — nothing here is a fact, only what the sources are read as claiming.' }));
+  root.appendChild(el('p', { class: 'dg-note', html: 'Arrows read downward — a source claims the upper box <b>affects</b> the lower, in the arrow’s own word. <span style="color:var(--dg-warm);font-weight:600">Amber</span> marks a common cause that may explain another arrow. Tap an arrow to read the exact sentences behind it.' }));
   if (!a.edges.length) {
     root.appendChild(el('div', { class: 'dg-empty', text: 'No causal claim was read in these sources. The reader fires only on an explicit causal or association word — a floor on what the corpus states, never a ceiling.' }));
     return;
   }
+  // Confounder forks and stance predicates, computed up front — the legend shows only
+  // the arrow kinds actually drawn, not the whole vocabulary.
+  const confZ = new Set(a.complexities.confounding.map((c) => c.confounder));
+  const forks = new Set(); a.complexities.confounding.forEach((c) => { const [x, y] = c.edge.split('→'); forks.add(c.confounder + '→' + x); forks.add(c.confounder + '→' + y); });
+  const strongest = (e) => SC[e.strongestProposed] || 'var(--dg-acc)';
+  const accOnly = (e) => e.stanceTally.essential === 0 && e.stanceTally.generative === 0;
+  const plain = a.edges.filter((e) => !forks.has(e.from + '→' + e.to));
+
   const stage = el('div', { class: 'dg-stage' });
   const head = el('div', { class: 'dg-head' });
   const legend = el('div', { class: 'dg-legend' });
-  [['claims a cause', 'var(--dg-ess)', false], ['shows how', 'var(--dg-gen)', false], ['correlation only', 'var(--dg-acc)', true], ['common cause', 'var(--dg-warm)', false]]
+  [['claims a cause', 'var(--dg-ess)', false, plain.some((e) => !accOnly(e) && e.strongestProposed === 'essential')],
+   ['shows how', 'var(--dg-gen)', false, plain.some((e) => !accOnly(e) && e.strongestProposed === 'generative')],
+   ['correlation only', 'var(--dg-acc)', true, plain.some(accOnly)],
+   ['common cause', 'var(--dg-warm)', false, forks.size > 0]]
+    .filter(([, , , show]) => show)
     .forEach(([n, c, d]) => legend.appendChild(el('span', { class: 'dg-lg' }, [legendLine(c, d), document.createTextNode(n)])));
   head.appendChild(legend);
   stage.appendChild(head);
@@ -216,11 +275,15 @@ function buildCursor2(root, a, dist, opts = {}) {
   const bc = (k) => { const ps = (parents[k] || []).filter((p) => layer[p] === layer[k] - 1); return ps.length ? ps.reduce((s, p) => s + idx[p], 0) / ps.length : idx[k]; };
   for (let L = 1; L <= maxL; L++) { rows[L].sort((x, y) => bc(x) - bc(y)); rows[L].forEach((k, i) => idx[k] = i); }
 
-  // Rows are sized to their actual node widths and the SVG renders 1:1 — a
-  // dense row scrolls sideways instead of crushing every box into the panel
-  // width and clipping the labels to confetti.
-  const PADX = 14, ROW = 86, TOP = 30, NH = 34, GAPX = 16;
-  const nw = (k) => Math.max(54, k.length * 7.4 + 18);
+  // Every node draws its FULL phrase label (wrapped to two lines), not the bare head
+  // key — "impervious pavement", never "pavement". Rows are sized to the real box
+  // widths and the SVG renders 1:1 — a dense row scrolls sideways instead of crushing
+  // every box into the panel width and clipping the labels to confetti.
+  const byKey = {}; a.nodes.forEach((n) => byKey[n.key] = n);
+  const lines = {}; a.nodes.forEach((n) => lines[n.key] = wrapLabel(bestLabel(n)));
+  const PADX = 18, ROW = 108, TOP = 40, GAPX = 22, CHW = 7.6;
+  const nw = (k) => Math.max(64, Math.max(...lines[k].map((l) => l.length)) * CHW + 24);
+  const nh = (k) => (lines[k].length > 1 ? 48 : 34);
   const rowW = rows.map((col) => col.reduce((s, k) => s + nw(k), 0) + GAPX * Math.max(0, col.length - 1));
   const W = Math.max(360, ...rowW.map((w) => w + 2 * PADX));
   const pos = {};
@@ -228,17 +291,12 @@ function buildCursor2(root, a, dist, opts = {}) {
     let xc = (W - rowW[L]) / 2;
     col.forEach((k) => { pos[k] = { x: xc + nw(k) / 2, y: TOP + L * ROW }; xc += nw(k) + GAPX; });
   });
-  const H = TOP + maxL * ROW + 42;
+  const H = TOP + maxL * ROW + 52;
   const svg = S('svg', { class: 'dg-graph', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'causal DAG' });
   svg.style.width = W + 'px';   // natural size; .dg-scroll pans when the panel is narrower
   scroll.appendChild(svg); stage.appendChild(scroll);
   const insp = el('div', { class: 'dg-insp' }, [el('div', { class: 'dg-insp-empty', text: 'Tap an arrow to read the sentences behind it.' })]);
   stage.appendChild(insp); root.appendChild(stage);
-
-  const confZ = new Set(a.complexities.confounding.map((c) => c.confounder));
-  const forks = new Set(); a.complexities.confounding.forEach((c) => { const [x, y] = c.edge.split('→'); forks.add(c.confounder + '→' + x); forks.add(c.confounder + '→' + y); });
-  const strongest = (e) => SC[e.strongestProposed] || 'var(--dg-acc)';
-  const accOnly = (e) => e.stanceTally.essential === 0 && e.stanceTally.generative === 0;
 
   const defs = S('defs');
   [['essential', 'var(--dg-ess)'], ['generative', 'var(--dg-gen)'], ['accidental', 'var(--dg-acc)'], ['warm', 'var(--dg-warm)']]
@@ -246,9 +304,9 @@ function buildCursor2(root, a, dist, opts = {}) {
       m.appendChild(S('path', { d: 'M0,0 L10,5 L0,10 z', fill: c })); defs.appendChild(m); });
   svg.appendChild(defs);
 
-  a.edges.forEach((e) => {
+  a.edges.forEach((e, ei) => {
     const p1 = pos[e.from], p2 = pos[e.to]; if (!p1 || !p2) return;
-    const x1 = p1.x, y1 = p1.y + NH / 2, x2 = p2.x, y2 = p2.y - NH / 2, my = (y1 + y2) / 2;
+    const x1 = p1.x, y1 = p1.y + nh(e.from) / 2, x2 = p2.x, y2 = p2.y - nh(e.to) / 2, my = (y1 + y2) / 2;
     const d = `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`;
     const key = e.from + '→' + e.to, isFork = forks.has(key);
     const color = isFork ? 'var(--dg-warm)' : strongest(e);
@@ -257,29 +315,37 @@ function buildCursor2(root, a, dist, opts = {}) {
       'marker-end': `url(#dgar-${isFork ? 'warm' : (accOnly(e) ? 'accidental' : e.strongestProposed)})`, ...(accOnly(e) && !isFork ? { 'stroke-dasharray': '6 5' } : {}) });
     svg.appendChild(path);
     const hit = S('path', { d, class: 'dg-hit', 'data-edge': key }); svg.appendChild(hit);
-    const sel = () => selectEdge(key); path.addEventListener('click', sel); hit.addEventListener('click', sel);
+    // The arrow says its word: "causes", "reduces", "because" — the exact marker the
+    // reader fired on, in the edge's own colour, haloed so it stays legible over lines.
+    const lbl = S('text', { x: String((x1 + x2) / 2), y: String((y1 + y2) / 2 + (ei % 2 ? 12 : -5)),
+      'text-anchor': 'middle', class: 'dg-elabel', 'data-edge': key, fill: color }, [document.createTextNode(edgeVerb(e))]);
+    svg.appendChild(lbl);
+    const sel = () => selectEdge(key); path.addEventListener('click', sel); hit.addEventListener('click', sel); lbl.addEventListener('click', sel);
   });
   a.nodes.forEach((n) => {
-    const p = pos[n.key]; if (!p) return; const w = nw(n.key);
+    const p = pos[n.key]; if (!p) return; const w = nw(n.key), h = nh(n.key), ls = lines[n.key];
     const g = S('g', { class: 'dg-node' + (confZ.has(n.key) ? ' warm' : ''), 'data-node': n.key });
-    g.appendChild(S('rect', { x: String(p.x - w / 2), y: String(p.y - NH / 2), width: String(w), height: String(NH), rx: '8' }));
-    g.appendChild(S('text', { x: String(p.x), y: String(p.y + 4), 'text-anchor': 'middle' }, [document.createTextNode(n.key)]));
+    g.appendChild(S('rect', { x: String(p.x - w / 2), y: String(p.y - h / 2), width: String(w), height: String(h), rx: '9' }));
+    ls.forEach((line, li) => {
+      const y = ls.length > 1 ? p.y - 3 + li * 15 : p.y + 4;
+      g.appendChild(S('text', { x: String(p.x), y: String(y), 'text-anchor': 'middle' }, [document.createTextNode(line)]));
+    });
     g.style.cursor = 'pointer'; g.addEventListener('click', () => selectNode(n));
     svg.appendChild(g);
   });
 
-  function clearHi() { svg.querySelectorAll('.dg-edge,.dg-node').forEach((x) => x.classList.remove('dim', 'sel')); }
+  function clearHi() { svg.querySelectorAll('.dg-edge,.dg-node,.dg-elabel').forEach((x) => x.classList.remove('dim', 'sel')); }
   function selectEdge(key) { clearHi();
-    svg.querySelectorAll('.dg-edge').forEach((p) => { if (p.getAttribute('data-edge') !== key) p.classList.add('dim'); });
+    svg.querySelectorAll('.dg-edge,.dg-elabel').forEach((p) => { if (p.getAttribute('data-edge') !== key) p.classList.add('dim'); });
     const [f, t] = key.split('→');
     svg.querySelectorAll('.dg-node').forEach((g) => { const k = g.getAttribute('data-node'); if (k !== f && k !== t) g.classList.add('dim'); else g.classList.add('sel'); });
     edgeInspector(a.edges.find((e) => e.from + '→' + e.to === key));
   }
   function selectNode(n) { clearHi();
     svg.querySelectorAll('.dg-node').forEach((g) => { if (g.getAttribute('data-node') !== n.key) g.classList.add('dim'); else g.classList.add('sel'); });
-    svg.querySelectorAll('.dg-edge').forEach((p) => { const [f, t] = p.getAttribute('data-edge').split('→'); if (f !== n.key && t !== n.key) p.classList.add('dim'); });
+    svg.querySelectorAll('.dg-edge,.dg-elabel').forEach((p) => { const [f, t] = p.getAttribute('data-edge').split('→'); if (f !== n.key && t !== n.key) p.classList.add('dim'); });
     insp.innerHTML = '';
-    const head = el('div', { class: 'dg-insp-head' }, [el('span', { class: 'dg-insp-title', text: n.key }),
+    const head = el('div', { class: 'dg-insp-head' }, [el('span', { class: 'dg-insp-title', text: bestLabel(n) }),
       el('span', { class: 'dg-insp-sub', text: `talked about in ${n.sources.length} source${n.sources.length > 1 ? 's' : ''}: ${n.sources.join(', ')}` })]);
     // "focus the DAG here" — scope cursor 2 to this node's causal neighbourhood (the DAG for this
     // one entity). Offered only when the host wired a focus handler and this isn't already the focus.
@@ -313,13 +379,15 @@ function buildCursor2(root, a, dist, opts = {}) {
     insp.appendChild(ul);
   }
 
-  // cards
+  // cards — only the ones with something to say. A wall of "(none surfaced)" placeholders
+  // buried the graph; an absent card IS the report that nothing of that kind was read.
   const cards = el('div', { class: 'dg-cards' });
   const card = (title, color, sub, items) => {
+    if (!items.length) return;
     const c = el('div', { class: 'dg-card' });
     const h = el('h4', {}, [el('span', { class: 'dot' }), document.createTextNode(title)]); h.querySelector('.dot').style.background = color; c.appendChild(h);
     if (sub) c.appendChild(el('p', { class: 'k', text: sub }));
-    (items.length ? items : [el('div', { class: 'dg-item', text: '(none surfaced — a floor: the corpus may still hide one no source named.)' })]).forEach((i) => c.appendChild(i));
+    items.forEach((i) => c.appendChild(i));
     cards.appendChild(c);
   };
   card('Common causes', 'var(--dg-warm)', 'something the sources say drives both ends of another arrow',
@@ -330,7 +398,8 @@ function buildCursor2(root, a, dist, opts = {}) {
   card('What would settle it', 'var(--dg-con)', 'the evidence that would decide — and whether the sources have it',
     dist.flatMap((d) => d.tests.map((t) => el('div', { class: 'dg-item' }, [el('div', {}, [el('code', { text: d.edge })]),
       el('div', { class: 'dg-q', text: t.question }), el('div', { class: 'dg-silent', text: t.corpusHas ? 'corpus contains this evidence' : 'NO — the corpus is silent on it' })]))));
-  root.appendChild(cards);
+  if (cards.childNodes.length) root.appendChild(cards);
+  else root.appendChild(el('p', { class: 'dg-note', text: 'No common cause, mechanism chain, or cross-source disagreement was read in these sources — those panels appear when sources overlap or contradict.' }));
 }
 
 function buildCursor1(root, d, docId) {
