@@ -24,6 +24,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/reader-render.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'source→book reader renderer' }),
   'src/rooms/reader/reading-surface.js': contract({ ops: ['NUL'], targets: ['Field'], products: ['Void'], stances: ['Clearing'], note: 'reading-JSONL DOM surface' }),
   'src/rooms/reader/reveal.js': contract({ ops: ['INS', 'DEF'], targets: ['Field'], products: ['Entity'], stances: ['Making', 'Dissecting'], note: 'chat typewriter pace — bounded reveal catch-up' }),
+  'src/rooms/reader/scope-sources.js': contract({ ops: ['SEG', 'EVA'], targets: ['Network', 'Field'], products: ['Field'], stances: ['Unraveling', 'Tracing'], note: 'separate signal from noise — scope a turn to the sources that bear on it' }),
   'src/rooms/reader/section-answer.js': contract({ ops: ['SEG', 'DEF'], targets: ['Field', 'Link'], products: ['Field', 'Lens'], stances: ['Dissecting', 'Making'], note: 'section headings by field-shift' }),
   'src/rooms/reader/tiered-graph.js': contract({ ops: ['NUL'], targets: ['Network'], products: ['Void'], stances: ['Clearing'], note: 'tiered graph SVG renderer' }),
   'src/rooms/reader/topic-name.js': contract({ ops: ['SIG', 'DEF'], targets: ['Entity', 'Field'], products: ['Lens'], stances: ['Tending', 'Making'], note: 'topic auto-naming — content → title' }),
