@@ -496,11 +496,14 @@ export async function _transcribeWindows(asr, mono, SR, duration, norm, { onPart
   const overlapsSignal = (a, b) => !signalSpans || !signalSpans.length
     || signalSpans.some((s) => a < s.end && b > s.start);
   let lastEnd = -Infinity, acc = '';
+  // The timed words heard so far, flattened across every utterance — handed to onPartial so the
+  // surface can render the transcript live (click-to-seek + karaoke) as it fills, not just a string.
+  const heardWords = () => utterances.flatMap((u) => u.words.map((w) => ({ text: w.text, start: w.start, end: w.end })));
   for (let a = 0; a === 0 || a < duration; a += HOP) {
     if (signal && signal.aborted) throw new DOMException('aborted', 'AbortError');
     const b = Math.min(a + WIN, Math.max(duration, a + 0.001));   // a ≤30s window; a short clip is one pass
     if (!overlapsSignal(a, b)) {
-      if (typeof onPartial === 'function') { try { onPartial({ text: acc, pct: Math.min(100, Math.round(b / denom * 100)) }); } catch {} }
+      if (typeof onPartial === 'function') { try { onPartial({ text: acc, pct: Math.min(100, Math.round(b / denom * 100)), words: heardWords() }); } catch {} }
       if (b >= duration) break;
       continue;
     }
@@ -518,7 +521,7 @@ export async function _transcribeWindows(asr, mono, SR, duration, norm, { onPart
     }
     const text = utterances.map(u => u.words.map(w => w.text).join(' ')).join(' ').trim();
     if (text.length > acc.length) acc = text;
-    if (typeof onPartial === 'function') { try { onPartial({ text: acc, pct: Math.min(100, Math.round(b / denom * 100)) }); } catch {} }
+    if (typeof onPartial === 'function') { try { onPartial({ text: acc, pct: Math.min(100, Math.round(b / denom * 100)), words: heardWords() }); } catch {} }
     if (b >= duration) break;
   }
   return { utterances, text: acc };
