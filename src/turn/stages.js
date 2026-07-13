@@ -26,6 +26,7 @@ import { rereadOnUnsettled } from './reread.js';
 import { buildGroundedMessages, buildChatMessages, orientationLine,
          projectGroundedBands, judgePrompt } from '../model/index.js';
 import { bindCitations, renderBound } from '../enactor/ground/index.js';
+import { recordBindingDefs, recordCorrespondenceDefs, recordReferenceDef, recordVoidDef } from './judgments.js';
 import { runVetoes, isUnbound, isAbstention, classifyProvenance, assessAnswer } from '../enactor/ground/index.js';
 import { canGroundedSpeak, groundedSpeak, RULES_REV } from '../organs/out/speech/index.js';
 import { projectGraph, VERDICTS } from '../core/index.js';
@@ -460,6 +461,10 @@ export const stages = {
     const referential = ctx.doc?.corefField
       ? referentialConfidence(ctx.doc.corefField.fieldGrounded(cursor))
       : null;
+    // Route the reference verdict onto the judgment log as a DEF — a concentrated field
+    // CORROBORATES the referent, a split one abstains (INDETERMINATE). Best-effort; the log
+    // never costs the answer.
+    try { recordReferenceDef(ctx.judgments, referential); } catch { /* logging is best-effort */ }
     // CAST CYCLE — REC (cast.js). Commit this turn's target as SETTLED only when the fold
     // CONCENTRATED (referential.concentrated), so the carried state holds only referents a
     // reading actually landed on; a diffuse, wandering fold commits nothing.
@@ -590,6 +595,9 @@ export const stages = {
     // The typed absence PROSE rides too (`voidText`): if the talker's answer comes back
     // with no witness at all, the `absence` stage speaks it (the honesty seam) — absence
     // is an available thing to assert, not just a terrain annotation.
+    // Route the void verdict onto the judgment log — a DEF of absence is still a DEF, carrying
+    // which absence (kind · receipt · how far the reading rode) as its witness.
+    try { recordVoidDef(ctx.judgments, v.void); } catch { /* logging is best-effort */ }
     return { ...ctx, voidMeasure: v.void, voidText: v.text };
   },
 
@@ -923,6 +931,10 @@ export const stages = {
     const sources = [...new Set(
       bound.filter(b => b.citation).map(b => parseInt(b.citation.slice(1), 10))
     )];
+    // Route the binding verdict onto the judgment log — a DEF per claim (cited CORROBORATES,
+    // contact-but-unborn is INDETERMINATE, prose-from-nowhere is UNSUPPORTED), carrying the
+    // citation and its score as witness. Surfaces the DEF the binder was already making.
+    try { recordBindingDefs(ctx.judgments, bound); } catch { /* logging is best-effort */ }
     return { ...ctx, bound, answer, sources };
   },
 
@@ -995,6 +1007,9 @@ export const stages = {
     let propositions = null;
     try { propositions = auditPropositions({ prose: ctx.rawOutput, doc: ctx.doc, cursor, now: ctx.now || null }); }
     catch { propositions = null; }
+    // Route the correspondence verdict onto the judgment log — a DEF per proposition at the
+    // predication grain, the verdict factcheck typed against the sources' own edges.
+    try { recordCorrespondenceDefs(ctx.judgments, fc.claims); } catch { /* logging is best-effort */ }
     return { ...ctx, edgeVerdicts: fc.edgeVerdicts, factcheck: fc, propositions, sources, bound, answer };
   },
 
@@ -1545,7 +1560,13 @@ const drainLens = (ctx) => {
       catch { /* re-grounding is best-effort; the conflict is already logged */ }
     }
   }
-  const all = [...events, ...recs];
+  // The judgment DEFs accumulated so far this turn (reference · void — the pre-draw verdicts)
+  // JOIN the steering rail, so the same-vs-other judgments ride the Given-Log beside the
+  // void-conflict / suppress / rec events, not outside it. The binding and correspondence DEFs
+  // are logged after the draw; the full census is folded from the judgment log in pipeline.js.
+  let defs = [];
+  try { defs = ctx.judgments?.all?.() || []; } catch { defs = []; }
+  const all = [...events, ...recs, ...defs];
   return all.length ? all : null;
 };
 

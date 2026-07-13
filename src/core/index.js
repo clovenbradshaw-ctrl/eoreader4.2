@@ -22,6 +22,8 @@ export { projectFold, routeStance, stanceDescOf, isExplicitCompose, composeKind,
 // identity — like the void it reuses — is the system's primitive, not a faculty's.
 export { latentAsterisks, evaluateSameAs, discriminatorIndex, identityFrontier, normLabel } from './asterisk.js';
 export { VERDICTS } from './verdicts.js';
+// The judgment DEF — every same-vs-other verdict, logged as a revisable judgment, not a flag.
+export { GRAINS as DEF_GRAINS, makeDef, createJudgmentLog, isVerdict, isGrain } from './def.js';
 export { STANCES, TERRAINS, stanceOf, terrainOf, grainOfStance, grainOfTerrain,
          cellOf, DIAGONAL_CELLS, coherence, isDiagonal, terrainInfo,
          SIGNATURES, signatureOf,
