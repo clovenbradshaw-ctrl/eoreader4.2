@@ -4012,8 +4012,15 @@ class Component extends DCLogic {
       cite: Number.isInteger(s.cite) ? ('¶' + s.cite) : '',
     }));
     const anyFlagged = spans.some((s) => !s.grounded);
+    // An entity's written reading (the contextual definition) lands a beat after its telegram: the app
+    // stores the telegram first with `contextualPending`, then the chorus writes the reading and clears
+    // it. Until it clears we hold the panel BODY on "composing…" rather than flashing the machine
+    // telegram and swapping it for the reading. A telegram-only summary (no model — nothing more is
+    // coming) is not pending and shows at once; source summaries carry no contextual and are unaffected.
+    const awaitingWritten = !!(sum && sum.contextualPending && !sum.contextual);
+    const ready = !!sum && !awaitingWritten;
     return {
-      show: true, has: !!sum, pending: !sum || busy,
+      show: true, has: ready, pending: !ready || busy,
       text: ctx || (sum ? sum.text : ''),
       telegramText: sum ? sum.text : '',
       hasSpans: spans.length > 0, noSpans: spans.length === 0, spans, anyFlagged,
