@@ -535,15 +535,25 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   };
   const topicToggleCollapse = (id) => { const t = topicById(id); if (t) { t.collapsed = !t.collapsed; persist(); emit('topics'); } };
   const topicDelete = (id) => {
-    if (state.topics.length <= 1) return;
     const gone = topicById(id); if (!gone) return;
     const parentId = gone.parentId ?? null;
     // Lift the direct children up one level (the subtree rises rather than vanishing).
     for (const t of state.topics) if ((t.parentId ?? null) === id) t.parentId = parentId;
     state.topics = state.topics.filter((t) => t.id !== id);
+    // A workspace is never left without a topic. Deleting its LAST topic is allowed —
+    // it opens a fresh one in the same workspace rather than being blocked, so the last
+    // topic resets instead of being un-deletable (the whole app keeps this invariant:
+    // see workspaceNew / setWorkspace / workspaceDelete). We land on a same-workspace
+    // sibling when one survives; otherwise on the fresh replacement.
     if (state.activeTopicId === id) {
-      const sib = state.topics.find((t) => t.workspaceId === gone.workspaceId) || state.topics[0];
-      state.activeTopicId = sib.id;
+      const sib = state.topics.find((t) => t.workspaceId === gone.workspaceId);
+      state.activeTopicId = (sib || topicNew('New topic', { silent: true, workspaceId: gone.workspaceId })).id;
+    } else if (!state.topics.some((t) => t.workspaceId === gone.workspaceId)) {
+      // Deleted the last topic of a workspace we weren't viewing — keep it populated too,
+      // without stealing focus from the topic on screen (topicNew makes its topic active).
+      const keep = state.activeTopicId;
+      topicNew('New topic', { silent: true, workspaceId: gone.workspaceId });
+      state.activeTopicId = keep;
     }
     persist(); emit('topics');
   };

@@ -99,6 +99,38 @@ test('deleting a topic lifts its children up one level, never dropping the subtr
   assert.equal(app.state.topics.find((t) => t.id === c.id).parentId, a.id, 'C rose to A, its grandparent');
 });
 
+test('the last topic in a workspace is deletable — it resets to a fresh empty topic', async () => {
+  const app = await freshApp();
+  const only = app.topic();
+  const wsId = only.workspaceId;
+
+  app.topicDelete(only.id);   // was blocked before: "we can't delete the last topic"
+
+  const inWs = app.state.topics.filter((t) => t.workspaceId === wsId);
+  assert.equal(inWs.length, 1, 'the workspace still holds exactly one topic');
+  assert.ok(!app.state.topics.find((t) => t.id === only.id), 'the original topic is gone');
+  assert.equal(app.state.activeTopicId, inWs[0].id, 'the fresh replacement is active');
+  assert.equal(app.topicRows().length, 1, 'the sidebar shows the fresh topic');
+});
+
+test('deleting the last topic of an inactive workspace keeps it populated without stealing focus', async () => {
+  const app = await freshApp();
+  const personalTopic = app.topic().id;
+  const personalWs = app.state.workspaces[0].id;
+  const team = app.workspaceNew('Team');
+  const teamTopic = app.topic();
+
+  app.setWorkspace(personalWs);                 // view Personal, Team's topic is its last
+  assert.equal(app.state.activeTopicId, personalTopic, 'viewing the Personal topic');
+
+  app.topicDelete(teamTopic.id);
+
+  assert.equal(app.state.activeTopicId, personalTopic, 'focus stayed on the Personal topic');
+  const inTeam = app.state.topics.filter((t) => t.workspaceId === team.id);
+  assert.equal(inTeam.length, 1, 'the Team workspace was refilled with a fresh topic');
+  assert.notEqual(inTeam[0].id, teamTopic.id, 'and it is a new topic, not the deleted one');
+});
+
 test('workspaces scope their own topic trees, and switching lands on a topic inside', async () => {
   const app = await freshApp();
   const personalTopic = app.topic().id;
