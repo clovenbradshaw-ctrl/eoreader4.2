@@ -90,6 +90,7 @@ opens empty and fills as you record.
 |---|---|
 | workspace switcher → nested topic tree | `rooms/reader/app.js` — a **workspace** is the top-level container (Notion's workspace/teamspace; a shared workspace is a Matrix room, via `shared`), and **topics nest** into a collapsible tree (`parentId` / `collapsed`, walked by `topicRows`). Sources stay scoped to the active topic. |
 | ingest bar (URL / file / paste / web search) | `organs/ingest` web client + admission core, `rooms/reader/import-file.js` extractors, proxy chain with public fallbacks |
+| video: picture read + moment search | a video source reads its **picture** (model-free shots + surprise/dwell decomposition, then gated CV on one keyframe per shot) beside its sound; **"describe a moment → jump to it"** over one heard+seen span index, each hit **witnessed** or an honest **INDETERMINATE**; `organs/in/motion.js` · `surfer/moment.js` · `rooms/reader/video-read.js`+`video-panel.js` (see [`docs/video.md`](docs/video.md)) |
 | chat exchange | `turn/` pipeline (`runTurn`) — streamed, cited, fact-checked; model backends from `model/` (webllm · wllama · claude · lmstudio · ollama · echo), picked adaptively |
 | S-registry (sha, bytes, rights, fixity) | `organs/ingest/websource.js` records + the controller's registry |
 | claim → passage pincites | the turn's `bound`/`citeOrigins`/`citeTexts` (from `enactor/ground`) |
