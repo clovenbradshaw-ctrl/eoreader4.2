@@ -927,6 +927,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return t ? t.sourceSns.map(sourceBySn).filter(Boolean) : [];
   };
   const topicDocs = () => topicSources().map(docFor).filter(Boolean);
+  // The MEANING-layer docs for the topic — a clip's/video's figures live in its transcript, read
+  // as prose on top (referentDocFor), not in the raw word/segment spans of the base organ doc. This
+  // is the doc set the entity LINKER reads, so an audio or video source links the same named figures
+  // the entity explorer lists (a base doc carries no `admission`, so it would link nothing).
+  const topicReferentDocs = () => topicSources().map(referentDocFor).filter(Boolean);
 
   // ── ingest: URL / search / file / paste ───────────────────────────────────
   // The two cancellable-op controllers, declared here (not just in the chat section) so `stop()`
@@ -2147,7 +2152,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // The real entity surfaces across the active topic's docs (the admitted labels) — the names the
   // membrane must keep off the wire. Reuses the same lexicon the answer/viewer segmentation reads.
   const redactionNames = () => {
-    try { return entityLexicon(topicDocs()).map((e) => e.label); } catch { return []; }
+    try { return entityLexicon(topicReferentDocs()).map((e) => e.label); } catch { return []; }
   };
 
   // ── chat ───────────────────────────────────────────────────────────────────
@@ -2925,8 +2930,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // with no trailing citation stays ungrounded (gsn null) — so the surface can disclose, span by
   // span, exactly what stands behind each stretch of the answer.
   const answerSegments = (msg, { entities = true, cites = true, sources = false } = {}) => {
-    const docs = topicDocs();
-    const lex = entities ? entityLexicon(docs) : [];
+    const lex = entities ? entityLexicon(topicReferentDocs()) : [];
     const citeOf = new Map((msg.cites || []).map((c) => [c.idx, c]));
     const paras = [];
     for (const para of String(msg.text || '').split(/\n{2,}|\n(?=[-•*])/)) {
@@ -2957,8 +2961,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const viewerParas = (snId, { entities = true } = {}) => {
     const src = sourceBySn(snId);
     if (!src) return [];
-    const doc = docFor(src);
-    const lex = entities ? entityLexicon([doc]) : [];
+    const refDoc = referentDocFor(src);
+    const lex = entities ? entityLexicon(refDoc ? [refDoc] : []) : [];
     const citedTexts = [];
     for (const t of state.topics) {
       for (const m of t.messages) {
@@ -2984,8 +2988,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const readerLink = (snId, { entities = true } = {}) => {
     const src = sourceBySn(snId);
     if (!src) return null;
-    const doc = docFor(src);
-    const lex = entities ? entityLexicon([doc]) : [];
+    const refDoc = referentDocFor(src);
+    const lex = entities ? entityLexicon(refDoc ? [refDoc] : []) : [];
     const citedTexts = [];
     for (const t of state.topics) {
       for (const m of t.messages) {
@@ -2996,6 +3000,45 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       linkify: (text) => linkifySegs(String(text == null ? '' : text), lex),
       isCited: (text) => { const s = String(text == null ? '' : text); return citedTexts.some((ct) => ct.length > 20 && s.includes(ct.slice(0, Math.min(60, ct.length)))); },
     };
+  };
+
+  // The record's entity linker mapped onto a CLIP's TIMED word stream: which runs of words spell an
+  // admitted figure, so the Listen surface's interactive transcript can underline them and open the
+  // entity on click — linking exactly what the Reader/Native views link (same lexicon, same rules).
+  // `words` is the projected transcript ([{ text, start, end }, …]); returns non-overlapping runs
+  // [{ i0, i1, docId, entId }] over it (inclusive word indices). The linker runs on the text the
+  // words spell, and each entity match is mapped back to the words its characters cover.
+  const transcriptEntityRuns = (snId, words) => {
+    if (!Array.isArray(words) || !words.length) return [];
+    const src = sourceBySn(snId);
+    if (!src) return [];
+    const refDoc = referentDocFor(src);
+    const lex = refDoc ? entityLexicon([refDoc]) : [];
+    if (!lex.length) return [];
+    // Spell the words into one string, remembering each word's [a,b) char span — the same single
+    // space the transcript renders between words, so a match's char range lands on word boundaries.
+    let text = ''; const span = [];
+    for (let i = 0; i < words.length; i++) {
+      if (i) text += ' ';
+      const a = text.length;
+      text += String(words[i] && words[i].text != null ? words[i].text : '');
+      span.push([a, text.length]);
+    }
+    const segs = linkifySegs(text, lex);
+    const runs = [];
+    let pos = 0, wi = 0;                                  // char cursor, and a monotonically-advancing word cursor
+    for (const sg of segs) {
+      const a = pos, b = pos + (sg.s ? sg.s.length : 0);
+      pos = b;
+      if (sg.t !== 'ent') continue;
+      let i0 = -1, i1 = -1;
+      for (let i = wi; i < span.length; i++) {
+        if (span[i][0] >= b) break;                       // this word starts after the match — done
+        if (span[i][1] > a && span[i][0] < b) { if (i0 < 0) i0 = i; i1 = i; }
+      }
+      if (i0 >= 0) { runs.push({ i0, i1, docId: sg.docId, entId: sg.entId }); wi = i1 + 1; }
+    }
+    return runs;
   };
 
   // ── entities (the explorer) ────────────────────────────────────────────────
@@ -4100,7 +4143,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // model
     ensureModel, setBackend, backendPref, setSpeed, speedPref,
     // projections for the surface
-    answerSegments, viewerParas, readerLink, entities, entityProfile, entityWiki, tieredData, topicTieredData,
+    answerSegments, viewerParas, readerLink, transcriptEntityRuns, entities, entityProfile, entityWiki, tieredData, topicTieredData,
     // the entity explorer, scoped to one source and read at a chosen HOLONIC LEVEL —
     // its natural-language referents (default) or the modality's raw spans underneath
     sourceLevels, sourceEntities, sourceBaseNoun,
