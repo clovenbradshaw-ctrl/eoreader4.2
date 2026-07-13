@@ -19,6 +19,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/first-surface.js': contract({ ops: ['SIG', 'DEF'], targets: ['Entity', 'Field'], products: ['Lens'], stances: ['Tending', 'Making'], note: 'the import reveal — modality → first surface' }),
   'src/rooms/reader/fold-narrative.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'narrate the fold — stage → trail beat' }),
   'src/rooms/reader/import-file.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Field'], stances: ['Making', 'Tending'], note: 'file import router (organs)' }),
+  'src/rooms/reader/ingest-jobs.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Tending'], note: 'durable pending-ingest/transcription registry — survives reload mid-way' }),
   'src/rooms/reader/midi.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Field'], stances: ['Making', 'Tending'], note: 'Standard MIDI File reader — bytes → timed notes' }),
   'src/rooms/reader/model-entry.js': contract({ ops: ['INS', 'SYN', 'DEF'], targets: ['Field', 'Network'], products: ['Entity', 'Lens'], stances: ['Making', 'Composing'], note: 'barrel: models + longgen' }),
   'src/rooms/reader/monologue-surface.js': contract({ ops: ['NUL', 'EVA'], targets: ['Atmosphere', 'Network'], products: ['Void'], stances: ['Clearing', 'Tending'], note: 'inner-monologue surface' }),
