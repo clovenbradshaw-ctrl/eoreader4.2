@@ -25,6 +25,7 @@ import { parseRelations, scanDescriptors } from './relations.js';
 import { argumentSpanSeg }      from './proposition.js';
 import { createCorefField }     from './coref.js';
 import { discoverNamings }      from './naming.js';
+import { distinctReferentCount } from './name-variants.js';
 import { tok }                  from './tokenize.js';
 import { createConventions, induceAttributionVerbs } from '../../core/conventions/index.js';
 
@@ -439,7 +440,13 @@ export const createParser = ({
         bearers.get(s).add(label);
       }
       for (const m of surnameMerges) {
-        const surnameShared = (bearers.get(m.surname)?.size || 0) >= 2;
+        // "Shared by DISTINCT agents" is the rebutter, not "borne by ≥2 labels": two
+        // labels that are variants of ONE person ("Elvis Presley", "Elvis Aaron
+        // Presley") are the same agent, so the bare "Presley" merge must STAND. Count
+        // distinct referents (variant-collapsed), not distinct surface forms — a family
+        // (Gregor / Mr / Mrs Samsa, no one a subsequence of another) still counts ≥2
+        // and still fires the rebutter, so the mr/mrs-samsa unmerge is unchanged.
+        const surnameShared = distinctReferentCount([...(bearers.get(m.surname) || [])]) >= 2;
         // Functional-conflict veto (§6 ID-6 / §7 PER-2): the two endpoints a tail merge
         // would unite carry a CONFLICTING high-functionality key — one birth date, two
         // values. The injected oracle decides; bornOn is flagged functional (ID-1). This

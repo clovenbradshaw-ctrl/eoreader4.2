@@ -24,6 +24,7 @@
 // exactly as before; its union-find performs the merges; a SEG retract undoes one.
 
 import { projectGraph, fromEnactor } from '../../core/index.js';
+import { clusterAnchors, nameTokens } from '../../perceiver/parse/index.js';
 
 // The held-identity gate — the same revision flag the rest of the system ships
 // experiments behind (speech/index.js RULES_REV). OFF (the default) keeps the
@@ -68,40 +69,53 @@ const foldDocEvents = (doc, sentOffset, events) => {
   return seqMap;
 };
 
-// Propose cross-document identity across a shared admitted label. Conservative on
-// purpose (surface-name match only). With `held` OFF (default) this emits the legacy
-// defeasible crossDoc SYN kind:'merge' — a hard union the projection collapses,
-// revisable only by a later SEG. With `held` ON it emits the asterisk's held
-// SYN kind:'same_as?' instead: a REAFFERENCE proposal (the READER is the one saying
-// these two are one) that NEVER enters union-find. The projection holds it as a
-// candidate and earns the merge only by discriminator convergence — the fix for a
-// binder that rewarded verbatim label echo over relational correspondence. Returns
-// the SYN events (not yet sealed onto the log).
+// Propose cross-document identity across a shared referent. The name match is by
+// VARIANT, not just verbatim string: "Elvis", "Elvis Presley", "Elvis Aaron Presley"
+// and "Presley" are surface forms of one referent, folded onto the most-specific name
+// by orthographic containment (perceiver/parse name-variants.js), with sticky
+// abstention where a short form fits two incomparable full names (the two-Bushes
+// case). This is what lets the cross-source entity panel collapse the variants a
+// verbatim-only match left as four separate figures. With `held` OFF (default) each
+// proposal is the legacy defeasible crossDoc SYN kind:'merge' — a hard union the
+// projection collapses, revisable only by a later SEG. With `held` ON it is the
+// asterisk's held SYN kind:'same_as?' instead: a REAFFERENCE proposal (the READER is
+// the one saying these are one) that NEVER enters union-find and is earned only by
+// discriminator convergence. Returns the SYN events (not yet sealed onto the log).
 export const proposeCrossDocSyn = (parts, { held = HELD_IDENTITY } = {}) => {
-  const byLabel = new Map();   // lowercased label → [{ docId, id }]
+  const members = [];   // { docId, id, label }
   for (const { doc } of parts) {
     const admitted = doc.admission?.admitted;
     if (!admitted) continue;
-    for (const [label, id] of admitted) {
-      const key = String(label).toLowerCase();
-      (byLabel.get(key) || byLabel.set(key, []).get(key)).push({ docId: doc.docId, id, label });
-    }
+    for (const [label, id] of admitted) members.push({ docId: doc.docId, id, label });
   }
+  // Cluster all admitted names by variant containment; group members by the anchor
+  // (canonical, most-specific) label of their cluster. A cluster of one — a name with
+  // no variant and no cross-source twin — proposes nothing.
+  const anchorLabel = clusterAnchors(members.map(m => m.label));
+  const keyOf = (label) => nameTokens(label).join(' ');
+  const clusters = new Map();   // anchor label → members[]
+  for (const m of members) {
+    const root = anchorLabel.get(m.label) ?? m.label;
+    (clusters.get(root) || clusters.set(root, []).get(root)).push(m);
+  }
+
   const out = [];
-  for (const [, members] of byLabel) {
-    // Only across DIFFERENT documents, and only when the name is shared.
-    const docs = new Set(members.map(m => m.docId));
-    if (docs.size < 2) continue;
-    // Chain every later member to the first — the first document's referent is the
-    // representative, so its provenance leads and the others fold into it.
-    const anchor = members[0];
-    for (let i = 1; i < members.length; i++) {
-      const m = members[i];
-      if (m.docId === anchor.docId) continue;   // within-doc duplicates are the parser's job
+  for (const [rootLabel, mem] of clusters) {
+    // The representative is the most-specific name (the cluster root) in the earliest
+    // document that carries it; its provenance leads and the rest fold into it.
+    const anchor = mem.find(m => keyOf(m.label) === keyOf(rootLabel)) || mem[0];
+    const anchorNs = nsId(anchor.docId, anchor.id);
+    for (const m of mem) {
+      const ns = nsId(m.docId, m.id);
+      if (ns === anchorNs) continue;   // already the same referent id (parser's own within-doc merge)
+      // A variant fold (different surface form) vs a verbatim cross-source twin — kept
+      // apart in the warrant so the audit can tell why two ids were proposed as one.
+      const variant = keyOf(m.label) !== keyOf(anchor.label);
       const base = {
-        from: nsId(m.docId, m.id), to: nsId(anchor.docId, anchor.id),
-        warrant: 'cross-doc-name', crossDoc: true, defeasible: true,
-        rebutter: 'distinct-entity-shares-name', label: anchor.label, sentIdx: null,
+        from: ns, to: anchorNs,
+        warrant: variant ? 'name-variant' : 'cross-doc-name', crossDoc: true, defeasible: true,
+        rebutter: variant ? 'distinct-entity-shares-name-variant' : 'distinct-entity-shares-name',
+        label: anchor.label, sentIdx: null,
       };
       out.push(held
         // The held candidate: REAFFERENCE — the reader's proposal, not the world's
