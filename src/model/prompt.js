@@ -196,14 +196,16 @@ export const GROUNDING_CUE =
 // clause LAST where a small model attends hardest. No arrows (§2): relational
 // structure rode into span selection and order upstream. No recognition (§3):
 // orientation is filename · type · length, never a title or author. The conversation
-// rides in the same reader's register, the USER's thread only — the talker's prior
-// answers stay withheld (the poisoning channel), and an unbound one never folds in (§7).
+// rides in the same reader's register — the actual back-and-forth, both sides, up to the
+// session fold's token budget — closed with the firewall aside so the talker reasons over
+// the dialogue but answers only the latest question. An UNBOUND prior reply never folds in
+// (§7): a claim tied to no source is dropped before the window is built, so it can never
+// become a follow-up's premise.
 //
-// THE META-CONVERSATIONAL EXCEPTION (`meta:true`, turn/intent.js). When the question is
-// ABOUT the conversation ("which topic we discussed is in France?"), the prior turns are
-// its SUBJECT, not a premise it might anchor a wrong fact to — so the full both-role thread
-// is fed and framed to be reasoned over, not skipped. The asymmetry is the point: the
-// firewall guards a prior ANSWER becoming a premise; here a prior topic is the question.
+// THE META-CONVERSATIONAL FRAMING (`meta:true`, turn/intent.js). When the question is
+// ABOUT the conversation ("which topic we discussed is in France?"), the same both-role
+// thread is framed as the question's SUBJECT to reason over rather than context to answer
+// against — the thread bands' firewall aside is swapped for the meta frame.
 //
 // `probe` is the read-only research instrument (docs/prompt-as-site.md, Tier 2):
 // null on every production turn → byte-identical output, pinned by the golden test.
