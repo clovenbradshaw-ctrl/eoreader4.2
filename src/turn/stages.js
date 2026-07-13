@@ -26,7 +26,9 @@ import { rereadOnUnsettled } from './reread.js';
 import { buildGroundedMessages, buildChatMessages, orientationLine,
          projectGroundedBands, judgePrompt } from '../model/index.js';
 import { bindCitations, renderBound } from '../enactor/ground/index.js';
-import { recordBindingDefs, recordCorrespondenceDefs, recordReferenceDef, recordVoidDef } from './judgments.js';
+import { recordBindingDefs, recordCorrespondenceDefs, recordReferenceDef, recordVoidDef, recordMentionReferenceDefs } from './judgments.js';
+import { typeReferences, senseTopicFrame, reviseMentionsWithEvidence } from './reference.js';
+import { senseEntities } from './sense.js';
 import { runVetoes, isUnbound, isAbstention, classifyProvenance, assessAnswer } from '../enactor/ground/index.js';
 import { canGroundedSpeak, groundedSpeak, RULES_REV } from '../organs/out/speech/index.js';
 import { projectGraph, VERDICTS } from '../core/index.js';
@@ -230,6 +232,20 @@ export const stages = {
     //   path still holds the SUBJECT (the fold's cast); this is the complementary NOMINATION
     //   channel that finds the EVIDENCE spans the stall points at.
     const query = resolveQuery(ctx.question, ctx.history);
+    // TYPED REFERENCE (The Work v2 #3, turn/reference.js) — BEFORE anything is gathered, type
+    // each question mention against the recorded senses: per-mention same-vs-other DEFs on the
+    // judgment log (resolved / suspended, never the loudest basin). A reference error is
+    // upstream of retrieval, so the cut is made here, where the walk can still be steered.
+    // Best-effort and inert on faults: no entities, no mentions, retrieve byte-identical.
+    let mentionReferences = [];
+    try {
+      const entities = senseEntities([ctx.doc]);
+      if (entities.length) {
+        mentionReferences = typeReferences(query, entities, { hints: ctx.senseHints || [] });
+        recordMentionReferenceDefs(ctx.judgments, mentionReferences);
+      }
+    } catch { mentionReferences = []; }
+    ctx = { ...ctx, mentionReferences };
     // A PATTERN-GRAIN task (summary / list — the whole read as one frame, the network of
     // members; turn/intent.js) reads the document's own STRUCTURE, not a point. The grain is
     // the principled gate: a Figure-grain task (a pointed `answer`, or an `explain` of one
@@ -272,6 +288,14 @@ export const stages = {
           topic = { topicIds, namedRefsOf, floor: ctx.topicFloor ?? 0.25 };
         }
       } catch { topic = null; }   // a topic-frame fault must never break retrieval
+    }
+    // A mention that RESOLVED an ambiguous name (v2 #3) arms the same frame unprompted: the
+    // resolved sense's label + anchor, re-read through the doc's own tables — "elvis films"
+    // retrieves the film-sense set because the man's spans are damped, not because more was
+    // gathered. Unresolved or unambiguous mentions arm nothing (never bias toward the loudest).
+    if (!topic && ctx.doc) {
+      const steered = mentionReferences.find((m) => m.ambiguous && m.sense && m.verdict === VERDICTS.CORROBORATED);
+      if (steered) topic = senseTopicFrame(ctx.doc, steered);
     }
     const pool = await retrieveHybrid(ctx.doc, query, re, 18, topic);
     const isWebSource = (d) => !!(d && (d.web || d.sourceKind === 'web-source'));
@@ -465,6 +489,13 @@ export const stages = {
     // CORROBORATES the referent, a split one abstains (INDETERMINATE). Best-effort; the log
     // never costs the answer.
     try { recordReferenceDef(ctx.judgments, referential); } catch { /* logging is best-effort */ }
+    // The fold's grounded field is the first EVIDENCE the mention DEFs meet (v2 #3): a
+    // concentrated read revises each mention on the log — confirmed, diverted, or settled —
+    // as counter-DEFs on the revision rail, never an overwrite. Best-effort, like all logging.
+    try {
+      reviseMentionsWithEvidence(ctx.judgments, ctx.mentionReferences || [], referential,
+        (id) => ctx.doc?.admission?.labelOf?.(id) ?? null);
+    } catch { /* logging is best-effort */ }
     // CAST CYCLE — REC (cast.js). Commit this turn's target as SETTLED only when the fold
     // CONCENTRATED (referential.concentrated), so the carried state holds only referents a
     // reading actually landed on; a diffuse, wandering fold commits nothing.
@@ -540,7 +571,35 @@ export const stages = {
     // the conversation as well as the page, so weak document retrieval is not evidence of a
     // void — "of the topics we discussed, which is in France?" must not come back "the
     // document does not say."
-    if (!ctx.doc || ctx.meta || (ctx.task && ctx.task !== 'answer')) return ctx;
+    if (!ctx.doc) return ctx;
+
+    // TYPED-REFERENCE DISPOSITION (The Work v2 #3) — ABOVE the meta/task exemption, because it
+    // keys on something the exemption's rationale never covered: the question's own mention
+    // COLLIDES across recorded senses (typed at retrieve, INDETERMINATE on the log) and the
+    // fold measured diffusion. That is not "weak retrieval read as a void" — it is a measured
+    // ambiguity with a recorded choice to offer. A genuinely conversational meta turn names no
+    // colliding corpus sense, so it passes through untouched; a summary/list task likewise
+    // only asks when its subject genuinely names two recorded figures. The honest output is
+    // the mention's own ASK — a choice question naming the senses — not a blanket refusal.
+    // A question is not a refusal: refuses stays false.
+    if (ctx.referential?.concentrated === false) {
+      const unresolved = (ctx.mentionReferences || []).find(
+        (m) => m.verdict === VERDICTS.INDETERMINATE && m.ask && (m.basins || []).length >= 2);
+      if (unresolved) {
+        return {
+          ...ctx,
+          terminate: true,
+          gated: true,
+          answer: unresolved.ask.question,
+          sources: [],
+          senseAsk: unresolved.ask,
+          vetoes: [Object.freeze({ id: 'referent-ambiguous-ask', refuses: false,
+            message: `"${unresolved.term}" names ${(unresolved.basins || []).length} recorded senses and the question does not say which — asked, rather than guessed.` })],
+        };
+      }
+    }
+
+    if (ctx.meta || (ctx.task && ctx.task !== 'answer')) return ctx;
 
     // THE EOT ANSWERABILITY FLOOR — score grounding in the ontology's own language, not
     // lexical overlap. The lexical binder cannot tell a real answer from prose that quotes
@@ -571,6 +630,14 @@ export const stages = {
     //     refused the answerable one. Conservative by construction — only a near-tie gates; a
     //     value calibrated to distinguish a flat field from a led one, to be re-tuned on live data.
     const FLAT_FIELD_MARGIN = 0.02;
+    // TYPED-REFERENCE DISPOSITION (The Work v2 #3). When the fold did not settle WHO the
+    // question is about AND a question mention holds an unresolved sense collision, the honest
+    // output is the mention's own ASK — a choice question naming the recorded senses — not a
+    // blanket refusal. The per-mention INDETERMINATE DEFs are already on the log (retrieve);
+    // this is their disposition. A question is not a refusal: refuses stays false.
+    // The flat-field decline survives as the FALLBACK for a wander with nothing to ask about
+    // (no mention typed — the reading has no recorded senses to offer as a choice; the ask
+    // disposition above the meta gate already took every collision that had one).
     if (ctx.referential?.concentrated === false && ctx.referential?.id != null
         && (ctx.referential?.margin ?? 1) <= FLAT_FIELD_MARGIN) {
       const ground = (ctx.spans || []).map((s, i) => ({ idx: s.idx ?? i, text: s.text, score: s.score }));

@@ -65,6 +65,37 @@ export const recordCorrespondenceDefs = (log, claims) => {
   }
 };
 
+// The per-mention reference verdicts → one DEF per typed question mention (The Work v2 #3,
+// turn/reference.js). This is the INPUT side of the reference cut, upstream of retrieval: a
+// mention that resolved to one recorded sense CORROBORATES (carrying which sense and what
+// discriminated it); a collision nothing cut is INDETERMINATE (carrying the ask it should
+// pose) — the honest per-mention abstention that replaces the all-or-nothing diffuse veto.
+// The witness is the full derivation — term, basins with weights, floor, hints, resolver —
+// so a later reader re-derives the verdict from the witness alone, and the fold's evidence
+// can revise it on the log (reference.js reviseMentionsWithEvidence).
+export const recordMentionReferenceDefs = (log, mentions) => {
+  if (!log || !Array.isArray(mentions)) return;
+  for (const m of mentions) {
+    if (!m || typeof m.term !== 'string' || !isVerdict(m.verdict)) continue;
+    log.judge({
+      verdict: m.verdict,
+      grain: GRAINS.REFERENT,
+      of: `referent:mention:${m.term}`,
+      witness: {
+        term: m.term,
+        sense: m.sense?.label ?? null,
+        senseId: m.sense?.id ?? null,
+        margin: m.margin ?? 0,
+        basins: m.basins || [],
+        anchor: m.anchor || '',
+        resolvedBy: m.resolvedBy || null,
+        floor: m.floor ?? null,
+        hints: m.hints || [],
+      },
+    });
+  }
+};
+
 // The reference verdict → a DEF at the referent grain. referentialConfidence reads WHO a
 // passage concerns off the γ-decayed coref posterior; a CONCENTRATED field settles the
 // referent (CORROBORATED — this mention is the same referent as the anchor), a split field

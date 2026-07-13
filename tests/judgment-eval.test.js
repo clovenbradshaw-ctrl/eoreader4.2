@@ -248,12 +248,11 @@ test('the battery runs every specimen; ratchet:true specimens stay clean — the
     assert.equal(s.verdicts.overall.unjudged, 0, `${s.id}: a ratchet specimen lost a judged subject`);
     assert.equal(s.shape.malformed, 0, `${s.id}: a ratchet specimen minted a malformed DEF`);
   }
-  // The recorded baseline: the two un-ratcheted specimens carry the defects the retyping
-  // (v2 #2–#4) must convert. If either goes clean, a judge changed — flip its ratchet bit
+  // The recorded baseline: the un-ratcheted specimens carry the defects the retyping
+  // (v2 #2–#4) must convert. If one goes clean, a judge changed — flip its ratchet bit
   // via the battery, deliberately, and update this pin.
-  const elvis = perSpecimen.find((s) => s.id === 'elvis-referent-diffuse');
-  assert.ok(elvis.verdicts.overall.confidentWrong >= 1,
-    'baseline: the binder still corroborates the ambiguous Elvis claim (v2 #3\'s target)');
+  //   elvis-referent-diffuse: CONVERTED by #3 (typed reference) — it now ratchets above,
+  //   and tests/typed-reference.test.js pins the ask that replaced the confident bind.
   const unstated = perSpecimen.find((s) => s.id === 'unstated-evaluation');
   assert.ok(unstated.verdicts.overall.confidentWrong >= 1,
     'baseline: the binder still corroborates the unstated superlative (v2 #2\'s target)');

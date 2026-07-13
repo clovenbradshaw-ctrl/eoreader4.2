@@ -55,7 +55,7 @@ disagreements were invented failures.
 |---|---|---|---|
 | `dolphins-unsupported-predicate` | on-topic words, unsupported predicate (the binder regression, pinned in `tests/bind-referent.test.js`) | pods claim ∈ {unsupported, indeterminate}; size claim corroborated | **true** |
 | `entailed-paraphrase` | an entailed paraphrase naming the source's figures must cite | claim corroborated | **true** (clean today via honest suspension — see findings) |
-| `elvis-referent-diffuse` | two recorded senses, undiscriminating question — suspension is correct | referent* indeterminate; the "1954" claim indeterminate | false — **#3's target** |
+| `elvis-referent-diffuse` | two recorded senses, undiscriminating question — suspension is correct | referent* indeterminate | **true** — converted by #3 (see update below) |
 | `two-bushes` | short name fitting two incomparable fuller names — abstain, never the loudest | referent* indeterminate | **true** |
 | `unstated-evaluation` | the corpus describes, never ranks — "best" is unsupported and the missing ranking is an absence | "best" claim ∈ {unsupported, indeterminate}; field* unsupported | false — **#2's and #4's target** |
 | `not-in-corpus` | a figure the corpus never mentions | field* unsupported | **true** |
@@ -102,6 +102,44 @@ Deterministic: two `--json` runs byte-identical.
    refuse in prose without logging a field DEF (`not-in-corpus` only fires `answerVoid` on
    the larger corpus; `unstated-evaluation` never does). Where the turn *acts on* an absence
    it should *log* the absence — #4's seam.
+
+## Update — typed reference lands (#3, same day)
+
+`turn/reference.js` retyped the input side of the cut: per-mention sense DEFs
+(`referent:mention:<term>`, minted at retrieve, model-free over the recorded entity graph —
+`senseBasins` + hint discrimination + the name-variants ambiguous-short-form guard), the
+resolved-ambiguous mention arming retrieval's topic damping, the fold's grounded evidence
+REVISING the mention DEF on the log (`reviseMentionsWithEvidence` — the revision rail's first
+live call site: confirmed / diverted / settled, as counter-DEFs), and the answerable
+disposition replacing the blanket `referent-diffuse` refusal with the mention's own ASK
+(`referent-ambiguous-ask`, `refuses: false`) whenever the fold diffused over a recorded
+collision. The flat-field decline survives only as the no-collision fallback.
+
+Post-#3 battery:
+
+```
+grain          judged  correct  conf-wrong  underconf  CWR     unjudged  wrong-grain
+claim               4        2           1          1    0.25         0            0
+referent            2        2           0          0       0         0            0
+field               1        1           0          0       0         1            0
+overall             7        5           1          1   0.143         1            0
+stability: 0 OVERTURNED · shape: 0 malformed
+```
+
+- **`elvis-referent-diffuse` converted and ratcheted** (CWR 0.5 → 0): the turn now asks
+  *"Which elvis do you mean — Elvis Presley (sun) or Elvis Costello (london)?"* instead of
+  binding the ambiguous claim to the Presley sentence. No claim ships while the subject is
+  unresolved — asked, not guessed. The old claim gold ("1954" → indeterminate) is retired
+  with the leak it recorded; `tests/typed-reference.test.js` pins the ask.
+- **`two-bushes` asks too** — the same disposition replaced its refusal-shaped decline; the
+  ambiguous-short-form guard (name-variants law over basins) keeps a hint that lands on the
+  held short form from counting as a resolution.
+- Remaining on the board, unchanged: `unstated-evaluation`'s confident-wrong claim (#2) and
+  its missing evaluation-void DEF (#4) — the claim column's CWR 0.25 is now entirely #2's.
+- One classifier note: the ask disposition sits ABOVE the answerable stage's
+  meta-conversational exemption, because it requires a *recorded sense collision* — a
+  genuinely conversational meta turn names none, while "What did Elvis record first?"
+  false-positives the meta basis and still deserves the ask.
 
 ## Honest edges
 

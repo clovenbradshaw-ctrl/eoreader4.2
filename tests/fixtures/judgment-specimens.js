@@ -84,11 +84,9 @@ export const SPECIMENS = Object.freeze([
     gold: Object.freeze([
       Object.freeze({ grain: 'referent', match: '*', accept: Object.freeze(['indeterminate']),
         why: 'two senses hold real mass and the question names neither — suspension is the honest cut' }),
-      Object.freeze({ grain: 'claim', match: '1954', accept: Object.freeze(['indeterminate']),
-        why: 'the subject is diffuse — a confident bind of "Elvis recorded first in 1954" ships the Presley reading of an unresolved name' }),
     ]),
-    ratchet: false,
-    notes: 'v2 #3 target: after typed reference, the per-mention DEF should abstain (and ask), never bind the louder Elvis. The claim gold records the output-side leak: the binder corroborates the ambiguous claim today.',
+    ratchet: true,
+    notes: 'CONVERTED by v2 #3 (typed reference): the per-mention DEF abstains and the turn ASKS ("Which elvis…?") instead of binding the louder Elvis — the claim that used to ship confident-wrong ("Elvis recorded his first single in 1954" cited to the Presley sentence) is never made. Battery 2026-07-13 proved the flip; tests/typed-reference.test.js pins the ask.',
   }),
 
   // The two-Bushes ambiguity: a short name fitting two incomparable fuller names folds
