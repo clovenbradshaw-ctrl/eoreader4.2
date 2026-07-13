@@ -29,7 +29,7 @@ import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
 import { attachReading }     from '../ingest/index.js';
-import { resolveTranscript } from './hear.js';
+import { resolveTranscript, hearingBelief, transcriptViews } from './hear.js';
 
 const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
 
@@ -119,7 +119,6 @@ export const ingestAudio = (transcript = {}) => {
   const contested = [];         // [{ span:[a,b], unitIdx, chosen, alts:[{surface,witness}] }]
 
   utterances.forEach((u, unitIdx) => {
-    const surfaces = [];
     for (const w of u.words) {
       const id = w.norm;                       // the recurring entity — repeats unify by mass
       const wa = w.start ?? u.start, wb = w.end ?? u.end;
@@ -158,24 +157,30 @@ export const ingestAudio = (transcript = {}) => {
         contested.push({ span: [wa, wb], unitIdx, chosen: { surface: w.text, witness }, alts: rivals });
       }
 
-      // The reading line of time: bond to the previous word, labelled by the gap.
+      // The reading line of time: bond to the previous word, labelled by the gap, and
+      // COUPLED at the hearing's belief. A transcription is an assertion made off a
+      // waveform, so its bond couples sub-unit — on the engine's own `w` channel, the way
+      // a field-resolved (not name-resolved) bond does — never at the certainty of an
+      // authored word (hear.js: capped at the witness ceiling). This is the one place the
+      // "lower degree of belief in transcription than text" is spent, in the shared channel.
       if (prev && prev !== id) {
         const gap = wa - (prevEnd ?? u.start);
-        log.append({ op: 'CON', src: prev, tgt: id, via: gap >= PARA_GAP ? 'pause' : 'then', sentIdx: unitIdx });
+        log.append({ op: 'CON', src: prev, tgt: id, via: gap >= PARA_GAP ? 'pause' : 'then', w: hearingBelief(w), sentIdx: unitIdx });
       }
       prev = id;
       prevEnd = wb ?? prevEnd;
 
-      surfaces.push(w.text);
       tokens.push({ id, text: w.text, norm: w.norm, start: wa, end: wb, unitIdx, relisten: !!w.relisten,
         conf: (w.conf != null && isFinite(w.conf)) ? +w.conf : null,
         acous: (w.acous != null && isFinite(w.acous)) ? +w.acous : null,
         snr:   (w.snr   != null && isFinite(w.snr))   ? +w.snr   : null });
     }
-    units.push(`${surfaces.join(' ')} (${u.start.toFixed(1)}s)`);
-    sentences.push(surfaces.join(' '));
-    timings.push([u.start, u.end]);
   });
+
+  // The display views — words joined per breath group, the utterance's start stamped —
+  // projected from the utterances by the ONE shared builder (hear.js transcriptViews), so
+  // ingest and the self-editing rebuild spell them the same way.
+  { const v = transcriptViews(utterances); units.push(...v.units); sentences.push(...v.sentences); timings.push(...v.timings); }
 
   // SYN + REC on every unification. The SYN collapses the surfaces on the spine (union-find,
   // what the engine's fold consumes); the REC records the RULE the ear learned to do it —

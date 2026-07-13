@@ -254,7 +254,7 @@ export const toProcessTrace = (doc) => {
   } else {
     L.push(`The transcript EDITED ITSELF: ${revisions.length} mention${revisions.length !== 1 ? 's' : ''} of a name heard more than one way was folded to the reading the ear was most sure of (acoustic signal × model confidence × how often it was said). Each edit is on the log — the shaky hearing retracted (SEG), the confident one re-minted (INS), the referents merged (SYN) — so nothing is lost, only superseded.`);
     L.push('');
-    revisions.forEach(r => L.push(`- “${r.from}” ⇒ **${r.to}**${isNum(r.start) ? ` \`[${ms(r.start)}]\`` : ''}${isNum(r.conf) ? ` _(P=${(+r.conf).toFixed(2)})_` : ''}`));
+    revisions.forEach(r => L.push(`- “${r.from}” ⇒ **${r.to}**${isNum(r.start) ? ` \`[${ms(r.start)}]\`` : ''}${isNum(r.belief) ? ` _(belief ${(+r.belief).toFixed(2)})_` : ''}`));
   }
   L.push('');
 

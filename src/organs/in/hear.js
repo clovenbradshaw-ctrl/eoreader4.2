@@ -1,39 +1,59 @@
 // EO: EVA·SYN·SEG(Field,Entity → Void,Network, Tracing,Making,Unraveling) — the hearing that edits itself
 // The ear's second pass — signal-from-noise, then a self-editing resolution.
 //
-// organs/in/audio.js lands a speech model's transcript on the spine as-is: one INS
-// per word, repeats unified by norm, the model's own confidence carried through. But
-// a transcript is a READING, and a first reading of a name is often its worst: the
-// clearest, oft-repeated hearing of "Darcy" should correct the one-off "Marcy" mumbled
-// under a cough — not the other way round. This module is where the machine does that
-// itself, autonomously, WITHOUT handing the waveform back to a model to re-guess:
+// FOUR THINGS THIS MODULE HOLDS, from which everything else follows:
+//
+//   • The WAVEFORM is the truth. The words are a reading of it, not the thing itself.
+//   • Every TRANSCRIPTION IS AN ASSERTION — the ear CLAIMS a span is a word; it is not
+//     given. So it is defeasible, and it is BELIEVED, never simply recorded as fact.
+//   • A heard assertion earns a LOWER DEGREE OF BELIEF than authored text. Someone WROTE
+//     "Darcy"; the ear GUESSED it off a pressure wave. Authored text couples at certainty
+//     (coupling 1); a transcription couples BELOW a ceiling < 1, and how far below is set
+//     by how well the WAVEFORM — the truth — witnesses it (acousticSignal §1), the speech
+//     model's own confidence only a weaker second witness (hearingBelief §2a).
+//   • What COUNTS as an entity is the READER's call, not this module's. The transcript is
+//     text; the reader already knows how to read text into referents (parse/entities.js
+//     admission) and how two near-spellings can be one name (parse/fuzzy.js). We reuse
+//     exactly that — no bespoke "looks like a name" regex lives here.
+//
+// So: organs/in/audio.js lands the first reading on the spine as-is, each word an INS
+// whose bond to the next couples at its hearing-belief (< 1). A first reading of a name
+// is often its worst — the clear, oft-repeated "Darcy" should correct the one-off "Marcy"
+// caught under a cough. resolveTranscript does that autonomously, WITHOUT re-asking a model:
 //
 //   1. acousticSignal — parse the signal from the noise on every word SPAN, from the
-//      decoded PCM directly. A word is loud-over-room-tone or it is not; the boundary
-//      is the field's OWN derived noise null (the Born rule, voidnull.js), never a
-//      chosen dB. This yields an acoustic confidence orthogonal to the model's logprob:
-//      the model can be sure of a word the microphone barely caught, and vice-versa.
+//      decoded PCM directly. A word is loud-over-room-tone or it is not; the boundary is
+//      the field's OWN derived noise null (the Born rule, voidnull.js), never a chosen dB.
 //
-//   2. resolveTranscript — GRAPH-AWARE coreference + most-confident election, folded
-//      back into the append-only stream as an EDIT. Near-spelling entity surfaces that
-//      are the same referent misheard ("Darcy"/"Darcey"/"Marcy") are found by mutual
-//      nearest neighbour, gated by a noise null so a genuinely distinct name is never
-//      swallowed. Each cluster ELECTS its most-confident surface — acoustic signal ×
-//      model confidence × accumulated mass — and every losing hearing is RE-HEARD to
-//      it: a SEG retracts the shaky INS, a fresh INS re-mints the confident surface, a
-//      SYN·REC folds the referents to one. Nothing is unwritten — the correction lands
-//      as data on the same log, auditable down to the evidence that licensed it, and
-//      the visible transcript (tokens, sentences) is reprojected to match.
+//   2. resolveTranscript — the reader reads the transcript into referents (its own
+//      admission), near-spelling variants of one name are found by the reader's own fuzzy
+//      matcher under mutual-nearest (so a genuinely distinct name is never swallowed), each
+//      cluster ELECTS its most-BELIEVED surface (waveform-grounded), and every weaker
+//      hearing is RE-HEARD to it: a SEG retracts the shaky INS, a fresh INS re-mints the
+//      believed surface at the believed coupling, a SYN·REC folds the referents to one.
+//      Nothing is unwritten — the correction lands as data on the same append-only log,
+//      and the visible transcript (tokens, sentences, utterances) is reprojected to match.
 //
 // Pure, DOM-free, framework-free. acousticSignal reads a Float32 PCM buffer; the
 // resolution reads only the shape organs/in/audio.js emits (a doc with `log`, `tokens`,
 // `sentences`, `units`). Both are safe to call in Node — the tests drive them directly.
 
-import { createNoiseFloor, boundedNull } from '../../core/index.js';
-import { isStop } from '../../perceiver/parse/index.js';
+import { createNoiseFloor } from '../../core/index.js';
+import { parseText, editWithin, fuzzCeiling } from '../../perceiver/parse/index.js';
+import { CONVERSATIONAL_CAP } from '../../turn/converse/index.js';
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const isNum = (x) => typeof x === 'number' && isFinite(x);
+
+// A heard assertion is BELIEVED in the engine's own omnimodal currency — the COUPLING
+// `w` a bond carries (project.js: "a referent resolved by field rather than by name
+// carries a sub-unit weight"). A transcribed word IS a field-resolution — heard off a
+// waveform, not read off an authored name — so its bond couples sub-unit for exactly the
+// reason a pronoun-resolved bond does, no audio-specific rule required. And the ceiling
+// is the engine's existing witness ceiling: CONVERSATIONAL_CAP (turn/converse) — the cap a
+// WITNESS earns because it observes and does not author (parse/coref.js). Authored text
+// couples at 1; a heard assertion tops out at the witness cap. That IS "lower belief in
+// transcription than text," said once, in the channel the whole engine already reads.
 
 // ── 1 · acoustic signal-from-noise, from the waveform itself ────────────────────
 //
@@ -104,129 +124,115 @@ export const acousticSignal = (mono, SR, spans, { frameMs = 25, hopMs = 10, alph
   });
 };
 
-// ── 2 · the resolution — coreference + most-confident election, self-edited ─────
+// ── 2a · belief — every transcription is an assertion, held below text ──────────
 
-// Normalized edit distance similarity in [0,1] over two short strings — the
-// near-spelling read (1 = identical, 0 = nothing shared). Iterative-DP Levenshtein,
-// bounded to the small tokens this ever sees (names, a few graphemes each).
-const editSim = (a, b) => {
-  a = String(a || ''); b = String(b || '');
-  if (a === b) return 1;
-  if (!a.length || !b.length) return 0;
-  const m = a.length, n = b.length;
-  let prev = Array.from({ length: n + 1 }, (_, j) => j);
-  let cur = new Array(n + 1);
-  for (let i = 1; i <= m; i++) {
-    cur[0] = i;
-    for (let j = 1; j <= n; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+// The coupling `w` one heard assertion earns, in [0, cap] — the engine's belief currency,
+// computed from the audio witnesses (this is the audio-specific part; the CHANNEL it lands
+// on is not). The WAVEFORM is the truth, so the acoustic witness (§1) is primary; the
+// speech model's own confidence is a weaker second witness. A word the model was sure of
+// but the microphone barely caught is not trusted; a word the waveform shows clearly, less
+// doubted. The hardest line the truth draws: a span that never cleared its OWN noise null
+// (signal false — the waveform holds only room there) is barely believed, however sure the
+// model. Whatever the witnesses say, it tops out at the witness ceiling (CONVERSATIONAL_CAP).
+export const hearingBelief = (t, cap = CONVERSATIONAL_CAP) => {
+  const conf  = isNum(t?.conf)  ? clamp01(t.conf)  : null;   // the model's logprob (2nd witness)
+  const acous = isNum(t?.acous) ? clamp01(t.acous) : null;   // the waveform (the truth, 1st witness)
+  let w;
+  if (acous != null && conf != null) w = 0.65 * acous + 0.35 * conf;   // truth leads, model tempers
+  else if (acous != null)            w = acous;                        // waveform alone
+  else if (conf != null)             w = 0.85 * conf;                  // model alone — no truth-witness, extra doubt
+  else                               w = 0.7;                          // unmeasured — a neutral heard prior
+  if (t && t.signal === false) w = Math.min(w, 0.2);                   // the waveform's veto
+  return +(cap * clamp01(w)).toFixed(4);
+};
+
+// ── 2b · the resolution — reader-read referents, believed, self-edited ──────────
+
+// The distinct name-referent surfaces the READER finds in the transcript. The transcript
+// is text, and the reader already reads text into referents (parse/entities.js admission:
+// a name in an argument position anchors on first sighting, a bare capital earns nothing).
+// We run exactly that reading and take its admitted single-token names — the entity notion
+// is the reader's, not a regex of ours. Returns a Set of admitted norms present as tokens.
+const readerReferents = (doc) => {
+  const admitted = new Set();
+  try {
+    const text = (doc.sentences || []).map(s => String(s || '').trim()).filter(Boolean).join('. ');
+    if (!text) return admitted;
+    const parsed = parseText(text);
+    const labels = parsed?.admission?.admitted ? [...parsed.admission.admitted.keys()] : [];
+    for (const label of labels) {
+      // A single-token name is the ASR name-drift case ("Marcy" for "Darcy"). Multi-word
+      // names fold by containment (parse/name-variants.js) — a separate reading, not here.
+      const toks = String(label).trim().toLowerCase().split(/\s+/).filter(Boolean);
+      if (toks.length === 1) admitted.add(toks[0].replace(/[^\p{L}\p{N}']/gu, ''));
     }
-    [prev, cur] = [cur, prev];
-  }
-  return 1 - prev[n] / Math.max(m, n);
+  } catch { /* the reader is best-effort; a transcript it cannot read yields no referents */ }
+  return admitted;
 };
-
-// The confidence of a single hearing (one token) — the two channels blended. Model
-// confidence (whisper's logprob) and acoustic signal (this module's §1) are orthogonal
-// witnesses; either present pulls the estimate, both present average, neither leaves a
-// neutral prior. A hearing the microphone missed OR the model doubted is a weak vote.
-const hearingConf = (t) => {
-  const c = isNum(t.conf) ? clamp01(t.conf) : null;
-  const a = isNum(t.acous) ? clamp01(t.acous) : null;
-  if (c != null && a != null) return 0.5 * c + 0.5 * a;
-  return c != null ? c : a != null ? a : 0.7;   // neutral prior when unmeasured
-};
-
-// An entity candidate surface — a proper-name-like token worth resolving. The heuristic
-// is deliberately conservative and its limits are owned, not hidden: an initial capital
-// on the cased surface, not a stopword, ≥3 graphemes. This catches the ASR name-drift
-// case ("Darcy"/"Marcy") without dragging in function words that repeat for other reasons.
-// It will over-admit a sentence-initial common noun and under-admit an all-lowercased
-// model's names — a real ceiling, left as a caveat, not papered over.
-const isEntitySurface = (text, norm) =>
-  /^\p{Lu}/u.test(String(text || '')) && norm.length >= 3 && !isStop(norm);
 
 // resolveTranscript(doc, opts) — the graph-aware, self-editing pass.
 //
-// Reads the audio doc's flat `tokens` (each { id, text, norm, start, end, unitIdx,
-// conf?, acous? }) and its append-only `log`. Finds entity surfaces that are one
-// referent misheard, elects the most-confident spelling of each, and REWRITES the
-// weaker hearings to it — on the log (SEG·INS·DEF·SYN·REC) and in the projected views.
+// Reads the audio doc's flat `tokens` and its append-only `log`. Takes the reader's own
+// referents (readerReferents), finds the near-spelling variants of one name by the
+// reader's own fuzzy matcher under mutual-nearest, elects the MOST-BELIEVED spelling of
+// each (waveform-grounded, hearingBelief), and RE-HEARS the weaker hearings to it — on the
+// log (SEG·INS·DEF·SYN·REC, coupled at the believed weight) and in the projected views.
 //
-//   alpha   the tolerated false-merge rate for the noise null (default 0.05).
-//   minSim  a hard floor on similarity below which two surfaces are never candidates,
-//           regardless of the null (default 0.5 — half the graphemes shared).
-//
-// Returns a receipt { revisions:[{ from, to, unitIdx, start, at, via, conf }], clusters,
+// Returns a receipt { revisions:[{ from, to, unitIdx, start, at, via, belief }], clusters,
 // edits } and mutates `doc` in place (tokens/sentences/units patched, doc.revisions set).
-// Inert — returns an empty receipt and appends nothing — when no cluster clears the null,
-// so a clean transcript is byte-identical to one that never ran this (golden parity).
-export const resolveTranscript = (doc, { alpha = 0.05, minSim = 0.5 } = {}) => {
+// Inert — empty receipt, nothing appended — when the reader finds no variant to fold, so a
+// clean transcript is byte-identical to one that never ran this (golden parity).
+export const resolveTranscript = (doc, { cap = CONVERSATIONAL_CAP } = {}) => {
   const empty = { revisions: [], clusters: [], edits: 0 };
   if (!doc || !doc.log || !Array.isArray(doc.tokens) || !doc.tokens.length) return empty;
   const tokens = doc.tokens;
 
-  // Aggregate the entity surfaces: norm → { mentions:[tokenIdx], mass, confMass,
-  // surfaces: Map(cased → count) }. Mass is sighting count; confMass weights each
-  // sighting by its hearing confidence, so the election favours the surface heard
-  // often AND clearly, not merely often.
+  // The entity candidates: tokens whose norm the READER admitted as a referent. Aggregate
+  // per norm — mentions, mass (sightings), and believedMass (Σ hearingBelief), so the
+  // election favours the surface heard often AND believed, not merely often.
+  const referents = readerReferents(doc);
   const ent = new Map();
   tokens.forEach((t, i) => {
-    if (!t.norm || !isEntitySurface(t.text, t.norm)) return;
-    const e = ent.get(t.norm) || { norm: t.norm, mentions: [], mass: 0, confMass: 0, surfaces: new Map() };
+    if (!t.norm || !referents.has(t.norm)) return;
+    const e = ent.get(t.norm) || { norm: t.norm, mentions: [], mass: 0, believedMass: 0, surfaces: new Map() };
     e.mentions.push(i);
     e.mass += 1;
-    e.confMass += hearingConf(t);
+    e.believedMass += hearingBelief(t, cap);
     e.surfaces.set(t.text, (e.surfaces.get(t.text) || 0) + 1);
     ent.set(t.norm, e);
   });
   const norms = [...ent.keys()];
   if (norms.length < 2) return empty;
 
-  // Pairwise near-spelling similarity, and the background of also-ran sims that the
-  // noise null is derived over (the same discipline equivalence.js uses: a proposed
-  // merge must beat what chance spelling-overlap produces, or it is held, not merged).
-  const background = [];
-  const sim = new Map();   // "a␟b" → score
-  const key = (a, b) => (a < b ? a + '␟' + b : b + '␟' + a);
-  for (let i = 0; i < norms.length; i++)
-    for (let j = i + 1; j < norms.length; j++) {
-      const s = editSim(norms[i], norms[j]);
-      sim.set(key(norms[i], norms[j]), s);
-      background.push(s);
-    }
+  // The reader's fuzzy distance — bounded Levenshtein under the reader's own length-aware
+  // ceiling (parse/fuzzy.js: "darcy"↔"marcy" is one edit at length five, a match; a short
+  // or far-apart pair stays distinct). This is the SAME primitive the surfer uses to rescue
+  // a query term the page never spells exactly; the transcription variant is that case.
+  const ceilOf = (a, b) => Math.min(fuzzCeiling(a.length), fuzzCeiling(b.length));
+  const dist   = (a, b) => editWithin(a, b, Math.max(fuzzCeiling(a.length), fuzzCeiling(b.length)));
 
-  // Mutual nearest neighbour: i and j merge only when each is the OTHER's strongest
-  // match — the parameter-free grouping. The null (boundedNull, a bounded [0,1] score)
-  // is the abstention: a pair clears only if its similarity beats the derived line AND
-  // the hard minSim floor. A distinct name whose nearest neighbour is a coincidence sits
-  // below the line and is never merged.
+  // Mutual nearest neighbour over the fuzzy distance — the parameter-free grouping
+  // (equivalence.js): two names fold only when each is the OTHER's closest spelling AND
+  // they sit within the reader's fuzz ceiling. A distinct name whose nearest neighbour is
+  // a coincidence is beyond the ceiling and is never swallowed. No threshold we invented.
   const nearest = new Map();
   for (const a of norms) {
-    let best = null, bs = -1;
+    let best = null, bd = Infinity;
     for (const b of norms) {
       if (b === a) continue;
-      const s = sim.get(key(a, b));
-      if (s > bs) { bs = s; best = b; }
+      const d = dist(a, b);
+      if (d < bd) { bd = d; best = b; }
     }
-    if (best) nearest.set(a, { best, score: bs });
+    if (best) nearest.set(a, { best, d: bd });
   }
-
-  // Union-find over the mutually-nearest pairs that clear the null.
   const parent = new Map();
   const find = (x) => { let p = parent.get(x) ?? x; while (p !== (parent.get(p) ?? p)) p = parent.get(p) ?? p; return p; };
   const union = (a, b) => { parent.set(find(a), find(b)); };
   for (const a of norms) {
     const na = nearest.get(a); if (!na) continue;
     const nb = nearest.get(na.best);
-    if (!nb || nb.best !== a) continue;                       // not mutual
-    const s = na.score;
-    // The derived line when the background can support one; otherwise the caller's
-    // conservative minSim floor (a thin transcript of two names cannot estimate a null,
-    // but "over half the graphemes shared AND mutually nearest" is already a real gate).
-    const line = boundedNull(background, { alpha, leaveOut: s, fallback: minSim });
-    if (s >= minSim && s > line) union(a, na.best);
+    if (!nb || nb.best !== a) continue;                        // not mutual
+    if (na.d >= 1 && na.d <= ceilOf(a, na.best)) union(a, na.best);   // within the reader's ceiling
   }
 
   // Group into clusters by root; a cluster of one is nothing to resolve.
@@ -235,62 +241,61 @@ export const resolveTranscript = (doc, { alpha = 0.05, minSim = 0.5 } = {}) => {
   const clusters = [...byRoot.values()].filter(c => c.length > 1);
   if (!clusters.length) return empty;
 
-  // The log's INS events, in order — 1:1 with `tokens` (audio.js appends exactly one
-  // INS per word, in word order, before any SYN/REC). This lets a self-edit retract the
-  // EXACT INS that recorded a losing hearing rather than guessing which one it was.
-  const insSeq = doc.log.snapshot().filter(e => e.op === 'INS' && e.kind !== 'view' && e.kind !== 'merge').map(e => e.seq);
+  // The log's INS events, in order — 1:1 with `tokens` (audio.js appends exactly one word
+  // INS per token, in order, before any SYN/REC). This lets a self-edit retract the EXACT
+  // INS that recorded a losing hearing rather than guessing which one it was.
+  const insSeq = doc.log.snapshot().filter(e => e.op === 'INS' && e.kind !== 'view' && e.kind !== 'merge' && e.kind !== 'reheard').map(e => e.seq);
 
   const revisions = [];
   let edits = 0;
 
   for (const cluster of clusters) {
-    // Elect the winner: the norm with the greatest confidence-weighted mass. Ties fall
-    // to raw mass, then to the surface with the most distinct-grapheme length (the
-    // fuller spelling — "Darcy" over "arcy"), a stable, content-based tiebreak.
+    // Elect the winner: the norm with the greatest BELIEVED mass — the spelling the ear was
+    // most sure of, summed over its sightings (waveform-grounded, §2a). Ties fall to raw
+    // mass, then to the longer, then lexical — a stable, content-based order.
     const winner = cluster.slice().sort((x, y) => {
       const ex = ent.get(x), ey = ent.get(y);
-      return (ey.confMass - ex.confMass) || (ey.mass - ex.mass) || (y.length - x.length) || (x < y ? -1 : 1);
+      return (ey.believedMass - ex.believedMass) || (ey.mass - ex.mass) || (y.length - x.length) || (x < y ? -1 : 1);
     })[0];
     const we = ent.get(winner);
     // The winning surface: the most frequent cased spelling of the winning norm.
-    const winLabel = [...we.surfaces.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0][0];
-    const winConf = we.confMass / (we.mass || 1);
+    const winLabel  = [...we.surfaces.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0][0];
+    const winBelief = we.believedMass / (we.mass || 1);
 
     for (const loser of cluster) {
       if (loser === winner) continue;
       const le = ent.get(loser);
-      const s = sim.get(key(loser, winner)) ?? editSim(loser, winner);
-      // Fold the referents to one on the spine (graph-aware), and record the RULE the
-      // ear learned — the same SYN+REC deposit audio.js leaves for a merge it was handed,
-      // here DISCOVERED autonomously from confidence + spelling rather than supplied.
-      doc.log.append({ op: 'SYN', kind: 'merge', from: loser, to: winner, via: 'coref-resolved', sentIdx: tokens[le.mentions[0]].unitIdx ?? 0 });
-      doc.log.append({ op: 'REC', kind: 'unify', token: loser, expansion: winner, via: 'coref-resolved', weight: +s.toFixed(3), sentIdx: tokens[le.mentions[0]].unitIdx ?? 0 });
+      const at0 = tokens[le.mentions[0]].unitIdx ?? 0;
+      // Fold the referents to one on the spine (graph-aware), and record the RULE the ear
+      // learned — the same SYN+REC deposit audio.js leaves for a merge it was handed, here
+      // DISCOVERED autonomously from belief + the reader's fuzzy read. The merge couples at
+      // the winner's belief: even a corrected identity is a HEARD one, never text-certain.
+      doc.log.append({ op: 'SYN', kind: 'merge', from: loser, to: winner, via: 'coref-resolved', w: +winBelief.toFixed(3), sentIdx: at0 });
+      doc.log.append({ op: 'REC', kind: 'unify', token: loser, expansion: winner, via: 'coref-resolved', weight: +winBelief.toFixed(3), sentIdx: at0 });
 
-      // Re-hear every mention of the losing surface as the confident one — an edit that
-      // LANDS on the append-only stream: retract the shaky INS, re-INS the winner, and
-      // DEF the provenance so the correction is groundable (what it was, why it changed).
+      // Re-hear every mention of the losing surface as the believed one — an edit that LANDS
+      // on the append-only stream: retract the shaky INS, re-INS the winner at its believed
+      // coupling, DEF the provenance (what it was, and the belief that replaced it).
       for (const i of le.mentions) {
         const t = tokens[i];
         const origLabel = t.text;
         const seq = insSeq[i];
-        if (seq != null) doc.log.retract(seq, `re-heard "${origLabel}" as "${winLabel}" (coref + confidence)`);
+        if (seq != null) doc.log.retract(seq, `re-heard "${origLabel}" as "${winLabel}" (reader coref + belief)`);
         const at = t.unitIdx ?? 0;
-        doc.log.append({ op: 'INS', id: winner, label: winLabel, sentIdx: at, kind: 'reheard' });
+        doc.log.append({ op: 'INS', id: winner, label: winLabel, sentIdx: at, kind: 'reheard', w: +winBelief.toFixed(3) });
         doc.log.append({ op: 'DEF', id: winner, key: 'revisedFrom', value: origLabel, sentIdx: at });
         doc.log.append({ op: 'DEF', id: winner, key: 'time', value: `${(+t.start).toFixed(2)}-${(+t.end).toFixed(2)}`, sentIdx: at });
         doc.log.append({ op: 'EVA', id: winner, reason: 'reheard-on-resolution', value: `${origLabel} ⇒ ${winLabel}`, sentIdx: at });
 
-        // Reproject the visible transcript: the span now reads the confident surface,
-        // keeping a groundable trail of what it was heard as first.
-        revisions.push({ from: origLabel, to: winLabel, unitIdx: at, start: +(+t.start).toFixed(3), at: seq ?? null, via: 'coref+confidence', conf: +winConf.toFixed(3) });
+        // Reproject the visible transcript: the span now reads the believed surface, keeping
+        // a groundable trail of what it was heard as first.
+        revisions.push({ from: origLabel, to: winLabel, unitIdx: at, start: +(+t.start).toFixed(3), at: seq ?? null, via: 'reader-coref+belief', belief: +winBelief.toFixed(3) });
         t.revisedFrom = origLabel;
         t.text = winLabel;
         t.norm = winner;
         t.id = winner;
         // Patch the matching utterance word too — the caption/sentence exports read the
-        // nested `utterances`, not the flat tokens, so both must carry the confident
-        // surface. Matched within the unit by nearest start time (tokens and utterance
-        // words are 1:1 there, but the time match survives any incidental desync).
+        // nested `utterances`, not the flat tokens, so both must carry the believed surface.
         patchUtteranceWord(doc, at, t.start, winLabel, winner, origLabel);
         edits++;
       }
@@ -322,28 +327,29 @@ const patchUtteranceWord = (doc, unitIdx, start, label, norm, origLabel) => {
   if (best) { best.revisedFrom = origLabel; best.text = label; best.norm = norm; best.__reheard = true; }
 };
 
-// Rebuild doc.sentences / doc.units / doc.mentions from the (possibly patched) tokens —
-// the same grouping organs/in/audio.js does at ingest, run again so the visible reading
-// matches the edited stream. `units` keeps audio.js's "(Ns)" time suffix per utterance.
+// The display views a heard transcript projects from its breath groups — the ONE place
+// the "words joined, with the utterance's start stamped" shape lives, so organs/in/audio.js
+// builds them here at ingest and resolveTranscript rebuilds them here after an edit, rather
+// than each spelling the format its own way. Pure on the utterances (the word source).
+export const transcriptViews = (utterances = []) => {
+  const sentences = [], units = [], timings = [];
+  for (const u of utterances) {
+    const surfaces = (u.words || []).map(w => w.text);
+    const text = surfaces.join(' ');
+    sentences.push(text);
+    units.push(`${text} (${(isNum(u.start) ? u.start : 0).toFixed(1)}s)`);
+    timings.push([u.start, u.end]);
+  }
+  return { sentences, units, timings };
+};
+
+// Rebuild the projected views from the (patched) utterances — the same projection
+// organs/in/audio.js runs at ingest (transcriptViews), re-run so the visible reading
+// follows the edited stream. Mentions re-index the merged referents off the flat tokens.
 const rebuildViews = (doc) => {
-  const byUnit = new Map();
-  for (const t of doc.tokens) {
-    const u = t.unitIdx ?? 0;
-    (byUnit.get(u) || byUnit.set(u, []).get(u)).push(t);
-  }
-  const idxs = [...byUnit.keys()].sort((a, b) => a - b);
-  const sentences = [], units = [];
+  const { sentences, units } = transcriptViews(doc.utterances || []);
   const mentions = new Map();
-  for (const u of idxs) {
-    const ws = byUnit.get(u);
-    const text = ws.map(w => w.text).join(' ');
-    sentences[u] = text;
-    const start = isNum(ws[0]?.start) ? ws[0].start : 0;
-    units[u] = `${text} (${start.toFixed(1)}s)`;
-    for (const w of ws) mentions.set(w.id, [...(mentions.get(w.id) || []), u]);
-  }
-  // Fill any gap left by an empty unit index (defensive — audio units are contiguous).
-  for (let i = 0; i < units.length; i++) { if (sentences[i] == null) sentences[i] = ''; if (units[i] == null) units[i] = ''; }
+  for (const t of doc.tokens) mentions.set(t.id, [...(mentions.get(t.id) || []), t.unitIdx ?? 0]);
   doc.sentences = sentences;
   doc.units = units;
   doc.mentions = mentions;

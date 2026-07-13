@@ -157,20 +157,39 @@ test('acousticSignal reads a loud span as signal and a silent span as noise', ()
   assert.ok(quiet.acous < 0.1, `quiet acous ${quiet.acous} should be near zero`);
 });
 
-test('acoustic confidence steers the election — the LOUD hearing wins even when equally frequent', () => {
+test('the WAVEFORM decides the election — the loud hearing wins even at equal model confidence', () => {
   // Two spellings, each heard twice, equal model confidence — the tie is broken by which
-  // was heard more clearly (acoustic signal). "Darcy" is loud, "Darsy" barely caught.
+  // was heard more clearly (acoustic signal, the waveform witness). "Darcy" is loud,
+  // "Darsy" barely caught. Names sit in argument position so the reader admits both.
   const doc = ingestAudio({
     name: 'tie', duration: 8, witness: 'w',
     utterances: [
-      { start: 0, end: 1, words: [{ text: 'Darcy', start: 0.0, end: 0.5, conf: 0.8, acous: 0.95 }] },
-      { start: 2, end: 3, words: [{ text: 'Darsy', start: 2.0, end: 2.5, conf: 0.8, acous: 0.10 }] },
-      { start: 4, end: 5, words: [{ text: 'Darcy', start: 4.0, end: 4.5, conf: 0.8, acous: 0.92 }] },
-      { start: 6, end: 7, words: [{ text: 'Darsy', start: 6.0, end: 6.5, conf: 0.8, acous: 0.12 }] },
+      { start: 0, end: 1.4, words: [
+        { text: 'Darcy',  start: 0.0, end: 0.5, conf: 0.8, acous: 0.95 },
+        { text: 'arrived', start: 0.6, end: 1.1, conf: 0.9, acous: 0.9 } ] },
+      { start: 2, end: 3.4, words: [
+        { text: 'Darsy',  start: 2.0, end: 2.5, conf: 0.8, acous: 0.10 },
+        { text: 'arrived', start: 2.6, end: 3.1, conf: 0.9, acous: 0.9 } ] },
+      { start: 4, end: 5.4, words: [
+        { text: 'Darcy',  start: 4.0, end: 4.5, conf: 0.8, acous: 0.92 },
+        { text: 'waved',   start: 4.6, end: 5.1, conf: 0.9, acous: 0.9 } ] },
+      { start: 6, end: 7.4, words: [
+        { text: 'Darsy',  start: 6.0, end: 6.5, conf: 0.8, acous: 0.12 },
+        { text: 'waved',   start: 6.6, end: 7.1, conf: 0.9, acous: 0.9 } ] },
     ],
   });
   const r = doc.resolve();
   assert.ok(r.edits >= 1);
   assert.ok(r.revisions.every(x => x.to === 'Darcy'), 'the loud spelling wins the election');
   assert.equal(doc.log.snapshot().some(e => e.op === 'DEF' && e.key === 'acous'), true);
+});
+
+test('a heard bond couples BELOW authored certainty — lower belief than text', () => {
+  const doc = ingestAudio(misheard());
+  // Every reading-line CON the ear lays carries a sub-unit coupling (the witness ceiling),
+  // never the coupling 1 an authored, name-resolved text bond gets.
+  const cons = doc.log.snapshot().filter(e => e.op === 'CON');
+  assert.ok(cons.length > 0);
+  assert.ok(cons.every(e => typeof e.w === 'number' && e.w > 0 && e.w <= 0.6),
+    'a transcription bond is believed at or below the witness cap (0.6), never at 1');
 });
