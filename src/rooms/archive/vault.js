@@ -20,14 +20,7 @@ import { createOpfsStore } from '../chat/opfs-store.js';
 import { createMediaStore } from './mxc.js';
 import { createChain } from './chain.js';
 import { createVaultBackup } from './vault-backup.js';
-import { encryptFile, decryptFile, sha256Hex, bytesToText } from './file-crypto.js';
-
-const asBytes = (input) => {
-  if (input instanceof Uint8Array) return input;
-  if (input instanceof ArrayBuffer) return new Uint8Array(input);
-  if (typeof input === 'string') return new TextEncoder().encode(input);
-  throw Object.assign(new Error('save expects a string, Uint8Array, or ArrayBuffer'), { code: 'BAD_INPUT' });
-};
+import { encryptFile, decryptFile, sha256Hex, asBytes, safeText } from './file-crypto.js';
 
 // createVault({ matrix, fetch, navigator, storeRoot }) → the vault controller.
 export const createVault = ({
@@ -136,10 +129,4 @@ export const createVault = ({
   const backupPointer = async () => (backupCtl ? backupCtl.pointer() : null);
 
   return Object.freeze({ state, subscribe, start, save, open, list, verify, head, backup, restore, backupPointer });
-};
-
-const safeText = (bytes, mime) => {
-  const m = String(mime || '');
-  if (m && !m.startsWith('text/') && m !== 'application/json' && m !== 'application/octet-stream') return null;
-  try { const t = bytesToText(bytes); return /�/.test(t) ? null : t; } catch { return null; }
 };

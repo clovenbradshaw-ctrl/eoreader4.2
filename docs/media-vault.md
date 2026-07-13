@@ -91,8 +91,17 @@ that the stored blob is ciphertext, and the wrong-passphrase / no-backup paths.
 
 The 🗄 panel exposes this under a "🔑 Backup & recovery" disclosure.
 
+## The shared, collaborative vault
+
+The follow-up "share a vault item with another user" is now its own holon: the
+**shared, room-encrypted, hash-chained vault** (`rooms/archive/room-vault`,
+[`docs/shared-vault.md`](shared-vault.md)). Where *this* vault is one person's private
+ledger (the per-file key kept privately on OPFS), the shared vault makes a **workspace a
+Matrix room** and publishes each block as a **Megolm room event**, so the per-file key
+reaches exactly the room's members — everyone invited can read it, no one else, and every
+member's chain converges on the same head. Exposed as `window.EO.spaces`.
+
 ## Deliberately follow-up
 
-- Sharing a vault item with another user (re-encrypting the per-file key to their device
-  over the existing Olm channel).
 - Auto-backup after N new blocks, and a "backup exists" hint on a fresh device.
+- Reading shared-vault history from before you joined a room (Megolm key backup / sharing).
