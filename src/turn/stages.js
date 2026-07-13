@@ -990,7 +990,10 @@ export const stages = {
     // loop's structure (and any one-shot draft that used blank lines). A draft
     // with no blank line is one paragraph: byte-identical to binding it whole.
     const paras = String(ctx.rawOutput || '').split(/\n[ \t]*\n+/).map(p => p.trim()).filter(Boolean);
-    const boundParas = paras.map(p => bindCitations(p, ctx.spans, { doc: ctx.doc, cursor }));
+    // typed: the predication aligner (v2 #2, ground/predication.js) judges every claim that
+    // parses to a resolved predication or a copular evaluation; untypeable claims keep the
+    // lexical floor byte-identical. Opt-in here, at the live seam.
+    const boundParas = paras.map(p => bindCitations(p, ctx.spans, { doc: ctx.doc, cursor, typed: true }));
     const bound = boundParas.flat();
     // Mark the zero-contact claims — a grounded answer wears its provenance at claim
     // grain, so an unsourced sentence can no longer read as sourced (bind.js UNSOURCED_MARK).

@@ -21,15 +21,31 @@ import { GRAINS, isVerdict } from '../core/def.js';
 // made lexical contact but was not born is INDETERMINATE (a witness that could not decide —
 // the honest suspended DEF, not a false negative); a claim from nowhere (no citation, no
 // contact) is UNSUPPORTED. The witness is bind's own derivation (the citation and its score).
+//
+// A TYPED row (The Work v2 #2 — bind.js ran the predication aligner) carries the sharper cut:
+// the verdict comes from the predication (supported / unsupported / the tables' silence →
+// INDETERMINATE, the underconfidence residue), lexical contact notwithstanding — sharing the
+// subject's words is not support. The typed row ALSO seeds a PREDICATION-grain DEF under the
+// same key the fact-checker judges (`predication:<sentence>`), witness = the full replay
+// inputs, so the factcheck stage's later verdict lands as a REVISION of this one — the two
+// readings of one predication chained on the log, not two strangers.
+const TYPED_VERDICT = Object.freeze({
+  supported: VERDICTS.CORROBORATED,
+  unsupported: VERDICTS.UNSUPPORTED,
+  indeterminate: VERDICTS.INDETERMINATE,
+});
+
 export const recordBindingDefs = (log, bound) => {
   if (!log || !Array.isArray(bound)) return;
   for (const b of bound) {
     if (!b || typeof b.claim !== 'string') continue;
     const cited   = !!b.citation;
     const contact = (b.score || 0) > 0;
-    const verdict = cited ? VERDICTS.CORROBORATED
-                  : contact ? VERDICTS.INDETERMINATE
-                  : VERDICTS.UNSUPPORTED;
+    const verdict = b.typed
+      ? (TYPED_VERDICT[b.typed.verdict] ?? VERDICTS.INDETERMINATE)
+      : cited ? VERDICTS.CORROBORATED
+      : contact ? VERDICTS.INDETERMINATE
+      : VERDICTS.UNSUPPORTED;
     log.judge({
       verdict,
       grain: GRAINS.CLAIM,
@@ -39,8 +55,26 @@ export const recordBindingDefs = (log, bound) => {
         citation: b.citation || null,
         score: b.score || 0,
         edgeGrounded: !!b.edgeGrounded,
+        ...(b.typed ? { typed: { op: b.typed.op, reason: b.typed.reason, of: `predication:${b.claim}` } } : {}),
       },
     });
+    if (b.typed) {
+      log.judge({
+        verdict: TYPED_VERDICT[b.typed.verdict] ?? VERDICTS.INDETERMINATE,
+        grain: GRAINS.PREDICATION,
+        of: `predication:${b.claim}`,
+        witness: {
+          sentence: b.claim,
+          op: b.typed.op,
+          reason: b.typed.reason,
+          spanIdx: b.typed.spanIdx ?? null,
+          ...(b.typed.alignment ? { alignment: b.typed.alignment } : {}),
+          ...(b.typed.strength ? { strength: b.typed.strength } : {}),
+          ...(b.typed.eval ? { eval: b.typed.eval } : {}),
+          gate: 'predication',
+        },
+      });
+    }
   }
 };
 
@@ -48,20 +82,21 @@ export const recordBindingDefs = (log, bound) => {
 // each claim to one of the four grounding verdicts against the sources' own edges; this passes
 // that verdict through at the PREDICATION grain, keeping the witness (the cited sentence, the
 // reason a semantic check degraded). Untyped claims are skipped — a DEF must carry a verdict.
+// When the binder's predication aligner already judged this sentence (v2 #2), the fact-check
+// lands as a REVISION — a counter-DEF chained by `revises`, the second reading of the same
+// predication on one audit chain, never a silent projection supersession.
 export const recordCorrespondenceDefs = (log, claims) => {
   if (!log || !Array.isArray(claims)) return;
   for (const c of claims) {
     if (!c || !isVerdict(c.verdict)) continue;
-    log.judge({
-      verdict: c.verdict,
-      grain: GRAINS.PREDICATION,
-      of: `predication:${c.sentence || c.text || ''}`,
-      witness: {
-        sentence: c.sentence || null,
-        citation: c.citation || null,
-        ...(c.reason ? { reason: c.reason } : {}),
-      },
-    });
+    const of = `predication:${c.sentence || c.text || ''}`;
+    const witness = {
+      sentence: c.sentence || null,
+      citation: c.citation || null,
+      ...(c.reason ? { reason: c.reason } : {}),
+    };
+    if (log.latestOf(of)) log.revise(of, { verdict: c.verdict, witness });
+    else log.judge({ verdict: c.verdict, grain: GRAINS.PREDICATION, of, witness });
   }
 };
 

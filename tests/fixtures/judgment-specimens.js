@@ -135,7 +135,7 @@ export const SPECIMENS = Object.freeze([
         why: 'the absence of any ranking is a measurable void (v2 #4: an evaluation void, distinctly)' }),
     ]),
     ratchet: false,
-    notes: 'v2 #2 target (the "best" claim must not be born from the shared figure) and #4 target (the evaluation void must be witnessed and logged).',
+    notes: 'Claim side CONVERTED by v2 #2 (typed binding): the copular evaluation types EVA, no span ranks the subject, so "The bottlenose is the best dolphin" ships uncited UNSUPPORTED instead of citing off the shared figure (battery 2026-07-13; tests/typed-binding.test.js pins it). Still #4\'s target: no field DEF measures the missing ranking — the specimen ratchets when the evaluation void lands.',
   }),
 
   // The true absence: a figure the corpus never mentions. Today's void judge should

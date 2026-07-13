@@ -6,6 +6,7 @@ import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
   'src/enactor/ground/bind.js': contract({ ops: ['CON'], targets: ['Field', 'Entity'], products: ['Link'], stances: ['Binding'], note: 'citation binder (bindCitations)' }),
+  'src/enactor/ground/predication.js': contract({ ops: ['DEF', 'EVA'], targets: ['Field', 'Link'], products: ['Lens', 'Link'], stances: ['Dissecting', 'Binding'], note: 'the bounded predicate-argument aligner — typed binding over predication, authored tables, INDETERMINATE residue (The Work v2 #2)' }),
   'src/enactor/ground/index.js': contract({ ops: ['CON', 'EVA'], targets: ['Field', 'Link', 'Network'], products: ['Link', 'Lens'], stances: ['Binding', 'Tracing'], note: 'barrel' }),
   'src/enactor/ground/provenance.js': contract({ ops: ['EVA'], targets: ['Link', 'Network'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'per-proposition provenance (classifyProvenance)' }),
   'src/enactor/ground/reflect.js': contract({ ops: ['EVA', 'CON'], targets: ['Network', 'Link'], products: ['Lens'], stances: ['Tracing', 'Binding'], note: 'answer reflection (reflectAnswer)' }),

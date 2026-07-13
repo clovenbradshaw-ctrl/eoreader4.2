@@ -136,6 +136,43 @@ stability: 0 OVERTURNED · shape: 0 malformed
   held short form from counting as a resolution.
 - Remaining on the board, unchanged: `unstated-evaluation`'s confident-wrong claim (#2) and
   its missing evaluation-void DEF (#4) — the claim column's CWR 0.25 is now entirely #2's.
+
+## Update — typed binding lands (#2, same day)
+
+`enactor/ground/predication.js` retyped the output side: a claim that TYPES (a resolved SVO
+predication via `enactor/props.js`, or a copular evaluation the authored `EVAL_LEXICON`
+recognizes) is judged over the PREDICATION — DEF-support (the span predicates the asserted
+value of the asserted subject; kin values entail through the `typeOf` primitive projection,
+so "sister" grounds "siblings" on nearly zero shared tokens), CON-support (resolved
+endpoints, either orientation for a symmetric primitive, and a span predicate AT LEAST as
+strong per the authored `PREDICATE_STRENGTH` order), EVA-support (a span judgment entailing
+the asserted evaluation by polarity and degree). The tables' silence is INDETERMINATE —
+uncited, never guessed. Untypeable claims keep the lexical floor byte-identical
+(`opts.typed`, inert without a resolving admission); `score` stays the lexical amplitude.
+The binder now SEEDS the `predication:<sentence>` DEF and the fact-checker's later verdict
+lands as a REVISION on the same chain (`recordCorrespondenceDefs` revise-if-prior).
+
+Post-#2 battery: **CWR 0.0 at every grain** —
+
+```
+grain          judged  correct  conf-wrong  underconf  CWR     unjudged  wrong-grain
+claim               4        3           0          1       0         0            0
+referent            2        2           0          0       0         0            0
+field               1        1           0          0       0         1            0
+overall             7        6           0          1       0         1            0
+```
+
+- **`unstated-evaluation`'s claim converts** (CWR 1 → 0): "The bottlenose is the best
+  dolphin" types EVA, no span ranks the subject → uncited UNSUPPORTED, instead of citing
+  CORROBORATED off the shared discriminating figure. `tests/typed-binding.test.js` pins the
+  conversion, the actually-ranked positive case, both strength directions plus the silent
+  residue, the witness replay, and the bind→factcheck revise chain.
+- The one row still open on the whole battery is the FIELD gap: no DEF measures the missing
+  ranking. That is item #4 (typed void) — the specimen ratchets when it lands.
+- `entailed-paraphrase` stays underconfident (reported, not penalized): its claim ("These
+  species also include…") parses to no proposition, so it rides the lexical floor — the
+  aligner's honest reach limit; parseRelations recall over model prose is the ceiling,
+  recorded here rather than papered over.
 - One classifier note: the ask disposition sits ABOVE the answerable stage's
   meta-conversational exemption, because it requires a *recorded sense collision* — a
   genuinely conversational meta turn names none, while "What did Elvis record first?"

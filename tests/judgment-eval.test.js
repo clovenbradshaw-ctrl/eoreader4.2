@@ -253,9 +253,12 @@ test('the battery runs every specimen; ratchet:true specimens stay clean — the
   // via the battery, deliberately, and update this pin.
   //   elvis-referent-diffuse: CONVERTED by #3 (typed reference) — it now ratchets above,
   //   and tests/typed-reference.test.js pins the ask that replaced the confident bind.
+  //   unstated-evaluation (claim side): CONVERTED by #2 (typed binding) — the copular
+  //   evaluation types EVA, no span ranks the subject, the claim ships uncited UNSUPPORTED;
+  //   pinned below and in tests/typed-binding.test.js. The FIELD side stays the baseline:
   const unstated = perSpecimen.find((s) => s.id === 'unstated-evaluation');
-  assert.ok(unstated.verdicts.overall.confidentWrong >= 1,
-    'baseline: the binder still corroborates the unstated superlative (v2 #2\'s target)');
+  assert.equal(unstated.verdicts.overall.confidentWrong, 0,
+    'converted by #2: the unstated superlative is no longer corroborated off a shared figure');
   assert.ok(unstated.verdicts.overall.unjudged >= 1,
     'baseline: no void DEF measures the missing ranking (v2 #4\'s target)');
   // The aggregate covers the three golded grains; predication stays thin until a classifier

@@ -39,6 +39,7 @@
 
 import { tok } from '../../perceiver/parse/index.js';
 import { documentFieldAt } from '../factcheck/index.js';
+import { typeClaim, predicationSupport } from './predication.js';
 
 export const MIN_OVERLAP = 0.25;   // the lexical null the no-reading fallback still beats to CITE
 const BETA        = 0.5;   // how hard the warm-referent prior tilts the fallback ranking
@@ -88,6 +89,19 @@ export const bindCitations = (draft, spans, opts = {}) => {
   // The referent reading — available only when the page carries a mention table and the turn
   // handed us a cursor. When it is null, bestMatch runs the old lexical-null gate unchanged.
   const referent   = buildReferentReading(opts.doc, spans, opts.cursor);
+  // TYPED BINDING (The Work v2 #2, ground/predication.js) — opt-in, and only over a doc whose
+  // admission actually resolves ids (the same opt-in discipline the referent reading uses).
+  // A claim that TYPES — parses to a resolved predication, or asserts a copular evaluation —
+  // is judged over the PREDICATION, not the tokens: the span must predicate the asserted
+  // value / hold the relation at least as strongly / entail the asserted evaluation. The cut:
+  //   supported      → the citation is born from the predication (even on thin overlap);
+  //   unsupported    → NO citation, even where the lexical born-gate would have passed —
+  //                    sharing the subject's words is not support (the dolphins case);
+  //   indeterminate  → the authored tables are silent (the strength/eval residue): uncited,
+  //                    never guessed.
+  // An untypeable claim falls through to the lexical floor, byte-identical; `score` stays the
+  // bare lexical-contact amplitude on every path (the veto battery's contract).
+  const typing = !!opts.typed && typeof opts.doc?.admission?.idOf === 'function';
   const cache  = new Map();
   const bound  = [];
   for (const claim of claims) {
@@ -99,14 +113,29 @@ export const bindCitations = (draft, spans, opts = {}) => {
         : bestMatch(claim, spans, { idf, fieldByIdx });
       cache.set(key, best);
     }
+    let typed = null;
+    if (typing) {
+      try {
+        const t = typeClaim(claim, opts.doc, opts.cursor ?? Infinity);
+        if (t) {
+          const support = predicationSupport(t, spans, opts.doc, opts.cursor ?? Infinity);
+          if (support) typed = Object.freeze({ op: t.op, ...support });
+        }
+      } catch { typed = null; }   // a typing fault falls back to the lexical floor
+    }
     // A claim CITES when its witness was BORN (`best.cited`) — either it shares the discriminating
     // referent that separates one passage from the field, or the surface itself is a verbatim lift.
     // Below that the citation is null, but the lexical-contact amplitude still RIDES in `score`, so
     // the floor can tell a paraphrase that made contact (flag, ride) from prose from nowhere.
+    const lexicalCite = best && best.cited ? `s${best.idx}` : null;
+    const citation = typed
+      ? (typed.verdict === 'supported' ? `s${typed.spanIdx}` : null)
+      : lexicalCite;
     bound.push({
       claim,
-      citation: best && best.cited ? `s${best.idx}` : null,
+      citation,
       score:    best ? best.score : 0,
+      ...(typed ? { typed } : {}),
     });
   }
   return bound;
