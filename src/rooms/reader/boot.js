@@ -42,6 +42,7 @@ import { APP_NAME, APP_VERSION } from './provenance.js';
 import { mountTieredGraph } from './tiered-graph.js';
 import * as readerRender from './reader-render.js';
 import * as reveal from './reveal.js';
+import { firstSurfaceKind } from './first-surface.js';
 import { createMatrixSession } from '../archive/matrix.js';
 import { depositToArchive, missingConsent, archiveMediatype, REQUIRED_CONSENT, KINDS, ARCHIVE_CASES_WEBHOOK } from '../archive/deposit.js';
 import { createCheckpointLog, checkpointId } from '../archive/checkpoints.js';
@@ -150,6 +151,7 @@ window.EO = Object.freeze({
   mountDagSurface,   // the two-cursor causal DAG surface (surfer/dag) — topic-wide + per-entity, with toggles
   readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   reveal,   // the chat typewriter's pace (bounded catch-up) — pure, so the freeze regression is CI-tested
+  firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
 
   matrix,
   chat,

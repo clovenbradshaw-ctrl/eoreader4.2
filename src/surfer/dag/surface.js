@@ -172,6 +172,11 @@ export function mountDagSurface(root, { sources = [], primaryId = null, hidden =
   buildCursor2(view2, scoped, dist, { onFocus, focus });
   buildCursor1(view1, discourse, primary.docId);
 
+  // No causal claim read in this scope — open on the reading flow, which renders for ANY
+  // doc with sentences, so the surface never lands on the empty-cursor message. Cursor 2
+  // (and its "no causal claim" account) stays one tab away.
+  if (!scoped.edges.length) t1.onclick();
+
   return { destroy() { wrap.remove(); } };
 }
 
