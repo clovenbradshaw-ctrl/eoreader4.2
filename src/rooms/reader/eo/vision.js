@@ -26,6 +26,7 @@ const CACHE_DIR = 'eoreader-vision';
 const CACHE_VER = 'v1'; // bump when the task set or output shape changes — old artifacts must miss
 const TASK_REGIONS = '<DENSE_REGION_CAPTION>';
 const TASK_GIST    = '<CAPTION>';
+const TASK_OCR     = '<OCR_WITH_REGION>';   // each text line WITH its quad box — the OCR eye
 
 // WebGPU if the browser offers it, else WASM — the same probe import-file.js uses.
 const device = async () => {
@@ -120,6 +121,36 @@ export const createFlorenceVision = () => {
       };
       if (key) await store.put(key, JSON.stringify(seen), { title: blob.name || null });
       return { ...seen, cached: false };
+    },
+
+    // ocr(blob) → { engine, model, lines:[{ text, bbox:[x1,y1..x4,y4], confidence }], witness, cached }
+    // Florence-2 as a second EYE for the OCR quorum (organs/in/ocr-quorum.js). <OCR_WITH_REGION>
+    // returns every text line WITH its quad box, so the quorum can align a VLM's reading against
+    // Tesseract's word boxes spatially and vote per line. A VLM offers no per-line confidence, so
+    // it rides as null — the quorum leans on agreement, not the model's self-report. Content-
+    // addressed exactly like describe(): the same scan re-read next session costs one hash, not a
+    // decode, and the OCR artifact is keyed apart from the scene one (a different task set).
+    async ocr(blob, { onProgress } = {}) {
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const hash = await sha256Hex(bytes);
+      const key = hash ? `ocr_${CACHE_VER}_${MODEL_ID.split('/').pop()}_sha256-${hash}` : null;
+      if (key) {
+        const hit = await store.get(key);
+        if (hit) { try { return { ...JSON.parse(hit), cached: true }; } catch { /* corrupt artifact — recompute */ } }
+      }
+
+      if (!warm) await this.warm(onProgress);
+      const image = await RawImage.fromBlob(new Blob([bytes], { type: blob.type || 'image/png' }));
+      const visionInputs = await processor(image);
+      const res = (await generate(image, visionInputs, TASK_OCR, 1024)) || {};
+      const labels = res.labels || [];
+      const quads  = res.quad_boxes || [];
+      const lines = labels
+        .map((t, i) => ({ text: String(t ?? '').trim(), bbox: Array.isArray(quads[i]) ? quads[i] : null, confidence: null }))
+        .filter((l) => l.text);
+      const out = { engine: 'florence2-ocr', model: MODEL_ID, lines, witness: `florence-2-base-ft · ${dev}` };
+      if (key) await store.put(key, JSON.stringify(out), { title: blob.name || null });
+      return { ...out, cached: false };
     },
   };
 };
