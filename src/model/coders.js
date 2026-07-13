@@ -170,8 +170,18 @@ for (const m of CODER_MODELS) {
         async load(onProgress) {
           if (inst)    return;
           if (loading) return loading;
-          loading = loadWllamaModel(modelUrl, onProgress).then((i) => { inst = i; });
+          loading = loadWllamaModel(modelUrl, onProgress).then(
+            (i) => { inst = i; },
+            (err) => { loading = null; throw err; },   // a failed load stays retryable (wllama.js has the same guard)
+          );
           return loading;
+        },
+        // Same contract as wllama.js reset(): freeOrphan / the wedge recovery call this to
+        // actually free the WASM module (runtime + weights) instead of letting instances stack.
+        async reset() {
+          const dead = inst;
+          inst = null; loading = null;
+          try { await dead?.exit?.(); } catch { /* already gone — the handle drop is the reset */ }
         },
         async phrase(messages, opts = {}) {
           if (!inst) throw new Error(`${m.id}: not loaded`);

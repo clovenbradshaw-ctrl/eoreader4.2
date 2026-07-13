@@ -892,7 +892,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     const live = (model?.isLoaded?.() && model.id === name)
       || (!!modelLoading && state.model.backend === name && name === prev);
     if (!force && live) { emit('model'); return; }
+    // Free the engine being walked away from, same as the wedge/bfcache paths: a dropped
+    // handle alone leaves webllm's worker (the whole GPU weight buffer) running forever.
+    const old = model;
     orphanModel();
+    freeOrphan(old);
     state.model = { backend: name, state: 'cold', progress: 0, note: '' };
     emit('model');
   };
@@ -923,7 +927,9 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       const wantSize = speed === 'fast' ? '1B' : '3B';
       const loadedBuild = (model?.isLoaded?.() && model.id === 'webllm' && describeModel(model)?.model) || '';
       if (loadedBuild.includes(`-${wantSize}-`)) { emit('model'); return; }
+      const old = model;
       orphanModel();
+      freeOrphan(old);   // the other-size build's GPU buffers must not outlive the switch
       state.model = { backend: 'webllm', state: 'cold', progress: 0, note: '' };
     }
     emit('model');
@@ -1033,7 +1039,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
           if (m.kind === 'local') {
             state.model = { backend, state: 'loading', progress: 1, note: 'warming…' };
             emit('model');
-            try { await m.phrase([{ role: 'user', content: '.' }], { maxTokens: 1, temperature: 0 }); } catch { /* warmed or not, it loaded */ }
+            // Bounded: webllm only arms its wedge backstop when a signal exists, so a
+            // signal-less warmup that wedges would hold modelLoading (and the chip at
+            // "warming…") for the rest of the session.
+            const warmupSignal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined;
+            try { await m.phrase([{ role: 'user', content: '.' }], { maxTokens: 1, temperature: 0, signal: warmupSignal }); } catch { /* warmed or not, it loaded */ }
             if (gen !== modelGen) { freeOrphan(m); return ensureModel(); }   // superseded mid-warmup — same as above
           }
           state.model = { backend, state: 'ready', progress: 1, note: backend === name ? '' : `fell back from ${name}` };
