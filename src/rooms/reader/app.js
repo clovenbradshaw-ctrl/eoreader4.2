@@ -523,6 +523,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
             const st = src.transcription.state;
             src._asr = { state: st === 'running' ? 'pending' : st, pct: src.transcription.pct || 0, reason: src.transcription.reason || null, partial: '' };
           }
+          // Re-seed the video-read status from its durable twin. There is no auto-resume for the
+          // picture read (no durable job), so a pass caught mid-flight reads as 'stopped' — re-runnable
+          // from the surface. videoMeta rides the snapshot, so the strip/keyframes/dwells still draw.
+          if (src.videoAnalysis) {
+            const vs = src.videoAnalysis.state;
+            src._vis = { state: vs === 'running' || vs === 'pending' ? 'stopped' : vs, pct: src.videoAnalysis.pct || 0, named: src.videoAnalysis.named || 0, cv: !!src.videoAnalysis.cv, reason: src.videoAnalysis.reason || null };
+          }
           return src;
         });
         state.topics = Array.isArray(snap.topics) ? snap.topics : [];
@@ -1346,6 +1353,112 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }
   };
 
+  // ── VIDEO — the picture read (the twin of transcription, for the video track) ─────────────────
+  // A video source lands from its audio track's acoustic reading (above); this reads the PICTURE. The
+  // status is twinned like the ASR: `_vis` (rich, live, session-only) drives the surface; the durable
+  // `videoAnalysis` twin rides the snapshot so the banner reads right after a reload. Unlike
+  // transcription there is NO durable job — the frames re-derive from the kept bytes on demand (the
+  // "Read the picture / Name the shots" affordance), so an interrupted pass is simply re-runnable.
+  const setVis = (src, patch) => {
+    if (!src) return;
+    src._vis = { ...(src._vis || {}), ...patch };
+    src.videoAnalysis = { state: src._vis.state, pct: src._vis.pct || 0, named: src._vis.named || 0, cv: !!src._vis.cv, reason: src._vis.reason || null };
+  };
+
+  // The shared vision organ (Florence-2) — created once, warmed on first use, reused across sources
+  // and across a pass's keyframes (its own content-addressed cache skips a re-decode). Lazy: the
+  // ~200 MB model never loads until the user asks to NAME what is on screen.
+  let _videoVision = null;
+  const videoVision = async () => {
+    if (_videoVision) return _videoVision;
+    const { createFlorenceVision } = await import('./eo/vision.js');
+    _videoVision = createFlorenceVision();
+    return _videoVision;
+  };
+
+  const normWord = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
+  // Build the source's moment index from everything its timeline witnesses: the heard words (the
+  // transcript's timed tokens) and the seen concepts + dwells (the visual read). Rebuilt whenever
+  // either half lands, so "describe a moment → jump to it" searches seen AND heard at once. The seen
+  // annotations ride the snapshot (videoMeta.annotations), so search survives a reload without re-CV.
+  const rebuildMomentIndex = async (src) => {
+    const { buildMomentIndex } = await import('../../surfer/moment.js');
+    const said = (Array.isArray(src.words) ? src.words : [])
+      .filter((w) => w && isFinite(w.start))
+      .map((w) => ({ span: [w.start, w.end ?? w.start], kind: 'said', text: w.text, terms: [normWord(w.text)].filter(Boolean), entityId: `w:${normWord(w.text)}`, witness: src.witness || 'transcript' }));
+    const visual = Array.isArray(src._videoAnnotations) ? src._videoAnnotations
+      : (src.videoMeta && Array.isArray(src.videoMeta.annotations) ? src.videoMeta.annotations : []);
+    src._moments = buildMomentIndex([...said, ...visual]);
+    return src._moments;
+  };
+
+  // Run the visual pass against a video source. withVision=false reads the STRUCTURE only (cheap,
+  // model-free — the pre-read that lands the activity strip, shots, keyframes and dwells at once);
+  // withVision=true also NAMES each shot's keyframe (Florence-2, gated one-per-shot). The caller owns
+  // the runCancellable; a fault leaves the source with whatever it had rather than failing the import.
+  const runVideoAnalysis = async (src, analyzeVideo, { signal, progress, withVision = false } = {}) => {
+    if (!src || !analyzeVideo) return;
+    setVis(src, { state: 'running', pct: 0, cv: withVision });
+    emit('sources');
+    const paint = (label) => { try { progress && progress({ kind: 'file', label }); } catch { /* pill best-effort */ } };
+    paint(withVision ? 'Naming what is on screen…' : 'Reading the picture…');
+    let vision = null;
+    if (withVision) { try { vision = await videoVision(); } catch { logIt('skip', 'Vision model unavailable — reading structure only', src.reg); } }
+    let lastPaint = 0;
+    try {
+      const res = await analyzeVideo({
+        signal, vision,
+        onProgress: (p) => {
+          if (p && p.label) paint(p.label);
+          if (p && p.pct != null) setVis(src, { pct: p.pct });
+          const now = nowMs();
+          if (now - lastPaint > 350) { lastPaint = now; emit('sources'); }
+        },
+      });
+      src._visual = res.visual;
+      src._videoAnnotations = res.annotations || [];
+      const { compactVisual } = await import('./video-read.js');
+      src.videoMeta = { ...compactVisual(res.visual), annotations: res.annotations || [] };
+      src.videoCoverage = res.coverage;
+      await rebuildMomentIndex(src);
+      setVis(src, { state: 'done', pct: 100, named: res.coverage.namedShots || 0, cv: withVision });
+      logIt('record', `Read ${src.reg} picture — ${res.coverage.shots} shot${res.coverage.shots === 1 ? '' : 's'}, ${res.coverage.dwells} dwell${res.coverage.dwells === 1 ? '' : 's'}${withVision ? `, ${res.coverage.namedShots} named` : ''}`, src.reg);
+      persist(); emit('sources');
+    } catch (e) {
+      if (signal && signal.aborted) setVis(src, { state: 'stopped' });
+      else { setVis(src, { state: 'error', reason: String(e?.message || e).slice(0, 90) }); logIt('skip', `Picture read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+      persist(); emit('sources');
+    }
+  };
+
+  // Public: (re-)run the CV naming pass on a video source on demand — the "Name the shots" affordance.
+  // Rebuilds the File from the kept bytes (OPFS / the encrypted Matrix copy), re-reads it for a fresh
+  // analyzeVideo thunk, and runs it WITH the vision organ. Idempotent (the describe cache is content-
+  // addressed) and cancellable. withVision=false re-reads structure only, on the same path.
+  const nameVideoShots = (sn, { withVision = true } = {}) =>
+    runCancellable({ kind: 'file', label: withVision ? 'Naming what is on screen…' : 'Reading the picture…' }, async (signal, progress) => {
+      const src = sourceBySn(sn);
+      if (!src) return;
+      const bytes = await audioBytes(src);
+      if (!bytes) { setVis(src, { state: 'error', reason: 'original video unavailable — re-import to read the picture' }); persist(); emit('sources'); return; }
+      const ref = src.audioRef || {};
+      const file = new File([bytes], src.title || 'clip', { type: ref.mime || 'video/mp4' });
+      const { importAnyFile } = await import('./import-file.js');
+      const got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) });
+      if (got.meta && got.meta.analyzeVideo) await runVideoAnalysis(src, got.meta.analyzeVideo, { signal, progress, withVision });
+    });
+
+  // Public: search a video source's timeline — "describe a moment → witnessed spans, or INDETERMINATE".
+  // Over the moment index (heard + seen), returning ranked candidates each with its witness and the
+  // in/out points a click can seek to. Lexical decomposition for now (a model proposer can be injected).
+  const searchVideo = async (sn, text) => {
+    const src = sourceBySn(sn);
+    if (!src) return { query: null, results: [] };
+    if (!src._moments) await rebuildMomentIndex(src);
+    const { findMoments } = await import('../../surfer/moment.js');
+    return await findMoments(src._moments, String(text || ''));
+  };
+
   // Stash a file's original bytes to OPFS and open a durable `file` job, so a reload DURING the
   // import (fetch of the extractor libs, PDF/OCR read, audio decode — all before any source has
   // landed) can rebuild the File and re-run the import. Returns the job id, or null when the file
@@ -1412,6 +1525,14 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
           // reload: OPFS locally, plus an encrypted copy on Matrix media when signed in. Background.
           persistAudioBytes(src, file, got.meta.mediaKind);
           if (typeof fileOpts.onSource === 'function') { try { fileOpts.onSource(src); } catch { /* reveal is best-effort */ } }
+
+          // The PICTURE reads too (video): the model-free structure/dwell pre-read lands the activity
+          // strip, shots, keyframes and dwells at once. NAMING what is on screen (CV) is a separate,
+          // user-triggered pass (nameVideoShots), so the ~200 MB vision model only loads on demand.
+          if (got.meta.isVideo && got.meta.analyzeVideo) {
+            setVis(src, { state: 'pending', pct: 0, cv: false });
+            await runVideoAnalysis(src, got.meta.analyzeVideo, { signal, progress, withVision: false });
+          }
 
           // Transcription proper — streamed, resumable, job-tracked (runTranscription). If the tab
           // reloads part-way, the transcribe job + the OPFS audio bytes let resumeJobs pick it up.
@@ -3862,5 +3983,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // audio: a playable URL (rehydrated from OPFS / the encrypted Matrix copy after reload), the raw
     // persisted bytes (for redaction re-synthesis), and the non-destructive edit/redaction chokepoint.
     playableUrl, audioBytes, recordAudioEvent,
+    // video: NAME what is on screen (CV on shot keyframes, gated, on demand), and SEARCH the timeline
+    // — "describe a moment → witnessed spans, or INDETERMINATE" — over the heard+seen moment index.
+    nameVideoShots, searchVideo,
   });
 };

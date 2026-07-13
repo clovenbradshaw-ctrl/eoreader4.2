@@ -630,9 +630,22 @@ async function fromMedia(file, title, name, say, opts = {}) {
     transcribable: necessary,
     dropped: necessary ? [] : ['no signal above the noise floor — not transcribed'],
   };
+
+  // ── PHASE 3 — the VISUAL reading, DEFERRED (video only). ──────────────────────────────────────
+  // The audio track above is only half of a video; this reads the PICTURE. Handed back as a thunk the
+  // caller runs after the source lands (like `transcribe`), so decoding the frames never blocks the
+  // source appearing. `vision` (Florence-2) is INJECTED by the caller and gates the model to one
+  // keyframe per shot; absent ⇒ the structure/dwell reading only ("read the picture, name it later").
+  // The browser-only video module loads lazily here, so Node importing this file never pulls in a DOM.
+  const analyzeVideo = isVideo ? async ({ onProgress, signal, vision = null, ocr = null } = {}) => {
+    const { readVideoFile } = await import('./video-read.js');
+    return await readVideoFile(file, { name, title, media, vision, ocr, onProgress, signal });
+  } : null;
+
   return { text: acousticDoc.text, title, meta: {
     modality: 'audio', doc: acousticDoc, duration, media, isVideo, mediaKind,
     waveform: peaks, analysis, holons, transcribe, transcribable: necessary,
+    analyzeVideo,
     coverage,
   } };
 }
