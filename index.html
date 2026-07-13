@@ -3776,7 +3776,7 @@ class Component extends DCLogic {
     const ents = this._entCache;
     const entRows = ents.slice(0, 60).map((e) => ({
       label: e.label, initials: this._initials(e.label),
-      meta: `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'} · ${(app.sourceBySn(e.sn) || {}).reg || ''}`,
+      meta: `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'} · ${e.sourceCount > 1 ? `${e.sourceCount} sources` : ((app.sourceBySn(e.sn) || {}).reg || '')}`,
       open: () => this.openEntity(e.docId, e.entId),
     }));
     let prof = null;

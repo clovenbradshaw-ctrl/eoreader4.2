@@ -33,12 +33,24 @@ export const attenuates = (tag) => tag === SELF;
 // return. Modality-blind and singular by construction; the monitor that feeds it
 // is the only writer.
 export const createSelfModel = () => {
+  // A ring, not an open ledger: the monitor records one observation per sensed
+  // proposition, all session — thousands of frozen objects serving only counters.
+  // Recent observations stay inspectable; the tag counts stay exact over the whole
+  // session via running counters.
+  const CAP = 512;
   const observations = [];
+  const counts = new Map();
+  let total = 0;
   return Object.freeze({
-    record(obs) { observations.push(obs); return obs; },
+    record(obs) {
+      observations.push(obs); total++;
+      counts.set(obs.tag, (counts.get(obs.tag) || 0) + 1);
+      if (observations.length > CAP) observations.shift();
+      return obs;
+    },
     observations: () => observations.slice(),
     tags: () => observations.map(o => o.tag),
-    count: (tag) => observations.filter(o => o.tag === tag).length,
-    get size() { return observations.length; },
+    count: (tag) => counts.get(tag) || 0,
+    get size() { return total; },
   });
 };

@@ -393,12 +393,12 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       if (snap && snap.v === 1) {
         ({ sn, tn, ln, mn } = snap);
         wn = snap.wn || 0;
-        state.sources = (snap.sources || []).map((s) => ({ ...s, _doc: null }));
-        state.topics = snap.topics || [];
+        state.sources = (Array.isArray(snap.sources) ? snap.sources : []).map((s) => ({ ...s, _doc: null }));
+        state.topics = Array.isArray(snap.topics) ? snap.topics : [];
         state.activeTopicId = snap.activeTopicId;
         state.workspaces = Array.isArray(snap.workspaces) ? snap.workspaces : [];
         state.activeWorkspaceId = snap.activeWorkspaceId || null;
-        state.log = snap.log || [];
+        state.log = Array.isArray(snap.log) ? snap.log : [];
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
       }
     } catch { /* fresh session */ }
@@ -466,7 +466,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   // fold a topic under one of its own descendants (a cycle out of the tree).
   const topicDescendants = (id) => {
     const out = [];
-    const walk = (pid) => { for (const t of state.topics) if ((t.parentId ?? null) === pid) { out.push(t.id); walk(t.id); } };
+    // `seen` guards the walk against a cyclic parentId chain in restored state (a
+    // self-parent bricked every later move with a stack overflow); expandAncestors
+    // carries the same guard as its counter.
+    const seen = new Set([id]);
+    const walk = (pid) => { for (const t of state.topics) if ((t.parentId ?? null) === pid && !seen.has(t.id)) { seen.add(t.id); out.push(t.id); walk(t.id); } };
     walk(id);
     return out;
   };
@@ -490,7 +494,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return t;
   };
   const topic = () => state.topics.find((t) => t.id === state.activeTopicId) || state.topics[0];
-  const setTopic = (id) => { if (state.topics.find((t) => t.id === id)) { state.activeTopicId = id; deepWake(); persist(); emit('topics'); } };
+  const setTopic = (id) => { if (state.topics.find((t) => t.id === id)) { state.activeTopicId = id; releaseParsesOutsideTopic(); deepWake(); persist(); emit('topics'); } };
   const topicRename = (id, title) => { const t = topicById(id); if (t && title) { t.title = title; t.named = true; persist(); emit('topics'); } };
   // AUTO-NAMING. A topic still wearing the "New topic" placeholder names itself from what
   // it holds — its first question, else its first source (topic-name.js) — the moment
@@ -676,9 +680,26 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   };
 
   const removeSource = (id) => {
+    const gone = sourceBySn(id);
+    if (gone) deepReaders.delete(gone.docId);   // or the deep reader keeps the removed doc resident
     state.sources = state.sources.filter((s) => s.sn !== id);
     for (const t of state.topics) t.sourceSns = t.sourceSns.filter((x) => x !== id);
     persist(); emit('sources');
+  };
+
+  // Release the derived readings the active topic no longer needs. A parse (_doc), its EoT
+  // reading (_eot — and readIngest's memo, a WeakMap keyed by the doc, dies with it), and the
+  // deep reader pinning the doc all re-derive lazily from src.text; holding EVERY topic's
+  // parses at once (each several times its text's size) is session-long growth the tab —
+  // already carrying model weights — cannot afford.
+  const releaseParsesOutsideTopic = () => {
+    const t = topic();
+    const keep = new Set(t ? t.sourceSns : []);
+    for (const s of state.sources) {
+      if (keep.has(s.sn)) continue;
+      deepReaders.delete(s.docId);
+      s._doc = null; s._eot = null;
+    }
   };
 
   const topicSources = () => {
@@ -870,7 +891,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     const live = (model?.isLoaded?.() && model.id === name)
       || (!!modelLoading && state.model.backend === name && name === prev);
     if (!force && live) { emit('model'); return; }
+    // Free the engine being walked away from, same as the wedge/bfcache paths: a dropped
+    // handle alone leaves webllm's worker (the whole GPU weight buffer) running forever.
+    const old = model;
     orphanModel();
+    freeOrphan(old);
     state.model = { backend: name, state: 'cold', progress: 0, note: '' };
     emit('model');
   };
@@ -901,7 +926,9 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       const wantSize = speed === 'fast' ? '1B' : '3B';
       const loadedBuild = (model?.isLoaded?.() && model.id === 'webllm' && describeModel(model)?.model) || '';
       if (loadedBuild.includes(`-${wantSize}-`)) { emit('model'); return; }
+      const old = model;
       orphanModel();
+      freeOrphan(old);   // the other-size build's GPU buffers must not outlive the switch
       state.model = { backend: 'webllm', state: 'cold', progress: 0, note: '' };
     }
     emit('model');
@@ -1011,7 +1038,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
           if (m.kind === 'local') {
             state.model = { backend, state: 'loading', progress: 1, note: 'warming…' };
             emit('model');
-            try { await m.phrase([{ role: 'user', content: '.' }], { maxTokens: 1, temperature: 0 }); } catch { /* warmed or not, it loaded */ }
+            // Bounded: webllm only arms its wedge backstop when a signal exists, so a
+            // signal-less warmup that wedges would hold modelLoading (and the chip at
+            // "warming…") for the rest of the session.
+            const warmupSignal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined;
+            try { await m.phrase([{ role: 'user', content: '.' }], { maxTokens: 1, temperature: 0, signal: warmupSignal }); } catch { /* warmed or not, it loaded */ }
             if (gen !== modelGen) { freeOrphan(m); return ensureModel(); }   // superseded mid-warmup — same as above
           }
           state.model = { backend, state: 'ready', progress: 1, note: backend === name ? '' : `fell back from ${name}` };
@@ -2035,7 +2066,15 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   };
 
   // ── entities (the explorer) ────────────────────────────────────────────────
-  const entities = () => {
+  // Coreference is resolved WITHIN each source's document graph (projectGraph's
+  // `representative` union-find), never across them — so the raw pass yields one
+  // instance per (source, entity). By DEFAULT we then COLLAPSE across sources:
+  // the panel is about entities, not entity-in-one-source, so the eight "Iran"
+  // rows (one per source that names it) fold into a single row whose mentions and
+  // links sum over every source, tagged with how many sources it spans. Pass
+  // { merge: false } for the raw per-source instances (the old behaviour).
+  const entityKey = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const entities = ({ merge = true } = {}) => {
     const out = [];
     for (const src of topicSources()) {
       const doc = docFor(src);
@@ -2050,8 +2089,32 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         const label = doc.admission?.labelOf?.(r) || ent.label || r;
         let links = 0;
         for (const e of g.edges || []) if (rep(e.from) === r || rep(e.to) === r) links++;
-        out.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn: src.sn, label, mentions: ent.sightings || 0, links });
+        out.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn: src.sn, label, mentions: ent.sightings || 0, links, sourceCount: 1 });
       }
+    }
+    if (merge) {
+      // Group per-source instances by normalized label. The strongest instance
+      // (most mentions) LEADS the merged row, so key/docId/entId/sn point at the
+      // richest per-source profile — opening the row lands there — while mentions
+      // and links aggregate and `sourceCount` records the reach.
+      const byLabel = new Map();
+      for (const it of out) {
+        const k = entityKey(it.label);
+        let grp = byLabel.get(k);
+        if (!grp) { grp = { lead: it, mentions: 0, links: 0, sns: new Set(), instances: [] }; byLabel.set(k, grp); }
+        grp.mentions += it.mentions;
+        grp.links += it.links;
+        grp.sns.add(it.sn);
+        grp.instances.push({ docId: it.docId, entId: it.entId, sn: it.sn });
+        if (it.mentions > grp.lead.mentions) grp.lead = it;
+      }
+      const merged = [...byLabel.values()].map((grp) => ({
+        key: grp.lead.key, entId: grp.lead.entId, docId: grp.lead.docId, sn: grp.lead.sn,
+        label: grp.lead.label, mentions: grp.mentions, links: grp.links,
+        sourceCount: grp.sns.size, instances: grp.instances,
+      }));
+      merged.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
+      return merged;
     }
     out.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
     return out;
@@ -2416,7 +2479,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
 
   const reflections = () => state.reflections.slice();
 
-  restore();
+  // A snapshot the migration can't digest must degrade to a fresh session, not an
+  // unhandled boot rejection with `ready` never emitted — that bricked the surface
+  // on EVERY visit until the user cleared site data.
+  restore().catch(() => { if (!state.ready) { state.ready = true; emit('ready'); } });
 
   return Object.freeze({
     state, subscribe,

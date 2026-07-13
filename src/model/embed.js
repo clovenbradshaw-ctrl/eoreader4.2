@@ -20,7 +20,6 @@ export const createMiniLMEmbedder = () => {
   let warming  = null;
   let warm     = false;
   let pipeline = null;
-  const cache  = new Map();
 
   return {
     id: 'minilm',
@@ -45,16 +44,16 @@ export const createMiniLMEmbedder = () => {
         });
         warm = true;
       })();
+      warming.catch(() => { warming = null; });   // a failed warm stays retryable
       return warming;
     },
+    // No cache here: the app always wraps this in withPersistentEmbedCache, whose
+    // memory+IndexedDB layers are THE cache — a second Map keyed by the full text
+    // held every vector (and its text) twice for the session.
     async embed(text) {
       if (!warm) await this.warm();
-      const key = String(text);
-      if (cache.has(key)) return cache.get(key);
-      const out = await pipeline(key, { pooling: 'mean', normalize: true });
-      const v = new Float32Array(out.data);
-      cache.set(key, v);
-      return v;
+      const out = await pipeline(String(text), { pooling: 'mean', normalize: true });
+      return new Float32Array(out.data);
     },
   };
 };

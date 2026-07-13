@@ -36,7 +36,8 @@ export const MISMATCH_FLOOR = 0.5;
 // monitor for all output organs.
 export const createMonitor = ({ self = createSelfModel() } = {}) => {
   const outstanding = [];   // efference copies awaiting their sensed return
-  const corrections = [];   // pending corrections to the enactor's next commit
+  const corrections = [];   // pending corrections to the enactor's next commit (a ring — never drained, so bounded)
+  const CORRECTIONS_CAP = 256;
 
   const hold = (copies) => { for (const c of copies || []) outstanding.push(c); };
   const resolve = (copy) => {
@@ -73,6 +74,7 @@ export const createMonitor = ({ self = createSelfModel() } = {}) => {
       corrections.push(Object.freeze({
         commitId: best.copy.commitId, expected: best.copy.predicted, sensed: key,
       }));
+      if (corrections.length > CORRECTIONS_CAP) corrections.shift();
       return record({ prop: sensedProp, tag: SELF_MISMATCH, attenuated: false,
         error: true, interference: true, commitId: best.copy.commitId, modality });
     }
