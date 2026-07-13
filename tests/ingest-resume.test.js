@@ -67,6 +67,30 @@ test('a finished transcription is NOT re-run — reconciliation leaves it alone'
   assert.equal(app.sourceBySn('S2')._asr, undefined, 'and its live state is left untouched');
 });
 
+test('a reload mid-transcription KEEPS the partial transcript when the audio cannot be recovered', async () => {
+  const app = await freshApp();
+  // A clip left mid-transcription: as the transcript streamed, the heard-so-far words were persisted
+  // onto the durable twin (transcription.words) so a refresh can't lose them. But in this browser-free
+  // run the original bytes are gone, so the resume cannot finish decoding — it must PROMOTE the partial
+  // to the source's baseline rather than drop it on the floor with a bare "audio unavailable" error.
+  app.state.sources.push({
+    sn: 'S9', reg: 'S-0009', kind: 'audio', title: 'talk', text: 'talk', sha: 'w', bytes: 4,
+    docId: 'doc-w', audioRef: { opfs: 'missing', mime: 'audio/mpeg' }, audioEvents: [],
+    transcription: { state: 'running', pct: 55, reason: null,
+      words: [{ text: 'the', start: 0, end: 0.3 }, { text: 'meeting', start: 0.3, end: 0.9 }, { text: 'began', start: 0.9, end: 1.4 }] },
+  });
+
+  await app.resumeJobs();
+
+  const src = app.sourceBySn('S9');
+  assert.equal((src.words || []).length, 3, 'the heard-so-far words became the transcript baseline');
+  assert.match(src.text, /the meeting began/i, 'and its text reads the partial transcript');
+  assert.equal(src._asr.state, 'stopped', 'the state says it stopped short — not a bare error that reads as "nothing"');
+  assert.match(src._asr.reason || '', /re-import/i, 'the reason tells the user how to finish it');
+  assert.equal(src.transcription.words, undefined, 'the partial twin is cleared once promoted — it does not linger or re-seed');
+  assert.deepEqual(app.jobs(), [], 'the transcribe job is resolved, not looping');
+});
+
 test('a resume that cannot proceed (file bytes gone) is closed, not retried forever', async () => {
   const app = await freshApp();
   // A file job whose stashed bytes are absent (evicted, or a Node run with no OPFS): the resume must
