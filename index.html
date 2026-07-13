@@ -477,6 +477,7 @@ table{border-collapse:collapse;width:100%}
           <button onClick="{{ tb.select }}" style="flex:0 0 auto;height:46px;display:flex;align-items:center;gap:7px;padding:0 14px;color:{{ tb.fg }};font-size:13px;font-weight:{{ tb.weight }};border-bottom:2px solid {{ tb.ul }};margin-bottom:-1px">
             {{ tb.label }}
             <sc-if value="{{ tb.hasCount }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ tb.countFg }};background:{{ tb.countBg }};border-radius:5px;padding:1px 5px">{{ tb.count }}</span></sc-if>
+            <sc-if value="{{ tb.beta }}"><span title="The conversational thread — deprioritised in favour of Ask, which measures every answer against the record" style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9A6B12;background:#FBF1DA;border:1px solid #EEDCA9;border-radius:4px;padding:0 4px">beta</span></sc-if>
           </button>
         </sc-for>
         <!-- OPEN SOURCE TABS — each recorded source you open is a tab here, in the main stage -->
@@ -561,6 +562,191 @@ table{border-collapse:collapse;width:100%}
 
       <div style="flex:1;display:flex;min-height:0">
         <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+
+          <!-- ASK TAB — the primary surface. Ask the record; get one typed, cited answer
+               whose shape (Answer / Finding / Contradicted / The record does not say) and
+               receipt come straight from the turn's own signals. Chat is the demoted mode. -->
+          <sc-if value="{{ isAsk }}">
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff">
+            <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:30px 24px 96px">
+              <div style="max-width:680px;margin:0 auto">
+
+                <!-- the ask line -->
+                <div style="position:relative;margin-bottom:10px">
+                  <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="{{ chatPlaceholder }}" style="width:100%;border:none;border-bottom:2px solid #1B1B22;outline:none;background:transparent;font-size:23px;font-weight:300;color:#1B1B22;padding:6px 42px 12px 0" />
+                  <sc-if value="{{ generating }}">
+                    <button onClick="{{ stopGen }}" title="Stop" style="position:absolute;right:0;bottom:11px;width:32px;height:32px;border-radius:9px;background:#FBE9E6;color:#B23A2E;display:flex;align-items:center;justify-content:center" style-hover="background:#F6DCD7"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+                  </sc-if>
+                  <sc-if value="{{ showSend }}">
+                    <button onClick="{{ sendChat }}" title="Ask" style="position:absolute;right:0;bottom:11px;width:32px;height:32px;border-radius:9px;background:#6D5EF5;color:#fff;display:flex;align-items:center;justify-content:center" style-hover="background:#5B4BE6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+                  </sc-if>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#A0A0AA;margin-bottom:16px">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
+                  <span>Every answer is measured against your record — and names where it looked, so you can check it.</span>
+                </div>
+
+                <!-- tries -->
+                <sc-if value="{{ askHasTries }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+                    <sc-for list="{{ askTries }}" as="tr">
+                      <button onClick="{{ tr.go }}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6E6E78;background:transparent;border:1px solid #E6E6EC;border-radius:7px;padding:5px 9px" style-hover="border-color:#6D5EF5;color:#3A3A44">{{ tr.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <!-- empty -->
+                <sc-if value="{{ askEmpty }}">
+                  <div style="padding:36px 4px 12px;text-align:center">
+                    <div style="width:46px;height:46px;border-radius:13px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin:0 auto 16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:600;color:#1B1B22">Ask the record</div>
+                    <div style="font-size:13.5px;color:#6E6E78;line-height:1.6;max-width:440px;margin:8px auto 20px">Record a web page, a file, or pasted text — then ask. Every answer traces to a verbatim passage, and when the record is silent it says so.</div>
+                    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+                      <sc-for list="{{ heroActions }}" as="h">
+                        <button onClick="{{ h.go }}" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:10px;padding:9px 14px;font-size:12.5px;font-weight:600;color:#3A3A44" style-hover="background:#F2F2F6">{{ h.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <!-- the surface (the latest answer, typed) -->
+                <sc-for list="{{ askSurfaces }}" as="a">
+                  <div style="animation:eoFade .18s ease">
+
+                    <!-- kind -->
+                    <sc-if value="{{ a.isPending }}">
+                      <div style="display:flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#8A8A95;margin-bottom:16px"><span style="animation:eoBlink 1.4s ease-in-out infinite">{{ a.pendingLabel }}</span><span style="flex:1;height:1px;background:#EAEAEF"></span></div>
+                    </sc-if>
+                    <sc-if value="{{ a.notPending }}">
+                      <div style="display:flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:{{ a.kindFg }};margin-bottom:14px">{{ a.kind }}<sc-if value="{{ a.hasCorr }}"><span style="font-size:9px;font-weight:600;letter-spacing:.05em;color:{{ a.corrFg }};background:{{ a.corrBg }};border:1px solid {{ a.corrBd }};border-radius:4px;padding:1px 6px">{{ a.corrLabel }}</span></sc-if><span style="flex:1;height:1px;background:#EAEAEF"></span></div>
+                    </sc-if>
+
+                    <!-- the question, restated -->
+                    <sc-if value="{{ a.hasQuestion }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-style:italic;color:#6E6E78;margin-bottom:16px">{{ a.question }}</div>
+                    </sc-if>
+
+                    <!-- research / thinking trail (reading the record) -->
+                    <sc-if value="{{ a.hasTrail }}">
+                      <div style="margin:2px 0 12px;border:1px solid #E8E6F4;background:#FAFAFE;border-radius:9px;overflow:hidden">
+                        <button onClick="{{ a.toggleTrail }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:7px 10px;text-align:left" style-hover="background:#F4F2FD">
+                          <sc-if value="{{ a.trailRunning }}"><span style="width:11px;height:11px;border:2px solid #C9C2F2;border-top-color:#6D5EF5;border-radius:50%;display:inline-block;animation:eoSpin .7s linear infinite;flex:0 0 auto"></span></sc-if>
+                          <sc-if value="{{ a.trailIdle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></sc-if>
+                          <span style="font-size:11.5px;font-weight:600;color:#5A5A64;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.trailSummary }}</span>
+                          <span style="flex:1"></span>
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;flex:0 0 auto">{{ a.trailClock }}</span>
+                          <span style="font-size:10px;color:#A0A0AA;flex:0 0 auto">{{ a.trailCaret }}</span>
+                        </button>
+                        <sc-if value="{{ a.trailOpen }}">
+                          <div style="max-height:220px;overflow-y:auto;padding:2px 10px 9px;border-top:1px solid #EFEDF9">
+                            <sc-for list="{{ a.trailSteps }}" as="ts">
+                              <div style="display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:11.5px;line-height:1.5;color:#4A4A54">
+                                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ ts.fg }};flex:0 0 auto;width:12px;text-align:center">{{ ts.glyph }}</span>
+                                <div style="min-width:0;flex:1"><span style="min-width:0">{{ ts.text }}</span></div>
+                              </div>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+
+                    <!-- unverified draft banner -->
+                    <sc-if value="{{ a.unverified }}">
+                      <div style="display:flex;align-items:flex-start;gap:7px;margin:2px 0 12px;padding:7px 10px;background:#FBF1DA;border:1px solid #EEDCA9;border-radius:8px;font-size:12px;line-height:1.5;color:#8A6A12">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;margin-top:1px"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
+                        <span>Stopped before this could be checked against your record — the text below is the model's unverified draft, not a grounded answer.</span>
+                      </div>
+                    </sc-if>
+
+                    <!-- the answer body (the lede), with inline citations + entity links -->
+                    <sc-if value="{{ a.hasBody }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:20px;line-height:1.5;color:#1B1B22;letter-spacing:-.005em">
+                        <sc-for list="{{ a.paras }}" as="pp">
+                          <div style="{{ pp.style }}">
+                            <sc-if value="{{ pp.hasPrefix }}"><span style="color:#8A8A95">{{ pp.prefix }}</span></sc-if>
+                            <sc-for list="{{ pp.segs }}" as="sg">
+                              <sc-if value="{{ sg.isText }}"><span style="{{ sg.style }}">{{ sg.s }}</span></sc-if>
+                              <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;color:#5B4BE6;font-weight:550;font-size:inherit;line-height:inherit;{{ sg.hl }}" style-hover="filter:brightness(.97)">{{ sg.s }}</button></sc-if>
+                              <sc-if value="{{ sg.isCite }}"><button onClick="{{ sg.open }}" title="{{ sg.quote }}" style="display:inline-flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.02em;color:{{ sg.cfg }};background:{{ sg.cbg }};border-radius:4px;padding:1px 4px;margin:0 1px 0 2px;vertical-align:baseline" style-hover="filter:brightness(.96)">{{ sg.label }}</button></sc-if>
+                            </sc-for>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+
+                    <!-- the gap — the step the record does not carry -->
+                    <sc-if value="{{ a.hasGap }}">
+                      <div style="border:1px dashed #C9938E;border-radius:9px;padding:14px 16px;margin-top:18px;background:rgba(178,58,46,.03)">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#B23A2E;display:block;margin-bottom:6px">{{ a.gapLabel }}</span>
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:15.5px;line-height:1.55;color:#8F3030">{{ a.gapText }}</div>
+                      </div>
+                    </sc-if>
+
+                    <!-- web-search proposal (a measured gap the record couldn't close) -->
+                    <sc-if value="{{ a.hasProposal }}">
+                      <button onClick="{{ a.runProposal }}" style="display:inline-flex;align-items:center;gap:7px;margin-top:14px;border:1px solid #DED8FD;background:#F6F4FF;border-radius:9px;padding:7px 12px;font-size:12px;font-weight:600;color:#5B4BE6" style-hover="background:#EEEBFE">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                        Search the web: “{{ a.proposalQ }}”
+                      </button>
+                    </sc-if>
+
+                    <!-- provenance — the passages as doors into the record -->
+                    <sc-if value="{{ a.hasDoors }}">
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#9A9AA4;margin:26px 0 10px">Grounded in</div>
+                      <sc-for list="{{ a.doors }}" as="d">
+                        <button onClick="{{ d.open }}" title="Open this passage in the source" style="display:block;width:100%;text-align:left;border:none;border-left:3px solid {{ d.pc }};background:#FBFCF9;padding:11px 0 11px 14px;margin-bottom:2px" style-hover="background:#F2F5EF">
+                          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#A0A0AA;margin-bottom:5px"><span style="color:{{ d.pc }}">{{ d.pre }}</span> · {{ d.reg }} · {{ d.title }} <span style="color:#B4B4BE">↗</span></div>
+                          <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;line-height:1.5;color:#2A2A32">{{ d.quote }}</div>
+                        </button>
+                      </sc-for>
+                    </sc-if>
+
+                    <!-- the facing page — the verbatim prompt + the answer's own EoT reading -->
+                    <sc-if value="{{ a.facingClosed }}">
+                      <button onClick="{{ a.facingToggle }}" title="Reveal how this answer was made — the verbatim prompt the model was handed, and the reply beside its own EoT reading" style="position:relative;display:flex;align-items:center;gap:8px;width:100%;margin-top:16px;padding:9px 13px 10px;border:1px solid #E4E0FB;border-radius:11px;background:linear-gradient(180deg,#FBFAFF,#F3F1FD);color:#5B4BE6;text-align:left;overflow:hidden" style-hover="background:#EFEBFE">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="M12 6.5C10.5 5.5 8.5 5 6 5H3v13h3c2.5 0 4.5.5 6 1.5M12 6.5C13.5 5.5 15.5 5 18 5h3v13h-3c-2.5 0-4.5.5-6 1.5M12 6.5v13"/></svg>
+                        <span style="flex:0 0 auto;font-weight:600;font-size:12.5px;white-space:nowrap">What it was prompted</span>
+                        <span style="flex:1 1 0;min-width:0;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;color:#9E96D6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">· reveal the verbatim prompt &amp; the reading</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="m6 9 6 6 6-6"/></svg>
+                      </button>
+                    </sc-if>
+                    <sc-if value="{{ a.facingOpen }}">
+                      <div style="margin-top:16px;border:1px solid #1d222c;border-radius:12px;overflow:hidden;background:#0d1017">
+                        <div onClick="{{ a.facingToggle }}" title="Hide the reading" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 14px;border-bottom:1px solid #1d222c;background:#0a0d13;cursor:pointer" style-hover="background:#0e131b">
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8B93A3">What it was prompted</span>
+                          <span style="flex:1"></span>
+                          <sc-for list="{{ a.facingLegend }}" as="lg">
+                            <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8b93a3"><span style="width:8px;height:8px;border-radius:2px;background:{{ lg.color }};flex:0 0 auto"></span>{{ lg.label }}</span>
+                          </sc-for>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8B93A3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;margin-left:2px"><path d="m6 15 6-6 6 6"/></svg>
+                        </div>
+                        <div class="eo-scroll" style="max-height:360px;overflow:auto;padding:12px 4px 16px">
+                          <sc-for list="{{ a.facingLines }}" as="fl">
+                            <div style="display:flex;align-items:baseline;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.6;white-space:pre;background:{{ fl.rowBg }}">
+                              <span style="flex:0 0 auto;width:40px;text-align:right;padding-right:12px;color:#7A8494;user-select:none">{{ fl.n }}</span>
+                              <span style="flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;opacity:{{ fl.opacity }}"><sc-for list="{{ fl.segs }}" as="sg"><span style="color:{{ sg.color }}">{{ sg.s }}</span></sc-for></span>
+                            </div>
+                          </sc-for>
+                          <sc-if value="{{ a.facingEmpty }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8B93A3;padding:8px 0 0 52px">No propositions were read from this answer.</div></sc-if>
+                          <sc-if value="{{ a.facingTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8B93A3;padding:10px 0 0 52px">… {{ a.facingMore }} more lines.</div></sc-if>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <!-- the receipt — where it looked, so the claim or the silence can be checked -->
+                    <sc-if value="{{ a.hasReceipt }}">
+                      <div style="margin-top:30px;padding-top:13px;border-top:1px solid #EAEAEF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.7;color:#A0A0AA">
+                        <span style="color:#6E6E78">{{ a.receiptA }}</span>
+                        <span style="display:block;margin-top:7px;font-family:'Newsreader',Georgia,serif;font-size:14px;font-style:italic;color:#6E6E78;line-height:1.5">{{ a.receiptWhy }}</span>
+                      </div>
+                    </sc-if>
+
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          </sc-if>
 
           <!-- CHAT TAB -->
           <sc-if value="{{ isChat }}">
@@ -1830,7 +2016,7 @@ class Component extends DCLogic {
     let mobile = false;
     try { this._mq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(max-width: 820px)') : null; mobile = !!(this._mq && this._mq.matches); } catch { this._mq = null; }
     this.state = {
-      tab: 'chat', omni: '', chatInput: '', toast: null,
+      tab: 'ask', omni: '', chatInput: '', toast: null,
       isMobile: mobile,
       leftOpen: mobile ? false : this._pref('eo_left', true), rightOpen: mobile ? false : this._pref('eo_right', true),
       statusOpen: false, monologueOpen: false, logMode: 'actions',
@@ -1961,7 +2147,7 @@ class Component extends DCLogic {
             delete modes[sn]; delete focus[sn]; delete pages[sn]; delete this._readerCache[sn];
           }
           const tab = tabs.includes(this.state.tab) ? this.state.tab
-            : (this.state.viewerTabs.includes(this.state.tab) ? 'chat' : this.state.tab);
+            : (this.state.viewerTabs.includes(this.state.tab) ? 'ask' : this.state.tab);
           if (tab !== this.state.tab) { this._readerFrame = null; this._nativeFrame = null; this._viewCache = null; }
           this.setState({ viewerTabs: tabs, viewerModes: modes, viewerFocus: focus, viewerPages: pages, tab });
         }
@@ -2377,8 +2563,10 @@ class Component extends DCLogic {
   // ── chat ─────────────────────────────────────────────────────────────────
   onChatInput(e) { this.setState({ chatInput: e.target.value }); }
   onChatKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendChat(); } }
-  sendChat() {
-    const q = String(this.state.chatInput || '').trim();
+  sendChat(q0) {
+    // q0 lets a click-through (an Ask "try" chip) send a question without routing it through
+    // the input box first; a bare click passes an event, so only a real string is honoured.
+    const q = String(typeof q0 === 'string' ? q0 : (this.state.chatInput || '')).trim();
     if (!q || !this._app) return;
     this.setState({ chatInput: '' });
     this._chatStick = true;   // a deliberate send always returns to the live bottom
@@ -2410,6 +2598,102 @@ class Component extends DCLogic {
     this.showToast(next === 'auto' ? 'Web search: auto — I fetch on a measured gap and record what I read'
       : next === 'confirm' ? 'Web search: confirm — I propose a query; you click to search'
       : 'Web search: off — I answer only from what you record');
+  }
+
+  // ── ask the record ─────────────────────────────────────────────────────────
+  // The Ask surface is a RE-RENDERING of the same turn chat runs (app.ask → turn/runTurn).
+  // It reads only signals the engine already produces — grounded/unbound, the fact-check
+  // verdicts, the corroboration walk, and reflection's origin ladder (corroborated /
+  // single-source / interpretation) — and names the SHAPE of the answer against the record,
+  // then prints a receipt that says where it looked so the silence or the claim can be
+  // checked. It adds no engine call and decides no truth; it only classifies what the turn
+  // already found. `vm` is the chat view-model for this same message (paras, cites, trail).
+  _askKind(mm, vm, totalPassages) {
+    const text = String(mm.text || '');
+    const route = mm.route || '';
+    const summ = (mm.reflection && mm.reflection.summary) || null;
+    const contradicted = (mm.verdicts || []).some((v) => /contradict/i.test(v.verdict))
+      || (mm.flags || []).some((f) => /contradic/.test(f.id));
+    const corroborated = !!(mm.corroboration && mm.corroboration.corroborated)
+      || !!(summ && summ.corroborated > 0);
+    const singleSource = (!!(mm.corroboration && mm.corroboration.sought) && !corroborated)
+      || (!!(summ && summ.singleSource > 0) && !corroborated)
+      || (mm.flags || []).some((f) => f.id === 'single-source');
+    const interp = !!(summ && summ.interpretation > 0);
+    const unbound = !!mm.unbound || route === 'empty';
+    // dedup cited passages by source, exactly as the chat's "GROUNDED IN" row does
+    const seen = new Set();
+    const rawDoors = (mm.cites || []).filter((c) => c.sn && !seen.has(c.sn) && seen.add(c.sn));
+    const nPass = rawDoors.length;
+    const nSrc = new Set(rawDoors.map((c) => c.sn)).size;
+    const grounded = !!mm.grounded && nPass > 0;
+    const abstain = /\b(do(?:es)?\s+not|did\s+not|does\s*n['’]?t|could\s*n['’]?t|can\s*not|can['’]t)\b[^.?!]*\b(say|mention|state|contain|find|record|appear|address|cover)\b/i.test(text)
+      || /\bno\s+(information|passage|mention|source|record)\b/i.test(text)
+      || /\bnot\s+in\s+(the|what)\b/i.test(text);
+    const pl = (n, one) => `${n} ${n === 1 ? one : one + 's'}`;
+
+    const doors = () => rawDoors.map((c) => {
+      const pre = contradicted ? 'contradicts' : corroborated ? 'corroborated' : 'single source';
+      const pc = contradicted ? '#B23A2E' : corroborated ? '#1E8A50' : '#9A6B12';
+      return { pre, pc, reg: c.reg || ('s' + c.idx), title: c.title || c.docId || '',
+        quote: c.text || '', open: () => this.openViewer(c.sn, c.text) };
+    });
+    const corr = corroborated ? { hasCorr: true, corrLabel: 'corroborated', corrFg: '#1E8A50', corrBg: '#E7F6EC', corrBd: '#CFEBD9' }
+      : singleSource ? { hasCorr: true, corrLabel: 'single source', corrFg: '#9A6B12', corrBg: '#FBF1DA', corrBd: '#EEDCA9' }
+      : { hasCorr: false };
+
+    // still streaming — no verdict to print yet; the body + trail carry it
+    if (mm.pending) return { isPending: true, kind: '', kindNo: false, hasCorr: false, hasDoors: false, doors: [], hasGap: false, hasReceipt: false };
+    // conversational / broken routes are not a record claim — render plainly, no receipt
+    if (route === 'error' || mm.stopped) return { kind: 'Interrupted', kindNo: true, hasCorr: false, hasDoors: false, doors: [], hasGap: false, hasReceipt: true,
+      receiptA: 'the turn did not settle', receiptWhy: 'The turn was cut before the record could be brought to bear — nothing below has been checked against it.' };
+    if (route === 'phatic' || route === 'smalltalk') return { kind: 'Aside', kindNo: false, hasCorr: false, hasDoors: false, doors: [], hasGap: false, hasReceipt: false };
+    if (route === 'clarify') return { kind: 'Needs narrowing', kindNo: false, hasCorr: false, hasDoors: false, doors: [], hasGap: false, hasReceipt: false };
+
+    // Contradicted — the fact-check found the record denies a claim in the answer
+    if (contradicted) return { kind: 'Contradicted', kindNo: true, hasCorr: false, hasDoors: nPass > 0, doors: doors(),
+      hasGap: true, gapLabel: 'The test', gapText: 'A claim in this answer was measured against the terms the record sets — and the record denies it. The passages are here so you can disagree with the test.',
+      hasReceipt: true, receiptA: `${pl(nPass, 'passage')} · ${pl(nSrc, 'source')} · decided by measurement, not by a model`,
+      receiptWhy: 'The claim was tested against the terms the record sets. It failed. The passages are here so you can disagree with the test.' };
+
+    // The record does not say — unbound, a spoken void, or an abstention
+    if (unbound || (!grounded && abstain)) return { kind: 'The record does not say', kindNo: true, hasCorr: false, hasDoors: nPass > 0, doors: doors(),
+      hasGap: true, gapLabel: 'The gap', gapText: 'No passage in the record answers this. The answer above names the silence rather than filling it — the sources it searched are on record, so the gap can be checked.',
+      hasReceipt: true, receiptA: `${pl(totalPassages || 0, 'passage')} on record · none answer this`,
+      receiptWhy: 'The surface that exists because the record is silent. It names where it looked, so the silence can be checked.' };
+
+    // Finding — grounded, but rests on a step no single passage states
+    if (grounded && interp) return { ...corr, kind: 'Finding', kindNo: false, hasDoors: nPass > 0, doors: doors(),
+      hasGap: true, gapLabel: 'What does not trace', gapText: 'The finding holds given the passages below, but no single passage states it — the step from them to it is ours, not the record’s. It is the part to push on hardest.',
+      hasReceipt: true, receiptA: `${pl(nPass, 'passage')} · ${pl(nSrc, 'source')} · 1 step not in the record`,
+      receiptWhy: 'A finding is what holds given all of it. The step that is ours rather than the record’s is marked, every time.' };
+
+    // Answer — grounded, quoted
+    if (grounded) {
+      const tail = corroborated ? 'independently corroborated' : singleSource ? 'single source — no independent second voice found' : 'quoted, not summarized';
+      const why = corroborated ? 'Two meaningfully distinct sources carry this. It is quoted from the record, not summarized.'
+        : singleSource ? 'One source carries this. I searched for an independent second voice and did not find one — if it is wrong, the source is wrong.'
+        : 'Quoted from the record, not summarized. If it is wrong, the source is wrong.';
+      return { ...corr, kind: 'Answer', kindNo: false, hasDoors: nPass > 0, doors: doors(), hasGap: false,
+        hasReceipt: true, receiptA: `${pl(nPass, 'passage')} · ${pl(nSrc, 'source')} · ${tail}`, receiptWhy: why };
+    }
+
+    // Fallback — text with no grounding it can stand on: show it as passages, unasserted
+    return { kind: 'Passages', kindNo: false, hasCorr: false, hasDoors: nPass > 0, doors: doors(), hasGap: false,
+      hasReceipt: true, receiptA: `${pl(nPass, 'passage')} marked · nothing asserted beyond them`,
+      receiptWhy: 'When the record cannot support a claim, it shows the passages it has instead of writing something that sounds like an answer.' };
+  }
+  // A few clickable "tries" beneath the ask box — record-oriented prompts, seeded with a
+  // couple of the topic's own source titles when there are any.
+  _askTries(sources) {
+    const short = (s) => { s = String(s || ''); return s.length > 34 ? s.slice(0, 33).trim() + '…' : s; };
+    const titles = (sources || []).map((s) => s.title || s.domain || s.reg).filter(Boolean);
+    const out = [];
+    if (titles[0]) out.push(`What does “${short(titles[0])}” claim?`);
+    out.push('What is the story here?');
+    out.push('What does the record not say?');
+    if (titles.length >= 2) out.push('Where do the sources disagree?');
+    return out.slice(0, 5).map((q) => ({ label: q, go: () => this.sendChat(q) }));
   }
 
   // ── navigation ───────────────────────────────────────────────────────────
@@ -2869,7 +3153,7 @@ class Component extends DCLogic {
     this.closeCmdk();
     if (r && r.sn) this.openViewer(r.sn, r.focus || undefined);
   }
-  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'chat' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
+  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'ask' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
   backToEntities() { this.setState({ entitySel: null, focusId: null }); }
   // The wiki referent for the open entity — 4.1's entity-panel Wikipedia search, restored.
   // Fired once per (doc, entity): the engine searches Wikipedia and confirms (or refuses)
@@ -3881,7 +4165,7 @@ class Component extends DCLogic {
   renderVals() {
     try { return this._vals(); }
     catch (err) {
-      return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
+      return { isAsk: false, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
@@ -3894,7 +4178,7 @@ class Component extends DCLogic {
     const st = this.state;
     const app = this._app;
     if (!app) {
-      return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
+      return { isAsk: false, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
         statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
@@ -4098,9 +4382,11 @@ class Component extends DCLogic {
     }));
 
     // tabs
-    const tabDefs = [['chat', 'Chat', null], ['graph', 'Graph', null], ['evidence', 'Findings', findings.stats.claims || null], ['register', 'Sources', sources.length || null], ['memo', 'Memo', (topic && topic.memo) ? 1 : null]];
-    const tabs = tabDefs.map(([id, label, count]) => ({
-      label, count: String(count || ''), hasCount: count != null,
+    // Ask leads; the conversational Chat is demoted behind it and carries a "beta" pill —
+    // the record surface (ask → a typed, cited answer) is the posture, chat the exception.
+    const tabDefs = [['ask', 'Ask', null, false], ['chat', 'Chat', null, true], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['register', 'Sources', sources.length || null, false], ['memo', 'Memo', (topic && topic.memo) ? 1 : null, false]];
+    const tabs = tabDefs.map(([id, label, count, beta]) => ({
+      label, count: String(count || ''), hasCount: count != null, beta: !!beta,
       fg: st.tab === id ? '#1B1B22' : '#8A8A95', weight: st.tab === id ? 650 : 500,
       ul: st.tab === id ? '#6D5EF5' : 'transparent',
       countFg: st.tab === id ? '#5B4BE6' : '#9A9AA4', countBg: st.tab === id ? '#F1EFFE' : '#F2F2F6',
@@ -4210,6 +4496,23 @@ class Component extends DCLogic {
       { label: '📄 Import a file', go: () => this.pickFile() },
       { label: '📋 Paste text', go: () => this.openPaste() },
     ];
+
+    // ── ask surface ──────────────────────────────────────────────────────────
+    // The Ask tab shows the LATEST exchange as one typed, cited surface (not a thread):
+    // the last answer classified by _askKind, over the same message view-model the chat
+    // uses (so paras / cites / trail / facing are rendered identically). Asking again
+    // replaces the surface — the record is engaged one question at a time.
+    const askTries = this._askTries(sources);
+    let askSurfaces = [], askQuestion = '';
+    let lastA = -1;
+    for (let i = msgs.length - 1; i >= 0; i--) { if (msgs[i].role !== 'user') { lastA = i; break; } }
+    if (lastA >= 0) {
+      for (let i = lastA - 1; i >= 0; i--) { if (msgs[i].role === 'user') { askQuestion = msgs[i].text || ''; break; } }
+      const kind = this._askKind(msgs[lastA], messages[lastA], findings.stats.passages);
+      askSurfaces = [{ ...messages[lastA], ...kind, kindFg: kind.kindNo ? '#B23A2E' : '#6E6E78',
+        notPending: !msgs[lastA].pending, question: askQuestion, hasQuestion: !!askQuestion }];
+    }
+    const askEmpty = msgs.length === 0;
 
     // findings
     const claims = findings.claims;
@@ -4618,9 +4921,11 @@ class Component extends DCLogic {
       leftSources, sourceCount: String(sources.length), noSources: sources.length === 0, hasSources: sources.length > 0,
       // tabs
       tabs, hasFlagLine, flagLine, flagFg, flagBg, flagBd,
-      isChat: st.tab === 'chat', isGraph: st.tab === 'graph', isEvidence: st.tab === 'evidence',
+      isAsk: st.tab === 'ask', isChat: st.tab === 'chat', isGraph: st.tab === 'graph', isEvidence: st.tab === 'evidence',
       isRegister: st.tab === 'register', isMemo: st.tab === 'memo',
-      // chat
+      // ask (the primary surface) — the latest exchange as one typed, cited answer
+      askSurfaces, askTries, askHasTries: askTries.length > 0, askEmpty, askHasSurface: askSurfaces.length > 0,
+      // chat (demoted, beta)
       chatEmpty: messages.length === 0, messages, heroActions,
       chatInput: st.chatInput, onChatInput: (e) => this.onChatInput(e), onChatKey: (e) => this.onChatKey(e),
       sendChat: () => this.sendChat(), setChatScroll: (el) => this.setChatScroll(el),
