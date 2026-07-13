@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>EO Reader</title>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -40,27 +40,63 @@ table{border-collapse:collapse;width:100%}
 .eo-scroll::-webkit-scrollbar{width:11px;height:11px}
 .eo-scroll::-webkit-scrollbar-thumb{background:#dadae1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
 .eo-scroll::-webkit-scrollbar-thumb:hover{background:#c7c7d0;background-clip:content-box}
+@keyframes eoDrawerL{from{transform:translateX(-24px);opacity:0}to{transform:translateX(0);opacity:1}}
+/* The panel backdrop exists only on small screens — desktop panels sit in the flex row. */
+.eo-backdrop{display:none}
+/* ── MOBILE ──────────────────────────────────────────────────────────────────
+   The surface is styled inline (the dc idiom), so the small-screen layer lives
+   here as !important overrides on structural class hooks. One breakpoint: below
+   820px the side panels become overlay drawers, the header sheds its labels,
+   modals go edge-to-edge, and inputs hold 16px so iOS never auto-zooms. */
+@media (max-width: 820px){
+  .eo-root{height:100dvh !important}
+  .eo-hide-sm{display:none !important}
+  .eo-header{gap:6px !important;padding:0 max(8px,env(safe-area-inset-right)) 0 max(8px,env(safe-area-inset-left)) !important}
+  /* The omnibar must be free to shrink — min-width:auto on the form/input otherwise
+     holds the input's intrinsic width and shoves the right-side buttons off-screen. */
+  .eo-header form{min-width:0}
+  .eo-header form>div{min-width:0;padding:0 10px !important;gap:6px !important}
+  .eo-header input{font-size:16px !important;min-width:0;text-overflow:ellipsis}
+  .eo-modelchip-label{display:none}
+  .eo-left{position:fixed !important;left:0;top:50px;bottom:0;width:min(86vw,330px) !important;z-index:44;box-shadow:14px 0 44px rgba(20,20,30,.18);animation:eoDrawerL .22s cubic-bezier(.4,0,.2,1)}
+  .eo-right{position:fixed !important;right:0;top:50px;bottom:0;width:min(88vw,350px) !important;z-index:44;box-shadow:-14px 0 44px rgba(20,20,30,.18);animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)}
+  .eo-backdrop{display:block;position:fixed;left:0;right:0;top:50px;bottom:0;z-index:43;background:rgba(20,20,28,.32);animation:eoFade .16s ease}
+  .eo-tabbar{padding:0 6px !important}
+  .eo-chatscroll{padding:18px 12px !important}
+  .eo-composer{padding:10px 10px calc(10px + env(safe-area-inset-bottom)) !important}
+  .eo-chatinput{font-size:16px !important}
+  .eo-graphhead{flex-wrap:wrap !important;height:auto !important;padding:10px 12px !important;gap:8px !important}
+  .eo-graphtools{flex-wrap:wrap !important;row-gap:6px}
+  .eo-pop{max-width:calc(100vw - 16px) !important;right:8px !important}
+  .eo-modal{left:8px !important;right:8px !important;width:auto !important;transform:none !important;top:12px !important;max-height:calc(100dvh - 24px) !important}
+  .eo-tall{bottom:12px !important;max-height:none !important}
+  .eo-sheet{left:8px !important;right:8px !important;width:auto !important;transform:none !important;max-height:calc(100dvh - 24px);overflow-y:auto}
+  .eo-wgbody{flex-direction:column !important}
+  .eo-wgside{flex:0 0 auto !important;max-height:36%;border-right:none !important;border-bottom:1px solid #EEEEF2}
+  .eo-drawer{width:min(94vw,440px) !important}
+  .eo-toast{max-width:calc(100vw - 24px) !important;bottom:calc(18px + env(safe-area-inset-bottom)) !important}
+}
 </style>
 </helmet>
 
-<div data-screen-label="EOReader" style="position:relative;display:flex;flex-direction:column;height:100vh;width:100%;background:#F4F4F7;color:#1B1B22;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased">
+<div data-screen-label="EOReader" class="eo-root" style="position:relative;display:flex;flex-direction:column;height:100vh;width:100%;background:#F4F4F7;color:#1B1B22;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased">
 
-  <header style="height:50px;flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:0 14px;background:#fff;border-bottom:1px solid #EAEAEF;position:relative;z-index:5">
+  <header class="eo-header" style="height:50px;flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:0 14px;background:#fff;border-bottom:1px solid #EAEAEF;position:relative;z-index:5">
     <div style="display:flex;align-items:center;gap:9px;padding-right:2px">
       <div style="width:25px;height:25px;border-radius:7px;background:#6D5EF5;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">EO</div>
-      <span style="font-size:14.5px;font-weight:650">Reader</span>
-      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE;background:#F2F2F6;border-radius:5px;padding:2px 6px">4.2</span>
+      <span class="eo-hide-sm" style="font-size:14.5px;font-weight:650">Reader</span>
+      <span class="eo-hide-sm" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE;background:#F2F2F6;border-radius:5px;padding:2px 6px">4.2</span>
     </div>
-    <div style="width:1px;height:20px;background:#EAEAEF"></div>
+    <div class="eo-hide-sm" style="width:1px;height:20px;background:#EAEAEF"></div>
     <div style="display:flex;align-items:center;gap:2px;color:#9A9AA4">
       <button onClick="{{ toggleLeft }}" title="Toggle the topics panel" style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:{{ leftBtnFg }}" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
       <button onClick="{{ toggleRight }}" title="Toggle the entities panel" style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:{{ rightBtnFg }}" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
     </div>
     <form onSubmit="{{ onOmniSubmit }}" style="flex:1;display:flex;justify-content:center">
       <div style="width:100%;max-width:540px;height:33px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;display:flex;align-items:center;gap:9px;padding:0 12px" style-focus-within="border-color:#DED8FD;background:#fff">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.8" style="flex:0 0 auto"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
+        <svg class="eo-hide-sm" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.8" style="flex:0 0 auto"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
         <input value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Read a URL, drop a file, paste text, or search the web…" style="flex:1;border:none;outline:none;background:transparent;font-size:13px;color:#1B1B22" />
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C0C0C8;flex:0 0 auto">⏎ ingest</span>
+        <span class="eo-hide-sm" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C0C0C8;flex:0 0 auto">⏎ ingest</span>
       </div>
     </form>
 
@@ -100,11 +136,11 @@ table{border-collapse:collapse;width:100%}
 
     <button onClick="{{ toggleModel }}" title="Model" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
       <span style="width:7px;height:7px;border-radius:50%;background:{{ modelDot }};flex:0 0 auto"></span>
-      {{ modelChip }}
+      <span class="eo-modelchip-label">{{ modelChip }}</span>
     </button>
     <button onClick="{{ openMonologue }}" style="display:flex;align-items:center;gap:6px;background:#E7F6EC;color:#1E8A50;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600" style-hover="background:#DDF0E4">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
-      Auditable
+      <span class="eo-hide-sm">Auditable</span>
     </button>
 
     <button onClick="{{ toggleSettings }}" title="Settings — roll back to a prior version" style="width:31px;height:31px;display:flex;align-items:center;justify-content:center;border:1px solid #E6E6EC;background:{{ settingsBtnBg }};border-radius:999px;color:{{ settingsBtnFg }};flex:0 0 auto" style-hover="background:#F2F2F6">
@@ -114,11 +150,11 @@ table{border-collapse:collapse;width:100%}
     <button onClick="{{ toggleAccount }}" title="Matrix account (optional)" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5"/></svg>
       <span style="width:7px;height:7px;border-radius:50%;background:{{ acctDot }};flex:0 0 auto"></span>
-      {{ acctLabel }}
+      <span class="eo-hide-sm">{{ acctLabel }}</span>
     </button>
 
     <sc-if value="{{ settingsOpen }}">
-      <div style="position:absolute;right:14px;top:46px;z-index:31;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:344px">
+      <div class="eo-pop" style="position:absolute;right:14px;top:46px;z-index:31;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:344px">
         <div style="display:flex;align-items:center;gap:8px;padding:2px 2px 10px;border-bottom:1px solid #F2F2F6;margin-bottom:10px">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E6E78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span style="flex:1;font-size:12.5px;font-weight:700;letter-spacing:.02em;color:#2A2A32">Settings</span>
@@ -174,7 +210,7 @@ table{border-collapse:collapse;width:100%}
     </sc-if>
 
     <sc-if value="{{ acctOpen }}">
-      <div style="position:absolute;right:14px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:308px">
+      <div class="eo-pop" style="position:absolute;right:14px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:308px">
         <sc-if value="{{ signedOut }}">
           <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 4px 8px">MATRIX ACCOUNT · OPTIONAL</div>
           <div style="font-size:12.5px;color:#6E6E78;line-height:1.5;padding:0 4px 11px">The reader works fully signed out. Sign in with a Matrix account only to save permanent, attributed checkpoints of a source to Archive.org.</div>
@@ -221,7 +257,7 @@ table{border-collapse:collapse;width:100%}
     </sc-if>
 
     <sc-if value="{{ modelOpen }}">
-      <div style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
+      <div class="eo-pop" style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
         <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 6px 8px">MODEL · IN YOUR BROWSER, HOSTED, OR YOUR LOCAL SERVER</div>
         <sc-for list="{{ backends }}" as="b">
           <button onClick="{{ b.pick }}" style="width:100%;display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border-radius:9px;background:{{ b.bg }}" style-hover="background:#F5F5F8">
@@ -269,8 +305,13 @@ table{border-collapse:collapse;width:100%}
 
   <div style="flex:1;display:flex;min-height:0">
 
+    <!-- On small screens the side panels are overlay drawers; this backdrop closes them. -->
+    <sc-if value="{{ panelBackdrop }}">
+      <div class="eo-backdrop" onClick="{{ closePanels }}"></div>
+    </sc-if>
+
     <sc-if value="{{ leftOpen }}">
-    <aside style="width:312px;flex:0 0 auto;background:#fff;border-right:1px solid #EAEAEF;display:flex;flex-direction:column;min-height:0">
+    <aside class="eo-left" style="width:312px;flex:0 0 auto;background:#fff;border-right:1px solid #EAEAEF;display:flex;flex-direction:column;min-height:0">
       <div class="eo-scroll" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:14px">
 
         <!-- WORKSPACE SWITCHER — the top-level container the topic tree lives in. Personal
@@ -437,7 +478,7 @@ table{border-collapse:collapse;width:100%}
 
     <main style="flex:1;display:flex;flex-direction:column;min-width:0">
 
-      <div style="flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:0 12px;border-bottom:1px solid #EAEAEF;background:#fff;height:46px">
+      <div class="eo-tabbar" style="flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:0 12px;border-bottom:1px solid #EAEAEF;background:#fff;height:46px">
         <!-- Only the TABS scroll horizontally. The export menu + flag line sit OUTSIDE this
              overflow-x container so the export dropdown can drop below the 46px bar without
              being clipped (overflow-x:auto also clips overflow-y — the bug that hid it).
@@ -497,7 +538,7 @@ table{border-collapse:collapse;width:100%}
           <!-- CHAT TAB -->
           <sc-if value="{{ isChat }}">
           <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff">
-            <div class="eo-scroll" ref="{{ setChatScroll }}" style="flex:1;min-height:0;overflow-y:auto;padding:26px 24px">
+            <div class="eo-scroll eo-chatscroll" ref="{{ setChatScroll }}" style="flex:1;min-height:0;overflow-y:auto;padding:26px 24px">
               <div style="max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:22px">
 
                 <sc-if value="{{ chatEmpty }}">
@@ -666,9 +707,9 @@ table{border-collapse:collapse;width:100%}
                 </sc-for>
               </div>
             </div>
-            <div style="flex:0 0 auto;border-top:1px solid #EAEAEF;padding:14px 24px;background:#fff">
+            <div class="eo-composer" style="flex:0 0 auto;border-top:1px solid #EAEAEF;padding:14px 24px;background:#fff">
               <div style="max-width:680px;margin:0 auto;display:flex;align-items:center;gap:9px;border:1px solid #E0E0E6;border-radius:13px;padding:6px 6px 6px 14px;background:#F7F7FA">
-                <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="{{ chatPlaceholder }}" style="flex:1;border:none;outline:none;background:transparent;font-size:14px;color:#1B1B22;padding:7px 0" />
+                <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="{{ chatPlaceholder }}" class="eo-chatinput" style="flex:1;border:none;outline:none;background:transparent;font-size:14px;color:#1B1B22;padding:7px 0" />
                 <sc-if value="{{ generating }}">
                   <button onClick="{{ stopGen }}" title="Stop" style="width:34px;height:34px;border-radius:9px;background:#FBE9E6;color:#B23A2E;display:flex;align-items:center;justify-content:center;flex:0 0 auto" style-hover="background:#F6DCD7"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
                 </sc-if>
@@ -677,8 +718,8 @@ table{border-collapse:collapse;width:100%}
                 </sc-if>
               </div>
               <div style="max-width:680px;margin:9px auto 0;font-size:11px;color:#A0A0AA;display:flex;align-items:center;gap:6px">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
-                <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Answers only from your recorded sources — nothing enters an answer unrecorded.</span>
+                <svg class="eo-hide-sm" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
+                <span class="eo-hide-sm" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Answers only from your recorded sources — nothing enters an answer unrecorded.</span>
                 <span style="flex:1"></span>
                 <sc-if value="{{ hasChatTokens }}"><span title="Estimated tokens across this whole chat (~4 characters per token). Approximate — the model's own tokenizer is not run on the surface." style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#8A8A95;background:#F2F2F6;border:1px solid #E4E4EA;border-radius:6px;padding:2px 8px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2M9 20h6M12 4v16"/></svg>{{ chatTokens }}</span></sc-if>
                 <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }}" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ entModeLabel }}</button>
@@ -693,13 +734,13 @@ table{border-collapse:collapse;width:100%}
 
           <!-- GRAPH TAB -->
           <sc-if value="{{ isGraph }}">
-          <div style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:11px 18px;border-bottom:1px solid #EAEAEF;background:#fff">
+          <div class="eo-graphhead" style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:11px 18px;border-bottom:1px solid #EAEAEF;background:#fff">
             <div style="min-width:0">
               <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA">PROVENANCE DAG · FULLY TRAVERSABLE</div>
               <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#1B1B22;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ graphTitle }}</div>
             </div>
             <span style="flex:1"></span>
-            <div style="display:flex;align-items:center;gap:8px">
+            <div class="eo-graphtools" style="display:flex;align-items:center;gap:8px">
               <sc-if value="{{ graphHasSources }}">
               <button onClick="{{ openTopicEntities }}" title="The entity web across the whole topic — with entity on/off toggles" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #E4E0FB" style-hover="filter:brightness(.98)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M7 7.2 10.6 16M16.8 7.4 13.4 16M7 6h10"/></svg>Entities</button>
               <button onClick="{{ openTopicCausal }}" title="The causal DAG the sources are read as asserting — whole-topic or per-entity, with toggles" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#0B8E7E;background:#E4F6F1;border:1px solid #CBEBE3" style-hover="filter:brightness(.98)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v6m0 0-3 4m3-4 3 4M6 20h.01M12 20h.01M18 20h.01"/></svg>Causal DAG</button>
@@ -726,7 +767,7 @@ table{border-collapse:collapse;width:100%}
           </sc-if>
 
           <sc-if value="{{ graphLive }}">
-          <div data-screen-label="Provenance DAG" onPointerDown="{{ startPan }}" onWheel="{{ onWheel }}" ref="{{ setViewport }}" style="flex:1;min-height:0;position:relative;overflow:hidden;background:#F4F4F7;cursor:{{ panCursor }}">
+          <div data-screen-label="Provenance DAG" onPointerDown="{{ startPan }}" onWheel="{{ onWheel }}" ref="{{ setViewport }}" style="flex:1;min-height:0;position:relative;overflow:hidden;background:#F4F4F7;cursor:{{ panCursor }};touch-action:none">
             <div style="position:absolute;left:0;top:0;width:{{ canvasW }}px;height:{{ canvasH }}px;transform:translate({{ tx }}px,{{ ty }}px) scale({{ scale }});transform-origin:0 0;transition:{{ camT }};background-image:radial-gradient(#E1E1E9 1px,transparent 1px);background-size:26px 26px">
 
               <!-- sc-camel-width/-d etc.: the raw {{ }} placeholders are only compiled at mount, but this
@@ -1137,7 +1178,7 @@ table{border-collapse:collapse;width:100%}
 
         <!-- RIGHT PANEL — ENTITIES / INSPECTOR -->
         <sc-if value="{{ rightOpen }}">
-        <aside class="eo-scroll" style="width:340px;flex:0 0 auto;background:#fff;border-left:1px solid #EAEAEF;overflow-y:auto;min-height:0">
+        <aside class="eo-scroll eo-right" style="width:340px;flex:0 0 auto;background:#fff;border-left:1px solid #EAEAEF;overflow-y:auto;min-height:0">
           <div style="padding:14px 16px">
 
             <!-- GRAPH-NODE INSPECTOR -->
@@ -1275,7 +1316,7 @@ table{border-collapse:collapse;width:100%}
   <sc-if value="{{ searchShow }}">
     <div style="position:absolute;inset:0;z-index:46">
       <div onClick="{{ closeSearch }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
-      <div style="position:absolute;left:50%;top:60px;transform:translateX(-50%);width:min(640px,92vw);max-height:calc(100vh - 120px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+      <div class="eo-modal" style="position:absolute;left:50%;top:60px;transform:translateX(-50%);width:min(640px,92vw);max-height:calc(100vh - 120px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
         <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid #EAEAEF">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
           <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">“{{ searchQ }}”</span>
@@ -1309,7 +1350,7 @@ table{border-collapse:collapse;width:100%}
   <sc-if value="{{ cmdkShow }}">
     <div style="position:absolute;inset:0;z-index:55">
       <div onClick="{{ closeCmdk }}" style="position:absolute;inset:0;background:rgba(18,18,26,.36);animation:eoFade .16s ease"></div>
-      <div style="position:absolute;left:50%;top:72px;transform:translateX(-50%);width:min(680px,94vw);max-height:calc(100vh - 150px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 28px 80px rgba(20,20,30,.32);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+      <div class="eo-modal" style="position:absolute;left:50%;top:72px;transform:translateX(-50%);width:min(680px,94vw);max-height:calc(100vh - 150px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 28px 80px rgba(20,20,30,.32);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
         <div style="flex:0 0 auto;display:flex;align-items:center;gap:11px;padding:15px 18px;border-bottom:1px solid #F0F0F4">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
           <input id="eo-cmdk-input" value="{{ cmdkQuery }}" onChange="{{ onCmdkInput }}" onKeyDown="{{ onCmdkKey }}" placeholder="Search your sources — titles, sites, and every recorded word…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;font-size:15px;color:#1B1B22;background:transparent" />
@@ -1413,7 +1454,7 @@ table{border-collapse:collapse;width:100%}
   <sc-if value="{{ webGraphShow }}">
     <div style="position:absolute;inset:0;z-index:48">
       <div onClick="{{ closeWebGraph }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
-      <div style="position:absolute;left:50%;top:34px;bottom:34px;transform:translateX(-50%);width:min(1060px,95vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+      <div class="eo-modal eo-tall" style="position:absolute;left:50%;top:34px;bottom:34px;transform:translateX(-50%);width:min(1060px,95vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
         <div style="flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #EAEAEF">
           <div style="display:flex;gap:3px;background:#F4F4F7;border-radius:9px;padding:3px">
             <button onClick="{{ setWebKindEntity }}" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindEntFg }};background:{{ webKindEntBg }}">Entities</button>
@@ -1422,8 +1463,8 @@ table{border-collapse:collapse;width:100%}
           <span style="font-family:'Newsreader',Georgia,serif;font-size:16px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ webGraphTitle }}</span>
           <button onClick="{{ closeWebGraph }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         </div>
-        <div style="flex:1;min-height:0;display:flex">
-          <div style="flex:0 0 232px;border-right:1px solid #EEEEF2;display:flex;flex-direction:column;overflow:hidden;background:#FCFCFD">
+        <div class="eo-wgbody" style="flex:1;min-height:0;display:flex">
+          <div class="eo-wgside" style="flex:0 0 232px;border-right:1px solid #EEEEF2;display:flex;flex-direction:column;overflow:hidden;background:#FCFCFD">
             <div style="padding:11px 13px;border-bottom:1px solid #EEEEF2">
               <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#A0A0AA;margin-bottom:6px">SCOPE</div>
               <div style="display:flex;flex-direction:column;gap:5px">
@@ -1461,7 +1502,7 @@ table{border-collapse:collapse;width:100%}
   <sc-if value="{{ monologueOpen }}">
     <div style="position:absolute;inset:0;z-index:40">
       <div onClick="{{ closeMonologue }}" style="position:absolute;inset:0;background:rgba(20,20,28,.24);animation:eoFade .16s ease"></div>
-      <div class="eo-scroll" style="position:absolute;right:0;top:0;height:100%;width:440px;background:#fff;border-left:1px solid #EAEAEF;box-shadow:-12px 0 40px rgba(20,20,30,.12);overflow-y:auto;animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)">
+      <div class="eo-scroll eo-drawer" style="position:absolute;right:0;top:0;height:100%;width:440px;background:#fff;border-left:1px solid #EAEAEF;box-shadow:-12px 0 40px rgba(20,20,30,.12);overflow-y:auto;animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)">
         <div style="position:sticky;top:0;background:#fff;border-bottom:1px solid #EAEAEF;padding:15px 18px;z-index:2">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600">Master log</div>
@@ -1558,7 +1599,7 @@ table{border-collapse:collapse;width:100%}
 
   <!-- TOAST -->
   <sc-if value="{{ toast }}">
-    <div style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;background:#1B1B22;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(20,20,30,.3);animation:eoToast .2s ease;max-width:520px">{{ toast }}</div>
+    <div class="eo-toast" style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;background:#1B1B22;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(20,20,30,.3);animation:eoToast .2s ease;max-width:520px">{{ toast }}</div>
   </sc-if>
 
   <!-- DRAG OVERLAY -->
@@ -1574,11 +1615,16 @@ table{border-collapse:collapse;width:100%}
 class Component extends DCLogic {
   constructor(props) {
     super(props);
+    // Small screens (the phone layer): the side panels become overlay drawers, so they
+    // start CLOSED there regardless of the desktop prefs — the chat is the whole stage.
+    let mobile = false;
+    try { this._mq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(max-width: 820px)') : null; mobile = !!(this._mq && this._mq.matches); } catch { this._mq = null; }
     this.state = {
       tab: 'chat', omni: '', chatInput: '', toast: null,
       // live recording — recPhase: 'idle' | 'rec' (the take runs) | 'fin' (draining the tail)
       recOpen: false, recPhase: 'idle', recTime: '0:00', recPartial: '', recNote: '',
-      leftOpen: this._pref('eo_left', true), rightOpen: this._pref('eo_right', true),
+      isMobile: mobile,
+      leftOpen: mobile ? false : this._pref('eo_left', true), rightOpen: mobile ? false : this._pref('eo_right', true),
       statusOpen: false, monologueOpen: false, logMode: 'actions',
       focusId: null, hideContra: false, tx: 40, ty: 30, scale: 1, camT: 'none',
       // Graph tiers fold like NotebookLM sections — collapsed by default; the user opens
@@ -1857,6 +1903,18 @@ class Component extends DCLogic {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); ui.toggleCmdk(); return; }
       if (e.key === 'Escape' && ui.state.cmdkOpen) { e.preventDefault(); ui.closeCmdk(); }
     });
+    // Crossing the mobile breakpoint (rotation, resize, foldables): drawers close going
+    // small; the desktop prefs come back going wide.
+    try {
+      const mq = window.matchMedia('(max-width: 820px)');
+      const onMq = (e) => {
+        const ui = window.__eoUI; if (!ui) return;
+        ui.setState(e.matches
+          ? { isMobile: true, leftOpen: false, rightOpen: false }
+          : { isMobile: false, leftOpen: ui._pref('eo_left', true), rightOpen: ui._pref('eo_right', true) });
+      };
+      if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq);
+    } catch {}
   }
   _ensureFileInput() {
     if (this._fileInput && document.body.contains(this._fileInput)) return this._fileInput;
@@ -2108,14 +2166,28 @@ class Component extends DCLogic {
   // ── navigation ───────────────────────────────────────────────────────────
   setTab(tab) {
     this._readerFrame = null; this._viewCache = null;
-    this.setState({ tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, tocOpen: false });
+    // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
+    this.setState({ tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, tocOpen: false, ...(this._mob() ? { leftOpen: false } : {}) });
     // Switching to a source tab whose mode is Native kicks off (or reuses) its page fetch.
     if (this.state.viewerTabs.includes(tab) && (this.state.viewerModes[tab] || 'reader') === 'native') this.loadPage(tab);
   }
   // The active source is whichever tab in the bar is a recorded source (else none — a fixed tab).
   _activeSrc() { return this.state.viewerTabs.includes(this.state.tab) ? this.state.tab : null; }
-  toggleLeft() { const v = !this.state.leftOpen; this._setPref('eo_left', v); this.setState({ leftOpen: v }); }
-  toggleRight() { const v = !this.state.rightOpen; this._setPref('eo_right', v); this.setState({ rightOpen: v }); }
+  // On mobile the panels are one-at-a-time overlay drawers: opening one closes the other,
+  // and the desktop open/closed prefs are left untouched (a phone visit shouldn't reshape
+  // the desktop layout).
+  _mob() { return !!this.state.isMobile; }
+  toggleLeft() {
+    const v = !this.state.leftOpen;
+    if (!this._mob()) this._setPref('eo_left', v);
+    this.setState({ leftOpen: v, ...(this._mob() && v ? { rightOpen: false } : {}) });
+  }
+  toggleRight() {
+    const v = !this.state.rightOpen;
+    if (!this._mob()) this._setPref('eo_right', v);
+    this.setState({ rightOpen: v, ...(this._mob() && v ? { leftOpen: false } : {}) });
+  }
+  closePanels() { this.setState({ leftOpen: false, rightOpen: false }); }
   toggleStatus() { this.setState({ statusOpen: !this.state.statusOpen }); }
   openMonologue() { this.setState({ monologueOpen: true, statusOpen: false }); }
   closeMonologue() { this.setState({ monologueOpen: false }); }
@@ -2133,7 +2205,7 @@ class Component extends DCLogic {
     const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = 'reader';
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
     // Open the source AS A TAB in the main stage and make it the active tab.
-    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, nativeToc: [] });
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, nativeToc: [], ...(this._mob() ? { leftOpen: false } : {}) });
     if (modes[sn] === 'native') this.loadPage(sn);
   }
   closeTab(sn, e) {
@@ -2398,7 +2470,7 @@ class Component extends DCLogic {
     this.closeCmdk();
     if (r && r.sn) this.openViewer(r.sn, r.focus || undefined);
   }
-  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'chat' : this.state.tab, focusId: null }); this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
+  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'chat' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
   backToEntities() { this.setState({ entitySel: null, focusId: null }); }
   // The wiki referent for the open entity — 4.1's entity-panel Wikipedia search, restored.
   // Fired once per (doc, entity): the engine searches Wikipedia and confirms (or refuses)
@@ -2617,16 +2689,53 @@ class Component extends DCLogic {
 
   // ── graph camera + focus ─────────────────────────────────────────────────
   setViewport(el) { this._vp = el; }
+  // One-pointer drag pans; two touch pointers pinch-zoom about their midpoint (the viewport
+  // carries touch-action:none, so the browser hands us the raw pointers on mobile too).
   startPan(e) {
     if (!this._vp) return;
-    const sx = e.clientX, sy = e.clientY, ox = this.state.tx, oy = this.state.ty;
-    this._panning = false;
+    const p = this._ptrs || (this._ptrs = new Map());
+    p.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    this._panning = p.size > 1;   // a second finger is a gesture, never a click
+    this._panBase = { x: e.clientX, y: e.clientY, tx: this.state.tx, ty: this.state.ty };
+    if (p.size === 2) this._pinchBase();
+    if (this._panWired) return;
+    this._panWired = true;
     const move = (ev) => {
-      if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 3) this._panning = true;
-      this.setState({ tx: ox + ev.clientX - sx, ty: oy + ev.clientY - sy, camT: 'none' });
+      if (!p.has(ev.pointerId)) return;
+      p.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (p.size >= 2) { this._pinchMove(); return; }
+      const b = this._panBase;
+      if (Math.abs(ev.clientX - b.x) + Math.abs(ev.clientY - b.y) > 3) this._panning = true;
+      this.setState({ tx: b.tx + ev.clientX - b.x, ty: b.ty + ev.clientY - b.y, camT: 'none' });
     };
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    const up = (ev) => {
+      p.delete(ev.pointerId);
+      if (p.size === 0) {
+        window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+        this._panWired = false; this._pinch = null;
+        return;
+      }
+      // A finger lifted mid-gesture — re-baseline what remains (pinch → pan, 3 → 2, …).
+      const [a] = [...p.values()];
+      this._panBase = { x: a.x, y: a.y, tx: this.state.tx, ty: this.state.ty };
+      if (p.size >= 2) this._pinchBase(); else this._pinch = null;
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  }
+  _pinchBase() {
+    const [a, b] = [...this._ptrs.values()];
+    const r = this._vp.getBoundingClientRect();
+    this._pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, scale: this.state.scale, tx: this.state.tx, ty: this.state.ty,
+      cx: (a.x + b.x) / 2 - r.left, cy: (a.y + b.y) / 2 - r.top, left: r.left, top: r.top };
+  }
+  _pinchMove() {
+    const g = this._pinch; if (!g) return;
+    const [a, b] = [...this._ptrs.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    const k = Math.min(2.2, Math.max(.35, g.scale * d / g.d));
+    const cx = (a.x + b.x) / 2 - g.left, cy = (a.y + b.y) / 2 - g.top;
+    const rr = k / g.scale;   // keep the content point under the midpoint pinned while it moves
+    this.setState({ scale: k, tx: cx - (g.cx - g.tx) * rr, ty: cy - (g.cy - g.ty) * rr, camT: 'none' });
   }
   stopPan(e) { if (e && e.stopPropagation) e.stopPropagation(); }
   onWheel(e) {
@@ -2637,7 +2746,7 @@ class Component extends DCLogic {
   zoomIn() { this.setState({ scale: Math.min(2.2, this.state.scale * 1.15), camT: 'transform .18s ease' }); }
   zoomOut() { this.setState({ scale: Math.max(.35, this.state.scale * .87), camT: 'transform .18s ease' }); }
   fit() { this.setState({ tx: 40, ty: 30, scale: this._fitScale || 1, camT: 'transform .22s ease' }); }
-  focusNode(id) { if (!this._panning) this.setState({ focusId: this.state.focusId === id ? null : id, rightOpen: true }); }
+  focusNode(id) { if (!this._panning) this.setState({ focusId: this.state.focusId === id ? null : id, rightOpen: true, ...(this._mob() ? { leftOpen: false } : {}) }); }
   hoverNode(id) { if (!this._panning && this.state.hoverId !== id) this.setState({ hoverId: id }); }
   clearFocus() { this.setState({ focusId: null, hideContra: false }); }
   toggleContra() { this.setState({ hideContra: !this.state.hideContra }); }
@@ -3107,7 +3216,7 @@ class Component extends DCLogic {
       return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
-        statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
+        statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._recVals() };
     }
@@ -3120,7 +3229,7 @@ class Component extends DCLogic {
       return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
-        statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
+        statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._recVals() };
     }
@@ -3160,7 +3269,7 @@ class Component extends DCLogic {
       caretRot: collapsed ? '0deg' : '90deg',
       toggle: (e) => { if (e && e.stopPropagation) e.stopPropagation(); app.topicToggleCollapse(t.id); },
       menuOpen: st.topicMenu === t.id,
-      rowClick: () => { app.setTopic(t.id); this.setState({ topicMenu: null }); },
+      rowClick: () => { app.setTopic(t.id); this.setState({ topicMenu: null, ...(this._mob() ? { leftOpen: false } : {}) }); },
       menuClick: () => this.setState({ topicMenu: st.topicMenu === t.id ? null : t.id }),
       doRename: () => { const v = prompt('Rename topic', t.title); if (v) app.topicRename(t.id, v); this.setState({ topicMenu: null }); },
       doAddChild: () => { app.topicNew('New sub-topic', { parentId: t.id }); this.setState({ topicMenu: null }); },
@@ -3806,6 +3915,7 @@ class Component extends DCLogic {
       // live recording — the mic button + the take panel
       ...this._recVals(),
       leftOpen: st.leftOpen, rightOpen: st.rightOpen,
+      panelBackdrop: !!st.isMobile && (st.leftOpen || st.rightOpen), closePanels: () => this.closePanels(),
       leftBtnFg: st.leftOpen ? '#5B4BE6' : '#9A9AA4', rightBtnFg: st.rightOpen ? '#5B4BE6' : '#9A9AA4',
       onOmniSubmit: (e) => this.onOmniSubmit(e), onOmniInput: (e) => this.onOmniInput(e),
       openMonologue: () => this.openMonologue(), closeMonologue: () => this.closeMonologue(),

@@ -46,6 +46,12 @@ const CSS = `
 .eo-con-fab[data-state="frozen"] .eo-con-fab__dot{background:#ff7b72}
 .eo-con-fab[data-open="1"]{display:none}
 @keyframes eo-con-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* On phones the launcher folds to its status dot, clear of the chat composer. */
+@media (max-width: 820px){
+  .eo-con-fab{left:10px;bottom:calc(10px + env(safe-area-inset-bottom));padding:8px}
+  .eo-con-fab__label{display:none}
+  .eo-con{height:46vh}
+}
 
 .eo-con{position:fixed;left:0;right:0;bottom:0;z-index:2147482901;height:34vh;display:none;flex-direction:column;
   background:#0b0e14;color:#c9d1d9;border-top:1px solid #2b3240;box-shadow:0 -10px 40px rgba(0,0,0,.4);
@@ -146,7 +152,7 @@ export function mountConsole(host, { audit, app, appName = 'EO Reader', version 
 
   // ── the launcher + panel shell ──────────────────────────────────────────────
   const fab = el('button', 'eo-con-fab'); fab.title = 'Open the audit console';
-  const fabDot = el('span', 'eo-con-fab__dot'); fab.append(fabDot, el('span', null, 'Console'));
+  const fabDot = el('span', 'eo-con-fab__dot'); fab.append(fabDot, el('span', 'eo-con-fab__label', 'Console'));
 
   const panel = el('div', 'eo-con');
   const head = el('div', 'eo-con__head');
