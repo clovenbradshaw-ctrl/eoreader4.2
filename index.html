@@ -2715,12 +2715,19 @@ class Component extends DCLogic {
     // lives on Chat), so an Ask turn is pinned to 'off' and never reaches the net. Chat keeps the
     // global web mode and its toggle. Captured at send time so switching tabs mid-turn can't change
     // what this turn was allowed to do.
-    const opts = this.state.tab === 'ask' ? { web: 'off' } : {};
+    const onAsk = this.state.tab === 'ask';
+    const opts = onAsk ? { web: 'off' } : {};
+    // ONE GROUNDED QUESTION PER TOPIC. On the Ask surface each question is its own grounded turn
+    // on its own topic (app.askQuestion opens a child topic under the current one, inheriting its
+    // sources, when the current topic already holds a question) — the system answers a single
+    // grounded question or abstains, and never accretes the back-and-forth thread it does worst.
+    // Chat stays the explicit thread mode: it keeps the plain ask() so its conversation still builds.
+    const fire = () => { (onAsk ? this._app.askQuestion(q, opts) : this._app.ask(q, opts)).catch(() => {}); };
     if (this._generating()) {
       this._app.stop();
-      setTimeout(() => { this._app.ask(q, opts).catch(() => {}); }, 0);
+      setTimeout(fire, 0);
     } else {
-      this._app.ask(q, opts).catch(() => {});
+      fire();
     }
   }
   _generating() {
@@ -2746,7 +2753,7 @@ class Component extends DCLogic {
   // then prints a receipt that says where it looked so the silence or the claim can be
   // checked. It adds no engine call and decides no truth; it only classifies what the turn
   // already found. `vm` is the chat view-model for this same message (paras, cites, trail).
-  _askKind(mm, vm, totalPassages) {
+  _askKind(mm, vm, totalPassages, totalSources) {
     const text = String(mm.text || '');
     const route = mm.route || '';
     const summ = (mm.reflection && mm.reflection.summary) || null;
@@ -2794,11 +2801,18 @@ class Component extends DCLogic {
       hasReceipt: true, receiptA: `${pl(nPass, 'passage')} · ${pl(nSrc, 'source')} · decided by measurement, not by a model`,
       receiptWhy: 'The claim was tested against the terms the record sets. It failed. The passages are here so you can disagree with the test.' };
 
-    // The record does not say — unbound, a spoken void, or an abstention
-    if (unbound || (!grounded && abstain)) return { kind: 'The record does not say', kindNo: true, hasCorr: false, hasDoors: nPass > 0, doors: doors(),
-      hasGap: true, gapLabel: 'The gap', gapText: 'No passage in the record answers this. The answer above names the silence rather than filling it — the sources it searched are on record, so the gap can be checked.',
-      hasReceipt: true, receiptA: `${pl(totalPassages || 0, 'passage')} on record · none answer this`,
-      receiptWhy: 'The surface that exists because the record is silent. It names where it looked, so the silence can be checked.' };
+    // The record does not say — unbound, a spoken void, or an abstention. The receipt names the
+    // SCOPE it searched (every passage across the sources on record), not the cited count — an
+    // abstention cites nothing, so "0 passages" would misread an inspected record as an empty one.
+    if (unbound || (!grounded && abstain)) {
+      const searched = totalPassages
+        ? `searched ${pl(totalPassages, 'passage')} across ${pl(totalSources || 0, 'source')} · none answer this`
+        : 'the record is silent · nothing to search yet';
+      return { kind: 'The record does not say', kindNo: true, hasCorr: false, hasDoors: nPass > 0, doors: doors(),
+        hasGap: true, gapLabel: 'The gap', gapText: 'No passage in the record answers this. The answer above names the silence rather than filling it — the sources it searched are on record, so the gap can be checked.',
+        hasReceipt: true, receiptA: searched,
+        receiptWhy: 'The surface that exists because the record is silent. It names where it looked, so the silence can be checked.' };
+    }
 
     // Finding — grounded, but rests on a step no single passage states
     if (grounded && interp) return { ...corr, kind: 'Finding', kindNo: false, hasDoors: nPass > 0, doors: doors(),
@@ -4753,7 +4767,7 @@ class Component extends DCLogic {
       rowClick: () => { app.setTopic(t.id); this.setState({ topicMenu: null, ...(this._mob() ? { leftOpen: false } : {}) }); },
       menuClick: () => this.setState({ topicMenu: st.topicMenu === t.id ? null : t.id }),
       doRename: () => { const v = prompt('Rename topic', t.title); if (v) app.topicRename(t.id, v); this.setState({ topicMenu: null }); },
-      doAddChild: () => { app.topicNew('New sub-topic', { parentId: t.id }); this.setState({ topicMenu: null }); },
+      doAddChild: () => { app.topicNew('New sub-topic', { parentId: t.id }); this.setState({ topicMenu: null }); this.setTab('ask'); },
       doDelete: () => { if (confirm(`Delete “${t.title}”? Any sub-topics rise to its parent; its sources stay in the record.`)) app.topicDelete(t.id); this.setState({ topicMenu: null }); },
     }));
     const FAV = [['#EEF0F3', '#4E5765'], ['#EEEBFE', '#5B4BE6'], ['#E7F6EC', '#1E8A50'], ['#FBF1DA', '#9A6B12'], ['#FBE9E6', '#B23A2E'], ['#E8F1FB', '#2C5C9E']];
@@ -5037,7 +5051,7 @@ class Component extends DCLogic {
     for (let i = msgs.length - 1; i >= 0; i--) { if (msgs[i].role !== 'user') { lastA = i; break; } }
     if (lastA >= 0) {
       for (let i = lastA - 1; i >= 0; i--) { if (msgs[i].role === 'user') { askQuestion = msgs[i].text || ''; break; } }
-      const kind = this._askKind(msgs[lastA], messages[lastA], findings.stats.passages);
+      const kind = this._askKind(msgs[lastA], messages[lastA], findings.stats.recordPassages, findings.stats.sources);
       askSurfaces = [{ ...messages[lastA], ...kind, kindFg: kind.kindNo ? '#B23A2E' : '#6E6E78',
         notPending: !msgs[lastA].pending, question: askQuestion, hasQuestion: !!askQuestion }];
     }
@@ -5465,7 +5479,7 @@ class Component extends DCLogic {
       // status + sidebar
       status, statusColor, statusOpen: st.statusOpen, statusRot: st.statusOpen ? '90deg' : '0deg',
       toggleStatus: () => this.toggleStatus(), statusPeek,
-      newTopic: () => { app.topicNew('New topic'); },
+      newTopic: () => { app.topicNew('New topic'); this.setTab('ask'); },
       pickFile: () => this.pickFile(), openPaste: () => this.openPaste(),
       goMemo: () => this.goMemo(), goGraph: () => this.goGraph(),
       // workspace switcher

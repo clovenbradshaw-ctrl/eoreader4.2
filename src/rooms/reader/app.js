@@ -2354,6 +2354,31 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return pending;
   };
 
+  // ── one grounded question per topic — the topic-per-question model ───────────
+  // The engine answers a SINGLE grounded question coherently from the record — or abstains
+  // honestly ("the record does not say"); a back-and-forth thread is what it does worst, so
+  // the Ask surface refuses to accrete one. A question asked while the current topic ALREADY
+  // holds a question opens a CHILD topic beneath it and asks THERE — a fresh line of inquiry
+  // the sidebar tree shows nested under the question it followed. The child INHERITS the
+  // parent's sources, so the record it reads is unchanged; the parent's answer stays intact
+  // on its own surface, one clean question-and-answer apiece. A question in a topic that has
+  // not been asked one yet (a "New topic", or one that only holds ingested sources) fills
+  // THAT topic in place — asking the first question never orphans an empty placeholder.
+  // Delegates to ask() on the now-active topic and returns its pending message. topicNew
+  // already makes the child active and auto-naming (from the first question) then names it.
+  const askQuestion = (question, opts = {}) => {
+    const q = String(question || '').trim();
+    if (!q) return Promise.resolve(null);
+    const cur = topic();
+    const alreadyAsked = !!(cur && cur.messages.some((m) => m && m.role === 'user'));
+    if (cur && alreadyAsked) {
+      const child = topicNew(DEFAULT_TOPIC_TITLE, { parentId: cur.id, workspaceId: cur.workspaceId });
+      child.sourceSns = [...(cur.sourceSns || [])];   // the child reads the same record as its parent
+      persist(); emit('topics');
+    }
+    return ask(q, opts);
+  };
+
   const stageLabel = (name) => ({
     route: 'Routing…', retrieve: 'Retrieving from the record…', fold: 'Folding the reading…',
     gate: 'Gating…', prompt: 'Building the grounded prompt…', llm: 'Phrasing…',
@@ -3030,10 +3055,18 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         }
       }
     }
+    // How much of the record an abstention actually SEARCHED — the total passages (sentences)
+    // across the topic's sources, not the cited count. `passages` above is passages that ended
+    // up QUOTED, so it is 0 on an honest abstention; reporting that as "0 passages on record"
+    // reads as an empty record when the sources are in fact full of text the turn looked through.
+    // `recordPassages` is the scope the abstention names, so "the record does not say" can point
+    // at what it searched. The docs are already parsed for the active topic, so this is a cheap sum.
+    let recordPassages = 0;
+    try { for (const d of topicDocs()) recordPassages += (d && d.sentences && d.sentences.length) || 0; } catch { /* keep 0 */ }
     return {
       claims: claims.slice(-24), passages: [...passages.values()].slice(-32),
       contradictions,
-      stats: { claims: claims.length, passages: passages.size, sources: topicSources().length, contradictions },
+      stats: { claims: claims.length, passages: passages.size, sources: topicSources().length, recordPassages, contradictions },
     };
   };
 
@@ -3433,7 +3466,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     searchTopic,
     sourceBySn, removeSource, topicSources, sourceToggleCollapse,
     // chat
-    ask, stop, exportChat,
+    ask, askQuestion, stop, exportChat,
     // export provenance — WHAT produced this session: app + published build + latest-on-GitHub +
     // the current talker. Composed live so a surface badge can show the build/freshness/model.
     provenance: () => composeProvenance({
