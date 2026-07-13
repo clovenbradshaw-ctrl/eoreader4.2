@@ -139,15 +139,24 @@ table{border-collapse:collapse;width:100%}
           <sc-if value="{{ verHasHere }}"><span title="The build this live site is running" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#1E8A50;background:#E7F6EC;border-radius:5px;padding:2px 6px">on {{ verHereLabel }}</span></sc-if>
         </div>
 
-        <div style="padding:0 2px 4px"><span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">SURFACE</span></div>
-        <button onClick="{{ toggleMurmur }}" title="Show the real-time murmur strip on the main page" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;text-align:left;margin-bottom:8px" style-hover="background:#F7F7FA">
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
-            <span style="font-size:12.5px;font-weight:600;color:#3A3A44">Real-time murmur strip</span>
-            <span style="font-size:11px;color:#9A9AA4">{{ murmurToggleStatus }}</span>
-          </span>
-          <span style="position:relative;width:34px;height:19px;border-radius:999px;background:{{ murmurTrackBg }};flex:0 0 auto;transition:background .16s"><span style="position:absolute;top:2px;left:{{ murmurKnobX }};width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .16s"></span></span>
-        </button>
-        <div style="border-top:1px solid #F2F2F6;margin-bottom:10px"></div>
+        <div style="padding:0 2px 4px"><span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">MURMUR — THE PERIPHERAL SENSE</span></div>
+        <div style="font-size:11.5px;color:#8A8A95;line-height:1.5;padding:0 2px 8px">At rest it wanders — looking at what's interesting, muttering it in the strip, and keeping <b style="color:#6E6E78;font-weight:600">self-guided learning</b>. It only ever runs while you can see it: turning it off hides it, and nothing murmurs unseen.</div>
+        <div style="display:flex;gap:5px;margin-bottom:6px">
+          <sc-for list="{{ murmurModeOptions }}" as="o">
+            <button onClick="{{ o.onSelect }}" title="{{ o.desc }}" style="flex:1;padding:7px 4px;border-radius:8px;font-size:11.5px;font-weight:600;color:{{ o.fg }};background:{{ o.bg }};transition:background .14s,color .14s" style-hover="filter:brightness(.97)">{{ o.label }}</button>
+          </sc-for>
+        </div>
+        <div style="font-size:11px;color:#9A9AA4;padding:0 2px 8px">{{ murmurModeDesc }}</div>
+        <sc-if value="{{ murmurControls }}">
+          <button onClick="{{ toggleLearningLayer }}" title="Show the self-guided-learning layer in the graph" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;text-align:left;margin-bottom:4px" style-hover="background:#F7F7FA">
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+              <span style="font-size:12.5px;font-weight:600;color:#3A3A44">Self-guided learning layer</span>
+              <span style="font-size:11px;color:#9A9AA4">{{ murmurLearnCount }} learned this session · shown in the graph</span>
+            </span>
+            <span style="position:relative;width:34px;height:19px;border-radius:999px;background:{{ learningTrackBg }};flex:0 0 auto;transition:background .16s"><span style="position:absolute;top:2px;left:{{ learningKnobX }};width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .16s"></span></span>
+          </button>
+        </sc-if>
+        <div style="border-top:1px solid #F2F2F6;margin:6px 0 10px"></div>
 
         <div style="display:flex;align-items:center;gap:8px;padding:0 2px 4px">
           <span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">ROLL BACK TO A PRIOR PR</span>
@@ -560,7 +569,7 @@ table{border-collapse:collapse;width:100%}
             </sc-if>
 
             <sc-if value="{{ murmurQuiet }}">
-              <span style="flex:1;min-width:0;font-size:11.5px;font-style:italic;color:#B4B4BE;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">resting — nothing stirring in the reading yet</span>
+              <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:12.5px;color:#B4B4BE;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">resting — the reading is still, and nothing has stirred me yet</span>
             </sc-if>
           </div>
 
@@ -2053,9 +2062,12 @@ class Component extends DCLogic {
       isMobile: mobile,
       leftOpen: mobile ? false : this._pref('eo_left', true), rightOpen: mobile ? false : this._pref('eo_right', true),
       statusOpen: false, monologueOpen: false, logMode: 'actions',
-      // The real-time murmur strip — the peripheral sense (src/murmur) painted on the main page,
-      // hideable from Settings. Shown by default; the pref persists the choice across sessions.
-      murmurShow: this._pref('eo_murmur', true),
+      // The real-time murmur strip — the peripheral sense (src/murmur) painted on the main page.
+      // The MODE is the one control: 'off' (nothing), 'look' (mutters + learns from the record, no
+      // internet), 'explore' (also follows curiosity onto the web). Visibility DERIVES from the mode
+      // (off ⇒ hidden), so there is never any muttering the user can't see. Persisted across sessions.
+      murmurMode: this._murmurMode(),
+      learningLayer: this._pref('eo_learning_layer', true),   // show the self-guided-learning graph layer
       focusId: null, hideContra: false, tx: 40, ty: 30, scale: 1, camT: 'none',
       // Graph tiers fold like NotebookLM sections — collapsed by default; the user opens
       // the groups (claims / passages / sources / files) they want to trace. Absent/false = folded.
@@ -2112,6 +2124,8 @@ class Component extends DCLogic {
     if (this._app) {
       this._app.subscribe((kind) => this._onEngine(kind));
       if (window.EO.audit && window.EO.audit.subscribe) window.EO.audit.subscribe(() => this._poke());
+      // hand the engine the persisted murmur mode so the at-rest wander gates on it from boot
+      try { if (this._app.setMurmurMode) this._app.setMurmurMode(this._murmurMode()); } catch { /* engine optional */ }
     }
     // The topic whose entities the surface last showed — _onEngine compares against it so a
     // real topic change (new/switch/delete) drops the entity selection, while a mere rename
@@ -3117,8 +3131,25 @@ class Component extends DCLogic {
   toggleStatus() { this.setState({ statusOpen: !this.state.statusOpen }); }
   openMonologue() { this.setState({ monologueOpen: true, statusOpen: false }); }
   closeMonologue() { this.setState({ monologueOpen: false }); }
-  // Show/hide the real-time murmur strip on the main page. Persisted, so the choice sticks.
-  toggleMurmur() { const on = !this.state.murmurShow; this._setPref('eo_murmur', on); this.setState({ murmurShow: on }); }
+  // The murmur's mode, the single control (Settings). Visibility derives from it (off ⇒ hidden), so
+  // there is no state where the sense mutters or reaches the web while off screen. Persisted; pushed
+  // to the engine so the at-rest wander gates on it.
+  _murmurMode() {
+    try {
+      const v = localStorage.getItem('eo_murmur_mode');
+      if (v === 'off' || v === 'look' || v === 'explore') return v;
+      return localStorage.getItem('eo_murmur') === '0' ? 'off' : 'look';   // honour a prior "hidden" choice
+    } catch { return 'look'; }
+  }
+  setMurmurMode(mode) {
+    const m = (mode === 'off' || mode === 'look' || mode === 'explore') ? mode : 'look';
+    try { localStorage.setItem('eo_murmur_mode', m); } catch { /* session-only */ }
+    try { if (this._app && this._app.setMurmurMode) this._app.setMurmurMode(m); } catch { /* engine optional */ }
+    this.setState({ murmurMode: m });
+  }
+  // The strip's X — hide is the same as off, by design: nothing may mutter unseen. Re-enable in Settings.
+  toggleMurmur() { this.setMurmurMode('off'); }
+  toggleLearningLayer() { const on = !this.state.learningLayer; this._setPref('eo_learning_layer', on); this.setState({ learningLayer: on }); }
   toggleModel() { this.setState({ modelOpen: !this.state.modelOpen, settingsOpen: false }); }
   // ── the source viewer: a modal whose TABS ARE THE OPEN SOURCES ──────────────
   // openViewer(sn, focus) opens a source AS A TAB in front (or focuses it if already open). Several
@@ -4318,7 +4349,8 @@ class Component extends DCLogic {
   _murmurVals() {
     const st = this.state;
     const m = this._murmur;
-    const show = st.murmurShow !== false;
+    const mode = st.murmurMode || 'look';   // 'off' | 'look' | 'explore'
+    const show = mode !== 'off';            // visibility DERIVES from the mode — nothing mutters unseen
     let sig = null, imps = [];
     if (m) { try { const s = m.state ? m.state() : null; if (s) { sig = s.signal || null; imps = s.impressions || []; } } catch { /* the strip must never break the surface */ } }
     const pct = (x) => (typeof x === 'number' && isFinite(x)) ? Math.round(Math.max(0, Math.min(1, x)) * 100) : null;
@@ -4340,6 +4372,10 @@ class Component extends DCLogic {
       surprise:    { label: 'surprise',    fg: '#7B4FD6', bg: '#F1EFFE', hint: 'unexpected' },
       drift:       { label: 'drift',       fg: '#B06A2E', bg: '#FBF0E6', hint: 'we’ve wandered' },
       recognition: { label: 'recognition', fg: '#1E8A50', bg: '#E7F6EC', hint: 'seen this before' },
+      // the self-guided-learning registers — the wander muttering at rest (murmur/learn)
+      curiosity:   { label: 'turning over', fg: '#6B4FD6', bg: '#F1EFFE', hint: 'turning something over' },
+      outward:     { label: 'wondering',    fg: '#2E7DC7', bg: '#E8F2FB', hint: 'a thread it might chase' },
+      discovery:   { label: 'learned',      fg: '#1E8A50', bg: '#E7F6EC', hint: 'read something new' },
     };
     const chips = (imps || [])
       .filter((i) => i && typeof i.decayedIntensity === 'number' && i.decayedIntensity > 0.02)
@@ -4350,15 +4386,36 @@ class Component extends DCLogic {
     const phraseImp = (imps || []).find((i) => i && i.phrase);
     const phrase = phraseImp ? phraseImp.phrase : null;
     const anyGauge = gauges.some((g) => g.has);
-    const quiet = chips.length === 0 && !anyGauge;
+    const quiet = chips.length === 0 && !anyGauge && !phrase;
+    // The mode is the one control (Off / Look & think / Explore the web). The Settings selector reads
+    // these; the strip's X sets 'off'. Visibility is `show` (mode ≠ off), so nothing runs unseen.
+    const modeMeta = {
+      off:     { label: 'Off',             desc: 'the sense is quiet' },
+      look:    { label: 'Look & think',    desc: 'mutters and learns from the record — no internet' },
+      explore: { label: 'Explore the web', desc: 'also follows its curiosity onto the web' },
+    };
+    const murmurModeOptions = ['off', 'look', 'explore'].map((k) => ({
+      key: k, label: modeMeta[k].label, desc: modeMeta[k].desc, active: mode === k,
+      fg: mode === k ? '#fff' : '#5A5A64', bg: mode === k ? '#7B4FD6' : '#F2F2F6',
+      onSelect: () => this.setMurmurMode(k),
+    }));
+    let learnCount = 0;
+    try { if (this._app && this._app.learning) learnCount = this._app.learning().length; } catch { /* keep 0 */ }
     return {
-      murmurShow: show,
-      murmurOn: !!m && show,   // the strip renders only when murmur is wired AND not hidden in Settings
-      // the Settings switch (track + sliding knob), modelled on the other settings toggles
-      murmurTrackBg: show ? '#7B4FD6' : '#D4D4DC',
-      murmurKnobX: show ? '17px' : '2px',
-      murmurToggleStatus: show ? 'on · shown on the main page' : 'off · hidden',
-      toggleMurmur: () => this.toggleMurmur(),
+      murmurOn: !!m && show,   // the strip renders only when murmur is wired AND the mode is not 'off'
+      murmurMode: mode,
+      murmurModeLabel: modeMeta[mode].label,
+      murmurModeDesc: modeMeta[mode].desc,
+      murmurModeOptions,
+      toggleMurmur: () => this.toggleMurmur(),   // the strip's X → 'off' (hide == off, nothing unseen)
+      // the self-guided-learning readout + its graph-layer toggle
+      murmurLearnCount: learnCount,
+      murmurHasLearned: learnCount > 0,
+      learningLayerOn: st.learningLayer !== false,
+      toggleLearningLayer: () => this.toggleLearningLayer(),
+      learningTrackBg: (st.learningLayer !== false) ? '#7B4FD6' : '#D4D4DC',
+      learningKnobX: (st.learningLayer !== false) ? '17px' : '2px',
+      murmurControls: show,   // the learning row shows only when the sense is active (mode ≠ off)
       // the strip's live contents
       murmurGauges: gauges,
       murmurChips: chips, murmurHasChips: chips.length > 0,
@@ -4683,7 +4740,7 @@ class Component extends DCLogic {
       summary: `${findings.stats.claims} claims · ${findings.stats.contradictions} conflicts`,
     };
     const statusColor = m.state === 'error' ? '#B23A2E' : (busy || generating || m.state === 'loading') ? '#C79A3A' : '#59C08A';
-    const LOGC = { record: '#59C08A', hash: '#59C08A', eot: '#6D5EF5', claim: '#6D5EF5', conflict: '#B23A2E', search: '#C79A3A', open: '#8A8A95', skip: '#B4B4BE' };
+    const LOGC = { record: '#59C08A', hash: '#59C08A', eot: '#6D5EF5', claim: '#6D5EF5', conflict: '#B23A2E', search: '#C79A3A', open: '#8A8A95', skip: '#B4B4BE', reflection: '#7B4FD6', learning: '#7B4FD6' };
     const statusPeek = app.state.log.slice(-4).reverse().map((l) => ({
       text: l.text, effect: l.effect, hasEffect: !!l.effect, color: LOGC[l.kind] || '#8A8A95', effectColor: '#8A8A95',
     }));
@@ -5162,7 +5219,7 @@ class Component extends DCLogic {
     } : null;
 
     // monologue
-    const LOGL = { record: 'RECORD', hash: 'HASH', eot: 'EOT', claim: 'CLAIM', conflict: 'CONFLICT', search: 'SEARCH', open: 'OPEN', skip: 'SKIP', reflection: 'REFLECT' };
+    const LOGL = { record: 'RECORD', hash: 'HASH', eot: 'EOT', claim: 'CLAIM', conflict: 'CONFLICT', search: 'SEARCH', open: 'OPEN', skip: 'SKIP', reflection: 'REFLECT', learning: 'LEARN' };
     const logView = app.state.log.slice().reverse().map((l) => ({
       label: LOGL[l.kind] || l.kind.toUpperCase(), t: String(l.t).slice(11, 19),
       text: l.text, effect: l.effect, hasEffect: !!l.effect,

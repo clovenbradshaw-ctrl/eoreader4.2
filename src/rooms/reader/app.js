@@ -24,7 +24,7 @@ import { wrapRedacting } from '../../model/redact-remote.js';
 import { probeOrigins, explainReach } from '../../model/reach.js';
 import { createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
-         runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
+         runTurnWithResearch, runCuriousResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
          runTurnWithCorroboration, corroborationAnnouncement, corroborationSettled,
          readDiscourse, clarifyDemandOf, loadShapeLibrary } from '../../turn/index.js';
 import { loadShapeGrammars } from '../../turn/shape-grammar.js';
@@ -269,6 +269,15 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     reflectionsSeen: 0,    // running total ever voiced this session — the honest "N notes so far".
                            // reflections is capped at REFLECTION_CAP; this is not, and (like
                            // reflections, which re-derive each load) is per-session, never persisted.
+    // SELF-GUIDED LEARNING (murmur/learn) — the murmur's own notebook, accrued as it WANDERS at
+    // rest. Per-session working state, re-earned each load exactly like reflections (the firewall:
+    // nothing murmur keeps is durable truth). The `learning` layer is what the graph toggle shows.
+    learning: [],          // the learning notes (a bounded ring, like reflections)
+    learningSeen: 0,       // running total learned this session
+    // The murmur's stance, set by the surface (persisted there as eo_murmur*). The wander runs ONLY
+    // when mode is not 'off' AND the strip is visible — so there is never any muttering unseen.
+    murmurMode: 'look',    // 'off' | 'look' (no internet) | 'explore' (curiosity onto the web)
+    murmurVisible: true,   // the strip shown? hidden ⇒ the wander PAUSES (nothing muttered unseen)
     model: { backend: null, state: 'cold', progress: 0, note: '' },
     busy: null,            // { kind, label } while a long op runs
     ready: false,          // restore finished
@@ -2913,6 +2922,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // The reader never self-polls: an idle governor wakes it only in the lulls between turns.
   const deepReaders = new Map();     // docId → { reader, doc, anchor }
   let deepSettled = false, deepRunning = false, deepTimer = null, lastActivity = 0;
+  // self-guided-learning pacing — the wander advances at most one step per `minStepMs` (human pace)
+  // and never re-turns a reflection it has already learned from (anti-rumination).
+  let lastWander = 0, wanderRunning = false;
+  const wanderSeen = new Set();
 
   // A reflection deposits onto the log; layer it over the source's log in an overlay so the
   // stored record stays append-only truth and a reload re-reads clean.
@@ -3098,6 +3111,114 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     } finally { connectRunning = false; }
   };
 
+  // The murmur's stance, driven by the surface (Settings). Hidden ⇒ the wander PAUSES, so the
+  // transparency rule holds by construction: there is no code path where murmur mutters or reaches
+  // the web while the strip is not on screen ("no muttering you don't see"). 'off' fully disables.
+  const setMurmurMode = (mode) => {
+    const m = (mode === 'off' || mode === 'look' || mode === 'explore') ? mode : 'look';
+    if (state.murmurMode === m) return;
+    state.murmurMode = m; emit('murmur');
+  };
+  const setMurmurVisible = (on) => {
+    const v = on !== false;
+    if (state.murmurVisible === v) return;
+    state.murmurVisible = v; emit('murmur');
+  };
+
+  // The labels the record already EXPLAINS — the entity names in the topic's document graphs. A
+  // surprising term that is NOT here is something the reading NAMED but did not explain: the honest
+  // outward lead for explore mode. Lowercased tokens so a multi-word label still shields its parts.
+  const knownLabels = () => {
+    const known = new Set();
+    for (const src of topicSources()) {
+      let g = null; try { g = projectGraph(docFor(src).log); } catch { continue; }
+      if (!g || !g.entities) continue;
+      for (const ent of g.entities.values()) {
+        for (const w of String(ent?.label || '').toLowerCase().match(/[a-z][a-z0-9'’-]{2,}/g) || []) known.add(w);
+      }
+    }
+    return known;
+  };
+
+  // Fold a fresh learning note into the notebook + broadcast it as a LIVE mutter so the strip paints
+  // it (self-guided learning, visible by construction). Never a log write — murmur.mutter is a read
+  // side-channel and the note is reafferent (canWitness===false).
+  const noteLearning = (note, pick) => {
+    if (!note) return;
+    state.learningSeen += 1;
+    state.learning.push({ id: `L${state.learningSeen}`, t: nowIso(),
+      phrase: note.phrase, terms: note.terms, origin: note.origin, register: note.register,
+      curiosity: note.curiosity, source: note.source, web: note.web, canWitness: false });
+    if (state.learning.length > REFLECTION_CAP) state.learning.splice(0, state.learning.length - REFLECTION_CAP);
+    try { murmur.mutter({ phrase: note.phrase, register: note.register || 'curiosity',
+      intensity: Math.max(0.35, Math.min(1, (pick && pick.curiosity) || 0.5)), learning: note }); } catch { /* the strip must never cost the pass */ }
+  };
+
+  // THE WANDER (self-guided learning) — one human-paced step, run at rest beside deep reading. It
+  // looks at the most INTERESTING place the reading just surfaced (a fresh reflection), lets the
+  // notebook decide if it is worth turning over (curiosity = the one surprise pointed inward), and
+  // — in EXPLORE mode, with a web license — follows ONE outward lead onto the web, folding what it
+  // reads back as a learning note. Gated: mode≠off, strip visible, not engaged, and at most one step
+  // per minStepMs. Everything is reafferent (canWitness===false) and off the critical path.
+  let learnRunning = false;
+  const wanderTick = async (manual = false) => {
+    if (learnRunning) return 0; learnRunning = true;
+    try {
+      if (!murmur || !murmur.learn || typeof murmur.learn.wander !== 'function') return 0;
+      if (state.murmurMode === 'off' || !state.murmurVisible) return 0;   // off / hidden ⇒ paused
+      if (state.busy && !manual) return 0;                                // engaged — a turn is decoding
+      const cfg = (murmur.config && murmur.config.learn) || {};
+      const nowMs = Date.now();
+      if (!manual && nowMs - lastWander < (cfg.minStepMs || 20000)) return 0;   // human pace
+      lastWander = nowMs;
+
+      // The most interesting places at rest = the freshest reflections the deep reader surfaced that
+      // the wander hasn't turned over yet. Their note text is the candidate; the locus rides along.
+      const cands = [];
+      for (let i = state.reflections.length - 1; i >= 0 && cands.length < 6; i--) {
+        const r = state.reflections[i];
+        if (!r || wanderSeen.has(r.id) || r.prose) continue;   // skip prosified connection lines
+        cands.push({ text: `${r.title ? r.title + '. ' : ''}${r.note || ''}`,
+          source: { docId: r.docId, sn: r.sn, title: r.title, cursor: r.peak, reflId: r.id } });
+      }
+      if (!cands.length) return 0;
+
+      const pick = murmur.learn.wander(cands, { floor: cfg.curiosityFloor });
+      if (pick) { if (pick.source && pick.source.reflId) wanderSeen.add(pick.source.reflId); }
+      else { for (const c of cands) if (c.source.reflId) wanderSeen.add(c.source.reflId); return 0; }  // nothing new — don't re-scan these
+
+      const note = murmur.learn.learn(pick, { source: pick.source, origin: 'reading', register: 'curiosity' });
+      noteLearning(note, pick);
+      let learned = 1;
+
+      // EXPLORE — reach ONE outward thread onto the web (opt-in; the surface enables it). Guarded on
+      // the license, a working search seam, and web consent; a bad fetch never costs the pass.
+      if (state.murmurMode === 'explore' && cfg.internet !== false && typeof webSearchAdmit === 'function' && webMode() !== 'off') {
+        try {
+          const lead = murmur.learn.outwardLead(note, { known: knownLabels(), anchor: pick.source?.title || '' });
+          if (lead) {
+            murmur.mutter({ phrase: `wondering about ${lead.term} — going to read a little`, register: 'outward', intensity: 0.5 });
+            const walk = await runCuriousResearch(lead.query, { search: webSearchAdmit, anchor: lead.query, maxHops: cfg.hopsPerReach || 1, k: 3 });
+            for (const d of (walk.docs || []).slice(0, 2)) {
+              const text = String(d?.text || d?.web?.excerpt || '').trim();
+              if (!text) continue;
+              const web = { url: d?.web?.url || d?.web?.final_url || '', title: d?.web?.title || d?.title || lead.term, gist: text.slice(0, 160) };
+              const wnote = murmur.learn.learn({ text, source: pick.source }, { origin: 'web', register: 'discovery', web });
+              noteLearning(wnote, { curiosity: 0.6 });
+              learned += 1;
+            }
+          }
+        } catch { /* the web is best-effort — a strayed or failed reach never breaks the wander */ }
+      }
+
+      const n = state.learningSeen;
+      logIt('learning', `Learned at rest — ${n} note${n === 1 ? '' : 's'} so far`,
+        'see them in the Learning layer', { coalesce: true });
+      persist(); emit('learning');
+      return learned;
+    } finally { learnRunning = false; }
+  };
+
   // The idle governor: a light interval that fires a deep pass only when NOT engaged — no turn
   // generating, and the user quiet for a beat. A keystroke or tap resets the clock, so deep
   // reading never competes with an active reader; it fills the lulls. Browser only (no timers,
@@ -3121,6 +3242,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         // has its own quiescence (an empty queue), so it does not gate on deepSettled the way the
         // reflection pass does — a fresh recognition can arrive while deep reading has settled.
         void connectTick(false);
+        void wanderTick(false);                             // self-guided learning — self-throttled to human pace
         if (deepSettled) return;                            // quiesced until the record grows
         deepTick(false);
       } catch { /* a bad pass never breaks the governor */ }
@@ -3160,6 +3282,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     deepTick, reflections,
     // connective promotion — murmur's candidate connections verified + written at rest (phase 4)
     connectTick,
+    // self-guided learning — the murmur's at-rest wander (murmur/learn): notes stream into
+    // state.learning (the toggleable graph layer) and mutter live in the strip.
+    wanderTick, learning: () => state.learning.slice(),
+    setMurmurMode, setMurmurVisible,
+    murmurMode: () => state.murmurMode,
     // web-search mode (off | confirm | auto)
     webMode, setWebMode,
     // redact-when-hosted — keep real entities off the wire when the talker is Claude (Anthropic)

@@ -15,6 +15,7 @@ import { classify, dominant, createWorkingFeel } from './valence/index.js';
 import { bornCollapse, buildSteer, steerBias } from './steer/index.js';
 import { createNarrator } from './narrate/index.js';
 import { createImpressionSink } from './audit/index.js';
+import { createLearning } from './learn/index.js';
 import { nominateFromFeel, connectionKey } from './link/index.js';
 import { assertLogAppendAllowed, assertMembraneSafe, canCite } from './membrane.js';
 
@@ -24,6 +25,7 @@ export * from './valence/index.js';
 export * from './steer/index.js';
 export * from './narrate/index.js';
 export * from './audit/index.js';
+export * from './learn/index.js';
 export * from './link/index.js';
 export * from './membrane.js';
 
@@ -52,6 +54,10 @@ export const createMurmur = ({
     refractoryMs: cfg.narrator.refractoryMs, workingFeel: feel,
   });
   const sink = createImpressionSink({ audit });
+  // The self-guided-learning notebook (learn/index.js) — the murmur's OWN reafferent record of what
+  // it found interesting at rest. It POINTS the app at where to wander; the app advances it one
+  // human-paced step at a time. Every note is canWitness===false (§8/§9) — never a citable fact.
+  const learning = createLearning({ config: cfg.learn || {}, now });
   const steerEvents = [];   // the session's own copy of appended steer events (append-only)
   const nominations = [];   // candidate connections awaiting the idle promotion gate (read side-channel)
   const nominatedKeys = new Set();   // dedup — one candidate per (from→to) locus pair (anti-rumination)
@@ -149,6 +155,34 @@ export const createMurmur = ({
     return snapshot;
   };
 
+  // mutter(m) — broadcast a LIVE at-rest thought to the watchers so the strip paints it as the
+  // sense wanders (self-guided learning). This is a READ side-channel exactly like the fold-driven
+  // broadcast (spec §9.4): it only sets lastState + notifies watchers. It NEVER appends to the log
+  // and NEVER touches the answer prompt — canEditPrompt is pinned false by construction, and the
+  // phrase here is voicing/legibility only, so nothing the app "learns" can become a citable fact.
+  //   { phrase, register='curiosity', intensity=0.5, source='wander', learning }
+  const mutter = ({ phrase = null, register = 'curiosity', intensity = 0.5, source = 'wander', learning: learnedNote = null } = {}) => {
+    const imp = {
+      register, source,
+      decayedIntensity: Math.max(0, Math.min(1, intensity)),
+      phrase: phrase ? String(phrase).slice(0, 240) : null,
+      at: now(),
+    };
+    const base = lastState || {};
+    const snapshot = Object.freeze({
+      signal: base.signal || null,          // keep the last gauges (drift/footing/novelty) if any
+      registers: base.registers || [],
+      impressions: [imp, ...(feel.feel() || [])].slice(0, 6),
+      collapse: null, steer: null,
+      mutter: imp,
+      learning: learnedNote,                // the note just minted (audit-only, canWitness===false)
+      at: now(),
+    });
+    lastState = snapshot;
+    notifyWatchers(snapshot);
+    return snapshot;
+  };
+
   // shouldHoldStream() — spec §10: hold the stream (pending the deterministic checkers) when a
   // live unease/drift impression exceeds the stream-hold threshold. Attention only (spec §9.4).
   const shouldHoldStream = () => {
@@ -170,6 +204,8 @@ export const createMurmur = ({
   return {
     config: cfg,
     observe,
+    mutter,
+    learn: learning,          // the self-guided-learning notebook (wander/learn/outwardLead/notes)
     shouldHoldStream,
     confidenceModulation,
     bias,
@@ -188,7 +224,7 @@ export const createMurmur = ({
     // write (canAppendLog stays false); every candidate is reafferent (canGround === false).
     nominations() { const out = nominations.slice(); nominations.length = 0; return out; },
     peekNominations: () => nominations.slice(),
-    resetSession() { topic.reset(); feel.clear(); steerEvents.length = 0; nominations.length = 0; nominatedKeys.clear(); lastState = null; notifyWatchers(null); },
+    resetSession() { topic.reset(); feel.clear(); steerEvents.length = 0; nominations.length = 0; nominatedKeys.clear(); learning.reset(); lastState = null; notifyWatchers(null); },
   };
 };
 

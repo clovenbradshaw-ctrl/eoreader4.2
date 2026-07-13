@@ -37,6 +37,22 @@ export const MURMUR = Object.freeze({
     refractoryMs: 8000,         // after firing on a ref, mute the narrator for it (spec §8)
   }),
 
+  // SELF-GUIDED LEARNING (murmur/learn, docs/murmur.md). At rest the sense WANDERS: it looks at the
+  // most interesting place in the reading, mutters it, and keeps a NOTE (a toggleable graph layer).
+  // `internet` is the LICENSE to reach the web — OFF by default: the murmur looks and thinks about
+  // what's interesting without any network until the user opts in (a Settings mode). `minStepMs` is
+  // the HUMAN PACE — at least this long between wander steps, so it reads at a person's speed, not a
+  // machine's. Notes are always reafferent (canWitness===false); this block tunes WHEN, never the
+  // firewall (the membrane below still governs the log/prompt).
+  learn: Object.freeze({
+    enabled: true,              // the wander runs at rest (still gated on the strip being VISIBLE)
+    internet: false,            // reach the web only when the user opts into "explore" (opt-in)
+    curiosityFloor: 0.08,       // bits below which a place taught nothing new → not learned
+    minStepMs: 20000,           // ≥20s between wander steps — human pace, not a machine's
+    maxNotes: 200,              // the notebook / graph-layer cap
+    hopsPerReach: 1,            // web leads followed per outward reach — ONE thread, never a fan-out
+  }),
+
   // The membrane (spec §9, §11). These are the load-bearing invariants; they must stay
   // false through phases 1–3. A steer channel (phase 2 wiring) flips canAppendLog true
   // ONLY once the projection's steer consumer exists; canEditPrompt is never true.
@@ -55,6 +71,7 @@ export const murmurConfig = (over = {}) => Object.freeze({
   sense: Object.freeze({ ...MURMUR.sense, ...(over.sense || {}) }),
   triggers: Object.freeze({ ...MURMUR.triggers, ...(over.triggers || {}) }),
   narrator: Object.freeze({ ...MURMUR.narrator, ...(over.narrator || {}) }),
+  learn: Object.freeze({ ...MURMUR.learn, ...(over.learn || {}) }),
   membrane: Object.freeze({
     canAppendLog: over.membrane?.canAppendLog === true,   // opt-in only
     canEditPrompt: false,                                  // never, by construction
