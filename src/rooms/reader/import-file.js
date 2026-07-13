@@ -599,7 +599,7 @@ async function fromMedia(file, title, name, say, opts = {}) {
     const fullText = (liveText || utterances.map(u => u.words.map(w => w.text).join(' ')).join(' ')).trim();
     if (!fullText) return { text: '', doc: null, coverage: { complete: true, seconds: Math.round(duration * 10) / 10, utterances: 0, dropped: ['no speech found in the signal'] }, empty: true };
 
-    const { ingestAudio, acousticSignal, resolveTranscript } = await IN();
+    const { ingestAudio, acousticSignal, resolveTranscript, diarize } = await IN();
     // AUTONOMOUS per-word acoustics — reusing the pre-transcription reading, not re-asking a
     // model. The cochlea already separated signal from noise (holons) and measured the room
     // (analysis); here each WORD span is read against that SAME waveform, so every word carries
@@ -610,9 +610,25 @@ async function fromMedia(file, title, name, say, opts = {}) {
       flat.forEach((w, i) => { if (sig[i]) { w.acous = sig[i].acous; w.snr = sig[i].snr; w.signal = sig[i].signal; } });
     } catch (e) { /* best-effort; the model's confidence still stands */ }
 
+    // WHO is speaking — read from the same waveform. Each utterance's voice signature (pitch by
+    // autocorrelation, spectral shape by FFT) is clustered into speakers (voices.js); every word
+    // inherits its utterance's speaker so the transcript can be read, exported and coloured by turn.
+    // Best-effort and defeasible — a failure just leaves the transcript speaker-less, as before.
+    let speakers = [], diarizeWitnesses = [];
+    if (signal && signal.aborted) throw new DOMException('aborted', 'AbortError');
+    try {
+      const dz = diarize(mono, SR, utterances);
+      if (dz && dz.count > 0) {
+        speakers = dz.speakers;
+        diarizeWitnesses = dz.witnesses || [];
+        utterances.forEach((u, i) => { const s = dz.assign[i]; u.speaker = s; (u.words || []).forEach((w) => { w.speaker = s; }); });
+      }
+    } catch (e) { /* best-effort; the transcript stands without speaker labels */ }
+
     // The word-level doc carries the acoustic reading forward (waveform, analysis, holons,
-    // media) so the transcript's source keeps everything the pre-reading gave it.
-    const doc = ingestAudio({ name, duration, device: dev, witness, utterances, alternates, media, mediaKind, peaks, analysis, holons, sampleRate: SR });
+    // media) so the transcript's source keeps everything the pre-reading gave it — plus the
+    // speaker roster, per-word speaker, and the auditable merge/keep trail the diarization left.
+    const doc = ingestAudio({ name, duration, device: dev, witness, utterances, alternates, media, mediaKind, peaks, analysis, holons, sampleRate: SR, speakers, diarizeWitnesses });
     // GRAPH-AWARE, self-editing resolution — fold near-spelling names onto their most-BELIEVED
     // hearing, the edits landing on THIS append-only log (hear.js §2). Inert on a clean read.
     let reheard = 0;

@@ -25,6 +25,7 @@ export const CONTRACTS = Object.freeze({
   'src/organs/in/table.js': contract({ ops: ['INS', 'DEF', 'CON'], targets: ['Void'], products: ['Entity', 'Link', 'Field'], stances: ['Making', 'Binding', 'Dissecting'], note: 'tabular adapter (CSV/xlsx)' }),
   'src/organs/in/text.js': contract({ ops: ['INS', 'SIG'], targets: ['Void'], products: ['Entity', 'Field', 'Network'], stances: ['Making', 'Tending'], note: 'text ingest' }),
   'src/organs/in/video.js': contract({ ops: ['SEG', 'CON', 'INS'], targets: ['Void'], products: ['Entity', 'Link'], stances: ['Dissecting', 'Binding', 'Making'], note: 'video adapter — contiguity + persistence' }),
+  'src/organs/in/voices.js': contract({ ops: ['SEG', 'CON', 'DEF'], targets: ['Field'], products: ['Kind', 'Link', 'Entity'], stances: ['Dissecting', 'Binding', 'Tracing'], note: 'speaker separation from the waveform — pitch + spectral signature, clustered into voices' }),
   'src/organs/in/warc.js': contract({ ops: ['NUL', 'SIG'], targets: ['Void'], products: ['Entity'], stances: ['Clearing', 'Tending'], note: 'WARC adapter — frozen archived source' }),
   'src/organs/in/webpage.js': contract({ ops: ['SEG'], targets: ['Void'], products: ['Field'], stances: ['Dissecting'], note: 'web-page adapter → assembleDocument' }),
   'src/organs/out/index.js': contract({ ops: ['NUL', 'SIG'], targets: ['Lens', 'Field'], products: ['Void'], stances: ['Clearing', 'Tending'], note: 'barrel — output membrane (organs + publish)' }),

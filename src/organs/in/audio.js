@@ -43,6 +43,7 @@ const asUtterances = (transcript) => {
     return transcript.utterances.map(u => ({
       start: u.start ?? (u.words?.[0]?.start ?? 0),
       end:   u.end   ?? (u.words?.[u.words.length - 1]?.end ?? u.start ?? 0),
+      ...(Number.isInteger(u.speaker) ? { speaker: u.speaker } : {}),   // WHO said it (voices.js)
       words: (u.words || []).map(w => ({ ...w, norm: norm(w.text) })).filter(w => w.norm),
     })).filter(u => u.words.length);
   }
@@ -105,6 +106,12 @@ export const ingestAudio = (transcript = {}) => {
     analysis = null,
     holons = null,
     sampleRate = null,
+    // WHO is speaking, read from the waveform (organs/in/voices.js): a roster of speakers with
+    // their measured voice signatures. Each utterance word carries a `speaker` index into it.
+    speakers = [],
+    // The auditable trail of the diarization's merge/keep decisions — each with its JS cost and
+    // ΔBIC margin, re-runnable to the number. Kept on the doc so an export can show the reading.
+    diarizeWitnesses = [],
   } = transcript;
 
   const utterances = asUtterances(transcript);
@@ -148,6 +155,8 @@ export const ingestAudio = (transcript = {}) => {
       // A word the second witness re-heard is marked, so a reader can see which
       // surfaces the ear corrected — a groundable predicate, not a judgement.
       if (w.relisten) log.append({ op: 'DEF', id, key: 'relisten', value: 'true', sentIdx: unitIdx });
+      // WHO said it — the voice the diarization attributed this span to, on the record (auditable).
+      if (Number.isInteger(w.speaker)) log.append({ op: 'DEF', id, key: 'speaker', value: `S${w.speaker + 1}`, sentIdx: unitIdx });
 
       // EVA — the reading is EVALUATED, not taken as given. Two ways a word is contestable:
       //   • a low-confidence hearing the ear itself flagged (a shaky reading), and
@@ -181,7 +190,8 @@ export const ingestAudio = (transcript = {}) => {
       tokens.push({ id, text: w.text, norm: w.norm, start: wa, end: wb, unitIdx, relisten: !!w.relisten,
         conf: (w.conf != null && isFinite(w.conf)) ? +w.conf : null,
         acous: (w.acous != null && isFinite(w.acous)) ? +w.acous : null,
-        snr:   (w.snr   != null && isFinite(w.snr))   ? +w.snr   : null });
+        snr:   (w.snr   != null && isFinite(w.snr))   ? +w.snr   : null,
+        speaker: Number.isInteger(w.speaker) ? w.speaker : null });
     }
   });
 
@@ -214,6 +224,10 @@ export const ingestAudio = (transcript = {}) => {
     // The pre-transcription reading, carried on so the source can still draw its waveform and
     // show its signal/noise holons after the words land.
     peaks, analysis, holons, sampleRate,
+    // WHO is speaking — the roster of voices the diarization separated from the waveform, each
+    // with its measured pitch/brightness. Empty when diarization found or attributed no speaker.
+    speakers: Array.isArray(speakers) ? speakers : [],
+    diarizeWitnesses: Array.isArray(diarizeWitnesses) ? diarizeWitnesses : [],
     transcribed: true,
     // The readings on record — the primary hearing plus every alternate witness — and the
     // contested spans between them. This is the "these are not objective" audit: the surface

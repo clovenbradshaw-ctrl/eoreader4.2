@@ -42,7 +42,8 @@ import { emitEot } from '../../organs/ingest/eot-emit.js';
 import { scopeSources } from './scope-sources.js';
 import { createAudioStore } from './audio-store.js';
 import { makeJob, upsertJob, patchJob, dropJob, resumableJobs, MAX_JOB_ATTEMPTS } from './ingest-jobs.js';
-import { projectTranscript } from './transcript-edit.js';
+import { projectTranscript, REDACTION_MARK } from './transcript-edit.js';
+import { buildFormat, FORMATS as TRANSCRIPT_FORMATS, hasTranscript } from './transcript-export.js';
 import { sha256Hex } from '../archive/file-crypto.js';
 import { outstandingQuestion, answersAwaited } from '../../core/conversation-fold.js';
 import { senseGate } from '../../turn/sense.js';
@@ -1260,6 +1261,54 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return ev;
   };
 
+  // ── transcript export — the files a listener keeps (transcript-export.js) ─────────────────────
+  // Assemble the doc the renderers read. Prefer the LIVE organ doc (richest — utterances, speakers,
+  // the diarization trail, the raw operator log the process-trace walks) when it is present and the
+  // transcript hasn't been edited; otherwise REBUILD it from the persisted substrate (src.words +
+  // audioEvents + speakers), so an export works after a reload AND reflects any edits/redactions.
+  const buildTranscriptDoc = (src) => {
+    if (src._doc && src._doc.transcribed && Array.isArray(src._doc.tokens) && src._doc.tokens.length
+        && !(Array.isArray(src.audioEvents) && src.audioEvents.length)) return src._doc;
+    const base = Array.isArray(src.words) ? src.words : [];
+    const proj = projectTranscript(base, src.audioEvents || []);
+    const tokens = base.map((w, i) => {
+      const p = proj.words[i] || {};
+      // A redacted word must never leave in ANY export — mask its surface everywhere (subtitles,
+      // JSON, prose), the way the plain-text projection already does for chat/grounding.
+      return {
+        text: p.redacted ? REDACTION_MARK : (p.text ?? w.text), start: w.start, end: w.end, unitIdx: 0,
+        speaker: Number.isInteger(w.speaker) ? w.speaker : null,
+        conf: w.conf ?? null, acous: w.acous ?? null, snr: w.snr ?? null, redacted: !!p.redacted,
+      };
+    });
+    return {
+      docId: src.docId || src.reg, modality: 'audio',
+      duration: (src.audioMeta && src.audioMeta.duration) || 0, witness: null,
+      tokens, speakers: Array.isArray(src.speakers) ? src.speakers : [],
+      diarizeWitnesses: Array.isArray(src.diarizeWitnesses) ? src.diarizeWitnesses : [],
+      analysis: src.audioMeta || null, coverage: src.coverage || null,
+    };
+  };
+
+  // transcriptExport(sn, formatId) → { text, ext, mime, filename } for the surface to Blob-download,
+  // or null when the source has no transcript / the format id is unknown.
+  const transcriptExport = (snId, formatId) => {
+    const src = sourceBySn(snId);
+    if (!src) return null;
+    return buildFormat(buildTranscriptDoc(src), formatId, src.title || src.reg);
+  };
+  // The export menu the surface renders for a source: the available formats, whether this source has
+  // a transcript to export at all, and its speaker roster (so the panel can show WHO was found).
+  const transcriptFormats = (snId) => {
+    const src = snId != null ? sourceBySn(snId) : null;
+    const doc = src ? buildTranscriptDoc(src) : null;
+    return {
+      formats: TRANSCRIPT_FORMATS.map((f) => ({ id: f.id, label: f.label, ext: f.ext })),
+      has: doc ? hasTranscript(doc) : false,
+      speakers: (src && Array.isArray(src.speakers)) ? src.speakers : [],
+    };
+  };
+
   // The transcription status, kept in two twinned places. `_asr` (underscore) is the RICH LIVE
   // object the surface reads — state, pct, and the streaming `partial` tail — and is stripped from
   // the snapshot (serialize() drops underscore fields). `src.transcription` is its small DURABLE
@@ -1289,7 +1338,22 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // the immutable baseline, and an empty append-only edit log. Both ride the snapshot (small
     // plain JSON), so the Listen surface — click-to-seek, karaoke, edits, redactions — survives a
     // reload without the session-only `_doc`. audioMeta keeps the waveform + stats drawable too.
-    src.words = (doc.tokens || []).map((t) => ({ text: t.text, start: t.start, end: t.end }));
+    // Each word also keeps WHO said it (speaker) and the waveform witnesses (conf/acous/snr), so the
+    // transcript can be read, coloured and EXPORTED by speaker + acoustics after a reload too — the
+    // rounded numbers a "full processing" JSON needs, small enough to ride the snapshot.
+    const numOr = (x, dp) => (typeof x === 'number' && isFinite(x)) ? +x.toFixed(dp) : undefined;
+    src.words = (doc.tokens || []).map((t) => {
+      const w = { text: t.text, start: t.start, end: t.end };
+      if (Number.isInteger(t.speaker)) w.speaker = t.speaker;
+      const conf = numOr(t.conf, 3); if (conf !== undefined) w.conf = conf;
+      const acous = numOr(t.acous, 3); if (acous !== undefined) w.acous = acous;
+      const snr = numOr(t.snr, 2); if (snr !== undefined) w.snr = snr;
+      return w;
+    });
+    // WHO is speaking — the roster of voices the diarization separated (voices.js), each with its
+    // measured pitch/formants, and the auditable trail of merge/keep decisions that produced it.
+    src.speakers = Array.isArray(doc.speakers) ? doc.speakers : [];
+    if (Array.isArray(doc.diarizeWitnesses)) src.diarizeWitnesses = doc.diarizeWitnesses;
     if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
     src.audioMeta = audioMetaOf(src) || src.audioMeta || null;
     try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { /* keep prior */ }
@@ -3862,5 +3926,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // audio: a playable URL (rehydrated from OPFS / the encrypted Matrix copy after reload), the raw
     // persisted bytes (for redaction re-synthesis), and the non-destructive edit/redaction chokepoint.
     playableUrl, audioBytes, recordAudioEvent,
+    // transcript export — subtitles (SRT/VTT), the elegant by-speaker read, the full-processing JSON,
+    // and the process trace — built from the live organ doc or rebuilt from the persisted substrate.
+    transcriptExport, transcriptFormats,
   });
 };

@@ -1536,8 +1536,32 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ undoAudioEvent }}" title="Undo the last edit or redaction" style="font-size:10.5px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">Undo</button>
                   <span style="flex:1"></span>
                   <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">{{ viewer.listen.editCount }} edits · {{ viewer.listen.redactionCount }} redactions</span>
+                  <sc-if value="{{ viewer.listen.hasExport }}">
+                    <div style="position:relative">
+                      <button onClick="{{ toggleTranscriptMenu }}" title="Download the transcript — subtitles (SRT/VTT), JSON, or the elegant by-speaker read" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ transcript</button>
+                      <sc-if value="{{ transcriptMenuOpen }}">
+                        <div class="eo-scroll" style="position:absolute;right:0;top:calc(100% + 6px);z-index:35;background:#fff;border:1px solid #EAEAEF;border-radius:11px;box-shadow:0 14px 40px rgba(20,20,30,.16);padding:6px;width:300px;max-height:340px;overflow-y:auto;animation:eoFade .14s ease">
+                          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;padding:6px 8px 4px">EXPORT TRANSCRIPT</div>
+                          <sc-for list="{{ viewer.listen.exportOptions }}" as="f">
+                            <button onClick="{{ f.onSelect }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF">
+                              {{ f.label }}
+                              <div style="font-size:10.5px;font-weight:500;color:#8A8A95;margin-top:1px">{{ f.desc }}</div>
+                            </button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
                   <button onClick="{{ exportRedactedWav }}" title="Download the (redacted) audio as WAV" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ .wav</button>
                 </div>
+                <sc-if value="{{ viewer.listen.hasSpeakers }}">
+                  <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 24px;border-bottom:1px solid #F0F0F4;background:#FBFAFF">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA4">Voices</span>
+                    <sc-for list="{{ viewer.listen.speakers }}" as="sp">
+                      <span title="{{ sp.detail }}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:20px;padding:3px 10px">{{ sp.label }} <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:500;color:#8A80C8">{{ sp.pitch }}</span></span>
+                    </sc-for>
+                  </div>
+                </sc-if>
                 <div class="eo-scroll" ref="{{ setListenTranscript }}" style="flex:1;min-height:0;overflow-y:auto;padding:22px 26px;font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.95;color:#2A2A32"></div>
                 <div style="flex:0 0 auto;padding:6px 24px;border-top:1px solid #F0F0F4;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B4B4BE">Click a word to jump · double-click to edit · click then shift-click to select a span, then redact</div>
               </div>
@@ -2171,7 +2195,7 @@ class Component extends DCLogic {
       // ⌘K source palette — full-text search across every recorded source (title · site · body)
       cmdkOpen: false, cmdkQuery: '', cmdkSel: 0,
       pasteOpen: false, pasteTitle: '', pasteBody: '',
-      modelOpen: false, topicMenu: null, exportMenuOpen: false,
+      modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
       entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null, webGraphTick: 0,
@@ -2892,7 +2916,7 @@ class Component extends DCLogic {
     // canvas and redraws clean (the ref only re-fires on a new element).
     if (this.state.tab === 'graph' && tab !== 'graph' && this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; this._tgEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
-    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, tocOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
+    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
     // The Graph tab now hosts the real graph — the entity web / causal DAG of everything in
     // focus. Initialise it lazily the first time we land here (whole-topic entity web).
     if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
@@ -3163,13 +3187,36 @@ class Component extends DCLogic {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
 
-  // The Listen toolbar counters — active edits and redactions (retracted ones don't count).
+  // The Listen toolbar counters — active edits and redactions (retracted ones don't count) — plus
+  // the transcript-export menu (subtitles / JSON / elegant read) and the diarized speaker roster.
   _listenVM(s) {
     const events = (s && s.audioEvents) || [];
     const retracted = new Set(events.filter((e) => e.op === 'RETRACT').map((e) => e.ref));
     let edits = 0, reds = 0;
     for (const e of events) { if (retracted.has(e.id)) continue; if (e.op === 'EDIT') edits++; else if (e.op === 'REDACT') reds++; }
-    return { editCount: edits, redactionCount: reds };
+    // A transcript exists to export when words landed (live or persisted). The format list is static
+    // (no doc built here — the doc is assembled only when the reader actually clicks a format).
+    const hasExport = !!((s && Array.isArray(s.words) && s.words.length) || (s && s._doc && Array.isArray(s._doc.tokens) && s._doc.tokens.length));
+    const DESC = {
+      srt: 'Subtitles — SubRip, drops straight into any player', vtt: 'Subtitles — WebVTT, with speaker voice tags',
+      elegant: 'Reads by speaker turns — the one for humans', txt: 'Plain prose, split on the pauses',
+      paras: 'Timed paragraphs (JSON)', sents: 'Timed sentences + speaker (JSON)',
+      words: 'Every word — time, speaker, confidence (JSON)', full: 'Everything — acoustics, speakers, the diarization trail',
+      proc: 'How it was read — the operator trace',
+    };
+    let exportOptions = [];
+    try { exportOptions = (this._app.transcriptFormats().formats || []).map((f) => ({ label: f.label, desc: DESC[f.id] || '', onSelect: () => this.exportTranscriptAs(f.id) })); } catch { exportOptions = []; }
+    const speakers = (s && Array.isArray(s.speakers)) ? s.speakers : [];
+    const speakerVM = speakers.map((sp) => ({
+      label: sp.label || `Speaker ${(sp.id || 0) + 1}`,
+      pitch: sp.f0 != null ? `${Math.round(sp.f0)} Hz` : '—',
+      detail: `${sp.label}: ~${sp.f0 != null ? Math.round(sp.f0) + ' Hz pitch' : 'pitch n/a'}${sp.f1 != null ? `, F1 ${sp.f1}Hz` : ''}${sp.f2 != null ? `, F2 ${sp.f2}Hz` : ''} · ${sp.utterances || 0} turn${sp.utterances === 1 ? '' : 's'} · ${sp.seconds || 0}s`,
+    }));
+    return {
+      editCount: edits, redactionCount: reds,
+      hasExport, exportOptions,
+      hasSpeakers: speakerVM.length > 1, speakers: speakerVM,
+    };
   }
 
   // ── the media view-model — player + waveform + signal/noise holons + transcription ────────
@@ -3553,6 +3600,21 @@ class Component extends DCLogic {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
   toggleExportMenu() { this.setState({ exportMenuOpen: !this.state.exportMenuOpen }); }
+  toggleTranscriptMenu() { this.setState({ transcriptMenuOpen: !this.state.transcriptMenuOpen }); }
+  // Download the active audio source's transcript in one of the export formats (subtitles, JSON,
+  // the elegant by-speaker read, the process trace) — built by the engine (transcript-export.js).
+  exportTranscriptAs(id) {
+    this.setState({ transcriptMenuOpen: false });
+    const sn = this._activeSrc();
+    const out = sn != null && this._app.transcriptExport && this._app.transcriptExport(sn, id);
+    if (!out) { this.showToast('No transcript to export yet'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([out.text], { type: out.mime }));
+    a.download = out.filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    this.showToast('Transcript exported — ' + out.filename);
+  }
   exportChatAs(format) {
     this.setState({ exportMenuOpen: false });
     const t = this._app && this._app.topic();
@@ -5715,6 +5777,7 @@ class Component extends DCLogic {
       seekFromWave: (e) => this.seekFromWave(e),
       redactSilence: () => this.redactSilence(), redactBeep: () => this.redactBeep(),
       undoAudioEvent: () => this.undoAudioEvent(), exportRedactedWav: () => this.exportRedactedWav(),
+      transcriptMenuOpen: st.transcriptMenuOpen, toggleTranscriptMenu: () => this.toggleTranscriptMenu(),
       // reader body + controls
       readerDoc, setReaderFrame: (el) => this.setReaderFrame(el),
       readerToc, hasToc: readerToc.length > 1, tocOpen: !!st.tocOpen, toggleToc: () => this.toggleToc(),
