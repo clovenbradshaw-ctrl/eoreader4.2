@@ -426,13 +426,20 @@ table{border-collapse:collapse;width:100%}
           </sc-if>
           <div style="display:flex;flex-direction:column;gap:1px">
             <sc-for list="{{ leftSources }}" as="sc">
-              <button onClick="{{ sc.open }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px" style-hover="background:#F5F5F8">
-                <span style="width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ sc.favBg }};color:{{ sc.favFg }}">{{ sc.favCh }}</span>
-                <span style="flex:1;min-width:0">
-                  <span style="display:block;font-size:12.5px;font-weight:550;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.title }}</span>
-                  <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.reg }} · {{ sc.domain }}</span>
-                </span>
-              </button>
+              <div style="display:flex;align-items:center;padding-left:{{ sc.indent }}">
+                <sc-if value="{{ sc.hasKids }}">
+                  <button onClick="{{ sc.toggle }}" title="Show / hide followed pages" style="flex:0 0 auto;width:15px;height:24px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#A0A0AA" style-hover="color:#5B4BE6">{{ sc.caret }}</button>
+                </sc-if>
+                <sc-if value="{{ sc.noKids }}"><span style="flex:0 0 auto;width:15px"></span></sc-if>
+                <button onClick="{{ sc.open }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px" style-hover="background:#F5F5F8">
+                  <span style="width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ sc.favBg }};color:{{ sc.favFg }}">{{ sc.favCh }}</span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-size:12.5px;font-weight:550;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.title }}</span>
+                    <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.reg }} · {{ sc.domain }}</span>
+                  </span>
+                  <sc-if value="{{ sc.hasKids }}"><span title="followed pages recorded here" style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#A0A0AA;background:#F2F2F6;border-radius:5px;padding:1px 5px">{{ sc.kidCount }}</span></sc-if>
+                </button>
+              </div>
             </sc-for>
           </div>
         </div>
@@ -2353,6 +2360,16 @@ class Component extends DCLogic {
   }
   // The active source is whichever tab in the bar is a recorded source (else none — a fixed tab).
   _activeSrc() { return this.state.viewerTabs.includes(this.state.tab) ? this.state.tab : null; }
+  // Two URLs on the same site — a followed link that keeps us on the tab's own site (so it nests
+  // under it) vs. one that leaves for elsewhere. Compares registrable-ish domain (last two labels),
+  // so npr.org ↔ www.npr.org ↔ text.npr.org all count as one site.
+  _sameSite(a, b) {
+    try {
+      const reg = (u) => { const h = new URL(u).hostname.replace(/^www\./, '').toLowerCase(); const p = h.split('.'); return p.slice(-2).join('.'); };
+      const ra = reg(a), rb = reg(b);
+      return !!ra && ra === rb;
+    } catch { return false; }
+  }
 
   // ── the media view-model — player + waveform + signal/noise holons + transcription ────────
   // Built for an audio/video source from the artefacts its acoustic reading left on the source
@@ -2500,12 +2517,43 @@ class Component extends DCLogic {
     const url = s.url;
     this._app.fetchPage(url).then((r) => {
       const doc = this._render.nativePageHtml(r.html, { baseUrl: r.url || url, prefs: this.state.readPrefs });
-      this.setState({ viewerPages: { ...this.state.viewerPages, [sn]: { doc, err: null, busy: false } } });
+      // The native tab tracks the page it is CURRENTLY showing (`url`) and the source whose lexicon
+      // decorates it (`sn`) — both the tab's own source at first, then a followed page after visitLink.
+      this.setState({ viewerPages: { ...this.state.viewerPages, [sn]: { doc, err: null, busy: false, url: r.url || url, sn } } });
     }).catch((e) => {
       this.setState({ viewerPages: { ...this.state.viewerPages, [sn]: { doc: null, err: String((e && e.message) || e), busy: false } } });
     });
   }
   retryPage() { const sn = this._activeSrc(); if (sn) this.loadPage(sn); }
+  // Follow a link INSIDE a native page (clicked in the frame, or a sub-object picked in the sidebar).
+  // The tab stays the SAME source — `tabSn`, the site — so one site remains one tab; the followed page
+  // renders in place and is recorded (app.navigatePage) as a sub-object beneath the tab's root source.
+  visitLink(tabSn, url) {
+    if (!tabSn || !url || !this._app || !this._app.navigatePage || !this._render) return;
+    // The root of this tab's site (a grandchild folds under the same top-level source) — new pages
+    // nest under the ROOT so the sidebar stays two levels deep, not an ever-deepening chain.
+    let root = this._app.sourceBySn(tabSn), guard = 0;
+    while (root && root.parentSn && this._app.sourceBySn(root.parentSn) && guard++ < 50) root = this._app.sourceBySn(root.parentSn);
+    const rootSn = root ? root.sn : tabSn;
+    if (!this._app.sourceBySn(rootSn)) return;
+    // Bring the root's tab forward in Native mode and mark it loading, without disturbing other tabs.
+    const tabs = this.state.viewerTabs.includes(rootSn) ? this.state.viewerTabs : [...this.state.viewerTabs, rootSn];
+    this._nativeFrame = null;
+    const prev = this.state.viewerPages[rootSn] || {};
+    this.setState({
+      viewerTabs: tabs, tab: rootSn,
+      viewerModes: { ...this.state.viewerModes, [rootSn]: 'native' },
+      viewerPages: { ...this.state.viewerPages, [rootSn]: { ...prev, busy: true, err: null } },
+      tocOpen: false, nativeToc: [], ...(this._mob() ? { leftOpen: false } : {}),
+    });
+    this._app.navigatePage(rootSn, url).then((r) => {
+      const doc = this._render.nativePageHtml(r.html, { baseUrl: r.url || url, prefs: this.state.readPrefs });
+      this._nativeFrame = null;
+      this.setState({ viewerPages: { ...this.state.viewerPages, [rootSn]: { doc, err: null, busy: false, url: r.url || url, sn: r.childSn || rootSn } } });
+    }).catch((e) => {
+      this.setState({ viewerPages: { ...this.state.viewerPages, [rootSn]: { doc: null, err: String((e && e.message) || e), busy: false } } });
+    });
+  }
   // Reading-preference setters — persist, then apply LIVE to the open book iframe via CSS
   // variables (no reload, so scroll position survives), exactly as eoreader4.1 did.
   _applyRead(patch) {
@@ -2580,7 +2628,13 @@ class Component extends DCLogic {
   setNativeFrame(el) {
     if (!el) { return; }
     this._nativeFrame = el;
-    const sn = this._activeSrc(), focus = this.state.viewerFocus[this._activeSrc()], R = this._render, app = this._app;
+    const tabSn = this._activeSrc(), focus = this.state.viewerFocus[this._activeSrc()], R = this._render, app = this._app;
+    // The page currently shown may be a FOLLOWED page (visitLink), a sub-object of the tab's source;
+    // decorate it with ITS OWN lexicon and key its scroll on ITS OWN id, while the tab id (`tabSn`)
+    // stays the site. `pg.sn` is the shown page's source; `pg.url` the page it resolves links against.
+    const pg = this.state.viewerPages[tabSn] || {};
+    const sn = pg.sn || tabSn;
+    const pageUrl = pg.url || (app && app.sourceBySn(tabSn) && app.sourceBySn(tabSn).url) || '';
     const settle = () => {
       const d = el.contentDocument; if (!d || !d.body || d.__eoNativeInit) { return; }
       d.__eoNativeInit = true;
@@ -2591,16 +2645,34 @@ class Component extends DCLogic {
           segsOf: link ? link.linkify : null,
           isCited: link ? link.isCited : null,
           linksOn: !!this.state.entityMode,
+          pageUrl,
         });
       } catch {}
-      // Same delegate the reader uses (only reachable because the frame is same-origin + scriptless):
-      // a click on a decorated entity opens its panel. One listener per document (runs once per load).
+      // Same delegate the reader uses (only reachable because the frame is same-origin + scriptless).
+      // Two kinds of click land here (one listener per document, runs once per load):
+      //   • a decorated entity  → open its panel (Links on)
+      //   • a real hyperlink    → follow it IN-APP when it stays on this site (record it as a
+      //                           sub-object, render in place); off-site links keep their default
+      //                           new-tab behaviour (the page's <base target="_blank">).
       try {
         d.addEventListener('click', (ev) => {
-          const a = ev.target && ev.target.closest && ev.target.closest('.eo-ent[data-doc][data-ent]');
-          if (!a || !this.state.entityMode) return;
-          ev.preventDefault();
-          this.openEntity(a.getAttribute('data-doc'), a.getAttribute('data-ent'));
+          const t = ev.target;
+          const ent = t && t.closest && t.closest('.eo-ent[data-doc][data-ent]');
+          if (ent && this.state.entityMode) { ev.preventDefault(); this.openEntity(ent.getAttribute('data-doc'), ent.getAttribute('data-ent')); return; }
+          // In-app link-following is part of the Links layer — off, links behave as the site's own.
+          if (!this.state.entityMode) return;
+          // Plain left-clicks only — let modified clicks (new tab / download) pass through.
+          if (ev.button != null && ev.button !== 0) return;
+          if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+          const a = t && t.closest && t.closest('a[href]');
+          if (!a) return;
+          const raw = (a.getAttribute && a.getAttribute('href')) || '';
+          if (raw.startsWith('#')) return;                     // an in-page anchor — let it scroll
+          const href = a.href || '';   // absolute — the frame's <base href> resolves it
+          if (!/^https?:/i.test(href)) return;                 // skip mailto:/tel:/javascript:
+          if (href.split('#')[0] === String(pageUrl).split('#')[0]) return;   // same page, different hash
+          if (this._sameSite(href, pageUrl)) { ev.preventDefault(); this.visitLink(tabSn, href); }
+          // off-site: fall through — the anchor opens in a new browser tab as before.
         });
       } catch {}
       // Publish the page's own contents into the drawer (only if it found a real one).
@@ -3753,11 +3825,41 @@ class Component extends DCLogic {
       doDelete: () => { if (confirm(`Delete “${t.title}”? Any sub-topics rise to its parent; its sources stay in the record.`)) app.topicDelete(t.id); this.setState({ topicMenu: null }); },
     }));
     const FAV = [['#EEF0F3', '#4E5765'], ['#EEEBFE', '#5B4BE6'], ['#E7F6EC', '#1E8A50'], ['#FBF1DA', '#9A6B12'], ['#FBE9E6', '#B23A2E'], ['#E8F1FB', '#2C5C9E']];
-    const leftSources = sources.map((s, i) => ({
-      title: s.title, reg: s.reg, domain: s.domain,
-      favCh: (s.domain || s.title || '?')[0].toUpperCase(), favBg: FAV[i % FAV.length][0], favFg: FAV[i % FAV.length][1],
-      open: () => this.openViewer(s.sn),
-    }));
+    // The sidebar source list is a two-level TREE: a site is one top-level row, and the pages you
+    // followed inside it (recorded as sub-objects, app.navigatePage) nest under it — folded by
+    // default, disclosed by the caret. Grouped by parentSn; a sub-object whose parent isn't in the
+    // active topic surfaces as its own root (never dropped).
+    const present = new Set(sources.map((s) => s.sn));
+    const kidsOf = new Map();
+    for (const s of sources) {
+      const p = (s.parentSn && present.has(s.parentSn)) ? s.parentSn : null;
+      if (!kidsOf.has(p)) kidsOf.set(p, []);
+      kidsOf.get(p).push(s);
+    }
+    const leftSources = [];
+    let favI = 0;
+    const emitSourceRows = (list, depth) => {
+      for (const s of list) {
+        const kids = kidsOf.get(s.sn) || [];
+        const hasKids = kids.length > 0;
+        const collapsed = s.collapsed !== false;   // undefined (older records) → folded
+        const fav = FAV[favI++ % FAV.length];
+        leftSources.push({
+          sn: s.sn, title: s.title, reg: s.reg, domain: s.domain,
+          favCh: (s.domain || s.title || '?')[0].toUpperCase(), favBg: fav[0], favFg: fav[1],
+          indent: `${depth * 15}px`, isChild: depth > 0,
+          hasKids, noKids: !hasKids, kidCount: hasKids ? String(kids.length) : '',
+          caret: hasKids ? (collapsed ? '▸' : '▾') : '',
+          // A top-level site opens its own tab; a followed page re-opens inside its site's tab.
+          open: depth > 0 && s.parentSn
+            ? () => this.visitLink(s.parentSn, s.url)
+            : () => this.openViewer(s.sn),
+          toggle: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this._app.sourceToggleCollapse(s.sn); },
+        });
+        if (hasKids && !collapsed) emitSourceRows(kids, depth + 1);
+      }
+    };
+    emitSourceRows(kidsOf.get(null) || [], 0);
 
     // model
     const m = app.state.model;
