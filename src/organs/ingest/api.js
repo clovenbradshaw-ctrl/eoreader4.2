@@ -172,19 +172,46 @@ export const API_FULLTEXT = {
   },
 };
 
+// recordId(rec) → an API record's STABLE identity if it carries one (id/guid/uuid/_id/…), else
+// null. The unique key a pointer keeps instead of the record's fields, so a re-fetch dedups.
+export const recordId = (rec) => {
+  if (!isObj(rec)) return null;
+  for (const k of ['id', 'guid', 'uuid', '_id', 'identifier', 'ID', 'Id']) if (rec[k] != null && rec[k] !== '') return String(rec[k]);
+  return null;
+};
+
+// apiPointer(url, picked) → the MINIMAL reference kept by default for a JSON endpoint: the endpoint
+// URL (itself the re-fetch key), the resolved records path, the record count, and — where the
+// records carry stable ids — those ids. NOT the record bodies. The endpoint is the tap; the pointer
+// re-reads it on demand rather than storing a copy.
+export const apiPointer = (url, picked) => {
+  const ids = (picked?.records || []).map(recordId).filter(Boolean);
+  return Object.freeze({
+    schema: 'api-pointer/1', url, path: picked?.path || '',
+    count: (picked?.records || []).length,
+    ids: ids.length ? ids : null,
+  });
+};
+
 const nowIso = () => { try { return new Date().toISOString(); } catch { return null; } };
 
-// fetchJsonApi(url, opts) → { json, records, path, table, admitted } | null — the DELIBERATE path:
-// name a JSON endpoint and get the parsed payload, the resolved records array (+ WHERE it was
-// found), a data-room table, and — unless { admit:false } — the payload admitted as a groundable
-// source. `path` navigates past a non-standard envelope. Mirrors fetchFeed / fetchArxivPaper.
-export const fetchJsonApi = async (url, { client, store = null, path = null, k = Infinity, admit = true, fetched_at = nowIso(), hangGuard = 4_000_000 } = {}) => {
+// fetchJsonApi(url, opts) → { json, records, path, pointer, table, admitted } | null — the
+// DELIBERATE path: name a JSON endpoint and get the parsed payload, the resolved records array (+
+// WHERE it was found), the id-keyed POINTER, and a data-room table. `path` navigates past a
+// non-standard envelope. Mirrors fetchFeed / fetchArxivPaper.
+//
+// By DEFAULT it does NOT store the endpoint's data — `admit` is false, so the records come back for
+// viewing (the table) and the lightweight pointer is the thing kept; nothing is persisted or
+// admitted onto the spine. Pass { admit:true } to opt IN to materialising the payload as a
+// groundable source (the old default) — a deliberate "keep this endpoint's snapshot".
+export const fetchJsonApi = async (url, { client, store = null, path = null, k = Infinity, admit = false, fetched_at = nowIso(), hangGuard = 4_000_000 } = {}) => {
   if (!client || !/^https?:\/\//i.test(String(url || '').trim())) return null;
   const json = parseJson((await client.fetchUrl(String(url).trim())).text);
   if (json == null) return null;
   const picked = pickRecords(json, path);
   const rows = picked.records.length ? picked.records.slice(0, k) : [json];
   const table = recordsToTable(rows, { name: url });
+  const pointer = apiPointer(url, picked);
   let admitted = null;
   if (admit) {
     const payload = {
@@ -194,5 +221,5 @@ export const fetchJsonApi = async (url, { client, store = null, path = null, k =
     };
     admitted = store ? store.admit(payload, { hangGuard }) : admitWebSource(payload, { hangGuard });
   }
-  return { json, records: picked.records, path: picked.path, table, admitted };
+  return { json, records: picked.records, path: picked.path, pointer, table, admitted };
 };

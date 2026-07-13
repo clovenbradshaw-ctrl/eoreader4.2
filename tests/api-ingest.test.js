@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   getPath, pickRecords, flattenRecord, recordsToTable, summarizeApi, parseJson,
-  API_SOURCES, API_FULLTEXT, fetchJsonApi,
+  recordId, apiPointer, API_SOURCES, API_FULLTEXT, fetchJsonApi,
 } from '../src/organs/ingest/api.js';
 import { routeKind } from '../src/organs/ingest/webfetch.js';
 
@@ -120,13 +120,39 @@ test('API_FULLTEXT.api reads the whole endpoint summarised', async () => {
   assert.match(full, /Bville/);
 });
 
-test('fetchJsonApi is the deliberate path — records, resolved path, table, admitted source', async () => {
+test('recordId reads a stable id field, else null', () => {
+  assert.equal(recordId({ id: 7, name: 'x' }), '7');
+  assert.equal(recordId({ uuid: 'ab-cd' }), 'ab-cd');
+  assert.equal(recordId({ name: 'no id here' }), null);
+});
+
+test('apiPointer keeps the endpoint + path + record ids — never the bodies', () => {
+  const json = { results: [{ id: 'a', v: 1 }, { id: 'b', v: 2 }] };
+  const p = apiPointer('https://api.example/x.json', pickRecords(json));
+  assert.equal(p.schema, 'api-pointer/1');
+  assert.equal(p.url, 'https://api.example/x.json');
+  assert.equal(p.path, 'results');
+  assert.equal(p.count, 2);
+  assert.deepEqual(p.ids, ['a', 'b']);
+  assert.equal('records' in p, false, 'the record bodies are NOT on the pointer');
+});
+
+test('fetchJsonApi DEFAULTS to pointer-only — records for viewing, nothing stored', async () => {
   const url = 'https://api.example/cities.json';
   const out = await fetchJsonApi(url, { client: ctxFor({ [url]: CITIES }) });
   assert.equal(out.records.length, 2);
   assert.equal(out.path, 'results');
-  assert.deepEqual(out.table.columns, ['name', 'population', 'region.code']);
+  assert.deepEqual(out.table.columns, ['name', 'population', 'region.code']);   // in-memory view
+  assert.equal(out.pointer.url, url);
+  assert.equal(out.pointer.count, 2);
+  assert.equal(out.admitted, null, 'nothing admitted/stored by default');
+});
+
+test('fetchJsonApi with { admit:true } opts IN to storing the payload as a source', async () => {
+  const url = 'https://api.example/cities.json';
+  const out = await fetchJsonApi(url, { client: ctxFor({ [url]: CITIES }), admit: true });
   assert.equal(out.admitted.record.engine, 'web:api');
+  assert.ok(out.pointer, 'the pointer is returned either way');
 });
 
 test('fetchJsonApi navigates a caller-given path past a non-standard envelope', async () => {

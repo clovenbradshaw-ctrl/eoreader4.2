@@ -11,6 +11,25 @@ shelves. This layer adds the three shapes that a document upload cannot cover:
 - **Civic APIs** — the finding-and-navigating problem for government/open data, where the hard
   part is never the fetch but knowing *which* portal answers the question and *how* it is shaped.
 
+### Storage: pointers by default, data on request
+
+A feed or an API is a re-fetchable **tap**, not a document — so storing every item's body would
+duplicate what the source already serves. The deliberate import paths therefore **default to
+pointer-only**: `fetchFeed` and `fetchJsonApi` keep, per item, only its **unique id** plus the
+handful of fields needed to re-find it (url, title, date) — never the body — and return the records
+as an *in-memory view* (the table) that is not persisted. This is the feed/API twin of
+`opfs-store.js`'s pointer manifest: a reference we re-read from, not a copy we hold.
+
+- A feed item's id is its GUID/`<id>` (else its link, else a stable synthetic hash of title+date);
+  `feedPointer` / `feedPointers` build the deduped `feed-pointer/1` references.
+- An API record's id is a stable `id`/`guid`/`uuid`/… field where present; `apiPointer` keeps the
+  endpoint URL (itself the re-fetch key) + the resolved records path + those ids as `api-pointer/1`.
+
+Pass `{ admit: true }` to opt IN to materialising the whole feed/payload as a groundable source in
+the answer scope (the "keep this one" gesture). Nothing is stored on the spine unless you ask.
+
+### The contract
+
 All three are ingest organs (`src/organs/ingest/`), each a search **kind** on the same
 `(ctx, query, k) → items[]` contract every source follows, registered in `webfetch.js`'s
 `SEARCH_SOURCES`/`FULL_TEXT` and auto-routed by `routeKind(query)`. So the research walks pick them
@@ -35,8 +54,10 @@ ENTIRE and offers the same content three ways:
   read.
 
 `fetchFeed(url, { client })` is the deliberate whole-feed path (the twin of
-`fetchGutenbergBook`/`fetchArxivPaper`): name a feed by URL and get `{ meta, items, table,
-admitted }`. `parseFeedItems`, `feedMeta`, and `isFeed` are pure and exported.
+`fetchGutenbergBook`/`fetchArxivPaper`): name a feed by URL and get `{ meta, items, pointers,
+table, admitted }`. It defaults to **pointer-only** (`admitted` is null; `pointers` are the
+id-keyed references); pass `{ admit: true }` to also materialise the whole feed as one dated
+source. `parseFeedItems`, `feedMeta`, and `isFeed` are pure and exported.
 
 Reach it: paste a feed URL, or phrase the ask with `rss`/`feed`/`atom` (`routeKind → feed`).
 
@@ -55,8 +76,10 @@ naming the columns. `api.js` does exactly that:
 - `summarizeApi(url, records, table)` → the legible prose an admitted source reads as, so a claim
   can cite "record 12, `population` = 8,468,000" the way it cites a spreadsheet cell.
 
-`fetchJsonApi(url, { client, path? })` is the deliberate path → `{ json, records, path, table,
-admitted }`. `routeKind` sends JSON/REST-looking URLs (`.json`, an `/api/` path or `api.` host, a
+`fetchJsonApi(url, { client, path? })` is the deliberate path → `{ json, records, path, pointer,
+table, admitted }`. Like `fetchFeed` it defaults to **pointer-only** (`admitted` null; `pointer`
+is the `api-pointer/1` reference of endpoint + path + record ids); `{ admit: true }` opts in to
+storing the payload. `routeKind` sends JSON/REST-looking URLs (`.json`, an `/api/` path or `api.` host, a
 `format=json`/`$limit`/`api_key` param, a Socrata `/resource/…json` query) to `api`; other URLs
 stay `feed`/page.
 

@@ -23,11 +23,11 @@ export { createWebClient, searchAndAdmit, fetchAndAdmit, parseFeed, htmlToText,
 // RSS/Atom feeds read WHOLE: every item with its date/author, as sources, as a data-room table,
 // or as one dated doc; the linked article pulled under fetchPages (docs/civic-apis.md "Feeds").
 export { fetchFeed, parseFeedItems, feedMeta, feedToTable, feedToProse, isFeed, feedHtmlToText,
-         FEED_SOURCES, FEED_FULLTEXT } from './feed.js';
+         feedItemId, feedPointer, feedPointers, FEED_SOURCES, FEED_FULLTEXT } from './feed.js';
 // Generic JSON/REST APIs → records: navigate to the records array, flatten to columns, admit the
 // rows as a groundable source + a data-room table (docs/civic-apis.md "Navigating an API").
 export { fetchJsonApi, pickRecords, getPath, flattenRecord, recordsToTable, summarizeApi,
-         parseJson, API_SOURCES, API_FULLTEXT } from './api.js';
+         parseJson, recordId, apiPointer, API_SOURCES, API_FULLTEXT } from './api.js';
 // Civic/government APIs — find AND navigate: a curated catalog (which API answers this?) plus the
 // two open-data protocols, CKAN (data.gov) and Socrata, for live dataset discovery + import URLs.
 export { CIVIC_CATALOG, searchCatalog, renderCatalogEntry, discoverCivic, fetchCivicCatalog,

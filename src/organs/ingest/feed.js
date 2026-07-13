@@ -174,18 +174,66 @@ export const FEED_FULLTEXT = {
   },
 };
 
+// ── Pointers — the default: keep the unique id, NOT the body ──────────────────────────────────
+// A feed is a re-fetchable TAP, so storing every item's text duplicates what the feed already
+// serves. By default we keep only a POINTER per item — its stable unique id plus just enough to
+// re-find it (url, title, date) — never the summary/body. The content is dereferenced on demand
+// (fetchPages / a deliberate admit). This is the feed twin of opfs-store.js's pointer manifest:
+// a reference we can re-read from, not a copy we have to hold.
+
+// feedItemId(item) → the item's STABLE identity, in priority order: its GUID/<id>, else its link,
+// else a hash of title+date. This is the unique key a pointer stores instead of the item's data,
+// so a feed re-poll dedups to the same pointer and the body is never re-stored.
+export const feedItemId = (item) => {
+  const raw = item?.id || item?.link || `${item?.title || ''}|${item?.published || ''}`;
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  if (item?.id || item?.link) return s;
+  let h = 0x811c9dc5;                                   // FNV-1a over title+date — a stable synthetic id
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
+  return 'feed:' + (h >>> 0).toString(16).padStart(8, '0');
+};
+
+// feedPointer(item, { feed }) → the MINIMAL reference kept by default: the unique id + the handful
+// of fields needed to re-find and re-fetch (url, title, date, feed). NOT the summary/body.
+export const feedPointer = (item, { feed = null } = {}) => Object.freeze({
+  schema: 'feed-pointer/1',
+  id: feedItemId(item),
+  url: item?.link || null,
+  title: item?.title || null,
+  published: item?.published || null,
+  feed: feed || null,
+});
+
+// feedPointers(items, { feed }) → one pointer per item, DEDUPED by unique id (a re-poll that
+// repeats an item yields the same pointer, never a second copy).
+export const feedPointers = (items, { feed = null } = {}) => {
+  const seen = new Set(), out = [];
+  for (const it of items || []) {
+    const p = feedPointer(it, { feed });
+    if (!p.id || seen.has(p.id)) continue;
+    seen.add(p.id); out.push(p);
+  }
+  return out;
+};
+
 const nowIso = () => { try { return new Date().toISOString(); } catch { return null; } };
 
-// fetchFeed(url, opts) → { meta, items, table, admitted } | null — the DELIBERATE whole-feed path
-// (mirrors gutenberg.js#fetchGutenbergBook / arxiv.js#fetchArxivPaper). Name a feed by URL and get
-// the channel identity, every item, a data-room table, and — unless { admit:false } — the whole
-// feed admitted as ONE dated prose source so it drops straight into the answer scope.
-export const fetchFeed = async (url, { client, store = null, k = Infinity, admit = true, fetched_at = nowIso(), hangGuard = 2_000_000 } = {}) => {
+// fetchFeed(url, opts) → { meta, items, pointers, table, admitted } | null — the DELIBERATE
+// whole-feed path (mirrors gutenberg.js#fetchGutenbergBook / arxiv.js#fetchArxivPaper). Name a feed
+// by URL and get the channel identity, every item, the deduped POINTERS, and a data-room table.
+//
+// By DEFAULT it does NOT store the feed's data — `admit` is false, so nothing is persisted or
+// dropped onto the spine but the id-keyed pointers; the item bodies stay in the returned view
+// (re-fetchable), not in the store. Pass { admit:true } to opt IN to materialising the whole feed
+// as ONE dated prose source in the answer scope (the old default) — a deliberate "keep this one".
+export const fetchFeed = async (url, { client, store = null, k = Infinity, admit = false, fetched_at = nowIso(), hangGuard = 2_000_000 } = {}) => {
   if (!client || !/^https?:\/\//i.test(String(url || '').trim())) return null;
   const { text } = await client.fetchUrl(String(url).trim());
   if (!isFeed(text)) return null;
   const meta  = feedMeta(text);
   const items = parseFeedItems(text, k);
+  const pointers = feedPointers(items, { feed: url });
   const table = feedToTable(items, { name: meta.title || 'feed' });
   let admitted = null;
   if (admit) {
@@ -196,5 +244,5 @@ export const fetchFeed = async (url, { client, store = null, k = Infinity, admit
     };
     admitted = store ? store.admit(payload, { hangGuard }) : admitWebSource(payload, { hangGuard });
   }
-  return { meta, items, table, admitted };
+  return { meta, items, pointers, table, admitted };
 };

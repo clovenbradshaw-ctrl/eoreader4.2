@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   parseFeedItems, feedMeta, feedToTable, feedToProse, isFeed, feedHtmlToText,
-  FEED_SOURCES, FEED_FULLTEXT, fetchFeed,
+  feedItemId, feedPointer, feedPointers, FEED_SOURCES, FEED_FULLTEXT, fetchFeed,
 } from '../src/organs/ingest/feed.js';
 import { routeKind } from '../src/organs/ingest/webfetch.js';
 
@@ -133,15 +133,50 @@ test('FEED_FULLTEXT.feed pulls the item\'s linked article, with the summary as t
   assert.match(full, /the board will hear three variance requests at 6pm/);
 });
 
-test('fetchFeed is the deliberate whole-feed path — meta, items, table, admitted source', async () => {
+test('feedItemId prefers the GUID/link, else a stable synthetic id', () => {
+  assert.equal(feedItemId({ id: 'urn:guid:1', link: 'https://x/1' }), 'urn:guid:1');
+  assert.equal(feedItemId({ link: 'https://x/2' }), 'https://x/2');
+  const a = feedItemId({ title: 'T', published: 'D' });
+  const b = feedItemId({ title: 'T', published: 'D' });
+  assert.equal(a, b);                                   // deterministic
+  assert.match(a, /^feed:[0-9a-f]{8}$/);
+});
+
+test('feedPointer keeps only the id + re-find fields — never the body', () => {
+  const it = parseFeedItems(RSS)[1];                    // "Water main advisory" (guid = its link)
+  const p = feedPointer(it, { feed: 'https://city.example.gov/rss' });
+  assert.equal(p.schema, 'feed-pointer/1');
+  assert.equal(p.id, 'https://city.example.gov/notices/water-11');
+  assert.equal(p.url, 'https://city.example.gov/notices/water-11');
+  assert.equal(p.published, 'Fri, 03 Jul 2026 00:00:00 GMT');
+  assert.equal(p.feed, 'https://city.example.gov/rss');
+  assert.equal('summary' in p, false, 'the body is NOT stored on the pointer');
+});
+
+test('feedPointers dedupes by unique id (a re-poll never doubles an item)', () => {
+  const items = parseFeedItems(RSS);
+  const ps = feedPointers([...items, items[0]], { feed: 'f' });   // item 0 repeated
+  assert.equal(ps.length, 2);
+});
+
+test('fetchFeed DEFAULTS to pointer-only — no data stored, just id-keyed references', async () => {
   const client = ctxFor({ 'https://city.example.gov/rss': RSS });
   const out = await fetchFeed('https://city.example.gov/rss', { client });
   assert.equal(out.meta.title, 'City Hall Notices');
   assert.equal(out.items.length, 2);
-  assert.equal(out.table.rows.length, 2);
-  assert.ok(out.admitted?.record, 'admits a web-source record');
+  assert.equal(out.table.rows.length, 2);              // an in-memory view — not persisted
+  assert.equal(out.pointers.length, 2);
+  assert.equal(out.pointers[0].id, 'https://city.example.gov/notices/zoning-07');
+  assert.equal(out.admitted, null, 'nothing admitted/stored by default');
+});
+
+test('fetchFeed with { admit:true } opts IN to storing the whole feed as one source', async () => {
+  const client = ctxFor({ 'https://city.example.gov/rss': RSS });
+  const out = await fetchFeed('https://city.example.gov/rss', { client, admit: true });
+  assert.ok(out.admitted?.record, 'admits a web-source record when asked');
   assert.equal(out.admitted.record.engine, 'web:feed');
   assert.match(out.admitted.doc.text || out.admitted.doc.raw || '', /Zoning board agenda/);
+  assert.equal(out.pointers.length, 2);                // pointers are returned either way
 });
 
 test('fetchFeed returns null for a non-feed body', async () => {
