@@ -87,20 +87,75 @@ test('distribution — counts the CURRENT verdict per subject, split by grain', 
   assert.equal(d.byGrain.referent.indeterminate, 1);
 });
 
-test('binding mapper — cited CORROBORATES, contact-but-unborn is INDETERMINATE, nowhere is UNSUPPORTED', () => {
+test('binding mapper (typed cut) — entailed CORROBORATES, unestablished predicate is INDETERMINATE, nowhere is UNSUPPORTED', () => {
   const log = createJudgmentLog();
   recordBindingDefs(log, [
-    { claim: 'A cited claim.',      citation: 's2', score: 0.8 },
-    { claim: 'A touched paraphrase.', citation: null, score: 0.3 },   // made contact, not born
-    { claim: 'Prose from nowhere.',  citation: null, score: 0 },      // no contact
+    // a verbatim lift with a resolved argument and a near-miss ruled out — its witness ENTAILS it
+    { claim: 'A verbatim, entailed claim.', citation: 's2', score: 0.9, verbatim: true, refs: [7],
+      ruledOut: { other: 's5', cut: 'predicate', margin: 0.4 } },
+    // made contact and cites, but the predicate was never established (not verbatim, no typed
+    // relation) — the about≠says case B1 forbids from shipping CORROBORATED
+    { claim: 'A touched paraphrase.', citation: 's3', score: 0.3, verbatim: false, refs: [7] },
+    // no lexical contact at all — the presence cut is void
+    { claim: 'Prose from nowhere.', citation: null, score: 0, verbatim: false, refs: [] },
   ]);
   const proj = log.project();
-  assert.equal(proj.get('claim:A cited claim.').verdict, VERDICTS.CORROBORATED);
+  const entailed = proj.get('claim:A verbatim, entailed claim.');
+  assert.equal(entailed.verdict, VERDICTS.CORROBORATED);
   assert.equal(proj.get('claim:A touched paraphrase.').verdict, VERDICTS.INDETERMINATE);
   assert.equal(proj.get('claim:Prose from nowhere.').verdict, VERDICTS.UNSUPPORTED);
   // every DEF carries its witness — none is an oracle
   for (const ev of log.all()) assert.equal(ev.malformed, undefined);
-  assert.equal(proj.get('claim:A cited claim.').witness.citation, 's2');
+  // the witness is the decomposition tree, not a lexical scalar
+  assert.ok(Array.isArray(entailed.witness.cuts) && entailed.witness.cuts.length >= 3, 'presence + argument + predicate cuts');
+  assert.ok(entailed.witness.cuts.some(c => c.kind === 'presence' && c.grounds === 'NULSIG'));
+  assert.ok(entailed.witness.cuts.some(c => c.kind === 'argument' && c.grounds === 'INS'));
+  assert.ok(entailed.witness.cuts.some(c => c.kind === 'predicate' && c.grounds === 'residual'));
+  // a CORROBORATED affirmation names exactly one ruled-out other (the Sophist requirement, §3)
+  assert.ok(entailed.witness.ruledOut && entailed.witness.ruledOut.other === 's5');
+});
+
+test('B1 at the seam — a cited claim whose predicate never grounds out cannot ship CORROBORATED', () => {
+  const log = createJudgmentLog();
+  // cites, argument resolves, presence corroborates — but the predicate is unestablished
+  recordBindingDefs(log, [{ claim: 'Shares the subject, asserts more.', citation: 's1', score: 0.5, verbatim: false, refs: [3] }]);
+  const d = log.project().get('claim:Shares the subject, asserts more.');
+  assert.equal(d.verdict, VERDICTS.INDETERMINATE, 'a comparative cut that never grounded out is held, not affirmed');
+  assert.equal(d.witness.ruledOut, undefined, 'an unaffirmed claim rules out nothing');
+});
+
+test('the predicate cut reads the correspondence verdict — a corroborated edge affirms a paraphrase', () => {
+  const log = createJudgmentLog();
+  recordBindingDefs(log,
+    [{ claim: 'Grete is Gregor\'s sister.', citation: null, score: 0.2, verbatim: false, refs: [1],
+       ruledOut: { other: 's4', cut: 'predicate', margin: 0.3 } }],
+    { correspondence: [{ verdict: VERDICTS.CORROBORATED, sentence: 'Grete is Gregor\'s sister.', citation: 's2', reason: 'edge-corresponds' }] });
+  const d = log.project().get('claim:Grete is Gregor\'s sister.');
+  assert.equal(d.verdict, VERDICTS.CORROBORATED, 'the typed edge grounds the predicate cut even on thin overlap');
+  const pred = d.witness.cuts.find(c => c.kind === 'predicate');
+  assert.equal(pred.verdict, VERDICTS.CORROBORATED);
+  assert.equal(pred.witness.citation, 's2');
+});
+
+test('the predicate cut carries a contradiction — a denied edge contradicts the binding', () => {
+  const log = createJudgmentLog();
+  recordBindingDefs(log,
+    [{ claim: 'Grete is Gregor\'s mother.', citation: null, score: 0.2, verbatim: false, refs: [1] }],
+    { correspondence: [{ verdict: VERDICTS.CONTRADICTED, sentence: 'Grete is Gregor\'s mother.', reason: 'disjoint' }] });
+  const d = log.project().get('claim:Grete is Gregor\'s mother.');
+  assert.equal(d.verdict, VERDICTS.CONTRADICTED);
+});
+
+test('a diffuse subject suspends the argument cut — the binding is held, never bound to the loud sense', () => {
+  const log = createJudgmentLog();
+  recordBindingDefs(log,
+    [{ claim: 'Elvis recorded his first single in 1954.', citation: 's1', score: 0.7, verbatim: false, refs: [] }],
+    { referential: { id: 9, concentrated: false, margin: 0.001 } });
+  const d = log.project().get('claim:Elvis recorded his first single in 1954.');
+  assert.equal(d.verdict, VERDICTS.INDETERMINATE, 'the argument cut cannot ground out on an unresolved name');
+  const arg = d.witness.cuts.find(c => c.kind === 'argument');
+  assert.equal(arg.verdict, VERDICTS.INDETERMINATE);
+  assert.equal(arg.witness.reason, 'referent-diffuse');
 });
 
 test('reference mapper — a concentrated field CORROBORATES, a split field abstains', () => {
@@ -124,6 +179,49 @@ test('void mapper — a DEF of absence is UNSUPPORTED at the field grain, carryi
   assert.equal(d.witness.receipt, 'scanned 40 units');
 });
 
+test('located void (#4) — the absence names WHICH cut stalled, distinctly', () => {
+  // a true gap — the presence cut is void → not-in-corpus, UNSUPPORTED
+  const gap = createJudgmentLog();
+  recordVoidDef(gap, { kind: 'elsewhere', receipt: 'scanned 40 units', rode: 3 });
+  const g = gap.all()[0];
+  assert.equal(g.verdict, VERDICTS.UNSUPPORTED);
+  assert.equal(g.witness.located, 'not-in-corpus');
+  assert.equal(g.witness.stalledCut, 'presence');
+
+  // a reference void — the argument cut won't resolve → INDETERMINATE, located distinctly
+  const ref = createJudgmentLog();
+  recordVoidDef(ref, { kind: 'void', receipt: 'two senses' }, { located: 'reference-void' });
+  const r = ref.all()[0];
+  assert.equal(r.verdict, VERDICTS.INDETERMINATE, 'a reference void is held, not a flat gap');
+  assert.equal(r.witness.located, 'reference-void');
+  assert.equal(r.witness.stalledCut, 'argument');
+
+  // an unstated relation — the predicate cut won't establish → INDETERMINATE, located distinctly
+  const unstated = createJudgmentLog();
+  recordVoidDef(unstated, { kind: 'evaluation', receipt: 'no source ranks' });
+  const u = unstated.all()[0];
+  assert.equal(u.verdict, VERDICTS.INDETERMINATE);
+  assert.equal(u.witness.located, 'unstated-relation');
+  assert.equal(u.witness.stalledCut, 'predicate');
+  // the three located reasons are all distinct — not one collapsed "diffuse" message
+  assert.equal(new Set([g.witness.located, r.witness.located, u.witness.located]).size, 3);
+});
+
+test('typed reference (#3) — a settled reference names the runner-up sense it ruled out', () => {
+  const log = createJudgmentLog();
+  recordReferenceDef(log, { id: 'presley', w: 0.8, margin: 0.4, concentrated: true, runnerUp: 'costello' });
+  const d = log.all()[0];
+  assert.equal(d.verdict, VERDICTS.CORROBORATED);
+  assert.equal(d.witness.ruledOut.other, 'costello', 'the settled sense excluded the runner-up (§3)');
+  assert.ok(d.witness.cuts.some(c => c.kind === 'argument' && c.grounds === 'INS'));
+  // a split field abstains and names the tie it could not cut, on the argument cut's witness
+  const split = createJudgmentLog();
+  recordReferenceDef(split, { id: 'elvis', w: 0.3, margin: 0.001, concentrated: false, runnerUp: 'costello' });
+  const s = split.all()[0];
+  assert.equal(s.verdict, VERDICTS.INDETERMINATE);
+  assert.equal(s.witness.cuts.find(c => c.kind === 'argument').witness.reason, 'senses-unseparated');
+});
+
 test('correspondence mapper — passes typed verdicts through at the predication grain; skips untyped', () => {
   const log = createJudgmentLog();
   recordCorrespondenceDefs(log, [
@@ -143,11 +241,11 @@ test('the four judges land on ONE log — the whole turn\'s judgment census is o
   const log = createJudgmentLog();
   recordReferenceDef(log, { id: 1, w: 0.9, margin: 0.4, concentrated: true });
   recordVoidDef(log, null);   // no void this turn — a no-op
-  recordBindingDefs(log, [{ claim: 'Cited.', citation: 's1', score: 0.9 }]);
+  recordBindingDefs(log, [{ claim: 'Cited.', citation: 's1', score: 0.9, verbatim: true, refs: [1] }]);
   recordCorrespondenceDefs(log, [{ verdict: VERDICTS.INDETERMINATE, sentence: 'Held.' }]);
   const d = log.distribution();
   assert.equal(d.total, 3);
-  assert.equal(d.corroborated, 2);   // reference + binding
+  assert.equal(d.corroborated, 2);   // reference (concentrated) + binding (verbatim, entailed)
   assert.equal(d.indeterminate, 1);  // correspondence
   assert.ok(d.byGrain.referent && d.byGrain.claim && d.byGrain.predication);
 });

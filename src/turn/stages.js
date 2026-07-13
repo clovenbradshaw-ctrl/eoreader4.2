@@ -935,10 +935,10 @@ export const stages = {
     const sources = [...new Set(
       bound.filter(b => b.citation).map(b => parseInt(b.citation.slice(1), 10))
     )];
-    // Route the binding verdict onto the judgment log — a DEF per claim (cited CORROBORATES,
-    // contact-but-unborn is INDETERMINATE, prose-from-nowhere is UNSUPPORTED), carrying the
-    // citation and its score as witness. Surfaces the DEF the binder was already making.
-    try { recordBindingDefs(ctx.judgments, bound); } catch { /* logging is best-effort */ }
+    // The binding DEF is recorded at the `factcheck` seam, not here: the typed-cut binding
+    // (turn/judgments.js) reads the PREDICATE cut off the correspondence verdict, which only
+    // exists after factcheck types the claim against the sources' edges. bind just carries the
+    // presence/argument signal (each bound claim's verbatim/refs/ruledOut) forward on `bound`.
     return { ...ctx, bound, answer, sources };
   },
 
@@ -1014,6 +1014,14 @@ export const stages = {
     // Route the correspondence verdict onto the judgment log — a DEF per proposition at the
     // predication grain, the verdict factcheck typed against the sources' own edges.
     try { recordCorrespondenceDefs(ctx.judgments, fc.claims); } catch { /* logging is best-effort */ }
+    // Route the binding verdict onto the log — a DEF per claim at the CLAIM grain, its witness the
+    // presence/argument/predicate CUT decomposition (turn/judgments.js). The predicate cut reads
+    // the correspondence verdict just computed; the argument cut reads the fold's referential
+    // (a diffuse subject suspends the argument, never guesses a sense). A claim ships CORROBORATED
+    // only when its witness ENTAILS it (Invariant B1). Recorded on the post-factcheck `bound` so an
+    // edge-grounded claim carries its citation into the presence cut.
+    try { recordBindingDefs(ctx.judgments, bound, { referential: ctx.referential, correspondence: fc.claims }); }
+    catch { /* logging is best-effort */ }
     return { ...ctx, edgeVerdicts: fc.edgeVerdicts, factcheck: fc, propositions, sources, bound, answer };
   },
 

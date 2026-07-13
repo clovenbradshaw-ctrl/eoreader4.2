@@ -35,9 +35,25 @@ export const SPECIMENS = Object.freeze([
       + 'Dolphins are highly social and often live together in large pods.',
     gold: Object.freeze([
       Object.freeze({ grain: 'claim', match: 'pods', accept: Object.freeze(['unsupported', 'indeterminate']),
-        why: 'no span predicates pod-living; sharing the subject\'s words is not support' }),
+        why: 'no span predicates pod-living; sharing the subject\'s words is not support',
+        // presence + argument ground out (there is contact, "dolphins" resolves) but the predicate
+        // cut never establishes same-or-stronger → the fold HOLDS. The single-cut perturbation that
+        // makes a bad twin: weaken this predicate cut to CORROBORATED and the fold wrongly affirms.
+        cuts: Object.freeze([
+          Object.freeze({ kind: 'presence',  grounds: 'NULSIG',   verdict: 'corroborated' }),
+          Object.freeze({ kind: 'argument',  grounds: 'INS',      verdict: 'corroborated' }),
+          Object.freeze({ kind: 'predicate', grounds: 'residual', verdict: 'indeterminate' }),
+        ]) }),
       Object.freeze({ grain: 'claim', match: 'range in sizes', accept: Object.freeze(['corroborated']),
-        why: 'the verbatim size claim is what the source says' }),
+        why: 'the verbatim size claim is what the source says',
+        // every cut grounds out — the predicate is a verbatim lift (the surface IS the source's
+        // words), so the affirmation is earned and must carry a ruled-out other (§3).
+        cuts: Object.freeze([
+          Object.freeze({ kind: 'presence',  grounds: 'NULSIG',   verdict: 'corroborated' }),
+          Object.freeze({ kind: 'argument',  grounds: 'INS',      verdict: 'corroborated' }),
+          Object.freeze({ kind: 'predicate', grounds: 'residual', verdict: 'corroborated' }),
+        ]),
+        ruledOut: Object.freeze({ cut: 'predicate' }) }),
     ]),
     ratchet: true,
     notes: 'v2 #2 target when un-ratcheted; the born-from-noise gate already holds the pods claim to INDETERMINATE today.',
@@ -83,12 +99,29 @@ export const SPECIMENS = Object.freeze([
     answer: 'Elvis recorded his first single in 1954.',
     gold: Object.freeze([
       Object.freeze({ grain: 'referent', match: '*', accept: Object.freeze(['indeterminate']),
-        why: 'two senses hold real mass and the question names neither — suspension is the honest cut' }),
+        why: 'two senses hold real mass and the question names neither — suspension is the honest cut',
+        // The Cut-level gold (§7): the reference DEF is one ARGUMENT cut that must NOT ground out.
+        cuts: Object.freeze([
+          Object.freeze({ kind: 'argument', grounds: 'INS', verdict: 'indeterminate' }),
+        ]) }),
       Object.freeze({ grain: 'claim', match: '1954', accept: Object.freeze(['indeterminate']),
-        why: 'the subject is diffuse — a confident bind of "Elvis recorded first in 1954" ships the Presley reading of an unresolved name' }),
+        why: 'the subject is diffuse — a confident bind of "Elvis recorded first in 1954" ships the Presley reading of an unresolved name',
+        // The first Cut-level gold entry (§7, the un-delegable human step): for this claim the
+        // human marks the PRESENCE cut corroborated (there is lexical contact), the PREDICATE cut
+        // corroborated (the relation "recorded a first single in 1954" IS in the corpus — a subset
+        // of the Presley line, a verbatim lift), and the ARGUMENT cut INDETERMINATE — the name
+        // "Elvis" resolves to NEITHER sense. The suspension is LOCATED at the argument (the
+        // reference void, §5), not the predicate: the corpus witnesses the relation, it just cannot
+        // say WHICH Elvis. The fold of those cuts is INDETERMINATE — a located suspension, not a
+        // guess, and never a silent bind of the louder Presley.
+        cuts: Object.freeze([
+          Object.freeze({ kind: 'presence',  grounds: 'NULSIG',   verdict: 'corroborated' }),
+          Object.freeze({ kind: 'argument',  grounds: 'INS',      verdict: 'indeterminate' }),
+          Object.freeze({ kind: 'predicate', grounds: 'residual', verdict: 'corroborated' }),
+        ]) }),
     ]),
-    ratchet: false,
-    notes: 'v2 #3 target: after typed reference, the per-mention DEF should abstain (and ask), never bind the louder Elvis. The claim gold records the output-side leak: the binder corroborates the ambiguous claim today.',
+    ratchet: true,
+    notes: 'v3 #2/#3 CONVERTED: the argument cut cannot ground out on the unresolved name, so the binding is HELD (INDETERMINATE), never bound to the louder Presley. The reference DEF abstains and names the runner-up sense it could not separate (the ruled-out other, §3). Per-mention abstention (vs the whole-fold measure) is the deferred refinement.',
   }),
 
   // The two-Bushes ambiguity: a short name fitting two incomparable fuller names folds
@@ -132,12 +165,24 @@ export const SPECIMENS = Object.freeze([
     answer: 'The bottlenose is the best dolphin.',
     gold: Object.freeze([
       Object.freeze({ grain: 'claim', match: 'best', accept: Object.freeze(['unsupported', 'indeterminate']),
-        why: 'no source ranks the species; naming a real figure does not support the superlative' }),
+        why: 'no source ranks the species; naming a real figure does not support the superlative',
+        // the argument grounds out ("bottlenose" resolves) but the superlative predicate cannot be
+        // established against a corpus that never ranks — the predicate cut HOLDS, the fold holds.
+        // NOTE (recorded located gap): the live binder under-resolves the argument here — its
+        // referent reading does not attach the bottlenose anchor to this claim, so the witness
+        // draws no argument cut and this row scores cut-absent. A real, LOCATED defect the Cut
+        // census surfaces (the folded verdict is still correct); resolving it is binder work, not a
+        // gold fudge — the human's drawing stands.
+        cuts: Object.freeze([
+          Object.freeze({ kind: 'presence',  grounds: 'NULSIG',   verdict: 'corroborated' }),
+          Object.freeze({ kind: 'argument',  grounds: 'INS',      verdict: 'corroborated' }),
+          Object.freeze({ kind: 'predicate', grounds: 'residual', verdict: 'indeterminate' }),
+        ]) }),
       Object.freeze({ grain: 'field', match: '*', accept: Object.freeze(['unsupported']),
-        why: 'the absence of any ranking is a measurable void (v2 #4: an evaluation void, distinctly)' }),
+        why: 'the absence of any ranking is a measurable void (v3 #4: an unstated-relation void, distinctly)' }),
     ]),
     ratchet: false,
-    notes: 'v2 #2 target (the "best" claim must not be born from the shared figure) and #4 target (the evaluation void must be witnessed and logged).',
+    notes: 'v3 #2 CONVERTED: the "best" claim is no longer born from the shared figure — its predicate cut cannot establish same-or-stronger, so the binding is HELD (INDETERMINATE). v3 #4 PENDING: the evaluation void is not yet MEASURED (the field gold stays unjudged) — recordVoidDef types unstated-relation distinctly, but the void measure does not fire on a describes-but-never-ranks corpus yet. Un-ratcheted until that earning lands.',
   }),
 
   // The true absence: a figure the corpus never mentions. Today's void judge should
