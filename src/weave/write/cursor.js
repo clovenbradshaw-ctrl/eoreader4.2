@@ -128,7 +128,7 @@ const argHashesOf = (cell) => {
 const asHash = (x) => (typeof x === 'string' ? x : x?.hash) ?? null;
 
 const bandOf = (res) =>
-  res == null ? 'firm' : (typeof res === 'string' ? res : (isVoid(res) ? 'void' : 'firm'));
+  res == null ? 'void' : (typeof res === 'string' ? res : (isVoid(res) ? 'void' : 'firm'));
 
 // The audit line is structured (so the UI/log can read fields) AND carries a
 // one-line string for a plain trail. Provenance per Site is surfaced from the

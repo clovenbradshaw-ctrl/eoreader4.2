@@ -33,6 +33,15 @@ import { signatureOf } from './cube.js';
 // A band and a probability. The band is the gate the scheduler propagates (§3b);
 // the probability is what the strictly-proper log score bites on (§10). Bare
 // bands are not proper-scorable, so a Resolution always carries a `p`.
+//
+// THE DEFAULT IS VOID. Truth-seeking begins and ends in the void: the inability to
+// state something definitely is the DEFAULT posture, not the exceptional case. So a
+// Resolution names VOID unless FIRM is explicitly supplied — definiteness must be
+// EARNED (a witness, a measured null it beat), never handed out for free to a caller
+// that named nothing. This is the constructor half of the discipline the gate
+// (VOID_TOKEN), voidnull (cold start → abstain), and the void-answerer already keep
+// everywhere downstream; before this, the one place the engine minted definiteness
+// for free was here, at the type that means how-definitely.
 export const BANDS = Object.freeze({ VOID: 'void', FIRM: 'firm' });
 
 // Default probabilities when a caller names only the band: a firm commitment
@@ -42,7 +51,8 @@ const DEFAULT_P = Object.freeze({ void: 0.1, firm: 0.9 });
 
 const clamp01 = (x) => (Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : null);
 
-export const makeResolution = (band = BANDS.FIRM, p) => {
+// band defaults to VOID: an unstated how-definitely is the void, not a free firm.
+export const makeResolution = (band = BANDS.VOID, p) => {
   const b = band === BANDS.VOID ? BANDS.VOID : BANDS.FIRM;
   const prob = clamp01(p);
   return Object.freeze({ band: b, p: prob == null ? DEFAULT_P[b] : prob });
@@ -56,9 +66,12 @@ export const isFirm = (res) => resBand(res) === BANDS.FIRM;
 export const isVoid = (res) => resBand(res) === BANDS.VOID;
 
 // Read a band off either a Resolution object or a bare band string, so the
-// scheduler and the kernels can pass either shape.
+// scheduler and the kernels can pass either shape. An ABSENT resolution (null /
+// undefined — nothing established) reads VOID, so void-domination holds on unset
+// inputs: weaker(a, null) pulls toward the void rather than laundering a missing
+// commitment into a firm one.
 const resBand = (res) =>
-  res == null ? BANDS.FIRM
+  res == null ? BANDS.VOID
   : typeof res === 'string' ? (res === BANDS.VOID ? BANDS.VOID : BANDS.FIRM)
   : (res.band === BANDS.VOID ? BANDS.VOID : BANDS.FIRM);
 const resP = (res) =>
@@ -77,10 +90,17 @@ export const weaker = (a, b) => {
 // A SYN over any void-resolved constituent inherits void and must hedge (§3a/§7);
 // firming it up is the overclaim the witness flags. Folding `weaker` over the
 // dependency resolutions is that min, made mechanical.
+//
+// Two firms that look alike but are not. The EMPTY case is not firm: a cell with NO
+// dependency resolutions has established nothing, so its effective resolution is the
+// VOID — the same "appeared but not yet characterized (INS without DEF)" the write
+// side already reads as void (weave/write/voids.js). The `firm(1)` seed below is the
+// opposite thing: the IDENTITY element of the min-fold over a NON-empty list — the
+// top that any real dependency can only weaken — never a commitment in its own right.
 export const effectiveRes = (resolutions) => {
   const xs = (resolutions || []).filter(Boolean);
-  if (!xs.length) return makeResolution(BANDS.FIRM, DEFAULT_P.firm);
-  return xs.reduce((acc, r) => weaker(acc, r), firm(1));
+  if (!xs.length) return voidRes();                       // nothing established → void, not a free firm
+  return xs.reduce((acc, r) => weaker(acc, r), firm(1));  // firm(1) = the fold's identity, not a default
 };
 
 // ── Site — the holon address holder · r#<id>@<grain> ──────────────────────────
@@ -133,7 +153,9 @@ export const fillsTwoSlots = (op) => signatureOf(op)?.reads === 'two';
 // higher-grain figure it mints (§3a).
 export const makeEvent = ({ op, site, res, prov = null, t = 0, promotes = null } = {}) => {
   if (!isOperator(op)) throw new TypeError(`makeEvent: not an operator: ${op}`);
-  const resolution = res == null ? makeResolution(BANDS.FIRM)
+  // No resolution supplied → VOID: an event whose how-definitely was never stated is
+  // born in the void, not at a free firm. A caller that means firm says so (§3b).
+  const resolution = res == null ? makeResolution(BANDS.VOID)
     : (typeof res === 'string' ? makeResolution(res) : makeResolution(res.band, res.p));
   return Object.freeze({
     op,

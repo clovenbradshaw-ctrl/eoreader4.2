@@ -483,7 +483,10 @@ export const cursorView = ({
   beat = '',               // OR a beat instruction (free prose target)
   spans = [],              // grounded substance for this beat (exafference)
   target = '',             // the shape instruction ("one plain past-tense sentence…")
-  band = 'firm',           // 'void' → hedge; 'firm' → assert (the propagated Resolution)
+  band = 'firm',           // 'void' → hedge; 'firm' → assert. Production ALWAYS supplies
+                           //   this from the propagated Resolution (write/cursor.js bandOf,
+                           //   now void-on-absence), so the void-default lives there; this
+                           //   bare fallback stays 'firm' only as the byte-identity anchor.
   corrective = '',         // a forward correction the previous beat's seam carried (§3c)
 } = {}) => ({ orientation, established, integrals, open, edge, beat, spans, target, band, corrective });
 

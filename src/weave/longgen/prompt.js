@@ -72,7 +72,9 @@ export const propositionInstruction = (prop = {}) => {
           : prop.closes
             ? `Write one closing sentence drawing together ${prop.subClaim}.`
             : `Write one sentence saying ${prop.subClaim}.`;
-  const firmness = prop.band === 'void'
+  // An UNSET band is nothing-established, not license to assert: treat it as void
+  // (hedge), so "state it plainly" is reserved for a band explicitly earned firm.
+  const firmness = (prop.band == null || prop.band === 'void')
     ? 'This is not settled — say so.'
     : 'This is supported; state it plainly.';
   return `${lead}\nHere is the source line: ${source}\n${firmness}`;
