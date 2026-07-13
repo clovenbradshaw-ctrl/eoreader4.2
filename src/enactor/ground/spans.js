@@ -226,14 +226,25 @@ export const groundSummary = (verdicts) => {
 // The denominator is the SUBSTANTIVE claims (source + the model's own assertions), NOT every span:
 // connective scaffolding asserts nothing a source would carry, so counting it would unfairly drag a
 // well-grounded-but-fluent answer under the floor. The kinds:
+//   'empty'   → NOTHING checkable was extracted — no source spans, no model assertions, only
+//               connective scaffolding (or an empty/degenerate answer). There is nothing to
+//               verify, so a "Supported" badge is a vacuous truth: it claims the passages back an
+//               answer that made no checkable claim at all. This is NOT support — the badge must
+//               say "nothing to verify", never green "Supported". (The failure this closes: a
+//               reading that extracted an empty spine — "nothing extracted", every line surprisal
+//               0b — left claims === 0, and the old no-op stamped the answer "sourced/Supported"
+//               and let it cite a passage it drew nothing from. Nothing extracted is the OPPOSITE
+//               of verified.) Distinct from 'void': 'void' had substantive claims that traced to
+//               nothing read; 'empty' had no substantive claims to trace in the first place.
 //   'void'    → nothing substantive traces to a source — the passages are misleading; the answer is
 //               the model's own words. The badge must say so, never imply a cite that isn't there.
 //   'partial' → some traces, but under the floor — keep the passages visible yet drop the firm
 //               "matched" claim: the answer is the model's synthesis, not a direct lift.
 //   'sourced' → a real share stands on a source; a grounded badge is honest, left untouched.
 // A short answer (< minClaims substantive spans) is too small to demote on ratio alone — one grounded
-// claim keeps it — but the pure-void case (source === 0) still demotes at any length. Nothing to judge
-// (no substantive spans) is a no-op: supported, so an empty/degenerate answer never gets falsely demoted.
+// claim keeps it — but the pure-void case (source === 0, with claims present) still demotes at any
+// length. And an answer with NO substantive spans (claims === 0) is 'empty': never supported, because
+// there is nothing there to support.
 export const SUPPORT_FLOOR = 0.25;
 export const supportVerdict = (summary, { floor = SUPPORT_FLOOR, minClaims = 3 } = {}) => {
   const s = summary || {};
@@ -241,7 +252,7 @@ export const supportVerdict = (summary, { floor = SUPPORT_FLOOR, minClaims = 3 }
   const assertion = s.assertion || 0;
   const claims = source + assertion;                 // the substantive spans; connectives don't count
   const ratio = claims ? source / claims : 0;
-  if (claims === 0)      return { supported: true,  kind: 'sourced', ratio: 0, claims, source };
+  if (claims === 0)      return { supported: false, kind: 'empty',   ratio: 0, claims, source };
   if (source === 0)      return { supported: false, kind: 'void',    ratio: 0, claims, source };
   if (claims < minClaims) return { supported: true,  kind: 'sourced', ratio, claims, source };
   if (ratio < floor)     return { supported: false, kind: 'partial', ratio, claims, source };
