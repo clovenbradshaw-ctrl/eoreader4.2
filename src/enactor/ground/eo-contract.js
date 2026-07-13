@@ -6,6 +6,7 @@ import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
   'src/enactor/ground/bind.js': contract({ ops: ['CON'], targets: ['Field', 'Entity'], products: ['Link'], stances: ['Binding'], note: 'citation binder (bindCitations)' }),
+  'src/enactor/ground/corroboration.js': contract({ ops: ['EVA', 'DEF'], targets: ['Network', 'Link'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'meaningfully-distinct-source measure (underCorroborated)' }),
   'src/enactor/ground/index.js': contract({ ops: ['CON', 'EVA'], targets: ['Field', 'Link', 'Network'], products: ['Link', 'Lens'], stances: ['Binding', 'Tracing'], note: 'barrel' }),
   'src/enactor/ground/provenance.js': contract({ ops: ['EVA'], targets: ['Link', 'Network'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'per-proposition provenance (classifyProvenance)' }),
   'src/enactor/ground/reflect.js': contract({ ops: ['EVA', 'CON'], targets: ['Network', 'Link'], products: ['Lens'], stances: ['Tracing', 'Binding'], note: 'answer reflection (reflectAnswer)' }),

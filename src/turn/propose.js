@@ -7,7 +7,7 @@
 // Proposer-only by construction: this returns a proposal; the fetch happens elsewhere, behind
 // a go-ahead. Null when the answer is well-grounded — a sound turn never reaches for the net.
 
-import { isUnbound, isAbstention } from '../enactor/ground/index.js';
+import { isUnbound, isAbstention, underCorroborated } from '../enactor/ground/index.js';
 
 // The cost the user is told before any hop — the query reaches public engines via the proxy.
 export const COST_NOTICE =
@@ -75,6 +75,17 @@ export const proposeWebSearch = (ctx) => {
     reasons.push('the answer rests on the engine’s own reading, not on anything witnessed');
     trigger = trigger || 'witness';
   }
+  // CORROBORATION — the answer is otherwise sound (no gap, no witness-seek) but rests on a SINGLE
+  // meaningfully-distinct source: the reflection witnessed its claims, yet they collapse to fewer
+  // than two independent voices (enactor/ground/corroboration.js — mirrors, reprints, and one
+  // publisher all count once). A fact standing on one voice is not yet corroborated, so reach out
+  // for an INDEPENDENT second source (docs/multi-source-corroboration.md). Dominated by any real gap
+  // or witness-seek above (a void is not "single-source" — it is "no source"). Opt-in by
+  // construction: no ctx.reflection → underCorroborated is false and the proposer stays byte-identical.
+  if (!reasons.length && underCorroborated(ctx.reflection, ctx.corroborationEnrich || {})) {
+    reasons.push('the answer rests on a single source — seeking an independent corroboration');
+    trigger = 'corroborate';
+  }
   if (!reasons.length) return null;
 
   // The query: the question, sharpened with the figure the reading centres on when we have a
@@ -124,6 +135,8 @@ const announceLead = (proposal) => {
     return 'I answered from what I already know — let me check that against the web.';
   if (proposal.trigger === 'witness')
     return 'That rests on my own reading of the document, not on anything witnessed — let me confirm it against the web.';
+  if (proposal.trigger === 'corroborate')
+    return 'That rests on a single source — let me look for an independent one that corroborates it.';
   // gap (or an unlabelled/auto proposal): name the specific gap when the rationale carries it.
   if (r.includes('does not cover')) return "I don't think the document covers this — let me look it up.";
   if (r.includes('did not contain the answer')) return "I didn't find that in what I've read — let me look it up.";

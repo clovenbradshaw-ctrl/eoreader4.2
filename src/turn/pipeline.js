@@ -441,6 +441,11 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
     // an unbound assistant turn) so a claim that could not be grounded cannot become the
     // premise of a follow-up — the propagation the audit shows turn over turn.
     const unbound = flags.some(f => f.id === 'unbound' || f.id === 'unbound-contact');
+    // The reflection's diversity read rides on the ctx so the proposer can see whether an otherwise
+    // sound answer rests on a single, meaningfully-distinct source — the corroboration gap
+    // (turn/propose.js corroborate trigger, enactor/ground/corroboration.js). Null on an unreflected
+    // turn, so the proposer's corroborate branch stays inert.
+    ctx.reflection = reflection;
     // The web-search PROPOSAL (turn/propose.js): a query the turn would put to the world when
     // the document could not close the gap. Proposer-only — it is returned for a confirmed user
     // action (or auto mode) to run; the pipeline itself never fetches. Null on a sound turn.
