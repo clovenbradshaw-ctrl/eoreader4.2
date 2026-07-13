@@ -541,7 +541,17 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         state.log = Array.isArray(snap.log) ? snap.log : [];
         state.jobs = Array.isArray(snap.jobs) ? snap.jobs : [];   // pending work to resume below
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
-        if (snap.summaries && snap.summaries.entities) state.summaries = { entities: { ...snap.summaries.entities }, definer: snap.summaries.definer || { champion: null, runs: 0 } };
+        if (snap.summaries && snap.summaries.entities) {
+          // `contextualPending` is a within-session marker that a written reading is mid-compose; it
+          // can never be live across a reload (nothing is generating), and the panel would otherwise
+          // hang on "composing…". Clear it on restore so each entity reveals the telegram it holds.
+          const ents = {};
+          for (const k in snap.summaries.entities) {
+            const e = snap.summaries.entities[k];
+            ents[k] = (e && e.contextualPending) ? { ...e, contextualPending: false } : e;
+          }
+          state.summaries = { entities: ents, definer: snap.summaries.definer || { champion: null, runs: 0 } };
+        }
       }
     } catch { /* fresh session */ }
     // ── migrate to the workspace / topic-tree model ──────────────────────────
@@ -3366,8 +3376,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     const upgrade = prev && prev.modelless && !!model;
     if (prev && !regenerate && !upgrade) return prev;
     const inv = entityInventory(profile, { mentionCount: profile.mentionCount ?? profile.mentions.length, sourceCount: profile.sourceCount || 1 });
+    // When a model is loaded a written reading (the contextual definition) is coming a beat behind
+    // this telegram — so mark the telegram as `contextualPending`. The surface holds the panel on
+    // "composing…" rather than flashing the machine telegram and swapping it for the reading; it is
+    // cleared the moment the reading lands below. With no model, nothing more is coming, so the flag
+    // stays false and the telegram is shown at once.
     await composeTwoPhase(inv, prev ? { ...prev, regenerate } : { regenerate: true }, (s) => {
-      state.summaries.entities[key] = { ...s, key, label: profile.label }; persist(); emit('sources');
+      state.summaries.entities[key] = { ...s, key, label: profile.label, contextualPending: !!model }; persist(); emit('sources');
     });
     // The fold-aware contextual definition — a model-WRITTEN companion to the telegram, framed by
     // the document in hand (its title, and the figures it most centres on beside this one). It is
@@ -3423,28 +3438,39 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       };
 
       const defs = state.summaries.definer || (state.summaries.definer = { champion: null, runs: 0 });
-      const chorus = await composeChorus(
-        { label: profile.label, telegram: cur0.text, objects: cur0.objects || [], fold, wikiText },
-        { model, champion: defs.champion, runs: defs.runs || 0, grade },
-      );
-      const winner = chorus.winner;
+      // A failed chorus must never strand the panel on "composing…" — swallow it and fall through to
+      // the pending clear below, which reveals the telegram already in hand.
+      let chorus = null;
+      try {
+        chorus = await composeChorus(
+          { label: profile.label, telegram: cur0.text, objects: cur0.objects || [], fold, wikiText },
+          { model, champion: defs.champion, runs: defs.runs || 0, grade },
+        );
+      } catch { chorus = null; }
+      const winner = chorus && chorus.winner;
       winnerSpans = (winner && grade._spansByText && grade._spansByText.get(winner.text)) || [];
 
       // Carry the champion forward (heritability) and count the run (drives the explore beat).
-      defs.champion = chorus.champion || defs.champion;
+      defs.champion = (chorus && chorus.champion) || defs.champion;
       defs.runs = (defs.runs || 0) + 1;
 
       const cur = state.summaries.entities[key];
       if (cur && winner) {
         state.summaries.entities[key] = {
           ...cur, contextual: winner.text, contextualWritten: !!winner.written,
-          contextualSpans: winnerSpans,
+          contextualSpans: winnerSpans, contextualPending: false,
           contextualCoverage: winner.fitness?.terms?.coverage ?? 0,
           contextualFitness: winner.fitness?.score ?? 0,
           contextualStrategy: winner.strategy, fold,
         };
         persist(); emit('sources');
       }
+    }
+    // Never leave the panel stranded on "composing…": if the reading never landed (no winner, or the
+    // chorus threw before storing), drop the pending flag so the telegram it already holds is shown.
+    const done = state.summaries.entities[key];
+    if (done && done.contextualPending) {
+      state.summaries.entities[key] = { ...done, contextualPending: false }; persist(); emit('sources');
     }
     return state.summaries.entities[key];
   });
