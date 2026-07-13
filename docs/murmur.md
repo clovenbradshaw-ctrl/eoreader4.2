@@ -19,6 +19,7 @@ entrance per holon, each with its own `eo-contract.js`, all merged into
 | `steer`    | `collapse.js`        | the Born-rule collapse `P = |ψ|² = s·d`, stochastic commit (spec §4a) |
 | `steer`    | `event.js`           | the `steer` event + the projection re-weighting `{towardAnchor, awayFromCluster, biasStrength}` |
 | `narrate`  | `narrator.js`        | the tiny-LM mutter — **pluggable backend**, refractory-gated, ≤32 tokens, audit-only |
+| `link`     | `index.js`           | the **connective nominator** (phase 4) — a `recognition` impression → a reafferent CANDIDATE connection between two reading loci; a read side-channel (`nominations()`), never a log write |
 | `audit`    | `sink.js`            | impression → `rooms/audit` marginalia (refuses any non-impression record) |
 | —          | `membrane.js`        | the §9 firewall guards, importable at every seam                    |
 | —          | `config.js`          | `MURMUR` thresholds + `murmurConfig(over)` (pins `canEditPrompt:false`) |
@@ -108,10 +109,47 @@ These are exercised by `tests/murmur-membrane.test.js`.
   embedding vectors, since the real exported sessions aren't in the repo. Swap in real
   fold traces here to tune against them.
 
-## Deferred (spec §13 phase 4, §14 open questions)
+## Phase 4 — connective self-assertion (recognition → connection → graph → prose)
 
-- Cross-turn **recognition linking** (surfacing "seen this before" back to the specific
-  earlier event) — the centroid history exists from phase 1; the linking does not.
+The peripheral sense stops throwing recognition away. The pipeline: murmur POINTS at a connection;
+the DOCUMENT witnesses it; the idle gate promotes it. The membrane is not weakened — it is enforced
+by the system's own §8 provenance type law (a reafferent nomination `canWitness === false`).
+
+1. **Recognition linking** (`sense/centroid.js`, `sense/geometry.js`, `index.js`). The prior-reading
+   ring now stores `{ vector, ref }`, so `senseSignal` emits `recognitionRef` — the LOCUS of the
+   nearest prior reading, not just its similarity. `rooms/reader/app.js` `observeMurmur` enriches the
+   fold `ref` with `{ docId, sentIdxs, cursor }`, so a recognition names the specific earlier passage.
+2. **Candidate nomination** (`link/index.js`). A fresh `recognition` impression that carries a `link`
+   becomes a reafferent CANDIDATE connection (`buildConnection`, `fromEnactor`, `grounded:false`),
+   deduped per locus pair. It rides `createMurmur().nominations()` — a **read** side-channel like
+   `state()` (spec §9.4). `canAppendLog`/`canEditPrompt` are untouched.
+3. **Promotion gate** (`src/enactor/connect/promote.js`). The idle governor drains the queue and lets
+   the document decide. A relation the reader already extracted at the `from` locus, whose subject
+   RECURS at the `to` locus (a verbatim recurrence, or the kinship/social algebra via `checkClaim`),
+   and which is not CONTRADICTED, is promoted. The witness set is filtered to EXAFFERENT edges exactly
+   as `factCheck` does, so a murmur edge can never self-corroborate a later one.
+4. **Graph write** (`rooms/reader/app.js` `connectTick`). **Tier 2** — a corroborated connection is a
+   real `CON` edge carrying the earned citation + `nominatedBy:'murmur'`, reafferent-doored (grounded
+   by citation, never a self-witness). **Tier 1** — every other echo is a firewalled `EVA`/`band:void`
+   note (`buildReflection`), which `projectGraph` skips so it can never be mistaken for a fact. Both
+   ride the deep-reader OVERLAY and surface in the existing Reflections drawer.
+5. **Idle prosification** (`connectTick` → `prosifyConnections`). Grounded connections are voiced with
+   the LOCAL model when it is warm (`talkThenVerify` behind the propositional veto), falling back to
+   the model-free realizer (`speakTriples`) otherwise — the LLM is spent only when idle and loaded.
+
+The whole pass runs only at rest (gated on `state.busy` + inactivity, beside deep reading) and never
+on the critical path. New tests: `tests/murmur-link.test.js`, `tests/murmur-promote.test.js`,
+`tests/murmur-connect-loop.test.js`, plus the phase-4 invariants in `tests/murmur-membrane.test.js`.
+
+## Deferred (spec §14 open questions)
+
 - The narrator **model backend** (in-browser resource decision).
 - The **anchor decay/update tuning** (spec §14, the riskiest surface): the shift-vs-drift
   rule ships conservative (`topicShiftFloor`); earn any loosening in replay.
+- **Cross-document** connections: the promotion gate compares entity ids within ONE doc, so a
+  cross-doc echo falls to a Tier-1 note. Cross-source identity (the `same_as?` machinery) would let
+  it promote — the seam is there; the wiring is not.
+- **Per-entity reading identity**: the fold reading is one whole-note embedding, so the gate locates
+  the bridging edge by the loci's `sentIdxs`; per-span/entity vectors would sharpen it.
+- **Remote prosification + the redaction membrane** (`docs/llm-prosification-security.md`): local-only
+  ships; the `redact`/`assertNoNameLeak` path stays ready for a hosted talker.

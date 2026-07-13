@@ -66,12 +66,14 @@ export const concentrationScore = (c = {}) => {
 //   anchorVec:        Float32Array|number[]|null      — the SESSION-TOPIC anchor (from centroid.js)
 //   readingCentroid:  Float32Array|number[]|null      — centroid of THIS turn's reading …
 //   readingVecs:      Array<vec>|null                 — … or the per-stop vectors to average
-//   priorCentroids:   Array<vec>|null                 — prior-turn reading centroids (novelty)
+//   priorCentroids:   Array<{vector,ref}>|Array<vec>  — prior-turn readings (novelty/recognition);
+//                        a {vector,ref} record carries the earlier locus, a bare vec is tolerated
 //   concentration:    { concentrated, margin, w, top, focus }
 //   measuresMeaning:  boolean                          — is cosine meaningful here? (the firewall)
 //
-// Returns { drift, concentration, novelty, recognitionSim, readingCentroid, anchor, ref,
-//           geometric } where `geometric` is true when drift/novelty came from real vectors.
+// Returns { drift, concentration, novelty, recognitionSim, recognitionRef, readingCentroid,
+//           anchor, ref, geometric } where `geometric` is true when drift/novelty came from real
+//           vectors, and `recognitionRef` is the LOCUS of the nearest prior reading (or null).
 export const senseSignal = (snap = {}) => {
   const ref = snap.ref || null;
   const anchor = snap.anchorVec || null;
@@ -93,19 +95,26 @@ export const senseSignal = (snap = {}) => {
   // novelty — how far this reading sits from the nearest prior-turn reading. A spike is
   // "huh, new territory" (spec §5, §7 — SEMANTIC novelty, not token perplexity).
   // recognitionSim is the flip side: near a prior centroid = "seen this before" (§7).
-  let novelty = null, recognitionSim = null;
+  // recognitionRef names WHICH prior it matched (the argmax locus) — the thread a phase-4
+  // recognition link pulls on. A bare-vector prior (old shape) is tolerated but yields no ref.
+  let novelty = null, recognitionSim = null, recognitionRef = null;
   if (measures && reading && snap.priorCentroids?.length) {
-    let best = null;   // nearest prior by cosine (null = no comparable prior found)
-    for (const p of snap.priorCentroids) { const c = cosine(reading, p); if (c != null && (best === null || c > best)) best = c; }
+    let best = null, bestRef = null;   // nearest prior by cosine (null = no comparable prior found)
+    for (const p of snap.priorCentroids) {
+      const pv = p && p.vector ? p.vector : p;          // {vector,ref} record or bare vector
+      const c = cosine(reading, pv);
+      if (c != null && (best === null || c > best)) { best = c; bestRef = (p && p.ref) ? p.ref : null; }
+    }
     if (best !== null) {
       recognitionSim = clamp01(best);
       novelty = clamp01(1 - best);
+      recognitionRef = bestRef;
     }
   }
 
   return Object.freeze({
     ref,
-    drift, concentration, novelty, recognitionSim,
+    drift, concentration, novelty, recognitionSim, recognitionRef,
     readingCentroid: reading, anchor,
     geometric,
   });

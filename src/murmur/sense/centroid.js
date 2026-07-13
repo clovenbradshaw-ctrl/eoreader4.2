@@ -13,7 +13,9 @@
 // topic CHANGE reads as drift; too loose and "go research that" resets the anchor to noise.
 // The rule below is deliberately conservative — a content query far from the topic RELOCATES
 // the anchor (an explicit user redirect dominates, spec §9.6); a deictic or on-topic query
-// only nudges it (EMA). Phase-1 ships the bare centroid; cross-turn linking is phase 4.
+// only nudges it (EMA). Phase-1 shipped the bare centroid; phase-4 (cross-turn linking) keeps
+// each prior reading's LOCUS (`ref`) beside its vector so a recognition can point BACK at the
+// specific earlier event, not merely report that one exists.
 
 import { cosine, meanVec } from './geometry.js';
 
@@ -46,7 +48,7 @@ export const createSessionTopic = ({
 } = {}) => {
   let topic = null;          // the running anchor vector (Float32Array)
   let turns = 0;             // topics seen (turn 1 = opening query)
-  const priorCentroids = []; // ring of prior-turn reading centroids (novelty/recognition)
+  const priorCentroids = []; // ring of { vector, ref } — prior-turn readings + their locus (novelty/recognition)
 
   // resolve({ query, queryVec }) — decide the drift anchor for THIS turn and update the topic,
   // BEFORE drift is measured. This is the load-bearing move (spec §5, §9.6, §14): a user redirect
@@ -86,10 +88,12 @@ export const createSessionTopic = ({
   };
 
   // Append this turn's reading centroid to the novelty/recognition ring (spec §5). Called AFTER
-  // drift/novelty are measured, so the current reading is never compared against itself.
-  const pushReading = (readingCentroid = null) => {
+  // drift/novelty are measured, so the current reading is never compared against itself. `ref` is
+  // the reading's LOCUS ({ turnId, docId, sentIdxs, t }) — kept beside the vector so a later
+  // recognition can name the specific earlier event it matched, not just its similarity (phase 4).
+  const pushReading = (readingCentroid = null, ref = null) => {
     if (readingCentroid && readingCentroid.length) {
-      priorCentroids.push(Float32Array.from(readingCentroid));
+      priorCentroids.push({ vector: Float32Array.from(readingCentroid), ref: ref || null });
       while (priorCentroids.length > historyTurns) priorCentroids.shift();
     }
   };
@@ -98,7 +102,8 @@ export const createSessionTopic = ({
     resolve,
     pushReading,
     // The priors as of NOW, excluding the current turn's own centroid — the caller reads these
-    // to compute novelty against, then calls pushReading() to append the current one.
+    // to compute novelty against, then calls pushReading() to append the current one. Each entry
+    // is { vector, ref }: the reading vector and the locus it was read at (phase-4 recognition).
     priors: () => priorCentroids.slice(),
     get topic() { return topic; },
     get turns() { return turns; },
