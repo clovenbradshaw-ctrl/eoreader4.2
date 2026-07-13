@@ -45,6 +45,7 @@ import { createAudioStore } from './audio-store.js';
 import { makeJob, upsertJob, patchJob, dropJob, resumableJobs, MAX_JOB_ATTEMPTS } from './ingest-jobs.js';
 import { projectTranscript, REDACTION_MARK } from './transcript-edit.js';
 import { buildFormat, FORMATS as TRANSCRIPT_FORMATS, hasTranscript } from './transcript-export.js';
+import { formatTranscript, detectTranscriptChapters, readThroughIndex, settledText, segmentsOf, chapterAt, referentRuns } from './transcript-format.js';
 import { sha256Hex } from '../archive/file-crypto.js';
 import { outstandingQuestion, answersAwaited } from '../../core/conversation-fold.js';
 import { senseGate } from '../../turn/sense.js';
@@ -3227,6 +3228,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       const src = state.sources.find((s) => s.docId === baseId);
       if (src) return { src, doc: nlDocFor(src) };
     }
+    if (docId.endsWith(LIVE_SUFFIX)) {
+      const baseId = docId.slice(0, -LIVE_SUFFIX.length);
+      const src = state.sources.find((s) => s.docId === baseId);
+      if (src) return { src, doc: livePartialDocFor(src) };
+    }
     return null;
   };
   // The REFERENT reading of a source — the meaning layer the entity explorer is about. A prose
@@ -3241,8 +3247,42 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     const base = docFor(src);
     const modality = base?.modality || null;
     if (!modality || modality === 'text') return base;                       // prose: the base is the reading
-    if ((modality === 'audio' || modality === 'video') && !base?.transcribed) return null;  // no transcript yet
+    if ((modality === 'audio' || modality === 'video') && !base?.transcribed) return livePartialDocFor(src);  // read the partial live
     return nlDocFor(src);
+  };
+
+  // The words heard SO FAR for a clip still being transcribed — the live ASR tail if this session is
+  // hearing it, else the durable twin persisted across a reload. Empty once the final transcript lands
+  // (src.words takes over and base.transcribed goes true, so referentDocFor reads nlDocFor instead).
+  const partialWordsOf = (src) => {
+    if (!src) return [];
+    const live = src._asr && Array.isArray(src._asr.words) && src._asr.words.length ? src._asr.words : null;
+    const twin = src.transcription && Array.isArray(src.transcription.words) && src.transcription.words.length ? src.transcription.words : null;
+    return live || twin || [];
+  };
+  // A LIVE natural-language reading of the SETTLED part of a partial transcript, so the figures a clip
+  // names appear AS it is heard — the fix for "0 referents while a 49-minute clip transcribes". Parses
+  // only the closed breath groups (transcript-format.settledText); the still-open trailing group is
+  // re-read next pass, so the referent list never churns on a half-heard word. Memoised on the source by
+  // how many words have settled, and docId-suffixed `~live` so resolveDoc opens a referent's profile
+  // against this same reading. Null until enough has settled to name anything.
+  const LIVE_SUFFIX = '~live';
+  const livePartialDocFor = (src) => {
+    if (!src) return null;
+    const words = partialWordsOf(src);
+    if (!words.length) return null;
+    const through = readThroughIndex(words);
+    if (through < 0) return null;
+    if (!src._liveNlDoc || src._liveNlDoc._through !== through) {
+      const text = settledText(words);
+      if (!text || text.length < 12) { src._liveNlDoc = src._liveNlDoc && src._liveNlDoc._through === through ? src._liveNlDoc : null; return src._liveNlDoc; }
+      try {
+        const d = parseText(text, { docId: `${src.docId}${LIVE_SUFFIX}` });
+        if (d) d._through = through;
+        src._liveNlDoc = d || null;
+      } catch { src._liveNlDoc = null; }
+    }
+    return src._liveNlDoc;
   };
 
   // The base-level noun for a source — what one raw span UNDER the referents IS, so the surface can
@@ -3342,6 +3382,131 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       })),
       figures: fs.figures.map((f) => ({ entId: f.id, label: f.label, count: f.count })),
       mentions,
+    };
+  };
+
+  // ── the Listen surface's layered reading — words, read-state, referents, chapters, span layers ──
+  // The interactive transcript is a stack of READINGS over the same timed word stream: the raw hearing,
+  // the best-effort prose the pauses punctuate, the figures the words name, the topic chapters, and —
+  // for any one word — what is ACTIVE there (its segment, speaker, confidence, referent, chapter). All
+  // pure/model-free; transcript-format.js does the shape work, this composes it against the record.
+
+  // The baseline word list the Listen surface reads: the live ASR tail while a clip is still being
+  // heard (so a reload / a fresh run shows the partial at once), else the settled `src.words`. Mirrors
+  // setListenTranscript's own selection so the two never disagree about which words are on screen.
+  const listenBase = (s) => {
+    const streaming = !!(s && s._asr && (s._asr.state === 'running' || s._asr.state === 'pending'));
+    const live = streaming && (!s.words || !s.words.length) && Array.isArray(s._asr.words) && s._asr.words.length;
+    const baseWords = live ? s._asr.words : (Array.isArray(s.words) ? s.words : []);
+    return { streaming, live, baseWords };
+  };
+
+  // The word→referent map for a clip (transcript-format.referentRuns), memoised on the source by the
+  // referent reading and word count. The lexicon is the referent doc's — the LIVE partial reading while a
+  // clip is still being heard, the settled NL reading once it lands — so figures light up as they arrive.
+  const transcriptReferentMap = (sn) => {
+    const s = sourceBySn(sn); if (!s) return new Map();
+    const { baseWords } = listenBase(s);
+    const rd = referentDocFor(s);
+    const sig = `${rd?.docId || 'none'}·${rd?._through ?? rd?._sig ?? 'x'}·${baseWords.length}`;
+    if (!s._refMap || s._refMap.sig !== sig) {
+      const words = projectTranscript(baseWords, s.audioEvents || []).words;
+      const lex = rd ? entityLexicon([rd]) : [];
+      s._refMap = { sig, map: referentRuns(words, lex) };
+    }
+    return s._refMap.map;
+  };
+
+  // The transcript's chapters (transcript-format.detectTranscriptChapters), memoised on the source by
+  // word count + whether the final transcript has landed. Empty for a short / single-subject clip.
+  const transcriptChapters = (sn) => {
+    const s = sourceBySn(sn); if (!s) return [];
+    const { baseWords, streaming } = listenBase(s);
+    const sig = `${baseWords.length}·${streaming ? 'live' : 'done'}·${(s.audioEvents || []).length}`;
+    if (!s._chapters || s._chapters.sig !== sig) {
+      const words = projectTranscript(baseWords, s.audioEvents || []).words;
+      const chapters = detectTranscriptChapters(words).map((c) => ({
+        ...c, mmss: c.startTime != null ? mmss(c.startTime) : '',
+      }));
+      s._chapters = { sig, chapters };
+    }
+    return s._chapters.chapters;
+  };
+
+  const mmss = (x) => { const t = Math.max(0, Math.round(x || 0)); const m = Math.floor(t / 60); return `${m}:${String(t % 60).padStart(2, '0')}`; };
+  const speakerLabelOf = (s, idx) => {
+    if (idx == null) return null;
+    const roster = Array.isArray(s?.speakers) ? s.speakers : [];
+    const hit = roster.find((r) => r.id === idx);
+    return (hit && hit.label) || `Speaker ${idx + 1}`;
+  };
+
+  // transcriptView(sn, { format }) → the whole layered reading the Listen surface renders in one call:
+  // every word with its display surface (formatted or raw), its clock, whether the reader has SETTLED it
+  // (read → black; still-open tail → grey), and the layer fields (referent, speaker, confidence); the
+  // display paragraphs; and the detected chapters. `format:false` is the raw stream — the toggle-off.
+  const transcriptView = (sn, { format = true } = {}) => {
+    const s = sourceBySn(sn);
+    if (!s) return { words: [], paras: [], chapters: [], readThrough: -1, complete: false, streaming: false, hasReferents: false, referentCount: 0 };
+    const { baseWords, streaming } = listenBase(s);
+    const proj = projectTranscript(baseWords, streaming && (!s.words || !s.words.length) ? [] : (s.audioEvents || []));
+    const words = proj.words;
+    const complete = !streaming && words.length > 0;
+    const readThrough = complete ? words.length - 1 : readThroughIndex(words);
+    const { tokens, paras } = formatTranscript(words, { format });
+    const refMap = transcriptReferentMap(sn);
+    const refIds = new Set();
+    const out = tokens.map((tk) => {
+      const i = tk.i, w = words[i] || {}, base = baseWords[i] || {};
+      const ref = refMap.get(i) || null;
+      if (ref) refIds.add(ref.entId);
+      const conf = (typeof base.conf === 'number' && isFinite(base.conf)) ? base.conf : null;
+      const acous = (typeof base.acous === 'number' && isFinite(base.acous)) ? base.acous : null;
+      const snr = (typeof base.snr === 'number' && isFinite(base.snr)) ? base.snr : null;
+      const speaker = Number.isInteger(base.speaker) ? base.speaker : null;
+      return {
+        i, text: tk.text, raw: w.text, t0: w.start ?? 0, t1: w.end ?? w.start ?? 0,
+        read: i <= readThrough, edited: !!w.edited, redacted: !!w.redacted, origText: w.origText ?? null,
+        paraStart: tk.paraStart, sentenceStart: tk.sentenceStart, punct: tk.punct,
+        ref: !!ref, refHead: !!(ref && ref.head), entId: ref?.entId ?? null, docId: ref?.docId ?? null, refLabel: ref?.label ?? null,
+        speaker, conf, acous, snr,
+      };
+    });
+    const chapters = transcriptChapters(sn);
+    return { words: out, paras, chapters, readThrough, complete, streaming, hasReferents: refIds.size > 0, referentCount: refIds.size };
+  };
+
+  // spanLayers(sn, i) → what is ACTIVE at one word: the clicked-span inspector. Every reading that
+  // touches this instant, stacked — the word and its clock, whether the reader has folded it, who said
+  // it, how sure the ear was, the breath group it sits in, its chapter, and the figure it names (with a
+  // door to that figure's full profile) plus that figure's strongest standing properties.
+  const spanLayers = (sn, i) => {
+    const s = sourceBySn(sn); if (!s) return null;
+    const { baseWords, streaming } = listenBase(s);
+    const words = projectTranscript(baseWords, streaming && (!s.words || !s.words.length) ? [] : (s.audioEvents || [])).words;
+    if (!Number.isInteger(i) || i < 0 || i >= words.length) return null;
+    const w = words[i], base = baseWords[i] || {};
+    const complete = !streaming && words.length > 0;
+    const readThrough = complete ? words.length - 1 : readThroughIndex(words);
+    const segs = segmentsOf(words);
+    const seg = segs.find((g) => i >= g.startIdx && i <= g.endIdx) || null;
+    const segText = seg ? words.slice(seg.startIdx, seg.endIdx + 1).map((x) => x.text).join(' ').trim() : '';
+    const chapters = transcriptChapters(sn);
+    const ch = chapterAt(chapters, i);
+    const refMap = transcriptReferentMap(sn);
+    const ref = refMap.get(i) || null;
+    let refProps = [], refMentions = null;
+    if (ref) { try { const prof = entityProfile(ref.docId, ref.entId); if (prof) { refProps = (prof.defs || []).slice(0, 3).map((d) => d.value); refMentions = prof.mentionCount; } } catch { /* best-effort */ } }
+    const num = (x, dp) => (typeof x === 'number' && isFinite(x)) ? +x.toFixed(dp) : null;
+    return {
+      i, word: w.text, raw: w.origText || w.text, edited: !!w.edited, redacted: !!w.redacted,
+      t0: w.start ?? null, t1: w.end ?? null, timeLabel: `${mmss(w.start || 0)}–${mmss(w.end || w.start || 0)}`,
+      read: i <= readThrough,
+      speaker: Number.isInteger(base.speaker) ? { idx: base.speaker, label: speakerLabelOf(s, base.speaker) } : null,
+      conf: num(base.conf, 3), acous: num(base.acous, 3), snr: num(base.snr, 1),
+      segmentText: segText, segmentT0: seg ? (words[seg.startIdx]?.start ?? null) : null,
+      chapter: ch ? { index: ch.index, title: ch.title, mmss: ch.startTime != null ? mmss(ch.startTime) : '' } : null,
+      referent: ref ? { entId: ref.entId, docId: ref.docId, label: ref.label, props: refProps, mentions: refMentions } : null,
     };
   };
 
@@ -4240,5 +4405,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // transcript export — subtitles (SRT/VTT), the elegant by-speaker read, the full-processing JSON,
     // and the process trace — built from the live organ doc or rebuilt from the persisted substrate.
     transcriptExport, transcriptFormats,
+    // the Listen surface's layered reading: the whole formatted/raw word view with read-state +
+    // referents + chapters (transcriptView), the topic chapters alone, and the per-word span inspector.
+    transcriptView, transcriptChapters, spanLayers,
   });
 };

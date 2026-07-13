@@ -33,6 +33,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/tiered-graph.js': contract({ ops: ['NUL'], targets: ['Network'], products: ['Void'], stances: ['Clearing'], note: 'tiered graph SVG renderer' }),
   'src/rooms/reader/topic-name.js': contract({ ops: ['SIG', 'DEF'], targets: ['Entity', 'Field'], products: ['Lens'], stances: ['Tending', 'Making'], note: 'topic auto-naming — content → title' }),
   'src/rooms/reader/transcript-edit.js': contract({ ops: ['SYN', 'SEG', 'NUL'], targets: ['Field'], products: ['Network', 'Void'], stances: ['Composing', 'Dissecting', 'Clearing'], note: 'transcript edit/redaction fold — baseline + append-only events → live reading' }),
+  'src/rooms/reader/transcript-format.js': contract({ ops: ['SEG', 'SYN', 'NUL'], targets: ['Field'], products: ['Network', 'Void'], stances: ['Dissecting', 'Composing', 'Clearing'], note: 'transcript formatting, chapter detection + the read/heard boundary' }),
   'src/rooms/reader/transcript-export.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'transcript export renderer' }),
   'src/rooms/reader/versions.js': contract({ ops: ['SIG', 'CON'], targets: ['Network', 'Void'], products: ['Link'], stances: ['Tending', 'Binding'], note: 'the version time-machine — roll back to a prior PR' }),
   'src/rooms/reader/wiki-referent.js': contract({ ops: ['CON', 'EVA'], targets: ['Network'], products: ['Link'], stances: ['Binding', 'Tracing'], note: 'the entity panel wiki referent — search, score, confirm' }),
