@@ -1688,18 +1688,47 @@ table{border-collapse:collapse;width:100%}
               </div>
               <button onClick="{{ prof.openSource }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:6px;padding:3px 8px;margin:6px 0 2px" style-hover="background:#E5E8EC">{{ prof.srcReg }} · {{ prof.srcTitle }}</button>
 
-              <!-- TOPLINE — the auto-generated summary of this entity, from the objects the machinery -->
-              <!-- decided (its standing properties, bonds, and tallies), with a feedback box. -->
-              <sc-if value="{{ prof.topline.show }}">
+              <!-- LEAD WITH THE SETTLED REFERENT — when the record only NAMES this entity (topline -->
+              <!-- absence) but a Wikipedia article is CONFIRMED, that canonical definition is the most -->
+              <!-- confident thing we hold, so it leads the panel instead of a "nothing found yet" banner. -->
+              <sc-if value="{{ prof.leadWithWiki }}">
+                <div style="margin-top:13px">
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
+                  <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;background:#FBFBFD">
+                    <sc-if value="{{ prof.hasWikiDesc }}">
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ prof.wikiDesc }}</div>
+                    </sc-if>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ prof.wikiText }}</div>
+                    <a href="{{ prof.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:#5B4BE6;margin-top:7px;text-decoration:none">{{ prof.wikiTitle }} ↗</a>
+                  </div>
+                  <sc-if value="{{ prof.topline.has }}">
+                    <div style="font-size:11.5px;color:#9A9AA4;line-height:1.5;margin-top:8px;font-style:italic">{{ prof.topline.telegramText }}</div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <!-- TOPLINE — the auto-generated summary of this entity: the fold-aware contextual -->
+              <!-- definition when the model wrote one, else the telegram of the machinery's objects. -->
+              <!-- Suppressed while leading with Wikipedia (the demoted line above stands in its place). -->
+              <sc-if value="{{ prof.topline.show }}"><sc-if value="{{ prof.notLeadWithWiki }}">
                 <div style="margin-top:13px;border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                    <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">SUMMARY</span>
+                    <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">{{ prof.topline.panelLabel }}</span>
                     <sc-if value="{{ prof.topline.hasKind }}"><span style="font-size:9px;font-weight:600;color:#B26A2E;text-transform:uppercase;letter-spacing:.04em">{{ prof.topline.kindLabel }}</span></sc-if>
                     <span style="flex:1"></span>
                     <sc-if value="{{ prof.topline.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
                   </div>
                   <sc-if value="{{ prof.topline.has }}">
-                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ prof.topline.text }}</div>
+                    <!-- The written definition, span by span: a grounded span reads plain (with a -->
+                    <!-- ¶ jump to the passage it rests on); a flagged span — the model's own word, -->
+                    <!-- nothing read witnesses it — is tinted amber and dotted-underlined. -->
+                    <sc-if value="{{ prof.topline.hasSpans }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32"><sc-for list="{{ prof.topline.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span title="{{ sp.cite }}">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing in the record witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if></sc-for></div>
+                      <sc-if value="{{ prof.topline.anyFlagged }}"><div style="font-size:10px;color:#B08A4A;margin-top:5px">Underlined spans are the model’s own words — not found in the record.</div></sc-if>
+                    </sc-if>
+                    <sc-if value="{{ prof.topline.noSpans }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ prof.topline.text }}</div>
+                    </sc-if>
                     <sc-if value="{{ prof.topline.hasUnmet }}"><div style="font-size:11px;color:#B26A2E;margin-top:6px;font-style:italic">{{ prof.topline.unmet }}</div></sc-if>
                     <div style="display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap">
                       <input value="{{ prof.topline.draft }}" onChange="{{ prof.topline.onInput }}" onKeyDown="{{ prof.topline.onKey }}" placeholder="Tell it what to change…" style="flex:1;min-width:110px;border:1px solid #E1DDF2;border-radius:7px;background:#fff;padding:6px 9px;font-size:11.5px;outline:none" style-focus="border-color:#B7ADF3" />
@@ -1714,13 +1743,16 @@ table{border-collapse:collapse;width:100%}
                     </div>
                   </sc-if>
                 </div>
-              </sc-if>
+              </sc-if></sc-if>
 
               <button onClick="{{ prof.openWeb }}" style="width:100%;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:7px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12.5px;border-radius:9px;padding:9px" style-hover="background:#E7E2FD">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg>
                 Open the web graph
               </button>
 
+              <!-- The settled referent in its DEFAULT position — shown unless it has already been -->
+              <!-- promoted to the lead above (prof.leadWithWiki). -->
+              <sc-if value="{{ prof.notLeadWithWiki }}">
               <div style="margin-top:16px">
                 <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
                 <sc-if value="{{ prof.wikiWait }}">
@@ -1739,6 +1771,7 @@ table{border-collapse:collapse;width:100%}
                   <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">No confirmed Wikipedia match for this referent.</div>
                 </sc-if>
               </div>
+              </sc-if>
 
               <sc-if value="{{ prof.hasDefs }}">
                 <div style="margin-top:16px">
@@ -3620,6 +3653,7 @@ class Component extends DCLogic {
     // match", the same honesty rule the 4.1 panel held.
     const wk = this.state.wikiDefs[docId + '#' + entId] || null;
     const wkHit = !!(wk && wk.confirmed && wk.text);
+    const tl = this._toplineVM('entity', { docId, entId }, p.label);
     return {
       label: p.label, initials: this._initials(p.label),
       counts: `${p.mentions.length} mentions · ${p.relations.length} links`,
@@ -3683,7 +3717,13 @@ class Component extends DCLogic {
       hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
       mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text) })),
       // the auto-generated topline for this entity + its feedback box (docs/topline.md)
-      topline: this._toplineVM('entity', { docId, entId }, p.label),
+      topline: tl,
+      // When the record only NAMES the referent (topline absence) but we hold a CONFIRMED
+      // Wikipedia article, that settled definition is the most confident thing we have — so it
+      // leads the panel and the "nothing found yet" summary drops to a quiet footnote beneath it.
+      // Requires a real confirmed hit; an unconfirmed guess never earns the lead.
+      leadWithWiki: wkHit && tl.isAbsence,
+      notLeadWithWiki: !(wkHit && tl.isAbsence),
     };
   }
   // ── auto-generated toplines in the surface (docs/topline.md) ─────────────────
@@ -3736,9 +3776,35 @@ class Component extends DCLogic {
     const draft = String((this.state.tlFeedback || {})[key] || '');
     const busy = !!(this.state.tlBusy || {})[key];
     const KIND = { absence: 'nothing found yet', contradiction: 'the record contests itself', plain: '' };
+    // The fold-aware contextual definition, when the model wrote one — the panel's layer 2. It
+    // prefers this over the telegram `text`; the telegram remains the fallback (and still what a
+    // source summary shows, which carries no contextual field).
+    const ctx = sum && sum.contextual ? String(sum.contextual) : '';
+    // Per-span grounding: each span of the written definition is either anchored to the record
+    // (grounded) or the model's own word (flagged). The surface tints the flagged ones and offers
+    // a jump on the grounded ones, so "every span grounded or flagged" is legible, not just stored.
+    const rawSpans = (sum && Array.isArray(sum.contextualSpans)) ? sum.contextualSpans : [];
+    const spans = rawSpans.map((s, i) => ({
+      s: String(s.text || '') + (i < rawSpans.length - 1 ? ' ' : ''),
+      grounded: !!s.grounded, flagged: !s.grounded,
+      hasCite: Number.isInteger(s.cite),
+      cite: Number.isInteger(s.cite) ? ('¶' + s.cite) : '',
+    }));
+    const anyFlagged = spans.some((s) => !s.grounded);
     return {
       show: true, has: !!sum, pending: !sum || busy,
-      text: sum ? sum.text : '',
+      text: ctx || (sum ? sum.text : ''),
+      telegramText: sum ? sum.text : '',
+      hasSpans: spans.length > 0, noSpans: spans.length === 0, spans, anyFlagged,
+      hasContextual: !!ctx, contextualWritten: !!(sum && sum.contextualWritten),
+      // a model-WRITTEN definition is labelled as the contextual reading it is; a fallback telegram
+      // keeps the plain "summary" label so we never dress a machine telegram up as a reading.
+      panelLabel: (sum && sum.contextualWritten) ? 'IN THIS READING' : 'SUMMARY',
+      kind: sum ? sum.kind : '',
+      // absence == the record names the referent but says nothing further. When we ALSO hold a
+      // confirmed Wikipedia referent, the panel leads with that settled definition instead of the
+      // "nothing found yet" banner (see _profFor.leadWithWiki), and this demotes the summary here.
+      isAbsence: !!(sum && sum.kind === 'absence'),
       kindLabel: sum ? (KIND[sum.kind] || '') : '',
       hasKind: !!(sum && KIND[sum.kind]),
       refined: !!(sum && sum.joined), modelless: !!(sum && sum.modelless),

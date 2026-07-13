@@ -15,7 +15,9 @@ import { speak } from '../../model/index.js';
 import { containedIn } from './contain.js';
 
 const cap = (s) => { const t = String(s || '').trim(); return t ? t[0].toUpperCase() + t.slice(1) : t; };
-const dot = (s) => { const t = String(s || '').trim(); return /[.!?]$/.test(t) ? t : `${t}.`; };
+// Terminate a sentence. A lifted claim value can carry trailing punctuation of its own ("near
+// Gordonsville, Virginia,") — strip a dangling comma/semicolon/colon first so we never emit ",."
+const dot = (s) => { const t = String(s || '').trim().replace(/[,;:]+$/, '').trim(); return /[.!?]$/.test(t) ? t : `${t}.`; };
 const list = (xs) => {
   const a = (xs || []).map((x) => String(x).trim()).filter(Boolean);
   if (a.length <= 1) return a[0] || '';
