@@ -13,7 +13,10 @@
 // Impressions never persist beyond the session and are promotable to nothing (credence floor).
 
 // The impression shape (spec §4). `phrase` is null until/unless the narrator wakes.
-const makeImpression = ({ register, intensity, source, ref, vector = null, ts, ttl }) => ({
+// `link` is null except on a `recognition` impression, where it carries { ref, sim } — the LOCUS
+// of the earlier reading this one echoes (phase-4). It is a POINTER for the nominator to read; it
+// never makes the impression citable (still kind:'impression', audit-only, spec §9.1).
+const makeImpression = ({ register, intensity, source, ref, vector = null, link = null, ts, ttl }) => ({
   kind: 'impression',            // NEVER "assertion" / "claim" / "event" (spec §9.1)
   register,
   intensity,                     // pre-decay
@@ -22,6 +25,7 @@ const makeImpression = ({ register, intensity, source, ref, vector = null, ts, t
   phrase: null,
   ref,
   vector,
+  link,                          // recognition only: { ref, sim } — the earlier locus it echoes
   ts,
   ttl,
 });
@@ -54,7 +58,7 @@ export const createWorkingFeel = ({
   // duplicate we refresh the timestamp (so decay resets — the alarm is "still ringing") but
   // keep the existing intensity; a stronger reading may only RAISE the recorded intensity to
   // the max seen, never accumulate it.
-  const raise = ({ register, intensity, source = 'geometry', ref, vector = null }) => {
+  const raise = ({ register, intensity, source = 'geometry', ref, vector = null, link = null }) => {
     const t = now();
     prune(t);
     const key = refKey(register, ref);
@@ -66,9 +70,10 @@ export const createWorkingFeel = ({
       existing.ts = t;
       existing.decayedIntensity = existing.intensity;
       if (source === 'narrator') existing.source = source;
+      if (link) existing.link = link;              // freshen the matched-locus pointer (recognition)
       return existing;
     }
-    const imp = makeImpression({ register, intensity, source, ref, vector, ts: t, ttl: ttlMs });
+    const imp = makeImpression({ register, intensity, source, ref, vector, link, ts: t, ttl: ttlMs });
     live.set(key, imp);
     // Bound the ring — evict the faintest (by decayed intensity) when over capacity.
     if (live.size > capacity) {

@@ -15,6 +15,7 @@ import { classify, dominant, createWorkingFeel } from './valence/index.js';
 import { bornCollapse, buildSteer, steerBias } from './steer/index.js';
 import { createNarrator } from './narrate/index.js';
 import { createImpressionSink } from './audit/index.js';
+import { nominateFromFeel, connectionKey } from './link/index.js';
 import { assertLogAppendAllowed, assertMembraneSafe, canCite } from './membrane.js';
 
 export { murmurConfig, MURMUR } from './config.js';
@@ -23,6 +24,7 @@ export * from './valence/index.js';
 export * from './steer/index.js';
 export * from './narrate/index.js';
 export * from './audit/index.js';
+export * from './link/index.js';
 export * from './membrane.js';
 
 // createMurmur({ config, audit, narratorBackend, appendLog, rng, now })
@@ -51,6 +53,8 @@ export const createMurmur = ({
   });
   const sink = createImpressionSink({ audit });
   const steerEvents = [];   // the session's own copy of appended steer events (append-only)
+  const nominations = [];   // candidate connections awaiting the idle promotion gate (read side-channel)
+  const nominatedKeys = new Set();   // dedup — one candidate per (from→to) locus pair (anti-rumination)
 
   // The live-feel broadcast (audit-only, spec §9.4): a surface may WATCH the peripheral sense
   // without ever touching the answer. `subscribe` returns an unsubscribe; `state()` is the last
@@ -78,19 +82,39 @@ export const createMurmur = ({
     // 2. the pre-verbal geometric signal.
     const signal = senseSignal({ ...rawSnapshot, anchorVec: topicNote.anchor, readingCentroid, priorCentroids });
 
-    // 3. registers + the working-feel ring (decay + anti-rumination live here).
+    // 3. registers + the working-feel ring (decay + anti-rumination live here). A `recognition`
+    //    impression carries a `link` back to the earlier reading it echoes — the pointer the
+    //    connective nominator reads (phase 4). It stays a kind:'impression' (audit-only, §9.1).
     const registers = classify(signal, cfg.triggers);
     const impressions = registers.map(r =>
-      feel.raise({ register: r.register, intensity: r.intensity, source: 'geometry', ref: signal.ref, vector: readingCentroid }));
+      feel.raise({
+        register: r.register, intensity: r.intensity, source: 'geometry',
+        ref: signal.ref, vector: readingCentroid,
+        link: (r.register === 'recognition' && signal.recognitionRef)
+          ? { ref: signal.recognitionRef, sim: round3(signal.recognitionSim) } : null,
+      }));
 
-    // 4. the narrator — wakes only on a twitch past the drift/novelty trigger, refractory-gated,
-    //    audit-only. Its phrase is for legibility; it NEVER enters the answer prompt (spec §9.3/§9.5).
+    // 4. the narrator — wakes only on a twitch past a trigger, refractory-gated, audit-only. Its
+    //    phrase is for legibility; it NEVER enters the answer prompt (spec §9.3/§9.5). Recognition
+    //    twitches too now (phase 4): a "we've seen this" mutter voices the connection it points at.
     let phrase = null;
     const top = dominant(signal, cfg.triggers);
-    const twitched = top && (top.register === 'drift' || top.register === 'surprise' || top.register === 'unease');
+    const twitched = top && (top.register === 'drift' || top.register === 'surprise'
+      || top.register === 'unease' || top.register === 'recognition');
     if (twitched && narrator.available) {
       phrase = await narrator.mutter({ register: top.register, ref: signal.ref, passageText: rawSnapshot.passageText });
       if (phrase) for (const imp of impressions) if (imp.register === top.register) { imp.phrase = phrase; imp.source = 'narrator'; }
+    }
+
+    // 4b. NOMINATE connections (phase 4): a fresh recognition impression pointing back at an earlier
+    //     locus becomes a CANDIDATE connection — reafferent, grounded:false, deduped per locus pair.
+    //     It rides the READ side-channel (nominations()/subscribe), NEVER the log: murmur POINTS,
+    //     the document (via the idle promotion gate) witnesses (spec §9 firewall / §8 type law).
+    for (const c of nominateFromFeel(impressions, { from: signal.ref, now })) {
+      const key = connectionKey(c);
+      if (nominatedKeys.has(key)) continue;
+      nominatedKeys.add(key);
+      nominations.push(c);
     }
 
     // 5. the Born-rule collapse — commit iff sample(s·d) fires (spec §4a). Stochastic; the same
@@ -114,9 +138,10 @@ export const createMurmur = ({
     // 6. flush the working feel to rooms/audit as marginalia (spec §10 turn-end; safe every stop).
     sink.flush(turn, feel.feel(), { drift: round3(signal.drift), concentration: round3(signal.concentration), novelty: round3(signal.novelty), geometric: signal.geometric });
 
-    // 7. append this turn's reading centroid to the novelty/recognition ring AFTER measuring, so
-    //    the current reading is never compared against itself (spec §5).
-    topic.pushReading(readingCentroid);
+    // 7. append this turn's reading centroid — WITH its locus (signal.ref) — to the novelty/
+    //    recognition ring AFTER measuring, so the current reading is never compared against itself
+    //    (spec §5) and a future recognition can name this event as the one it echoes (phase 4).
+    topic.pushReading(readingCentroid, signal.ref);
 
     const snapshot = Object.freeze({ signal, registers, impressions: feel.feel(), collapse, steer, topicNote, at: now() });
     lastState = snapshot;
@@ -157,7 +182,13 @@ export const createMurmur = ({
     // the live-feel side-channel a surface watches (read-only; never a citable fact, spec §9.4)
     subscribe(fn) { if (typeof fn === 'function') { watchers.add(fn); return () => watchers.delete(fn); } return () => {}; },
     state: () => lastState,
-    resetSession() { topic.reset(); feel.clear(); steerEvents.length = 0; lastState = null; notifyWatchers(null); },
+    // The connective nominations queue (phase 4) — a READ side-channel exactly like state()
+    // (spec §9.4). nominations() DRAINS it (returns + clears) so the idle promotion gate consumes
+    // each candidate once; peekNominations() is a non-destructive read for tests/audit. Never a log
+    // write (canAppendLog stays false); every candidate is reafferent (canGround === false).
+    nominations() { const out = nominations.slice(); nominations.length = 0; return out; },
+    peekNominations: () => nominations.slice(),
+    resetSession() { topic.reset(); feel.clear(); steerEvents.length = 0; nominations.length = 0; nominatedKeys.clear(); lastState = null; notifyWatchers(null); },
   };
 };
 

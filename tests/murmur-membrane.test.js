@@ -6,6 +6,7 @@ import {
   assertLogAppendAllowed, assertMembraneSafe, assertNoMurmurInPrompt,
   canCite, canGround, canPromote, isMurmurEmission,
   buildSteer, createImpressionSink,
+  buildConnection, canGroundConnection,
 } from '../src/murmur/index.js';
 
 // The membrane invariants (spec §9). These are the guards code review and the contract test must
@@ -80,4 +81,26 @@ test('emissions are only ever impression | steer', () => {
   assert.equal(isMurmurEmission({ kind: 'steer' }), true);
   assert.equal(isMurmurEmission({ kind: 'assertion' }), false);
   assert.equal(isMurmurEmission({ kind: 'claim' }), false);
+});
+
+test('phase 4: a candidate connection is reafferent — it can never witness itself', () => {
+  const c = buildConnection({ from: { turnId: 't3', cursor: 40 }, to: { turnId: 't1', cursor: 5 }, sim: 0.9 });
+  assert.equal(c.kind, 'candidate', 'never an assertion / claim / event');
+  assert.equal(c.grounded, false, 'a candidate is not grounded on its own say-so');
+  assert.equal(canGroundConnection(c), false, 'the promotion gate must find an EXAFFERENT document witness (§8)');
+});
+
+test('phase 4: nominations() is a READ side-channel — nominating/draining appends NOTHING to the log', async () => {
+  const appended = [];
+  const m = createMurmur({ appendLog: (e) => appended.push(e), now: () => 5000 });
+  const a = Float32Array.from([1, 0]);
+  // read A, then read A again → a recognition fires and nominates a candidate connection.
+  await m.observe({ ref: { turnId: 't1', docId: 'd', sentIdxs: [0], cursor: 0 }, query: 'topic', queryVec: a, readingVecs: [a], measuresMeaning: true });
+  await m.observe({ ref: { turnId: 't2', docId: 'd', sentIdxs: [9], cursor: 9 }, query: 'topic', queryVec: a, readingVecs: [a], measuresMeaning: true });
+  assert.ok(m.peekNominations().length >= 1, 'a recognition nominated a candidate connection');
+  assert.equal(appended.length, 0, 'nominating appends NOTHING to the log (audit-only, §9)');
+  assert.equal(m.config.membrane.canAppendLog, false, 'the membrane stays shut — a candidate is not a steer');
+  assert.equal(m.config.membrane.canEditPrompt, false);
+  m.nominations();   // drain
+  assert.equal(appended.length, 0, 'draining the read side-channel still appends nothing');
 });

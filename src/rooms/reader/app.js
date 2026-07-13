@@ -16,6 +16,8 @@
 // touches the network.
 
 import { parseText } from '../../perceiver/parse/index.js';
+import { promoteConnection } from '../../enactor/connect/index.js';
+import { speakTriples, talkThenVerify } from '../../weave/write/index.js';
 import { projectGraph, operatorsOf, glyphOf } from '../../core/index.js';
 import { createModel, describeModel } from '../../model/interface.js';
 import { wrapRedacting } from '../../model/redact-remote.js';
@@ -384,7 +386,15 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     if (!murmur || !ctx) return;
     try {
       const auditTurn = (audit && audit.turns && audit.turns.length) ? audit.turns[audit.turns.length - 1] : null;
-      const ref = { turnId: auditTurn ? auditTurn.id : null, stepName: 'fold', t: nowMs() };
+      // The reading's LOCUS, not just the turn: which doc + which sentence indices the fold
+      // assembled from. This rides into the recognition ring so a later "seen this before" names
+      // the specific earlier passage the connective nominator (phase 4) can go read and verify.
+      const spanIdxs = Array.isArray(ctx.spans) ? ctx.spans.map((s) => s && s.idx).filter((i) => Number.isInteger(i)) : [];
+      const cursor = (ctx.surf && Number.isInteger(ctx.surf.peak)) ? ctx.surf.peak : (spanIdxs.length ? spanIdxs[0] : null);
+      const ref = {
+        turnId: auditTurn ? auditTurn.id : null, stepName: 'fold', t: nowMs(),
+        docId: (ctx.doc && ctx.doc.docId) || null, sentIdxs: spanIdxs, cursor,
+      };
       const r = ctx.referential || null;
       const concentration = {
         concentrated: r ? r.concentrated : undefined,
@@ -2892,6 +2902,108 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     } finally { deepRunning = false; }
   };
 
+  // Voice the just-grounded connections as prose (phase E). Builds grounded subject→relation→object
+  // propositions from the connection edges, labelled via the doc's own graph so real names surface,
+  // then realises them — with the LOCAL model when it is loaded and free, else the deterministic
+  // model-free realizer. The propositional veto (talkThenVerify) strips any drift, so the prose can
+  // be no more wrong than the graph is. Returns '' when there is nothing (grounded) to say.
+  const prosifyConnections = async (promoted) => {
+    if (!promoted || !promoted.length) return '';
+    const props = [];
+    for (const { event, doc } of promoted) {
+      let g = null; try { g = projectGraph(doc.log); } catch { /* skip this one */ }
+      const rep = g?.representative || ((id) => id);
+      const lab = (id) => g?.entities?.get?.(rep(id))?.label ?? id;
+      if (event.src && event.via) props.push({ subj: lab(event.src), verb: event.via, obj: event.tgt ? lab(event.tgt) : null });
+    }
+    if (!props.length) return '';
+    if (state.model?.state === 'ready') {
+      try {
+        const model = await ensureModel();
+        if (model && typeof model.phrase === 'function') {
+          const out = await talkThenVerify({ propositions: props }, model, { doc: promoted[0].doc });
+          const fluent = String(out?.fluent || '').trim();
+          if (fluent && out.clean) return fluent;    // clean = no fabricated proposition survived the veto
+        }
+      } catch { /* a cold/slow/erroring model never costs the pass — fall through to model-free */ }
+    }
+    return speakTriples(props);
+  };
+
+  // The connective promotion pass (phase 4) — the VERIFY half of murmur's connective loop, run at
+  // rest beside deep reading. It drains murmur's candidate connections (recognition impressions that
+  // pointed back at an earlier locus) and lets the DOCUMENT decide: a document-corroborated relation
+  // bridging the two passages is promoted to a real CON edge (Tier 2, nominatedBy:'murmur', grounded
+  // by citation, reafferent so it can never self-witness); every other echo is held open as a
+  // firewalled EVA/void margin note (Tier 1). Both ride the deep-reader OVERLAY (append-only over the
+  // source's durable truth), so they enter the session graph exactly as reflections do, and surface
+  // in the same Reflections drawer — "watch the app murmur" for free. Off the critical path: it never
+  // runs while a turn decodes, and a bad candidate never breaks the loop.
+  let connectRunning = false;
+  const connectTick = async (manual = false) => {
+    if (connectRunning) return 0; connectRunning = true;
+    try {
+      if (!murmur || typeof murmur.nominations !== 'function') return 0;
+      if (state.busy && !manual) return 0;                  // engaged — a turn is decoding
+      const cands = murmur.nominations();                   // DRAIN the read side-channel
+      if (!cands.length) return 0;
+      const overlayFor = (docId) => {
+        const src = state.sources.find((s) => s.docId === docId);
+        const entry = src ? deepReaderFor(src) : null;
+        return entry ? { doc: entry.doc, src } : null;
+      };
+      const docForId = (docId) => overlayFor(docId)?.doc || null;
+      const fresh = [];
+      const promoted = [];                                  // Tier-2 events to prosify (phase E)
+      for (const c of cands) {
+        let res = null;
+        try { res = await promoteConnection(c, { docFor: docForId }); }
+        catch { continue; }                                 // a bad candidate never costs the pass
+        if (!res || !res.event || res.tier === 0) continue;
+        const home = overlayFor(res.docId);
+        if (!home) continue;
+        try { home.doc.log.append(res.event); } catch { continue; }
+        if (res.tier === 2) promoted.push({ event: res.event, doc: home.doc });
+        const label = res.event.echoes?.sharedLabel || res.shared || null;
+        fresh.push({
+          docId: res.docId, sn: home.src?.sn || null, title: home.src?.title || res.docId,
+          peak: Number.isInteger(c?.from?.cursor) ? c.from.cursor : null,   // the "jump to" locus in the drawer
+          tier: res.tier, connection: true, canWitness: false,   // the firewall, surfaced
+          note: res.tier === 2
+            ? `${label ? label + ' — ' : ''}connects to an earlier passage${res.event.citation ? ` (${res.event.citation})` : ''}`
+            : (res.event.body || 'reads like an earlier passage'),
+          citation: res.event.citation || null,
+          verdict: res.tier === 2
+            ? (res.event.echoes?.recurrence ? 'recurrence' : (res.verdict?.verdict || 'corroborated'))
+            : '',
+        });
+      }
+      // Phase E — PROSIFY the grounded connections. "If not otherwise occupied": run only at rest,
+      // and use the LOCAL model when it is warm (webllm/wllama, nothing leaves the box), falling back
+      // to the model-free realizer (speakTriples) otherwise — so the connections are always voiced,
+      // the LLM is spent only when it is free and loaded. The propositional veto (talkThenVerify)
+      // strips anything the talker invents, so the prose can be no more wrong than the graph is.
+      const prose = await prosifyConnections(promoted);
+      if (prose) {
+        const pd = promoted[0]?.doc?.docId || null;
+        const psrc = pd ? state.sources.find((s) => s.docId === pd) : null;
+        fresh.push({ docId: pd, sn: psrc?.sn || null, title: psrc?.title || pd, prose: true, connection: true, tier: 2, canWitness: false, note: prose });
+      }
+
+      if (fresh.length) {
+        state.reflectionsSeen = recordReflections(state.reflections, state.reflectionsSeen, fresh, (r) => ({
+          t: nowIso(), ...r,
+        }));
+        const nT2 = fresh.filter((f) => f.tier === 2 && !f.prose).length;
+        logIt('reflection', nT2
+          ? `Connected at rest — ${nT2} grounded connection${nT2 === 1 ? '' : 's'} added to the graph`
+          : `Noticed ${fresh.length} echo${fresh.length === 1 ? '' : 'es'} at rest`);
+        persist(); emit('reflections');
+      }
+      return fresh.length;
+    } finally { connectRunning = false; }
+  };
+
   // The idle governor: a light interval that fires a deep pass only when NOT engaged — no turn
   // generating, and the user quiet for a beat. A keystroke or tap resets the clock, so deep
   // reading never competes with an active reader; it fills the lulls. Browser only (no timers,
@@ -2909,9 +3021,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     deepTimer = setInterval(() => {
       try {
         if (state.busy) return;                             // engaged
-        if (deepSettled) return;                            // quiesced until the record grows
         if (Date.now() - lastActivity < IDLE_MS) return;    // the user is active
         if (!topicSources().length) return;                 // nothing recorded yet
+        // Promote murmur's connections first (cheap: drains a queue), then read deeper. connectTick
+        // has its own quiescence (an empty queue), so it does not gate on deepSettled the way the
+        // reflection pass does — a fresh recognition can arrive while deep reading has settled.
+        void connectTick(false);
+        if (deepSettled) return;                            // quiesced until the record grows
         deepTick(false);
       } catch { /* a bad pass never breaks the governor */ }
     }, 4000);
@@ -2946,6 +3062,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     refreshProvenance,
     // deep reading — the inner monologue at rest (reflections stream into state.reflections)
     deepTick, reflections,
+    // connective promotion — murmur's candidate connections verified + written at rest (phase 4)
+    connectTick,
     // web-search mode (off | confirm | auto)
     webMode, setWebMode,
     // redact-when-hosted — keep real entities off the wire when the talker is Claude (Anthropic)
