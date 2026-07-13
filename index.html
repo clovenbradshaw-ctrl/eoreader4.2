@@ -63,6 +63,41 @@ table{border-collapse:collapse;width:100%}
         <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C0C0C8;flex:0 0 auto">⏎ ingest</span>
       </div>
     </form>
+
+    <!-- live recording — the microphone. Idle: start a take. Recording: re-open the panel. -->
+    <button onClick="{{ toggleRecord }}" title="{{ micTitle }}" style="width:31px;height:31px;display:flex;align-items:center;justify-content:center;border:1px solid {{ micBd }};background:{{ micBg }};border-radius:999px;color:{{ micFg }};flex:0 0 auto" style-hover="background:#F2F2F6">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/></svg>
+    </button>
+    <sc-if value="{{ recOpen }}">
+      <div style="position:absolute;left:50%;transform:translateX(-50%);top:46px;z-index:31;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:460px;max-width:calc(100vw - 28px)">
+        <div style="display:flex;align-items:center;gap:9px;padding:2px 2px 9px;border-bottom:1px solid #F2F2F6;margin-bottom:9px">
+          <span style="width:9px;height:9px;border-radius:50%;background:#B23A2E;flex:0 0 auto;animation:{{ recDotAnim }}"></span>
+          <span style="flex:1;font-size:12.5px;font-weight:700;letter-spacing:.02em;color:#2A2A32">{{ recHeading }}</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8A95">{{ recTime }}</span>
+        </div>
+        <div style="font-size:11.5px;color:#8A8A95;line-height:1.5;padding:0 2px 8px">{{ recNote }}</div>
+        <div class="eo-scroll" style="max-height:150px;overflow-y:auto;border:1px solid #EEEEF2;border-radius:9px;padding:9px 11px;font-size:12.5px;color:#3A3A44;line-height:1.55;background:#FAFAFC">
+          <sc-if value="{{ recHasPartial }}"><span>{{ recPartial }}</span></sc-if>
+          <sc-if value="{{ recNoPartial }}"><span style="color:#B4B4BE;font-style:italic">Words appear here as they’re heard — transcribed on this device, nothing leaves the browser.</span></sc-if>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <sc-if value="{{ recIsRec }}">
+            <button onClick="{{ stopRecord }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12.5px;border-radius:8px;padding:8px" style-hover="background:#E7E2FD">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              Stop &amp; record it
+            </button>
+          </sc-if>
+          <sc-if value="{{ recIsFin }}">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;color:#8A8A95;font-size:12.5px;padding:8px">
+              <span style="width:13px;height:13px;border:2px solid #DED8FD;border-top-color:#5B4BE6;border-radius:50%;animation:eoSpin .7s linear infinite;flex:0 0 auto"></span>
+              Finishing the transcript…
+            </div>
+          </sc-if>
+          <button onClick="{{ cancelRecord }}" style="flex:0 0 auto;font-size:12.5px;font-weight:600;color:#8A8A95;border:1px solid #EEEEF2;border-radius:8px;padding:8px 14px" style-hover="background:#F5F5F8;color:#B23A2E">Discard</button>
+        </div>
+      </div>
+    </sc-if>
+
     <button onClick="{{ toggleModel }}" title="Model" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
       <span style="width:7px;height:7px;border-radius:50%;background:{{ modelDot }};flex:0 0 auto"></span>
       {{ modelChip }}
@@ -327,6 +362,7 @@ table{border-collapse:collapse;width:100%}
           <div style="display:flex;gap:6px">
             <button onClick="{{ pickFile }}" title="Import a file" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
             <button onClick="{{ openPaste }}" title="Paste text" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button>
+            <button onClick="{{ toggleRecord }}" title="Record audio — transcribed live" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:{{ micFg }}" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/></svg></button>
             <button onClick="{{ goMemo }}" title="Draft a memo" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></button>
             <button onClick="{{ goGraph }}" title="Provenance graph" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></button>
           </div>
@@ -1540,6 +1576,8 @@ class Component extends DCLogic {
     super(props);
     this.state = {
       tab: 'chat', omni: '', chatInput: '', toast: null,
+      // live recording — recPhase: 'idle' | 'rec' (the take runs) | 'fin' (draining the tail)
+      recOpen: false, recPhase: 'idle', recTime: '0:00', recPartial: '', recNote: '',
       leftOpen: this._pref('eo_left', true), rightOpen: this._pref('eo_right', true),
       statusOpen: false, monologueOpen: false, logMode: 'actions',
       focusId: null, hideContra: false, tx: 40, ty: 30, scale: 1, camT: 'none',
@@ -1872,6 +1910,61 @@ class Component extends DCLogic {
       .catch((err) => this.showToast(`Couldn't read ${f.name}: ${String(err && err.message || err).slice(0, 90)}`));
   }
   pickFile() { this._ensureFileInput().click(); }
+
+  // ── live recording — the microphone, transcribed while it listens ───────────
+  // The recorder (app.recordAudio → src/rooms/reader/record-audio.js) streams the
+  // growing transcript back through onPartial; Stop drains the final window and lands
+  // the take as a source (app.ingestRecording); Discard throws the whole take away.
+  toggleRecord() {
+    if (this.state.recPhase !== 'idle') { this.setState({ recOpen: !this.state.recOpen }); return; }
+    this.startRecord();
+  }
+  async startRecord() {
+    if (!this._app || !this._app.recordAudio) { this.showToast('The engine is still booting — try again in a moment.'); return; }
+    this.setState({ recOpen: true, recPhase: 'rec', recTime: '0:00', recPartial: '', recNote: 'Asking for the microphone…' });
+    try {
+      const rec = await this._app.recordAudio({
+        onState: (s) => { if (this._recorder === rec || !this._recorder) this.setState({ recNote: String(s || '') }); },
+        onPartial: (p) => { if (this._recorder === rec) this.setState({ recPartial: String(p && p.text || '') }); },
+      });
+      this._recorder = rec;
+      await rec.start();
+      this._recT0 = Date.now();
+      clearInterval(this._recTimer);
+      this._recTimer = setInterval(() => {
+        const s = Math.floor((Date.now() - this._recT0) / 1000);
+        this.setState({ recTime: Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') });
+      }, 1000);
+    } catch (err) {
+      this._recorder = null;
+      this.setState({ recOpen: false, recPhase: 'idle', recNote: '' });
+      this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`);
+    }
+  }
+  async stopRecord() {
+    const rec = this._recorder;
+    if (!rec || this.state.recPhase !== 'rec') return;
+    clearInterval(this._recTimer);
+    this.setState({ recPhase: 'fin', recNote: 'Finishing the transcript…' });
+    try {
+      const got = await rec.stop();
+      if (this._recorder !== rec) return;   // discarded while the tail was draining
+      const src = await this._app.ingestRecording(got);
+      this.showToast(`Recorded ${src.reg} — ${src.title}`);
+    } catch (err) {
+      if (this._recorder !== rec) return;
+      this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`);
+    }
+    this._recorder = null;
+    this.setState({ recOpen: false, recPhase: 'idle', recTime: '0:00', recPartial: '', recNote: '' });
+  }
+  cancelRecord() {
+    try { if (this._recorder) this._recorder.cancel(); } catch { /* already torn down */ }
+    clearInterval(this._recTimer);
+    this._recorder = null;
+    this.setState({ recOpen: false, recPhase: 'idle', recTime: '0:00', recPartial: '', recNote: '' });
+  }
+
   openPaste() { this.setState({ pasteOpen: true, pasteTitle: '', pasteBody: '' }); }
   closePaste() { this.setState({ pasteOpen: false }); }
   onPasteTitle(e) { this.setState({ pasteTitle: e.target.value }); }
@@ -2925,6 +3018,30 @@ class Component extends DCLogic {
     };
   }
 
+  // Recording bindings for EVERY render branch (booting, broken, or live) — the mic
+  // button sits in the header chrome, so a fallback render still needs its handlers.
+  _recVals() {
+    const st = this.state;
+    const rec = st.recPhase === 'rec', fin = st.recPhase === 'fin', active = rec || fin;
+    return {
+      recOpen: !!st.recOpen, recActive: active,
+      recIsRec: rec, recIsFin: fin,
+      recTime: st.recTime || '0:00', recNote: st.recNote || '',
+      recPartial: st.recPartial || '',
+      recHasPartial: !!(st.recPartial && st.recPartial.trim()),
+      recNoPartial: !(st.recPartial && st.recPartial.trim()),
+      recHeading: fin ? 'Transcribing…' : 'Recording',
+      recDotAnim: rec ? 'eoPulse 1.2s ease-in-out infinite' : 'none',
+      micFg: active ? '#B23A2E' : '#5A5A64',
+      micBg: active ? '#FBE9E6' : '#F7F7FA',
+      micBd: active ? '#F2C8C2' : '#E6E6EC',
+      micTitle: active ? 'Recording — open the take panel' : 'Record audio — transcribed live, on this device',
+      toggleRecord: () => this.toggleRecord(),
+      stopRecord: () => this.stopRecord(),
+      cancelRecord: () => this.cancelRecord(),
+    };
+  }
+
   _acctVals() {
     const st = this.state;
     const mx = this._matrix;
@@ -2992,7 +3109,7 @@ class Component extends DCLogic {
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
+        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._recVals() };
     }
   }
 
@@ -3005,7 +3122,7 @@ class Component extends DCLogic {
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
         statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
+        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._recVals() };
     }
     const topic = app.topic();
     const sources = app.topicSources();
@@ -3283,6 +3400,7 @@ class Component extends DCLogic {
       { label: '🌐 Read a web page', go: () => this.showToast('Paste any URL in the bar above and press Enter') },
       { label: '🔎 Search the web', go: () => this.showToast('Type a query in the bar above and press Enter') },
       { label: '📄 Import a file', go: () => this.pickFile() },
+      { label: '🎙️ Record audio', go: () => this.toggleRecord() },
       { label: '📋 Paste text', go: () => this.openPaste() },
     ];
 
@@ -3685,6 +3803,8 @@ class Component extends DCLogic {
     return {
       // chrome
       omni: st.omni, toast: st.toast, dragOver: !!st.dragOver,
+      // live recording — the mic button + the take panel
+      ...this._recVals(),
       leftOpen: st.leftOpen, rightOpen: st.rightOpen,
       leftBtnFg: st.leftOpen ? '#5B4BE6' : '#9A9AA4', rightBtnFg: st.rightOpen ? '#5B4BE6' : '#9A9AA4',
       onOmniSubmit: (e) => this.onOmniSubmit(e), onOmniInput: (e) => this.onOmniInput(e),

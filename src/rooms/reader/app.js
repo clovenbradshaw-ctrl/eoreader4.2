@@ -822,6 +822,35 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       return src;
     });
 
+  // ── live recording — the microphone cochlea ────────────────────────────────
+  // The recorder itself (record-audio.js) is lazy like every heavy front-end: nothing —
+  // not whisper, not the module — loads until someone actually starts a recording. The
+  // surface drives { start, stop, cancel } and streams the live transcript; the finished
+  // take lands here.
+  const recordAudio = async (callbacks) => (await import('./record-audio.js')).createRecorder(callbacks);
+
+  // A finished live recording, admitted as a source WITHOUT re-hearing it — the words
+  // were transcribed while they were spoken (the recorder's windowed decode); here the
+  // transcript only lands on the spine, exactly the way an uploaded clip's does
+  // (ingestFile: audio is a prose-bearing modality, so the entity/relation read runs
+  // over the actual sentences), with the same coverage receipt on the source.
+  const ingestRecording = ({ utterances = [], text = '', duration = 0, witness = 'microphone', title = null } = {}) =>
+    runCancellable({ kind: 'file', label: 'Recording the transcript…' }, async () => {
+      const body = String(text || utterances.map(u => (u.words || []).map(w => w.text).join(' ')).join(' ')).trim();
+      if (!body) throw new Error('no speech was heard in the recording');
+      const name = title || `Recording — ${nowIso().slice(0, 16).replace('T', ' ')}`;
+      const doc = parseText(body, { docId: `doc-${shaShort(webContentHash(body))}` });
+      const src = addSource({ title: name, text: body, kind: 'audio', rights: 'live recording — transcribed on this device', doc });
+      if (src && !src.coverage) {
+        const heardTo = utterances.length ? utterances[utterances.length - 1].end : 0;
+        src.coverage = { complete: true, seconds: Math.round(duration * 10) / 10, heardTo: Math.round(heardTo * 10) / 10,
+                         utterances: utterances.length, witness, dropped: [] };
+        logIt('record', `Coverage — ${src.coverage.seconds}s of live audio heard end to end (${witness})`, src.reg);
+        persist();
+      }
+      return src;
+    });
+
   // ── model ──────────────────────────────────────────────────────────────────
   let backendOverride = null;
   const backendPref = () => {
@@ -2410,6 +2439,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
     // ingest
     ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage,
+    recordAudio, ingestRecording,
     sourceBySn, removeSource, topicSources,
     // chat
     ask, stop, exportChat,
