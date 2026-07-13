@@ -393,12 +393,12 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       if (snap && snap.v === 1) {
         ({ sn, tn, ln, mn } = snap);
         wn = snap.wn || 0;
-        state.sources = (snap.sources || []).map((s) => ({ ...s, _doc: null }));
-        state.topics = snap.topics || [];
+        state.sources = (Array.isArray(snap.sources) ? snap.sources : []).map((s) => ({ ...s, _doc: null }));
+        state.topics = Array.isArray(snap.topics) ? snap.topics : [];
         state.activeTopicId = snap.activeTopicId;
         state.workspaces = Array.isArray(snap.workspaces) ? snap.workspaces : [];
         state.activeWorkspaceId = snap.activeWorkspaceId || null;
-        state.log = snap.log || [];
+        state.log = Array.isArray(snap.log) ? snap.log : [];
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
       }
     } catch { /* fresh session */ }
@@ -466,7 +466,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   // fold a topic under one of its own descendants (a cycle out of the tree).
   const topicDescendants = (id) => {
     const out = [];
-    const walk = (pid) => { for (const t of state.topics) if ((t.parentId ?? null) === pid) { out.push(t.id); walk(t.id); } };
+    // `seen` guards the walk against a cyclic parentId chain in restored state (a
+    // self-parent bricked every later move with a stack overflow); expandAncestors
+    // carries the same guard as its counter.
+    const seen = new Set([id]);
+    const walk = (pid) => { for (const t of state.topics) if ((t.parentId ?? null) === pid && !seen.has(t.id)) { seen.add(t.id); out.push(t.id); walk(t.id); } };
     walk(id);
     return out;
   };
@@ -2455,7 +2459,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
 
   const reflections = () => state.reflections.slice();
 
-  restore();
+  // A snapshot the migration can't digest must degrade to a fresh session, not an
+  // unhandled boot rejection with `ready` never emitted — that bricked the surface
+  // on EVERY visit until the user cleared site data.
+  restore().catch(() => { if (!state.ready) { state.ready = true; emit('ready'); } });
 
   return Object.freeze({
     state, subscribe,

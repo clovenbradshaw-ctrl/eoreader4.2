@@ -96,6 +96,10 @@ export const createRawStore = ({ dir = RAW_STORE_DIR } = {}) => {
         persisted = true;
       } catch { persisted = false; }
     }
+    // OPFS is the resting home: once the bytes are on disk, holding every fetched
+    // page/book in the Map for the tab's lifetime is pure growth — get() re-reads
+    // from disk on demand. The Map keeps only what could NOT be persisted.
+    if (persisted) mem.delete(key);
     const prev = meta.get(key) || {};
     meta.set(key, {
       key, content_hash: key, dir, file: rawFileName(key), bytes: bytes.length, persisted,
@@ -116,7 +120,8 @@ export const createRawStore = ({ dir = RAW_STORE_DIR } = {}) => {
     try {
       const fh  = await d.getFileHandle(rawFileName(key));
       const buf = new Uint8Array(await (await fh.getFile()).arrayBuffer());
-      mem.set(key, buf);
+      // Not re-cached in mem: a disk read per get keeps the Map from re-accumulating
+      // every page ever revisited.
       return dec().decode(buf);
     } catch { return null; }
   };
