@@ -190,6 +190,15 @@ const EXEMPLAR_FRAME = 'For the SHAPE only — here is the kind of answer this q
 
 const STRICT_ABSENCE = 'Your reading turned up nothing bearing on their question — it is not covered by what you read. Say that plainly, the way a person would (for example: "I didn\'t find anything about that in what I read" — first person, never "the reading doesn\'t mention…"), then, if you can, answer from general knowledge, making clear that part is not from what you read.';
 
+// The MEASURED-DECLINE hints (turn/stages.js answerable/gate). The answerability floor
+// measured that the reading DIFFUSED (no figure leads — the lines hold the subject's words
+// but not a settled answer to what was asked) or that the corpus does not NAME the subject.
+// This once rode as a mechanical raw-span refusal that terminated the turn before the model;
+// now it rides here so the talker writes the honest decline itself, in the first person,
+// rather than picking a figure the reading didn't land on or confabulating an absent one.
+const DECLINE_DIFFUSE = 'Your reading did not settle on which figure this question is about — the lines hold the subject\'s words but not a settled answer to exactly what was asked. Say that plainly, in the first person (for example: "I didn\'t find a settled answer to that in what I read"), then say what the lines DO hold that bears on it. Do not pick a figure your reading did not land on, and do not fill the gap from elsewhere without saying that part isn\'t from what you read.';
+const DECLINE_ABSENT = 'Your reading does not appear to cover what this question names. Say that plainly, in the first person ("I didn\'t find that in what I read"); then, if you can, add what you know from general knowledge, making clear that part is not from what you read. Never present it as something the lines said.';
+
 const STEER_AIM = ' Keep the whole reply aimed at what they’re actually after (the brief just above) — lead with what your reading speaks to it, not with whatever else happened to surface.';
 
 const ANSWER_META = 'about the conversation above. Draw on those ' +
@@ -222,6 +231,7 @@ export const groundedView = ({
   shape = '',
   steer = '',
   tail = '',
+  declineHint = '',
 } = {}) => {
   // A META-CONVERSATIONAL turn (the question is ABOUT the conversation) carries the full
   // both-role thread as its SUBJECT, framed to be drawn on, not skipped. Every other
@@ -230,7 +240,7 @@ export const groundedView = ({
   const budgetStr = budgetLine(budget);
   return {
     question, spans, orientation, task, budget, conversation, meta, corrective,
-    exemplar, strict, now, graph, arc, reasoning, shape, steer, tail,
+    exemplar, strict, now, graph, arc, reasoning, shape, steer, tail, declineHint,
     metaConv, budgetStr,
   };
 };
@@ -413,6 +423,18 @@ export const GROUNDED_BANDS = Object.freeze([
     when: (v) => v.strict && !v.spans.length,
     render: () => STRICT_ABSENCE,
     prose: [STRICT_ABSENCE],
+  },
+  // The MEASURED-DECLINE hint (turn/stages.js answerable/gate). The floor measured that the
+  // reading diffused (`declineHint: 'diffuse'`) or the corpus does not name the subject
+  // (`'absent'`), so the talker is told to decline honestly rather than pick/confabulate.
+  // Empty by default → the band never fires on an ordinary turn → byte-identical prompt
+  // (pinned by tests/prompt-golden.test.js). Void: what the reading did NOT settle or find.
+  {
+    key: 'decline', terrain: 'Void', role: 'user',
+    cell: { op: 'DEF', stance: 'Clearing' },
+    when: (v) => !!v.declineHint,
+    render: (v) => (v.declineHint === 'absent' ? DECLINE_ABSENT : DECLINE_DIFFUSE),
+    prose: [DECLINE_DIFFUSE, DECLINE_ABSENT],
   },
   // THE DISCOURSE STEER — the metacognition's BRIEF on what THIS user is actually
   // after (app.dc.js _steerLine), folded in as the last instruction before the answer
