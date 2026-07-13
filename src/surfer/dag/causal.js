@@ -35,7 +35,7 @@
 // polarity (− = a measured null), the modality (hedged or not), the readerConfidence, and
 // the SRC: docId, sentence index, char span, and the verbatim text. Nothing floats free.
 
-import { proposeStance, readPolarity, readModality, ESSENTIAL_VERBS, ASSOCIATION_VERBS } from './stance.js';
+import { proposeStance, readPolarity, readModality, classifyArc, ESSENTIAL_VERBS, ASSOCIATION_VERBS } from './stance.js';
 
 // Determiners / possessives stripped from an NP's front when finding its head + qualifiers.
 const DETERMINERS = new Set([
@@ -74,6 +74,29 @@ const REPORTING = new Set([
   'fell', 'rose', 'ran', 'grew', 'came', 'went', 'did', 'was', 'were', 'is', 'are',
 ]);
 const REPORTING_RE = /\b(?:argued|claimed|said|found|showed|suggested|concluded|noted|stated|thought|believed|contended|reported|wrote)\b/i;
+
+// A NODE is a VARIABLE — a concept you could in principle measure. These heads are not:
+// discourse markers, hedges, bare adverbs, appearance copulas, and stray particles. A causal
+// DAG built on "it appears", "once again", "probably", "further", or a truncated "…shut down"
+// is unreadable (spec §3, Workstream A). An NP that heads on one of these proposes NO node and
+// the clause is passed over — exactly as an unmarked sentence is. Enumerated + deterministic,
+// the same discipline as the stance lexicons; the inspector still shows every surface form.
+const NON_VARIABLE = new Set([
+  // discourse markers / connectives standing alone
+  'once', 'again', 'further', 'furthermore', 'moreover', 'meanwhile', 'anyway', 'besides',
+  'otherwise', 'nonetheless', 'therefore', 'thus', 'hence', 'then', 'however',
+  // hedges / stance adverbs
+  'probably', 'possibly', 'perhaps', 'maybe', 'apparently', 'seemingly', 'arguably',
+  'presumably', 'supposedly', 'allegedly', 'reportedly', 'evidently', 'clearly', 'obviously',
+  'actually', 'basically', 'essentially', 'literally', 'really', 'quite', 'rather', 'somewhat',
+  // appearance / seeming copulas (a clause verb, never a variable): "it appears", "seems to"
+  'appear', 'appears', 'appeared', 'appearing', 'seem', 'seems', 'seemed', 'seeming',
+  'look', 'looks', 'looked', 'become', 'becomes', 'became', 'remain', 'remains', 'remained',
+  // adjectival / degree tails a capture drags along with no noun of their own
+  'sharp', 'former', 'latter', 'overall', 'certain', 'various', 'several', 'mere',
+  // bare particles / directions left after a truncated clause ("… shut down", "… ran out")
+  'down', 'up', 'out', 'off', 'over', 'away', 'back', 'forth', 'apart', 'aside', 'along',
+]);
 
 // A causal-verb token right after one of these is an adjective/noun-modifier, not a verb.
 const PRE_NOUN = new Set([
@@ -150,11 +173,17 @@ const finishNP = (run, phrase) => {
   // A node is a noun, never a verb: reject a head that is a causal, association, or reporting
   // verb (NP extraction mistook a clause verb for a noun — "argued", "found", "drove").
   if (ESSENTIAL_VERBS.has(head) || ASSOCIATION_VERBS.has(head) || REPORTING.has(head)) return null;
+  // A node is a VARIABLE, never a discourse marker, hedge, bare adverb, appearance copula, or
+  // stray particle — the sentence-fragment "nodes" Workstream A exists to drop ("it appears",
+  // "once again", "probably", "further", "…shut down"). The clause is passed over, not guessed.
+  if (NON_VARIABLE.has(head)) return null;
   const pre = run.slice(0, hi).filter((w) => !STOP.has(w));
   const qualifiers = pre.filter((w) => !DIRECTION.has(w));
   const sign = pre.some((w) => ['higher', 'more', 'greater', 'increased', 'raised'].includes(w)) ? '+'
     : pre.some((w) => ['lower', 'less', 'fewer', 'decreased', 'reduced'].includes(w)) ? '−' : null;
-  const label = run.join(' ');
+  // The label runs only up to the head — a trailing adverb/particle a capture swept in is
+  // dropped ("voyager launch almost" → "voyager launch"), so the box reads as the concept.
+  const label = run.slice(0, hi + 1).join(' ');
   return { key: head, label, qualifiers, sign };
 };
 
@@ -263,11 +292,16 @@ export const readCausalClaims = (doc, { docId } = {}) => {
       const stance = proposeStance(c.verb, sent);
       if (!stance.stance) continue;                    // no causal claim proposed → pass over
       const span = [c.at, c.at + c.len];
+      // The canonical ARC (one of the fixed nine) + its polarity — the type the renderer and
+      // analysis branch on. The verb (`marker`) rides alongside verbatim as the contextual
+      // subtype, never dropped: type stays small and stable, provenance stays intact (§5).
+      const { arc, sign: arcSign } = classifyArc({ verb: c.verb, stance: stance.stance, warrant: stance.warrant, effectSign: c.effectSign });
       const base = {
         cause: c.cause.key, causeLabel: c.cause.label, causeQualifiers: Object.freeze(c.cause.qualifiers),
         effect: c.effect.key, effectLabel: c.effect.label, effectQualifiers: Object.freeze(c.effect.qualifiers),
         effectSign: c.effectSign,
         stance: stance.stance, warrant: stance.warrant,
+        arc, arcSign,
         polarity: readPolarity(sent), modality: readModality(sent),
         marker: c.verb,
         // `reading:true` — this is what the READER takes the passage to mean, defeasible and

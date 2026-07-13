@@ -28,7 +28,7 @@ import { discourseDag } from './discourse.js';
 export { discourseDag } from './discourse.js';
 export { readCausalClaims } from './causal.js';
 export { mountDagSurface, dagNodeLabel } from './surface.js';
-export { proposeStance, STANCES } from './stance.js';
+export { proposeStance, STANCES, classifyArc, ARCS, ARC_BAND, ARC_MEANING } from './stance.js';
 export { classifyAbsence, absenceCensus, ABSENCE } from './nul.js';
 export { confounders, reversePairs, mechanisms, constructConcerns } from './complexity.js';
 
@@ -68,23 +68,35 @@ const foldGraph = (claims) => {
   // polarity split — never a single winning stance.
   const edges = [...edgeMap.values()].map((e) => {
     const byStance = { accidental: 0, essential: 0, generative: 0 };
+    const byArc = {};
     const sources = new Set();
     let positive = 0, nullc = 0;
     for (const c of e.claims) {
       byStance[c.stance] = (byStance[c.stance] || 0) + 1;
+      if (c.arc) byArc[c.arc] = (byArc[c.arc] || 0) + 1;
       sources.add(c.src.docId);
       if (c.polarity === '−') nullc++; else positive++;
     }
+    // The edge's ARC — the type of its most confidently read claim (the same representative
+    // the surface labels the arrow with), with the full tally kept so a disagreement in KIND
+    // (one source reads `produces`, another `correlates`) stays visible, never collapsed. The
+    // arc's polarity is that representative's sign; it is the +/− the `influences` glyph shows.
+    const rep = e.claims.reduce((b, c) => (!b || c.readerConfidence > b.readerConfidence ? c : b), null);
     return Object.freeze({
       from: e.from, to: e.to,
       claims: Object.freeze(e.claims),
       stanceTally: Object.freeze(byStance),
+      arcTally: Object.freeze(byArc),
+      dominantArc: rep ? rep.arc : null,
+      arcSign: rep ? rep.arcSign : null,
       // the strongest stance ANY reading proposed — reported for display, but the tally is the
       // truth; this is never used to overwrite the weaker readings (they stay in `claims`).
       strongestProposed: byStance.generative ? 'generative' : byStance.essential ? 'essential' : byStance.accidental ? 'accidental' : null,
       sources: Object.freeze([...sources]),
       polarity: Object.freeze({ positive, null: nullc }),
       contested: sources.size > 1 && (byStance.accidental > 0) && (byStance.essential + byStance.generative > 0),
+      // a disagreement in KIND across sources — the same node pair read as different arcs.
+      arcContested: sources.size > 1 && Object.keys(byArc).length > 1,
     });
   });
   return { nodes, edges };

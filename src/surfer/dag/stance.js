@@ -173,3 +173,92 @@ export const readModality = (context = '') => (hasAny(context, HEDGE_CUES) ? 'ep
 
 export const isCausalVerb = (v) => ESSENTIAL_VERBS.has(String(v || '').toLowerCase());
 export const isAssociationVerb = (v) => ASSOCIATION_VERBS.has(String(v || '').toLowerCase());
+
+// ── THE NINE CANONICAL ARCS ─────────────────────────────────────────────────
+// A fixed spine of nine edge TYPES the renderer and the analysis logic branch on. The
+// source's own verb is kept ALONGSIDE, verbatim, as a contextual subtype (the claim's
+// `marker`) — the layout and analysis never read it, only the arc. This keeps the type
+// system small and stable while auditability is preserved: the verb is never dropped.
+//
+// TWO orthogonalities are deliberate (the DAGitty lesson — separate structure from sign):
+//   • POLARITY (+/−/none) is NOT a type. "increases" and "decreases" are both the
+//     `influences` arc, told apart by their sign — so the nine name a KIND of relation,
+//     never a direction of effect.
+//   • VERB is NOT a type. "led", "triggered", "caused" all map to `produces`, each keeping
+//     its own word for the reader and the passage trace.
+//
+// Arc #9 `common-cause` is STRUCTURAL — it is not read off any one verb but off the shape
+// of the graph (a node read as a shared upstream cause of two arcs; complexity.js). It is
+// listed here so the legend and the analysis panel can name it as a first-class type; the
+// per-claim classifier never returns it (a claim is one edge; a confounder is a fork).
+export const ARCS = Object.freeze([
+  'produces', 'influences', 'prevents', 'enables',
+  'contributes', 'mechanism', 'correlates', 'because', 'common-cause',
+]);
+
+// The coarse three-band grouping over the nine (spec §5.4): color answers "is this asserting
+// causation, describing a mechanism, or just correlation?"; line-style + arrowhead answer
+// "which of the nine exactly?". Two zoom levels of meaning over one edge.
+export const ARC_BAND = Object.freeze({
+  produces: 'cause', influences: 'cause', prevents: 'cause', enables: 'cause',
+  contributes: 'cause', because: 'cause', 'common-cause': 'cause',
+  mechanism: 'mechanism',
+  correlates: 'correlation',
+});
+
+// Human-facing gloss per arc — what a source asserting this arc is read as claiming.
+export const ARC_MEANING = Object.freeze({
+  produces: 'brings about', influences: 'changes the magnitude of', prevents: 'blocks or suppresses',
+  enables: 'is a condition that allows', contributes: 'is one of several partial causes of',
+  mechanism: 'is how (a pathway for)', correlates: 'co-occurs with — no causal claim',
+  because: 'is the stated reason for', 'common-cause': 'is a shared upstream cause of',
+});
+
+// The verb partition beneath the causal (ESSENTIAL) band. A verb NOT named here falls
+// through to `influences` (arc #2) — the most generic magnitude relation — with its word
+// still shown; never dropped, never guessed. Forms are enumerated (the ledger discipline).
+const PRODUCE_VERBS = new Set([
+  'cause', 'causes', 'caused', 'causing', 'produce', 'produces', 'produced', 'producing',
+  'lead', 'leads', 'led', 'drive', 'drives', 'drove', 'driven',
+  'trigger', 'triggers', 'triggered', 'triggering', 'spur', 'spurs', 'spurred',
+  'generate', 'generates', 'generated', 'create', 'creates', 'created', 'result', 'results', 'resulted',
+]);
+const PREVENT_VERBS = new Set([
+  'prevent', 'prevents', 'prevented', 'preventing', 'inhibit', 'inhibits', 'inhibited',
+  'suppress', 'suppresses', 'suppressed', 'deter', 'deters', 'deterred',
+  'curb', 'curbs', 'curbed', 'curbing', 'hinder', 'hinders', 'hindered',
+  'block', 'blocks', 'blocked', 'impede', 'impedes', 'impeded', 'stop', 'stops', 'stopped',
+]);
+const ENABLE_VERBS = new Set([
+  'enable', 'enables', 'enabled', 'allow', 'allows', 'allowed', 'permit', 'permits', 'permitted',
+  'facilitate', 'facilitates', 'facilitated', 'empower', 'empowers', 'empowered', 'let', 'lets',
+]);
+const CONTRIBUTE_VERBS = new Set([
+  'shape', 'shapes', 'shaped', 'foster', 'fosters', 'fostered', 'contribute', 'contributes', 'contributed',
+  'help', 'helps', 'helped', 'support', 'supports', 'supported', 'promote', 'promotes', 'promoted',
+  'encourage', 'encourages', 'encouraged', 'aid', 'aids', 'aided',
+]);
+
+// Classify a single causal reading into exactly one of the nine arcs, with its polarity.
+// Reads off what proposeStance already decided (the stance) plus the verb partition above —
+// never re-deciding, only naming which KIND. `effectSign` is the direction of the asserted
+// effect ('+'/'−', from causal.js); it rides alongside as the arc's polarity, orthogonal to
+// the type. `correlates` is symmetric, so it carries no sign.
+//   Returns { arc, sign } — arc ∈ ARCS (never 'common-cause'), sign ∈ '+' | '−' | 'none'.
+export const classifyArc = ({ verb, stance, warrant = '', effectSign = '+' } = {}) => {
+  const v = String(verb || '').toLowerCase();
+  const w = String(warrant || '');
+  // association / denial → correlation only (symmetric, no sign).
+  if (stance === 'accidental' || ASSOCIATION_VERBS.has(v)) return Object.freeze({ arc: 'correlates', sign: 'none' });
+  // an explicit stated reason: the subordinator link (because / due to / …).
+  if (v === 'cause-link' || w === 'cause-link') return Object.freeze({ arc: 'because', sign: effectSign });
+  // a spelled-out pathway → mechanism.
+  if (stance === 'generative') return Object.freeze({ arc: 'mechanism', sign: effectSign });
+  // the causal band, sub-typed by the verb partition; the default is `influences`.
+  let arc = 'influences';
+  if (PREVENT_VERBS.has(v)) arc = 'prevents';
+  else if (ENABLE_VERBS.has(v)) arc = 'enables';
+  else if (CONTRIBUTE_VERBS.has(v)) arc = 'contributes';
+  else if (PRODUCE_VERBS.has(v)) arc = 'produces';
+  return Object.freeze({ arc, sign: effectSign });
+};
