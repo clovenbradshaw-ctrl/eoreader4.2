@@ -116,30 +116,34 @@ export const analyzeFrames = async ({ frames = [], fps = 2, name = `video-${'x'}
   const r = readVideo({ name, title, frames, fps, media, mediaKind: 'video' });
   const shots = (r.shots && r.shots.shots) || [];
 
-  // Tier 3 — CV on ONE keyframe per shot, gated. Best-effort per shot: a decode/describe fault on one
-  // keyframe leaves that shot un-named, never fails the whole read. The content-addressed cache in the
-  // vision organ makes a re-run of an unchanged clip free.
+  // A keyframe pass over the shots: grab one settled frame per shot (a thumbnail for the strip — the
+  // cheap structure read shows these too, at one extra seek per shot), and, IF a vision organ is
+  // supplied, NAME it (Tier 3, gated one-per-shot). Best-effort per shot: a decode/describe fault on
+  // one keyframe leaves that shot un-named, never fails the whole read; the vision organ's content-
+  // addressed cache makes a re-run of an unchanged clip free.
   const visionByShot = [];
-  if (grabKeyframe && vision && typeof vision.describe === 'function') {
+  const cv = !!(vision && typeof vision.describe === 'function');
+  if (grabKeyframe) {
     for (let i = 0; i < shots.length; i++) {
       if (aborted()) throw new DOMException('aborted', 'AbortError');
       const sh = shots[i];
-      say({ phase: 'cv', label: `Naming shot ${i + 1} of ${shots.length}…`, pct: Math.round(((i + 1) / Math.max(shots.length, 1)) * 100) });
+      say({ phase: cv ? 'cv' : 'keyframe', label: cv ? `Naming shot ${i + 1} of ${shots.length}…` : `Grabbing keyframe ${i + 1} of ${shots.length}…`, pct: Math.round(((i + 1) / Math.max(shots.length, 1)) * 100) });
       try {
-        const blob = await grabKeyframe(sh.keyframe);
-        if (!blob) continue;
-        const seen = await vision.describe(blob);
-        const composed = composeScene({ ...seen, name: `${name}-shot-${i}` });
-        const lines = ocr ? (await ocr(blob).catch(() => [])) : [];
-        visionByShot.push({
-          span: [sh.start, sh.end], keyframe: sh.keyframe,
-          caption: composed.text || seen.caption || '',
-          regions: (composed.regions || []).map((rg) => ({ label: rg.label, bbox: rg.bbox, score: rg.score })),
-          ocr: lines, witness: seen.witness || (vision.model ? `${vision.model}` : 'vision'),
-        });
+        const blob = await grabKeyframe(sh.keyframe);   // stashes the shot's thumbnail (surface strip)
+        if (cv && blob) {
+          const seen = await vision.describe(blob);
+          const composed = composeScene({ ...seen, name: `${name}-shot-${i}` });
+          const lines = ocr ? (await ocr(blob).catch(() => [])) : [];
+          visionByShot.push({
+            span: [sh.start, sh.end], keyframe: sh.keyframe,
+            caption: composed.text || seen.caption || '',
+            regions: (composed.regions || []).map((rg) => ({ label: rg.label, bbox: rg.bbox, score: rg.score })),
+            ocr: lines, witness: seen.witness || (vision.model ? `${vision.model}` : 'vision'),
+          });
+        }
       } catch (e) { if (aborted()) throw e; /* this shot stays un-named; the rest proceed */ }
     }
-    corefByLabel(visionByShot);
+    if (visionByShot.length) corefByLabel(visionByShot);
   }
 
   // The span-anchored annotations — what the record witnesses, on one timeline. The heard words are
@@ -156,7 +160,7 @@ export const analyzeFrames = async ({ frames = [], fps = 2, name = `video-${'x'}
     dwells: r.persistence ? r.persistence.dwells.length : 0,
     tracks: r.tracks ? r.tracks.length : 0,
     namedShots,
-    dropped: (grabKeyframe && vision) ? (namedShots < shots.length ? [`${shots.length - namedShots} shot(s) could not be named`] : [])
+    dropped: cv ? (namedShots < shots.length ? [`${shots.length - namedShots} shot(s) could not be named`] : [])
       : ['the picture was read but not named — no vision model was run'],
   };
 
@@ -234,7 +238,7 @@ export const readVideoFile = async (file, { fps = 2, maxDim = 96, name, title, m
   try {
     const res = await analyzeFrames({
       frames: ex.frames, fps: ex.fps, name: name || file.name, title: title || file.name, media,
-      grabKeyframe: (vision ? ex.grabKeyframe : null), vision, ocr, onProgress, signal,
+      grabKeyframe: ex.grabKeyframe, vision, ocr, onProgress, signal,   // always grab thumbs; name only if vision
     });
     // Fold the thumbnails the keyframe grabs produced into the visual reading for the surface.
     res.visual.keyframeThumbs = ex.keyframeThumbs;

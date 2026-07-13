@@ -43,6 +43,7 @@ import { scopeSources } from './scope-sources.js';
 import { createAudioStore } from './audio-store.js';
 import { makeJob, upsertJob, patchJob, dropJob, resumableJobs, MAX_JOB_ATTEMPTS } from './ingest-jobs.js';
 import { projectTranscript } from './transcript-edit.js';
+import { videoStripVM, videoStatusVM, momentResultsVM, VIDEO_LENSES } from './video-panel.js';
 import { sha256Hex } from '../archive/file-crypto.js';
 import { outstandingQuestion, answersAwaited } from '../../core/conversation-fold.js';
 import { senseGate } from '../../turn/sense.js';
@@ -1456,7 +1457,26 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     if (!src) return { query: null, results: [] };
     if (!src._moments) await rebuildMomentIndex(src);
     const { findMoments } = await import('../../surfer/moment.js');
-    return await findMoments(src._moments, String(text || ''));
+    const { query, results } = await findMoments(src._moments, String(text || ''));
+    // Render-ready rows (verdict badge + witness), with the raw candidates kept for callers that want them.
+    return { query, results: momentResultsVM(results), raw: results };
+  };
+
+  // The synchronous view-model the Listen surface draws for a video source: the picture-read status +
+  // CTA, and the activity/shot/keyframe/dwell strip under the chosen lenses (the suite of processing
+  // options). Pure and sync (video-panel.js), so it composes straight into the per-render media VM.
+  const videoView = (sn, lenses = {}) => {
+    const src = sourceBySn(sn);
+    if (!src || !(src.videoMeta || src._vis)) return { show: false };
+    return {
+      show: true,
+      status: videoStatusVM(src._vis, src.videoMeta),
+      ...videoStripVM(src.videoMeta || {}, lenses),
+      lenses: VIDEO_LENSES.map((l) => {
+        const on = !lenses || lenses[l.id] !== false;
+        return { id: l.id, label: l.label, hint: l.hint, on, fg: on ? '#5B4BE6' : '#9A9AA4', bg: on ? '#F1EFFE' : '#F2F2F6', bd: on ? '#DED8FD' : '#EAEAEF' };
+      }),
+    };
   };
 
   // Stash a file's original bytes to OPFS and open a durable `file` job, so a reload DURING the
@@ -3983,8 +4003,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // audio: a playable URL (rehydrated from OPFS / the encrypted Matrix copy after reload), the raw
     // persisted bytes (for redaction re-synthesis), and the non-destructive edit/redaction chokepoint.
     playableUrl, audioBytes, recordAudioEvent,
-    // video: NAME what is on screen (CV on shot keyframes, gated, on demand), and SEARCH the timeline
-    // — "describe a moment → witnessed spans, or INDETERMINATE" — over the heard+seen moment index.
-    nameVideoShots, searchVideo,
+    // video: the per-render surface VM (strip + status under the chosen lenses), NAME what is on
+    // screen (CV on shot keyframes, gated, on demand), and SEARCH the timeline — "describe a moment →
+    // witnessed spans, or INDETERMINATE" — over the heard+seen moment index.
+    videoView, nameVideoShots, searchVideo,
   });
 };

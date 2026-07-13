@@ -81,6 +81,17 @@ test('analyzeFrames gates the vision model to ONE keyframe per shot, and ties co
   assert.equal(res.coverage.namedShots, 2);
 });
 
+test('analyzeFrames grabs a keyframe thumbnail per shot even without a vision organ (cheap pass)', async () => {
+  const A = Array.from({ length: 5 }, () => solid(8, 8, 0.1));
+  const B = Array.from({ length: 5 }, () => solid(8, 8, 0.9));
+  const grabbed = [];
+  const grabKeyframe = async (i) => { grabbed.push(i); return { i }; };
+  const res = await analyzeFrames({ frames: [...A, ...B], fps: 2, name: 'clip', grabKeyframe });   // no vision
+  assert.equal(grabbed.length, 2, 'one keyframe grabbed per shot (for the strip thumbnail)');
+  assert.equal(res.visionByShot.length, 0, 'but nothing is named without a vision organ');
+  assert.ok(res.coverage.dropped[0].includes('not named'));
+});
+
 test('analyzeFrames survives a vision fault on one shot without failing the whole read', async () => {
   const A = Array.from({ length: 4 }, () => solid(8, 8, 0.1));
   const B = Array.from({ length: 4 }, () => solid(8, 8, 0.9));

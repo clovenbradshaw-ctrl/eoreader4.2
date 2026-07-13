@@ -34,6 +34,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/transcript-edit.js': contract({ ops: ['SYN', 'SEG', 'NUL'], targets: ['Field'], products: ['Network', 'Void'], stances: ['Composing', 'Dissecting', 'Clearing'], note: 'transcript edit/redaction fold — baseline + append-only events → live reading' }),
   'src/rooms/reader/transcript-export.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'transcript export renderer' }),
   'src/rooms/reader/versions.js': contract({ ops: ['SIG', 'CON'], targets: ['Network', 'Void'], products: ['Link'], stances: ['Tending', 'Binding'], note: 'the version time-machine — roll back to a prior PR' }),
+  'src/rooms/reader/video-panel.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Lens'], stances: ['Clearing', 'Dissecting'], note: 'video Listen-surface view-models — strip, keyframes, dwell, moment-search rows' }),
   'src/rooms/reader/video-read.js': contract({ ops: ['SEG', 'INS', 'EVA'], targets: ['Field'], products: ['Entity', 'Network', 'Lens'], stances: ['Dissecting', 'Making', 'Tracing'], note: 'the reader video thread — extract → read → gated CV on keyframes → span annotations' }),
   'src/rooms/reader/wiki-referent.js': contract({ ops: ['CON', 'EVA'], targets: ['Network'], products: ['Link'], stances: ['Binding', 'Tracing'], note: 'the entity panel wiki referent — search, score, confirm' }),
 });

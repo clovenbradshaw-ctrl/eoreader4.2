@@ -1502,6 +1502,82 @@ table{border-collapse:collapse;width:100%}
                     </sc-if>
                   </div>
                 </sc-if>
+
+                <!-- THE PICTURE — the video read: the structure/dwell strip, the keyframes, the -->
+                <!-- suite of processing-option lenses, and "describe a moment → jump to it" search. -->
+                <sc-if value="{{ viewer.media.video.show }}">
+                  <div style="display:flex;flex-direction:column;gap:9px;border-top:1px solid #EEF0F3;padding-top:11px">
+                    <sc-if value="{{ viewer.media.video.status.show }}">
+                      <div style="display:flex;align-items:center;gap:9px;background:{{ viewer.media.video.status.bg }};border-radius:8px;padding:8px 11px">
+                        <sc-if value="{{ viewer.media.video.status.busy }}"><span style="width:13px;height:13px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span></sc-if>
+                        <span style="flex:1;font-size:12px;font-weight:600;color:{{ viewer.media.video.status.tone }}">{{ viewer.media.video.status.label }}</span>
+                        <sc-if value="{{ viewer.media.video.status.hasCta }}"><button onClick="{{ nameVideo }}" title="Run computer vision on each shot's keyframe (loads the vision model on demand)" style="flex:0 0 auto;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 10px" style-hover="background:#E7E2FD">{{ viewer.media.video.status.ctaLabel }}</button></sc-if>
+                      </div>
+                    </sc-if>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA4">Lenses</span>
+                      <sc-for list="{{ viewer.media.video.lenses }}" as="ln">
+                        <button onClick="{{ ln.toggle }}" title="{{ ln.hint }}" style="font-size:10.5px;font-weight:600;border-radius:6px;padding:3px 9px;border:1px solid {{ ln.bd }};color:{{ ln.fg }};background:{{ ln.bg }}">{{ ln.label }}</button>
+                      </sc-for>
+                    </div>
+                    <sc-if value="{{ viewer.media.video.hasBars }}">
+                      <div onClick="{{ seekFromWave }}" title="Click to jump the player here" style="display:flex;align-items:flex-end;gap:1px;height:48px;padding:5px 3px;background:#0E0E14;border-radius:9px;overflow:hidden;cursor:pointer">
+                        <sc-for list="{{ viewer.media.video.bars }}" as="b">
+                          <div style="flex:1 1 0;min-width:1px;height:{{ b.hPct }}%;background:{{ b.bg }};border-radius:1px"></div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ viewer.media.video.hasKeyframes }}">
+                      <div class="eo-scroll" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:3px">
+                        <sc-for list="{{ viewer.media.video.keyframes }}" as="k">
+                          <button onClick="{{ k.go }}" title="Jump to {{ k.label }}" style="flex:0 0 auto;position:relative;border:1px solid #E6E6EC;border-radius:7px;overflow:hidden;padding:0;background:#F2F2F6;width:88px;height:52px" style-hover="border-color:#6D5EF5">
+                            <sc-if value="{{ k.hasThumb }}"><img src="{{ k.thumb }}" style="width:100%;height:100%;object-fit:cover;display:block" /></sc-if>
+                            <span style="position:absolute;left:0;bottom:0;background:rgba(0,0,0,.6);color:#fff;font-family:'IBM Plex Mono',monospace;font-size:8.5px;padding:1px 4px;border-top-right-radius:5px">{{ k.label }}</span>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ viewer.media.video.hasDwells }}">
+                      <div style="position:relative;height:14px;background:#F2F2F6;border-radius:5px;overflow:hidden" title="Dwell — where something persists (gold), or the scene is empty (grey)">
+                        <sc-for list="{{ viewer.media.video.dwells }}" as="dw">
+                          <div onClick="{{ dw.go }}" title="{{ dw.durLabel }}" style="position:absolute;top:0;bottom:0;left:{{ dw.leftPct }}%;width:{{ dw.widthPct }}%;background:{{ dw.bg }};cursor:pointer"></div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ viewer.media.video.hasStats }}">
+                      <div style="display:flex;flex-wrap:wrap;gap:6px">
+                        <sc-for list="{{ viewer.media.video.stats }}" as="vst">
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 8px"><b style="color:#8A8A95;font-weight:600">{{ vst.label }}</b>&nbsp;{{ vst.val }}</span>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <div style="display:flex;flex-direction:column;gap:7px;background:#FBFBFD;border:1px solid #EEF0F3;border-radius:9px;padding:9px 11px">
+                      <div style="display:flex;align-items:center;gap:7px">
+                        <input value="{{ viewer.videoSearch.query }}" onChange="{{ onVideoSearchInput }}" placeholder="Describe a moment — “a drone”, “someone at the door over 2 minutes”…" style="flex:1;border:1px solid #E6E6EC;border-radius:7px;padding:6px 9px;font-size:12px;color:#1B1B22;outline:none" />
+                        <button onClick="{{ runVideoSearch }}" title="Find the moment — witnessed, or an honest nothing" style="flex:0 0 auto;font-size:11px;font-weight:600;color:#fff;background:#6D5EF5;border:none;border-radius:7px;padding:6px 12px" style-hover="background:#5B4BE6">Find</button>
+                      </div>
+                      <sc-if value="{{ viewer.videoSearch.empty }}"><div style="font-size:11.5px;color:#8A6D2F">No witnessed moment matches that on record — an honest empty, not a guessed hit. Naming the shots (above) widens what the picture can answer.</div></sc-if>
+                      <sc-if value="{{ viewer.videoSearch.hasResults }}">
+                        <div style="display:flex;flex-direction:column;gap:6px">
+                          <sc-for list="{{ viewer.videoSearch.results }}" as="rr">
+                            <button onClick="{{ rr.go }}" style="text-align:left;border:1px solid #EAEAEF;border-radius:8px;padding:7px 9px;background:#fff;display:flex;flex-direction:column;gap:3px;cursor:pointer" style-hover="border-color:#6D5EF5">
+                              <div style="display:flex;align-items:center;gap:7px">
+                                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:#2A2A32">{{ rr.range }}</span>
+                                <span style="font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:{{ rr.badgeFg }};background:{{ rr.badgeBg }};border-radius:4px;padding:1px 5px">{{ rr.badge }}</span>
+                                <span style="flex:1"></span>
+                                <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">{{ rr.durLabel }}</span>
+                              </div>
+                              <div style="font-size:11px;color:#6E6E78">{{ rr.why }}</div>
+                              <sc-for list="{{ rr.witness }}" as="wit">
+                                <div style="font-size:10.5px;color:#4E5765"><b style="color:#8A8A95;font-weight:600">{{ wit.kind }}</b> {{ wit.text }} <span style="color:#B4B4BE">· {{ wit.witness }}</span></div>
+                              </sc-for>
+                            </button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </div>
+                </sc-if>
               </div>
             </sc-if>
 
@@ -2947,6 +3023,31 @@ class Component extends DCLogic {
     if (dur > 0 && isFinite(dur)) { try { audio.currentTime = frac * dur; } catch { /* not seekable yet */ } }
   }
 
+  // ── the video reading — the picture's structure, and the "describe a moment → jump to it" search ──
+  // Seek the shared media element to an absolute time (a keyframe, a dwell segment, or a search hit).
+  _seekTo(sec) { const a = this._listenAudio; if (a && isFinite(sec)) { try { a.currentTime = Math.max(0, sec); } catch { /* not seekable yet */ } } }
+  // NAME what is on screen — run computer vision on each shot's keyframe (gated, on demand). The engine
+  // rebuilds the clip from its kept bytes, loads the vision model once, and streams progress via _vis.
+  nameVideo() { const sn = this._activeSrc(); if (sn && this._app && this._app.nameVideoShots) this._app.nameVideoShots(sn).catch(() => {}); }
+  // SEARCH the timeline — the query resolves to witnessed spans (or an honest empty) over the heard+seen
+  // moment index; results are kept per-source so switching sources clears them.
+  runVideoSearch() {
+    const sn = this._activeSrc(); const q = String(this.state.videoQuery || '').trim();
+    if (!sn || !q || !this._app || !this._app.searchVideo) return;
+    this.setState({ videoSearchBusy: true, videoResultsSn: sn });
+    this._app.searchVideo(sn, q)
+      .then((r) => this.setState({ videoResults: (r && r.results) || [], videoSearchBusy: false, videoSearched: true, videoResultsSn: sn }))
+      .catch(() => this.setState({ videoResults: [], videoSearchBusy: false, videoSearched: true }));
+  }
+  // Flip a processing-option lens (Activity / Shots / Keyframes / Dwell) — the video re-projects, the
+  // model never re-runs. Absent ⇒ on, so the first click turns a lens OFF.
+  _toggleLens(id) {
+    if (!id) return;
+    const cur = { ...(this.state.videoLenses || {}) };
+    cur[id] = cur[id] === false ? true : false;
+    this.setState({ videoLenses: cur });
+  }
+
   // Build the word spans once per (source · edit-count) signature, wire the click/dblclick handlers
   // once, and bind the highlight loop to the current media element once. `_listenWords` caches the
   // projected words for the binary-search highlight.
@@ -3254,6 +3355,19 @@ class Component extends DCLogic {
     }
     const mediaMissing = !url && !!s._mediaTried;
 
+    // The video reading — the picture's structure/dwell strip, keyframes, and the picture-read status
+    // (the twin of the waveform+asr above, for the video track). Built by the controller from the
+    // source's videoMeta/_vis under the chosen lenses; { show:false } for an audio-only source.
+    const video = (isVideo && this._app && this._app.videoView)
+      ? this._app.videoView(s.sn, this.state.videoLenses || {}) : { show: false };
+    // Per-item click closures (the readerToc pattern) — seek from a keyframe/dwell, flip a lens — so
+    // the template binds a handler per row without relying on data-attribute interpolation.
+    if (video && video.show) {
+      (video.keyframes || []).forEach((k) => { k.go = () => this._seekTo(k.t); });
+      (video.dwells || []).forEach((dw) => { dw.go = () => this._seekTo(dw.t); });
+      (video.lenses || []).forEach((ln) => { ln.toggle = () => this._toggleLens(ln.id); });
+    }
+
     return {
       show: true,
       hasPlayer: !!url,
@@ -3268,6 +3382,7 @@ class Component extends DCLogic {
       hasStats: stats.length > 0,
       asrShow, asrLabel, asrTone, asrBg, asrBusy, asrPartial,
       hasPartial: !!asrPartial,
+      video,
     };
   }
   // On mobile the panels are one-at-a-time overlay drawers: opening one closes the other,
@@ -5430,6 +5545,19 @@ class Component extends DCLogic {
         // The media panel — player + waveform + signal/noise holons + transcription status —
         // shown above the reading for a decoded audio/video source, in every viewer mode.
         viewer.media = this._mediaVM(s) || { show: false };
+        // The moment-search box + its last results, scoped to THIS source (switching sources clears the
+        // shown results). The results are already render-ready rows (verdict badge + witness) from the
+        // controller's searchVideo; "empty" is the honest no-witnessed-moment state, distinct from unrun.
+        const vsMatch = st.videoResultsSn && s && st.videoResultsSn === s.sn;
+        const vsRows = (vsMatch && Array.isArray(st.videoResults) ? st.videoResults : [])
+          .map((rr) => ({ ...rr, go: () => this._seekTo(rr.t) }));   // click a result → seek the player
+        viewer.videoSearch = {
+          query: st.videoQuery || '',
+          busy: !!(st.videoSearchBusy && vsMatch),
+          results: vsRows,
+          hasResults: vsRows.length > 0,
+          empty: !!(vsMatch && st.videoSearched && !vsRows.length),
+        };
         viewer.listen = this._listenVM(s);
         // The themed book — built once per source (cached by sn); prefs are baked in, then applied
         // LIVE on the mounted iframe, so a theme change never rebuilds this string / reloads. The
@@ -5577,6 +5705,9 @@ class Component extends DCLogic {
       panelBackdrop: !!st.isMobile && (st.leftOpen || st.rightOpen), closePanels: () => this.closePanels(),
       leftBtnFg: st.leftOpen ? '#5B4BE6' : '#9A9AA4', rightBtnFg: st.rightOpen ? '#5B4BE6' : '#9A9AA4',
       onOmniSubmit: (e) => this.onOmniSubmit(e), onOmniInput: (e) => this.onOmniInput(e),
+      // video: name the shots (CV), search the timeline, seek from a keyframe/dwell/result, flip a lens
+      nameVideo: () => this.nameVideo(), runVideoSearch: () => this.runVideoSearch(),
+      onVideoSearchInput: (e) => this.setState({ videoQuery: e.target.value }),
       openMonologue: () => this.openMonologue(), closeMonologue: () => this.closeMonologue(),
       toggleLeft: () => this.toggleLeft(), toggleRight: () => this.toggleRight(),
       // model
