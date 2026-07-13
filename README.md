@@ -101,6 +101,30 @@ opens empty and fills as you record.
 | E2EE chat (optional) | `rooms/chat` — libolm (vendored) Olm/Megolm over the existing `matrix` login; keys pickled to **OPFS**; a floating launcher `boot.js` mounts (see [`docs/element-e2ee.md`](docs/element-e2ee.md)) |
 | encrypted media vault (optional) | `rooms/archive/vault` — save content encrypted (Web Crypto), store only ciphertext in the Matrix media repo, record each save in a tamper-evident **hash-linked block chain** on **OPFS**; `window.EO.vault` + a floating 🗄 panel (see [`docs/media-vault.md`](docs/media-vault.md)) |
 
+## Replay — watching something get read
+
+Open **`replay.html`** (`npm run serve`) for a surface built on one rule: **no ingest organ
+returns an answer — it returns a distribution.** Whisper does not hand back `"drones"`; it hands
+back `drones .71 / drums .19 / drives .10`, and the collapse to one word happens later, at *read*
+time, against a corpus. So the collapse can be run again, differently, by turning a source off —
+and the model never runs twice.
+
+The page is a facing read: **what arrived** on the left, **what it's making of it** on the right,
+scrolling together at reading speed (1× is not real time — it is the pace a person can follow the
+reading). Every uncertain word carries a mark; click it and the distribution opens, with the honest
+line — *the sound was ambiguous, the corpus wasn't.* The **Reading against** panel is a set of
+switches: flip one and the words re-collapse in front of you (nothing is re-transcribed — the audio
+never moves, only the reading), and **itself only** reads the audio against nothing, the transcript
+with every corpus assumption stripped out. The attention field, the surprise strip, and the
+self-drawing graph are all projections of the same fold.
+
+The engine (`src/rooms/replay/`) is the whole thesis made mechanical: `collapse.js` is a **pure fold**
+on `(scene, enabled, cursor)` — `weight = acoustic · (base + Σ corpus counts over enabled sources)`,
+normalized, argmax — the same fold-decides discipline as `enactor/enact/replay.js`. The collapse is
+arithmetic; it is reversible; it is auditable; and `tests/replay-collapse.test.js` pins it (all sources
+on ⇒ `drones .71`; MNPD off ⇒ `drums .43`; itself-only ⇒ the microphone alone). **Report the
+distribution. Never the decision.**
+
 ## Run the big models locally (LM Studio / Ollama)
 
 The in-browser backends (`webllm`, `wllama`) run the weights *inside the tab*, so
