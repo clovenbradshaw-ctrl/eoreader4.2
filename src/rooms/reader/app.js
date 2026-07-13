@@ -1929,7 +1929,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       : 'Hey — record a source and ask me about it, or ask me anything.';
   };
 
-  const ask = async (question, { onToken = null } = {}) => {
+  const ask = async (question, { onToken = null, web = null } = {}) => {
     const t = topic();
     const q = String(question || '').trim();
     if (!t || !q) return null;
@@ -1943,7 +1943,12 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     t.messages.push(pending);
     emit('messages');
 
-    const mode = webMode();
+    // The web reach for THIS turn. A caller may pin it (the `web` option); otherwise the persisted
+    // global stands. The Ask surface pins `'off'` — it is record-only by contract ("every answer is
+    // measured against your record") and carries no web control (the web-mode chip lives on Chat), so
+    // an Ask turn never reaches the net. This is a per-turn surface pin, not a settings change: the
+    // stored webMode() (and the Chat toggle) are untouched, and every other caller keeps the global.
+    const mode = web || webMode();
 
     // ── THE FRONT DOOR — the phatic short-circuit is DETERMINISTIC (docs/response-demand.md) ──────
     // A turn is answered with one warm social line (and NEVER reaches retrieval / grounding / the
@@ -2233,7 +2238,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
           settleTrail(pending, null);
         }
       }
-      finishMessage(pending, result);
+      finishMessage(pending, result, mode);
     } catch (e) {
       // A stall (watchdog trip) or a user Stop keeps whatever streamed rather than blanking the
       // bubble to an error — only a genuine mid-turn fault gets the error line.
@@ -2277,7 +2282,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     veto: 'Vetoing unsupported claims…', settle: 'Settling…',
   }[name] || `${name}…`);
 
-  const finishMessage = (msg, result) => {
+  const finishMessage = (msg, result, mode = webMode()) => {
     localWedges = 0;    // a completed answer means the engine is alive — clear the wedge streak
     finishTrail(msg);   // stop the research trail's clock; the surface collapses it to its summary
     // Prefer the marked projection — the answer with ungrounded FACTS underlined ([no source],
@@ -2301,7 +2306,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // The "Search the web" button belongs to confirm mode only: auto already fetched (and
     // suppresses via webFetched), and off means the user opted out of reaching the net — so
     // a proposal is offered as a button only when the user asked to be the one to approve it.
-    msg.webProposal = (result.webProposal && !result.webFetched && webMode() === 'confirm')
+    // Keyed on THIS turn's effective mode (passed in), not the global — so a record-only Ask turn
+    // (mode pinned 'off') never surfaces the button even when the global Chat mode is 'confirm'.
+    msg.webProposal = (result.webProposal && !result.webFetched && mode === 'confirm')
       ? { query: result.webProposal.query, rationale: result.webProposal.rationale || '' } : null;
     msg.bound = (result.bound || []).map((b) => ({ claim: b.claim, citation: b.citation || null, cited: b.cited || b.text || null }));
     msg.verdicts = (result.verdicts || []).map((v) => ({
