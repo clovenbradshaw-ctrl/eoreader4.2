@@ -29,7 +29,12 @@
 // independent second source, or hops until it can say one does not exist.
 //
 // Pure and model-free: identity facts are arithmetic over source descriptors, so it runs in a unit
-// test exactly as it does in the browser — no imports, no state.
+// test exactly as it does in the browser — the one import is the shared witness-diversity currency
+// (core/witness.js), which is itself pure. This module supplies that currency's VOICES dimension:
+// reflect.js mints a diversity whose voices default to origins (it cannot see mirrors); the census
+// here re-mints it with the mirror-collapsed voice count, so the answer's first-class standing
+// downgrades honestly when its "two origins" turn out to be one publisher.
+import { makeDiversity } from '../../core/witness.js';
 
 // A small allow-set of two-label public suffixes, so bbc.co.uk registers as bbc.co.uk (not the
 // bare co.uk that would fuse every UK site into one witness). Deliberately short — the common
@@ -162,5 +167,12 @@ export const corroborationCensus = (reflection, enrich = {}) => {
   const s = reflection?.summary || {};
   const witnessed = (s.corroborated || 0) + (s.crossModal || 0) + (s.singleSource || 0);
   const distinct = distinctVoices(reflectionWitnesses(reflection, enrich));
-  return { witnessed, distinct, under: witnessed > 0 && distinct < 2 };
+  // The answer's first-class standing, re-minted with the mirror-collapsed VOICE count — the
+  // refinement reflect.js could not make on docId alone. Its tier is the honest rung: two mirrors
+  // that reflect read as "corroborated" (two origins) collapse to single-source (one voice) here.
+  const diversity = makeDiversity({
+    origins: s.origins || 0, voices: distinct,
+    senses: s.diversity?.senses || [], reafferent: s.interpretation || 0,
+  });
+  return { witnessed, distinct, under: witnessed > 0 && distinct < 2, diversity };
 };
