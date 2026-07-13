@@ -115,6 +115,33 @@ EO.spaces.sendSignal(workspaceId, 'saved', { name: 'minutes.pdf' });   // a nudg
 The chat controller exposes the primitives directly, too: `createRoom`, `invite`, `join`,
 `members`, `sendRoomEvent`, `onRoomEvent`, `sendSignal`.
 
+## "Sync to Matrix" — the opt-in that backs a whole workspace
+
+Saving one item at a time is the low-level verb. The **"sync to Matrix" option**
+(`rooms/archive/space-sync`, exposed as `EO.spaces.sync` / `EO.spaces.setSync`) is the
+switch most people want: flip it on for a workspace and **all of that workspace's content
+is mirrored into its room's encrypted blockchain** — and kept in sync as you add more.
+
+```js
+await EO.spaces.setSync(workspaceId, true);    // opens the room if needed, then syncs now
+// …add sources; a debounced pass mirrors each new one into the room automatically…
+EO.spaces.sync.state.byWorkspace[workspaceId]; // { enabled, synced, pending, lastAt, error }
+await EO.spaces.setSync(workspaceId, false);   // stop syncing (nothing is deleted)
+```
+
+It carries the genome-autosave discipline so automatic syncing never spams the homeserver:
+
+- **content-addressed** — each source is addressed by the SHA-256 of its bytes, so an
+  unchanged source is never re-uploaded (a per-session guard here, plus the room vault's
+  own content dedup once a block folds);
+- **debounced** — a burst of edits collapses into one sync pass once it settles;
+- **opt-in, per workspace, default OFF** — it never turns itself on and never prompts.
+
+Turning it on for a workspace that isn't shared yet **opens its room first** (solo — invite
+people later), so "sync to Matrix" doubles as "make this a Matrix workspace." The engine
+(`rooms/reader/app.js`) only records the flag (`workspaceSetSync`); the encrypt-and-publish
+lives in boot's `spaces` membrane, keeping app state network-free.
+
 ## Guarantees, proven by tests
 
 - `tests/room-vault.test.js` — the whole loop through two real libolm members and the fake
@@ -125,6 +152,10 @@ The chat controller exposes the primitives directly, too: `createRoom`, `invite`
   is caught; a **signal** rides the same encrypted bus; and the create/invite/join lifecycle.
 - `tests/room-chain.test.js` — the ledger in isolation: fold **determinism** (two members
   converge), **idempotency** by event id, `verify`, reload from OPFS, and per-room isolation.
+- `tests/space-sync.test.js` — the "sync to Matrix" opt-in: default OFF, opening the room on
+  enable, mirroring every source, **content dedup** across passes, picking up new sources,
+  and an **end-to-end** pass where a workspace Alice syncs is read back source-for-source by
+  Bob in the room.
 
 ## Deliberately follow-up
 

@@ -813,7 +813,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const WS_COLORS = ['#6D5EF5', '#2563EB', '#0F766E', '#B45309', '#A91D1D', '#BE185D', '#15803D'];
   const activeWorkspace = () => state.workspaces.find((w) => w.id === state.activeWorkspaceId) || state.workspaces[0] || null;
   const workspaceNew = (name = 'New workspace', { silent = false, shared = false } = {}) => {
-    const w = { id: `ws${++wn}`, name: String(name || 'New workspace'), color: WS_COLORS[state.workspaces.length % WS_COLORS.length], shared: !!shared, roomId: null, created: nowIso() };
+    const w = { id: `ws${++wn}`, name: String(name || 'New workspace'), color: WS_COLORS[state.workspaces.length % WS_COLORS.length], shared: !!shared, roomId: null, syncToMatrix: false, created: nowIso() };
     state.workspaces.push(w);
     state.activeWorkspaceId = w.id;
     topicNew('New topic', { silent: true, workspaceId: w.id });   // a workspace always opens onto a topic
@@ -844,6 +844,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return w;
   };
   const workspaceByRoom = (roomId) => state.workspaces.find((w) => w.roomId === roomId) || null;
+  // The "sync to Matrix" opt-in for a workspace — when on, its content is mirrored into
+  // the shared, room-encrypted blockchain (boot's `spaces.sync`, rooms/archive/space-sync).
+  // The engine only records the flag; the actual encrypt-and-publish lives in boot.
+  const workspaceSetSync = (id, on) => { const w = state.workspaces.find((x) => x.id === id); if (!w) return null; w.syncToMatrix = !!on; persist(); emit('topics'); return w; };
   const workspaceDelete = (id) => {
     if (state.workspaces.length <= 1) return;   // the shell always keeps one workspace
     const idx = state.workspaces.findIndex((w) => w.id === id);
@@ -4225,7 +4229,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     topicMove, topicToggleCollapse, topicTree, topicRows,
     // workspaces — the top-level containers; a shared workspace is a Matrix room (roomId)
     workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
-    workspaceBindRoom, workspaceByRoom,
+    workspaceBindRoom, workspaceByRoom, workspaceSetSync,
     // ingest
     ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage, navigatePage,
     // the library shelf — search ONE shelf on its own surface (article/book/media/code), and the

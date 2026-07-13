@@ -33,7 +33,9 @@
 //               — a workspace becomes an invitable Matrix room; everything saved into it
 //               is encrypted, stored as binary ciphertext in the media repo, and recorded
 //               as a hash-linked block published as a Megolm room event, so only the room's
-//               members can read it. Rides the chat bus (docs/shared-vault.md)
+//               members can read it. `spaces.sync` (rooms/archive/space-sync) is the opt-in
+//               "sync to Matrix" that mirrors a workspace's sources into it. Rides the chat
+//               bus (docs/shared-vault.md)
 
 import { createParser } from '../../perceiver/parse/index.js';
 import { readingAt } from '../../perceiver/reading.js';
@@ -61,6 +63,7 @@ import { createChatRoom } from '../chat/index.js';
 import { mountChat, mountChatLauncher } from '../chat/mount.js';
 import { createVault } from '../archive/vault.js';
 import { createRoomVault } from '../archive/room-vault.js';
+import { createSpaceSync } from '../archive/space-sync.js';
 import { mountVaultLauncher } from '../archive/vault-mount.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
@@ -150,7 +153,7 @@ const spaces = (() => {
     const ws = app.state.workspaces.find((w) => w.id === workspaceIdOrRoomId);
     return ws ? ws.roomId : null;
   };
-  return Object.freeze({
+  const api = {
     ensure,
     get vault() { return roomVault; },
     // Turn a local workspace into a shared, invitable Matrix room (idempotent).
@@ -213,7 +216,15 @@ const spaces = (() => {
     },
     onSignal: (fn) => (chatController ? chatController.onRoomEvent((evt) => { if (evt.type === 'org.eoreader.signal') fn(evt); }) : (() => {})),
     subscribe: (fn) => (roomVault ? roomVault.subscribe(fn) : (() => {})),
-  });
+  };
+  // The "sync to Matrix" opt-in — a per-workspace autosync that mirrors a workspace's
+  // sources into its room's encrypted blockchain (opening the room first if needed). It
+  // rides this same membrane (shareWorkspace + save). Default OFF; see docs/shared-vault.md.
+  const sync = createSpaceSync({ app, spaces: api });
+  api.sync = sync;
+  api.setSync = (workspaceId, on) => sync.setEnabled(workspaceId, on);
+  api.syncNow = (workspaceId) => sync.syncNow(workspaceId);
+  return Object.freeze(api);
 })();
 
 const archive = Object.freeze({
