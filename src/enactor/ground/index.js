@@ -32,7 +32,7 @@ export { contentTerms } from './spans.js';
 // The reflection: parse the model's OUTPUT back into EOT, compare each proposition with
 // the document graph, and judge the groundedness of what the graph holds — counting the
 // diverse, independent origins that witness each claim (docs/creative-grounded-modes.md).
-export { reflectAnswer, eotLineOf, senseOfModality } from './reflect.js';
+export { reflectAnswer, eotLineOf, senseOfModality, witnessesForProps } from './reflect.js';
 // The diversity half's other end: are the answer's witnesses MEANINGFULLY DISTINCT? reflectAnswer
 // counts independent root origins; this asks whether those origins are really independent VOICES
 // (not mirrors, reprints, or the same publisher) and whether they reach two — the "sourced from
@@ -40,6 +40,11 @@ export { reflectAnswer, eotLineOf, senseOfModality } from './reflect.js';
 export { registrableHost, witnessDescriptor, sameWitness, distinctVoices,
          distinctWitnessCount, distinctEnough, reflectionWitnesses,
          underCorroborated, corroborationCensus } from './corroboration.js';
+// The write-time source gate (docs/archon-source-gate.md). The ARCHON the streaming boundary
+// gate consults at each period: a sentence is admitted only when every proposition it asserts is
+// grounded in the document AND corroborated by ≥2 distinct witnessing spans (the write-time twin of
+// bind+veto — cite-as-you-write, drop the unsourceable).
+export { archonReview, buildArchon } from './archon.js';
 // The answer weighed by the reader's own reaction (the Born measure): the physics check the
 // lexical veto battery cannot make. The reader is asked to REACT to its own draft, and that
 // reaction is projected onto a valence basis and put through the Born rule — a positive

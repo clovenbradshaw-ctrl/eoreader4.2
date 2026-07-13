@@ -25,7 +25,7 @@ import { answerFormError } from './shape.js';
 import { rereadOnUnsettled } from './reread.js';
 import { buildGroundedMessages, buildChatMessages, orientationLine,
          projectGroundedBands, judgePrompt } from '../model/index.js';
-import { bindCitations, renderBound } from '../enactor/ground/index.js';
+import { bindCitations, renderBound, buildArchon } from '../enactor/ground/index.js';
 import { recordBindingDefs, recordCorrespondenceDefs, recordReferenceDef, recordVoidDef } from './judgments.js';
 import { runVetoes, isUnbound, isAbstention, classifyProvenance, assessAnswer } from '../enactor/ground/index.js';
 import { canGroundedSpeak, groundedSpeak, RULES_REV } from '../organs/out/speech/index.js';
@@ -872,9 +872,21 @@ export const stages = {
         // paragraphs; every other grounded answer caps at a single paragraph so the reply
         // reads as one coherent piece, and the boundary gate (streamed===draft, mid-sentence
         // tail drop) still governs it.
+        // THE ARCHON (docs/archon-source-gate.md). When the GROUNDED chip is set the answer is
+        // span-anchored as it streams: each finished sentence is admitted only if every proposition
+        // it asserts is grounded in the document AND corroborated by ≥2 distinct witnessing spans;
+        // an unsourceable sentence is dropped before it is forwarded. Keyed on the explicit chip
+        // (ctx.grounding === 'grounded'), NOT ctx.route — route is 'grounded' in auto too when a doc
+        // is present, and only an explicit Grounded request opts into strict. Off → archon null, and
+        // streamParagraphs takes its exact current path (byte-identical).
+        const strict = ctx.grounding === 'grounded';
+        const archon = strict
+          ? buildArchon(ctx.doc, (ctx.spans || []).map((s) => s.idx), { minWitnesses: 2 })
+          : null;
         const streamed = await streamParagraphs({
           model: ctx.model, messages: ctx.messages, onToken: ctx.onToken,
           budget: maxTokens, signal, maxParagraphs: ctx.longform ? null : 1,
+          archon, groundStrict: strict,
         });
         if (streamed && streamed.draft) {
           // The user stopped mid-decode: the partial paragraphs are the answer —
@@ -882,7 +894,19 @@ export const stages = {
           if (signal?.aborted) {
             return { ...ctx, rawOutput: streamed.draft, answer: streamed.draft.trim(), sources: [], maxTokens, streamed, stopped: true, terminate: true };
           }
-          return { ...ctx, rawOutput: streamed.draft, maxTokens, streamed };
+          // Carry the archon's record forward: `sourced` (each admitted sentence + its ≥2
+          // witnessing citations) feeds the multi-citation assembly in `bind`; `groundDropped`
+          // feeds the honest "left out" flag in the pipeline.
+          return { ...ctx, rawOutput: streamed.draft, maxTokens, streamed,
+                   sourced: streamed.sourced || null, groundDropped: streamed.dropped || [] };
+        }
+        // NPJ-strict and the archon refused EVERY sentence (streamed non-null, empty draft): do NOT
+        // fall through to the ungrounded one-shot path below — it would ship exactly the prose the
+        // archon just refused. Answer the honest absence, grounded on nothing, and terminate.
+        if (strict && streamed) {
+          const answer = "I couldn't source that in this document — nothing I could say was corroborated by at least two of its lines.";
+          return { ...ctx, rawOutput: '', answer, sources: [], maxTokens, streamed,
+                   groundDropped: streamed.dropped || [], terminate: true };
         }
       } catch { /* a streaming fault degrades to the one-shot path below, never a dead turn */ }
     }
@@ -916,6 +940,25 @@ export const stages = {
   async bind(ctx) {
     if (!ctx.spans?.length) {
       return { ...ctx, bound: [], answer: String(ctx.rawOutput || '').trim(), sources: [] };
+    }
+    // THE ARCHON'S RECORD (docs/archon-source-gate.md). On the strict path every shipped sentence
+    // was already admitted with its witnessing spans (ctx.sourced), so the answer is assembled
+    // straight from that record — each sentence carries the FULL set of its ≥2 witnesses as [sN]
+    // tags — bypassing the lexical binder, which yields only ONE witness per claim and cannot
+    // express the ≥2-citation requirement. Every non-strict turn (ctx.sourced absent) falls through
+    // to the binder below, byte-identical.
+    if (Array.isArray(ctx.sourced) && ctx.sourced.length) {
+      const bound = ctx.sourced.map((s) => ({
+        claim: s.text, citation: s.citations?.[0] ?? null, citations: s.citations || [], verbatim: false,
+      }));
+      const answer = ctx.sourced
+        .map((s) => `${s.text}${(s.citations || []).map((c) => `[${c}]`).join('')}`)
+        .join(' ');
+      const sources = [...new Set(
+        ctx.sourced.flatMap((s) => (s.citations || []).map((c) => parseInt(String(c).slice(1), 10)))
+          .filter(Number.isFinite)
+      )];
+      return { ...ctx, bound, answer, sources };
     }
     // The binder rides the same reading the fold sat on: the document for idf,
     // the surfer's peak (the cursor the significance reading was taken at) for
