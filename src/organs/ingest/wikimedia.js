@@ -148,8 +148,80 @@ export const renderWikidataEntity = async (client, id) => {
   return lines.filter(Boolean).join('\n');
 };
 
+// ── Wikimedia Commons — the MEDIA itself, not the descriptions ────────────────────────────────
+// The `commons` kind above searches Commons the way every wiki is searched: list=search over the
+// text of File: description pages. But Commons is a MEDIA repository — its answer to "sunflower" is
+// not prose, it is 40,000 photographs — so this kind asks for the FILES: a generator=search in the
+// File namespace, each hit carrying its imageinfo (a thumbnail URL, the full-resolution URL, the
+// mime type, dimensions) and the license/author/description from extmetadata. "All wiki-commons
+// anything": images, audio, video, PDFs — every media type Commons hosts, surfaced as media.
+const COMMONS_HOST = 'commons.wikimedia.org';
+export const commonsMediaSearchUrl = (q, k = 12, thumbWidth = 320) =>
+  `${apiBase(COMMONS_HOST)}?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}` +
+  `&gsrnamespace=6&gsrlimit=${Math.max(1, Math.min(50, k))}&prop=imageinfo` +
+  `&iiprop=url%7Csize%7Cmime%7Cextmetadata&iiurlwidth=${Math.max(80, thumbWidth)}&format=json`;
+
+// An extmetadata value arrives as HTML (a linked author, a formatted description) — reduce it to
+// plain text, reusing snippetText, and cap it so a verbose credit line cannot dominate a card.
+const metaText = (extmeta, key, cap = 400) => {
+  const v = extmeta?.[key]?.value;
+  if (v == null) return '';
+  const t = snippetText(String(v));
+  return t.length > cap ? t.slice(0, cap - 1).trimEnd() + '…' : t;
+};
+
+// parseCommonsMedia(json, k) → media hits. Each keeps the thumb + full URLs (for the media surface
+// to render an actual image), the mime/dimensions, and the license/author so attribution rides with
+// the file — Commons is free media, but "free" still carries terms, and the card must show them.
+export const parseCommonsMedia = (json, k = 12) => {
+  let j = json;
+  if (typeof j === 'string') { try { j = JSON.parse(j); } catch { return []; } }
+  const pages = Object.values(j?.query?.pages || {});
+  // `generator=search` preserves the search rank in `index`; sort by it so the best match leads.
+  pages.sort((a, b) => (a?.index ?? 0) - (b?.index ?? 0));
+  return pages.slice(0, Math.max(1, k)).map((p) => {
+    const info = (p.imageinfo || [])[0] || {};
+    const ext = info.extmetadata || {};
+    const title = String(p.title || '').replace(/^File:/i, '');
+    const description = metaText(ext, 'ImageDescription') || title;
+    const mime = info.mime || '';
+    return {
+      title,
+      text: description,
+      url: info.descriptionurl || wikiPageUrlOn(COMMONS_HOST, p.title),
+      source: 'commonsmedia', mwHost: COMMONS_HOST,
+      thumbUrl: info.thumburl || info.url || null,
+      fileUrl: info.url || null,
+      mime,
+      mediaType: mime.split('/')[0] || 'image',
+      width: info.width || null,
+      height: info.height || null,
+      license: metaText(ext, 'LicenseShortName', 60) || null,
+      artist: metaText(ext, 'Artist', 120) || null,
+      credit: metaText(ext, 'Credit', 200) || null,
+    };
+  }).filter((it) => it.url);
+};
+
+// renderCommonsMedia(item) → the media file as READABLE LINES for grounding: what it depicts, its
+// type/dimensions, and its attribution (author + license). A media file has no prose body, so this
+// legible block IS its full text — the analogue of renderWikidataEntity for a picture.
+export const renderCommonsMedia = (item) => {
+  const lines = [
+    item?.title ? `${item.title}${item?.description ? `: ${item.description}` : ''}` : (item?.text || ''),
+    item?.mime ? `Media: ${item.mime}${item?.width && item?.height ? ` (${item.width}×${item.height})` : ''}.` : '',
+    item?.artist ? `Author: ${item.artist}.` : '',
+    item?.license ? `License: ${item.license}.` : '',
+    item?.credit ? `Credit: ${item.credit}.` : '',
+    item?.fileUrl ? `File: ${item.fileUrl}` : '',
+  ];
+  return lines.filter(Boolean).join('\n');
+};
+
 // ── The kinds and their full-text hooks (spread into webfetch.js) ─────────────────────────────
 export const WIKIMEDIA_SOURCES = {
+  commonsmedia: async (ctx, query, k) =>
+    parseCommonsMedia((await ctx.fetchUrl(commonsMediaSearchUrl(query, k))).text, k),
   ...Object.fromEntries(Object.entries(WIKIMEDIA_PROJECTS).map(([kind, { host }]) =>
     [kind, (ctx, query, k) => mediaWikiSearch(ctx, host, query, k, kind)])),
   wikidata: async (ctx, query, k) => {
@@ -167,4 +239,12 @@ export const WIKIMEDIA_FULLTEXT = {
   ...Object.fromEntries(Object.entries(WIKIMEDIA_PROJECTS).map(([kind, { host }]) =>
     [kind, (client, item) => mediaWikiExtract(client, item?.mwHost || host, item?.title)])),
   wikidata: (client, item) => item?.entityId ? renderWikidataEntity(client, item.entityId) : Promise.resolve(''),
+  // A media file's "full text" is its rendered attribution block plus whatever prose the
+  // description page carries — the picture cannot be read, so what is known ABOUT it is the source.
+  commonsmedia: async (client, item) => {
+    const meta = renderCommonsMedia(item);
+    let extract = '';
+    try { extract = await mediaWikiExtract(client, COMMONS_HOST, `File:${item?.title}`); } catch { /* meta is enough */ }
+    return [meta, extract].filter(Boolean).join('\n\n') || meta;
+  },
 };

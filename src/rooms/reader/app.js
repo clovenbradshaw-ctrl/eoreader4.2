@@ -38,6 +38,8 @@ import { directCorsUrl } from '../../organs/ingest/direct-cors.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
+import { GITHUB_FULLTEXT, fetchGithubRepo } from '../../organs/ingest/github.js';
+import { LIBRARIES, surfaceCard, librariesManifest } from '../../organs/ingest/libraries.js';
 import { readIngest } from '../../organs/ingest/read.js';
 import { emitEot } from '../../organs/ingest/eot-emit.js';
 import { scopeSources } from './scope-sources.js';
@@ -133,6 +135,7 @@ const FULL_TEXT = {
   wikipedia: (client, item) => wikiExtract(client, item?.title),
   ...GUTENBERG_FULLTEXT,
   ...WIKIMEDIA_FULLTEXT,
+  ...GITHUB_FULLTEXT,   // a repo hit reads its README
 };
 
 // ── tiny IndexedDB kv (best-effort; absent in Node) ──────────────────────────
@@ -1038,11 +1041,41 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     });
   };
 
+  // Each hit is dressed in the CUSTOMIZED SURFACE its kind of thing deserves (libraries.js): an
+  // article card, a book card, a media card, a code card — `it.surface` is what the results list
+  // paints. Additive: the raw item fields are untouched, so recordHit/preview still read them.
+  const dress = (items) => (items || []).map((it) => ({ ...it, surface: surfaceCard(it) }));
+
   const search = (query, { kind = 'auto', k = 8 } = {}) =>
     runCancellable({ kind: 'search', label: `Searching the web — ${query}` }, async (signal) => {
       const items = await client.search(query, { kind, k, signal });
       logIt('search', `Web search "${query}"`, `${items.length} results`);
-      return items;
+      return dress(items);
+    });
+
+  // searchLibrary(libId, query) → search ONE named shelf (wikipedia · gutenberg · commons · github)
+  // on its own kind, so the reader gets the media grid / book list / repo list that shelf is for,
+  // not the auto-routed grab-bag. Returns dressed hits; the surface renders them by `it.surface`.
+  const searchLibrary = (libId, query, { k = 12 } = {}) => {
+    const lib = LIBRARIES[libId];
+    return search(query, { kind: lib ? lib.kind : 'auto', k });
+  };
+
+  // ingestRepo(ref) → the deliberate "ingest all code" path: pull a repo's source through the code
+  // organ and admit the whole codebase as one reading + register it. Mirrors webSearchAdmit's
+  // addSource wiring so the codebase lands in the S-registry like any source.
+  const ingestRepo = (ref, opts = {}) =>
+    runCancellable({ kind: 'fetch', label: `Ingesting ${ref}…` }, async (signal) => {
+      // A signal-bound view of the client so a Stop cancels the in-flight tree/blob fetches.
+      const bound = { ...client, fetchUrl: (u, o = {}) => client.fetchUrl(u, { signal, ...o }) };
+      const res = await fetchGithubRepo(ref, { ...opts, client: bound });
+      if (!res?.doc || !res?.record) return null;
+      try {
+        return addSource({
+          title: res.record.title, url: res.record.url || null,
+          text: res.doc.text, kind: 'web', record: res.record, doc: res.doc,
+        });
+      } catch { return null; /* dup — the codebase still read */ }
     });
 
   const recordHit = (item, query = null) =>
@@ -4180,6 +4213,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
     // ingest
     ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage, navigatePage,
+    // the library shelf — search ONE shelf on its own surface (article/book/media/code), and the
+    // deliberate "ingest all code" path (a whole repo through the code organ)
+    searchLibrary, ingestRepo, libraries: librariesManifest(),
     // durable pending work — the ingest/transcription jobs still in flight, and the boot-time resume
     // that re-runs them (so ingestion AND transcription survive a reload even part-way through)
     jobs: () => state.jobs.slice(),

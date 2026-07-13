@@ -124,6 +124,10 @@ table{border-collapse:collapse;width:100%}
       <span style="width:7px;height:7px;border-radius:50%;background:{{ modelDot }};flex:0 0 auto"></span>
       <span class="eo-modelchip-label">{{ modelChip }}</span>
     </button>
+    <button onClick="{{ openLibraries }}" title="Search libraries — Wikipedia, Project Gutenberg, Wikimedia Commons, GitHub" style="display:flex;align-items:center;gap:6px;background:#EEF0FE;color:#4B45C6;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600" style-hover="background:#E4E6FD">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <span class="eo-hide-sm">Libraries</span>
+    </button>
     <button onClick="{{ openMonologue }}" style="display:flex;align-items:center;gap:6px;background:#E7F6EC;color:#1E8A50;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600" style-hover="background:#DDF0E4">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
       <span class="eo-hide-sm">Auditable</span>
@@ -1963,6 +1967,98 @@ table{border-collapse:collapse;width:100%}
     </div>
   </sc-if>
 
+  <!-- LIBRARIES — search one shelf on its own CUSTOMIZED SURFACE: articles · whole books · a media
+       grid · repositories. Each hit is a card shaped for the thing (docs/library-search.md). -->
+  <sc-if value="{{ libShow }}">
+    <div style="position:absolute;inset:0;z-index:47">
+      <div onClick="{{ closeLibraries }}" style="position:absolute;inset:0;background:rgba(20,20,28,.32);animation:eoFade .16s ease"></div>
+      <div class="eo-modal" style="position:absolute;left:50%;top:52px;transform:translateX(-50%);width:min(760px,95vw);max-height:calc(100vh - 100px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+        <!-- SHELF PICKER -->
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid #EAEAEF">
+          <span style="font-family:'Newsreader',Georgia,serif;font-size:16px;font-weight:600;flex:0 0 auto">Libraries</span>
+          <div style="flex:1;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
+            <sc-for list="{{ libChips }}" as="lc">
+              <button onClick="{{ lc.pick }}" style="{{ lc.style }}">{{ lc.icon }} {{ lc.label }}</button>
+            </sc-for>
+          </div>
+          <button onClick="{{ closeLibraries }}" style="flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <!-- SEARCH BOX (placeholder tuned to the shelf) + example chips -->
+        <div style="flex:0 0 auto;padding:12px 16px;border-bottom:1px solid #F1F1F5">
+          <form onSubmit="{{ libSubmit }}" style="display:flex;align-items:center;gap:9px;height:37px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:10px;padding:0 13px" style-focus-within="border-color:#DED8FD;background:#fff">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.9" style="flex:0 0 auto"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input value="{{ libQ }}" onChange="{{ onLibInput }}" placeholder="{{ libPlaceholder }}" style="flex:1;border:none;outline:none;background:transparent;font-size:13.5px;color:#1B1B22" />
+            <button type="submit" style="flex:0 0 auto;background:#5B4BE6;color:#fff;font-weight:600;font-size:12px;border-radius:8px;padding:6px 13px" style-hover="filter:brightness(1.06)">Search</button>
+          </form>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap">
+            <span style="font-size:11px;color:#9A9AA4;flex:0 0 auto">{{ libBlurb }}</span>
+            <sc-for list="{{ libExamples }}" as="ex">
+              <button onClick="{{ ex.pick }}" style="font-size:11px;color:#5B4BE6;background:#F1EFFE;border-radius:999px;padding:3px 9px" style-hover="background:#E7E2FD">{{ ex.q }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <!-- RESULTS — a card per type -->
+        <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:12px 14px">
+          <sc-if value="{{ libBusy }}">
+            <div style="padding:26px;text-align:center;font-size:12.5px;color:#8A8A95;animation:eoBlink 1.4s ease-in-out infinite">Searching {{ libLabel }}…</div>
+          </sc-if>
+          <sc-if value="{{ libEmpty }}">
+            <div style="padding:26px;text-align:center;font-size:12.5px;color:#8A8A95">Nothing came back from {{ libLabel }}. Try different words.</div>
+          </sc-if>
+          <sc-if value="{{ libIdle }}">
+            <div style="padding:30px 24px;text-align:center;font-size:12.5px;color:#9A9AA4;line-height:1.6">Search {{ libLabel }} above. Every result lands as a recorded source, hashed and citable — a book read whole, a repo read by the code organ, an image with its license.</div>
+          </sc-if>
+          <!-- MEDIA GRID -->
+          <sc-if value="{{ libIsMedia }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px">
+              <sc-for list="{{ libRows }}" as="r">
+                <div style="border:1px solid #ECECF1;border-radius:11px;overflow:hidden;display:flex;flex-direction:column;background:#fff" style-hover="border-color:#DED8FD">
+                  <button onClick="{{ r.record }}" title="{{ r.title }}" style="display:block;width:100%;height:112px;background:#F5F5F8;border:none;padding:0;cursor:pointer;overflow:hidden">
+                    <img src="{{ r.thumb }}" alt="{{ r.title }}" loading="lazy" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;display:block" />
+                  </button>
+                  <div style="padding:7px 9px;display:flex;flex-direction:column;gap:3px">
+                    <span style="font-size:11.5px;font-weight:600;color:#2A2A32;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ r.title }}</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ r.mediaMeta }}</span>
+                    <div style="display:flex;align-items:center;gap:6px;justify-content:space-between">
+                      <span style="font-size:9.5px;color:#7E8593;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.license }}</span>
+                      <button onClick="{{ r.record }}" style="flex:0 0 auto;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#EEEBFE;border-radius:7px;padding:3px 8px" style-hover="background:#E7E2FD">{{ r.recordLabel }}</button>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <!-- ARTICLE / BOOK / CODE — a list of cards -->
+          <sc-if value="{{ libIsList }}">
+            <sc-for list="{{ libRows }}" as="r">
+              <div style="display:flex;gap:11px;padding:12px 11px;border-radius:11px;align-items:flex-start;border-bottom:1px solid #F4F4F8" style-hover="background:#F8F8FB">
+                <span style="font-size:17px;flex:0 0 auto;margin-top:1px">{{ r.glyph }}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+                    <a href="{{ r.url }}" target="_blank" rel="noopener" style="font-size:13.5px;font-weight:650;color:#2A2A32;line-height:1.35;text-decoration:none" style-hover="color:#5B4BE6">{{ r.title }}</a>
+                    <sc-if value="{{ r.badge }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:5px;padding:1px 7px">{{ r.badge }}</span></sc-if>
+                  </div>
+                  <sc-if value="{{ r.sub }}"><span style="display:block;font-size:11.5px;color:#7E8593;margin-top:2px">{{ r.sub }}</span></sc-if>
+                  <span style="display:block;font-size:12px;color:#6E6E78;line-height:1.5;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ r.snippet }}</span>
+                </div>
+                <div style="flex:0 0 auto;display:flex;flex-direction:column;gap:5px;align-items:stretch">
+                  <button onClick="{{ r.primary }}" style="background:#5B4BE6;border:none;color:#fff;font-weight:600;font-size:11.5px;border-radius:8px;padding:6px 11px;white-space:nowrap" style-hover="filter:brightness(1.07)">{{ r.primaryLabel }}</button>
+                  <sc-if value="{{ r.hasSecondary }}"><button onClick="{{ r.record }}" style="background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:11px;border-radius:8px;padding:5px 11px;white-space:nowrap" style-hover="background:#E7E2FD">{{ r.recordLabel }}</button></sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </sc-if>
+        </div>
+        <!-- FOOTER — the facing renderer: write HTML/JS, see it live -->
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:9px 16px;border-top:1px solid #EEEEF3;font-size:11px;color:#9A9AA4">
+          <span>Ingested HTML or JS? See it render live beside its source.</span>
+          <span style="flex:1"></span>
+          <button onClick="{{ openRenderer }}" style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#4B45C6;background:#EEF0FE;border:1px solid #E0E2FB;border-radius:8px;padding:5px 11px" style-hover="background:#E4E6FD"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/></svg>Facing renderer ↗</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- ⌘K SOURCE PALETTE — search THROUGH the record: titles, sites, and every recorded word -->
   <sc-if value="{{ cmdkShow }}">
     <div style="position:absolute;inset:0;z-index:55">
@@ -2216,6 +2312,10 @@ class Component extends DCLogic {
       // A search hit opens as a NATIVE PREVIEW first — the real page, loaded normally in a sandboxed
       // frame — and only becomes a recorded source when you choose to add it. { item, doc, busy, err }.
       searchPreview: null,
+      // THE LIBRARY SHELF — search ONE named library (Wikipedia · Gutenberg · Commons · GitHub) on
+      // its own CUSTOMIZED SURFACE: articles, whole books, a media grid, repos. libId is the picked
+      // shelf; libResults are the dressed hits (each carries its `surface` card). (docs/library-search.md)
+      libOpen: false, libId: 'wikipedia', libQ: '', libBusy: false, libResults: null,
       // ⌘K source palette — full-text search across every recorded source (title · site · body)
       cmdkOpen: false, cmdkQuery: '', cmdkSel: 0,
       pasteOpen: false, pasteTitle: '', pasteBody: '',
@@ -2641,6 +2741,52 @@ class Component extends DCLogic {
     const p = this.state.searchPreview; if (!p) return;
     this.recordHit(p.item);                              // records, then _revealImport opens the source viewer
     this.setState({ searchPreview: null, searchOpen: false });
+  }
+  // ── the library shelf — search one library on its own surface ───────────────
+  // Each library (Wikipedia · Gutenberg · Commons · GitHub) is searched on ITS OWN kind, so the
+  // reader gets the media grid / book list / repo list that shelf is for, not the auto-routed
+  // grab-bag. libResults hold the DRESSED hits — each carries a `surface` card the results list
+  // paints by type. The shelf descriptors come from the engine (window.EO.app.libraries).
+  _libs() { return (this._app && this._app.libraries) || []; }
+  _libById(id) { return this._libs().find((l) => l.id === id) || this._libs()[0] || null; }
+  openLibraries() { this.setState({ libOpen: true, searchOpen: false }); if (this.state.libResults == null && this.state.libQ) this.libSearch(); }
+  closeLibraries() { this.setState({ libOpen: false }); }
+  pickLibrary(id) {
+    // Switching shelves clears the old shelf's results — a book list is not a media grid — and, if
+    // a query is already typed, re-runs it on the new shelf at once.
+    this.setState({ libId: id, libResults: null });
+    if (String(this.state.libQ || '').trim()) setTimeout(() => this.libSearch(), 0);
+  }
+  onLibInput(e) { this.setState({ libQ: e.target.value }); }
+  libExample(q) { this.setState({ libQ: q }); setTimeout(() => this.libSearch(), 0); }
+  // Open the facing-page WYSIWYG renderer — write HTML/CSS/JS, see it render live beside the source.
+  openRenderer() { try { if (typeof window !== 'undefined' && window.open) window.open('render.html', '_blank'); } catch { /* popup blocked */ } }
+  libSubmit(e) { if (e && e.preventDefault) e.preventDefault(); this.libSearch(); }
+  libSearch() {
+    const q = String(this.state.libQ || '').trim();
+    const id = this.state.libId;
+    if (!q || !this._app || !this._app.searchLibrary) return;
+    this.setState({ libBusy: true, libResults: null });
+    this._app.searchLibrary(id, q, { k: 12 })
+      .then((items) => { if (this.state.libId === id) this.setState({ libBusy: false, libResults: items || [] }); })
+      .catch((err) => {
+        if (err && (err.name === 'AbortError' || /abort/i.test(String((err && err.message) || err)))) { this.setState({ libBusy: false }); return; }
+        this.setState({ libBusy: false, libResults: [] });
+      });
+  }
+  // Ingest a whole repo THROUGH THE CODE ORGAN (the "ingest all code" path) — pull its source,
+  // read it into EOT + issues, and register the codebase as one source.
+  ingestRepoCard(item) {
+    const key = item.url || item.title;
+    if (!this._app || !this._app.ingestRepo) return;
+    this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'busy' } });
+    this._app.ingestRepo(item.url || `${item.owner}/${item.repo}`)
+      .then((s) => {
+        this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'done' } });
+        if (s) { this.showToast(`Ingested ${item.owner}/${item.repo} — the code organ read it`); this.setState({ libOpen: false }); this._revealImport(s); }
+        else this.showToast(`Nothing to ingest in ${item.title}`);
+      })
+      .catch((err) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: null } }); this.showToast(`Couldn't ingest: ${String(err && err.message || err).slice(0, 90)}`); });
   }
   _ingestFile(f) {
     if (!this._app) return;
@@ -5775,6 +5921,76 @@ class Component extends DCLogic {
         canPreview: !!it.url, open: () => { if (it.url) this.previewHit(it); },
       };
     });
+
+    // ── the library shelf — each hit dressed in its type's card (docs/library-search.md) ──
+    const libs = (this._app && this._app.libraries) || [];
+    const libActive = libs.find((l) => l.id === st.libId) || libs[0] || { id: st.libId, label: st.libId, surface: 'article', placeholder: 'Search…', blurb: '', examples: [] };
+    const libChips = libs.map((l) => ({
+      icon: l.icon, label: l.label, id: l.id,
+      pick: () => this.pickLibrary(l.id),
+      // the active shelf wears its accent; the rest are quiet
+      style: (l.id === st.libId
+        ? `flex:0 0 auto;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#fff;background:${l.accent || '#5B4BE6'};border:1px solid ${l.accent || '#5B4BE6'};border-radius:999px;padding:5px 12px`
+        : 'flex:0 0 auto;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#5A5A64;background:#F2F2F6;border:1px solid #E6E6EC;border-radius:999px;padding:5px 12px'),
+    }));
+    const libExamples = (libActive.examples || []).map((q) => ({ q, pick: () => this.libExample(q) }));
+    const starsOf = (n) => (n == null ? '' : n >= 1000 ? `★ ${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `★ ${n}`);
+    const libRows = (st.libResults || []).map((it) => {
+      const c = it.surface || { surface: libActive.surface };
+      const key = it.url || it.title;
+      const rec = st.recordedUrls[key];
+      const recordLabel = rec === 'done' ? '✓ added' : rec === 'busy' ? 'reading…' : 'Add';
+      const record = () => { if (rec !== 'busy' && rec !== 'done') this.recordHit(it); };
+      if (c.surface === 'media') {
+        const dims = (c.width && c.height) ? `${c.width}×${c.height}` : '';
+        return {
+          title: c.title || it.title || '', thumb: c.thumbUrl || '',
+          mediaMeta: [c.mediaType || 'image', dims].filter(Boolean).join(' · '),
+          license: c.license || '—', recordLabel, record,
+        };
+      }
+      if (c.surface === 'book') {
+        return {
+          glyph: '📚', title: c.title || it.title || '', url: it.url || '',
+          badge: c.gutenbergId != null ? `#${c.gutenbergId}` : '',
+          sub: [c.author, (c.subjects || []).slice(0, 3).join(' · ')].filter(Boolean).join(' — '),
+          snippet: c.summary || it.text || '',
+          primaryLabel: rec === 'done' ? '✓ read' : rec === 'busy' ? 'reading…' : 'Read whole book',
+          primary: record, hasSecondary: false, recordLabel, record,
+        };
+      }
+      if (c.surface === 'code') {
+        return {
+          glyph: '💻', title: c.title || it.title || '', url: it.url || '',
+          badge: [c.language, starsOf(c.stars)].filter(Boolean).join(' · '),
+          sub: (c.topics || []).slice(0, 5).join('  ·  '),
+          snippet: c.description || it.text || '',
+          primaryLabel: rec === 'busy' ? 'ingesting…' : rec === 'done' ? '✓ ingested' : 'Ingest code',
+          primary: () => { if (rec !== 'busy' && rec !== 'done') this.ingestRepoCard(it); },
+          hasSecondary: true, recordLabel: rec === 'done' ? '✓' : 'README', record,
+        };
+      }
+      // article (default)
+      return {
+        glyph: '📖', title: c.title || it.title || '', url: it.url || '',
+        badge: '', sub: '', snippet: c.lede || it.text || '',
+        primaryLabel: rec === 'done' ? '✓ added' : rec === 'busy' ? 'reading…' : 'Add',
+        primary: record, hasSecondary: false, recordLabel, record,
+      };
+    });
+    const libHasResults = Array.isArray(st.libResults);
+    const libVals = {
+      libShow: st.libOpen, libId: st.libId, libQ: st.libQ, libBusy: st.libBusy,
+      libLabel: libActive.label, libPlaceholder: libActive.placeholder, libBlurb: libActive.blurb,
+      libChips, libExamples, libRows,
+      libIsMedia: libActive.surface === 'media' && !st.libBusy && libRows.length > 0,
+      libIsList: libActive.surface !== 'media' && !st.libBusy && libRows.length > 0,
+      libEmpty: !st.libBusy && libHasResults && libRows.length === 0,
+      libIdle: !st.libBusy && !libHasResults,
+      openLibraries: () => this.openLibraries(), closeLibraries: () => this.closeLibraries(),
+      onLibInput: (e) => this.onLibInput(e), libSubmit: (e) => this.libSubmit(e),
+      openRenderer: () => this.openRenderer(),
+    };
     // native preview of a search hit (the real site, loaded before it's recorded)
     const sp = st.searchPreview;
     const previewKey = sp ? (sp.item.url || sp.item.title) : null;
@@ -5993,6 +6209,8 @@ class Component extends DCLogic {
       searchNone: !st.searchBusy && st.searchResults && st.searchResults.length === 0,
       searchMeta: st.searchResults ? `${st.searchResults.length} results` : '',
       searchRows, closeSearch: () => this.closeSearch(),
+      // the library shelf — one shelf searched on its own surface (article/book/media/code)
+      ...libVals,
       // native preview of a search hit — the modal grows to a page frame while previewing
       searchModalW: preview ? 'min(1040px,96vw)' : 'min(640px,92vw)',
       searchModalH: preview ? 'calc(100vh - 120px)' : 'auto',

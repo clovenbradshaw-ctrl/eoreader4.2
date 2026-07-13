@@ -43,7 +43,19 @@ export { directCorsUrl } from './direct-cors.js';
 export { fetchGutenbergBook, stripGutenbergBoilerplate, gutenbergIdOf,
          GUTENBERG_SOURCES, GUTENBERG_FULLTEXT } from './gutenberg.js';
 export { WIKIMEDIA_PROJECTS, WIKIMEDIA_SOURCES, WIKIMEDIA_FULLTEXT,
-         mediaWikiExtract, renderWikidataEntity } from './wikimedia.js';
+         mediaWikiExtract, renderWikidataEntity,
+         parseCommonsMedia, renderCommonsMedia, commonsMediaSearchUrl } from './wikimedia.js';
+// The CODE SHELF: GitHub — search repos, read READMEs, and INGEST whole codebases through the code
+// organ (organs/code). fetchGithubRepo is the deliberate "ingest all code" path; fetchGithubFile
+// admits one file. Same fetch-through-proxy, admit-with-provenance path every web source travels.
+export { GITHUB_SOURCES, GITHUB_FULLTEXT, fetchGithubRepo, fetchGithubFile,
+         githubRepoOf, githubFileOf, parseRepoSearch, parseTree, pickCodeFiles,
+         fetchReadme, b64ToUtf8, CODE_EXTENSIONS,
+         githubSearchUrl, githubRawUrl, githubTreeUrl } from './github.js';
+// The LIBRARY SHELF — one descriptor per search library, each with the customized surface its kind
+// of thing deserves (article / book / media / code). The surface reads this to render each hit.
+export { LIBRARIES, LIBRARY_LIST, LIBRARY_IDS, SURFACES, surfaceCard,
+         libraryFor, libraryForKind, describeLibrary, librariesManifest } from './libraries.js';
 // The open academic shelves: arXiv (search the API, read WHOLE PAPERS via ar5iv) and OpenAlex
 // (scholarly discovery across every field, with cited_by_count as the good-specimen prior).
 export { fetchArxivPaper, parseArxivAtom, arxivIdOf, reduceHtml,

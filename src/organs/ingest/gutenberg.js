@@ -51,13 +51,19 @@ export const parseGutendex = (json, k = 5) => {
   return (j?.results || []).slice(0, Math.max(1, k)).map((b) => {
     const authors = (b.authors || []).map((a) => a?.name).filter(Boolean).join('; ');
     const summary = String((b.summaries || [])[0] || '').trim();
-    const subjects = (b.subjects || []).slice(0, 6).join('; ');
+    const subjectList = (b.subjects || []).slice(0, 6);
+    const subjects = subjectList.join('; ');
+    const bookTitle = String(b.title || '');
     return {
-      title: authors ? `${b.title} — ${authors}` : String(b.title || ''),
-      text: summary || subjects || String(b.title || ''),
+      title: authors ? `${bookTitle} — ${authors}` : bookTitle,
+      text: summary || subjects || bookTitle,
       url: gutenbergBookUrl(b.id),
       source: 'gutenberg',
       gutenbergId: b.id,
+      // The clean, un-concatenated fields — what the book surface renders as its own rows
+      // (title / author / subjects), separate from the combined `title` the generic list uses.
+      bookTitle, author: authors, subjects: subjectList, summary,
+      downloads: Number.isFinite(b.download_count) ? b.download_count : null,
       textUrl: pickTextFormat(b.formats) || gutenbergTextUrl(b.id),
       published: b.authors?.[0]?.death_year ? String(b.authors[0].death_year) : null,
     };
