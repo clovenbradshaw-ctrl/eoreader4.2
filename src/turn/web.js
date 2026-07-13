@@ -111,10 +111,13 @@ export const formulateSearchQuery = async ({ model, question, history = [], fall
       'report on Y", "summarize Z", "tell me about W" — search for the topic itself (X, Y, Z, W) and ' +
       'DROP the task: never keep the instruction verb (write, compose, draft, make, give) or the kind ' +
       'of piece (essay, report, article, summary, overview, story, paper) in the query — those say ' +
-      'what to DO with the subject, not what to look up. Read through obvious typos and search for the ' +
-      'correctly-spelled subject. Keep it short — the keywords a search engine needs, no filler, no ' +
-      'question words, no quotes. Output ONLY the query. ' +
-      'For example, "wrtie me an essay about dolphins" becomes: dolphins' },
+      'what to DO with the subject, not what to look up. But KEEP every word that NARROWS the subject — ' +
+      'a category, medium, era, or type ("films", "songs", "the 2022 movie") — dropping it points the ' +
+      'search at the wrong thing (the man "elvis" instead of "elvis films"). Read through obvious typos ' +
+      'and search for the correctly-spelled subject. Keep it short — the keywords a search engine needs, ' +
+      'no filler, no question words, no quotes. Output ONLY the query. ' +
+      'For example, "wrtie me an essay about dolphins" becomes: dolphins; ' +
+      '"research elvis films and tell me the best one" becomes: elvis films' },
     { role: 'user', content:
       `${frame ? `Discourse state:\n${frame}\n\n` : ''}${thread ? `User's earlier turns:\n${thread}\n\n` : ''}Latest turn: ${base}\n\nSearch query:` },
   ];
@@ -131,10 +134,52 @@ export const formulateSearchQuery = async ({ model, question, history = [], fall
     const cleaned = q.replace(/^(search query|query)\s*:\s*/i, '').replace(/^["'`]+|["'`]+$/g, '').trim();
     // Guard: a usable rewrite is short and not the model refusing/echoing. Else keep the
     // discourse-anchored query (still better than the raw turn — the subject is already bound in).
-    if (cleaned && cleaned.length <= 120 && !/^i (cannot|can't|am unable)/i.test(cleaned)) return cleaned;
+    // Regrow a clipped subject over the user's own adjacent words ("elvis" → "elvis films")
+    // before accepting it — a bare head noun searches the wrong thing.
+    if (cleaned && cleaned.length <= 120 && !/^i (cannot|can't|am unable)/i.test(cleaned))
+      return extendClippedSubject(cleaned, base);
   }
   // A faulted decode (fallback: null) falls through to the discourse-anchored query.
   return resolved;
+};
+
+// A weak formulator can clip a multi-word subject down to its head noun — "research elvis
+// films and tell me the best one" → "elvis", dropping the qualifier that says WHICH elvis
+// (the films, not the man). That points the whole walk at the wrong subject. This grows a
+// short, bare rewrite back to its full noun phrase: when the model's query appears verbatim
+// in the user's own turn, re-absorb the contiguous CONTENT words that sit right beside it,
+// stopping at the first connector ("and", "the", "to") or task word ("tell", "best", "essay").
+// It only ever EXTENDS the model's own subject with the user's OWN adjacent words — it never
+// invents, and it no-ops on a query the model enriched with resolved context (that will not
+// appear verbatim in the turn) or on an already well-formed multi-word query.
+const CONNECTOR = new Set(('and or but nor so then the a an to of in on at for with by from as that this ' +
+  'these those it its his her their your our we you they not no do does did will would can could should ' +
+  'me us him them what who how why when where which about').split(/\s+/));
+const NON_SUBJECT = new Set(('research write compose draft create generate produce make prepare give given tell ' +
+  'show find list summarize summarise explain describe discuss analyze analyse compare recommend suggest rank ' +
+  'essay essays report reports article articles summary overview overviews story stories paper papers guide guides ' +
+  'review reviews post posts writeup writeups best worst top favorite favourite one ones').split(/\s+/));
+const subjectWord = (t) => (String(t || '').toLowerCase().match(/[a-z][a-z0-9'’-]{2,}/) || [''])[0];
+export const extendClippedSubject = (query, turn) => {
+  const q = String(query || '').trim();
+  const qTokens = q.split(/\s+/).filter(Boolean);
+  if (!q || qTokens.length > 3) return q;                       // only regrow a short, clipped subject
+  const tTokens = String(turn || '').trim().split(/\s+/).filter(Boolean);
+  const lq = qTokens.map(subjectWord), lt = tTokens.map(subjectWord);
+  if (!lt.length || lq.some(w => !w)) return q;
+  // Where does the query's word sequence sit contiguously in the turn's word stream?
+  let at = -1;
+  for (let i = 0; i + lq.length <= lt.length && at < 0; i++)
+    if (lq.every((w, j) => w === lt[i + j])) at = i;
+  if (at < 0) return q;                                         // not the user's own words → leave the rewrite alone
+  const out = tTokens.slice(at, at + lq.length);
+  for (let k = at + lq.length, grew = 0; k < tTokens.length && grew < 3; k++, grew++) {
+    const w = lt[k];
+    if (!w || CONNECTOR.has(w) || NON_SUBJECT.has(w)) break;    // a connector or a task word ends the noun phrase
+    out.push(tTokens[k]);
+  }
+  // Strip the edge punctuation the turn's raw tokens carry ("japan?" → "japan"), never a query char.
+  return out.map(t => t.replace(/^[^A-Za-z0-9]+/, '').replace(/[^A-Za-z0-9'’-]+$/, '')).filter(Boolean).join(' ');
 };
 
 export const runWebFollowup = async (args, first, {

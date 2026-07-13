@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { proposeWebSearch, searchAnnouncement, COST_NOTICE } from '../src/turn/propose.js';
-import { runTurnWithWeb, runWebFollowup, verifyAgainstWeb, formulateSearchQuery } from '../src/turn/web.js';
+import { runTurnWithWeb, runWebFollowup, verifyAgainstWeb, formulateSearchQuery, extendClippedSubject } from '../src/turn/web.js';
 import { admitWebSource } from '../src/organs/ingest/websource.js';
 
 // "Search the internet to respond" actually firing (docs/web-search.md): the turn PROPOSES a
@@ -318,6 +318,36 @@ test('formulateSearchQuery instructs the model to strip task/format framing and 
   assert.match(seen, /wrtie me an essay about dolphins/); // the framed, misspelled turn reached the model
   assert.match(seen, /essay/i);                          // and the prompt names the produce-a-piece framing
   assert.match(seen, /typo/i);                           // …and tells it to read through the misspelling
+});
+
+// ── The clipped-subject guard: regrow a bare head noun over its noun phrase ───
+test('a clipped rewrite is regrown over the user\'s own adjacent words ("elvis" → "elvis films")', async () => {
+  // The reported run: "research elvis films and tell me the best one" was rewritten by a
+  // small model down to the bare "elvis" — dropping the qualifier that says WHICH elvis. The
+  // search then chased the man, not the films. The guard grows it back to the full noun
+  // phrase, stopping at the connector "and" (never absorbing "tell me the best one").
+  const model = { phrase: async () => 'elvis' };
+  const q = await formulateSearchQuery({ model, question: 'research elvis films and tell me the best one' });
+  assert.equal(q, 'elvis films');
+});
+
+test('extendClippedSubject: grows over adjacent nouns, halts at connectors and task words', () => {
+  // Grows a clipped head noun over the contiguous noun phrase in the user's turn...
+  assert.equal(extendClippedSubject('elvis', 'research elvis films and tell me the best one'), 'elvis films');
+  assert.equal(extendClippedSubject('tokyo', 'what is the population of tokyo japan?'), 'tokyo japan');
+  // ...but halts at a connector, so trailing instruction clauses are never absorbed
+  assert.equal(extendClippedSubject('dolphins', 'write me an essay about dolphins and cite sources'), 'dolphins');
+  // no-op when the query is not the user's own words (a model rewrite with resolved context)
+  assert.equal(extendClippedSubject('X-Files 2025 revival', 'who is making the new series?'), 'X-Files 2025 revival');
+  // no-op on an already well-formed multi-word query (more than a bare clipped subject)
+  assert.equal(extendClippedSubject('elvis presley films career', 'elvis presley films career and legacy'), 'elvis presley films career');
+});
+
+test('the guard leaves a resolved back-reference rewrite untouched (only the user\'s own words regrow)', async () => {
+  const model = { phrase: async () => 'X-Files 2025 revival series producer' };
+  const history = [{ role: 'user', content: "what's the deal with the new x files?" }];
+  const q = await formulateSearchQuery({ model, question: 'who is making the new series as of 2026?', history });
+  assert.equal(q, 'X-Files 2025 revival series producer');   // not a verbatim sub-phrase → not regrown
 });
 
 test('runWebFollowup reformulates the raw query before searching (conversation in scope)', async () => {

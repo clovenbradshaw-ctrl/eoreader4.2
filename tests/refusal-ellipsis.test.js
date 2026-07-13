@@ -67,6 +67,31 @@ test('refusalAtom with no focus still truncates cleanly (mark, not "….")', () 
   assert.doesNotMatch(text, /…\./);
 });
 
+// The Elvis export: the same held line sat at two corpus indices and was listed twice
+// ("They do hold: X; Y; X"), and a severed quotation left a dangling opening quote
+// ("described Butler as \"a decent physical…"). The atom now de-dupes and closes cleanly.
+const ELVIS_HELD = [
+  { idx: 804, score: 0.5, text: 'The American Film Institute named Elvis one of the top-ten films of 2022.' },
+  { idx: 937, score: 0.5, text: 'Justin Chang of the Los Angeles Times described Butler as "a decent physical match for Elvis and a better one vocally."' },
+  { idx: 982, score: 0.5, text: 'The American Film Institute named Elvis one of the top-ten films of 2022.' },
+];
+
+test('refusalAtom de-dupes an identical held span (no "…; X; …; X" stutter)', () => {
+  const { text, sources } = refusalAtom('diffuse', ELVIS_HELD, [], []);
+  const hits = text.match(/American Film Institute named Elvis/g) || [];
+  assert.equal(hits.length, 1, 'the repeated line appears once, not twice');
+  assert.deepEqual(sources, [804, 937], 'the duplicate index is dropped with its span');
+});
+
+test('refusalAtom balances a quote the truncation severed (no dangling opening quote)', () => {
+  const focus = queryTerms('research elvis films and tell me the best one');
+  const { text } = refusalAtom('diffuse', ELVIS_HELD, [], focus);
+  // every double-quote shown is closed — no lone `"a decent physical…`
+  assert.equal((text.match(/"/g) || []).length % 2, 0, 'no odd (unclosed) straight quote');
+  assert.doesNotMatch(text, /"[^"]*…/, 'no ellipsis inside an unclosed quotation');
+  assert.doesNotMatch(text, /…\./);
+});
+
 test('answerabilityGate threads the question focus all the way into the refusal', () => {
   const gate = answerabilityGate({ question: 'what is the tallest house?', ground: HELD });
   assert.equal(gate.licensed, false);
