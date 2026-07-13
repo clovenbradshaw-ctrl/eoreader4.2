@@ -1247,7 +1247,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
                 twoWitness: !!state.auditReadings,
                 onPartial: (p) => {
                   progress({ kind: 'file', label: `Transcribing… ${p.pct != null ? p.pct + '%' : ''}` });
-                  if (src._asr) { src._asr.pct = p.pct || 0; src._asr.partial = String(p.text || '').slice(-2000); }
+                  if (src._asr) { src._asr.pct = p.pct || 0; src._asr.partial = String(p.text || '').slice(-2000); if (Array.isArray(p.words)) src._asr.words = p.words; }
                   // Repaint the media panel's live transcript at most a few times a second.
                   const now = nowMs();
                   if (now - lastPaint > 350) { lastPaint = now; emit('sources'); }
@@ -2628,7 +2628,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // links sum over every source, tagged with how many sources it spans. Pass
   // { merge: false } for the raw per-source instances (the old behaviour).
   const entityKey = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, ' ');
-  const entities = ({ merge = true } = {}) => {
+  // `level` selects the HOLONIC LEVEL of the panel: 'names' (default) keeps only natural-language
+  // referents — people, places, things — dropping the acoustic signal/noise span holons an audio
+  // reading INS's; 'signal' keeps only those acoustic holons; 'all' keeps both. An entity is an
+  // acoustic holon when its DEF props tag it kind='signal'|'noise' (organs/in/acoustic.js).
+  const entities = ({ merge = true, level = 'names' } = {}) => {
     const out = [];
     for (const src of topicSources()) {
       const doc = docFor(src);
@@ -2652,16 +2656,24 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         seen.add(r);
         const label = doc.admission?.labelOf?.(r) || ent.label || r;
         const links = degree.get(r) || 0;
-        out.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn: src.sn, label, mentions: ent.sightings || 0, links, sourceCount: 1 });
+        const kind = (ent.props && ent.props.kind) || null;
+        const lvl = (ent.props && ent.props.level != null) ? +ent.props.level : null;
+        out.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn: src.sn, label, mentions: ent.sightings || 0, links, sourceCount: 1, kind, level: lvl });
       }
     }
+    // Filter to the requested holonic level. A signal/noise-tagged entity is an acoustic holon;
+    // everything else is a natural-language referent.
+    const acoustic = (it) => it.kind === 'signal' || it.kind === 'noise';
+    const rows = level === 'all' ? out
+      : level === 'signal' ? out.filter(acoustic)
+      : out.filter((it) => !acoustic(it));   // 'names' (default)
     if (merge) {
       // Group per-source instances by normalized label. The strongest instance
       // (most mentions) LEADS the merged row, so key/docId/entId/sn point at the
       // richest per-source profile — opening the row lands there — while mentions
       // and links aggregate and `sourceCount` records the reach.
       const byLabel = new Map();
-      for (const it of out) {
+      for (const it of rows) {
         const k = entityKey(it.label);
         let grp = byLabel.get(k);
         if (!grp) { grp = { lead: it, mentions: 0, links: 0, sns: new Set(), instances: [] }; byLabel.set(k, grp); }
@@ -2675,12 +2687,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         key: grp.lead.key, entId: grp.lead.entId, docId: grp.lead.docId, sn: grp.lead.sn,
         label: grp.lead.label, mentions: grp.mentions, links: grp.links,
         sourceCount: grp.sns.size, instances: grp.instances,
+        kind: grp.lead.kind, level: grp.lead.level,
       }));
       merged.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
       return merged;
     }
-    out.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
-    return out;
+    rows.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
+    return rows;
   };
 
   const entityProfile = (docId, entId) => {

@@ -1473,7 +1473,7 @@ table{border-collapse:collapse;width:100%}
                 </sc-if>
                 <sc-if value="{{ viewer.media.hasWave }}">
                   <div>
-                    <div style="display:flex;align-items:center;gap:1px;height:62px;padding:7px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden">
+                    <div onClick="{{ seekFromWave }}" title="Click to jump the player here" style="display:flex;align-items:center;gap:1px;height:62px;padding:7px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden;cursor:pointer">
                       <sc-for list="{{ viewer.media.bars }}" as="b">
                         <div style="flex:1 1 0;min-width:1px;height:{{ b.hPct }}%;background:{{ b.bg }};border-radius:1px"></div>
                       </sc-for>
@@ -1795,6 +1795,7 @@ table{border-collapse:collapse;width:100%}
                 <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">ENTITIES</span>
                 <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ entCount }}</span>
                 <span style="flex:1"></span>
+                <button onClick="{{ cycleEntLevel }}" title="{{ entLevelTitle }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#8A8A95;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 8px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4-4 4 4"/><path d="M7 4v10"/><path d="M21 16l-4 4-4-4"/><path d="M17 20V10"/></svg>{{ entLevelLabel }}</button>
                 <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:3px 8px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>in text</button>
               </div>
               <sc-if value="{{ entEmpty }}">
@@ -2148,6 +2149,9 @@ class Component extends DCLogic {
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
       entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null, webGraphTick: 0,
+      // the holonic LEVEL the entity panel shows: 'names' (natural-language referents, default),
+      // 'signal' (the acoustic signal/noise span holons an audio reading raises), or 'all'.
+      entLevel: this._prefStr('eo_entlevel', 'names'),
       // The entity panel's Wikipedia referent, per 'docId#entId': { busy } while the
       // engine searches, then the confirmed referent (or { none }) — see _ensureWiki.
       wikiDefs: {},
@@ -2199,6 +2203,8 @@ class Component extends DCLogic {
 
   _pref(k, dflt) { try { const v = localStorage.getItem(k); return v == null ? dflt : v === '1'; } catch { return dflt; } }
   _setPref(k, v) { try { localStorage.setItem(k, v ? '1' : '0'); } catch {} }
+  _prefStr(k, dflt) { try { const v = localStorage.getItem(k); return v == null ? dflt : v; } catch { return dflt; } }
+  _setPrefStr(k, v) { try { localStorage.setItem(k, String(v)); } catch {} }
   // The e-book reading preferences (paper theme, type family, size, width) — persisted whole
   // as JSON, clamped by the render module so a hand-edited value can't break the reader.
   _readPrefs() {
@@ -2897,6 +2903,19 @@ class Component extends DCLogic {
   // on the player. The whole Listen surface drives THIS one element.
   setListenAudio(el) { if (el) this._listenAudio = el; }
 
+  // Click anywhere on the waveform to jump the player to that fraction of the clip — the bars
+  // span the whole duration, so the click's X within them maps straight onto the timeline and
+  // moves the native scrubber (and the karaoke highlight follows).
+  seekFromWave(e) {
+    const audio = this._listenAudio;
+    if (!audio || !e || !e.currentTarget) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const dur = audio.duration || 0;
+    if (dur > 0 && isFinite(dur)) { try { audio.currentTime = frac * dur; } catch { /* not seekable yet */ } }
+  }
+
   // Build the word spans once per (source · edit-count) signature, wire the click/dblclick handlers
   // once, and bind the highlight loop to the current media element once. `_listenWords` caches the
   // projected words for the binary-search highlight.
@@ -2907,15 +2926,20 @@ class Component extends DCLogic {
     const s = sn && this._app && this._app.sourceBySn(sn);
     if (!s) return;
     const EO = (typeof window !== 'undefined' && window.EO) || {};
-    const proj = EO.projectTranscript ? EO.projectTranscript(s.words || [], s.audioEvents || [])
-      : { words: (s.words || []).map((w) => ({ ...w })) };
+    // While transcription is still running, s.words isn't populated yet — but the ASR feeds timed
+    // partial words onto s._asr.words, so render THOSE live (click-to-seek + karaoke work on them).
+    // Once applyTranscript lands the final transcript, s.words takes over as the editable baseline.
+    const running = s._asr && s._asr.state === 'running';
+    const live = running && (!s.words || !s.words.length) && Array.isArray(s._asr.words) && s._asr.words.length;
+    const baseWords = live ? s._asr.words : (s.words || []);
+    const proj = EO.projectTranscript ? EO.projectTranscript(baseWords, live ? [] : (s.audioEvents || []))
+      : { words: baseWords.map((w) => ({ ...w })) };
     this._listenWords = proj.words;
-    const sig = (s.sha || '') + '·' + ((s.audioEvents && s.audioEvents.length) || 0) + '·' + this._listenWords.length;
+    const sig = (s.sha || '') + '·' + ((s.audioEvents && s.audioEvents.length) || 0) + '·' + this._listenWords.length + (live ? '·live' : '');
     if (el.__eoSig !== sig) {
       el.__eoSig = sig;
       el.__eoNow = -1;
       if (!this._listenWords.length) {
-        const running = s._asr && s._asr.state === 'running';
         el.innerHTML = '<div style="color:#9A9AA4;font-size:13px">' + (running ? 'Transcribing the signal…' : 'No transcript yet.') + '</div>';
       } else {
         el.innerHTML = this._listenWords.map((w, i) => w.redacted
@@ -2984,6 +3008,10 @@ class Component extends DCLogic {
   _onTranscriptDblClick(ev) {
     const sp = ev.target && ev.target.closest && ev.target.closest('.eo-w[data-i]');
     if (!sp || sp.classList.contains('eo-w-redacted')) return;
+    // The streaming partial isn't the editable baseline yet (its word indices still shift as more
+    // audio is heard) — editing waits until the final transcript lands. Seeking on click is fine.
+    const asn = this._activeSrc(); const as = asn && this._app.sourceBySn(asn);
+    if (as && as._asr && as._asr.state === 'running' && (!as.words || !as.words.length)) { this.showToast('Still transcribing — you can edit once the transcript finishes'); return; }
     const i = +sp.dataset.i;
     const cur = sp.textContent;
     const input = document.createElement('input');
@@ -3841,6 +3869,16 @@ class Component extends DCLogic {
       svg.appendChild(g);
     });
     el.appendChild(svg);
+  }
+  // Cycle the entity panel's holonic level: names → signal → all → names. The panel opens at
+  // 'names' (natural-language referents) so an audio reading's thousands of signal-span holons
+  // don't bury the people/places/things; a click steps down to the acoustic level and back.
+  cycleEntLevel() {
+    const order = ['names', 'signal', 'all'];
+    const next = order[(order.indexOf(this.state.entLevel || 'names') + 1) % order.length];
+    this._setPrefStr('eo_entlevel', next);
+    this._entCache = null;
+    this.setState({ entLevel: next });
   }
   toggleEntityMode() {
     const on = !this.state.entityMode; this._setPref('eo_entmode', on); this._segCache = {}; this._viewCache = null;
@@ -5226,7 +5264,8 @@ class Component extends DCLogic {
     ];
 
     // right panel — entities or graph inspector
-    if (!this._entCache) this._entCache = app.entities();
+    const entLevel = st.entLevel || 'names';
+    if (!this._entCache || this._entCacheLevel !== entLevel) { this._entCache = app.entities({ level: entLevel }); this._entCacheLevel = entLevel; }
     const ents = this._entCache;
     const entRows = ents.slice(0, 60).map((e) => ({
       label: e.label, initials: this._initials(e.label),
@@ -5557,6 +5596,13 @@ class Component extends DCLogic {
       inspShow: !!insp, insp: insp || {}, profShow: !insp && !!prof, prof: prof || {},
       entListShow: !insp && !prof, entRows, entCount: String(ents.length), entEmpty: ents.length === 0,
       backToEntities: () => this.backToEntities(),
+      cycleEntLevel: () => this.cycleEntLevel(),
+      entLevelLabel: entLevel === 'signal' ? 'signal' : entLevel === 'all' ? 'all' : 'names',
+      entLevelTitle: entLevel === 'names'
+        ? 'Showing natural-language entities — people, places, things. Click to show the acoustic signal / noise span holons instead.'
+        : entLevel === 'signal'
+          ? 'Showing the acoustic signal / noise span holons. Click to show every level at once.'
+          : 'Showing every holonic level. Click to return to natural-language entities.',
       toggleEntityMode: () => this.toggleEntityMode(),
       entModeFg: st.entityMode ? '#5B4BE6' : '#8A8A95', entModeBg: st.entityMode ? '#F1EFFE' : '#F2F2F6', entModeBd: st.entityMode ? '#DED8FD' : '#EAEAEF',
       entModeLabel: st.entityMode ? 'Links · on' : 'Links · off',
@@ -5582,6 +5628,7 @@ class Component extends DCLogic {
       // Listen surface — the interactive transcript refs + edit/redaction actions
       setListenAudio: (el) => this.setListenAudio(el),
       setListenTranscript: (el) => this.setListenTranscript(el),
+      seekFromWave: (e) => this.seekFromWave(e),
       redactSilence: () => this.redactSilence(), redactBeep: () => this.redactBeep(),
       undoAudioEvent: () => this.undoAudioEvent(), exportRedactedWav: () => this.exportRedactedWav(),
       // reader body + controls
