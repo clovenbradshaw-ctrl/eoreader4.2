@@ -65,6 +65,22 @@ steer consumer that calls `steerBias(events)`; only then flip
 `config.membrane.canAppendLog` true and pass an `appendLog` callback. Until then a
 collapse is recorded to `rooms/audit` and nothing touches the log.
 
+## Live on the dc surface (the real-time murmur strip)
+
+The wiring above is now live. `boot.js` builds one `createMurmur({ audit })` and exposes it as
+`window.EO.murmur`; `rooms/reader/app.js` feeds it a fold snapshot at every turn's `fold` stop
+(the turn's `onStep`), fire-and-forget, off the critical path — concentration comes straight off
+`ctx.referential` (zero embedding cost), and when MiniLM is warm two cheap cache-backed embeddings
+(the resolved query + the fold's assembled note) supply the drift/novelty geometry; cold, only the
+concentration/unease signal fires. So it stays audit-only (`canAppendLog` never flips here).
+
+For the surface, the barrel grew a read-only side-channel — `murmur.subscribe(fn)` (returns an
+unsubscribe) and `murmur.state()` (the last snapshot). `index.html` renders a **real-time murmur
+strip** on the main page under the tab bar: the drift · footing · novelty gauges and the live
+registers (unease · surprise · drift · recognition) with their decayed intensity, plus the
+narrator's mutter when one wakes. It is shown by default and hideable from **Settings** (persisted
+as `eo_murmur`). The strip only ever reads impressions — it can never surface a citable fact.
+
 ## The firewall (why the log write is safe)
 
 `src/murmur/membrane.js` is the mechanical statement of spec §9, importable at every seam:

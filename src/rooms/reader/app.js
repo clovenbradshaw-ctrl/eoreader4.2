@@ -223,7 +223,7 @@ export const recordReflections = (record, seen, fresh, make, cap = REFLECTION_CA
 };
 
 // ── the app ──────────────────────────────────────────────────────────────────
-export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
+export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch } = {}) => {
   const state = {
     sources: [],           // registry entries (serializable minus _doc)
     // A workspace is the top-level container (Notion's workspace/teamspace): it owns a
@@ -367,6 +367,47 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     if (ctx && typeof ctx.answer === 'string' && ctx.answer) pending.text = ctx.answer;
     pending.pending = false;
     emit('messages');
+  };
+
+  // Feed the peripheral sense (murmur, docs/murmur.md) one fold snapshot per turn. Called from the
+  // turn's onStep at the `fold` stop and run FIRE-AND-FORGET, strictly off the critical path: the
+  // sense POINTS ("we've wandered" / "this doesn't smell right"), it never adds answer content
+  // (spec §9.4). The wiring site extracts the fields here so murmur imports nothing from the turn
+  // pipeline. concentration is always available off the fold's referential read (zero embedding
+  // cost); drift/novelty need a meaning-measuring embedder (MiniLM warm) — absent it the geometric
+  // channel stays null and only the concentration/unease signal can fire (honest degradation).
+  const observeMurmur = (ctx) => {
+    if (!murmur || !ctx) return;
+    try {
+      const auditTurn = (audit && audit.turns && audit.turns.length) ? audit.turns[audit.turns.length - 1] : null;
+      const ref = { turnId: auditTurn ? auditTurn.id : null, stepName: 'fold', t: nowMs() };
+      const r = ctx.referential || null;
+      const concentration = {
+        concentrated: r ? r.concentrated : undefined,
+        margin: r ? r.margin : undefined,
+        w: r ? r.w : undefined,
+        top: (ctx.spans && ctx.spans[0]) ? ctx.spans[0].score : undefined,
+        focus: ctx.surf ? ctx.surf.focus : undefined,
+      };
+      const emb = ctx.geometricEmbedder;
+      const measures = !!(emb && emb.measuresMeaning && typeof emb.embed === 'function');
+      const queryText = String(ctx.retrievalQuery || ctx.question || '');
+      const readingText = ctx.note && ctx.note.text ? String(ctx.note.text) : '';
+      const base = { ref, query: ctx.question || '', concentration, passageText: readingText.slice(0, 400) };
+      if (!measures || !queryText) {
+        // no meaning space this stop — concentration-only (drift/novelty null by construction).
+        void Promise.resolve(murmur.observe({ ...base, measuresMeaning: false }, { turn: auditTurn })).catch(() => {});
+        return;
+      }
+      // Two cheap, cache-backed embeddings: the query (the drift anchor) and the fold's assembled
+      // note (this turn's reading). A flaky embed must never disturb the turn, so it is swallowed.
+      Promise.all([
+        emb.embed(queryText),
+        readingText ? emb.embed(readingText) : Promise.resolve(null),
+      ]).then(([queryVec, readingVec]) => murmur.observe({
+        ...base, queryVec, readingVecs: readingVec ? [readingVec] : null, measuresMeaning: true,
+      }, { turn: auditTurn })).catch(() => { /* the sense must never cost a turn */ });
+    } catch { /* never let the peripheral sense throw into the pipeline */ }
   };
 
   // ── persistence ────────────────────────────────────────────────────────────
@@ -1625,7 +1666,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         onToken: (tok) => { if (turnSignal.aborted) return; turn.guard.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: turnSignal,
         monitor, ledger,   // the session's self/world line and commitment ledger (enactor)
-        onStep: (name, ctx, data) => { if (turnSignal.aborted) return; turn.guard.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); releaseOnAnswer(pending, name, ctx); },
+        onStep: (name, ctx, data) => { if (turnSignal.aborted) return; turn.guard.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); if (name === 'fold') observeMurmur(ctx); releaseOnAnswer(pending, name, ctx); },
       }, {
         search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
         // The thumb: when the subject is a homonym, commit to ONE sense before gathering and search
@@ -1935,7 +1976,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         onToken: (tok) => { if (turnSignal.aborted) return; turn.guard.feed(); pending.text += String(tok); if (onToken) onToken(tok); emit('stream'); },
         signal: turnSignal,
         monitor, ledger,   // the session's self/world line and commitment ledger (enactor)
-        onStep: (name, ctx, data) => { if (turnSignal.aborted) return; turn.guard.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); releaseOnAnswer(pending, name, ctx); },
+        onStep: (name, ctx, data) => { if (turnSignal.aborted) return; turn.guard.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); if (name === 'fold') observeMurmur(ctx); releaseOnAnswer(pending, name, ctx); },
       };
       let result = await raceGuard(runTurn(args));
       // The document turn measured a gap it couldn't close (or an answer worth confirming

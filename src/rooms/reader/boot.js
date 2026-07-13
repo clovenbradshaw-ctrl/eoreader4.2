@@ -36,6 +36,7 @@ import { groundSpans, groundSummary, supportVerdict } from '../../enactor/ground
 import { factCheck } from '../../enactor/factcheck/index.js';
 import { discourseDag, assertedDag, mountDagSurface, dagNodeLabel } from '../../surfer/dag/index.js';
 import { createAuditLog } from '../audit/index.js';
+import { createMurmur } from '../../murmur/index.js';
 import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
 import { APP_NAME, APP_VERSION } from './provenance.js';
@@ -55,7 +56,14 @@ import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
 
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
-const app = createReaderApp({ audit });
+// The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
+// background faculty that watches the same fold geometry the turn emits and raises IMPRESSIONS
+// (drift · surprise · unease · recognition), decaying and anti-ruminating. It is AUDIT-ONLY by
+// construction (the §9 membrane keeps canAppendLog false): it POINTS, the enactor VERIFIES — an
+// impression can never become a citable fact. The surface WATCHES it (window.EO.murmur.subscribe)
+// to paint the real-time murmur strip; the app feeds it one fold snapshot per turn (app.js).
+const murmur = createMurmur({ audit });
+const app = createReaderApp({ audit, murmur });
 
 // The optional identity. Restores a persisted session from localStorage without a
 // network hit (signed-in survives reload and works offline), then revalidates the
@@ -146,6 +154,7 @@ window.EO = Object.freeze({
   factCheck,
   discourseDag, assertedDag, dagNodeLabel,
   audit,
+  murmur,   // the peripheral sense — the surface subscribes for the real-time murmur strip (audit-only)
   workspace,
   mountTieredGraph,
   mountDagSurface,   // the two-cursor causal DAG surface (surfer/dag) — topic-wide + per-entity, with toggles
