@@ -538,41 +538,20 @@ table{border-collapse:collapse;width:100%}
         </sc-if>
       </div>
 
-      <!-- REAL-TIME MURMUR STRIP — the peripheral sense (src/murmur): drift · footing · novelty +
-           the live registers it raises. Ambient and off the critical path; hide it from Settings. -->
+      <!-- REAL-TIME MURMUR STRIP — the peripheral sense (src/murmur). It no longer shows gauges or
+           register %; it VOICES (src/murmur/narrate/voice.js): first-person oppositions, the kind of
+           thing that flows through your head. Ambient, off the critical path; hide it from Settings. -->
       <sc-if value="{{ murmurOn }}">
-        <div class="eo-scroll eo-murmur" style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:7px 16px;border-bottom:1px solid #EDE9F6;background:#FCFBFF;overflow-x:auto">
+        <div class="eo-scroll eo-murmur" style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:8px 16px;border-bottom:1px solid #EDE9F6;background:#FCFBFF;overflow-x:auto">
           <div style="display:flex;align-items:center;gap:7px;flex:0 0 auto" title="murmur — the impressionistic background sense">
             <span class="eo-murmur-dot" style="width:7px;height:7px;border-radius:50%;background:#7B4FD6;box-shadow:0 0 0 3px rgba(123,79,214,.15)"></span>
             <span style="font-size:10px;font-weight:700;letter-spacing:.09em;color:#7B4FD6">MURMUR</span>
           </div>
 
-          <div style="display:flex;align-items:center;gap:13px;flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:13px;flex:0 0 auto">
-              <sc-for list="{{ murmurGauges }}" as="g">
-                <div style="display:flex;align-items:center;gap:6px" title="{{ g.label }}">
-                  <span style="font-size:10.5px;color:#8A8A95">{{ g.label }}</span>
-                  <span style="position:relative;width:50px;height:5px;border-radius:999px;background:{{ g.trackBg }};overflow:hidden;flex:0 0 auto"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ g.barW }};background:{{ g.color }};border-radius:999px;transition:width .5s ease"></span></span>
-                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;width:28px">{{ g.pctText }}</span>
-                </div>
-              </sc-for>
-            </div>
-
-            <sc-if value="{{ murmurHasChips }}">
-              <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto">
-                <sc-for list="{{ murmurChips }}" as="c">
-                  <span title="{{ c.hint }}" style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:{{ c.fg }};background:{{ c.bg }};border-radius:999px;padding:3px 9px;flex:0 0 auto">{{ c.label }}<span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;opacity:.7">{{ c.pct }}</span></span>
-                </sc-for>
-              </div>
-            </sc-if>
-
-            <sc-if value="{{ murmurHasPhrase }}">
-              <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:12.5px;color:#6E6E78;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">“{{ murmurPhrase }}”</span>
-            </sc-if>
-
-            <sc-if value="{{ murmurQuiet }}">
-              <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:12.5px;color:#B4B4BE;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">resting — the reading is still, and nothing has stirred me yet</span>
-            </sc-if>
+          <div style="display:flex;align-items:baseline;gap:16px;flex:1;min-width:0">
+            <sc-for list="{{ murmurThoughts }}" as="t">
+              <span style="flex:{{ t.flex }};min-width:0;font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:{{ t.fontSize }};line-height:1.4;color:{{ t.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.text }}</span>
+            </sc-for>
           </div>
 
           <button onClick="{{ toggleMurmur }}" title="Hide the murmur strip — turn it back on in Settings" style="flex:0 0 auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#B4B4BE" style-hover="background:#F0EDF9;color:#7B4FD6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
@@ -4776,42 +4755,28 @@ class Component extends DCLogic {
     const m = this._murmur;
     const mode = st.murmurMode || 'look';   // 'off' | 'look' | 'explore'
     const show = mode !== 'off';            // visibility DERIVES from the mode — nothing mutters unseen
-    let sig = null, imps = [];
-    if (m) { try { const s = m.state ? m.state() : null; if (s) { sig = s.signal || null; imps = s.impressions || []; } } catch { /* the strip must never break the surface */ } }
-    const pct = (x) => (typeof x === 'number' && isFinite(x)) ? Math.round(Math.max(0, Math.min(1, x)) * 100) : null;
-    // The three geometric gauges. `footing` is concentration (solid ground underfoot); drift and
-    // novelty are only meaningful in a meaning-measuring space, so they read '—' until MiniLM warms.
-    const gspec = [
-      { label: 'drift',   color: '#C77A3A', v: pct(sig && sig.drift) },
-      { label: 'footing', color: '#2E9BC7', v: pct(sig && sig.concentration) },
-      { label: 'novelty', color: '#8A5BE6', v: pct(sig && sig.novelty) },
-    ];
-    const gauges = gspec.map((g) => ({
-      label: g.label, color: g.color, has: g.v != null,
-      pctText: g.v != null ? (g.v + '%') : '—',
-      barW: (g.v != null ? g.v : 0) + '%',
-      trackBg: g.v != null ? '#ECE9F5' : '#F4F4F7',
-    }));
-    const REG = {
-      unease:      { label: 'unease',      fg: '#B23A2E', bg: '#FBE9E6', hint: 'something’s off' },
-      surprise:    { label: 'surprise',    fg: '#7B4FD6', bg: '#F1EFFE', hint: 'unexpected' },
-      drift:       { label: 'drift',       fg: '#B06A2E', bg: '#FBF0E6', hint: 'we’ve wandered' },
-      recognition: { label: 'recognition', fg: '#1E8A50', bg: '#E7F6EC', hint: 'seen this before' },
-      // the self-guided-learning registers — the wander muttering at rest (murmur/learn)
-      curiosity:   { label: 'turning over', fg: '#6B4FD6', bg: '#F1EFFE', hint: 'turning something over' },
-      outward:     { label: 'wondering',    fg: '#2E7DC7', bg: '#E8F2FB', hint: 'a thread it might chase' },
-      discovery:   { label: 'learned',      fg: '#1E8A50', bg: '#E7F6EC', hint: 'read something new' },
+    // The murmur no longer paints GAUGES — it VOICES. The engine (src/murmur/narrate/voice.js) turns
+    // the geometry into first-person oppositions ("we've drifted far off what you asked — a lead worth
+    // following, or are we just lost?"); the strip only reads that prose. Same discipline: it renders a
+    // voicing, never a citable fact (§9.4). Each thought is tinted by the FEELING it voices — the
+    // colour of the register, not a number.
+    let voice = [];
+    if (m) { try { const s = m.state ? m.state() : null; if (s && Array.isArray(s.voice)) voice = s.voice; } catch { /* the strip must never break the surface */ } }
+    const INK = {
+      unease: '#9B3A2E', drift: '#A25A22', surprise: '#6A46C8', recognition: '#1E7A48',
+      curiosity: '#5A44C0', outward: '#2E6FB8', discovery: '#1E7A48',
     };
-    const chips = (imps || [])
-      .filter((i) => i && typeof i.decayedIntensity === 'number' && i.decayedIntensity > 0.02)
-      .slice(0, 6)
-      .map((i) => { const meta = REG[i.register] || { label: i.register, fg: '#6E6E78', bg: '#F2F2F6', hint: '' };
-        return { register: i.register, label: meta.label, fg: meta.fg, bg: meta.bg, hint: meta.hint,
-          pct: Math.round(i.decayedIntensity * 100) }; });
-    const phraseImp = (imps || []).find((i) => i && i.phrase);
-    const phrase = phraseImp ? phraseImp.phrase : null;
-    const anyGauge = gauges.some((g) => g.has);
-    const quiet = chips.length === 0 && !anyGauge && !phrase;
+    const thoughts = (voice || []).slice(0, 2).map((t, i) => ({
+      text: t && t.text ? String(t.text) : '',
+      // the dominant thought carries its feeling's colour; a trailing second thought stays quiet.
+      fg: i === 0 ? ((t && t.register && INK[t.register]) || '#5E566E') : '#A6A2AE',
+      fontSize: i === 0 ? '13px' : '12px',
+      flex: i === 0 ? '1 1 auto' : '0 1 auto',
+    })).filter((t) => t.text);
+    if (!thoughts.length) {
+      // before the first fold (or a broken read) — the quiet mind still has a line, never a blank strip.
+      thoughts.push({ text: 'resting — the reading is still, and nothing has stirred me yet', fg: '#B4B4BE', fontSize: '13px', flex: '1 1 auto' });
+    }
     // The mode is the one control (Off / Look & think / Explore the web). The Settings selector reads
     // these; the strip's X sets 'off'. Visibility is `show` (mode ≠ off), so nothing runs unseen.
     const modeMeta = {
@@ -4841,11 +4806,8 @@ class Component extends DCLogic {
       learningTrackBg: (st.learningLayer !== false) ? '#7B4FD6' : '#D4D4DC',
       learningKnobX: (st.learningLayer !== false) ? '17px' : '2px',
       murmurControls: show,   // the learning row shows only when the sense is active (mode ≠ off)
-      // the strip's live contents
-      murmurGauges: gauges,
-      murmurChips: chips, murmurHasChips: chips.length > 0,
-      murmurPhrase: phrase, murmurHasPhrase: !!phrase,
-      murmurQuiet: quiet,
+      // the strip's live contents — the inner voice's prose oppositions (no gauges, no register %)
+      murmurThoughts: thoughts,
     };
   }
 

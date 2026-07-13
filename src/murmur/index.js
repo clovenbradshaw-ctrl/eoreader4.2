@@ -13,7 +13,7 @@ import { murmurConfig } from './config.js';
 import { senseSignal, createSessionTopic, meanVec } from './sense/index.js';
 import { classify, dominant, createWorkingFeel } from './valence/index.js';
 import { bornCollapse, buildSteer, steerBias } from './steer/index.js';
-import { createNarrator } from './narrate/index.js';
+import { createNarrator, innerVoice } from './narrate/index.js';
 import { createImpressionSink } from './audit/index.js';
 import { createLearning } from './learn/index.js';
 import { nominateFromFeel, connectionKey } from './link/index.js';
@@ -58,6 +58,7 @@ export const createMurmur = ({
   // it found interesting at rest. It POINTS the app at where to wander; the app advances it one
   // human-paced step at a time. Every note is canWitness===false (§8/§9) — never a citable fact.
   const learning = createLearning({ config: cfg.learn || {}, now });
+  let voiceTick = 0;        // monotonic rotation for the inner voice's phrasing (deterministic, no clock/rng)
   const steerEvents = [];   // the session's own copy of appended steer events (append-only)
   const nominations = [];   // candidate connections awaiting the idle promotion gate (read side-channel)
   const nominatedKeys = new Set();   // dedup — one candidate per (from→to) locus pair (anti-rumination)
@@ -149,7 +150,12 @@ export const createMurmur = ({
     //    (spec §5) and a future recognition can name this event as the one it echoes (phase 4).
     topic.pushReading(readingCentroid, signal.ref);
 
-    const snapshot = Object.freeze({ signal, registers, impressions: feel.feel(), collapse, steer, topicNote, at: now() });
+    // 8. VOICE it (narrate/voice.js) — the geometry as first-person oppositions, model-free, so the
+    //    strip reads like a mind muttering, not a gauge cluster (spec §6/§9.5: a voicing, never a
+    //    fact, never in the answer prompt). Rides the same READ side-channel as `signal` (§9.4).
+    const feltNow = feel.feel();
+    const voice = innerVoice({ signal, impressions: feltNow, rotate: voiceTick++ });
+    const snapshot = Object.freeze({ signal, registers, impressions: feltNow, voice, collapse, steer, topicNote, at: now() });
     lastState = snapshot;
     notifyWatchers(snapshot);
     return snapshot;
@@ -169,10 +175,15 @@ export const createMurmur = ({
       at: now(),
     };
     const base = lastState || {};
+    const impressions = [imp, ...(feel.feel() || [])].slice(0, 6);
+    // VOICE the wander (narrate/voice.js): its own phrase leads verbatim (the murmur's words),
+    // then any live register trails as a second thought — prose oppositions, not gauges (§9.4).
+    const voice = innerVoice({ signal: base.signal || null, impressions, mutter: imp, rotate: voiceTick++ });
     const snapshot = Object.freeze({
-      signal: base.signal || null,          // keep the last gauges (drift/footing/novelty) if any
+      signal: base.signal || null,          // keep the last signal (drift/footing/novelty) if any
       registers: base.registers || [],
-      impressions: [imp, ...(feel.feel() || [])].slice(0, 6),
+      impressions,
+      voice,
       collapse: null, steer: null,
       mutter: imp,
       learning: learnedNote,                // the note just minted (audit-only, canWitness===false)

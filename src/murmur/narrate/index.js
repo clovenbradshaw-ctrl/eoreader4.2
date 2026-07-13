@@ -3,3 +3,4 @@
 // crossing, refractory-gated, ≤32 tokens, audit-only. Never queried for facts (spec §9.5).
 
 export { createNarrator, narratorPrompt } from './narrator.js';
+export { innerVoice } from './voice.js';

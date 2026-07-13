@@ -77,10 +77,17 @@ concentration/unease signal fires. So it stays audit-only (`canAppendLog` never 
 
 For the surface, the barrel grew a read-only side-channel — `murmur.subscribe(fn)` (returns an
 unsubscribe) and `murmur.state()` (the last snapshot). `index.html` renders a **real-time murmur
-strip** on the main page under the tab bar: the drift · footing · novelty gauges and the live
-registers (unease · surprise · drift · recognition) with their decayed intensity, plus the
-narrator's mutter when one wakes. It is shown by default and hideable from **Settings** (persisted
-as `eo_murmur`). The strip only ever reads impressions — it can never surface a citable fact.
+strip** on the main page under the tab bar. It does **not** paint gauges or register percentages —
+those are metrics, and a peripheral sense should read like a mind, not a dashboard. Instead each
+snapshot carries a **`voice`**: the model-free inner voice (`narrate/voice.js`) turns the geometry
+into first-person **oppositions** — the either/or a thought is actually caught in ("we've drifted
+far off what you asked — a lead worth following, or are we just lost?"). The strip shows the
+dominant thought (tinted by the feeling it voices) and, when two registers cross, a quieter second
+one; a live wander/narrator phrase leads verbatim (the murmur's own words). It is shown by default
+and hideable from **Settings** (persisted as `eo_murmur`). The voice is a **voicing, never a fact**
+— same firewall as the narrator (§9.4/§9.5): it can never surface a citable fact or enter the
+answer prompt. `senseSignal`'s drift/footing/novelty scalars are still computed (they drive the
+registers and the audit marginalia); they are simply no longer surfaced as bars.
 
 ## The firewall (why the log write is safe)
 
