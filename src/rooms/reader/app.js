@@ -807,7 +807,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       // already on the log — and re-parsing their rendered lines as prose would drop
       // them. Prose-bearing modalities (pdf, webpage, ocr, audio transcript, plain text)
       // parse as text so the entity/relation read runs over the actual sentences.
-      const structured = ['table', 'json', 'binary'].includes(got.meta?.modality) && got.meta?.doc;
+      // A MIDI score is structured like a table: the ORGAN doc (pitch-class entities +
+      // interval bonds) IS the reading — re-parsing the human summary as prose would drop
+      // the note graph the music organ raised. Its readable `text` is the summary the
+      // organ carries; STRUCTURED_MODALITIES (first-surface.js) keeps the two lists aligned.
+      const structured = ['table', 'json', 'binary', 'music'].includes(got.meta?.modality) && got.meta?.doc;
       const doc = structured ? got.meta.doc : parseText(got.text, { docId: `doc-${shaShort(webContentHash(got.text))}` });
       const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc });
       // The coverage receipt — proof that 100% of the file was processed, or the named
@@ -1827,6 +1831,13 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     msg.text = result.marked || result.answer || msg.text;
     msg.route = result.route;
     msg.grounding = result.grounding;
+    // The VERBATIM prompt this turn handed the model — the audit turn's own record
+    // (turn/stages.js promptText, riding the pipeline result as `turn`). Stashed on the
+    // message — unlike the derived answerEot projection, it is a fact of the turn, not
+    // re-computable — so the facing panel can show exactly what the talker was prompted,
+    // and still show it after a reload (the in-memory audit ring does not survive one).
+    // Null when no talker prompt exists for this answer (a phatic line, an errored turn).
+    msg.prompt = (result.turn && result.turn.prompt) || null;
     msg.flags = (result.flags || []).map((f) => ({ id: f.id, note: f.note || '' }));
     msg.unbound = !!result.unbound;
     msg.stopped = !!result.stopped;

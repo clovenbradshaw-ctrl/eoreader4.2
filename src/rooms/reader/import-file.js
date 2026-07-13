@@ -3,7 +3,7 @@
 //
 // The reader used to import plain text only (readAsText). This lets it import what the
 // ingestion organs already understand: a PDF, a scanned image, an audio or video file, a
-// spreadsheet, a web page — each sniffed by type, extracted by the RIGHT front-end, and
+// spreadsheet, a web page, a MIDI score — each sniffed by type, extracted by the RIGHT front-end, and
 // raised onto the spine by the matching organ (src/organs/in). The heavy extractors
 // (whisper, pdf.js, Tesseract, Florence-2, SheetJS, Readability) are the same "inject the library,
 // bundle nothing" seam the organs assume — so nothing loads until a file of that kind
@@ -28,6 +28,11 @@
 // EVERY non-text import the moment its organ was needed.
 const IN = () => import(new URL('../../organs/in/index.js', import.meta.url).href);
 
+// The MIDI reader is a pure, dependency-free local module (no CDN, no browser API), so —
+// unlike the heavy extractors — it is safe to bind statically; the summary uses its
+// pitch-namer directly rather than a lazily-rebound global.
+import { parseMidi, midiNoteName } from './midi.js';
+
 // WebGPU if the browser offers it, else WASM — the same probe transcribe.html uses.
 let _device = null;
 const device = async () => {
@@ -42,6 +47,7 @@ const HTML_EXT  = ['html', 'htm', 'xhtml'];
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
 const AUDIO_EXT = ['mp3', 'm4a', 'wav', 'ogg', 'oga', 'flac', 'aac', 'opus', 'weba'];
 const VIDEO_EXT = ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v'];
+const MIDI_EXT  = ['mid', 'midi', 'smf', 'kar', 'rmi'];
 const extOf  = (name) => (String(name || '').split('.').pop() || '').toLowerCase();
 const titleOf = (name) => String(name || 'file').replace(/\.[^.]+$/, '');
 
@@ -92,6 +98,18 @@ export async function importAnyFile(file, opts = {}) {
   if (mime.startsWith('image/') || IMAGE_EXT.includes(ext)) {
     say('Recognizing the text…');
     return await fromImage(file, title, name, say);
+  }
+
+  // MIDI — a SCORE, not audio: no waveform to hear, a timed list of notes to READ. Decoded
+  // to a note sequence and raised by the music organ (pitch-class entities, interval bonds).
+  // Checked before the audio branch because an `audio/midi` mime would otherwise be sent to
+  // whisper, which has no waveform to decode.
+  if (mime.includes('midi') || MIDI_EXT.includes(ext)) {
+    say('Reading the score…');
+    // A file that CLAIMS to be MIDI but isn't (a mislabeled .mid) falls through to the
+    // universal byte reader rather than erroring — no file is refused.
+    try { return await fromMidi(file, title, name); }
+    catch (e) { say('Not a MIDI score — reading the bytes…'); return await fromBinary(file, title, name, mime); }
   }
 
   // Audio / video — decode, then whisper hears it (audio organ). The speech only.
@@ -156,7 +174,106 @@ export const _printableRuns = (bytes, min = 4) => {
   return runs;
 };
 
+// mm:ss for a duration in seconds — the reader's clock, so a 3-minute piece reads "3:04".
+const _clock = (sec) => {
+  const s = Math.max(0, Math.round(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+// A MIDI score → the human-readable reading shown as the document: what the file IS
+// (format, tempo, key, meter, duration), what plays it (each track's instrument and note
+// count), and what it plays (the pitch-class histogram + the opening melodic line). Pure,
+// so the summary is pinned by a browserless test against a parsed score. `parsed` is a
+// parseMidi() result; the note graph itself is raised separately by ingestMusic.
+export const _midiSummary = (parsed, title = 'MIDI file') => {
+  const { format, ppq, smpte, trackCount, notes = [], tracks = [], durationSec = 0,
+          tempos = [], timeSignatures = [], keySignatures = [] } = parsed || {};
+  const lines = [];
+  lines.push(`# ${parsed?.name || title}`);
+  lines.push('');
+  const timing = smpte ? `SMPTE ${smpte.framesPerSec} fps` : `${ppq} ticks/quarter`;
+  lines.push(`A Standard MIDI File — a musical score of ${notes.length.toLocaleString()} notes across ${trackCount} track${trackCount === 1 ? '' : 's'} (format ${format}, ${timing}).`);
+  lines.push('');
+
+  // The facts a listener would ask for first — tempo, meter, key, length.
+  const bpms = [...new Set(tempos.map((t) => t.bpm))];
+  if (bpms.length) lines.push(`- **Tempo:** ${bpms.length === 1 ? `${bpms[0]} BPM` : `${bpms.length} changes (${bpms.slice(0, 4).join(', ')}${bpms.length > 4 ? '…' : ''} BPM)`}`);
+  if (timeSignatures.length) lines.push(`- **Time signature:** ${[...new Set(timeSignatures.map((t) => `${t.numerator}/${t.denominator}`))].join(', ')}`);
+  const keys = [...new Set(keySignatures.map((k) => k.name).filter(Boolean))];
+  if (keys.length) lines.push(`- **Key:** ${keys.join(', ')}`);
+  lines.push(`- **Duration:** ${_clock(durationSec)} (${durationSec.toFixed(1)}s)`);
+
+  // The pitch range and the pitch-class histogram — the piece's raw tonal content.
+  if (notes.length) {
+    const midis = notes.map((n) => n.midi);
+    const lo = Math.min(...midis), hi = Math.max(...midis);
+    lines.push(`- **Range:** ${midiNoteName(lo)} – ${midiNoteName(hi)} (${hi - lo} semitones)`);
+    const counts = new Map();
+    for (const n of notes) counts.set(n.pc, (counts.get(n.pc) || 0) + 1);
+    const hist = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    lines.push(`- **Pitch classes:** ${hist.map(([pc, c]) => `${pc}×${c}`).join('  ')}`);
+  }
+  lines.push('');
+
+  // Who plays — one row per SOUNDING track, with its instrument and how much it plays. A
+  // conductor/meta track (tempo and key, no notes) carries no voice; its facts already
+  // surfaced above, so it is counted, not listed.
+  const voiced = tracks.filter((t) => t.noteCount > 0);
+  if (voiced.length) {
+    lines.push('## Tracks');
+    for (const t of voiced) {
+      const label = t.name || (t.isPercussion ? 'Percussion' : `Track ${t.index}`);
+      const inst = t.instrument ? ` — ${t.instrument}` : '';
+      const rng = ` · ${midiNoteName(Math.min(...t.notes.map((n) => n.midi)))}–${midiNoteName(Math.max(...t.notes.map((n) => n.midi)))}`;
+      lines.push(`- **${label}**${inst}: ${t.noteCount} note${t.noteCount === 1 ? '' : 's'}${rng}`);
+    }
+    if (voiced.length < tracks.length) lines.push(`- _(${tracks.length - voiced.length} conductor/meta track${tracks.length - voiced.length === 1 ? '' : 's'} with no notes)_`);
+    lines.push('');
+  }
+
+  // What it plays — the opening line, note names in time order, so the melody is legible
+  // as text (and every note is on the spine as a pitch-class entity besides).
+  if (notes.length) {
+    lines.push('## Opening line');
+    const head = notes.slice(0, 48).map((n) => n.name);
+    lines.push(head.join(' ') + (notes.length > 48 ? ' …' : ''));
+  }
+  return lines.join('\n');
+};
+
 // ── extractors — each lazy-loads its front-end and hands off to an organ ──────────────
+
+async function fromMidi(file, title, name) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const parsed = parseMidi(bytes);
+
+  // The note graph: every note in time order, each carrying its clock, handed to the music
+  // organ (pitch-class entities + interval bonds). Nothing is dropped — the whole score.
+  const { ingestMusic } = await IN();
+  const doc = ingestMusic({
+    name,
+    notes: parsed.notes.map((n) => ({ name: n.name, midi: n.midi, start: n.start, dur: n.dur, velocity: n.velocity, track: n.track, channel: n.channel })),
+    metadata: {
+      title: parsed.name || title,
+      ...(parsed.tempos[0] ? { tempo: `${parsed.tempos[0].bpm} BPM` } : {}),
+      ...(parsed.keySignatures[0]?.name ? { key: parsed.keySignatures[0].name } : {}),
+      ...(parsed.timeSignatures[0] ? { meter: `${parsed.timeSignatures[0].numerator}/${parsed.timeSignatures[0].denominator}` } : {}),
+      format: `SMF format ${parsed.format}`,
+    },
+  });
+  // The doc's readable text is the score summary, not the bare pitch-class list — so the
+  // source tab shows what the file is and plays, and `midi` carries the full decode for a
+  // richer viewer (a piano roll) that wants the addressable notes rather than the prose.
+  const text = _midiSummary(parsed, title);
+  doc.text = text;
+  doc.midi = parsed;
+
+  const dropped = parsed.hangingNotes ? [`${parsed.hangingNotes} note(s) had no note-off and were not sounded`] : [];
+  return { text, title: parsed.name || title, meta: { modality: 'music', doc, midi: parsed,
+    coverage: { complete: dropped.length === 0, notes: parsed.notes.length, tracks: parsed.trackCount,
+                seconds: Math.round(parsed.durationSec * 10) / 10, warnings: parsed.warnings, dropped } } };
+}
+
 
 async function fromHtml(file, title, name) {
   const html = await file.text();

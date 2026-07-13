@@ -56,6 +56,9 @@ try {
       text: 'There is no single worst movie ever, but *Swept Away* is a candidate [s1]. And *Showgirls* also gets mentioned.',
       cites: [{ idx: 1, sn: src.sn, reg: src.reg, title: src.title, text: 'Critics savaged both films.', docId: src.docId }],
       flags: [], verdicts: [],
+      // the audit turn's verbatim prompt record (finishMessage stashes it) — the facing
+      // panel must lead with these exact bytes, never a re-derived reading of them
+      prompt: 'system: You are the voice of a reader.\n\nuser: Here is what I found when I read it:\n- "Critics savaged both films."\nWhat is the worst movie ever?',
     });
     if (ui.state.tab !== 'chat') ui.setState({ tab: 'chat' });
     ui.setState({ rev: (ui.state.rev || 0) + 1 });
@@ -87,13 +90,24 @@ try {
     const hdr = [...document.querySelectorAll('span')].find((s) => s.textContent.trim() === 'How it read this answer');
     const panel = hdr ? hdr.closest('div').parentElement : null;
     const lines = panel ? panel.querySelectorAll('.eo-scroll > div').length : 0;
+    const text = panel ? panel.innerText : '';
     // once revealed the handle button is gone (the panel header — a div — is now the collapse control)
     const handleGone = ![...document.querySelectorAll('button')].some((b) => b.textContent.includes("How it read this"));
-    return { hasPanel: !!hdr, lines, handleGone };
+    return { hasPanel: !!hdr, lines, text, handleGone };
   });
   check('facing: the reveal opens the "How it read this answer" panel', facing.hasPanel);
   check('facing: it shows EoT reading lines', facing.lines > 0, `${facing.lines} lines`);
   check('facing: the handle collapsed into the panel (no stray toggle)', facing.handleGone);
+  // the VERBATIM leaf — the panel leads with the exact prompt the model was handed
+  check('facing: the panel leads with the verbatim-prompt section rule',
+    facing.text.includes('the prompt the model was handed — verbatim'));
+  check('facing: the prompt is shown byte-for-byte (system line)',
+    facing.text.includes('system: You are the voice of a reader.'));
+  check('facing: the prompt is shown byte-for-byte (grounded user line)',
+    facing.text.includes('- "Critics savaged both films."'));
+  check('facing: the verbatim leaf precedes the derived reading',
+    facing.text.indexOf('the prompt the model was handed') < facing.text.indexOf('answer-mtest1')
+      || !facing.text.includes('answer-mtest1'));
 
   // Ignore environmental resource-load noise (favicon / version.json / proxy cert) — the real
   // signal for a template or render bug is an UNCAUGHT page error, of which there must be none.

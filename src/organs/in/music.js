@@ -44,6 +44,20 @@ const interval = (a, b) => {
   return d === 0 ? 'rep' : (d > 0 ? `up${d}` : `down${-d}`);
 };
 
+// A note may arrive as a bare NAME string ("C4", "F#5") — the way a hand-typed melody or
+// the older callers pass it — or as a decoded EVENT object carrying its own MIDI number
+// and timing ({ midi, name, start, dur, velocity, track, channel }), the way the MIDI
+// reader hands over a performance. Either way we resolve to a MIDI number; the signal the
+// organ folds is the same, only richer callers keep their clock alongside it.
+const noteMidi = (note) => {
+  if (note && typeof note === 'object') return note.midi != null ? note.midi : toMidi(note.name);
+  return toMidi(note);
+};
+const noteLabel = (note) => {
+  if (note && typeof note === 'object') return note.name || (note.midi != null ? String(note.midi) : '?');
+  return String(note);
+};
+
 export const ingestMusic = (score = {}) => {
   const { name = `melody-${Date.now()}`, notes = [] } = score;
 
@@ -51,14 +65,19 @@ export const ingestMusic = (score = {}) => {
   const units = [];
   const sentences = [];
   const mentions = new Map();
-  const sequence = [];   // [{ note, midi, pc, id, unitIdx }]
+  const sequence = [];   // [{ note, midi, pc, id, unitIdx, start?, dur?, velocity?, track?, channel? }]
 
   let prev = null;
   notes.forEach((note, unitIdx) => {
-    const midi = toMidi(note);
+    const midi = noteMidi(note);
     if (midi == null) return;
     const pc = PC_NAME[((midi % 12) + 12) % 12];
     const id = pc;                          // pitch class is the recurring entity
+    const label = noteLabel(note);
+    // A decoded MIDI note keeps its clock; a bare name has only its position (the beat).
+    const timing = (note && typeof note === 'object')
+      ? { start: note.start, dur: note.dur, velocity: note.velocity, track: note.track, channel: note.channel }
+      : {};
 
     log.append({ op: 'INS', id, label: pc, sentIdx: unitIdx });
     mentions.set(id, [...(mentions.get(id) || []), unitIdx]);
@@ -70,9 +89,9 @@ export const ingestMusic = (score = {}) => {
       log.append({ op: 'CON', src: prev.id, tgt: id, via: interval(prev.midi, midi), sentIdx: unitIdx });
     }
 
-    units.push(`${note} (beat ${unitIdx})`);
+    units.push(timing.start != null ? `${label} (${timing.start.toFixed(2)}s)` : `${label} (beat ${unitIdx})`);
     sentences.push(pc);
-    sequence.push({ note, midi, pc, id, unitIdx });
+    sequence.push({ note: label, midi, pc, id, unitIdx, ...timing });
     prev = { id, midi };
   });
 
