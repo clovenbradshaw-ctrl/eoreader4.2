@@ -141,6 +141,49 @@ const witnessesOf = (doc, sentences, hits) => {
   };
 };
 
+// witnessesForProps(doc, props) — the per-PROPOSITION witness reading the streaming source
+// gate reads. For each proposition {subj, via, obj} (lowercased labels, as classifyProvenance
+// lowers them), look the relation up in the document's OWN witness table and report how many
+// DISTINCT SPANS (sentIdx, exafferent only — the engine's own notes never count) and how many
+// independent ROOT ORIGINS witness it. `spans` is the within-document ≥2-witness measure — two
+// different sentences of one memo corroborate; `origins` is the cross-source measure
+// (reflectAnswer's independent roots — a single memo maxes at 1). Reuses witnessTableOf / relKey /
+// witnessesOf whole — no new witness logic, just the count exposed before it folds to roots.
+// `allow`, when supplied (a Set or array of sentIdx), restricts witnesses to those spans — the
+// passages the reader actually retrieved, so a citation always points at a span they can jump to
+// and "≥2 witnesses" means two of the shown lines. Omit it to witness against the whole document.
+export const witnessesForProps = (doc, props = [], allow = null) => {
+  if (!doc || !Array.isArray(props)) return [];
+  const table = witnessTableOf(doc);
+  const sentences = doc.units || doc.sentences || [];
+  const sentLC = sentences.map((s) => lc(s));
+  const ok = allow ? (allow instanceof Set ? allow : new Set(allow)) : null;
+  return props.map((p) => {
+    const subj = lc(p.subj), via = lc(p.via), obj = p.obj != null ? lc(p.obj) : null;
+    // MEANING witnesses — a graph relation with the same figures in the same relation (coref-aware,
+    // order-insensitive: "Ben was trusted by Anna" witnesses "Anna trusted Ben").
+    const raw = table.byRel.get(relKey({ subj, via, obj })) || [];
+    const hits = ok ? raw.filter((h) => h.sentIdx != null && ok.has(h.sentIdx)) : raw;
+    const graphIdx = hits.filter((h) => h.door !== 'enactor' && h.sentIdx != null).map((h) => h.sentIdx);
+    // SURFACE witnesses — a span that literally carries the proposition (the same verbatim test
+    // classifyProvenance grounds `verbatim` on). Without this a lifted claim would count zero
+    // witnesses even though its words are on the page: the relation extractor keys the graph on
+    // "Project Atlas" while the claim says "Atlas", so meaning-matching alone misses the lift.
+    const lexIdx = [];
+    for (let i = 0; i < sentLC.length; i++) {
+      if (ok && !ok.has(i)) continue;
+      const s = sentLC[i];
+      if (s.includes(subj) && s.includes(via) && (!obj || s.includes(obj))) lexIdx.push(i);
+    }
+    const spanIdxs = [...new Set([...graphIdx, ...lexIdx])].sort((a, b) => a - b);
+    const w = witnessesOf(doc, sentences, hits);
+    return {
+      subj: p.subj, via: p.via, obj: p.obj ?? null,
+      spanIdxs, spans: spanIdxs.length, origins: w.origins, senses: w.senses, sources: w.sources,
+    };
+  });
+};
+
 // reflectAnswer({ answer, doc }) → { eot, summary } | null
 //   eot      one row per EOT line parsed from the answer, each with its verdict and
 //            witnesses: { line, kind, status, sources, origins, subj, via, obj }

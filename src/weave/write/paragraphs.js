@@ -82,7 +82,7 @@ const flowInline = (s) => String(s).replace(/\s*\n\s*/g, ' ');
 // `text` is EXACTLY what was forwarded to `onToken` (after the paragraph join, which
 // the gate also owns); `halted` means the loop should stop (the model closed with
 // DONE, or looped back onto an opener it already wrote).
-const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFirst, seenOpeners, prior = '' }) => {
+const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFirst, seenOpeners, prior = '', archon = null, groundStrict = false }) => {
   const inner = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const onOuterAbort = () => inner?.abort();
   if (signal) signal.addEventListener('abort', onOuterAbort, { once: true });
@@ -96,6 +96,28 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
   let forwarded = -1;     // buf index emitted so far
   let droppedTail = '';   // a mid-sentence tail the per-decode ceiling cut (a bound guard, logged upstream)
   let emitted = '';       // EXACTLY what was forwarded to onToken (thin breaks collapsed) — the returned text
+
+  // NPJ-STRICT span-anchored gating (docs/archon-source-gate.md). When an archon is seated and
+  // grounding is strict, each complete sentence is SOURCED before it is forwarded: an unsourced
+  // sentence is dropped — never sent to onToken, never entered into `emitted` — so streamed===draft
+  // holds by the very mechanism the DONE/repeat suppression relies on. Off → every strict branch
+  // below is skipped and the paragraph loop is byte-identical.
+  const strict = !!(archon && groundStrict);
+  let pendingJoin = false;   // the '\n\n' join waits for the first sentence actually KEPT
+  let keptAny = false;       // whether any sentence of this paragraph has been forwarded yet
+  const dropped = [];        // sentences that failed to source (never forwarded)
+  const sourced = [];        // { text, citations } per kept sentence — the multi-citation record
+  // Forward one KEPT sentence: consume the deferred paragraph join, strip a leading space at the
+  // paragraph's start, and mirror onToken into `emitted` so the returned text equals the stream.
+  const forwardKept = (raw, decided) => {
+    if (pendingJoin) { onToken?.('\n\n'); pendingJoin = false; }
+    let piece = flowInline(raw);
+    if (!keptAny) piece = piece.replace(/^\s+/, '');
+    if (!piece) return;
+    keptAny = true;
+    onToken?.(piece); emitted += piece;
+    sourced.push({ text: raw.trim(), citations: decided.citations });
+  };
 
   const lastSentenceEnd = () => {
     const re = SENT_END_RE();
@@ -153,7 +175,10 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
       if (!isFirst && prior && retreads(prior, opener)) { suppressed = true; inner?.abort(); return; }
       opened = true;
       forwarded = start;
-      if (!isFirst) onToken?.('\n\n');       // the join between paragraphs
+      // the join between paragraphs — deferred to the first KEPT sentence under strict (the opener
+      // may itself be dropped by the source gate, and a dangling '\n\n' before a dropped paragraph
+      // would break streamed===draft).
+      if (!isFirst) { if (strict) pendingJoin = true; else onToken?.('\n\n'); }
     }
     if (closed < 0) {
       // Close only at a blank line whose PRECEDING segment is substantial — a real paragraph
@@ -183,12 +208,45 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
     }
     while (upTo > forwarded && /\s/.test(buf[upTo - 1])) upTo--;
     if (upTo > forwarded) {
-      // Forward the new span with any intra-paragraph thin break collapsed to a space; `emitted`
-      // is the flowed text, kept as the paragraph's returned value so the stored draft stays
-      // byte-identical to what was streamed (the streamed===draft invariant).
-      const chunk = flowInline(buf.slice(forwarded, upTo));
-      if (chunk) { onToken?.(chunk); emitted += chunk; }
-      forwarded = upTo;
+      if (strict) {
+        // Per-sentence sourcing gate: walk the complete sentences in [forwarded, upTo) and forward
+        // one only if it SOURCES (every proposition grounded AND ≥2 distinct witnessing spans). An
+        // unsourced sentence is DROPPED — never forwarded, never entered into `emitted` — so the
+        // visible stream still equals the returned draft. The '\n\n' join rides the first kept one.
+        const region = buf.slice(forwarded, upTo);
+        const re = SENT_END_RE();
+        let m, local = 0;
+        while ((m = re.exec(region))) {
+          const end = m.index + m[0].length;
+          const raw = region.slice(local, end);
+          local = end;
+          const sent = raw.trim();
+          if (!sent) continue;
+          const decided = archon(sent);
+          if (decided.sourced) forwardKept(raw, decided);
+          else dropped.push(sent);
+        }
+        // On the final pump a last sentence may lack terminal punctuation (a truncated close); treat
+        // end-of-region as a boundary so it is gated too, not silently dropped between the cracks.
+        if (final && local < region.length) {
+          const raw = region.slice(local);
+          const sent = raw.trim();
+          if (sent) {
+            const decided = archon(sent);
+            if (decided.sourced) forwardKept(raw, decided);
+            else dropped.push(sent);
+            local = region.length;
+          }
+        }
+        forwarded += local;   // advance past kept AND dropped sentences
+      } else {
+        // Forward the new span with any intra-paragraph thin break collapsed to a space; `emitted`
+        // is the flowed text, kept as the paragraph's returned value so the stored draft stays
+        // byte-identical to what was streamed (the streamed===draft invariant).
+        const chunk = flowInline(buf.slice(forwarded, upTo));
+        if (chunk) { onToken?.(chunk); emitted += chunk; }
+        forwarded = upTo;
+      }
     }
   };
 
@@ -214,7 +272,7 @@ const drawParagraph = async ({ model, messages, maxTokens, onToken, signal, isFi
   pump(true);
 
   const text = !suppressed && opened && emitted ? emitted : '';
-  return { text, halted: suppressed, sawDone, droppedTail };
+  return { text, halted: suppressed, sawDone, droppedTail, dropped, sourced };
 };
 
 // ── Runaway guards — NOT length policy ──────────────────────────────────────
@@ -247,8 +305,10 @@ const warnGuard = (guard, detail) => {
 // realised (the caller falls back to the one-shot draw, non-breaking by construction).
 export const streamParagraphs = async ({
   model, messages, onToken = null, budget = 384, maxParagraphs = null, signal = null,
+  archon = null, groundStrict = false,
 } = {}) => {
   if (!model || !Array.isArray(messages) || !messages.length) return null;
+  const strict = !!(archon && groundStrict);   // NPJ-strict span-anchored gating (see drawParagraph)
   // The paragraph count is emergent (the model closes when it is done); `cap` is only the
   // runaway backstop, or the caller's explicit `maxParagraphs`. The per-decode ceiling is
   // generous — a real paragraph closes on its blank line far under it, so it is a guard,
@@ -259,6 +319,8 @@ export const streamParagraphs = async ({
   const paragraphs = [];
   const seenOpeners = new Set();
   const guards = [];
+  const allDropped = [];   // strict: every sentence the archon refused, across paragraphs (audit)
+  const allSourced = [];   // strict: { text, citations } for every admitted sentence, in order
   let done = false;
 
   let i = 0;
@@ -274,6 +336,7 @@ export const streamParagraphs = async ({
       out = await drawParagraph({
         model, messages: input, maxTokens: perCall, onToken, signal,
         isFirst: paragraphs.length === 0, seenOpeners, prior: paragraphs.join('\n\n'),
+        archon, groundStrict,
       });
     } catch { break; }   // a decode fault ends the loop with what we have — never a dead turn
     if (out.sawDone) done = true;
@@ -284,6 +347,10 @@ export const streamParagraphs = async ({
       const g = { guard: 'per-call-ceiling', paragraph: paragraphs.length, dropped: out.droppedTail };
       guards.push(g); warnGuard('per-call-ceiling', g);
     }
+    // Collect the archon's refusals/admissions BEFORE the empty-paragraph break, so a paragraph the
+    // gate emptied still contributes its refused sentences to the audit.
+    if (out.dropped?.length) allDropped.push(...out.dropped);
+    if (out.sourced?.length) allSourced.push(...out.sourced);
     if (out.halted || !out.text) break;
     paragraphs.push(out.text);
     seenOpeners.add(norm(firstSentenceOf(out.text) || out.text));
@@ -301,12 +368,26 @@ export const streamParagraphs = async ({
     if (maxParagraphs == null) warnGuard(g.guard, g);
   }
 
-  if (!paragraphs.length) return null;
+  if (!paragraphs.length) {
+    // Strict gate that refused every sentence: return an empty-draft result (NOT null) carrying the
+    // refusals, so the caller answers the honest absence instead of falling through to the ungrounded
+    // one-shot path — which would ship the very prose the archon just refused.
+    if (strict && allDropped.length) {
+      return Object.freeze({
+        draft: '', paragraphs: Object.freeze([]), done, stopped: !!signal?.aborted,
+        guards: Object.freeze(guards),
+        dropped: Object.freeze(allDropped.slice()), sourced: Object.freeze([]),
+      });
+    }
+    return null;
+  }
   return Object.freeze({
     draft: paragraphs.join('\n\n'),
     paragraphs: Object.freeze(paragraphs.slice()),
     done,
     stopped: !!signal?.aborted,
     guards: Object.freeze(guards),
+    dropped: Object.freeze(allDropped.slice()),
+    sourced: Object.freeze(allSourced.slice()),
   });
 };

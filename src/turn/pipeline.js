@@ -318,6 +318,17 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
       id: 'grounding-incomplete', refuses: false,
       message: `A grounding step (${degraded.join(', ')}) could not complete, so the answer is shown without that verification.`,
     });
+    // THE ARCHON'S REFUSALS (docs/archon-source-gate.md). On the strict (Grounded chip) path,
+    // sentences the model wrote that could not be sourced to ≥2 of your lines were dropped before
+    // they ever streamed. Say so — a non-refusing note that the answer was pruned to what sourced,
+    // never a gag on what remained. Empty on every non-strict turn → no flag.
+    if ((ctx.groundDropped || []).length) {
+      const n = ctx.groundDropped.length;
+      flags.push({
+        id: 'ground-dropped', refuses: false,
+        message: `${n} sentence${n === 1 ? '' : 's'} could not be sourced to at least two of your lines and ${n === 1 ? 'was' : 'were'} left out.`,
+      });
+    }
 
     // THE REFLECTION (ground/reflect.js): read the answer BACK — parse the model's output
     // into EOT, compare each lowered proposition with the document graph, and judge the
