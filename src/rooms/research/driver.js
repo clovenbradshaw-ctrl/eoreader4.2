@@ -34,7 +34,7 @@
 // non-regression, tests/research-log.test.js).
 
 import {
-  openResearch, pinSource, readSpan, extractProposition, evaTest, conEdge,
+  openResearch, searchProbe, pinSource, readSpan, extractProposition, evaTest, conEdge,
   recFrame, voidAbsence, askUser, answerAsk, promoteProposition, phraseSection,
 } from './events.js';
 import { projectReport } from './project.js';
@@ -167,6 +167,31 @@ export const holonicFacets = (q, n = 5) => {
   return HOLON_FACETS.slice(0, Math.max(1, Math.min(HOLON_FACETS.length, n))).map((f) => f(s));
 };
 
+// ── The disproof stance — the falsification search ──────────────────────────
+// A good search tries to prove itself WRONG. For a subject/anchor these are the
+// queries that would surface the document that exists ONLY if the reading is
+// mistaken — the lawsuit, the rejection, the debunking, the contrary ruling, the
+// suspension. They are issued with stance:'disprove' and logged as such, so the
+// run can state honestly how many of its searches went looking for
+// counter-evidence — and so a source one of them turns up that forces a
+// reframing is flagged as the thing that changed the story. If this number were
+// zero the whole gather would be a search for agreement, and it would find some.
+const DISPROOF_CUES = [
+  'criticism controversy problems',
+  'lawsuit legal challenge complaint',
+  'rejected suspended cancelled',
+  'debunked disputed contradicted',
+  'failed no evidence overstated',
+  'opposition concerns denied',
+  'investigation violation misconduct',
+  'reversed overturned withdrawn',
+];
+export const disproofQueries = (anchor, n = 3) => {
+  const a = String(anchor || '').trim();
+  if (!a) return [];
+  return DISPROOF_CUES.slice(0, Math.max(0, Math.min(DISPROOF_CUES.length, n))).map((cue) => `${a} ${cue}`);
+};
+
 // resolveDepth(opts) → { targetSources, perSource, facets, follow } | null. Null means
 // no active gather (behave exactly as before): only chosen when a size preset
 // is set. Strategy scales the size; an explicit targetSources/perSource wins.
@@ -188,51 +213,82 @@ export const resolveDepth = (opts = {}) => {
 // surface, shaped by the strategy: `facet` fans across generic aspects, `lead`
 // chases the most surprising terms (curiosityOf/leadsFrom, the same active-
 // inference the walk uses), `coverage` cycles the cube's operator cues so the
-// spread of KINDS widens. Novel on-topic pages only (dedup by a text signature);
-// bounded by targetSources and a round cap. Pure but for `search`.
-const gatherCorpus = async (q, subject, seed, search, { targetSources, maxRounds, follow, k, onBeat }) => {
+// spread of KINDS widens. Every frontier query carries a STANCE — confirm
+// (looking for what fits) or disprove (looking for the document that would
+// exist if the reading were wrong); `disproofN` disprove queries are seeded up
+// front and always drained even once the corpus target is met (more confirm
+// searches past the target would only pile on agreement). Each executed query
+// is reported via `onSearch(query, stance, {found, kept, discarded})` so it can
+// become a logged event, and each kept page is tagged with the search that
+// found it (`_via`). Novel on-topic pages only (dedup by a text signature);
+// bounded by targetSources, a round cap, and a quiet-stop — after `quietStop`
+// consecutive queries turn up nothing new, the gather stops because it has
+// stopped learning, not because it ran out of rounds. Pure but for `search`.
+const gatherCorpus = async (q, subject, seed, search, { targetSources, maxRounds, follow, k, onBeat, onSearch = null, disproofN = 0, quietStop = 3 }) => {
   const corpus = [...seed];
   if (typeof search !== 'function') return corpus;
   const sig = (t) => String(t || '').replace(/\s+/g, ' ').trim().slice(0, 240).toLowerCase();
   const seen = new Set(corpus.map((s) => sig(s.text)));
   const seenQ = new Set();
   const frontier = [];
-  const pushQ = (query) => { const s = String(query || '').trim(); if (s && !seenQ.has(s.toLowerCase())) frontier.push(s); };
-  // Seed: the plain question first, then the strategy's opening spread.
-  pushQ(q);
+  const pushQ = (query, stance = 'confirm') => { const s = String(query || '').trim(); if (s && !seenQ.has(s.toLowerCase())) frontier.push({ query: s, stance }); };
+  // Seed: the plain question first, then the strategy's opening spread, then the
+  // disprove queries — the searches that go looking to be wrong.
+  pushQ(q, 'confirm');
   const anchor = subject.join(' ') || q;
-  if (follow === 'facet') for (const f of FACETS) pushQ(`${anchor} ${f}`);
-  if (follow === 'holonic') for (const cue of Object.values(OP_FACETS)) pushQ(`${anchor} ${cue.split(' ')[0]}`);
+  if (follow === 'facet') for (const f of FACETS) pushQ(`${anchor} ${f}`, 'confirm');
+  if (follow === 'holonic') for (const cue of Object.values(OP_FACETS)) pushQ(`${anchor} ${cue.split(' ')[0]}`, 'confirm');
+  const disproofs = disproofQueries(anchor, disproofN);
+  for (const dq of disproofs) pushQ(dq, 'disprove');
+  const disprovePlanned = disproofs.length;
+  let disproveRun = 0;
   let prior = new Map();
   for (const s of corpus) prior = foldInto(prior, profileOf(s.text || ''));
   const need = () => corpus.length < targetSources;
   const cap = Math.max(1, maxRounds);
   let rounds = 0;
-  while (frontier.length && (need() || !corpus.length) && rounds < cap) {
-    const query = frontier.shift();
+  let quiet = 0;
+  while (frontier.length && rounds < cap) {
+    const disproofDone = disproveRun >= disprovePlanned;
+    if (!need() && disproofDone) break;                 // target met and the disproof budget spent
+    if (quiet >= quietStop && disproofDone) break;      // stopped learning — the quiet-stop
+    // Once the corpus target is met, only disprove searches are still worth
+    // running — more confirm searches would only gather more agreement.
+    let idx = 0;
+    if (!need()) { idx = frontier.findIndex((f) => f.stance === 'disprove'); if (idx < 0) break; }
+    const { query, stance } = frontier.splice(idx, 1)[0];
     const qk = query.toLowerCase();
     if (seenQ.has(qk)) continue;
     seenQ.add(qk);
     rounds++;
+    if (stance === 'disprove') disproveRun++;
     if (onBeat) { try { onBeat(query, corpus.length, targetSources); } catch { /* a beat never breaks the gather */ } }
     let hits = [];
     try { hits = (await search(query, { k })) || []; } catch { hits = []; }
+    let kept = 0;
+    const discarded = [];
     for (const h of hits) {
       const text = String(h?.text || '');
-      if (text.trim().length < 120) continue;
+      const label = String(h?.title || h?.url || '');
+      if (text.trim().length < 120) { if (discarded.length < 4) discarded.push({ title: label, reason: 'thin' }); continue; }
       const s = sig(text);
-      if (seen.has(s)) continue;
+      if (seen.has(s)) { if (discarded.length < 4) discarded.push({ title: label, reason: 'redundant' }); continue; }
       seen.add(s);
-      corpus.push(h);
-      // Harvest the next queries from THIS page, shaped by the strategy.
+      corpus.push({ ...h, _via: { query, stance } });
+      kept++;
+      // Harvest the next queries from THIS page, shaped by the strategy. A
+      // disprove page's own leads are followed as confirm threads — once found,
+      // the counter-evidence is read like any other source.
       if (follow === 'lead' || follow === 'holonic') {
         const arrival = profileOf(text);
         const { by } = curiosityOf(prior, arrival);
         prior = foldInto(prior, arrival);
-        for (const lead of leadsFrom(by, { max: follow === 'lead' ? 3 : 1 })) pushQ(nextQuery(anchor, lead));
+        for (const lead of leadsFrom(by, { max: follow === 'lead' ? 3 : 1 })) pushQ(nextQuery(anchor, lead), 'confirm');
       }
-      if (!need()) break;
+      if (!need()) break;   // enough sources — stop over-mining this one query's hits
     }
+    quiet = kept > 0 ? 0 : quiet + 1;
+    if (onSearch) { try { onSearch(query, stance, { found: hits.length, kept, discarded }); } catch { /* a beat never breaks the gather */ } }
   }
   return corpus;
 };
@@ -318,6 +374,11 @@ export const runGroundedResearch = async (question, opts = {}) => {
   let askN = log.filter((e) => e.kind === 'ask').length;
   let pinN = log.filter((e) => e.kind === 'pin').length;
   let propN = log.filter((e) => e.kind === 'extract').length;
+  let searchN = log.filter((e) => e.kind === 'search').length;
+  // Each query gatherCorpus executes becomes a logged search event on the frame
+  // it served — the confirm/disprove audit is a fold of these, nothing more.
+  const emitSearch = (frameId) => (query, stance, { found, kept, discarded }) =>
+    emit(searchProbe({ id: `search:${searchN++}`, frameId, query, stance, found, kept, discarded, t: tick() }));
 
   const q = String(question || '').trim();
   const subject = researchTerms(q);
@@ -382,6 +443,11 @@ export const runGroundedResearch = async (question, opts = {}) => {
   // A size preset turns the single-shot fallback into a gather-to-target loop:
   // keep searching until there is enough grounded material for the requested
   // size, shaped by the strategy (breadth / depth / holonic).
+  // How many searches go looking to be WRONG. Only on a real gather (a size
+  // preset) — a single-shot corpus fill stays as light as before. Roughly a
+  // third of the subject-level searches are falsification searches, so the audit
+  // ("N of M trying to disprove it") is never a rounding artefact.
+  const rootDisproofN = depth ? Math.max(2, Math.round(depth.targetSources / 3)) : 0;
   let corpus = [...sources];
   if (search && (depth || !corpus.length)) {
     corpus = await gatherCorpus(q, subject, corpus, search, {
@@ -393,6 +459,7 @@ export const runGroundedResearch = async (question, opts = {}) => {
       follow: perHolon ? 'lead' : (depth ? depth.follow : 'lead'),
       k: opts.perQuery ?? 4,
       onBeat: opts.onGather || null,
+      onSearch: emitSearch(rootId), disproofN: rootDisproofN,
     });
   }
   if (!corpus.length) {
@@ -430,7 +497,7 @@ export const runGroundedResearch = async (question, opts = {}) => {
       let pinId = priorPins.get(payload.contentHash);
       if (!pinId) {
         pinId = `pin:${pinN++}`;
-        emit(pinSource({ id: pinId, ...payload, t: tick() }));
+        emit(pinSource({ id: pinId, ...payload, via: src._via || null, t: tick() }));
         priorPins.set(payload.contentHash, pinId);
       }
       const entry = { pinId, text, doc: admitWebSource({ url: src.url || `pinned:${pinId}`, text }).doc, title: src.title ?? null };
@@ -460,6 +527,7 @@ export const runGroundedResearch = async (question, opts = {}) => {
         follow: 'lead',
         k: opts.perQuery ?? 4,
         onBeat: opts.onGather || null,
+        onSearch: emitSearch(frame.id), disproofN: 1,
       });
       framePins.set(frame.id, await pinInto(facetCorpus));
     }

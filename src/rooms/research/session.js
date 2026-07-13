@@ -172,6 +172,19 @@ export const formatChatReply = (report, rootId = 'root') => {
   if (disputed.length) {
     notes.push(`**${disputed.length} claim${disputed.length === 1 ? '' : 's'} disputed** — sources pull in opposite directions and nothing broke the tie (marked ⚠ above).`);
   }
+  // The going-and-looking loop — an audit of the SEARCH, not just the answer:
+  // how many searches went looking to be wrong, whether one changed the story,
+  // and which earlier answers the search has left needing a re-check.
+  if (report.searchAudit?.disprove) {
+    const f = report.searchAudit.disproveFound;
+    notes.push(`**The search went looking to be wrong** — ${report.searchAudit.disprove} of ${report.searchAudit.total} searches tried to prove this reading wrong${f ? `, and ${f} found something` : ' and came back empty'}. A search that only ever confirms would find agreement and stop there.`);
+  }
+  if (report.loop?.storyChanged) {
+    notes.push('**One of those searches changed the story** — a source meant to disprove the reading forced it to reframe (see the report).');
+  }
+  if (report.recheck?.length) {
+    notes.push(`**${report.recheck.length} earlier answer${report.recheck.length === 1 ? '' : 's'} need re-checking** — ${report.recheck.length === 1 ? 'it rests' : 'they rest'} on a reading the run has since reframed.`);
+  }
   if (notes.length) {
     lines.push('\n**Worth knowing**');
     for (const n of notes) lines.push(`- ${n}`);

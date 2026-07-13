@@ -153,6 +153,22 @@ export const liveView = (log, cursor = null) => {
     framePanel, grid, coverage: coverageSummary(r), coverageNote: coverageNote(r), path, recMoments,
     // prototype fields
     query, settle, subs, terms: terms.slice(0, 16), reading, findings, statusText, phase: badge === 'settled' ? 'done' : 'live',
+    // ── the going-and-looking loop, surfaced for the live panel ──────────────
+    // What it's searching for and why (confirm vs. disprove), how many of the
+    // searches went looking to be wrong, the stopping rule you can watch, what
+    // was kept vs. thrown out, whether a disprove source changed the story, and
+    // how many earlier answers the search has left needing a re-check.
+    searchAudit: r.searchAudit,
+    searches: r.searches.map((s) => ({ frameId: s.frameId, query: s.query, stance: s.stance, found: s.found, kept: s.kept })),
+    stopRule: r.stopRule,
+    documents: r.documents,
+    storyChanges: r.storyChanges,
+    recheck: r.recheck.length,
+    // state A — the record is silent: nothing grounded, so the gap is the door.
+    gap: (!r.propositions.length && (r.voids.length || (query && r.frames.length))) ? {
+      question: query,
+      note: r.voids.length ? 'The pinned sources are silent on this.' : 'Nothing grounded yet.',
+    } : null,
     questions: r.questions.map(({ ask, answer }) => ({
       id: ask.id, trigger: ask.trigger, text: ask.text, options: ask.options,
       answered: !!answer, reply: answer?.reply ?? null,
@@ -177,6 +193,7 @@ export const describeEvent = (e) => {
   if (!e) return '';
   switch (e.kind) {
     case RKIND.OPEN: return `frame opened — ${e.question}`;
+    case RKIND.SEARCH: return `${e.stance === 'disprove' ? 'searched to disprove' : 'searched'} “${clip(e.query, 60)}” — ${e.kept} kept${e.found - e.kept > 0 ? `, ${e.found - e.kept} set aside` : ''}`;
     case RKIND.PIN: return describePin(e);
     case RKIND.READ: return e.span?.text
       ? `read “${clip(e.span.text)}” — binds ${e.bind?.overlap ?? '?'} frame term${e.bind?.overlap === 1 ? '' : 's'}`

@@ -44,6 +44,8 @@ export const renderReportFragment = (report, { title = null } = {}) => {
   h.push(`<span>${r.pins.length} pinned source${r.pins.length === 1 ? '' : 's'}</span>`);
   h.push(`<span>${r.propositions.length} grounded proposition${r.propositions.length === 1 ? '' : 's'}</span>`);
   h.push(`<span>${r.recs.length} reframing${r.recs.length === 1 ? '' : 's'}</span>`);
+  if (r.searchAudit?.total) h.push(`<span class="dr-badge-dis" title="an audit of the search, not the answer — searches built to prove the reading wrong">${r.searchAudit.disprove} of ${r.searchAudit.total} searches tried to disprove it</span>`);
+  if (r.recheck?.length) h.push(`<span class="dr-badge-recheck" title="claims read under a reading the run has since reframed">${r.recheck.length} to re-check</span>`);
   if (r.verify.sections) h.push(`<span>${r.verify.bound} of ${r.verify.sentences} sentence${r.verify.sentences === 1 ? '' : 's'} bound to a passage · ${r.verify.glue} connective${r.verify.dropped ? ` · ${r.verify.dropped} dropped` : ''}</span>`);
   h.push(`</div></header>`);
 
@@ -80,7 +82,9 @@ export const renderReportFragment = (report, { title = null } = {}) => {
         const pin = pinById[p.pinId];
         const anchor = pin ? spanAnchor(pin, p.span) : '';
         const flags = [];
-        if (p.recForcing) flags.push(`<span class="dr-flag dr-flag-rec" title="this span forced a reframing">REC-forcing</span>`);
+        if (p.recForcing) flags.push(`<span class="dr-flag dr-flag-rec" title="this span forced a reframing">reframed the topic</span>`);
+        if (p.fromDisprove) flags.push(`<span class="dr-flag dr-flag-dis" title="found by a search built to prove the reading wrong">from a disproof search</span>`);
+        if (p.staleAfterRec) flags.push(`<span class="dr-flag dr-flag-stale" title="read under a reading the run has since reframed — re-check before relying on it">re-check</span>`);
         if (p.corroboratedBy.length) flags.push(`<span class="dr-flag dr-flag-cor">corroborated ×${p.corroboratedBy.length}</span>`);
         if (p.contradictedBy.length) flags.push(`<span class="dr-flag dr-flag-con" title="contradicted by ${esc(p.contradictedBy.join(', '))}">contradicted</span>`);
         if (p.eva?.verdict === 'confirm') flags.push(`<span class="dr-flag dr-flag-bg">corroboration</span>`);
@@ -105,6 +109,53 @@ export const renderReportFragment = (report, { title = null } = {}) => {
       h.push(`</ol>`);
     }
     h.push(`</section>`);
+  }
+
+  // ── The search, audited — the going-and-looking loop (states C/D) ──────────
+  // What makes this more than a search box, said as the three numbers: how many
+  // searches went looking to be WRONG, whether one of them changed the story,
+  // and which earlier answers the search left needing a re-check.
+  const audit = r.searchAudit;
+  if (audit && audit.total) {
+    h.push(`<section class="dr-loop"><h2>How the search went</h2>`);
+    h.push(`<p class="dr-loop-audit">${audit.total} search${audit.total === 1 ? '' : 'es'}. `
+      + `${r.documents.kept} document${r.documents.kept === 1 ? '' : 's'} kept`
+      + `${r.documents.setAside ? `, ${r.documents.setAside} set aside` : ''}`
+      + `${r.documents.thrown ? `, ${r.documents.thrown} thrown out before reading` : ''}. `
+      + `<strong>${audit.disprove} of ${audit.total}</strong> went looking to prove the story wrong`
+      + `${audit.disproveFound ? ` — ${audit.disproveFound} of them found something` : (audit.disprove ? ' — none of them found anything' : '')}.</p>`);
+    if (!audit.disprove) {
+      h.push(`<p class="dr-loop-note">No search here tried to disprove the reading — this was a search for agreement, and it found some.</p>`);
+    }
+    const s = r.stopRule;
+    if (s && s.docGains.length) {
+      h.push(`<p class="dr-loop-note">${s.willStopIn === 0
+        ? 'The picture stopped moving — the last documents read changed almost nothing.'
+        : `${s.willStopIn} more quiet document${s.willStopIn === 1 ? '' : 's'} and it stops on its own — it stops because it has stopped learning, not because it ran out of time.`}</p>`);
+    }
+    h.push(`</section>`);
+  }
+
+  // THIS CHANGED THE STORY — a reframing a disprove-found source forced.
+  for (const sc of (r.storyChanges || [])) {
+    const pin = pinById[sc.pinId];
+    const prop = propById[sc.propId];
+    h.push(`<section class="dr-storychange">`);
+    h.push(`<div class="dr-storychange-tag">This changed the story</div>`);
+    h.push(`<p>Found by a search built to prove the reading wrong. ${pin ? `<strong>${esc(pin.title || pin.url || 'A source')}</strong> ` : 'A source '}forced the frame to reconceive — from <em>${esc(sc.from.join(', ') || 'the first reading')}</em> to <em>${esc(sc.to.join(', '))}</em>.</p>`);
+    if (prop) h.push(`<blockquote>&ldquo;${esc(prop.span.text)}&rdquo; <a class="dr-cite" href="#${esc(sc.propId)}" title="see the exact span">[${num.get(sc.propId) ?? '•'}]</a></blockquote>`);
+    h.push(`</section>`);
+  }
+
+  // Earlier answers to re-check — the cost of the search made explicit.
+  if (r.recheck && r.recheck.length) {
+    h.push(`<section class="dr-recheck"><h2>Earlier answers to re-check</h2>`);
+    h.push(`<p>${r.recheck.length} earlier answer${r.recheck.length === 1 ? '' : 's'} rested on a reading the run has since reframed — re-check ${r.recheck.length === 1 ? 'it' : 'them'} before relying on ${r.recheck.length === 1 ? 'it' : 'them'}. A search that only ever made you more confident would not be researching.</p><ul>`);
+    for (const pid of r.recheck) {
+      const p = propById[pid];
+      if (p) h.push(`<li><a href="#${esc(pid)}">[${num.get(pid) ?? '•'}]</a> &ldquo;${esc(String(p.span.text).slice(0, 100))}${p.span.text.length > 100 ? '…' : ''}&rdquo;</li>`);
+    }
+    h.push(`</ul></section>`);
   }
 
   // Coverage — the operator-code grid rewritten in plain language: claims found,
@@ -171,9 +222,27 @@ export const REPORT_CSS = `
 .dr-propnum{font-weight:700;color:#1a1c20}
 .dr-flag{padding:1px 7px;border-radius:99px;font-size:10px;font-weight:600}
 .dr-flag-rec{background:#ede9fe;color:#5b21b6}
+.dr-flag-dis{background:#fef3c7;color:#92400e}
+.dr-flag-stale{background:#ffedd5;color:#9a3412;border:1px solid #fdba74}
 .dr-flag-cor{background:#dcfce7;color:#166534}
 .dr-flag-con{background:#fee2e2;color:#991b1b}
 .dr-flag-bg{background:#f1f5f9;color:#64748b}
+.dr-badge-dis{padding:2px 9px;border-radius:99px;font-weight:700;color:#92400e;background:#fef3c7}
+.dr-badge-recheck{padding:2px 9px;border-radius:99px;font-weight:700;color:#9a3412;background:#ffedd5}
+.dr-loop{margin-top:22px}
+.dr-loop-audit{font-size:14px;margin:6px 0}
+.dr-loop-audit strong{color:#92400e}
+.dr-loop-note{font-size:12.5px;color:#5b6572;margin:6px 0;line-height:1.5}
+.dr-storychange{border:2px solid #1a1c20;border-radius:11px;padding:13px 15px;margin:16px 0;background:#fffdf7}
+.dr-storychange-tag{font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#92400e;margin-bottom:6px}
+.dr-storychange p{margin:0 0 6px;font-size:14.5px}
+.dr-storychange em{font-style:normal;font-weight:700;background:#fef3c7;padding:0 4px;border-radius:4px}
+.dr-storychange blockquote{margin:6px 0 0;font-size:13px;color:#374151;border-left:3px solid #fdba74;padding-left:10px}
+.dr-recheck{margin-top:16px}
+.dr-recheck p{font-size:13px;color:#7c2d12;background:#fff7ed;border-left:3px solid #fdba74;padding:8px 11px;border-radius:0 6px 6px 0}
+.dr-recheck ul{list-style:none;padding:0;margin:8px 0 0}
+.dr-recheck li{font-size:12.5px;color:#5b6572;padding:3px 0}
+.dr-recheck a{color:#2563eb;text-decoration:none;font-family:ui-monospace,monospace;font-size:11px;margin-right:5px}
 .dr-coverage h2,.dr-questions h2{font-size:15px}
 .dr-grid{display:grid;grid-template-columns:repeat(9,minmax(52px,1fr));gap:6px;font-family:ui-monospace,monospace}
 .dr-cell{border:1px solid #e5e7eb;border-radius:7px;text-align:center;padding:6px 2px;font-size:11px;display:flex;flex-direction:column;gap:2px}

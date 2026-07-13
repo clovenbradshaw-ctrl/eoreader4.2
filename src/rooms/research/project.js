@@ -43,6 +43,7 @@ const computeReport = (log, at) => {
   const asks = new Map();       // askId → { ask, answer }
   const askOrder = [];
   const reads = [];
+  const searches = [];          // { query, stance, found, kept, discarded } — the search audit
   const phrases = new Map();    // frameId → phrase event (one per section — last wins)
   const surprises = [];         // { t, propId, surprise, strain } — the strain pulse series
 
@@ -62,6 +63,9 @@ const computeReport = (log, at) => {
         if (p && !p.children.includes(e.id)) p.children.push(e.id);
         break;
       }
+      case RKIND.SEARCH:
+        searches.push(e);
+        break;
       case RKIND.PIN:
         pins.set(e.id, e);
         break;
@@ -126,6 +130,28 @@ const computeReport = (log, at) => {
         break;
       default: break;
     }
+  }
+
+  // ── The connected loop: disproof lineage + post-reframe staleness ──────────
+  // Two annotations, both pure folds over what is already recorded:
+  //   fromDisprove   this proposition's source was turned up by a search issued
+  //                  to prove the reading WRONG (the pin's `via.stance`). A
+  //                  reframing forced by such a proposition is the moment the
+  //                  story changed under a search designed to change it.
+  //   staleAfterRec  this proposition was read and judged under a frame that has
+  //                  SINCE reframed (a rec on its frame at a later t), and it did
+  //                  not itself force that reframe. Its reading rests on an
+  //                  understanding the run has moved past — an earlier answer
+  //                  that needs re-checking before it is used again.
+  const recTsByFrame = new Map();
+  for (const rec of recs) {
+    const arr = recTsByFrame.get(rec.frameId) || [];
+    arr.push(rec.t); recTsByFrame.set(rec.frameId, arr);
+  }
+  for (const pr of props.values()) {
+    pr.fromDisprove = pins.get(pr.pinId)?.via?.stance === 'disprove';
+    const evaT = pr.eva?.t ?? pr.t;
+    pr.staleAfterRec = !pr.recForcing && (recTsByFrame.get(pr.frameId) || []).some((rt) => rt > evaT);
   }
 
   // ── Significance order (earned, per section) ──────────────────────────────
@@ -210,6 +236,85 @@ const computeReport = (log, at) => {
 
   // ── Sections: the frame tree, each with its significance-ordered evidence ─
   const allProps = propOrder.map((id) => props.get(id));
+
+  // ── The search audit — the disproof stance made a number ───────────────────
+  // Every widening of the corpus is a logged search with a stance. The number
+  // that matters is not how many it found but how many went looking to be wrong:
+  // a run whose searches only ever confirm gathers agreement and stops there.
+  const disproveSearches = searches.filter((s) => s.stance === 'disprove');
+  const searchAudit = {
+    total: searches.length,
+    confirm: searches.length - disproveSearches.length,
+    disprove: disproveSearches.length,
+    disproveFound: disproveSearches.filter((s) => (s.kept | 0) > 0).length,
+    disproveEmpty: disproveSearches.filter((s) => (s.kept | 0) === 0).length,
+    kept: searches.reduce((n, s) => n + (s.kept | 0), 0),
+    thrown: searches.reduce((n, s) => n + (s.discarded?.length || 0), 0),
+  };
+
+  // ── This changed the story — a reframing forced by a disprove-found source ─
+  // The strongest thing a run can report: a search built to prove the reading
+  // wrong turned up a source, and that source forced the frame to reconceive.
+  const storyChanges = recs
+    .filter((rec) => rec.forcedBy.some((pid) => props.get(pid)?.fromDisprove))
+    .map((rec) => {
+      const pid = rec.forcedBy.find((id) => props.get(id)?.fromDisprove);
+      const pr = props.get(pid);
+      return { frameId: rec.frameId, t: rec.t, from: [...rec.from], to: [...rec.to], propId: pid, pinId: pr?.pinId ?? null };
+    });
+
+  // ── Documents: kept vs set aside vs thrown out ─────────────────────────────
+  // kept/setAside partition the sources that were pinned and READ (a kept source
+  // put at least one claim into the report; a set-aside one was read but nothing
+  // of its made the report — capped out, or the record was silent). thrown are
+  // the ones a search fetched but never pinned at all — redundant or too thin to
+  // ground anything. Three honest buckets, no source double-counted.
+  const promotedPinIds = new Set(allProps.filter((p) => p.promoted).map((p) => p.pinId));
+  const documents = {
+    pinned: pins.size,
+    kept: promotedPinIds.size,
+    setAside: pins.size - promotedPinIds.size,
+    thrown: searchAudit.thrown,
+  };
+
+  // ── The stopping rule you can watch — per-document information gain ─────────
+  // How much each source, once read, moved the picture: the surprise its
+  // propositions carried, summed per pin, in the order they were first read. A
+  // "quiet" document changed almost nothing; after QUIET_NEEDED quiet documents
+  // in a row the picture has stopped moving. willStopIn is that countdown — a
+  // stopping rule you can watch approach, not a page limit and not a clock.
+  const QUIET = 0.5, QUIET_NEEDED = 2;
+  const gainByPin = new Map(), firstTByPin = new Map();
+  for (const s of surprises) {
+    const pr = props.get(s.propId); if (!pr) continue;
+    gainByPin.set(pr.pinId, (gainByPin.get(pr.pinId) || 0) + Math.max(0, s.surprise));
+    if (!firstTByPin.has(pr.pinId)) firstTByPin.set(pr.pinId, s.t);
+  }
+  const docGains = [...gainByPin.entries()]
+    .sort((a, b) => (firstTByPin.get(a[0]) ?? 0) - (firstTByPin.get(b[0]) ?? 0))
+    .map(([pinId, gain]) => {
+      const pin = pins.get(pinId);
+      return { pinId, title: pin?.title || pin?.url || pinId, gain: Math.round(gain * 1000) / 1000, quiet: gain < QUIET };
+    });
+  let quietTail = 0;
+  for (let i = docGains.length - 1; i >= 0 && docGains[i].quiet; i--) quietTail++;
+  const stopRule = { quietNeeded: QUIET_NEEDED, quietTail, willStopIn: Math.max(0, QUIET_NEEDED - quietTail), docGains };
+
+  // ── Earlier answers that need re-checking — the cost of the search ─────────
+  // A search that turns up a reframing is not free: everything read under the
+  // old reading is now in question. These are the promoted claims whose frame
+  // has since reframed — the earlier answers to re-check before using them.
+  const recheck = allProps.filter((p) => p.promoted && p.staleAfterRec).map((p) => p.id);
+
+  // ── The loop, as the three numbers the surface reads directly ──────────────
+  const loop = {
+    disprove: searchAudit.disprove, searchTotal: searchAudit.total,
+    disproveFound: searchAudit.disproveFound,
+    willStopIn: stopRule.willStopIn,
+    recheck: recheck.length,
+    storyChanged: storyChanges.length > 0,
+  };
+
   const sections = frameOrder.map((fid) => {
     const f = frames.get(fid);
     const own = significanceOrder(allProps.filter((p) => (p.sectionId ?? p.frameId) === fid && p.promoted));
@@ -236,6 +341,8 @@ const computeReport = (log, at) => {
     coverage: { actFace: opCounts, siteFace: terrainCounts, cells: cellCounts, emptyCells, residue },
     convergence, verify, sections,
     pulse: surprises,
+    // the connected loop — see the block above each field
+    searches, searchAudit, storyChanges, documents, stopRule, recheck, loop,
   });
 };
 
