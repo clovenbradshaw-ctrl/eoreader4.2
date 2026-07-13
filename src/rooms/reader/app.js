@@ -32,6 +32,7 @@ import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
 import { readIngest } from '../../organs/ingest/read.js';
+import { emitEot } from '../../organs/ingest/eot-emit.js';
 import { outstandingQuestion, answersAwaited } from '../../core/conversation-fold.js';
 import { senseGate } from '../../turn/sense.js';
 import { createMonitor } from '../../enactor/monitor.js';
@@ -375,7 +376,17 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     workspaces: state.workspaces,
     log: state.log.slice(-120),
     topics: state.topics,
-    sources: state.sources.map(({ _doc, ...rest }) => rest),
+    // Persist only the RECORDED source — never its DERIVED readings. Every `_`-prefixed
+    // field (`_doc` the parse, `_eot` the full EoT reading) re-derives from `text` in a
+    // tick and must not ride into the snapshot: `_eot` alone is the whole reading of the
+    // source (a 2,500-page PDF's is ~7,600 propositions of structure + the reading as one
+    // string), and leaving it in meant every 400 ms autosave structure-cloned that derived
+    // bulk into IndexedDB — the large-document slowdown. Strip anything underscore-led.
+    sources: state.sources.map((s) => {
+      const out = {};
+      for (const k in s) if (k[0] !== '_') out[k] = s[k];
+      return out;
+    }),
     // the commitment ledger — assertions and corrections survive reload (the spine)
     ledger: ledger.serialize(),
   });
@@ -639,13 +650,22 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     deepWake();   // the record grew — let the reading reflect on the new places at rest
     persist(); emit('sources');
     // Every source is READ into EoT at the moment of record — every proposition the
-    // parse admitted (any modality: the organs all land on the same spine) rendered
-    // in the canonical surface, with the reading's own thinking layered as comments.
-    // Deferred a tick so the record lands (toast, registry) before the read runs.
+    // parse admitted (any modality: the organs all land on the same spine) counted here,
+    // in the canonical surface. Deferred a tick so the record lands (toast, registry)
+    // before the read runs.
+    //
+    // Only the CHEAP half runs at record: the propositions count is a linear read of the
+    // log (emitEot). The reading's THINKING layer — its turning points — is NOT computed
+    // here: significanceSpine re-reads the whole log once per sampled cursor, tens of
+    // seconds on a 2,500-page document, and running it eagerly froze the tab right after
+    // every large import. It is left to the reading surface to compute lazily (eotFor,
+    // memoised) when the reader actually opens that source. Recording never blocks the tab
+    // on the full EoT read again.
     setTimeout(() => {
       try {
-        const r = eotFor(id);
-        if (r) logIt('eot', `Encoded ${src.reg} into EoT — ${r.structure?.lines?.length ?? 0} propositions, ${r.turns?.length ?? 0} turning points`, src.reg);
+        const d = docFor(src);
+        const props = d?.log ? emitEot(d.log).lines.length : 0;
+        logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
       } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
     }, 0);
     return src;
@@ -833,7 +853,20 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       // the note graph the music organ raised. Its readable `text` is the summary the
       // organ carries; STRUCTURED_MODALITIES (first-surface.js) keeps the two lists aligned.
       const structured = ['table', 'json', 'binary', 'music'].includes(got.meta?.modality) && got.meta?.doc;
-      const doc = structured ? got.meta.doc : parseText(got.text, { docId: `doc-${shaShort(webContentHash(got.text))}` });
+      // Prose parses through the parser's CHUNKED path (onProgress → yield between chunks),
+      // so a 2,500-page document's entity/relation read no longer runs as one synchronous
+      // sweep that freezes the tab for seconds — it breathes, reports progress, and stays
+      // stoppable. The work and its order are byte-identical to the plain sweep (pipeline.js);
+      // `await` passes the structured (already-parsed) doc straight through unchanged.
+      const doc = structured
+        ? got.meta.doc
+        : await parseText(got.text, {
+            docId: `doc-${shaShort(webContentHash(got.text))}`,
+            onProgress: (p) => {
+              if (p && p.phase === 'parse' && p.total)
+                progress({ kind: 'file', label: `Reading the text… ${p.done.toLocaleString()} / ${p.total.toLocaleString()} sentences` });
+            },
+          });
       const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc });
       // The coverage receipt — proof that 100% of the file was processed, or the named
       // account of what could not be (import-file.js) — rides the source and the ledger.
@@ -2104,14 +2137,23 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       if (!doc?.log) continue;
       const g = projectGraph(doc.log);
       const rep = g.representative || ((x) => x);
+      // Degree per representative in ONE pass over the edges, rather than re-scanning
+      // every edge for every entity (which was O(entities × edges) — minutes on a large
+      // document's graph, run on every explorer render). A self-loop counts once, matching
+      // the prior `rep(from) === r || rep(to) === r` test.
+      const degree = new Map();
+      for (const e of g.edges || []) {
+        const a = rep(e.from), b = rep(e.to);
+        degree.set(a, (degree.get(a) || 0) + 1);
+        if (b !== a) degree.set(b, (degree.get(b) || 0) + 1);
+      }
       const seen = new Set();
       for (const [id, ent] of g.entities || []) {
         const r = rep(id);
         if (seen.has(r)) continue;
         seen.add(r);
         const label = doc.admission?.labelOf?.(r) || ent.label || r;
-        let links = 0;
-        for (const e of g.edges || []) if (rep(e.from) === r || rep(e.to) === r) links++;
+        const links = degree.get(r) || 0;
         out.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn: src.sn, label, mentions: ent.sightings || 0, links, sourceCount: 1 });
       }
     }
