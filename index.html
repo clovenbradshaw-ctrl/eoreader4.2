@@ -1797,8 +1797,34 @@ table{border-collapse:collapse;width:100%}
                 <span style="flex:1"></span>
                 <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:3px 8px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>in text</button>
               </div>
+              <!-- PER-SOURCE PIVOT — with a source open, the explorer narrows to that source's -->
+              <!-- figures; the banner escapes back to the whole topic (and back again). -->
+              <sc-if value="{{ entScopeShow }}">
+                <sc-if value="{{ entPivot }}">
+                  <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;padding:8px 11px;border:1px solid #E4E0FB;background:#F6F4FF;border-radius:10px">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#6D5EF5;flex:0 0 auto"></span>
+                    <span style="flex:1;min-width:0;font-size:11.5px;color:#4A4A54">In <b style="font-weight:650;color:#5B4BE6">{{ entPivotReg }}</b> · {{ entPivotShown }} of {{ entPivotTotal }} in the topic</span>
+                    <button onClick="{{ toggleEntScope }}" style="flex:0 0 auto;font-size:11px;font-weight:600;color:#5B4BE6;padding:3px 9px;border-radius:7px;border:1px solid #DED8FD;background:#fff" style-hover="background:#EEEBFE">{{ entScopeAction }}</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ entScopeAll }}">
+                  <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;padding:8px 11px;border:1px solid #EAEAEF;background:#FAFAFC;border-radius:10px">
+                    <span style="flex:1;min-width:0;font-size:11.5px;color:#6E6E78">{{ entScopeAllText }}</span>
+                    <button onClick="{{ toggleEntScope }}" style="flex:0 0 auto;font-size:11px;font-weight:600;color:#5B4BE6;padding:3px 9px;border-radius:7px;border:1px solid #DED8FD;background:#fff" style-hover="background:#EEEBFE">{{ entScopeAction }}</button>
+                  </div>
+                </sc-if>
+              </sc-if>
+              <!-- HOLONIC LEVEL — a non-prose source is read at the level of the referents its -->
+              <!-- content names (default) or the raw spans underneath (its words, its regions). -->
+              <sc-if value="{{ entLevelShow }}">
+                <div style="display:flex;align-items:center;gap:2px;margin-bottom:12px;padding:3px;background:#F2F2F6;border-radius:9px">
+                  <sc-for list="{{ entLevelTabs }}" as="lv">
+                    <button onClick="{{ lv.pick }}" title="{{ lv.title }}" style="flex:1;font-size:11px;font-weight:600;color:{{ lv.fg }};background:{{ lv.bg }};border-radius:7px;padding:5px 8px">{{ lv.label }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
               <sc-if value="{{ entEmpty }}">
-                <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:16px 14px;font-size:12px;color:#9A9AA4;line-height:1.55">No entities yet. Record a source and its named figures — people, places, things — appear here with their mentions and links.</div>
+                <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:16px 14px;font-size:12px;color:#9A9AA4;line-height:1.55">{{ entEmptyText }}</div>
               </sc-if>
               <div style="display:flex;flex-direction:column;gap:2px">
                 <sc-for list="{{ entRows }}" as="en">
@@ -2148,6 +2174,11 @@ class Component extends DCLogic {
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
       entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null, webGraphTick: 0,
+      // The entity explorer PIVOTS to the source open in the stage: when a source is in front
+      // it shows that source's figures, not the whole topic's. entScopeAll escapes back to the
+      // topic-wide list; entLevel[sn] picks the HOLONIC LEVEL a source is read at (its natural-
+      // language referents by default, or the modality's raw spans underneath — audio words, …).
+      entScopeAll: false, entLevel: {},
       // The entity panel's Wikipedia referent, per 'docId#entId': { busy } while the
       // engine searches, then the confirmed referent (or { none }) — see _ensureWiki.
       wikiDefs: {},
@@ -2165,7 +2196,7 @@ class Component extends DCLogic {
       facingMsg: {},   // per-answer toggle: reveal the EoT "how it read it" facing page inline
       rev: 0,
     };
-    this._segCache = {}; this._viewCache = null; this._entCache = null; this._readerCache = {};
+    this._segCache = {}; this._viewCache = null; this._entCache = null; this._srcEntCache = null; this._readerCache = {};
     // Per-character reveal (the typewriter): the engine writes the streamed answer to
     // m.text as fast as tokens decode; the surface REVEALS it one character at a time on a
     // steady rAF clock, with catch-up so a fast burst never lags far behind. _reveal maps a
@@ -2215,7 +2246,7 @@ class Component extends DCLogic {
 
   _onEngine(kind) {
     if (kind === 'sources') {
-      this._entCache = null; this._viewCache = null; this._segCache = {};
+      this._entCache = null; this._srcEntCache = null; this._viewCache = null; this._segCache = {};
       // A source's text can change AFTER it lands — an audio source is recorded from its
       // acoustic reading, then its transcript folds in. Drop the cached reader iframe for any
       // open source whose content signature moved, so the reader re-renders the new text (and
@@ -2230,7 +2261,7 @@ class Component extends DCLogic {
       // so any cached list is stale the moment topics change — a fresh topic must open with
       // no entities. And a profile or web overlay opened under the previous topic must not
       // follow us in: on a real switch the selection drops back to the (empty) list.
-      this._entCache = null;
+      this._entCache = null; this._srcEntCache = null;
       const tid = this._app && this._app.state ? this._app.state.activeTopicId : null;
       if (tid !== this._topicSeen) {
         this._topicSeen = tid;
@@ -3840,6 +3871,17 @@ class Component extends DCLogic {
     if (nd && nd.documentElement) { try { nd.documentElement.classList.toggle('eo-links-on', on); } catch {} }
     this.setState({ entityMode: on });
   }
+  // Escape the per-source pivot back to the whole topic's entities (and back again).
+  toggleEntScope() { this._srcEntCache = null; this.setState({ entScopeAll: !this.state.entScopeAll, entitySel: null }); }
+  // Pick the HOLONIC LEVEL a source's entities are read at — its natural-language referents
+  // (the meaning) or the modality's raw spans underneath (audio words, image regions, …).
+  // Selecting a level drops any open profile, since the referent it pointed at may not exist
+  // at the other level, and re-pivots the list.
+  setEntLevel(sn, level) {
+    if (!sn) return;
+    this._srcEntCache = null;
+    this.setState({ entLevel: { ...this.state.entLevel, [sn]: level }, entitySel: null });
+  }
   // ── the graph explorer overlay ──────────────────────────────────────────────
   // Two graphs (the entity web + the two-cursor causal DAG), each scoped to the whole topic OR to
   // one entity, each with entity on/off toggles. `this._wg` is the LIVE config the surface draws
@@ -5211,14 +5253,43 @@ class Component extends DCLogic {
       { color: '#1E8A50', label: 'Hash-verified file' },
     ];
 
-    // right panel — entities or graph inspector
+    // right panel — entities or graph inspector.
+    // The whole topic's merged entities (the default explorer) …
     if (!this._entCache) this._entCache = app.entities();
-    const ents = this._entCache;
+    const allEnts = this._entCache;
+    // … but when a SOURCE is open in the stage the explorer PIVOTS to it: it shows that
+    // source's own figures, read at a chosen HOLONIC LEVEL. The level defaults to the natural-
+    // language REFERENTS the content names; a non-prose source (an audio clip, an image) can
+    // drop to the raw SPANS underneath (its words, its regions). entScopeAll escapes the pivot.
+    // The source in front of the stage (a viewer tab is the active tab), shared with the
+    // viewer section below.
+    const activeSn = st.viewerTabs.includes(st.tab) ? st.tab : null;
+    const entLevels = activeSn ? app.sourceLevels(activeSn) : [];
+    const entLevel = activeSn ? (st.entLevel[activeSn] || 'referent') : 'referent';
+    const entPivot = !!activeSn && !st.entScopeAll;
+    if (entPivot) {
+      if (!this._srcEntCache || this._srcEntCache.sn !== activeSn || this._srcEntCache.level !== entLevel) {
+        this._srcEntCache = { sn: activeSn, level: entLevel, ents: app.sourceEntities(activeSn, { level: entLevel }) };
+      }
+    }
+    const ents = entPivot ? this._srcEntCache.ents : allEnts;
     const entRows = ents.slice(0, 60).map((e) => ({
       label: e.label, initials: this._initials(e.label),
-      meta: `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'} · ${e.sourceCount > 1 ? `${e.sourceCount} sources` : ((app.sourceBySn(e.sn) || {}).reg || '')}`,
+      // In the pivot the source is a given, so the tail is just this reading's tallies; the
+      // topic list keeps the source/reach column that tells entities apart across documents.
+      meta: entPivot
+        ? `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'}`
+        : `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'} · ${e.sourceCount > 1 ? `${e.sourceCount} sources` : ((app.sourceBySn(e.sn) || {}).reg || '')}`,
       open: () => this.openEntity(e.docId, e.entId),
     }));
+    // The level segmented control (only when the source offers more than the one level) and the
+    // pivot banner, both surfaced in the entity-list header below.
+    const entLevelTabs = (entPivot && entLevels.length > 1) ? entLevels.map((lv) => ({
+      label: lv.label, title: lv.hint, on: lv.level === entLevel,
+      fg: lv.level === entLevel ? '#5B4BE6' : '#8A8A95', bg: lv.level === entLevel ? '#fff' : 'transparent',
+      pick: () => this.setEntLevel(activeSn, lv.level),
+    })) : [];
+    const entPivotSrc = activeSn ? (app.sourceBySn(activeSn) || {}) : {};
     let prof = null;
     if (st.entitySel) {
       prof = this._profFor(st.entitySel.docId, st.entitySel.entId, {
@@ -5270,7 +5341,7 @@ class Component extends DCLogic {
     let readerDoc = '', readerToc = [], pageDoc = '', pageBusy = false, pageErr = '';
     let vMode = 'reader';
     const rp = st.readPrefs || {};
-    const activeSn = st.viewerTabs.includes(st.tab) ? st.tab : null;
+    // activeSn (the source in front) is computed once, up in the entity-panel section.
     // Source tabs for the MAIN tab bar — shown whichever tab is active, so you can click back to a
     // reading from Chat / Graph / … Each is closeable; clicking it makes it the active stage.
     const srcTabs = st.viewerTabs.map((sn) => {
@@ -5542,6 +5613,16 @@ class Component extends DCLogic {
       // right panel
       inspShow: !!insp, insp: insp || {}, profShow: !insp && !!prof, prof: prof || {},
       entListShow: !insp && !prof, entRows, entCount: String(ents.length), entEmpty: ents.length === 0,
+      entEmptyText: entPivot
+        ? 'Nothing named in this source at this level yet.'
+        : 'No entities yet. Record a source and its named figures — people, places, things — appear here with their mentions and links.',
+      // the per-source pivot: banner + escape-to-topic, and the holonic-level segmented control
+      entPivot, entPivotReg: entPivotSrc.reg || '', entPivotTitle: entPivotSrc.title || entPivotSrc.domain || '',
+      entPivotShown: String(entPivot ? ents.length : 0), entPivotTotal: String(allEnts.length),
+      entScopeShow: !!activeSn, entScopeAll: !!st.entScopeAll, toggleEntScope: () => this.toggleEntScope(),
+      entScopeAction: entPivot ? 'All sources' : 'This source',
+      entScopeAllText: `Showing all ${allEnts.length} ${allEnts.length === 1 ? 'entity' : 'entities'} in this topic`,
+      entLevelShow: entLevelTabs.length > 1, entLevelTabs,
       backToEntities: () => this.backToEntities(),
       toggleEntityMode: () => this.toggleEntityMode(),
       entModeFg: st.entityMode ? '#5B4BE6' : '#8A8A95', entModeBg: st.entityMode ? '#F1EFFE' : '#F2F2F6', entModeBd: st.entityMode ? '#DED8FD' : '#EAEAEF',
