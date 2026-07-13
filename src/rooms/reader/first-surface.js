@@ -12,8 +12,9 @@
 //
 // The ORGAN that read the file picks the surface:
 //   · structured modalities (a table's records, a JSON tree's leaves, a binary's string
-//     runs) open the ENTITY WEB — their entities and bonds are the reading; running the
-//     causal-marker cursor over cell prose would only surface noise;
+//     runs, a MIDI score's pitch classes) open the ENTITY WEB — their entities and bonds
+//     are the reading; running the causal-marker cursor over cell prose would only surface
+//     noise;
 //   · prose-bearing modalities (text, PDF, web page, an OCR'd scan, a photo's scene, an
 //     audio/video transcript…) open the CAUSAL DAG when a causal claim was read — the
 //     most impressive projection the engine owns — and fall back to the entity web when
@@ -25,7 +26,7 @@
 // Returns 'causal' | 'entity' | null (null = no overlay; the source tab itself is the
 // reveal — e.g. a binary whose string runs raised no entities).
 
-export const STRUCTURED_MODALITIES = Object.freeze(['table', 'json', 'binary']);
+export const STRUCTURED_MODALITIES = Object.freeze(['table', 'json', 'binary', 'music']);
 
 export function firstSurfaceKind({ modality = 'text', causalEdges = 0, entities = 0 } = {}) {
   if (STRUCTURED_MODALITIES.includes(modality)) return entities > 0 ? 'entity' : null;
