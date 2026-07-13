@@ -15,7 +15,7 @@ import { retrieveHybrid, reserveBySource, pickRetrievalEmbedder, selectExcerpts,
 import { parseText } from '../perceiver/parse/index.js';
 import { think, worthSayingAloud, inferGenders } from '../weave/write/index.js';
 import { foldNote }         from '../surfer/fold/index.js';
-import { surfFold, centroidBasis, projectUnits, structuralActivations, siteTerrainAt, trajectory, threadBasis } from '../surfer/index.js';
+import { surfFold, multiLevelSurf, centroidBasis, projectUnits, structuralActivations, siteTerrainAt, trajectory, threadBasis } from '../surfer/index.js';
 import { arcGravity, arcLines } from '../weave/write/gravity.js';
 import { namedReferents, referentialConfidence, siteIndices, serializeEOT, figureSurface } from '../perceiver/index.js';
 import { foldConversation, resolveQuery, groundedThread, referenceTarget } from './converse/index.js';
@@ -26,6 +26,7 @@ import { rereadOnUnsettled } from './reread.js';
 import { buildGroundedMessages, buildChatMessages, orientationLine,
          projectGroundedBands, judgePrompt } from '../model/index.js';
 import { bindCitations, renderBound } from '../enactor/ground/index.js';
+import { recordBindingDefs, recordCorrespondenceDefs, recordReferenceDef, recordVoidDef } from './judgments.js';
 import { runVetoes, isUnbound, isAbstention, classifyProvenance, assessAnswer } from '../enactor/ground/index.js';
 import { canGroundedSpeak, groundedSpeak, RULES_REV } from '../organs/out/speech/index.js';
 import { projectGraph, VERDICTS } from '../core/index.js';
@@ -79,6 +80,15 @@ const weaveMemory = (messages, mindSpans) => {
 // real lens, the column still rides as a report (atmosphere + lenses) with the peak
 // unchanged. Degrades to {} on any embedding fault — a flaky meaning organ must never
 // crash the fold.
+// The CHORUS flag (surf-chorus / multi-level surf). The fold reads the document with the multi-
+// level chorus surf (chorus.js / multilevel.js): the arrest is discourse-aware (the activated
+// thread conditions which spans stop) and, over a composite of several sources, off-topic sources
+// are dropped before their content is read, and the per-source reads are folded to a bounded stop
+// set so the reading never spams the prompt. ON by default; set CHORUS_REV=0/false/off to fall
+// back to the incumbent single-ride surf (the RULES_REV idiom, speech/index.js:33 — read once).
+export const CHORUS_REV =
+  !(typeof process !== 'undefined' && process.env && /^(0|false|off)$/i.test(process.env.CHORUS_REV || ''));
+
 const significanceOpts = async (ctx, anchor) => {
   if (!ctx.doc) return {};
   const emb = ctx.geometricEmbedder;
@@ -162,9 +172,9 @@ export const stages = {
     // over the per-task default so "write me an essay …" can develop past the pointed-answer cap.
     const reg = ctx.maxTokens ? { ...taskReg, maxTokens: ctx.maxTokens } : taskReg;
     // The META-CONVERSATIONAL register (intent.js): a question ABOUT the conversation.
-    // Orthogonal to the route and task — it rides alongside, opening the assistant side of
-    // the session fold to the grounded prompt (the `prompt` stage reads it). A chat turn
-    // already carries the full both-role history, so this only changes the grounded path.
+    // Orthogonal to the route and task — it rides alongside. The grounded prompt now feeds
+    // the full both-role session fold on every turn; this flag only reframes it (subject to
+    // reason over vs. context to answer the latest question against — the `prompt` stage).
     const meta = isMetaConversational(ctx.question);
     const grounding = ctx.grounding || 'auto';
     if (grounding === 'free')     return { ...ctx, route: 'chat',     ...reg, meta };
@@ -401,7 +411,18 @@ export const stages = {
     // there and the surf is byte-identical to today. This is the column improving the
     // chat only where it can honestly measure, and staying dark where it cannot.
     const sigOpts = await significanceOpts(ctx, anchor);
-    const surf   = ctx.doc ? surfFold(ctx.doc, anchor, sigOpts) : null;
+    // THE CHORUS / MULTI-LEVEL SURF (CHORUS_REV, chorus.js + multilevel.js). Off (the default)
+    // → the incumbent single-ride surf, byte-identical. On → the activated thread (the question
+    // + recent turns + cast, threadBasis) conditions a chorus of rides, and over a composite the
+    // sources are surfed high-level first and only the relevant ones read for content. Gated so
+    // an empty thread (no words to be relevant to) never opts in — it degrades to today's surf.
+    const thread = (CHORUS_REV && ctx.doc)
+      ? threadBasis({ query: ctx.question, history: ctx.history || [], doc: ctx.doc })
+      : null;
+    const useChorus = thread && (((thread.terms && thread.terms.size) || (thread.figures && thread.figures.size)));
+    const surf   = ctx.doc
+      ? (useChorus ? multiLevelSurf(ctx.doc, anchor, { ...sigOpts, chorus: thread }) : surfFold(ctx.doc, anchor, sigOpts))
+      : null;
 
     let spans = ctx.spans;
     if (surf) {
@@ -440,6 +461,10 @@ export const stages = {
     const referential = ctx.doc?.corefField
       ? referentialConfidence(ctx.doc.corefField.fieldGrounded(cursor))
       : null;
+    // Route the reference verdict onto the judgment log as a DEF — a concentrated field
+    // CORROBORATES the referent, a split one abstains (INDETERMINATE). Best-effort; the log
+    // never costs the answer.
+    try { recordReferenceDef(ctx.judgments, referential); } catch { /* logging is best-effort */ }
     // CAST CYCLE — REC (cast.js). Commit this turn's target as SETTLED only when the fold
     // CONCENTRATED (referential.concentrated), so the carried state holds only referents a
     // reading actually landed on; a diffuse, wandering fold commits nothing.
@@ -516,6 +541,50 @@ export const stages = {
     // void — "of the topics we discussed, which is in France?" must not come back "the
     // document does not say."
     if (!ctx.doc || ctx.meta || (ctx.task && ctx.task !== 'answer')) return ctx;
+
+    // THE EOT ANSWERABILITY FLOOR — score grounding in the ontology's own language, not
+    // lexical overlap. The lexical binder cannot tell a real answer from prose that quotes
+    // the source while missing the question ("relatively uncommon compared to whaling" cited
+    // for "the fastest dolphin"): it reads both as grounded. The trustworthy signal is the
+    // fold's referent-binding — the EVA that decides WHO/WHAT the reading is about. When it
+    // DIFFUSED (referential.concentrated === false) the surf rode to the document's loudest
+    // figure, not the one asked about, so the corpus holds no answer to THIS question even
+    // though it lexically touches the subject (the "fastest / most famous dolphin" asked over
+    // a dolphin + Miami-Dolphins + Vaporwave composite — quarried from the wrong figure). The
+    // fedGraph is ALREADY withheld on this exact measure (see `prompt` stage, landedOnReferent);
+    // here it withholds the ANSWER too, before the wasted decode. A typed decline rides as the
+    // honest word (grounded on the held spans, no model call), and proposeWebSearch — which
+    // already keys on concentrated === false — raises the gap so web-auto re-searches for the
+    // question and confirm/off offer the search button. Only a MEASURED diffusion (=== false)
+    // gates; an unmeasured referent (null — no corefField, most tests/single docs) is
+    // byte-identical, the same guard the fedGraph withhold uses.
+    //
+    // Two clauses make this safe against a FALSE refusal (worse than a missed one):
+    //   · id != null — the reading LANDED ON some referent (mirrors proposeWebSearch). An EMPTY
+    //     field (id null, w 0 — a small doc under the hash embedder, answer plainly in the
+    //     excerpts) is not a wander; it falls through to the void measure below, as before.
+    //   · margin ≤ FLAT_FIELD_MARGIN — the field is effectively FLAT: no figure leads, the top
+    //     referents are tied, so the reading has no basis to say what it is about (the dolphin
+    //     composite measured margin ≈ 0.00001). This is what separates a genuine wander from a
+    //     merely multi-entity page where one figure DOES lead (a Curie doc measured margin ≈ 0.14
+    //     and is perfectly answerable): `concentrated === false` alone conflated the two and
+    //     refused the answerable one. Conservative by construction — only a near-tie gates; a
+    //     value calibrated to distinguish a flat field from a led one, to be re-tuned on live data.
+    const FLAT_FIELD_MARGIN = 0.02;
+    if (ctx.referential?.concentrated === false && ctx.referential?.id != null
+        && (ctx.referential?.margin ?? 1) <= FLAT_FIELD_MARGIN) {
+      // The reading DIFFUSED — no figure leads, so the corpus holds the subject's words but
+      // not a settled answer to THIS question. This once rode as a mechanical raw-span decline
+      // (refusalAtom stitched the held spans and terminated the turn BEFORE the model), which
+      // surfaced ellipsis-cut fragments as the answer and left "no prompt on record". Now it
+      // rides as a HINT: the turn continues to the talker, which writes the honest "I didn't
+      // find a settled answer" itself — a model-authored reply, with the prompt captured. The
+      // diffusion is still measured on ctx.referential, which keys proposeWebSearch and the
+      // soft (non-refusing) `referent-ambiguous` veto; the `prompt` stage reads `referentDiffuse`
+      // to tell the talker to decline rather than pick a figure the reading didn't land on.
+      return { ...ctx, referentDiffuse: true };
+    }
+
     const v = answerVoid(ctx.doc, ctx.question, ctx.spans || [], { embedder: ctx.embedder });
     if (!v) return ctx;
     // P0.2: the void no longer auto-answers and terminates. The talker speaks for
@@ -525,6 +594,9 @@ export const stages = {
     // The typed absence PROSE rides too (`voidText`): if the talker's answer comes back
     // with no witness at all, the `absence` stage speaks it (the honesty seam) — absence
     // is an available thing to assert, not just a terrain annotation.
+    // Route the void verdict onto the judgment log — a DEF of absence is still a DEF, carrying
+    // which absence (kind · receipt · how far the reading rode) as its witness.
+    try { recordVoidDef(ctx.judgments, v.void); } catch { /* logging is best-effort */ }
     return { ...ctx, voidMeasure: v.void, voidText: v.text };
   },
 
@@ -572,19 +644,15 @@ export const stages = {
     const ground = (ctx.spans || []).map((s, i) => ({ idx: s.idx ?? i, text: s.text, score: s.score }));
     const g = answerabilityGate({ question: ctx.question, ground, graph });
     if (g.licensed) return ctx;
-    const r = g.refusal;
-    // The refusal atom IS the answer — typed decline, grounded on the held spans, never a
-    // model call. `gated:true` records that the floor substituted a decline; the walk's
-    // downstream stages are skipped via `terminate`.
-    return {
-      ...ctx,
-      terminate: true,
-      gated: true,
-      answer: r.text,
-      sources: [...(r.sources || [])].sort((a, b) => a - b),
-      vetoes: [Object.freeze({ id: 'unanswerable', refuses: true,
-        message: `The corpus does not hold ${g.reason === 'no-subject' && g.missing?.length ? g.missing.join(' or ') : 'what was asked'}; the walk was not run.` })],
-    };
+    // The floor measured that the corpus does not supply what was asked (a named subject it
+    // never mentions, or a wanted type the ground can't fill). This once terminated the turn
+    // with the refusal atom AS the answer — a raw-span decline that never reached the model.
+    // Now the measurement rides as a soft, non-refusing marker and the turn CONTINUES to the
+    // talker: the answer is always model-authored (with a prompt on record), and the `prompt`
+    // stage reads `answerability` to tell the talker to say plainly it didn't find it rather
+    // than confabulate. The downstream bind/factcheck/veto/absence stages still police an
+    // invented claim after the model writes.
+    return { ...ctx, answerability: Object.freeze({ licensed: false, reason: g.reason, missing: g.missing || [] }) };
   },
 
   // THE REASONING WALK (src/reason/walk.js) — the one stage that COMMITS structure. It appends
@@ -686,11 +754,11 @@ export const stages = {
         .map(s => `- ${s.said} (${mark(s)})`);
       if (lines.length) reasoningBlock = `Reaching past the lines, your reading also drew these inferences:\n${lines.join('\n')}`;
     }
-    // META-CONVERSATIONAL: the question is ABOUT the conversation (intent.js). Open the
-    // FULL session fold to the grounded prompt — the talker's prior answers included —
-    // because here the prior topics are the question's SUBJECT, not a premise it might
-    // anchor a wrong fact to (the asymmetry the history-poisoning firewall misses). Every
-    // other grounded turn keeps the user-only thread, withholding the poisoning channel.
+    // META-CONVERSATIONAL: the question is ABOUT the conversation (intent.js). Both paths
+    // now feed the full both-role transcript (groundedConversation / metaConversation read
+    // the same session fold); the flag only changes the FRAMING — a meta turn frames the
+    // prior turns as the question's SUBJECT to reason over, an ordinary grounded turn frames
+    // them as context to answer the latest question against (the thread bands' firewall).
     const metaTurn = grounded && !!ctx.meta;
     // The grounded frame's arguments, named once: buildGroundedMessages projects the
     // band catalog over them, and the !EVA prompt checkpoint below judges the SAME
@@ -711,6 +779,15 @@ export const stages = {
           graph:        fedGraph,         // the meaning graph (web path); empty → §2 subjective frame
           arc:          arcBlock,         // the reading's own arc (broadcastArc); empty → no block
           reasoning:    reasoningBlock,   // the walk's marked reaches (reason stage); empty → no block
+          // The answerability floor's measured decline, folded in as an honest-decline HINT
+          // (bands.js `decline`): the reading diffused (no figure leads) or the corpus does
+          // not name the subject asked about. Empty by default → byte-identical prompt. This
+          // is what keeps a model-authored reply from confabulating where the old mechanical
+          // gate used to hard-refuse: the talker is told to say plainly it didn't find it.
+          declineHint:  ctx.referentDiffuse ? 'diffuse'
+                        : (ctx.answerability && !ctx.answerability.licensed
+                            ? (ctx.answerability.reason === 'no-subject' ? 'absent' : 'diffuse')
+                            : ''),
           // No layout template: the answer-first/sectioned shape is no longer keyed off the raw
           // question. How the reply is shaped is the discourse metacognition's call (the steer),
           // not a keyword regex over the scope — so nothing rides the `shape` slot here.
@@ -787,9 +864,17 @@ export const stages = {
     const signal = ctx.signal || null;
     if (ctx.stream && ctx.route === 'grounded' && ctx.doc && ctx.spans?.length) {
       try {
+        // A pointed answer is ONE coherent decode, not a multi-call continuation loop.
+        // The per-paragraph loop feeds the answer-so-far back with CONTINUE_CUE each round;
+        // a small model follows that cue poorly and restates/contradicts itself across
+        // paragraphs ("the shortfin mako is indeed the fastest dolphin, but it's not the
+        // only one"). Only a genuine long-form ask (`ctx.longform`) develops multiple
+        // paragraphs; every other grounded answer caps at a single paragraph so the reply
+        // reads as one coherent piece, and the boundary gate (streamed===draft, mid-sentence
+        // tail drop) still governs it.
         const streamed = await streamParagraphs({
           model: ctx.model, messages: ctx.messages, onToken: ctx.onToken,
-          budget: maxTokens, signal,
+          budget: maxTokens, signal, maxParagraphs: ctx.longform ? null : 1,
         });
         if (streamed && streamed.draft) {
           // The user stopped mid-decode: the partial paragraphs are the answer —
@@ -850,6 +935,10 @@ export const stages = {
     const sources = [...new Set(
       bound.filter(b => b.citation).map(b => parseInt(b.citation.slice(1), 10))
     )];
+    // The binding DEF is recorded at the `factcheck` seam, not here: the typed-cut binding
+    // (turn/judgments.js) reads the PREDICATE cut off the correspondence verdict, which only
+    // exists after factcheck types the claim against the sources' edges. bind just carries the
+    // presence/argument signal (each bound claim's verbatim/refs/ruledOut) forward on `bound`.
     return { ...ctx, bound, answer, sources };
   },
 
@@ -922,6 +1011,17 @@ export const stages = {
     let propositions = null;
     try { propositions = auditPropositions({ prose: ctx.rawOutput, doc: ctx.doc, cursor, now: ctx.now || null }); }
     catch { propositions = null; }
+    // Route the correspondence verdict onto the judgment log — a DEF per proposition at the
+    // predication grain, the verdict factcheck typed against the sources' own edges.
+    try { recordCorrespondenceDefs(ctx.judgments, fc.claims); } catch { /* logging is best-effort */ }
+    // Route the binding verdict onto the log — a DEF per claim at the CLAIM grain, its witness the
+    // presence/argument/predicate CUT decomposition (turn/judgments.js). The predicate cut reads
+    // the correspondence verdict just computed; the argument cut reads the fold's referential
+    // (a diffuse subject suspends the argument, never guesses a sense). A claim ships CORROBORATED
+    // only when its witness ENTAILS it (Invariant B1). Recorded on the post-factcheck `bound` so an
+    // edge-grounded claim carries its citation into the presence cut.
+    try { recordBindingDefs(ctx.judgments, bound, { referential: ctx.referential, correspondence: fc.claims }); }
+    catch { /* logging is best-effort */ }
     return { ...ctx, edgeVerdicts: fc.edgeVerdicts, factcheck: fc, propositions, sources, bound, answer };
   },
 
@@ -974,9 +1074,14 @@ export const stages = {
     // draft), inert without a threaded library / warm meaning embedder.
     const meaning = (() => { const e = pickRetrievalEmbedder(ctx); return (e?.measuresMeaning && e.isWarm?.()) ? e : null; })();
     const formErrOf = async (c) => {
-      if (!ctx.shapeLibrary || !ctx.shapeQueryVec || !meaning || !c.rawOutput) return null;
+      if (!ctx.shapeLibrary || !ctx.shapeQueryVec || !c.rawOutput) return null;
+      // Grammar mode scores the draft's TEXT (parse + likelihood, model-free); only the
+      // legacy cosine library needs the draft embedded, and so the warm meaning embedder.
+      const grammarMode = ctx.shapeLibrary.mode === 'grammar';
+      if (!grammarMode && !meaning) return null;
       try {
-        const e = answerFormError(ctx.shapeLibrary, ctx.shapeQueryVec, await meaning.embed(c.rawOutput));
+        const draft = grammarMode ? c.rawOutput : await meaning.embed(c.rawOutput);
+        const e = answerFormError(ctx.shapeLibrary, ctx.shapeQueryVec, draft);
         return e ? { ...e, gates: true, sample: ctx.shapeTarget?.promptMatch?.best_response || '' } : null;
       } catch { return null; }
     };
@@ -1080,11 +1185,14 @@ export const stages = {
     // question's sample answers predicted. A soft (non-gating) miss rides as a flag — taste is
     // not refusable. Embedder-gated and inert without a threaded library → byte-identical.
     if (ctx.shapeLibrary && ctx.shapeTarget && ctx.shapeQueryVec && ctx.rawOutput) {
-      const emb = pickRetrievalEmbedder(ctx);
-      if (emb?.measuresMeaning && emb.isWarm?.()) {
+      // Grammar mode scores the draft's text model-free; the legacy cosine path still
+      // embeds the draft and so still gates on the warm meaning embedder.
+      const grammarMode = ctx.shapeLibrary.mode === 'grammar';
+      const emb = grammarMode ? null : pickRetrievalEmbedder(ctx);
+      if (grammarMode || (emb?.measuresMeaning && emb.isWarm?.())) {
         try {
-          const draftVec = await emb.embed(ctx.rawOutput);
-          const formErr = answerFormError(ctx.shapeLibrary, ctx.shapeQueryVec, draftVec);
+          const draft = grammarMode ? ctx.rawOutput : await emb.embed(ctx.rawOutput);
+          const formErr = answerFormError(ctx.shapeLibrary, ctx.shapeQueryVec, draft);
           if (formErr) constraintErrors.push(formErr);
         } catch { /* the form check never breaks the answer */ }
       }
@@ -1368,16 +1476,36 @@ const terrainAtLocus = (ctx, cursor) => {
   return (t === 'Void' || t === 'Field') ? 'Entity' : t;   // only a MEASURED void is Void
 };
 
-// The orientation line: the talker is handed the FILENAME, type, and length, read off
-// `docId` (the ingest sets it from the file name) — and NOTHING that lets it narrate a
-// famous text from memory (§3). The document's own metadata (title, author, date) does
-// not ride here, nor anywhere in the content prompt; it is answered separately, as a
-// distinct fact, by the metadata answerer (answer/metadata.js, routed in `route`).
-const orientationOf = (doc) => {
+// The recognition-free stand-in for the orientation's "filename" slot. An uploaded FILE
+// keeps its name (`docId`, set from the file name). But a WEB source's docId is an opaque
+// content-hash (`web-df554d79bc5d5a1f`), and a COMPOSITE's docId is those hashes joined with
+// " + " (organs/in/composite.js) — internal identifiers, not anything the reader ever "saw".
+// Handed to the talker as a filename they are pure noise: the model tries to parse a wall of
+// hashes it can make no sense of. So a composite reduces to a COUNT of its sources ("29
+// sources"), and a lone web page to its HOST ("en.wikipedia.org") — the domain is a
+// filename-grade descriptor, recognition-free, never the page TITLE that §3 keeps out of the
+// content prompt. Everything else falls back to docId, exactly as before.
+const hostOfUrl = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
+const orientationName = (doc) => {
+  if (doc.isComposite) {
+    const n = Array.isArray(doc.docIds) ? doc.docIds.length : 0;
+    return n ? `${n} sources` : 'several sources';
+  }
+  if (doc.web || doc.sourceKind === 'web-source')
+    return hostOfUrl(doc.web?.final_url || doc.web?.url) || 'a web page';
+  return doc.docId || 'the document';
+};
+
+// The orientation line: the talker is handed a recognition-free NAME (orientationName), type,
+// and length — and NOTHING that lets it narrate a famous text from memory (§3). The document's
+// own metadata (title, author, date) does not ride here, nor anywhere in the content prompt; it
+// is answered separately, as a distinct fact, by the metadata answerer (answer/metadata.js,
+// routed in `route`).
+export const orientationOf = (doc) => {
   if (!doc) return '';
   const units = doc.units || doc.sentences || [];
   return orientationLine({
-    filename: doc.docId || 'the document',
+    filename: orientationName(doc),
     type:     doc.modality === 'image' ? 'image' : 'text',
     length:   units.length,
   });
@@ -1464,34 +1592,35 @@ const drainLens = (ctx) => {
       catch { /* re-grounding is best-effort; the conflict is already logged */ }
     }
   }
-  const all = [...events, ...recs];
+  // The judgment DEFs accumulated so far this turn (reference · void — the pre-draw verdicts)
+  // JOIN the steering rail, so the same-vs-other judgments ride the Given-Log beside the
+  // void-conflict / suppress / rec events, not outside it. The binding and correspondence DEFs
+  // are logged after the draw; the full census is folded from the judgment log in pipeline.js.
+  let defs = [];
+  try { defs = ctx.judgments?.all?.() || []; } catch { defs = []; }
+  const all = [...events, ...recs, ...defs];
   return all.length ? all : null;
 };
 
-// The conversation the GROUNDED prompt carries: the user's OWN recent turns — the thread
-// of what was ASKED — and never the talker's prior answers. Recent user turns ride from
-// the session fold's verbatim window; older ones from its surfed `#i You:` movers. This
-// restores follow-up continuity without re-feeding the model the replies it anchors on
-// (the poisoning channel). Empty (→ no slot) when the user hasn't asked anything yet.
+// The conversation the GROUNDED prompt carries: the actual back-and-forth, both sides.
+// The session fold (converse/history.js) already built the two registers a document gets
+// — the recent turns VERBATIM (`pastTurns`, You:/Me:) and a surfed recap of older movers
+// (`notes`, #i You:/#i Me:), bounded by the fold's own token budget — so the talker reads
+// the real dialogue up to that budget, not a user-only checklist. The one thing withheld
+// is an UNBOUND prior reply (a claim tied to no source): foldConversation drops it before
+// the window is built, so a claim that never grounded cannot become a follow-up's premise.
+// `settled` still rides beside the transcript. Empty (→ no slot) before anything was said.
 const groundedConversation = (ctx) => {
-  const recentUser = (ctx.recentMessages || [])
-    .filter(m => m && m.role === 'user' && m.content).map(m => m.content);
-  const olderUser = String(ctx.conversation?.notes || '')
-    .split('\n').filter(l => /^#\d+\s*You:/.test(l)).map(l => l.replace(/^#\d+\s*You:\s*/, '').trim());
-  const thread = [...olderUser, ...recentUser].filter(Boolean);
+  const notes     = String(ctx.conversation?.notes || '').trim();
+  const pastTurns = (ctx.conversation?.pastTurns || []).filter(Boolean);
   // The SETTLED ground — the facts already given, read off the dialogue line (the
   // Interpretation column's firm DEFs, converse/dialogue-state.js). Named to the talker as
   // already-held so it builds on them instead of restating "the mayor is X" every turn.
-  // Only the settled QUESTION rides — never the answer (the firewall stays closed).
   const settled = groundedThread(ctx.history || [], ctx.question).settled;
-  if (!thread.length && !settled.length) return {};
+  if (!notes && !pastTurns.length && !settled.length) return {};
   const out = {};
-  // Carry only the most recent few. The full thread, fed verbatim as "You asked: …"
-  // lines, reads to a small talker as a checklist of open tasks — the audit's t5
-  // answered every prior question in a bulleted list and overran its token budget.
-  // The recent turns are what continuity ("now?", "prove it") actually needs; the
-  // tail only widens the leak surface.
-  if (thread.length) out.notes = thread.slice(-3).map(q => `You asked: ${q}`).join('\n');
+  if (notes) out.notes = notes;
+  if (pastTurns.length) out.pastTurns = pastTurns;
   if (settled.length) out.settled = settled;
   return out;
 };

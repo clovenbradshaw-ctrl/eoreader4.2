@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { proposeWebSearch, searchAnnouncement, COST_NOTICE } from '../src/turn/propose.js';
-import { runTurnWithWeb, runWebFollowup, verifyAgainstWeb, formulateSearchQuery } from '../src/turn/web.js';
+import { runTurnWithWeb, runWebFollowup, verifyAgainstWeb, formulateSearchQuery, extendClippedSubject } from '../src/turn/web.js';
 import { admitWebSource } from '../src/organs/ingest/websource.js';
 
 // "Search the internet to respond" actually firing (docs/web-search.md): the turn PROPOSES a
@@ -80,6 +80,32 @@ test('low-coverage alone proposes (few claims grounded)', () => {
     bound: [{ citation: 's0' }, { citation: null }], rawOutput: 'a lot happened across the report',
     vetoes: [{ id: 'low-coverage' }] });
   assert.ok(p && /few of the claims/.test(p.rationale));
+});
+
+test('an honest abstention proposes a GAP search — the clearest "sources do not contain it" signal', () => {
+  // The exported failure: over a loaded doc the reader honestly said "I didn't find that in what I
+  // read" and NOTHING proposed a search — isUnbound needs claims, low-coverage self-suppresses on an
+  // abstention, and voidMeasure never fired. The settled abstention itself is the gap.
+  const p = proposeWebSearch({ route: 'grounded', task: 'answer', question: 'what is the best elvis movie?',
+    doc: { docId: 'elvis.txt' }, answer: 'I did not find that in what I read.', bound: [], vetoes: [] });
+  assert.ok(p, 'an abstention must propose — the reading declared it did not hold the answer');
+  assert.equal(p.trigger, 'gap');
+  assert.match(p.rationale, /did not contain the answer/);
+});
+
+test('the abstention gap announces in the first person', () => {
+  const p = proposeWebSearch({ route: 'grounded', task: 'answer', question: 'which is the best?',
+    doc: { docId: 'elvis.txt' }, answer: 'The text does not mention any films.', bound: [], vetoes: [] });
+  const line = searchAnnouncement(p);
+  assert.match(line, /didn't find that/i);
+  assert.match(line, /Searching the web for/);
+});
+
+test('a real cited answer (not an abstention) still proposes nothing on the abstention path', () => {
+  const p = proposeWebSearch({ route: 'grounded', task: 'answer', question: 'what colour is the code?',
+    doc: { docId: 'z.txt' }, sources: [2], answer: 'The document says the code is teal.',
+    bound: [{ claim: 'The code is teal.', citation: 's2' }], vetoes: [] });
+  assert.equal(p, null, 'a grounded, non-abstaining answer is not a gap');
 });
 
 // ── The announcement: the proposal promoted into a first-person, pre-search line ──
@@ -318,6 +344,36 @@ test('formulateSearchQuery instructs the model to strip task/format framing and 
   assert.match(seen, /wrtie me an essay about dolphins/); // the framed, misspelled turn reached the model
   assert.match(seen, /essay/i);                          // and the prompt names the produce-a-piece framing
   assert.match(seen, /typo/i);                           // …and tells it to read through the misspelling
+});
+
+// ── The clipped-subject guard: regrow a bare head noun over its noun phrase ───
+test('a clipped rewrite is regrown over the user\'s own adjacent words ("elvis" → "elvis films")', async () => {
+  // The reported run: "research elvis films and tell me the best one" was rewritten by a
+  // small model down to the bare "elvis" — dropping the qualifier that says WHICH elvis. The
+  // search then chased the man, not the films. The guard grows it back to the full noun
+  // phrase, stopping at the connector "and" (never absorbing "tell me the best one").
+  const model = { phrase: async () => 'elvis' };
+  const q = await formulateSearchQuery({ model, question: 'research elvis films and tell me the best one' });
+  assert.equal(q, 'elvis films');
+});
+
+test('extendClippedSubject: grows over adjacent nouns, halts at connectors and task words', () => {
+  // Grows a clipped head noun over the contiguous noun phrase in the user's turn...
+  assert.equal(extendClippedSubject('elvis', 'research elvis films and tell me the best one'), 'elvis films');
+  assert.equal(extendClippedSubject('tokyo', 'what is the population of tokyo japan?'), 'tokyo japan');
+  // ...but halts at a connector, so trailing instruction clauses are never absorbed
+  assert.equal(extendClippedSubject('dolphins', 'write me an essay about dolphins and cite sources'), 'dolphins');
+  // no-op when the query is not the user's own words (a model rewrite with resolved context)
+  assert.equal(extendClippedSubject('X-Files 2025 revival', 'who is making the new series?'), 'X-Files 2025 revival');
+  // no-op on an already well-formed multi-word query (more than a bare clipped subject)
+  assert.equal(extendClippedSubject('elvis presley films career', 'elvis presley films career and legacy'), 'elvis presley films career');
+});
+
+test('the guard leaves a resolved back-reference rewrite untouched (only the user\'s own words regrow)', async () => {
+  const model = { phrase: async () => 'X-Files 2025 revival series producer' };
+  const history = [{ role: 'user', content: "what's the deal with the new x files?" }];
+  const q = await formulateSearchQuery({ model, question: 'who is making the new series as of 2026?', history });
+  assert.equal(q, 'X-Files 2025 revival series producer');   // not a verbatim sub-phrase → not regrown
 });
 
 test('runWebFollowup reformulates the raw query before searching (conversation in scope)', async () => {

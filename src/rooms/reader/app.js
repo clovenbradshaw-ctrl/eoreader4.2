@@ -16,25 +16,30 @@
 // touches the network.
 
 import { parseText } from '../../perceiver/parse/index.js';
-import { projectGraph } from '../../core/index.js';
+import { projectGraph, operatorsOf, glyphOf } from '../../core/index.js';
 import { createModel, describeModel } from '../../model/interface.js';
+import { wrapRedacting } from '../../model/redact-remote.js';
 import { probeOrigins, explainReach } from '../../model/reach.js';
-import { createHashEmbedder, createMiniLMEmbedder } from '../../model/index.js';
+import { createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
          runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
-         readDiscourse, phaticFromSpeech, clarifyDemandOf } from '../../turn/index.js';
+         readDiscourse, clarifyDemandOf, loadShapeLibrary } from '../../turn/index.js';
+import { loadShapeGrammars } from '../../turn/shape-grammar.js';
+import { extendLibraryWithNavPool } from '../../turn/nav-pool.js';
 import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
 import { directCorsUrl } from '../../organs/ingest/direct-cors.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
 import { readIngest } from '../../organs/ingest/read.js';
+import { emitEot } from '../../organs/ingest/eot-emit.js';
+import { scopeSources } from './scope-sources.js';
 import { outstandingQuestion, answersAwaited } from '../../core/conversation-fold.js';
 import { senseGate } from '../../turn/sense.js';
 import { createMonitor } from '../../enactor/monitor.js';
 import { createCommitmentLedger } from '../../enactor/ledger.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
-import { figureSurface } from '../../perceiver/index.js';
+import { figureSurface, rankProperties } from '../../perceiver/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
@@ -372,7 +377,17 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     workspaces: state.workspaces,
     log: state.log.slice(-120),
     topics: state.topics,
-    sources: state.sources.map(({ _doc, ...rest }) => rest),
+    // Persist only the RECORDED source — never its DERIVED readings. Every `_`-prefixed
+    // field (`_doc` the parse, `_eot` the full EoT reading) re-derives from `text` in a
+    // tick and must not ride into the snapshot: `_eot` alone is the whole reading of the
+    // source (a 2,500-page PDF's is ~7,600 propositions of structure + the reading as one
+    // string), and leaving it in meant every 400 ms autosave structure-cloned that derived
+    // bulk into IndexedDB — the large-document slowdown. Strip anything underscore-led.
+    sources: state.sources.map((s) => {
+      const out = {};
+      for (const k in s) if (k[0] !== '_') out[k] = s[k];
+      return out;
+    }),
     // the commitment ledger — assertions and corrections survive reload (the spine)
     ledger: ledger.serialize(),
   });
@@ -390,12 +405,12 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       if (snap && snap.v === 1) {
         ({ sn, tn, ln, mn } = snap);
         wn = snap.wn || 0;
-        state.sources = (snap.sources || []).map((s) => ({ ...s, _doc: null }));
-        state.topics = snap.topics || [];
+        state.sources = (Array.isArray(snap.sources) ? snap.sources : []).map((s) => ({ ...s, _doc: null }));
+        state.topics = Array.isArray(snap.topics) ? snap.topics : [];
         state.activeTopicId = snap.activeTopicId;
         state.workspaces = Array.isArray(snap.workspaces) ? snap.workspaces : [];
         state.activeWorkspaceId = snap.activeWorkspaceId || null;
-        state.log = snap.log || [];
+        state.log = Array.isArray(snap.log) ? snap.log : [];
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
       }
     } catch { /* fresh session */ }
@@ -429,7 +444,16 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     // first question never pays the download stall. Browser only — never in tests —
     // and the ladder inside ensureModel already falls back webllm → wllama → echo.
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-      setTimeout(() => { ensureModel().catch(() => { /* logged by the ladder */ }); }, 600);
+      setTimeout(() => {
+        ensureModel().catch(() => { /* logged by the ladder */ });
+        // Warm the MiniLM meaning embedder at boot too, not lazily on the first ask. Retrieval's
+        // semantic channel — and the fold's referent-binding that the EOT answerability floor
+        // reads — is only trustworthy when this is live; warming it here means the FIRST question
+        // already gets meaning-scored retrieval instead of the lexical-only fallback that sends
+        // the surf wandering (the cold-start "fastest dolphin over a Vaporwave composite" case).
+        // Fire-and-forget and IndexedDB-cached, so it costs nothing on a warm return.
+        warmMinilm();
+      }, 600);
       // THE MODEL KEEPER's triggers (healModel/verifyRestoredModel below): reload a model that
       // silently unloaded — a lost GPU device, a failed first load, an evicted engine — in the
       // background, at the moments recovery is likely to work, instead of on the next question's
@@ -454,7 +478,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   // fold a topic under one of its own descendants (a cycle out of the tree).
   const topicDescendants = (id) => {
     const out = [];
-    const walk = (pid) => { for (const t of state.topics) if ((t.parentId ?? null) === pid) { out.push(t.id); walk(t.id); } };
+    // `seen` guards the walk against a cyclic parentId chain in restored state (a
+    // self-parent bricked every later move with a stack overflow); expandAncestors
+    // carries the same guard as its counter.
+    const seen = new Set([id]);
+    const walk = (pid) => { for (const t of state.topics) if ((t.parentId ?? null) === pid && !seen.has(t.id)) { seen.add(t.id); out.push(t.id); walk(t.id); } };
     walk(id);
     return out;
   };
@@ -478,7 +506,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return t;
   };
   const topic = () => state.topics.find((t) => t.id === state.activeTopicId) || state.topics[0];
-  const setTopic = (id) => { if (state.topics.find((t) => t.id === id)) { state.activeTopicId = id; deepWake(); persist(); emit('topics'); } };
+  const setTopic = (id) => { if (state.topics.find((t) => t.id === id)) { state.activeTopicId = id; releaseParsesOutsideTopic(); deepWake(); persist(); emit('topics'); } };
   const topicRename = (id, title) => { const t = topicById(id); if (t && title) { t.title = title; t.named = true; persist(); emit('topics'); } };
   // AUTO-NAMING. A topic still wearing the "New topic" placeholder names itself from what
   // it holds — its first question, else its first source (topic-name.js) — the moment
@@ -598,19 +626,29 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return src._doc;
   };
 
-  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null }) => {
+  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null }) => {
     const body = String(text || '').trim();
     if (!body) throw new Error('nothing to record — the page had no readable text');
     const hash = record?.content_hash || webContentHash(body);
     const dup = state.sources.find((s) => s.sha === hash);
-    if (dup) { logIt('skip', `Already recorded — ${dup.title}`, dup.sn); return dup; }
+    // Re-visiting a page already recorded is a no-op on the registry, but if it now arrives UNDER a
+    // parent (a link we followed inside that parent's site) and had none before, adopt it — so a
+    // page first seen on its own, then reached by clicking through its site, nests where expected.
+    if (dup) {
+      if (parentSn && !dup.parentSn && dup.sn !== parentSn) { dup.parentSn = parentSn; persist(); emit('sources'); }
+      logIt('skip', `Already recorded — ${dup.title}`, dup.sn); return dup;
+    }
     const id = `S${++sn}`;
     const src = {
       sn: id, reg: `S-${String(sn).padStart(4, '0')}`,
       docId: doc?.docId || `doc-${shaShort(hash)}`,
       title: title || url || 'Untitled', url, domain: url ? domainOf(url) : (kind === 'file' ? 'local file' : 'pasted text'),
-      kind, retrieved: nowIso(), sha: hash, bytes: bytesOf(body),
+      kind, retrieved: nowIso(), recordedAt: nowMs(), sha: hash, bytes: bytesOf(body),
       rights: rights || (url ? 'web — verify before reuse' : 'local'),
+      // parentSn: a page reached by following a link inside another source's site is recorded as a
+      // SUB-OBJECT of that source — one site stays one source in the sidebar, its followed pages
+      // nested and (by default) folded under it. collapsed governs its OWN children's fold state.
+      parentSn: parentSn || null, collapsed: true,
       text: body, entCount: null, _doc: doc || null,
     };
     if (doc) { try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; } }
@@ -618,18 +656,31 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     const t = topic();
     if (t && !t.sourceSns.includes(id)) t.sourceSns.push(id);
     if (t) topicAutoName(t, { silent: true });   // a first source names a placeholder topic (persist/emit follow below)
+    if (parentSn) {
+      const par = sourceBySn(parentSn);
+      logIt('nav', `Followed link on ${par ? par.domain : 'a source'} → ${src.title}`, src.reg);
+    }
     logIt('record', `Recorded ${src.domain} — ${src.title}`, src.reg);
     logIt('hash', `Fixity sha ${shaShort(src.sha)} · ${src.bytes.toLocaleString()} bytes`, src.reg);
     deepWake();   // the record grew — let the reading reflect on the new places at rest
     persist(); emit('sources');
     // Every source is READ into EoT at the moment of record — every proposition the
-    // parse admitted (any modality: the organs all land on the same spine) rendered
-    // in the canonical surface, with the reading's own thinking layered as comments.
-    // Deferred a tick so the record lands (toast, registry) before the read runs.
+    // parse admitted (any modality: the organs all land on the same spine) counted here,
+    // in the canonical surface. Deferred a tick so the record lands (toast, registry)
+    // before the read runs.
+    //
+    // Only the CHEAP half runs at record: the propositions count is a linear read of the
+    // log (emitEot). The reading's THINKING layer — its turning points — is NOT computed
+    // here: significanceSpine re-reads the whole log once per sampled cursor, tens of
+    // seconds on a 2,500-page document, and running it eagerly froze the tab right after
+    // every large import. It is left to the reading surface to compute lazily (eotFor,
+    // memoised) when the reader actually opens that source. Recording never blocks the tab
+    // on the full EoT read again.
     setTimeout(() => {
       try {
-        const r = eotFor(id);
-        if (r) logIt('eot', `Encoded ${src.reg} into EoT — ${r.structure?.lines?.length ?? 0} propositions, ${r.turns?.length ?? 0} turning points`, src.reg);
+        const d = docFor(src);
+        const props = d?.log ? emitEot(d.log).lines.length : 0;
+        logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
       } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
     }, 0);
     return src;
@@ -664,9 +715,28 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   };
 
   const removeSource = (id) => {
+    const gone = sourceBySn(id);
+    if (gone) deepReaders.delete(gone.docId);   // or the deep reader keeps the removed doc resident
     state.sources = state.sources.filter((s) => s.sn !== id);
+    // A removed source's sub-objects rise to the top level rather than vanish with their parent.
+    for (const s of state.sources) if (s.parentSn === id) s.parentSn = null;
     for (const t of state.topics) t.sourceSns = t.sourceSns.filter((x) => x !== id);
     persist(); emit('sources');
+  };
+
+  // Release the derived readings the active topic no longer needs. A parse (_doc), its EoT
+  // reading (_eot — and readIngest's memo, a WeakMap keyed by the doc, dies with it), and the
+  // deep reader pinning the doc all re-derive lazily from src.text; holding EVERY topic's
+  // parses at once (each several times its text's size) is session-long growth the tab —
+  // already carrying model weights — cannot afford.
+  const releaseParsesOutsideTopic = () => {
+    const t = topic();
+    const keep = new Set(t ? t.sourceSns : []);
+    for (const s of state.sources) {
+      if (keep.has(s.sn)) continue;
+      deepReaders.delete(s.docId);
+      s._doc = null; s._eot = null;
+    }
   };
 
   const topicSources = () => {
@@ -744,8 +814,46 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
     return runCancellable({ kind: 'fetch', label: `Loading ${domainOf(norm)}…` }, async (signal) => {
       const res = await client.fetchUrl(norm, { signal });
-      return { html: res.text || '', url: res.url || norm, ok: res.ok !== false };
+      // Report the REAL page URL, never `res.url`: fetchUrl goes through the feed proxy, so
+      // res.url is the proxied `…/feed?url=…` address. The Native tab feeds this straight into
+      // the render's injected <base href>, and a proxy base makes every relative stylesheet/
+      // image (/w/load.php, /static/…) resolve against the proxy host — a blank, image-broken
+      // page. `norm` is the site's own URL, so its assets resolve against the site. (4.1 based
+      // the native render on the page URL for exactly this reason.)
+      return { html: res.text || '', url: norm, ok: res.ok !== false };
     });
+  };
+
+  // Following a link INSIDE a source's native view: fetch the target page once, render it in place
+  // (the raw HTML rides back for the Native iframe), AND record it as a SUB-OBJECT of `parentSn` —
+  // one site stays one source, every page you click through logged beneath it (dedup keeps a
+  // re-visit a no-op on the registry). Returns { html, url, childSn } — childSn null if the page had
+  // no readable text (nothing to record) or admission failed; the page still renders either way.
+  const navigatePage = (parentSn, url) => {
+    const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
+    return runCancellable({ kind: 'fetch', label: `Loading ${domainOf(norm)}…` }, async (signal) => {
+      const res = await client.fetchUrl(norm, { signal });
+      const raw = res.text || '';
+      const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
+      let childSn = null;
+      try {
+        const text = htmlToText(raw);
+        if (text && text.trim()) {
+          const { doc, record } = admitWebSource({ url: norm, title, text, fetched_at: nowIso(), engine: 'feed-proxy' });
+          const child = addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, parentSn });
+          childSn = child.sn;
+        }
+      } catch { /* un-admittable (empty/dup-of-parent) — still render the page */ }
+      // Report the site's own URL for the iframe <base href> (not the proxied res.url), same as
+      // fetchPage — so the rendered page's relative assets resolve against the real site.
+      return { html: raw, url: norm, childSn, ok: res.ok !== false };
+    });
+  };
+
+  // Fold / unfold a source's sub-objects in the sidebar (persisted with the source).
+  const sourceToggleCollapse = (id) => {
+    const s = sourceBySn(id); if (!s) return;
+    s.collapsed = !s.collapsed; persist(); emit('sources');
   };
 
   // webSearchAdmit(query, opts) → the fetch+admit primitive the turn's web loop consumes.
@@ -780,17 +888,114 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return addSource({ title, text: String(text), kind: 'text', doc });
   };
 
-  const ingestFile = (file) =>
+  // Fold a landed transcript back into an audio source that was already recorded from its
+  // acoustic reading: the words become the source's text, the word-level organ doc (with its
+  // timings, witness and carried-forward waveform/holons) becomes its reading, and the derived
+  // caches are dropped so the reader re-reads the transcript rather than the placeholder.
+  const applyTranscript = (src, text, doc, coverage) => {
+    const body = String(text || '').trim();
+    if (!body || !doc) return;
+    src.text = body;
+    src.bytes = bytesOf(body);
+    src.sha = webContentHash(body);
+    src._doc = doc;
+    src._eot = null;
+    deepReaders.delete(src.docId);
+    try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { /* keep prior */ }
+    if (coverage) src.coverage = coverage;
+    if (src._asr) src._asr = { ...src._asr, state: 'done', pct: 100, partial: '' };
+    logIt('record', `Transcribed ${src.reg} — ${body.length.toLocaleString()} chars`, src.reg);
+    setTimeout(() => {
+      try { const d = docFor(src); logIt('eot', `Encoded ${src.reg} into EoT — ${d?.log ? emitEot(d.log).lines.length : 0} propositions`, src.reg); }
+      catch { /* the record already stands */ }
+    }, 0);
+    persist(); emit('sources');
+  };
+
+  const ingestFile = (file, fileOpts = {}) =>
     runCancellable({ kind: 'file', label: `Reading ${file.name}…` }, async (signal, progress) => {
       const { importAnyFile } = await import('./import-file.js');
       const got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) });
+
+      // ── MEDIA — the source lands AT ONCE from its acoustic reading; transcription follows. ──
+      // An audio/video import returns a full pre-transcription reading (waveform + basic
+      // analysis + signal/noise nested holons) plus a deferred `transcribe` thunk. We record
+      // the source immediately (so it shows up as a source, playable, with its visualization),
+      // reveal it, THEN run transcription in the background — only if there was signal to hear.
+      if (got.meta?.modality === 'audio' && got.meta?.doc) {
+        const src = addSource({ title: got.title || file.name, text: got.text, kind: 'audio', rights: 'local file', doc: got.meta.doc });
+        if (src) {
+          // The playback + visualization artefacts ride the source as underscore fields, so they
+          // are session-only (never structure-cloned into the persisted snapshot; serialize()
+          // strips anything underscore-led) and re-derive on a fresh import.
+          src._media = got.meta.media ? { url: got.meta.media, kind: got.meta.mediaKind, isVideo: !!got.meta.isVideo } : null;
+          src._wave = got.meta.waveform || null;
+          src._analysis = got.meta.analysis || null;
+          src._holons = got.meta.holons || null;
+          src._asr = got.meta.transcribable
+            ? { state: 'pending', pct: 0, partial: '' }
+            : { state: 'skipped', reason: 'no signal above the noise floor', pct: 0, partial: '' };
+          const cov = got.meta.coverage;
+          if (cov) { src.coverage = cov; logIt(cov.complete ? 'record' : 'skip', `Coverage — ${cov.transcribable ? '100% of ' + file.name + ' read as sound; transcribing signal' : (cov.dropped || []).join('; ')}`, src.reg); }
+          persist(); emit('sources');
+          if (typeof fileOpts.onSource === 'function') { try { fileOpts.onSource(src); } catch { /* reveal is best-effort */ } }
+
+          if (got.meta.transcribe) {
+            src._asr = { ...src._asr, state: 'running' };
+            emit('sources');
+            progress({ kind: 'file', label: 'Transcribing the signal…' });
+            let lastPaint = 0;
+            try {
+              const res = await got.meta.transcribe({
+                signal,
+                twoWitness: !!state.auditReadings,
+                onPartial: (p) => {
+                  progress({ kind: 'file', label: `Transcribing… ${p.pct != null ? p.pct + '%' : ''}` });
+                  if (src._asr) { src._asr.pct = p.pct || 0; src._asr.partial = String(p.text || '').slice(-2000); }
+                  // Repaint the media panel's live transcript at most a few times a second.
+                  const now = nowMs();
+                  if (now - lastPaint > 350) { lastPaint = now; emit('sources'); }
+                },
+              });
+              if (res && res.empty) {
+                src._asr = { state: 'skipped', reason: 'no speech found in the signal', pct: 100, partial: '' };
+                emit('sources');
+              } else if (res && res.doc) {
+                applyTranscript(src, res.text, res.doc, res.coverage);
+              }
+            } catch (e) {
+              if (signal.aborted) { src._asr = { ...(src._asr || {}), state: 'stopped' }; }
+              else { src._asr = { ...(src._asr || {}), state: 'error', reason: String(e?.message || e).slice(0, 90) }; logIt('skip', `Transcription failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+              emit('sources');
+            }
+          }
+        }
+        return src;
+      }
       // For a structured modality the ORGAN doc is the reading: a table's cells, a JSON
       // tree's leaves, a binary's string runs ARE its propositions — three-faced events
       // already on the log — and re-parsing their rendered lines as prose would drop
       // them. Prose-bearing modalities (pdf, webpage, ocr, audio transcript, plain text)
       // parse as text so the entity/relation read runs over the actual sentences.
-      const structured = ['table', 'json', 'binary'].includes(got.meta?.modality) && got.meta?.doc;
-      const doc = structured ? got.meta.doc : parseText(got.text, { docId: `doc-${shaShort(webContentHash(got.text))}` });
+      // A MIDI score is structured like a table: the ORGAN doc (pitch-class entities +
+      // interval bonds) IS the reading — re-parsing the human summary as prose would drop
+      // the note graph the music organ raised. Its readable `text` is the summary the
+      // organ carries; STRUCTURED_MODALITIES (first-surface.js) keeps the two lists aligned.
+      const structured = ['table', 'json', 'binary', 'music'].includes(got.meta?.modality) && got.meta?.doc;
+      // Prose parses through the parser's CHUNKED path (onProgress → yield between chunks),
+      // so a 2,500-page document's entity/relation read no longer runs as one synchronous
+      // sweep that freezes the tab for seconds — it breathes, reports progress, and stays
+      // stoppable. The work and its order are byte-identical to the plain sweep (pipeline.js);
+      // `await` passes the structured (already-parsed) doc straight through unchanged.
+      const doc = structured
+        ? got.meta.doc
+        : await parseText(got.text, {
+            docId: `doc-${shaShort(webContentHash(got.text))}`,
+            onProgress: (p) => {
+              if (p && p.phase === 'parse' && p.total)
+                progress({ kind: 'file', label: `Reading the text… ${p.done.toLocaleString()} / ${p.total.toLocaleString()} sentences` });
+            },
+          });
       const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc });
       // The coverage receipt — proof that 100% of the file was processed, or the named
       // account of what could not be (import-file.js) — rides the source and the ledger.
@@ -811,6 +1016,9 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     try { const v = localStorage.getItem('eo_backend'); if (v) return v; } catch { /* default */ }
     return (typeof navigator !== 'undefined' && navigator.gpu) ? 'webllm' : 'wllama';
   };
+  // The WebGPU talkers — both ride the web-llm engine, so they share the stall wording,
+  // the no-WebGPU blame check, and the wedge ladder's step down to the CPU model.
+  const isWebgpuTalker = (b) => b === 'webllm' || b === 'qwen';
   let model = null, modelLoading = null, modelGen = 0;
   // Consecutive in-browser decode wedges (a lost / OOM'd WebGPU device). A clean answer clears it
   // (finishMessage); a second straight wedge steps DOWN to the smaller/CPU backup (resetWedgedLocalModel).
@@ -845,7 +1053,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     const live = (model?.isLoaded?.() && model.id === name)
       || (!!modelLoading && state.model.backend === name && name === prev);
     if (!force && live) { emit('model'); return; }
+    // Free the engine being walked away from, same as the wedge/bfcache paths: a dropped
+    // handle alone leaves webllm's worker (the whole GPU weight buffer) running forever.
+    const old = model;
     orphanModel();
+    freeOrphan(old);
     state.model = { backend: name, state: 'cold', progress: 0, note: '' };
     emit('model');
   };
@@ -876,7 +1088,9 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       const wantSize = speed === 'fast' ? '1B' : '3B';
       const loadedBuild = (model?.isLoaded?.() && model.id === 'webllm' && describeModel(model)?.model) || '';
       if (loadedBuild.includes(`-${wantSize}-`)) { emit('model'); return; }
+      const old = model;
       orphanModel();
+      freeOrphan(old);   // the other-size build's GPU buffers must not outlive the switch
       state.model = { backend: 'webllm', state: 'cold', progress: 0, note: '' };
     }
     emit('model');
@@ -930,7 +1144,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
           if (gen !== modelGen) return;                      // superseded — not ours to narrate
           const quiet = Math.round((Date.now() - lastCb) / 1000);
           if (quiet < 20) return;
-          const hint = (backend === 'webllm' && quiet < 90)
+          const hint = (isWebgpuTalker(backend) && quiet < 90)
             ? `no data for ${quiet}s — the first chunk is 130–200 MB, a slow link sits at 0% a while`
             : `no data for ${quiet}s — if this never moves, this network may be blocking ` +
               `${backend === 'claude' ? 'api.anthropic.com' : 'huggingface.co'}; pick another model from the chip`;
@@ -986,7 +1200,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
           if (m.kind === 'local') {
             state.model = { backend, state: 'loading', progress: 1, note: 'warming…' };
             emit('model');
-            try { await m.phrase([{ role: 'user', content: '.' }], { maxTokens: 1, temperature: 0 }); } catch { /* warmed or not, it loaded */ }
+            // Bounded: webllm only arms its wedge backstop when a signal exists, so a
+            // signal-less warmup that wedges would hold modelLoading (and the chip at
+            // "warming…") for the rest of the session.
+            const warmupSignal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined;
+            try { await m.phrase([{ role: 'user', content: '.' }], { maxTokens: 1, temperature: 0, signal: warmupSignal }); } catch { /* warmed or not, it loaded */ }
             if (gen !== modelGen) { freeOrphan(m); return ensureModel(); }   // superseded mid-warmup — same as above
           }
           state.model = { backend, state: 'ready', progress: 1, note: backend === name ? '' : `fell back from ${name}` };
@@ -999,7 +1217,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
           // Blame WebGPU only when WebGPU is actually absent. webllm also fails on a
           // blocked CDN or weights host, and the old note pointed every such user at
           // chrome://flags — a fix for a problem they didn't have, hiding the real one.
-          const noGpu = backend === 'webllm' && !(typeof navigator !== 'undefined' && navigator.gpu);
+          const noGpu = isWebgpuTalker(backend) && !(typeof navigator !== 'undefined' && navigator.gpu);
           const why = noGpu
             ? 'needs WebGPU (chrome://flags or Chrome/Edge); falling back to the CPU model'
             : String(e?.message || e).slice(0, 120);
@@ -1081,10 +1299,14 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         // backup for THIS SESSION ONLY (persist: false): the user's saved pick stays theirs, so a
         // transient bad day (a backgrounded tab, one OOM) can't permanently hijack it — the next
         // visit tries their real choice again.
+        // The default IS the 3B build now, so any webllm that isn't explicitly pinned to
+        // 'fast' is on the big build and has the lighter 1B rung to step down to first; only
+        // an explicit 'fast' pin is already at the smallest webllm build and drops straight
+        // to the CPU rung instead of wasting a wedge cycle reloading the same size.
         if (backendPref() === 'webllm' && speedPref() !== 'fast') {
           logIt('skip', 'In-browser model kept dying — dropping to the faster 1B build for this session');
           setSpeed('fast', { persist: false });
-        } else if (backendPref() === 'webllm') {
+        } else if (isWebgpuTalker(backendPref())) {
           logIt('skip', 'WebGPU model kept dying — switching to the CPU model for this session');
           setBackend('wllama', { persist: false });
         } else {
@@ -1145,16 +1367,47 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     });
   };
 
-  // embedders — hash is instant; MiniLM warms in the background on first ask
+  // embedders — hash is instant; MiniLM warms in the background on first ask. MiniLM is
+  // wrapped in the persistent cache (model/embed-cache.js): every vector it computes
+  // lands in IndexedDB, so a text embedded in ANY session is never embedded again — the
+  // reader gets measurably faster the more it operates.
   const hashEmb = createHashEmbedder();
   let minilm = null, minilmWarming = false;
   const warmMinilm = () => {
     if (minilm?.isWarm?.() || minilmWarming) return;
     minilmWarming = true;
     try {
-      minilm = createMiniLMEmbedder();
-      minilm.warm().then(() => emit('model')).catch(() => { minilm = null; }).finally(() => { minilmWarming = false; });
+      minilm = withPersistentEmbedCache(createMiniLMEmbedder());
+      minilm.warm().then(() => { emit('model'); buildShapeLib(); }).catch(() => { minilm = null; }).finally(() => { minilmWarming = false; });
     } catch { minilmWarming = false; }
+  };
+
+  // ── the form library (turn/shape.js) — built in the background once MiniLM is warm ──
+  // Grammar mode when data/shapes.json is present: navigation embeds the 430 exemplar
+  // prompts (a one-time cost the persistent cache amortises to zero across sessions);
+  // draft scoring is model-free (move-grammar likelihood vs the assistant contrast).
+  // Then the corpus navigation pool (data/nav-corpus.jsonl) extends the kNN under a
+  // wall-clock budget — however far it reaches, coverage is breadth-first, and the next
+  // session's budget starts where this one stopped (cached vectors cost no budget).
+  // Every step degrades to inert, never to a broken turn: no shapes.json → legacy
+  // cosine library; no exemplars → no library; a thrown build → shapeLib stays null.
+  const NAV_POOL_BUDGET_MS = 45_000;
+  let shapeLib = null, shapeLibBuilding = false;
+  const buildShapeLib = () => {
+    if (shapeLib || shapeLibBuilding || !minilm?.isWarm?.()) return;
+    shapeLibBuilding = true;
+    (async () => {
+      try {
+        const shapes = await loadShapeGrammars();
+        const lib = await loadShapeLibrary((t) => minilm.embed(t), { shapes });
+        if (!lib) return;
+        shapeLib = lib;
+        emit('model');
+        await extendLibraryWithNavPool(lib, minilm, { budgetMs: NAV_POOL_BUDGET_MS });
+        emit('model');
+      } catch { /* the form path stays inert — never a broken turn */ }
+      finally { shapeLibBuilding = false; }
+    })();
   };
 
   // ── export provenance (rooms/reader/provenance.js) ───────────────────────────
@@ -1193,6 +1446,33 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     try { localStorage.setItem('eo_web_mode', mode); } catch { /* session-only */ }
     logIt('web', `Web search set to ${mode}`);
     emit('web');
+  };
+
+  // ── redact-when-hosted (the confidentiality lever) ───────────────────────────
+  // When ON, a HOSTED talker (Claude · Anthropic) never sees a real entity name: the turn's
+  // messages pass through the privacy membrane (model/redact-remote.js) — every admitted entity
+  // collapses to an opaque token on the way out, and the answer is restored locally. A local
+  // in-browser model is untouched (it already runs where the names live), and the membrane is a
+  // transparent passthrough for it, so the flag only bites a remote backend. Persisted; OFF by
+  // default (the record is sent verbatim unless the user asks otherwise). Read redactRemote()/
+  // setRedactRemote() from the surface.
+  let redactRemoteOverride = null;
+  const redactRemote = () => {
+    if (redactRemoteOverride != null) return redactRemoteOverride;
+    try { return localStorage.getItem('eo_redact_remote') === '1'; } catch { return false; }
+  };
+  const setRedactRemote = (on) => {
+    redactRemoteOverride = !!on;
+    try { localStorage.setItem('eo_redact_remote', on ? '1' : '0'); } catch { /* session-only */ }
+    logIt('record', on
+      ? 'Hosted chat set to REDACTED — real entities are replaced with tokens before they leave the browser'
+      : 'Hosted chat set to send the record verbatim');
+    emit('model');
+  };
+  // The real entity surfaces across the active topic's docs (the admitted labels) — the names the
+  // membrane must keep off the wire. Reuses the same lexicon the answer/viewer segmentation reads.
+  const redactionNames = () => {
+    try { return entityLexicon(topicDocs()).map((e) => e.label); } catch { return []; }
   };
 
   // ── chat ───────────────────────────────────────────────────────────────────
@@ -1299,7 +1579,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     pending.grounded = false;
     if (hadPartial) {
       pending.unverified = true;
-      pending.flags = [{ id: 'unverified', note: 'Stopped before grounding — this draft was not checked against your record.' }];
+      // APPEND, don't overwrite: any flags the turn already surfaced (a referent-diffuse
+      // decline, a factcheck-limited note) are honest signals that must survive the stop, not
+      // be replaced wholesale by the lone 'unverified' band. De-dupe so a re-entry can't stack it.
+      const prior = Array.isArray(pending.flags) ? pending.flags.filter((f) => f && f.id !== 'unverified') : [];
+      pending.flags = [...prior, { id: 'unverified', note: 'Stopped before grounding — this draft was not checked against your record.' }];
     }
   };
 
@@ -1332,6 +1616,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         question: q, docs: [], model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
+        shapeLibrary: shapeLib || undefined,   // the form predictor (turn/shape.js) — inert until built
         auditLog: audit, history: [],
         stream: true,
         // A backend slow (or unable) to honor the abort keeps handing us tokens after Stop; appending
@@ -1443,17 +1728,22 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
 
     const mode = webMode();
 
-    // ── THE FRONT DOOR — physics, not a regex (docs/response-demand.md) ───────────────────────────
-    // The engine warms the model and reads ONE plain discourse statement about this turn
-    // (readDiscourse): the model says, in its own words, what the user is doing. Every door is then
-    // a CURRENT measured off that single paragraph. This replaces the old answerSmalltalk regex
-    // floor: a phatic turn — a greeting, a thanks, a goodbye, a how-are-you — is the PHATIC CURRENT
-    // winning the route relaxation (phaticFromSpeech → metaRoute), a physical fact of the statement
-    // rather than a matched spelling. It runs BEFORE the empty-record and grounding branches, so a
-    // greeting answers with one warm line and NEVER reaches the web (the "why did it search for
-    // 'how are you'" bug). The same statement is reused below to decide clarify, so the model speaks
-    // once per turn. Fail-soft by construction: no model, an empty read, or any throw abstains, and
-    // the turn proceeds exactly as a substantive one would.
+    // ── THE FRONT DOOR — the phatic short-circuit is DETERMINISTIC (docs/response-demand.md) ──────
+    // A turn is answered with one warm social line (and NEVER reaches retrieval / grounding / the
+    // web) ONLY when the offline floor `answerSmalltalk` recognizes it as social from the user's own
+    // words — a greeting, a thanks, a goodbye, a how-are-you. The tiny-model discourse read
+    // (readDiscourse) is STILL taken once per turn, but it no longer decides phatic: it feeds only
+    // the clarify gate below. This reverses the earlier "physics, not a regex" phatic door, where the
+    // PHATIC CURRENT of the model's paragraph (phaticFromSpeech → metaRoute) could win the route
+    // relaxation and short-circuit the turn. On a 1B/1.5B model that read is unreliable AND biased —
+    // it routinely describes a real question ("what is the best elvis movie?") as a casual/social ask,
+    // and the phatic exemplars then out-score ground/research — so a genuine question was
+    // intermittently swallowed as chit-chat, the sources never consulted and no search fired, and the
+    // SAME question flipped answer to answer (the exported "works sometimes, not another" flakiness).
+    // Deciding phatic on the deterministic floor makes routing reproducible and can never discard a
+    // real question; the cost is a paraphrased greeting the floor misses ("you around?") gets a normal
+    // turn instead of a warm line — the safe direction. Fail-soft: no model / empty read / any throw
+    // still proceeds as a substantive turn; a clear greeting is honored even if the model faults.
     warmMinilm();
     // This turn's cancellation kit, armed BEFORE the front-door decode so even that read is watched,
     // stoppable, and signal-threaded (see answerFromWeb) — never a fresh way for a turn to hang.
@@ -1478,9 +1768,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     try {
       setBusy({ kind: 'turn', label: 'Reading the turn…' });
       const m0 = await raceGuard(ensureModel());
-      // The floor already settled a clear greeting — don't spend the discourse read on it.
+      // The floor already settled a clear greeting — don't spend the discourse read on it. Otherwise
+      // the read is taken for the clarify gate below (it no longer decides phatic).
       discourse = floorTalk ? '' : await raceGuard(keepAlive(readDiscourse(m0, { history: priorHistory, now: new Date(), scope: t.title || '', signal: turnSignal })(q)));
-      if (floorTalk || phaticFromSpeech(discourse).phatic) {
+      if (floorTalk) {
         pending.text = await phaticReply(m0, { question: q, hasDoc: docs.length > 0, signal: turnSignal, raceGuard, keepAlive });
         pending.route = 'phatic';
         pending.pending = false;
@@ -1596,18 +1887,39 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     } catch (_) { /* disambiguation is best-effort; fall through to the normal turn */ }
 
     try {
-      const m = await raceGuard(ensureModel());
+      const m0 = await raceGuard(ensureModel());
+      // The confidentiality lever: when redact-when-hosted is on, wrap the talker in the privacy
+      // membrane so a REMOTE backend sees only tokens (a no-op for a local model, or when off).
+      const m = redactRemote() ? wrapRedacting(m0, redactionNames) : m0;
+      // The conversation handed to the turn is the settled dialogue MINUS this turn's own
+      // question (it rides separately as `question`). Drop exactly one — the current user turn,
+      // which is last after the empty pending assistant is filtered out — so the most recent
+      // assistant reply STAYS in. The old `-2` dropped that reply too, so the grounded prompt's
+      // "conversation so far" band only ever showed the user's turns (the exported bug: a bare
+      // "You: research elvis films…" with the answer it refers to missing), leaving a follow-up
+      // like "which is the best?" nothing to resolve against. `-1` matches priorHistory above.
+      // foldConversation then holds the recent window to its token budget and folds the rest.
       const history = t.messages
         .filter((x) => !x.pending && x.text)
-        .slice(0, -2)
+        .slice(0, -1)
         .map((x) => ({ role: x.role, content: x.text, ...(x.unbound ? { unbound: true } : {}) }));
       // A long-form ask ("write me an essay …") gets a large budget so the answer can develop
       // past the pointed-answer cap; a normal ask keeps the per-task budget the pipeline picks.
       const longform = wantsLongform(effectiveQ);
+      // Separate signal from noise: ground this turn on the sources that bear on the
+      // question (the substantial documents + any small source it distinctly names),
+      // not the whole topic pile. `docs` above still holds the full set for the front
+      // door and the disambiguation gate; only what the answer GROUNDS on is scoped.
+      // Set-aside is logged, never silent — the reader can see the focus it took.
+      const scopedDocs = scopeSources(effectiveQ, topicSources()).map(docFor).filter(Boolean);
+      const setAside = docs.length - scopedDocs.length;
+      if (setAside > 0) logIt('skip', `Focused on ${scopedDocs.length} of ${docs.length} sources for this question — set aside ${setAside} unrelated to it`, topic()?.id);
+      const groundDocs = scopedDocs.length ? scopedDocs : docs;
       const args = {
-        question: effectiveQ, docs, model: m,
+        question: effectiveQ, docs: groundDocs, model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
+        shapeLibrary: shapeLib || undefined,   // the form predictor (turn/shape.js) — inert until built
         auditLog: audit, history,
         stream: true,
         // Arm the reaction-weighing stage: when a grounded answer earned no witness and the
@@ -1736,6 +2048,13 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     msg.text = result.marked || result.answer || msg.text;
     msg.route = result.route;
     msg.grounding = result.grounding;
+    // The VERBATIM prompt this turn handed the model — the audit turn's own record
+    // (turn/stages.js promptText, riding the pipeline result as `turn`). Stashed on the
+    // message — unlike the derived answerEot projection, it is a fact of the turn, not
+    // re-computable — so the facing panel can show exactly what the talker was prompted,
+    // and still show it after a reload (the in-memory audit ring does not survive one).
+    // Null when no talker prompt exists for this answer (a phatic line, an errored turn).
+    msg.prompt = (result.turn && result.turn.prompt) || null;
     msg.flags = (result.flags || []).map((f) => ({ id: f.id, note: f.note || '' }));
     msg.unbound = !!result.unbound;
     msg.stopped = !!result.stopped;
@@ -1933,23 +2252,64 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   };
 
   // ── entities (the explorer) ────────────────────────────────────────────────
-  const entities = () => {
+  // Coreference is resolved WITHIN each source's document graph (projectGraph's
+  // `representative` union-find), never across them — so the raw pass yields one
+  // instance per (source, entity). By DEFAULT we then COLLAPSE across sources:
+  // the panel is about entities, not entity-in-one-source, so the eight "Iran"
+  // rows (one per source that names it) fold into a single row whose mentions and
+  // links sum over every source, tagged with how many sources it spans. Pass
+  // { merge: false } for the raw per-source instances (the old behaviour).
+  const entityKey = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const entities = ({ merge = true } = {}) => {
     const out = [];
     for (const src of topicSources()) {
       const doc = docFor(src);
       if (!doc?.log) continue;
       const g = projectGraph(doc.log);
       const rep = g.representative || ((x) => x);
+      // Degree per representative in ONE pass over the edges, rather than re-scanning
+      // every edge for every entity (which was O(entities × edges) — minutes on a large
+      // document's graph, run on every explorer render). A self-loop counts once, matching
+      // the prior `rep(from) === r || rep(to) === r` test.
+      const degree = new Map();
+      for (const e of g.edges || []) {
+        const a = rep(e.from), b = rep(e.to);
+        degree.set(a, (degree.get(a) || 0) + 1);
+        if (b !== a) degree.set(b, (degree.get(b) || 0) + 1);
+      }
       const seen = new Set();
       for (const [id, ent] of g.entities || []) {
         const r = rep(id);
         if (seen.has(r)) continue;
         seen.add(r);
         const label = doc.admission?.labelOf?.(r) || ent.label || r;
-        let links = 0;
-        for (const e of g.edges || []) if (rep(e.from) === r || rep(e.to) === r) links++;
-        out.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn: src.sn, label, mentions: ent.sightings || 0, links });
+        const links = degree.get(r) || 0;
+        out.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn: src.sn, label, mentions: ent.sightings || 0, links, sourceCount: 1 });
       }
+    }
+    if (merge) {
+      // Group per-source instances by normalized label. The strongest instance
+      // (most mentions) LEADS the merged row, so key/docId/entId/sn point at the
+      // richest per-source profile — opening the row lands there — while mentions
+      // and links aggregate and `sourceCount` records the reach.
+      const byLabel = new Map();
+      for (const it of out) {
+        const k = entityKey(it.label);
+        let grp = byLabel.get(k);
+        if (!grp) { grp = { lead: it, mentions: 0, links: 0, sns: new Set(), instances: [] }; byLabel.set(k, grp); }
+        grp.mentions += it.mentions;
+        grp.links += it.links;
+        grp.sns.add(it.sn);
+        grp.instances.push({ docId: it.docId, entId: it.entId, sn: it.sn });
+        if (it.mentions > grp.lead.mentions) grp.lead = it;
+      }
+      const merged = [...byLabel.values()].map((grp) => ({
+        key: grp.lead.key, entId: grp.lead.entId, docId: grp.lead.docId, sn: grp.lead.sn,
+        label: grp.lead.label, mentions: grp.mentions, links: grp.links,
+        sourceCount: grp.sns.size, instances: grp.instances,
+      }));
+      merged.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
+      return merged;
     }
     out.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
     return out;
@@ -1968,12 +2328,21 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     for (const e of doc.log.snapshot()) {
       if (e.op === 'INS' && rep(e.id) === rep(entId) && e.sentIdx != null) idxs.add(e.sentIdx);
     }
+    const sentAt = (i) => String(doc.sentences?.[i] || '').trim();
     const mentions = [...idxs].sort((a, b) => a - b).slice(0, 40)
-      .map((i) => ({ idx: i, text: String(doc.sentences?.[i] || '').trim() }))
+      .map((i) => ({ idx: i, text: sentAt(i) }))
       .filter((m2) => m2.text);
+    // Standing properties, ranked and deduped with their provenance (§ rankProperties):
+    // what the record most strongly and specifically witnesses leads, and each property
+    // carries the passages that assert it — its trail, and the DAG's edges.
+    const defs = rankProperties(fs.defs).map((d) => ({
+      value: d.value, idx: d.idx, count: d.count,
+      score: d.score, confidence: d.confidence, polarity: d.polarity, modality: d.modality,
+      witnesses: d.witnesses.map((i) => ({ idx: i, text: sentAt(i) })).filter((w) => w.text),
+    }));
     return {
       label, docId, sn: src.sn, sourceTitle: src.title,
-      defs: fs.defs.map((d) => ({ value: d.value, idx: d.idx })),
+      defs,
       relations: fs.relations.map((r) => ({
         srcId: r.src.id, srcLabel: r.src.label, tgtId: r.tgt.id, tgtLabel: r.tgt.label,
         via: r.via, op: r.op, idx: r.idx,
@@ -2006,17 +2375,28 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return pending;
   };
 
+  // When a source entered the record, in epoch-ms — the graphs' time axis reads this off
+  // each node (0/undefined ⇒ undated). Prefer the numeric recordedAt; fall back to parsing
+  // the ISO `retrieved` so sources recorded before this field existed still place in time.
+  const srcTimeMs = (s) => {
+    if (!s) return 0;
+    if (Number.isFinite(s.recordedAt) && s.recordedAt > 0) return s.recordedAt;
+    const p = Date.parse(s.retrieved || '');
+    return Number.isNaN(p) ? 0 : p;
+  };
+
   // The honest tiered data for mountTieredGraph: the source at the radial centre
   // (tier 0), the focus + bonded figures (tier 1), the standing claims (tier 2).
   const tieredData = (docId, entId) => {
     const p = entityProfile(docId, entId);
     if (!p) return { nodes: [], edges: [] };
-    const nodes = [{ id: 'src', tier: 0, label: p.sourceTitle, kind: 'source' }];
+    const srcT = srcTimeMs(state.sources.find((s) => s.docId === docId));
+    const nodes = [{ id: 'src', tier: 0, label: p.sourceTitle, kind: 'source', t: srcT }];
     const edges = [];
     const seen = new Set();
     const addEnt = (id, label) => {
       const nid = `e:${id}`;
-      if (!seen.has(nid)) { seen.add(nid); nodes.push({ id: nid, tier: 1, label, kind: 'entity', ref: { docId, entId: id } }); }
+      if (!seen.has(nid)) { seen.add(nid); nodes.push({ id: nid, tier: 1, label, kind: 'entity', ref: { docId, entId: id }, t: srcT }); }
       return nid;
     };
     const focus = addEnt(entId, p.label);
@@ -2026,11 +2406,16 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     // labels keep it readable, so every entity the focus actually bonds to gets a node.
     for (const r of p.relations) {
       const a = addEnt(r.srcId, r.srcLabel), b = addEnt(r.tgtId, r.tgtLabel);
-      edges.push({ a, b, tier: 1, gl: r.op === 'SIG' ? '△' : '⋈', code: r.via || r.op });
+      // Type the edge by the ACT it records, not the bare CON fallback: a kinship via
+      // (mother/son) projects to INS, a metamorphosis to SEG·INS, and only a genuine
+      // bond stays CON. The glyph shows the dominant (most-specific) operator; the code
+      // carries the whole nested stack (§ operatorsOf).
+      const ops = operatorsOf(r.via, r.op || 'CON');
+      edges.push({ a, b, tier: 1, gl: glyphOf(ops[0]), code: ops.join('·') });
     }
     p.defs.slice(0, 16).forEach((d, i) => {
       const id = `c:${i}`;
-      nodes.push({ id, tier: 2, label: d.value, kind: 'claim' });
+      nodes.push({ id, tier: 2, label: d.value, kind: 'claim', t: srcT });
       edges.push({ a: focus, b: id, tier: 2, gl: '⊢', code: 'DEF' });
     });
     return { nodes, edges };
@@ -2047,7 +2432,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   const topicTieredData = () => {
     const srcs = topicSources();
     const nodes = [], edges = [], seen = new Set();
-    const push = (id, tier, label, kind, ref) => { if (!seen.has(id)) { seen.add(id); nodes.push({ id, tier, label, kind, ref }); } };
+    const push = (id, tier, label, kind, ref, t = 0) => { if (!seen.has(id)) { seen.add(id); nodes.push({ id, tier, label, kind, ref, t }); } };
     const norm = (s) => String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
     const urlish = (s) => /^(https?:\/\/|www\.)/i.test(String(s || '')) || String(s || '').includes('://');
     const merged = new Map();       // normLabel → { id, label, mentions, sns:Set, ref }
@@ -2063,8 +2448,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         const nl = norm(label); if (!nl || urlish(label)) continue;
         mapKey.set(`${doc.docId}#${r}`, nl);
         let m = merged.get(nl);
-        if (!m) merged.set(nl, m = { id: `e:${nl}`, label, mentions: 0, sns: new Set(), ref: { docId: doc.docId, entId: r } });
+        if (!m) merged.set(nl, m = { id: `e:${nl}`, label, mentions: 0, sns: new Set(), ref: { docId: doc.docId, entId: r }, t: 0 });
         m.mentions += ent.sightings || 0; m.sns.add(src.sn);
+        // an entity sits on the axis at its EARLIEST recording — when it first entered the record
+        const st = srcTimeMs(src); if (st > 0) m.t = m.t > 0 ? Math.min(m.t, st) : st;
       }
     }
     // rank by salience and cap — the graph's own collision-culling keeps it legible, but a hard cap
@@ -2072,11 +2459,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     const ranked = [...merged.values()].sort((a, b) => b.mentions - a.mentions).slice(0, 40);
     const shown = new Set(ranked.map((m) => norm(m.label)));
     const srcById = new Map(srcs.map((s) => [s.sn, s]));
-    for (const m of ranked) push(m.id, 1, m.label, 'entity', m.ref);
+    for (const m of ranked) push(m.id, 1, m.label, 'entity', m.ref, m.t);
     for (const m of ranked) {
       for (const sn of m.sns) {
         const sid = `src:${sn}`; const s = srcById.get(sn);
-        push(sid, 0, s ? (s.title || s.reg || 'source') : 'source', 'source', null);
+        push(sid, 0, s ? (s.title || s.reg || 'source') : 'source', 'source', null, srcTimeMs(s));
         edges.push({ a: sid, b: m.id, tier: 0, gl: '●', code: 'INS' });
       }
     }
@@ -2089,13 +2476,20 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         const an = mapKey.get(`${doc.docId}#${rep(e.from)}`), bn = mapKey.get(`${doc.docId}#${rep(e.to)}`);
         if (!an || !bn || an === bn || !shown.has(an) || !shown.has(bn)) continue;
         const key = an + '' + bn; let b = agg.get(key);
-        if (!b) agg.set(key, b = { a: `e:${an}`, b: `e:${bn}`, w: 0, via: null });
+        if (!b) agg.set(key, b = { a: `e:${an}`, b: `e:${bn}`, w: 0, via: null, op: null });
         b.w += (e.weight != null ? e.weight : 1) || 0.001;
         const via = e.relType || e.via; if (!b.via && via) b.via = via;
+        // The projection carries the real operator through (project.js stores it as
+        // e.kind — 'con'/'sig'/'syn'), so a SIG or SYN survives instead of being
+        // flattened to the hardcoded bond it was before.
+        if (!b.op && e.kind) b.op = String(e.kind).toUpperCase();
       }
     }
     [...agg.values()].sort((x, y) => y.w - x.w).slice(0, 80).forEach((b) => {
-      edges.push({ a: b.a, b: b.b, tier: 1, gl: '⋈', code: b.via || 'CON' });
+      // Type the aggregated topic edge by its act (INS for kinship, SEG·INS for a
+      // metamorphosis, SIG/SYN when the source read one) rather than a uniform CON.
+      const ops = operatorsOf(b.via, b.op || 'CON');
+      edges.push({ a: b.a, b: b.b, tier: 1, gl: glyphOf(ops[0]), code: ops.join('·') });
     });
     return { nodes, edges };
   };
@@ -2302,7 +2696,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
 
   const reflections = () => state.reflections.slice();
 
-  restore();
+  // A snapshot the migration can't digest must degrade to a fresh session, not an
+  // unhandled boot rejection with `ready` never emitted — that bricked the surface
+  // on EVERY visit until the user cleared site data.
+  restore().catch(() => { if (!state.ready) { state.ready = true; emit('ready'); } });
 
   return Object.freeze({
     state, subscribe,
@@ -2312,8 +2709,8 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     // workspaces — the top-level containers (Matrix-shared workspaces slot in via `shared`)
     workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
     // ingest
-    ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage,
-    sourceBySn, removeSource, topicSources,
+    ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage, navigatePage,
+    sourceBySn, removeSource, topicSources, sourceToggleCollapse,
     // chat
     ask, stop, exportChat,
     // export provenance — WHAT produced this session: app + published build + latest-on-GitHub +
@@ -2328,6 +2725,8 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     deepTick, reflections,
     // web-search mode (off | confirm | auto)
     webMode, setWebMode,
+    // redact-when-hosted — keep real entities off the wire when the talker is Claude (Anthropic)
+    redactRemote, setRedactRemote,
     // model
     ensureModel, setBackend, backendPref, setSpeed, speedPref,
     // projections for the surface

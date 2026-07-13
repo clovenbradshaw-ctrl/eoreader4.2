@@ -27,7 +27,7 @@ import { discourseDag } from './discourse.js';
 
 export { discourseDag } from './discourse.js';
 export { readCausalClaims } from './causal.js';
-export { mountDagSurface } from './surface.js';
+export { mountDagSurface, dagNodeLabel } from './surface.js';
 export { proposeStance, STANCES } from './stance.js';
 export { classifyAbsence, absenceCensus, ABSENCE } from './nul.js';
 export { confounders, reversePairs, mechanisms, constructConcerns } from './complexity.js';

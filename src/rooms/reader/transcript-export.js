@@ -243,7 +243,22 @@ export const toProcessTrace = (doc) => {
   }
   L.push('');
 
-  // 5 — the raw operator log
+  // 5 — the self-edits: where the reading RE-HEARD a name on its confident spelling
+  const revisions = Array.isArray(doc?.revisions) ? doc.revisions
+    : events.filter(e => e.op === 'EVA' && e.reason === 'reheard-on-resolution')
+             .map(e => ({ from: String(e.value || '').split(' ⇒ ')[0], to: String(e.value || '').split(' ⇒ ')[1], unitIdx: e.sentIdx }));
+  L.push(`## What was re-heard on resolution (SEG · INS · SYN)`);
+  L.push('');
+  if (!revisions.length) {
+    L.push(`Nothing. No near-spelling name cleared the noise null — the first reading of every entity was already its most confident, so no span was rewritten.`);
+  } else {
+    L.push(`The transcript EDITED ITSELF: ${revisions.length} mention${revisions.length !== 1 ? 's' : ''} of a name heard more than one way was folded to the reading the ear was most sure of (acoustic signal × model confidence × how often it was said). Each edit is on the log — the shaky hearing retracted (SEG), the confident one re-minted (INS), the referents merged (SYN) — so nothing is lost, only superseded.`);
+    L.push('');
+    revisions.forEach(r => L.push(`- “${r.from}” ⇒ **${r.to}**${isNum(r.start) ? ` \`[${ms(r.start)}]\`` : ''}${isNum(r.belief) ? ` _(belief ${(+r.belief).toFixed(2)})_` : ''}`));
+  }
+  L.push('');
+
+  // 6 — the raw operator log
   L.push(`## The raw operator log`);
   L.push('');
   L.push(`Every event the audio organ appended, in order — the append-only trace the transcript is a projection of.`);

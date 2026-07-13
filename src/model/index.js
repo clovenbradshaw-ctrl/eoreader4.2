@@ -5,11 +5,16 @@
 // External backends call `registerBackend(name, factory)` at load time.
 
 export { registerBackend, availableBackends, createModel, describeModel } from './interface.js';
+// The remote-talk privacy membrane — redact real entities before a hosted talker sees them.
+export { wrapRedacting } from './redact-remote.js';
 export { streamPhrase, surfaceTokens, emitSurface } from './stream.js';
 // The one decode organ: a guarded phrase that returns the caller's fallback on any fault.
 export { speak } from './speak.js';
 export { createHashEmbedder }   from './embed-hash.js';
 export { createMiniLMEmbedder } from './embed.js';
+// The persistence layer under any embedder: vectors survive the session in IndexedDB,
+// so a text embedded in ANY session is never embedded again.
+export { withPersistentEmbedCache } from './embed-cache.js';
 export { buildGroundedMessages, buildChatMessages, SYSTEM_GROUND, SYSTEM_CHAT,
          SYSTEM_GROUND_STRICT, SYSTEM_FREE,
          orientationLine, metadataBlock, orderSpansForFrame,
@@ -27,4 +32,5 @@ import './structure.js';
 import './wllama.js';
 import './webllm.js';
 import './anthropic.js';
+import './openai-local.js';
 import './coders.js';

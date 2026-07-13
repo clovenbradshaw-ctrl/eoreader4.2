@@ -74,6 +74,11 @@ registerBackend('claude', (opts = {}) => {
   return {
     id: 'claude',
     kind: 'remote',
+    // The context window (model/context-budget.js): the hosted Claude models carry a 200k-token
+    // window — far past anything this reader assembles — so the guard is effectively never engaged
+    // here; declaring it keeps the accounting honest rather than treating the hosted talker as
+    // unbounded. A narrower future model would simply lower this number.
+    contextWindow: 200000,
     // PROVENANCE (model/interface.js describeModel): the exact hosted model this backend talks to
     // — the pin (opts / eo_claude_model) or the frozen default — so the audit and the chat export
     // can name what produced an answer. `model()` already resolves the pin/default, and reads it

@@ -4,7 +4,9 @@ version.json
 _site/
 # Screenshot artifact written by tools/verify-console.mjs on each headless run.
 tools/console-verify.png
-
-# fetched external corpora — derived shapes.json is committed, raw data is not
+# Regenerable third-party corpus cache — tools/corpus-fetch.mjs rebuilds this from
+# HuggingFace on demand; ~30MB of licensed third-party data doesn't belong in git history.
 data/corpus/
-data/shapes.enriched.json
+# The contrast half of the audit export (~36MB) — regenerable byte-for-byte from the
+# committed data/nav-corpus.jsonl by tools/shape-audit.mjs (the parse is deterministic).
+data/shapes-audit-contrast.jsonl

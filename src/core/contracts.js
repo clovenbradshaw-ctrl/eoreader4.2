@@ -27,9 +27,16 @@ import { CONTRACTS as fold } from '../surfer/fold/eo-contract.js';
 import { CONTRACTS as frame } from '../frame/eo-contract.js';
 import { CONTRACTS as ground } from '../enactor/ground/eo-contract.js';
 import { CONTRACTS as ingest } from '../organs/ingest/eo-contract.js';
+import { CONTRACTS as lineup } from '../surfer/lineup/eo-contract.js';
 import { CONTRACTS as longgen } from '../weave/longgen/eo-contract.js';
 import { CONTRACTS as metabolism } from '../metabolism/eo-contract.js';
 import { CONTRACTS as model } from '../model/eo-contract.js';
+import { CONTRACTS as murmur } from '../murmur/eo-contract.js';
+import { CONTRACTS as murmurAudit } from '../murmur/audit/eo-contract.js';
+import { CONTRACTS as murmurNarrate } from '../murmur/narrate/eo-contract.js';
+import { CONTRACTS as murmurSense } from '../murmur/sense/eo-contract.js';
+import { CONTRACTS as murmurSteer } from '../murmur/steer/eo-contract.js';
+import { CONTRACTS as murmurValence } from '../murmur/valence/eo-contract.js';
 import { CONTRACTS as organs } from '../organs/eo-contract.js';
 import { CONTRACTS as perceiver } from '../perceiver/eo-contract.js';
 import { CONTRACTS as predict } from '../perceiver/predict/eo-contract.js';
@@ -43,7 +50,7 @@ import { CONTRACTS as turn } from '../turn/eo-contract.js';
 import { CONTRACTS as workspace } from '../rooms/workspace/eo-contract.js';
 import { CONTRACTS as write } from '../weave/write/eo-contract.js';
 
-export const CONTRACTS = Object.freeze({ ...answer, ...arc, ...archive, ...audit, ...chat, ...chorus, ...classify, ...code, ...coder, ...commission, ...converse, ...core_, ...credence, ...dag, ...data, ...doc, ...enact, ...enactor, ...essay, ...factcheck, ...flow, ...fold, ...frame, ...ground, ...ingest, ...longgen, ...metabolism, ...model, ...organs, ...perceiver, ...predict, ...reader, ...reason, ...research, ...retrieve, ...surfer, ...tasks, ...turn, ...workspace, ...write });
+export const CONTRACTS = Object.freeze({ ...answer, ...arc, ...archive, ...audit, ...chat, ...chorus, ...classify, ...code, ...coder, ...commission, ...converse, ...core_, ...credence, ...dag, ...data, ...doc, ...enact, ...enactor, ...essay, ...factcheck, ...flow, ...fold, ...frame, ...ground, ...ingest, ...lineup, ...longgen, ...metabolism, ...model, ...murmur, ...murmurAudit, ...murmurNarrate, ...murmurSense, ...murmurSteer, ...murmurValence, ...organs, ...perceiver, ...predict, ...reader, ...reason, ...research, ...retrieve, ...surfer, ...tasks, ...turn, ...workspace, ...write });
 
 export const contractOf = (repoRelPath) => CONTRACTS[repoRelPath] ?? null;
 export const contractedPaths = () => Object.freeze(Object.keys(CONTRACTS).sort());

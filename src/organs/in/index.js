@@ -53,6 +53,8 @@ export { createCompositeDoc, proposeCrossDocSyn, compositeDocIdOf } from './comp
 export { ingestImage }       from './image.js';
 export { composeScene }      from './scene.js';
 export { ingestAudio }       from './audio.js';
+export { ingestAcoustic, waveformPeaks, analyzeAudio, separateHolons, acousticSummary, toDb } from './acoustic.js';
+export { acousticSignal, resolveTranscript } from './hear.js';
 export { assembleDocument }  from './document.js';
 export { ingestPdf }         from './pdf.js';
 export { ingestOcr }         from './ocr.js';

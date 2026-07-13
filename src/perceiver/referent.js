@@ -32,5 +32,8 @@ export const referentialConfidence = (field, { margin = REFERENT_MARGIN } = {}) 
     w,
     margin: gap,
     concentrated,
+    // the runner-up sense — the near-miss a settled reference RULED OUT, or the tie a split field
+    // could not cut (§3, the ruled-out other on the reference DEF). Null when only one candidate.
+    runnerUp: next ? next.id : null,
   });
 };

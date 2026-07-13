@@ -244,6 +244,11 @@ const MISSING_PHRASE = Object.freeze({
   'no-definition': 'a definition',
   'no-ground': 'anything on this',
   'no-subject': 'anything on what was asked',
+  // The EOT diffusion floor (turn/stages.js `answerable`): the subject's words ARE on
+  // the record, but the fold's referent-binding never concentrated — the reading rode to
+  // the document's loudest figure, not the one asked about — so the corpus holds no
+  // answer to THIS question even though it lexically touches the subject.
+  'diffuse': 'a settled answer to this — the reading did not land on the figure it is about',
 });
 
 // The licensing decision. When a `question` is given, type it and test the ground
@@ -287,10 +292,20 @@ export const refusalAtom = (reason, ground = [], missing = [], focus = []) => {
   const phrase = reason === 'no-subject' && missing.length
     ? `anything about ${missing.join(' or ')}`
     : (MISSING_PHRASE[reason] || 'what was asked');
-  const held = (ground || [])
+  // Top three by score, DE-DUPED on their text: the same sentence can sit at two indices
+  // (a page that repeats a line), and listing it twice — "They do hold: X; Y; X" — reads as
+  // a stutter. Keep the first (highest-scoring) occurrence of each distinct span.
+  const seenText = new Set();
+  const held = [];
+  for (const s of (ground || [])
     .filter(s => String(s?.text || '').trim())
-    .sort((a, b) => (b.score || 0) - (a.score || 0))
-    .slice(0, 3);
+    .sort((a, b) => (b.score || 0) - (a.score || 0))) {
+    const key = String(s.text).replace(/\s+/g, ' ').trim().toLowerCase();
+    if (seenText.has(key)) continue;
+    seenText.add(key);
+    held.push(s);
+    if (held.length >= 3) break;
+  }
   const sources = held.map(s => s.idx).filter(Number.isInteger);
   // Each held span is a display fragment centred on the ask; a member's own full stop
   // is redundant before the '; ' separator, so drop it. The closing '.' is added only
@@ -334,6 +349,19 @@ export const followUpOffer = (ground = [], covered = new Set()) => {
 };
 
 const ELLIPSIS = '…';
+
+// A truncation can sever a quotation it opened, leaving a fragment that shows a quote it
+// never closes — the reported `described Butler as "a decent physical…` artifact. Rather
+// than fabricate a closing mark (which would invent where the quote ends), drop the
+// dangling quote and everything after it, so the fragment ends on honest, unquoted text.
+// Handles the straight `"` (an odd count means one is unclosed) and the curly pair
+// (more `“` opens than `”` closes). Leaves balanced quotes untouched.
+const balanceQuotes = (s) => {
+  let out = String(s || '');
+  if (((out.match(/"/g) || []).length) % 2 === 1) out = out.slice(0, out.lastIndexOf('"'));
+  if (((out.match(/“/g) || []).length) > ((out.match(/”/g) || []).length)) out = out.slice(0, out.lastIndexOf('“'));
+  return out.replace(/[\s,;:—-]+$/, '').trim();
+};
 
 // Index one past the last sentence terminator ('.', '!', '?' followed by a space or the
 // string's end) that sits at or beyond `min`; 0 when there is none. The trailing-space
@@ -382,14 +410,17 @@ const trim = (s, n = 80, focus = []) => {
   const end = Math.min(t.length, start + room);
   const window = t.slice(start, end);
 
-  // The window runs to the end of the span — nothing was cut off the tail, no mark.
-  if (end >= t.length) return (lead + window).trim();
+  // The window runs to the end of the span — nothing was cut off the tail, no mark. When the
+  // HEAD was trimmed (a centred window), balance any quotation whose opener now sits before the
+  // window, so a lone closing quote is not left showing ("…for Elvis and a better one vocally.").
+  if (end >= t.length) return (lead + (start > 0 ? balanceQuotes(window) : window)).trim();
 
   // Bounded: close on the last sentence break that still leaves a substantial fragment.
   const boundary = lastSentenceBreak(window, Math.floor(room * 0.55));
-  if (boundary > 0) return (lead + window.slice(0, boundary)).trim();
+  if (boundary > 0) return (lead + balanceQuotes(window.slice(0, boundary))).trim();
 
-  // Clean: drop the dangling partial word and trailing clause punctuation, then mark.
-  const cut = window.replace(/\s+\S*$/, '').replace(/[\s,;:—-]+$/, '');
+  // Clean: drop the dangling partial word and trailing clause punctuation, balance any
+  // quote the cut severed, then mark.
+  const cut = balanceQuotes(window.replace(/\s+\S*$/, '').replace(/[\s,;:—-]+$/, ''));
   return (lead + cut + ELLIPSIS).trim();
 };

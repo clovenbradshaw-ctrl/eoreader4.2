@@ -107,6 +107,15 @@ export const bindCitations = (draft, spans, opts = {}) => {
       claim,
       citation: best && best.cited ? `s${best.idx}` : null,
       score:    best ? best.score : 0,
+      // The presence/argument/predicate signal the typed-cut binding DEF reads (core/cut.js,
+      // turn/judgments.js). Additive — every existing caller ignores these; the DEF decomposition
+      // does not. `verbatim`: the surface IS the passage's own words (a same-or-stronger predicate
+      // grounds trivially). `refs`: the discriminating referent anchors the claim named (the
+      // argument cuts' INS floor). `ruledOut`: the strongest OTHER candidate the winner beat (the
+      // Sophist near-miss, §3) — null when uncontested.
+      verbatim: best ? !!best.verbatim : false,
+      refs:     best && Array.isArray(best.refs) ? best.refs : [],
+      ruledOut: best ? best.ruledOut ?? null : null,
     });
   }
   return bound;
@@ -200,6 +209,8 @@ const buildReferentReading = (doc, spans, cursor) => {
   };
 };
 
+const round = (x) => (typeof x === 'number' && Number.isFinite(x) ? Math.round(x * 1000) / 1000 : null);
+
 const median = (xs) => {
   if (!xs.length) return 0;
   const s = [...xs].sort((a, b) => a - b);
@@ -252,8 +263,9 @@ const bestMatchBorn = (claim, spans, { idf, referent }) => {
   //   · no figure anywhere — a pure lexical paraphrase — is born only when its overlap stands
   //     SIGNAL_RATIO× over the median of the other touched passages (the captivity/speed case),
   //     never on a lone or flat contact (the pod-shares-only-"range/size" coincidence rides).
+  const verbatim = top.lex >= VERBATIM_LIFT;
   let born;
-  if (top.lex >= VERBATIM_LIFT) {
+  if (verbatim) {
     born = true;
   } else if (top.refMass > 0) {
     const noise = scored.filter(x => x.refMass === 0).map(x => x.evidence);
@@ -263,7 +275,13 @@ const bestMatchBorn = (claim, spans, { idf, referent }) => {
     born = scored.length > 1 && top.evidence >= SIGNAL_RATIO * median(scored.slice(1).map(x => x.evidence));
   }
 
-  return { ...top.s, score: top.lex, cited: born };
+  // The near-miss (§3): the strongest OTHER candidate the winner beat, with the evidence margin
+  // that separated them. Null when the winner was the lone candidate (uncontested).
+  const runnerUp = scored[1] || null;
+  const ruledOut = runnerUp
+    ? { other: `s${runnerUp.s.idx}`, cut: 'predicate', margin: round(top.evidence - runnerUp.evidence) }
+    : null;
+  return { ...top.s, score: top.lex, cited: born, verbatim, refs: [...claimRefs], ruledOut };
 };
 
 // bestMatch — the no-reading fallback: the idf-weighted lexical posterior against the unchanged
@@ -297,6 +315,13 @@ const bestMatch = (claim, spans, { idf = () => 1, fieldByIdx = null } = {}) => {
   // the field never lets an under-grounded claim CITE, it only re-ranks claims that
   // already clear the bar. So the warm-referent prior can change WHICH source a claim
   // cites, never WHETHER it cites one.
+  // The runner-up by bare lexical overlap — the near-miss the citation excluded (§3).
+  const byLex = [...scored].sort((a, b) => b.lex - a.lex);
+  const runnerUp = byLex[1] || null;
+  const ruledOutOf = (topLex) => runnerUp
+    ? { other: `s${runnerUp.s.idx}`, cut: 'predicate', margin: round(topLex - runnerUp.lex) }
+    : null;
+
   const admitted = scored.filter(x => x.lex >= MIN_OVERLAP);
   if (admitted.length) {
     let best = null, bestRank = -Infinity;
@@ -305,7 +330,8 @@ const bestMatch = (claim, spans, { idf = () => 1, fieldByIdx = null } = {}) => {
       const rank  = x.lex * prior;
       // Report the lexical posterior as the grounding strength; the tilt only
       // breaks ties so `score` stays a comparable [0,1] measure of how grounded.
-      if (rank > bestRank) { bestRank = rank; best = { ...x.s, score: x.lex, cited: true }; }
+      if (rank > bestRank) { bestRank = rank; best = { ...x.s, score: x.lex, cited: true,
+        verbatim: x.lex >= VERBATIM_LIFT, refs: [], ruledOut: ruledOutOf(x.lex) }; }
     }
     return best;
   }
@@ -315,7 +341,8 @@ const bestMatch = (claim, spans, { idf = () => 1, fieldByIdx = null } = {}) => {
   // the contact and flags-and-rides rather than substitutes. No field tilt here — the tilt
   // only breaks ties among CITABLE claims; a claim that does not cite has no citation to tilt.
   let best = null, bestLex = -Infinity;
-  for (const x of scored) if (x.lex > bestLex) { bestLex = x.lex; best = { ...x.s, score: x.lex, cited: false }; }
+  for (const x of scored) if (x.lex > bestLex) { bestLex = x.lex; best = { ...x.s, score: x.lex, cited: false,
+    verbatim: x.lex >= VERBATIM_LIFT, refs: [], ruledOut: ruledOutOf(x.lex) }; }
   return best;
 };
 

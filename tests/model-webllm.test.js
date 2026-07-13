@@ -11,26 +11,21 @@ import { availableBackends, createModel } from '../src/model/interface.js';
 // size, and every Llama-3.2 artifact is already 4-bit, so this is the only knob
 // that moves how fast an answer renders. The grounding is untouched either way.
 
-test('model/webllm: an explicit Fast/Fluent pin wins over the device class', () => {
-  // 'fast' is always the 1B build, 'fluent' always 3B — regardless of whether the
-  // device reads as small. The pin is the user's deliberate override.
-  assert.equal(pickSize('fast', false), '1B');
-  assert.equal(pickSize('fast', true), '1B');
-  assert.equal(pickSize('fluent', false), '3B');
-  assert.equal(pickSize('fluent', true), '3B');
+test('model/webllm: only an explicit Fast pin drops to the 1B build', () => {
+  assert.equal(pickSize('fast'), '1B');
+  assert.equal(pickSize('fluent'), '3B');
 });
 
-test('model/webllm: with no pin the device class decides (small ⇒ 1B, else 3B)', () => {
-  assert.equal(pickSize(null, true), '1B');
-  assert.equal(pickSize(null, false), '3B');
+test('model/webllm: with no pin the default is the 3B build', () => {
+  assert.equal(pickSize(null), '3B');
+  assert.equal(pickSize(undefined), '3B');
 });
 
-test('model/webllm: an unknown or empty speed value falls back to the adaptive default', () => {
-  // Anything that isn't exactly 'fast'/'fluent' is treated as no pin, so a garbled
-  // localStorage value can never produce a broken artifact id — it defers to the device.
-  for (const junk of ['', 'FAST', 'small', '3b', undefined, 0, {}]) {
-    assert.equal(pickSize(junk, true), '1B', `${JSON.stringify(junk)} + small ⇒ 1B`);
-    assert.equal(pickSize(junk, false), '3B', `${JSON.stringify(junk)} + not-small ⇒ 3B`);
+test('model/webllm: an unknown or empty speed value falls back to the 3B default', () => {
+  // Anything that isn't exactly 'fast' is treated as no pin, so a garbled
+  // localStorage value can never produce a broken artifact id — it defers to 3B.
+  for (const junk of ['', 'FAST', 'small', '1b', 0, {}]) {
+    assert.equal(pickSize(junk), '3B', `${JSON.stringify(junk)} ⇒ 3B`);
   }
 });
 
@@ -157,6 +152,37 @@ test('model/webllm: an opts.speed pin picks the build size without touching stor
   const fluent = makeWebllmBackend()({ speed: 'fluent', createEngine: async (model) => { picked = model; return engine; } });
   await fluent.load();
   assert.match(picked, /-3B-/, `fluent ⇒ the 3B build, got ${picked}`);
+});
+
+test('model/webllm: with no pin at all the load lands on the 3B build', async () => {
+  let picked = null;
+  const { engine } = makeFakeEngine();
+  const backend = makeWebllmBackend()({ createEngine: async (model) => { picked = model; return engine; } });
+  await backend.load();
+  assert.match(picked, /Llama-3\.2-3B-Instruct-q4f(16|32)_1-MLC/, `no pin ⇒ 3B, got ${picked}`);
+});
+
+// ── the Qwen sibling — a { f16, f32 } builds pair on the same engine ──────────
+test('model/webllm: a builds-pair variant resolves its own artifact (portable dtype off-GPU)', async () => {
+  let picked = null;
+  const { engine } = makeFakeEngine();
+  const backend = makeWebllmBackend({
+    id: 'qwen',
+    builds: { f16: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', f32: 'Qwen2.5-1.5B-Instruct-q4f32_1-MLC' },
+  })({ createEngine: async (model) => { picked = model; return engine; } });
+  assert.equal(backend.id, 'qwen');
+  await backend.load();
+  // No navigator/GPU here, so the dtype probe must fail soft to the portable f32 build.
+  assert.equal(picked, 'Qwen2.5-1.5B-Instruct-q4f32_1-MLC');
+  assert.equal(backend.describe().model, picked, 'provenance names the exact Qwen build');
+});
+
+test('model/webllm: the qwen backend is registered as its own chip pick', () => {
+  assert.ok(availableBackends().includes('qwen'), 'qwen is registered');
+  const m = createModel('qwen');
+  assert.equal(m.id, 'qwen');
+  assert.equal(m.kind, 'local');
+  assert.equal(m.isLoaded(), false);
 });
 
 // ── the abort backstop ────────────────────────────────────────────────────────

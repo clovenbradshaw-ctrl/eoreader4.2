@@ -5,6 +5,7 @@
 import { contract } from '../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
+  'src/organs/in/acoustic.js': contract({ ops: ['SEG', 'INS', 'CON', 'DEF', 'EVA'], targets: ['Field'], products: ['Entity', 'Link', 'Kind', 'Field'], stances: ['Dissecting', 'Making', 'Binding', 'Tracing'], note: 'pre-transcription cochlea — signal/noise nested holons' }),
   'src/organs/in/audio.js': contract({ ops: ['INS', 'CON', 'EVA'], targets: ['Void'], products: ['Entity', 'Link', 'Lens'], stances: ['Making', 'Binding', 'Tracing'], note: 'audio-transcription adapter (speech)' }),
   'src/organs/in/code.js': contract({ ops: ['SEG', 'SYN'], targets: ['Void'], products: ['Network'], stances: ['Dissecting', 'Composing'], note: 'code adapter — source → EOT graph' }),
   'src/organs/in/codon.js': contract({ ops: ['INS', 'CON'], targets: ['Void'], products: ['Entity', 'Link', 'Field'], stances: ['Making', 'Binding'], note: 'codon adapter (DNA/RNA frame)' }),
@@ -12,6 +13,7 @@ export const CONTRACTS = Object.freeze({
   'src/organs/in/docling.js': contract({ ops: ['SEG'], targets: ['Void'], products: ['Field'], stances: ['Dissecting'], note: 'SmolDocling adapter → assembleDocument' }),
   'src/organs/in/document.js': contract({ ops: ['INS', 'CON', 'DEF'], targets: ['Field'], products: ['Entity', 'Link', 'Field'], stances: ['Making', 'Binding', 'Dissecting'], note: 'span assembler / shared spine' }),
   'src/organs/in/frequency.js': contract({ ops: ['INS', 'CON'], targets: ['Void'], products: ['Entity', 'Link', 'Field'], stances: ['Making', 'Binding'], note: 'frequency adapter (raw Hz)' }),
+  'src/organs/in/hear.js': contract({ ops: ['EVA', 'SYN', 'SEG'], targets: ['Field', 'Entity'], products: ['Void', 'Network'], stances: ['Tracing', 'Making', 'Unraveling'], note: 'the hearing that edits itself — acoustic signal-from-noise + graph-aware self-editing resolution' }),
   'src/organs/in/image.js': contract({ ops: ['INS', 'CON', 'SIG'], targets: ['Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'image adapter (vision detections)' }),
   'src/organs/in/index.js': contract({ ops: ['INS', 'CON', 'SEG'], targets: ['Void', 'Field'], products: ['Entity', 'Link', 'Network'], stances: ['Making', 'Binding', 'Dissecting'], note: 'barrel — sense organs' }),
   'src/organs/in/json.js': contract({ ops: ['INS', 'DEF', 'CON'], targets: ['Void'], products: ['Entity', 'Link', 'Field'], stances: ['Making', 'Binding', 'Dissecting'], note: 'JSON tree adapter' }),
@@ -42,6 +44,7 @@ export const CONTRACTS = Object.freeze({
   'src/organs/out/publish/raster.js': contract({ ops: ['NUL', 'EVA'], targets: ['Void'], products: ['Void'], stances: ['Clearing', 'Binding'], note: 'SVG→PNG raster + static-subset guard' }),
   'src/organs/out/publish/standards.js': contract({ ops: ['NUL'], targets: ['Atmosphere'], products: ['Atmosphere'], stances: ['Clearing'], note: 'provenance standards — capability toggles (config)' }),
   'src/organs/out/speech/index.js': contract({ ops: ['SEG', 'EVA'], targets: ['Void', 'Network'], products: ['Field', 'Lens'], stances: ['Dissecting', 'Binding'], note: 'speech output organ (SEG murmur → enactor gate)' }),
+  'src/organs/out/speech/schema.js': contract({ ops: ['DEF', 'SEG'], targets: ['Network', 'Void'], products: ['Lens', 'Field'], stances: ['Dissecting', 'Binding'], note: 'STRUCTURE — seat committed props into the answer\'s typed frame' }),
   'src/organs/out/speech/segment.js': contract({ ops: ['SEG'], targets: ['Void'], products: ['Field'], stances: ['Dissecting'], note: 'SEG the murmur → candidate propositions' }),
   'src/organs/out/text.js': contract({ ops: ['NUL'], targets: ['Lens'], products: ['Void'], stances: ['Clearing'], note: 'text output organ (bare renderer)' }),
 });

@@ -3,7 +3,7 @@
 //
 // The reader used to import plain text only (readAsText). This lets it import what the
 // ingestion organs already understand: a PDF, a scanned image, an audio or video file, a
-// spreadsheet, a web page — each sniffed by type, extracted by the RIGHT front-end, and
+// spreadsheet, a web page, a MIDI score — each sniffed by type, extracted by the RIGHT front-end, and
 // raised onto the spine by the matching organ (src/organs/in). The heavy extractors
 // (whisper, pdf.js, Tesseract, Florence-2, SheetJS, Readability) are the same "inject the library,
 // bundle nothing" seam the organs assume — so nothing loads until a file of that kind
@@ -28,6 +28,11 @@
 // EVERY non-text import the moment its organ was needed.
 const IN = () => import(new URL('../../organs/in/index.js', import.meta.url).href);
 
+// The MIDI reader is a pure, dependency-free local module (no CDN, no browser API), so —
+// unlike the heavy extractors — it is safe to bind statically; the summary uses its
+// pitch-namer directly rather than a lazily-rebound global.
+import { parseMidi, midiNoteName } from './midi.js';
+
 // WebGPU if the browser offers it, else WASM — the same probe transcribe.html uses.
 let _device = null;
 const device = async () => {
@@ -42,6 +47,7 @@ const HTML_EXT  = ['html', 'htm', 'xhtml'];
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
 const AUDIO_EXT = ['mp3', 'm4a', 'wav', 'ogg', 'oga', 'flac', 'aac', 'opus', 'weba'];
 const VIDEO_EXT = ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v'];
+const MIDI_EXT  = ['mid', 'midi', 'smf', 'kar', 'rmi'];
 const extOf  = (name) => (String(name || '').split('.').pop() || '').toLowerCase();
 const titleOf = (name) => String(name || 'file').replace(/\.[^.]+$/, '');
 
@@ -94,6 +100,18 @@ export async function importAnyFile(file, opts = {}) {
     return await fromImage(file, title, name, say);
   }
 
+  // MIDI — a SCORE, not audio: no waveform to hear, a timed list of notes to READ. Decoded
+  // to a note sequence and raised by the music organ (pitch-class entities, interval bonds).
+  // Checked before the audio branch because an `audio/midi` mime would otherwise be sent to
+  // whisper, which has no waveform to decode.
+  if (mime.includes('midi') || MIDI_EXT.includes(ext)) {
+    say('Reading the score…');
+    // A file that CLAIMS to be MIDI but isn't (a mislabeled .mid) falls through to the
+    // universal byte reader rather than erroring — no file is refused.
+    try { return await fromMidi(file, title, name); }
+    catch (e) { say('Not a MIDI score — reading the bytes…'); return await fromBinary(file, title, name, mime); }
+  }
+
   // Audio / video — decode, then whisper hears it (audio organ). The speech only.
   if (mime.startsWith('audio/') || mime.startsWith('video/') || AUDIO_EXT.includes(ext) || VIDEO_EXT.includes(ext)) {
     say('Listening…');
@@ -140,23 +158,124 @@ export const _tableFromGrid = (grid = []) => ({
 // text the byte stream carries.
 export const _printableRuns = (bytes, min = 4) => {
   const runs = [];
-  let start = -1, chars = [];
+  // Runs are pure printable ASCII, so the default decoder reproduces them 1:1 — and
+  // decoding the subarray at flush time costs one string per run, where a per-byte
+  // String.fromCharCode array cost ~10-16x the file's size on a big binary import.
+  const td = new TextDecoder();
+  let start = -1;
   const flush = (end) => {
-    if (chars.length >= min) runs.push({ text: chars.join(''), start, end });
-    start = -1; chars = [];
+    if (start >= 0 && end - start >= min) runs.push({ text: td.decode(bytes.subarray(start, end)), start, end });
+    start = -1;
   };
   for (let i = 0; i < bytes.length; i++) {
     const b = bytes[i];
-    if ((b >= 0x20 && b <= 0x7e) || b === 0x09) {
-      if (start < 0) start = i;
-      chars.push(String.fromCharCode(b));
-    } else flush(i);
+    if ((b >= 0x20 && b <= 0x7e) || b === 0x09) { if (start < 0) start = i; }
+    else flush(i);
   }
   flush(bytes.length);
   return runs;
 };
 
+// mm:ss for a duration in seconds — the reader's clock, so a 3-minute piece reads "3:04".
+const _clock = (sec) => {
+  const s = Math.max(0, Math.round(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+// A MIDI score → the human-readable reading shown as the document: what the file IS
+// (format, tempo, key, meter, duration), what plays it (each track's instrument and note
+// count), and what it plays (the pitch-class histogram + the opening melodic line). Pure,
+// so the summary is pinned by a browserless test against a parsed score. `parsed` is a
+// parseMidi() result; the note graph itself is raised separately by ingestMusic.
+export const _midiSummary = (parsed, title = 'MIDI file') => {
+  const { format, ppq, smpte, trackCount, notes = [], tracks = [], durationSec = 0,
+          tempos = [], timeSignatures = [], keySignatures = [] } = parsed || {};
+  const lines = [];
+  lines.push(`# ${parsed?.name || title}`);
+  lines.push('');
+  const timing = smpte ? `SMPTE ${smpte.framesPerSec} fps` : `${ppq} ticks/quarter`;
+  lines.push(`A Standard MIDI File — a musical score of ${notes.length.toLocaleString()} notes across ${trackCount} track${trackCount === 1 ? '' : 's'} (format ${format}, ${timing}).`);
+  lines.push('');
+
+  // The facts a listener would ask for first — tempo, meter, key, length.
+  const bpms = [...new Set(tempos.map((t) => t.bpm))];
+  if (bpms.length) lines.push(`- **Tempo:** ${bpms.length === 1 ? `${bpms[0]} BPM` : `${bpms.length} changes (${bpms.slice(0, 4).join(', ')}${bpms.length > 4 ? '…' : ''} BPM)`}`);
+  if (timeSignatures.length) lines.push(`- **Time signature:** ${[...new Set(timeSignatures.map((t) => `${t.numerator}/${t.denominator}`))].join(', ')}`);
+  const keys = [...new Set(keySignatures.map((k) => k.name).filter(Boolean))];
+  if (keys.length) lines.push(`- **Key:** ${keys.join(', ')}`);
+  lines.push(`- **Duration:** ${_clock(durationSec)} (${durationSec.toFixed(1)}s)`);
+
+  // The pitch range and the pitch-class histogram — the piece's raw tonal content.
+  if (notes.length) {
+    const midis = notes.map((n) => n.midi);
+    const lo = Math.min(...midis), hi = Math.max(...midis);
+    lines.push(`- **Range:** ${midiNoteName(lo)} – ${midiNoteName(hi)} (${hi - lo} semitones)`);
+    const counts = new Map();
+    for (const n of notes) counts.set(n.pc, (counts.get(n.pc) || 0) + 1);
+    const hist = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    lines.push(`- **Pitch classes:** ${hist.map(([pc, c]) => `${pc}×${c}`).join('  ')}`);
+  }
+  lines.push('');
+
+  // Who plays — one row per SOUNDING track, with its instrument and how much it plays. A
+  // conductor/meta track (tempo and key, no notes) carries no voice; its facts already
+  // surfaced above, so it is counted, not listed.
+  const voiced = tracks.filter((t) => t.noteCount > 0);
+  if (voiced.length) {
+    lines.push('## Tracks');
+    for (const t of voiced) {
+      const label = t.name || (t.isPercussion ? 'Percussion' : `Track ${t.index}`);
+      const inst = t.instrument ? ` — ${t.instrument}` : '';
+      const rng = ` · ${midiNoteName(Math.min(...t.notes.map((n) => n.midi)))}–${midiNoteName(Math.max(...t.notes.map((n) => n.midi)))}`;
+      lines.push(`- **${label}**${inst}: ${t.noteCount} note${t.noteCount === 1 ? '' : 's'}${rng}`);
+    }
+    if (voiced.length < tracks.length) lines.push(`- _(${tracks.length - voiced.length} conductor/meta track${tracks.length - voiced.length === 1 ? '' : 's'} with no notes)_`);
+    lines.push('');
+  }
+
+  // What it plays — the opening line, note names in time order, so the melody is legible
+  // as text (and every note is on the spine as a pitch-class entity besides).
+  if (notes.length) {
+    lines.push('## Opening line');
+    const head = notes.slice(0, 48).map((n) => n.name);
+    lines.push(head.join(' ') + (notes.length > 48 ? ' …' : ''));
+  }
+  return lines.join('\n');
+};
+
 // ── extractors — each lazy-loads its front-end and hands off to an organ ──────────────
+
+async function fromMidi(file, title, name) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const parsed = parseMidi(bytes);
+
+  // The note graph: every note in time order, each carrying its clock, handed to the music
+  // organ (pitch-class entities + interval bonds). Nothing is dropped — the whole score.
+  const { ingestMusic } = await IN();
+  const doc = ingestMusic({
+    name,
+    notes: parsed.notes.map((n) => ({ name: n.name, midi: n.midi, start: n.start, dur: n.dur, velocity: n.velocity, track: n.track, channel: n.channel })),
+    metadata: {
+      title: parsed.name || title,
+      ...(parsed.tempos[0] ? { tempo: `${parsed.tempos[0].bpm} BPM` } : {}),
+      ...(parsed.keySignatures[0]?.name ? { key: parsed.keySignatures[0].name } : {}),
+      ...(parsed.timeSignatures[0] ? { meter: `${parsed.timeSignatures[0].numerator}/${parsed.timeSignatures[0].denominator}` } : {}),
+      format: `SMF format ${parsed.format}`,
+    },
+  });
+  // The doc's readable text is the score summary, not the bare pitch-class list — so the
+  // source tab shows what the file is and plays, and `midi` carries the full decode for a
+  // richer viewer (a piano roll) that wants the addressable notes rather than the prose.
+  const text = _midiSummary(parsed, title);
+  doc.text = text;
+  doc.midi = parsed;
+
+  const dropped = parsed.hangingNotes ? [`${parsed.hangingNotes} note(s) had no note-off and were not sounded`] : [];
+  return { text, title: parsed.name || title, meta: { modality: 'music', doc, midi: parsed,
+    coverage: { complete: dropped.length === 0, notes: parsed.notes.length, tracks: parsed.trackCount,
+                seconds: Math.round(parsed.durationSec * 10) / 10, warnings: parsed.warnings, dropped } } };
+}
+
 
 async function fromHtml(file, title, name) {
   const html = await file.text();
@@ -329,9 +448,25 @@ async function fromImage(file, title, name, say) {
   } finally { URL.revokeObjectURL(url); }
 }
 
+// One whisper pipeline per session — the model is ~150 MB of WASM/WebGPU memory, so a
+// second import must reuse the first load, never stack another instance.
+let _asrLoad = null;
+export const _loadWhisper = () => {
+  if (!_asrLoad) {
+    _asrLoad = (async () => {
+      const dev = await device();
+      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/+esm');
+      const asr = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { device: dev });
+      return { asr, dev };
+    })();
+    _asrLoad.catch(() => { _asrLoad = null; });   // a failed load stays retryable
+  }
+  return _asrLoad;
+};
+
 // Whisper's timestamped chunks → utterances of timed words. Each chunk is a breath group;
 // its words get interpolated times, so the audio organ keeps a clock on every word.
-function _whisperUtterances(out, norm) {
+export function _whisperUtterances(out, norm) {
   const utterances = [];
   for (const ch of (out && out.chunks) || []) {
     const ts = ch.timestamp || []; let a = ts[0], b = ts[1];
@@ -350,13 +485,25 @@ function _whisperUtterances(out, norm) {
 // to the absolute clock, and drop the duplicates the overlap produces. After every window
 // `onPartial({ text, pct })` fires — that is the "see it while it's processing" feed. A
 // clip ≤30s is a single window, byte-for-byte the old one-shot decode.
-export async function _transcribeWindows(asr, mono, SR, duration, norm, { onPartial } = {}) {
+export async function _transcribeWindows(asr, mono, SR, duration, norm, { onPartial, signalSpans, signal } = {}) {
   const WIN = 30, HOP = 25, DEDUP = 0.2;   // seconds: window, hop, overlap-dedup tolerance
   const denom = Math.max(duration, 0.001);
   const utterances = [];
+  // The signal/noise holons already told us where the sound is. A window that overlaps NO
+  // signal holon is silence/noise — whisper would hear nothing there — so we skip decoding it
+  // rather than pay 30s of model time to transcribe a hush. This is the "transcribe only the
+  // signal" half of "separate signal from noise, THEN transcribe if necessary".
+  const overlapsSignal = (a, b) => !signalSpans || !signalSpans.length
+    || signalSpans.some((s) => a < s.end && b > s.start);
   let lastEnd = -Infinity, acc = '';
   for (let a = 0; a === 0 || a < duration; a += HOP) {
+    if (signal && signal.aborted) throw new DOMException('aborted', 'AbortError');
     const b = Math.min(a + WIN, Math.max(duration, a + 0.001));   // a ≤30s window; a short clip is one pass
+    if (!overlapsSignal(a, b)) {
+      if (typeof onPartial === 'function') { try { onPartial({ text: acc, pct: Math.min(100, Math.round(b / denom * 100)) }); } catch {} }
+      if (b >= duration) break;
+      continue;
+    }
     const seg = mono.slice(Math.floor(a * SR), Math.max(Math.floor(a * SR) + 1, Math.ceil(b * SR)));
     const out = await asr(seg, { return_timestamps: true });
     for (const u of _whisperUtterances(out, norm)) {
@@ -377,61 +524,114 @@ export async function _transcribeWindows(asr, mono, SR, duration, norm, { onPart
   return { utterances, text: acc };
 }
 
+// The smallest total of signal (above the noise floor) that is worth loading a 150 MB speech
+// model for. Below it the clip reads as silence or steady noise: the source still lands, with
+// its waveform and its holons, but transcription is skipped — "THEN transcribe IF NECESSARY".
+const MIN_SIGNAL_SECONDS = 0.3;
+
 async function fromMedia(file, title, name, say, opts = {}) {
   const SR = 16000;
   // Decode to mono 16 kHz — the rate whisper wants — via an offline graph.
   const AC = (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext));
   if (!AC) throw new Error('this browser cannot decode audio');
+  // Guard the guaranteed-OOM cases before allocating: the decode materializes the WHOLE
+  // clip as full-rate PCM (1h of stereo 44.1kHz ≈ 1.3GB) in a tab that may also hold
+  // model weights — past these (generous) bounds the import would crash the tab, not land.
+  if (file.size > 500 * 1024 * 1024) throw new Error('this clip is too large to decode in the browser (over 500 MB) — split it or transcribe a compressed copy');
   const buf = await file.arrayBuffer();
   const tmp = new AC();
   let decoded;
-  try { decoded = await tmp.decodeAudioData(buf.slice(0)); } finally { try { tmp.close(); } catch {} }
-  const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(decoded.duration * SR)), SR);
-  const src = off.createBufferSource(); src.buffer = decoded; src.connect(off.destination); src.start();
-  const mono = (await off.startRendering()).getChannelData(0);
+  try { decoded = await tmp.decodeAudioData(buf); } finally { try { tmp.close(); } catch {} }
   const duration = decoded.duration;
+  if (duration > 3 * 3600) throw new Error('this clip is too long to transcribe in the browser (over 3 hours) — split it first');
+  const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(duration * SR)), SR);
+  const srcNode = off.createBufferSource(); srcNode.buffer = decoded; srcNode.connect(off.destination); srcNode.start();
+  const mono = (await off.startRendering()).getChannelData(0);
+  decoded = null;   // release the full-rate PCM before whisper holds the tab for minutes
 
+  const isVideo = !!opts.isVideo;
+  const mediaKind = isVideo ? 'video' : 'audio';
   // A playable handle on the original file, kept for the session so the source can be
   // heard/watched back with the transcript aligned. (Not revoked — playback needs it.)
   const media = (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(file) : null;
 
-  say('Loading the speech model…');
-  const dev = await device();
-  const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/+esm');
-  const asr = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { device: dev });
+  // ── PHASE 1 — the pre-transcription reading, computed AT ONCE. ────────────────────────
+  // The waveform, the basic analysis, and the signal/noise nested holons — all cheap, all
+  // synchronous, all from the PCM we already have. This is what makes the source appear
+  // immediately, with a drawable waveform and a real reading, before a word is transcribed.
+  say('Reading the waveform…');
+  const { ingestAcoustic, waveformPeaks, analyzeAudio, separateHolons } = await IN();
+  const peaks = waveformPeaks(mono, 900);
+  const analysis = analyzeAudio(mono, SR);
+  const holons = separateHolons(mono, SR);
+  const acousticDoc = ingestAcoustic({ name, title, duration, sampleRate: SR, analysis, holons, peaks, media, mediaKind });
+
+  const necessary = holons.signalSeconds >= MIN_SIGNAL_SECONDS;
   const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
-  const witness = `whisper-base · ${dev}`;
 
-  say('Transcribing…');
-  // Live, windowed — the growing transcript streams back through onPartial so the reader
-  // sees it fill in as it lands, instead of watching a spinner until it's all done.
-  const { utterances, text: liveText } = await _transcribeWindows(asr, mono, SR, duration, norm, {
-    onPartial: (p) => { if (typeof opts.onPartial === 'function') opts.onPartial(p); },
-  });
+  // ── PHASE 2 — transcription, DEFERRED. ────────────────────────────────────────────────
+  // Handed back as a thunk the caller runs in the background AFTER the source has landed, so
+  // loading whisper never blocks the source from appearing. Null when there is no signal to
+  // hear (the "if necessary" gate). It transcribes only the windows a signal holon covers.
+  const transcribe = necessary ? async ({ onPartial, signal, twoWitness } = {}) => {
+    if (signal && signal.aborted) throw new DOMException('aborted', 'AbortError');
+    const { asr, dev } = await _loadWhisper();
+    const witness = `whisper-base · ${dev}`;
+    const { utterances, text: liveText } = await _transcribeWindows(asr, mono, SR, duration, norm, {
+      onPartial, signalSpans: holons.signalSpans, signal,
+    });
 
-  // A transcript is one READING, not the objective truth of the waveform. When "audit readings"
-  // is on, take a SECOND witness — the same model relistening with a different chunking — so its
-  // divergences from the first pass become auditable EVA events instead of a silent single answer.
-  const alternates = [];
-  if (opts.twoWitness) {
-    say('Relistening for a second reading…');
+    // A transcript is one READING, not the objective truth of the waveform. When "audit
+    // readings" is on, take a SECOND witness — the same model relistening with a different
+    // chunking — so its divergences become auditable EVA events, not a silent single answer.
+    const alternates = [];
+    if (twoWitness) {
+      try {
+        const out2 = await asr(mono, { return_timestamps: true, chunk_length_s: 20, stride_length_s: 3 });
+        const altWords = _whisperUtterances(out2, norm).flatMap(u => u.words);
+        if (altWords.length) alternates.push({ label: `whisper-base relisten · ${dev}`, words: altWords });
+      } catch (e) { /* best-effort; the first reading still stands */ }
+    }
+
+    const fullText = (liveText || utterances.map(u => u.words.map(w => w.text).join(' ')).join(' ')).trim();
+    if (!fullText) return { text: '', doc: null, coverage: { complete: true, seconds: Math.round(duration * 10) / 10, utterances: 0, dropped: ['no speech found in the signal'] }, empty: true };
+
+    const { ingestAudio, acousticSignal, resolveTranscript } = await IN();
+    // AUTONOMOUS per-word acoustics — reusing the pre-transcription reading, not re-asking a
+    // model. The cochlea already separated signal from noise (holons) and measured the room
+    // (analysis); here each WORD span is read against that SAME waveform, so every word carries
+    // a belief grounded in the truth. Best-effort: a failure leaves the words un-scored.
     try {
-      const out2 = await asr(mono, { return_timestamps: true, chunk_length_s: 20, stride_length_s: 3 });
-      const altWords = _whisperUtterances(out2, norm).flatMap(u => u.words);
-      if (altWords.length) alternates.push({ label: `whisper-base relisten · ${dev}`, words: altWords });
-    } catch (e) { /* the second witness is best-effort; the first reading still stands */ }
-  }
+      const flat = utterances.flatMap((u) => u.words);
+      const sig = acousticSignal(mono, SR, flat.map((w) => ({ start: w.start, end: w.end })), { analysis, signalSpans: holons.signalSpans });
+      flat.forEach((w, i) => { if (sig[i]) { w.acous = sig[i].acous; w.snr = sig[i].snr; w.signal = sig[i].signal; } });
+    } catch (e) { /* best-effort; the model's confidence still stands */ }
 
-  const fullText = (liveText || utterances.map(u => u.words.map(w => w.text).join(' ')).join(' ')).trim();
-  if (!fullText) throw new Error('no speech found in the file');
+    // The word-level doc carries the acoustic reading forward (waveform, analysis, holons,
+    // media) so the transcript's source keeps everything the pre-reading gave it.
+    const doc = ingestAudio({ name, duration, device: dev, witness, utterances, alternates, media, mediaKind, peaks, analysis, holons, sampleRate: SR });
+    // GRAPH-AWARE, self-editing resolution — fold near-spelling names onto their most-BELIEVED
+    // hearing, the edits landing on THIS append-only log (hear.js §2). Inert on a clean read.
+    let reheard = 0;
+    try { reheard = resolveTranscript(doc).edits || 0; }
+    catch (e) { /* best-effort; the first-pass transcript still stands */ }
+    const lastHeard = utterances.length ? utterances[utterances.length - 1].end : 0;
+    return { text: fullText, doc, coverage: { complete: true, seconds: Math.round(duration * 10) / 10, heardTo: Math.round(lastHeard * 10) / 10, utterances: utterances.length, reheard, dropped: [] } };
+  } : null;
 
-  const { ingestAudio } = await IN();
-  const doc = ingestAudio({ name, duration, device: dev, witness, utterances, alternates, media });
-  // The windowed decode walks the WHOLE waveform (0 → duration, overlapping hops), so the
-  // clip is heard end to end; the receipt records how far the last heard word reaches.
-  const lastHeard = utterances.length ? utterances[utterances.length - 1].end : 0;
-  return { text: fullText, title, meta: { modality: 'audio', doc, duration, media, isVideo: !!opts.isVideo, mediaKind: opts.isVideo ? 'video' : 'audio',
-    coverage: { complete: true, seconds: Math.round(duration * 10) / 10, heardTo: Math.round(lastHeard * 10) / 10, utterances: utterances.length, dropped: [] } } };
+  const coverage = {
+    complete: true,
+    seconds: Math.round(duration * 10) / 10,
+    signalSeconds: Math.round(holons.signalSeconds * 10) / 10,
+    signalHolons: holons.signalSpans.length,
+    transcribable: necessary,
+    dropped: necessary ? [] : ['no signal above the noise floor — not transcribed'],
+  };
+  return { text: acousticDoc.text, title, meta: {
+    modality: 'audio', doc: acousticDoc, duration, media, isVideo, mediaKind,
+    waveform: peaks, analysis, holons, transcribe, transcribable: necessary,
+    coverage,
+  } };
 }
 
 // Data is data — the universal fallback, so importAnyFile refuses NOTHING. The byte

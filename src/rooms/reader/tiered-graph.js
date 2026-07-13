@@ -3,9 +3,21 @@
 // across the three helix tiers — existence (the source and the figures INSed
 // from it), structure (the bonds between them), significance (the claims
 // those bonds trace to) — connected by operator edges, each edge wearing its
-// glyph ON the line. Three switchable layouts (flow · tiers · radial, radial
-// default) with animated pivoting, tier filtering, a names toggle, pan/zoom/
-// fit, and click-to-inspect.
+// glyph ON the line. Four switchable layouts (flow · tiers · radial · time,
+// radial default) with animated pivoting, tier filtering, a names toggle,
+// pan/zoom/fit, and click-to-inspect.
+//
+// THE FOLD CURSOR (reason/cursor.js `upto`). A graph is readGraph(log, cursor);
+// what you see is the fold at cursor = IDENTITY — upto:Infinity, the reading as
+// it stood at the END. This surface exposes that `upto` as a scrubber: the cursor
+// walks the fold's construction order (the order the reading folded nodes in —
+// the source, then the figures INSed from it, then the claims traced over them),
+// revealing nodes and the edges between them up to step k. It is LAYOUT-AGNOSTIC —
+// the layout still decides WHERE a node sits; the cursor decides HOW MUCH of the
+// fold is shown. An edge reveals only once BOTH its figures have — a bond can't be
+// folded before the two things it binds. Slide (or ▶ play) to the end for the whole
+// fold. This is distinct from the ⏱ time axis (record-time, a spatial reading);
+// the cursor is process-time (construction order), and it rides every layout.
 //
 // READABILITY RULES (the point of this surface — it must never read as a
 // hairball):
@@ -30,7 +42,11 @@
 //
 //   nodes: [{ id, tier: 0|1|2, label, kind, ref }]
 //   edges: [{ a, b, tier, gl, code }]   — a → b, gl = operator glyph
-//   onOpen(node)  optional — "open →" in the inspector for kinds that navigate
+//   onOpen(node)    optional — "open →" in the inspector for kinds that navigate
+//   onSelect(node)  optional — fires when a node is clicked/selected, so the host
+//                   can mirror the selection (e.g. the overlay's details panel)
+
+import { foldTime, TIME_GRAINS } from '../../surfer/fold/time-axis.js';
 
 const TIER = {
   0: { fill: '#7F77DD', stroke: '#534AB7', edge: '#7F77DD', name: 'existence',    chipBg: '#EEEDFE', chipFg: '#3C3489', glyphs: '∅○●' },
@@ -53,11 +69,16 @@ const CSS = `
 .eo-tg .tg-node circle{transition:r .15s;}
 .eo-tg .tg-plabel{paint-order:stroke;stroke:var(--card,#fff);stroke-linejoin:round;fill:var(--ink,#15181e);pointer-events:none;}
 .eo-tg .tg-eglyph{paint-order:stroke;stroke:var(--card,#fff);stroke-linejoin:round;pointer-events:none;font-family:var(--mono,ui-monospace,Menlo,monospace);}
+.eo-tg .tg-fold{font-size:11px;padding:4px 8px;}
+.eo-tg .tg-cur{font-size:11px;padding:4px 8px;}
+.eo-tg input[type=range].tg-curslider{flex:1 1 140px;min-width:120px;accent-color:var(--ink,#15181e);cursor:pointer;height:4px;}
+.eo-tg .tg-axisline{stroke:var(--line2,#e5e7eb);stroke-width:1;stroke-dasharray:2 3;}
+.eo-tg .tg-axislabel{fill:var(--ink3,#999);font-size:10px;font-family:var(--mono,ui-monospace,Menlo,monospace);paint-order:stroke;stroke:var(--card,#fff);stroke-width:3px;stroke-linejoin:round;}
 `;
 
 const NS = 'http://www.w3.org/2000/svg';
 
-export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [], onOpen = null, countsLabel = '' } = {}) {
+export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [], onOpen = null, onSelect = null, countsLabel = '' } = {}) {
   if (!document.getElementById(STYLE_ID)) {
     const st = document.createElement('style'); st.id = STYLE_ID; st.textContent = CSS; document.head.appendChild(st);
   }
@@ -65,7 +86,9 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   const sv = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  const nodes = inNodes.map((n) => ({ ...n, x: 340, y: 220, px: 340, py: 220, tx: 340, ty: 220, rank: 0, _ang: 0 }));
+  // _seq is the node's place in the fold's construction order — the order the host folded
+  // it in (source → figures → claims). The cursor's `upto` reads this off each node.
+  const nodes = inNodes.map((n, i) => ({ ...n, x: 340, y: 220, px: 340, py: 220, tx: 340, ty: 220, rank: 0, _ang: 0, _seq: i }));
   const byId = {}; nodes.forEach((n) => byId[n.id] = n);
   const edges = inEdges.filter((e) => byId[e.a] && byId[e.b]);
   const inN = {}, deg = {};
@@ -81,7 +104,19 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   order.forEach((id) => { const n = byId[id]; edges.forEach((e) => { if (e.b === id) n.rank = Math.max(n.rank, byId[e.a].rank + 1); }); });
   let maxRank = 0; nodes.forEach((n) => maxRank = Math.max(maxRank, n.rank));
 
-  const W = 680, H = 440, state = { layout: 'radial', orient: 'h', rot: 0, tiers: { 0: true, 1: true, 2: true }, sel: null, names: false, hover: null };
+  // names default ON — the first thing an import reveals must read as ITS OWN entities
+  // ("Springfield", "Imani Okafor"), not anonymous circles awaiting a hover.
+  // The time axis lays nodes out by their record-time (n.t), folded into bands at a
+  // chosen grain (state.grain, default 'auto' — foldTime picks a grain from the span).
+  // cursor.upto starts at the end (cursorMax) — IDENTITY, the whole fold. Scrubbing it back
+  // reveals fewer construction steps; it never mutates the graph, only how much of it shows.
+  const cursorMax = Math.max(0, nodes.length - 1);
+  const W = 680, H = 440, state = { layout: 'radial', orient: 'h', rot: 0, tiers: { 0: true, 1: true, 2: true }, sel: null, names: true, hover: null, grain: 'auto', cursor: cursorMax };
+
+  // A node is "revealed" once the fold cursor has reached its construction step. The cursor
+  // gates visibility on EVERY layout, stacked with the tier filter — the layout decides where
+  // a node sits, the cursor decides whether the fold has folded it in yet.
+  const seqVisible = (n) => n._seq <= state.cursor;
 
   // ── shell ────────────────────────────────────────────────────────────────
   const wrap = el('div', { class: 'eo-tg', role: 'region', 'aria-label': 'Interactive record graph: nodes across three helix tiers, connected by operator edges' });
@@ -92,9 +127,10 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
         '<button class="tg-btn" data-layout="flow">⇢ flow</button>' +
         '<button class="tg-btn" data-layout="tiers">≡ tiers</button>' +
         '<button class="tg-btn on" data-layout="radial">◎ radial</button>' +
+        '<button class="tg-btn" data-layout="time">⏱ time</button>' +
       '</div>' +
       '<button class="tg-btn" data-pivot>⟲ <span data-pivot-lbl>rotate</span></button>' +
-      '<button class="tg-btn" data-names title="Toggle persistent node names — hover always shows the full name">names</button>' +
+      '<button class="tg-btn on" data-names title="Toggle persistent node names — hover always shows the full name">names</button>' +
       '<div style="display:flex;gap:5px;margin-left:auto;">' +
         '<button class="tg-btn" data-zin aria-label="zoom in">+</button>' +
         '<button class="tg-btn" data-zout aria-label="zoom out">−</button>' +
@@ -105,10 +141,24 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
       '<span style="font-size:11px;color:var(--ink3,#999);letter-spacing:.04em;margin-right:2px;">tiers</span>' +
       [0, 1, 2].map((t) => '<span class="tg-chip" data-tier="' + t + '" style="background:' + TIER[t].chipBg + ';color:' + TIER[t].chipFg + ';"><span class="gl">' + TIER[t].glyphs + '</span>' + TIER[t].name + '</span>').join('') +
     '</div>' +
+    '<div data-cursorrow style="display:none;align-items:center;gap:7px;padding:8px 12px;border-bottom:1px solid var(--line,#e5e7eb);flex-wrap:wrap;">' +
+      '<span style="font-size:11px;color:var(--ink3,#999);letter-spacing:.04em;margin-right:2px;" title="Scrub the fold&#39;s construction — the graph as it stood at step k. Slide to the end for the whole fold.">cursor</span>' +
+      '<button class="tg-btn tg-cur" data-curstep="-1" aria-label="step back" title="Step back">‹</button>' +
+      '<button class="tg-btn tg-cur" data-curplay aria-label="play the fold" title="Play the fold&#39;s construction">▶</button>' +
+      '<button class="tg-btn tg-cur" data-curstep="1" aria-label="step forward" title="Step forward">›</button>' +
+      '<input class="tg-curslider" data-curslider type="range" min="0" max="' + cursorMax + '" value="' + cursorMax + '" step="1" aria-label="fold cursor position">' +
+      '<button class="tg-btn tg-cur" data-curend title="Jump to the end — the whole fold (∞)">∞ end</button>' +
+      '<span data-curnote style="font-size:11px;color:var(--ink3,#999);font-family:var(--mono,ui-monospace,monospace);flex:0 0 auto;"></span>' +
+    '</div>' +
+    '<div data-foldrow style="display:none;align-items:center;gap:5px;padding:8px 12px;border-bottom:1px solid var(--line,#e5e7eb);flex-wrap:wrap;">' +
+      '<span style="font-size:11px;color:var(--ink3,#999);letter-spacing:.04em;margin-right:2px;" title="Fold the time axis to a coarser or finer grain">fold</span>' +
+      TIME_GRAINS.map((g) => '<button class="tg-btn tg-fold" data-grain="' + g.id + '" title="' + g.label + '">' + g.label + '</button>').join('') +
+      '<span data-foldnote style="font-size:11px;color:var(--ink3,#999);margin-left:auto;"></span>' +
+    '</div>' +
     '<div style="position:relative;background:var(--card,#fff);background-image:radial-gradient(var(--line,#e5e7eb) 0.5px,transparent 0.5px);background-size:16px 16px;">' +
       '<svg data-svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;touch-action:none;cursor:grab;">' +
         '<defs><marker data-marker markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L5,3 L0,6 Z" fill="#B4B2A9"/></marker></defs>' +
-        '<g data-vp><g data-edges></g><g data-nodes></g><g data-labels></g></g>' +
+        '<g data-vp><g data-axis></g><g data-edges></g><g data-nodes></g><g data-labels></g></g>' +
       '</svg>' +
     '</div>' +
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:9px;padding:9px 13px;border-top:1px solid var(--line,#e5e7eb);background:var(--app,#f7f8fb);font-size:12px;color:var(--ink2,#555);min-height:20px;">' +
@@ -122,8 +172,10 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   const mk = 'tg-eh-' + Math.floor(Math.random() * 1e9);
   wrap.querySelector('[data-marker]').setAttribute('id', mk);
 
-  const svg = wrap.querySelector('[data-svg]'), gN = wrap.querySelector('[data-nodes]'), gE = wrap.querySelector('[data-edges]'), gL = wrap.querySelector('[data-labels]'), vp = wrap.querySelector('[data-vp]');
+  const svg = wrap.querySelector('[data-svg]'), gN = wrap.querySelector('[data-nodes]'), gE = wrap.querySelector('[data-edges]'), gL = wrap.querySelector('[data-labels]'), gA = wrap.querySelector('[data-axis]'), vp = wrap.querySelector('[data-vp]');
   const detail = wrap.querySelector('[data-detail]'), countsEl = wrap.querySelector('[data-counts]');
+  const foldRow = wrap.querySelector('[data-foldrow]'), foldNote = wrap.querySelector('[data-foldnote]');
+  const curRow = wrap.querySelector('[data-cursorrow]'), curSlider = wrap.querySelector('[data-curslider]'), curNote = wrap.querySelector('[data-curnote]'), curPlay = wrap.querySelector('[data-curplay]');
 
   // ── layouts ──────────────────────────────────────────────────────────────
   // De-overlap: any two nodes closer than minD are pushed apart, then clamped
@@ -205,8 +257,52 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     });
     separate(50, 28);
   }
+  // The time axis: fold node record-times into bands, lay the bands out left→right
+  // (oldest → newest), stack each band's nodes by tier down the column. The fold grain
+  // (state.grain) is what "folds it in different ways" — coarser folds more instants
+  // into one column, finer splits them apart. Nodes with no time fall into a trailing
+  // "undated" column so the axis never pretends to know a time it wasn't given.
+  const AX_L = 64, AX_R = W - 30, AX_TOP = 56, AX_BOT = H - 34;
+  function layoutTime() {
+    const fold = foldTime(nodes, state.grain, { timeOf: (n) => n.t });
+    const B = fold.bands.length || 1;
+    fold.bands.forEach((band, bi) => {
+      const x = B < 2 ? (AX_L + AX_R) / 2 : AX_L + (bi + 0.5) / B * (AX_R - AX_L);
+      const arr = band.items.slice().sort((a, b) => (a.tier - b.tier) || 0);
+      const m = arr.length;
+      arr.forEach((nd, k) => {
+        // x is the node's TIME and must stay exact — so, unlike the other layouts, the
+        // time axis does not run the de-overlap pass (which would drift x off the band).
+        // Nodes in a column are spread down the full height, which keeps them distinct.
+        nd.tx = x;
+        nd.ty = m < 2 ? (AX_TOP + AX_BOT) / 2 : AX_TOP + (k / (m - 1)) * (AX_BOT - AX_TOP);
+      });
+    });
+    drawAxis(fold.bands, fold);
+  }
+  function drawAxis(bands, fold) {
+    gA.innerHTML = '';
+    const B = bands.length; if (!B) return;
+    for (let i = 1; i < B; i++) {
+      const x = AX_L + (i / B) * (AX_R - AX_L);
+      gA.appendChild(sv('line', { class: 'tg-axisline', x1: x.toFixed(1), y1: (AX_TOP - 14).toFixed(1), x2: x.toFixed(1), y2: (AX_BOT + 8).toFixed(1) }));
+    }
+    bands.forEach((band, bi) => {
+      const x = B < 2 ? (AX_L + AX_R) / 2 : AX_L + (bi + 0.5) / B * (AX_R - AX_L);
+      const t = sv('text', { class: 'tg-axislabel', x: x.toFixed(1), y: (AX_TOP - 20).toFixed(1), 'text-anchor': 'middle' });
+      t.textContent = band.label;
+      gA.appendChild(t);
+    });
+    if (foldNote) foldNote.textContent = fold
+      ? `${fold.grain}${fold.requested === 'auto' ? ' (auto)' : ''} · ${B} band${B === 1 ? '' : 's'}${fold.undated ? ` · ${fold.undated} undated` : ''}`
+      : '';
+  }
   function relayout() {
-    if (state.layout === 'flow') layoutFlow(); else if (state.layout === 'tiers') layoutTiers(); else layoutRadial();
+    if (state.layout !== 'time') gA.innerHTML = '';
+    if (state.layout === 'flow') layoutFlow();
+    else if (state.layout === 'tiers') layoutTiers();
+    else if (state.layout === 'time') layoutTime();
+    else layoutRadial();
     animate();
   }
 
@@ -227,7 +323,9 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     const mt = sv('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 11, fill: TIER[e.tier].stroke, class: 'tg-eglyph' });
     mt.textContent = e.gl || '·';
     g.appendChild(p); g.appendChild(mt); gE.appendChild(g);
-    edgeEls.push({ g, p, mt, e });
+    // An edge's construction step is when its LATER figure arrives — a bond can't fold before
+    // both things it binds are in the graph. The cursor reveals it only at/after that step.
+    edgeEls.push({ g, p, mt, e, seq: Math.max(byId[e.a]._seq, byId[e.b]._seq) });
   });
 
   function draw(mid) {
@@ -265,7 +363,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   function refine() {
     const k = view.k, fs = (11 / k).toFixed(2), sw = (3 / k).toFixed(2), gsw = (3.4 / k).toFixed(2), minLen = 24;
     edgeEls.forEach((o) => { const a = byId[o.e.a], b = byId[o.e.b];
-      const vis = (Math.hypot(b.x - a.x, b.y - a.y) * k > minLen) && state.tiers[a.tier] && state.tiers[b.tier];
+      const vis = (Math.hypot(b.x - a.x, b.y - a.y) * k > minLen) && state.tiers[a.tier] && state.tiers[b.tier] && o.seq <= state.cursor;
       const inc = !state.sel || o.e.a === state.sel || o.e.b === state.sel;
       o.mt.style.display = (vis && inc) ? '' : 'none';
       o.mt.setAttribute('font-size', fs); o.mt.style.strokeWidth = gsw + 'px'; });
@@ -273,9 +371,9 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     let cands = [];
     if (state.sel) {
       const nb = neighborSet(state.sel);
-      cands = [byId[state.sel]].concat(Object.keys(nb).map((x) => byId[x]).filter((n) => state.tiers[n.tier]));
+      cands = [byId[state.sel]].concat(Object.keys(nb).map((x) => byId[x]).filter((n) => state.tiers[n.tier] && seqVisible(n)));
     } else if (state.names) {
-      cands = nodes.filter((n) => state.tiers[n.tier])
+      cands = nodes.filter((n) => state.tiers[n.tier] && seqVisible(n))
         .sort((x, y) => (x.kind === 'doc' ? -1 : y.kind === 'doc' ? 1 : deg[y.id] - deg[x.id]));
     }
     // the hovered node's full name ALWAYS shows, whatever the names toggle says — and so do the
@@ -285,7 +383,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     if (state.hover && !state.sel) {
       const hn = byId[state.hover];
       const nb = neighborSet(hn.id);
-      const neigh = Object.keys(nb).map((x) => byId[x]).filter((n) => n && state.tiers[n.tier]);
+      const neigh = Object.keys(nb).map((x) => byId[x]).filter((n) => n && state.tiers[n.tier] && seqVisible(n));
       cands = [hn, ...neigh].concat(cands.filter((n) => n.id !== hn.id && !nb[n.id]));
       nodeEls[hn.id].c.setAttribute('r', hn.kind === 'doc' ? 11 : 9);
     } else if (!state.sel) {
@@ -305,18 +403,27 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   }
 
   function applyFilter() {
-    nodes.forEach((n) => { const on = state.tiers[n.tier]; nodeEls[n.id].g.style.opacity = on ? 1 : 0.08; nodeEls[n.id].g.style.pointerEvents = on ? 'auto' : 'none'; });
-    edgeEls.forEach((o) => { const vis = state.tiers[byId[o.e.a].tier] && state.tiers[byId[o.e.b].tier]; o.g.style.opacity = vis ? 1 : 0.06; });
+    nodes.forEach((n) => {
+      const past = seqVisible(n), on = past && state.tiers[n.tier];
+      // not-yet-folded nodes fade back further (0.05) than tier-filtered ones (0.08), so the
+      // eye reads "the fold hasn't reached this" apart from "you turned this tier off".
+      nodeEls[n.id].g.style.opacity = on ? 1 : (past ? 0.08 : 0.05);
+      nodeEls[n.id].g.style.pointerEvents = on ? 'auto' : 'none';
+    });
+    edgeEls.forEach((o) => {
+      const past = o.seq <= state.cursor, vis = past && state.tiers[byId[o.e.a].tier] && state.tiers[byId[o.e.b].tier];
+      o.g.style.opacity = vis ? 1 : (past ? 0.06 : 0.03);
+    });
     refine();
   }
 
   function select(id) {
     state.sel = id; state.hover = null;
     const nb = neighborSet(id);
-    nodes.forEach((n) => { nodeEls[n.id].g.style.opacity = (n.id === id || nb[n.id]) ? 1 : 0.1;
+    nodes.forEach((n) => { const past = seqVisible(n); nodeEls[n.id].g.style.opacity = !past ? 0.05 : (n.id === id || nb[n.id]) ? 1 : 0.1;
       nodeEls[n.id].c.setAttribute('r', n.id === id ? 9 : (n.kind === 'doc' ? 9 : 7)); });
-    edgeEls.forEach((o) => { const inc = o.e.a === id || o.e.b === id;
-      o.g.style.opacity = inc ? 1 : 0.12;
+    edgeEls.forEach((o) => { const inc = (o.e.a === id || o.e.b === id) && o.seq <= state.cursor;
+      o.g.style.opacity = inc ? 1 : (o.seq <= state.cursor ? 0.12 : 0.03);
       o.p.setAttribute('stroke-width', inc ? 2 : 1.1); o.p.setAttribute('stroke-opacity', inc ? 0.85 : 0.3); });
     refine();
     const n = byId[id], ins = edges.filter((e) => e.b === id), outs = edges.filter((e) => e.a === id);
@@ -331,6 +438,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
       const b = el('button', { class: 'tg-btn', text: 'open →' }); b.style.marginLeft = 'auto'; b.style.flex = '0 0 auto';
       b.addEventListener('click', () => onOpen(n)); detail.appendChild(b);
     }
+    if (onSelect) { try { onSelect(n); } catch { /* the host's mirror must never break the select */ } }
   }
   function deselect() {
     state.sel = null;
@@ -364,13 +472,28 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   svg.addEventListener('wheel', onWheel, { passive: false });
 
   // ── controls ─────────────────────────────────────────────────────────────
+  const pivotBtn = wrap.querySelector('[data-pivot]');
+  const syncFoldChips = () => wrap.querySelectorAll('[data-grain]').forEach((c) => c.classList.toggle('on', c.dataset.grain === state.grain));
+  const syncLayoutChrome = () => {
+    const isTime = state.layout === 'time';
+    foldRow.style.display = isTime ? 'flex' : 'none';   // the fold controls only bite on the time axis
+    pivotBtn.style.display = isTime ? 'none' : 'inline-flex';  // no pivot on a left→right time axis
+  };
   wrap.querySelectorAll('[data-layout]').forEach((b) => b.addEventListener('click', () => {
     wrap.querySelectorAll('[data-layout]').forEach((x) => x.classList.remove('on')); b.classList.add('on');
     state.layout = b.dataset.layout;
     wrap.querySelector('[data-pivot-lbl]').textContent = state.layout === 'radial' ? 'rotate' : 'pivot';
+    syncLayoutChrome();
     if (state.sel) deselect();
     relayout(); setTimeout(fit, 470);
   }));
+  wrap.querySelectorAll('[data-grain]').forEach((c) => c.addEventListener('click', () => {
+    state.grain = c.dataset.grain; syncFoldChips();
+    if (state.layout !== 'time') return;   // a fold pick outside the time axis just arms the grain
+    if (state.sel) deselect();
+    relayout(); setTimeout(fit, 470);
+  }));
+  syncFoldChips();
   wrap.querySelector('[data-pivot]').addEventListener('click', () => {
     if (state.layout === 'radial') state.rot = (state.rot + 45) % 360; else state.orient = state.orient === 'h' ? 'v' : 'h';
     if (state.sel) deselect();
@@ -386,8 +509,39 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   wrap.querySelector('[data-zout]').addEventListener('click', () => { view.k = Math.max(0.4, view.k / 1.2); apply(); schedule(); });
   wrap.querySelector('[data-fit]').addEventListener('click', fit);
 
+  // ── the fold cursor: scrub `upto` over construction order, on any layout ───
+  // Positions never move as the cursor scrubs (the layout is computed for the whole fold);
+  // only how much of it is revealed changes, so the graph builds up in place rather than
+  // reflowing. Playing walks step→step to the end.
+  let playT = null;
+  function stopPlay() { if (playT) { clearTimeout(playT); playT = null; } curPlay.textContent = '▶'; curPlay.classList.remove('on'); }
+  function curNoteText() {
+    if (state.cursor >= cursorMax) return 'fold · ' + (cursorMax + 1) + ' node' + (cursorMax === 0 ? '' : 's');
+    const cur = nodes[state.cursor];
+    return 'step ' + (state.cursor + 1) + '/' + (cursorMax + 1) + (cur ? ' · ' + cur.label : '');
+  }
+  function setCursor(k, fromSlider) {
+    state.cursor = Math.max(0, Math.min(cursorMax, k | 0));
+    if (!fromSlider) curSlider.value = state.cursor;
+    curNote.textContent = curNoteText();
+    applyFilter();
+  }
+  curPlay.addEventListener('click', () => {
+    if (playT) { stopPlay(); return; }
+    if (state.sel) deselect();
+    if (state.cursor >= cursorMax) setCursor(0);   // replay from the start
+    curPlay.textContent = '❚❚'; curPlay.classList.add('on');
+    const tick = () => { if (state.cursor >= cursorMax) { stopPlay(); return; } setCursor(state.cursor + 1); playT = setTimeout(tick, 460); };
+    playT = setTimeout(tick, 260);
+  });
+  curSlider.addEventListener('input', () => { stopPlay(); if (state.sel) deselect(); setCursor(+curSlider.value, true); });
+  wrap.querySelectorAll('[data-curstep]').forEach((b) => b.addEventListener('click', () => { stopPlay(); if (state.sel) deselect(); setCursor(state.cursor + (+b.dataset.curstep)); }));
+  wrap.querySelector('[data-curend]').addEventListener('click', () => { stopPlay(); if (state.sel) deselect(); setCursor(cursorMax); });
+  // the cursor only earns its row when there are enough steps to walk
+  if (cursorMax >= 2) { curRow.style.display = 'flex'; curNote.textContent = curNoteText(); }
+
   layoutRadial(); nodes.forEach((n) => { n.x = n.tx; n.y = n.ty; nodeEls[n.id].g.style.transform = 'translate(' + n.x + 'px,' + n.y + 'px)'; });
   draw(false); applyFilter(); fit();
 
-  return { destroy() { if (animT) cancelAnimationFrame(animT); if (refineT) clearTimeout(refineT); wrap.remove(); } };
+  return { destroy() { if (animT) cancelAnimationFrame(animT); if (refineT) clearTimeout(refineT); stopPlay(); wrap.remove(); } };
 }

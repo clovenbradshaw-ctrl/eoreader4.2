@@ -1,62 +1,166 @@
-// EO: INS·CON(Void → Field, Making,Binding) — fetch the larger open corpora
-// Pull a bounded slice of an open corpus into data/corpus/ (gitignored), so shape-fit can fit a
-// real assistant-register background and report coverage. The derived shapes.json is tiny and
-// committed; the raw corpora are not. Direct HF `resolve` file URLs — the datasets-server rows
-// API is flaky behind proxies, but the raw files resolve.
+// Fetch samples of larger third-party corpora into data/corpus/raw/*.jsonl — a local,
+// regenerable pool for tools/nav-sample.mjs (navigation) and the background/negative
+// grammar fit (tools/shape-fit.mjs's --background mode). Nothing here is the reader's
+// own voice: it is a CONTRAST/NAVIGATION set, never a source for the per-intent shapes,
+// which stay sourced only from data/exemplars.jsonl.
 //
-//   node tools/corpus-fetch.mjs dolly          — 15k human-written, task-labelled (CC-BY-SA)
-//   node tools/corpus-fetch.mjs oasst          — OpenAssistant, human-written + ranked (Apache-2.0)
+// Sourced via the HuggingFace datasets-server `rows` API (JSON, paginated) rather than
+// downloading and parsing parquet/gzip files directly — one uniform fetch path for every
+// source, no per-format parser, no native deps.
 //
-// Then:  node tools/shape-fit.mjs --reference data/corpus/dolly.jsonl --out data/shapes.enriched.json
-//
-// HelpSteer2 / HelpSteer3-Preference (nvidia, CC-BY-4.0) ship as parquet, not raw JSONL — convert
-// with the `datasets` library offline, then feed the General subset through the helpSteer3Pairs
-// adapter (tools/corpus/adapters.mjs) for the winner-vs-loser gradient in move-space. UltraChat
-// 200k / Magpie are the synthetic-assistant NEGATIVE set — sample 20–30k; a 10×10 matrix converges
-// long before the rest.
-
-import { writeFileSync, mkdirSync } from 'node:fs';
+// Each source is fetched as several EVENLY SPACED WINDOWS of contiguous rows (not single
+// scattered offsets — the API's row cap per request is 100, and a window preserves local
+// structure, e.g. a message's neighbouring reply in OASST2's flat message list). Spacing
+// across the full row range matters because these files are not shuffled — HelpSteer3 is
+// literally sorted into contiguous domain blocks (verified: rows 0..8418 domain=code,
+// 8419..26125 domain=general, 26126..30798 stem, 30799..38458 multilingual), so a single
+// head-of-file read would silently return only one domain.
+import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
-const SOURCES = {
-  dolly: {
-    url: 'https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl',
-    out: 'data/corpus/dolly.jsonl',
-    note: '15k human-written, task-labelled (CC-BY-SA)',
-  },
-  oasst: {
-    url: 'https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/main/2023-04-12_oasst_ready.trees.jsonl.gz',
-    out: 'data/corpus/oasst.trees.jsonl.gz',
-    note: 'OpenAssistant message trees, human-written + ranked (Apache-2.0) — gz, expand before fit',
-  },
-};
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const OUT_DIR = join(ROOT, 'data', 'corpus', 'raw');
 
-const fetchWithRetry = async (url, tries = 4) => {
-  for (let i = 0; i < tries; i++) {
+const API = 'https://datasets-server.huggingface.co';
+const PAGE = 100; // datasets-server's per-request row cap
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function fetchJson(url, { retries = 4 } = {}) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await fetch(url, { redirect: 'follow' });
-      if (res.ok) return Buffer.from(await res.arrayBuffer());
-      if (res.status < 500 && res.status !== 429) throw new Error(`HTTP ${res.status}`);
+      const res = await fetch(url);
+      if (res.ok) return await res.json();
+      if (res.status === 401 || res.status === 403) {
+        const err = new Error(`HTTP ${res.status} (gated/unauthorized)`);
+        err.gated = true;
+        throw err;
+      }
+      throw new Error(`HTTP ${res.status}`);
     } catch (e) {
-      if (i === tries - 1) throw e;
+      if (e.gated || attempt === retries) throw e;
+      await sleep(2000 * 2 ** attempt);
     }
-    await new Promise((r) => setTimeout(r, 2000 * 2 ** i));   // 2s, 4s, 8s
   }
-  throw new Error('unreachable');
-};
-
-const name = process.argv[2];
-const src = SOURCES[name];
-if (!src) {
-  console.error(`usage: node tools/corpus-fetch.mjs <${Object.keys(SOURCES).join('|')}>`);
-  for (const [k, v] of Object.entries(SOURCES)) console.error(`  ${k.padEnd(8)} ${v.note}`);
-  process.exit(1);
 }
 
-mkdirSync(new URL('../data/corpus/', import.meta.url), { recursive: true });
-const out = new URL(`../${src.out}`, import.meta.url);
-console.log(`fetching ${name}: ${src.url}`);
-const buf = await fetchWithRetry(src.url);
-writeFileSync(out, buf);
-console.log(`→ ${fileURLToPath(out)} (${(buf.length / 1e6).toFixed(1)} MB)`);
-console.log(`next: node tools/shape-fit.mjs --reference ${src.out} --out data/shapes.enriched.json`);
+const getNumRows = async (dataset, config, split) => {
+  const j = await fetchJson(`${API}/size?dataset=${encodeURIComponent(dataset)}&config=${encodeURIComponent(config)}`);
+  const s = (j.size?.splits || []).find((x) => x.split === split);
+  return s?.num_rows ?? j.size?.config?.num_rows ?? 0;
+};
+
+const fetchRows = async (dataset, config, split, offset, length) => {
+  const url = `${API}/rows?dataset=${encodeURIComponent(dataset)}&config=${encodeURIComponent(config)}` +
+    `&split=${encodeURIComponent(split)}&offset=${offset}&length=${length}`;
+  const j = await fetchJson(url);
+  return (j.rows || []).map((r) => r.row);
+};
+
+// Evenly spaced window starts covering [rangeStart, rangeEnd) — enough windows of PAGE
+// rows each to reach ~targetRows, spread across the whole range so a sorted/blocked file
+// (like HelpSteer3) still gets surveyed rather than read from one end.
+const planWindows = (rangeStart, rangeEnd, targetRows) => {
+  const span = rangeEnd - rangeStart;
+  if (span <= 0) return [];
+  const nWindows = Math.max(1, Math.min(Math.ceil(targetRows / PAGE), Math.ceil(span / PAGE)));
+  const starts = [];
+  for (let i = 0; i < nWindows; i++) {
+    const start = rangeStart + Math.floor((i * span) / nWindows);
+    starts.push(Math.min(start, rangeEnd - 1));
+  }
+  return starts;
+};
+
+const fetchWindowed = async (dataset, config, split, { rangeStart, rangeEnd, targetRows, filter, map }) => {
+  const starts = planWindows(rangeStart, rangeEnd, targetRows);
+  const out = [];
+  for (const start of starts) {
+    const len = Math.min(PAGE, rangeEnd - start);
+    const rows = await fetchRows(dataset, config, split, start, len);
+    for (const row of rows) {
+      if (filter && !filter(row)) continue;
+      out.push(map ? map(row) : row);
+    }
+  }
+  return out;
+};
+
+// ── sources ──────────────────────────────────────────────────────────────────────────
+const SOURCES = [
+  {
+    name: 'helpsteer2',
+    dataset: 'nvidia/HelpSteer2', config: 'default', split: 'train',
+    targetRows: 3000,
+    map: (r) => ({
+      source: 'helpsteer2', prompt: r.prompt, response: r.response,
+      attrs: { helpfulness: r.helpfulness, correctness: r.correctness, coherence: r.coherence,
+        complexity: r.complexity, verbosity: r.verbosity },
+    }),
+  },
+  {
+    name: 'helpsteer3-general',
+    dataset: 'nvidia/HelpSteer3', config: 'preference', split: 'train',
+    // Verified contiguous domain=general block — see header comment.
+    range: { start: 8419, end: 26126 },
+    targetRows: 3000,
+    filter: (r) => r.domain === 'general' && r.language === 'english',
+    map: (r) => ({
+      source: 'helpsteer3-general', prompt: r.context?.at(-1)?.content ?? null,
+      response_a: r.response1, response_b: r.response2, overall_preference: r.overall_preference,
+    }),
+  },
+  {
+    name: 'oasst2',
+    dataset: 'OpenAssistant/oasst2', config: 'default', split: 'train',
+    targetRows: 3000,
+    filter: (r) => r.lang === 'en' && r.deleted !== true,
+    map: (r) => ({
+      source: 'oasst2', message_id: r.message_id, parent_id: r.parent_id,
+      role: r.role, text: r.text, rank: r.rank,
+    }),
+  },
+  {
+    name: 'dolly15k',
+    dataset: 'databricks/databricks-dolly-15k', config: 'default', split: 'train',
+    targetRows: 3000,
+    map: (r) => ({
+      source: 'dolly15k', prompt: r.instruction, response: r.response, category: r.category,
+    }),
+  },
+  {
+    name: 'magpie-pro',
+    dataset: 'Magpie-Align/Magpie-Pro-300K-Filtered', config: 'default', split: 'train',
+    targetRows: 3000,
+    map: (r) => {
+      const human = r.conversations?.find((t) => t.from === 'human');
+      const gpt = r.conversations?.find((t) => t.from === 'gpt');
+      return { source: 'magpie-pro', uuid: r.uuid, prompt: human?.value ?? null, response: gpt?.value ?? null };
+    },
+    filter: (r) => (r.conversations?.length ?? 0) >= 2,
+  },
+];
+
+// GAIR/lima is gated (requires an accepted-terms HF token this session doesn't have) —
+// noted, not silently dropped. Fetch it manually and drop a lima.jsonl into
+// data/corpus/raw/ if you want it folded into nav-sample.mjs.
+const SKIPPED = [{ name: 'lima', dataset: 'GAIR/lima', reason: 'gated dataset — no HF auth token in this session' }];
+
+async function main() {
+  mkdirSync(OUT_DIR, { recursive: true });
+  for (const src of SOURCES) {
+    const numRows = await getNumRows(src.dataset, src.config, src.split);
+    const rangeStart = src.range?.start ?? 0;
+    const rangeEnd = src.range?.end ?? numRows;
+    const rows = await fetchWindowed(src.dataset, src.config, src.split, {
+      rangeStart, rangeEnd, targetRows: src.targetRows, filter: src.filter, map: src.map,
+    });
+    const path = join(OUT_DIR, `${src.name}.jsonl`);
+    writeFileSync(path, rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    console.log(`${src.name}: ${rows.length} rows (of ${rangeEnd - rangeStart} in range) -> ${path}`);
+  }
+  for (const s of SKIPPED) console.log(`SKIPPED ${s.name} (${s.dataset}): ${s.reason}`);
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });

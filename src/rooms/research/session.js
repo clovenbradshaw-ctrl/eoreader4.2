@@ -69,6 +69,33 @@ export const createResearchSession = (defaults = {}) => {
   };
 };
 
+// ── The clarification popup's projection (surface.js) ─────────────────────────
+// The surface pops a non-blocking card when the run raises a "which sense did you
+// mean?" ask (a homonym subject, driver.js). WHICH card to show — and hence the
+// whole "don't nag" behaviour — is a pure fold over the log, factored out here so
+// it is testable without a DOM.
+
+// pendingClarification(log, resolved) → { ask, question } | null — the disambiguate
+// ask the popup should still be offering: the NEWEST one that is neither answered in
+// the log nor in `resolved` (the ask ids the user already picked or dismissed in the
+// UI). Null when there is nothing to offer, so the card stays hidden.
+export const pendingClarification = (log, resolved = new Set()) => {
+  const answered = new Set((log || []).filter((e) => e.kind === 'answer').map((e) => e.askId));
+  let ask = null;
+  for (const e of (log || [])) {
+    if (e.kind === 'ask' && e.trigger === 'disambiguate' && !answered.has(e.id) && !resolved.has(e.id)) ask = e;
+  }
+  if (!ask) return null;
+  const open = (log || []).find((e) => e.kind === 'open' && e.id === ask.frameId);
+  return { ask, question: open ? String(open.question || '') : '' };
+};
+
+// refocusQuery(subject, sense) → the query a focused re-run researches when the user
+// picks a different sense from the popup: the subject sharpened by the chosen sense
+// label ("dolphins" + "NFL team" → "dolphins NFL team"). Empty sense → the subject
+// unchanged.
+export const refocusQuery = (subject, sense) => `${String(subject || '').trim()} ${String(sense || '').trim()}`.trim();
+
 // The chat-side rendering of one run — written for what a researcher actually
 // wants back: the ANSWER first (phrased, bind-checked, each claim clickable to
 // its exact span), then an honest account of what the finding rests on (a
@@ -86,6 +113,17 @@ export const formatChatReply = (report, rootId = 'root') => {
   const pinIds = new Set(runProps.map((p) => p.pinId));
   const anyPhrase = secs.some((s) => s.phrase);
   const lines = [];
+
+  // ── 0. THE CLARIFICATION, if the subject was ambiguous ──────────────────────
+  // A preliminary DISAMBIGUATE ask (driver.js) is the run telling the user the
+  // subject binds to more than one thing and which sense it chose. Since the
+  // surface wires no interactive `ask`, the question would otherwise live only in
+  // the trace — so lift an UNANSWERED one to the top of the reply as a one-line
+  // offer to refocus. It leads (the user should see it before the findings) but
+  // never blocks: the grounded answer to the best-guess sense follows right below.
+  const clarify = report.questions.find(({ ask, answer }) =>
+    ask.trigger === 'disambiguate' && ask.frameId === rootId && !answer);
+  if (clarify) lines.push(`> ${clarify.ask.text.replace(/\s+/g, ' ').trim()}`);
 
   // ── 1. THE ANSWER, first ────────────────────────────────────────────────────
   // Phrased sentences carry their citation; glue carries none. No model → the

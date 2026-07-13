@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>EO Reader</title>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -40,36 +40,73 @@ table{border-collapse:collapse;width:100%}
 .eo-scroll::-webkit-scrollbar{width:11px;height:11px}
 .eo-scroll::-webkit-scrollbar-thumb{background:#dadae1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
 .eo-scroll::-webkit-scrollbar-thumb:hover{background:#c7c7d0;background-clip:content-box}
+@keyframes eoDrawerL{from{transform:translateX(-24px);opacity:0}to{transform:translateX(0);opacity:1}}
+/* The panel backdrop exists only on small screens — desktop panels sit in the flex row. */
+.eo-backdrop{display:none}
+/* ── MOBILE ──────────────────────────────────────────────────────────────────
+   The surface is styled inline (the dc idiom), so the small-screen layer lives
+   here as !important overrides on structural class hooks. One breakpoint: below
+   820px the side panels become overlay drawers, the header sheds its labels,
+   modals go edge-to-edge, and inputs hold 16px so iOS never auto-zooms. */
+@media (max-width: 820px){
+  .eo-root{height:100dvh !important}
+  .eo-hide-sm{display:none !important}
+  .eo-header{gap:6px !important;padding:0 max(8px,env(safe-area-inset-right)) 0 max(8px,env(safe-area-inset-left)) !important}
+  /* The omnibar must be free to shrink — min-width:auto on the form/input otherwise
+     holds the input's intrinsic width and shoves the right-side buttons off-screen. */
+  .eo-header form{min-width:0}
+  .eo-header form>div{min-width:0;padding:0 10px !important;gap:6px !important}
+  .eo-header input{font-size:16px !important;min-width:0;text-overflow:ellipsis}
+  .eo-modelchip-label{display:none}
+  .eo-left{position:fixed !important;left:0;top:50px;bottom:0;width:min(86vw,330px) !important;z-index:44;box-shadow:14px 0 44px rgba(20,20,30,.18);animation:eoDrawerL .22s cubic-bezier(.4,0,.2,1)}
+  .eo-right{position:fixed !important;right:0;top:50px;bottom:0;width:min(88vw,350px) !important;z-index:44;box-shadow:-14px 0 44px rgba(20,20,30,.18);animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)}
+  .eo-backdrop{display:block;position:fixed;left:0;right:0;top:50px;bottom:0;z-index:43;background:rgba(20,20,28,.32);animation:eoFade .16s ease}
+  .eo-tabbar{padding:0 6px !important}
+  .eo-chatscroll{padding:18px 12px !important}
+  .eo-composer{padding:10px 10px calc(10px + env(safe-area-inset-bottom)) !important}
+  .eo-chatinput{font-size:16px !important}
+  .eo-graphhead{flex-wrap:wrap !important;height:auto !important;padding:10px 12px !important;gap:8px !important}
+  .eo-graphtools{flex-wrap:wrap !important;row-gap:6px}
+  .eo-pop{max-width:calc(100vw - 16px) !important;right:8px !important}
+  .eo-modal{left:8px !important;right:8px !important;width:auto !important;transform:none !important;top:12px !important;max-height:calc(100dvh - 24px) !important}
+  .eo-tall{bottom:12px !important;max-height:none !important}
+  .eo-sheet{left:8px !important;right:8px !important;width:auto !important;transform:none !important;max-height:calc(100dvh - 24px);overflow-y:auto}
+  .eo-wgbody{flex-direction:column !important}
+  .eo-wgside{flex:0 0 auto !important;max-height:36%;border-right:none !important;border-bottom:1px solid #EEEEF2}
+  .eo-drawer{width:min(94vw,440px) !important}
+  .eo-toast{max-width:calc(100vw - 24px) !important;bottom:calc(18px + env(safe-area-inset-bottom)) !important}
+}
 </style>
 </helmet>
 
-<div data-screen-label="EOReader" style="position:relative;display:flex;flex-direction:column;height:100vh;width:100%;background:#F4F4F7;color:#1B1B22;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased">
+<div data-screen-label="EOReader" class="eo-root" style="position:relative;display:flex;flex-direction:column;height:100vh;width:100%;background:#F4F4F7;color:#1B1B22;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased">
 
-  <header style="height:50px;flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:0 14px;background:#fff;border-bottom:1px solid #EAEAEF;position:relative;z-index:5">
+  <header class="eo-header" style="height:50px;flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:0 14px;background:#fff;border-bottom:1px solid #EAEAEF;position:relative;z-index:5">
     <div style="display:flex;align-items:center;gap:9px;padding-right:2px">
       <div style="width:25px;height:25px;border-radius:7px;background:#6D5EF5;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">EO</div>
-      <span style="font-size:14.5px;font-weight:650">Reader</span>
-      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE;background:#F2F2F6;border-radius:5px;padding:2px 6px">4.2</span>
+      <span class="eo-hide-sm" style="font-size:14.5px;font-weight:650">Reader</span>
+      <span class="eo-hide-sm" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE;background:#F2F2F6;border-radius:5px;padding:2px 6px">4.2</span>
     </div>
-    <div style="width:1px;height:20px;background:#EAEAEF"></div>
+    <div class="eo-hide-sm" style="width:1px;height:20px;background:#EAEAEF"></div>
     <div style="display:flex;align-items:center;gap:2px;color:#9A9AA4">
       <button onClick="{{ toggleLeft }}" title="Toggle the topics panel" style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:{{ leftBtnFg }}" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
       <button onClick="{{ toggleRight }}" title="Toggle the entities panel" style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:{{ rightBtnFg }}" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
     </div>
     <form onSubmit="{{ onOmniSubmit }}" style="flex:1;display:flex;justify-content:center">
       <div style="width:100%;max-width:540px;height:33px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;display:flex;align-items:center;gap:9px;padding:0 12px" style-focus-within="border-color:#DED8FD;background:#fff">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.8" style="flex:0 0 auto"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
+        <svg class="eo-hide-sm" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.8" style="flex:0 0 auto"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
         <input value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Read a URL, drop a file, paste text, or search the web…" style="flex:1;border:none;outline:none;background:transparent;font-size:13px;color:#1B1B22" />
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C0C0C8;flex:0 0 auto">⏎ ingest</span>
+        <span class="eo-hide-sm" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C0C0C8;flex:0 0 auto">⏎ ingest</span>
       </div>
     </form>
-    <button onClick="{{ toggleModel }}" title="Model" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
+
+    <button onClick="{{ toggleModel }}" title="Model" data-eo-model="1" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
       <span style="width:7px;height:7px;border-radius:50%;background:{{ modelDot }};flex:0 0 auto"></span>
-      {{ modelChip }}
+      <span class="eo-modelchip-label">{{ modelChip }}</span>
     </button>
     <button onClick="{{ openMonologue }}" style="display:flex;align-items:center;gap:6px;background:#E7F6EC;color:#1E8A50;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600" style-hover="background:#DDF0E4">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
-      Auditable
+      <span class="eo-hide-sm">Auditable</span>
     </button>
 
     <button onClick="{{ toggleSettings }}" title="Settings — roll back to a prior version" style="width:31px;height:31px;display:flex;align-items:center;justify-content:center;border:1px solid #E6E6EC;background:{{ settingsBtnBg }};border-radius:999px;color:{{ settingsBtnFg }};flex:0 0 auto" style-hover="background:#F2F2F6">
@@ -79,11 +116,11 @@ table{border-collapse:collapse;width:100%}
     <button onClick="{{ toggleAccount }}" title="Matrix account (optional)" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 20c0-3.3 3.6-5 8-5s8 1.7 8 5"/></svg>
       <span style="width:7px;height:7px;border-radius:50%;background:{{ acctDot }};flex:0 0 auto"></span>
-      {{ acctLabel }}
+      <span class="eo-hide-sm">{{ acctLabel }}</span>
     </button>
 
     <sc-if value="{{ settingsOpen }}">
-      <div style="position:absolute;right:14px;top:46px;z-index:31;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:344px">
+      <div class="eo-pop" style="position:absolute;right:14px;top:46px;z-index:31;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:344px">
         <div style="display:flex;align-items:center;gap:8px;padding:2px 2px 10px;border-bottom:1px solid #F2F2F6;margin-bottom:10px">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E6E78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span style="flex:1;font-size:12.5px;font-weight:700;letter-spacing:.02em;color:#2A2A32">Settings</span>
@@ -139,7 +176,7 @@ table{border-collapse:collapse;width:100%}
     </sc-if>
 
     <sc-if value="{{ acctOpen }}">
-      <div style="position:absolute;right:14px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:308px">
+      <div class="eo-pop" style="position:absolute;right:14px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:308px">
         <sc-if value="{{ signedOut }}">
           <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 4px 8px">MATRIX ACCOUNT · OPTIONAL</div>
           <div style="font-size:12.5px;color:#6E6E78;line-height:1.5;padding:0 4px 11px">The reader works fully signed out. Sign in with a Matrix account only to save permanent, attributed checkpoints of a source to Archive.org.</div>
@@ -186,8 +223,8 @@ table{border-collapse:collapse;width:100%}
     </sc-if>
 
     <sc-if value="{{ modelOpen }}">
-      <div style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 6px 8px">MODEL · IN YOUR BROWSER, OR HOSTED WITH YOUR KEY</div>
+      <div class="eo-pop" data-eo-model="1" style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 6px 8px">MODEL · IN YOUR BROWSER, HOSTED, OR YOUR LOCAL SERVER</div>
         <sc-for list="{{ backends }}" as="b">
           <button onClick="{{ b.pick }}" style="width:100%;display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border-radius:9px;background:{{ b.bg }}" style-hover="background:#F5F5F8">
             <span style="width:15px;height:15px;border-radius:50%;border:2px solid {{ b.ringColor }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px"><span style="width:7px;height:7px;border-radius:50%;background:{{ b.dotColor }}"></span></span>
@@ -212,6 +249,18 @@ table{border-collapse:collapse;width:100%}
             </div>
           </div>
         </sc-if>
+        <sc-if value="{{ showRedact }}">
+          <div style="border-top:1px solid #F2F2F6;margin-top:8px;padding-top:9px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:0 2px 7px">PRIVACY · WHAT ANTHROPIC SEES</div>
+            <button onClick="{{ redactHosted.toggle }}" style="width:100%;display:flex;align-items:flex-start;gap:9px;border:1px solid {{ redactHosted.bd }};background:{{ redactHosted.bg }};border-radius:9px;padding:8px 10px;text-align:left" style-hover="background:#F5F5F8">
+              <span style="flex:0 0 auto;width:28px;height:16px;border-radius:8px;background:{{ redactHosted.trackBg }};position:relative;margin-top:1px;transition:background .12s"><span style="position:absolute;top:2px;left:{{ redactHosted.knobX }};width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .12s"></span></span>
+              <span style="flex:1;min-width:0">
+                <span style="display:block;font-size:12.5px;font-weight:650;color:{{ redactHosted.fg }}">{{ redactHosted.label }}</span>
+                <span style="display:block;font-size:10.5px;color:#8A8A95;line-height:1.35;margin-top:2px">{{ redactHosted.hint }}</span>
+              </span>
+            </button>
+          </div>
+        </sc-if>
         <div style="border-top:1px solid #F2F2F6;margin-top:8px;padding-top:9px;display:flex;align-items:center;gap:8px">
           <span style="flex:1;font-size:11px;color:#8A8A95;line-height:1.35">{{ modelNote }}</span>
           <button onClick="{{ loadModelNow }}" style="flex:0 0 auto;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12px;border-radius:8px;padding:6px 11px" style-hover="background:#E7E2FD">{{ loadModelLabel }}</button>
@@ -222,8 +271,13 @@ table{border-collapse:collapse;width:100%}
 
   <div style="flex:1;display:flex;min-height:0">
 
+    <!-- On small screens the side panels are overlay drawers; this backdrop closes them. -->
+    <sc-if value="{{ panelBackdrop }}">
+      <div class="eo-backdrop" onClick="{{ closePanels }}"></div>
+    </sc-if>
+
     <sc-if value="{{ leftOpen }}">
-    <aside style="width:312px;flex:0 0 auto;background:#fff;border-right:1px solid #EAEAEF;display:flex;flex-direction:column;min-height:0">
+    <aside class="eo-left" style="width:312px;flex:0 0 auto;background:#fff;border-right:1px solid #EAEAEF;display:flex;flex-direction:column;min-height:0">
       <div class="eo-scroll" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:14px">
 
         <!-- WORKSPACE SWITCHER — the top-level container the topic tree lives in. Personal
@@ -365,20 +419,27 @@ table{border-collapse:collapse;width:100%}
             <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">SOURCES</span>
             <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ sourceCount }}</span>
             <span style="flex:1"></span>
-            <span style="font-size:10px;color:#9A9AA4">in this topic</span>
+            <button onClick="{{ openCmdk }}" title="Search your sources (⌘K)" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:#8A8A95;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 7px" style-hover="background:#EAEAEF;color:#5B4BE6"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>⌘K</button>
           </div>
           <sc-if value="{{ noSources }}">
             <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:14px 12px;font-size:11.5px;color:#9A9AA4;line-height:1.5">Nothing recorded yet. Read a URL, drop a file, paste text, or search the web — every source lands here with its hash.</div>
           </sc-if>
           <div style="display:flex;flex-direction:column;gap:1px">
             <sc-for list="{{ leftSources }}" as="sc">
-              <button onClick="{{ sc.open }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px" style-hover="background:#F5F5F8">
-                <span style="width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ sc.favBg }};color:{{ sc.favFg }}">{{ sc.favCh }}</span>
-                <span style="flex:1;min-width:0">
-                  <span style="display:block;font-size:12.5px;font-weight:550;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.title }}</span>
-                  <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.reg }} · {{ sc.domain }}</span>
-                </span>
-              </button>
+              <div style="display:flex;align-items:center;padding-left:{{ sc.indent }}">
+                <sc-if value="{{ sc.hasKids }}">
+                  <button onClick="{{ sc.toggle }}" title="Show / hide followed pages" style="flex:0 0 auto;width:15px;height:24px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#A0A0AA" style-hover="color:#5B4BE6">{{ sc.caret }}</button>
+                </sc-if>
+                <sc-if value="{{ sc.noKids }}"><span style="flex:0 0 auto;width:15px"></span></sc-if>
+                <button onClick="{{ sc.open }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px" style-hover="background:#F5F5F8">
+                  <span style="width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ sc.favBg }};color:{{ sc.favFg }}">{{ sc.favCh }}</span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-size:12.5px;font-weight:550;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.title }}</span>
+                    <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.reg }} · {{ sc.domain }}</span>
+                  </span>
+                  <sc-if value="{{ sc.hasKids }}"><span title="followed pages recorded here" style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#A0A0AA;background:#F2F2F6;border-radius:5px;padding:1px 5px">{{ sc.kidCount }}</span></sc-if>
+                </button>
+              </div>
             </sc-for>
           </div>
         </div>
@@ -389,7 +450,7 @@ table{border-collapse:collapse;width:100%}
 
     <main style="flex:1;display:flex;flex-direction:column;min-width:0">
 
-      <div style="flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:0 12px;border-bottom:1px solid #EAEAEF;background:#fff;height:46px">
+      <div class="eo-tabbar" style="flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:0 12px;border-bottom:1px solid #EAEAEF;background:#fff;height:46px">
         <!-- Only the TABS scroll horizontally. The export menu + flag line sit OUTSIDE this
              overflow-x container so the export dropdown can drop below the 46px bar without
              being clipped (overflow-x:auto also clips overflow-y — the bug that hid it).
@@ -449,7 +510,7 @@ table{border-collapse:collapse;width:100%}
           <!-- CHAT TAB -->
           <sc-if value="{{ isChat }}">
           <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff">
-            <div class="eo-scroll" ref="{{ setChatScroll }}" style="flex:1;min-height:0;overflow-y:auto;padding:26px 24px">
+            <div class="eo-scroll eo-chatscroll" ref="{{ setChatScroll }}" style="flex:1;min-height:0;overflow-y:auto;padding:26px 24px">
               <div style="max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:22px">
 
                 <sc-if value="{{ chatEmpty }}">
@@ -579,17 +640,17 @@ table{border-collapse:collapse;width:100%}
                              answer that plainly invites being opened. Collapsed it shows the edge; clicking
                              reveals the reading (the panel below), whose header collapses it again. -->
                         <sc-if value="{{ m.facingClosed }}">
-                          <button onClick="{{ m.facingToggle }}" title="Reveal how the system read this answer — the reply beside its own EoT reading" style="position:relative;display:flex;align-items:center;gap:8px;width:100%;margin-top:12px;padding:9px 13px 10px;border:1px solid #E4E0FB;border-radius:11px;background:linear-gradient(180deg,#FBFAFF,#F3F1FD);color:#5B4BE6;box-shadow:0 3px 0 -1px #F1EFFB,0 6px 0 -2px #F6F4FD;text-align:left;overflow:hidden" style-hover="background:#EFEBFE">
+                          <button onClick="{{ m.facingToggle }}" title="Reveal how this answer was made — the verbatim prompt the model was handed, and the reply beside its own EoT reading" style="position:relative;display:flex;align-items:center;gap:8px;width:100%;margin-top:12px;padding:9px 13px 10px;border:1px solid #E4E0FB;border-radius:11px;background:linear-gradient(180deg,#FBFAFF,#F3F1FD);color:#5B4BE6;box-shadow:0 3px 0 -1px #F1EFFB,0 6px 0 -2px #F6F4FD;text-align:left;overflow:hidden" style-hover="background:#EFEBFE">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="M12 6.5C10.5 5.5 8.5 5 6 5H3v13h3c2.5 0 4.5.5 6 1.5M12 6.5C13.5 5.5 15.5 5 18 5h3v13h-3c-2.5 0-4.5.5-6 1.5M12 6.5v13"/></svg>
-                            <span style="flex:0 0 auto;font-weight:600;font-size:12.5px;white-space:nowrap">How it read this</span>
-                            <span style="flex:1 1 0;min-width:0;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;color:#9E96D6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">· reveal the facing reading</span>
+                            <span style="flex:0 0 auto;font-weight:600;font-size:12.5px;white-space:nowrap">What it was prompted</span>
+                            <span style="flex:1 1 0;min-width:0;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;color:#9E96D6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">· reveal the verbatim prompt & the reading</span>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="m6 9 6 6 6-6"/></svg>
                           </button>
                         </sc-if>
                         <sc-if value="{{ m.facingOpen }}">
                           <div style="margin-top:12px;border:1px solid #1d222c;border-radius:12px;overflow:hidden;background:#0d1017">
                             <div onClick="{{ m.facingToggle }}" title="Hide the reading" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 14px;border-bottom:1px solid #1d222c;background:#0a0d13;cursor:pointer" style-hover="background:#0e131b">
-                              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7f8aa0">How it read this answer</span>
+                              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8B93A3">What it was prompted</span>
                               <span style="flex:1"></span>
                               <sc-for list="{{ m.facingLegend }}" as="lg">
                                 <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8b93a3"><span style="width:8px;height:8px;border-radius:2px;background:{{ lg.color }};flex:0 0 auto"></span>{{ lg.label }}</span>
@@ -598,17 +659,17 @@ table{border-collapse:collapse;width:100%}
                               <sc-for list="{{ m.facingKindLegend }}" as="kl">
                                 <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8b93a3"><span style="width:8px;height:8px;border-radius:50%;background:{{ kl.color }};flex:0 0 auto"></span>{{ kl.label }}</span>
                               </sc-for>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7f8aa0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;margin-left:2px"><path d="m6 15 6-6 6 6"/></svg>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8B93A3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;margin-left:2px"><path d="m6 15 6-6 6 6"/></svg>
                             </div>
                             <div class="eo-scroll" style="max-height:360px;overflow:auto;padding:12px 4px 16px">
                               <sc-for list="{{ m.facingLines }}" as="fl">
                                 <div style="display:flex;align-items:baseline;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.6;white-space:pre;background:{{ fl.rowBg }}">
-                                  <span style="flex:0 0 auto;width:40px;text-align:right;padding-right:12px;color:#3a4150;user-select:none">{{ fl.n }}</span>
+                                  <span style="flex:0 0 auto;width:40px;text-align:right;padding-right:12px;color:#7A8494;user-select:none">{{ fl.n }}</span>
                                   <span style="flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;opacity:{{ fl.opacity }}"><sc-for list="{{ fl.segs }}" as="sg"><span style="color:{{ sg.color }}">{{ sg.s }}</span></sc-for></span>
                                 </div>
                               </sc-for>
-                              <sc-if value="{{ m.facingEmpty }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5a6272;padding:8px 0 0 52px">No propositions were read from this answer.</div></sc-if>
-                              <sc-if value="{{ m.facingTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#5a6272;padding:10px 0 0 52px">… {{ m.facingMore }} more lines.</div></sc-if>
+                              <sc-if value="{{ m.facingEmpty }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8B93A3;padding:8px 0 0 52px">No propositions were read from this answer.</div></sc-if>
+                              <sc-if value="{{ m.facingTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8B93A3;padding:10px 0 0 52px">… {{ m.facingMore }} more lines.</div></sc-if>
                             </div>
                           </div>
                         </sc-if>
@@ -618,9 +679,9 @@ table{border-collapse:collapse;width:100%}
                 </sc-for>
               </div>
             </div>
-            <div style="flex:0 0 auto;border-top:1px solid #EAEAEF;padding:14px 24px;background:#fff">
+            <div class="eo-composer" style="flex:0 0 auto;border-top:1px solid #EAEAEF;padding:14px 24px;background:#fff">
               <div style="max-width:680px;margin:0 auto;display:flex;align-items:center;gap:9px;border:1px solid #E0E0E6;border-radius:13px;padding:6px 6px 6px 14px;background:#F7F7FA">
-                <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="{{ chatPlaceholder }}" style="flex:1;border:none;outline:none;background:transparent;font-size:14px;color:#1B1B22;padding:7px 0" />
+                <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="{{ chatPlaceholder }}" class="eo-chatinput" style="flex:1;border:none;outline:none;background:transparent;font-size:14px;color:#1B1B22;padding:7px 0" />
                 <sc-if value="{{ generating }}">
                   <button onClick="{{ stopGen }}" title="Stop" style="width:34px;height:34px;border-radius:9px;background:#FBE9E6;color:#B23A2E;display:flex;align-items:center;justify-content:center;flex:0 0 auto" style-hover="background:#F6DCD7"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
                 </sc-if>
@@ -629,9 +690,10 @@ table{border-collapse:collapse;width:100%}
                 </sc-if>
               </div>
               <div style="max-width:680px;margin:9px auto 0;font-size:11px;color:#A0A0AA;display:flex;align-items:center;gap:6px">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
-                <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Answers only from your recorded sources — nothing enters an answer unrecorded.</span>
+                <svg class="eo-hide-sm" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
+                <span class="eo-hide-sm" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Answers only from your recorded sources — nothing enters an answer unrecorded.</span>
                 <span style="flex:1"></span>
+                <sc-if value="{{ hasChatTokens }}"><span title="Estimated tokens across this whole chat (~4 characters per token). Approximate — the model's own tokenizer is not run on the surface." style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#8A8A95;background:#F2F2F6;border:1px solid #E4E4EA;border-radius:6px;padding:2px 8px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2M9 20h6M12 4v16"/></svg>{{ chatTokens }}</span></sc-if>
                 <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }}" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ entModeLabel }}</button>
                 <button onClick="{{ cycleWebMode }}" title="{{ webModeTitle }}" style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ webModeFg }};background:{{ webModeBg }};border:1px solid {{ webModeBd }}" style-hover="filter:brightness(.97)">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.6 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.6-3.8-9s1.3-6.5 3.8-9z"/></svg>
@@ -644,13 +706,13 @@ table{border-collapse:collapse;width:100%}
 
           <!-- GRAPH TAB -->
           <sc-if value="{{ isGraph }}">
-          <div style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:11px 18px;border-bottom:1px solid #EAEAEF;background:#fff">
+          <div class="eo-graphhead" style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:11px 18px;border-bottom:1px solid #EAEAEF;background:#fff">
             <div style="min-width:0">
               <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA">PROVENANCE DAG · FULLY TRAVERSABLE</div>
               <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#1B1B22;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ graphTitle }}</div>
             </div>
             <span style="flex:1"></span>
-            <div style="display:flex;align-items:center;gap:8px">
+            <div class="eo-graphtools" style="display:flex;align-items:center;gap:8px">
               <sc-if value="{{ graphHasSources }}">
               <button onClick="{{ openTopicEntities }}" title="The entity web across the whole topic — with entity on/off toggles" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #E4E0FB" style-hover="filter:brightness(.98)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M7 7.2 10.6 16M16.8 7.4 13.4 16M7 6h10"/></svg>Entities</button>
               <button onClick="{{ openTopicCausal }}" title="The causal DAG the sources are read as asserting — whole-topic or per-entity, with toggles" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#0B8E7E;background:#E4F6F1;border:1px solid #CBEBE3" style-hover="filter:brightness(.98)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v6m0 0-3 4m3-4 3 4M6 20h.01M12 20h.01M18 20h.01"/></svg>Causal DAG</button>
@@ -677,7 +739,7 @@ table{border-collapse:collapse;width:100%}
           </sc-if>
 
           <sc-if value="{{ graphLive }}">
-          <div data-screen-label="Provenance DAG" onPointerDown="{{ startPan }}" onWheel="{{ onWheel }}" ref="{{ setViewport }}" style="flex:1;min-height:0;position:relative;overflow:hidden;background:#F4F4F7;cursor:{{ panCursor }}">
+          <div data-screen-label="Provenance DAG" onPointerDown="{{ startPan }}" onWheel="{{ onWheel }}" ref="{{ setViewport }}" style="flex:1;min-height:0;position:relative;overflow:hidden;background:#F4F4F7;cursor:{{ panCursor }};touch-action:none">
             <div style="position:absolute;left:0;top:0;width:{{ canvasW }}px;height:{{ canvasH }}px;transform:translate({{ tx }}px,{{ ty }}px) scale({{ scale }});transform-origin:0 0;transition:{{ camT }};background-image:radial-gradient(#E1E1E9 1px,transparent 1px);background-size:26px 26px">
 
               <!-- sc-camel-width/-d etc.: the raw {{ }} placeholders are only compiled at mount, but this
@@ -946,8 +1008,8 @@ table{border-collapse:collapse;width:100%}
               </div>
               <div style="display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap">
                 <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
-                  <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <sc-if value="{{ viewerCanPage }}"><button onClick="{{ viewerModePage }}" title="Render the real website" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPageFg }};background:{{ vmPageBg }}">Native</button></sc-if>
+                  <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">Facing</button>
                   <button onClick="{{ viewerModeEot }}" title="The reading, as EoT" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">EoT · {{ viewer.eotCount }}</button>
                 </span>
@@ -963,9 +1025,58 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ cycleReadTheme }}" title="Paper theme" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">{{ readThemeLabel }}</button>
                   <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ entModeLabel }}</button>
                 </sc-if>
+                <sc-if value="{{ viewerIsPage }}">
+                  <sc-if value="{{ hasNativeToc }}"><button onClick="{{ toggleNativeToc }}" title="On this page" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">☰ Contents</button></sc-if>
+                  <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ entModeLabel }}</button>
+                </sc-if>
                 <sc-if value="{{ viewerIsEot }}"><button onClick="{{ downloadEot }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ .eot</button></sc-if>
               </div>
             </div>
+
+            <!-- MEDIA PANEL — a decoded audio/video source plays here, above its reading, in every -->
+            <!-- mode: the file itself, its waveform tinted by the signal/noise holons, the basic -->
+            <!-- analysis, and the live transcription status. -->
+            <sc-if value="{{ viewer.media.show }}">
+              <div class="eo-scroll" style="flex:0 0 auto;max-height:44%;overflow-y:auto;background:#fff;border-bottom:1px solid #EAEAEF;padding:13px 18px;display:flex;flex-direction:column;gap:11px">
+                <sc-if value="{{ viewer.media.showVideo }}">
+                  <video controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;max-height:260px;border-radius:9px;background:#000;display:block"></video>
+                </sc-if>
+                <sc-if value="{{ viewer.media.showAudio }}">
+                  <audio controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;display:block"></audio>
+                </sc-if>
+                <sc-if value="{{ viewer.media.hasWave }}">
+                  <div>
+                    <div style="display:flex;align-items:center;gap:1px;height:62px;padding:7px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden">
+                      <sc-for list="{{ viewer.media.bars }}" as="b">
+                        <div style="flex:1 1 0;min-width:1px;height:{{ b.hPct }}%;background:{{ b.bg }};border-radius:1px"></div>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;margin-top:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">
+                      <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#6D5EF5;display:inline-block"></span>signal</span>
+                      <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#C9CBD6;display:inline-block"></span>noise / silence</span>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ viewer.media.hasStats }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <sc-for list="{{ viewer.media.stats }}" as="st">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 8px"><b style="color:#8A8A95;font-weight:600">{{ st.label }}</b>&nbsp;{{ st.val }}</span>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ viewer.media.asrShow }}">
+                  <div style="display:flex;flex-direction:column;gap:6px;background:{{ viewer.media.asrBg }};border-radius:8px;padding:9px 12px">
+                    <div style="display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600;color:{{ viewer.media.asrTone }}">
+                      <sc-if value="{{ viewer.media.asrBusy }}"><span style="width:13px;height:13px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span></sc-if>
+                      <span>{{ viewer.media.asrLabel }}</span>
+                    </div>
+                    <sc-if value="{{ viewer.media.hasPartial }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#5A5A66;line-height:1.55;max-height:58px;overflow:hidden">…{{ viewer.media.asrPartial }}</div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
 
             <sc-if value="{{ viewerIsReader }}">
               <div style="flex:1;min-height:0;position:relative;background:#fff">
@@ -995,7 +1106,15 @@ table{border-collapse:collapse;width:100%}
                   </div>
                 </sc-if>
                 <sc-if value="{{ pageShow }}">
-                  <iframe srcdoc="{{ pageDoc }}" sandbox="allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
+                  <iframe ref="{{ setNativeFrame }}" srcdoc="{{ pageDoc }}" sandbox="allow-same-origin allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
+                </sc-if>
+                <sc-if value="{{ nativeTocOpen }}">
+                  <div class="eo-scroll" style="position:absolute;top:10px;left:10px;bottom:10px;width:262px;overflow-y:auto;background:#fff;border:1px solid #EAEAEF;border-radius:12px;box-shadow:0 14px 44px rgba(20,20,30,.18);padding:9px">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#9A9AA4;padding:4px 8px 8px">On this page</div>
+                    <sc-for list="{{ nativeToc }}" as="c">
+                      <button onClick="{{ c.go }}" style="display:block;width:100%;text-align:left;font-family:'Newsreader',Georgia,serif;font-size:13.5px;color:#2A2A32;border-radius:7px;padding:7px 10px 7px {{ c.pad }}px" style-hover="background:#F2F2F6">{{ c.label }}</button>
+                    </sc-for>
+                  </div>
                 </sc-if>
               </div>
             </sc-if>
@@ -1019,7 +1138,7 @@ table{border-collapse:collapse;width:100%}
                 <!-- RIGHT LEAF — how the system READ it: the EoT surface, coloured by element type -->
                 <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#0d1017">
                   <div style="flex:0 0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 18px;border-bottom:1px solid #1d222c;background:#0a0d13">
-                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5a6272">How it read it</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8B93A3">How it read it</span>
                     <span style="flex:1"></span>
                     <sc-for list="{{ facingLegend }}" as="lg">
                       <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8b93a3"><span style="width:9px;height:9px;border-radius:2px;background:{{ lg.color }};flex:0 0 auto"></span>{{ lg.label }}</span>
@@ -1032,11 +1151,11 @@ table{border-collapse:collapse;width:100%}
                   <div class="eo-scroll" style="flex:1;min-height:0;overflow:auto;padding:16px 4px 22px">
                     <sc-for list="{{ facingLines }}" as="fl">
                       <div style="display:flex;align-items:baseline;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.65;white-space:pre;background:{{ fl.rowBg }}">
-                        <span style="flex:0 0 auto;width:46px;text-align:right;padding-right:14px;color:#3a4150;user-select:none">{{ fl.n }}</span>
+                        <span style="flex:0 0 auto;width:46px;text-align:right;padding-right:14px;color:#7A8494;user-select:none">{{ fl.n }}</span>
                         <span style="flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;opacity:{{ fl.opacity }}"><sc-for list="{{ fl.segs }}" as="sg"><span style="color:{{ sg.color }}">{{ sg.s }}</span></sc-for></span>
                       </div>
                     </sc-for>
-                    <sc-if value="{{ facingTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#5a6272;padding:14px 0 0 60px">… {{ facingMore }} more lines — the EoT tab downloads the whole reading.</div></sc-if>
+                    <sc-if value="{{ facingTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8B93A3;padding:14px 0 0 60px">… {{ facingMore }} more lines — the EoT tab downloads the whole reading.</div></sc-if>
                   </div>
                 </div>
               </div>
@@ -1048,7 +1167,7 @@ table{border-collapse:collapse;width:100%}
                    on the terminal. Full width here (no document leaf), the whole reading in one pane. -->
               <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#0d1017">
                 <div style="flex:0 0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 18px;border-bottom:1px solid #1d222c;background:#0a0d13">
-                  <span title="Every proposition this reading admitted, in the canonical EoT surface — the structure layer round-trips through parseEOT unchanged; #-lines carry the reading's own thinking (predictions, surprise, turning points)." style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5a6272">The reading, as EoT</span>
+                  <span title="Every proposition this reading admitted, in the canonical EoT surface — the structure layer round-trips through parseEOT unchanged; #-lines carry the reading's own thinking (predictions, surprise, turning points)." style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8B93A3">The reading, as EoT</span>
                   <span style="flex:1"></span>
                   <sc-for list="{{ eotLegend }}" as="lg">
                     <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8b93a3"><span style="width:9px;height:9px;border-radius:2px;background:{{ lg.color }};flex:0 0 auto"></span>{{ lg.label }}</span>
@@ -1061,11 +1180,11 @@ table{border-collapse:collapse;width:100%}
                 <div class="eo-scroll" style="flex:1;min-height:0;overflow:auto;padding:16px 4px 22px">
                   <sc-for list="{{ eotLines }}" as="el">
                     <div style="display:flex;align-items:baseline;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.65;white-space:pre;background:{{ el.rowBg }}">
-                      <span style="flex:0 0 auto;width:46px;text-align:right;padding-right:14px;color:#3a4150;user-select:none">{{ el.n }}</span>
+                      <span style="flex:0 0 auto;width:46px;text-align:right;padding-right:14px;color:#7A8494;user-select:none">{{ el.n }}</span>
                       <span style="flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;opacity:{{ el.opacity }}"><sc-for list="{{ el.segs }}" as="sg"><span style="color:{{ sg.color }}">{{ sg.s }}</span></sc-for></span>
                     </div>
                   </sc-for>
-                  <sc-if value="{{ eotTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#5a6272;padding:14px 0 0 60px">… {{ eotMore }} more lines — download the full .eot above.</div></sc-if>
+                  <sc-if value="{{ eotTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8B93A3;padding:14px 0 0 60px">… {{ eotMore }} more lines — download the full .eot above.</div></sc-if>
                 </div>
               </div>
             </sc-if>
@@ -1076,7 +1195,7 @@ table{border-collapse:collapse;width:100%}
 
         <!-- RIGHT PANEL — ENTITIES / INSPECTOR -->
         <sc-if value="{{ rightOpen }}">
-        <aside class="eo-scroll" style="width:340px;flex:0 0 auto;background:#fff;border-left:1px solid #EAEAEF;overflow-y:auto;min-height:0">
+        <aside class="eo-scroll eo-right" style="width:340px;flex:0 0 auto;background:#fff;border-left:1px solid #EAEAEF;overflow-y:auto;min-height:0">
           <div style="padding:14px 16px">
 
             <!-- GRAPH-NODE INSPECTOR -->
@@ -1144,10 +1263,24 @@ table{border-collapse:collapse;width:100%}
 
               <sc-if value="{{ prof.hasDefs }}">
                 <div style="margin-top:16px">
-                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES</div>
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES <span style="color:#C0C0C8;font-weight:600">· ranked by what the record witnesses</span></div>
                   <sc-for list="{{ prof.defs }}" as="d">
-                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32;border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">{{ d.value }}</div>
+                    <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ d.value }}</div>
+                      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ d.prov }} · {{ d.conf }}</span>
+                        <sc-for list="{{ d.cites }}" as="w">
+                          <button onClick="{{ w.jump }}" title="Jump to this passage in the source" style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#0F6E56;background:#E1F5EE;border-radius:5px;padding:1px 6px" style-hover="background:#D2EFE4">{{ w.label }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
                   </sc-for>
+                  <sc-if value="{{ prof.hasDag }}">
+                    <div style="margin-top:6px;border:1px solid #EFEFF3;border-radius:9px;padding:10px 8px 6px;background:#fff">
+                      <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 4px">PROVENANCE</div>
+                      <div ref="{{ prof.setDagEl }}"></div>
+                    </div>
+                  </sc-if>
                 </div>
               </sc-if>
 
@@ -1214,7 +1347,9 @@ table{border-collapse:collapse;width:100%}
   <sc-if value="{{ searchShow }}">
     <div style="position:absolute;inset:0;z-index:46">
       <div onClick="{{ closeSearch }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
-      <div style="position:absolute;left:50%;top:60px;transform:translateX(-50%);width:min(640px,92vw);max-height:calc(100vh - 120px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+      <div class="eo-modal" style="position:absolute;left:50%;top:60px;transform:translateX(-50%);width:{{ searchModalW }};max-height:calc(100vh - 120px);height:{{ searchModalH }};background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+        <!-- RESULTS HEADER -->
+        <sc-if value="{{ searchListShow }}">
         <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid #EAEAEF">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
           <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">“{{ searchQ }}”</span>
@@ -1231,15 +1366,80 @@ table{border-collapse:collapse;width:100%}
           <sc-for list="{{ searchRows }}" as="sr">
             <div style="display:flex;gap:11px;padding:11px 10px;border-radius:11px;align-items:flex-start" style-hover="background:#F7F7FA">
               <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:5px;padding:2px 7px;flex:0 0 auto;margin-top:2px">{{ sr.kind }}</span>
-              <span style="flex:1;min-width:0">
+              <button onClick="{{ sr.open }}" title="Load the site here" style="flex:1;min-width:0;text-align:left;background:transparent;border:none;padding:0;cursor:pointer">
                 <span style="display:block;font-size:13.5px;font-weight:600;color:#2A2A32;line-height:1.35">{{ sr.title }}</span>
                 <span style="display:block;font-size:12px;color:#6E6E78;line-height:1.5;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ sr.snippet }}</span>
                 <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sr.url }}</span>
-              </span>
+              </button>
               <button onClick="{{ sr.record }}" style="flex:0 0 auto;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:11.5px;border-radius:8px;padding:6px 11px;margin-top:2px" style-hover="background:#E7E2FD">{{ sr.recordLabel }}</button>
             </div>
           </sc-for>
         </div>
+        </sc-if>
+        <!-- NATIVE PREVIEW — the real site, loaded before it's recorded -->
+        <sc-if value="{{ previewShow }}">
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #EAEAEF;background:#FBFBFD">
+          <button onClick="{{ backToResults }}" title="Back to results" style="flex:0 0 auto;display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#5B4BE6;padding:5px 9px;border-radius:7px" style-hover="background:#F1EFFE"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Results</button>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:15.5px;font-weight:600;color:#1B1B22;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ previewTitle }}</span>
+            <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ previewUrl }}</span>
+          </span>
+          <a href="{{ previewUrl }}" target="_blank" rel="noopener" style="flex:0 0 auto;font-size:11px;font-weight:600;color:#8A8A95;text-decoration:none">open ↗</a>
+          <button onClick="{{ addPreviewSource }}" disabled="{{ previewAddBusy }}" style="flex:0 0 auto;background:#5B4BE6;border:1px solid #5B4BE6;color:#fff;font-weight:600;font-size:12px;border-radius:8px;padding:7px 14px" style-hover="filter:brightness(1.06)">{{ previewAddLabel }}</button>
+          <button onClick="{{ closeSearch }}" style="flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div style="flex:1;min-height:0;position:relative;background:#fff">
+          <sc-if value="{{ previewBusy }}">
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#9A9AA4">
+              <span style="width:26px;height:26px;border-radius:50%;border:3px solid #EDEBFB;border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box"></span>
+              <span style="font-size:12.5px">Loading the live page…</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ previewHasErr }}">
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:34px;text-align:center;color:#6E6E78">
+              <span style="font-size:13px;line-height:1.55">Couldn’t load this page here.<br><a href="{{ previewUrl }}" target="_blank" rel="noopener" style="color:#5B4BE6;font-weight:600">Open the original in a new tab ↗</a>&nbsp; · &nbsp;<button onClick="{{ retryPreview }}" style="color:#5B4BE6;font-weight:600;display:inline">retry</button>&nbsp; · &nbsp;<button onClick="{{ addPreviewSource }}" style="color:#5B4BE6;font-weight:600;display:inline">add anyway</button></span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ previewPageShow }}">
+            <iframe srcdoc="{{ previewDoc }}" sandbox="allow-same-origin allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
+          </sc-if>
+        </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ⌘K SOURCE PALETTE — search THROUGH the record: titles, sites, and every recorded word -->
+  <sc-if value="{{ cmdkShow }}">
+    <div style="position:absolute;inset:0;z-index:55">
+      <div onClick="{{ closeCmdk }}" style="position:absolute;inset:0;background:rgba(18,18,26,.36);animation:eoFade .16s ease"></div>
+      <div class="eo-modal" style="position:absolute;left:50%;top:72px;transform:translateX(-50%);width:min(680px,94vw);max-height:calc(100vh - 150px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 28px 80px rgba(20,20,30,.32);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:11px;padding:15px 18px;border-bottom:1px solid #F0F0F4">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="eo-cmdk-input" value="{{ cmdkQuery }}" onChange="{{ onCmdkInput }}" onKeyDown="{{ onCmdkKey }}" placeholder="Search your sources — titles, sites, and every recorded word…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;font-size:15px;color:#1B1B22;background:transparent" />
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#B4B4BE;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:5px;padding:2px 6px">ESC</span>
+        </div>
+        <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:8px">
+          <sc-if value="{{ cmdkNone }}">
+            <div style="padding:30px 22px;text-align:center;font-size:12.5px;color:#9A9AA4;line-height:1.6">{{ cmdkEmptyMsg }}</div>
+          </sc-if>
+          <sc-if value="{{ cmdkHasHint }}">
+            <div style="padding:7px 12px 8px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.07em;color:#B4B4BE">{{ cmdkHint }}</div>
+          </sc-if>
+          <sc-for list="{{ cmdkRows }}" as="cr">
+            <button onClick="{{ cr.open }}" style="width:100%;display:flex;gap:12px;padding:11px 12px;border-radius:11px;align-items:flex-start;text-align:left;background:{{ cr.bg }}" style-hover="background:#F5F5F8">
+              <span style="width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ cr.favBg }};color:{{ cr.favFg }}">{{ cr.favCh }}</span>
+              <span style="flex:1;min-width:0">
+                <span style="display:block;font-size:13.5px;font-weight:600;color:#20202A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cr.title }}</span>
+                <sc-if value="{{ cr.hasSnippet }}">
+                  <span style="display:block;font-size:12px;color:#6E6E78;line-height:1.55;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"><sc-for list="{{ cr.snipSegs }}" as="sp"><sc-if value="{{ sp.hit }}"><b style="color:#4B3FD0;font-weight:700;background:#EFECFE;border-radius:3px;padding:0 1px">{{ sp.s }}</b></sc-if><sc-if value="{{ sp.plain }}"><span>{{ sp.s }}</span></sc-if></sc-for></span>
+                </sc-if>
+                <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A8A8B2;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cr.meta }}</span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:15px;padding:9px 16px;border-top:1px solid #F0F0F4;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A8A8B2"><span>↑↓ move</span><span>↵ open</span><span>⌘K toggle</span><span style="flex:1"></span><span>{{ cmdkCount }}</span></div>
       </div>
     </div>
   </sc-if>
@@ -1317,7 +1517,7 @@ table{border-collapse:collapse;width:100%}
   <sc-if value="{{ webGraphShow }}">
     <div style="position:absolute;inset:0;z-index:48">
       <div onClick="{{ closeWebGraph }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
-      <div style="position:absolute;left:50%;top:34px;bottom:34px;transform:translateX(-50%);width:min(1060px,95vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+      <div class="eo-modal eo-tall" style="position:absolute;left:50%;top:34px;bottom:34px;transform:translateX(-50%);width:min(1360px,96vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
         <div style="flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #EAEAEF">
           <div style="display:flex;gap:3px;background:#F4F4F7;border-radius:9px;padding:3px">
             <button onClick="{{ setWebKindEntity }}" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindEntFg }};background:{{ webKindEntBg }}">Entities</button>
@@ -1326,8 +1526,8 @@ table{border-collapse:collapse;width:100%}
           <span style="font-family:'Newsreader',Georgia,serif;font-size:16px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ webGraphTitle }}</span>
           <button onClick="{{ closeWebGraph }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         </div>
-        <div style="flex:1;min-height:0;display:flex">
-          <div style="flex:0 0 232px;border-right:1px solid #EEEEF2;display:flex;flex-direction:column;overflow:hidden;background:#FCFCFD">
+        <div class="eo-wgbody" style="flex:1;min-height:0;display:flex">
+          <div class="eo-wgside" style="flex:0 0 232px;border-right:1px solid #EEEEF2;display:flex;flex-direction:column;overflow:hidden;background:#FCFCFD">
             <div style="padding:11px 13px;border-bottom:1px solid #EEEEF2">
               <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#A0A0AA;margin-bottom:6px">SCOPE</div>
               <div style="display:flex;flex-direction:column;gap:5px">
@@ -1356,6 +1556,98 @@ table{border-collapse:collapse;width:100%}
             </div>
           </div>
           <div ref="{{ setWebGraphEl }}" class="eo-scroll" style="flex:1;min-width:0;overflow:auto"></div>
+
+          <!-- THE DETAILS PANEL — the profile of the entity the web opened on, following every
+               node click. Same facts as the sidebar profile (one builder renders both). -->
+          <sc-if value="{{ webProfShow }}">
+            <aside class="eo-scroll" style="flex:0 0 306px;border-left:1px solid #EEEEF2;overflow-y:auto;min-height:0;background:#fff">
+              <div style="padding:13px 14px">
+                <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
+                  <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ webProf.initials }}</span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#1B1B22;line-height:1.2">{{ webProf.label }}</span>
+                    <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ webProf.counts }}</span>
+                  </span>
+                </div>
+                <button onClick="{{ webProf.openSource }}" title="Open the source this entity was read from" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:6px;padding:3px 8px;margin:6px 0 2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" style-hover="background:#E5E8EC">{{ webProf.srcReg }} · {{ webProf.srcTitle }}</button>
+
+                <div style="display:flex;gap:7px;margin-top:11px">
+                  <button onClick="{{ webProfFocus }}" title="Redraw the web around this entity" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12px;border-radius:8px;padding:7px" style-hover="background:#E7E2FD">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg>
+                    Focus the web
+                  </button>
+                  <button onClick="{{ webProfOpenFull }}" title="Open the full profile in the entities panel" style="flex:0 0 auto;font-size:12px;font-weight:600;color:#6E6E78;border:1px solid #EAEAEF;border-radius:8px;padding:7px 11px" style-hover="background:#F5F5F8">Full profile</button>
+                </div>
+
+                <div style="margin-top:15px">
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
+                  <sc-if value="{{ webProf.wikiWait }}">
+                    <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">Looking for a matching article…</div>
+                  </sc-if>
+                  <sc-if value="{{ webProf.hasWiki }}">
+                    <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;background:#FBFBFD">
+                      <sc-if value="{{ webProf.hasWikiDesc }}">
+                        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ webProf.wikiDesc }}</div>
+                      </sc-if>
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ webProf.wikiText }}</div>
+                      <a href="{{ webProf.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:#5B4BE6;margin-top:7px;text-decoration:none">{{ webProf.wikiTitle }} ↗</a>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ webProf.wikiAbsent }}">
+                    <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">No confirmed Wikipedia match for this referent.</div>
+                  </sc-if>
+                </div>
+
+                <sc-if value="{{ webProf.hasDefs }}">
+                  <div style="margin-top:15px">
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES <span style="color:#C0C0C8;font-weight:600">· ranked</span></div>
+                    <sc-for list="{{ webProf.defs }}" as="d">
+                      <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ d.value }}</div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px">
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ d.prov }} · {{ d.conf }}</span>
+                          <sc-for list="{{ d.cites }}" as="w">
+                            <button onClick="{{ w.jump }}" title="Jump to this passage in the source" style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#0F6E56;background:#E1F5EE;border-radius:5px;padding:1px 6px" style-hover="background:#D2EFE4">{{ w.label }}</button>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ webProf.hasDag }}">
+                      <div style="margin-top:6px;border:1px solid #EFEFF3;border-radius:9px;padding:10px 8px 6px;background:#fff">
+                        <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 4px">PROVENANCE</div>
+                        <div ref="{{ webProf.setDagEl }}"></div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ webProf.hasRelations }}">
+                  <div style="margin-top:15px">
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">CONNECTED ENTITIES</div>
+                    <sc-for list="{{ webProf.relations }}" as="r">
+                      <button onClick="{{ r.pivot }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:7px 10px;border:1px solid #EAEAEF;border-radius:9px;margin-bottom:5px" style-hover="background:#FAFAFC">
+                        <span style="flex:1;min-width:0;font-size:12px;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left"><b style="font-weight:600">{{ r.other }}</b></span>
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8A95;flex:0 0 auto">{{ r.via }}</span>
+                        <span style="color:#C4C4CC;flex:0 0 auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ webProf.hasMentions }}">
+                  <div style="margin-top:15px">
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">MENTIONS · {{ webProf.mentionCount }}</div>
+                    <sc-for list="{{ webProf.mentions }}" as="mn">
+                      <button onClick="{{ mn.jump }}" title="Open the source at this passage" style="width:100%;display:flex;gap:9px;padding:7px 10px;border:1px solid #EFEFF3;border-radius:9px;margin-bottom:5px;background:#FBFBFD" style-hover="background:#fff">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B4B4BE;flex:0 0 auto;margin-top:2px">¶{{ mn.idx }}</span>
+                        <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.45;color:#5A5A64;text-align:left;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ mn.text }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </aside>
+          </sc-if>
         </div>
       </div>
     </div>
@@ -1365,7 +1657,7 @@ table{border-collapse:collapse;width:100%}
   <sc-if value="{{ monologueOpen }}">
     <div style="position:absolute;inset:0;z-index:40">
       <div onClick="{{ closeMonologue }}" style="position:absolute;inset:0;background:rgba(20,20,28,.24);animation:eoFade .16s ease"></div>
-      <div class="eo-scroll" style="position:absolute;right:0;top:0;height:100%;width:440px;background:#fff;border-left:1px solid #EAEAEF;box-shadow:-12px 0 40px rgba(20,20,30,.12);overflow-y:auto;animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)">
+      <div class="eo-scroll eo-drawer" style="position:absolute;right:0;top:0;height:100%;width:440px;background:#fff;border-left:1px solid #EAEAEF;box-shadow:-12px 0 40px rgba(20,20,30,.12);overflow-y:auto;animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)">
         <div style="position:sticky;top:0;background:#fff;border-bottom:1px solid #EAEAEF;padding:15px 18px;z-index:2">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600">Master log</div>
@@ -1462,7 +1754,7 @@ table{border-collapse:collapse;width:100%}
 
   <!-- TOAST -->
   <sc-if value="{{ toast }}">
-    <div style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;background:#1B1B22;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(20,20,30,.3);animation:eoToast .2s ease;max-width:520px">{{ toast }}</div>
+    <div class="eo-toast" style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;background:#1B1B22;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(20,20,30,.3);animation:eoToast .2s ease;max-width:520px">{{ toast }}</div>
   </sc-if>
 
   <!-- DRAG OVERLAY -->
@@ -1478,9 +1770,14 @@ table{border-collapse:collapse;width:100%}
 class Component extends DCLogic {
   constructor(props) {
     super(props);
+    // Small screens (the phone layer): the side panels become overlay drawers, so they
+    // start CLOSED there regardless of the desktop prefs — the chat is the whole stage.
+    let mobile = false;
+    try { this._mq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(max-width: 820px)') : null; mobile = !!(this._mq && this._mq.matches); } catch { this._mq = null; }
     this.state = {
       tab: 'chat', omni: '', chatInput: '', toast: null,
-      leftOpen: this._pref('eo_left', true), rightOpen: this._pref('eo_right', true),
+      isMobile: mobile,
+      leftOpen: mobile ? false : this._pref('eo_left', true), rightOpen: mobile ? false : this._pref('eo_right', true),
       statusOpen: false, monologueOpen: false, logMode: 'actions',
       focusId: null, hideContra: false, tx: 40, ty: 30, scale: 1, camT: 'none',
       // Graph tiers fold like NotebookLM sections — collapsed by default; the user opens
@@ -1489,11 +1786,16 @@ class Component extends DCLogic {
       // Sources open as TABS IN THE MAIN STAGE — each recorded source you open becomes a tab in
       // the main tab bar (alongside Chat / Graph / …) and fills the stage; no overlay. state.tab
       // holds the active tab, and when it is a source's sn, that source is what the stage shows.
-      viewerTabs: [], viewerModes: {}, viewerFocus: {},
+      viewerTabs: [], viewerModes: {}, viewerFocus: {}, nativeToc: [],
       viewerPages: {},   // sn -> { doc, busy, err } for the native render, fetched on demand
       tocOpen: false,
       readPrefs: this._readPrefs(),
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
+      // A search hit opens as a NATIVE PREVIEW first — the real page, loaded normally in a sandboxed
+      // frame — and only becomes a recorded source when you choose to add it. { item, doc, busy, err }.
+      searchPreview: null,
+      // ⌘K source palette — full-text search across every recorded source (title · site · body)
+      cmdkOpen: false, cmdkQuery: '', cmdkSel: 0,
       pasteOpen: false, pasteTitle: '', pasteBody: '',
       modelOpen: false, topicMenu: null, exportMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
@@ -1559,7 +1861,17 @@ class Component extends DCLogic {
   _saveReadPos(sn, f) { try { localStorage.setItem(this._readPosKey(sn), String(Math.max(0, Math.min(1, f)))); } catch {} }
 
   _onEngine(kind) {
-    if (kind === 'sources') { this._entCache = null; this._viewCache = null; this._segCache = {}; }
+    if (kind === 'sources') {
+      this._entCache = null; this._viewCache = null; this._segCache = {};
+      // A source's text can change AFTER it lands — an audio source is recorded from its
+      // acoustic reading, then its transcript folds in. Drop the cached reader iframe for any
+      // open source whose content signature moved, so the reader re-renders the new text (and
+      // only then — a partial-progress emit leaves the text untouched, so no needless reload).
+      for (const sn in this._readerCache) {
+        const s = this._app && this._app.sourceBySn(sn);
+        if (!s || (this._readerCache[sn] && this._readerCache[sn]._sig !== s.sha)) delete this._readerCache[sn];
+      }
+    }
     if (kind === 'topics') {
       // Entities are SILOED PER TOPIC: the explorer derives from the active topic's sources,
       // so any cached list is stale the moment topics change — a fresh topic must open with
@@ -1571,6 +1883,26 @@ class Component extends DCLogic {
         this._topicSeen = tid;
         if (this.state.webGraphFor) this.closeWebGraph();
         if (this.state.entitySel) this.setState({ entitySel: null });
+        // A DOCUMENT belongs to a topic too: a source opened in the viewer is scoped to the
+        // topic that recorded it. On a real switch, drop the source tabs that the new topic
+        // does not hold — and if one of them was in front, fall back to this topic's Chat, so
+        // clicking into a topic never leaves us reading the last topic's document. (A source
+        // shared with the new topic stays open where it is.)
+        const t = this._app.topic ? this._app.topic() : null;
+        const kept = new Set(t ? t.sourceSns : []);
+        const tabs = this.state.viewerTabs.filter((sn) => kept.has(sn));
+        if (tabs.length !== this.state.viewerTabs.length) {
+          const modes = { ...this.state.viewerModes };
+          const focus = { ...this.state.viewerFocus };
+          const pages = { ...this.state.viewerPages };
+          for (const sn of this.state.viewerTabs) if (!kept.has(sn)) {
+            delete modes[sn]; delete focus[sn]; delete pages[sn]; delete this._readerCache[sn];
+          }
+          const tab = tabs.includes(this.state.tab) ? this.state.tab
+            : (this.state.viewerTabs.includes(this.state.tab) ? 'chat' : this.state.tab);
+          if (tab !== this.state.tab) { this._readerFrame = null; this._nativeFrame = null; this._viewCache = null; }
+          this.setState({ viewerTabs: tabs, viewerModes: modes, viewerFocus: focus, viewerPages: pages, tab });
+        }
       }
     }
     if (kind === 'messages') { this._segCache = {}; }
@@ -1588,6 +1920,27 @@ class Component extends DCLogic {
     for (const t of topics) for (const m of (t.messages || [])) {
       if (m.role === 'assistant' && m.pending && this._reveal[m.id] === undefined) this._reveal[m.id] = 0;
     }
+  }
+  // A rough token count for a string — ~4 characters per token, the standard heuristic for
+  // English text. It is an ESTIMATE (the model's own tokenizer isn't run on the surface), so it
+  // is always shown with a leading "~". Whitespace-only strings count as nothing.
+  _estimateTokens(str) {
+    const s = String(str || '').trim();
+    return s ? Math.ceil(s.length / 4) : 0;
+  }
+  // Total tokens a chat (topic) has spent — summed across every message's text, both sides of the
+  // exchange. Drives the per-chat counter in the sidebar and the live counter under the composer.
+  _topicTokens(t) {
+    if (!t || !Array.isArray(t.messages)) return 0;
+    let n = 0;
+    for (const m of t.messages) n += this._estimateTokens(m.text);
+    return n;
+  }
+  // Compact display: 940 → "940", 1240 → "1.2k", 24000 → "24k".
+  _fmtTokens(n) {
+    if (n >= 10000) return Math.round(n / 1000) + 'k';
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    return String(n);
   }
   // How many chars this message has revealed. Seeded on first sight: a pending message starts
   // at 0 and types in; a message first seen already settled (restored history) shows whole, so
@@ -1729,6 +2082,34 @@ class Component extends DCLogic {
       ui.setState({ dragOver: false });
       [...(e.dataTransfer && e.dataTransfer.files || [])].forEach((f) => ui._ingestFile(f));
     });
+    // ⌘K / Ctrl-K anywhere opens the source palette; Escape closes it. (Arrow/Enter navigation is
+    // handled by the palette input's own onKeyDown while it holds focus.)
+    window.addEventListener('keydown', (e) => {
+      const ui = window.__eoUI; if (!ui) return;
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); ui.toggleCmdk(); return; }
+      if (e.key === 'Escape' && ui.state.cmdkOpen) { e.preventDefault(); ui.closeCmdk(); }
+    });
+    // Click-away closes the model selector. pointerdown (not click) so it can't race the
+    // popover's own buttons: a press INSIDE anything marked data-eo-model — the chip (its
+    // own onClick toggles) or the popover — is left alone; any other press dismisses.
+    document.addEventListener('pointerdown', (e) => {
+      const ui = window.__eoUI; if (!ui || !ui.state.modelOpen) return;
+      const t = e.target;
+      if (t && t.closest && t.closest('[data-eo-model]')) return;
+      ui.setState({ modelOpen: false });
+    });
+    // Crossing the mobile breakpoint (rotation, resize, foldables): drawers close going
+    // small; the desktop prefs come back going wide.
+    try {
+      const mq = window.matchMedia('(max-width: 820px)');
+      const onMq = (e) => {
+        const ui = window.__eoUI; if (!ui) return;
+        ui.setState(e.matches
+          ? { isMobile: true, leftOpen: false, rightOpen: false }
+          : { isMobile: false, leftOpen: ui._pref('eo_left', true), rightOpen: ui._pref('eo_right', true) });
+      };
+      if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq);
+    } catch {}
   }
   _ensureFileInput() {
     if (this._fileInput && document.body.contains(this._fileInput)) return this._fileInput;
@@ -1757,7 +2138,7 @@ class Component extends DCLogic {
     if (q.length > 400) { this.setState({ pasteOpen: true, pasteBody: q, omni: '' }); return; }
     if (urlish) {
       this.setState({ omni: '' });
-      this._app.ingestUrl(q).then((s) => this.showToast(`Recorded ${s.reg} — ${s.title}`))
+      this._app.ingestUrl(q).then((s) => { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
         .catch((err) => this.showToast(`Couldn't read that page: ${String(err && err.message || err).slice(0, 90)}`));
     } else {
       this.runSearch(q);
@@ -1773,15 +2154,61 @@ class Component extends DCLogic {
     const key = item.url || item.title;
     this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'busy' } });
     this._app.recordHit(item, this.state.searchQ)
-      .then((s) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'done' } }); this.showToast(`Recorded ${s.reg} — ${s.title}`); })
+      .then((s) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'done' } }); this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
       .catch((err) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: null } }); this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`); });
+  }
+  // ── search hit → native preview → add as source ────────────────────────────
+  // Clicking a search result LOADS THE SITE NORMALLY first (the real page, through the same proxy
+  // chain ingest uses, sanitized + sandboxed by nativePageHtml) — nothing is recorded yet. The
+  // preview's "Add as source" button is the only thing that admits it into the record.
+  previewHit(item) {
+    if (!item || !item.url || !this._app || !this._app.fetchPage || !this._render) return;
+    this.setState({ searchPreview: { item, doc: null, err: null, busy: true } });
+    this._app.fetchPage(item.url).then((r) => {
+      const doc = this._render.nativePageHtml(r.html, { baseUrl: r.url || item.url, prefs: this.state.readPrefs });
+      const p = this.state.searchPreview;               // the user may have gone back or previewed another hit
+      if (p && p.item === item) this.setState({ searchPreview: { item, doc, err: null, busy: false } });
+    }).catch((e) => {
+      const p = this.state.searchPreview;
+      if (p && p.item === item) this.setState({ searchPreview: { item, doc: null, err: String((e && e.message) || e), busy: false } });
+    });
+  }
+  closePreview() { this.setState({ searchPreview: null }); }
+  addPreviewSource() {
+    const p = this.state.searchPreview; if (!p) return;
+    this.recordHit(p.item);                              // records, then _revealImport opens the source viewer
+    this.setState({ searchPreview: null, searchOpen: false });
   }
   _ingestFile(f) {
     if (!this._app) return;
-    this._app.ingestFile(f).then((s) => this.showToast(`Recorded ${s.reg} — ${s.title}`))
+    // For media the source lands (and reveals) AT ONCE via onSource — long before the
+    // transcript. Other modalities have no early source, so the final resolve reveals them.
+    let revealed = false;
+    this._app.ingestFile(f, { onSource: (s) => { revealed = true; this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); } })
+      .then((s) => { if (s && !revealed) { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); } })
       .catch((err) => this.showToast(`Couldn't read ${f.name}: ${String(err && err.message || err).slice(0, 90)}`));
   }
+  // ── the import reveal — the first surface a new source renders ─────────────
+  // The moment a source lands (any modality — a PDF, a photo's scene, an audio
+  // transcript, a spreadsheet), open the engine's OWN reading of it before anything
+  // else: the causal DAG the source is read as asserting, or the entity web of its
+  // figures and bonds. No model runs — everything shown is the parser's and the graph
+  // projections' work. The organ that read the file picks the surface (first-surface.js,
+  // pure + CI-tested); the source also opens as the active tab so the DAG's document
+  // cursor reads IT. Best-effort: a reveal that fails leaves the toast + registry intact.
+  _revealImport(src) {
+    if (!src || !src.sn || !this._app) return;
+    try {
+      this.openViewer(src.sn);
+      let causalEdges = 0, entities = 0;
+      try { causalEdges = (window.EO.assertedDag(this._app.dagSources()).edges || []).length; } catch { /* no readable sentences yet */ }
+      try { entities = (this._app.topicTieredData().nodes || []).filter((n) => n.kind === 'entity').length; } catch { /* no entities yet */ }
+      const kind = window.EO.firstSurfaceKind({ modality: src.kind, causalEdges, entities });
+      if (kind) this.openTopicGraph(kind);
+    } catch { /* the record already landed — the reveal never blocks it */ }
+  }
   pickFile() { this._ensureFileInput().click(); }
+
   openPaste() { this.setState({ pasteOpen: true, pasteTitle: '', pasteBody: '' }); }
   closePaste() { this.setState({ pasteOpen: false }); }
   onPasteTitle(e) { this.setState({ pasteTitle: e.target.value }); }
@@ -1793,6 +2220,7 @@ class Component extends DCLogic {
       const s = this._app.ingestText(body, String(this.state.pasteTitle || '').trim() || 'Pasted text');
       this.showToast(`Recorded ${s.reg} — ${s.title}`);
       this.setState({ pasteOpen: false, pasteTitle: '', pasteBody: '' });
+      this._revealImport(s);
     } catch (err) { this.showToast(String(err && err.message || err)); }
   }
 
@@ -1925,14 +2353,117 @@ class Component extends DCLogic {
   // ── navigation ───────────────────────────────────────────────────────────
   setTab(tab) {
     this._readerFrame = null; this._viewCache = null;
-    this.setState({ tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, tocOpen: false });
+    // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
+    this.setState({ tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, tocOpen: false, ...(this._mob() ? { leftOpen: false } : {}) });
     // Switching to a source tab whose mode is Native kicks off (or reuses) its page fetch.
     if (this.state.viewerTabs.includes(tab) && (this.state.viewerModes[tab] || 'reader') === 'native') this.loadPage(tab);
   }
   // The active source is whichever tab in the bar is a recorded source (else none — a fixed tab).
   _activeSrc() { return this.state.viewerTabs.includes(this.state.tab) ? this.state.tab : null; }
-  toggleLeft() { const v = !this.state.leftOpen; this._setPref('eo_left', v); this.setState({ leftOpen: v }); }
-  toggleRight() { const v = !this.state.rightOpen; this._setPref('eo_right', v); this.setState({ rightOpen: v }); }
+  // Two URLs on the same site — a followed link that keeps us on the tab's own site (so it nests
+  // under it) vs. one that leaves for elsewhere. Compares registrable-ish domain (last two labels),
+  // so npr.org ↔ www.npr.org ↔ text.npr.org all count as one site.
+  _sameSite(a, b) {
+    try {
+      const reg = (u) => { const h = new URL(u).hostname.replace(/^www\./, '').toLowerCase(); const p = h.split('.'); return p.slice(-2).join('.'); };
+      const ra = reg(a), rb = reg(b);
+      return !!ra && ra === rb;
+    } catch { return false; }
+  }
+
+  // ── the media view-model — player + waveform + signal/noise holons + transcription ────────
+  // Built for an audio/video source from the artefacts its acoustic reading left on the source
+  // (all underscore-led, session-only): a playable object URL, the downsampled peaks, the basic
+  // analysis, the nested holons, and the live transcription state. Returns null for anything
+  // that is not a decoded clip (so the panel simply does not show).
+  _mediaVM(s) {
+    if (!s || s.kind !== 'audio') return null;
+    const media = s._media || null;
+    const wave = s._wave || null;
+    const an = s._analysis || null;
+    const h = s._holons || null;
+    if (!media && !wave && !an) return null;
+    const dur = (an && an.duration) || (h && h.root && h.root.dur) || 0;
+    const clock = (t) => { const x = Math.max(0, t || 0); const m = Math.floor(x / 60); const r = Math.round(x - m * 60); return `${m}:${String(r).padStart(2, '0')}`; };
+    const db = (v) => (v == null || v <= -120 ? '−∞' : `${v.toFixed(1)} dB`);
+
+    // The signal spans, so each waveform column can be tinted signal (accent) or noise (faint).
+    const spans = (h && h.signalSpans) || [];
+    const inSignal = (t) => spans.some((sp) => t >= sp.start && t <= sp.end);
+
+    // Downsample the peaks to a comfortable bar count; height ∝ amplitude, centred so the bar
+    // mirrors above and below the midline like a real waveform.
+    let bars = [];
+    if (Array.isArray(wave) && wave.length) {
+      const N = Math.min(200, wave.length);
+      const per = wave.length / N;
+      let maxAmp = 0;
+      for (const p of wave) if (p.amp > maxAmp) maxAmp = p.amp;
+      maxAmp = maxAmp || 1;
+      for (let i = 0; i < N; i++) {
+        const a = Math.floor(i * per), b = Math.max(a + 1, Math.floor((i + 1) * per));
+        let amp = 0; for (let j = a; j < b && j < wave.length; j++) amp = Math.max(amp, wave[j].amp);
+        const tc = dur * ((i + 0.5) / N);
+        const sig = inSignal(tc);
+        bars.push({
+          hPct: String(Math.max(3, Math.round((amp / maxAmp) * 100))),
+          bg: sig ? '#6D5EF5' : '#C9CBD6',
+        });
+      }
+    }
+
+    const stats = [];
+    if (an) {
+      stats.push({ label: 'Length', val: clock(dur) });
+      stats.push({ label: 'Peak', val: db(an.peakDb) });
+      stats.push({ label: 'Loudness', val: db(an.rmsDb) });
+      stats.push({ label: 'Dynamic range', val: `${(an.dynamicRangeDb || 0).toFixed(0)} dB` });
+      stats.push({ label: 'Silence', val: `${Math.round(an.silencePct || 0)}%` });
+    }
+    if (h) stats.push({ label: 'Signal', val: `${clock(h.signalSeconds || 0)} · ${(h.signalSpans || []).length} holon${(h.signalSpans || []).length === 1 ? '' : 's'}` });
+
+    // The transcription banner — pending / running (with % + a live tail) / done / skipped / error.
+    const asr = s._asr || null;
+    let asrShow = false, asrLabel = '', asrTone = '#6E6E78', asrBg = '#F2F2F6', asrBusy = false, asrPartial = '';
+    if (asr) {
+      if (asr.state === 'pending') { asrShow = true; asrLabel = 'Signal separated — queued for transcription'; asrBusy = true; }
+      else if (asr.state === 'running') { asrShow = true; asrBusy = true; asrLabel = `Transcribing the signal… ${asr.pct != null ? asr.pct + '%' : ''}`.trim(); asrTone = '#5B4BE6'; asrBg = '#F1EFFE'; asrPartial = String(asr.partial || ''); }
+      else if (asr.state === 'skipped') { asrShow = true; asrLabel = `Not transcribed — ${asr.reason || 'no signal above the noise floor'}`; asrTone = '#8A6D2F'; asrBg = '#FBF4E6'; }
+      else if (asr.state === 'stopped') { asrShow = true; asrLabel = 'Transcription stopped — the waveform reading stands'; asrTone = '#8A6D2F'; asrBg = '#FBF4E6'; }
+      else if (asr.state === 'error') { asrShow = true; asrLabel = `Transcription failed — ${asr.reason || 'error'}`; asrTone = '#B4402F'; asrBg = '#FBEAE6'; }
+      else if (asr.state === 'done') { asrShow = false; }
+    }
+
+    return {
+      show: true,
+      hasPlayer: !!(media && media.url),
+      url: (media && media.url) || '',
+      isVideo: !!(media && media.isVideo),
+      showVideo: !!(media && media.url && media.isVideo),
+      showAudio: !!(media && media.url && !media.isVideo),
+      hasWave: bars.length > 0,
+      bars,
+      stats,
+      hasStats: stats.length > 0,
+      asrShow, asrLabel, asrTone, asrBg, asrBusy, asrPartial,
+      hasPartial: !!asrPartial,
+    };
+  }
+  // On mobile the panels are one-at-a-time overlay drawers: opening one closes the other,
+  // and the desktop open/closed prefs are left untouched (a phone visit shouldn't reshape
+  // the desktop layout).
+  _mob() { return !!this.state.isMobile; }
+  toggleLeft() {
+    const v = !this.state.leftOpen;
+    if (!this._mob()) this._setPref('eo_left', v);
+    this.setState({ leftOpen: v, ...(this._mob() && v ? { rightOpen: false } : {}) });
+  }
+  toggleRight() {
+    const v = !this.state.rightOpen;
+    if (!this._mob()) this._setPref('eo_right', v);
+    this.setState({ rightOpen: v, ...(this._mob() && v ? { leftOpen: false } : {}) });
+  }
+  closePanels() { this.setState({ leftOpen: false, rightOpen: false }); }
   toggleStatus() { this.setState({ statusOpen: !this.state.statusOpen }); }
   openMonologue() { this.setState({ monologueOpen: true, statusOpen: false }); }
   closeMonologue() { this.setState({ monologueOpen: false }); }
@@ -1941,16 +2472,20 @@ class Component extends DCLogic {
   // openViewer(sn, focus) opens a source AS A TAB in front (or focuses it if already open). Several
   // sources stay open at once; each keeps its own render mode and citation focus.
   openViewer(sn, focusText) {
-    if (!this._app || !this._app.sourceBySn(sn)) return;
-    this._viewCache = null; this._readerFrame = null;
+    const src = this._app && this._app.sourceBySn(sn);
+    if (!this._app || !src) return;
+    this._viewCache = null; this._readerFrame = null; this._nativeFrame = null;
     // Rebuild the book on open so freshly-cited passages and newly-admitted entities show — the
     // reader cache is otherwise held for the life of the tab (prefs apply live, no rebuild).
     delete this._readerCache[sn];
     const tabs = this.state.viewerTabs.includes(sn) ? this.state.viewerTabs : [...this.state.viewerTabs, sn];
-    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = 'reader';
+    // Native (the real website) is the default surface for a web source that carries a URL — click a
+    // source and you land on the page itself; the clean Reader book is one tab away. A source with no
+    // URL (pasted text, a local file) has no page to render, so it opens in Reader.
+    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = src.url ? 'native' : 'reader';
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
     // Open the source AS A TAB in the main stage and make it the active tab.
-    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false });
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, nativeToc: [], ...(this._mob() ? { leftOpen: false } : {}) });
     if (modes[sn] === 'native') this.loadPage(sn);
   }
   closeTab(sn, e) {
@@ -1962,13 +2497,13 @@ class Component extends DCLogic {
     delete this._readerCache[sn];
     // If we're closing the ACTIVE source tab, fall to its left neighbour (or the Sources list).
     let tab = this.state.tab;
-    if (tab === sn) { const i = this.state.viewerTabs.indexOf(sn); tab = tabs[Math.max(0, i - 1)] || tabs[i] || 'register'; this._readerFrame = null; this._viewCache = null; }
-    this.setState({ viewerTabs: tabs, viewerModes: modes, viewerFocus: focus, viewerPages: pages, tab, tocOpen: false });
+    if (tab === sn) { const i = this.state.viewerTabs.indexOf(sn); tab = tabs[Math.max(0, i - 1)] || tabs[i] || 'register'; this._readerFrame = null; this._nativeFrame = null; this._viewCache = null; }
+    this.setState({ viewerTabs: tabs, viewerModes: modes, viewerFocus: focus, viewerPages: pages, tab, tocOpen: false, nativeToc: [] });
   }
   setSourceMode(mode) {
     const sn = this._activeSrc(); if (!sn) return;
-    this._readerFrame = null;
-    this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false });
+    this._readerFrame = null; this._nativeFrame = null;
+    this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [] });
     if (mode === 'native') this.loadPage(sn);
   }
   // The native render — fetch the real page's HTML through the app's proxy, sanitize it, hand it to
@@ -1982,12 +2517,43 @@ class Component extends DCLogic {
     const url = s.url;
     this._app.fetchPage(url).then((r) => {
       const doc = this._render.nativePageHtml(r.html, { baseUrl: r.url || url, prefs: this.state.readPrefs });
-      this.setState({ viewerPages: { ...this.state.viewerPages, [sn]: { doc, err: null, busy: false } } });
+      // The native tab tracks the page it is CURRENTLY showing (`url`) and the source whose lexicon
+      // decorates it (`sn`) — both the tab's own source at first, then a followed page after visitLink.
+      this.setState({ viewerPages: { ...this.state.viewerPages, [sn]: { doc, err: null, busy: false, url: r.url || url, sn } } });
     }).catch((e) => {
       this.setState({ viewerPages: { ...this.state.viewerPages, [sn]: { doc: null, err: String((e && e.message) || e), busy: false } } });
     });
   }
   retryPage() { const sn = this._activeSrc(); if (sn) this.loadPage(sn); }
+  // Follow a link INSIDE a native page (clicked in the frame, or a sub-object picked in the sidebar).
+  // The tab stays the SAME source — `tabSn`, the site — so one site remains one tab; the followed page
+  // renders in place and is recorded (app.navigatePage) as a sub-object beneath the tab's root source.
+  visitLink(tabSn, url) {
+    if (!tabSn || !url || !this._app || !this._app.navigatePage || !this._render) return;
+    // The root of this tab's site (a grandchild folds under the same top-level source) — new pages
+    // nest under the ROOT so the sidebar stays two levels deep, not an ever-deepening chain.
+    let root = this._app.sourceBySn(tabSn), guard = 0;
+    while (root && root.parentSn && this._app.sourceBySn(root.parentSn) && guard++ < 50) root = this._app.sourceBySn(root.parentSn);
+    const rootSn = root ? root.sn : tabSn;
+    if (!this._app.sourceBySn(rootSn)) return;
+    // Bring the root's tab forward in Native mode and mark it loading, without disturbing other tabs.
+    const tabs = this.state.viewerTabs.includes(rootSn) ? this.state.viewerTabs : [...this.state.viewerTabs, rootSn];
+    this._nativeFrame = null;
+    const prev = this.state.viewerPages[rootSn] || {};
+    this.setState({
+      viewerTabs: tabs, tab: rootSn,
+      viewerModes: { ...this.state.viewerModes, [rootSn]: 'native' },
+      viewerPages: { ...this.state.viewerPages, [rootSn]: { ...prev, busy: true, err: null } },
+      tocOpen: false, nativeToc: [], ...(this._mob() ? { leftOpen: false } : {}),
+    });
+    this._app.navigatePage(rootSn, url).then((r) => {
+      const doc = this._render.nativePageHtml(r.html, { baseUrl: r.url || url, prefs: this.state.readPrefs });
+      this._nativeFrame = null;
+      this.setState({ viewerPages: { ...this.state.viewerPages, [rootSn]: { doc, err: null, busy: false, url: r.url || url, sn: r.childSn || rootSn } } });
+    }).catch((e) => {
+      this.setState({ viewerPages: { ...this.state.viewerPages, [rootSn]: { doc: null, err: String((e && e.message) || e), busy: false } } });
+    });
+  }
   // Reading-preference setters — persist, then apply LIVE to the open book iframe via CSS
   // variables (no reload, so scroll position survives), exactly as eoreader4.1 did.
   _applyRead(patch) {
@@ -2054,6 +2620,88 @@ class Component extends DCLogic {
     let n = 0; const tick = () => { if (el.contentDocument && el.contentDocument.body) settle(); else if (n++ < 20) setTimeout(tick, 40); };
     setTimeout(tick, 30);
   }
+  // The native (live-site) iframe ref — the twin of setReaderFrame, but for the real page. Once the
+  // page's own DOM is in, reach in (allow-same-origin) and lay the reading layer over it:
+  // reader-render.decorateNativeDoc wraps known entities as clickable spans, marks cited passages,
+  // and lifts a contents list from the page's own headings; we delegate an entity click to the panel
+  // and restore scroll / jump to a cited passage — so the site LOOKS like itself yet reads like ours.
+  setNativeFrame(el) {
+    if (!el) { return; }
+    this._nativeFrame = el;
+    const tabSn = this._activeSrc(), focus = this.state.viewerFocus[this._activeSrc()], R = this._render, app = this._app;
+    // The page currently shown may be a FOLLOWED page (visitLink), a sub-object of the tab's source;
+    // decorate it with ITS OWN lexicon and key its scroll on ITS OWN id, while the tab id (`tabSn`)
+    // stays the site. `pg.sn` is the shown page's source; `pg.url` the page it resolves links against.
+    const pg = this.state.viewerPages[tabSn] || {};
+    const sn = pg.sn || tabSn;
+    const pageUrl = pg.url || (app && app.sourceBySn(tabSn) && app.sourceBySn(tabSn).url) || '';
+    const settle = () => {
+      const d = el.contentDocument; if (!d || !d.body || d.__eoNativeInit) { return; }
+      d.__eoNativeInit = true;
+      let link = null; try { link = (app && app.readerLink) ? app.readerLink(sn, { entities: true }) : null; } catch { link = null; }
+      let res = { toc: [] };
+      try {
+        res = R.decorateNativeDoc(d, {
+          segsOf: link ? link.linkify : null,
+          isCited: link ? link.isCited : null,
+          linksOn: !!this.state.entityMode,
+          pageUrl,
+        });
+      } catch {}
+      // Same delegate the reader uses (only reachable because the frame is same-origin + scriptless).
+      // Two kinds of click land here (one listener per document, runs once per load):
+      //   • a decorated entity  → open its panel (Links on)
+      //   • a real hyperlink    → follow it IN-APP when it stays on this site (record it as a
+      //                           sub-object, render in place); off-site links keep their default
+      //                           new-tab behaviour (the page's <base target="_blank">).
+      try {
+        d.addEventListener('click', (ev) => {
+          const t = ev.target;
+          const ent = t && t.closest && t.closest('.eo-ent[data-doc][data-ent]');
+          if (ent && this.state.entityMode) { ev.preventDefault(); this.openEntity(ent.getAttribute('data-doc'), ent.getAttribute('data-ent')); return; }
+          // In-app link-following is part of the Links layer — off, links behave as the site's own.
+          if (!this.state.entityMode) return;
+          // Plain left-clicks only — let modified clicks (new tab / download) pass through.
+          if (ev.button != null && ev.button !== 0) return;
+          if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+          const a = t && t.closest && t.closest('a[href]');
+          if (!a) return;
+          const raw = (a.getAttribute && a.getAttribute('href')) || '';
+          if (raw.startsWith('#')) return;                     // an in-page anchor — let it scroll
+          const href = a.href || '';   // absolute — the frame's <base href> resolves it
+          if (!/^https?:/i.test(href)) return;                 // skip mailto:/tel:/javascript:
+          if (href.split('#')[0] === String(pageUrl).split('#')[0]) return;   // same page, different hash
+          if (this._sameSite(href, pageUrl)) { ev.preventDefault(); this.visitLink(tabSn, href); }
+          // off-site: fall through — the anchor opens in a new browser tab as before.
+        });
+      } catch {}
+      // Publish the page's own contents into the drawer (only if it found a real one).
+      if (res && res.toc && res.toc.length) this.setState({ nativeToc: res.toc });
+      // Jump to a cited passage on open, else restore this page's saved scroll (a native-only key so
+      // the live page and the reflowed reader don't fight over one scroll fraction).
+      const win = d.defaultView;
+      if (focus && R) { R.scrollToText(d, focus); }
+      else if (win) {
+        const pos = this._loadReadPos(sn + ':native');
+        if (pos > 0) { const max = Math.max(1, (d.documentElement.scrollHeight || 0) - win.innerHeight); win.scrollTo(0, pos * max); }
+      }
+      if (win) {
+        win.addEventListener('scroll', () => {
+          const max = Math.max(1, (d.documentElement.scrollHeight || 0) - win.innerHeight);
+          if (this._posNT) return; this._posNT = setTimeout(() => { this._posNT = null; this._saveReadPos(sn + ':native', win.scrollY / max); }, 200);
+        }, { passive: true });
+      }
+    };
+    el.onload = settle;
+    let n = 0; const tick = () => { if (el.contentDocument && el.contentDocument.body) settle(); else if (n++ < 25) setTimeout(tick, 50); };
+    setTimeout(tick, 40);
+  }
+  toggleNativeToc() { this.setState({ tocOpen: !this.state.tocOpen }); }
+  gotoNativeChapter(id) {
+    const d = this._nativeFrame && this._nativeFrame.contentDocument;
+    if (d && this._render) this._render.scrollToAnchor(d, id);
+    this.setState({ tocOpen: false });
+  }
   downloadEot() {
     const s = this._app.sourceBySn(this._activeSrc());
     const r = s && this._app.eotFor(s.sn);
@@ -2077,8 +2725,87 @@ class Component extends DCLogic {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     this.showToast('Chat exported — ' + out.filename);
   }
-  closeSearch() { this.setState({ searchOpen: false }); }
-  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'chat' : this.state.tab, focusId: null }); this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
+  closeSearch() { this.setState({ searchOpen: false, searchPreview: null }); }
+  // ── ⌘K source palette — search THROUGH everything recorded (title · site · full body) ────────
+  toggleCmdk() {
+    const open = !this.state.cmdkOpen;
+    this.setState({ cmdkOpen: open, cmdkSel: 0, cmdkQuery: open ? '' : this.state.cmdkQuery });
+    if (open) setTimeout(() => { const i = document.getElementById('eo-cmdk-input'); if (i) { try { i.focus(); i.select(); } catch {} } }, 30);
+  }
+  openCmdk() { if (!this.state.cmdkOpen) this.toggleCmdk(); }
+  closeCmdk() { this.setState({ cmdkOpen: false }); }
+  onCmdkInput(e) { this.setState({ cmdkQuery: e && e.target ? e.target.value : '', cmdkSel: 0 }); }
+  onCmdkKey(e) {
+    const k = e.key;
+    if (k === 'Escape') { e.preventDefault(); this.closeCmdk(); return; }
+    if (k !== 'ArrowDown' && k !== 'ArrowUp' && k !== 'Enter') return;
+    const rows = this._cmdkResults();
+    if (k === 'Enter') { e.preventDefault(); const r = rows[Math.min(this.state.cmdkSel || 0, rows.length - 1)]; if (r) this._cmdkOpenResult(r); return; }
+    e.preventDefault();
+    const d = k === 'ArrowDown' ? 1 : -1;
+    const next = Math.max(0, Math.min(rows.length - 1, (this.state.cmdkSel || 0) + d));
+    this.setState({ cmdkSel: next });
+  }
+  // Rank every recorded source against the query. Title/site hits weigh above body hits; ALL terms
+  // must appear somewhere. An empty query lists the most recent reads so the palette is useful cold.
+  _cmdkResults() {
+    const app = this._app; if (!app || !app.topicSources) return [];
+    let sources = []; try { sources = app.topicSources() || []; } catch { sources = []; }
+    const q = String(this.state.cmdkQuery || '').trim().toLowerCase();
+    if (!q) return sources.slice(-9).reverse().map((s) => this._cmdkRowFor(s, null));
+    const terms = q.split(/\s+/).filter(Boolean);
+    const scored = [];
+    for (const s of sources) {
+      const title = String(s.title || '').toLowerCase();
+      const domain = String(s.domain || '').toLowerCase();
+      const text = String(s.text || '');
+      const low = text.toLowerCase();
+      let score = 0, firstIdx = -1, allPresent = true;
+      for (const t of terms) {
+        let hit = false;
+        if (title.includes(t)) { score += 9; hit = true; }
+        if (domain.includes(t)) { score += 4; hit = true; }
+        const idx = low.indexOf(t);
+        if (idx >= 0) { score += 2; hit = true; if (firstIdx < 0 || idx < firstIdx) firstIdx = idx; }
+        if (!hit) { allPresent = false; break; }
+      }
+      if (!allPresent || score === 0) continue;
+      scored.push({ s, score, snip: this._cmdkSnippet(text, firstIdx, terms) });
+    }
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, 24).map((r) => this._cmdkRowFor(r.s, r));
+  }
+  // A two-line preview window around the first body match, split into plain / highlighted segments,
+  // plus a clean 80-char focus string the reader/native view can scroll to on open.
+  _cmdkSnippet(text, idx, terms) {
+    if (idx == null || idx < 0) { const head = String(text || '').slice(0, 150).replace(/\s+/g, ' ').trim(); return { segs: head ? [{ s: head, plain: true }] : [], focus: '' }; }
+    const start = Math.max(0, text.lastIndexOf(' ', Math.max(0, idx - 42)) + 1);
+    const end = Math.min(text.length, idx + 110);
+    const win = text.slice(start, end).replace(/\s+/g, ' ').trim();
+    const low = win.toLowerCase();
+    const spans = [];
+    for (const t of terms) { let i = low.indexOf(t); while (i >= 0) { spans.push([i, i + t.length]); i = low.indexOf(t, i + t.length); } }
+    spans.sort((a, b) => a[0] - b[0]);
+    const segs = []; let last = 0;
+    for (const [a, b] of spans) { if (a < last) continue; if (a > last) segs.push({ s: win.slice(last, a), plain: true }); segs.push({ s: win.slice(a, b), hit: true }); last = b; }
+    if (last < win.length) segs.push({ s: win.slice(last), plain: true });
+    if (start > 0) segs.unshift({ s: '… ', plain: true });
+    if (end < text.length) segs.push({ s: ' …', plain: true });
+    return { segs, focus: text.slice(start, Math.min(text.length, start + 80)).replace(/\s+/g, ' ').trim() };
+  }
+  _cmdkRowFor(s, r) {
+    const title = s.title || s.domain || s.url || '(untitled source)';
+    return {
+      sn: s.sn, reg: s.reg || '', title, domain: s.domain || '', kind: s.kind || '',
+      snipSegs: r && r.snip ? r.snip.segs : [], hasSnippet: !!(r && r.snip && r.snip.segs && r.snip.segs.length),
+      focus: r && r.snip ? r.snip.focus : '',
+    };
+  }
+  _cmdkOpenResult(r) {
+    this.closeCmdk();
+    if (r && r.sn) this.openViewer(r.sn, r.focus || undefined);
+  }
+  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'chat' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
   backToEntities() { this.setState({ entitySel: null, focusId: null }); }
   // The wiki referent for the open entity — 4.1's entity-panel Wikipedia search, restored.
   // Fired once per (doc, entity): the engine searches Wikipedia and confirms (or refuses)
@@ -2096,12 +2823,183 @@ class Component extends DCLogic {
       this.setState({ wikiDefs: { ...this.state.wikiDefs, [key]: { none: true } } });
     });
   }
+  // The entity profile's render values — one builder for BOTH surfaces that show a
+  // profile (the right sidebar and the graph overlay's details panel), so the wiki
+  // referent, standing properties, connected entities and mentions always read the
+  // same. The handlers differ per surface: `pivot(otherId)` follows a connected
+  // entity, `openSource(sn)`/`jump(sn, text)` leave for the source viewer, and an
+  // optional `openWeb()` renders the sidebar's "Open the web graph" button.
+  _profFor(docId, entId, h) {
+    const app = this._app;
+    const p = app && app.entityProfile ? app.entityProfile(docId, entId) : null;
+    if (!p) return null;
+    const src = app.sourceBySn(p.sn) || {};
+    // The Wikipedia referent (_ensureWiki kicked the lookup off; render what landed).
+    // Shown only when CONFIRMED — an unconfirmed best guess reads as "no confirmed
+    // match", the same honesty rule the 4.1 panel held.
+    const wk = this.state.wikiDefs[docId + '#' + entId] || null;
+    const wkHit = !!(wk && wk.confirmed && wk.text);
+    return {
+      label: p.label, initials: this._initials(p.label),
+      counts: `${p.mentions.length} mentions · ${p.relations.length} links`,
+      wikiWait: !!(wk && wk.busy), hasWiki: wkHit,
+      wikiText: wkHit ? wk.text : '', wikiTitle: wkHit ? wk.title : '', wikiUrl: wkHit ? wk.url : '',
+      wikiDesc: wkHit ? (wk.description || '') : '', hasWikiDesc: !!(wkHit && wk.description),
+      wikiAbsent: !!(wk && !wk.busy && !wkHit),
+      srcReg: src.reg || '', srcTitle: src.title || '', openSource: () => h.openSource(p.sn),
+      openWeb: h.openWeb || (() => {}),
+      // STANDING PROPERTIES — ranked (app.rankProperties), each carrying its provenance:
+      // how many passages witness it, the source it came from, and clickable ¶ chips that
+      // jump straight to the witnessing sentence. The value alone is no longer the whole row.
+      hasDefs: p.defs.length > 0,
+      defs: p.defs.slice(0, 8).map((d) => {
+        const cites = (d.witnesses || []).slice(0, 8).map((w) => ({
+          label: '¶' + w.idx, jump: () => h.jump(p.sn, w.text),
+        }));
+        const conf = Math.max(0, Math.min(100, Math.round((d.confidence || 0) * 100)));
+        return {
+          value: d.value,
+          prov: (d.count > 1 ? d.count + ' passages' : '1 passage') + (src.reg ? ' · ' + src.reg : ''),
+          conf: conf + '% read', hasCites: cites.length > 0, cites,
+        };
+      }),
+      // The provenance DAG over those properties (SOURCE → PASSAGE → PROPERTY). Mounted
+      // imperatively; the key changes only when the entity or its property set does, so a
+      // re-render never redraws it in place. See _mountPropDag / _renderPropDag.
+      hasDag: p.defs.length > 0,
+      setDagEl: (el) => this._mountPropDag(el, {
+        source: { title: src.title || p.sourceTitle || 'this source', reg: src.reg || '' },
+        props: p.defs.slice(0, 8).map((d) => ({
+          value: d.value, count: d.count, score: d.score,
+          witnesses: (d.witnesses || []).map((w) => ({ idx: w.idx, text: w.text })),
+        })),
+        onJump: (text) => h.jump(p.sn, text),
+      }, docId + '#' + entId + '#' + p.defs.length),
+      hasRelations: p.relations.length > 0,
+      // CONNECTED ENTITIES is a list of the DISTINCT neighbours the focus bonds to —
+      // one row per entity, not one per edge. figureSurface yields a separate relation
+      // for each (src, verb, tgt), so a neighbour reached through several verbs (Zerya
+      // touched / lived / realized …) would otherwise appear once per verb and read as
+      // many different entities. Collapse by the other endpoint's id, keeping the vias
+      // in the salience order figureSurface already ranked them; the strongest verb
+      // leads and a `+N` records the rest.
+      relations: (() => {
+        const byOther = new Map();
+        for (const r of p.relations) {
+          const otherId = r.srcId === entId ? r.tgtId : r.srcId;
+          const otherLabel = r.srcId === entId ? r.tgtLabel : r.srcLabel;
+          let g = byOther.get(otherId);
+          if (!g) { g = { otherId, other: otherLabel, vias: [] }; byOther.set(otherId, g); }
+          const via = r.via || r.op;
+          if (via && !g.vias.includes(via)) g.vias.push(via);
+        }
+        return [...byOther.values()].slice(0, 14).map((g) => ({
+          other: g.other,
+          via: g.vias.length > 1 ? `${g.vias[0]} +${g.vias.length - 1}` : (g.vias[0] || ''),
+          pivot: () => h.pivot(g.otherId),
+        }));
+      })(),
+      hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
+      mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text) })),
+    };
+  }
+  // ── the property provenance DAG ─────────────────────────────────────────────
+  // A self-contained little DAG that answers "where does this property come from?":
+  // SOURCE → the PASSAGES that assert each property → the PROPERTIES themselves, ranked.
+  // It makes a junk property visible for what it is — a lone edge from one passage — and
+  // shows a well-witnessed one fanning in from several. Pure DOM/SVG, no dependency on the
+  // full graph overlay; it lives right under the properties list the user is reading.
+  _mountPropDag(el, data, key) {
+    if (!el) return;
+    if (el.__dagKey === key) return;   // same entity + property set across re-renders — already drawn
+    el.__dagKey = key;
+    try { this._renderPropDag(el, data); }
+    catch (e) { el.innerHTML = ''; el.__dagKey = null; }
+  }
+  _renderPropDag(el, data) {
+    el.innerHTML = '';
+    const props = (data.props || []).filter((p) => p && p.value);
+    if (!props.length) return;
+    const NS = 'http://www.w3.org/2000/svg';
+    const sv = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+    const clip = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
+    // Tier palette shared with the tiered graph: existence (source) · structure (passage) · significance (property).
+    const C = { src: '#7F77DD', pass: '#1D9E75', prop: '#EF9F27' };
+    // One node per DISTINCT witnessing passage, in first-seen order (top to bottom).
+    const passIdx = [];
+    for (const p of props) for (const w of (p.witnesses || [])) if (!passIdx.includes(w.idx)) passIdx.push(w.idx);
+    const passText = {}; for (const p of props) for (const w of (p.witnesses || [])) passText[w.idx] = w.text;
+    const VW = 320, PAD = 12, HEAD = 22;
+    const rowH = 30, propTop = HEAD + 8;
+    const rows = props.length;
+    const H = propTop + rows * rowH + PAD;
+    const svg = sv('svg', { viewBox: `0 0 ${VW} ${H}`, width: '100%', height: H, style: 'display:block;overflow:visible' });
+    // columns
+    const xSrc = 22, xPass = 92, xPropL = 132, xPropR = VW - 6;
+    const propY = (i) => propTop + i * rowH + rowH / 2;
+    // passage y = barycentre of the properties it witnesses, then spread to avoid overlap
+    const passOf = {};
+    passIdx.forEach((idx) => {
+      const ys = [];
+      props.forEach((p, i) => { if ((p.witnesses || []).some((w) => w.idx === idx)) ys.push(propY(i)); });
+      passOf[idx] = ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : propTop;
+    });
+    const ordered = passIdx.slice().sort((a, b) => passOf[a] - passOf[b]);
+    for (let i = 1; i < ordered.length; i++) {
+      const min = passOf[ordered[i - 1]] + 22;
+      if (passOf[ordered[i]] < min) passOf[ordered[i]] = min;
+    }
+    const ySrc = H / 2;
+    // headers
+    const head = (x, t, c, anchor) => { const e = sv('text', { x, y: 13, 'font-size': 8.5, 'font-weight': 700, 'letter-spacing': '.06em', fill: c, 'text-anchor': anchor }); e.textContent = t; svg.appendChild(e); };
+    head(xSrc, 'SOURCE', C.src, 'middle');
+    head(xPass, 'PASSAGE', C.pass, 'middle');
+    head(xPropL, 'PROPERTY', C.prop, 'start');
+    // edges: source → passage
+    const edge = (x1, y1, x2, y2, c) => {
+      const mx = (x1 + x2) / 2;
+      svg.appendChild(sv('path', { d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`, fill: 'none', stroke: c, 'stroke-width': 1.3, 'stroke-opacity': 0.5 }));
+    };
+    ordered.forEach((idx) => edge(xSrc + 8, ySrc, xPass - 8, passOf[idx], C.src));
+    // edges: passage → property (each witness)
+    props.forEach((p, i) => (p.witnesses || []).forEach((w) => edge(xPass + 8, passOf[w.idx], xPropL - 2, propY(i), C.pass)));
+    // source node
+    const gSrc = sv('g'); gSrc.appendChild(sv('circle', { cx: xSrc, cy: ySrc, r: 9, fill: C.src }));
+    const sl = sv('text', { x: xSrc, y: ySrc + 20, 'font-size': 8, fill: '#7A7A85', 'text-anchor': 'middle' }); sl.textContent = clip(data.source && (data.source.reg || data.source.title), 10); gSrc.appendChild(sl);
+    const stitle = sv('title'); stitle.textContent = (data.source && data.source.title) || 'source'; gSrc.appendChild(stitle);
+    svg.appendChild(gSrc);
+    // passage nodes
+    ordered.forEach((idx) => {
+      const y = passOf[idx];
+      const g = sv('g', { style: 'cursor:pointer' });
+      g.appendChild(sv('circle', { cx: xPass, cy: y, r: 8, fill: '#fff', stroke: C.pass, 'stroke-width': 1.6 }));
+      const t = sv('text', { x: xPass, y: y + 2.6, 'font-size': 7, 'font-weight': 700, fill: C.pass, 'text-anchor': 'middle' }); t.textContent = '¶' + idx; g.appendChild(t);
+      const tt = sv('title'); tt.textContent = passText[idx] || ('passage ' + idx); g.appendChild(tt);
+      if (data.onJump) g.addEventListener('click', () => data.onJump(passText[idx] || ''));
+      svg.appendChild(g);
+    });
+    // property nodes (ranked rows)
+    props.forEach((p, i) => {
+      const y = propY(i), h = rowH - 8;
+      const g = sv('g');
+      g.appendChild(sv('rect', { x: xPropL, y: y - h / 2, width: xPropR - xPropL, height: h, rx: 6, fill: i === 0 ? '#FCF3E2' : '#FBFBFD', stroke: i === 0 ? C.prop : '#EAEAEF', 'stroke-width': i === 0 ? 1.4 : 1 }));
+      const t = sv('text', { x: xPropL + 8, y: y + 3, 'font-size': 9.5, fill: '#2A2A32', 'font-family': "'Newsreader',Georgia,serif" }); t.textContent = clip(p.value, 30); g.appendChild(t);
+      const badge = sv('text', { x: xPropR - 6, y: y + 3, 'font-size': 7.5, fill: '#A0A0AA', 'text-anchor': 'end' }); badge.textContent = '×' + (p.count || 1); g.appendChild(badge);
+      const tt = sv('title'); tt.textContent = p.value; g.appendChild(tt);
+      svg.appendChild(g);
+    });
+    el.appendChild(svg);
+  }
   toggleEntityMode() {
     const on = !this.state.entityMode; this._setPref('eo_entmode', on); this._segCache = {}; this._viewCache = null;
     // The Reader carries the merged Document links; show/hide them live on the open book (flip the
     // class the baked CSS keys off), so the toggle never reloads the iframe or loses scroll.
     const d = this._readerFrame && this._readerFrame.contentDocument;
     if (d && d.documentElement) { try { d.documentElement.classList.toggle('eo-links-on', on); } catch {} }
+    // The live-site view carries the same baked links — flip the class on it too, so the toggle works
+    // in Native without a reload (no scroll lost).
+    const nd = this._nativeFrame && this._nativeFrame.contentDocument;
+    if (nd && nd.documentElement) { try { nd.documentElement.classList.toggle('eo-links-on', on); } catch {} }
     this.setState({ entityMode: on });
   }
   // ── the graph explorer overlay ──────────────────────────────────────────────
@@ -2114,14 +3012,38 @@ class Component extends DCLogic {
     const label = (this._app.entityProfile(docId, entId) || {}).label || '';
     this._wg = { kind: 'entity', scope: 'entity', docId, entId, entLabel: label, focusKey: null, focusLabel: null, hidden: new Set() };
     this._tgToggles = [];
+    this._setWgPanel(docId, entId);   // the details panel opens ON the entity the web is about
     this.setState({ webGraphFor: this._wgMirror() });
     if (this._tgEl) this._drawWebGraph();   // already open (e.g. re-opened from the entity panel) — redraw in place
   }
   openTopicGraph(kind) {
     this._wg = { kind: kind === 'causal' ? 'causal' : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
     this._tgToggles = [];
+    this._seedWgPanel();   // entity kind: the details panel opens on the topic's top figure
     this.setState({ webGraphFor: this._wgMirror() });
     if (this._tgEl) this._drawWebGraph();   // already open — redraw with the new kind/scope in place
+  }
+  // The overlay's details panel — which entity's profile the right column shows.
+  // Loads WITH the overlay (the focused entity, or the topic's most salient figure)
+  // and follows every node click, so the web is never a picture without its facts.
+  _setWgPanel(docId, entId) {
+    if (docId == null || entId == null) { this._wgPanel = null; return; }
+    const cur = this._wgPanel;
+    this._wgPanel = { docId, entId };
+    this._ensureWiki(docId, entId);
+    if (cur && cur.docId === docId && cur.entId === entId) return;
+    this.setState({ webGraphTick: (this.state.webGraphTick || 0) + 1 });
+  }
+  // Seed the panel for a whole-topic open: the most salient entity across the topic
+  // (app.entities() is already sorted by mentions + links). Causal kind has no
+  // entity profile to show — the panel stays empty there.
+  _seedWgPanel() {
+    this._wgPanel = null;
+    if (!this._wg || this._wg.kind !== 'entity' || !this._app) return;
+    try {
+      const top = (this._app.entities() || [])[0];
+      if (top) this._setWgPanel(top.docId, top.entId);
+    } catch { /* no entities yet — the panel simply stays empty */ }
   }
   _wgMirror() {
     const w = this._wg; if (!w) return null;
@@ -2129,7 +3051,7 @@ class Component extends DCLogic {
   }
   closeWebGraph() {
     if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; }
-    this._tgEl = null; this._wg = null; this._tgToggles = [];
+    this._tgEl = null; this._wg = null; this._tgToggles = []; this._wgPanel = null;
     this.setState({ webGraphFor: null });
   }
   setWebGraphEl(el) {
@@ -2144,6 +3066,7 @@ class Component extends DCLogic {
     this._wg.hidden = new Set();                            // so reset the toggles and any focus and
     this._wg.focusKey = null; this._wg.focusLabel = null;  // land on the whole topic in the new kind
     this._wg.scope = 'topic';
+    this._seedWgPanel();   // entity kind reopens the panel on the top figure; causal has none
     this.setState({ webGraphFor: this._wgMirror() });
     this._drawWebGraph();
   }
@@ -2170,6 +3093,7 @@ class Component extends DCLogic {
     this._wg.scope = 'entity'; this._wg.docId = ref.docId; this._wg.entId = ref.entId;
     this._wg.entLabel = (this._app.entityProfile(ref.docId, ref.entId) || {}).label || '';
     this._wg.hidden = new Set();
+    this._setWgPanel(ref.docId, ref.entId);   // the panel follows the focus
     this.setState({ webGraphFor: this._wgMirror() });
     this._drawWebGraph();
   }
@@ -2204,6 +3128,8 @@ class Component extends DCLogic {
     this._tg = window.EO.mountTieredGraph(el, {
       nodes: show.nodes, edges: show.edges,
       onOpen: (node) => { if (node && node.ref) this._webFocusEntity(node.ref); },
+      // A click on any entity node turns the details panel to that entity's profile.
+      onSelect: (node) => { if (node && node.kind === 'entity' && node.ref) this._setWgPanel(node.ref.docId, node.ref.entId); },
       countsLabel: `${show.nodes.length} nodes · ${show.edges.length} edges`,
     });
   }
@@ -2228,7 +3154,9 @@ class Component extends DCLogic {
       return;
     }
     const full = window.EO.assertedDag(sources);   // the toggle universe = the DAG's own nodes
-    this._tgToggles = (full.nodes || []).map((n) => ({ id: n.key, label: (n.labels && n.labels[0]) || n.key }))
+    // toggle by the node's display phrase ("impervious pavement", not "pavement") — the
+    // same label the DAG surface draws in its boxes (dagNodeLabel).
+    this._tgToggles = (full.nodes || []).map((n) => ({ id: n.key, label: window.EO.dagNodeLabel(n) }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
     const viewSn = this._activeSrc ? this._activeSrc() : null;   // the active viewer tab's source sn, or null
     const inView = viewSn ? sources.find((x) => x.sn === viewSn) : null;
@@ -2248,7 +3176,7 @@ class Component extends DCLogic {
     const noop = (el) => this.setWebGraphEl(el);
     if (!this.state.webGraphFor || !wg) {
       return { webGraphShow: false, setWebGraphEl: noop, closeWebGraph: () => this.closeWebGraph(),
-        webToggles: [], webTogglesEmpty: false, webHasFocus: false };
+        webToggles: [], webTogglesEmpty: false, webHasFocus: false, webProfShow: false };
     }
     void this.state.webGraphTick;
     const kind = wg.kind, scope = wg.scope, hidden = wg.hidden || new Set();
@@ -2257,7 +3185,22 @@ class Component extends DCLogic {
     const isEnt = kind === 'entity';
     const focusName = isEnt ? (wg.entLabel || 'this entity') : (wg.focusLabel || 'this node');
     const hasFocus = scope === 'entity' && (isEnt ? wg.entId != null : !!wg.focusKey);
+    // The details panel — the profile of the entity the overlay opened on (or the one last
+    // clicked). Entity kind only; its handlers stay INSIDE the overlay where they can
+    // (pivot swaps the panel), and leave it deliberately where they can't (a mention or the
+    // source chip closes the overlay and opens the viewer at the passage).
+    const panel = (isEnt && this._wgPanel) ? this._wgPanel : null;
+    const webProf = panel ? this._profFor(panel.docId, panel.entId, {
+      pivot: (otherId) => this._setWgPanel(panel.docId, otherId),
+      openSource: (sn) => { this.closeWebGraph(); this.openViewer(sn); },
+      jump: (sn, text) => { this.closeWebGraph(); this.openViewer(sn, text); },
+    }) : null;
     return {
+      webProfShow: !!webProf, webProf,
+      // focus the web on the panel's entity — the panel-side twin of a node's "open →"
+      webProfFocus: () => { if (panel) this._webFocusEntity({ docId: panel.docId, entId: panel.entId }); },
+      // leave for the full sidebar profile (closes the overlay, opens the entities panel)
+      webProfOpenFull: () => { if (panel) { this.closeWebGraph(); this.openEntity(panel.docId, panel.entId); } },
       webGraphShow: true,
       setWebGraphEl: noop,
       closeWebGraph: () => this.closeWebGraph(),
@@ -2293,16 +3236,53 @@ class Component extends DCLogic {
 
   // ── graph camera + focus ─────────────────────────────────────────────────
   setViewport(el) { this._vp = el; }
+  // One-pointer drag pans; two touch pointers pinch-zoom about their midpoint (the viewport
+  // carries touch-action:none, so the browser hands us the raw pointers on mobile too).
   startPan(e) {
     if (!this._vp) return;
-    const sx = e.clientX, sy = e.clientY, ox = this.state.tx, oy = this.state.ty;
-    this._panning = false;
+    const p = this._ptrs || (this._ptrs = new Map());
+    p.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    this._panning = p.size > 1;   // a second finger is a gesture, never a click
+    this._panBase = { x: e.clientX, y: e.clientY, tx: this.state.tx, ty: this.state.ty };
+    if (p.size === 2) this._pinchBase();
+    if (this._panWired) return;
+    this._panWired = true;
     const move = (ev) => {
-      if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 3) this._panning = true;
-      this.setState({ tx: ox + ev.clientX - sx, ty: oy + ev.clientY - sy, camT: 'none' });
+      if (!p.has(ev.pointerId)) return;
+      p.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (p.size >= 2) { this._pinchMove(); return; }
+      const b = this._panBase;
+      if (Math.abs(ev.clientX - b.x) + Math.abs(ev.clientY - b.y) > 3) this._panning = true;
+      this.setState({ tx: b.tx + ev.clientX - b.x, ty: b.ty + ev.clientY - b.y, camT: 'none' });
     };
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    const up = (ev) => {
+      p.delete(ev.pointerId);
+      if (p.size === 0) {
+        window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+        this._panWired = false; this._pinch = null;
+        return;
+      }
+      // A finger lifted mid-gesture — re-baseline what remains (pinch → pan, 3 → 2, …).
+      const [a] = [...p.values()];
+      this._panBase = { x: a.x, y: a.y, tx: this.state.tx, ty: this.state.ty };
+      if (p.size >= 2) this._pinchBase(); else this._pinch = null;
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  }
+  _pinchBase() {
+    const [a, b] = [...this._ptrs.values()];
+    const r = this._vp.getBoundingClientRect();
+    this._pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, scale: this.state.scale, tx: this.state.tx, ty: this.state.ty,
+      cx: (a.x + b.x) / 2 - r.left, cy: (a.y + b.y) / 2 - r.top, left: r.left, top: r.top };
+  }
+  _pinchMove() {
+    const g = this._pinch; if (!g) return;
+    const [a, b] = [...this._ptrs.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    const k = Math.min(2.2, Math.max(.35, g.scale * d / g.d));
+    const cx = (a.x + b.x) / 2 - g.left, cy = (a.y + b.y) / 2 - g.top;
+    const rr = k / g.scale;   // keep the content point under the midpoint pinned while it moves
+    this.setState({ scale: k, tx: cx - (g.cx - g.tx) * rr, ty: cy - (g.cy - g.ty) * rr, camT: 'none' });
   }
   stopPan(e) { if (e && e.stopPropagation) e.stopPropagation(); }
   onWheel(e) {
@@ -2313,7 +3293,7 @@ class Component extends DCLogic {
   zoomIn() { this.setState({ scale: Math.min(2.2, this.state.scale * 1.15), camT: 'transform .18s ease' }); }
   zoomOut() { this.setState({ scale: Math.max(.35, this.state.scale * .87), camT: 'transform .18s ease' }); }
   fit() { this.setState({ tx: 40, ty: 30, scale: this._fitScale || 1, camT: 'transform .22s ease' }); }
-  focusNode(id) { if (!this._panning) this.setState({ focusId: this.state.focusId === id ? null : id, rightOpen: true }); }
+  focusNode(id) { if (!this._panning) this.setState({ focusId: this.state.focusId === id ? null : id, rightOpen: true, ...(this._mob() ? { leftOpen: false } : {}) }); }
   hoverNode(id) { if (!this._panning && this.state.hoverId !== id) this.setState({ hoverId: id }); }
   clearFocus() { this.setState({ focusId: null, hideContra: false }); }
   toggleContra() { this.setState({ hideContra: !this.state.hideContra }); }
@@ -2560,29 +3540,55 @@ class Component extends DCLogic {
     this._segCache[m.id] = { len: (m.text || '').length, paras, ungrounded };
     return paras;
   }
-  // The chat's facing page for ONE answer: lay out the EoT "how it read it" reading (the same
-  // reader-render.facingReadingLines the source viewer's Facing tab uses) over the answer's own
-  // reading (app.answerEot, computed lazily + memoised). Returns the view-model the reveal paints;
-  // an honest empty when the reading can't be produced.
+  // The chat's facing page for ONE answer, two leaves in one pane. The VERBATIM leaf leads —
+  // the prompt the model was actually handed for this answer (msg.prompt, the audit turn's own
+  // record), byte-for-byte with no colourizing (reader-render.facingPromptLines). Below it, the
+  // EoT "how it read it" reading (the same reader-render.facingReadingLines the source viewer's
+  // Facing tab uses) over the answer's own reading (app.answerEot, computed lazily + memoised).
+  // Returns the view-model the reveal paints; an honest absence line when no prompt is on record.
   _answerFacingEmpty() {
     return { facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, facingTruncated: false, facingMore: '', facingEmpty: false, facingCount: 0 };
   }
   _answerFacing(mm) {
-    if (!this._app || !this._app.answerEot || !this._render || !this._render.facingReadingLines) return this._answerFacingEmpty();
+    if (!this._app || !this._render || !this._render.facingReadingLines) return this._answerFacingEmpty();
     let eot = null;
-    try { eot = this._app.answerEot(mm); } catch { eot = null; }
-    if (!eot) return this._answerFacingEmpty();
-    const fr = this._render.facingReadingLines(eot.text || '', { max: 600 });
-    const lines = fr.lines.map((l) => ({
-      n: String(l.n), opacity: l.dim ? '0.72' : '1',
-      rowBg: l.kind === 'rule' ? 'rgba(122,162,247,0.07)' : 'transparent',
-      segs: (l.segs || [{ s: l.s, color: l.color }]).map((sg) => ({ s: sg.s, color: sg.color })),
-    }));
+    try { eot = this._app.answerEot ? this._app.answerEot(mm) : null; } catch { eot = null; }
+    const fr = eot ? this._render.facingReadingLines(eot.text || '', { max: 600 })
+                   : { lines: [], legend: [], kindLegend: [], truncated: false, more: 0, total: 0 };
+    // The VERBATIM leaf leads: the prompt this answer's turn actually handed the model
+    // (finishMessage stashed the audit turn's own record on the message), shown byte-for-byte
+    // and never re-derived. An answer with none on record — a phatic line, or a message from
+    // before prompts were kept — gets one honest line instead of a reconstructed prompt.
+    const pf = (this._render.facingPromptLines && mm.prompt)
+      ? this._render.facingPromptLines(mm.prompt, { max: 600 }) : null;
+    const RULE = (this._render.EOT_ELEMENT_TYPES && this._render.EOT_ELEMENT_TYPES.rule.color) || '#7AA2F7';
+    const NOTE = (this._render.EOT_ELEMENT_TYPES && this._render.EOT_ELEMENT_TYPES.note.color) || '#9AA6BD';
+    const rows = [];
+    const row = (kind, segs) => rows.push({
+      rowBg: kind === 'rule' ? 'rgba(122,162,247,0.07)' : 'transparent',
+      segs: segs.map((sg) => ({ s: sg.s, color: sg.color })),
+    });
+    row('rule', [{ s: '# ── the prompt the model was handed — verbatim ──', color: RULE }]);
+    if (pf) {
+      for (const l of pf.lines) row(l.kind, l.segs || [{ s: l.s, color: l.color }]);
+      if (pf.truncated) row('note', [{ s: `# … ${pf.more} more prompt lines.`, color: NOTE }]);
+    } else {
+      row('note', [{ s: '# (no prompt on record for this answer — it never reached the model pipeline, or was recorded before prompts were kept)', color: NOTE }]);
+    }
+    if (fr.lines.length) {
+      row('blank', [{ s: ' ', color: 'transparent' }]);
+      for (const l of fr.lines) row(l.kind, l.segs || [{ s: l.s, color: l.color }]);
+    }
+    const lines = rows.map((r, i) => ({ n: String(i + 1), opacity: '1', rowBg: r.rowBg, segs: r.segs }));
+    const legend = [
+      ...(pf ? [{ kind: 'prompt', label: 'prompt — verbatim', color: this._render.PROMPT_LINE_COLOR || '#ABB2BF' }] : []),
+      ...fr.legend,
+    ];
     return {
-      facingLines: lines, facingLegend: fr.legend, facingKindLegend: fr.kindLegend || [],
+      facingLines: lines, facingLegend: legend, facingKindLegend: fr.kindLegend || [],
       facingHasKinds: (fr.kindLegend || []).length > 0,
       facingTruncated: fr.truncated, facingMore: String(fr.more),
-      facingEmpty: lines.length === 0, facingCount: fr.total || lines.length,
+      facingEmpty: fr.lines.length === 0, facingCount: lines.length,
     };
   }
   // The live body while the answer streams: the revealed prefix, split into the same blocks and
@@ -2759,7 +3765,7 @@ class Component extends DCLogic {
       return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
-        statusColor: '#B23A2E', leftOpen: true, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
+        statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
     }
@@ -2772,7 +3778,7 @@ class Component extends DCLogic {
       return { isChat: true, chatEmpty: true, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
-        statusColor: '#C79A3A', leftOpen: true, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
+        statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
     }
@@ -2806,24 +3812,54 @@ class Component extends DCLogic {
       border: t.id === app.state.activeTopicId ? '#E3DEFC' : 'transparent',
       iconColor: t.id === app.state.activeTopicId ? '#6D5EF5' : '#B4B4BE',
       titleColor: t.id === app.state.activeTopicId ? '#3A3A44' : '#5A5A64',
-      meta: `${t.sourceSns.length} source${t.sourceSns.length === 1 ? '' : 's'} · ${t.messages.filter(m => m.role === 'assistant' && !m.pending).length} answers`,
+      meta: `${t.sourceSns.length} source${t.sourceSns.length === 1 ? '' : 's'} · ${t.messages.filter(m => m.role === 'assistant' && !m.pending).length} answers · ~${this._fmtTokens(this._topicTokens(t))} tokens`,
       indent: `${depth * 15}px`,
       hasChildren, noChildren: !hasChildren,
       caretRot: collapsed ? '0deg' : '90deg',
       toggle: (e) => { if (e && e.stopPropagation) e.stopPropagation(); app.topicToggleCollapse(t.id); },
       menuOpen: st.topicMenu === t.id,
-      rowClick: () => { app.setTopic(t.id); this.setState({ topicMenu: null }); },
+      rowClick: () => { app.setTopic(t.id); this.setState({ topicMenu: null, ...(this._mob() ? { leftOpen: false } : {}) }); },
       menuClick: () => this.setState({ topicMenu: st.topicMenu === t.id ? null : t.id }),
       doRename: () => { const v = prompt('Rename topic', t.title); if (v) app.topicRename(t.id, v); this.setState({ topicMenu: null }); },
       doAddChild: () => { app.topicNew('New sub-topic', { parentId: t.id }); this.setState({ topicMenu: null }); },
       doDelete: () => { if (confirm(`Delete “${t.title}”? Any sub-topics rise to its parent; its sources stay in the record.`)) app.topicDelete(t.id); this.setState({ topicMenu: null }); },
     }));
     const FAV = [['#EEF0F3', '#4E5765'], ['#EEEBFE', '#5B4BE6'], ['#E7F6EC', '#1E8A50'], ['#FBF1DA', '#9A6B12'], ['#FBE9E6', '#B23A2E'], ['#E8F1FB', '#2C5C9E']];
-    const leftSources = sources.map((s, i) => ({
-      title: s.title, reg: s.reg, domain: s.domain,
-      favCh: (s.domain || s.title || '?')[0].toUpperCase(), favBg: FAV[i % FAV.length][0], favFg: FAV[i % FAV.length][1],
-      open: () => this.openViewer(s.sn),
-    }));
+    // The sidebar source list is a two-level TREE: a site is one top-level row, and the pages you
+    // followed inside it (recorded as sub-objects, app.navigatePage) nest under it — folded by
+    // default, disclosed by the caret. Grouped by parentSn; a sub-object whose parent isn't in the
+    // active topic surfaces as its own root (never dropped).
+    const present = new Set(sources.map((s) => s.sn));
+    const kidsOf = new Map();
+    for (const s of sources) {
+      const p = (s.parentSn && present.has(s.parentSn)) ? s.parentSn : null;
+      if (!kidsOf.has(p)) kidsOf.set(p, []);
+      kidsOf.get(p).push(s);
+    }
+    const leftSources = [];
+    let favI = 0;
+    const emitSourceRows = (list, depth) => {
+      for (const s of list) {
+        const kids = kidsOf.get(s.sn) || [];
+        const hasKids = kids.length > 0;
+        const collapsed = s.collapsed !== false;   // undefined (older records) → folded
+        const fav = FAV[favI++ % FAV.length];
+        leftSources.push({
+          sn: s.sn, title: s.title, reg: s.reg, domain: s.domain,
+          favCh: (s.domain || s.title || '?')[0].toUpperCase(), favBg: fav[0], favFg: fav[1],
+          indent: `${depth * 15}px`, isChild: depth > 0,
+          hasKids, noKids: !hasKids, kidCount: hasKids ? String(kids.length) : '',
+          caret: hasKids ? (collapsed ? '▸' : '▾') : '',
+          // A top-level site opens its own tab; a followed page re-opens inside its site's tab.
+          open: depth > 0 && s.parentSn
+            ? () => this.visitLink(s.parentSn, s.url)
+            : () => this.openViewer(s.sn),
+          toggle: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this._app.sourceToggleCollapse(s.sn); },
+        });
+        if (hasKids && !collapsed) emitSourceRows(kids, depth + 1);
+      }
+    };
+    emitSourceRows(kidsOf.get(null) || [], 0);
 
     // model
     const m = app.state.model;
@@ -2832,8 +3868,14 @@ class Component extends DCLogic {
       : m.state === 'ready' ? m.backend : (m.backend || app.backendPref());
     const BACKENDS = [
       ['wllama', 'SmolLM2 · CPU', 'Small and universal — runs on WASM everywhere, ~140 MB download, cached after the first load.'],
-      ['webllm', 'Llama 3.2 · WebGPU', 'The full local talker — 1–2 GB download, needs WebGPU (Chrome/Edge). Picked adaptively for your GPU.'],
+      ['webllm', 'Llama 3.2 · WebGPU', 'The local talker — the quick 1B build (~1 GB) by default, Fluent below opts into 3B. Needs WebGPU (Chrome/Edge).'],
+      ['qwen', 'Qwen 2.5 · WebGPU', 'Alibaba’s small talker — 1.5B, about the same ~1 GB weight class as the Llama default. Needs WebGPU (Chrome/Edge).'],
       ['claude', 'Claude · hosted API', 'Anthropic’s hosted models — nothing to download, frontier answers in seconds. Needs an API key (console.anthropic.com), stored only in this browser. Pick again to change the key.'],
+      // The local-server bridge — run the BIG models (Qwen 27–80B, GLM, …) on this machine
+      // and reach them from the tab. Zero config here: pick it and it finds the model your
+      // app already has loaded. Re-pick to point at a different port / box.
+      ['lmstudio', 'LM Studio · local server', 'Run big models on this machine. Start LM Studio → Developer → Start Server, then pick this — it uses whatever model you’ve loaded. Re-pick to set a custom URL.'],
+      ['ollama', 'Ollama · local server', 'Run big models via Ollama on this machine. Start it with OLLAMA_ORIGINS=* ollama serve, then pick this — it uses whatever you’ve pulled. Re-pick to set a custom URL.'],
     ];
     const pref = app.backendPref();
     const backends = BACKENDS.map(([id, label, desc]) => ({
@@ -2855,6 +3897,28 @@ class Component extends DCLogic {
           // re-picking the active backend otherwise keeps the loaded one (the stability guard).
           app.setBackend(id, { force: true });
           app.ensureModel().catch(() => {});   // validate the key now — the chip shows the verdict
+        } else if (id === 'lmstudio' || id === 'ollama') {
+          // DEAD SIMPLE: pick it and connect. The backend auto-discovers the model the
+          // app already has loaded/pulled — nothing to type. Re-picking the ACTIVE one
+          // re-asks for a custom server URL (a non-default port, a LAN box), the mirror
+          // of claude's re-key; blank restores the default and Cancel changes nothing.
+          if (pref === id) {
+            const isLM = id === 'lmstudio';
+            const def = isLM ? 'http://localhost:1234/v1' : 'http://localhost:11434/v1';
+            let cur = ''; try { cur = localStorage.getItem('eo_' + id + '_base') || ''; } catch { /* no storage */ }
+            const v = prompt(`${isLM ? 'LM Studio' : 'Ollama'} server URL — blank = ${def}`, cur || def);
+            if (v !== null) {
+              try {
+                const t = v.trim();
+                if (t && t !== def) localStorage.setItem('eo_' + id + '_base', t);
+                else localStorage.removeItem('eo_' + id + '_base');
+              } catch { /* session-only */ }
+            }
+            app.setBackend(id, { force: true });
+          } else {
+            app.setBackend(id);
+          }
+          app.ensureModel().catch(() => {});   // connect + auto-discover now — the chip shows the verdict
         } else {
           app.setBackend(id);
         }
@@ -2865,10 +3929,10 @@ class Component extends DCLogic {
     // Fast/Fluent — the render-speed lever for the local Llama. Shown only when webllm
     // is the chosen backend (the others don't read it). Both builds are already 4-bit and
     // ground identically; only the parameter count — how fast it loads and answers, how
-    // fluent the prose — moves. 'fluent' is the highlight when nothing is pinned (3B is the
-    // desktop default the adaptive pick lands on).
+    // fluent the prose — moves. 'fast' is the highlight when nothing is pinned (1B is the
+    // default the pick lands on).
     const showSpeed = pref === 'webllm';
-    const speedNow = app.speedPref() || 'fluent';
+    const speedNow = app.speedPref() || 'fast';
     const mkSpeed = (id, label, hint) => ({
       label, hint,
       fg: speedNow === id ? '#5B4BE6' : '#8A8A95',
@@ -2878,6 +3942,26 @@ class Component extends DCLogic {
     });
     const speedFast   = mkSpeed('fast',   'Fast',   '1B · quicker to load & answer');
     const speedFluent = mkSpeed('fluent', 'Fluent', '3B · fuller, more fluent prose');
+
+    // Redact-when-hosted — the confidentiality lever, shown only for the hosted talker (Claude).
+    // A local model runs in your browser, so it never leaves; only a remote backend can leak, and
+    // this replaces every admitted entity with an opaque token before the message is sent, then
+    // restores the real names in the answer locally.
+    const showRedact = pref === 'claude';
+    const redactOn = app.redactRemote ? app.redactRemote() : false;
+    const redactHosted = {
+      on: redactOn,
+      label: redactOn ? 'Send redacted' : 'Send verbatim',
+      hint: redactOn
+        ? 'Real entities are replaced with tokens before anything leaves the browser — Anthropic sees only the shape.'
+        : 'Anthropic receives the record as written, real names and all. Toggle on to redact entities first.',
+      fg: redactOn ? '#5B4BE6' : '#8A8A95',
+      bg: redactOn ? '#F1EFFE' : 'transparent',
+      bd: redactOn ? '#DED8FD' : '#E6E6EC',
+      trackBg: redactOn ? '#6D5EF5' : '#D4D4DC',
+      knobX: redactOn ? '15px' : '2px',
+      toggle: () => { app.setRedactRemote(!redactOn); this._poke(); },
+    };
 
     // status widget
     const busy = app.state.busy;
@@ -3154,39 +4238,17 @@ class Component extends DCLogic {
     const ents = this._entCache;
     const entRows = ents.slice(0, 60).map((e) => ({
       label: e.label, initials: this._initials(e.label),
-      meta: `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'} · ${(app.sourceBySn(e.sn) || {}).reg || ''}`,
+      meta: `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'} · ${e.sourceCount > 1 ? `${e.sourceCount} sources` : ((app.sourceBySn(e.sn) || {}).reg || '')}`,
       open: () => this.openEntity(e.docId, e.entId),
     }));
     let prof = null;
     if (st.entitySel) {
-      const p = app.entityProfile(st.entitySel.docId, st.entitySel.entId);
-      if (p) {
-        const src = app.sourceBySn(p.sn) || {};
-        // The Wikipedia referent (openEntity kicked the lookup off; render what landed).
-        // Shown only when CONFIRMED — an unconfirmed best guess reads as "no confirmed
-        // match", the same honesty rule the 4.1 panel held.
-        const wk = st.wikiDefs[st.entitySel.docId + '#' + st.entitySel.entId] || null;
-        const wkHit = !!(wk && wk.confirmed && wk.text);
-        prof = {
-          label: p.label, initials: this._initials(p.label),
-          counts: `${p.mentions.length} mentions · ${p.relations.length} links`,
-          wikiWait: !!(wk && wk.busy), hasWiki: wkHit,
-          wikiText: wkHit ? wk.text : '', wikiTitle: wkHit ? wk.title : '', wikiUrl: wkHit ? wk.url : '',
-          wikiDesc: wkHit ? (wk.description || '') : '', hasWikiDesc: !!(wkHit && wk.description),
-          wikiAbsent: !!(wk && !wk.busy && !wkHit),
-          srcReg: src.reg || '', srcTitle: src.title || '', openSource: () => this.openViewer(p.sn),
-          openWeb: () => this.openWebGraph(st.entitySel.docId, st.entitySel.entId),
-          hasDefs: p.defs.length > 0, defs: p.defs.slice(0, 6),
-          hasRelations: p.relations.length > 0,
-          relations: p.relations.slice(0, 14).map((r) => {
-            const otherId = r.srcId === st.entitySel.entId ? r.tgtId : r.srcId;
-            const otherLabel = r.srcId === st.entitySel.entId ? r.tgtLabel : r.srcLabel;
-            return { other: otherLabel, via: r.via || r.op, pivot: () => this.openEntity(st.entitySel.docId, otherId) };
-          }),
-          hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
-          mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => this.openViewer(p.sn, mn.text) })),
-        };
-      }
+      prof = this._profFor(st.entitySel.docId, st.entitySel.entId, {
+        pivot: (otherId) => this.openEntity(st.entitySel.docId, otherId),
+        openSource: (sn) => this.openViewer(sn),
+        jump: (sn, text) => this.openViewer(sn, text),
+        openWeb: () => this.openWebGraph(st.entitySel.docId, st.entitySel.entId),
+      });
     }
     // graph-node inspector (focus in graph tab wins the panel)
     let insp = null;
@@ -3261,6 +4323,9 @@ class Component extends DCLogic {
           ents: s.entCount == null ? '…' : String(s.entCount),
           eotCount: eot && eot.structure ? String(eot.structure.lines ? eot.structure.lines.length : 0) : '0',
         };
+        // The media panel — player + waveform + signal/noise holons + transcription status —
+        // shown above the reading for a decoded audio/video source, in every viewer mode.
+        viewer.media = this._mediaVM(s) || { show: false };
         // The themed book — built once per source (cached by sn); prefs are baked in, then applied
         // LIVE on the mounted iframe, so a theme change never rebuilds this string / reloads. The
         // Document view is folded in here: reader-render bakes the entity links + cited-passage rule
@@ -3273,6 +4338,7 @@ class Component extends DCLogic {
             if (link) { linkOpts.segsOf = link.linkify; linkOpts.isCited = link.isCited; }
             try { this._readerCache[activeSn] = this._render.buildReaderDoc(s, st.readPrefs, linkOpts); }
             catch { this._readerCache[activeSn] = { html: '', toc: [] }; }
+            this._readerCache[activeSn]._sig = s.sha;   // bust when the source's text later changes (transcript fold-in)
           }
           readerDoc = this._readerCache[activeSn].html;
           readerToc = (this._readerCache[activeSn].toc || []).map((c) => ({
@@ -3289,7 +4355,7 @@ class Component extends DCLogic {
         if (vMode === 'eot' && eot && this._render) {
           const fr = this._render.facingReadingLines(eot.text || '');
           eotLines = fr.lines.map((l) => ({
-            n: String(l.n), s: l.s, color: l.color, opacity: l.dim ? '0.72' : '1',
+            n: String(l.n), s: l.s, color: l.color, opacity: '1',
             rowBg: l.kind === 'rule' ? 'rgba(122,162,247,0.07)' : 'transparent',
             segs: (l.segs || [{ s: l.s, color: l.color }]).map((sg) => ({ s: sg.s, color: sg.color })),
           }));
@@ -3302,7 +4368,7 @@ class Component extends DCLogic {
           const CAP = 2400;
           eotLines = all.slice(0, CAP).map((ln, i) => ({
             n: String(i + 1), s: ln === '' ? ' ' : ln, opacity: '1', rowBg: 'transparent',
-            segs: [{ s: ln === '' ? ' ' : ln, color: ln.trimStart().startsWith('#') ? '#6B7280' : '#c7d0da' }],
+            segs: [{ s: ln === '' ? ' ' : ln, color: ln.trimStart().startsWith('#') ? '#9AA6BD' : '#c7d0da' }],
           }));
           eotTruncated = all.length > CAP; eotMore = String(all.length - CAP);
         }
@@ -3311,7 +4377,7 @@ class Component extends DCLogic {
         if (vMode === 'facing' && eot && this._render) {
           const fr = this._render.facingReadingLines(eot.text || '');
           facingLines = fr.lines.map((l) => ({
-            n: String(l.n), s: l.s, color: l.color, opacity: l.dim ? '0.72' : '1',
+            n: String(l.n), s: l.s, color: l.color, opacity: '1',
             rowBg: l.kind === 'rule' ? 'rgba(122,162,247,0.07)' : 'transparent',
             segs: (l.segs || [{ s: l.s, color: l.color }]).map((sg) => ({ s: sg.s, color: sg.color })),
           }));
@@ -3350,8 +4416,20 @@ class Component extends DCLogic {
         kind: it.kind || it.source || 'web', title: it.title || it.url, snippet: it.text || '', url: it.url || '',
         recordLabel: rec === 'done' ? '✓ recorded' : rec === 'busy' ? 'reading…' : 'Record',
         record: () => { if (!rec) this.recordHit(it); },
+        // Clicking the row loads the real site as a native preview; recording happens from there.
+        canPreview: !!it.url, open: () => { if (it.url) this.previewHit(it); },
       };
     });
+    // native preview of a search hit (the real site, loaded before it's recorded)
+    const sp = st.searchPreview;
+    const previewKey = sp ? (sp.item.url || sp.item.title) : null;
+    const previewRec = sp ? st.recordedUrls[previewKey] : null;
+    const preview = sp ? {
+      title: sp.item.title || sp.item.url, url: sp.item.url || '',
+      doc: sp.doc || '', show: !!sp.doc, busy: !!sp.busy, err: sp.err || '', hasErr: !!sp.err,
+      addLabel: previewRec === 'done' ? '✓ added' : previewRec === 'busy' ? 'adding…' : 'Add as source',
+      addBusy: previewRec === 'busy' || previewRec === 'done',
+    } : null;
 
     // monologue
     const LOGL = { record: 'RECORD', hash: 'HASH', eot: 'EOT', claim: 'CLAIM', conflict: 'CONFLICT', search: 'SEARCH', open: 'OPEN', skip: 'SKIP', reflection: 'REFLECT' };
@@ -3389,7 +4467,9 @@ class Component extends DCLogic {
     return {
       // chrome
       omni: st.omni, toast: st.toast, dragOver: !!st.dragOver,
+      // live recording — the mic button + the take panel
       leftOpen: st.leftOpen, rightOpen: st.rightOpen,
+      panelBackdrop: !!st.isMobile && (st.leftOpen || st.rightOpen), closePanels: () => this.closePanels(),
       leftBtnFg: st.leftOpen ? '#5B4BE6' : '#9A9AA4', rightBtnFg: st.rightOpen ? '#5B4BE6' : '#9A9AA4',
       onOmniSubmit: (e) => this.onOmniSubmit(e), onOmniInput: (e) => this.onOmniInput(e),
       openMonologue: () => this.openMonologue(), closeMonologue: () => this.closeMonologue(),
@@ -3397,6 +4477,7 @@ class Component extends DCLogic {
       // model
       modelChip, modelDot, modelOpen: st.modelOpen, toggleModel: () => this.toggleModel(), backends,
       showSpeed, speedFast, speedFluent,
+      showRedact, redactHosted,
       modelNote: m.state === 'error' ? `Load failed: ${m.note}` : m.state === 'ready' ? `${m.backend} is loaded and answering.` : m.state === 'loading' ? `Loading ${m.backend}${m.note ? ` · ${m.note}` : ''} — ${Math.round((m.progress || 0) * 100)}%` : 'The model loads on first question — or load it now.',
       loadModelLabel: m.state === 'loading' ? `${Math.round((m.progress || 0) * 100)}%…` : m.state === 'ready' ? 'Reload' : 'Load now',
       loadModelNow: () => { app.ensureModel().catch(() => {}); },
@@ -3433,6 +4514,9 @@ class Component extends DCLogic {
       // (app.state.busy: a URL fetch, a web search, a page/file import) — not just during a turn.
       canStop: !!(busy || generating),
       chatPlaceholder: sources.length ? 'Ask about what you’ve read…' : 'Record a source first — then ask about it…',
+      // live token counter for THIS chat — an estimate (~4 chars/token) across the whole exchange
+      hasChatTokens: !!(topic && topic.messages && topic.messages.length),
+      chatTokens: `~${this._fmtTokens(this._topicTokens(topic))} tokens`,
       // export chat (+ audit)
       hasChatExport: st.tab === 'chat' && messages.length > 0,
       exportMenuOpen: st.exportMenuOpen, exportCount: `${msgs.length} message${msgs.length === 1 ? '' : 's'}`,
@@ -3498,8 +4582,11 @@ class Component extends DCLogic {
       readFontLabel: rp.font === 'sans' ? 'Aa Sans' : 'Aa Serif', readWidthLabel: String(rp.w || 720),
       cycleReadTheme: () => this.cycleReadTheme(), toggleReadFont: () => this.toggleReadFont(),
       readSizeUp: () => this.bumpReadFont(1), readSizeDown: () => this.bumpReadFont(-1), cycleReadWidth: () => this.cycleReadWidth(),
-      // native render body
+      // native render body — the live site, plus its own contents lifted into the reader's drawer
       pageDoc, pageShow: !!pageDoc, pageBusy, pageErr, hasPageErr: !!pageErr, retryPage: () => this.retryPage(),
+      setNativeFrame: (el) => this.setNativeFrame(el),
+      nativeToc: (st.nativeToc || []).map((c) => ({ label: c.label, level: c.level, pad: String(11 + ((c.level || 1) - 1) * 14), go: () => this.gotoNativeChapter(c.id) })),
+      hasNativeToc: (st.nativeToc || []).length > 1, nativeTocOpen: !!st.tocOpen && vMode === 'native', toggleNativeToc: () => this.toggleNativeToc(),
       eotLines, eotLegend, eotKindLegend, eotHasKinds: eotKindLegend.length > 0, eotTruncated, eotMore, downloadEot: () => this.downloadEot(),
       facingLines, facingLegend, facingKindLegend, facingHasKinds: facingKindLegend.length > 0, facingTruncated, facingMore,
       removeViewerSource: () => { const a = this._activeSrc(); if (a && confirm(`Remove ${viewer.reg} from the record?`)) { app.removeSource(a); this.closeTab(a); } },
@@ -3508,6 +4595,40 @@ class Component extends DCLogic {
       searchNone: !st.searchBusy && st.searchResults && st.searchResults.length === 0,
       searchMeta: st.searchResults ? `${st.searchResults.length} results` : '',
       searchRows, closeSearch: () => this.closeSearch(),
+      // native preview of a search hit — the modal grows to a page frame while previewing
+      searchModalW: preview ? 'min(1040px,96vw)' : 'min(640px,92vw)',
+      searchModalH: preview ? 'calc(100vh - 120px)' : 'auto',
+      searchListShow: !preview, previewShow: !!preview,
+      previewTitle: preview ? preview.title : '', previewUrl: preview ? preview.url : '',
+      previewDoc: preview ? preview.doc : '', previewPageShow: !!(preview && preview.show),
+      previewBusy: !!(preview && preview.busy), previewErr: preview ? preview.err : '', previewHasErr: !!(preview && preview.hasErr),
+      previewAddLabel: preview ? preview.addLabel : '', previewAddBusy: !!(preview && preview.addBusy),
+      backToResults: () => this.closePreview(), addPreviewSource: () => this.addPreviewSource(),
+      retryPreview: () => { if (st.searchPreview) this.previewHit(st.searchPreview.item); },
+      // ⌘K source palette — search THROUGH the record (title · site · full body), jump to the passage
+      ...(() => {
+        const rows = st.cmdkOpen ? this._cmdkResults() : [];
+        const sel = rows.length ? Math.max(0, Math.min(st.cmdkSel || 0, rows.length - 1)) : 0;
+        const q = String(st.cmdkQuery || '').trim();
+        return {
+          cmdkShow: st.cmdkOpen, cmdkQuery: st.cmdkQuery,
+          onCmdkInput: (e) => this.onCmdkInput(e), onCmdkKey: (e) => this.onCmdkKey(e),
+          openCmdk: () => this.openCmdk(), closeCmdk: () => this.closeCmdk(),
+          cmdkRows: rows.map((r, i) => ({
+            ...r,
+            bg: i === sel ? '#F4F2FE' : 'transparent',
+            favCh: String(r.title || 'S').trim().charAt(0).toUpperCase() || 'S',
+            favBg: i === sel ? '#DED8FD' : '#EEF0F3', favFg: i === sel ? '#4B3FD0' : '#8A8A95',
+            meta: [r.domain, r.reg].filter(Boolean).join('  ·  '),
+            open: () => this._cmdkOpenResult(r),
+          })),
+          cmdkNone: st.cmdkOpen && rows.length === 0,
+          cmdkEmptyMsg: q ? ('No recorded source matches “' + q + '”.') : 'Nothing recorded yet — read a URL, drop a file, or paste text, then search it here.',
+          cmdkHasHint: st.cmdkOpen && !q && rows.length > 0,
+          cmdkHint: 'RECENT',
+          cmdkCount: rows.length ? (rows.length + ' source' + (rows.length === 1 ? '' : 's')) : '',
+        };
+      })(),
       // paste
       pasteShow: st.pasteOpen, pasteTitle: st.pasteTitle, pasteBody: st.pasteBody,
       onPasteTitle: (e) => this.onPasteTitle(e), onPasteBody: (e) => this.onPasteBody(e),

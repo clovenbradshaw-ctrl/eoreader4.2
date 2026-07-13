@@ -15,6 +15,7 @@
 
 import { stages } from './stages.js';
 import { stageFace } from './stage-faces.js';
+import { createJudgmentLog } from '../core/def.js';
 import { proposeWebSearch } from './propose.js';
 import { createCompositeDoc } from '../organs/in/index.js';
 import { siteTerrainAt } from '../surfer/index.js';
@@ -140,7 +141,10 @@ const buildReading = (ctx) => {
 const llmBrief = (ctx) => {
   try {
     const b = assembleBrief(ctx.doc, { question: ctx.question, history: ctx.history, surf: ctx.surf });
-    return { system: b.prompt.system, user: b.prompt.user, focus: b.surf.focus, thread: b.thread, draft: b.draft };
+    // Bounded like every other audit field: the ring holds hundreds of turns, and an
+    // unbounded second copy of the whole assembled prompt per turn is session-long growth.
+    const clip = (s, n) => (s == null ? s : String(s).slice(0, n));
+    return { system: clip(b.prompt.system, 4000), user: clip(b.prompt.user, 4000), focus: b.surf.focus, thread: b.thread, draft: clip(b.draft, 4000) };
   } catch { return null; }
 };
 
@@ -247,7 +251,12 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
   // answer turn whose draft earned no witness AND the mechanical read already doubts, the
   // reader is asked to REACT to its own draft, the reaction is put through the Born rule, and
   // a negative reaction sends the draft back (regenerate). Off by default → byte-identical.
-  const ctx0      = { question, doc: groundingDoc, sourceDocs, model, embedder, geometricEmbedder, classifier, adjacency, centroids, history, grounding, stream, onToken, alpha, mindSpans, inquire, horizon, cast, reread, witnessSource, shapeLibrary, groundGraph, broadcastArc, now, lensPort, voicePref, signal, maxTokens, longform, validate };
+  // The per-turn JUDGMENT LOG — the append-only rail every same-vs-other verdict rides as a
+  // revisable DEF (core/def.js). The stages append to it (fold → reference, answerable → void,
+  // bind → binding, factcheck → correspondence); it is drained into the summary below. A single
+  // mutable object held by reference, so it survives every `{...ctx}` spread through the stages.
+  const judgments = createJudgmentLog();
+  const ctx0      = { question, doc: groundingDoc, sourceDocs, model, embedder, geometricEmbedder, classifier, adjacency, centroids, history, grounding, stream, onToken, alpha, mindSpans, inquire, horizon, cast, reread, witnessSource, shapeLibrary, groundGraph, broadcastArc, now, lensPort, voicePref, signal, maxTokens, longform, validate, judgments };
 
   // The answer is FORMED at `bind` and only ANNOTATED after it (factcheck, revise,
   // veto, settle). Those annotation stages must never discard an answer the model
@@ -291,6 +300,18 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
     // refusing, the answer untouched. This is the DEF half of the fact-check the
     // edges-only veto cannot see.
     for (const f of (ctx.propositions?.fired || [])) flags.push({ id: f.id, message: f.message, refuses: false });
+    // THE FACT-CHECK'S BLIND CHANNEL. The edge-grounding fact-check adjudicates a claimed
+    // relation's MEANING with a live geometric classifier; without one every claim that reaches
+    // that gate degrades to `indeterminate` (held) — the answer ships UNCHECKED on the semantic
+    // channel, and until now silently (the "5/5 indeterminate" turns). When the turn ran the
+    // fact-check with no classifier AND a claim actually degraded for want of it, say so: a
+    // non-refusing flag, the answer shown but honestly qualified. The symbolic relation algebra
+    // still ran (it needs no classifier), so this never fires when the only claims were typed
+    // kinship/disjointness ones the algebra already settled.
+    if (!ctx.classifier && (ctx.factcheck?.edgeVerdicts || []).some(v => v.reason === 'no-classifier')) flags.push({
+      id: 'factcheck-limited', refuses: false,
+      message: 'The semantic fact-checker was not available, so the answer’s claims were not checked for meaning against your sources — only the symbolic checks ran.',
+    });
     // A post-answer annotation stage failed: the answer rides, with an honest flag
     // that the grounding check behind it could not complete.
     if (degraded.length) flags.push({
@@ -370,18 +391,40 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
       } catch { /* the ledger must never cost the answer */ }
     }
 
+    // THE JUDGMENT DISTRIBUTION (core/def.js): every same-vs-other verdict the turn made —
+    // binding, reference, void, correspondence — folded to its CURRENT verdict per subject and
+    // counted. This is the verdict census the answer chip will summarize (n corroborated / n
+    // unsupported / n indeterminate), and the append-only log behind it means any of these is
+    // a revisable DEF, not a frozen flag. Best-effort — the log must never cost the answer.
+    let judgmentDist = null;
+    try {
+      judgmentDist = ctx.judgments ? ctx.judgments.distribution() : null;
+      if (judgmentDist && judgmentDist.total > 0) turn.step('judgments', {
+        corroborated:  judgmentDist.corroborated,
+        unsupported:   judgmentDist.unsupported,
+        contradicted:  judgmentDist.contradicted,
+        indeterminate: judgmentDist.indeterminate,
+        offDiagonal:   judgmentDist.offDiagonal,
+        total:         judgmentDist.total,
+      });
+    } catch { judgmentDist = null; }
+
     turn.finish({
       route:     ctx.route || 'grounded',
       grounding,                                  // the register the user selected (audit trail)
       model:     describeModel(model),            // WHAT produced this answer — the talker + its exact model
       reading:   buildReading(ctx),               // the full mechanical reading: spans · surf field · note
-      prompt:    ctx.promptText || null,
-      rawOutput: ctx.rawOutput  || null,
+      // Bounded copies: 16K chars keeps any real prompt/decode inspectable while capping
+      // what a single turn can pin in the ring for the rest of the session.
+      prompt:    ctx.promptText ? String(ctx.promptText).slice(0, 16000) : null,
+      rawOutput: ctx.rawOutput  ? String(ctx.rawOutput).slice(0, 16000)  : null,
       bound:     ctx.bound      || null,
       vetoes:    ctx.vetoes     || null,
       answer:    ctx.answer     || '',
       sources:   ctx.sources    || [],
       referential: ctx.referential || null,
+      // The verdict census over this turn's judgment log — the revisable DEFs behind the answer.
+      judgments: judgmentDist,
       // Whether the hard floor GATED — substituted a typed decline for an ungrounded /
       // denied draft. The draft survives in `revisions`; the answer is the honest word.
       gated: ctx.gated || false,
@@ -407,6 +450,13 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
       answer: ctx.answer, sources: ctx.sources || [],
       sourceDocs: sourceDocsOf(groundingDoc, ctx.sources),
       referential: ctx.referential || null, flags, unbound, webProposal,
+      // The verdict distribution over the turn's judgment log (core/def.js): the current DEF
+      // per subject, counted by verdict — the summary the label reads. Null on a bare turn.
+      judgments: judgmentDist,
+      // The judgment log itself — every DEF the turn minted, witnesses and revise chains
+      // intact. The census above is a projection of this; the evaluator (metabolism/defscore.js)
+      // scores the events, not the counts.
+      judgmentLog: judgments,
       fedGraph: ctx.fedGraph || null,   // the meaning graph fed to the talker (web path); null otherwise
       citeOrigins: citeOriginsOf(groundingDoc, ctx.sources),   // per-claim attribution: [sN] idx → source docId
       citeTexts:   citeTextsOf(groundingDoc, ctx.sources),     // [sN] idx → the cited sentence itself (hover provenance)

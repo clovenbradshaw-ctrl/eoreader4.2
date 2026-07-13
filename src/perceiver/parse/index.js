@@ -18,3 +18,4 @@ export { frameSpan, isBanner }     from './frame.js';
 export { extractMetadata, splitFields } from './metadata.js';
 export { argumentSpanSeg, positionElements, argumentSpansHold,
          SVO_EXTRACTOR, SVO_CONFIDENCE } from './proposition.js';
+export { nameTokens, isSubsequence, clusterAnchors, distinctReferentCount } from './name-variants.js';

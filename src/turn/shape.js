@@ -7,28 +7,40 @@
 // register, length, and framing of a crisp lookup vs a hedged synthesis vs a warm reorient.
 // That is not derivable from the document; it is a learned convention, and the only honest
 // source is EXAMPLES. `data/exemplars.jsonl` is 430 authored {user_turn → response} sample
-// answers, tagged by intent and shape. Embedded, each intent's responses form a CENTROID —
-// the learned shape of that form — and a draft is scored by DISCRIMINATIVE cosine: is it
-// unambiguously in the target basin (closer to the target shape than to any competitor)?
+// answers, tagged by intent and shape.
+//
+// TWO MODES. With a fitted grammar bundle (data/shapes.json, tools/shape-fit.mjs) the
+// library runs in GRAMMAR mode: navigation (which intent this question wants) is still a
+// kNN over prompt embeddings, but a draft is scored MODEL-FREE — parsed to its depicted
+// move sequence and measured as a likelihood margin against the assistant-contrast
+// grammar (turn/shape-grammar.js), with each intent's own leave-one-out margin p10 as
+// the bar. Without the bundle, the legacy path is unchanged: each intent's response
+// embeddings form the target basin and a draft is scored by DISCRIMINATIVE cosine.
 //
 // This realizes "we can predict anything": the prediction is the nearest sample answer(s) to
-// the question, not a hand-written template. It is embedder-gated — a cosine is only meaning
-// under a meaning-measuring embedder — and inert without one, exactly like the significance
-// column. Form is a SMOKE ALARM (eoreader3 §): it flags how unlike the kind of answer the
-// draft is; it never gates a restart on its own (taste is not refusable).
+// the question, not a hand-written template. Navigation is embedder-gated — a cosine is only
+// meaning under a meaning-measuring embedder — and inert without one, exactly like the
+// significance column. Form is a SMOKE ALARM (eoreader3 §): it flags how unlike the kind of
+// answer the draft is; it never gates a restart on its own (taste is not refusable).
+
+import { scoreDraftGrammar } from './shape-grammar.js';
 
 // The bundled sample-answer library — a same-origin asset, fetched like the phasepost cells.
 const EXEMPLARS_URL = new URL('../../data/exemplars.jsonl', import.meta.url).href;
 
-// loadShapeLibrary(embed, { url }) → build the resident library from the bundled exemplars.
-// `embed` is (text) → Promise<vec> (the caller's warm meaning embedder). Null on any failure
-// — the form path degrades to inert, never throws, exactly like the cells loader.
-export const loadShapeLibrary = async (embed, { url = EXEMPLARS_URL } = {}) => {
+// loadShapeLibrary(embed, { url, shapes }) → build the resident library from the bundled
+// exemplars. `embed` is (text) → Promise<vec> (the caller's warm meaning embedder).
+// `shapes` is the fitted grammar bundle (shape-grammar.js loadShapeGrammars); with it the
+// library runs in GRAMMAR mode — drafts are scored model-free by move-grammar likelihood
+// against the assistant-contrast basin, so only the user_turns are embedded (navigation),
+// never the responses. Without it, the legacy cosine path is unchanged. Null on any
+// failure — the form path degrades to inert, never throws, exactly like the cells loader.
+export const loadShapeLibrary = async (embed, { url = EXEMPLARS_URL, shapes = null } = {}) => {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const records = parseExemplars(await res.text());
-    return records.length ? await buildShapeLibrary(records, embed) : null;
+    return records.length ? await buildShapeLibrary(records, embed, { shapes }) : null;
   } catch { return null; }
 };
 
@@ -107,47 +119,63 @@ const adaptiveThreshold = (targetExemplars, competitorExemplars) => {
   return Math.max(THRESHOLD.lo, Math.min(THRESHOLD.hi, THRESHOLD.base + THRESHOLD.k * proximity));
 };
 
-// buildShapeLibrary(records, embed) → the resident library. `embed` is (text) → Promise<vec>
-// (the caller wires it to the meaning embedder it will score with). Embeds each response and
-// user_turn ONCE; selection and scoring are then synchronous over two per-turn embeddings.
-export const buildShapeLibrary = async (records, embed) => {
+// buildShapeLibrary(records, embed, { shapes }) → the resident library. `embed` is
+// (text) → Promise<vec> (the caller wires it to the meaning embedder it will score
+// with). In grammar mode (a fitted `shapes` bundle present) only the user_turns are
+// embedded — navigation needs the question-space; scoring is the grammar's job and a
+// response embedding would only reintroduce the form/content conflation the grammars
+// exist to remove. Legacy mode embeds both, exactly as before.
+export const buildShapeLibrary = async (records, embed, { shapes = null } = {}) => {
   const lib = [];
   for (const r of records) {
-    const responseVec = await embed(r.response);
+    const responseVec = shapes ? null : await embed(r.response);
     const promptVec   = r.user_turn ? await embed(r.user_turn) : null;
     lib.push({ ...r, responseVec, promptVec, weight: r.weight || 1 });
   }
-  return makeLibrary(lib);
+  return makeLibrary(lib, shapes);
 };
 
 const round = (x) => (typeof x === 'number' && Number.isFinite(x) ? Math.round(x * 1000) / 1000 : null);
 
-const makeLibrary = (lib) => {
+const makeLibrary = (lib, shapes = null) => {
   const byIntent = (intent) => lib.filter(e => e.intent === intent);
 
+  // The navigation pool beyond the exemplars (turn/nav-pool.js): corpus prompts with
+  // TRANSFERRED intent labels. They densify the kNN vote only — a nav entry is never
+  // `best`, never a targetExemplar, never a sample to imitate. The corpus navigates;
+  // it is not a source (its responses live in the CONTRAST grammar, the thing a draft
+  // is scored against, not toward).
+  const navEntries = [];
+  const addNavEntries = (entries) => { for (const e of entries || []) if (e?.promptVec && e.intent) navEntries.push(e); };
+
   // Read the prompt's wanted shape off the nearest sample answers (eoreader3 §9): a weighted
-  // intent vote over the k nearest by question embedding. Returns the predicted intent, the
+  // intent vote over the k nearest by question embedding — exemplars and nav entries both
+  // vote; only a real exemplar can be the returned `best`. Returns the predicted intent, the
   // confidence (nearest minus nearest-of-a-different-intent), and the single nearest sample
   // answer — itself a content+form prediction of the reply.
   const matchPrompt = (queryVec, { k = 5 } = {}) => {
     const scored = [];
-    for (const e of lib) if (e.promptVec) scored.push({ e, sim: cosine(queryVec, e.promptVec) });
+    for (const e of lib) if (e.promptVec) scored.push({ e, sim: cosine(queryVec, e.promptVec), nav: false });
     if (!scored.length) return null;
+    for (const e of navEntries) scored.push({ e, sim: cosine(queryVec, e.promptVec), nav: true });
     scored.sort((a, b) => b.sim - a.sim);
     const top = scored.slice(0, k);
     const votes = {};
     for (const { e, sim } of top) votes[e.intent] = (votes[e.intent] || 0) + Math.max(0, sim) * (e.weight || 1);
     let intent = top[0].e.intent, best = -Infinity;
     for (const key of Object.keys(votes)) if (votes[key] > best) { best = votes[key]; intent = key; }
+    const bestEx = scored.find((s) => !s.nav);           // nearest REAL exemplar, whatever voted
     const sTop = top[0].sim;
     let sOther = 0;
     for (const { e, sim } of scored) if (e.intent !== intent) { sOther = sim; break; }
     return { intent, confidence: sTop - sOther,
-      best: { id: top[0].e.id, intent: top[0].e.intent, sim: sTop, user_turn: top[0].e.user_turn, response: top[0].e.response } };
+      best: { id: bestEx.e.id, intent: bestEx.e.intent, sim: bestEx.sim, user_turn: bestEx.e.user_turn, response: bestEx.e.response } };
   };
 
   // The target shape for a question: the intent cluster (ranked by prompt similarity), the
-  // competitor set, and the adaptive threshold the loop carries as its own bar.
+  // competitor set, and the threshold the loop carries as its own bar. In grammar mode the
+  // threshold is the intent's own measured LOO-margin p10 (fit time, tools/shape-fit.mjs);
+  // the adaptive cosine threshold survives only as the legacy path.
   const selectForQuestion = (queryVec, { k = 5 } = {}) => {
     if (!queryVec) return null;
     const pm = matchPrompt(queryVec, { k });
@@ -158,40 +186,58 @@ const makeLibrary = (lib) => {
     const ranked = cluster.map(e => ({ e, s: e.promptVec ? cosine(queryVec, e.promptVec) : (e.weight || 1) }))
       .sort((a, b) => b.s - a.s).map(x => x.e);
     const targetExemplars = ranked.slice(0, k);
-    const competitorExemplars = lib.filter(e => e.intent !== intent);
+    const competitorExemplars = shapes ? [] : lib.filter(e => e.intent !== intent);
     return {
       intent,
       promptMatch: { intent: pm.intent, confidence: round(pm.confidence), best_id: pm.best.id, best_response: pm.best.response },
       targetExemplars, competitorExemplars,
-      threshold: adaptiveThreshold(targetExemplars, competitorExemplars),
+      threshold: shapes
+        ? (shapes.perIntent?.[intent]?.marginStats?.p10 ?? null)
+        : adaptiveThreshold(targetExemplars, competitorExemplars),
     };
   };
 
-  // Score a draft against the target shape. `off` is the prediction error: the draft is not
-  // unambiguously in the target basin (its margin fell under the adaptive threshold).
-  const scoreDraft = (draftVec, targetShape) => {
-    const sc = discriminativeScore(draftVec, targetShape);
+  // Score a draft against the target shape. Grammar mode takes the draft's TEXT — the
+  // scoring is a parse + a likelihood, no embedding; `off` means the draft's form sits
+  // nearer the assistant basin than this kind's own held-out examples do. Legacy mode
+  // takes the draft's VECTOR and keeps the discriminative cosine unchanged.
+  const scoreDraft = (draft, targetShape) => {
+    if (shapes) {
+      if (typeof draft !== 'string') return null;
+      return scoreDraftGrammar(shapes, targetShape.intent, draft);
+    }
+    const sc = discriminativeScore(draft, targetShape);
     if (!sc) return null;
     return { ...sc, threshold: targetShape.threshold, off: sc.score < targetShape.threshold };
   };
 
-  return { lib, byIntent, matchPrompt, selectForQuestion, scoreDraft };
+  return {
+    lib, byIntent, matchPrompt, selectForQuestion, scoreDraft, addNavEntries,
+    // 'grammar': drafts are scored by TEXT, model-free. 'cosine': by draft vector.
+    // stages.js reads this to know what to hand scoreDraft/answerFormError.
+    mode: shapes ? 'grammar' : 'cosine',
+    navSize: () => navEntries.length,
+  };
 };
 
 // The form error for the loop: select the wanted shape from the question, score the draft,
 // and return a SOFT (non-gating) error when the draft is off-basin — the answer does not read
-// as the kind of answer the question's nearest sample answers do. Null when inert (no library,
-// no embeddings) or when the draft is in-basin.
-export const answerFormError = (library, queryVec, draftVec) => {
-  if (!library || !queryVec || !draftVec) return null;
+// as the kind of answer the question's nearest sample answers do. `draft` is the draft's
+// TEXT under a grammar-mode library, its VECTOR under a legacy one (library.mode says
+// which). Null when inert (no library, no embeddings, no measured threshold) or when the
+// draft is in-basin.
+export const answerFormError = (library, queryVec, draft) => {
+  if (!library || !queryVec || !draft) return null;
   const target = library.selectForQuestion(queryVec);
   if (!target) return null;
-  const sc = library.scoreDraft(draftVec, target);
+  const sc = library.scoreDraft(draft, target);
   if (!sc || !sc.off) return null;
+  const unit = library.mode === 'grammar' ? ' bits/move' : '';
+  const basin = library.mode === 'grammar' ? 'the assistant basin' : 'a different kind';
   return {
     id: 'form', dim: 'form', gates: false,
-    intent: target.intent, score: round(sc.score), threshold: round(sc.threshold),
+    intent: target.intent, score: round(sc.score ?? sc.margin), threshold: round(sc.threshold),
     reason: `the answer does not read like a ${target.intent} answer — its shape sits ` +
-      `nearer a different kind (margin ${round(sc.score)} < ${round(sc.threshold)})`,
+      `nearer ${basin} (margin ${round(sc.score ?? sc.margin)}${unit} < ${round(sc.threshold)})`,
   };
 };

@@ -1,212 +1,186 @@
-// EO: SYN·INS(Field,Network → Paradigm, Composing,Making) — corpus → move-shapes, offline
-// The join. Run the move-log door (perceiver/predict/movelog.js) over the CORPUS RESPONSES,
-// not over a text being read. Each authored response collapses to a sequence over the move
-// alphabet — form with the tokens thrown away — and a per-intent bigram grammar over those
-// sequences IS the shape that kind of answer wants. Same math the predictor's learnGrammar
-// runs (perceiver/predict/grammar.js); a new object, keyed by intent.
+// Fit per-intent move-grammars from data/exemplars.jsonl -> data/shapes.json.
 //
-// Two things this fit is careful about, both load-bearing:
+// Each exemplar response is parsed (parse/pipeline.js parseText) and reduced to its
+// move-log (perceiver/predict/movelog.js buildMoveLog) — a sequence over the ten-symbol
+// operator alphabet. Grouping by intent and running learnGrammar (predict/grammar.js,
+// the same bigram fit scripts/learn-grammar.mjs runs over metamorphosis.txt) yields a
+// per-intent transition matrix: the learned SHAPE of that kind of answer, form with the
+// tokens thrown away.
 //
-//   MASKING.  DEF, EVA, and REC are the reader's own judgment moves — DEF its frame's terms,
-//             EVA each particular against them, REC the break. (In the move-log they are the
-//             ENACTED register, the reader's cognition ABOUT the response.) They are masked out
-//             at fit time, so the fitted shape is provably incapable of carrying a judgment:
-//             every shape grammar has exactly zero mass on DEF/EVA/REC (tests/shape-fit.test.js).
-//             That is what makes a shape content-free by construction — no corpus content can
-//             leak into a Ground-Truth story through the form prior. It is a Law-1 contract in
-//             the INPUT direction (docs/model-as-contracted-part.md): the prompt's wanted shape
-//             is a distribution over ops, and a distribution that cannot express a judgment
-//             cannot smuggle one.
-//
-//   BACKGROUND.  A grammar fit over ALL responses at once is shipped alongside the per-intent
-//             grammars — the corpus's register as a whole. It is the NEGATIVE set: the honest
-//             contrast for a draft is s_yours − s_background (this register vs. off-corpus
-//             chatbot-ese), not one intent against the corpus's own other intents. The consumer
-//             (turn/shape.js) reads the intent grammar as the target and the background as the
-//             thing to be unlike.
-//
-// Offline and model-free: parsing and reading need no embedder, so this is a pure corpus →
-// data/shapes.json transform. Navigation (which intent a live question wants) still embeds at
-// run time exactly as matchPrompt does today — but SCORING a draft against a shape becomes a
-// likelihood under a transition matrix, not a cosine, so the reading path itself stays modelless.
-//
-// Regenerate:  node tools/shape-fit.mjs   (writes data/shapes.json)
-
-import { readFileSync, writeFileSync } from 'node:fs';
+// DEF/EVA/REC are the enacted (cognition) register — the reader's own frame-forming,
+// testing, and breaking (movelog.js's ENACTED stream), not anything depicted in the
+// response text. They are dropped before the grammar is fit, so the fitted shape is a
+// judgment-free skeleton of depicted form: it can carry no verdict, no held belief, no
+// break — only NUL/SEG/SIG/CON/INS/SYN/VOID, the operators a response's own content
+// register can emit. That is what makes scoring a draft against a shape safe as a
+// contract on the input side (docs/model-as-contracted-part.md): the shape cannot leak
+// a judgment because it was never fit from one.
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parseText } from '../src/perceiver/parse/index.js';
-import { buildMoveLog, learnGrammar, MOVE_ALPHABET } from '../src/perceiver/predict/index.js';
-import { parseExemplars } from '../src/turn/shape.js';
+import { dirname, join } from 'node:path';
 
-// The judgment moves — the enacted DEF→EVA→REC cognition the reader runs OVER a response.
-// Masked at fit time so no shape can carry an epistemic verdict.
-export const MASKED = Object.freeze(['DEF', 'EVA', 'REC']);
-const MASKED_SET = new Set(MASKED);
-// What survives the mask: the depicted-form skeleton the shape actually is.
-export const KEPT = Object.freeze(MOVE_ALPHABET.filter((op) => !MASKED_SET.has(op)));
+import { learnGrammar } from '../src/perceiver/predict/grammar.js';
+import { ENACTED_MASK, DEPICTED_ALPHABET, depictedMoves } from './lib/moves.mjs';
+import { grammarMargin } from '../src/turn/shape-grammar.js';
 
-// Abstract one response string to its masked move-sequence — the move-log door run over a
-// response, with the judgment moves dropped. Returns an array of moves ({ op, ... }) carrying
-// only KEPT ops, in reading order. Never throws: a response the parser cannot read is an empty
-// sequence, skipped by the caller, exactly like a malformed exemplar line.
-export const abstractResponse = (response, { docId = 'shape' } = {}) => {
-  try {
-    const doc = parseText(String(response || ''), { docId });
-    const { moves } = buildMoveLog(doc, {});
-    return moves.filter((m) => m && !MASKED_SET.has(m.op) && MOVE_ALPHABET.includes(m.op));
-  } catch {
-    return [];
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const EXEMPLARS_PATH = join(ROOT, 'data', 'exemplars.jsonl');
+const NAV_CORPUS_PATH = join(ROOT, 'data', 'nav-corpus.jsonl');
+const OUT_PATH = join(ROOT, 'data', 'shapes.json');
+
+const parseExemplars = (text) => {
+  const out = [];
+  for (const line of text.split('\n')) {
+    const t = line.trim();
+    if (!t || t.startsWith('//')) continue;
+    try {
+      const r = JSON.parse(t);
+      if (r && typeof r.response === 'string' && r.intent) out.push(r);
+    } catch { /* skip malformed line */ }
+  }
+  return out;
+};
+
+const fitGrammar = (moveSeqs, alpha = 0.5) => learnGrammar(moveSeqs, DEPICTED_ALPHABET, { alpha });
+
+// The masking proof: DEF/EVA/REC are structurally absent from the fitted alphabet, not
+// merely smoothed toward zero (add-alpha smoothing over a 10-symbol alphabet would give
+// even an unobserved op a nonzero floor — fitting over the 7-symbol DEPICTED_ALPHABET
+// instead means there is no column for a judgment op to occupy at all).
+const assertMaskedZero = (grammar, label) => {
+  for (const op of ENACTED_MASK) {
+    if (grammar.alphabet.includes(op)) {
+      throw new Error(`shape-fit: ${label} grammar's alphabet includes masked op ${op} — masking failed`);
+    }
   }
 };
 
-// Re-key a grammar learned over the KEPT alphabet into the full ten-symbol layout the predictor
-// speaks (grammarPrior/DEFAULT_GRAMMAR), with the masked symbols pinned to exactly 0 as both a
-// context row and a next-move column. The kept rows already normalise over KEPT, so pinning the
-// masked columns to 0 leaves every row summing to 1; the marginal likewise. This makes the
-// zero-mass guarantee provable, not merely an add-α floor.
-const toFullAlphabet = (kept) => {
-  const trans = {};
-  for (const prev of MOVE_ALPHABET) {
-    trans[prev] = {};
-    for (const next of MOVE_ALPHABET) {
-      trans[prev][next] =
-        MASKED_SET.has(prev) || MASKED_SET.has(next) ? 0 : round(kept.trans?.[prev]?.[next] ?? 0);
-    }
-  }
-  const marginal = {};
-  for (const op of MOVE_ALPHABET) marginal[op] = MASKED_SET.has(op) ? 0 : round(kept.marginal?.[op] ?? 0);
-  return { alphabet: [...MOVE_ALPHABET], trans, marginal };
+const round = (x, k = 6) => (Number.isFinite(x) ? Math.round(x * 10 ** k) / 10 ** k : x);
+
+// Linear-interpolated percentile over a sorted copy. p in [0,1].
+const percentile = (values, p) => {
+  const v = [...values].sort((a, b) => a - b);
+  if (!v.length) return null;
+  const idx = p * (v.length - 1);
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  return v[lo] + (v[hi] - v[lo]) * (idx - lo);
 };
 
-const round = (x) => (Number.isFinite(x) ? Math.round(x * 1e6) / 1e6 : 0);
-
-// Fit a single shape grammar from an array of masked move-sequences. Fits over the KEPT
-// alphabet (so add-α never puts mass on a masked symbol), then re-keys to the full layout.
-const fitGrammar = (moveSeqs, { alpha = 0.5 } = {}) =>
-  toFullAlphabet(learnGrammar(moveSeqs, KEPT, { alpha }));
-
-// fitShapes(records, opts) → the shapes object written to data/shapes.json.
-//   records   role-tagged records ({ intent, response, role?, ... }); anything without a readable
-//             response contributes no sequence. role defaults to 'target'.
-//               target      → per-intent grammars (the shapes we ship).
-//               background  → pooled into the negative grammar (the register to be unlike).
-//               reference   → labelled assistant data; pooled into the background AND scored for
-//                            coverage (which target intents it can/cannot support).
-//             With no background/reference records the background falls back to the pooled TARGET,
-//             so the default self-contained run is byte-identical to fitting the corpus alone.
-//   opts      { alpha } — the grammar's add-α smoothing (matches the predictor's default 0.5).
-export const fitShapes = (records, { alpha = 0.5, source = null } = {}) => {
-  const roleOf = (r) => r.role || 'target';
-  const byIntent = new Map();          // target only
-  const targetSeqs = [];
-  const bgSeqs = [];                    // background + reference, pooled
-  const refByIntent = new Map();        // reference coverage: mapped intent → count
-  let read = 0;
-
-  for (const r of records) {
-    const seq = abstractResponse(r.response);
-    if (!seq.length) continue;
-    read++;
-    const role = roleOf(r);
-    if (role === 'target') {
-      targetSeqs.push(seq);
-      if (!byIntent.has(r.intent)) byIntent.set(r.intent, []);
-      byIntent.get(r.intent).push(seq);
-    } else {
-      bgSeqs.push(seq);
-      if (role === 'reference' && r.intent && !String(r.intent).startsWith('dolly:') && r.intent !== '_bg')
-        refByIntent.set(r.intent, (refByIntent.get(r.intent) || 0) + 1);
-    }
+// The data-driven threshold: each intent's leave-one-out margin distribution against
+// the assistant contrast. For exemplar i, fit the intent's grammar WITHOUT i, then score
+// i's margin (per-move bits under the LOO grammar minus under the contrast) — the score
+// an unseen draft of this kind would get. The p10 of these is the bar the runtime scorer
+// reads (shape-grammar.js): a draft below it scores worse against chatbot-ese than the
+// kind's own held-out examples do. This replaces the hand-tuned THRESHOLD constant in
+// turn/shape.js with a measured quantity, per intent.
+const looMarginStats = (moveSeqs, contrastGrammar) => {
+  if (!contrastGrammar) return null;
+  const margins = [];
+  for (let i = 0; i < moveSeqs.length; i++) {
+    const rest = moveSeqs.filter((_, j) => j !== i);
+    if (!rest.length) continue;
+    const loo = fitGrammar(rest);
+    const m = grammarMargin(moveSeqs[i], loo, contrastGrammar);
+    if (m) margins.push(m.margin);
   }
-
-  const intents = {};
-  for (const [intent, seqs] of [...byIntent.entries()].sort()) {
-    const g = fitGrammar(seqs, { alpha });
-    intents[intent] = { n: seqs.length, moves: seqs.reduce((s, x) => s + x.length, 0), trans: g.trans, marginal: g.marginal };
-  }
-
-  // The negative set — a separate assistant corpus when one was given, else the corpus's own
-  // register (self-contained fallback). A draft's honest contrast is s_intent − s_background.
-  const external = bgSeqs.length > 0;
-  const bgSource = external ? bgSeqs : targetSeqs;
-  const bg = fitGrammar(bgSource, { alpha });
-
-  // Coverage — the contrast-set proof. For each target intent, how much reference (assistant)
-  // support exists. The intents that come back 0 are the Cleo-distinctive half no assistant
-  // corpus contains; only computed when a reference corpus was supplied.
-  let coverage = null;
-  if (refByIntent.size || external) {
-    const covered = {}, contrastOnly = [];
-    for (const intent of Object.keys(intents)) {
-      const n = refByIntent.get(intent) || 0;
-      covered[intent] = n;
-      if (n === 0) contrastOnly.push(intent);
-    }
-    coverage = {
-      referenceSources: [...new Set(records.filter((r) => roleOf(r) !== 'target').map((r) => r.source).filter(Boolean))],
-      supported: Object.entries(covered).filter(([, n]) => n > 0).length,
-      contrastOnly,                    // intents with zero assistant analog — the finding
-      byIntent: covered,
-    };
-  }
-
+  if (!margins.length) return null;
   return {
-    kind: 'eo-move-shapes',
-    version: 1,
-    alphabet: [...MOVE_ALPHABET],
-    masked: [...MASKED],
-    kept: [...KEPT],
-    alpha,
-    background: {
-      n: bgSource.length,
-      moves: bgSource.reduce((s, x) => s + x.length, 0),
-      external,
-      trans: bg.trans, marginal: bg.marginal,
-    },
-    intents,
-    ...(coverage ? { coverage } : {}),
-    provenance: {
-      source,
-      records: records.length,
-      responsesRead: read,
-      intents: Object.keys(intents).length,
-      background: external ? 'external-corpus' : 'target-pooled',
-      tool: 'tools/shape-fit.mjs',
-    },
+    n: margins.length,
+    min: round(Math.min(...margins)),
+    p10: round(percentile(margins, 0.10)),
+    p50: round(percentile(margins, 0.50)),
   };
 };
 
-// ── CLI ────────────────────────────────────────────────────────────────────────
-// node tools/shape-fit.mjs                         — self-contained: Cleo target, pooled background.
-// node tools/shape-fit.mjs --reference data/corpus/dolly.jsonl [--out data/shapes.enriched.json]
-//     — target grammars from Cleo; background from the assistant corpus; coverage reported.
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
-if (isMain) {
-  const argv = process.argv.slice(2);
-  const arg = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : null; };
-  const refPath = arg('--reference');
-  const OUT = new URL(`../${arg('--out') || 'data/shapes.json'}`, import.meta.url);
-  const CORPUS = new URL('../data/exemplars.jsonl', import.meta.url);
-
-  const records = parseExemplars(readFileSync(CORPUS, 'utf8'));
-  if (refPath) {
-    const { fromDolly } = await import('./corpus/adapters.mjs');
-    const ref = fromDolly(readFileSync(new URL(`../${refPath}`, import.meta.url), 'utf8'), { role: 'reference' });
-    records.push(...ref);
-    console.log(`shape-fit: + ${ref.length} reference records from ${refPath}`);
+// The CONTRAST grammars — the corpus as background distribution, not target. Fit one
+// grammar per register over data/nav-corpus.jsonl responses: 'assistant-synthetic'
+// (HelpSteer2/3, Magpie-Pro — chatbot-ese, the basin a draft should NOT sit in) and
+// 'human-authored' (OASST2, Dolly15k — the positive register control). Discards are
+// TYPED and counted, never silent: a corpus response that fails to parse or yields no
+// depicted moves is logged by kind, so the fit's coverage is on the record.
+const fitContrast = () => {
+  if (!existsSync(NAV_CORPUS_PATH)) {
+    console.log(`shape-fit: no ${NAV_CORPUS_PATH} — contrast grammars skipped (run tools/corpus-fetch.mjs + tools/nav-sample.mjs first)`);
+    return null;
   }
-  const shapes = fitShapes(records, { source: refPath ? `data/exemplars.jsonl + ${refPath}` : 'data/exemplars.jsonl' });
-
-  const top = (g) => Object.entries(g.marginal).filter(([, p]) => p > 0).sort((a, b) => b[1] - a[1]).slice(0, 3)
-    .map(([op, p]) => `${op} ${Math.round(p * 100)}%`).join(' · ');
-  console.log(`shape-fit: ${shapes.provenance.responsesRead} responses → ${shapes.provenance.intents} intents`);
-  console.log(`  background (${shapes.background.n} seqs, ${shapes.background.external ? 'external' : 'pooled'}): ${top(shapes.background)}`);
-  for (const [intent, g] of Object.entries(shapes.intents))
-    console.log(`  ${intent.padEnd(30)} n=${String(g.n).padStart(3)}  ${top(g)}`);
-  if (shapes.coverage) {
-    console.log(`\ncoverage (contrast-set proof): ${shapes.coverage.supported}/${shapes.provenance.intents} intents have assistant support`);
-    console.log(`  contrast-only (no assistant analog, Cleo's own): ${shapes.coverage.contrastOnly.join(', ')}`);
+  const byRegister = new Map();
+  const discards = { 'no-response': 0, 'parse-failed': 0, 'no-depicted-moves': 0 };
+  for (const line of readFileSync(NAV_CORPUS_PATH, 'utf8').split('\n')) {
+    const t = line.trim();
+    if (!t) continue;
+    let r;
+    try { r = JSON.parse(t); } catch { continue; }
+    if (!r.register || typeof r.response !== 'string' || !r.response.trim()) { discards['no-response']++; continue; }
+    let moves;
+    try { moves = depictedMoves(r.response, r.id); } catch { discards['parse-failed']++; continue; }
+    if (!moves.length) { discards['no-depicted-moves']++; continue; }
+    if (!byRegister.has(r.register)) byRegister.set(r.register, []);
+    byRegister.get(r.register).push(moves);
   }
-  writeFileSync(OUT, JSON.stringify(shapes, null, 2) + '\n');
-  console.log(`→ ${fileURLToPath(OUT)}`);
+  const contrast = {};
+  for (const [register, moveSeqs] of byRegister) {
+    const grammar = fitGrammar(moveSeqs);
+    assertMaskedZero(grammar, `contrast:${register}`);
+    contrast[register] = { n: moveSeqs.length, grammar };
+  }
+  return { contrast, discards };
+};
+
+function main() {
+  const raw = readFileSync(EXEMPLARS_PATH, 'utf8');
+  const records = parseExemplars(raw);
+  if (!records.length) throw new Error(`shape-fit: no exemplars read from ${EXEMPLARS_PATH}`);
+
+  const byIntent = new Map();
+  for (const r of records) {
+    if (!byIntent.has(r.intent)) byIntent.set(r.intent, []);
+    byIntent.get(r.intent).push(r);
+  }
+
+  // Contrast first: the per-intent LOO thresholds are measured against it.
+  const contrastFit = fitContrast();
+  const assistantContrast = contrastFit?.contrast?.['assistant-synthetic']?.grammar || null;
+
+  const perIntent = {};
+  const allMoveSeqs = [];
+  for (const [intent, recs] of byIntent) {
+    const moveSeqs = recs.map((r) => depictedMoves(r.response, r.id));
+    allMoveSeqs.push(...moveSeqs);
+    const grammar = fitGrammar(moveSeqs);
+    assertMaskedZero(grammar, intent);
+    const marginStats = looMarginStats(moveSeqs, assistantContrast);
+    perIntent[intent] = { n: recs.length, grammar, ...(marginStats ? { marginStats } : {}) };
+  }
+
+  const background = fitGrammar(allMoveSeqs);
+  assertMaskedZero(background, 'background');
+
+  const out = {
+    version: 3,
+    source: 'data/exemplars.jsonl',
+    maskedOps: [...ENACTED_MASK],
+    alphabet: DEPICTED_ALPHABET,
+    perIntent,
+    background: { n: records.length, grammar: background },
+    ...(contrastFit ? {
+      contrast: contrastFit.contrast,
+      contrastSource: 'data/nav-corpus.jsonl',
+      contrastDiscards: contrastFit.discards,
+    } : {}),
+  };
+
+  writeFileSync(OUT_PATH, JSON.stringify(out, null, 2) + '\n');
+
+  console.log(`shape-fit: ${records.length} exemplars, ${byIntent.size} intents -> ${OUT_PATH}`);
+  for (const [intent, { n, marginStats }] of Object.entries(perIntent)) {
+    const t = marginStats ? ` (LOO margin p10=${marginStats.p10}, p50=${marginStats.p50})` : '';
+    console.log(`  ${intent}: n=${n}${t}`);
+  }
+  console.log(`  background (pooled exemplars): n=${records.length}`);
+  if (contrastFit) {
+    for (const [register, { n }] of Object.entries(contrastFit.contrast)) console.log(`  contrast:${register}: n=${n}`);
+    console.log(`  contrast discards: ${JSON.stringify(contrastFit.discards)}`);
+  }
 }
+
+main();

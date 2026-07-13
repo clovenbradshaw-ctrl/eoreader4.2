@@ -34,7 +34,7 @@ import { createParser } from '../../perceiver/parse/index.js';
 import { readingAt } from '../../perceiver/reading.js';
 import { groundSpans, groundSummary, supportVerdict } from '../../enactor/ground/spans.js';
 import { factCheck } from '../../enactor/factcheck/index.js';
-import { discourseDag, assertedDag, mountDagSurface } from '../../surfer/dag/index.js';
+import { discourseDag, assertedDag, mountDagSurface, dagNodeLabel } from '../../surfer/dag/index.js';
 import { createAuditLog } from '../audit/index.js';
 import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
@@ -42,6 +42,7 @@ import { APP_NAME, APP_VERSION } from './provenance.js';
 import { mountTieredGraph } from './tiered-graph.js';
 import * as readerRender from './reader-render.js';
 import * as reveal from './reveal.js';
+import { firstSurfaceKind } from './first-surface.js';
 import { createMatrixSession } from '../archive/matrix.js';
 import { depositToArchive, missingConsent, archiveMediatype, REQUIRED_CONSENT, KINDS, ARCHIVE_CASES_WEBHOOK } from '../archive/deposit.js';
 import { createCheckpointLog, checkpointId } from '../archive/checkpoints.js';
@@ -53,7 +54,7 @@ import { mountVaultLauncher } from '../archive/vault-mount.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
 
-const audit = createAuditLog({ capacity: 512 });
+const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 const app = createReaderApp({ audit });
 
 // The optional identity. Restores a persisted session from localStorage without a
@@ -143,13 +144,14 @@ window.EO = Object.freeze({
   readingAt,
   groundSpans, groundSummary, supportVerdict,
   factCheck,
-  discourseDag, assertedDag,
+  discourseDag, assertedDag, dagNodeLabel,
   audit,
   workspace,
   mountTieredGraph,
   mountDagSurface,   // the two-cursor causal DAG surface (surfer/dag) — topic-wide + per-entity, with toggles
   readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   reveal,   // the chat typewriter's pace (bounded catch-up) — pure, so the freeze regression is CI-tested
+  firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
 
   matrix,
   chat,

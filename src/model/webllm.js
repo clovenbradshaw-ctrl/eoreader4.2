@@ -1,5 +1,6 @@
 // EO: INS·EVA(Field,Atmosphere → Entity, Making,Tending) — webllm WebGPU backend
-// webllm backend — WebGPU, Llama-3.2-3B default.
+// webllm backend — WebGPU. Llama-3.2-3B by default (the Fast pin drops to 1B),
+// with a Qwen2.5-1.5B sibling registered under 'qwen' on the same engine.
 //
 // Heavier than wllama; loads only when explicitly chosen. Same shape
 // as the other backends; the rest of the system does not know which is in use.
@@ -59,12 +60,12 @@ const ABORT_GRACE_MS = 4000;
 // The GROUNDING is identical either way: binding and fact-check are mechanical and
 // downstream of the model (weave/write/paragraphs.js, enactor/ground), so the size pick
 // moves prose fluency, never what the record can witness. Pure and exported so the pick
-// is unit-testable without a DOM or a GPU. An explicit 'fast'/'fluent' pin wins; with no
-// pin the device class decides (small ⇒ 1B). Anything else ⇒ the adaptive default.
-export const pickSize = (speed, small) =>
-  speed === 'fast'   ? '1B'
-  : speed === 'fluent' ? '3B'
-  : (small ? '1B' : '3B');
+// is unit-testable without a DOM or a GPU. THE DEFAULT IS 3B — the fuller talker; only an
+// explicit 'fast' pin drops to the lighter 1B build for a quicker fetch and decode. A device
+// that can't hold the 3B weights self-heals down the ladder (the wedge recovery in
+// rooms/reader/app.js steps 3B → 1B → the CPU model). Anything else (junk localStorage, no
+// pin) resolves to 3B, never a broken artifact id.
+export const pickSize = (speed) => (speed === 'fast' ? '1B' : '3B');
 
 // The backend is a parameterised builder so a coding-model variant (model/coders.js)
 // can bind a different MLC artifact under its own id WITHOUT duplicating the engine
@@ -73,7 +74,8 @@ export const pickSize = (speed, small) =>
 export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   const id    = defaults.id || 'webllm';
   // An explicit pin (a caller's opts.model / a coder variant's defaults.model) is honoured as-is;
-  // otherwise the default 3B build is chosen ADAPTIVELY at load, keyed to the GPU (pickModel below).
+  // otherwise the build is chosen ADAPTIVELY at load — size by the Fast/Fluent pin (3B default),
+  // dtype by what the GPU can do (pickModel below).
   const pinned = opts.model || defaults.model || null;
   // A SIZE pin handed in by the caller (the reader passes its effective Fast/Fluent pick,
   // session-only overrides included, through createModel opts). It wins over the localStorage
@@ -154,49 +156,38 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
     } catch { return null; }
   };
 
-  // IS THIS A PHONE / LOW-MEMORY DEVICE. The 3B build is ~1.9GB to download and hold in
-  // memory — on a phone or tablet that is a punishing first load and a real OOM risk, and
-  // "the model takes forever to load" is almost always this. The 1B build (~0.9GB) loads
-  // roughly twice as fast, fits far more devices, and still talks. Signals, any of which
-  // is enough: a small `deviceMemory`, a mobile user-agent, or a touch-first machine that
-  // reports as desktop (iPadOS 13+ masquerades as Macintosh Safari). Fail-soft — any fault
-  // resolves to "not small", i.e. the full 3B default, never a broken pick.
-  const isSmallDevice = () => {
+  // WHICH ACCUMULATION DTYPE CAN THE GPU RUN FAST. The suffix is the accumulation
+  // dtype, not the weight width (both builds are 4-bit): q4f16_1 accumulates in fp16
+  // and decodes fast, but ONLY on a GPU exposing the WebGPU `shader-f16` feature.
+  // Without it (many integrated/older GPUs, some browsers) q4f16 runs an emulated path
+  // SLOWER than q4f32_1, so the fp32-accumulation build is the right, broadly-portable
+  // default there. Fail-soft — any detection fault (no navigator, no adapter, a throw)
+  // resolves to the portable pick, never a broken fetch.
+  const pickDtype = async ({ f16, f32 }) => {
     try {
-      if (typeof navigator === 'undefined') return false;
-      const mem = navigator.deviceMemory;                       // GB, coarse & optional
-      if (typeof mem === 'number' && mem > 0 && mem <= 4) return true;
-      const ua = navigator.userAgent || '';
-      if (/Android|iPhone|iPad|iPod|Mobile|Silk|Kindle|Windows Phone/i.test(ua)) return true;
-      if ((navigator.maxTouchPoints || 0) > 1 && /Macintosh/.test(ua)) return true;
-      return false;
-    } catch { return false; }
+      if (typeof navigator === 'undefined' || !navigator.gpu) return f32;
+      const adapter = await navigator.gpu.requestAdapter();
+      return (adapter && adapter.features && adapter.features.has('shader-f16')) ? f16 : f32;
+    } catch { return f32; }
   };
 
-  // PICK THE BUILD BY DEVICE CLASS × WHAT THE GPU CAN DO. Two axes:
-  //  · SIZE — the Fast/Fluent pin (eo_llm_speed) if the user set one, else adaptive:
-  //    1B on a phone/low-memory device (fast to fetch, fits), 3B otherwise. See pickSize.
-  //  · DTYPE — the suffix is the accumulation dtype, not the weight width (both are 4-bit):
-  //    q4f16_1 accumulates in fp16 and decodes fast, but ONLY on a GPU exposing the WebGPU
-  //    `shader-f16` feature. Without it (many integrated/older GPUs, some browsers) q4f16 runs
-  //    an emulated path SLOWER than q4f32_1, so the fp32-accumulation build is the right,
-  //    broadly-portable default there. Probe the adapter for shader-f16 and take the fast
-  //    build only when it's real. Fail-soft — any detection fault (no navigator, no adapter,
-  //    a throw) resolves to the portable build of the chosen size, never a broken fetch.
+  // PICK THE BUILD: SIZE × DTYPE. A variant backend (the Qwen talker below) hands its own
+  // { f16, f32 } artifact pair through defaults.builds and only the dtype probe runs; the
+  // Llama default sizes itself first — the Fast/Fluent pin (the caller's opts.speed carries
+  // session-only overrides, then the saved localStorage pick; no pin ⇒ the 3B default,
+  // see pickSize) — and the dtype probe multiplies onto it. A localStorage-pinned artifact
+  // (eo_webllm_model) beats everything: the escape hatch for testing an arbitrary build.
   const pickModel = async () => {
+    // A variant's { f16, f32 } pair IS its identity — the eo_webllm_model escape hatch
+    // stays scoped to the Llama default so a testing pin can't silently hijack it.
+    if (defaults.builds) return pickDtype(defaults.builds);
     const explicit = pinnedLS();
     if (explicit) return explicit;
-    // SIZE (the render-speed lever): a Fast/Fluent pin wins — the caller's opts.speed first
-    // (it carries session-only overrides), then the saved localStorage pick; otherwise the
-    // device class decides (small ⇒ 1B). DTYPE is chosen independently below and multiplies onto it.
-    const size = pickSize(speedPin || speedPrefLS(), isSmallDevice());
-    const f32Build = `Llama-3.2-${size}-Instruct-q4f32_1-MLC`;   // portable — fp32 accumulation
-    const f16Build = `Llama-3.2-${size}-Instruct-q4f16_1-MLC`;   // fast — needs the shader-f16 feature
-    try {
-      if (typeof navigator === 'undefined' || !navigator.gpu) return f32Build;
-      const adapter = await navigator.gpu.requestAdapter();
-      return (adapter && adapter.features && adapter.features.has('shader-f16')) ? f16Build : f32Build;
-    } catch { return f32Build; }
+    const size = pickSize(speedPin || speedPrefLS());
+    return pickDtype({
+      f16: `Llama-3.2-${size}-Instruct-q4f16_1-MLC`,   // fast — needs the shader-f16 feature
+      f32: `Llama-3.2-${size}-Instruct-q4f32_1-MLC`,   // portable — fp32 accumulation
+    });
   };
 
   // TEAR DOWN A WEDGED ENGINE (rooms/reader/app.js resetWedgedLocalModel, and phrase's own
@@ -222,6 +213,11 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
   return {
     id,
     kind: 'local',
+    // The context window (model/context-budget.js): the Llama-3.2 MLC prebuilt artifacts (1B/3B,
+    // and the WebGPU coders that ride this same engine) are configured for a 4096-token window, so
+    // the guard keeps any assembled prompt under it. A pinned build with a wider window still fits —
+    // the guard only ever trims a prompt that would OVERFLOW this, never one already inside it.
+    contextWindow: 4096,
     // PROVENANCE (model/interface.js describeModel): the exact MLC build in play — the pin, or the
     // adaptive pick once load() has run (before load, the pin or a plain "(adaptive)" placeholder).
     // In-browser and local, so the chat export can say the answer never left the machine.
@@ -354,3 +350,17 @@ export const makeWebllmBackend = (defaults = {}) => (opts = {}) => {
 };
 
 registerBackend('webllm', makeWebllmBackend());
+
+// The Qwen talker — Qwen2.5-1.5B-Instruct, the same weight class as the Llama 1B
+// default (~1GB of 4-bit weights), riding the identical engine/worker/wedge wiring
+// above. Registered as its own chip pick so the reader offers two small local voices;
+// the { f16, f32 } pair lets the shader-f16 probe choose the dtype exactly as it does
+// for the Llama builds. Both artifacts are verified present in the pinned 0.2.84
+// bundle's prebuilt config.
+registerBackend('qwen', makeWebllmBackend({
+  id: 'qwen',
+  builds: {
+    f16: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+    f32: 'Qwen2.5-1.5B-Instruct-q4f32_1-MLC',
+  },
+}));

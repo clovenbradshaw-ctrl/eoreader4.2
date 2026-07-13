@@ -46,6 +46,12 @@ const CSS = `
 .eo-con-fab[data-state="frozen"] .eo-con-fab__dot{background:#ff7b72}
 .eo-con-fab[data-open="1"]{display:none}
 @keyframes eo-con-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* On phones the launcher folds to its status dot, clear of the chat composer. */
+@media (max-width: 820px){
+  .eo-con-fab{left:10px;bottom:calc(10px + env(safe-area-inset-bottom));padding:8px}
+  .eo-con-fab__label{display:none}
+  .eo-con{height:46vh}
+}
 
 .eo-con{position:fixed;left:0;right:0;bottom:0;z-index:2147482901;height:34vh;display:none;flex-direction:column;
   background:#0b0e14;color:#c9d1d9;border-top:1px solid #2b3240;box-shadow:0 -10px 40px rgba(0,0,0,.4);
@@ -58,7 +64,7 @@ const CSS = `
 .eo-con__head{display:flex;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid #1c2230;
   background:#0d1117;flex:0 0 auto;flex-wrap:wrap}
 .eo-con__title{font-weight:700;color:#e6edf3;letter-spacing:.02em}
-.eo-con__prov{color:#6e7681;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw}
+.eo-con__prov{color:#8a93a1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw}
 .eo-con__spacer{flex:1}
 .eo-con__head input.eo-con__filter{background:#0b0e14;border:1px solid #2b3240;color:#c9d1d9;border-radius:6px;
   padding:4px 8px;font:inherit;width:150px}
@@ -83,8 +89,8 @@ const CSS = `
 .eo-con__body::-webkit-scrollbar-thumb{background:#30363d;border-radius:5px}
 .eo-con__ln{display:flex;gap:8px;white-space:pre-wrap;word-break:break-word;padding:.5px 0}
 .eo-con__ln[hidden]{display:none}
-.eo-con__t{color:#484f58;flex:0 0 auto}
-.eo-con__c{flex:0 0 auto;width:52px;text-align:right;color:#6e7681;opacity:.9}
+.eo-con__t{color:#7c8592;flex:0 0 auto}
+.eo-con__c{flex:0 0 auto;width:52px;text-align:right;color:#7c8592;opacity:1}
 .eo-con__m{flex:1;min-width:0}
 .eo-con__ln--head .eo-con__m{color:#a5a5ff;font-weight:700}
 .eo-con__ln--ok .eo-con__m{color:#56d364}
@@ -93,11 +99,11 @@ const CSS = `
 .eo-con__ln--app .eo-con__m{color:#58a6ff}
 .eo-con__ln--warn .eo-con__m{color:#e3b341}
 .eo-con__ln--error .eo-con__m{color:#ff7b72}
-.eo-con__ln--muted .eo-con__m{color:#6e7681}
+.eo-con__ln--muted .eo-con__m{color:#8a93a1}
 .eo-con__ln--stall .eo-con__m{color:#f0883e;font-weight:600}
-.eo-con__eo{color:#484f58;font-size:10.5px}
-.eo-con__ms{color:#6e7681}
-.eo-con__empty{color:#6e7681;padding:14px 2px}
+.eo-con__eo{color:#7c8592;font-size:10.5px}
+.eo-con__ms{color:#8a93a1}
+.eo-con__empty{color:#8a93a1;padding:14px 2px}
 `;
 
 const CH = Object.freeze({
@@ -146,7 +152,7 @@ export function mountConsole(host, { audit, app, appName = 'EO Reader', version 
 
   // ── the launcher + panel shell ──────────────────────────────────────────────
   const fab = el('button', 'eo-con-fab'); fab.title = 'Open the audit console';
-  const fabDot = el('span', 'eo-con-fab__dot'); fab.append(fabDot, el('span', null, 'Console'));
+  const fabDot = el('span', 'eo-con-fab__dot'); fab.append(fabDot, el('span', 'eo-con-fab__label', 'Console'));
 
   const panel = el('div', 'eo-con');
   const head = el('div', 'eo-con__head');

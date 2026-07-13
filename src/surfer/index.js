@@ -17,10 +17,14 @@
 // does (the field is VOID) is the surfer's own negative result.
 
 export { surfFold } from './surf.js';
+// The surf chorus (chorus.js) and multi-level surf (multilevel.js) — a chorus of rides merged
+// born-soft, and the source-then-content two-level read over a composite. Both default-off.
+export { chorusStops, FAMILY as CHORUS_FAMILY } from './chorus.js';
+export { multiLevelSurf, keepSources, sourceRanges } from './multilevel.js';
 // Salience by the Born rule against the activated conversation thread: the thread as a sparse
 // term state, a span's |⟨T|s⟩|² its salience, the same noise null deciding where the surfer's
 // return stops being salient. Embedder-free — the term space, not a learned embedding.
-export { threadBasis, bornSalience, figureSalience, linkSalience, linksBySentence, salienceField } from './salience.js';
+export { threadBasis, threadFigures, bornSalience, figureSalience, linkSalience, linksBySentence, salienceField } from './salience.js';
 // Trajectory — the arc of one identity's relations across a sequence, segmented at the surf's
 // frame-breaks, with the change read off as an end-to-end delta. The omnimodal "what changed":
 // it reads only operator events (identity · relation · order · turn), never words, so the same

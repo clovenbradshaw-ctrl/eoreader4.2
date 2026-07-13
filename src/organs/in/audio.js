@@ -29,6 +29,7 @@ import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
 import { attachReading }     from '../ingest/index.js';
+import { resolveTranscript, hearingBelief, transcriptViews } from './hear.js';
 
 const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
 
@@ -96,6 +97,14 @@ export const ingestAudio = (transcript = {}) => {
     witness = device ? `whisper · ${device}` : 'primary',
     alternates = [],   // [{ label, words | utterances }] — competing readings of the same audio
     media = null,      // object URL of the decoded clip, so a source can be played back
+    mediaKind = 'audio',
+    // The pre-transcription cochlea's reading (organs/in/acoustic.js), carried forward so the
+    // transcript's source keeps its drawable waveform, its basic analysis and its signal/noise
+    // holons — the hearing does not throw away what it heard before the words.
+    peaks = null,
+    analysis = null,
+    holons = null,
+    sampleRate = null,
   } = transcript;
 
   const utterances = asUtterances(transcript);
@@ -118,7 +127,6 @@ export const ingestAudio = (transcript = {}) => {
   const contested = [];         // [{ span:[a,b], unitIdx, chosen, alts:[{surface,witness}] }]
 
   utterances.forEach((u, unitIdx) => {
-    const surfaces = [];
     for (const w of u.words) {
       const id = w.norm;                       // the recurring entity — repeats unify by mass
       const wa = w.start ?? u.start, wb = w.end ?? u.end;
@@ -133,6 +141,10 @@ export const ingestAudio = (transcript = {}) => {
       log.append({ op: 'DEF', id, key: 'time', value: `${wa.toFixed(2)}-${wb.toFixed(2)}`, sentIdx: unitIdx });
       log.append({ op: 'DEF', id, key: 'witness', value: witness, sentIdx: unitIdx });
       if (w.conf != null && isFinite(w.conf)) log.append({ op: 'DEF', id, key: 'conf', value: String(+(+w.conf).toFixed(3)), sentIdx: unitIdx });
+      // The ACOUSTIC confidence — how far this word's own energy rose above the room,
+      // read from the waveform (hear.js §1), a witness orthogonal to the model's logprob.
+      // Supplied by the front-end cochlea when it did the DSP; absent otherwise.
+      if (w.acous != null && isFinite(w.acous)) log.append({ op: 'DEF', id, key: 'acous', value: String(+(+w.acous).toFixed(3)), sentIdx: unitIdx });
       // A word the second witness re-heard is marked, so a reader can see which
       // surfaces the ear corrected — a groundable predicate, not a judgement.
       if (w.relisten) log.append({ op: 'DEF', id, key: 'relisten', value: 'true', sentIdx: unitIdx });
@@ -153,21 +165,30 @@ export const ingestAudio = (transcript = {}) => {
         contested.push({ span: [wa, wb], unitIdx, chosen: { surface: w.text, witness }, alts: rivals });
       }
 
-      // The reading line of time: bond to the previous word, labelled by the gap.
+      // The reading line of time: bond to the previous word, labelled by the gap, and
+      // COUPLED at the hearing's belief. A transcription is an assertion made off a
+      // waveform, so its bond couples sub-unit — on the engine's own `w` channel, the way
+      // a field-resolved (not name-resolved) bond does — never at the certainty of an
+      // authored word (hear.js: capped at the witness ceiling). This is the one place the
+      // "lower degree of belief in transcription than text" is spent, in the shared channel.
       if (prev && prev !== id) {
         const gap = wa - (prevEnd ?? u.start);
-        log.append({ op: 'CON', src: prev, tgt: id, via: gap >= PARA_GAP ? 'pause' : 'then', sentIdx: unitIdx });
+        log.append({ op: 'CON', src: prev, tgt: id, via: gap >= PARA_GAP ? 'pause' : 'then', w: hearingBelief(w), sentIdx: unitIdx });
       }
       prev = id;
       prevEnd = wb ?? prevEnd;
 
-      surfaces.push(w.text);
-      tokens.push({ id, text: w.text, norm: w.norm, start: wa, end: wb, unitIdx, relisten: !!w.relisten, conf: (w.conf != null && isFinite(w.conf)) ? +w.conf : null });
+      tokens.push({ id, text: w.text, norm: w.norm, start: wa, end: wb, unitIdx, relisten: !!w.relisten,
+        conf: (w.conf != null && isFinite(w.conf)) ? +w.conf : null,
+        acous: (w.acous != null && isFinite(w.acous)) ? +w.acous : null,
+        snr:   (w.snr   != null && isFinite(w.snr))   ? +w.snr   : null });
     }
-    units.push(`${surfaces.join(' ')} (${u.start.toFixed(1)}s)`);
-    sentences.push(surfaces.join(' '));
-    timings.push([u.start, u.end]);
   });
+
+  // The display views — words joined per breath group, the utterance's start stamped —
+  // projected from the utterances by the ONE shared builder (hear.js transcriptViews), so
+  // ingest and the self-editing rebuild spell them the same way.
+  { const v = transcriptViews(utterances); units.push(...v.units); sentences.push(...v.sentences); timings.push(...v.timings); }
 
   // SYN + REC on every unification. The SYN collapses the surfaces on the spine (union-find,
   // what the engine's fold consumes); the REC records the RULE the ear learned to do it —
@@ -189,7 +210,11 @@ export const ingestAudio = (transcript = {}) => {
     log, mentions,
     // A playable handle on the clip, so the source can be heard/watched back with the transcript
     // aligned (the words keep their [start,end]). Null when the caller decoded but kept no URL.
-    media,
+    media, mediaKind,
+    // The pre-transcription reading, carried on so the source can still draw its waveform and
+    // show its signal/noise holons after the words land.
+    peaks, analysis, holons, sampleRate,
+    transcribed: true,
     // The readings on record — the primary hearing plus every alternate witness — and the
     // contested spans between them. This is the "these are not objective" audit: the surface
     // shown is one reading, and here is where the witnesses disagreed, with what each heard.
@@ -223,6 +248,16 @@ export const ingestAudio = (transcript = {}) => {
     return -1;
   };
   doc.wordsInWindow = (a, b) => tokens.filter(w => w.end > a && w.start < b);
+
+  // The self-editing second pass (hear.js §2). GRAPH-AWARE coreference across the
+  // whole transcript: near-spelling entity surfaces that are one referent misheard are
+  // found, their MOST-CONFIDENT spelling is elected (acoustic × model conf × mass), and
+  // the weaker hearings are RE-HEARD to it — the correction landing on THIS append-only
+  // log (SEG·INS·DEF·SYN·REC) and reprojected into `sentences`/`units`/`tokens`. Inert on
+  // a clean transcript (no cluster clears the noise null), so calling it is always safe.
+  // The mechanism lives here; the POLICY of when to run it belongs to the caller (the
+  // room runs it at import; a test drives it directly).
+  doc.resolve = (opts) => resolveTranscript(doc, opts);
 
   // Cached per embedder organ — hash-space and MiniLM-space vectors are not
   // interchangeable, so a single unkeyed cache would return the wrong space to a
