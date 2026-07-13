@@ -7,7 +7,7 @@
 // Proposer-only by construction: this returns a proposal; the fetch happens elsewhere, behind
 // a go-ahead. Null when the answer is well-grounded — a sound turn never reaches for the net.
 
-import { isUnbound } from '../enactor/ground/index.js';
+import { isUnbound, isAbstention } from '../enactor/ground/index.js';
 
 // The cost the user is told before any hop — the query reaches public engines via the proxy.
 export const COST_NOTICE =
@@ -41,6 +41,16 @@ export const proposeWebSearch = (ctx) => {
   if (isUnbound(ctx.bound || [], ctx.rawOutput || '')) reasons.push('the answer ties to nothing in the document');
   if (ctx.referential && ctx.referential.id != null && ctx.referential.concentrated === false)
     reasons.push('the passage does not settle who it is about');
+  // The ABSTENTION gap — the clearest "the sources don't contain it" signal there is: the reader
+  // said, in plain words, that it did not find the answer in what it read. The reading-level
+  // triggers above miss this exact case — isUnbound and low-coverage both self-suppress on an
+  // abstention (it claims nothing to be unbound or under-covered — enactor/ground/veto.js), and
+  // voidMeasure only fires when the geometric read happened to measure a void, flaky under the
+  // default hash embedder. So a polite "I didn't find that in what I read" produced NO proposal and
+  // no search — the gap the user hit ("if the sources don't contain the question, that should
+  // trigger a web search"). Read the SETTLED answer (the honest word the floor/absence stage put
+  // there) directly: if it abstained, the gap is real and belongs to the world.
+  if (isAbstention(ctx.answer || ctx.rawOutput || '')) reasons.push('the reading did not contain the answer');
   // The DISCOURSE gap — the metacognition's measured research current (turn/meta-route.js,
   // null-gated Born weight, never a keyword). The reading-level triggers above see what the
   // document failed to close; this one sees what the CONVERSATION itself says lives outside
@@ -116,6 +126,7 @@ const announceLead = (proposal) => {
     return 'That rests on my own reading of the document, not on anything witnessed — let me confirm it against the web.';
   // gap (or an unlabelled/auto proposal): name the specific gap when the rationale carries it.
   if (r.includes('does not cover')) return "I don't think the document covers this — let me look it up.";
+  if (r.includes('did not contain the answer')) return "I didn't find that in what I've read — let me look it up.";
   if (r.includes('ties to nothing')) return "I couldn't tie that to anything in the document — let me look it up.";
   if (r.includes('does not settle')) return "The passage doesn't settle who this is about — let me look it up.";
   if (r.includes('few of the claims')) return 'Little of that is grounded in the document — let me look it up.';
