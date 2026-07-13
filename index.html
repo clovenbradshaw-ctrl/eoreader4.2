@@ -1473,7 +1473,7 @@ table{border-collapse:collapse;width:100%}
                 </sc-if>
                 <sc-if value="{{ viewer.media.hasWave }}">
                   <div>
-                    <div style="display:flex;align-items:center;gap:1px;height:62px;padding:7px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden">
+                    <div onClick="{{ seekFromWave }}" title="Click to jump the player here" style="display:flex;align-items:center;gap:1px;height:62px;padding:7px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden;cursor:pointer">
                       <sc-for list="{{ viewer.media.bars }}" as="b">
                         <div style="flex:1 1 0;min-width:1px;height:{{ b.hPct }}%;background:{{ b.bg }};border-radius:1px"></div>
                       </sc-for>
@@ -1795,6 +1795,7 @@ table{border-collapse:collapse;width:100%}
                 <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">ENTITIES</span>
                 <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ entCount }}</span>
                 <span style="flex:1"></span>
+                <sc-if value="{{ entLevelBtnShow }}"><button onClick="{{ cycleEntLevel }}" title="{{ entLevelTitle }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#8A8A95;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 8px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4-4 4 4"/><path d="M7 4v10"/><path d="M21 16l-4 4-4-4"/><path d="M17 20V10"/></svg>{{ entLevelLabel }}</button></sc-if>
                 <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:3px 8px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>in text</button>
               </div>
               <!-- PER-SOURCE PIVOT — with a source open, the explorer narrows to that source's -->
@@ -2176,9 +2177,12 @@ class Component extends DCLogic {
       entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null, webGraphTick: 0,
       // The entity explorer PIVOTS to the source open in the stage: when a source is in front
       // it shows that source's figures, not the whole topic's. entScopeAll escapes back to the
-      // topic-wide list; entLevel[sn] picks the HOLONIC LEVEL a source is read at (its natural-
-      // language referents by default, or the modality's raw spans underneath — audio words, …).
-      entScopeAll: false, entLevel: {},
+      // topic-wide list; entPivotLevel[sn] picks the per-source HOLONIC LEVEL (its natural-language
+      // referents by default, or the modality's raw spans underneath — an audio clip's words, …).
+      entScopeAll: false, entPivotLevel: {},
+      // the topic-wide explorer's holonic LEVEL: 'names' (natural-language referents, default),
+      // 'signal' (the acoustic signal/noise span holons an audio reading raises), or 'all'.
+      entLevel: this._prefStr('eo_entlevel', 'names'),
       // The entity panel's Wikipedia referent, per 'docId#entId': { busy } while the
       // engine searches, then the confirmed referent (or { none }) — see _ensureWiki.
       wikiDefs: {},
@@ -2230,6 +2234,8 @@ class Component extends DCLogic {
 
   _pref(k, dflt) { try { const v = localStorage.getItem(k); return v == null ? dflt : v === '1'; } catch { return dflt; } }
   _setPref(k, v) { try { localStorage.setItem(k, v ? '1' : '0'); } catch {} }
+  _prefStr(k, dflt) { try { const v = localStorage.getItem(k); return v == null ? dflt : v; } catch { return dflt; } }
+  _setPrefStr(k, v) { try { localStorage.setItem(k, String(v)); } catch {} }
   // The e-book reading preferences (paper theme, type family, size, width) — persisted whole
   // as JSON, clamped by the render module so a hand-edited value can't break the reader.
   _readPrefs() {
@@ -2746,12 +2752,19 @@ class Component extends DCLogic {
     // lives on Chat), so an Ask turn is pinned to 'off' and never reaches the net. Chat keeps the
     // global web mode and its toggle. Captured at send time so switching tabs mid-turn can't change
     // what this turn was allowed to do.
-    const opts = this.state.tab === 'ask' ? { web: 'off' } : {};
+    const onAsk = this.state.tab === 'ask';
+    const opts = onAsk ? { web: 'off' } : {};
+    // ONE GROUNDED QUESTION PER TOPIC. On the Ask surface each question is its own grounded turn
+    // on its own topic (app.askQuestion opens a child topic under the current one, inheriting its
+    // sources, when the current topic already holds a question) — the system answers a single
+    // grounded question or abstains, and never accretes the back-and-forth thread it does worst.
+    // Chat stays the explicit thread mode: it keeps the plain ask() so its conversation still builds.
+    const fire = () => { (onAsk ? this._app.askQuestion(q, opts) : this._app.ask(q, opts)).catch(() => {}); };
     if (this._generating()) {
       this._app.stop();
-      setTimeout(() => { this._app.ask(q, opts).catch(() => {}); }, 0);
+      setTimeout(fire, 0);
     } else {
-      this._app.ask(q, opts).catch(() => {});
+      fire();
     }
   }
   _generating() {
@@ -2777,7 +2790,7 @@ class Component extends DCLogic {
   // then prints a receipt that says where it looked so the silence or the claim can be
   // checked. It adds no engine call and decides no truth; it only classifies what the turn
   // already found. `vm` is the chat view-model for this same message (paras, cites, trail).
-  _askKind(mm, vm, totalPassages) {
+  _askKind(mm, vm, totalPassages, totalSources) {
     const text = String(mm.text || '');
     const route = mm.route || '';
     const summ = (mm.reflection && mm.reflection.summary) || null;
@@ -2825,11 +2838,18 @@ class Component extends DCLogic {
       hasReceipt: true, receiptA: `${pl(nPass, 'passage')} · ${pl(nSrc, 'source')} · decided by measurement, not by a model`,
       receiptWhy: 'The claim was tested against the terms the record sets. It failed. The passages are here so you can disagree with the test.' };
 
-    // The record does not say — unbound, a spoken void, or an abstention
-    if (unbound || (!grounded && abstain)) return { kind: 'The record does not say', kindNo: true, hasCorr: false, hasDoors: nPass > 0, doors: doors(),
-      hasGap: true, gapLabel: 'The gap', gapText: 'No passage in the record answers this. The answer above names the silence rather than filling it — the sources it searched are on record, so the gap can be checked.',
-      hasReceipt: true, receiptA: `${pl(totalPassages || 0, 'passage')} on record · none answer this`,
-      receiptWhy: 'The surface that exists because the record is silent. It names where it looked, so the silence can be checked.' };
+    // The record does not say — unbound, a spoken void, or an abstention. The receipt names the
+    // SCOPE it searched (every passage across the sources on record), not the cited count — an
+    // abstention cites nothing, so "0 passages" would misread an inspected record as an empty one.
+    if (unbound || (!grounded && abstain)) {
+      const searched = totalPassages
+        ? `searched ${pl(totalPassages, 'passage')} across ${pl(totalSources || 0, 'source')} · none answer this`
+        : 'the record is silent · nothing to search yet';
+      return { kind: 'The record does not say', kindNo: true, hasCorr: false, hasDoors: nPass > 0, doors: doors(),
+        hasGap: true, gapLabel: 'The gap', gapText: 'No passage in the record answers this. The answer above names the silence rather than filling it — the sources it searched are on record, so the gap can be checked.',
+        hasReceipt: true, receiptA: searched,
+        receiptWhy: 'The surface that exists because the record is silent. It names where it looked, so the silence can be checked.' };
+    }
 
     // Finding — grounded, but rests on a step no single passage states
     if (grounded && interp) return { ...corr, kind: 'Finding', kindNo: false, hasDoors: nPass > 0, doors: doors(),
@@ -2914,6 +2934,19 @@ class Component extends DCLogic {
   // on the player. The whole Listen surface drives THIS one element.
   setListenAudio(el) { if (el) this._listenAudio = el; }
 
+  // Click anywhere on the waveform to jump the player to that fraction of the clip — the bars
+  // span the whole duration, so the click's X within them maps straight onto the timeline and
+  // moves the native scrubber (and the karaoke highlight follows).
+  seekFromWave(e) {
+    const audio = this._listenAudio;
+    if (!audio || !e || !e.currentTarget) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const dur = audio.duration || 0;
+    if (dur > 0 && isFinite(dur)) { try { audio.currentTime = frac * dur; } catch { /* not seekable yet */ } }
+  }
+
   // Build the word spans once per (source · edit-count) signature, wire the click/dblclick handlers
   // once, and bind the highlight loop to the current media element once. `_listenWords` caches the
   // projected words for the binary-search highlight.
@@ -2924,15 +2957,20 @@ class Component extends DCLogic {
     const s = sn && this._app && this._app.sourceBySn(sn);
     if (!s) return;
     const EO = (typeof window !== 'undefined' && window.EO) || {};
-    const proj = EO.projectTranscript ? EO.projectTranscript(s.words || [], s.audioEvents || [])
-      : { words: (s.words || []).map((w) => ({ ...w })) };
+    // While transcription is still running, s.words isn't populated yet — but the ASR feeds timed
+    // partial words onto s._asr.words, so render THOSE live (click-to-seek + karaoke work on them).
+    // Once applyTranscript lands the final transcript, s.words takes over as the editable baseline.
+    const running = s._asr && s._asr.state === 'running';
+    const live = running && (!s.words || !s.words.length) && Array.isArray(s._asr.words) && s._asr.words.length;
+    const baseWords = live ? s._asr.words : (s.words || []);
+    const proj = EO.projectTranscript ? EO.projectTranscript(baseWords, live ? [] : (s.audioEvents || []))
+      : { words: baseWords.map((w) => ({ ...w })) };
     this._listenWords = proj.words;
-    const sig = (s.sha || '') + '·' + ((s.audioEvents && s.audioEvents.length) || 0) + '·' + this._listenWords.length;
+    const sig = (s.sha || '') + '·' + ((s.audioEvents && s.audioEvents.length) || 0) + '·' + this._listenWords.length + (live ? '·live' : '');
     if (el.__eoSig !== sig) {
       el.__eoSig = sig;
       el.__eoNow = -1;
       if (!this._listenWords.length) {
-        const running = s._asr && s._asr.state === 'running';
         el.innerHTML = '<div style="color:#9A9AA4;font-size:13px">' + (running ? 'Transcribing the signal…' : 'No transcript yet.') + '</div>';
       } else {
         el.innerHTML = this._listenWords.map((w, i) => w.redacted
@@ -3001,6 +3039,10 @@ class Component extends DCLogic {
   _onTranscriptDblClick(ev) {
     const sp = ev.target && ev.target.closest && ev.target.closest('.eo-w[data-i]');
     if (!sp || sp.classList.contains('eo-w-redacted')) return;
+    // The streaming partial isn't the editable baseline yet (its word indices still shift as more
+    // audio is heard) — editing waits until the final transcript lands. Seeking on click is fine.
+    const asn = this._activeSrc(); const as = asn && this._app.sourceBySn(asn);
+    if (as && as._asr && as._asr.state === 'running' && (!as.words || !as.words.length)) { this.showToast('Still transcribing — you can edit once the transcript finishes'); return; }
     const i = +sp.dataset.i;
     const cur = sp.textContent;
     const input = document.createElement('input');
@@ -3859,6 +3901,16 @@ class Component extends DCLogic {
     });
     el.appendChild(svg);
   }
+  // Cycle the entity panel's holonic level: names → signal → all → names. The panel opens at
+  // 'names' (natural-language referents) so an audio reading's thousands of signal-span holons
+  // don't bury the people/places/things; a click steps down to the acoustic level and back.
+  cycleEntLevel() {
+    const order = ['names', 'signal', 'all'];
+    const next = order[(order.indexOf(this.state.entLevel || 'names') + 1) % order.length];
+    this._setPrefStr('eo_entlevel', next);
+    this._entCache = null;
+    this.setState({ entLevel: next });
+  }
   toggleEntityMode() {
     const on = !this.state.entityMode; this._setPref('eo_entmode', on); this._segCache = {}; this._viewCache = null;
     // The Reader carries the merged Document links; show/hide them live on the open book (flip the
@@ -3877,10 +3929,10 @@ class Component extends DCLogic {
   // (the meaning) or the modality's raw spans underneath (audio words, image regions, …).
   // Selecting a level drops any open profile, since the referent it pointed at may not exist
   // at the other level, and re-pivots the list.
-  setEntLevel(sn, level) {
+  setEntPivotLevel(sn, level) {
     if (!sn) return;
     this._srcEntCache = null;
-    this.setState({ entLevel: { ...this.state.entLevel, [sn]: level }, entitySel: null });
+    this.setState({ entPivotLevel: { ...this.state.entPivotLevel, [sn]: level }, entitySel: null });
   }
   // ── the graph explorer overlay ──────────────────────────────────────────────
   // Two graphs (the entity web + the two-cursor causal DAG), each scoped to the whole topic OR to
@@ -4795,7 +4847,7 @@ class Component extends DCLogic {
       rowClick: () => { app.setTopic(t.id); this.setState({ topicMenu: null, ...(this._mob() ? { leftOpen: false } : {}) }); },
       menuClick: () => this.setState({ topicMenu: st.topicMenu === t.id ? null : t.id }),
       doRename: () => { const v = prompt('Rename topic', t.title); if (v) app.topicRename(t.id, v); this.setState({ topicMenu: null }); },
-      doAddChild: () => { app.topicNew('New sub-topic', { parentId: t.id }); this.setState({ topicMenu: null }); },
+      doAddChild: () => { app.topicNew('New sub-topic', { parentId: t.id }); this.setState({ topicMenu: null }); this.setTab('ask'); },
       doDelete: () => { if (confirm(`Delete “${t.title}”? Any sub-topics rise to its parent; its sources stay in the record.`)) app.topicDelete(t.id); this.setState({ topicMenu: null }); },
     }));
     const FAV = [['#EEF0F3', '#4E5765'], ['#EEEBFE', '#5B4BE6'], ['#E7F6EC', '#1E8A50'], ['#FBF1DA', '#9A6B12'], ['#FBE9E6', '#B23A2E'], ['#E8F1FB', '#2C5C9E']];
@@ -5079,7 +5131,7 @@ class Component extends DCLogic {
     for (let i = msgs.length - 1; i >= 0; i--) { if (msgs[i].role !== 'user') { lastA = i; break; } }
     if (lastA >= 0) {
       for (let i = lastA - 1; i >= 0; i--) { if (msgs[i].role === 'user') { askQuestion = msgs[i].text || ''; break; } }
-      const kind = this._askKind(msgs[lastA], messages[lastA], findings.stats.passages);
+      const kind = this._askKind(msgs[lastA], messages[lastA], findings.stats.recordPassages, findings.stats.sources);
       askSurfaces = [{ ...messages[lastA], ...kind, kindFg: kind.kindNo ? '#B23A2E' : '#6E6E78',
         notPending: !msgs[lastA].pending, question: askQuestion, hasQuestion: !!askQuestion }];
     }
@@ -5254,22 +5306,23 @@ class Component extends DCLogic {
     ];
 
     // right panel — entities or graph inspector.
-    // The whole topic's merged entities (the default explorer) …
-    if (!this._entCache) this._entCache = app.entities();
+    // TOPIC-WIDE explorer: the whole topic's merged entities at the panel's holonic LEVEL —
+    // 'names' (natural-language referents, default), 'signal' (the acoustic signal/noise span
+    // holons an audio reading raises), or 'all'. Cached by level so a switch rebuilds once.
+    const entLevel = st.entLevel || 'names';
+    if (!this._entCache || this._entCacheLevel !== entLevel) { this._entCache = app.entities({ level: entLevel }); this._entCacheLevel = entLevel; }
     const allEnts = this._entCache;
-    // … but when a SOURCE is open in the stage the explorer PIVOTS to it: it shows that
-    // source's own figures, read at a chosen HOLONIC LEVEL. The level defaults to the natural-
-    // language REFERENTS the content names; a non-prose source (an audio clip, an image) can
-    // drop to the raw SPANS underneath (its words, its regions). entScopeAll escapes the pivot.
-    // The source in front of the stage (a viewer tab is the active tab), shared with the
-    // viewer section below.
+    // PER-SOURCE PIVOT: when a source is open in the stage the explorer narrows to that source's
+    // own figures, read at a FINER level — the transcript's natural-language REFERENTS (default) or
+    // the modality's raw SPANS underneath (an audio clip's words, an image's regions). entScopeAll
+    // escapes back to the topic-wide list above. (activeSn is shared with the viewer section below.)
     const activeSn = st.viewerTabs.includes(st.tab) ? st.tab : null;
     const entLevels = activeSn ? app.sourceLevels(activeSn) : [];
-    const entLevel = activeSn ? (st.entLevel[activeSn] || 'referent') : 'referent';
+    const pivotLevel = activeSn ? (st.entPivotLevel[activeSn] || 'referent') : 'referent';
     const entPivot = !!activeSn && !st.entScopeAll;
     if (entPivot) {
-      if (!this._srcEntCache || this._srcEntCache.sn !== activeSn || this._srcEntCache.level !== entLevel) {
-        this._srcEntCache = { sn: activeSn, level: entLevel, ents: app.sourceEntities(activeSn, { level: entLevel }) };
+      if (!this._srcEntCache || this._srcEntCache.sn !== activeSn || this._srcEntCache.level !== pivotLevel) {
+        this._srcEntCache = { sn: activeSn, level: pivotLevel, ents: app.sourceEntities(activeSn, { level: pivotLevel }) };
       }
     }
     const ents = entPivot ? this._srcEntCache.ents : allEnts;
@@ -5285,9 +5338,9 @@ class Component extends DCLogic {
     // The level segmented control (only when the source offers more than the one level) and the
     // pivot banner, both surfaced in the entity-list header below.
     const entLevelTabs = (entPivot && entLevels.length > 1) ? entLevels.map((lv) => ({
-      label: lv.label, title: lv.hint, on: lv.level === entLevel,
-      fg: lv.level === entLevel ? '#5B4BE6' : '#8A8A95', bg: lv.level === entLevel ? '#fff' : 'transparent',
-      pick: () => this.setEntLevel(activeSn, lv.level),
+      label: lv.label, title: lv.hint, on: lv.level === pivotLevel,
+      fg: lv.level === pivotLevel ? '#5B4BE6' : '#8A8A95', bg: lv.level === pivotLevel ? '#fff' : 'transparent',
+      pick: () => this.setEntPivotLevel(activeSn, lv.level),
     })) : [];
     const entPivotSrc = activeSn ? (app.sourceBySn(activeSn) || {}) : {};
     let prof = null;
@@ -5536,7 +5589,7 @@ class Component extends DCLogic {
       // status + sidebar
       status, statusColor, statusOpen: st.statusOpen, statusRot: st.statusOpen ? '90deg' : '0deg',
       toggleStatus: () => this.toggleStatus(), statusPeek,
-      newTopic: () => { app.topicNew('New topic'); },
+      newTopic: () => { app.topicNew('New topic'); this.setTab('ask'); },
       pickFile: () => this.pickFile(), openPaste: () => this.openPaste(),
       goMemo: () => this.goMemo(), goGraph: () => this.goGraph(),
       // workspace switcher
@@ -5624,6 +5677,16 @@ class Component extends DCLogic {
       entScopeAllText: `Showing all ${allEnts.length} ${allEnts.length === 1 ? 'entity' : 'entities'} in this topic`,
       entLevelShow: entLevelTabs.length > 1, entLevelTabs,
       backToEntities: () => this.backToEntities(),
+      // the topic-wide names/signal/all toggle stands down inside the per-source pivot, whose own
+      // referent/spans control takes over — it acts on the topic list, which the pivot has replaced.
+      entLevelBtnShow: !entPivot,
+      cycleEntLevel: () => this.cycleEntLevel(),
+      entLevelLabel: entLevel === 'signal' ? 'signal' : entLevel === 'all' ? 'all' : 'names',
+      entLevelTitle: entLevel === 'names'
+        ? 'Showing natural-language entities — people, places, things. Click to show the acoustic signal / noise span holons instead.'
+        : entLevel === 'signal'
+          ? 'Showing the acoustic signal / noise span holons. Click to show every level at once.'
+          : 'Showing every holonic level. Click to return to natural-language entities.',
       toggleEntityMode: () => this.toggleEntityMode(),
       entModeFg: st.entityMode ? '#5B4BE6' : '#8A8A95', entModeBg: st.entityMode ? '#F1EFFE' : '#F2F2F6', entModeBd: st.entityMode ? '#DED8FD' : '#EAEAEF',
       entModeLabel: st.entityMode ? 'Links · on' : 'Links · off',
@@ -5649,6 +5712,7 @@ class Component extends DCLogic {
       // Listen surface — the interactive transcript refs + edit/redaction actions
       setListenAudio: (el) => this.setListenAudio(el),
       setListenTranscript: (el) => this.setListenTranscript(el),
+      seekFromWave: (e) => this.seekFromWave(e),
       redactSilence: () => this.redactSilence(), redactBeep: () => this.redactBeep(),
       undoAudioEvent: () => this.undoAudioEvent(), exportRedactedWav: () => this.exportRedactedWav(),
       // reader body + controls

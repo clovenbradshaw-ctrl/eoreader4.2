@@ -1247,7 +1247,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
                 twoWitness: !!state.auditReadings,
                 onPartial: (p) => {
                   progress({ kind: 'file', label: `Transcribing… ${p.pct != null ? p.pct + '%' : ''}` });
-                  if (src._asr) { src._asr.pct = p.pct || 0; src._asr.partial = String(p.text || '').slice(-2000); }
+                  if (src._asr) { src._asr.pct = p.pct || 0; src._asr.partial = String(p.text || '').slice(-2000); if (Array.isArray(p.words)) src._asr.words = p.words; }
                   // Repaint the media panel's live transcript at most a few times a second.
                   const now = nowMs();
                   if (now - lastPaint > 350) { lastPaint = now; emit('sources'); }
@@ -2354,6 +2354,31 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return pending;
   };
 
+  // ── one grounded question per topic — the topic-per-question model ───────────
+  // The engine answers a SINGLE grounded question coherently from the record — or abstains
+  // honestly ("the record does not say"); a back-and-forth thread is what it does worst, so
+  // the Ask surface refuses to accrete one. A question asked while the current topic ALREADY
+  // holds a question opens a CHILD topic beneath it and asks THERE — a fresh line of inquiry
+  // the sidebar tree shows nested under the question it followed. The child INHERITS the
+  // parent's sources, so the record it reads is unchanged; the parent's answer stays intact
+  // on its own surface, one clean question-and-answer apiece. A question in a topic that has
+  // not been asked one yet (a "New topic", or one that only holds ingested sources) fills
+  // THAT topic in place — asking the first question never orphans an empty placeholder.
+  // Delegates to ask() on the now-active topic and returns its pending message. topicNew
+  // already makes the child active and auto-naming (from the first question) then names it.
+  const askQuestion = (question, opts = {}) => {
+    const q = String(question || '').trim();
+    if (!q) return Promise.resolve(null);
+    const cur = topic();
+    const alreadyAsked = !!(cur && cur.messages.some((m) => m && m.role === 'user'));
+    if (cur && alreadyAsked) {
+      const child = topicNew(DEFAULT_TOPIC_TITLE, { parentId: cur.id, workspaceId: cur.workspaceId });
+      child.sourceSns = [...(cur.sourceSns || [])];   // the child reads the same record as its parent
+      persist(); emit('topics');
+    }
+    return ask(q, opts);
+  };
+
   const stageLabel = (name) => ({
     route: 'Routing…', retrieve: 'Retrieving from the record…', fold: 'Folding the reading…',
     gate: 'Gating…', prompt: 'Building the grounded prompt…', llm: 'Phrasing…',
@@ -2605,7 +2630,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const entityKey = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, ' ');
   // The merged referents a SINGLE doc admits — one row per union-find representative, with
   // its sighting mass and incident degree. Pulled out of `entities()` so the topic explorer,
-  // the per-source pivot, and the holonic-level toggle all read a source the same way.
+  // the per-source pivot, and the holonic-level toggle all read a source the same way. Each row
+  // also carries the acoustic holon tag (kind='signal'|'noise', from organs/in/acoustic.js) and
+  // the numeric holon level off the entity's DEF props, so callers can filter by holonic level.
   const entitiesInDoc = (doc, sn) => {
     const rows = [];
     if (!doc?.log) return rows;
@@ -2628,20 +2655,33 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       seen.add(r);
       const label = doc.admission?.labelOf?.(r) || ent.label || r;
       const links = degree.get(r) || 0;
-      rows.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn, label, mentions: ent.sightings || 0, links, sourceCount: 1 });
+      const kind = (ent.props && ent.props.kind) || null;
+      const lvl = (ent.props && ent.props.level != null) ? +ent.props.level : null;
+      rows.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn, label, mentions: ent.sightings || 0, links, sourceCount: 1, kind, level: lvl });
     }
     return rows;
   };
-  const entities = ({ merge = true } = {}) => {
+  // `level` selects the HOLONIC LEVEL of the topic explorer: 'names' (default) keeps only natural-
+  // language referents — people, places, things — dropping the acoustic signal/noise span holons an
+  // audio reading INS's; 'signal' keeps only those acoustic holons; 'all' keeps both. (The per-source
+  // pivot has its OWN finer level split — the transcript's referents vs its raw word spans — in
+  // sourceEntities below; this filter is the topic-wide acoustic cut.)
+  const entities = ({ merge = true, level = 'names' } = {}) => {
     const out = [];
     for (const src of topicSources()) out.push(...entitiesInDoc(docFor(src), src.sn));
+    // Filter to the requested holonic level. A signal/noise-tagged entity is an acoustic holon;
+    // everything else is a natural-language referent.
+    const acoustic = (it) => it.kind === 'signal' || it.kind === 'noise';
+    const rows = level === 'all' ? out
+      : level === 'signal' ? out.filter(acoustic)
+      : out.filter((it) => !acoustic(it));   // 'names' (default)
     if (merge) {
       // Group per-source instances by normalized label. The strongest instance
       // (most mentions) LEADS the merged row, so key/docId/entId/sn point at the
       // richest per-source profile — opening the row lands there — while mentions
       // and links aggregate and `sourceCount` records the reach.
       const byLabel = new Map();
-      for (const it of out) {
+      for (const it of rows) {
         const k = entityKey(it.label);
         let grp = byLabel.get(k);
         if (!grp) { grp = { lead: it, mentions: 0, links: 0, sns: new Set(), instances: [] }; byLabel.set(k, grp); }
@@ -2655,12 +2695,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         key: grp.lead.key, entId: grp.lead.entId, docId: grp.lead.docId, sn: grp.lead.sn,
         label: grp.lead.label, mentions: grp.mentions, links: grp.links,
         sourceCount: grp.sns.size, instances: grp.instances,
+        kind: grp.lead.kind, level: grp.lead.level,
       }));
       merged.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
       return merged;
     }
-    out.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
-    return out;
+    rows.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
+    return rows;
   };
 
   // ── holonic levels: reading a source at the level of its meaning, or its signal ──
@@ -3115,10 +3156,18 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         }
       }
     }
+    // How much of the record an abstention actually SEARCHED — the total passages (sentences)
+    // across the topic's sources, not the cited count. `passages` above is passages that ended
+    // up QUOTED, so it is 0 on an honest abstention; reporting that as "0 passages on record"
+    // reads as an empty record when the sources are in fact full of text the turn looked through.
+    // `recordPassages` is the scope the abstention names, so "the record does not say" can point
+    // at what it searched. The docs are already parsed for the active topic, so this is a cheap sum.
+    let recordPassages = 0;
+    try { for (const d of topicDocs()) recordPassages += (d && d.sentences && d.sentences.length) || 0; } catch { /* keep 0 */ }
     return {
       claims: claims.slice(-24), passages: [...passages.values()].slice(-32),
       contradictions,
-      stats: { claims: claims.length, passages: passages.size, sources: topicSources().length, contradictions },
+      stats: { claims: claims.length, passages: passages.size, sources: topicSources().length, recordPassages, contradictions },
     };
   };
 
@@ -3518,7 +3567,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     searchTopic,
     sourceBySn, removeSource, topicSources, sourceToggleCollapse,
     // chat
-    ask, stop, exportChat,
+    ask, askQuestion, stop, exportChat,
     // export provenance — WHAT produced this session: app + published build + latest-on-GitHub +
     // the current talker. Composed live so a surface badge can show the build/freshness/model.
     provenance: () => composeProvenance({
