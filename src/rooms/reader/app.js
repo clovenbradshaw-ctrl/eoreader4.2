@@ -1850,6 +1850,13 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     msg.text = result.marked || result.answer || msg.text;
     msg.route = result.route;
     msg.grounding = result.grounding;
+    // The VERBATIM prompt this turn handed the model — the audit turn's own record
+    // (turn/stages.js promptText, riding the pipeline result as `turn`). Stashed on the
+    // message — unlike the derived answerEot projection, it is a fact of the turn, not
+    // re-computable — so the facing panel can show exactly what the talker was prompted,
+    // and still show it after a reload (the in-memory audit ring does not survive one).
+    // Null when no talker prompt exists for this answer (a phatic line, an errored turn).
+    msg.prompt = (result.turn && result.turn.prompt) || null;
     msg.flags = (result.flags || []).map((f) => ({ id: f.id, note: f.note || '' }));
     msg.unbound = !!result.unbound;
     msg.stopped = !!result.stopped;
