@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EO Reader — Replay</title>
+<link rel="icon" href="favicon.svg" />
+<style>
+  :root{
+    --bg:#0c0e12; --panel:#14171e; --ink:#e7ecf3; --dim:#8b93a2; --line:#252b36; --accent:#7bd0ff;
+    --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme:light){ :root{ --bg:#f4f6fa; --panel:#fff; --ink:#141821; --dim:#5a6474; --line:#dde3ec } }
+  :root[data-theme="dark"]{ --bg:#0c0e12; --panel:#14171e; --ink:#e7ecf3; --dim:#8b93a2; --line:#252b36 }
+  :root[data-theme="light"]{ --bg:#f4f6fa; --panel:#fff; --ink:#141821; --dim:#5a6474; --line:#dde3ec }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.55;display:flex;flex-direction:column}
+  a{color:var(--accent)}
+  header{flex:0 0 auto;padding:20px 20px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+  h1{font-family:var(--mono);font-size:18px;font-weight:600;margin:0 0 4px;letter-spacing:.2px}
+  .sub{color:var(--dim);font-size:13px;max-width:78ch}
+  .sub b{color:var(--ink)}
+  #mount{flex:1 1 auto;min-height:0}
+  .fallback{padding:40px 20px;color:var(--dim);max-width:70ch}
+  .fallback code{font-family:var(--mono);color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Replay — watching something get read</h1>
+  <div class="sub">
+    No ingest organ returns an answer. It returns a <b>distribution</b>. The collapse — the choice of
+    one word — happens at read time, against a corpus you can switch on and off, and it can be run again,
+    differently, without the model ever running twice. Turn a source off and watch a word change.
+    <b>The transcript was never a fact about the audio. It was a fact about the audio and the corpus together.</b>
+  </div>
+</header>
+<div id="mount"><div class="fallback">Loading the reading… if this stays, serve the folder over HTTP (<code>npm run serve</code>) so the ES modules load — opening the file directly will not work.</div></div>
+
+<script type="module">
+  import { mountReplaySurface } from './src/rooms/replay/surface.js';
+  import { SCENE, SOURCES } from './src/rooms/replay/scene.js';
+  const mount = document.getElementById('mount');
+  try {
+    mount.innerHTML = '';
+    mountReplaySurface(mount, { scene: SCENE, sources: SOURCES });
+  } catch (e) {
+    mount.innerHTML = '<div class="fallback">Could not start Replay: ' + String(e && e.message || e) + '</div>';
+    console.error(e);
+  }
+</script>
+</body>
+</html>
