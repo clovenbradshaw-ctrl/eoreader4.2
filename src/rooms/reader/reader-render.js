@@ -458,17 +458,25 @@ const nativeLayerCss = (accent) => (
   '.eo-ent{border-radius:2px;transition:background .12s}' +
   '.eo-links-on .eo-ent{cursor:pointer;color:' + accent + ';border-bottom:1px dotted ' + hexA(accent, 0.85) + '}' +
   '.eo-links-on .eo-ent:hover{background:' + hexA(accent, 0.13) + '}' +
+  // in-app navigable links (same-site hrefs) — a soft accent underline so the "Links" toggle makes
+  // the whole page read as clickable, and a hover lift that says "this follows in place, and records".
+  '.eo-links-on a[href]{cursor:pointer}' +
+  '.eo-links-on .eo-nav{text-decoration:none;box-shadow:inset 0 -1px 0 ' + hexA(accent, 0.5) + ';transition:box-shadow .12s,background .12s}' +
+  '.eo-links-on .eo-nav:hover{box-shadow:inset 0 -2px 0 ' + accent + ';background:' + hexA(accent, 0.08) + '}' +
   '.eo-cited{scroll-margin-top:22px;border-radius:0 6px 6px 0;transition:background .2s,box-shadow .2s}' +
   '.eo-links-on .eo-cited{background:' + hexA('#C79A3A', 0.13) + ';box-shadow:inset 3px 0 0 #C79A3A}' +
   '.eo-focus{background:' + hexA(accent, 0.16) + ';box-shadow:0 0 0 5px ' + hexA(accent, 0.16) + ';border-radius:3px;transition:background .5s,box-shadow .5s}'
 );
 // A node in the article body, not the site chrome (nav/masthead/footer). Shared by both passes.
 const eoInChrome = (el) => !!(el && el.closest && el.closest('nav,header,footer,aside,[role="navigation"],[role="banner"],[role="contentinfo"]'));
+// registrable-ish domain (last two labels of the host, www dropped) — npr.org for www.npr.org.
+const regDomain = (u) => { try { const h = new URL(u).hostname.replace(/^www\./, '').toLowerCase(); return h.split('.').slice(-2).join('.'); } catch { return ''; } };
 
 export const decorateNativeDoc = (doc, {
   segsOf = null, isCited = null, accent = READ_ACCENT, linksOn = true, maxNodes = 20000, maxWraps = 8000,
+  pageUrl = '',
 } = {}) => {
-  const out = { toc: [], entWraps: 0, cited: 0 };
+  const out = { toc: [], entWraps: 0, cited: 0, navLinks: 0 };
   try {
     if (!doc || !doc.body) return out;
     // 1) styles — id-stable, rewritten each pass so an accent change restyles without stacking.
@@ -533,6 +541,30 @@ export const decorateNativeDoc = (doc, {
           }
         }
         tn.parentNode.replaceChild(frag, tn);
+      }
+    }
+
+    // 3b) navigable links — tag every SAME-SITE hyperlink (its href resolves, through the injected
+    // <base href>, to a page on this record's own site) as `.eo-nav`, so the "Links" toggle paints
+    // the whole page as clickable and the surface's click delegate knows which anchors follow IN-APP
+    // (recorded as sub-objects) versus which leave for a new tab. Off-site links keep their own look.
+    // Runs once per document; the site's registrable domain comes from pageUrl (falls back to the
+    // page's own <base href> when not supplied).
+    if (!doc.__eoNativeNav) {
+      doc.__eoNativeNav = true;
+      let site = regDomain(pageUrl);
+      if (!site) { try { const b = doc.querySelector('base[href]'); if (b) site = regDomain(b.href); } catch { /* no base */ } }
+      if (site) {
+        const anchors = doc.getElementsByTagName('a');
+        for (let i = 0; i < anchors.length && out.navLinks < 6000; i++) {
+          const a = anchors[i];
+          const rawHref = (a.getAttribute && a.getAttribute('href')) || '';
+          if (rawHref.startsWith('#')) continue;                             // an in-page anchor, not a nav
+          let href = ''; try { href = a.href || ''; } catch { href = ''; }   // resolves via <base href>
+          if (!/^https?:/i.test(href)) continue;
+          if (regDomain(href) !== site) continue;
+          a.classList.add('eo-nav'); out.navLinks++;
+        }
       }
     }
 

@@ -426,13 +426,20 @@ table{border-collapse:collapse;width:100%}
           </sc-if>
           <div style="display:flex;flex-direction:column;gap:1px">
             <sc-for list="{{ leftSources }}" as="sc">
-              <button onClick="{{ sc.open }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px" style-hover="background:#F5F5F8">
-                <span style="width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ sc.favBg }};color:{{ sc.favFg }}">{{ sc.favCh }}</span>
-                <span style="flex:1;min-width:0">
-                  <span style="display:block;font-size:12.5px;font-weight:550;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.title }}</span>
-                  <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.reg }} · {{ sc.domain }}</span>
-                </span>
-              </button>
+              <div style="display:flex;align-items:center;padding-left:{{ sc.indent }}">
+                <sc-if value="{{ sc.hasKids }}">
+                  <button onClick="{{ sc.toggle }}" title="Show / hide followed pages" style="flex:0 0 auto;width:15px;height:24px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#A0A0AA" style-hover="color:#5B4BE6">{{ sc.caret }}</button>
+                </sc-if>
+                <sc-if value="{{ sc.noKids }}"><span style="flex:0 0 auto;width:15px"></span></sc-if>
+                <button onClick="{{ sc.open }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px" style-hover="background:#F5F5F8">
+                  <span style="width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ sc.favBg }};color:{{ sc.favFg }}">{{ sc.favCh }}</span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-size:12.5px;font-weight:550;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.title }}</span>
+                    <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.reg }} · {{ sc.domain }}</span>
+                  </span>
+                  <sc-if value="{{ sc.hasKids }}"><span title="followed pages recorded here" style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#A0A0AA;background:#F2F2F6;border-radius:5px;padding:1px 5px">{{ sc.kidCount }}</span></sc-if>
+                </button>
+              </div>
             </sc-for>
           </div>
         </div>
@@ -1001,8 +1008,8 @@ table{border-collapse:collapse;width:100%}
               </div>
               <div style="display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap">
                 <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
-                  <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <sc-if value="{{ viewerCanPage }}"><button onClick="{{ viewerModePage }}" title="Render the real website" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPageFg }};background:{{ vmPageBg }}">Native</button></sc-if>
+                  <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">Facing</button>
                   <button onClick="{{ viewerModeEot }}" title="The reading, as EoT" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">EoT · {{ viewer.eotCount }}</button>
                 </span>
@@ -1025,6 +1032,51 @@ table{border-collapse:collapse;width:100%}
                 <sc-if value="{{ viewerIsEot }}"><button onClick="{{ downloadEot }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ .eot</button></sc-if>
               </div>
             </div>
+
+            <!-- MEDIA PANEL — a decoded audio/video source plays here, above its reading, in every -->
+            <!-- mode: the file itself, its waveform tinted by the signal/noise holons, the basic -->
+            <!-- analysis, and the live transcription status. -->
+            <sc-if value="{{ viewer.media.show }}">
+              <div class="eo-scroll" style="flex:0 0 auto;max-height:44%;overflow-y:auto;background:#fff;border-bottom:1px solid #EAEAEF;padding:13px 18px;display:flex;flex-direction:column;gap:11px">
+                <sc-if value="{{ viewer.media.showVideo }}">
+                  <video controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;max-height:260px;border-radius:9px;background:#000;display:block"></video>
+                </sc-if>
+                <sc-if value="{{ viewer.media.showAudio }}">
+                  <audio controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;display:block"></audio>
+                </sc-if>
+                <sc-if value="{{ viewer.media.hasWave }}">
+                  <div>
+                    <div style="display:flex;align-items:center;gap:1px;height:62px;padding:7px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden">
+                      <sc-for list="{{ viewer.media.bars }}" as="b">
+                        <div style="flex:1 1 0;min-width:1px;height:{{ b.hPct }}%;background:{{ b.bg }};border-radius:1px"></div>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;margin-top:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">
+                      <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#6D5EF5;display:inline-block"></span>signal</span>
+                      <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#C9CBD6;display:inline-block"></span>noise / silence</span>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ viewer.media.hasStats }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <sc-for list="{{ viewer.media.stats }}" as="st">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 8px"><b style="color:#8A8A95;font-weight:600">{{ st.label }}</b>&nbsp;{{ st.val }}</span>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ viewer.media.asrShow }}">
+                  <div style="display:flex;flex-direction:column;gap:6px;background:{{ viewer.media.asrBg }};border-radius:8px;padding:9px 12px">
+                    <div style="display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600;color:{{ viewer.media.asrTone }}">
+                      <sc-if value="{{ viewer.media.asrBusy }}"><span style="width:13px;height:13px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span></sc-if>
+                      <span>{{ viewer.media.asrLabel }}</span>
+                    </div>
+                    <sc-if value="{{ viewer.media.hasPartial }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#5A5A66;line-height:1.55;max-height:58px;overflow:hidden">…{{ viewer.media.asrPartial }}</div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
 
             <sc-if value="{{ viewerIsReader }}">
               <div style="flex:1;min-height:0;position:relative;background:#fff">
@@ -1211,10 +1263,24 @@ table{border-collapse:collapse;width:100%}
 
               <sc-if value="{{ prof.hasDefs }}">
                 <div style="margin-top:16px">
-                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES</div>
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES <span style="color:#C0C0C8;font-weight:600">· ranked by what the record witnesses</span></div>
                   <sc-for list="{{ prof.defs }}" as="d">
-                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32;border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">{{ d.value }}</div>
+                    <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ d.value }}</div>
+                      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ d.prov }} · {{ d.conf }}</span>
+                        <sc-for list="{{ d.cites }}" as="w">
+                          <button onClick="{{ w.jump }}" title="Jump to this passage in the source" style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#0F6E56;background:#E1F5EE;border-radius:5px;padding:1px 6px" style-hover="background:#D2EFE4">{{ w.label }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
                   </sc-for>
+                  <sc-if value="{{ prof.hasDag }}">
+                    <div style="margin-top:6px;border:1px solid #EFEFF3;border-radius:9px;padding:10px 8px 6px;background:#fff">
+                      <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 4px">PROVENANCE</div>
+                      <div ref="{{ prof.setDagEl }}"></div>
+                    </div>
+                  </sc-if>
                 </div>
               </sc-if>
 
@@ -1281,7 +1347,9 @@ table{border-collapse:collapse;width:100%}
   <sc-if value="{{ searchShow }}">
     <div style="position:absolute;inset:0;z-index:46">
       <div onClick="{{ closeSearch }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
-      <div class="eo-modal" style="position:absolute;left:50%;top:60px;transform:translateX(-50%);width:min(640px,92vw);max-height:calc(100vh - 120px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+      <div class="eo-modal" style="position:absolute;left:50%;top:60px;transform:translateX(-50%);width:{{ searchModalW }};max-height:calc(100vh - 120px);height:{{ searchModalH }};background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+        <!-- RESULTS HEADER -->
+        <sc-if value="{{ searchListShow }}">
         <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid #EAEAEF">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
           <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">“{{ searchQ }}”</span>
@@ -1298,15 +1366,45 @@ table{border-collapse:collapse;width:100%}
           <sc-for list="{{ searchRows }}" as="sr">
             <div style="display:flex;gap:11px;padding:11px 10px;border-radius:11px;align-items:flex-start" style-hover="background:#F7F7FA">
               <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:5px;padding:2px 7px;flex:0 0 auto;margin-top:2px">{{ sr.kind }}</span>
-              <span style="flex:1;min-width:0">
+              <button onClick="{{ sr.open }}" title="Load the site here" style="flex:1;min-width:0;text-align:left;background:transparent;border:none;padding:0;cursor:pointer">
                 <span style="display:block;font-size:13.5px;font-weight:600;color:#2A2A32;line-height:1.35">{{ sr.title }}</span>
                 <span style="display:block;font-size:12px;color:#6E6E78;line-height:1.5;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ sr.snippet }}</span>
                 <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sr.url }}</span>
-              </span>
+              </button>
               <button onClick="{{ sr.record }}" style="flex:0 0 auto;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:11.5px;border-radius:8px;padding:6px 11px;margin-top:2px" style-hover="background:#E7E2FD">{{ sr.recordLabel }}</button>
             </div>
           </sc-for>
         </div>
+        </sc-if>
+        <!-- NATIVE PREVIEW — the real site, loaded before it's recorded -->
+        <sc-if value="{{ previewShow }}">
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #EAEAEF;background:#FBFBFD">
+          <button onClick="{{ backToResults }}" title="Back to results" style="flex:0 0 auto;display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#5B4BE6;padding:5px 9px;border-radius:7px" style-hover="background:#F1EFFE"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Results</button>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:15.5px;font-weight:600;color:#1B1B22;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ previewTitle }}</span>
+            <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ previewUrl }}</span>
+          </span>
+          <a href="{{ previewUrl }}" target="_blank" rel="noopener" style="flex:0 0 auto;font-size:11px;font-weight:600;color:#8A8A95;text-decoration:none">open ↗</a>
+          <button onClick="{{ addPreviewSource }}" disabled="{{ previewAddBusy }}" style="flex:0 0 auto;background:#5B4BE6;border:1px solid #5B4BE6;color:#fff;font-weight:600;font-size:12px;border-radius:8px;padding:7px 14px" style-hover="filter:brightness(1.06)">{{ previewAddLabel }}</button>
+          <button onClick="{{ closeSearch }}" style="flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div style="flex:1;min-height:0;position:relative;background:#fff">
+          <sc-if value="{{ previewBusy }}">
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#9A9AA4">
+              <span style="width:26px;height:26px;border-radius:50%;border:3px solid #EDEBFB;border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box"></span>
+              <span style="font-size:12.5px">Loading the live page…</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ previewHasErr }}">
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:34px;text-align:center;color:#6E6E78">
+              <span style="font-size:13px;line-height:1.55">Couldn’t load this page here.<br><a href="{{ previewUrl }}" target="_blank" rel="noopener" style="color:#5B4BE6;font-weight:600">Open the original in a new tab ↗</a>&nbsp; · &nbsp;<button onClick="{{ retryPreview }}" style="color:#5B4BE6;font-weight:600;display:inline">retry</button>&nbsp; · &nbsp;<button onClick="{{ addPreviewSource }}" style="color:#5B4BE6;font-weight:600;display:inline">add anyway</button></span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ previewPageShow }}">
+            <iframe srcdoc="{{ previewDoc }}" sandbox="allow-same-origin allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
+          </sc-if>
+        </div>
+        </sc-if>
       </div>
     </div>
   </sc-if>
@@ -1502,10 +1600,24 @@ table{border-collapse:collapse;width:100%}
 
                 <sc-if value="{{ webProf.hasDefs }}">
                   <div style="margin-top:15px">
-                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES</div>
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES <span style="color:#C0C0C8;font-weight:600">· ranked</span></div>
                     <sc-for list="{{ webProf.defs }}" as="d">
-                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32;border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">{{ d.value }}</div>
+                      <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ d.value }}</div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px">
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ d.prov }} · {{ d.conf }}</span>
+                          <sc-for list="{{ d.cites }}" as="w">
+                            <button onClick="{{ w.jump }}" title="Jump to this passage in the source" style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#0F6E56;background:#E1F5EE;border-radius:5px;padding:1px 6px" style-hover="background:#D2EFE4">{{ w.label }}</button>
+                          </sc-for>
+                        </div>
+                      </div>
                     </sc-for>
+                    <sc-if value="{{ webProf.hasDag }}">
+                      <div style="margin-top:6px;border:1px solid #EFEFF3;border-radius:9px;padding:10px 8px 6px;background:#fff">
+                        <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 4px">PROVENANCE</div>
+                        <div ref="{{ webProf.setDagEl }}"></div>
+                      </div>
+                    </sc-if>
                   </div>
                 </sc-if>
 
@@ -1679,6 +1791,9 @@ class Component extends DCLogic {
       tocOpen: false,
       readPrefs: this._readPrefs(),
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
+      // A search hit opens as a NATIVE PREVIEW first — the real page, loaded normally in a sandboxed
+      // frame — and only becomes a recorded source when you choose to add it. { item, doc, busy, err }.
+      searchPreview: null,
       // ⌘K source palette — full-text search across every recorded source (title · site · body)
       cmdkOpen: false, cmdkQuery: '', cmdkSel: 0,
       pasteOpen: false, pasteTitle: '', pasteBody: '',
@@ -1746,7 +1861,17 @@ class Component extends DCLogic {
   _saveReadPos(sn, f) { try { localStorage.setItem(this._readPosKey(sn), String(Math.max(0, Math.min(1, f)))); } catch {} }
 
   _onEngine(kind) {
-    if (kind === 'sources') { this._entCache = null; this._viewCache = null; this._segCache = {}; }
+    if (kind === 'sources') {
+      this._entCache = null; this._viewCache = null; this._segCache = {};
+      // A source's text can change AFTER it lands — an audio source is recorded from its
+      // acoustic reading, then its transcript folds in. Drop the cached reader iframe for any
+      // open source whose content signature moved, so the reader re-renders the new text (and
+      // only then — a partial-progress emit leaves the text untouched, so no needless reload).
+      for (const sn in this._readerCache) {
+        const s = this._app && this._app.sourceBySn(sn);
+        if (!s || (this._readerCache[sn] && this._readerCache[sn]._sig !== s.sha)) delete this._readerCache[sn];
+      }
+    }
     if (kind === 'topics') {
       // Entities are SILOED PER TOPIC: the explorer derives from the active topic's sources,
       // so any cached list is stale the moment topics change — a fresh topic must open with
@@ -2032,9 +2157,35 @@ class Component extends DCLogic {
       .then((s) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'done' } }); this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
       .catch((err) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: null } }); this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`); });
   }
+  // ── search hit → native preview → add as source ────────────────────────────
+  // Clicking a search result LOADS THE SITE NORMALLY first (the real page, through the same proxy
+  // chain ingest uses, sanitized + sandboxed by nativePageHtml) — nothing is recorded yet. The
+  // preview's "Add as source" button is the only thing that admits it into the record.
+  previewHit(item) {
+    if (!item || !item.url || !this._app || !this._app.fetchPage || !this._render) return;
+    this.setState({ searchPreview: { item, doc: null, err: null, busy: true } });
+    this._app.fetchPage(item.url).then((r) => {
+      const doc = this._render.nativePageHtml(r.html, { baseUrl: r.url || item.url, prefs: this.state.readPrefs });
+      const p = this.state.searchPreview;               // the user may have gone back or previewed another hit
+      if (p && p.item === item) this.setState({ searchPreview: { item, doc, err: null, busy: false } });
+    }).catch((e) => {
+      const p = this.state.searchPreview;
+      if (p && p.item === item) this.setState({ searchPreview: { item, doc: null, err: String((e && e.message) || e), busy: false } });
+    });
+  }
+  closePreview() { this.setState({ searchPreview: null }); }
+  addPreviewSource() {
+    const p = this.state.searchPreview; if (!p) return;
+    this.recordHit(p.item);                              // records, then _revealImport opens the source viewer
+    this.setState({ searchPreview: null, searchOpen: false });
+  }
   _ingestFile(f) {
     if (!this._app) return;
-    this._app.ingestFile(f).then((s) => { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
+    // For media the source lands (and reveals) AT ONCE via onSource — long before the
+    // transcript. Other modalities have no early source, so the final resolve reveals them.
+    let revealed = false;
+    this._app.ingestFile(f, { onSource: (s) => { revealed = true; this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); } })
+      .then((s) => { if (s && !revealed) { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); } })
       .catch((err) => this.showToast(`Couldn't read ${f.name}: ${String(err && err.message || err).slice(0, 90)}`));
   }
   // ── the import reveal — the first surface a new source renders ─────────────
@@ -2209,6 +2360,95 @@ class Component extends DCLogic {
   }
   // The active source is whichever tab in the bar is a recorded source (else none — a fixed tab).
   _activeSrc() { return this.state.viewerTabs.includes(this.state.tab) ? this.state.tab : null; }
+  // Two URLs on the same site — a followed link that keeps us on the tab's own site (so it nests
+  // under it) vs. one that leaves for elsewhere. Compares registrable-ish domain (last two labels),
+  // so npr.org ↔ www.npr.org ↔ text.npr.org all count as one site.
+  _sameSite(a, b) {
+    try {
+      const reg = (u) => { const h = new URL(u).hostname.replace(/^www\./, '').toLowerCase(); const p = h.split('.'); return p.slice(-2).join('.'); };
+      const ra = reg(a), rb = reg(b);
+      return !!ra && ra === rb;
+    } catch { return false; }
+  }
+
+  // ── the media view-model — player + waveform + signal/noise holons + transcription ────────
+  // Built for an audio/video source from the artefacts its acoustic reading left on the source
+  // (all underscore-led, session-only): a playable object URL, the downsampled peaks, the basic
+  // analysis, the nested holons, and the live transcription state. Returns null for anything
+  // that is not a decoded clip (so the panel simply does not show).
+  _mediaVM(s) {
+    if (!s || s.kind !== 'audio') return null;
+    const media = s._media || null;
+    const wave = s._wave || null;
+    const an = s._analysis || null;
+    const h = s._holons || null;
+    if (!media && !wave && !an) return null;
+    const dur = (an && an.duration) || (h && h.root && h.root.dur) || 0;
+    const clock = (t) => { const x = Math.max(0, t || 0); const m = Math.floor(x / 60); const r = Math.round(x - m * 60); return `${m}:${String(r).padStart(2, '0')}`; };
+    const db = (v) => (v == null || v <= -120 ? '−∞' : `${v.toFixed(1)} dB`);
+
+    // The signal spans, so each waveform column can be tinted signal (accent) or noise (faint).
+    const spans = (h && h.signalSpans) || [];
+    const inSignal = (t) => spans.some((sp) => t >= sp.start && t <= sp.end);
+
+    // Downsample the peaks to a comfortable bar count; height ∝ amplitude, centred so the bar
+    // mirrors above and below the midline like a real waveform.
+    let bars = [];
+    if (Array.isArray(wave) && wave.length) {
+      const N = Math.min(200, wave.length);
+      const per = wave.length / N;
+      let maxAmp = 0;
+      for (const p of wave) if (p.amp > maxAmp) maxAmp = p.amp;
+      maxAmp = maxAmp || 1;
+      for (let i = 0; i < N; i++) {
+        const a = Math.floor(i * per), b = Math.max(a + 1, Math.floor((i + 1) * per));
+        let amp = 0; for (let j = a; j < b && j < wave.length; j++) amp = Math.max(amp, wave[j].amp);
+        const tc = dur * ((i + 0.5) / N);
+        const sig = inSignal(tc);
+        bars.push({
+          hPct: String(Math.max(3, Math.round((amp / maxAmp) * 100))),
+          bg: sig ? '#6D5EF5' : '#C9CBD6',
+        });
+      }
+    }
+
+    const stats = [];
+    if (an) {
+      stats.push({ label: 'Length', val: clock(dur) });
+      stats.push({ label: 'Peak', val: db(an.peakDb) });
+      stats.push({ label: 'Loudness', val: db(an.rmsDb) });
+      stats.push({ label: 'Dynamic range', val: `${(an.dynamicRangeDb || 0).toFixed(0)} dB` });
+      stats.push({ label: 'Silence', val: `${Math.round(an.silencePct || 0)}%` });
+    }
+    if (h) stats.push({ label: 'Signal', val: `${clock(h.signalSeconds || 0)} · ${(h.signalSpans || []).length} holon${(h.signalSpans || []).length === 1 ? '' : 's'}` });
+
+    // The transcription banner — pending / running (with % + a live tail) / done / skipped / error.
+    const asr = s._asr || null;
+    let asrShow = false, asrLabel = '', asrTone = '#6E6E78', asrBg = '#F2F2F6', asrBusy = false, asrPartial = '';
+    if (asr) {
+      if (asr.state === 'pending') { asrShow = true; asrLabel = 'Signal separated — queued for transcription'; asrBusy = true; }
+      else if (asr.state === 'running') { asrShow = true; asrBusy = true; asrLabel = `Transcribing the signal… ${asr.pct != null ? asr.pct + '%' : ''}`.trim(); asrTone = '#5B4BE6'; asrBg = '#F1EFFE'; asrPartial = String(asr.partial || ''); }
+      else if (asr.state === 'skipped') { asrShow = true; asrLabel = `Not transcribed — ${asr.reason || 'no signal above the noise floor'}`; asrTone = '#8A6D2F'; asrBg = '#FBF4E6'; }
+      else if (asr.state === 'stopped') { asrShow = true; asrLabel = 'Transcription stopped — the waveform reading stands'; asrTone = '#8A6D2F'; asrBg = '#FBF4E6'; }
+      else if (asr.state === 'error') { asrShow = true; asrLabel = `Transcription failed — ${asr.reason || 'error'}`; asrTone = '#B4402F'; asrBg = '#FBEAE6'; }
+      else if (asr.state === 'done') { asrShow = false; }
+    }
+
+    return {
+      show: true,
+      hasPlayer: !!(media && media.url),
+      url: (media && media.url) || '',
+      isVideo: !!(media && media.isVideo),
+      showVideo: !!(media && media.url && media.isVideo),
+      showAudio: !!(media && media.url && !media.isVideo),
+      hasWave: bars.length > 0,
+      bars,
+      stats,
+      hasStats: stats.length > 0,
+      asrShow, asrLabel, asrTone, asrBg, asrBusy, asrPartial,
+      hasPartial: !!asrPartial,
+    };
+  }
   // On mobile the panels are one-at-a-time overlay drawers: opening one closes the other,
   // and the desktop open/closed prefs are left untouched (a phone visit shouldn't reshape
   // the desktop layout).
@@ -2232,13 +2472,17 @@ class Component extends DCLogic {
   // openViewer(sn, focus) opens a source AS A TAB in front (or focuses it if already open). Several
   // sources stay open at once; each keeps its own render mode and citation focus.
   openViewer(sn, focusText) {
-    if (!this._app || !this._app.sourceBySn(sn)) return;
+    const src = this._app && this._app.sourceBySn(sn);
+    if (!this._app || !src) return;
     this._viewCache = null; this._readerFrame = null; this._nativeFrame = null;
     // Rebuild the book on open so freshly-cited passages and newly-admitted entities show — the
     // reader cache is otherwise held for the life of the tab (prefs apply live, no rebuild).
     delete this._readerCache[sn];
     const tabs = this.state.viewerTabs.includes(sn) ? this.state.viewerTabs : [...this.state.viewerTabs, sn];
-    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = 'reader';
+    // Native (the real website) is the default surface for a web source that carries a URL — click a
+    // source and you land on the page itself; the clean Reader book is one tab away. A source with no
+    // URL (pasted text, a local file) has no page to render, so it opens in Reader.
+    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = src.url ? 'native' : 'reader';
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
     // Open the source AS A TAB in the main stage and make it the active tab.
     this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, nativeToc: [], ...(this._mob() ? { leftOpen: false } : {}) });
@@ -2273,12 +2517,43 @@ class Component extends DCLogic {
     const url = s.url;
     this._app.fetchPage(url).then((r) => {
       const doc = this._render.nativePageHtml(r.html, { baseUrl: r.url || url, prefs: this.state.readPrefs });
-      this.setState({ viewerPages: { ...this.state.viewerPages, [sn]: { doc, err: null, busy: false } } });
+      // The native tab tracks the page it is CURRENTLY showing (`url`) and the source whose lexicon
+      // decorates it (`sn`) — both the tab's own source at first, then a followed page after visitLink.
+      this.setState({ viewerPages: { ...this.state.viewerPages, [sn]: { doc, err: null, busy: false, url: r.url || url, sn } } });
     }).catch((e) => {
       this.setState({ viewerPages: { ...this.state.viewerPages, [sn]: { doc: null, err: String((e && e.message) || e), busy: false } } });
     });
   }
   retryPage() { const sn = this._activeSrc(); if (sn) this.loadPage(sn); }
+  // Follow a link INSIDE a native page (clicked in the frame, or a sub-object picked in the sidebar).
+  // The tab stays the SAME source — `tabSn`, the site — so one site remains one tab; the followed page
+  // renders in place and is recorded (app.navigatePage) as a sub-object beneath the tab's root source.
+  visitLink(tabSn, url) {
+    if (!tabSn || !url || !this._app || !this._app.navigatePage || !this._render) return;
+    // The root of this tab's site (a grandchild folds under the same top-level source) — new pages
+    // nest under the ROOT so the sidebar stays two levels deep, not an ever-deepening chain.
+    let root = this._app.sourceBySn(tabSn), guard = 0;
+    while (root && root.parentSn && this._app.sourceBySn(root.parentSn) && guard++ < 50) root = this._app.sourceBySn(root.parentSn);
+    const rootSn = root ? root.sn : tabSn;
+    if (!this._app.sourceBySn(rootSn)) return;
+    // Bring the root's tab forward in Native mode and mark it loading, without disturbing other tabs.
+    const tabs = this.state.viewerTabs.includes(rootSn) ? this.state.viewerTabs : [...this.state.viewerTabs, rootSn];
+    this._nativeFrame = null;
+    const prev = this.state.viewerPages[rootSn] || {};
+    this.setState({
+      viewerTabs: tabs, tab: rootSn,
+      viewerModes: { ...this.state.viewerModes, [rootSn]: 'native' },
+      viewerPages: { ...this.state.viewerPages, [rootSn]: { ...prev, busy: true, err: null } },
+      tocOpen: false, nativeToc: [], ...(this._mob() ? { leftOpen: false } : {}),
+    });
+    this._app.navigatePage(rootSn, url).then((r) => {
+      const doc = this._render.nativePageHtml(r.html, { baseUrl: r.url || url, prefs: this.state.readPrefs });
+      this._nativeFrame = null;
+      this.setState({ viewerPages: { ...this.state.viewerPages, [rootSn]: { doc, err: null, busy: false, url: r.url || url, sn: r.childSn || rootSn } } });
+    }).catch((e) => {
+      this.setState({ viewerPages: { ...this.state.viewerPages, [rootSn]: { doc: null, err: String((e && e.message) || e), busy: false } } });
+    });
+  }
   // Reading-preference setters — persist, then apply LIVE to the open book iframe via CSS
   // variables (no reload, so scroll position survives), exactly as eoreader4.1 did.
   _applyRead(patch) {
@@ -2353,7 +2628,13 @@ class Component extends DCLogic {
   setNativeFrame(el) {
     if (!el) { return; }
     this._nativeFrame = el;
-    const sn = this._activeSrc(), focus = this.state.viewerFocus[this._activeSrc()], R = this._render, app = this._app;
+    const tabSn = this._activeSrc(), focus = this.state.viewerFocus[this._activeSrc()], R = this._render, app = this._app;
+    // The page currently shown may be a FOLLOWED page (visitLink), a sub-object of the tab's source;
+    // decorate it with ITS OWN lexicon and key its scroll on ITS OWN id, while the tab id (`tabSn`)
+    // stays the site. `pg.sn` is the shown page's source; `pg.url` the page it resolves links against.
+    const pg = this.state.viewerPages[tabSn] || {};
+    const sn = pg.sn || tabSn;
+    const pageUrl = pg.url || (app && app.sourceBySn(tabSn) && app.sourceBySn(tabSn).url) || '';
     const settle = () => {
       const d = el.contentDocument; if (!d || !d.body || d.__eoNativeInit) { return; }
       d.__eoNativeInit = true;
@@ -2364,16 +2645,34 @@ class Component extends DCLogic {
           segsOf: link ? link.linkify : null,
           isCited: link ? link.isCited : null,
           linksOn: !!this.state.entityMode,
+          pageUrl,
         });
       } catch {}
-      // Same delegate the reader uses (only reachable because the frame is same-origin + scriptless):
-      // a click on a decorated entity opens its panel. One listener per document (runs once per load).
+      // Same delegate the reader uses (only reachable because the frame is same-origin + scriptless).
+      // Two kinds of click land here (one listener per document, runs once per load):
+      //   • a decorated entity  → open its panel (Links on)
+      //   • a real hyperlink    → follow it IN-APP when it stays on this site (record it as a
+      //                           sub-object, render in place); off-site links keep their default
+      //                           new-tab behaviour (the page's <base target="_blank">).
       try {
         d.addEventListener('click', (ev) => {
-          const a = ev.target && ev.target.closest && ev.target.closest('.eo-ent[data-doc][data-ent]');
-          if (!a || !this.state.entityMode) return;
-          ev.preventDefault();
-          this.openEntity(a.getAttribute('data-doc'), a.getAttribute('data-ent'));
+          const t = ev.target;
+          const ent = t && t.closest && t.closest('.eo-ent[data-doc][data-ent]');
+          if (ent && this.state.entityMode) { ev.preventDefault(); this.openEntity(ent.getAttribute('data-doc'), ent.getAttribute('data-ent')); return; }
+          // In-app link-following is part of the Links layer — off, links behave as the site's own.
+          if (!this.state.entityMode) return;
+          // Plain left-clicks only — let modified clicks (new tab / download) pass through.
+          if (ev.button != null && ev.button !== 0) return;
+          if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+          const a = t && t.closest && t.closest('a[href]');
+          if (!a) return;
+          const raw = (a.getAttribute && a.getAttribute('href')) || '';
+          if (raw.startsWith('#')) return;                     // an in-page anchor — let it scroll
+          const href = a.href || '';   // absolute — the frame's <base href> resolves it
+          if (!/^https?:/i.test(href)) return;                 // skip mailto:/tel:/javascript:
+          if (href.split('#')[0] === String(pageUrl).split('#')[0]) return;   // same page, different hash
+          if (this._sameSite(href, pageUrl)) { ev.preventDefault(); this.visitLink(tabSn, href); }
+          // off-site: fall through — the anchor opens in a new browser tab as before.
         });
       } catch {}
       // Publish the page's own contents into the drawer (only if it found a real one).
@@ -2426,7 +2725,7 @@ class Component extends DCLogic {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     this.showToast('Chat exported — ' + out.filename);
   }
-  closeSearch() { this.setState({ searchOpen: false }); }
+  closeSearch() { this.setState({ searchOpen: false, searchPreview: null }); }
   // ── ⌘K source palette — search THROUGH everything recorded (title · site · full body) ────────
   toggleCmdk() {
     const open = !this.state.cmdkOpen;
@@ -2549,7 +2848,33 @@ class Component extends DCLogic {
       wikiAbsent: !!(wk && !wk.busy && !wkHit),
       srcReg: src.reg || '', srcTitle: src.title || '', openSource: () => h.openSource(p.sn),
       openWeb: h.openWeb || (() => {}),
-      hasDefs: p.defs.length > 0, defs: p.defs.slice(0, 6),
+      // STANDING PROPERTIES — ranked (app.rankProperties), each carrying its provenance:
+      // how many passages witness it, the source it came from, and clickable ¶ chips that
+      // jump straight to the witnessing sentence. The value alone is no longer the whole row.
+      hasDefs: p.defs.length > 0,
+      defs: p.defs.slice(0, 8).map((d) => {
+        const cites = (d.witnesses || []).slice(0, 8).map((w) => ({
+          label: '¶' + w.idx, jump: () => h.jump(p.sn, w.text),
+        }));
+        const conf = Math.max(0, Math.min(100, Math.round((d.confidence || 0) * 100)));
+        return {
+          value: d.value,
+          prov: (d.count > 1 ? d.count + ' passages' : '1 passage') + (src.reg ? ' · ' + src.reg : ''),
+          conf: conf + '% read', hasCites: cites.length > 0, cites,
+        };
+      }),
+      // The provenance DAG over those properties (SOURCE → PASSAGE → PROPERTY). Mounted
+      // imperatively; the key changes only when the entity or its property set does, so a
+      // re-render never redraws it in place. See _mountPropDag / _renderPropDag.
+      hasDag: p.defs.length > 0,
+      setDagEl: (el) => this._mountPropDag(el, {
+        source: { title: src.title || p.sourceTitle || 'this source', reg: src.reg || '' },
+        props: p.defs.slice(0, 8).map((d) => ({
+          value: d.value, count: d.count, score: d.score,
+          witnesses: (d.witnesses || []).map((w) => ({ idx: w.idx, text: w.text })),
+        })),
+        onJump: (text) => h.jump(p.sn, text),
+      }, docId + '#' + entId + '#' + p.defs.length),
       hasRelations: p.relations.length > 0,
       // CONNECTED ENTITIES is a list of the DISTINCT neighbours the focus bonds to —
       // one row per entity, not one per edge. figureSurface yields a separate relation
@@ -2577,6 +2902,93 @@ class Component extends DCLogic {
       hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
       mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text) })),
     };
+  }
+  // ── the property provenance DAG ─────────────────────────────────────────────
+  // A self-contained little DAG that answers "where does this property come from?":
+  // SOURCE → the PASSAGES that assert each property → the PROPERTIES themselves, ranked.
+  // It makes a junk property visible for what it is — a lone edge from one passage — and
+  // shows a well-witnessed one fanning in from several. Pure DOM/SVG, no dependency on the
+  // full graph overlay; it lives right under the properties list the user is reading.
+  _mountPropDag(el, data, key) {
+    if (!el) return;
+    if (el.__dagKey === key) return;   // same entity + property set across re-renders — already drawn
+    el.__dagKey = key;
+    try { this._renderPropDag(el, data); }
+    catch (e) { el.innerHTML = ''; el.__dagKey = null; }
+  }
+  _renderPropDag(el, data) {
+    el.innerHTML = '';
+    const props = (data.props || []).filter((p) => p && p.value);
+    if (!props.length) return;
+    const NS = 'http://www.w3.org/2000/svg';
+    const sv = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+    const clip = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
+    // Tier palette shared with the tiered graph: existence (source) · structure (passage) · significance (property).
+    const C = { src: '#7F77DD', pass: '#1D9E75', prop: '#EF9F27' };
+    // One node per DISTINCT witnessing passage, in first-seen order (top to bottom).
+    const passIdx = [];
+    for (const p of props) for (const w of (p.witnesses || [])) if (!passIdx.includes(w.idx)) passIdx.push(w.idx);
+    const passText = {}; for (const p of props) for (const w of (p.witnesses || [])) passText[w.idx] = w.text;
+    const VW = 320, PAD = 12, HEAD = 22;
+    const rowH = 30, propTop = HEAD + 8;
+    const rows = props.length;
+    const H = propTop + rows * rowH + PAD;
+    const svg = sv('svg', { viewBox: `0 0 ${VW} ${H}`, width: '100%', height: H, style: 'display:block;overflow:visible' });
+    // columns
+    const xSrc = 22, xPass = 92, xPropL = 132, xPropR = VW - 6;
+    const propY = (i) => propTop + i * rowH + rowH / 2;
+    // passage y = barycentre of the properties it witnesses, then spread to avoid overlap
+    const passOf = {};
+    passIdx.forEach((idx) => {
+      const ys = [];
+      props.forEach((p, i) => { if ((p.witnesses || []).some((w) => w.idx === idx)) ys.push(propY(i)); });
+      passOf[idx] = ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : propTop;
+    });
+    const ordered = passIdx.slice().sort((a, b) => passOf[a] - passOf[b]);
+    for (let i = 1; i < ordered.length; i++) {
+      const min = passOf[ordered[i - 1]] + 22;
+      if (passOf[ordered[i]] < min) passOf[ordered[i]] = min;
+    }
+    const ySrc = H / 2;
+    // headers
+    const head = (x, t, c, anchor) => { const e = sv('text', { x, y: 13, 'font-size': 8.5, 'font-weight': 700, 'letter-spacing': '.06em', fill: c, 'text-anchor': anchor }); e.textContent = t; svg.appendChild(e); };
+    head(xSrc, 'SOURCE', C.src, 'middle');
+    head(xPass, 'PASSAGE', C.pass, 'middle');
+    head(xPropL, 'PROPERTY', C.prop, 'start');
+    // edges: source → passage
+    const edge = (x1, y1, x2, y2, c) => {
+      const mx = (x1 + x2) / 2;
+      svg.appendChild(sv('path', { d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`, fill: 'none', stroke: c, 'stroke-width': 1.3, 'stroke-opacity': 0.5 }));
+    };
+    ordered.forEach((idx) => edge(xSrc + 8, ySrc, xPass - 8, passOf[idx], C.src));
+    // edges: passage → property (each witness)
+    props.forEach((p, i) => (p.witnesses || []).forEach((w) => edge(xPass + 8, passOf[w.idx], xPropL - 2, propY(i), C.pass)));
+    // source node
+    const gSrc = sv('g'); gSrc.appendChild(sv('circle', { cx: xSrc, cy: ySrc, r: 9, fill: C.src }));
+    const sl = sv('text', { x: xSrc, y: ySrc + 20, 'font-size': 8, fill: '#7A7A85', 'text-anchor': 'middle' }); sl.textContent = clip(data.source && (data.source.reg || data.source.title), 10); gSrc.appendChild(sl);
+    const stitle = sv('title'); stitle.textContent = (data.source && data.source.title) || 'source'; gSrc.appendChild(stitle);
+    svg.appendChild(gSrc);
+    // passage nodes
+    ordered.forEach((idx) => {
+      const y = passOf[idx];
+      const g = sv('g', { style: 'cursor:pointer' });
+      g.appendChild(sv('circle', { cx: xPass, cy: y, r: 8, fill: '#fff', stroke: C.pass, 'stroke-width': 1.6 }));
+      const t = sv('text', { x: xPass, y: y + 2.6, 'font-size': 7, 'font-weight': 700, fill: C.pass, 'text-anchor': 'middle' }); t.textContent = '¶' + idx; g.appendChild(t);
+      const tt = sv('title'); tt.textContent = passText[idx] || ('passage ' + idx); g.appendChild(tt);
+      if (data.onJump) g.addEventListener('click', () => data.onJump(passText[idx] || ''));
+      svg.appendChild(g);
+    });
+    // property nodes (ranked rows)
+    props.forEach((p, i) => {
+      const y = propY(i), h = rowH - 8;
+      const g = sv('g');
+      g.appendChild(sv('rect', { x: xPropL, y: y - h / 2, width: xPropR - xPropL, height: h, rx: 6, fill: i === 0 ? '#FCF3E2' : '#FBFBFD', stroke: i === 0 ? C.prop : '#EAEAEF', 'stroke-width': i === 0 ? 1.4 : 1 }));
+      const t = sv('text', { x: xPropL + 8, y: y + 3, 'font-size': 9.5, fill: '#2A2A32', 'font-family': "'Newsreader',Georgia,serif" }); t.textContent = clip(p.value, 30); g.appendChild(t);
+      const badge = sv('text', { x: xPropR - 6, y: y + 3, 'font-size': 7.5, fill: '#A0A0AA', 'text-anchor': 'end' }); badge.textContent = '×' + (p.count || 1); g.appendChild(badge);
+      const tt = sv('title'); tt.textContent = p.value; g.appendChild(tt);
+      svg.appendChild(g);
+    });
+    el.appendChild(svg);
   }
   toggleEntityMode() {
     const on = !this.state.entityMode; this._setPref('eo_entmode', on); this._segCache = {}; this._viewCache = null;
@@ -3413,11 +3825,41 @@ class Component extends DCLogic {
       doDelete: () => { if (confirm(`Delete “${t.title}”? Any sub-topics rise to its parent; its sources stay in the record.`)) app.topicDelete(t.id); this.setState({ topicMenu: null }); },
     }));
     const FAV = [['#EEF0F3', '#4E5765'], ['#EEEBFE', '#5B4BE6'], ['#E7F6EC', '#1E8A50'], ['#FBF1DA', '#9A6B12'], ['#FBE9E6', '#B23A2E'], ['#E8F1FB', '#2C5C9E']];
-    const leftSources = sources.map((s, i) => ({
-      title: s.title, reg: s.reg, domain: s.domain,
-      favCh: (s.domain || s.title || '?')[0].toUpperCase(), favBg: FAV[i % FAV.length][0], favFg: FAV[i % FAV.length][1],
-      open: () => this.openViewer(s.sn),
-    }));
+    // The sidebar source list is a two-level TREE: a site is one top-level row, and the pages you
+    // followed inside it (recorded as sub-objects, app.navigatePage) nest under it — folded by
+    // default, disclosed by the caret. Grouped by parentSn; a sub-object whose parent isn't in the
+    // active topic surfaces as its own root (never dropped).
+    const present = new Set(sources.map((s) => s.sn));
+    const kidsOf = new Map();
+    for (const s of sources) {
+      const p = (s.parentSn && present.has(s.parentSn)) ? s.parentSn : null;
+      if (!kidsOf.has(p)) kidsOf.set(p, []);
+      kidsOf.get(p).push(s);
+    }
+    const leftSources = [];
+    let favI = 0;
+    const emitSourceRows = (list, depth) => {
+      for (const s of list) {
+        const kids = kidsOf.get(s.sn) || [];
+        const hasKids = kids.length > 0;
+        const collapsed = s.collapsed !== false;   // undefined (older records) → folded
+        const fav = FAV[favI++ % FAV.length];
+        leftSources.push({
+          sn: s.sn, title: s.title, reg: s.reg, domain: s.domain,
+          favCh: (s.domain || s.title || '?')[0].toUpperCase(), favBg: fav[0], favFg: fav[1],
+          indent: `${depth * 15}px`, isChild: depth > 0,
+          hasKids, noKids: !hasKids, kidCount: hasKids ? String(kids.length) : '',
+          caret: hasKids ? (collapsed ? '▸' : '▾') : '',
+          // A top-level site opens its own tab; a followed page re-opens inside its site's tab.
+          open: depth > 0 && s.parentSn
+            ? () => this.visitLink(s.parentSn, s.url)
+            : () => this.openViewer(s.sn),
+          toggle: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this._app.sourceToggleCollapse(s.sn); },
+        });
+        if (hasKids && !collapsed) emitSourceRows(kids, depth + 1);
+      }
+    };
+    emitSourceRows(kidsOf.get(null) || [], 0);
 
     // model
     const m = app.state.model;
@@ -3881,6 +4323,9 @@ class Component extends DCLogic {
           ents: s.entCount == null ? '…' : String(s.entCount),
           eotCount: eot && eot.structure ? String(eot.structure.lines ? eot.structure.lines.length : 0) : '0',
         };
+        // The media panel — player + waveform + signal/noise holons + transcription status —
+        // shown above the reading for a decoded audio/video source, in every viewer mode.
+        viewer.media = this._mediaVM(s) || { show: false };
         // The themed book — built once per source (cached by sn); prefs are baked in, then applied
         // LIVE on the mounted iframe, so a theme change never rebuilds this string / reloads. The
         // Document view is folded in here: reader-render bakes the entity links + cited-passage rule
@@ -3893,6 +4338,7 @@ class Component extends DCLogic {
             if (link) { linkOpts.segsOf = link.linkify; linkOpts.isCited = link.isCited; }
             try { this._readerCache[activeSn] = this._render.buildReaderDoc(s, st.readPrefs, linkOpts); }
             catch { this._readerCache[activeSn] = { html: '', toc: [] }; }
+            this._readerCache[activeSn]._sig = s.sha;   // bust when the source's text later changes (transcript fold-in)
           }
           readerDoc = this._readerCache[activeSn].html;
           readerToc = (this._readerCache[activeSn].toc || []).map((c) => ({
@@ -3970,8 +4416,20 @@ class Component extends DCLogic {
         kind: it.kind || it.source || 'web', title: it.title || it.url, snippet: it.text || '', url: it.url || '',
         recordLabel: rec === 'done' ? '✓ recorded' : rec === 'busy' ? 'reading…' : 'Record',
         record: () => { if (!rec) this.recordHit(it); },
+        // Clicking the row loads the real site as a native preview; recording happens from there.
+        canPreview: !!it.url, open: () => { if (it.url) this.previewHit(it); },
       };
     });
+    // native preview of a search hit (the real site, loaded before it's recorded)
+    const sp = st.searchPreview;
+    const previewKey = sp ? (sp.item.url || sp.item.title) : null;
+    const previewRec = sp ? st.recordedUrls[previewKey] : null;
+    const preview = sp ? {
+      title: sp.item.title || sp.item.url, url: sp.item.url || '',
+      doc: sp.doc || '', show: !!sp.doc, busy: !!sp.busy, err: sp.err || '', hasErr: !!sp.err,
+      addLabel: previewRec === 'done' ? '✓ added' : previewRec === 'busy' ? 'adding…' : 'Add as source',
+      addBusy: previewRec === 'busy' || previewRec === 'done',
+    } : null;
 
     // monologue
     const LOGL = { record: 'RECORD', hash: 'HASH', eot: 'EOT', claim: 'CLAIM', conflict: 'CONFLICT', search: 'SEARCH', open: 'OPEN', skip: 'SKIP', reflection: 'REFLECT' };
@@ -4137,6 +4595,16 @@ class Component extends DCLogic {
       searchNone: !st.searchBusy && st.searchResults && st.searchResults.length === 0,
       searchMeta: st.searchResults ? `${st.searchResults.length} results` : '',
       searchRows, closeSearch: () => this.closeSearch(),
+      // native preview of a search hit — the modal grows to a page frame while previewing
+      searchModalW: preview ? 'min(1040px,96vw)' : 'min(640px,92vw)',
+      searchModalH: preview ? 'calc(100vh - 120px)' : 'auto',
+      searchListShow: !preview, previewShow: !!preview,
+      previewTitle: preview ? preview.title : '', previewUrl: preview ? preview.url : '',
+      previewDoc: preview ? preview.doc : '', previewPageShow: !!(preview && preview.show),
+      previewBusy: !!(preview && preview.busy), previewErr: preview ? preview.err : '', previewHasErr: !!(preview && preview.hasErr),
+      previewAddLabel: preview ? preview.addLabel : '', previewAddBusy: !!(preview && preview.addBusy),
+      backToResults: () => this.closePreview(), addPreviewSource: () => this.addPreviewSource(),
+      retryPreview: () => { if (st.searchPreview) this.previewHit(st.searchPreview.item); },
       // ⌘K source palette — search THROUGH the record (title · site · full body), jump to the passage
       ...(() => {
         const rows = st.cmdkOpen ? this._cmdkResults() : [];

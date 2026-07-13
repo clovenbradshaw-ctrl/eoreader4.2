@@ -23,7 +23,7 @@ import { probeOrigins, explainReach } from '../../model/reach.js';
 import { createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
          runTurnWithResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
-         readDiscourse, phaticFromSpeech, clarifyDemandOf, loadShapeLibrary } from '../../turn/index.js';
+         readDiscourse, clarifyDemandOf, loadShapeLibrary } from '../../turn/index.js';
 import { loadShapeGrammars } from '../../turn/shape-grammar.js';
 import { extendLibraryWithNavPool } from '../../turn/nav-pool.js';
 import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/webfetch.js';
@@ -39,7 +39,7 @@ import { senseGate } from '../../turn/sense.js';
 import { createMonitor } from '../../enactor/monitor.js';
 import { createCommitmentLedger } from '../../enactor/ledger.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
-import { figureSurface } from '../../perceiver/index.js';
+import { figureSurface, rankProperties } from '../../perceiver/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
@@ -626,12 +626,18 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return src._doc;
   };
 
-  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null }) => {
+  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null }) => {
     const body = String(text || '').trim();
     if (!body) throw new Error('nothing to record — the page had no readable text');
     const hash = record?.content_hash || webContentHash(body);
     const dup = state.sources.find((s) => s.sha === hash);
-    if (dup) { logIt('skip', `Already recorded — ${dup.title}`, dup.sn); return dup; }
+    // Re-visiting a page already recorded is a no-op on the registry, but if it now arrives UNDER a
+    // parent (a link we followed inside that parent's site) and had none before, adopt it — so a
+    // page first seen on its own, then reached by clicking through its site, nests where expected.
+    if (dup) {
+      if (parentSn && !dup.parentSn && dup.sn !== parentSn) { dup.parentSn = parentSn; persist(); emit('sources'); }
+      logIt('skip', `Already recorded — ${dup.title}`, dup.sn); return dup;
+    }
     const id = `S${++sn}`;
     const src = {
       sn: id, reg: `S-${String(sn).padStart(4, '0')}`,
@@ -639,6 +645,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       title: title || url || 'Untitled', url, domain: url ? domainOf(url) : (kind === 'file' ? 'local file' : 'pasted text'),
       kind, retrieved: nowIso(), recordedAt: nowMs(), sha: hash, bytes: bytesOf(body),
       rights: rights || (url ? 'web — verify before reuse' : 'local'),
+      // parentSn: a page reached by following a link inside another source's site is recorded as a
+      // SUB-OBJECT of that source — one site stays one source in the sidebar, its followed pages
+      // nested and (by default) folded under it. collapsed governs its OWN children's fold state.
+      parentSn: parentSn || null, collapsed: true,
       text: body, entCount: null, _doc: doc || null,
     };
     if (doc) { try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; } }
@@ -646,6 +656,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     const t = topic();
     if (t && !t.sourceSns.includes(id)) t.sourceSns.push(id);
     if (t) topicAutoName(t, { silent: true });   // a first source names a placeholder topic (persist/emit follow below)
+    if (parentSn) {
+      const par = sourceBySn(parentSn);
+      logIt('nav', `Followed link on ${par ? par.domain : 'a source'} → ${src.title}`, src.reg);
+    }
     logIt('record', `Recorded ${src.domain} — ${src.title}`, src.reg);
     logIt('hash', `Fixity sha ${shaShort(src.sha)} · ${src.bytes.toLocaleString()} bytes`, src.reg);
     deepWake();   // the record grew — let the reading reflect on the new places at rest
@@ -704,6 +718,8 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     const gone = sourceBySn(id);
     if (gone) deepReaders.delete(gone.docId);   // or the deep reader keeps the removed doc resident
     state.sources = state.sources.filter((s) => s.sn !== id);
+    // A removed source's sub-objects rise to the top level rather than vanish with their parent.
+    for (const s of state.sources) if (s.parentSn === id) s.parentSn = null;
     for (const t of state.topics) t.sourceSns = t.sourceSns.filter((x) => x !== id);
     persist(); emit('sources');
   };
@@ -808,6 +824,38 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     });
   };
 
+  // Following a link INSIDE a source's native view: fetch the target page once, render it in place
+  // (the raw HTML rides back for the Native iframe), AND record it as a SUB-OBJECT of `parentSn` —
+  // one site stays one source, every page you click through logged beneath it (dedup keeps a
+  // re-visit a no-op on the registry). Returns { html, url, childSn } — childSn null if the page had
+  // no readable text (nothing to record) or admission failed; the page still renders either way.
+  const navigatePage = (parentSn, url) => {
+    const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
+    return runCancellable({ kind: 'fetch', label: `Loading ${domainOf(norm)}…` }, async (signal) => {
+      const res = await client.fetchUrl(norm, { signal });
+      const raw = res.text || '';
+      const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
+      let childSn = null;
+      try {
+        const text = htmlToText(raw);
+        if (text && text.trim()) {
+          const { doc, record } = admitWebSource({ url: norm, title, text, fetched_at: nowIso(), engine: 'feed-proxy' });
+          const child = addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, parentSn });
+          childSn = child.sn;
+        }
+      } catch { /* un-admittable (empty/dup-of-parent) — still render the page */ }
+      // Report the site's own URL for the iframe <base href> (not the proxied res.url), same as
+      // fetchPage — so the rendered page's relative assets resolve against the real site.
+      return { html: raw, url: norm, childSn, ok: res.ok !== false };
+    });
+  };
+
+  // Fold / unfold a source's sub-objects in the sidebar (persisted with the source).
+  const sourceToggleCollapse = (id) => {
+    const s = sourceBySn(id); if (!s) return;
+    s.collapsed = !s.collapsed; persist(); emit('sources');
+  };
+
   // webSearchAdmit(query, opts) → the fetch+admit primitive the turn's web loop consumes.
   // Search a source (or auto-route), pull each hit's FULL page through the proxy chain
   // (fetchPages), admit it as a frozen web source (websource.js), AND register it in the
@@ -840,10 +888,90 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return addSource({ title, text: String(text), kind: 'text', doc });
   };
 
-  const ingestFile = (file) =>
+  // Fold a landed transcript back into an audio source that was already recorded from its
+  // acoustic reading: the words become the source's text, the word-level organ doc (with its
+  // timings, witness and carried-forward waveform/holons) becomes its reading, and the derived
+  // caches are dropped so the reader re-reads the transcript rather than the placeholder.
+  const applyTranscript = (src, text, doc, coverage) => {
+    const body = String(text || '').trim();
+    if (!body || !doc) return;
+    src.text = body;
+    src.bytes = bytesOf(body);
+    src.sha = webContentHash(body);
+    src._doc = doc;
+    src._eot = null;
+    deepReaders.delete(src.docId);
+    try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { /* keep prior */ }
+    if (coverage) src.coverage = coverage;
+    if (src._asr) src._asr = { ...src._asr, state: 'done', pct: 100, partial: '' };
+    logIt('record', `Transcribed ${src.reg} — ${body.length.toLocaleString()} chars`, src.reg);
+    setTimeout(() => {
+      try { const d = docFor(src); logIt('eot', `Encoded ${src.reg} into EoT — ${d?.log ? emitEot(d.log).lines.length : 0} propositions`, src.reg); }
+      catch { /* the record already stands */ }
+    }, 0);
+    persist(); emit('sources');
+  };
+
+  const ingestFile = (file, fileOpts = {}) =>
     runCancellable({ kind: 'file', label: `Reading ${file.name}…` }, async (signal, progress) => {
       const { importAnyFile } = await import('./import-file.js');
       const got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) });
+
+      // ── MEDIA — the source lands AT ONCE from its acoustic reading; transcription follows. ──
+      // An audio/video import returns a full pre-transcription reading (waveform + basic
+      // analysis + signal/noise nested holons) plus a deferred `transcribe` thunk. We record
+      // the source immediately (so it shows up as a source, playable, with its visualization),
+      // reveal it, THEN run transcription in the background — only if there was signal to hear.
+      if (got.meta?.modality === 'audio' && got.meta?.doc) {
+        const src = addSource({ title: got.title || file.name, text: got.text, kind: 'audio', rights: 'local file', doc: got.meta.doc });
+        if (src) {
+          // The playback + visualization artefacts ride the source as underscore fields, so they
+          // are session-only (never structure-cloned into the persisted snapshot; serialize()
+          // strips anything underscore-led) and re-derive on a fresh import.
+          src._media = got.meta.media ? { url: got.meta.media, kind: got.meta.mediaKind, isVideo: !!got.meta.isVideo } : null;
+          src._wave = got.meta.waveform || null;
+          src._analysis = got.meta.analysis || null;
+          src._holons = got.meta.holons || null;
+          src._asr = got.meta.transcribable
+            ? { state: 'pending', pct: 0, partial: '' }
+            : { state: 'skipped', reason: 'no signal above the noise floor', pct: 0, partial: '' };
+          const cov = got.meta.coverage;
+          if (cov) { src.coverage = cov; logIt(cov.complete ? 'record' : 'skip', `Coverage — ${cov.transcribable ? '100% of ' + file.name + ' read as sound; transcribing signal' : (cov.dropped || []).join('; ')}`, src.reg); }
+          persist(); emit('sources');
+          if (typeof fileOpts.onSource === 'function') { try { fileOpts.onSource(src); } catch { /* reveal is best-effort */ } }
+
+          if (got.meta.transcribe) {
+            src._asr = { ...src._asr, state: 'running' };
+            emit('sources');
+            progress({ kind: 'file', label: 'Transcribing the signal…' });
+            let lastPaint = 0;
+            try {
+              const res = await got.meta.transcribe({
+                signal,
+                twoWitness: !!state.auditReadings,
+                onPartial: (p) => {
+                  progress({ kind: 'file', label: `Transcribing… ${p.pct != null ? p.pct + '%' : ''}` });
+                  if (src._asr) { src._asr.pct = p.pct || 0; src._asr.partial = String(p.text || '').slice(-2000); }
+                  // Repaint the media panel's live transcript at most a few times a second.
+                  const now = nowMs();
+                  if (now - lastPaint > 350) { lastPaint = now; emit('sources'); }
+                },
+              });
+              if (res && res.empty) {
+                src._asr = { state: 'skipped', reason: 'no speech found in the signal', pct: 100, partial: '' };
+                emit('sources');
+              } else if (res && res.doc) {
+                applyTranscript(src, res.text, res.doc, res.coverage);
+              }
+            } catch (e) {
+              if (signal.aborted) { src._asr = { ...(src._asr || {}), state: 'stopped' }; }
+              else { src._asr = { ...(src._asr || {}), state: 'error', reason: String(e?.message || e).slice(0, 90) }; logIt('skip', `Transcription failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+              emit('sources');
+            }
+          }
+        }
+        return src;
+      }
       // For a structured modality the ORGAN doc is the reading: a table's cells, a JSON
       // tree's leaves, a binary's string runs ARE its propositions — three-faced events
       // already on the log — and re-parsing their rendered lines as prose would drop
@@ -1600,17 +1728,22 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
 
     const mode = webMode();
 
-    // ── THE FRONT DOOR — physics, not a regex (docs/response-demand.md) ───────────────────────────
-    // The engine warms the model and reads ONE plain discourse statement about this turn
-    // (readDiscourse): the model says, in its own words, what the user is doing. Every door is then
-    // a CURRENT measured off that single paragraph. This replaces the old answerSmalltalk regex
-    // floor: a phatic turn — a greeting, a thanks, a goodbye, a how-are-you — is the PHATIC CURRENT
-    // winning the route relaxation (phaticFromSpeech → metaRoute), a physical fact of the statement
-    // rather than a matched spelling. It runs BEFORE the empty-record and grounding branches, so a
-    // greeting answers with one warm line and NEVER reaches the web (the "why did it search for
-    // 'how are you'" bug). The same statement is reused below to decide clarify, so the model speaks
-    // once per turn. Fail-soft by construction: no model, an empty read, or any throw abstains, and
-    // the turn proceeds exactly as a substantive one would.
+    // ── THE FRONT DOOR — the phatic short-circuit is DETERMINISTIC (docs/response-demand.md) ──────
+    // A turn is answered with one warm social line (and NEVER reaches retrieval / grounding / the
+    // web) ONLY when the offline floor `answerSmalltalk` recognizes it as social from the user's own
+    // words — a greeting, a thanks, a goodbye, a how-are-you. The tiny-model discourse read
+    // (readDiscourse) is STILL taken once per turn, but it no longer decides phatic: it feeds only
+    // the clarify gate below. This reverses the earlier "physics, not a regex" phatic door, where the
+    // PHATIC CURRENT of the model's paragraph (phaticFromSpeech → metaRoute) could win the route
+    // relaxation and short-circuit the turn. On a 1B/1.5B model that read is unreliable AND biased —
+    // it routinely describes a real question ("what is the best elvis movie?") as a casual/social ask,
+    // and the phatic exemplars then out-score ground/research — so a genuine question was
+    // intermittently swallowed as chit-chat, the sources never consulted and no search fired, and the
+    // SAME question flipped answer to answer (the exported "works sometimes, not another" flakiness).
+    // Deciding phatic on the deterministic floor makes routing reproducible and can never discard a
+    // real question; the cost is a paraphrased greeting the floor misses ("you around?") gets a normal
+    // turn instead of a warm line — the safe direction. Fail-soft: no model / empty read / any throw
+    // still proceeds as a substantive turn; a clear greeting is honored even if the model faults.
     warmMinilm();
     // This turn's cancellation kit, armed BEFORE the front-door decode so even that read is watched,
     // stoppable, and signal-threaded (see answerFromWeb) — never a fresh way for a turn to hang.
@@ -1635,9 +1768,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     try {
       setBusy({ kind: 'turn', label: 'Reading the turn…' });
       const m0 = await raceGuard(ensureModel());
-      // The floor already settled a clear greeting — don't spend the discourse read on it.
+      // The floor already settled a clear greeting — don't spend the discourse read on it. Otherwise
+      // the read is taken for the clarify gate below (it no longer decides phatic).
       discourse = floorTalk ? '' : await raceGuard(keepAlive(readDiscourse(m0, { history: priorHistory, now: new Date(), scope: t.title || '', signal: turnSignal })(q)));
-      if (floorTalk || phaticFromSpeech(discourse).phatic) {
+      if (floorTalk) {
         pending.text = await phaticReply(m0, { question: q, hasDoc: docs.length > 0, signal: turnSignal, raceGuard, keepAlive });
         pending.route = 'phatic';
         pending.pending = false;
@@ -1757,9 +1891,17 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       // The confidentiality lever: when redact-when-hosted is on, wrap the talker in the privacy
       // membrane so a REMOTE backend sees only tokens (a no-op for a local model, or when off).
       const m = redactRemote() ? wrapRedacting(m0, redactionNames) : m0;
+      // The conversation handed to the turn is the settled dialogue MINUS this turn's own
+      // question (it rides separately as `question`). Drop exactly one — the current user turn,
+      // which is last after the empty pending assistant is filtered out — so the most recent
+      // assistant reply STAYS in. The old `-2` dropped that reply too, so the grounded prompt's
+      // "conversation so far" band only ever showed the user's turns (the exported bug: a bare
+      // "You: research elvis films…" with the answer it refers to missing), leaving a follow-up
+      // like "which is the best?" nothing to resolve against. `-1` matches priorHistory above.
+      // foldConversation then holds the recent window to its token budget and folds the rest.
       const history = t.messages
         .filter((x) => !x.pending && x.text)
-        .slice(0, -2)
+        .slice(0, -1)
         .map((x) => ({ role: x.role, content: x.text, ...(x.unbound ? { unbound: true } : {}) }));
       // A long-form ask ("write me an essay …") gets a large budget so the answer can develop
       // past the pointed-answer cap; a normal ask keeps the per-task budget the pipeline picks.
@@ -2186,12 +2328,21 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     for (const e of doc.log.snapshot()) {
       if (e.op === 'INS' && rep(e.id) === rep(entId) && e.sentIdx != null) idxs.add(e.sentIdx);
     }
+    const sentAt = (i) => String(doc.sentences?.[i] || '').trim();
     const mentions = [...idxs].sort((a, b) => a - b).slice(0, 40)
-      .map((i) => ({ idx: i, text: String(doc.sentences?.[i] || '').trim() }))
+      .map((i) => ({ idx: i, text: sentAt(i) }))
       .filter((m2) => m2.text);
+    // Standing properties, ranked and deduped with their provenance (§ rankProperties):
+    // what the record most strongly and specifically witnesses leads, and each property
+    // carries the passages that assert it — its trail, and the DAG's edges.
+    const defs = rankProperties(fs.defs).map((d) => ({
+      value: d.value, idx: d.idx, count: d.count,
+      score: d.score, confidence: d.confidence, polarity: d.polarity, modality: d.modality,
+      witnesses: d.witnesses.map((i) => ({ idx: i, text: sentAt(i) })).filter((w) => w.text),
+    }));
     return {
       label, docId, sn: src.sn, sourceTitle: src.title,
-      defs: fs.defs.map((d) => ({ value: d.value, idx: d.idx })),
+      defs,
       relations: fs.relations.map((r) => ({
         srcId: r.src.id, srcLabel: r.src.label, tgtId: r.tgt.id, tgtLabel: r.tgt.label,
         via: r.via, op: r.op, idx: r.idx,
@@ -2558,8 +2709,8 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     // workspaces — the top-level containers (Matrix-shared workspaces slot in via `shared`)
     workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
     // ingest
-    ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage,
-    sourceBySn, removeSource, topicSources,
+    ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage, navigatePage,
+    sourceBySn, removeSource, topicSources, sourceToggleCollapse,
     // chat
     ask, stop, exportChat,
     // export provenance — WHAT produced this session: app + published build + latest-on-GitHub +

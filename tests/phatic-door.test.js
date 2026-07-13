@@ -104,3 +104,53 @@ test('a bare "hi" over a loaded doc settles phatic on the OFFLINE floor even whe
   assert.doesNotMatch(pending.text || '', /document does not say|does not cover|scanned|couldn.t|search/i,
     'no grounded void answer and no web walk — the greeting never reached grounding');
 });
+
+// THE DETERMINISTIC PHATIC GATE (rooms/reader/app.js). The phatic short-circuit no longer trusts the
+// tiny model's discourse read — a 1B model unreliably (and with a bias toward "casual opinion")
+// describes a real question as social, and the phatic exemplars then out-score ground/research, so a
+// genuine ask was intermittently answered as chit-chat with the sources never consulted (the exported
+// "what is the best elvis movie?" bug, and the "works some times but not another" flakiness). This
+// BLIND-SOCIAL backend reads EVERY turn as a greeting — the wrong direction — so ONLY the offline
+// floor decides phatic. A substantive ask must therefore reach a grounded turn regardless; a real
+// greeting must still be caught by the floor.
+registerBackend('blind-social-fake', () => ({
+  id: 'blind-social-fake', kind: 'local', isLoaded: () => true,
+  describe: () => ({ backend: 'blind-social-fake', kind: 'local', model: 'blind-social-fake', label: 'fake' }),
+  async load(onProgress) { onProgress?.({ phase: 'ready', pct: 1 }); },
+  async phrase(messages, _opts = {}) {
+    const sys  = String(messages.find((m) => m.role === 'system')?.content || '');
+    const user = String(messages.filter((m) => m.role === 'user').map((m) => m.content).join('\n') || '');
+    // The discourse statement — read as SOCIAL for everything, so the model door would (wrongly) fire.
+    if (/In two or three plain sentences/.test(user)) return GREETING;
+    if (/social message/.test(sys)) return 'Hey there — nice to hear from you!';
+    return 'Dolphins are marine mammals in the cetacean family.';
+  },
+}));
+
+test('a substantive question is NOT routed phatic even when the model read is blindly social — it reaches a grounded turn', async () => {
+  const app = createReaderApp({ audit: createAuditLog({ capacity: 64 }) });
+  if (!app.state.ready) {
+    await new Promise((res) => { const un = app.subscribe((k) => { if (k === 'ready') { un(); res(); } }); });
+  }
+  app.setBackend('blind-social-fake');
+  if (app.setWebMode) app.setWebMode('off');   // routing is under test, not the web reach
+  app.ingestText('Dolphins are marine mammals. Dolphins live in the ocean. Dolphins hunt in pods.', 'Dolphins');
+  for (const q of ['what is the best dolphin?', 'movie with a dolphin in it. search it']) {
+    const pending = await app.ask(q);
+    assert.notEqual(pending.route, 'phatic', `a real question ("${q}") must never be swallowed as social by the flaky model read`);
+  }
+});
+
+test('a bare greeting still settles phatic under the blind-social backend — the offline floor decides phatic', async () => {
+  const app = createReaderApp({ audit: createAuditLog({ capacity: 64 }) });
+  if (!app.state.ready) {
+    await new Promise((res) => { const un = app.subscribe((k) => { if (k === 'ready') { un(); res(); } }); });
+  }
+  app.setBackend('blind-social-fake');
+  if (app.setWebMode) app.setWebMode('off');
+  app.ingestText('Dolphins are marine mammals. Dolphins live in the ocean.', 'Dolphins');
+  for (const q of ['hi', 'thanks']) {
+    const pending = await app.ask(q);
+    assert.equal(pending.route, 'phatic', `the offline floor still catches a clear greeting ("${q}")`);
+  }
+});

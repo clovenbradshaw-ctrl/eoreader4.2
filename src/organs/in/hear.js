@@ -69,11 +69,17 @@ const isNum = (x) => typeof x === 'number' && isFinite(x);
 //   mono   Float32Array of PCM samples in [-1, 1] (one channel).
 //   SR     sample rate (Hz).
 //   spans  [{ start, end }] in SECONDS — the word timings the transcript keeps.
+//   opts.analysis     the pre-transcription cochlea's analyzeAudio (organs/in/acoustic.js) —
+//                     when the caller already ran it, we take ITS noiseFloorDb/loudDb as the
+//                     room and dynamic range rather than recomputing a second floor.
+//   opts.signalSpans  the cochlea's signal holons — when supplied, a word is signal iff it
+//                     overlaps one (the SAME separation the transcription gate used), so the
+//                     word-level and clip-level readings never disagree about what is noise.
 //
 // Returns one record per span, index-aligned: { snr (dB over ambient), acous (0..1),
-// signal (bool — cleared the noise null) }. Degrades safely: too little audio to know
-// the floor → every span reads acous:null, signal:true (assume nothing, veto nothing).
-export const acousticSignal = (mono, SR, spans, { frameMs = 25, hopMs = 10, alpha = 0.05 } = {}) => {
+// signal (bool) }. Degrades safely: too little audio to know the floor → every span reads
+// acous:null, signal:true (assume nothing, veto nothing).
+export const acousticSignal = (mono, SR, spans, { frameMs = 25, hopMs = 10, alpha = 0.05, analysis = null, signalSpans = null } = {}) => {
   const blank = () => spans.map(() => ({ snr: null, acous: null, signal: true }));
   if (!mono || !mono.length || !isNum(SR) || SR <= 0 || !Array.isArray(spans) || !spans.length) return blank();
 
@@ -89,19 +95,25 @@ export const acousticSignal = (mono, SR, spans, { frameMs = 25, hopMs = 10, alph
   }
   if (frames.length < 8) return blank();
 
-  // The ambient — the low bulk of frame energies (the 20th percentile is well inside
-  // the room-tone mass, below any real speech), the reference every span is read over.
-  const sorted = frames.map(f => f.rms).sort((a, b) => a - b);
-  const ambient = Math.max(sorted[Math.floor(sorted.length * 0.2)], 1e-6);
-  const loud    = Math.max(sorted[Math.floor(sorted.length * 0.95)], ambient * 1.0001);
-  const span    = Math.log(loud / ambient) || 1;   // the dynamic range, for the 0..1 squash
+  // The room and the dynamic range. Prefer the cochlea's already-measured floor (dB → linear)
+  // so we do not derive a second, divergent noise floor over the same waveform; fall back to
+  // the low/high bulk of these frames when no analysis was handed in (the standalone path).
+  const fromDb = (db) => (isNum(db) ? Math.pow(10, db / 20) : null);
+  const sorted = frames.map((f) => f.rms).sort((a, b) => a - b);
+  const ambient = Math.max(fromDb(analysis?.noiseFloorDb) ?? sorted[Math.floor(sorted.length * 0.2)], 1e-6);
+  const loud    = Math.max(fromDb(analysis?.loudDb) ?? sorted[Math.floor(sorted.length * 0.95)], ambient * 1.0001);
+  const range   = Math.log(loud / ambient) || 1;   // for the 0..1 squash
 
-  // The derived noise null over frame energies — the boundary a span's mean energy
-  // must beat to read as signal rather than room. Fed every frame RMS; the bulk-fit
-  // trims the speech outliers so the line sits just above ambient.
-  const floor = createNoiseFloor({ scale: 'log', alpha });
-  for (const f of frames) floor.observe(f.rms);
-  const nullLine = floor.threshold();
+  // The signal test. With the cochlea's holons, a word is signal iff it overlaps one (the same
+  // separation the transcription gate read). Without them, derive the noise null over the frame
+  // energies here (createNoiseFloor, log scale) and clear a word's own energy against it.
+  const overlapsHolon = (a, b) => signalSpans.some((sp) => a < sp.end && b > sp.start);
+  let nullLine = null;
+  if (!Array.isArray(signalSpans)) {
+    const floor = createNoiseFloor({ scale: 'log', alpha });
+    for (const f of frames) floor.observe(f.rms);
+    nullLine = floor.threshold();
+  }
 
   return spans.map((sp) => {
     const a = isNum(sp.start) ? sp.start : 0;
@@ -116,10 +128,9 @@ export const acousticSignal = (mono, SR, spans, { frameMs = 25, hopMs = 10, alph
     if (!n) return { snr: null, acous: null, signal: true };
     const rms = s / n;
     const snr = 20 * Math.log10(rms / ambient);
-    const acous = clamp01(Math.log(Math.max(rms, ambient) / ambient) / span);
-    // Signal iff the span's own energy beats what the room produces by chance. When the
-    // null cannot be trusted (Infinity — thin/contaminated background) veto nothing.
-    const signal = isFinite(nullLine) ? rms > nullLine : true;
+    const acous = clamp01(Math.log(Math.max(rms, ambient) / ambient) / range);
+    const signal = Array.isArray(signalSpans) ? overlapsHolon(a, b)
+      : isFinite(nullLine) ? rms > nullLine : true;
     return { snr: +snr.toFixed(2), acous: +acous.toFixed(4), signal };
   });
 };

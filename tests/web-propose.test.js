@@ -82,6 +82,32 @@ test('low-coverage alone proposes (few claims grounded)', () => {
   assert.ok(p && /few of the claims/.test(p.rationale));
 });
 
+test('an honest abstention proposes a GAP search — the clearest "sources do not contain it" signal', () => {
+  // The exported failure: over a loaded doc the reader honestly said "I didn't find that in what I
+  // read" and NOTHING proposed a search — isUnbound needs claims, low-coverage self-suppresses on an
+  // abstention, and voidMeasure never fired. The settled abstention itself is the gap.
+  const p = proposeWebSearch({ route: 'grounded', task: 'answer', question: 'what is the best elvis movie?',
+    doc: { docId: 'elvis.txt' }, answer: 'I did not find that in what I read.', bound: [], vetoes: [] });
+  assert.ok(p, 'an abstention must propose — the reading declared it did not hold the answer');
+  assert.equal(p.trigger, 'gap');
+  assert.match(p.rationale, /did not contain the answer/);
+});
+
+test('the abstention gap announces in the first person', () => {
+  const p = proposeWebSearch({ route: 'grounded', task: 'answer', question: 'which is the best?',
+    doc: { docId: 'elvis.txt' }, answer: 'The text does not mention any films.', bound: [], vetoes: [] });
+  const line = searchAnnouncement(p);
+  assert.match(line, /didn't find that/i);
+  assert.match(line, /Searching the web for/);
+});
+
+test('a real cited answer (not an abstention) still proposes nothing on the abstention path', () => {
+  const p = proposeWebSearch({ route: 'grounded', task: 'answer', question: 'what colour is the code?',
+    doc: { docId: 'z.txt' }, sources: [2], answer: 'The document says the code is teal.',
+    bound: [{ claim: 'The code is teal.', citation: 's2' }], vetoes: [] });
+  assert.equal(p, null, 'a grounded, non-abstaining answer is not a gap');
+});
+
 // ── The announcement: the proposal promoted into a first-person, pre-search line ──
 
 test('a gap proposal announces in the first person, naming the gap and the query', () => {

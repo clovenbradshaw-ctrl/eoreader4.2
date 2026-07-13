@@ -97,6 +97,14 @@ export const ingestAudio = (transcript = {}) => {
     witness = device ? `whisper · ${device}` : 'primary',
     alternates = [],   // [{ label, words | utterances }] — competing readings of the same audio
     media = null,      // object URL of the decoded clip, so a source can be played back
+    mediaKind = 'audio',
+    // The pre-transcription cochlea's reading (organs/in/acoustic.js), carried forward so the
+    // transcript's source keeps its drawable waveform, its basic analysis and its signal/noise
+    // holons — the hearing does not throw away what it heard before the words.
+    peaks = null,
+    analysis = null,
+    holons = null,
+    sampleRate = null,
   } = transcript;
 
   const utterances = asUtterances(transcript);
@@ -202,7 +210,11 @@ export const ingestAudio = (transcript = {}) => {
     log, mentions,
     // A playable handle on the clip, so the source can be heard/watched back with the transcript
     // aligned (the words keep their [start,end]). Null when the caller decoded but kept no URL.
-    media,
+    media, mediaKind,
+    // The pre-transcription reading, carried on so the source can still draw its waveform and
+    // show its signal/noise holons after the words land.
+    peaks, analysis, holons, sampleRate,
+    transcribed: true,
     // The readings on record — the primary hearing plus every alternate witness — and the
     // contested spans between them. This is the "these are not objective" audit: the surface
     // shown is one reading, and here is where the witnesses disagreed, with what each heard.
