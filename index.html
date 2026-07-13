@@ -48,6 +48,8 @@ table{border-collapse:collapse;width:100%}
 .eo-w-edited{border-bottom:1px dashed #C79A3A}
 .eo-w-sel{background:#DED8FD}
 .eo-w-redacted{color:#2A2A32;cursor:default;letter-spacing:-2px}
+.eo-w-ent{color:#5B4BE6;border-bottom:1px solid rgba(91,75,230,.35)}
+.eo-w-ent:hover{background:rgba(109,94,245,.16);border-bottom-color:#5B4BE6}
 .eo-w-input{font:inherit;color:inherit;background:#fff;border:1px solid #6D5EF5;border-radius:4px;padding:0 3px;outline:none}
 .eo-scroll::-webkit-scrollbar{width:11px;height:11px}
 .eo-scroll::-webkit-scrollbar-thumb{background:#dadae1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
@@ -2849,6 +2851,38 @@ class Component extends DCLogic {
     if (dur > 0 && isFinite(dur)) { try { audio.currentTime = frac * dur; } catch { /* not seekable yet */ } }
   }
 
+  // Which transcript words are a named-entity mention → { wordIndex: {docId, entId} }. Runs the
+  // source's named-entity lexicon (the same one the reader links against) over the word-joined
+  // transcript and maps each matched span back onto the word indices it covers, so "United States"
+  // tags both its words as one openable link. Only the named referents link — not every word.
+  _transcriptEntityTags(sn, words) {
+    const out = {};
+    if (!sn || !words || !words.length) return out;
+    const link = (this._app && this._app.readerLink) ? this._app.readerLink(sn, { entities: true }) : null;
+    if (!link || !link.linkify) return out;
+    let joined = ''; const ranges = [];
+    for (let i = 0; i < words.length; i++) {
+      if (i) joined += ' ';
+      const start = joined.length;
+      joined += String(words[i].text == null ? '' : words[i].text);
+      ranges.push([start, joined.length]);
+    }
+    let segs; try { segs = link.linkify(joined); } catch { return out; }
+    let pos = 0, wi = 0;
+    for (const seg of segs) {
+      const s = String(seg.s == null ? '' : seg.s);
+      const segStart = pos, segEnd = pos + s.length;
+      if (seg.t === 'ent' && seg.entId != null) {
+        while (wi < ranges.length && ranges[wi][1] <= segStart) wi++;
+        for (let k = wi; k < ranges.length && ranges[k][0] < segEnd; k++) {
+          if (ranges[k][1] > segStart) out[k] = { docId: seg.docId, entId: seg.entId };
+        }
+      }
+      pos = segEnd;
+    }
+    return out;
+  }
+
   // Build the word spans once per (source · edit-count) signature, wire the click/dblclick handlers
   // once, and bind the highlight loop to the current media element once. `_listenWords` caches the
   // projected words for the binary-search highlight.
@@ -2875,11 +2909,18 @@ class Component extends DCLogic {
       if (!this._listenWords.length) {
         el.innerHTML = '<div style="color:#9A9AA4;font-size:13px">' + (running ? 'Transcribing the signal…' : 'No transcript yet.') + '</div>';
       } else {
-        el.innerHTML = this._listenWords.map((w, i) => w.redacted
-          ? '<span class="eo-w eo-w-redacted" data-i="' + i + '" data-t0="' + (w.start || 0) + '" data-t1="' + (w.end || 0) + '">▮▮▮</span>'
-          : '<span class="eo-w' + (w.edited ? ' eo-w-edited' : '') + '" data-i="' + i + '" data-t0="' + (w.start || 0) + '" data-t1="' + (w.end || 0) + '"'
-            + (w.edited && w.origText != null ? ' title="was: ' + this._escHtml(w.origText) + '"' : '') + '>' + this._escHtml(w.text) + '</span>'
-        ).join(' ');
+        // Which words are a named-entity mention (so the span becomes a hyperlink to the entity
+        // panel) — resolved once per render off the transcript's named-entity lexicon. Skipped while
+        // the partial is still streaming (coref/admission over a partial isn't settled yet).
+        const tags = live ? {} : this._transcriptEntityTags(sn, this._listenWords);
+        el.innerHTML = this._listenWords.map((w, i) => {
+          if (w.redacted) return '<span class="eo-w eo-w-redacted" data-i="' + i + '" data-t0="' + (w.start || 0) + '" data-t1="' + (w.end || 0) + '">▮▮▮</span>';
+          const tag = tags[i];
+          const entAttr = tag ? ' data-doc="' + this._escHtml(tag.docId) + '" data-ent="' + this._escHtml(tag.entId) + '"' : '';
+          const cls = 'eo-w' + (w.edited ? ' eo-w-edited' : '') + (tag ? ' eo-w-ent' : '');
+          const title = tag ? ' title="Open entity ↗"' : (w.edited && w.origText != null ? ' title="was: ' + this._escHtml(w.origText) + '"' : '');
+          return '<span class="' + cls + '" data-i="' + i + '" data-t0="' + (w.start || 0) + '" data-t1="' + (w.end || 0) + '"' + entAttr + title + '>' + this._escHtml(w.text) + '</span>';
+        }).join(' ');
       }
     }
     if (!el.__eoWired) {
@@ -2914,13 +2955,17 @@ class Component extends DCLogic {
   }
 
   // A word click seeks the media there and starts a selection; shift-click extends the selection
-  // (for a redaction span) without moving playback.
+  // (for a redaction span) without moving playback. A plain click on a named-entity mention is a
+  // hyperlink — it opens that entity in the right panel (shift-click still selects it for redaction).
   _onTranscriptClick(ev) {
     const sp = ev.target && ev.target.closest && ev.target.closest('.eo-w[data-i]');
     if (!sp) return;
     const i = +sp.dataset.i;
     if (ev.shiftKey && this._selA != null) {
       this._selB = i;
+    } else if (sp.dataset.ent && sp.dataset.doc) {
+      this.openEntity(sp.dataset.doc, sp.dataset.ent);
+      return;
     } else {
       this._selA = this._selB = i;
       if (this._listenAudio && sp.dataset.t0 != null) { try { this._listenAudio.currentTime = +sp.dataset.t0; } catch { /* not ready */ } }
@@ -5127,7 +5172,11 @@ class Component extends DCLogic {
 
     // right panel — entities or graph inspector
     const entLevel = st.entLevel || 'names';
-    if (!this._entCache || this._entCacheLevel !== entLevel) { this._entCache = app.entities({ level: entLevel }); this._entCacheLevel = entLevel; }
+    // Scope the entity panel to the open source (its own reading/transcription); topic-wide only
+    // when no source is open. Cache keyed by both so a source switch or level change rebuilds.
+    const entSn = st.viewerTabs.includes(st.tab) ? st.tab : null;
+    const entCacheKey = entLevel + '·' + (entSn || '');
+    if (!this._entCache || this._entCacheKey !== entCacheKey) { this._entCache = app.entities({ level: entLevel, sn: entSn }); this._entCacheKey = entCacheKey; }
     const ents = this._entCache;
     const entRows = ents.slice(0, 60).map((e) => ({
       label: e.label, initials: this._initials(e.label),

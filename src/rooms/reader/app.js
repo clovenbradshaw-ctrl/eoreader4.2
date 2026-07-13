@@ -724,6 +724,25 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return src._doc;
   };
 
+  // The NAMED-ENTITY substrate for a source. A text source's own doc already admits its named
+  // referents (people, places, things), so it IS the name-doc. An audio source's doc is a
+  // word-graph — every heard word is a referent — so its "entities" are every word, not names.
+  // For audio we therefore read the NAMES level off a text-parse of the landed transcript, which
+  // runs the same admission a text source gets. Cached on the source, rebuilt when the text hash
+  // changes. Used by the entity panel's 'names' level, entity profiles, and mention hyperlinking,
+  // so panel rows, links, and profiles all key off the SAME graph and resolve to each other.
+  const nameDocFor = (src) => {
+    if (!src) return null;
+    if (src.kind !== 'audio') return docFor(src);
+    const body = String(src.text || '').trim();
+    if (!body) return null;
+    if (!src._nameDoc || src._nameDocSha !== src.sha) {
+      src._nameDoc = parseText(body, { docId: src.docId });
+      src._nameDocSha = src.sha;
+    }
+    return src._nameDoc;
+  };
+
   const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null }) => {
     const body = String(text || '').trim();
     if (!body) throw new Error('nothing to record — the page had no readable text');
@@ -2540,8 +2559,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const viewerParas = (snId, { entities = true } = {}) => {
     const src = sourceBySn(snId);
     if (!src) return [];
-    const doc = docFor(src);
-    const lex = entities ? entityLexicon([doc]) : [];
+    const doc = nameDocFor(src);   // named-entity lexicon (for audio, a parse of the transcript)
+    const lex = (entities && doc) ? entityLexicon([doc]) : [];
     const citedTexts = [];
     for (const t of state.topics) {
       for (const m of t.messages) {
@@ -2567,8 +2586,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const readerLink = (snId, { entities = true } = {}) => {
     const src = sourceBySn(snId);
     if (!src) return null;
-    const doc = docFor(src);
-    const lex = entities ? entityLexicon([doc]) : [];
+    const doc = nameDocFor(src);   // named-entity lexicon (for audio, a parse of the transcript)
+    const lex = (entities && doc) ? entityLexicon([doc]) : [];
     const citedTexts = [];
     for (const t of state.topics) {
       for (const m of t.messages) {
@@ -2594,10 +2613,16 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // referents — people, places, things — dropping the acoustic signal/noise span holons an audio
   // reading INS's; 'signal' keeps only those acoustic holons; 'all' keeps both. An entity is an
   // acoustic holon when its DEF props tag it kind='signal'|'noise' (organs/in/acoustic.js).
-  const entities = ({ merge = true, level = 'names' } = {}) => {
+  const entities = ({ merge = true, level = 'names', sn = null } = {}) => {
     const out = [];
-    for (const src of topicSources()) {
-      const doc = docFor(src);
+    // When a single source is open in the viewer, the panel is about THAT source — its own
+    // transcription/reading — not the topic-wide union (which would pull in every other source's
+    // figures). `sn` scopes to it; without it the panel merges across the whole topic as before.
+    const srcs = sn ? [sourceBySn(sn)].filter(Boolean) : topicSources();
+    for (const src of srcs) {
+      // Names read off the admission-bearing name-doc (for audio, a parse of the transcript);
+      // signal/all read the source's own doc (an audio word-graph carries the acoustic holons).
+      const doc = level === 'names' ? nameDocFor(src) : docFor(src);
       if (!doc?.log) continue;
       const g = projectGraph(doc.log);
       const rep = g.representative || ((x) => x);
@@ -2660,7 +2685,15 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
 
   const entityProfile = (docId, entId) => {
     const src = state.sources.find((s) => s.docId === docId);
-    const doc = src && docFor(src);
+    // Resolve against the same graph the entId came from. Panel rows + mention links at the NAMES
+    // level (the default) key off the name-doc, so for audio try that first; fall back to the
+    // source's own doc when the referent isn't a named one (e.g. a signal-holon row).
+    let doc = null;
+    if (src) {
+      const nd = src.kind === 'audio' ? nameDocFor(src) : null;
+      const inND = nd && (projectGraph(nd.log).entities?.has(entId));
+      doc = inND ? nd : docFor(src);
+    }
     if (!doc) return null;
     const fs = figureSurface(doc, [entId]);
     const label = doc.admission?.labelOf?.(entId) || fs.figures.find((f) => f.id === entId)?.label || entId;
