@@ -34,6 +34,8 @@
 //   onSelect(node)  optional — fires when a node is clicked/selected, so the host
 //                   can mirror the selection (e.g. the overlay's details panel)
 
+import { foldTime, TIME_GRAINS } from '../../surfer/fold/time-axis.js';
+
 const TIER = {
   0: { fill: '#7F77DD', stroke: '#534AB7', edge: '#7F77DD', name: 'existence',    chipBg: '#EEEDFE', chipFg: '#3C3489', glyphs: '∅○●' },
   1: { fill: '#1D9E75', stroke: '#0F6E56', edge: '#1D9E75', name: 'structure',    chipBg: '#E1F5EE', chipFg: '#085041', glyphs: '｜⋈△' },
@@ -55,6 +57,9 @@ const CSS = `
 .eo-tg .tg-node circle{transition:r .15s;}
 .eo-tg .tg-plabel{paint-order:stroke;stroke:var(--card,#fff);stroke-linejoin:round;fill:var(--ink,#15181e);pointer-events:none;}
 .eo-tg .tg-eglyph{paint-order:stroke;stroke:var(--card,#fff);stroke-linejoin:round;pointer-events:none;font-family:var(--mono,ui-monospace,Menlo,monospace);}
+.eo-tg .tg-fold{font-size:11px;padding:4px 8px;}
+.eo-tg .tg-axisline{stroke:var(--line2,#e5e7eb);stroke-width:1;stroke-dasharray:2 3;}
+.eo-tg .tg-axislabel{fill:var(--ink3,#999);font-size:10px;font-family:var(--mono,ui-monospace,Menlo,monospace);paint-order:stroke;stroke:var(--card,#fff);stroke-width:3px;stroke-linejoin:round;}
 `;
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -85,7 +90,9 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
 
   // names default ON — the first thing an import reveals must read as ITS OWN entities
   // ("Springfield", "Imani Okafor"), not anonymous circles awaiting a hover.
-  const W = 680, H = 440, state = { layout: 'radial', orient: 'h', rot: 0, tiers: { 0: true, 1: true, 2: true }, sel: null, names: true, hover: null };
+  // The time axis lays nodes out by their record-time (n.t), folded into bands at a
+  // chosen grain (state.grain, default 'auto' — foldTime picks a grain from the span).
+  const W = 680, H = 440, state = { layout: 'radial', orient: 'h', rot: 0, tiers: { 0: true, 1: true, 2: true }, sel: null, names: true, hover: null, grain: 'auto' };
 
   // ── shell ────────────────────────────────────────────────────────────────
   const wrap = el('div', { class: 'eo-tg', role: 'region', 'aria-label': 'Interactive record graph: nodes across three helix tiers, connected by operator edges' });
@@ -96,6 +103,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
         '<button class="tg-btn" data-layout="flow">⇢ flow</button>' +
         '<button class="tg-btn" data-layout="tiers">≡ tiers</button>' +
         '<button class="tg-btn on" data-layout="radial">◎ radial</button>' +
+        '<button class="tg-btn" data-layout="time">⏱ time</button>' +
       '</div>' +
       '<button class="tg-btn" data-pivot>⟲ <span data-pivot-lbl>rotate</span></button>' +
       '<button class="tg-btn on" data-names title="Toggle persistent node names — hover always shows the full name">names</button>' +
@@ -109,10 +117,15 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
       '<span style="font-size:11px;color:var(--ink3,#999);letter-spacing:.04em;margin-right:2px;">tiers</span>' +
       [0, 1, 2].map((t) => '<span class="tg-chip" data-tier="' + t + '" style="background:' + TIER[t].chipBg + ';color:' + TIER[t].chipFg + ';"><span class="gl">' + TIER[t].glyphs + '</span>' + TIER[t].name + '</span>').join('') +
     '</div>' +
+    '<div data-foldrow style="display:none;align-items:center;gap:5px;padding:8px 12px;border-bottom:1px solid var(--line,#e5e7eb);flex-wrap:wrap;">' +
+      '<span style="font-size:11px;color:var(--ink3,#999);letter-spacing:.04em;margin-right:2px;" title="Fold the time axis to a coarser or finer grain">fold</span>' +
+      TIME_GRAINS.map((g) => '<button class="tg-btn tg-fold" data-grain="' + g.id + '" title="' + g.label + '">' + g.label + '</button>').join('') +
+      '<span data-foldnote style="font-size:11px;color:var(--ink3,#999);margin-left:auto;"></span>' +
+    '</div>' +
     '<div style="position:relative;background:var(--card,#fff);background-image:radial-gradient(var(--line,#e5e7eb) 0.5px,transparent 0.5px);background-size:16px 16px;">' +
       '<svg data-svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;touch-action:none;cursor:grab;">' +
         '<defs><marker data-marker markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L5,3 L0,6 Z" fill="#B4B2A9"/></marker></defs>' +
-        '<g data-vp><g data-edges></g><g data-nodes></g><g data-labels></g></g>' +
+        '<g data-vp><g data-axis></g><g data-edges></g><g data-nodes></g><g data-labels></g></g>' +
       '</svg>' +
     '</div>' +
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:9px;padding:9px 13px;border-top:1px solid var(--line,#e5e7eb);background:var(--app,#f7f8fb);font-size:12px;color:var(--ink2,#555);min-height:20px;">' +
@@ -126,8 +139,9 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   const mk = 'tg-eh-' + Math.floor(Math.random() * 1e9);
   wrap.querySelector('[data-marker]').setAttribute('id', mk);
 
-  const svg = wrap.querySelector('[data-svg]'), gN = wrap.querySelector('[data-nodes]'), gE = wrap.querySelector('[data-edges]'), gL = wrap.querySelector('[data-labels]'), vp = wrap.querySelector('[data-vp]');
+  const svg = wrap.querySelector('[data-svg]'), gN = wrap.querySelector('[data-nodes]'), gE = wrap.querySelector('[data-edges]'), gL = wrap.querySelector('[data-labels]'), gA = wrap.querySelector('[data-axis]'), vp = wrap.querySelector('[data-vp]');
   const detail = wrap.querySelector('[data-detail]'), countsEl = wrap.querySelector('[data-counts]');
+  const foldRow = wrap.querySelector('[data-foldrow]'), foldNote = wrap.querySelector('[data-foldnote]');
 
   // ── layouts ──────────────────────────────────────────────────────────────
   // De-overlap: any two nodes closer than minD are pushed apart, then clamped
@@ -209,8 +223,52 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     });
     separate(50, 28);
   }
+  // The time axis: fold node record-times into bands, lay the bands out left→right
+  // (oldest → newest), stack each band's nodes by tier down the column. The fold grain
+  // (state.grain) is what "folds it in different ways" — coarser folds more instants
+  // into one column, finer splits them apart. Nodes with no time fall into a trailing
+  // "undated" column so the axis never pretends to know a time it wasn't given.
+  const AX_L = 64, AX_R = W - 30, AX_TOP = 56, AX_BOT = H - 34;
+  function layoutTime() {
+    const fold = foldTime(nodes, state.grain, { timeOf: (n) => n.t });
+    const B = fold.bands.length || 1;
+    fold.bands.forEach((band, bi) => {
+      const x = B < 2 ? (AX_L + AX_R) / 2 : AX_L + (bi + 0.5) / B * (AX_R - AX_L);
+      const arr = band.items.slice().sort((a, b) => (a.tier - b.tier) || 0);
+      const m = arr.length;
+      arr.forEach((nd, k) => {
+        // x is the node's TIME and must stay exact — so, unlike the other layouts, the
+        // time axis does not run the de-overlap pass (which would drift x off the band).
+        // Nodes in a column are spread down the full height, which keeps them distinct.
+        nd.tx = x;
+        nd.ty = m < 2 ? (AX_TOP + AX_BOT) / 2 : AX_TOP + (k / (m - 1)) * (AX_BOT - AX_TOP);
+      });
+    });
+    drawAxis(fold.bands, fold);
+  }
+  function drawAxis(bands, fold) {
+    gA.innerHTML = '';
+    const B = bands.length; if (!B) return;
+    for (let i = 1; i < B; i++) {
+      const x = AX_L + (i / B) * (AX_R - AX_L);
+      gA.appendChild(sv('line', { class: 'tg-axisline', x1: x.toFixed(1), y1: (AX_TOP - 14).toFixed(1), x2: x.toFixed(1), y2: (AX_BOT + 8).toFixed(1) }));
+    }
+    bands.forEach((band, bi) => {
+      const x = B < 2 ? (AX_L + AX_R) / 2 : AX_L + (bi + 0.5) / B * (AX_R - AX_L);
+      const t = sv('text', { class: 'tg-axislabel', x: x.toFixed(1), y: (AX_TOP - 20).toFixed(1), 'text-anchor': 'middle' });
+      t.textContent = band.label;
+      gA.appendChild(t);
+    });
+    if (foldNote) foldNote.textContent = fold
+      ? `${fold.grain}${fold.requested === 'auto' ? ' (auto)' : ''} · ${B} band${B === 1 ? '' : 's'}${fold.undated ? ` · ${fold.undated} undated` : ''}`
+      : '';
+  }
   function relayout() {
-    if (state.layout === 'flow') layoutFlow(); else if (state.layout === 'tiers') layoutTiers(); else layoutRadial();
+    if (state.layout !== 'time') gA.innerHTML = '';
+    if (state.layout === 'flow') layoutFlow();
+    else if (state.layout === 'tiers') layoutTiers();
+    else if (state.layout === 'time') layoutTime();
+    else layoutRadial();
     animate();
   }
 
@@ -369,13 +427,28 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   svg.addEventListener('wheel', onWheel, { passive: false });
 
   // ── controls ─────────────────────────────────────────────────────────────
+  const pivotBtn = wrap.querySelector('[data-pivot]');
+  const syncFoldChips = () => wrap.querySelectorAll('[data-grain]').forEach((c) => c.classList.toggle('on', c.dataset.grain === state.grain));
+  const syncLayoutChrome = () => {
+    const isTime = state.layout === 'time';
+    foldRow.style.display = isTime ? 'flex' : 'none';   // the fold controls only bite on the time axis
+    pivotBtn.style.display = isTime ? 'none' : 'inline-flex';  // no pivot on a left→right time axis
+  };
   wrap.querySelectorAll('[data-layout]').forEach((b) => b.addEventListener('click', () => {
     wrap.querySelectorAll('[data-layout]').forEach((x) => x.classList.remove('on')); b.classList.add('on');
     state.layout = b.dataset.layout;
     wrap.querySelector('[data-pivot-lbl]').textContent = state.layout === 'radial' ? 'rotate' : 'pivot';
+    syncLayoutChrome();
     if (state.sel) deselect();
     relayout(); setTimeout(fit, 470);
   }));
+  wrap.querySelectorAll('[data-grain]').forEach((c) => c.addEventListener('click', () => {
+    state.grain = c.dataset.grain; syncFoldChips();
+    if (state.layout !== 'time') return;   // a fold pick outside the time axis just arms the grain
+    if (state.sel) deselect();
+    relayout(); setTimeout(fit, 470);
+  }));
+  syncFoldChips();
   wrap.querySelector('[data-pivot]').addEventListener('click', () => {
     if (state.layout === 'radial') state.rot = (state.rot + 45) % 360; else state.orient = state.orient === 'h' ? 'v' : 'h';
     if (state.sel) deselect();

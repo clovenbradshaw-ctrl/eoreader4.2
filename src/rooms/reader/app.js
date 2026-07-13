@@ -625,7 +625,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
       sn: id, reg: `S-${String(sn).padStart(4, '0')}`,
       docId: doc?.docId || `doc-${shaShort(hash)}`,
       title: title || url || 'Untitled', url, domain: url ? domainOf(url) : (kind === 'file' ? 'local file' : 'pasted text'),
-      kind, retrieved: nowIso(), sha: hash, bytes: bytesOf(body),
+      kind, retrieved: nowIso(), recordedAt: nowMs(), sha: hash, bytes: bytesOf(body),
       rights: rights || (url ? 'web — verify before reuse' : 'local'),
       text: body, entCount: null, _doc: doc || null,
     };
@@ -2171,17 +2171,28 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     return pending;
   };
 
+  // When a source entered the record, in epoch-ms — the graphs' time axis reads this off
+  // each node (0/undefined ⇒ undated). Prefer the numeric recordedAt; fall back to parsing
+  // the ISO `retrieved` so sources recorded before this field existed still place in time.
+  const srcTimeMs = (s) => {
+    if (!s) return 0;
+    if (Number.isFinite(s.recordedAt) && s.recordedAt > 0) return s.recordedAt;
+    const p = Date.parse(s.retrieved || '');
+    return Number.isNaN(p) ? 0 : p;
+  };
+
   // The honest tiered data for mountTieredGraph: the source at the radial centre
   // (tier 0), the focus + bonded figures (tier 1), the standing claims (tier 2).
   const tieredData = (docId, entId) => {
     const p = entityProfile(docId, entId);
     if (!p) return { nodes: [], edges: [] };
-    const nodes = [{ id: 'src', tier: 0, label: p.sourceTitle, kind: 'source' }];
+    const srcT = srcTimeMs(state.sources.find((s) => s.docId === docId));
+    const nodes = [{ id: 'src', tier: 0, label: p.sourceTitle, kind: 'source', t: srcT }];
     const edges = [];
     const seen = new Set();
     const addEnt = (id, label) => {
       const nid = `e:${id}`;
-      if (!seen.has(nid)) { seen.add(nid); nodes.push({ id: nid, tier: 1, label, kind: 'entity', ref: { docId, entId: id } }); }
+      if (!seen.has(nid)) { seen.add(nid); nodes.push({ id: nid, tier: 1, label, kind: 'entity', ref: { docId, entId: id }, t: srcT }); }
       return nid;
     };
     const focus = addEnt(entId, p.label);
@@ -2200,7 +2211,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     }
     p.defs.slice(0, 16).forEach((d, i) => {
       const id = `c:${i}`;
-      nodes.push({ id, tier: 2, label: d.value, kind: 'claim' });
+      nodes.push({ id, tier: 2, label: d.value, kind: 'claim', t: srcT });
       edges.push({ a: focus, b: id, tier: 2, gl: '⊢', code: 'DEF' });
     });
     return { nodes, edges };
@@ -2217,7 +2228,7 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   const topicTieredData = () => {
     const srcs = topicSources();
     const nodes = [], edges = [], seen = new Set();
-    const push = (id, tier, label, kind, ref) => { if (!seen.has(id)) { seen.add(id); nodes.push({ id, tier, label, kind, ref }); } };
+    const push = (id, tier, label, kind, ref, t = 0) => { if (!seen.has(id)) { seen.add(id); nodes.push({ id, tier, label, kind, ref, t }); } };
     const norm = (s) => String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
     const urlish = (s) => /^(https?:\/\/|www\.)/i.test(String(s || '')) || String(s || '').includes('://');
     const merged = new Map();       // normLabel → { id, label, mentions, sns:Set, ref }
@@ -2233,8 +2244,10 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         const nl = norm(label); if (!nl || urlish(label)) continue;
         mapKey.set(`${doc.docId}#${r}`, nl);
         let m = merged.get(nl);
-        if (!m) merged.set(nl, m = { id: `e:${nl}`, label, mentions: 0, sns: new Set(), ref: { docId: doc.docId, entId: r } });
+        if (!m) merged.set(nl, m = { id: `e:${nl}`, label, mentions: 0, sns: new Set(), ref: { docId: doc.docId, entId: r }, t: 0 });
         m.mentions += ent.sightings || 0; m.sns.add(src.sn);
+        // an entity sits on the axis at its EARLIEST recording — when it first entered the record
+        const st = srcTimeMs(src); if (st > 0) m.t = m.t > 0 ? Math.min(m.t, st) : st;
       }
     }
     // rank by salience and cap — the graph's own collision-culling keeps it legible, but a hard cap
@@ -2242,11 +2255,11 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     const ranked = [...merged.values()].sort((a, b) => b.mentions - a.mentions).slice(0, 40);
     const shown = new Set(ranked.map((m) => norm(m.label)));
     const srcById = new Map(srcs.map((s) => [s.sn, s]));
-    for (const m of ranked) push(m.id, 1, m.label, 'entity', m.ref);
+    for (const m of ranked) push(m.id, 1, m.label, 'entity', m.ref, m.t);
     for (const m of ranked) {
       for (const sn of m.sns) {
         const sid = `src:${sn}`; const s = srcById.get(sn);
-        push(sid, 0, s ? (s.title || s.reg || 'source') : 'source', 'source', null);
+        push(sid, 0, s ? (s.title || s.reg || 'source') : 'source', 'source', null, srcTimeMs(s));
         edges.push({ a: sid, b: m.id, tier: 0, gl: '●', code: 'INS' });
       }
     }
