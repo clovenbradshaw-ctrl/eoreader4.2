@@ -41,5 +41,6 @@ export const CONTRACTS = Object.freeze({
   'src/core/surprise.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field'], products: ['Field', 'Atmosphere'], stances: ['Tracing', 'Tending'], note: 'the one surprise (KL)' }),
   'src/core/unit.js': contract({ ops: ['NUL', 'INS'], targets: ['Void'], products: ['Void'], stances: ['Clearing', 'Cultivating'], note: 'the bare unit (ingestion floor)' }),
   'src/core/verdicts.js': contract({ ops: ['NUL'], targets: ['Lens'], products: ['Lens'], stances: ['Clearing'], note: 'verdict vocabulary' }),
+  'src/core/witness.js': contract({ ops: ['EVA', 'DEF'], targets: ['Network', 'Link'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'witness diversity of a proposition (first-class)' }),
   'src/core/voidnull.js': contract({ ops: ['DEF', 'SEG'], targets: ['Field'], products: ['Void', 'Field'], stances: ['Clearing', 'Dissecting', 'Unraveling'], note: 'derived void null (Born)' }),
 });

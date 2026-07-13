@@ -36,6 +36,15 @@ export { STANCES, TERRAINS, stanceOf, terrainOf, grainOfStance, grainOfTerrain,
 // meaning). Both frozen as contracts here, in the genome everything depends on.
 export { makeUnit, isUnit, sameUnit, streamDistance, unitStream, isOrdered } from './unit.js';
 export { PROPOSITION_SLOTS, makeProposition, isProposition, propositionOfEdge } from './proposition.js';
+// The witness diversity of a proposition, made first-class (docs/witness-diversity.md): the
+// proposition is the floor of MEANING; this is the floor of its STANDING — how many independent
+// voices, through how many senses, hold the distinction up. A frozen currency (four named
+// dimensions and a derived tier ladder) that any proposition can carry and any faculty can read;
+// reflect.js and corroboration.js MINT it instead of re-deriving the ladder. Genome-level because
+// the standing of a claim, like the claim itself, is the system's currency, not any one faculty's.
+export { WITNESS_DIMENSIONS, DIVERSITY_TIERS, tierRank, diversityTier, makeDiversity,
+         emptyDiversity, EMPTY_DIVERSITY, isDiversity, diversityOf, withVoices, mergeDiversity,
+         moreDiverse, attachDiversity, diversityOfProposition } from './witness.js';
 // The generation side's formal notation (SPEC §1/§3): the event op(Site, Resolution,
 // Provenance, t), the two independent tiers of identity (hashId existence + Resolution
 // how-definitely), and the me-ness type law (two doors, indexical reload). The writer
