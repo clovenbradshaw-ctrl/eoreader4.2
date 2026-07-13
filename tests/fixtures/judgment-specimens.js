@@ -134,8 +134,8 @@ export const SPECIMENS = Object.freeze([
       Object.freeze({ grain: 'field', match: '*', accept: Object.freeze(['unsupported']),
         why: 'the absence of any ranking is a measurable void (v2 #4: an evaluation void, distinctly)' }),
     ]),
-    ratchet: false,
-    notes: 'Claim side CONVERTED by v2 #2 (typed binding): the copular evaluation types EVA, no span ranks the subject, so "The bottlenose is the best dolphin" ships uncited UNSUPPORTED instead of citing off the shared figure (battery 2026-07-13; tests/typed-binding.test.js pins it). Still #4\'s target: no field DEF measures the missing ranking — the specimen ratchets when the evaluation void lands.',
+    ratchet: true,
+    notes: 'FULLY CONVERTED. Claim side by v2 #2 (typed binding): the copular evaluation types EVA, no span ranks the subject, so "The bottlenose is the best dolphin" ships uncited UNSUPPORTED instead of citing off the shared figure. Field side by v2 #4 (typed void): the evaluation absence is witnessed by the exhaustive subject scan + failed refill and logged as field:evaluation:<subject> UNSUPPORTED — and the unwitnessed draft is replaced by the typed cause ("no source ranks or evaluates…"). Battery 2026-07-13; tests/typed-binding.test.js + tests/typed-void.test.js pin both.',
   }),
 
   // The true absence: a figure the corpus never mentions. Today's void judge should

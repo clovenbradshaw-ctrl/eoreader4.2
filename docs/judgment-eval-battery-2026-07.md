@@ -173,6 +173,49 @@ overall             7        6           0          1       0         1         
   species also include…") parses to no proposition, so it rides the lexical floor — the
   aligner's honest reach limit; parseRelations recall over model prose is the ceiling,
   recorded here rather than papered over.
+
+## Update — typed void lands (#4, same day): the board is clean
+
+`enactor/answer/absence.js` retyped the absence by its CAUSE, each a witnessed probe:
+
+- **retrieval-miss** — before a measured void is declared, an adversarial REFILL is aimed at
+  the empty slot (`retrieveLexical` over the question's subject terms, the field measure's
+  own strong bar). A hit disproves the void: the found spans feed forward and the turn
+  ANSWERS — "VOID does not fire on unreached-but-present". The probe lands as
+  `field:retrieval` INDETERMINATE (Codd's UNKNOWN, no corpus claim).
+- **corpus** — only after the refill fails, and the FAILED probe rides in the void DEF's
+  witness: a corpus absence is never again the residue of "retrieval found little".
+- **evaluation** — post-draw, independent of the field measure (the subject retrieves fine;
+  the RANKING is what's absent): a claim the binder typed EVA-unsupported triggers an
+  exhaustive scan of the subject's own sentences plus a ranking-aimed refill; nothing
+  entailing → `field:evaluation:<subject>` UNSUPPORTED, and an entirely unwitnessed draft is
+  REPLACED by the typed cause — "The sources mention bottlenose once, but no source ranks or
+  evaluates bottlenose" is the answer, not a footnote.
+- **reference** — the scattered field the #3 ask already owns now also lands at the field
+  grain: `field:reference:<term>` INDETERMINATE, a pointer witness at the mention DEFs that
+  hold the collision. Scattered is UNKNOWN, not absent.
+- The pre-draw void is RE-JUDGED by the post-draw witness: a draft that earns a citation
+  while a field DEF stands appends a counter-DEF (INDETERMINATE,
+  `witness-earned-post-measure`) — the retreat is on the log, not in control flow.
+
+Final battery — **every gold row on the board is correct or honestly underconfident**:
+
+```
+grain          judged  correct  conf-wrong  underconf  CWR     unjudged  wrong-grain
+claim               4        3           0          1       0         0            0
+referent            2        2           0          0       0         0            0
+field               2        2           0          0       0         0            0
+overall             8        7           0          1       0         0            0
+stability: 0 OVERTURNED · shape: 29 DEFs, 0 malformed
+```
+
+Five of six specimens ratchet (`unstated-evaluation` joins — fully converted by #2+#4);
+`entailed-paraphrase` remains the one recorded residue (the lexical floor's underconfidence,
+#2's reach ceiling). The scoreboard's remaining work is now GROWTH, not repair: more
+specimens (multi-hop stability cuts, predication-grain golds once a classifier rides,
+planted unreached-but-present cases to measure the refill's miss-rate) — and items #5
+(the chip reads `distribution()`) and #6 (the seam invariant checks shipped [sN] against
+CORROBORATED DEFs) now have a clean log to build on.
 - One classifier note: the ask disposition sits ABOVE the answerable stage's
   meta-conversational exemption, because it requires a *recorded sense collision* — a
   genuinely conversational meta turn names none, while "What did Elvis record first?"

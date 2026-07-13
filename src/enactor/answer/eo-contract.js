@@ -10,4 +10,5 @@ export const CONTRACTS = Object.freeze({
   'src/enactor/answer/mechanical.js': contract({ ops: ['EVA', 'DEF', 'NUL'], targets: ['Void', 'Field', 'Link', 'Network', 'Entity'], products: ['Lens', 'Void'], stances: ['Binding', 'Dissecting', 'Clearing'], note: 'mechanical answerers (confirm/relation/who/smalltalk)' }),
   'src/enactor/answer/metadata.js': contract({ ops: ['DEF'], targets: ['Entity'], products: ['Lens'], stances: ['Dissecting'], note: 'front-matter / metadata answerer' }),
   'src/enactor/answer/void.js': contract({ ops: ['NUL', 'DEF'], targets: ['Field', 'Lens'], products: ['Void'], stances: ['Clearing'], note: 'typed absence / void answer' }),
+  'src/enactor/answer/absence.js': contract({ ops: ['DEF', 'SEG'], targets: ['Field', 'Void'], products: ['Lens', 'Field'], stances: ['Dissecting', 'Clearing'], note: 'typed absence by cause — adversarial refill vs corpus, the evaluation void, witnessed probes (The Work v2 #4)' }),
 });

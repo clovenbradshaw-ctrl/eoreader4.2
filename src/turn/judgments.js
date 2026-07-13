@@ -155,9 +155,10 @@ export const recordReferenceDef = (log, referential) => {
 
 // The void verdict → a DEF of absence at the field grain. A DEF of absence is still a DEF: the
 // field cannot support the claim (UNSUPPORTED), and the witness carries WHICH absence — the
-// measured kind, its scan receipt, and how far the reading rode. (The typing of distinct void
-// CAUSES — reference-void vs unstated-evaluation vs not-in-corpus — is later work; here the
-// absence is logged with the cause it already measured.)
+// measured kind, its scan receipt, and how far the reading rode. Since v2 #4 the measured
+// corpus void arrives CHALLENGED: the failed adversarial refill (answer/absence.js) rides in
+// the witness, so a corpus absence is never declared as the residue of "retrieval found
+// little" — the probe that tried to disprove it is part of the record.
 export const recordVoidDef = (log, voidMeasure) => {
   if (!log || !voidMeasure) return;
   log.judge({
@@ -168,6 +169,46 @@ export const recordVoidDef = (log, voidMeasure) => {
       kind: voidMeasure.kind || null,
       receipt: voidMeasure.receipt || null,
       rode: voidMeasure.rode ?? null,
+      ...(voidMeasure.cause ? { cause: voidMeasure.cause } : {}),
+      ...(voidMeasure.probes ? { probes: voidMeasure.probes } : {}),
     },
   });
+};
+
+// The typed absences (v2 #4, answer/absence.js) → each cause its own DEF at the field grain,
+// no fallthrough. `retrieval-miss` and `reference` are INDETERMINATE — "the absence could not
+// be measured" (present-but-unreached; scattered-not-absent — Codd's UNKNOWN, no corpus claim
+// made). `evaluation` is UNSUPPORTED, witnessed dense-yet-empty by its exhaustive scan. The
+// corpus cause stays recordVoidDef's (the measured kinds, never-set / elsewhere).
+export const recordAbsenceDef = (log, absence) => {
+  if (!log || !absence || !absence.cause) return;
+  if (absence.cause === 'retrieval-miss') {
+    log.judge({
+      verdict: VERDICTS.INDETERMINATE,
+      grain: GRAINS.FIELD,
+      of: 'field:retrieval',
+      witness: { cause: 'retrieval-miss', refill: absence.refill || null },
+    });
+  } else if (absence.cause === 'reference') {
+    log.judge({
+      verdict: VERDICTS.INDETERMINATE,
+      grain: GRAINS.FIELD,
+      of: `field:reference:${absence.term || ''}`,
+      witness: { cause: 'reference', mention: absence.mention || null, basins: absence.basins || [] },
+    });
+  } else if (absence.cause === 'evaluation') {
+    log.judge({
+      verdict: VERDICTS.UNSUPPORTED,
+      grain: GRAINS.FIELD,
+      of: `field:evaluation:${absence.subject || ''}`,
+      witness: {
+        cause: 'evaluation',
+        subject: absence.subject || null,
+        term: absence.term || null,
+        mentionCount: absence.mentionCount ?? 0,
+        probed: absence.probed || [],
+        refill: absence.refill || null,
+      },
+    });
+  }
 };

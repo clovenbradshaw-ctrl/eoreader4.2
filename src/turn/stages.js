@@ -10,6 +10,7 @@
 // The user sees what the model actually said, with a flag pinned to it.
 
 import { answerVoid, answerMathAsync } from '../enactor/answer/index.js';
+import { typeAbsence, evaluationAbsence } from '../enactor/answer/absence.js';
 import { answerOverTables } from '../rooms/data/query.js';
 import { retrieveHybrid, reserveBySource, pickRetrievalEmbedder, selectExcerpts, retrieveStructural, retrieveNetwork, queryTouchesDoc, querySubjectTerms, dropReferenceChrome, retrieveLexical } from '../surfer/retrieve/index.js';
 import { parseText } from '../perceiver/parse/index.js';
@@ -26,7 +27,7 @@ import { rereadOnUnsettled } from './reread.js';
 import { buildGroundedMessages, buildChatMessages, orientationLine,
          projectGroundedBands, judgePrompt } from '../model/index.js';
 import { bindCitations, renderBound } from '../enactor/ground/index.js';
-import { recordBindingDefs, recordCorrespondenceDefs, recordReferenceDef, recordVoidDef, recordMentionReferenceDefs } from './judgments.js';
+import { recordBindingDefs, recordCorrespondenceDefs, recordReferenceDef, recordVoidDef, recordMentionReferenceDefs, recordAbsenceDef } from './judgments.js';
 import { typeReferences, senseTopicFrame, reviseMentionsWithEvidence } from './reference.js';
 import { senseEntities } from './sense.js';
 import { runVetoes, isUnbound, isAbstention, classifyProvenance, assessAnswer } from '../enactor/ground/index.js';
@@ -586,6 +587,13 @@ export const stages = {
       const unresolved = (ctx.mentionReferences || []).find(
         (m) => m.verdict === VERDICTS.INDETERMINATE && m.ask && (m.basins || []).length >= 2);
       if (unresolved) {
+        // The scattered field is ALSO a typed absence (v2 #4): a reference void at the field
+        // grain, pointing at the mention DEFs that hold the collision — Codd's UNKNOWN, no
+        // corpus claim made. Distinct DEF, distinct cause, never collapsed into "not found".
+        try {
+          recordAbsenceDef(ctx.judgments, { cause: 'reference', term: unresolved.term,
+            mention: `referent:mention:${unresolved.term}`, basins: unresolved.basins || [] });
+        } catch { /* logging is best-effort */ }
         return {
           ...ctx,
           terminate: true,
@@ -655,6 +663,19 @@ export const stages = {
 
     const v = answerVoid(ctx.doc, ctx.question, ctx.spans || [], { embedder: ctx.embedder });
     if (!v) return ctx;
+    // TYPED ABSENCE (v2 #4, answer/absence.js): before the measured void is declared, an
+    // adversarial refill is aimed at the empty slot. A strong hit → the absence was a
+    // RETRIEVAL MISS, not a void: the found spans feed forward and the turn answers —
+    // "VOID does not fire on unreached-but-present". Only when the refill also fails is the
+    // void CORPUS, with the failed probe riding in its witness.
+    let absence = null;
+    try { absence = typeAbsence({ doc: ctx.doc, question: ctx.question, verdict: v.void }); } catch { absence = null; }
+    if (absence?.cause === 'retrieval-miss') {
+      try { recordAbsenceDef(ctx.judgments, absence); } catch { /* logging is best-effort */ }
+      const have = new Set((ctx.spans || []).map((s) => s.idx));
+      const extra = (absence.refillSpans || []).filter((s) => !have.has(s.idx));
+      return { ...ctx, spans: [...(ctx.spans || []), ...extra] };
+    }
     // P0.2: the void no longer auto-answers and terminates. The talker speaks for
     // every turn; the measured void RIDES as terrain context (`voidMeasure`) so the
     // diagonal guard (P1) can catch a specific claim asserted where the reading typed
@@ -663,9 +684,10 @@ export const stages = {
     // with no witness at all, the `absence` stage speaks it (the honesty seam) — absence
     // is an available thing to assert, not just a terrain annotation.
     // Route the void verdict onto the judgment log — a DEF of absence is still a DEF, carrying
-    // which absence (kind · receipt · how far the reading rode) as its witness.
-    try { recordVoidDef(ctx.judgments, v.void); } catch { /* logging is best-effort */ }
-    return { ...ctx, voidMeasure: v.void, voidText: v.text };
+    // which absence (kind · receipt · how far the reading rode · the failed probe) as witness.
+    const vm = absence?.voidMeasure || v.void;
+    try { recordVoidDef(ctx.judgments, vm); } catch { /* logging is best-effort */ }
+    return { ...ctx, voidMeasure: vm, voidText: v.text };
   },
 
   // Build messages. Grounded when we have spans; plain chat when we don't.
@@ -1283,9 +1305,52 @@ export const stages = {
   // this stage never replaces honesty with different honesty. Streaming and stopped
   // turns are exempt (suppress-never-erase); a turn with any citation ships untouched.
   async absence(ctx) {
+    // THE EVALUATION VOID (v2 #4, answer/absence.js) — post-draw, independent of the field
+    // measure (the subject retrieves fine; what is absent is the RANKING). The answer asserted
+    // a value judgment the binder typed EVA and could not support; the exhaustive scan of the
+    // subject's own sentences plus a refill aimed at the ranking found no entailing judgment.
+    // The absence lands as its own DEF (field:evaluation:<subject>), and — the same honesty
+    // seam as the measured void below — an entirely unwitnessed draft is replaced by the typed
+    // cause: "no source ranks these" is the answer, not a footnote.
+    if (!ctx.voidMeasure && !ctx.stopped && !ctx.streamed) {
+      let evaAbs = null;
+      try { evaAbs = evaluationAbsence({ doc: ctx.doc, bound: ctx.bound || [] }); } catch { evaAbs = null; }
+      if (evaAbs) {
+        try { recordAbsenceDef(ctx.judgments, evaAbs); } catch { /* logging is best-effort */ }
+        const evaCited = (ctx.bound || []).some((b) => b.citation) || (ctx.sources || []).length > 0;
+        if (!evaCited && !isAbstention(ctx.rawOutput || ctx.answer)) {
+          const revisions = [...(ctx.revisions || []), Object.freeze({
+            draft: ctx.answer ?? ctx.rawOutput ?? '',
+            replacedBy: evaAbs.text,
+            why: 'the answer asserted a value judgment no source makes — the evaluation void speaks',
+          })];
+          const vetoes = [...(ctx.vetoes || []), Object.freeze({
+            id: 'void-evaluation', refuses: false,
+            message: `No source ranks or evaluates ${evaAbs.subject} ("${evaAbs.term}" is unstated) — the unwitnessed draft was replaced by the typed absence and kept in the trail.`,
+          })];
+          return { ...ctx, answer: evaAbs.text, sources: [], gated: true, voidSpoken: true, revisions, vetoes };
+        }
+        return ctx;
+      }
+    }
     if (!ctx.voidMeasure || !ctx.voidText || ctx.stopped || ctx.streamed) return ctx;
     const cited = (ctx.bound || []).some((b) => b.citation) || (ctx.sources || []).length > 0;
-    if (cited) return ctx;
+    if (cited) {
+      // The pre-draw void, re-judged by the post-draw witness (v2 #4): the draft EARNED a
+      // citation while a field DEF stands — the measured absence did not survive the reading.
+      // A counter-DEF on the revision rail records the retreat; the mismatch no longer lives
+      // only in control flow.
+      try {
+        const of = `field:${ctx.voidMeasure.kind || 'void'}`;
+        if (ctx.judgments?.latestOf(of)) {
+          ctx.judgments.revise(of, { verdict: VERDICTS.INDETERMINATE, witness: {
+            reason: 'witness-earned-post-measure',
+            citation: (ctx.bound || []).find((b) => b.citation)?.citation ?? null,
+          } });
+        }
+      } catch { /* logging is best-effort */ }
+      return ctx;
+    }
     if (isAbstention(ctx.rawOutput || ctx.answer)) return ctx;
     const revisions = [...(ctx.revisions || []), Object.freeze({
       draft: ctx.answer ?? ctx.rawOutput ?? '',
