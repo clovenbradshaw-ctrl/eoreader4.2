@@ -786,6 +786,35 @@ export const facingReadingLines = (eotText, { max = 2400 } = {}) => {
   return { lines, legend, kindLegend, truncated: all.length > max, more: Math.max(0, all.length - max), total: all.length };
 };
 
+// ── the VERBATIM PROMPT leaf — exactly what the talker was handed, byte-for-byte ─────────────
+// The facing panel's leading leaf: the prompt this answer's turn actually sent to the model,
+// read straight off the audit turn's own record (turn/stages.js promptText — the woven
+// `role: content` messages joined blank-line-separated; app.js finishMessage stashes it on the
+// message). VERBATIM is the contract: no re-derivation, no paraphrase — and no EoT colourizing,
+// because the prompt is prose the talker read, and classifying its lines by operator shape
+// would paint accidental meaning onto any colon or arrow the prose happens to carry. One calm
+// foreground for every line; the role markers (`system:` / `user:`) take the section hue so the
+// message boundaries stay scannable.
+//   facingPromptLines(promptText, opts) → { lines, truncated, more, total } — the same line
+//   shape ({ n, kind, color, s, segs }) and honest-cap reporting as facingReadingLines, so the
+//   pane paints both leaves with one code path.
+export const PROMPT_LINE_COLOR = '#ABB2BF';
+export const facingPromptLines = (promptText, { max = 2400 } = {}) => {
+  const all = String(promptText == null ? '' : promptText).split('\n');
+  const shown = all.slice(0, max);
+  const roleRe = /^(system|user|assistant):/;
+  const lines = shown.map((raw, i) => {
+    const kind = raw.trim() === '' ? 'blank' : 'prompt';
+    const m = roleRe.exec(raw);
+    const segs = m
+      ? [{ s: m[0], color: EOT_ELEMENT_TYPES.rule.color, role: 'role' },
+         { s: raw.slice(m[0].length), color: PROMPT_LINE_COLOR, role: 'text' }]
+      : [{ s: raw === '' ? ' ' : raw, color: PROMPT_LINE_COLOR, role: 'text' }];
+    return { n: i + 1, kind, color: PROMPT_LINE_COLOR, s: raw === '' ? ' ' : raw, dim: kind === 'blank', segs };
+  });
+  return { lines, truncated: all.length > max, more: Math.max(0, all.length - max), total: all.length };
+};
+
 // ── inline markdown OVER A SEGMENT STREAM (the settled answer) ────────────────────────────────
 // The answer body is rendered per-character as `*italic*` / `**bold**` / `code`, and — once it
 // settles — split into typed SEGMENTS by the entity linker and the [sN] citation chips

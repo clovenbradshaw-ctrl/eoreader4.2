@@ -6,6 +6,7 @@ import {
   stripGutenbergMarkers, nativePageHtml, clampReadPrefs, READ_THEMES,
   classifyEotLine, facingReadingLines, EOT_ELEMENT_TYPES,
   entityKind, facingSegments, EOT_ENTITY_KINDS, EOT_ENTITY_KIND_ORDER,
+  facingPromptLines, PROMPT_LINE_COLOR,
 } from '../src/rooms/reader/reader-render.js';
 
 // A Project-Gutenberg-shaped book: license header, labeled front matter, the START/END markers,
@@ -290,6 +291,46 @@ test('facingReadingLines caps long readings honestly', () => {
   assert.equal(total, 50);
   assert.equal(truncated, true);
   assert.equal(more, 40);
+});
+
+// ── the facing page: the VERBATIM prompt leaf ─────────────────────────────────────────────────
+test('facingPromptLines is verbatim: plain lines, lossless, no EoT colourizing', () => {
+  const prompt = [
+    'system: You are the voice of a reader.',
+    '',
+    'user: Here is what I found when I read it:',
+    '- The widget woke -> and it considered : the matter',   // EoT-shaped glyphs inside prose
+    'What does the widget do?',
+  ].join('\n');
+  const { lines, truncated, total } = facingPromptLines(prompt);
+  assert.equal(total, 5);
+  assert.equal(truncated, false);
+  assert.equal(lines.length, 5);
+  assert.equal(lines[0].n, 1);
+  // Lossless: the segments re-join to the raw line (blank keeps its height as one space).
+  assert.equal(lines[0].segs.map((s) => s.s).join(''), 'system: You are the voice of a reader.');
+  assert.equal(lines[1].kind, 'blank');
+  assert.equal(lines[1].s, ' ');
+  // No EoT colourizing: a prose line carrying -> and : stays one calm prompt colour, never
+  // the relation/type hue — the verbatim contract.
+  const glyphLine = lines[3];
+  assert.equal(glyphLine.kind, 'prompt');
+  assert.ok(glyphLine.segs.every((s) => s.color === PROMPT_LINE_COLOR));
+  // The role markers alone take the section hue, so message boundaries stay scannable.
+  assert.equal(lines[0].segs[0].s, 'system:');
+  assert.equal(lines[0].segs[0].color, EOT_ELEMENT_TYPES.rule.color);
+  assert.equal(lines[2].segs[0].s, 'user:');
+  // A mid-prompt line is NOT a role boundary even if it starts with a word and a colon.
+  assert.equal(lines[4].segs.length, 1);
+});
+
+test('facingPromptLines caps a long prompt honestly', () => {
+  const prompt = Array.from({ length: 30 }, (_, i) => `line ${i}`).join('\n');
+  const { lines, truncated, more, total } = facingPromptLines(prompt, { max: 12 });
+  assert.equal(lines.length, 12);
+  assert.equal(total, 30);
+  assert.equal(truncated, true);
+  assert.equal(more, 18);
 });
 
 // ── the facing page: colouring the THINGS, not only the operator ─────────────────────────────

@@ -668,10 +668,10 @@ table{border-collapse:collapse;width:100%}
                              answer that plainly invites being opened. Collapsed it shows the edge; clicking
                              reveals the reading (the panel below), whose header collapses it again. -->
                         <sc-if value="{{ m.facingClosed }}">
-                          <button onClick="{{ m.facingToggle }}" title="Reveal how the system read this answer — the reply beside its own EoT reading" style="position:relative;display:flex;align-items:center;gap:8px;width:100%;margin-top:12px;padding:9px 13px 10px;border:1px solid #E4E0FB;border-radius:11px;background:linear-gradient(180deg,#FBFAFF,#F3F1FD);color:#5B4BE6;box-shadow:0 3px 0 -1px #F1EFFB,0 6px 0 -2px #F6F4FD;text-align:left;overflow:hidden" style-hover="background:#EFEBFE">
+                          <button onClick="{{ m.facingToggle }}" title="Reveal how this answer was made — the verbatim prompt the model was handed, and the reply beside its own EoT reading" style="position:relative;display:flex;align-items:center;gap:8px;width:100%;margin-top:12px;padding:9px 13px 10px;border:1px solid #E4E0FB;border-radius:11px;background:linear-gradient(180deg,#FBFAFF,#F3F1FD);color:#5B4BE6;box-shadow:0 3px 0 -1px #F1EFFB,0 6px 0 -2px #F6F4FD;text-align:left;overflow:hidden" style-hover="background:#EFEBFE">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="M12 6.5C10.5 5.5 8.5 5 6 5H3v13h3c2.5 0 4.5.5 6 1.5M12 6.5C13.5 5.5 15.5 5 18 5h3v13h-3c-2.5 0-4.5.5-6 1.5M12 6.5v13"/></svg>
                             <span style="flex:0 0 auto;font-weight:600;font-size:12.5px;white-space:nowrap">How it read this</span>
-                            <span style="flex:1 1 0;min-width:0;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;color:#9E96D6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">· reveal the facing reading</span>
+                            <span style="flex:1 1 0;min-width:0;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;color:#9E96D6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">· reveal the verbatim prompt & the reading</span>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="m6 9 6 6 6-6"/></svg>
                           </button>
                         </sc-if>
@@ -3015,29 +3015,55 @@ class Component extends DCLogic {
     this._segCache[m.id] = { len: (m.text || '').length, paras, ungrounded };
     return paras;
   }
-  // The chat's facing page for ONE answer: lay out the EoT "how it read it" reading (the same
-  // reader-render.facingReadingLines the source viewer's Facing tab uses) over the answer's own
-  // reading (app.answerEot, computed lazily + memoised). Returns the view-model the reveal paints;
-  // an honest empty when the reading can't be produced.
+  // The chat's facing page for ONE answer, two leaves in one pane. The VERBATIM leaf leads —
+  // the prompt the model was actually handed for this answer (msg.prompt, the audit turn's own
+  // record), byte-for-byte with no colourizing (reader-render.facingPromptLines). Below it, the
+  // EoT "how it read it" reading (the same reader-render.facingReadingLines the source viewer's
+  // Facing tab uses) over the answer's own reading (app.answerEot, computed lazily + memoised).
+  // Returns the view-model the reveal paints; an honest absence line when no prompt is on record.
   _answerFacingEmpty() {
     return { facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, facingTruncated: false, facingMore: '', facingEmpty: false, facingCount: 0 };
   }
   _answerFacing(mm) {
-    if (!this._app || !this._app.answerEot || !this._render || !this._render.facingReadingLines) return this._answerFacingEmpty();
+    if (!this._app || !this._render || !this._render.facingReadingLines) return this._answerFacingEmpty();
     let eot = null;
-    try { eot = this._app.answerEot(mm); } catch { eot = null; }
-    if (!eot) return this._answerFacingEmpty();
-    const fr = this._render.facingReadingLines(eot.text || '', { max: 600 });
-    const lines = fr.lines.map((l) => ({
-      n: String(l.n), opacity: '1',
-      rowBg: l.kind === 'rule' ? 'rgba(122,162,247,0.07)' : 'transparent',
-      segs: (l.segs || [{ s: l.s, color: l.color }]).map((sg) => ({ s: sg.s, color: sg.color })),
-    }));
+    try { eot = this._app.answerEot ? this._app.answerEot(mm) : null; } catch { eot = null; }
+    const fr = eot ? this._render.facingReadingLines(eot.text || '', { max: 600 })
+                   : { lines: [], legend: [], kindLegend: [], truncated: false, more: 0, total: 0 };
+    // The VERBATIM leaf leads: the prompt this answer's turn actually handed the model
+    // (finishMessage stashed the audit turn's own record on the message), shown byte-for-byte
+    // and never re-derived. An answer with none on record — a phatic line, or a message from
+    // before prompts were kept — gets one honest line instead of a reconstructed prompt.
+    const pf = (this._render.facingPromptLines && mm.prompt)
+      ? this._render.facingPromptLines(mm.prompt, { max: 600 }) : null;
+    const RULE = (this._render.EOT_ELEMENT_TYPES && this._render.EOT_ELEMENT_TYPES.rule.color) || '#7AA2F7';
+    const NOTE = (this._render.EOT_ELEMENT_TYPES && this._render.EOT_ELEMENT_TYPES.note.color) || '#9AA6BD';
+    const rows = [];
+    const row = (kind, segs) => rows.push({
+      rowBg: kind === 'rule' ? 'rgba(122,162,247,0.07)' : 'transparent',
+      segs: segs.map((sg) => ({ s: sg.s, color: sg.color })),
+    });
+    row('rule', [{ s: '# ── the prompt the model was handed — verbatim ──', color: RULE }]);
+    if (pf) {
+      for (const l of pf.lines) row(l.kind, l.segs || [{ s: l.s, color: l.color }]);
+      if (pf.truncated) row('note', [{ s: `# … ${pf.more} more prompt lines.`, color: NOTE }]);
+    } else {
+      row('note', [{ s: '# (no prompt on record for this answer — it never reached the model pipeline, or was recorded before prompts were kept)', color: NOTE }]);
+    }
+    if (fr.lines.length) {
+      row('blank', [{ s: ' ', color: 'transparent' }]);
+      for (const l of fr.lines) row(l.kind, l.segs || [{ s: l.s, color: l.color }]);
+    }
+    const lines = rows.map((r, i) => ({ n: String(i + 1), opacity: '1', rowBg: r.rowBg, segs: r.segs }));
+    const legend = [
+      ...(pf ? [{ kind: 'prompt', label: 'prompt — verbatim', color: this._render.PROMPT_LINE_COLOR || '#ABB2BF' }] : []),
+      ...fr.legend,
+    ];
     return {
-      facingLines: lines, facingLegend: fr.legend, facingKindLegend: fr.kindLegend || [],
+      facingLines: lines, facingLegend: legend, facingKindLegend: fr.kindLegend || [],
       facingHasKinds: (fr.kindLegend || []).length > 0,
       facingTruncated: fr.truncated, facingMore: String(fr.more),
-      facingEmpty: lines.length === 0, facingCount: fr.total || lines.length,
+      facingEmpty: fr.lines.length === 0, facingCount: lines.length,
     };
   }
   // The live body while the answer streams: the revealed prefix, split into the same blocks and
