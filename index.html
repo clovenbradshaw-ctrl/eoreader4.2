@@ -1001,8 +1001,8 @@ table{border-collapse:collapse;width:100%}
               </div>
               <div style="display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap">
                 <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
-                  <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <sc-if value="{{ viewerCanPage }}"><button onClick="{{ viewerModePage }}" title="Render the real website" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPageFg }};background:{{ vmPageBg }}">Native</button></sc-if>
+                  <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">Facing</button>
                   <button onClick="{{ viewerModeEot }}" title="The reading, as EoT" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">EoT · {{ viewer.eotCount }}</button>
                 </span>
@@ -1281,7 +1281,9 @@ table{border-collapse:collapse;width:100%}
   <sc-if value="{{ searchShow }}">
     <div style="position:absolute;inset:0;z-index:46">
       <div onClick="{{ closeSearch }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
-      <div class="eo-modal" style="position:absolute;left:50%;top:60px;transform:translateX(-50%);width:min(640px,92vw);max-height:calc(100vh - 120px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+      <div class="eo-modal" style="position:absolute;left:50%;top:60px;transform:translateX(-50%);width:{{ searchModalW }};max-height:calc(100vh - 120px);height:{{ searchModalH }};background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+        <!-- RESULTS HEADER -->
+        <sc-if value="{{ searchListShow }}">
         <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid #EAEAEF">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
           <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">“{{ searchQ }}”</span>
@@ -1298,15 +1300,45 @@ table{border-collapse:collapse;width:100%}
           <sc-for list="{{ searchRows }}" as="sr">
             <div style="display:flex;gap:11px;padding:11px 10px;border-radius:11px;align-items:flex-start" style-hover="background:#F7F7FA">
               <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:5px;padding:2px 7px;flex:0 0 auto;margin-top:2px">{{ sr.kind }}</span>
-              <span style="flex:1;min-width:0">
+              <button onClick="{{ sr.open }}" title="Load the site here" style="flex:1;min-width:0;text-align:left;background:transparent;border:none;padding:0;cursor:pointer">
                 <span style="display:block;font-size:13.5px;font-weight:600;color:#2A2A32;line-height:1.35">{{ sr.title }}</span>
                 <span style="display:block;font-size:12px;color:#6E6E78;line-height:1.5;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ sr.snippet }}</span>
                 <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sr.url }}</span>
-              </span>
+              </button>
               <button onClick="{{ sr.record }}" style="flex:0 0 auto;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:11.5px;border-radius:8px;padding:6px 11px;margin-top:2px" style-hover="background:#E7E2FD">{{ sr.recordLabel }}</button>
             </div>
           </sc-for>
         </div>
+        </sc-if>
+        <!-- NATIVE PREVIEW — the real site, loaded before it's recorded -->
+        <sc-if value="{{ previewShow }}">
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #EAEAEF;background:#FBFBFD">
+          <button onClick="{{ backToResults }}" title="Back to results" style="flex:0 0 auto;display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#5B4BE6;padding:5px 9px;border-radius:7px" style-hover="background:#F1EFFE"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Results</button>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:15.5px;font-weight:600;color:#1B1B22;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ previewTitle }}</span>
+            <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ previewUrl }}</span>
+          </span>
+          <a href="{{ previewUrl }}" target="_blank" rel="noopener" style="flex:0 0 auto;font-size:11px;font-weight:600;color:#8A8A95;text-decoration:none">open ↗</a>
+          <button onClick="{{ addPreviewSource }}" disabled="{{ previewAddBusy }}" style="flex:0 0 auto;background:#5B4BE6;border:1px solid #5B4BE6;color:#fff;font-weight:600;font-size:12px;border-radius:8px;padding:7px 14px" style-hover="filter:brightness(1.06)">{{ previewAddLabel }}</button>
+          <button onClick="{{ closeSearch }}" style="flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div style="flex:1;min-height:0;position:relative;background:#fff">
+          <sc-if value="{{ previewBusy }}">
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#9A9AA4">
+              <span style="width:26px;height:26px;border-radius:50%;border:3px solid #EDEBFB;border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box"></span>
+              <span style="font-size:12.5px">Loading the live page…</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ previewHasErr }}">
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:34px;text-align:center;color:#6E6E78">
+              <span style="font-size:13px;line-height:1.55">Couldn’t load this page here.<br><a href="{{ previewUrl }}" target="_blank" rel="noopener" style="color:#5B4BE6;font-weight:600">Open the original in a new tab ↗</a>&nbsp; · &nbsp;<button onClick="{{ retryPreview }}" style="color:#5B4BE6;font-weight:600;display:inline">retry</button>&nbsp; · &nbsp;<button onClick="{{ addPreviewSource }}" style="color:#5B4BE6;font-weight:600;display:inline">add anyway</button></span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ previewPageShow }}">
+            <iframe srcdoc="{{ previewDoc }}" sandbox="allow-same-origin allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
+          </sc-if>
+        </div>
+        </sc-if>
       </div>
     </div>
   </sc-if>
@@ -1679,6 +1711,9 @@ class Component extends DCLogic {
       tocOpen: false,
       readPrefs: this._readPrefs(),
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
+      // A search hit opens as a NATIVE PREVIEW first — the real page, loaded normally in a sandboxed
+      // frame — and only becomes a recorded source when you choose to add it. { item, doc, busy, err }.
+      searchPreview: null,
       // ⌘K source palette — full-text search across every recorded source (title · site · body)
       cmdkOpen: false, cmdkQuery: '', cmdkSel: 0,
       pasteOpen: false, pasteTitle: '', pasteBody: '',
@@ -2032,6 +2067,28 @@ class Component extends DCLogic {
       .then((s) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'done' } }); this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
       .catch((err) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: null } }); this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`); });
   }
+  // ── search hit → native preview → add as source ────────────────────────────
+  // Clicking a search result LOADS THE SITE NORMALLY first (the real page, through the same proxy
+  // chain ingest uses, sanitized + sandboxed by nativePageHtml) — nothing is recorded yet. The
+  // preview's "Add as source" button is the only thing that admits it into the record.
+  previewHit(item) {
+    if (!item || !item.url || !this._app || !this._app.fetchPage || !this._render) return;
+    this.setState({ searchPreview: { item, doc: null, err: null, busy: true } });
+    this._app.fetchPage(item.url).then((r) => {
+      const doc = this._render.nativePageHtml(r.html, { baseUrl: r.url || item.url, prefs: this.state.readPrefs });
+      const p = this.state.searchPreview;               // the user may have gone back or previewed another hit
+      if (p && p.item === item) this.setState({ searchPreview: { item, doc, err: null, busy: false } });
+    }).catch((e) => {
+      const p = this.state.searchPreview;
+      if (p && p.item === item) this.setState({ searchPreview: { item, doc: null, err: String((e && e.message) || e), busy: false } });
+    });
+  }
+  closePreview() { this.setState({ searchPreview: null }); }
+  addPreviewSource() {
+    const p = this.state.searchPreview; if (!p) return;
+    this.recordHit(p.item);                              // records, then _revealImport opens the source viewer
+    this.setState({ searchPreview: null, searchOpen: false });
+  }
   _ingestFile(f) {
     if (!this._app) return;
     this._app.ingestFile(f).then((s) => { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
@@ -2232,13 +2289,17 @@ class Component extends DCLogic {
   // openViewer(sn, focus) opens a source AS A TAB in front (or focuses it if already open). Several
   // sources stay open at once; each keeps its own render mode and citation focus.
   openViewer(sn, focusText) {
-    if (!this._app || !this._app.sourceBySn(sn)) return;
+    const src = this._app && this._app.sourceBySn(sn);
+    if (!this._app || !src) return;
     this._viewCache = null; this._readerFrame = null; this._nativeFrame = null;
     // Rebuild the book on open so freshly-cited passages and newly-admitted entities show — the
     // reader cache is otherwise held for the life of the tab (prefs apply live, no rebuild).
     delete this._readerCache[sn];
     const tabs = this.state.viewerTabs.includes(sn) ? this.state.viewerTabs : [...this.state.viewerTabs, sn];
-    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = 'reader';
+    // Native (the real website) is the default surface for a web source that carries a URL — click a
+    // source and you land on the page itself; the clean Reader book is one tab away. A source with no
+    // URL (pasted text, a local file) has no page to render, so it opens in Reader.
+    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = src.url ? 'native' : 'reader';
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
     // Open the source AS A TAB in the main stage and make it the active tab.
     this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, nativeToc: [], ...(this._mob() ? { leftOpen: false } : {}) });
@@ -2426,7 +2487,7 @@ class Component extends DCLogic {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     this.showToast('Chat exported — ' + out.filename);
   }
-  closeSearch() { this.setState({ searchOpen: false }); }
+  closeSearch() { this.setState({ searchOpen: false, searchPreview: null }); }
   // ── ⌘K source palette — search THROUGH everything recorded (title · site · full body) ────────
   toggleCmdk() {
     const open = !this.state.cmdkOpen;
@@ -3970,8 +4031,20 @@ class Component extends DCLogic {
         kind: it.kind || it.source || 'web', title: it.title || it.url, snippet: it.text || '', url: it.url || '',
         recordLabel: rec === 'done' ? '✓ recorded' : rec === 'busy' ? 'reading…' : 'Record',
         record: () => { if (!rec) this.recordHit(it); },
+        // Clicking the row loads the real site as a native preview; recording happens from there.
+        canPreview: !!it.url, open: () => { if (it.url) this.previewHit(it); },
       };
     });
+    // native preview of a search hit (the real site, loaded before it's recorded)
+    const sp = st.searchPreview;
+    const previewKey = sp ? (sp.item.url || sp.item.title) : null;
+    const previewRec = sp ? st.recordedUrls[previewKey] : null;
+    const preview = sp ? {
+      title: sp.item.title || sp.item.url, url: sp.item.url || '',
+      doc: sp.doc || '', show: !!sp.doc, busy: !!sp.busy, err: sp.err || '', hasErr: !!sp.err,
+      addLabel: previewRec === 'done' ? '✓ added' : previewRec === 'busy' ? 'adding…' : 'Add as source',
+      addBusy: previewRec === 'busy' || previewRec === 'done',
+    } : null;
 
     // monologue
     const LOGL = { record: 'RECORD', hash: 'HASH', eot: 'EOT', claim: 'CLAIM', conflict: 'CONFLICT', search: 'SEARCH', open: 'OPEN', skip: 'SKIP', reflection: 'REFLECT' };
@@ -4137,6 +4210,16 @@ class Component extends DCLogic {
       searchNone: !st.searchBusy && st.searchResults && st.searchResults.length === 0,
       searchMeta: st.searchResults ? `${st.searchResults.length} results` : '',
       searchRows, closeSearch: () => this.closeSearch(),
+      // native preview of a search hit — the modal grows to a page frame while previewing
+      searchModalW: preview ? 'min(1040px,96vw)' : 'min(640px,92vw)',
+      searchModalH: preview ? 'calc(100vh - 120px)' : 'auto',
+      searchListShow: !preview, previewShow: !!preview,
+      previewTitle: preview ? preview.title : '', previewUrl: preview ? preview.url : '',
+      previewDoc: preview ? preview.doc : '', previewPageShow: !!(preview && preview.show),
+      previewBusy: !!(preview && preview.busy), previewErr: preview ? preview.err : '', previewHasErr: !!(preview && preview.hasErr),
+      previewAddLabel: preview ? preview.addLabel : '', previewAddBusy: !!(preview && preview.addBusy),
+      backToResults: () => this.closePreview(), addPreviewSource: () => this.addPreviewSource(),
+      retryPreview: () => { if (st.searchPreview) this.previewHit(st.searchPreview.item); },
       // ⌘K source palette — search THROUGH the record (title · site · full body), jump to the passage
       ...(() => {
         const rows = st.cmdkOpen ? this._cmdkResults() : [];
