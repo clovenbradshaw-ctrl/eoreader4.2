@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createReaderApp, recordReflections, REFLECTION_CAP } from '../src/rooms/reader/app.js';
+import { createReaderApp, recordReflections, REFLECTION_CAP, appendLog } from '../src/rooms/reader/app.js';
 
 // THE AMBIENT WIRING (rooms/reader/app.js) — the inner monologue at rest is wired into the
 // reader session, not just the fold engine. When the record has content and the reader is not
@@ -106,4 +106,62 @@ test('the count surfaced at rest is the running total (state.reflectionsSeen), n
   assert.equal(app.state.reflectionsSeen, produced, 'under the cap, the running total equals the buffer');
   const last = app.state.log.filter((l) => l.kind === 'reflection').pop();
   assert.ok(last && last.text.includes(`${produced} note`), 'the log line reports the running total, not a frozen 200');
+});
+
+// ── the "flooded Actions feed" fix ────────────────────────────────────────────
+// The at-rest reflection fires every idle pass; without coalescing the Actions feed fills with
+// dozens of near-identical "Reflected at rest — N notes" lines that bury the real actions and
+// convey nothing. A coalescing beat folds a whole lull into ONE updating line; a discrete action
+// breaks the run so the timeline still marks where the lull sat. appendLog is pure (no engine),
+// so the collapse is proved directly, independent of the significance engine's pass-by-pass output.
+
+test('appendLog: a run of coalescing beats collapses to one line — the Actions feed is not flooded', () => {
+  const log = []; let n = 0; const mint = () => `L${++n}`;
+  appendLog(log, { kind: 'record', t: 't0', text: 'Recorded a source' }, mint);
+  appendLog(log, { kind: 'reflection', t: 't1', text: '1 note so far' }, mint, { coalesce: true });
+  appendLog(log, { kind: 'reflection', t: 't2', text: '2 notes so far' }, mint, { coalesce: true });
+  appendLog(log, { kind: 'reflection', t: 't3', text: '3 notes so far' }, mint, { coalesce: true });
+  assert.equal(log.length, 2, 'three consecutive idle passes collapse into one reflection line');
+  assert.equal(log[1].text, '3 notes so far', 'the surviving line carries the latest running total');
+  assert.equal(log[1].t, 't3', 'and the latest time');
+  assert.equal(log[1].id, 'L2', 'the coalesced line keeps its id — the surface list key does not churn');
+  assert.equal(n, 2, 'no id is burned per pass — only the record and the one reflection line minted ids');
+});
+
+test('appendLog: a discrete action after a lull appends past it — the timeline keeps the lull', () => {
+  const log = []; let n = 0; const mint = () => `L${++n}`;
+  appendLog(log, { kind: 'reflection', t: 't1', text: '1 note' }, mint, { coalesce: true });
+  appendLog(log, { kind: 'reflection', t: 't2', text: '2 notes' }, mint, { coalesce: true });
+  appendLog(log, { kind: 'claim', t: 't3', text: 'Answered a question' }, mint);   // a real action never coalesces
+  appendLog(log, { kind: 'reflection', t: 't4', text: '3 notes' }, mint, { coalesce: true });
+  assert.deepEqual(log.map((l) => l.kind), ['reflection', 'claim', 'reflection'],
+    'a new lull after an action opens a fresh beat rather than merging across it');
+});
+
+test('appendLog: discrete actions never merge, and the ledger stays a bounded ring buffer', () => {
+  const log = []; let n = 0; const mint = () => `L${++n}`;
+  appendLog(log, { kind: 'record', t: 't1', text: 'a' }, mint);
+  appendLog(log, { kind: 'record', t: 't2', text: 'b' }, mint);
+  assert.equal(log.length, 2, 'two records stay two lines — only opt-in beats coalesce');
+  for (let i = 0; i < 10; i++) appendLog(log, { kind: 'record', t: `x${i}`, text: `r${i}` }, mint, { cap: 4 });
+  assert.equal(log.length, 4, 'past the cap the oldest fall off the front');
+  assert.equal(log[log.length - 1].text, 'r9', 'the newest is retained');
+});
+
+test('at rest, the ledger keeps ONE reflection beat per lull — an intervening action opens the next', async () => {
+  const app = await freshApp();
+  app.ingestText(BOOK, 'Metamorphosis');
+  app.deepTick(true);   // first lull
+  const afterOne = app.state.log.filter((l) => l.kind === 'reflection');
+  assert.equal(afterOne.length, 1, 'the first lull leaves a single beat, not one line per idle pass');
+  assert.equal(afterOne[0].effect, 'read them in the Reflections tab', 'the beat signposts where the notes live');
+
+  // A new source (a discrete, record-touching action) lands, then the reader reflects again.
+  app.ingestText(
+    'The captain sighted the whale. Ahab lashed himself to the harpoon. Ishmael alone survived.',
+    'Second');
+  app.deepTick(true);   // second lull, on the other side of the RECORD action
+  const afterTwo = app.state.log.filter((l) => l.kind === 'reflection');
+  assert.equal(afterTwo.length, 2, 'the action between lulls opens a fresh beat — the timeline keeps the lull');
+  assert.ok(afterTwo[1].text.includes(`${app.state.reflectionsSeen} note`), 'the newest beat carries the running total');
 });

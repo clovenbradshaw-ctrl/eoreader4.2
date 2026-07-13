@@ -228,6 +228,29 @@ export const recordReflections = (record, seen, fresh, make, cap = REFLECTION_CA
   return seen;
 };
 
+// The activity ledger is append-only — every discrete action (record, claim, conflict, search)
+// gets its own line, in order. EXCEPT: a beat that repeats every idle pass — the at-rest
+// reflection — would bury those actions under dozens of near-identical "Reflected at rest — N
+// notes" lines (the idle governor fires every few seconds; a long lull over a big record voices a
+// fresh batch each pass). So such a beat may COALESCE: when the tail entry already shares its
+// kind, the tail is updated in place — new text/effect/time, its id kept so the surface's list
+// keys don't churn — instead of a new line being appended. A run of idle passes collapses to ONE
+// live line that ticks its count; the next DISCRETE action (which never opts into coalescing)
+// appends past it, so the timeline still marks WHERE the lull sat. `mintId` is called only when a
+// line is actually appended, so a coalesced beat never burns an id number. Pure and injectable
+// (`cap`) so it is unit-testable without the engine — the same reason recordReflections is.
+export const LOG_CAP = 400;
+export const appendLog = (log, { kind, t, text, effect = '' }, mintId, { coalesce = false, cap = LOG_CAP } = {}) => {
+  const tail = log[log.length - 1];
+  if (coalesce && tail && tail.kind === kind) {
+    tail.t = t; tail.text = text; tail.effect = effect;
+  } else {
+    log.push({ id: mintId(), t, kind, text, effect });
+    if (log.length > cap) log.splice(0, log.length - cap);
+  }
+  return log;
+};
+
 // ── the app ──────────────────────────────────────────────────────────────────
 export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch } = {}) => {
   const state = {
@@ -268,9 +291,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const subscribe = (fn) => { subs.add(fn); return () => subs.delete(fn); };
   const emit = (kind, data = null) => { for (const fn of subs) { try { fn(kind, data); } catch { /* surface's problem */ } } };
 
-  const logIt = (kind, text, effect = '') => {
-    state.log.push({ id: `L${++ln}`, t: nowIso(), kind, text, effect });
-    if (state.log.length > 400) state.log.shift();
+  // `opts.coalesce` folds a repeating beat into the tail rather than appending a fresh line —
+  // used only by the at-rest reflection, so idle passes don't flood the Actions feed (see appendLog).
+  const logIt = (kind, text, effect = '', opts = {}) => {
+    appendLog(state.log, { kind, t: nowIso(), text, effect }, () => `L${++ln}`, opts);
     emit('log');
   };
 
@@ -2896,7 +2920,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       }
       deepSettled = allSettled && !anyFresh;
       if (anyFresh) {
-        logIt('reflection', `Reflected at rest — ${state.reflectionsSeen} note${state.reflectionsSeen === 1 ? '' : 's'} so far`);
+        // ONE coalescing beat for the whole lull (see appendLog): every idle pass folds into this
+        // single line, ticking its count, rather than stacking a new one — the Actions feed stays
+        // about actions. The effect points to where the notes actually live, so the count reads as
+        // a signpost ("go read them") instead of a bare number that touched nothing.
+        const n = state.reflectionsSeen;
+        logIt('reflection', `Reflected at rest — ${n} note${n === 1 ? '' : 's'} so far`,
+          'read them in the Reflections tab', { coalesce: true });
         persist(); emit('reflections');
       }
     } finally { deepRunning = false; }
