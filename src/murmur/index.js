@@ -52,6 +52,14 @@ export const createMurmur = ({
   const sink = createImpressionSink({ audit });
   const steerEvents = [];   // the session's own copy of appended steer events (append-only)
 
+  // The live-feel broadcast (audit-only, spec §9.4): a surface may WATCH the peripheral sense
+  // without ever touching the answer. `subscribe` returns an unsubscribe; `state()` is the last
+  // observed snapshot so a late subscriber can paint immediately. This is a read side-channel —
+  // it carries impressions/signal, never a citable fact, and cannot append to the log.
+  const watchers = new Set();
+  let lastState = null;
+  const notifyWatchers = (s) => { for (const fn of watchers) { try { fn(s); } catch { /* a watcher must never cost a turn */ } } };
+
   // observe(rawSnapshot, { turn }) — the core entry. `rawSnapshot` carries the fold data for one
   // stop (see sense/geometry.js snapshotShape) PLUS `query`/`queryVec` for the anchor. Runs the
   // whole spine and returns { signal, registers, impressions, collapse, steer } for inspection.
@@ -110,7 +118,10 @@ export const createMurmur = ({
     //    the current reading is never compared against itself (spec §5).
     topic.pushReading(readingCentroid);
 
-    return Object.freeze({ signal, registers, impressions: feel.feel(), collapse, steer, topicNote });
+    const snapshot = Object.freeze({ signal, registers, impressions: feel.feel(), collapse, steer, topicNote, at: now() });
+    lastState = snapshot;
+    notifyWatchers(snapshot);
+    return snapshot;
   };
 
   // shouldHoldStream() — spec §10: hold the stream (pending the deterministic checkers) when a
@@ -143,7 +154,10 @@ export const createMurmur = ({
     steers: () => steerEvents.slice(),
     membraneOk: () => assertMembraneSafe(cfg),
     canCite,
-    resetSession() { topic.reset(); feel.clear(); steerEvents.length = 0; },
+    // the live-feel side-channel a surface watches (read-only; never a citable fact, spec §9.4)
+    subscribe(fn) { if (typeof fn === 'function') { watchers.add(fn); return () => watchers.delete(fn); } return () => {}; },
+    state: () => lastState,
+    resetSession() { topic.reset(); feel.clear(); steerEvents.length = 0; lastState = null; notifyWatchers(null); },
   };
 };
 
