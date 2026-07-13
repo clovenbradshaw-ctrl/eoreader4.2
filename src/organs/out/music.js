@@ -22,10 +22,14 @@ const clamp = (x, lo, hi) => (x < lo ? lo : x > hi ? hi : x);
 // develop → vary and extend it, close → resolve to a cadence. This is what makes the
 // directive modality-neutral: the IR names the move, the organ names the music.
 const MUSIC_VERB = Object.freeze({
-  open: 'State the opening motif of', develop: 'Develop and vary the motif of', close: 'Resolve to a cadence',
-  state: 'State', vary: 'Vary the motif of', resolve: 'Resolve to a cadence',
+  open: 'State the opening motif of', develop: 'Develop and vary the motif of',
+  state: 'State', vary: 'Vary the motif of',
   enumerate: 'Sequence the figures of', summarize: 'Restate the motif of',
 });
+// The cadence acts take their object BEFORE the destination — "Resolve a phrase … to a
+// cadence", never "Resolve to a cadence a phrase …", which read as word salad to the
+// small model the directive is for.
+const CADENCE_ACTS = new Set(['close', 'resolve']);
 
 export const musicOrgan = Object.freeze({
   id: 'music',
@@ -37,9 +41,10 @@ export const musicOrgan = Object.freeze({
   // lower(directive) → a music instruction. The MUSIC lowering of the SAME neutral
   // directive { act, role, subject, detail } the text organ renders as a sentence.
   lower: ({ act, subject, detail } = {}) => {
-    const verb = MUSIC_VERB[act] || 'Play';
     const evoking = subject ? ` evoking ${subject}` : '';
     const tail = detail ? `, ${detail}` : '';
+    if (CADENCE_ACTS.has(act)) return `Resolve a phrase${evoking} to a cadence${tail}.`;
+    const verb = MUSIC_VERB[act] || 'Play';
     return `${verb} a phrase${evoking}${tail}.`;
   },
 });

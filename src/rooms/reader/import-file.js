@@ -449,8 +449,7 @@ async function fromImage(file, title, name, say) {
 }
 
 // One whisper pipeline per session — the model is ~150 MB of WASM/WebGPU memory, so a
-// second import or recording must reuse the first load, never stack another instance.
-// Exported: the live-microphone cochlea (record-audio.js) hears through the same ear.
+// second import must reuse the first load, never stack another instance.
 let _asrLoad = null;
 export const _loadWhisper = () => {
   if (!_asrLoad) {
@@ -467,7 +466,6 @@ export const _loadWhisper = () => {
 
 // Whisper's timestamped chunks → utterances of timed words. Each chunk is a breath group;
 // its words get interpolated times, so the audio organ keeps a clock on every word.
-// Exported: the live-microphone cochlea (record-audio.js) hears through the same ear.
 export function _whisperUtterances(out, norm) {
   const utterances = [];
   for (const ch of (out && out.chunks) || []) {

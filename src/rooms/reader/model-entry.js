@@ -1,6 +1,7 @@
 // EO: INS·SYN·DEF(Field,Network → Entity,Lens, Making,Composing) — barrel: models + longgen
 // Chat models for the reader — the backends the chat surface can pick.
-// echo (instant, offline), webllm (Llama-3.2-3B over WebGPU, the old default),
+// echo (instant, offline), webllm (Llama-3.2 over WebGPU — the 1B build by
+// default, Fluent opts into 3B — plus its Qwen2.5-1.5B sibling under 'qwen'),
 // claude (Anthropic's hosted API — the dependable talker, keyed by the user),
 // and the Pleias family (Pico / RAG-1B, source-grounded talkers trained only on
 // the public-domain Common Corpus, loaded as GGUF through wllama). Each registers

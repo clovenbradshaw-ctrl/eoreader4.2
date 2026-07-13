@@ -100,41 +100,7 @@ table{border-collapse:collapse;width:100%}
       </div>
     </form>
 
-    <!-- live recording — the microphone. Idle: start a take. Recording: re-open the panel. -->
-    <button onClick="{{ toggleRecord }}" title="{{ micTitle }}" style="width:31px;height:31px;display:flex;align-items:center;justify-content:center;border:1px solid {{ micBd }};background:{{ micBg }};border-radius:999px;color:{{ micFg }};flex:0 0 auto" style-hover="background:#F2F2F6">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/></svg>
-    </button>
-    <sc-if value="{{ recOpen }}">
-      <div style="position:absolute;left:50%;transform:translateX(-50%);top:46px;z-index:31;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:12px;width:460px;max-width:calc(100vw - 28px)">
-        <div style="display:flex;align-items:center;gap:9px;padding:2px 2px 9px;border-bottom:1px solid #F2F2F6;margin-bottom:9px">
-          <span style="width:9px;height:9px;border-radius:50%;background:#B23A2E;flex:0 0 auto;animation:{{ recDotAnim }}"></span>
-          <span style="flex:1;font-size:12.5px;font-weight:700;letter-spacing:.02em;color:#2A2A32">{{ recHeading }}</span>
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8A95">{{ recTime }}</span>
-        </div>
-        <div style="font-size:11.5px;color:#8A8A95;line-height:1.5;padding:0 2px 8px">{{ recNote }}</div>
-        <div class="eo-scroll" style="max-height:150px;overflow-y:auto;border:1px solid #EEEEF2;border-radius:9px;padding:9px 11px;font-size:12.5px;color:#3A3A44;line-height:1.55;background:#FAFAFC">
-          <sc-if value="{{ recHasPartial }}"><span>{{ recPartial }}</span></sc-if>
-          <sc-if value="{{ recNoPartial }}"><span style="color:#B4B4BE;font-style:italic">Words appear here as they’re heard — transcribed on this device, nothing leaves the browser.</span></sc-if>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <sc-if value="{{ recIsRec }}">
-            <button onClick="{{ stopRecord }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12.5px;border-radius:8px;padding:8px" style-hover="background:#E7E2FD">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-              Stop &amp; record it
-            </button>
-          </sc-if>
-          <sc-if value="{{ recIsFin }}">
-            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;color:#8A8A95;font-size:12.5px;padding:8px">
-              <span style="width:13px;height:13px;border:2px solid #DED8FD;border-top-color:#5B4BE6;border-radius:50%;animation:eoSpin .7s linear infinite;flex:0 0 auto"></span>
-              Finishing the transcript…
-            </div>
-          </sc-if>
-          <button onClick="{{ cancelRecord }}" style="flex:0 0 auto;font-size:12.5px;font-weight:600;color:#8A8A95;border:1px solid #EEEEF2;border-radius:8px;padding:8px 14px" style-hover="background:#F5F5F8;color:#B23A2E">Discard</button>
-        </div>
-      </div>
-    </sc-if>
-
-    <button onClick="{{ toggleModel }}" title="Model" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
+    <button onClick="{{ toggleModel }}" title="Model" data-eo-model="1" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
       <span style="width:7px;height:7px;border-radius:50%;background:{{ modelDot }};flex:0 0 auto"></span>
       <span class="eo-modelchip-label">{{ modelChip }}</span>
     </button>
@@ -257,7 +223,7 @@ table{border-collapse:collapse;width:100%}
     </sc-if>
 
     <sc-if value="{{ modelOpen }}">
-      <div class="eo-pop" style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
+      <div class="eo-pop" data-eo-model="1" style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
         <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 6px 8px">MODEL · IN YOUR BROWSER, HOSTED, OR YOUR LOCAL SERVER</div>
         <sc-for list="{{ backends }}" as="b">
           <button onClick="{{ b.pick }}" style="width:100%;display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border-radius:9px;background:{{ b.bg }}" style-hover="background:#F5F5F8">
@@ -403,7 +369,6 @@ table{border-collapse:collapse;width:100%}
           <div style="display:flex;gap:6px">
             <button onClick="{{ pickFile }}" title="Import a file" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
             <button onClick="{{ openPaste }}" title="Paste text" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button>
-            <button onClick="{{ toggleRecord }}" title="Record audio — transcribed live" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:{{ micFg }}" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/></svg></button>
             <button onClick="{{ goMemo }}" title="Draft a memo" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></button>
             <button onClick="{{ goGraph }}" title="Provenance graph" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></button>
           </div>
@@ -1454,7 +1419,7 @@ table{border-collapse:collapse;width:100%}
   <sc-if value="{{ webGraphShow }}">
     <div style="position:absolute;inset:0;z-index:48">
       <div onClick="{{ closeWebGraph }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
-      <div class="eo-modal eo-tall" style="position:absolute;left:50%;top:34px;bottom:34px;transform:translateX(-50%);width:min(1060px,95vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+      <div class="eo-modal eo-tall" style="position:absolute;left:50%;top:34px;bottom:34px;transform:translateX(-50%);width:min(1360px,96vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
         <div style="flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #EAEAEF">
           <div style="display:flex;gap:3px;background:#F4F4F7;border-radius:9px;padding:3px">
             <button onClick="{{ setWebKindEntity }}" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindEntFg }};background:{{ webKindEntBg }}">Entities</button>
@@ -1493,6 +1458,84 @@ table{border-collapse:collapse;width:100%}
             </div>
           </div>
           <div ref="{{ setWebGraphEl }}" class="eo-scroll" style="flex:1;min-width:0;overflow:auto"></div>
+
+          <!-- THE DETAILS PANEL — the profile of the entity the web opened on, following every
+               node click. Same facts as the sidebar profile (one builder renders both). -->
+          <sc-if value="{{ webProfShow }}">
+            <aside class="eo-scroll" style="flex:0 0 306px;border-left:1px solid #EEEEF2;overflow-y:auto;min-height:0;background:#fff">
+              <div style="padding:13px 14px">
+                <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
+                  <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ webProf.initials }}</span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#1B1B22;line-height:1.2">{{ webProf.label }}</span>
+                    <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ webProf.counts }}</span>
+                  </span>
+                </div>
+                <button onClick="{{ webProf.openSource }}" title="Open the source this entity was read from" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:6px;padding:3px 8px;margin:6px 0 2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" style-hover="background:#E5E8EC">{{ webProf.srcReg }} · {{ webProf.srcTitle }}</button>
+
+                <div style="display:flex;gap:7px;margin-top:11px">
+                  <button onClick="{{ webProfFocus }}" title="Redraw the web around this entity" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12px;border-radius:8px;padding:7px" style-hover="background:#E7E2FD">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg>
+                    Focus the web
+                  </button>
+                  <button onClick="{{ webProfOpenFull }}" title="Open the full profile in the entities panel" style="flex:0 0 auto;font-size:12px;font-weight:600;color:#6E6E78;border:1px solid #EAEAEF;border-radius:8px;padding:7px 11px" style-hover="background:#F5F5F8">Full profile</button>
+                </div>
+
+                <div style="margin-top:15px">
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
+                  <sc-if value="{{ webProf.wikiWait }}">
+                    <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">Looking for a matching article…</div>
+                  </sc-if>
+                  <sc-if value="{{ webProf.hasWiki }}">
+                    <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;background:#FBFBFD">
+                      <sc-if value="{{ webProf.hasWikiDesc }}">
+                        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ webProf.wikiDesc }}</div>
+                      </sc-if>
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ webProf.wikiText }}</div>
+                      <a href="{{ webProf.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:#5B4BE6;margin-top:7px;text-decoration:none">{{ webProf.wikiTitle }} ↗</a>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ webProf.wikiAbsent }}">
+                    <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">No confirmed Wikipedia match for this referent.</div>
+                  </sc-if>
+                </div>
+
+                <sc-if value="{{ webProf.hasDefs }}">
+                  <div style="margin-top:15px">
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES</div>
+                    <sc-for list="{{ webProf.defs }}" as="d">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32;border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">{{ d.value }}</div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ webProf.hasRelations }}">
+                  <div style="margin-top:15px">
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">CONNECTED ENTITIES</div>
+                    <sc-for list="{{ webProf.relations }}" as="r">
+                      <button onClick="{{ r.pivot }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:7px 10px;border:1px solid #EAEAEF;border-radius:9px;margin-bottom:5px" style-hover="background:#FAFAFC">
+                        <span style="flex:1;min-width:0;font-size:12px;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left"><b style="font-weight:600">{{ r.other }}</b></span>
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8A95;flex:0 0 auto">{{ r.via }}</span>
+                        <span style="color:#C4C4CC;flex:0 0 auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ webProf.hasMentions }}">
+                  <div style="margin-top:15px">
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">MENTIONS · {{ webProf.mentionCount }}</div>
+                    <sc-for list="{{ webProf.mentions }}" as="mn">
+                      <button onClick="{{ mn.jump }}" title="Open the source at this passage" style="width:100%;display:flex;gap:9px;padding:7px 10px;border:1px solid #EFEFF3;border-radius:9px;margin-bottom:5px;background:#FBFBFD" style-hover="background:#fff">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B4B4BE;flex:0 0 auto;margin-top:2px">¶{{ mn.idx }}</span>
+                        <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.45;color:#5A5A64;text-align:left;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ mn.text }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </aside>
+          </sc-if>
         </div>
       </div>
     </div>
@@ -1621,8 +1664,6 @@ class Component extends DCLogic {
     try { this._mq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(max-width: 820px)') : null; mobile = !!(this._mq && this._mq.matches); } catch { this._mq = null; }
     this.state = {
       tab: 'chat', omni: '', chatInput: '', toast: null,
-      // live recording — recPhase: 'idle' | 'rec' (the take runs) | 'fin' (draining the tail)
-      recOpen: false, recPhase: 'idle', recTime: '0:00', recPartial: '', recNote: '',
       isMobile: mobile,
       leftOpen: mobile ? false : this._pref('eo_left', true), rightOpen: mobile ? false : this._pref('eo_right', true),
       statusOpen: false, monologueOpen: false, logMode: 'actions',
@@ -1903,6 +1944,15 @@ class Component extends DCLogic {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); ui.toggleCmdk(); return; }
       if (e.key === 'Escape' && ui.state.cmdkOpen) { e.preventDefault(); ui.closeCmdk(); }
     });
+    // Click-away closes the model selector. pointerdown (not click) so it can't race the
+    // popover's own buttons: a press INSIDE anything marked data-eo-model — the chip (its
+    // own onClick toggles) or the popover — is left alone; any other press dismisses.
+    document.addEventListener('pointerdown', (e) => {
+      const ui = window.__eoUI; if (!ui || !ui.state.modelOpen) return;
+      const t = e.target;
+      if (t && t.closest && t.closest('[data-eo-model]')) return;
+      ui.setState({ modelOpen: false });
+    });
     // Crossing the mobile breakpoint (rotation, resize, foldables): drawers close going
     // small; the desktop prefs come back going wide.
     try {
@@ -1987,60 +2037,6 @@ class Component extends DCLogic {
     } catch { /* the record already landed — the reveal never blocks it */ }
   }
   pickFile() { this._ensureFileInput().click(); }
-
-  // ── live recording — the microphone, transcribed while it listens ───────────
-  // The recorder (app.recordAudio → src/rooms/reader/record-audio.js) streams the
-  // growing transcript back through onPartial; Stop drains the final window and lands
-  // the take as a source (app.ingestRecording); Discard throws the whole take away.
-  toggleRecord() {
-    if (this.state.recPhase !== 'idle') { this.setState({ recOpen: !this.state.recOpen }); return; }
-    this.startRecord();
-  }
-  async startRecord() {
-    if (!this._app || !this._app.recordAudio) { this.showToast('The engine is still booting — try again in a moment.'); return; }
-    this.setState({ recOpen: true, recPhase: 'rec', recTime: '0:00', recPartial: '', recNote: 'Asking for the microphone…' });
-    try {
-      const rec = await this._app.recordAudio({
-        onState: (s) => { if (this._recorder === rec || !this._recorder) this.setState({ recNote: String(s || '') }); },
-        onPartial: (p) => { if (this._recorder === rec) this.setState({ recPartial: String(p && p.text || '') }); },
-      });
-      this._recorder = rec;
-      await rec.start();
-      this._recT0 = Date.now();
-      clearInterval(this._recTimer);
-      this._recTimer = setInterval(() => {
-        const s = Math.floor((Date.now() - this._recT0) / 1000);
-        this.setState({ recTime: Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') });
-      }, 1000);
-    } catch (err) {
-      this._recorder = null;
-      this.setState({ recOpen: false, recPhase: 'idle', recNote: '' });
-      this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`);
-    }
-  }
-  async stopRecord() {
-    const rec = this._recorder;
-    if (!rec || this.state.recPhase !== 'rec') return;
-    clearInterval(this._recTimer);
-    this.setState({ recPhase: 'fin', recNote: 'Finishing the transcript…' });
-    try {
-      const got = await rec.stop();
-      if (this._recorder !== rec) return;   // discarded while the tail was draining
-      const src = await this._app.ingestRecording(got);
-      this.showToast(`Recorded ${src.reg} — ${src.title}`);
-    } catch (err) {
-      if (this._recorder !== rec) return;
-      this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`);
-    }
-    this._recorder = null;
-    this.setState({ recOpen: false, recPhase: 'idle', recTime: '0:00', recPartial: '', recNote: '' });
-  }
-  cancelRecord() {
-    try { if (this._recorder) this._recorder.cancel(); } catch { /* already torn down */ }
-    clearInterval(this._recTimer);
-    this._recorder = null;
-    this.setState({ recOpen: false, recPhase: 'idle', recTime: '0:00', recPartial: '', recNote: '' });
-  }
 
   openPaste() { this.setState({ pasteOpen: true, pasteTitle: '', pasteBody: '' }); }
   closePaste() { this.setState({ pasteOpen: false }); }
@@ -2508,6 +2504,60 @@ class Component extends DCLogic {
       this.setState({ wikiDefs: { ...this.state.wikiDefs, [key]: { none: true } } });
     });
   }
+  // The entity profile's render values — one builder for BOTH surfaces that show a
+  // profile (the right sidebar and the graph overlay's details panel), so the wiki
+  // referent, standing properties, connected entities and mentions always read the
+  // same. The handlers differ per surface: `pivot(otherId)` follows a connected
+  // entity, `openSource(sn)`/`jump(sn, text)` leave for the source viewer, and an
+  // optional `openWeb()` renders the sidebar's "Open the web graph" button.
+  _profFor(docId, entId, h) {
+    const app = this._app;
+    const p = app && app.entityProfile ? app.entityProfile(docId, entId) : null;
+    if (!p) return null;
+    const src = app.sourceBySn(p.sn) || {};
+    // The Wikipedia referent (_ensureWiki kicked the lookup off; render what landed).
+    // Shown only when CONFIRMED — an unconfirmed best guess reads as "no confirmed
+    // match", the same honesty rule the 4.1 panel held.
+    const wk = this.state.wikiDefs[docId + '#' + entId] || null;
+    const wkHit = !!(wk && wk.confirmed && wk.text);
+    return {
+      label: p.label, initials: this._initials(p.label),
+      counts: `${p.mentions.length} mentions · ${p.relations.length} links`,
+      wikiWait: !!(wk && wk.busy), hasWiki: wkHit,
+      wikiText: wkHit ? wk.text : '', wikiTitle: wkHit ? wk.title : '', wikiUrl: wkHit ? wk.url : '',
+      wikiDesc: wkHit ? (wk.description || '') : '', hasWikiDesc: !!(wkHit && wk.description),
+      wikiAbsent: !!(wk && !wk.busy && !wkHit),
+      srcReg: src.reg || '', srcTitle: src.title || '', openSource: () => h.openSource(p.sn),
+      openWeb: h.openWeb || (() => {}),
+      hasDefs: p.defs.length > 0, defs: p.defs.slice(0, 6),
+      hasRelations: p.relations.length > 0,
+      // CONNECTED ENTITIES is a list of the DISTINCT neighbours the focus bonds to —
+      // one row per entity, not one per edge. figureSurface yields a separate relation
+      // for each (src, verb, tgt), so a neighbour reached through several verbs (Zerya
+      // touched / lived / realized …) would otherwise appear once per verb and read as
+      // many different entities. Collapse by the other endpoint's id, keeping the vias
+      // in the salience order figureSurface already ranked them; the strongest verb
+      // leads and a `+N` records the rest.
+      relations: (() => {
+        const byOther = new Map();
+        for (const r of p.relations) {
+          const otherId = r.srcId === entId ? r.tgtId : r.srcId;
+          const otherLabel = r.srcId === entId ? r.tgtLabel : r.srcLabel;
+          let g = byOther.get(otherId);
+          if (!g) { g = { otherId, other: otherLabel, vias: [] }; byOther.set(otherId, g); }
+          const via = r.via || r.op;
+          if (via && !g.vias.includes(via)) g.vias.push(via);
+        }
+        return [...byOther.values()].slice(0, 14).map((g) => ({
+          other: g.other,
+          via: g.vias.length > 1 ? `${g.vias[0]} +${g.vias.length - 1}` : (g.vias[0] || ''),
+          pivot: () => h.pivot(g.otherId),
+        }));
+      })(),
+      hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
+      mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text) })),
+    };
+  }
   toggleEntityMode() {
     const on = !this.state.entityMode; this._setPref('eo_entmode', on); this._segCache = {}; this._viewCache = null;
     // The Reader carries the merged Document links; show/hide them live on the open book (flip the
@@ -2530,14 +2580,38 @@ class Component extends DCLogic {
     const label = (this._app.entityProfile(docId, entId) || {}).label || '';
     this._wg = { kind: 'entity', scope: 'entity', docId, entId, entLabel: label, focusKey: null, focusLabel: null, hidden: new Set() };
     this._tgToggles = [];
+    this._setWgPanel(docId, entId);   // the details panel opens ON the entity the web is about
     this.setState({ webGraphFor: this._wgMirror() });
     if (this._tgEl) this._drawWebGraph();   // already open (e.g. re-opened from the entity panel) — redraw in place
   }
   openTopicGraph(kind) {
     this._wg = { kind: kind === 'causal' ? 'causal' : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
     this._tgToggles = [];
+    this._seedWgPanel();   // entity kind: the details panel opens on the topic's top figure
     this.setState({ webGraphFor: this._wgMirror() });
     if (this._tgEl) this._drawWebGraph();   // already open — redraw with the new kind/scope in place
+  }
+  // The overlay's details panel — which entity's profile the right column shows.
+  // Loads WITH the overlay (the focused entity, or the topic's most salient figure)
+  // and follows every node click, so the web is never a picture without its facts.
+  _setWgPanel(docId, entId) {
+    if (docId == null || entId == null) { this._wgPanel = null; return; }
+    const cur = this._wgPanel;
+    this._wgPanel = { docId, entId };
+    this._ensureWiki(docId, entId);
+    if (cur && cur.docId === docId && cur.entId === entId) return;
+    this.setState({ webGraphTick: (this.state.webGraphTick || 0) + 1 });
+  }
+  // Seed the panel for a whole-topic open: the most salient entity across the topic
+  // (app.entities() is already sorted by mentions + links). Causal kind has no
+  // entity profile to show — the panel stays empty there.
+  _seedWgPanel() {
+    this._wgPanel = null;
+    if (!this._wg || this._wg.kind !== 'entity' || !this._app) return;
+    try {
+      const top = (this._app.entities() || [])[0];
+      if (top) this._setWgPanel(top.docId, top.entId);
+    } catch { /* no entities yet — the panel simply stays empty */ }
   }
   _wgMirror() {
     const w = this._wg; if (!w) return null;
@@ -2545,7 +2619,7 @@ class Component extends DCLogic {
   }
   closeWebGraph() {
     if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; }
-    this._tgEl = null; this._wg = null; this._tgToggles = [];
+    this._tgEl = null; this._wg = null; this._tgToggles = []; this._wgPanel = null;
     this.setState({ webGraphFor: null });
   }
   setWebGraphEl(el) {
@@ -2560,6 +2634,7 @@ class Component extends DCLogic {
     this._wg.hidden = new Set();                            // so reset the toggles and any focus and
     this._wg.focusKey = null; this._wg.focusLabel = null;  // land on the whole topic in the new kind
     this._wg.scope = 'topic';
+    this._seedWgPanel();   // entity kind reopens the panel on the top figure; causal has none
     this.setState({ webGraphFor: this._wgMirror() });
     this._drawWebGraph();
   }
@@ -2586,6 +2661,7 @@ class Component extends DCLogic {
     this._wg.scope = 'entity'; this._wg.docId = ref.docId; this._wg.entId = ref.entId;
     this._wg.entLabel = (this._app.entityProfile(ref.docId, ref.entId) || {}).label || '';
     this._wg.hidden = new Set();
+    this._setWgPanel(ref.docId, ref.entId);   // the panel follows the focus
     this.setState({ webGraphFor: this._wgMirror() });
     this._drawWebGraph();
   }
@@ -2620,6 +2696,8 @@ class Component extends DCLogic {
     this._tg = window.EO.mountTieredGraph(el, {
       nodes: show.nodes, edges: show.edges,
       onOpen: (node) => { if (node && node.ref) this._webFocusEntity(node.ref); },
+      // A click on any entity node turns the details panel to that entity's profile.
+      onSelect: (node) => { if (node && node.kind === 'entity' && node.ref) this._setWgPanel(node.ref.docId, node.ref.entId); },
       countsLabel: `${show.nodes.length} nodes · ${show.edges.length} edges`,
     });
   }
@@ -2666,7 +2744,7 @@ class Component extends DCLogic {
     const noop = (el) => this.setWebGraphEl(el);
     if (!this.state.webGraphFor || !wg) {
       return { webGraphShow: false, setWebGraphEl: noop, closeWebGraph: () => this.closeWebGraph(),
-        webToggles: [], webTogglesEmpty: false, webHasFocus: false };
+        webToggles: [], webTogglesEmpty: false, webHasFocus: false, webProfShow: false };
     }
     void this.state.webGraphTick;
     const kind = wg.kind, scope = wg.scope, hidden = wg.hidden || new Set();
@@ -2675,7 +2753,22 @@ class Component extends DCLogic {
     const isEnt = kind === 'entity';
     const focusName = isEnt ? (wg.entLabel || 'this entity') : (wg.focusLabel || 'this node');
     const hasFocus = scope === 'entity' && (isEnt ? wg.entId != null : !!wg.focusKey);
+    // The details panel — the profile of the entity the overlay opened on (or the one last
+    // clicked). Entity kind only; its handlers stay INSIDE the overlay where they can
+    // (pivot swaps the panel), and leave it deliberately where they can't (a mention or the
+    // source chip closes the overlay and opens the viewer at the passage).
+    const panel = (isEnt && this._wgPanel) ? this._wgPanel : null;
+    const webProf = panel ? this._profFor(panel.docId, panel.entId, {
+      pivot: (otherId) => this._setWgPanel(panel.docId, otherId),
+      openSource: (sn) => { this.closeWebGraph(); this.openViewer(sn); },
+      jump: (sn, text) => { this.closeWebGraph(); this.openViewer(sn, text); },
+    }) : null;
     return {
+      webProfShow: !!webProf, webProf,
+      // focus the web on the panel's entity — the panel-side twin of a node's "open →"
+      webProfFocus: () => { if (panel) this._webFocusEntity({ docId: panel.docId, entId: panel.entId }); },
+      // leave for the full sidebar profile (closes the overlay, opens the entities panel)
+      webProfOpenFull: () => { if (panel) { this.closeWebGraph(); this.openEntity(panel.docId, panel.entId); } },
       webGraphShow: true,
       setWebGraphEl: noop,
       closeWebGraph: () => this.closeWebGraph(),
@@ -3175,30 +3268,6 @@ class Component extends DCLogic {
     };
   }
 
-  // Recording bindings for EVERY render branch (booting, broken, or live) — the mic
-  // button sits in the header chrome, so a fallback render still needs its handlers.
-  _recVals() {
-    const st = this.state;
-    const rec = st.recPhase === 'rec', fin = st.recPhase === 'fin', active = rec || fin;
-    return {
-      recOpen: !!st.recOpen, recActive: active,
-      recIsRec: rec, recIsFin: fin,
-      recTime: st.recTime || '0:00', recNote: st.recNote || '',
-      recPartial: st.recPartial || '',
-      recHasPartial: !!(st.recPartial && st.recPartial.trim()),
-      recNoPartial: !(st.recPartial && st.recPartial.trim()),
-      recHeading: fin ? 'Transcribing…' : 'Recording',
-      recDotAnim: rec ? 'eoPulse 1.2s ease-in-out infinite' : 'none',
-      micFg: active ? '#B23A2E' : '#5A5A64',
-      micBg: active ? '#FBE9E6' : '#F7F7FA',
-      micBd: active ? '#F2C8C2' : '#E6E6EC',
-      micTitle: active ? 'Recording — open the take panel' : 'Record audio — transcribed live, on this device',
-      toggleRecord: () => this.toggleRecord(),
-      stopRecord: () => this.stopRecord(),
-      cancelRecord: () => this.cancelRecord(),
-    };
-  }
-
   _acctVals() {
     const st = this.state;
     const mx = this._matrix;
@@ -3266,7 +3335,7 @@ class Component extends DCLogic {
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._recVals() };
+        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
     }
   }
 
@@ -3279,7 +3348,7 @@ class Component extends DCLogic {
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
         statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._recVals() };
+        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals() };
     }
     const topic = app.topic();
     const sources = app.topicSources();
@@ -3337,7 +3406,8 @@ class Component extends DCLogic {
       : m.state === 'ready' ? m.backend : (m.backend || app.backendPref());
     const BACKENDS = [
       ['wllama', 'SmolLM2 · CPU', 'Small and universal — runs on WASM everywhere, ~140 MB download, cached after the first load.'],
-      ['webllm', 'Llama 3.2 · WebGPU', 'The full local talker — 1–2 GB download, needs WebGPU (Chrome/Edge). Picked adaptively for your GPU.'],
+      ['webllm', 'Llama 3.2 · WebGPU', 'The local talker — the quick 1B build (~1 GB) by default, Fluent below opts into 3B. Needs WebGPU (Chrome/Edge).'],
+      ['qwen', 'Qwen 2.5 · WebGPU', 'Alibaba’s small talker — 1.5B, about the same ~1 GB weight class as the Llama default. Needs WebGPU (Chrome/Edge).'],
       ['claude', 'Claude · hosted API', 'Anthropic’s hosted models — nothing to download, frontier answers in seconds. Needs an API key (console.anthropic.com), stored only in this browser. Pick again to change the key.'],
       // The local-server bridge — run the BIG models (Qwen 27–80B, GLM, …) on this machine
       // and reach them from the tab. Zero config here: pick it and it finds the model your
@@ -3397,10 +3467,10 @@ class Component extends DCLogic {
     // Fast/Fluent — the render-speed lever for the local Llama. Shown only when webllm
     // is the chosen backend (the others don't read it). Both builds are already 4-bit and
     // ground identically; only the parameter count — how fast it loads and answers, how
-    // fluent the prose — moves. 'fluent' is the highlight when nothing is pinned (3B is the
-    // desktop default the adaptive pick lands on).
+    // fluent the prose — moves. 'fast' is the highlight when nothing is pinned (1B is the
+    // default the pick lands on).
     const showSpeed = pref === 'webllm';
-    const speedNow = app.speedPref() || 'fluent';
+    const speedNow = app.speedPref() || 'fast';
     const mkSpeed = (id, label, hint) => ({
       label, hint,
       fg: speedNow === id ? '#5B4BE6' : '#8A8A95',
@@ -3557,7 +3627,6 @@ class Component extends DCLogic {
       { label: '🌐 Read a web page', go: () => this.showToast('Paste any URL in the bar above and press Enter') },
       { label: '🔎 Search the web', go: () => this.showToast('Type a query in the bar above and press Enter') },
       { label: '📄 Import a file', go: () => this.pickFile() },
-      { label: '🎙️ Record audio', go: () => this.toggleRecord() },
       { label: '📋 Paste text', go: () => this.openPaste() },
     ];
 
@@ -3712,52 +3781,12 @@ class Component extends DCLogic {
     }));
     let prof = null;
     if (st.entitySel) {
-      const p = app.entityProfile(st.entitySel.docId, st.entitySel.entId);
-      if (p) {
-        const src = app.sourceBySn(p.sn) || {};
-        // The Wikipedia referent (openEntity kicked the lookup off; render what landed).
-        // Shown only when CONFIRMED — an unconfirmed best guess reads as "no confirmed
-        // match", the same honesty rule the 4.1 panel held.
-        const wk = st.wikiDefs[st.entitySel.docId + '#' + st.entitySel.entId] || null;
-        const wkHit = !!(wk && wk.confirmed && wk.text);
-        prof = {
-          label: p.label, initials: this._initials(p.label),
-          counts: `${p.mentions.length} mentions · ${p.relations.length} links`,
-          wikiWait: !!(wk && wk.busy), hasWiki: wkHit,
-          wikiText: wkHit ? wk.text : '', wikiTitle: wkHit ? wk.title : '', wikiUrl: wkHit ? wk.url : '',
-          wikiDesc: wkHit ? (wk.description || '') : '', hasWikiDesc: !!(wkHit && wk.description),
-          wikiAbsent: !!(wk && !wk.busy && !wkHit),
-          srcReg: src.reg || '', srcTitle: src.title || '', openSource: () => this.openViewer(p.sn),
-          openWeb: () => this.openWebGraph(st.entitySel.docId, st.entitySel.entId),
-          hasDefs: p.defs.length > 0, defs: p.defs.slice(0, 6),
-          hasRelations: p.relations.length > 0,
-          // CONNECTED ENTITIES is a list of the DISTINCT neighbours the focus bonds to —
-          // one row per entity, not one per edge. figureSurface yields a separate relation
-          // for each (src, verb, tgt), so a neighbour reached through several verbs (Zerya
-          // touched / lived / realized …) would otherwise appear once per verb and read as
-          // many different entities. Collapse by the other endpoint's id, keeping the vias
-          // in the salience order figureSurface already ranked them; the strongest verb
-          // leads and a `+N` records the rest.
-          relations: (() => {
-            const byOther = new Map();
-            for (const r of p.relations) {
-              const otherId = r.srcId === st.entitySel.entId ? r.tgtId : r.srcId;
-              const otherLabel = r.srcId === st.entitySel.entId ? r.tgtLabel : r.srcLabel;
-              let g = byOther.get(otherId);
-              if (!g) { g = { otherId, other: otherLabel, vias: [] }; byOther.set(otherId, g); }
-              const via = r.via || r.op;
-              if (via && !g.vias.includes(via)) g.vias.push(via);
-            }
-            return [...byOther.values()].slice(0, 14).map((g) => ({
-              other: g.other,
-              via: g.vias.length > 1 ? `${g.vias[0]} +${g.vias.length - 1}` : (g.vias[0] || ''),
-              pivot: () => this.openEntity(st.entitySel.docId, g.otherId),
-            }));
-          })(),
-          hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
-          mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => this.openViewer(p.sn, mn.text) })),
-        };
-      }
+      prof = this._profFor(st.entitySel.docId, st.entitySel.entId, {
+        pivot: (otherId) => this.openEntity(st.entitySel.docId, otherId),
+        openSource: (sn) => this.openViewer(sn),
+        jump: (sn, text) => this.openViewer(sn, text),
+        openWeb: () => this.openWebGraph(st.entitySel.docId, st.entitySel.entId),
+      });
     }
     // graph-node inspector (focus in graph tab wins the panel)
     let insp = null;
@@ -3961,7 +3990,6 @@ class Component extends DCLogic {
       // chrome
       omni: st.omni, toast: st.toast, dragOver: !!st.dragOver,
       // live recording — the mic button + the take panel
-      ...this._recVals(),
       leftOpen: st.leftOpen, rightOpen: st.rightOpen,
       panelBackdrop: !!st.isMobile && (st.leftOpen || st.rightOpen), closePanels: () => this.closePanels(),
       leftBtnFg: st.leftOpen ? '#5B4BE6' : '#9A9AA4', rightBtnFg: st.rightOpen ? '#5B4BE6' : '#9A9AA4',
