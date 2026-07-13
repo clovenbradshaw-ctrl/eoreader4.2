@@ -36,7 +36,7 @@ import { outstandingQuestion, answersAwaited } from '../../core/conversation-fol
 import { senseGate } from '../../turn/sense.js';
 import { createMonitor } from '../../enactor/monitor.js';
 import { createCommitmentLedger } from '../../enactor/ledger.js';
-import { answerSmalltalk } from '../../enactor/answer/index.js';
+import { answerSmalltalk, looksDirective } from '../../enactor/answer/index.js';
 import { figureSurface } from '../../perceiver/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
@@ -1619,13 +1619,20 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     // grounding pipeline ("The document does not say — scanned N sentences") and, in auto web mode,
     // spent a corpus-steered web walk on a hello.
     const floorTalk = answerSmalltalk(q, { hasDoc: docs.length > 0 });
+    // The OFFLINE NEGATIVE floor (enactor/answer/mechanical.js) — the mirror of the greeting
+    // floor. A message that gives an instruction or asks a content question is work, so the
+    // graded model door below is VETOED for it however the 1B metacognition read it: this is
+    // what stopped "no read the question i sent" from settling phatic and coming back as the
+    // confabulated "You sent a message saying 'Hello…'". It never forces phatic (the deterministic
+    // greeting floor still owns the positive side), so a real greeting/thanks/goodbye is untouched.
+    const directive = looksDirective(q);
     let discourse = '';
     try {
       setBusy({ kind: 'turn', label: 'Reading the turn…' });
       const m0 = await raceGuard(ensureModel());
       // The floor already settled a clear greeting — don't spend the discourse read on it.
       discourse = floorTalk ? '' : await raceGuard(keepAlive(readDiscourse(m0, { history: priorHistory, now: new Date(), scope: t.title || '', signal: turnSignal })(q)));
-      if (floorTalk || phaticFromSpeech(discourse).phatic) {
+      if (floorTalk || (!directive && phaticFromSpeech(discourse).phatic)) {
         pending.text = await phaticReply(m0, { question: q, hasDoc: docs.length > 0, signal: turnSignal, raceGuard, keepAlive });
         pending.route = 'phatic';
         pending.pending = false;

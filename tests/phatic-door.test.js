@@ -5,6 +5,7 @@ import { createReaderApp } from '../src/rooms/reader/app.js';
 import { createAuditLog } from '../src/rooms/audit/index.js';
 import { registerBackend } from '../src/model/interface.js';
 import { phaticFromSpeech } from '../src/turn/meta-route.js';
+import { looksDirective } from '../src/enactor/answer/mechanical.js';
 
 // THE PHATIC FRONT DOOR (rooms/reader/app.js). A greeting is no longer caught by a regex floor; the
 // model speaks ONE discourse statement and the physics reads the phatic current off it. This pins
@@ -103,4 +104,46 @@ test('a bare "hi" over a loaded doc settles phatic on the OFFLINE floor even whe
   assert.equal(pending.route, 'phatic', 'the offline floor caught the greeting the blind model read missed');
   assert.doesNotMatch(pending.text || '', /document does not say|does not cover|scanned|couldn.t|search/i,
     'no grounded void answer and no web walk — the greeting never reached grounding');
+});
+
+// THE OFFLINE NEGATIVE FLOOR (enactor/answer/mechanical.js looksDirective). The mirror of the
+// greeting floor: a message that gives an instruction or asks a content question is work and must
+// never be routed phatic, however the tiny metacognition read it. This is the confabulation bug —
+// "no read the question i sent" was read social and answered with an invented "You sent a message
+// saying 'Hello…'". These pin (1) the classifier and (2) that a directive survives a model door
+// that reads EVERYTHING as phatic.
+
+test('looksDirective flags requests as work and leaves social messages alone', () => {
+  for (const q of ['no read the question i sent', 'research my question', 'summarize this',
+                   'what is a dolphin?', 'explain the treaty', 'tell me about Paris', 'find the survey date'])
+    assert.equal(looksDirective(q), true, `"${q}" is a request, not small talk`);
+  for (const q of ['hi', 'hey there', 'thanks!', 'good morning', 'how are you?', "how's it going",
+                   'you around?', 'bye'])
+    assert.equal(looksDirective(q), false, `"${q}" is social, not a directive`);
+});
+
+// A backend that reads EVERY turn as social — the worst case for the graded door. Only the offline
+// negative floor can keep a directive off the phatic route here.
+registerBackend('phatic-happy-fake', () => ({
+  id: 'phatic-happy-fake', kind: 'local', isLoaded: () => true,
+  describe: () => ({ backend: 'phatic-happy-fake', kind: 'local', model: 'phatic-happy-fake', label: 'fake' }),
+  async load(onProgress) { onProgress?.({ phase: 'ready', pct: 1 }); },
+  async phrase(messages, _opts = {}) {
+    const sys  = String(messages.find((m) => m.role === 'system')?.content || '');
+    const user = String(messages.filter((m) => m.role === 'user').map((m) => m.content).join('\n') || '');
+    if (/In two or three plain sentences/.test(user)) return GREETING;   // read as social no matter what
+    if (/social message/.test(sys)) return 'Hey — happy to help.';
+    return 'Dolphins are marine mammals in the cetacean family.';
+  },
+}));
+
+test('a directive is NOT routed phatic even when the model door reads it social', async () => {
+  const app = createReaderApp({ audit: createAuditLog({ capacity: 64 }) });
+  if (!app.state.ready) {
+    await new Promise((res) => { const un = app.subscribe((k) => { if (k === 'ready') { un(); res(); } }); });
+  }
+  app.setBackend('phatic-happy-fake');
+  app.ingestText('Dolphins are marine mammals. Dolphins live in the ocean. Dolphins hunt in pods.', 'Dolphins');
+  const pending = await app.ask('no read the question i sent');
+  assert.notEqual(pending.route, 'phatic', 'the offline floor vetoed the phatic misroute');
 });

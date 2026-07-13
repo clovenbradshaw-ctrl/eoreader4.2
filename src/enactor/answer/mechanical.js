@@ -287,6 +287,27 @@ export const answerSmalltalk = (question, { hasDoc = false } = {}) => {
   return null;
 };
 
+// The phatic door's OFFLINE NEGATIVE floor — the mirror of answerSmalltalk. Where that
+// asserts a clear greeting IS social, this asserts a clear REQUEST is NOT: a message that
+// gives an instruction (a task verb) or asks a content question is work, however the tiny
+// metacognition happened to describe it. The graded model door (phaticFromSpeech over the
+// 1B's discourse read) over-fires on a directive — "no read the question i sent" was read
+// social and answered with a confabulated "You sent a message saying 'Hello…'". This vetoes
+// that at the door. It only ever PREVENTS phatic, never forces it (answerSmalltalk still
+// owns the positive side), so a real greeting/thanks/goodbye/how-are-you — which carries
+// none of these markers — is untouched, and a false veto merely routes a social line into a
+// harmless "I didn't find that" instead of the confabulation a false accept produces.
+const DIRECTIVE = /\b(re-?read|read|research|answer|summar(?:ise|ize|y|ize)|explain|describe|tell|find|look\s+up|search|write|list|compare|analy[sz]e|define|show|translate|calculate|check|prove|cite|quote|continue|expand|revise|rewrite|paraphrase|fix|give|help)\b/i;
+const CONTENT_Q = /^\s*(what|who|whom|whose|where|when|why|how|which|can|could|does|do|did|is|are|was|were)\b/i;   // a question opener…
+const SOCIAL_Q  = /^\s*(how\s+are\s+you|how'?s\s+it\s+going|how\s+do\s+you\s+do|what'?s\s+up|what'?s\s+new|how\s+are\s+things|are\s+you\s+(there|around|ok|okay))\b/i;   // …except the social formulas
+
+export const looksDirective = (question) => {
+  const s = String(question || '').trim();
+  if (!s) return false;
+  if (SOCIAL_Q.test(s)) return false;                 // "how are you", "you around?" stay social
+  return DIRECTIVE.test(s) || CONTENT_Q.test(s);
+};
+
 const titleCase = (s) => s.replace(/\b\w/g, c => c.toUpperCase());
 
 export const tryMechanical = (doc, question) =>
