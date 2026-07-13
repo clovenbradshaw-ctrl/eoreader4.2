@@ -29,6 +29,11 @@
 //   vault       OPTIONAL encrypted, hash-chained media store (rooms/archive/vault) —
 //               encrypts each item, uploads only ciphertext to the homeserver media
 //               repo, records a tamper-evident block in an OPFS chain (docs/media-vault.md)
+//   db          the durable substrate (src/store) pulled from amino — "rooms are
+//               tables, events are rows, fold is the query". A passphrase vault seals
+//               each room's append-only event log as encrypted OPFS bytes (NOT
+//               IndexedDB); locked it is inert, unlocked it rehydrates + persists
+//               (docs/database-framework.md)
 
 import { createParser } from '../../perceiver/parse/index.js';
 import { readingAt } from '../../perceiver/reading.js';
@@ -54,6 +59,7 @@ import { createChatRoom } from '../chat/index.js';
 import { mountChat, mountChatLauncher } from '../chat/mount.js';
 import { createVault } from '../archive/vault.js';
 import { mountVaultLauncher } from '../archive/vault-mount.js';
+import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
 
@@ -119,6 +125,16 @@ const chat = {
 // a tamper-evident block (content address + mxc + key) in an OPFS-persisted chain.
 // Signed-out it is inert; `save`/`open`/`verify` lazily start it. See docs/media-vault.md.
 const vault = createVault({ matrix });
+
+// The durable substrate (src/store), pulled from amino (INTEGRATION-EOREADER4
+// Part B). A passphrase vault seals each room's append-only event log as
+// encrypted OPFS bytes — "rooms are tables, events are rows, fold is the query".
+// Constructing it is inert (no key, no OPFS touch); `db.unlock(user, passphrase)`
+// arms it, then `db.openLog(roomId)` hands back a durable log whose appends
+// persist encrypted and whose reopen rehydrates + folds identically. This is the
+// membrane the surface adopts to make readings survive the tab.
+const db = createDatabase();
+
 const archive = Object.freeze({
   deposit,
   checkpoints: () => checkpoints.list(),
@@ -169,6 +185,7 @@ window.EO = Object.freeze({
   matrix,
   chat,
   vault,
+  db,             // the durable substrate — encrypted, append-only, OPFS-backed rooms (src/store)
   archive,
   genome,
   versions,       // the version time-machine — list prior merged-PR builds, roll back to any

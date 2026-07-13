@@ -34,6 +34,9 @@ src/
     enact/  ground/  factcheck/  answer/
   model/         the leaf — backends (webllm, wllama, claude API, qwen-coders,
                  lmstudio/ollama local servers, echo), prompt, stream
+  store/         the durable substrate (pulled from amino) — vault · pack · backends ·
+                 event-store · persistent-log: a room's append-only log sealed as
+                 encrypted OPFS bytes; rehydrated on reopen (docs/database-framework.md)
   turn/          the fold of 18 stages (see src/turn/stage-faces.js)
     converse/      the conversation fold + dialogue state
   weave/         generation — long form, multi-prompt, over a moving fold
@@ -100,6 +103,7 @@ opens empty and fills as you record.
 | monologue steps | `rooms/audit` (`createAuditLog`) — live subscription, per-stage trail |
 | E2EE chat (optional) | `rooms/chat` — libolm (vendored) Olm/Megolm over the existing `matrix` login; keys pickled to **OPFS**; a floating launcher `boot.js` mounts (see [`docs/element-e2ee.md`](docs/element-e2ee.md)) |
 | encrypted media vault (optional) | `rooms/archive/vault` — save content encrypted (Web Crypto), store only ciphertext in the Matrix media repo, record each save in a tamper-evident **hash-linked block chain** on **OPFS**; `window.EO.vault` + a floating 🗄 panel (see [`docs/media-vault.md`](docs/media-vault.md)) |
+| durable substrate — the database (optional) | `store/` (pulled from amino) — a passphrase vault seals each **room** (table) as an encrypted, append-only **OPFS** byte file of the same nine-operator events the reader already emits; reopen rehydrates and folds identically. `window.EO.db` — `db.unlock(user, pass)` then `db.openLog(roomId)`. "Rooms are tables, events are rows, `fold` is the query" (see [`docs/database-framework.md`](docs/database-framework.md)) |
 
 ## Replay — watching something get read
 
