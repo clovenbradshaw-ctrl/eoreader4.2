@@ -1758,6 +1758,26 @@ class Component extends DCLogic {
         this._topicSeen = tid;
         if (this.state.webGraphFor) this.closeWebGraph();
         if (this.state.entitySel) this.setState({ entitySel: null });
+        // A DOCUMENT belongs to a topic too: a source opened in the viewer is scoped to the
+        // topic that recorded it. On a real switch, drop the source tabs that the new topic
+        // does not hold — and if one of them was in front, fall back to this topic's Chat, so
+        // clicking into a topic never leaves us reading the last topic's document. (A source
+        // shared with the new topic stays open where it is.)
+        const t = this._app.topic ? this._app.topic() : null;
+        const kept = new Set(t ? t.sourceSns : []);
+        const tabs = this.state.viewerTabs.filter((sn) => kept.has(sn));
+        if (tabs.length !== this.state.viewerTabs.length) {
+          const modes = { ...this.state.viewerModes };
+          const focus = { ...this.state.viewerFocus };
+          const pages = { ...this.state.viewerPages };
+          for (const sn of this.state.viewerTabs) if (!kept.has(sn)) {
+            delete modes[sn]; delete focus[sn]; delete pages[sn]; delete this._readerCache[sn];
+          }
+          const tab = tabs.includes(this.state.tab) ? this.state.tab
+            : (this.state.viewerTabs.includes(this.state.tab) ? 'chat' : this.state.tab);
+          if (tab !== this.state.tab) { this._readerFrame = null; this._nativeFrame = null; this._viewCache = null; }
+          this.setState({ viewerTabs: tabs, viewerModes: modes, viewerFocus: focus, viewerPages: pages, tab });
+        }
       }
     }
     if (kind === 'messages') { this._segCache = {}; }
