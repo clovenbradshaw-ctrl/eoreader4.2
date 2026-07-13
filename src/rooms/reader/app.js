@@ -35,6 +35,9 @@ import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
 import { readIngest } from '../../organs/ingest/read.js';
 import { emitEot } from '../../organs/ingest/eot-emit.js';
 import { scopeSources } from './scope-sources.js';
+import { createAudioStore } from './audio-store.js';
+import { projectTranscript } from './transcript-edit.js';
+import { sha256Hex } from '../archive/file-crypto.js';
 import { outstandingQuestion, answersAwaited } from '../../core/conversation-fold.js';
 import { senseGate } from '../../turn/sense.js';
 import { createMonitor } from '../../enactor/monitor.js';
@@ -694,7 +697,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     const src = {
       sn: id, reg: `S-${String(sn).padStart(4, '0')}`,
       docId: doc?.docId || `doc-${shaShort(hash)}`,
-      title: title || url || 'Untitled', url, domain: url ? domainOf(url) : (kind === 'file' ? 'local file' : 'pasted text'),
+      title: title || url || 'Untitled', url, domain: url ? domainOf(url) : (kind === 'file' || kind === 'audio' || kind === 'video' ? 'local file' : 'pasted text'),
       kind, retrieved: nowIso(), recordedAt: nowMs(), sha: hash, bytes: bytesOf(body),
       rights: rights || (url ? 'web — verify before reuse' : 'local'),
       // parentSn: a page reached by following a link inside another source's site is recorded as a
@@ -940,6 +943,120 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return addSource({ title, text: String(text), kind: 'text', doc });
   };
 
+  // ── audio: original bytes + non-destructive transcript edits/redactions ─────────────────────
+  // The original clip rests in OPFS (off the JSON snapshot), keyed by content hash, so an audio
+  // source can still be PLAYED and its redactions re-synthesised after a reload — the blob: URL the
+  // import made dies with the tab; these bytes do not. Signed into Matrix, a second ENCRYPTED copy
+  // is deposited to Matrix media via the vault (window.EO.vault, content-addressed + deduped).
+  const audioStore = createAudioStore();
+  const MEDIA_MAX_BYTES = 120 * 1024 * 1024;   // above this, keep the clip session-only (don't flood OPFS)
+  const vaultRef = () => { try { return (typeof window !== 'undefined' && window.EO && window.EO.vault) || null; } catch { return null; } };
+  const matrixSignedIn = () => { try { const m = (typeof window !== 'undefined' && window.EO && window.EO.matrix); return !!(m && m.identity && m.identity() && m.identity().token); } catch { return false; } };
+
+  // The compact acoustic reading that must survive a reload — the underscore artefacts
+  // (_wave/_analysis/_holons) are stripped by serialize(), so a small subset rides the snapshot:
+  // enough to redraw the waveform (peak amplitudes), tint signal vs noise (signal spans), and fill
+  // the stat pills. Built from the live artefacts at import/transcription time.
+  // Downsample the waveform peaks to a snapshot-friendly bar count (the media panel draws ≤200
+  // bars anyway), taking the loudest amp per bucket so the shape is preserved.
+  const compactPeaks = (wave, n = 200) => {
+    const len = wave.length;
+    if (!len) return [];
+    const N = Math.min(n, len), per = len / N, out = [];
+    for (let i = 0; i < N; i++) {
+      const a = Math.floor(i * per), b = Math.max(a + 1, Math.floor((i + 1) * per));
+      let amp = 0; for (let j = a; j < b && j < len; j++) amp = Math.max(amp, wave[j].amp || 0);
+      out.push({ amp: +amp.toFixed(4) });
+    }
+    return out;
+  };
+  const audioMetaOf = (src) => {
+    const an = src._analysis || null, h = src._holons || null, wave = src._wave || null;
+    if (!an && !h && !wave) return src.audioMeta || null;
+    const m = src.audioMeta || {};
+    return {
+      duration: (an && an.duration) || (h && h.root && h.root.dur) || m.duration || 0,
+      peaks: Array.isArray(wave) ? compactPeaks(wave, 200) : (m.peaks || null),
+      peakDb: an ? an.peakDb : (m.peakDb ?? null),
+      rmsDb: an ? an.rmsDb : (m.rmsDb ?? null),
+      dynamicRangeDb: an ? an.dynamicRangeDb : (m.dynamicRangeDb ?? null),
+      silencePct: an ? an.silencePct : (m.silencePct ?? null),
+      signalSeconds: h ? h.signalSeconds : (m.signalSeconds ?? null),
+      signalSpans: h && Array.isArray(h.signalSpans) ? h.signalSpans.map((sp) => ({ start: sp.start, end: sp.end })) : (m.signalSpans || null),
+    };
+  };
+
+  // Persist the original bytes for a freshly-imported audio/video source: OPFS locally, plus an
+  // encrypted copy on Matrix media when signed in. Best-effort and off the critical path — a
+  // failure just leaves the source playable for this session only.
+  const persistAudioBytes = async (src, file, mediaKind) => {
+    try {
+      if (!file || file.size > MEDIA_MAX_BYTES) {
+        if (file) logIt('skip', `${file.name} too large to keep offline (${Math.round(file.size / 1048576)} MB) — playable this session only`, src.reg);
+        return;
+      }
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const sha = await sha256Hex(bytes);
+      const mime = file.type || (mediaKind === 'video' ? 'video/mp4' : 'audio/mpeg');
+      src.audioRef = { opfs: sha, mime, size: bytes.length };
+      await audioStore.putBytes(sha, bytes);
+      persist();
+      if (matrixSignedIn() && vaultRef()) {
+        vaultRef().save(bytes, { name: file.name, mime }).then((r) => {
+          if (r && r.ok && r.block) { src.audioRef = { ...src.audioRef, mxc: r.block }; persist(); logIt('record', `Encrypted ${src.reg} to Matrix media`, src.reg); }
+        }).catch(() => { /* the cloud copy is best-effort */ });
+      }
+    } catch { /* persistence is best-effort; the session copy still plays */ }
+  };
+
+  // A playable URL for an audio source: the live blob if this session imported it, else rehydrated
+  // from the persisted bytes (OPFS, or the encrypted Matrix copy) so playback + redaction work
+  // after a reload. Cached back onto _media. Null when the bytes are gone (too large, or evicted).
+  const playableUrl = async (src) => {
+    if (!src) return null;
+    if (src._media && src._media.url) return src._media.url;
+    const bytes = await audioBytes(src);
+    if (!bytes) return null;
+    try {
+      const ref = src.audioRef || {};
+      const url = URL.createObjectURL(new Blob([bytes], { type: ref.mime || 'audio/mpeg' }));
+      src._media = { url, kind: ref.mime || 'audio', isVideo: !!(ref.mime && ref.mime.startsWith('video/')) };
+      emit('sources');
+      return url;
+    } catch { return null; }
+  };
+
+  // The raw persisted bytes for a source (for the redaction re-synthesis in the surface). Null when
+  // nothing was kept. Prefers OPFS, falls back to the encrypted Matrix copy.
+  const audioBytes = async (src) => {
+    const ref = src && src.audioRef;
+    if (!ref) return null;
+    try { if (ref.opfs) { const b = await audioStore.getBytes(ref.opfs); if (b) return b; } } catch { /* fall through */ }
+    if (ref.mxc && vaultRef()) { try { const r = await vaultRef().open(ref.mxc); if (r && r.ok) return r.bytes; } catch { /* offline */ } }
+    return null;
+  };
+
+  // The chokepoint for a non-destructive transcript edit or redaction: the event lands on the
+  // source's append-only `audioEvents` log, and the plain-text reading is RECOMPUTED from the
+  // baseline words + the log (transcript-edit.projectTranscript) so chat, grounding and EoT all read
+  // the edited/redacted transcript. Nothing is overwritten — the original rides in the event.
+  const recordAudioEvent = (src, evt) => {
+    if (!src || !evt || !evt.op) return null;
+    if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
+    const ev = { ...evt, ts: evt.ts || nowMs(), id: evt.id || `${evt.op}-${src.audioEvents.length}-${nowMs()}` };
+    src.audioEvents.push(ev);
+    const proj = projectTranscript(src.words || [], src.audioEvents);
+    src.text = proj.text;
+    src.bytes = bytesOf(src.text);
+    src.sha = webContentHash(src.text);
+    src._doc = null; src._eot = null;
+    deepReaders.delete(src.docId);
+    try { src.entCount = projectGraph(docFor(src).log).entities?.size || 0; } catch { /* keep prior */ }
+    logIt('record', `${ev.op === 'REDACT' ? 'Redacted' : ev.op === 'RETRACT' ? 'Reverted' : 'Edited'} ${src.reg} transcript`, src.reg);
+    persist(); emit('sources');
+    return ev;
+  };
+
   // Fold a landed transcript back into an audio source that was already recorded from its
   // acoustic reading: the words become the source's text, the word-level organ doc (with its
   // timings, witness and carried-forward waveform/holons) becomes its reading, and the derived
@@ -953,6 +1070,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     src._doc = doc;
     src._eot = null;
     deepReaders.delete(src.docId);
+    // The interactive transcript's persisted substrate: the heard words with their timings become
+    // the immutable baseline, and an empty append-only edit log. Both ride the snapshot (small
+    // plain JSON), so the Listen surface — click-to-seek, karaoke, edits, redactions — survives a
+    // reload without the session-only `_doc`. audioMeta keeps the waveform + stats drawable too.
+    src.words = (doc.tokens || []).map((t) => ({ text: t.text, start: t.start, end: t.end }));
+    if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
+    src.audioMeta = audioMetaOf(src) || src.audioMeta || null;
     try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { /* keep prior */ }
     if (coverage) src.coverage = coverage;
     if (src._asr) src._asr = { ...src._asr, state: 'done', pct: 100, partial: '' };
@@ -987,9 +1111,16 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
           src._asr = got.meta.transcribable
             ? { state: 'pending', pct: 0, partial: '' }
             : { state: 'skipped', reason: 'no signal above the noise floor', pct: 0, partial: '' };
+          // The waveform + stat reading, in a compact persisted form so the Listen surface still
+          // draws them after a reload (the underscore artefacts above are stripped from the snapshot).
+          src.audioMeta = audioMetaOf(src);
+          if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
           const cov = got.meta.coverage;
           if (cov) { src.coverage = cov; logIt(cov.complete ? 'record' : 'skip', `Coverage — ${cov.transcribable ? '100% of ' + file.name + ' read as sound; transcribing signal' : (cov.dropped || []).join('; ')}`, src.reg); }
           persist(); emit('sources');
+          // Keep the original bytes so playback + redaction survive a reload — OPFS locally, and an
+          // encrypted copy on Matrix media when signed in. Background; never blocks the reveal.
+          persistAudioBytes(src, file, got.meta.mediaKind);
           if (typeof fileOpts.onSource === 'function') { try { fileOpts.onSource(src); } catch { /* reveal is best-effort */ } }
 
           if (got.meta.transcribe) {
@@ -2838,5 +2969,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }),
     // the raw doc, for anything the surface wants to inspect
     docFor: (snId) => docFor(sourceBySn(snId)),
+    // audio: a playable URL (rehydrated from OPFS / the encrypted Matrix copy after reload), the raw
+    // persisted bytes (for redaction re-synthesis), and the non-destructive edit/redaction chokepoint.
+    playableUrl, audioBytes, recordAudioEvent,
   });
 };

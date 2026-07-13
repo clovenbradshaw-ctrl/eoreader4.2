@@ -44,6 +44,8 @@ import { mountTieredGraph } from './tiered-graph.js';
 import * as readerRender from './reader-render.js';
 import * as reveal from './reveal.js';
 import { firstSurfaceKind } from './first-surface.js';
+import { projectTranscript, wordsToText } from './transcript-edit.js';
+import { encodeWav, applyRedactions } from './audio-dsp.js';
 import { createMatrixSession } from '../archive/matrix.js';
 import { depositToArchive, missingConsent, archiveMediatype, REQUIRED_CONSENT, KINDS, ARCHIVE_CASES_WEBHOOK } from '../archive/deposit.js';
 import { createCheckpointLog, checkpointId } from '../archive/checkpoints.js';
@@ -161,6 +163,8 @@ window.EO = Object.freeze({
   readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   reveal,   // the chat typewriter's pace (bounded catch-up) — pure, so the freeze regression is CI-tested
   firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
+  projectTranscript, wordsToText,   // the interactive transcript fold (baseline + edits/redactions → live reading)
+  encodeWav, applyRedactions,       // audio DSP for the Listen surface's redaction re-synthesis + WAV export
 
   matrix,
   chat,
