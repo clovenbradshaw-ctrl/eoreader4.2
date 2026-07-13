@@ -7,6 +7,10 @@
 export { registerBackend, availableBackends, createModel, describeModel } from './interface.js';
 // The remote-talk privacy membrane — redact real entities before a hosted talker sees them.
 export { wrapRedacting } from './redact-remote.js';
+// The blind-structure loop — reason over the EOT SHAPE of a referent, restore it, then gate the
+// return on propositional continuity (the meaning-withheld membrane, ideally for code generation).
+export { generateOverStructure, continuityGate, propositionsOf, blindPrompt, blindCharge,
+         makeStreamRestorer } from './blind-structure.js';
 export { streamPhrase, surfaceTokens, emitSurface } from './stream.js';
 // The one decode organ: a guarded phrase that returns the caller's fallback on any fault.
 export { speak } from './speak.js';
