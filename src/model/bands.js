@@ -180,9 +180,9 @@ const META_THREAD_FRAME = 'The conversation so far — what you two have already
   '(their question below is ABOUT this conversation, so treat these prior topics as its ' +
   'subject, not as background to skip):';
 
-const NOTES_HEADER = 'Earlier in this reading:';
+const NOTES_HEADER = 'Earlier in this conversation:';
 const THREAD_FIREWALL = '(Those came before — for context only; answer just their latest question below.)';
-const PAST_TURNS_HEADER = 'They had asked you:';
+const PAST_TURNS_HEADER = 'The conversation so far:';
 const SETTLED_FRAME = "Already settled with them — they know these; build on them, don't restate them:";
 
 const EXEMPLAR_FRAME = 'For the SHAPE only — here is the kind of answer this question wants (it is ' +
@@ -319,24 +319,27 @@ export const GROUNDED_BANDS = Object.freeze([
     },
     prose: [META_THREAD_FRAME],
   },
-  // The prior turns as CONTEXT, not a checklist: a small talker fed bare "You asked: …"
-  // lines answers every one of them, so the block names them as already-handled and
-  // points the talker at the single live question below. Field: settled ground.
+  // The older conversation as a SURFED recap — the movers of turns past the verbatim
+  // window (#i You: / #i Me:, converse/history.js), both sides. Rides ABOVE the recent
+  // verbatim window so the transcript reads oldest → newest. The firewall is deferred to
+  // the recent-window band below when it follows, so the "answer just the latest" close
+  // lands once, after the whole transcript. Field: the conversation's settled ground.
   {
     key: 'thread-notes', terrain: 'Field', role: 'user',
     when: (v) => !v.metaConv && !!v.conversation.notes,
-    render: (v) => `${NOTES_HEADER}\n${v.conversation.notes}\n${THREAD_FIREWALL}`,
+    render: (v) => `${NOTES_HEADER}\n${v.conversation.notes}` +
+      (v.conversation.pastTurns?.length ? '' : `\n${THREAD_FIREWALL}`),
     prose: [NOTES_HEADER, THREAD_FIREWALL],
   },
+  // The recent turns VERBATIM, both sides (You: / Me:) — the actual back-and-forth up to
+  // the session fold's token budget. Named as context and closed with the firewall so the
+  // talker reasons over the dialogue but still answers the single live question below,
+  // rather than re-answering every prior turn. Field: settled ground.
   {
     key: 'thread-past', terrain: 'Field', role: 'user',
     when: (v) => !v.metaConv && !!v.conversation.pastTurns?.length,
-    render: (v) => `${PAST_TURNS_HEADER}\n${v.conversation.pastTurns.join('\n')}` +
-      // When `notes` rode above it already carried the firewall; a pastTurns-only
-      // thread (the reader chat) gets it here, so the prior turns read as already-
-      // handled context and not a checklist the talker re-answers.
-      (v.conversation.notes ? '' : `\n${THREAD_FIREWALL}`),
-    prose: [PAST_TURNS_HEADER],
+    render: (v) => `${PAST_TURNS_HEADER}\n${v.conversation.pastTurns.join('\n')}\n${THREAD_FIREWALL}`,
+    prose: [PAST_TURNS_HEADER, THREAD_FIREWALL],
   },
   // The COMMON-GROUND cue (converse/dialogue-state.js): the facts already settled
   // between you and the user, named as already-held so the talker builds on them

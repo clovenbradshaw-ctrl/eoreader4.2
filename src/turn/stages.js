@@ -171,9 +171,9 @@ export const stages = {
     // over the per-task default so "write me an essay …" can develop past the pointed-answer cap.
     const reg = ctx.maxTokens ? { ...taskReg, maxTokens: ctx.maxTokens } : taskReg;
     // The META-CONVERSATIONAL register (intent.js): a question ABOUT the conversation.
-    // Orthogonal to the route and task — it rides alongside, opening the assistant side of
-    // the session fold to the grounded prompt (the `prompt` stage reads it). A chat turn
-    // already carries the full both-role history, so this only changes the grounded path.
+    // Orthogonal to the route and task — it rides alongside. The grounded prompt now feeds
+    // the full both-role session fold on every turn; this flag only reframes it (subject to
+    // reason over vs. context to answer the latest question against — the `prompt` stage).
     const meta = isMetaConversational(ctx.question);
     const grounding = ctx.grounding || 'auto';
     if (grounding === 'free')     return { ...ctx, route: 'chat',     ...reg, meta };
@@ -751,11 +751,11 @@ export const stages = {
         .map(s => `- ${s.said} (${mark(s)})`);
       if (lines.length) reasoningBlock = `Reaching past the lines, your reading also drew these inferences:\n${lines.join('\n')}`;
     }
-    // META-CONVERSATIONAL: the question is ABOUT the conversation (intent.js). Open the
-    // FULL session fold to the grounded prompt — the talker's prior answers included —
-    // because here the prior topics are the question's SUBJECT, not a premise it might
-    // anchor a wrong fact to (the asymmetry the history-poisoning firewall misses). Every
-    // other grounded turn keeps the user-only thread, withholding the poisoning channel.
+    // META-CONVERSATIONAL: the question is ABOUT the conversation (intent.js). Both paths
+    // now feed the full both-role transcript (groundedConversation / metaConversation read
+    // the same session fold); the flag only changes the FRAMING — a meta turn frames the
+    // prior turns as the question's SUBJECT to reason over, an ordinary grounded turn frames
+    // them as context to answer the latest question against (the thread bands' firewall).
     const metaTurn = grounded && !!ctx.meta;
     // The grounded frame's arguments, named once: buildGroundedMessages projects the
     // band catalog over them, and the !EVA prompt checkpoint below judges the SAME
@@ -1549,30 +1549,25 @@ const drainLens = (ctx) => {
   return all.length ? all : null;
 };
 
-// The conversation the GROUNDED prompt carries: the user's OWN recent turns — the thread
-// of what was ASKED — and never the talker's prior answers. Recent user turns ride from
-// the session fold's verbatim window; older ones from its surfed `#i You:` movers. This
-// restores follow-up continuity without re-feeding the model the replies it anchors on
-// (the poisoning channel). Empty (→ no slot) when the user hasn't asked anything yet.
+// The conversation the GROUNDED prompt carries: the actual back-and-forth, both sides.
+// The session fold (converse/history.js) already built the two registers a document gets
+// — the recent turns VERBATIM (`pastTurns`, You:/Me:) and a surfed recap of older movers
+// (`notes`, #i You:/#i Me:), bounded by the fold's own token budget — so the talker reads
+// the real dialogue up to that budget, not a user-only checklist. The one thing withheld
+// is an UNBOUND prior reply (a claim tied to no source): foldConversation drops it before
+// the window is built, so a claim that never grounded cannot become a follow-up's premise.
+// `settled` still rides beside the transcript. Empty (→ no slot) before anything was said.
 const groundedConversation = (ctx) => {
-  const recentUser = (ctx.recentMessages || [])
-    .filter(m => m && m.role === 'user' && m.content).map(m => m.content);
-  const olderUser = String(ctx.conversation?.notes || '')
-    .split('\n').filter(l => /^#\d+\s*You:/.test(l)).map(l => l.replace(/^#\d+\s*You:\s*/, '').trim());
-  const thread = [...olderUser, ...recentUser].filter(Boolean);
+  const notes     = String(ctx.conversation?.notes || '').trim();
+  const pastTurns = (ctx.conversation?.pastTurns || []).filter(Boolean);
   // The SETTLED ground — the facts already given, read off the dialogue line (the
   // Interpretation column's firm DEFs, converse/dialogue-state.js). Named to the talker as
   // already-held so it builds on them instead of restating "the mayor is X" every turn.
-  // Only the settled QUESTION rides — never the answer (the firewall stays closed).
   const settled = groundedThread(ctx.history || [], ctx.question).settled;
-  if (!thread.length && !settled.length) return {};
+  if (!notes && !pastTurns.length && !settled.length) return {};
   const out = {};
-  // Carry only the most recent few. The full thread, fed verbatim as "You asked: …"
-  // lines, reads to a small talker as a checklist of open tasks — the audit's t5
-  // answered every prior question in a bulleted list and overran its token budget.
-  // The recent turns are what continuity ("now?", "prove it") actually needs; the
-  // tail only widens the leak surface.
-  if (thread.length) out.notes = thread.slice(-3).map(q => `You asked: ${q}`).join('\n');
+  if (notes) out.notes = notes;
+  if (pastTurns.length) out.pastTurns = pastTurns;
   if (settled.length) out.settled = settled;
   return out;
 };
