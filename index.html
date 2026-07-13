@@ -2611,11 +2611,17 @@ class Component extends DCLogic {
     // bubble is created — no double-pending, no local decode-gate overlap. stop() rejects the
     // turn's guard.race synchronously, so a single yield is enough. On an idle composer this is the
     // plain ask() path, byte-identical.
+    // The Ask tab is RECORD-ONLY — it answers only from what you have ingested, names where it
+    // looked, and says so when the record is silent. It carries no web control (the web-mode chip
+    // lives on Chat), so an Ask turn is pinned to 'off' and never reaches the net. Chat keeps the
+    // global web mode and its toggle. Captured at send time so switching tabs mid-turn can't change
+    // what this turn was allowed to do.
+    const opts = this.state.tab === 'ask' ? { web: 'off' } : {};
     if (this._generating()) {
       this._app.stop();
-      setTimeout(() => { this._app.ask(q).catch(() => {}); }, 0);
+      setTimeout(() => { this._app.ask(q, opts).catch(() => {}); }, 0);
     } else {
-      this._app.ask(q).catch(() => {});
+      this._app.ask(q, opts).catch(() => {});
     }
   }
   _generating() {
