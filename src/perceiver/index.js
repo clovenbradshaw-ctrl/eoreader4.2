@@ -19,7 +19,7 @@
 export {
   existenceSurface, structureSurface, figureSurface, namedReferents,
   significanceSurface, consciousness, serializeNotes, serializeEOT,
-  composeGroupedNote, NOTE_GROUPS, plainRel,
+  composeGroupedNote, NOTE_GROUPS, plainRel, rankProperties,
 } from './surfaces.js';
 export { readingAt } from './reading.js';
 export { significanceSpine } from './spine.js';

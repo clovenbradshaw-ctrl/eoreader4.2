@@ -1211,10 +1211,24 @@ table{border-collapse:collapse;width:100%}
 
               <sc-if value="{{ prof.hasDefs }}">
                 <div style="margin-top:16px">
-                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES</div>
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES <span style="color:#C0C0C8;font-weight:600">· ranked by what the record witnesses</span></div>
                   <sc-for list="{{ prof.defs }}" as="d">
-                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32;border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">{{ d.value }}</div>
+                    <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ d.value }}</div>
+                      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ d.prov }} · {{ d.conf }}</span>
+                        <sc-for list="{{ d.cites }}" as="w">
+                          <button onClick="{{ w.jump }}" title="Jump to this passage in the source" style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#0F6E56;background:#E1F5EE;border-radius:5px;padding:1px 6px" style-hover="background:#D2EFE4">{{ w.label }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
                   </sc-for>
+                  <sc-if value="{{ prof.hasDag }}">
+                    <div style="margin-top:6px;border:1px solid #EFEFF3;border-radius:9px;padding:10px 8px 6px;background:#fff">
+                      <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 4px">PROVENANCE</div>
+                      <div ref="{{ prof.setDagEl }}"></div>
+                    </div>
+                  </sc-if>
                 </div>
               </sc-if>
 
@@ -1502,10 +1516,24 @@ table{border-collapse:collapse;width:100%}
 
                 <sc-if value="{{ webProf.hasDefs }}">
                   <div style="margin-top:15px">
-                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES</div>
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES <span style="color:#C0C0C8;font-weight:600">· ranked</span></div>
                     <sc-for list="{{ webProf.defs }}" as="d">
-                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32;border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">{{ d.value }}</div>
+                      <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ d.value }}</div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px">
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ d.prov }} · {{ d.conf }}</span>
+                          <sc-for list="{{ d.cites }}" as="w">
+                            <button onClick="{{ w.jump }}" title="Jump to this passage in the source" style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#0F6E56;background:#E1F5EE;border-radius:5px;padding:1px 6px" style-hover="background:#D2EFE4">{{ w.label }}</button>
+                          </sc-for>
+                        </div>
+                      </div>
                     </sc-for>
+                    <sc-if value="{{ webProf.hasDag }}">
+                      <div style="margin-top:6px;border:1px solid #EFEFF3;border-radius:9px;padding:10px 8px 6px;background:#fff">
+                        <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 4px">PROVENANCE</div>
+                        <div ref="{{ webProf.setDagEl }}"></div>
+                      </div>
+                    </sc-if>
                   </div>
                 </sc-if>
 
@@ -2529,7 +2557,33 @@ class Component extends DCLogic {
       wikiAbsent: !!(wk && !wk.busy && !wkHit),
       srcReg: src.reg || '', srcTitle: src.title || '', openSource: () => h.openSource(p.sn),
       openWeb: h.openWeb || (() => {}),
-      hasDefs: p.defs.length > 0, defs: p.defs.slice(0, 6),
+      // STANDING PROPERTIES — ranked (app.rankProperties), each carrying its provenance:
+      // how many passages witness it, the source it came from, and clickable ¶ chips that
+      // jump straight to the witnessing sentence. The value alone is no longer the whole row.
+      hasDefs: p.defs.length > 0,
+      defs: p.defs.slice(0, 8).map((d) => {
+        const cites = (d.witnesses || []).slice(0, 8).map((w) => ({
+          label: '¶' + w.idx, jump: () => h.jump(p.sn, w.text),
+        }));
+        const conf = Math.max(0, Math.min(100, Math.round((d.confidence || 0) * 100)));
+        return {
+          value: d.value,
+          prov: (d.count > 1 ? d.count + ' passages' : '1 passage') + (src.reg ? ' · ' + src.reg : ''),
+          conf: conf + '% read', hasCites: cites.length > 0, cites,
+        };
+      }),
+      // The provenance DAG over those properties (SOURCE → PASSAGE → PROPERTY). Mounted
+      // imperatively; the key changes only when the entity or its property set does, so a
+      // re-render never redraws it in place. See _mountPropDag / _renderPropDag.
+      hasDag: p.defs.length > 0,
+      setDagEl: (el) => this._mountPropDag(el, {
+        source: { title: src.title || p.sourceTitle || 'this source', reg: src.reg || '' },
+        props: p.defs.slice(0, 8).map((d) => ({
+          value: d.value, count: d.count, score: d.score,
+          witnesses: (d.witnesses || []).map((w) => ({ idx: w.idx, text: w.text })),
+        })),
+        onJump: (text) => h.jump(p.sn, text),
+      }, docId + '#' + entId + '#' + p.defs.length),
       hasRelations: p.relations.length > 0,
       // CONNECTED ENTITIES is a list of the DISTINCT neighbours the focus bonds to —
       // one row per entity, not one per edge. figureSurface yields a separate relation
@@ -2557,6 +2611,93 @@ class Component extends DCLogic {
       hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
       mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text) })),
     };
+  }
+  // ── the property provenance DAG ─────────────────────────────────────────────
+  // A self-contained little DAG that answers "where does this property come from?":
+  // SOURCE → the PASSAGES that assert each property → the PROPERTIES themselves, ranked.
+  // It makes a junk property visible for what it is — a lone edge from one passage — and
+  // shows a well-witnessed one fanning in from several. Pure DOM/SVG, no dependency on the
+  // full graph overlay; it lives right under the properties list the user is reading.
+  _mountPropDag(el, data, key) {
+    if (!el) return;
+    if (el.__dagKey === key) return;   // same entity + property set across re-renders — already drawn
+    el.__dagKey = key;
+    try { this._renderPropDag(el, data); }
+    catch (e) { el.innerHTML = ''; el.__dagKey = null; }
+  }
+  _renderPropDag(el, data) {
+    el.innerHTML = '';
+    const props = (data.props || []).filter((p) => p && p.value);
+    if (!props.length) return;
+    const NS = 'http://www.w3.org/2000/svg';
+    const sv = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+    const clip = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
+    // Tier palette shared with the tiered graph: existence (source) · structure (passage) · significance (property).
+    const C = { src: '#7F77DD', pass: '#1D9E75', prop: '#EF9F27' };
+    // One node per DISTINCT witnessing passage, in first-seen order (top to bottom).
+    const passIdx = [];
+    for (const p of props) for (const w of (p.witnesses || [])) if (!passIdx.includes(w.idx)) passIdx.push(w.idx);
+    const passText = {}; for (const p of props) for (const w of (p.witnesses || [])) passText[w.idx] = w.text;
+    const VW = 320, PAD = 12, HEAD = 22;
+    const rowH = 30, propTop = HEAD + 8;
+    const rows = props.length;
+    const H = propTop + rows * rowH + PAD;
+    const svg = sv('svg', { viewBox: `0 0 ${VW} ${H}`, width: '100%', height: H, style: 'display:block;overflow:visible' });
+    // columns
+    const xSrc = 22, xPass = 92, xPropL = 132, xPropR = VW - 6;
+    const propY = (i) => propTop + i * rowH + rowH / 2;
+    // passage y = barycentre of the properties it witnesses, then spread to avoid overlap
+    const passOf = {};
+    passIdx.forEach((idx) => {
+      const ys = [];
+      props.forEach((p, i) => { if ((p.witnesses || []).some((w) => w.idx === idx)) ys.push(propY(i)); });
+      passOf[idx] = ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : propTop;
+    });
+    const ordered = passIdx.slice().sort((a, b) => passOf[a] - passOf[b]);
+    for (let i = 1; i < ordered.length; i++) {
+      const min = passOf[ordered[i - 1]] + 22;
+      if (passOf[ordered[i]] < min) passOf[ordered[i]] = min;
+    }
+    const ySrc = H / 2;
+    // headers
+    const head = (x, t, c, anchor) => { const e = sv('text', { x, y: 13, 'font-size': 8.5, 'font-weight': 700, 'letter-spacing': '.06em', fill: c, 'text-anchor': anchor }); e.textContent = t; svg.appendChild(e); };
+    head(xSrc, 'SOURCE', C.src, 'middle');
+    head(xPass, 'PASSAGE', C.pass, 'middle');
+    head(xPropL, 'PROPERTY', C.prop, 'start');
+    // edges: source → passage
+    const edge = (x1, y1, x2, y2, c) => {
+      const mx = (x1 + x2) / 2;
+      svg.appendChild(sv('path', { d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`, fill: 'none', stroke: c, 'stroke-width': 1.3, 'stroke-opacity': 0.5 }));
+    };
+    ordered.forEach((idx) => edge(xSrc + 8, ySrc, xPass - 8, passOf[idx], C.src));
+    // edges: passage → property (each witness)
+    props.forEach((p, i) => (p.witnesses || []).forEach((w) => edge(xPass + 8, passOf[w.idx], xPropL - 2, propY(i), C.pass)));
+    // source node
+    const gSrc = sv('g'); gSrc.appendChild(sv('circle', { cx: xSrc, cy: ySrc, r: 9, fill: C.src }));
+    const sl = sv('text', { x: xSrc, y: ySrc + 20, 'font-size': 8, fill: '#7A7A85', 'text-anchor': 'middle' }); sl.textContent = clip(data.source && (data.source.reg || data.source.title), 10); gSrc.appendChild(sl);
+    const stitle = sv('title'); stitle.textContent = (data.source && data.source.title) || 'source'; gSrc.appendChild(stitle);
+    svg.appendChild(gSrc);
+    // passage nodes
+    ordered.forEach((idx) => {
+      const y = passOf[idx];
+      const g = sv('g', { style: 'cursor:pointer' });
+      g.appendChild(sv('circle', { cx: xPass, cy: y, r: 8, fill: '#fff', stroke: C.pass, 'stroke-width': 1.6 }));
+      const t = sv('text', { x: xPass, y: y + 2.6, 'font-size': 7, 'font-weight': 700, fill: C.pass, 'text-anchor': 'middle' }); t.textContent = '¶' + idx; g.appendChild(t);
+      const tt = sv('title'); tt.textContent = passText[idx] || ('passage ' + idx); g.appendChild(tt);
+      if (data.onJump) g.addEventListener('click', () => data.onJump(passText[idx] || ''));
+      svg.appendChild(g);
+    });
+    // property nodes (ranked rows)
+    props.forEach((p, i) => {
+      const y = propY(i), h = rowH - 8;
+      const g = sv('g');
+      g.appendChild(sv('rect', { x: xPropL, y: y - h / 2, width: xPropR - xPropL, height: h, rx: 6, fill: i === 0 ? '#FCF3E2' : '#FBFBFD', stroke: i === 0 ? C.prop : '#EAEAEF', 'stroke-width': i === 0 ? 1.4 : 1 }));
+      const t = sv('text', { x: xPropL + 8, y: y + 3, 'font-size': 9.5, fill: '#2A2A32', 'font-family': "'Newsreader',Georgia,serif" }); t.textContent = clip(p.value, 30); g.appendChild(t);
+      const badge = sv('text', { x: xPropR - 6, y: y + 3, 'font-size': 7.5, fill: '#A0A0AA', 'text-anchor': 'end' }); badge.textContent = '×' + (p.count || 1); g.appendChild(badge);
+      const tt = sv('title'); tt.textContent = p.value; g.appendChild(tt);
+      svg.appendChild(g);
+    });
+    el.appendChild(svg);
   }
   toggleEntityMode() {
     const on = !this.state.entityMode; this._setPref('eo_entmode', on); this._segCache = {}; this._viewCache = null;

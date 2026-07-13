@@ -39,7 +39,7 @@ import { senseGate } from '../../turn/sense.js';
 import { createMonitor } from '../../enactor/monitor.js';
 import { createCommitmentLedger } from '../../enactor/ledger.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
-import { figureSurface } from '../../perceiver/index.js';
+import { figureSurface, rankProperties } from '../../perceiver/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
@@ -2186,12 +2186,21 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
     for (const e of doc.log.snapshot()) {
       if (e.op === 'INS' && rep(e.id) === rep(entId) && e.sentIdx != null) idxs.add(e.sentIdx);
     }
+    const sentAt = (i) => String(doc.sentences?.[i] || '').trim();
     const mentions = [...idxs].sort((a, b) => a - b).slice(0, 40)
-      .map((i) => ({ idx: i, text: String(doc.sentences?.[i] || '').trim() }))
+      .map((i) => ({ idx: i, text: sentAt(i) }))
       .filter((m2) => m2.text);
+    // Standing properties, ranked and deduped with their provenance (§ rankProperties):
+    // what the record most strongly and specifically witnesses leads, and each property
+    // carries the passages that assert it — its trail, and the DAG's edges.
+    const defs = rankProperties(fs.defs).map((d) => ({
+      value: d.value, idx: d.idx, count: d.count,
+      score: d.score, confidence: d.confidence, polarity: d.polarity, modality: d.modality,
+      witnesses: d.witnesses.map((i) => ({ idx: i, text: sentAt(i) })).filter((w) => w.text),
+    }));
     return {
       label, docId, sn: src.sn, sourceTitle: src.title,
-      defs: fs.defs.map((d) => ({ value: d.value, idx: d.idx })),
+      defs,
       relations: fs.relations.map((r) => ({
         srcId: r.src.id, srcLabel: r.src.label, tgtId: r.tgt.id, tgtLabel: r.tgt.label,
         via: r.via, op: r.op, idx: r.idx,

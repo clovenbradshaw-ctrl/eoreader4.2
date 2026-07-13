@@ -56,7 +56,8 @@ export const structureSurface = (doc, idxs) => {
   const defs = [];
   for (const e of events) {
     if (window.has(e.sentIdx) && e.op === 'DEF' && e.key === 'predicate') {
-      defs.push({ ...name(e.id), value: e.value, idx: e.sentIdx });
+      defs.push({ ...name(e.id), value: e.value, idx: e.sentIdx,
+        confidence: e.confidence, polarity: e.polarity || '+', modality: e.modality || 'realis' });
     }
   }
   const rankedFigures = [...figures.entries()]
@@ -144,14 +145,95 @@ export const figureSurface = (doc, focusIds, { max = FOCUS_MAX_BONDS } = {}) => 
     id, label: labelOf(id), count: graph.entities.get(id)?.sightings || 0,
   }));
 
-  // Standing properties (DEF predicates) of the focus referents only.
+  // Standing properties (DEF predicates) of the focus referents only. Each def
+  // carries the provenance signals the record already stamped on the event — the
+  // construction `confidence`, the `polarity`, the `modality`, and the witnessing
+  // sentence `idx` — so a consumer can rank and trace them (§ rankProperties) rather
+  // than reading them in the raw order the log happened to append.
   const defs = [];
   for (const e of snapshot(doc)) {
     if (e.op === 'DEF' && e.key === 'predicate' && focus.has(rep(e.id))) {
-      defs.push({ id: rep(e.id), label: labelOf(rep(e.id)), value: e.value, idx: e.sentIdx });
+      defs.push({ id: rep(e.id), label: labelOf(rep(e.id)), value: e.value, idx: e.sentIdx,
+        confidence: e.confidence, polarity: e.polarity || '+', modality: e.modality || 'realis' });
     }
   }
   return { figures, relations, defs, merges: [], splits: [] };
+};
+
+// Generic single-word predicates that make a WEAK standing property on their own.
+// A copular tail like "still alive" is three of these strung together — grammatical,
+// but it identifies nothing about the referent the way "a 2001 documentary film" does.
+// They are demoted, never dropped (total capture, §1): a property that is ALL generic
+// words simply ranks below one that carries a specific noun, a date, or a proper name.
+const GENERIC_PREDICATE = new Set([
+  'alive', 'dead', 'still', 'here', 'there', 'gone', 'back', 'real', 'true', 'false',
+  'one', 'same', 'other', 'such', 'so', 'own', 'able', 'sure', 'done', 'known',
+  'big', 'small', 'good', 'bad', 'new', 'old', 'young', 'many', 'more', 'less',
+  'a', 'an', 'the', 'his', 'her', 'its', 'their', 'this', 'that', 'these', 'those',
+]);
+
+const normProperty = (v) => String(v || '')
+  .toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, ' ').replace(/\s+/g, ' ').trim();
+
+// Rank the standing properties of a referent — the fix for "the #1 property of Elvis is
+// 'still alive'". The raw defs arrive in log-append order, so whichever DEF the parser
+// emitted first leads, however generic. This scores each DISTINCT property on signals the
+// record already carries, so what stands is what the record most strongly and specifically
+// witnesses, and folds the duplicate witnesses of one property into a provenance trail:
+//
+//   · corroboration — a property witnessed across several passages stands more than a
+//     one-off; distinct witnessing sentences fold into one row (log2 growth, so the tenth
+//     witness adds less than the second);
+//   · confidence    — the construction grade the parser stamped (a main clause / copula
+//     reads high, a nominalized or coordinated tail low);
+//   · specificity   — a bare generic word ("alive") identifies little; a specific noun, a
+//     number/date, or a longer phrase identifies the referent — the lever that sinks
+//     "still alive" beneath "a 75-minute 2001 documentary film";
+//   · modality/polarity — an irrealis, hedged, or negated predicate is less STANDING than
+//     a plain realis assertion.
+//
+// Nothing is discarded (a value that normalises to empty is the only drop); the weak
+// properties fall to the bottom, they do not vanish. Returns the same {id,label,value,idx}
+// each consumer already reads, plus `witnesses` (every sentence idx that asserts it),
+// `count`, `score`, and the carried `confidence/polarity/modality`.
+export const rankProperties = (defs = []) => {
+  const byNorm = new Map();
+  for (const d of (defs || [])) {
+    const value = String(d?.value || '').trim();
+    const norm = normProperty(value);
+    if (!norm) continue;
+    let g = byNorm.get(norm);
+    if (!g) { g = { value, norm, idxs: new Set(), conf: 0, polarity: '+', modality: 'realis', id: d.id, label: d.label }; byNorm.set(norm, g); }
+    if (d.idx != null) g.idxs.add(d.idx);
+    const c = Number.isFinite(d.confidence) ? d.confidence : 0.5;
+    if (c > g.conf) { g.conf = c; g.value = value; }   // the highest-confidence surface form leads the row
+    if (d.polarity === '−') g.polarity = '−';
+    if (d.modality && d.modality !== 'realis') g.modality = d.modality;
+  }
+  const scored = [...byNorm.values()].map((g) => {
+    const witnesses = [...g.idxs].sort((a, b) => a - b);
+    const corroboration = witnesses.length || 1;
+    const words = g.norm.split(' ').filter(Boolean);
+    let specificity = 1;
+    if (words.length <= 1) specificity *= 0.5;
+    if (words.every((w) => GENERIC_PREDICATE.has(w))) specificity *= 0.35;   // "still alive", "the same"
+    if (/\d/.test(g.value)) specificity *= 1.3;                              // a date / measure is specific
+    if (words.length >= 4) specificity *= 1.15;                              // a fuller phrase identifies more
+    specificity = Math.max(0.15, Math.min(specificity, 1.5));
+    const modFactor = g.modality === 'realis' ? 1 : 0.75;
+    const polFactor = g.polarity === '+' ? 1 : 0.85;
+    const corrobFactor = 1 + Math.log2(corroboration);
+    const conf = Number.isFinite(g.conf) && g.conf > 0 ? g.conf : 0.5;
+    const score = conf * specificity * modFactor * polFactor * corrobFactor;
+    return {
+      id: g.id, label: g.label, value: g.value,
+      idx: witnesses[0] ?? null, witnesses, count: corroboration,
+      confidence: Math.round(conf * 1000) / 1000, polarity: g.polarity, modality: g.modality,
+      score: Math.round(score * 1000) / 1000,
+    };
+  });
+  scored.sort((a, b) => (b.score - a.score) || (b.count - a.count) || a.value.localeCompare(b.value));
+  return scored;
 };
 
 // Level 3 — significance. Prediction + surprise at the reading cursor.
