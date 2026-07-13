@@ -92,12 +92,21 @@ Every text-grounding source the html has, each fetched through the same CORS pro
 - **`wikipedia`** — `action=query&list=search` (titles + snippets), results traced to the page
   URL. The reliable source for facts/entities, so VERIFY and WITNESS use it.
 - **`news`** — Google News RSS (current events).
-- **`feed`** — fetch an arbitrary RSS/Atom feed or page the query names by URL.
+- **`feed`** — fetch an arbitrary RSS/Atom feed the query names by URL, read WHOLE — every item
+  with its date/author/categories, each its own hit, and its linked article under `fetchPages`
+  (`src/organs/ingest/feed.js`; **docs/civic-apis.md**).
+- **`api`** — fetch a JSON/REST endpoint the query names by URL, navigate to its records array, and
+  return them as hits; a civic/open-data endpoint imports as a data-room table
+  (`src/organs/ingest/api.js`).
+- **`civic`** — find AND navigate government/open-data APIs: a curated offline catalog (which API
+  answers this?) plus live CKAN (data.gov) + Socrata dataset discovery with the importable resource
+  URLs `api` then loads (`src/organs/ingest/civic.js`).
 
 `routeKind(query)` auto-routes when the caller asks for `'auto'`: a named library source
-("gutenberg …", "wikiquote …") wins outright; then current-events phrasing → news, a URL/"rss"
-→ feed, book-shaped phrasing ("novel", "full text", …) → gutenberg, definition phrasing →
-wiktionary, quotation phrasing → wikiquote, everything else → wikipedia. And **`fetchPages`**
+("gutenberg …", "wikiquote …") wins outright; then a concrete URL → api (JSON/REST-shaped) or feed
+(anything else), civic/open-data phrasing → civic, current-events phrasing → news, "rss"/"feed" →
+feed, "rest/json api" → api, book-shaped phrasing ("novel", "full text", …) → gutenberg, definition
+phrasing → wiktionary, quotation phrasing → wikiquote, everything else → wikipedia. And **`fetchPages`**
 pulls each result's *actual content* through the proxy (not just the snippet) — the engine
 reaching arbitrary websites "as needed". Each kind reads its own way under `fetchPages` (the
 `FULL_TEXT` hooks): the Wikimedia family reads the clean API extract, Gutenberg reads the
