@@ -50,7 +50,8 @@ import { createMonitor } from '../../enactor/monitor.js';
 import { createCommitmentLedger } from '../../enactor/ledger.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
 import { figureSurface, rankProperties } from '../../perceiver/index.js';
-import { generateTopline, entityInventory, sourceInventory, interpretFeedback, mergeSteer } from '../../weave/topline/index.js';
+import { generateTopline, definitionSpans, definitionCompetency, composeChorus, entityInventory, sourceInventory, interpretFeedback, mergeSteer } from '../../weave/topline/index.js';
+import { groundSpans } from '../../enactor/ground/spans.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
@@ -264,7 +265,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // entry (src.summary), removed with the source; an ENTITY has no persisted home object (it is
     // re-derived from the graph each render), so its topline is kept here, keyed by normalised
     // label — the same merged identity the explorer groups by. Both persist across reload.
-    summaries: { entities: {} },
+    // entity toplines, and the DEFINER's evolving champion — the chorus's reigning strategy plus a
+    // run counter that drives the (deterministic) exploration beat. Persisted so the organism keeps
+    // what it learned about defining across reloads (weave/topline/chorus.js).
+    summaries: { entities: {}, definer: { champion: null, runs: 0 } },
     // A workspace is the top-level container (Notion's workspace/teamspace): it owns a
     // nested tree of topics. A topic scopes a source set, a chat and a memo, and now
     // carries `workspaceId` (which container it lives in) + `parentId` (its parent topic,
@@ -495,7 +499,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // the commitment ledger — assertions and corrections survive reload (the spine)
     ledger: ledger.serialize(),
     // entity toplines (source toplines ride on each source above) — the summary + its feedback
-    summaries: { entities: state.summaries.entities },
+    summaries: { entities: state.summaries.entities, definer: state.summaries.definer },
     // the durable pending-work registry — the fetches / imports / transcriptions still in flight,
     // so a reload mid-way can pick them back up (ingest-jobs.js). Small plain JSON specs only.
     jobs: state.jobs,
@@ -532,7 +536,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         state.log = Array.isArray(snap.log) ? snap.log : [];
         state.jobs = Array.isArray(snap.jobs) ? snap.jobs : [];   // pending work to resume below
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
-        if (snap.summaries && snap.summaries.entities) state.summaries = { entities: { ...snap.summaries.entities } };
+        if (snap.summaries && snap.summaries.entities) state.summaries = { entities: { ...snap.summaries.entities }, definer: snap.summaries.definer || { champion: null, runs: 0 } };
       }
     } catch { /* fresh session */ }
     // ── migrate to the workspace / topic-tree model ──────────────────────────
@@ -3184,6 +3188,83 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     await composeTwoPhase(inv, prev ? { ...prev, regenerate } : { regenerate: true }, (s) => {
       state.summaries.entities[key] = { ...s, key, label: profile.label }; persist(); emit('sources');
     });
+    // The fold-aware contextual definition — a model-WRITTEN companion to the telegram, framed by
+    // the document in hand (its title, and the figures it most centres on beside this one). It is
+    // safe to let the model write here because the entity panel flanks it: the settled Wikipedia
+    // referent leads above it and the provenance DAG receipts it below (docs/topline.md).
+    //
+    // It is produced by a CHORUS of definer strategies under selection (weave/topline/chorus.js): the
+    // reigning champion (and, on an exploration beat, a challenger) each write a candidate; each is
+    // graded with NO human in the loop — grounding coverage (does it fabricate) × fold-salience (does
+    // it speak to this reading), anchored by predictive COMPETENCY (does it predict the entity's
+    // held-out mentions, the parrot-killer). The fittest is shown; a challenger that wins by a margin
+    // becomes the new champion, so the system gets better — and, as the champion stabilises, cheaper
+    // — at defining, especially similar things.
+    const cur0 = state.summaries.entities[key];
+    if (model && cur0 && (regenerate || !cur0.contextual)) {
+      const themes = [...(profile.figures || [])]
+        .filter((f) => f.entId !== entId && f.label && f.label !== profile.label)
+        .sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 4).map((f) => f.label);
+      const fold = { title: profile.sourceTitle || '', themes };
+      const src = sourceBySn(profile.sn);
+      const doc = src ? docFor(src) : null;
+      const passages = (profile.mentions || []).map((m2) => ({ u: profile.sn, idx: m2.idx, text: m2.text }));
+      const mentionTexts = (profile.mentions || []).map((m2) => m2.text).filter(Boolean);
+      const factTexts = (cur0.objects || []).map((o) => o.text).filter(Boolean);
+      // The wiki referent as the un-authored fitness ANCHOR — but only if it is already resolved in
+      // the cache (a plain confirmed def, not a still-pending promise). Never kick a fetch from here:
+      // the anchor is optional (definer.js falls back to competency alone), and the panel's own
+      // _ensureWiki owns the lookup. Reading a settled value costs nothing and adds no network.
+      let wikiText = null;
+      try {
+        const cached = wikiCache.get(`${docId}#${entId}`);
+        if (cached && typeof cached.then !== 'function' && cached.confirmed && cached.text) wikiText = cached.text;
+      } catch { wikiText = null; }
+
+      // Ground each candidate span-by-span (nothing rejected; every span anchored to a mention/doc
+      // or flagged as the model's own word — enactor/ground/spans.js) and grade its held-out
+      // competency. The winner keeps its spans for the surface to render the flags.
+      let winnerSpans = [];
+      const grade = async (text) => {
+        let spans = [];
+        try {
+          spans = groundSpans(definitionSpans(text), { passages, doc }).map((v) => ({
+            text: v.text, grounded: v.kind === 'source',
+            role: v.kind === 'source' ? 'source' : (v.role || 'assertion'),
+            cite: v.source && Number.isInteger(v.source.idx) ? v.source.idx : null,
+          }));
+        } catch { spans = []; }
+        const coverage = spans.length ? spans.filter((s) => s.grounded).length / spans.length : 0;
+        const competency = definitionCompetency(text, { seen: factTexts, heldOut: mentionTexts });
+        grade._spansByText = grade._spansByText || new Map();
+        grade._spansByText.set(text, spans);
+        return { coverage, competency };
+      };
+
+      const defs = state.summaries.definer || (state.summaries.definer = { champion: null, runs: 0 });
+      const chorus = await composeChorus(
+        { label: profile.label, telegram: cur0.text, objects: cur0.objects || [], fold, wikiText },
+        { model, champion: defs.champion, runs: defs.runs || 0, grade },
+      );
+      const winner = chorus.winner;
+      winnerSpans = (winner && grade._spansByText && grade._spansByText.get(winner.text)) || [];
+
+      // Carry the champion forward (heritability) and count the run (drives the explore beat).
+      defs.champion = chorus.champion || defs.champion;
+      defs.runs = (defs.runs || 0) + 1;
+
+      const cur = state.summaries.entities[key];
+      if (cur && winner) {
+        state.summaries.entities[key] = {
+          ...cur, contextual: winner.text, contextualWritten: !!winner.written,
+          contextualSpans: winnerSpans,
+          contextualCoverage: winner.fitness?.terms?.coverage ?? 0,
+          contextualFitness: winner.fitness?.score ?? 0,
+          contextualStrategy: winner.strategy, fold,
+        };
+        persist(); emit('sources');
+      }
+    }
     return state.summaries.entities[key];
   });
 

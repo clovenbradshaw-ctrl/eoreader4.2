@@ -210,3 +210,154 @@ test('a source reading becomes a topline with one marked inference at most', asy
   assert.match(top.text, /Kafka/);
   assert.match(top.text, /1915/);
 });
+
+// ── contextual.js — the fold-aware, model-WRITTEN definition (ungated; grounded per span) ─
+import { contextualDefinition, definitionSpans } from '../src/weave/topline/index.js';
+
+test('with no model (or nothing established) the contextual definition is the telegram, unwritten', async () => {
+  const spec = { label: 'Thomas Jefferson', telegram: 'Thomas Jefferson is a philhellene.', objects: [{ text: 'Thomas Jefferson is a philhellene.' }], fold: { title: 'Jefferson and slavery', themes: ['slavery'] } };
+  const out = await contextualDefinition(spec, { model: null });
+  assert.equal(out.written, false);
+  assert.equal(out.text, 'Thomas Jefferson is a philhellene.');
+  // nothing to define from → also unwritten, even with a model
+  const empty = await contextualDefinition({ label: 'X', objects: [] }, { model: { phrase: async () => 'anything' } });
+  assert.equal(empty.written, false);
+});
+
+test('the writer is UNGATED — whatever the model writes is returned verbatim (the grounder judges it, not a gate)', async () => {
+  const spec = {
+    label: 'Thomas Jefferson',
+    telegram: 'Thomas Jefferson is a philhellene, lover of Greek culture.',
+    objects: [{ text: 'Thomas Jefferson is a philhellene, lover of Greek culture.' }],
+    fold: { title: 'Thomas Jefferson and slavery', themes: ['slavery'] },
+  };
+  // even a model that reaches past the facts is NOT rejected here — spans.js flags it downstream
+  const writer = { phrase: async () => 'Thomas Jefferson, born in Shadwell, was a philhellene and lover of Greek culture.' };
+  const out = await contextualDefinition(spec, { model: writer });
+  assert.equal(out.written, true);
+  assert.match(out.text, /Shadwell/);      // returned as written; grounding happens per span later
+});
+
+test('the light prompt hands the model the fold and the established facts, and asks little else', async () => {
+  let seen = null;
+  const spy = { phrase: async (messages) => { seen = messages; return 'A definition.'; } };
+  await contextualDefinition({
+    label: 'Thomas Jefferson',
+    objects: [{ text: 'Thomas Jefferson is a philhellene.' }],
+    fold: { title: 'Jefferson and slavery', themes: ['slavery', 'Monticello'] },
+  }, { model: spy });
+  const user = seen[seen.length - 1].content;
+  assert.match(user, /Define: Thomas Jefferson/);
+  assert.match(user, /Jefferson and slavery/);
+  assert.match(user, /philhellene/);
+  // under-instructed on purpose: the system prompt carries no "do not add a name/number/date" list
+  assert.doesNotMatch(seen[0].content.toLowerCase(), /do not (introduce|add)/);
+});
+
+test('definitionSpans splits a definition into the spans the grounder verdicts', () => {
+  assert.deepEqual(
+    definitionSpans('Thomas Jefferson was a philhellene. He admired Greek culture.'),
+    ['Thomas Jefferson was a philhellene.', 'He admired Greek culture.'],
+  );
+  assert.deepEqual(definitionSpans('one span no terminator'), ['one span no terminator']);
+  assert.deepEqual(definitionSpans(''), []);
+});
+
+test('mechanical phrasing never emits a dangling ",." when a claim value carries a trailing comma', () => {
+  const s = phraseMechanical({ type: 'claim', fields: { subject: 'Thomas Jefferson', value: 'taught near Gordonsville, Virginia,' } });
+  assert.ok(!s.includes(',.'), `got: ${s}`);
+  assert.match(s, /Virginia\.$/);
+});
+
+// ── definer.js — the un-authored fitness that selects the chorus's best definition ─
+import { definitionFitness, bestOfChorus, salience } from '../src/weave/topline/index.js';
+
+test('fitness is coverage × salience, and self-report alone is only PROVISIONAL', () => {
+  const f = definitionFitness({ text: 'Thomas Jefferson championed slavery abolition debates.', coverage: 1, fold: { title: 'Jefferson and slavery', themes: ['slavery'] } });
+  assert.equal(f.anchored, false);           // no un-authored anchor present
+  assert.ok(f.terms.salience > 0);           // touches the fold
+  assert.equal(f.score, f.terms.coverage * f.terms.salience);
+});
+
+test('salience is the anti-Goodhart term: a perfectly-grounded but off-fold definition scores low', () => {
+  const onTopic = definitionFitness({ text: 'Jefferson and slavery were deeply entangled.', coverage: 1, fold: { title: 'Jefferson and slavery', themes: ['slavery'] } });
+  const offTopic = definitionFitness({ text: 'Jefferson liked macaroni and gardening.', coverage: 1, fold: { title: 'Jefferson and slavery', themes: ['slavery'] } });
+  assert.ok(onTopic.score > offTopic.score, `${onTopic.score} !> ${offTopic.score}`);
+  assert.equal(salience('Jefferson liked macaroni.', { themes: ['slavery'] }), 0);
+});
+
+test('an un-authored anchor (competency) makes fitness anchored and dominates — the parrot earns little', () => {
+  const base = { text: 'Jefferson and slavery.', coverage: 1, fold: { themes: ['slavery'] } };
+  const competent = definitionFitness({ ...base, competency: 1 });
+  const parrot = definitionFitness({ ...base, competency: 0 });     // predicts nothing held-out
+  assert.equal(competent.anchored, true);
+  assert.ok(competent.anchors.includes('competency'));
+  assert.ok(competent.score > parrot.score, 'competency separates the structural read from the parrot');
+});
+
+test('bestOfChorus picks the fittest candidate deterministically and annotates it', () => {
+  const chorus = [
+    { text: 'Jefferson liked gardening.', coverage: 1, fold: { themes: ['slavery'] } },      // off-fold
+    { text: 'Jefferson and slavery, closely bound.', coverage: 1, fold: { themes: ['slavery'] } }, // on-fold
+  ];
+  const win = bestOfChorus(chorus);
+  assert.match(win.text, /slavery/);
+  assert.ok(win.fitness.score > 0);
+  assert.equal(bestOfChorus([]), null);
+});
+
+// ── chorus.js + competency — the evolving definer, selecting on the un-authored anchor ─
+import { composeChorus, definitionCompetency, mutateDefiner, defaultDefiner, shouldExplore } from '../src/weave/topline/index.js';
+
+test('competency rewards a definition that predicts held-out mentions over the raw facts, and kills the parrot', () => {
+  const seen = ['Jefferson owned enslaved people.', 'Jefferson wrote about liberty.'];
+  const heldOut = ['Jefferson enslaved hundreds at Monticello.', 'His writings on liberty shaped the nation.'];
+  const structural = definitionCompetency('Jefferson was a slaveholder who wrote foundational texts on liberty and the nation.', { seen, heldOut });
+  const parrot = definitionCompetency('Jefferson owned enslaved people. Jefferson wrote about liberty.', { seen, heldOut });
+  assert.ok(structural >= parrot, `structural ${structural} should beat/tie parrot ${parrot}`);
+  assert.equal(definitionCompetency('anything', { seen, heldOut: [] }), null);   // no answer key → no anchor
+});
+
+test('the explore beat is deterministic in the run count (no RNG)', () => {
+  assert.equal(shouldExplore(0), true);
+  assert.equal(shouldExplore(1), false);
+  assert.equal(shouldExplore(4), true);
+  // a mutant differs from its parent in exactly one gene
+  const parent = defaultDefiner();
+  const child = mutateDefiner(parent, 0);
+  const diffs = Object.keys(parent).filter((k) => parent[k] !== child[k]);
+  assert.equal(diffs.length, 1);
+});
+
+test('the chorus writes candidates, selects the fittest, and promotes a challenger that wins by a margin', async () => {
+  // champion writes a thin, off-fold line; the challenger (spawned on the explore beat, runs=0)
+  // writes an on-fold, grounded one. The grader rewards the on-fold candidate.
+  let call = 0;
+  const model = { phrase: async () => (call++ === 0
+    ? 'Jefferson liked gardening and macaroni.'                 // champion: off-fold
+    : 'Jefferson and slavery were deeply entangled at Monticello.') };  // challenger: on-fold
+  const grade = async (text) => ({
+    coverage: 1,
+    competency: /slavery/.test(text) ? 0.9 : 0.1,
+  });
+  const out = await composeChorus(
+    { label: 'Thomas Jefferson', objects: [{ text: 'Jefferson owned enslaved people.' }], fold: { title: 'Jefferson and slavery', themes: ['slavery'] } },
+    { model, champion: null, runs: 0, grade },
+  );
+  assert.equal(out.candidates.length, 2, 'champion + challenger on the explore beat');
+  assert.match(out.winner.text, /slavery/);
+  assert.equal(out.promoted, true, 'the fitter challenger becomes the champion');
+  assert.match(out.champion.voice + out.champion.framing, /.+/);   // a concrete strategy carried forward
+});
+
+test('off an explore beat the chorus is the champion alone — one model call (the efficiency)', async () => {
+  let calls = 0;
+  const model = { phrase: async () => { calls++; return 'A plain definition.'; } };
+  const out = await composeChorus(
+    { label: 'X', objects: [{ text: 'X is a thing.' }], fold: { themes: [] } },
+    { model, champion: defaultDefiner(), runs: 1, grade: async () => ({ coverage: 1, competency: 0.5 }) },
+  );
+  assert.equal(calls, 1);
+  assert.equal(out.candidates.length, 1);
+  assert.equal(out.explored, false);
+});
