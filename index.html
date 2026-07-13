@@ -416,7 +416,7 @@ table{border-collapse:collapse;width:100%}
                     <span style="width:20px;flex:0 0 auto"></span>
                   </sc-if>
                   <button onClick="{{ tp.rowClick }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:8px 2px;background:none">
-                    <span style="color:{{ tp.iconColor }};flex:0 0 auto"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+                    <span style="color:{{ tp.iconColor }};flex:0 0 auto"><sc-if value="{{ tp.isSearch }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></sc-if><sc-if value="{{ tp.notSearch }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></sc-if></span>
                     <span style="flex:1;min-width:0">
                       <span style="display:block;font-size:13px;font-weight:600;color:{{ tp.titleColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tp.title }}</span>
                       <span style="display:block;font-size:11.5px;color:#9A9AA4;margin-top:1px">{{ tp.meta }}</span>
@@ -2422,10 +2422,27 @@ class Component extends DCLogic {
       this._app.ingestUrl(q).then((s) => { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
         .catch((err) => this.showToast(`Couldn't read that page: ${String(err && err.message || err).slice(0, 90)}`));
     } else {
-      this.runSearch(q);
+      this.ingestSearch(q);
       this.setState({ omni: '' });
     }
   }
+  // A search typed in the omnibar is pulled STRAIGHT into the space — no results popup. SEARCH is
+  // the sibling of ASK: instead of answering the query, the engine opens a "search topic" on the
+  // left named for it and pulls the top salient web sources into it (_app.searchTopic). We land on
+  // the first pulled source so the result is visible at once; the topic + its sources are already
+  // in the sidebar. Cancellable + busy-pilled through the engine's runCancellable, same as ingest.
+  ingestSearch(q) {
+    if (!q || !this._app || !this._app.searchTopic) return;
+    this._app.searchTopic(q).then((r) => {
+      const n = (r && r.count) || 0;
+      if (n) { this.showToast(`Pulled ${n} source${n > 1 ? 's' : ''} into “${q}”`); if (r.first) this._revealImport(r.first); }
+      else this.showToast(`Nothing came back for “${q}” — try different words or a direct URL`);
+    }).catch((err) => {
+      if (err && (err.name === 'AbortError' || /abort/i.test(String((err && err.message) || err)))) return;  // Stop pressed
+      this.showToast(`Couldn’t search: ${String((err && err.message) || err).slice(0, 90)}`);
+    });
+  }
+  // Still used by the in-chat "search the web for this?" proposal, which opens the results popup.
   runSearch(q) {
     this.setState({ searchOpen: true, searchQ: q, searchBusy: true, searchResults: null });
     this._app.search(q, { k: 8 }).then((items) => this.setState({ searchBusy: false, searchResults: items }))
@@ -4498,6 +4515,9 @@ class Component extends DCLogic {
     // caret is folded — the subtree under a collapsed topic is dropped from the walk.
     const topics = app.topicRows().map(({ topic: t, depth, hasChildren, collapsed }) => ({
       title: t.title, active: t.id === app.state.activeTopicId,
+      // A search-origin topic (app.searchTopic) wears a magnifier instead of the folder glyph, so
+      // the "search topic" reads as one at a glance in the tree.
+      isSearch: t.kind === 'search', notSearch: t.kind !== 'search',
       bg: t.id === app.state.activeTopicId ? '#F1EFFE' : 'transparent',
       border: t.id === app.state.activeTopicId ? '#E3DEFC' : 'transparent',
       iconColor: t.id === app.state.activeTopicId ? '#6D5EF5' : '#B4B4BE',

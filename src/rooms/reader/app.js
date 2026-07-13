@@ -972,6 +972,63 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return admitted || [];
   };
 
+  // ── SEARCH — the sibling of ask() ──────────────────────────────────────────
+  // ask() answers a question over the record; searchTopic() does the opposite motion — it GROWS
+  // the record. A query typed in the search box is not answered: we open a dedicated "search
+  // topic" on the left, named for the query, and pull the top salient web sources straight into
+  // it. No results popup, no model. This is the deliberately thin version — the seams for the
+  // full chat/search/parse pipeline are left OPEN, not wired:
+  //   • formulateSearch — where a query PLANNER ("figure out the best way to search it": pick the
+  //     source, rephrase, decompose) will sit. Today it is the identity.
+  //   • topic.kind='search' / topic.query — a tag the sidebar and a future re-run/refine can read.
+  //   • fetchPages+admit is the SAME primitive the chat's web loop stands on, so when the planner
+  //     and parse steps land they slot in around this call rather than replacing it.
+  const formulateSearch = (raw) => String(raw || '').trim();   // SEAM: query planning plugs in here
+
+  const searchTopic = (raw, { k = 3 } = {}) =>
+    runCancellable({ kind: 'search', label: `Searching the web — ${String(raw || '').trim()}` }, async (signal) => {
+      const rawQuery = String(raw || '').trim();
+      if (!rawQuery) return { topic: null, count: 0, first: null };
+      const query = formulateSearch(rawQuery);
+      // Open the search topic FIRST and make it active, so every admitted source nests under it
+      // (addSource files into the current topic). Tagged as search-origin for later refine/re-run.
+      // Remember where we were, so a fruitless search can fall back rather than strand the reader.
+      const prevActive = state.activeTopicId;
+      const t = topicNew(rawQuery, { workspaceId: state.activeWorkspaceId });
+      t.kind = 'search'; t.query = rawQuery; t.searchQuery = query; t.named = true;
+      let count = 0, first = null;
+      try {
+        const admitted = await searchAndAdmit(query, { client, k, kind: 'auto', fetchPages: true, signal });
+        for (const a of admitted || []) {
+          if (!a?.doc || !a?.record) continue;
+          try {
+            const s = addSource({
+              title: a.record.title || a.item?.title, url: a.record.url || a.item?.url || null,
+              text: a.doc.text, kind: 'web', record: a.record, doc: a.doc,
+            });
+            // addSource files a NEW source into the active (search) topic itself, but a hit that was
+            // already recorded elsewhere returns as a dedup WITHOUT joining this topic — link it
+            // explicitly so the search topic always contains the results it pulled (a source may
+            // belong to many topics). Idempotent for the fresh sources addSource already added.
+            if (s) { if (!t.sourceSns.includes(s.sn)) t.sourceSns.push(s.sn); count++; first = first || s; }
+          } catch { /* empty page or dup — skip, keep pulling the next salient hit */ }
+        }
+      } finally {
+        // Nothing landed — empty result, a proxy/network error, or a Stop before the first hit.
+        // Don't strand an empty search topic in the sidebar: drop it and return the reader to
+        // where they were (topicDelete would otherwise pick an arbitrary sibling). Runs on the
+        // throw path too, so the error still propagates to the surface AFTER the tree is tidy.
+        if (!count) {
+          topicDelete(t.id);
+          if (prevActive && topicById(prevActive)) setTopic(prevActive);
+        }
+      }
+      if (!count) { logIt('search', `Search "${rawQuery}"`, 'no sources'); return { topic: null, count: 0, first: null }; }
+      logIt('search', `Search topic "${rawQuery}"`, `${count} source${count === 1 ? '' : 's'}`);
+      persist(); emit('topics'); emit('sources');
+      return { topic: t, count, first };
+    });
+
   const ingestText = (text, title = 'Pasted text') => {
     const doc = parseText(String(text), { docId: `doc-${shaShort(webContentHash(text))}` });
     return addSource({ title, text: String(text), kind: 'text', doc });
@@ -3086,6 +3143,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
     // ingest
     ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage, navigatePage,
+    // search — the sibling of ask(): a query opens a "search topic" and pulls sources into it
+    searchTopic,
     sourceBySn, removeSource, topicSources, sourceToggleCollapse,
     // chat
     ask, stop, exportChat,
