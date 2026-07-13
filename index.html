@@ -401,7 +401,7 @@ table{border-collapse:collapse;width:100%}
             <button onClick="{{ pickFile }}" title="Import a file" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
             <button onClick="{{ openPaste }}" title="Paste text" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button>
             <button onClick="{{ goMemo }}" title="Draft a memo" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></button>
-            <button onClick="{{ goGraph }}" title="Provenance graph" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></button>
+            <button onClick="{{ goGraph }}" title="The graph — entities & causal DAG" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></button>
           </div>
         </div>
 
@@ -962,42 +962,181 @@ table{border-collapse:collapse;width:100%}
           </div>
           </sc-if>
 
-          <!-- GRAPH TAB -->
+          <!-- GRAPH TAB — the real graph: the entity web / causal DAG of everything in focus -->
           <sc-if value="{{ isGraph }}">
           <div class="eo-graphhead" style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:11px 18px;border-bottom:1px solid #EAEAEF;background:#fff">
             <div style="min-width:0">
-              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA">PROVENANCE DAG · FULLY TRAVERSABLE</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA">KNOWLEDGE GRAPH · EVERYTHING IN FOCUS</div>
               <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#1B1B22;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ graphTitle }}</div>
             </div>
             <span style="flex:1"></span>
+            <sc-if value="{{ graphExplorerLive }}">
+            <div style="display:flex;gap:3px;background:#F4F4F7;border-radius:9px;padding:3px">
+              <button onClick="{{ setWebKindEntity }}" title="The figures across the topic and the bonds among them" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindEntFg }};background:{{ webKindEntBg }}">Entities</button>
+              <button onClick="{{ setWebKindCausal }}" title="What the sources are read as asserting causes what" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCausalFg }};background:{{ webKindCausalBg }}">Causal DAG</button>
+            </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ graphExplorerEmpty }}">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;background:#F4F4F7">
+              <div style="text-align:center;max-width:400px;padding:24px">
+                <div style="width:44px;height:44px;border-radius:12px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></div>
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600;color:#1B1B22">The graph draws itself as you read</div>
+                <div style="font-size:12.5px;color:#6E6E78;line-height:1.55;margin-top:7px">Record a source in Chat — every figure the sources name, and the bonds among them, land here as a living web you can focus and pivot. Trace a claim to its evidence over in Findings.</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ graphExplorerLive }}">
+          <div class="eo-wgbody" style="flex:1;min-height:0;display:flex">
+            <div class="eo-wgside" style="flex:0 0 232px;border-right:1px solid #EEEEF2;display:flex;flex-direction:column;overflow:hidden;background:#FCFCFD">
+              <div style="padding:11px 13px;border-bottom:1px solid #EEEEF2">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#A0A0AA;margin-bottom:6px">SCOPE</div>
+                <div style="display:flex;flex-direction:column;gap:5px">
+                  <button onClick="{{ setWebScopeTopic }}" style="text-align:left;padding:7px 10px;border-radius:8px;font-size:12px;font-weight:600;color:{{ webScopeTopicFg }};background:{{ webScopeTopicBg }};border:1px solid {{ webScopeTopicBd }}">Whole topic</button>
+                  <sc-if value="{{ webHasFocus }}">
+                    <div style="text-align:left;padding:7px 10px;border-radius:8px;font-size:12px;font-weight:600;color:{{ webScopeFocusFg }};background:{{ webScopeFocusBg }};border:1px solid {{ webScopeFocusBd }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Focus · {{ webFocusName }}</div>
+                  </sc-if>
+                </div>
+                <div style="font-size:10.5px;color:#9A9AA4;line-height:1.5;margin-top:8px">{{ webKindNote }}</div>
+              </div>
+              <div style="padding:10px 13px 7px;display:flex;align-items:center;gap:7px">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#A0A0AA;flex:1;min-width:0">{{ webToggleHead }}</div>
+                <button onClick="{{ webAllOn }}" style="font-size:10.5px;font-weight:600;color:#5B4BE6;padding:2px 7px;border-radius:6px" style-hover="background:#F1EFFE">All</button>
+                <button onClick="{{ webNoneOn }}" style="font-size:10.5px;font-weight:600;color:#8A8A95;padding:2px 7px;border-radius:6px" style-hover="background:#F2F2F6">None</button>
+              </div>
+              <div class="eo-scroll" style="flex:1;min-height:60px;overflow-y:auto;padding:0 8px 12px">
+                <sc-for list="{{ webToggles }}" as="t">
+                  <div onClick="{{ t.toggle }}" title="{{ t.label }}" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12px;color:{{ t.fg }}" style-hover="background:#F4F4F7">
+                    <span style="width:15px;height:15px;border-radius:4px;border:1.5px solid {{ t.boxBd }};background:{{ t.boxBg }};flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;line-height:1">{{ t.check }}</span>
+                    <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ webTogglesEmpty }}">
+                  <div style="padding:12px 6px;font-size:11.5px;color:#9A9AA4;line-height:1.5">{{ webTogglesEmptyMsg }}</div>
+                </sc-if>
+              </div>
+            </div>
+            <div ref="{{ setWebGraphEl }}" class="eo-scroll" style="flex:1;min-width:0;overflow:auto"></div>
+
+            <!-- THE DETAILS PANEL — the profile of the entity the web opened on, following every
+                 node click. Same facts as the sidebar profile (one builder renders both). -->
+            <sc-if value="{{ webProfShow }}">
+              <aside class="eo-scroll" style="flex:0 0 306px;border-left:1px solid #EEEEF2;overflow-y:auto;min-height:0;background:#fff">
+                <div style="padding:13px 14px">
+                  <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
+                    <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ webProf.initials }}</span>
+                    <span style="flex:1;min-width:0">
+                      <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#1B1B22;line-height:1.2">{{ webProf.label }}</span>
+                      <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ webProf.counts }}</span>
+                    </span>
+                  </div>
+                  <button onClick="{{ webProf.openSource }}" title="Open the source this entity was read from" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:6px;padding:3px 8px;margin:6px 0 2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" style-hover="background:#E5E8EC">{{ webProf.srcReg }} · {{ webProf.srcTitle }}</button>
+
+                  <div style="display:flex;gap:7px;margin-top:11px">
+                    <button onClick="{{ webProfFocus }}" title="Redraw the web around this entity" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12px;border-radius:8px;padding:7px" style-hover="background:#E7E2FD">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg>
+                      Focus the web
+                    </button>
+                    <button onClick="{{ webProfOpenFull }}" title="Open the full profile in the entities panel" style="flex:0 0 auto;font-size:12px;font-weight:600;color:#6E6E78;border:1px solid #EAEAEF;border-radius:8px;padding:7px 11px" style-hover="background:#F5F5F8">Full profile</button>
+                  </div>
+
+                  <div style="margin-top:15px">
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
+                    <sc-if value="{{ webProf.wikiWait }}">
+                      <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">Looking for a matching article…</div>
+                    </sc-if>
+                    <sc-if value="{{ webProf.hasWiki }}">
+                      <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;background:#FBFBFD">
+                        <sc-if value="{{ webProf.hasWikiDesc }}">
+                          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ webProf.wikiDesc }}</div>
+                        </sc-if>
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ webProf.wikiText }}</div>
+                        <a href="{{ webProf.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:#5B4BE6;margin-top:7px;text-decoration:none">{{ webProf.wikiTitle }} ↗</a>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ webProf.wikiAbsent }}">
+                      <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">No confirmed Wikipedia match for this referent.</div>
+                    </sc-if>
+                  </div>
+
+                  <sc-if value="{{ webProf.hasDefs }}">
+                    <div style="margin-top:15px">
+                      <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES <span style="color:#C0C0C8;font-weight:600">· ranked</span></div>
+                      <sc-for list="{{ webProf.defs }}" as="d">
+                        <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">
+                          <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ d.value }}</div>
+                          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px">
+                            <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ d.prov }} · {{ d.conf }}</span>
+                            <sc-for list="{{ d.cites }}" as="w">
+                              <button onClick="{{ w.jump }}" title="Jump to this passage in the source" style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#0F6E56;background:#E1F5EE;border-radius:5px;padding:1px 6px" style-hover="background:#D2EFE4">{{ w.label }}</button>
+                            </sc-for>
+                          </div>
+                        </div>
+                      </sc-for>
+                      <sc-if value="{{ webProf.hasDag }}">
+                        <div style="margin-top:6px;border:1px solid #EFEFF3;border-radius:9px;padding:10px 8px 6px;background:#fff">
+                          <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 4px">PROVENANCE</div>
+                          <div ref="{{ webProf.setDagEl }}"></div>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ webProf.hasRelations }}">
+                    <div style="margin-top:15px">
+                      <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">CONNECTED ENTITIES</div>
+                      <sc-for list="{{ webProf.relations }}" as="r">
+                        <button onClick="{{ r.pivot }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:7px 10px;border:1px solid #EAEAEF;border-radius:9px;margin-bottom:5px" style-hover="background:#FAFAFC">
+                          <span style="flex:1;min-width:0;font-size:12px;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left"><b style="font-weight:600">{{ r.other }}</b></span>
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8A95;flex:0 0 auto">{{ r.via }}</span>
+                          <span style="color:#C4C4CC;flex:0 0 auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ webProf.hasMentions }}">
+                    <div style="margin-top:15px">
+                      <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">MENTIONS · {{ webProf.mentionCount }}</div>
+                      <sc-for list="{{ webProf.mentions }}" as="mn">
+                        <button onClick="{{ mn.jump }}" title="Open the source at this passage" style="width:100%;display:flex;gap:9px;padding:7px 10px;border:1px solid #EFEFF3;border-radius:9px;margin-bottom:5px;background:#FBFBFD" style-hover="background:#fff">
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B4B4BE;flex:0 0 auto;margin-top:2px">¶{{ mn.idx }}</span>
+                          <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.45;color:#5A5A64;text-align:left;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ mn.text }}</span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </aside>
+            </sc-if>
+          </div>
+          </sc-if>
+          </sc-if>
+
+          <!-- FINDINGS TAB — the provenance DAG pivots the claims list below it -->
+          <sc-if value="{{ isEvidence }}">
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff">
+          <div style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:11px 18px;border-bottom:1px solid #EAEAEF;background:#fff">
+            <div style="min-width:0">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA">FINDINGS · PROVENANCE DAG ⇄ CLAIMS</div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#1B1B22;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Pivot the findings by their provenance</div>
+            </div>
+            <span style="flex:1"></span>
+            <sc-if value="{{ graphLive }}">
             <div class="eo-graphtools" style="display:flex;align-items:center;gap:8px">
-              <sc-if value="{{ graphHasSources }}">
-              <button onClick="{{ openTopicEntities }}" title="The entity web across the whole topic — with entity on/off toggles" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #E4E0FB" style-hover="filter:brightness(.98)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.2"/><circle cx="19" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M7 7.2 10.6 16M16.8 7.4 13.4 16M7 6h10"/></svg>Entities</button>
-              <button onClick="{{ openTopicCausal }}" title="The causal DAG the sources are read as asserting — whole-topic or per-entity, with toggles" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#0B8E7E;background:#E4F6F1;border:1px solid #CBEBE3" style-hover="filter:brightness(.98)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v6m0 0-3 4m3-4 3 4M6 20h.01M12 20h.01M18 20h.01"/></svg>Causal DAG</button>
-              <span style="width:1px;height:20px;background:#EAEAEF;margin:0 2px"></span>
-              </sc-if>
-              <sc-if value="{{ graphLive }}">
               <button onClick="{{ toggleAllTiers }}" title="{{ allTiersTitle }}" style="padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#5A5A64;border:1px solid #EAEAEF" style-hover="background:#F5F5F8">{{ allTiersLabel }}</button>
-              </sc-if>
               <button onClick="{{ toggleContra }}" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:{{ contraFg }};background:{{ contraBg }};border:1px solid {{ contraBd }}">
                 <span style="width:7px;height:7px;border-radius:50%;background:#B23A2E"></span>Conflicts
               </button>
               <button onClick="{{ clearFocus }}" style="padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:{{ resetFg }};border:1px solid #EAEAEF" style-hover="background:#F5F5F8">Reset</button>
             </div>
+            </sc-if>
           </div>
 
-          <sc-if value="{{ graphEmpty }}">
-            <div style="flex:1;display:flex;align-items:center;justify-content:center;background:#F4F4F7">
-              <div style="text-align:center;max-width:380px;padding:24px">
-                <div style="width:44px;height:44px;border-radius:12px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></div>
-                <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600;color:#1B1B22">The graph draws itself as you work</div>
-                <div style="font-size:12.5px;color:#6E6E78;line-height:1.55;margin-top:7px">Record sources and ask questions in Chat. Every answered claim, its verbatim passages, the registered sources and their hash-verified files land here — fully traversable.</div>
-              </div>
-            </div>
-          </sc-if>
-
           <sc-if value="{{ graphLive }}">
-          <div data-screen-label="Provenance DAG" onPointerDown="{{ startPan }}" onWheel="{{ onWheel }}" ref="{{ setViewport }}" style="flex:1;min-height:0;position:relative;overflow:hidden;background:#F4F4F7;cursor:{{ panCursor }};touch-action:none">
+          <div data-screen-label="Provenance DAG" onPointerDown="{{ startPan }}" onWheel="{{ onWheel }}" ref="{{ setViewport }}" style="flex:0 0 auto;height:min(44vh,420px);position:relative;overflow:hidden;background:#F4F4F7;border-bottom:1px solid #EAEAEF;cursor:{{ panCursor }};touch-action:none">
             <div style="position:absolute;left:0;top:0;width:{{ canvasW }}px;height:{{ canvasH }}px;transform:translate({{ tx }}px,{{ ty }}px) scale({{ scale }});transform-origin:0 0;transition:{{ camT }};background-image:radial-gradient(#E1E1E9 1px,transparent 1px);background-size:26px 26px">
 
               <!-- sc-camel-width/-d etc.: the raw {{ }} placeholders are only compiled at mount, but this
@@ -1118,18 +1257,14 @@ table{border-collapse:collapse;width:100%}
             </div>
           </div>
           </sc-if>
-          </sc-if>
 
-          <!-- FINDINGS TAB -->
-          <sc-if value="{{ isEvidence }}">
-          <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:22px 26px">
+          <!-- the claims list the graph above pivots -->
+          <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:18px 26px">
             <div style="max-width:900px">
-              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA;margin-bottom:2px">FINDINGS · CLAIMS ⇄ VERBATIM PASSAGES</div>
-              <div style="font-family:'Newsreader',Georgia,serif;font-size:20px;font-weight:600;margin-bottom:18px">Every claim, and the passages that ground it</div>
               <sc-if value="{{ evEmpty }}">
-                <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:28px 24px;color:#8A8A95;font-size:13px;line-height:1.6;background:#fff">No claims yet. Ask a question in Chat — every claim an answer makes lands here with its verbatim passages and verdicts.</div>
+                <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:28px 24px;color:#8A8A95;font-size:13px;line-height:1.6;background:#fff">No claims yet. Ask a question in Chat — every claim an answer makes lands here with its verbatim passages and verdicts. Once there are claims, focus a node in the graph above to pivot this list to what it grounds.</div>
               </sc-if>
-              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px">
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
                 <sc-for list="{{ overviewStats }}" as="st">
                   <div style="border:1px solid #EFEFF3;border-radius:10px;padding:11px 12px;background:#fff">
                     <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:{{ st.color }}">{{ st.value }}</div>
@@ -1137,6 +1272,13 @@ table{border-collapse:collapse;width:100%}
                   </div>
                 </sc-for>
               </div>
+              <sc-if value="{{ pivotActive }}">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:9px 13px;border:1px solid #E4E0FB;background:#F6F4FF;border-radius:10px">
+                  <span style="width:7px;height:7px;border-radius:50%;background:#6D5EF5;flex:0 0 auto"></span>
+                  <span style="flex:1;min-width:0;font-size:12.5px;color:#4A4A54">Pivoted to <b style="font-weight:650;color:#5B4BE6">{{ pivotLabel }}</b> · showing {{ pivotShown }} of {{ pivotTotal }} claims</span>
+                  <button onClick="{{ clearFocus }}" style="flex:0 0 auto;font-size:11.5px;font-weight:600;color:#5B4BE6;padding:4px 10px;border-radius:7px;border:1px solid #DED8FD;background:#fff" style-hover="background:#EEEBFE">Clear</button>
+                </div>
+              </sc-if>
               <sc-for list="{{ evClaims }}" as="c">
                 <div style="margin-bottom:14px;border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff">
                   <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;background:#FBFBFD;border-bottom:1px solid #EFEFF3">
@@ -1160,6 +1302,7 @@ table{border-collapse:collapse;width:100%}
                 </div>
               </sc-for>
             </div>
+          </div>
           </div>
           </sc-if>
 
@@ -1476,8 +1619,8 @@ table{border-collapse:collapse;width:100%}
 
         </div>
 
-        <!-- RIGHT PANEL — ENTITIES / INSPECTOR -->
-        <sc-if value="{{ rightOpen }}">
+        <!-- RIGHT PANEL — ENTITIES / INSPECTOR (stands down on the Graph tab, which has its own panel) -->
+        <sc-if value="{{ rightPanelShow }}">
         <aside class="eo-scroll eo-right" style="width:340px;flex:0 0 auto;background:#fff;border-left:1px solid #EAEAEF;overflow-y:auto;min-height:0">
           <div style="padding:14px 16px">
 
@@ -1796,145 +1939,7 @@ table{border-collapse:collapse;width:100%}
     </div>
   </sc-if>
 
-  <!-- GRAPH EXPLORER OVERLAY — entity web + causal DAG · whole-topic + per-entity · entity toggles -->
-  <sc-if value="{{ webGraphShow }}">
-    <div style="position:absolute;inset:0;z-index:48">
-      <div onClick="{{ closeWebGraph }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
-      <div class="eo-modal eo-tall" style="position:absolute;left:50%;top:34px;bottom:34px;transform:translateX(-50%);width:min(1360px,96vw);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
-        <div style="flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #EAEAEF">
-          <div style="display:flex;gap:3px;background:#F4F4F7;border-radius:9px;padding:3px">
-            <button onClick="{{ setWebKindEntity }}" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindEntFg }};background:{{ webKindEntBg }}">Entities</button>
-            <button onClick="{{ setWebKindCausal }}" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCausalFg }};background:{{ webKindCausalBg }}">Causal DAG</button>
-          </div>
-          <span style="font-family:'Newsreader',Georgia,serif;font-size:16px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ webGraphTitle }}</span>
-          <button onClick="{{ closeWebGraph }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-        </div>
-        <div class="eo-wgbody" style="flex:1;min-height:0;display:flex">
-          <div class="eo-wgside" style="flex:0 0 232px;border-right:1px solid #EEEEF2;display:flex;flex-direction:column;overflow:hidden;background:#FCFCFD">
-            <div style="padding:11px 13px;border-bottom:1px solid #EEEEF2">
-              <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#A0A0AA;margin-bottom:6px">SCOPE</div>
-              <div style="display:flex;flex-direction:column;gap:5px">
-                <button onClick="{{ setWebScopeTopic }}" style="text-align:left;padding:7px 10px;border-radius:8px;font-size:12px;font-weight:600;color:{{ webScopeTopicFg }};background:{{ webScopeTopicBg }};border:1px solid {{ webScopeTopicBd }}">Whole topic</button>
-                <sc-if value="{{ webHasFocus }}">
-                  <div style="text-align:left;padding:7px 10px;border-radius:8px;font-size:12px;font-weight:600;color:{{ webScopeFocusFg }};background:{{ webScopeFocusBg }};border:1px solid {{ webScopeFocusBd }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Focus · {{ webFocusName }}</div>
-                </sc-if>
-              </div>
-              <div style="font-size:10.5px;color:#9A9AA4;line-height:1.5;margin-top:8px">{{ webKindNote }}</div>
-            </div>
-            <div style="padding:10px 13px 7px;display:flex;align-items:center;gap:7px">
-              <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#A0A0AA;flex:1;min-width:0">{{ webToggleHead }}</div>
-              <button onClick="{{ webAllOn }}" style="font-size:10.5px;font-weight:600;color:#5B4BE6;padding:2px 7px;border-radius:6px" style-hover="background:#F1EFFE">All</button>
-              <button onClick="{{ webNoneOn }}" style="font-size:10.5px;font-weight:600;color:#8A8A95;padding:2px 7px;border-radius:6px" style-hover="background:#F2F2F6">None</button>
-            </div>
-            <div class="eo-scroll" style="flex:1;min-height:60px;overflow-y:auto;padding:0 8px 12px">
-              <sc-for list="{{ webToggles }}" as="t">
-                <div onClick="{{ t.toggle }}" title="{{ t.label }}" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12px;color:{{ t.fg }}" style-hover="background:#F4F4F7">
-                  <span style="width:15px;height:15px;border-radius:4px;border:1.5px solid {{ t.boxBd }};background:{{ t.boxBg }};flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;line-height:1">{{ t.check }}</span>
-                  <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</span>
-                </div>
-              </sc-for>
-              <sc-if value="{{ webTogglesEmpty }}">
-                <div style="padding:12px 6px;font-size:11.5px;color:#9A9AA4;line-height:1.5">{{ webTogglesEmptyMsg }}</div>
-              </sc-if>
-            </div>
-          </div>
-          <div ref="{{ setWebGraphEl }}" class="eo-scroll" style="flex:1;min-width:0;overflow:auto"></div>
-
-          <!-- THE DETAILS PANEL — the profile of the entity the web opened on, following every
-               node click. Same facts as the sidebar profile (one builder renders both). -->
-          <sc-if value="{{ webProfShow }}">
-            <aside class="eo-scroll" style="flex:0 0 306px;border-left:1px solid #EEEEF2;overflow-y:auto;min-height:0;background:#fff">
-              <div style="padding:13px 14px">
-                <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
-                  <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ webProf.initials }}</span>
-                  <span style="flex:1;min-width:0">
-                    <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#1B1B22;line-height:1.2">{{ webProf.label }}</span>
-                    <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ webProf.counts }}</span>
-                  </span>
-                </div>
-                <button onClick="{{ webProf.openSource }}" title="Open the source this entity was read from" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:6px;padding:3px 8px;margin:6px 0 2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" style-hover="background:#E5E8EC">{{ webProf.srcReg }} · {{ webProf.srcTitle }}</button>
-
-                <div style="display:flex;gap:7px;margin-top:11px">
-                  <button onClick="{{ webProfFocus }}" title="Redraw the web around this entity" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12px;border-radius:8px;padding:7px" style-hover="background:#E7E2FD">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg>
-                    Focus the web
-                  </button>
-                  <button onClick="{{ webProfOpenFull }}" title="Open the full profile in the entities panel" style="flex:0 0 auto;font-size:12px;font-weight:600;color:#6E6E78;border:1px solid #EAEAEF;border-radius:8px;padding:7px 11px" style-hover="background:#F5F5F8">Full profile</button>
-                </div>
-
-                <div style="margin-top:15px">
-                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
-                  <sc-if value="{{ webProf.wikiWait }}">
-                    <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">Looking for a matching article…</div>
-                  </sc-if>
-                  <sc-if value="{{ webProf.hasWiki }}">
-                    <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;background:#FBFBFD">
-                      <sc-if value="{{ webProf.hasWikiDesc }}">
-                        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ webProf.wikiDesc }}</div>
-                      </sc-if>
-                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ webProf.wikiText }}</div>
-                      <a href="{{ webProf.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:#5B4BE6;margin-top:7px;text-decoration:none">{{ webProf.wikiTitle }} ↗</a>
-                    </div>
-                  </sc-if>
-                  <sc-if value="{{ webProf.wikiAbsent }}">
-                    <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">No confirmed Wikipedia match for this referent.</div>
-                  </sc-if>
-                </div>
-
-                <sc-if value="{{ webProf.hasDefs }}">
-                  <div style="margin-top:15px">
-                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">STANDING PROPERTIES <span style="color:#C0C0C8;font-weight:600">· ranked</span></div>
-                    <sc-for list="{{ webProf.defs }}" as="d">
-                      <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">
-                        <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ d.value }}</div>
-                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px">
-                          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ d.prov }} · {{ d.conf }}</span>
-                          <sc-for list="{{ d.cites }}" as="w">
-                            <button onClick="{{ w.jump }}" title="Jump to this passage in the source" style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#0F6E56;background:#E1F5EE;border-radius:5px;padding:1px 6px" style-hover="background:#D2EFE4">{{ w.label }}</button>
-                          </sc-for>
-                        </div>
-                      </div>
-                    </sc-for>
-                    <sc-if value="{{ webProf.hasDag }}">
-                      <div style="margin-top:6px;border:1px solid #EFEFF3;border-radius:9px;padding:10px 8px 6px;background:#fff">
-                        <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 4px">PROVENANCE</div>
-                        <div ref="{{ webProf.setDagEl }}"></div>
-                      </div>
-                    </sc-if>
-                  </div>
-                </sc-if>
-
-                <sc-if value="{{ webProf.hasRelations }}">
-                  <div style="margin-top:15px">
-                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">CONNECTED ENTITIES</div>
-                    <sc-for list="{{ webProf.relations }}" as="r">
-                      <button onClick="{{ r.pivot }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:7px 10px;border:1px solid #EAEAEF;border-radius:9px;margin-bottom:5px" style-hover="background:#FAFAFC">
-                        <span style="flex:1;min-width:0;font-size:12px;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left"><b style="font-weight:600">{{ r.other }}</b></span>
-                        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8A95;flex:0 0 auto">{{ r.via }}</span>
-                        <span style="color:#C4C4CC;flex:0 0 auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
-                      </button>
-                    </sc-for>
-                  </div>
-                </sc-if>
-
-                <sc-if value="{{ webProf.hasMentions }}">
-                  <div style="margin-top:15px">
-                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">MENTIONS · {{ webProf.mentionCount }}</div>
-                    <sc-for list="{{ webProf.mentions }}" as="mn">
-                      <button onClick="{{ mn.jump }}" title="Open the source at this passage" style="width:100%;display:flex;gap:9px;padding:7px 10px;border:1px solid #EFEFF3;border-radius:9px;margin-bottom:5px;background:#FBFBFD" style-hover="background:#fff">
-                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B4B4BE;flex:0 0 auto;margin-top:2px">¶{{ mn.idx }}</span>
-                        <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.45;color:#5A5A64;text-align:left;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ mn.text }}</span>
-                      </button>
-                    </sc-for>
-                  </div>
-                </sc-if>
-              </div>
-            </aside>
-          </sc-if>
-        </div>
-      </div>
-    </div>
-  </sc-if>
+  <!-- The entity web + causal DAG now live inline in the Graph tab (see isGraph above); the modal overlay was retired. -->
 
   <!-- MONOLOGUE DRAWER -->
   <sc-if value="{{ monologueOpen }}">
@@ -2176,7 +2181,15 @@ class Component extends DCLogic {
       const tid = this._app && this._app.state ? this._app.state.activeTopicId : null;
       if (tid !== this._topicSeen) {
         this._topicSeen = tid;
-        if (this.state.webGraphFor) this.closeWebGraph();
+        // The Graph tab's web is siloed per topic. Rebuild it for the new topic (whole-topic
+        // scope, keeping the current kind) and redraw in place if the tab is showing — so a topic
+        // switch never strands the previous topic's web nor blanks the canvas.
+        if (this._wg) {
+          this._wg = { kind: this._wg.kind === 'causal' ? 'causal' : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+          this._tgToggles = []; this._wgPanel = null; this._seedWgPanel();
+          this.setState({ webGraphFor: this._wgMirror() });
+          if (this.state.tab === 'graph' && this._tgEl) this._drawWebGraph();
+        }
         if (this.state.entitySel) this.setState({ entitySel: null });
         // A DOCUMENT belongs to a topic too: a source opened in the viewer is scoped to the
         // topic that recorded it. On a real switch, drop the source tabs that the new topic
@@ -2516,7 +2529,9 @@ class Component extends DCLogic {
       try { causalEdges = (window.EO.assertedDag(this._app.dagSources()).edges || []).length; } catch { /* no readable sentences yet */ }
       try { entities = (this._app.topicTieredData().nodes || []).filter((n) => n.kind === 'entity').length; } catch { /* no entities yet */ }
       const kind = window.EO.firstSurfaceKind({ modality: src.kind, causalEdges, entities });
-      if (kind) this.openTopicGraph(kind);
+      // Prime the Graph tab's reading (entity or causal) for the freshly-read source, but keep the
+      // source itself in front — the reveal readies the graph, it doesn't yank us off the document.
+      if (kind) this.openTopicGraph(kind, { navigate: false });
     } catch { /* the record already landed — the reveal never blocks it */ }
   }
   pickFile() { this._ensureFileInput().click(); }
@@ -2769,10 +2784,26 @@ class Component extends DCLogic {
   // ── navigation ───────────────────────────────────────────────────────────
   setTab(tab) {
     this._readerFrame = null; this._viewCache = null; this._listenTx = null; this._selA = this._selB = null;
+    // Leaving the Graph tab tears down the live entity/causal draw so re-entry mounts a fresh
+    // canvas and redraws clean (the ref only re-fires on a new element).
+    if (this.state.tab === 'graph' && tab !== 'graph' && this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; this._tgEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
-    this.setState({ tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, tocOpen: false, ...(this._mob() ? { leftOpen: false } : {}) });
+    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, tocOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
+    // The Graph tab now hosts the real graph — the entity web / causal DAG of everything in
+    // focus. Initialise it lazily the first time we land here (whole-topic entity web).
+    if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
+    this.setState(patch);
     // Switching to a source tab whose mode is Native kicks off (or reuses) its page fetch.
     if (this.state.viewerTabs.includes(tab) && (this.state.viewerModes[tab] || 'reader') === 'native') this.loadPage(tab);
+  }
+  // Seed the whole-topic entity web as the Graph tab's default view, if nothing is configured
+  // yet. Returns whether it initialised (so the caller can mirror it into render state).
+  _ensureTopicGraph() {
+    if (this._wg) return false;
+    this._wg = { kind: 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+    this._tgToggles = [];
+    this._seedWgPanel();
+    return true;
   }
   // The active source is whichever tab in the bar is a recorded source (else none — a fixed tab).
   _activeSrc() { return this.state.viewerTabs.includes(this.state.tab) ? this.state.tab : null; }
@@ -3696,15 +3727,20 @@ class Component extends DCLogic {
     this._wg = { kind: 'entity', scope: 'entity', docId, entId, entLabel: label, focusKey: null, focusLabel: null, hidden: new Set() };
     this._tgToggles = [];
     this._setWgPanel(docId, entId);   // the details panel opens ON the entity the web is about
-    this.setState({ webGraphFor: this._wgMirror() });
-    if (this._tgEl) this._drawWebGraph();   // already open (e.g. re-opened from the entity panel) — redraw in place
+    // The web lives in the Graph tab now — go there and draw this entity's neighbourhood.
+    if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; this._tgEl = null; }
+    this.setState({ webGraphFor: this._wgMirror(), tab: 'graph', ...(this._mob() ? { leftOpen: false } : {}) });
   }
-  openTopicGraph(kind) {
+  // Configure the Graph tab's web (entity or causal). By default it also navigates to the tab;
+  // `navigate:false` only primes it (e.g. an import reveal that keeps the source in front).
+  openTopicGraph(kind, opts = {}) {
     this._wg = { kind: kind === 'causal' ? 'causal' : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
     this._tgToggles = [];
     this._seedWgPanel();   // entity kind: the details panel opens on the topic's top figure
-    this.setState({ webGraphFor: this._wgMirror() });
-    if (this._tgEl) this._drawWebGraph();   // already open — redraw with the new kind/scope in place
+    const nav = opts.navigate !== false;
+    if (nav && this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; this._tgEl = null; }
+    this.setState({ webGraphFor: this._wgMirror(), ...(nav ? { tab: 'graph', ...(this._mob() ? { leftOpen: false } : {}) } : {}) });
+    if (!nav && this.state.tab === 'graph' && this._tgEl) this._drawWebGraph();   // already showing — redraw in place
   }
   // The overlay's details panel — which entity's profile the right column shows.
   // Loads WITH the overlay (the focused entity, or the topic's most salient figure)
@@ -3741,6 +3777,9 @@ class Component extends DCLogic {
     if (!el) return;
     if (this._tgEl === el) return;   // same container across re-renders — already drawn
     this._tgEl = el;
+    // Landing directly on the Graph tab (e.g. a persisted tab) with nothing configured yet —
+    // seed the whole-topic web so the canvas has something to draw.
+    if (!this._wg && this.state.tab === 'graph' && this._ensureTopicGraph()) this.setState({ webGraphFor: this._wgMirror() });
     this._drawWebGraph();
   }
   setWebKind(kind) {
@@ -3857,7 +3896,9 @@ class Component extends DCLogic {
   _webGraphVals() {
     const wg = this._wg;
     const noop = (el) => this.setWebGraphEl(el);
-    if (!this.state.webGraphFor || !wg) {
+    // The web is the Graph tab's content now (the modal is gone). Only compute the full view-model
+    // when that tab is actually showing and a web is configured; every other tab gets the cheap stub.
+    if (!wg || this.state.tab !== 'graph') {
       return { webGraphShow: false, setWebGraphEl: noop, closeWebGraph: () => this.closeWebGraph(),
         webToggles: [], webTogglesEmpty: false, webHasFocus: false, webProfShow: false };
     }
@@ -3875,15 +3916,15 @@ class Component extends DCLogic {
     const panel = (isEnt && this._wgPanel) ? this._wgPanel : null;
     const webProf = panel ? this._profFor(panel.docId, panel.entId, {
       pivot: (otherId) => this._setWgPanel(panel.docId, otherId),
-      openSource: (sn) => { this.closeWebGraph(); this.openViewer(sn); },
-      jump: (sn, text) => { this.closeWebGraph(); this.openViewer(sn, text); },
+      openSource: (sn) => { this.openViewer(sn); },
+      jump: (sn, text) => { this.openViewer(sn, text); },
     }) : null;
     return {
       webProfShow: !!webProf, webProf,
       // focus the web on the panel's entity — the panel-side twin of a node's "open →"
       webProfFocus: () => { if (panel) this._webFocusEntity({ docId: panel.docId, entId: panel.entId }); },
-      // leave for the full sidebar profile (closes the overlay, opens the entities panel)
-      webProfOpenFull: () => { if (panel) { this.closeWebGraph(); this.openEntity(panel.docId, panel.entId); } },
+      // leave for the full sidebar profile (opens the entities panel; openEntity drops the graph tab)
+      webProfOpenFull: () => { if (panel) { this.openEntity(panel.docId, panel.entId); } },
       webGraphShow: true,
       setWebGraphEl: noop,
       closeWebGraph: () => this.closeWebGraph(),
@@ -4846,7 +4887,7 @@ class Component extends DCLogic {
         hasFlags: finished && flagChips.length > 0, flagChips,
         hasProposal: finished && !!mm.webProposal, proposalQ: mm.webProposal ? mm.webProposal.query : '',
         runProposal: () => this.runSearch(mm.webProposal.query),
-        footer: finished && cites.length > 0, trace: () => this.setTab('graph'),
+        footer: finished && cites.length > 0, trace: () => this.setTab('evidence'),
         // the chat's facing page — a reveal affordance (the page-edge handle) that opens this
         // answer's own EoT reading beneath it; `facingClosed` shows the handle, `facingOpen` the panel
         facingClosed: finished && paras.length > 0 && !facingOpen,
@@ -4878,9 +4919,27 @@ class Component extends DCLogic {
     }
     const askEmpty = msgs.length === 0;
 
-    // findings
+    // findings — the provenance DAG (below) is the PIVOT; the claims list is what it pivots.
     const claims = findings.claims;
-    const evClaims = claims.slice().reverse().map((c) => {
+    const prov = app.provenance();
+    // Focusing a node in the Findings provenance graph narrows the list to that node's reach:
+    // a claim → itself; a source/file → every claim it grounds; a passage → the claims it backs.
+    const provFocus = st.tab === 'evidence' ? st.focusId : null;
+    let pivotFilter = null, pivotLabel = '';
+    if (provFocus) {
+      const cl = prov.nodes.claims.find((c) => c.id === provFocus);
+      const so = prov.nodes.sources.find((s) => s.sn === provFocus);
+      const pa = prov.nodes.passages.find((p) => p.id === provFocus);
+      const fi = prov.nodes.files.find((f) => f.id === provFocus);
+      if (cl) { pivotFilter = (c) => c.id === cl.id; pivotLabel = cl.id; }
+      else if (so) { pivotFilter = (c) => c.sn === so.sn; pivotLabel = so.reg || so.title || 'this source'; }
+      else if (pa) { pivotFilter = (c) => c.sn === pa.sn && (!c.quote || !pa.text || c.quote === pa.text); pivotLabel = 'passage ' + pa.id; }
+      else if (fi) { pivotFilter = (c) => c.sn === fi.sn; pivotLabel = 'file ' + fi.id; }
+      // the memo root (M1) or an unknown id keeps the whole list
+    }
+    const shownClaims = pivotFilter ? claims.filter(pivotFilter) : claims;
+    const pivotActive = !!pivotFilter;
+    const evClaims = shownClaims.slice().reverse().map((c) => {
       const chip = this._stChip(c.status);
       return {
         id: c.id, text: c.text, stLabel: c.status, stFg: chip.fg, stBg: chip.bg, stBd: chip.bd,
@@ -4916,9 +4975,18 @@ class Component extends DCLogic {
       return { id: c.id, text: c.text, stLabel: c.status, stFg: chip.fg, stBg: chip.bg, stBd: chip.bd, open: () => c.sn && this.openViewer(c.sn, c.quote) };
     });
 
-    // graph
-    const prov = app.provenance();
-    const graphLive = st.tab === 'graph' && (prov.nodes.claims.length > 0 || prov.nodes.sources.length > 0);
+    // provenance graph — the pivot at the top of the Findings tab (prov built above with the pivot)
+    const graphLive = st.tab === 'evidence' && (prov.nodes.claims.length > 0 || prov.nodes.sources.length > 0);
+    // The Graph tab hosts the real graph — the entity web / causal DAG of everything in focus.
+    const graphExplorerLive = st.tab === 'graph' && sources.length > 0;
+    const graphExplorerEmpty = st.tab === 'graph' && sources.length === 0;
+    // Guarantee a configured web on the Graph tab (e.g. a persisted-tab first paint), so
+    // _webGraphVals below returns the full view-model rather than the stub. Mutation-only (no
+    // setState in render) — the panel seeds lazily on the first draw/click, like other caches here.
+    if (graphExplorerLive && !this._wg) {
+      this._wg = { kind: 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+      this._tgToggles = [];
+    }
     // Which tiers are folded (collapsed by default): a tier is open only when graphOpen[key] is
     // explicitly true. The Expand-all / Collapse-all control reads whether every present tier is open.
     const gOpen = st.graphOpen || {};
@@ -5036,9 +5104,9 @@ class Component extends DCLogic {
         openWeb: () => this.openWebGraph(st.entitySel.docId, st.entitySel.entId),
       });
     }
-    // graph-node inspector (focus in graph tab wins the panel)
+    // graph-node inspector (focus in the Findings provenance graph wins the panel)
     let insp = null;
-    if (st.tab === 'graph' && st.focusId && graphLive) {
+    if (st.tab === 'evidence' && st.focusId && graphLive) {
       const fid = st.focusId;
       const chipOf = (status) => this._stChip(status);
       const cl = prov.nodes.claims.find((c) => c.id === fid);
@@ -5323,8 +5391,10 @@ class Component extends DCLogic {
       webModeBg: webMode === 'off' ? '#F2F2F6' : '#F1EFFE',
       webModeBd: webMode === 'off' ? '#E4E4EA' : '#DED8FD',
       cycleWebMode: () => this.cycleWebMode(),
-      // graph
-      graphTitle: topic ? topic.title : '', graphEmpty: st.tab === 'graph' && !graphLive, graphLive,
+      // graph tab — the real graph (entity web / causal DAG of everything in focus)
+      graphTitle: topic ? topic.title : '', graphExplorerLive, graphExplorerEmpty,
+      // findings provenance graph (the pivot) + its camera/controls
+      graphLive, graphEmpty: st.tab === 'evidence' && !graphLive && claims.length > 0,
       ...graphVals, legendNodes,
       tx: st.tx, ty: st.ty, scale: st.scale, camT: st.camT, zoomPct: String(Math.round(st.scale * 100)),
       panCursor: 'grab', startPan: (e) => this.startPan(e), stopPan: (e) => this.stopPan(e), onWheel: (e) => this.onWheel(e),
@@ -5337,6 +5407,8 @@ class Component extends DCLogic {
       resetFg: st.focusId ? '#5B4BE6' : '#8A8A95', setViewport: (el) => this.setViewport(el),
       // findings + register + memo
       evEmpty: claims.length === 0, evClaims, overviewStats, regRows,
+      // the pivot banner — which node the list is narrowed to, and the counts
+      pivotActive, pivotLabel, pivotShown: String(shownClaims.length), pivotTotal: String(claims.length),
       memoTitle: topic ? topic.title : '', memoText: topic ? topic.memo : '',
       onMemoInput: (e) => this.onMemoInput(e), memoClaims,
       memoLocked: contradictions > 0,
@@ -5436,11 +5508,12 @@ class Component extends DCLogic {
       ...this._versionVals(),
       // the real-time murmur strip (the peripheral sense) + its Settings toggle
       ...this._murmurVals(),
-      // graph explorer overlay (entity web + causal DAG · whole-topic + per-entity · entity toggles)
+      // graph tab explorer (entity web + causal DAG · whole-topic + per-entity · entity toggles)
       ...this._webGraphVals(),
       graphHasSources: sources.length > 0,
-      openTopicEntities: () => this.openTopicGraph('entity'),
-      openTopicCausal: () => this.openTopicGraph('causal'),
+      // The Graph tab carries its own details panel, so the global right drawer stands down there
+      // to give the web room to breathe.
+      rightPanelShow: st.rightOpen && st.tab !== 'graph',
       // monologue
       monologueOpen: st.monologueOpen, logCount: String(app.state.log.length),
       auditStats, logActions: st.logMode === 'actions', logReasoning: st.logMode === 'reasoning', logReflections: st.logMode === 'reflections',
