@@ -909,7 +909,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     for (const s of state.sources) {
       if (keep.has(s.sn)) continue;
       deepReaders.delete(s.docId);
-      s._doc = null; s._eot = null;
+      s._doc = null; s._eot = null; s._nlDoc = null;
     }
   };
 
@@ -1322,6 +1322,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         onPartial: (p) => {
           paint(`Transcribing… ${p.pct != null ? p.pct + '%' : ''}`);
           setAsr(src, { pct: p.pct || 0, partial: String(p.text || '').slice(-2000) });
+          // The live transcript stream — the timed words heard so far, for the Listen surface's
+          // scrubber to draw as they land (a session-only tail on `_asr`, not persisted).
+          if (Array.isArray(p.words)) src._asr.words = p.words;
           // Repaint the media panel's live transcript at most a few times a second.
           const now = nowMs();
           if (now - lastPaint > 350) { lastPaint = now; emit('sources'); }
@@ -2593,6 +2596,31 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return pending;
   };
 
+  // ── one grounded question per topic — the topic-per-question model ───────────
+  // The engine answers a SINGLE grounded question coherently from the record — or abstains
+  // honestly ("the record does not say"); a back-and-forth thread is what it does worst, so
+  // the Ask surface refuses to accrete one. A question asked while the current topic ALREADY
+  // holds a question opens a CHILD topic beneath it and asks THERE — a fresh line of inquiry
+  // the sidebar tree shows nested under the question it followed. The child INHERITS the
+  // parent's sources, so the record it reads is unchanged; the parent's answer stays intact
+  // on its own surface, one clean question-and-answer apiece. A question in a topic that has
+  // not been asked one yet (a "New topic", or one that only holds ingested sources) fills
+  // THAT topic in place — asking the first question never orphans an empty placeholder.
+  // Delegates to ask() on the now-active topic and returns its pending message. topicNew
+  // already makes the child active and auto-naming (from the first question) then names it.
+  const askQuestion = (question, opts = {}) => {
+    const q = String(question || '').trim();
+    if (!q) return Promise.resolve(null);
+    const cur = topic();
+    const alreadyAsked = !!(cur && cur.messages.some((m) => m && m.role === 'user'));
+    if (cur && alreadyAsked) {
+      const child = topicNew(DEFAULT_TOPIC_TITLE, { parentId: cur.id, workspaceId: cur.workspaceId });
+      child.sourceSns = [...(cur.sourceSns || [])];   // the child reads the same record as its parent
+      persist(); emit('topics');
+    }
+    return ask(q, opts);
+  };
+
   const stageLabel = (name) => ({
     route: 'Routing…', retrieve: 'Retrieving from the record…', fold: 'Folding the reading…',
     gate: 'Gating…', prompt: 'Building the grounded prompt…', llm: 'Phrasing…',
@@ -2842,40 +2870,60 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // links sum over every source, tagged with how many sources it spans. Pass
   // { merge: false } for the raw per-source instances (the old behaviour).
   const entityKey = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, ' ');
-  const entities = ({ merge = true } = {}) => {
-    const out = [];
-    for (const src of topicSources()) {
-      const doc = docFor(src);
-      if (!doc?.log) continue;
-      const g = projectGraph(doc.log);
-      const rep = g.representative || ((x) => x);
-      // Degree per representative in ONE pass over the edges, rather than re-scanning
-      // every edge for every entity (which was O(entities × edges) — minutes on a large
-      // document's graph, run on every explorer render). A self-loop counts once, matching
-      // the prior `rep(from) === r || rep(to) === r` test.
-      const degree = new Map();
-      for (const e of g.edges || []) {
-        const a = rep(e.from), b = rep(e.to);
-        degree.set(a, (degree.get(a) || 0) + 1);
-        if (b !== a) degree.set(b, (degree.get(b) || 0) + 1);
-      }
-      const seen = new Set();
-      for (const [id, ent] of g.entities || []) {
-        const r = rep(id);
-        if (seen.has(r)) continue;
-        seen.add(r);
-        const label = doc.admission?.labelOf?.(r) || ent.label || r;
-        const links = degree.get(r) || 0;
-        out.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn: src.sn, label, mentions: ent.sightings || 0, links, sourceCount: 1 });
-      }
+  // The merged referents a SINGLE doc admits — one row per union-find representative, with
+  // its sighting mass and incident degree. Pulled out of `entities()` so the topic explorer,
+  // the per-source pivot, and the holonic-level toggle all read a source the same way. Each row
+  // also carries the acoustic holon tag (kind='signal'|'noise', from organs/in/acoustic.js) and
+  // the numeric holon level off the entity's DEF props, so callers can filter by holonic level.
+  const entitiesInDoc = (doc, sn) => {
+    const rows = [];
+    if (!doc?.log) return rows;
+    const g = projectGraph(doc.log);
+    const rep = g.representative || ((x) => x);
+    // Degree per representative in ONE pass over the edges, rather than re-scanning
+    // every edge for every entity (which was O(entities × edges) — minutes on a large
+    // document's graph, run on every explorer render). A self-loop counts once, matching
+    // the prior `rep(from) === r || rep(to) === r` test.
+    const degree = new Map();
+    for (const e of g.edges || []) {
+      const a = rep(e.from), b = rep(e.to);
+      degree.set(a, (degree.get(a) || 0) + 1);
+      if (b !== a) degree.set(b, (degree.get(b) || 0) + 1);
     }
+    const seen = new Set();
+    for (const [id, ent] of g.entities || []) {
+      const r = rep(id);
+      if (seen.has(r)) continue;
+      seen.add(r);
+      const label = doc.admission?.labelOf?.(r) || ent.label || r;
+      const links = degree.get(r) || 0;
+      const kind = (ent.props && ent.props.kind) || null;
+      const lvl = (ent.props && ent.props.level != null) ? +ent.props.level : null;
+      rows.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn, label, mentions: ent.sightings || 0, links, sourceCount: 1, kind, level: lvl });
+    }
+    return rows;
+  };
+  // `level` selects the HOLONIC LEVEL of the topic explorer: 'names' (default) keeps only natural-
+  // language referents — people, places, things — dropping the acoustic signal/noise span holons an
+  // audio reading INS's; 'signal' keeps only those acoustic holons; 'all' keeps both. (The per-source
+  // pivot has its OWN finer level split — the transcript's referents vs its raw word spans — in
+  // sourceEntities below; this filter is the topic-wide acoustic cut.)
+  const entities = ({ merge = true, level = 'names' } = {}) => {
+    const out = [];
+    for (const src of topicSources()) out.push(...entitiesInDoc(docFor(src), src.sn));
+    // Filter to the requested holonic level. A signal/noise-tagged entity is an acoustic holon;
+    // everything else is a natural-language referent.
+    const acoustic = (it) => it.kind === 'signal' || it.kind === 'noise';
+    const rows = level === 'all' ? out
+      : level === 'signal' ? out.filter(acoustic)
+      : out.filter((it) => !acoustic(it));   // 'names' (default)
     if (merge) {
       // Group per-source instances by normalized label. The strongest instance
       // (most mentions) LEADS the merged row, so key/docId/entId/sn point at the
       // richest per-source profile — opening the row lands there — while mentions
       // and links aggregate and `sourceCount` records the reach.
       const byLabel = new Map();
-      for (const it of out) {
+      for (const it of rows) {
         const k = entityKey(it.label);
         let grp = byLabel.get(k);
         if (!grp) { grp = { lead: it, mentions: 0, links: 0, sns: new Set(), instances: [] }; byLabel.set(k, grp); }
@@ -2889,17 +2937,98 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         key: grp.lead.key, entId: grp.lead.entId, docId: grp.lead.docId, sn: grp.lead.sn,
         label: grp.lead.label, mentions: grp.mentions, links: grp.links,
         sourceCount: grp.sns.size, instances: grp.instances,
+        kind: grp.lead.kind, level: grp.lead.level,
       }));
       merged.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
       return merged;
     }
-    out.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
-    return out;
+    rows.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
+    return rows;
+  };
+
+  // ── holonic levels: reading a source at the level of its meaning, or its signal ──
+  // A source is read at more than one HOLONIC LEVEL. Its BASE level is whatever organ
+  // heard it — for a prose page that base already IS a natural-language reading, but for
+  // a non-prose modality it is the raw SPANS: an audio clip's base entities are its timed
+  // WORDS, an image's are its REGIONS, a table's are its CELLS. On TOP of that base the
+  // natural-language content raises its own REFERENTS — the people, places and things the
+  // words NAME — read by parsing the source's readable text as prose. The explorer defaults
+  // to those referents (the meaning), and can drop to the base spans (the signal underneath).
+  //
+  // The natural-language reading is derived on demand and memoised on the source under an
+  // underscore field (session-only, stripped from the snapshot; re-derives from `text`), and
+  // keyed by the source's content hash so a transcript folding in later rebuilds it. Its docId
+  // is the base docId suffixed `~nl`, so a referent opened from this level resolves its profile,
+  // wiki and graph against the right reading (see resolveDoc).
+  const NL_SUFFIX = '~nl';
+  const nlDocFor = (src) => {
+    if (!src || !String(src.text || '').trim()) return null;
+    if (!src._nlDoc || src._nlDoc._sig !== src.sha) {
+      try {
+        const d = parseText(src.text, { docId: `${src.docId}${NL_SUFFIX}` });
+        if (d) d._sig = src.sha;
+        src._nlDoc = d || null;
+      } catch { src._nlDoc = null; }
+    }
+    return src._nlDoc;
+  };
+  // A docId → { src, doc } lookup that also opens the natural-language level. Every
+  // docId-keyed projection (profile, wiki, tiered graph) routes through here so an entity
+  // from either level resolves to the reading it was read from.
+  const resolveDoc = (docId) => {
+    if (!docId) return null;
+    const direct = state.sources.find((s) => s.docId === docId);
+    if (direct) return { src: direct, doc: docFor(direct) };
+    if (docId.endsWith(NL_SUFFIX)) {
+      const baseId = docId.slice(0, -NL_SUFFIX.length);
+      const src = state.sources.find((s) => s.docId === baseId);
+      if (src) return { src, doc: nlDocFor(src) };
+    }
+    return null;
+  };
+  // The base-level noun for a modality — what one of its raw spans IS.
+  const SPAN_NOUN = { audio: 'Words', video: 'Words', image: 'Regions', table: 'Cells', json: 'Nodes', binary: 'Runs', music: 'Notes' };
+  // The holonic levels a source offers, meaning-first. A distinct base level exists only
+  // when the organ doc is a non-prose modality AND there is readable text to lift referents
+  // from; a prose source's base doc already IS its reading, so it has the one level.
+  const sourceLevels = (sn) => {
+    const src = sourceBySn(sn);
+    if (!src) return [];
+    const base = docFor(src);
+    const modality = base?.modality || null;
+    const hasText = !!String(src.text || '').trim();
+    // A prose reading (parseText tags its doc `text`) IS the natural-language level — one level.
+    // A genuine non-prose organ (audio/image/table/…) has a distinct base of raw spans beneath it.
+    if (modality && modality !== 'text' && hasText) {
+      const spanLabel = SPAN_NOUN[modality] || 'Spans';
+      return [
+        { level: 'referent', label: 'Referents', hint: 'the figures the content names' },
+        { level: 'span', label: spanLabel, hint: `the ${modality}'s raw ${spanLabel.toLowerCase()}` },
+      ];
+    }
+    return [{ level: 'referent', label: 'Referents', hint: 'the figures the text names' }];
+  };
+  // The entities of ONE source at a chosen holonic level — the per-source pivot's rows.
+  // 'referent' reads the natural-language content on top (when the base is non-prose);
+  // 'span' reads the organ's own base doc. Never merged: one source, one reading.
+  const sourceEntities = (sn, { level = 'referent' } = {}) => {
+    const src = sourceBySn(sn);
+    if (!src) return [];
+    const base = docFor(src);
+    const modality = base?.modality || null;
+    // Only a non-prose base has a natural-language reading laid over it; a prose doc already is one.
+    const doc = (level === 'referent' && modality && modality !== 'text' && String(src.text || '').trim())
+      ? nlDocFor(src)
+      : base;
+    const rows = entitiesInDoc(doc, sn);
+    rows.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
+    return rows;
   };
 
   const entityProfile = (docId, entId) => {
-    const src = state.sources.find((s) => s.docId === docId);
-    const doc = src && docFor(src);
+    const resolved = resolveDoc(docId);
+    const src = resolved?.src;
+    const doc = resolved?.doc;
     if (!doc) return null;
     const fs = figureSurface(doc, [entId]);
     const label = doc.admission?.labelOf?.(entId) || fs.figures.find((f) => f.id === entId)?.label || entId;
@@ -3123,7 +3252,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const tieredData = (docId, entId) => {
     const p = entityProfile(docId, entId);
     if (!p) return { nodes: [], edges: [] };
-    const srcT = srcTimeMs(state.sources.find((s) => s.docId === docId));
+    const srcT = srcTimeMs(resolveDoc(docId)?.src);
     const nodes = [{ id: 'src', tier: 0, label: p.sourceTitle, kind: 'source', t: srcT }];
     const edges = [];
     const seen = new Set();
@@ -3269,10 +3398,18 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         }
       }
     }
+    // How much of the record an abstention actually SEARCHED — the total passages (sentences)
+    // across the topic's sources, not the cited count. `passages` above is passages that ended
+    // up QUOTED, so it is 0 on an honest abstention; reporting that as "0 passages on record"
+    // reads as an empty record when the sources are in fact full of text the turn looked through.
+    // `recordPassages` is the scope the abstention names, so "the record does not say" can point
+    // at what it searched. The docs are already parsed for the active topic, so this is a cheap sum.
+    let recordPassages = 0;
+    try { for (const d of topicDocs()) recordPassages += (d && d.sentences && d.sentences.length) || 0; } catch { /* keep 0 */ }
     return {
       claims: claims.slice(-24), passages: [...passages.values()].slice(-32),
       contradictions,
-      stats: { claims: claims.length, passages: passages.size, sources: topicSources().length, contradictions },
+      stats: { claims: claims.length, passages: passages.size, sources: topicSources().length, recordPassages, contradictions },
     };
   };
 
@@ -3676,7 +3813,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     searchTopic,
     sourceBySn, removeSource, topicSources, sourceToggleCollapse,
     // chat
-    ask, stop, exportChat,
+    ask, askQuestion, stop, exportChat,
     // export provenance — WHAT produced this session: app + published build + latest-on-GitHub +
     // the current talker. Composed live so a surface badge can show the build/freshness/model.
     provenance: () => composeProvenance({
@@ -3702,6 +3839,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     ensureModel, setBackend, backendPref, setSpeed, speedPref,
     // projections for the surface
     answerSegments, viewerParas, readerLink, entities, entityProfile, entityWiki, tieredData, topicTieredData,
+    // the entity explorer, scoped to one source and read at a chosen HOLONIC LEVEL —
+    // its natural-language referents (default) or the modality's raw spans underneath
+    sourceLevels, sourceEntities,
     // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
     sourceSummary, sourceSummaryOf, entitySummary, entitySummaryFor, summaryFeedback,
     findings, provenance, dagFor, dagSources, setMemo, eotFor, answerEot,
