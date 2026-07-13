@@ -56,6 +56,8 @@ import { createVault } from '../archive/vault.js';
 import { mountVaultLauncher } from '../archive/vault-mount.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
+import { createWebClient } from '../../organs/ingest/index.js';
+import { createDashboardStore, mountDashboardLauncher } from '../dashboard/index.js';
 
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
@@ -148,6 +150,19 @@ const versions = Object.freeze({
   }),
 });
 
+// The live-metric dashboard (rooms/dashboard). Pin any element on any web page — a price, a count,
+// a status — by CLICKING it (no code), and it re-pulls that exact place every time the dashboard is
+// opened, appending each pull to an append-only reading log the tile projects. It reuses the SAME
+// CORS feed proxy the reader ingests through (createWebClient.fetchUrl) to pull pages, and persists
+// its watches + logs to localStorage so a metric keeps its history across reloads. See docs/dashboards.md.
+const dashboardClient = createWebClient();
+const dashboardStore = createDashboardStore();
+const dashboards = Object.freeze({
+  store: dashboardStore,
+  fetchUrl: (url, opts) => dashboardClient.fetchUrl(url, opts),
+  mountLauncher: (host) => mountDashboardLauncher(host, { fetchUrl: (u, o) => dashboardClient.fetchUrl(u, o), store: dashboardStore }),
+});
+
 window.EO = Object.freeze({
   app,
   parse,
@@ -169,6 +184,7 @@ window.EO = Object.freeze({
   matrix,
   chat,
   vault,
+  dashboards,   // the live-metric dashboard — pin a web-page element by clicking it, watch it update
   archive,
   genome,
   versions,       // the version time-machine — list prior merged-PR builds, roll back to any
@@ -193,3 +209,8 @@ catch (e) { console.warn('[EO] vault launcher not mounted', e); }
 // watchdog in the surface, so a freeze like the essay hang is visible as it happens.
 try { if (typeof document !== 'undefined') mountConsole(document.body, { audit, app, appName: APP_NAME, version: APP_VERSION }); }
 catch (e) { console.warn('[EO] console not mounted', e); }
+
+// …and the live-metric dashboard launcher (a 📊 FAB above the vault). Always available — a
+// dashboard needs no login — it pulls pages through the same feed proxy the reader ingests with.
+try { if (typeof document !== 'undefined') mountDashboardLauncher(document.body, { fetchUrl: dashboards.fetchUrl, store: dashboardStore }); }
+catch (e) { console.warn('[EO] dashboard launcher not mounted', e); }
