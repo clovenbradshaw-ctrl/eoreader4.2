@@ -2990,11 +2990,12 @@ class Component extends DCLogic {
     const s = sn && this._app && this._app.sourceBySn(sn);
     if (!s) return;
     const EO = (typeof window !== 'undefined' && window.EO) || {};
-    // While transcription is still running, s.words isn't populated yet — but the ASR feeds timed
-    // partial words onto s._asr.words, so render THOSE live (click-to-seek + karaoke work on them).
-    // Once applyTranscript lands the final transcript, s.words takes over as the editable baseline.
-    const running = s._asr && s._asr.state === 'running';
-    const live = running && (!s.words || !s.words.length) && Array.isArray(s._asr.words) && s._asr.words.length;
+    // While transcription is running — or queued to resume after a reload (`pending`), with a partial
+    // already heard and re-seeded — s.words isn't the editable baseline yet; the timed partial words
+    // live on s._asr.words. Render THOSE live (click-to-seek + karaoke work on them) so a reload shows
+    // the transcript heard so far at once. Once applyTranscript lands the final, s.words takes over.
+    const streaming = s._asr && (s._asr.state === 'running' || s._asr.state === 'pending');
+    const live = streaming && (!s.words || !s.words.length) && Array.isArray(s._asr.words) && s._asr.words.length;
     const baseWords = live ? s._asr.words : (s.words || []);
     const proj = EO.projectTranscript ? EO.projectTranscript(baseWords, live ? [] : (s.audioEvents || []))
       : { words: baseWords.map((w) => ({ ...w })) };
@@ -3004,7 +3005,7 @@ class Component extends DCLogic {
       el.__eoSig = sig;
       el.__eoNow = -1;
       if (!this._listenWords.length) {
-        el.innerHTML = '<div style="color:#9A9AA4;font-size:13px">' + (running ? 'Transcribing the signal…' : 'No transcript yet.') + '</div>';
+        el.innerHTML = '<div style="color:#9A9AA4;font-size:13px">' + (streaming ? 'Transcribing the signal…' : 'No transcript yet.') + '</div>';
       } else {
         el.innerHTML = this._listenWords.map((w, i) => w.redacted
           ? '<span class="eo-w eo-w-redacted" data-i="' + i + '" data-t0="' + (w.start || 0) + '" data-t1="' + (w.end || 0) + '">▮▮▮</span>'
@@ -3075,7 +3076,7 @@ class Component extends DCLogic {
     // The streaming partial isn't the editable baseline yet (its word indices still shift as more
     // audio is heard) — editing waits until the final transcript lands. Seeking on click is fine.
     const asn = this._activeSrc(); const as = asn && this._app.sourceBySn(asn);
-    if (as && as._asr && as._asr.state === 'running' && (!as.words || !as.words.length)) { this.showToast('Still transcribing — you can edit once the transcript finishes'); return; }
+    if (as && as._asr && (as._asr.state === 'running' || as._asr.state === 'pending') && (!as.words || !as.words.length)) { this.showToast('Still transcribing — you can edit once the transcript finishes'); return; }
     const i = +sp.dataset.i;
     const cur = sp.textContent;
     const input = document.createElement('input');
@@ -3268,10 +3269,10 @@ class Component extends DCLogic {
     const asr = s._asr || null;
     let asrShow = false, asrLabel = '', asrTone = '#6E6E78', asrBg = '#F2F2F6', asrBusy = false, asrPartial = '';
     if (asr) {
-      if (asr.state === 'pending') { asrShow = true; asrLabel = 'Signal separated — queued for transcription'; asrBusy = true; }
+      if (asr.state === 'pending') { asrShow = true; asrBusy = true; asrLabel = (Array.isArray(asr.words) && asr.words.length) ? 'Resuming transcription — the transcript heard so far is kept' : 'Signal separated — queued for transcription'; }
       else if (asr.state === 'running') { asrShow = true; asrBusy = true; asrLabel = `Transcribing the signal… ${asr.pct != null ? asr.pct + '%' : ''}`.trim(); asrTone = '#5B4BE6'; asrBg = '#F1EFFE'; asrPartial = String(asr.partial || ''); }
       else if (asr.state === 'skipped') { asrShow = true; asrLabel = `Not transcribed — ${asr.reason || 'no signal above the noise floor'}`; asrTone = '#8A6D2F'; asrBg = '#FBF4E6'; }
-      else if (asr.state === 'stopped') { asrShow = true; asrLabel = 'Transcription stopped — the waveform reading stands'; asrTone = '#8A6D2F'; asrBg = '#FBF4E6'; }
+      else if (asr.state === 'stopped') { asrShow = true; asrLabel = asr.reason || 'Transcription stopped — the waveform reading stands'; asrTone = '#8A6D2F'; asrBg = '#FBF4E6'; }
       else if (asr.state === 'error') { asrShow = true; asrLabel = `Transcription failed — ${asr.reason || 'error'}`; asrTone = '#B4402F'; asrBg = '#FBEAE6'; }
       else if (asr.state === 'done') { asrShow = false; }
     }

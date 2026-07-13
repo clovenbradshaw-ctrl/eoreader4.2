@@ -525,7 +525,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
           // is about to drive). A clip left mid-transcription reads as pending until the resume runs.
           if (src.transcription) {
             const st = src.transcription.state;
-            src._asr = { state: st === 'running' ? 'pending' : st, pct: src.transcription.pct || 0, reason: src.transcription.reason || null, partial: '' };
+            src._asr = { state: st === 'running' ? 'pending' : st, pct: src.transcription.pct || 0, reason: src.transcription.reason || null, partial: src.transcription.partial || '' };
+            // The heard-so-far words, if the tab closed mid-transcription — re-seed the live view so
+            // the Listen surface shows the partial transcript AT ONCE (click-to-seek + karaoke on it)
+            // instead of a blank, and so it is never lost even if the resume below cannot run.
+            if (Array.isArray(src.transcription.words) && src.transcription.words.length) src._asr.words = src.transcription.words;
           }
           return src;
         });
@@ -1265,15 +1269,18 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   };
 
   // The transcription status, kept in two twinned places. `_asr` (underscore) is the RICH LIVE
-  // object the surface reads — state, pct, and the streaming `partial` tail — and is stripped from
-  // the snapshot (serialize() drops underscore fields). `src.transcription` is its small DURABLE
-  // twin (state + pct only, no partial) that DOES ride the snapshot — so after a reload the app
-  // knows a clip was mid-transcription and the surface can still show the banner. This one setter
-  // keeps them in lockstep; on restore, `_asr` is re-seeded from `transcription`.
+  // object the surface reads — state, pct, the streaming `partial` tail and the timed partial
+  // `words` — and is stripped from the snapshot (serialize() drops underscore fields).
+  // `src.transcription` is its DURABLE twin that DOES ride the snapshot: state + pct + reason, and
+  // — while a clip is mid-transcription — the heard-so-far `words`/`partial` too, written throttled
+  // by the streamer below so a reload shows the partial transcript AT ONCE and never loses it. This
+  // setter keeps state/pct/reason in lockstep while PRESERVING any partial parked on the twin (a
+  // plain `{state,pct,reason}` reset would wipe it on every partial); on restore, `_asr` is re-seeded
+  // from `transcription`, and applyTranscript clears the partial once the final transcript lands.
   const setAsr = (src, patch) => {
     if (!src) return;
     src._asr = { ...(src._asr || {}), ...patch };
-    src.transcription = { state: src._asr.state, pct: src._asr.pct || 0, reason: src._asr.reason || null };
+    src.transcription = { ...(src.transcription || {}), state: src._asr.state, pct: src._asr.pct || 0, reason: src._asr.reason || null };
   };
 
   // Fold a landed transcript back into an audio source that was already recorded from its
@@ -1299,12 +1306,43 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { /* keep prior */ }
     if (coverage) src.coverage = coverage;
     setAsr(src, { state: 'done', pct: 100, partial: '' });
+    // The final transcript is now the baseline (src.words) — drop the durable partial twin the
+    // streamer kept for reload-safety, so it neither lingers in the snapshot nor re-seeds a stale
+    // in-progress view on the next boot.
+    if (src.transcription) { delete src.transcription.words; delete src.transcription.partial; }
+    if (src._asr) src._asr.words = null;
     logIt('record', `Transcribed ${src.reg} — ${body.length.toLocaleString()} chars`, src.reg);
     setTimeout(() => {
       try { const d = docFor(src); logIt('eot', `Encoded ${src.reg} into EoT — ${d?.log ? emitEot(d.log).lines.length : 0} propositions`, src.reg); }
       catch { /* the record already stands */ }
     }, 0);
     persist(); emit('sources');
+  };
+
+  // Promote the heard-so-far PARTIAL transcript to the source's baseline (src.words + text), so a
+  // transcription that will not reach completion still keeps what it heard instead of losing it:
+  //   • the user hit Stop (a stopped job is never resumed), or
+  //   • a resume after a reload cannot get the original audio back to finish decoding (it was too
+  //     large to have kept offline, was evicted, or this browser has no OPFS).
+  // Reads the live partial (`_asr.words`) if present, else the durable twin (`transcription.words`)
+  // the streamer persisted. No-op when nothing was heard yet, or a real transcript already landed.
+  const keepPartialTranscript = (src) => {
+    if (!src || (Array.isArray(src.words) && src.words.length)) return false;
+    const live = src._asr && Array.isArray(src._asr.words) && src._asr.words.length ? src._asr.words : null;
+    const twin = src.transcription && Array.isArray(src.transcription.words) && src.transcription.words.length ? src.transcription.words : null;
+    const partial = live || twin;
+    if (!partial) return false;
+    src.words = partial.map((w) => ({ text: w.text, start: w.start, end: w.end }));
+    if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
+    const body = (projectTranscript(src.words, src.audioEvents).text || '').trim();
+    if (body) {
+      src.text = body; src.bytes = bytesOf(body); src.sha = webContentHash(body);
+      src._doc = null; src._eot = null; deepReaders.delete(src.docId);
+      try { src.entCount = projectGraph(docFor(src).log).entities?.size || 0; } catch { /* keep prior */ }
+    }
+    if (src.transcription) { delete src.transcription.words; delete src.transcription.partial; }
+    if (src._asr) src._asr.words = null;
+    return true;
   };
 
   // Run a transcription thunk against an already-recorded audio source: stream partials into the
@@ -1318,7 +1356,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     emit('sources');
     const paint = (label) => { try { progress && progress({ kind: 'file', label }); } catch { /* pill is best-effort */ } };
     paint('Transcribing the signal…');
-    let lastPaint = 0;
+    let lastPaint = 0, lastPartialSave = 0;
     try {
       const res = await transcribe({
         signal,
@@ -1327,25 +1365,47 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
           paint(`Transcribing… ${p.pct != null ? p.pct + '%' : ''}`);
           setAsr(src, { pct: p.pct || 0, partial: String(p.text || '').slice(-2000) });
           // The live transcript stream — the timed words heard so far, for the Listen surface's
-          // scrubber to draw as they land (a session-only tail on `_asr`, not persisted).
+          // scrubber to draw as they land (a session-only tail on `_asr`).
           if (Array.isArray(p.words)) src._asr.words = p.words;
-          // Repaint the media panel's live transcript at most a few times a second.
           const now = nowMs();
+          // Copy the heard-so-far words onto the DURABLE transcription twin (throttled) and persist,
+          // so a reload mid-transcription shows them at once and NEVER loses them — the `_asr` stream
+          // above is session-only (serialize() strips underscore fields), and before this nothing
+          // persisted during a run. The words are cumulative, so each save carries the whole
+          // transcript-so-far; applyTranscript clears it the moment the final transcript lands.
+          if (Array.isArray(p.words) && p.words.length && now - lastPartialSave > 4000) {
+            lastPartialSave = now;
+            src.transcription = { ...(src.transcription || {}), state: src._asr.state, pct: src._asr.pct || 0,
+              words: p.words.map((w) => ({ text: w.text, start: w.start, end: w.end })), partial: String(p.text || '').slice(-2000) };
+            persist();
+          }
+          // Repaint the media panel's live transcript at most a few times a second.
           if (now - lastPaint > 350) { lastPaint = now; emit('sources'); }
         },
       });
       if (res && res.empty) {
         setAsr(src, { state: 'skipped', reason: 'no speech found in the signal', pct: 100, partial: '' });
+        if (src.transcription) { delete src.transcription.words; delete src.transcription.partial; }
+        if (src._asr) src._asr.words = null;
         settleJob(jid, 'skipped'); persist(); emit('sources');
       } else if (res && res.doc) {
-        applyTranscript(src, res.text, res.doc, res.coverage);   // sets _asr done + persists
+        applyTranscript(src, res.text, res.doc, res.coverage);   // sets _asr done, clears partial, persists
         settleJob(jid, 'done');
       } else {
         settleJob(jid, 'done');   // the run finished with nothing to fold; don't resume it again
       }
     } catch (e) {
-      if (signal && signal.aborted) { setAsr(src, { state: 'stopped' }); settleJob(jid, 'stopped'); }
-      else { setAsr(src, { state: 'error', reason: String(e?.message || e).slice(0, 90) }); settleJob(jid, 'error', String(e?.message || e).slice(0, 90)); logIt('skip', `Transcription failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+      if (signal && signal.aborted) {
+        // The user stopped it. Keep the transcript heard so far as the baseline rather than discard
+        // it (a stopped job is never resumed), so Stop TRIMS the work instead of throwing it away.
+        const kept = keepPartialTranscript(src);
+        setAsr(src, { state: 'stopped', pct: (src._asr && src._asr.pct) || 0, partial: '', reason: kept ? 'stopped — kept the transcript heard so far' : null });
+        settleJob(jid, 'stopped');
+      } else {
+        setAsr(src, { state: 'error', reason: String(e?.message || e).slice(0, 90) });
+        settleJob(jid, 'error', String(e?.message || e).slice(0, 90));
+        logIt('skip', `Transcription failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`);
+      }
       persist(); emit('sources');
     }
   };
@@ -1476,7 +1536,16 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       // Already finished (a completed run whose job-drop didn't flush before the reload) — close it.
       if (src.transcription && ['done', 'skipped'].includes(src.transcription.state) && (src.words || []).length) { settleJob(job.id, 'done'); return; }
       const bytes = await audioBytes(src);
-      if (!bytes) { setAsr(src, { state: 'error', reason: 'original audio unavailable — re-import to transcribe' }); settleJob(job.id, 'done'); persist(); emit('sources'); return; }
+      if (!bytes) {
+        // The original audio is gone (too large to have kept offline, evicted, or no OPFS), so a
+        // full re-transcribe is impossible. If a partial transcript was streamed before the reload,
+        // KEEP it as the baseline rather than lose it; otherwise state the audio is gone honestly.
+        const kept = keepPartialTranscript(src);
+        setAsr(src, kept
+          ? { state: 'stopped', pct: (src.transcription && src.transcription.pct) || 0, partial: '', reason: 'kept the partial transcript — re-import the audio to finish it' }
+          : { state: 'error', pct: 0, partial: '', reason: 'original audio unavailable — re-import to transcribe' });
+        settleJob(job.id, 'done'); persist(); emit('sources'); return;
+      }
       const ref = src.audioRef || {};
       const file = new File([bytes], src.title || 'clip', { type: ref.mime || 'audio/mpeg' });
       const { importAnyFile } = await import('./import-file.js');
