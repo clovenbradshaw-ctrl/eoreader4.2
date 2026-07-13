@@ -18,6 +18,7 @@ export const CONTRACTS = Object.freeze({
   'src/organs/in/index.js': contract({ ops: ['INS', 'CON', 'SEG'], targets: ['Void', 'Field'], products: ['Entity', 'Link', 'Network'], stances: ['Making', 'Binding', 'Dissecting'], note: 'barrel — sense organs' }),
   'src/organs/in/json.js': contract({ ops: ['INS', 'DEF', 'CON'], targets: ['Void'], products: ['Entity', 'Link', 'Field'], stances: ['Making', 'Binding', 'Dissecting'], note: 'JSON tree adapter' }),
   'src/organs/in/locus.js': contract({ ops: ['SEG', 'SIG', 'EVA'], targets: ['Void'], products: ['Field'], stances: ['Dissecting', 'Tending', 'Tracing'], note: 'locus — DNA window → ρ columns (vₖ,wₖ,sₖ)' }),
+  'src/organs/in/motion.js': contract({ ops: ['SEG', 'INS', 'CON', 'DEF', 'EVA'], targets: ['Field'], products: ['Entity', 'Link', 'Kind', 'Field'], stances: ['Dissecting', 'Making', 'Binding', 'Tracing'], note: 'pre-transcription retina — cuts → shots/motion nested holons (the vision gate)' }),
   'src/organs/in/music.js': contract({ ops: ['INS', 'CON'], targets: ['Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'music adapter (melody)' }),
   'src/organs/in/ocr.js': contract({ ops: ['SEG'], targets: ['Void'], products: ['Field'], stances: ['Dissecting'], note: 'OCR adapter (Tesseract) → assembleDocument' }),
   'src/organs/in/pdf.js': contract({ ops: ['SEG'], targets: ['Void'], products: ['Field'], stances: ['Dissecting'], note: 'native-text PDF adapter → assembleDocument' }),
