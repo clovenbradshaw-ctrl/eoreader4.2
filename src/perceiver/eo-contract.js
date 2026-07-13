@@ -17,6 +17,7 @@ export const CONTRACTS = Object.freeze({
   'src/perceiver/parse/fuzzy.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Link'], stances: ['Binding'], note: 'bounded edit distance' }),
   'src/perceiver/parse/index.js': contract({ ops: ['SEG', 'INS', 'CON', 'SYN', 'DEF'], targets: ['Void', 'Field'], products: ['Network', 'Entity', 'Field'], stances: ['Composing'], note: 'barrel' }),
   'src/perceiver/parse/metadata.js': contract({ ops: ['SIG', 'REC'], targets: ['Void'], products: ['Atmosphere', 'Paradigm'], stances: ['Tending'], note: 'front-matter metadata harvest' }),
+  'src/perceiver/parse/name-variants.js': contract({ ops: ['SYN', 'NUL'], targets: ['Entity'], products: ['Network'], stances: ['Composing', 'Making'], note: 'name-variant coreference (surface forms of one referent)' }),
   'src/perceiver/parse/naming.js': contract({ ops: ['SYN', 'NUL'], targets: ['Field', 'Entity'], products: ['Network'], stances: ['Making'], note: 'naming-scene coref (vocative↔role)' }),
   'src/perceiver/parse/pipeline.js': contract({ ops: ['INS', 'CON', 'SYN'], targets: ['Void'], products: ['Network', 'Field'], stances: ['Composing'], note: 'parse orchestrator (text→doc)' }),
   'src/perceiver/parse/proposition.js': contract({ ops: ['SEG', 'EVA'], targets: ['Field', 'Link'], products: ['Link'], stances: ['Dissecting'], note: 'argument-span SEG (S/V/O)' }),
