@@ -539,8 +539,9 @@ table{border-collapse:collapse;width:100%}
       </div>
 
       <!-- REAL-TIME MURMUR STRIP — the peripheral sense (src/murmur). It no longer shows gauges or
-           register %; it VOICES (src/murmur/narrate/voice.js): first-person oppositions, the kind of
-           thing that flows through your head. Ambient, off the critical path; hide it from Settings. -->
+           register %; it VOICES (src/murmur/narrate/voice.js) the actual propositions the reader is
+           parsing — the grounded claims flowing through as it reads, tinted by the feeling. Ambient,
+           off the critical path; hide it from Settings. -->
       <sc-if value="{{ murmurOn }}">
         <div class="eo-scroll eo-murmur" style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:8px 16px;border-bottom:1px solid #EDE9F6;background:#FCFBFF;overflow-x:auto">
           <div style="display:flex;align-items:center;gap:7px;flex:0 0 auto" title="murmur — the impressionistic background sense">
@@ -4755,11 +4756,11 @@ class Component extends DCLogic {
     const m = this._murmur;
     const mode = st.murmurMode || 'look';   // 'off' | 'look' | 'explore'
     const show = mode !== 'off';            // visibility DERIVES from the mode — nothing mutters unseen
-    // The murmur no longer paints GAUGES — it VOICES. The engine (src/murmur/narrate/voice.js) turns
-    // the geometry into first-person oppositions ("we've drifted far off what you asked — a lead worth
-    // following, or are we just lost?"); the strip only reads that prose. Same discipline: it renders a
-    // voicing, never a citable fact (§9.4). Each thought is tinted by the FEELING it voices — the
-    // colour of the register, not a number.
+    // The murmur no longer paints GAUGES — it VOICES the actual propositions the reader is parsing.
+    // The engine (src/murmur/narrate/voice.js) surfaces the fold's grounded claims — "Ryan Coogler
+    // directed Sinners." — tinted by the FEELING the sense has about the reading; the strip only reads
+    // that prose. Same discipline: it renders a voicing, never a citable fact (§9.4). Each thought's
+    // colour is the register it's tinted by (the feeling), not a number.
     let voice = [];
     if (m) { try { const s = m.state ? m.state() : null; if (s && Array.isArray(s.voice)) voice = s.voice; } catch { /* the strip must never break the surface */ } }
     const INK = {

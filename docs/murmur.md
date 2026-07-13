@@ -78,16 +78,27 @@ concentration/unease signal fires. So it stays audit-only (`canAppendLog` never 
 For the surface, the barrel grew a read-only side-channel — `murmur.subscribe(fn)` (returns an
 unsubscribe) and `murmur.state()` (the last snapshot). `index.html` renders a **real-time murmur
 strip** on the main page under the tab bar. It does **not** paint gauges or register percentages —
-those are metrics, and a peripheral sense should read like a mind, not a dashboard. Instead each
-snapshot carries a **`voice`**: the model-free inner voice (`narrate/voice.js`) turns the geometry
-into first-person **oppositions** — the either/or a thought is actually caught in ("we've drifted
-far off what you asked — a lead worth following, or are we just lost?"). The strip shows the
-dominant thought (tinted by the feeling it voices) and, when two registers cross, a quieter second
-one; a live wander/narrator phrase leads verbatim (the murmur's own words). It is shown by default
-and hideable from **Settings** (persisted as `eo_murmur`). The voice is a **voicing, never a fact**
-— same firewall as the narrator (§9.4/§9.5): it can never surface a citable fact or enter the
-answer prompt. `senseSignal`'s drift/footing/novelty scalars are still computed (they drive the
-registers and the audit marginalia); they are simply no longer surfaced as bars.
+those are metrics, and a peripheral sense should read like a mind, not a dashboard. It also does
+**not** invent canned reactions to the geometry. Instead each snapshot carries a **`voice`**: the
+**actual propositions the reader is parsing** at this fold.
+
+The wiring site (`rooms/reader/app.js` `parsedPropositions`) reads the fold's own grounded graph —
+`ctx.note.levels.structure`, the same `x→relation→y` edges `serializeEOT` renders — and says each as
+one short past-tense claim ("Ryan Coogler directed Sinners."), using the engine's own conjugation
+(`toPast`) on the verb head so a phrasal relation reads cleanly ("premiered in", not "premiere ined").
+Negated edges are skipped so every shown claim stays clean (contradictions live in the Significance
+note). Those claim strings ride the fold snapshot into `murmur.observe`, and the model-free inner
+voice (`narrate/voice.js`) surfaces the top one or two — **tinted by the feeling** the sense has about
+the reading (the dominant register's colour, not its words). A live wander/narrator phrase leads
+verbatim; with nothing parsed it voices the passage being read; only truly idle does it fall to a
+spare state line. The claims are no more (and no less) right than the reader's graph — the murmur
+adds nothing, it re-voices what the reader already grounded.
+
+It is shown by default and hideable from **Settings** (persisted as `eo_murmur`). The voice is a
+**voicing, never a fact** — same firewall as the narrator (§9.4/§9.5): it can never surface a citable
+fact or enter the answer prompt. `senseSignal`'s drift/footing/novelty scalars are still computed
+(they drive the registers, the tint, and the audit marginalia); they are simply no longer surfaced
+as bars.
 
 ## The firewall (why the log write is safe)
 

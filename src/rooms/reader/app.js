@@ -21,6 +21,7 @@
 import { parseText } from '../../perceiver/parse/index.js';
 import { promoteConnection } from '../../enactor/connect/index.js';
 import { speakTriples, talkThenVerify } from '../../weave/write/index.js';
+import { toPast } from '../../weave/write/morph.js';
 import { projectGraph, operatorsOf, glyphOf } from '../../core/index.js';
 import { createModel, describeModel } from '../../model/interface.js';
 import { wrapRedacting } from '../../model/redact-remote.js';
@@ -435,6 +436,49 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // pipeline. concentration is always available off the fold's referential read (zero embedding
   // cost); drift/novelty need a meaning-measuring embedder (MiniLM warm) — absent it the geometric
   // channel stays null and only the concentration/unease signal can fire (honest degradation).
+  // The ACTUAL propositions the fold parsed at this reading — the reader's own grounded x→relation→y
+  // claims (`ctx.note.levels.structure`, the same graph serializeEOT renders). Each edge is said as one
+  // short past-tense claim using the ENGINE'S OWN conjugation (toPast), applied to the verb HEAD only
+  // so a phrasal via ("premiere in") reads "premiered in", not "premiere ined". This is what the murmur
+  // strip voices — so it reads like a mind reading the document, not a canned reaction to the geometry.
+  // Negated edges are skipped (every shown claim stays clean and correct; contradictions live in the
+  // Significance note, not the ambient strip). Bounded — the strip shows ≤2; a couple more give a choice.
+  const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  const sayEdge = (subj, verb, obj) => {
+    const parts = String(verb).split(/\s+/).filter(Boolean);
+    const pred = [toPast(parts[0]), parts.slice(1).join(' '), obj].filter(Boolean).join(' ');
+    return `${capFirst(subj)} ${pred}.`;
+  };
+  const parsedPropositions = (ctx, max = 4) => {
+    const st = ctx && ctx.note && ctx.note.levels && ctx.note.levels.structure;
+    if (!st) return [];
+    const out = [];
+    const seen = new Set();
+    for (const r of (st.relations || [])) {
+      if (out.length >= max) break;
+      if (!r || !r.src || !r.tgt || r.polarity === '−') continue;   // skip negated — keep every claim clean
+      const subj = String(r.src.label || '').trim();
+      const obj = String(r.tgt.label || '').trim();
+      const verb = String(r.via || '').trim();
+      if (!subj || !verb) continue;
+      const key = `${subj}|${verb}|${obj}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let text = sayEdge(subj, verb, obj || null);
+      if (text.length > 120) text = text.slice(0, 117).replace(/\s+\S*$/, '') + '…';
+      out.push({ text, subj });
+    }
+    for (const d of (st.defs || [])) {
+      if (out.length >= max) break;
+      const subj = String((d && d.label) || '').trim();
+      const val = String((d && d.value) || '').trim();
+      if (!subj || !val || seen.has(`def|${subj}`)) continue;
+      seen.add(`def|${subj}`);
+      out.push({ text: `${capFirst(subj)} — ${val}.`, subj });
+    }
+    return out;
+  };
+
   const observeMurmur = (ctx) => {
     if (!murmur || !ctx) return;
     try {
@@ -460,7 +504,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       const measures = !!(emb && emb.measuresMeaning && typeof emb.embed === 'function');
       const queryText = String(ctx.retrievalQuery || ctx.question || '');
       const readingText = ctx.note && ctx.note.text ? String(ctx.note.text) : '';
-      const base = { ref, query: ctx.question || '', concentration, passageText: readingText.slice(0, 400) };
+      const base = { ref, query: ctx.question || '', concentration, passageText: readingText.slice(0, 400), propositions: parsedPropositions(ctx) };
       if (!measures || !queryText) {
         // no meaning space this stop — concentration-only (drift/novelty null by construction).
         void Promise.resolve(murmur.observe({ ...base, measuresMeaning: false }, { turn: auditTurn })).catch(() => {});
