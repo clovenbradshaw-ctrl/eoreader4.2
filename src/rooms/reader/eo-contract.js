@@ -6,6 +6,8 @@ import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
   'src/rooms/reader/app.js': contract({ ops: ['CON', 'INS'], targets: ['Network', 'Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'the reader session controller' }),
+  'src/rooms/reader/audio-dsp.js': contract({ ops: ['SEG', 'NUL'], targets: ['Field'], products: ['Void'], stances: ['Dissecting', 'Clearing'], note: 'audio DSP — waveform redaction + WAV encode' }),
+  'src/rooms/reader/audio-store.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Tending'], note: 'original-audio byte store (OPFS binary)' }),
   'src/rooms/reader/boot.js': contract({ ops: ['CON', 'SIG'], targets: ['Network', 'Field'], products: ['Link'], stances: ['Binding', 'Tending'], note: 'the surface↔engine membrane' }),
   'src/rooms/reader/chat-export.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'chat + audit export renderer' }),
   'src/rooms/reader/console-surface.js': contract({ ops: ['EVA', 'NUL'], targets: ['Network', 'Field'], products: ['Void'], stances: ['Tracing', 'Clearing'], note: 'the live audit console — a terminal that witnesses every turn' }),
@@ -28,6 +30,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/section-answer.js': contract({ ops: ['SEG', 'DEF'], targets: ['Field', 'Link'], products: ['Field', 'Lens'], stances: ['Dissecting', 'Making'], note: 'section headings by field-shift' }),
   'src/rooms/reader/tiered-graph.js': contract({ ops: ['NUL'], targets: ['Network'], products: ['Void'], stances: ['Clearing'], note: 'tiered graph SVG renderer' }),
   'src/rooms/reader/topic-name.js': contract({ ops: ['SIG', 'DEF'], targets: ['Entity', 'Field'], products: ['Lens'], stances: ['Tending', 'Making'], note: 'topic auto-naming — content → title' }),
+  'src/rooms/reader/transcript-edit.js': contract({ ops: ['SYN', 'SEG', 'NUL'], targets: ['Field'], products: ['Network', 'Void'], stances: ['Composing', 'Dissecting', 'Clearing'], note: 'transcript edit/redaction fold — baseline + append-only events → live reading' }),
   'src/rooms/reader/transcript-export.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'transcript export renderer' }),
   'src/rooms/reader/versions.js': contract({ ops: ['SIG', 'CON'], targets: ['Network', 'Void'], products: ['Link'], stances: ['Tending', 'Binding'], note: 'the version time-machine — roll back to a prior PR' }),
   'src/rooms/reader/wiki-referent.js': contract({ ops: ['CON', 'EVA'], targets: ['Network'], products: ['Link'], stances: ['Binding', 'Tracing'], note: 'the entity panel wiki referent — search, score, confirm' }),

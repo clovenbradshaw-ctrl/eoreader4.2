@@ -41,6 +41,14 @@ table{border-collapse:collapse;width:100%}
 .eo-murmur-dot{animation:eoMurmurPulse 2.4s ease-in-out infinite}
 .eo-murmur::-webkit-scrollbar{height:0}
 @media (prefers-reduced-motion:reduce){.eo-murmur-dot{animation:none}}
+/* Interactive transcript (Listen surface) — a word is a clickable, editable, redactable holon. */
+.eo-w{border-radius:3px;padding:0 1px;cursor:pointer;transition:background .12s,color .12s}
+.eo-w:hover{background:rgba(109,94,245,.12)}
+.eo-w-now{background:#EDE9FE;color:#4A3AD6;box-shadow:0 0 0 2px #EDE9FE}
+.eo-w-edited{border-bottom:1px dashed #C79A3A}
+.eo-w-sel{background:#DED8FD}
+.eo-w-redacted{color:#2A2A32;cursor:default;letter-spacing:-2px}
+.eo-w-input{font:inherit;color:inherit;background:#fff;border:1px solid #6D5EF5;border-radius:4px;padding:0 3px;outline:none}
 .eo-scroll::-webkit-scrollbar{width:11px;height:11px}
 .eo-scroll::-webkit-scrollbar-thumb{background:#dadae1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
 .eo-scroll::-webkit-scrollbar-thumb:hover{background:#c7c7d0;background-clip:content-box}
@@ -1063,6 +1071,7 @@ table{border-collapse:collapse;width:100%}
               </div>
               <div style="display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap">
                 <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
+                  <sc-if value="{{ viewerIsAudio }}"><button onClick="{{ viewerModeListen }}" title="Listen — player, waveform + interactive transcript" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmListenFg }};background:{{ vmListenBg }}">Listen</button></sc-if>
                   <sc-if value="{{ viewerCanPage }}"><button onClick="{{ viewerModePage }}" title="Render the real website" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPageFg }};background:{{ vmPageBg }}">Native</button></sc-if>
                   <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">Facing</button>
@@ -1094,10 +1103,10 @@ table{border-collapse:collapse;width:100%}
             <sc-if value="{{ viewer.media.show }}">
               <div class="eo-scroll" style="flex:0 0 auto;max-height:44%;overflow-y:auto;background:#fff;border-bottom:1px solid #EAEAEF;padding:13px 18px;display:flex;flex-direction:column;gap:11px">
                 <sc-if value="{{ viewer.media.showVideo }}">
-                  <video controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;max-height:260px;border-radius:9px;background:#000;display:block"></video>
+                  <video ref="{{ setListenAudio }}" controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;max-height:260px;border-radius:9px;background:#000;display:block"></video>
                 </sc-if>
                 <sc-if value="{{ viewer.media.showAudio }}">
-                  <audio controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;display:block"></audio>
+                  <audio ref="{{ setListenAudio }}" controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;display:block"></audio>
                 </sc-if>
                 <sc-if value="{{ viewer.media.hasWave }}">
                   <div>
@@ -1144,6 +1153,30 @@ table{border-collapse:collapse;width:100%}
                     </sc-for>
                   </div>
                 </sc-if>
+              </div>
+            </sc-if>
+
+            <!-- LISTEN — the audio-first surface: the media panel (player + waveform) is the hero
+                 above, and here is the INTERACTIVE TRANSCRIPT: each word tied to its time (click to
+                 seek, the sounding word highlights), editable in place (double-click), and redactable
+                 by span (silence or a gentle beep). Every edit/redaction is non-destructive and
+                 tracked on the source's append-only audioEvents log. -->
+            <sc-if value="{{ viewerIsListen }}">
+              <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff">
+                <sc-if value="{{ viewer.media.mediaMissing }}">
+                  <div style="flex:0 0 auto;padding:9px 24px;background:#FBF4E6;border-bottom:1px solid #F0E6CF;font-size:12px;color:#8A6D2F">The original audio isn’t stored for this source — re-import the file to play or redact it. The transcript below is still editable.</div>
+                </sc-if>
+                <div style="flex:0 0 auto;display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 24px;border-bottom:1px solid #EAEAEF;background:#FBFBFD">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA4">Redact</span>
+                  <button onClick="{{ redactSilence }}" title="Replace the selected span with silence" style="font-size:10.5px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">silence</button>
+                  <button onClick="{{ redactBeep }}" title="Replace the selected span with a soft beep" style="font-size:10.5px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">beep</button>
+                  <button onClick="{{ undoAudioEvent }}" title="Undo the last edit or redaction" style="font-size:10.5px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">Undo</button>
+                  <span style="flex:1"></span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">{{ viewer.listen.editCount }} edits · {{ viewer.listen.redactionCount }} redactions</span>
+                  <button onClick="{{ exportRedactedWav }}" title="Download the (redacted) audio as WAV" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ .wav</button>
+                </div>
+                <div class="eo-scroll" ref="{{ setListenTranscript }}" style="flex:1;min-height:0;overflow-y:auto;padding:22px 26px;font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.95;color:#2A2A32"></div>
+                <div style="flex:0 0 auto;padding:6px 24px;border-top:1px solid #F0F0F4;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B4B4BE">Click a word to jump · double-click to edit · click then shift-click to select a span, then redact</div>
               </div>
             </sc-if>
 
@@ -2414,7 +2447,7 @@ class Component extends DCLogic {
 
   // ── navigation ───────────────────────────────────────────────────────────
   setTab(tab) {
-    this._readerFrame = null; this._viewCache = null;
+    this._readerFrame = null; this._viewCache = null; this._listenTx = null; this._selA = this._selB = null;
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
     this.setState({ tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, tocOpen: false, ...(this._mob() ? { leftOpen: false } : {}) });
     // Switching to a source tab whose mode is Native kicks off (or reuses) its page fetch.
@@ -2433,6 +2466,234 @@ class Component extends DCLogic {
     } catch { return false; }
   }
 
+  // ── the Listen surface — interactive transcript over the media element ────────────────────
+  // The transcript is rendered imperatively (NOT through the template's <sc-for>) into a container
+  // reached by ref, so a word click can drive the parent <audio> and the sounding word can be
+  // highlighted by direct DOM class-toggle — no setState per frame (the karaoke loop must never
+  // re-render the whole app, the reveal.js freeze class). The ref re-fires each render; guards on
+  // the element (its own __eoSig / __eoWired) keep the build + listener-wiring to once per change.
+  _escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+  // The audio/video element for the active source — set (and re-set on a source switch) by the ref
+  // on the player. The whole Listen surface drives THIS one element.
+  setListenAudio(el) { if (el) this._listenAudio = el; }
+
+  // Build the word spans once per (source · edit-count) signature, wire the click/dblclick handlers
+  // once, and bind the highlight loop to the current media element once. `_listenWords` caches the
+  // projected words for the binary-search highlight.
+  setListenTranscript(el) {
+    if (!el) return;
+    this._listenTx = el;
+    const sn = this._activeSrc();
+    const s = sn && this._app && this._app.sourceBySn(sn);
+    if (!s) return;
+    const EO = (typeof window !== 'undefined' && window.EO) || {};
+    const proj = EO.projectTranscript ? EO.projectTranscript(s.words || [], s.audioEvents || [])
+      : { words: (s.words || []).map((w) => ({ ...w })) };
+    this._listenWords = proj.words;
+    const sig = (s.sha || '') + '·' + ((s.audioEvents && s.audioEvents.length) || 0) + '·' + this._listenWords.length;
+    if (el.__eoSig !== sig) {
+      el.__eoSig = sig;
+      el.__eoNow = -1;
+      if (!this._listenWords.length) {
+        const running = s._asr && s._asr.state === 'running';
+        el.innerHTML = '<div style="color:#9A9AA4;font-size:13px">' + (running ? 'Transcribing the signal…' : 'No transcript yet.') + '</div>';
+      } else {
+        el.innerHTML = this._listenWords.map((w, i) => w.redacted
+          ? '<span class="eo-w eo-w-redacted" data-i="' + i + '" data-t0="' + (w.start || 0) + '" data-t1="' + (w.end || 0) + '">▮▮▮</span>'
+          : '<span class="eo-w' + (w.edited ? ' eo-w-edited' : '') + '" data-i="' + i + '" data-t0="' + (w.start || 0) + '" data-t1="' + (w.end || 0) + '"'
+            + (w.edited && w.origText != null ? ' title="was: ' + this._escHtml(w.origText) + '"' : '') + '>' + this._escHtml(w.text) + '</span>'
+        ).join(' ');
+      }
+    }
+    if (!el.__eoWired) {
+      el.__eoWired = true;
+      el.addEventListener('click', (ev) => this._onTranscriptClick(ev));
+      el.addEventListener('dblclick', (ev) => this._onTranscriptDblClick(ev));
+    }
+    const audio = this._listenAudio;
+    if (audio && audio.__eoHiFor !== el) {
+      audio.__eoHiFor = el;
+      audio.addEventListener('timeupdate', () => this._highlightWord(el, audio.currentTime));
+    }
+  }
+
+  // Highlight the word sounding at time `t` — a binary search over the time-ordered words, then a
+  // single class-toggle. Pure DOM, no setState, so it runs smoothly alongside playback.
+  _highlightWord(el, t) {
+    const words = this._listenWords;
+    if (!el || !words || !words.length) return;
+    let lo = 0, hi = words.length - 1, found = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1, w = words[mid];
+      if (t < (w.start || 0)) hi = mid - 1;
+      else if (t > (w.end || 0)) lo = mid + 1;
+      else { found = mid; break; }
+    }
+    if (found === el.__eoNow) return;
+    const prev = el.querySelector('.eo-w-now');
+    if (prev) prev.classList.remove('eo-w-now');
+    el.__eoNow = found;
+    if (found >= 0) { const n = el.querySelector('.eo-w[data-i="' + found + '"]'); if (n) n.classList.add('eo-w-now'); }
+  }
+
+  // A word click seeks the media there and starts a selection; shift-click extends the selection
+  // (for a redaction span) without moving playback.
+  _onTranscriptClick(ev) {
+    const sp = ev.target && ev.target.closest && ev.target.closest('.eo-w[data-i]');
+    if (!sp) return;
+    const i = +sp.dataset.i;
+    if (ev.shiftKey && this._selA != null) {
+      this._selB = i;
+    } else {
+      this._selA = this._selB = i;
+      if (this._listenAudio && sp.dataset.t0 != null) { try { this._listenAudio.currentTime = +sp.dataset.t0; } catch { /* not ready */ } }
+    }
+    this._paintSelection();
+  }
+
+  _paintSelection() {
+    const el = this._listenTx;
+    if (!el) return;
+    const has = this._selA != null;
+    const lo = has ? Math.min(this._selA, this._selB) : -1, hi = has ? Math.max(this._selA, this._selB) : -1;
+    el.querySelectorAll('.eo-w').forEach((n) => { const i = +n.dataset.i; n.classList.toggle('eo-w-sel', has && i >= lo && i <= hi); });
+  }
+
+  // Double-click a word → edit it in place. Enter/blur commits an EDIT event (non-destructive: the
+  // original rides in `from`); Escape cancels. The re-render rebuilds the transcript with the edit.
+  _onTranscriptDblClick(ev) {
+    const sp = ev.target && ev.target.closest && ev.target.closest('.eo-w[data-i]');
+    if (!sp || sp.classList.contains('eo-w-redacted')) return;
+    const i = +sp.dataset.i;
+    const cur = sp.textContent;
+    const input = document.createElement('input');
+    input.type = 'text'; input.value = cur; input.className = 'eo-w-input';
+    input.style.width = Math.max(46, cur.length * 10) + 'px';
+    let done = false;
+    const commit = (save) => {
+      if (done) return; done = true;
+      const val = input.value.trim();
+      if (input.parentNode) input.replaceWith(sp);
+      if (save && val && val !== cur) {
+        const sn = this._activeSrc(); const s = sn && this._app.sourceBySn(sn);
+        if (s && this._app.recordAudioEvent) this._app.recordAudioEvent(s, { op: 'EDIT', idx: i, from: cur, to: val });
+      }
+    };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commit(true); } else if (e.key === 'Escape') { e.preventDefault(); commit(false); } });
+    input.addEventListener('blur', () => commit(true));
+    sp.replaceWith(input);
+    input.focus(); input.select();
+  }
+
+  // Redact the selected span with silence or a beep — a REDACT event, then re-synthesise the
+  // redacted audio for playback. Undo appends a RETRACT tombstone (nothing is destroyed).
+  _redactSelection(mode) {
+    const sn = this._activeSrc(); const s = sn && this._app.sourceBySn(sn);
+    if (!s) return;
+    if (this._selA == null) { this.showToast('Select words in the transcript first (click, then shift-click), then redact'); return; }
+    const EO = (typeof window !== 'undefined' && window.EO) || {};
+    const words = EO.projectTranscript ? EO.projectTranscript(s.words || [], s.audioEvents || []).words : (s.words || []);
+    const lo = Math.min(this._selA, this._selB), hi = Math.max(this._selA, this._selB);
+    const a = words[lo], b = words[hi];
+    if (!a || !b) return;
+    const start = Math.min(a.start || 0, b.start || 0), end = Math.max(a.end || 0, b.end || 0);
+    if (!(end > start)) return;
+    this._selA = this._selB = null;
+    if (this._app.recordAudioEvent) this._app.recordAudioEvent(s, { op: 'REDACT', start, end, mode });
+    this._rebuildRedactedAudio(s);
+  }
+  redactSilence() { this._redactSelection('silence'); }
+  redactBeep() { this._redactSelection('beep'); }
+
+  undoAudioEvent() {
+    const sn = this._activeSrc(); const s = sn && this._app.sourceBySn(sn);
+    if (!s || !Array.isArray(s.audioEvents) || !s.audioEvents.length) return;
+    const retracted = new Set(s.audioEvents.filter((e) => e.op === 'RETRACT').map((e) => e.ref));
+    let last = null;
+    for (let i = s.audioEvents.length - 1; i >= 0; i--) { const e = s.audioEvents[i]; if (e.op !== 'RETRACT' && !retracted.has(e.id)) { last = e; break; } }
+    if (!last) return;
+    if (this._app.recordAudioEvent) this._app.recordAudioEvent(s, { op: 'RETRACT', ref: last.id });
+    if (last.op === 'REDACT') this._rebuildRedactedAudio(s);
+  }
+
+  // Decode the persisted original bytes to a mono Float32 buffer once (cached on the source), for
+  // the redaction re-synthesis. Returns false when no bytes are stored (too large / evicted).
+  async _ensureDecoded(s) {
+    if (s._pcm && s._sr) return true;
+    if (!this._app.audioBytes) return false;
+    const bytes = await this._app.audioBytes(s);
+    if (!bytes) return false;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      const ctx = new AC();
+      const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      const buf = await ctx.decodeAudioData(ab);
+      try { ctx.close(); } catch { /* fine */ }
+      const ch = buf.numberOfChannels, n = buf.length, mono = new Float32Array(n);
+      for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) mono[i] += d[i] / ch; }
+      s._pcm = mono; s._sr = buf.sampleRate;
+      return true;
+    } catch { return false; }
+  }
+
+  _restorePlayback(audio, t, paused) {
+    const restore = () => { try { audio.currentTime = Math.min(t, audio.duration || t); if (!paused) audio.play().catch(() => {}); } catch { /* not seekable yet */ } audio.removeEventListener('loadedmetadata', restore); };
+    audio.addEventListener('loadedmetadata', restore);
+  }
+
+  // Re-synthesise the redacted audio from the original PCM + the active redaction spans, and swap it
+  // onto the player (preserving position). With no active redactions, restore the original. A video
+  // source keeps its picture — only its transcript is redacted (a WAV can't stand in for the video).
+  async _rebuildRedactedAudio(s) {
+    const EO = (typeof window !== 'undefined' && window.EO) || {};
+    const isVideo = !!(s._media && s._media.isVideo) || !!(s.audioRef && s.audioRef.mime && s.audioRef.mime.startsWith('video/'));
+    const proj = EO.projectTranscript ? EO.projectTranscript(s.words || [], s.audioEvents || []) : { redactions: [] };
+    const audio = this._listenAudio;
+    const wasTime = audio ? audio.currentTime : 0, wasPaused = audio ? audio.paused : true;
+    if (isVideo) { this.setState({ rev: (this.state.rev || 0) + 1 }); return; }   // transcript-only redaction for video
+    if (!proj.redactions.length) {
+      if (s._redactedUrl) { try { URL.revokeObjectURL(s._redactedUrl); } catch { /* fine */ } s._redactedUrl = null; }
+      const orig = this._app.playableUrl ? await this._app.playableUrl(s) : null;
+      if (audio && orig) { audio.src = orig; this._restorePlayback(audio, wasTime, wasPaused); }
+      this.setState({ rev: (this.state.rev || 0) + 1 });
+      return;
+    }
+    const ok = await this._ensureDecoded(s);
+    if (!ok || !EO.applyRedactions || !EO.encodeWav) { this.showToast('Original audio isn’t available to redact — re-import the file'); this.setState({ rev: (this.state.rev || 0) + 1 }); return; }
+    const out = EO.applyRedactions(s._pcm, s._sr, proj.redactions, { beep: { amp: 0.06 } });
+    const url = URL.createObjectURL(new Blob([EO.encodeWav(out, s._sr)], { type: 'audio/wav' }));
+    if (s._redactedUrl) { try { URL.revokeObjectURL(s._redactedUrl); } catch { /* fine */ } }
+    s._redactedUrl = url;
+    if (audio) { audio.src = url; this._restorePlayback(audio, wasTime, wasPaused); }
+    this.setState({ rev: (this.state.rev || 0) + 1 });
+  }
+
+  async exportRedactedWav() {
+    const sn = this._activeSrc(); const s = sn && this._app.sourceBySn(sn);
+    if (!s) return;
+    const EO = (typeof window !== 'undefined' && window.EO) || {};
+    const ok = await this._ensureDecoded(s);
+    if (!ok || !EO.encodeWav) { this.showToast('Original audio isn’t available to export'); return; }
+    const proj = EO.projectTranscript ? EO.projectTranscript(s.words || [], s.audioEvents || []) : { redactions: [] };
+    const out = (proj.redactions && proj.redactions.length && EO.applyRedactions) ? EO.applyRedactions(s._pcm, s._sr, proj.redactions, { beep: { amp: 0.06 } }) : s._pcm;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([EO.encodeWav(out, s._sr)], { type: 'audio/wav' }));
+    a.download = String(s.title || 'audio').replace(/[^\w.-]+/g, '_') + ((proj.redactions && proj.redactions.length) ? '.redacted.wav' : '.wav');
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+
+  // The Listen toolbar counters — active edits and redactions (retracted ones don't count).
+  _listenVM(s) {
+    const events = (s && s.audioEvents) || [];
+    const retracted = new Set(events.filter((e) => e.op === 'RETRACT').map((e) => e.ref));
+    let edits = 0, reds = 0;
+    for (const e of events) { if (retracted.has(e.id)) continue; if (e.op === 'EDIT') edits++; else if (e.op === 'REDACT') reds++; }
+    return { editCount: edits, redactionCount: reds };
+  }
+
   // ── the media view-model — player + waveform + signal/noise holons + transcription ────────
   // Built for an audio/video source from the artefacts its acoustic reading left on the source
   // (all underscore-led, session-only): a playable object URL, the downsampled peaks, the basic
@@ -2444,27 +2705,33 @@ class Component extends DCLogic {
     const wave = s._wave || null;
     const an = s._analysis || null;
     const h = s._holons || null;
-    if (!media && !wave && !an) return null;
-    const dur = (an && an.duration) || (h && h.root && h.root.dur) || 0;
+    // The compact acoustic reading that survives a reload (the underscore artefacts above are
+    // stripped from the snapshot). When they are gone, draw the waveform + stats from it instead.
+    const meta = s.audioMeta || null;
+    if (!media && !wave && !an && !meta && !s.audioRef) return null;
+    const dur = (an && an.duration) || (h && h.root && h.root.dur) || (meta && meta.duration) || 0;
     const clock = (t) => { const x = Math.max(0, t || 0); const m = Math.floor(x / 60); const r = Math.round(x - m * 60); return `${m}:${String(r).padStart(2, '0')}`; };
     const db = (v) => (v == null || v <= -120 ? '−∞' : `${v.toFixed(1)} dB`);
 
     // The signal spans, so each waveform column can be tinted signal (accent) or noise (faint).
-    const spans = (h && h.signalSpans) || [];
+    const spans = (h && h.signalSpans) || (meta && meta.signalSpans) || [];
     const inSignal = (t) => spans.some((sp) => t >= sp.start && t <= sp.end);
+
+    // The peaks come from the live artefact (fresh import) or the compact persisted copy (reload).
+    const peaks = Array.isArray(wave) ? wave : (meta && Array.isArray(meta.peaks) ? meta.peaks : []);
 
     // Downsample the peaks to a comfortable bar count; height ∝ amplitude, centred so the bar
     // mirrors above and below the midline like a real waveform.
     let bars = [];
-    if (Array.isArray(wave) && wave.length) {
-      const N = Math.min(200, wave.length);
-      const per = wave.length / N;
+    if (Array.isArray(peaks) && peaks.length) {
+      const N = Math.min(200, peaks.length);
+      const per = peaks.length / N;
       let maxAmp = 0;
-      for (const p of wave) if (p.amp > maxAmp) maxAmp = p.amp;
+      for (const p of peaks) if (p.amp > maxAmp) maxAmp = p.amp;
       maxAmp = maxAmp || 1;
       for (let i = 0; i < N; i++) {
         const a = Math.floor(i * per), b = Math.max(a + 1, Math.floor((i + 1) * per));
-        let amp = 0; for (let j = a; j < b && j < wave.length; j++) amp = Math.max(amp, wave[j].amp);
+        let amp = 0; for (let j = a; j < b && j < peaks.length; j++) amp = Math.max(amp, peaks[j].amp);
         const tc = dur * ((i + 0.5) / N);
         const sig = inSignal(tc);
         bars.push({
@@ -2474,15 +2741,17 @@ class Component extends DCLogic {
       }
     }
 
+    const A = an || meta || null;   // the stats source: live analysis, else the persisted copy
     const stats = [];
-    if (an) {
+    if (A) {
       stats.push({ label: 'Length', val: clock(dur) });
-      stats.push({ label: 'Peak', val: db(an.peakDb) });
-      stats.push({ label: 'Loudness', val: db(an.rmsDb) });
-      stats.push({ label: 'Dynamic range', val: `${(an.dynamicRangeDb || 0).toFixed(0)} dB` });
-      stats.push({ label: 'Silence', val: `${Math.round(an.silencePct || 0)}%` });
+      stats.push({ label: 'Peak', val: db(A.peakDb) });
+      stats.push({ label: 'Loudness', val: db(A.rmsDb) });
+      stats.push({ label: 'Dynamic range', val: `${(A.dynamicRangeDb || 0).toFixed(0)} dB` });
+      stats.push({ label: 'Silence', val: `${Math.round(A.silencePct || 0)}%` });
     }
-    if (h) stats.push({ label: 'Signal', val: `${clock(h.signalSeconds || 0)} · ${(h.signalSpans || []).length} holon${(h.signalSpans || []).length === 1 ? '' : 's'}` });
+    const sigSec = h ? h.signalSeconds : (meta ? meta.signalSeconds : null);
+    if (sigSec != null) stats.push({ label: 'Signal', val: `${clock(sigSec || 0)} · ${spans.length} holon${spans.length === 1 ? '' : 's'}` });
 
     // The transcription banner — pending / running (with % + a live tail) / done / skipped / error.
     const asr = s._asr || null;
@@ -2496,13 +2765,25 @@ class Component extends DCLogic {
       else if (asr.state === 'done') { asrShow = false; }
     }
 
+    // The playable URL: a redacted re-synthesis if this source has active redactions, else the live
+    // blob, else rehydrate the persisted bytes (OPFS / the encrypted Matrix copy) on first sight so
+    // the player works after a reload. `_mediaTried` stops a retry loop when the bytes are truly gone.
+    const isVideo = !!(media && media.isVideo) || !!(s.audioRef && s.audioRef.mime && s.audioRef.mime.startsWith('video/'));
+    let url = s._redactedUrl || (media && media.url) || '';
+    if (!url && s.audioRef && !s._mediaHydrating && !s._mediaTried && this._app && this._app.playableUrl) {
+      s._mediaHydrating = true;
+      this._app.playableUrl(s).then(() => { s._mediaTried = true; }).finally(() => { s._mediaHydrating = false; });
+    }
+    const mediaMissing = !url && !!s._mediaTried;
+
     return {
       show: true,
-      hasPlayer: !!(media && media.url),
-      url: (media && media.url) || '',
-      isVideo: !!(media && media.isVideo),
-      showVideo: !!(media && media.url && media.isVideo),
-      showAudio: !!(media && media.url && !media.isVideo),
+      hasPlayer: !!url,
+      url,
+      isVideo,
+      showVideo: !!(url && isVideo),
+      showAudio: !!(url && !isVideo),
+      mediaMissing,
       hasWave: bars.length > 0,
       bars,
       stats,
@@ -2546,7 +2827,7 @@ class Component extends DCLogic {
     // Native (the real website) is the default surface for a web source that carries a URL — click a
     // source and you land on the page itself; the clean Reader book is one tab away. A source with no
     // URL (pasted text, a local file) has no page to render, so it opens in Reader.
-    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = src.url ? 'native' : 'reader';
+    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = src.kind === 'audio' ? 'listen' : (src.url ? 'native' : 'reader');
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
     // Open the source AS A TAB in the main stage and make it the active tab.
     this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, nativeToc: [], ...(this._mob() ? { leftOpen: false } : {}) });
@@ -4428,7 +4709,7 @@ class Component extends DCLogic {
     if (activeSn) {
       const s = app.sourceBySn(activeSn);
       if (s) {
-        vMode = st.viewerModes[activeSn] || 'reader';
+        vMode = st.viewerModes[activeSn] || (s.kind === 'audio' ? 'listen' : 'reader');
         // 'text' (the old Document tab) is now the Reader with links on — fold any saved value in.
         if (vMode === 'text') vMode = 'reader';
         const r = this._rights(s);
@@ -4445,6 +4726,7 @@ class Component extends DCLogic {
         // The media panel — player + waveform + signal/noise holons + transcription status —
         // shown above the reading for a decoded audio/video source, in every viewer mode.
         viewer.media = this._mediaVM(s) || { show: false };
+        viewer.listen = this._listenVM(s);
         // The themed book — built once per source (cached by sn); prefs are baked in, then applied
         // LIVE on the mounted iframe, so a theme change never rebuilds this string / reloads. The
         // Document view is folded in here: reader-render bakes the entity links + cited-passage rule
@@ -4688,12 +4970,20 @@ class Component extends DCLogic {
       // (real site) · Facing · EoT
       viewerCanPage: !!viewer && viewer.hasUrl,
       viewerIsReader: vMode === 'reader', viewerIsPage: vMode === 'native', viewerIsFacing: vMode === 'facing', viewerIsEot: vMode === 'eot',
+      viewerIsListen: vMode === 'listen', viewerIsAudio: !!viewer && viewer.kind === 'audio',
       viewerModeReader: () => this.setSourceMode('reader'), viewerModePage: () => this.setSourceMode('native'),
       viewerModeFacing: () => this.setSourceMode('facing'), viewerModeEot: () => this.setSourceMode('eot'),
+      viewerModeListen: () => this.setSourceMode('listen'),
+      vmListenFg: vMode === 'listen' ? '#1B1B22' : '#8A8A95', vmListenBg: vMode === 'listen' ? '#fff' : 'transparent',
       vmReaderFg: vMode === 'reader' ? '#1B1B22' : '#8A8A95', vmReaderBg: vMode === 'reader' ? '#fff' : 'transparent',
       vmPageFg: vMode === 'native' ? '#1B1B22' : '#8A8A95', vmPageBg: vMode === 'native' ? '#fff' : 'transparent',
       vmFacingFg: vMode === 'facing' ? '#1B1B22' : '#8A8A95', vmFacingBg: vMode === 'facing' ? '#fff' : 'transparent',
       vmEotFg: vMode === 'eot' ? '#1B1B22' : '#8A8A95', vmEotBg: vMode === 'eot' ? '#fff' : 'transparent',
+      // Listen surface — the interactive transcript refs + edit/redaction actions
+      setListenAudio: (el) => this.setListenAudio(el),
+      setListenTranscript: (el) => this.setListenTranscript(el),
+      redactSilence: () => this.redactSilence(), redactBeep: () => this.redactBeep(),
+      undoAudioEvent: () => this.undoAudioEvent(), exportRedactedWav: () => this.exportRedactedWav(),
       // reader body + controls
       readerDoc, setReaderFrame: (el) => this.setReaderFrame(el),
       readerToc, hasToc: readerToc.length > 1, tocOpen: !!st.tocOpen, toggleToc: () => this.toggleToc(),
