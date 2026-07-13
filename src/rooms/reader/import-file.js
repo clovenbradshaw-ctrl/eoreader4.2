@@ -564,8 +564,24 @@ async function fromMedia(file, title, name, say, opts = {}) {
   const fullText = (liveText || utterances.map(u => u.words.map(w => w.text).join(' ')).join(' ')).trim();
   if (!fullText) throw new Error('no speech found in the file');
 
-  const { ingestAudio } = await IN();
+  // AUTONOMOUS acoustic analysis — before the transcript lands, read the signal from the
+  // noise on every word SPAN straight from the decoded waveform (hear.js §1), not by
+  // asking the model again. Each word gets an acoustic confidence orthogonal to whisper's
+  // logprob, which the self-editing resolution then weighs when it elects the confident
+  // hearing of a name. Best-effort: a failure here just leaves the words un-scored.
+  const { ingestAudio, acousticSignal, resolveTranscript } = await IN();
+  try {
+    const flat = utterances.flatMap(u => u.words);
+    const sig = acousticSignal(mono, SR, flat.map(w => ({ start: w.start, end: w.end })));
+    flat.forEach((w, i) => { if (sig[i]) { w.acous = sig[i].acous; w.snr = sig[i].snr; w.signal = sig[i].signal; } });
+  } catch (e) { /* acoustic pass is best-effort; the model's confidence still stands */ }
+
   const doc = ingestAudio({ name, duration, device: dev, witness, utterances, alternates, media });
+  // GRAPH-AWARE, self-editing resolution — fold near-spelling names to their most-confident
+  // hearing, the edits landing on the append-only stream (§2). Inert on a clean transcript.
+  say('Resolving names across the transcript…');
+  try { const r = resolveTranscript(doc); if (r.edits) say(`Re-heard ${r.edits} mention${r.edits !== 1 ? 's' : ''} on the confident reading.`); }
+  catch (e) { /* resolution is best-effort; the first-pass transcript still stands */ }
   // The windowed decode walks the WHOLE waveform (0 → duration, overlapping hops), so the
   // clip is heard end to end; the receipt records how far the last heard word reaches.
   const lastHeard = utterances.length ? utterances[utterances.length - 1].end : 0;

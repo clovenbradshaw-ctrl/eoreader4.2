@@ -29,6 +29,7 @@ import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
 import { attachReading }     from '../ingest/index.js';
+import { resolveTranscript } from './hear.js';
 
 const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
 
@@ -133,6 +134,10 @@ export const ingestAudio = (transcript = {}) => {
       log.append({ op: 'DEF', id, key: 'time', value: `${wa.toFixed(2)}-${wb.toFixed(2)}`, sentIdx: unitIdx });
       log.append({ op: 'DEF', id, key: 'witness', value: witness, sentIdx: unitIdx });
       if (w.conf != null && isFinite(w.conf)) log.append({ op: 'DEF', id, key: 'conf', value: String(+(+w.conf).toFixed(3)), sentIdx: unitIdx });
+      // The ACOUSTIC confidence — how far this word's own energy rose above the room,
+      // read from the waveform (hear.js §1), a witness orthogonal to the model's logprob.
+      // Supplied by the front-end cochlea when it did the DSP; absent otherwise.
+      if (w.acous != null && isFinite(w.acous)) log.append({ op: 'DEF', id, key: 'acous', value: String(+(+w.acous).toFixed(3)), sentIdx: unitIdx });
       // A word the second witness re-heard is marked, so a reader can see which
       // surfaces the ear corrected — a groundable predicate, not a judgement.
       if (w.relisten) log.append({ op: 'DEF', id, key: 'relisten', value: 'true', sentIdx: unitIdx });
@@ -162,7 +167,10 @@ export const ingestAudio = (transcript = {}) => {
       prevEnd = wb ?? prevEnd;
 
       surfaces.push(w.text);
-      tokens.push({ id, text: w.text, norm: w.norm, start: wa, end: wb, unitIdx, relisten: !!w.relisten, conf: (w.conf != null && isFinite(w.conf)) ? +w.conf : null });
+      tokens.push({ id, text: w.text, norm: w.norm, start: wa, end: wb, unitIdx, relisten: !!w.relisten,
+        conf: (w.conf != null && isFinite(w.conf)) ? +w.conf : null,
+        acous: (w.acous != null && isFinite(w.acous)) ? +w.acous : null,
+        snr:   (w.snr   != null && isFinite(w.snr))   ? +w.snr   : null });
     }
     units.push(`${surfaces.join(' ')} (${u.start.toFixed(1)}s)`);
     sentences.push(surfaces.join(' '));
@@ -223,6 +231,16 @@ export const ingestAudio = (transcript = {}) => {
     return -1;
   };
   doc.wordsInWindow = (a, b) => tokens.filter(w => w.end > a && w.start < b);
+
+  // The self-editing second pass (hear.js §2). GRAPH-AWARE coreference across the
+  // whole transcript: near-spelling entity surfaces that are one referent misheard are
+  // found, their MOST-CONFIDENT spelling is elected (acoustic × model conf × mass), and
+  // the weaker hearings are RE-HEARD to it — the correction landing on THIS append-only
+  // log (SEG·INS·DEF·SYN·REC) and reprojected into `sentences`/`units`/`tokens`. Inert on
+  // a clean transcript (no cluster clears the noise null), so calling it is always safe.
+  // The mechanism lives here; the POLICY of when to run it belongs to the caller (the
+  // room runs it at import; a test drives it directly).
+  doc.resolve = (opts) => resolveTranscript(doc, opts);
 
   // Cached per embedder organ — hash-space and MiniLM-space vectors are not
   // interchangeable, so a single unkeyed cache would return the wrong space to a

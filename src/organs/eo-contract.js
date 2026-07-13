@@ -12,6 +12,7 @@ export const CONTRACTS = Object.freeze({
   'src/organs/in/docling.js': contract({ ops: ['SEG'], targets: ['Void'], products: ['Field'], stances: ['Dissecting'], note: 'SmolDocling adapter → assembleDocument' }),
   'src/organs/in/document.js': contract({ ops: ['INS', 'CON', 'DEF'], targets: ['Field'], products: ['Entity', 'Link', 'Field'], stances: ['Making', 'Binding', 'Dissecting'], note: 'span assembler / shared spine' }),
   'src/organs/in/frequency.js': contract({ ops: ['INS', 'CON'], targets: ['Void'], products: ['Entity', 'Link', 'Field'], stances: ['Making', 'Binding'], note: 'frequency adapter (raw Hz)' }),
+  'src/organs/in/hear.js': contract({ ops: ['EVA', 'SYN', 'SEG'], targets: ['Field', 'Entity'], products: ['Void', 'Network'], stances: ['Tracing', 'Making', 'Unraveling'], note: 'the hearing that edits itself — acoustic signal-from-noise + graph-aware self-editing resolution' }),
   'src/organs/in/image.js': contract({ ops: ['INS', 'CON', 'SIG'], targets: ['Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'image adapter (vision detections)' }),
   'src/organs/in/index.js': contract({ ops: ['INS', 'CON', 'SEG'], targets: ['Void', 'Field'], products: ['Entity', 'Link', 'Network'], stances: ['Making', 'Binding', 'Dissecting'], note: 'barrel — sense organs' }),
   'src/organs/in/json.js': contract({ ops: ['INS', 'DEF', 'CON'], targets: ['Void'], products: ['Entity', 'Link', 'Field'], stances: ['Making', 'Binding', 'Dissecting'], note: 'JSON tree adapter' }),
