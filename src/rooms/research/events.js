@@ -9,10 +9,16 @@
 // graph (src/tasks/, docs/frame-holon.md): append-only, frozen at entry, path
 // ids, pure fold, replay-stable. Nothing is stored that cannot be replayed.
 //
-// Eleven kinds, each carrying its cube operator reading (the Act face,
+// Twelve kinds, each carrying its cube operator reading (the Act face,
 // core/operators.js) so the coverage grid is a fold, not an assertion:
 //
 //   open     a frame (root question or a pushed sub-question)      DEF / INS
+//   search   one query issued to widen the corpus, with the        — (process, logged)
+//            STANCE that motivated it — confirm (find material
+//            that fits) or disprove (go looking for the document
+//            that would exist if the reading were wrong). The
+//            honest audit of a search: a run whose searches only
+//            ever confirm finds agreement and stops there.
 //   pin      a source resolved to a dated archive snapshot          — (provenance anchor)
 //   read     a span read from a pinned source, with its bind        SIG
 //            score against the frame vs. the null (fieldVerdict)
@@ -41,16 +47,17 @@
 // (`pin:N`, `prop:N`, `ask:N`).
 
 export const RKIND = Object.freeze({
-  OPEN: 'open', PIN: 'pin', READ: 'read', EXTRACT: 'extract', EVA: 'eva',
+  OPEN: 'open', SEARCH: 'search', PIN: 'pin', READ: 'read', EXTRACT: 'extract', EVA: 'eva',
   CON: 'con', REC: 'rec', VOID: 'void', ASK: 'ask', ANSWER: 'answer',
   PROMOTE: 'promote', PHRASE: 'phrase',
 });
 
 // The Act-face operator each event kind enacts (the spec's table). Kinds mapped
-// to null are not acts on the topic — they are provenance, selection, or human
-// input, logged but off the coverage grid.
+// to null are not acts on the topic — they are provenance, selection, process,
+// or human input, logged but off the coverage grid. A search is a process event:
+// it is how the corpus was gone-and-looked-for, not a claim about the subject.
 export const OPERATOR_OF = Object.freeze({
-  open: 'DEF', pin: null, read: 'SIG', extract: null, eva: 'EVA',
+  open: 'DEF', search: null, pin: null, read: 'SIG', extract: null, eva: 'EVA',
   con: 'CON', rec: 'REC', void: 'NUL', ask: null, answer: null,
   promote: null, phrase: null,
 });
@@ -70,18 +77,44 @@ export const openResearch = ({ id, parentId = null, question, subject = [], scop
   });
 };
 
+// One query issued to the injected `search` to widen the corpus — with the
+// STANCE that motivated it and the tally of what it returned. `stance` is the
+// audit: 'confirm' looks for material that fits the reading; 'disprove' goes
+// looking for the document that would exist only if the reading were WRONG (a
+// lawsuit, a rejection, a contrary ruling, a debunking). `found` counts the
+// on-topic hits it returned; `kept` those novel enough to pin (found − kept were
+// thrown out — redundant, thin, or off-topic, itemised in `discarded`). Logged
+// as a process event (OPERATOR_OF null): the report can then state, from the log
+// alone, how many of its searches went looking to be wrong.
+export const SEARCH_STANCES = Object.freeze(['confirm', 'disprove']);
+export const searchProbe = ({ id, frameId = null, query, stance = 'confirm', found = 0, kept = 0, discarded = [], t = 0 }) => {
+  if (!id) throw new TypeError('searchProbe: id required');
+  if (!SEARCH_STANCES.includes(stance)) throw new TypeError(`searchProbe: stance must be one of ${SEARCH_STANCES.join('|')}`);
+  const disc = (discarded || []).slice(0, 4).map((d) => freeze({
+    title: String(d?.title ?? ''), reason: String(d?.reason ?? 'redundant'),
+  }));
+  return freeze({
+    kind: RKIND.SEARCH, id, frameId: frameId ?? null, query: String(query ?? ''),
+    stance, found: found | 0, kept: kept | 0, discarded: Object.freeze(disc), t,
+  });
+};
+
 // A source URL resolved to (or created as) a dated archive snapshot — the
 // provenance anchor. `snapshotUrl`/`snapshotId`/`capturedAt` come from
 // archive/pin.js; `contentHash` fingerprints the exact bytes the spans index
 // into, so the citation cannot move under the report. A pin with no snapshot
 // (archive unreachable, or a pasted source with no URL) still carries the hash —
-// the embedded span is the record, the link is corroboration.
-export const pinSource = ({ id, url = null, title = null, snapshotUrl = null, snapshotId = null, capturedAt = null, contentHash, chars = 0, t = 0 }) => {
+// the embedded span is the record, the link is corroboration. `via` records the
+// search that first surfaced this source — its query and stance — so a source a
+// DISPROVE search turned up can be traced through to the reframing it forced.
+export const pinSource = ({ id, url = null, title = null, snapshotUrl = null, snapshotId = null, capturedAt = null, contentHash, chars = 0, via = null, t = 0 }) => {
   if (!id) throw new TypeError('pinSource: id required');
   if (!contentHash) throw new TypeError('pinSource: contentHash required (the span index is rooted in it)');
   return freeze({
     kind: RKIND.PIN, id, url, title, snapshotUrl, snapshotId, capturedAt,
-    contentHash: String(contentHash), chars: chars | 0, t,
+    contentHash: String(contentHash), chars: chars | 0,
+    via: via ? freeze({ query: String(via.query ?? ''), stance: via.stance === 'disprove' ? 'disprove' : 'confirm' }) : null,
+    t,
   });
 };
 

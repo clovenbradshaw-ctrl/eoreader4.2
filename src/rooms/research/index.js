@@ -9,12 +9,12 @@
 // panel.
 
 export {
-  RKIND, OPERATOR_OF, ASK_TRIGGERS, VOID_TERRAINS,
-  openResearch, pinSource, readSpan, extractProposition, evaTest, conEdge,
+  RKIND, OPERATOR_OF, ASK_TRIGGERS, VOID_TERRAINS, SEARCH_STANCES,
+  openResearch, searchProbe, pinSource, readSpan, extractProposition, evaTest, conEdge,
   recFrame, voidAbsence, askUser, answerAsk, promoteProposition, phraseSection,
 } from './events.js';
 export { projectReport } from './project.js';
-export { runGroundedResearch, addressOfSentence, termSimilarity, holonicFacets, stripTaskFraming } from './driver.js';
+export { runGroundedResearch, addressOfSentence, termSimilarity, holonicFacets, stripTaskFraming, disproofQueries } from './driver.js';
 export { liveView, describeEvent } from './live.js';
 export { createResearchSession, formatChatReply, pendingClarification, refocusQuery } from './session.js';
 export { renderReportFragment, renderTraceFragment, renderReportHTML, REPORT_CSS } from './render.js';
