@@ -18,7 +18,7 @@
 // The pure parts — the resampler, the chunk-span slicer, the window-commit feed — are
 // exported for tests; the microphone/AudioContext plumbing lives only in createRecorder.
 
-import { _whisperUtterances } from './import-file.js';
+import { _whisperUtterances, _loadWhisper } from './import-file.js';
 
 const SR = 16000;                          // the rate whisper wants
 const WIN = 30, HOP = 25, DEDUP = 0.2;     // seconds — MUST match _transcribeWindows
@@ -150,11 +150,12 @@ export const createRecorder = ({ onState, onPartial } = {}) => {
     } catch { /* the surface's problem */ }
   };
 
-  // WebGPU if the browser offers it, else WASM — the same probe the import router uses.
+  // The session-shared whisper pipeline — the import router's one load, reused here,
+  // so a recording after a file import (or a second take) never stacks another model.
   const loadAsr = async () => {
-    try { if (typeof navigator !== 'undefined' && navigator.gpu && await navigator.gpu.requestAdapter()) dev = 'webgpu'; } catch { /* wasm */ }
-    const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/+esm');
-    return pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { device: dev });
+    const got = await _loadWhisper();
+    dev = got.dev;
+    return got.asr;
   };
 
   const enqueue = (fn) => {
@@ -197,7 +198,10 @@ export const createRecorder = ({ onState, onPartial } = {}) => {
     try { if (proc) proc.disconnect(); } catch { /* torn */ }
     try { if (sink) sink.disconnect(); } catch { /* torn */ }
     try { if (stream) stream.getTracks().forEach(t => t.stop()); } catch { /* torn */ }
-    try { if (ac) ac.close(); } catch { /* torn */ }
+    // close() settles asynchronously — a second teardown (stop, then a late Discard)
+    // must not surface "Cannot close a closed AudioContext" as an unhandled rejection.
+    try { if (ac && ac.state !== 'closed') ac.close().catch(() => { /* torn */ }); } catch { /* torn */ }
+    srcNode = proc = sink = stream = ac = null;
     if (timer) { clearInterval(timer); timer = null; }
   };
 
@@ -240,33 +244,37 @@ export const createRecorder = ({ onState, onPartial } = {}) => {
     teardownMic();
     const duration = total / SR;
     say('Finishing the transcript…');
-    if (!asr) {
-      try { asr = await asrLoading; }
-      catch (e) { throw new Error(`the speech model failed to load — ${String(e && e.message || e).slice(0, 90)}`); }
-    }
-    await chain.catch(() => { /* an in-flight preview's failure doesn't block the drain */ });
-    // The remaining windows — usually just the sub-30s tail. Same loop, same break as
-    // the offline windower, so the whole take is heard end to end exactly once.
-    let w;
-    while (!cancelled && (w = feed.next(duration, { final: true }))) {
-      try {
-        const out = await asr(_sliceSpan(chunks, w[0], w[1]), { return_timestamps: true });
-        feed.commit(w, _whisperUtterances(out, norm));
-      } catch (e) {
-        if (!feed.text()) throw new Error(`transcription failed — ${String(e && e.message || e).slice(0, 90)}`);
-        break;   // the committed take still stands; the tail is what was lost
+    try {
+      if (!asr) {
+        try { asr = await asrLoading; }
+        catch (e) { throw new Error(`the speech model failed to load — ${String(e && e.message || e).slice(0, 90)}`); }
       }
-      preview = '';
-      emitPartial({ pct: Math.min(100, Math.round(w[1] / Math.max(duration, 0.001) * 100)) });
-      if (w[1] >= duration) break;
+      await chain.catch(() => { /* an in-flight preview's failure doesn't block the drain */ });
+      // The remaining windows — usually just the sub-30s tail. Same loop, same break as
+      // the offline windower, so the whole take is heard end to end exactly once.
+      let w;
+      while (!cancelled && (w = feed.next(duration, { final: true }))) {
+        try {
+          const out = await asr(_sliceSpan(chunks, w[0], w[1]), { return_timestamps: true });
+          feed.commit(w, _whisperUtterances(out, norm));
+        } catch (e) {
+          if (!feed.text()) throw new Error(`transcription failed — ${String(e && e.message || e).slice(0, 90)}`);
+          break;   // the committed take still stands; the tail is what was lost
+        }
+        preview = '';
+        emitPartial({ pct: Math.min(100, Math.round(w[1] / Math.max(duration, 0.001) * 100)) });
+        if (w[1] >= duration) break;
+      }
+      return {
+        duration, utterances: feed.utterances(), text: feed.text(),
+        device: dev, witness: `whisper-base · ${dev} · live`,
+      };
+    } finally {
+      chunks.length = 0;   // the raw take (~230 MB/hour of Float32 at 16 kHz) has been heard — release it
     }
-    return {
-      duration, utterances: feed.utterances(), text: feed.text(),
-      device: dev, witness: `whisper-base · ${dev} · live`,
-    };
   };
 
-  const cancel = () => { cancelled = true; teardownMic(); };
+  const cancel = () => { cancelled = true; teardownMic(); chunks.length = 0; };
 
   return { start, stop, cancel };
 };

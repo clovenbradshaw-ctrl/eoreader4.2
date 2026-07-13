@@ -329,6 +329,23 @@ async function fromImage(file, title, name, say) {
   } finally { URL.revokeObjectURL(url); }
 }
 
+// One whisper pipeline per session — the model is ~150 MB of WASM/WebGPU memory, so a
+// second import or recording must reuse the first load, never stack another instance.
+// Exported: the live-microphone cochlea (record-audio.js) hears through the same ear.
+let _asrLoad = null;
+export const _loadWhisper = () => {
+  if (!_asrLoad) {
+    _asrLoad = (async () => {
+      const dev = await device();
+      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/+esm');
+      const asr = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { device: dev });
+      return { asr, dev };
+    })();
+    _asrLoad.catch(() => { _asrLoad = null; });   // a failed load stays retryable
+  }
+  return _asrLoad;
+};
+
 // Whisper's timestamped chunks → utterances of timed words. Each chunk is a breath group;
 // its words get interpolated times, so the audio organ keeps a clock on every word.
 // Exported: the live-microphone cochlea (record-audio.js) hears through the same ear.
@@ -397,9 +414,7 @@ async function fromMedia(file, title, name, say, opts = {}) {
   const media = (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(file) : null;
 
   say('Loading the speech model…');
-  const dev = await device();
-  const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/+esm');
-  const asr = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { device: dev });
+  const { asr, dev } = await _loadWhisper();
   const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
   const witness = `whisper-base · ${dev}`;
 
