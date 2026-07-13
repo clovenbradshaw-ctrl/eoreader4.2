@@ -2058,7 +2058,15 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
   };
 
   // ── entities (the explorer) ────────────────────────────────────────────────
-  const entities = () => {
+  // Coreference is resolved WITHIN each source's document graph (projectGraph's
+  // `representative` union-find), never across them — so the raw pass yields one
+  // instance per (source, entity). By DEFAULT we then COLLAPSE across sources:
+  // the panel is about entities, not entity-in-one-source, so the eight "Iran"
+  // rows (one per source that names it) fold into a single row whose mentions and
+  // links sum over every source, tagged with how many sources it spans. Pass
+  // { merge: false } for the raw per-source instances (the old behaviour).
+  const entityKey = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const entities = ({ merge = true } = {}) => {
     const out = [];
     for (const src of topicSources()) {
       const doc = docFor(src);
@@ -2073,8 +2081,32 @@ export const createReaderApp = ({ audit, fetchImpl = chainFetch } = {}) => {
         const label = doc.admission?.labelOf?.(r) || ent.label || r;
         let links = 0;
         for (const e of g.edges || []) if (rep(e.from) === r || rep(e.to) === r) links++;
-        out.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn: src.sn, label, mentions: ent.sightings || 0, links });
+        out.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn: src.sn, label, mentions: ent.sightings || 0, links, sourceCount: 1 });
       }
+    }
+    if (merge) {
+      // Group per-source instances by normalized label. The strongest instance
+      // (most mentions) LEADS the merged row, so key/docId/entId/sn point at the
+      // richest per-source profile — opening the row lands there — while mentions
+      // and links aggregate and `sourceCount` records the reach.
+      const byLabel = new Map();
+      for (const it of out) {
+        const k = entityKey(it.label);
+        let grp = byLabel.get(k);
+        if (!grp) { grp = { lead: it, mentions: 0, links: 0, sns: new Set(), instances: [] }; byLabel.set(k, grp); }
+        grp.mentions += it.mentions;
+        grp.links += it.links;
+        grp.sns.add(it.sn);
+        grp.instances.push({ docId: it.docId, entId: it.entId, sn: it.sn });
+        if (it.mentions > grp.lead.mentions) grp.lead = it;
+      }
+      const merged = [...byLabel.values()].map((grp) => ({
+        key: grp.lead.key, entId: grp.lead.entId, docId: grp.lead.docId, sn: grp.lead.sn,
+        label: grp.lead.label, mentions: grp.mentions, links: grp.links,
+        sourceCount: grp.sns.size, instances: grp.instances,
+      }));
+      merged.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
+      return merged;
     }
     out.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
     return out;
