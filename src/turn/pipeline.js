@@ -15,6 +15,7 @@
 
 import { stages } from './stages.js';
 import { stageFace } from './stage-faces.js';
+import { createJudgmentLog } from '../core/def.js';
 import { proposeWebSearch } from './propose.js';
 import { createCompositeDoc } from '../organs/in/index.js';
 import { siteTerrainAt } from '../surfer/index.js';
@@ -250,7 +251,12 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
   // answer turn whose draft earned no witness AND the mechanical read already doubts, the
   // reader is asked to REACT to its own draft, the reaction is put through the Born rule, and
   // a negative reaction sends the draft back (regenerate). Off by default → byte-identical.
-  const ctx0      = { question, doc: groundingDoc, sourceDocs, model, embedder, geometricEmbedder, classifier, adjacency, centroids, history, grounding, stream, onToken, alpha, mindSpans, inquire, horizon, cast, reread, witnessSource, shapeLibrary, groundGraph, broadcastArc, now, lensPort, voicePref, signal, maxTokens, longform, validate };
+  // The per-turn JUDGMENT LOG — the append-only rail every same-vs-other verdict rides as a
+  // revisable DEF (core/def.js). The stages append to it (fold → reference, answerable → void,
+  // bind → binding, factcheck → correspondence); it is drained into the summary below. A single
+  // mutable object held by reference, so it survives every `{...ctx}` spread through the stages.
+  const judgments = createJudgmentLog();
+  const ctx0      = { question, doc: groundingDoc, sourceDocs, model, embedder, geometricEmbedder, classifier, adjacency, centroids, history, grounding, stream, onToken, alpha, mindSpans, inquire, horizon, cast, reread, witnessSource, shapeLibrary, groundGraph, broadcastArc, now, lensPort, voicePref, signal, maxTokens, longform, validate, judgments };
 
   // The answer is FORMED at `bind` and only ANNOTATED after it (factcheck, revise,
   // veto, settle). Those annotation stages must never discard an answer the model
@@ -385,6 +391,24 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
       } catch { /* the ledger must never cost the answer */ }
     }
 
+    // THE JUDGMENT DISTRIBUTION (core/def.js): every same-vs-other verdict the turn made —
+    // binding, reference, void, correspondence — folded to its CURRENT verdict per subject and
+    // counted. This is the verdict census the answer chip will summarize (n corroborated / n
+    // unsupported / n indeterminate), and the append-only log behind it means any of these is
+    // a revisable DEF, not a frozen flag. Best-effort — the log must never cost the answer.
+    let judgmentDist = null;
+    try {
+      judgmentDist = ctx.judgments ? ctx.judgments.distribution() : null;
+      if (judgmentDist && judgmentDist.total > 0) turn.step('judgments', {
+        corroborated:  judgmentDist.corroborated,
+        unsupported:   judgmentDist.unsupported,
+        contradicted:  judgmentDist.contradicted,
+        indeterminate: judgmentDist.indeterminate,
+        offDiagonal:   judgmentDist.offDiagonal,
+        total:         judgmentDist.total,
+      });
+    } catch { judgmentDist = null; }
+
     turn.finish({
       route:     ctx.route || 'grounded',
       grounding,                                  // the register the user selected (audit trail)
@@ -399,6 +423,8 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
       answer:    ctx.answer     || '',
       sources:   ctx.sources    || [],
       referential: ctx.referential || null,
+      // The verdict census over this turn's judgment log — the revisable DEFs behind the answer.
+      judgments: judgmentDist,
       // Whether the hard floor GATED — substituted a typed decline for an ungrounded /
       // denied draft. The draft survives in `revisions`; the answer is the honest word.
       gated: ctx.gated || false,
@@ -424,6 +450,9 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
       answer: ctx.answer, sources: ctx.sources || [],
       sourceDocs: sourceDocsOf(groundingDoc, ctx.sources),
       referential: ctx.referential || null, flags, unbound, webProposal,
+      // The verdict distribution over the turn's judgment log (core/def.js): the current DEF
+      // per subject, counted by verdict — the summary the label reads. Null on a bare turn.
+      judgments: judgmentDist,
       fedGraph: ctx.fedGraph || null,   // the meaning graph fed to the talker (web path); null otherwise
       citeOrigins: citeOriginsOf(groundingDoc, ctx.sources),   // per-claim attribution: [sN] idx → source docId
       citeTexts:   citeTextsOf(groundingDoc, ctx.sources),     // [sN] idx → the cited sentence itself (hover provenance)

@@ -17,6 +17,7 @@ export const CONTRACTS = Object.freeze({
   'src/core/conventions/ledger.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Field'], products: ['Kind', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'the conventions ledger' }),
   'src/core/conversation-fold.js': contract({ ops: ['SYN', 'DEF', 'EVA'], targets: ['Field'], products: ['Network', 'Lens'], stances: ['Composing', 'Dissecting', 'Tracing'], note: 'the conversation fold' }),
   'src/core/cube.js': contract({ ops: ['NUL', 'EVA'], targets: ['Kind'], products: ['Kind', 'Lens'], stances: ['Clearing', 'Binding'], note: 'cube geometry + coherence guard', floor: true }),
+  'src/core/def.js': contract({ ops: ['DEF', 'REC'], targets: ['Lens'], products: ['Lens', 'Atmosphere', 'Paradigm'], stances: ['Dissecting', 'Clearing', 'Composing'], note: 'the judgment DEF + append-only judgment log' }),
   'src/core/enacted/frame.js': contract({ ops: ['INS', 'NUL'], targets: ['Field'], products: ['Lens'], stances: ['Making', 'Clearing'], note: 'the enacted frame' }),
   'src/core/enacted/index.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Field', 'Atmosphere'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'barrel' }),
   'src/core/enacted/loop.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Field', 'Atmosphere'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'enacted DEF-EVA-REC loop' }),
