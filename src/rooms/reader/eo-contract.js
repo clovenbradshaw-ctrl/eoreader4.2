@@ -14,6 +14,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/eo-gen.js': contract({ ops: ['EVA', 'DEF'], targets: ['Lens', 'Link'], products: ['Lens', 'Atmosphere'], stances: ['Tracing', 'Making'], note: 'browser grounding seam' }),
   'src/rooms/reader/eo/chorus.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field', 'Paradigm'], products: ['Paradigm'], stances: ['Tracing'], note: 'chorus Born-measure reader' }),
   'src/rooms/reader/eo/embed.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Atmosphere'], stances: ['Tending'], note: 'MiniLM meaning embedder organ' }),
+  'src/rooms/reader/eo/ocr-eyes.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Field'], stances: ['Making', 'Tending'], note: 'OCR eyes — a pluggable set of witnesses (Tesseract + Florence-2 OCR)' }),
   'src/rooms/reader/eo/phasepost.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field', 'Kind'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'geometric cell classifier' }),
   'src/rooms/reader/eo/vision.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Atmosphere'], stances: ['Making', 'Tending'], note: 'Florence-2 vision organ eye' }),
   'src/rooms/reader/first-surface.js': contract({ ops: ['SIG', 'DEF'], targets: ['Entity', 'Field'], products: ['Lens'], stances: ['Tending', 'Making'], note: 'the import reveal — modality → first surface' }),

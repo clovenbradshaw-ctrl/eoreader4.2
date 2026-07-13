@@ -97,7 +97,7 @@ export async function importAnyFile(file, opts = {}) {
   // where OCR finds no prose, reads as a SCENE (Florence-2 regions, image organ).
   if (mime.startsWith('image/') || IMAGE_EXT.includes(ext)) {
     say('Recognizing the text…');
-    return await fromImage(file, title, name, say);
+    return await fromImage(file, title, name, say, opts);
   }
 
   // MIDI — a SCORE, not audio: no waveform to hear, a timed list of notes to READ. Decoded
@@ -407,38 +407,59 @@ async function fromXlsx(file, title, name) {
   return { text, title, meta: { modality: 'table', doc, docs: filled.map(s => s.doc), sheetNames: wb.SheetNames, coverage } };
 }
 
-// An image is read twice over. First as a DOCUMENT: Tesseract asks "is there prose in
-// these pixels?" — milliseconds against the vision model's seconds, so OCR is the cheap
-// gate in front of the expensive autoregressive decoder. Only when that reading comes up
-// empty (a photograph, not a scan) does the vision organ wake: Florence-2's structured
-// region captions (src/reader/eo/vision.js, content-address-cached in OPFS) composed into
-// spatial prose by the scene composer (organs/in/scene.js) and raised onto the spine by
-// the image organ. What used to be the dead end "no text found in the image" is now the
-// scene path.
+// An image is read twice over. First as a DOCUMENT — but not by one eye. A SET OF WITNESSES
+// reads the scan (rooms/reader/eo/ocr-eyes.js): the cheap deterministic eye (Tesseract) always,
+// and the VLM eye (Florence-2 OCR) woken when that first reading is doubtful. Their readings are
+// reconciled by the QUORUM (organs/in/ocr-quorum.js) — best line elected (DEF), disagreements
+// flagged (EVA), each eye's reliability learned (REC) — and then re-read IN CONTEXT
+// (organs/in/ocr-context.js): a shaky line becomes a belief-marked GUESS at what it likely means
+// given the document's own confident vocabulary, every guess auditable and revertible on the log.
+// Only when the eyes come up empty (a photograph, not a scan) does the scene path wake: Florence-2's
+// structured region captions composed into spatial prose (organs/in/scene.js) and raised by the
+// image organ. What used to be the dead end "no text found" is still the scene path.
 let _vision = null;
-async function fromImage(file, title, name, say) {
+const getVision = async () => {
+  if (!_vision) {
+    const { createFlorenceVision } = await import(new URL('./eo/vision.js', import.meta.url).href);
+    _vision = createFlorenceVision();
+  }
+  return _vision;
+};
+async function fromImage(file, title, name, say, opts = {}) {
   const url = URL.createObjectURL(file);
   try {
-    let ocrDoc = null;
+    let ocrDoc = null, quorum = null, guesses = 0;
     try {
-      const Tesseract = (await import('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/+esm')).default;
-      const { data } = await Tesseract.recognize(url, 'eng', { logger: (m) => { if (m.status === 'recognizing text' && m.progress != null) say('Recognizing… ' + Math.round(m.progress * 100) + '%'); } });
-      const lines = (data.lines || []).map(ln => ({ text: ln.text, bbox: ln.bbox, confidence: ln.confidence }));
-      const { ingestOcr } = await IN();
-      const doc = ingestOcr({ name, lines: lines.length ? lines : [{ text: data.text || '' }] });
-      // Enough letters to call it a document? A photograph makes Tesseract hallucinate a
-      // few stray glyphs; those must not gate the scene reading off.
-      if (((doc.text || '').match(/[\p{L}\p{N}]/gu) || []).length >= 12) ocrDoc = doc;
+      const { readWithEyes } = await import(new URL('./eo/ocr-eyes.js', import.meta.url).href);
+      // The set of witnesses reads the scan. The VLM eye is woken (and its model loaded) only if
+      // the policy asks — getVision is passed lazily and awaited inside the eye, never up front.
+      const { readings, eyes, woke } = await readWithEyes({ blob: file, url }, {
+        policy: opts.eyes || 'auto',
+        onProgress: say,
+        getVision,
+      });
+      if (readings.length) {
+        const { ingestOcr, resolveOcrInContext } = await IN();
+        const doc = ingestOcr({ name, readings });
+        // Enough letters to call it a document? A photograph makes an eye hallucinate a
+        // few stray glyphs; those must not gate the scene reading off.
+        if (((doc.text || '').match(/[\p{L}\p{N}]/gu) || []).length >= 12) {
+          // The context layer — guess what the shaky lines likely mean, from the doc's own
+          // confident vocabulary (and the corpus, when the caller threads one). Best-effort:
+          // a clean scan is inert here, and a failure leaves the elected reading standing.
+          try { guesses = resolveOcrInContext(doc, { lexicon: opts.ocrLexicon || null }).edits || 0; }
+          catch { /* the quorum reading still stands */ }
+          ocrDoc = doc;
+          quorum = { eyes, woke, best: doc.quorum?.best || null, disagreements: (doc.quorum?.disagreements || []).length, reliability: doc.reliability || [] };
+        }
+      }
     } catch (e) { /* OCR unavailable or failed — the scene reading below still stands */ }
-    if (ocrDoc) return { text: ocrDoc.text, title, meta: { modality: 'ocr', doc: ocrDoc,
-      coverage: { complete: true, lines: ocrDoc.spans.length, dropped: [] } } };
+    if (ocrDoc) return { text: ocrDoc.text, title, meta: { modality: 'ocr', doc: ocrDoc, quorum,
+      coverage: { complete: true, lines: ocrDoc.spans.length, eyes: quorum?.eyes || [], guesses, disagreements: quorum?.disagreements || 0, dropped: [] } } };
 
     say('No text in the image — looking at the scene…');
-    if (!_vision) {
-      const { createFlorenceVision } = await import(new URL('./eo/vision.js', import.meta.url).href);
-      _vision = createFlorenceVision();
-    }
-    const seen = await _vision.describe(file, { onProgress: (m) => { if (m && m.status === 'progress' && m.progress != null) say('Loading the vision model… ' + Math.round(m.progress) + '%'); } });
+    const vision = await getVision();
+    const seen = await vision.describe(file, { onProgress: (m) => { if (m && m.status === 'progress' && m.progress != null) say('Loading the vision model… ' + Math.round(m.progress) + '%'); } });
     const { composeScene, ingestImage } = await IN();
     const scene = composeScene({ ...seen, name, metadata: { title } });
     if (!scene.text || !scene.text.trim()) throw new Error('nothing recognizable in the image');

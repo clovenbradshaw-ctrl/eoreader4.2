@@ -18,6 +18,9 @@
 //   ingestPdf(pages)            civic PDF → units = lines with page + bbox + char-range spans
 //                                           (pdf.js text-items injected; geometry kept, not flattened).
 //   ingestOcr(result)           scanned   → units = lines with bbox (Tesseract word boxes injected).
+//   ingestOcr({readings})       scanned   → the QUORUM: several eyes reconciled — best reading
+//                                           elected (DEF), disagreements weighed (EVA), each eye's
+//                                           reliability learned (REC). resolveOcr is the pure brain.
 //   ingestDocling(doctags)      scanned   → units = layout-aware blocks (SmolDocling VLM injected).
 //   composeScene(seen)          photo     → the detections ingestImage eats, from a vision model's
 //                                           STRUCTURED output (Florence-2 injected): spatial relations
@@ -58,6 +61,8 @@ export { acousticSignal, resolveTranscript } from './hear.js';
 export { assembleDocument }  from './document.js';
 export { ingestPdf }         from './pdf.js';
 export { ingestOcr }         from './ocr.js';
+export { resolveOcr, ocrBelief, normBox } from './ocr-quorum.js';
+export { resolveOcrInContext, revertOcrGuesses, buildOcrContext } from './ocr-context.js';
 export { ingestDocling }     from './docling.js';
 export { ingestWebpage }     from './webpage.js';
 export { ingestTable }       from './table.js';
