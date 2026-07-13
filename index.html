@@ -1435,6 +1435,31 @@ table{border-collapse:collapse;width:100%}
               </div>
             </div>
 
+            <!-- TOPLINE — the auto-generated summary of this source, composed from the objects the -->
+            <!-- machinery decided (never the raw text), with a box to give it feedback that steers it. -->
+            <sc-if value="{{ viewer.topline.show }}">
+              <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;background:#FAFAFE;padding:11px 20px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                  <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">SUMMARY</span>
+                  <sc-if value="{{ viewer.topline.hasKind }}"><span style="font-size:9px;font-weight:600;color:#B26A2E;text-transform:uppercase;letter-spacing:.04em">{{ viewer.topline.kindLabel }}</span></sc-if>
+                  <span style="flex:1"></span>
+                  <sc-if value="{{ viewer.topline.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
+                  <sc-if value="{{ viewer.topline.hasCites }}"><span title="the passages this rests on" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2">{{ viewer.topline.cites }}</span></sc-if>
+                </div>
+                <sc-if value="{{ viewer.topline.has }}">
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32">{{ viewer.topline.text }}</div>
+                  <sc-if value="{{ viewer.topline.hasUnmet }}"><div style="font-size:11px;color:#B26A2E;margin-top:6px;font-style:italic">{{ viewer.topline.unmet }}</div></sc-if>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap">
+                    <input value="{{ viewer.topline.draft }}" onChange="{{ viewer.topline.onInput }}" onKeyDown="{{ viewer.topline.onKey }}" placeholder="Tell it what to change — shorter, focus on…, or what's wrong" style="flex:1;min-width:140px;border:1px solid #E1DDF2;border-radius:7px;background:#fff;padding:6px 9px;font-size:11.5px;outline:none" style-focus="border-color:#B7ADF3" />
+                    <button onClick="{{ viewer.topline.send }}" style="font-size:11px;font-weight:600;color:#fff;background:#6D5EF5;border-radius:7px;padding:6px 12px" style-hover="background:#5B4BE6">Update</button>
+                    <button onClick="{{ viewer.topline.shorter }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">Shorter</button>
+                    <button onClick="{{ viewer.topline.longer }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">More</button>
+                    <button onClick="{{ viewer.topline.regen }}" title="Recompose from the record" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">↻</button>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+
             <!-- MEDIA PANEL — a decoded audio/video source plays here, above its reading, in every -->
             <!-- mode: the file itself, its waveform tinted by the signal/noise holons, the basic -->
             <!-- analysis, and the live transcription status. -->
@@ -1662,6 +1687,34 @@ table{border-collapse:collapse;width:100%}
                 </span>
               </div>
               <button onClick="{{ prof.openSource }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:6px;padding:3px 8px;margin:6px 0 2px" style-hover="background:#E5E8EC">{{ prof.srcReg }} · {{ prof.srcTitle }}</button>
+
+              <!-- TOPLINE — the auto-generated summary of this entity, from the objects the machinery -->
+              <!-- decided (its standing properties, bonds, and tallies), with a feedback box. -->
+              <sc-if value="{{ prof.topline.show }}">
+                <div style="margin-top:13px;border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">SUMMARY</span>
+                    <sc-if value="{{ prof.topline.hasKind }}"><span style="font-size:9px;font-weight:600;color:#B26A2E;text-transform:uppercase;letter-spacing:.04em">{{ prof.topline.kindLabel }}</span></sc-if>
+                    <span style="flex:1"></span>
+                    <sc-if value="{{ prof.topline.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
+                  </div>
+                  <sc-if value="{{ prof.topline.has }}">
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ prof.topline.text }}</div>
+                    <sc-if value="{{ prof.topline.hasUnmet }}"><div style="font-size:11px;color:#B26A2E;margin-top:6px;font-style:italic">{{ prof.topline.unmet }}</div></sc-if>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap">
+                      <input value="{{ prof.topline.draft }}" onChange="{{ prof.topline.onInput }}" onKeyDown="{{ prof.topline.onKey }}" placeholder="Tell it what to change…" style="flex:1;min-width:110px;border:1px solid #E1DDF2;border-radius:7px;background:#fff;padding:6px 9px;font-size:11.5px;outline:none" style-focus="border-color:#B7ADF3" />
+                      <button onClick="{{ prof.topline.send }}" style="font-size:11px;font-weight:600;color:#fff;background:#6D5EF5;border-radius:7px;padding:6px 11px" style-hover="background:#5B4BE6">Update</button>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+                      <button onClick="{{ prof.topline.shorter }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:3px 8px" style-hover="background:#E7E7EF">Shorter</button>
+                      <button onClick="{{ prof.topline.longer }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:3px 8px" style-hover="background:#E7E7EF">More</button>
+                      <button onClick="{{ prof.topline.regen }}" title="Recompose from the record" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:3px 8px" style-hover="background:#E7E7EF">↻</button>
+                      <span style="flex:1"></span>
+                      <sc-if value="{{ prof.topline.hasCites }}"><span title="the passages this rests on" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2">{{ prof.topline.cites }}</span></sc-if>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
 
               <button onClick="{{ prof.openWeb }}" style="width:100%;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:7px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12.5px;border-radius:9px;padding:9px" style-hover="background:#E7E2FD">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg>
@@ -3615,6 +3668,77 @@ class Component extends DCLogic {
       })(),
       hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
       mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text) })),
+      // the auto-generated topline for this entity + its feedback box (docs/topline.md)
+      topline: this._toplineVM('entity', { docId, entId }, p.label),
+    };
+  }
+  // ── auto-generated toplines in the surface (docs/topline.md) ─────────────────
+  // A summary composed for every source and entity, with a box to give it feedback. The card reads
+  // the stored topline (app.sourceSummaryOf / app.entitySummaryFor) and kicks generation ONCE if it
+  // is absent; the controller emits when it lands, so the card fills in on the next render. Feedback
+  // is a steer over the CLOSED set — re-order, bound, suppress — never an addition, so a request
+  // outside the record comes back as "not in the record", never a fabrication.
+  _kickTl(scope, ids, key) {
+    this._tlKicked = this._tlKicked || new Set();
+    if (this._tlKicked.has(key)) return;
+    this._tlKicked.add(key);
+    const app = this._app; if (!app) return;
+    const p = scope === 'source' ? app.sourceSummary(ids.sn) : app.entitySummary(ids.docId, ids.entId);
+    Promise.resolve(p).catch(() => {});
+  }
+  _setTlBusy(key, on) {
+    const busy = { ...(this.state.tlBusy || {}) };
+    if (on) busy[key] = true; else delete busy[key];
+    this.setState({ tlBusy: busy });
+  }
+  _onTlInput(key, e) {
+    const v = e && e.target ? e.target.value : '';
+    this.setState({ tlFeedback: { ...(this.state.tlFeedback || {}), [key]: v } });
+  }
+  _sendTl(scope, ids, key) {
+    const text = String((this.state.tlFeedback || {})[key] || '').trim();
+    if (!text) return;
+    this.setState({ tlFeedback: { ...(this.state.tlFeedback || {}), [key]: '' } });
+    this._tlFeedback(scope, ids, key, text);
+  }
+  _tlFeedback(scope, ids, key, text) {
+    const app = this._app; if (!app) return;
+    this._setTlBusy(key, true);
+    Promise.resolve(app.summaryFeedback({ scope, sn: ids.sn || null, docId: ids.docId || null, entId: ids.entId || null, text }))
+      .catch(() => {}).finally(() => this._setTlBusy(key, false));
+  }
+  _regenTl(scope, ids, key) {
+    const app = this._app; if (!app) return;
+    this._setTlBusy(key, true);
+    const p = scope === 'source' ? app.sourceSummary(ids.sn, { regenerate: true }) : app.entitySummary(ids.docId, ids.entId, { regenerate: true });
+    Promise.resolve(p).catch(() => {}).finally(() => this._setTlBusy(key, false));
+  }
+  _toplineVM(scope, ids, label) {
+    const app = this._app; if (!app) return { show: false };
+    const key = scope + ':' + (scope === 'source' ? ids.sn : String(label || '').trim().toLowerCase());
+    let sum = null;
+    try { sum = scope === 'source' ? app.sourceSummaryOf(ids.sn) : app.entitySummaryFor(label); } catch { sum = null; }
+    if (!sum) this._kickTl(scope, ids, key);
+    const draft = String((this.state.tlFeedback || {})[key] || '');
+    const busy = !!(this.state.tlBusy || {})[key];
+    const KIND = { absence: 'nothing found yet', contradiction: 'the record contests itself', plain: '' };
+    return {
+      show: true, has: !!sum, pending: !sum || busy,
+      text: sum ? sum.text : '',
+      kindLabel: sum ? (KIND[sum.kind] || '') : '',
+      hasKind: !!(sum && KIND[sum.kind]),
+      refined: !!(sum && sum.joined), modelless: !!(sum && sum.modelless),
+      hasUnmet: !!(sum && sum.unmet && sum.unmet.length),
+      unmet: sum && sum.unmet && sum.unmet.length ? ('Not in the record: ' + sum.unmet.join(', ')) : '',
+      hasCites: !!(sum && sum.cites && sum.cites.length),
+      cites: sum && sum.cites ? sum.cites.map((c) => '¶' + c).join(' ') : '',
+      draft,
+      onInput: (e) => this._onTlInput(key, e),
+      onKey: (e) => { if (e && e.key === 'Enter') { e.preventDefault(); this._sendTl(scope, ids, key); } },
+      send: () => this._sendTl(scope, ids, key),
+      shorter: () => this._tlFeedback(scope, ids, key, 'make it shorter'),
+      longer: () => this._tlFeedback(scope, ids, key, 'more detail'),
+      regen: () => this._regenTl(scope, ids, key),
     };
   }
   // ── the property provenance DAG ─────────────────────────────────────────────
@@ -5176,6 +5300,8 @@ class Component extends DCLogic {
           retrieved: this._ago(s.retrieved), rights: r.label, rightsFg: r.fg, rightsBg: r.bg,
           ents: s.entCount == null ? '…' : String(s.entCount),
           eotCount: eot && eot.structure ? String(eot.structure.lines ? eot.structure.lines.length : 0) : '0',
+          // the auto-generated topline for this source + its feedback box (docs/topline.md)
+          topline: this._toplineVM('source', { sn: s.sn }, s.title),
         };
         // The media panel — player + waveform + signal/noise holons + transcription status —
         // shown above the reading for a decoded audio/video source, in every viewer mode.

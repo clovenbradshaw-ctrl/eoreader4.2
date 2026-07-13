@@ -46,6 +46,7 @@ import { createMonitor } from '../../enactor/monitor.js';
 import { createCommitmentLedger } from '../../enactor/ledger.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
 import { figureSurface, rankProperties } from '../../perceiver/index.js';
+import { generateTopline, entityInventory, sourceInventory, interpretFeedback, mergeSteer } from '../../weave/topline/index.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
@@ -255,6 +256,11 @@ export const appendLog = (log, { kind, t, text, effect = '' }, mintId, { coalesc
 export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch } = {}) => {
   const state = {
     sources: [],           // registry entries (serializable minus _doc)
+    // Auto-generated toplines (docs/topline.md). A SOURCE's topline rides on its own registry
+    // entry (src.summary), removed with the source; an ENTITY has no persisted home object (it is
+    // re-derived from the graph each render), so its topline is kept here, keyed by normalised
+    // label — the same merged identity the explorer groups by. Both persist across reload.
+    summaries: { entities: {} },
     // A workspace is the top-level container (Notion's workspace/teamspace): it owns a
     // nested tree of topics. A topic scopes a source set, a chat and a memo, and now
     // carries `workspaceId` (which container it lives in) + `parentId` (its parent topic,
@@ -478,6 +484,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }),
     // the commitment ledger — assertions and corrections survive reload (the spine)
     ledger: ledger.serialize(),
+    // entity toplines (source toplines ride on each source above) — the summary + its feedback
+    summaries: { entities: state.summaries.entities },
   });
   let saveTimer = null;
   const persist = () => {
@@ -500,6 +508,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         state.activeWorkspaceId = snap.activeWorkspaceId || null;
         state.log = Array.isArray(snap.log) ? snap.log : [];
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
+        if (snap.summaries && snap.summaries.entities) state.summaries = { entities: { ...snap.summaries.entities } };
       }
     } catch { /* fresh session */ }
     // ── migrate to the workspace / topic-tree model ──────────────────────────
@@ -780,6 +789,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         const props = d?.log ? emitEot(d.log).lines.length : 0;
         logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
       } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+      // …and auto-compose the source's topline the moment it is recorded. Model-optional: the
+      // deterministic telegram lands at once (there is a summary before any talker is warm), and a
+      // loaded talker refines the join in the background. Fire-and-forget — never blocks the record.
+      sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
     }, 0);
     return src;
   };
@@ -2672,14 +2685,165 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }));
     return {
       label, docId, sn: src.sn, sourceTitle: src.title,
-      defs,
+      defs, mentionCount: idxs.size,
       relations: fs.relations.map((r) => ({
         srcId: r.src.id, srcLabel: r.src.label, tgtId: r.tgt.id, tgtLabel: r.tgt.label,
-        via: r.via, op: r.op, idx: r.idx,
+        via: r.via, op: r.op, idx: r.idx, type: r.type, polarity: r.polarity,
       })),
       figures: fs.figures.map((f) => ({ entId: f.id, label: f.label, count: f.count })),
       mentions,
     };
+  };
+
+  // ── auto-generated toplines — a summary for every source and every entity ──
+  // docs/topline.md. A topline is an ordering and a phrasing of the CLOSED set of objects the
+  // machinery already decided about a source or an entity — never a summary of the text, because
+  // the model never sees the text, only the objects (claims with their citations and standing,
+  // computed facts, at most one marked inference, and the gap if there is one). Generation runs in
+  // two passes; the second, model-free CONTAINMENT check is the safety — the join may lose
+  // information, never add it. It is model-OPTIONAL: the deterministic telegram is stored the moment
+  // a source is recorded (there is a summary before any talker is warm), and a loaded talker only
+  // refines the join in the background. Feedback STEERS the closed set (re-order, bound, suppress);
+  // it can never add a fact the record does not carry — an out-of-record request is reported, not
+  // fabricated (the same discipline as the void answerer).
+  const TOPLINE_FIGURES = 6;
+
+  // The source's reading, shaped for sourceInventory: its dominant figures' strongest standing
+  // properties and incident bonds, its front matter, and its log tallies. Pure and model-free.
+  const sourceReading = (src) => {
+    const doc = docFor(src);
+    if (!doc?.log) return null;
+    const g = projectGraph(doc.log);
+    const rep = g.representative || ((x) => x);
+    const bySight = new Map();                          // dominant figures by merged sighting mass
+    for (const [id, ent] of g.entities || []) {
+      const r = rep(id);
+      const label = doc.admission?.labelOf?.(r) || ent.label || r;
+      const cur = bySight.get(r);
+      if (cur) cur.sightings += ent.sightings || 0;
+      else bySight.set(r, { id: r, label, sightings: ent.sightings || 0 });
+    }
+    const topFigs = [...bySight.values()].sort((a, b) => b.sightings - a.sightings).slice(0, TOPLINE_FIGURES);
+    const fs = figureSurface(doc, topFigs.map((f) => f.id));
+    const claims = rankProperties(fs.defs).slice(0, 6).map((d) => ({
+      subject: d.label, value: d.value, cite: d.witnesses, count: d.count, polarity: d.polarity, modality: d.modality,
+    }));
+    const relations = fs.relations.filter((r) => r.type).slice(0, 4).map((r) => ({  // typed (noun) bonds only
+      subject: r.src.label, via: r.via, object: r.tgt.label, cite: [r.idx], polarity: r.polarity, kinship: true,
+    }));
+    const md = doc.metadata || {};
+    let propositions = 0;
+    try { propositions = emitEot(doc.log).lines.length; } catch { propositions = 0; }
+    return {
+      title: src.title, sn: src.sn,
+      metadata: { author: md.author, date: md.date || md.published, publisher: md.publisher },
+      claims, relations,
+      figures: topFigs.map((f) => ({ label: f.label, count: f.sightings })),
+      counts: { entities: g.entities?.size || 0, propositions, sentences: doc.sentences?.length || 0, bytes: src.bytes || 0 },
+    };
+  };
+
+  // Compose (or refine) a topline over a closed inventory into the stored shape. `modelless` marks a
+  // telegram-only topline a warm talker can later refine; `sha` lets a source topline invalidate if
+  // its content ever moves. Never throws — a summary must never cost the caller its record.
+  const composeTopline = async (inv, { steer = null, useModel = false } = {}) => {
+    const m = useModel ? model : null;
+    let top;
+    try { top = await generateTopline({ inventory: inv, steer, model: m }); }
+    catch { top = await generateTopline({ inventory: inv, steer, model: null }); }
+    return {
+      text: top.text, telegram: top.telegram, joined: top.joined, kind: top.kind,
+      objects: top.objects, cites: top.cites, unmet: top.unmet,
+      modelless: !m, generatedAt: nowIso(),
+      model: m ? (describeModel(m)?.label || describeModel(m)?.backend || null) : null,
+    };
+  };
+
+  // In-flight guard so an auto-gen kick and a surface open never race to double-generate one subject.
+  const _summaryInFlight = new Map();
+  const guarded = (key, regenerate, run) => {
+    if (_summaryInFlight.has(key) && !regenerate) return _summaryInFlight.get(key);
+    const p = Promise.resolve().then(run).finally(() => { if (_summaryInFlight.get(key) === p) _summaryInFlight.delete(key); });
+    _summaryInFlight.set(key, p);
+    return p;
+  };
+
+  // The two-phase store: phase A writes the deterministic telegram at once (so the surface always has
+  // something); phase B refines the join with the loaded talker, if any. `write` persists each phase.
+  const composeTwoPhase = async (inv, prev, write) => {
+    const steer = prev?.steer || null;
+    const feedback = prev?.feedback || [];
+    if (!prev || prev.regenerate) {
+      const tele = await composeTopline(inv, { steer, useModel: false });
+      write({ ...tele, steer, feedback });
+    }
+    if (model) {
+      const full = await composeTopline(inv, { steer, useModel: true });
+      write({ ...full, steer, feedback });
+    }
+  };
+
+  const sourceSummaryOf = (snId) => sourceBySn(snId)?.summary || null;
+
+  // Generate/refresh a source topline. Returns the stored summary; stores on src.summary and emits.
+  const sourceSummary = (snId, { regenerate = false } = {}) => guarded(`s:${snId}`, regenerate, async () => {
+    const src = sourceBySn(snId);
+    if (!src) return null;
+    const prev = src.summary || null;
+    const upgrade = prev && prev.modelless && !!model;           // a warm talker can now refine a telegram
+    if (prev && !regenerate && !upgrade) return prev;
+    const reading = sourceReading(src);
+    if (!reading) return prev;
+    const inv = sourceInventory(reading);
+    await composeTwoPhase(inv, prev ? { ...prev, regenerate } : { regenerate: true }, (s) => {
+      src.summary = { ...s, sha: src.sha }; persist(); emit('sources');
+    });
+    return src.summary;
+  });
+
+  const entitySummaryFor = (label) => state.summaries.entities[entityKey(label)] || null;
+
+  // Generate/refresh an entity topline, keyed by the merged label the explorer groups by. Returns
+  // the stored summary; stores in state.summaries.entities and emits.
+  const entitySummary = (docId, entId, { regenerate = false } = {}) => guarded(`e:${docId}#${entId}`, regenerate, async () => {
+    const profile = entityProfile(docId, entId);
+    if (!profile) return null;
+    const key = entityKey(profile.label);
+    const prev = state.summaries.entities[key] || null;
+    const upgrade = prev && prev.modelless && !!model;
+    if (prev && !regenerate && !upgrade) return prev;
+    const inv = entityInventory(profile, { mentionCount: profile.mentionCount ?? profile.mentions.length, sourceCount: profile.sourceCount || 1 });
+    await composeTwoPhase(inv, prev ? { ...prev, regenerate } : { regenerate: true }, (s) => {
+      state.summaries.entities[key] = { ...s, key, label: profile.label }; persist(); emit('sources');
+    });
+    return state.summaries.entities[key];
+  });
+
+  // Give a topline feedback so it updates. The free-text note is interpreted into a STEER over the
+  // closed set (cap length, pin a term, suppress a claim), folded onto the standing steer, recorded,
+  // and the topline regenerated under it. A request the record cannot honour comes back in `unmet`.
+  const summaryFeedback = async ({ scope, sn = null, docId = null, entId = null, text = '' } = {}) => {
+    const note = interpretFeedback(text);
+    const entry = { text: String(text || ''), at: nowIso() };
+    if (scope === 'source') {
+      const src = sourceBySn(sn);
+      if (!src) return null;
+      const steer = mergeSteer(src.summary?.steer, note);
+      src.summary = { ...(src.summary || {}), steer, feedback: [...(src.summary?.feedback || []), entry] };
+      persist();
+      return sourceSummary(sn, { regenerate: true });
+    }
+    if (scope === 'entity') {
+      const profile = entityProfile(docId, entId);
+      if (!profile) return null;
+      const key = entityKey(profile.label);
+      const cur = state.summaries.entities[key] || {};
+      const steer = mergeSteer(cur.steer, note);
+      state.summaries.entities[key] = { ...cur, key, label: profile.label, steer, feedback: [...(cur.feedback || []), entry] };
+      persist();
+      return entitySummary(docId, entId, { regenerate: true });
+    }
+    return null;
   };
 
   // ── the wiki referent (the entity panel's encyclopedia lookup) ─────────────
@@ -3295,6 +3459,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     ensureModel, setBackend, backendPref, setSpeed, speedPref,
     // projections for the surface
     answerSegments, viewerParas, readerLink, entities, entityProfile, entityWiki, tieredData, topicTieredData,
+    // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
+    sourceSummary, sourceSummaryOf, entitySummary, entitySummaryFor, summaryFeedback,
     findings, provenance, dagFor, dagSources, setMemo, eotFor, answerEot,
     // the commitment ledger (assertions + corrections, persisted) and the session's
     // self/world line readout — the honesty and ledger seams, readable from the surface
