@@ -49,10 +49,11 @@ import { CONTRACTS as retrieve } from '../surfer/retrieve/eo-contract.js';
 import { CONTRACTS as surfer } from '../surfer/eo-contract.js';
 import { CONTRACTS as tasks } from '../frame/tasks/eo-contract.js';
 import { CONTRACTS as turn } from '../turn/eo-contract.js';
+import { CONTRACTS as wiki } from '../wiki/eo-contract.js';
 import { CONTRACTS as workspace } from '../rooms/workspace/eo-contract.js';
 import { CONTRACTS as write } from '../weave/write/eo-contract.js';
 
-export const CONTRACTS = Object.freeze({ ...answer, ...arc, ...archive, ...audit, ...chat, ...chorus, ...classify, ...code, ...coder, ...commission, ...connect, ...converse, ...core_, ...credence, ...dag, ...data, ...doc, ...enact, ...enactor, ...essay, ...factcheck, ...flow, ...fold, ...frame, ...ground, ...ingest, ...lineup, ...longgen, ...metabolism, ...model, ...murmur, ...murmurAudit, ...murmurLink, ...murmurNarrate, ...murmurSense, ...murmurSteer, ...murmurValence, ...organs, ...perceiver, ...predict, ...reader, ...reason, ...research, ...retrieve, ...surfer, ...tasks, ...turn, ...workspace, ...write });
+export const CONTRACTS = Object.freeze({ ...answer, ...arc, ...archive, ...audit, ...chat, ...chorus, ...classify, ...code, ...coder, ...commission, ...connect, ...converse, ...core_, ...credence, ...dag, ...data, ...doc, ...enact, ...enactor, ...essay, ...factcheck, ...flow, ...fold, ...frame, ...ground, ...ingest, ...lineup, ...longgen, ...metabolism, ...model, ...murmur, ...murmurAudit, ...murmurLink, ...murmurNarrate, ...murmurSense, ...murmurSteer, ...murmurValence, ...organs, ...perceiver, ...predict, ...reader, ...reason, ...research, ...retrieve, ...surfer, ...tasks, ...turn, ...wiki, ...workspace, ...write });
 
 export const contractOf = (repoRelPath) => CONTRACTS[repoRelPath] ?? null;
 export const contractedPaths = () => Object.freeze(Object.keys(CONTRACTS).sort());
