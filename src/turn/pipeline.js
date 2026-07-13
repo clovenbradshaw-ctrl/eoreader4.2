@@ -453,6 +453,10 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
       // The verdict distribution over the turn's judgment log (core/def.js): the current DEF
       // per subject, counted by verdict — the summary the label reads. Null on a bare turn.
       judgments: judgmentDist,
+      // The judgment log itself — every DEF the turn minted, witnesses and revise chains
+      // intact. The census above is a projection of this; the evaluator (metabolism/defscore.js)
+      // scores the events, not the counts.
+      judgmentLog: judgments,
       fedGraph: ctx.fedGraph || null,   // the meaning graph fed to the talker (web path); null otherwise
       citeOrigins: citeOriginsOf(groundingDoc, ctx.sources),   // per-claim attribution: [sN] idx → source docId
       citeTexts:   citeTextsOf(groundingDoc, ctx.sources),     // [sN] idx → the cited sentence itself (hover provenance)
