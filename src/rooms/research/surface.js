@@ -160,6 +160,18 @@ const SURFACE_CSS = `
 .drs-covnote{margin-top:8px;line-height:1.5}
 .drs-report-wrap{background:#fff;border:1px solid #e5e7eb;border-radius:11px;padding:14px 15px;margin-top:14px}
 .drs-mark{font-size:13px;font-weight:700;letter-spacing:.01em}
+/* — state A: the gap is the door — */
+.drs-gap{margin-top:12px;border:1px dashed #cbb8f0;background:#faf8ff;border-radius:12px;padding:12px 13px}
+.drs-gap-tag{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7c3aed;margin-bottom:5px}
+.drs-gap-q{font-size:14px;font-weight:700;color:#2a2140;line-height:1.35}
+.drs-gap-note{font-size:11.5px;color:#5a626d;margin-top:5px;line-height:1.45}
+/* — the search, audited — */
+.drs-audit{margin-top:12px;border:1px solid #f4d9ad;background:#fff9ef;border-radius:12px;padding:11px 13px}
+.drs-audit-big{font-size:13px;color:#1b1f24;line-height:1.4}
+.drs-audit-big b{font-size:15px;font-weight:800;color:#92400e}
+.drs-audit-big em{font-style:normal;font-weight:700;color:#92400e}
+.drs-audit-sub{font-size:11px;color:#5a626d;margin-top:5px;line-height:1.4}
+.drs-audit-stop{font-size:11.5px;color:#5b21b6;margin-top:6px;font-weight:600;line-height:1.4}
 /* — the disambiguation popup: an OFFER to refocus, never a block — */
 .drs-clarify{margin-top:12px;border:1px solid #d8ccf7;background:#faf8ff;border-radius:12px;padding:12px 13px;animation:drs-clarify-in .25s ease}
 @keyframes drs-clarify-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
@@ -263,6 +275,8 @@ export const mountResearchSurface = (el, opts = {}) => {
         <div class="drs-settle-bar"><div class="drs-settle-fill"></div></div>
         <div class="drs-status"><span class="drs-status-icon">◔</span><span class="drs-status-text"></span></div>
         <div class="drs-reading" style="display:none"><span class="drs-reading-spin"></span><div style="min-width:0;flex:1"><div class="drs-reading-title"></div><div class="drs-reading-sub"></div></div></div>
+        <div class="drs-gap" style="display:none"></div>
+        <div class="drs-audit" style="display:none"></div>
         <div class="drs-sec drs-sec-terms">Terms being researched</div>
         <div class="drs-terms"></div>
         <div class="drs-sec">The question, broken down</div>
@@ -355,6 +369,34 @@ export const mountResearchSurface = (el, opts = {}) => {
     const rd = $('.drs-reading');
     if (v.reading) { rd.style.display = ''; $('.drs-reading-title').textContent = v.reading.title; $('.drs-reading-sub').textContent = v.reading.host + ' · ' + v.reading.note; }
     else rd.style.display = 'none';
+    // state A — nothing grounded yet: the gap is the door.
+    const gapEl = $('.drs-gap');
+    if (v.gap) {
+      gapEl.style.display = '';
+      gapEl.innerHTML = `<div class="drs-gap-tag">Nothing here answers this</div>`
+        + `<div class="drs-gap-q">${esc(v.gap.question)}</div>`
+        + `<div class="drs-gap-note">${esc(v.gap.note)} These sources cannot settle it.</div>`;
+    } else gapEl.style.display = 'none';
+    // the search, audited — the three numbers that make this more than a search
+    // box: how many searches went looking to be wrong, kept vs. thrown out, and
+    // the stopping rule you can watch approach.
+    const auditEl = $('.drs-audit');
+    const a = v.searchAudit;
+    if (a && a.total) {
+      auditEl.style.display = '';
+      const stop = v.stopRule;
+      const stopLine = stop && stop.docGains.length
+        ? (stop.willStopIn === 0
+            ? 'Two quiet documents in a row — the picture has stopped moving.'
+            : `${stop.willStopIn} more quiet document${stop.willStopIn === 1 ? '' : 's'} and it stops on its own.`)
+        : '';
+      auditEl.innerHTML =
+        `<div class="drs-audit-big"><b>${a.disprove}</b> of <b>${a.total}</b> searches trying to prove the story <em>wrong</em></div>`
+        + `<div class="drs-audit-sub">${a.disprove ? '' : 'None are — this is a search for agreement, and it will find some. '}`
+        + `${v.documents.kept} kept · ${v.documents.setAside} set aside${v.documents.thrown ? ` · ${v.documents.thrown} thrown out` : ''}`
+        + `${a.disproveFound ? ` · ${a.disproveFound} disproof search${a.disproveFound === 1 ? '' : 'es'} found something` : ''}</div>`
+        + (stopLine ? `<div class="drs-audit-stop">${esc(stopLine)}</div>` : '');
+    } else auditEl.style.display = 'none';
     // terms being researched — the load-bearing terms each frame reads against;
     // the ones the active frame is chasing right now are filled solid.
     const termsSec = $('.drs-sec-terms'); const termsBox = $('.drs-terms');

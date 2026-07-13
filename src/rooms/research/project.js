@@ -263,13 +263,18 @@ const computeReport = (log, at) => {
       return { frameId: rec.frameId, t: rec.t, from: [...rec.from], to: [...rec.to], propId: pid, pinId: pr?.pinId ?? null };
     });
 
-  // ── Documents: kept vs set aside ───────────────────────────────────────────
+  // ── Documents: kept vs set aside vs thrown out ─────────────────────────────
+  // kept/setAside partition the sources that were pinned and READ (a kept source
+  // put at least one claim into the report; a set-aside one was read but nothing
+  // of its made the report — capped out, or the record was silent). thrown are
+  // the ones a search fetched but never pinned at all — redundant or too thin to
+  // ground anything. Three honest buckets, no source double-counted.
   const promotedPinIds = new Set(allProps.filter((p) => p.promoted).map((p) => p.pinId));
   const documents = {
     pinned: pins.size,
-    kept: promotedPinIds.size,                 // put at least one claim into the report
-    silent: pins.size - promotedPinIds.size,   // pinned and read, but nothing bound — a measured quiet
-    thrown: searchAudit.thrown,                // a search fetched it but it was never pinned (redundant/thin)
+    kept: promotedPinIds.size,
+    setAside: pins.size - promotedPinIds.size,
+    thrown: searchAudit.thrown,
   };
 
   // ── The stopping rule you can watch — per-document information gain ─────────

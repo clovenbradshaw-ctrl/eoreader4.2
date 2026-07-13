@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 
 import { runGroundedResearch, disproofQueries } from '../src/rooms/research/driver.js';
 import { projectReport } from '../src/rooms/research/project.js';
+import { renderReportFragment } from '../src/rooms/research/render.js';
+import { formatChatReply } from '../src/rooms/research/session.js';
+import { liveView } from '../src/rooms/research/live.js';
 import {
   openResearch, searchProbe, pinSource, extractProposition, evaTest,
   recFrame, promoteProposition, SEARCH_STANCES,
@@ -76,13 +79,13 @@ test('a source a disprove search found is traceable — via on the pin, fromDisp
   assert.ok(disproveProps.every((p) => disprovePins.some((pin) => pin.id === p.pinId)));
 });
 
-test('documents: kept + silent accounts for every pinned source', async () => {
+test('documents: kept + set-aside partitions every pinned source; thrown are the unpinned', async () => {
   const { report } = await runWithSearch();
   const d = report.documents;
   assert.equal(d.pinned, report.pins.length);
-  assert.equal(d.kept + d.silent, d.pinned, 'a pinned source is either kept (a claim landed) or silent');
+  assert.equal(d.kept + d.setAside, d.pinned, 'a pinned source either kept (a claim landed) or was set aside');
   assert.ok(d.kept >= 1);
-  assert.ok(d.thrown >= 0);
+  assert.ok(d.thrown >= 0, 'thrown are fetched-but-never-pinned — a separate bucket');
 });
 
 test('the stopping rule is watchable: per-document gain, and a countdown to the stop', async () => {
@@ -162,4 +165,40 @@ test('an earlier answer read before a reframing is flagged for re-checking', () 
 test('re-projecting the loop is byte-stable', () => {
   const log = storyChangeLog();
   assert.deepEqual(projectReport(log), projectReport(log));
+});
+
+// ── The loop reaches the surfaces — report, chat reply, live panel ────────────
+
+test('the report states the audit, the story-change, and the answers to re-check', () => {
+  const html = renderReportFragment(projectReport(storyChangeLog()));
+  assert.match(html, /1 of 2 searches tried to disprove it/, 'the header carries the disprove audit');
+  assert.match(html, /How the search went/);
+  assert.match(html, /went looking to prove the story wrong/);
+  assert.match(html, /This changed the story/, 'the disprove-forced reframe is called out');
+  assert.match(html, /ingestion, feeds/, 'and names what the topic reframed to');
+  assert.match(html, /Earlier answers to re-check/);
+  assert.match(html, /re-check<\/span>/, 'the stale claim is flagged inline');
+});
+
+test('the chat reply audits the search, not just the answer', () => {
+  const reply = formatChatReply(projectReport(storyChangeLog()), 'root');
+  assert.match(reply, /went looking to be wrong/i);
+  assert.match(reply, /changed the story/i);
+  assert.match(reply, /re-check/i);
+});
+
+test('the live panel surfaces the gap (state A) and the audit (state B)', () => {
+  // Nothing grounded yet — the gap is the door.
+  const opening = liveView([openResearch({ id: 'root', question: 'who consents to a private feed?', subject: ['consent'], t: 0 })]);
+  assert.ok(opening.gap, 'an opened frame with nothing grounded shows the gap');
+  assert.equal(opening.gap.question, 'who consents to a private feed?');
+
+  // Mid/after a run — the audit strip reads the loop.
+  const v = liveView(storyChangeLog());
+  assert.equal(v.gap, null, 'grounded propositions close the gap');
+  assert.equal(v.searchAudit.disprove, 1);
+  assert.equal(v.searchAudit.total, 2);
+  assert.equal(v.storyChanges.length, 1);
+  assert.equal(v.recheck, 1);
+  assert.equal(v.documents.kept, 2);
 });
