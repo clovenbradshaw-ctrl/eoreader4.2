@@ -16,6 +16,7 @@
 
 import { writeReferring } from './refer.js';
 import { realize } from './realize.js';
+import { applyReanalysis } from '../../surfer/reanalyze.js';
 
 // conceptToPlan — traverse the held relation graph into an ordered proposition plan.
 //
@@ -28,6 +29,14 @@ import { realize } from './realize.js';
 //           motion" are different texts. The frame is the active reading lens, run forward.
 // Both are SELECTION (what to say); the arrow of time still fixes ORDER (when). They compose.
 export const conceptToPlan = (doc, { genders = {}, max = 12, minCoupling = 0, cursor = null, frame = null } = {}) => {
+  // Ensure garden-path REANALYSES are ON THE RECORD before we traverse. applyReanalysis is a
+  // pure, append-only, idempotent pass (surfer/reanalyze.js): where a bond grabbed a predicate
+  // into its object slot, it appends a REC that supersedes the mis-bond with the corrected
+  // reduced-relative reading. It is the PRODUCER for the REC(kind:'reanalysis') this traversal
+  // already honours below — without this call the loop was built but starved (never fed a REC).
+  // Idempotent, so the think loop's repeated conceptToPlan calls append at most once; guarded,
+  // so a log with no append (a frozen/plain fixture) is left untouched.
+  if (typeof doc?.log?.append === 'function') applyReanalysis(doc);
   const events = typeof doc?.log?.snapshot === 'function' ? doc.log.snapshot() : (doc?.log?.events || []);
   const label = new Map();
   for (const e of events) if (e.op === 'INS' && e.id != null && !label.has(e.id)) label.set(e.id, e.label);
@@ -54,7 +63,8 @@ export const conceptToPlan = (doc, { genders = {}, max = 12, minCoupling = 0, cu
   // Honour bond-level REANALYSIS (reanalyze.js): a REC(kind:'reanalysis') in the log supersedes
   // a mis-bond and forms the corrected one. So a garden-path mis-bond is not spoken — in its
   // place we say the original verb (demoted to a co-predicate) and the orphaned verb as the
-  // main predicate. With no reanalysis REC on the log this map is empty → unchanged.
+  // main predicate. applyReanalysis (above) is the producer; with no garden path it appends
+  // nothing and this map stays empty → unchanged.
   const superseded = new Map();   // "src|via|tgt" → { demotedVia, formed:{src,via} }
   for (const e of events) {
     if (e.op === 'REC' && e.kind === 'reanalysis' && e.supersedes && e.forms)

@@ -180,7 +180,9 @@ export const statusOf = (entries, seq, seen = new Set()) => {
 // committed word that is still measured under a basis it still holds. It falls when
 // REC fires and rises only as claims are paid for. A system running at low credit
 // has been wrong a lot lately and has not done the work, and it should say so rather
-// than speak as though nothing happened.
+// than speak as though nothing happened. At COLD START (nothing committed) credit is
+// `null`, not 1 — a perfect record before a single word is committed is a free firm
+// the void-default forbids; the honest reading is "no basis yet," not "fully credited."
 export const standing = (entries) => {
   const list = Array.isArray(entries) ? entries : [];
   let settled = 0, unsettled = 0, retracted = 0;
@@ -194,7 +196,7 @@ export const standing = (entries) => {
   const total = settled + unsettled + retracted;
   return Object.freeze({
     settled, unsettled, retracted, total,
-    credit: total > 0 ? settled / total : 1,
+    credit: total > 0 ? settled / total : null,   // cold start → null (no basis yet), never a free 1
   });
 };
 

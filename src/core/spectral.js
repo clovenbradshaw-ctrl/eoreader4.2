@@ -233,10 +233,13 @@ export const SIG = (dir, lenses, { signed = false } = {}) => {
 //   dir     a (unit) direction.
 //   lenses  the standing readings (eigenLenses output or bare vectors).
 //   floor   the chance-match ceiling; best |⟨dir|lens⟩|² must exceed it to count as a
-//           match (0 = always match, i.e. plain SIG).
+//           match. DEFAULTS TO Infinity — with no derived chance floor, nothing clears the
+//           bar and REC abstains to −1 (the same cold-start→abstain idiom as voidnull:
+//           assume nothing until the null is measured). Pass floor:0 to opt INTO "always
+//           match, i.e. plain SIG"; a real derived floor gates it between the two.
 //   signed  pole-aware matching (see SIG).
 // Returns the matched reading/pole index, or −1 for "novel" (no standing reading fits).
-export const REC = (dir, lenses, { floor = 0, signed = false } = {}) => {
+export const REC = (dir, lenses, { floor = Infinity, signed = false } = {}) => {
   if (!lenses?.length) return -1;
   const idx = SIG(dir, lenses, { signed });
   const lens = lenses[signed ? idx >> 1 : idx]?.lens || lenses[signed ? idx >> 1 : idx];

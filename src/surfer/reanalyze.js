@@ -37,12 +37,22 @@ export const reanalyze = (doc, { isVerb = null } = {}) => {
   const lastSeen = new Map();
   for (const e of events) if (e.op === 'INS' && e.id != null && e.sentIdx != null) lastSeen.set(e.id, Math.max(lastSeen.get(e.id) ?? -1, e.sentIdx));
 
+  // IDEMPOTENCY: a bond the log already carries a reanalysis REC for is not re-proposed, so
+  // reanalyze/applyReanalysis are safe to call more than once on the same doc (e.g. the think
+  // loop's repeated conceptToPlan) without ever double-appending. The re-judgement is on the
+  // record once and stays there (append-only); a second pass reads it and adds nothing.
+  const alreadyReanalyzed = new Set();
+  for (const e of events)
+    if (e.op === 'REC' && e.kind === 'reanalysis' && e.supersedes)
+      alreadyReanalyzed.add(`${e.supersedes.src}|${e.supersedes.via}|${e.supersedes.tgt}`);
+
   const reanalyses = [];
   for (const b of events) {
     if (!((b.op === 'CON' || b.op === 'SIG') && b.via && b.src != null && b.tgt != null)) continue;
     if (label.has(b.tgt)) continue;                       // object is a real entity — no anomaly
     const tgt = String(b.tgt).toLowerCase();
     if (!known(tgt)) continue;                            // object slot holds a NON-verb — fine
+    if (alreadyReanalyzed.has(`${b.src}|${b.via}|${b.tgt}`)) continue;   // already re-judged — no duplicate
     // GARDEN PATH: the object slot holds a predicate. Re-retrieve a subject for the orphaned
     // verb — the most recently instantiated entity at or before this bond (γ-recency).
     const cands = [...lastSeen.entries()].filter(([, si]) => si <= b.sentIdx).sort((a, b2) => b2[1] - a[1]);

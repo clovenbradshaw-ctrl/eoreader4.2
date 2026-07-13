@@ -94,20 +94,25 @@ const overlapFloor = (doc, alpha, retrieve) => {
 //   • `alpha` — DERIVE the null online from the signal's own non-cohering overlaps,
 //     at the tolerated false-positive rate `alpha`. The boundary is no longer a
 //     number you set; it is a readout the physics computes (see voidnull.js).
-//   • neither — 0, pure rank: merge the argmax. Right for RECOVERY, and the
-//     cold-start fallback before any null is known.
-export const discoverEquivalences = (doc, { emit = true, minOverlap = null, alpha = null, retrieve } = {}) => {
+//   • neither — ABSTAIN: with no null established, the boundary is Infinity, so every
+//     proposed pair is HELD (NUL), never merged. Pure-rank merge (boundary 0) is the
+//     RECOVERY / cold-start rule, now OPT-IN via `mode:'recovery'` — because pure rank
+//     cannot abstain (it merges the argmax however weak, so on noise it hallucinates
+//     equivalences), so it must be asked for, not handed out as the free default.
+export const discoverEquivalences = (doc, { emit = true, minOverlap = null, alpha = null, mode = null, retrieve } = {}) => {
   const rank = needRetrieve(retrieve);
   // What the overlap field PROPOSES, by rank alone — the recovery rule.
   const candidates = mutualNearestPairs(doc, { minOverlap: 0, retrieve: rank });
 
-  // The per-candidate boundary. Constant when given; derived (leave-one-out,
-  // extreme-value, robust, streaming) when `alpha` is set; 0 otherwise.
+  // The per-candidate boundary. Constant when given; derived (leave-one-out, extreme-value,
+  // robust, streaming) when `alpha` is set; explicit pure-rank 0 only under mode:'recovery';
+  // otherwise Infinity — VOID IS THE DEFAULT, so nothing merges until a null is known.
   const floor = (minOverlap == null && alpha != null) ? overlapFloor(doc, alpha, rank) : null;
   const boundary = (c) =>
     minOverlap != null ? minOverlap
       : floor ? floor.threshold({ leaveOut: c.score })
-        : 0;
+        : mode === 'recovery' ? 0
+          : Infinity;
 
   const parent = new Map();
   const find = (x) => { let p = parent.get(x) ?? x; while (p !== (parent.get(p) ?? p)) p = parent.get(p) ?? p; return p; };
