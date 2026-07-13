@@ -1026,6 +1026,51 @@ table{border-collapse:collapse;width:100%}
               </div>
             </div>
 
+            <!-- MEDIA PANEL — a decoded audio/video source plays here, above its reading, in every -->
+            <!-- mode: the file itself, its waveform tinted by the signal/noise holons, the basic -->
+            <!-- analysis, and the live transcription status. -->
+            <sc-if value="{{ viewer.media.show }}">
+              <div class="eo-scroll" style="flex:0 0 auto;max-height:44%;overflow-y:auto;background:#fff;border-bottom:1px solid #EAEAEF;padding:13px 18px;display:flex;flex-direction:column;gap:11px">
+                <sc-if value="{{ viewer.media.showVideo }}">
+                  <video controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;max-height:260px;border-radius:9px;background:#000;display:block"></video>
+                </sc-if>
+                <sc-if value="{{ viewer.media.showAudio }}">
+                  <audio controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;display:block"></audio>
+                </sc-if>
+                <sc-if value="{{ viewer.media.hasWave }}">
+                  <div>
+                    <div style="display:flex;align-items:center;gap:1px;height:62px;padding:7px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden">
+                      <sc-for list="{{ viewer.media.bars }}" as="b">
+                        <div style="flex:1 1 0;min-width:1px;height:{{ b.hPct }}%;background:{{ b.bg }};border-radius:1px"></div>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;margin-top:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">
+                      <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#6D5EF5;display:inline-block"></span>signal</span>
+                      <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#C9CBD6;display:inline-block"></span>noise / silence</span>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ viewer.media.hasStats }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <sc-for list="{{ viewer.media.stats }}" as="st">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 8px"><b style="color:#8A8A95;font-weight:600">{{ st.label }}</b>&nbsp;{{ st.val }}</span>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ viewer.media.asrShow }}">
+                  <div style="display:flex;flex-direction:column;gap:6px;background:{{ viewer.media.asrBg }};border-radius:8px;padding:9px 12px">
+                    <div style="display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600;color:{{ viewer.media.asrTone }}">
+                      <sc-if value="{{ viewer.media.asrBusy }}"><span style="width:13px;height:13px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span></sc-if>
+                      <span>{{ viewer.media.asrLabel }}</span>
+                    </div>
+                    <sc-if value="{{ viewer.media.hasPartial }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#5A5A66;line-height:1.55;max-height:58px;overflow:hidden">…{{ viewer.media.asrPartial }}</div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+
             <sc-if value="{{ viewerIsReader }}">
               <div style="flex:1;min-height:0;position:relative;background:#fff">
                 <iframe ref="{{ setReaderFrame }}" srcdoc="{{ readerDoc }}" sandbox="allow-same-origin allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
@@ -1746,7 +1791,17 @@ class Component extends DCLogic {
   _saveReadPos(sn, f) { try { localStorage.setItem(this._readPosKey(sn), String(Math.max(0, Math.min(1, f)))); } catch {} }
 
   _onEngine(kind) {
-    if (kind === 'sources') { this._entCache = null; this._viewCache = null; this._segCache = {}; }
+    if (kind === 'sources') {
+      this._entCache = null; this._viewCache = null; this._segCache = {};
+      // A source's text can change AFTER it lands — an audio source is recorded from its
+      // acoustic reading, then its transcript folds in. Drop the cached reader iframe for any
+      // open source whose content signature moved, so the reader re-renders the new text (and
+      // only then — a partial-progress emit leaves the text untouched, so no needless reload).
+      for (const sn in this._readerCache) {
+        const s = this._app && this._app.sourceBySn(sn);
+        if (!s || (this._readerCache[sn] && this._readerCache[sn]._sig !== s.sha)) delete this._readerCache[sn];
+      }
+    }
     if (kind === 'topics') {
       // Entities are SILOED PER TOPIC: the explorer derives from the active topic's sources,
       // so any cached list is stale the moment topics change — a fresh topic must open with
@@ -2014,7 +2069,11 @@ class Component extends DCLogic {
   }
   _ingestFile(f) {
     if (!this._app) return;
-    this._app.ingestFile(f).then((s) => { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
+    // For media the source lands (and reveals) AT ONCE via onSource — long before the
+    // transcript. Other modalities have no early source, so the final resolve reveals them.
+    let revealed = false;
+    this._app.ingestFile(f, { onSource: (s) => { revealed = true; this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); } })
+      .then((s) => { if (s && !revealed) { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); } })
       .catch((err) => this.showToast(`Couldn't read ${f.name}: ${String(err && err.message || err).slice(0, 90)}`));
   }
   // ── the import reveal — the first surface a new source renders ─────────────
@@ -2189,6 +2248,85 @@ class Component extends DCLogic {
   }
   // The active source is whichever tab in the bar is a recorded source (else none — a fixed tab).
   _activeSrc() { return this.state.viewerTabs.includes(this.state.tab) ? this.state.tab : null; }
+
+  // ── the media view-model — player + waveform + signal/noise holons + transcription ────────
+  // Built for an audio/video source from the artefacts its acoustic reading left on the source
+  // (all underscore-led, session-only): a playable object URL, the downsampled peaks, the basic
+  // analysis, the nested holons, and the live transcription state. Returns null for anything
+  // that is not a decoded clip (so the panel simply does not show).
+  _mediaVM(s) {
+    if (!s || s.kind !== 'audio') return null;
+    const media = s._media || null;
+    const wave = s._wave || null;
+    const an = s._analysis || null;
+    const h = s._holons || null;
+    if (!media && !wave && !an) return null;
+    const dur = (an && an.duration) || (h && h.root && h.root.dur) || 0;
+    const clock = (t) => { const x = Math.max(0, t || 0); const m = Math.floor(x / 60); const r = Math.round(x - m * 60); return `${m}:${String(r).padStart(2, '0')}`; };
+    const db = (v) => (v == null || v <= -120 ? '−∞' : `${v.toFixed(1)} dB`);
+
+    // The signal spans, so each waveform column can be tinted signal (accent) or noise (faint).
+    const spans = (h && h.signalSpans) || [];
+    const inSignal = (t) => spans.some((sp) => t >= sp.start && t <= sp.end);
+
+    // Downsample the peaks to a comfortable bar count; height ∝ amplitude, centred so the bar
+    // mirrors above and below the midline like a real waveform.
+    let bars = [];
+    if (Array.isArray(wave) && wave.length) {
+      const N = Math.min(200, wave.length);
+      const per = wave.length / N;
+      let maxAmp = 0;
+      for (const p of wave) if (p.amp > maxAmp) maxAmp = p.amp;
+      maxAmp = maxAmp || 1;
+      for (let i = 0; i < N; i++) {
+        const a = Math.floor(i * per), b = Math.max(a + 1, Math.floor((i + 1) * per));
+        let amp = 0; for (let j = a; j < b && j < wave.length; j++) amp = Math.max(amp, wave[j].amp);
+        const tc = dur * ((i + 0.5) / N);
+        const sig = inSignal(tc);
+        bars.push({
+          hPct: String(Math.max(3, Math.round((amp / maxAmp) * 100))),
+          bg: sig ? '#6D5EF5' : '#C9CBD6',
+        });
+      }
+    }
+
+    const stats = [];
+    if (an) {
+      stats.push({ label: 'Length', val: clock(dur) });
+      stats.push({ label: 'Peak', val: db(an.peakDb) });
+      stats.push({ label: 'Loudness', val: db(an.rmsDb) });
+      stats.push({ label: 'Dynamic range', val: `${(an.dynamicRangeDb || 0).toFixed(0)} dB` });
+      stats.push({ label: 'Silence', val: `${Math.round(an.silencePct || 0)}%` });
+    }
+    if (h) stats.push({ label: 'Signal', val: `${clock(h.signalSeconds || 0)} · ${(h.signalSpans || []).length} holon${(h.signalSpans || []).length === 1 ? '' : 's'}` });
+
+    // The transcription banner — pending / running (with % + a live tail) / done / skipped / error.
+    const asr = s._asr || null;
+    let asrShow = false, asrLabel = '', asrTone = '#6E6E78', asrBg = '#F2F2F6', asrBusy = false, asrPartial = '';
+    if (asr) {
+      if (asr.state === 'pending') { asrShow = true; asrLabel = 'Signal separated — queued for transcription'; asrBusy = true; }
+      else if (asr.state === 'running') { asrShow = true; asrBusy = true; asrLabel = `Transcribing the signal… ${asr.pct != null ? asr.pct + '%' : ''}`.trim(); asrTone = '#5B4BE6'; asrBg = '#F1EFFE'; asrPartial = String(asr.partial || ''); }
+      else if (asr.state === 'skipped') { asrShow = true; asrLabel = `Not transcribed — ${asr.reason || 'no signal above the noise floor'}`; asrTone = '#8A6D2F'; asrBg = '#FBF4E6'; }
+      else if (asr.state === 'stopped') { asrShow = true; asrLabel = 'Transcription stopped — the waveform reading stands'; asrTone = '#8A6D2F'; asrBg = '#FBF4E6'; }
+      else if (asr.state === 'error') { asrShow = true; asrLabel = `Transcription failed — ${asr.reason || 'error'}`; asrTone = '#B4402F'; asrBg = '#FBEAE6'; }
+      else if (asr.state === 'done') { asrShow = false; }
+    }
+
+    return {
+      show: true,
+      hasPlayer: !!(media && media.url),
+      url: (media && media.url) || '',
+      isVideo: !!(media && media.isVideo),
+      showVideo: !!(media && media.url && media.isVideo),
+      showAudio: !!(media && media.url && !media.isVideo),
+      hasWave: bars.length > 0,
+      bars,
+      stats,
+      hasStats: stats.length > 0,
+      asrShow, asrLabel, asrTone, asrBg, asrBusy, asrPartial,
+      hasPartial: !!asrPartial,
+    };
+  }
   // On mobile the panels are one-at-a-time overlay drawers: opening one closes the other,
   // and the desktop open/closed prefs are left untouched (a phone visit shouldn't reshape
   // the desktop layout).
@@ -3861,6 +3999,9 @@ class Component extends DCLogic {
           ents: s.entCount == null ? '…' : String(s.entCount),
           eotCount: eot && eot.structure ? String(eot.structure.lines ? eot.structure.lines.length : 0) : '0',
         };
+        // The media panel — player + waveform + signal/noise holons + transcription status —
+        // shown above the reading for a decoded audio/video source, in every viewer mode.
+        viewer.media = this._mediaVM(s) || { show: false };
         // The themed book — built once per source (cached by sn); prefs are baked in, then applied
         // LIVE on the mounted iframe, so a theme change never rebuilds this string / reloads. The
         // Document view is folded in here: reader-render bakes the entity links + cited-passage rule
@@ -3873,6 +4014,7 @@ class Component extends DCLogic {
             if (link) { linkOpts.segsOf = link.linkify; linkOpts.isCited = link.isCited; }
             try { this._readerCache[activeSn] = this._render.buildReaderDoc(s, st.readPrefs, linkOpts); }
             catch { this._readerCache[activeSn] = { html: '', toc: [] }; }
+            this._readerCache[activeSn]._sig = s.sha;   // bust when the source's text later changes (transcript fold-in)
           }
           readerDoc = this._readerCache[activeSn].html;
           readerToc = (this._readerCache[activeSn].toc || []).map((c) => ({
