@@ -141,6 +141,59 @@ The whole pass runs only at rest (gated on `state.busy` + inactivity, beside dee
 on the critical path. New tests: `tests/murmur-link.test.js`, `tests/murmur-promote.test.js`,
 `tests/murmur-connect-loop.test.js`, plus the phase-4 invariants in `tests/murmur-membrane.test.js`.
 
+## Phase 5 — self-guided learning (the wander)
+
+The peripheral sense no longer only watches a turn go by. At **rest** it WANDERS: it looks at the
+place in the reading that is most interesting, mutters what caught it (live, in the strip), and keeps
+a **learning note**. Guided by curiosity, paced like a person, and — the load-bearing rule —
+**never hidden**.
+
+`src/murmur/learn/` (pure, `tests/murmur-learn.test.js`):
+
+- **Curiosity is the one surprise, pointed inward.** `curiosityOf(prior, arrival)` is `surpriseAt`
+  (`core/surprise.js`) measured between a candidate passage and the γ-decayed profile of everything
+  the murmur has already learned — exactly the metric `docs/curiosity-research.md` points at the web,
+  here pointed at the record. A passage that only restates what it knows moves belief ≈0 bits and is
+  dropped; a passage that introduces something new is worth a note.
+- **`wander(candidates)`** returns the single most interesting place — one step, pure, so the caller
+  advances it at human pace, never in a burst.
+- **`learn(pick)`** folds the pick into the learned profile and mints a note. Every note is
+  **reafferent by construction** (`fromEnactor`) → `canWitness(note.prov) === false`: the murmur's
+  own notebook, a toggleable graph layer, **never a citable fact and never in the answer prompt**.
+  The firewall is unchanged (§9, the §8 type law) — this is the same discipline as the phase-4 link
+  candidate, applied to a learning note.
+- **`outwardLead(note, { known, anchor })`** is the ONE decision that turns "interesting" into "go
+  look": the heaviest surprising term the record NAMES but does not EXPLAIN, sharpened by the anchor
+  (never a bare namesake). This is what `explore` mode hands to the curiosity walk.
+
+### The at-rest wander (`rooms/reader/app.js`)
+
+`wanderTick` runs in the existing idle governor, beside `connectTick`/`deepTick` — only when NOT
+engaged. Its candidates are the freshest deep-reading reflections (the interesting places the reading
+already surfaced); it advances at most **one step per `minStepMs`** (default 20s — human pace, not a
+machine's), mutters the pick via `murmur.mutter(...)` (a read side-channel, so the strip paints it
+live), and appends the note to `state.learning` (the graph layer). In **explore** mode, and only with
+a web license, it follows **one** outward lead through `runCuriousResearch` (`maxHops:1`) and folds
+what it reads back as a `web`-origin note carrying its source URL.
+
+### The three modes + the transparency rule (`index.html`)
+
+The Settings control is a single 3-way mode, and **visibility derives from it** so the rule holds by
+construction — *nothing murmurs unseen*:
+
+| mode | strip | internet | what it does |
+| --- | --- | --- | --- |
+| **Off** | hidden | — | the sense is quiet; nothing runs |
+| **Look & think** (default) | shown | no | mutters + learns from the record only |
+| **Explore the web** | shown | opt-in | also follows its curiosity onto the web |
+
+The strip's × sets `off` (hide == off, by design — you cannot leave it running off-screen). The
+engine's wander gates on `murmurMode !== 'off'`, and the surface pushes the persisted mode to the
+engine at boot (`EO.app.setMurmurMode`). Internet is **opt-in**: `look` never touches the network;
+only `explore` does, and only within the existing web-consent (`webMode`). `config.learn.internet`
+is a second global kill-switch. Learning notes are per-session working state, re-earned each load
+exactly like reflections (the firewall — nothing the murmur keeps is durable truth).
+
 ## Deferred (spec §14 open questions)
 
 - The narrator **model backend** (in-browser resource decision).
