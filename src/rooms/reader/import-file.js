@@ -596,12 +596,27 @@ async function fromMedia(file, title, name, say, opts = {}) {
     const fullText = (liveText || utterances.map(u => u.words.map(w => w.text).join(' ')).join(' ')).trim();
     if (!fullText) return { text: '', doc: null, coverage: { complete: true, seconds: Math.round(duration * 10) / 10, utterances: 0, dropped: ['no speech found in the signal'] }, empty: true };
 
-    const { ingestAudio } = await IN();
+    const { ingestAudio, acousticSignal, resolveTranscript } = await IN();
+    // AUTONOMOUS per-word acoustics — reusing the pre-transcription reading, not re-asking a
+    // model. The cochlea already separated signal from noise (holons) and measured the room
+    // (analysis); here each WORD span is read against that SAME waveform, so every word carries
+    // a belief grounded in the truth. Best-effort: a failure leaves the words un-scored.
+    try {
+      const flat = utterances.flatMap((u) => u.words);
+      const sig = acousticSignal(mono, SR, flat.map((w) => ({ start: w.start, end: w.end })), { analysis, signalSpans: holons.signalSpans });
+      flat.forEach((w, i) => { if (sig[i]) { w.acous = sig[i].acous; w.snr = sig[i].snr; w.signal = sig[i].signal; } });
+    } catch (e) { /* best-effort; the model's confidence still stands */ }
+
     // The word-level doc carries the acoustic reading forward (waveform, analysis, holons,
     // media) so the transcript's source keeps everything the pre-reading gave it.
     const doc = ingestAudio({ name, duration, device: dev, witness, utterances, alternates, media, mediaKind, peaks, analysis, holons, sampleRate: SR });
+    // GRAPH-AWARE, self-editing resolution — fold near-spelling names onto their most-BELIEVED
+    // hearing, the edits landing on THIS append-only log (hear.js §2). Inert on a clean read.
+    let reheard = 0;
+    try { reheard = resolveTranscript(doc).edits || 0; }
+    catch (e) { /* best-effort; the first-pass transcript still stands */ }
     const lastHeard = utterances.length ? utterances[utterances.length - 1].end : 0;
-    return { text: fullText, doc, coverage: { complete: true, seconds: Math.round(duration * 10) / 10, heardTo: Math.round(lastHeard * 10) / 10, utterances: utterances.length, dropped: [] } };
+    return { text: fullText, doc, coverage: { complete: true, seconds: Math.round(duration * 10) / 10, heardTo: Math.round(lastHeard * 10) / 10, utterances: utterances.length, reheard, dropped: [] } };
   } : null;
 
   const coverage = {
