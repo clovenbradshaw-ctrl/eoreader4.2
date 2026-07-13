@@ -158,17 +158,19 @@ export const _tableFromGrid = (grid = []) => ({
 // text the byte stream carries.
 export const _printableRuns = (bytes, min = 4) => {
   const runs = [];
-  let start = -1, chars = [];
+  // Runs are pure printable ASCII, so the default decoder reproduces them 1:1 — and
+  // decoding the subarray at flush time costs one string per run, where a per-byte
+  // String.fromCharCode array cost ~10-16x the file's size on a big binary import.
+  const td = new TextDecoder();
+  let start = -1;
   const flush = (end) => {
-    if (chars.length >= min) runs.push({ text: chars.join(''), start, end });
-    start = -1; chars = [];
+    if (start >= 0 && end - start >= min) runs.push({ text: td.decode(bytes.subarray(start, end)), start, end });
+    start = -1;
   };
   for (let i = 0; i < bytes.length; i++) {
     const b = bytes[i];
-    if ((b >= 0x20 && b <= 0x7e) || b === 0x09) {
-      if (start < 0) start = i;
-      chars.push(String.fromCharCode(b));
-    } else flush(i);
+    if ((b >= 0x20 && b <= 0x7e) || b === 0x09) { if (start < 0) start = i; }
+    else flush(i);
   }
   flush(bytes.length);
   return runs;
@@ -446,6 +448,23 @@ async function fromImage(file, title, name, say) {
   } finally { URL.revokeObjectURL(url); }
 }
 
+// One whisper pipeline per session — the model is ~150 MB of WASM/WebGPU memory, so a
+// second import or recording must reuse the first load, never stack another instance.
+// Exported: the live-microphone cochlea (record-audio.js) hears through the same ear.
+let _asrLoad = null;
+export const _loadWhisper = () => {
+  if (!_asrLoad) {
+    _asrLoad = (async () => {
+      const dev = await device();
+      const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/+esm');
+      const asr = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { device: dev });
+      return { asr, dev };
+    })();
+    _asrLoad.catch(() => { _asrLoad = null; });   // a failed load stays retryable
+  }
+  return _asrLoad;
+};
+
 // Whisper's timestamped chunks → utterances of timed words. Each chunk is a breath group;
 // its words get interpolated times, so the audio organ keeps a clock on every word.
 // Exported: the live-microphone cochlea (record-audio.js) hears through the same ear.
@@ -500,23 +519,27 @@ async function fromMedia(file, title, name, say, opts = {}) {
   // Decode to mono 16 kHz — the rate whisper wants — via an offline graph.
   const AC = (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext));
   if (!AC) throw new Error('this browser cannot decode audio');
+  // Guard the guaranteed-OOM cases before allocating: the decode materializes the WHOLE
+  // clip as full-rate PCM (1h of stereo 44.1kHz ≈ 1.3GB) in a tab that may also hold
+  // model weights — past these (generous) bounds the import would crash the tab, not land.
+  if (file.size > 500 * 1024 * 1024) throw new Error('this clip is too large to decode in the browser (over 500 MB) — split it or transcribe a compressed copy');
   const buf = await file.arrayBuffer();
   const tmp = new AC();
   let decoded;
-  try { decoded = await tmp.decodeAudioData(buf.slice(0)); } finally { try { tmp.close(); } catch {} }
-  const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(decoded.duration * SR)), SR);
+  try { decoded = await tmp.decodeAudioData(buf); } finally { try { tmp.close(); } catch {} }
+  const duration = decoded.duration;
+  if (duration > 3 * 3600) throw new Error('this clip is too long to transcribe in the browser (over 3 hours) — split it first');
+  const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(duration * SR)), SR);
   const src = off.createBufferSource(); src.buffer = decoded; src.connect(off.destination); src.start();
   const mono = (await off.startRendering()).getChannelData(0);
-  const duration = decoded.duration;
+  decoded = null;   // release the full-rate PCM before whisper holds the tab for minutes
 
   // A playable handle on the original file, kept for the session so the source can be
   // heard/watched back with the transcript aligned. (Not revoked — playback needs it.)
   const media = (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(file) : null;
 
   say('Loading the speech model…');
-  const dev = await device();
-  const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/+esm');
-  const asr = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { device: dev });
+  const { asr, dev } = await _loadWhisper();
   const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
   const witness = `whisper-base · ${dev}`;
 

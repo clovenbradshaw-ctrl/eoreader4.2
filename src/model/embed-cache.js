@@ -40,7 +40,15 @@ export const withPersistentEmbedCache = (embedder, {
   useIDB = hasIDB(),
 } = {}) => {
   if (!embedder) return embedder;
+  // The hot layer is bounded: past the cap the oldest entries fall out of memory but
+  // stay in IndexedDB, so a re-hit pays a disk read, never a recompute — and a long
+  // session over big documents can't grow the heap without limit.
+  const MEM_CAP = 4096;
   const memory = new Map();
+  const remember = (key, v) => {
+    if (memory.size >= MEM_CAP) memory.delete(memory.keys().next().value);
+    memory.set(key, v);
+  };
   let dbPromise = null;
   const openDB = () => {
     if (!useIDB) return Promise.resolve(null);
@@ -97,12 +105,12 @@ export const withPersistentEmbedCache = (embedder, {
       const inIDB = await idbGet(key);
       if (inIDB instanceof Float32Array) {
         stats.idbHits++;
-        memory.set(key, inIDB);
+        remember(key, inIDB);
         return inIDB;
       }
       const v = await embedder.embed(t);
       stats.computed++;
-      memory.set(key, v);
+      remember(key, v);
       if (v instanceof Float32Array) idbPut(key, v); // fire-and-forget — never blocks the answer
       return v;
     },
@@ -117,7 +125,7 @@ export const withPersistentEmbedCache = (embedder, {
       const inIDB = await idbGet(key);
       if (inIDB instanceof Float32Array) {
         stats.idbHits++;
-        memory.set(key, inIDB);
+        remember(key, inIDB);
         return inIDB;
       }
       return null;
