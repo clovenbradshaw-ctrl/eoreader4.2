@@ -2976,20 +2976,29 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }
     return rows;
   };
-  // `level` selects the HOLONIC LEVEL of the topic explorer: 'names' (default) keeps only natural-
-  // language referents — people, places, things — dropping the acoustic signal/noise span holons an
-  // audio reading INS's; 'signal' keeps only those acoustic holons; 'all' keeps both. (The per-source
-  // pivot has its OWN finer level split — the transcript's referents vs its raw word spans — in
-  // sourceEntities below; this filter is the topic-wide acoustic cut.)
+  // `level` selects the HOLONIC LEVEL of the topic explorer: 'names' (default) is the natural-
+  // language REFERENTS — the people, places and things the content NAMES — read from each source's
+  // meaning layer (referentDocFor), never from the raw spans underneath; 'signal' is the acoustic
+  // signal/noise span holons an audio reading INS's; 'all' keeps both. Referents are the entities;
+  // the base spans (a clip's segments/words, an image's regions) are NOT entities, so they never
+  // leak into the names list — the bug that filled it with 'the/of/court' word-holons and, before a
+  // clip was transcribed, with the acoustic summary's own 'Signal/Noise/Dynamic'.
   const entities = ({ merge = true, level = 'names' } = {}) => {
-    const out = [];
-    for (const src of topicSources()) out.push(...entitiesInDoc(docFor(src), src.sn));
-    // Filter to the requested holonic level. A signal/noise-tagged entity is an acoustic holon;
-    // everything else is a natural-language referent.
+    const nameRows = [], baseRows = [];
+    for (const src of topicSources()) {
+      if (level !== 'signal') {                 // 'names' + 'all' want the referents (the meaning)
+        const rd = referentDocFor(src);
+        if (rd) nameRows.push(...entitiesInDoc(rd, src.sn));
+      }
+      if (level !== 'names') {                  // 'signal' + 'all' want the raw base spans underneath
+        baseRows.push(...entitiesInDoc(docFor(src), src.sn));
+      }
+    }
+    // The acoustic cut: 'signal' is the signal/noise holons of the base reading (the audio case).
     const acoustic = (it) => it.kind === 'signal' || it.kind === 'noise';
-    const rows = level === 'all' ? out
-      : level === 'signal' ? out.filter(acoustic)
-      : out.filter((it) => !acoustic(it));   // 'names' (default)
+    const rows = level === 'names' ? nameRows
+      : level === 'signal' ? baseRows.filter(acoustic)
+      : [...nameRows, ...baseRows.filter(acoustic)];   // 'all' — referents + the acoustic holons
     if (merge) {
       // Group per-source instances by normalized label. The strongest instance
       // (most mentions) LEADS the merged row, so key/docId/entId/sn point at the
@@ -3059,8 +3068,34 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }
     return null;
   };
-  // The base-level noun for a modality — what one of its raw spans IS.
-  const SPAN_NOUN = { audio: 'Words', video: 'Words', image: 'Regions', table: 'Cells', json: 'Nodes', binary: 'Runs', music: 'Notes' };
+  // The REFERENT reading of a source — the meaning layer the entity explorer is about. A prose
+  // source's base doc already IS that reading. A non-prose source raises its figures from the
+  // readable text laid on top (nlDocFor). Crucially, a clip's figures live in its TRANSCRIPT: the
+  // acoustic reading stands in `text` a placeholder SUMMARY ("## Signal separated from noise",
+  // "Dynamic range 27 dB") before a word is transcribed, and parsing THAT as prose is what admitted
+  // Signal/Noise/Dynamic as "referents". So an un-transcribed clip has NO referents yet (null) —
+  // the panel says it is transcribing, rather than naming the summary's own capitalised words.
+  const referentDocFor = (src) => {
+    if (!src) return null;
+    const base = docFor(src);
+    const modality = base?.modality || null;
+    if (!modality || modality === 'text') return base;                       // prose: the base is the reading
+    if ((modality === 'audio' || modality === 'video') && !base?.transcribed) return null;  // no transcript yet
+    return nlDocFor(src);
+  };
+
+  // The base-level noun for a source — what one raw span UNDER the referents IS, so the surface can
+  // stop calling them "entities". A clip's base is its acoustic SEGMENTS before transcription and its
+  // WORDS after (base.transcribed); other modalities name their own base. A prose source has no base
+  // beneath its referents, so it genuinely counts entities.
+  const BASE_NOUN = { image: 'Regions', table: 'Cells', json: 'Nodes', binary: 'Runs', music: 'Notes' };
+  const baseNounOf = (src) => {
+    const base = docFor(src);
+    const modality = base?.modality || null;
+    if (modality === 'audio' || modality === 'video') return base?.transcribed ? 'Words' : 'Segments';
+    return (modality && BASE_NOUN[modality]) || 'Entities';
+  };
+  const sourceBaseNoun = (sn) => baseNounOf(sourceBySn(sn));
   // The holonic levels a source offers, meaning-first. A distinct base level exists only
   // when the organ doc is a non-prose modality AND there is readable text to lift referents
   // from; a prose source's base doc already IS its reading, so it has the one level.
@@ -3073,7 +3108,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // A prose reading (parseText tags its doc `text`) IS the natural-language level — one level.
     // A genuine non-prose organ (audio/image/table/…) has a distinct base of raw spans beneath it.
     if (modality && modality !== 'text' && hasText) {
-      const spanLabel = SPAN_NOUN[modality] || 'Spans';
+      const spanLabel = baseNounOf(src);
       return [
         { level: 'referent', label: 'Referents', hint: 'the figures the content names' },
         { level: 'span', label: spanLabel, hint: `the ${modality}'s raw ${spanLabel.toLowerCase()}` },
@@ -3087,12 +3122,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const sourceEntities = (sn, { level = 'referent' } = {}) => {
     const src = sourceBySn(sn);
     if (!src) return [];
-    const base = docFor(src);
-    const modality = base?.modality || null;
-    // Only a non-prose base has a natural-language reading laid over it; a prose doc already is one.
-    const doc = (level === 'referent' && modality && modality !== 'text' && String(src.text || '').trim())
-      ? nlDocFor(src)
-      : base;
+    // 'referent' reads the meaning layer (the transcript's figures for a clip) — null, so no rows,
+    // until a clip is transcribed; 'span' reads the organ's own base doc (its segments / words).
+    const doc = level === 'referent' ? referentDocFor(src) : docFor(src);
+    if (!doc) return [];
     const rows = entitiesInDoc(doc, sn);
     rows.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
     return rows;
@@ -3113,8 +3146,23 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       if (e.op === 'INS' && rep(e.id) === rep(entId) && e.sentIdx != null) idxs.add(e.sentIdx);
     }
     const sentAt = (i) => String(doc.sentences?.[i] || '').trim();
+    // Each mention's [start,end] on the clock, so a click can SEEK the clip there. A word-level
+    // audio doc keeps a per-unit timing track (doc.timings[sentIdx]); a base segment carries its own
+    // span on a `time` DEF ("a-b"). A prose / natural-language reading keeps neither, so its
+    // mentions have no time and fall back to a text jump.
+    const timings = Array.isArray(doc.timings) ? doc.timings : null;
+    const propTime = (() => {
+      const e = g.entities?.get?.(rep(entId)) || g.entities?.get?.(entId);
+      const m = typeof e?.props?.time === 'string' && e.props.time.match(/^([\d.]+)-([\d.]+)$/);
+      return m ? [+m[1], +m[2]] : null;
+    })();
+    const timeAt = (i) => {
+      const t = timings && timings[i];
+      if (t) return { t0: t[0] ?? null, t1: t[1] ?? null };
+      return propTime ? { t0: propTime[0], t1: propTime[1] } : { t0: null, t1: null };
+    };
     const mentions = [...idxs].sort((a, b) => a - b).slice(0, 40)
-      .map((i) => ({ idx: i, text: sentAt(i) }))
+      .map((i) => ({ idx: i, text: sentAt(i), ...timeAt(i) }))
       .filter((m2) => m2.text);
     // Standing properties, ranked and deduped with their provenance (§ rankProperties):
     // what the record most strongly and specifically witnesses leads, and each property
@@ -3991,7 +4039,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     answerSegments, viewerParas, readerLink, entities, entityProfile, entityWiki, tieredData, topicTieredData,
     // the entity explorer, scoped to one source and read at a chosen HOLONIC LEVEL —
     // its natural-language referents (default) or the modality's raw spans underneath
-    sourceLevels, sourceEntities,
+    sourceLevels, sourceEntities, sourceBaseNoun,
     // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
     sourceSummary, sourceSummaryOf, entitySummary, entitySummaryFor, summaryFeedback,
     findings, provenance, dagFor, dagSources, setMemo, eotFor, answerEot,
