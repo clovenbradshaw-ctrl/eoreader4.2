@@ -24,6 +24,9 @@ export { latentAsterisks, evaluateSameAs, discriminatorIndex, identityFrontier, 
 export { VERDICTS } from './verdicts.js';
 // The judgment DEF — every same-vs-other verdict, logged as a revisable judgment, not a flag.
 export { GRAINS as DEF_GRAINS, makeDef, createJudgmentLog, isVerdict, isGrain } from './def.js';
+// The Cut — the atomic same/other judgment a DEF's witness decomposes into (the typed cut).
+export { CUT_KINDS, GROUNDS, makeCut, foldCuts, groundsOut, violatesB1, makeRuledOut,
+  isCutKind, isCutVerdict } from './cut.js';
 export { STANCES, TERRAINS, stanceOf, terrainOf, grainOfStance, grainOfTerrain,
          cellOf, DIAGONAL_CELLS, coherence, isDiagonal, terrainInfo,
          SIGNATURES, signatureOf,

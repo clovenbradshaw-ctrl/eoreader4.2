@@ -5,8 +5,9 @@ import { VERDICTS } from '../src/core/verdicts.js';
 import { makeDef, createJudgmentLog, GRAINS } from '../src/core/def.js';
 import {
   shapeAudit, normalizeOf, matchGold, scoreVerdicts, classifyTransition,
-  scoreStability, mergeRuns, scoreSpecimen, scoreboard,
+  scoreStability, mergeRuns, scoreSpecimen, scoreboard, scoreCuts,
 } from '../src/metabolism/defscore.js';
+import { CUT_KINDS, GROUNDS } from '../src/core/cut.js';
 import { runSpecimen, runBattery } from '../src/metabolism/defharness.js';
 import { createDefOracle, buildWitnessAuditRequest, parseWitnessAudit } from '../src/metabolism/def-oracle.js';
 import { SPECIMENS } from './fixtures/judgment-specimens.js';
@@ -57,6 +58,47 @@ test('accept-set membership scores correct — including "indeterminate is corre
     ],
   );
   assert.deepEqual(rows.map((r) => r.outcome), ['correct', 'correct']);
+});
+
+test('Cut-level gold (§7) — the scorer grades the cuts a human drew, not just the folded verdict', () => {
+  // a DEF whose witness carries the decomposition tree + a ruled-out other
+  const cutDef = makeDef({
+    verdict: VERDICTS.CORROBORATED, grain: GRAINS.CLAIM, of: 'claim:x',
+    witness: {
+      cuts: [
+        { kind: CUT_KINDS.PRESENCE,  grounds: GROUNDS.NULSIG,   verdict: VERDICTS.CORROBORATED, witness: {} },
+        { kind: CUT_KINDS.ARGUMENT,  grounds: GROUNDS.INS,      verdict: VERDICTS.CORROBORATED, witness: {} },
+        { kind: CUT_KINDS.PREDICATE, grounds: GROUNDS.RESIDUAL, verdict: VERDICTS.CORROBORATED, witness: {} },
+      ],
+      ruledOut: { other: 's5', cut: 'predicate', margin: 0.4 },
+    },
+  });
+  // gold that agrees cut-for-cut → cut-correct
+  const good = matchGold(proj([cutDef]), [{ grain: GRAINS.CLAIM, match: 'x', accept: [VERDICTS.CORROBORATED],
+    cuts: [{ kind: 'predicate', verdict: VERDICTS.CORROBORATED }], ruledOut: { cut: 'predicate' } }]);
+  assert.equal(good[0].cutGrade.outcome, 'cut-correct');
+  assert.equal(scoreCuts(good).cutCorrect, 1);
+
+  // gold that disagrees on the predicate cut → cut-mismatch (a located defect, folded verdict aside)
+  const bad = matchGold(proj([cutDef]), [{ grain: GRAINS.CLAIM, match: 'x', accept: [VERDICTS.CORROBORATED],
+    cuts: [{ kind: 'predicate', verdict: VERDICTS.INDETERMINATE }] }]);
+  assert.equal(bad[0].cutGrade.outcome, 'cut-mismatch');
+
+  // gold naming a cut the witness never drew → cut-absent
+  const absent = matchGold(proj([cutDef]), [{ grain: GRAINS.CLAIM, match: 'x', accept: [VERDICTS.CORROBORATED],
+    cuts: [{ kind: 'argument', verdict: VERDICTS.CORROBORATED }, { kind: 'predicate', verdict: VERDICTS.CORROBORATED }] }]);
+  assert.equal(absent[0].cutGrade.outcome, 'cut-correct', 'both named cuts are present and agree');
+
+  // a CORROBORATED subject whose gold requires a ruled-out other the witness lacks → ruledout-missing
+  const noRuled = makeDef({ verdict: VERDICTS.CORROBORATED, grain: GRAINS.CLAIM, of: 'claim:y',
+    witness: { cuts: [{ kind: CUT_KINDS.PRESENCE, grounds: GROUNDS.NULSIG, verdict: VERDICTS.CORROBORATED, witness: {} }] } });
+  const rows = matchGold(proj([noRuled]), [{ grain: GRAINS.CLAIM, match: 'y', accept: [VERDICTS.CORROBORATED],
+    cuts: [{ kind: 'presence', verdict: VERDICTS.CORROBORATED }] }]);
+  assert.equal(rows[0].cutGrade.outcome, 'ruledout-missing', 'an affirmation must name the other it excluded (§3)');
+
+  // backward compatible: a gold row with no cuts carries no cutGrade
+  const plain = matchGold(proj([cutDef]), [{ grain: GRAINS.CLAIM, match: 'x', accept: [VERDICTS.CORROBORATED] }]);
+  assert.equal(plain[0].cutGrade, undefined);
 });
 
 test('wrong-grain and unjudged are shape gaps — reported beside, excluded from judged', () => {
@@ -248,23 +290,31 @@ test('the battery runs every specimen; ratchet:true specimens stay clean — the
     assert.equal(s.verdicts.overall.unjudged, 0, `${s.id}: a ratchet specimen lost a judged subject`);
     assert.equal(s.shape.malformed, 0, `${s.id}: a ratchet specimen minted a malformed DEF`);
   }
-  // The recorded baseline: the two un-ratcheted specimens carry the defects the retyping
-  // (v2 #2–#4) must convert. If either goes clean, a judge changed — flip its ratchet bit
-  // via the battery, deliberately, and update this pin.
+  // The recorded baseline, AFTER the typed cut (v3 #2–#4) landed. The binding retype converted
+  // the two claim-grain confident-wrongs to located INDETERMINATEs: the ambiguous Elvis claim
+  // (its argument cut cannot ground out on an unresolved name — v3 #3) and the unstated
+  // superlative (its predicate cut never establishes same-or-stronger — v3 #2) are both HELD now,
+  // not corroborated. Elvis is fully clean and rides as a ratchet specimen above.
   const elvis = perSpecimen.find((s) => s.id === 'elvis-referent-diffuse');
-  assert.ok(elvis.verdicts.overall.confidentWrong >= 1,
-    'baseline: the binder still corroborates the ambiguous Elvis claim (v2 #3\'s target)');
+  assert.equal(elvis.verdicts.overall.confidentWrong, 0,
+    'v3 #2/#3 landed: the binder no longer corroborates the ambiguous Elvis claim');
   const unstated = perSpecimen.find((s) => s.id === 'unstated-evaluation');
-  assert.ok(unstated.verdicts.overall.confidentWrong >= 1,
-    'baseline: the binder still corroborates the unstated superlative (v2 #2\'s target)');
+  assert.equal(unstated.verdicts.overall.confidentWrong, 0,
+    'v3 #2 landed: the binder no longer corroborates the unstated superlative');
+  // What v3 #4 still owes on this specimen: the missing ranking is not yet MEASURED as a void, so
+  // the field gold reads unjudged (a recorded gap, not a wrong verdict). The located-reason
+  // machinery exists (recordVoidDef types unstated-relation distinctly); the earning — a void
+  // measure that fires on a describes-but-never-ranks corpus — is the deferred half. Keep this
+  // specimen un-ratcheted until that lands.
   assert.ok(unstated.verdicts.overall.unjudged >= 1,
-    'baseline: no void DEF measures the missing ranking (v2 #4\'s target)');
+    'v3 #4 pending: no void DEF measures the missing ranking yet');
   // The aggregate covers the three golded grains; predication stays thin until a classifier
   // rides in the harness (an honest edge, recorded in the battery doc).
   for (const g of ['claim', 'referent', 'field']) {
     assert.ok(agg.byGrain[g], `aggregate reports the ${g} grain`);
   }
   assert.equal(agg.shape.malformed, 0, 'no judge mints an oracle-shaped DEF anywhere on the battery');
+  assert.equal(agg.shape.b1, 0, 'Invariant B1: no ungrounded comparative cut ships CORROBORATED anywhere on the battery');
 });
 
 // ── 7 · the oracle stays dry ───────────────────────────────────────────────────

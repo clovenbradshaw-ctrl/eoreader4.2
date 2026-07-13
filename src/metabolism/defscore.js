@@ -16,6 +16,7 @@
 
 import { VERDICTS } from '../core/verdicts.js';
 import { createJudgmentLog } from '../core/def.js';
+import { violatesB1 } from '../core/cut.js';
 
 // The four typed commitments. INDETERMINATE is the one suspended verdict — abstention, the
 // honest "I lack the witness to cut same-from-other", never counted as a commitment.
@@ -40,10 +41,17 @@ const pol = (v) => POLARITY[v] ?? 0;
 // a malformed event out-voted by a later read is still a malformed event). Anonymous DEFs
 // (of == null) are legal one-offs but are counted — they cannot be revised or gold-matched.
 export const shapeAudit = (events = []) => {
-  let malformed = 0, noWitness = 0, unknownVerdict = 0, unknownGrain = 0, anonymous = 0;
+  let malformed = 0, noWitness = 0, unknownVerdict = 0, unknownGrain = 0, anonymous = 0, b1 = 0;
   for (const ev of events) {
     if (!ev) continue;
     if (ev.of == null) anonymous += 1;
+    // Invariant B1 as a shape check (v3 #2): a CORROBORATED DEF whose witness carries cuts must
+    // have every one of them ground out. The mapper enforces this pre-emptively (an unearned
+    // affirmation downgrades to INDETERMINATE), so this must read ZERO on gold — a nonzero count
+    // is an ungrounded comparative cut that shipped CORROBORATED, the about≠says failure.
+    if (ev.verdict === VERDICTS.CORROBORATED && Array.isArray(ev.witness?.cuts)) {
+      if (violatesB1(ev.verdict, ev.witness.cuts)) b1 += 1;
+    }
     const m = ev.malformed;
     if (!m || !m.length) continue;
     malformed += 1;
@@ -53,7 +61,7 @@ export const shapeAudit = (events = []) => {
       else if (tag.startsWith('unknown-grain:')) unknownGrain += 1;
     }
   }
-  return Object.freeze({ total: events.length, malformed, noWitness, unknownVerdict, unknownGrain, anonymous });
+  return Object.freeze({ total: events.length, malformed, noWitness, unknownVerdict, unknownGrain, anonymous, b1 });
 };
 
 // normalizeOf — subject keys must compare across two PARSES of the same corpus. Every key is
@@ -89,6 +97,38 @@ const gradeOne = (verdict, accept) => {
   return 'confident-wrong';
 };
 
+// gradeCuts — the Cut-level grade (§7). A gold row may carry the DECOMPOSITION a human drew —
+// the sub-cuts they affirm (kind · grounds · verdict) and, for a CORROBORATED subject, the
+// ruled-out other the affirmation must exclude. This grades the DEF's witness cuts against that
+// gold, so the scorer reads whether the JUDGE cut the same way the human did, not only whether the
+// folded verdict matched. Backward compatible: a gold row with no `cuts` returns null and scores
+// exactly as before. Outcomes, worst kept:
+//   cut-correct         every gold cut has a witness cut of the same kind and verdict
+//   cut-mismatch        a witness cut of the right kind cut the OTHER way (a located defect)
+//   cut-absent          the gold names a cut the witness never drew
+//   ruledout-missing    the gold says this affirmation must rule one other out; the witness did not
+const cutOrder = Object.freeze({ 'cut-correct': 0, 'ruledout-missing': 1, 'cut-absent': 2, 'cut-mismatch': 3 });
+const gradeCuts = (goldRow, def) => {
+  const goldCuts = Array.isArray(goldRow.cuts) ? goldRow.cuts : null;
+  const wantRuledOut = !!goldRow.ruledOut || (Array.isArray(goldRow.accept) ? goldRow.accept : [goldRow.accept]).includes(VERDICTS.CORROBORATED);
+  if (!goldCuts && !goldRow.ruledOut) return null;
+  const wCuts = Array.isArray(def?.witness?.cuts) ? def.witness.cuts : [];
+  const perCut = (goldCuts || []).map((gc) => {
+    const match = wCuts.find((w) => w && w.kind === gc.kind && (gc.grounds == null || w.grounds === gc.grounds));
+    if (!match) return Object.freeze({ kind: gc.kind, outcome: 'cut-absent', expected: gc.verdict, got: null });
+    return Object.freeze({ kind: gc.kind, expected: gc.verdict, got: match.verdict,
+      outcome: match.verdict === gc.verdict ? 'cut-correct' : 'cut-mismatch' });
+  });
+  // the ruled-out other (§3): a CORROBORATED affirmation the gold marks must carry exactly one.
+  const hasRuledOut = def?.witness?.ruledOut != null && def.witness.ruledOut.other !== undefined;
+  const affirmed = def?.verdict === VERDICTS.CORROBORATED;
+  const ruledOutOk = !wantRuledOut || !affirmed || hasRuledOut;
+  let outcome = 'cut-correct';
+  for (const r of perCut) if (cutOrder[r.outcome] > cutOrder[outcome]) outcome = r.outcome;
+  if (!ruledOutOk && cutOrder['ruledout-missing'] > cutOrder[outcome]) outcome = 'ruledout-missing';
+  return Object.freeze({ outcome, perCut: Object.freeze(perCut), ruledOut: ruledOutOk });
+};
+
 export const matchGold = (projection, gold = [], { labelOf = null } = {}) => {
   const defs = [...(projection?.values?.() ? projection.values() : [])]
     .map((d) => ({ def: d, key: String(normalizeOf(d, { labelOf }) ?? '').toLowerCase() }));
@@ -111,11 +151,13 @@ export const matchGold = (projection, gold = [], { labelOf = null } = {}) => {
         else if (!worst) worst = t;
       }
     }
+    const cutGrade = worst ? gradeCuts(g, worst.def) : (g.cuts || g.ruledOut ? { outcome: 'cut-absent', perCut: [], ruledOut: false } : null);
     return Object.freeze({
       grain: g.grain, match: g.match, accept: Object.freeze(accept.slice()),
       of: worst ? normalizeOf(worst.def, { labelOf }) : null,
       projected: worst ? worst.def.verdict : null,
       outcome,
+      ...(cutGrade ? { cutGrade } : {}),
       ...(g.why ? { why: g.why } : {}),
     });
   }));
@@ -225,9 +267,29 @@ export const mergeRuns = (partialLog, fullLog, { labelOfPrev = null, labelOfNext
   return merged;
 };
 
-// scoreSpecimen — one specimen's summary: the shape audit, the gold census, the stability read.
+// scoreCuts — the Cut-level census (§7), folded from the rows' cutGrade. graded = the gold rows
+// that carried a decomposition; the rest fold to the verdict census as before. This is what makes
+// twin generation principled: a bad twin perturbs exactly one cut, and a judge that fails to
+// separate it shows a specific, located cut-mismatch here — not just a folded miss.
+const zeroCuts = () => ({ graded: 0, cutCorrect: 0, cutMismatch: 0, cutAbsent: 0, ruledOutMissing: 0 });
+export const scoreCuts = (rows = []) => {
+  const c = zeroCuts();
+  for (const r of rows) {
+    const cg = r.cutGrade;
+    if (!cg) continue;
+    c.graded += 1;
+    if (cg.outcome === 'cut-correct') c.cutCorrect += 1;
+    else if (cg.outcome === 'cut-mismatch') c.cutMismatch += 1;
+    else if (cg.outcome === 'cut-absent') c.cutAbsent += 1;
+    else if (cg.outcome === 'ruledout-missing') c.ruledOutMissing += 1;
+  }
+  return Object.freeze({ ...c, cutAccuracy: rate(c.cutCorrect, c.graded) });
+};
+
+// scoreSpecimen — one specimen's summary: the shape audit, the gold census, the stability read,
+// and the Cut-level census (additive — unlocks cut-level scoring where the gold drew cuts).
 export const scoreSpecimen = ({ id = null, shape = null, rows = [], stability = null } = {}) => Object.freeze({
-  id, shape, verdicts: scoreVerdicts(rows), stability, rows,
+  id, shape, verdicts: scoreVerdicts(rows), cuts: scoreCuts(rows), stability, rows,
 });
 
 // scoreboard — the battery aggregate: verdict-census cells and stability classes summed across
@@ -235,7 +297,8 @@ export const scoreSpecimen = ({ id = null, shape = null, rows = [], stability = 
 export const scoreboard = (perSpecimen = []) => {
   const byGrain = {}; const overall = zeroCell();
   const stab = { stable: 0, strengthened: 0, retreated: 0, overturned: 0, drifted: 0, committed: 0, emergent: 0, dropped: 0 };
-  const shape = { total: 0, malformed: 0, noWitness: 0, unknownVerdict: 0, unknownGrain: 0, anonymous: 0 };
+  const shape = { total: 0, malformed: 0, noWitness: 0, unknownVerdict: 0, unknownGrain: 0, anonymous: 0, b1: 0 };
+  const cuts = { graded: 0, cutCorrect: 0, cutMismatch: 0, cutAbsent: 0, ruledOutMissing: 0 };
   for (const s of perSpecimen) {
     for (const [g, cell] of Object.entries(s.verdicts?.byGrain || {})) {
       byGrain[g] = byGrain[g] || zeroCell();
@@ -244,6 +307,7 @@ export const scoreboard = (perSpecimen = []) => {
     }
     for (const k of Object.keys(stab)) stab[k] += s.stability?.[k] || 0;
     for (const k of Object.keys(shape)) shape[k] += s.shape?.[k] || 0;
+    for (const k of Object.keys(cuts)) cuts[k] += s.cuts?.[k] || 0;
   }
   const closed = {};
   for (const [g, cell] of Object.entries(byGrain)) closed[g] = closeCell(cell);
@@ -252,6 +316,7 @@ export const scoreboard = (perSpecimen = []) => {
     byGrain: Object.freeze(closed),
     overall: closeCell(overall),
     stability: Object.freeze({ ...stab, overturnRate: rate(stab.overturned, stab.committed) }),
+    cuts: Object.freeze({ ...cuts, cutAccuracy: rate(cuts.cutCorrect, cuts.graded) }),
     shape: Object.freeze(shape),
     perSpecimen: Object.freeze(perSpecimen.map((s) => Object.freeze({
       id: s.id,
@@ -279,8 +344,10 @@ export const renderScoreboard = (agg) => {
   lines.push('');
   const st = agg.stability;
   lines.push(`stability: ${st.stable} stable · ${st.strengthened} strengthened · ${st.retreated} retreated · ${st.drifted} drifted · ${st.overturned} OVERTURNED (rate ${fmt(st.overturnRate)}) · ${st.emergent} emergent · ${st.dropped} dropped`);
+  const cu = agg.cuts;
+  if (cu && cu.graded) lines.push(`cuts:      ${cu.graded} graded · ${cu.cutCorrect} correct · ${cu.cutMismatch} MISMATCH · ${cu.cutAbsent} absent · ${cu.ruledOutMissing} ruled-out-missing (accuracy ${fmt(cu.cutAccuracy)})`);
   const sh = agg.shape;
-  lines.push(`shape:     ${sh.total} DEFs · ${sh.malformed} malformed (${sh.noWitness} no-witness, ${sh.unknownVerdict} bad-verdict, ${sh.unknownGrain} bad-grain) · ${sh.anonymous} anonymous`);
+  lines.push(`shape:     ${sh.total} DEFs · ${sh.malformed} malformed (${sh.noWitness} no-witness, ${sh.unknownVerdict} bad-verdict, ${sh.unknownGrain} bad-grain) · ${sh.b1 || 0} B1-violations · ${sh.anonymous} anonymous`);
   lines.push('');
   lines.push('specimen                        CWR     conf-wrong  underconf  unjudged  overturned  malformed');
   for (const s of agg.perSpecimen) {
