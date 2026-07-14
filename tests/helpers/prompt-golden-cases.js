@@ -38,6 +38,7 @@ export const GROUNDED_CASES = [
   { name: 'meta', args: { question: 'Which topic was about France?', spans: SPANS, meta: true, conversation: { notes: CONV.notes, pastTurns: CONV.pastTurns } } },
   { name: 'meta-without-thread', args: { question: 'Which topic was about France?', spans: SPANS, meta: true } },
   { name: 'exemplar', args: { question: 'Summarize it.', spans: SPANS, exemplar: 'A short plain paragraph naming the subject and its turn.' } },
+  { name: 'fold-summary', args: { question: 'What is it about?', spans: SPANS, summary: 'The survey counted ninety-two dolphins in the estuary; the water warmed two degrees over the decade.' } },
   { name: 'corrective', args: { question: 'What did it say?', spans: SPANS, corrective: 'Your last draft asserted a figure the lines do not carry — drop it.' } },
   { name: 'summary-task', args: { question: 'Summarize it.', spans: SPANS, task: 'summary' } },
   { name: 'budget-sentences', args: { question: 'What did the survey find?', spans: SPANS, budget: { sentences: 2 } } },

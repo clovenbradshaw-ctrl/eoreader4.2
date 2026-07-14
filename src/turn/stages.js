@@ -771,9 +771,15 @@ export const stages = {
           budget:       ctx.budget,             // none by default; a caller may impose one
           conversation: metaTurn ? metaConversation(ctx) : groundedConversation(ctx),
           meta:         metaTurn,               // frame the conversation as the SUBJECT, not context-to-skip
-          // the nearest sample answer's SHAPE, when the form library matched one (turn/shape.js)
-          // — so the first draft is laid out right, not only corrected after. Empty by default.
-          exemplar:     ctx.shapeTarget?.promptMatch?.best_response || '',
+          // the FORM the question's nearest sample answer takes — register and length only, built
+          // from its shape_tags (shapeDescriptor). NOT the sample's verbatim text: handing a weak
+          // talker a fact-laden sample made it copy the sample's facts (the "quarter of the training
+          // cost" answer to a court-transcript question). Content-free by construction. Empty by default.
+          exemplar:     shapeDescriptor(ctx.shapeTarget?.promptMatch?.best_tags),
+          // THE FOLD SUMMARY (docs/topline.md): the standing topline the reading already composed for
+          // the source and the figures this turn centres on, handed pre-digested so the talker phrases
+          // rather than re-derives. Empty unless a caller threads foldSummary/entitySummaries → byte-identical.
+          summary:      composeFoldSummary(ctx),
           strict:       ctx.grounding === 'grounded',   // "only what you read" — abstention is the honest fallback
           now:          ctx.now || null,  // hand the talker the real clock — date/time answered directly
           graph:        fedGraph,         // the meaning graph (web path); empty → §2 subjective frame
@@ -1125,7 +1131,9 @@ export const stages = {
       try {
         const draft = grammarMode ? c.rawOutput : await meaning.embed(c.rawOutput);
         const e = answerFormError(ctx.shapeLibrary, ctx.shapeQueryVec, draft);
-        return e ? { ...e, gates: true, sample: ctx.shapeTarget?.promptMatch?.best_response || '' } : null;
+        // The reshape target is the content-free SHAPE descriptor (register + length), never the
+        // matched sample's verbatim text — a rewrite must not re-inject a foreign answer's facts.
+        return e ? { ...e, gates: true, sample: shapeDescriptor(ctx.shapeTarget?.promptMatch?.best_tags) } : null;
       } catch { return null; }
     };
     let curForm = await formErrOf(ctx);
@@ -1436,6 +1444,61 @@ const GROUNDING_CORRECTIVE =
   'there at all, or it conflicts with what they show. Answer again, keeping strictly to ' +
   'what the lines say. If the answer is not in them, tell them plainly you did not find it.';
 
+// THE CONTENT-FREE SHAPE DESCRIPTOR (turn/shape.js). The form library matches the nearest
+// sample answer to read off the wanted SHAPE — but handing a weak talker that sample's verbatim
+// text made it copy the sample's FACTS (a court transcript answered with an ML paper's "quarter
+// of the training cost"; docs/answer-expectation.md). The shape is register and length, and
+// those are exactly what the exemplar's own `shape_tags` name — so we hand the talker a
+// descriptor built from the SAFE tags (register + length) and nothing else: no facts to copy, and
+// no move-structure (e.g. 'quote-then-gloss') a small model would turn into a fabricated quote.
+// This is the content-free form the golden 'exemplar' case was always written for. Empty when no
+// safe tag matched → the exemplar band simply does not ride.
+const SHAPE_LENGTH_TAGS = { 'one-liner': 'one-line', short: 'short', paragraph: 'one-paragraph',
+  'multi-paragraph': 'multi-paragraph', 'essay-length': 'essay-length' };
+const SHAPE_REGISTER_TAGS = new Set(['crisp', 'warm', 'formal', 'dry', 'playful', 'analytical',
+  'committed', 'humble', 'tender', 'provisional', 'emphatic', 'wry', 'prose']);
+export const shapeDescriptor = (tags) => {
+  const t = Array.isArray(tags) ? tags : [];
+  let length = '';
+  for (const k of Object.keys(SHAPE_LENGTH_TAGS)) if (t.includes(k)) { length = SHAPE_LENGTH_TAGS[k]; break; }
+  const registers = t.filter((x) => SHAPE_REGISTER_TAGS.has(x)).slice(0, 2);
+  const body = [length, ...registers].filter(Boolean).join(', ');
+  return body ? `A ${body} answer.` : '';
+};
+
+// THE FOLD SUMMARY (docs/topline.md) handed to the prompt: the standing topline the reading
+// already composed for the source, plus the toplines of the figures THIS turn centres on — the
+// fold's settled focus and the entities the mechanical draft named (turn/stages.js `predict`).
+// Both are grounded, containment-checked summaries, so the talker phrases them rather than
+// re-deriving from raw lines. Entity summaries are matched by label (case-insensitively) against
+// the caller's map and capped, so only the few the turn is about ride. Empty when nothing was
+// threaded → the foldSummary band does not fire → byte-identical prompt.
+const FOLD_SUMMARY_ENTITY_CAP = 3;
+export const composeFoldSummary = (ctx) => {
+  const parts = [];
+  const src = String(ctx.foldSummary || '').trim();
+  if (src) parts.push(src);
+  const ents = ctx.entitySummaries;
+  if (ents && typeof ents === 'object') {
+    const focus = [];
+    if (ctx.surf?.focus) focus.push(ctx.surf.focus);
+    for (const e of (ctx.prediction?.entities || [])) focus.push(e);
+    const seen = new Set(), lines = [];
+    for (const label of focus) {
+      const key = String(label || '').trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const text = String(ents[label] ?? ents[key] ?? '').trim();
+      if (text && text !== src && !lines.some((l) => l.includes(text))) {
+        lines.push(`- ${text}`);
+        if (lines.length >= FOLD_SUMMARY_ENTITY_CAP) break;
+      }
+    }
+    if (lines.length) parts.push(`On the figures it centres on:\n${lines.join('\n')}`);
+  }
+  return parts.join('\n\n');
+};
+
 // The corrective for a missed CONSTRAINT (turn/expect.js), by dimension. A REFINE, not a
 // retreat: it names the one thing the draft got wrong and asks for it again, in the talker's
 // own words. For a name the reading already resolved, hand it over outright — the engine knows
@@ -1461,14 +1524,13 @@ const constraintCorrective = (err) => {
 };
 
 // The reshape corrective — handed when the FORM predictor (turn/shape.js) found the draft
-// off-shape for this kind of question. It hands over the matched sample answer as a SHAPE
-// target (its facts are about a different text), so the redo copies the register and length,
-// not the content.
+// off-shape for this kind of question. It hands over a content-free SHAPE descriptor (register
+// and length, from the matched sample's shape_tags — shapeDescriptor), never the sample's
+// verbatim text, so the redo fixes the register and length without a foreign answer's facts to copy.
 const reshapeCorrective = (err) =>
   err.sample
-    ? `Your last answer did not read like the kind of answer this question wants. Here is the ` +
-      `right SHAPE (it is about a different text — copy its register and length, NOT its facts):\n` +
-      `“${err.sample}”\nAnswer again in that shape, grounded in the lines you read.`
+    ? `Your last answer did not read like the kind of answer this question wants. Aim for this ` +
+      `shape: ${err.sample} Answer again in that register and length, grounded in the lines you read.`
     : 'Your last answer did not read like the kind of answer this question wants. Answer again in a ' +
       'fitting register and length, grounded in the lines you read.';
 

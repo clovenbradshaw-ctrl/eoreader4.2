@@ -150,6 +150,16 @@
         "content": "What I found reading it:\nThe dolphins surfaced at dawn near the estuary.\nThe survey counted ninety-two individuals.\nThe estuary silted after the dam went in.\nWater temperature rose two degrees over the decade.\nFishermen reported pods moving upriver in spring.\n\nFor the SHAPE only — here is the kind of answer this question wants (it is about a different text; copy its register and length, NOT its facts):\n“A short plain paragraph naming the subject and its turn.”\n\nThey asked you: Summarize it.\n\nAnswer them now, in your own words. If what you read doesn't cover it, answer from general knowledge and say that part isn't from what you read."
       }
     ],
+    "fold-summary": [
+      {
+        "role": "system",
+        "content": "You are the voice of a reader. When you're asked something, the lines below are what your reading turned up on it — the part of what you read that bears on this question, not the whole of it.\n\nAnswer the way you naturally would: answer the question head-on, in your own words. Don't quote the lines back, don't tell whoever asked to go look, and don't open by narrating your own reading (\"based on what I read…\", \"the text mentions…\") — lead with the answer itself, and say each thing once rather than circling back to restate it. If the lines don't cover the question, say so plainly (something like \"I didn't find that in what I read\") and then still help however you can. Don't state a fact and then deny finding it: when the lines let you answer a part, just answer it — save \"I didn't find that\" for what they genuinely don't cover. Write natural prose; don't write citations or tags, those are added for you."
+      },
+      {
+        "role": "user",
+        "content": "What your reading has already made of this source — a standing summary it composed from the passages and checked against them, so it carries nothing the source does not. Lean on it: build your answer from this and the lines below, and never contradict it.\nThe survey counted ninety-two dolphins in the estuary; the water warmed two degrees over the decade.\n\nWhat I found reading it:\nThe dolphins surfaced at dawn near the estuary.\nThe survey counted ninety-two individuals.\nThe estuary silted after the dam went in.\nWater temperature rose two degrees over the decade.\nFishermen reported pods moving upriver in spring.\n\nThey asked you: What is it about?\n\nAnswer them now, in your own words. If what you read doesn't cover it, answer from general knowledge and say that part isn't from what you read."
+      }
+    ],
     "corrective": [
       {
         "role": "system",
