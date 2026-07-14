@@ -199,9 +199,47 @@ const toValueSet = (v) => {
   const arr = Array.isArray(v) ? v : [v];
   return new Set(arr.map((x) => String(x ?? '').trim().toLowerCase()).filter(Boolean));
 };
+
+// ── The measured-quantity arm of the oracle (spec §5.3, the numeric cell) ────
+//
+// The oracle above answers over VALUE-SETS of strings — roles, offices, names,
+// dates. A MEASURED quantity ("18,000 homes", "80 MW", "95,000 tons of CO2") is a
+// different kind of value: two magnitudes do not conflict by being unequal strings
+// ("18000" ≠ "9000"), they conflict by being FAR APART. The same measure on the
+// same subject, read at two values that cannot both be a rounding of one truth, is
+// a real disagreement — the exact clash the string algebra had no cell for, so a
+// source-vs-source pass (factcheck/crosscheck.js) can flip a "no conflicts" banner
+// that was only ever counting typed-relation clashes ("no conflict" ≠ "consistent").
+//
+// A TOLERANCE band keeps it honest at the seam: "about 45 MW" and "45.2 MW" are one
+// fact, not a contradiction. `relTol` is a fraction of the larger magnitude, `absTol`
+// a floor; non-overlapping BEYOND the band → conflict 1, within it → 0 (defer, the
+// same discipline every soft attribute follows — a small gap is never asserted a clash).
+export const quantitiesConflict = (a, b, { relTol = 0.05, absTol = 0 } = {}) => {
+  const na = Number(a), nb = Number(b);
+  if (!Number.isFinite(na) || !Number.isFinite(nb)) return { conflict: 0, reason: 'non-numeric' };
+  const diff = Math.abs(na - nb);
+  const tol = Math.max(absTol, relTol * Math.max(Math.abs(na), Math.abs(nb)));
+  if (diff <= tol) return { conflict: 0, reason: 'within-tolerance', delta: diff };
+  return { conflict: 1, reason: 'magnitude-disagree', delta: diff };
+};
+
 export const attributesConflict = (attrType, a, b, opts = {}) => {
   const A = toValueSet(a), B = toValueSet(b);
   if (!A.size || !B.size) return { conflict: 0, reason: 'insufficient' };
+  // MEASURED quantities compare by MAGNITUDE, not string identity — the numeric arm
+  // (quantitiesConflict). Gated on opts.numeric so every existing caller (offices,
+  // kinship roles, biographical keys) is byte-for-byte unchanged; only a caller that
+  // KNOWS the attribute is a measure opts in. Two value-sets conflict when EVERY
+  // cross-pair is out of tolerance (their ranges are disjoint); any overlap defers.
+  if (opts.numeric) {
+    const nums = (S) => [...S].map(Number).filter(Number.isFinite);
+    const na = nums(A), nb = nums(B);
+    if (!na.length || !nb.length) return { conflict: 0, reason: 'insufficient' };
+    for (const x of na) for (const y of nb)
+      if (!quantitiesConflict(x, y, opts).conflict) return { conflict: 0, reason: 'value-overlap' };
+    return { conflict: 1, reason: 'quantity-clash' };
+  }
   for (const x of A) if (B.has(x)) return { conflict: 0, reason: 'match' };   // a shared value never conflicts
   // Typed-role disjointness — pairwise, since the values themselves are the roles.
   for (const x of A) for (const y of B) if (areDisjoint(x, y)) return { conflict: 1, reason: 'role-disjoint' };

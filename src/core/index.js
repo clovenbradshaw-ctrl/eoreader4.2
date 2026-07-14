@@ -92,7 +92,7 @@ export {
   PRIMITIVES, DISJOINT_PRIMITIVES, typeOf, operatorsOf, isFunctional, isSymmetric,
   relationPrior, areDisjoint, functionalClash, checkRelationConflict, checkRelationAgree,
   isObjectFunctional, objectFunctionalClash, checkObjectFunctionalConflict,
-  attributesConflict,
+  attributesConflict, quantitiesConflict,
 } from './relation-types.js';
 // The learning layer (reshape §5): one defeasible ledger, priors + learned, same
 // slot. It lives in the core because the built-in reading knowledge is inherited

@@ -13,6 +13,7 @@
 import { questionsFor, terrainOfKind } from './terrain.js';
 import { readAs, basesOf, centerOn } from './select.js';
 import { sourcesDisagree } from './disagreement.js';
+import { liveScene } from './live-views.js';
 
 const esc = (s) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -147,10 +148,9 @@ const CARDS = [
 
 export function mountPlainSurface(root, { scene, live = null } = {}) {
   if (!scene) throw new Error('mountPlainSurface needs a scene');
-  const S = scene;
-  // `live` (optional, from project.liveModel): { sources:[{id,label,text}], terms:[…],
-  // disagreeFor(term) } — when present the surface reads the person's real ingested sources and
-  // computes "People mean different things by this" from what those documents actually say.
+  // liveScene overlays the live explore-card projections (from project.liveModel) onto the scene, so
+  // the card renderers below (guide/map/blind/timeline) read S.* live; else it's the demo scene.
+  const S = liveScene(scene, live);
   const LIVE = live && Array.isArray(live.sources) && live.sources.length ? live : null;
 
   // ── State — small, and the screen is a projection of it. ──

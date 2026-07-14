@@ -16,19 +16,19 @@
 // Pure: (sources, term) → meanings-by-basis. No DOM, no state. Pinned across fiction, non-fiction,
 // and academic corpora by tests/plain-disagreement.test.js.
 
-const A = '(?:a|an|the|one|any|some|its|his|her|their|our|your|my)';           // an opening determiner
+export const A = '(?:a|an|the|one|any|some|its|his|her|their|our|your|my)';      // an opening determiner
 // Words that, right after the term, introduce a characterization of it.
-const COPULA = '(?:is|are|was|were|be|been|being|remains?|remained|becomes?|became|represents?|means?|signifies|denotes?|serves?\\s+as|acts?\\s+as|functions?\\s+as|amounts?\\s+to|constitutes?)';
+export const COPULA = '(?:is|are|was|were|be|been|being|remains?|remained|becomes?|became|represents?|means?|signifies|denotes?|serves?\\s+as|acts?\\s+as|functions?\\s+as|amounts?\\s+to|constitutes?)';
 const AS = '(?:described|defined|referred\\s+to|treated|used|seen|regarded|understood|viewed|framed|cast|painted|characteri[sz]ed|portrayed|imagined|reads?)\\s+(?:as|to\\s+be)';
 // A predicate that is really a negation ("is not a…", "is never…") is not a sense — skip it.
-const NEG = /^(?:not|no|never|n['’]t|neither|nothing|hardly|barely)\b/i;
+export const NEG = /^(?:not|no|never|n['’]t|neither|nothing|hardly|barely)\b/i;
 
 const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
 
 // Split a blob into sentences the cheap way — the sweep runs per sentence so a term only picks
 // up characterizations stated in the same sentence it appears in.
-const sentencesOf = (text) => norm(text).split(/(?<=[.;!?])\s+/).filter(Boolean);
+export const sentencesOf = (text) => norm(text).split(/(?<=[.;!?])\s+/).filter(Boolean);
 
 // The head of a predicate NP — the noun the meaning turns on. Cut the phrase at the first
 // preposition / relativizer, drop a leading determiner and any adjectives, take the last word,

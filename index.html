@@ -40,48 +40,54 @@ table{border-collapse:collapse;width:100%}
 /* the summary skeleton while the local model turns the machinery's telegram into a reading */
 @keyframes eoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .eo-skel{background:linear-gradient(90deg,#ECEAF6 25%,#F4F2FC 50%,#ECEAF6 75%);background-size:200% 100%;animation:eoShimmer 1.5s ease-in-out infinite;border-radius:5px}
-/* ── MURMUR — the peripheral sense, rendered in NATIVE EOT (src/murmur/narrate/voice.js) ──
-   Each voiced thought is one event: `glyph OP site(s) · res` — the raw tuple, never prose; this is
-   the inner monologue's own notation, not a sentence about it. The operator palette is the cube's
-   Act-face grains (core/operators.js) so a strip event and a graph edge draw the same mark. Built
-   imperatively (setMurmurStrip) — the fade-out→swap→fade-in lifecycle is the surface's, not React's
-   per-poke reconcile. */
+/* ── MURMUR — the peripheral sense, a NIGHT-SKY STRIP of drifting thought-motes ──
+   The reader's real voiced thoughts (src/murmur/narrate/voice.js — the read side-channel, §9.4)
+   drift across a dark canvas band as fading, overlapping motes; the most-surprising one is starred,
+   and clicking any mote opens a card that carries the SAME native-EOT tuple the reading grounded
+   (`glyph OP site(s) · res`) beside its surprise. Nothing here is fabricated — text, register,
+   sites, and surprise all come straight off `window.EO.murmur.state()`; the strip only animates
+   them. Built imperatively (setMurmurStrip → EoMurmurStrip) so the RAF canvas loop is the surface's
+   own, never React's per-poke reconcile. --mm-accent is the strip's ambient hue. */
 .eo-murmur{
-  --mm-nul:#7a808c;--mm-sig:#b45309;--mm-ins:#0891b2;--mm-seg:#7c3aed;--mm-con:#059669;
-  --mm-syn:#db2777;--mm-def:#1b1b22;--mm-eva:#a16207;--mm-rec:#4338ca;--mm-accent:var(--mm-seg);
-  position:relative;display:flex;align-items:center;gap:14px;flex:0 0 auto;
-  padding:11px 16px 12px;border-bottom:1px solid #EDE9F6;background:#FCFBFF;overflow:hidden
+  --mm-accent:#8b7bff;
+  position:relative;z-index:3;display:flex;align-items:stretch;flex:0 0 auto;height:52px;overflow:visible;
+  border-top:1px solid #191d26;border-bottom:1px solid #191d26;background:#0a0b10
 }
-.eo-murmur::before{content:"";position:absolute;top:0;right:0;width:92px;height:2px;background:var(--mm-accent);opacity:.6;transition:background .7s ease}
-.eo-murmur[data-op="NUL"]{--mm-accent:var(--mm-nul)}.eo-murmur[data-op="SIG"]{--mm-accent:var(--mm-sig)}
-.eo-murmur[data-op="INS"]{--mm-accent:var(--mm-ins)}.eo-murmur[data-op="SEG"]{--mm-accent:var(--mm-seg)}
-.eo-murmur[data-op="CON"]{--mm-accent:var(--mm-con)}.eo-murmur[data-op="SYN"]{--mm-accent:var(--mm-syn)}
-.eo-murmur[data-op="DEF"]{--mm-accent:var(--mm-def)}.eo-murmur[data-op="EVA"]{--mm-accent:var(--mm-eva)}
-.eo-murmur[data-op="REC"]{--mm-accent:var(--mm-rec)}
-.eo-mm-mark{flex:0 0 auto;align-self:center;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.16em;color:#B7B2C6;text-transform:uppercase}
-.eo-mm-row{flex:1;min-width:0;overflow:hidden;display:flex;align-items:baseline}
-.eo-mm-tuple{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;white-space:nowrap;display:inline-flex;align-items:baseline;gap:8px;line-height:26px;opacity:1;transition:opacity .15s ease}
-.eo-mm-tuple.eo-mm-fading{opacity:.32}
-.eo-mm-glyph{font-size:15px;line-height:1;transform:translateY(1px);color:var(--mm-accent);transition:color .7s ease,text-shadow .7s ease}
-.eo-mm-op{display:inline-block;min-width:32px;font-weight:600;font-size:11px;letter-spacing:.16em;font-variant-numeric:tabular-nums;color:var(--mm-accent);transition:color .7s ease}
-.eo-mm-site{color:#3A3A44;font-weight:500}
-.eo-mm-hash{color:#3A3A44}.eo-mm-grain{color:#9aa0ad}
-.eo-mm-holder{color:#9aa0ad;font-weight:400}.eo-mm-sep{color:#B7B2C6;margin:0 6px}.eo-mm-arrow{color:#B7B2C6;margin:0 6px}
-.eo-mm-res{color:#8A8A95;font-weight:400;padding-left:10px;border-left:1px solid #E6E4EE}
-.eo-mm-band-void{color:#9aa0ad}.eo-mm-band-firm{color:#3A3A44;font-weight:500}.eo-mm-p{font-variant-numeric:tabular-nums}
-.eo-murmur[data-op="INS"] .eo-mm-glyph,.eo-murmur[data-op="CON"] .eo-mm-glyph{text-shadow:0 0 8px color-mix(in oklab,var(--mm-accent) 32%,transparent)}
-.eo-mm-x{flex:0 0 auto;align-self:center;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#B4B4BE;transition:background .12s,color .12s}
-.eo-mm-x:hover{background:#F0EDF9;color:var(--mm-accent)}
+.eo-mm-badge{display:flex;align-items:center;gap:9px;padding:0 18px;border-right:1px solid #191d26;flex:0 0 auto}
+.eo-mm-dot{width:7px;height:7px;border-radius:50%;background:var(--mm-accent);animation:mmpulse 1.6s ease-in-out infinite}
+.eo-mm-mark{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:1.7px;color:#8b93a2}
+.eo-mm-think{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-size:11px;color:#4c5361}
+.eo-mm-think b{font-weight:400;animation:mmblink 1.1s steps(1) infinite}
+.eo-mm-canvas{flex:1;min-width:0;height:100%;display:block}
+.eo-mm-tail{display:flex;align-items:center;gap:8px;padding:0 16px;border-left:1px solid #191d26;flex:0 0 auto;font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:#4c5361}
+.eo-mm-tail .eo-mm-starmark{color:var(--mm-accent)}
+.eo-mm-x{flex:0 0 auto;align-self:center;width:26px;height:26px;margin-right:8px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8b93a2;border:1px solid #20252f;background:transparent;cursor:pointer;transition:border-color .12s,color .12s}
+.eo-mm-x:hover{border-color:var(--mm-accent);color:#e7ecf3}
+/* the click-through detail card — the mote's full thought + its native-EOT reading + surprise */
+.eo-mm-card{position:absolute;z-index:20;top:calc(100% + 6px);width:380px;max-width:calc(100vw - 24px);border:1px solid #262b36;border-radius:14px;background:#0c0e15;box-shadow:0 26px 60px -24px rgba(0,0,0,.9);padding:18px 20px 20px;animation:mmcard .22s ease-out both}
+.eo-mm-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}
+.eo-mm-card-tag{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;border-radius:6px;padding:3px 8px}
+.eo-mm-card-src{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:#8b93a2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eo-mm-card-x{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#8b93a2;background:transparent;border:1px solid #20252f;border-radius:8px;width:28px;height:28px;cursor:pointer;flex:0 0 auto;transition:border-color .12s,color .12s}
+.eo-mm-card-x:hover{border-color:var(--mm-accent);color:#e7ecf3}
+.eo-mm-card-text{font-family:'Newsreader',Georgia,serif;font-size:22px;line-height:1.4;color:#e7ecf3;text-wrap:pretty}
+.eo-mm-card-note{font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:15px;line-height:1.5;color:#9aa2b1;margin-top:11px;text-wrap:pretty}
+.eo-mm-card-foot{display:flex;align-items:center;gap:11px;margin-top:17px;padding-top:14px;border-top:1px solid #1a1e27}
+.eo-mm-card-lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:#6a7180}
+.eo-mm-card-bar{flex:1;height:5px;border-radius:3px;background:#161a22;overflow:hidden}
+.eo-mm-card-bar span{display:block;height:100%;border-radius:3px}
+.eo-mm-card-val{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:#e7ecf3}
+@keyframes mmpulse{0%,100%{opacity:.35;transform:scale(1)}50%{opacity:1;transform:scale(1.35)}}
+@keyframes mmblink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes mmcard{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){
-  .eo-mm-tuple{transition:opacity .2s linear!important;filter:none!important;transform:none!important}
-  .eo-murmur::before{transition:none}
+  .eo-mm-dot,.eo-mm-think b{animation:none}
+  .eo-mm-card{animation:none}
 }
 @media (max-width:720px){
-  /* stays ONE line — a COMPACT tuple (glyph + OP keep the EOT identity; the sites/res detail folds
-     away so the × always fits) */
-  .eo-mm-mark{display:none}
-  .eo-mm-site,.eo-mm-res{display:none}
-  .eo-mm-tuple{font-size:11px;gap:6px}
+  /* keep the canvas hero; drop the right "most surprising" label so the strip never crowds */
+  .eo-mm-tail{display:none}
+  .eo-mm-badge{padding:0 12px}
 }
 /* Interactive transcript (Listen surface) — a word is a clickable, editable, redactable holon. */
 .eo-w{border-radius:3px;padding:0 1px;cursor:pointer;transition:background .12s,color .12s}
@@ -617,18 +623,22 @@ table{border-collapse:collapse;width:100%}
         </sc-if>
       </div>
 
-      <!-- REAL-TIME MURMUR STRIP — the peripheral sense (src/murmur), rendered in NATIVE EOT. Each
-           voiced thought is one event: `glyph OP site(s) · res` (src/murmur/narrate/voice.js attaches
-           the tuple; the strip only paints it) — the raw tuple alone, no prose gloss beside it. No
-           gauges, no register %, nothing fabricated — the tuple is a rendering of the SAME real
-           impression the reader grounded (§9.4: a voicing, never a fact). Built imperatively
-           (setMurmurStrip) so the fade-out→swap→fade-in lifecycle is the surface's own; hide from Settings. -->
+      <!-- REAL-TIME MURMUR STRIP — the peripheral sense (src/murmur) as a night-sky band of drifting
+           thought-motes. Each mote is one real voiced thought (src/murmur/narrate/voice.js, the read
+           side-channel §9.4); the most-surprising drifts brightest with a ★, and clicking a mote opens
+           a card carrying the SAME native-EOT tuple (`glyph OP site(s) · res`) the reading grounded.
+           No gauges, no register %, nothing fabricated — text/register/sites/surprise all come off
+           window.EO.murmur.state(); the strip only animates them (§9.4: a voicing, never a fact).
+           Built imperatively (setMurmurStrip → EoMurmurStrip) so the RAF canvas loop is the surface's
+           own, never React's per-poke reconcile; hide it from Settings. -->
       <sc-if value="{{ murmurOn }}">
         <div class="eo-murmur" ref="{{ setMurmurStrip }}" aria-live="polite" aria-label="reader inner monologue"></div>
       </sc-if>
 
       <div style="flex:1;display:flex;min-height:0">
-        <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+        <!-- The reading column. In hero mode it steps aside (display:none) so the entity panel
+             beside it fills the stage; the tab bar above stays put. -->
+        <div style="flex:1;display:{{ mainDisplay }};flex-direction:column;min-width:0">
 
           <!-- ASK TAB — the primary surface. Ask the record; get one typed, cited answer
                whose shape (Answer / Finding / Contradicted / The record does not say) and
@@ -992,7 +1002,7 @@ table{border-collapse:collapse;width:100%}
                         <sc-if value="{{ m.hasFlags }}">
                           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px">
                             <sc-for list="{{ m.flagChips }}" as="fc">
-                              <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:{{ fc.fg }};background:{{ fc.bg }};border:1px solid {{ fc.bd }};border-radius:5px;padding:2px 7px">{{ fc.label }}</span>
+                              <span title="{{ fc.title }}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:{{ fc.fg }};background:{{ fc.bg }};border:1px solid {{ fc.bd }};border-radius:20px;padding:2px 9px"><span style="width:5px;height:5px;border-radius:50%;background:{{ fc.fg }};flex:0 0 auto"></span>{{ fc.label }}</span>
                             </sc-for>
                           </div>
                         </sc-if>
@@ -1002,7 +1012,7 @@ table{border-collapse:collapse;width:100%}
                             <sc-for list="{{ m.cites }}" as="c">
                               <button onClick="{{ c.open }}" title="{{ c.quote }}" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ c.fg }};background:{{ c.bg }};border:1px solid {{ c.bd }};border-radius:6px;padding:3px 8px" style-hover="filter:brightness(.97)"><sc-if value="{{ c.hasSwatch }}"><span style="width:9px;height:9px;border-radius:3px;background:{{ c.swatch }};flex:0 0 auto"></span></sc-if>{{ c.label }}<span style="width:5px;height:5px;border-radius:50%;background:{{ c.fg }}"></span>{{ c.status }}</button>
                             </sc-for>
-                            <sc-if value="{{ m.hasUngroundedChip }}"><span title="Some spans have no source behind them — the model's own framing or connective text, shown with a colourless wash." style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#8A7A57;background:#F7F2E7;border:1px solid #E7DCC2;border-radius:6px;padding:3px 8px"><span style="width:9px;height:9px;border-radius:3px;background:hsl(41 40% 82%);box-shadow:inset 0 0 0 1px hsl(40 22% 72%);flex:0 0 auto"></span>ungrounded</span></sc-if>
+                            <sc-if value="{{ m.hasUngroundedChip }}"><span title="Parts of this answer are the model's own framing or general knowledge — not traced to your recorded sources." style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#8A7A57;background:#F7F2E7;border:1px solid #E7DCC2;border-radius:20px;padding:2px 9px"><span style="width:5px;height:5px;border-radius:50%;background:#C8A96B;flex:0 0 auto"></span>not grounded</span></sc-if>
                           </div>
                         </sc-if>
                         <sc-if value="{{ m.hasProposal }}">
@@ -1386,12 +1396,34 @@ table{border-collapse:collapse;width:100%}
               </sc-if>
               <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
                 <sc-for list="{{ overviewStats }}" as="st">
-                  <div style="border:1px solid #EFEFF3;border-radius:10px;padding:11px 12px;background:#fff">
-                    <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:{{ st.color }}">{{ st.value }}</div>
-                    <div style="font-size:11px;color:#8A8A95;margin-top:2px">{{ st.label }}</div>
+                  <div style="border:1px solid #EFEFF3;border-left:3px solid {{ st.color }};border-radius:10px;padding:11px 13px;background:#fff">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;line-height:1;color:{{ st.color }}">{{ st.value }}</div>
+                    <div style="font-size:11px;color:#8A8A95;margin-top:5px">{{ st.label }}</div>
                   </div>
                 </sc-for>
               </div>
+              <sc-if value="{{ hasSourceConflicts }}">
+                <div style="margin-bottom:14px;border:1px solid #F2D3CD;border-radius:12px;overflow:hidden;background:#FEF7F5">
+                  <div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid #F6E0DB">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#B23A2E;flex:0 0 auto"></span>
+                    <span style="font-size:12.5px;font-weight:650;color:#B23A2E">Where the sources disagree</span>
+                    <span style="flex:1"></span>
+                    <span style="font-size:10.5px;color:#9A6B62;font-family:'IBM Plex Mono',monospace">{{ sourceConflictNote }}</span>
+                  </div>
+                  <sc-for list="{{ sourceConflicts }}" as="x">
+                    <div style="padding:10px 16px;border-top:1px solid #F6E0DB">
+                      <div style="font-size:12px;color:#5A2A24;margin-bottom:5px"><b style="font-weight:650">{{ x.measure }}</b> · {{ x.subject }}</div>
+                      <sc-for list="{{ x.values }}" as="v">
+                        <button onClick="{{ v.open }}" style="width:100%;display:flex;gap:10px;align-items:baseline;padding:5px 0;text-align:left;border-top:1px solid #FBEEEB" style-hover="opacity:.7">
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:#B23A2E;flex:0 0 auto;min-width:104px">{{ v.amount }}</span>
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A6B62;flex:0 0 auto;min-width:52px">{{ v.srcReg }}</span>
+                          <span style="flex:1;min-width:0;font-size:12px;color:#6A6A74;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ v.text }}</span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
               <sc-if value="{{ pivotActive }}">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:9px 13px;border:1px solid #E4E0FB;background:#F6F4FF;border-radius:10px">
                   <span style="width:7px;height:7px;border-radius:50%;background:#6D5EF5;flex:0 0 auto"></span>
@@ -1458,14 +1490,6 @@ table{border-collapse:collapse;width:100%}
                     </div>
                   </sc-for>
                 </sc-if>
-
-                <!-- Encrypted Vault -->
-                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:22px 8px 8px">ENCRYPTED VAULT</div>
-                <div style="margin:0 8px;padding:12px;border:1px solid #EFEFF3;border-radius:11px;background:#FCFCFD">
-                  <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#3A3A44;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>{{ vaultLabel }}</div>
-                  <div style="height:6px;border-radius:4px;background:#EDEDF0;margin:9px 0 8px;overflow:hidden"><div style="height:100%;width:{{ vaultPct }};background:#B4B4BE;border-radius:4px"></div></div>
-                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4">{{ vaultSync }}</div>
-                </div>
               </aside>
 
               <!-- ── CENTRE ── -->
@@ -2036,8 +2060,8 @@ table{border-collapse:collapse;width:100%}
 
         <!-- RIGHT PANEL — ENTITIES / INSPECTOR (stands down on the Graph tab, which has its own panel) -->
         <sc-if value="{{ rightPanelShow }}">
-        <aside class="eo-scroll eo-right" style="width:340px;flex:0 0 auto;background:#fff;border-left:1px solid #EAEAEF;overflow-y:auto;min-height:0">
-          <div style="padding:14px 16px">
+        <aside class="eo-scroll eo-right" style="width:{{ rightWidth }};flex:{{ rightFlex }};background:#fff;border-left:{{ rightBorder }};overflow-y:auto;min-height:0">
+          <div style="padding:{{ rightBodyPad }};max-width:{{ rightBodyMax }};margin:{{ rightBodyMargin }}">
 
             <!-- SPAN LAYERS — a word clicked in the Listen transcript, and every reading active at that
                  instant: whether EO has folded it, who said it, how sure the ear was, its breath group,
@@ -2128,7 +2152,13 @@ table{border-collapse:collapse;width:100%}
 
             <!-- ENTITY PROFILE -->
             <sc-if value="{{ profShow }}">
-              <button onClick="{{ backToEntities }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#8A8A95;margin-bottom:12px" style-hover="color:#5B4BE6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>All entities</button>
+              <!-- header rail: back to the list, and the promote/demote between rail and full stage -->
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <button onClick="{{ backToEntities }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#8A8A95" style-hover="color:#5B4BE6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>All entities</button>
+                <span style="flex:1"></span>
+                <sc-if value="{{ heroExpandShow }}"><button onClick="{{ toggleHero }}" title="Expand this figure to the full stage" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:7px;padding:4px 9px" style-hover="background:#E7E2FD"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Expand</button></sc-if>
+                <sc-if value="{{ heroCollapseShow }}"><button onClick="{{ toggleHero }}" title="Collapse back to the side panel" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#6E6E78;background:#F0F0F5;border:1px solid #E6E6EC;border-radius:7px;padding:4px 9px" style-hover="background:#E7E7EF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3a2 2 0 0 0 2-2V3M20 8h-3a2 2 0 0 1-2-2V3M4 16h3a2 2 0 0 1 2 2v3M20 16h-3a2 2 0 0 0-2 2v3"/></svg>Collapse</button></sc-if>
+              </div>
               <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
                 <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ prof.initials }}</span>
                 <span style="flex:1;min-width:0">
@@ -2932,6 +2962,326 @@ table{border-collapse:collapse;width:100%}
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+// ── EoMurmurStrip — the peripheral sense as a night-sky canvas band ─────────────────────────────────
+// A self-contained controller (its own DOM + RAF loop) that ANIMATES tokens handed to it via feed().
+// Ported from the Murmur standalone and wired to the LIVE murmur side-channel instead of a canned
+// corpus: each token is one real voiced thought { text, tag, color, surprise, note, sources }. The
+// reader's thoughts drift as fading, overlapping motes over a faint glyph-rain; the most-surprising
+// one drifts brightest with a ★, and clicking any mote opens a card with its full text, the native-EOT
+// tuple it grounded (`sources`), and its surprise. It reads NOTHING from the engine and touches NOTHING
+// in the answer — the surface maps the snapshot to tokens and feeds them; this only paints (§9.4).
+class EoMurmurStrip {
+  constructor(el, opts = {}) {
+    this.el = el;
+    this.accent = opts.accent || '#8b7bff';
+    this.reduceMotion = typeof opts.reduceMotion === 'function' ? opts.reduceMotion : () => false;
+    this.onHide = typeof opts.onHide === 'function' ? opts.onHide : () => {};
+    this.tokens = [];
+    this._motes = []; this._layout = []; this._cols = null; this._colW = -1;
+    this._inside = false; this._hover = null; this._pausedAt = null; this._champ = null;
+    this._open = false; this._sel = null; this._card = null;
+    this._raf = null; this._last = 0; this._dead = false;
+    this._build();
+    this._spawn();
+    this._start();
+    // mark the node so a churned callback ref (React re-attaches a fresh arrow every render) REUSES
+    // this controller instead of rebuilding — the surface's setMurmurStrip reads this back.
+    try { el.__eoMmStrip = this; } catch { /* ignore */ }
+  }
+
+  // the always-present resting mote when the sense hasn't voiced anything yet — never a blank strip.
+  _resting() { return { text: 'resting — the reading is still', tag: 'resting', color: '#8b93a2', surprise: 0.12, note: 'a quiet hold — nothing has stirred the sense', sources: '∅ NUL r#000@0 · void 0.08' }; }
+  _toks() { return this.tokens.length ? this.tokens : [this._resting()]; }
+
+  // feed(tokens) — merge fresh thoughts in: prepend, dedup by text, cap the rolling buffer (12) so the
+  // same nag can't machine-gun the strip (anti-rumination). Repaints immediately under reduced motion.
+  feed(newTokens) {
+    const incoming = Array.isArray(newTokens) ? newTokens.filter((t) => t && t.text) : [];
+    if (incoming.length) {
+      const seen = new Set(), merged = [];
+      for (const t of incoming.concat(this.tokens)) {
+        if (seen.has(t.text)) continue;
+        seen.add(t.text); merged.push(t);
+        if (merged.length >= 12) break;
+      }
+      this.tokens = merged;
+    }
+    if (this.reduceMotion()) this._paintStatic();
+  }
+
+  _build() {
+    const el = this.el;
+    el.style.setProperty('--mm-accent', this.accent);
+    el.innerHTML =
+      '<div class="eo-mm-badge"><span class="eo-mm-dot"></span><span class="eo-mm-mark">MURMUR</span><span class="eo-mm-think">thinking<b>_</b></span></div>' +
+      '<canvas class="eo-mm-canvas"></canvas>' +
+      '<div class="eo-mm-tail"><span class="eo-mm-starmark">★</span>&nbsp;most&nbsp;surprising</div>' +
+      '<button class="eo-mm-x" title="Hide the murmur strip — turn it back on in Settings" aria-label="Hide the murmur strip">' +
+      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
+    this.canvas = el.querySelector('.eo-mm-canvas');
+    const x = el.querySelector('.eo-mm-x');
+    if (x) x.addEventListener('click', (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.onHide(); });
+    this._onEnter = () => { this._inside = true; };
+    this._onLeave = () => { this._inside = false; this._hover = null; if (this.canvas) this.canvas.style.cursor = 'default'; };
+    this._onMove = (e) => { if (!this.canvas) return; const r = this.canvas.getBoundingClientRect(); this._hover = this._hit(e.clientX - r.left); this.canvas.style.cursor = this._hover ? 'pointer' : 'default'; };
+    this._onClick = (e) => this._click(e);
+    this._onResize = () => { if (this.reduceMotion()) this._paintStatic(); };
+    this.canvas.addEventListener('mouseenter', this._onEnter);
+    this.canvas.addEventListener('mouseleave', this._onLeave);
+    this.canvas.addEventListener('mousemove', this._onMove);
+    this.canvas.addEventListener('click', this._onClick);
+    try { window.addEventListener('resize', this._onResize); } catch { /* ignore */ }
+  }
+
+  destroy() {
+    this._dead = true;
+    if (this._raf) { try { cancelAnimationFrame(this._raf); } catch { /* ignore */ } this._raf = null; }
+    try { window.removeEventListener('resize', this._onResize); } catch { /* ignore */ }
+    try { if (this.el && this.el.__eoMmStrip === this) this.el.__eoMmStrip = null; } catch { /* ignore */ }
+    this._motes = []; this.tokens = []; this._layout = [];
+  }
+
+  // the node left the DOM (mode → off, or a screen swap) — release the per-node marker so a later
+  // remount builds a fresh controller, and stop scheduling frames (nothing animates unseen).
+  _detach() { this._dead = true; try { if (this.el && this.el.__eoMmStrip === this) this.el.__eoMmStrip = null; } catch { /* ignore */ } }
+
+  _start() {
+    if (this.reduceMotion()) { this._paintStatic(); return; }   // no RAF under reduced motion — a still frame
+    this._last = (typeof performance !== 'undefined' ? performance.now() : 0);
+    const loop = (t) => {
+      // React churns the callback ref between renders, so we DON'T tear down on ref(null); the node
+      // actually leaving the DOM is the real unmount signal — end the loop there.
+      if (this._dead || !this.el || !this.el.isConnected) { this._raf = null; this._detach(); return; }
+      this._draw(t);
+      this._raf = requestAnimationFrame(loop);
+    };
+    this._raf = requestAnimationFrame(loop);
+  }
+
+  _now() { return (typeof performance !== 'undefined' ? performance.now() : 0); }
+
+  _spawn() {
+    const now = this._now() / 1000;
+    this._motes = Array.from({ length: 3 }, (_, i) => ({
+      tk: null, born: now - i * 1.6, dur: 4.6 + Math.random() * 2.4,
+      x: 90 + i * 220, y: 26, vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 6,
+      z: 0.6 + Math.random() * 0.4, ph: Math.random() * 6.28,
+    }));
+    this._motes.forEach((m) => this._assign(m));
+  }
+
+  // pick a token for a mote, weighted by surprise^1.6 and avoiding whatever the other motes are showing
+  // (so the strip doesn't repeat itself) — the same salience-weighting the standalone uses.
+  _assign(m) {
+    const toks = this._toks();
+    const shown = new Set(this._motes.filter((x) => x !== m && x.tk).map((x) => x.tk));
+    const pool = toks.filter((t) => !shown.has(t));
+    const cand = pool.length ? pool : toks;
+    const wts = cand.map((t) => Math.pow(Math.max(0.02, t.surprise || 0), 1.6));
+    const tot = wts.reduce((a, b) => a + b, 0) || 1;
+    let r = Math.random() * tot, pick = cand[0];
+    for (let i = 0; i < cand.length; i++) { r -= wts[i]; if (r <= 0) { pick = cand[i]; break; } }
+    m.tk = pick;
+  }
+
+  _respawn(m, clock, W, H) {
+    this._assign(m);
+    m.born = clock; m.dur = 4.6 + Math.random() * 2.4;
+    m.z = 0.6 + Math.random() * 0.4; m.ph = Math.random() * 6.28;
+    const others = this._motes.filter((x) => x !== m).map((x) => x.x || 0);
+    const lo = 60, hi = Math.max(lo + 40, (W || 600) - 320);
+    let bestX = lo + Math.random() * (hi - lo), bestD = -1;
+    for (let k = 0; k < 6; k++) {
+      const c = lo + Math.random() * (hi - lo);
+      const d = others.length ? Math.min(...others.map((o) => Math.abs(o - c))) : 999;
+      if (d > bestD) { bestD = d; bestX = c; }
+    }
+    m.x = bestX; m.y = (H || 52) / 2 + (Math.random() - 0.5) * 12;
+    m.vx = (Math.random() - 0.5) * 14; m.vy = (Math.random() - 0.5) * 6;
+  }
+
+  _rgba(hex, a) {
+    const n = parseInt(String(hex || '#8b7bff').slice(1), 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+  _env(p) { return p < 0.26 ? p / 0.26 : (p > 0.66 ? Math.max(0, (1 - p) / 0.34) : 1); }
+
+  // resize the backing store to the CSS box × dpr and return a fresh 2d context, or null if unmounted.
+  _ctx() {
+    const cv = this.canvas; if (!cv || !cv.isConnected) return null;
+    const dpr = window.devicePixelRatio || 1;
+    const W = cv.clientWidth, H = cv.clientHeight;
+    if (!W || !H) return null;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); this._cols = null; }
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, W, H };
+  }
+
+  _ensureCols(W, H) {
+    if (this._cols && this._colW === W) return;
+    this._colW = W;
+    const n = Math.ceil(W / 13);
+    this._cols = Array.from({ length: n }, () => ({ y: Math.random() * H, sp: 26 + Math.random() * 60, len: 5 + (Math.random() * 7 | 0) }));
+  }
+
+  _draw(t) {
+    const c = this._ctx(); if (!c) return;
+    const { ctx, W, H } = c;
+    const dt = Math.min(0.05, (t - this._last) / 1000); this._last = t;
+    const accent = this.accent;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0a0b10'; ctx.fillRect(0, 0, W, H);
+
+    // faint glyph-rain backdrop
+    this._ensureCols(W, H);
+    const glyphs = '01∅◇⟷▸⧗×+·§⋈○△⊛';
+    ctx.font = '11px ui-monospace,Menlo,monospace'; ctx.textAlign = 'center';
+    this._cols.forEach((col, i) => {
+      col.y += col.sp * dt; const headRow = col.y / 13;
+      if (col.y - col.len * 13 > H) col.y = -Math.random() * 40;
+      for (let k = 0; k < col.len; k++) {
+        const yy = (headRow - k) * 13; if (yy < 0 || yy > H) continue;
+        const a = (k === 0 ? 0.16 : 0.11 * (1 - k / col.len));
+        ctx.fillStyle = this._rgba(accent, a);
+        ctx.fillText(glyphs[(Math.random() * glyphs.length) | 0], i * 13 + 6, yy);
+      }
+    });
+
+    // fading, overlapping thought-motes — frozen while hovering / a card is open
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const nowS = t / 1000;
+    const paused = this._inside || this._open;
+    if (paused && this._pausedAt == null) this._pausedAt = nowS;
+    if (!paused && this._pausedAt != null) { const shift = nowS - this._pausedAt; this._motes.forEach((m) => { m.born += shift; }); this._pausedAt = null; }
+    const clock = paused ? this._pausedAt : nowS;
+
+    // only float as many motes as there are DISTINCT thoughts to show — with just the resting
+    // hold, one mote (not three copies of it overlapping); more thoughts, more motes (up to three).
+    const active = this._motes.slice(0, Math.max(1, Math.min(this._motes.length, this._toks().length)));
+    this._layout = [];
+    let champ = null;
+    active.forEach((m) => {
+      let p = (clock - m.born) / m.dur;
+      if (p >= 1) { this._respawn(m, clock, W, H); p = 0; }
+      if (!paused) { m.x += m.vx * dt; m.y += m.vy * dt; }
+      const tk = m.tk || this._toks()[0];
+      const fs = 11 + m.z * 3;
+      ctx.font = fs + 'px ui-monospace,Menlo,monospace';
+      const w = ctx.measureText('★ ' + tk.text).width;
+      const e = this._env(p);
+      m._p = p; m._w = w; m._fs = fs;
+      m._bx = m.x; m._by = m.y + Math.sin(clock * 0.65 + m.ph) * 2.6;
+      m._a = e * (0.42 + 0.58 * (tk.surprise || 0)) * (0.55 + 0.45 * m.z);
+      if (m._a > 0.12) this._layout.push({ x0: m._bx - 8, x1: m._bx + w + 8, m });
+      if (m._a > 0.3 && (!champ || (tk.surprise || 0) > ((champ.tk && champ.tk.surprise) || 0))) champ = m;
+    });
+    this._champ = champ;
+
+    active.forEach((m) => { if (m !== champ) this._drawMote(ctx, m, false); });
+    if (champ) this._drawMote(ctx, champ, true);
+
+    // edge fades so motes dissolve at the strip's ends
+    const g1 = ctx.createLinearGradient(0, 0, 46, 0); g1.addColorStop(0, '#0a0b10'); g1.addColorStop(1, 'rgba(10,11,16,0)');
+    ctx.fillStyle = g1; ctx.fillRect(0, 0, 46, H);
+    const g2 = ctx.createLinearGradient(W - 46, 0, W, 0); g2.addColorStop(0, 'rgba(10,11,16,0)'); g2.addColorStop(1, '#0a0b10');
+    ctx.fillStyle = g2; ctx.fillRect(W - 46, 0, 46, H);
+  }
+
+  _drawMote(ctx, m, isCh) {
+    const tk = m.tk || this._toks()[0];
+    ctx.font = m._fs + 'px ui-monospace,Menlo,monospace';
+    const blur = (1 - this._env(m._p)) * 3.2;
+    ctx.filter = blur > 0.25 ? ('blur(' + blur.toFixed(2) + 'px)') : 'none';
+    const label = (isCh ? '★ ' : '  ') + tk.text;
+    if (isCh) { const col = tk.color || this.accent; ctx.fillStyle = this._rgba(col, Math.min(1, m._a + 0.3)); ctx.shadowColor = col; ctx.shadowBlur = 16; }
+    else { ctx.shadowBlur = 0; ctx.fillStyle = this._rgba(this._hover === m ? '#ffffff' : '#aeb6c4', m._a); }
+    ctx.fillText(label, m._bx, m._by); ctx.shadowBlur = 0; ctx.filter = 'none';
+  }
+
+  // reduced-motion path: a single still frame — the top-few thoughts spaced across the band, the most
+  // surprising starred. No RAF, no rain, no drift; repainted only on feed/resize.
+  _paintStatic() {
+    const c = this._ctx(); if (!c) return;
+    const { ctx, W, H } = c;
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#0a0b10'; ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const toks = this._toks().slice().sort((a, b) => (b.surprise || 0) - (a.surprise || 0)).slice(0, 3);
+    const champTk = toks[0] || null;
+    this._layout = []; this._champ = champTk ? { tk: champTk } : null;
+    let x = 56;
+    ctx.font = '13px ui-monospace,Menlo,monospace';
+    for (const tk of toks) {
+      const isCh = tk === champTk;
+      const label = (isCh ? '★ ' : '  ') + tk.text;
+      const w = ctx.measureText(label).width;
+      if (x + w > W - 56) break;
+      if (isCh) { const col = tk.color || this.accent; ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 12; }
+      else { ctx.shadowBlur = 0; ctx.fillStyle = '#aeb6c4'; }
+      ctx.fillText(label, x, H / 2); ctx.shadowBlur = 0;
+      this._layout.push({ x0: x - 8, x1: x + w + 8, m: { tk, _bx: x, _w: w, _a: 1 } });
+      x += w + 40;
+    }
+  }
+
+  _hit(x) {
+    let best = null;
+    for (const it of this._layout) { if (x >= it.x0 && x <= it.x1) { if (!best || (it.m._a || 0) > (best._a || 0)) best = it.m; } }
+    return best;
+  }
+
+  _click(e) {
+    if (!this.canvas) return;
+    const r = this.canvas.getBoundingClientRect();
+    const m = this._hit(e.clientX - r.left);
+    const tk = m ? m.tk : (this._champ ? this._champ.tk : this._toks()[0]);
+    if (!tk) return;
+    this._openCard(tk, e.clientX);
+  }
+
+  _ensureCard() {
+    if (this._card) return;
+    const card = document.createElement('div');
+    card.className = 'eo-mm-card'; card.style.display = 'none';
+    card.innerHTML =
+      '<div class="eo-mm-card-head"><div style="display:flex;align-items:center;gap:10px;min-width:0">' +
+      '<span class="eo-mm-card-tag"></span><span class="eo-mm-card-src"></span></div>' +
+      '<button class="eo-mm-card-x" aria-label="Close">✕</button></div>' +
+      '<div class="eo-mm-card-text"></div>' +
+      '<div class="eo-mm-card-note"></div>' +
+      '<div class="eo-mm-card-foot"><span class="eo-mm-card-lbl">surprise</span>' +
+      '<div class="eo-mm-card-bar"><span></span></div><span class="eo-mm-card-val"></span></div>';
+    card.querySelector('.eo-mm-card-x').addEventListener('click', (e) => { if (e && e.stopPropagation) e.stopPropagation(); this._closeCard(); });
+    card.addEventListener('click', (e) => { if (e && e.stopPropagation) e.stopPropagation(); });
+    this.el.appendChild(card);
+    this._card = card;
+  }
+
+  _openCard(tk, clientX) {
+    this._open = true; this._sel = tk;
+    this._ensureCard();
+    const stripR = this.el.getBoundingClientRect();
+    const cx = (typeof clientX === 'number') ? clientX : (stripR.left + stripR.width / 2);
+    const abs = Math.max(12, Math.min(cx - 190, (window.innerWidth || stripR.width) - 392));
+    this._card.style.left = (abs - stripR.left) + 'px';
+    // .textContent throughout — the thought/tuple text is shown verbatim, never parsed as HTML.
+    const col = tk.color || this.accent;
+    const tag = this._card.querySelector('.eo-mm-card-tag');
+    tag.textContent = tk.tag || ''; tag.style.color = col;
+    tag.style.border = '1px solid ' + this._rgba((typeof col === 'string' && col[0] === '#') ? col : this.accent, 0.4);
+    this._card.querySelector('.eo-mm-card-src').textContent = tk.sources || '';
+    this._card.querySelector('.eo-mm-card-text').textContent = tk.text || '';
+    const note = this._card.querySelector('.eo-mm-card-note');
+    note.textContent = tk.note || ''; note.style.display = tk.note ? '' : 'none';
+    const pct = Math.round(Math.max(0, Math.min(1, tk.surprise || 0)) * 100);
+    const bar = this._card.querySelector('.eo-mm-card-bar span'); bar.style.width = pct + '%'; bar.style.background = col;
+    this._card.querySelector('.eo-mm-card-val').textContent = (tk.surprise || 0).toFixed(2);
+    this._card.style.display = '';
+    if (this.reduceMotion()) this._paintStatic();
+  }
+
+  _closeCard() { this._open = false; this._sel = null; if (this._card) this._card.style.display = 'none'; }
+}
+
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -2943,6 +3293,9 @@ class Component extends DCLogic {
       tab: 'register', omni: '', chatInput: '', toast: null,
       isMobile: mobile,
       leftOpen: mobile ? false : this._pref('eo_left', true), rightOpen: mobile ? false : this._pref('eo_right', true),
+      // The entity panel can be PROMOTED from the 340px right rail to the main stage (hero) — a
+      // figure's profile then reads like a page, with the moment-by-moment drill it holds given room.
+      rightHero: false,
       statusOpen: false, monologueOpen: false, logMode: 'actions',
       // The real-time murmur strip — the peripheral sense (src/murmur) painted on the main page.
       // The MODE is the one control: 'off' (nothing), 'look' (mutters + learns from the record, no
@@ -3047,6 +3400,21 @@ class Component extends DCLogic {
     // (voice.js); these only DRAW it. Kept off the render path (instance maps, set once).
     this._mmGlyph = { NUL: '∅', SEG: '｜', DEF: '⊢', SIG: '○', CON: '⋈', EVA: '⊨', INS: '●', SYN: '△', REC: '⊛' };
     this._mmInk = { unease: '#9B3A2E', drift: '#A25A22', surprise: '#6A46C8', recognition: '#1E7A48', curiosity: '#5A44C0', outward: '#2E6FB8', discovery: '#1E7A48' };
+    // The strip runs on a dark band, so the register tints are the bright-on-dark twins of _mmInk —
+    // the hue a mote (and its card's tag chip) wears for each feeling. A short honest gloss NAMES the
+    // register (the sense's own state, not a fabricated claim) for the card's italic note.
+    this._mmStripInk = { unease: '#e0a24a', drift: '#7bd0ff', surprise: '#8b7bff', recognition: '#5bd08a', curiosity: '#b3a8ff', outward: '#7bd0ff', discovery: '#5bd08a' };
+    this._mmGloss = {
+      unease: 'something in the reading didn’t sit right',
+      drift: 'attention wandered from the anchor',
+      surprise: 'a mark against the field — this was unexpected',
+      recognition: 'this echoes something read earlier',
+      curiosity: 'the sense reached toward this on its own',
+      outward: 'a thread the record names but doesn’t explain',
+      discovery: 'what the wander found, folded back in',
+    };
+    this._mmStrip = null;       // the live EoMurmurStrip controller (built on mount, torn down on hide)
+    this._mmLastState = null;   // the last murmur snapshot, so a late-mounting strip can seed itself
     if (this._app) {
       this._app.subscribe((kind) => this._onEngine(kind));
       if (window.EO.audit && window.EO.audit.subscribe) window.EO.audit.subscribe(() => this._poke());
@@ -3059,9 +3427,10 @@ class Component extends DCLogic {
     this._topicSeen = this._app && this._app.state ? this._app.state.activeTopicId : null;
     if (this._matrix && this._matrix.subscribe) this._matrix.subscribe(() => this._poke());
     if (this._genome && this._genome.subscribe) this._genome.subscribe(() => this._poke());
-    // The murmur strip repaints as the peripheral sense raises impressions (once per turn's fold
-    // stop, plus decay between). Off the critical path — a repaint, never a turn cost.
-    if (this._murmur && this._murmur.subscribe) this._murmur.subscribe(() => this._poke());
+    // The murmur strip feeds off the peripheral sense as it raises impressions (once per turn's fold
+    // stop, plus at-rest wander mutters). Off the critical path — the snapshot flows straight to the
+    // canvas controller (feed), and a light poke keeps the Settings learn-count fresh. Never a turn cost.
+    if (this._murmur && this._murmur.subscribe) this._murmur.subscribe((s) => this._onMurmur(s));
     this._wireDom();
   }
 
@@ -3272,6 +3641,14 @@ class Component extends DCLogic {
   _poke() {
     if (this._raf) return;
     this._raf = requestAnimationFrame(() => { this._raf = null; this.setState({ rev: (this.state.rev || 0) + 1 }); });
+  }
+  // The murmur side-channel (§9.4) fired — stash the snapshot and, if the strip is mounted, feed it
+  // the fresh motes; a light poke keeps the Settings learn-count in sync. Read-only, off the critical
+  // path — the strip never touches the answer and never appends to the log.
+  _onMurmur(s) {
+    this._mmLastState = s || null;
+    if (this._mmStrip) { try { this._mmStrip.feed(this._mmTokensFrom(s)); } catch { /* the strip must never cost a turn */ } }
+    this._poke();
   }
   _scrollChatSoon() {
     setTimeout(() => this._pinChatBottom(), 30);
@@ -4489,7 +4866,14 @@ class Component extends DCLogic {
   toggleRight() {
     const v = !this.state.rightOpen;
     if (!this._mob()) this._setPref('eo_right', v);
-    this.setState({ rightOpen: v, ...(this._mob() && v ? { leftOpen: false } : {}) });
+    this.setState({ rightOpen: v, ...(this._mob() && v ? { leftOpen: false } : {}), ...(v ? {} : { rightHero: false }) });
+  }
+  // Promote / demote the entity panel between the side rail and the full stage. Hero is a desktop
+  // affordance (on mobile the panel is already a near-full-width drawer), and it needs the panel open.
+  toggleRightHero() {
+    if (this._mob()) return;
+    const v = !this.state.rightHero;
+    this.setState({ rightHero: v, ...(v ? { rightOpen: true } : {}) });
   }
   closePanels() { this.setState({ leftOpen: false, rightOpen: false }); }
   toggleStatus() { this.setState({ statusOpen: !this.state.statusOpen }); }
@@ -4878,7 +5262,7 @@ class Component extends DCLogic {
     if (r && r.sn) this.openViewer(r.sn, r.focus || undefined);
   }
   openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'ask' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
-  backToEntities() { this.setState({ entitySel: null, focusId: null }); }
+  backToEntities() { this.setState({ entitySel: null, focusId: null, rightHero: false }); }
   // The wiki referent for the open entity — 4.1's entity-panel Wikipedia search, restored.
   // Fired once per (doc, entity): the engine searches Wikipedia and confirms (or refuses)
   // the settled referent against the entity's attested context; the surface only caches
@@ -5850,7 +6234,17 @@ class Component extends DCLogic {
   }
   zoomIn() { this.setState({ scale: Math.min(2.2, this.state.scale * 1.15), camT: 'transform .18s ease' }); }
   zoomOut() { this.setState({ scale: Math.max(.35, this.state.scale * .87), camT: 'transform .18s ease' }); }
-  fit() { this.setState({ tx: 40, ty: 30, scale: this._fitScale || 1, camT: 'transform .22s ease' }); }
+  // Frame the whole graph, centred, with a little breathing room — scaled to fit both axes but
+  // never blown up past 100%. Falls back to the width-only fit if the content bounds aren't known.
+  fit() {
+    const c = this._content, vp = this._vp;
+    if (!c || !vp) { this.setState({ tx: 40, ty: 30, scale: this._fitScale || 1, camT: 'transform .22s ease' }); return; }
+    const pad = 44, vw = vp.clientWidth || 1200, vh = vp.clientHeight || 420;
+    const cw = Math.max(1, c.maxX - c.minX), ch = Math.max(1, c.maxY - c.minY);
+    const scale = Math.max(.35, Math.min(1, (vw - pad * 2) / cw, (vh - pad * 2) / ch));
+    const tx = (vw - cw * scale) / 2 - c.minX * scale, ty = (vh - ch * scale) / 2 - c.minY * scale;
+    this.setState({ tx, ty, scale, camT: 'transform .22s ease' });
+  }
   focusNode(id) { if (!this._panning) this.setState({ focusId: this.state.focusId === id ? null : id, rightOpen: true, ...(this._mob() ? { leftOpen: false } : {}) }); }
   hoverNode(id) { if (!this._panning && this.state.hoverId !== id) this.setState({ hoverId: id }); }
   clearFocus() { this.setState({ focusId: null, hideContra: false }); }
@@ -5896,6 +6290,37 @@ class Component extends DCLogic {
     if (status === 'Contested') return { fg: '#B23A2E', bg: '#FBE9E6', bd: '#F2D3CD' };
     if (status === 'Uncited') return { fg: '#9A6B12', bg: '#FBF1DA', bd: '#EEDCA9' };
     return { fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9' };
+  }
+  // A footer flag → a calm, plain-language chip. The pipeline names each caveat with an internal
+  // slug (`unbound-contact`, `assessment-negative`, …); shown raw, in monospace, they read as debug
+  // output. Here the slug becomes a short human phrase, the flag's own sentence rides as the hover
+  // title, and the tone is muted — a red note only for the ones that actually contest the answer,
+  // green for a positive corroboration, a soft amber for everything else. An unknown slug degrades
+  // to its de-slugged words, so a new flag is legible before it is ever named here.
+  _flagChip(f) {
+    const LABEL = {
+      unbound: 'not traced to your record',
+      'unbound-contact': 'only loosely related to your record',
+      'low-coverage': 'thinly sourced',
+      'ground-dropped': 'some unsourced lines left out',
+      'grounding-incomplete': 'grounding check didn’t finish',
+      'factcheck-limited': 'claims not fully checked',
+      'assessment-negative': 'it doubted its own draft',
+      'assessment-revised': 'answered again after a second look',
+      'self-echo': 'echoes my earlier words',
+      'self-corrected': 'noted a correction',
+      'single-source': 'rests on a single source',
+      corroborated: 'independently corroborated',
+      contradicted: 'contradicts your record',
+      unverified: 'unverified draft',
+    };
+    const id = String(f.id || '');
+    const positive = id === 'corroborated' || id === 'assessment-revised';
+    const serious = /contradic|unbound|assessment-negative/.test(id);
+    const tone = positive ? { fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9' }
+      : serious ? { fg: '#B0463B', bg: '#FBEEEC', bd: '#F1D8D3' }
+      : { fg: '#9A7327', bg: '#FBF6EA', bd: '#ECDFC4' };
+    return { id, label: LABEL[id] || id.replace(/[-_]/g, ' '), title: f.note || '', ...tone };
   }
   // A stable highlighter colour per source (S1, S2, …) so a span's wash, its citation chip, and its
   // footer swatch all read as the SAME source across the whole answer. Hue is picked off the source's
@@ -5986,7 +6411,7 @@ class Component extends DCLogic {
     // provenance cue that rides in EVERY mode (Links on or off, chat or long-form), so an
     // ungrounded fact is disclosed as an underline and never reads as sourced. The literal
     // tag is dropped in favour of the underline.
-    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#C99A3A;text-underline-offset:2px';
+    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#D8C298;text-decoration-thickness:1px;text-underline-offset:2px';
     const out = [];
     const push = (t, style) => { if (t) out.push({ isText: true, s: t, style: style || '' }); };
     // Emphasis parse for one run, with an optional base style layered under `code`/**bold**/*italic*.
@@ -6048,7 +6473,7 @@ class Component extends DCLogic {
   _markStyle(mk) {
     if (!mk) return '';
     const CODE = "font-family:'IBM Plex Mono',monospace;font-size:.92em;background:#EFEFF4;border-radius:4px;padding:.03em 4px";
-    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#C99A3A;text-underline-offset:2px';
+    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#D8C298;text-decoration-thickness:1px;text-underline-offset:2px';
     const parts = [];
     if (mk.kind === 'code') parts.push(CODE);
     else if (mk.kind === 'strong') parts.push('font-weight:650');
@@ -6077,8 +6502,17 @@ class Component extends DCLogic {
     // inherits the emphasis, instead of a raw `*` bleeding through. Fallback: if the render membrane
     // is absent, style each text segment on its own (the old per-segment path).
     const mdMarks = this._render && this._render.inlineMdMarks;
+    const rawParas = this._app.answerSegments(m, { entities: hl, cites: hl, sources: hl });
+    // Does ANYTHING in this answer trace to a source? The warm "ungrounded" wash earns its ink only
+    // as a CONTRAST — a span reads warm because the ones beside it read cool (their source's hue). On
+    // a wholly-ungrounded answer there is no cool to contrast, so the wash just paints every word in
+    // one warm band: a full-paragraph highlight that buries the prose and repeats what the single
+    // "not grounded" note already says. So we wash ungrounded spans only when grounded text sits
+    // beside them; a grounded span always keeps its own hue.
+    const anyGrounded = hl && rawParas.some((p) => (p.segs || []).some((sg) => sg.gsn && wordful(sg.s)));
+    const groundOf = (gsn, isEnt) => (gsn || anyGrounded) ? this._groundStyle(gsn, isEnt) : '';
     let ungrounded = false;
-    const paras = this._app.answerSegments(m, { entities: hl, cites: hl, sources: hl }).map((p) => {
+    const paras = rawParas.map((p) => {
       const segsIn = p.segs.slice();
       let blk = { style: 'margin:0 0 10px', hasPrefix: false, prefix: '', cut: 0 };
       if (segsIn[0] && segsIn[0].t === 'text') {
@@ -6095,13 +6529,13 @@ class Component extends DCLogic {
             ? plan.pieces[si].map((pc) => ({ isText: true, s: pc.s, style: this._markStyle(pc) }))
             : this._inlineMd(sg.s);
           for (const piece of pieces) {
-            const gs = (hl && wordful(piece.s)) ? this._groundStyle(sg.gsn) : '';
+            const gs = (hl && wordful(piece.s)) ? groundOf(sg.gsn) : '';
             piece.style = join(piece.style, gs);
             segs.push(piece);
           }
         } else if (sg.t === 'ent') {
           const em = plan ? this._markStyle(plan.opaque[si]) : '';
-          segs.push({ isEnt: true, s: sg.s, hl: join(hl ? this._groundStyle(sg.gsn, true) : '', em), open: () => this.openEntity(sg.docId, sg.entId) });
+          segs.push({ isEnt: true, s: sg.s, hl: join(hl ? groundOf(sg.gsn, true) : '', em), open: () => this.openEntity(sg.docId, sg.entId) });
         } else {
           const cc = hl ? this._sourceColor(sg.sn) : null;
           segs.push({ isCite: true, label: '[' + (sg.reg || 's' + sg.idx) + ']', quote: sg.quote || '', cfg: cc ? cc.fg : '#5B4BE6', cbg: cc ? cc.chipBg : '#F1EFFE', open: () => this.openViewer(sg.sn, sg.quote) });
@@ -6109,7 +6543,7 @@ class Component extends DCLogic {
       }
       return { style: blk.style, hasPrefix: blk.hasPrefix, prefix: blk.prefix, segs };
     });
-    this._segCache[m.id] = { len: (m.text || '').length, paras, ungrounded };
+    this._segCache[m.id] = { len: (m.text || '').length, paras, ungrounded, hasGrounded: anyGrounded };
     return paras;
   }
   // The chat's facing page for ONE answer, two leaves in one pane. The VERBATIM leaf leads —
@@ -6178,47 +6612,63 @@ class Component extends DCLogic {
 
   // ── the graph layout (honest, dynamic) ───────────────────────────────────
   _layout(prov, open = {}) {
-    const LX = [40, 330, 640, 950, 1230];
-    const W = [240, 260, 260, 230, 190];
+    const Wk = { memo: 240, claim: 260, passage: 260, source: 230, file: 190 };
     const H = { memo: 100, claim: 96, passage: 110, source: 88, file: 70 };
-    const HEADER_H = 40, HEAD_GAP = 12, GAP = 22;
+    const COLGAP = 70, HEADER_H = 40, HEAD_GAP = 12, GAP = 22;
     const pos = {};
     prov.nodes.memo._nid = 'M1';
     prov.nodes.claims.forEach((c) => c._nid = c.id);
     prov.nodes.passages.forEach((p) => p._nid = p.id);
     prov.nodes.sources.forEach((s) => s._nid = s.sn);
     prov.nodes.files.forEach((f) => f._nid = f.id);
-    // The memo is the single root card (col 0) — always shown, vertically centred below.
-    pos.M1 = { x: LX[0], y: 40, w: W[0], h: H.memo };
     // The four collapsible tiers: a fold header sits at each column's top, and its cards
     // stack below ONLY when the tier is open. A collapsed tier's cards fold into the header
     // (they share its position) so edges into/out of the group route to the header, not to
     // scattered points, and are not drawn as cards.
     const tiers = [
-      ['claim', 1, prov.nodes.claims, H.claim],
-      ['passage', 2, prov.nodes.passages, H.passage],
-      ['source', 3, prov.nodes.sources, H.source],
-      ['file', 4, prov.nodes.files, H.file],
+      ['claim', prov.nodes.claims, H.claim],
+      ['passage', prov.nodes.passages, H.passage],
+      ['source', prov.nodes.sources, H.source],
+      ['file', prov.nodes.files, H.file],
     ];
+    // Only the memo and the NON-EMPTY tiers take a column, laid out left→right — an empty claim or
+    // passage tier never reserves a gap, so a sources-only graph sits right beside the topic node
+    // instead of stranded columns apart. (Fit + auto-frame then centre whatever this comes to.)
+    const colX = {}; let x = 40;
+    colX.memo = x; x += Wk.memo + COLGAP;
+    for (const [key, list] of tiers) if (list.length) { colX[key] = x; x += Wk[key] + COLGAP; }
+    const canvasW = Math.max(x - COLGAP + 60, 600);
+    // The memo is the single root card (col 0) — always shown, vertically centred below.
+    pos.M1 = { x: colX.memo, y: 40, w: Wk.memo, h: H.memo };
     let colBottom = 40 + H.memo;
-    for (const [key, col, list, h] of tiers) {
+    for (const [key, list, h] of tiers) {
       if (!list.length) continue;
-      const hid = 'H_' + key;
+      const hid = 'H_' + key, cx = colX[key], w = Wk[key];
       let y = 40;
-      pos[hid] = { x: LX[col], y, w: W[col], h: HEADER_H };
+      pos[hid] = { x: cx, y, w, h: HEADER_H };
       y += HEADER_H;
       if (open[key]) {
         y += HEAD_GAP;
-        for (const n of list) { pos[n._nid] = { x: LX[col], y, w: W[col], h }; y += h + GAP; }
+        for (const n of list) { pos[n._nid] = { x: cx, y, w, h }; y += h + GAP; }
       } else {
         for (const n of list) pos[n._nid] = pos[hid];
       }
       colBottom = Math.max(colBottom, y);
     }
     const canvasH = Math.max(colBottom, 420) + 40;
-    pos.M1.y = Math.max(40, canvasH / 2 - H.memo / 2 - 20);
-    const canvasW = LX[4] + W[4] + 60;
+    // Centre the memo against the ACTUAL content height (colBottom), not the padded canvas: when the
+    // tiers are collapsed the content is short, so the memo sits level with the headers in one clean
+    // TOPIC → … row; when a tier is expanded into a tall column, the memo rides its middle.
+    pos.M1.y = Math.max(40, colBottom / 2 - H.memo / 2 - 20);
     this._fitScale = Math.min(1, (this._vp ? this._vp.clientWidth - 80 : 1200) / canvasW);
+    // The actual bounding box of what's on screen (collapsed cards fold into their header, so
+    // they don't widen it) — fit() frames THIS, not the reserved canvas, so an empty file column
+    // or a half-used width never leaves the graph stranded in a corner.
+    const b = Object.values(pos).reduce((a, p) => ({
+      minX: Math.min(a.minX, p.x), minY: Math.min(a.minY, p.y),
+      maxX: Math.max(a.maxX, p.x + p.w), maxY: Math.max(a.maxY, p.y + p.h),
+    }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+    this._content = Number.isFinite(b.minX) ? b : null;
     return { pos, canvasW, canvasH };
   }
   _edgePath(a, b) {
@@ -6275,107 +6725,77 @@ class Component extends DCLogic {
     };
   }
 
-  // ── the real-time murmur strip, rendered in native EOT ──────────────────────────────────────────
-  // Built imperatively into the ref'd container (like the Listen transcript) so the fade-out→swap→
-  // fade-in lifecycle is ours, not React's per-poke reconcile. It is ONE LINE showing ONE thought —
-  // the most-salient event's tuple (glyph OP site(s) · res) beside the prose mutter it re-voices; the
-  // line changes only when the sense actually surfaces a new event (a fold, a wander mutter), never
-  // on an invented timer. NOTHING here is fabricated: the op/sites/res and the text all come straight
-  // off m.state().voice (the read side-channel, §9.4); the surface only paints them.
-  _murmurStripModel() {
-    const m = this._murmur;
-    let voice = [];
-    if (m) { try { const s = m.state ? m.state() : null; if (s && Array.isArray(s.voice)) voice = s.voice; } catch { /* the strip must never break the surface */ } }
-    const lead = (voice || []).find((t) => t && t.text);   // the single most-salient thought — one line
-    if (lead) return {
-      op: (lead.op && this._mmGlyph[lead.op]) ? lead.op : 'NUL',
-      text: String(lead.text),
-      register: lead.register || null,
-      fg: (lead.register && this._mmInk[lead.register]) || '#2a2d36',
-      tupleHtml: this._murmurTuple(lead),
+  // ── the real-time murmur strip, a night-sky band of drifting thought-motes ──────────────────────
+  // The rendering lives in EoMurmurStrip (a self-contained canvas controller, defined beside this
+  // component); the surface's job is only to (a) MAP the murmur snapshot to motes and (b) own the
+  // controller's lifecycle. NOTHING here is fabricated: text/register/sites/surprise all come straight
+  // off m.state() (the read side-channel §9.4); the strip only animates them — a voicing, never a fact.
+
+  // _mmTokensFrom(state) → the motes for this snapshot. Each real voiced thought { text, register, op,
+  // sites, res } becomes one token: its register picks the tint (and a short gloss NAMING the feeling —
+  // the sense's own state, not a claim), its live intensity (else the reading's novelty) is the surprise,
+  // and its native-EOT tuple rides along as the card's `sources` line so the EOT identity is preserved.
+  _mmTokensFrom(state) {
+    let s = state || this._mmLastState;
+    if (!s && this._murmur && this._murmur.state) { try { s = this._murmur.state(); } catch { s = null; } }
+    const voice = (s && Array.isArray(s.voice)) ? s.voice.filter((t) => t && t.text) : [];
+    const sig = (s && s.signal) ? s.signal : null;
+    const novelty = (sig && typeof sig.novelty === 'number') ? sig.novelty : null;
+    const inten = (reg) => {
+      if (!reg || !s || !Array.isArray(s.impressions)) return 0;
+      const h = s.impressions.find((i) => i && i.register === reg && typeof i.decayedIntensity === 'number');
+      return h ? h.decayedIntensity : 0;
     };
-    // before the first fold (or a broken read) — a real NUL hold, never a blank strip.
-    const idle = { op: 'NUL', sites: [{ hash: 'r#000', grain: 0 }], res: { band: 'void', p: 0.08 } };
-    return { op: 'NUL', text: 'resting — the reading is still, and nothing has stirred me yet', register: null, fg: '#9aa0ad', tupleHtml: this._murmurTuple(idle) };
+    return voice.map((t) => {
+      const reg = t.register || null;
+      // surprise is REAL — the feeling's live intensity for this register, else the reading's novelty.
+      const surprise = Math.max(0, Math.min(1,
+        reg ? Math.max(inten(reg), novelty != null ? novelty * 0.7 : 0)
+            : (novelty != null ? novelty * 0.5 : 0.14)));
+      return {
+        text: String(t.text),
+        tag: reg || (t.op === 'NUL' ? 'resting' : 'reading'),
+        color: (reg && this._mmStripInk[reg]) || '#8b93a2',
+        surprise,
+        note: reg ? (this._mmGloss[reg] || '') : '',
+        sources: this._mmTupleText(t),
+      };
+    });
   }
 
-  // Render one native-EOT tuple to HTML: `glyph OP site(s) · res`. CON draws its two argument sites
-  // bound by ⋈ (the central bond); SYN draws the promotion r#x@g → r#x@g+1; every other op draws its
-  // single site. Mirrors src/core/event.js siteNotation / the tiered-graph legend, so a strip event
-  // and a graph edge never disagree on a mark.
-  _murmurTuple(evt) {
-    const G = this._mmGlyph, esc = (s) => this._escHtml(s);
+  // The native-EOT tuple as compact PLAIN TEXT: `glyph OP site(s) · band p`. CON binds its two sites
+  // with ⋈ (the central bond); SYN shows the promotion r#x@g → r#x@g+1; every other op draws its single
+  // site. Mirrors src/core/event.js siteNotation, so a card and a graph edge never disagree on a mark.
+  _mmTupleText(evt) {
+    const G = this._mmGlyph;
     const op = (evt && evt.op && G[evt.op]) ? evt.op : 'NUL';
     const S = (evt && Array.isArray(evt.sites)) ? evt.sites : [];
-    const siteStr = (s) => {
-      if (!s || !s.hash) return '<span class="eo-mm-hash">r#000</span>@<span class="eo-mm-grain">0</span>';
-      const inner = '<span class="eo-mm-hash">' + esc(s.hash) + '</span>@<span class="eo-mm-grain">' + (s.grain | 0) + '</span>';
-      return s.holder ? '<span class="eo-mm-holder">' + esc(s.holder) + '</span><span class="eo-mm-sep">·</span>' + inner : inner;
-    };
+    const site = (x) => (!x || !x.hash) ? 'r#000@0' : ((x.holder ? x.holder + '·' : '') + x.hash + '@' + (x.grain | 0));
     let sites;
-    if (op === 'CON' && S.length >= 2) {
-      sites = '<span class="eo-mm-site">' + siteStr(S[0]) + '<span class="eo-mm-sep">⋈</span>' + siteStr(S[1]) + '</span>';
-    } else if (op === 'SYN' && S[0]) {
-      const s = S[0], promoted = { hash: s.hash, grain: (s.grain | 0) + 1 };
-      sites = '<span class="eo-mm-site">' + siteStr(s) + '<span class="eo-mm-arrow">→</span>' + siteStr(promoted) + '</span>';
-    } else {
-      sites = '<span class="eo-mm-site">' + siteStr(S[0]) + '</span>';
-    }
+    if (op === 'CON' && S.length >= 2) sites = site(S[0]) + ' ⋈ ' + site(S[1]);
+    else if (op === 'SYN' && S[0]) sites = site(S[0]) + ' → ' + site({ hash: S[0].hash, grain: (S[0].grain | 0) + 1 });
+    else sites = site(S[0]);
     const band = (evt && evt.res && evt.res.band === 'firm') ? 'firm' : 'void';
     const p = (evt && evt.res && typeof evt.res.p === 'number') ? evt.res.p.toFixed(2) : '0.10';
-    const res = '<span class="eo-mm-res"><span class="eo-mm-band-' + band + '">' + band + '</span> <span class="eo-mm-p">' + p + '</span></span>';
-    return '<span class="eo-mm-glyph">' + (G[op] || '·') + '</span><span class="eo-mm-op">' + esc(op) + '</span>' + sites + res;
+    return (G[op] || '·') + ' ' + op + ' ' + sites + ' · ' + band + ' ' + p;
   }
 
+  // The container ref. React churns callback refs — a fresh `setMurmurStrip` arrow each renderVals
+  // means React calls this with null then the SAME node on every poke. So we IGNORE null (the strip's
+  // RAF loop self-stops when the node truly leaves the DOM — nothing murmurs unseen), REUSE the
+  // controller already built into a node, and build a fresh one only for a genuinely new node (mode
+  // toggled back on ⇒ a new sc-if node).
   setMurmurStrip(el) {
     if (!el) return;
-    // build the skeleton once — React renders only the empty shell; the contents are ours to keep.
-    if (!el.__eoMmBuilt) {
-      el.__eoMmBuilt = true;
-      el.innerHTML =
-        '<span class="eo-mm-mark">MURMUR</span>' +
-        '<div class="eo-mm-row"><div class="eo-mm-tuple"></div></div>' +
-        '<button class="eo-mm-x" title="Hide the murmur strip — turn it back on in Settings" aria-label="Hide the murmur strip">' +
-        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
-      el.__eoMmTuple = el.querySelector('.eo-mm-tuple');
-      const x = el.querySelector('.eo-mm-x');
-      if (x) x.addEventListener('click', () => this.toggleMurmur());
-      el.__eoMmSig = null; el.__eoMmFade = null;
-    }
-    const entry = this._murmurStripModel();
-    const sig = entry.op + '|' + entry.text;
-    if (el.__eoMmSig === sig) return;          // no new impression — leave the current line be
-    const firstEver = el.__eoMmSig === null;
-    el.__eoMmSig = sig;
-    this._mmShow(el, entry, firstEver);        // a fresh impression fades the one line over
-  }
-
-  // Paint the one line: fade the tuple out, swap, fade back in — the raw op(site·res) tuple, the
-  // inner monologue's own notation, never prose. Instant on first paint and under prefers-reduced-motion.
-  // A pending fade is cancelled if a newer event arrives mid-swap.
-  _mmShow(el, entry, instant) {
-    if (!el || !entry || !el.__eoMmTuple) return;
-    if (el.__eoMmFade) { clearTimeout(el.__eoMmFade); el.__eoMmFade = null; }
-    const apply = () => {
-      el.setAttribute('data-op', entry.op);
-      el.__eoMmTuple.setAttribute('data-op', entry.op);
-      el.__eoMmTuple.innerHTML = entry.tupleHtml;
-    };
-    const reduce = this._rmq && this._rmq.matches;
-    if (instant || reduce) {
-      apply();
-      el.__eoMmTuple.classList.remove('eo-mm-fading');
-      return;
-    }
-    el.__eoMmTuple.classList.add('eo-mm-fading');
-    el.__eoMmFade = window.setTimeout(() => {
-      el.__eoMmFade = null;
-      if (!el.isConnected) return;
-      apply();
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        el.__eoMmTuple.classList.remove('eo-mm-fading');
-      }));
-    }, 150);
+    if (el.__eoMmStrip) { this._mmStrip = el.__eoMmStrip; return; }   // reuse — no rebuild on churn
+    if (this._mmStrip && this._mmStrip.el !== el) { try { this._mmStrip.destroy(); } catch { /* ignore */ } }
+    this._mmStrip = new EoMurmurStrip(el, {
+      accent: '#8b7bff',
+      reduceMotion: () => this._reduceMotion(),
+      onHide: () => this.toggleMurmur(),        // the strip's × → 'off' (hide == off, nothing unseen)
+    });
+    // seed from the last snapshot (or a fresh read) so a late-mounting strip paints immediately.
+    this._mmStrip.feed(this._mmTokensFrom(this._mmLastState));
   }
 
   _versionVals() {
@@ -6484,6 +6904,7 @@ class Component extends DCLogic {
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
+        mainDisplay: 'flex', rightWidth: '340px', rightFlex: '0 0 auto', rightBorder: '1px solid #EAEAEF', rightBodyPad: '14px 16px', rightBodyMax: 'none', rightBodyMargin: '0',
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals() };
     }
@@ -6691,7 +7112,7 @@ class Component extends DCLogic {
       title: busy ? busy.label : m.state === 'loading' ? `Loading ${m.backend}… ${Math.round((m.progress || 0) * 100)}%` : generating ? 'Phrasing from the record…' : 'Idle · monitoring',
       sub: lastLog ? lastLog.text : 'Nothing recorded yet',
       chip: m.state === 'ready' ? m.backend : `${sources.length} src`,
-      summary: `${findings.stats.claims} claims · ${findings.stats.contradictions} conflicts`,
+      summary: `${findings.stats.claims} claims · ${findings.stats.contradictions + (findings.stats.sourceConflicts || 0)} conflicts`,
     };
     const statusColor = m.state === 'error' ? '#B23A2E' : (busy || generating || m.state === 'loading') ? '#C79A3A' : '#59C08A';
     const LOGC = { record: '#59C08A', hash: '#59C08A', eot: '#6D5EF5', claim: '#6D5EF5', conflict: '#B23A2E', search: '#C79A3A', open: '#8A8A95', skip: '#B4B4BE', reflection: '#7B4FD6', learning: '#7B4FD6' };
@@ -6711,9 +7132,15 @@ class Component extends DCLogic {
       select: () => this.setTab(id),
     }));
     const contradictions = findings.stats.contradictions;
-    const hasFlagLine = findings.stats.claims > 0;
-    const flagLine = contradictions > 0 ? `${contradictions} contradiction${contradictions === 1 ? '' : 's'}` : 'no conflicts on record';
-    const [flagFg, flagBg, flagBd] = contradictions > 0 ? ['#B23A2E', '#FBE9E6', '#F2D3CD'] : ['#1E8A50', '#E7F6EC', '#CFEBD9'];
+    // Two kinds feed the flag: answer-vs-source contradictions AND source-vs-source
+    // conflicts (the record contesting itself). The green copy says "detected", not "on
+    // record" — the pass reports what it FOUND; a clean pass is "none found", never a
+    // claim that none exist (relation-types.js: "no conflict" ≠ "consistent").
+    const sourceConflictN = findings.stats.sourceConflicts || 0;
+    const flagN = contradictions + sourceConflictN;
+    const hasFlagLine = findings.stats.claims > 0 || sourceConflictN > 0;
+    const flagLine = flagN > 0 ? `${flagN} conflict${flagN === 1 ? '' : 's'}` : 'no conflicts detected';
+    const [flagFg, flagBg, flagBd] = flagN > 0 ? ['#B23A2E', '#FBE9E6', '#F2D3CD'] : ['#1E8A50', '#E7F6EC', '#CFEBD9'];
 
     // chat messages
     const msgs = (topic ? topic.messages : []);
@@ -6741,10 +7168,11 @@ class Component extends DCLogic {
       });
       // 'unverified' rides as a full banner above the body (a stopped/stalled draft the grounding
       // pipeline never checked), so it does not also need a cryptic footer chip — drop it here.
-      const flagChips = (mm.flags || []).filter((f) => (f.id !== 'low-coverage' || !cites.length) && f.id !== 'unverified').map((f) => ({
-        label: f.id, fg: /contradic|unbound|assessment-negative/.test(f.id) ? '#B23A2E' : '#9A6B12',
-        bg: /contradic|unbound|assessment-negative/.test(f.id) ? '#FBE9E6' : '#FBF1DA', bd: /contradic|unbound|assessment-negative/.test(f.id) ? '#F2D3CD' : '#EEDCA9',
-      }));
+      const flagChips = (mm.flags || []).filter((f) => (f.id !== 'low-coverage' || !cites.length) && f.id !== 'unverified').map((f) => this._flagChip(f));
+      // The standalone "ungrounded" wash-legend is redundant when a flag already tells the reader the
+      // answer isn't sourced — one calm note beats two saying the same thing. Drop it in that case.
+      const groundFlagShown = flagChips.some((f) => /unbound|low-coverage|ground-dropped/.test(f.id));
+      const showUngroundedChip = hasUngrounded && !groundFlagShown;
       const loading = app.state.model.state === 'loading';
       // the research trail — the live "what am I researching / thinking" stream (app.js beats)
       const tr = mm.research;
@@ -6804,7 +7232,7 @@ class Component extends DCLogic {
         badge: mm.grounded ? 'grounded' : (mm.route === 'error' ? 'error' : mm.unbound ? 'unbound' : mm.route || ''),
         badgeFg: mm.grounded ? '#1E8A50' : '#9A6B12', badgeBg: mm.grounded ? '#E7F6EC' : '#FBF1DA',
         hasCites: finished && cites.length > 0, cites,
-        hasProvRow: finished && (cites.length > 0 || hasUngrounded), hasUngroundedChip: hasUngrounded,
+        hasProvRow: finished && (cites.length > 0 || showUngroundedChip), hasUngroundedChip: showUngroundedChip,
         hasFlags: finished && flagChips.length > 0, flagChips,
         hasProposal: finished && !!mm.webProposal, proposalQ: mm.webProposal ? mm.webProposal.query : '',
         runProposal: () => this.runSearch(mm.webProposal.query),
@@ -6870,11 +7298,38 @@ class Component extends DCLogic {
         open: () => c.sn && this.openViewer(c.sn, c.quote),
       };
     });
+    // The source-vs-source disagreements, shaped for the Findings "Where the sources
+    // disagree" panel — each measure the record reports two ways, with every witnessing
+    // figure clickable to its verbatim passage. This is the source-conflict lens: it
+    // shows whether the RECORD contests itself, independent of any answer having been asked.
+    const fmtAmt = (v, unit) => {
+      const n = Number(v);
+      const s = Number.isFinite(n) ? n.toLocaleString('en-US') : String(v);
+      if (unit === 'USD') return `$${s}`;
+      return (unit && !['homes', 'jobs', 'acres'].includes(unit)) ? `${s} ${unit}` : s;
+    };
+    const sourceConflicts = (findings.sourceConflicts || []).map((x) => ({
+      measure: x.measureLabel || x.measure,
+      subject: x.subject || '—',
+      values: (x.values || []).map((v) => {
+        const src = app.sourceBySn(v.source) || {};
+        return {
+          amount: fmtAmt(v.value, v.unit),
+          srcReg: src.reg || String(v.source || ''),
+          text: String(v.text || '').trim(),
+          open: () => v.source && this.openViewer(v.source, v.text),
+        };
+      }),
+    }));
+    const hasSourceConflicts = sourceConflicts.length > 0;
+    const sourceConflictNote = hasSourceConflicts
+      ? `${sourceConflicts.length} measure${sourceConflicts.length === 1 ? '' : 's'} reported two ways`
+      : '';
     const overviewStats = [
       { value: String(findings.stats.claims), label: 'claims', color: '#6D5EF5' },
       { value: String(findings.stats.passages), label: 'verbatim passages', color: '#C79A3A' },
       { value: String(findings.stats.sources), label: 'sources on record', color: '#6E7787' },
-      { value: String(contradictions), label: 'contradictions', color: contradictions ? '#B23A2E' : '#1E8A50' },
+      { value: String(flagN), label: 'contradictions', color: flagN ? '#B23A2E' : '#1E8A50' },
     ];
 
     // ── source explorer — the Sources tab is a Drive (folders + files) ──────────
@@ -6960,7 +7415,7 @@ class Component extends DCLogic {
     const explorerNewFolder = () => { const v = prompt('New folder name', 'New folder'); if (v !== null) app.folderNew(v || 'New folder', { parentId: curFolderId }); this.setState({ explorerMenu: null }); };
 
     // ══ SOURCE EXPLORER — the three-column home view ═══════════════════════════════════════════
-    // Left: Quick-Access shelves + the folder tree + the encrypted-vault meter. Centre: a calm,
+    // Left: Quick-Access shelves + the folder tree. Centre: a calm,
     // paginated grid of source cards that search / kind-filter / sort narrow. Right: the Inspector —
     // read & act on the selected source in place. Everything is a read-time projection of the Drive;
     // the mutations (star, touch, add-to-corpus, move) live on the engine.
@@ -7001,13 +7456,6 @@ class Component extends DCLogic {
       }
     };
     walkTree(null, 0);
-
-    // — encrypted-vault meter (recorded bytes against a nominal cap) —
-    const usedBytes = drive.reduce((a, s) => a + (s.bytes || 0), 0);
-    const usedGB = usedBytes / 1073741824;
-    const vaultLabel = `${usedGB >= 0.1 ? usedGB.toFixed(1) : (usedBytes > 0 ? usedGB.toFixed(2) : '0')} / 15 GB`;
-    const vaultPct = Math.min(100, usedBytes > 0 ? Math.max(1.5, (usedGB / 15) * 100) : 0) + '%';
-    const vaultSync = (wsObj && (wsObj.roomId || wsObj.shared)) ? 'synced to Matrix · members-only' : 'on this device · private';
 
     // — the working set for the centre grid: pick the shelf, then kind-filter → search → sort —
     let baseSet;
@@ -7244,6 +7692,14 @@ class Component extends DCLogic {
           }));
         })(),
       };
+      // Auto-frame the DAG the first time this corpus's graph is shown, so it opens centred rather
+      // than clustered in a corner. Keyed on the tier COUNTS (not open/closed state, so expanding a
+      // group never yanks the camera); rAF defers the camera set out of render, like _poke above.
+      const fitKey = [prov.nodes.claims.length, prov.nodes.passages.length, prov.nodes.sources.length, prov.nodes.files.length].join(':');
+      if (this._fitKey !== fitKey && typeof requestAnimationFrame === 'function') {
+        this._fitKey = fitKey;
+        if (!this._fitRaf) this._fitRaf = requestAnimationFrame(() => { this._fitRaf = null; if (this.state.tab === 'evidence') this.fit(); });
+      }
     }
     const legendNodes = [
       { color: '#6D5EF5', label: 'Topic / memo' }, { color: '#8A8A95', label: 'Claim' },
@@ -7727,6 +8183,7 @@ class Component extends DCLogic {
       resetFg: st.focusId ? '#5B4BE6' : '#8A8A95', setViewport: (el) => this.setViewport(el),
       // findings + memo
       evEmpty: claims.length === 0, evClaims, overviewStats,
+      sourceConflicts, hasSourceConflicts, sourceConflictNote,
       // source explorer (the Drive) — breadcrumb, folder cards, file rows, and the move picker
       explorerCrumbs, explorerFolders, explorerFiles, explorerHasFolders, explorerHasFiles,
       explorerEmpty, explorerAtRoot, explorerNotRoot: !explorerAtRoot, explorerCount, explorerMenuOpen, closeExplorerMenu, explorerNewFolder,
@@ -7739,7 +8196,6 @@ class Component extends DCLogic {
       qaTopicBg: qaTopic.bg, qaTopicFg: qaTopic.fg, qaTopicWt: qaTopic.wt, qaTopicGo: gotoBucket('topic'), qaTopicCount: String(topicCorpus.length),
       qaAllBg: qaAll.bg, qaAllFg: qaAll.fg, qaAllWt: qaAll.wt, qaAllGo: gotoBucket('all'), qaAllCount: String(drive.length),
       exTree, exTreeHas: exTree.length > 0,
-      vaultLabel, vaultPct, vaultSync,
       // centre: header, breadcrumb, sort + kind chips, jump-back-in, source cards, show-all
       explorerQuery: st.explorerQuery, onExplorerSearch: (e) => this.setState({ explorerQuery: e.target.value, explorerShowAll: false }),
       explorerViewGrid: st.explorerView !== 'list',
@@ -7773,6 +8229,29 @@ class Component extends DCLogic {
       // inspector, the entity profile, and finally the entity list.
       spanShow: !!spanInsp, span: spanInsp || {},
       inspShow: !spanInsp && !!insp, insp: insp || {}, profShow: !spanInsp && !insp && !!prof, prof: prof || {},
+      // HERO — the entity profile promoted to the main stage. Only a shown profile can go hero, and
+      // never on mobile (the panel is already a drawer there). When it's on, the main column steps
+      // aside (display:none) and the aside grows to fill the row, its body centring in a reading column.
+      ...(() => {
+        // Hero must mirror the aside's own visibility — the panel stands down on the Graph/Home tabs
+        // (they carry their own), so hero there would hide the reading column AND the panel: a blank
+        // stage. Gate on the same condition rightPanelShow uses, plus a shown profile, desktop only.
+        const panelUp = st.rightOpen && st.tab !== 'graph' && st.tab !== 'register';
+        const heroActive = !!st.rightHero && panelUp && !spanInsp && !insp && !!prof && !st.isMobile;
+        return {
+          mainDisplay: heroActive ? 'none' : 'flex',
+          rightFlex: heroActive ? '1 1 auto' : '0 0 auto',
+          rightWidth: heroActive ? 'auto' : '340px',
+          rightBorder: heroActive ? 'none' : '1px solid #EAEAEF',
+          rightBodyPad: heroActive ? '30px 40px 72px' : '14px 16px',
+          rightBodyMax: heroActive ? '820px' : 'none',
+          rightBodyMargin: heroActive ? '0 auto' : '0',
+          heroActive,
+          heroExpandShow: !st.isMobile && !heroActive,
+          heroCollapseShow: heroActive,
+          toggleHero: () => this.toggleRightHero(),
+        };
+      })(),
       entListShow: !spanInsp && !insp && !prof, entRows, entCount: String(ents.length), entEmpty: ents.length === 0,
       // The DOSSIER rides the right panel in the default slot (alongside the entity list, leading it):
       // a single-subject source shows its dominant figure here — the reading, the referent, the entity
