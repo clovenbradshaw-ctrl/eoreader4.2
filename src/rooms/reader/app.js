@@ -18,7 +18,7 @@
 // one degrades to a no-op or a thrown, catchable error; nothing at import time
 // touches the network.
 
-import { parseText } from '../../perceiver/parse/index.js';
+import { parseText, TITLE_WORDS } from '../../perceiver/parse/index.js';
 import { promoteConnection } from '../../enactor/connect/index.js';
 import { speakTriples, talkThenVerify } from '../../weave/write/index.js';
 import { toPast } from '../../weave/write/morph.js';
@@ -180,6 +180,10 @@ const wantsLongform = (q) => LONGFORM_RE.test(String(q || ''));
 const LONGFORM_MAX_TOKENS = 1600;
 const domainOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
 const shaShort = (h) => String(h || '').replace(/^[^:]*:/, '').slice(0, 12);
+// Honorifics whose trailing period admission drops when it joins them to a name ("Mr." → the
+// label "Mr Dupree"). Lowercased once, from the admission's own list, so the reader's entity
+// linker tolerates the same normalisation when matching the label back onto the surface text.
+const LINK_TITLES = new Set([...TITLE_WORDS].map((w) => w.toLowerCase()));
 const bytesOf = (text) => { try { return new TextEncoder().encode(text).length; } catch { return String(text).length; } };
 const esc = (s) => String(s ?? '');
 
@@ -3062,24 +3066,44 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
 
   const linkifySegs = (text, lex) => {
     const segs = [];
-    let rest = String(text);
+    const rest = String(text);
     if (!lex.length) return rest ? [{ t: 'text', s: rest }] : [];
     // one pass, longest-label-first alternation; word-bounded, case-insensitive so EVERY
     // mention links — "the dolphin's sonar" reaches the same entity as "Dolphin" in a heading.
     const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(`\\b(${lex.map((e) => escRe(e.label)).join('|')})\\b`, 'gi');
+    // A label is matched as a run of its TOKENS, not as a literal string, because admission
+    // NORMALISES what it admits: a leading title's trailing period is dropped and the title joined
+    // to the name ("Mr. Dupree" → the label "Mr Dupree"), and interior whitespace is collapsed to
+    // one space. A literal-string regex built from that label can no longer find the surface it was
+    // read from — "Mr Dupree" never matches "Mr. Dupree" — so the honorific is stranded as loose
+    // text and only the bare surname links, splitting one figure into two. Rejoin the tokens with
+    // run-of-whitespace (which also lets a name broken across a line-wrap still link), and tolerate
+    // the ONE period admission actually strips: the dot after a leading title. Scoping the optional
+    // dot to that title alone — not to every gap — keeps "Chief Justice" from matching a stray
+    // "…the Chief. Justice…" across a sentence end. Longest-label-first then carries the whole
+    // "Mr. Dupree" into ONE span, winning over the bare "Dupree".
+    const labelRe = (label) => {
+      const toks = String(label).trim().split(/\s+/);
+      return toks.map((t, i) => escRe(t) + (i === 0 && toks.length > 1 && LINK_TITLES.has(t.toLowerCase()) ? '\\.?' : '')).join('\\s+');
+    };
+    const re = new RegExp(`\\b(${lex.map((e) => labelRe(e.label)).join('|')})\\b`, 'gi');
+    // Match a surface span back to its label the same way — period- and whitespace-insensitive —
+    // so the reverse lookup survives the very normalisation the forward pattern had to tolerate.
+    const key = (s) => String(s).replace(/\./g, '').replace(/\s+/g, ' ').trim();
     let last = 0, mArr;
     while ((mArr = re.exec(rest)) !== null) {
+      const matched = mArr[1];
       if (mArr.index > last) segs.push({ t: 'text', s: rest.slice(last, mArr.index) });
       // exact-case wins; else a case-insensitive hit, so a lowercase mention of a capitalised
       // figure ("dolphins" for the admitted "Dolphins") still renders as its entity — but the
       // relaxed match is only trusted for labels long enough that it can't grab a common word off
       // a short acronym ("who" for "WHO"), which falls back to plain text.
-      const exact = lex.find((e) => e.label === mArr[1]);
-      const hit = exact || lex.find((e) => e.label.toLowerCase() === mArr[1].toLowerCase());
-      if (hit && (exact || hit.label.length >= 4)) segs.push({ t: 'ent', s: mArr[1], docId: hit.docId, entId: hit.entId });
-      else segs.push({ t: 'text', s: mArr[1] });
-      last = mArr.index + mArr[1].length;
+      const mk = key(matched);
+      const exact = lex.find((e) => key(e.label) === mk);
+      const hit = exact || lex.find((e) => key(e.label).toLowerCase() === mk.toLowerCase());
+      if (hit && (exact || hit.label.length >= 4)) segs.push({ t: 'ent', s: matched, docId: hit.docId, entId: hit.entId });
+      else segs.push({ t: 'text', s: matched });
+      last = mArr.index + matched.length;
     }
     if (last < rest.length) segs.push({ t: 'text', s: rest.slice(last) });
     return segs;

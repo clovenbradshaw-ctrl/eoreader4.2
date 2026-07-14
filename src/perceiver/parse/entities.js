@@ -139,7 +139,11 @@ const DEFAULT_CONVENTIONS = (() => {
   };
 })();
 
-const TITLE_WORDS = new Set([
+// The honorifics admission keeps JOINED to the following name, its trailing period dropped
+// ("Mr." → the label "Mr Samsa"). Exported so a downstream matcher (the reader's entity linker)
+// can tolerate that same normalisation and carry the title back into the one entity span, rather
+// than stranding it as loose text beside the name — one source of truth for what a title is.
+export const TITLE_WORDS = new Set([
   'Mr','Mrs','Ms','Dr','Miss','Mister','Sir','Madam','Madame','Lady','Lord',
   'Professor','Prof','Capt','Captain','Rev','St','Aunt','Uncle',
 ]);
