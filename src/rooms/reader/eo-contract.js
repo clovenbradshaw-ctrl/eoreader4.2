@@ -5,6 +5,7 @@
 import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
+  'src/rooms/reader/anchor.js': contract({ ops: ['CON', 'EVA'], targets: ['Field', 'Link'], products: ['Link'], stances: ['Binding', 'Tracing'], note: 'the durable passage anchor — mint, and resolve down the honesty ladder' }),
   'src/rooms/reader/app.js': contract({ ops: ['CON', 'INS'], targets: ['Network', 'Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'the reader session controller' }),
   'src/rooms/reader/audio-dsp.js': contract({ ops: ['SEG', 'NUL'], targets: ['Field'], products: ['Void'], stances: ['Dissecting', 'Clearing'], note: 'audio DSP — waveform redaction + WAV encode' }),
   'src/rooms/reader/audio-store.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Tending'], note: 'original-audio byte store (OPFS binary)' }),

@@ -48,6 +48,21 @@ const citeOriginsOf = (doc, sources) => {
   return out;
 };
 
+// Per-citation SOURCE-LOCAL unit: each cited (composite) sentence index → the sentence's index
+// inside its own source document. The composite axis is a per-turn artifact — its indices shift
+// with whatever else was in scope — so a cite that should outlive the turn (a pin's anchor, a
+// findings passage key) needs the local index the origin back-map already computes. { idx: localIdx }.
+const citeUnitsOf = (doc, sources) => {
+  const out = {};
+  if (!doc) return out;
+  const composite = doc.isComposite && typeof doc.origin === 'function';
+  for (const i of (sources || [])) {
+    const u = composite ? doc.origin(i)?.localIdx : i;
+    if (u != null) out[i] = u;
+  }
+  return out;
+};
+
 // Per-citation source TEXT: each cited sentence index → the sentence itself, so the UI
 // can show, on hover, exactly what the cited span allegedly says — the companion of
 // citeOriginsOf's idx → docId. { idx: text }.
@@ -476,6 +491,7 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
       fedGraph: ctx.fedGraph || null,   // the meaning graph fed to the talker (web path); null otherwise
       citeOrigins: citeOriginsOf(groundingDoc, ctx.sources),   // per-claim attribution: [sN] idx → source docId
       citeTexts:   citeTextsOf(groundingDoc, ctx.sources),     // [sN] idx → the cited sentence itself (hover provenance)
+      citeUnits:   citeUnitsOf(groundingDoc, ctx.sources),     // [sN] idx → SOURCE-LOCAL sentence index (durable anchors)
       // The EOT reflection of the answer against the graph — every lowered proposition with
       // its verdict and the independent origins that witness it. Null on an ungrounded turn.
       reflection,

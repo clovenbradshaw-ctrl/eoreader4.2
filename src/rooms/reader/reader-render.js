@@ -280,11 +280,13 @@ export const readerHtml = (model, prefsIn = {}, opts = {}) => {
         const disp = /^#{1,6}\s/.test(t) ? t.replace(/^#{1,6}\s+/, '').replace(/\s*#+$/, '') : t;
         const cls = 'eo-chap' + (lv > 1 ? ' sub' : '');
         const ind = lv > 1 ? ' style="margin-left:' + ((lv - 1) * 1.15) + 'em"' : '';
-        if (hit.s.kind === 'heading' || titleish(t)) { parts.push('<h2 class="' + cls + '" id="' + id + '"' + ind + '>' + esc(disp) + '</h2>'); chapStart = true; return; }
-        parts.push('<p id="' + id + '" class="eo-first' + citedCls(t) + '">' + inner(t) + '</p>'); chapStart = false; return;
+        if (hit.s.kind === 'heading' || titleish(t)) { parts.push('<h2 class="' + cls + '" id="' + id + '" data-para="' + i + '"' + ind + '>' + esc(disp) + '</h2>'); chapStart = true; return; }
+        parts.push('<p id="' + id + '" data-para="' + i + '" class="eo-first' + citedCls(t) + '">' + inner(t) + '</p>'); chapStart = false; return;
       }
       const cls = ((chapStart ? 'eo-first' : '') + citedCls(t)).trim();
-      parts.push('<p' + (cls ? ' class="' + cls + '"' : '') + '>' + inner(t) + '</p>'); chapStart = false;
+      // Every body paragraph gets a stable address (id + data-para = its index in model.paras) so
+      // a jump can be getElementById first, with scrollToText's text match as the fallback.
+      parts.push('<p id="eo-p-' + i + '" data-para="' + i + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + inner(t) + '</p>'); chapStart = false;
     });
     bodyHtml = parts.join('\n');
   }

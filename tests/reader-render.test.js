@@ -123,7 +123,7 @@ test('readerHtml bakes entity links + cited rule when the surface supplies a lin
   const { html } = readerHtml(m, {}, { segsOf, isCited, linksOn: true });
   assert.ok(html.includes('<html class="eo-links-on">'), 'links start visible when linksOn');
   assert.ok(/<span class="eo-ent" data-doc="d1" data-ent="e_babbage">Babbage<\/span>/.test(html), 'entity wrapped as a clickable span carrying its ids');
-  assert.ok(/<p class="eo-cited">/.test(html), 'the cited paragraph carries the gold-rule class');
+  assert.ok(/<p id="eo-p-\d+" data-para="\d+" class="eo-cited">/.test(html), 'the cited paragraph carries the gold-rule class and its stable address');
   assert.ok(html.includes('.eo-links-on .eo-ent'), 'the links-on CSS gate is present');
 });
 
