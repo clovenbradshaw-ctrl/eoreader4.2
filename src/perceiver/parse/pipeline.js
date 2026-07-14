@@ -131,7 +131,7 @@ export const createParser = ({
     // Admission reads its language-specific word-classes (starters, prepositions,
     // role words, function words, auxiliaries) from the same conventions ledger the
     // splitter and relation parser use — seed ∪ what this document taught.
-    const admission   = createEntityAdmission({ conventions, commonNouns });
+    const admission   = createEntityAdmission({ conventions, commonNouns, text });
 
     // Transcript detection — the handler is injected, not imported.
     if (transcriptHandler && transcriptHandler.detect && transcriptHandler.detect(text)) {
