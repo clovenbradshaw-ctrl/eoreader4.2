@@ -1591,13 +1591,67 @@ table{border-collapse:collapse;width:100%}
                 <sc-if value="{{ viewer.media.mediaMissing }}">
                   <div style="flex:0 0 auto;padding:9px 24px;background:#FBF4E6;border-bottom:1px solid #F0E6CF;font-size:12px;color:#8A6D2F">The original audio isn’t stored for this source — re-import the file to play or redact it. The transcript below is still editable.</div>
                 </sc-if>
-                <div style="flex:0 0 auto;display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 24px;border-bottom:1px solid #EAEAEF;background:#FBFBFD">
-                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA4">Redact</span>
-                  <button onClick="{{ redactSilence }}" title="Replace the selected span with silence" style="font-size:10.5px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">silence</button>
-                  <button onClick="{{ redactBeep }}" title="Replace the selected span with a soft beep" style="font-size:10.5px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">beep</button>
-                  <button onClick="{{ undoAudioEvent }}" title="Undo the last edit or redaction" style="font-size:10.5px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">Undo</button>
+                <!-- LISTEN CONTROLS — one compact row, so the words stay the hero. The reading LAYER
+                     (grey→black + figures / confidence / speaker / plain) stays inline; the diarized
+                     VOICES roster and the REDACT actions — each a full row that used to push the
+                     transcript down (Voices wrapped to two with many speakers) — fold into popovers,
+                     beside the FORMAT toggle, the detected CHAPTERS, and the transcript export. -->
+                <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid #F0F0F4;background:#FBFBFD">
+                  <div style="display:inline-flex;align-items:center;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
+                    <sc-for list="{{ viewer.listen.layerTabs }}" as="lt">
+                      <button onClick="{{ lt.pick }}" title="{{ lt.title }}" style="font-size:11px;font-weight:600;color:{{ lt.fg }};background:{{ lt.bg }};border:none;border-radius:6px;padding:4px 10px;cursor:pointer;transition:background .12s">{{ lt.label }}</button>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ viewer.listen.hasReferents }}">
+                    <span title="named figures the words point at — click one for its layers" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8A80C8">· {{ viewer.listen.referentCount }} figures</span>
+                  </sc-if>
                   <span style="flex:1"></span>
-                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">{{ viewer.listen.editCount }} edits · {{ viewer.listen.redactionCount }} redactions</span>
+                  <sc-if value="{{ viewer.listen.hasSpeakers }}">
+                    <div style="position:relative">
+                      <button onClick="{{ toggleListenVoices }}" title="The diarized speakers — pitch, turns, time" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:{{ viewer.listen.voicesBg }};border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">🎙 {{ viewer.listen.voicesLabel }}</button>
+                      <sc-if value="{{ viewer.listen.voicesOpen }}">
+                        <div class="eo-scroll" style="position:absolute;right:0;top:calc(100% + 6px);z-index:35;background:#fff;border:1px solid #EAEAEF;border-radius:11px;box-shadow:0 14px 40px rgba(20,20,30,.16);padding:8px;width:288px;max-height:340px;overflow-y:auto;animation:eoFade .14s ease">
+                          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;padding:2px 6px 6px">VOICES · diarized speakers</div>
+                          <sc-for list="{{ viewer.listen.speakers }}" as="sp">
+                            <div title="{{ sp.detail }}" style="display:flex;align-items:baseline;gap:8px;padding:5px 7px;border-radius:7px" style-hover="background:#F4F3FF">
+                              <span style="font-size:12px;font-weight:600;color:#5B4BE6;flex:0 0 auto">{{ sp.label }}</span>
+                              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A80C8;flex:0 0 auto">{{ sp.pitch }}</span>
+                              <span style="flex:1;min-width:0;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B0AEBE;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ sp.turnsLabel }}</span>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                  <div style="position:relative">
+                    <button onClick="{{ toggleListenRedact }}" title="Silence or beep a selected span, undo, and download the redacted audio" style="font-size:10.5px;font-weight:600;color:#6E6E78;background:{{ viewer.listen.redactBg }};border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">✂ Redact</button>
+                    <sc-if value="{{ viewer.listen.redactOpen }}">
+                      <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:35;background:#fff;border:1px solid #EAEAEF;border-radius:11px;box-shadow:0 14px 40px rgba(20,20,30,.16);padding:9px;width:252px;animation:eoFade .14s ease">
+                        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;padding:2px 4px 7px">REDACT — select a span first</div>
+                        <div style="display:flex;gap:6px;margin-bottom:8px">
+                          <button onClick="{{ redactSilence }}" title="Replace the selected span with silence" style="flex:1;font-size:11px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:5px 0" style-hover="background:#EAEAEF">silence</button>
+                          <button onClick="{{ redactBeep }}" title="Replace the selected span with a soft beep" style="flex:1;font-size:11px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:5px 0" style-hover="background:#EAEAEF">beep</button>
+                          <button onClick="{{ undoAudioEvent }}" title="Undo the last edit or redaction" style="flex:1;font-size:11px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:5px 0" style-hover="background:#EAEAEF">undo</button>
+                        </div>
+                        <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4;padding:0 4px 9px">{{ viewer.listen.editCount }} edits · {{ viewer.listen.redactionCount }} redactions</div>
+                        <button onClick="{{ exportRedactedWav }}" title="Download the (redacted) audio as WAV" style="display:block;width:100%;text-align:center;font-size:11.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:7px;padding:6px 10px" style-hover="background:#E7E2FD">↓ redacted .wav</button>
+                      </div>
+                    </sc-if>
+                  </div>
+                  <button onClick="{{ toggleListenFormat }}" title="{{ viewer.listen.formatTitle }}" style="font-size:10.5px;font-weight:600;color:{{ viewer.listen.formatFg }};background:{{ viewer.listen.formatBg }};border:1px solid {{ viewer.listen.formatBd }};border-radius:6px;padding:4px 9px">{{ viewer.listen.formatLabel }}</button>
+                  <sc-if value="{{ viewer.listen.hasChapters }}">
+                    <div style="position:relative">
+                      <button onClick="{{ toggleListenToc }}" title="Jump to a detected chapter" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">☰ {{ viewer.listen.chapterLabel }}</button>
+                      <sc-if value="{{ viewer.listen.tocOpen }}">
+                        <div class="eo-scroll" style="position:absolute;right:0;top:calc(100% + 6px);z-index:35;background:#fff;border:1px solid #EAEAEF;border-radius:11px;box-shadow:0 14px 40px rgba(20,20,30,.16);padding:6px;width:320px;max-height:360px;overflow-y:auto;animation:eoFade .14s ease">
+                          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;padding:6px 8px 4px">CHAPTERS · detected by topic shift</div>
+                          <sc-for list="{{ viewer.listen.chapterRows }}" as="c">
+                            <button onClick="{{ c.seek }}" style="display:flex;width:100%;gap:9px;align-items:baseline;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;flex:0 0 auto">{{ c.mmss }}</span><span style="flex:1;min-width:0">{{ c.label }}</span></button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
                   <sc-if value="{{ viewer.listen.hasExport }}">
                     <div style="position:relative">
                       <button onClick="{{ toggleTranscriptMenu }}" title="Download the transcript — subtitles (SRT/VTT), JSON, or the elegant by-speaker read" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ transcript</button>
@@ -1609,44 +1663,6 @@ table{border-collapse:collapse;width:100%}
                               {{ f.label }}
                               <div style="font-size:10.5px;font-weight:500;color:#8A8A95;margin-top:1px">{{ f.desc }}</div>
                             </button>
-                          </sc-for>
-                        </div>
-                      </sc-if>
-                    </div>
-                  </sc-if>
-                  <button onClick="{{ exportRedactedWav }}" title="Download the (redacted) audio as WAV" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ .wav</button>
-                </div>
-                <sc-if value="{{ viewer.listen.hasSpeakers }}">
-                  <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 24px;border-bottom:1px solid #F0F0F4;background:#FBFAFF">
-                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA4">Voices</span>
-                    <sc-for list="{{ viewer.listen.speakers }}" as="sp">
-                      <span title="{{ sp.detail }}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:20px;padding:3px 10px">{{ sp.label }} <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:500;color:#8A80C8">{{ sp.pitch }}</span></span>
-                    </sc-for>
-                  </div>
-                </sc-if>
-                <!-- LAYERED READING toolbar — the layer over the words (reading grey→black + figures,
-                     confidence heat, speaker colour, plain), the FORMAT toggle (prose ↔ raw stream), and
-                     the detected CHAPTERS contents. -->
-                <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid #F0F0F4;background:#FBFBFD">
-                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA4">Layers</span>
-                  <div style="display:inline-flex;align-items:center;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
-                    <sc-for list="{{ viewer.listen.layerTabs }}" as="lt">
-                      <button onClick="{{ lt.pick }}" title="{{ lt.title }}" style="font-size:11px;font-weight:600;color:{{ lt.fg }};background:{{ lt.bg }};border:none;border-radius:6px;padding:4px 10px;cursor:pointer;transition:background .12s">{{ lt.label }}</button>
-                    </sc-for>
-                  </div>
-                  <sc-if value="{{ viewer.listen.hasReferents }}">
-                    <span title="named figures the words point at — click one for its layers" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8A80C8">· {{ viewer.listen.referentCount }} figures</span>
-                  </sc-if>
-                  <span style="flex:1"></span>
-                  <button onClick="{{ toggleListenFormat }}" title="{{ viewer.listen.formatTitle }}" style="font-size:10.5px;font-weight:600;color:{{ viewer.listen.formatFg }};background:{{ viewer.listen.formatBg }};border:1px solid {{ viewer.listen.formatBd }};border-radius:6px;padding:4px 9px">{{ viewer.listen.formatLabel }}</button>
-                  <sc-if value="{{ viewer.listen.hasChapters }}">
-                    <div style="position:relative">
-                      <button onClick="{{ toggleListenToc }}" title="Jump to a detected chapter" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">☰ {{ viewer.listen.chapterLabel }}</button>
-                      <sc-if value="{{ viewer.listen.tocOpen }}">
-                        <div class="eo-scroll" style="position:absolute;right:0;top:calc(100% + 6px);z-index:35;background:#fff;border:1px solid #EAEAEF;border-radius:11px;box-shadow:0 14px 40px rgba(20,20,30,.16);padding:6px;width:320px;max-height:360px;overflow-y:auto;animation:eoFade .14s ease">
-                          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;padding:6px 8px 4px">CHAPTERS · detected by topic shift</div>
-                          <sc-for list="{{ viewer.listen.chapterRows }}" as="c">
-                            <button onClick="{{ c.seek }}" style="display:flex;width:100%;gap:9px;align-items:baseline;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;flex:0 0 auto">{{ c.mmss }}</span><span style="flex:1;min-width:0">{{ c.label }}</span></button>
                           </sc-for>
                         </div>
                       </sc-if>
@@ -2638,7 +2654,7 @@ class Component extends DCLogic {
       // ({ sn, i }) is the clicked word whose stacked layers the right panel shows; `listenTocOpen`
       // drops the chapter contents.
       listenFormat: this._pref('eo_listenformat', true), listenLayer: this._prefStr('eo_listenlayer', 'reading'),
-      listenInspect: null, listenTocOpen: false,
+      listenInspect: null, listenTocOpen: false, listenVoicesOpen: false, listenRedactOpen: false,
       // The media panel folds to a slim, still-scrubbable waveform strip once the reader scrolls into
       // the transcript (a scroll listener flips this when it crosses the threshold), so the words get
       // the height back. Only in Listen mode; resets on tab/source/mode change.
@@ -3429,7 +3445,7 @@ class Component extends DCLogic {
     // canvas and redraws clean (the ref only re-fires on a new element).
     if (this.state.tab === 'graph' && tab !== 'graph' && this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; this._tgEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
-    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, ...(this._mob() ? { leftOpen: false } : {}) };
+    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
     // The Graph tab now hosts the real graph — the entity web / causal DAG of everything in
     // focus. Initialise it lazily the first time we land here (whole-topic entity web).
     if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
@@ -3507,7 +3523,7 @@ class Component extends DCLogic {
     // surface is already mounted; otherwise the transcript ref consumes the pending target on render.
     const tabs = this.state.viewerTabs.includes(sn) ? this.state.viewerTabs : [...this.state.viewerTabs, sn];
     this._readerFrame = null; this._nativeFrame = null; this._viewCache = null;
-    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: { ...this.state.viewerModes, [sn]: 'listen' }, tocOpen: false, listenMediaMin: false });
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: { ...this.state.viewerModes, [sn]: 'listen' }, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false });
     this._consumeListenSeek();
   }
 
@@ -3774,7 +3790,11 @@ class Component extends DCLogic {
   // way you left it, and rebuild the transcript (the sig folds in layer/format).
   setListenLayer(l) { this._setPrefStr('eo_listenlayer', l); this.setState({ listenLayer: l }); }
   toggleListenFormat() { const v = !(this.state.listenFormat !== false); this._setPref('eo_listenformat', v); this.setState({ listenFormat: v }); }
-  toggleListenToc() { this.setState({ listenTocOpen: !this.state.listenTocOpen }); }
+  // The Listen-controls popovers (chapters, voices roster, redact actions, transcript export) are
+  // mutually exclusive — opening one closes the others, so a single compact row never stacks overlays.
+  toggleListenToc() { const v = !this.state.listenTocOpen; this.setState({ listenTocOpen: v, listenVoicesOpen: false, listenRedactOpen: false, transcriptMenuOpen: false }); }
+  toggleListenVoices() { const v = !this.state.listenVoicesOpen; this.setState({ listenVoicesOpen: v, listenTocOpen: false, listenRedactOpen: false, transcriptMenuOpen: false }); }
+  toggleListenRedact() { const v = !this.state.listenRedactOpen; this.setState({ listenRedactOpen: v, listenTocOpen: false, listenVoicesOpen: false, transcriptMenuOpen: false }); }
 
   _paintSelection() {
     const el = this._listenTx;
@@ -3938,6 +3958,7 @@ class Component extends DCLogic {
     const speakerVM = speakers.map((sp) => ({
       label: sp.label || `Speaker ${(sp.id || 0) + 1}`,
       pitch: sp.f0 != null ? `${Math.round(sp.f0)} Hz` : '—',
+      turnsLabel: `${sp.utterances || 0} turn${sp.utterances === 1 ? '' : 's'} · ${sp.seconds || 0}s`,
       detail: `${sp.label}: ~${sp.f0 != null ? Math.round(sp.f0) + ' Hz pitch' : 'pitch n/a'}${sp.f1 != null ? `, F1 ${sp.f1}Hz` : ''}${sp.f2 != null ? `, F2 ${sp.f2}Hz` : ''} · ${sp.utterances || 0} turn${sp.utterances === 1 ? '' : 's'} · ${sp.seconds || 0}s`,
     }));
 
@@ -3969,6 +3990,9 @@ class Component extends DCLogic {
       editCount: edits, redactionCount: reds,
       hasExport, exportOptions,
       hasSpeakers: speakerVM.length > 1, speakers: speakerVM,
+      voicesLabel: `${speakerVM.length} voices`,
+      voicesOpen: !!this.state.listenVoicesOpen, voicesBg: this.state.listenVoicesOpen ? '#E7E2FD' : '#F1EFFE',
+      redactOpen: !!this.state.listenRedactOpen, redactBg: this.state.listenRedactOpen ? '#EAEAEF' : '#F2F2F6',
       // layered reading toolbar
       layerTabs, layer,
       formatOn: fmtOn, formatLabel: fmtOn ? 'Formatted' : 'Raw',
@@ -4175,7 +4199,7 @@ class Component extends DCLogic {
     const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = src.kind === 'audio' ? 'listen' : (src.url ? 'native' : 'reader');
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
     // Open the source AS A TAB in the main stage and make it the active tab.
-    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, nativeToc: [], listenMediaMin: false, ...(this._mob() ? { leftOpen: false } : {}) });
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) });
     if (modes[sn] === 'native') this.loadPage(sn);
   }
   closeTab(sn, e) {
@@ -4193,7 +4217,7 @@ class Component extends DCLogic {
   setSourceMode(mode) {
     const sn = this._activeSrc(); if (!sn) return;
     this._readerFrame = null; this._nativeFrame = null;
-    this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false });
+    this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false });
     if (mode === 'native') this.loadPage(sn);
   }
   // The native render — fetch the real page's HTML through the app's proxy, sanitize it, hand it to
@@ -4403,7 +4427,7 @@ class Component extends DCLogic {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
   toggleExportMenu() { this.setState({ exportMenuOpen: !this.state.exportMenuOpen }); }
-  toggleTranscriptMenu() { this.setState({ transcriptMenuOpen: !this.state.transcriptMenuOpen }); }
+  toggleTranscriptMenu() { const v = !this.state.transcriptMenuOpen; this.setState({ transcriptMenuOpen: v, listenTocOpen: false, listenVoicesOpen: false, listenRedactOpen: false }); }
   // Download the active audio source's transcript in one of the export formats (subtitles, JSON,
   // the elegant by-speaker read, the process trace) — built by the engine (transcript-export.js).
   exportTranscriptAs(id) {
@@ -6995,6 +7019,7 @@ class Component extends DCLogic {
       transcriptMenuOpen: st.transcriptMenuOpen, toggleTranscriptMenu: () => this.toggleTranscriptMenu(),
       // the layered-reading toolbar actions (the layer chips + chapter rows carry their own closures)
       toggleListenFormat: () => this.toggleListenFormat(), toggleListenToc: () => this.toggleListenToc(),
+      toggleListenVoices: () => this.toggleListenVoices(), toggleListenRedact: () => this.toggleListenRedact(),
       // reader body + controls
       readerDoc, setReaderFrame: (el) => this.setReaderFrame(el),
       readerToc, hasToc: readerToc.length > 1, tocOpen: !!st.tocOpen, toggleToc: () => this.toggleToc(),
