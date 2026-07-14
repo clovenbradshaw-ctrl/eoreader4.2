@@ -2513,11 +2513,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     t.messages.push(pending);
     emit('messages');
 
-    // The web reach for THIS turn. A caller may pin it (the `web` option); otherwise the persisted
-    // global stands. The Ask surface pins `'off'` — it is record-only by contract ("every answer is
-    // measured against your record") and carries no web control (the web-mode chip lives on Chat), so
-    // an Ask turn never reaches the net. This is a per-turn surface pin, not a settings change: the
-    // stored webMode() (and the Chat toggle) are untouched, and every other caller keeps the global.
+    // The web reach for THIS turn. A caller may pin it (the `web` option — e.g. a test that must
+    // stay offline, or an internal call that must not touch the net); otherwise the persisted global
+    // stands. BOTH the Ask and Chat surfaces now honor that global (default `auto`): Ask is
+    // record-FIRST, not record-only — it grounds in the record, and a measured gap reaches the web
+    // (docs/web-search.md), the fetched pages joining the record. A deliberate global `off` keeps
+    // both surfaces record-only, so the privacy opt-out holds. The `web` override is a per-turn pin,
+    // not a settings change: the stored webMode() is untouched.
     const mode = web || webMode();
 
     // ── THE FRONT DOOR — the phatic short-circuit is DETERMINISTIC (docs/response-demand.md) ──────
@@ -2901,8 +2903,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // The "Search the web" button belongs to confirm mode only: auto already fetched (and
     // suppresses via webFetched), and off means the user opted out of reaching the net — so
     // a proposal is offered as a button only when the user asked to be the one to approve it.
-    // Keyed on THIS turn's effective mode (passed in), not the global — so a record-only Ask turn
-    // (mode pinned 'off') never surfaces the button even when the global Chat mode is 'confirm'.
+    // Keyed on THIS turn's effective mode (passed in), not the global — so a turn a caller pinned
+    // record-only (the `web: 'off'` override, e.g. an offline test) never surfaces the button even
+    // when the global mode is 'confirm'.
     msg.webProposal = (result.webProposal && !result.webFetched && mode === 'confirm')
       ? { query: result.webProposal.query, rationale: result.webProposal.rationale || '' } : null;
     msg.bound = (result.bound || []).map((b) => ({ claim: b.claim, citation: b.citation || null, cited: b.cited || b.text || null }));

@@ -3135,19 +3135,20 @@ class Component extends DCLogic {
     // bubble is created — no double-pending, no local decode-gate overlap. stop() rejects the
     // turn's guard.race synchronously, so a single yield is enough. On an idle composer this is the
     // plain ask() path, byte-identical.
-    // The Ask tab is RECORD-ONLY — it answers only from what you have ingested, names where it
-    // looked, and says so when the record is silent. It carries no web control (the web-mode chip
-    // lives on Chat), so an Ask turn is pinned to 'off' and never reaches the net. Chat keeps the
-    // global web mode and its toggle. Captured at send time so switching tabs mid-turn can't change
-    // what this turn was allowed to do.
+    // The Ask tab is RECORD-FIRST — it grounds every answer in what you have ingested and names
+    // where it looked. But a measured gap is a question addressed to the world (docs/web-search.md):
+    // when no passage on record answers, the turn reaches the web, fetches, and returns an answer
+    // grounded in the pages it found (which join the record). So Ask honors the GLOBAL web mode
+    // (default auto) — the same reach Chat has — instead of pinning 'off'. The web-mode chip still
+    // lives on Chat, and a deliberate global 'off' keeps BOTH surfaces record-only, so the privacy
+    // opt-out is respected. Captured by webMode() at send time inside ask().
     const onAsk = this.state.tab === 'ask';
-    const opts = onAsk ? { web: 'off' } : {};
     // ONE GROUNDED QUESTION PER TOPIC. On the Ask surface each question is its own grounded turn
     // on its own topic (app.askQuestion opens a child topic under the current one, inheriting its
     // sources, when the current topic already holds a question) — the system answers a single
     // grounded question or abstains, and never accretes the back-and-forth thread it does worst.
     // Chat stays the explicit thread mode: it keeps the plain ask() so its conversation still builds.
-    const fire = () => { (onAsk ? this._app.askQuestion(q, opts) : this._app.ask(q, opts)).catch(() => {}); };
+    const fire = () => { (onAsk ? this._app.askQuestion(q) : this._app.ask(q)).catch(() => {}); };
     if (this._generating()) {
       this._app.stop();
       setTimeout(fire, 0);
