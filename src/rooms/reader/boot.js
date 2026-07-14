@@ -29,6 +29,12 @@
 //   vault       OPTIONAL encrypted, hash-chained media store (rooms/archive/vault) —
 //               encrypts each item, uploads only ciphertext to the homeserver media
 //               repo, records a tamper-evident block in an OPFS chain (docs/media-vault.md)
+//   db          the durable substrate + database engine (src/store) — "rooms are
+//               tables, events are rows, fold is the query". A passphrase vault seals
+//               each room's append-only event log as encrypted OPFS bytes (NOT
+//               IndexedDB); locked it is inert, unlocked it rehydrates + persists.
+//               db.rows/buildTable/query/formula give the spreadsheet-database view
+//               (docs/database-framework.md)
 //   spaces      OPTIONAL SHARED vault + collaborative workspaces (rooms/archive/room-vault)
 //               — a workspace becomes an invitable Matrix room; everything saved into it
 //               is encrypted, stored as binary ciphertext in the media repo, and recorded
@@ -65,6 +71,7 @@ import { createVault } from '../archive/vault.js';
 import { createRoomVault } from '../archive/room-vault.js';
 import { createSpaceSync } from '../archive/space-sync.js';
 import { mountVaultLauncher } from '../archive/vault-mount.js';
+import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
 import { mountPlainSurface } from '../plain/surface.js';
@@ -133,6 +140,16 @@ const chat = {
 // a tamper-evident block (content address + mxc + key) in an OPFS-persisted chain.
 // Signed-out it is inert; `save`/`open`/`verify` lazily start it. See docs/media-vault.md.
 const vault = createVault({ matrix });
+
+// The durable substrate + database engine (src/store). A passphrase vault seals
+// each room's append-only event log as encrypted OPFS bytes — "rooms are tables,
+// events are rows, fold is the query". Constructing it is inert (no key, no OPFS
+// touch); `db.unlock(user, passphrase)` arms it, then `db.openLog(roomId)` hands
+// back a durable log whose appends persist encrypted and whose reopen rehydrates
+// + folds identically, while `db.rows/buildTable/query/formula` give the
+// spreadsheet-database view over any room. This is the membrane the surface
+// adopts to make readings survive the tab and to query the corpus as tables.
+const db = createDatabase();
 
 // The SHARED vault + collaborative workspaces (rooms/archive/room-vault). Where `vault`
 // above is one person's private ledger, `spaces` makes a workspace a real Matrix ROOM:
@@ -302,6 +319,7 @@ window.EO = Object.freeze({
   matrix,
   chat,
   vault,
+  db,             // the durable substrate — encrypted, append-only, OPFS-backed rooms (src/store)
   spaces,   // shared, room-encrypted, hash-chained vault + invitable workspaces (docs/shared-vault.md)
   archive,
   genome,

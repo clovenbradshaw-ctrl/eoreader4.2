@@ -35,6 +35,10 @@ src/
     enact/  ground/  factcheck/  answer/
   model/         the leaf — backends (webllm, wllama, claude API, qwen-coders,
                  lmstudio/ollama local servers, echo), prompt, stream
+  store/         the durable substrate + database engine — vault · pack · backends ·
+                 event-store · persistent-log (a room's append-only log sealed as
+                 encrypted OPFS bytes, rehydrated on reopen) + types · rows · table ·
+                 query · formula (the spreadsheet-database view) (docs/database-framework.md)
   turn/          the fold of 18 stages (see src/turn/stage-faces.js)
     converse/      the conversation fold + dialogue state
   weave/         generation — long form, multi-prompt, over a moving fold
@@ -105,6 +109,7 @@ opens empty and fills as you record.
 | encrypted media vault (optional) | `rooms/archive/vault` — save content encrypted (Web Crypto), store only ciphertext in the Matrix media repo, record each save in a tamper-evident **hash-linked block chain** on **OPFS**; `window.EO.vault` + a floating 🗄 panel (see [`docs/media-vault.md`](docs/media-vault.md)) |
 | shared workspaces + shared vault (optional) | `rooms/archive/room-vault` — a **workspace is an invitable Matrix room**; everything saved into it is stored as an **encrypted, hash-linked blockchain, in binary, in Matrix**, decryptable by **only the room's members** (the block's key rides a Megolm room event). The room timeline is the ledger's ordering, so every member's chain **converges**; room messages carry the updates, `sendSignal` the nudges. `window.EO.spaces` (see [`docs/shared-vault.md`](docs/shared-vault.md)) |
 | sync to Matrix (optional) | `rooms/archive/space-sync` — one per-workspace **opt-in** (default OFF) that mirrors a workspace's sources into its room's encrypted blockchain, opening the room first if needed; content-addressed + debounced so an unchanged source is never re-uploaded. `window.EO.spaces.setSync` / `.sync` |
+| durable substrate — the database (optional) | `store/` — a passphrase vault seals each **room** (table) as an encrypted, append-only **OPFS** byte file of the same nine-operator events the reader already emits; reopen rehydrates and folds identically. Over that, a spreadsheet-database engine (types · rows · table · query · formula) turns any room's fold into columns/rows with filter/sort/group/aggregate, foreign-key links, and Airtable-style formulas + rollups. `window.EO.db` — `db.unlock(user, pass)`, then `db.openLog(roomId)` / `db.query(roomId, …)` / `db.buildTable(roomId)`. "Rooms are tables, events are rows, `fold` is the query" (see [`docs/database-framework.md`](docs/database-framework.md)) |
 
 ## The plain version — the algebra, worn as three questions
 
