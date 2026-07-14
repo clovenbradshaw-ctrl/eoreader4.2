@@ -38,10 +38,11 @@ table{border-collapse:collapse;width:100%}
 @keyframes eoBlink{0%,100%{opacity:1}50%{opacity:.2}}
 @keyframes eoSpin{to{transform:rotate(360deg)}}
 /* ── MURMUR — the peripheral sense, rendered in NATIVE EOT (src/murmur/narrate/voice.js) ──
-   Each voiced thought is one event: `glyph OP site(s) · res` on the left, the prose mutter on the
-   right. The operator palette is the cube's Act-face grains (core/operators.js) so a strip event
-   and a graph edge draw the same mark. Built imperatively (setMurmurStrip) — the fade-out→swap→
-   fade-in lifecycle is the surface's, not React's per-poke reconcile. */
+   Each voiced thought is one event: `glyph OP site(s) · res` — the raw tuple, never prose; this is
+   the inner monologue's own notation, not a sentence about it. The operator palette is the cube's
+   Act-face grains (core/operators.js) so a strip event and a graph edge draw the same mark. Built
+   imperatively (setMurmurStrip) — the fade-out→swap→fade-in lifecycle is the surface's, not React's
+   per-poke reconcile. */
 .eo-murmur{
   --mm-nul:#7a808c;--mm-sig:#b45309;--mm-ins:#0891b2;--mm-seg:#7c3aed;--mm-con:#059669;
   --mm-syn:#db2777;--mm-def:#1b1b22;--mm-eva:#a16207;--mm-rec:#4338ca;--mm-accent:var(--mm-seg);
@@ -55,8 +56,8 @@ table{border-collapse:collapse;width:100%}
 .eo-murmur[data-op="DEF"]{--mm-accent:var(--mm-def)}.eo-murmur[data-op="EVA"]{--mm-accent:var(--mm-eva)}
 .eo-murmur[data-op="REC"]{--mm-accent:var(--mm-rec)}
 .eo-mm-mark{flex:0 0 auto;align-self:center;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.16em;color:#B7B2C6;text-transform:uppercase}
-.eo-mm-row{flex:1;min-width:0;overflow:hidden;display:grid;grid-template-columns:minmax(248px,auto) 1fr;align-items:baseline;column-gap:18px}
-.eo-mm-tuple{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;white-space:nowrap;display:inline-flex;align-items:baseline;gap:8px;line-height:26px;opacity:1;transition:opacity .3s ease}
+.eo-mm-row{flex:1;min-width:0;overflow:hidden;display:flex;align-items:baseline}
+.eo-mm-tuple{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;white-space:nowrap;display:inline-flex;align-items:baseline;gap:8px;line-height:26px;opacity:1;transition:opacity .15s ease}
 .eo-mm-tuple.eo-mm-fading{opacity:.32}
 .eo-mm-glyph{font-size:15px;line-height:1;transform:translateY(1px);color:var(--mm-accent);transition:color .7s ease,text-shadow .7s ease}
 .eo-mm-op{display:inline-block;min-width:32px;font-weight:600;font-size:11px;letter-spacing:.16em;font-variant-numeric:tabular-nums;color:var(--mm-accent);transition:color .7s ease}
@@ -66,23 +67,18 @@ table{border-collapse:collapse;width:100%}
 .eo-mm-res{color:#8A8A95;font-weight:400;padding-left:10px;border-left:1px solid #E6E4EE}
 .eo-mm-band-void{color:#9aa0ad}.eo-mm-band-firm{color:#3A3A44;font-weight:500}.eo-mm-p{font-variant-numeric:tabular-nums}
 .eo-murmur[data-op="INS"] .eo-mm-glyph,.eo-murmur[data-op="CON"] .eo-mm-glyph{text-shadow:0 0 8px color-mix(in oklab,var(--mm-accent) 32%,transparent)}
-.eo-mm-stage{position:relative;min-width:0;overflow:hidden}
-.eo-mm-phrase{font-family:'Newsreader',Georgia,serif;font-style:italic;font-weight:400;font-size:16.5px;line-height:26px;color:#2a2d36;letter-spacing:.004em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:1;transform:translateY(0);filter:none;transition:opacity .48s ease,transform .52s cubic-bezier(.4,.05,.4,1),filter .48s ease;will-change:opacity,transform,filter}
-.eo-mm-phrase.eo-mm-fading{opacity:0;transform:translateY(-6px);filter:blur(1.5px)}
 .eo-mm-x{flex:0 0 auto;align-self:center;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#B4B4BE;transition:background .12s,color .12s}
 .eo-mm-x:hover{background:#F0EDF9;color:var(--mm-accent)}
 @media (prefers-reduced-motion:reduce){
-  .eo-mm-phrase,.eo-mm-tuple{transition:opacity .2s linear!important;filter:none!important;transform:none!important}
+  .eo-mm-tuple{transition:opacity .2s linear!important;filter:none!important;transform:none!important}
   .eo-murmur::before{transition:none}
 }
 @media (max-width:720px){
   /* stays ONE line — a COMPACT tuple (glyph + OP keep the EOT identity; the sites/res detail folds
-     away so the prose and the × always fit), the prose takes the rest and ellipsizes */
-  .eo-mm-row{grid-template-columns:auto minmax(0,1fr);column-gap:10px}
+     away so the × always fits) */
   .eo-mm-mark{display:none}
   .eo-mm-site,.eo-mm-res{display:none}
   .eo-mm-tuple{font-size:11px;gap:6px}
-  .eo-mm-phrase{font-size:14.5px}
 }
 /* Interactive transcript (Listen surface) — a word is a clickable, editable, redactable holon. */
 .eo-w{border-radius:3px;padding:0 1px;cursor:pointer;transition:background .12s,color .12s}
@@ -617,8 +613,8 @@ table{border-collapse:collapse;width:100%}
 
       <!-- REAL-TIME MURMUR STRIP — the peripheral sense (src/murmur), rendered in NATIVE EOT. Each
            voiced thought is one event: `glyph OP site(s) · res` (src/murmur/narrate/voice.js attaches
-           the tuple; the strip only paints it) beside the prose mutter it re-voices. No gauges, no
-           register %, nothing fabricated — the tuple and the prose are two renderings of the SAME real
+           the tuple; the strip only paints it) — the raw tuple alone, no prose gloss beside it. No
+           gauges, no register %, nothing fabricated — the tuple is a rendering of the SAME real
            impression the reader grounded (§9.4: a voicing, never a fact). Built imperatively
            (setMurmurStrip) so the fade-out→swap→fade-in lifecycle is the surface's own; hide from Settings. -->
       <sc-if value="{{ murmurOn }}">
@@ -5923,12 +5919,10 @@ class Component extends DCLogic {
       el.__eoMmBuilt = true;
       el.innerHTML =
         '<span class="eo-mm-mark">MURMUR</span>' +
-        '<div class="eo-mm-row"><div class="eo-mm-tuple"></div>' +
-        '<div class="eo-mm-stage"><div class="eo-mm-phrase"></div></div></div>' +
+        '<div class="eo-mm-row"><div class="eo-mm-tuple"></div></div>' +
         '<button class="eo-mm-x" title="Hide the murmur strip — turn it back on in Settings" aria-label="Hide the murmur strip">' +
         '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
       el.__eoMmTuple = el.querySelector('.eo-mm-tuple');
-      el.__eoMmPhrase = el.querySelector('.eo-mm-phrase');
       const x = el.querySelector('.eo-mm-x');
       if (x) x.addEventListener('click', () => this.toggleMurmur());
       el.__eoMmSig = null; el.__eoMmFade = null;
@@ -5941,8 +5935,8 @@ class Component extends DCLogic {
     this._mmShow(el, entry, firstEver);        // a fresh impression fades the one line over
   }
 
-  // Paint the one line: fade the tuple + prose out together, swap, fade back in — so an operator and
-  // its mutter always belong to one event. Instant on first paint and under prefers-reduced-motion.
+  // Paint the one line: fade the tuple out, swap, fade back in — the raw op(site·res) tuple, the
+  // inner monologue's own notation, never prose. Instant on first paint and under prefers-reduced-motion.
   // A pending fade is cancelled if a newer event arrives mid-swap.
   _mmShow(el, entry, instant) {
     if (!el || !entry || !el.__eoMmTuple) return;
@@ -5951,27 +5945,22 @@ class Component extends DCLogic {
       el.setAttribute('data-op', entry.op);
       el.__eoMmTuple.setAttribute('data-op', entry.op);
       el.__eoMmTuple.innerHTML = entry.tupleHtml;
-      el.__eoMmPhrase.textContent = entry.text;
-      el.__eoMmPhrase.style.color = entry.fg;
     };
     const reduce = this._rmq && this._rmq.matches;
     if (instant || reduce) {
       apply();
-      el.__eoMmPhrase.classList.remove('eo-mm-fading');
       el.__eoMmTuple.classList.remove('eo-mm-fading');
       return;
     }
-    el.__eoMmPhrase.classList.add('eo-mm-fading');
     el.__eoMmTuple.classList.add('eo-mm-fading');
     el.__eoMmFade = window.setTimeout(() => {
       el.__eoMmFade = null;
       if (!el.isConnected) return;
       apply();
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        el.__eoMmPhrase.classList.remove('eo-mm-fading');
         el.__eoMmTuple.classList.remove('eo-mm-fading');
       }));
-    }, 300);
+    }, 150);
   }
 
   _versionVals() {
