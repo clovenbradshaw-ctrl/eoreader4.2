@@ -94,6 +94,7 @@ opens empty and fills as you record.
 | Libraries launcher → per-shelf search surface | `organs/ingest/libraries.js` — four easy search libraries, each with the surface its kind of thing deserves: **Wikipedia** (articles), **Project Gutenberg** (whole books), **Wikimedia Commons** (a media grid), **GitHub** (repos, with **Ingest code** → the code organ). One descriptor registry the surface reads to render each hit as a card shaped for the thing (`docs/library-search.md`) |
 | chat exchange | `turn/` pipeline (`runTurn`) — streamed, cited, fact-checked; model backends from `model/` (webllm · wllama · claude · lmstudio · ollama · echo), picked adaptively |
 | S-registry (sha, bytes, rights, fixity) | `organs/ingest/websource.js` records + the controller's registry |
+| source explorer → a Drive of folders | `rooms/reader/app.js` — the **Sources** tab is a file browser: a workspace owns a nested **folder** tree and every top-level source carries a `folderId` (`folderNew`/`folderMove`/`folderDelete`/`sourceMove`, `workspaceSources`). Folders are workspace-scoped so a whole library organises into one Drive navigated in the hero (breadcrumb + folder cards + a mobile-friendly move picker); grounding stays topic-scoped — folders are organisation only |
 | claim → passage pincites | the turn's `bound`/`citeOrigins`/`citeTexts` (from `enactor/ground`) |
 | provenance DAG nodes/edges | derived from real turns: topic → claims → passages → sources → files |
 | document viewer (click any source) | the recorded text, cited passages marked, entities clickable |
