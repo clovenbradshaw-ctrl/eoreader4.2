@@ -1,10 +1,10 @@
 // EO: INS·NUL·CON·SEG(Void,Network → Entity,Link, Making,Binding,Tending) — encrypted append-only event store
 //
-// The durable substrate, pulled from amino (INTEGRATION-EOREADER4 B1) and re-cut
-// for eoreader's native log. amino's thesis, verbatim: "rooms are tables, events
-// are rows, fold(events) is the query, and the store holds only ciphertext it
-// cannot read." A room's whole append-only event log lives as one encrypted byte
-// file; the fold (src/core/project.js projectGraph) is the query over it.
+// The durable substrate for eoreader's log. The organizing idea: rooms are
+// tables, events are rows, fold(events) is the query, and the store holds only
+// ciphertext it cannot read. A room's whole append-only event log lives as one
+// encrypted byte file; the fold (src/core/project.js projectGraph) is the query
+// over it.
 //
 // File format (v1), owned here — a backend (backends.js) only holds the bytes:
 //
@@ -22,7 +22,7 @@
 // The vault must be unlocked to persist. If it is locked (or absent) the store
 // still opens and still accepts appends into memory — it just does not write to
 // the backend, so the attached log keeps working on a device that has not
-// unlocked yet (amino's memory-only fallback).
+// unlocked yet (the memory-only fallback).
 
 import { packBatch, unpackAll, unpackSince, scanMeta } from './pack.js';
 import { vault as defaultVault } from './vault.js';

@@ -1,10 +1,8 @@
 // EO: DEF·CON·SEG(Lens → Field,Link, Binding,Dissecting) — stable-key envelope encryption
 //
-// The cryptographic core of the durable substrate's E2EE model, vendored from
-// amino's `src/crypto/envelope.js` (see amino/docs/ENCRYPTION-DESIGN.md and
-// amino/docs/INTEGRATION-EOREADER4.md B2 — "the easiest possible port": zero
-// Matrix/DOM dependency, pure Web Crypto). Kept byte-compatible with amino so a
-// blob sealed here is legible there and vice-versa.
+// The cryptographic core of the database's E2EE model — a stable-key envelope
+// scheme in pure Web Crypto, with zero DOM or transport dependency so a sealed
+// blob is portable across any backend the store writes to.
 //
 // It is deliberately free of any app or environment dependency (only
 // globalThis.crypto.subtle + btoa/atob, both present in Node ≥20 and every
@@ -157,7 +155,7 @@ async function deriveWrapKey(privateKey, publicKey) {
  * ECIES-wrap a Workspace Content Key for a recipient's identity public key.
  * Uses an ephemeral ECDH keypair so the wrap is one-shot and forward-secure
  * with respect to the sender. Returns { eph_pub, blob } (both base64) — the
- * grant a second reader needs to open a shared room (INTEGRATION-EOREADER4 B3).
+ * grant a second reader needs to open a shared room (the multi-reader path).
  */
 export async function wrapWorkspaceKey(recipientPublicKey, wckBytes) {
   const ephemeral = await subtle.generateKey(ECDH_PARAMS, true, ['deriveBits']);

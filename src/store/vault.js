@@ -1,7 +1,6 @@
 // EO: DEF·SEG·NUL(Lens → Field, Clearing,Dissecting) — local at-rest vault
 //
-// Adapted from amino's `src/vault.js` (INTEGRATION-EOREADER4 B2). Every byte the
-// durable substrate persists — OPFS event chunks, checkpoints — is AES-GCM
+// Every byte the database persists — OPFS event chunks, checkpoints — is AES-GCM
 // encrypted with a key derived from a passphrase via PBKDF2. The key lives only
 // in memory; the store on disk is opaque ciphertext.
 //
@@ -12,11 +11,10 @@
 //
 // lock() clears the key but keeps the data; wipe() drops the metadata too.
 //
-// Node-safety: amino's vault reached straight for localStorage/sessionStorage.
-// Here the small, non-secret metadata (salt + verifier ciphertext) goes through
-// a pluggable key/value store that defaults to localStorage in a browser and an
-// in-memory Map under Node/tests — so the exact same crypto path runs in the
-// test suite as in the tab. We deliberately do NOT use IndexedDB (the browser
+// Node-safety: the small, non-secret metadata (salt + verifier ciphertext) goes
+// through a pluggable key/value store that defaults to localStorage in a browser
+// and an in-memory Map under Node/tests — so the exact same crypto path runs in
+// the test suite as in the tab. We deliberately do NOT use IndexedDB (the browser
 // durable path is OPFS, in backends.js); the vault only parks a few tiny
 // non-secret metadata strings.
 

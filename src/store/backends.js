@@ -16,7 +16,7 @@
 //   · opfsBackend()    — the browser's Origin Private File System. This is the
 //                        durable browser path, chosen DELIBERATELY over IndexedDB:
 //                        OPFS is an append-friendly real file, no object-store
-//                        ceremony, and it is what amino's store uses too.
+//                        ceremony.
 //
 // Nothing here decrypts or parses — a backend never sees a key.
 

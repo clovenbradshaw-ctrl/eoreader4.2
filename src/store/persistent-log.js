@@ -1,7 +1,6 @@
 // EO: INS·CON·SIG(Void → Entity,Link, Making,Binding,Tending) — durable log
 //
-// The seam that makes eoreader's ephemeral log durable (INTEGRATION-EOREADER4
-// B1, "suggested first step 3": back createLog with amino's store + vault).
+// The seam that makes eoreader's ephemeral log durable.
 //
 // createLog (src/core/log.js) is in-memory: readings evaporate with the tab.
 // attachStore() binds an EventStore to a live log so that

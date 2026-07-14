@@ -1,8 +1,8 @@
-// The durable-substrate checkpoint — proves the database framework pulled from
-// amino (src/store/, per amino/docs/INTEGRATION-EOREADER4.md Part B) works end to
-// end in Node: passphrase vault → encrypted append-only store → rehydrated log
-// that folds byte-identically to the original. Runs the SAME encrypted code path
-// the browser runs; only the byte backend differs (in-memory here, OPFS in a tab).
+// The durable-substrate checkpoint — proves the database's persistence tier
+// (src/store/) works end to end in Node: passphrase vault → encrypted append-only
+// store → rehydrated log that folds byte-identically to the original. Runs the
+// SAME encrypted code path the browser runs; only the byte backend differs
+// (in-memory here, OPFS in a tab).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 

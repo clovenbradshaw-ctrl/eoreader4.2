@@ -1,7 +1,6 @@
 // EO: NUL·INS·CON(Void → Entity,Link, Making,Binding,Tending) — barrel
 //
-// store/ — the durable substrate, pulled from amino (see amino/docs/
-// INTEGRATION-EOREADER4.md Part B) and re-cut for eoreader's native log.
+// store/ — the durable substrate + database engine over eoreader's native log.
 //
 //   "Rooms are tables. Events are rows. fold(events) is the query. The store
 //    holds only ciphertext it cannot read."
@@ -13,6 +12,12 @@
 //   backends.js       byte sinks — in-memory (Node/fallback) + OPFS (browser)
 //   event-store.js    encrypted append-only store — one file per room/table
 //   persistent-log.js binds an EventStore to createLog (rehydrate + persist)
+//   types.js          value coercion + column-type inference
+//   rows.js           row model — fold entities / imported records → rows
+//   table.js          the grid engine — buildTable / listSets
+//   query.js          filter (26 typed ops) · sort · group · aggregate · FK
+//   formula.js        Airtable-dialect formulas + rollups
+//   database.js       createDatabase() — substrate + engine in one handle
 //
 // A browser durable table lives in OPFS, NOT IndexedDB; under Node/tests it lives
 // in memory. The same encrypted code path runs in both.
@@ -39,42 +44,22 @@ export { EventStore, openEventStore, roomFileName, checkpointFileName } from './
 
 export { attachStore, openPersistentLog } from './persistent-log.js';
 
-import { vault as _vault } from './vault.js';
-import { EventStore as _EventStore } from './event-store.js';
-import { openPersistentLog as _openPersistentLog } from './persistent-log.js';
+// ── the spreadsheet-database engine over a room's fold ──
+export {
+  isEmpty, toNum, toTime, strOf, ciEq, asArray, asList, nfold, inferType,
+  coerce, coerceValue, displayValue,
+} from './types.js';
 
-/**
- * The database front door: a small handle over a set of rooms (tables) that all
- * share one vault + namespace. This is what the surface membrane (window.EO.db)
- * hands out.
- *
- *   const db = createDatabase();
- *   await db.unlock('reader@local', passphrase);      // one vault for every table
- *   const { log } = await db.openLog('topic:dolphins'); // durable, encrypted log
- *   const table = await db.table('topic:dolphins');     // the raw EventStore
- */
-export function createDatabase({ vault = _vault, namespace } = {}) {
-  const tables = new Map();
+export { foldToRows, materializeRecords, resolveLinks, recordLabel, importRows, parseCSV, parseJsonRows } from './rows.js';
 
-  const table = async (roomId) => {
-    if (tables.has(roomId)) return tables.get(roomId);
-    const es = await new _EventStore({ roomId, vault, namespace }).open();
-    tables.set(roomId, es);
-    return es;
-  };
+export { buildTable, buildTableForSet, listSets } from './table.js';
 
-  return {
-    vault,
-    /** Unlock (or first-time initialize) the shared vault. Returns true on success. */
-    unlock: (userId, passphrase) => vault.open(userId, passphrase),
-    lock: () => vault.lock(),
-    isUnlocked: () => vault.isUnlocked(),
-    /** The raw EventStore for a room/table (cached per db handle). */
-    table,
-    /** A durable, rehydrated, auto-persisting log for a room/table. */
-    openLog: async (roomId, { docId } = {}) => {
-      const store = await table(roomId);
-      return _openPersistentLog({ roomId, docId, store, vault, namespace });
-    },
-  };
-}
+export {
+  OPERATORS, OP_ALIASES, resolveOp, compileFilter, sortRows, aggregate, query,
+  relatedRecords, linkedSetsFor, indexRows,
+} from './query.js';
+
+export { evaluate, evaluateRollup, FUNCTIONS, ROLLUP_FNS } from './formula.js';
+
+// The database front door — durable substrate + spreadsheet engine in one handle.
+export { createDatabase } from './database.js';

@@ -1,12 +1,11 @@
 // EO: SEG·DEF(Network → Field, Dissecting,Unraveling) — binary event codec
 //
-// Adapted from amino's `src/pack.js` to eoreader's NATIVE log event shape. Where
-// amino packs Matrix events ({type, content, origin_server_ts, sender, event_id}),
-// eoreader's append-only log (src/core/log.js) carries sealed events of the shape
-// { op, seq, t, eo?, ...fields } — the operator, a monotonic per-log sequence, a
-// timestamp, the sealed cube geometry, and arbitrary operator payload at the top
-// level. So the body here is the WHOLE event as UTF-8 JSON (lossless round-trip),
-// and the fixed header carries just enough to scan without decoding a body:
+// The compact wire format for eoreader's log events. The append-only log
+// (src/core/log.js) carries sealed events of the shape { op, seq, t, eo?,
+// ...fields } — the operator, a monotonic per-log sequence, a timestamp, the
+// sealed cube geometry, and arbitrary operator payload at the top level. So the
+// body here is the WHOLE event as UTF-8 JSON (lossless round-trip), and the fixed
+// header carries just enough to scan without decoding a body:
 //
 //   ┌───────────────────────────────────────┐
 //   │ op_code    : uint8   (1 byte)  │  HELIX index of event.op (0..8)
@@ -21,9 +20,9 @@
 // Total: 16 + body_len per event. Sequential scans read at memory bandwidth; a
 // header-only walk yields count / max-seq / max-t without touching any body.
 
-// The nine operators in dependency (helix) order — the same order amino's OP.order
-// and eoreader's HELIX (src/core/contract.js) fix. Index ⇄ op is stable, so the
-// on-disk op_code never depends on spelling.
+// The nine operators in dependency (helix) order — the order eoreader's HELIX
+// (src/core/contract.js) fixes. Index ⇄ op is stable, so the on-disk op_code
+// never depends on spelling.
 const ORDER = ['NUL', 'SIG', 'INS', 'SEG', 'CON', 'SYN', 'DEF', 'EVA', 'REC'];
 const OP_TO_ORDER = Object.freeze(Object.fromEntries(ORDER.map((op, i) => [op, i])));
 

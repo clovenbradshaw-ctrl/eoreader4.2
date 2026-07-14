@@ -1,7 +1,7 @@
-// EO contracts for the store holon — the durable substrate pulled from amino
-// (amino/docs/INTEGRATION-EOREADER4.md Part B). Each module spelled on all three
-// faces (Act / Site / Stance), the Site face split into targets (reads) and
-// products (writes). Validated by tests/contracts.test.js against the cube guard.
+// EO contracts for the store holon — the durable substrate + database engine over
+// eoreader's log. Each module spelled on all three faces (Act / Site / Stance),
+// the Site face split into targets (reads) and products (writes). Validated by
+// tests/contracts.test.js against the cube guard.
 import { contract } from '../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
@@ -12,4 +12,12 @@ export const CONTRACTS = Object.freeze({
   'src/store/backends.js': contract({ ops: ['NUL', 'INS', 'SEG'], targets: ['Void'], products: ['Entity', 'Field'], stances: ['Making', 'Clearing'], note: 'byte-sink backends — in-memory (Node/fallback) + OPFS (browser, not IndexedDB)' }),
   'src/store/event-store.js': contract({ ops: ['INS', 'NUL', 'CON', 'SEG'], targets: ['Void', 'Network'], products: ['Entity', 'Link'], stances: ['Making', 'Binding', 'Tending'], note: 'encrypted append-only event store — one file per room/table' }),
   'src/store/persistent-log.js': contract({ ops: ['INS', 'CON', 'SIG'], targets: ['Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding', 'Tending'], note: 'durable log — bind an EventStore to createLog: rehydrate on open, persist on append' }),
+
+  // the spreadsheet-database engine over a room's fold
+  'src/store/types.js': contract({ ops: ['DEF', 'SEG'], targets: ['Field'], products: ['Lens'], stances: ['Dissecting', 'Unraveling'], note: 'value coercion + column-type inference' }),
+  'src/store/rows.js': contract({ ops: ['INS', 'CON', 'SEG'], targets: ['Network'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'row model — fold entities / imported records → rows, link resolution' }),
+  'src/store/table.js': contract({ ops: ['SIG', 'CON', 'SEG'], targets: ['Entity'], products: ['Link', 'Network'], stances: ['Binding', 'Tracing'], note: 'the grid engine — buildTable / listSets / linked sets' }),
+  'src/store/query.js': contract({ ops: ['EVA', 'SEG', 'SIG'], targets: ['Network'], products: ['Lens'], stances: ['Binding', 'Dissecting'], note: 'filter (typed ops) · sort · group · aggregate · FK traversal' }),
+  'src/store/formula.js': contract({ ops: ['EVA', 'DEF', 'REC'], targets: ['Lens'], products: ['Paradigm'], stances: ['Binding', 'Composing'], note: 'Airtable-dialect formula + rollup evaluator' }),
+  'src/store/database.js': contract({ ops: ['CON', 'EVA', 'SIG'], targets: ['Network'], products: ['Link', 'Lens'], stances: ['Binding', 'Tracing'], note: 'the database front door — durable substrate + spreadsheet engine' }),
 });

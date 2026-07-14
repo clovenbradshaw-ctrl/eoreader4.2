@@ -29,10 +29,11 @@
 //   vault       OPTIONAL encrypted, hash-chained media store (rooms/archive/vault) —
 //               encrypts each item, uploads only ciphertext to the homeserver media
 //               repo, records a tamper-evident block in an OPFS chain (docs/media-vault.md)
-//   db          the durable substrate (src/store) pulled from amino — "rooms are
+//   db          the durable substrate + database engine (src/store) — "rooms are
 //               tables, events are rows, fold is the query". A passphrase vault seals
 //               each room's append-only event log as encrypted OPFS bytes (NOT
-//               IndexedDB); locked it is inert, unlocked it rehydrates + persists
+//               IndexedDB); locked it is inert, unlocked it rehydrates + persists.
+//               db.rows/buildTable/query/formula give the spreadsheet-database view
 //               (docs/database-framework.md)
 
 import { createParser } from '../../perceiver/parse/index.js';
@@ -126,13 +127,14 @@ const chat = {
 // Signed-out it is inert; `save`/`open`/`verify` lazily start it. See docs/media-vault.md.
 const vault = createVault({ matrix });
 
-// The durable substrate (src/store), pulled from amino (INTEGRATION-EOREADER4
-// Part B). A passphrase vault seals each room's append-only event log as
-// encrypted OPFS bytes — "rooms are tables, events are rows, fold is the query".
-// Constructing it is inert (no key, no OPFS touch); `db.unlock(user, passphrase)`
-// arms it, then `db.openLog(roomId)` hands back a durable log whose appends
-// persist encrypted and whose reopen rehydrates + folds identically. This is the
-// membrane the surface adopts to make readings survive the tab.
+// The durable substrate + database engine (src/store). A passphrase vault seals
+// each room's append-only event log as encrypted OPFS bytes — "rooms are tables,
+// events are rows, fold is the query". Constructing it is inert (no key, no OPFS
+// touch); `db.unlock(user, passphrase)` arms it, then `db.openLog(roomId)` hands
+// back a durable log whose appends persist encrypted and whose reopen rehydrates
+// + folds identically, while `db.rows/buildTable/query/formula` give the
+// spreadsheet-database view over any room. This is the membrane the surface
+// adopts to make readings survive the tab and to query the corpus as tables.
 const db = createDatabase();
 
 const archive = Object.freeze({
