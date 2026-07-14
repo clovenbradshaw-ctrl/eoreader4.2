@@ -11,6 +11,9 @@
 //   · POST /keys/query                     — look up a user's devices
 //   · POST /keys/claim                     — claim a one-time key to start an Olm session
 //   · PUT  /sendToDevice/{type}/{txn}      — hand a room key to specific devices
+//   · POST /createRoom                     — open a room (a shared workspace)
+//   · POST /rooms/{id}/invite              — invite a user into a room
+//   · POST /rooms/{id}/join                — accept an invite / join a room
 //
 // The crypto lives in crypto.js; this module is pure transport and never sees a key.
 // Every call returns { ok, ... } and never throws (a network fault is a value, not an
@@ -93,6 +96,29 @@ export const createMatrixClient = ({
   const sendEvent = (roomId, type, content) =>
     req('PUT', `${CS}/rooms/${encodeURIComponent(roomId)}/send/${encodeURIComponent(type)}/${nextTxn()}`, { body: content });
 
+  // ── Room lifecycle — the places people stand together ──
+
+  // Open a room (a shared workspace). `invite` is a list of user ids to invite at
+  // creation; `encrypted` turns on m.room.encryption so the timeline is E2EE-native.
+  // Returns { ok, roomId } — the caller records the room id on the workspace.
+  const createRoom = async ({ name = null, invite = [], encrypted = true, topic = null } = {}) => {
+    const body = { preset: 'private_chat', visibility: 'private' };
+    if (name) body.name = String(name);
+    if (topic) body.topic = String(topic);
+    if (Array.isArray(invite) && invite.length) body.invite = invite.filter(Boolean).map(String);
+    if (encrypted) body.initial_state = [{ type: 'm.room.encryption', state_key: '', content: { algorithm: 'm.megolm.v1.aes-sha2' } }];
+    const r = await req('POST', `${CS}/createRoom`, { body });
+    return { ok: r.ok, status: r.status, roomId: r.body && r.body.room_id, error: r.ok ? null : ((r.body && r.body.error) || 'createRoom failed') };
+  };
+
+  // Invite a user into a room — the "add someone to a workspace" verb.
+  const invite = (roomId, userId) =>
+    req('POST', `${CS}/rooms/${encodeURIComponent(roomId)}/invite`, { body: { user_id: String(userId) } });
+
+  // Join a room we were invited to (or a public one). Idempotent server-side.
+  const joinRoom = (roomId) =>
+    req('POST', `${CS}/rooms/${encodeURIComponent(roomId)}/join`, { body: {} });
+
   // Send a to-device message. `messages` is userId -> deviceId -> content (or "*").
   const sendToDevice = (type, messages) =>
     req('PUT', `${CS}/sendToDevice/${encodeURIComponent(type)}/${nextTxn()}`, { body: { messages } });
@@ -142,6 +168,7 @@ export const createMatrixClient = ({
   return Object.freeze({
     uploadKeys, queryKeys, claimKeys,
     joinedRooms, roomMembers, sendEvent, sendToDevice,
+    createRoom, invite, joinRoom,
     syncOnce, startSync, stopSync, isSyncing, resetSince,
   });
 };

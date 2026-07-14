@@ -1,4 +1,4 @@
-// EO: CON·SIG(Network,Field → Link,Entity, Binding,Making) — the E2EE chat room
+// EO: CON·SIG(Network,Field → Link,Entity, Binding,Making) — the E2EE room bus
 // chat/index.js — the one entrance to the chat holon. It composes the three parts
 // (opfs-store · crypto · client) into a single reactive controller the surface
 // renders, and owns the choreography that turns "type a message" into an encrypted
@@ -8,6 +8,14 @@
 //             device over Olm (to-device) → PUT the m.room.encrypted event
 //   receive:  /sync → decrypt inbound Olm to-device (m.room_key) and import the key →
 //             decrypt m.room.encrypted timeline events → fold into the room timeline
+//
+// A message is only ONE kind of thing that rides this rail. The same Megolm envelope
+// carries ANY app event (`sendRoomEvent` / `onRoomEvent`), so the room is a general
+// end-to-end-encrypted BUS between the people in it: the shared vault ships its blocks
+// on it (rooms/archive/room-vault.js) and lightweight signals (`sendSignal`) travel the
+// same way. Only the room's members hold the Megolm key, so only they can read any of
+// it. Room lifecycle (`createRoom` / `invite` / `join`) makes a shared workspace a real,
+// invitable Matrix room.
 //
 // Reactive like the reader app (rooms/reader/app.js): subscribe once, re-render on
 // emit. Signed-out it is inert; it only comes alive once the shared archive/matrix
@@ -21,6 +29,7 @@ import { createMatrixClient } from './client.js';
 
 const OLM_ALGO = 'm.olm.v1.curve25519-aes-sha2';
 const MEGOLM_ALGO = 'm.megolm.v1.aes-sha2';
+const SIGNAL_TYPE = 'org.eoreader.signal';   // lightweight room signals (presence, "saved X", …)
 const MIN_OTK_KEEP = 20;   // keep the homeserver stocked with this many one-time keys
 
 // createChatRoom({ matrix, Olm, fetch, navigator, storeRoot, deviceName }) → controller.
@@ -49,6 +58,13 @@ export const createChatRoom = ({
 
   let store = null, crypto = null, client = null, stopSync = null;
   const sharedByRoom = new Map();   // roomId -> Set(deviceCurve25519) already given the key
+  const roomEventHandlers = new Set();   // decrypted non-message app events (vault blocks, signals)
+
+  // Subscribe to decrypted app events on the room bus (anything that is not a chat
+  // message). Each handler gets { roomId, type, content, sender, eventId, ts, mine };
+  // handlers are awaited in timeline order, so a fold (the shared vault) stays ordered.
+  const onRoomEvent = (fn) => { roomEventHandlers.add(fn); return () => roomEventHandlers.delete(fn); };
+  const dispatchRoomEvent = async (evt) => { for (const fn of roomEventHandlers) { try { await fn(evt); } catch { /* handler's problem */ } } };
 
   const roomOf = (roomId) => {
     let r = state.rooms.find((x) => x.roomId === roomId);
@@ -110,21 +126,76 @@ export const createChatRoom = ({
 
   // ── Send: share the room key, then send the encrypted event ──
 
+  // The shared core of every send: make sure every member device holds the room's
+  // Megolm key, then Megolm-encrypt `content` under `eventType` and PUT it. Returns
+  // { ok, eventId } — the one place messages, vault blocks, and signals converge, so
+  // "only the room can read it" is enforced identically for all three.
+  const encryptAndSend = async (roomId, eventType, content) => {
+    await shareRoomKey(roomId);
+    const enc = await crypto.encryptRoomEvent(roomId, eventType, content);
+    const r = await client.sendEvent(roomId, 'm.room.encrypted', enc);
+    if (!r.ok) return { ok: false, error: (r.body && r.body.error) || 'send failed' };
+    return { ok: true, eventId: r.body && r.body.event_id };
+  };
+
   const sendMessage = async (roomId, body) => {
     if (state.status !== 'live') return { ok: false, error: 'not started' };
     const text = String(body ?? '').trim();
     if (!text) return { ok: false, error: 'empty' };
     try {
-      await shareRoomKey(roomId);
-      const content = await crypto.encryptRoomEvent(roomId, 'm.room.message', { msgtype: 'm.text', body: text });
-      const r = await client.sendEvent(roomId, 'm.room.encrypted', content);
-      if (!r.ok) return { ok: false, error: (r.body && r.body.error) || 'send failed' };
+      const r = await encryptAndSend(roomId, 'm.room.message', { msgtype: 'm.text', body: text });
+      if (!r.ok) return r;
       // Optimistic echo — the sync will confirm it with an event id.
-      pushMessage(roomId, { sender: state.userId, body: text, ts: null, mine: true, eventId: r.body && r.body.event_id });
-      return { ok: true, eventId: r.body && r.body.event_id };
+      pushMessage(roomId, { sender: state.userId, body: text, ts: null, mine: true, eventId: r.eventId });
+      return r;
     } catch (e) {
       return { ok: false, error: e && e.message ? e.message : 'encrypt failed' };
     }
+  };
+
+  // Send an arbitrary app event, Megolm-encrypted to the room — the bus the shared
+  // vault and signals ride on. The inner `eventType` is hidden inside the Megolm
+  // envelope (the wire event is always m.room.encrypted). Returns { ok, eventId }.
+  const sendRoomEvent = async (roomId, eventType, content) => {
+    if (state.status !== 'live') return { ok: false, error: 'not started' };
+    try { return await encryptAndSend(roomId, String(eventType), content); }
+    catch (e) { return { ok: false, error: e && e.message ? e.message : 'encrypt failed' }; }
+  };
+
+  // A lightweight signal to everyone in the room (presence, "saved X", a nudge). Just
+  // an app event of type org.eoreader.signal; subscribers see it via onRoomEvent.
+  const sendSignal = (roomId, kind, data = null) => sendRoomEvent(roomId, SIGNAL_TYPE, { kind: String(kind), data });
+
+  // ── Room lifecycle — a shared workspace is an invitable Matrix room ──
+
+  const ensureStarted = async () => (state.status === 'live' ? { ok: true } : start());
+
+  // Open a room (a shared workspace). Returns { ok, roomId }.
+  const createRoom = async (opts = {}) => {
+    const s = await ensureStarted(); if (!s.ok) return s;
+    const r = await client.createRoom(opts);
+    if (r.ok && r.roomId) roomOf(r.roomId).name = opts.name || r.roomId;
+    return r;
+  };
+  // Invite a user into a room — "add someone to the workspace".
+  const invite = async (roomId, userId) => {
+    const s = await ensureStarted(); if (!s.ok) return s;
+    const r = await client.invite(roomId, userId);
+    return { ok: r.ok, error: r.ok ? null : ((r.body && r.body.error) || 'invite failed') };
+  };
+  // Join a room we were invited to.
+  const join = async (roomId) => {
+    const s = await ensureStarted(); if (!s.ok) return s;
+    const r = await client.joinRoom(roomId);
+    if (r.ok) sharedByRoom.delete(roomId);   // membership changed — re-share keys on next send
+    return { ok: r.ok, roomId, error: r.ok ? null : ((r.body && r.body.error) || 'join failed') };
+  };
+  // Who is currently joined to a room. Returns { ok, members: [userId] }.
+  const members = async (roomId) => {
+    if (state.status !== 'live') return { ok: false, members: [] };
+    const r = await client.roomMembers(roomId);
+    const joined = r.ok && r.body && r.body.joined ? Object.keys(r.body.joined) : [];
+    return { ok: r.ok, members: joined };
   };
 
   // Ensure every member device of the room holds the current Megolm key. Only devices
@@ -232,18 +303,29 @@ export const createChatRoom = ({
 
   const handleRoomEvent = async (roomId, ev) => {
     if (ev.type === 'm.room.encrypted' && ev.content && ev.content.algorithm === MEGOLM_ALGO) {
+      let decoded;
       try {
-        const { content } = await crypto.decryptRoomEvent(ev.content, roomId);
-        if (content && content.msgtype === 'm.text') {
-          pushMessage(roomId, {
-            sender: ev.sender, body: content.body, ts: ev.origin_server_ts || null,
-            mine: ev.sender === state.userId, eventId: ev.event_id,
-          });
-        }
+        decoded = await crypto.decryptRoomEvent(ev.content, roomId);
       } catch (e) {
         if (e && e.code === 'UNKNOWN_SESSION') {
           pushMessage(roomId, { sender: ev.sender, body: '🔒 (waiting for the key to this message)', ts: ev.origin_server_ts || null, undecryptable: true, eventId: ev.event_id });
         }
+        return;
+      }
+      const { eventType, content } = decoded;
+      if (eventType === 'm.room.message' && content && content.msgtype === 'm.text') {
+        pushMessage(roomId, {
+          sender: ev.sender, body: content.body, ts: ev.origin_server_ts || null,
+          mine: ev.sender === state.userId, eventId: ev.event_id,
+        });
+      } else if (eventType && eventType !== 'm.room.message') {
+        // A non-message app event (a vault block, a signal) — hand it to the bus. The
+        // sender/eventId/ts are the AUTHENTICATED outer envelope, not the plaintext.
+        await dispatchRoomEvent({
+          roomId, type: eventType, content,
+          sender: ev.sender, eventId: ev.event_id, ts: ev.origin_server_ts || null,
+          mine: ev.sender === state.userId,
+        });
       }
     } else if (ev.type === 'm.room.message' && ev.content) {
       // An unencrypted message (e.g. a non-E2EE room) — show it plainly.
@@ -264,6 +346,10 @@ export const createChatRoom = ({
   return Object.freeze({
     state, subscribe,
     start, stop, pump, sendMessage, selectRoom, timelineOf,
+    // the encrypted room bus — arbitrary app events + lightweight signals
+    sendRoomEvent, onRoomEvent, sendSignal,
+    // room lifecycle — a shared workspace is an invitable room
+    createRoom, invite, join, members,
     // exposed for the surface / tests
     _internals: () => ({ store, crypto, client }),
   });

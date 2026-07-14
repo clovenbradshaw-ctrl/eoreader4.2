@@ -813,7 +813,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const WS_COLORS = ['#6D5EF5', '#2563EB', '#0F766E', '#B45309', '#A91D1D', '#BE185D', '#15803D'];
   const activeWorkspace = () => state.workspaces.find((w) => w.id === state.activeWorkspaceId) || state.workspaces[0] || null;
   const workspaceNew = (name = 'New workspace', { silent = false, shared = false } = {}) => {
-    const w = { id: `ws${++wn}`, name: String(name || 'New workspace'), color: WS_COLORS[state.workspaces.length % WS_COLORS.length], shared: !!shared, created: nowIso() };
+    const w = { id: `ws${++wn}`, name: String(name || 'New workspace'), color: WS_COLORS[state.workspaces.length % WS_COLORS.length], shared: !!shared, roomId: null, syncToMatrix: false, created: nowIso() };
     state.workspaces.push(w);
     state.activeWorkspaceId = w.id;
     topicNew('New topic', { silent: true, workspaceId: w.id });   // a workspace always opens onto a topic
@@ -830,6 +830,24 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     deepWake(); persist(); emit('topics');
   };
   const workspaceRename = (id, name) => { const w = state.workspaces.find((x) => x.id === id); if (w && name) { w.name = String(name); persist(); emit('topics'); } };
+  // Bind a workspace to a Matrix room — this is what makes it SHARED and invitable. The
+  // engine only records the pairing (roomId + a members hint); the actual room create /
+  // invite and the encrypted, hash-chained sync live in boot's `spaces` membrane
+  // (rooms/archive/room-vault), so app state stays network-free. `roomId: null` unshares.
+  const workspaceBindRoom = (id, { roomId = null, members = null } = {}) => {
+    const w = state.workspaces.find((x) => x.id === id);
+    if (!w) return null;
+    w.roomId = roomId || null;
+    w.shared = !!roomId;
+    if (Array.isArray(members)) w.members = members.slice();
+    persist(); emit('topics');
+    return w;
+  };
+  const workspaceByRoom = (roomId) => state.workspaces.find((w) => w.roomId === roomId) || null;
+  // The "sync to Matrix" opt-in for a workspace — when on, its content is mirrored into
+  // the shared, room-encrypted blockchain (boot's `spaces.sync`, rooms/archive/space-sync).
+  // The engine only records the flag; the actual encrypt-and-publish lives in boot.
+  const workspaceSetSync = (id, on) => { const w = state.workspaces.find((x) => x.id === id); if (!w) return null; w.syncToMatrix = !!on; persist(); emit('topics'); return w; };
   const workspaceDelete = (id) => {
     if (state.workspaces.length <= 1) return;   // the shell always keeps one workspace
     const idx = state.workspaces.findIndex((w) => w.id === id);
@@ -4209,8 +4227,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // topics — a nested tree within a workspace
     topicNew, setTopic, topicRename, topicDelete, topic,
     topicMove, topicToggleCollapse, topicTree, topicRows,
-    // workspaces — the top-level containers (Matrix-shared workspaces slot in via `shared`)
+    // workspaces — the top-level containers; a shared workspace is a Matrix room (roomId)
     workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
+    workspaceBindRoom, workspaceByRoom, workspaceSetSync,
     // ingest
     ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage, navigatePage,
     // the library shelf — search ONE shelf on its own surface (article/book/media/code), and the

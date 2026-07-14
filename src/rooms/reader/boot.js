@@ -29,6 +29,13 @@
 //   vault       OPTIONAL encrypted, hash-chained media store (rooms/archive/vault) —
 //               encrypts each item, uploads only ciphertext to the homeserver media
 //               repo, records a tamper-evident block in an OPFS chain (docs/media-vault.md)
+//   spaces      OPTIONAL SHARED vault + collaborative workspaces (rooms/archive/room-vault)
+//               — a workspace becomes an invitable Matrix room; everything saved into it
+//               is encrypted, stored as binary ciphertext in the media repo, and recorded
+//               as a hash-linked block published as a Megolm room event, so only the room's
+//               members can read it. `spaces.sync` (rooms/archive/space-sync) is the opt-in
+//               "sync to Matrix" that mirrors a workspace's sources into it. Rides the chat
+//               bus (docs/shared-vault.md)
 
 import { createParser } from '../../perceiver/parse/index.js';
 import { readingAt } from '../../perceiver/reading.js';
@@ -55,6 +62,8 @@ import { createGenomeAutosave } from '../archive/autosave.js';
 import { createChatRoom } from '../chat/index.js';
 import { mountChat, mountChatLauncher } from '../chat/mount.js';
 import { createVault } from '../archive/vault.js';
+import { createRoomVault } from '../archive/room-vault.js';
+import { createSpaceSync } from '../archive/space-sync.js';
 import { mountVaultLauncher } from '../archive/vault-mount.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
@@ -123,6 +132,101 @@ const chat = {
 // a tamper-evident block (content address + mxc + key) in an OPFS-persisted chain.
 // Signed-out it is inert; `save`/`open`/`verify` lazily start it. See docs/media-vault.md.
 const vault = createVault({ matrix });
+
+// The SHARED vault + collaborative workspaces (rooms/archive/room-vault). Where `vault`
+// above is one person's private ledger, `spaces` makes a workspace a real Matrix ROOM:
+// people are invited to it, and everything saved into it is encrypted, stored as binary
+// ciphertext in the Matrix media repo, and recorded as a hash-linked block published as
+// a Megolm room event — so ONLY the people in the room can read it. It rides on the SAME
+// chat controller (one device identity, one sync loop), lazily wired the first time a
+// workspace is shared. See docs/shared-vault.md.
+let roomVault = null;
+const spaces = (() => {
+  const ensure = async () => {
+    const s = await chat.start();                 // brings the chat controller (bus) live
+    if (!s.ok) return s;
+    if (!roomVault) roomVault = createRoomVault({ chat: chatController, matrix });
+    return roomVault.start();
+  };
+  const roomIdOf = (workspaceIdOrRoomId) => {
+    if (String(workspaceIdOrRoomId || '').startsWith('!')) return workspaceIdOrRoomId;   // already a room id
+    const ws = app.state.workspaces.find((w) => w.id === workspaceIdOrRoomId);
+    return ws ? ws.roomId : null;
+  };
+  const api = {
+    ensure,
+    get vault() { return roomVault; },
+    // Turn a local workspace into a shared, invitable Matrix room (idempotent).
+    async shareWorkspace(workspaceId, invitees = []) {
+      const e = await ensure(); if (!e.ok) return e;
+      const ws = app.state.workspaces.find((w) => w.id === workspaceId);
+      if (!ws) return { ok: false, error: 'no such workspace' };
+      if (ws.roomId) return { ok: true, roomId: ws.roomId, already: true };
+      const created = await chatController.createRoom({ name: ws.name, invite: invitees.filter(Boolean) });
+      if (!created.ok) return created;
+      const me = matrix.state.userId;
+      app.workspaceBindRoom(workspaceId, { roomId: created.roomId, members: [me, ...invitees].filter(Boolean) });
+      return { ok: true, roomId: created.roomId };
+    },
+    // Invite someone into a shared workspace (by workspace id or room id).
+    async invite(workspaceIdOrRoomId, userId) {
+      const e = await ensure(); if (!e.ok) return e;
+      const roomId = roomIdOf(workspaceIdOrRoomId);
+      if (!roomId) return { ok: false, error: 'workspace is not shared yet' };
+      return chatController.invite(roomId, userId);
+    },
+    // Accept an invite to someone else's shared workspace.
+    async join(roomId) { const e = await ensure(); if (!e.ok) return e; return chatController.join(roomId); },
+    // Hydrate a shared workspace's chain from OPFS (so a reload shows what's already
+    // saved before any new sync folds in). Returns { ok, blocks } newest-first.
+    async load(workspaceIdOrRoomId) {
+      const e = await ensure(); if (!e.ok) return { ok: false, error: e.error };
+      const roomId = roomIdOf(workspaceIdOrRoomId);
+      if (!roomId) return { ok: false, error: 'workspace is not shared yet' };
+      await roomVault.ensureChain(roomId);
+      return { ok: true, blocks: roomVault.list(roomId) };
+    },
+    async members(workspaceIdOrRoomId) {
+      const e = await ensure(); if (!e.ok) return { ok: false, members: [] };
+      const roomId = roomIdOf(workspaceIdOrRoomId);
+      return roomId ? chatController.members(roomId) : { ok: false, members: [] };
+    },
+    // Save / open / list / verify content in a shared workspace (accepts a workspace id
+    // or a room id). Save encrypts, uploads ciphertext, and publishes the block to the room.
+    async save(workspaceIdOrRoomId, bytes, meta = {}) {
+      const e = await ensure(); if (!e.ok) return e;
+      const roomId = roomIdOf(workspaceIdOrRoomId);
+      if (!roomId) return { ok: false, error: 'workspace is not shared yet' };
+      return roomVault.save(roomId, bytes, meta);
+    },
+    async open(workspaceIdOrRoomId, indexOrBlock) {
+      const e = await ensure(); if (!e.ok) return e;
+      const roomId = roomIdOf(workspaceIdOrRoomId);
+      return roomId ? roomVault.open(roomId, indexOrBlock) : { ok: false, error: 'not shared' };
+    },
+    list: (workspaceIdOrRoomId) => (roomVault ? roomVault.list(roomIdOf(workspaceIdOrRoomId)) : []),
+    verify: (workspaceIdOrRoomId) => (roomVault ? roomVault.verify(roomIdOf(workspaceIdOrRoomId)) : { ok: true, length: 0 }),
+    head: (workspaceIdOrRoomId) => (roomVault ? roomVault.head(roomIdOf(workspaceIdOrRoomId)) : null),
+    // A lightweight nudge to everyone in the room ("saved X", presence) on the same bus.
+    async sendSignal(workspaceIdOrRoomId, kind, data) {
+      const e = await ensure(); if (!e.ok) return e;
+      const roomId = roomIdOf(workspaceIdOrRoomId);
+      if (!roomId) return { ok: false, error: 'workspace is not shared yet' };
+      return chatController.sendSignal(roomId, kind, data);
+    },
+    onSignal: (fn) => (chatController ? chatController.onRoomEvent((evt) => { if (evt.type === 'org.eoreader.signal') fn(evt); }) : (() => {})),
+    subscribe: (fn) => (roomVault ? roomVault.subscribe(fn) : (() => {})),
+  };
+  // The "sync to Matrix" opt-in — a per-workspace autosync that mirrors a workspace's
+  // sources into its room's encrypted blockchain (opening the room first if needed). It
+  // rides this same membrane (shareWorkspace + save). Default OFF; see docs/shared-vault.md.
+  const sync = createSpaceSync({ app, spaces: api });
+  api.sync = sync;
+  api.setSync = (workspaceId, on) => sync.setEnabled(workspaceId, on);
+  api.syncNow = (workspaceId) => sync.syncNow(workspaceId);
+  return Object.freeze(api);
+})();
+
 const archive = Object.freeze({
   deposit,
   checkpoints: () => checkpoints.list(),
@@ -207,6 +311,7 @@ window.EO = Object.freeze({
   chat,
   vault,
   dashboards,   // the live-metric dashboard — pin a web-page element by clicking it, watch it update
+  spaces,   // shared, room-encrypted, hash-chained vault + invitable workspaces (docs/shared-vault.md)
   archive,
   genome,
   versions,       // the version time-machine — list prior merged-PR builds, roll back to any

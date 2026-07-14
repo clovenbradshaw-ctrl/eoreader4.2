@@ -12,8 +12,10 @@ export const createFakeHomeserver = ({ base = 'https://hs.test' } = {}) => {
   const syncPos = new Map();                // token -> { timeline: idx, td: drained flag }
   const mediaStore = new Map();             // mediaId -> Uint8Array (opaque ciphertext)
   const accountData = new Map();            // userId -> type -> object
+  const invited = new Map();                // roomId -> Set(userId) invited but not yet joined
   let eventSeq = 0;
   let mediaSeq = 0;
+  let roomSeq = 0;
 
   const register = (token, userId, deviceId) => {
     tokens.set(token, { userId, deviceId });
@@ -22,6 +24,7 @@ export const createFakeHomeserver = ({ base = 'https://hs.test' } = {}) => {
   const joinRoom = (roomId, userId) => {
     const r = rooms.get(roomId) || { members: new Set(), timeline: [] };
     r.members.add(userId); rooms.set(roomId, r);
+    const inv = invited.get(roomId); if (inv) inv.delete(userId);
   };
 
   const jsonRes = (status, body) => ({ ok: status < 400, status, json: async () => body });
@@ -97,8 +100,38 @@ export const createFakeHomeserver = ({ base = 'https://hs.test' } = {}) => {
       return jsonRes(200, { one_time_keys: out });
     }
 
+    // POST /createRoom — creator joins; invitees are recorded as invited.
+    if (path === `${P}/createRoom`) {
+      const roomId = `!r${roomSeq++}:${base.replace(/^https?:\/\//, '')}`;
+      joinRoom(roomId, who.userId);
+      const r = rooms.get(roomId);
+      if (body && body.name) r.name = body.name;
+      const inv = invited.get(roomId) || new Set();
+      for (const uid of (body && body.invite) || []) inv.add(uid);
+      invited.set(roomId, inv);
+      return jsonRes(200, { room_id: roomId });
+    }
+
+    // POST /rooms/{id}/invite
+    let m = path.match(new RegExp(`${P}/rooms/([^/]+)/invite$`));
+    if (m) {
+      const roomId = decodeURIComponent(m[1]);
+      const inv = invited.get(roomId) || new Set();
+      if (body && body.user_id) inv.add(body.user_id);
+      invited.set(roomId, inv);
+      return jsonRes(200, {});
+    }
+
+    // POST /rooms/{id}/join
+    m = path.match(new RegExp(`${P}/rooms/([^/]+)/join$`));
+    if (m) {
+      const roomId = decodeURIComponent(m[1]);
+      joinRoom(roomId, who.userId);
+      return jsonRes(200, { room_id: roomId });
+    }
+
     // GET /rooms/{id}/joined_members
-    let m = path.match(new RegExp(`${P}/rooms/([^/]+)/joined_members$`));
+    m = path.match(new RegExp(`${P}/rooms/([^/]+)/joined_members$`));
     if (m) {
       const roomId = decodeURIComponent(m[1]);
       const r = rooms.get(roomId) || { members: new Set() };
