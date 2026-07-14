@@ -57,6 +57,18 @@ table{border-collapse:collapse;width:100%}
 .eo-ent{border-radius:3px}
 .eo-links-on .eo-ent{color:#5B4BE6;cursor:pointer;border-bottom:1px dotted rgba(91,75,230,.55)}
 .eo-links-on .eo-ent:hover{background:rgba(109,94,245,.1)}
+/* the reading layer — a word HEARD but not yet folded by EO shows grey; once read it goes black (the
+   stream turning into a reading in real time). A figure the words name is lit in the accent. */
+.eo-w-unread{color:#B7B7C0}
+.eo-w-ref{color:#5B4BE6;border-bottom:1px dotted #C6BFF7}
+.eo-w-ref.eo-w-unread{color:#B9B2E4;border-bottom-color:#E6E2FA}
+/* the clicked span whose layers the right panel is showing */
+.eo-w-inspect{background:rgba(109,94,245,.14);box-shadow:0 0 0 2px #B9AEF8}
+/* a detected chapter heading dropped inline into the transcript (click to seek there) */
+.eo-chap-h{font-family:'Newsreader',Georgia,serif;font-weight:700;font-size:20px;line-height:1.3;color:#23272e;margin:26px 0 10px;padding-top:14px;border-top:1px solid #EDEDF1;cursor:pointer;transition:color .12s}
+.eo-chap-h:first-child{margin-top:2px;padding-top:0;border-top:none}
+.eo-chap-h:hover{color:#5B4BE6}
+.eo-chap-h .eo-chap-t{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#A6A6B0;margin-left:9px;vertical-align:middle}
 .eo-scroll::-webkit-scrollbar{width:11px;height:11px}
 .eo-scroll::-webkit-scrollbar-thumb{background:#dadae1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
 .eo-scroll::-webkit-scrollbar-thumb:hover{background:#c7c7d0;background-clip:content-box}
@@ -1557,8 +1569,37 @@ table{border-collapse:collapse;width:100%}
                     </sc-for>
                   </div>
                 </sc-if>
+                <!-- LAYERED READING toolbar — the layer over the words (reading grey→black + figures,
+                     confidence heat, speaker colour, plain), the FORMAT toggle (prose ↔ raw stream), and
+                     the detected CHAPTERS contents. -->
+                <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 24px;border-bottom:1px solid #F0F0F4;background:#FBFBFD">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA4">Layers</span>
+                  <div style="display:inline-flex;align-items:center;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
+                    <sc-for list="{{ viewer.listen.layerTabs }}" as="lt">
+                      <button onClick="{{ lt.pick }}" title="{{ lt.title }}" style="font-size:11px;font-weight:600;color:{{ lt.fg }};background:{{ lt.bg }};border:none;border-radius:6px;padding:4px 10px;cursor:pointer;transition:background .12s">{{ lt.label }}</button>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ viewer.listen.hasReferents }}">
+                    <span title="named figures the words point at — click one for its layers" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8A80C8">· {{ viewer.listen.referentCount }} figures</span>
+                  </sc-if>
+                  <span style="flex:1"></span>
+                  <button onClick="{{ toggleListenFormat }}" title="{{ viewer.listen.formatTitle }}" style="font-size:10.5px;font-weight:600;color:{{ viewer.listen.formatFg }};background:{{ viewer.listen.formatBg }};border:1px solid {{ viewer.listen.formatBd }};border-radius:6px;padding:4px 9px">{{ viewer.listen.formatLabel }}</button>
+                  <sc-if value="{{ viewer.listen.hasChapters }}">
+                    <div style="position:relative">
+                      <button onClick="{{ toggleListenToc }}" title="Jump to a detected chapter" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">☰ {{ viewer.listen.chapterLabel }}</button>
+                      <sc-if value="{{ viewer.listen.tocOpen }}">
+                        <div class="eo-scroll" style="position:absolute;right:0;top:calc(100% + 6px);z-index:35;background:#fff;border:1px solid #EAEAEF;border-radius:11px;box-shadow:0 14px 40px rgba(20,20,30,.16);padding:6px;width:320px;max-height:360px;overflow-y:auto;animation:eoFade .14s ease">
+                          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;padding:6px 8px 4px">CHAPTERS · detected by topic shift</div>
+                          <sc-for list="{{ viewer.listen.chapterRows }}" as="c">
+                            <button onClick="{{ c.seek }}" style="display:flex;width:100%;gap:9px;align-items:baseline;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;flex:0 0 auto">{{ c.mmss }}</span><span style="flex:1;min-width:0">{{ c.label }}</span></button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                </div>
                 <div class="eo-scroll" ref="{{ setListenTranscript }}" style="flex:1;min-height:0;overflow-y:auto;padding:22px 26px;font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.95;color:#2A2A32"></div>
-                <div style="flex:0 0 auto;padding:6px 24px;border-top:1px solid #F0F0F4;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B4B4BE">Click a word to jump · double-click to edit · click then shift-click to select a span, then redact</div>
+                <div style="flex:0 0 auto;padding:6px 24px;border-top:1px solid #F0F0F4;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B4B4BE">Click a word to jump and see its layers · double-click to edit · click then shift-click to select a span, then redact</div>
               </div>
             </sc-if>
 
@@ -1667,6 +1708,66 @@ table{border-collapse:collapse;width:100%}
         <sc-if value="{{ rightPanelShow }}">
         <aside class="eo-scroll eo-right" style="width:340px;flex:0 0 auto;background:#fff;border-left:1px solid #EAEAEF;overflow-y:auto;min-height:0">
           <div style="padding:14px 16px">
+
+            <!-- SPAN LAYERS — a word clicked in the Listen transcript, and every reading active at that
+                 instant: whether EO has folded it, who said it, how sure the ear was, its breath group,
+                 its chapter, and the figure it names (with a door to that figure). -->
+            <sc-if value="{{ spanShow }}">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">LAYERS AT THIS WORD</span>
+                <span style="flex:1"></span>
+                <button onClick="{{ span.close }}" title="Close" style="font-size:15px;line-height:1;color:#9A9AA4;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;width:24px;height:24px" style-hover="background:#EAEAEF">×</button>
+              </div>
+              <button onClick="{{ span.seekWord }}" title="Play from here" style="display:flex;align-items:baseline;gap:9px;width:100%;text-align:left;margin-bottom:12px">
+                <span style="font-family:'Newsreader',Georgia,serif;font-size:26px;font-weight:700;color:#23272e">{{ span.word }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9A9AA4">{{ span.timeLabel }}</span>
+              </button>
+              <sc-if value="{{ span.isEdited }}"><div style="font-size:11px;color:#9A6B12;margin:-8px 0 12px">edited — was “{{ span.wasWord }}”</div></sc-if>
+
+              <div style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:{{ span.readFg }};background:{{ span.readBg }};border:1px solid {{ span.readBd }};border-radius:20px;padding:3px 11px;margin-bottom:16px">{{ span.readLabel }}</div>
+
+              <sc-if value="{{ span.hasSpeaker }}">
+                <div style="margin-bottom:13px">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#B4B4BE;margin-bottom:3px">SPEAKER</div>
+                  <div style="font-size:13px;color:#2A2A32">{{ span.speakerLabel }}</div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ span.hasConf }}">
+                <div style="margin-bottom:13px">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#B4B4BE;margin-bottom:3px">HOW SURE THE EAR WAS</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#4A4A54">{{ span.confText }}</div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ span.hasChapter }}">
+                <div style="margin-bottom:13px">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#B4B4BE;margin-bottom:3px">CHAPTER</div>
+                  <div style="font-size:13px;color:#2A2A32">{{ span.chapterTitle }} <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4">{{ span.chapterMmss }}</span></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ span.hasSegment }}">
+                <div style="margin-bottom:13px">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#B4B4BE;margin-bottom:3px">BREATH GROUP</div>
+                  <button onClick="{{ span.segSeek }}" style="display:block;width:100%;text-align:left;font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#4A4A54;background:#FAFAFC;border:1px solid #EEEEF2;border-radius:8px;padding:8px 10px" style-hover="background:#F4F3FF">{{ span.segmentText }}</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ span.hasReferent }}">
+                <div style="margin-bottom:8px">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#B4B4BE;margin-bottom:4px">FIGURE NAMED HERE</div>
+                  <button onClick="{{ span.openReferent }}" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid #DED8FD;background:#F7F5FF;border-radius:9px;padding:9px 11px" style-hover="background:#F1EFFE">
+                    <span style="flex:1;min-width:0;font-size:13.5px;font-weight:650;color:#5B4BE6">{{ span.referentLabel }}</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A80C8">{{ span.referentMentions }}</span>
+                    <span style="color:#8A80C8;font-size:12px">→</span>
+                  </button>
+                  <sc-if value="{{ span.hasReferentProps }}">
+                    <div style="margin-top:6px">
+                      <sc-for list="{{ span.referentProps }}" as="p">
+                        <div style="font-size:11.5px;color:#6E6E78;padding:2px 0 2px 10px;border-left:2px solid #EAE7FB;margin-bottom:2px">{{ p.v }}</div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </sc-if>
 
             <!-- GRAPH-NODE INSPECTOR -->
             <sc-if value="{{ inspShow }}">
@@ -2392,6 +2493,14 @@ class Component extends DCLogic {
       viewerTabs: [], viewerModes: {}, viewerFocus: {}, nativeToc: [],
       viewerPages: {},   // sn -> { doc, busy, err } for the native render, fetched on demand
       tocOpen: false,
+      // The Listen surface's layered reading (transcript-format.js). `listenFormat` toggles the
+      // best-effort prose (pauses → punctuation, sentences cased, paragraphs) off to the raw stream;
+      // `listenLayer` is the active overlay over the words — the reading (grey heard → black read +
+      // figures lit), the acoustic confidence heat, the speaker colour, or plain; `listenInspect`
+      // ({ sn, i }) is the clicked word whose stacked layers the right panel shows; `listenTocOpen`
+      // drops the chapter contents.
+      listenFormat: this._pref('eo_listenformat', true), listenLayer: this._prefStr('eo_listenlayer', 'reading'),
+      listenInspect: null, listenTocOpen: false,
       readPrefs: this._readPrefs(),
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
       // A search hit opens as a NATIVE PREVIEW first — the real page, loaded normally in a sandboxed
@@ -3318,66 +3427,41 @@ class Component extends DCLogic {
     }, 1600);
   }
 
-  // Build the word spans once per (source · edit-count) signature, wire the click/dblclick handlers
-  // once, and bind the highlight loop to the current media element once. `_listenWords` caches the
-  // projected words for the binary-search highlight.
+  // Build the transcript once per (source · edit-count · layer · format · read-progress) signature, wire
+  // the click/dblclick handlers once, and bind the highlight loop to the current media element once.
+  // The words are a LAYERED reading now (transcript-format.js, via app.transcriptView): best-effort prose
+  // the pauses punctuate (toggle-off = the raw stream), each word GREY while only heard and BLACK once EO
+  // has folded it, the figures the words name lit in the accent, chapter headings dropped inline. The
+  // acoustic-confidence and speaker layers recolour the same words. `_listenWords` still caches the flat
+  // projected words for the binary-search karaoke highlight (index-aligned to each span's data-i).
   setListenTranscript(el) {
     if (!el) return;
     this._listenTx = el;
     const sn = this._activeSrc();
     const s = sn && this._app && this._app.sourceBySn(sn);
     if (!s) return;
-    const EO = (typeof window !== 'undefined' && window.EO) || {};
-    // While transcription is running — or queued to resume after a reload (`pending`), with a partial
-    // already heard and re-seeded — s.words isn't the editable baseline yet; the timed partial words
-    // live on s._asr.words. Render THOSE live (click-to-seek + karaoke work on them) so a reload shows
-    // the transcript heard so far at once. Once applyTranscript lands the final, s.words takes over.
     const streaming = s._asr && (s._asr.state === 'running' || s._asr.state === 'pending');
-    const live = streaming && (!s.words || !s.words.length) && Array.isArray(s._asr.words) && s._asr.words.length;
-    const baseWords = live ? s._asr.words : (s.words || []);
-    const proj = EO.projectTranscript ? EO.projectTranscript(baseWords, live ? [] : (s.audioEvents || []))
-      : { words: baseWords.map((w) => ({ ...w })) };
-    this._listenWords = proj.words;
-    const sig = (s.sha || '') + '·' + ((s.audioEvents && s.audioEvents.length) || 0) + '·' + this._listenWords.length + (live ? '·live' : '');
+    const format = this.state.listenFormat !== false;
+    const layer = this.state.listenLayer || 'reading';
+    // The whole layered view in one call — words (with read-state, referent, speaker, confidence),
+    // display paragraphs, and detected chapters. Falls back to a bare projection if the app lacks it.
+    const view = (this._app && this._app.transcriptView) ? this._app.transcriptView(sn, { format })
+      : { words: [], chapters: [], readThrough: -1, referentCount: 0 };
+    const words = view.words || [];
+    this._listenWords = words.map((w) => ({ start: w.t0, end: w.t1, text: w.raw, redacted: w.redacted, edited: w.edited, origText: w.origText }));
+    const chapters = view.chapters || [];
+    const inspectI = (this.state.listenInspect && this.state.listenInspect.sn === sn) ? this.state.listenInspect.i : -1;
+    const sig = (s.sha || '') + '·' + ((s.audioEvents && s.audioEvents.length) || 0) + '·' + words.length + (streaming ? '·live' : '')
+      + '·' + (format ? 'f' : 'r') + '·' + layer + '·' + (view.readThrough ?? -1) + '·' + (view.referentCount || 0) + '·' + chapters.length;
     if (el.__eoSig !== sig) {
       el.__eoSig = sig;
       el.__eoNow = -1;
-      if (!this._listenWords.length) {
-        el.innerHTML = '<div style="color:#9A9AA4;font-size:13px">' + (streaming ? 'Transcribing the signal…' : 'No transcript yet.') + '</div>';
-      } else {
-        const W = this._listenWords;
-        const wordHtml = (w, i) => w.redacted
-          ? '<span class="eo-w eo-w-redacted" data-i="' + i + '" data-t0="' + (w.start || 0) + '" data-t1="' + (w.end || 0) + '">▮▮▮</span>'
-          : '<span class="eo-w' + (w.edited ? ' eo-w-edited' : '') + '" data-i="' + i + '" data-t0="' + (w.start || 0) + '" data-t1="' + (w.end || 0) + '"'
-            + (w.edited && w.origText != null ? ' title="was: ' + this._escHtml(w.origText) + '"' : '') + '>' + this._escHtml(w.text) + '</span>';
-        // The admitted figures the transcript NAMES, wrapped as clickable .eo-ent links (revealed by
-        // the Links toggle), so the interactive transcript links exactly what the Reader view does.
-        // Only on a SETTLED transcript — the live partial's word indices still shift as more is heard,
-        // and its referents aren't lifted yet — so a run map would be stale. A failure degrades to
-        // plain words rather than breaking the transcript.
-        let starts = null;
-        if (!live) {
-          try {
-            const runs = (this._app.transcriptEntityRuns && this._app.transcriptEntityRuns(sn, W)) || [];
-            if (runs.length) { starts = new Map(); for (const r of runs) if (!starts.has(r.i0)) starts.set(r.i0, r); }
-          } catch { starts = null; }
-        }
-        if (!starts) {
-          el.innerHTML = W.map((w, i) => wordHtml(w, i)).join(' ');
-        } else {
-          const parts = [];
-          for (let i = 0; i < W.length;) {
-            const r = starts.get(i);
-            if (r && r.i1 >= r.i0 && r.i1 < W.length) {
-              let inner = '';
-              for (let j = r.i0; j <= r.i1; j++) inner += (j > r.i0 ? ' ' : '') + wordHtml(W[j], j);
-              parts.push('<span class="eo-ent" data-doc="' + this._escHtml(r.docId) + '" data-ent="' + this._escHtml(r.entId) + '">' + inner + '</span>');
-              i = r.i1 + 1;
-            } else { parts.push(wordHtml(W[i], i)); i++; }
-          }
-          el.innerHTML = parts.join(' ');
-        }
-      }
+      el.innerHTML = words.length
+        ? this._renderTranscriptHtml(words, chapters, layer, inspectI)
+        : '<div style="color:#9A9AA4;font-size:13px">' + (streaming ? 'Transcribing the signal…' : 'No transcript yet.') + '</div>';
+    } else if (inspectI >= 0) {
+      // No structural change — just re-mark the inspected word (a click set it, no rebuild needed).
+      try { el.querySelectorAll('.eo-w-inspect').forEach((n) => n.classList.remove('eo-w-inspect')); const n = el.querySelector('.eo-w[data-i="' + inspectI + '"]'); if (n) n.classList.add('eo-w-inspect'); } catch { /* gone */ }
     }
     // Reveal/hide the entity underlines with the Links toggle — a class flip, no rebuild (the .eo-ent
     // spans are always baked, exactly as the Reader/Native layers gate theirs on html.eo-links-on).
@@ -3395,6 +3479,73 @@ class Component extends DCLogic {
     // A seek requested from the entity panel waits here until the transcript is built (this ref
     // fires after openViewer re-renders the Listen surface), then lands on the right span.
     this._consumeListenSeek();
+  }
+
+  // The transcript's inner HTML from the layered view — display paragraphs, inline chapter headings, and
+  // one span per word carrying its clock (data-t0/t1), raw surface (data-raw, so an edit reads the real
+  // word under any formatting) and its layer classes/colour.
+  _renderTranscriptHtml(words, chapters, layer, inspectI) {
+    const esc = (x) => this._escHtml(x);
+    const chapAt = new Map();
+    for (const c of chapters) chapAt.set(c.startIdx, c);
+    let html = '', inPara = false, firstInPara = true, entOpen = null;
+    // A named figure's word-run is wrapped as one .eo-ent hyperlink (revealed by the Links toggle,
+    // click-through to the entity panel — the same layer the Reader/Native views carry). The run never
+    // crosses a paragraph or a chapter heading, so closing a paragraph closes any open figure span.
+    const closeEnt = () => { if (entOpen) { html += '</span>'; entOpen = null; } };
+    const closeP = () => { closeEnt(); if (inPara) { html += '</p>'; inPara = false; } };
+    const openP = () => { html += '<p style="margin:0 0 1.05em">'; inPara = true; firstInPara = true; };
+    for (const w of words) {
+      const c = chapAt.get(w.i);
+      if (c) { closeP(); html += '<div class="eo-chap-h" data-seek="' + (c.startTime != null ? c.startTime : (w.t0 || 0)) + '">' + esc(c.title) + '<span class="eo-chap-t">' + esc(c.mmss || '') + '</span></div>'; }
+      if (w.paraStart) { closeP(); openP(); } else if (!inPara) openP();
+      const wantEnt = !!(w.ref && w.entId);
+      const isHead = !!(w.refHead && w.entId);
+      // Close the current figure run when this word begins a new one, or is not part of it.
+      if (entOpen && (isHead || !wantEnt || w.entId !== entOpen)) closeEnt();
+      if (!firstInPara) html += ' ';   // inter-word space (inside the figure span when continuing a run)
+      firstInPara = false;
+      if (isHead && !entOpen) { html += '<span class="eo-ent" data-doc="' + esc(w.docId) + '" data-ent="' + esc(w.entId) + '">'; entOpen = w.entId; }
+      html += this._wordSpanHtml(w, layer, inspectI);
+    }
+    closeP();
+    return html;
+  }
+
+  // One word → its span. Layer 'reading' greys the still-heard tail and lights figures via CSS classes
+  // (so karaoke's colour still shows through); 'confidence' and 'speakers' recolour inline.
+  _wordSpanHtml(w, layer, inspectI) {
+    const esc = (x) => this._escHtml(x);
+    const attrs = ' data-i="' + w.i + '" data-t0="' + (w.t0 || 0) + '" data-t1="' + (w.t1 || 0) + '" data-raw="' + esc(w.raw) + '"';
+    if (w.redacted) return '<span class="eo-w eo-w-redacted"' + attrs + '>▮▮▮</span>';
+    let cls = 'eo-w', style = '';
+    if (w.edited) cls += ' eo-w-edited';
+    if (w.i === inspectI) cls += ' eo-w-inspect';
+    if (layer === 'reading' || layer === 'plain') {
+      if (!w.read) cls += ' eo-w-unread';
+      if (layer === 'reading' && w.ref) cls += ' eo-w-ref';
+    } else if (layer === 'confidence') {
+      const c = (w.acous != null) ? w.acous : (w.conf != null ? w.conf : null);
+      style = 'color:' + this._confColor(c, w.read) + (w.ref ? ';font-weight:600' : '');
+    } else if (layer === 'speakers') {
+      style = 'color:' + this._speakerColor(w.speaker, w.read) + (w.ref ? ';font-weight:600' : '');
+    }
+    const title = (w.edited && w.origText != null) ? ' title="was: ' + esc(w.origText) + '"' : '';
+    return '<span class="' + cls + '"' + attrs + (style ? ' style="' + style + '"' : '') + title + '>' + esc(w.text) + '</span>';
+  }
+
+  // The acoustic/model confidence heat: red (barely heard) → amber → green (clearly heard); a word with
+  // no measured confidence reads neutral. Unread words in every layer stay muted (lighter).
+  _confColor(c, read) {
+    if (c == null) return read ? '#8A8A95' : '#C2C2CB';
+    const hue = Math.round(Math.max(0, Math.min(1, c)) * 125);
+    return 'hsl(' + hue + ',' + (read ? '62%' : '34%') + ',' + (read ? '40%' : '62%') + ')';
+  }
+  // A stable hue per speaker index; an unattributed word reads as plain text (muted while unread).
+  _speakerColor(spk, read) {
+    if (spk == null) return read ? '#2A2A32' : '#B7B7C0';
+    const H = [262, 22, 150, 200, 330, 46, 285, 100];
+    return 'hsl(' + H[spk % H.length] + ',' + (read ? '58%' : '32%') + ',' + (read ? '42%' : '62%') + ')';
   }
 
   // Highlight the word sounding at time `t` — a binary search over the time-ordered words, then a
@@ -3416,27 +3567,42 @@ class Component extends DCLogic {
     if (found >= 0) { const n = el.querySelector('.eo-w[data-i="' + found + '"]'); if (n) n.classList.add('eo-w-now'); }
   }
 
-  // A word click seeks the media there and starts a selection; shift-click extends the selection
-  // (for a redaction span) without moving playback.
+  // A click on a chapter heading seeks the player there. A word click seeks the media, starts a
+  // selection, AND opens that word's stacked LAYERS in the right panel (what is active at this instant —
+  // its segment, speaker, confidence, chapter, the figure it names). Shift-click extends the selection
+  // (for a redaction span) without moving playback or re-inspecting.
   _onTranscriptClick(ev) {
+    const head = ev.target && ev.target.closest && ev.target.closest('.eo-chap-h');
+    if (head) { const t = +head.dataset.seek; if (this._listenAudio && isFinite(t)) { try { this._listenAudio.currentTime = t; } catch { /* not ready */ } } return; }
     const sp = ev.target && ev.target.closest && ev.target.closest('.eo-w[data-i]');
     if (!sp) return;
     const i = +sp.dataset.i;
-    if (ev.shiftKey && this._selA != null) {
-      this._selB = i;
-    } else {
-      this._selA = this._selB = i;
-      if (this._listenAudio && sp.dataset.t0 != null) { try { this._listenAudio.currentTime = +sp.dataset.t0; } catch { /* not ready */ } }
-      // With Links on, a click on a named figure also opens its entity panel — the transcript's
-      // hyperlink, the same click-through the Reader/Native entity spans give. The seek above still
-      // fires, so "click a word to jump" holds for every word, entity or not.
-      if (this.state.entityMode) {
-        const ent = ev.target.closest && ev.target.closest('.eo-ent[data-doc][data-ent]');
-        if (ent) this.openEntity(ent.getAttribute('data-doc'), ent.getAttribute('data-ent'));
-      }
-    }
+    if (ev.shiftKey && this._selA != null) { this._selB = i; this._paintSelection(); return; }
+    this._selA = this._selB = i;
+    if (this._listenAudio && sp.dataset.t0 != null) { try { this._listenAudio.currentTime = +sp.dataset.t0; } catch { /* not ready */ } }
     this._paintSelection();
+    // A word click seeks AND opens that word's stacked LAYERS in the right panel (the "click a span, see
+    // its layers" the surface is for). When the word names a figure the layers carry that figure with a
+    // door to its full profile — and the .eo-ent underline (Links on) still marks it as a hyperlink.
+    this._openSpanLayers(i);
   }
+
+  // Open the clicked word's layers in the right panel, and mark the span (no full rebuild — the mark is
+  // toggled imperatively so a long transcript never re-lays-out on a click; the render re-applies it from
+  // state on the next natural rebuild).
+  _openSpanLayers(i) {
+    const sn = this._activeSrc();
+    if (sn == null) return;
+    const el = this._listenTx;
+    if (el) { try { el.querySelectorAll('.eo-w-inspect').forEach((n) => n.classList.remove('eo-w-inspect')); const n = el.querySelector('.eo-w[data-i="' + i + '"]'); if (n) n.classList.add('eo-w-inspect'); } catch { /* gone */ } }
+    this.setState({ listenInspect: { sn, i } });
+  }
+  closeSpanInspect() { this.setState({ listenInspect: null }); }
+  // The layer + formatting toolbar actions — persist the format/layer choice so the surface reopens the
+  // way you left it, and rebuild the transcript (the sig folds in layer/format).
+  setListenLayer(l) { this._setPrefStr('eo_listenlayer', l); this.setState({ listenLayer: l }); }
+  toggleListenFormat() { const v = !(this.state.listenFormat !== false); this._setPref('eo_listenformat', v); this.setState({ listenFormat: v }); }
+  toggleListenToc() { this.setState({ listenTocOpen: !this.state.listenTocOpen }); }
 
   _paintSelection() {
     const el = this._listenTx;
@@ -3456,7 +3622,9 @@ class Component extends DCLogic {
     const asn = this._activeSrc(); const as = asn && this._app.sourceBySn(asn);
     if (as && as._asr && (as._asr.state === 'running' || as._asr.state === 'pending') && (!as.words || !as.words.length)) { this.showToast('Still transcribing — you can edit once the transcript finishes'); return; }
     const i = +sp.dataset.i;
-    const cur = sp.textContent;
+    // Edit the RAW word (data-raw), not the formatted display surface — so a period the pause-punctuation
+    // added never becomes part of the correction, and the edit's `from` is the real heard word.
+    const cur = sp.dataset.raw != null ? sp.dataset.raw : sp.textContent;
     const input = document.createElement('input');
     input.type = 'text'; input.value = cur; input.className = 'eo-w-input';
     input.style.width = Math.max(46, cur.length * 10) + 'px';
@@ -3600,10 +3768,82 @@ class Component extends DCLogic {
       pitch: sp.f0 != null ? `${Math.round(sp.f0)} Hz` : '—',
       detail: `${sp.label}: ~${sp.f0 != null ? Math.round(sp.f0) + ' Hz pitch' : 'pitch n/a'}${sp.f1 != null ? `, F1 ${sp.f1}Hz` : ''}${sp.f2 != null ? `, F2 ${sp.f2}Hz` : ''} · ${sp.utterances || 0} turn${sp.utterances === 1 ? '' : 's'} · ${sp.seconds || 0}s`,
     }));
+
+    // The layered-reading toolbar: the FORMAT toggle (best-effort prose ↔ the raw stream), the active
+    // LAYER over the words (the reading's grey→black + figures, the confidence heat, the speaker colour,
+    // or plain), and the CHAPTERS the topic-shift detector found (a contents list that seeks). Read from
+    // the same view the transcript renders, so counts never disagree with what's on screen.
+    let view = null;
+    try { view = this._app.transcriptView ? this._app.transcriptView(s.sn, { format: this.state.listenFormat !== false }) : null; } catch { view = null; }
+    const layer = this.state.listenLayer || 'reading';
+    const LAYER_DEFS = [
+      { id: 'reading', label: 'Reading', title: 'Grey while only heard, black once EO has read it — and the figures the words name, lit.' },
+      { id: 'confidence', label: 'Confidence', title: 'Each word tinted by how clearly the ear caught it — red (faint) → green (clear).' },
+      { id: 'speakers', label: 'Speakers', title: 'Each word coloured by who said it.', need: speakerVM.length > 1 },
+      { id: 'plain', label: 'Plain', title: 'Just the words — only the grey→black read state.' },
+    ];
+    const layerTabs = LAYER_DEFS.filter((l) => l.need !== false).map((l) => ({
+      id: l.id, label: l.label, title: l.title, on: layer === l.id,
+      fg: layer === l.id ? '#5B4BE6' : '#8A8A95', bg: layer === l.id ? '#fff' : 'transparent',
+      pick: () => this.setListenLayer(l.id),
+    }));
+    const chapters = (view && Array.isArray(view.chapters)) ? view.chapters : [];
+    const chapterRows = chapters.map((c) => ({
+      label: c.title, mmss: c.mmss || '', seek: () => { const a = this._listenAudio; if (a && c.startTime != null) { try { a.currentTime = c.startTime; } catch { /* not seekable */ } } this.setState({ listenTocOpen: false }); },
+    }));
+    const fmtOn = this.state.listenFormat !== false;
+
     return {
       editCount: edits, redactionCount: reds,
       hasExport, exportOptions,
       hasSpeakers: speakerVM.length > 1, speakers: speakerVM,
+      // layered reading toolbar
+      layerTabs, layer,
+      formatOn: fmtOn, formatLabel: fmtOn ? 'Formatted' : 'Raw',
+      formatTitle: fmtOn ? 'Best-effort prose — the pauses became punctuation, sentences capitalised. Click for the raw word stream.' : 'The raw heard word stream. Click to format it as readable prose.',
+      formatFg: fmtOn ? '#5B4BE6' : '#8A8A95', formatBg: fmtOn ? '#F1EFFE' : '#F2F2F6', formatBd: fmtOn ? '#DED8FD' : '#EAEAEF',
+      hasChapters: chapterRows.length > 1, chapterCount: String(chapterRows.length), chapterRows,
+      chapterLabel: chapterRows.length > 1 ? `${chapterRows.length} chapters` : 'Chapters',
+      tocOpen: !!this.state.listenTocOpen,
+      referentCount: view ? (view.referentCount || 0) : 0, hasReferents: !!(view && view.hasReferents),
+    };
+  }
+
+  // The clicked-word LAYERS, for the right panel — every reading active at one instant, stacked: the word
+  // and its clock, whether EO has folded it, who said it, how sure the ear was, its breath group, its
+  // chapter, and the figure it names (with a door to that figure's full profile). Null unless a word is
+  // being inspected in the Listen surface of the source in front.
+  _spanInspectVM(activeSn) {
+    const ins = this.state.listenInspect;
+    if (!ins || !activeSn || ins.sn !== activeSn) return null;
+    const mode = this.state.viewerModes[activeSn] || 'listen';
+    if (mode !== 'listen') return null;
+    const s = this._app.sourceBySn(activeSn);
+    if (!s || s.kind !== 'audio') return null;
+    let L = null; try { L = this._app.spanLayers(activeSn, ins.i); } catch { L = null; }
+    if (!L) return null;
+    const confBits = [];
+    if (L.conf != null) confBits.push(`model ${L.conf.toFixed(2)}`);
+    if (L.acous != null) confBits.push(`acoustic ${L.acous.toFixed(2)}`);
+    if (L.snr != null) confBits.push(`SNR ${L.snr} dB`);
+    const ref = L.referent || null;
+    return {
+      word: L.word, isEdited: !!L.edited, wasWord: L.raw && L.raw !== L.word ? L.raw : '',
+      timeLabel: L.timeLabel,
+      readLabel: L.read ? 'Read — folded into the reading' : 'Heard — not yet read',
+      readFg: L.read ? '#1E8A50' : '#8A6D2F', readBg: L.read ? '#E7F6EC' : '#FBF4E6', readBd: L.read ? '#CDEBD6' : '#F0E6CF',
+      hasSpeaker: !!L.speaker, speakerLabel: L.speaker ? L.speaker.label : '',
+      hasConf: confBits.length > 0, confText: confBits.join('  ·  '),
+      hasSegment: !!L.segmentText, segmentText: L.segmentText,
+      segSeek: () => { const a = this._listenAudio; if (a && L.segmentT0 != null) { try { a.currentTime = L.segmentT0; } catch { /* not seekable */ } } },
+      hasChapter: !!L.chapter, chapterTitle: L.chapter ? L.chapter.title : '', chapterMmss: L.chapter ? L.chapter.mmss : '',
+      hasReferent: !!ref, referentLabel: ref ? ref.label : '',
+      referentMentions: ref && ref.mentions != null ? `${ref.mentions} mention${ref.mentions === 1 ? '' : 's'}` : '',
+      referentProps: ref ? (ref.props || []).map((p) => ({ v: p })) : [],
+      hasReferentProps: !!(ref && ref.props && ref.props.length),
+      openReferent: () => { if (ref) this.openEntity(ref.docId, ref.entId); },
+      seekWord: () => { const a = this._listenAudio; if (a && L.t0 != null) { try { a.currentTime = L.t0; } catch { /* not seekable */ } } },
+      close: () => this.closeSpanInspect(),
     };
   }
 
@@ -5895,6 +6135,9 @@ class Component extends DCLogic {
     // the modality's raw SPANS underneath (an audio clip's words, an image's regions). entScopeAll
     // escapes back to the topic-wide list above. (activeSn is shared with the viewer section below.)
     const activeSn = st.viewerTabs.includes(st.tab) ? st.tab : null;
+    // A word clicked in the Listen surface shows its stacked layers in the right panel (wins over the
+    // entity list / profile). Null unless a word is being inspected on the source in front.
+    const spanInsp = this._spanInspectVM(activeSn);
     const entLevels = activeSn ? app.sourceLevels(activeSn) : [];
     const pivotLevel = activeSn ? (st.entPivotLevel[activeSn] || 'referent') : 'referent';
     const entPivot = !!activeSn && !st.entScopeAll;
@@ -6313,9 +6556,11 @@ class Component extends DCLogic {
       onMemoInput: (e) => this.onMemoInput(e), memoClaims,
       memoLocked: contradictions > 0,
       memoLockText: `Prose smoothing stays locked until every cited claim is Supported. Right now ${contradictions} of ${claims.length} is Contested — organize the evidence first; the summary comes after.`,
-      // right panel
-      inspShow: !!insp, insp: insp || {}, profShow: !insp && !!prof, prof: prof || {},
-      entListShow: !insp && !prof, entRows, entCount: String(ents.length), entEmpty: ents.length === 0,
+      // right panel — a CLICKED WORD's layers (Listen surface) win the panel, then the graph-node
+      // inspector, the entity profile, and finally the entity list.
+      spanShow: !!spanInsp, span: spanInsp || {},
+      inspShow: !spanInsp && !!insp, insp: insp || {}, profShow: !spanInsp && !insp && !!prof, prof: prof || {},
+      entListShow: !spanInsp && !insp && !prof, entRows, entCount: String(ents.length), entEmpty: ents.length === 0,
       // The heading tracks the level: referents ARE the entities; the base level shows the source's
       // own segments/words, so it is named for what it is (SEGMENTS / WORDS / REGIONS / …).
       entHeading: (entPivot && pivotLevel === 'span' && activeSn) ? app.sourceBaseNoun(activeSn).toUpperCase() : 'ENTITIES',
@@ -6373,6 +6618,8 @@ class Component extends DCLogic {
       redactSilence: () => this.redactSilence(), redactBeep: () => this.redactBeep(),
       undoAudioEvent: () => this.undoAudioEvent(), exportRedactedWav: () => this.exportRedactedWav(),
       transcriptMenuOpen: st.transcriptMenuOpen, toggleTranscriptMenu: () => this.toggleTranscriptMenu(),
+      // the layered-reading toolbar actions (the layer chips + chapter rows carry their own closures)
+      toggleListenFormat: () => this.toggleListenFormat(), toggleListenToc: () => this.toggleListenToc(),
       // reader body + controls
       readerDoc, setReaderFrame: (el) => this.setReaderFrame(el),
       readerToc, hasToc: readerToc.length > 1, tocOpen: !!st.tocOpen, toggleToc: () => this.toggleToc(),
