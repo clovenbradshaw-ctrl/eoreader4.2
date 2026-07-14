@@ -2084,11 +2084,37 @@ table{border-collapse:collapse;width:100%}
                           </sc-if>
                           <sc-if value="{{ ch.hasMentions }}">
                             <div style="margin-top:9px">
+                              <!-- ZOOM IN — each mention is a moment the reader can drill INTO: click to -->
+                              <!-- open its neighbourhood (the sentences around it) and a fold-prompted -->
+                              <!-- close reading of the figure at that instant. A ↗ still leaves for the -->
+                              <!-- source. This is the deepest level of the drill: chapter → passage. -->
                               <sc-for list="{{ ch.mentions }}" as="mn">
-                                <button onClick="{{ mn.jump }}" style="width:100%;display:flex;gap:8px;padding:6px 9px;border:1px solid #EFEFF3;border-radius:8px;margin-bottom:4px;background:#fff;text-align:left" style-hover="background:#FAFAFC">
-                                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B4B4BE;flex:0 0 auto;margin-top:2px">¶{{ mn.idx }}</span>
-                                  <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:11.5px;line-height:1.4;color:#6A6A74;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ mn.text }}</span>
-                                </button>
+                                <div style="border:1px solid #EFEFF3;border-radius:8px;margin-bottom:4px;background:#fff;overflow:hidden">
+                                  <div style="display:flex;gap:8px;padding:6px 9px" style-hover="background:#FAFAFC">
+                                    <button onClick="{{ mn.zoom }}" title="Zoom into this moment" style="flex:1;min-width:0;display:flex;gap:8px;text-align:left">
+                                      <span style="flex:0 0 auto;margin-top:2px;color:#B7ADE0;transform:{{ mn.chevron }};transition:transform .15s"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+                                      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B4B4BE;flex:0 0 auto;margin-top:2px">¶{{ mn.idx }}</span>
+                                      <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:11.5px;line-height:1.4;color:#6A6A74;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ mn.text }}</span>
+                                    </button>
+                                    <button onClick="{{ mn.jump }}" title="Open this passage in the source" style="flex:0 0 auto;align-self:flex-start;color:#B4B4BE;padding:1px 2px" style-hover="color:#5B4BE6"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></button>
+                                  </div>
+                                  <sc-if value="{{ mn.open }}">
+                                    <div style="padding:2px 11px 10px 27px;border-top:1px solid #F4F3FA">
+                                      <!-- the neighbourhood — the sentences around this moment, the centre marked -->
+                                      <sc-if value="{{ mn.hasHood }}">
+                                        <div style="margin:8px 0 2px;font-family:'Newsreader',Georgia,serif;font-size:12px;line-height:1.55">
+                                          <sc-for list="{{ mn.hood }}" as="ln"><span style="color:{{ ln.color }};background:{{ ln.bg }};border-radius:3px;padding:{{ ln.pad }}">{{ ln.text }} </span></sc-for>
+                                        </div>
+                                      </sc-if>
+                                      <sc-if value="{{ mn.busy }}"><div style="font-size:11px;color:#B0AACF;font-style:italic;padding:5px 0">zooming in…</div></sc-if>
+                                      <sc-if value="{{ mn.hasReading }}">
+                                        <div style="margin-top:8px;font-size:8.5px;font-weight:700;letter-spacing:.05em;color:#8B84C0">AT THIS MOMENT</div>
+                                        <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.5;color:#33333B;border-left:2px solid #E4E0FB;padding-left:10px;margin-top:4px">{{ mn.readingText }}</div>
+                                        <sc-if value="{{ mn.hasReadingCites }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2;margin-top:4px;padding-left:10px">{{ mn.readingCites }}</div></sc-if>
+                                      </sc-if>
+                                    </div>
+                                  </sc-if>
+                                </div>
                               </sc-for>
                             </div>
                           </sc-if>
@@ -4809,9 +4835,33 @@ class Component extends DCLogic {
       try { reading = app.entityChapterReadingFor ? app.entityChapterReadingFor(p.label, c.chapterIdx) : null; } catch { reading = null; }
       const bt = c.bullet ? c.bullet.text : '';
       const b0 = c.bullet ? c.bullet.t0 : null, b1 = c.bullet ? c.bullet.t1 : null;
-      const mentions = (c.mentions || []).slice(0, 8).map((mn) => ({
-        idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text, mn.t0, mn.t1),
-      }));
+      // Each mention is a ZOOM target — click to drill into that moment (its neighbourhood + a close
+      // reading), lazily. The ↗ still jumps to the source. Zoom is stored per centre-sentence index.
+      const mentions = (c.mentions || []).slice(0, 8).map((mn) => {
+        const pkey = dkey + '#p' + mn.idx;
+        const zOpen = !!(this.state.entZoom || {})[pkey];
+        const zBusy = !!genBusy['pass:' + pkey];
+        let hood = null, pr = null;
+        if (zOpen) {
+          try { hood = app.entityPassage ? app.entityPassage(docId, entId, mn.idx) : null; } catch { hood = null; }
+          try { pr = app.entityPassageReadingFor ? app.entityPassageReadingFor(p.label, mn.idx) : null; } catch { pr = null; }
+        }
+        const lines = (hood && hood.lines || []).map((ln) => ({
+          text: ln.text,
+          color: ln.center ? '#2A2A32' : '#9A9AA4',
+          bg: ln.center ? '#F3F1FD' : 'transparent',
+          pad: ln.center ? '1px 3px' : '0',
+        }));
+        return {
+          idx: String(mn.idx), text: mn.text,
+          jump: () => h.jump(p.sn, mn.text, mn.t0, mn.t1),
+          zoom: () => this._toggleZoom(docId, entId, mn.idx, p.label),
+          open: zOpen, busy: zBusy, chevron: zOpen ? 'rotate(90deg)' : 'none',
+          hasHood: lines.length > 0, hood: lines,
+          hasReading: !!(pr && pr.text && !zBusy), readingText: pr ? pr.text : '',
+          hasReadingCites: !!(pr && pr.cites && pr.cites.length), readingCites: pr ? cite(pr.cites) : '',
+        };
+      });
       return {
         label: c.label, countLabel: `${c.mentionCount} ${c.mentionCount === 1 ? 'mention' : 'mentions'}`,
         bullet: bt, jump: () => h.jump(p.sn, bt, b0, b1),
@@ -4861,6 +4911,23 @@ class Component extends DCLogic {
     this._setGenBusy('chap:' + key, true);
     Promise.resolve(app.entityChapterReading(docId, entId, chapterIdx, { generate: true }))
       .catch(() => {}).finally(() => this._setGenBusy('chap:' + key, false));
+  }
+  // ZOOM IN on one moment — open (and lazily generate) the passage's close reading. The deepest pull:
+  // chapter → passage. Toggling shut keeps the reading; re-opening reads it straight back.
+  _toggleZoom(docId, entId, idx, label) {
+    const key = docId + '#' + entId + '#p' + idx;
+    const zoom = { ...(this.state.entZoom || {}) };
+    const opening = !zoom[key];
+    if (opening) zoom[key] = true; else delete zoom[key];
+    this.setState({ entZoom: zoom });
+    if (!opening) return;
+    const app = this._app; if (!app || !app.entityPassageReading) return;
+    let stored = null;
+    try { stored = app.entityPassageReadingFor ? app.entityPassageReadingFor(label, idx) : null; } catch { stored = null; }
+    if (stored) return;
+    this._setGenBusy('pass:' + key, true);
+    Promise.resolve(app.entityPassageReading(docId, entId, idx, { generate: true }))
+      .catch(() => {}).finally(() => this._setGenBusy('pass:' + key, false));
   }
   // Open (and lazily generate) the Most-important / Most-surprising digest — pulled on the reader's
   // beat, never auto-kicked. `regenerate` recomposes from the record under any standing steer.

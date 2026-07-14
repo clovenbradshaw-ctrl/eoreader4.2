@@ -14,7 +14,7 @@ export { generateTopline } from './topline.js';
 export { contextualDefinition, definitionSpans } from './contextual.js';
 export { definitionFitness, bestOfChorus, salience, wikiAgree, definitionCompetency } from './definer.js';
 export { composeChorus, defaultDefiner, mutateDefiner, shouldExplore, DEFINER_GENES } from './chorus.js';
-export { chapterBullets, composeEntityDigest, composeChapterReading } from './digest.js';
+export { chapterBullets, composeEntityDigest, composeChapterReading, passageNeighborhood, composePassageReading } from './digest.js';
 export { interpretFeedback, mergeSteer, applySteer } from './feedback.js';
 export { containedIn, contentTokens, addedBy, CONNECTIVES } from './contain.js';
 export {

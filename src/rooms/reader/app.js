@@ -56,7 +56,7 @@ import { createMonitor } from '../../enactor/monitor.js';
 import { createCommitmentLedger } from '../../enactor/ledger.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
 import { figureSurface, rankProperties } from '../../perceiver/index.js';
-import { generateTopline, definitionSpans, definitionCompetency, composeChorus, entityInventory, sourceInventory, interpretFeedback, mergeSteer, chapterBullets, composeEntityDigest, composeChapterReading } from '../../weave/topline/index.js';
+import { generateTopline, definitionSpans, definitionCompetency, composeChorus, entityInventory, sourceInventory, interpretFeedback, mergeSteer, chapterBullets, composeEntityDigest, composeChapterReading, passageNeighborhood, composePassageReading } from '../../weave/topline/index.js';
 import { detectGrain } from '../../surfer/levels.js';
 import { groundSpans } from '../../enactor/ground/spans.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
@@ -4289,6 +4289,52 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     });
   };
 
+  // ── ZOOM IN — the passage and its fold-prompted close reading (docs/topline.md) ─────────────────
+  // The deepest level of the drill: chapter → passage → this moment. The reader clicked a single
+  // mention and wants to zoom into it — read the referent AT that instant, against the few sentences
+  // around it rather than jumping away to the source. `entityPassage` is the deterministic
+  // neighbourhood (always shown, no model); `entityPassageReading` is the tight close reading, pulled
+  // only on the zoom. Both keyed by the centre sentence index, stored on the entity's summary record.
+  const PASSAGE_RADIUS = 2;
+
+  // The neighbourhood around a passage — deterministic context, always available. Also returns the
+  // entity's mentions that fall inside the window, so the close reading folds over the same span.
+  const entityPassage = (docId, entId, idx, { radius = PASSAGE_RADIUS } = {}) => {
+    const profile = entityProfile(docId, entId);
+    if (!profile) return null;
+    const doc = resolveDoc(docId)?.doc;
+    if (!doc) return null;
+    const sentences = doc.sentences || doc.units || [];
+    const hood = passageNeighborhood({ sentences, idx, radius });
+    const lo = hood.start, hi = hood.end;
+    const windowMentions = (profile.mentions || []).filter((m) => m.idx >= lo && m.idx <= hi);
+    return { ...hood, windowMentions, label: `¶${idx}` };
+  };
+
+  const entityPassageReadingFor = (label, idx) => state.summaries.entities[entityKey(label)]?.passages?.[idx] || null;
+
+  // Compose the fold-prompted close reading of one passage — the tightest zoom, pulled on demand when
+  // the reader opens that moment. Stored under `.passages[idx]` on the summary record.
+  const entityPassageReading = (docId, entId, idx, { generate = false, regenerate = false, radius = PASSAGE_RADIUS } = {}) => {
+    const profile = entityProfile(docId, entId);
+    if (!profile) return Promise.resolve(null);
+    const key = entityKey(profile.label);
+    const stored = state.summaries.entities[key]?.passages?.[idx] || null;
+    if (!generate && !regenerate) return Promise.resolve(stored);
+    if (stored && !regenerate) return Promise.resolve(stored);
+    const passage = entityPassage(docId, entId, idx, { radius });
+    if (!passage) return Promise.resolve(null);
+    return guarded(`pass:e:${key}#${idx}`, regenerate, async () => {
+      const reading = await composePassageReading(profile, { idx, radius, windowMentions: passage.windowMentions, label: passage.label }, { model });
+      const cur = state.summaries.entities[key] || { key, label: profile.label };
+      const passages = { ...(cur.passages || {}) };
+      passages[idx] = { ...reading, generatedAt: nowIso() };
+      state.summaries.entities[key] = { ...cur, key, label: profile.label, passages };
+      persist(); emit('sources');
+      return state.summaries.entities[key].passages[idx];
+    });
+  };
+
   // Give a topline feedback so it updates. The free-text note is interpreted into a STEER over the
   // closed set (cap length, pin a term, suppress a claim), folded onto the standing steer, recorded,
   // and the topline regenerated under it. A request the record cannot honour comes back in `unmet`.
@@ -4956,8 +5002,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // the figure a single-subject source centres on — the source page shows its dossier (docs/topline.md)
     sourceDominantEntity,
     // the entity explore surface — the deterministic chapter spine + on-demand important/surprising +
-    // the fold-prompted per-chapter reading, all pulled lazily as the reader digs in (docs/topline.md)
+    // the fold-prompted per-chapter reading + the passage ZOOM, all pulled lazily as the reader digs
+    // in and deeper (docs/topline.md)
     entityChapters, entityDigest, entityDigestFor, entityChapterReading, entityChapterReadingFor,
+    entityPassage, entityPassageReading, entityPassageReadingFor,
     findings, provenance, dagFor, dagSources, setMemo, eotFor, answerEot,
     // the commitment ledger (assertions + corrections, persisted) and the session's
     // self/world line readout — the honesty and ledger seams, readable from the surface

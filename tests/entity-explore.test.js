@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createReaderApp } from '../src/rooms/reader/app.js';
-import { chapterBullets, composeEntityDigest, composeChapterReading, containedIn } from '../src/weave/topline/index.js';
+import { chapterBullets, composeEntityDigest, composeChapterReading, passageNeighborhood, composePassageReading, containedIn } from '../src/weave/topline/index.js';
 
 // The entity EXPLORE surface (docs/topline.md): a reader digs into a referent through a deterministic
 // chapter spine that is always present, then pulls — only on demand — the Most-important / Most-
@@ -121,4 +121,55 @@ test('composeChapterReading scopes to the fold — only in-range mentions and pr
   assert.ok(reading.text.length > 0);
   // the salesman property (witnessed only at 0 and 7, both OUT of [1,3)) must not appear
   assert.ok(!/salesman/i.test(reading.text), 'a property witnessed outside the fold is not read into it');
+});
+
+test('the passage neighbourhood is a clamped, centre-marked window', () => {
+  const sentences = ['s0', 's1', 's2', 's3', 's4', 's5'];
+  const hood = passageNeighborhood({ sentences, idx: 3, radius: 2 });
+  assert.equal(hood.start, 1);
+  assert.equal(hood.end, 5);
+  assert.deepEqual(hood.lines.map((l) => l.idx), [1, 2, 3, 4, 5]);
+  assert.equal(hood.lines.find((l) => l.center).idx, 3, 'the centre is marked');
+  // clamps at the document edge
+  const edge = passageNeighborhood({ sentences, idx: 0, radius: 2 });
+  assert.equal(edge.start, 0);
+  assert.deepEqual(edge.lines.map((l) => l.idx), [0, 1, 2]);
+});
+
+test('a passage reading zooms tighter than its chapter — only the window\'s witnesses', async () => {
+  const profile = {
+    label: 'Gregor', subject: 'Gregor',
+    defs: [
+      { value: 'a travelling salesman', idx: 0, count: 1, witnesses: [{ idx: 0, text: 'x' }] },
+      { value: 'changed into an insect', idx: 3, count: 1, witnesses: [{ idx: 3, text: 'z' }] },
+    ],
+    mentions: [{ idx: 3, text: 'Gregor woke to find himself changed into an insect.' }],
+    figures: [],
+  };
+  const reading = await composePassageReading(
+    profile,
+    { idx: 3, radius: 1, windowMentions: profile.mentions, label: '¶3' },
+    { model: null },
+  );
+  assert.ok(reading.text.length > 0);
+  assert.equal(reading.center, 3);
+  // salesman is witnessed at 0, outside [2,5) — the zoom must not read it in
+  assert.ok(!/salesman/i.test(reading.text), 'the tight fold excludes an out-of-window property');
+});
+
+test('the app exposes the passage zoom, lazy and stored per centre index', async () => {
+  const app = await freshApp();
+  app.ingestText(BOOK, 'Metamorphosis');
+  await settle();
+  const gregor = app.entities().find((e) => /gregor/i.test(e.label)) || app.entities()[0];
+  const spine = app.entityChapters(gregor.docId, gregor.entId);
+  const idx = spine[0].mentions[0].idx;
+  // deterministic neighbourhood is available at once
+  const hood = app.entityPassage(gregor.docId, gregor.entId, idx);
+  assert.ok(hood && hood.lines.length >= 1 && hood.lines.some((l) => l.center));
+  // the reading is lazy: absent until pulled
+  assert.equal(await app.entityPassageReading(gregor.docId, gregor.entId, idx, { generate: false }), null);
+  const reading = await app.entityPassageReading(gregor.docId, gregor.entId, idx, { generate: true });
+  assert.ok(reading && reading.text.length > 0, 'a passage reading was pulled');
+  assert.ok(app.entityPassageReadingFor(gregor.label, idx), 'stored and read back per centre index');
 });
