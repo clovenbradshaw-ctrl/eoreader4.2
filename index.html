@@ -1747,7 +1747,7 @@ table{border-collapse:collapse;width:100%}
               <sc-if value="{{ span.hasSegment }}">
                 <div style="margin-bottom:13px">
                   <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#B4B4BE;margin-bottom:3px">BREATH GROUP</div>
-                  <button onClick="{{ span.segSeek }}" style="display:block;width:100%;text-align:left;font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#4A4A54;background:#FAFAFC;border:1px solid #EEEEF2;border-radius:8px;padding:8px 10px" style-hover="background:#F4F3FF">{{ span.segmentText }}</button>
+                  <button onClick="{{ span.segSeek }}" title="Play from here" style="display:block;width:100%;text-align:left;font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#4A4A54;background:#FAFAFC;border:1px solid #EEEEF2;border-radius:8px;padding:8px 10px" style-hover="background:#F4F3FF">{{ span.segPre }}<span style="font-weight:700;color:#23272e;background:#EFEBFF;border-radius:3px;padding:0 2px">{{ span.segWord }}</span>{{ span.segPost }}</button>
                 </div>
               </sc-if>
               <sc-if value="{{ span.hasReferent }}">
@@ -3835,7 +3835,10 @@ class Component extends DCLogic {
       readFg: L.read ? '#1E8A50' : '#8A6D2F', readBg: L.read ? '#E7F6EC' : '#FBF4E6', readBd: L.read ? '#CDEBD6' : '#F0E6CF',
       hasSpeaker: !!L.speaker, speakerLabel: L.speaker ? L.speaker.label : '',
       hasConf: confBits.length > 0, confText: confBits.join('  ·  '),
-      hasSegment: !!L.segmentText, segmentText: L.segmentText,
+      hasSegment: !!(L.segment && L.segment.word),
+      segPre: L.segment ? `${L.segment.lead ? '… ' : ''}${L.segment.before ? L.segment.before + ' ' : ''}` : '',
+      segWord: L.segment ? L.segment.word : '',
+      segPost: L.segment ? `${L.segment.after ? ' ' + L.segment.after : ''}${L.segment.trail ? ' …' : ''}` : '',
       segSeek: () => { const a = this._listenAudio; if (a && L.segmentT0 != null) { try { a.currentTime = L.segmentT0; } catch { /* not seekable */ } } },
       hasChapter: !!L.chapter, chapterTitle: L.chapter ? L.chapter.title : '', chapterMmss: L.chapter ? L.chapter.mmss : '',
       hasReferent: !!ref, referentLabel: ref ? ref.label : '',

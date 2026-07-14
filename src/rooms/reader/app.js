@@ -3545,7 +3545,21 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     const readThrough = complete ? words.length - 1 : readThroughIndex(words);
     const segs = segmentsOf(words);
     const seg = segs.find((g) => i >= g.startIdx && i <= g.endIdx) || null;
-    const segText = seg ? words.slice(seg.startIdx, seg.endIdx + 1).map((x) => x.text).join(' ').trim() : '';
+    // A BRIEF span around the clicked word — not the whole breath group. A group collapses into one
+    // long run whenever the stream carries no gap-silences (mid-transcription especially), so instead
+    // of dumping the run we window it to a short excerpt CENTERED on the word: a few words each side,
+    // ellipsed where trimmed, so you see WHERE the word sits, not a wall of text.
+    const SPAN_WORDS = 7;
+    let segment = null, segText = '';
+    if (seg) {
+      const lo = Math.max(seg.startIdx, i - SPAN_WORDS);
+      const hi = Math.min(seg.endIdx, i + SPAN_WORDS);
+      const join = (a, b) => words.slice(a, b).map((x) => x.text).join(' ').trim();
+      const before = join(lo, i), after = join(i + 1, hi + 1);
+      const lead = lo > seg.startIdx, trail = hi < seg.endIdx;    // trimmed on that side?
+      segment = { before, word: w.text, after, lead, trail, t0: words[lo]?.start ?? null };
+      segText = `${lead ? '… ' : ''}${before ? before + ' ' : ''}${w.text}${after ? ' ' + after : ''}${trail ? ' …' : ''}`.trim();
+    }
     const chapters = transcriptChapters(sn);
     const ch = chapterAt(chapters, i);
     const refMap = transcriptReferentMap(sn);
@@ -3559,7 +3573,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       read: i <= readThrough,
       speaker: Number.isInteger(base.speaker) ? { idx: base.speaker, label: speakerLabelOf(s, base.speaker) } : null,
       conf: num(base.conf, 3), acous: num(base.acous, 3), snr: num(base.snr, 1),
-      segmentText: segText, segmentT0: seg ? (words[seg.startIdx]?.start ?? null) : null,
+      segmentText: segText, segment, segmentT0: segment ? segment.t0 : null,
       chapter: ch ? { index: ch.index, title: ch.title, mmss: ch.startTime != null ? mmss(ch.startTime) : '' } : null,
       referent: ref ? { entId: ref.entId, docId: ref.docId, label: ref.label, props: refProps, mentions: refMentions } : null,
     };
