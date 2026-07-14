@@ -34,7 +34,7 @@ export const MURMUR = Object.freeze({
 
   narrator: Object.freeze({
     maxTokens: 32,              // hard output cap — a mutter, not an analysis (spec §6)
-    refractoryMs: 8000,         // after firing on a ref, mute the narrator for it (spec §8)
+    refractoryMs: 3000,         // after firing on a ref, mute the narrator for it (spec §8) — brisk
   }),
 
   // SELF-GUIDED LEARNING (murmur/learn, docs/murmur.md). At rest the sense WANDERS: it looks at the
@@ -48,7 +48,7 @@ export const MURMUR = Object.freeze({
     enabled: true,              // the wander runs at rest (still gated on the strip being VISIBLE)
     internet: false,            // reach the web only when the user opts into "explore" (opt-in)
     curiosityFloor: 0.08,       // bits below which a place taught nothing new → not learned
-    minStepMs: 20000,           // ≥20s between wander steps — human pace, not a machine's
+    minStepMs: 7000,            // ≥7s between wander steps — brisk pace, not a leisurely read
     maxNotes: 200,              // the notebook / graph-layer cap
     hopsPerReach: 1,            // web leads followed per outward reach — ONE thread, never a fan-out
   }),
