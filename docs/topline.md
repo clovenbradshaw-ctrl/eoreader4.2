@@ -135,6 +135,15 @@ chapter's fold alone (only the mentions and properties the record witnesses *in 
 It is this chapter's reading of the referent, grounded and cited to passages inside it;
 a global tally never leaks in. Deeper is another pull.
 
+**4 · The passage zoom (deepest — one moment).** Inside an open chapter every mention is
+a **zoom target**. Click one and the drill goes chapter → passage → *this instant*: the
+deterministic **neighbourhood** (the few sentences around it, the centre marked, always
+shown) and — pulled on the zoom — a **close reading** of the referent at that moment, the
+same two-pass topline run over the tightest fold of all (`[idx−r, idx+r]`). A property
+witnessed just outside the window never reads in. A ↗ still leaves for the source; the
+zoom keeps the reader *in* the profile, reading closer. Keyed by the centre sentence
+index and cached on the summary record like the layers above it.
+
 Every phrasing here is the topline's `phraseAll` / `generateTopline`, so every bullet
 and reading is containment-gated exactly as above — it can reorder and rephrase the
 record's own objects, and it can never add one. Nothing is auto-kicked: the spine is
@@ -152,7 +161,7 @@ cached on the entity's summary record so re-opening reads straight back.
 | pass two — join, containment-gated | `src/weave/topline/join.js` |
 | feedback as steering | `src/weave/topline/feedback.js` |
 | the two-pass generator | `src/weave/topline/topline.js` |
-| the entity digest — spine + on-demand important/surprising/deeper | `src/weave/topline/digest.js` |
+| the entity digest — spine + important/surprising + per-chapter reading + passage zoom | `src/weave/topline/digest.js` |
 | controller wiring + persistence | `src/rooms/reader/app.js` |
 | surface cards + feedback box + explore surface | `index.html` |
 | tests | `tests/topline.test.js`, `tests/topline-app.test.js`, `tests/entity-explore.test.js` |
