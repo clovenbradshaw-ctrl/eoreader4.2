@@ -25,6 +25,12 @@ export { multiLevelSurf, keepSources, sourceRanges } from './multilevel.js';
 // term state, a span's |⟨T|s⟩|² its salience, the same noise null deciding where the surfer's
 // return stops being salient. Embedder-free — the term space, not a learned embedding.
 export { threadBasis, threadFigures, bornSalience, figureSalience, linkSalience, linksBySentence, salienceField } from './salience.js';
+// CO-READING salience: the reader's POSITION as an activated thread (positionThread), and the
+// union that lets it compose with a live chat thread (combineThreads). Where the eye sits becomes
+// the |T⟩ the surfer's peak is re-weighted against — the seam that turns the idle reader into a
+// companion tethered to the human (surfer/co-read.js).
+export { positionThread, combineThreads } from './salience.js';
+export { coReadAt } from './co-read.js';
 // Embedding relevance — the meaning-space Born score and its significance-vs-background floor, the
 // leash that tells a same-surname namesake (Louis vs Neil Armstrong) from the subject (retrieve/relevance.js).
 export { bornScore, significanceFloor, renormAdd } from './retrieve/index.js';
