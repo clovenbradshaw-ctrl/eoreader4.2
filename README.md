@@ -90,7 +90,7 @@ opens empty and fills as you record.
 | surface | engine wiring |
 |---|---|
 | workspace switcher → nested topic tree | `rooms/reader/app.js` — a **workspace** is the top-level container (Notion's workspace/teamspace; a shared workspace is a Matrix room, via `shared`), and **topics nest** into a collapsible tree (`parentId` / `collapsed`, walked by `topicRows`). Sources stay scoped to the active topic. |
-| ingest bar (URL / file / paste / web search) | `organs/ingest` web client + admission core, `rooms/reader/import-file.js` extractors, proxy chain with public fallbacks |
+| ingest bar (URL / file / paste / web search) | `organs/ingest` web client + admission core, `rooms/reader/import-file.js` extractors, proxy chain with public fallbacks. A **video** reads as two senses — the picture as motion + **born-rule entity detection** (`organs/in/motion.js`), the sound as a transcript — folded onto one source (`docs/video-ingest.md`) |
 | Libraries launcher → per-shelf search surface | `organs/ingest/libraries.js` — four easy search libraries, each with the surface its kind of thing deserves: **Wikipedia** (articles), **Project Gutenberg** (whole books), **Wikimedia Commons** (a media grid), **GitHub** (repos, with **Ingest code** → the code organ). One descriptor registry the surface reads to render each hit as a card shaped for the thing (`docs/library-search.md`) |
 | chat exchange | `turn/` pipeline (`runTurn`) — streamed, cited, fact-checked; model backends from `model/` (webllm · wllama · claude · lmstudio · ollama · echo), picked adaptively |
 | S-registry (sha, bytes, rights, fixity) | `organs/ingest/websource.js` records + the controller's registry |

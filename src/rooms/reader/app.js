@@ -42,6 +42,7 @@ import { GITHUB_FULLTEXT, fetchGithubRepo } from '../../organs/ingest/github.js'
 import { LIBRARIES, surfaceCard, librariesManifest } from '../../organs/ingest/libraries.js';
 import { readIngest } from '../../organs/ingest/read.js';
 import { emitEot } from '../../organs/ingest/eot-emit.js';
+import { createCompositeDoc } from '../../organs/in/composite.js';
 import { scopeSources } from './scope-sources.js';
 import { createAudioStore } from './audio-store.js';
 import { makeJob, upsertJob, patchJob, dropJob, resumableJobs, MAX_JOB_ATTEMPTS } from './ingest-jobs.js';
@@ -1518,6 +1519,12 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // in-progress view on the next boot.
     if (src.transcription) { delete src.transcription.words; delete src.transcription.partial; }
     if (src._asr) src._asr.words = null;
+    // VIDEO — the words are one SENSE; the picture (motion + born entities, applyVisualReading) is the
+    // other. Keep BOTH: recompose the reading as the composite of the motion doc and this transcript,
+    // the picture leading and the words beneath it. src.words/audioMeta (set above) still drive the
+    // Listen surface unchanged — only the reading graph + text compose. A pure-audio source has no
+    // _motionDoc and keeps the transcript reading exactly as before.
+    if (src._motionDoc) { src._transcriptDoc = doc; src._transcriptText = body; recomposeVideoDoc(src); }
     logIt('record', `Transcribed ${src.reg} — ${body.length.toLocaleString()} chars`, src.reg);
     setTimeout(() => {
       try { const d = docFor(src); logIt('eot', `Encoded ${src.reg} into EoT — ${d?.log ? emitEot(d.log).lines.length : 0} propositions`, src.reg); }
@@ -1543,9 +1550,15 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
     const body = (projectTranscript(src.words, src.audioEvents).text || '').trim();
     if (body) {
-      src.text = body; src.bytes = bytesOf(body); src.sha = webContentHash(body);
-      src._doc = null; src._eot = null; deepReaders.delete(src.docId);
-      try { src.entCount = projectGraph(docFor(src).log).entities?.size || 0; } catch { /* keep prior */ }
+      // VIDEO — keep the picture reading (motion doc) and hang the partial words beneath it, rather
+      // than dropping to a prose re-read that would lose the motion graph. Pure-audio drops _doc so
+      // the transcript re-reads lazily from text, exactly as before.
+      if (src._motionDoc) { src._transcriptDoc = null; src._transcriptText = body; recomposeVideoDoc(src); }
+      else {
+        src.text = body; src.bytes = bytesOf(body); src.sha = webContentHash(body);
+        src._doc = null; src._eot = null; deepReaders.delete(src.docId);
+        try { src.entCount = projectGraph(docFor(src).log).entities?.size || 0; } catch { /* keep prior */ }
+      }
     }
     if (src.transcription) { delete src.transcription.words; delete src.transcription.partial; }
     if (src._asr) src._asr.words = null;
@@ -1617,6 +1630,63 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }
   };
 
+  // ── the PICTURE — a video's visual reading, folded onto the source beside its sound ───────────────
+  // A video is TWO senses of one clip: what was HEARD (the waveform → transcript, above) and what
+  // MOVED (the picture → motion + born-rule entities, motion.js). recomposeVideoDoc keeps both: the
+  // reading doc is the COMPOSITE of the motion doc and the transcript doc (createCompositeDoc — the
+  // cross-modal fold docs/multimodal-eot-foundation.md describes), so "what moved" and "what was said"
+  // share ONE record and one entity graph. With only the picture read (a silent clip — the common
+  // case for a clip like this one), the motion doc stands alone as the reading (modality 'video').
+  const recomposeVideoDoc = (src) => {
+    const parts = [src._motionDoc, src._transcriptDoc].filter(Boolean);
+    if (!parts.length) return;
+    src._doc = parts.length === 1 ? parts[0] : createCompositeDoc(parts);
+    src._eot = null;
+    deepReaders.delete(src.docId);
+    const picture = ((src._motionDoc && src._motionDoc.text) || '').trim();
+    const words = (src._transcriptText || '').trim();
+    const text = picture && words ? `${picture}\n\n## Transcript\n\n${words}` : (picture || words);
+    if (text) { src.text = text; src.bytes = bytesOf(text); src.sha = webContentHash(text); }
+    try { src.entCount = projectGraph(docFor(src).log).entities?.size || 0; } catch { /* keep prior */ }
+  };
+
+  // Fold a landed VISUAL reading (motion.js readVideo → doc) into a media source: stash the motion doc
+  // and its drawable artefacts (session-only, underscore-led so serialize() strips them), then recompose
+  // the reading so the picture leads and any transcript rides beneath it.
+  const applyVisualReading = (src, motionDoc, artefacts, coverage) => {
+    if (!src || !motionDoc) return;
+    src._motionDoc = motionDoc;
+    src._motion = artefacts || null;            // peaks/analysis/shots/tracks/entities for the surface
+    recomposeVideoDoc(src);
+    if (coverage) src.coverage = { ...(src.coverage || {}), video: coverage };
+    const tn = (motionDoc.tracks || []).length;
+    const sn = motionDoc.shots?.shotCount || 0;
+    logIt('record', `Watched ${src.reg} — ${tn} moving thing${tn === 1 ? '' : 's'} (born rule), ${sn} shot${sn === 1 ? '' : 's'}`, src.reg);
+    setTimeout(() => {
+      try { const d = docFor(src); logIt('eot', `Encoded ${src.reg} into EoT — ${d?.log ? emitEot(d.log).lines.length : 0} propositions`, src.reg); }
+      catch { /* the record already stands */ }
+    }, 0);
+    persist(); emit('sources');
+  };
+
+  // Run a `watch` thunk (import-file.js) against an already-recorded video source: extract frames,
+  // read the picture as motion + born-rule entities, and fold it in. Model-free and re-derivable, so
+  // it is best-effort — a failure leaves the source's sound reading standing, never unwound.
+  const runWatch = async (src, watch, { signal, progress } = {}) => {
+    const paint = (label) => { try { progress && progress({ kind: 'file', label }); } catch { /* pill is best-effort */ } };
+    try {
+      const res = await watch({ signal, onProgress: (label) => paint(String(label)) });
+      if (res && res.empty) {
+        if (res.coverage) logIt('skip', `No picture read for ${src.reg} — ${(res.coverage.dropped || []).join('; ')}`, src.reg);
+        return;
+      }
+      if (res && res.doc) applyVisualReading(src, res.doc, res.artefacts, res.coverage);
+    } catch (e) {
+      if (signal && signal.aborted) throw e;
+      logIt('skip', `Picture reading failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`);
+    }
+  };
+
   // Stash a file's original bytes to OPFS and open a durable `file` job, so a reload DURING the
   // import (fetch of the extractor libs, PDF/OCR read, audio decode — all before any source has
   // landed) can rebuild the File and re-run the import. Returns the job id, or null when the file
@@ -1646,6 +1716,36 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       let got;
       try { got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) }); }
       catch (e) { settleFile(signal.aborted ? 'stopped' : 'error', String(e?.message || e).slice(0, 90)); throw e; }
+
+      // ── VIDEO with NO audio track — nothing to hear, but a PICTURE to read. ──
+      // A clip like a ball on static has no sound at all, so there is no waveform to land from; the
+      // reading IS the picture. Run the watch thunk, record the source from the motion doc (born-rule
+      // entities + shots), mark that there is nothing to transcribe, and keep the bytes for playback
+      // and a reload re-read. A video WITH audio takes the media branch below and folds its picture in
+      // beside the transcript. Never refused: a decode with no audio used to fail the whole import.
+      if (got.meta?.modality === 'video' && got.meta?.watch && !got.meta?.doc) {
+        const res = await got.meta.watch({ signal, onProgress: (label) => progress({ kind: 'file', label: String(label) }) });
+        if (!res || !res.doc) {
+          settleFile(signal.aborted ? 'stopped' : 'error', ((res && res.coverage && res.coverage.dropped) || ['no picture could be read']).join('; '));
+          return null;
+        }
+        const src = addSource({ title: got.title || file.name, text: res.text, kind: 'audio', rights: 'local file', doc: res.doc });
+        settleFile('done');
+        if (src) {
+          src._media = got.meta.media ? { url: got.meta.media, kind: got.meta.mediaKind, isVideo: true } : null;
+          src._motionDoc = res.doc;
+          src._motion = res.artefacts || null;
+          setAsr(src, { state: 'skipped', reason: 'no audio track — nothing to transcribe', pct: 100, partial: '' });
+          if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
+          src.coverage = res.coverage || null;
+          const ne = res.coverage?.entities ?? 0;
+          logIt('record', `Watched ${src.reg} — ${ne} moving thing${ne === 1 ? '' : 's'} (born rule), ${res.coverage?.shots ?? 0} shot${(res.coverage?.shots ?? 0) === 1 ? '' : 's'}; no audio track`, src.reg);
+          persist(); emit('sources');
+          persistAudioBytes(src, file, got.meta.mediaKind);
+          if (typeof fileOpts.onSource === 'function') { try { fileOpts.onSource(src); } catch { /* reveal is best-effort */ } }
+        }
+        return src;
+      }
 
       // ── MEDIA — the source lands AT ONCE from its acoustic reading; transcription follows. ──
       // An audio/video import returns a full pre-transcription reading (waveform + basic
@@ -1683,6 +1783,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
           // reload: OPFS locally, plus an encrypted copy on Matrix media when signed in. Background.
           persistAudioBytes(src, file, got.meta.mediaKind);
           if (typeof fileOpts.onSource === 'function') { try { fileOpts.onSource(src); } catch { /* reveal is best-effort */ } }
+
+          // THE PICTURE first — a video's visual reading (motion + born-rule entities) is model-free
+          // and fast, so it folds in before the (slow, model-loading) transcription runs. A pure-audio
+          // import has no `watch` thunk and skips straight to the words.
+          if (got.meta.watch) await runWatch(src, got.meta.watch, { signal, progress });
 
           // Transcription proper — streamed, resumable, job-tracked (runTranscription). If the tab
           // reloads part-way, the transcribe job + the OPFS audio bytes let resumeJobs pick it up.
@@ -1775,6 +1880,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       const got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) });
       // Re-hydrate the session-only visualization artefacts too, so the Listen surface is whole again.
       if (got.meta) { src._wave = got.meta.waveform || src._wave; src._analysis = got.meta.analysis || src._analysis; src._holons = got.meta.holons || src._holons; }
+      // Re-derive the picture reading (motion + born entities) after a reload — model-free, so it just
+      // re-runs; the composite then re-forms with the resumed transcript.
+      if (got.meta?.watch) await runWatch(src, got.meta.watch, { signal, progress });
       if (got.meta?.transcribe) await runTranscription(src, got.meta.transcribe, { signal, progress });
       else { setAsr(src, { state: 'skipped', reason: 'no signal above the noise floor', pct: 100, partial: '' }); settleJob(job.id, 'skipped'); persist(); emit('sources'); }
     });
@@ -3361,7 +3469,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     const base = docFor(src);
     const modality = base?.modality || null;
     if (!modality || modality === 'text') return base;                       // prose: the base is the reading
-    if ((modality === 'audio' || modality === 'video') && !base?.transcribed) return livePartialDocFor(src);  // read the partial live
+    // A clip still WAITING for its words shows the live partial; a video already WATCHED (its picture
+    // read as motion + born entities, motion.js) shows that reading — it is not waiting on anything.
+    if ((modality === 'audio' || modality === 'video') && !base?.transcribed && !base?.watched) return livePartialDocFor(src);
     return nlDocFor(src);
   };
 
