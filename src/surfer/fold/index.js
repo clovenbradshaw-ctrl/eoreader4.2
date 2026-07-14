@@ -4,6 +4,23 @@
 export { foldNote }        from './integral.js';
 export { impressionQuery } from './impression.js';
 
+// The fold → summary pipeline (summary.js · summary-prompt.js · summary-cross.js):
+// summaryFold packages the surfer's reading at a scope (full · cursor · entity ·
+// topic) as ONE packet; telegramSummary is the model-free floor; realizeSummary is
+// the model voice behind the referential gate (names and numbers must already stand
+// in the packet — prose words are free); the cross-source fold keeps namesakes apart
+// and ships its own collapse metric so a bench can falsify it.
+export { summaryFold, telegramSummary, packetSurface, pickLeadProperty } from './summary.js';
+export {
+  summaryMessages, crossSummaryMessages, SUMMARY_SYSTEMS, SUMMARY_DECODE,
+  cleanSummary, summaryAdditions, referentiallyContained,
+  realizeSummary, realizeCrossSummary,
+} from './summary-prompt.js';
+export {
+  crossSourceSummaryFold, telegramCrossSummary,
+  corefCollapseReport, summaryAttributionErrors,
+} from './summary-cross.js';
+
 // The reading substrate (rich-notes §2·§3): the typed open-world graph the notes
 // project from, and the membrane that crosses it to the talker as plain groups.
 export {
