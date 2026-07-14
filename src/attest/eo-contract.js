@@ -11,4 +11,10 @@ export const CONTRACTS = Object.freeze({
     ops: ['SIG', 'INS', 'DEF'], targets: ['Void'], products: ['Entity', 'Atmosphere'],
     stances: ['Making', 'Binding', 'Dissecting'], note: 'local custody of the bytes read — the payload_sha256 pin',
   }),
+  // Witness (§4): INS a witness Entity per third party, CON the capture -> witness link, EVA the
+  // witness's reading (its status, its diversity). A witness is a Lens.
+  'src/attest/witness.js': contract({
+    ops: ['INS', 'CON', 'EVA'], targets: ['Entity'], products: ['Entity', 'Link', 'Lens'],
+    stances: ['Making', 'Binding', 'Tracing'], note: 'third-party witnesses (SPN2, archive.today) of a capture',
+  }),
 });
