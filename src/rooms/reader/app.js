@@ -2860,12 +2860,21 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // THAT topic in place — asking the first question never orphans an empty placeholder.
   // Delegates to ask() on the now-active topic and returns its pending message. topicNew
   // already makes the child active and auto-naming (from the first question) then names it.
+  // opts.newQuest — a DELIBERATE new quest (the Ask surface's "New quest" affordance): a fresh
+  // TOP-LEVEL topic in the same workspace rather than a child, still inheriting the current record
+  // so a new line of inquiry starts without re-recording the sources. Without it the default holds:
+  // the first question fills the current topic in place, and every question after branches a CHILD
+  // quest beneath it (both inherit the parent's sources).
   const askQuestion = (question, opts = {}) => {
     const q = String(question || '').trim();
     if (!q) return Promise.resolve(null);
     const cur = topic();
     const alreadyAsked = !!(cur && cur.messages.some((m) => m && m.role === 'user'));
-    if (cur && alreadyAsked) {
+    if (opts.newQuest && alreadyAsked) {
+      const fresh = topicNew(DEFAULT_TOPIC_TITLE, { workspaceId: (cur && cur.workspaceId) || state.activeWorkspaceId });
+      fresh.sourceSns = [...((cur && cur.sourceSns) || [])];   // a new quest still reads the same record
+      persist(); emit('topics');
+    } else if (cur && alreadyAsked) {
       const child = topicNew(DEFAULT_TOPIC_TITLE, { parentId: cur.id, workspaceId: cur.workspaceId });
       child.sourceSns = [...(cur.sourceSns || [])];   // the child reads the same record as its parent
       persist(); emit('topics');

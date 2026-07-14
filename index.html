@@ -592,6 +592,30 @@ table{border-collapse:collapse;width:100%}
             <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:30px 24px 96px">
               <div style="max-width:680px;margin:0 auto">
 
+                <!-- ASK CONTEXT — the quest you're in (workspace › topic path) and where the next
+                     question lands. Left: where you are, so the topic space inside the workspace is
+                     never a guess. Right (once this quest holds a question): Follow-up nests a child
+                     quest under this one; New quest starts a fresh top-level quest over the same record. -->
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;min-height:24px">
+                  <div class="eo-scroll" style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;overflow-x:auto;white-space:nowrap;font-size:11.5px;color:#8A8A95">
+                    <span style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto">
+                      <span style="width:17px;height:17px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;background:{{ askWsDot }}">{{ askWsInitial }}</span>
+                      <span style="font-weight:600;color:#6E6E78">{{ askWsName }}</span>
+                    </span>
+                    <sc-for list="{{ askCrumbs }}" as="cr">
+                      <span style="flex:0 0 auto;color:#C4C4CC">›</span>
+                      <sc-if value="{{ cr.isLast }}"><span style="flex:0 1 auto;min-width:0;font-weight:650;color:#3A3A44;overflow:hidden;text-overflow:ellipsis">{{ cr.title }}</span></sc-if>
+                      <sc-if value="{{ cr.notLast }}"><button onClick="{{ cr.go }}" title="Jump to this quest" style="flex:0 0 auto;max-width:160px;overflow:hidden;text-overflow:ellipsis;color:#8A8A95;background:none" style-hover="color:#5B4BE6">{{ cr.title }}</button></sc-if>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ askShowScope }}">
+                    <div style="flex:0 0 auto;display:flex;align-items:center;gap:2px;background:#F4F4F7;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
+                      <button onClick="{{ setAskFollow }}" title="Follow up here — a new question nested under this quest, reading the same record" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;border-radius:6px;padding:3px 9px;color:{{ askFollowFg }};background:{{ askFollowBg }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>Follow-up</button>
+                      <button onClick="{{ setAskNew }}" title="Start a fresh quest — a new top-level topic in this workspace, over the same sources" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;border-radius:6px;padding:3px 9px;color:{{ askNewFg }};background:{{ askNewBg }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>New quest</button>
+                    </div>
+                  </sc-if>
+                </div>
+
                 <!-- the ask line -->
                 <div style="position:relative;margin-bottom:10px">
                   <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="{{ chatPlaceholder }}" style="width:100%;border:none;border-bottom:2px solid #1B1B22;outline:none;background:transparent;font-size:23px;font-weight:300;color:#1B1B22;padding:6px 42px 12px 0" />
@@ -639,7 +663,19 @@ table{border-collapse:collapse;width:100%}
                       <div style="display:flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#8A8A95;margin-bottom:16px"><span style="animation:eoBlink 1.4s ease-in-out infinite">{{ a.pendingLabel }}</span><span style="flex:1;height:1px;background:#EAEAEF"></span></div>
                     </sc-if>
                     <sc-if value="{{ a.notPending }}">
-                      <div style="display:flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:{{ a.kindFg }};margin-bottom:14px">{{ a.kind }}<sc-if value="{{ a.hasCorr }}"><span style="font-size:9px;font-weight:600;letter-spacing:.05em;color:{{ a.corrFg }};background:{{ a.corrBg }};border:1px solid {{ a.corrBd }};border-radius:4px;padding:1px 6px">{{ a.corrLabel }}</span></sc-if><span style="flex:1;height:1px;background:#EAEAEF"></span></div>
+                      <div style="display:flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:{{ a.kindFg }};margin-bottom:14px">{{ a.kind }}<sc-if value="{{ a.hasCorr }}"><span style="font-size:9px;font-weight:600;letter-spacing:.05em;color:{{ a.corrFg }};background:{{ a.corrBg }};border:1px solid {{ a.corrBd }};border-radius:4px;padding:1px 6px">{{ a.corrLabel }}</span></sc-if><span style="flex:1;height:1px;background:#EAEAEF"></span><span style="flex:0 0 auto;display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:normal">
+                        <sc-if value="{{ a.hasBody }}"><button onClick="{{ toggleEntityMode }}" title="{{ askLinksTitle }}" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }}" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ askLinksLabel }}</button></sc-if>
+                        <span style="position:relative;display:inline-flex">
+                          <button onClick="{{ toggleAskAuditMenu }}" title="Download this answer's full audit — the question, its grounded passages and verdicts, and the verbatim prompt" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF" style-hover="background:#EAEAEF;color:#5B4BE6"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Audit</button>
+                          <sc-if value="{{ askAuditMenuOpen }}">
+                            <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:#fff;border:1px solid #EAEAEF;border-radius:10px;box-shadow:0 12px 30px rgba(20,20,30,.16);padding:5px;width:216px">
+                              <div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;padding:5px 8px 4px">DOWNLOAD AUDIT</div>
+                              <button onClick="{{ downloadAskAuditMd }}" style="display:block;width:100%;text-align:left;border-radius:7px;padding:7px 9px;font-size:12px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF">Markdown<div style="font-size:10px;font-weight:500;color:#8A8A95;margin-top:1px">Readable — passages &amp; verdicts under the answer</div></button>
+                              <button onClick="{{ downloadAskAuditJson }}" style="display:block;width:100%;text-align:left;border-radius:7px;padding:7px 9px;font-size:12px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF">JSON<div style="font-size:10px;font-weight:500;color:#8A8A95;margin-top:1px">Structured — the answer paired to its trail</div></button>
+                            </div>
+                          </sc-if>
+                        </span>
+                      </span></div>
                     </sc-if>
 
                     <!-- the question, restated -->
@@ -2594,6 +2630,9 @@ class Component extends DCLogic {
       modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
+      // Ask surface: where the next question lands — 'follow' (a child quest under the current
+      // topic) or 'new' (a fresh top-level quest); and the per-answer "Download audit" menu.
+      askScope: 'follow', askAuditMenuOpen: false,
       entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null, webGraphTick: 0,
       // The entity explorer PIVOTS to the source open in the stage: when a source is in front
       // it shows that source's figures, not the whole topic's. entScopeAll escapes back to the
@@ -3203,7 +3242,10 @@ class Component extends DCLogic {
     // the input box first; a bare click passes an event, so only a real string is honoured.
     const q = String(typeof q0 === 'string' ? q0 : (this.state.chatInput || '')).trim();
     if (!q || !this._app) return;
-    this.setState({ chatInput: '' });
+    // Capture where this question lands BEFORE the reset: the Ask "New quest" affordance is a
+    // one-shot intent — it fires once, then falls back to a follow-up for the next question.
+    const newQuest = this.state.tab === 'ask' && this.state.askScope === 'new';
+    this.setState({ chatInput: '', askScope: 'follow' });
     this._chatStick = true;   // a deliberate send always returns to the live bottom
     // A new prompt while a turn is still running used to be REFUSED outright (early-return on
     // _generating, and the composer showed only Stop) — so a user who wanted to move on was stuck
@@ -3226,7 +3268,7 @@ class Component extends DCLogic {
     // sources, when the current topic already holds a question) — the system answers a single
     // grounded question or abstains, and never accretes the back-and-forth thread it does worst.
     // Chat stays the explicit thread mode: it keeps the plain ask() so its conversation still builds.
-    const fire = () => { (onAsk ? this._app.askQuestion(q) : this._app.ask(q)).catch(() => {}); };
+    const fire = () => { (onAsk ? this._app.askQuestion(q, { newQuest }) : this._app.ask(q)).catch(() => {}); };
     if (this._generating()) {
       this._app.stop();
       setTimeout(fire, 0);
@@ -3359,7 +3401,7 @@ class Component extends DCLogic {
     // canvas and redraws clean (the ref only re-fires on a new element).
     if (this.state.tab === 'graph' && tab !== 'graph' && this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; this._tgEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
-    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
+    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
     // The Graph tab now hosts the real graph — the entity web / causal DAG of everything in
     // focus. Initialise it lazily the first time we land here (whole-topic entity web).
     if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
@@ -4324,15 +4366,25 @@ class Component extends DCLogic {
   }
   exportChatAs(format) {
     this.setState({ exportMenuOpen: false });
+    this._downloadExport(format, 'Chat exported — ');
+  }
+  // Download the audit of THIS ask. One grounded question per topic means the open topic IS the
+  // question, so its export is the answer's full trail — the question, the grounded passages and
+  // their verdicts, and the verbatim prompt. Same builder as the chat export, scoped to the topic.
+  downloadAskAudit(format) {
+    this.setState({ askAuditMenuOpen: false });
+    this._downloadExport(format, 'Audit downloaded — ');
+  }
+  _downloadExport(format, doneMsg) {
     const t = this._app && this._app.topic();
     const out = t && this._app.exportChat(t.id, format);
-    if (!out) { this.showToast('Nothing to export yet — ask something first.'); return; }
+    if (!out) { this.showToast('Nothing to download yet — ask something first.'); return; }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([out.text], { type: out.mime }));
     a.download = out.filename;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    this.showToast('Chat exported — ' + out.filename);
+    this.showToast(doneMsg + out.filename);
   }
   closeSearch() { this.setState({ searchOpen: false, searchPreview: null }); }
   // ── ⌘K source palette — search THROUGH everything recorded (title · site · full body) ────────
@@ -6607,6 +6659,26 @@ class Component extends DCLogic {
       dot: r.verdict === 'strain' ? '#B23A2E' : r.verdict === 'confirm' ? '#59C08A' : '#8A8A95',
     }));
 
+    // ── ask context — the quest you're in and where the next question lands ──────────────────
+    // The breadcrumb (workspace › quest path) makes "what topic space am I in, inside which
+    // workspace" plain on the Ask surface; the scope control makes the branch explicit — a
+    // follow-up nests a child quest under this one, a new quest is a fresh top-level topic over the
+    // same record — instead of the old silent auto-branch on every follow-up question.
+    const askedInTopic = !!(topic && topic.messages && topic.messages.some((mm) => mm && mm.role === 'user'));
+    const questPath = [];
+    if (topic) {
+      const byId = (id) => (app.state.topics || []).find((x) => x.id === id) || null;
+      let t = topic, guard = 0;
+      while (t && guard++ < 50) { questPath.unshift(t); t = t.parentId ? byId(t.parentId) : null; }
+    }
+    const askCrumbs = questPath.map((t, i) => ({
+      title: t.title || 'New topic',
+      isLast: i === questPath.length - 1,
+      notLast: i !== questPath.length - 1,
+      go: () => { if (this._app.setTopic) this._app.setTopic(t.id); this.setTab('ask'); },
+    }));
+    const askScope = st.askScope || 'follow';
+
     return {
       // chrome
       omni: st.omni, toast: st.toast, dragOver: !!st.dragOver,
@@ -6646,6 +6718,26 @@ class Component extends DCLogic {
       isRegister: st.tab === 'register', isMemo: st.tab === 'memo',
       // ask (the primary surface) — the latest exchange as one typed, cited answer
       askSurfaces, askTries, askHasTries: askTries.length > 0, askEmpty, askHasSurface: askSurfaces.length > 0,
+      // ask context — breadcrumb (workspace › quest path) + the destination affordance
+      askWsName: activeWs ? activeWs.name : 'Workspace',
+      askWsDot: activeWs ? (activeWs.color || '#6D5EF5') : '#6D5EF5',
+      askWsInitial: activeWs ? (((activeWs.name || '?').trim()[0] || '?').toUpperCase()) : '?',
+      askCrumbs,
+      askShowScope: askedInTopic,
+      setAskFollow: () => this.setState({ askScope: 'follow' }),
+      setAskNew: () => this.setState({ askScope: 'new' }),
+      askFollowFg: askScope === 'follow' ? '#fff' : '#6E6E78', askFollowBg: askScope === 'follow' ? '#6D5EF5' : 'transparent',
+      askNewFg: askScope === 'new' ? '#fff' : '#6E6E78', askNewBg: askScope === 'new' ? '#6D5EF5' : 'transparent',
+      // per-answer controls: the combined links+citations toggle (reuses entityMode, see
+      // toggleEntityMode / entMode* below) and the "Download audit" menu for this ask
+      askLinksLabel: st.entityMode ? 'Links & citations · on' : 'Links & citations · off',
+      askLinksTitle: st.entityMode
+        ? 'Hide the inline entity links and [S-…] citation badges in this answer'
+        : 'Show the inline entity links and [S-…] citation badges in this answer',
+      askAuditMenuOpen: !!st.askAuditMenuOpen,
+      toggleAskAuditMenu: () => this.setState({ askAuditMenuOpen: !st.askAuditMenuOpen }),
+      downloadAskAuditMd: () => this.downloadAskAudit('md'),
+      downloadAskAuditJson: () => this.downloadAskAudit('json'),
       // chat (demoted, beta)
       chatEmpty: messages.length === 0, messages, heroActions,
       chatInput: st.chatInput, onChatInput: (e) => this.onChatInput(e), onChatKey: (e) => this.onChatKey(e),
