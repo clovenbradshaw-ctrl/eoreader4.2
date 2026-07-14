@@ -63,6 +63,7 @@ import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
 import { buildChatExport } from './chat-export.js';
 import { wikiReferent } from './wiki-referent.js';
+import { mergeEntitiesByReferent } from './entity-merge.js';
 import { composeProvenance, repoRef, readBuild, fetchLatestCommit, APP_NAME, APP_VERSION } from './provenance.js';
 import { foldNarrative } from './fold-narrative.js';
 import { deriveTopicTitle, isDefaultTopicTitle, DEFAULT_TOPIC_TITLE } from './topic-name.js';
@@ -3217,29 +3218,12 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       : level === 'signal' ? baseRows.filter(acoustic)
       : [...nameRows, ...baseRows.filter(acoustic)];   // 'all' — referents + the acoustic holons
     if (merge) {
-      // Group per-source instances by normalized label. The strongest instance
-      // (most mentions) LEADS the merged row, so key/docId/entId/sn point at the
-      // richest per-source profile — opening the row lands there — while mentions
-      // and links aggregate and `sourceCount` records the reach.
-      const byLabel = new Map();
-      for (const it of rows) {
-        const k = entityKey(it.label);
-        let grp = byLabel.get(k);
-        if (!grp) { grp = { lead: it, mentions: 0, links: 0, sns: new Set(), instances: [] }; byLabel.set(k, grp); }
-        grp.mentions += it.mentions;
-        grp.links += it.links;
-        grp.sns.add(it.sn);
-        grp.instances.push({ docId: it.docId, entId: it.entId, sn: it.sn });
-        if (it.mentions > grp.lead.mentions) grp.lead = it;
-      }
-      const merged = [...byLabel.values()].map((grp) => ({
-        key: grp.lead.key, entId: grp.lead.entId, docId: grp.lead.docId, sn: grp.lead.sn,
-        label: grp.lead.label, mentions: grp.mentions, links: grp.links,
-        sourceCount: grp.sns.size, instances: grp.instances,
-        kind: grp.lead.kind, level: grp.lead.level,
-      }));
-      merged.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
-      return merged;
+      // Collapse per-source instances into cross-source rows by referent, NOT by bare surname:
+      // "Iran" folds across sources as one entity, but "Armstrong" — a surname Neil, Louis and
+      // Gerry share — is folded into the full-name bearer of its own source, so a read about Neil
+      // Armstrong never inherits Louis Armstrong's chapters (entity-merge.js). The strongest
+      // instance still leads, mentions and links aggregate, and `sourceCount` records the reach.
+      return mergeEntitiesByReferent(rows, { entityKey });
     }
     rows.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
     return rows;
