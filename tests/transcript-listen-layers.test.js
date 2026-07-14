@@ -93,9 +93,52 @@ test('spanLayers: a clicked word reports its stacked layers', async () => {
   assert.equal(L.speaker.label, 'Speaker 1');       // speaker 0 → "Speaker 1"
   assert.equal(L.acous, 0.8);                        // the acoustic witness surfaces
   assert.ok(L.segmentText.includes('Justice Kennedy'), 'its breath group is reported');
+  // A short group fits whole — the brief-span window trims nothing, so no ellipses.
+  assert.equal(L.segment.word, 'Kennedy');
+  assert.equal(L.segment.lead, false);
+  assert.equal(L.segment.trail, false);
   assert.ok(L.referent && String(L.referent.label).toLowerCase().includes('kennedy'), 'its figure is reported');
   // A word in the still-open tail reads as heard-not-yet-read.
   assert.equal(app.spanLayers('S1', 9).read, false);
   // Out-of-range is null, never a throw.
   assert.equal(app.spanLayers('S1', 999), null);
+});
+
+// A breath group collapses into one long run whenever the stream carries no gap-silences (very common
+// mid-transcription: the words arrive with continuous timing). The span inspector must NOT dump that
+// whole run — it must show a BRIEF span centered on the clicked word, ellipsed where trimmed.
+const LONG_WORDS = Array.from({ length: 30 }, (_, k) => ({
+  text: `w${k}`, start: k * 0.3, end: k * 0.3 + 0.2, speaker: 0,   // gaps of 0.1s < PARA_GAP → one group
+}));
+const oneLongGroup = () => ({
+  sn: 'S2', reg: 'S-0002', kind: 'audio', title: 'One long breath', docId: 'doc-long',
+  text: '## Signal', sha: 'placeholder', bytes: 20,
+  _doc: { docId: 'doc-long', modality: 'audio', transcribed: false, log: { snapshot: () => [] } },
+  _asr: { state: 'running', pct: 30, words: LONG_WORDS },
+  audioEvents: [],
+  audioMeta: { duration: 12 },
+});
+
+test('spanLayers: a long breath group is windowed to a BRIEF span, not dumped whole', async () => {
+  const app = await freshApp();
+  app.state.sources.push(oneLongGroup());
+
+  // All 30 words are ONE breath group (no gap ≥ 0.9s, one speaker). Click word 15, deep inside it.
+  const L = app.spanLayers('S2', 15);
+  assert.ok(L, 'span layers resolve');
+  assert.equal(L.segment.word, 'w15', 'the clicked word is the pivot of the span');
+  assert.equal(L.segment.lead, true, 'trimmed on the left → a lead ellipsis');
+  assert.equal(L.segment.trail, true, 'trimmed on the right → a trail ellipsis');
+
+  // The excerpt is a handful of words, not the whole 30-word run.
+  const shown = L.segmentText.replace(/…/g, '').split(/\s+/).filter(Boolean);
+  assert.ok(shown.length <= 15, `a brief span, got ${shown.length} words: "${L.segmentText}"`);
+  assert.ok(L.segmentText.startsWith('…') && L.segmentText.endsWith('…'), 'ellipsed both ends');
+  assert.ok(L.segmentText.includes('w15'), 'the clicked word is in the span');
+
+  // The far ends of the run are NOT shown — the wall of text is gone.
+  assert.ok(!L.segmentText.includes('w0 ') && !shown.includes('w0'), 'the start of the run is trimmed away');
+  assert.ok(!shown.includes('w29'), 'the end of the run is trimmed away');
+  // The seek time follows the window, not the group start.
+  assert.ok(L.segmentT0 > 0, 'segSeek lands at the start of the shown span, not 0:00');
 });
