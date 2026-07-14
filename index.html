@@ -1383,9 +1383,9 @@ table{border-collapse:collapse;width:100%}
               </sc-if>
               <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
                 <sc-for list="{{ overviewStats }}" as="st">
-                  <div style="border:1px solid #EFEFF3;border-radius:10px;padding:11px 12px;background:#fff">
-                    <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:{{ st.color }}">{{ st.value }}</div>
-                    <div style="font-size:11px;color:#8A8A95;margin-top:2px">{{ st.label }}</div>
+                  <div style="border:1px solid #EFEFF3;border-left:3px solid {{ st.color }};border-radius:10px;padding:11px 13px;background:#fff">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;line-height:1;color:{{ st.color }}">{{ st.value }}</div>
+                    <div style="font-size:11px;color:#8A8A95;margin-top:5px">{{ st.label }}</div>
                   </div>
                 </sc-for>
               </div>
@@ -1455,14 +1455,6 @@ table{border-collapse:collapse;width:100%}
                     </div>
                   </sc-for>
                 </sc-if>
-
-                <!-- Encrypted Vault -->
-                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:22px 8px 8px">ENCRYPTED VAULT</div>
-                <div style="margin:0 8px;padding:12px;border:1px solid #EFEFF3;border-radius:11px;background:#FCFCFD">
-                  <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#3A3A44;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>{{ vaultLabel }}</div>
-                  <div style="height:6px;border-radius:4px;background:#EDEDF0;margin:9px 0 8px;overflow:hidden"><div style="height:100%;width:{{ vaultPct }};background:#B4B4BE;border-radius:4px"></div></div>
-                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4">{{ vaultSync }}</div>
-                </div>
               </aside>
 
               <!-- ── CENTRE ── -->
@@ -5777,7 +5769,17 @@ class Component extends DCLogic {
   }
   zoomIn() { this.setState({ scale: Math.min(2.2, this.state.scale * 1.15), camT: 'transform .18s ease' }); }
   zoomOut() { this.setState({ scale: Math.max(.35, this.state.scale * .87), camT: 'transform .18s ease' }); }
-  fit() { this.setState({ tx: 40, ty: 30, scale: this._fitScale || 1, camT: 'transform .22s ease' }); }
+  // Frame the whole graph, centred, with a little breathing room — scaled to fit both axes but
+  // never blown up past 100%. Falls back to the width-only fit if the content bounds aren't known.
+  fit() {
+    const c = this._content, vp = this._vp;
+    if (!c || !vp) { this.setState({ tx: 40, ty: 30, scale: this._fitScale || 1, camT: 'transform .22s ease' }); return; }
+    const pad = 44, vw = vp.clientWidth || 1200, vh = vp.clientHeight || 420;
+    const cw = Math.max(1, c.maxX - c.minX), ch = Math.max(1, c.maxY - c.minY);
+    const scale = Math.max(.35, Math.min(1, (vw - pad * 2) / cw, (vh - pad * 2) / ch));
+    const tx = (vw - cw * scale) / 2 - c.minX * scale, ty = (vh - ch * scale) / 2 - c.minY * scale;
+    this.setState({ tx, ty, scale, camT: 'transform .22s ease' });
+  }
   focusNode(id) { if (!this._panning) this.setState({ focusId: this.state.focusId === id ? null : id, rightOpen: true, ...(this._mob() ? { leftOpen: false } : {}) }); }
   hoverNode(id) { if (!this._panning && this.state.hoverId !== id) this.setState({ hoverId: id }); }
   clearFocus() { this.setState({ focusId: null, hideContra: false }); }
@@ -6105,47 +6107,63 @@ class Component extends DCLogic {
 
   // ── the graph layout (honest, dynamic) ───────────────────────────────────
   _layout(prov, open = {}) {
-    const LX = [40, 330, 640, 950, 1230];
-    const W = [240, 260, 260, 230, 190];
+    const Wk = { memo: 240, claim: 260, passage: 260, source: 230, file: 190 };
     const H = { memo: 100, claim: 96, passage: 110, source: 88, file: 70 };
-    const HEADER_H = 40, HEAD_GAP = 12, GAP = 22;
+    const COLGAP = 70, HEADER_H = 40, HEAD_GAP = 12, GAP = 22;
     const pos = {};
     prov.nodes.memo._nid = 'M1';
     prov.nodes.claims.forEach((c) => c._nid = c.id);
     prov.nodes.passages.forEach((p) => p._nid = p.id);
     prov.nodes.sources.forEach((s) => s._nid = s.sn);
     prov.nodes.files.forEach((f) => f._nid = f.id);
-    // The memo is the single root card (col 0) — always shown, vertically centred below.
-    pos.M1 = { x: LX[0], y: 40, w: W[0], h: H.memo };
     // The four collapsible tiers: a fold header sits at each column's top, and its cards
     // stack below ONLY when the tier is open. A collapsed tier's cards fold into the header
     // (they share its position) so edges into/out of the group route to the header, not to
     // scattered points, and are not drawn as cards.
     const tiers = [
-      ['claim', 1, prov.nodes.claims, H.claim],
-      ['passage', 2, prov.nodes.passages, H.passage],
-      ['source', 3, prov.nodes.sources, H.source],
-      ['file', 4, prov.nodes.files, H.file],
+      ['claim', prov.nodes.claims, H.claim],
+      ['passage', prov.nodes.passages, H.passage],
+      ['source', prov.nodes.sources, H.source],
+      ['file', prov.nodes.files, H.file],
     ];
+    // Only the memo and the NON-EMPTY tiers take a column, laid out left→right — an empty claim or
+    // passage tier never reserves a gap, so a sources-only graph sits right beside the topic node
+    // instead of stranded columns apart. (Fit + auto-frame then centre whatever this comes to.)
+    const colX = {}; let x = 40;
+    colX.memo = x; x += Wk.memo + COLGAP;
+    for (const [key, list] of tiers) if (list.length) { colX[key] = x; x += Wk[key] + COLGAP; }
+    const canvasW = Math.max(x - COLGAP + 60, 600);
+    // The memo is the single root card (col 0) — always shown, vertically centred below.
+    pos.M1 = { x: colX.memo, y: 40, w: Wk.memo, h: H.memo };
     let colBottom = 40 + H.memo;
-    for (const [key, col, list, h] of tiers) {
+    for (const [key, list, h] of tiers) {
       if (!list.length) continue;
-      const hid = 'H_' + key;
+      const hid = 'H_' + key, cx = colX[key], w = Wk[key];
       let y = 40;
-      pos[hid] = { x: LX[col], y, w: W[col], h: HEADER_H };
+      pos[hid] = { x: cx, y, w, h: HEADER_H };
       y += HEADER_H;
       if (open[key]) {
         y += HEAD_GAP;
-        for (const n of list) { pos[n._nid] = { x: LX[col], y, w: W[col], h }; y += h + GAP; }
+        for (const n of list) { pos[n._nid] = { x: cx, y, w, h }; y += h + GAP; }
       } else {
         for (const n of list) pos[n._nid] = pos[hid];
       }
       colBottom = Math.max(colBottom, y);
     }
     const canvasH = Math.max(colBottom, 420) + 40;
-    pos.M1.y = Math.max(40, canvasH / 2 - H.memo / 2 - 20);
-    const canvasW = LX[4] + W[4] + 60;
+    // Centre the memo against the ACTUAL content height (colBottom), not the padded canvas: when the
+    // tiers are collapsed the content is short, so the memo sits level with the headers in one clean
+    // TOPIC → … row; when a tier is expanded into a tall column, the memo rides its middle.
+    pos.M1.y = Math.max(40, colBottom / 2 - H.memo / 2 - 20);
     this._fitScale = Math.min(1, (this._vp ? this._vp.clientWidth - 80 : 1200) / canvasW);
+    // The actual bounding box of what's on screen (collapsed cards fold into their header, so
+    // they don't widen it) — fit() frames THIS, not the reserved canvas, so an empty file column
+    // or a half-used width never leaves the graph stranded in a corner.
+    const b = Object.values(pos).reduce((a, p) => ({
+      minX: Math.min(a.minX, p.x), minY: Math.min(a.minY, p.y),
+      maxX: Math.max(a.maxX, p.x + p.w), maxY: Math.max(a.maxY, p.y + p.h),
+    }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+    this._content = Number.isFinite(b.minX) ? b : null;
     return { pos, canvasW, canvasH };
   }
   _edgePath(a, b) {
@@ -6887,7 +6905,7 @@ class Component extends DCLogic {
     const explorerNewFolder = () => { const v = prompt('New folder name', 'New folder'); if (v !== null) app.folderNew(v || 'New folder', { parentId: curFolderId }); this.setState({ explorerMenu: null }); };
 
     // ══ SOURCE EXPLORER — the three-column home view ═══════════════════════════════════════════
-    // Left: Quick-Access shelves + the folder tree + the encrypted-vault meter. Centre: a calm,
+    // Left: Quick-Access shelves + the folder tree. Centre: a calm,
     // paginated grid of source cards that search / kind-filter / sort narrow. Right: the Inspector —
     // read & act on the selected source in place. Everything is a read-time projection of the Drive;
     // the mutations (star, touch, add-to-corpus, move) live on the engine.
@@ -6928,13 +6946,6 @@ class Component extends DCLogic {
       }
     };
     walkTree(null, 0);
-
-    // — encrypted-vault meter (recorded bytes against a nominal cap) —
-    const usedBytes = drive.reduce((a, s) => a + (s.bytes || 0), 0);
-    const usedGB = usedBytes / 1073741824;
-    const vaultLabel = `${usedGB >= 0.1 ? usedGB.toFixed(1) : (usedBytes > 0 ? usedGB.toFixed(2) : '0')} / 15 GB`;
-    const vaultPct = Math.min(100, usedBytes > 0 ? Math.max(1.5, (usedGB / 15) * 100) : 0) + '%';
-    const vaultSync = (wsObj && (wsObj.roomId || wsObj.shared)) ? 'synced to Matrix · members-only' : 'on this device · private';
 
     // — the working set for the centre grid: pick the shelf, then kind-filter → search → sort —
     let baseSet;
@@ -7171,6 +7182,14 @@ class Component extends DCLogic {
           }));
         })(),
       };
+      // Auto-frame the DAG the first time this corpus's graph is shown, so it opens centred rather
+      // than clustered in a corner. Keyed on the tier COUNTS (not open/closed state, so expanding a
+      // group never yanks the camera); rAF defers the camera set out of render, like _poke above.
+      const fitKey = [prov.nodes.claims.length, prov.nodes.passages.length, prov.nodes.sources.length, prov.nodes.files.length].join(':');
+      if (this._fitKey !== fitKey && typeof requestAnimationFrame === 'function') {
+        this._fitKey = fitKey;
+        if (!this._fitRaf) this._fitRaf = requestAnimationFrame(() => { this._fitRaf = null; if (this.state.tab === 'evidence') this.fit(); });
+      }
     }
     const legendNodes = [
       { color: '#6D5EF5', label: 'Topic / memo' }, { color: '#8A8A95', label: 'Claim' },
@@ -7666,7 +7685,6 @@ class Component extends DCLogic {
       qaTopicBg: qaTopic.bg, qaTopicFg: qaTopic.fg, qaTopicWt: qaTopic.wt, qaTopicGo: gotoBucket('topic'), qaTopicCount: String(topicCorpus.length),
       qaAllBg: qaAll.bg, qaAllFg: qaAll.fg, qaAllWt: qaAll.wt, qaAllGo: gotoBucket('all'), qaAllCount: String(drive.length),
       exTree, exTreeHas: exTree.length > 0,
-      vaultLabel, vaultPct, vaultSync,
       // centre: header, breadcrumb, sort + kind chips, jump-back-in, source cards, show-all
       explorerQuery: st.explorerQuery, onExplorerSearch: (e) => this.setState({ explorerQuery: e.target.value, explorerShowAll: false }),
       explorerViewGrid: st.explorerView !== 'list',
