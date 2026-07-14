@@ -611,6 +611,13 @@ const summarize = (name, ctx, ms) => {
                               quiesced: ctx.reasoning.quiesced,
                               mine: ctx.reasoning.everyStepIsMine } : base;
     case 'prompt':   return { ...base, promptLen: ctx.promptText?.length || 0,
+                              // The built prompt VERBATIM — the same bytes the post-hoc "what it
+                              // was prompted" panel keeps, carried on the live step so the verbose
+                              // trail (reader/fold-narrative.js) can show the prompt AS it is built,
+                              // not only after. Bounded so a pathological prompt never bloats the
+                              // per-step audit unboundedly; a normal grounded prompt (~6 KB) rides
+                              // whole. This is the audited projection — safe to surface, never ctx.
+                              ...(ctx.promptText ? { promptText: String(ctx.promptText).slice(0, 24000) } : {}),
                               // the arc broadcast rode this turn's window (broadcastArc)
                               ...(ctx.arcBlock ? { arc: true } : {}) };
     case 'llm':      return { ...base, outputLen: ctx.rawOutput?.length || 0, maxTokens: ctx.maxTokens,
