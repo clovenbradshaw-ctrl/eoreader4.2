@@ -625,7 +625,9 @@ table{border-collapse:collapse;width:100%}
       </sc-if>
 
       <div style="flex:1;display:flex;min-height:0">
-        <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+        <!-- The reading column. In hero mode it steps aside (display:none) so the entity panel
+             beside it fills the stage; the tab bar above stays put. -->
+        <div style="flex:1;display:{{ mainDisplay }};flex-direction:column;min-width:0">
 
           <!-- ASK TAB — the primary surface. Ask the record; get one typed, cited answer
                whose shape (Answer / Finding / Contradicted / The record does not say) and
@@ -2033,8 +2035,8 @@ table{border-collapse:collapse;width:100%}
 
         <!-- RIGHT PANEL — ENTITIES / INSPECTOR (stands down on the Graph tab, which has its own panel) -->
         <sc-if value="{{ rightPanelShow }}">
-        <aside class="eo-scroll eo-right" style="width:340px;flex:0 0 auto;background:#fff;border-left:1px solid #EAEAEF;overflow-y:auto;min-height:0">
-          <div style="padding:14px 16px">
+        <aside class="eo-scroll eo-right" style="width:{{ rightWidth }};flex:{{ rightFlex }};background:#fff;border-left:{{ rightBorder }};overflow-y:auto;min-height:0">
+          <div style="padding:{{ rightBodyPad }};max-width:{{ rightBodyMax }};margin:{{ rightBodyMargin }}">
 
             <!-- SPAN LAYERS — a word clicked in the Listen transcript, and every reading active at that
                  instant: whether EO has folded it, who said it, how sure the ear was, its breath group,
@@ -2125,7 +2127,13 @@ table{border-collapse:collapse;width:100%}
 
             <!-- ENTITY PROFILE -->
             <sc-if value="{{ profShow }}">
-              <button onClick="{{ backToEntities }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#8A8A95;margin-bottom:12px" style-hover="color:#5B4BE6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>All entities</button>
+              <!-- header rail: back to the list, and the promote/demote between rail and full stage -->
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <button onClick="{{ backToEntities }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#8A8A95" style-hover="color:#5B4BE6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>All entities</button>
+                <span style="flex:1"></span>
+                <sc-if value="{{ heroExpandShow }}"><button onClick="{{ toggleHero }}" title="Expand this figure to the full stage" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:7px;padding:4px 9px" style-hover="background:#E7E2FD"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Expand</button></sc-if>
+                <sc-if value="{{ heroCollapseShow }}"><button onClick="{{ toggleHero }}" title="Collapse back to the side panel" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#6E6E78;background:#F0F0F5;border:1px solid #E6E6EC;border-radius:7px;padding:4px 9px" style-hover="background:#E7E7EF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3a2 2 0 0 0 2-2V3M20 8h-3a2 2 0 0 1-2-2V3M4 16h3a2 2 0 0 1 2 2v3M20 16h-3a2 2 0 0 0-2 2v3"/></svg>Collapse</button></sc-if>
+              </div>
               <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
                 <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ prof.initials }}</span>
                 <span style="flex:1;min-width:0">
@@ -2912,6 +2920,9 @@ class Component extends DCLogic {
       tab: 'register', omni: '', chatInput: '', toast: null,
       isMobile: mobile,
       leftOpen: mobile ? false : this._pref('eo_left', true), rightOpen: mobile ? false : this._pref('eo_right', true),
+      // The entity panel can be PROMOTED from the 340px right rail to the main stage (hero) — a
+      // figure's profile then reads like a page, with the moment-by-moment drill it holds given room.
+      rightHero: false,
       statusOpen: false, monologueOpen: false, logMode: 'actions',
       // The real-time murmur strip — the peripheral sense (src/murmur) painted on the main page.
       // The MODE is the one control: 'off' (nothing), 'look' (mutters + learns from the record, no
@@ -4458,7 +4469,14 @@ class Component extends DCLogic {
   toggleRight() {
     const v = !this.state.rightOpen;
     if (!this._mob()) this._setPref('eo_right', v);
-    this.setState({ rightOpen: v, ...(this._mob() && v ? { leftOpen: false } : {}) });
+    this.setState({ rightOpen: v, ...(this._mob() && v ? { leftOpen: false } : {}), ...(v ? {} : { rightHero: false }) });
+  }
+  // Promote / demote the entity panel between the side rail and the full stage. Hero is a desktop
+  // affordance (on mobile the panel is already a near-full-width drawer), and it needs the panel open.
+  toggleRightHero() {
+    if (this._mob()) return;
+    const v = !this.state.rightHero;
+    this.setState({ rightHero: v, ...(v ? { rightOpen: true } : {}) });
   }
   closePanels() { this.setState({ leftOpen: false, rightOpen: false }); }
   toggleStatus() { this.setState({ statusOpen: !this.state.statusOpen }); }
@@ -4847,7 +4865,7 @@ class Component extends DCLogic {
     if (r && r.sn) this.openViewer(r.sn, r.focus || undefined);
   }
   openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'ask' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
-  backToEntities() { this.setState({ entitySel: null, focusId: null }); }
+  backToEntities() { this.setState({ entitySel: null, focusId: null, rightHero: false }); }
   // The wiki referent for the open entity — 4.1's entity-panel Wikipedia search, restored.
   // Fired once per (doc, entity): the engine searches Wikipedia and confirms (or refuses)
   // the settled referent against the entity's attested context; the surface only caches
@@ -6411,6 +6429,7 @@ class Component extends DCLogic {
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
+        mainDisplay: 'flex', rightWidth: '340px', rightFlex: '0 0 auto', rightBorder: '1px solid #EAEAEF', rightBodyPad: '14px 16px', rightBodyMax: 'none', rightBodyMargin: '0',
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals() };
     }
@@ -7700,6 +7719,29 @@ class Component extends DCLogic {
       // inspector, the entity profile, and finally the entity list.
       spanShow: !!spanInsp, span: spanInsp || {},
       inspShow: !spanInsp && !!insp, insp: insp || {}, profShow: !spanInsp && !insp && !!prof, prof: prof || {},
+      // HERO — the entity profile promoted to the main stage. Only a shown profile can go hero, and
+      // never on mobile (the panel is already a drawer there). When it's on, the main column steps
+      // aside (display:none) and the aside grows to fill the row, its body centring in a reading column.
+      ...(() => {
+        // Hero must mirror the aside's own visibility — the panel stands down on the Graph/Home tabs
+        // (they carry their own), so hero there would hide the reading column AND the panel: a blank
+        // stage. Gate on the same condition rightPanelShow uses, plus a shown profile, desktop only.
+        const panelUp = st.rightOpen && st.tab !== 'graph' && st.tab !== 'register';
+        const heroActive = !!st.rightHero && panelUp && !spanInsp && !insp && !!prof && !st.isMobile;
+        return {
+          mainDisplay: heroActive ? 'none' : 'flex',
+          rightFlex: heroActive ? '1 1 auto' : '0 0 auto',
+          rightWidth: heroActive ? 'auto' : '340px',
+          rightBorder: heroActive ? 'none' : '1px solid #EAEAEF',
+          rightBodyPad: heroActive ? '30px 40px 72px' : '14px 16px',
+          rightBodyMax: heroActive ? '820px' : 'none',
+          rightBodyMargin: heroActive ? '0 auto' : '0',
+          heroActive,
+          heroExpandShow: !st.isMobile && !heroActive,
+          heroCollapseShow: heroActive,
+          toggleHero: () => this.toggleRightHero(),
+        };
+      })(),
       entListShow: !spanInsp && !insp && !prof, entRows, entCount: String(ents.length), entEmpty: ents.length === 0,
       // The DOSSIER rides the right panel in the default slot (alongside the entity list, leading it):
       // a single-subject source shows its dominant figure here — the reading, the referent, the entity
