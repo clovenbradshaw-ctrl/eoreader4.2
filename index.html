@@ -37,6 +37,9 @@ table{border-collapse:collapse;width:100%}
 @keyframes eoToast{from{transform:translate(-50%,10px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 @keyframes eoBlink{0%,100%{opacity:1}50%{opacity:.2}}
 @keyframes eoSpin{to{transform:rotate(360deg)}}
+/* the summary skeleton while the local model turns the machinery's telegram into a reading */
+@keyframes eoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.eo-skel{background:linear-gradient(90deg,#ECEAF6 25%,#F4F2FC 50%,#ECEAF6 75%);background-size:200% 100%;animation:eoShimmer 1.5s ease-in-out infinite;border-radius:5px}
 /* ── MURMUR — the peripheral sense, a NIGHT-SKY STRIP of drifting thought-motes ──
    The reader's real voiced thoughts (src/murmur/narrate/voice.js — the read side-channel, §9.4)
    drift across a dark canvas band as fading, overlapping motes; the most-surprising one is starred,
@@ -2195,6 +2198,19 @@ table{border-collapse:collapse;width:100%}
                     <span style="flex:1"></span>
                     <sc-if value="{{ prof.topline.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
                   </div>
+                  <!-- LOADING — the local model is turning the machinery's telegram into a reading; -->
+                  <!-- an animated skeleton stands in rather than flashing the raw telegram. -->
+                  <sc-if value="{{ prof.topline.loading }}">
+                    <div style="animation:eoFade .2s ease">
+                      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px">
+                        <span style="width:12px;height:12px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span>
+                        <span style="font-size:11px;color:#8A80C8;font-style:italic">{{ prof.topline.loadNote }}</span>
+                      </div>
+                      <div class="eo-skel" style="height:10px;width:97%;margin-bottom:7px"></div>
+                      <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
+                      <div class="eo-skel" style="height:10px;width:64%"></div>
+                    </div>
+                  </sc-if>
                   <sc-if value="{{ prof.topline.has }}">
                     <!-- The written definition, span by span: a grounded span reads plain (with a -->
                     <!-- ¶ jump to the passage it rests on); a flagged span — the model's own word, -->
@@ -2452,7 +2468,7 @@ table{border-collapse:collapse;width:100%}
                 </sc-if></sc-if>
 
                 <!-- the reading's own account of the figure — span-grounded, steerable -->
-                <sc-if value="{{ viewer.dossier.summary.has }}">
+                <sc-if value="{{ viewer.dossier.summary.panel }}">
                   <div style="margin-top:13px;border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                       <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">{{ viewer.dossier.summary.panelLabel }}</span>
@@ -2460,6 +2476,20 @@ table{border-collapse:collapse;width:100%}
                       <span style="flex:1"></span>
                       <sc-if value="{{ viewer.dossier.summary.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
                     </div>
+                    <!-- LOADING — animate while the local model composes the reading; never flash the raw telegram. -->
+                    <sc-if value="{{ viewer.dossier.summary.loading }}">
+                      <div style="animation:eoFade .2s ease">
+                        <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px">
+                          <span style="width:12px;height:12px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span>
+                          <span style="font-size:11px;color:#8A80C8;font-style:italic">{{ viewer.dossier.summary.loadNote }}</span>
+                        </div>
+                        <div class="eo-skel" style="height:10px;width:96%;margin-bottom:7px"></div>
+                        <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
+                        <div class="eo-skel" style="height:10px;width:88%;margin-bottom:7px"></div>
+                        <div class="eo-skel" style="height:10px;width:58%"></div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ viewer.dossier.summary.has }}">
                     <sc-if value="{{ viewer.dossier.summary.hasSpans }}">
                       <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32"><sc-for list="{{ viewer.dossier.summary.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span title="{{ sp.cite }}">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing in the record witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if></sc-for></div>
                       <sc-if value="{{ viewer.dossier.summary.anyFlagged }}"><div style="font-size:10px;color:#B08A4A;margin-top:5px">Underlined spans are the model’s own words — not found in the record.</div></sc-if>
@@ -2479,6 +2509,7 @@ table{border-collapse:collapse;width:100%}
                       <span style="flex:1"></span>
                       <sc-if value="{{ viewer.dossier.summary.hasCites }}"><span title="the passages this rests on" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2">{{ viewer.dossier.summary.cites }}</span></sc-if>
                     </div>
+                    </sc-if>
                   </div>
                 </sc-if>
 
@@ -5493,6 +5524,24 @@ class Component extends DCLogic {
     const p = scope === 'source' ? app.sourceSummary(ids.sn) : app.entitySummary(ids.docId, ids.entId);
     Promise.resolve(p).catch(() => {});
   }
+  // Upgrade a modelless entity telegram into a model-WRITTEN reading. The auto-gen at record time
+  // stores a telegram-only summary before any model is warm; `_kickTl` only fires when the slot is
+  // empty, so without this the panel would sit on that raw telegram forever. Here we make sure a
+  // local model is actually loading (the mount prewarm may have failed or been skipped), then re-run
+  // entitySummary — its upgrade path recomposes the telegram into a reading once the talker is warm.
+  // Keyed by model-state so a cold→loading→ready transition re-triggers the compose, but a steady
+  // state doesn't kick every render; if the model can't load, entitySummary just returns the telegram.
+  _kickTlUpgrade(scope, ids, key, mstate) {
+    if (scope !== 'entity') return;
+    const app = this._app; if (!app || !ids || !ids.docId) return;
+    this._tlUpgradeKicked = this._tlUpgradeKicked || new Set();
+    const stamp = key + '|' + (mstate || 'cold');
+    if (this._tlUpgradeKicked.has(stamp)) return;
+    this._tlUpgradeKicked.add(stamp);
+    const compose = () => Promise.resolve(app.entitySummary(ids.docId, ids.entId)).catch(() => {});
+    if (app.ensureModel) Promise.resolve(app.ensureModel()).catch(() => {}).finally(compose);
+    else compose();
+  }
   _setTlBusy(key, on) {
     const busy = { ...(this.state.tlBusy || {}) };
     if (on) busy[key] = true; else delete busy[key];
@@ -5551,8 +5600,32 @@ class Component extends DCLogic {
     // coming) is not pending and shows at once; source summaries carry no contextual and are unaffected.
     const awaitingWritten = !!(sum && sum.contextualPending && !sum.contextual);
     const ready = !!sum && !awaitingWritten;
+    // ── LOADING: hold the panel on an animated skeleton, not the raw telegram ──────────────────
+    // An ENTITY summary is only presentable once the LOCAL model has turned the machinery's telegram
+    // into a reading. The bare telegram — one flat sentence per standing object — reads as nonsense
+    // for a figure with many properties ("X is …; X is …; X is …"), so we never ship it as the
+    // summary. While the model composes (loading the weights, or the chorus writing), the body is an
+    // animated skeleton. Two escape hatches keep it from spinning forever: a source summary (whose
+    // telegram IS the intended form) never enters this state, and if no model can load at all
+    // (state 'error') we fall back to the telegram rather than an endless loader.
+    const isEntity = scope === 'entity';
+    const mstate = (app.state && app.state.model && app.state.model.state) || 'cold';
+    const mprog = (app.state && app.state.model && app.state.model.progress) || 0;
+    const modelBroken = mstate === 'error';
+    // a written reading is WANTED but not yet in hand: the stored summary is the modelless telegram,
+    // or the chorus is mid-compose. (`busy` = a steer/regenerate the user just asked for.)
+    const needsWriting = isEntity && !!sum && (!!sum.modelless || !!sum.contextualPending);
+    if (isEntity && !modelBroken && needsWriting && !busy) this._kickTlUpgrade(scope, ids, key, mstate);
+    const loading = isEntity && !modelBroken && (busy || !sum || needsWriting || awaitingWritten);
+    const loadNote = mstate === 'loading'
+      ? `Loading the local model — ${Math.round(mprog * 100)}%`
+      : (busy ? 'Recomposing from the record…' : 'Reading this with the local model…');
+    const hasBody = loading ? false : ready;
     return {
-      show: true, has: ready, pending: !ready || busy,
+      show: true, has: hasBody, pending: (!loading) && (!ready || busy),
+      // the panel (header + body) is shown whenever there's something to show OR something composing.
+      panel: hasBody || loading,
+      loading, loadNote,
       text: ctx || (sum ? sum.text : ''),
       telegramText: sum ? sum.text : '',
       hasSpans: spans.length > 0, noSpans: spans.length === 0, spans, anyFlagged,
