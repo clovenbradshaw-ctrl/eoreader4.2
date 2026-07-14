@@ -11,6 +11,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/boot.js': contract({ ops: ['CON', 'SIG'], targets: ['Network', 'Field'], products: ['Link'], stances: ['Binding', 'Tending'], note: 'the surface↔engine membrane' }),
   'src/rooms/reader/chat-export.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'chat + audit export renderer' }),
   'src/rooms/reader/console-surface.js': contract({ ops: ['EVA', 'NUL'], targets: ['Network', 'Field'], products: ['Void'], stances: ['Tracing', 'Clearing'], note: 'the live audit console — a terminal that witnesses every turn' }),
+  'src/rooms/reader/entity-merge.js': contract({ ops: ['SEG', 'INS'], targets: ['Network'], products: ['Entity'], stances: ['Dissecting', 'Making'], note: 'cross-source entity merge — fold by referent, never by a shared surname' }),
   'src/rooms/reader/eo-gen.js': contract({ ops: ['EVA', 'DEF'], targets: ['Lens', 'Link'], products: ['Lens', 'Atmosphere'], stances: ['Tracing', 'Making'], note: 'browser grounding seam' }),
   'src/rooms/reader/eo/chorus.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field', 'Paradigm'], products: ['Paradigm'], stances: ['Tracing'], note: 'chorus Born-measure reader' }),
   'src/rooms/reader/eo/embed.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Atmosphere'], stances: ['Tending'], note: 'MiniLM meaning embedder organ' }),
