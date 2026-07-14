@@ -35,4 +35,22 @@ export const CONTRACTS = Object.freeze({
     ops: ['SIG', 'EVA', 'NUL'], targets: ['Entity', 'Lens'], products: ['Entity', 'Lens', 'Void'],
     stances: ['Binding', 'Tracing', 'Dissecting', 'Clearing'], note: 'CDX watch — scrub + withdrawal detection',
   }),
+  // Frontier (§8): NUL the encountered-and-passed span (an absence at an address), SIG a
+  // re-collapse, EVA the ablation judgment. Selective preservation, with the decision on the record.
+  'src/attest/frontier.js': contract({
+    ops: ['NUL', 'SIG', 'EVA'], targets: ['Void', 'Entity'], products: ['Void', 'Entity', 'Lens'],
+    stances: ['Clearing', 'Dissecting', 'Binding', 'Tracing'], note: 'selective preservation frontier — the logged decision',
+  }),
+  // EOT layer (§9): render attestation records back into EOT surface — the inverse renderer, a
+  // reading cleared into the tape's own line syntax (mirrors ingest/eot-emit.js).
+  'src/attest/eot.js': contract({
+    ops: ['NUL'], targets: ['Network'], products: ['Void'], stances: ['Clearing'],
+    note: 'attestation records rendered to EOT surface',
+  }),
+  // The holon entrance — one door for the whole attest subsystem.
+  'src/attest/index.js': contract({
+    ops: ['INS', 'SIG', 'EVA', 'SYN', 'NUL', 'CON'], targets: ['Void', 'Entity', 'Lens', 'Network'],
+    products: ['Entity', 'Lens', 'Network', 'Void'],
+    stances: ['Making', 'Binding', 'Tracing', 'Composing', 'Clearing', 'Dissecting'], note: 'barrel',
+  }),
 });
