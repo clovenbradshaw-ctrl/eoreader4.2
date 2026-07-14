@@ -460,6 +460,63 @@ export const dwellsLongerThan = (dwells, seconds, verdict = 'present-still') =>
   (dwells || []).filter((dw) => (verdict == null || dw.verdict === verdict) && dw.dur >= seconds)
     .sort((a, b) => b.dur - a.dur);
 
+// ── the born-rule entity reading (which moving things are REAL, as a distribution) ───────────────
+// The deep retina (video.js) follows every blob that persists frame to frame and hands back a BAG of
+// tracks — from the one thing that crossed the whole clip down to the one-frame flickers a field of
+// static throws off. Which of those are ENTITIES and which are noise is the same question the ear
+// asks of a waveform and the replay page asks of a transcript, and it takes the same answer: not a
+// hard threshold, but the BORN measure (weave/chorus/born.js, docs/chorus.md). Report the
+// distribution; never the decision.
+//
+// Each frame a track survives is one MEASUREMENT that it is a real thing, and the AMOUNT it lights up
+// in that frame — the size of its blob — is how much signal each measurement carries. Their product,
+// summed over the track, is its **γ-mass**: the pixels it was ever sighted at. That mass is the
+// amplitude ψ. (This is exactly the mass video.js's fold accumulates: the circle — a big blob sighted
+// every frame — towers; each grain of snow — one pixel, sighted once — does not.) Persistence alone
+// (frame count) is the fallback when sizes aren't carried, but mass is what separates a coherent thing
+// from a speck that merely flickered in the same place a few times.
+//
+// The Born rule turns amplitudes into a probability the honest way — square, sum, divide (bornWeights)
+// — and the squaring IS the signal-from-noise step: it suppresses the small, brief tracks
+// QUADRATICALLY, which a linear ranking cannot, and is why we say Born and not "rank by size". The
+// circle carries almost all of the one unit of probability; the snow splits a vanishing remainder.
+// Masses are already ≥0 with no shared baseline (unlike born.js's correlated cosine cells, they need
+// no centering), so a raw square-and-normalize is the whole measure.
+//
+// A track is an ENTITY when it (a) persisted past a floor of frames (a one-frame flash is not yet a
+// thing) AND (b) carries MORE than an even share of the squared mass (1/n) — it stands above the level
+// a uniform bag of flickers would sit at. Everything is returned, entities and noise alike, each with
+// its probability, so the reading is auditable and the collapse re-runnable.
+export const bornEntities = (tracks = [], opts = {}) => {
+  const { minFrames = 3 } = opts;
+  const list = (tracks || []).map((tr) => {
+    const frames = tr.frames != null ? tr.frames : (Array.isArray(tr.points) ? tr.points.length : 0);
+    // Mass = pixels-sighted (Σ blob size over the frames). Fall back to persistence when the caller
+    // carries no sizes (each sighting worth one), so a bag of {id,frames} still collapses sensibly.
+    const mass = tr.mass != null ? tr.mass
+      : (Array.isArray(tr.points) ? tr.points.reduce((s, p) => s + (p.size || 1), 0) : frames);
+    return { id: tr.id, label: tr.label || 'moving thing', frames, mass };
+  });
+  const n = list.length;
+  // Square-and-normalize the masses into one distribution (weave/chorus/born.js bornWeights): ψ² / Σψ².
+  // A degenerate all-zero bag returns all-zero — the honest "no mass", never a fabricated uniform
+  // reading from a divide-by-zero.
+  const sq = list.map((t) => t.mass * t.mass);
+  const total = sq.reduce((s, x) => s + x, 0);
+  const floor = n > 0 ? 1 / n : 0;                       // the even share — the noise line
+  const distribution = list
+    .map((t, i) => {
+      const p = total > 0 ? sq[i] / total : 0;
+      return { ...t, amp: t.mass, p, entity: t.frames >= minFrames && p >= floor };
+    })
+    .sort((a, b) => b.p - a.p || b.mass - a.mass);
+  return {
+    distribution,                                         // every measured track, with its born p
+    entities: distribution.filter((t) => t.entity),      // the ones the collapse calls real
+    measured: n, floor, minFrames,
+  };
+};
+
 // ── the moving-pixel mask (the bridge to the deep retina) ───────────────────────────────────────
 // video.js's tracker (ingestFrames) reads frames of LIT-OR-NOT pixels and follows what PERSISTS.
 // This turns the grayscale grids into exactly that: a pixel is "lit" in frame i when it changed
@@ -484,7 +541,7 @@ export const motionMask = (frames, opts = {}) => {
 };
 
 // ── the human-readable reading (the source's text before any transcript) ────────────────────────
-export const motionSummary = ({ title = 'Video', analysis, shots, tracks = [], mediaKind = 'video' }) => {
+export const motionSummary = ({ title = 'Video', analysis, shots, tracks = [], entities = null, mediaKind = 'video' }) => {
   const a = analysis || {};
   const sh = (shots && shots.shots) || [];
   const L = [];
@@ -514,7 +571,15 @@ export const motionSummary = ({ title = 'Video', analysis, shots, tracks = [], m
   if (tracks && tracks.length) {
     L.push('');
     L.push('## What persists across the frames');
-    L.push(`**${tracks.length} moving thing${tracks.length === 1 ? '' : 's'}** survive across the frames (contiguity + persistence — video.js), each a blob followed frame to frame.`);
+    const measured = entities && entities.measured != null ? entities.measured : tracks.length;
+    L.push(`**${tracks.length} moving thing${tracks.length === 1 ? '' : 's'}** read as **entities** by the Born rule — square-and-normalize each track's γ-mass (the pixels it was sighted at), keep what clears the noise floor (contiguity + persistence, video.js + the born measure)${measured > tracks.length ? ` — out of ${measured} tracks the retina followed, the small, brief flickers of noise suppressed quadratically` : ''}.`);
+    // Report the distribution, never the decision: each kept thing with the probability the collapse
+    // gave it, so a reader sees WHY the circle is the thing and the snow is not.
+    const top = tracks.slice(0, 8);
+    for (const tr of top) {
+      const pct = tr.p != null ? ` — ${(tr.p * 100).toFixed(tr.p >= 0.1 ? 0 : 1)}% of the moving mass` : '';
+      L.push(`- **${tr.label || 'moving thing'}** — sighted across ${tr.frames} frame${tr.frames === 1 ? '' : 's'}${pct}`);
+    }
   }
   return L.join('\n');
 };
@@ -537,6 +602,7 @@ export const ingestMotion = (spec = {}) => {
     shots = null,
     peaks = null,
     tracks = [],
+    entities = null,
     media = null,
     mediaKind = 'video',
     metadata = {},
@@ -588,19 +654,27 @@ export const ingestMotion = (spec = {}) => {
   });
 
   // The things that persist across the frames — each moving blob (video.js) as its own entity, so
-  // "what moved through this clip" is on the spine alongside "how it was cut".
+  // "what moved through this clip" is on the spine alongside "how it was cut". Each one arrives with
+  // its BORN reading: how many frames it survived (its amplitude), and the probability the collapse
+  // assigned it (DEF born) — and the verdict that made it an entity rather than noise rides as an EVA
+  // (born-entity), so WHY a moving thing was kept is on the record and revertible, exactly as the OCR
+  // quorum's election is (organs/in/ocr-quorum.js).
   for (const tr of (tracks || [])) {
     const id = tr.id || `m${mentions.size}`;
     const di = unitIdx;
     log.append({ op: 'INS', id, label: tr.label || 'moving thing', sentIdx: di });
     mentions.set(id, [...(mentions.get(id) || []), di]);
     if (tr.frames != null) log.append({ op: 'DEF', id, key: 'frames', value: String(tr.frames), sentIdx: di });
+    if (tr.p != null) {
+      log.append({ op: 'DEF', id, key: 'born', value: tr.p.toFixed(3), sentIdx: di });
+      log.append({ op: 'EVA', id, reason: 'born-entity', value: tr.p.toFixed(3), sentIdx: di });
+    }
   }
 
   if (!units.length) { units.push(`One continuous shot — ${clock(duration)} of picture that never cuts`); sentences.push(units[0]); }
 
   const tokensBySentence = sentences.map((s) => new Set(tok(s)));
-  const text = motionSummary({ title, analysis, shots, tracks, mediaKind });
+  const text = motionSummary({ title, analysis, shots, tracks, entities, mediaKind });
 
   const doc = {
     docId: name, modality: 'video',
@@ -613,7 +687,12 @@ export const ingestMotion = (spec = {}) => {
     analysis: analysis || null,
     shots: shots || null,
     tracks: tracks || [],
+    entities: entities || null,
     transcribed: false,
+    // The picture is a COMPLETE reading on its own — it is not a clip still waiting for its words.
+    // The reader uses this to tell a watched video (show its motion entities) from an un-transcribed
+    // one (show the live partial): a motion doc is `watched`, an acoustic pre-reading is not.
+    watched: true,
     conventions: createConventions(),
     metadata: { title, ...metadata },
     projectGraph: (frame = {}) => projectGraph(log, frame),
@@ -646,16 +725,26 @@ export const readVideo = (spec = {}) => {
   const peaks = motionPeaks(frames, fps, maxPeaks);
   const shots = separateShots(frames, fps);
   const persist = persistence(frames, fps);
-  let tracks = [];
+  let tracks = [], entities = { distribution: [], entities: [], measured: 0, floor: 0, minFrames: 3 };
   try {
     const mask = motionMask(frames);
     const clip = ingestFrames({ name: `${name}-tracks`, frames: mask });
-    // A track that survives more than a few frames is a thing; the one-frame flickers are noise.
-    tracks = (clip.tracks || [])
-      .map((tr) => ({ id: tr.id, label: 'moving thing', frames: tr.points.length }))
-      .filter((tr) => tr.frames >= 3)
-      .sort((a, b) => b.frames - a.frames);
+    // Carry each track's γ-mass (Σ blob size over the frames it survived), not just its frame count —
+    // a coherent moving thing is a BIG blob, a codec speck is one or two pixels, and mass is what tells
+    // them apart when both happen to persist. (video.js's tracker records a per-frame `size`.)
+    const raw = (clip.tracks || []).map((tr) => ({
+      id: tr.id, label: 'moving thing', frames: tr.points.length,
+      mass: tr.points.reduce((s, p) => s + (p.size || 1), 0),
+    }));
+    // WHICH of the followed blobs are real things is a BORN-rule collapse, not a hard cut-off: square
+    // each track's mass, normalize to one, and keep the ones that clear the noise floor (bornEntities).
+    // What used to be `filter(frames >= 3)` is now the measure's own verdict — the circle takes almost
+    // all the probability, the snow's small flickers split the rest and fall below it.
+    entities = bornEntities(raw, { minFrames: 3 });
+    tracks = entities.entities
+      .map((t) => ({ id: t.id, label: t.label, frames: t.frames, p: t.p, amp: t.amp }))
+      .sort((a, b) => b.p - a.p || b.frames - a.frames);
   } catch { /* the tracker is best-effort; the shots still stand */ }
-  const doc = ingestMotion({ name, title, duration: analysis.duration, fps, analysis, shots, peaks, tracks, media, mediaKind, metadata });
-  return { analysis, peaks, shots, persistence: persist, tracks, doc };
+  const doc = ingestMotion({ name, title, duration: analysis.duration, fps, analysis, shots, peaks, tracks, entities, media, mediaKind, metadata });
+  return { analysis, peaks, shots, persistence: persist, tracks, entities, doc };
 };

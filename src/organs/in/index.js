@@ -74,7 +74,7 @@ export { ingestFrequencies } from './frequency.js';
 export { ingestFrames }      from './video.js';
 export {
   frameDeltas, motionPeaks, analyzeMotion, detectCuts, separateShots,
-  backgroundPlate, presenceTrack, persistence, dwellsLongerThan,
+  backgroundPlate, presenceTrack, persistence, dwellsLongerThan, bornEntities,
   motionMask, motionSummary, ingestMotion, readVideo,
 } from './motion.js';
 export { ingestCodons }      from './codon.js';

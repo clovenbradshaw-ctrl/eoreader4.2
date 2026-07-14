@@ -112,7 +112,8 @@ export async function importAnyFile(file, opts = {}) {
     catch (e) { say('Not a MIDI score — reading the bytes…'); return await fromBinary(file, title, name, mime); }
   }
 
-  // Audio / video — decode, then whisper hears it (audio organ). The speech only.
+  // Audio / video — decode the waveform, whisper hears it (audio organ); a VIDEO also has its PICTURE
+  // read as motion + born-rule entities (motion.js), both senses folded onto the one source.
   if (mime.startsWith('audio/') || mime.startsWith('video/') || AUDIO_EXT.includes(ext) || VIDEO_EXT.includes(ext)) {
     say('Listening…');
     const isVideo = mime.startsWith('video/') || VIDEO_EXT.includes(ext);
@@ -562,22 +563,70 @@ async function fromMedia(file, title, name, say, opts = {}) {
   // clip as full-rate PCM (1h of stereo 44.1kHz ≈ 1.3GB) in a tab that may also hold
   // model weights — past these (generous) bounds the import would crash the tab, not land.
   if (file.size > 500 * 1024 * 1024) throw new Error('this clip is too large to decode in the browser (over 500 MB) — split it or transcribe a compressed copy');
-  const buf = await file.arrayBuffer();
-  const tmp = new AC();
-  let decoded;
-  try { decoded = await tmp.decodeAudioData(buf); } finally { try { tmp.close(); } catch {} }
-  const duration = decoded.duration;
-  if (duration > 3 * 3600) throw new Error('this clip is too long to transcribe in the browser (over 3 hours) — split it first');
-  const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(duration * SR)), SR);
-  const srcNode = off.createBufferSource(); srcNode.buffer = decoded; srcNode.connect(off.destination); srcNode.start();
-  const mono = (await off.startRendering()).getChannelData(0);
-  decoded = null;   // release the full-rate PCM before whisper holds the tab for minutes
 
   const isVideo = !!opts.isVideo;
   const mediaKind = isVideo ? 'video' : 'audio';
   // A playable handle on the original file, kept for the session so the source can be
   // heard/watched back with the transcript aligned. (Not revoked — playback needs it.)
   const media = (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(file) : null;
+
+  // ── THE PICTURE, DEFERRED (video only). ───────────────────────────────────────────────────────
+  // A video carries a second sense the waveform cannot: what MOVED. This defers the visual reading the
+  // way transcription is deferred — a `watch` thunk the caller runs in the background AFTER the source
+  // lands (app.js). It extracts frames (video-frames.js, the browser front-end) and runs the retina
+  // (motion.js readVideo): the activity envelope, the cuts and nested shots, the surprise/dwell
+  // decomposition, and — the request's heart — the BORN-RULE entity detection (bornEntities), which
+  // recovers the moving things by squaring their persistence and reading the distribution, no model
+  // and no labels. It needs no audio, so it is built here and used by BOTH the normal path and the
+  // no-audio-track path below. Null for a pure-audio import.
+  const watch = isVideo ? async ({ signal, onProgress } = {}) => {
+    if (signal && signal.aborted) throw new DOMException('aborted', 'AbortError');
+    const say2 = typeof onProgress === 'function' ? onProgress : () => {};
+    const { extractVideoFrames } = await import(new URL('./video-frames.js', import.meta.url).href);
+    const { readVideo } = await IN();
+    const ex = await extractVideoFrames(file, { signal, onProgress: say2 });
+    if (!ex.frames.length) return { text: '', doc: null, artefacts: null, empty: true,
+      coverage: { complete: false, frames: 0, dropped: ['no video frames could be decoded in the browser'] } };
+    say2('Reading what moved…');
+    const r = readVideo({ name: `${name}-video`, title, frames: ex.frames, fps: ex.fps, media, mediaKind, metadata: { title } });
+    const cov = {
+      complete: true,
+      frames: ex.sampled, requestedFrames: ex.requested,
+      fps: Math.round(ex.fps * 100) / 100, width: ex.width, height: ex.height,
+      shots: r.shots.shotCount, cuts: r.analysis.cuts,
+      entities: r.entities.entities.length, measuredTracks: r.entities.measured,
+      dropped: ex.requested > ex.sampled ? [`${ex.requested - ex.sampled} frame(s) the codec would not yield`] : [],
+    };
+    return { text: r.doc.text, doc: r.doc, coverage: cov,
+      artefacts: { peaks: r.peaks, analysis: r.analysis, shots: r.shots, tracks: r.tracks, entities: r.entities,
+                   persistence: r.persistence, fps: ex.fps, width: ex.width, height: ex.height } };
+  } : null;
+
+  const buf = await file.arrayBuffer();
+  const tmp = new AC();
+  let decoded;
+  try {
+    decoded = await tmp.decodeAudioData(buf);
+  } catch (e) {
+    try { tmp.close(); } catch {}
+    // A pure-audio file that will not decode is an error. A VIDEO with no (decodable) audio track is
+    // NOT — it simply has nothing to hear (like this clip, a ball on static). Fall back to a
+    // picture-only reading: the source lands from the `watch` thunk (app.js), never refused, with a
+    // coverage receipt that names the missing audio. Skipping this used to fail the WHOLE import.
+    if (!isVideo) throw new Error('this browser cannot decode this audio');
+    return { text: '', title, meta: {
+      modality: 'video', doc: null, media, isVideo, mediaKind,
+      watch, transcribe: null, transcribable: false,
+      coverage: { complete: true, audio: false, dropped: ['no audio track — the picture is read; there is nothing to hear'] },
+    } };
+  }
+  try { tmp.close(); } catch {}
+  const duration = decoded.duration;
+  if (duration > 3 * 3600) throw new Error('this clip is too long to transcribe in the browser (over 3 hours) — split it first');
+  const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(duration * SR)), SR);
+  const srcNode = off.createBufferSource(); srcNode.buffer = decoded; srcNode.connect(off.destination); srcNode.start();
+  const mono = (await off.startRendering()).getChannelData(0);
+  decoded = null;   // release the full-rate PCM before whisper holds the tab for minutes
 
   // ── PHASE 1 — the pre-transcription reading, computed AT ONCE. ────────────────────────
   // The waveform, the basic analysis, and the signal/noise nested holons — all cheap, all
@@ -667,9 +716,11 @@ async function fromMedia(file, title, name, say, opts = {}) {
     transcribable: necessary,
     dropped: necessary ? [] : ['no signal above the noise floor — not transcribed'],
   };
+
   return { text: acousticDoc.text, title, meta: {
     modality: 'audio', doc: acousticDoc, duration, media, isVideo, mediaKind,
     waveform: peaks, analysis, holons, transcribe, transcribable: necessary,
+    watch,
     coverage,
   } };
 }

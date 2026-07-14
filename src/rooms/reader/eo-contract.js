@@ -37,5 +37,6 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/transcript-format.js': contract({ ops: ['SEG', 'SYN', 'NUL'], targets: ['Field'], products: ['Network', 'Void'], stances: ['Dissecting', 'Composing', 'Clearing'], note: 'transcript formatting, chapter detection + the read/heard boundary' }),
   'src/rooms/reader/transcript-export.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'transcript export renderer' }),
   'src/rooms/reader/versions.js': contract({ ops: ['SIG', 'CON'], targets: ['Network', 'Void'], products: ['Link'], stances: ['Tending', 'Binding'], note: 'the version time-machine — roll back to a prior PR' }),
+  'src/rooms/reader/video-frames.js': contract({ ops: ['SEG'], targets: ['Field'], products: ['Field'], stances: ['Dissecting'], note: 'video front-end — decode + sample a clip into luminance-grid frames' }),
   'src/rooms/reader/wiki-referent.js': contract({ ops: ['CON', 'EVA'], targets: ['Network'], products: ['Link'], stances: ['Binding', 'Tracing'], note: 'the entity panel wiki referent — search, score, confirm' }),
 });
