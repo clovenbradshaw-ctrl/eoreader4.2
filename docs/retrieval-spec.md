@@ -157,6 +157,11 @@ RRF is chosen deliberately over weighted score blending: it needs no calibration
 > noisy-OR, which fuses two channels' *scores* on a single loaded doc; RRF is the
 > index-layer fuse across the cross-corpus span index, where only ranks are comparable.
 
+> A reranking refinement — **Born-centered candidate weighting** — is specified in §14. It
+> suppresses *non-meaningful* similarity (a shared surname, a shared literal prefix: the
+> Louis-vs-Neil-Armstrong case) that survives fusion as a flat high spread. Like RRF it sits
+> on the ordering side of the firewall and emits ranking only.
+
 ---
 
 ## 5. Source pinning — the provenance contract
@@ -311,6 +316,12 @@ for each source:
 7. Hand spans to the kernel. Discard scores.             (§2)
 ```
 
+> **Optional refinement (§14).** Between fuse (5) and resolve (6), *Born-centered reranking*
+> may re-weight the fused candidates to damp non-meaningful similarity — the namesake case,
+> where a shared surname or literal leaves a real but meaningless score. It changes the order
+> spans arrive in; it does not touch step 7 — the weight is still discarded, and the span
+> still crosses as verbatim bytes.
+
 **Step 7 is the spec.** The score is used for ordering and then thrown away. It does not travel with the span. It is not shown next to a claim. It is not stored in the ledger. A user may see it in a search UI — that is a search UI, and it is fine — but it never crosses into the tape.
 
 ### 9.1 Recall, not precision, is the retrieval objective
@@ -412,6 +423,7 @@ Neither is a reason to build any of the above. The reason to build the above is 
 | Eviction destroys the index | Index is a cache, reconstructible from the tape (§7.2). Never load-bearing. |
 | Dense retrieval misses an exact case number | Lexical channel, always on, fused (§4). Non-negotiable. |
 | Retrieval hides something and no one knows | Log query + k + index hash + recall tail; ablation button (§10.1). Partial, and documented as partial. |
+| Non-meaningful similarity surfaces a namesake (Louis vs Neil Armstrong) | Born-centered reranking damps the shared baseline before the fold (§14); the contested-surname guard prevents the merge if it reaches the fold anyway (`summary-cross.js`, `entity-merge.js`). |
 | The retriever becomes an epistemic authority | §1. Reread it. |
 
 ---
@@ -430,6 +442,82 @@ Watchmaker's way — each assembly stands alone, checkpointed, before the next b
 8. **Wikipedia subset** (§11). Only if 1–7 are boring and stable.
 
 Steps 1–4 are a week of work and deliver most of the value. Steps 6–8 are optimizations for a scale you may not reach. **Do not start at 8.**
+
+> **Refinement, not a stage.** Born-centered reranking (§14) is not a numbered assembly — it
+> needs a fused candidate list to center, so it slots *after* step 4, a query-path refinement
+> rather than a new channel. Ship its scalar form with an Armstrong fixture; hold the per-cell
+> and interference variants behind a Probe A/B pass on the live corpus.
+
+---
+
+## 14. Born-centered reranking — suppressing non-meaningful similarity
+
+**Status:** proposal, v0.1. A query-path refinement that sits between fusion (§4, §9 step 5) and resolve (§9 step 6). It reuses the Born measure already in the tree (`src/weave/chorus/born.js`); it adds no new model and no new ledger surface. Its entire job is to change *which* candidates reach the fold, never *what they say*.
+
+> **The one-sentence version.** Square the *centered* candidate scores, not the raw ones — the shared baseline that makes a namesake look retrievable is exactly the mean, and centering squares it away.
+
+### 14.1 The failure: a flat spread of plausible matches
+
+Fusion (§4) answers "which spans rank high for this query." On a corpus with namesakes it answers badly, and it answers badly in a specific, measurable shape.
+
+Take a query about **Louis Armstrong the trumpeter** over a corpus that also holds **Neil Armstrong**. Both clusters share a large component: the surname surface token (a lexical hit for *both*) and the generic biographical register (a dense hit for *both*). The fused scores come back as a **flat high spread** — Louis spans near 0.7, Neil spans near 0.6 — and the linear top-`k` `hybrid.js` currently takes hands the fold a mix of the two. The overlap driving Neil into the results is the *name*, not the *sense*. That is non-meaningful similarity: a real number the retriever cannot distinguish from a real signal.
+
+The general form: a dense embedding has a large shared component (every span is somewhat similar to every query), and a lexical hit on a shared literal — a surname, a case-number prefix, an LLC stem — adds a second shared component. Neither is discriminative. **A linear ranking cannot separate the shared baseline from the discriminative lift**, because linear scaling preserves their ratio.
+
+### 14.2 The move: center, then square
+
+The Born measure (`weave/chorus/born.js`) is already *"square the signed amplitudes, normalize to sum one"* (`bornWeights`). Squaring suppresses weak projections **quadratically** — the signal-from-noise step, and the reason the module says "Born" and not "use the scores."
+
+But **Born on raw scores does not fix Armstrong**, and the chorus module already says why. From `centeredAmplitudes`:
+
+> *the RAW cosines … are all large-and-positive too: squaring them does not concentrate.*
+
+Squaring a flat-high spread yields a flatter spread; both Armstrongs stay in. The fix, imported wholesale from the same module, is to **center first**:
+
+1. Subtract the pool mean from every candidate's fused score → a **signed residual**: the lift each span carries *above (or below) the average candidate*.
+2. `bornWeights` the residuals: square, sum, divide.
+
+Now the shared baseline is the mean, sitting at zero; squaring annihilates it. Only distinctive lift survives to carry mass.
+
+Applied to Armstrong: the "Armstrong + biography" mass that both clusters share **is** the baseline → it is the mean → it is gone. What remains is the trumpet/jazz axis (a positive residual for the query's sense) against the Moon/NASA axis (a negative residual). Squared and normalized, the mass concentrates on the queried sense; the namesake sinks toward zero weight. It sinks not because a name rule fired, but because it was never *distinctively* about the query — the geometry says so on its own.
+
+Two grains, both legitimate:
+
+| Grain | What baseline it removes | Cost | Status |
+|---|---|---|---|
+| **Scalar-pool** | "every candidate scored ~0.6" | a pure function over the fused list; model-free | **v1, shippable** |
+| **Per-cell** | the biographical register itself (via `cubeAmplitudes` over the 27 centroids, centered against the query's own reading) | needs the meaning organ warm | proposal |
+
+Scalar-pool centering ships first: it is a pure re-weighting placed just before `hybrid.js`'s final sort, and it needs nothing the retriever does not already hold.
+
+### 14.3 The firewall still holds
+
+This is an **ordering** operation and nothing more. It re-weights which spans reach the fold; the Born weight is discarded with every other score at **§9 step 7**. It never attaches to a claim, never enters the ledger, never becomes a warrant. Delete the reranker and every claim still stands (§1). The moment Born-reranking changed *what a span says* rather than *whether it is looked at*, it would be a §2 violation — the same line RRF lives on.
+
+It **composes with, and does not replace,** the two namesake guards already in the tree:
+
+- **`applyTopicPrior`** (`src/surfer/retrieve/hybrid.js`) damps a span by its *named-referent graph membership* — symbolic, and it needs entities already resolved. Born-centering is **geometric** and runs *before* coref, so it catches the wrong-sense span even where no full name is present to disambiguate. Order them: Born-center first (shape the field), then topic-prior (bias toward the resolved subject). Both are multipliers, both degrade-never-fail.
+- **The contested-surname defeat** (`summary-cross.js` `corefCollapseReport`, `entity-merge.js`, PR #196) prevents two Armstrongs from *merging* once both are in the fold. Born-centering lowers the odds the wrong one reaches the fold at all. One geometric prior at retrieval, one symbolic guard at merge — belt and suspenders, aimed at the same failure from opposite ends.
+
+### 14.4 Interference — the deeper reading (proposal, gated)
+
+`born.js` keeps the sign all the way to the square precisely so **Probe B** (`weave/chorus/probe.js`) can see cross-span cancellation. In retrieval terms: sum the candidates' signed per-cell residuals *coherently* (sum then square) against *incoherently* (square then sum); where the two disagree, the pool holds **two senses that cancel**. A candidate whose signed residual opposes the pool's dominant, query-aligned direction on the discriminative cells is a namesake even when its scalar score is high — destructive interference is the namesake made arithmetic.
+
+This "interference guard" earns its physics vocabulary only if Probe B actually passes on the live corpus. Per the chorus discipline: *do not weld the cheap win to the big claim.* v1 ships the scalar rerank (14.2) and leaves the interference guard behind the gate.
+
+### 14.5 Degrade-never-fail
+
+A no-op, byte-identical, whenever it cannot help: the embedder is cold (no dense channel — `semantic.js` gates on `isWarm`, so there is no meaning to center), the candidate pool is ≤ 1, or every residual is zero (`bornWeights` returns an honest all-zero, never a fabricated uniform). A cold model turns *this refinement* off; it never turns *retrieval* off. The linear ranking is always the floor.
+
+### 14.6 Acceptance test
+
+A **Louis / Neil Armstrong fixture**: a candidate pool drawn from both, a query leaning to one sense. Assert that after Born-centering the queried sense holds a strict majority of the top-`k`, and the namesake's best span falls below the activation floor `reserveBySource` (`hybrid.js`) uses. Run it as an **ablation** — linear ranking vs Born-centered, diff the candidate sets — which is exactly the §10.1 instrument pointed at this refinement.
+
+**Honesty clause.** This sharpens a *distribution*; it cannot manufacture a signal that is not in the geometry. If two senses are genuinely inseparable in the embedding — a source that discusses both Armstrongs in one breath — centering yields a flat partition and the reranker correctly does nothing. The contested-surname guard downstream is then the load-bearing defense, not this. Say so; a reranker that claimed to fix the inseparable case would be laundering a name rule through arithmetic.
+
+### 14.7 Where it slots
+
+Not a numbered assembly (§13): it needs a fused candidate list to center, so it cannot precede fusion, and it is a refinement of the query path rather than a new channel. Ship the scalar form (14.2) with the Armstrong fixture (14.6) once RRF (§13 step 4) is stable; hold per-cell centering (14.2) and the interference guard (14.4) behind a Probe A/B pass on the live corpus.
 
 ---
 
