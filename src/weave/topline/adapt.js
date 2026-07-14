@@ -94,9 +94,11 @@ export const sourceInventory = (reading, { maxClaims = 4, maxRelations = 2 } = {
   const facts = [];
   if (m.date) facts.push({ id: 'date', kind: 'value', verb: 'dated', value: String(m.date) });
   if (m.author) facts.push({ id: 'author', kind: 'value', verb: 'written by', value: String(m.author) });
-  const cnt = reading?.counts || {};
-  if (cnt.entities > 0) facts.push({ id: 'entities', kind: 'count', verb: 'names', n: cnt.entities, noun: cnt.entities === 1 ? 'entity' : 'entities' });
-  if (cnt.propositions > 0) facts.push({ id: 'props', kind: 'count', verb: 'yields', n: cnt.propositions, noun: cnt.propositions === 1 ? 'proposition' : 'propositions' });
+  // The entity/proposition TALLIES are deliberately NOT phrased into the summary. They describe the
+  // reading's machinery, not what the source is ABOUT, and a thin reading (e.g. a clip still
+  // transcribing) had nothing else to say, so the hero read "names N entities, yields N propositions"
+  // — a count of parts where the reader wanted the content. The tallies still show on the source
+  // header (its segment/entity count) and the EoT tab (its proposition count); the summary is content.
 
   return buildInventory({
     subject, claims, relations, facts,
