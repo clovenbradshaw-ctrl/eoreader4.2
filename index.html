@@ -1445,6 +1445,17 @@ table{border-collapse:collapse;width:100%}
                 <button onClick="{{ qaTopicGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaTopicBg }};color:{{ qaTopicFg }};font-weight:{{ qaTopicWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg><span style="flex:1;min-width:0">In topic corpus</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4">{{ qaTopicCount }}</span></button>
                 <button onClick="{{ qaAllGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaAllBg }};color:{{ qaAllFg }};font-weight:{{ qaAllWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span style="flex:1;min-width:0">All sources</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4">{{ qaAllCount }}</span></button>
 
+                <!-- Topics tree — the workspace's quests; click re-aims the Drive at that corpus -->
+                <sc-if value="{{ exTopicsHas }}">
+                  <div style="display:flex;align-items:center;gap:6px;margin:20px 8px 6px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;flex:1">TOPICS</span><button onClick="{{ explorerNewTopic }}" title="New topic" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#8A8A95;background:none" style-hover="background:#F2F2F6;color:#6E6E78"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
+                  <sc-for list="{{ exTopics }}" as="tp">
+                    <div style="display:flex;align-items:center;border-radius:8px;background:{{ tp.bg }}" style-hover="background:#F5F5F8">
+                      <sc-if value="{{ tp.hasKids }}"><button onClick="{{ tp.toggle }}" style="flex:0 0 auto;width:18px;height:30px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;background:none;font-size:10px">{{ tp.arrow }}</button></sc-if>
+                      <button onClick="{{ tp.open }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:6px 8px 6px {{ tp.indent }};background:none;text-align:left"><span style="flex:0 0 auto;color:#B4B4BE"><sc-if value="{{ tp.isSearch }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></sc-if><sc-if value="{{ tp.notSearch }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></sc-if></span><span style="flex:1;min-width:0;font-size:12.5px;color:{{ tp.fg }};font-weight:{{ tp.wt }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tp.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE;padding-right:8px">{{ tp.count }}</span></button>
+                    </div>
+                  </sc-for>
+                </sc-if>
+
                 <!-- Folders tree -->
                 <sc-if value="{{ exTreeHas }}">
                   <div style="display:flex;align-items:center;gap:6px;margin:20px 8px 6px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;flex:1">FOLDERS</span><button onClick="{{ explorerNewFolder }}" title="New folder" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#8A8A95;background:none" style-hover="background:#F2F2F6;color:#6E6E78"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
@@ -6929,6 +6940,24 @@ class Component extends DCLogic {
     };
     walkTree(null, 0);
 
+    // — the topic forest in the rail (the workspace's quests). Clicking a topic makes it the active
+    //   topic everything grounds on AND narrows the centre to its corpus (the "In topic corpus"
+    //   shelf), so switching topics here re-aims the whole Drive. Kept monochrome like the rest of
+    //   the explorer; a search-origin topic wears a magnifier, everything else the target glyph. —
+    const activeTopicId = app.state.activeTopicId;
+    const exTopics = app.topicRows().map(({ topic: t, depth, hasChildren, collapsed }) => {
+      const active = t.id === activeTopicId && bucket === 'topic';
+      return {
+        id: t.id, name: t.title || 'Untitled topic', indent: (8 + depth * 14) + 'px',
+        isSearch: t.kind === 'search', notSearch: t.kind !== 'search',
+        hasKids: hasChildren, noKids: !hasChildren, arrow: hasChildren ? (collapsed ? '▸' : '▾') : '',
+        count: String((t.sourceSns || []).length),
+        fg: active ? '#1B1B22' : '#5A5A64', bg: active ? '#EFEFF2' : 'transparent', wt: active ? '650' : '500',
+        open: () => { app.setTopic(t.id); this.setState({ explorerBucket: 'topic', explorerFolder: null, explorerSel: null, explorerMenu: null, explorerShowAll: false }); },
+        toggle: (e) => { if (e && e.stopPropagation) e.stopPropagation(); app.topicToggleCollapse(t.id); },
+      };
+    });
+
     // — encrypted-vault meter (recorded bytes against a nominal cap) —
     const usedBytes = drive.reduce((a, s) => a + (s.bytes || 0), 0);
     const usedGB = usedBytes / 1073741824;
@@ -7665,6 +7694,8 @@ class Component extends DCLogic {
       qaStarredBg: qaStarred.bg, qaStarredFg: qaStarred.fg, qaStarredWt: qaStarred.wt, qaStarredGo: gotoBucket('starred'),
       qaTopicBg: qaTopic.bg, qaTopicFg: qaTopic.fg, qaTopicWt: qaTopic.wt, qaTopicGo: gotoBucket('topic'), qaTopicCount: String(topicCorpus.length),
       qaAllBg: qaAll.bg, qaAllFg: qaAll.fg, qaAllWt: qaAll.wt, qaAllGo: gotoBucket('all'), qaAllCount: String(drive.length),
+      exTopics, exTopicsHas: exTopics.length > 0,
+      explorerNewTopic: () => { app.topicNew('New topic'); this.setState({ explorerBucket: 'topic', explorerFolder: null, explorerSel: null, explorerShowAll: false }); },
       exTree, exTreeHas: exTree.length > 0,
       vaultLabel, vaultPct, vaultSync,
       // centre: header, breadcrumb, sort + kind chips, jump-back-in, source cards, show-all
