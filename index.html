@@ -1442,7 +1442,7 @@ table{border-collapse:collapse;width:100%}
                book; the old Document paragraphs are folded in here, revealed by the Links toggle) ·
                Native (the real website) · Facing · EoT (the reading). -->
           <sc-if value="{{ isSource }}">
-          <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff">
+          <div ref="{{ setSourceStage }}" style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff">
             <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;padding:12px 20px;background:#FBFBFD">
               <div style="display:flex;align-items:center;gap:10px">
                 <div style="flex:1;min-width:0">
@@ -3458,6 +3458,38 @@ class Component extends DCLogic {
   // The audio/video element for the active source — set (and re-set on a source switch) by the ref
   // on the player. The whole Listen surface drives THIS one element.
   setListenAudio(el) { if (el) this._listenAudio = el; }
+
+  // The source stage is one flex column: a fixed media panel (player + waveform + stats) ABOVE the
+  // Listen surface, and only the transcript inside it actually scrolls. So a wheel over the waveform,
+  // the stats, or the toolbars lands on a region with nothing to scroll and the page sits still — the
+  // "can't scroll the page" complaint. Forward those wheels to the transcript (which also drives the
+  // media-panel fold), so the whole reading scrolls no matter where the pointer is. Genuinely
+  // scrollable things under the pointer — the transcript itself, an open export/chapter menu, or the
+  // media panel while it overflows — keep their native scroll; we only step in when nothing else can.
+  setSourceStage(el) {
+    if (!el || el.__eoWheelWired) return;
+    el.__eoWheelWired = true;
+    el.addEventListener('wheel', (e) => this._forwardListenWheel(e), { passive: false });
+  }
+  _forwardListenWheel(e) {
+    const tx = this._listenTx;
+    if (!tx || !tx.isConnected || e.ctrlKey || !e.deltaY) return;   // ctrl+wheel is zoom — leave it
+    const dir = e.deltaY > 0 ? 1 : -1;
+    // If anything between the pointer and the stage can absorb this scroll (the transcript, a dropdown,
+    // the overflowing media panel), let the browser handle it natively.
+    for (let n = e.target; n && n !== e.currentTarget; n = n.parentNode) {
+      if (n.nodeType !== 1 || n.scrollHeight <= n.clientHeight + 1) continue;
+      const oy = getComputedStyle(n).overflowY;
+      if (oy !== 'auto' && oy !== 'scroll') continue;
+      const atTop = n.scrollTop <= 0, atBot = n.scrollTop + n.clientHeight >= n.scrollHeight - 1;
+      if (!((dir > 0 && atBot) || (dir < 0 && atTop))) return;       // it still has room this way
+    }
+    // Nothing else wants it — scroll the transcript (normalising line/page deltas to pixels).
+    let d = e.deltaY;
+    if (e.deltaMode === 1) d *= 16; else if (e.deltaMode === 2) d *= tx.clientHeight;
+    tx.scrollTop += d;
+    e.preventDefault();
+  }
 
   // Click anywhere on the waveform to jump the player to that fraction of the clip — the bars
   // span the whole duration, so the click's X within them maps straight onto the timeline and
@@ -6891,6 +6923,7 @@ class Component extends DCLogic {
       vmEotFg: vMode === 'eot' ? '#1B1B22' : '#8A8A95', vmEotBg: vMode === 'eot' ? '#fff' : 'transparent',
       // Listen surface — the interactive transcript refs + edit/redaction actions
       setListenAudio: (el) => this.setListenAudio(el),
+      setSourceStage: (el) => this.setSourceStage(el),
       setListenTranscript: (el) => this.setListenTranscript(el),
       seekFromWave: (e) => this.seekFromWave(e),
       redactSilence: () => this.redactSilence(), redactBeep: () => this.redactBeep(),
