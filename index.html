@@ -37,10 +37,53 @@ table{border-collapse:collapse;width:100%}
 @keyframes eoToast{from{transform:translate(-50%,10px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 @keyframes eoBlink{0%,100%{opacity:1}50%{opacity:.2}}
 @keyframes eoSpin{to{transform:rotate(360deg)}}
-@keyframes eoMurmurPulse{0%,100%{box-shadow:0 0 0 3px rgba(123,79,214,.16)}50%{box-shadow:0 0 0 5px rgba(123,79,214,.03)}}
-.eo-murmur-dot{animation:eoMurmurPulse 2.4s ease-in-out infinite}
-.eo-murmur::-webkit-scrollbar{height:0}
-@media (prefers-reduced-motion:reduce){.eo-murmur-dot{animation:none}}
+/* ── MURMUR — the peripheral sense, rendered in NATIVE EOT (src/murmur/narrate/voice.js) ──
+   Each voiced thought is one event: `glyph OP site(s) · res` on the left, the prose mutter on the
+   right. The operator palette is the cube's Act-face grains (core/operators.js) so a strip event
+   and a graph edge draw the same mark. Built imperatively (setMurmurStrip) — the fade-out→swap→
+   fade-in lifecycle is the surface's, not React's per-poke reconcile. */
+.eo-murmur{
+  --mm-nul:#7a808c;--mm-sig:#b45309;--mm-ins:#0891b2;--mm-seg:#7c3aed;--mm-con:#059669;
+  --mm-syn:#db2777;--mm-def:#1b1b22;--mm-eva:#a16207;--mm-rec:#4338ca;--mm-accent:var(--mm-seg);
+  position:relative;display:flex;align-items:center;gap:14px;flex:0 0 auto;
+  padding:11px 16px 12px;border-bottom:1px solid #EDE9F6;background:#FCFBFF;overflow:hidden
+}
+.eo-murmur::before{content:"";position:absolute;top:0;right:0;width:92px;height:2px;background:var(--mm-accent);opacity:.6;transition:background .7s ease}
+.eo-murmur[data-op="NUL"]{--mm-accent:var(--mm-nul)}.eo-murmur[data-op="SIG"]{--mm-accent:var(--mm-sig)}
+.eo-murmur[data-op="INS"]{--mm-accent:var(--mm-ins)}.eo-murmur[data-op="SEG"]{--mm-accent:var(--mm-seg)}
+.eo-murmur[data-op="CON"]{--mm-accent:var(--mm-con)}.eo-murmur[data-op="SYN"]{--mm-accent:var(--mm-syn)}
+.eo-murmur[data-op="DEF"]{--mm-accent:var(--mm-def)}.eo-murmur[data-op="EVA"]{--mm-accent:var(--mm-eva)}
+.eo-murmur[data-op="REC"]{--mm-accent:var(--mm-rec)}
+.eo-mm-mark{flex:0 0 auto;align-self:center;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.16em;color:#B7B2C6;text-transform:uppercase}
+.eo-mm-row{flex:1;min-width:0;overflow:hidden;display:grid;grid-template-columns:minmax(248px,auto) 1fr;align-items:baseline;column-gap:18px}
+.eo-mm-tuple{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;white-space:nowrap;display:inline-flex;align-items:baseline;gap:8px;line-height:26px;opacity:1;transition:opacity .3s ease}
+.eo-mm-tuple.eo-mm-fading{opacity:.32}
+.eo-mm-glyph{font-size:15px;line-height:1;transform:translateY(1px);color:var(--mm-accent);transition:color .7s ease,text-shadow .7s ease}
+.eo-mm-op{display:inline-block;min-width:32px;font-weight:600;font-size:11px;letter-spacing:.16em;font-variant-numeric:tabular-nums;color:var(--mm-accent);transition:color .7s ease}
+.eo-mm-site{color:#3A3A44;font-weight:500}
+.eo-mm-hash{color:#3A3A44}.eo-mm-grain{color:#9aa0ad}
+.eo-mm-holder{color:#9aa0ad;font-weight:400}.eo-mm-sep{color:#B7B2C6;margin:0 6px}.eo-mm-arrow{color:#B7B2C6;margin:0 6px}
+.eo-mm-res{color:#8A8A95;font-weight:400;padding-left:10px;border-left:1px solid #E6E4EE}
+.eo-mm-band-void{color:#9aa0ad}.eo-mm-band-firm{color:#3A3A44;font-weight:500}.eo-mm-p{font-variant-numeric:tabular-nums}
+.eo-murmur[data-op="INS"] .eo-mm-glyph,.eo-murmur[data-op="CON"] .eo-mm-glyph{text-shadow:0 0 8px color-mix(in oklab,var(--mm-accent) 32%,transparent)}
+.eo-mm-stage{position:relative;min-width:0;overflow:hidden}
+.eo-mm-phrase{font-family:'Newsreader',Georgia,serif;font-style:italic;font-weight:400;font-size:16.5px;line-height:26px;color:#2a2d36;letter-spacing:.004em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:1;transform:translateY(0);filter:none;transition:opacity .48s ease,transform .52s cubic-bezier(.4,.05,.4,1),filter .48s ease;will-change:opacity,transform,filter}
+.eo-mm-phrase.eo-mm-fading{opacity:0;transform:translateY(-6px);filter:blur(1.5px)}
+.eo-mm-x{flex:0 0 auto;align-self:center;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#B4B4BE;transition:background .12s,color .12s}
+.eo-mm-x:hover{background:#F0EDF9;color:var(--mm-accent)}
+@media (prefers-reduced-motion:reduce){
+  .eo-mm-phrase,.eo-mm-tuple{transition:opacity .2s linear!important;filter:none!important;transform:none!important}
+  .eo-murmur::before{transition:none}
+}
+@media (max-width:720px){
+  /* stays ONE line — a COMPACT tuple (glyph + OP keep the EOT identity; the sites/res detail folds
+     away so the prose and the × always fit), the prose takes the rest and ellipsizes */
+  .eo-mm-row{grid-template-columns:auto minmax(0,1fr);column-gap:10px}
+  .eo-mm-mark{display:none}
+  .eo-mm-site,.eo-mm-res{display:none}
+  .eo-mm-tuple{font-size:11px;gap:6px}
+  .eo-mm-phrase{font-size:14.5px}
+}
 /* Interactive transcript (Listen surface) — a word is a clickable, editable, redactable holon. */
 .eo-w{border-radius:3px;padding:0 1px;cursor:pointer;transition:background .12s,color .12s}
 .eo-w:hover{background:rgba(109,94,245,.12)}
@@ -572,25 +615,14 @@ table{border-collapse:collapse;width:100%}
         </sc-if>
       </div>
 
-      <!-- REAL-TIME MURMUR STRIP — the peripheral sense (src/murmur). It no longer shows gauges or
-           register %; it VOICES (src/murmur/narrate/voice.js) the actual propositions the reader is
-           parsing — the grounded claims flowing through as it reads, tinted by the feeling. Ambient,
-           off the critical path; hide it from Settings. -->
+      <!-- REAL-TIME MURMUR STRIP — the peripheral sense (src/murmur), rendered in NATIVE EOT. Each
+           voiced thought is one event: `glyph OP site(s) · res` (src/murmur/narrate/voice.js attaches
+           the tuple; the strip only paints it) beside the prose mutter it re-voices. No gauges, no
+           register %, nothing fabricated — the tuple and the prose are two renderings of the SAME real
+           impression the reader grounded (§9.4: a voicing, never a fact). Built imperatively
+           (setMurmurStrip) so the fade-out→swap→fade-in lifecycle is the surface's own; hide from Settings. -->
       <sc-if value="{{ murmurOn }}">
-        <div class="eo-scroll eo-murmur" style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:8px 16px;border-bottom:1px solid #EDE9F6;background:#FCFBFF;overflow-x:auto">
-          <div style="display:flex;align-items:center;gap:7px;flex:0 0 auto" title="murmur — the impressionistic background sense">
-            <span class="eo-murmur-dot" style="width:7px;height:7px;border-radius:50%;background:#7B4FD6;box-shadow:0 0 0 3px rgba(123,79,214,.15)"></span>
-            <span style="font-size:10px;font-weight:700;letter-spacing:.09em;color:#7B4FD6">MURMUR</span>
-          </div>
-
-          <div style="display:flex;align-items:baseline;gap:16px;flex:1;min-width:0">
-            <sc-for list="{{ murmurThoughts }}" as="t">
-              <span style="flex:{{ t.flex }};min-width:0;font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:{{ t.fontSize }};line-height:1.4;color:{{ t.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.text }}</span>
-            </sc-for>
-          </div>
-
-          <button onClick="{{ toggleMurmur }}" title="Hide the murmur strip — turn it back on in Settings" style="flex:0 0 auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#B4B4BE" style-hover="background:#F0EDF9;color:#7B4FD6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-        </div>
+        <div class="eo-murmur" ref="{{ setMurmurStrip }}" aria-live="polite" aria-label="reader inner monologue"></div>
       </sc-if>
 
       <div style="flex:1;display:flex;min-height:0">
@@ -2717,6 +2749,11 @@ class Component extends DCLogic {
     this._matrix = (typeof window !== 'undefined' && window.EO && window.EO.matrix) || null;
     this._genome = (typeof window !== 'undefined' && window.EO && window.EO.genome) || null;
     this._murmur = (typeof window !== 'undefined' && window.EO && window.EO.murmur) || null;
+    // The murmur strip's native-EOT vocabulary — the canonical glyphs (core/operators.js) and the
+    // per-feeling ink the prose is tinted by. The tuple's op/sites/res come off the murmur snapshot
+    // (voice.js); these only DRAW it. Kept off the render path (instance maps, set once).
+    this._mmGlyph = { NUL: '∅', SEG: '｜', DEF: '⊢', SIG: '○', CON: '⋈', EVA: '⊨', INS: '●', SYN: '△', REC: '⊛' };
+    this._mmInk = { unease: '#9B3A2E', drift: '#A25A22', surprise: '#6A46C8', recognition: '#1E7A48', curiosity: '#5A44C0', outward: '#2E6FB8', discovery: '#1E7A48' };
     if (this._app) {
       this._app.subscribe((kind) => this._onEngine(kind));
       if (window.EO.audit && window.EO.audit.subscribe) window.EO.audit.subscribe(() => this._poke());
@@ -5792,30 +5829,10 @@ class Component extends DCLogic {
     const m = this._murmur;
     const mode = st.murmurMode || 'look';   // 'off' | 'look' | 'explore'
     const show = mode !== 'off';            // visibility DERIVES from the mode — nothing mutters unseen
-    // The murmur no longer paints GAUGES — it VOICES the actual propositions the reader is parsing.
-    // The engine (src/murmur/narrate/voice.js) surfaces the fold's grounded claims — "Ryan Coogler
-    // directed Sinners." — tinted by the FEELING the sense has about the reading; the strip only reads
-    // that prose. Same discipline: it renders a voicing, never a citable fact (§9.4). Each thought's
-    // colour is the register it's tinted by (the feeling), not a number.
-    let voice = [];
-    if (m) { try { const s = m.state ? m.state() : null; if (s && Array.isArray(s.voice)) voice = s.voice; } catch { /* the strip must never break the surface */ } }
-    const INK = {
-      unease: '#9B3A2E', drift: '#A25A22', surprise: '#6A46C8', recognition: '#1E7A48',
-      curiosity: '#5A44C0', outward: '#2E6FB8', discovery: '#1E7A48',
-    };
-    const thoughts = (voice || []).slice(0, 2).map((t, i) => ({
-      text: t && t.text ? String(t.text) : '',
-      // the dominant thought carries its feeling's colour; a trailing second thought stays quiet.
-      fg: i === 0 ? ((t && t.register && INK[t.register]) || '#5E566E') : '#A6A2AE',
-      fontSize: i === 0 ? '13px' : '12px',
-      flex: i === 0 ? '1 1 auto' : '0 1 auto',
-    })).filter((t) => t.text);
-    if (!thoughts.length) {
-      // before the first fold (or a broken read) — the quiet mind still has a line, never a blank strip.
-      thoughts.push({ text: 'resting — the reading is still, and nothing has stirred me yet', fg: '#B4B4BE', fontSize: '13px', flex: '1 1 auto' });
-    }
-    // The mode is the one control (Off / Look & think / Explore the web). The Settings selector reads
-    // these; the strip's X sets 'off'. Visibility is `show` (mode ≠ off), so nothing runs unseen.
+    // The strip's live contents are painted imperatively (setMurmurStrip) straight off the murmur
+    // snapshot, so the fade lifecycle is ours; this view-model only carries the Settings control and
+    // the ref. The mode is the one control (Off / Look & think / Explore the web); the strip's X sets
+    // 'off'. Visibility is `show` (mode ≠ off), so nothing runs unseen.
     const modeMeta = {
       off:     { label: 'Off',             desc: 'the sense is quiet' },
       look:    { label: 'Look & think',    desc: 'mutters and learns from the record — no internet' },
@@ -5834,7 +5851,8 @@ class Component extends DCLogic {
       murmurModeLabel: modeMeta[mode].label,
       murmurModeDesc: modeMeta[mode].desc,
       murmurModeOptions,
-      toggleMurmur: () => this.toggleMurmur(),   // the strip's X → 'off' (hide == off, nothing unseen)
+      toggleMurmur: () => this.toggleMurmur(),         // the strip's X → 'off' (hide == off, nothing unseen)
+      setMurmurStrip: (el) => this.setMurmurStrip(el), // the imperative strip's container ref
       // the self-guided-learning readout + its graph-layer toggle
       murmurLearnCount: learnCount,
       murmurHasLearned: learnCount > 0,
@@ -5843,9 +5861,117 @@ class Component extends DCLogic {
       learningTrackBg: (st.learningLayer !== false) ? '#7B4FD6' : '#D4D4DC',
       learningKnobX: (st.learningLayer !== false) ? '17px' : '2px',
       murmurControls: show,   // the learning row shows only when the sense is active (mode ≠ off)
-      // the strip's live contents — the inner voice's prose oppositions (no gauges, no register %)
-      murmurThoughts: thoughts,
     };
+  }
+
+  // ── the real-time murmur strip, rendered in native EOT ──────────────────────────────────────────
+  // Built imperatively into the ref'd container (like the Listen transcript) so the fade-out→swap→
+  // fade-in lifecycle is ours, not React's per-poke reconcile. It is ONE LINE showing ONE thought —
+  // the most-salient event's tuple (glyph OP site(s) · res) beside the prose mutter it re-voices; the
+  // line changes only when the sense actually surfaces a new event (a fold, a wander mutter), never
+  // on an invented timer. NOTHING here is fabricated: the op/sites/res and the text all come straight
+  // off m.state().voice (the read side-channel, §9.4); the surface only paints them.
+  _murmurStripModel() {
+    const m = this._murmur;
+    let voice = [];
+    if (m) { try { const s = m.state ? m.state() : null; if (s && Array.isArray(s.voice)) voice = s.voice; } catch { /* the strip must never break the surface */ } }
+    const lead = (voice || []).find((t) => t && t.text);   // the single most-salient thought — one line
+    if (lead) return {
+      op: (lead.op && this._mmGlyph[lead.op]) ? lead.op : 'NUL',
+      text: String(lead.text),
+      register: lead.register || null,
+      fg: (lead.register && this._mmInk[lead.register]) || '#2a2d36',
+      tupleHtml: this._murmurTuple(lead),
+    };
+    // before the first fold (or a broken read) — a real NUL hold, never a blank strip.
+    const idle = { op: 'NUL', sites: [{ hash: 'r#000', grain: 0 }], res: { band: 'void', p: 0.08 } };
+    return { op: 'NUL', text: 'resting — the reading is still, and nothing has stirred me yet', register: null, fg: '#9aa0ad', tupleHtml: this._murmurTuple(idle) };
+  }
+
+  // Render one native-EOT tuple to HTML: `glyph OP site(s) · res`. CON draws its two argument sites
+  // bound by ⋈ (the central bond); SYN draws the promotion r#x@g → r#x@g+1; every other op draws its
+  // single site. Mirrors src/core/event.js siteNotation / the tiered-graph legend, so a strip event
+  // and a graph edge never disagree on a mark.
+  _murmurTuple(evt) {
+    const G = this._mmGlyph, esc = (s) => this._escHtml(s);
+    const op = (evt && evt.op && G[evt.op]) ? evt.op : 'NUL';
+    const S = (evt && Array.isArray(evt.sites)) ? evt.sites : [];
+    const siteStr = (s) => {
+      if (!s || !s.hash) return '<span class="eo-mm-hash">r#000</span>@<span class="eo-mm-grain">0</span>';
+      const inner = '<span class="eo-mm-hash">' + esc(s.hash) + '</span>@<span class="eo-mm-grain">' + (s.grain | 0) + '</span>';
+      return s.holder ? '<span class="eo-mm-holder">' + esc(s.holder) + '</span><span class="eo-mm-sep">·</span>' + inner : inner;
+    };
+    let sites;
+    if (op === 'CON' && S.length >= 2) {
+      sites = '<span class="eo-mm-site">' + siteStr(S[0]) + '<span class="eo-mm-sep">⋈</span>' + siteStr(S[1]) + '</span>';
+    } else if (op === 'SYN' && S[0]) {
+      const s = S[0], promoted = { hash: s.hash, grain: (s.grain | 0) + 1 };
+      sites = '<span class="eo-mm-site">' + siteStr(s) + '<span class="eo-mm-arrow">→</span>' + siteStr(promoted) + '</span>';
+    } else {
+      sites = '<span class="eo-mm-site">' + siteStr(S[0]) + '</span>';
+    }
+    const band = (evt && evt.res && evt.res.band === 'firm') ? 'firm' : 'void';
+    const p = (evt && evt.res && typeof evt.res.p === 'number') ? evt.res.p.toFixed(2) : '0.10';
+    const res = '<span class="eo-mm-res"><span class="eo-mm-band-' + band + '">' + band + '</span> <span class="eo-mm-p">' + p + '</span></span>';
+    return '<span class="eo-mm-glyph">' + (G[op] || '·') + '</span><span class="eo-mm-op">' + esc(op) + '</span>' + sites + res;
+  }
+
+  setMurmurStrip(el) {
+    if (!el) return;
+    // build the skeleton once — React renders only the empty shell; the contents are ours to keep.
+    if (!el.__eoMmBuilt) {
+      el.__eoMmBuilt = true;
+      el.innerHTML =
+        '<span class="eo-mm-mark">MURMUR</span>' +
+        '<div class="eo-mm-row"><div class="eo-mm-tuple"></div>' +
+        '<div class="eo-mm-stage"><div class="eo-mm-phrase"></div></div></div>' +
+        '<button class="eo-mm-x" title="Hide the murmur strip — turn it back on in Settings" aria-label="Hide the murmur strip">' +
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
+      el.__eoMmTuple = el.querySelector('.eo-mm-tuple');
+      el.__eoMmPhrase = el.querySelector('.eo-mm-phrase');
+      const x = el.querySelector('.eo-mm-x');
+      if (x) x.addEventListener('click', () => this.toggleMurmur());
+      el.__eoMmSig = null; el.__eoMmFade = null;
+    }
+    const entry = this._murmurStripModel();
+    const sig = entry.op + '|' + entry.text;
+    if (el.__eoMmSig === sig) return;          // no new impression — leave the current line be
+    const firstEver = el.__eoMmSig === null;
+    el.__eoMmSig = sig;
+    this._mmShow(el, entry, firstEver);        // a fresh impression fades the one line over
+  }
+
+  // Paint the one line: fade the tuple + prose out together, swap, fade back in — so an operator and
+  // its mutter always belong to one event. Instant on first paint and under prefers-reduced-motion.
+  // A pending fade is cancelled if a newer event arrives mid-swap.
+  _mmShow(el, entry, instant) {
+    if (!el || !entry || !el.__eoMmTuple) return;
+    if (el.__eoMmFade) { clearTimeout(el.__eoMmFade); el.__eoMmFade = null; }
+    const apply = () => {
+      el.setAttribute('data-op', entry.op);
+      el.__eoMmTuple.setAttribute('data-op', entry.op);
+      el.__eoMmTuple.innerHTML = entry.tupleHtml;
+      el.__eoMmPhrase.textContent = entry.text;
+      el.__eoMmPhrase.style.color = entry.fg;
+    };
+    const reduce = this._rmq && this._rmq.matches;
+    if (instant || reduce) {
+      apply();
+      el.__eoMmPhrase.classList.remove('eo-mm-fading');
+      el.__eoMmTuple.classList.remove('eo-mm-fading');
+      return;
+    }
+    el.__eoMmPhrase.classList.add('eo-mm-fading');
+    el.__eoMmTuple.classList.add('eo-mm-fading');
+    el.__eoMmFade = window.setTimeout(() => {
+      el.__eoMmFade = null;
+      if (!el.isConnected) return;
+      apply();
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.__eoMmPhrase.classList.remove('eo-mm-fading');
+        el.__eoMmTuple.classList.remove('eo-mm-fading');
+      }));
+    }, 300);
   }
 
   _versionVals() {
