@@ -96,13 +96,14 @@ export const propagateResolution = (cells) => {
       if (!prev || prev.band !== r.band || prev.p !== r.p) { res.set(c.id, r); changed = true; }
     }
   }
-  // any cell still unresolved (no deps, non-INS) defaults firm
+  // any cell still unresolved (no deps, non-INS) defaults VOID — nothing established
+  // is the void, not a free firm (core/event.js: definiteness must be earned)
   for (const c of cells) if (!res.has(c.id)) res.set(c.id, toRes(c.res));
   return res;
 };
 
 const toRes = (band) =>
-  band == null ? makeResolution(BANDS.FIRM)
+  band == null ? makeResolution(BANDS.VOID)
   : typeof band === 'string' ? makeResolution(band)
   : makeResolution(band.band, band.p);
 

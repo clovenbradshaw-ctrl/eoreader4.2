@@ -11,6 +11,9 @@
 //   provenance() the session's claim→passage→source→fixity DAG (the graph tab)
 //
 // Persistence is IndexedDB (text + chat survive reload; docs re-parse lazily).
+// Work still IN FLIGHT survives too: a fetch / file import / transcription opens a
+// durable job (ingest-jobs.js) that rides the snapshot and is RESUMED on the next
+// boot, so ingestion and transcription survive a reload even part-way through.
 // In Node (tests) there is no indexedDB and no fetch — every method that needs
 // one degrades to a no-op or a thrown, catchable error; nothing at import time
 // touches the network.
@@ -38,7 +41,9 @@ import { readIngest } from '../../organs/ingest/read.js';
 import { emitEot } from '../../organs/ingest/eot-emit.js';
 import { scopeSources } from './scope-sources.js';
 import { createAudioStore } from './audio-store.js';
-import { projectTranscript } from './transcript-edit.js';
+import { makeJob, upsertJob, patchJob, dropJob, resumableJobs, MAX_JOB_ATTEMPTS } from './ingest-jobs.js';
+import { projectTranscript, REDACTION_MARK } from './transcript-edit.js';
+import { buildFormat, FORMATS as TRANSCRIPT_FORMATS, hasTranscript } from './transcript-export.js';
 import { sha256Hex } from '../archive/file-crypto.js';
 import { outstandingQuestion, answersAwaited } from '../../core/conversation-fold.js';
 import { senseGate } from '../../turn/sense.js';
@@ -46,6 +51,8 @@ import { createMonitor } from '../../enactor/monitor.js';
 import { createCommitmentLedger } from '../../enactor/ledger.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
 import { figureSurface, rankProperties } from '../../perceiver/index.js';
+import { generateTopline, definitionSpans, definitionCompetency, composeChorus, entityInventory, sourceInventory, interpretFeedback, mergeSteer } from '../../weave/topline/index.js';
+import { groundSpans } from '../../enactor/ground/spans.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
@@ -255,6 +262,14 @@ export const appendLog = (log, { kind, t, text, effect = '' }, mintId, { coalesc
 export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch } = {}) => {
   const state = {
     sources: [],           // registry entries (serializable minus _doc)
+    // Auto-generated toplines (docs/topline.md). A SOURCE's topline rides on its own registry
+    // entry (src.summary), removed with the source; an ENTITY has no persisted home object (it is
+    // re-derived from the graph each render), so its topline is kept here, keyed by normalised
+    // label — the same merged identity the explorer groups by. Both persist across reload.
+    // entity toplines, and the DEFINER's evolving champion — the chorus's reigning strategy plus a
+    // run counter that drives the (deterministic) exploration beat. Persisted so the organism keeps
+    // what it learned about defining across reloads (weave/topline/chorus.js).
+    summaries: { entities: {}, definer: { champion: null, runs: 0 } },
     // A workspace is the top-level container (Notion's workspace/teamspace): it owns a
     // nested tree of topics. A topic scopes a source set, a chat and a memo, and now
     // carries `workspaceId` (which container it lives in) + `parentId` (its parent topic,
@@ -280,6 +295,12 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     murmurVisible: true,   // the strip shown? hidden ⇒ the wander PAUSES (nothing muttered unseen)
     model: { backend: null, state: 'cold', progress: 0, note: '' },
     busy: null,            // { kind, label } while a long op runs
+    // DURABLE PENDING WORK (ingest-jobs.js). The reader records a source only when a fetch, a file
+    // import, or a transcription has FINISHED — so a refresh mid-way used to lose the work with no
+    // trace. A job is opened when the work begins, rides the snapshot, and is dropped when it lands;
+    // on the next boot the still-open jobs are RESUMED (idempotently — dedup by content hash). This
+    // is what lets ingestion AND transcription survive a reload even part-way through.
+    jobs: [],              // [{ id, kind, status, attempts, topicId, workspaceId, ...spec }]
     ready: false,          // restore finished
   };
   let sn = 0, tn = 0, ln = 0, mn = 0, wn = 0;
@@ -478,6 +499,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }),
     // the commitment ledger — assertions and corrections survive reload (the spine)
     ledger: ledger.serialize(),
+    // entity toplines (source toplines ride on each source above) — the summary + its feedback
+    summaries: { entities: state.summaries.entities, definer: state.summaries.definer },
+    // the durable pending-work registry — the fetches / imports / transcriptions still in flight,
+    // so a reload mid-way can pick them back up (ingest-jobs.js). Small plain JSON specs only.
+    jobs: state.jobs,
   });
   let saveTimer = null;
   const persist = () => {
@@ -493,13 +519,29 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       if (snap && snap.v === 1) {
         ({ sn, tn, ln, mn } = snap);
         wn = snap.wn || 0;
-        state.sources = (Array.isArray(snap.sources) ? snap.sources : []).map((s) => ({ ...s, _doc: null }));
+        state.sources = (Array.isArray(snap.sources) ? snap.sources : []).map((s) => {
+          const src = { ...s, _doc: null };
+          // Re-seed the live ASR object from its durable twin so the transcription banner reads
+          // correctly at once after a reload (done / skipped / — or the resuming state resumeJobs
+          // is about to drive). A clip left mid-transcription reads as pending until the resume runs.
+          if (src.transcription) {
+            const st = src.transcription.state;
+            src._asr = { state: st === 'running' ? 'pending' : st, pct: src.transcription.pct || 0, reason: src.transcription.reason || null, partial: src.transcription.partial || '' };
+            // The heard-so-far words, if the tab closed mid-transcription — re-seed the live view so
+            // the Listen surface shows the partial transcript AT ONCE (click-to-seek + karaoke on it)
+            // instead of a blank, and so it is never lost even if the resume below cannot run.
+            if (Array.isArray(src.transcription.words) && src.transcription.words.length) src._asr.words = src.transcription.words;
+          }
+          return src;
+        });
         state.topics = Array.isArray(snap.topics) ? snap.topics : [];
         state.activeTopicId = snap.activeTopicId;
         state.workspaces = Array.isArray(snap.workspaces) ? snap.workspaces : [];
         state.activeWorkspaceId = snap.activeWorkspaceId || null;
         state.log = Array.isArray(snap.log) ? snap.log : [];
+        state.jobs = Array.isArray(snap.jobs) ? snap.jobs : [];   // pending work to resume below
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
+        if (snap.summaries && snap.summaries.entities) state.summaries = { entities: { ...snap.summaries.entities }, definer: snap.summaries.definer || { champion: null, runs: 0 } };
       }
     } catch { /* fresh session */ }
     // ── migrate to the workspace / topic-tree model ──────────────────────────
@@ -557,7 +599,46 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       // The inner monologue starts at rest: the governor wakes the reading in the lulls
       // between turns and reflects on what's on the record (no-op until something is recorded).
       deepIdleStart();
+      // Pick back up any ingest / transcription that was in flight when the tab last closed —
+      // the "survive a refresh even mid-way" guarantee. Deferred a beat so the first paint lands
+      // first; browser-only (resume needs fetch / OPFS / whisper), best-effort, never blocks boot.
+      setTimeout(() => { resumeJobs().catch(() => { /* each job logs its own failure */ }); }, 800);
     }
+  };
+
+  // ── durable pending work — the ingest/transcription job registry (ingest-jobs.js) ────────────
+  // A job is opened when a long ingest/transcription BEGINS and dropped when it lands, so the list
+  // that rides the snapshot is exactly the work still in flight. On boot, resumeJobs() re-runs it.
+  // The bytes a `file` job needs to re-import rest in their own OPFS store (keyed by content hash),
+  // separate from the audio store, so a resume can rebuild the original File after a reload.
+  const ingestStore = createAudioStore({ dir: 'eoreader-ingest' });
+  // beginJob(fields) → the job's id. Opens (or replaces) the job and persists at once, so even an
+  // immediate reload finds it. Files under the topic/workspace active NOW so a resume records there.
+  // Re-opening the SAME work (same identity key, e.g. resuming) carries the existing resume count
+  // forward — so a job that keeps getting interrupted still marches toward the attempt cap.
+  const beginJob = (fields) => {
+    const job = makeJob({ topicId: state.activeTopicId, workspaceId: state.activeWorkspaceId, at: nowMs(), ...fields });
+    const existing = state.jobs.find((j) => j.id === job.id);
+    if (existing) job.attempts = existing.attempts || 0;
+    state.jobs = upsertJob(state.jobs, job);
+    persist();
+    return job.id;
+  };
+  // settleJob(id, status, reason) — close a job. A terminal outcome (done / skipped / stopped) drops
+  // it (and, for a `file` job, deletes the bytes it stashed for a possible resume). An `error` is
+  // KEPT so the next boot can resume it — up to the attempt cap (incremented per resume, below), past
+  // which it is abandoned and logged so a permanently-broken job can't resurrect itself forever.
+  const settleJob = (id, status, reason = null) => {
+    const job = state.jobs.find((j) => j.id === id);
+    if (!job) return;
+    if (status === 'error' && (job.attempts || 0) < MAX_JOB_ATTEMPTS) {
+      state.jobs = patchJob(state.jobs, id, { status: 'error', reason });
+    } else {
+      if (status === 'error') logIt('skip', `Gave up resuming ${job.kind} after ${job.attempts} tr${job.attempts === 1 ? 'y' : 'ies'}${reason ? ` — ${reason}` : ''}`);
+      state.jobs = dropJob(state.jobs, id);
+      if (job.kind === 'file' && job.sha) ingestStore.remove(job.sha).catch(() => {});
+    }
+    persist();
   };
 
   // ── topics — a nested tree within a workspace (Notion's pages / sub-pages) ────
@@ -724,25 +805,6 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return src._doc;
   };
 
-  // The NAMED-ENTITY substrate for a source. A text source's own doc already admits its named
-  // referents (people, places, things), so it IS the name-doc. An audio source's doc is a
-  // word-graph — every heard word is a referent — so its "entities" are every word, not names.
-  // For audio we therefore read the NAMES level off a text-parse of the landed transcript, which
-  // runs the same admission a text source gets. Cached on the source, rebuilt when the text hash
-  // changes. Used by the entity panel's 'names' level, entity profiles, and mention hyperlinking,
-  // so panel rows, links, and profiles all key off the SAME graph and resolve to each other.
-  const nameDocFor = (src) => {
-    if (!src) return null;
-    if (src.kind !== 'audio') return docFor(src);
-    const body = String(src.text || '').trim();
-    if (!body) return null;
-    if (!src._nameDoc || src._nameDocSha !== src.sha) {
-      src._nameDoc = parseText(body, { docId: src.docId });
-      src._nameDocSha = src.sha;
-    }
-    return src._nameDoc;
-  };
-
   const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null }) => {
     const body = String(text || '').trim();
     if (!body) throw new Error('nothing to record — the page had no readable text');
@@ -799,6 +861,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         const props = d?.log ? emitEot(d.log).lines.length : 0;
         logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
       } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+      // …and auto-compose the source's topline the moment it is recorded. Model-optional: the
+      // deterministic telegram lands at once (there is a summary before any talker is warm), and a
+      // loaded talker refines the join in the background. Fire-and-forget — never blocks the record.
+      sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
     }, 0);
     return src;
   };
@@ -852,7 +918,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     for (const s of state.sources) {
       if (keep.has(s.sn)) continue;
       deepReaders.delete(s.docId);
-      s._doc = null; s._eot = null;
+      s._doc = null; s._eot = null; s._nlDoc = null;
     }
   };
 
@@ -895,11 +961,21 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const ingestUrl = (url) => {
     const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
     return runCancellable({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` }, async (signal) => {
-      const raw = (await client.fetchUrl(norm, { signal })).text;
-      const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
-      const text = htmlToText(raw);
-      const { doc, record } = admitWebSource({ url: norm, title, text, fetched_at: nowIso(), engine: 'feed-proxy' });
-      return addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc });
+      // Open a durable job FIRST — a reload while the proxy is still fetching picks the URL back up
+      // (a re-fetch dedups by content hash, so a page that actually landed is a no-op on resume).
+      const jid = beginJob({ kind: 'url', url: norm });
+      try {
+        const raw = (await client.fetchUrl(norm, { signal })).text;
+        const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
+        const text = htmlToText(raw);
+        const { doc, record } = admitWebSource({ url: norm, title, text, fetched_at: nowIso(), engine: 'feed-proxy' });
+        const src = addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc });
+        settleJob(jid, 'done');
+        return src;
+      } catch (e) {
+        settleJob(jid, signal.aborted ? 'stopped' : 'error', String(e?.message || e).slice(0, 90));
+        throw e;
+      }
     });
   };
 
@@ -1013,6 +1089,29 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   //     and parse steps land they slot in around this call rather than replacing it.
   const formulateSearch = (raw) => String(raw || '').trim();   // SEAM: query planning plugs in here
 
+  // Pull the top salient web sources for `query` INTO an existing search topic `t`. Extracted so
+  // both the first run and a resume (after a reload interrupted the search) fill the SAME topic —
+  // addSource dedups by content hash, so re-running against a half-filled topic just tops it up.
+  const fillSearchTopic = async (t, query, k, signal) => {
+    let count = 0, first = null;
+    const admitted = await searchAndAdmit(query, { client, k, kind: 'auto', fetchPages: true, signal });
+    for (const a of admitted || []) {
+      if (!a?.doc || !a?.record) continue;
+      try {
+        const s = addSource({
+          title: a.record.title || a.item?.title, url: a.record.url || a.item?.url || null,
+          text: a.doc.text, kind: 'web', record: a.record, doc: a.doc,
+        });
+        // addSource files a NEW source into the active (search) topic itself, but a hit that was
+        // already recorded elsewhere returns as a dedup WITHOUT joining this topic — link it
+        // explicitly so the search topic always contains the results it pulled (a source may
+        // belong to many topics). Idempotent for the fresh sources addSource already added.
+        if (s) { if (!t.sourceSns.includes(s.sn)) t.sourceSns.push(s.sn); count++; first = first || s; }
+      } catch { /* empty page or dup — skip, keep pulling the next salient hit */ }
+    }
+    return { count, first };
+  };
+
   const searchTopic = (raw, { k = 3 } = {}) =>
     runCancellable({ kind: 'search', label: `Searching the web — ${String(raw || '').trim()}` }, async (signal) => {
       const rawQuery = String(raw || '').trim();
@@ -1024,34 +1123,28 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       const prevActive = state.activeTopicId;
       const t = topicNew(rawQuery, { workspaceId: state.activeWorkspaceId });
       t.kind = 'search'; t.query = rawQuery; t.searchQuery = query; t.named = true;
+      // A durable job keyed to THIS search topic: a reload while the search is still fetching resumes
+      // it into the same topic (fillSearchTopic re-runs the admit; dedup keeps it idempotent).
+      const jid = beginJob({ kind: 'search', query, k, topicId: t.id });
       let count = 0, first = null;
       try {
-        const admitted = await searchAndAdmit(query, { client, k, kind: 'auto', fetchPages: true, signal });
-        for (const a of admitted || []) {
-          if (!a?.doc || !a?.record) continue;
-          try {
-            const s = addSource({
-              title: a.record.title || a.item?.title, url: a.record.url || a.item?.url || null,
-              text: a.doc.text, kind: 'web', record: a.record, doc: a.doc,
-            });
-            // addSource files a NEW source into the active (search) topic itself, but a hit that was
-            // already recorded elsewhere returns as a dedup WITHOUT joining this topic — link it
-            // explicitly so the search topic always contains the results it pulled (a source may
-            // belong to many topics). Idempotent for the fresh sources addSource already added.
-            if (s) { if (!t.sourceSns.includes(s.sn)) t.sourceSns.push(s.sn); count++; first = first || s; }
-          } catch { /* empty page or dup — skip, keep pulling the next salient hit */ }
-        }
-      } finally {
-        // Nothing landed — empty result, a proxy/network error, or a Stop before the first hit.
-        // Don't strand an empty search topic in the sidebar: drop it and return the reader to
-        // where they were (topicDelete would otherwise pick an arbitrary sibling). Runs on the
-        // throw path too, so the error still propagates to the surface AFTER the tree is tidy.
-        if (!count) {
-          topicDelete(t.id);
-          if (prevActive && topicById(prevActive)) setTopic(prevActive);
-        }
+        ({ count, first } = await fillSearchTopic(t, query, k, signal));
+        settleJob(jid, 'done');
+      } catch (e) {
+        settleJob(jid, signal.aborted ? 'stopped' : 'error', String(e?.message || e).slice(0, 90));
+        // Tidy an empty search topic (nothing landed before the error/Stop), then re-throw. Guard on
+        // the topic's OWN sources, not `count` — a mid-loop throw may have filed some before failing;
+        // those keep the topic (matching the pre-refactor finally, which counted inside the loop).
+        if (!t.sourceSns.length) { topicDelete(t.id); if (prevActive && topicById(prevActive)) setTopic(prevActive); }
+        throw e;
       }
-      if (!count) { logIt('search', `Search "${rawQuery}"`, 'no sources'); return { topic: null, count: 0, first: null }; }
+      // Nothing landed — empty result or a Stop before the first hit. Don't strand an empty search
+      // topic in the sidebar: drop it and return the reader to where they were.
+      if (!count) {
+        topicDelete(t.id);
+        if (prevActive && topicById(prevActive)) setTopic(prevActive);
+        logIt('search', `Search "${rawQuery}"`, 'no sources'); return { topic: null, count: 0, first: null };
+      }
       logIt('search', `Search topic "${rawQuery}"`, `${count} source${count === 1 ? '' : 's'}`);
       persist(); emit('topics'); emit('sources');
       return { topic: t, count, first };
@@ -1176,6 +1269,69 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return ev;
   };
 
+  // ── transcript export — the files a listener keeps (transcript-export.js) ─────────────────────
+  // Assemble the doc the renderers read. Prefer the LIVE organ doc (richest — utterances, speakers,
+  // the diarization trail, the raw operator log the process-trace walks) when it is present and the
+  // transcript hasn't been edited; otherwise REBUILD it from the persisted substrate (src.words +
+  // audioEvents + speakers), so an export works after a reload AND reflects any edits/redactions.
+  const buildTranscriptDoc = (src) => {
+    if (src._doc && src._doc.transcribed && Array.isArray(src._doc.tokens) && src._doc.tokens.length
+        && !(Array.isArray(src.audioEvents) && src.audioEvents.length)) return src._doc;
+    const base = Array.isArray(src.words) ? src.words : [];
+    const proj = projectTranscript(base, src.audioEvents || []);
+    const tokens = base.map((w, i) => {
+      const p = proj.words[i] || {};
+      // A redacted word must never leave in ANY export — mask its surface everywhere (subtitles,
+      // JSON, prose), the way the plain-text projection already does for chat/grounding.
+      return {
+        text: p.redacted ? REDACTION_MARK : (p.text ?? w.text), start: w.start, end: w.end, unitIdx: 0,
+        speaker: Number.isInteger(w.speaker) ? w.speaker : null,
+        conf: w.conf ?? null, acous: w.acous ?? null, snr: w.snr ?? null, redacted: !!p.redacted,
+      };
+    });
+    return {
+      docId: src.docId || src.reg, modality: 'audio',
+      duration: (src.audioMeta && src.audioMeta.duration) || 0, witness: null,
+      tokens, speakers: Array.isArray(src.speakers) ? src.speakers : [],
+      diarizeWitnesses: Array.isArray(src.diarizeWitnesses) ? src.diarizeWitnesses : [],
+      analysis: src.audioMeta || null, coverage: src.coverage || null,
+    };
+  };
+
+  // transcriptExport(sn, formatId) → { text, ext, mime, filename } for the surface to Blob-download,
+  // or null when the source has no transcript / the format id is unknown.
+  const transcriptExport = (snId, formatId) => {
+    const src = sourceBySn(snId);
+    if (!src) return null;
+    return buildFormat(buildTranscriptDoc(src), formatId, src.title || src.reg);
+  };
+  // The export menu the surface renders for a source: the available formats, whether this source has
+  // a transcript to export at all, and its speaker roster (so the panel can show WHO was found).
+  const transcriptFormats = (snId) => {
+    const src = snId != null ? sourceBySn(snId) : null;
+    const doc = src ? buildTranscriptDoc(src) : null;
+    return {
+      formats: TRANSCRIPT_FORMATS.map((f) => ({ id: f.id, label: f.label, ext: f.ext })),
+      has: doc ? hasTranscript(doc) : false,
+      speakers: (src && Array.isArray(src.speakers)) ? src.speakers : [],
+    };
+  };
+
+  // The transcription status, kept in two twinned places. `_asr` (underscore) is the RICH LIVE
+  // object the surface reads — state, pct, the streaming `partial` tail and the timed partial
+  // `words` — and is stripped from the snapshot (serialize() drops underscore fields).
+  // `src.transcription` is its DURABLE twin that DOES ride the snapshot: state + pct + reason, and
+  // — while a clip is mid-transcription — the heard-so-far `words`/`partial` too, written throttled
+  // by the streamer below so a reload shows the partial transcript AT ONCE and never loses it. This
+  // setter keeps state/pct/reason in lockstep while PRESERVING any partial parked on the twin (a
+  // plain `{state,pct,reason}` reset would wipe it on every partial); on restore, `_asr` is re-seeded
+  // from `transcription`, and applyTranscript clears the partial once the final transcript lands.
+  const setAsr = (src, patch) => {
+    if (!src) return;
+    src._asr = { ...(src._asr || {}), ...patch };
+    src.transcription = { ...(src.transcription || {}), state: src._asr.state, pct: src._asr.pct || 0, reason: src._asr.reason || null };
+  };
+
   // Fold a landed transcript back into an audio source that was already recorded from its
   // acoustic reading: the words become the source's text, the word-level organ doc (with its
   // timings, witness and carried-forward waveform/holons) becomes its reading, and the derived
@@ -1193,12 +1349,32 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // the immutable baseline, and an empty append-only edit log. Both ride the snapshot (small
     // plain JSON), so the Listen surface — click-to-seek, karaoke, edits, redactions — survives a
     // reload without the session-only `_doc`. audioMeta keeps the waveform + stats drawable too.
-    src.words = (doc.tokens || []).map((t) => ({ text: t.text, start: t.start, end: t.end }));
+    // Each word also keeps WHO said it (speaker) and the waveform witnesses (conf/acous/snr), so the
+    // transcript can be read, coloured and EXPORTED by speaker + acoustics after a reload too — the
+    // rounded numbers a "full processing" JSON needs, small enough to ride the snapshot.
+    const numOr = (x, dp) => (typeof x === 'number' && isFinite(x)) ? +x.toFixed(dp) : undefined;
+    src.words = (doc.tokens || []).map((t) => {
+      const w = { text: t.text, start: t.start, end: t.end };
+      if (Number.isInteger(t.speaker)) w.speaker = t.speaker;
+      const conf = numOr(t.conf, 3); if (conf !== undefined) w.conf = conf;
+      const acous = numOr(t.acous, 3); if (acous !== undefined) w.acous = acous;
+      const snr = numOr(t.snr, 2); if (snr !== undefined) w.snr = snr;
+      return w;
+    });
+    // WHO is speaking — the roster of voices the diarization separated (voices.js), each with its
+    // measured pitch/formants, and the auditable trail of merge/keep decisions that produced it.
+    src.speakers = Array.isArray(doc.speakers) ? doc.speakers : [];
+    if (Array.isArray(doc.diarizeWitnesses)) src.diarizeWitnesses = doc.diarizeWitnesses;
     if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
     src.audioMeta = audioMetaOf(src) || src.audioMeta || null;
     try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { /* keep prior */ }
     if (coverage) src.coverage = coverage;
-    if (src._asr) src._asr = { ...src._asr, state: 'done', pct: 100, partial: '' };
+    setAsr(src, { state: 'done', pct: 100, partial: '' });
+    // The final transcript is now the baseline (src.words) — drop the durable partial twin the
+    // streamer kept for reload-safety, so it neither lingers in the snapshot nor re-seeds a stale
+    // in-progress view on the next boot.
+    if (src.transcription) { delete src.transcription.words; delete src.transcription.partial; }
+    if (src._asr) src._asr.words = null;
     logIt('record', `Transcribed ${src.reg} — ${body.length.toLocaleString()} chars`, src.reg);
     setTimeout(() => {
       try { const d = docFor(src); logIt('eot', `Encoded ${src.reg} into EoT — ${d?.log ? emitEot(d.log).lines.length : 0} propositions`, src.reg); }
@@ -1207,10 +1383,126 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     persist(); emit('sources');
   };
 
+  // Promote the heard-so-far PARTIAL transcript to the source's baseline (src.words + text), so a
+  // transcription that will not reach completion still keeps what it heard instead of losing it:
+  //   • the user hit Stop (a stopped job is never resumed), or
+  //   • a resume after a reload cannot get the original audio back to finish decoding (it was too
+  //     large to have kept offline, was evicted, or this browser has no OPFS).
+  // Reads the live partial (`_asr.words`) if present, else the durable twin (`transcription.words`)
+  // the streamer persisted. No-op when nothing was heard yet, or a real transcript already landed.
+  const keepPartialTranscript = (src) => {
+    if (!src || (Array.isArray(src.words) && src.words.length)) return false;
+    const live = src._asr && Array.isArray(src._asr.words) && src._asr.words.length ? src._asr.words : null;
+    const twin = src.transcription && Array.isArray(src.transcription.words) && src.transcription.words.length ? src.transcription.words : null;
+    const partial = live || twin;
+    if (!partial) return false;
+    src.words = partial.map((w) => ({ text: w.text, start: w.start, end: w.end }));
+    if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
+    const body = (projectTranscript(src.words, src.audioEvents).text || '').trim();
+    if (body) {
+      src.text = body; src.bytes = bytesOf(body); src.sha = webContentHash(body);
+      src._doc = null; src._eot = null; deepReaders.delete(src.docId);
+      try { src.entCount = projectGraph(docFor(src).log).entities?.size || 0; } catch { /* keep prior */ }
+    }
+    if (src.transcription) { delete src.transcription.words; delete src.transcription.partial; }
+    if (src._asr) src._asr.words = null;
+    return true;
+  };
+
+  // Run a transcription thunk against an already-recorded audio source: stream partials into the
+  // live ASR state + repaint, fold the finished transcript in, and close the durable transcribe job.
+  // Shared by the first import AND by a resume after a reload (there the thunk comes from a fresh
+  // import of the same OPFS bytes). Idempotent — applyTranscript rewrites by content hash, and the
+  // job is keyed by the source, so a resume finds and closes the same job.
+  const runTranscription = async (src, transcribe, { signal, progress } = {}) => {
+    const jid = beginJob({ kind: 'transcribe', sn: src.sn });   // idempotent (keyed by sn); carries attempts
+    setAsr(src, { state: 'running' });
+    emit('sources');
+    const paint = (label) => { try { progress && progress({ kind: 'file', label }); } catch { /* pill is best-effort */ } };
+    paint('Transcribing the signal…');
+    let lastPaint = 0, lastPartialSave = 0;
+    try {
+      const res = await transcribe({
+        signal,
+        twoWitness: !!state.auditReadings,
+        onPartial: (p) => {
+          paint(`Transcribing… ${p.pct != null ? p.pct + '%' : ''}`);
+          setAsr(src, { pct: p.pct || 0, partial: String(p.text || '').slice(-2000) });
+          // The live transcript stream — the timed words heard so far, for the Listen surface's
+          // scrubber to draw as they land (a session-only tail on `_asr`).
+          if (Array.isArray(p.words)) src._asr.words = p.words;
+          const now = nowMs();
+          // Copy the heard-so-far words onto the DURABLE transcription twin (throttled) and persist,
+          // so a reload mid-transcription shows them at once and NEVER loses them — the `_asr` stream
+          // above is session-only (serialize() strips underscore fields), and before this nothing
+          // persisted during a run. The words are cumulative, so each save carries the whole
+          // transcript-so-far; applyTranscript clears it the moment the final transcript lands.
+          if (Array.isArray(p.words) && p.words.length && now - lastPartialSave > 4000) {
+            lastPartialSave = now;
+            src.transcription = { ...(src.transcription || {}), state: src._asr.state, pct: src._asr.pct || 0,
+              words: p.words.map((w) => ({ text: w.text, start: w.start, end: w.end })), partial: String(p.text || '').slice(-2000) };
+            persist();
+          }
+          // Repaint the media panel's live transcript at most a few times a second.
+          if (now - lastPaint > 350) { lastPaint = now; emit('sources'); }
+        },
+      });
+      if (res && res.empty) {
+        setAsr(src, { state: 'skipped', reason: 'no speech found in the signal', pct: 100, partial: '' });
+        if (src.transcription) { delete src.transcription.words; delete src.transcription.partial; }
+        if (src._asr) src._asr.words = null;
+        settleJob(jid, 'skipped'); persist(); emit('sources');
+      } else if (res && res.doc) {
+        applyTranscript(src, res.text, res.doc, res.coverage);   // sets _asr done, clears partial, persists
+        settleJob(jid, 'done');
+      } else {
+        settleJob(jid, 'done');   // the run finished with nothing to fold; don't resume it again
+      }
+    } catch (e) {
+      if (signal && signal.aborted) {
+        // The user stopped it. Keep the transcript heard so far as the baseline rather than discard
+        // it (a stopped job is never resumed), so Stop TRIMS the work instead of throwing it away.
+        const kept = keepPartialTranscript(src);
+        setAsr(src, { state: 'stopped', pct: (src._asr && src._asr.pct) || 0, partial: '', reason: kept ? 'stopped — kept the transcript heard so far' : null });
+        settleJob(jid, 'stopped');
+      } else {
+        setAsr(src, { state: 'error', reason: String(e?.message || e).slice(0, 90) });
+        settleJob(jid, 'error', String(e?.message || e).slice(0, 90));
+        logIt('skip', `Transcription failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`);
+      }
+      persist(); emit('sources');
+    }
+  };
+
+  // Stash a file's original bytes to OPFS and open a durable `file` job, so a reload DURING the
+  // import (fetch of the extractor libs, PDF/OCR read, audio decode — all before any source has
+  // landed) can rebuild the File and re-run the import. Returns the job id, or null when the file
+  // is too large to keep offline (the import still runs; it just won't survive a mid-way reload).
+  // Best-effort — a stash fault never fails the import. Dropped (and the bytes deleted) once the
+  // source lands (settleJob), so it never leaks OPFS beyond the life of the in-flight import.
+  const beginFileJob = async (file) => {
+    try {
+      if (!file || file.size > MEDIA_MAX_BYTES) {
+        if (file) logIt('skip', `${file.name} too large to make reload-safe (${Math.round(file.size / 1048576)} MB) — re-drop it if you reload before it finishes`);
+        return null;
+      }
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const sha = await sha256Hex(bytes);
+      await ingestStore.putBytes(sha, bytes);
+      return beginJob({ kind: 'file', sha, name: file.name || 'file', mime: file.type || '' });
+    } catch { return null; }
+  };
+
   const ingestFile = (file, fileOpts = {}) =>
     runCancellable({ kind: 'file', label: `Reading ${file.name}…` }, async (signal, progress) => {
+      // Make the import reload-safe from the first byte: stash the file + open a durable job now,
+      // before the (possibly slow) extractor even loads. Dropped the moment the source lands below.
+      const fileJid = await beginFileJob(file);
+      const settleFile = (status, reason) => { if (fileJid) settleJob(fileJid, status, reason); };
       const { importAnyFile } = await import('./import-file.js');
-      const got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) });
+      let got;
+      try { got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) }); }
+      catch (e) { settleFile(signal.aborted ? 'stopped' : 'error', String(e?.message || e).slice(0, 90)); throw e; }
 
       // ── MEDIA — the source lands AT ONCE from its acoustic reading; transcription follows. ──
       // An audio/video import returns a full pre-transcription reading (waveform + basic
@@ -1219,6 +1511,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       // reveal it, THEN run transcription in the background — only if there was signal to hear.
       if (got.meta?.modality === 'audio' && got.meta?.doc) {
         const src = addSource({ title: got.title || file.name, text: got.text, kind: 'audio', rights: 'local file', doc: got.meta.doc });
+        // The source has landed and persists on its own now — the pre-source decode window the file
+        // job covered is over. The original bytes (audio store, below) + the transcribe job carry
+        // reload-safety from here, so drop the file job and its stashed copy rather than double-keep.
+        settleFile('done');
         if (src) {
           // The playback + visualization artefacts ride the source as underscore fields, so they
           // are session-only (never structure-cloned into the persisted snapshot; serialize()
@@ -1227,50 +1523,27 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
           src._wave = got.meta.waveform || null;
           src._analysis = got.meta.analysis || null;
           src._holons = got.meta.holons || null;
-          src._asr = got.meta.transcribable
+          setAsr(src, got.meta.transcribable
             ? { state: 'pending', pct: 0, partial: '' }
-            : { state: 'skipped', reason: 'no signal above the noise floor', pct: 0, partial: '' };
+            : { state: 'skipped', reason: 'no signal above the noise floor', pct: 0, partial: '' });
           // The waveform + stat reading, in a compact persisted form so the Listen surface still
           // draws them after a reload (the underscore artefacts above are stripped from the snapshot).
           src.audioMeta = audioMetaOf(src);
           if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
           const cov = got.meta.coverage;
           if (cov) { src.coverage = cov; logIt(cov.complete ? 'record' : 'skip', `Coverage — ${cov.transcribable ? '100% of ' + file.name + ' read as sound; transcribing signal' : (cov.dropped || []).join('; ')}`, src.reg); }
+          // Open the durable transcribe job NOW — before the (slow) whisper load — so a reload during
+          // the model download or the decode still resumes it. Keyed by the source (audio bytes below).
+          if (got.meta.transcribable) beginJob({ kind: 'transcribe', sn: src.sn });
           persist(); emit('sources');
-          // Keep the original bytes so playback + redaction survive a reload — OPFS locally, and an
-          // encrypted copy on Matrix media when signed in. Background; never blocks the reveal.
+          // Keep the original bytes so playback + redaction — and a resumed transcription — survive a
+          // reload: OPFS locally, plus an encrypted copy on Matrix media when signed in. Background.
           persistAudioBytes(src, file, got.meta.mediaKind);
           if (typeof fileOpts.onSource === 'function') { try { fileOpts.onSource(src); } catch { /* reveal is best-effort */ } }
 
-          if (got.meta.transcribe) {
-            src._asr = { ...src._asr, state: 'running' };
-            emit('sources');
-            progress({ kind: 'file', label: 'Transcribing the signal…' });
-            let lastPaint = 0;
-            try {
-              const res = await got.meta.transcribe({
-                signal,
-                twoWitness: !!state.auditReadings,
-                onPartial: (p) => {
-                  progress({ kind: 'file', label: `Transcribing… ${p.pct != null ? p.pct + '%' : ''}` });
-                  if (src._asr) { src._asr.pct = p.pct || 0; src._asr.partial = String(p.text || '').slice(-2000); if (Array.isArray(p.words)) src._asr.words = p.words; }
-                  // Repaint the media panel's live transcript at most a few times a second.
-                  const now = nowMs();
-                  if (now - lastPaint > 350) { lastPaint = now; emit('sources'); }
-                },
-              });
-              if (res && res.empty) {
-                src._asr = { state: 'skipped', reason: 'no speech found in the signal', pct: 100, partial: '' };
-                emit('sources');
-              } else if (res && res.doc) {
-                applyTranscript(src, res.text, res.doc, res.coverage);
-              }
-            } catch (e) {
-              if (signal.aborted) { src._asr = { ...(src._asr || {}), state: 'stopped' }; }
-              else { src._asr = { ...(src._asr || {}), state: 'error', reason: String(e?.message || e).slice(0, 90) }; logIt('skip', `Transcription failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
-              emit('sources');
-            }
-          }
+          // Transcription proper — streamed, resumable, job-tracked (runTranscription). If the tab
+          // reloads part-way, the transcribe job + the OPFS audio bytes let resumeJobs pick it up.
+          if (got.meta.transcribe) await runTranscription(src, got.meta.transcribe, { signal, progress });
         }
         return src;
       }
@@ -1299,6 +1572,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
             },
           });
       const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc });
+      // The source has landed and persists (src.text rides the snapshot); the import is complete, so
+      // drop the file job and its stashed bytes. A reload from here on re-derives the reading lazily.
+      settleFile('done');
       // The coverage receipt — proof that 100% of the file was processed, or the named
       // account of what could not be (import-file.js) — rides the source and the ledger.
       const cov = got.meta?.coverage;
@@ -1310,6 +1586,103 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       }
       return src;
     });
+
+  // ── resume — pick back up the ingest/transcription in flight when the tab last closed ─────────
+  // Re-run a resumed AUDIO TRANSCRIPTION from the original bytes kept for playback: rebuild a File
+  // from the OPFS/vault copy, re-read it (waveform + the transcribe thunk), and run the thunk. The
+  // whole thing is idempotent — the source already exists, applyTranscript rewrites by content hash,
+  // and the transcribe job is keyed by the source. Wrapped in runCancellable so Stop cancels it.
+  const resumeTranscribe = (job) =>
+    runCancellable({ kind: 'file', label: 'Resuming transcription…' }, async (signal, progress) => {
+      const src = sourceBySn(job.sn);
+      // The source is gone (removed after the reload was queued) — nothing to transcribe.
+      if (!src) { settleJob(job.id, 'done'); return; }
+      // Already finished (a completed run whose job-drop didn't flush before the reload) — close it.
+      if (src.transcription && ['done', 'skipped'].includes(src.transcription.state) && (src.words || []).length) { settleJob(job.id, 'done'); return; }
+      const bytes = await audioBytes(src);
+      if (!bytes) {
+        // The original audio is gone (too large to have kept offline, evicted, or no OPFS), so a
+        // full re-transcribe is impossible. If a partial transcript was streamed before the reload,
+        // KEEP it as the baseline rather than lose it; otherwise state the audio is gone honestly.
+        const kept = keepPartialTranscript(src);
+        setAsr(src, kept
+          ? { state: 'stopped', pct: (src.transcription && src.transcription.pct) || 0, partial: '', reason: 'kept the partial transcript — re-import the audio to finish it' }
+          : { state: 'error', pct: 0, partial: '', reason: 'original audio unavailable — re-import to transcribe' });
+        settleJob(job.id, 'done'); persist(); emit('sources'); return;
+      }
+      const ref = src.audioRef || {};
+      const file = new File([bytes], src.title || 'clip', { type: ref.mime || 'audio/mpeg' });
+      const { importAnyFile } = await import('./import-file.js');
+      const got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) });
+      // Re-hydrate the session-only visualization artefacts too, so the Listen surface is whole again.
+      if (got.meta) { src._wave = got.meta.waveform || src._wave; src._analysis = got.meta.analysis || src._analysis; src._holons = got.meta.holons || src._holons; }
+      if (got.meta?.transcribe) await runTranscription(src, got.meta.transcribe, { signal, progress });
+      else { setAsr(src, { state: 'skipped', reason: 'no signal above the noise floor', pct: 100, partial: '' }); settleJob(job.id, 'skipped'); persist(); emit('sources'); }
+    });
+
+  // Re-run a resumed WEB SEARCH into the topic it originally opened (not a fresh one), topping up
+  // whatever landed before the reload. If that topic is gone, the job is done.
+  const resumeSearch = (job) => {
+    const t = topicById(job.topicId);
+    if (!t) { settleJob(job.id, 'done'); return Promise.resolve(); }
+    return runCancellable({ kind: 'search', label: `Resuming search — ${job.query}` }, async (signal) => {
+      const jid = beginJob({ kind: 'search', query: job.query, k: job.k, topicId: t.id });
+      try {
+        const { count } = await fillSearchTopic(t, job.query, job.k || 3, signal);
+        settleJob(jid, 'done');
+        if (count) { persist(); emit('topics'); emit('sources'); }
+      } catch (e) { settleJob(jid, signal.aborted ? 'stopped' : 'error', String(e?.message || e).slice(0, 90)); }
+    });
+  };
+
+  // Re-run a resumed FILE import from the bytes stashed at open time (rebuilt into a File). ingestFile
+  // re-opens the same file job (dedup by content hash keeps a source that already landed a no-op).
+  const resumeFile = async (job) => {
+    const bytes = await ingestStore.getBytes(job.sha);
+    if (!bytes) { settleJob(job.id, 'done'); return; }   // bytes evicted / never stashed — can't resume
+    await ingestFile(new File([bytes], job.name || 'file', { type: job.mime || '' })).catch(() => { /* ingestFile settles its own job */ });
+  };
+
+  // resumeOne — dispatch one job to its resumer. Sets the active topic to where the work belongs so
+  // the resumed source files there. url/file re-run the public path (which manages its own job);
+  // search/transcribe use the dedicated resumers above.
+  const resumeOne = async (job) => {
+    if (job.topicId && topicById(job.topicId) && job.topicId !== state.activeTopicId) setTopic(job.topicId);
+    switch (job.kind) {
+      case 'url':        await ingestUrl(job.url).catch(() => { /* ingestUrl settles its own job */ }); break;
+      case 'search':     await resumeSearch(job); break;
+      case 'file':       await resumeFile(job); break;
+      case 'transcribe': await resumeTranscribe(job); break;
+      default:           settleJob(job.id, 'done');
+    }
+  };
+
+  // resumeJobs — on boot, walk the still-open jobs and re-run each in turn. Every resume counts as an
+  // attempt (so a job that keeps crashing — or keeps getting interrupted — marches to the cap rather
+  // than looping forever). Sequential on purpose: the ops share one Stop signal and one whisper
+  // engine, so running them one at a time keeps the reload's recovery legible and cancellable.
+  const resumeJobs = async () => {
+    // Reconcile: any audio source left mid-transcription — its durable status still `pending` or
+    // `running` — that has its bytes but no open transcribe job, re-open one. This makes a resume
+    // robust even if the jobs list itself was lost. A `done`/`skipped` status is finished; an `error`
+    // is left to its own persisted job (which carries the attempt cap) so a permanently-failing clip
+    // is not re-queued from scratch on every boot.
+    for (const s of state.sources) {
+      const st = s.transcription && s.transcription.state;
+      if ((st === 'pending' || st === 'running') && s.audioRef && !state.jobs.some((j) => j.kind === 'transcribe' && j.sn === s.sn)) {
+        state.jobs = upsertJob(state.jobs, makeJob({ kind: 'transcribe', sn: s.sn, at: nowMs() }));
+      }
+    }
+    const pending = resumableJobs(state.jobs);
+    if (!pending.length) return;
+    logIt('open', `Resuming ${pending.length} interrupted task${pending.length === 1 ? '' : 's'} from before the reload`);
+    for (const job of pending) {
+      state.jobs = patchJob(state.jobs, job.id, { attempts: (job.attempts || 0) + 1, status: 'running' });
+      persist();
+      try { await resumeOne(job); }
+      catch (e) { settleJob(job.id, 'error', String(e?.message || e).slice(0, 90)); }
+    }
+  };
 
   // ── model ──────────────────────────────────────────────────────────────────
   let backendOverride = null;
@@ -2360,6 +2733,31 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return pending;
   };
 
+  // ── one grounded question per topic — the topic-per-question model ───────────
+  // The engine answers a SINGLE grounded question coherently from the record — or abstains
+  // honestly ("the record does not say"); a back-and-forth thread is what it does worst, so
+  // the Ask surface refuses to accrete one. A question asked while the current topic ALREADY
+  // holds a question opens a CHILD topic beneath it and asks THERE — a fresh line of inquiry
+  // the sidebar tree shows nested under the question it followed. The child INHERITS the
+  // parent's sources, so the record it reads is unchanged; the parent's answer stays intact
+  // on its own surface, one clean question-and-answer apiece. A question in a topic that has
+  // not been asked one yet (a "New topic", or one that only holds ingested sources) fills
+  // THAT topic in place — asking the first question never orphans an empty placeholder.
+  // Delegates to ask() on the now-active topic and returns its pending message. topicNew
+  // already makes the child active and auto-naming (from the first question) then names it.
+  const askQuestion = (question, opts = {}) => {
+    const q = String(question || '').trim();
+    if (!q) return Promise.resolve(null);
+    const cur = topic();
+    const alreadyAsked = !!(cur && cur.messages.some((m) => m && m.role === 'user'));
+    if (cur && alreadyAsked) {
+      const child = topicNew(DEFAULT_TOPIC_TITLE, { parentId: cur.id, workspaceId: cur.workspaceId });
+      child.sourceSns = [...(cur.sourceSns || [])];   // the child reads the same record as its parent
+      persist(); emit('topics');
+    }
+    return ask(q, opts);
+  };
+
   const stageLabel = (name) => ({
     route: 'Routing…', retrieve: 'Retrieving from the record…', fold: 'Folding the reading…',
     gate: 'Gating…', prompt: 'Building the grounded prompt…', llm: 'Phrasing…',
@@ -2559,7 +2957,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const viewerParas = (snId, { entities = true } = {}) => {
     const src = sourceBySn(snId);
     if (!src) return [];
-    const doc = nameDocFor(src);   // named-entity lexicon (for audio, a parse of the transcript)
+    const doc = referentDocFor(src);   // the referent reading (for a clip, a parse of its transcript)
     const lex = (entities && doc) ? entityLexicon([doc]) : [];
     const citedTexts = [];
     for (const t of state.topics) {
@@ -2586,7 +2984,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const readerLink = (snId, { entities = true } = {}) => {
     const src = sourceBySn(snId);
     if (!src) return null;
-    const doc = nameDocFor(src);   // named-entity lexicon (for audio, a parse of the transcript)
+    const doc = referentDocFor(src);   // the referent reading (for a clip, a parse of its transcript)
     const lex = (entities && doc) ? entityLexicon([doc]) : [];
     const citedTexts = [];
     for (const t of state.topics) {
@@ -2609,51 +3007,62 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // links sum over every source, tagged with how many sources it spans. Pass
   // { merge: false } for the raw per-source instances (the old behaviour).
   const entityKey = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, ' ');
-  // `level` selects the HOLONIC LEVEL of the panel: 'names' (default) keeps only natural-language
-  // referents — people, places, things — dropping the acoustic signal/noise span holons an audio
-  // reading INS's; 'signal' keeps only those acoustic holons; 'all' keeps both. An entity is an
-  // acoustic holon when its DEF props tag it kind='signal'|'noise' (organs/in/acoustic.js).
-  const entities = ({ merge = true, level = 'names', sn = null } = {}) => {
-    const out = [];
-    // When a single source is open in the viewer, the panel is about THAT source — its own
-    // transcription/reading — not the topic-wide union (which would pull in every other source's
-    // figures). `sn` scopes to it; without it the panel merges across the whole topic as before.
-    const srcs = sn ? [sourceBySn(sn)].filter(Boolean) : topicSources();
-    for (const src of srcs) {
-      // Names read off the admission-bearing name-doc (for audio, a parse of the transcript);
-      // signal/all read the source's own doc (an audio word-graph carries the acoustic holons).
-      const doc = level === 'names' ? nameDocFor(src) : docFor(src);
-      if (!doc?.log) continue;
-      const g = projectGraph(doc.log);
-      const rep = g.representative || ((x) => x);
-      // Degree per representative in ONE pass over the edges, rather than re-scanning
-      // every edge for every entity (which was O(entities × edges) — minutes on a large
-      // document's graph, run on every explorer render). A self-loop counts once, matching
-      // the prior `rep(from) === r || rep(to) === r` test.
-      const degree = new Map();
-      for (const e of g.edges || []) {
-        const a = rep(e.from), b = rep(e.to);
-        degree.set(a, (degree.get(a) || 0) + 1);
-        if (b !== a) degree.set(b, (degree.get(b) || 0) + 1);
+  // The merged referents a SINGLE doc admits — one row per union-find representative, with
+  // its sighting mass and incident degree. Pulled out of `entities()` so the topic explorer,
+  // the per-source pivot, and the holonic-level toggle all read a source the same way. Each row
+  // also carries the acoustic holon tag (kind='signal'|'noise', from organs/in/acoustic.js) and
+  // the numeric holon level off the entity's DEF props, so callers can filter by holonic level.
+  const entitiesInDoc = (doc, sn) => {
+    const rows = [];
+    if (!doc?.log) return rows;
+    const g = projectGraph(doc.log);
+    const rep = g.representative || ((x) => x);
+    // Degree per representative in ONE pass over the edges, rather than re-scanning
+    // every edge for every entity (which was O(entities × edges) — minutes on a large
+    // document's graph, run on every explorer render). A self-loop counts once, matching
+    // the prior `rep(from) === r || rep(to) === r` test.
+    const degree = new Map();
+    for (const e of g.edges || []) {
+      const a = rep(e.from), b = rep(e.to);
+      degree.set(a, (degree.get(a) || 0) + 1);
+      if (b !== a) degree.set(b, (degree.get(b) || 0) + 1);
+    }
+    const seen = new Set();
+    for (const [id, ent] of g.entities || []) {
+      const r = rep(id);
+      if (seen.has(r)) continue;
+      seen.add(r);
+      const label = doc.admission?.labelOf?.(r) || ent.label || r;
+      const links = degree.get(r) || 0;
+      const kind = (ent.props && ent.props.kind) || null;
+      const lvl = (ent.props && ent.props.level != null) ? +ent.props.level : null;
+      rows.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn, label, mentions: ent.sightings || 0, links, sourceCount: 1, kind, level: lvl });
+    }
+    return rows;
+  };
+  // `level` selects the HOLONIC LEVEL of the topic explorer: 'names' (default) is the natural-
+  // language REFERENTS — the people, places and things the content NAMES — read from each source's
+  // meaning layer (referentDocFor), never from the raw spans underneath; 'signal' is the acoustic
+  // signal/noise span holons an audio reading INS's; 'all' keeps both. Referents are the entities;
+  // the base spans (a clip's segments/words, an image's regions) are NOT entities, so they never
+  // leak into the names list — the bug that filled it with 'the/of/court' word-holons and, before a
+  // clip was transcribed, with the acoustic summary's own 'Signal/Noise/Dynamic'.
+  const entities = ({ merge = true, level = 'names' } = {}) => {
+    const nameRows = [], baseRows = [];
+    for (const src of topicSources()) {
+      if (level !== 'signal') {                 // 'names' + 'all' want the referents (the meaning)
+        const rd = referentDocFor(src);
+        if (rd) nameRows.push(...entitiesInDoc(rd, src.sn));
       }
-      const seen = new Set();
-      for (const [id, ent] of g.entities || []) {
-        const r = rep(id);
-        if (seen.has(r)) continue;
-        seen.add(r);
-        const label = doc.admission?.labelOf?.(r) || ent.label || r;
-        const links = degree.get(r) || 0;
-        const kind = (ent.props && ent.props.kind) || null;
-        const lvl = (ent.props && ent.props.level != null) ? +ent.props.level : null;
-        out.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn: src.sn, label, mentions: ent.sightings || 0, links, sourceCount: 1, kind, level: lvl });
+      if (level !== 'names') {                  // 'signal' + 'all' want the raw base spans underneath
+        baseRows.push(...entitiesInDoc(docFor(src), src.sn));
       }
     }
-    // Filter to the requested holonic level. A signal/noise-tagged entity is an acoustic holon;
-    // everything else is a natural-language referent.
+    // The acoustic cut: 'signal' is the signal/noise holons of the base reading (the audio case).
     const acoustic = (it) => it.kind === 'signal' || it.kind === 'noise';
-    const rows = level === 'all' ? out
-      : level === 'signal' ? out.filter(acoustic)
-      : out.filter((it) => !acoustic(it));   // 'names' (default)
+    const rows = level === 'names' ? nameRows
+      : level === 'signal' ? baseRows.filter(acoustic)
+      : [...nameRows, ...baseRows.filter(acoustic)];   // 'all' — referents + the acoustic holons
     if (merge) {
       // Group per-source instances by normalized label. The strongest instance
       // (most mentions) LEADS the merged row, so key/docId/entId/sn point at the
@@ -2683,17 +3092,113 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return rows;
   };
 
-  const entityProfile = (docId, entId) => {
-    const src = state.sources.find((s) => s.docId === docId);
-    // Resolve against the same graph the entId came from. Panel rows + mention links at the NAMES
-    // level (the default) key off the name-doc, so for audio try that first; fall back to the
-    // source's own doc when the referent isn't a named one (e.g. a signal-holon row).
-    let doc = null;
-    if (src) {
-      const nd = src.kind === 'audio' ? nameDocFor(src) : null;
-      const inND = nd && (projectGraph(nd.log).entities?.has(entId));
-      doc = inND ? nd : docFor(src);
+  // ── holonic levels: reading a source at the level of its meaning, or its signal ──
+  // A source is read at more than one HOLONIC LEVEL. Its BASE level is whatever organ
+  // heard it — for a prose page that base already IS a natural-language reading, but for
+  // a non-prose modality it is the raw SPANS: an audio clip's base entities are its timed
+  // WORDS, an image's are its REGIONS, a table's are its CELLS. On TOP of that base the
+  // natural-language content raises its own REFERENTS — the people, places and things the
+  // words NAME — read by parsing the source's readable text as prose. The explorer defaults
+  // to those referents (the meaning), and can drop to the base spans (the signal underneath).
+  //
+  // The natural-language reading is derived on demand and memoised on the source under an
+  // underscore field (session-only, stripped from the snapshot; re-derives from `text`), and
+  // keyed by the source's content hash so a transcript folding in later rebuilds it. Its docId
+  // is the base docId suffixed `~nl`, so a referent opened from this level resolves its profile,
+  // wiki and graph against the right reading (see resolveDoc).
+  const NL_SUFFIX = '~nl';
+  const nlDocFor = (src) => {
+    if (!src || !String(src.text || '').trim()) return null;
+    if (!src._nlDoc || src._nlDoc._sig !== src.sha) {
+      try {
+        const d = parseText(src.text, { docId: `${src.docId}${NL_SUFFIX}` });
+        if (d) d._sig = src.sha;
+        src._nlDoc = d || null;
+      } catch { src._nlDoc = null; }
     }
+    return src._nlDoc;
+  };
+  // A docId → { src, doc } lookup that also opens the natural-language level. Every
+  // docId-keyed projection (profile, wiki, tiered graph) routes through here so an entity
+  // from either level resolves to the reading it was read from.
+  const resolveDoc = (docId) => {
+    if (!docId) return null;
+    const direct = state.sources.find((s) => s.docId === docId);
+    if (direct) return { src: direct, doc: docFor(direct) };
+    if (docId.endsWith(NL_SUFFIX)) {
+      const baseId = docId.slice(0, -NL_SUFFIX.length);
+      const src = state.sources.find((s) => s.docId === baseId);
+      if (src) return { src, doc: nlDocFor(src) };
+    }
+    return null;
+  };
+  // The REFERENT reading of a source — the meaning layer the entity explorer is about. A prose
+  // source's base doc already IS that reading. A non-prose source raises its figures from the
+  // readable text laid on top (nlDocFor). Crucially, a clip's figures live in its TRANSCRIPT: the
+  // acoustic reading stands in `text` a placeholder SUMMARY ("## Signal separated from noise",
+  // "Dynamic range 27 dB") before a word is transcribed, and parsing THAT as prose is what admitted
+  // Signal/Noise/Dynamic as "referents". So an un-transcribed clip has NO referents yet (null) —
+  // the panel says it is transcribing, rather than naming the summary's own capitalised words.
+  const referentDocFor = (src) => {
+    if (!src) return null;
+    const base = docFor(src);
+    const modality = base?.modality || null;
+    if (!modality || modality === 'text') return base;                       // prose: the base is the reading
+    if ((modality === 'audio' || modality === 'video') && !base?.transcribed) return null;  // no transcript yet
+    return nlDocFor(src);
+  };
+
+  // The base-level noun for a source — what one raw span UNDER the referents IS, so the surface can
+  // stop calling them "entities". A clip's base is its acoustic SEGMENTS before transcription and its
+  // WORDS after (base.transcribed); other modalities name their own base. A prose source has no base
+  // beneath its referents, so it genuinely counts entities.
+  const BASE_NOUN = { image: 'Regions', table: 'Cells', json: 'Nodes', binary: 'Runs', music: 'Notes' };
+  const baseNounOf = (src) => {
+    const base = docFor(src);
+    const modality = base?.modality || null;
+    if (modality === 'audio' || modality === 'video') return base?.transcribed ? 'Words' : 'Segments';
+    return (modality && BASE_NOUN[modality]) || 'Entities';
+  };
+  const sourceBaseNoun = (sn) => baseNounOf(sourceBySn(sn));
+  // The holonic levels a source offers, meaning-first. A distinct base level exists only
+  // when the organ doc is a non-prose modality AND there is readable text to lift referents
+  // from; a prose source's base doc already IS its reading, so it has the one level.
+  const sourceLevels = (sn) => {
+    const src = sourceBySn(sn);
+    if (!src) return [];
+    const base = docFor(src);
+    const modality = base?.modality || null;
+    const hasText = !!String(src.text || '').trim();
+    // A prose reading (parseText tags its doc `text`) IS the natural-language level — one level.
+    // A genuine non-prose organ (audio/image/table/…) has a distinct base of raw spans beneath it.
+    if (modality && modality !== 'text' && hasText) {
+      const spanLabel = baseNounOf(src);
+      return [
+        { level: 'referent', label: 'Referents', hint: 'the figures the content names' },
+        { level: 'span', label: spanLabel, hint: `the ${modality}'s raw ${spanLabel.toLowerCase()}` },
+      ];
+    }
+    return [{ level: 'referent', label: 'Referents', hint: 'the figures the text names' }];
+  };
+  // The entities of ONE source at a chosen holonic level — the per-source pivot's rows.
+  // 'referent' reads the natural-language content on top (when the base is non-prose);
+  // 'span' reads the organ's own base doc. Never merged: one source, one reading.
+  const sourceEntities = (sn, { level = 'referent' } = {}) => {
+    const src = sourceBySn(sn);
+    if (!src) return [];
+    // 'referent' reads the meaning layer (the transcript's figures for a clip) — null, so no rows,
+    // until a clip is transcribed; 'span' reads the organ's own base doc (its segments / words).
+    const doc = level === 'referent' ? referentDocFor(src) : docFor(src);
+    if (!doc) return [];
+    const rows = entitiesInDoc(doc, sn);
+    rows.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
+    return rows;
+  };
+
+  const entityProfile = (docId, entId) => {
+    const resolved = resolveDoc(docId);
+    const src = resolved?.src;
+    const doc = resolved?.doc;
     if (!doc) return null;
     const fs = figureSurface(doc, [entId]);
     const label = doc.admission?.labelOf?.(entId) || fs.figures.find((f) => f.id === entId)?.label || entId;
@@ -2705,8 +3210,23 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       if (e.op === 'INS' && rep(e.id) === rep(entId) && e.sentIdx != null) idxs.add(e.sentIdx);
     }
     const sentAt = (i) => String(doc.sentences?.[i] || '').trim();
+    // Each mention's [start,end] on the clock, so a click can SEEK the clip there. A word-level
+    // audio doc keeps a per-unit timing track (doc.timings[sentIdx]); a base segment carries its own
+    // span on a `time` DEF ("a-b"). A prose / natural-language reading keeps neither, so its
+    // mentions have no time and fall back to a text jump.
+    const timings = Array.isArray(doc.timings) ? doc.timings : null;
+    const propTime = (() => {
+      const e = g.entities?.get?.(rep(entId)) || g.entities?.get?.(entId);
+      const m = typeof e?.props?.time === 'string' && e.props.time.match(/^([\d.]+)-([\d.]+)$/);
+      return m ? [+m[1], +m[2]] : null;
+    })();
+    const timeAt = (i) => {
+      const t = timings && timings[i];
+      if (t) return { t0: t[0] ?? null, t1: t[1] ?? null };
+      return propTime ? { t0: propTime[0], t1: propTime[1] } : { t0: null, t1: null };
+    };
     const mentions = [...idxs].sort((a, b) => a - b).slice(0, 40)
-      .map((i) => ({ idx: i, text: sentAt(i) }))
+      .map((i) => ({ idx: i, text: sentAt(i), ...timeAt(i) }))
       .filter((m2) => m2.text);
     // Standing properties, ranked and deduped with their provenance (§ rankProperties):
     // what the record most strongly and specifically witnesses leads, and each property
@@ -2718,14 +3238,242 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }));
     return {
       label, docId, sn: src.sn, sourceTitle: src.title,
-      defs,
+      defs, mentionCount: idxs.size,
       relations: fs.relations.map((r) => ({
         srcId: r.src.id, srcLabel: r.src.label, tgtId: r.tgt.id, tgtLabel: r.tgt.label,
-        via: r.via, op: r.op, idx: r.idx,
+        via: r.via, op: r.op, idx: r.idx, type: r.type, polarity: r.polarity,
       })),
       figures: fs.figures.map((f) => ({ entId: f.id, label: f.label, count: f.count })),
       mentions,
     };
+  };
+
+  // ── auto-generated toplines — a summary for every source and every entity ──
+  // docs/topline.md. A topline is an ordering and a phrasing of the CLOSED set of objects the
+  // machinery already decided about a source or an entity — never a summary of the text, because
+  // the model never sees the text, only the objects (claims with their citations and standing,
+  // computed facts, at most one marked inference, and the gap if there is one). Generation runs in
+  // two passes; the second, model-free CONTAINMENT check is the safety — the join may lose
+  // information, never add it. It is model-OPTIONAL: the deterministic telegram is stored the moment
+  // a source is recorded (there is a summary before any talker is warm), and a loaded talker only
+  // refines the join in the background. Feedback STEERS the closed set (re-order, bound, suppress);
+  // it can never add a fact the record does not carry — an out-of-record request is reported, not
+  // fabricated (the same discipline as the void answerer).
+  const TOPLINE_FIGURES = 6;
+
+  // The source's reading, shaped for sourceInventory: its dominant figures' strongest standing
+  // properties and incident bonds, its front matter, and its log tallies. Pure and model-free.
+  const sourceReading = (src) => {
+    const doc = docFor(src);
+    if (!doc?.log) return null;
+    const g = projectGraph(doc.log);
+    const rep = g.representative || ((x) => x);
+    const bySight = new Map();                          // dominant figures by merged sighting mass
+    for (const [id, ent] of g.entities || []) {
+      const r = rep(id);
+      const label = doc.admission?.labelOf?.(r) || ent.label || r;
+      const cur = bySight.get(r);
+      if (cur) cur.sightings += ent.sightings || 0;
+      else bySight.set(r, { id: r, label, sightings: ent.sightings || 0 });
+    }
+    const topFigs = [...bySight.values()].sort((a, b) => b.sightings - a.sightings).slice(0, TOPLINE_FIGURES);
+    const fs = figureSurface(doc, topFigs.map((f) => f.id));
+    const claims = rankProperties(fs.defs).slice(0, 6).map((d) => ({
+      subject: d.label, value: d.value, cite: d.witnesses, count: d.count, polarity: d.polarity, modality: d.modality,
+    }));
+    const relations = fs.relations.filter((r) => r.type).slice(0, 4).map((r) => ({  // typed (noun) bonds only
+      subject: r.src.label, via: r.via, object: r.tgt.label, cite: [r.idx], polarity: r.polarity, kinship: true,
+    }));
+    const md = doc.metadata || {};
+    let propositions = 0;
+    try { propositions = emitEot(doc.log).lines.length; } catch { propositions = 0; }
+    return {
+      title: src.title, sn: src.sn,
+      metadata: { author: md.author, date: md.date || md.published, publisher: md.publisher },
+      claims, relations,
+      figures: topFigs.map((f) => ({ label: f.label, count: f.sightings })),
+      counts: { entities: g.entities?.size || 0, propositions, sentences: doc.sentences?.length || 0, bytes: src.bytes || 0 },
+    };
+  };
+
+  // Compose (or refine) a topline over a closed inventory into the stored shape. `modelless` marks a
+  // telegram-only topline a warm talker can later refine; `sha` lets a source topline invalidate if
+  // its content ever moves. Never throws — a summary must never cost the caller its record.
+  const composeTopline = async (inv, { steer = null, useModel = false } = {}) => {
+    const m = useModel ? model : null;
+    let top;
+    try { top = await generateTopline({ inventory: inv, steer, model: m }); }
+    catch { top = await generateTopline({ inventory: inv, steer, model: null }); }
+    return {
+      text: top.text, telegram: top.telegram, joined: top.joined, kind: top.kind,
+      objects: top.objects, cites: top.cites, unmet: top.unmet,
+      modelless: !m, generatedAt: nowIso(),
+      model: m ? (describeModel(m)?.label || describeModel(m)?.backend || null) : null,
+    };
+  };
+
+  // In-flight guard so an auto-gen kick and a surface open never race to double-generate one subject.
+  const _summaryInFlight = new Map();
+  const guarded = (key, regenerate, run) => {
+    if (_summaryInFlight.has(key) && !regenerate) return _summaryInFlight.get(key);
+    const p = Promise.resolve().then(run).finally(() => { if (_summaryInFlight.get(key) === p) _summaryInFlight.delete(key); });
+    _summaryInFlight.set(key, p);
+    return p;
+  };
+
+  // The two-phase store: phase A writes the deterministic telegram at once (so the surface always has
+  // something); phase B refines the join with the loaded talker, if any. `write` persists each phase.
+  const composeTwoPhase = async (inv, prev, write) => {
+    const steer = prev?.steer || null;
+    const feedback = prev?.feedback || [];
+    if (!prev || prev.regenerate) {
+      const tele = await composeTopline(inv, { steer, useModel: false });
+      write({ ...tele, steer, feedback });
+    }
+    if (model) {
+      const full = await composeTopline(inv, { steer, useModel: true });
+      write({ ...full, steer, feedback });
+    }
+  };
+
+  const sourceSummaryOf = (snId) => sourceBySn(snId)?.summary || null;
+
+  // Generate/refresh a source topline. Returns the stored summary; stores on src.summary and emits.
+  const sourceSummary = (snId, { regenerate = false } = {}) => guarded(`s:${snId}`, regenerate, async () => {
+    const src = sourceBySn(snId);
+    if (!src) return null;
+    const prev = src.summary || null;
+    const upgrade = prev && prev.modelless && !!model;           // a warm talker can now refine a telegram
+    if (prev && !regenerate && !upgrade) return prev;
+    const reading = sourceReading(src);
+    if (!reading) return prev;
+    const inv = sourceInventory(reading);
+    await composeTwoPhase(inv, prev ? { ...prev, regenerate } : { regenerate: true }, (s) => {
+      src.summary = { ...s, sha: src.sha }; persist(); emit('sources');
+    });
+    return src.summary;
+  });
+
+  const entitySummaryFor = (label) => state.summaries.entities[entityKey(label)] || null;
+
+  // Generate/refresh an entity topline, keyed by the merged label the explorer groups by. Returns
+  // the stored summary; stores in state.summaries.entities and emits.
+  const entitySummary = (docId, entId, { regenerate = false } = {}) => guarded(`e:${docId}#${entId}`, regenerate, async () => {
+    const profile = entityProfile(docId, entId);
+    if (!profile) return null;
+    const key = entityKey(profile.label);
+    const prev = state.summaries.entities[key] || null;
+    const upgrade = prev && prev.modelless && !!model;
+    if (prev && !regenerate && !upgrade) return prev;
+    const inv = entityInventory(profile, { mentionCount: profile.mentionCount ?? profile.mentions.length, sourceCount: profile.sourceCount || 1 });
+    await composeTwoPhase(inv, prev ? { ...prev, regenerate } : { regenerate: true }, (s) => {
+      state.summaries.entities[key] = { ...s, key, label: profile.label }; persist(); emit('sources');
+    });
+    // The fold-aware contextual definition — a model-WRITTEN companion to the telegram, framed by
+    // the document in hand (its title, and the figures it most centres on beside this one). It is
+    // safe to let the model write here because the entity panel flanks it: the settled Wikipedia
+    // referent leads above it and the provenance DAG receipts it below (docs/topline.md).
+    //
+    // It is produced by a CHORUS of definer strategies under selection (weave/topline/chorus.js): the
+    // reigning champion (and, on an exploration beat, a challenger) each write a candidate; each is
+    // graded with NO human in the loop — grounding coverage (does it fabricate) × fold-salience (does
+    // it speak to this reading), anchored by predictive COMPETENCY (does it predict the entity's
+    // held-out mentions, the parrot-killer). The fittest is shown; a challenger that wins by a margin
+    // becomes the new champion, so the system gets better — and, as the champion stabilises, cheaper
+    // — at defining, especially similar things.
+    const cur0 = state.summaries.entities[key];
+    if (model && cur0 && (regenerate || !cur0.contextual)) {
+      const themes = [...(profile.figures || [])]
+        .filter((f) => f.entId !== entId && f.label && f.label !== profile.label)
+        .sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 4).map((f) => f.label);
+      const fold = { title: profile.sourceTitle || '', themes };
+      const src = sourceBySn(profile.sn);
+      const doc = src ? docFor(src) : null;
+      const passages = (profile.mentions || []).map((m2) => ({ u: profile.sn, idx: m2.idx, text: m2.text }));
+      const mentionTexts = (profile.mentions || []).map((m2) => m2.text).filter(Boolean);
+      const factTexts = (cur0.objects || []).map((o) => o.text).filter(Boolean);
+      // The wiki referent as the un-authored fitness ANCHOR — but only if it is already resolved in
+      // the cache (a plain confirmed def, not a still-pending promise). Never kick a fetch from here:
+      // the anchor is optional (definer.js falls back to competency alone), and the panel's own
+      // _ensureWiki owns the lookup. Reading a settled value costs nothing and adds no network.
+      let wikiText = null;
+      try {
+        const cached = wikiCache.get(`${docId}#${entId}`);
+        if (cached && typeof cached.then !== 'function' && cached.confirmed && cached.text) wikiText = cached.text;
+      } catch { wikiText = null; }
+
+      // Ground each candidate span-by-span (nothing rejected; every span anchored to a mention/doc
+      // or flagged as the model's own word — enactor/ground/spans.js) and grade its held-out
+      // competency. The winner keeps its spans for the surface to render the flags.
+      let winnerSpans = [];
+      const grade = async (text) => {
+        let spans = [];
+        try {
+          spans = groundSpans(definitionSpans(text), { passages, doc }).map((v) => ({
+            text: v.text, grounded: v.kind === 'source',
+            role: v.kind === 'source' ? 'source' : (v.role || 'assertion'),
+            cite: v.source && Number.isInteger(v.source.idx) ? v.source.idx : null,
+          }));
+        } catch { spans = []; }
+        const coverage = spans.length ? spans.filter((s) => s.grounded).length / spans.length : 0;
+        const competency = definitionCompetency(text, { seen: factTexts, heldOut: mentionTexts });
+        grade._spansByText = grade._spansByText || new Map();
+        grade._spansByText.set(text, spans);
+        return { coverage, competency };
+      };
+
+      const defs = state.summaries.definer || (state.summaries.definer = { champion: null, runs: 0 });
+      const chorus = await composeChorus(
+        { label: profile.label, telegram: cur0.text, objects: cur0.objects || [], fold, wikiText },
+        { model, champion: defs.champion, runs: defs.runs || 0, grade },
+      );
+      const winner = chorus.winner;
+      winnerSpans = (winner && grade._spansByText && grade._spansByText.get(winner.text)) || [];
+
+      // Carry the champion forward (heritability) and count the run (drives the explore beat).
+      defs.champion = chorus.champion || defs.champion;
+      defs.runs = (defs.runs || 0) + 1;
+
+      const cur = state.summaries.entities[key];
+      if (cur && winner) {
+        state.summaries.entities[key] = {
+          ...cur, contextual: winner.text, contextualWritten: !!winner.written,
+          contextualSpans: winnerSpans,
+          contextualCoverage: winner.fitness?.terms?.coverage ?? 0,
+          contextualFitness: winner.fitness?.score ?? 0,
+          contextualStrategy: winner.strategy, fold,
+        };
+        persist(); emit('sources');
+      }
+    }
+    return state.summaries.entities[key];
+  });
+
+  // Give a topline feedback so it updates. The free-text note is interpreted into a STEER over the
+  // closed set (cap length, pin a term, suppress a claim), folded onto the standing steer, recorded,
+  // and the topline regenerated under it. A request the record cannot honour comes back in `unmet`.
+  const summaryFeedback = async ({ scope, sn = null, docId = null, entId = null, text = '' } = {}) => {
+    const note = interpretFeedback(text);
+    const entry = { text: String(text || ''), at: nowIso() };
+    if (scope === 'source') {
+      const src = sourceBySn(sn);
+      if (!src) return null;
+      const steer = mergeSteer(src.summary?.steer, note);
+      src.summary = { ...(src.summary || {}), steer, feedback: [...(src.summary?.feedback || []), entry] };
+      persist();
+      return sourceSummary(sn, { regenerate: true });
+    }
+    if (scope === 'entity') {
+      const profile = entityProfile(docId, entId);
+      if (!profile) return null;
+      const key = entityKey(profile.label);
+      const cur = state.summaries.entities[key] || {};
+      const steer = mergeSteer(cur.steer, note);
+      state.summaries.entities[key] = { ...cur, key, label: profile.label, steer, feedback: [...(cur.feedback || []), entry] };
+      persist();
+      return entitySummary(docId, entId, { regenerate: true });
+    }
+    return null;
   };
 
   // ── the wiki referent (the entity panel's encyclopedia lookup) ─────────────
@@ -2766,7 +3514,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const tieredData = (docId, entId) => {
     const p = entityProfile(docId, entId);
     if (!p) return { nodes: [], edges: [] };
-    const srcT = srcTimeMs(state.sources.find((s) => s.docId === docId));
+    const srcT = srcTimeMs(resolveDoc(docId)?.src);
     const nodes = [{ id: 'src', tier: 0, label: p.sourceTitle, kind: 'source', t: srcT }];
     const edges = [];
     const seen = new Set();
@@ -2912,10 +3660,18 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         }
       }
     }
+    // How much of the record an abstention actually SEARCHED — the total passages (sentences)
+    // across the topic's sources, not the cited count. `passages` above is passages that ended
+    // up QUOTED, so it is 0 on an honest abstention; reporting that as "0 passages on record"
+    // reads as an empty record when the sources are in fact full of text the turn looked through.
+    // `recordPassages` is the scope the abstention names, so "the record does not say" can point
+    // at what it searched. The docs are already parsed for the active topic, so this is a cheap sum.
+    let recordPassages = 0;
+    try { for (const d of topicDocs()) recordPassages += (d && d.sentences && d.sentences.length) || 0; } catch { /* keep 0 */ }
     return {
       claims: claims.slice(-24), passages: [...passages.values()].slice(-32),
       contradictions,
-      stats: { claims: claims.length, passages: passages.size, sources: topicSources().length, contradictions },
+      stats: { claims: claims.length, passages: passages.size, sources: topicSources().length, recordPassages, contradictions },
     };
   };
 
@@ -3311,11 +4067,15 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
     // ingest
     ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage, navigatePage,
+    // durable pending work — the ingest/transcription jobs still in flight, and the boot-time resume
+    // that re-runs them (so ingestion AND transcription survive a reload even part-way through)
+    jobs: () => state.jobs.slice(),
+    resumeJobs,
     // search — the sibling of ask(): a query opens a "search topic" and pulls sources into it
     searchTopic,
     sourceBySn, removeSource, topicSources, sourceToggleCollapse,
     // chat
-    ask, stop, exportChat,
+    ask, askQuestion, stop, exportChat,
     // export provenance — WHAT produced this session: app + published build + latest-on-GitHub +
     // the current talker. Composed live so a surface badge can show the build/freshness/model.
     provenance: () => composeProvenance({
@@ -3341,6 +4101,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     ensureModel, setBackend, backendPref, setSpeed, speedPref,
     // projections for the surface
     answerSegments, viewerParas, readerLink, entities, entityProfile, entityWiki, tieredData, topicTieredData,
+    // the entity explorer, scoped to one source and read at a chosen HOLONIC LEVEL —
+    // its natural-language referents (default) or the modality's raw spans underneath
+    sourceLevels, sourceEntities, sourceBaseNoun,
+    // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
+    sourceSummary, sourceSummaryOf, entitySummary, entitySummaryFor, summaryFeedback,
     findings, provenance, dagFor, dagSources, setMemo, eotFor, answerEot,
     // the commitment ledger (assertions + corrections, persisted) and the session's
     // self/world line readout — the honesty and ledger seams, readable from the surface
@@ -3359,5 +4124,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // audio: a playable URL (rehydrated from OPFS / the encrypted Matrix copy after reload), the raw
     // persisted bytes (for redaction re-synthesis), and the non-destructive edit/redaction chokepoint.
     playableUrl, audioBytes, recordAudioEvent,
+    // transcript export — subtitles (SRT/VTT), the elegant by-speaker read, the full-processing JSON,
+    // and the process trace — built from the live organ doc or rebuilt from the persisted substrate.
+    transcriptExport, transcriptFormats,
   });
 };

@@ -34,34 +34,71 @@ const stamp = (seconds, sep) => {
 export const srtTime = (s) => stamp(s, ',');
 export const vttTime = (s) => stamp(s, '.');
 
+// A speaker index off a word/token, or null — Number.isInteger so 0 (Speaker 1) is kept.
+const spk = (w) => (Number.isInteger(w?.speaker) ? w.speaker : null);
+
 // The transcript's flat, time-ordered words — the authoritative per-word list the
-// organ keeps (each already carries a filled [start,end]). Falls back to flattening
-// the utterances for a doc that only kept those.
+// organ keeps (each already carries a filled [start,end]). Carries WHO said it (speaker)
+// and the waveform witnesses (conf/acous/snr) when present. Falls back to flattening the
+// utterances for a doc that only kept those.
 const wordsOf = (doc) => {
+  const one = (w, u, i) => ({
+    text: w.text, start: clampSec(w.start ?? u?.start), end: clampSec(w.end ?? w.start ?? u?.end),
+    conf: w.conf ?? null, acous: w.acous ?? null, snr: w.snr ?? null,
+    speaker: spk(w), relisten: !!w.relisten, unitIdx: w.unitIdx ?? i ?? 0,
+  });
   if (Array.isArray(doc?.tokens) && doc.tokens.length)
-    return doc.tokens.map(t => ({ text: t.text, start: clampSec(t.start), end: clampSec(t.end ?? t.start), conf: t.conf ?? null, relisten: !!t.relisten, unitIdx: t.unitIdx ?? 0 }));
+    return doc.tokens.map((t, i) => one(t, null, t.unitIdx ?? i));
   const out = [];
-  (doc?.utterances || []).forEach((u, i) => (u.words || []).forEach(w =>
-    out.push({ text: w.text, start: clampSec(w.start ?? u.start), end: clampSec(w.end ?? w.start ?? u.end), conf: w.conf ?? null, relisten: !!w.relisten, unitIdx: i })));
+  (doc?.utterances || []).forEach((u, i) => (u.words || []).forEach(w => out.push(one(w, u, i))));
   return out;
 };
 
+// Is this transcript diarized into MORE THAN ONE speaker? (Only then do captions/prose carry a
+// speaker label — a single-speaker clip stays clean.)
+const isMultiSpeaker = (doc) => {
+  if (Array.isArray(doc?.speakers) && doc.speakers.length > 1) return true;
+  const seen = new Set();
+  for (const w of wordsOf(doc)) if (w.speaker != null) { seen.add(w.speaker); if (seen.size > 1) return true; }
+  return false;
+};
+
+// The label for a speaker index — the roster's name when the reading kept one, else "Speaker N".
+const speakerLabel = (doc, idx) => {
+  if (idx == null) return null;
+  const roster = Array.isArray(doc?.speakers) ? doc.speakers : [];
+  const hit = roster.find(s => s.id === idx);
+  return (hit && hit.label) || `Speaker ${idx + 1}`;
+};
+
+// The speaker a run of words belongs to — the one that holds the most of them (a cue can straddle a
+// change; the majority owns the caption). Null when none of the words carry a speaker.
+const dominantSpeaker = (words) => {
+  const tally = new Map();
+  for (const w of words) if (w.speaker != null) tally.set(w.speaker, (tally.get(w.speaker) || 0) + 1);
+  if (!tally.size) return null;
+  return [...tally.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0];
+};
+
 // The breath groups — one caption cue / one sentence each. Uses the organ's own
-// utterances when present, else regroups the flat words on a PARA_GAP pause.
+// utterances when present, else regroups the flat words on a PARA_GAP pause OR a speaker
+// change (a caption never straddles two voices). Each cue carries its dominant `speaker`.
 const cuesOf = (doc) => {
   if (Array.isArray(doc?.utterances) && doc.utterances.length) {
     return doc.utterances.map((u, i) => {
-      const words = (u.words || []).map(w => ({ text: w.text, start: clampSec(w.start ?? u.start), end: clampSec(w.end ?? w.start ?? u.end) }));
+      const words = (u.words || []).map(w => ({ text: w.text, start: clampSec(w.start ?? u.start), end: clampSec(w.end ?? w.start ?? u.end), speaker: spk(w) }));
       const text = words.map(w => w.text).join(' ').trim() || String(doc.sentences?.[i] || '').trim();
-      return { index: i, start: clampSec(u.start), end: clampSec(u.end), text, words };
+      const speaker = Number.isInteger(u.speaker) ? u.speaker : dominantSpeaker(words);
+      return { index: i, start: clampSec(u.start), end: clampSec(u.end), text, words, speaker };
     }).filter(c => c.text);
   }
-  const cues = []; let cur = null, lastEnd = null;
+  const cues = []; let cur = null, lastEnd = null, lastSpk = null;
   for (const w of wordsOf(doc)) {
-    if (!cur || (lastEnd != null && w.start - lastEnd >= PARA_GAP)) { cur = { index: cues.length, start: w.start, end: w.end, text: '', words: [] }; cues.push(cur); }
-    cur.words.push({ text: w.text, start: w.start, end: w.end }); cur.end = w.end; lastEnd = w.end;
+    const changed = w.speaker != null && lastSpk != null && w.speaker !== lastSpk;
+    if (!cur || changed || (lastEnd != null && w.start - lastEnd >= PARA_GAP)) { cur = { index: cues.length, start: w.start, end: w.end, text: '', words: [] }; cues.push(cur); }
+    cur.words.push({ text: w.text, start: w.start, end: w.end, speaker: w.speaker }); cur.end = w.end; lastEnd = w.end; lastSpk = w.speaker;
   }
-  return cues.map(c => ({ ...c, text: c.words.map(w => w.text).join(' ').trim() })).filter(c => c.text);
+  return cues.map(c => ({ ...c, text: c.words.map(w => w.text).join(' ').trim(), speaker: dominantSpeaker(c.words) })).filter(c => c.text);
 };
 
 // Group the breath-group cues into paragraphs on a long pause — the reading's own
@@ -89,32 +126,41 @@ const head = (doc) => ({
   duration: isNum(doc?.duration) ? +doc.duration.toFixed(3) : null,
   witness: doc?.witness || null,
   witnesses: (doc?.readings || []).map(r => r.label),
+  // WHO is speaking — the roster the diarization separated from the waveform (voices.js), each with
+  // its measured pitch/formants as evidence. Present only when the reading found speakers.
+  ...(Array.isArray(doc?.speakers) && doc.speakers.length ? { speakers: doc.speakers } : {}),
   generatedFrom: 'eoreader4 · audio organ',
 });
 
 // ── the caption formats ───────────────────────────────────────────────────────
 
 // SRT — one cue per breath group, millisecond stamps, comma-separated as the format
-// specifies. Indices are 1-based; cues never zero-length (end nudged past start).
+// specifies. Indices are 1-based; cues never zero-length (end nudged past start). When the
+// clip is diarized into more than one voice, each cue is prefixed with its speaker — the
+// "Speaker 1: …" convention players render inline.
 export const toSrt = (doc) => {
   const cues = cuesOf(doc);
+  const multi = isMultiSpeaker(doc);
   return cues.map((c, i) => {
     const end = Math.max(c.end, c.start + 0.001);
-    return `${i + 1}\n${srtTime(c.start)} --> ${srtTime(end)}\n${c.text}\n`;
+    const label = multi && c.speaker != null ? `${speakerLabel(doc, c.speaker)}: ` : '';
+    return `${i + 1}\n${srtTime(c.start)} --> ${srtTime(end)}\n${label}${c.text}\n`;
   }).join('\n');
 };
 
-// WebVTT — the same cues, but with a timestamp on EVERY word: WebVTT cue timestamps
-// (<00:00:01.234>) inline before each word are valid, in-spec markup, and give a
-// player word-by-word highlighting. The cue still reads as plain text where those
-// tags aren't rendered, so it stays a compliant caption file either way.
+// WebVTT — the same cues, with a timestamp on EVERY word (valid inline cue timestamps for
+// word-by-word highlighting) and, when diarized, a proper WebVTT <v Speaker N> VOICE TAG so a
+// player can style and attribute each turn. The cue still reads as plain text where the tags
+// aren't rendered, so it stays a compliant caption file either way.
 export const toVtt = (doc) => {
   const cues = cuesOf(doc);
+  const multi = isMultiSpeaker(doc);
   const body = cues.map((c, i) => {
     const end = Math.max(c.end, c.start + 0.001);
-    const line = c.words.length
+    const inner = c.words.length
       ? c.words.map((w, j) => (j === 0 ? '' : '<' + vttTime(w.start) + '>') + w.text).join(' ')
       : c.text;
+    const line = multi && c.speaker != null ? `<v ${speakerLabel(doc, c.speaker)}>${inner}` : inner;
     return `${i + 1}\n${vttTime(c.start)} --> ${vttTime(end)}\n${line}\n`;
   }).join('\n');
   return `WEBVTT\n\n${body}`;
@@ -131,22 +177,83 @@ export const toParagraphsJson = (doc) => JSON.stringify({
   paragraphs: parasOf(doc).map(p => ({ start: +p.start.toFixed(3), end: +p.end.toFixed(3), text: p.text, sentences: p.sentences })),
 }, null, 2);
 
-// Sentences (breath groups), timed — each with the words that make it up.
+// Sentences (breath groups), timed — each with its speaker and the words that make it up.
 export const toSentencesJson = (doc) => JSON.stringify({
   ...head(doc), unit: 'sentence',
   sentences: cuesOf(doc).map(c => ({
     index: c.index, start: +c.start.toFixed(3), end: +c.end.toFixed(3), text: c.text,
+    ...(c.speaker != null ? { speaker: c.speaker, speakerLabel: speakerLabel(doc, c.speaker) } : {}),
     words: c.words.map(w => ({ text: w.text, start: +w.start.toFixed(3), end: +w.end.toFixed(3) })),
   })),
 }, null, 2);
 
-// Word-level timestamps — the flat, time-ordered list, a stamp on every word, with
-// the ear's confidence and whether a second witness re-heard it kept alongside.
+// Word-level timestamps — the flat, time-ordered list, a stamp on every word, with WHO said it
+// (speaker) and the waveform witnesses kept alongside: the model's confidence, the acoustic
+// confidence read off the waveform, the SNR over the room, and whether a second witness re-heard it.
 export const toWordsJson = (doc) => JSON.stringify({
   ...head(doc), unit: 'word',
   words: wordsOf(doc).map(w => ({
     text: w.text, start: +w.start.toFixed(3), end: +w.end.toFixed(3),
+    ...(w.speaker != null ? { speaker: w.speaker } : {}),
     ...(isNum(w.conf) ? { conf: +w.conf.toFixed(3) } : {}),
+    ...(isNum(w.acous) ? { acous: +w.acous.toFixed(3) } : {}),
+    ...(isNum(w.snr) ? { snr: +w.snr.toFixed(2) } : {}),
+    ...(w.relisten ? { relisten: true } : {}),
+  })),
+}, null, 2);
+
+// ── the elegant transcript — read by turns ─────────────────────────────────────────────────
+// A speaker-turn transcript a person actually wants to read: consecutive cues by the same voice are
+// gathered into one TURN, headed by the speaker and the time it began, the prose flowing beneath.
+// When the clip is one voice (or undiarized) it degrades to timestamped paragraphs — still elegant.
+export const toElegantText = (doc) => {
+  const cues = cuesOf(doc);
+  if (!cues.length) return '';
+  const multi = isMultiSpeaker(doc);
+  const mmss = (s) => { const t = Math.max(0, Math.round(s)); const m = Math.floor(t / 60); return `${m}:${String(t % 60).padStart(2, '0')}`; };
+  const out = [];
+  if (!multi) {
+    // No speakers — paragraphs on the reading's own pauses, each stamped with when it began.
+    for (const p of parasOf(doc)) out.push(`[${mmss(p.start)}]  ${p.text}`);
+    return out.join('\n\n');
+  }
+  // Gather consecutive same-speaker cues into turns.
+  let turn = null;
+  const turns = [];
+  for (const c of cues) {
+    if (!turn || c.speaker !== turn.speaker) { turn = { speaker: c.speaker, start: c.start, parts: [] }; turns.push(turn); }
+    turn.parts.push(c.text);
+  }
+  for (const t of turns) out.push(`${speakerLabel(doc, t.speaker)}  ·  ${mmss(t.start)}\n${t.parts.join(' ')}`);
+  return out.join('\n\n');
+};
+
+// ── the full processing record — everything, as it was read ─────────────────────────────────
+// One JSON that carries the WHOLE reading: the front matter and speaker roster, the acoustic
+// analysis and coverage, the diarization's auditable merge/keep trail (each decision with its JS
+// cost and ΔBIC margin), the paragraphs and the speaker-tagged sentences, and every word with its
+// timings, speaker and waveform witnesses. This is "all the ways it was processed", in one file.
+export const toFullJson = (doc) => JSON.stringify({
+  ...head(doc),
+  analysis: doc?.analysis || doc?.audioMeta || null,
+  coverage: doc?.coverage || null,
+  audit: doc?.audit ? { witness: doc.audit.witness, witnessCount: doc.audit.witnessCount, contestedCount: doc.audit.contestedCount, lowConfidence: doc.audit.lowConfidence } : null,
+  // The diarization reading itself — the pre-neural, information-theoretic trail: how each merge was
+  // ordered (Jensen–Shannon) and gated (ΔBIC model selection), so the speaker cut re-runs to the number.
+  diarization: Array.isArray(doc?.diarizeWitnesses) && doc.diarizeWitnesses.length
+    ? { method: 'ib-ordered · dbic-gated', decisions: doc.diarizeWitnesses }
+    : null,
+  paragraphs: parasOf(doc).map(p => ({ start: +p.start.toFixed(3), end: +p.end.toFixed(3), text: p.text })),
+  sentences: cuesOf(doc).map(c => ({
+    index: c.index, start: +c.start.toFixed(3), end: +c.end.toFixed(3), text: c.text,
+    ...(c.speaker != null ? { speaker: c.speaker } : {}),
+  })),
+  words: wordsOf(doc).map(w => ({
+    text: w.text, start: +w.start.toFixed(3), end: +w.end.toFixed(3),
+    ...(w.speaker != null ? { speaker: w.speaker } : {}),
+    ...(isNum(w.conf) ? { conf: +w.conf.toFixed(3) } : {}),
+    ...(isNum(w.acous) ? { acous: +w.acous.toFixed(3) } : {}),
+    ...(isNum(w.snr) ? { snr: +w.snr.toFixed(2) } : {}),
     ...(w.relisten ? { relisten: true } : {}),
   })),
 }, null, 2);
@@ -278,13 +385,15 @@ export const toProcessTrace = (doc) => {
 // the builder. Order matches the reading's download menu. `copy` is the clipboard
 // action (plain transcript text); the rest are file downloads.
 export const FORMATS = [
-  { id: 'srt',   label: 'SRT caption',                    ext: 'srt',  mime: 'text/plain;charset=utf-8',   build: toSrt },
-  { id: 'vtt',   label: 'VTT caption',                    ext: 'vtt',  mime: 'text/vtt;charset=utf-8',     build: toVtt },
-  { id: 'paras', label: 'Paragraphs',                     ext: 'json', mime: 'application/json',           build: toParagraphsJson },
-  { id: 'sents', label: 'Sentences',                      ext: 'json', mime: 'application/json',           build: toSentencesJson },
-  { id: 'txt',   label: 'Transcript text',                ext: 'txt',  mime: 'text/plain;charset=utf-8',   build: toText },
-  { id: 'words', label: 'Word-level timestamps',          ext: 'json', mime: 'application/json',           build: toWordsJson },
-  { id: 'proc',  label: 'Full process — pass · SEG · SYN', ext: 'md',   mime: 'text/markdown;charset=utf-8', build: toProcessTrace },
+  { id: 'srt',     label: 'SRT caption',                     ext: 'srt',  mime: 'text/plain;charset=utf-8',    build: toSrt },
+  { id: 'vtt',     label: 'VTT caption',                     ext: 'vtt',  mime: 'text/vtt;charset=utf-8',      build: toVtt },
+  { id: 'elegant', label: 'Elegant transcript — by speaker', ext: 'txt',  mime: 'text/plain;charset=utf-8',    build: toElegantText },
+  { id: 'txt',     label: 'Transcript text',                 ext: 'txt',  mime: 'text/plain;charset=utf-8',    build: toText },
+  { id: 'paras',   label: 'Paragraphs (JSON)',               ext: 'json', mime: 'application/json',            build: toParagraphsJson },
+  { id: 'sents',   label: 'Sentences (JSON)',                ext: 'json', mime: 'application/json',            build: toSentencesJson },
+  { id: 'words',   label: 'Word-level timestamps (JSON)',    ext: 'json', mime: 'application/json',            build: toWordsJson },
+  { id: 'full',    label: 'Full processing (JSON)',          ext: 'json', mime: 'application/json',            build: toFullJson },
+  { id: 'proc',    label: 'Full process — pass · SEG · SYN', ext: 'md',   mime: 'text/markdown;charset=utf-8', build: toProcessTrace },
 ];
 
 // Build one format by id — the single call the UI makes. Returns { text, ext, mime,

@@ -45,6 +45,8 @@ table{border-collapse:collapse;width:100%}
 .eo-w{border-radius:3px;padding:0 1px;cursor:pointer;transition:background .12s,color .12s}
 .eo-w:hover{background:rgba(109,94,245,.12)}
 .eo-w-now{background:#EDE9FE;color:#4A3AD6;box-shadow:0 0 0 2px #EDE9FE}
+/* a mention/segment jumped to from the entity panel — flashes, then fades on the .eo-w transition */
+.eo-w-flash{background:#FDE68A;color:#7A5B00;box-shadow:0 0 0 3px #FDE68A}
 .eo-w-edited{border-bottom:1px dashed #C79A3A}
 .eo-w-sel{background:#DED8FD}
 .eo-w-redacted{color:#2A2A32;cursor:default;letter-spacing:-2px}
@@ -1335,7 +1337,7 @@ table{border-collapse:collapse;width:100%}
                       <td style="padding:12px 14px;vertical-align:top"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#6E7787">{{ r.reg }}</span></td>
                       <td style="padding:12px 14px;vertical-align:top">
                         <span style="display:block;font-weight:550;color:#2A2A32;max-width:260px">{{ r.title }}</span>
-                        <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ r.domain }} · {{ r.kind }} · {{ r.ents }} entities</span>
+                        <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ r.domain }} · {{ r.kind }} · {{ r.ents }} {{ r.entsNoun }}</span>
                       </td>
                       <td style="padding:12px 14px;vertical-align:top;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6E6E78;white-space:nowrap">{{ r.retrieved }}</td>
                       <td style="padding:12px 14px;vertical-align:top">
@@ -1403,7 +1405,7 @@ table{border-collapse:collapse;width:100%}
                     <span style="display:flex;align-items:center;gap:5px"><span style="color:#1E8A50"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span>{{ viewer.sha }}</span>
                     <span>{{ viewer.bytes }}</span>
                     <span style="font-weight:600;color:{{ viewer.rightsFg }};background:{{ viewer.rightsBg }};border-radius:4px;padding:1px 6px">{{ viewer.rights }}</span>
-                    <span>{{ viewer.ents }} entities</span>
+                    <span>{{ viewer.ents }} {{ viewer.entsNoun }}</span>
                   </div>
                 </div>
                 <sc-if value="{{ viewer.hasUrl }}"><a href="{{ viewer.url }}" target="_blank" rel="noopener" style="flex:0 0 auto;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#5B4BE6;text-decoration:none">original ↗</a></sc-if>
@@ -1436,6 +1438,31 @@ table{border-collapse:collapse;width:100%}
                 <sc-if value="{{ viewerIsEot }}"><button onClick="{{ downloadEot }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ .eot</button></sc-if>
               </div>
             </div>
+
+            <!-- TOPLINE — the auto-generated summary of this source, composed from the objects the -->
+            <!-- machinery decided (never the raw text), with a box to give it feedback that steers it. -->
+            <sc-if value="{{ viewer.topline.show }}">
+              <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;background:#FAFAFE;padding:11px 20px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                  <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">SUMMARY</span>
+                  <sc-if value="{{ viewer.topline.hasKind }}"><span style="font-size:9px;font-weight:600;color:#B26A2E;text-transform:uppercase;letter-spacing:.04em">{{ viewer.topline.kindLabel }}</span></sc-if>
+                  <span style="flex:1"></span>
+                  <sc-if value="{{ viewer.topline.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
+                  <sc-if value="{{ viewer.topline.hasCites }}"><span title="the passages this rests on" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2">{{ viewer.topline.cites }}</span></sc-if>
+                </div>
+                <sc-if value="{{ viewer.topline.has }}">
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32">{{ viewer.topline.text }}</div>
+                  <sc-if value="{{ viewer.topline.hasUnmet }}"><div style="font-size:11px;color:#B26A2E;margin-top:6px;font-style:italic">{{ viewer.topline.unmet }}</div></sc-if>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap">
+                    <input value="{{ viewer.topline.draft }}" onChange="{{ viewer.topline.onInput }}" onKeyDown="{{ viewer.topline.onKey }}" placeholder="Tell it what to change — shorter, focus on…, or what's wrong" style="flex:1;min-width:140px;border:1px solid #E1DDF2;border-radius:7px;background:#fff;padding:6px 9px;font-size:11.5px;outline:none" style-focus="border-color:#B7ADF3" />
+                    <button onClick="{{ viewer.topline.send }}" style="font-size:11px;font-weight:600;color:#fff;background:#6D5EF5;border-radius:7px;padding:6px 12px" style-hover="background:#5B4BE6">Update</button>
+                    <button onClick="{{ viewer.topline.shorter }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">Shorter</button>
+                    <button onClick="{{ viewer.topline.longer }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">More</button>
+                    <button onClick="{{ viewer.topline.regen }}" title="Recompose from the record" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">↻</button>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
 
             <!-- MEDIA PANEL — a decoded audio/video source plays here, above its reading, in every -->
             <!-- mode: the file itself, its waveform tinted by the signal/noise holons, the basic -->
@@ -1513,8 +1540,32 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ undoAudioEvent }}" title="Undo the last edit or redaction" style="font-size:10.5px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">Undo</button>
                   <span style="flex:1"></span>
                   <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">{{ viewer.listen.editCount }} edits · {{ viewer.listen.redactionCount }} redactions</span>
+                  <sc-if value="{{ viewer.listen.hasExport }}">
+                    <div style="position:relative">
+                      <button onClick="{{ toggleTranscriptMenu }}" title="Download the transcript — subtitles (SRT/VTT), JSON, or the elegant by-speaker read" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ transcript</button>
+                      <sc-if value="{{ transcriptMenuOpen }}">
+                        <div class="eo-scroll" style="position:absolute;right:0;top:calc(100% + 6px);z-index:35;background:#fff;border:1px solid #EAEAEF;border-radius:11px;box-shadow:0 14px 40px rgba(20,20,30,.16);padding:6px;width:300px;max-height:340px;overflow-y:auto;animation:eoFade .14s ease">
+                          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;padding:6px 8px 4px">EXPORT TRANSCRIPT</div>
+                          <sc-for list="{{ viewer.listen.exportOptions }}" as="f">
+                            <button onClick="{{ f.onSelect }}" style="display:block;width:100%;text-align:left;border-radius:8px;padding:7px 9px;font-size:12.5px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF">
+                              {{ f.label }}
+                              <div style="font-size:10.5px;font-weight:500;color:#8A8A95;margin-top:1px">{{ f.desc }}</div>
+                            </button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
                   <button onClick="{{ exportRedactedWav }}" title="Download the (redacted) audio as WAV" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ .wav</button>
                 </div>
+                <sc-if value="{{ viewer.listen.hasSpeakers }}">
+                  <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 24px;border-bottom:1px solid #F0F0F4;background:#FBFAFF">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA4">Voices</span>
+                    <sc-for list="{{ viewer.listen.speakers }}" as="sp">
+                      <span title="{{ sp.detail }}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:20px;padding:3px 10px">{{ sp.label }} <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:500;color:#8A80C8">{{ sp.pitch }}</span></span>
+                    </sc-for>
+                  </div>
+                </sc-if>
                 <div class="eo-scroll" ref="{{ setListenTranscript }}" style="flex:1;min-height:0;overflow-y:auto;padding:22px 26px;font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.95;color:#2A2A32"></div>
                 <div style="flex:0 0 auto;padding:6px 24px;border-top:1px solid #F0F0F4;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B4B4BE">Click a word to jump · double-click to edit · click then shift-click to select a span, then redact</div>
               </div>
@@ -1665,11 +1716,71 @@ table{border-collapse:collapse;width:100%}
               </div>
               <button onClick="{{ prof.openSource }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:6px;padding:3px 8px;margin:6px 0 2px" style-hover="background:#E5E8EC">{{ prof.srcReg }} · {{ prof.srcTitle }}</button>
 
+              <!-- LEAD WITH THE SETTLED REFERENT — when the record only NAMES this entity (topline -->
+              <!-- absence) but a Wikipedia article is CONFIRMED, that canonical definition is the most -->
+              <!-- confident thing we hold, so it leads the panel instead of a "nothing found yet" banner. -->
+              <sc-if value="{{ prof.leadWithWiki }}">
+                <div style="margin-top:13px">
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
+                  <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;background:#FBFBFD">
+                    <sc-if value="{{ prof.hasWikiDesc }}">
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ prof.wikiDesc }}</div>
+                    </sc-if>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ prof.wikiText }}</div>
+                    <a href="{{ prof.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:#5B4BE6;margin-top:7px;text-decoration:none">{{ prof.wikiTitle }} ↗</a>
+                  </div>
+                  <sc-if value="{{ prof.topline.has }}">
+                    <div style="font-size:11.5px;color:#9A9AA4;line-height:1.5;margin-top:8px;font-style:italic">{{ prof.topline.telegramText }}</div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <!-- TOPLINE — the auto-generated summary of this entity: the fold-aware contextual -->
+              <!-- definition when the model wrote one, else the telegram of the machinery's objects. -->
+              <!-- Suppressed while leading with Wikipedia (the demoted line above stands in its place). -->
+              <sc-if value="{{ prof.topline.show }}"><sc-if value="{{ prof.notLeadWithWiki }}">
+                <div style="margin-top:13px;border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">{{ prof.topline.panelLabel }}</span>
+                    <sc-if value="{{ prof.topline.hasKind }}"><span style="font-size:9px;font-weight:600;color:#B26A2E;text-transform:uppercase;letter-spacing:.04em">{{ prof.topline.kindLabel }}</span></sc-if>
+                    <span style="flex:1"></span>
+                    <sc-if value="{{ prof.topline.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
+                  </div>
+                  <sc-if value="{{ prof.topline.has }}">
+                    <!-- The written definition, span by span: a grounded span reads plain (with a -->
+                    <!-- ¶ jump to the passage it rests on); a flagged span — the model's own word, -->
+                    <!-- nothing read witnesses it — is tinted amber and dotted-underlined. -->
+                    <sc-if value="{{ prof.topline.hasSpans }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32"><sc-for list="{{ prof.topline.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span title="{{ sp.cite }}">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing in the record witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if></sc-for></div>
+                      <sc-if value="{{ prof.topline.anyFlagged }}"><div style="font-size:10px;color:#B08A4A;margin-top:5px">Underlined spans are the model’s own words — not found in the record.</div></sc-if>
+                    </sc-if>
+                    <sc-if value="{{ prof.topline.noSpans }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ prof.topline.text }}</div>
+                    </sc-if>
+                    <sc-if value="{{ prof.topline.hasUnmet }}"><div style="font-size:11px;color:#B26A2E;margin-top:6px;font-style:italic">{{ prof.topline.unmet }}</div></sc-if>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap">
+                      <input value="{{ prof.topline.draft }}" onChange="{{ prof.topline.onInput }}" onKeyDown="{{ prof.topline.onKey }}" placeholder="Tell it what to change…" style="flex:1;min-width:110px;border:1px solid #E1DDF2;border-radius:7px;background:#fff;padding:6px 9px;font-size:11.5px;outline:none" style-focus="border-color:#B7ADF3" />
+                      <button onClick="{{ prof.topline.send }}" style="font-size:11px;font-weight:600;color:#fff;background:#6D5EF5;border-radius:7px;padding:6px 11px" style-hover="background:#5B4BE6">Update</button>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+                      <button onClick="{{ prof.topline.shorter }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:3px 8px" style-hover="background:#E7E7EF">Shorter</button>
+                      <button onClick="{{ prof.topline.longer }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:3px 8px" style-hover="background:#E7E7EF">More</button>
+                      <button onClick="{{ prof.topline.regen }}" title="Recompose from the record" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:3px 8px" style-hover="background:#E7E7EF">↻</button>
+                      <span style="flex:1"></span>
+                      <sc-if value="{{ prof.topline.hasCites }}"><span title="the passages this rests on" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2">{{ prof.topline.cites }}</span></sc-if>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if></sc-if>
+
               <button onClick="{{ prof.openWeb }}" style="width:100%;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:7px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12.5px;border-radius:9px;padding:9px" style-hover="background:#E7E2FD">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg>
                 Open the web graph
               </button>
 
+              <!-- The settled referent in its DEFAULT position — shown unless it has already been -->
+              <!-- promoted to the lead above (prof.leadWithWiki). -->
+              <sc-if value="{{ prof.notLeadWithWiki }}">
               <div style="margin-top:16px">
                 <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
                 <sc-if value="{{ prof.wikiWait }}">
@@ -1688,6 +1799,7 @@ table{border-collapse:collapse;width:100%}
                   <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">No confirmed Wikipedia match for this referent.</div>
                 </sc-if>
               </div>
+              </sc-if>
 
               <sc-if value="{{ prof.hasDefs }}">
                 <div style="margin-top:16px">
@@ -1741,14 +1853,40 @@ table{border-collapse:collapse;width:100%}
             <!-- ENTITY LIST -->
             <sc-if value="{{ entListShow }}">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-                <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">ENTITIES</span>
+                <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">{{ entHeading }}</span>
                 <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ entCount }}</span>
                 <span style="flex:1"></span>
-                <button onClick="{{ cycleEntLevel }}" title="{{ entLevelTitle }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#8A8A95;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 8px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4-4 4 4"/><path d="M7 4v10"/><path d="M21 16l-4 4-4-4"/><path d="M17 20V10"/></svg>{{ entLevelLabel }}</button>
+                <sc-if value="{{ entLevelBtnShow }}"><button onClick="{{ cycleEntLevel }}" title="{{ entLevelTitle }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#8A8A95;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 8px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4-4 4 4"/><path d="M7 4v10"/><path d="M21 16l-4 4-4-4"/><path d="M17 20V10"/></svg>{{ entLevelLabel }}</button></sc-if>
                 <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:3px 8px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>in text</button>
               </div>
+              <!-- PER-SOURCE PIVOT — with a source open, the explorer narrows to that source's -->
+              <!-- figures; the banner escapes back to the whole topic (and back again). -->
+              <sc-if value="{{ entScopeShow }}">
+                <sc-if value="{{ entPivot }}">
+                  <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;padding:8px 11px;border:1px solid #E4E0FB;background:#F6F4FF;border-radius:10px">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#6D5EF5;flex:0 0 auto"></span>
+                    <span style="flex:1;min-width:0;font-size:11.5px;color:#4A4A54">In <b style="font-weight:650;color:#5B4BE6">{{ entPivotReg }}</b> · {{ entPivotShown }} of {{ entPivotTotal }} in the topic</span>
+                    <button onClick="{{ toggleEntScope }}" style="flex:0 0 auto;font-size:11px;font-weight:600;color:#5B4BE6;padding:3px 9px;border-radius:7px;border:1px solid #DED8FD;background:#fff" style-hover="background:#EEEBFE">{{ entScopeAction }}</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ entScopeAll }}">
+                  <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;padding:8px 11px;border:1px solid #EAEAEF;background:#FAFAFC;border-radius:10px">
+                    <span style="flex:1;min-width:0;font-size:11.5px;color:#6E6E78">{{ entScopeAllText }}</span>
+                    <button onClick="{{ toggleEntScope }}" style="flex:0 0 auto;font-size:11px;font-weight:600;color:#5B4BE6;padding:3px 9px;border-radius:7px;border:1px solid #DED8FD;background:#fff" style-hover="background:#EEEBFE">{{ entScopeAction }}</button>
+                  </div>
+                </sc-if>
+              </sc-if>
+              <!-- HOLONIC LEVEL — a non-prose source is read at the level of the referents its -->
+              <!-- content names (default) or the raw spans underneath (its words, its regions). -->
+              <sc-if value="{{ entLevelShow }}">
+                <div style="display:flex;align-items:center;gap:2px;margin-bottom:12px;padding:3px;background:#F2F2F6;border-radius:9px">
+                  <sc-for list="{{ entLevelTabs }}" as="lv">
+                    <button onClick="{{ lv.pick }}" title="{{ lv.title }}" style="flex:1;font-size:11px;font-weight:600;color:{{ lv.fg }};background:{{ lv.bg }};border-radius:7px;padding:5px 8px">{{ lv.label }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
               <sc-if value="{{ entEmpty }}">
-                <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:16px 14px;font-size:12px;color:#9A9AA4;line-height:1.55">No entities yet. Record a source and its named figures — people, places, things — appear here with their mentions and links.</div>
+                <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:16px 14px;font-size:12px;color:#9A9AA4;line-height:1.55">{{ entEmptyText }}</div>
               </sc-if>
               <div style="display:flex;flex-direction:column;gap:2px">
                 <sc-for list="{{ entRows }}" as="en">
@@ -2094,11 +2232,16 @@ class Component extends DCLogic {
       // ⌘K source palette — full-text search across every recorded source (title · site · body)
       cmdkOpen: false, cmdkQuery: '', cmdkSel: 0,
       pasteOpen: false, pasteTitle: '', pasteBody: '',
-      modelOpen: false, topicMenu: null, exportMenuOpen: false,
+      modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
       entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null, webGraphTick: 0,
-      // the holonic LEVEL the entity panel shows: 'names' (natural-language referents, default),
+      // The entity explorer PIVOTS to the source open in the stage: when a source is in front
+      // it shows that source's figures, not the whole topic's. entScopeAll escapes back to the
+      // topic-wide list; entPivotLevel[sn] picks the per-source HOLONIC LEVEL (its natural-language
+      // referents by default, or the modality's raw spans underneath — an audio clip's words, …).
+      entScopeAll: false, entPivotLevel: {},
+      // the topic-wide explorer's holonic LEVEL: 'names' (natural-language referents, default),
       // 'signal' (the acoustic signal/noise span holons an audio reading raises), or 'all'.
       entLevel: this._prefStr('eo_entlevel', 'names'),
       // The entity panel's Wikipedia referent, per 'docId#entId': { busy } while the
@@ -2118,7 +2261,7 @@ class Component extends DCLogic {
       facingMsg: {},   // per-answer toggle: reveal the EoT "how it read it" facing page inline
       rev: 0,
     };
-    this._segCache = {}; this._viewCache = null; this._entCache = null; this._readerCache = {};
+    this._segCache = {}; this._viewCache = null; this._entCache = null; this._srcEntCache = null; this._readerCache = {};
     // Per-character reveal (the typewriter): the engine writes the streamed answer to
     // m.text as fast as tokens decode; the surface REVEALS it one character at a time on a
     // steady rAF clock, with catch-up so a fast burst never lags far behind. _reveal maps a
@@ -2170,7 +2313,7 @@ class Component extends DCLogic {
 
   _onEngine(kind) {
     if (kind === 'sources') {
-      this._entCache = null; this._viewCache = null; this._segCache = {};
+      this._entCache = null; this._srcEntCache = null; this._viewCache = null; this._segCache = {};
       // A source's text can change AFTER it lands — an audio source is recorded from its
       // acoustic reading, then its transcript folds in. Drop the cached reader iframe for any
       // open source whose content signature moved, so the reader re-renders the new text (and
@@ -2185,7 +2328,7 @@ class Component extends DCLogic {
       // so any cached list is stale the moment topics change — a fresh topic must open with
       // no entities. And a profile or web overlay opened under the previous topic must not
       // follow us in: on a real switch the selection drops back to the (empty) list.
-      this._entCache = null;
+      this._entCache = null; this._srcEntCache = null;
       const tid = this._app && this._app.state ? this._app.state.activeTopicId : null;
       if (tid !== this._topicSeen) {
         this._topicSeen = tid;
@@ -2670,12 +2813,19 @@ class Component extends DCLogic {
     // lives on Chat), so an Ask turn is pinned to 'off' and never reaches the net. Chat keeps the
     // global web mode and its toggle. Captured at send time so switching tabs mid-turn can't change
     // what this turn was allowed to do.
-    const opts = this.state.tab === 'ask' ? { web: 'off' } : {};
+    const onAsk = this.state.tab === 'ask';
+    const opts = onAsk ? { web: 'off' } : {};
+    // ONE GROUNDED QUESTION PER TOPIC. On the Ask surface each question is its own grounded turn
+    // on its own topic (app.askQuestion opens a child topic under the current one, inheriting its
+    // sources, when the current topic already holds a question) — the system answers a single
+    // grounded question or abstains, and never accretes the back-and-forth thread it does worst.
+    // Chat stays the explicit thread mode: it keeps the plain ask() so its conversation still builds.
+    const fire = () => { (onAsk ? this._app.askQuestion(q, opts) : this._app.ask(q, opts)).catch(() => {}); };
     if (this._generating()) {
       this._app.stop();
-      setTimeout(() => { this._app.ask(q, opts).catch(() => {}); }, 0);
+      setTimeout(fire, 0);
     } else {
-      this._app.ask(q, opts).catch(() => {});
+      fire();
     }
   }
   _generating() {
@@ -2701,7 +2851,7 @@ class Component extends DCLogic {
   // then prints a receipt that says where it looked so the silence or the claim can be
   // checked. It adds no engine call and decides no truth; it only classifies what the turn
   // already found. `vm` is the chat view-model for this same message (paras, cites, trail).
-  _askKind(mm, vm, totalPassages) {
+  _askKind(mm, vm, totalPassages, totalSources) {
     const text = String(mm.text || '');
     const route = mm.route || '';
     const summ = (mm.reflection && mm.reflection.summary) || null;
@@ -2749,11 +2899,18 @@ class Component extends DCLogic {
       hasReceipt: true, receiptA: `${pl(nPass, 'passage')} · ${pl(nSrc, 'source')} · decided by measurement, not by a model`,
       receiptWhy: 'The claim was tested against the terms the record sets. It failed. The passages are here so you can disagree with the test.' };
 
-    // The record does not say — unbound, a spoken void, or an abstention
-    if (unbound || (!grounded && abstain)) return { kind: 'The record does not say', kindNo: true, hasCorr: false, hasDoors: nPass > 0, doors: doors(),
-      hasGap: true, gapLabel: 'The gap', gapText: 'No passage in the record answers this. The answer above names the silence rather than filling it — the sources it searched are on record, so the gap can be checked.',
-      hasReceipt: true, receiptA: `${pl(totalPassages || 0, 'passage')} on record · none answer this`,
-      receiptWhy: 'The surface that exists because the record is silent. It names where it looked, so the silence can be checked.' };
+    // The record does not say — unbound, a spoken void, or an abstention. The receipt names the
+    // SCOPE it searched (every passage across the sources on record), not the cited count — an
+    // abstention cites nothing, so "0 passages" would misread an inspected record as an empty one.
+    if (unbound || (!grounded && abstain)) {
+      const searched = totalPassages
+        ? `searched ${pl(totalPassages, 'passage')} across ${pl(totalSources || 0, 'source')} · none answer this`
+        : 'the record is silent · nothing to search yet';
+      return { kind: 'The record does not say', kindNo: true, hasCorr: false, hasDoors: nPass > 0, doors: doors(),
+        hasGap: true, gapLabel: 'The gap', gapText: 'No passage in the record answers this. The answer above names the silence rather than filling it — the sources it searched are on record, so the gap can be checked.',
+        hasReceipt: true, receiptA: searched,
+        receiptWhy: 'The surface that exists because the record is silent. It names where it looked, so the silence can be checked.' };
+    }
 
     // Finding — grounded, but rests on a step no single passage states
     if (grounded && interp) return { ...corr, kind: 'Finding', kindNo: false, hasDoors: nPass > 0, doors: doors(),
@@ -2796,7 +2953,7 @@ class Component extends DCLogic {
     // canvas and redraws clean (the ref only re-fires on a new element).
     if (this.state.tab === 'graph' && tab !== 'graph' && this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; this._tgEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
-    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, tocOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
+    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
     // The Graph tab now hosts the real graph — the entity web / causal DAG of everything in
     // focus. Initialise it lazily the first time we land here (whole-topic entity web).
     if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
@@ -2883,6 +3040,98 @@ class Component extends DCLogic {
     return out;
   }
 
+  // ── click-through from the entity panel to the source span ────────────────────────────────
+  // A mention or a base word/segment is CLICK-THROUGH: it opens the source at that exact span.
+  // For a prose source that is a scroll-and-flash in the reader; for a CLIP it seeks the player to
+  // the instant it was said and flashes the word(s). _jumpTo routes by modality; _listenSeek does
+  // the audio case, deferring through _listenSeekPending because opening the Listen surface
+  // re-renders it and the word spans are (re)built on the next frame (setListenTranscript consumes).
+  _jumpTo(sn, text, t0, t1) {
+    const src = this._app && this._app.sourceBySn(sn);
+    if (src && src.kind === 'audio') this._listenSeek(sn, { t0, t1, text });
+    else this.openViewer(sn, text);
+  }
+
+  _listenSeek(sn, target) {
+    if (!sn || !target) return;
+    const src = this._app && this._app.sourceBySn(sn);
+    if (!src) return;
+    if (src.kind !== 'audio') { if (target.text) this.openViewer(sn, target.text); return; }
+    this._listenSeekPending = { sn, target };
+    // Bring the clip to the front in Listen mode. Set it directly (not via openViewer, whose mode
+    // default won't override a tab left in Reader/EoT), then try to land the seek now in case the
+    // surface is already mounted; otherwise the transcript ref consumes the pending target on render.
+    const tabs = this.state.viewerTabs.includes(sn) ? this.state.viewerTabs : [...this.state.viewerTabs, sn];
+    this._readerFrame = null; this._nativeFrame = null; this._viewCache = null;
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: { ...this.state.viewerModes, [sn]: 'listen' }, tocOpen: false });
+    this._consumeListenSeek();
+  }
+
+  // Resolve the pending seek against the built transcript: by time when the target carries a clock
+  // (a base word/segment), else by matching the mention's leading words in the word stream (a
+  // referent's sentence). Seeks the player and flashes the span. Kept pending (a no-op return) while
+  // the Listen surface is still mounting or a streaming transcript hasn't reached the words yet.
+  _consumeListenSeek() {
+    const pend = this._listenSeekPending;
+    if (!pend) return;
+    const audio = this._listenAudio, el = this._listenTx, words = this._listenWords;
+    if (!audio || !el) return;                         // surface not mounted yet — the ref will retry
+    const { target } = pend;
+    let seekT = null, range = null;
+    if (target.t0 != null && Number.isFinite(target.t0)) {
+      seekT = target.t0;
+      if (Array.isArray(words) && words.length) {
+        const hi = (target.t1 != null && Number.isFinite(target.t1)) ? target.t1 : target.t0;
+        let i0 = -1, i1 = -1;
+        for (let i = 0; i < words.length; i++) {
+          const ws = words[i].start || 0, we = words[i].end || ws;
+          if (we > target.t0 - 0.05 && ws < hi + 0.05) { if (i0 < 0) i0 = i; i1 = i; }
+        }
+        if (i0 >= 0) range = [i0, i1];
+      }
+    } else if (target.text && Array.isArray(words) && words.length) {
+      range = this._matchWordRun(words, target.text);
+      if (range) seekT = words[range[0]].start || 0;
+    }
+    if (seekT == null && !range) return;               // nothing to land on yet — keep it pending
+    this._listenSeekPending = null;
+    if (seekT != null) { try { audio.currentTime = seekT; } catch { /* not seekable yet */ } }
+    if (range) this._flashWords(el, range[0], range[1]);
+  }
+
+  // Find the first run of words matching the target text's leading tokens (normalised, punctuation
+  // dropped); fall back to the first distinctive token. Returns [i0, i1] into _listenWords, or null.
+  _matchWordRun(words, text) {
+    const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const targ = String(text || '').split(/\s+/).map(norm).filter(Boolean).slice(0, 6);
+    if (!targ.length) return null;
+    const wn = words.map((w) => norm(w.text));
+    for (let i = 0; i + targ.length <= wn.length; i++) {
+      let ok = true;
+      for (let k = 0; k < targ.length; k++) { if (wn[i + k] !== targ[k]) { ok = false; break; } }
+      if (ok) return [i, i + targ.length - 1];
+    }
+    const first = targ.find((t) => t.length >= 4) || targ[0];
+    const j = wn.indexOf(first);
+    return j >= 0 ? [j, j] : null;
+  }
+
+  // Flash a word range and scroll it into view; the highlight clears after a beat (the .eo-w
+  // background transition fades it out). Pure DOM, like the karaoke highlight.
+  _flashWords(el, i0, i1) {
+    if (!el) return;
+    let first = null;
+    for (let i = i0; i <= i1; i++) {
+      const n = el.querySelector('.eo-w[data-i="' + i + '"]');
+      if (n) { n.classList.add('eo-w-flash'); if (!first) first = n; }
+    }
+    if (first && first.scrollIntoView) { try { first.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { first.scrollIntoView(); } }
+    clearTimeout(this._flashTimer);
+    this._flashTimer = setTimeout(() => {
+      try { el.querySelectorAll('.eo-w-flash').forEach((n) => n.classList.remove('eo-w-flash')); } catch { /* gone */ }
+    }, 1600);
+  }
+
   // Build the word spans once per (source · edit-count) signature, wire the click/dblclick handlers
   // once, and bind the highlight loop to the current media element once. `_listenWords` caches the
   // projected words for the binary-search highlight.
@@ -2893,11 +3142,12 @@ class Component extends DCLogic {
     const s = sn && this._app && this._app.sourceBySn(sn);
     if (!s) return;
     const EO = (typeof window !== 'undefined' && window.EO) || {};
-    // While transcription is still running, s.words isn't populated yet — but the ASR feeds timed
-    // partial words onto s._asr.words, so render THOSE live (click-to-seek + karaoke work on them).
-    // Once applyTranscript lands the final transcript, s.words takes over as the editable baseline.
-    const running = s._asr && s._asr.state === 'running';
-    const live = running && (!s.words || !s.words.length) && Array.isArray(s._asr.words) && s._asr.words.length;
+    // While transcription is running — or queued to resume after a reload (`pending`), with a partial
+    // already heard and re-seeded — s.words isn't the editable baseline yet; the timed partial words
+    // live on s._asr.words. Render THOSE live (click-to-seek + karaoke work on them) so a reload shows
+    // the transcript heard so far at once. Once applyTranscript lands the final, s.words takes over.
+    const streaming = s._asr && (s._asr.state === 'running' || s._asr.state === 'pending');
+    const live = streaming && (!s.words || !s.words.length) && Array.isArray(s._asr.words) && s._asr.words.length;
     const baseWords = live ? s._asr.words : (s.words || []);
     const proj = EO.projectTranscript ? EO.projectTranscript(baseWords, live ? [] : (s.audioEvents || []))
       : { words: baseWords.map((w) => ({ ...w })) };
@@ -2907,7 +3157,7 @@ class Component extends DCLogic {
       el.__eoSig = sig;
       el.__eoNow = -1;
       if (!this._listenWords.length) {
-        el.innerHTML = '<div style="color:#9A9AA4;font-size:13px">' + (running ? 'Transcribing the signal…' : 'No transcript yet.') + '</div>';
+        el.innerHTML = '<div style="color:#9A9AA4;font-size:13px">' + (streaming ? 'Transcribing the signal…' : 'No transcript yet.') + '</div>';
       } else {
         // Which words are a named-entity mention (so the span becomes a hyperlink to the entity
         // panel) — resolved once per render off the transcript's named-entity lexicon. Skipped while
@@ -2933,6 +3183,9 @@ class Component extends DCLogic {
       audio.__eoHiFor = el;
       audio.addEventListener('timeupdate', () => this._highlightWord(el, audio.currentTime));
     }
+    // A seek requested from the entity panel waits here until the transcript is built (this ref
+    // fires after openViewer re-renders the Listen surface), then lands on the right span.
+    this._consumeListenSeek();
   }
 
   // Highlight the word sounding at time `t` — a binary search over the time-ordered words, then a
@@ -2989,7 +3242,7 @@ class Component extends DCLogic {
     // The streaming partial isn't the editable baseline yet (its word indices still shift as more
     // audio is heard) — editing waits until the final transcript lands. Seeking on click is fine.
     const asn = this._activeSrc(); const as = asn && this._app.sourceBySn(asn);
-    if (as && as._asr && as._asr.state === 'running' && (!as.words || !as.words.length)) { this.showToast('Still transcribing — you can edit once the transcript finishes'); return; }
+    if (as && as._asr && (as._asr.state === 'running' || as._asr.state === 'pending') && (!as.words || !as.words.length)) { this.showToast('Still transcribing — you can edit once the transcript finishes'); return; }
     const i = +sp.dataset.i;
     const cur = sp.textContent;
     const input = document.createElement('input');
@@ -3110,13 +3363,36 @@ class Component extends DCLogic {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
 
-  // The Listen toolbar counters — active edits and redactions (retracted ones don't count).
+  // The Listen toolbar counters — active edits and redactions (retracted ones don't count) — plus
+  // the transcript-export menu (subtitles / JSON / elegant read) and the diarized speaker roster.
   _listenVM(s) {
     const events = (s && s.audioEvents) || [];
     const retracted = new Set(events.filter((e) => e.op === 'RETRACT').map((e) => e.ref));
     let edits = 0, reds = 0;
     for (const e of events) { if (retracted.has(e.id)) continue; if (e.op === 'EDIT') edits++; else if (e.op === 'REDACT') reds++; }
-    return { editCount: edits, redactionCount: reds };
+    // A transcript exists to export when words landed (live or persisted). The format list is static
+    // (no doc built here — the doc is assembled only when the reader actually clicks a format).
+    const hasExport = !!((s && Array.isArray(s.words) && s.words.length) || (s && s._doc && Array.isArray(s._doc.tokens) && s._doc.tokens.length));
+    const DESC = {
+      srt: 'Subtitles — SubRip, drops straight into any player', vtt: 'Subtitles — WebVTT, with speaker voice tags',
+      elegant: 'Reads by speaker turns — the one for humans', txt: 'Plain prose, split on the pauses',
+      paras: 'Timed paragraphs (JSON)', sents: 'Timed sentences + speaker (JSON)',
+      words: 'Every word — time, speaker, confidence (JSON)', full: 'Everything — acoustics, speakers, the diarization trail',
+      proc: 'How it was read — the operator trace',
+    };
+    let exportOptions = [];
+    try { exportOptions = (this._app.transcriptFormats().formats || []).map((f) => ({ label: f.label, desc: DESC[f.id] || '', onSelect: () => this.exportTranscriptAs(f.id) })); } catch { exportOptions = []; }
+    const speakers = (s && Array.isArray(s.speakers)) ? s.speakers : [];
+    const speakerVM = speakers.map((sp) => ({
+      label: sp.label || `Speaker ${(sp.id || 0) + 1}`,
+      pitch: sp.f0 != null ? `${Math.round(sp.f0)} Hz` : '—',
+      detail: `${sp.label}: ~${sp.f0 != null ? Math.round(sp.f0) + ' Hz pitch' : 'pitch n/a'}${sp.f1 != null ? `, F1 ${sp.f1}Hz` : ''}${sp.f2 != null ? `, F2 ${sp.f2}Hz` : ''} · ${sp.utterances || 0} turn${sp.utterances === 1 ? '' : 's'} · ${sp.seconds || 0}s`,
+    }));
+    return {
+      editCount: edits, redactionCount: reds,
+      hasExport, exportOptions,
+      hasSpeakers: speakerVM.length > 1, speakers: speakerVM,
+    };
   }
 
   // ── the media view-model — player + waveform + signal/noise holons + transcription ────────
@@ -3182,10 +3458,10 @@ class Component extends DCLogic {
     const asr = s._asr || null;
     let asrShow = false, asrLabel = '', asrTone = '#6E6E78', asrBg = '#F2F2F6', asrBusy = false, asrPartial = '';
     if (asr) {
-      if (asr.state === 'pending') { asrShow = true; asrLabel = 'Signal separated — queued for transcription'; asrBusy = true; }
+      if (asr.state === 'pending') { asrShow = true; asrBusy = true; asrLabel = (Array.isArray(asr.words) && asr.words.length) ? 'Resuming transcription — the transcript heard so far is kept' : 'Signal separated — queued for transcription'; }
       else if (asr.state === 'running') { asrShow = true; asrBusy = true; asrLabel = `Transcribing the signal… ${asr.pct != null ? asr.pct + '%' : ''}`.trim(); asrTone = '#5B4BE6'; asrBg = '#F1EFFE'; asrPartial = String(asr.partial || ''); }
       else if (asr.state === 'skipped') { asrShow = true; asrLabel = `Not transcribed — ${asr.reason || 'no signal above the noise floor'}`; asrTone = '#8A6D2F'; asrBg = '#FBF4E6'; }
-      else if (asr.state === 'stopped') { asrShow = true; asrLabel = 'Transcription stopped — the waveform reading stands'; asrTone = '#8A6D2F'; asrBg = '#FBF4E6'; }
+      else if (asr.state === 'stopped') { asrShow = true; asrLabel = asr.reason || 'Transcription stopped — the waveform reading stands'; asrTone = '#8A6D2F'; asrBg = '#FBF4E6'; }
       else if (asr.state === 'error') { asrShow = true; asrLabel = `Transcription failed — ${asr.reason || 'error'}`; asrTone = '#B4402F'; asrBg = '#FBEAE6'; }
       else if (asr.state === 'done') { asrShow = false; }
     }
@@ -3500,6 +3776,21 @@ class Component extends DCLogic {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
   toggleExportMenu() { this.setState({ exportMenuOpen: !this.state.exportMenuOpen }); }
+  toggleTranscriptMenu() { this.setState({ transcriptMenuOpen: !this.state.transcriptMenuOpen }); }
+  // Download the active audio source's transcript in one of the export formats (subtitles, JSON,
+  // the elegant by-speaker read, the process trace) — built by the engine (transcript-export.js).
+  exportTranscriptAs(id) {
+    this.setState({ transcriptMenuOpen: false });
+    const sn = this._activeSrc();
+    const out = sn != null && this._app.transcriptExport && this._app.transcriptExport(sn, id);
+    if (!out) { this.showToast('No transcript to export yet'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([out.text], { type: out.mime }));
+    a.download = out.filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    this.showToast('Transcript exported — ' + out.filename);
+  }
   exportChatAs(format) {
     this.setState({ exportMenuOpen: false });
     const t = this._app && this._app.topic();
@@ -3626,6 +3917,7 @@ class Component extends DCLogic {
     // match", the same honesty rule the 4.1 panel held.
     const wk = this.state.wikiDefs[docId + '#' + entId] || null;
     const wkHit = !!(wk && wk.confirmed && wk.text);
+    const tl = this._toplineVM('entity', { docId, entId }, p.label);
     return {
       label: p.label, initials: this._initials(p.label),
       counts: `${p.mentions.length} mentions · ${p.relations.length} links`,
@@ -3687,7 +3979,112 @@ class Component extends DCLogic {
         }));
       })(),
       hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
-      mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text) })),
+      // Each mention carries its clock (mn.t0/mn.t1) when the reading keeps one, so a click SEEKS
+      // the clip to the instant it was said; a prose mention (no time) jumps the text instead.
+      mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text, mn.t0, mn.t1) })),
+      // the auto-generated topline for this entity + its feedback box (docs/topline.md)
+      topline: tl,
+      // When the record only NAMES the referent (topline absence) but we hold a CONFIRMED
+      // Wikipedia article, that settled definition is the most confident thing we have — so it
+      // leads the panel and the "nothing found yet" summary drops to a quiet footnote beneath it.
+      // Requires a real confirmed hit; an unconfirmed guess never earns the lead.
+      leadWithWiki: wkHit && tl.isAbsence,
+      notLeadWithWiki: !(wkHit && tl.isAbsence),
+    };
+  }
+  // ── auto-generated toplines in the surface (docs/topline.md) ─────────────────
+  // A summary composed for every source and entity, with a box to give it feedback. The card reads
+  // the stored topline (app.sourceSummaryOf / app.entitySummaryFor) and kicks generation ONCE if it
+  // is absent; the controller emits when it lands, so the card fills in on the next render. Feedback
+  // is a steer over the CLOSED set — re-order, bound, suppress — never an addition, so a request
+  // outside the record comes back as "not in the record", never a fabrication.
+  _kickTl(scope, ids, key) {
+    this._tlKicked = this._tlKicked || new Set();
+    if (this._tlKicked.has(key)) return;
+    this._tlKicked.add(key);
+    const app = this._app; if (!app) return;
+    const p = scope === 'source' ? app.sourceSummary(ids.sn) : app.entitySummary(ids.docId, ids.entId);
+    Promise.resolve(p).catch(() => {});
+  }
+  _setTlBusy(key, on) {
+    const busy = { ...(this.state.tlBusy || {}) };
+    if (on) busy[key] = true; else delete busy[key];
+    this.setState({ tlBusy: busy });
+  }
+  _onTlInput(key, e) {
+    const v = e && e.target ? e.target.value : '';
+    this.setState({ tlFeedback: { ...(this.state.tlFeedback || {}), [key]: v } });
+  }
+  _sendTl(scope, ids, key) {
+    const text = String((this.state.tlFeedback || {})[key] || '').trim();
+    if (!text) return;
+    this.setState({ tlFeedback: { ...(this.state.tlFeedback || {}), [key]: '' } });
+    this._tlFeedback(scope, ids, key, text);
+  }
+  _tlFeedback(scope, ids, key, text) {
+    const app = this._app; if (!app) return;
+    this._setTlBusy(key, true);
+    Promise.resolve(app.summaryFeedback({ scope, sn: ids.sn || null, docId: ids.docId || null, entId: ids.entId || null, text }))
+      .catch(() => {}).finally(() => this._setTlBusy(key, false));
+  }
+  _regenTl(scope, ids, key) {
+    const app = this._app; if (!app) return;
+    this._setTlBusy(key, true);
+    const p = scope === 'source' ? app.sourceSummary(ids.sn, { regenerate: true }) : app.entitySummary(ids.docId, ids.entId, { regenerate: true });
+    Promise.resolve(p).catch(() => {}).finally(() => this._setTlBusy(key, false));
+  }
+  _toplineVM(scope, ids, label) {
+    const app = this._app; if (!app) return { show: false };
+    const key = scope + ':' + (scope === 'source' ? ids.sn : String(label || '').trim().toLowerCase());
+    let sum = null;
+    try { sum = scope === 'source' ? app.sourceSummaryOf(ids.sn) : app.entitySummaryFor(label); } catch { sum = null; }
+    if (!sum) this._kickTl(scope, ids, key);
+    const draft = String((this.state.tlFeedback || {})[key] || '');
+    const busy = !!(this.state.tlBusy || {})[key];
+    const KIND = { absence: 'nothing found yet', contradiction: 'the record contests itself', plain: '' };
+    // The fold-aware contextual definition, when the model wrote one — the panel's layer 2. It
+    // prefers this over the telegram `text`; the telegram remains the fallback (and still what a
+    // source summary shows, which carries no contextual field).
+    const ctx = sum && sum.contextual ? String(sum.contextual) : '';
+    // Per-span grounding: each span of the written definition is either anchored to the record
+    // (grounded) or the model's own word (flagged). The surface tints the flagged ones and offers
+    // a jump on the grounded ones, so "every span grounded or flagged" is legible, not just stored.
+    const rawSpans = (sum && Array.isArray(sum.contextualSpans)) ? sum.contextualSpans : [];
+    const spans = rawSpans.map((s, i) => ({
+      s: String(s.text || '') + (i < rawSpans.length - 1 ? ' ' : ''),
+      grounded: !!s.grounded, flagged: !s.grounded,
+      hasCite: Number.isInteger(s.cite),
+      cite: Number.isInteger(s.cite) ? ('¶' + s.cite) : '',
+    }));
+    const anyFlagged = spans.some((s) => !s.grounded);
+    return {
+      show: true, has: !!sum, pending: !sum || busy,
+      text: ctx || (sum ? sum.text : ''),
+      telegramText: sum ? sum.text : '',
+      hasSpans: spans.length > 0, noSpans: spans.length === 0, spans, anyFlagged,
+      hasContextual: !!ctx, contextualWritten: !!(sum && sum.contextualWritten),
+      // a model-WRITTEN definition is labelled as the contextual reading it is; a fallback telegram
+      // keeps the plain "summary" label so we never dress a machine telegram up as a reading.
+      panelLabel: (sum && sum.contextualWritten) ? 'IN THIS READING' : 'SUMMARY',
+      kind: sum ? sum.kind : '',
+      // absence == the record names the referent but says nothing further. When we ALSO hold a
+      // confirmed Wikipedia referent, the panel leads with that settled definition instead of the
+      // "nothing found yet" banner (see _profFor.leadWithWiki), and this demotes the summary here.
+      isAbsence: !!(sum && sum.kind === 'absence'),
+      kindLabel: sum ? (KIND[sum.kind] || '') : '',
+      hasKind: !!(sum && KIND[sum.kind]),
+      refined: !!(sum && sum.joined), modelless: !!(sum && sum.modelless),
+      hasUnmet: !!(sum && sum.unmet && sum.unmet.length),
+      unmet: sum && sum.unmet && sum.unmet.length ? ('Not in the record: ' + sum.unmet.join(', ')) : '',
+      hasCites: !!(sum && sum.cites && sum.cites.length),
+      cites: sum && sum.cites ? sum.cites.map((c) => '¶' + c).join(' ') : '',
+      draft,
+      onInput: (e) => this._onTlInput(key, e),
+      onKey: (e) => { if (e && e.key === 'Enter') { e.preventDefault(); this._sendTl(scope, ids, key); } },
+      send: () => this._sendTl(scope, ids, key),
+      shorter: () => this._tlFeedback(scope, ids, key, 'make it shorter'),
+      longer: () => this._tlFeedback(scope, ids, key, 'more detail'),
+      regen: () => this._regenTl(scope, ids, key),
     };
   }
   // ── the property provenance DAG ─────────────────────────────────────────────
@@ -3798,6 +4195,17 @@ class Component extends DCLogic {
     const nd = this._nativeFrame && this._nativeFrame.contentDocument;
     if (nd && nd.documentElement) { try { nd.documentElement.classList.toggle('eo-links-on', on); } catch {} }
     this.setState({ entityMode: on });
+  }
+  // Escape the per-source pivot back to the whole topic's entities (and back again).
+  toggleEntScope() { this._srcEntCache = null; this.setState({ entScopeAll: !this.state.entScopeAll, entitySel: null }); }
+  // Pick the HOLONIC LEVEL a source's entities are read at — its natural-language referents
+  // (the meaning) or the modality's raw spans underneath (audio words, image regions, …).
+  // Selecting a level drops any open profile, since the referent it pointed at may not exist
+  // at the other level, and re-pivots the list.
+  setEntPivotLevel(sn, level) {
+    if (!sn) return;
+    this._srcEntCache = null;
+    this.setState({ entPivotLevel: { ...this.state.entPivotLevel, [sn]: level }, entitySel: null });
   }
   // ── the graph explorer overlay ──────────────────────────────────────────────
   // Two graphs (the entity web + the two-cursor causal DAG), each scoped to the whole topic OR to
@@ -4000,7 +4408,7 @@ class Component extends DCLogic {
     const webProf = panel ? this._profFor(panel.docId, panel.entId, {
       pivot: (otherId) => this._setWgPanel(panel.docId, otherId),
       openSource: (sn) => { this.openViewer(sn); },
-      jump: (sn, text) => { this.openViewer(sn, text); },
+      jump: (sn, text, t0, t1) => this._jumpTo(sn, text, t0, t1),
     }) : null;
     return {
       webProfShow: !!webProf, webProf,
@@ -4712,7 +5120,7 @@ class Component extends DCLogic {
       rowClick: () => { app.setTopic(t.id); this.setState({ topicMenu: null, ...(this._mob() ? { leftOpen: false } : {}) }); },
       menuClick: () => this.setState({ topicMenu: st.topicMenu === t.id ? null : t.id }),
       doRename: () => { const v = prompt('Rename topic', t.title); if (v) app.topicRename(t.id, v); this.setState({ topicMenu: null }); },
-      doAddChild: () => { app.topicNew('New sub-topic', { parentId: t.id }); this.setState({ topicMenu: null }); },
+      doAddChild: () => { app.topicNew('New sub-topic', { parentId: t.id }); this.setState({ topicMenu: null }); this.setTab('ask'); },
       doDelete: () => { if (confirm(`Delete “${t.title}”? Any sub-topics rise to its parent; its sources stay in the record.`)) app.topicDelete(t.id); this.setState({ topicMenu: null }); },
     }));
     const FAV = [['#EEF0F3', '#4E5765'], ['#EEEBFE', '#5B4BE6'], ['#E7F6EC', '#1E8A50'], ['#FBF1DA', '#9A6B12'], ['#FBE9E6', '#B23A2E'], ['#E8F1FB', '#2C5C9E']];
@@ -4996,7 +5404,7 @@ class Component extends DCLogic {
     for (let i = msgs.length - 1; i >= 0; i--) { if (msgs[i].role !== 'user') { lastA = i; break; } }
     if (lastA >= 0) {
       for (let i = lastA - 1; i >= 0; i--) { if (msgs[i].role === 'user') { askQuestion = msgs[i].text || ''; break; } }
-      const kind = this._askKind(msgs[lastA], messages[lastA], findings.stats.passages);
+      const kind = this._askKind(msgs[lastA], messages[lastA], findings.stats.recordPassages, findings.stats.sources);
       askSurfaces = [{ ...messages[lastA], ...kind, kindFg: kind.kindNo ? '#B23A2E' : '#6E6E78',
         notPending: !msgs[lastA].pending, question: askQuestion, hasQuestion: !!askQuestion }];
     }
@@ -5046,6 +5454,7 @@ class Component extends DCLogic {
       const r = this._rights(s);
       return {
         reg: s.reg, title: s.title, domain: s.domain, kind: s.kind, ents: s.entCount == null ? '…' : String(s.entCount),
+        entsNoun: (app.sourceBaseNoun ? app.sourceBaseNoun(s.sn) : 'Entities').toLowerCase(),
         retrieved: this._ago(s.retrieved), sha: s.sha.replace(/^[^:]*:/, '').slice(0, 12), bytes: this._bytes(s.bytes),
         rights: r.label, rightsFg: r.fg, rightsBg: r.bg, cites: String(citeCounts[s.sn] || 0),
         open: () => this.openViewer(s.sn),
@@ -5170,25 +5579,50 @@ class Component extends DCLogic {
       { color: '#1E8A50', label: 'Hash-verified file' },
     ];
 
-    // right panel — entities or graph inspector
+    // right panel — entities or graph inspector.
+    // TOPIC-WIDE explorer: the whole topic's merged entities at the panel's holonic LEVEL —
+    // 'names' (natural-language referents, default), 'signal' (the acoustic signal/noise span
+    // holons an audio reading raises), or 'all'. Cached by level so a switch rebuilds once.
     const entLevel = st.entLevel || 'names';
-    // Scope the entity panel to the open source (its own reading/transcription); topic-wide only
-    // when no source is open. Cache keyed by both so a source switch or level change rebuilds.
-    const entSn = st.viewerTabs.includes(st.tab) ? st.tab : null;
-    const entCacheKey = entLevel + '·' + (entSn || '');
-    if (!this._entCache || this._entCacheKey !== entCacheKey) { this._entCache = app.entities({ level: entLevel, sn: entSn }); this._entCacheKey = entCacheKey; }
-    const ents = this._entCache;
+    if (!this._entCache || this._entCacheLevel !== entLevel) { this._entCache = app.entities({ level: entLevel }); this._entCacheLevel = entLevel; }
+    const allEnts = this._entCache;
+    // PER-SOURCE PIVOT: when a source is open in the stage the explorer narrows to that source's
+    // own figures, read at a FINER level — the transcript's natural-language REFERENTS (default) or
+    // the modality's raw SPANS underneath (an audio clip's words, an image's regions). entScopeAll
+    // escapes back to the topic-wide list above. (activeSn is shared with the viewer section below.)
+    const activeSn = st.viewerTabs.includes(st.tab) ? st.tab : null;
+    const entLevels = activeSn ? app.sourceLevels(activeSn) : [];
+    const pivotLevel = activeSn ? (st.entPivotLevel[activeSn] || 'referent') : 'referent';
+    const entPivot = !!activeSn && !st.entScopeAll;
+    if (entPivot) {
+      if (!this._srcEntCache || this._srcEntCache.sn !== activeSn || this._srcEntCache.level !== pivotLevel) {
+        this._srcEntCache = { sn: activeSn, level: pivotLevel, ents: app.sourceEntities(activeSn, { level: pivotLevel }) };
+      }
+    }
+    const ents = entPivot ? this._srcEntCache.ents : allEnts;
     const entRows = ents.slice(0, 60).map((e) => ({
       label: e.label, initials: this._initials(e.label),
-      meta: `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'} · ${e.sourceCount > 1 ? `${e.sourceCount} sources` : ((app.sourceBySn(e.sn) || {}).reg || '')}`,
+      // In the pivot the source is a given, so the tail is just this reading's tallies; the
+      // topic list keeps the source/reach column that tells entities apart across documents.
+      meta: entPivot
+        ? `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'}`
+        : `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'} · ${e.sourceCount > 1 ? `${e.sourceCount} sources` : ((app.sourceBySn(e.sn) || {}).reg || '')}`,
       open: () => this.openEntity(e.docId, e.entId),
     }));
+    // The level segmented control (only when the source offers more than the one level) and the
+    // pivot banner, both surfaced in the entity-list header below.
+    const entLevelTabs = (entPivot && entLevels.length > 1) ? entLevels.map((lv) => ({
+      label: lv.label, title: lv.hint, on: lv.level === pivotLevel,
+      fg: lv.level === pivotLevel ? '#5B4BE6' : '#8A8A95', bg: lv.level === pivotLevel ? '#fff' : 'transparent',
+      pick: () => this.setEntPivotLevel(activeSn, lv.level),
+    })) : [];
+    const entPivotSrc = activeSn ? (app.sourceBySn(activeSn) || {}) : {};
     let prof = null;
     if (st.entitySel) {
       prof = this._profFor(st.entitySel.docId, st.entitySel.entId, {
         pivot: (otherId) => this.openEntity(st.entitySel.docId, otherId),
         openSource: (sn) => this.openViewer(sn),
-        jump: (sn, text) => this.openViewer(sn, text),
+        jump: (sn, text, t0, t1) => this._jumpTo(sn, text, t0, t1),
         openWeb: () => this.openWebGraph(st.entitySel.docId, st.entitySel.entId),
       });
     }
@@ -5234,7 +5668,7 @@ class Component extends DCLogic {
     let readerDoc = '', readerToc = [], pageDoc = '', pageBusy = false, pageErr = '';
     let vMode = 'reader';
     const rp = st.readPrefs || {};
-    const activeSn = st.viewerTabs.includes(st.tab) ? st.tab : null;
+    // activeSn (the source in front) is computed once, up in the entity-panel section.
     // Source tabs for the MAIN tab bar — shown whichever tab is active, so you can click back to a
     // reading from Chat / Graph / … Each is closeable; clicking it makes it the active stage.
     const srcTabs = st.viewerTabs.map((sn) => {
@@ -5263,7 +5697,11 @@ class Component extends DCLogic {
           sha: s.sha.replace(/^[^:]*:/, '').slice(0, 16), bytes: this._bytes(s.bytes),
           retrieved: this._ago(s.retrieved), rights: r.label, rightsFg: r.fg, rightsBg: r.bg,
           ents: s.entCount == null ? '…' : String(s.entCount),
+          // What the count IS — a clip's segments/words, an image's regions — never blanket "entities".
+          entsNoun: (app.sourceBaseNoun ? app.sourceBaseNoun(s.sn) : 'Entities').toLowerCase(),
           eotCount: eot && eot.structure ? String(eot.structure.lines ? eot.structure.lines.length : 0) : '0',
+          // the auto-generated topline for this source + its feedback box (docs/topline.md)
+          topline: this._toplineVM('source', { sn: s.sn }, s.title),
         };
         // The media panel — player + waveform + signal/noise holons + transcription status —
         // shown above the reading for a decoded audio/video source, in every viewer mode.
@@ -5427,7 +5865,7 @@ class Component extends DCLogic {
       // status + sidebar
       status, statusColor, statusOpen: st.statusOpen, statusRot: st.statusOpen ? '90deg' : '0deg',
       toggleStatus: () => this.toggleStatus(), statusPeek,
-      newTopic: () => { app.topicNew('New topic'); },
+      newTopic: () => { app.topicNew('New topic'); this.setTab('ask'); },
       pickFile: () => this.pickFile(), openPaste: () => this.openPaste(),
       goMemo: () => this.goMemo(), goGraph: () => this.goGraph(),
       // workspace switcher
@@ -5504,7 +5942,27 @@ class Component extends DCLogic {
       // right panel
       inspShow: !!insp, insp: insp || {}, profShow: !insp && !!prof, prof: prof || {},
       entListShow: !insp && !prof, entRows, entCount: String(ents.length), entEmpty: ents.length === 0,
+      // The heading tracks the level: referents ARE the entities; the base level shows the source's
+      // own segments/words, so it is named for what it is (SEGMENTS / WORDS / REGIONS / …).
+      entHeading: (entPivot && pivotLevel === 'span' && activeSn) ? app.sourceBaseNoun(activeSn).toUpperCase() : 'ENTITIES',
+      entEmptyText: !entPivot
+        ? 'No entities yet. Record a source and its named figures — people, places, things — appear here with their mentions and links.'
+        : (pivotLevel === 'referent' && activeSn && app.sourceBaseNoun(activeSn) === 'Segments')
+          ? 'Transcribing the clip — the figures it names appear here once the words land.'
+          : pivotLevel === 'span'
+            ? `No ${(activeSn ? app.sourceBaseNoun(activeSn) : 'spans').toLowerCase()} read in this source yet.`
+            : 'Nothing named in this source at this level yet.',
+      // the per-source pivot: banner + escape-to-topic, and the holonic-level segmented control
+      entPivot, entPivotReg: entPivotSrc.reg || '', entPivotTitle: entPivotSrc.title || entPivotSrc.domain || '',
+      entPivotShown: String(entPivot ? ents.length : 0), entPivotTotal: String(allEnts.length),
+      entScopeShow: !!activeSn, entScopeAll: !!st.entScopeAll, toggleEntScope: () => this.toggleEntScope(),
+      entScopeAction: entPivot ? 'All sources' : 'This source',
+      entScopeAllText: `Showing all ${allEnts.length} ${allEnts.length === 1 ? 'entity' : 'entities'} in this topic`,
+      entLevelShow: entLevelTabs.length > 1, entLevelTabs,
       backToEntities: () => this.backToEntities(),
+      // the topic-wide names/signal/all toggle stands down inside the per-source pivot, whose own
+      // referent/spans control takes over — it acts on the topic list, which the pivot has replaced.
+      entLevelBtnShow: !entPivot,
       cycleEntLevel: () => this.cycleEntLevel(),
       entLevelLabel: entLevel === 'signal' ? 'signal' : entLevel === 'all' ? 'all' : 'names',
       entLevelTitle: entLevel === 'names'
@@ -5540,6 +5998,7 @@ class Component extends DCLogic {
       seekFromWave: (e) => this.seekFromWave(e),
       redactSilence: () => this.redactSilence(), redactBeep: () => this.redactBeep(),
       undoAudioEvent: () => this.undoAudioEvent(), exportRedactedWav: () => this.exportRedactedWav(),
+      transcriptMenuOpen: st.transcriptMenuOpen, toggleTranscriptMenu: () => this.toggleTranscriptMenu(),
       // reader body + controls
       readerDoc, setReaderFrame: (el) => this.setReaderFrame(el),
       readerToc, hasToc: readerToc.length > 1, tocOpen: !!st.tocOpen, toggleToc: () => this.toggleToc(),

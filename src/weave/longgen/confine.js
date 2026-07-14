@@ -57,7 +57,10 @@ const figureOf = (span) => {
 //   address      the EO coordinate, for the record (operator, site terrain, stance)
 export const holonicConfinement = ({ proposition = {}, phase = null } = {}) => {
   const move = String(proposition.move || 'CON').toUpperCase();
-  const band = proposition.band || 'firm';
+  // Nothing established about how-definitely → VOID: an uncharacterized proposition is
+  // confined to hedge (register 'hedged', forbidClose) rather than permitted to assert
+  // and harden into a close. Definiteness must be earned (core/event.js).
+  const band = proposition.band || 'void';
   const address = eoAddressOfEvent({ op: move }) || null;
 
   const register = band === 'void' ? 'hedged' : (REGISTER[move] || 'assertive');

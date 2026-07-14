@@ -10,7 +10,7 @@
 //
 // Nothing it shows is a fact: every edge is a reading, traced to the passage that made it.
 
-import { assertedDag, corpusDag, distinguishingEvidence, scopeAssertedDag } from './index.js';
+import { assertedDag, corpusDag, distinguishingEvidence, scopeAssertedDag, ARCS, ARC_BAND, ARC_MEANING } from './index.js';
 import { discourseDag } from './discourse.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -59,6 +59,7 @@ const CSS = `
 .dagsurf .dg-elabel{font-size:10.5px;font-weight:600;font-family:var(--sans,system-ui,sans-serif);cursor:pointer;
   paint-order:stroke;stroke:var(--dg-panel);stroke-width:4px;stroke-linejoin:round}
 .dagsurf .dg-elabel.dim{opacity:.13}
+.dagsurf .dg-elabel.dg-sign{font-size:13px;font-weight:800}
 .dagsurf .dg-cring{fill:none;stroke:var(--dg-con);stroke-width:1.3;stroke-dasharray:2 3;opacity:.85}
 .dagsurf .dg-cunder{fill:none;stroke:var(--dg-con);stroke-width:6;opacity:.18;stroke-linecap:round}
 .dagsurf .dg-edge{transition:opacity .15s}.dagsurf .dg-node rect{transition:opacity .15s}
@@ -103,8 +104,55 @@ const CSS = `
 .dagsurf .dg-scope-clear:hover{background:var(--dg-panel2)}
 `;
 
-const SC = { essential: 'var(--dg-ess)', generative: 'var(--dg-gen)', accidental: 'var(--dg-acc)' };
 const DC = { contrast: 'var(--dg-con)', consequence: 'var(--dg-gen)', reason: 'var(--dg-ess)', condition: 'var(--dg-warm)', sequence: 'var(--dg-muted)', elaboration: 'var(--dg-acc)' };
+
+// ── THE NINE ARCS' VISUAL ENCODING (spec §5.3) ───────────────────────────────
+// Type is carried on THREE redundant channels so it survives grayscale, colorblindness,
+// and a phone: COLOR is the coarse 3-band grouping (cause / mechanism / correlation — §5.4),
+// LINE-STYLE + ARROWHEAD name which of the nine exactly, and a +/− GLYPH rides the influences
+// arc. No arc is distinguished by hue alone: each (dash, head, width) triple below is unique.
+const BAND_COLOR = { cause: 'var(--dg-ess)', mechanism: 'var(--dg-gen)', correlation: 'var(--dg-acc)', common: 'var(--dg-warm)' };
+const ARC_VIS = {
+  produces:       { head: 'filled', dash: null,  width: 1 },
+  influences:     { head: 'open',   dash: null,  width: 1, sign: true },
+  prevents:       { head: 'tee',    dash: null,  width: 1 },
+  enables:        { head: 'circle', dash: '2 4', width: 1 },
+  contributes:    { head: 'open',   dash: '7 5', width: 1 },
+  mechanism:      { head: 'filled', dash: null,  width: 2 },   // heavier stroke = the "double" line
+  correlates:     { head: 'none',   dash: '6 5', width: 1 },   // undirected — co-occurrence, no cause
+  because:        { head: 'filled', dash: '2 4', width: 1 },
+  'common-cause': { head: 'filled', dash: null,  width: 1 },
+};
+const ARC_LABEL = {
+  produces: 'causes', influences: 'influences', prevents: 'prevents', enables: 'enables',
+  contributes: 'contributes to', mechanism: 'mechanism', correlates: 'correlates',
+  because: 'because', 'common-cause': 'common cause',
+};
+// The arc an edge draws as: a confounder-fork edge is overridden to the structural
+// `common-cause` arc (§5.2 — the amber note becomes a first-class type); otherwise the
+// edge's dominant arc, defaulting to `influences` (the generic fallback, §5.2).
+const arcOf = (e, isFork) => (isFork ? 'common-cause' : (e.dominantArc || 'influences'));
+const bandColor = (arc) => BAND_COLOR[arc === 'common-cause' ? 'common' : (ARC_BAND[arc] || 'correlation')];
+
+// Draw an arrowhead shape inline at (x2,y2) pointing along the edge — used by the legend
+// swatches (the graph itself uses SVG markers so orientation follows each curve). `none`
+// draws nothing (an undirected correlation).
+const headSwatch = (head, color) => {
+  if (head === 'none') return null;
+  if (head === 'tee') return S('line', { x1: '22', y1: '1', x2: '22', y2: '9', stroke: color, 'stroke-width': '2' });
+  if (head === 'circle') return S('circle', { cx: '21', cy: '5', r: '2.6', fill: 'var(--dg-panel)', stroke: color, 'stroke-width': '1.4' });
+  if (head === 'open') return S('path', { d: 'M17,1 L23,5 L17,9', fill: 'none', stroke: color, 'stroke-width': '1.6', 'stroke-linejoin': 'round' });
+  return S('path', { d: 'M16,1 L23,5 L16,9 z', fill: color });   // filled
+};
+// A legend swatch for one arc: a short line in its band colour + dash + arrowhead.
+const legendArc = (arc) => {
+  const vis = ARC_VIS[arc], color = bandColor(arc);
+  const s = S('svg', { width: '26', height: '10', viewBox: '0 0 26 10' });
+  s.appendChild(S('line', { x1: '1', y1: '5', x2: (vis.head === 'none' ? '25' : '17'), y2: '5', stroke: color,
+    'stroke-width': String(vis.width * 2), ...(vis.dash ? { 'stroke-dasharray': vis.dash } : {}) }));
+  const h = headSwatch(vis.head, color); if (h) s.appendChild(h);
+  return s;
+};
 
 // Mount the surface into `root`. `sources` is [{ docId, sentences }]; `primaryId` names the
 // document cursor 1 reads (defaults to the first). Returns { destroy }.
@@ -242,35 +290,46 @@ function buildCursor2(root, a, dist, opts = {}) {
     root.appendChild(el('div', { class: 'dg-empty', text: 'No causal claim was read in these sources. The reader fires only on an explicit causal or association word — a floor on what the corpus states, never a ceiling.' }));
     return;
   }
-  // Confounder forks and stance predicates, computed up front — the legend shows only
-  // the arrow kinds actually drawn, not the whole vocabulary.
+  // Confounder forks, computed up front — a fork edge draws as the structural `common-cause`
+  // arc (amber), and the confounder node itself is ringed. Both feed the arc/legend selection.
   const confZ = new Set(a.complexities.confounding.map((c) => c.confounder));
   const forks = new Set(); a.complexities.confounding.forEach((c) => { const [x, y] = c.edge.split('→'); forks.add(c.confounder + '→' + x); forks.add(c.confounder + '→' + y); });
-  const strongest = (e) => SC[e.strongestProposed] || 'var(--dg-acc)';
-  const accOnly = (e) => e.stanceTally.essential === 0 && e.stanceTally.generative === 0;
-  const plain = a.edges.filter((e) => !forks.has(e.from + '→' + e.to));
-
   const stage = el('div', { class: 'dg-stage' });
   const head = el('div', { class: 'dg-head' });
+  // The legend is mandatory and always present (spec §5.3): it names every arc TYPE actually
+  // drawn, each by its band colour + line-style + arrowhead, so a reader (colour-blind
+  // included) decodes which of the nine every edge is without leaning on hue. The verb the
+  // source used rides on the arrow itself as the contextual subtype.
+  const drawnArcs = new Set(a.edges.map((e) => arcOf(e, forks.has(e.from + '→' + e.to))));
   const legend = el('div', { class: 'dg-legend' });
-  [['claims a cause', 'var(--dg-ess)', false, plain.some((e) => !accOnly(e) && e.strongestProposed === 'essential')],
-   ['shows how', 'var(--dg-gen)', false, plain.some((e) => !accOnly(e) && e.strongestProposed === 'generative')],
-   ['correlation only', 'var(--dg-acc)', true, plain.some(accOnly)],
-   ['common cause', 'var(--dg-warm)', false, forks.size > 0]]
-    .filter(([, , , show]) => show)
-    .forEach(([n, c, d]) => legend.appendChild(el('span', { class: 'dg-lg' }, [legendLine(c, d), document.createTextNode(n)])));
+  ARCS.filter((arc) => drawnArcs.has(arc)).forEach((arc) =>
+    legend.appendChild(el('span', { class: 'dg-lg', title: ARC_MEANING[arc] || '' }, [legendArc(arc), document.createTextNode(ARC_LABEL[arc])])));
   head.appendChild(legend);
   stage.appendChild(head);
 
   const scroll = el('div', { class: 'dg-scroll' });
+  // ── ACYCLICER (spec §4). Extracted edges contain cycles; a layered layout needs a DAG.
+  // A DFS marks each BACK-EDGE (one pointing at a node still open on the DFS stack); the
+  // layering treats it as if reversed so the picture stays acyclic — but every reversal is
+  // LOGGED and surfaced below, because cycle-breaking is a reader-visible transformation
+  // (§6), never a silent one. The edges still DRAW in their true direction; only the row
+  // assignment pretends a back-edge points the other way.
+  const adj = {}; a.nodes.forEach((n) => adj[n.key] = []);
+  a.edges.forEach((e) => { if (adj[e.from]) adj[e.from].push(e.to); });
+  const mark = {}, reversed = new Set();
+  const dfs = (u) => { mark[u] = 1;
+    for (const v of adj[u] || []) { if (mark[v] === 1) reversed.add(u + '→' + v); else if (!mark[v]) dfs(v); }
+    mark[u] = 2; };
+  a.nodes.forEach((n) => { if (!mark[n.key]) dfs(n.key); });
+  const forward = a.edges.filter((e) => !reversed.has(e.from + '→' + e.to));
   // ── TOP-DOWN layered layout — fits a narrow side panel. Root causes at the top,
   // outcomes at the bottom; a barycenter pass orders each row to reduce crossings.
   const layer = {}; a.nodes.forEach((n) => layer[n.key] = 0);
   for (let pass = 0; pass < a.nodes.length; pass++) { let ch = false;
-    a.edges.forEach((e) => { if (layer[e.to] < layer[e.from] + 1) { layer[e.to] = layer[e.from] + 1; ch = true; } }); if (!ch) break; }
+    forward.forEach((e) => { if (layer[e.to] < layer[e.from] + 1) { layer[e.to] = layer[e.from] + 1; ch = true; } }); if (!ch) break; }
   const maxL = Math.max(0, ...Object.values(layer));
   const rows = []; for (let L = 0; L <= maxL; L++) rows[L] = a.nodes.filter((n) => layer[n.key] === L).map((n) => n.key);
-  const parents = {}; a.edges.forEach((e) => (parents[e.to] = parents[e.to] || []).push(e.from));
+  const parents = {}; forward.forEach((e) => (parents[e.to] = parents[e.to] || []).push(e.from));
   const idx = {}; rows.forEach((col) => col.forEach((k, i) => idx[k] = i));
   const bc = (k) => { const ps = (parents[k] || []).filter((p) => layer[p] === layer[k] - 1); return ps.length ? ps.reduce((s, p) => s + idx[p], 0) / ps.length : idx[k]; };
   for (let L = 1; L <= maxL; L++) { rows[L].sort((x, y) => bc(x) - bc(y)); rows[L].forEach((k, i) => idx[k] = i); }
@@ -299,9 +358,20 @@ function buildCursor2(root, a, dist, opts = {}) {
   stage.appendChild(insp); root.appendChild(stage);
 
   const defs = S('defs');
-  [['essential', 'var(--dg-ess)'], ['generative', 'var(--dg-gen)'], ['accidental', 'var(--dg-acc)'], ['warm', 'var(--dg-warm)']]
-    .forEach(([n, c]) => { const m = S('marker', { id: 'dgar-' + n, viewBox: '0 0 10 10', refX: '8', refY: '5', markerWidth: '7', markerHeight: '7', orient: 'auto' });
-      m.appendChild(S('path', { d: 'M0,0 L10,5 L0,10 z', fill: c })); defs.appendChild(m); });
+  // One arrowhead marker per (shape, band colour) actually drawn — orientation follows the
+  // curve. `none` (correlation) draws no head: an undirected co-occurrence, not a cause.
+  const markerId = (h, arc) => `dgar-${h}-${arc === 'common-cause' ? 'common' : (ARC_BAND[arc] || 'correlation')}`;
+  const needed = new Map();
+  a.edges.forEach((e) => { const arc = arcOf(e, forks.has(e.from + '→' + e.to)); const h = ARC_VIS[arc].head;
+    if (h !== 'none') needed.set(markerId(h, arc), { head: h, color: bandColor(arc) }); });
+  needed.forEach(({ head: h, color }, id) => {
+    const m = S('marker', { id, viewBox: '0 0 10 10', refX: h === 'circle' ? '9' : '8', refY: '5', markerWidth: '8', markerHeight: '8', orient: 'auto' });
+    if (h === 'filled') m.appendChild(S('path', { d: 'M0,0 L10,5 L0,10 z', fill: color }));
+    else if (h === 'open') m.appendChild(S('path', { d: 'M1,1 L9,5 L1,9', fill: 'none', stroke: color, 'stroke-width': '1.6', 'stroke-linejoin': 'round' }));
+    else if (h === 'tee') m.appendChild(S('line', { x1: '8', y1: '1', x2: '8', y2: '9', stroke: color, 'stroke-width': '2' }));
+    else if (h === 'circle') m.appendChild(S('circle', { cx: '6', cy: '5', r: '3', fill: 'var(--dg-panel)', stroke: color, 'stroke-width': '1.4' }));
+    defs.appendChild(m);
+  });
   svg.appendChild(defs);
 
   a.edges.forEach((e, ei) => {
@@ -309,18 +379,25 @@ function buildCursor2(root, a, dist, opts = {}) {
     const x1 = p1.x, y1 = p1.y + nh(e.from) / 2, x2 = p2.x, y2 = p2.y - nh(e.to) / 2, my = (y1 + y2) / 2;
     const d = `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`;
     const key = e.from + '→' + e.to, isFork = forks.has(key);
-    const color = isFork ? 'var(--dg-warm)' : strongest(e);
+    const arc = arcOf(e, isFork), vis = ARC_VIS[arc], color = bandColor(arc);
     if (e.contested) svg.appendChild(S('path', { d, class: 'dg-cunder' }));
-    const path = S('path', { d, class: 'dg-edge', 'data-edge': key, stroke: color, 'stroke-width': String(Math.min(4, 1.6 + e.claims.length * 0.55)),
-      'marker-end': `url(#dgar-${isFork ? 'warm' : (accOnly(e) ? 'accidental' : e.strongestProposed)})`, ...(accOnly(e) && !isFork ? { 'stroke-dasharray': '6 5' } : {}) });
+    const width = Math.min(4.5, vis.width * (1.4 + e.claims.length * 0.5));
+    const path = S('path', { d, class: 'dg-edge', 'data-edge': key, stroke: color, 'stroke-width': String(width),
+      ...(vis.head !== 'none' ? { 'marker-end': `url(#${markerId(vis.head, arc)})` } : {}),
+      ...(vis.dash ? { 'stroke-dasharray': vis.dash } : {}) });
     svg.appendChild(path);
     const hit = S('path', { d, class: 'dg-hit', 'data-edge': key }); svg.appendChild(hit);
-    // The arrow says its word: "causes", "reduces", "because" — the exact marker the
-    // reader fired on, in the edge's own colour, haloed so it stays legible over lines.
-    const lbl = S('text', { x: String((x1 + x2) / 2), y: String((y1 + y2) / 2 + (ei % 2 ? 12 : -5)),
-      'text-anchor': 'middle', class: 'dg-elabel', 'data-edge': key, fill: color }, [document.createTextNode(edgeVerb(e))]);
+    // The arrow says its own word (the contextual subtype) — "reduces", "led", "because" — in
+    // the edge's band colour, haloed so it stays legible over lines; the +/− POLARITY GLYPH
+    // rides the influences arc, the one arc where direction of effect is the point (§5.1).
+    const mx = (x1 + x2) / 2, myl = (y1 + y2) / 2 + (ei % 2 ? 12 : -5);
+    const lbl = S('text', { x: String(mx), y: String(myl), 'text-anchor': 'middle', class: 'dg-elabel', 'data-edge': key, fill: color }, [document.createTextNode(edgeVerb(e))]);
     svg.appendChild(lbl);
     const sel = () => selectEdge(key); path.addEventListener('click', sel); hit.addEventListener('click', sel); lbl.addEventListener('click', sel);
+    if (vis.sign && (e.arcSign === '+' || e.arcSign === '−')) {
+      const g = S('text', { x: String(mx), y: String(myl + 12), 'text-anchor': 'middle', class: 'dg-elabel dg-sign', 'data-edge': key, fill: color }, [document.createTextNode(e.arcSign)]);
+      g.addEventListener('click', sel); svg.appendChild(g);
+    }
   });
   a.nodes.forEach((n) => {
     const p = pos[n.key]; if (!p) return; const w = nw(n.key), h = nh(n.key), ls = lines[n.key];
@@ -373,11 +450,17 @@ function buildCursor2(root, a, dist, opts = {}) {
       ul.appendChild(el('li', { class: 'dg-claim' }, [
         el('div', { class: 'dg-ctop' }, [el('span', { class: 'dg-stance ' + c.stance, text: STANCE_HINT[c.stance] || c.stance, title: c.stance }), el('span', { class: 'dg-srcid', text: `${c.src.docId} · s${c.src.sentIdx}` })]),
         passage,
-        el('div', { class: 'dg-meta' }, [el('span', { text: 'word: ' + markerLabel(c.marker) }), el('span', { text: c.polarity === '−' ? 'no effect found' : 'effect claimed' }), (c.modality === 'epistemic' ? el('span', { text: 'hedged' }) : null), rc].filter(Boolean)),
+        el('div', { class: 'dg-meta' }, [el('span', { text: 'word: ' + markerLabel(c.marker) }), (c.arc ? el('span', { text: 'type: ' + (ARC_LABEL[c.arc] || c.arc) + (c.arcSign === '+' || c.arcSign === '−' ? ' ' + c.arcSign : '') }) : null), el('span', { text: c.polarity === '−' ? 'no effect found' : 'effect claimed' }), (c.modality === 'epistemic' ? el('span', { text: 'hedged' }) : null), rc].filter(Boolean)),
       ]));
     });
     insp.appendChild(ul);
   }
+
+  // The acyclicer's audit line (spec §4, §6). Cycle-breaking is a transformation of what the
+  // sources literally drew, so it is named, not hidden: which edges were laid out as reversed,
+  // with the reassurance that the arrows still point the way the sources drew them.
+  if (reversed.size) root.appendChild(el('p', { class: 'dg-note', html:
+    `<b>${reversed.size}</b> edge${reversed.size > 1 ? 's were' : ' was'} read as part of a cycle; to keep the picture a DAG the layout places ${reversed.size > 1 ? 'them' : 'it'} as if reversed — ${[...reversed].map((k) => '<code>' + esc(k.replace('→', ' → ')) + '</code>').join(', ')}. The arrows still point the way the sources drew them.` }));
 
   // cards — only the ones with something to say. A wall of "(none surfaced)" placeholders
   // buried the graph; an absent card IS the report that nothing of that kind was read.
