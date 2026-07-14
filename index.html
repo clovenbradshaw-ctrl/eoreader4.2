@@ -3471,11 +3471,18 @@ class Component extends DCLogic {
     const sig = (s.sha || '') + '·' + ((s.audioEvents && s.audioEvents.length) || 0) + '·' + words.length + (streaming ? '·live' : '')
       + '·' + (format ? 'f' : 'r') + '·' + layer + '·' + (view.readThrough ?? -1) + '·' + (view.referentCount || 0) + '·' + chapters.length;
     if (el.__eoSig !== sig) {
+      // Keep the reading position across a rebuild of the SAME source — a streaming append (the words
+      // grow a few times a second), a format/layer toggle, an edit — so replacing innerHTML doesn't
+      // yank the reader back to the top. Only a switch to a DIFFERENT source starts fresh at the top.
+      // This is also what lets the media panel stay folded while the signal is still transcribing.
+      const keepTop = (el.__eoSn === (s.sha || '')) ? el.scrollTop : 0;
+      el.__eoSn = (s.sha || '');
       el.__eoSig = sig;
       el.__eoNow = -1;
       el.innerHTML = words.length
         ? this._renderTranscriptHtml(words, chapters, layer, inspectI)
         : '<div style="color:#9A9AA4;font-size:13px">' + (streaming ? 'Transcribing the signal…' : 'No transcript yet.') + '</div>';
+      if (keepTop) { try { el.scrollTop = keepTop; } catch { /* detached */ } }
     } else if (inspectI >= 0) {
       // No structural change — just re-mark the inspected word (a click set it, no rebuild needed).
       try { el.querySelectorAll('.eo-w-inspect').forEach((n) => n.classList.remove('eo-w-inspect')); const n = el.querySelector('.eo-w[data-i="' + inspectI + '"]'); if (n) n.classList.add('eo-w-inspect'); } catch { /* gone */ }
