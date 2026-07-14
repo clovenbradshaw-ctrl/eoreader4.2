@@ -17,3 +17,7 @@ export { composeChorus, defaultDefiner, mutateDefiner, shouldExplore, DEFINER_GE
 export { chapterBullets, composeEntityDigest, composeChapterReading } from './digest.js';
 export { interpretFeedback, mergeSteer, applySteer } from './feedback.js';
 export { containedIn, contentTokens, addedBy, CONNECTIVES } from './contain.js';
+export {
+  FORM_SURFACE_CONTRACT, CONTRACT_WIDTH, verifyForm, classifyAdditions,
+  composeCoverage, extractiveFloor, formReceipt, realizeForm, hashText,
+} from './surface.js';
