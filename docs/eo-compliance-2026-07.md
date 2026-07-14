@@ -56,17 +56,47 @@ restated in a comment is documentation; a law a test can fail is a checkpoint
    fails until it is routed through the entrance or deliberately declared,
    with a reason, in review.
 
+## The second pass (same month)
+
+6. **Law 1 gained its runtime mechanism.** `createLog` takes an injected
+   `contractOf` resolver (core still imports nothing — the registry, which
+   aggregates every manifest, rides the ONE declared seam boot holds);
+   `append` takes the emitter's self-identification (`meta.src`), and a
+   mismatch between the event's op and that module's declared Act face is
+   RECORDED on the sealed event (`law1`), collected by the log, never thrown.
+   No resolver or no `src` seals byte-identically, so adoption is incremental.
+   First adopter: the parse orchestrator tags the 21 events it authors, and a
+   real parse against the real registry runs violation-free
+   (`tests/law1-runtime.test.js`).
+7. **The turn orchestrator was split along the fold's own seams.**
+   `turn/stages.js` (1,756 lines) became eight group files — read · fold ·
+   decide · prompt · llm · bind · revise (+correctives) · close — plus
+   `stage-support.js`, every one under 250 lines, every method verbatim. The
+   assembler that remains delegates at CALL time on purpose: the import graph
+   carries a legal cycle (intent → longgen → arc → turn/index → stages), and
+   an eval-time merge would TDZ on it.
+8. **The reader controller was opened, and the law got a ratchet.** The
+   pre-closure helpers of `rooms/reader/app.js` moved to `app/` (net · kv ·
+   guards · util). The closure itself (4,700 lines, 33 banner sections, 266
+   definitions) resists verbatim splitting: a scope-blind cut cannot tell a
+   closure `let` from its dozens of local shadows (`text`, `model`, `q`…),
+   and 22 names carry cross-section writes — decomposing it safely needs an
+   AST-scoped pass (the install-pattern proven on stages.js, with each
+   section's dependencies computed from real scopes, not regexes). Until that
+   lands, `tests/size-ratchet.test.js` gives the "no file over ~250 lines"
+   law mechanical teeth: no file off the baseline may cross 250, the 130
+   pinned offenders may only SHRINK, and a healed file's row must be deleted.
+
 ## The open worklist, honestly
 
-- **Law 1 at runtime.** The claim "the kernel checks every event the part
-  emits" is still stronger than the mechanism. Events don't carry their
-  emitting module, so per-part runtime checking has nowhere to stand. Either
-  events grow provenance at the `log.append` chokepoint (which already seals
-  geometry) and the check becomes real, or the claim in eo-for-coders should
-  be softened to what is true: conformance is proven at the checkpoint, not
-  policed at emit.
-- **The god modules.** 130 files over the line, two of them the size the
-  refactor was named for. `rooms/reader/app.js` wants the same treatment
-  `engine.js` got in 4.0 — cut along the seams its own sections already draw.
-- ~~**The seam registry.**~~ Done: healed from 195 to zero; the registry is
-  empty and the boundary test keeps it that way.
+- **The reader closure.** `rooms/reader/app.js` (4,843, pinned) still wants
+  the AST-scoped decomposition above — the coupling map is in this doc's
+  history, the pattern is proven on `turn/stages.js`, and the ratchet holds
+  the line meanwhile.
+- **Law 1 adoption.** The emit-time check is live but opt-in per emitter;
+  the parse orchestrator is the first adopter. Each faculty can self-identify
+  its authored events (`append(event, { src })`) at its own pace — the
+  registry resolver is already at the chokepoint.
+- ~~**The seam registry.**~~ Done: healed from 195 to zero (one declared row
+  remains, with its reason: the conformance registry itself cannot ride
+  core's entrance); the boundary test keeps it that way.
