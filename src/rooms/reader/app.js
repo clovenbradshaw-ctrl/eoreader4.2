@@ -18,7 +18,7 @@
 // one degrades to a no-op or a thrown, catchable error; nothing at import time
 // touches the network.
 
-import { parseText, TITLE_WORDS } from '../../perceiver/parse/index.js';
+import { parseText } from '../../perceiver/parse/index.js';
 import { promoteConnection } from '../../enactor/connect/index.js';
 import { speakTriples, talkThenVerify } from '../../weave/write/index.js';
 import { toPast } from '../../weave/write/index.js';
@@ -33,12 +33,9 @@ import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement, anch
          readDiscourse, clarifyDemandOf, loadShapeLibrary } from '../../turn/index.js';
 import { loadShapeGrammars } from '../../turn/index.js';
 import { extendLibraryWithNavPool } from '../../turn/index.js';
-import { createWebClient, htmlToText, wikiExtract, searchAndAdmit } from '../../organs/ingest/index.js';
-import { directCorsUrl } from '../../organs/ingest/index.js';
+import { createWebClient, htmlToText, searchAndAdmit } from '../../organs/ingest/index.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/index.js';
-import { GUTENBERG_FULLTEXT } from '../../organs/ingest/index.js';
-import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/index.js';
-import { GITHUB_FULLTEXT, fetchGithubRepo } from '../../organs/ingest/index.js';
+import { fetchGithubRepo } from '../../organs/ingest/index.js';
 import { LIBRARIES, surfaceCard, librariesManifest } from '../../organs/ingest/index.js';
 import { readIngest } from '../../organs/ingest/index.js';
 import { emitEot } from '../../organs/ingest/index.js';
@@ -69,207 +66,14 @@ import { composeProvenance, repoRef, readBuild, fetchLatestCommit, APP_NAME, APP
 import { foldNarrative } from './fold-narrative.js';
 import { deriveTopicTitle, isDefaultTopicTitle, DEFAULT_TOPIC_TITLE } from './topic-name.js';
 
-// ── the proxy chain ───────────────────────────────────────────────────────────
-// The primary is the n8n feed proxy (webfetch's default); when it fails the two
-// public CORS proxies are tried in order, same target. The chain rides UNDER
-// createWebClient: the client builds its primary-proxied URL, this fetchImpl
-// recovers the target and walks the chain — so search kinds, wiki extracts and
-// page fetches all inherit the fallback without knowing it exists.
-const PROXY_FORMS = [
-  (u) => `https://n8n.intelechia.com/webhook/feed?url=${encodeURIComponent(u)}`,
-  // corsproxy.io was dropped: its free tier now returns a 200 HTML landing page (no CORS
-  // header) for every request, so it poisoned the chain — a fake "success" that hid a real
-  // failure and blocked the working fallback below. allorigins is the public backstop for a
-  // fully-down primary; n8n (the reader's own feed proxy) carries the normal load.
-  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-];
-
-const targetOf = (proxiedUrl) => {
-  try { return new URL(proxiedUrl).searchParams.get('url') || proxiedUrl; }
-  catch { return proxiedUrl; }
-};
-
-// fetchTimed cuts a stalled proxy connection loose two ways: a per-request TIMEOUT and the
-// caller's abort `signal` (the Stop button / the turn's stall watchdog). 4.1's proxyFetch
-// chained the caller signal so Stop halted an in-flight fetch; 4.2 had dropped it, so a
-// hung fetch ignored Stop and the turn ground through the full timeout with no way out.
-const fetchTimed = (url, { ms = 20000, signal = null } = {}) => {
-  const c = new AbortController();
-  const t = setTimeout(() => c.abort(), ms);
-  const relay = () => { try { c.abort(); } catch { /* already aborted */ } };
-  if (signal) { if (signal.aborted) relay(); else signal.addEventListener('abort', relay, { once: true }); }
-  return fetch(url, { signal: c.signal }).finally(() => {
-    clearTimeout(t);
-    if (signal) signal.removeEventListener('abort', relay);
-  });
-};
-
-const chainFetch = async (proxiedUrl, { signal = null } = {}) => {
-  if (signal?.aborted) throw new Error('aborted');
-  const target = targetOf(proxiedUrl);
-  // CORS-DIRECT FIRST. The Wikimedia API family (the default search route) and OpenAlex (the
-  // academic route) answer cross-origin with `Access-Control-Allow-Origin: *`, so fetch them
-  // straight from the browser with no proxy — the reliability fix: the two most common routes no
-  // longer go dark when BOTH proxies are down or rate-limited, and each hop is a hop faster. A
-  // direct miss (an unexpected CORS failure, an offline tab, a transient 5xx) simply falls through
-  // to the proxy chain below, so this only ADDS a path, never removes one. Everything else — article
-  // pages, arXiv/ar5iv, news RSS, feeds — has no CORS header and still rides the proxy.
-  const direct = directCorsUrl(target);
-  const forms = direct ? [() => direct, ...PROXY_FORMS] : PROXY_FORMS;
-  let lastErr = null;
-  for (const form of forms) {
-    if (signal?.aborted) throw new Error('aborted');
-    try {
-      const res = await fetchTimed(form(target), { signal });
-      if (!res.ok && (res.status >= 500 || res.status === 429)) { lastErr = new Error(`HTTP ${res.status}`); continue; }
-      return res;
-    } catch (e) {
-      // A user/turn abort is final — don't keep walking the chain waiting on a stopped turn.
-      if (signal?.aborted) throw e;
-      lastErr = e;
-    }
-  }
-  throw lastErr || new Error('fetch failed');
-};
-
-// Full-text hooks per search kind — a Wikipedia hit reads the clean API extract,
-// a Gutenberg hit the whole book, a Wikidata hit its rendered claims; anything
-// else fetches the page and reduces its HTML. Mirrors webfetch's internal map.
-const FULL_TEXT = {
-  wikipedia: (client, item) => wikiExtract(client, item?.title),
-  ...GUTENBERG_FULLTEXT,
-  ...WIKIMEDIA_FULLTEXT,
-  ...GITHUB_FULLTEXT,   // a repo hit reads its README
-};
-
-// ── tiny IndexedDB kv (best-effort; absent in Node) ──────────────────────────
-const idbOpen = () => new Promise((res, rej) => {
-  const r = indexedDB.open('eo-reader-42', 1);
-  r.onupgradeneeded = () => r.result.createObjectStore('kv');
-  r.onsuccess = () => res(r.result);
-  r.onerror = () => rej(r.error);
-});
-const kv = async (mode, fn) => {
-  if (typeof indexedDB === 'undefined') return null;
-  const db = await idbOpen();
-  try {
-    return await new Promise((res, rej) => {
-      const tx = db.transaction('kv', mode);
-      const out = fn(tx.objectStore('kv'));
-      tx.oncomplete = () => res(out && 'result' in out ? out.result : null);
-      tx.onerror = () => rej(tx.error);
-    });
-  } finally { db.close(); }
-};
-
-const nowIso = () => new Date().toISOString();
-const nowMs = () => { try { return Date.now(); } catch { return 0; } };
-// How far a reader web-search walks. 4.1 reached the net by a multi-hop curiosity walk (follow the
-// surprise while it stays on topic), not a single fetch; this restores that depth. The budget is
-// generous ON PURPOSE: the walk's own knobs (a low curiosity floor, a deep frontier, strayPatience)
-// are tuned so multi-hop walks are the COMMON case, and the saliency leash — not this cap — is what
-// ends a walk that has left the question. The cap only stops a runaway.
-const RESEARCH_HOPS = 8;
-// Does the ask want a DEVELOPED, multi-paragraph piece — an essay, a report, a detailed
-// write-up — rather than a pointed answer? 4.1 had a system-decided long-form route; 4.2 had
-// dropped it, so EVERY reader turn was capped at the small per-task budgets (answer 384 tokens)
-// and "write me an essay about dolphins" came back as two sentences. This restores a long-form
-// lane: when the ask names a long-form artifact, the turn gets a much larger budget and the
-// paragraph loop is allowed to develop the piece. Mirrors 4.1's _longformIntent keyword floor.
-const LONGFORM_RE = /\b(essays?|treatise|report|deep[\s-]?dive|comprehensive(?:ly)?|in[\s-]?depth|at\s+length|long[\s-]?form|thorough(?:ly)?|detailed|\d{3,}\s*words?|(?:write|compose|draft|create|produce|generate|give)\s+(?:me\s+|us\s+)?(?:a|an|the|some)\b[^.?!]{0,40}?\b(?:essay|report|overview|account|piece|article|guide|breakdown|story|analysis|write[-\s]?up|blog\s*post|review))\b/i;
-const wantsLongform = (q) => LONGFORM_RE.test(String(q || ''));
-const LONGFORM_MAX_TOKENS = 1600;
-const domainOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
-const shaShort = (h) => String(h || '').replace(/^[^:]*:/, '').slice(0, 12);
-// Honorifics whose trailing period admission drops when it joins them to a name ("Mr." → the
-// label "Mr Dupree"). Lowercased once, from the admission's own list, so the reader's entity
-// linker tolerates the same normalisation when matching the label back onto the surface text.
-const LINK_TITLES = new Set([...TITLE_WORDS].map((w) => w.toLowerCase()));
-const bytesOf = (text) => { try { return new TextEncoder().encode(text).length; } catch { return String(text).length; } };
-const esc = (s) => String(s ?? '');
-
-// keepGuardAlive(guard, p, opts) → p, but while p is pending the no-progress `guard` is FED on a
-// fixed interval, so an OPAQUE model call — formulateSearchQuery, the sense disambiguator — that
-// streams no token and fires no step still reads as a sign of life. This is the fix for the false
-// "the web lookup stalled" abort: the sense disambiguator alone is a 220-token temperature-0 decode
-// (disambiguate.js), and it runs BEFORE the first hop's progress beat; on a modest device (or a first
-// cold decode) that one call outlasts the 45s stall guard, which then aborts the turn mid-think and
-// blames the web before a single page is ever fetched. A ping every `every` ms says "the engine is
-// working" — the same sign-of-life the token / step / hop feeds carry for the phases that CAN report
-// progress. It never masks a real hang: the interval is cleared the instant the call settles
-// (`finally`), a Stop or a stall tripped elsewhere still settles the turn (a fed guard that is already
-// tripped is a no-op), and a hard `maxMs` ceiling stops the feed so a genuinely stuck call is released
-// to trip well past any real decode. Pure and injectable (`now`) so the cadence is unit-testable.
-export const keepGuardAlive = (guard, p, { every = 8000, maxMs = 180000, now = () => Date.now() } = {}) => {
-  const done = Promise.resolve(p);
-  if (!guard || !every) return done;
-  const t0 = now();
-  const iv = setInterval(() => {
-    if (guard.tripped?.() || (maxMs && now() - t0 >= maxMs)) { clearInterval(iv); return; }
-    try { guard.feed?.(); } catch { /* feeding a settled guard is harmless */ }
-  }, every);
-  return done.finally(() => clearInterval(iv));
-};
-
-// probeModelAlive(m) → did the engine ANSWER a one-token decode inside the window? The wedge
-// recovery below (resetWedgedLocalModel) used to pattern-match: 45s of no progress ⇒ the engine is
-// dead ⇒ tear it down. But a no-progress stall has two very different causes — a genuinely wedged
-// engine (a lost WebGPU device, a dead worker) and a merely SLOW one (a long prefill on a weak GPU,
-// a CPU decode on a modest machine) — and tearing down a slow-but-alive engine forces a reload it
-// never needed, then counts a "wedge" toward the downgrade ladder. Two slow turns in a row and the
-// user's Llama pick silently became wllama: the model "didn't stay loaded". This probe is the
-// evidence: a truly dead engine throws at once (its backend already dropped the handle) or never
-// answers (the timeout catches it); a live one answers a 1-token draw in seconds. Resolves true/false,
-// never throws. Exported for the tests; `timeoutMs` injectable for the same reason.
-export const probeModelAlive = (m, { timeoutMs = 10000 } = {}) =>
-  new Promise((resolve) => {
-    let done = false;
-    const settle = (v) => { if (!done) { done = true; clearTimeout(timer); resolve(v); } };
-    const timer = setTimeout(() => settle(false), timeoutMs);
-    Promise.resolve()
-      .then(() => m.phrase([{ role: 'user', content: 'ok' }], { maxTokens: 1, temperature: 0 }))
-      .then(() => settle(true), () => settle(false));
-  });
-
-// The at-rest record is a ring buffer: it keeps at most REFLECTION_CAP notes so a long session's
-// memory stays bounded (the oldest fall off the front). But the count we SURFACE — "… N notes so
-// far" — has to be the running total the reading has ever voiced, NOT the retained buffer size, or
-// it plateaus at the cap and reads as frozen the moment the session crosses it (the "200 notes"
-// that never moves). So recordReflections mints ids and advances the tally from a monotonic `seen`
-// that the trim never touches: the buffer caps, the count climbs, and ids stay unique past the cap
-// (no repeated R201). `make(r)` builds the stored note from each fresh reflection; the id is added
-// here. Returns the advanced `seen`. Pure and injectable (`cap`) so it is unit-testable without the
-// engine — which matters because below the cap the bug is invisible; it only shows past REFLECTION_CAP.
-export const REFLECTION_CAP = 200;
-export const recordReflections = (record, seen, fresh, make, cap = REFLECTION_CAP) => {
-  for (const r of fresh) { seen += 1; record.push({ id: `R${seen}`, ...make(r) }); }
-  if (record.length > cap) record.splice(0, record.length - cap);
-  return seen;
-};
-
-// The activity ledger is append-only — every discrete action (record, claim, conflict, search)
-// gets its own line, in order. EXCEPT: a beat that repeats every idle pass — the at-rest
-// reflection — would bury those actions under dozens of near-identical "Reflected at rest — N
-// notes" lines (the idle governor fires every few seconds; a long lull over a big record voices a
-// fresh batch each pass). So such a beat may COALESCE: when the tail entry already shares its
-// kind, the tail is updated in place — new text/effect/time, its id kept so the surface's list
-// keys don't churn — instead of a new line being appended. A run of idle passes collapses to ONE
-// live line that ticks its count; the next DISCRETE action (which never opts into coalescing)
-// appends past it, so the timeline still marks WHERE the lull sat. `mintId` is called only when a
-// line is actually appended, so a coalesced beat never burns an id number. Pure and injectable
-// (`cap`) so it is unit-testable without the engine — the same reason recordReflections is.
-export const LOG_CAP = 400;
-export const appendLog = (log, { kind, t, text, effect = '' }, mintId, { coalesce = false, cap = LOG_CAP } = {}) => {
-  const tail = log[log.length - 1];
-  if (coalesce && tail && tail.kind === kind) {
-    tail.t = t; tail.text = text; tail.effect = effect;
-  } else {
-    log.push({ id: mintId(), t, kind, text, effect });
-    if (log.length > cap) log.splice(0, log.length - cap);
-  }
-  return log;
-};
-
+// The pre-closure helpers moved to app/ (net · kv · guards · util) in the 2026-07
+// compliance pass — same holon, one file per concern, this file re-exports the
+// public ones at their historical site.
+import { chainFetch, FULL_TEXT } from './app/net.js';
+import { kv } from './app/kv.js';
+import { keepGuardAlive, probeModelAlive, REFLECTION_CAP, recordReflections, LOG_CAP, appendLog } from './app/guards.js';
+import { nowIso, nowMs, RESEARCH_HOPS, wantsLongform, LONGFORM_MAX_TOKENS, domainOf, shaShort, LINK_TITLES, bytesOf, esc } from './app/util.js';
+export { keepGuardAlive, probeModelAlive, REFLECTION_CAP, recordReflections, LOG_CAP, appendLog };
 // ── the app ──────────────────────────────────────────────────────────────────
 export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch } = {}) => {
   const state = {

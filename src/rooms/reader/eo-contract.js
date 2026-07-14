@@ -6,6 +6,10 @@ import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
   'src/rooms/reader/app.js': contract({ ops: ['CON', 'INS'], targets: ['Network', 'Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'the reader session controller' }),
+  'src/rooms/reader/app/net.js': contract({ ops: ['SIG', 'CON'], targets: ['Void', 'Network'], products: ['Entity', 'Link'], stances: ['Tending', 'Binding'], note: 'the proxy chain — public CORS proxies raced in order + the full-text mirrors' }),
+  'src/rooms/reader/app/kv.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Tending'], note: 'tiny IndexedDB kv (best-effort; absent in Node)' }),
+  'src/rooms/reader/app/guards.js': contract({ ops: ['EVA', 'NUL'], targets: ['Entity'], products: ['Lens', 'Void'], stances: ['Tracing', 'Tending'], note: 'model probes, the keep-alive guard, the bounded record helpers' }),
+  'src/rooms/reader/app/util.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Clearing'], note: 'small shared utilities of the reader app' }),
   'src/rooms/reader/audio-dsp.js': contract({ ops: ['SEG', 'NUL'], targets: ['Field'], products: ['Void'], stances: ['Dissecting', 'Clearing'], note: 'audio DSP — waveform redaction + WAV encode' }),
   'src/rooms/reader/audio-store.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Tending'], note: 'original-audio byte store (OPFS binary)' }),
   'src/rooms/reader/boot.js': contract({ ops: ['CON', 'SIG'], targets: ['Network', 'Field'], products: ['Link'], stances: ['Binding', 'Tending'], note: 'the surface↔engine membrane' }),
