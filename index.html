@@ -1442,9 +1442,87 @@ table{border-collapse:collapse;width:100%}
               </div>
             </div>
 
-            <!-- TOPLINE — the auto-generated summary of this source, composed from the objects the -->
+            <!-- DOSSIER — a single-subject source (a bio/article) shows its dominant figure's reading -->
+            <!-- (docs/topline.md): the model-WRITTEN account IN THIS DOCUMENT on the left (its info in the -->
+            <!-- context of the reading, span-grounded and steerable — never the raw encyclopedia lead), -->
+            <!-- and on the right the settled Wikipedia referent + lead image over the provenance DAG that -->
+            <!-- receipts every standing property. A diffuse / figure-less source keeps the plain SUMMARY. -->
+            <sc-if value="{{ viewer.dossier.show }}">
+              <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;background:#FAFAFE;padding:13px 20px">
+                <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:11px">
+                  <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">DOSSIER</span>
+                  <span style="font-family:'Newsreader',Georgia,serif;font-size:14px;font-weight:600;color:#2A2A32">{{ viewer.dossier.label }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B4B4BE">{{ viewer.dossier.counts }}</span>
+                  <span style="flex:1"></span>
+                  <button onClick="{{ viewer.dossier.openFull }}" title="Open this figure's full profile" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:3px 9px" style-hover="background:#E7E2FD">Full profile ↗</button>
+                </div>
+                <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start">
+
+                  <!-- LEFT — the reading's own account of the figure -->
+                  <div style="flex:1 1 360px;min-width:280px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                      <span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#A6A0CF">{{ viewer.dossier.summary.panelLabel }}</span>
+                      <sc-if value="{{ viewer.dossier.summary.hasKind }}"><span style="font-size:9px;font-weight:600;color:#B26A2E;text-transform:uppercase;letter-spacing:.04em">{{ viewer.dossier.summary.kindLabel }}</span></sc-if>
+                      <span style="flex:1"></span>
+                      <sc-if value="{{ viewer.dossier.summary.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
+                    </div>
+                    <sc-if value="{{ viewer.dossier.summary.has }}">
+                      <sc-if value="{{ viewer.dossier.summary.hasSpans }}">
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:14.5px;line-height:1.6;color:#2A2A32"><sc-for list="{{ viewer.dossier.summary.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span title="{{ sp.cite }}">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing in the record witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if></sc-for></div>
+                        <sc-if value="{{ viewer.dossier.summary.anyFlagged }}"><div style="font-size:10px;color:#B08A4A;margin-top:5px">Underlined spans are the model’s own words — not found in the record.</div></sc-if>
+                      </sc-if>
+                      <sc-if value="{{ viewer.dossier.summary.noSpans }}">
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:14.5px;line-height:1.6;color:#2A2A32">{{ viewer.dossier.summary.text }}</div>
+                      </sc-if>
+                      <sc-if value="{{ viewer.dossier.summary.hasUnmet }}"><div style="font-size:11px;color:#B26A2E;margin-top:6px;font-style:italic">{{ viewer.dossier.summary.unmet }}</div></sc-if>
+                      <div style="display:flex;align-items:center;gap:6px;margin-top:10px;flex-wrap:wrap">
+                        <input value="{{ viewer.dossier.summary.draft }}" onChange="{{ viewer.dossier.summary.onInput }}" onKeyDown="{{ viewer.dossier.summary.onKey }}" placeholder="Tell it what to change — shorter, focus on…, or what's wrong" style="flex:1;min-width:140px;border:1px solid #E1DDF2;border-radius:7px;background:#fff;padding:6px 9px;font-size:11.5px;outline:none" style-focus="border-color:#B7ADF3" />
+                        <button onClick="{{ viewer.dossier.summary.send }}" style="font-size:11px;font-weight:600;color:#fff;background:#6D5EF5;border-radius:7px;padding:6px 12px" style-hover="background:#5B4BE6">Update</button>
+                        <button onClick="{{ viewer.dossier.summary.shorter }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">Shorter</button>
+                        <button onClick="{{ viewer.dossier.summary.longer }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">More</button>
+                        <button onClick="{{ viewer.dossier.summary.regen }}" title="Recompose from the record" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">↻</button>
+                        <sc-if value="{{ viewer.dossier.summary.hasCites }}"><span title="the passages this rests on" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2">{{ viewer.dossier.summary.cites }}</span></sc-if>
+                      </div>
+                    </sc-if>
+                  </div>
+
+                  <!-- RIGHT — the Wikipedia referent (image + link) over the provenance DAG -->
+                  <div style="flex:0 0 320px;max-width:100%;display:flex;flex-direction:column;gap:11px">
+                    <sc-if value="{{ viewer.dossier.hasImage }}">
+                      <a href="{{ viewer.dossier.wikiUrl }}" target="_blank" rel="noopener" title="{{ viewer.dossier.wikiTitle }} — Wikipedia ↗" style="display:block;border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff;text-decoration:none">
+                        <img src="{{ viewer.dossier.image }}" alt="{{ viewer.dossier.imageAlt }}" loading="lazy" referrerpolicy="no-referrer" style="display:block;width:100%;height:auto;max-height:300px;object-fit:cover" />
+                        <sc-if value="{{ viewer.dossier.hasWiki }}">
+                          <span style="display:block;padding:7px 11px;border-top:1px solid #F0F0F4">
+                            <span style="display:block;font-size:11px;font-weight:600;color:#5B4BE6">{{ viewer.dossier.wikiTitle }} ↗</span>
+                            <sc-if value="{{ viewer.dossier.hasWikiDesc }}"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4;margin-top:2px">{{ viewer.dossier.wikiDesc }}</span></sc-if>
+                          </span>
+                        </sc-if>
+                      </a>
+                    </sc-if>
+                    <sc-if value="{{ viewer.dossier.wikiWait }}"><div style="font-size:10.5px;color:#B0AACF;font-style:italic">looking up Wikipedia…</div></sc-if>
+                    <!-- a confirmed referent that carries no lead image still earns its link -->
+                    <sc-if value="{{ viewer.dossier.hasWiki }}"><sc-if value="{{ viewer.dossier.noImage }}">
+                      <a href="{{ viewer.dossier.wikiUrl }}" target="_blank" rel="noopener" style="display:block;border:1px solid #EFEFF3;border-radius:10px;padding:8px 11px;background:#FBFBFD;text-decoration:none">
+                        <span style="display:block;font-size:11px;font-weight:600;color:#5B4BE6">{{ viewer.dossier.wikiTitle }} ↗</span>
+                        <sc-if value="{{ viewer.dossier.hasWikiDesc }}"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4;margin-top:2px">{{ viewer.dossier.wikiDesc }}</span></sc-if>
+                      </a>
+                    </sc-if></sc-if>
+                    <sc-if value="{{ viewer.dossier.hasDag }}">
+                      <div style="border:1px solid #EFEFF3;border-radius:11px;padding:10px 8px 6px;background:#fff">
+                        <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 6px">PROVENANCE <span style="color:#C8C8D0;font-weight:600">· source → passage → property</span></div>
+                        <div ref="{{ viewer.dossier.setDagEl }}"></div>
+                      </div>
+                    </sc-if>
+                  </div>
+
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- SUMMARY — the auto-generated topline of this source, composed from the objects the -->
             <!-- machinery decided (never the raw text), with a box to give it feedback that steers it. -->
-            <sc-if value="{{ viewer.topline.show }}">
+            <!-- Shown for a diffuse source; a single-subject one shows the DOSSIER above instead. -->
+            <sc-if value="{{ viewer.plainSummary }}">
               <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;background:#FAFAFE;padding:11px 20px">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                   <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">SUMMARY</span>
@@ -4646,6 +4724,67 @@ class Component extends DCLogic {
       regen: () => this._regenTl(scope, ids, key),
     };
   }
+  // ── the source page's entity DOSSIER (docs/topline.md) ───────────────────────
+  // When a source CENTRES on one dominant figure (a bio, an article about a subject), its summary
+  // panel becomes that figure's dossier rather than a machine telegram: the model-WRITTEN reading of
+  // the figure IN THIS DOCUMENT on the left (its info in the context of the reading, span-grounded and
+  // steerable — never the raw encyclopedia lead), and on the right the settled Wikipedia referent with
+  // its lead image, over the provenance DAG that receipts every standing property. It reuses the entity
+  // machinery whole — the contextual summary (chorus/definer), the wiki referent + image, _renderPropDag
+  // — laid out full-width for the reading stage. A diffuse / figure-less source returns { show:false }
+  // and keeps its plain source SUMMARY.
+  _sourceDossierVM(s) {
+    const app = this._app;
+    if (!app || !app.sourceDominantEntity || !s) return { show: false };
+    let dom = null;
+    try { dom = app.sourceDominantEntity(s.sn); } catch { dom = null; }
+    if (!dom) return { show: false };
+    const { docId, entId, label } = dom;
+    const p = app.entityProfile ? app.entityProfile(docId, entId) : null;
+    if (!p) return { show: false };
+    // Pull the Wikipedia referent + lead image once (deferred — a render read never setStates).
+    this._kickDossierWiki(docId, entId);
+    const wk = this.state.wikiDefs[docId + '#' + entId] || null;
+    const wkHit = !!(wk && wk.confirmed && wk.text);
+    const hasImage = !!(wk && wk.confirmed && wk.thumb);
+    const src = app.sourceBySn(p.sn) || {};
+    return {
+      show: true, label,
+      counts: (p.mentions.length === 1 ? '1 mention' : p.mentions.length + ' mentions')
+        + ' · ' + (p.relations.length === 1 ? '1 link' : p.relations.length + ' links'),
+      openFull: () => this.openEntity(docId, entId),
+      // LEFT — the fold-aware contextual reading of this figure (model-written, span-grounded,
+      // steerable). Reuses the entity topline VM whole, so feedback / Shorter / More all steer it.
+      summary: this._toplineVM('entity', { docId, entId }, label),
+      // RIGHT · the Wikipedia lead image — shown only for a CONFIRMED referent (the honesty rule).
+      wikiWait: !!(wk && wk.busy),
+      hasImage, noImage: !hasImage, image: hasImage ? wk.thumb : '', imageAlt: label,
+      hasWiki: wkHit, wikiTitle: wkHit ? wk.title : '', wikiUrl: wkHit ? wk.url : '',
+      hasWikiDesc: !!(wkHit && wk.description), wikiDesc: wkHit ? (wk.description || '') : '',
+      // RIGHT · the provenance DAG (SOURCE → PASSAGE → PROPERTY), keyed apart from the sidebar's.
+      hasDag: p.defs.length > 0,
+      setDagEl: (el) => this._mountPropDag(el, {
+        source: { title: src.title || p.sourceTitle || 'this source', reg: src.reg || '' },
+        props: p.defs.slice(0, 8).map((d) => ({
+          value: d.value, count: d.count, score: d.score,
+          witnesses: (d.witnesses || []).map((w) => ({ idx: w.idx, text: w.text })),
+        })),
+        onJump: (text) => this._jumpTo(p.sn, text),
+      }, 'dossier:' + docId + '#' + entId + '#' + p.defs.length),
+    };
+  }
+  // Kick the dominant figure's Wikipedia lookup (referent + lead image) exactly once, deferred a
+  // microtask so a render-time read never setStates synchronously. _ensureWiki caches on
+  // state.wikiDefs, which the dossier VM reads back on the next render; the shared cache means the
+  // sidebar profile and the dossier never fetch the same referent twice.
+  _kickDossierWiki(docId, entId) {
+    const key = docId + '#' + entId;
+    if (this.state.wikiDefs[key]) return;
+    this._wikiKicked = this._wikiKicked || new Set();
+    if (this._wikiKicked.has(key)) return;
+    this._wikiKicked.add(key);
+    Promise.resolve().then(() => this._ensureWiki(docId, entId));
+  }
   // ── the property provenance DAG ─────────────────────────────────────────────
   // A self-contained little DAG that answers "where does this property come from?":
   // SOURCE → the PASSAGES that assert each property → the PROPERTIES themselves, ranked.
@@ -6251,6 +6390,11 @@ class Component extends DCLogic {
           // the auto-generated topline for this source + its feedback box (docs/topline.md)
           topline: this._toplineVM('source', { sn: s.sn }, s.title),
         };
+        // The DOSSIER — a single-subject source (a bio/article) shows its dominant figure's reading:
+        // the model-written account IN THIS DOCUMENT beside the Wikipedia referent + image over the
+        // provenance DAG. A diffuse source keeps its plain SUMMARY, so the two are mutually exclusive.
+        viewer.dossier = this._sourceDossierVM(s);
+        viewer.plainSummary = !!(viewer.topline && viewer.topline.show) && !viewer.dossier.show;
         // The media panel — player + waveform + signal/noise holons + transcription status —
         // shown above the reading for a decoded audio/video source, in every viewer mode.
         viewer.media = this._mediaVM(s) || { show: false };
