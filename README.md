@@ -105,6 +105,25 @@ opens empty and fills as you record.
 | shared workspaces + shared vault (optional) | `rooms/archive/room-vault` — a **workspace is an invitable Matrix room**; everything saved into it is stored as an **encrypted, hash-linked blockchain, in binary, in Matrix**, decryptable by **only the room's members** (the block's key rides a Megolm room event). The room timeline is the ledger's ordering, so every member's chain **converges**; room messages carry the updates, `sendSignal` the nudges. `window.EO.spaces` (see [`docs/shared-vault.md`](docs/shared-vault.md)) |
 | sync to Matrix (optional) | `rooms/archive/space-sync` — one per-workspace **opt-in** (default OFF) that mirrors a workspace's sources into its room's encrypted blockchain, opening the room first if needed; content-addressed + debounced so an unchanged source is never re-uploaded. `window.EO.spaces.setSync` / `.sync` |
 
+## The plain version — the algebra, worn as three questions
+
+Open **`plain.html`** (`npm run serve`) for the same engine with **nothing named to the person** —
+not "operator", not "terrain", not "resolution", not once. It rests on one rule: *the person never
+chooses a terrain, because the thing they clicked already is one.* A name is an **Entity**, an arrow
+is a **Link**, a quoted phrase is a **Lens** — and a terrain sits in exactly one domain, and a domain
+has **exactly three operators**. So a click yields **exactly three questions**, always: they are not
+curated, they *are* `operatorsByDomain(domain)` wearing plain-English coats (`src/rooms/plain/terrain.js`).
+
+The person experiences that as restraint; it is arithmetic. `tests/plain-terrain.test.js` pins that the
+three questions of a kind are exactly its domain's three operators, and that the §9 addresses
+(`SIG(Entity, Binding)`, …, `REC(Paradigm, Composing)`) are the ones the design lists. The only two
+things that move under the hand — reading a word under a basis ("surveillance" → a line item under the
+budget, a thing-done-to-people under the court filing) and re-centering the picture — are pure folds
+(`src/rooms/plain/select.js`), reversible and pinned by `tests/plain-select.test.js`. The ✱ cards
+(*When people changed their minds* · *Blind spots*) are the ones no tool without **REC** and a **typed
+void** can build. The worked corpus is `src/rooms/plain/scene.js`; the framework-free surface is
+`surface.js`, the same room idiom as Replay and Render.
+
 ## Replay — watching something get read
 
 Open **`replay.html`** (`npm run serve`) for a surface built on one rule: **no ingest organ
