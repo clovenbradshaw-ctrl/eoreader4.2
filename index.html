@@ -999,7 +999,7 @@ table{border-collapse:collapse;width:100%}
                         <sc-if value="{{ m.hasFlags }}">
                           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px">
                             <sc-for list="{{ m.flagChips }}" as="fc">
-                              <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:{{ fc.fg }};background:{{ fc.bg }};border:1px solid {{ fc.bd }};border-radius:5px;padding:2px 7px">{{ fc.label }}</span>
+                              <span title="{{ fc.title }}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:{{ fc.fg }};background:{{ fc.bg }};border:1px solid {{ fc.bd }};border-radius:20px;padding:2px 9px"><span style="width:5px;height:5px;border-radius:50%;background:{{ fc.fg }};flex:0 0 auto"></span>{{ fc.label }}</span>
                             </sc-for>
                           </div>
                         </sc-if>
@@ -1009,7 +1009,7 @@ table{border-collapse:collapse;width:100%}
                             <sc-for list="{{ m.cites }}" as="c">
                               <button onClick="{{ c.open }}" title="{{ c.quote }}" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ c.fg }};background:{{ c.bg }};border:1px solid {{ c.bd }};border-radius:6px;padding:3px 8px" style-hover="filter:brightness(.97)"><sc-if value="{{ c.hasSwatch }}"><span style="width:9px;height:9px;border-radius:3px;background:{{ c.swatch }};flex:0 0 auto"></span></sc-if>{{ c.label }}<span style="width:5px;height:5px;border-radius:50%;background:{{ c.fg }}"></span>{{ c.status }}</button>
                             </sc-for>
-                            <sc-if value="{{ m.hasUngroundedChip }}"><span title="Some spans have no source behind them — the model's own framing or connective text, shown with a colourless wash." style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#8A7A57;background:#F7F2E7;border:1px solid #E7DCC2;border-radius:6px;padding:3px 8px"><span style="width:9px;height:9px;border-radius:3px;background:hsl(41 40% 82%);box-shadow:inset 0 0 0 1px hsl(40 22% 72%);flex:0 0 auto"></span>ungrounded</span></sc-if>
+                            <sc-if value="{{ m.hasUngroundedChip }}"><span title="Parts of this answer are the model's own framing or general knowledge — not traced to your recorded sources." style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#8A7A57;background:#F7F2E7;border:1px solid #E7DCC2;border-radius:20px;padding:2px 9px"><span style="width:5px;height:5px;border-radius:50%;background:#C8A96B;flex:0 0 auto"></span>not grounded</span></sc-if>
                           </div>
                         </sc-if>
                         <sc-if value="{{ m.hasProposal }}">
@@ -6218,6 +6218,37 @@ class Component extends DCLogic {
     if (status === 'Uncited') return { fg: '#9A6B12', bg: '#FBF1DA', bd: '#EEDCA9' };
     return { fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9' };
   }
+  // A footer flag → a calm, plain-language chip. The pipeline names each caveat with an internal
+  // slug (`unbound-contact`, `assessment-negative`, …); shown raw, in monospace, they read as debug
+  // output. Here the slug becomes a short human phrase, the flag's own sentence rides as the hover
+  // title, and the tone is muted — a red note only for the ones that actually contest the answer,
+  // green for a positive corroboration, a soft amber for everything else. An unknown slug degrades
+  // to its de-slugged words, so a new flag is legible before it is ever named here.
+  _flagChip(f) {
+    const LABEL = {
+      unbound: 'not traced to your record',
+      'unbound-contact': 'only loosely related to your record',
+      'low-coverage': 'thinly sourced',
+      'ground-dropped': 'some unsourced lines left out',
+      'grounding-incomplete': 'grounding check didn’t finish',
+      'factcheck-limited': 'claims not fully checked',
+      'assessment-negative': 'it doubted its own draft',
+      'assessment-revised': 'answered again after a second look',
+      'self-echo': 'echoes my earlier words',
+      'self-corrected': 'noted a correction',
+      'single-source': 'rests on a single source',
+      corroborated: 'independently corroborated',
+      contradicted: 'contradicts your record',
+      unverified: 'unverified draft',
+    };
+    const id = String(f.id || '');
+    const positive = id === 'corroborated' || id === 'assessment-revised';
+    const serious = /contradic|unbound|assessment-negative/.test(id);
+    const tone = positive ? { fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9' }
+      : serious ? { fg: '#B0463B', bg: '#FBEEEC', bd: '#F1D8D3' }
+      : { fg: '#9A7327', bg: '#FBF6EA', bd: '#ECDFC4' };
+    return { id, label: LABEL[id] || id.replace(/[-_]/g, ' '), title: f.note || '', ...tone };
+  }
   // A stable highlighter colour per source (S1, S2, …) so a span's wash, its citation chip, and its
   // footer swatch all read as the SAME source across the whole answer. Hue is picked off the source's
   // own number, so a given source keeps its colour turn after turn.
@@ -6307,7 +6338,7 @@ class Component extends DCLogic {
     // provenance cue that rides in EVERY mode (Links on or off, chat or long-form), so an
     // ungrounded fact is disclosed as an underline and never reads as sourced. The literal
     // tag is dropped in favour of the underline.
-    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#C99A3A;text-underline-offset:2px';
+    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#D8C298;text-decoration-thickness:1px;text-underline-offset:2px';
     const out = [];
     const push = (t, style) => { if (t) out.push({ isText: true, s: t, style: style || '' }); };
     // Emphasis parse for one run, with an optional base style layered under `code`/**bold**/*italic*.
@@ -6369,7 +6400,7 @@ class Component extends DCLogic {
   _markStyle(mk) {
     if (!mk) return '';
     const CODE = "font-family:'IBM Plex Mono',monospace;font-size:.92em;background:#EFEFF4;border-radius:4px;padding:.03em 4px";
-    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#C99A3A;text-underline-offset:2px';
+    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#D8C298;text-decoration-thickness:1px;text-underline-offset:2px';
     const parts = [];
     if (mk.kind === 'code') parts.push(CODE);
     else if (mk.kind === 'strong') parts.push('font-weight:650');
@@ -6398,8 +6429,17 @@ class Component extends DCLogic {
     // inherits the emphasis, instead of a raw `*` bleeding through. Fallback: if the render membrane
     // is absent, style each text segment on its own (the old per-segment path).
     const mdMarks = this._render && this._render.inlineMdMarks;
+    const rawParas = this._app.answerSegments(m, { entities: hl, cites: hl, sources: hl });
+    // Does ANYTHING in this answer trace to a source? The warm "ungrounded" wash earns its ink only
+    // as a CONTRAST — a span reads warm because the ones beside it read cool (their source's hue). On
+    // a wholly-ungrounded answer there is no cool to contrast, so the wash just paints every word in
+    // one warm band: a full-paragraph highlight that buries the prose and repeats what the single
+    // "not grounded" note already says. So we wash ungrounded spans only when grounded text sits
+    // beside them; a grounded span always keeps its own hue.
+    const anyGrounded = hl && rawParas.some((p) => (p.segs || []).some((sg) => sg.gsn && wordful(sg.s)));
+    const groundOf = (gsn, isEnt) => (gsn || anyGrounded) ? this._groundStyle(gsn, isEnt) : '';
     let ungrounded = false;
-    const paras = this._app.answerSegments(m, { entities: hl, cites: hl, sources: hl }).map((p) => {
+    const paras = rawParas.map((p) => {
       const segsIn = p.segs.slice();
       let blk = { style: 'margin:0 0 10px', hasPrefix: false, prefix: '', cut: 0 };
       if (segsIn[0] && segsIn[0].t === 'text') {
@@ -6416,13 +6456,13 @@ class Component extends DCLogic {
             ? plan.pieces[si].map((pc) => ({ isText: true, s: pc.s, style: this._markStyle(pc) }))
             : this._inlineMd(sg.s);
           for (const piece of pieces) {
-            const gs = (hl && wordful(piece.s)) ? this._groundStyle(sg.gsn) : '';
+            const gs = (hl && wordful(piece.s)) ? groundOf(sg.gsn) : '';
             piece.style = join(piece.style, gs);
             segs.push(piece);
           }
         } else if (sg.t === 'ent') {
           const em = plan ? this._markStyle(plan.opaque[si]) : '';
-          segs.push({ isEnt: true, s: sg.s, hl: join(hl ? this._groundStyle(sg.gsn, true) : '', em), open: () => this.openEntity(sg.docId, sg.entId) });
+          segs.push({ isEnt: true, s: sg.s, hl: join(hl ? groundOf(sg.gsn, true) : '', em), open: () => this.openEntity(sg.docId, sg.entId) });
         } else {
           const cc = hl ? this._sourceColor(sg.sn) : null;
           segs.push({ isCite: true, label: '[' + (sg.reg || 's' + sg.idx) + ']', quote: sg.quote || '', cfg: cc ? cc.fg : '#5B4BE6', cbg: cc ? cc.chipBg : '#F1EFFE', open: () => this.openViewer(sg.sn, sg.quote) });
@@ -6430,7 +6470,7 @@ class Component extends DCLogic {
       }
       return { style: blk.style, hasPrefix: blk.hasPrefix, prefix: blk.prefix, segs };
     });
-    this._segCache[m.id] = { len: (m.text || '').length, paras, ungrounded };
+    this._segCache[m.id] = { len: (m.text || '').length, paras, ungrounded, hasGrounded: anyGrounded };
     return paras;
   }
   // The chat's facing page for ONE answer, two leaves in one pane. The VERBATIM leaf leads —
@@ -7055,10 +7095,11 @@ class Component extends DCLogic {
       });
       // 'unverified' rides as a full banner above the body (a stopped/stalled draft the grounding
       // pipeline never checked), so it does not also need a cryptic footer chip — drop it here.
-      const flagChips = (mm.flags || []).filter((f) => (f.id !== 'low-coverage' || !cites.length) && f.id !== 'unverified').map((f) => ({
-        label: f.id, fg: /contradic|unbound|assessment-negative/.test(f.id) ? '#B23A2E' : '#9A6B12',
-        bg: /contradic|unbound|assessment-negative/.test(f.id) ? '#FBE9E6' : '#FBF1DA', bd: /contradic|unbound|assessment-negative/.test(f.id) ? '#F2D3CD' : '#EEDCA9',
-      }));
+      const flagChips = (mm.flags || []).filter((f) => (f.id !== 'low-coverage' || !cites.length) && f.id !== 'unverified').map((f) => this._flagChip(f));
+      // The standalone "ungrounded" wash-legend is redundant when a flag already tells the reader the
+      // answer isn't sourced — one calm note beats two saying the same thing. Drop it in that case.
+      const groundFlagShown = flagChips.some((f) => /unbound|low-coverage|ground-dropped/.test(f.id));
+      const showUngroundedChip = hasUngrounded && !groundFlagShown;
       const loading = app.state.model.state === 'loading';
       // the research trail — the live "what am I researching / thinking" stream (app.js beats)
       const tr = mm.research;
@@ -7118,7 +7159,7 @@ class Component extends DCLogic {
         badge: mm.grounded ? 'grounded' : (mm.route === 'error' ? 'error' : mm.unbound ? 'unbound' : mm.route || ''),
         badgeFg: mm.grounded ? '#1E8A50' : '#9A6B12', badgeBg: mm.grounded ? '#E7F6EC' : '#FBF1DA',
         hasCites: finished && cites.length > 0, cites,
-        hasProvRow: finished && (cites.length > 0 || hasUngrounded), hasUngroundedChip: hasUngrounded,
+        hasProvRow: finished && (cites.length > 0 || showUngroundedChip), hasUngroundedChip: showUngroundedChip,
         hasFlags: finished && flagChips.length > 0, flagChips,
         hasProposal: finished && !!mm.webProposal, proposalQ: mm.webProposal ? mm.webProposal.query : '',
         runProposal: () => this.runSearch(mm.webProposal.query),

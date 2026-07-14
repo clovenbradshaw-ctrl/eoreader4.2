@@ -73,7 +73,8 @@ export const installTopicQuestion = (appCtx) => {
     // and still show it after a reload (the in-memory audit ring does not survive one).
     // Null when no talker prompt exists for this answer (a phatic line, an errored turn).
     msg.prompt = (result.turn && result.turn.prompt) || null;
-    msg.flags = (result.flags || []).map((f) => ({ id: f.id, note: f.note || '' }));
+    // Carry the flag's human sentence (`message`, or `note`) so the chip shows a plain label + hover.
+    msg.flags = (result.flags || []).map((f) => ({ id: f.id, note: f.note || f.message || '' }));
     msg.unbound = !!result.unbound;
     msg.stopped = !!result.stopped;
     msg.grounded = (result.sources || []).length > 0 && !result.unbound;
