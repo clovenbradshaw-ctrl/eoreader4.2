@@ -1,8 +1,8 @@
 // Fetch the fold→summary corpus into data/corpus/summary/ — four registers (academic
 // texts, novels, news stories, chat histories), each a plain-text document the bench
-// (tools/fold-summary-bench.mjs) parses with the engine's own parseText. Everything
-// here is regenerable: run this tool again to refresh; the checked-in copies exist so
-// the bench and tests run offline and byte-stable.
+// (tools/fold-summary-bench.mjs) parses with the engine's own parseText. The corpus is
+// a regenerable cache (data/corpus/ is gitignored, like every third-party corpus):
+// run this once before benching. The tests need none of it — their fixtures are inline.
 //
 // The ARMSTRONG PROBE GROUP (`group: "armstrong"`) is the cross-source coreference
 // fixture: Neil Armstrong and Louis Armstrong each discussed in several sources, in
