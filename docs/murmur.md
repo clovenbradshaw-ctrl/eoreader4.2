@@ -94,11 +94,30 @@ verbatim; with nothing parsed it voices the passage being read; only truly idle 
 spare state line. The claims are no more (and no less) right than the reader's graph — the murmur
 adds nothing, it re-voices what the reader already grounded.
 
-It is shown by default and hideable from **Settings** (persisted as `eo_murmur`). The voice is a
-**voicing, never a fact** — same firewall as the narrator (§9.4/§9.5): it can never surface a citable
-fact or enter the answer prompt. `senseSignal`'s drift/footing/novelty scalars are still computed
-(they drive the registers, the tint, and the audit marginalia); they are simply no longer surfaced
-as bars.
+### The strip is a night-sky band of drifting thought-motes (`EoMurmurStrip`)
+
+The strip is drawn as a dark canvas band — a **night sky** in which each voiced thought floats as a
+fading, overlapping **mote** over a faint glyph-rain, and the **most-surprising** one drifts brightest
+with a **★** in its register's colour. It is a self-contained controller (`EoMurmurStrip` in
+`index.html`) that owns its own DOM and `requestAnimationFrame` loop, built imperatively into the
+ref'd container (like the Listen transcript) so React never reconciles the canvas; the surface only
+(a) **maps** each `murmur.state()` snapshot to motes and (b) owns the controller's lifecycle (torn
+down on hide — nothing animates off-screen).
+
+The mapping (`app.js` `_mmTokensFrom`) is faithful to the snapshot and invents nothing: the thought's
+**text** is the mote; its **register** picks the tint (and a short gloss that *names the feeling* —
+the sense's own state, not a claim); its live **intensity** (else the reading's `novelty`) is the
+**surprise**; and its native-EOT **tuple** (`glyph OP site(s) · res`, the same notation the old
+one-line strip painted) rides along so the EOT identity is preserved. Clicking a mote opens a card
+carrying all of it — the tag, that tuple, the thought in serif, the feeling's gloss, and a surprise
+bar. Fresh thoughts are merged into a small rolling buffer (deduped by text, capped, anti-rumination),
+and the whole thing has a **reduced-motion** path: a single still frame of the top thoughts, no RAF.
+
+It is shown by default and hideable from **Settings** (persisted as `eo_murmur_mode`; the strip's ×
+sets `off`). The strip is a **voicing, never a fact** — same firewall as the narrator (§9.4/§9.5): it
+reads `murmur.state()` only, can never surface a citable fact or enter the answer prompt, and never
+appends to the log. `senseSignal`'s drift/footing/novelty scalars are still computed (they drive the
+registers, the tint, the surprise, and the audit marginalia); they are simply never surfaced as bars.
 
 ## The firewall (why the log write is safe)
 
