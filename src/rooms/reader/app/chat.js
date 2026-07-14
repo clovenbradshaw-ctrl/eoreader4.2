@@ -9,6 +9,7 @@ import { scopeSources } from '../scope-sources.js';
 import { outstandingQuestion, answersAwaited } from '../../../frame/index.js';
 import { senseGate } from '../../../turn/index.js';
 import { answerSmalltalk } from '../../../enactor/answer/index.js';
+import { answerMathTurn } from './math-door.js';
 import { keepGuardAlive } from './guards.js';
 import { nowIso, RESEARCH_HOPS, wantsLongform, LONGFORM_MAX_TOKENS } from './util.js';
 
@@ -256,11 +257,10 @@ export const installChat = (appCtx) => {
     return pending;
   };
 
-  // phaticReply(model, {question, hasDoc, …}) → one short warm social line IN THE MODEL'S OWN
-  // VOICE — the phatic door's whole answer. No regex and no canned classification: the same model
-  // that read the turn as social (the discourse statement) now says the word back. With a document
-  // in scope it closes on an invitation to ask about it; with none it mentions recording a source.
-  // Fail-soft to a single neutral line if the decode comes back empty, so the door always speaks.
+  // phaticReply(model, {question, hasDoc, …}) → one short warm social line IN THE MODEL'S OWN VOICE
+  // — the phatic door's whole answer. No regex: the same model that read the turn as social now says
+  // the word back, inviting a question (a document in scope) or a recorded source (none). Fail-soft
+  // to a single neutral line if the decode comes back empty, so the door always speaks.
   const phaticReply = async (model, { question, hasDoc, signal, raceGuard, keepAlive }) => {
     const sys = hasDoc
       ? 'The user sent a social message — a greeting, a thanks, or a goodbye — while a document is open. Reply in ONE short, warm, natural sentence, and gently invite them to ask about what they have open. Do not answer a question they did not ask; no lists.'
@@ -291,13 +291,13 @@ export const installChat = (appCtx) => {
     t.messages.push(pending);
     emit('messages');
 
-    // The web reach for THIS turn. A caller may pin it (the `web` option — e.g. a test that must
-    // stay offline, or an internal call that must not touch the net); otherwise the persisted global
-    // stands. BOTH the Ask and Chat surfaces now honor that global (default `auto`): Ask is
-    // record-FIRST, not record-only — it grounds in the record, and a measured gap reaches the web
-    // (docs/web-search.md), the fetched pages joining the record. A deliberate global `off` keeps
-    // both surfaces record-only, so the privacy opt-out holds. The `web` override is a per-turn pin,
-    // not a settings change: the stored webMode() is untouched.
+    // The MATH FRONT DOOR (app/math-door.js): a pure-arithmetic turn is computed by math.js here — no model, no web — ahead of every reach; not-math falls through untouched.
+    if (await answerMathTurn(q, pending, appCtx)) return pending;
+
+    // The web reach for THIS turn. A caller may pin it (`web` — a test that must stay offline, an
+    // internal call that must not touch the net); otherwise the persisted global stands. BOTH
+    // surfaces honor it (default `auto`): Ask is record-FIRST — it grounds in the record, and a
+    // measured gap reaches the web (docs/web-search.md); a global `off` keeps both record-only.
     const mode = web || appCtx.webMode();
 
     // ── THE FRONT DOOR — the phatic short-circuit is DETERMINISTIC (docs/response-demand.md) ──────

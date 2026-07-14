@@ -27,6 +27,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/app/webmode.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Clearing'], note: 'web-search mode — the reach lever' }),
   'src/rooms/reader/app/redact.js': contract({ ops: ['SEG', 'NUL'], targets: ['Field'], products: ['Void', 'Field'], stances: ['Dissecting', 'Clearing'], note: 'redact-when-hosted — the confidentiality lever' }),
   'src/rooms/reader/app/chat.js': contract({ ops: ['INS', 'CON', 'EVA'], targets: ['Field', 'Network'], products: ['Entity', 'Link', 'Lens'], stances: ['Making', 'Binding', 'Tracing'], note: 'chat — one turn through turn/runTurn, streamed + grounded' }),
+  'src/rooms/reader/app/math-door.js': contract({ ops: ['EVA', 'DEF'], targets: ['Void'], products: ['Lens'], stances: ['Binding', 'Dissecting'], note: 'the math front door — a pure-arithmetic turn computed by math.js, no model or web' }),
   'src/rooms/reader/app/topic-question.js': contract({ ops: ['INS', 'CON'], targets: ['Field', 'Network'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'one grounded question per topic — the topic-per-question model' }),
   'src/rooms/reader/app/segments.js': contract({ ops: ['SEG', 'NUL'], targets: ['Field'], products: ['Field', 'Void'], stances: ['Dissecting', 'Clearing'], note: 'answer/viewer segmentation (text | entity | cite)' }),
   'src/rooms/reader/app/entities.js': contract({ ops: ['SEG', 'INS'], targets: ['Network'], products: ['Entity'], stances: ['Dissecting', 'Making'], note: 'entities — the explorer' }),
