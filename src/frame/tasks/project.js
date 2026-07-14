@@ -15,4 +15,4 @@
 // cube annotation are byte-identical to what this module computed before the
 // factoring. tests/tasks.test.js is the parity pin.
 
-export { projectFrameStack as projectTaskGraph } from '../project.js';
+export { projectFrameStack as projectTaskGraph } from '../index.js';

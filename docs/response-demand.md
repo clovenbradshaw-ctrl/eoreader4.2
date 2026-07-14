@@ -220,7 +220,7 @@ lift that only ever *reduces* unnecessary attentive turns — it can never cause
 ## The question-copy, implemented — and who writes the cheap turn
 
 The fork half of the demand meter is now live machinery in the fold
-(`src/core/conversation-fold.js`), model-free and tested (`tests/fold-awaiting.test.js`):
+(`src/frame/conversation-fold.js`), model-free and tested (`tests/fold-awaiting.test.js`):
 
 - `projectFold` exposes **`fold.awaiting`** — `outstandingQuestion(events)` reads the assistant's
   own last turn and, if it was a question or offer, names the answer-space it opened: `polar`

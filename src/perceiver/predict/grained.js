@@ -35,7 +35,7 @@
 // taken as input; `surpriseBoundaries` offers a baseline detector, reported, never
 // claimed exact.
 
-import { predictiveSequenceReading } from '../../surfer/sequence.js';
+import { predictiveSequenceReading } from '../../surfer/index.js';
 import { runTaskGraph, PATTERN } from '../../frame/tasks/index.js';
 import { openEvent, bindEvent, projectFrameStack } from '../../frame/index.js';
 import { learnBoundariesFromSurprise } from './segment.js';

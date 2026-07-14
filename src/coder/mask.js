@@ -19,9 +19,9 @@
 // by construction. tests/coder-mask.test.js proves the face masks agree with
 // `admits` exhaustively across the whole cube: the no-drift theorem, executable.
 
-import { OPERATORS, GRAINS } from '../core/operators.js';
-import { coherence } from '../core/cube.js';
-import { TERRAIN_NAMES, STANCE_NAMES, isContract, contract } from '../core/contract.js';
+import { OPERATORS, GRAINS } from '../core/index.js';
+import { coherence } from '../core/index.js';
+import { TERRAIN_NAMES, STANCE_NAMES, isContract, contract } from '../core/index.js';
 import { checkpoint } from './checkpoint.js';
 
 // The closed vocabularies of the three cube faces (+ the grain axis).

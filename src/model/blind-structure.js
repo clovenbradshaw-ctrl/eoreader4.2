@@ -39,8 +39,8 @@
 // drives it against the real Anthropic API with only a key changed. tests/blind-structure.test.js
 // is the regression guard; probes/blind-structure.mjs is the runnable narrative.
 
-import { redactEot, restore, assertNoNameLeak, EOT_LEGEND } from '../weave/write/redact.js';
-import { eotDoc } from '../organs/ingest/eot.js';
+import { redactEot, restore, assertNoNameLeak, EOT_LEGEND } from '../weave/write/index.js';
+import { eotDoc } from '../organs/ingest/index.js';
 import { projectGraph, propositionOfEdge } from '../core/index.js';
 
 // ── the charge — a REASONER over structure, not the prosifier redact.js ships ──────────────────

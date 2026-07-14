@@ -30,7 +30,7 @@
 // so a backend swap (stub → wllama) never leaks identity into the prompt.
 
 import { HASHID_RE, sitesOf, isVoid } from '../../core/index.js';
-import { buildCursorMessages } from '../../model/prompt.js';
+import { buildCursorMessages } from '../../model/index.js';
 
 // The default per-beat budget — the answer-task ceiling (turn/intent.js); a caller
 // passes the turn's real budget. One fluent sentence rarely needs more.

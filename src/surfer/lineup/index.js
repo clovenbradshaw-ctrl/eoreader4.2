@@ -27,7 +27,7 @@
 // search both stub in tests and wire to the real surfaces in production — so the whole loop
 // is deterministic and replay-stable save the one honestly-nondeterministic organ, the net.
 
-import { createLog } from '../../core/log.js';
+import { createLog } from '../../core/index.js';
 import { seedCorpus, walkReasoning } from '../reason/index.js';
 import { temperamentOf, defaultCast } from './temperaments.js';
 import { createSurfer } from './surfer.js';

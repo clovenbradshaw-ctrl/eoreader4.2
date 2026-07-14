@@ -26,8 +26,7 @@
   // The plain version: the same engine, with nothing named to the person. Click a highlighted
   // thing, get exactly three questions — because the thing you clicked already is a terrain, a
   // terrain sits in a domain, and a domain has three operators. Never a menu, never a mode.
-  import { mountPlainSurface } from './src/rooms/plain/surface.js';
-  import * as scene from './src/rooms/plain/scene.js';
+  import { mountPlainSurface, scene } from './src/rooms/plain/index.js';
   const mount = document.getElementById('mount');
   try {
     mount.innerHTML = '';

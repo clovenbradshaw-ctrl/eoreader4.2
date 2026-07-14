@@ -15,7 +15,7 @@
 import { createResearchSession, pendingClarification, refocusQuery } from './session.js';
 import { liveView, describeEvent } from './live.js';
 import { renderReportFragment, renderTraceFragment, renderReportHTML, REPORT_CSS } from './render.js';
-import { modelDisambiguator } from '../../turn/disambiguate.js';
+import { modelDisambiguator } from '../../turn/index.js';
 
 const PROXY = 'https://n8n.intelechia.com/webhook';
 

@@ -31,11 +31,11 @@
 //
 // Pure: it reads the cube and prints; it emits nothing and moves no files.
 
-import { OPERATORS, GRAINS } from '../core/operators.js';
+import { OPERATORS, GRAINS } from '../core/index.js';
 import {
   STANCES, TERRAINS, terrainInfo, grainOfTerrain, grainOfStance, coherence,
-} from '../core/cube.js';
-import { notate } from '../core/faces.js';
+} from '../core/index.js';
+import { notate } from '../core/index.js';
 
 // ── reverse lookups the cube does not export directly ─────────────────────────
 // A stance name uniquely fixes its Mode; a terrain name its Domain. terrainInfo

@@ -15,7 +15,7 @@
 // diversity of the sources that witness it. The app calls this after each
 // grounded turn.
 
-import { reflectAnswer } from '../../enactor/ground/reflect.js';
+import { reflectAnswer } from '../../enactor/ground/index.js';
 // The per-SPAN provenance projection (ground/spans.js): classify every span of a settled
 // answer as grounded to a SOURCE (with the precise line it came from — jumpable) or to the
 // VOID (the model's own words). The app calls this per grounded turn so every span the reader
@@ -26,7 +26,7 @@ import { reflectAnswer } from '../../enactor/ground/reflect.js';
 // citationHolds (ground/spans.js): the per-citation honesty gate the chat's inline binder reads —
 // below the verbatim floor a lexical passage match may stand as a citation only if the passage
 // actually WITNESSES the claim, so a citation is never severed from the claim it carries.
-import { groundSpans, groundSummary, supportVerdict, citationHolds } from '../../enactor/ground/spans.js';
+import { groundSpans, groundSummary, supportVerdict, citationHolds } from '../../enactor/ground/index.js';
 
 if (typeof window !== 'undefined') {
   window.eoGen = { reflectAnswer, groundSpans, groundSummary, supportVerdict, citationHolds, version: 9 };

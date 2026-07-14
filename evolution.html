@@ -138,11 +138,11 @@
 import { createMetabolism, createScarcity, createOrganism, createSoma, createPopulation,
          createChallenger, runChallengeCycle, buildAudit, auditToJSON, auditToMarkdown,
          createSanctionLadder, createHomeostat } from './src/metabolism/index.js';
-import { createResearchAnswerer } from './src/metabolism/answerer.js';
-import { DIAGONAL_CELLS } from './src/core/cube.js';
+import { createResearchAnswerer } from './src/metabolism/index.js';
+import { DIAGONAL_CELLS } from './src/core/index.js';
 import { createModel, createHashEmbedder } from './src/model/index.js';
 import { createAuditLog } from './src/rooms/audit/index.js';
-import { createWebClient, searchAndAdmit } from './src/organs/ingest/webfetch.js';
+import { createWebClient, searchAndAdmit } from './src/organs/ingest/index.js';
 
 const HELIX = ['NUL','SIG','INS','SEG','CON','SYN','DEF','EVA','REC'];
 const GRAINS = ['Ground','Figure','Pattern'];

@@ -40,9 +40,9 @@
 // change. Pure but for that one injected call.
 
 import { researchTerms } from './research.js';
-import { referentialConfidence, REFERENT_MARGIN } from '../perceiver/referent.js';
+import { referentialConfidence, REFERENT_MARGIN } from '../perceiver/index.js';
 import { discourseFrame } from './converse/index.js';
-import { speak } from '../model/speak.js';
+import { speak } from '../model/index.js';
 
 // The weight a committed sense's DISTINGUISHING terms carry in the topic frame — the pressure of the
 // thumb. Set to the walks' own ANCHOR_W (3): the sense vocabulary presses as hard as the subject

@@ -13,4 +13,4 @@
 
 export {
   STATUS, rollupStatus, isTerminal, assembleOutput, assembleSources, progressOf,
-} from '../node.js';
+} from '../index.js';

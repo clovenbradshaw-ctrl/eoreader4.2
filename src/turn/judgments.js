@@ -17,9 +17,9 @@
 // quietly otherwise, so a turn without a judgment log — or a malformed input — is never broken by
 // the logging. A DEF without a witness would be an oracle, and core/def.js records that as malformed.
 
-import { VERDICTS } from '../core/verdicts.js';
-import { GRAINS, isVerdict } from '../core/def.js';
-import { CUT_KINDS, GROUNDS, makeCut, foldCuts, violatesB1, makeRuledOut } from '../core/cut.js';
+import { VERDICTS } from '../core/index.js';
+import { DEF_GRAINS as GRAINS, isVerdict } from '../core/index.js';
+import { CUT_KINDS, GROUNDS, makeCut, foldCuts, violatesB1, makeRuledOut } from '../core/index.js';
 
 const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
 

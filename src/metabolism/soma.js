@@ -41,7 +41,7 @@
 // body that could see its own death would spend its last strength defecting (horizon.js).
 
 import { createOrgan, organFromSpec, foundingOrgans, FOUNDING_ORGANS, RESOURCE_BY_OP, UPKEEP_BY_OP } from './organ.js';
-import { DIAGONAL_CELLS } from '../core/cube.js';
+import { DIAGONAL_CELLS } from '../core/index.js';
 import { CONSTITUTION } from './constitution.js';
 
 const round = (x) => Math.round(x * 1000) / 1000;

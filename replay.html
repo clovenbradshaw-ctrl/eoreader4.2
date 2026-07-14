@@ -40,8 +40,8 @@
 <div id="mount"><div class="fallback">Loading the reading… if this stays, serve the folder over HTTP (<code>npm run serve</code>) so the ES modules load — opening the file directly will not work.</div></div>
 
 <script type="module">
-  import { mountReplaySurface } from './src/rooms/replay/surface.js';
-  import { SCENE, SOURCES } from './src/rooms/replay/scene.js';
+  import { mountReplaySurface } from './src/rooms/replay/index.js';
+  import { SCENE, SOURCES } from './src/rooms/replay/index.js';
   const mount = document.getElementById('mount');
   try {
     mount.innerHTML = '';

@@ -16,7 +16,7 @@
 // without a round-trip. Pure and DOM-free; storage is injected (browser localStorage
 // by default, an in-memory shim in Node/tests). Nothing here throws or hits network.
 
-import { webContentHash } from '../../organs/ingest/websource.js';
+import { webContentHash } from '../../organs/ingest/index.js';
 
 // The identifier namespace. A checkpoint lands at archive.org/details/eo-genome-<h>.
 export const CHECKPOINT_PREFIX = 'eo-genome';

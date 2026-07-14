@@ -35,8 +35,8 @@ import { createFold } from './fold.js';
 import {
   INSTRUMENT, READER, isSelf,
   STATUS, makeBelief, selfBelief, beliefNotation, isModeled, canAnchor, beliefValue,
-} from '../../core/holder.js';
-import { fromPerceiver } from '../../core/provenance.js';
+} from '../../core/index.js';
+import { fromPerceiver } from '../../core/index.js';
 
 export { INSTRUMENT, READER, STATUS, beliefNotation, isModeled, canAnchor, beliefValue };
 

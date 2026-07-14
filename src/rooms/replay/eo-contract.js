@@ -10,6 +10,7 @@ import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
   'src/rooms/replay/collapse.js': contract({ ops: ['SEG', 'EVA'], targets: ['Network', 'Field'], products: ['Lens', 'Atmosphere'], stances: ['Unraveling', 'Tracing'], note: 'the read-time collapse fold — distribution × corpus → chosen word, pure on (scene, enabled, cursor)' }),
+  'src/rooms/replay/index.js': contract({ ops: ['INS', 'NUL', 'SEG'], targets: ['Field'], products: ['Entity', 'Void'], stances: ['Making', 'Clearing', 'Dissecting'], note: 'barrel — the replay room entrance' }),
   'src/rooms/replay/scene.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Field'], stances: ['Making', 'Tending'], note: 'the worked reading — a hand-authored distribution (community meeting read against a corpus)' }),
   'src/rooms/replay/surface.js': contract({ ops: ['INS', 'NUL'], targets: ['Field'], products: ['Entity', 'Void'], stances: ['Making', 'Clearing'], note: 'the Replay DOM surface — transport, facing page, distribution popover, source switches' }),
 });

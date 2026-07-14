@@ -127,3 +127,6 @@ export { meaningfulness, metacognize, traceReading } from './metacognition.js';
 // surf result at read-time (firewall held); `curiosity` is meta-surprise; `curiousSurf` lets the
 // surf follow what it is curious about — the surprise gradient through the material, not keywords.
 export { createReader, interpret, curiousSurf } from './reader.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { retreads } from './salience.js';

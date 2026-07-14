@@ -15,7 +15,7 @@
 // where it is promoted to a "Measurement behavior" section, because the Ground
 // diagnostic (it gets bigger when you measure it) is itself the evidence.
 
-import { OPERATORS, glyphOf } from '../core/operators.js';
+import { OPERATORS, glyphOf } from '../core/index.js';
 import { TERRAINS } from './terrains.js';
 
 // The nine slots in helix order, each with the glyph (from the operator vocabulary),

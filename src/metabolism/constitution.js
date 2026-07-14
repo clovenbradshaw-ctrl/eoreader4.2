@@ -49,9 +49,9 @@
 // unless it is on the open allowlist and proven un-exploitable. `admits` refuses any target
 // not explicitly opened — so a locus nobody classified is frozen, not free.
 
-import { DESERT_CELL } from '../core/contract.js';
-import { coherence, stanceOf } from '../core/cube.js';
-import { OPERATORS, isOperator } from '../core/operators.js';
+import { DESERT_CELL } from '../core/index.js';
+import { coherence, stanceOf } from '../core/index.js';
+import { OPERATORS, isOperator } from '../core/index.js';
 
 export const BANDS = Object.freeze({ CORE: 'core', CONSTITUTION: 'constitution', OPERATIONAL: 'operational', BODY: 'body' });
 

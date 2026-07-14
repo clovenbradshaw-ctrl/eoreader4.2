@@ -8,13 +8,11 @@ export { MODES, DOMAINS, GRAINS, OPERATORS, isOperator, glyphOf,
 export { createLog, isLog } from './log.js';
 export { eoAddressOfEvent, eoNotation } from './address.js';
 export { projectGraph, projectionStats, DEFAULT_PROJECTION_RULES } from './project.js';
-// The Conversation Fold (conversation-fold.js): a projection over the conversation
-// event log, sibling to projectGraph, that carries the STANCE forward so a turn
-// inherits what it's doing (continuation-by-default) instead of re-classifying a
-// bare string. See docs/conversation-fold.md.
-export { projectFold, routeStance, stanceDescOf, isExplicitCompose, composeKind,
-  composeSubject, transitionPrompt, foldRules, clearFoldMemo, VERDICTS as FOLD_VERDICTS,
-  COMPOSE_VERBS, COMPOSE_KINDS } from './conversation-fold.js';
+// The Conversation Fold moved to the frame holon (frame/conversation-fold.js):
+// it projects over the conversation log THROUGH the frame spine (events/project/
+// bind), so keeping it here made core import upward — the one thing core may
+// never do ("core cannot import anything", docs/architecture.md). Import it from
+// the frame entrance. See docs/conversation-fold.md.
 // The ontological asterisk (asterisk.js): identity held open as a question. The
 // read-only measurement (latentAsterisks), the EVA convergence/conflict decision
 // (evaluateSameAs, discriminatorIndex), the identity attention frontier
@@ -107,3 +105,7 @@ export { createConventions } from './conventions/index.js';
 export { COGNITION, COGNITION_ORDER, facultyOfOperator, facultyOf } from './cognition.js';
 export { FACES, facesOf, notate, notateHolon, cellAt, cellsOf, siteStanceAt } from './faces.js';
 export { holonId, parseHolon, holonLevels, depthOf, parentOf, leafOf, joinHolon, containsHolon } from './holon.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { STANCE_NAMES, TERRAIN_NAMES, contract, isContract, notateContract, DESERT_CELL, HELIX } from './contract.js';
+export { supersedeEntries, costOfSuperseding, standing, statusOf, unsettledRefs } from './supersede.js';

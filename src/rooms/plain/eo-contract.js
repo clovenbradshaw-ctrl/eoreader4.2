@@ -10,6 +10,7 @@
 import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
+  'src/rooms/plain/index.js': contract({ ops: ['SIG', 'INS', 'DEF', 'CON'], targets: ['Void', 'Entity', 'Field'], products: ['Entity', 'Field', 'Lens', 'Link'], stances: ['Making', 'Tending', 'Tracing', 'Binding'], note: 'barrel — the plain room entrance' }),
   'src/rooms/plain/terrain.js': contract({ ops: ['DEF', 'EVA'], targets: ['Kind'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Binding'], note: 'the three-questions fold — a clicked terrain → exactly the three operators of its domain (§9)' }),
   'src/rooms/plain/select.js':  contract({ ops: ['DEF', 'CON'], targets: ['Lens', 'Network'], products: ['Lens', 'Link'], stances: ['Dissecting', 'Binding'], note: 'the two live redraws — read a word under a basis (DEF), re-center the picture (CON), both pure' }),
   'src/rooms/plain/scene.js':   contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Field'], stances: ['Making', 'Tending'], note: 'the worked corpus — four sources on a city surveillance procurement, hand-authored as a reading emits' }),

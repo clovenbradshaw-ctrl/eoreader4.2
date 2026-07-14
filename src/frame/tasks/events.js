@@ -19,4 +19,4 @@
 // because the planner declares the tree top-down instead of discovering it.
 // Ids are PATHS, minted by the runner as `${parentId}.${childIndex}` off a root.
 
-export { KIND, openEvent, decomposeEvent, stepEvent, completeEvent, failEvent } from '../events.js';
+export { KIND, openEvent, decomposeEvent, stepEvent, completeEvent, failEvent } from '../index.js';

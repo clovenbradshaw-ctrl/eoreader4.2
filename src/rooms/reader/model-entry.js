@@ -8,9 +8,9 @@
 // on import; none pulls anything from a CDN until load() runs. The reader stays
 // LLM-free for reading and the grounded panel — a model is only loaded when you
 // actually chat, and chat falls back to a structural answer if none is available.
-export { createModel } from '../../model/interface.js';
-export { streamPhrase } from '../../model/stream.js';
-export { buildChatMessages, buildGroundedMessages, LIBRARIAN_CUE, GROUNDING_CUE, CAPABILITY_CUE } from '../../model/prompt.js';
+export { createModel } from '../../model/index.js';
+export { streamPhrase } from '../../model/index.js';
+export { buildChatMessages, buildGroundedMessages, LIBRARIAN_CUE, GROUNDING_CUE, CAPABILITY_CUE } from '../../model/index.js';
 // The multi-paragraph walk (docs/paragraph-at-a-time.md, the multi-paragraph-walk
 // spec): one paragraph per model call, each a CONTINUATION over a shifting fold,
 // bound and vetoed at claim grain. The reader drives it with a `refold` hook (the
@@ -22,14 +22,9 @@ export { walk, frameLeak, progressAgainst, buildSkeleton, loadInstalledPrior } f
 // instead of a single padded call. The reader plans the spine (from the research
 // facets) and drives it (`retrieve` per section, a wrapped model, `onEvent` to stream).
 export { runEssay, projectEssay, EKIND } from '../../weave/essay/index.js';
-export { CODER_MODELS, browserCoders } from '../../model/coders.js';
-import '../../model/echo.js';
-import '../../model/webllm.js';
-import '../../model/anthropic.js';
-// LM Studio / Ollama — the bridge to a locally-running model server, so the LARGE
-// coders (27–80B Qwen, GLM, …) that no tab can load are reachable over HTTP. Registers
-// the `lmstudio` and `ollama` backends; connects only when picked on the model chip.
-import '../../model/openai-local.js';
-// The local coding models (Qwen2.5-Coder family). Browser-runnable members register
-// here; each loads only when picked, like every other backend.
-import '../../model/coders.js';
+export { CODER_MODELS, browserCoders } from '../../model/index.js';
+// The backends (echo · webllm · anthropic · lmstudio/ollama · the Qwen coders)
+// all register on the model ENTRANCE's import — model/index.js side-effect-imports
+// each one, and each still downloads nothing until load() runs. The per-backend
+// deep imports that used to sit here were redundant with the entrance imports
+// above, and pierced the model holon's boundary (docs/holons.md: one entrance).

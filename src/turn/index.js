@@ -17,3 +17,8 @@ export { modelDisambiguator, chooseSense, biasTopic, sharpenSeed, parseSensePrio
          discriminate, senseAnnouncement, SENSE_W } from './disambiguate.js';
 export { modelClarifyGate, readDiscourse, phaticFromSpeech, clarifyDemandOf } from './meta-route.js';
 export { shredTtl, makeArchive, shredExpired, nextShredTime } from './archive.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { extendLibraryWithNavPool } from './nav-pool.js';
+export { senseGate } from './sense.js';
+export { loadShapeGrammars } from './shape-grammar.js';

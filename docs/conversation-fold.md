@@ -9,14 +9,14 @@
 **Naming.** This document's object is the *conversation* fold. It is distinct
 from the existing `fold/` holon (`foldNote(spans)`, the note/impression fold
 over spans). The conversation fold is a projection over the **event log** — a
-chat's turns — and its home is `src/core/conversation-fold.js` beside
+chat's turns — and its home is `src/frame/conversation-fold.js` beside
 `projectGraph`. The symbol is `projectFold`.
 
 ## Where it lives in this codebase
 
 | Piece | Location |
 | ----- | -------- |
-| `projectFold(events, frame)`, `routeStance(message, fold, opts)`, helpers | `src/core/conversation-fold.js` (pure, tested) |
+| `projectFold(events, frame)`, `routeStance(message, fold, opts)`, helpers | `src/frame/conversation-fold.js` (pure, tested) |
 | Re-exports | `src/core/index.js` |
 | Router wiring (continuation-by-default) | `src/rooms/reader/app.dc.js` — `sendChat` |
 | Stance tagging on enacted turns | `src/rooms/reader/app.dc.js` — `composeArtifact` (`compose`), `sendChat` / `_answerSingle` / `_longformArc` (`ground`) |

@@ -403,3 +403,6 @@ export function describePrior(prior){
   return { facets:f, books:m.books, segment:m.segment, grid:m.grid,
     generated:m.generated, sourceSha:m.sourceSha256, label:`${facet} (${m.books||'?'} docs)` };
 }
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { loadInstalledPrior } from './select.js';

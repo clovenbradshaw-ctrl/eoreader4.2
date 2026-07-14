@@ -18,7 +18,7 @@
 // Input is the frozen object renderArticle (project.js) returns — a fresh projection,
 // never a stored struct. This layer adds no state and caches nothing.
 
-import { glyphOf } from '../core/operators.js';
+import { glyphOf } from '../core/index.js';
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

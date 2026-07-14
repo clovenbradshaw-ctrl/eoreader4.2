@@ -67,3 +67,7 @@ export { parseOpenAlex, deInvertAbstract, openalexIdOf,
 export { createRawStore, opfsAvailable, rawFileName, RAW_STORE_DIR } from './opfs-store.js';
 // Also surface stripWebBoilerplate for callers that reduce a page before admission.
 export { stripWebBoilerplate } from './websource.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { wikiExtract } from './webfetch.js';
+export { wikiPageUrlOn } from './wikimedia.js';

@@ -22,7 +22,7 @@
 import { buildDensity, eigenLenses, vonNeumann, deriveNull } from '../core/index.js';
 import { structuralActivations } from './structure-basis.js';
 import { parseText } from '../perceiver/parse/index.js';
-import { plainRel } from '../perceiver/surfaces.js';
+import { plainRel } from '../perceiver/index.js';
 
 const round = (x) => Math.round(x * 1e4) / 1e4;
 

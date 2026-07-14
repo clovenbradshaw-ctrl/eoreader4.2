@@ -10,13 +10,13 @@
 // The user sees what the model actually said, with a flag pinned to it.
 
 import { answerVoid, answerMathAsync } from '../enactor/answer/index.js';
-import { answerOverTables } from '../rooms/data/query.js';
+import { answerOverTables } from '../rooms/data/index.js';
 import { retrieveHybrid, reserveBySource, pickRetrievalEmbedder, selectExcerpts, retrieveStructural, retrieveNetwork, queryTouchesDoc, querySubjectTerms, dropReferenceChrome, retrieveLexical } from '../surfer/retrieve/index.js';
 import { parseText } from '../perceiver/parse/index.js';
 import { think, worthSayingAloud, inferGenders } from '../weave/write/index.js';
 import { foldNote }         from '../surfer/fold/index.js';
 import { surfFold, multiLevelSurf, centroidBasis, projectUnits, structuralActivations, siteTerrainAt, trajectory, threadBasis } from '../surfer/index.js';
-import { arcGravity, arcLines } from '../weave/write/gravity.js';
+import { arcGravity, arcLines } from '../weave/write/index.js';
 import { namedReferents, referentialConfidence, siteIndices, serializeEOT, figureSurface } from '../perceiver/index.js';
 import { foldConversation, resolveQuery, groundedThread, referenceTarget } from './converse/index.js';
 import { taskOf, TASK_MAX_TOKENS, isMetaConversational } from './intent.js';
@@ -30,13 +30,13 @@ import { recordBindingDefs, recordCorrespondenceDefs, recordReferenceDef, record
 import { runVetoes, isUnbound, isAbstention, classifyProvenance, assessAnswer } from '../enactor/ground/index.js';
 import { canGroundedSpeak, groundedSpeak, RULES_REV } from '../organs/out/speech/index.js';
 import { projectGraph, VERDICTS } from '../core/index.js';
-import { answerabilityGate } from '../weave/longgen/answerable.js';
+import { answerabilityGate } from '../weave/longgen/index.js';
 import { walkReasoning } from '../surfer/reason/index.js';
 import { factCheck, auditPropositions } from '../enactor/factcheck/index.js';
 import { streamParagraphs } from '../weave/write/index.js';
 import { streamPhrase, speak } from '../model/index.js';
-import { buildConceptTokenMap } from '../weave/write/concept-tokens.js';
-import { mountPersonality, defaultPantheonBank, defaultStanceBanks, defaultSiteBank, stanceFamily, resolveOverlap, dialMultipliers } from '../weave/write/voice.js';
+import { buildConceptTokenMap } from '../weave/write/index.js';
+import { mountPersonality, defaultPantheonBank, defaultStanceBanks, defaultSiteBank, stanceFamily, resolveOverlap, dialMultipliers } from '../weave/write/index.js';
 
 // Weave the mind's recalled lines into the prompt as labelled BACKGROUND — only when
 // the user has the Mind chip in weave mode (ctx.mindSpans present). The memory is

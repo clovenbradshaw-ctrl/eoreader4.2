@@ -249,3 +249,6 @@ export const readDags = (input, opts = {}) => {
     asserted: assertedDag(input, opts),                    // cursor (2): described-world, over the corpus
   });
 };
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { ASSOCIATION_VERBS, ESSENTIAL_VERBS } from './stance.js';

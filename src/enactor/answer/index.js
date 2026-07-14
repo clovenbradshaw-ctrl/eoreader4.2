@@ -5,3 +5,6 @@ export { tryMechanical, answerConfirm, answerRelation, answerWho, answerMath, an
 export { answerMath as answerMathAsync, answerMathSync, isMathQuery, evalExpression, evaluateMath, extractExpression, loadMathjs, formatNumber } from './math.js';
 export { answerVoid } from './void.js';
 export { answerMetadata } from './metadata.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { traceExpression } from './math.js';

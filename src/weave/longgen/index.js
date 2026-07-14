@@ -42,7 +42,7 @@ export { progressAgainst } from './progress.js';
 // over the same walk (compose.js).
 export { walk, sliceFor } from './walk.js';
 // the load-and-thread weld: resolve an installed flow prior by facets (flow/select.js)
-export { loadInstalledPrior } from '../../surfer/flow/select.js';
+export { loadInstalledPrior } from '../../surfer/flow/index.js';
 export { composeParagraphs, evaSplice, frameLeak } from './compose.js';
 // The self-read weld — re-read an accepted paragraph through the grounder before
 // it becomes the next prior; strike drifted sentences (number / refold / witness,

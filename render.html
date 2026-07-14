@@ -20,9 +20,9 @@
 <div id="mount"><div class="fallback">Loading the facing renderer… if this stays, serve the folder over HTTP (<code>npm run serve</code>) so the ES modules load — opening the file directly will not work.</div></div>
 
 <script type="module">
-  import { mountFacingRenderer } from './src/rooms/render/surface.js';
-  import { createWebClient } from './src/organs/ingest/webfetch.js';
-  import { directCorsUrl } from './src/organs/ingest/direct-cors.js';
+  import { mountFacingRenderer } from './src/rooms/render/index.js';
+  import { createWebClient } from './src/organs/ingest/index.js';
+  import { directCorsUrl } from './src/organs/ingest/index.js';
 
   const mount = document.getElementById('mount');
 

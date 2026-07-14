@@ -7,5 +7,5 @@ import { contract } from '../../core/contract.js';
 export const CONTRACTS = Object.freeze({
   'src/rooms/workspace/index.js': contract({ ops: ['CON', 'SYN', 'SEG'], targets: ['Field', 'Link'], products: ['Network', 'Link', 'Field'], stances: ['Binding', 'Composing', 'Dissecting'], note: 'virtual folder filing layer' }),
   'src/rooms/workspace/lens.js': contract({ ops: ['CON', 'INS', 'DEF'], targets: ['Entity', 'Lens'], products: ['Lens', 'Link'], stances: ['Binding', 'Making', 'Dissecting'], note: 'pinned-source lens layer' }),
-  'src/rooms/workspace/relationships.js': contract({ ops: ['SYN', 'CON', 'INS'], targets: ['Field', 'Network'], products: ['Network', 'Link', 'Field'], stances: ['Composing', 'Tracing', 'Making'], note: 'typed-edge db from log' }),
+  'src/rooms/workspace/relationships.js': contract({ ops: ['SYN', 'CON', 'INS', 'DEF', 'SEG'], targets: ['Field', 'Network'], products: ['Network', 'Link', 'Field'], stances: ['Composing', 'Tracing', 'Making'], note: 'typed-edge db from log' }),
 });

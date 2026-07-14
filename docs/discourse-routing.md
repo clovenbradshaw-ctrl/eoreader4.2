@@ -23,7 +23,7 @@ Routing was the last decision still made by string-matching. Two symptoms, both 
   patched per audit failure.
 
 The obvious repair — ask the local model to emit a routing decision — was already tried in
-miniature and shows the trap: `transitionPrompt` (`core/conversation-fold.js`) forces the model
+miniature and shows the trap: `transitionPrompt` (`frame/conversation-fold.js`) forces the model
 to answer with exactly one of four words. A constrained vocabulary is JSON with fewer braces.
 The model is the faculty of *saying*; asked to emit the decision, a small model reverts to its
 priors and confabulates one (`common-sense.md`, the Meno engine). The planner must not ask it to.
@@ -174,7 +174,7 @@ discipline the reading side runs everywhere else.
 - the ask-back consumer: `src/rooms/reader/app.dc.js` (`_clarifyingTurn`, and the `clarifyDemand` fork
   in `sendChat` before the web/answer path — `_discourseRead` carries the current through)
 - the discourse gap at the proposer: `src/turn/propose.js` (`ctx.discourse.researchDrive`)
-- the seam it plugs into, untouched: `src/core/conversation-fold.js` (`routeStance` `opts.model`)
+- the seam it plugs into, untouched: `src/frame/conversation-fold.js` (`routeStance` `opts.model`)
 - the mechanics reused: `longgen/relax.js` (relaxation), `surfer/salience.js` (Born),
   `core/voidnull.js` (`deriveNull`), `perceiver/parse/tokenize.js` (the one tokenizer)
 - tests: `tests/meta-route.test.js`

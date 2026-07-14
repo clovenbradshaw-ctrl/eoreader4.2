@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { senseCollision, senseBasins, discriminatingAnchor, senseGate, steerQuery, validateQuery, resultBasinCheck, SENSE_FLOOR } from '../src/turn/sense.js';
-import { projectFold, clearFoldMemo, answersAwaited } from '../src/core/conversation-fold.js';
+import { projectFold, clearFoldMemo, answersAwaited } from '../src/frame/index.js';
 
 // Stage 1 of the disambiguated-query pipeline (docs/response-demand.md): before a query is
 // generated, does the SUBJECT collide across senses in the recorded corpus? Model-free over the

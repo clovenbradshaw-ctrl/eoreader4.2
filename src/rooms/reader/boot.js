@@ -44,8 +44,8 @@
 //               bus (docs/shared-vault.md)
 
 import { createParser } from '../../perceiver/parse/index.js';
-import { readingAt } from '../../perceiver/reading.js';
-import { groundSpans, groundSummary, supportVerdict } from '../../enactor/ground/spans.js';
+import { readingAt } from '../../perceiver/index.js';
+import { groundSpans, groundSummary, supportVerdict } from '../../enactor/ground/index.js';
 import { factCheck } from '../../enactor/factcheck/index.js';
 import { discourseDag, assertedDag, mountDagSurface, dagNodeLabel } from '../../surfer/dag/index.js';
 import { createAuditLog } from '../audit/index.js';
@@ -54,29 +54,23 @@ import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
 import { APP_NAME, APP_VERSION } from './provenance.js';
 import { mountTieredGraph } from './tiered-graph.js';
-import { mountFacingRenderer } from '../render/surface.js';
-import { assembleDocument, splitSource, runnableSrcdoc } from '../render/facing.js';
+import { mountFacingRenderer, assembleDocument, splitSource, runnableSrcdoc } from '../render/index.js';
 import * as readerRender from './reader-render.js';
 import * as reveal from './reveal.js';
 import { firstSurfaceKind } from './first-surface.js';
 import { projectTranscript, wordsToText } from './transcript-edit.js';
 import { encodeWav, applyRedactions } from './audio-dsp.js';
-import { createMatrixSession } from '../archive/matrix.js';
-import { depositToArchive, missingConsent, archiveMediatype, REQUIRED_CONSENT, KINDS, ARCHIVE_CASES_WEBHOOK } from '../archive/deposit.js';
-import { createCheckpointLog, checkpointId } from '../archive/checkpoints.js';
-import { createGenomeAutosave } from '../archive/autosave.js';
-import { createChatRoom } from '../chat/index.js';
-import { mountChat, mountChatLauncher } from '../chat/mount.js';
-import { createVault } from '../archive/vault.js';
-import { createRoomVault } from '../archive/room-vault.js';
-import { createSpaceSync } from '../archive/space-sync.js';
-import { mountVaultLauncher } from '../archive/vault-mount.js';
+import {
+  createMatrixSession, depositToArchive, missingConsent, archiveMediatype,
+  REQUIRED_CONSENT, KINDS, ARCHIVE_CASES_WEBHOOK, createCheckpointLog,
+  checkpointId, createGenomeAutosave, createVault, createRoomVault,
+  createSpaceSync, mountVaultLauncher,
+} from '../archive/index.js';
+import { createChatRoom, mountChat, mountChatLauncher } from '../chat/index.js';
 import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
-import { mountPlainSurface } from '../plain/surface.js';
-import * as plainScene from '../plain/scene.js';
-import { liveModel as plainLiveModel } from '../plain/project.js';
+import { mountPlainSurface, scene as plainScene, liveModel as plainLiveModel } from '../plain/index.js';
 
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
