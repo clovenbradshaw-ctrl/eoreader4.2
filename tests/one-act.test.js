@@ -135,12 +135,12 @@ test('the revise loop is bounded: one act plus at most one sanctioned rewrite', 
 });
 
 test('static tripwire: REWRITE_ATTEMPTS is still the declared cap, and still 1', () => {
-  // The constant is module-private (turn/stages.js), so the declared bound cannot be
-  // asserted through an import; the behavioral test above pins the OBSERVED bound.
-  // This pins the DECLARATION — that the cap is still 1 and still what the loop
-  // guard reads — so a silent bump (or the guard decoupling from the constant)
-  // fails a named test instead of drifting.
-  const src = readFileSync(new URL('../src/turn/stages.js', import.meta.url), 'utf8');
+  // The constant is module-private (turn/stage-revise.js — the REVISE group of the
+  // split stages), so the declared bound cannot be asserted through an import; the
+  // behavioral test above pins the OBSERVED bound. This pins the DECLARATION — that
+  // the cap is still 1 and still what the loop guard reads — so a silent bump (or
+  // the guard decoupling from the constant) fails a named test instead of drifting.
+  const src = readFileSync(new URL('../src/turn/stage-revise.js', import.meta.url), 'utf8');
   assert.match(src, /const REWRITE_ATTEMPTS = 1;/, 'the one sanctioned rewrite is still the declared cap');
   assert.match(src, /attempts < REWRITE_ATTEMPTS/, 'and the revise loop is still guarded by it');
 });
