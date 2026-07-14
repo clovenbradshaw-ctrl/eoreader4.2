@@ -219,9 +219,8 @@ const VOID_LOCATION = Object.freeze({
   // arguments resolved but the relation is unstated — the predicate cut is suspended
   'unstated':    { cut: CUT_KINDS.PREDICATE, grounds: GROUNDS.RESIDUAL, verdict: VERDICTS.INDETERMINATE, located: 'unstated-relation' },
   'evaluation':  { cut: CUT_KINDS.PREDICATE, grounds: GROUNDS.RESIDUAL, verdict: VERDICTS.INDETERMINATE, located: 'unstated-relation' },
-  // the located NAMES themselves are also keys, so a caller that already knows the address can
-  // pass it directly (the decline path that stalled at a known cut).
-  'not-in-corpus':     { cut: CUT_KINDS.PRESENCE,  grounds: GROUNDS.NULSIG,   verdict: VERDICTS.UNSUPPORTED,   located: 'not-in-corpus' },
+  // the located NAMES are also keys, so a caller that already knows the address can pass it
+  // directly (the decline path that stalled at a known cut). `not-in-corpus` is already keyed above.
   'reference-void':    { cut: CUT_KINDS.ARGUMENT,  grounds: GROUNDS.INS,      verdict: VERDICTS.INDETERMINATE, located: 'reference-void' },
   'unstated-relation': { cut: CUT_KINDS.PREDICATE, grounds: GROUNDS.RESIDUAL, verdict: VERDICTS.INDETERMINATE, located: 'unstated-relation' },
 });
