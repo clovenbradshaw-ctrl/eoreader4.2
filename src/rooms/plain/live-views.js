@@ -16,7 +16,7 @@
 // with the same code. `liveScene` overlays these onto a scene so the surface needs no new branch.
 // Pinned by tests/plain-live-views.test.js.
 
-import { characterize } from './disagreement.js';
+import { characterize, COPULA, A as DET, NEG, sentencesOf } from './disagreement.js';
 import { toMs, fmt } from './shifts.js';
 
 const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
@@ -56,6 +56,15 @@ export const candidateTerms = (sources, { limit = 40 } = {}) => {
 
 const termsFor = (sources, terms) => (terms && terms.length ? dedupe(terms) : candidateTerms(sources));
 
+// Is `term` explained anywhere in `text`? Tolerant of the term sitting inside a longer subject NP
+// (up to two words), so "the Aurora system is a camera network" explains "Aurora" — a named thing is
+// not called a blind spot merely because the bare token never sits immediately before "is".
+const isExplained = (text, term) => {
+  const T = escRe(norm(term)); if (!T) return false;
+  const re = new RegExp(`\\b${T}\\b(?:\\s+[A-Za-z][A-Za-z-]*){0,2}?\\s+${COPULA}\\s+(?:${DET}\\s+)?([^.;!?]+)`, 'i');
+  return sentencesOf(text).some((s) => { const m = s.match(re); return !!m && !NEG.test(String(m[1] || '').trim()); });
+};
+
 // Per term: total mentions, how many sources mention it, whether ANY source ever characterizes it
 // (says what it IS). The shared floor for the blind-spots, map, and study-guide projections.
 export const termStats = (sources, terms) => {
@@ -65,7 +74,7 @@ export const termStats = (sources, terms) => {
     for (const s of sources || []) {
       const n = mentionsOf(s.text, term);
       if (n > 0) { mentions += n; inSources += 1; }
-      if (n > 0 && characterize(s.text || '', term, { extra: s.extra || [] }).length) characterized += 1;
+      if (n > 0 && (characterize(s.text || '', term, { extra: s.extra || [] }).length || isExplained(s.text || '', term))) characterized += 1;
     }
     if (mentions > 0) rows.push({ term, mentions, inSources, characterized });
   }

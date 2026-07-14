@@ -38,6 +38,17 @@ test('blindSpots: a term named but never explained is a blind spot; an explained
   assert.match(bs[0].note, /Named 3 times across 2 sources\. Never explained\./);
 });
 
+test('blindSpots: a term explained only as the head of a longer subject NP is NOT a blind spot', () => {
+  const sources = [
+    { id: 's1', label: 'One', text: 'The Aurora system is a camera network. Zephyr Corp supplied it. Zephyr Corp supplied it again.' },
+    { id: 's2', label: 'Two', text: 'The Aurora system is a monitoring tool. Zephyr Corp appears in the appendix.' },
+  ];
+  const bs = blindSpots(sources, ['Aurora', 'Zephyr Corp']);
+  const names = bs.map((b) => b.name);
+  assert.ok(!names.includes('“Aurora”'), '"the Aurora system is a camera network" explains Aurora');
+  assert.ok(names.includes('“Zephyr Corp”'), 'Zephyr Corp is named but never explained');
+});
+
 test('mapModel: things are the most-mentioned; around holds an isolated, uncharacterized term; patterns recur', () => {
   const sources = [
     { id: 'a', date: 2024, text: 'Fusus is a camera. Fusus is a camera network. The budget is a line item.' },
