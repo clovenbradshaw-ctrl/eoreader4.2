@@ -17,7 +17,7 @@
 // pin, and pins the span. The raw bytes are retained by the fetch layer (ingest/opfs-store.js)
 // or a WACZ container; custody holds the RECORD and the pin that resolves back to them.
 
-import { webSource, spanId, sha256Hex, verifyOnResolve, parseSpanId } from '../surfer/retrieve/pin.js';
+import { webSource, spanId, sha256Hex, verifyOnResolve, parseSpanId } from '../surfer/retrieve/index.js';
 
 // ── the three custody paths (§3.1) ─────────────────────────────────────────────
 // Chosen by source class. No single path covers everything, and pretending one does is the
