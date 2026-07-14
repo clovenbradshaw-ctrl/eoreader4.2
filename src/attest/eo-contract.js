@@ -29,4 +29,10 @@ export const CONTRACTS = Object.freeze({
     ops: ['SYN', 'EVA', 'SIG'], targets: ['Network'], products: ['Network', 'Lens'],
     stances: ['Composing', 'Tracing', 'Binding'], note: 'Merkle-anchor the ledger, prove inclusion',
   }),
+  // Watch (§7): SIG the digest change / withdrawal, EVA the re-attested span (SCRUBBED), NUL the
+  // absence a withdrawal leaves. The archive as an instrument.
+  'src/attest/watch.js': contract({
+    ops: ['SIG', 'EVA', 'NUL'], targets: ['Entity', 'Lens'], products: ['Entity', 'Lens', 'Void'],
+    stances: ['Binding', 'Tracing', 'Dissecting', 'Clearing'], note: 'CDX watch — scrub + withdrawal detection',
+  }),
 });
