@@ -108,8 +108,9 @@ test('core purity — nothing under src/core imports outside src/core', () => {
     `core imported upward — "core cannot import anything" (docs/architecture.md):\n  ${escapes.join('\n  ')}`);
 });
 
-test('the membrane is exemplary — rooms/reader/boot.js imports only entrances', () => {
+test('the membrane is exemplary — rooms/reader/boot.js imports only entrances (or declared seams)', () => {
   const boot = path.join(SRC, 'rooms', 'reader', 'boot.js');
+  const bootRel = path.relative(ROOT, boot);
   const bootHolon = holonOf(boot);
   const pierced = [];
   const text = readFileSync(boot, 'utf8');
@@ -121,8 +122,9 @@ test('the membrane is exemplary — rooms/reader/boot.js imports only entrances'
     if (!target || !target.startsWith(SRC)) continue;
     const toHolon = holonOf(target);
     if (toHolon === bootHolon) continue;
-    if (path.resolve(target) !== path.resolve(path.join(toHolon, 'index.js')))
-      pierced.push(path.relative(ROOT, target));
+    if (path.resolve(target) === path.resolve(path.join(toHolon, 'index.js'))) continue;
+    if (SEAM_SET.has(seamKey(bootRel, path.relative(ROOT, target)))) continue; // declared, with its reason on the row
+    pierced.push(path.relative(ROOT, target));
   }
   assert.equal(pierced.length, 0,
     `the surface↔engine membrane reached inside a holon:\n  ${pierced.join('\n  ')}`);

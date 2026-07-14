@@ -27,7 +27,7 @@ export const CONTRACTS = Object.freeze({
   'src/core/holder.js': contract({ ops: ['INS', 'DEF'], targets: ['Entity'], products: ['Entity', 'Lens'], stances: ['Making', 'Dissecting'], note: 'holder root + nested belief' }),
   'src/core/holon.js': contract({ ops: ['SEG', 'INS'], targets: ['Void'], products: ['Entity', 'Network'], stances: ['Dissecting', 'Making'], note: 'holonic Site addressing' }),
   'src/core/index.js': contract({ ops: ['NUL', 'SIG', 'INS', 'SEG', 'CON', 'SYN', 'DEF', 'EVA', 'REC'], targets: ['Void', 'Field', 'Network', 'Lens'], products: ['Entity', 'Network', 'Lens', 'Paradigm'], stances: ['Clearing', 'Making', 'Composing'], note: 'barrel' }),
-  'src/core/log.js': contract({ ops: ['INS', 'SEG', 'SIG'], targets: ['Entity'], products: ['Field', 'Entity'], stances: ['Making', 'Dissecting', 'Binding'], note: 'the append-only log (write)', floor: true }),
+  'src/core/log.js': contract({ ops: ['INS', 'SEG', 'SIG', 'EVA'], targets: ['Entity'], products: ['Field', 'Entity'], stances: ['Making', 'Dissecting', 'Binding'], note: 'the append-only log (write) + Law 1 at emit (op vs the emitter\'s declared Act face)', floor: true }),
   'src/core/operators.js': contract({ ops: ['NUL'], targets: ['Kind'], products: ['Kind'], stances: ['Clearing'], note: 'the nine operators (Act face)', floor: true }),
   'src/core/project.js': contract({ ops: ['SYN', 'EVA'], targets: ['Field'], products: ['Network', 'Entity'], stances: ['Composing', 'Tracing'], note: 'projectGraph — the read fold', floor: true }),
   'src/core/proposition.js': contract({ ops: ['SYN'], targets: ['Void'], products: ['Link'], stances: ['Making'], note: 'the proposition (floor of meaning)' }),

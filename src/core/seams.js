@@ -8,16 +8,18 @@
 // stance to the import graph, and tests/boundaries.test.js enforces it: no
 // undeclared crossing ever lands, no declared seam goes stale.
 //
-// The registry is EMPTY. The 2026-07 compliance pass (docs/eo-compliance-2026-07.md)
-// found 205 silent crossings, declared the survivors here, then healed every one:
-// each deep import now rides its holon's entrance, with the entrance re-exporting
-// what its neighbors legitimately need. The registry may only shrink — it has
-// shrunk to zero, and the boundary test keeps it there: a new deep import fails
-// loudly until it is either routed through the entrance or deliberately declared
-// here, in review, as a row with a reason:
+// The 2026-07 compliance pass (docs/eo-compliance-2026-07.md) found 205 silent
+// crossings, declared the survivors here, then healed every one: each deep import
+// now rides its holon's entrance, with the entrance re-exporting what its
+// neighbors legitimately need. What remains is the declared floor — each row a
+// crossing that CANNOT ride an entrance, with the reason on the row. A new deep
+// import fails loudly until it is either routed through the entrance or
+// deliberately declared here, in review, the same way:
 //
 //   ['src/<importer>.js', 'src/<holon>/<internal>.js', 'why the entrance will not do'],
 export const SEAMS = Object.freeze([
+  ['src/rooms/reader/boot.js', 'src/core/contracts.js',
+    'Law 1 at emit: the conformance registry aggregates every holon\'s manifest, so it cannot ride core\'s entrance — core imports nothing; only the assembly membrane may load it'],
 ].map(Object.freeze));
 
 // The seam set, keyed "from → to", for the boundary test's membership check.
