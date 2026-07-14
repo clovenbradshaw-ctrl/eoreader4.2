@@ -132,11 +132,48 @@ test('pickReferent returns null on an empty candidate set', () => {
   assert.equal(pickReferent('Anything', referentContext({ label: 'Anything' }), []), null);
 });
 
+test('pickReferent carries the lead image through for the confirmed referent', () => {
+  const ctx = referentContext({
+    label: 'Neil Armstrong', statements: ['Neil Armstrong walked on the Moon.'], neighbors: ['Apollo', 'NASA'],
+  });
+  const best = pickReferent('Neil Armstrong', ctx, [{
+    title: 'Neil Armstrong', description: 'American astronaut',
+    extract: 'Neil Armstrong was an American astronaut and the first person to walk on the Moon, commanding Apollo 11.',
+    thumb: 'https://upload.wikimedia.org/x/Neil_Armstrong.jpg', thumbW: 320, thumbH: 400,
+  }]);
+  assert.equal(best.confirmed, true);
+  assert.equal(best.thumb, 'https://upload.wikimedia.org/x/Neil_Armstrong.jpg');
+  assert.equal(best.thumbW, 320);
+  // a candidate with no image degrades to an empty string, never undefined
+  const noPic = pickReferent('reef', referentContext({ label: 'reef' }),
+    [{ title: 'Reef', description: 'ridge beneath the water', extract: 'A reef is a ridge of rock or coral beneath the water surface.' }]);
+  assert.equal(noPic.thumb, '');
+});
+
 // ── the fetch, against a fake client ─────────────────────────────────────────────────
-const page = (id, title, extract, description = '', disambig = false) => [id, {
+const page = (id, title, extract, description = '', disambig = false, thumb = '') => [id, {
   pageid: id, title, extract, description,
   ...(disambig ? { pageprops: { disambiguation: '' } } : {}),
+  ...(thumb ? { thumbnail: { source: thumb, width: 320, height: 400 } } : {}),
 }];
+
+test('wikiReferent asks for a lead thumbnail and threads it onto the confirmed referent', async () => {
+  const client = { fetchUrl: async (url) => {
+    // the search asks the pageimages prop for a thumbnail
+    assert.match(url, /prop=[^&]*pageimages/);
+    assert.match(url, /pithumbsize=\d+/);
+    const pages = Object.fromEntries([
+      page(1, 'Neil Armstrong', 'Neil Armstrong was an American astronaut and the first person to walk on the Moon.',
+        'American astronaut', false, 'https://upload.wikimedia.org/x/Neil_Armstrong.jpg'),
+    ]);
+    return { text: JSON.stringify({ query: { pages } }) };
+  } };
+  const best = await wikiReferent(client, {
+    label: 'Neil Armstrong', statements: ['Neil Armstrong walked on the Moon.'], neighbors: ['Apollo'],
+  });
+  assert.equal(best.confirmed, true);
+  assert.equal(best.thumb, 'https://upload.wikimedia.org/x/Neil_Armstrong.jpg');
+});
 
 test('wikiReferent searches, filters disambiguation pages, merges the context search, confirms', async () => {
   const calls = [];

@@ -3597,6 +3597,34 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     };
   };
 
+  // The one figure a source most CENTRES on — its dominant referent (the subject of a bio or an
+  // article). Returns { docId, entId, label, sightings } for the top figure by merged sighting mass,
+  // or null when no figure is named repeatedly enough to carry the whole source. A single-subject
+  // document (a Wikipedia bio) surfaces this figure's dossier — its contextual reading, provenance
+  // DAG and settled Wikipedia referent — in place of a machine telegram; a figure-less or evenly
+  // diffuse document keeps its plain source summary. Pure and model-free (mirrors sourceReading's
+  // dominance read, exposing the rep id the entity surfaces key on).
+  const DOMINANT_FLOOR = 2;                              // named at least twice — not a one-off passer-by
+  const sourceDominantEntity = (sn) => {
+    const src = sourceBySn(sn);
+    const doc = src ? docFor(src) : null;
+    if (!doc?.log) return null;
+    const g = projectGraph(doc.log);
+    const rep = g.representative || ((x) => x);
+    const bySight = new Map();
+    for (const [id, ent] of g.entities || []) {
+      const r = rep(id);
+      const label = doc.admission?.labelOf?.(r) || ent.label || r;
+      const cur = bySight.get(r);
+      if (cur) cur.sightings += ent.sightings || 0;
+      else bySight.set(r, { id: r, label, sightings: ent.sightings || 0 });
+    }
+    let top = null;
+    for (const f of bySight.values()) if (!top || f.sightings > top.sightings) top = f;
+    if (!top || !top.label || (top.sightings || 0) < DOMINANT_FLOOR) return null;
+    return { docId: src.docId, entId: top.id, label: top.label, sightings: top.sightings };
+  };
+
   // Compose (or refine) a topline over a closed inventory into the stored shape. `modelless` marks a
   // telegram-only topline a warm talker can later refine; `sha` lets a source topline invalidate if
   // its content ever moves. Never throws — a summary must never cost the caller its record.
@@ -4501,6 +4529,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     sourceLevels, sourceEntities, sourceBaseNoun,
     // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
     sourceSummary, sourceSummaryOf, entitySummary, entitySummaryFor, summaryFeedback,
+    // the figure a single-subject source centres on — the source page shows its dossier (docs/topline.md)
+    sourceDominantEntity,
     // the entity explore surface — the deterministic chapter spine + on-demand important/surprising +
     // the fold-prompted per-chapter reading, all pulled lazily as the reader digs in (docs/topline.md)
     entityChapters, entityDigest, entityDigestFor, entityChapterReading, entityChapterReadingFor,
