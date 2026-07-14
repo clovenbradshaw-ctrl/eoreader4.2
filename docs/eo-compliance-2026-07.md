@@ -114,3 +114,39 @@ restated in a comment is documentation; a law a test can fail is a checkpoint
 - ~~**The seam registry.**~~ Done: healed from 195 to zero (one declared row
   remains, with its reason: the conformance registry itself cannot ride
   core's entrance); the boundary test keeps it that way.
+
+## The independent audit — thirteen layers, adversarially verified
+
+Alongside the repairs, a sixty-agent audit read every stack layer against the
+same rubric, one auditor per layer, and then tried to REFUTE each material
+finding independently (58 completed; 61 findings survived verification, 29
+were killed — the adversarial pass earned its keep). Run against the
+pre-repair tree, it independently converged on every defect the repairs
+fixed (the core escape, the pierced membrane, the silent crossings, the two
+god orchestrators, contracts as vanity metadata) — and it settles three
+things the repairs could not:
+
+- **The metabolism is the best-defended doctrine in the codebase** —
+  confirmed, not refuted, at major severity three times over: the desert
+  cell is enforced live and redundantly across four independent layers
+  during actual organ growth; the proposer/judge channels genuinely never
+  write the champion; and evolved organs are runtime-gated against a
+  well-formed EO contract at creation AND at body closure. Where the stakes
+  were highest, the code was already law.
+- **The enactor gates by flag, not by veto — on purpose.** "Nothing is
+  asserted that the record can't witness" is implemented as flag-and-ride:
+  the detection machinery (fact-check, the confabulation guard, mechanical
+  citation, the self-witness firewall) is genuinely live, but an
+  ungrounded claim ships TAGGED rather than suppressed, and the veto
+  battery renounces gating by name. That is a doctrinal softening the
+  prose does not admit — either the docs should say "witnessed or marked",
+  or the gate should close. The human holds that pen.
+- **Dead reserves.** `store/envelope.js` — 228 lines of E2EE envelope
+  crypto — is re-exported but has no running caller (the live path uses a
+  sibling implementation); murmur's steer/attention half is likewise
+  unconsumed. "No dead code paths" says these either find their caller or
+  go.
+
+The residual god-module long tail (perceiver's parser at 964 lines,
+seventeen surfer files over the floor) is the ratchet's territory now:
+pinned, shrink-only, and no new file may cross the line.
