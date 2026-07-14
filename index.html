@@ -1386,51 +1386,133 @@ table{border-collapse:collapse;width:100%}
           </div>
           </sc-if>
 
-          <!-- SOURCES TAB -->
+          <!-- SOURCES TAB — the Drive: a folder-navigable source explorer, the hero of this tab -->
           <sc-if value="{{ isRegister }}">
-          <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:22px 26px">
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA;margin-bottom:2px">SOURCES · THE RECORD</div>
-            <div style="font-family:'Newsreader',Georgia,serif;font-size:20px;font-weight:600;margin-bottom:18px">Citation · provenance · fixity · rights</div>
-            <sc-if value="{{ noSources }}">
-              <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:28px 24px;color:#8A8A95;font-size:13px;line-height:1.6;background:#fff">The record is empty. Ingest a URL, drop a file, or paste text — every source is registered here with its content hash, byte count, retrieval time and rights posture.</div>
-            </sc-if>
-            <sc-if value="{{ hasSources }}">
-            <div style="border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff">
-              <table style="font-size:12.5px">
-                <thead>
-                  <tr style="background:#FBFBFD;border-bottom:1px solid #EAEAEF">
-                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">ID</th>
-                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">SOURCE</th>
-                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">RETRIEVED</th>
-                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">FIXITY</th>
-                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">RIGHTS</th>
-                    <th style="text-align:right;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">CITES</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <sc-for list="{{ regRows }}" as="r">
-                    <tr onClick="{{ r.open }}" style="border-bottom:1px solid #F2F2F6;cursor:pointer" style-hover="background:#FAFAFC">
-                      <td style="padding:12px 14px;vertical-align:top"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#6E7787">{{ r.reg }}</span></td>
-                      <td style="padding:12px 14px;vertical-align:top">
-                        <span style="display:block;font-weight:550;color:#2A2A32;max-width:260px">{{ r.title }}</span>
-                        <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ r.domain }} · {{ r.kind }} · {{ r.ents }} {{ r.entsNoun }}</span>
-                      </td>
-                      <td style="padding:12px 14px;vertical-align:top;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6E6E78;white-space:nowrap">{{ r.retrieved }}</td>
-                      <td style="padding:12px 14px;vertical-align:top">
-                        <span style="display:flex;align-items:center;gap:6px">
-                          <span style="color:#1E8A50"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span>
-                          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5A5A64">{{ r.sha }}</span>
-                        </span>
-                        <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:2px">{{ r.bytes }} · content hash</span>
-                      </td>
-                      <td style="padding:12px 14px;vertical-align:top"><span style="font-size:10.5px;font-weight:600;color:{{ r.rightsFg }};background:{{ r.rightsBg }};border-radius:5px;padding:2px 7px;white-space:nowrap">{{ r.rights }}</span></td>
-                      <td style="padding:12px 14px;vertical-align:top;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6E6E78">{{ r.cites }}</td>
-                    </tr>
-                  </sc-for>
-                </tbody>
-              </table>
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;position:relative;background:#FCFCFD">
+
+            <!-- a menu is open → a transparent catcher dismisses it on any outside tap -->
+            <sc-if value="{{ explorerMenuOpen }}"><div onClick="{{ closeExplorerMenu }}" style="position:absolute;inset:0;z-index:5"></div></sc-if>
+
+            <!-- header: title row + breadcrumb + New folder -->
+            <div style="flex:0 0 auto;padding:14px 20px 12px;border-bottom:1px solid #EFEFF3;background:#fff">
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA">SOURCES · DRIVE</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#C0C0C8">{{ explorerCount }}</span>
+                <span style="flex:1"></span>
+                <button onClick="{{ explorerNewFolder }}" title="New folder here" style="display:inline-flex;align-items:center;gap:6px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-size:12.5px;font-weight:600;border-radius:9px;padding:7px 12px" style-hover="background:#E7E2FD">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v4M10 13h4"/></svg>
+                  New folder
+                </button>
+              </div>
+              <!-- breadcrumb — horizontally scrollable so a deep path never breaks the layout -->
+              <div class="eo-scroll" style="display:flex;align-items:center;gap:4px;overflow-x:auto;white-space:nowrap;font-size:13px">
+                <span style="flex:0 0 auto;color:#B4B4BE;display:flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+                <sc-for list="{{ explorerCrumbs }}" as="cr">
+                  <sc-if value="{{ cr.notFirst }}"><span style="flex:0 0 auto;color:#C4C4CC">›</span></sc-if>
+                  <sc-if value="{{ cr.isLast }}"><span style="flex:0 0 auto;font-weight:650;color:#2A2A32;max-width:220px;overflow:hidden;text-overflow:ellipsis">{{ cr.name }}</span></sc-if>
+                  <sc-if value="{{ cr.notLast }}"><button onClick="{{ cr.go }}" title="Go to this folder" style="flex:0 0 auto;max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#8A8A95;background:none;font-weight:600" style-hover="color:#5B4BE6">{{ cr.name }}</button></sc-if>
+                </sc-for>
+              </div>
             </div>
+
+            <!-- body: folders, then files -->
+            <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:18px 20px 40px">
+
+              <!-- empty state (per folder) -->
+              <sc-if value="{{ explorerEmpty }}">
+                <sc-if value="{{ explorerAtRoot }}">
+                  <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:30px 24px;text-align:center;background:#fff;max-width:520px;margin:24px auto 0">
+                    <div style="width:44px;height:44px;border-radius:12px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#2A2A32;margin-bottom:6px">Your Drive is empty</div>
+                    <div style="font-size:13px;color:#8A8A95;line-height:1.6">Read a URL, drop a file, paste text, or search the web — every source lands here. Make folders to keep a growing library in order.</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ explorerNotRoot }}">
+                  <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:26px 24px;text-align:center;background:#fff;max-width:520px;margin:24px auto 0">
+                    <div style="font-size:13px;color:#8A8A95;line-height:1.6">This folder is empty. Move sources into it from the “⋮” menu on any file, or add a sub-folder.</div>
+                    <button onClick="{{ explorerNewFolder }}" style="display:inline-flex;align-items:center;gap:6px;margin-top:14px;background:#F7F7FA;border:1px solid #E6E6EC;color:#5A5A64;font-size:12.5px;font-weight:600;border-radius:9px;padding:8px 13px" style-hover="background:#F2F2F6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>New sub-folder</button>
+                  </div>
+                </sc-if>
+              </sc-if>
+
+              <!-- FOLDERS — a responsive grid of cards you descend into -->
+              <sc-if value="{{ explorerHasFolders }}">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:0 2px 10px">FOLDERS</div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:24px">
+                  <sc-for list="{{ explorerFolders }}" as="fd">
+                    <div style="position:relative">
+                      <button onClick="{{ fd.open }}" title="Open folder" style="width:100%;display:flex;align-items:center;gap:11px;background:#fff;border:1px solid #EAEAEF;border-radius:12px;padding:14px 40px 14px 14px;text-align:left" style-hover="background:#F7F7FA;border-color:#DED8FD">
+                        <span style="width:38px;height:38px;border-radius:10px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:#F1EFFE;color:#6D5EF5"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+                        <span style="flex:1;min-width:0">
+                          <span style="display:block;font-size:13.5px;font-weight:600;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fd.name }}</span>
+                          <span style="display:block;font-size:11px;color:#9A9AA4;margin-top:2px">{{ fd.meta }}</span>
+                        </span>
+                      </button>
+                      <button onClick="{{ fd.menuClick }}" title="Rename, move, or delete" style="position:absolute;top:8px;right:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;border-radius:7px;background:none" style-hover="background:#ECECF1;color:#6E6E78"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
+                      <sc-if value="{{ fd.menuOpen }}">
+                        <div style="position:absolute;right:8px;top:38px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:172px">
+                          <button onClick="{{ fd.doRename }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename</button>
+                          <button onClick="{{ fd.doMove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M2 12h13M14 5h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/></svg>Move to…</button>
+                          <button onClick="{{ fd.doDelete }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete folder</button>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- FILES — the sources filed in this folder -->
+              <sc-if value="{{ explorerHasFiles }}">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:0 2px 10px">FILES</div>
+                <div style="border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff">
+                  <sc-for list="{{ explorerFiles }}" as="fl">
+                    <div style="position:relative;display:flex;align-items:center;border-top:1px solid #F2F2F6" style-hover="background:#FAFAFC">
+                      <button onClick="{{ fl.open }}" title="Open source" style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:12px 14px;background:none;text-align:left">
+                        <span style="width:32px;height:32px;border-radius:8px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;background:{{ fl.favBg }};color:{{ fl.favFg }}">{{ fl.favCh }}</span>
+                        <span style="flex:1;min-width:0">
+                          <span style="display:block;font-size:13.5px;font-weight:550;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fl.title }}</span>
+                          <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fl.sub }}</span>
+                        </span>
+                        <span style="flex:0 0 auto;font-size:10px;font-weight:600;color:{{ fl.rightsFg }};background:{{ fl.rightsBg }};border-radius:5px;padding:2px 7px;white-space:nowrap">{{ fl.rights }}</span>
+                        <sc-if value="{{ fl.hasCites }}"><span title="times cited in answers" style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8A95;background:#F2F2F6;border-radius:5px;padding:2px 6px">{{ fl.cites }} cite</span></sc-if>
+                      </button>
+                      <button onClick="{{ fl.menuClick }}" title="Move or remove" style="flex:0 0 auto;width:34px;height:44px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;background:none" style-hover="color:#6E6E78"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
+                      <sc-if value="{{ fl.menuOpen }}">
+                        <div style="position:absolute;right:10px;top:44px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:168px">
+                          <button onClick="{{ fl.doMove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M2 12h13M14 5h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/></svg>Move to…</button>
+                          <button onClick="{{ fl.doRemove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Remove source</button>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+
+            <!-- MOVE TO… picker — a modal (bottom-sheet feel on mobile) listing the workspace's folders -->
+            <sc-if value="{{ moveOpen }}">
+              <div onClick="{{ closeMove }}" style="position:absolute;inset:0;z-index:20;background:rgba(20,20,30,.30);display:flex;align-items:center;justify-content:center;padding:16px">
+                <div onClick="{{ moveStop }}" style="width:100%;max-width:420px;max-height:80%;display:flex;flex-direction:column;background:#fff;border:1px solid #E6E6EC;border-radius:14px;box-shadow:0 20px 50px rgba(20,20,30,.24);overflow:hidden">
+                  <div style="flex:0 0 auto;padding:14px 16px;border-bottom:1px solid #F2F2F6">
+                    <div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#9A9AA4">MOVE TO…</div>
+                    <div style="font-size:13.5px;font-weight:600;color:#2A2A32;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ moveTitle }}</div>
+                  </div>
+                  <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:6px">
+                    <sc-for list="{{ moveDests }}" as="dt">
+                      <button onClick="{{ dt.pick }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:10px 10px 10px {{ dt.indent }};border-radius:8px;font-size:13px;color:#3A3A44;background:none;text-align:left" style-hover="background:#F5F5F8">
+                        <span style="flex:0 0 auto;color:#B4B4BE"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+                        <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ dt.name }}</span>
+                        <sc-if value="{{ dt.isCurrent }}"><span style="flex:0 0 auto;font-size:10px;font-weight:600;color:#8A8A95;background:#F2F2F6;border-radius:5px;padding:2px 7px">Here now</span></sc-if>
+                      </button>
+                    </sc-for>
+                  </div>
+                  <div style="flex:0 0 auto;padding:10px 16px;border-top:1px solid #F2F2F6;text-align:right">
+                    <button onClick="{{ closeMove }}" style="font-size:12.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border-radius:8px;padding:7px 14px" style-hover="background:#EAEAEF">Cancel</button>
+                  </div>
+                </div>
+              </div>
             </sc-if>
+
           </div>
           </sc-if>
 
@@ -2702,6 +2784,10 @@ class Component extends DCLogic {
       modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
+      // Source explorer (the Sources tab is a Drive): explorerFolder is the folder currently
+      // open (null = the drive root), explorerMenu the id of the folder/file whose kebab menu is
+      // open ('f:F1' / 's:S1'), and moveTarget the item being filed via the "Move to…" picker.
+      explorerFolder: null, explorerMenu: null, moveTarget: null,
       // Ask surface: where the next question lands — 'follow' (a child quest under the current
       // topic) or 'new' (a fresh top-level quest); and the per-answer "Download audit" menu.
       askScope: 'follow', askAuditMenuOpen: false,
@@ -6454,19 +6540,116 @@ class Component extends DCLogic {
       { value: String(contradictions), label: 'contradictions', color: contradictions ? '#B23A2E' : '#1E8A50' },
     ];
 
-    // sources register
+    // ── source explorer — the Sources tab is a Drive (folders + files) ──────────
+    // A workspace's whole library organises into a navigable folder tree. The hero shows the
+    // folder you're standing in — its sub-folders as cards, its filed sources as rows — with a
+    // breadcrumb back to the root, so a great deal of content stays legible on any screen.
+    // Grounding is untouched: folders are organisation only, topicSources still scopes answers.
     const citeCounts = {};
     for (const t of app.state.topics) for (const mm of t.messages) for (const c of (mm.cites || [])) if (c.sn) citeCounts[c.sn] = (citeCounts[c.sn] || 0) + 1;
-    const regRows = sources.map((s) => {
-      const r = this._rights(s);
+
+    const wsFolders = app.workspaceFolders();
+    const wsFolderIds = new Set(wsFolders.map((f) => f.id));
+    // The open folder, validated against the active workspace — a stale/deleted id falls back to
+    // the root here (read-only; the click handlers are what actually commit a navigation).
+    const curFolderId = (st.explorerFolder && wsFolderIds.has(st.explorerFolder)) ? st.explorerFolder : null;
+    const driveSources = app.workspaceSources();
+    const sameFolder = (a, b) => (a || null) === (b || null);
+    const foldersInOf = (pid) => wsFolders.filter((f) => sameFolder(f.parentId, pid));
+    const filesInOf = (pid) => driveSources.filter((s) => sameFolder(s.folderId, pid));
+    // total nested tallies so a folder card can hint how much lives beneath it (Drive-like)
+    const tallyOf = (pid) => {
+      let folders = 0, files = filesInOf(pid).length;
+      for (const f of foldersInOf(pid)) { folders += 1; const sub = tallyOf(f.id); folders += sub.folders; files += sub.files; }
+      return { folders, files };
+    };
+
+    // breadcrumb: the workspace (drive root) › … › the open folder
+    const crumbChain = curFolderId ? app.folderPath(curFolderId) : [];
+    const rawCrumbs = [
+      { name: app.activeWorkspace() ? app.activeWorkspace().name : 'Drive', id: null },
+      ...crumbChain.map((f) => ({ name: f.name, id: f.id })),
+    ];
+    const explorerCrumbs = rawCrumbs.map((c, i) => ({
+      name: c.name, notFirst: i > 0, isLast: i === rawCrumbs.length - 1, notLast: i !== rawCrumbs.length - 1,
+      go: () => this.setState({ explorerFolder: c.id, explorerMenu: null }),
+    }));
+
+    // sub-folders in the open folder — cards you tap to descend
+    const explorerFolders = foldersInOf(curFolderId).map((f) => {
+      const t = tallyOf(f.id);
+      const parts = [];
+      if (t.folders) parts.push(`${t.folders} folder${t.folders === 1 ? '' : 's'}`);
+      parts.push(`${t.files} file${t.files === 1 ? '' : 's'}`);
       return {
-        reg: s.reg, title: s.title, domain: s.domain, kind: s.kind, ents: s.entCount == null ? '…' : String(s.entCount),
-        entsNoun: (app.sourceBaseNoun ? app.sourceBaseNoun(s.sn) : 'Entities').toLowerCase(),
-        retrieved: this._ago(s.retrieved), sha: s.sha.replace(/^[^:]*:/, '').slice(0, 12), bytes: this._bytes(s.bytes),
-        rights: r.label, rightsFg: r.fg, rightsBg: r.bg, cites: String(citeCounts[s.sn] || 0),
-        open: () => this.openViewer(s.sn),
+        id: f.id, name: f.name, meta: parts.join(' · '),
+        open: () => this.setState({ explorerFolder: f.id, explorerMenu: null }),
+        menuOpen: st.explorerMenu === 'f:' + f.id,
+        menuClick: () => this.setState({ explorerMenu: st.explorerMenu === 'f:' + f.id ? null : 'f:' + f.id }),
+        doRename: () => { const v = prompt('Rename folder', f.name); if (v) app.folderRename(f.id, v); this.setState({ explorerMenu: null }); },
+        doMove: () => this.setState({ moveTarget: { kind: 'folder', id: f.id }, explorerMenu: null }),
+        doDelete: () => { if (confirm(`Delete folder “${f.name}”? Its contents rise to the parent — nothing recorded is lost.`)) app.folderDelete(f.id); this.setState({ explorerMenu: null }); },
       };
     });
+
+    // files (top-level sources) filed in the open folder
+    let exFavI = 0;
+    const explorerFiles = filesInOf(curFolderId).map((s) => {
+      const fav = FAV[exFavI++ % FAV.length];
+      const r = this._rights(s);
+      const cites = citeCounts[s.sn] || 0;
+      return {
+        sn: s.sn, title: s.title,
+        sub: `${s.reg} · ${s.domain} · ${s.kind} · ${this._bytes(s.bytes)}`,
+        favCh: (s.domain || s.title || '?')[0].toUpperCase(), favBg: fav[0], favFg: fav[1],
+        rights: r.label, rightsFg: r.fg, rightsBg: r.bg,
+        cites: String(cites), hasCites: cites > 0,
+        open: () => this.openViewer(s.sn),
+        menuOpen: st.explorerMenu === 's:' + s.sn,
+        menuClick: () => this.setState({ explorerMenu: st.explorerMenu === 's:' + s.sn ? null : 's:' + s.sn }),
+        doMove: () => this.setState({ moveTarget: { kind: 'source', id: s.sn }, explorerMenu: null }),
+        doRemove: () => { if (confirm(`Remove “${s.title}” from the record? This deletes the source and its readings.`)) app.removeSource(s.sn); this.setState({ explorerMenu: null }); },
+      };
+    });
+
+    const explorerHasFolders = explorerFolders.length > 0;
+    const explorerHasFiles = explorerFiles.length > 0;
+    const explorerEmpty = !explorerHasFolders && !explorerHasFiles;
+    const explorerAtRoot = !curFolderId;
+    const driveTally = tallyOf(null);
+    const explorerCount = `${driveTally.files} file${driveTally.files === 1 ? '' : 's'} · ${wsFolders.length} folder${wsFolders.length === 1 ? '' : 's'}`;
+    const explorerMenuOpen = !!st.explorerMenu;   // a transparent backdrop dismisses any open kebab
+    const closeExplorerMenu = () => this.setState({ explorerMenu: null });
+    const explorerNewFolder = () => { const v = prompt('New folder name', 'New folder'); if (v !== null) app.folderNew(v || 'New folder', { parentId: curFolderId }); this.setState({ explorerMenu: null }); };
+
+    // ── the "Move to…" picker — a flattened, indented list of the workspace's folders ──
+    const mv = st.moveTarget;
+    const moveOpen = !!mv;
+    let moveTitle = '', moveDests = [];
+    if (mv) {
+      // For a folder move, forbid landing inside itself or any descendant (that would be a cycle).
+      const forbidden = new Set();
+      if (mv.kind === 'folder') { const mark = (id) => { forbidden.add(id); for (const c of foldersInOf(id)) mark(c.id); }; mark(mv.id); }
+      const item = mv.kind === 'folder' ? app.folderById(mv.id) : app.sourceBySn(mv.id);
+      const curOf = mv.kind === 'folder' ? (item ? item.parentId : null) : (item ? item.folderId : null);
+      moveTitle = item ? (mv.kind === 'folder' ? item.name : item.title) : '';
+      const pickDest = (destId) => { if (mv.kind === 'folder') app.folderMove(mv.id, destId); else app.sourceMove(mv.id, destId); this.setState({ moveTarget: null }); };
+      const flatten = (pid, depth) => {
+        const rows = [];
+        for (const f of foldersInOf(pid)) {
+          if (forbidden.has(f.id)) continue;
+          rows.push({ id: f.id, name: f.name, indent: `${depth * 16}px`, isCurrent: sameFolder(curOf, f.id), pick: () => pickDest(f.id) });
+          rows.push(...flatten(f.id, depth + 1));
+        }
+        return rows;
+      };
+      moveDests = [
+        { id: null, name: (app.activeWorkspace() ? app.activeWorkspace().name : 'Drive') + ' · root', indent: '0px', isCurrent: sameFolder(curOf, null), pick: () => pickDest(null) },
+        ...flatten(null, 1),
+      ];
+    }
+    const closeMove = () => this.setState({ moveTarget: null });
+    const moveStop = (e) => { if (e && e.stopPropagation) e.stopPropagation(); };
 
     // memo
     const memoClaims = claims.slice(-8).map((c) => {
@@ -7056,8 +7239,12 @@ class Component extends DCLogic {
       allTiersTitle: allTiersOpen ? 'Fold every group back to its header' : 'Open every group in the graph',
       contraFg: st.hideContra ? '#8A8A95' : '#B23A2E', contraBg: st.hideContra ? '#F2F2F6' : '#FBE9E6', contraBd: st.hideContra ? '#EAEAEF' : '#F2D3CD',
       resetFg: st.focusId ? '#5B4BE6' : '#8A8A95', setViewport: (el) => this.setViewport(el),
-      // findings + register + memo
-      evEmpty: claims.length === 0, evClaims, overviewStats, regRows,
+      // findings + memo
+      evEmpty: claims.length === 0, evClaims, overviewStats,
+      // source explorer (the Drive) — breadcrumb, folder cards, file rows, and the move picker
+      explorerCrumbs, explorerFolders, explorerFiles, explorerHasFolders, explorerHasFiles,
+      explorerEmpty, explorerAtRoot, explorerNotRoot: !explorerAtRoot, explorerCount, explorerMenuOpen, closeExplorerMenu, explorerNewFolder,
+      moveOpen, moveTitle, moveDests, closeMove, moveStop,
       // the pivot banner — which node the list is narrowed to, and the counts
       pivotActive, pivotLabel, pivotShown: String(shownClaims.length), pivotTotal: String(claims.length),
       memoTitle: topic ? topic.title : '', memoText: topic ? topic.memo : '',

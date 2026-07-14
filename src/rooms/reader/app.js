@@ -291,6 +291,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     activeWorkspaceId: null,
     topics: [],            // { id, title, created, workspaceId, parentId, collapsed, sourceSns:[], messages:[], memo:'' }
     activeTopicId: null,
+    // The source explorer's Drive: a workspace owns a nested tree of FOLDERS, and every
+    // top-level source carries a `folderId` naming the folder it is filed under (null = the
+    // drive root). Folders are workspace-scoped so the whole library — every quest's sources —
+    // organises into one navigable Drive; grounding stays topic-scoped (topicSources untouched).
+    folders: [],           // { id, name, parentId, workspaceId, created }
     log: [],               // activity ledger: { id, t, kind, text, effect }
     reflections: [],       // the inner monologue: reflections the reading has at rest (band void)
     reflectionsSeen: 0,    // running total ever voiced this session — the honest "N notes so far".
@@ -315,7 +320,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     jobs: [],              // [{ id, kind, status, attempts, topicId, workspaceId, ...spec }]
     ready: false,          // restore finished
   };
-  let sn = 0, tn = 0, ln = 0, mn = 0, wn = 0;
+  let sn = 0, tn = 0, ln = 0, mn = 0, wn = 0, fon = 0;
   const client = createWebClient({ fetchImpl });
 
   // THE SESSION'S SELF AND SPINE. One monitor for the whole session (one loop, one me):
@@ -535,10 +540,12 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
 
   // ── persistence ────────────────────────────────────────────────────────────
   const serialize = () => ({
-    v: 1, sn, tn, ln, mn, wn,
+    v: 1, sn, tn, ln, mn, wn, fon,
     activeTopicId: state.activeTopicId,
     activeWorkspaceId: state.activeWorkspaceId,
     workspaces: state.workspaces,
+    // the source explorer's folder tree (Drive) — small plain JSON, one per workspace subtree
+    folders: state.folders,
     log: state.log.slice(-120),
     topics: state.topics,
     // Persist only the RECORDED source — never its DERIVED readings. Every `_`-prefixed
@@ -574,6 +581,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       if (snap && snap.v === 1) {
         ({ sn, tn, ln, mn } = snap);
         wn = snap.wn || 0;
+        fon = snap.fon || 0;
         state.sources = (Array.isArray(snap.sources) ? snap.sources : []).map((s) => {
           const src = { ...s, _doc: null };
           // Re-seed the live ASR object from its durable twin so the transcription banner reads
@@ -593,6 +601,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         state.activeTopicId = snap.activeTopicId;
         state.workspaces = Array.isArray(snap.workspaces) ? snap.workspaces : [];
         state.activeWorkspaceId = snap.activeWorkspaceId || null;
+        state.folders = Array.isArray(snap.folders) ? snap.folders : [];
         state.log = Array.isArray(snap.log) ? snap.log : [];
         state.jobs = Array.isArray(snap.jobs) ? snap.jobs : [];   // pending work to resume below
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
@@ -633,6 +642,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }
     if (!state.topics.length) topicNew('New topic', { silent: true });
     if (!state.topics.find((t) => t.id === state.activeTopicId)) state.activeTopicId = state.topics[0].id;
+    // Folder sanity: drop folders whose workspace is gone, and clear a source's `folderId`
+    // when it points at a folder that no longer exists — the drive never shows a dead crumb.
+    const wsIds = new Set(state.workspaces.map((w) => w.id));
+    state.folders = (state.folders || []).filter((f) => f && f.id && wsIds.has(f.workspaceId));
+    const folderIds = new Set(state.folders.map((f) => f.id));
+    for (const f of state.folders) if (f.parentId && !folderIds.has(f.parentId)) f.parentId = null;
+    for (const s of state.sources) if (s.folderId && !folderIds.has(s.folderId)) s.folderId = null;
     state.ready = true;
     emit('ready');
     // The model prewarms the moment the session is up (4.1's mount posture) so the
@@ -898,6 +914,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // so nothing filed here is lost when the container goes.
     const dest = state.workspaces[Math.max(0, idx - 1)] || state.workspaces[0];
     for (const t of state.topics) if (t.workspaceId === id) { t.workspaceId = dest.id; t.parentId = null; }
+    // Re-home this workspace's Drive folders into the destination too, so the sources filed in
+    // them keep a valid folderId and land in the same folder structure they came with.
+    for (const f of state.folders) if (f.workspaceId === id) f.workspaceId = dest.id;
     if (state.activeWorkspaceId === id) {
       state.activeWorkspaceId = dest.id;
       const f = state.topics.find((t) => t.workspaceId === dest.id);
@@ -944,6 +963,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       // SUB-OBJECT of that source — one site stays one source in the sidebar, its followed pages
       // nested and (by default) folded under it. collapsed governs its OWN children's fold state.
       parentSn: parentSn || null, collapsed: true,
+      // folderId: which folder in the workspace Drive this source is filed under (null = root).
+      // Only top-level records are filed; a followed sub-page rides with the site it hangs under,
+      // so it inherits its parent's folder and is never shown as its own file in the explorer.
+      folderId: parentSn ? (sourceBySn(parentSn)?.folderId || null) : null,
       text: body, entCount: null, _doc: doc || null,
     };
     if (doc) { try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; } }
@@ -1076,6 +1099,95 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // is the doc set the entity LINKER reads, so an audio or video source links the same named figures
   // the entity explorer lists (a base doc carries no `admission`, so it would link nothing).
   const topicReferentDocs = () => topicSources().map(referentDocFor).filter(Boolean);
+
+  // ── folders — the source explorer's Drive ────────────────────────────────────
+  // The "Sources" surface is a file browser: a workspace owns a nested tree of folders and
+  // every top-level source carries a `folderId` (null = the drive root). Folders are
+  // workspace-scoped, so a workspace's whole library — the sources of EVERY topic in it —
+  // organises into one navigable Drive that scales to a great deal of content, while
+  // grounding stays topic-scoped (topicSources/scopeSources are untouched by any of this).
+  const folderById = (id) => (id ? state.folders.find((f) => f.id === id) || null : null);
+  const workspaceFolders = (workspaceId = null) => {
+    const ws = workspaceId || state.activeWorkspaceId;
+    return state.folders.filter((f) => f.workspaceId === ws);
+  };
+  const folderNew = (name = 'New folder', { parentId = null, workspaceId = null } = {}) => {
+    const ws = workspaceId || state.activeWorkspaceId;
+    const par = folderById(parentId);
+    const f = {
+      id: `F${++fon}`,
+      name: String(name || 'New folder').trim() || 'New folder',
+      parentId: (par && par.workspaceId === ws) ? par.id : null,
+      workspaceId: ws, created: nowIso(),
+    };
+    state.folders.push(f);
+    logIt('open', `New folder — ${f.name}`);
+    persist(); emit('sources');
+    return f;
+  };
+  const folderRename = (id, name) => {
+    const f = folderById(id);
+    if (f && name && String(name).trim()) { f.name = String(name).trim(); persist(); emit('sources'); }
+    return f;
+  };
+  // Is `maybeAncestor` at or above `id` in the tree? The cycle guard for folderMove — a folder
+  // may never be filed inside itself or one of its own descendants.
+  const folderIsAncestor = (maybeAncestor, id) => {
+    let cur = folderById(id), guard = 0;
+    while (cur && guard++ < 200) { if (cur.id === maybeAncestor) return true; cur = folderById(cur.parentId); }
+    return false;
+  };
+  const folderMove = (id, newParentId = null) => {
+    const f = folderById(id);
+    if (!f) return null;
+    if (newParentId) {
+      const p = folderById(newParentId);
+      // refuse a cross-workspace move or a cycle (into itself or one of its descendants)
+      if (!p || p.workspaceId !== f.workspaceId || newParentId === id || folderIsAncestor(id, newParentId)) return f;
+      f.parentId = newParentId;
+    } else f.parentId = null;
+    persist(); emit('sources');
+    return f;
+  };
+  const folderDelete = (id) => {
+    const f = folderById(id);
+    if (!f) return;
+    // Non-destructive, Drive-like: child folders and the sources filed here rise to this
+    // folder's parent rather than vanishing with it — nothing recorded is ever lost.
+    for (const c of state.folders) if (c.parentId === id) c.parentId = f.parentId;
+    for (const s of state.sources) if ((s.folderId || null) === id) s.folderId = f.parentId;
+    state.folders = state.folders.filter((x) => x.id !== id);
+    logIt('skip', `Deleted folder — ${f.name} · its contents rose to the parent`);
+    persist(); emit('sources');
+  };
+  // The chain of folders from the drive root down to `id`, for the explorer's breadcrumb.
+  const folderPath = (id) => {
+    const out = []; let cur = folderById(id), guard = 0;
+    while (cur && guard++ < 200) { out.unshift(cur); cur = folderById(cur.parentId); }
+    return out;
+  };
+  // File a source into a folder (null = the root). Only a top-level record is filed; asked to
+  // move a followed sub-page, we move the SITE it hangs under, so a site and its pages stay together.
+  const sourceMove = (id, folderId = null) => {
+    const s = sourceBySn(id);
+    if (!s) return null;
+    const root = s.parentSn ? (sourceBySn(s.parentSn) || s) : s;
+    if (folderId) {
+      const f = folderById(folderId);
+      if (!f || f.workspaceId !== state.activeWorkspaceId) return root;
+      root.folderId = folderId;
+    } else root.folderId = null;
+    persist(); emit('sources');
+    return root;
+  };
+  // The drive's file set: every top-level source referenced by a topic in the workspace,
+  // deduped, in record order (sub-pages ride with their site, so they are filtered out here).
+  const workspaceSources = (workspaceId = null) => {
+    const ws = workspaceId || state.activeWorkspaceId;
+    const ids = new Set();
+    for (const t of state.topics) if (t.workspaceId === ws) for (const x of t.sourceSns) ids.add(x);
+    return state.sources.filter((s) => ids.has(s.sn) && !s.parentSn);
+  };
 
   // ── ingest: URL / search / file / paste ───────────────────────────────────
   // The two cancellable-op controllers, declared here (not just in the chat section) so `stop()`
@@ -4794,6 +4906,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // workspaces — the top-level containers; a shared workspace is a Matrix room (roomId)
     workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
     workspaceBindRoom, workspaceByRoom, workspaceSetSync,
+    // folders — the source explorer's Drive (workspace-scoped tree; sources carry folderId)
+    folderNew, folderRename, folderMove, folderDelete, folderById, folderPath,
+    workspaceFolders, workspaceSources, sourceMove,
     // ingest
     ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage, navigatePage,
     // the library shelf — search ONE shelf on its own surface (article/book/media/code), and the
