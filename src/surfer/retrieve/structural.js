@@ -43,6 +43,19 @@ const META = new Set([
   'list', 'enumerate', 'outline', 'bullet', 'bullets', 'name', 'every', 'all', 'each',
   'about', 'document', 'doc', 'text', 'file', 'story', 'book', 'passage', 'article',
   'work', 'novel', 'essay', 'paper', 'chapter', 'thing', 'things',
+  // MEDIA-OBJECT nouns — the source named by its MEDIUM. The same deictic "this ___"
+  // reference as 'file'/'document'/'book' above (the object you set down), never a
+  // content subject. Without these, "what is this AUDIO file?" kept "audio" as a subject
+  // term and point-retrieved on it — and a transcript never says the word "audio", so the
+  // reading made only weak contact and the structural skeleton that answers "what is this?"
+  // was skipped, leaving the talker to guess ("a podcast or a lecture recording"). A real
+  // subject beside them still keeps the lexical path exactly like 'file' does ("what does
+  // it say about audio CODECS?" → "codecs" survives as the subject); these only ever change
+  // routing when the query reduces to a bare "what is this <medium>?".
+  'audio', 'video', 'recording', 'recordings', 'clip', 'clips', 'transcript', 'transcripts',
+  'podcast', 'podcasts', 'tape', 'tapes', 'footage', 'song', 'songs', 'track', 'tracks',
+  'movie', 'movies', 'film', 'films', 'image', 'images', 'picture', 'pictures',
+  'photo', 'photos', 'photograph', 'photographs', 'music', 'sound', 'sounds', 'media',
   'main', 'mainly', 'point', 'points', 'key', 'topic', 'topics', 'idea', 'ideas',
   'says', 'say', 'said', 'mean', 'means', 'cover', 'covers', 'covered',
   // SCOPE / COVERAGE words — they say HOW MUCH of the document, never its subject.

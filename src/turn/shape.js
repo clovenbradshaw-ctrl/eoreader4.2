@@ -169,7 +169,8 @@ const makeLibrary = (lib, shapes = null) => {
     let sOther = 0;
     for (const { e, sim } of scored) if (e.intent !== intent) { sOther = sim; break; }
     return { intent, confidence: sTop - sOther,
-      best: { id: bestEx.e.id, intent: bestEx.e.intent, sim: bestEx.sim, user_turn: bestEx.e.user_turn, response: bestEx.e.response } };
+      best: { id: bestEx.e.id, intent: bestEx.e.intent, sim: bestEx.sim, user_turn: bestEx.e.user_turn,
+              response: bestEx.e.response, shape_tags: bestEx.e.shape_tags || [] } };
   };
 
   // The target shape for a question: the intent cluster (ranked by prompt similarity), the
@@ -189,7 +190,8 @@ const makeLibrary = (lib, shapes = null) => {
     const competitorExemplars = shapes ? [] : lib.filter(e => e.intent !== intent);
     return {
       intent,
-      promptMatch: { intent: pm.intent, confidence: round(pm.confidence), best_id: pm.best.id, best_response: pm.best.response },
+      promptMatch: { intent: pm.intent, confidence: round(pm.confidence), best_id: pm.best.id,
+        best_response: pm.best.response, best_tags: pm.best.shape_tags || [] },
       targetExemplars, competitorExemplars,
       threshold: shapes
         ? (shapes.perIntent?.[intent]?.marginStats?.p10 ?? null)

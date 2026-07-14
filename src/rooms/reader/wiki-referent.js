@@ -209,6 +209,9 @@ export const pickReferent = (label, ctx, cands) => {
     title: top.title, description: top.description || '',
     text: clipExtract(top.extract, 300),
     url: wikiPageUrlOn('en.wikipedia.org', top.title),
+    // The lead image (a REST thumbnail), carried through only for a CONFIRMED referent — the
+    // surface shows it beside the reading's own account of the figure, never as a bare name match.
+    thumb: top.thumb || '', thumbW: top.thumbW || 0, thumbH: top.thumbH || 0,
     confirmed, disconfirmed,
     score: Math.round(score(top) * 100) / 100, ctxStrong: sh, coref: ch,
   };
@@ -216,20 +219,24 @@ export const pickReferent = (label, ctx, cands) => {
 
 // ── the fetch ─────────────────────────────────────────────────────────────────────────
 // One generator=search call returns the hits WITH their lead extract, short description,
-// and disambiguation flag in-line — no per-title round trips (4.1 needed one REST call
-// per candidate). Rides client.fetchUrl, so it is CORS-direct via direct-cors.js and
-// falls back to the proxy chain like every other Wikimedia call.
+// disambiguation flag, and lead-image thumbnail in-line — no per-title round trips (4.1
+// needed one REST call per candidate). Rides client.fetchUrl, so it is CORS-direct via
+// direct-cors.js and falls back to the proxy chain like every other Wikimedia call.
 const WIKI_API = 'https://en.wikipedia.org/w/api.php';
+const THUMB_PX = 360;   // the lead image's requested longest edge (the panel renders it smaller)
 const searchUrl = (q, k) => `${WIKI_API}?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}` +
-  `&gsrlimit=${k}&prop=extracts|description|pageprops&exintro=1&explaintext=1&exlimit=max` +
-  '&ppprop=disambiguation&redirects=1&format=json';
+  `&gsrlimit=${k}&prop=extracts|description|pageprops|pageimages&exintro=1&explaintext=1&exlimit=max` +
+  `&piprop=thumbnail&pithumbsize=${THUMB_PX}&ppprop=disambiguation&redirects=1&format=json`;
 
 const fetchCands = async (client, q, k) => {
   try {
     const j = JSON.parse((await client.fetchUrl(searchUrl(q, k))).text);
     return Object.values(j?.query?.pages || {})
       .filter((pg) => pg?.extract && pg.pageprops?.disambiguation === undefined)
-      .map((pg) => ({ title: pg.title, description: pg.description || '', extract: pg.extract }));
+      .map((pg) => ({
+        title: pg.title, description: pg.description || '', extract: pg.extract,
+        thumb: pg.thumbnail?.source || '', thumbW: pg.thumbnail?.width || 0, thumbH: pg.thumbnail?.height || 0,
+      }));
   } catch { return []; }
 };
 

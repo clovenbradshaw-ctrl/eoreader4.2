@@ -13,6 +13,10 @@ import { GUTENBERG_SOURCES, GUTENBERG_FULLTEXT } from './gutenberg.js';
 import { WIKIMEDIA_SOURCES, WIKIMEDIA_FULLTEXT } from './wikimedia.js';
 import { ARXIV_SOURCES, ARXIV_FULLTEXT } from './arxiv.js';
 import { OPENALEX_SOURCES, OPENALEX_FULLTEXT } from './openalex.js';
+import { FEED_SOURCES, FEED_FULLTEXT } from './feed.js';
+import { API_SOURCES, API_FULLTEXT } from './api.js';
+import { CIVIC_SOURCES, CIVIC_FULLTEXT } from './civic.js';
+import { GITHUB_SOURCES, GITHUB_FULLTEXT } from './github.js';
 
 // The proxy the user pointed us at. Overridable per client; no auto-fire is wired here — a
 // caller (a confirmed user action) constructs the client and admits the results into scope.
@@ -175,20 +179,27 @@ export const SEARCH_SOURCES = {
   news: async (ctx, query, k) =>
     parseFeed((await ctx.fetchUrl(ctx.searchUrl(query))).text).slice(0, k)
       .map((it) => ({ title: it.title, text: it.summary || it.title, url: it.link, source: 'news' })),
-  // FEED — fetch an arbitrary RSS/Atom feed or page the query names by URL (any website).
-  feed: async (ctx, query, k) => {
-    if (!/^https?:\/\//.test(query)) return [];
-    return parseFeed((await ctx.fetchUrl(query)).text).slice(0, k)
-      .map((it) => ({ title: it.title, text: it.summary || it.title, url: it.link, source: 'feed' }));
-  },
+  // FEED — fetch an arbitrary RSS/Atom feed the query names by URL, read WHOLE (ingest/feed.js):
+  // every item with its date/author, each its own hit, and its linked article under fetchPages.
+  ...FEED_SOURCES,
+  // API — fetch a JSON/REST endpoint the query names by URL, navigate to its records, and return
+  // them as hits (ingest/api.js); a civic/open-data endpoint imports as a data-room table.
+  ...API_SOURCES,
+  // CIVIC — find AND navigate government/open-data APIs (ingest/civic.js): a curated catalog
+  // (which API answers this?) plus live CKAN (data.gov) + Socrata dataset discovery with the
+  // importable resource URLs api.js then loads.
+  ...CIVIC_SOURCES,
   // THE LIBRARY — Project Gutenberg (whole books, gutenberg.js), the Wikimedia reference shelf +
   // Wikidata (wikimedia.js), and the OPEN ACADEMIC SHELVES: arXiv preprints read whole (arxiv.js)
   // and the OpenAlex catalog for scholarly discovery + the citation prior (openalex.js). Each a
   // kind on the same (ctx, query, k) contract.
+  // THE CODE SHELF — GitHub repositories (github.js): search the index, read READMEs, and — the
+  // deliberate path — INGEST whole codebases through the code organ. A kind on the same contract.
   ...GUTENBERG_SOURCES,
   ...WIKIMEDIA_SOURCES,
   ...ARXIV_SOURCES,
   ...OPENALEX_SOURCES,
+  ...GITHUB_SOURCES,
 };
 
 // FULL_TEXT: kind → async (client, item) → the WHOLE content behind a search hit, for the
@@ -198,10 +209,14 @@ export const SEARCH_SOURCES = {
 // kind with no hook falls back to fetching the page URL and reducing its HTML.
 const FULL_TEXT = {
   wikipedia: (client, item) => wikiExtract(client, item?.title),
+  ...FEED_FULLTEXT,
+  ...API_FULLTEXT,
+  ...CIVIC_FULLTEXT,
   ...GUTENBERG_FULLTEXT,
   ...WIKIMEDIA_FULLTEXT,
   ...ARXIV_FULLTEXT,
   ...OPENALEX_FULLTEXT,
+  ...GITHUB_FULLTEXT,   // a repo hit reads its README (the project's account of itself)
 };
 
 // A query that NAMES a library source is routed to it outright — "wikiquote churchill" means
@@ -209,23 +224,46 @@ const FULL_TEXT = {
 // prose ("House of Commons"), so it requires the full "wikimedia commons".
 const NAMED_KIND = [
   ['gutenberg', /\bgutenberg\b/], ['arxiv', /\barxiv\b/], ['openalex', /\bopenalex\b/],
+  ['github', /\bgithub\b/],
   ['wikidata', /\bwikidata\b/], ['wiktionary', /\bwiktionary\b/],
   ['wikiquote', /\bwikiquote\b/], ['wikisource', /\bwikisource\b/], ['wikibooks', /\bwikibooks\b/],
   ['wikiversity', /\bwikiversity\b/], ['wikinews', /\bwikinews\b/], ['wikivoyage', /\bwikivoyage\b/],
-  ['wikispecies', /\bwikispecies\b/], ['commons', /\bwikimedia commons\b/],
+  ['wikispecies', /\bwikispecies\b/],
+  // Commons media (the pictures themselves) when the ask names Commons AND a media kind; plain
+  // "wikimedia commons …" still routes to the description-text `commons` kind below.
+  ['commonsmedia', /\b(?:wikimedia )?commons\b[\s\S]*\b(image|images|photo|photos|picture|pictures|media|svg|diagram|logo)\b/],
+  ['commons', /\bwikimedia commons\b/],
 ];
 
 // routeKind(query) → which source, when the caller asks for 'auto'. A named library source wins
 // outright; then current-events phrasing → news; a URL / "rss"/"feed" → feed; book-shaped
 // phrasing → the Gutenberg library (whole books); definition phrasing → Wiktionary; quotation
 // phrasing → Wikiquote; everything else → Wikipedia (facts/entities).
+// A URL that names a JSON/REST endpoint (vs. a feed or an article page) — .json, an /api/ path, a
+// json format param, a Socrata /resource/ query, a paging/key param. These route to `api` so the
+// body is navigated as records, not parsed as a feed or scraped as prose.
+const API_URL = /^https?:\/\/api\.|\.json(?:$|[?#])|[?&](?:format|f|outputformat)=(?:json|geojson)\b|\/api\/|[?&]\$(?:limit|where|select|q|query)=|[?&]api[_-]?key=|\/resource\/[\w-]+\.json/i;
+
 export const routeKind = (query) => {
   const q = String(query || '').toLowerCase();
   for (const [kind, re] of NAMED_KIND) if (re.test(q)) return kind;
+  // An explicit URL is a concrete endpoint — a JSON/REST API is navigated as records (`api`),
+  // anything else is fetched as a feed/page (`feed`). This must beat the phrasing routes below so
+  // pasting an endpoint always hits the right reader.
+  if (/^https?:\/\//.test(query)) return API_URL.test(query) ? 'api' : 'feed';
+  // CIVIC — government / open-data discovery. Placed before news so "recent census data" reaches
+  // the civic finder (which API + which dataset), not the news feed.
+  if (/\b(civic|open[-\s]?data|gov(?:ernment|t)?\s+(?:data|dataset|datasets|api|records?)|public dataset|city data|open government|data\.gov|data\.gov\.uk|socrata|ckan|census|congress\.gov|legislat(?:ure|ion|ors?)|campaign finance|federal register|usaspending|regulations\.gov|openfema|world bank)\b/.test(q)) return 'civic';
   if (/\b(preprint|e-?print)\b/.test(q)) return 'arxiv';   // an unambiguous scholarly signal beats "recent" → news
   if (/\b(latest|news|today|recent|recently|breaking|this week|right now|currently)\b/.test(q)) return 'news';
-  if (/^https?:\/\//.test(query) || /\b(rss|feed|atom)\b/.test(q)) return 'feed';
+  if (/\b(rss|feed|atom)\b/.test(q)) return 'feed';
+  if (/\b(json api|rest api|api endpoint|json endpoint)\b/.test(q)) return 'api';
+  // THE CODE SHELF — a repository / source-code ask reaches GitHub (whole codebases, read by the
+  // code organ). Kept before the book rule so "source code" never routes to Gutenberg.
+  if (/\b(source code|code repositor(?:y|ies)|repositor(?:y|ies)|codebase|open[-\s]?source (?:project|repo|library|implementation)|github repo)\b/.test(q)) return 'github';
   if (/\b(novel|novella|full text|whole book|entire book|read the book)\b/.test(q)) return 'gutenberg';
+  // Media-seeking phrasing reaches Commons (the pictures/clips themselves, not prose about them).
+  if (/\b(image of|images of|photo of|photos of|photograph of|picture of|pictures of|free media|public[-\s]?domain image|stock photo)\b/.test(q)) return 'commonsmedia';
   if (/\b(define|definition|meaning of|etymology)\b/.test(q)) return 'wiktionary';
   if (/\b(quote|quotes|quotation|quotations)\b/.test(q)) return 'wikiquote';
   // THE OPEN ACADEMIC SHELVES — scholarly-discovery phrasing reaches the OpenAlex catalog (breadth

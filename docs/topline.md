@@ -103,6 +103,53 @@ to say it does not carry it — never to invent an X so the reader stops asking.
 This is the same discipline as the void answerer: the machinery would rather say
 "not in the record" than speak from an empty field.
 
+## The entity digest — the explore surface
+
+The topline is the one settled line a panel opens with. The **digest** is what a
+reader *digs into* — the shift from a chat model to an **explore model**, where the
+machine responds to the reader leaning in and each pull can go deeper. It has three
+layers, and the discipline is progressive disclosure: **the deterministic spine is
+always there, and the model is never touched until the reader leans in.**
+
+**1 · The chapter spine — `THROUGH THE READING` (deterministic, always present).**
+The referent's mentions folded into the document's own coarse grain (`surfer/levels.js`
+`detectGrain`): the author's chapter headings when it carries them, else a handful of
+even quantile windows over the mention span. One bullet per chapter it moves through,
+each a ¶ jump into the source. Costs no model, no network — it is recomputed every
+render, so it is never stale and never waits. This is the backbone the reader navigates,
+and it is the "chapter bullets" that come *before* any generated summary.
+
+**2 · `HIGHLIGHTS` — Most important / Most surprising (pulled on demand).** Opened only
+when the reader asks (*Read the highlights*). **Most important** is the entity's ranked
+standing properties, read as a list of grounded bullets rather than joined into a line
+(the same closed inventory the topline phrases). **Most surprising** is a *selection*
+from that same closed set — the outlier claim, scored off the record's own footing
+(a reversal, a hedged modality, a singular specific detail, a divergence from the
+dominant property; frequency counts *against* surprise). The model never judges what is
+surprising — the surprise is measured, and the model only phrases the claim the measure
+picked. When nothing diverges, the panel says so honestly rather than inventing a twist.
+
+**3 · The per-chapter reading (going deeper).** Open a chapter bullet and its
+**fold-prompted reading** is pulled — the ordinary two-pass topline run over that
+chapter's fold alone (only the mentions and properties the record witnesses *in range*).
+It is this chapter's reading of the referent, grounded and cited to passages inside it;
+a global tally never leaks in. Deeper is another pull.
+
+**4 · The passage zoom (deepest — one moment).** Inside an open chapter every mention is
+a **zoom target**. Click one and the drill goes chapter → passage → *this instant*: the
+deterministic **neighbourhood** (the few sentences around it, the centre marked, always
+shown) and — pulled on the zoom — a **close reading** of the referent at that moment, the
+same two-pass topline run over the tightest fold of all (`[idx−r, idx+r]`). A property
+witnessed just outside the window never reads in. A ↗ still leaves for the source; the
+zoom keeps the reader *in* the profile, reading closer. Keyed by the centre sentence
+index and cached on the summary record like the layers above it.
+
+Every phrasing here is the topline's `phraseAll` / `generateTopline`, so every bullet
+and reading is containment-gated exactly as above — it can reorder and rephrase the
+record's own objects, and it can never add one. Nothing is auto-kicked: the spine is
+free, and the digest and per-chapter readings are pulled only on the reader's beat, and
+cached on the entity's summary record so re-opening reads straight back.
+
 ## Where it lives
 
 | piece | file |
@@ -114,6 +161,7 @@ This is the same discipline as the void answerer: the machinery would rather say
 | pass two — join, containment-gated | `src/weave/topline/join.js` |
 | feedback as steering | `src/weave/topline/feedback.js` |
 | the two-pass generator | `src/weave/topline/topline.js` |
+| the entity digest — spine + important/surprising + per-chapter reading + passage zoom | `src/weave/topline/digest.js` |
 | controller wiring + persistence | `src/rooms/reader/app.js` |
-| surface cards + feedback box | `index.html` |
-| tests | `tests/topline.test.js`, `tests/topline-app.test.js` |
+| surface cards + feedback box + explore surface | `index.html` |
+| tests | `tests/topline.test.js`, `tests/topline-app.test.js`, `tests/entity-explore.test.js` |

@@ -20,6 +20,20 @@ export { admitWebSource, createWebStore, webRecord, webContentHash,
 // The live fetch/search client over a CORS feed proxy (search-by-feed → admit into scope).
 export { createWebClient, searchAndAdmit, fetchAndAdmit, parseFeed, htmlToText,
          SEARCH_SOURCES, routeKind, DEFAULT_FEED_PROXY } from './webfetch.js';
+// RSS/Atom feeds read WHOLE: every item with its date/author, as sources, as a data-room table,
+// or as one dated doc; the linked article pulled under fetchPages (docs/civic-apis.md "Feeds").
+export { fetchFeed, parseFeedItems, feedMeta, feedToTable, feedToProse, isFeed, feedHtmlToText,
+         feedItemId, feedPointer, feedPointers, FEED_SOURCES, FEED_FULLTEXT } from './feed.js';
+// Generic JSON/REST APIs → records: navigate to the records array, flatten to columns, admit the
+// rows as a groundable source + a data-room table (docs/civic-apis.md "Navigating an API").
+export { fetchJsonApi, pickRecords, getPath, flattenRecord, recordsToTable, summarizeApi,
+         parseJson, recordId, apiPointer, API_SOURCES, API_FULLTEXT } from './api.js';
+// Civic/government APIs — find AND navigate: a curated catalog (which API answers this?) plus the
+// two open-data protocols, CKAN (data.gov) and Socrata, for live dataset discovery + import URLs.
+export { CIVIC_CATALOG, searchCatalog, renderCatalogEntry, discoverCivic, fetchCivicCatalog,
+         ckanSearchUrl, ckanPackageUrl, parseCkanSearch, renderCkanDataset,
+         socrataCatalogUrl, socrataResourceUrl, parseSocrataCatalog,
+         CIVIC_SOURCES, CIVIC_FULLTEXT } from './civic.js';
 // Which endpoints answer a browser cross-origin, so the fetch can skip the proxy chain entirely —
 // the Wikimedia API family and OpenAlex. Keeps the common search routes alive through a proxy outage.
 export { directCorsUrl } from './direct-cors.js';
@@ -29,7 +43,19 @@ export { directCorsUrl } from './direct-cors.js';
 export { fetchGutenbergBook, stripGutenbergBoilerplate, gutenbergIdOf,
          GUTENBERG_SOURCES, GUTENBERG_FULLTEXT } from './gutenberg.js';
 export { WIKIMEDIA_PROJECTS, WIKIMEDIA_SOURCES, WIKIMEDIA_FULLTEXT,
-         mediaWikiExtract, renderWikidataEntity } from './wikimedia.js';
+         mediaWikiExtract, renderWikidataEntity,
+         parseCommonsMedia, renderCommonsMedia, commonsMediaSearchUrl } from './wikimedia.js';
+// The CODE SHELF: GitHub — search repos, read READMEs, and INGEST whole codebases through the code
+// organ (organs/code). fetchGithubRepo is the deliberate "ingest all code" path; fetchGithubFile
+// admits one file. Same fetch-through-proxy, admit-with-provenance path every web source travels.
+export { GITHUB_SOURCES, GITHUB_FULLTEXT, fetchGithubRepo, fetchGithubFile,
+         githubRepoOf, githubFileOf, parseRepoSearch, parseTree, pickCodeFiles,
+         fetchReadme, b64ToUtf8, CODE_EXTENSIONS,
+         githubSearchUrl, githubRawUrl, githubTreeUrl } from './github.js';
+// The LIBRARY SHELF — one descriptor per search library, each with the customized surface its kind
+// of thing deserves (article / book / media / code). The surface reads this to render each hit.
+export { LIBRARIES, LIBRARY_LIST, LIBRARY_IDS, SURFACES, surfaceCard,
+         libraryFor, libraryForKind, describeLibrary, librariesManifest } from './libraries.js';
 // The open academic shelves: arXiv (search the API, read WHOLE PAPERS via ar5iv) and OpenAlex
 // (scholarly discovery across every field, with cited_by_count as the good-specimen prior).
 export { fetchArxivPaper, parseArxivAtom, arxivIdOf, reduceHtml,

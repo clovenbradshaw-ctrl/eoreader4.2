@@ -8,11 +8,38 @@
 // a go-ahead. Null when the answer is well-grounded — a sound turn never reaches for the net.
 
 import { isUnbound, isAbstention, underCorroborated } from '../enactor/ground/index.js';
+import { classifyTurn, resolveQuery, isReferentialStall } from './converse/index.js';
 
 // The cost the user is told before any hop — the query reaches public engines via the proxy.
 export const COST_NOTICE =
   'Searching the web sends this query to public search engines through the proxy. ' +
   'Nothing is sent without your go-ahead.';
+
+// A third-person pronoun whose antecedent lives back in the conversation — mirrors
+// dialogue-state.js's PRONOUN (internal there; the set is the closed English inventory,
+// so the duplication cannot drift).
+const PRONOUN = /\b(he|him|his|she|her|hers|it|its|they|them|their|theirs)\b/i;
+
+// anchorTopicless(query, history) → the query to search, or NULL when nothing anywhere
+// names a subject. A REFERENTIAL turn that names no topic of its own — a pronoun ask
+// ("what did he do?") or a stall ("tell me more about that") — matches only its function
+// words on a search engine: the exported "what did he do?" run fetched "What Did Jack
+// Do?" and the Waco siege, and admitted them into the record. The subject such a turn
+// leans on lives in the CONVERSATION, so anchor it there (resolveQuery: the open intent
+// + the warm referent, deterministic, no model). When even the discourse names nothing,
+// there is nothing to search FOR — return null and let the honest abstention stand
+// rather than admit noise. A terse-but-plain ask that simply has thin words (the 'q'
+// placeholder, "summarize") is NOT referential and passes through untouched.
+export const anchorTopicless = (query, history = []) => {
+  const q = String(query || '').trim();
+  if (!q) return null;
+  try {
+    if (classifyTurn(q).topic.length > 0) return q;              // names its own topic — stands
+    if (!PRONOUN.test(q) && !isReferentialStall(q)) return q;    // topicless but not referential — stands
+    const anchored = resolveQuery(q, history || []);
+    return classifyTurn(anchored).topic.length > 0 ? anchored : null;
+  } catch { return q; }   // a discourse-read fault never suppresses a search — the raw turn stands
+};
 
 // proposeWebSearch(ctx) → { query, rationale, trigger, cost } | null. Reads the SAME gaps the
 // answer loop already measures, scoped to the pointed `answer` task (a whole-document task's
@@ -25,7 +52,10 @@ export const proposeWebSearch = (ctx) => {
   // and flag whether the result supports the answer, leaving the answer itself alone. (Smalltalk
   // / math / metadata short-circuit at `route`, so a chat turn here is a real question.)
   if (ctx.route === 'chat') {
-    const q = String(ctx.question || '').trim();
+    // Anchored the same way as the grounded query below: a referential chat turn with no
+    // discourse to bind it ("what did he do?" as a first ask) verifies against nothing but
+    // its own function words — skip the fetch and let the answer ride unverified instead.
+    const q = anchorTopicless(ctx.question, ctx.history);
     return q ? { query: q, rationale: 'answered from general knowledge — checking it against the web',
       trigger: 'verify', cost: COST_NOTICE } : null;
   }
@@ -106,7 +136,15 @@ export const proposeWebSearch = (ctx) => {
   const query = (figure && !q.toLowerCase().includes(String(figure).toLowerCase()))
     ? `${q} ${figure}`.trim() : q;
 
-  return { query: query || q, rationale: reasons.join('; '), trigger, cost: COST_NOTICE };
+  // A referential turn no figure sharpened ("what did he do?" with the referent diffuse) is
+  // anchored on the DISCOURSE before it may ride as a query — and when even the discourse
+  // names no subject, NOTHING is proposed: searching the turn's function words verbatim can
+  // only fetch junk into the record (the exported Waco-siege run). The honest abstention,
+  // flags intact, is the better answer than noise dressed as research.
+  const anchored = anchorTopicless(query || q, ctx.history);
+  if (anchored == null) return null;
+
+  return { query: anchored, rationale: reasons.join('; '), trigger, cost: COST_NOTICE };
 };
 
 // searchAnnouncement(proposal) → a first-person, pre-search line for the chat bubble, or null.

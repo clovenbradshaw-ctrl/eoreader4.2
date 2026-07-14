@@ -14,6 +14,8 @@
 import { phraseAll } from './phrase.js';
 import { joinTopline } from './join.js';
 import { applySteer } from './feedback.js';
+import { verifyForm, formReceipt } from './surface.js';
+import { contentTokens } from './contain.js';
 
 // Generate a topline from a closed inventory. Model-optional: with no model it returns the
 // deterministic telegram, which is correct — a thin field is a one-sentence topline, not a failure.
@@ -24,6 +26,18 @@ export const generateTopline = async ({ inventory, steer = null, model = null, s
   const sentences = await phraseAll(inv, { model, signal });
   const joined = await joinTopline(sentences, { model, signal });
   const cites = [...new Set(inv.objects.flatMap((o) => o.cite || []))].filter((n) => Number.isInteger(n)).sort((a, b) => a - b);
+
+  // The verifier at the same grain as the output (surface.js). The join's containment gate already
+  // proved the text adds nothing, so `verdict.ok` holds on any shipped topline — but it holds it as
+  // a TYPED reading (which cube region a violation would occupy, coverage over the objects) rather
+  // than a boolean, and it attaches a replay receipt: this IS the "extraordinarily effective is a
+  // property of the verifier" made concrete. The anchor is the machinery's own words (each object's
+  // pass-one sentence), never the source — the model was given no gaps to be fluent across.
+  const anchor = sentences.map((s) => String(s.text || '')).join(' ');
+  const holons = sentences.map((s, i) => ({ key: s.key ?? `obj:${i}`, tokens: contentTokens(String(s.text || '')) }));
+  const verdict = verifyForm(joined.text, { anchor, holons });
+  const receipt = formReceipt({ output: joined.text, anchor, system: 'topline:join', model, mode: joined.joined ? 'realized' : 'telegram', verdict });
+
   return {
     text: joined.text,
     telegram: joined.telegram,
@@ -32,6 +46,8 @@ export const generateTopline = async ({ inventory, steer = null, model = null, s
     objects: sentences.map((s) => ({ text: s.text, cite: s.cite, type: s.type })),
     cites,
     unmet: steered.unmet,
+    verdict,
+    receipt,
     ...(joined.rejected ? { rejected: joined.rejected } : {}),
   };
 };

@@ -35,6 +35,13 @@
 //               IndexedDB); locked it is inert, unlocked it rehydrates + persists.
 //               db.rows/buildTable/query/formula give the spreadsheet-database view
 //               (docs/database-framework.md)
+//   spaces      OPTIONAL SHARED vault + collaborative workspaces (rooms/archive/room-vault)
+//               — a workspace becomes an invitable Matrix room; everything saved into it
+//               is encrypted, stored as binary ciphertext in the media repo, and recorded
+//               as a hash-linked block published as a Megolm room event, so only the room's
+//               members can read it. `spaces.sync` (rooms/archive/space-sync) is the opt-in
+//               "sync to Matrix" that mirrors a workspace's sources into it. Rides the chat
+//               bus (docs/shared-vault.md)
 
 import { createParser } from '../../perceiver/parse/index.js';
 import { readingAt } from '../../perceiver/reading.js';
@@ -47,6 +54,8 @@ import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
 import { APP_NAME, APP_VERSION } from './provenance.js';
 import { mountTieredGraph } from './tiered-graph.js';
+import { mountFacingRenderer } from '../render/surface.js';
+import { assembleDocument, splitSource, runnableSrcdoc } from '../render/facing.js';
 import * as readerRender from './reader-render.js';
 import * as reveal from './reveal.js';
 import { firstSurfaceKind } from './first-surface.js';
@@ -59,10 +68,15 @@ import { createGenomeAutosave } from '../archive/autosave.js';
 import { createChatRoom } from '../chat/index.js';
 import { mountChat, mountChatLauncher } from '../chat/mount.js';
 import { createVault } from '../archive/vault.js';
+import { createRoomVault } from '../archive/room-vault.js';
+import { createSpaceSync } from '../archive/space-sync.js';
 import { mountVaultLauncher } from '../archive/vault-mount.js';
 import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
+import { mountPlainSurface } from '../plain/surface.js';
+import * as plainScene from '../plain/scene.js';
+import { liveModel as plainLiveModel } from '../plain/project.js';
 
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
@@ -137,6 +151,100 @@ const vault = createVault({ matrix });
 // adopts to make readings survive the tab and to query the corpus as tables.
 const db = createDatabase();
 
+// The SHARED vault + collaborative workspaces (rooms/archive/room-vault). Where `vault`
+// above is one person's private ledger, `spaces` makes a workspace a real Matrix ROOM:
+// people are invited to it, and everything saved into it is encrypted, stored as binary
+// ciphertext in the Matrix media repo, and recorded as a hash-linked block published as
+// a Megolm room event — so ONLY the people in the room can read it. It rides on the SAME
+// chat controller (one device identity, one sync loop), lazily wired the first time a
+// workspace is shared. See docs/shared-vault.md.
+let roomVault = null;
+const spaces = (() => {
+  const ensure = async () => {
+    const s = await chat.start();                 // brings the chat controller (bus) live
+    if (!s.ok) return s;
+    if (!roomVault) roomVault = createRoomVault({ chat: chatController, matrix });
+    return roomVault.start();
+  };
+  const roomIdOf = (workspaceIdOrRoomId) => {
+    if (String(workspaceIdOrRoomId || '').startsWith('!')) return workspaceIdOrRoomId;   // already a room id
+    const ws = app.state.workspaces.find((w) => w.id === workspaceIdOrRoomId);
+    return ws ? ws.roomId : null;
+  };
+  const api = {
+    ensure,
+    get vault() { return roomVault; },
+    // Turn a local workspace into a shared, invitable Matrix room (idempotent).
+    async shareWorkspace(workspaceId, invitees = []) {
+      const e = await ensure(); if (!e.ok) return e;
+      const ws = app.state.workspaces.find((w) => w.id === workspaceId);
+      if (!ws) return { ok: false, error: 'no such workspace' };
+      if (ws.roomId) return { ok: true, roomId: ws.roomId, already: true };
+      const created = await chatController.createRoom({ name: ws.name, invite: invitees.filter(Boolean) });
+      if (!created.ok) return created;
+      const me = matrix.state.userId;
+      app.workspaceBindRoom(workspaceId, { roomId: created.roomId, members: [me, ...invitees].filter(Boolean) });
+      return { ok: true, roomId: created.roomId };
+    },
+    // Invite someone into a shared workspace (by workspace id or room id).
+    async invite(workspaceIdOrRoomId, userId) {
+      const e = await ensure(); if (!e.ok) return e;
+      const roomId = roomIdOf(workspaceIdOrRoomId);
+      if (!roomId) return { ok: false, error: 'workspace is not shared yet' };
+      return chatController.invite(roomId, userId);
+    },
+    // Accept an invite to someone else's shared workspace.
+    async join(roomId) { const e = await ensure(); if (!e.ok) return e; return chatController.join(roomId); },
+    // Hydrate a shared workspace's chain from OPFS (so a reload shows what's already
+    // saved before any new sync folds in). Returns { ok, blocks } newest-first.
+    async load(workspaceIdOrRoomId) {
+      const e = await ensure(); if (!e.ok) return { ok: false, error: e.error };
+      const roomId = roomIdOf(workspaceIdOrRoomId);
+      if (!roomId) return { ok: false, error: 'workspace is not shared yet' };
+      await roomVault.ensureChain(roomId);
+      return { ok: true, blocks: roomVault.list(roomId) };
+    },
+    async members(workspaceIdOrRoomId) {
+      const e = await ensure(); if (!e.ok) return { ok: false, members: [] };
+      const roomId = roomIdOf(workspaceIdOrRoomId);
+      return roomId ? chatController.members(roomId) : { ok: false, members: [] };
+    },
+    // Save / open / list / verify content in a shared workspace (accepts a workspace id
+    // or a room id). Save encrypts, uploads ciphertext, and publishes the block to the room.
+    async save(workspaceIdOrRoomId, bytes, meta = {}) {
+      const e = await ensure(); if (!e.ok) return e;
+      const roomId = roomIdOf(workspaceIdOrRoomId);
+      if (!roomId) return { ok: false, error: 'workspace is not shared yet' };
+      return roomVault.save(roomId, bytes, meta);
+    },
+    async open(workspaceIdOrRoomId, indexOrBlock) {
+      const e = await ensure(); if (!e.ok) return e;
+      const roomId = roomIdOf(workspaceIdOrRoomId);
+      return roomId ? roomVault.open(roomId, indexOrBlock) : { ok: false, error: 'not shared' };
+    },
+    list: (workspaceIdOrRoomId) => (roomVault ? roomVault.list(roomIdOf(workspaceIdOrRoomId)) : []),
+    verify: (workspaceIdOrRoomId) => (roomVault ? roomVault.verify(roomIdOf(workspaceIdOrRoomId)) : { ok: true, length: 0 }),
+    head: (workspaceIdOrRoomId) => (roomVault ? roomVault.head(roomIdOf(workspaceIdOrRoomId)) : null),
+    // A lightweight nudge to everyone in the room ("saved X", presence) on the same bus.
+    async sendSignal(workspaceIdOrRoomId, kind, data) {
+      const e = await ensure(); if (!e.ok) return e;
+      const roomId = roomIdOf(workspaceIdOrRoomId);
+      if (!roomId) return { ok: false, error: 'workspace is not shared yet' };
+      return chatController.sendSignal(roomId, kind, data);
+    },
+    onSignal: (fn) => (chatController ? chatController.onRoomEvent((evt) => { if (evt.type === 'org.eoreader.signal') fn(evt); }) : (() => {})),
+    subscribe: (fn) => (roomVault ? roomVault.subscribe(fn) : (() => {})),
+  };
+  // The "sync to Matrix" opt-in — a per-workspace autosync that mirrors a workspace's
+  // sources into its room's encrypted blockchain (opening the room first if needed). It
+  // rides this same membrane (shareWorkspace + save). Default OFF; see docs/shared-vault.md.
+  const sync = createSpaceSync({ app, spaces: api });
+  api.sync = sync;
+  api.setSync = (workspaceId, on) => sync.setEnabled(workspaceId, on);
+  api.syncNow = (workspaceId) => sync.syncNow(workspaceId);
+  return Object.freeze(api);
+})();
+
 const archive = Object.freeze({
   deposit,
   checkpoints: () => checkpoints.list(),
@@ -166,8 +274,27 @@ const versions = Object.freeze({
   }),
 });
 
+// The facing-page WYSIWYG renderer (rooms/render). `open(source)` hands a source (a { html, css,
+// js } triple, a raw string, or a whole HTML document) to render.html via a localStorage handoff
+// and opens it; `mount(el, opts)` drops the renderer into a panel in place; the pure helpers are
+// exposed for programmatic assembly. (docs/library-search.md — "The facing renderer")
+const render = Object.freeze({
+  mount: mountFacingRenderer,
+  assembleDocument, splitSource, runnableSrcdoc,
+  open: (source, filename = '') => {
+    try { localStorage.setItem('eo_render_handoff', JSON.stringify({ source, filename })); } catch { /* handoff optional */ }
+    try { if (typeof window !== 'undefined' && window.open) return window.open('render.html', '_blank'); } catch { /* popup blocked */ }
+    return null;
+  },
+});
+
 window.EO = Object.freeze({
   app,
+  render,   // the facing-page WYSIWYG renderer — open a source (HTML/CSS/JS) rendered live beside its code
+  // the plain version as a screen in the app — the same engine with nothing named to the person.
+  // `mount(el,{scene,live})` drops the surface in; `liveModel(app)` reads the person's real sources
+  // so "People mean different things by this" is computed from what those documents actually say.
+  plain: Object.freeze({ mount: mountPlainSurface, liveModel: plainLiveModel, scene: plainScene }),
   parse,
   readingAt,
   groundSpans, groundSummary, supportVerdict,
@@ -184,10 +311,16 @@ window.EO = Object.freeze({
   projectTranscript, wordsToText,   // the interactive transcript fold (baseline + edits/redactions → live reading)
   encodeWav, applyRedactions,       // audio DSP for the Listen surface's redaction re-synthesis + WAV export
 
+  // the library shelf — the four search libraries as plain descriptors (article/book/media/code),
+  // each with its icon, placeholder, and example queries; the surface reads this to render each
+  // shelf's own search box and its hits as cards shaped for the thing (docs/library-search.md)
+  libraries: app.libraries,
+
   matrix,
   chat,
   vault,
   db,             // the durable substrate — encrypted, append-only, OPFS-backed rooms (src/store)
+  spaces,   // shared, room-encrypted, hash-chained vault + invitable workspaces (docs/shared-vault.md)
   archive,
   genome,
   versions,       // the version time-machine — list prior merged-PR builds, roll back to any

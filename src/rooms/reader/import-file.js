@@ -97,7 +97,7 @@ export async function importAnyFile(file, opts = {}) {
   // where OCR finds no prose, reads as a SCENE (Florence-2 regions, image organ).
   if (mime.startsWith('image/') || IMAGE_EXT.includes(ext)) {
     say('Recognizing the text…');
-    return await fromImage(file, title, name, say);
+    return await fromImage(file, title, name, say, opts);
   }
 
   // MIDI — a SCORE, not audio: no waveform to hear, a timed list of notes to READ. Decoded
@@ -112,7 +112,8 @@ export async function importAnyFile(file, opts = {}) {
     catch (e) { say('Not a MIDI score — reading the bytes…'); return await fromBinary(file, title, name, mime); }
   }
 
-  // Audio / video — decode, then whisper hears it (audio organ). The speech only.
+  // Audio / video — decode the waveform, whisper hears it (audio organ); a VIDEO also has its PICTURE
+  // read as motion + born-rule entities (motion.js), both senses folded onto the one source.
   if (mime.startsWith('audio/') || mime.startsWith('video/') || AUDIO_EXT.includes(ext) || VIDEO_EXT.includes(ext)) {
     say('Listening…');
     const isVideo = mime.startsWith('video/') || VIDEO_EXT.includes(ext);
@@ -407,38 +408,59 @@ async function fromXlsx(file, title, name) {
   return { text, title, meta: { modality: 'table', doc, docs: filled.map(s => s.doc), sheetNames: wb.SheetNames, coverage } };
 }
 
-// An image is read twice over. First as a DOCUMENT: Tesseract asks "is there prose in
-// these pixels?" — milliseconds against the vision model's seconds, so OCR is the cheap
-// gate in front of the expensive autoregressive decoder. Only when that reading comes up
-// empty (a photograph, not a scan) does the vision organ wake: Florence-2's structured
-// region captions (src/reader/eo/vision.js, content-address-cached in OPFS) composed into
-// spatial prose by the scene composer (organs/in/scene.js) and raised onto the spine by
-// the image organ. What used to be the dead end "no text found in the image" is now the
-// scene path.
+// An image is read twice over. First as a DOCUMENT — but not by one eye. A SET OF WITNESSES
+// reads the scan (rooms/reader/eo/ocr-eyes.js): the cheap deterministic eye (Tesseract) always,
+// and the VLM eye (Florence-2 OCR) woken when that first reading is doubtful. Their readings are
+// reconciled by the QUORUM (organs/in/ocr-quorum.js) — best line elected (DEF), disagreements
+// flagged (EVA), each eye's reliability learned (REC) — and then re-read IN CONTEXT
+// (organs/in/ocr-context.js): a shaky line becomes a belief-marked GUESS at what it likely means
+// given the document's own confident vocabulary, every guess auditable and revertible on the log.
+// Only when the eyes come up empty (a photograph, not a scan) does the scene path wake: Florence-2's
+// structured region captions composed into spatial prose (organs/in/scene.js) and raised by the
+// image organ. What used to be the dead end "no text found" is still the scene path.
 let _vision = null;
-async function fromImage(file, title, name, say) {
+const getVision = async () => {
+  if (!_vision) {
+    const { createFlorenceVision } = await import(new URL('./eo/vision.js', import.meta.url).href);
+    _vision = createFlorenceVision();
+  }
+  return _vision;
+};
+async function fromImage(file, title, name, say, opts = {}) {
   const url = URL.createObjectURL(file);
   try {
-    let ocrDoc = null;
+    let ocrDoc = null, quorum = null, guesses = 0;
     try {
-      const Tesseract = (await import('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/+esm')).default;
-      const { data } = await Tesseract.recognize(url, 'eng', { logger: (m) => { if (m.status === 'recognizing text' && m.progress != null) say('Recognizing… ' + Math.round(m.progress * 100) + '%'); } });
-      const lines = (data.lines || []).map(ln => ({ text: ln.text, bbox: ln.bbox, confidence: ln.confidence }));
-      const { ingestOcr } = await IN();
-      const doc = ingestOcr({ name, lines: lines.length ? lines : [{ text: data.text || '' }] });
-      // Enough letters to call it a document? A photograph makes Tesseract hallucinate a
-      // few stray glyphs; those must not gate the scene reading off.
-      if (((doc.text || '').match(/[\p{L}\p{N}]/gu) || []).length >= 12) ocrDoc = doc;
+      const { readWithEyes } = await import(new URL('./eo/ocr-eyes.js', import.meta.url).href);
+      // The set of witnesses reads the scan. The VLM eye is woken (and its model loaded) only if
+      // the policy asks — getVision is passed lazily and awaited inside the eye, never up front.
+      const { readings, eyes, woke } = await readWithEyes({ blob: file, url }, {
+        policy: opts.eyes || 'auto',
+        onProgress: say,
+        getVision,
+      });
+      if (readings.length) {
+        const { ingestOcr, resolveOcrInContext } = await IN();
+        const doc = ingestOcr({ name, readings });
+        // Enough letters to call it a document? A photograph makes an eye hallucinate a
+        // few stray glyphs; those must not gate the scene reading off.
+        if (((doc.text || '').match(/[\p{L}\p{N}]/gu) || []).length >= 12) {
+          // The context layer — guess what the shaky lines likely mean, from the doc's own
+          // confident vocabulary (and the corpus, when the caller threads one). Best-effort:
+          // a clean scan is inert here, and a failure leaves the elected reading standing.
+          try { guesses = resolveOcrInContext(doc, { lexicon: opts.ocrLexicon || null }).edits || 0; }
+          catch { /* the quorum reading still stands */ }
+          ocrDoc = doc;
+          quorum = { eyes, woke, best: doc.quorum?.best || null, disagreements: (doc.quorum?.disagreements || []).length, reliability: doc.reliability || [] };
+        }
+      }
     } catch (e) { /* OCR unavailable or failed — the scene reading below still stands */ }
-    if (ocrDoc) return { text: ocrDoc.text, title, meta: { modality: 'ocr', doc: ocrDoc,
-      coverage: { complete: true, lines: ocrDoc.spans.length, dropped: [] } } };
+    if (ocrDoc) return { text: ocrDoc.text, title, meta: { modality: 'ocr', doc: ocrDoc, quorum,
+      coverage: { complete: true, lines: ocrDoc.spans.length, eyes: quorum?.eyes || [], guesses, disagreements: quorum?.disagreements || 0, dropped: [] } } };
 
     say('No text in the image — looking at the scene…');
-    if (!_vision) {
-      const { createFlorenceVision } = await import(new URL('./eo/vision.js', import.meta.url).href);
-      _vision = createFlorenceVision();
-    }
-    const seen = await _vision.describe(file, { onProgress: (m) => { if (m && m.status === 'progress' && m.progress != null) say('Loading the vision model… ' + Math.round(m.progress) + '%'); } });
+    const vision = await getVision();
+    const seen = await vision.describe(file, { onProgress: (m) => { if (m && m.status === 'progress' && m.progress != null) say('Loading the vision model… ' + Math.round(m.progress) + '%'); } });
     const { composeScene, ingestImage } = await IN();
     const scene = composeScene({ ...seen, name, metadata: { title } });
     if (!scene.text || !scene.text.trim()) throw new Error('nothing recognizable in the image');
@@ -541,22 +563,70 @@ async function fromMedia(file, title, name, say, opts = {}) {
   // clip as full-rate PCM (1h of stereo 44.1kHz ≈ 1.3GB) in a tab that may also hold
   // model weights — past these (generous) bounds the import would crash the tab, not land.
   if (file.size > 500 * 1024 * 1024) throw new Error('this clip is too large to decode in the browser (over 500 MB) — split it or transcribe a compressed copy');
-  const buf = await file.arrayBuffer();
-  const tmp = new AC();
-  let decoded;
-  try { decoded = await tmp.decodeAudioData(buf); } finally { try { tmp.close(); } catch {} }
-  const duration = decoded.duration;
-  if (duration > 3 * 3600) throw new Error('this clip is too long to transcribe in the browser (over 3 hours) — split it first');
-  const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(duration * SR)), SR);
-  const srcNode = off.createBufferSource(); srcNode.buffer = decoded; srcNode.connect(off.destination); srcNode.start();
-  const mono = (await off.startRendering()).getChannelData(0);
-  decoded = null;   // release the full-rate PCM before whisper holds the tab for minutes
 
   const isVideo = !!opts.isVideo;
   const mediaKind = isVideo ? 'video' : 'audio';
   // A playable handle on the original file, kept for the session so the source can be
   // heard/watched back with the transcript aligned. (Not revoked — playback needs it.)
   const media = (typeof URL !== 'undefined' && URL.createObjectURL) ? URL.createObjectURL(file) : null;
+
+  // ── THE PICTURE, DEFERRED (video only). ───────────────────────────────────────────────────────
+  // A video carries a second sense the waveform cannot: what MOVED. This defers the visual reading the
+  // way transcription is deferred — a `watch` thunk the caller runs in the background AFTER the source
+  // lands (app.js). It extracts frames (video-frames.js, the browser front-end) and runs the retina
+  // (motion.js readVideo): the activity envelope, the cuts and nested shots, the surprise/dwell
+  // decomposition, and — the request's heart — the BORN-RULE entity detection (bornEntities), which
+  // recovers the moving things by squaring their persistence and reading the distribution, no model
+  // and no labels. It needs no audio, so it is built here and used by BOTH the normal path and the
+  // no-audio-track path below. Null for a pure-audio import.
+  const watch = isVideo ? async ({ signal, onProgress } = {}) => {
+    if (signal && signal.aborted) throw new DOMException('aborted', 'AbortError');
+    const say2 = typeof onProgress === 'function' ? onProgress : () => {};
+    const { extractVideoFrames } = await import(new URL('./video-frames.js', import.meta.url).href);
+    const { readVideo } = await IN();
+    const ex = await extractVideoFrames(file, { signal, onProgress: say2 });
+    if (!ex.frames.length) return { text: '', doc: null, artefacts: null, empty: true,
+      coverage: { complete: false, frames: 0, dropped: ['no video frames could be decoded in the browser'] } };
+    say2('Reading what moved…');
+    const r = readVideo({ name: `${name}-video`, title, frames: ex.frames, fps: ex.fps, media, mediaKind, metadata: { title } });
+    const cov = {
+      complete: true,
+      frames: ex.sampled, requestedFrames: ex.requested,
+      fps: Math.round(ex.fps * 100) / 100, width: ex.width, height: ex.height,
+      shots: r.shots.shotCount, cuts: r.analysis.cuts,
+      entities: r.entities.entities.length, measuredTracks: r.entities.measured,
+      dropped: ex.requested > ex.sampled ? [`${ex.requested - ex.sampled} frame(s) the codec would not yield`] : [],
+    };
+    return { text: r.doc.text, doc: r.doc, coverage: cov,
+      artefacts: { peaks: r.peaks, analysis: r.analysis, shots: r.shots, tracks: r.tracks, entities: r.entities,
+                   persistence: r.persistence, fps: ex.fps, width: ex.width, height: ex.height } };
+  } : null;
+
+  const buf = await file.arrayBuffer();
+  const tmp = new AC();
+  let decoded;
+  try {
+    decoded = await tmp.decodeAudioData(buf);
+  } catch (e) {
+    try { tmp.close(); } catch {}
+    // A pure-audio file that will not decode is an error. A VIDEO with no (decodable) audio track is
+    // NOT — it simply has nothing to hear (like this clip, a ball on static). Fall back to a
+    // picture-only reading: the source lands from the `watch` thunk (app.js), never refused, with a
+    // coverage receipt that names the missing audio. Skipping this used to fail the WHOLE import.
+    if (!isVideo) throw new Error('this browser cannot decode this audio');
+    return { text: '', title, meta: {
+      modality: 'video', doc: null, media, isVideo, mediaKind,
+      watch, transcribe: null, transcribable: false,
+      coverage: { complete: true, audio: false, dropped: ['no audio track — the picture is read; there is nothing to hear'] },
+    } };
+  }
+  try { tmp.close(); } catch {}
+  const duration = decoded.duration;
+  if (duration > 3 * 3600) throw new Error('this clip is too long to transcribe in the browser (over 3 hours) — split it first');
+  const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(duration * SR)), SR);
+  const srcNode = off.createBufferSource(); srcNode.buffer = decoded; srcNode.connect(off.destination); srcNode.start();
+  const mono = (await off.startRendering()).getChannelData(0);
+  decoded = null;   // release the full-rate PCM before whisper holds the tab for minutes
 
   // ── PHASE 1 — the pre-transcription reading, computed AT ONCE. ────────────────────────
   // The waveform, the basic analysis, and the signal/noise nested holons — all cheap, all
@@ -599,7 +669,7 @@ async function fromMedia(file, title, name, say, opts = {}) {
     const fullText = (liveText || utterances.map(u => u.words.map(w => w.text).join(' ')).join(' ')).trim();
     if (!fullText) return { text: '', doc: null, coverage: { complete: true, seconds: Math.round(duration * 10) / 10, utterances: 0, dropped: ['no speech found in the signal'] }, empty: true };
 
-    const { ingestAudio, acousticSignal, resolveTranscript } = await IN();
+    const { ingestAudio, acousticSignal, resolveTranscript, diarize } = await IN();
     // AUTONOMOUS per-word acoustics — reusing the pre-transcription reading, not re-asking a
     // model. The cochlea already separated signal from noise (holons) and measured the room
     // (analysis); here each WORD span is read against that SAME waveform, so every word carries
@@ -610,9 +680,25 @@ async function fromMedia(file, title, name, say, opts = {}) {
       flat.forEach((w, i) => { if (sig[i]) { w.acous = sig[i].acous; w.snr = sig[i].snr; w.signal = sig[i].signal; } });
     } catch (e) { /* best-effort; the model's confidence still stands */ }
 
+    // WHO is speaking — read from the same waveform. Each utterance's voice signature (pitch by
+    // autocorrelation, spectral shape by FFT) is clustered into speakers (voices.js); every word
+    // inherits its utterance's speaker so the transcript can be read, exported and coloured by turn.
+    // Best-effort and defeasible — a failure just leaves the transcript speaker-less, as before.
+    let speakers = [], diarizeWitnesses = [];
+    if (signal && signal.aborted) throw new DOMException('aborted', 'AbortError');
+    try {
+      const dz = diarize(mono, SR, utterances);
+      if (dz && dz.count > 0) {
+        speakers = dz.speakers;
+        diarizeWitnesses = dz.witnesses || [];
+        utterances.forEach((u, i) => { const s = dz.assign[i]; u.speaker = s; (u.words || []).forEach((w) => { w.speaker = s; }); });
+      }
+    } catch (e) { /* best-effort; the transcript stands without speaker labels */ }
+
     // The word-level doc carries the acoustic reading forward (waveform, analysis, holons,
-    // media) so the transcript's source keeps everything the pre-reading gave it.
-    const doc = ingestAudio({ name, duration, device: dev, witness, utterances, alternates, media, mediaKind, peaks, analysis, holons, sampleRate: SR });
+    // media) so the transcript's source keeps everything the pre-reading gave it — plus the
+    // speaker roster, per-word speaker, and the auditable merge/keep trail the diarization left.
+    const doc = ingestAudio({ name, duration, device: dev, witness, utterances, alternates, media, mediaKind, peaks, analysis, holons, sampleRate: SR, speakers, diarizeWitnesses });
     // GRAPH-AWARE, self-editing resolution — fold near-spelling names onto their most-BELIEVED
     // hearing, the edits landing on THIS append-only log (hear.js §2). Inert on a clean read.
     let reheard = 0;
@@ -630,9 +716,11 @@ async function fromMedia(file, title, name, say, opts = {}) {
     transcribable: necessary,
     dropped: necessary ? [] : ['no signal above the noise floor — not transcribed'],
   };
+
   return { text: acousticDoc.text, title, meta: {
     modality: 'audio', doc: acousticDoc, duration, media, isVideo, mediaKind,
     waveform: peaks, analysis, holons, transcribe, transcribable: necessary,
+    watch,
     coverage,
   } };
 }

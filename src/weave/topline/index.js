@@ -14,5 +14,10 @@ export { generateTopline } from './topline.js';
 export { contextualDefinition, definitionSpans } from './contextual.js';
 export { definitionFitness, bestOfChorus, salience, wikiAgree, definitionCompetency } from './definer.js';
 export { composeChorus, defaultDefiner, mutateDefiner, shouldExplore, DEFINER_GENES } from './chorus.js';
+export { chapterBullets, composeEntityDigest, composeChapterReading, passageNeighborhood, composePassageReading } from './digest.js';
 export { interpretFeedback, mergeSteer, applySteer } from './feedback.js';
 export { containedIn, contentTokens, addedBy, CONNECTIVES } from './contain.js';
+export {
+  FORM_SURFACE_CONTRACT, CONTRACT_WIDTH, verifyForm, classifyAdditions,
+  composeCoverage, extractiveFloor, formReceipt, realizeForm, hashText,
+} from './surface.js';

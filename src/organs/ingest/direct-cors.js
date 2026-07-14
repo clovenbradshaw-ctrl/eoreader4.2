@@ -50,5 +50,13 @@ export const directCorsUrl = (target) => {
   if (WIKIMEDIA_DOMAIN.test(host) && /\/api\.php$/.test(u.pathname))
     return /[?&]origin=/.test(s) ? s : `${s}${s.includes('?') ? '&' : '?'}origin=*`;
 
+  // GitHub. The REST API (api.github.com), raw file host (raw.githubusercontent.com), and the
+  // rendered-object host (objects.githubusercontent.com, where raw redirects) all send
+  // `Access-Control-Allow-Origin: *` on anonymous reads — so the code shelf's search, README,
+  // tree, and blob fetches reach GitHub straight, no proxy. Return the string untouched so the
+  // exact query encoding rides through.
+  if (host === 'api.github.com' || host === 'raw.githubusercontent.com' || host === 'objects.githubusercontent.com')
+    return s;
+
   return null;
 };

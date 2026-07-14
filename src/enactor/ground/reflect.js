@@ -20,6 +20,7 @@
 // MANY independent sources stand behind it", at the grain the graph actually holds.
 
 import { parseText } from '../../perceiver/parse/index.js';
+import { makeDiversity } from '../../core/witness.js';
 
 // Figures are order-insensitive, the relation is not — the same key the provenance
 // classifier grounds on: "Ben was trusted by Anna" ↔ "Anna trusted Ben".
@@ -118,11 +119,13 @@ const rootDocId = (doc, docId) => {
 const witnessesOf = (doc, sentences, hits) => {
   const byRoot = new Map();
   const senses = new Set();
+  const spanIdx = new Set();          // distinct exafferent sentIdx — the within-source span count
   let exafferent = 0, reafferent = 0;
   for (const h of hits) {
     if (h.door === 'enactor') { reafferent += 1; continue; }
     exafferent += 1;
     if (h.sentIdx == null) continue;
+    spanIdx.add(h.sentIdx);
     const src = sourceOf(doc, h.sentIdx);
     const root = rootDocId(doc, src.docId);
     const rootModality = doc?.modalityByDoc?.[root] ?? src.doc?.modality;
@@ -137,7 +140,7 @@ const witnessesOf = (doc, sentences, hits) => {
   }
   return {
     sources: [...byRoot.values()].slice(0, MAX_WITNESSES),
-    origins: byRoot.size, senses, exafferent, reafferent,
+    origins: byRoot.size, spans: spanIdx.size, senses, exafferent, reafferent,
   };
 };
 
@@ -177,9 +180,17 @@ export const witnessesForProps = (doc, props = [], allow = null) => {
     }
     const spanIdxs = [...new Set([...graphIdx, ...lexIdx])].sort((a, b) => a - b);
     const w = witnessesOf(doc, sentences, hits);
+    // The proposition's witness diversity, first-class: the within-source span count the gate
+    // reads plus the cross-source origins/senses, minted into the shared currency so `diversity.tier`
+    // reads the same rung here as at answer grain (core/witness.js). Voices default to origins — a
+    // single document cannot tell mirrors apart; corroboration.js refines that when it has the hosts.
+    const diversity = makeDiversity({
+      spans: spanIdxs.length, origins: w.origins, senses: w.senses, reafferent: w.reafferent,
+    });
     return {
       subj: p.subj, via: p.via, obj: p.obj ?? null,
       spanIdxs, spans: spanIdxs.length, origins: w.origins, senses: w.senses, sources: w.sources,
+      diversity,
     };
   });
 };
@@ -217,17 +228,17 @@ export const reflectAnswer = ({ answer, doc } = {}) => {
       const hits = table.byRel.get(relKey({ subj, via, obj })) || [];
       const w = witnessesOf(doc, sentences, hits);
       const verbatim = spanLC.some((s) => s.includes(subj) && s.includes(via) && (!obj || s.includes(obj)));
-      // The ladder gains a top rung: two or more independent roots through two or more
-      // SENSES is CROSS-MODAL — the paper and the tape, channels that never touched, both
-      // holding the fact. A stronger epistemic object than the same fact twice on paper.
-      const status = w.origins >= 2 && w.senses.size >= 2 ? 'cross-modal'
-        : w.origins >= 2 ? 'corroborated'
-        : w.origins === 1 ? 'single-source'
-        : w.reafferent > 0 ? 'interpretation'
-        : 'unwitnessed';
+      // The claim's witness diversity, minted into the first-class currency (core/witness.js). The
+      // tier ladder — unwitnessed · interpretation · single-source · corroborated · cross-modal (two
+      // roots through two SENSES, the paper and the tape both holding the fact) — is defined once,
+      // there, not inlined here. `status` stays the tier for every existing reader; `diversity` is
+      // the whole standing, carried on the relation for a consumer that wants more than the label.
+      const diversity = makeDiversity({
+        spans: w.spans, origins: w.origins, senses: w.senses, reafferent: w.reafferent,
+      });
       seenLine.add(line);
-      eot.push({ line, kind: 'relation', status, verbatim, subj, via, obj,
-                 sources: w.sources, origins: w.origins, senses: [...w.senses] });
+      eot.push({ line, kind: 'relation', status: diversity.tier, verbatim, subj, via, obj,
+                 sources: w.sources, origins: w.origins, senses: [...w.senses], diversity });
     } else if (e.op === 'DEF' && e.kind === 'attr' && e.id != null && e.key != null) {
       const matches = table.attrs.has(`${lc(L(e.id))}|${lc(e.key)}|${lc(e.value)}`);
       seenLine.add(line);
@@ -256,5 +267,13 @@ export const reflectAnswer = ({ answer, doc } = {}) => {
     // the "multiple, diverse sources" measure at answer grain
     origins: new Set(rel.flatMap((r) => r.sources.map((s) => s.docId))).size,
   };
+  // The answer's OWN witness diversity, first-class: the distinct origins and senses across every
+  // witnessed relation, folded into one currency. The single object a UI reads for "how well does
+  // this whole answer stand" — its tier is the rung the answer as a whole reaches (core/witness.js).
+  summary.diversity = makeDiversity({
+    origins: summary.origins,
+    senses: [...new Set(rel.flatMap((r) => r.senses || []))],
+    reafferent: summary.interpretation,
+  });
   return { eot, summary };
 };

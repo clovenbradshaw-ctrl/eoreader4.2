@@ -82,6 +82,26 @@ export const decryptFile = async (ciphertext, file) => {
 
 export const bytesToText = (bytes) => new TextDecoder().decode(bytes);
 
+// Shared vault helpers (used by both the private vault and the shared room vault, so the
+// coercion + the "safe to show as text?" rule stay in one place).
+
+// A permissive byte coercion for a vault's save() entrance: string | Uint8Array |
+// ArrayBuffer → Uint8Array; anything else is a tagged BAD_INPUT error.
+export const asBytes = (input) => {
+  if (input instanceof Uint8Array) return input;
+  if (input instanceof ArrayBuffer) return new Uint8Array(input);
+  if (typeof input === 'string') return new TextEncoder().encode(input);
+  throw Object.assign(new Error('save expects a string, Uint8Array, or ArrayBuffer'), { code: 'BAD_INPUT' });
+};
+
+// Best-effort "is this safe to render as text?" for a vault's open(): only for texty
+// mimes, and only when it decodes without the replacement character.
+export const safeText = (bytes, mime) => {
+  const m = String(mime || '');
+  if (m && !m.startsWith('text/') && m !== 'application/json' && m !== 'application/octet-stream') return null;
+  try { const t = bytesToText(bytes); return /�/.test(t) ? null : t; } catch { return null; }
+};
+
 // ── Passphrase-wrapped encryption (for the encrypted key backup) ──
 // PBKDF2 → AES-256-GCM. Unlike the attachment scheme above (AES-CTR, key-in-manifest),
 // this derives the key from a human passphrase and uses GCM's authentication tag, so a

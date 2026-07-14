@@ -23,7 +23,8 @@ src/
     tasks/         …instantiated on the generation axis (recursive decomposition)
   organs/        the modality membrane
     in/  out/      raise (SIG) and render (INS) adapters
-    ingest/        surface → EO tuples
+    ingest/        surface → EO tuples; the web/library shelves + feeds, JSON/REST APIs, and
+                   civic-data discovery (RSS/Atom, CKAN, Socrata — docs/civic-apis.md)
     code/          code → EOT → issues from the dependency order (docs/code-organ.md)
   perceiver/     reading — text → event log → the three reading levels
     parse/  predict/  credence/  classify/
@@ -93,9 +94,11 @@ opens empty and fills as you record.
 | surface | engine wiring |
 |---|---|
 | workspace switcher → nested topic tree | `rooms/reader/app.js` — a **workspace** is the top-level container (Notion's workspace/teamspace; a shared workspace is a Matrix room, via `shared`), and **topics nest** into a collapsible tree (`parentId` / `collapsed`, walked by `topicRows`). Sources stay scoped to the active topic. |
-| ingest bar (URL / file / paste / web search) | `organs/ingest` web client + admission core, `rooms/reader/import-file.js` extractors, proxy chain with public fallbacks |
+| ingest bar (URL / file / paste / web search) | `organs/ingest` web client + admission core, `rooms/reader/import-file.js` extractors, proxy chain with public fallbacks. A **video** reads as two senses — the picture as motion + **born-rule entity detection** (`organs/in/motion.js`), the sound as a transcript — folded onto one source (`docs/video-ingest.md`) |
+| Libraries launcher → per-shelf search surface | `organs/ingest/libraries.js` — four easy search libraries, each with the surface its kind of thing deserves: **Wikipedia** (articles), **Project Gutenberg** (whole books), **Wikimedia Commons** (a media grid), **GitHub** (repos, with **Ingest code** → the code organ). One descriptor registry the surface reads to render each hit as a card shaped for the thing (`docs/library-search.md`) |
 | chat exchange | `turn/` pipeline (`runTurn`) — streamed, cited, fact-checked; model backends from `model/` (webllm · wllama · claude · lmstudio · ollama · echo), picked adaptively |
 | S-registry (sha, bytes, rights, fixity) | `organs/ingest/websource.js` records + the controller's registry |
+| source explorer → a Drive of folders | `rooms/reader/app.js` — the **Sources** tab is a file browser: a workspace owns a nested **folder** tree and every top-level source carries a `folderId` (`folderNew`/`folderMove`/`folderDelete`/`sourceMove`, `workspaceSources`). Folders are workspace-scoped so a whole library organises into one Drive navigated in the hero (breadcrumb + folder cards + a mobile-friendly move picker); grounding stays topic-scoped — folders are organisation only |
 | claim → passage pincites | the turn's `bound`/`citeOrigins`/`citeTexts` (from `enactor/ground`) |
 | provenance DAG nodes/edges | derived from real turns: topic → claims → passages → sources → files |
 | document viewer (click any source) | the recorded text, cited passages marked, entities clickable |
@@ -104,7 +107,51 @@ opens empty and fills as you record.
 | monologue steps | `rooms/audit` (`createAuditLog`) — live subscription, per-stage trail |
 | E2EE chat (optional) | `rooms/chat` — libolm (vendored) Olm/Megolm over the existing `matrix` login; keys pickled to **OPFS**; a floating launcher `boot.js` mounts (see [`docs/element-e2ee.md`](docs/element-e2ee.md)) |
 | encrypted media vault (optional) | `rooms/archive/vault` — save content encrypted (Web Crypto), store only ciphertext in the Matrix media repo, record each save in a tamper-evident **hash-linked block chain** on **OPFS**; `window.EO.vault` + a floating 🗄 panel (see [`docs/media-vault.md`](docs/media-vault.md)) |
+| shared workspaces + shared vault (optional) | `rooms/archive/room-vault` — a **workspace is an invitable Matrix room**; everything saved into it is stored as an **encrypted, hash-linked blockchain, in binary, in Matrix**, decryptable by **only the room's members** (the block's key rides a Megolm room event). The room timeline is the ledger's ordering, so every member's chain **converges**; room messages carry the updates, `sendSignal` the nudges. `window.EO.spaces` (see [`docs/shared-vault.md`](docs/shared-vault.md)) |
+| sync to Matrix (optional) | `rooms/archive/space-sync` — one per-workspace **opt-in** (default OFF) that mirrors a workspace's sources into its room's encrypted blockchain, opening the room first if needed; content-addressed + debounced so an unchanged source is never re-uploaded. `window.EO.spaces.setSync` / `.sync` |
 | durable substrate — the database (optional) | `store/` — a passphrase vault seals each **room** (table) as an encrypted, append-only **OPFS** byte file of the same nine-operator events the reader already emits; reopen rehydrates and folds identically. Over that, a spreadsheet-database engine (types · rows · table · query · formula) turns any room's fold into columns/rows with filter/sort/group/aggregate, foreign-key links, and Airtable-style formulas + rollups. `window.EO.db` — `db.unlock(user, pass)`, then `db.openLog(roomId)` / `db.query(roomId, …)` / `db.buildTable(roomId)`. "Rooms are tables, events are rows, `fold` is the query" (see [`docs/database-framework.md`](docs/database-framework.md)) |
+
+## The plain version — the algebra, worn as three questions
+
+Open **`plain.html`** (`npm run serve`) for the same engine with **nothing named to the person** —
+not "operator", not "terrain", not "resolution", not once. It rests on one rule: *the person never
+chooses a terrain, because the thing they clicked already is one.* A name is an **Entity**, an arrow
+is a **Link**, a quoted phrase is a **Lens** — and a terrain sits in exactly one domain, and a domain
+has **exactly three operators**. So a click yields **exactly three questions**, always: they are not
+curated, they *are* `operatorsByDomain(domain)` wearing plain-English coats (`src/rooms/plain/terrain.js`).
+
+The person experiences that as restraint; it is arithmetic. `tests/plain-terrain.test.js` pins that the
+three questions of a kind are exactly its domain's three operators, and that the §9 addresses
+(`SIG(Entity, Binding)`, …, `REC(Paradigm, Composing)`) are the ones the design lists. The only two
+things that move under the hand — reading a word under a basis ("surveillance" → a line item under the
+budget, a thing-done-to-people under the court filing) and re-centering the picture — are pure folds
+(`src/rooms/plain/select.js`), reversible and pinned by `tests/plain-select.test.js`. The ✱ cards
+(*When people changed their minds* · *Blind spots*) are the ones no tool without **REC** and a **typed
+void** can build. The worked corpus is `src/rooms/plain/scene.js`; the framework-free surface is
+`surface.js`, the same room idiom as Replay and Render.
+
+It is also a **screen in the main app** — the **Plain** tab in `index.html` (mounted the same way the
+Graph tab hosts its draw, via `window.EO.plain`). There the surface reads the person's **real ingested
+sources**: "People mean different things by this" is not a table but a projection of what the documents
+actually say. `src/rooms/plain/disagreement.js` reads each source's own sentences — every "X is a Y",
+"X, a Y,", "X was described as Y", "X means Y" — buckets the characterizations by head-noun into distinct
+meanings, and tallies each per source; `select.readAs` then re-reads the word under any one source as a
+basis. `src/rooms/plain/project.js` is the live bridge (`window.EO.app` + `perceiver/parse`), folding the
+perceiver's own coref-resolved copular DEFs in on top of the surface sweep. It is tested on real text
+across three genres — **non-fiction** (a civic procurement, "surveillance"), **fiction** (two narrators,
+"the monster"), and **academic papers** (one word, three disciplines, "power") — in
+`tests/plain-disagreement.test.js`, with the engine path pinned end-to-end in `tests/plain-project.test.js`.
+
+The ✱ card — **"When people changed their minds"** (§4) — is REC over corpus time, and it is real too
+(`src/rooms/plain/shifts.js`). The move: a *paradigm* is the meaning a term is predominantly read under,
+so a paradigm **shift** is a change-point in that dominant meaning along a **dated** corpus. The detector
+reads each source's dominant sense (the same DEF sweep), places it in time (a publication date from the
+document's front matter, else when it entered the record), collapses equal senses into runs, smooths a
+lone contrarian source, and reports every run boundary as a break — "before *D* it meant *A*; after, *B*."
+Each break is emitted as a real **REC** event (`recEvents`), the way `equivalence.js` records its merges
+as SYN/NUL, so the shift is auditable in the engine's own grammar. Tested over dated corpora in all three
+genres — non-fiction ("surveillance": tool → capability → procurement), academic ("atom": particle →
+nucleus → cloud), and fiction ("the creature": monster → wretch) — in `tests/plain-shifts.test.js`.
 
 ## Replay — watching something get read
 
@@ -129,6 +176,19 @@ normalized, argmax — the same fold-decides discipline as `enactor/enact/replay
 arithmetic; it is reversible; it is auditable; and `tests/replay-collapse.test.js` pins it (all sources
 on ⇒ `drones .71`; MNPD off ⇒ `drums .43`; itself-only ⇒ the microphone alone). **Report the
 distribution. Never the decision.**
+
+## Render — write HTML/JS, see it live
+
+Open **`render.html`** (`npm run serve`) for the **facing-page WYSIWYG renderer** — the companion to
+the code shelf. The source (HTML · CSS · JS) on one side, the **live render** on the other: type on
+the left, the right pane re-renders, executing the HTML and the JavaScript, with a console strip
+under it showing every `console.*` and every thrown error. It is the replay idiom — source facing
+what it becomes — pointed at code. The engine (`src/rooms/render/`) is a **pure fold**
+(`facing.js`: panes → one sandboxed `srcdoc` + a console-capture shim, pinned by
+`tests/facing-render.test.js`) and a framework-free DOM surface (`surface.js`). Load a raw GitHub
+file with `render.html?src=<url>`, hand a source in from the reader via `window.EO.render.open(...)`,
+or start from the built-in demo. The iframe is sandboxed `allow-scripts` (no same-origin) so the
+rendered code runs its own JS but can't reach the page. Full write-up: [`docs/library-search.md`](docs/library-search.md).
 
 ## Run the big models locally (LM Studio / Ollama)
 

@@ -18,15 +18,16 @@
 // one degrades to a no-op or a thrown, catchable error; nothing at import time
 // touches the network.
 
-import { parseText } from '../../perceiver/parse/index.js';
+import { parseText, TITLE_WORDS } from '../../perceiver/parse/index.js';
 import { promoteConnection } from '../../enactor/connect/index.js';
 import { speakTriples, talkThenVerify } from '../../weave/write/index.js';
+import { toPast } from '../../weave/write/morph.js';
 import { projectGraph, operatorsOf, glyphOf } from '../../core/index.js';
 import { createModel, describeModel } from '../../model/interface.js';
 import { wrapRedacting } from '../../model/redact-remote.js';
 import { probeOrigins, explainReach } from '../../model/reach.js';
 import { createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
-import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
+import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement, anchorTopicless,
          runTurnWithResearch, runCuriousResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
          runTurnWithCorroboration, corroborationAnnouncement, corroborationSettled,
          readDiscourse, clarifyDemandOf, loadShapeLibrary } from '../../turn/index.js';
@@ -37,12 +38,17 @@ import { directCorsUrl } from '../../organs/ingest/direct-cors.js';
 import { admitWebSource, webContentHash } from '../../organs/ingest/websource.js';
 import { GUTENBERG_FULLTEXT } from '../../organs/ingest/gutenberg.js';
 import { WIKIMEDIA_FULLTEXT } from '../../organs/ingest/wikimedia.js';
+import { GITHUB_FULLTEXT, fetchGithubRepo } from '../../organs/ingest/github.js';
+import { LIBRARIES, surfaceCard, librariesManifest } from '../../organs/ingest/libraries.js';
 import { readIngest } from '../../organs/ingest/read.js';
 import { emitEot } from '../../organs/ingest/eot-emit.js';
+import { createCompositeDoc } from '../../organs/in/composite.js';
 import { scopeSources } from './scope-sources.js';
 import { createAudioStore } from './audio-store.js';
 import { makeJob, upsertJob, patchJob, dropJob, resumableJobs, MAX_JOB_ATTEMPTS } from './ingest-jobs.js';
-import { projectTranscript } from './transcript-edit.js';
+import { projectTranscript, REDACTION_MARK } from './transcript-edit.js';
+import { buildFormat, FORMATS as TRANSCRIPT_FORMATS, hasTranscript } from './transcript-export.js';
+import { formatTranscript, detectTranscriptChapters, readThroughIndex, settledText, segmentsOf, chapterAt, referentRuns } from './transcript-format.js';
 import { sha256Hex } from '../archive/file-crypto.js';
 import { outstandingQuestion, answersAwaited } from '../../core/conversation-fold.js';
 import { senseGate } from '../../turn/sense.js';
@@ -50,13 +56,15 @@ import { createMonitor } from '../../enactor/monitor.js';
 import { createCommitmentLedger } from '../../enactor/ledger.js';
 import { answerSmalltalk } from '../../enactor/answer/index.js';
 import { figureSurface, rankProperties } from '../../perceiver/index.js';
-import { generateTopline, definitionSpans, definitionCompetency, composeChorus, entityInventory, sourceInventory, interpretFeedback, mergeSteer } from '../../weave/topline/index.js';
+import { generateTopline, definitionSpans, definitionCompetency, composeChorus, entityInventory, sourceInventory, interpretFeedback, mergeSteer, chapterBullets, composeEntityDigest, composeChapterReading, passageNeighborhood, composePassageReading } from '../../weave/topline/index.js';
+import { detectGrain } from '../../surfer/levels.js';
 import { groundSpans } from '../../enactor/ground/spans.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
 import { buildChatExport } from './chat-export.js';
 import { wikiReferent } from './wiki-referent.js';
+import { mergeEntitiesByReferent } from './entity-merge.js';
 import { composeProvenance, repoRef, readBuild, fetchLatestCommit, APP_NAME, APP_VERSION } from './provenance.js';
 import { foldNarrative } from './fold-narrative.js';
 import { deriveTopicTitle, isDefaultTopicTitle, DEFAULT_TOPIC_TITLE } from './topic-name.js';
@@ -131,6 +139,7 @@ const FULL_TEXT = {
   wikipedia: (client, item) => wikiExtract(client, item?.title),
   ...GUTENBERG_FULLTEXT,
   ...WIKIMEDIA_FULLTEXT,
+  ...GITHUB_FULLTEXT,   // a repo hit reads its README
 };
 
 // ── tiny IndexedDB kv (best-effort; absent in Node) ──────────────────────────
@@ -172,6 +181,10 @@ const wantsLongform = (q) => LONGFORM_RE.test(String(q || ''));
 const LONGFORM_MAX_TOKENS = 1600;
 const domainOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
 const shaShort = (h) => String(h || '').replace(/^[^:]*:/, '').slice(0, 12);
+// Honorifics whose trailing period admission drops when it joins them to a name ("Mr." → the
+// label "Mr Dupree"). Lowercased once, from the admission's own list, so the reader's entity
+// linker tolerates the same normalisation when matching the label back onto the surface text.
+const LINK_TITLES = new Set([...TITLE_WORDS].map((w) => w.toLowerCase()));
 const bytesOf = (text) => { try { return new TextEncoder().encode(text).length; } catch { return String(text).length; } };
 const esc = (s) => String(s ?? '');
 
@@ -278,6 +291,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     activeWorkspaceId: null,
     topics: [],            // { id, title, created, workspaceId, parentId, collapsed, sourceSns:[], messages:[], memo:'' }
     activeTopicId: null,
+    // The source explorer's Drive: a workspace owns a nested tree of FOLDERS, and every
+    // top-level source carries a `folderId` naming the folder it is filed under (null = the
+    // drive root). Folders are workspace-scoped so the whole library — every quest's sources —
+    // organises into one navigable Drive; grounding stays topic-scoped (topicSources untouched).
+    folders: [],           // { id, name, parentId, workspaceId, created }
     log: [],               // activity ledger: { id, t, kind, text, effect }
     reflections: [],       // the inner monologue: reflections the reading has at rest (band void)
     reflectionsSeen: 0,    // running total ever voiced this session — the honest "N notes so far".
@@ -302,7 +320,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     jobs: [],              // [{ id, kind, status, attempts, topicId, workspaceId, ...spec }]
     ready: false,          // restore finished
   };
-  let sn = 0, tn = 0, ln = 0, mn = 0, wn = 0;
+  let sn = 0, tn = 0, ln = 0, mn = 0, wn = 0, fon = 0;
   const client = createWebClient({ fetchImpl });
 
   // THE SESSION'S SELF AND SPINE. One monitor for the whole session (one loop, one me):
@@ -435,6 +453,49 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // pipeline. concentration is always available off the fold's referential read (zero embedding
   // cost); drift/novelty need a meaning-measuring embedder (MiniLM warm) — absent it the geometric
   // channel stays null and only the concentration/unease signal can fire (honest degradation).
+  // The ACTUAL propositions the fold parsed at this reading — the reader's own grounded x→relation→y
+  // claims (`ctx.note.levels.structure`, the same graph serializeEOT renders). Each edge is said as one
+  // short past-tense claim using the ENGINE'S OWN conjugation (toPast), applied to the verb HEAD only
+  // so a phrasal via ("premiere in") reads "premiered in", not "premiere ined". This is what the murmur
+  // strip voices — so it reads like a mind reading the document, not a canned reaction to the geometry.
+  // Negated edges are skipped (every shown claim stays clean and correct; contradictions live in the
+  // Significance note, not the ambient strip). Bounded — the strip shows ≤2; a couple more give a choice.
+  const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  const sayEdge = (subj, verb, obj) => {
+    const parts = String(verb).split(/\s+/).filter(Boolean);
+    const pred = [toPast(parts[0]), parts.slice(1).join(' '), obj].filter(Boolean).join(' ');
+    return `${capFirst(subj)} ${pred}.`;
+  };
+  const parsedPropositions = (ctx, max = 4) => {
+    const st = ctx && ctx.note && ctx.note.levels && ctx.note.levels.structure;
+    if (!st) return [];
+    const out = [];
+    const seen = new Set();
+    for (const r of (st.relations || [])) {
+      if (out.length >= max) break;
+      if (!r || !r.src || !r.tgt || r.polarity === '−') continue;   // skip negated — keep every claim clean
+      const subj = String(r.src.label || '').trim();
+      const obj = String(r.tgt.label || '').trim();
+      const verb = String(r.via || '').trim();
+      if (!subj || !verb) continue;
+      const key = `${subj}|${verb}|${obj}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let text = sayEdge(subj, verb, obj || null);
+      if (text.length > 120) text = text.slice(0, 117).replace(/\s+\S*$/, '') + '…';
+      out.push({ text, subj });
+    }
+    for (const d of (st.defs || [])) {
+      if (out.length >= max) break;
+      const subj = String((d && d.label) || '').trim();
+      const val = String((d && d.value) || '').trim();
+      if (!subj || !val || seen.has(`def|${subj}`)) continue;
+      seen.add(`def|${subj}`);
+      out.push({ text: `${capFirst(subj)} — ${val}.`, subj });
+    }
+    return out;
+  };
+
   const observeMurmur = (ctx) => {
     if (!murmur || !ctx) return;
     try {
@@ -460,7 +521,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       const measures = !!(emb && emb.measuresMeaning && typeof emb.embed === 'function');
       const queryText = String(ctx.retrievalQuery || ctx.question || '');
       const readingText = ctx.note && ctx.note.text ? String(ctx.note.text) : '';
-      const base = { ref, query: ctx.question || '', concentration, passageText: readingText.slice(0, 400) };
+      const base = { ref, query: ctx.question || '', concentration, passageText: readingText.slice(0, 400), propositions: parsedPropositions(ctx) };
       if (!measures || !queryText) {
         // no meaning space this stop — concentration-only (drift/novelty null by construction).
         void Promise.resolve(murmur.observe({ ...base, measuresMeaning: false }, { turn: auditTurn })).catch(() => {});
@@ -479,10 +540,12 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
 
   // ── persistence ────────────────────────────────────────────────────────────
   const serialize = () => ({
-    v: 1, sn, tn, ln, mn, wn,
+    v: 1, sn, tn, ln, mn, wn, fon,
     activeTopicId: state.activeTopicId,
     activeWorkspaceId: state.activeWorkspaceId,
     workspaces: state.workspaces,
+    // the source explorer's folder tree (Drive) — small plain JSON, one per workspace subtree
+    folders: state.folders,
     log: state.log.slice(-120),
     topics: state.topics,
     // Persist only the RECORDED source — never its DERIVED readings. Every `_`-prefixed
@@ -518,6 +581,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       if (snap && snap.v === 1) {
         ({ sn, tn, ln, mn } = snap);
         wn = snap.wn || 0;
+        fon = snap.fon || 0;
         state.sources = (Array.isArray(snap.sources) ? snap.sources : []).map((s) => {
           const src = { ...s, _doc: null };
           // Re-seed the live ASR object from its durable twin so the transcription banner reads
@@ -537,10 +601,21 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         state.activeTopicId = snap.activeTopicId;
         state.workspaces = Array.isArray(snap.workspaces) ? snap.workspaces : [];
         state.activeWorkspaceId = snap.activeWorkspaceId || null;
+        state.folders = Array.isArray(snap.folders) ? snap.folders : [];
         state.log = Array.isArray(snap.log) ? snap.log : [];
         state.jobs = Array.isArray(snap.jobs) ? snap.jobs : [];   // pending work to resume below
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
-        if (snap.summaries && snap.summaries.entities) state.summaries = { entities: { ...snap.summaries.entities }, definer: snap.summaries.definer || { champion: null, runs: 0 } };
+        if (snap.summaries && snap.summaries.entities) {
+          // `contextualPending` is a within-session marker that a written reading is mid-compose; it
+          // can never be live across a reload (nothing is generating), and the panel would otherwise
+          // hang on "composing…". Clear it on restore so each entity reveals the telegram it holds.
+          const ents = {};
+          for (const k in snap.summaries.entities) {
+            const e = snap.summaries.entities[k];
+            ents[k] = (e && e.contextualPending) ? { ...e, contextualPending: false } : e;
+          }
+          state.summaries = { entities: ents, definer: snap.summaries.definer || { champion: null, runs: 0 } };
+        }
       }
     } catch { /* fresh session */ }
     // ── migrate to the workspace / topic-tree model ──────────────────────────
@@ -567,6 +642,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }
     if (!state.topics.length) topicNew('New topic', { silent: true });
     if (!state.topics.find((t) => t.id === state.activeTopicId)) state.activeTopicId = state.topics[0].id;
+    // Folder sanity: drop folders whose workspace is gone, and clear a source's `folderId`
+    // when it points at a folder that no longer exists — the drive never shows a dead crumb.
+    const wsIds = new Set(state.workspaces.map((w) => w.id));
+    state.folders = (state.folders || []).filter((f) => f && f.id && wsIds.has(f.workspaceId));
+    const folderIds = new Set(state.folders.map((f) => f.id));
+    for (const f of state.folders) if (f.parentId && !folderIds.has(f.parentId)) f.parentId = null;
+    for (const s of state.sources) if (s.folderId && !folderIds.has(s.folderId)) s.folderId = null;
     state.ready = true;
     emit('ready');
     // The model prewarms the moment the session is up (4.1's mount posture) so the
@@ -689,6 +771,39 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     t.title = title;
     if (!silent) { persist(); emit('topics'); }
   };
+  // The conversational THREAD a topic belongs to — its ancestors' settled messages, then its
+  // own, in the order the user lived them. The topic-per-question model (askQuestion) files
+  // every follow-up as a CHILD quest, so a child's own `messages` hold only the new question:
+  // the thread the user experienced IS the ancestor chain. Reading history off the lineage is
+  // what lets the discourse machinery — readDiscourse, the clarify/awaiting fold, resolveQuery,
+  // formulateSearchQuery, the sense disambiguator — resolve a pronoun follow-up ("what did he
+  // do?") to the figure the previous quest was about. Without it every follow-up woke
+  // amnesiac: the referent never bound, the turn abstained referent-ambiguous, and the
+  // VERBATIM pronoun query went to the web and admitted whatever matched its words — the
+  // exported "what did he do?" run pulled "What Did Jack Do?" and the Waco siege into the
+  // record. Settled turns only (!pending, has text). A stopped/errored reply is DROPPED while
+  // its question is KEPT: the boilerplate ("The turn stalled — …") is not conversation, and an
+  // unanswered question left standing is exactly an OPEN intent for the next turn to resolve
+  // against (dialogue-state.js). Cycle-guarded like topicDescendants; capped to the newest
+  // THREAD_CAP messages (foldConversation budgets further downstream).
+  const THREAD_CAP = 16;
+  const topicThread = (t) => {
+    const chain = [];
+    const seen = new Set();
+    for (let node = t; node && !seen.has(node.id); node = node.parentId ? topicById(node.parentId) : null) {
+      seen.add(node.id);
+      chain.unshift(node);
+    }
+    const out = [];
+    for (const tp of chain) {
+      for (const m of tp.messages || []) {
+        if (!m || m.pending || !m.text) continue;
+        if (m.role === 'assistant' && (m.route === 'stopped' || m.route === 'error')) continue;
+        out.push(m);
+      }
+    }
+    return out.slice(-THREAD_CAP);
+  };
   // Re-parent a topic (null = the workspace root). Rejects a cycle (into itself or a
   // descendant) and a cross-workspace move — a topic tree never spans workspaces.
   const topicMove = (id, parentId = null) => {
@@ -755,7 +870,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const WS_COLORS = ['#6D5EF5', '#2563EB', '#0F766E', '#B45309', '#A91D1D', '#BE185D', '#15803D'];
   const activeWorkspace = () => state.workspaces.find((w) => w.id === state.activeWorkspaceId) || state.workspaces[0] || null;
   const workspaceNew = (name = 'New workspace', { silent = false, shared = false } = {}) => {
-    const w = { id: `ws${++wn}`, name: String(name || 'New workspace'), color: WS_COLORS[state.workspaces.length % WS_COLORS.length], shared: !!shared, created: nowIso() };
+    const w = { id: `ws${++wn}`, name: String(name || 'New workspace'), color: WS_COLORS[state.workspaces.length % WS_COLORS.length], shared: !!shared, roomId: null, syncToMatrix: false, created: nowIso() };
     state.workspaces.push(w);
     state.activeWorkspaceId = w.id;
     topicNew('New topic', { silent: true, workspaceId: w.id });   // a workspace always opens onto a topic
@@ -772,6 +887,24 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     deepWake(); persist(); emit('topics');
   };
   const workspaceRename = (id, name) => { const w = state.workspaces.find((x) => x.id === id); if (w && name) { w.name = String(name); persist(); emit('topics'); } };
+  // Bind a workspace to a Matrix room — this is what makes it SHARED and invitable. The
+  // engine only records the pairing (roomId + a members hint); the actual room create /
+  // invite and the encrypted, hash-chained sync live in boot's `spaces` membrane
+  // (rooms/archive/room-vault), so app state stays network-free. `roomId: null` unshares.
+  const workspaceBindRoom = (id, { roomId = null, members = null } = {}) => {
+    const w = state.workspaces.find((x) => x.id === id);
+    if (!w) return null;
+    w.roomId = roomId || null;
+    w.shared = !!roomId;
+    if (Array.isArray(members)) w.members = members.slice();
+    persist(); emit('topics');
+    return w;
+  };
+  const workspaceByRoom = (roomId) => state.workspaces.find((w) => w.roomId === roomId) || null;
+  // The "sync to Matrix" opt-in for a workspace — when on, its content is mirrored into
+  // the shared, room-encrypted blockchain (boot's `spaces.sync`, rooms/archive/space-sync).
+  // The engine only records the flag; the actual encrypt-and-publish lives in boot.
+  const workspaceSetSync = (id, on) => { const w = state.workspaces.find((x) => x.id === id); if (!w) return null; w.syncToMatrix = !!on; persist(); emit('topics'); return w; };
   const workspaceDelete = (id) => {
     if (state.workspaces.length <= 1) return;   // the shell always keeps one workspace
     const idx = state.workspaces.findIndex((w) => w.id === id);
@@ -781,6 +914,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // so nothing filed here is lost when the container goes.
     const dest = state.workspaces[Math.max(0, idx - 1)] || state.workspaces[0];
     for (const t of state.topics) if (t.workspaceId === id) { t.workspaceId = dest.id; t.parentId = null; }
+    // Re-home this workspace's Drive folders into the destination too, so the sources filed in
+    // them keep a valid folderId and land in the same folder structure they came with.
+    for (const f of state.folders) if (f.workspaceId === id) f.workspaceId = dest.id;
     if (state.activeWorkspaceId === id) {
       state.activeWorkspaceId = dest.id;
       const f = state.topics.find((t) => t.workspaceId === dest.id);
@@ -804,7 +940,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return src._doc;
   };
 
-  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null }) => {
+  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null, defer = false }) => {
     const body = String(text || '').trim();
     if (!body) throw new Error('nothing to record — the page had no readable text');
     const hash = record?.content_hash || webContentHash(body);
@@ -827,6 +963,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       // SUB-OBJECT of that source — one site stays one source in the sidebar, its followed pages
       // nested and (by default) folded under it. collapsed governs its OWN children's fold state.
       parentSn: parentSn || null, collapsed: true,
+      // folderId: which folder in the workspace Drive this source is filed under (null = root).
+      // Only top-level records are filed; a followed sub-page rides with the site it hangs under,
+      // so it inherits its parent's folder and is never shown as its own file in the explorer.
+      folderId: parentSn ? (sourceBySn(parentSn)?.folderId || null) : null,
       text: body, entCount: null, _doc: doc || null,
     };
     if (doc) { try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; } }
@@ -854,7 +994,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // every large import. It is left to the reading surface to compute lazily (eotFor,
     // memoised) when the reader actually opens that source. Recording never blocks the tab
     // on the full EoT read again.
-    setTimeout(() => {
+    //
+    // `defer` skips this tick entirely: the caller is landing the source AHEAD of its reading
+    // (a big prose import parses in a CHUNKED background pass, not the synchronous sweep docFor
+    // runs here) and folds the doc in with finishReading — which runs the same EoT read + summary
+    // once the reading is ready. Without the skip the eager docFor here would race that background
+    // pass and freeze the tab on the very sweep defer exists to avoid.
+    if (!defer) setTimeout(() => {
       try {
         const d = docFor(src);
         const props = d?.log ? emitEot(d.log).lines.length : 0;
@@ -864,8 +1010,30 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       // deterministic telegram lands at once (there is a summary before any talker is warm), and a
       // loaded talker refines the join in the background. Fire-and-forget — never blocks the record.
       sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
+      autoEntitySummaries(src);   // …and a topline for each of its dominant figures (telegram-only)
     }, 0);
     return src;
+  };
+
+  // finishReading(src, doc) — fold a background-parsed reading into a source that ALREADY landed
+  // (addSource with `defer`). The source appeared in the registry the instant its text was known;
+  // this attaches the entity/relation doc once the CHUNKED parse finishes, refreshes the derived
+  // caches, and runs the same EoT read + summary addSource's eager tick would have — so the record
+  // shows immediately and its reading catches up without ever freezing the tab. Defensive: a source
+  // removed mid-parse is a no-op.
+  const finishReading = (src, doc) => {
+    if (!src || !doc || !sourceBySn(src.sn)) return;
+    src._doc = doc;
+    src._eot = null;
+    deepReaders.delete(src.docId);
+    try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; }
+    try {
+      const props = doc.log ? emitEot(doc.log).lines.length : 0;
+      logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
+    } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+    persist(); emit('sources');
+    sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
+    autoEntitySummaries(src);   // …and a topline for each of its dominant figures (telegram-only)
   };
 
   // The source's reading as one EoT document (structure + thinking). Memoised on the
@@ -926,6 +1094,100 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return t ? t.sourceSns.map(sourceBySn).filter(Boolean) : [];
   };
   const topicDocs = () => topicSources().map(docFor).filter(Boolean);
+  // The MEANING-layer docs for the topic — a clip's/video's figures live in its transcript, read
+  // as prose on top (referentDocFor), not in the raw word/segment spans of the base organ doc. This
+  // is the doc set the entity LINKER reads, so an audio or video source links the same named figures
+  // the entity explorer lists (a base doc carries no `admission`, so it would link nothing).
+  const topicReferentDocs = () => topicSources().map(referentDocFor).filter(Boolean);
+
+  // ── folders — the source explorer's Drive ────────────────────────────────────
+  // The "Sources" surface is a file browser: a workspace owns a nested tree of folders and
+  // every top-level source carries a `folderId` (null = the drive root). Folders are
+  // workspace-scoped, so a workspace's whole library — the sources of EVERY topic in it —
+  // organises into one navigable Drive that scales to a great deal of content, while
+  // grounding stays topic-scoped (topicSources/scopeSources are untouched by any of this).
+  const folderById = (id) => (id ? state.folders.find((f) => f.id === id) || null : null);
+  const workspaceFolders = (workspaceId = null) => {
+    const ws = workspaceId || state.activeWorkspaceId;
+    return state.folders.filter((f) => f.workspaceId === ws);
+  };
+  const folderNew = (name = 'New folder', { parentId = null, workspaceId = null } = {}) => {
+    const ws = workspaceId || state.activeWorkspaceId;
+    const par = folderById(parentId);
+    const f = {
+      id: `F${++fon}`,
+      name: String(name || 'New folder').trim() || 'New folder',
+      parentId: (par && par.workspaceId === ws) ? par.id : null,
+      workspaceId: ws, created: nowIso(),
+    };
+    state.folders.push(f);
+    logIt('open', `New folder — ${f.name}`);
+    persist(); emit('sources');
+    return f;
+  };
+  const folderRename = (id, name) => {
+    const f = folderById(id);
+    if (f && name && String(name).trim()) { f.name = String(name).trim(); persist(); emit('sources'); }
+    return f;
+  };
+  // Is `maybeAncestor` at or above `id` in the tree? The cycle guard for folderMove — a folder
+  // may never be filed inside itself or one of its own descendants.
+  const folderIsAncestor = (maybeAncestor, id) => {
+    let cur = folderById(id), guard = 0;
+    while (cur && guard++ < 200) { if (cur.id === maybeAncestor) return true; cur = folderById(cur.parentId); }
+    return false;
+  };
+  const folderMove = (id, newParentId = null) => {
+    const f = folderById(id);
+    if (!f) return null;
+    if (newParentId) {
+      const p = folderById(newParentId);
+      // refuse a cross-workspace move or a cycle (into itself or one of its descendants)
+      if (!p || p.workspaceId !== f.workspaceId || newParentId === id || folderIsAncestor(id, newParentId)) return f;
+      f.parentId = newParentId;
+    } else f.parentId = null;
+    persist(); emit('sources');
+    return f;
+  };
+  const folderDelete = (id) => {
+    const f = folderById(id);
+    if (!f) return;
+    // Non-destructive, Drive-like: child folders and the sources filed here rise to this
+    // folder's parent rather than vanishing with it — nothing recorded is ever lost.
+    for (const c of state.folders) if (c.parentId === id) c.parentId = f.parentId;
+    for (const s of state.sources) if ((s.folderId || null) === id) s.folderId = f.parentId;
+    state.folders = state.folders.filter((x) => x.id !== id);
+    logIt('skip', `Deleted folder — ${f.name} · its contents rose to the parent`);
+    persist(); emit('sources');
+  };
+  // The chain of folders from the drive root down to `id`, for the explorer's breadcrumb.
+  const folderPath = (id) => {
+    const out = []; let cur = folderById(id), guard = 0;
+    while (cur && guard++ < 200) { out.unshift(cur); cur = folderById(cur.parentId); }
+    return out;
+  };
+  // File a source into a folder (null = the root). Only a top-level record is filed; asked to
+  // move a followed sub-page, we move the SITE it hangs under, so a site and its pages stay together.
+  const sourceMove = (id, folderId = null) => {
+    const s = sourceBySn(id);
+    if (!s) return null;
+    const root = s.parentSn ? (sourceBySn(s.parentSn) || s) : s;
+    if (folderId) {
+      const f = folderById(folderId);
+      if (!f || f.workspaceId !== state.activeWorkspaceId) return root;
+      root.folderId = folderId;
+    } else root.folderId = null;
+    persist(); emit('sources');
+    return root;
+  };
+  // The drive's file set: every top-level source referenced by a topic in the workspace,
+  // deduped, in record order (sub-pages ride with their site, so they are filtered out here).
+  const workspaceSources = (workspaceId = null) => {
+    const ws = workspaceId || state.activeWorkspaceId;
+    const ids = new Set();
+    for (const t of state.topics) if (t.workspaceId === ws) for (const x of t.sourceSns) ids.add(x);
+    return state.sources.filter((s) => ids.has(s.sn) && !s.parentSn);
+  };
 
   // ── ingest: URL / search / file / paste ───────────────────────────────────
   // The two cancellable-op controllers, declared here (not just in the chat section) so `stop()`
@@ -978,11 +1240,41 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     });
   };
 
+  // Each hit is dressed in the CUSTOMIZED SURFACE its kind of thing deserves (libraries.js): an
+  // article card, a book card, a media card, a code card — `it.surface` is what the results list
+  // paints. Additive: the raw item fields are untouched, so recordHit/preview still read them.
+  const dress = (items) => (items || []).map((it) => ({ ...it, surface: surfaceCard(it) }));
+
   const search = (query, { kind = 'auto', k = 8 } = {}) =>
     runCancellable({ kind: 'search', label: `Searching the web — ${query}` }, async (signal) => {
       const items = await client.search(query, { kind, k, signal });
       logIt('search', `Web search "${query}"`, `${items.length} results`);
-      return items;
+      return dress(items);
+    });
+
+  // searchLibrary(libId, query) → search ONE named shelf (wikipedia · gutenberg · commons · github)
+  // on its own kind, so the reader gets the media grid / book list / repo list that shelf is for,
+  // not the auto-routed grab-bag. Returns dressed hits; the surface renders them by `it.surface`.
+  const searchLibrary = (libId, query, { k = 12 } = {}) => {
+    const lib = LIBRARIES[libId];
+    return search(query, { kind: lib ? lib.kind : 'auto', k });
+  };
+
+  // ingestRepo(ref) → the deliberate "ingest all code" path: pull a repo's source through the code
+  // organ and admit the whole codebase as one reading + register it. Mirrors webSearchAdmit's
+  // addSource wiring so the codebase lands in the S-registry like any source.
+  const ingestRepo = (ref, opts = {}) =>
+    runCancellable({ kind: 'fetch', label: `Ingesting ${ref}…` }, async (signal) => {
+      // A signal-bound view of the client so a Stop cancels the in-flight tree/blob fetches.
+      const bound = { ...client, fetchUrl: (u, o = {}) => client.fetchUrl(u, { signal, ...o }) };
+      const res = await fetchGithubRepo(ref, { ...opts, client: bound });
+      if (!res?.doc || !res?.record) return null;
+      try {
+        return addSource({
+          title: res.record.title, url: res.record.url || null,
+          text: res.doc.text, kind: 'web', record: res.record, doc: res.doc,
+        });
+      } catch { return null; /* dup — the codebase still read */ }
     });
 
   const recordHit = (item, query = null) =>
@@ -1268,6 +1560,54 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return ev;
   };
 
+  // ── transcript export — the files a listener keeps (transcript-export.js) ─────────────────────
+  // Assemble the doc the renderers read. Prefer the LIVE organ doc (richest — utterances, speakers,
+  // the diarization trail, the raw operator log the process-trace walks) when it is present and the
+  // transcript hasn't been edited; otherwise REBUILD it from the persisted substrate (src.words +
+  // audioEvents + speakers), so an export works after a reload AND reflects any edits/redactions.
+  const buildTranscriptDoc = (src) => {
+    if (src._doc && src._doc.transcribed && Array.isArray(src._doc.tokens) && src._doc.tokens.length
+        && !(Array.isArray(src.audioEvents) && src.audioEvents.length)) return src._doc;
+    const base = Array.isArray(src.words) ? src.words : [];
+    const proj = projectTranscript(base, src.audioEvents || []);
+    const tokens = base.map((w, i) => {
+      const p = proj.words[i] || {};
+      // A redacted word must never leave in ANY export — mask its surface everywhere (subtitles,
+      // JSON, prose), the way the plain-text projection already does for chat/grounding.
+      return {
+        text: p.redacted ? REDACTION_MARK : (p.text ?? w.text), start: w.start, end: w.end, unitIdx: 0,
+        speaker: Number.isInteger(w.speaker) ? w.speaker : null,
+        conf: w.conf ?? null, acous: w.acous ?? null, snr: w.snr ?? null, redacted: !!p.redacted,
+      };
+    });
+    return {
+      docId: src.docId || src.reg, modality: 'audio',
+      duration: (src.audioMeta && src.audioMeta.duration) || 0, witness: null,
+      tokens, speakers: Array.isArray(src.speakers) ? src.speakers : [],
+      diarizeWitnesses: Array.isArray(src.diarizeWitnesses) ? src.diarizeWitnesses : [],
+      analysis: src.audioMeta || null, coverage: src.coverage || null,
+    };
+  };
+
+  // transcriptExport(sn, formatId) → { text, ext, mime, filename } for the surface to Blob-download,
+  // or null when the source has no transcript / the format id is unknown.
+  const transcriptExport = (snId, formatId) => {
+    const src = sourceBySn(snId);
+    if (!src) return null;
+    return buildFormat(buildTranscriptDoc(src), formatId, src.title || src.reg);
+  };
+  // The export menu the surface renders for a source: the available formats, whether this source has
+  // a transcript to export at all, and its speaker roster (so the panel can show WHO was found).
+  const transcriptFormats = (snId) => {
+    const src = snId != null ? sourceBySn(snId) : null;
+    const doc = src ? buildTranscriptDoc(src) : null;
+    return {
+      formats: TRANSCRIPT_FORMATS.map((f) => ({ id: f.id, label: f.label, ext: f.ext })),
+      has: doc ? hasTranscript(doc) : false,
+      speakers: (src && Array.isArray(src.speakers)) ? src.speakers : [],
+    };
+  };
+
   // The transcription status, kept in two twinned places. `_asr` (underscore) is the RICH LIVE
   // object the surface reads — state, pct, the streaming `partial` tail and the timed partial
   // `words` — and is stripped from the snapshot (serialize() drops underscore fields).
@@ -1300,7 +1640,22 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // the immutable baseline, and an empty append-only edit log. Both ride the snapshot (small
     // plain JSON), so the Listen surface — click-to-seek, karaoke, edits, redactions — survives a
     // reload without the session-only `_doc`. audioMeta keeps the waveform + stats drawable too.
-    src.words = (doc.tokens || []).map((t) => ({ text: t.text, start: t.start, end: t.end }));
+    // Each word also keeps WHO said it (speaker) and the waveform witnesses (conf/acous/snr), so the
+    // transcript can be read, coloured and EXPORTED by speaker + acoustics after a reload too — the
+    // rounded numbers a "full processing" JSON needs, small enough to ride the snapshot.
+    const numOr = (x, dp) => (typeof x === 'number' && isFinite(x)) ? +x.toFixed(dp) : undefined;
+    src.words = (doc.tokens || []).map((t) => {
+      const w = { text: t.text, start: t.start, end: t.end };
+      if (Number.isInteger(t.speaker)) w.speaker = t.speaker;
+      const conf = numOr(t.conf, 3); if (conf !== undefined) w.conf = conf;
+      const acous = numOr(t.acous, 3); if (acous !== undefined) w.acous = acous;
+      const snr = numOr(t.snr, 2); if (snr !== undefined) w.snr = snr;
+      return w;
+    });
+    // WHO is speaking — the roster of voices the diarization separated (voices.js), each with its
+    // measured pitch/formants, and the auditable trail of merge/keep decisions that produced it.
+    src.speakers = Array.isArray(doc.speakers) ? doc.speakers : [];
+    if (Array.isArray(doc.diarizeWitnesses)) src.diarizeWitnesses = doc.diarizeWitnesses;
     if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
     src.audioMeta = audioMetaOf(src) || src.audioMeta || null;
     try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { /* keep prior */ }
@@ -1311,6 +1666,12 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // in-progress view on the next boot.
     if (src.transcription) { delete src.transcription.words; delete src.transcription.partial; }
     if (src._asr) src._asr.words = null;
+    // VIDEO — the words are one SENSE; the picture (motion + born entities, applyVisualReading) is the
+    // other. Keep BOTH: recompose the reading as the composite of the motion doc and this transcript,
+    // the picture leading and the words beneath it. src.words/audioMeta (set above) still drive the
+    // Listen surface unchanged — only the reading graph + text compose. A pure-audio source has no
+    // _motionDoc and keeps the transcript reading exactly as before.
+    if (src._motionDoc) { src._transcriptDoc = doc; src._transcriptText = body; recomposeVideoDoc(src); }
     logIt('record', `Transcribed ${src.reg} — ${body.length.toLocaleString()} chars`, src.reg);
     setTimeout(() => {
       try { const d = docFor(src); logIt('eot', `Encoded ${src.reg} into EoT — ${d?.log ? emitEot(d.log).lines.length : 0} propositions`, src.reg); }
@@ -1336,9 +1697,15 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
     const body = (projectTranscript(src.words, src.audioEvents).text || '').trim();
     if (body) {
-      src.text = body; src.bytes = bytesOf(body); src.sha = webContentHash(body);
-      src._doc = null; src._eot = null; deepReaders.delete(src.docId);
-      try { src.entCount = projectGraph(docFor(src).log).entities?.size || 0; } catch { /* keep prior */ }
+      // VIDEO — keep the picture reading (motion doc) and hang the partial words beneath it, rather
+      // than dropping to a prose re-read that would lose the motion graph. Pure-audio drops _doc so
+      // the transcript re-reads lazily from text, exactly as before.
+      if (src._motionDoc) { src._transcriptDoc = null; src._transcriptText = body; recomposeVideoDoc(src); }
+      else {
+        src.text = body; src.bytes = bytesOf(body); src.sha = webContentHash(body);
+        src._doc = null; src._eot = null; deepReaders.delete(src.docId);
+        try { src.entCount = projectGraph(docFor(src).log).entities?.size || 0; } catch { /* keep prior */ }
+      }
     }
     if (src.transcription) { delete src.transcription.words; delete src.transcription.partial; }
     if (src._asr) src._asr.words = null;
@@ -1410,6 +1777,63 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }
   };
 
+  // ── the PICTURE — a video's visual reading, folded onto the source beside its sound ───────────────
+  // A video is TWO senses of one clip: what was HEARD (the waveform → transcript, above) and what
+  // MOVED (the picture → motion + born-rule entities, motion.js). recomposeVideoDoc keeps both: the
+  // reading doc is the COMPOSITE of the motion doc and the transcript doc (createCompositeDoc — the
+  // cross-modal fold docs/multimodal-eot-foundation.md describes), so "what moved" and "what was said"
+  // share ONE record and one entity graph. With only the picture read (a silent clip — the common
+  // case for a clip like this one), the motion doc stands alone as the reading (modality 'video').
+  const recomposeVideoDoc = (src) => {
+    const parts = [src._motionDoc, src._transcriptDoc].filter(Boolean);
+    if (!parts.length) return;
+    src._doc = parts.length === 1 ? parts[0] : createCompositeDoc(parts);
+    src._eot = null;
+    deepReaders.delete(src.docId);
+    const picture = ((src._motionDoc && src._motionDoc.text) || '').trim();
+    const words = (src._transcriptText || '').trim();
+    const text = picture && words ? `${picture}\n\n## Transcript\n\n${words}` : (picture || words);
+    if (text) { src.text = text; src.bytes = bytesOf(text); src.sha = webContentHash(text); }
+    try { src.entCount = projectGraph(docFor(src).log).entities?.size || 0; } catch { /* keep prior */ }
+  };
+
+  // Fold a landed VISUAL reading (motion.js readVideo → doc) into a media source: stash the motion doc
+  // and its drawable artefacts (session-only, underscore-led so serialize() strips them), then recompose
+  // the reading so the picture leads and any transcript rides beneath it.
+  const applyVisualReading = (src, motionDoc, artefacts, coverage) => {
+    if (!src || !motionDoc) return;
+    src._motionDoc = motionDoc;
+    src._motion = artefacts || null;            // peaks/analysis/shots/tracks/entities for the surface
+    recomposeVideoDoc(src);
+    if (coverage) src.coverage = { ...(src.coverage || {}), video: coverage };
+    const tn = (motionDoc.tracks || []).length;
+    const sn = motionDoc.shots?.shotCount || 0;
+    logIt('record', `Watched ${src.reg} — ${tn} moving thing${tn === 1 ? '' : 's'} (born rule), ${sn} shot${sn === 1 ? '' : 's'}`, src.reg);
+    setTimeout(() => {
+      try { const d = docFor(src); logIt('eot', `Encoded ${src.reg} into EoT — ${d?.log ? emitEot(d.log).lines.length : 0} propositions`, src.reg); }
+      catch { /* the record already stands */ }
+    }, 0);
+    persist(); emit('sources');
+  };
+
+  // Run a `watch` thunk (import-file.js) against an already-recorded video source: extract frames,
+  // read the picture as motion + born-rule entities, and fold it in. Model-free and re-derivable, so
+  // it is best-effort — a failure leaves the source's sound reading standing, never unwound.
+  const runWatch = async (src, watch, { signal, progress } = {}) => {
+    const paint = (label) => { try { progress && progress({ kind: 'file', label }); } catch { /* pill is best-effort */ } };
+    try {
+      const res = await watch({ signal, onProgress: (label) => paint(String(label)) });
+      if (res && res.empty) {
+        if (res.coverage) logIt('skip', `No picture read for ${src.reg} — ${(res.coverage.dropped || []).join('; ')}`, src.reg);
+        return;
+      }
+      if (res && res.doc) applyVisualReading(src, res.doc, res.artefacts, res.coverage);
+    } catch (e) {
+      if (signal && signal.aborted) throw e;
+      logIt('skip', `Picture reading failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`);
+    }
+  };
+
   // Stash a file's original bytes to OPFS and open a durable `file` job, so a reload DURING the
   // import (fetch of the extractor libs, PDF/OCR read, audio decode — all before any source has
   // landed) can rebuild the File and re-run the import. Returns the job id, or null when the file
@@ -1439,6 +1863,36 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       let got;
       try { got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) }); }
       catch (e) { settleFile(signal.aborted ? 'stopped' : 'error', String(e?.message || e).slice(0, 90)); throw e; }
+
+      // ── VIDEO with NO audio track — nothing to hear, but a PICTURE to read. ──
+      // A clip like a ball on static has no sound at all, so there is no waveform to land from; the
+      // reading IS the picture. Run the watch thunk, record the source from the motion doc (born-rule
+      // entities + shots), mark that there is nothing to transcribe, and keep the bytes for playback
+      // and a reload re-read. A video WITH audio takes the media branch below and folds its picture in
+      // beside the transcript. Never refused: a decode with no audio used to fail the whole import.
+      if (got.meta?.modality === 'video' && got.meta?.watch && !got.meta?.doc) {
+        const res = await got.meta.watch({ signal, onProgress: (label) => progress({ kind: 'file', label: String(label) }) });
+        if (!res || !res.doc) {
+          settleFile(signal.aborted ? 'stopped' : 'error', ((res && res.coverage && res.coverage.dropped) || ['no picture could be read']).join('; '));
+          return null;
+        }
+        const src = addSource({ title: got.title || file.name, text: res.text, kind: 'audio', rights: 'local file', doc: res.doc });
+        settleFile('done');
+        if (src) {
+          src._media = got.meta.media ? { url: got.meta.media, kind: got.meta.mediaKind, isVideo: true } : null;
+          src._motionDoc = res.doc;
+          src._motion = res.artefacts || null;
+          setAsr(src, { state: 'skipped', reason: 'no audio track — nothing to transcribe', pct: 100, partial: '' });
+          if (!Array.isArray(src.audioEvents)) src.audioEvents = [];
+          src.coverage = res.coverage || null;
+          const ne = res.coverage?.entities ?? 0;
+          logIt('record', `Watched ${src.reg} — ${ne} moving thing${ne === 1 ? '' : 's'} (born rule), ${res.coverage?.shots ?? 0} shot${(res.coverage?.shots ?? 0) === 1 ? '' : 's'}; no audio track`, src.reg);
+          persist(); emit('sources');
+          persistAudioBytes(src, file, got.meta.mediaKind);
+          if (typeof fileOpts.onSource === 'function') { try { fileOpts.onSource(src); } catch { /* reveal is best-effort */ } }
+        }
+        return src;
+      }
 
       // ── MEDIA — the source lands AT ONCE from its acoustic reading; transcription follows. ──
       // An audio/video import returns a full pre-transcription reading (waveform + basic
@@ -1477,48 +1931,69 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
           persistAudioBytes(src, file, got.meta.mediaKind);
           if (typeof fileOpts.onSource === 'function') { try { fileOpts.onSource(src); } catch { /* reveal is best-effort */ } }
 
+          // THE PICTURE first — a video's visual reading (motion + born-rule entities) is model-free
+          // and fast, so it folds in before the (slow, model-loading) transcription runs. A pure-audio
+          // import has no `watch` thunk and skips straight to the words.
+          if (got.meta.watch) await runWatch(src, got.meta.watch, { signal, progress });
+
           // Transcription proper — streamed, resumable, job-tracked (runTranscription). If the tab
           // reloads part-way, the transcribe job + the OPFS audio bytes let resumeJobs pick it up.
           if (got.meta.transcribe) await runTranscription(src, got.meta.transcribe, { signal, progress });
         }
         return src;
       }
-      // For a structured modality the ORGAN doc is the reading: a table's cells, a JSON
-      // tree's leaves, a binary's string runs ARE its propositions — three-faced events
-      // already on the log — and re-parsing their rendered lines as prose would drop
-      // them. Prose-bearing modalities (pdf, webpage, ocr, audio transcript, plain text)
-      // parse as text so the entity/relation read runs over the actual sentences.
-      // A MIDI score is structured like a table: the ORGAN doc (pitch-class entities +
-      // interval bonds) IS the reading — re-parsing the human summary as prose would drop
-      // the note graph the music organ raised. Its readable `text` is the summary the
-      // organ carries; STRUCTURED_MODALITIES (first-surface.js) keeps the two lists aligned.
       const structured = ['table', 'json', 'binary', 'music'].includes(got.meta?.modality) && got.meta?.doc;
-      // Prose parses through the parser's CHUNKED path (onProgress → yield between chunks),
-      // so a 2,500-page document's entity/relation read no longer runs as one synchronous
-      // sweep that freezes the tab for seconds — it breathes, reports progress, and stays
-      // stoppable. The work and its order are byte-identical to the plain sweep (pipeline.js);
-      // `await` passes the structured (already-parsed) doc straight through unchanged.
-      const doc = structured
-        ? got.meta.doc
-        : await parseText(got.text, {
-            docId: `doc-${shaShort(webContentHash(got.text))}`,
+      // The coverage receipt — proof that 100% of the file was processed, or the named account of
+      // what could not be (import-file.js) — rides the source and the ledger, whichever path lands it.
+      const cov = got.meta?.coverage;
+      const recordCoverage = (src) => {
+        if (!cov || !src) return;
+        src.coverage = cov;
+        if (cov.complete) logIt('record', `Coverage — 100% of ${file.name} processed`, src.reg);
+        else logIt('skip', `Partial read of ${file.name} — ${(cov.dropped || []).join('; ')}`, src.reg);
+        persist();
+      };
+
+      // STRUCTURED — the ORGAN doc IS the reading: a table's cells, a JSON tree's leaves, a binary's
+      // string runs, a MIDI score's note graph ARE its propositions, already three-faced events on
+      // the log; re-parsing their rendered lines as prose would drop them. It is cheap and ready, so
+      // the source lands WITH its doc in one step and its entity count shows at once.
+      if (structured) {
+        const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc: got.meta.doc });
+        settleFile('done');
+        recordCoverage(src);
+        return src;
+      }
+
+      // PROSE (pdf, webpage, ocr, plain text) — land the source AT ONCE from its extracted text,
+      // exactly the way an audio import lands from its acoustic reading, so it shows up in the
+      // sources the instant it is imported: named, on the record, openable as a book (the reader
+      // renders from src.text). `defer` tells addSource NOT to read it eagerly; the entity/relation
+      // read then runs as a CHUNKED background pass (onProgress → yields between chunks) and
+      // finishReading folds it in when it is done. So a 2,500-page document never makes the reader
+      // wait to see its source, and never freezes the tab on one synchronous sweep — until the read
+      // lands, the registry simply shows that source's entity count as an ellipsis.
+      const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', defer: true });
+      // The source has landed and persists (src.text rides the snapshot); the pre-source extract
+      // window the file job covered is over. Drop it — a reload re-derives the reading lazily.
+      settleFile('done');
+      recordCoverage(src);
+      if (src) {
+        try {
+          const doc = await parseText(got.text, {
+            docId: src.docId,
             onProgress: (p) => {
               if (p && p.phase === 'parse' && p.total)
                 progress({ kind: 'file', label: `Reading the text… ${p.done.toLocaleString()} / ${p.total.toLocaleString()} sentences` });
             },
           });
-      const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc });
-      // The source has landed and persists (src.text rides the snapshot); the import is complete, so
-      // drop the file job and its stashed bytes. A reload from here on re-derives the reading lazily.
-      settleFile('done');
-      // The coverage receipt — proof that 100% of the file was processed, or the named
-      // account of what could not be (import-file.js) — rides the source and the ledger.
-      const cov = got.meta?.coverage;
-      if (cov && src) {
-        src.coverage = cov;
-        if (cov.complete) logIt('record', `Coverage — 100% of ${file.name} processed`, src.reg);
-        else logIt('skip', `Partial read of ${file.name} — ${(cov.dropped || []).join('; ')}`, src.reg);
-        persist();
+          finishReading(src, doc);
+        } catch (e) {
+          // The reading failed — but the SOURCE stands (it landed above). Leave it on its text and
+          // let docFor re-read it lazily the next time the reading is actually needed; a recorded
+          // source is never unwound over a parse fault.
+          logIt('skip', `Reading failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`);
+        }
       }
       return src;
     });
@@ -1552,6 +2027,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       const got = await importAnyFile(file, { signal, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) });
       // Re-hydrate the session-only visualization artefacts too, so the Listen surface is whole again.
       if (got.meta) { src._wave = got.meta.waveform || src._wave; src._analysis = got.meta.analysis || src._analysis; src._holons = got.meta.holons || src._holons; }
+      // Re-derive the picture reading (motion + born entities) after a reload — model-free, so it just
+      // re-runs; the composite then re-forms with the resumed transcript.
+      if (got.meta?.watch) await runWatch(src, got.meta.watch, { signal, progress });
       if (got.meta?.transcribe) await runTranscription(src, got.meta.transcribe, { signal, progress });
       else { setAsr(src, { state: 'skipped', reason: 'no signal above the noise floor', pct: 100, partial: '' }); settleJob(job.id, 'skipped'); persist(); emit('sources'); }
     });
@@ -2083,7 +2561,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // The real entity surfaces across the active topic's docs (the admitted labels) — the names the
   // membrane must keep off the wire. Reuses the same lexicon the answer/viewer segmentation reads.
   const redactionNames = () => {
-    try { return entityLexicon(topicDocs()).map((e) => e.label); } catch { return []; }
+    try { return entityLexicon(topicReferentDocs()).map((e) => e.label); } catch { return []; }
   };
 
   // ── chat ───────────────────────────────────────────────────────────────────
@@ -2216,10 +2694,30 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     const turn = armTurn();
     const { raceGuard, keepAlive, keepAliveFn } = turn;
     const turnSignal = turn.ctrl.signal;
+    // The lineage thread (topicThread), MINUS the question just pushed — so a follow-up asked
+    // from a child quest still resolves its pronouns/back-references against the quest it
+    // followed, even on this empty-record path (the record being empty says nothing about the
+    // conversation being new). Before this, `history: []` here meant the query formulator and
+    // the walk both read the turn in isolation.
+    const thread = topicThread(topic())
+      .slice(0, -1)
+      .map((x) => ({ role: x.role, content: x.text, ...(x.unbound ? { unbound: true } : {}) }));
+    // A referential turn nothing can anchor — "what did he do?" as the FIRST ask, with no
+    // thread naming who "he" is. This path walks the web directly (no proposer gate in
+    // front of it), and searching the turn's function words verbatim admits whatever
+    // matches them into the record — the exported junk. Say what's missing instead.
+    if (anchorTopicless(q, thread) == null) {
+      turn.disarm(); setBusy(null);
+      pending.text = 'I can\'t tell yet who or what that refers to — nothing earlier in this quest names it. Say the name (or ask the full question), or drop a URL, file, or pasted text in the bar above.';
+      pending.route = 'empty';
+      pending.pending = false;
+      persist(); emit('messages');
+      return pending;
+    }
     try {
       const m = await raceGuard(ensureModel());
       setBusy({ kind: 'search', label: 'Looking this up on the web…' });
-      const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: q, history: [], fallback: q, signal: turnSignal })));
+      const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: q, history: thread, fallback: q, signal: turnSignal })));
       beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
       setBusy({ kind: 'search', label: `Searching the web — ${query}` });
       logIt('search', `Web research "${query}"`, 'auto · nothing on record');
@@ -2228,7 +2726,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
         shapeLibrary: shapeLib || undefined,   // the form predictor (turn/shape.js) — inert until built
-        auditLog: audit, history: [],
+        auditLog: audit, history: thread,
         stream: true,
         // A backend slow (or unable) to honor the abort keeps handing us tokens after Stop; appending
         // them to the already-finalized bubble is the "I hit Stop but it kept typing" bug. Once the
@@ -2242,7 +2740,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         // The thumb: when the subject is a homonym, commit to ONE sense before gathering and search
         // for it, so "dolphins" doesn't fetch a mix of the animal and the football team (disambiguate.js).
         // keepAliveFn: this 220-token decode runs before the first hop's beat — feed the guard while it thinks.
-        disambiguate: keepAliveFn(modelDisambiguator(m, { history: [], question: q, signal: turnSignal })),
+        disambiguate: keepAliveFn(modelDisambiguator(m, { history: thread, question: q, signal: turnSignal })),
         onHop: (h) => hopBeat(pending, h, query),
         onHopDone: (h) => hopDoneBeat(pending, h),
         signal: turnSignal,
@@ -2337,11 +2835,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     t.messages.push(pending);
     emit('messages');
 
-    // The web reach for THIS turn. A caller may pin it (the `web` option); otherwise the persisted
-    // global stands. The Ask surface pins `'off'` — it is record-only by contract ("every answer is
-    // measured against your record") and carries no web control (the web-mode chip lives on Chat), so
-    // an Ask turn never reaches the net. This is a per-turn surface pin, not a settings change: the
-    // stored webMode() (and the Chat toggle) are untouched, and every other caller keeps the global.
+    // The web reach for THIS turn. A caller may pin it (the `web` option — e.g. a test that must
+    // stay offline, or an internal call that must not touch the net); otherwise the persisted global
+    // stands. BOTH the Ask and Chat surfaces now honor that global (default `auto`): Ask is
+    // record-FIRST, not record-only — it grounds in the record, and a measured gap reaches the web
+    // (docs/web-search.md), the fetched pages joining the record. A deliberate global `off` keeps
+    // both surfaces record-only, so the privacy opt-out holds. The `web` override is a per-turn pin,
+    // not a settings change: the stored webMode() is untouched.
     const mode = web || webMode();
 
     // ── THE FRONT DOOR — the phatic short-circuit is DETERMINISTIC (docs/response-demand.md) ──────
@@ -2367,7 +2867,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     const { raceGuard, keepAlive, keepAliveFn } = turn;
     const turnSignal = turn.ctrl.signal;
 
-    const settledMsgs = t.messages.filter((mm) => !mm.pending && mm.text);
+    // The settled dialogue is the topic's LINEAGE thread, not its own messages alone — a
+    // follow-up lives in a fresh child quest (askQuestion), whose only message is the question
+    // just pushed. topicThread walks the ancestor chain so the discourse read, the clarify
+    // fold below, and the turn's own history all see the conversation the user actually had.
+    const settledMsgs = topicThread(t);
     const priorHistory = settledMsgs.slice(0, -1).map((x) => ({ role: x.role, content: x.text }));
     // THE INSTANT FLOOR (docs/response-demand.md, rung 3) — the phatic gate's OFFLINE layer, read off
     // the user's OWN words with no model. A bare greeting/thanks/goodbye is unmistakably social from
@@ -2514,9 +3018,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       // "conversation so far" band only ever showed the user's turns (the exported bug: a bare
       // "You: research elvis films…" with the answer it refers to missing), leaving a follow-up
       // like "which is the best?" nothing to resolve against. `-1` matches priorHistory above.
+      // Read off the LINEAGE thread (settledMsgs = topicThread(t)): a follow-up lives in a
+      // fresh child quest whose own messages hold nothing before this question, and handing
+      // the turn an empty history is what left "what did he do?" with no referent to bind.
       // foldConversation then holds the recent window to its token budget and folds the rest.
-      const history = t.messages
-        .filter((x) => !x.pending && x.text)
+      const history = settledMsgs
         .slice(0, -1)
         .map((x) => ({ role: x.role, content: x.text, ...(x.unbound ? { unbound: true } : {}) }));
       // A long-form ask ("write me an essay …") gets a large budget so the answer can develop
@@ -2527,15 +3033,25 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       // not the whole topic pile. `docs` above still holds the full set for the front
       // door and the disambiguation gate; only what the answer GROUNDS on is scoped.
       // Set-aside is logged, never silent — the reader can see the focus it took.
-      const scopedDocs = scopeSources(effectiveQ, topicSources()).map(docFor).filter(Boolean);
+      const scopedSources = scopeSources(effectiveQ, topicSources());
+      const scopedDocs = scopedSources.map(docFor).filter(Boolean);
       const setAside = docs.length - scopedDocs.length;
       if (setAside > 0) logIt('skip', `Focused on ${scopedDocs.length} of ${docs.length} sources for this question — set aside ${setAside} unrelated to it`, topic()?.id);
       const groundDocs = scopedDocs.length ? scopedDocs : docs;
+      // The fold-composed toplines (docs/topline.md), handed to the turn so the model phrases what
+      // the reading already decided rather than re-deriving from raw lines. `foldSummary` is the
+      // standing summary of the source(s) the turn grounds on (auto-composed on record); the entity
+      // map lets the turn fold in the toplines of the figures it centres on. Both are grounded and
+      // containment-checked — pre-digested, safe to lean on. Aligned with groundDocs above.
+      const summarySources = (scopedSources.length ? scopedSources : topicSources()).slice(0, 6);
+      const foldSummary = summarySources.map((s) => (s.summary?.text || '').trim()).filter(Boolean).join('\n\n') || null;
+      const entitySummaries = entitySummaryMap();
       const args = {
         question: effectiveQ, docs: groundDocs, model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
         shapeLibrary: shapeLib || undefined,   // the form predictor (turn/shape.js) — inert until built
+        foldSummary, entitySummaries,          // the fold-composed toplines, pre-digested (docs/topline.md)
         auditLog: audit, history,
         stream: true,
         // Arm the reaction-weighing stage: when a grounded answer earned no witness and the
@@ -2676,17 +3192,30 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // holds a question opens a CHILD topic beneath it and asks THERE — a fresh line of inquiry
   // the sidebar tree shows nested under the question it followed. The child INHERITS the
   // parent's sources, so the record it reads is unchanged; the parent's answer stays intact
-  // on its own surface, one clean question-and-answer apiece. A question in a topic that has
-  // not been asked one yet (a "New topic", or one that only holds ingested sources) fills
-  // THAT topic in place — asking the first question never orphans an empty placeholder.
+  // on its own surface, one clean question-and-answer apiece. The child also inherits the
+  // lineage's CONVERSATION as discourse context (ask() reads history off topicThread): the
+  // surfaces stay one-question-apiece, but a follow-up's pronouns and back-references still
+  // resolve against the quest it followed — without that, "what did he do?" bound no referent
+  // and its verbatim words went to the web (the exported Waco-siege junk). A question in a
+  // topic that has not been asked one yet (a "New topic", or one that only holds ingested
+  // sources) fills THAT topic in place — the first question never orphans a placeholder.
   // Delegates to ask() on the now-active topic and returns its pending message. topicNew
   // already makes the child active and auto-naming (from the first question) then names it.
+  // opts.newQuest — a DELIBERATE new quest (the Ask surface's "New quest" affordance): a fresh
+  // TOP-LEVEL topic in the same workspace rather than a child, still inheriting the current record
+  // so a new line of inquiry starts without re-recording the sources. Without it the default holds:
+  // the first question fills the current topic in place, and every question after branches a CHILD
+  // quest beneath it (both inherit the parent's sources).
   const askQuestion = (question, opts = {}) => {
     const q = String(question || '').trim();
     if (!q) return Promise.resolve(null);
     const cur = topic();
     const alreadyAsked = !!(cur && cur.messages.some((m) => m && m.role === 'user'));
-    if (cur && alreadyAsked) {
+    if (opts.newQuest && alreadyAsked) {
+      const fresh = topicNew(DEFAULT_TOPIC_TITLE, { workspaceId: (cur && cur.workspaceId) || state.activeWorkspaceId });
+      fresh.sourceSns = [...((cur && cur.sourceSns) || [])];   // a new quest still reads the same record
+      persist(); emit('topics');
+    } else if (cur && alreadyAsked) {
       const child = topicNew(DEFAULT_TOPIC_TITLE, { parentId: cur.id, workspaceId: cur.workspaceId });
       child.sourceSns = [...(cur.sourceSns || [])];   // the child reads the same record as its parent
       persist(); emit('topics');
@@ -2725,8 +3254,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // The "Search the web" button belongs to confirm mode only: auto already fetched (and
     // suppresses via webFetched), and off means the user opted out of reaching the net — so
     // a proposal is offered as a button only when the user asked to be the one to approve it.
-    // Keyed on THIS turn's effective mode (passed in), not the global — so a record-only Ask turn
-    // (mode pinned 'off') never surfaces the button even when the global Chat mode is 'confirm'.
+    // Keyed on THIS turn's effective mode (passed in), not the global — so a turn a caller pinned
+    // record-only (the `web: 'off'` override, e.g. an offline test) never surfaces the button even
+    // when the global mode is 'confirm'.
     msg.webProposal = (result.webProposal && !result.webFetched && mode === 'confirm')
       ? { query: result.webProposal.query, rationale: result.webProposal.rationale || '' } : null;
     msg.bound = (result.bound || []).map((b) => ({ claim: b.claim, citation: b.citation || null, cited: b.cited || b.text || null }));
@@ -2831,24 +3361,44 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
 
   const linkifySegs = (text, lex) => {
     const segs = [];
-    let rest = String(text);
+    const rest = String(text);
     if (!lex.length) return rest ? [{ t: 'text', s: rest }] : [];
     // one pass, longest-label-first alternation; word-bounded, case-insensitive so EVERY
     // mention links — "the dolphin's sonar" reaches the same entity as "Dolphin" in a heading.
     const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(`\\b(${lex.map((e) => escRe(e.label)).join('|')})\\b`, 'gi');
+    // A label is matched as a run of its TOKENS, not as a literal string, because admission
+    // NORMALISES what it admits: a leading title's trailing period is dropped and the title joined
+    // to the name ("Mr. Dupree" → the label "Mr Dupree"), and interior whitespace is collapsed to
+    // one space. A literal-string regex built from that label can no longer find the surface it was
+    // read from — "Mr Dupree" never matches "Mr. Dupree" — so the honorific is stranded as loose
+    // text and only the bare surname links, splitting one figure into two. Rejoin the tokens with
+    // run-of-whitespace (which also lets a name broken across a line-wrap still link), and tolerate
+    // the ONE period admission actually strips: the dot after a leading title. Scoping the optional
+    // dot to that title alone — not to every gap — keeps "Chief Justice" from matching a stray
+    // "…the Chief. Justice…" across a sentence end. Longest-label-first then carries the whole
+    // "Mr. Dupree" into ONE span, winning over the bare "Dupree".
+    const labelRe = (label) => {
+      const toks = String(label).trim().split(/\s+/);
+      return toks.map((t, i) => escRe(t) + (i === 0 && toks.length > 1 && LINK_TITLES.has(t.toLowerCase()) ? '\\.?' : '')).join('\\s+');
+    };
+    const re = new RegExp(`\\b(${lex.map((e) => labelRe(e.label)).join('|')})\\b`, 'gi');
+    // Match a surface span back to its label the same way — period- and whitespace-insensitive —
+    // so the reverse lookup survives the very normalisation the forward pattern had to tolerate.
+    const key = (s) => String(s).replace(/\./g, '').replace(/\s+/g, ' ').trim();
     let last = 0, mArr;
     while ((mArr = re.exec(rest)) !== null) {
+      const matched = mArr[1];
       if (mArr.index > last) segs.push({ t: 'text', s: rest.slice(last, mArr.index) });
       // exact-case wins; else a case-insensitive hit, so a lowercase mention of a capitalised
       // figure ("dolphins" for the admitted "Dolphins") still renders as its entity — but the
       // relaxed match is only trusted for labels long enough that it can't grab a common word off
       // a short acronym ("who" for "WHO"), which falls back to plain text.
-      const exact = lex.find((e) => e.label === mArr[1]);
-      const hit = exact || lex.find((e) => e.label.toLowerCase() === mArr[1].toLowerCase());
-      if (hit && (exact || hit.label.length >= 4)) segs.push({ t: 'ent', s: mArr[1], docId: hit.docId, entId: hit.entId });
-      else segs.push({ t: 'text', s: mArr[1] });
-      last = mArr.index + mArr[1].length;
+      const mk = key(matched);
+      const exact = lex.find((e) => key(e.label) === mk);
+      const hit = exact || lex.find((e) => key(e.label).toLowerCase() === mk.toLowerCase());
+      if (hit && (exact || hit.label.length >= 4)) segs.push({ t: 'ent', s: matched, docId: hit.docId, entId: hit.entId });
+      else segs.push({ t: 'text', s: matched });
+      last = mArr.index + matched.length;
     }
     if (last < rest.length) segs.push({ t: 'text', s: rest.slice(last) });
     return segs;
@@ -2861,8 +3411,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // with no trailing citation stays ungrounded (gsn null) — so the surface can disclose, span by
   // span, exactly what stands behind each stretch of the answer.
   const answerSegments = (msg, { entities = true, cites = true, sources = false } = {}) => {
-    const docs = topicDocs();
-    const lex = entities ? entityLexicon(docs) : [];
+    const lex = entities ? entityLexicon(topicReferentDocs()) : [];
     const citeOf = new Map((msg.cites || []).map((c) => [c.idx, c]));
     const paras = [];
     for (const para of String(msg.text || '').split(/\n{2,}|\n(?=[-•*])/)) {
@@ -2893,8 +3442,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const viewerParas = (snId, { entities = true } = {}) => {
     const src = sourceBySn(snId);
     if (!src) return [];
-    const doc = docFor(src);
-    const lex = entities ? entityLexicon([doc]) : [];
+    const refDoc = referentDocFor(src);
+    const lex = entities ? entityLexicon(refDoc ? [refDoc] : []) : [];
     const citedTexts = [];
     for (const t of state.topics) {
       for (const m of t.messages) {
@@ -2920,8 +3469,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const readerLink = (snId, { entities = true } = {}) => {
     const src = sourceBySn(snId);
     if (!src) return null;
-    const doc = docFor(src);
-    const lex = entities ? entityLexicon([doc]) : [];
+    const refDoc = referentDocFor(src);
+    const lex = entities ? entityLexicon(refDoc ? [refDoc] : []) : [];
     const citedTexts = [];
     for (const t of state.topics) {
       for (const m of t.messages) {
@@ -2932,6 +3481,45 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       linkify: (text) => linkifySegs(String(text == null ? '' : text), lex),
       isCited: (text) => { const s = String(text == null ? '' : text); return citedTexts.some((ct) => ct.length > 20 && s.includes(ct.slice(0, Math.min(60, ct.length)))); },
     };
+  };
+
+  // The record's entity linker mapped onto a CLIP's TIMED word stream: which runs of words spell an
+  // admitted figure, so the Listen surface's interactive transcript can underline them and open the
+  // entity on click — linking exactly what the Reader/Native views link (same lexicon, same rules).
+  // `words` is the projected transcript ([{ text, start, end }, …]); returns non-overlapping runs
+  // [{ i0, i1, docId, entId }] over it (inclusive word indices). The linker runs on the text the
+  // words spell, and each entity match is mapped back to the words its characters cover.
+  const transcriptEntityRuns = (snId, words) => {
+    if (!Array.isArray(words) || !words.length) return [];
+    const src = sourceBySn(snId);
+    if (!src) return [];
+    const refDoc = referentDocFor(src);
+    const lex = refDoc ? entityLexicon([refDoc]) : [];
+    if (!lex.length) return [];
+    // Spell the words into one string, remembering each word's [a,b) char span — the same single
+    // space the transcript renders between words, so a match's char range lands on word boundaries.
+    let text = ''; const span = [];
+    for (let i = 0; i < words.length; i++) {
+      if (i) text += ' ';
+      const a = text.length;
+      text += String(words[i] && words[i].text != null ? words[i].text : '');
+      span.push([a, text.length]);
+    }
+    const segs = linkifySegs(text, lex);
+    const runs = [];
+    let pos = 0, wi = 0;                                  // char cursor, and a monotonically-advancing word cursor
+    for (const sg of segs) {
+      const a = pos, b = pos + (sg.s ? sg.s.length : 0);
+      pos = b;
+      if (sg.t !== 'ent') continue;
+      let i0 = -1, i1 = -1;
+      for (let i = wi; i < span.length; i++) {
+        if (span[i][0] >= b) break;                       // this word starts after the match — done
+        if (span[i][1] > a && span[i][0] < b) { if (i0 < 0) i0 = i; i1 = i; }
+      }
+      if (i0 >= 0) { runs.push({ i0, i1, docId: sg.docId, entId: sg.entId }); wi = i1 + 1; }
+    }
+    return runs;
   };
 
   // ── entities (the explorer) ────────────────────────────────────────────────
@@ -3000,29 +3588,12 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       : level === 'signal' ? baseRows.filter(acoustic)
       : [...nameRows, ...baseRows.filter(acoustic)];   // 'all' — referents + the acoustic holons
     if (merge) {
-      // Group per-source instances by normalized label. The strongest instance
-      // (most mentions) LEADS the merged row, so key/docId/entId/sn point at the
-      // richest per-source profile — opening the row lands there — while mentions
-      // and links aggregate and `sourceCount` records the reach.
-      const byLabel = new Map();
-      for (const it of rows) {
-        const k = entityKey(it.label);
-        let grp = byLabel.get(k);
-        if (!grp) { grp = { lead: it, mentions: 0, links: 0, sns: new Set(), instances: [] }; byLabel.set(k, grp); }
-        grp.mentions += it.mentions;
-        grp.links += it.links;
-        grp.sns.add(it.sn);
-        grp.instances.push({ docId: it.docId, entId: it.entId, sn: it.sn });
-        if (it.mentions > grp.lead.mentions) grp.lead = it;
-      }
-      const merged = [...byLabel.values()].map((grp) => ({
-        key: grp.lead.key, entId: grp.lead.entId, docId: grp.lead.docId, sn: grp.lead.sn,
-        label: grp.lead.label, mentions: grp.mentions, links: grp.links,
-        sourceCount: grp.sns.size, instances: grp.instances,
-        kind: grp.lead.kind, level: grp.lead.level,
-      }));
-      merged.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
-      return merged;
+      // Collapse per-source instances into cross-source rows by referent, NOT by bare surname:
+      // "Iran" folds across sources as one entity, but "Armstrong" — a surname Neil, Louis and
+      // Gerry share — is folded into the full-name bearer of its own source, so a read about Neil
+      // Armstrong never inherits Louis Armstrong's chapters (entity-merge.js). The strongest
+      // instance still leads, mentions and links aggregate, and `sourceCount` records the reach.
+      return mergeEntitiesByReferent(rows, { entityKey });
     }
     rows.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
     return rows;
@@ -3066,6 +3637,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       const src = state.sources.find((s) => s.docId === baseId);
       if (src) return { src, doc: nlDocFor(src) };
     }
+    if (docId.endsWith(LIVE_SUFFIX)) {
+      const baseId = docId.slice(0, -LIVE_SUFFIX.length);
+      const src = state.sources.find((s) => s.docId === baseId);
+      if (src) return { src, doc: livePartialDocFor(src) };
+    }
     return null;
   };
   // The REFERENT reading of a source — the meaning layer the entity explorer is about. A prose
@@ -3080,8 +3656,44 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     const base = docFor(src);
     const modality = base?.modality || null;
     if (!modality || modality === 'text') return base;                       // prose: the base is the reading
-    if ((modality === 'audio' || modality === 'video') && !base?.transcribed) return null;  // no transcript yet
+    // A clip still WAITING for its words shows the live partial; a video already WATCHED (its picture
+    // read as motion + born entities, motion.js) shows that reading — it is not waiting on anything.
+    if ((modality === 'audio' || modality === 'video') && !base?.transcribed && !base?.watched) return livePartialDocFor(src);
     return nlDocFor(src);
+  };
+
+  // The words heard SO FAR for a clip still being transcribed — the live ASR tail if this session is
+  // hearing it, else the durable twin persisted across a reload. Empty once the final transcript lands
+  // (src.words takes over and base.transcribed goes true, so referentDocFor reads nlDocFor instead).
+  const partialWordsOf = (src) => {
+    if (!src) return [];
+    const live = src._asr && Array.isArray(src._asr.words) && src._asr.words.length ? src._asr.words : null;
+    const twin = src.transcription && Array.isArray(src.transcription.words) && src.transcription.words.length ? src.transcription.words : null;
+    return live || twin || [];
+  };
+  // A LIVE natural-language reading of the SETTLED part of a partial transcript, so the figures a clip
+  // names appear AS it is heard — the fix for "0 referents while a 49-minute clip transcribes". Parses
+  // only the closed breath groups (transcript-format.settledText); the still-open trailing group is
+  // re-read next pass, so the referent list never churns on a half-heard word. Memoised on the source by
+  // how many words have settled, and docId-suffixed `~live` so resolveDoc opens a referent's profile
+  // against this same reading. Null until enough has settled to name anything.
+  const LIVE_SUFFIX = '~live';
+  const livePartialDocFor = (src) => {
+    if (!src) return null;
+    const words = partialWordsOf(src);
+    if (!words.length) return null;
+    const through = readThroughIndex(words);
+    if (through < 0) return null;
+    if (!src._liveNlDoc || src._liveNlDoc._through !== through) {
+      const text = settledText(words);
+      if (!text || text.length < 12) { src._liveNlDoc = src._liveNlDoc && src._liveNlDoc._through === through ? src._liveNlDoc : null; return src._liveNlDoc; }
+      try {
+        const d = parseText(text, { docId: `${src.docId}${LIVE_SUFFIX}` });
+        if (d) d._through = through;
+        src._liveNlDoc = d || null;
+      } catch { src._liveNlDoc = null; }
+    }
+    return src._liveNlDoc;
   };
 
   // The base-level noun for a source — what one raw span UNDER the referents IS, so the surface can
@@ -3184,6 +3796,145 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     };
   };
 
+  // ── the Listen surface's layered reading — words, read-state, referents, chapters, span layers ──
+  // The interactive transcript is a stack of READINGS over the same timed word stream: the raw hearing,
+  // the best-effort prose the pauses punctuate, the figures the words name, the topic chapters, and —
+  // for any one word — what is ACTIVE there (its segment, speaker, confidence, referent, chapter). All
+  // pure/model-free; transcript-format.js does the shape work, this composes it against the record.
+
+  // The baseline word list the Listen surface reads: the live ASR tail while a clip is still being
+  // heard (so a reload / a fresh run shows the partial at once), else the settled `src.words`. Mirrors
+  // setListenTranscript's own selection so the two never disagree about which words are on screen.
+  const listenBase = (s) => {
+    const streaming = !!(s && s._asr && (s._asr.state === 'running' || s._asr.state === 'pending'));
+    const live = streaming && (!s.words || !s.words.length) && Array.isArray(s._asr.words) && s._asr.words.length;
+    const baseWords = live ? s._asr.words : (Array.isArray(s.words) ? s.words : []);
+    return { streaming, live, baseWords };
+  };
+
+  // The word→referent map for a clip (transcript-format.referentRuns), memoised on the source by the
+  // referent reading and word count. The lexicon is the referent doc's — the LIVE partial reading while a
+  // clip is still being heard, the settled NL reading once it lands — so figures light up as they arrive.
+  const transcriptReferentMap = (sn) => {
+    const s = sourceBySn(sn); if (!s) return new Map();
+    const { baseWords } = listenBase(s);
+    const rd = referentDocFor(s);
+    const sig = `${rd?.docId || 'none'}·${rd?._through ?? rd?._sig ?? 'x'}·${baseWords.length}`;
+    if (!s._refMap || s._refMap.sig !== sig) {
+      const words = projectTranscript(baseWords, s.audioEvents || []).words;
+      const lex = rd ? entityLexicon([rd]) : [];
+      s._refMap = { sig, map: referentRuns(words, lex) };
+    }
+    return s._refMap.map;
+  };
+
+  // The transcript's chapters (transcript-format.detectTranscriptChapters), memoised on the source by
+  // word count + whether the final transcript has landed. Empty for a short / single-subject clip.
+  const transcriptChapters = (sn) => {
+    const s = sourceBySn(sn); if (!s) return [];
+    const { baseWords, streaming } = listenBase(s);
+    const sig = `${baseWords.length}·${streaming ? 'live' : 'done'}·${(s.audioEvents || []).length}`;
+    if (!s._chapters || s._chapters.sig !== sig) {
+      const words = projectTranscript(baseWords, s.audioEvents || []).words;
+      const chapters = detectTranscriptChapters(words).map((c) => ({
+        ...c, mmss: c.startTime != null ? mmss(c.startTime) : '',
+      }));
+      s._chapters = { sig, chapters };
+    }
+    return s._chapters.chapters;
+  };
+
+  const mmss = (x) => { const t = Math.max(0, Math.round(x || 0)); const m = Math.floor(t / 60); return `${m}:${String(t % 60).padStart(2, '0')}`; };
+  const speakerLabelOf = (s, idx) => {
+    if (idx == null) return null;
+    const roster = Array.isArray(s?.speakers) ? s.speakers : [];
+    const hit = roster.find((r) => r.id === idx);
+    return (hit && hit.label) || `Speaker ${idx + 1}`;
+  };
+
+  // transcriptView(sn, { format }) → the whole layered reading the Listen surface renders in one call:
+  // every word with its display surface (formatted or raw), its clock, whether the reader has SETTLED it
+  // (read → black; still-open tail → grey), and the layer fields (referent, speaker, confidence); the
+  // display paragraphs; and the detected chapters. `format:false` is the raw stream — the toggle-off.
+  const transcriptView = (sn, { format = true } = {}) => {
+    const s = sourceBySn(sn);
+    if (!s) return { words: [], paras: [], chapters: [], readThrough: -1, complete: false, streaming: false, hasReferents: false, referentCount: 0 };
+    const { baseWords, streaming } = listenBase(s);
+    const proj = projectTranscript(baseWords, streaming && (!s.words || !s.words.length) ? [] : (s.audioEvents || []));
+    const words = proj.words;
+    const complete = !streaming && words.length > 0;
+    const readThrough = complete ? words.length - 1 : readThroughIndex(words);
+    const { tokens, paras } = formatTranscript(words, { format });
+    const refMap = transcriptReferentMap(sn);
+    const refIds = new Set();
+    const out = tokens.map((tk) => {
+      const i = tk.i, w = words[i] || {}, base = baseWords[i] || {};
+      const ref = refMap.get(i) || null;
+      if (ref) refIds.add(ref.entId);
+      const conf = (typeof base.conf === 'number' && isFinite(base.conf)) ? base.conf : null;
+      const acous = (typeof base.acous === 'number' && isFinite(base.acous)) ? base.acous : null;
+      const snr = (typeof base.snr === 'number' && isFinite(base.snr)) ? base.snr : null;
+      const speaker = Number.isInteger(base.speaker) ? base.speaker : null;
+      return {
+        i, text: tk.text, raw: w.text, t0: w.start ?? 0, t1: w.end ?? w.start ?? 0,
+        read: i <= readThrough, edited: !!w.edited, redacted: !!w.redacted, origText: w.origText ?? null,
+        paraStart: tk.paraStart, sentenceStart: tk.sentenceStart, punct: tk.punct,
+        ref: !!ref, refHead: !!(ref && ref.head), entId: ref?.entId ?? null, docId: ref?.docId ?? null, refLabel: ref?.label ?? null,
+        speaker, conf, acous, snr,
+      };
+    });
+    const chapters = transcriptChapters(sn);
+    return { words: out, paras, chapters, readThrough, complete, streaming, hasReferents: refIds.size > 0, referentCount: refIds.size };
+  };
+
+  // spanLayers(sn, i) → what is ACTIVE at one word: the clicked-span inspector. Every reading that
+  // touches this instant, stacked — the word and its clock, whether the reader has folded it, who said
+  // it, how sure the ear was, the breath group it sits in, its chapter, and the figure it names (with a
+  // door to that figure's full profile) plus that figure's strongest standing properties.
+  const spanLayers = (sn, i) => {
+    const s = sourceBySn(sn); if (!s) return null;
+    const { baseWords, streaming } = listenBase(s);
+    const words = projectTranscript(baseWords, streaming && (!s.words || !s.words.length) ? [] : (s.audioEvents || [])).words;
+    if (!Number.isInteger(i) || i < 0 || i >= words.length) return null;
+    const w = words[i], base = baseWords[i] || {};
+    const complete = !streaming && words.length > 0;
+    const readThrough = complete ? words.length - 1 : readThroughIndex(words);
+    const segs = segmentsOf(words);
+    const seg = segs.find((g) => i >= g.startIdx && i <= g.endIdx) || null;
+    // A BRIEF span around the clicked word — not the whole breath group. A group collapses into one
+    // long run whenever the stream carries no gap-silences (mid-transcription especially), so instead
+    // of dumping the run we window it to a short excerpt CENTERED on the word: a few words each side,
+    // ellipsed where trimmed, so you see WHERE the word sits, not a wall of text.
+    const SPAN_WORDS = 7;
+    let segment = null, segText = '';
+    if (seg) {
+      const lo = Math.max(seg.startIdx, i - SPAN_WORDS);
+      const hi = Math.min(seg.endIdx, i + SPAN_WORDS);
+      const join = (a, b) => words.slice(a, b).map((x) => x.text).join(' ').trim();
+      const before = join(lo, i), after = join(i + 1, hi + 1);
+      const lead = lo > seg.startIdx, trail = hi < seg.endIdx;    // trimmed on that side?
+      segment = { before, word: w.text, after, lead, trail, t0: words[lo]?.start ?? null };
+      segText = `${lead ? '… ' : ''}${before ? before + ' ' : ''}${w.text}${after ? ' ' + after : ''}${trail ? ' …' : ''}`.trim();
+    }
+    const chapters = transcriptChapters(sn);
+    const ch = chapterAt(chapters, i);
+    const refMap = transcriptReferentMap(sn);
+    const ref = refMap.get(i) || null;
+    let refProps = [], refMentions = null;
+    if (ref) { try { const prof = entityProfile(ref.docId, ref.entId); if (prof) { refProps = (prof.defs || []).slice(0, 3).map((d) => d.value); refMentions = prof.mentionCount; } } catch { /* best-effort */ } }
+    const num = (x, dp) => (typeof x === 'number' && isFinite(x)) ? +x.toFixed(dp) : null;
+    return {
+      i, word: w.text, raw: w.origText || w.text, edited: !!w.edited, redacted: !!w.redacted,
+      t0: w.start ?? null, t1: w.end ?? null, timeLabel: `${mmss(w.start || 0)}–${mmss(w.end || w.start || 0)}`,
+      read: i <= readThrough,
+      speaker: Number.isInteger(base.speaker) ? { idx: base.speaker, label: speakerLabelOf(s, base.speaker) } : null,
+      conf: num(base.conf, 3), acous: num(base.acous, 3), snr: num(base.snr, 1),
+      segmentText: segText, segment, segmentT0: segment ? segment.t0 : null,
+      chapter: ch ? { index: ch.index, title: ch.title, mmss: ch.startTime != null ? mmss(ch.startTime) : '' } : null,
+      referent: ref ? { entId: ref.entId, docId: ref.docId, label: ref.label, props: refProps, mentions: refMentions } : null,
+    };
+  };
+
   // ── auto-generated toplines — a summary for every source and every entity ──
   // docs/topline.md. A topline is an ordering and a phrasing of the CLOSED set of objects the
   // machinery already decided about a source or an entity — never a summary of the text, because
@@ -3232,6 +3983,34 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     };
   };
 
+  // The one figure a source most CENTRES on — its dominant referent (the subject of a bio or an
+  // article). Returns { docId, entId, label, sightings } for the top figure by merged sighting mass,
+  // or null when no figure is named repeatedly enough to carry the whole source. A single-subject
+  // document (a Wikipedia bio) surfaces this figure's dossier — its contextual reading, provenance
+  // DAG and settled Wikipedia referent — in place of a machine telegram; a figure-less or evenly
+  // diffuse document keeps its plain source summary. Pure and model-free (mirrors sourceReading's
+  // dominance read, exposing the rep id the entity surfaces key on).
+  const DOMINANT_FLOOR = 2;                              // named at least twice — not a one-off passer-by
+  const sourceDominantEntity = (sn) => {
+    const src = sourceBySn(sn);
+    const doc = src ? docFor(src) : null;
+    if (!doc?.log) return null;
+    const g = projectGraph(doc.log);
+    const rep = g.representative || ((x) => x);
+    const bySight = new Map();
+    for (const [id, ent] of g.entities || []) {
+      const r = rep(id);
+      const label = doc.admission?.labelOf?.(r) || ent.label || r;
+      const cur = bySight.get(r);
+      if (cur) cur.sightings += ent.sightings || 0;
+      else bySight.set(r, { id: r, label, sightings: ent.sightings || 0 });
+    }
+    let top = null;
+    for (const f of bySight.values()) if (!top || f.sightings > top.sightings) top = f;
+    if (!top || !top.label || (top.sightings || 0) < DOMINANT_FLOOR) return null;
+    return { docId: src.docId, entId: top.id, label: top.label, sightings: top.sightings };
+  };
+
   // Compose (or refine) a topline over a closed inventory into the stored shape. `modelless` marks a
   // telegram-only topline a warm talker can later refine; `sha` lets a source topline invalidate if
   // its content ever moves. Never throws — a summary must never cost the caller its record.
@@ -3259,14 +4038,14 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
 
   // The two-phase store: phase A writes the deterministic telegram at once (so the surface always has
   // something); phase B refines the join with the loaded talker, if any. `write` persists each phase.
-  const composeTwoPhase = async (inv, prev, write) => {
+  const composeTwoPhase = async (inv, prev, write, { useModel = true } = {}) => {
     const steer = prev?.steer || null;
     const feedback = prev?.feedback || [];
     if (!prev || prev.regenerate) {
       const tele = await composeTopline(inv, { steer, useModel: false });
       write({ ...tele, steer, feedback });
     }
-    if (model) {
+    if (model && useModel) {
       const full = await composeTopline(inv, { steer, useModel: true });
       write({ ...full, steer, feedback });
     }
@@ -3294,17 +4073,24 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
 
   // Generate/refresh an entity topline, keyed by the merged label the explorer groups by. Returns
   // the stored summary; stores in state.summaries.entities and emits.
-  const entitySummary = (docId, entId, { regenerate = false } = {}) => guarded(`e:${docId}#${entId}`, regenerate, async () => {
+  const entitySummary = (docId, entId, { regenerate = false, telegramOnly = false } = {}) => guarded(`e:${docId}#${entId}`, regenerate, async () => {
     const profile = entityProfile(docId, entId);
     if (!profile) return null;
     const key = entityKey(profile.label);
     const prev = state.summaries.entities[key] || null;
-    const upgrade = prev && prev.modelless && !!model;
+    // A telegram-only kick (the auto-gen on record) never upgrades or re-runs a summary that already
+    // stands — it only fills an empty slot, so it costs no model and never contends with a panel open.
+    const upgrade = prev && prev.modelless && !!model && !telegramOnly;
     if (prev && !regenerate && !upgrade) return prev;
     const inv = entityInventory(profile, { mentionCount: profile.mentionCount ?? profile.mentions.length, sourceCount: profile.sourceCount || 1 });
+    // When a model is loaded a written reading (the contextual definition) is coming a beat behind
+    // this telegram — so mark the telegram as `contextualPending`. The surface holds the panel on
+    // "composing…" rather than flashing the machine telegram and swapping it for the reading; it is
+    // cleared the moment the reading lands below. With no model, nothing more is coming, so the flag
+    // stays false and the telegram is shown at once.
     await composeTwoPhase(inv, prev ? { ...prev, regenerate } : { regenerate: true }, (s) => {
-      state.summaries.entities[key] = { ...s, key, label: profile.label }; persist(); emit('sources');
-    });
+      state.summaries.entities[key] = { ...s, key, label: profile.label, contextualPending: !!model && !telegramOnly }; persist(); emit('sources');
+    }, { useModel: !telegramOnly });
     // The fold-aware contextual definition — a model-WRITTEN companion to the telegram, framed by
     // the document in hand (its title, and the figures it most centres on beside this one). It is
     // safe to let the model write here because the entity panel flanks it: the settled Wikipedia
@@ -3318,7 +4104,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // becomes the new champion, so the system gets better — and, as the champion stabilises, cheaper
     // — at defining, especially similar things.
     const cur0 = state.summaries.entities[key];
-    if (model && cur0 && (regenerate || !cur0.contextual)) {
+    if (model && !telegramOnly && cur0 && (regenerate || !cur0.contextual)) {
       const themes = [...(profile.figures || [])]
         .filter((f) => f.entId !== entId && f.label && f.label !== profile.label)
         .sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 4).map((f) => f.label);
@@ -3359,22 +4145,27 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       };
 
       const defs = state.summaries.definer || (state.summaries.definer = { champion: null, runs: 0 });
-      const chorus = await composeChorus(
-        { label: profile.label, telegram: cur0.text, objects: cur0.objects || [], fold, wikiText },
-        { model, champion: defs.champion, runs: defs.runs || 0, grade },
-      );
-      const winner = chorus.winner;
+      // A failed chorus must never strand the panel on "composing…" — swallow it and fall through to
+      // the pending clear below, which reveals the telegram already in hand.
+      let chorus = null;
+      try {
+        chorus = await composeChorus(
+          { label: profile.label, telegram: cur0.text, objects: cur0.objects || [], fold, wikiText },
+          { model, champion: defs.champion, runs: defs.runs || 0, grade },
+        );
+      } catch { chorus = null; }
+      const winner = chorus && chorus.winner;
       winnerSpans = (winner && grade._spansByText && grade._spansByText.get(winner.text)) || [];
 
       // Carry the champion forward (heritability) and count the run (drives the explore beat).
-      defs.champion = chorus.champion || defs.champion;
+      defs.champion = (chorus && chorus.champion) || defs.champion;
       defs.runs = (defs.runs || 0) + 1;
 
       const cur = state.summaries.entities[key];
       if (cur && winner) {
         state.summaries.entities[key] = {
           ...cur, contextual: winner.text, contextualWritten: !!winner.written,
-          contextualSpans: winnerSpans,
+          contextualSpans: winnerSpans, contextualPending: false,
           contextualCoverage: winner.fitness?.terms?.coverage ?? 0,
           contextualFitness: winner.fitness?.score ?? 0,
           contextualStrategy: winner.strategy, fold,
@@ -3382,8 +4173,167 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         persist(); emit('sources');
       }
     }
+    // Never leave the panel stranded on "composing…": if the reading never landed (no winner, or the
+    // chorus threw before storing), drop the pending flag so the telegram it already holds is shown.
+    const done = state.summaries.entities[key];
+    if (done && done.contextualPending) {
+      state.summaries.entities[key] = { ...done, contextualPending: false }; persist(); emit('sources');
+    }
     return state.summaries.entities[key];
   });
+
+  // Auto-compose the toplines of a source's dominant figures the moment it is recorded — the entity
+  // half of "a summary for every source and every entity" (docs/topline.md). Telegram-only and
+  // fire-and-forget: the deterministic, containment-checked one-liner lands with no model and no
+  // network, so entity panels open with a real summary instead of "nothing found yet", and a turn can
+  // fold these figures' summaries into its prompt. A loaded talker still refines each on panel-open
+  // (the modelless-upgrade path). Capped at the top figures by sighting mass, mirroring sourceReading.
+  const autoEntitySummaries = (src) => {
+    try {
+      const doc = src ? docFor(src) : null;
+      if (!doc?.log) return;
+      const g = projectGraph(doc.log);
+      const rep = g.representative || ((x) => x);
+      const bySight = new Map();
+      for (const [id, ent] of g.entities || []) {
+        const r = rep(id);
+        const cur = bySight.get(r);
+        if (cur) cur.sightings += ent.sightings || 0;
+        else bySight.set(r, { id: r, sightings: ent.sightings || 0 });
+      }
+      const top = [...bySight.values()].sort((a, b) => b.sightings - a.sightings).slice(0, TOPLINE_FIGURES);
+      for (const f of top) entitySummary(src.docId, f.id, { telegramOnly: true }).catch(() => {});
+    } catch { /* a summary must never cost the record */ }
+  };
+
+  // The entity toplines as a label → text map, for feeding a turn (turn/stages.js composeFoldSummary
+  // folds in the ones the turn centres on). Reads the standing store; never generates.
+  const entitySummaryMap = () => {
+    const out = {};
+    for (const e of Object.values(state.summaries.entities || {}))
+      if (e && e.label && e.text) out[e.label] = e.text;
+    return out;
+  };
+
+  // ── the entity DIGEST — the explore surface (docs/topline.md) ──────────────────────────────────
+  // The topline is the one line the panel opens with; the digest is what a reader DIGS INTO. It has
+  // three layers, and the discipline is progressive disclosure: the deterministic spine is always
+  // there, and the model is not touched until the reader leans in.
+  //
+  //   entityChapters      — the chapter spine (deterministic, model-free, computed every render): the
+  //                         referent's mentions folded into the document's coarse grain, one bullet per
+  //                         chapter it moves through. Always shown; costs no model, no network.
+  //   entityDigest        — Most important / Most surprising, pulled ONLY on demand (generate:true, the
+  //                         reader opened the card). Two grounded, containment-gated readings.
+  //   entityChapterReading — the fold-prompted reading of the referent WITHIN one chapter, pulled only
+  //                         when the reader opens that chapter to read closer. Deeper is another pull.
+  //
+  // Both on-demand readings hang on the entity's own summary record (keyed by merged label), so they
+  // persist with it and are read back synchronously; neither is ever auto-kicked.
+
+  // The chapter spine — deterministic, always available. Never touches the model.
+  const entityChapters = (docId, entId) => {
+    const profile = entityProfile(docId, entId);
+    if (!profile) return [];
+    const doc = resolveDoc(docId)?.doc;
+    if (!doc) return [];
+    const sentences = doc.sentences || doc.units || [];
+    let grain;
+    try { grain = detectGrain(doc, { grain: 'auto' }); } catch { grain = { mode: 'window', bounds: [] }; }
+    return chapterBullets({ sentences, bounds: grain.bounds, mode: grain.mode, mentions: profile.mentions });
+  };
+
+  // Read a stored digest back synchronously (the surface renders this; generation is separate).
+  const entityDigestFor = (label) => state.summaries.entities[entityKey(label)]?.digest || null;
+
+  // Compose (or refresh) the Most-important / Most-surprising digest — pulled on demand. Stored on the
+  // entity's summary record under `.digest`; with no model, the mechanical bullets stand.
+  const entityDigest = (docId, entId, { generate = false, regenerate = false } = {}) => {
+    const profile = entityProfile(docId, entId);
+    if (!profile) return Promise.resolve(null);
+    const key = entityKey(profile.label);
+    const stored = state.summaries.entities[key]?.digest || null;
+    if (!generate && !regenerate) return Promise.resolve(stored);
+    if (stored && !regenerate) return Promise.resolve(stored);
+    return guarded(`digest:e:${key}`, regenerate, async () => {
+      const digest = await composeEntityDigest(profile, { model });
+      const cur = state.summaries.entities[key] || { key, label: profile.label };
+      state.summaries.entities[key] = { ...cur, key, label: profile.label, digest: { ...digest, generatedAt: nowIso() } };
+      persist(); emit('sources');
+      return state.summaries.entities[key].digest;
+    });
+  };
+
+  // Read a stored chapter reading back synchronously, keyed by the entity's label and the chapter id.
+  const entityChapterReadingFor = (label, chapterIdx) => state.summaries.entities[entityKey(label)]?.chapters?.[chapterIdx] || null;
+
+  // Compose the fold-prompted reading of the entity within one chapter — pulled on demand when the
+  // reader opens that chapter to read closer. Stored under `.chapters[chapterIdx]` on the summary.
+  const entityChapterReading = (docId, entId, chapterIdx, { generate = false, regenerate = false } = {}) => {
+    const profile = entityProfile(docId, entId);
+    if (!profile) return Promise.resolve(null);
+    const key = entityKey(profile.label);
+    const stored = state.summaries.entities[key]?.chapters?.[chapterIdx] || null;
+    if (!generate && !regenerate) return Promise.resolve(stored);
+    if (stored && !regenerate) return Promise.resolve(stored);
+    const chapter = entityChapters(docId, entId).find((c) => c.chapterIdx === chapterIdx);
+    if (!chapter) return Promise.resolve(null);
+    return guarded(`chread:e:${key}#${chapterIdx}`, regenerate, async () => {
+      const reading = await composeChapterReading(profile, chapter, { model });
+      const cur = state.summaries.entities[key] || { key, label: profile.label };
+      const chapters = { ...(cur.chapters || {}) };
+      chapters[chapterIdx] = { ...reading, generatedAt: nowIso() };
+      state.summaries.entities[key] = { ...cur, key, label: profile.label, chapters };
+      persist(); emit('sources');
+      return state.summaries.entities[key].chapters[chapterIdx];
+    });
+  };
+
+  // ── ZOOM IN — the passage and its fold-prompted close reading (docs/topline.md) ─────────────────
+  // The deepest level of the drill: chapter → passage → this moment. The reader clicked a single
+  // mention and wants to zoom into it — read the referent AT that instant, against the few sentences
+  // around it rather than jumping away to the source. `entityPassage` is the deterministic
+  // neighbourhood (always shown, no model); `entityPassageReading` is the tight close reading, pulled
+  // only on the zoom. Both keyed by the centre sentence index, stored on the entity's summary record.
+  const PASSAGE_RADIUS = 2;
+
+  // The neighbourhood around a passage — deterministic context, always available. Also returns the
+  // entity's mentions that fall inside the window, so the close reading folds over the same span.
+  const entityPassage = (docId, entId, idx, { radius = PASSAGE_RADIUS } = {}) => {
+    const profile = entityProfile(docId, entId);
+    if (!profile) return null;
+    const doc = resolveDoc(docId)?.doc;
+    if (!doc) return null;
+    const sentences = doc.sentences || doc.units || [];
+    const hood = passageNeighborhood({ sentences, idx, radius });
+    const lo = hood.start, hi = hood.end;
+    const windowMentions = (profile.mentions || []).filter((m) => m.idx >= lo && m.idx <= hi);
+    return { ...hood, windowMentions, label: `¶${idx}` };
+  };
+
+  const entityPassageReadingFor = (label, idx) => state.summaries.entities[entityKey(label)]?.passages?.[idx] || null;
+
+  // Compose the fold-prompted close reading of one passage — the tightest zoom, pulled on demand when
+  // the reader opens that moment. Stored under `.passages[idx]` on the summary record.
+  const entityPassageReading = (docId, entId, idx, { generate = false, regenerate = false, radius = PASSAGE_RADIUS } = {}) => {
+    const profile = entityProfile(docId, entId);
+    if (!profile) return Promise.resolve(null);
+    const key = entityKey(profile.label);
+    const stored = state.summaries.entities[key]?.passages?.[idx] || null;
+    if (!generate && !regenerate) return Promise.resolve(stored);
+    if (stored && !regenerate) return Promise.resolve(stored);
+    const passage = entityPassage(docId, entId, idx, { radius });
+    if (!passage) return Promise.resolve(null);
+    return guarded(`pass:e:${key}#${idx}`, regenerate, async () => {
+      const reading = await composePassageReading(profile, { idx, radius, windowMentions: passage.windowMentions, label: passage.label }, { model });
+      const cur = state.summaries.entities[key] || { key, label: profile.label };
+      const passages = { ...(cur.passages || {}) };
+      passages[idx] = { ...reading, generatedAt: nowIso() };
+      state.summaries.entities[key] = { ...cur, key, label: profile.label, passages };
+      persist(); emit('sources');
+      return state.summaries.entities[key].passages[idx];
+    });
+  };
 
   // Give a topline feedback so it updates. The free-text note is interpreted into a STEER over the
   // closed set (cap length, pin a term, suppress a claim), folded onto the standing steer, recorded,
@@ -3999,10 +4949,17 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // topics — a nested tree within a workspace
     topicNew, setTopic, topicRename, topicDelete, topic,
     topicMove, topicToggleCollapse, topicTree, topicRows,
-    // workspaces — the top-level containers (Matrix-shared workspaces slot in via `shared`)
+    // workspaces — the top-level containers; a shared workspace is a Matrix room (roomId)
     workspaceNew, setWorkspace, workspaceRename, workspaceDelete, activeWorkspace,
+    workspaceBindRoom, workspaceByRoom, workspaceSetSync,
+    // folders — the source explorer's Drive (workspace-scoped tree; sources carry folderId)
+    folderNew, folderRename, folderMove, folderDelete, folderById, folderPath,
+    workspaceFolders, workspaceSources, sourceMove,
     // ingest
     ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage, navigatePage,
+    // the library shelf — search ONE shelf on its own surface (article/book/media/code), and the
+    // deliberate "ingest all code" path (a whole repo through the code organ)
+    searchLibrary, ingestRepo, libraries: librariesManifest(),
     // durable pending work — the ingest/transcription jobs still in flight, and the boot-time resume
     // that re-runs them (so ingestion AND transcription survive a reload even part-way through)
     jobs: () => state.jobs.slice(),
@@ -4036,12 +4993,19 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // model
     ensureModel, setBackend, backendPref, setSpeed, speedPref,
     // projections for the surface
-    answerSegments, viewerParas, readerLink, entities, entityProfile, entityWiki, tieredData, topicTieredData,
+    answerSegments, viewerParas, readerLink, transcriptEntityRuns, entities, entityProfile, entityWiki, tieredData, topicTieredData,
     // the entity explorer, scoped to one source and read at a chosen HOLONIC LEVEL —
     // its natural-language referents (default) or the modality's raw spans underneath
     sourceLevels, sourceEntities, sourceBaseNoun,
     // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
     sourceSummary, sourceSummaryOf, entitySummary, entitySummaryFor, summaryFeedback,
+    // the figure a single-subject source centres on — the source page shows its dossier (docs/topline.md)
+    sourceDominantEntity,
+    // the entity explore surface — the deterministic chapter spine + on-demand important/surprising +
+    // the fold-prompted per-chapter reading + the passage ZOOM, all pulled lazily as the reader digs
+    // in and deeper (docs/topline.md)
+    entityChapters, entityDigest, entityDigestFor, entityChapterReading, entityChapterReadingFor,
+    entityPassage, entityPassageReading, entityPassageReadingFor,
     findings, provenance, dagFor, dagSources, setMemo, eotFor, answerEot,
     // the commitment ledger (assertions + corrections, persisted) and the session's
     // self/world line readout — the honesty and ledger seams, readable from the surface
@@ -4060,5 +5024,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // audio: a playable URL (rehydrated from OPFS / the encrypted Matrix copy after reload), the raw
     // persisted bytes (for redaction re-synthesis), and the non-destructive edit/redaction chokepoint.
     playableUrl, audioBytes, recordAudioEvent,
+    // transcript export — subtitles (SRT/VTT), the elegant by-speaker read, the full-processing JSON,
+    // and the process trace — built from the live organ doc or rebuilt from the persisted substrate.
+    transcriptExport, transcriptFormats,
+    // the Listen surface's layered reading: the whole formatted/raw word view with read-state +
+    // referents + chapters (transcriptView), the topic chapters alone, and the per-word span inspector.
+    transcriptView, transcriptChapters, spanLayers,
   });
 };
