@@ -75,6 +75,17 @@ test('an unpinned Ask turn REACHES the web under the default auto mode', async (
     'the response reports a web reach, not a record-only abstention');
 });
 
+test('a referential first ask ("what did he do?") with nothing to anchor it does NOT reach the web', async () => {
+  // The exported failure: with no thread naming who "he" is, the verbatim pronoun query went to
+  // Wikipedia and admitted "What Did Jack Do?" and the Waco siege into the record. There is
+  // nothing to search FOR — the turn says what's missing instead of fetching noise.
+  const app = await freshApp('auto', { fetchImpl: failFetch });
+  const pending = await app.ask('what did he do?');
+  assert.equal(pending.route, 'empty');
+  assert.match(pending.text || '', /who or what that refers to/i, 'it names the missing referent');
+  assert.doesNotMatch(pending.text || '', /searched the web|couldn.t pull anything/i, 'no web reach fired');
+});
+
 test('the `web: off` override still forces record-only, even when the global mode is auto', async () => {
   // The per-turn override is the offline escape hatch other tests lean on (topic-per-question). It
   // must still win over the global: a turn pinned `off` never reaches the net and offers no proposal.

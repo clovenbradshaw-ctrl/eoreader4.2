@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { proposeWebSearch, searchAnnouncement, COST_NOTICE } from '../src/turn/propose.js';
+import { proposeWebSearch, searchAnnouncement, anchorTopicless, COST_NOTICE } from '../src/turn/propose.js';
 import { runTurnWithWeb, runWebFollowup, verifyAgainstWeb, formulateSearchQuery, extendClippedSubject } from '../src/turn/web.js';
 import { admitWebSource } from '../src/organs/ingest/websource.js';
 
@@ -106,6 +106,51 @@ test('a real cited answer (not an abstention) still proposes nothing on the abst
     doc: { docId: 'z.txt' }, sources: [2], answer: 'The document says the code is teal.',
     bound: [{ claim: 'The code is teal.', citation: 's2' }], vetoes: [] });
   assert.equal(p, null, 'a grounded, non-abstaining answer is not a gap');
+});
+
+// ── The topicless-referential guard: a pronoun/stall query anchors on the discourse or drops ──
+// The exported failure: "what did he do?" (referent diffuse, no thread) rode VERBATIM to the
+// web and admitted "What Did Jack Do?" and the Waco siege into the record. A referential turn
+// that names no topic of its own is anchored on the conversation before it may be a query;
+// when even the discourse names nothing, NOTHING is proposed — the honest abstention stands.
+
+test('a referential turn with NO discourse to anchor it proposes NOTHING — junk is worse than abstention', () => {
+  const p = proposeWebSearch({ route: 'grounded', task: 'answer', question: 'what did he do?',
+    voidMeasure: true, bound: [], vetoes: [], history: [] });
+  assert.equal(p, null, 'nothing anywhere names who "he" is — there is nothing to search FOR');
+});
+
+test('a referential turn is anchored on the conversation before it rides as a query', () => {
+  const p = proposeWebSearch({ route: 'grounded', task: 'answer', question: 'what did he do?',
+    voidMeasure: true, bound: [], vetoes: [],
+    history: [{ role: 'user', content: 'research neil armstrong' }] });
+  assert.ok(p, 'the discourse names the subject — the gap is searchable');
+  assert.match(p.query, /neil armstrong/i, 'the discourse subject is bound into the query');
+});
+
+test('a referent-DIFFUSE referential turn anchors on the discourse, never on the wandering figure', () => {
+  // concentrated:false suppresses the surf-focus sharpening (the loud wrong figure); the
+  // discourse anchor is what remains — and it must be the conversation's subject.
+  const p = proposeWebSearch({ route: 'grounded', task: 'answer', question: 'what did he do?',
+    doc: { docId: 'x.txt' }, answer: 'I didn\'t find a settled answer to that in what I read.',
+    bound: [], vetoes: [],
+    referential: { id: 'web-x␟edwards-air-force-base', concentrated: false },
+    surf: { focus: 'Edwards Air Force Base' },
+    history: [{ role: 'user', content: 'research neil armstrong' }] });
+  assert.ok(p);
+  assert.match(p.query, /neil armstrong/i);
+  assert.doesNotMatch(p.query, /edwards/i, 'the diffuse reading\'s wandering figure is not the anchor');
+});
+
+test('a chat referential turn with no discourse skips the verify fetch', () => {
+  assert.equal(proposeWebSearch({ route: 'chat', question: 'what did he do?' }), null,
+    'verifying "what did he do?" against the web checks nothing — no fetch');
+});
+
+test('anchorTopicless: a topical query stands untouched; a terse non-referential one too', () => {
+  assert.equal(anchorTopicless('how much was the fine?'), 'how much was the fine?');
+  assert.equal(anchorTopicless('q'), 'q');   // thin, but not referential — not this guard's case
+  assert.equal(anchorTopicless('tell me more about that'), null, 'a bare stall with no thread anchors to nothing');
 });
 
 // ── The announcement: the proposal promoted into a first-person, pre-search line ──

@@ -27,7 +27,7 @@ import { createModel, describeModel } from '../../model/interface.js';
 import { wrapRedacting } from '../../model/redact-remote.js';
 import { probeOrigins, explainReach } from '../../model/reach.js';
 import { createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
-import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement,
+import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement, anchorTopicless,
          runTurnWithResearch, runCuriousResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
          runTurnWithCorroboration, corroborationAnnouncement, corroborationSettled,
          readDiscourse, clarifyDemandOf, loadShapeLibrary } from '../../turn/index.js';
@@ -754,6 +754,39 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     if (!title || title === t.title) return;
     t.title = title;
     if (!silent) { persist(); emit('topics'); }
+  };
+  // The conversational THREAD a topic belongs to — its ancestors' settled messages, then its
+  // own, in the order the user lived them. The topic-per-question model (askQuestion) files
+  // every follow-up as a CHILD quest, so a child's own `messages` hold only the new question:
+  // the thread the user experienced IS the ancestor chain. Reading history off the lineage is
+  // what lets the discourse machinery — readDiscourse, the clarify/awaiting fold, resolveQuery,
+  // formulateSearchQuery, the sense disambiguator — resolve a pronoun follow-up ("what did he
+  // do?") to the figure the previous quest was about. Without it every follow-up woke
+  // amnesiac: the referent never bound, the turn abstained referent-ambiguous, and the
+  // VERBATIM pronoun query went to the web and admitted whatever matched its words — the
+  // exported "what did he do?" run pulled "What Did Jack Do?" and the Waco siege into the
+  // record. Settled turns only (!pending, has text). A stopped/errored reply is DROPPED while
+  // its question is KEPT: the boilerplate ("The turn stalled — …") is not conversation, and an
+  // unanswered question left standing is exactly an OPEN intent for the next turn to resolve
+  // against (dialogue-state.js). Cycle-guarded like topicDescendants; capped to the newest
+  // THREAD_CAP messages (foldConversation budgets further downstream).
+  const THREAD_CAP = 16;
+  const topicThread = (t) => {
+    const chain = [];
+    const seen = new Set();
+    for (let node = t; node && !seen.has(node.id); node = node.parentId ? topicById(node.parentId) : null) {
+      seen.add(node.id);
+      chain.unshift(node);
+    }
+    const out = [];
+    for (const tp of chain) {
+      for (const m of tp.messages || []) {
+        if (!m || m.pending || !m.text) continue;
+        if (m.role === 'assistant' && (m.route === 'stopped' || m.route === 'error')) continue;
+        out.push(m);
+      }
+    }
+    return out.slice(-THREAD_CAP);
   };
   // Re-parent a topic (null = the workspace root). Rejects a cycle (into itself or a
   // descendant) and a cross-workspace move — a topic tree never spans workspaces.
@@ -2549,10 +2582,30 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     const turn = armTurn();
     const { raceGuard, keepAlive, keepAliveFn } = turn;
     const turnSignal = turn.ctrl.signal;
+    // The lineage thread (topicThread), MINUS the question just pushed — so a follow-up asked
+    // from a child quest still resolves its pronouns/back-references against the quest it
+    // followed, even on this empty-record path (the record being empty says nothing about the
+    // conversation being new). Before this, `history: []` here meant the query formulator and
+    // the walk both read the turn in isolation.
+    const thread = topicThread(topic())
+      .slice(0, -1)
+      .map((x) => ({ role: x.role, content: x.text, ...(x.unbound ? { unbound: true } : {}) }));
+    // A referential turn nothing can anchor — "what did he do?" as the FIRST ask, with no
+    // thread naming who "he" is. This path walks the web directly (no proposer gate in
+    // front of it), and searching the turn's function words verbatim admits whatever
+    // matches them into the record — the exported junk. Say what's missing instead.
+    if (anchorTopicless(q, thread) == null) {
+      turn.disarm(); setBusy(null);
+      pending.text = 'I can\'t tell yet who or what that refers to — nothing earlier in this quest names it. Say the name (or ask the full question), or drop a URL, file, or pasted text in the bar above.';
+      pending.route = 'empty';
+      pending.pending = false;
+      persist(); emit('messages');
+      return pending;
+    }
     try {
       const m = await raceGuard(ensureModel());
       setBusy({ kind: 'search', label: 'Looking this up on the web…' });
-      const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: q, history: [], fallback: q, signal: turnSignal })));
+      const query = await raceGuard(keepAlive(formulateSearchQuery({ model: m, question: q, history: thread, fallback: q, signal: turnSignal })));
       beat(pending, 'start', researchAnnouncement(query, { maxHops: RESEARCH_HOPS }) || `Searching the web for “${query}”…`);
       setBusy({ kind: 'search', label: `Searching the web — ${query}` });
       logIt('search', `Web research "${query}"`, 'auto · nothing on record');
@@ -2561,7 +2614,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
         shapeLibrary: shapeLib || undefined,   // the form predictor (turn/shape.js) — inert until built
-        auditLog: audit, history: [],
+        auditLog: audit, history: thread,
         stream: true,
         // A backend slow (or unable) to honor the abort keeps handing us tokens after Stop; appending
         // them to the already-finalized bubble is the "I hit Stop but it kept typing" bug. Once the
@@ -2575,7 +2628,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         // The thumb: when the subject is a homonym, commit to ONE sense before gathering and search
         // for it, so "dolphins" doesn't fetch a mix of the animal and the football team (disambiguate.js).
         // keepAliveFn: this 220-token decode runs before the first hop's beat — feed the guard while it thinks.
-        disambiguate: keepAliveFn(modelDisambiguator(m, { history: [], question: q, signal: turnSignal })),
+        disambiguate: keepAliveFn(modelDisambiguator(m, { history: thread, question: q, signal: turnSignal })),
         onHop: (h) => hopBeat(pending, h, query),
         onHopDone: (h) => hopDoneBeat(pending, h),
         signal: turnSignal,
@@ -2702,7 +2755,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     const { raceGuard, keepAlive, keepAliveFn } = turn;
     const turnSignal = turn.ctrl.signal;
 
-    const settledMsgs = t.messages.filter((mm) => !mm.pending && mm.text);
+    // The settled dialogue is the topic's LINEAGE thread, not its own messages alone — a
+    // follow-up lives in a fresh child quest (askQuestion), whose only message is the question
+    // just pushed. topicThread walks the ancestor chain so the discourse read, the clarify
+    // fold below, and the turn's own history all see the conversation the user actually had.
+    const settledMsgs = topicThread(t);
     const priorHistory = settledMsgs.slice(0, -1).map((x) => ({ role: x.role, content: x.text }));
     // THE INSTANT FLOOR (docs/response-demand.md, rung 3) — the phatic gate's OFFLINE layer, read off
     // the user's OWN words with no model. A bare greeting/thanks/goodbye is unmistakably social from
@@ -2849,9 +2906,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       // "conversation so far" band only ever showed the user's turns (the exported bug: a bare
       // "You: research elvis films…" with the answer it refers to missing), leaving a follow-up
       // like "which is the best?" nothing to resolve against. `-1` matches priorHistory above.
+      // Read off the LINEAGE thread (settledMsgs = topicThread(t)): a follow-up lives in a
+      // fresh child quest whose own messages hold nothing before this question, and handing
+      // the turn an empty history is what left "what did he do?" with no referent to bind.
       // foldConversation then holds the recent window to its token budget and folds the rest.
-      const history = t.messages
-        .filter((x) => !x.pending && x.text)
+      const history = settledMsgs
         .slice(0, -1)
         .map((x) => ({ role: x.role, content: x.text, ...(x.unbound ? { unbound: true } : {}) }));
       // A long-form ask ("write me an essay …") gets a large budget so the answer can develop
@@ -3021,9 +3080,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // holds a question opens a CHILD topic beneath it and asks THERE — a fresh line of inquiry
   // the sidebar tree shows nested under the question it followed. The child INHERITS the
   // parent's sources, so the record it reads is unchanged; the parent's answer stays intact
-  // on its own surface, one clean question-and-answer apiece. A question in a topic that has
-  // not been asked one yet (a "New topic", or one that only holds ingested sources) fills
-  // THAT topic in place — asking the first question never orphans an empty placeholder.
+  // on its own surface, one clean question-and-answer apiece. The child also inherits the
+  // lineage's CONVERSATION as discourse context (ask() reads history off topicThread): the
+  // surfaces stay one-question-apiece, but a follow-up's pronouns and back-references still
+  // resolve against the quest it followed — without that, "what did he do?" bound no referent
+  // and its verbatim words went to the web (the exported Waco-siege junk). A question in a
+  // topic that has not been asked one yet (a "New topic", or one that only holds ingested
+  // sources) fills THAT topic in place — the first question never orphans a placeholder.
   // Delegates to ask() on the now-active topic and returns its pending message. topicNew
   // already makes the child active and auto-naming (from the first question) then names it.
   // opts.newQuest — a DELIBERATE new quest (the Ask surface's "New quest" affordance): a fresh
