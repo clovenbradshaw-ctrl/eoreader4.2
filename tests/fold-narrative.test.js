@@ -97,3 +97,82 @@ test('it is total — never throws on missing or absent data', () => {
     if (beat) { assert.equal(typeof beat.kind, 'string'); assert.equal(typeof beat.text, 'string'); }
   }
 });
+
+// ── verbose: the whole fold, openable ────────────────────────────────────────
+test('verbose is opt-in — default is byte-identical to the curated view', () => {
+  // the stages the curated view keeps silent stay silent without the flag
+  for (const name of ['expect', 'converse', 'answerable', 'gate', 'settle']) {
+    assert.equal(foldNarrative(name, {}), null);
+    assert.equal(foldNarrative(name, {}, {}), null, 'an empty opts is still the curated view');
+  }
+  // and the ones that speak say exactly what they said before
+  assert.deepEqual(foldNarrative('route', {}, { verbose: false }),
+    { kind: 'think', text: 'Taking in the question' });
+});
+
+test('verbose un-silences every stage — the book-keeping passes now speak', () => {
+  for (const name of ['expect', 'converse', 'answerable', 'gate', 'settle', 'absence', 'murmur', 'reflect', 'judgments']) {
+    const beat = foldNarrative(name, {}, { verbose: true });
+    assert.ok(beat, `${name} should speak in verbose`);
+    assert.equal(typeof beat.kind, 'string');
+    assert.ok(beat.text, `${name} carries a headline`);
+  }
+  // a genuinely unknown stage still stays silent, even verbose
+  assert.equal(foldNarrative('nonsense-stage', {}, { verbose: true }), null);
+});
+
+test('verbose keeps the curated line and glyph where a stage already spoke', () => {
+  const curated = foldNarrative('bind', { cited: 2 });
+  const verbose = foldNarrative('bind', { cited: 2 }, { verbose: true });
+  assert.equal(verbose.kind, curated.kind);
+  assert.equal(verbose.text, curated.text, 'the headline is the curated line, not a generic label');
+  // …but a no-op stage the curated view dropped now speaks with its data
+  assert.equal(foldNarrative('bind', { cited: 0 }), null);
+  const nooped = foldNarrative('bind', { cited: 0, claims: 3 }, { verbose: true });
+  assert.ok(nooped, 'the no-op bind still speaks in verbose');
+});
+
+test('verbose hangs the stage data off the beat as openable detail rows', () => {
+  const beat = foldNarrative('retrieve', { ms: 47, n: 6, top: 0.2857, eo: 'SEG(Field, Clearing)' }, { verbose: true });
+  assert.ok(Array.isArray(beat.detail), 'detail is an array of rows');
+  const byLabel = Object.fromEntries(beat.detail.map((r) => [r.label, r.value]));
+  assert.equal(byLabel.n, '6');
+  assert.equal(byLabel.ms, '47');
+  assert.equal(byLabel.eo, 'SEG(Field, Clearing)', 'the operator notation rides as a row');
+  for (const r of beat.detail) { assert.equal(typeof r.label, 'string'); assert.equal(typeof r.value, 'string'); }
+});
+
+test('verbose detail flattens one object level and joins scalar arrays', () => {
+  const beat = foldNarrative('predict', {
+    ms: 13, primary: 'Calderon Bay', entities: ['Vane', 'Okonkwo'],
+    shape: { intent: 'lookup', confidence: 0.099 },
+  }, { verbose: true });
+  const byLabel = Object.fromEntries(beat.detail.map((r) => [r.label, r.value]));
+  assert.equal(byLabel.primary, 'Calderon Bay');
+  assert.equal(byLabel.entities, 'Vane, Okonkwo', 'a scalar array joins');
+  assert.equal(byLabel['shape·intent'], 'lookup', 'an object descends one label deep');
+  assert.equal(byLabel['shape·confidence'], '0.099');
+});
+
+test('verbose surfaces the built prompt VERBATIM on the prompt stage', () => {
+  const promptText = 'system: You are the voice of a reader.\n\nuser: What it was: 8 sources · text.';
+  const beat = foldNarrative('prompt', { ms: 1, promptLen: promptText.length, promptText }, { verbose: true });
+  assert.equal(beat.text, 'Built the grounded prompt');
+  assert.equal(beat.prompt, promptText, 'the exact prompt bytes ride on the beat for the surface to reveal');
+  // no prompt text (older record / not threaded) → no prompt payload, but the beat still speaks
+  const bare = foldNarrative('prompt', { ms: 1, promptLen: 0 }, { verbose: true });
+  assert.equal(bare.prompt, undefined);
+  assert.equal(bare.text, 'Built the grounded prompt');
+});
+
+test('verbose still audits the surf path on the fold beat', () => {
+  const beat = foldNarrative('fold', { surf: {
+    stops: [2, 4], path: [
+      { idx: 2, bayes: 0.4, text: 'The turn.', stop: true },
+      { idx: 4, bayes: 0.9, text: 'The crisis.', stop: true, peak: true },
+    ],
+  } }, { verbose: true });
+  assert.equal(beat.text, 'Folded the reading — 2 stops');
+  assert.ok(beat.surf, 'the reading path still rides on the verbose fold beat');
+  assert.equal(beat.surf.path.length, 2);
+});

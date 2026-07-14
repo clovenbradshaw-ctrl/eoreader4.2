@@ -368,12 +368,17 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // only the SAFE `data` projection to fold-narrative.js. mode 'think' so a plain document
   // turn's trail reads "Thinking…", not "Researching…" (a web walk creates the trail first,
   // with mode 'research', and the first-writer's mode wins).
+  //
+  // VERBOSE: the reader watches the WHOLE fold think — every stage speaks, and each beat can be
+  // opened to its full data (the surf reading path, the census counts, and the grounded prompt
+  // itself as it is built). Still the safe `data` projection — verbosity widens what is shown of
+  // the audit, never what the model is fed. The surf / detail / prompt extras ride onto the beat
+  // (beat() spreads them onto the step) for the surface to reveal on demand.
   const foldBeat = (msg, name, data) => {
-    const b = foldNarrative(name, data || {});
-    // Carry the surf audit (the reading path fold-narrative folded off the fold stage) onto the
-    // beat, so the trail's "Folded the reading" line can be OPENED to audit the surf — the same
-    // way a "Read N sources" beat carries its pages (hopDoneBeat).
-    if (b) beat(msg, b.kind, b.text, 'think', b.surf ? { surf: b.surf } : null);
+    const b = foldNarrative(name, data || {}, { verbose: true });
+    if (!b) return;
+    const { kind, text, ...extra } = b;
+    beat(msg, kind, text, 'think', Object.keys(extra).length ? extra : null);
   };
   // The pre-fetch beat: what the walk is about to search THIS hop. A followed lead names the term it
   // is chasing ("Following 'X' — searching 'Y'"); the seed / a plain hop just names the query.

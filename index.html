@@ -739,7 +739,25 @@ table{border-collapse:collapse;width:100%}
                             <sc-for list="{{ a.trailSteps }}" as="ts">
                               <div style="display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:11.5px;line-height:1.5;color:#4A4A54">
                                 <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ ts.fg }};flex:0 0 auto;width:12px;text-align:center">{{ ts.glyph }}</span>
-                                <div style="min-width:0;flex:1"><span style="min-width:0">{{ ts.text }}</span></div>
+                                <div style="min-width:0;flex:1">
+                                  <span style="min-width:0">{{ ts.text }}</span>
+                                  <sc-if value="{{ ts.hasDetail }}">
+                                    <div style="margin-top:4px;padding:6px 8px;background:#F7F6FB;border:1px solid #ECEAF5;border-radius:7px">
+                                      <sc-for list="{{ ts.detail }}" as="dr">
+                                        <div style="padding:1px 0;font-size:10.5px;line-height:1.5;overflow-wrap:anywhere">
+                                          <span style="font-family:'IBM Plex Mono',monospace;color:#9A93C4">{{ dr.label }}</span>
+                                          <span style="color:#5A5A64;margin-left:6px">{{ dr.value }}</span>
+                                        </div>
+                                      </sc-for>
+                                    </div>
+                                  </sc-if>
+                                  <sc-if value="{{ ts.hasPrompt }}">
+                                    <div style="margin-top:4px;padding:6px 8px;background:#1B1B22;border-radius:7px">
+                                      <div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#8A84A8;margin-bottom:4px">PROMPT · VERBATIM</div>
+                                      <pre style="margin:0;max-height:200px;overflow:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.45;color:#D6D3E6;white-space:pre-wrap;word-break:break-word">{{ ts.promptText }}</pre>
+                                    </div>
+                                  </sc-if>
+                                </div>
                               </div>
                             </sc-for>
                           </div>
@@ -920,6 +938,22 @@ table{border-collapse:collapse;width:100%}
                                           <sc-if value="{{ ts.surfHasMeta }}">
                                             <div style="margin-top:4px;font-size:9.5px;color:#8A84A8">{{ ts.surfMeta }}</div>
                                           </sc-if>
+                                        </div>
+                                      </sc-if>
+                                      <sc-if value="{{ ts.hasDetail }}">
+                                        <div style="margin-top:4px;padding:6px 8px;background:#F7F6FB;border:1px solid #ECEAF5;border-radius:7px">
+                                          <sc-for list="{{ ts.detail }}" as="dr">
+                                            <div style="padding:1px 0;font-size:10.5px;line-height:1.5;overflow-wrap:anywhere">
+                                              <span style="font-family:'IBM Plex Mono',monospace;color:#9A93C4">{{ dr.label }}</span>
+                                              <span style="color:#5A5A64;margin-left:6px">{{ dr.value }}</span>
+                                            </div>
+                                          </sc-for>
+                                        </div>
+                                      </sc-if>
+                                      <sc-if value="{{ ts.hasPrompt }}">
+                                        <div style="margin-top:4px;padding:6px 8px;background:#1B1B22;border-radius:7px">
+                                          <div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#8A84A8;margin-bottom:4px">PROMPT · VERBATIM</div>
+                                          <pre style="margin:0;max-height:200px;overflow:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.45;color:#D6D3E6;white-space:pre-wrap;word-break:break-word">{{ ts.promptText }}</pre>
                                         </div>
                                       </sc-if>
                                     </div>
@@ -6529,9 +6563,17 @@ class Component extends DCLogic {
         // A "Folded the reading" beat carries the surfer's reading PATH (app.js foldBeat) — render
         // it as the auditable walk: each cursor it arrested on, its surprise, and what it read.
         const surf = (s.surf && Array.isArray(s.surf.path) && s.surf.path.length) ? this._surfAudit(s.surf) : null;
+        // The verbose trace: every stage's flattened data rides as `detail` rows, and the `prompt`
+        // stage carries the grounded prompt VERBATIM (fold-narrative.js). Both open on demand, so a
+        // reader can watch exactly what the app read and what it built — the prompt live, not after.
+        const detail = (Array.isArray(s.detail) ? s.detail : [])
+          .map((r) => ({ label: String((r && r.label) || ''), value: String(r && r.value != null ? r.value : '') }))
+          .filter((r) => r.label);
+        const promptText = typeof s.prompt === 'string' ? s.prompt : '';
         return {
           glyph: st.glyph, fg: st.fg, text: s.text, hasSources: sources.length > 0, sources,
           hasSurf: !!surf, surfStops: surf ? surf.stops : [], surfMeta: surf ? surf.meta : '', surfHasMeta: !!(surf && surf.hasMeta),
+          hasDetail: detail.length > 0, detail, hasPrompt: !!promptText, promptText,
         };
       });
       const trailRunning = !!tr && !tr.done;
