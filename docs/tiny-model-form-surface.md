@@ -79,6 +79,39 @@ it isn't running.
   sentences (form) while the fold supplies the *content* (slots) is complementary work
   the topline's definer chorus (`chorus.js`) already gestures at; not touched here.
 
+## The dispatcher — a surf parsed into pattern-quests, model-free
+
+`src/surfer/fold/dispatch.js`. The head of the synthesis pipeline: given a *surf*
+(a region of the graph already routed to), cut it into the discrete pattern-quests
+the parallel folds will pursue. Parsing a surf into quests is **graph algebra, not
+language** — the quest count falls out of the born spectrum
+(`voidnull.DEF(eigenvalues)`), never out of a model's choice — so the dispatcher is
+**model-free by default**. It runs the significance triad as a loop:
+
+- **DEF — `discretize(surf)`** proposes the quests off the graph's own geometry:
+  one per referent (salience = incident bond mass), one per significance bond-group
+  (a recurring co-occurrence), and `DEF(spectrum).k` per resolved reading. Pure,
+  deterministic, replayable.
+- **EVA — `findable(...)`** evaluates whether that discretization is discrete
+  *enough to be found*: ≥2 distinguishable things **and** real structure among them
+  (a bond to hunt, or a spectrum that resolved). A bag of disconnected referents over
+  a flat spectrum is a blur — ≥2 things, nothing separating them — and that *measured*
+  verdict is what sends it on.
+- **REC — `pullApart(surf, model)`** runs the local model **only when EVA fails**,
+  and only to propose a **search plan** (angle labels), each re-grounded against a
+  referent or bond-via actually present in the surf — an ungrounded angle attaches to
+  nothing and is dropped. The model is the exception, never the hot path; a thin surf
+  with no model abstains to one honest coarse quest rather than inventing
+  discretization it cannot measure.
+
+The dispatcher decides *where to look*, not *what's true* — it fires `SEG`/`SIG`,
+never `DEF`/`EVA` on the content — so a small model in the REC slot is a bounded,
+safe search hint, and the whole fan-out stays replayable to the token. The one
+boundary condition: dispatch is model-free *iff the semantic frame the query needs is
+already reified in the graph* (the typing/edges exist). If a quest needs a
+distinction the graph doesn't carry, that is a gap in the **read**, fixed upstream at
+perceive-time — never papered over by a model in dispatch.
+
 ## The one-line version
 
 Build the verifier. The model is the easy part.
