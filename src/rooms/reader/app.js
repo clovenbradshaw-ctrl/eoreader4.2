@@ -1180,6 +1180,37 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     persist(); emit('sources');
     return root;
   };
+  // Star a source in the Drive (a workspace-scoped "keep" flag the explorer's Starred shelf reads).
+  // `starred` is an underscore-free field, so serialize() keeps it across a reload (like folderId).
+  const sourceStar = (id) => {
+    const s = sourceBySn(id);
+    if (!s) return null;
+    const root = s.parentSn ? (sourceBySn(s.parentSn) || s) : s;
+    root.starred = !root.starred;
+    persist(); emit('sources');
+    return root;
+  };
+  // Stamp when a source was last engaged, so the explorer's Recent shelf + "Jump back in" order by
+  // real recency rather than record order. openedAt is underscore-free → it persists.
+  const sourceTouch = (id) => {
+    const s = sourceBySn(id);
+    if (!s) return null;
+    const root = s.parentSn ? (sourceBySn(s.parentSn) || s) : s;
+    root.openedAt = nowMs();
+    persist(); emit('sources');
+    return root;
+  };
+  // Add an already-recorded Drive source into the ACTIVE topic's grounding corpus (idempotent).
+  // Filing is workspace-wide; this is the deliberate move that makes a source count toward a topic's
+  // answers — the explorer inspector's "Add to corpus" button.
+  const sourceAddToTopic = (id) => {
+    const s = sourceBySn(id);
+    if (!s) return null;
+    const root = s.parentSn ? (sourceBySn(s.parentSn) || s) : s;
+    const t = topic();
+    if (t && !t.sourceSns.includes(root.sn)) { t.sourceSns.push(root.sn); persist(); emit('sources'); }
+    return root;
+  };
   // The drive's file set: every top-level source referenced by a topic in the workspace,
   // deduped, in record order (sub-pages ride with their site, so they are filtered out here).
   const workspaceSources = (workspaceId = null) => {
@@ -4954,7 +4985,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     workspaceBindRoom, workspaceByRoom, workspaceSetSync,
     // folders — the source explorer's Drive (workspace-scoped tree; sources carry folderId)
     folderNew, folderRename, folderMove, folderDelete, folderById, folderPath,
-    workspaceFolders, workspaceSources, sourceMove,
+    workspaceFolders, workspaceSources, sourceMove, sourceStar, sourceTouch, sourceAddToTopic,
     // ingest
     ingestUrl, ingestText, ingestFile, search, recordHit, webSearchAdmit, fetchPage, navigatePage,
     // the library shelf — search ONE shelf on its own surface (article/book/media/code), and the
