@@ -30,6 +30,7 @@ export const GRAINS = Object.freeze({
   PREDICATION: 'predication',  // correspondence: does the source hold the relation?      (enactor/factcheck/correspond.js)
   REFERENT:    'referent',     // reference: is this mention the same referent as the anchor? (perceiver/referent.js)
   FIELD:       'field',        // void: what kind of absence is this?                     (enactor/answer/void.js)
+  INTAKE:      'intake',       // collapse: does this open-web span earn custody in the log? (organs/in/web.js)
 });
 
 const VERDICT_SET = new Set(Object.values(VERDICTS));

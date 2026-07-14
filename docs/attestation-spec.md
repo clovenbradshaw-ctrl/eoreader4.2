@@ -132,29 +132,30 @@ capture:
 
 ## 4. Witness
 
-### 4.1 Requesting a capture
+### 4.1 Requesting a capture — the no-key flow (default)
 
-Save Page Now (SPN2), asynchronous, non-blocking:
-
-```
-POST https://web.archive.org/save
-Authorization: LOW <accesskey>:<secret>
-Content-Type: application/x-www-form-urlencoded
-
-url=<url>&capture_all=1&skip_first_archive=0
-→ { "job_id": "spn2-…" }
-```
-
-The job is queued and may take seconds to minutes. **Do not block the crawl on it.** Record the `job_id` and move on — this is exactly the "ping it back later" architecture, and it is correct.
-
-Poll later:
+**No keys needed. Three public GETs.** The S3-key assumption is dropped: the reliable path needs no auth, and is browser-safe (it never reads `/save`'s response headers, which CORS blocks from a tab).
 
 ```
-GET https://web.archive.org/save/status/<job_id>
-→ { "status": "success", "timestamp": "20260714192311", "original_url": "…" }
+1. Fire the save:   GET https://web.archive.org/save/<url>          # triggers a capture; no body, no Authorization
+2. Poll for it:     GET https://archive.org/wayback/available?url=<url>
+                    → { "archived_snapshots": { "closest": { "url": "…", "timestamp": "20260714192311", "status": "200" } } }
+                    # once the fresh capture lands, `closest` is it (timestamp ≈ now); poll until fresh
+3. Get the digest:  GET https://web.archive.org/cdx/search/cdx?url=<url>&output=json&limit=-1
+                    → newest row → digest column (IA's SHA-1 of the payload) — the witness fingerprint
 ```
+
+The capture is queued and may take seconds to minutes. **Do not block the crawl on it** — fire, then poll the Availability API later (the "ping it back later" architecture). Three honesty caveats, all load-bearing:
+
+- **Rate limits are real.** Expect HTTP 429; back off (~one request per page per few minutes is courteous). Affordable only because we archive *collapsed* spans, not the whole frontier (§8). A 429 is *retry-later*, never a failure.
+- **A capture can 200 and still be wrong** (logins, paywalls, JS-loaded content come back partial). So the span-verify (§5) is not optional: fetch the snapshot, confirm the collapsed span text is in it, else flag `WITNESS_INCOMPLETE`.
+- **Tier 2 (§6) does not depend on trusting IA at all** — your own hash + OpenTimestamps stands whatever the witness does.
+
+The keyed **SPN2 job path** (`POST /save` with `Authorization: LOW <accesskey>:<secret>` → `job_id` → `GET /save/status/<job_id>`) still works for a credential holder, but is no longer required.
 
 > **Verify before building:** SPN's auth scheme and rate limits have changed repeatedly. Confirm current limits against archive.org's docs; do not hardcode from this document.
+>
+> **As built:** `attest/wayback.js` mints the request shapes and parsers for both paths; `attest/witness.js`'s queue drives the no-key flow by default (a `{trigger, available, cdx}` client), falling back to the keyed `{save, status}` client when one is supplied.
 
 ### 4.2 Retrieving the capture — the `id_` flag matters
 

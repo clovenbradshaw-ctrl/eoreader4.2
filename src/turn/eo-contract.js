@@ -17,6 +17,7 @@ export const CONTRACTS = Object.freeze({
   'src/turn/index.js': contract({ ops: ['SYN', 'EVA', 'DEF'], targets: ['Network', 'Field', 'Lens'], products: ['Network', 'Entity', 'Lens'], stances: ['Composing', 'Binding', 'Dissecting'], note: 'barrel' }),
   'src/turn/intent.js': contract({ ops: ['EVA', 'DEF', 'REC'], targets: ['Field', 'Kind'], products: ['Kind', 'Paradigm'], stances: ['Tracing', 'Dissecting', 'Composing'], note: 'task register (DEF·EVA·REC)' }),
   'src/turn/judgments.js': contract({ ops: ['DEF', 'SEG'], targets: ['Field', 'Lens'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Clearing'], note: 'route the turn\'s same-vs-other verdicts onto the judgment log as DEFs' }),
+  'src/turn/intake.js': contract({ ops: ['DEF', 'SEG'], targets: ['Lens', 'Network'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Clearing'], note: 'route the web organ\'s intake decisions onto the judgment log (the INTAKE grain)' }),
   'src/turn/meta-route.js': contract({ ops: ['EVA', 'DEF'], targets: ['Atmosphere', 'Field'], products: ['Lens', 'Paradigm'], stances: ['Tracing', 'Dissecting'], note: 'route off metacognition speech' }),
   'src/turn/pipeline.js': contract({ ops: ['SYN', 'CON'], targets: ['Network', 'Field'], products: ['Network', 'Entity'], stances: ['Composing', 'Binding'], note: 'runTurn — the pass composition' }),
   'src/turn/prefetch.js': contract({ ops: ['NUL', 'EVA'], targets: ['Entity'], products: ['Entity'], stances: ['Clearing', 'Tending'], note: 'speculative web prefetch quarantine' }),
