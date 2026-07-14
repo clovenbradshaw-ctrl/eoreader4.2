@@ -12,6 +12,7 @@
 
 import { parseText } from '../../perceiver/parse/index.js';
 import { disagree, sourcesDisagree } from './disagreement.js';
+import { detectShifts } from './shifts.js';
 
 // The engine's own characterizations of `term` in a parsed doc: the copular/appositive DEFs the
 // perceiver already extracted (perceiver/parse/relations.js → op DEF, key 'predicate'), resolved
@@ -40,6 +41,29 @@ export const disagreeOverSources = (sources, term, { parse = parseText } = {}) =
   return { ...model, disagree: sourcesDisagree(model) };
 };
 
+// A source's date for the corpus timeline (shifts.js). Prefer a publication/posted date the parser
+// harvested from the document's own front matter (perceiver/parse/metadata.js canonicalizes
+// "published" / "publication date" / "posted" / "pubdate" → the `date` key), then the caller's
+// explicit date, then when it entered the record. Undated ⇒ '' (excluded from the timeline).
+const docDate = (doc) => {
+  try { return doc && doc.metadata ? (doc.metadata.date || doc.metadata.updated || null) : null; } catch { return null; }
+};
+
+// Live "when the meaning changed" (§4) over a dated corpus. Each source is parsed once — for its
+// engine DEFs (enrichment) and its front-matter date — then the change-point detector runs over the
+// whole timeline. Pure given the injected parser.
+export const shiftsOverSources = (sources, term, { parse = parseText } = {}) => {
+  const dated = (sources || []).map((s) => {
+    let doc = null;
+    try { doc = parse(s.text || '', { docId: s.id }); } catch { doc = null; }
+    const extra = doc ? engineDefs(doc, term) : [];
+    const date = (s.date != null && s.date !== '') ? s.date
+      : (docDate(doc) || s.recordedAt || s.retrieved || '');
+    return { id: s.id, label: s.label || s.id, text: s.text || '', date, extra };
+  });
+  return detectShifts(dated, term);
+};
+
 // ── Reading a live app (window.EO.app). All best-effort and defensive: a missing method or an
 // empty topic degrades to empty, never throws, so the surface can always render something. ──
 
@@ -53,6 +77,7 @@ export const liveSources = (app) => {
     id: String(s.sn ?? s.id ?? s.docId ?? s.title ?? ''),
     label: s.title || s.label || s.url || (s.sn != null ? `source ${s.sn}` : 'source'),
     text: s.text || '',
+    recordedAt: s.recordedAt, retrieved: s.retrieved,   // the timeline axis for shifts (§4)
   })).filter((s) => s.id);
 };
 
@@ -84,5 +109,6 @@ export const liveModel = (app, { parse = parseText } = {}) => {
     sources,
     terms: liveTerms(app),
     disagreeFor: (term) => disagreeOverSources(sources, term, { parse }),
+    shiftsFor: (term) => shiftsOverSources(sources, term, { parse }),
   };
 };

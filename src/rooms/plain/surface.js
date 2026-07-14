@@ -161,6 +161,8 @@ export function mountPlainSurface(root, { scene, live = null } = {}) {
     basis: 'everyone',     // §3 dropdown
     word: 'surveillance',  // which idea the meanings/shifts views are about
     meaningsModel: null,   // a live disagreement model (from project.disagreeFor); null → scene fixture
+    shiftsModel: null,     // a live shift model (from project.shiftsFor); null → scene fixture
+    pickMode: 'meanings',  // in live mode, what the term picker leads to: meanings | shifts
     center: S.GRAPH ? (S.GRAPH.order?.[0] ?? null) : null, // §5 centered node
   };
 
@@ -203,9 +205,10 @@ export function mountPlainSurface(root, { scene, live = null } = {}) {
       render();
     }));
     shell.querySelectorAll('.pl-card').forEach((el) => el.addEventListener('click', () => {
-      // In live mode the disagreement card returns to the term picker (the read pane); the other
-      // cards stay demo. Clearing meaningsModel so a fresh pick recomputes.
-      if (LIVE && el.dataset.view === 'meanings') return go('read', { meaningsModel: null });
+      // In live mode the disagreement and "what changed" cards return to the term picker (the read
+      // pane) in the matching mode; the other cards stay demo. Clear the models so a pick recomputes.
+      if (LIVE && el.dataset.view === 'meanings') return go('read', { pickMode: 'meanings', meaningsModel: null });
+      if (LIVE && el.dataset.view === 'shifts') return go('read', { pickMode: 'shifts', shiftsModel: null });
       go(el.dataset.view);
     }));
     if (LIVE) bindLivePicker();
@@ -217,21 +220,28 @@ export function mountPlainSurface(root, { scene, live = null } = {}) {
     const chips = (LIVE.terms || []).slice(0, 40)
       .map((t) => `<span class="pl-chip" data-term="${esc(t)}">${esc(t)}</span>`).join('')
       || '<span style="color:var(--dim)">No entities read yet — type a word below.</span>';
+    const shiftMode = st.pickMode === 'shifts';
+    const head = shiftMode ? 'When did a word’s meaning change?' : 'What does a word mean to each source?';
+    const lede = shiftMode
+      ? 'Pick a word your sources use over time. If the meaning shifted, you’ll see when.'
+      : 'Pick a word your sources use. If they don’t agree on what it means, you’ll see it.';
+    const cta = shiftMode ? 'Track it over time' : 'Read it across the sources';
     return `
-      <div class="pl-read-h">What does a word mean to each source?</div>
-      <p class="pl-lede">Pick a word your sources use. If they don’t agree on what it means, you’ll see it.</p>
+      <div class="pl-read-h">${esc(head)}</div>
+      <p class="pl-lede">${esc(lede)}</p>
       <div class="pl-chips">${chips}</div>
       <form class="pl-termform"><input class="pl-terminput" type="text" placeholder="…or type any word" />
-        <button type="submit">Read it across the sources</button></form>`;
+        <button type="submit">${esc(cta)}</button></form>`;
   };
   const bindLivePicker = () => {
+    const pick = (t) => (st.pickMode === 'shifts' ? openShifts(t) : openDisagree(t));
     shell.querySelectorAll('.pl-chip').forEach((el) =>
-      el.addEventListener('click', () => openDisagree(el.dataset.term)));
+      el.addEventListener('click', () => pick(el.dataset.term)));
     const form = shell.querySelector('.pl-termform');
     if (form) form.addEventListener('submit', (e) => {
       e.preventDefault();
       const v = shell.querySelector('.pl-terminput').value.trim();
-      if (v) openDisagree(v);
+      if (v) pick(v);
     });
   };
 
@@ -240,6 +250,12 @@ export function mountPlainSurface(root, { scene, live = null } = {}) {
     let model = null;
     try { model = LIVE.disagreeFor(term); } catch { model = null; }
     go('meanings', { meaningsModel: model, word: term, basis: 'everyone' });
+  };
+  // Compute the live corpus-timeline shift for a term and open the §4 view on it.
+  const openShifts = (term) => {
+    let model = null;
+    try { model = LIVE.shiftsFor ? LIVE.shiftsFor(term) : null; } catch { model = null; }
+    go('shifts', { shiftsModel: model, word: term });
   };
 
   // ── The popover: exactly three questions + center. Driven by terrain.questionsFor. ──
@@ -337,26 +353,33 @@ export function mountPlainSurface(root, { scene, live = null } = {}) {
       <p class="pl-lede">${esc(mm.lede)}</p>
       <div class="pl-bars">${bars}</div>
       <div class="pl-select">Read it as: <select>${opts}</select></div>
+      <div class="pl-actions"><span data-toshifts>▸ When did people change their minds about this?</span></div>
     </div></div>`;
     bindBack();
     const sel = shell.querySelector('select');
     if (sel) sel.addEventListener('change', (e) => { st.basis = e.target.value; render(); });
+    const ts = shell.querySelector('[data-toshifts]');
+    if (ts) ts.addEventListener('click', () => {
+      if (LIVE) return openShifts(st.word);
+      go('shifts', { shiftsModel: null, word: st.word });
+    });
   };
 
-  // ── §4 · When people changed their minds — a REC scan, one sentence each. ──
+  // ── §4 · When people changed their minds — a REC scan over corpus time. A LIVE model (from
+  // project.shiftsFor, the real change-point detector) when one is set, else the scene fixture. ──
   const renderShifts = () => {
-    const sc = S.SHIFTS[st.word] || Object.values(S.SHIFTS)[0];
-    const steps = sc.marks.map((m) => {
+    const sc = st.shiftsModel || S.SHIFTS[st.word] || Object.values(S.SHIFTS)[0];
+    const steps = (sc.marks || []).map((m) => {
       const dot = m.kind === 'break' ? '◉' : '●';
       const brk = m.note ? `<span class="brk">← ${esc(m.note)}</span>` : '';
       return `<div class="pl-tstep ${m.kind}"><span class="dot">${dot}</span>
         <div class="when">${esc(m.when)}${brk}</div><div class="txt">${esc(m.text)}</div></div>`;
-    }).join('');
-    const firstBreak = sc.marks.find((m) => m.kind === 'break');
+    }).join('') || '<p class="pl-lede">No dated sources use this word — nothing to track over time.</p>';
+    const firstBreak = (sc.marks || []).find((m) => m.kind === 'break');
     shell.innerHTML = `<div class="pl-col" style="overflow:auto"><div class="pl-view">
       ${backBar()}
-      <div class="pl-h1">When people changed their minds about “${esc(sc.word)}”</div>
-      <p class="pl-lede">${esc(sc.lede)}</p>
+      <div class="pl-h1">When people changed their minds about “${esc(sc.word || st.word)}”</div>
+      <p class="pl-lede">${esc(sc.lede || '')}</p>
       <div class="pl-tl">${steps}</div>
       <div class="pl-actions">
         ${firstBreak ? `<span data-read>▸ Read what happened in ${esc(firstBreak.when)}</span>` : ''}

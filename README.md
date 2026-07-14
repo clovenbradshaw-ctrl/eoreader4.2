@@ -136,6 +136,17 @@ across three genres — **non-fiction** (a civic procurement, "surveillance"), *
 "the monster"), and **academic papers** (one word, three disciplines, "power") — in
 `tests/plain-disagreement.test.js`, with the engine path pinned end-to-end in `tests/plain-project.test.js`.
 
+The ✱ card — **"When people changed their minds"** (§4) — is REC over corpus time, and it is real too
+(`src/rooms/plain/shifts.js`). The move: a *paradigm* is the meaning a term is predominantly read under,
+so a paradigm **shift** is a change-point in that dominant meaning along a **dated** corpus. The detector
+reads each source's dominant sense (the same DEF sweep), places it in time (a publication date from the
+document's front matter, else when it entered the record), collapses equal senses into runs, smooths a
+lone contrarian source, and reports every run boundary as a break — "before *D* it meant *A*; after, *B*."
+Each break is emitted as a real **REC** event (`recEvents`), the way `equivalence.js` records its merges
+as SYN/NUL, so the shift is auditable in the engine's own grammar. Tested over dated corpora in all three
+genres — non-fiction ("surveillance": tool → capability → procurement), academic ("atom": particle →
+nucleus → cloud), and fiction ("the creature": monster → wretch) — in `tests/plain-shifts.test.js`.
+
 ## Replay — watching something get read
 
 Open **`replay.html`** (`npm run serve`) for a surface built on one rule: **no ingest organ

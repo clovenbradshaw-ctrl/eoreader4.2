@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { parseText } from '../src/perceiver/parse/index.js';
-import { engineDefs, disagreeOverSources } from '../src/rooms/plain/project.js';
+import { engineDefs, disagreeOverSources, shiftsOverSources } from '../src/rooms/plain/project.js';
 import { readAs } from '../src/rooms/plain/select.js';
 
 const top = (model, basis) =>
@@ -31,6 +31,22 @@ test('the real engine + surface sweep agree the sources disagree', () => {
   assert.equal(model.disagree, true);
   assert.equal(top(model, 'budget'), 'item');
   assert.equal(top(model, 'court'), 'thing');
+});
+
+test('the timeline detector runs over the real engine and dates from the source record', () => {
+  // the real live path: sources carry recordedAt (epoch ms), the way window.EO.app records them
+  const sources = [
+    { id: 'a', recordedAt: Date.UTC(2023, 4, 1), text: 'Surveillance is a tool. Surveillance is a tool.' },
+    { id: 'b', recordedAt: Date.UTC(2024, 1, 1), text: 'Surveillance is a tool.' },
+    { id: 'c', recordedAt: Date.UTC(2025, 8, 1), text: 'Surveillance is a capability. Surveillance is a capability.' },
+    { id: 'd', recordedAt: Date.UTC(2025, 10, 1), text: 'Surveillance is a capability.' },
+  ];
+  const m = shiftsOverSources(sources, 'surveillance', { parse: parseText });
+  assert.equal(m.shifted, true);
+  const b = m.marks.find((x) => x.kind === 'break');
+  assert.equal(b.from.sense, 'tool');
+  assert.equal(b.to.sense, 'capability');
+  assert.equal(b.when, 'Sep 2025');
 });
 
 test('the pipeline never throws on empty or termless sources', () => {
