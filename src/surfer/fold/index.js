@@ -56,6 +56,11 @@ export { auditMonologue, auditLog, firewallAudit, reportAudit } from './audit.js
 // without laundering (docs/monologue-significance.md).
 export { weaveSignificance, inferSignificance, inferFoldSignificance, buildSignificanceEdge, readSignificance, SIGNIFICANCE } from './significance.js';
 
+// Dispatch (fold/dispatch.js): parse a surf of the graph into discrete pattern-quests — the head of
+// the synthesis pipeline. Model-free by default (the quest count falls out of the born spectrum);
+// the DEF→EVA→REC loop reaches for the local model ONLY when the geometry can't discretize the surf.
+export { dispatch, discretize, findable, pullApart } from './dispatch.js';
+
 // Weave (fold/weave.js): loops on loops. Metacognition — the reflection ABOUT the reflections
 // (loop 2) — and cross-connections — CON bonds between held interpretations (echo · bears-on ·
 // analogy). Both reafferent, band void, canWitness false: the firewall holds at every level.

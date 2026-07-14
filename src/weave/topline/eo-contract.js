@@ -7,6 +7,7 @@ import { contract } from '../../core/contract.js';
 export const CONTRACTS = Object.freeze({
   'src/weave/topline/index.js': contract({ ops: ['SYN', 'EVA', 'SEG', 'NUL'], targets: ['Network', 'Link', 'Field'], products: ['Field', 'Lens', 'Void'], stances: ['Composing', 'Binding', 'Clearing'], note: 'barrel' }),
   'src/weave/topline/contain.js': contract({ ops: ['EVA', 'SEG'], targets: ['Field', 'Link'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'the set-containment safety gate' }),
+  'src/weave/topline/surface.js': contract({ ops: ['EVA', 'SEG', 'SYN'], targets: ['Field', 'Link', 'Lens'], products: ['Lens', 'Void'], stances: ['Binding', 'Dissecting', 'Composing'], note: 'the form surface — the summarizer contract and its verifier' }),
   'src/weave/topline/inventory.js': contract({ ops: ['SEG', 'CON', 'NUL'], targets: ['Network', 'Link', 'Field'], products: ['Lens', 'Void'], stances: ['Dissecting', 'Binding', 'Clearing'], note: 'the closed, ordered inventory' }),
   'src/weave/topline/adapt.js': contract({ ops: ['SEG', 'CON'], targets: ['Network', 'Link'], products: ['Network'], stances: ['Dissecting', 'Binding'], note: 'profile → closed inventory' }),
   'src/weave/topline/phrase.js': contract({ ops: ['INS', 'DEF', 'EVA'], targets: ['Entity', 'Lens'], products: ['Entity', 'Lens'], stances: ['Making', 'Binding'], note: 'pass one — one object, one sentence' }),
