@@ -32,13 +32,24 @@ export const gutenbergTextUrl = (id) => `https://www.gutenberg.org/cache/epub/${
 // pickTextFormat(formats) → the URL of the book's PLAIN-TEXT rendition, or null. Prefer an
 // explicit utf-8 text/plain, then any text/plain that is not a zip archive (the proxy returns
 // bodies as text, so a .zip would arrive as mojibake, not a book).
+//
+// CRUCIALLY it must NOT return the catalog's usual text/plain URL — `/ebooks/{id}.txt.utf-8`
+// (or `.txt`). That is a REDIRECT endpoint whose Location header PG serves malformed
+// (`…/https,%20http://www.gutenberg.org/cache/epub/{id}/pg{id}.txt`), so a client that follows
+// it lands on a 404 HTML error page, not the book. Admitting that page is the "landing page,
+// not the .txt" bug: `stripGutenbergBoilerplate` finds no PG markers, returns the HTML, and the
+// reader parses site chrome (Search / Donate / DOCTYPE) instead of the novel. So we keep only
+// DIRECT file URLs (`/files/…`, `/cache/epub/…`); when the catalog offers only the redirect
+// form, we return null and the caller falls back to the canonical cache text URL
+// (`gutenbergTextUrl`), which is stable and already UTF-8.
 export const pickTextFormat = (formats = {}) => {
-  const entries = Object.entries(formats || {});
-  const textish = entries.filter(([mime, url]) =>
-    /^text\/plain/i.test(mime) && !/\.zip($|\?)/i.test(String(url || '')));
-  if (!textish.length) return null;
-  const utf8 = textish.find(([mime]) => /utf-?8/i.test(mime));
-  return (utf8 || textish[0])[1];
+  const direct = Object.entries(formats || {}).filter(([mime, url]) => {
+    const u = String(url || '');
+    return /^text\/plain/i.test(mime) && !/\.zip($|\?)/i.test(u) && !/\/ebooks\/\d+\.txt\b/i.test(u);
+  });
+  if (!direct.length) return null;
+  const utf8 = direct.find(([mime]) => /utf-?8/i.test(mime));
+  return (utf8 || direct[0])[1];
 };
 
 // parseGutendex(json, k) → catalog hits as search items. `text` is the catalog's own summary
@@ -103,15 +114,35 @@ export const GUTENBERG_SOURCES = {
     parseGutendex((await ctx.fetchUrl(gutendexSearchUrl(query))).text, k),
 };
 
+// looksLikeBook(text) → does the boilerplate-stripped body read as an actual ebook, or as the
+// HTML error/landing page PG's malformed .txt redirect lands on? A real book opens on its front
+// matter or prose; an error page opens on an HTML tag. Cheap, structural — the guard that lets
+// the full-text hook fall back to the canonical .txt when the catalog URL misbehaves.
+export const looksLikeBook = (text) => {
+  const t = String(text || '').replace(/^﻿/, '').trimStart();
+  if (t.length < 200) return false;                                  // too short to be a book body
+  if (/^<(?:!doctype|html|head|body|div|meta|title)\b/i.test(t)) return false;   // an HTML page, not a .txt
+  return true;
+};
+
 // The FULL-TEXT hook (webfetch.js FULL_TEXT shape): under fetchPages, a gutenberg item's page
 // fetch is the ENTIRE BOOK — pulled from its plain-text URL through the proxy, boilerplate
 // stripped, front matter kept. This is "read entire books as needed": the research walk asked
-// for pages, and for this source a page IS a book.
+// for pages, and for this source a page IS a book. The canonical cache `.txt` is the reliable
+// source, so if the catalog's own text URL resolves to something that is NOT a book (PG's
+// malformed .txt redirect), we re-read the canonical cache URL rather than admit a landing page.
 export const GUTENBERG_FULLTEXT = {
   gutenberg: async (client, item) => {
-    const url = item?.textUrl || (item?.gutenbergId ? gutenbergTextUrl(item.gutenbergId) : null);
-    if (!url) return '';
-    return stripGutenbergBoilerplate((await client.fetchUrl(url)).text);
+    const id = item?.gutenbergId ?? gutenbergIdOf(item?.url) ?? gutenbergIdOf(item?.textUrl);
+    const canonical = id != null ? gutenbergTextUrl(id) : null;
+    const first = item?.textUrl || canonical;
+    if (!first) return '';
+    const read = async (u) => stripGutenbergBoilerplate((await client.fetchUrl(u)).text);
+    let text = await read(first);
+    if (canonical && first !== canonical && !looksLikeBook(text)) {
+      try { text = await read(canonical); } catch { /* keep what the first URL gave */ }
+    }
+    return text;
   },
 };
 
