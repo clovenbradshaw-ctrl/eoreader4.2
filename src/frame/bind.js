@@ -31,7 +31,7 @@
 // silent. The control is one measurement over logged objects, so it can neither
 // out-vote itself nor fail to halt.
 
-import { relax } from '../weave/longgen/relax.js';
+import { relax } from '../weave/longgen/index.js';
 import { MAX_DEPTH, MAX_FANOUT } from './constants.js';
 
 // The verdict vocabulary. `hold` is the abstention (NUL — nothing cleared, the

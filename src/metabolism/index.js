@@ -332,3 +332,6 @@ export { createProposer, buildProposeMessages, mutationSurface, validateProposal
 export { buildAudit, auditToJSON, auditToMarkdown } from './audit.js';
 export { createSanctionLadder, controlledDeath, RUNGS } from './sanction.js';
 export { createHomeostat } from './homeostat.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { createResearchAnswerer } from './answerer.js';

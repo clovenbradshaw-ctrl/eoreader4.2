@@ -32,7 +32,7 @@
 // the cause of the break, not whatever figures were merely in view — the cheap path
 // got this; the meaning path, the one that matters, had been left without it.
 
-import { buildClauses } from '../../perceiver/parse/clause-layer.js';
+import { buildClauses } from '../../perceiver/parse/index.js';
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 

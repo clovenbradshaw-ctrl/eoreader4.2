@@ -26,7 +26,7 @@
 // when it is not — bounded by relevance, not by a window.
 
 import { tok } from '../perceiver/parse/index.js';
-import { surpriseAt } from '../core/surprise.js';
+import { surpriseAt } from '../core/index.js';
 
 // threadBasis({ query, history, cast, doc }) → the activated thread, in TWO channels:
 //   terms    a sparse term vector (Map<term, weight>) — the prompt weighted fullest, the

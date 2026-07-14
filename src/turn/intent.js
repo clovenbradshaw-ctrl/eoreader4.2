@@ -61,9 +61,9 @@
 
 import { terrainOf } from '../core/index.js';
 import { tok } from '../perceiver/parse/index.js';
-import { bornSalience } from '../surfer/salience.js';
-import { deriveNull } from '../core/voidnull.js';
-import { relax } from '../weave/longgen/relax.js';
+import { bornSalience } from '../surfer/index.js';
+import { deriveNull } from '../core/index.js';
+import { relax } from '../weave/longgen/index.js';
 
 export const TASK_MAX_TOKENS = Object.freeze({
   summary: 512,

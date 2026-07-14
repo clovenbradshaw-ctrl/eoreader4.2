@@ -15,7 +15,7 @@
 // IS the fold order (when a module is judged, everything it stands on is already
 // judged). Pure functions over parsed tuples; no imports beyond the genome.
 
-import { HELIX } from '../../core/contract.js';
+import { HELIX } from '../../core/index.js';
 export { HELIX };
 
 // the helix rank of an operator — the position in the one surviving order of 1,296.

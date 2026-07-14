@@ -28,10 +28,10 @@
 // SIG). So a body that grows a reasoning organ it does not feed will atrophy it under a lean
 // season, exactly as a costly trait with no fitness payoff is selected out.
 
-import { contract, notateContract } from '../core/contract.js';
-import { cellOf } from '../core/cube.js';
-import { OPERATORS } from '../core/operators.js';
-import { holonId, joinHolon, parseHolon } from '../core/holon.js';
+import { contract, notateContract } from '../core/index.js';
+import { cellOf } from '../core/index.js';
+import { OPERATORS } from '../core/index.js';
+import { holonId, joinHolon, parseHolon } from '../core/index.js';
 import { wellFormedOrgan } from './constitution.js';
 
 // UPKEEP_BY_OP — energy per turn to keep an organ firing a given operator alive. Grounded in

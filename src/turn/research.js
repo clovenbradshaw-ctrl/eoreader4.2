@@ -24,8 +24,8 @@
 // page text into the surprise basis, the best-first frontier, the curiosity floor, and the hop
 // trace are all testable with a fake search and a hand-advanced budget — no model, no network.
 
-import { surpriseAt } from '../core/surprise.js';
-import { bornSalience } from '../surfer/salience.js';
+import { surpriseAt } from '../core/index.js';
+import { bornSalience } from '../surfer/index.js';
 import { chooseSense, biasTopic, sharpenSeed } from './disambiguate.js';
 import { makeArchive } from './archive.js';
 import { normalizeQuery } from './prefetch.js';

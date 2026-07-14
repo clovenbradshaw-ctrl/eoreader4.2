@@ -128,6 +128,29 @@ test('the membrane is exemplary — rooms/reader/boot.js imports only entrances'
     `the surface↔engine membrane reached inside a holon:\n  ${pierced.join('\n  ')}`);
 });
 
+test('the surfaces import only entrances — no HTML reaches inside a holon', () => {
+  // "The surface never imports engine internals" (README). index.html goes
+  // through the ONE membrane (boot.js); the auxiliary surfaces (evolution,
+  // plain, render, replay) import engine modules directly — those imports must
+  // land on holon entrances, exactly like any other outsider.
+  const pierced = [];
+  for (const name of readdirSync(ROOT)) {
+    if (!name.endsWith('.html')) continue;
+    const text = readFileSync(path.join(ROOT, name), 'utf8');
+    let m;
+    const re = /from\s+['"](\.\/src\/[^'"]+)['"]/g;
+    while ((m = re.exec(text))) {
+      const target = path.resolve(ROOT, m[1]);
+      if (!existsSync(target) || !statSync(target).isFile()) { pierced.push(`${name} → ${m[1]} (missing)`); continue; }
+      const toHolon = holonOf(target);
+      if (path.resolve(target) !== path.resolve(path.join(toHolon, 'index.js')))
+        pierced.push(`${name} → ${path.relative(ROOT, target)}`);
+    }
+  }
+  assert.equal(pierced.length, 0,
+    `a surface reached inside a holon:\n  ${pierced.join('\n  ')}`);
+});
+
 test('the seam census is reported', () => {
   console.log(`  boundary seams: ${crossings.length} declared deep imports · registry may only shrink`);
   assert.ok(SEAMS.length >= crossings.length - 0, 'registry covers the census');

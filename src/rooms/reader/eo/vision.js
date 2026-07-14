@@ -18,7 +18,7 @@
 // themselves are cached separately by Transformers.js; this cache short-circuits even
 // loading them.)
 
-import { createRawStore } from '../../../organs/ingest/opfs-store.js';
+import { createRawStore } from '../../../organs/ingest/index.js';
 
 const TRANSFORMERS_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/+esm';
 const MODEL_ID  = 'onnx-community/Florence-2-base-ft';

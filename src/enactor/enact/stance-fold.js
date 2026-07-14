@@ -4,4 +4,4 @@
 // into itself (the one-way dependency the enact holon keeps). This is a re-export shim
 // so existing import paths (tests, probes, enact/index.js) keep resolving.
 
-export { stanceFold, createStance } from '../../core/enacted/stance.js';
+export { stanceFold, createStance } from '../../core/enacted/index.js';

@@ -10,7 +10,7 @@
 // is loss-free: a rehydrated log folds (projectGraph) byte-identically to the
 // original — that equivalence is the contract the tests pin.
 
-import { createLog } from '../core/log.js';
+import { createLog } from '../core/index.js';
 import { EventStore } from './event-store.js';
 import { vault as defaultVault } from './vault.js';
 

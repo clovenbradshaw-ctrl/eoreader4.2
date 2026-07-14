@@ -19,8 +19,8 @@
 // (surface.js) reads it to draw the popover; tests/plain-terrain.test.js pins that the
 // three questions of a kind are EXACTLY the three operators of its domain — the §9 claim.
 
-import { OPERATORS, operatorsByDomain } from '../../core/operators.js';
-import { terrainInfo } from '../../core/cube.js';
+import { OPERATORS, operatorsByDomain } from '../../core/index.js';
+import { terrainInfo } from '../../core/index.js';
 
 // ── The three kinds of thing a person can click, and the one terrain each already is. ──
 // name → Entity, connection → Link, idea → Lens. Everything else is derived: the domain

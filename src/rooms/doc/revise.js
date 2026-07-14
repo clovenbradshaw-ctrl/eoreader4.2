@@ -19,7 +19,7 @@
 // a steering decision.
 
 import { tok, segmentSentences } from '../../perceiver/parse/index.js';
-import { bornSalience } from '../../surfer/salience.js';
+import { bornSalience } from '../../surfer/index.js';
 import { groundText, blockGrounding } from './ground.js';
 
 // A term-count profile of one text, the basis bornSalience projects against

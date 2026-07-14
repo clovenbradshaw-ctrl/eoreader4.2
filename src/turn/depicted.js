@@ -9,8 +9,8 @@
 // depicted in the text. Masked out here, before any grammar is fit or scored, so a
 // fitted shape is structurally incapable of carrying a judgment: its alphabet has no
 // column for one.
-import { parseText } from '../perceiver/parse/pipeline.js';
-import { buildMoveLog, MOVE_ALPHABET } from '../perceiver/predict/movelog.js';
+import { parseText } from '../perceiver/parse/index.js';
+import { buildMoveLog, MOVE_ALPHABET } from '../perceiver/predict/index.js';
 
 export const ENACTED_MASK = new Set(['DEF', 'EVA', 'REC']);
 export const DEPICTED_ALPHABET = MOVE_ALPHABET.filter((op) => !ENACTED_MASK.has(op));

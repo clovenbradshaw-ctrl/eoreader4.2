@@ -358,3 +358,6 @@ export const createChatRoom = ({
 // The chat surface mounts, re-exported so the entrance covers the whole membrane
 // (holon law: outside the boundary, only index.js is visible).
 export { mountChat, mountChatLauncher } from './mount.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { createOpfsStore } from './opfs-store.js';

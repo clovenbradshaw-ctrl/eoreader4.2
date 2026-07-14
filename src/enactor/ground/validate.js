@@ -25,8 +25,8 @@
 // partition (`embeddingAssessment`), degrading to the lexical basis offline. Model-INJECTED —
 // it never imports a backend, so a test passes a stub and the app the live talker.
 
-import { frameMassPartition } from '../../weave/chorus/born.js';
-import { speak } from '../../model/speak.js';
+import { frameMassPartition } from '../../weave/chorus/index.js';
+import { speak } from '../../model/index.js';
 
 export const SYSTEM_ASSESS = `You are reviewing a draft answer before it is shown to someone. You will see the exact lines a reader found in a source, the question that was asked, and a draft answer built from those lines. Say honestly what you make of the draft as an answer to that question, given only those lines: is it a good, well-supported answer, or not? Judge whether the lines actually back it up — ignore style. Answer plainly, in a sentence or two.`;
 

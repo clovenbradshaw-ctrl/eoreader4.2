@@ -38,3 +38,7 @@ import './webllm.js';
 import './anthropic.js';
 import './openai-local.js';
 import './coders.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { explainReach, probeOrigins } from './reach.js';
+export { CAPABILITY_CUE, GROUNDING_CUE, LIBRARIAN_CUE, buildCursorMessages } from './prompt.js';

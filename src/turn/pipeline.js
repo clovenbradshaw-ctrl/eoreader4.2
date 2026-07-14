@@ -15,14 +15,14 @@
 
 import { stages } from './stages.js';
 import { stageFace } from './stage-faces.js';
-import { createJudgmentLog } from '../core/def.js';
+import { createJudgmentLog } from '../core/index.js';
 import { proposeWebSearch } from './propose.js';
 import { createCompositeDoc } from '../organs/in/index.js';
 import { siteTerrainAt } from '../surfer/index.js';
 import { assembleBrief } from '../weave/write/index.js';
-import { reflectAnswer } from '../enactor/ground/reflect.js';
-import { senseReturn, commitVoice } from '../enactor/selfline.js';
-import { describeModel } from '../model/interface.js';
+import { reflectAnswer } from '../enactor/ground/index.js';
+import { senseReturn, commitVoice } from '../enactor/index.js';
+import { describeModel } from '../model/index.js';
 
 // The documents a turn's citations actually drew on. For a composite (several selected
 // documents folded into one), map each cited sentence index back through the provenance

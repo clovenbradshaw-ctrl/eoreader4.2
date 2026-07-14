@@ -105,3 +105,7 @@ export { createConventions } from './conventions/index.js';
 export { COGNITION, COGNITION_ORDER, facultyOfOperator, facultyOf } from './cognition.js';
 export { FACES, facesOf, notate, notateHolon, cellAt, cellsOf, siteStanceAt } from './faces.js';
 export { holonId, parseHolon, holonLevels, depthOf, parentOf, leafOf, joinHolon, containsHolon } from './holon.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { STANCE_NAMES, TERRAIN_NAMES, contract, isContract, notateContract, DESERT_CELL, HELIX } from './contract.js';
+export { supersedeEntries, costOfSuperseding, standing, statusOf, unsettledRefs } from './supersede.js';

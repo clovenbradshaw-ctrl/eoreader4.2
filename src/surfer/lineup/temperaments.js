@@ -38,7 +38,7 @@
 // and Significance commits and reframes. The chorus is complete iff it spans all three phases and
 // all three characters.
 
-import { surpriseAt } from '../../core/surprise.js';
+import { surpriseAt } from '../../core/index.js';
 
 // The nine operators, by grid coordinate — the basis every temperament is a mixture over.
 export const OPERATORS = Object.freeze(['NUL', 'SIG', 'INS', 'SEG', 'CON', 'SYN', 'DEF', 'EVA', 'REC']);

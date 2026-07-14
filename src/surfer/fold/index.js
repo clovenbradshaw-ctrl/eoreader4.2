@@ -79,3 +79,6 @@ export {
   MODE_OF, FATE_OF, modeOf, verdictOf, classifyTensions, recEventsOf,
   sayability, routeSubstrate, VERBALIZABLE, NARRATE_ONLY,
 } from './verdict.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { TIME_GRAINS, foldTime } from './time-axis.js';

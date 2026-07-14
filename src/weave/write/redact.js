@@ -32,7 +32,7 @@
 // residual risk to disclose, not defeat. See docs/llm-prosification-security.md.
 
 import { rdfRealizationPrompt } from './rdf.js';
-import { emitEot } from '../../organs/ingest/eot-emit.js';
+import { emitEot } from '../../organs/ingest/index.js';
 
 // ── tokens ───────────────────────────────────────────────────────────────────
 // Opaque, per-referent, stable within a turn. Chosen to be RDF-QName-safe (alnum, so

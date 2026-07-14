@@ -26,8 +26,8 @@
 // safety is a property of the VERIFIER, not the model — so this holon IS the verifier, and the
 // model is the easy part.
 
-import { contract, notateContract } from '../../core/contract.js';
-import { describeModel } from '../../model/interface.js';
+import { contract, notateContract } from '../../core/index.js';
+import { describeModel } from '../../model/index.js';
 import { contentTokens, addedBy } from './contain.js';
 
 // ── the contract of the part being verified ─────────────────────────────────────────────────

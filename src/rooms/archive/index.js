@@ -15,3 +15,6 @@ export { createRoomVault } from './room-vault.js';
 export { createSpaceSync } from './space-sync.js';
 export { mountVaultLauncher } from './vault-mount.js';
 export { spanFragment, spanAnchor, resolveArchivePin, pinPayload, locateSpan } from './pin.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { sha256Hex } from './file-crypto.js';

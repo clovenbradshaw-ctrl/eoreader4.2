@@ -11,7 +11,7 @@
 
 import { spanAnchor } from '../archive/index.js';
 import { describeEvent, coverageSummary, coverageNote } from './live.js';
-import { OPERATORS } from '../../core/operators.js';
+import { OPERATORS } from '../../core/index.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 

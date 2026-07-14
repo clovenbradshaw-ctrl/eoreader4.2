@@ -23,7 +23,7 @@
 // Pure scoring (pickReferent and every helper) is offline and unit-testable; only
 // wikiReferent touches the network, through the injected client.
 
-import { wikiPageUrlOn } from '../../organs/ingest/wikimedia.js';
+import { wikiPageUrlOn } from '../../organs/ingest/index.js';
 
 const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
 const stem = (w) => w.replace(/ies$/, 'y').replace(/(ches|shes|sses|xes)$/, (m) => m.slice(0, -2)).replace(/s$/, '');

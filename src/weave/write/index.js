@@ -104,3 +104,8 @@ export { createRule } from './eva.js';
 // relations by thread salience), the turn voiced as a turn under an eva-governed
 // supersession form, and every rendered connective leashed to what the arc actually holds.
 export { arcGravity, speakArc, arcLines, turnWeights, connectiveLeash, supersededBetween, predOf, ARC_CUE } from './gravity.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { toPast } from './morph.js';
+export { buildConceptTokenMap } from './concept-tokens.js';
+export { defaultPantheonBank, defaultSiteBank, defaultStanceBanks, dialMultipliers, mountPersonality, resolveOverlap, stanceFamily } from './voice.js';

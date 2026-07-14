@@ -48,7 +48,7 @@
 //   answer.expr = "double(21)"
 //   !sig answer : exported
 
-import { parseEOT } from '../ingest/eot.js';
+import { parseEOT } from '../ingest/index.js';
 import { tarjanSCC } from './helix.js';
 import { readCodebase } from './read.js';
 import { scrub } from './facts.js';

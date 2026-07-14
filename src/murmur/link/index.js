@@ -14,7 +14,7 @@
 // false. This is the same firewall the live-feel broadcast holds; a candidate is worthless as a
 // fact and perfect as a "look here — this connects."
 
-import { fromEnactor, canWitness } from '../../core/provenance.js';
+import { fromEnactor, canWitness } from '../../core/index.js';
 
 export const CONNECTION_ENACTMENT = 'murmur';
 

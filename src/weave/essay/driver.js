@@ -21,9 +21,9 @@
 // pausing at a checkpoint and resuming (same log back in, optionally with a
 // human-corrected carry) is seamless: the log is the state.
 
-import { bindCitations } from '../../enactor/ground/bind.js';
-import { bindAndVeto } from '../../enactor/ground/section.js';
-import { generateSection, stripUnboundCorrective } from '../arc/generate.js';
+import { bindCitations } from '../../enactor/ground/index.js';
+import { bindAndVeto } from '../../enactor/ground/index.js';
+import { generateSection, stripUnboundCorrective } from '../arc/index.js';
 import {
   planDrafted, sectionEntered, depRelit, spansLit, claimProposed, claimBound,
   candidateVetoed, threadOpened, threadPaid, threadDeferred, spineRevised,
@@ -37,7 +37,7 @@ import { makeProposition, propositionOf, numbersIn, propsConflict } from './prop
 import { renderChart, renderPullquote, renderDivider, validateSurface } from './renderers.js';
 import { projectEssay } from './project.js';
 import { reconcile } from './reconcile.js';
-import { speak } from '../../model/speak.js';
+import { speak } from '../../model/index.js';
 
 export const KNOB_DEFAULTS = Object.freeze({
   candidates: 2,           // N candidate folds per section — two or three; N is a budget

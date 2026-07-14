@@ -19,7 +19,7 @@ restated in a comment is documentation; a law a test can fail is a checkpoint
 | the confabulation guard, live | **holds** | `coherence()` (core/cube.js) is invoked at `enactor/factcheck/correspond.js` inside the turn pipeline — the one doctrine that was already enforced end-to-end, not just stated |
 | the frozen floor | **holds** | `metabolism/constitution.js`: explicit bands, frozen by default, `Object.freeze` throughout; the desert cell is unreachable by evolved organs (`contract()` rejects SYN·Cultivating at runtime in `metabolism/organ.js`) |
 | Law 1: "the kernel checks every event the part emits against its declared contract" | **did not hold — partially repaired** | the merged registry (`core/contracts.js`) is imported by nothing in the running stack; only the test reads it. Runtime enforcement exists only where the metabolism and the coder build contracts for evolved organs. Repair: `tests/op-fidelity.test.js` now proves every literally-emitted `op:` is on the emitter's declared Act face — static, but a real fidelity check where before there was none. 24 modules emitted operators their contracts never declared; 14 were true emissions (contracts corrected to declare them), 10 were descriptions (exempted, each with its reason in the test) |
-| Law 2 / holon law: "no holon imports another's internals — only its index.js" | **did not hold — ratcheted** | 205 imports reached past an entrance, 182 across faculties. Repair: the membrane and the worst structural cases were healed (below), and the 195 that remain are now DECLARED in `src/core/seams.js` and enforced by `tests/boundaries.test.js` — §7.5 applied to the import graph: a crossing is legal when declared; the sin was crossing silently. The registry may only shrink |
+| Law 2 / holon law: "no holon imports another's internals — only its index.js" | **did not hold — fully repaired** | 205 imports reached past an entrance, 182 across faculties. Repair, in two passes: first the membrane and the structural cases were healed and the 195 survivors DECLARED in `src/core/seams.js` (§7.5 applied to the import graph: a crossing is legal when declared; the sin was crossing silently); then every declared seam was healed — routed through its holon's entrance, with the entrance re-exporting what neighbors legitimately need — and its row deleted. The registry now stands EMPTY at zero and `tests/boundaries.test.js` keeps it there: an undeclared deep import fails loudly, in src and in the HTML surfaces alike |
 | "core cannot import anything" | **did not hold — repaired** | `core/conversation-fold.js` imported `frame/` and `perceiver/parse/` — the floor reaching upward. It now lives at `frame/conversation-fold.js` (it projects THROUGH the frame spine; that is where it always belonged), core's entrance no longer re-exports it, and core purity is pinned by a dedicated test |
 | the ONE surface membrane (`rooms/reader/boot.js`) | **did not hold — repaired** | the membrane itself pierced five holons (`perceiver/reading.js`, `enactor/ground/spans.js`, render, plain, chat internals) and `rooms/archive` had no entrance at all. Every membrane import now lands on an entrance (`archive/`, `render/`, `plain/` gained their index.js; chat's entrance now covers its mounts), pinned by a dedicated test |
 | audit: "a pure ring buffer with no transitive imports outside itself" | **did not hold — repaired** | `rooms/audit/eot-terminal.js` imported `core/faces.js`. `notate` is now injected by the caller (`opts.notate`); the audit holon imports nothing outside itself |
@@ -42,12 +42,19 @@ restated in a comment is documentation; a law a test can fail is a checkpoint
    operators their modules actually emit (the hearing that edits itself
    really does fire REC·INS·DEF; the EOT ingester materializes all nine).
    `tests/op-fidelity.test.js` holds the line from here on.
-5. **Declared the seams.** `src/core/seams.js` carries the 195 surviving
-   deep imports, one row each. `tests/boundaries.test.js` proves no
-   undeclared crossing lands, no stale row survives a healed seam, core stays
-   pure, and the membrane stays on entrances. Healing a seam now has a
-   mechanical definition: route it through the entrance, delete the row, and
-   the orphan check makes sure you did.
+5. **Declared the seams, then healed every one.** `src/core/seams.js` first
+   carried the 195 surviving deep imports, one row each; each was then routed
+   through its holon's entrance (the entrances re-exporting, under a
+   `(seam healing)` banner, what their neighbors legitimately need) and its
+   row deleted. The registry now stands empty. Redundant registrations went
+   with it — `model-entry.js` no longer side-effect-imports five backends the
+   model entrance already registers. The auxiliary HTML surfaces (evolution,
+   plain, render, replay) were healed the same way — `replay/` gained its
+   entrance — and `tests/boundaries.test.js` now walks BOTH graphs: no
+   undeclared crossing lands in src or in a surface, no stale row survives,
+   core stays pure, the membrane stays on entrances. A future deep import
+   fails until it is routed through the entrance or deliberately declared,
+   with a reason, in review.
 
 ## The open worklist, honestly
 
@@ -61,6 +68,5 @@ restated in a comment is documentation; a law a test can fail is a checkpoint
 - **The god modules.** 130 files over the line, two of them the size the
   refactor was named for. `rooms/reader/app.js` wants the same treatment
   `engine.js` got in 4.0 — cut along the seams its own sections already draw.
-- **The seam registry.** 195 rows is a worklist, not a trophy. The hot-path
-  seams (retrieve → parse/tokenize, by design) stay; most of the rest are
-  entrance re-exports waiting to happen.
+- ~~**The seam registry.**~~ Done: healed from 195 to zero; the registry is
+  empty and the boundary test keeps it that way.

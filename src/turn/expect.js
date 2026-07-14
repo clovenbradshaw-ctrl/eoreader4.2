@@ -21,7 +21,7 @@
 // chance, abstain where it cannot.
 
 import { namedReferents } from '../perceiver/index.js';
-import { isAbstention } from '../enactor/ground/veto.js';
+import { isAbstention } from '../enactor/ground/index.js';
 
 const norm = (s) => String(s || '').trim();
 

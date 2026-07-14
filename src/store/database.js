@@ -13,7 +13,7 @@
 //   db.buildTable('topic:dolphins', { setName: 'client' });
 //   db.formula('{qty} * {price}', { qty: 3, price: 4 });     // → 12
 
-import { projectGraph } from '../core/project.js';
+import { projectGraph } from '../core/index.js';
 import { vault as defaultVault } from './vault.js';
 import { EventStore } from './event-store.js';
 import { openPersistentLog } from './persistent-log.js';

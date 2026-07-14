@@ -39,13 +39,13 @@ import {
 } from './events.js';
 import { projectReport } from './project.js';
 import { pinPayload, locateSpan } from '../archive/index.js';
-import { admitWebSource } from '../../organs/ingest/websource.js';
-import { fieldVerdict, ANSWERABLE_ALPHA } from '../../surfer/answerable.js';
-import { researchTerms, profileOf, curiosityOf, foldInto, leadsFrom, nextQuery } from '../../turn/research.js';
-import { calibrateReader } from '../../core/enacted/loop.js';
-import { OPERATORS } from '../../core/operators.js';
-import { terrainOf, stanceOf } from '../../core/cube.js';
-import { MAX_FANOUT, MAX_DEPTH } from '../../frame/constants.js';
+import { admitWebSource } from '../../organs/ingest/index.js';
+import { fieldVerdict, ANSWERABLE_ALPHA } from '../../surfer/index.js';
+import { researchTerms, profileOf, curiosityOf, foldInto, leadsFrom, nextQuery } from '../../turn/index.js';
+import { calibrateReader } from '../../core/enacted/index.js';
+import { OPERATORS } from '../../core/index.js';
+import { terrainOf, stanceOf } from '../../core/index.js';
+import { MAX_FANOUT, MAX_DEPTH } from '../../frame/index.js';
 
 // ── The lexical operator reading (the addressing fallback) ──────────────────
 // The cube address of a reported change, read from surface cues. An injected

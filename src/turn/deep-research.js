@@ -35,13 +35,13 @@
 // `search` and `plan`, so the whole flow is offline-testable with a fake search and a fake planner.
 
 import { profileOf, curiosityOf, foldInto, leadsFrom, nextQuery, researchTerms } from './research.js';
-import { bornSalience } from '../surfer/salience.js';
+import { bornSalience } from '../surfer/index.js';
 import { chooseSense, biasTopic, sharpenSeed } from './disambiguate.js';
 import { makeArchive } from './archive.js';
 import { normalizeQuery } from './prefetch.js';
 import { runTurn } from './pipeline.js';
 import { discourseFrame } from './converse/index.js';
-import { speak } from '../model/speak.js';
+import { speak } from '../model/index.js';
 
 // The prose a hop reads from an admitted doc — the parsed full text, falling back to the source's
 // excerpt (a snippet-only result still carries one). Same accessor the single walk uses.

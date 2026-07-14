@@ -17,7 +17,7 @@
 // stand, `snapshotUrl` is simply null. A pin never throws; permanence degrades,
 // provenance does not.
 
-import { webContentHash } from '../../organs/ingest/websource.js';
+import { webContentHash } from '../../organs/ingest/index.js';
 
 const AVAILABLE = 'https://archive.org/wayback/available?url=';
 const SAVE = 'https://web.archive.org/save/';

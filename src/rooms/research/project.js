@@ -17,8 +17,8 @@
 // integrity test pins this).
 
 import { RKIND } from './events.js';
-import { OPERATORS, GRAINS } from '../../core/operators.js';
-import { coherence, terrainOf } from '../../core/cube.js';
+import { OPERATORS, GRAINS } from '../../core/index.js';
+import { coherence, terrainOf } from '../../core/index.js';
 
 const memo = new WeakMap(); // log → Map(cursor → report)
 

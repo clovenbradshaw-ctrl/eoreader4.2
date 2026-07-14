@@ -20,7 +20,7 @@
 // lands a SYN, or on sustained drift — never at a token count. `maxSteps` is a
 // runaway guard.
 
-import { foldConversation } from '../../turn/converse/history.js';
+import { foldConversation } from '../../turn/converse/index.js';
 import { generateSection, stripUnboundCorrective, REBIND_THRESHOLD, groundSaturation } from '../arc/index.js';
 import { bindAndVeto } from '../../enactor/ground/index.js';
 import { predictDirection } from './direction.js';

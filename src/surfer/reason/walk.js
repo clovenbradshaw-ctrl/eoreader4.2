@@ -41,9 +41,9 @@
 // menu; the loop, the firewall, the grade and the termination are model-independent. The reasoning
 // is the walk over the graph, not a draw from a large network.
 
-import { fromPerceiver, fromEnactor, classify, canWitness } from '../../core/provenance.js';
-import { firm, voidRes, mintHash } from '../../core/event.js';
-import { surpriseAt } from '../../core/surprise.js';
+import { fromPerceiver, fromEnactor, classify, canWitness } from '../../core/index.js';
+import { firm, voidRes, mintHash } from '../../core/index.js';
+import { surpriseAt } from '../../core/index.js';
 import { readGraph, IDENTITY, replayState, buildDischarge } from './cursor.js';
 
 // ── The corpus adapter — appearance events through the PERCEIVER door ─────────

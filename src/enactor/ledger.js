@@ -31,7 +31,7 @@
 // Pure data — no I/O here. The reader session persists the serialized ledger beside its
 // topics (rooms/reader/app.js), so the record survives reload.
 
-import { supersedeEntries, costOfSuperseding, standing, statusOf, unsettledRefs } from '../core/supersede.js';
+import { supersedeEntries, costOfSuperseding, standing, statusOf, unsettledRefs } from '../core/index.js';
 
 const MAX_TEXT = 240;
 const trim = (s) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, MAX_TEXT);

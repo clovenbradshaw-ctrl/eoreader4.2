@@ -28,7 +28,7 @@
 // backend honours a signal), and a fragment the token cap cut mid-sentence is
 // dropped BEFORE it is shown — never un-streamed after.
 
-import { retreads } from '../../surfer/salience.js';
+import { retreads } from '../../surfer/index.js';
 
 // The continuation cue — one NEW paragraph forward, or a clean close. A close is the
 // default: left told merely to "continue", a small talker pads the answer to length by

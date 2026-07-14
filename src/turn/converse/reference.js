@@ -29,7 +29,7 @@
 // first follow-up; scoping warmth to the conversation cast is what makes the read
 // robust to a question asked right after the document.
 
-import { parseText } from '../../perceiver/parse/pipeline.js';
+import { parseText } from '../../perceiver/parse/index.js';
 import { namedReferents, figureSurface } from '../../perceiver/index.js';
 import { projectGraph } from '../../core/index.js';
 

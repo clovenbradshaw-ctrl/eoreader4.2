@@ -24,10 +24,10 @@
 // deterministically. A CONTRADICTED relation is never promoted, even to Tier 1's note's exclusion:
 // the note still fires (the reading DID echo), but no CON is written.
 
-import { checkClaim } from '../factcheck/correspond.js';
+import { checkClaim } from '../factcheck/index.js';
 import { VERDICTS, projectGraph } from '../../core/index.js';
-import { canWitness, fromEnactor } from '../../core/provenance.js';
-import { buildReflection } from '../../surfer/fold/deep-reading.js';
+import { canWitness, fromEnactor } from '../../core/index.js';
+import { buildReflection } from '../../surfer/fold/index.js';
 
 export const CONNECT_ENACTMENT = 'murmur-connect';
 const WINDOW = 2;   // sentences either side of a locus counted as "at" it (loci are fold assemblies)

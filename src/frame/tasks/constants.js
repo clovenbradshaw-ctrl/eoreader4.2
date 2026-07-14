@@ -9,4 +9,4 @@
 // fanout cap the tree so a confused decomposer cannot fork forever. A trace that
 // shows one of these firing is a signal worth reading, not a normal stop.
 
-export { MAX_DEPTH, MAX_FANOUT, MAX_NODES } from '../constants.js';
+export { MAX_DEPTH, MAX_FANOUT, MAX_NODES } from '../index.js';

@@ -28,8 +28,8 @@
 // EOT which takes the enactor door. The reading is ground truth about the source, held as
 // what-was-read, not conjecture.
 
-import { eotDoc }              from '../ingest/eot.js';
-import { valueLiteral }       from '../ingest/eot-emit.js';
+import { eotDoc }              from '../ingest/index.js';
+import { valueLiteral }       from '../ingest/index.js';
 import { projectGraph }       from '../../core/index.js';
 
 // ── identifiers → EOT signs ──────────────────────────────────────────────────────

@@ -33,7 +33,7 @@
 import { openEvent, bindEvent } from './events.js';
 import { projectFrameStack } from './project.js';
 import { decideBind } from './bind.js';
-import { tok } from '../perceiver/parse/tokenize.js';
+import { tok } from '../perceiver/parse/index.js';
 import { feltSurprise } from '../core/index.js';
 
 // The compose grammar, kept in sync with app.dc.js's _CV()/_CK(). A creative

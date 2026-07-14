@@ -19,7 +19,7 @@
 // the same log with the same per-unit index. One more jack into the currency costs
 // nothing; a melody grades a genome's gamma exactly the way a novel does.
 
-import { forwardDist, NOVELTY_RESERVE } from '../core/surprise.js';
+import { forwardDist, NOVELTY_RESERVE } from '../core/index.js';
 
 // arrivalsOfDoc — a document's log rendered as the surprise core's arrival sequence:
 // one Map<atom, mass> per unit, in unit order. Atoms are the log's own vocabulary —

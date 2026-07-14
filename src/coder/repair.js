@@ -22,9 +22,9 @@
 // cap is two revisions, and it is the feature, not conservatism — resist raising it.
 
 import { checkpoint } from './checkpoint.js';
-import { contract, isContract } from '../core/contract.js';
-import { OPERATORS } from '../core/operators.js';
-import { terrainOf, stanceOf, grainOfTerrain, grainOfStance } from '../core/cube.js';
+import { contract, isContract } from '../core/index.js';
+import { OPERATORS } from '../core/index.js';
+import { terrainOf, stanceOf, grainOfTerrain, grainOfStance } from '../core/index.js';
 import { CATALOG } from './catalog.js';
 
 const asContract = (c) => (c == null ? null : isContract(c) ? c : contract(c));

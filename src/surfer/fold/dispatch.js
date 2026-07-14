@@ -20,7 +20,7 @@
 // discretization it cannot measure. Reaching for the model is exactly and only where the geometry
 // is missing — which is the discipline the whole design turns on.
 
-import { DEF as spectralReadings } from '../../core/voidnull.js';
+import { DEF as spectralReadings } from '../../core/index.js';
 import { speak } from '../../model/index.js';
 
 // A quest: one discrete pattern-hunt handed to a downstream fold. Frozen; carries its seed (the
