@@ -7,6 +7,9 @@ export { retrieveHybrid, reserveBySource, fuseConcordance, pickRetrievalEmbedder
 export { retrieveStructural, retrieveNetwork, queryTouchesDoc, querySubjectTerms } from './structural.js';
 export { isReferenceChrome, dropReferenceChrome } from './chrome.js';
 export { rrf, rrfScored, RRF_K } from './rrf.js';
+// Embedding relevance — the meaning-space Born score and its significance-vs-background
+// floor, gating which fetched pages are on-topic enough to save or ground (research walk).
+export { cosine, bornScore, significanceFloor, renormAdd } from './relevance.js';
 export {
   formatSpanId, parseSpanId, spanId,
   localSource, wikiSource, webSource, scrapeSource, matrixSource,

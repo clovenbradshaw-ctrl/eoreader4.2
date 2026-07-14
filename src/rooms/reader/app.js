@@ -1354,13 +1354,18 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // stand on; addSource dedupes by content hash and never overwrites, so re-fetching the
   // same page is a no-op on the registry while the doc still rides the turn.
   const webSearchAdmit = async (query, opts = {}) => {
+    // `register: false` — fetch+admit+return the pages for GROUNDING, but do NOT save them as sources.
+    // The multi-hop curiosity walk passes this so a page it fetches while chasing a lead is read, yet
+    // only saved if the walk KEEPS it on topic (via onKeep → saveWalkDoc). Single-shot paths
+    // (verify/corroborate/follow-up) leave it true and save every admitted page, as before.
+    const { register = true, ...searchOpts } = opts;
     // Each fetched+admitted page re-arms the no-progress watchdog: a hop pulling five full pages
     // through the proxy is slow but ALIVE, and without this beat the 45s stall guard was aborting
     // the whole turn mid-walk ("the web lookup stalled"). onAdmit is set AFTER the spread so the
     // stall feed always runs — the caller still tunes k/kind/fetchPages, but can't drop the beat.
     const admitted = await searchAndAdmit(query, {
-      client, k: 5, kind: 'auto', fetchPages: true, ...opts, onAdmit: () => stallGuard?.feed() });
-    for (const a of admitted || []) {
+      client, k: 5, kind: 'auto', fetchPages: true, ...searchOpts, onAdmit: () => stallGuard?.feed() });
+    if (register) for (const a of admitted || []) {
       if (!a?.doc || !a?.record) continue;
       try {
         addSource({
@@ -1371,6 +1376,29 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }
     return admitted || [];
   };
+
+  // saveWalkDoc(doc) — record ONE page the curiosity walk kept on topic. The gated sibling of
+  // webSearchAdmit's eager save: the walk fetches with `register:false` (nothing saved at fetch
+  // time), then hands back each KEPT hop's docs through onKeep, and only those land as sources. So a
+  // strayed namesake page (Louis Armstrong under a Neil Armstrong ask) is read for grounding but
+  // never fills the sidebar. Dedup, persistence and the EoT read are addSource's, unchanged.
+  const saveWalkDoc = (doc) => {
+    if (!doc || !doc.text) return;
+    try {
+      addSource({
+        title: doc.web?.title || doc.title || null,
+        url: doc.web?.url || doc.web?.final_url || null,
+        text: doc.text, kind: 'web', doc,
+        record: doc.web?.content_hash ? { content_hash: doc.web.content_hash, title: doc.web.title, url: doc.web.url } : null,
+      });
+    } catch { /* empty page or dup — the doc still grounded the turn */ }
+  };
+
+  // The meaning embedder for the walk's relevance leash: MiniLM when it is warm, else null (the walk
+  // falls back to the token-space leash, offline-safe). With it, a hop's page is scored for MEANING
+  // against the topic, so a same-surname namesake reads as off-topic despite the shared word — the
+  // Louis-vs-Neil separation the bag-of-words frame could never make (drops the off-topic sources).
+  const walkEmbed = () => (minilm?.isWarm?.() ? (t) => minilm.embed(t) : null);
 
   // ── SEARCH — the sibling of ask() ──────────────────────────────────────────
   // ask() answers a question over the record; searchTopic() does the opposite motion — it GROWS
@@ -2742,6 +2770,12 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         onStep: (name, ctx, data) => { if (turnSignal.aborted) return; turn.guard.feed(); setBusy({ kind: 'turn', label: stageLabel(name) }); foldBeat(pending, name, data); if (name === 'fold') observeMurmur(ctx); releaseOnAnswer(pending, name, ctx); },
       }, {
         search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
+        // The meaning leash: score each hop for MEANING against the topic (the formulated seed query,
+        // enriched by the seed page) so a same-surname namesake strays off the leash, and SAVE only the
+        // pages the walk keeps (onKeep) — never the strayed ones — by fetching with register:false.
+        embed: walkEmbed(),
+        onKeep: (docs) => { for (const d of docs) saveWalkDoc(d); },
+        searchOpts: { kind: 'auto', fetchPages: true, register: false },
         // The thumb: when the subject is a homonym, commit to ONE sense before gathering and search
         // for it, so "dolphins" doesn't fetch a mix of the animal and the football team (disambiguate.js).
         // keepAliveFn: this 220-token decode runs before the first hop's beat — feed the guard while it thinks.
@@ -3096,6 +3130,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
           pending.text = ''; emit('stream');
           const walked = await raceGuard(runTurnWithResearch(args, {
             search: webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
+            // The meaning leash + keep-gated save: score hops for meaning against the topic so a
+            // namesake strays, and record only the pages the walk keeps (never the strayed ones).
+            embed: walkEmbed(),
+            onKeep: (docs) => { for (const d of docs) saveWalkDoc(d); },
+            searchOpts: { kind: 'auto', fetchPages: true, register: false },
             // The thumb: commit to one sense of a homonymous subject before gathering (disambiguate.js).
             // keepAliveFn feeds the guard through this pre-hop decode so a slow model can't false-stall the walk.
             disambiguate: keepAliveFn(modelDisambiguator(m, { history, question: proposal.query, signal: turnSignal })),

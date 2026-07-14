@@ -10,6 +10,7 @@ export const CONTRACTS = Object.freeze({
   'src/surfer/retrieve/index.js': contract({ ops: ['SIG', 'SEG', 'CON', 'DEF'], targets: ['Field', 'Network'], products: ['Field', 'Lens'], stances: ['Tending', 'Dissecting', 'Tracing'], note: 'barrel' }),
   'src/surfer/retrieve/lexical.js': contract({ ops: ['SIG', 'SEG'], targets: ['Field'], products: ['Field'], stances: ['Tending', 'Dissecting'], note: 'forward token-set retrieval' }),
   'src/surfer/retrieve/pin.js': contract({ ops: ['INS', 'SIG'], targets: ['Entity'], products: ['Entity'], stances: ['Making', 'Binding'], note: 'span addressing + pinning (verify on resolve)' }),
+  'src/surfer/retrieve/relevance.js': contract({ ops: ['SIG', 'EVA'], targets: ['Field', 'Lens'], products: ['Field', 'Link'], stances: ['Tending', 'Binding'], note: 'embedding relevance — Born score + significance-vs-background floor' }),
   'src/surfer/retrieve/rrf.js': contract({ ops: ['CON'], targets: ['Network'], products: ['Field'], stances: ['Binding', 'Tracing'], note: 'reciprocal rank fusion' }),
   'src/surfer/retrieve/semantic.js': contract({ ops: ['SIG', 'SEG'], targets: ['Field'], products: ['Field'], stances: ['Tending', 'Dissecting'], note: 'embedding cosine retrieval' }),
   'src/surfer/retrieve/structural.js': contract({ ops: ['SEG', 'SIG', 'DEF'], targets: ['Field', 'Network'], products: ['Field', 'Lens'], stances: ['Unraveling', 'Tracing'], note: 'skeleton + member retrieval' }),
