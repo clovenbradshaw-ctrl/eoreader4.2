@@ -69,6 +69,18 @@ table{border-collapse:collapse;width:100%}
 .eo-chap-h:first-child{margin-top:2px;padding-top:0;border-top:none}
 .eo-chap-h:hover{color:#5B4BE6}
 .eo-chap-h .eo-chap-t{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#A6A6B0;margin-left:9px;vertical-align:middle}
+/* Listen surface — the media panel (player + waveform + stats + transcription) is the hero at the top
+   of the reading; once the reader scrolls into the transcript it FOLDS to a slim, still-scrubbable
+   waveform strip and hands the reclaimed height to the words. A scroll listener on the transcript adds
+   .eo-media-min (with hysteresis, so it doesn't flicker at the seam); the waveform height and the panel
+   padding transition so the fold reads as one motion, and the bars keep their full width so click-to-
+   seek still maps straight onto the timeline. The stats/legend/transcription rows (.eo-media-fold) drop
+   out of flow entirely, so no leftover gap. */
+.eo-media{transition:padding .25s ease}
+.eo-media .eo-wave{transition:height .25s ease,padding .25s ease}
+.eo-media-min{padding-top:8px!important;padding-bottom:8px!important;gap:7px!important}
+.eo-media-min .eo-wave{height:30px!important;padding-top:2px!important;padding-bottom:2px!important}
+.eo-media-min .eo-media-fold{display:none!important}
 .eo-scroll::-webkit-scrollbar{width:11px;height:11px}
 .eo-scroll::-webkit-scrollbar-thumb{background:#dadae1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
 .eo-scroll::-webkit-scrollbar-thumb:hover{background:#c7c7d0;background-clip:content-box}
@@ -1585,7 +1597,7 @@ table{border-collapse:collapse;width:100%}
             <!-- mode: the file itself, its waveform tinted by the signal/noise holons, the basic -->
             <!-- analysis, and the live transcription status. -->
             <sc-if value="{{ viewer.media.show }}">
-              <div class="eo-scroll" style="flex:0 0 auto;max-height:44%;overflow-y:auto;background:#fff;border-bottom:1px solid #EAEAEF;padding:13px 18px;display:flex;flex-direction:column;gap:11px">
+              <div class="eo-scroll eo-media {{ mediaMinClass }}" style="flex:0 0 auto;max-height:44%;overflow-y:auto;background:#fff;border-bottom:1px solid #EAEAEF;padding:13px 18px;display:flex;flex-direction:column;gap:11px">
                 <sc-if value="{{ viewer.media.showVideo }}">
                   <video ref="{{ setListenAudio }}" controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;max-height:260px;border-radius:9px;background:#000;display:block"></video>
                 </sc-if>
@@ -1594,26 +1606,26 @@ table{border-collapse:collapse;width:100%}
                 </sc-if>
                 <sc-if value="{{ viewer.media.hasWave }}">
                   <div>
-                    <div onClick="{{ seekFromWave }}" title="Click to jump the player here" style="display:flex;align-items:center;gap:1px;height:62px;padding:7px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden;cursor:pointer">
+                    <div class="eo-wave" onClick="{{ seekFromWave }}" title="Click to jump the player here" style="display:flex;align-items:center;gap:1px;height:62px;padding:7px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden;cursor:pointer">
                       <sc-for list="{{ viewer.media.bars }}" as="b">
                         <div style="flex:1 1 0;min-width:1px;height:{{ b.hPct }}%;background:{{ b.bg }};border-radius:1px"></div>
                       </sc-for>
                     </div>
-                    <div style="display:flex;align-items:center;gap:12px;margin-top:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">
+                    <div class="eo-media-fold" style="display:flex;align-items:center;gap:12px;margin-top:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">
                       <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#6D5EF5;display:inline-block"></span>signal</span>
                       <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#C9CBD6;display:inline-block"></span>noise / silence</span>
                     </div>
                   </div>
                 </sc-if>
                 <sc-if value="{{ viewer.media.hasStats }}">
-                  <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <div class="eo-media-fold" style="display:flex;flex-wrap:wrap;gap:6px">
                     <sc-for list="{{ viewer.media.stats }}" as="st">
                       <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 8px"><b style="color:#8A8A95;font-weight:600">{{ st.label }}</b>&nbsp;{{ st.val }}</span>
                     </sc-for>
                   </div>
                 </sc-if>
                 <sc-if value="{{ viewer.media.asrShow }}">
-                  <div style="display:flex;flex-direction:column;gap:6px;background:{{ viewer.media.asrBg }};border-radius:8px;padding:9px 12px">
+                  <div class="eo-media-fold" style="display:flex;flex-direction:column;gap:6px;background:{{ viewer.media.asrBg }};border-radius:8px;padding:9px 12px">
                     <div style="display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600;color:{{ viewer.media.asrTone }}">
                       <sc-if value="{{ viewer.media.asrBusy }}"><span style="width:13px;height:13px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span></sc-if>
                       <span>{{ viewer.media.asrLabel }}</span>
@@ -2615,6 +2627,10 @@ class Component extends DCLogic {
       // drops the chapter contents.
       listenFormat: this._pref('eo_listenformat', true), listenLayer: this._prefStr('eo_listenlayer', 'reading'),
       listenInspect: null, listenTocOpen: false,
+      // The media panel folds to a slim, still-scrubbable waveform strip once the reader scrolls into
+      // the transcript (a scroll listener flips this when it crosses the threshold), so the words get
+      // the height back. Only in Listen mode; resets on tab/source/mode change.
+      listenMediaMin: false,
       readPrefs: this._readPrefs(),
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
       // A search hit opens as a NATIVE PREVIEW first — the real page, loaded normally in a sandboxed
@@ -3401,7 +3417,7 @@ class Component extends DCLogic {
     // canvas and redraws clean (the ref only re-fires on a new element).
     if (this.state.tab === 'graph' && tab !== 'graph' && this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; this._tgEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
-    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
+    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, ...(this._mob() ? { leftOpen: false } : {}) };
     // The Graph tab now hosts the real graph — the entity web / causal DAG of everything in
     // focus. Initialise it lazily the first time we land here (whole-topic entity web).
     if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
@@ -3479,7 +3495,7 @@ class Component extends DCLogic {
     // surface is already mounted; otherwise the transcript ref consumes the pending target on render.
     const tabs = this.state.viewerTabs.includes(sn) ? this.state.viewerTabs : [...this.state.viewerTabs, sn];
     this._readerFrame = null; this._nativeFrame = null; this._viewCache = null;
-    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: { ...this.state.viewerModes, [sn]: 'listen' }, tocOpen: false });
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: { ...this.state.viewerModes, [sn]: 'listen' }, tocOpen: false, listenMediaMin: false });
     this._consumeListenSeek();
   }
 
@@ -3575,11 +3591,18 @@ class Component extends DCLogic {
     const sig = (s.sha || '') + '·' + ((s.audioEvents && s.audioEvents.length) || 0) + '·' + words.length + (streaming ? '·live' : '')
       + '·' + (format ? 'f' : 'r') + '·' + layer + '·' + (view.readThrough ?? -1) + '·' + (view.referentCount || 0) + '·' + chapters.length;
     if (el.__eoSig !== sig) {
+      // Keep the reading position across a rebuild of the SAME source — a streaming append (the words
+      // grow a few times a second), a format/layer toggle, an edit — so replacing innerHTML doesn't
+      // yank the reader back to the top. Only a switch to a DIFFERENT source starts fresh at the top.
+      // This is also what lets the media panel stay folded while the signal is still transcribing.
+      const keepTop = (el.__eoSn === (s.sha || '')) ? el.scrollTop : 0;
+      el.__eoSn = (s.sha || '');
       el.__eoSig = sig;
       el.__eoNow = -1;
       el.innerHTML = words.length
         ? this._renderTranscriptHtml(words, chapters, layer, inspectI)
         : '<div style="color:#9A9AA4;font-size:13px">' + (streaming ? 'Transcribing the signal…' : 'No transcript yet.') + '</div>';
+      if (keepTop) { try { el.scrollTop = keepTop; } catch { /* detached */ } }
     } else if (inspectI >= 0) {
       // No structural change — just re-mark the inspected word (a click set it, no rebuild needed).
       try { el.querySelectorAll('.eo-w-inspect').forEach((n) => n.classList.remove('eo-w-inspect')); const n = el.querySelector('.eo-w[data-i="' + inspectI + '"]'); if (n) n.classList.add('eo-w-inspect'); } catch { /* gone */ }
@@ -3591,6 +3614,22 @@ class Component extends DCLogic {
       el.__eoWired = true;
       el.addEventListener('click', (ev) => this._onTranscriptClick(ev));
       el.addEventListener('dblclick', (ev) => this._onTranscriptDblClick(ev));
+      // Reading into the transcript folds the media panel (player + waveform + stats) down to a slim,
+      // still-scrubbable waveform strip, handing the reclaimed height to the words; scrolling back to
+      // the top restores it. Hysteresis (fold past 48px, unfold under 12px) keeps it from flickering
+      // at the seam, and the fold is a state flip ONLY when the threshold is crossed — scrolling itself
+      // never re-renders (the transcript is rebuilt only when its content signature changes). Coalesced
+      // through rAF so a burst of scroll events costs one check.
+      el.addEventListener('scroll', () => {
+        if (this._mediaFoldRaf) return;
+        this._mediaFoldRaf = requestAnimationFrame(() => {
+          this._mediaFoldRaf = null;
+          const top = el.scrollTop || 0;
+          const cur = !!this.state.listenMediaMin;
+          const next = cur ? top > 12 : top > 48;
+          if (next !== cur) this.setState({ listenMediaMin: next });
+        });
+      }, { passive: true });
     }
     const audio = this._listenAudio;
     if (audio && audio.__eoHiFor !== el) {
@@ -4124,7 +4163,7 @@ class Component extends DCLogic {
     const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = src.kind === 'audio' ? 'listen' : (src.url ? 'native' : 'reader');
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
     // Open the source AS A TAB in the main stage and make it the active tab.
-    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, nativeToc: [], ...(this._mob() ? { leftOpen: false } : {}) });
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, nativeToc: [], listenMediaMin: false, ...(this._mob() ? { leftOpen: false } : {}) });
     if (modes[sn] === 'native') this.loadPage(sn);
   }
   closeTab(sn, e) {
@@ -4142,7 +4181,7 @@ class Component extends DCLogic {
   setSourceMode(mode) {
     const sn = this._activeSrc(); if (!sn) return;
     this._readerFrame = null; this._nativeFrame = null;
-    this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [] });
+    this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false });
     if (mode === 'native') this.loadPage(sn);
   }
   // The native render — fetch the real page's HTML through the app's proxy, sanitize it, hand it to
@@ -6843,6 +6882,8 @@ class Component extends DCLogic {
       viewerCanPage: !!viewer && viewer.hasUrl,
       viewerIsReader: vMode === 'reader', viewerIsPage: vMode === 'native', viewerIsFacing: vMode === 'facing', viewerIsEot: vMode === 'eot',
       viewerIsListen: vMode === 'listen', viewerIsAudio: !!viewer && viewer.kind === 'audio',
+      // The media panel folds only while reading a Listen transcript; every other mode shows it whole.
+      mediaMinClass: (st.listenMediaMin && vMode === 'listen') ? 'eo-media-min' : '',
       viewerModeReader: () => this.setSourceMode('reader'), viewerModePage: () => this.setSourceMode('native'),
       viewerModeFacing: () => this.setSourceMode('facing'), viewerModeEot: () => this.setSourceMode('eot'),
       viewerModeListen: () => this.setSourceMode('listen'),
