@@ -44,6 +44,7 @@
 //               bus (docs/shared-vault.md)
 
 import { createParser } from '../../perceiver/parse/index.js';
+import { contractOf } from '../../core/contracts.js';
 import { readingAt } from '../../perceiver/index.js';
 import { groundSpans, groundSummary, supportVerdict } from '../../enactor/ground/index.js';
 import { factCheck } from '../../enactor/factcheck/index.js';
@@ -90,7 +91,12 @@ const matrix = createMatrixSession();
 matrix.restoreAndRevalidate().catch(() => { /* stays signed-out */ });
 
 const parse = (text, opts = {}) => {
-  const parser = createParser(opts);
+  // Law 1 at emit: hand the parser the contract registry's resolver, so every
+  // event the parse orchestrator authors is checked against its declared Act
+  // face at the append chokepoint (core/log.js) — violations recorded, never
+  // thrown. The registry import is a DECLARED seam (src/core/seams.js): it
+  // aggregates every holon's manifest, so it cannot ride core's entrance.
+  const parser = createParser({ contractOf, ...opts });
   return parser.parse(String(text ?? ''));
 };
 

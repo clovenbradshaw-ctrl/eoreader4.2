@@ -330,7 +330,10 @@ table{border-collapse:collapse;width:100%}
 
     <sc-if value="{{ modelOpen }}">
       <div class="eo-pop" data-eo-model="1" style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 6px 8px">MODEL · IN YOUR BROWSER, HOSTED, OR YOUR LOCAL SERVER</div>
+        <div style="display:flex;align-items:baseline;gap:8px;padding:2px 6px 8px">
+          <span style="flex:1;font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">MODEL · IN YOUR BROWSER, HOSTED, OR YOUR LOCAL SERVER</span>
+          <a href="models.html" title="Open the full model manager — install, watch downloads, reclaim disk" style="flex:0 0 auto;font-size:11px;font-weight:600;color:#5B4BE6;text-decoration:none">Manage ↗</a>
+        </div>
         <sc-for list="{{ backends }}" as="b">
           <button onClick="{{ b.pick }}" style="width:100%;display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border-radius:9px;background:{{ b.bg }}" style-hover="background:#F5F5F8">
             <span style="width:15px;height:15px;border-radius:50%;border:2px solid {{ b.ringColor }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px"><span style="width:7px;height:7px;border-radius:50%;background:{{ b.dotColor }}"></span></span>
@@ -1427,100 +1430,201 @@ table{border-collapse:collapse;width:100%}
             <!-- a menu is open → a transparent catcher dismisses it on any outside tap -->
             <sc-if value="{{ explorerMenuOpen }}"><div onClick="{{ closeExplorerMenu }}" style="position:absolute;inset:0;z-index:5"></div></sc-if>
 
-            <!-- header: title row + breadcrumb + New folder -->
-            <div style="flex:0 0 auto;padding:14px 20px 12px;border-bottom:1px solid #EFEFF3;background:#fff">
-              <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">
-                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA">SOURCES · DRIVE</span>
-                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#C0C0C8">{{ explorerCount }}</span>
-                <span style="flex:1"></span>
-                <button onClick="{{ explorerNewFolder }}" title="New folder here" style="display:inline-flex;align-items:center;gap:6px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-size:12.5px;font-weight:600;border-radius:9px;padding:7px 12px" style-hover="background:#E7E2FD">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v4M10 13h4"/></svg>
-                  New folder
-                </button>
-              </div>
-              <!-- breadcrumb — horizontally scrollable so a deep path never breaks the layout -->
-              <div class="eo-scroll" style="display:flex;align-items:center;gap:4px;overflow-x:auto;white-space:nowrap;font-size:13px">
-                <span style="flex:0 0 auto;color:#B4B4BE;display:flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
-                <sc-for list="{{ explorerCrumbs }}" as="cr">
-                  <sc-if value="{{ cr.notFirst }}"><span style="flex:0 0 auto;color:#C4C4CC">›</span></sc-if>
-                  <sc-if value="{{ cr.isLast }}"><span style="flex:0 0 auto;font-weight:650;color:#2A2A32;max-width:220px;overflow:hidden;text-overflow:ellipsis">{{ cr.name }}</span></sc-if>
-                  <sc-if value="{{ cr.notLast }}"><button onClick="{{ cr.go }}" title="Go to this folder" style="flex:0 0 auto;max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#8A8A95;background:none;font-weight:600" style-hover="color:#5B4BE6">{{ cr.name }}</button></sc-if>
-                </sc-for>
-              </div>
-            </div>
+            <!-- a second catcher dismisses the "+ Ingest" menu on any outside tap -->
+            <sc-if value="{{ explorerIngestOpen }}"><div onClick="{{ toggleExplorerIngest }}" style="position:absolute;inset:0;z-index:5"></div></sc-if>
 
-            <!-- body: folders, then files -->
-            <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:18px 20px 40px">
+            <!-- ══ THREE COLUMNS — left rail · centre grid · right inspector ══ -->
+            <div style="flex:1;min-height:0;display:flex">
 
-              <!-- empty state (per folder) -->
-              <sc-if value="{{ explorerEmpty }}">
-                <sc-if value="{{ explorerAtRoot }}">
-                  <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:30px 24px;text-align:center;background:#fff;max-width:520px;margin:24px auto 0">
-                    <div style="width:44px;height:44px;border-radius:12px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
-                    <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#2A2A32;margin-bottom:6px">Your Drive is empty</div>
-                    <div style="font-size:13px;color:#8A8A95;line-height:1.6">Read a URL, drop a file, paste text, or search the web — every source lands here. Make folders to keep a growing library in order.</div>
-                  </div>
-                </sc-if>
-                <sc-if value="{{ explorerNotRoot }}">
-                  <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:26px 24px;text-align:center;background:#fff;max-width:520px;margin:24px auto 0">
-                    <div style="font-size:13px;color:#8A8A95;line-height:1.6">This folder is empty. Move sources into it from the “⋮” menu on any file, or add a sub-folder.</div>
-                    <button onClick="{{ explorerNewFolder }}" style="display:inline-flex;align-items:center;gap:6px;margin-top:14px;background:#F7F7FA;border:1px solid #E6E6EC;color:#5A5A64;font-size:12.5px;font-weight:600;border-radius:9px;padding:8px 13px" style-hover="background:#F2F2F6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>New sub-folder</button>
-                  </div>
-                </sc-if>
-              </sc-if>
+              <!-- ── LEFT RAIL ── -->
+              <aside class="eo-hide-sm eo-scroll" style="flex:0 0 236px;min-width:0;overflow-y:auto;border-right:1px solid #EFEFF3;background:#fff;padding:16px 12px 24px">
+                <!-- Quick Access -->
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:2px 8px 8px">QUICK ACCESS</div>
+                <button onClick="{{ qaRecentGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaRecentBg }};color:{{ qaRecentFg }};font-weight:{{ qaRecentWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span style="flex:1;min-width:0">Recent</span></button>
+                <button onClick="{{ qaStarredGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaStarredBg }};color:{{ qaStarredFg }};font-weight:{{ qaStarredWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 18.8 6.2 21.9l1.1-6.5L2.6 9.8l6.5-.9z"/></svg><span style="flex:1;min-width:0">Starred</span></button>
+                <button onClick="{{ qaTopicGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaTopicBg }};color:{{ qaTopicFg }};font-weight:{{ qaTopicWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg><span style="flex:1;min-width:0">In topic corpus</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4">{{ qaTopicCount }}</span></button>
+                <button onClick="{{ qaAllGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaAllBg }};color:{{ qaAllFg }};font-weight:{{ qaAllWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span style="flex:1;min-width:0">All sources</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4">{{ qaAllCount }}</span></button>
 
-              <!-- FOLDERS — a responsive grid of cards you descend into -->
-              <sc-if value="{{ explorerHasFolders }}">
-                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:0 2px 10px">FOLDERS</div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:24px">
-                  <sc-for list="{{ explorerFolders }}" as="fd">
-                    <div style="position:relative">
-                      <button onClick="{{ fd.open }}" title="Open folder" style="width:100%;display:flex;align-items:center;gap:11px;background:#fff;border:1px solid #EAEAEF;border-radius:12px;padding:14px 40px 14px 14px;text-align:left" style-hover="background:#F7F7FA;border-color:#DED8FD">
-                        <span style="width:38px;height:38px;border-radius:10px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:#F1EFFE;color:#6D5EF5"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
-                        <span style="flex:1;min-width:0">
-                          <span style="display:block;font-size:13.5px;font-weight:600;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fd.name }}</span>
-                          <span style="display:block;font-size:11px;color:#9A9AA4;margin-top:2px">{{ fd.meta }}</span>
-                        </span>
-                      </button>
-                      <button onClick="{{ fd.menuClick }}" title="Rename, move, or delete" style="position:absolute;top:8px;right:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;border-radius:7px;background:none" style-hover="background:#ECECF1;color:#6E6E78"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
-                      <sc-if value="{{ fd.menuOpen }}">
-                        <div style="position:absolute;right:8px;top:38px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:172px">
-                          <button onClick="{{ fd.doRename }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename</button>
-                          <button onClick="{{ fd.doMove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M2 12h13M14 5h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/></svg>Move to…</button>
-                          <button onClick="{{ fd.doDelete }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete folder</button>
-                        </div>
-                      </sc-if>
+                <!-- Folders tree -->
+                <sc-if value="{{ exTreeHas }}">
+                  <div style="display:flex;align-items:center;gap:6px;margin:20px 8px 6px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;flex:1">FOLDERS</span><button onClick="{{ explorerNewFolder }}" title="New folder" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#8A8A95;background:none" style-hover="background:#F2F2F6;color:#6E6E78"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
+                  <sc-for list="{{ exTree }}" as="fd">
+                    <div style="display:flex;align-items:center;border-radius:8px;background:{{ fd.bg }}" style-hover="background:#F5F5F8">
+                      <sc-if value="{{ fd.hasKids }}"><button onClick="{{ fd.toggle }}" style="flex:0 0 auto;width:18px;height:30px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;background:none;font-size:10px">{{ fd.arrow }}</button></sc-if>
+                      <button onClick="{{ fd.open }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:6px 8px 6px {{ fd.indent }};background:none;text-align:left"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B4B4BE" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span style="flex:1;min-width:0;font-size:12.5px;color:{{ fd.fg }};font-weight:{{ fd.wt }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fd.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE;padding-right:8px">{{ fd.count }}</span></button>
                     </div>
                   </sc-for>
+                </sc-if>
+
+                <!-- Encrypted Vault -->
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:22px 8px 8px">ENCRYPTED VAULT</div>
+                <div style="margin:0 8px;padding:12px;border:1px solid #EFEFF3;border-radius:11px;background:#FCFCFD">
+                  <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#3A3A44;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>{{ vaultLabel }}</div>
+                  <div style="height:6px;border-radius:4px;background:#EDEDF0;margin:9px 0 8px;overflow:hidden"><div style="height:100%;width:{{ vaultPct }};background:#B4B4BE;border-radius:4px"></div></div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4">{{ vaultSync }}</div>
                 </div>
+              </aside>
+
+              <!-- ── CENTRE ── -->
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">
+                <!-- header: workspace + search + view toggle + Ingest -->
+                <div style="flex:0 0 auto;padding:12px 20px;border-bottom:1px solid #EFEFF3;background:#fff;display:flex;align-items:center;gap:14px">
+                  <span style="width:30px;height:30px;flex:0 0 auto;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#ECECEF;color:#6E6E78;font-weight:700;font-size:13px">{{ wsInitial }}</span>
+                  <span class="eo-hide-sm" style="font-size:13px;color:#6E6E78;white-space:nowrap"><span style="font-weight:600;color:#2A2A32">{{ wsName }}</span> · {{ wsSourceCount }} sources</span>
+                  <div style="flex:1;min-width:0;max-width:560px;height:34px;display:flex;align-items:center;gap:8px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;padding:0 12px" style-focus-within="border-color:#D8D8DE;background:#fff"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.9" style="flex:0 0 auto"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input value="{{ explorerQuery }}" onChange="{{ onExplorerSearch }}" placeholder="Search every source, entity or passage…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:13px;color:#1B1B22" /></div>
+                  <div class="eo-hide-sm" style="flex:0 0 auto;display:flex;gap:2px;background:#F2F2F6;border-radius:8px;padding:2px">
+                    <button onClick="{{ setExplorerGrid }}" title="Grid" style="width:30px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:{{ gridBtnBg }};color:{{ gridBtnFg }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+                    <button onClick="{{ setExplorerList }}" title="List" style="width:30px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:{{ listBtnBg }};color:{{ listBtnFg }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+                  </div>
+                  <div style="flex:0 0 auto;position:relative">
+                    <button onClick="{{ toggleExplorerIngest }}" style="display:inline-flex;align-items:center;gap:6px;background:#2A2A32;color:#fff;font-size:12.5px;font-weight:600;border-radius:9px;padding:8px 13px" style-hover="background:#1B1B22"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Ingest</button>
+                    <sc-if value="{{ explorerIngestOpen }}">
+                      <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:11px;box-shadow:0 12px 32px rgba(20,20,30,.16);padding:6px;width:220px">
+                        <sc-for list="{{ ingestActions }}" as="ia"><button onClick="{{ ia.go }}" style="width:100%;display:block;text-align:left;padding:9px 10px;border-radius:8px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8">{{ ia.label }}</button></sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+
+                <!-- breadcrumb + sort chips -->
+                <div style="flex:0 0 auto;padding:12px 20px 0;display:flex;align-items:center;gap:8px">
+                  <div class="eo-scroll" style="flex:1;min-width:0;display:flex;align-items:center;gap:4px;overflow-x:auto;white-space:nowrap;font-size:13px">
+                    <sc-for list="{{ homeCrumbs }}" as="cr">
+                      <sc-if value="{{ cr.notFirst }}"><span style="flex:0 0 auto;color:#C4C4CC">›</span></sc-if>
+                      <sc-if value="{{ cr.isLast }}"><span style="flex:0 0 auto;font-weight:650;color:#2A2A32;max-width:240px;overflow:hidden;text-overflow:ellipsis">{{ cr.name }}</span></sc-if>
+                      <sc-if value="{{ cr.notLast }}"><button onClick="{{ cr.go }}" style="flex:0 0 auto;max-width:200px;overflow:hidden;text-overflow:ellipsis;color:#8A8A95;background:none;font-weight:600" style-hover="color:#5B4BE6">{{ cr.name }}</button></sc-if>
+                    </sc-for>
+                  </div>
+                  <sc-for list="{{ sortChips }}" as="sc"><button onClick="{{ sc.go }}" style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:{{ sc.fg }};background:{{ sc.bg }};border:1px solid {{ sc.bd }};border-radius:6px;padding:4px 9px">{{ sc.label }}</button></sc-for>
+                </div>
+
+                <!-- kind-filter chips -->
+                <div class="eo-scroll" style="flex:0 0 auto;padding:12px 20px 0;display:flex;gap:6px;overflow-x:auto;white-space:nowrap">
+                  <sc-for list="{{ kindChips }}" as="kc"><button onClick="{{ kc.go }}" style="flex:0 0 auto;font-size:12px;font-weight:550;color:{{ kc.fg }};background:{{ kc.bg }};border:1px solid {{ kc.bd }};border-radius:8px;padding:5px 11px">{{ kc.label }}</button></sc-for>
+                </div>
+
+                <!-- scroll body -->
+                <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:18px 20px 40px">
+
+                  <!-- empty Drive -->
+                  <sc-if value="{{ homeDriveEmpty }}">
+                    <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:30px 24px;text-align:center;background:#fff;max-width:520px;margin:24px auto 0">
+                      <div style="width:44px;height:44px;border-radius:12px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#2A2A32;margin-bottom:6px">Your Drive is empty</div>
+                      <div style="font-size:13px;color:#8A8A95;line-height:1.6">Read a URL, drop a file, paste text, or search the web — every source lands here. Make folders to keep a growing library in order.</div>
+                    </div>
+                  </sc-if>
+
+                  <!-- Jump back in -->
+                  <sc-if value="{{ jumpHas }}">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:0 2px 10px">JUMP BACK IN</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:24px">
+                      <sc-for list="{{ jumpBack }}" as="jb">
+                        <button onClick="{{ jb.go }}" style="display:flex;align-items:center;gap:11px;background:#fff;border:1px solid #EAEAEF;border-radius:12px;padding:12px 14px;text-align:left" style-hover="background:#FAFAFB;border-color:#E2E2E7">
+                          <span style="width:34px;height:34px;border-radius:9px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;background:{{ jb.favBg }};color:{{ jb.favFg }}">{{ jb.favCh }}</span>
+                          <span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:600;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ jb.title }}</span><span style="display:block;font-size:11px;color:#9A9AA4;margin-top:2px">{{ jb.when }}</span></span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+
+                  <!-- Folders -->
+                  <sc-if value="{{ showFolderCards }}">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:0 2px 10px">FOLDERS</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:24px">
+                      <sc-for list="{{ explorerFolders }}" as="fd">
+                        <div style="position:relative">
+                          <button onClick="{{ fd.open }}" title="Open folder" style="width:100%;display:flex;align-items:center;gap:11px;background:#fff;border:1px solid #EAEAEF;border-radius:12px;padding:14px 40px 14px 14px;text-align:left" style-hover="background:#FAFAFB;border-color:#E2E2E7">
+                            <span style="width:36px;height:36px;border-radius:10px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:#F2F2F6;color:#8A8A95"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+                            <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:600;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fd.name }}</span><span style="display:block;font-size:11px;color:#9A9AA4;margin-top:2px">{{ fd.meta }}</span></span>
+                          </button>
+                          <button onClick="{{ fd.menuClick }}" title="Rename, move, or delete" style="position:absolute;top:8px;right:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;border-radius:7px;background:none" style-hover="background:#ECECF1;color:#6E6E78"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
+                          <sc-if value="{{ fd.menuOpen }}">
+                            <div style="position:absolute;right:8px;top:38px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:172px">
+                              <button onClick="{{ fd.doRename }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename</button>
+                              <button onClick="{{ fd.doMove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M2 12h13M14 5h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/></svg>Move to…</button>
+                              <button onClick="{{ fd.doDelete }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete folder</button>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+
+                  <!-- Sources — the card grid -->
+                  <sc-if value="{{ hasCards }}">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:0 2px 10px">{{ sourcesHeading }}</div>
+                    <div style="display:grid;grid-template-columns:{{ cardCols }};gap:12px">
+                      <sc-for list="{{ cardSources }}" as="cd">
+                        <div style="position:relative;border:1px solid {{ cd.selBd }};border-radius:12px;background:{{ cd.selBg }};overflow:hidden" style-hover="border-color:#E2E2E7">
+                          <button onClick="{{ cd.select }}" style="width:100%;display:block;text-align:left;background:none;padding:0">
+                            <span style="display:flex;align-items:center;justify-content:center;height:64px;background:#F3F3F5;color:#A0A0AA;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em">{{ cd.kindTag }}</span>
+                            <span style="display:block;padding:11px 12px 12px">
+                              <span style="display:block;font-size:13px;font-weight:600;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cd.title }}</span>
+                              <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:6px">{{ cd.sub }}</span>
+                            </span>
+                          </button>
+                          <button onClick="{{ cd.star }}" title="Star" style="position:absolute;top:8px;right:34px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:rgba(255,255,255,.85)"><svg width="14" height="14" viewBox="0 0 24 24" fill="{{ cd.starFg }}" stroke="{{ cd.starStroke }}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 18.8 6.2 21.9l1.1-6.5L2.6 9.8l6.5-.9z"/></svg></button>
+                          <button onClick="{{ cd.menuClick }}" title="Move or remove" style="position:absolute;top:8px;right:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#8A8A95;background:rgba(255,255,255,.85)"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>
+                          <sc-if value="{{ cd.menuOpen }}">
+                            <div style="position:absolute;right:8px;top:34px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:168px">
+                              <button onClick="{{ cd.doMove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M2 12h13M14 5h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/></svg>Move to…</button>
+                              <button onClick="{{ cd.doRemove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Remove source</button>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <sc-if value="{{ hasMore }}">
+                      <div style="text-align:center;margin-top:18px"><button onClick="{{ showAllCards }}" style="font-size:12.5px;font-weight:600;color:#5A5A64;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:9px;padding:8px 16px" style-hover="background:#EAEAEF">{{ showAllLabel }}</button></div>
+                    </sc-if>
+                  </sc-if>
+
+                  <!-- no results in this scope -->
+                  <sc-if value="{{ homeNoResults }}">
+                    <div style="text-align:center;color:#9A9AA4;font-size:13px;padding:40px 20px">Nothing here yet. Try another shelf, clear the kind filter, or ingest a source.</div>
+                  </sc-if>
+                </div>
+              </div>
+
+              <!-- ── RIGHT INSPECTOR ── -->
+              <sc-if value="{{ inspOpen }}">
+                <aside class="eo-hide-sm eo-scroll" style="flex:0 0 322px;min-width:0;overflow-y:auto;border-left:1px solid #EFEFF3;background:#fff;padding:16px 16px 40px">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:12px">INSPECTOR · READ &amp; ACT IN PLACE</div>
+                  <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px">
+                    <span style="width:34px;height:34px;flex:0 0 auto;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;background:{{ insFavBg }};color:{{ insFavFg }}">{{ insFavCh }}</span>
+                    <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:650;color:#2A2A32;line-height:1.35">{{ insTitle }}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ insSub }}</div></div>
+                    <button onClick="{{ insClose }}" title="Close" style="flex:0 0 auto;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#9A9AA4;background:none" style-hover="background:#F2F2F6;color:#6E6E78"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                  </div>
+                  <div style="display:flex;gap:8px;margin-bottom:16px">
+                    <button onClick="{{ insOpenReader }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#2A2A32;color:#fff;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#1B1B22"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h9a3 3 0 0 1 3 3v11a2.5 2.5 0 0 0-2.5-2.5H2z"/><path d="M22 5h-9a3 3 0 0 0-3 3v11a2.5 2.5 0 0 1 2.5-2.5H22z"/></svg>Open in reader</button>
+                    <button onClick="{{ insAddCorpus }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:{{ insAddBg }};color:{{ insAddFg }};border:1px solid {{ insAddBd }};font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#F5F5F8">{{ insAddLabel }}</button>
+                  </div>
+                  <div style="display:flex;gap:14px;border-bottom:1px solid #EFEFF3;margin-bottom:14px">
+                    <sc-for list="{{ insTabs }}" as="it"><button onClick="{{ it.go }}" style="padding:0 0 9px;background:none;font-size:12.5px;font-weight:600;color:{{ it.fg }};border-bottom:2px solid {{ it.bd }};margin-bottom:-1px">{{ it.label }}</button></sc-for>
+                  </div>
+
+                  <sc-if value="{{ insTabRead }}">
+                    <sc-if value="{{ readHas }}"><sc-for list="{{ readParas }}" as="rp"><p style="font-size:13px;line-height:1.6;color:#3A3A44;margin:0 0 11px">{{ rp.t }}</p></sc-for></sc-if>
+                  </sc-if>
+                  <sc-if value="{{ insTabEntities }}">
+                    <sc-if value="{{ insEntsHas }}"><sc-for list="{{ insEnts }}" as="en"><div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid #F4F4F7"><span style="width:6px;height:6px;border-radius:50%;background:#B4B4BE;flex:0 0 auto"></span><span style="flex:1;min-width:0;font-size:13px;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ en.label }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4">{{ en.meta }}</span></div></sc-for></sc-if>
+                    <sc-if value="{{ insEntsEmpty }}"><div style="font-size:12.5px;color:#9A9AA4;padding:6px 0">No named figures read in this source yet.</div></sc-if>
+                  </sc-if>
+                  <sc-if value="{{ insTabProvenance }}">
+                    <sc-for list="{{ fixity }}" as="fx"><div style="display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid #F4F4F7"><span style="flex:0 0 92px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.04em;color:#9A9AA4;text-transform:uppercase">{{ fx.k }}</span><span style="flex:1;min-width:0;font-size:12.5px;color:#3A3A44;word-break:break-all">{{ fx.v }}</span></div></sc-for>
+                  </sc-if>
+                  <sc-if value="{{ insTabEot }}">
+                    <sc-for list="{{ eotRows }}" as="et"><div style="display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid #F4F4F7"><span style="flex:0 0 auto;font-size:14px;color:#6E6E78;width:16px;text-align:center">{{ et.glyph }}</span><span style="flex:0 0 34px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:#8A8A95">{{ et.op }}</span><span style="flex:1;min-width:0;font-size:12.5px;color:#3A3A44">{{ et.txt }}</span></div></sc-for>
+                  </sc-if>
+
+                  <sc-if value="{{ citedHas }}">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin:20px 0 8px">CITED PASSAGES</div>
+                    <sc-for list="{{ citedPassages }}" as="cp"><div style="border-left:2px solid #E2E2E7;background:#FAFAFB;border-radius:0 8px 8px 0;padding:9px 11px;margin-bottom:8px"><div style="font-size:12.5px;line-height:1.55;color:#3A3A44">{{ cp.quote }}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-top:5px">{{ cp.loc }}</div></div></sc-for>
+                  </sc-if>
+                </aside>
               </sc-if>
 
-              <!-- FILES — the sources filed in this folder -->
-              <sc-if value="{{ explorerHasFiles }}">
-                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:0 2px 10px">FILES</div>
-                <div style="border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff">
-                  <sc-for list="{{ explorerFiles }}" as="fl">
-                    <div style="position:relative;display:flex;align-items:center;border-top:1px solid #F2F2F6" style-hover="background:#FAFAFC">
-                      <button onClick="{{ fl.open }}" title="Open source" style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:12px 14px;background:none;text-align:left">
-                        <span style="width:32px;height:32px;border-radius:8px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;background:{{ fl.favBg }};color:{{ fl.favFg }}">{{ fl.favCh }}</span>
-                        <span style="flex:1;min-width:0">
-                          <span style="display:block;font-size:13.5px;font-weight:550;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fl.title }}</span>
-                          <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fl.sub }}</span>
-                        </span>
-                        <span style="flex:0 0 auto;font-size:10px;font-weight:600;color:{{ fl.rightsFg }};background:{{ fl.rightsBg }};border-radius:5px;padding:2px 7px;white-space:nowrap">{{ fl.rights }}</span>
-                        <sc-if value="{{ fl.hasCites }}"><span title="times cited in answers" style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8A8A95;background:#F2F2F6;border-radius:5px;padding:2px 6px">{{ fl.cites }} cite</span></sc-if>
-                      </button>
-                      <button onClick="{{ fl.menuClick }}" title="Move or remove" style="flex:0 0 auto;width:34px;height:44px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;background:none" style-hover="color:#6E6E78"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
-                      <sc-if value="{{ fl.menuOpen }}">
-                        <div style="position:absolute;right:10px;top:44px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:168px">
-                          <button onClick="{{ fl.doMove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M2 12h13M14 5h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/></svg>Move to…</button>
-                          <button onClick="{{ fl.doRemove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Remove source</button>
-                        </div>
-                      </sc-if>
-                    </div>
-                  </sc-for>
-                </div>
-              </sc-if>
             </div>
 
             <!-- MOVE TO… picker — a modal (bottom-sheet feel on mobile) listing the workspace's folders -->
@@ -2805,7 +2909,7 @@ class Component extends DCLogic {
     let mobile = false;
     try { this._mq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(max-width: 820px)') : null; mobile = !!(this._mq && this._mq.matches); } catch { this._mq = null; }
     this.state = {
-      tab: 'ask', omni: '', chatInput: '', toast: null,
+      tab: 'register', omni: '', chatInput: '', toast: null,
       isMobile: mobile,
       leftOpen: mobile ? false : this._pref('eo_left', true), rightOpen: mobile ? false : this._pref('eo_right', true),
       statusOpen: false, monologueOpen: false, logMode: 'actions',
@@ -2856,6 +2960,14 @@ class Component extends DCLogic {
       // open (null = the drive root), explorerMenu the id of the folder/file whose kebab menu is
       // open ('f:F1' / 's:S1'), and moveTarget the item being filed via the "Move to…" picker.
       explorerFolder: null, explorerMenu: null, moveTarget: null,
+      // The Source Explorer home view (three columns): which Quick-Access shelf is active
+      // (recent/starred/topic/all — null while a folder is open), the selected source (right
+      // Inspector) + its tab, the search text, grid/list view, sort mode, the kind-filter chip,
+      // whether the source grid is fully expanded, the collapsed folder ids in the rail tree, and
+      // whether the "+ Ingest" menu is open.
+      explorerBucket: 'all', explorerSel: null, inspectorTab: 'read', explorerQuery: '',
+      explorerView: 'grid', explorerSort: 'name', explorerKind: null, explorerShowAll: false,
+      explorerCollapsed: [], explorerIngestOpen: false,
       // Ask surface: where the next question lands — 'follow' (a child quest under the current
       // topic) or 'new' (a fresh top-level quest); and the per-answer "Download audit" menu.
       askScope: 'follow', askAuditMenuOpen: false,
@@ -5693,6 +5805,20 @@ class Component extends DCLogic {
     return new Date(iso).toISOString().slice(0, 10);
   }
   _bytes(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'; }
+  // A content GENRE for a source — the explorer's kind-filter chips (Book/Article/Policy/Data/Media/
+  // Code) read genre, not the technical `kind` (web/file/audio/video/pasted). Inferred from the
+  // medium, the URL's extension, and the domain, so a chip can narrow a Drive without a classifier.
+  _genre(s) {
+    const url = String(s.url || ''); const dom = String(s.domain || ''); const title = String(s.title || '');
+    const path = url.split('?')[0];
+    if (s.kind === 'audio' || s.kind === 'video') return 'Media';
+    if (s.kind === 'code' || /\.(js|mjs|ts|tsx|jsx|py|rs|go|java|c|cc|cpp|h|rb|php|sh|sql)$/i.test(path)) return 'Code';
+    if (/\.(csv|tsv|json|jsonl|xlsx?|parquet|geojson)$/i.test(path) || /(^|\.)data\.gov|socrata|ckan|opendata/i.test(dom)) return 'Data';
+    if (/\.gov(\.|$)/i.test(dom) || /\b(policy|statute|regulation|ordinance|act|bill|directive)\b/i.test(title)) return 'Policy';
+    if (/gutenberg|\.epub$/i.test(path) || (s.kind === 'file' && (s.bytes || 0) > 400000)) return 'Book';
+    return 'Article';
+  }
+  _genres() { return ['Book', 'Article', 'Policy', 'Data', 'Media', 'Code']; }
   _stChip(status) {
     if (status === 'Contested') return { fg: '#B23A2E', bg: '#FBE9E6', bd: '#F2D3CD' };
     if (status === 'Uncited') return { fg: '#9A6B12', bg: '#FBF1DA', bd: '#EEDCA9' };
@@ -6503,7 +6629,7 @@ class Component extends DCLogic {
     // tabs
     // Ask leads; the conversational Chat is demoted behind it and carries a "beta" pill —
     // the record surface (ask → a typed, cited answer) is the posture, chat the exception.
-    const tabDefs = [['ask', 'Ask', null, false], ['chat', 'Chat', null, true], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['register', 'Sources', sources.length || null, false], ['memo', 'Memo', (topic && topic.memo) ? 1 : null, false], ['plain', 'Plain', null, true]];
+    const tabDefs = [['ask', 'Ask', null, false], ['chat', 'Chat', null, true], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['register', 'Home', sources.length || null, false], ['memo', 'Memo', (topic && topic.memo) ? 1 : null, false], ['plain', 'Plain', null, true]];
     const tabs = tabDefs.map(([id, label, count, beta]) => ({
       label, count: String(count || ''), hasCount: count != null, beta: !!beta,
       fg: st.tab === id ? '#1B1B22' : '#8A8A95', weight: st.tab === id ? 650 : 500,
@@ -6759,6 +6885,151 @@ class Component extends DCLogic {
     const explorerMenuOpen = !!st.explorerMenu;   // a transparent backdrop dismisses any open kebab
     const closeExplorerMenu = () => this.setState({ explorerMenu: null });
     const explorerNewFolder = () => { const v = prompt('New folder name', 'New folder'); if (v !== null) app.folderNew(v || 'New folder', { parentId: curFolderId }); this.setState({ explorerMenu: null }); };
+
+    // ══ SOURCE EXPLORER — the three-column home view ═══════════════════════════════════════════
+    // Left: Quick-Access shelves + the folder tree + the encrypted-vault meter. Centre: a calm,
+    // paginated grid of source cards that search / kind-filter / sort narrow. Right: the Inspector —
+    // read & act on the selected source in place. Everything is a read-time projection of the Drive;
+    // the mutations (star, touch, add-to-corpus, move) live on the engine.
+    const drive = driveSources.filter((s) => !s.parentSn);      // top-level records only
+    const topicCorpus = app.topicSources().filter((s) => !s.parentSn);
+    const inCorpusIds = new Set(topicCorpus.map((s) => s.sn));
+    const touchedAt = (s) => s.openedAt || s.recordedAt || 0;
+    const whenLabel = (s) => (s.openedAt ? 'opened ' : 'added ') + this._ago(new Date(touchedAt(s)).toISOString());
+    const wsObj = app.activeWorkspace();
+    const wsName = wsObj ? wsObj.name : 'Workspace';
+    const bucket = st.explorerFolder ? 'folder' : (st.explorerBucket || 'all');
+    const bucketLabel = { recent: 'Recent', starred: 'Starred', topic: 'In topic corpus', all: 'All sources' }[bucket] || 'All sources';
+    const gotoBucket = (b) => () => this.setState({ explorerBucket: b, explorerFolder: null, explorerSel: null, explorerMenu: null, explorerShowAll: false });
+    const gotoFolder = (id) => () => this.setState({ explorerFolder: id, explorerBucket: null, explorerSel: null, explorerMenu: null, explorerShowAll: false });
+
+    // — a calm neutral placeholder swatch (the explorer stays monochrome; no per-source colour) —
+    const NFAV = ['#ECECEF', '#8A8A95'];
+    // — Quick Access shelves (hardcoded rows so each keeps its own icon; state drives the tint) —
+    const qaTint = (on) => ({ bg: on ? '#EFEFF2' : 'transparent', fg: on ? '#1B1B22' : '#5A5A64', wt: on ? '650' : '500' });
+    const qaRecent = qaTint(bucket === 'recent'), qaStarred = qaTint(bucket === 'starred'), qaTopic = qaTint(bucket === 'topic'), qaAll = qaTint(bucket === 'all');
+
+    // — the folder tree in the rail (nested, collapsible, with nested file tallies) —
+    const collapsedSet = new Set(st.explorerCollapsed || []);
+    const railKids = (pid) => wsFolders.filter((f) => sameFolder(f.parentId, pid)).sort((a, b) => a.name.localeCompare(b.name));
+    const exTree = [];
+    const walkTree = (pid, depth) => {
+      for (const f of railKids(pid)) {
+        const kids = railKids(f.id); const isCol = collapsedSet.has(f.id); const active = st.explorerFolder === f.id;
+        exTree.push({
+          id: f.id, name: f.name, indent: (8 + depth * 14) + 'px',
+          hasKids: kids.length > 0, arrow: kids.length ? (isCol ? '▸' : '▾') : '',
+          count: String(tallyOf(f.id).files),
+          fg: active ? '#1B1B22' : '#5A5A64', bg: active ? '#EFEFF2' : 'transparent', wt: active ? '650' : '500',
+          open: gotoFolder(f.id),
+          toggle: () => { const s = new Set(collapsedSet); s.has(f.id) ? s.delete(f.id) : s.add(f.id); this.setState({ explorerCollapsed: [...s] }); },
+        });
+        if (!isCol) walkTree(f.id, depth + 1);
+      }
+    };
+    walkTree(null, 0);
+
+    // — encrypted-vault meter (recorded bytes against a nominal cap) —
+    const usedBytes = drive.reduce((a, s) => a + (s.bytes || 0), 0);
+    const usedGB = usedBytes / 1073741824;
+    const vaultLabel = `${usedGB >= 0.1 ? usedGB.toFixed(1) : (usedBytes > 0 ? usedGB.toFixed(2) : '0')} / 15 GB`;
+    const vaultPct = Math.min(100, usedBytes > 0 ? Math.max(1.5, (usedGB / 15) * 100) : 0) + '%';
+    const vaultSync = (wsObj && (wsObj.roomId || wsObj.shared)) ? 'synced to Matrix · members-only' : 'on this device · private';
+
+    // — the working set for the centre grid: pick the shelf, then kind-filter → search → sort —
+    let baseSet;
+    if (bucket === 'folder') baseSet = filesInOf(curFolderId);
+    else if (bucket === 'recent') baseSet = [...drive].sort((a, b) => touchedAt(b) - touchedAt(a));
+    else if (bucket === 'starred') baseSet = drive.filter((s) => s.starred);
+    else if (bucket === 'topic') baseSet = topicCorpus;
+    else baseSet = drive;
+    let working = st.explorerKind ? baseSet.filter((s) => this._genre(s) === st.explorerKind) : baseSet.slice();
+    const q = String(st.explorerQuery || '').trim().toLowerCase();
+    if (q) working = working.filter((s) => (s.title || '').toLowerCase().includes(q) || (s.domain || '').toLowerCase().includes(q) || (s.text || '').slice(0, 4000).toLowerCase().includes(q));
+    const sortMode = st.explorerSort || 'name';
+    if (sortMode === 'name') working.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    else if (sortMode === 'recent') working.sort((a, b) => touchedAt(b) - touchedAt(a));
+    else if (sortMode === 'spans') working.sort((a, b) => (citeCounts[b.sn] || 0) - (citeCounts[a.sn] || 0));
+
+    // — sort + kind chips (state-driven tint) —
+    const chip = (on) => ({ fg: on ? '#fff' : '#5A5A64', bg: on ? '#2A2A32' : '#F2F2F6', bd: on ? '#2A2A32' : '#EAEAEF' });
+    const sortChips = [['name', 'NAME'], ['recent', 'RECENT'], ['spans', 'SPANS']].map(([k, lbl]) => {
+      const c = chip(sortMode === k); return { label: lbl, ...c, go: () => this.setState({ explorerSort: k }) };
+    });
+    const kindChips = [[null, 'All kinds'], ...this._genres().map((g) => [g, g])].map(([k, lbl]) => {
+      const c = chip((st.explorerKind || null) === k); return { label: lbl, ...c, go: () => this.setState({ explorerKind: k, explorerShowAll: false }) };
+    });
+
+    // — "Jump back in" — the two most-recently engaged sources —
+    const jumpBack = [...drive].sort((a, b) => touchedAt(b) - touchedAt(a)).slice(0, 2).map((s) => {
+      return { sn: s.sn, title: s.title, when: whenLabel(s), favBg: NFAV[0], favFg: NFAV[1], favCh: (s.domain || s.title || '?')[0].toUpperCase(),
+        go: () => { app.sourceTouch(s.sn); this.setState({ explorerSel: s.sn, inspectorTab: 'read' }); } };
+    });
+
+    // — the source cards themselves (virtualised: first 12, "show all" expands) —
+    const CARD_CAP = 12;
+    const shownN = st.explorerShowAll ? working.length : Math.min(working.length, CARD_CAP);
+    const cardSources = working.slice(0, shownN).map((s) => {
+      const genre = this._genre(s); const cites = citeCounts[s.sn] || 0;
+      return {
+        sn: s.sn, title: s.title, kindTag: genre.toUpperCase(),
+        sub: cites > 0 ? `${genre} · ${cites} span${cites === 1 ? '' : 's'}` : `${genre} · ${this._bytes(s.bytes)}`,
+        favCh: (s.domain || s.title || '?')[0].toUpperCase(),
+        starred: !!s.starred, starFg: s.starred ? '#3A3A44' : 'none', starStroke: s.starred ? '#3A3A44' : '#C4C4CC',
+        selBd: st.explorerSel === s.sn ? '#B4B4BE' : '#EAEAEF', selBg: st.explorerSel === s.sn ? '#FAFAFB' : '#fff',
+        select: () => { app.sourceTouch(s.sn); this.setState({ explorerSel: s.sn, inspectorTab: 'read' }); },
+        star: () => app.sourceStar(s.sn),
+        menuOpen: st.explorerMenu === 'c:' + s.sn,
+        menuClick: () => this.setState({ explorerMenu: st.explorerMenu === 'c:' + s.sn ? null : 'c:' + s.sn }),
+        doMove: () => this.setState({ moveTarget: { kind: 'source', id: s.sn }, explorerMenu: null }),
+        doRemove: () => { if (confirm(`Remove “${s.title}” from the record? This deletes the source and its readings.`)) app.removeSource(s.sn); this.setState({ explorerMenu: null }); },
+      };
+    });
+    const moreN = working.length - shownN;
+    const scopeName = curFolderId ? (app.folderById(curFolderId)?.name || 'folder') : bucketLabel;
+    const sourcesHeading = `SOURCES · ${working.length} IN ${scopeName.toUpperCase()}`;
+
+    // — breadcrumb (folder path when in a folder, else Workspace › shelf) —
+    const homeCrumbs = curFolderId ? explorerCrumbs : [
+      { name: wsName, notFirst: false, isLast: false, notLast: true, go: gotoBucket('all') },
+      { name: bucketLabel, notFirst: true, isLast: true, notLast: false, go: () => {} },
+    ];
+
+    // — the ingest menu (reuses the hero's four ingest actions; closes on pick) —
+    const ingestActions = heroActions.map((a) => ({ label: a.label, go: () => { this.setState({ explorerIngestOpen: false }); a.go(); } }));
+
+    // — the Inspector (right column) — read & act on the selected source in place —
+    const selSrc = st.explorerSel ? app.sourceBySn(st.explorerSel) : null;
+    const insTab = st.inspectorTab || 'read';
+    let readParas = [], insEnts = [], fixity = [], eotRows = [], citedPassages = [];
+    let insTitle = '', insSub = '', insFavBg = '#EEE', insFavFg = '#666', insFavCh = '?', insInCorpus = false;
+    if (selSrc) {
+      insTitle = selSrc.title; insSub = `${selSrc.reg} · ${selSrc.domain}`; insFavBg = NFAV[0]; insFavFg = NFAV[1];
+      insFavCh = (selSrc.domain || selSrc.title || '?')[0].toUpperCase();
+      insInCorpus = inCorpusIds.has(selSrc.sn);
+      if (insTab === 'read') readParas = String(selSrc.text || '').split(/\n{2,}/).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 8).map((t) => ({ t }));
+      if (insTab === 'entities') insEnts = app.sourceEntities(selSrc.sn).slice(0, 16).map((e) => ({ label: e.label, meta: `${e.mentions} mention${e.mentions === 1 ? '' : 's'}` }));
+      if (insTab === 'provenance') fixity = [
+        { k: 'Registered', v: selSrc.reg }, { k: 'SHA-256', v: String(selSrc.sha || '—').slice(0, 18) },
+        { k: 'Bytes', v: this._bytes(selSrc.bytes) }, { k: 'Rights', v: this._rights(selSrc).label },
+        { k: 'Retrieved', v: String(selSrc.retrieved || '').slice(0, 10) || '—' }, { k: 'Domain', v: selSrc.domain || '—' },
+      ];
+      if (insTab === 'eot') eotRows = [
+        { glyph: '○', op: 'SIG', txt: `${selSrc.reg} · registered ${String(selSrc.retrieved || '').slice(0, 10)}` },
+        { glyph: '●', op: 'INS', txt: `${selSrc.entCount || 0} attestation${selSrc.entCount === 1 ? '' : 's'}` },
+        { glyph: '｜', op: 'SEG', txt: `${this._bytes(selSrc.bytes)} of recorded text` },
+      ];
+      for (const t of app.state.topics) for (const mm of t.messages) for (const c of (mm.cites || [])) if (c.sn === selSrc.sn && c.quote) citedPassages.push({ quote: String(c.quote).slice(0, 220), loc: t.title || selSrc.reg });
+      citedPassages = citedPassages.slice(0, 6);
+    }
+    const insTabs = [['read', 'Read'], ['entities', 'Entities'], ['provenance', 'Provenance'], ['eot', 'EoT']].map(([k, lbl]) => ({
+      label: lbl, on: insTab === k, fg: insTab === k ? '#2A2A32' : '#8A8A95', bd: insTab === k ? '#2A2A32' : 'transparent',
+      go: () => this.setState({ inspectorTab: k }),
+    }));
+
+    // — empty / no-result states —
+    const homeDriveEmpty = drive.length === 0;
+    const homeNoResults = !homeDriveEmpty && cardSources.length === 0 && explorerFolders.length === 0;
 
     // ── the "Move to…" picker — a flattened, indented list of the workspace's folders ──
     const mv = st.moveTarget;
@@ -7275,8 +7546,11 @@ class Component extends DCLogic {
       // chrome
       omni: st.omni, toast: st.toast, dragOver: !!st.dragOver,
       // live recording — the mic button + the take panel
-      leftOpen: st.leftOpen, rightOpen: st.rightOpen,
-      panelBackdrop: !!st.isMobile && (st.leftOpen || st.rightOpen), closePanels: () => this.closePanels(),
+      // The Home tab (Source Explorer) is a self-contained surface with its OWN left rail (Quick
+      // Access · Folders · Vault), so the app's global topic/source rail stands down there — otherwise
+      // the sources list twice and two left rails compete. It returns on every other tab.
+      leftOpen: st.leftOpen && st.tab !== 'register', rightOpen: st.rightOpen,
+      panelBackdrop: !!st.isMobile && ((st.leftOpen && st.tab !== 'register') || st.rightOpen), closePanels: () => this.closePanels(),
       leftBtnFg: st.leftOpen ? '#5B4BE6' : '#9A9AA4', rightBtnFg: st.rightOpen ? '#5B4BE6' : '#9A9AA4',
       onOmniSubmit: (e) => this.onOmniSubmit(e), onOmniInput: (e) => this.onOmniInput(e),
       openMonologue: () => this.openMonologue(), closeMonologue: () => this.closeMonologue(),
@@ -7384,6 +7658,38 @@ class Component extends DCLogic {
       explorerCrumbs, explorerFolders, explorerFiles, explorerHasFolders, explorerHasFiles,
       explorerEmpty, explorerAtRoot, explorerNotRoot: !explorerAtRoot, explorerCount, explorerMenuOpen, closeExplorerMenu, explorerNewFolder,
       moveOpen, moveTitle, moveDests, closeMove, moveStop,
+      // ── Source Explorer home view (three columns) ──
+      // left rail: workspace header + Quick Access shelves + folder tree + vault meter
+      wsName, wsInitial: (wsName[0] || '·').toUpperCase(), wsSourceCount: String(drive.length),
+      qaRecentBg: qaRecent.bg, qaRecentFg: qaRecent.fg, qaRecentWt: qaRecent.wt, qaRecentGo: gotoBucket('recent'),
+      qaStarredBg: qaStarred.bg, qaStarredFg: qaStarred.fg, qaStarredWt: qaStarred.wt, qaStarredGo: gotoBucket('starred'),
+      qaTopicBg: qaTopic.bg, qaTopicFg: qaTopic.fg, qaTopicWt: qaTopic.wt, qaTopicGo: gotoBucket('topic'), qaTopicCount: String(topicCorpus.length),
+      qaAllBg: qaAll.bg, qaAllFg: qaAll.fg, qaAllWt: qaAll.wt, qaAllGo: gotoBucket('all'), qaAllCount: String(drive.length),
+      exTree, exTreeHas: exTree.length > 0,
+      vaultLabel, vaultPct, vaultSync,
+      // centre: header, breadcrumb, sort + kind chips, jump-back-in, source cards, show-all
+      explorerQuery: st.explorerQuery, onExplorerSearch: (e) => this.setState({ explorerQuery: e.target.value, explorerShowAll: false }),
+      explorerViewGrid: st.explorerView !== 'list',
+      gridBtnBg: st.explorerView !== 'list' ? '#2A2A32' : '#F2F2F6', gridBtnFg: st.explorerView !== 'list' ? '#fff' : '#8A8A95',
+      listBtnBg: st.explorerView === 'list' ? '#2A2A32' : '#F2F2F6', listBtnFg: st.explorerView === 'list' ? '#fff' : '#8A8A95',
+      setExplorerGrid: () => this.setState({ explorerView: 'grid' }), setExplorerList: () => this.setState({ explorerView: 'list' }),
+      explorerIngestOpen: st.explorerIngestOpen, toggleExplorerIngest: () => this.setState({ explorerIngestOpen: !st.explorerIngestOpen }), ingestActions,
+      homeCrumbs, sortChips, kindChips, jumpBack, jumpHas: jumpBack.length > 0,
+      showFolderCards: (bucket === 'all' || bucket === 'folder') && explorerFolders.length > 0,
+      cardCols: st.explorerView === 'list' ? '1fr' : 'repeat(auto-fill,minmax(210px,1fr))',
+      sourcesHeading, cardSources, hasCards: cardSources.length > 0,
+      hasMore: moreN > 0, showAllLabel: `Show all ${working.length} · ${moreN} more`, showAllCards: () => this.setState({ explorerShowAll: true }),
+      homeDriveEmpty, homeNoResults,
+      // right: the Inspector — read & act on the selected source in place
+      inspOpen: !!selSrc, insTitle, insSub, insFavBg, insFavFg, insFavCh, insTabs, insTabRead: insTab === 'read',
+      insTabEntities: insTab === 'entities', insTabProvenance: insTab === 'provenance', insTabEot: insTab === 'eot',
+      readParas, readHas: readParas.length > 0, insEnts, insEntsHas: insEnts.length > 0, insEntsEmpty: insTab === 'entities' && insEnts.length === 0, fixity, eotRows,
+      citedPassages, citedHas: citedPassages.length > 0,
+      insClose: () => this.setState({ explorerSel: null }),
+      insOpenReader: () => { if (selSrc) { app.sourceTouch(selSrc.sn); this.openViewer(selSrc.sn); } },
+      insAddCorpus: () => { if (selSrc && !insInCorpus) { app.sourceAddToTopic(selSrc.sn); this.showToast('Added to this topic’s corpus'); } },
+      insInCorpus, insAddLabel: insInCorpus ? 'In corpus' : '+ Add to corpus',
+      insAddBg: insInCorpus ? '#E7F6EC' : '#fff', insAddFg: insInCorpus ? '#1E8A50' : '#3A3A44', insAddBd: insInCorpus ? '#CFEBD9' : '#E6E6EC',
       // the pivot banner — which node the list is narrowed to, and the counts
       pivotActive, pivotLabel, pivotShown: String(shownClaims.length), pivotTotal: String(claims.length),
       memoTitle: topic ? topic.title : '', memoText: topic ? topic.memo : '',
@@ -7530,9 +7836,9 @@ class Component extends DCLogic {
       // graph tab explorer (entity web + causal DAG · whole-topic + per-entity · entity toggles)
       ...this._webGraphVals(),
       graphHasSources: sources.length > 0,
-      // The Graph tab carries its own details panel, so the global right drawer stands down there
-      // to give the web room to breathe.
-      rightPanelShow: st.rightOpen && st.tab !== 'graph',
+      // The Graph tab carries its own details panel, and the Home tab (Source Explorer) carries its
+      // own right Inspector, so the global right drawer stands down on both to give them room.
+      rightPanelShow: st.rightOpen && st.tab !== 'graph' && st.tab !== 'register',
       // monologue
       monologueOpen: st.monologueOpen, logCount: String(app.state.log.length),
       auditStats, logActions: st.logMode === 'actions', logReasoning: st.logMode === 'reasoning', logReflections: st.logMode === 'reflections',

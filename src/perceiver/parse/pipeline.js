@@ -34,10 +34,21 @@ import { createConventions, induceAttributionVerbs } from '../../core/convention
 // winner. Below it the descriptor is held with no owner, never a confident guess.
 const DESC_OWNER_MARGIN = 2;
 
+// The emitter's self-identification for Law 1 at emit (core/log.js): passed as
+// append's meta on every event this module AUTHORS (inline `{ op: … }` literals).
+// Events it forwards on others' behalf — the conventions' rules, the relation
+// parser's edges — carry no tag: attribution belongs to their author.
+const EMIT = Object.freeze({ src: 'src/perceiver/parse/pipeline.js' });
+
 export const createParser = ({
   languageModules    = {},
   transcriptHandler  = null,
   chromeHint         = null,   // optional (sentence) → score nudge toward chrome
+  // Law 1 at emit (core/log.js): the contract registry's resolver, INJECTED by
+  // the assembly layer (boot) — parse never imports the registry. With it, every
+  // event this orchestrator authors (tagged EMIT below) is checked at append
+  // against this module's declared Act face; violations are recorded on the log.
+  contractOf         = null,
   // The role-conflict predicate for the standing-descriptor trigger. INJECTED by
   // the assembly layer (ingest), which is allowed to see both holons and backs it
   // with the typing bridge's areDisjoint. Parse never imports the algebra; the
@@ -98,7 +109,7 @@ export const createParser = ({
   // runs in chunks of `chunkSize`, yielding to the event loop between them so the page
   // stays responsive, and parse returns a Promise. The work and its order are identical.
   const parse = (text, { docId, onProgress, chunkSize = 250 } = {}) => {
-    const log         = createLog({ docId });
+    const log         = createLog({ docId, contractOf });
     // Conventions first — the home for the language-specific stuff. The splitter
     // reads its abbreviation list from the ledger, so segmentation already honours
     // "Mr. Darcy" before a single word is classified, and the relation parser
@@ -178,7 +189,7 @@ export const createParser = ({
       const sentIdx = f.value ? sentences.findIndex(s => s.includes(f.value)) : -1;
       log.append({ op: 'DEF', id: `${docSlug}.meta.${keySlug}`, kind: 'meta',
                    key: f.key, label: f.label, value: f.value, known: f.known,
-                   defeasible: true, line: f.line, ...(sentIdx >= 0 ? { sentIdx } : {}) });
+                   defeasible: true, line: f.line, ...(sentIdx >= 0 ? { sentIdx } : {}) }, EMIT);
     }
 
     const isSpeech = (verb) => conventions.isAttributionVerb(verb);
@@ -233,8 +244,8 @@ export const createParser = ({
       // surface as a citable span. The `via:'frame'` stamp distinguishes it in the trail
       // from the degenerate-line chrome below.
       if (frame.all.has(sentIdx)) {
-        log.append({ op: 'NUL', kind: 'chrome', via: 'frame', sentIdx, text: sent });
-        log.append({ op: 'DEF', id: `unit:${sentIdx}`, key: 'role', value: 'site', sentIdx });
+        log.append({ op: 'NUL', kind: 'chrome', via: 'frame', sentIdx, text: sent }, EMIT);
+        log.append({ op: 'DEF', id: `unit:${sentIdx}`, key: 'role', value: 'site', sentIdx }, EMIT);
         return;
       }
       // Chrome-ness is a weight: the mechanical score plus an optional nudge
@@ -243,7 +254,7 @@ export const createParser = ({
         // NUL is non-transformation — the line is *held*, not cleared. It is
         // simply not turned into entities or relations. (Voiding a fact would
         // be a DEF to VOID, an assertion; NUL asserts nothing.)
-        log.append({ op: 'NUL', kind: 'chrome', sentIdx, text: sent });
+        log.append({ op: 'NUL', kind: 'chrome', sentIdx, text: sent }, EMIT);
         return;
       }
       // ── The 1:1 retention layer — formatting, not reading ──────────────────────
@@ -256,7 +267,7 @@ export const createParser = ({
       // the line held as-is: project.js has no NUL case and reading.js ignores it, so the
       // retention adds no node, edge, or surprise (the formatting is information-neutral).
       // `kind:'span'` marks it a retention hold, distinct from the chrome/frame holds above.
-      log.append({ op: 'NUL', kind: 'span', id: `unit:${sentIdx}`, sentIdx, text: sent });
+      log.append({ op: 'NUL', kind: 'span', id: `unit:${sentIdx}`, sentIdx, text: sent }, EMIT);
       // Snapshot the field before this line's own entities are folded in, so
       // a subject pronoun looks backward for its antecedent. The last-INS register
       // is snapshotted the same way — a subjectless clause defaults to the referent
@@ -277,7 +288,7 @@ export const createParser = ({
         // INS on every sighting (admit and present) so edge weights track how
         // often a figure actually appears, not just that it exists.
         if (obs.status === 'admit' || obs.status === 'present') {
-          log.append({ op: 'INS', id: obs.id, label: obs.label, sentIdx });
+          log.append({ op: 'INS', id: obs.id, label: obs.label, sentIdx }, EMIT);
           corefField.note(obs.id, sentIdx);
           // a title naming this entity fixes its gender, causally, at first sight.
           if (genderCoref) for (const w of String(obs.label || '').toLowerCase().split(/\s+/)) if (titleGenders[w]) corefField.noteGender(obs.id, titleGenders[w]);
@@ -291,9 +302,9 @@ export const createParser = ({
           // ids were unified at admission and the merge is corroborated on its face.
           if (obs.rawId !== obs.id) {
             const syn = log.append({ op: 'SYN', kind: 'alias', from: obs.rawId, to: obs.id,
-                                     label: obs.label, sentIdx, match: 'head', warrant: 'given-name' });
+                                     label: obs.label, sentIdx, match: 'head', warrant: 'given-name' }, EMIT);
             log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
-                         reason: 'given-name-containment', sentIdx });
+                         reason: 'given-name-containment', sentIdx }, EMIT);
           }
         } else if (obs.aliasKind === 'tail') {
           // "Samsa" folded into "Gregor Samsa": a surname is shared across a family,
@@ -305,9 +316,9 @@ export const createParser = ({
           const syn = log.append({ op: 'SYN', kind: 'merge', from: obs.id, to: obs.aliasOf,
                                    label: obs.label, sentIdx, match: 'tail', surname: obs.surname,
                                    warrant: 'surname', defeasible: true,
-                                   rebutter: 'distinct-agent-shares-surname' });
+                                   rebutter: 'distinct-agent-shares-surname' }, EMIT);
           log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.INDETERMINATE,
-                       reason: 'surname-containment-thin', surname: obs.surname, sentIdx });
+                       reason: 'surname-containment-thin', surname: obs.surname, sentIdx }, EMIT);
           surnameMerges.push({ synSeq: syn.seq, surname: obs.surname, from: obs.id, to: obs.aliasOf });
         }
       }
@@ -326,9 +337,9 @@ export const createParser = ({
         if (ini.acronymId !== ini.expansionId) {
           const syn = log.append({ op: 'SYN', kind: 'merge', from: ini.acronymId, to: ini.expansionId,
                                    label: ini.expansion, sentIdx, match: 'initialism', warrant: 'initialism',
-                                   evidence: 'initialism', acronym: ini.acronym });
+                                   evidence: 'initialism', acronym: ini.acronym }, EMIT);
           log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
-                       reason: 'initialism-expansion', acronym: ini.acronym, sentIdx });
+                       reason: 'initialism-expansion', acronym: ini.acronym, sentIdx }, EMIT);
         }
         admission.registerInitialism(ini.acronymLabel, ini.expansionId);
         conventions.learnInitialism(ini.acronym, ini.expansionId);
@@ -343,7 +354,7 @@ export const createParser = ({
         let byKey = attrsById.get(a.id); if (!byKey) attrsById.set(a.id, byKey = new Map());
         let vals = byKey.get(a.key);     if (!vals)  byKey.set(a.key, vals = new Map());
         if (!vals.has(a.value)) vals.set(a.value, sentIdx);          // keep every distinct value
-        log.append({ op: 'DEF', id: a.id, key: a.key, value: a.value, kind: 'attr', defeasible: true, sentIdx });
+        log.append({ op: 'DEF', id: a.id, key: a.key, value: a.value, kind: 'attr', defeasible: true, sentIdx }, EMIT);
       }
 
       // The relations parser reads coref two ways: `field()` for a leading
@@ -462,9 +473,9 @@ export const createParser = ({
         const reason    = surnameShared ? 'surname-shared-by-distinct-agents' : 'functional-key-conflict';
         const evaReason = surnameShared ? 'distinct-agent-shares-surname'     : 'functional-key-conflict';
         const seg = log.append({ op: 'SEG', kind: 'retract', refSeq: m.synSeq,
-                                 reason, surname: m.surname, ...(funcKey ? { key: funcKey } : {}) });
+                                 reason, surname: m.surname, ...(funcKey ? { key: funcKey } : {}) }, EMIT);
         log.append({ op: 'EVA', site: 'merge', ref: m.synSeq, verdict: VERDICTS.CONTRADICTED,
-                     reason: evaReason, surname: m.surname, ...(funcKey ? { key: funcKey } : {}), defeatedBy: seg.seq });
+                     reason: evaReason, surname: m.surname, ...(funcKey ? { key: funcKey } : {}), defeatedBy: seg.seq }, EMIT);
       }
     }
 
@@ -483,7 +494,7 @@ export const createParser = ({
         const arr = [...vals.keys()];
         if (attributesConflict(key, [arr[0]], arr.slice(1), { functional: true }).conflict > 0)
           log.append({ op: 'EVA', site: 'attr', id, key, verdict: VERDICTS.INDETERMINATE,
-                       reason: 'functional-key-contested', values: arr });
+                       reason: 'functional-key-contested', values: arr }, EMIT);
       }
     }
 
@@ -530,7 +541,7 @@ export const createParser = ({
         }
         if (!conflictKey) continue;                                      // no dispute → nothing to surface here
         log.append({ op: 'EVA', site: 'identity', a, b, surname, key: conflictKey,
-                     verdict: VERDICTS.INDETERMINATE, reason: 'near-identity-contested' });
+                     verdict: VERDICTS.INDETERMINATE, reason: 'near-identity-contested' }, EMIT);
       }
     }
 
@@ -611,14 +622,14 @@ export const createParser = ({
       const roleRef    = `role:${m.role}@${m.ownerId}`;
       const ownerLabel = admission.labelOf(m.ownerId) || m.ownerId;
       const relType    = conventions.relationType(m.role);
-      log.append({ op: 'INS', id: roleRef, label: `${ownerLabel}’s ${m.role}`, sentIdx: 0 });
-      log.append({ op: 'CON', src: m.ownerId, tgt: roleRef, via: m.role, sentIdx: 0, ...(relType ? { relType } : {}) });
-      const syn = log.append({ op: 'SYN', kind: 'merge', from: roleRef, to: m.name, sentIdx: 0 });
+      log.append({ op: 'INS', id: roleRef, label: `${ownerLabel}’s ${m.role}`, sentIdx: 0 }, EMIT);
+      log.append({ op: 'CON', src: m.ownerId, tgt: roleRef, via: m.role, sentIdx: 0, ...(relType ? { relType } : {}) }, EMIT);
+      const syn = log.append({ op: 'SYN', kind: 'merge', from: roleRef, to: m.name, sentIdx: 0 }, EMIT);
       // EVA at write time: discoverNamings already ran the merge's guards (owner-
       // distinctness, disjointness, sticky abstention), so the surviving merge is
       // corroborated by the naming scene as it is committed.
       log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
-                   reason: 'naming-scene', role: m.role, sentIdx: 0 });
+                   reason: 'naming-scene', role: m.role, sentIdx: 0 }, EMIT);
     }
 
     const tokensBySentence = sentences.map(s => new Set(tok(s)));

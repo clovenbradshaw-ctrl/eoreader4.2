@@ -56,17 +56,97 @@ restated in a comment is documentation; a law a test can fail is a checkpoint
    fails until it is routed through the entrance or deliberately declared,
    with a reason, in review.
 
+## The second pass (same month)
+
+6. **Law 1 gained its runtime mechanism.** `createLog` takes an injected
+   `contractOf` resolver (core still imports nothing — the registry, which
+   aggregates every manifest, rides the ONE declared seam boot holds);
+   `append` takes the emitter's self-identification (`meta.src`), and a
+   mismatch between the event's op and that module's declared Act face is
+   RECORDED on the sealed event (`law1`), collected by the log, never thrown.
+   No resolver or no `src` seals byte-identically, so adoption is incremental.
+   First adopter: the parse orchestrator tags the 21 events it authors, and a
+   real parse against the real registry runs violation-free
+   (`tests/law1-runtime.test.js`).
+7. **The turn orchestrator was split along the fold's own seams.**
+   `turn/stages.js` (1,756 lines) became eight group files — read · fold ·
+   decide · prompt · llm · bind · revise (+correctives) · close — plus
+   `stage-support.js`, every one under 250 lines, every method verbatim. The
+   assembler that remains delegates at CALL time on purpose: the import graph
+   carries a legal cycle (intent → longgen → arc → turn/index → stages), and
+   an eval-time merge would TDZ on it.
+8. **The reader controller was opened, and the law got a ratchet.** The
+   pre-closure helpers of `rooms/reader/app.js` moved to `app/` (net · kv ·
+   guards · util). The closure itself (4,700 lines, 33 banner sections, 266
+   definitions) resists verbatim splitting: a scope-blind cut cannot tell a
+   closure `let` from its dozens of local shadows (`text`, `model`, `q`…) —
+   decomposing it safely needed an AST-scoped pass. Meanwhile
+   `tests/size-ratchet.test.js` gives the "no file over ~250 lines" law
+   mechanical teeth: no file off the baseline may cross 250, the pinned
+   offenders may only SHRINK, and a healed file's row must be deleted.
+9. **The reader closure was then decomposed, AST-scoped.** With real scope
+   analysis (acorn + eslint-scope over the closure), every banner section
+   became an `install(appCtx)` module under `app/` — 33 sections + the
+   public membrane (`api.js`) — with the section bodies VERBATIM: references
+   into a sibling section are rewritten (scope-exactly, shorthand properties
+   included) to ride `appCtx` at call time; the core spine (state · emit ·
+   the trail beats · the web client) is destructured once at install; and
+   the 18 genuinely shared mutables (the mint counters, the turn's
+   abort/stallGuard, the live model handle, the wedge streak, the warm
+   MiniLM…) live ON `appCtx`, because a published snapshot of a reassigned
+   `let` goes stale — chat's `stop()` must see the LIVE controller the
+   ingest section armed. `app.js` is now the 234-line assembler: the state,
+   the ctx, thirty-three installs in the closure's original order, and
+   `buildApi(appCtx)`. Four verbatim sections (chat · deep · model ·
+   toplines) are still over the line and enter the ratchet's pin list at
+   their birth size — they may only shrink.
+
 ## The open worklist, honestly
 
-- **Law 1 at runtime.** The claim "the kernel checks every event the part
-  emits" is still stronger than the mechanism. Events don't carry their
-  emitting module, so per-part runtime checking has nowhere to stand. Either
-  events grow provenance at the `log.append` chokepoint (which already seals
-  geometry) and the check becomes real, or the claim in eo-for-coders should
-  be softened to what is true: conformance is proven at the checkpoint, not
-  policed at emit.
-- **The god modules.** 130 files over the line, two of them the size the
-  refactor was named for. `rooms/reader/app.js` wants the same treatment
-  `engine.js` got in 4.0 — cut along the seams its own sections already draw.
-- ~~**The seam registry.**~~ Done: healed from 195 to zero; the registry is
-  empty and the boundary test keeps it that way.
+- ~~**The reader closure.**~~ Done: decomposed AST-scoped into 33 section
+  modules + the api membrane; the assembler is 234 lines. Four verbatim
+  sections (chat 639 · deep 363 · model 328 · toplines 297) remain pinned
+  and may only shrink.
+- **Law 1 adoption.** The emit-time check is live but opt-in per emitter;
+  the parse orchestrator is the first adopter. Each faculty can self-identify
+  its authored events (`append(event, { src })`) at its own pace — the
+  registry resolver is already at the chokepoint.
+- ~~**The seam registry.**~~ Done: healed from 195 to zero (one declared row
+  remains, with its reason: the conformance registry itself cannot ride
+  core's entrance); the boundary test keeps it that way.
+
+## The independent audit — thirteen layers, adversarially verified
+
+Alongside the repairs, a sixty-agent audit read every stack layer against the
+same rubric, one auditor per layer, and then tried to REFUTE each material
+finding independently (58 completed; 61 findings survived verification, 29
+were killed — the adversarial pass earned its keep). Run against the
+pre-repair tree, it independently converged on every defect the repairs
+fixed (the core escape, the pierced membrane, the silent crossings, the two
+god orchestrators, contracts as vanity metadata) — and it settles three
+things the repairs could not:
+
+- **The metabolism is the best-defended doctrine in the codebase** —
+  confirmed, not refuted, at major severity three times over: the desert
+  cell is enforced live and redundantly across four independent layers
+  during actual organ growth; the proposer/judge channels genuinely never
+  write the champion; and evolved organs are runtime-gated against a
+  well-formed EO contract at creation AND at body closure. Where the stakes
+  were highest, the code was already law.
+- **The enactor gates by flag, not by veto — on purpose.** "Nothing is
+  asserted that the record can't witness" is implemented as flag-and-ride:
+  the detection machinery (fact-check, the confabulation guard, mechanical
+  citation, the self-witness firewall) is genuinely live, but an
+  ungrounded claim ships TAGGED rather than suppressed, and the veto
+  battery renounces gating by name. That is a doctrinal softening the
+  prose does not admit — either the docs should say "witnessed or marked",
+  or the gate should close. The human holds that pen.
+- **Dead reserves.** `store/envelope.js` — 228 lines of E2EE envelope
+  crypto — is re-exported but has no running caller (the live path uses a
+  sibling implementation); murmur's steer/attention half is likewise
+  unconsumed. "No dead code paths" says these either find their caller or
+  go.
+
+The residual god-module long tail (perceiver's parser at 964 lines,
+seventeen surfer files over the floor) is the ratchet's territory now:
+pinned, shrink-only, and no new file may cross the line.
