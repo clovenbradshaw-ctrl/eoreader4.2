@@ -604,6 +604,30 @@ table{border-collapse:collapse;width:100%}
             <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:30px 24px 96px">
               <div style="max-width:680px;margin:0 auto">
 
+                <!-- ASK CONTEXT — the quest you're in (workspace › topic path) and where the next
+                     question lands. Left: where you are, so the topic space inside the workspace is
+                     never a guess. Right (once this quest holds a question): Follow-up nests a child
+                     quest under this one; New quest starts a fresh top-level quest over the same record. -->
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;min-height:24px">
+                  <div class="eo-scroll" style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;overflow-x:auto;white-space:nowrap;font-size:11.5px;color:#8A8A95">
+                    <span style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto">
+                      <span style="width:17px;height:17px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;background:{{ askWsDot }}">{{ askWsInitial }}</span>
+                      <span style="font-weight:600;color:#6E6E78">{{ askWsName }}</span>
+                    </span>
+                    <sc-for list="{{ askCrumbs }}" as="cr">
+                      <span style="flex:0 0 auto;color:#C4C4CC">›</span>
+                      <sc-if value="{{ cr.isLast }}"><span style="flex:0 1 auto;min-width:0;font-weight:650;color:#3A3A44;overflow:hidden;text-overflow:ellipsis">{{ cr.title }}</span></sc-if>
+                      <sc-if value="{{ cr.notLast }}"><button onClick="{{ cr.go }}" title="Jump to this quest" style="flex:0 0 auto;max-width:160px;overflow:hidden;text-overflow:ellipsis;color:#8A8A95;background:none" style-hover="color:#5B4BE6">{{ cr.title }}</button></sc-if>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ askShowScope }}">
+                    <div style="flex:0 0 auto;display:flex;align-items:center;gap:2px;background:#F4F4F7;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
+                      <button onClick="{{ setAskFollow }}" title="Follow up here — a new question nested under this quest, reading the same record" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;border-radius:6px;padding:3px 9px;color:{{ askFollowFg }};background:{{ askFollowBg }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>Follow-up</button>
+                      <button onClick="{{ setAskNew }}" title="Start a fresh quest — a new top-level topic in this workspace, over the same sources" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;border-radius:6px;padding:3px 9px;color:{{ askNewFg }};background:{{ askNewBg }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>New quest</button>
+                    </div>
+                  </sc-if>
+                </div>
+
                 <!-- the ask line -->
                 <div style="position:relative;margin-bottom:10px">
                   <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="{{ chatPlaceholder }}" style="width:100%;border:none;border-bottom:2px solid #1B1B22;outline:none;background:transparent;font-size:23px;font-weight:300;color:#1B1B22;padding:6px 42px 12px 0" />
@@ -651,7 +675,19 @@ table{border-collapse:collapse;width:100%}
                       <div style="display:flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#8A8A95;margin-bottom:16px"><span style="animation:eoBlink 1.4s ease-in-out infinite">{{ a.pendingLabel }}</span><span style="flex:1;height:1px;background:#EAEAEF"></span></div>
                     </sc-if>
                     <sc-if value="{{ a.notPending }}">
-                      <div style="display:flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:{{ a.kindFg }};margin-bottom:14px">{{ a.kind }}<sc-if value="{{ a.hasCorr }}"><span style="font-size:9px;font-weight:600;letter-spacing:.05em;color:{{ a.corrFg }};background:{{ a.corrBg }};border:1px solid {{ a.corrBd }};border-radius:4px;padding:1px 6px">{{ a.corrLabel }}</span></sc-if><span style="flex:1;height:1px;background:#EAEAEF"></span></div>
+                      <div style="display:flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:{{ a.kindFg }};margin-bottom:14px">{{ a.kind }}<sc-if value="{{ a.hasCorr }}"><span style="font-size:9px;font-weight:600;letter-spacing:.05em;color:{{ a.corrFg }};background:{{ a.corrBg }};border:1px solid {{ a.corrBd }};border-radius:4px;padding:1px 6px">{{ a.corrLabel }}</span></sc-if><span style="flex:1;height:1px;background:#EAEAEF"></span><span style="flex:0 0 auto;display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:normal">
+                        <sc-if value="{{ a.hasBody }}"><button onClick="{{ toggleEntityMode }}" title="{{ askLinksTitle }}" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }}" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ askLinksLabel }}</button></sc-if>
+                        <span style="position:relative;display:inline-flex">
+                          <button onClick="{{ toggleAskAuditMenu }}" title="Download this answer's full audit — the question, its grounded passages and verdicts, and the verbatim prompt" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF" style-hover="background:#EAEAEF;color:#5B4BE6"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Audit</button>
+                          <sc-if value="{{ askAuditMenuOpen }}">
+                            <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:#fff;border:1px solid #EAEAEF;border-radius:10px;box-shadow:0 12px 30px rgba(20,20,30,.16);padding:5px;width:216px">
+                              <div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;padding:5px 8px 4px">DOWNLOAD AUDIT</div>
+                              <button onClick="{{ downloadAskAuditMd }}" style="display:block;width:100%;text-align:left;border-radius:7px;padding:7px 9px;font-size:12px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF">Markdown<div style="font-size:10px;font-weight:500;color:#8A8A95;margin-top:1px">Readable — passages &amp; verdicts under the answer</div></button>
+                              <button onClick="{{ downloadAskAuditJson }}" style="display:block;width:100%;text-align:left;border-radius:7px;padding:7px 9px;font-size:12px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF">JSON<div style="font-size:10px;font-weight:500;color:#8A8A95;margin-top:1px">Structured — the answer paired to its trail</div></button>
+                            </div>
+                          </sc-if>
+                        </span>
+                      </span></div>
                     </sc-if>
 
                     <!-- the question, restated -->
@@ -1454,9 +1490,87 @@ table{border-collapse:collapse;width:100%}
               </div>
             </div>
 
-            <!-- TOPLINE — the auto-generated summary of this source, composed from the objects the -->
+            <!-- DOSSIER — a single-subject source (a bio/article) shows its dominant figure's reading -->
+            <!-- (docs/topline.md): the model-WRITTEN account IN THIS DOCUMENT on the left (its info in the -->
+            <!-- context of the reading, span-grounded and steerable — never the raw encyclopedia lead), -->
+            <!-- and on the right the settled Wikipedia referent + lead image over the provenance DAG that -->
+            <!-- receipts every standing property. A diffuse / figure-less source keeps the plain SUMMARY. -->
+            <sc-if value="{{ viewer.dossier.show }}">
+              <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;background:#FAFAFE;padding:13px 20px">
+                <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:11px">
+                  <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">DOSSIER</span>
+                  <span style="font-family:'Newsreader',Georgia,serif;font-size:14px;font-weight:600;color:#2A2A32">{{ viewer.dossier.label }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B4B4BE">{{ viewer.dossier.counts }}</span>
+                  <span style="flex:1"></span>
+                  <button onClick="{{ viewer.dossier.openFull }}" title="Open this figure's full profile" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:3px 9px" style-hover="background:#E7E2FD">Full profile ↗</button>
+                </div>
+                <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start">
+
+                  <!-- LEFT — the reading's own account of the figure -->
+                  <div style="flex:1 1 360px;min-width:280px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                      <span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#A6A0CF">{{ viewer.dossier.summary.panelLabel }}</span>
+                      <sc-if value="{{ viewer.dossier.summary.hasKind }}"><span style="font-size:9px;font-weight:600;color:#B26A2E;text-transform:uppercase;letter-spacing:.04em">{{ viewer.dossier.summary.kindLabel }}</span></sc-if>
+                      <span style="flex:1"></span>
+                      <sc-if value="{{ viewer.dossier.summary.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
+                    </div>
+                    <sc-if value="{{ viewer.dossier.summary.has }}">
+                      <sc-if value="{{ viewer.dossier.summary.hasSpans }}">
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:14.5px;line-height:1.6;color:#2A2A32"><sc-for list="{{ viewer.dossier.summary.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span title="{{ sp.cite }}">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing in the record witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if></sc-for></div>
+                        <sc-if value="{{ viewer.dossier.summary.anyFlagged }}"><div style="font-size:10px;color:#B08A4A;margin-top:5px">Underlined spans are the model’s own words — not found in the record.</div></sc-if>
+                      </sc-if>
+                      <sc-if value="{{ viewer.dossier.summary.noSpans }}">
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:14.5px;line-height:1.6;color:#2A2A32">{{ viewer.dossier.summary.text }}</div>
+                      </sc-if>
+                      <sc-if value="{{ viewer.dossier.summary.hasUnmet }}"><div style="font-size:11px;color:#B26A2E;margin-top:6px;font-style:italic">{{ viewer.dossier.summary.unmet }}</div></sc-if>
+                      <div style="display:flex;align-items:center;gap:6px;margin-top:10px;flex-wrap:wrap">
+                        <input value="{{ viewer.dossier.summary.draft }}" onChange="{{ viewer.dossier.summary.onInput }}" onKeyDown="{{ viewer.dossier.summary.onKey }}" placeholder="Tell it what to change — shorter, focus on…, or what's wrong" style="flex:1;min-width:140px;border:1px solid #E1DDF2;border-radius:7px;background:#fff;padding:6px 9px;font-size:11.5px;outline:none" style-focus="border-color:#B7ADF3" />
+                        <button onClick="{{ viewer.dossier.summary.send }}" style="font-size:11px;font-weight:600;color:#fff;background:#6D5EF5;border-radius:7px;padding:6px 12px" style-hover="background:#5B4BE6">Update</button>
+                        <button onClick="{{ viewer.dossier.summary.shorter }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">Shorter</button>
+                        <button onClick="{{ viewer.dossier.summary.longer }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">More</button>
+                        <button onClick="{{ viewer.dossier.summary.regen }}" title="Recompose from the record" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">↻</button>
+                        <sc-if value="{{ viewer.dossier.summary.hasCites }}"><span title="the passages this rests on" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2">{{ viewer.dossier.summary.cites }}</span></sc-if>
+                      </div>
+                    </sc-if>
+                  </div>
+
+                  <!-- RIGHT — the Wikipedia referent (image + link) over the provenance DAG -->
+                  <div style="flex:0 0 320px;max-width:100%;display:flex;flex-direction:column;gap:11px">
+                    <sc-if value="{{ viewer.dossier.hasImage }}">
+                      <a href="{{ viewer.dossier.wikiUrl }}" target="_blank" rel="noopener" title="{{ viewer.dossier.wikiTitle }} — Wikipedia ↗" style="display:block;border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff;text-decoration:none">
+                        <img src="{{ viewer.dossier.image }}" alt="{{ viewer.dossier.imageAlt }}" loading="lazy" referrerpolicy="no-referrer" style="display:block;width:100%;height:auto;max-height:300px;object-fit:cover" />
+                        <sc-if value="{{ viewer.dossier.hasWiki }}">
+                          <span style="display:block;padding:7px 11px;border-top:1px solid #F0F0F4">
+                            <span style="display:block;font-size:11px;font-weight:600;color:#5B4BE6">{{ viewer.dossier.wikiTitle }} ↗</span>
+                            <sc-if value="{{ viewer.dossier.hasWikiDesc }}"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4;margin-top:2px">{{ viewer.dossier.wikiDesc }}</span></sc-if>
+                          </span>
+                        </sc-if>
+                      </a>
+                    </sc-if>
+                    <sc-if value="{{ viewer.dossier.wikiWait }}"><div style="font-size:10.5px;color:#B0AACF;font-style:italic">looking up Wikipedia…</div></sc-if>
+                    <!-- a confirmed referent that carries no lead image still earns its link -->
+                    <sc-if value="{{ viewer.dossier.hasWiki }}"><sc-if value="{{ viewer.dossier.noImage }}">
+                      <a href="{{ viewer.dossier.wikiUrl }}" target="_blank" rel="noopener" style="display:block;border:1px solid #EFEFF3;border-radius:10px;padding:8px 11px;background:#FBFBFD;text-decoration:none">
+                        <span style="display:block;font-size:11px;font-weight:600;color:#5B4BE6">{{ viewer.dossier.wikiTitle }} ↗</span>
+                        <sc-if value="{{ viewer.dossier.hasWikiDesc }}"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4;margin-top:2px">{{ viewer.dossier.wikiDesc }}</span></sc-if>
+                      </a>
+                    </sc-if></sc-if>
+                    <sc-if value="{{ viewer.dossier.hasDag }}">
+                      <div style="border:1px solid #EFEFF3;border-radius:11px;padding:10px 8px 6px;background:#fff">
+                        <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 6px">PROVENANCE <span style="color:#C8C8D0;font-weight:600">· source → passage → property</span></div>
+                        <div ref="{{ viewer.dossier.setDagEl }}"></div>
+                      </div>
+                    </sc-if>
+                  </div>
+
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- SUMMARY — the auto-generated topline of this source, composed from the objects the -->
             <!-- machinery decided (never the raw text), with a box to give it feedback that steers it. -->
-            <sc-if value="{{ viewer.topline.show }}">
+            <!-- Shown for a diffuse source; a single-subject one shows the DOSSIER above instead. -->
+            <sc-if value="{{ viewer.plainSummary }}">
               <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;background:#FAFAFE;padding:11px 20px">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                   <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">SUMMARY</span>
@@ -2532,6 +2646,9 @@ class Component extends DCLogic {
       modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
+      // Ask surface: where the next question lands — 'follow' (a child quest under the current
+      // topic) or 'new' (a fresh top-level quest); and the per-answer "Download audit" menu.
+      askScope: 'follow', askAuditMenuOpen: false,
       entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null, webGraphTick: 0,
       // The entity explorer PIVOTS to the source open in the stage: when a source is in front
       // it shows that source's figures, not the whole topic's. entScopeAll escapes back to the
@@ -3141,7 +3258,10 @@ class Component extends DCLogic {
     // the input box first; a bare click passes an event, so only a real string is honoured.
     const q = String(typeof q0 === 'string' ? q0 : (this.state.chatInput || '')).trim();
     if (!q || !this._app) return;
-    this.setState({ chatInput: '' });
+    // Capture where this question lands BEFORE the reset: the Ask "New quest" affordance is a
+    // one-shot intent — it fires once, then falls back to a follow-up for the next question.
+    const newQuest = this.state.tab === 'ask' && this.state.askScope === 'new';
+    this.setState({ chatInput: '', askScope: 'follow' });
     this._chatStick = true;   // a deliberate send always returns to the live bottom
     // A new prompt while a turn is still running used to be REFUSED outright (early-return on
     // _generating, and the composer showed only Stop) — so a user who wanted to move on was stuck
@@ -3164,7 +3284,7 @@ class Component extends DCLogic {
     // sources, when the current topic already holds a question) — the system answers a single
     // grounded question or abstains, and never accretes the back-and-forth thread it does worst.
     // Chat stays the explicit thread mode: it keeps the plain ask() so its conversation still builds.
-    const fire = () => { (onAsk ? this._app.askQuestion(q) : this._app.ask(q)).catch(() => {}); };
+    const fire = () => { (onAsk ? this._app.askQuestion(q, { newQuest }) : this._app.ask(q)).catch(() => {}); };
     if (this._generating()) {
       this._app.stop();
       setTimeout(fire, 0);
@@ -3297,7 +3417,7 @@ class Component extends DCLogic {
     // canvas and redraws clean (the ref only re-fires on a new element).
     if (this.state.tab === 'graph' && tab !== 'graph' && this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; this._tgEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
-    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, ...(this._mob() ? { leftOpen: false } : {}) };
+    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, ...(this._mob() ? { leftOpen: false } : {}) };
     // The Graph tab now hosts the real graph — the entity web / causal DAG of everything in
     // focus. Initialise it lazily the first time we land here (whole-topic entity web).
     if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
@@ -4285,15 +4405,25 @@ class Component extends DCLogic {
   }
   exportChatAs(format) {
     this.setState({ exportMenuOpen: false });
+    this._downloadExport(format, 'Chat exported — ');
+  }
+  // Download the audit of THIS ask. One grounded question per topic means the open topic IS the
+  // question, so its export is the answer's full trail — the question, the grounded passages and
+  // their verdicts, and the verbatim prompt. Same builder as the chat export, scoped to the topic.
+  downloadAskAudit(format) {
+    this.setState({ askAuditMenuOpen: false });
+    this._downloadExport(format, 'Audit downloaded — ');
+  }
+  _downloadExport(format, doneMsg) {
     const t = this._app && this._app.topic();
     const out = t && this._app.exportChat(t.id, format);
-    if (!out) { this.showToast('Nothing to export yet — ask something first.'); return; }
+    if (!out) { this.showToast('Nothing to download yet — ask something first.'); return; }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([out.text], { type: out.mime }));
     a.download = out.filename;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    this.showToast('Chat exported — ' + out.filename);
+    this.showToast(doneMsg + out.filename);
   }
   closeSearch() { this.setState({ searchOpen: false, searchPreview: null }); }
   // ── ⌘K source palette — search THROUGH everything recorded (title · site · full body) ────────
@@ -4684,6 +4814,67 @@ class Component extends DCLogic {
       longer: () => this._tlFeedback(scope, ids, key, 'more detail'),
       regen: () => this._regenTl(scope, ids, key),
     };
+  }
+  // ── the source page's entity DOSSIER (docs/topline.md) ───────────────────────
+  // When a source CENTRES on one dominant figure (a bio, an article about a subject), its summary
+  // panel becomes that figure's dossier rather than a machine telegram: the model-WRITTEN reading of
+  // the figure IN THIS DOCUMENT on the left (its info in the context of the reading, span-grounded and
+  // steerable — never the raw encyclopedia lead), and on the right the settled Wikipedia referent with
+  // its lead image, over the provenance DAG that receipts every standing property. It reuses the entity
+  // machinery whole — the contextual summary (chorus/definer), the wiki referent + image, _renderPropDag
+  // — laid out full-width for the reading stage. A diffuse / figure-less source returns { show:false }
+  // and keeps its plain source SUMMARY.
+  _sourceDossierVM(s) {
+    const app = this._app;
+    if (!app || !app.sourceDominantEntity || !s) return { show: false };
+    let dom = null;
+    try { dom = app.sourceDominantEntity(s.sn); } catch { dom = null; }
+    if (!dom) return { show: false };
+    const { docId, entId, label } = dom;
+    const p = app.entityProfile ? app.entityProfile(docId, entId) : null;
+    if (!p) return { show: false };
+    // Pull the Wikipedia referent + lead image once (deferred — a render read never setStates).
+    this._kickDossierWiki(docId, entId);
+    const wk = this.state.wikiDefs[docId + '#' + entId] || null;
+    const wkHit = !!(wk && wk.confirmed && wk.text);
+    const hasImage = !!(wk && wk.confirmed && wk.thumb);
+    const src = app.sourceBySn(p.sn) || {};
+    return {
+      show: true, label,
+      counts: (p.mentions.length === 1 ? '1 mention' : p.mentions.length + ' mentions')
+        + ' · ' + (p.relations.length === 1 ? '1 link' : p.relations.length + ' links'),
+      openFull: () => this.openEntity(docId, entId),
+      // LEFT — the fold-aware contextual reading of this figure (model-written, span-grounded,
+      // steerable). Reuses the entity topline VM whole, so feedback / Shorter / More all steer it.
+      summary: this._toplineVM('entity', { docId, entId }, label),
+      // RIGHT · the Wikipedia lead image — shown only for a CONFIRMED referent (the honesty rule).
+      wikiWait: !!(wk && wk.busy),
+      hasImage, noImage: !hasImage, image: hasImage ? wk.thumb : '', imageAlt: label,
+      hasWiki: wkHit, wikiTitle: wkHit ? wk.title : '', wikiUrl: wkHit ? wk.url : '',
+      hasWikiDesc: !!(wkHit && wk.description), wikiDesc: wkHit ? (wk.description || '') : '',
+      // RIGHT · the provenance DAG (SOURCE → PASSAGE → PROPERTY), keyed apart from the sidebar's.
+      hasDag: p.defs.length > 0,
+      setDagEl: (el) => this._mountPropDag(el, {
+        source: { title: src.title || p.sourceTitle || 'this source', reg: src.reg || '' },
+        props: p.defs.slice(0, 8).map((d) => ({
+          value: d.value, count: d.count, score: d.score,
+          witnesses: (d.witnesses || []).map((w) => ({ idx: w.idx, text: w.text })),
+        })),
+        onJump: (text) => this._jumpTo(p.sn, text),
+      }, 'dossier:' + docId + '#' + entId + '#' + p.defs.length),
+    };
+  }
+  // Kick the dominant figure's Wikipedia lookup (referent + lead image) exactly once, deferred a
+  // microtask so a render-time read never setStates synchronously. _ensureWiki caches on
+  // state.wikiDefs, which the dossier VM reads back on the next render; the shared cache means the
+  // sidebar profile and the dossier never fetch the same referent twice.
+  _kickDossierWiki(docId, entId) {
+    const key = docId + '#' + entId;
+    if (this.state.wikiDefs[key]) return;
+    this._wikiKicked = this._wikiKicked || new Set();
+    if (this._wikiKicked.has(key)) return;
+    this._wikiKicked.add(key);
+    Promise.resolve().then(() => this._ensureWiki(docId, entId));
   }
   // ── the property provenance DAG ─────────────────────────────────────────────
   // A self-contained little DAG that answers "where does this property come from?":
@@ -6290,6 +6481,11 @@ class Component extends DCLogic {
           // the auto-generated topline for this source + its feedback box (docs/topline.md)
           topline: this._toplineVM('source', { sn: s.sn }, s.title),
         };
+        // The DOSSIER — a single-subject source (a bio/article) shows its dominant figure's reading:
+        // the model-written account IN THIS DOCUMENT beside the Wikipedia referent + image over the
+        // provenance DAG. A diffuse source keeps its plain SUMMARY, so the two are mutually exclusive.
+        viewer.dossier = this._sourceDossierVM(s);
+        viewer.plainSummary = !!(viewer.topline && viewer.topline.show) && !viewer.dossier.show;
         // The media panel — player + waveform + signal/noise holons + transcription status —
         // shown above the reading for a decoded audio/video source, in every viewer mode.
         viewer.media = this._mediaVM(s) || { show: false };
@@ -6502,6 +6698,26 @@ class Component extends DCLogic {
       dot: r.verdict === 'strain' ? '#B23A2E' : r.verdict === 'confirm' ? '#59C08A' : '#8A8A95',
     }));
 
+    // ── ask context — the quest you're in and where the next question lands ──────────────────
+    // The breadcrumb (workspace › quest path) makes "what topic space am I in, inside which
+    // workspace" plain on the Ask surface; the scope control makes the branch explicit — a
+    // follow-up nests a child quest under this one, a new quest is a fresh top-level topic over the
+    // same record — instead of the old silent auto-branch on every follow-up question.
+    const askedInTopic = !!(topic && topic.messages && topic.messages.some((mm) => mm && mm.role === 'user'));
+    const questPath = [];
+    if (topic) {
+      const byId = (id) => (app.state.topics || []).find((x) => x.id === id) || null;
+      let t = topic, guard = 0;
+      while (t && guard++ < 50) { questPath.unshift(t); t = t.parentId ? byId(t.parentId) : null; }
+    }
+    const askCrumbs = questPath.map((t, i) => ({
+      title: t.title || 'New topic',
+      isLast: i === questPath.length - 1,
+      notLast: i !== questPath.length - 1,
+      go: () => { if (this._app.setTopic) this._app.setTopic(t.id); this.setTab('ask'); },
+    }));
+    const askScope = st.askScope || 'follow';
+
     return {
       // chrome
       omni: st.omni, toast: st.toast, dragOver: !!st.dragOver,
@@ -6541,6 +6757,26 @@ class Component extends DCLogic {
       isRegister: st.tab === 'register', isMemo: st.tab === 'memo',
       // ask (the primary surface) — the latest exchange as one typed, cited answer
       askSurfaces, askTries, askHasTries: askTries.length > 0, askEmpty, askHasSurface: askSurfaces.length > 0,
+      // ask context — breadcrumb (workspace › quest path) + the destination affordance
+      askWsName: activeWs ? activeWs.name : 'Workspace',
+      askWsDot: activeWs ? (activeWs.color || '#6D5EF5') : '#6D5EF5',
+      askWsInitial: activeWs ? (((activeWs.name || '?').trim()[0] || '?').toUpperCase()) : '?',
+      askCrumbs,
+      askShowScope: askedInTopic,
+      setAskFollow: () => this.setState({ askScope: 'follow' }),
+      setAskNew: () => this.setState({ askScope: 'new' }),
+      askFollowFg: askScope === 'follow' ? '#fff' : '#6E6E78', askFollowBg: askScope === 'follow' ? '#6D5EF5' : 'transparent',
+      askNewFg: askScope === 'new' ? '#fff' : '#6E6E78', askNewBg: askScope === 'new' ? '#6D5EF5' : 'transparent',
+      // per-answer controls: the combined links+citations toggle (reuses entityMode, see
+      // toggleEntityMode / entMode* below) and the "Download audit" menu for this ask
+      askLinksLabel: st.entityMode ? 'Links & citations · on' : 'Links & citations · off',
+      askLinksTitle: st.entityMode
+        ? 'Hide the inline entity links and [S-…] citation badges in this answer'
+        : 'Show the inline entity links and [S-…] citation badges in this answer',
+      askAuditMenuOpen: !!st.askAuditMenuOpen,
+      toggleAskAuditMenu: () => this.setState({ askAuditMenuOpen: !st.askAuditMenuOpen }),
+      downloadAskAuditMd: () => this.downloadAskAudit('md'),
+      downloadAskAuditJson: () => this.downloadAskAudit('json'),
       // chat (demoted, beta)
       chatEmpty: messages.length === 0, messages, heroActions,
       chatInput: st.chatInput, onChatInput: (e) => this.onChatInput(e), onChatKey: (e) => this.onChatKey(e),

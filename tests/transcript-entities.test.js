@@ -41,6 +41,13 @@ const timedWords = (transcript) => transcript.split(/\s+/).map((w, i) => ({ text
 
 const TRANSCRIPT = 'Darcy met Elizabeth at Pemberley. Elizabeth admired Pemberley. Darcy loved Elizabeth.';
 
+// A COURTROOM opening — the honorific belongs TO the name. "Mr. Dupree" and "Mr. Chief Justice"
+// are ONE figure each, not a bare surname with a stray "Mr." beside it. Admission joins the title
+// to the name and drops its period (the label it keeps is "Mr Dupree"); the linker has to carry
+// that normalisation back onto the surface it reads ("Mr. Dupree") or the title strands as loose
+// text and only the surname links — the exact split the entity underlines showed in the reader.
+const COURT = 'Mr. Chief Justice, and may it please the Court. Mr. Dupree argued the case. The Chief Justice questioned Mr. Dupree.';
+
 test('the reading layer links a clip’s figures — the referent layer, not the empty word graph', async () => {
   const app = await freshApp();
   const src = asAudioClip(app, TRANSCRIPT, 'PP');
@@ -95,6 +102,39 @@ test('transcriptEntityRuns spans a multi-word figure across its words', async ()
   const sorted = [...runs].sort((a, b) => a.i0 - b.i0);
   for (let i = 1; i < sorted.length; i++) assert.ok(sorted[i].i0 > sorted[i - 1].i1, 'runs are non-overlapping');
   assert.ok(runs.every((r) => r.i0 >= 0 && r.i1 < words.length && r.i1 >= r.i0), 'indices stay in range');
+});
+
+test('an honorific links as part of the figure in prose, not stranded beside it', async () => {
+  const app = await freshApp();
+  const src = app.ingestText(COURT, 'COURT');
+  const segs = app.readerLink(src.sn, { entities: true }).linkify(COURT);
+  const ents = segs.filter((s) => s.t === 'ent').map((s) => s.s);
+  assert.ok(ents.includes('Mr. Dupree'), 'the honorific rides with the surname — "Mr. Dupree" is one linked entity');
+  assert.ok(ents.includes('Mr. Chief Justice'), '"Mr. Chief Justice" links whole, title and all');
+  // The title is never left as a bare "Mr." text fragment sitting just before a linked name.
+  for (let i = 1; i < segs.length; i++) {
+    if (segs[i].t === 'ent') {
+      assert.ok(!/(^|\s)Mr\.?\s*$/.test(segs[i - 1].s || ''), 'no stranded "Mr." immediately precedes a linked name');
+    }
+  }
+});
+
+test('transcriptEntityRuns carries the honorific into the figure’s run', async () => {
+  const app = await freshApp();
+  const src = asAudioClip(app, COURT, 'COURT');
+  const words = timedWords(COURT);
+  const runs = app.transcriptEntityRuns(src.sn, words);
+  const cover = (r) => words.slice(r.i0, r.i1 + 1).map((w) => w.text).join(' ');
+  const covered = runs.map(cover);
+  assert.ok(covered.some((c) => /^Mr\.?\s+Dupree\b/.test(c)), 'the "Mr." word heads the Dupree run');
+  assert.ok(covered.some((c) => /^Mr\.?\s+Chief\s+Justice\b/.test(c)), 'the "Mr." word heads the Chief Justice run');
+  // Every "Mr." title word sits INSIDE a multi-word run — never a run of its own beside the name.
+  words.forEach((w, i) => {
+    if (/^Mr\.?$/.test(w.text)) {
+      const r = runs.find((rr) => rr.i0 <= i && i <= rr.i1);
+      assert.ok(r && r.i1 > r.i0, `the title at word ${i} is part of a multi-word run`);
+    }
+  });
 });
 
 test('a run points at an entity the profile can resolve (the click-through target)', async () => {

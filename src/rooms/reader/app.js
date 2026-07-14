@@ -18,7 +18,7 @@
 // one degrades to a no-op or a thrown, catchable error; nothing at import time
 // touches the network.
 
-import { parseText } from '../../perceiver/parse/index.js';
+import { parseText, TITLE_WORDS } from '../../perceiver/parse/index.js';
 import { promoteConnection } from '../../enactor/connect/index.js';
 import { speakTriples, talkThenVerify } from '../../weave/write/index.js';
 import { toPast } from '../../weave/write/morph.js';
@@ -63,6 +63,7 @@ import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
 import { buildChatExport } from './chat-export.js';
 import { wikiReferent } from './wiki-referent.js';
+import { mergeEntitiesByReferent } from './entity-merge.js';
 import { composeProvenance, repoRef, readBuild, fetchLatestCommit, APP_NAME, APP_VERSION } from './provenance.js';
 import { foldNarrative } from './fold-narrative.js';
 import { deriveTopicTitle, isDefaultTopicTitle, DEFAULT_TOPIC_TITLE } from './topic-name.js';
@@ -179,6 +180,10 @@ const wantsLongform = (q) => LONGFORM_RE.test(String(q || ''));
 const LONGFORM_MAX_TOKENS = 1600;
 const domainOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
 const shaShort = (h) => String(h || '').replace(/^[^:]*:/, '').slice(0, 12);
+// Honorifics whose trailing period admission drops when it joins them to a name ("Mr." → the
+// label "Mr Dupree"). Lowercased once, from the admission's own list, so the reader's entity
+// linker tolerates the same normalisation when matching the label back onto the surface text.
+const LINK_TITLES = new Set([...TITLE_WORDS].map((w) => w.toLowerCase()));
 const bytesOf = (text) => { try { return new TextEncoder().encode(text).length; } catch { return String(text).length; } };
 const esc = (s) => String(s ?? '');
 
@@ -882,7 +887,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return src._doc;
   };
 
-  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null }) => {
+  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null, defer = false }) => {
     const body = String(text || '').trim();
     if (!body) throw new Error('nothing to record — the page had no readable text');
     const hash = record?.content_hash || webContentHash(body);
@@ -932,7 +937,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // every large import. It is left to the reading surface to compute lazily (eotFor,
     // memoised) when the reader actually opens that source. Recording never blocks the tab
     // on the full EoT read again.
-    setTimeout(() => {
+    //
+    // `defer` skips this tick entirely: the caller is landing the source AHEAD of its reading
+    // (a big prose import parses in a CHUNKED background pass, not the synchronous sweep docFor
+    // runs here) and folds the doc in with finishReading — which runs the same EoT read + summary
+    // once the reading is ready. Without the skip the eager docFor here would race that background
+    // pass and freeze the tab on the very sweep defer exists to avoid.
+    if (!defer) setTimeout(() => {
       try {
         const d = docFor(src);
         const props = d?.log ? emitEot(d.log).lines.length : 0;
@@ -944,6 +955,26 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
     }, 0);
     return src;
+  };
+
+  // finishReading(src, doc) — fold a background-parsed reading into a source that ALREADY landed
+  // (addSource with `defer`). The source appeared in the registry the instant its text was known;
+  // this attaches the entity/relation doc once the CHUNKED parse finishes, refreshes the derived
+  // caches, and runs the same EoT read + summary addSource's eager tick would have — so the record
+  // shows immediately and its reading catches up without ever freezing the tab. Defensive: a source
+  // removed mid-parse is a no-op.
+  const finishReading = (src, doc) => {
+    if (!src || !doc || !sourceBySn(src.sn)) return;
+    src._doc = doc;
+    src._eot = null;
+    deepReaders.delete(src.docId);
+    try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; }
+    try {
+      const props = doc.log ? emitEot(doc.log).lines.length : 0;
+      logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
+    } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+    persist(); emit('sources');
+    sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
   };
 
   // The source's reading as one EoT document (structure + thinking). Memoised on the
@@ -1659,42 +1690,58 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         }
         return src;
       }
-      // For a structured modality the ORGAN doc is the reading: a table's cells, a JSON
-      // tree's leaves, a binary's string runs ARE its propositions — three-faced events
-      // already on the log — and re-parsing their rendered lines as prose would drop
-      // them. Prose-bearing modalities (pdf, webpage, ocr, audio transcript, plain text)
-      // parse as text so the entity/relation read runs over the actual sentences.
-      // A MIDI score is structured like a table: the ORGAN doc (pitch-class entities +
-      // interval bonds) IS the reading — re-parsing the human summary as prose would drop
-      // the note graph the music organ raised. Its readable `text` is the summary the
-      // organ carries; STRUCTURED_MODALITIES (first-surface.js) keeps the two lists aligned.
       const structured = ['table', 'json', 'binary', 'music'].includes(got.meta?.modality) && got.meta?.doc;
-      // Prose parses through the parser's CHUNKED path (onProgress → yield between chunks),
-      // so a 2,500-page document's entity/relation read no longer runs as one synchronous
-      // sweep that freezes the tab for seconds — it breathes, reports progress, and stays
-      // stoppable. The work and its order are byte-identical to the plain sweep (pipeline.js);
-      // `await` passes the structured (already-parsed) doc straight through unchanged.
-      const doc = structured
-        ? got.meta.doc
-        : await parseText(got.text, {
-            docId: `doc-${shaShort(webContentHash(got.text))}`,
+      // The coverage receipt — proof that 100% of the file was processed, or the named account of
+      // what could not be (import-file.js) — rides the source and the ledger, whichever path lands it.
+      const cov = got.meta?.coverage;
+      const recordCoverage = (src) => {
+        if (!cov || !src) return;
+        src.coverage = cov;
+        if (cov.complete) logIt('record', `Coverage — 100% of ${file.name} processed`, src.reg);
+        else logIt('skip', `Partial read of ${file.name} — ${(cov.dropped || []).join('; ')}`, src.reg);
+        persist();
+      };
+
+      // STRUCTURED — the ORGAN doc IS the reading: a table's cells, a JSON tree's leaves, a binary's
+      // string runs, a MIDI score's note graph ARE its propositions, already three-faced events on
+      // the log; re-parsing their rendered lines as prose would drop them. It is cheap and ready, so
+      // the source lands WITH its doc in one step and its entity count shows at once.
+      if (structured) {
+        const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc: got.meta.doc });
+        settleFile('done');
+        recordCoverage(src);
+        return src;
+      }
+
+      // PROSE (pdf, webpage, ocr, plain text) — land the source AT ONCE from its extracted text,
+      // exactly the way an audio import lands from its acoustic reading, so it shows up in the
+      // sources the instant it is imported: named, on the record, openable as a book (the reader
+      // renders from src.text). `defer` tells addSource NOT to read it eagerly; the entity/relation
+      // read then runs as a CHUNKED background pass (onProgress → yields between chunks) and
+      // finishReading folds it in when it is done. So a 2,500-page document never makes the reader
+      // wait to see its source, and never freezes the tab on one synchronous sweep — until the read
+      // lands, the registry simply shows that source's entity count as an ellipsis.
+      const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', defer: true });
+      // The source has landed and persists (src.text rides the snapshot); the pre-source extract
+      // window the file job covered is over. Drop it — a reload re-derives the reading lazily.
+      settleFile('done');
+      recordCoverage(src);
+      if (src) {
+        try {
+          const doc = await parseText(got.text, {
+            docId: src.docId,
             onProgress: (p) => {
               if (p && p.phase === 'parse' && p.total)
                 progress({ kind: 'file', label: `Reading the text… ${p.done.toLocaleString()} / ${p.total.toLocaleString()} sentences` });
             },
           });
-      const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc });
-      // The source has landed and persists (src.text rides the snapshot); the import is complete, so
-      // drop the file job and its stashed bytes. A reload from here on re-derives the reading lazily.
-      settleFile('done');
-      // The coverage receipt — proof that 100% of the file was processed, or the named
-      // account of what could not be (import-file.js) — rides the source and the ledger.
-      const cov = got.meta?.coverage;
-      if (cov && src) {
-        src.coverage = cov;
-        if (cov.complete) logIt('record', `Coverage — 100% of ${file.name} processed`, src.reg);
-        else logIt('skip', `Partial read of ${file.name} — ${(cov.dropped || []).join('; ')}`, src.reg);
-        persist();
+          finishReading(src, doc);
+        } catch (e) {
+          // The reading failed — but the SOURCE stands (it landed above). Leave it on its text and
+          // let docFor re-read it lazily the next time the reading is actually needed; a recorded
+          // source is never unwound over a parse fault.
+          logIt('skip', `Reading failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`);
+        }
       }
       return src;
     });
@@ -2859,12 +2906,21 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   // THAT topic in place — asking the first question never orphans an empty placeholder.
   // Delegates to ask() on the now-active topic and returns its pending message. topicNew
   // already makes the child active and auto-naming (from the first question) then names it.
+  // opts.newQuest — a DELIBERATE new quest (the Ask surface's "New quest" affordance): a fresh
+  // TOP-LEVEL topic in the same workspace rather than a child, still inheriting the current record
+  // so a new line of inquiry starts without re-recording the sources. Without it the default holds:
+  // the first question fills the current topic in place, and every question after branches a CHILD
+  // quest beneath it (both inherit the parent's sources).
   const askQuestion = (question, opts = {}) => {
     const q = String(question || '').trim();
     if (!q) return Promise.resolve(null);
     const cur = topic();
     const alreadyAsked = !!(cur && cur.messages.some((m) => m && m.role === 'user'));
-    if (cur && alreadyAsked) {
+    if (opts.newQuest && alreadyAsked) {
+      const fresh = topicNew(DEFAULT_TOPIC_TITLE, { workspaceId: (cur && cur.workspaceId) || state.activeWorkspaceId });
+      fresh.sourceSns = [...((cur && cur.sourceSns) || [])];   // a new quest still reads the same record
+      persist(); emit('topics');
+    } else if (cur && alreadyAsked) {
       const child = topicNew(DEFAULT_TOPIC_TITLE, { parentId: cur.id, workspaceId: cur.workspaceId });
       child.sourceSns = [...(cur.sourceSns || [])];   // the child reads the same record as its parent
       persist(); emit('topics');
@@ -3010,24 +3066,44 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
 
   const linkifySegs = (text, lex) => {
     const segs = [];
-    let rest = String(text);
+    const rest = String(text);
     if (!lex.length) return rest ? [{ t: 'text', s: rest }] : [];
     // one pass, longest-label-first alternation; word-bounded, case-insensitive so EVERY
     // mention links — "the dolphin's sonar" reaches the same entity as "Dolphin" in a heading.
     const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(`\\b(${lex.map((e) => escRe(e.label)).join('|')})\\b`, 'gi');
+    // A label is matched as a run of its TOKENS, not as a literal string, because admission
+    // NORMALISES what it admits: a leading title's trailing period is dropped and the title joined
+    // to the name ("Mr. Dupree" → the label "Mr Dupree"), and interior whitespace is collapsed to
+    // one space. A literal-string regex built from that label can no longer find the surface it was
+    // read from — "Mr Dupree" never matches "Mr. Dupree" — so the honorific is stranded as loose
+    // text and only the bare surname links, splitting one figure into two. Rejoin the tokens with
+    // run-of-whitespace (which also lets a name broken across a line-wrap still link), and tolerate
+    // the ONE period admission actually strips: the dot after a leading title. Scoping the optional
+    // dot to that title alone — not to every gap — keeps "Chief Justice" from matching a stray
+    // "…the Chief. Justice…" across a sentence end. Longest-label-first then carries the whole
+    // "Mr. Dupree" into ONE span, winning over the bare "Dupree".
+    const labelRe = (label) => {
+      const toks = String(label).trim().split(/\s+/);
+      return toks.map((t, i) => escRe(t) + (i === 0 && toks.length > 1 && LINK_TITLES.has(t.toLowerCase()) ? '\\.?' : '')).join('\\s+');
+    };
+    const re = new RegExp(`\\b(${lex.map((e) => labelRe(e.label)).join('|')})\\b`, 'gi');
+    // Match a surface span back to its label the same way — period- and whitespace-insensitive —
+    // so the reverse lookup survives the very normalisation the forward pattern had to tolerate.
+    const key = (s) => String(s).replace(/\./g, '').replace(/\s+/g, ' ').trim();
     let last = 0, mArr;
     while ((mArr = re.exec(rest)) !== null) {
+      const matched = mArr[1];
       if (mArr.index > last) segs.push({ t: 'text', s: rest.slice(last, mArr.index) });
       // exact-case wins; else a case-insensitive hit, so a lowercase mention of a capitalised
       // figure ("dolphins" for the admitted "Dolphins") still renders as its entity — but the
       // relaxed match is only trusted for labels long enough that it can't grab a common word off
       // a short acronym ("who" for "WHO"), which falls back to plain text.
-      const exact = lex.find((e) => e.label === mArr[1]);
-      const hit = exact || lex.find((e) => e.label.toLowerCase() === mArr[1].toLowerCase());
-      if (hit && (exact || hit.label.length >= 4)) segs.push({ t: 'ent', s: mArr[1], docId: hit.docId, entId: hit.entId });
-      else segs.push({ t: 'text', s: mArr[1] });
-      last = mArr.index + mArr[1].length;
+      const mk = key(matched);
+      const exact = lex.find((e) => key(e.label) === mk);
+      const hit = exact || lex.find((e) => key(e.label).toLowerCase() === mk.toLowerCase());
+      if (hit && (exact || hit.label.length >= 4)) segs.push({ t: 'ent', s: matched, docId: hit.docId, entId: hit.entId });
+      else segs.push({ t: 'text', s: matched });
+      last = mArr.index + matched.length;
     }
     if (last < rest.length) segs.push({ t: 'text', s: rest.slice(last) });
     return segs;
@@ -3217,29 +3293,12 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       : level === 'signal' ? baseRows.filter(acoustic)
       : [...nameRows, ...baseRows.filter(acoustic)];   // 'all' — referents + the acoustic holons
     if (merge) {
-      // Group per-source instances by normalized label. The strongest instance
-      // (most mentions) LEADS the merged row, so key/docId/entId/sn point at the
-      // richest per-source profile — opening the row lands there — while mentions
-      // and links aggregate and `sourceCount` records the reach.
-      const byLabel = new Map();
-      for (const it of rows) {
-        const k = entityKey(it.label);
-        let grp = byLabel.get(k);
-        if (!grp) { grp = { lead: it, mentions: 0, links: 0, sns: new Set(), instances: [] }; byLabel.set(k, grp); }
-        grp.mentions += it.mentions;
-        grp.links += it.links;
-        grp.sns.add(it.sn);
-        grp.instances.push({ docId: it.docId, entId: it.entId, sn: it.sn });
-        if (it.mentions > grp.lead.mentions) grp.lead = it;
-      }
-      const merged = [...byLabel.values()].map((grp) => ({
-        key: grp.lead.key, entId: grp.lead.entId, docId: grp.lead.docId, sn: grp.lead.sn,
-        label: grp.lead.label, mentions: grp.mentions, links: grp.links,
-        sourceCount: grp.sns.size, instances: grp.instances,
-        kind: grp.lead.kind, level: grp.lead.level,
-      }));
-      merged.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
-      return merged;
+      // Collapse per-source instances into cross-source rows by referent, NOT by bare surname:
+      // "Iran" folds across sources as one entity, but "Armstrong" — a surname Neil, Louis and
+      // Gerry share — is folded into the full-name bearer of its own source, so a read about Neil
+      // Armstrong never inherits Louis Armstrong's chapters (entity-merge.js). The strongest
+      // instance still leads, mentions and links aggregate, and `sourceCount` records the reach.
+      return mergeEntitiesByReferent(rows, { entityKey });
     }
     rows.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
     return rows;
@@ -3611,6 +3670,34 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       figures: topFigs.map((f) => ({ label: f.label, count: f.sightings })),
       counts: { entities: g.entities?.size || 0, propositions, sentences: doc.sentences?.length || 0, bytes: src.bytes || 0 },
     };
+  };
+
+  // The one figure a source most CENTRES on — its dominant referent (the subject of a bio or an
+  // article). Returns { docId, entId, label, sightings } for the top figure by merged sighting mass,
+  // or null when no figure is named repeatedly enough to carry the whole source. A single-subject
+  // document (a Wikipedia bio) surfaces this figure's dossier — its contextual reading, provenance
+  // DAG and settled Wikipedia referent — in place of a machine telegram; a figure-less or evenly
+  // diffuse document keeps its plain source summary. Pure and model-free (mirrors sourceReading's
+  // dominance read, exposing the rep id the entity surfaces key on).
+  const DOMINANT_FLOOR = 2;                              // named at least twice — not a one-off passer-by
+  const sourceDominantEntity = (sn) => {
+    const src = sourceBySn(sn);
+    const doc = src ? docFor(src) : null;
+    if (!doc?.log) return null;
+    const g = projectGraph(doc.log);
+    const rep = g.representative || ((x) => x);
+    const bySight = new Map();
+    for (const [id, ent] of g.entities || []) {
+      const r = rep(id);
+      const label = doc.admission?.labelOf?.(r) || ent.label || r;
+      const cur = bySight.get(r);
+      if (cur) cur.sightings += ent.sightings || 0;
+      else bySight.set(r, { id: r, label, sightings: ent.sightings || 0 });
+    }
+    let top = null;
+    for (const f of bySight.values()) if (!top || f.sightings > top.sightings) top = f;
+    if (!top || !top.label || (top.sightings || 0) < DOMINANT_FLOOR) return null;
+    return { docId: src.docId, entId: top.id, label: top.label, sightings: top.sightings };
   };
 
   // Compose (or refine) a topline over a closed inventory into the stored shape. `modelless` marks a
@@ -4517,6 +4604,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     sourceLevels, sourceEntities, sourceBaseNoun,
     // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
     sourceSummary, sourceSummaryOf, entitySummary, entitySummaryFor, summaryFeedback,
+    // the figure a single-subject source centres on — the source page shows its dossier (docs/topline.md)
+    sourceDominantEntity,
     // the entity explore surface — the deterministic chapter spine + on-demand important/surprising +
     // the fold-prompted per-chapter reading, all pulled lazily as the reader digs in (docs/topline.md)
     entityChapters, entityDigest, entityDigestFor, entityChapterReading, entityChapterReadingFor,
