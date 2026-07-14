@@ -2214,6 +2214,7 @@ table{border-collapse:collapse;width:100%}
                 <div style="margin-top:13px">
                   <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
                   <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;background:#FBFBFD">
+                    <sc-if value="{{ prof.hasImage }}"><img src="{{ prof.wikiImage }}" alt="{{ prof.wikiImageAlt }}" loading="lazy" referrerpolicy="no-referrer" style="display:block;width:100%;height:auto;max-height:220px;object-fit:cover;border-radius:8px;margin-bottom:9px" /></sc-if>
                     <sc-if value="{{ prof.hasWikiDesc }}">
                       <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ prof.wikiDesc }}</div>
                     </sc-if>
@@ -2390,6 +2391,7 @@ table{border-collapse:collapse;width:100%}
                 </sc-if>
                 <sc-if value="{{ prof.hasWiki }}">
                   <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;background:#FBFBFD">
+                    <sc-if value="{{ prof.hasImage }}"><img src="{{ prof.wikiImage }}" alt="{{ prof.wikiImageAlt }}" loading="lazy" referrerpolicy="no-referrer" style="display:block;width:100%;height:auto;max-height:220px;object-fit:cover;border-radius:8px;margin-bottom:9px" /></sc-if>
                     <sc-if value="{{ prof.hasWikiDesc }}">
                       <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ prof.wikiDesc }}</div>
                     </sc-if>
@@ -2429,6 +2431,14 @@ table{border-collapse:collapse;width:100%}
               <sc-if value="{{ prof.hasRelations }}">
                 <div style="margin-top:16px">
                   <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">CONNECTED ENTITIES</div>
+                  <!-- the entity DAG leads the section — this figure at the hub, who it links to on the -->
+                  <!-- spokes (each row clickable to pivot); the text list beneath holds the same bonds -->
+                  <sc-if value="{{ prof.hasEntityDag }}">
+                    <div style="border:1px solid #EFEFF3;border-radius:11px;padding:10px 8px 6px;background:#fff;margin-bottom:10px">
+                      <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 6px">CONNECTIONS <span style="color:#C8C8D0;font-weight:600">· who this entity links to</span></div>
+                      <div ref="{{ prof.setEntityDagEl }}"></div>
+                    </div>
+                  </sc-if>
                   <sc-for list="{{ prof.relations }}" as="r">
                     <button onClick="{{ r.pivot }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid #EAEAEF;border-radius:9px;margin-bottom:5px" style-hover="background:#FAFAFC">
                       <span style="flex:1;min-width:0;font-size:12px;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b style="font-weight:600">{{ r.other }}</b></span>
@@ -4963,6 +4973,25 @@ class Component extends DCLogic {
     const wk = this.state.wikiDefs[docId + '#' + entId] || null;
     const wkHit = !!(wk && wk.confirmed && wk.text);
     const tl = this._toplineVM('entity', { docId, entId }, p.label);
+    // The bonded neighbourhood, collapsed to one row per entity (the shape _renderEntityDag reads),
+    // so the entity DAG — this entity at the hub, who it links to on the spokes — can lead the
+    // CONNECTED ENTITIES section on the profile, exactly as it does in a source's dossier.
+    const dagNeighbors = (() => {
+      const byOther = new Map();
+      for (const r of p.relations) {
+        const otherId = r.srcId === entId ? r.tgtId : r.srcId;
+        const otherLabel = r.srcId === entId ? r.tgtLabel : r.srcLabel;
+        let g = byOther.get(otherId);
+        if (!g) { g = { otherId, other: otherLabel, vias: [] }; byOther.set(otherId, g); }
+        const via = r.via || r.op;
+        if (via && !g.vias.includes(via)) g.vias.push(via);
+      }
+      return [...byOther.values()].slice(0, 14).map((g) => ({
+        label: g.other,
+        via: g.vias.length > 1 ? `${g.vias[0]} +${g.vias.length - 1}` : (g.vias[0] || ''),
+        pivot: () => h.pivot(g.otherId),
+      }));
+    })();
     return {
       label: p.label, initials: this._initials(p.label),
       counts: `${p.mentions.length} mentions · ${p.relations.length} links`,
@@ -4970,6 +4999,9 @@ class Component extends DCLogic {
       wikiText: wkHit ? wk.text : '', wikiTitle: wkHit ? wk.title : '', wikiUrl: wkHit ? wk.url : '',
       wikiDesc: wkHit ? (wk.description || '') : '', hasWikiDesc: !!(wkHit && wk.description),
       wikiAbsent: !!(wk && !wk.busy && !wkHit),
+      // The Wikipedia lead image — carried through for a CONFIRMED referent, so the entity profile
+      // shows the same standard encyclopedia card (image + description + link) the dossier does.
+      hasImage: !!(wkHit && wk.thumb), wikiImage: (wkHit && wk.thumb) ? wk.thumb : '', wikiImageAlt: p.label,
       srcReg: src.reg || '', srcTitle: src.title || '', openSource: () => h.openSource(p.sn),
       openWeb: h.openWeb || (() => {}),
       // STANDING PROPERTIES — ranked (app.rankProperties), each carrying its provenance:
@@ -5023,6 +5055,12 @@ class Component extends DCLogic {
           pivot: () => h.pivot(g.otherId),
         }));
       })(),
+      // The ENTITY DAG — this entity at the hub, the entities it bonds to on the spokes, each row
+      // clickable to pivot the profile. Its home is here on the profile (not just a source dossier):
+      // when you are studying one entity, WHO it connects to is the picture you want. See _mountEntityDag.
+      hasEntityDag: dagNeighbors.length > 0,
+      setEntityDagEl: (el) => this._mountEntityDag(el, { label: p.label, neighbors: dagNeighbors },
+        'pedag:' + docId + '#' + entId + '#' + dagNeighbors.length),
       hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
       // Each mention carries its clock (mn.t0/mn.t1) when the reading keeps one, so a click SEEKS
       // the clip to the instant it was said; a prose mention (no time) jumps the text instead.
