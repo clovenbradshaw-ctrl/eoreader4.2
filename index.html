@@ -40,28 +40,29 @@ table{border-collapse:collapse;width:100%}
 /* the summary skeleton while the local model turns the machinery's telegram into a reading */
 @keyframes eoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .eo-skel{background:linear-gradient(90deg,#ECEAF6 25%,#F4F2FC 50%,#ECEAF6 75%);background-size:200% 100%;animation:eoShimmer 1.5s ease-in-out infinite;border-radius:5px}
-/* ── MURMUR — the peripheral sense, a NIGHT-SKY STRIP of drifting thought-motes ──
+/* ── MURMUR — the peripheral sense, a BOTTLE-LENS TERMINAL of the reader's activity ──
    The reader's real voiced thoughts (src/murmur/narrate/voice.js — the read side-channel, §9.4)
-   drift across a dark canvas band as fading, overlapping motes; the most-surprising one is starred,
-   and clicking any mote opens a card that carries the SAME native-EOT tuple the reading grounded
-   (`glyph OP site(s) · res`) beside its surprise. Nothing here is fabricated — text, register,
-   sites, and surprise all come straight off `window.EO.murmur.state()`; the strip only animates
-   them. Built imperatively (setMurmurStrip → EoMurmurStrip) so the RAF canvas loop is the surface's
-   own, never React's per-poke reconcile. --mm-accent is the strip's ambient hue. */
+   scroll up a dark console band as timestamped log lines. Only what SURPRISES the sense passes the
+   gate and scrolls at all (the filter — never a label); the line crossing the band's centre is sharp
+   and magnified while the rest bow away above/below, as if read through a bottle lying on its side.
+   Clicking any line opens a card carrying the SAME native-EOT tuple the reading grounded
+   (`glyph OP site(s) · res`). Nothing here is fabricated — text, register, and sites all come straight
+   off `window.EO.murmur.state()`; the strip only animates them. Built imperatively (setMurmurStrip →
+   EoMurmurStrip) so the RAF canvas loop is the surface's own, never React's per-poke reconcile.
+   --mm-accent is the strip's ambient hue; --mm-h its height. */
 .eo-murmur{
-  --mm-accent:#8b7bff;
-  position:relative;z-index:3;display:flex;align-items:stretch;flex:0 0 auto;height:52px;overflow:visible;
-  border-top:1px solid #191d26;border-bottom:1px solid #191d26;background:#0a0b10
+  --mm-accent:#8b7bff;--mm-h:108px;
+  position:relative;z-index:3;display:flex;align-items:stretch;flex:0 0 auto;height:var(--mm-h);overflow:hidden;
+  border-top:1px solid #191d26;border-bottom:1px solid #191d26;background:#07080d
 }
-.eo-mm-badge{display:flex;align-items:center;gap:9px;padding:0 18px;border-right:1px solid #191d26;flex:0 0 auto}
+.eo-mm-badge{display:flex;flex-direction:column;justify-content:center;gap:6px;padding:0 16px;border-right:1px solid #171b23;flex:0 0 auto}
+.eo-mm-badge-row{display:flex;align-items:center;gap:8px}
 .eo-mm-dot{width:7px;height:7px;border-radius:50%;background:var(--mm-accent);animation:mmpulse 1.6s ease-in-out infinite}
 .eo-mm-mark{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:1.7px;color:#8b93a2}
-.eo-mm-think{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-size:11px;color:#4c5361}
+.eo-mm-think{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.4px;color:#4c5361}
 .eo-mm-think b{font-weight:400;animation:mmblink 1.1s steps(1) infinite}
 .eo-mm-canvas{flex:1;min-width:0;height:100%;display:block}
-.eo-mm-tail{display:flex;align-items:center;gap:8px;padding:0 16px;border-left:1px solid #191d26;flex:0 0 auto;font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:#4c5361}
-.eo-mm-tail .eo-mm-starmark{color:var(--mm-accent)}
-.eo-mm-x{flex:0 0 auto;align-self:center;width:26px;height:26px;margin-right:8px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8b93a2;border:1px solid #20252f;background:transparent;cursor:pointer;transition:border-color .12s,color .12s}
+.eo-mm-x{position:absolute;top:8px;right:8px;z-index:4;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#8b93a2;border:1px solid #20252f;background:rgba(7,8,13,.6);cursor:pointer;transition:border-color .12s,color .12s}
 .eo-mm-x:hover{border-color:var(--mm-accent);color:#e7ecf3}
 /* the click-through detail card — the mote's full thought + its native-EOT reading + surprise */
 .eo-mm-card{position:absolute;z-index:20;top:calc(100% + 6px);width:380px;max-width:calc(100vw - 24px);border:1px solid #262b36;border-radius:14px;background:#0c0e15;box-shadow:0 26px 60px -24px rgba(0,0,0,.9);padding:18px 20px 20px;animation:mmcard .22s ease-out both}
@@ -72,11 +73,6 @@ table{border-collapse:collapse;width:100%}
 .eo-mm-card-x:hover{border-color:var(--mm-accent);color:#e7ecf3}
 .eo-mm-card-text{font-family:'Newsreader',Georgia,serif;font-size:22px;line-height:1.4;color:#e7ecf3;text-wrap:pretty}
 .eo-mm-card-note{font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:15px;line-height:1.5;color:#9aa2b1;margin-top:11px;text-wrap:pretty}
-.eo-mm-card-foot{display:flex;align-items:center;gap:11px;margin-top:17px;padding-top:14px;border-top:1px solid #1a1e27}
-.eo-mm-card-lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:#6a7180}
-.eo-mm-card-bar{flex:1;height:5px;border-radius:3px;background:#161a22;overflow:hidden}
-.eo-mm-card-bar span{display:block;height:100%;border-radius:3px}
-.eo-mm-card-val{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:#e7ecf3}
 @keyframes mmpulse{0%,100%{opacity:.35;transform:scale(1)}50%{opacity:1;transform:scale(1.35)}}
 @keyframes mmblink{0%,100%{opacity:1}50%{opacity:.2}}
 @keyframes mmcard{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
@@ -85,9 +81,10 @@ table{border-collapse:collapse;width:100%}
   .eo-mm-card{animation:none}
 }
 @media (max-width:720px){
-  /* keep the canvas hero; drop the right "most surprising" label so the strip never crowds */
-  .eo-mm-tail{display:none}
-  .eo-mm-badge{padding:0 12px}
+  /* a shorter lens on the phone layer so the terminal never crowds the chat stage */
+  .eo-murmur{--mm-h:88px}
+  .eo-mm-badge{padding:0 11px;gap:4px}
+  .eo-mm-think{font-size:9.5px}
 }
 /* Interactive transcript (Listen surface) — a word is a clickable, editable, redactable holon. */
 .eo-w{border-radius:3px;padding:0 1px;cursor:pointer;transition:background .12s,color .12s}
@@ -623,14 +620,15 @@ table{border-collapse:collapse;width:100%}
         </sc-if>
       </div>
 
-      <!-- REAL-TIME MURMUR STRIP — the peripheral sense (src/murmur) as a night-sky band of drifting
-           thought-motes. Each mote is one real voiced thought (src/murmur/narrate/voice.js, the read
-           side-channel §9.4); the most-surprising drifts brightest with a ★, and clicking a mote opens
-           a card carrying the SAME native-EOT tuple (`glyph OP site(s) · res`) the reading grounded.
-           No gauges, no register %, nothing fabricated — text/register/sites/surprise all come off
-           window.EO.murmur.state(); the strip only animates them (§9.4: a voicing, never a fact).
-           Built imperatively (setMurmurStrip → EoMurmurStrip) so the RAF canvas loop is the surface's
-           own, never React's per-poke reconcile; hide it from Settings. -->
+      <!-- REAL-TIME MURMUR STRIP — the peripheral sense (src/murmur) as a bottle-lens terminal. The
+           reader's real voiced thoughts (src/murmur/narrate/voice.js, the read side-channel §9.4)
+           scroll up a console band; only what SURPRISES the sense passes the gate (the filter, never a
+           label), and the line crossing the centre is sharp and magnified while the rest bow out of
+           focus above/below — as if read through a sideways bottle. Clicking a line opens a card with
+           the SAME native-EOT tuple (`glyph OP site(s) · res`) the reading grounded. Nothing fabricated
+           — text/register/sites all come off window.EO.murmur.state(); the strip only animates them
+           (§9.4: a voicing, never a fact). Built imperatively (setMurmurStrip → EoMurmurStrip) so the
+           RAF canvas loop is the surface's own, never React's per-poke reconcile; hide it from Settings. -->
       <sc-if value="{{ murmurOn }}">
         <div class="eo-murmur" ref="{{ setMurmurStrip }}" aria-live="polite" aria-label="reader inner monologue"></div>
       </sc-if>
@@ -2976,56 +2974,79 @@ class EoMurmurStrip {
     this.accent = opts.accent || '#8b7bff';
     this.reduceMotion = typeof opts.reduceMotion === 'function' ? opts.reduceMotion : () => false;
     this.onHide = typeof opts.onHide === 'function' ? opts.onHide : () => {};
-    this.tokens = [];
-    this._motes = []; this._layout = []; this._cols = null; this._colW = -1;
-    this._inside = false; this._hover = null; this._pausedAt = null; this._champ = null;
+    // The SURPRISE GATE — the console only logs a line when the sense is surprised enough. Surprise is
+    // the FILTER, never a label: nothing is annotated "surprising", it just decides what scrolls at all.
+    this.gate = typeof opts.gate === 'number' ? opts.gate : 0.42;
+    this.lines = [];            // the rolling console buffer — surprise-gated log lines, oldest→newest
+    this.count = 0;             // total lines ever pushed; the scroll coordinate (a monotonic row index)
+    this.scroll = 0;            // animated scroll position — eases toward count-1 so the newest rests at centre
+    this.target = 0;            // scroll target (the newest line's row)
+    this._layout = []; this._cols = null; this._colW = -1;
+    this._inside = false; this._hover = null;
     this._open = false; this._sel = null; this._card = null;
     this._raf = null; this._last = 0; this._dead = false;
     this._build();
-    this._spawn();
     this._start();
     // mark the node so a churned callback ref (React re-attaches a fresh arrow every render) REUSES
     // this controller instead of rebuilding — the surface's setMurmurStrip reads this back.
     try { el.__eoMmStrip = this; } catch { /* ignore */ }
   }
 
-  // the always-present resting mote when the sense hasn't voiced anything yet — never a blank strip.
-  _resting() { return { text: 'resting — the reading is still', tag: 'resting', color: '#8b93a2', surprise: 0.12, note: 'a quiet hold — nothing has stirred the sense', sources: '∅ NUL r#000@0 · void 0.08' }; }
-  _toks() { return this.tokens.length ? this.tokens : [this._resting()]; }
+  // Shown at the centre lens when nothing has passed the gate yet — never a blank band, and never a
+  // log entry (idle:true ⇒ not clickable, not counted, not part of the scroll history).
+  _idleLine() { return { idle: true, text: 'watching the reading — the sense is quiet', tag: 'idle', glyph: '∅', color: '#66707e', ts: '' }; }
 
-  // feed(tokens) — merge fresh thoughts in: prepend, dedup by text, cap the rolling buffer (12) so the
-  // same nag can't machine-gun the strip (anti-rumination). Repaints immediately under reduced motion.
+  // feed(tokens) — the real-time console tick. Keep only what SURPRISES (≥ gate); drop the immediate
+  // repeat and anything still resting on screen (anti-rumination). Each survivor becomes a new line
+  // that scrolls the previous one up out of the lens and rises into the focused centre.
   feed(newTokens) {
-    const incoming = Array.isArray(newTokens) ? newTokens.filter((t) => t && t.text) : [];
-    if (incoming.length) {
-      const seen = new Set(), merged = [];
-      for (const t of incoming.concat(this.tokens)) {
-        if (seen.has(t.text)) continue;
-        seen.add(t.text); merged.push(t);
-        if (merged.length >= 12) break;
-      }
-      this.tokens = merged;
+    const incoming = Array.isArray(newTokens) ? newTokens : [];
+    let pushed = false;
+    for (const t of incoming) {
+      if (!t || !t.text) continue;
+      if ((t.surprise || 0) < this.gate) continue;                                   // the gate — the only filter
+      if (this.lines.length && this.lines[this.lines.length - 1].text === t.text) continue;
+      if (this.lines.some((l) => l.text === t.text)) continue;                        // don't re-log a line still on screen
+      this._push(t); pushed = true;
     }
-    if (this.reduceMotion()) this._paintStatic();
+    if (pushed && this.reduceMotion()) this._paintStatic();
+  }
+
+  // append one gated thought as a timestamped console line and aim the scroll at it (the newest row
+  // becomes the centre). Caps the buffer so a long session can't grow it without bound.
+  _push(t) {
+    let ts = '';
+    try { const d = new Date(); const p = (n) => (n < 10 ? '0' + n : '' + n); ts = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); } catch { ts = ''; }
+    this.lines.push({
+      idle: false, row: this.count,
+      text: String(t.text), tag: t.tag || 'reading', glyph: t.glyph || '·',
+      color: t.color || '#8b93a2', note: t.note || '', sources: t.sources || '', ts,
+    });
+    this.count += 1;
+    this.target = this.count - 1;                                    // newest row → the centre lens
+    if (this.lines.length > 60) this.lines.splice(0, this.lines.length - 60);
   }
 
   _build() {
     const el = this.el;
     el.style.setProperty('--mm-accent', this.accent);
     el.innerHTML =
-      '<div class="eo-mm-badge"><span class="eo-mm-dot"></span><span class="eo-mm-mark">MURMUR</span><span class="eo-mm-think">thinking<b>_</b></span></div>' +
+      '<div class="eo-mm-badge">' +
+        '<div class="eo-mm-badge-row"><span class="eo-mm-dot"></span><span class="eo-mm-mark">MURMUR</span></div>' +
+        '<span class="eo-mm-think">watching<b>_</b></span>' +
+      '</div>' +
       '<canvas class="eo-mm-canvas"></canvas>' +
-      '<div class="eo-mm-tail"><span class="eo-mm-starmark">★</span>&nbsp;most&nbsp;surprising</div>' +
-      '<button class="eo-mm-x" title="Hide the murmur strip — turn it back on in Settings" aria-label="Hide the murmur strip">' +
+      '<button class="eo-mm-x" title="Hide the murmur — turn it back on in Settings" aria-label="Hide the murmur">' +
       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
     this.canvas = el.querySelector('.eo-mm-canvas');
     const x = el.querySelector('.eo-mm-x');
     if (x) x.addEventListener('click', (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.onHide(); });
     this._onEnter = () => { this._inside = true; };
     this._onLeave = () => { this._inside = false; this._hover = null; if (this.canvas) this.canvas.style.cursor = 'default'; };
-    this._onMove = (e) => { if (!this.canvas) return; const r = this.canvas.getBoundingClientRect(); this._hover = this._hit(e.clientX - r.left); this.canvas.style.cursor = this._hover ? 'pointer' : 'default'; };
+    // hit-testing is VERTICAL now (lines stack and scroll) — hover/click resolve by the pointer's y.
+    this._onMove = (e) => { if (!this.canvas) return; const r = this.canvas.getBoundingClientRect(); this._hover = this._hit(e.clientY - r.top); this.canvas.style.cursor = this._hover ? 'pointer' : 'default'; };
     this._onClick = (e) => this._click(e);
-    this._onResize = () => { if (this.reduceMotion()) this._paintStatic(); };
+    this._onResize = () => { this._cols = null; if (this.reduceMotion()) this._paintStatic(); };
     this.canvas.addEventListener('mouseenter', this._onEnter);
     this.canvas.addEventListener('mouseleave', this._onLeave);
     this.canvas.addEventListener('mousemove', this._onMove);
@@ -3038,7 +3059,7 @@ class EoMurmurStrip {
     if (this._raf) { try { cancelAnimationFrame(this._raf); } catch { /* ignore */ } this._raf = null; }
     try { window.removeEventListener('resize', this._onResize); } catch { /* ignore */ }
     try { if (this.el && this.el.__eoMmStrip === this) this.el.__eoMmStrip = null; } catch { /* ignore */ }
-    this._motes = []; this.tokens = []; this._layout = [];
+    this.lines = []; this._layout = [];
   }
 
   // the node left the DOM (mode → off, or a screen swap) — release the per-node marker so a later
@@ -3058,53 +3079,28 @@ class EoMurmurStrip {
     this._raf = requestAnimationFrame(loop);
   }
 
-  _now() { return (typeof performance !== 'undefined' ? performance.now() : 0); }
-
-  _spawn() {
-    const now = this._now() / 1000;
-    this._motes = Array.from({ length: 3 }, (_, i) => ({
-      tk: null, born: now - i * 1.6, dur: 4.6 + Math.random() * 2.4,
-      x: 90 + i * 220, y: 26, vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 6,
-      z: 0.6 + Math.random() * 0.4, ph: Math.random() * 6.28,
-    }));
-    this._motes.forEach((m) => this._assign(m));
-  }
-
-  // pick a token for a mote, weighted by surprise^1.6 and avoiding whatever the other motes are showing
-  // (so the strip doesn't repeat itself) — the same salience-weighting the standalone uses.
-  _assign(m) {
-    const toks = this._toks();
-    const shown = new Set(this._motes.filter((x) => x !== m && x.tk).map((x) => x.tk));
-    const pool = toks.filter((t) => !shown.has(t));
-    const cand = pool.length ? pool : toks;
-    const wts = cand.map((t) => Math.pow(Math.max(0.02, t.surprise || 0), 1.6));
-    const tot = wts.reduce((a, b) => a + b, 0) || 1;
-    let r = Math.random() * tot, pick = cand[0];
-    for (let i = 0; i < cand.length; i++) { r -= wts[i]; if (r <= 0) { pick = cand[i]; break; } }
-    m.tk = pick;
-  }
-
-  _respawn(m, clock, W, H) {
-    this._assign(m);
-    m.born = clock; m.dur = 4.6 + Math.random() * 2.4;
-    m.z = 0.6 + Math.random() * 0.4; m.ph = Math.random() * 6.28;
-    const others = this._motes.filter((x) => x !== m).map((x) => x.x || 0);
-    const lo = 60, hi = Math.max(lo + 40, (W || 600) - 320);
-    let bestX = lo + Math.random() * (hi - lo), bestD = -1;
-    for (let k = 0; k < 6; k++) {
-      const c = lo + Math.random() * (hi - lo);
-      const d = others.length ? Math.min(...others.map((o) => Math.abs(o - c))) : 999;
-      if (d > bestD) { bestD = d; bestX = c; }
-    }
-    m.x = bestX; m.y = (H || 52) / 2 + (Math.random() - 0.5) * 12;
-    m.vx = (Math.random() - 0.5) * 14; m.vy = (Math.random() - 0.5) * 6;
-  }
-
   _rgba(hex, a) {
     const n = parseInt(String(hex || '#8b7bff').slice(1), 16);
     return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
   }
-  _env(p) { return p < 0.26 ? p / 0.26 : (p > 0.66 ? Math.max(0, (1 - p) / 0.34) : 1); }
+
+  // faint glyph-rain behind the lens — terminal noise, dim enough that the scrolling lines read on top.
+  _drawRain(ctx, W, H, dt) {
+    this._ensureCols(W, H);
+    const glyphs = '01∅◇⟷▸⧗×+·§⋈○△⊛';
+    ctx.filter = 'none'; ctx.font = '11px "IBM Plex Mono",ui-monospace,Menlo,monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    this._cols.forEach((col, i) => {
+      col.y += col.sp * dt; const headRow = col.y / 13;
+      if (col.y - col.len * 13 > H) col.y = -Math.random() * 40;
+      for (let k = 0; k < col.len; k++) {
+        const yy = (headRow - k) * 13; if (yy < 0 || yy > H) continue;
+        const a = (k === 0 ? 0.16 : 0.09 * (1 - k / col.len));
+        ctx.fillStyle = this._rgba(this.accent, a);
+        ctx.fillText(glyphs[(Math.random() * glyphs.length) | 0], i * 13 + 6, yy);
+      }
+    });
+  }
 
   // resize the backing store to the CSS box × dpr and return a fresh 2d context, or null if unmounted.
   _ctx() {
@@ -3124,157 +3120,165 @@ class EoMurmurStrip {
     this._cols = Array.from({ length: n }, () => ({ y: Math.random() * H, sp: 26 + Math.random() * 60, len: 5 + (Math.random() * 7 | 0) }));
   }
 
+  // The bottle-lens terminal: gated console lines stack and scroll UP, and the line crossing the band's
+  // centre is sharp and magnified while the rest bow away above/below — a tanh warp bunches them toward
+  // the ends (the glass curving off) and a gaussian sharpens the middle (the lens). Event-stepped: each
+  // gated line eases the scroll up one row, so the newest rises into focus and the previous drifts out.
   _draw(t) {
     const c = this._ctx(); if (!c) return;
     const { ctx, W, H } = c;
     const dt = Math.min(0.05, (t - this._last) / 1000); this._last = t;
-    const accent = this.accent;
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#0a0b10'; ctx.fillRect(0, 0, W, H);
-
-    // faint glyph-rain backdrop
-    this._ensureCols(W, H);
-    const glyphs = '01∅◇⟷▸⧗×+·§⋈○△⊛';
-    ctx.font = '11px ui-monospace,Menlo,monospace'; ctx.textAlign = 'center';
-    this._cols.forEach((col, i) => {
-      col.y += col.sp * dt; const headRow = col.y / 13;
-      if (col.y - col.len * 13 > H) col.y = -Math.random() * 40;
-      for (let k = 0; k < col.len; k++) {
-        const yy = (headRow - k) * 13; if (yy < 0 || yy > H) continue;
-        const a = (k === 0 ? 0.16 : 0.11 * (1 - k / col.len));
-        ctx.fillStyle = this._rgba(accent, a);
-        ctx.fillText(glyphs[(Math.random() * glyphs.length) | 0], i * 13 + 6, yy);
-      }
-    });
-
-    // fading, overlapping thought-motes — frozen while hovering / a card is open
-    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     const nowS = t / 1000;
+    const bg = '#07080d';
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    this._drawRain(ctx, W, H, dt);
+
+    // ease the scroll toward the newest row — unless the reader is inspecting (hover / open card), when
+    // everything freezes so a line can be read and clicked.
     const paused = this._inside || this._open;
-    if (paused && this._pausedAt == null) this._pausedAt = nowS;
-    if (!paused && this._pausedAt != null) { const shift = nowS - this._pausedAt; this._motes.forEach((m) => { m.born += shift; }); this._pausedAt = null; }
-    const clock = paused ? this._pausedAt : nowS;
+    if (!paused) {
+      this.scroll += (this.target - this.scroll) * Math.min(1, dt * 7);
+      if (Math.abs(this.target - this.scroll) < 0.001) this.scroll = this.target;
+    }
 
-    // only float as many motes as there are DISTINCT thoughts to show — with just the resting
-    // hold, one mote (not three copies of it overlapping); more thoughts, more motes (up to three).
-    const active = this._motes.slice(0, Math.max(1, Math.min(this._motes.length, this._toks().length)));
+    // the lens sits a touch below the true middle so the rising history fills the band and the newest
+    // line still reads as centred; curvature is symmetric about it.
+    const cy = H * 0.56, usable = Math.min(cy, H - cy) - 6, padL = 18;
+    const baseFs = Math.max(12.5, Math.min(17, H * 0.145));
+    const lines = this.lines.length ? this.lines : [this._idleLine()];
+
+    // project each line: logical offset from centre (in rows) → a warped screen y + a focus weight.
+    const items = lines.map((ln) => {
+      const o = ln.idle ? 0 : (ln.row - this.scroll);            // 0 at centre; <0 older (above); >0 incoming (below)
+      const y = cy + usable * Math.tanh(o * 0.5);
+      const f = Math.exp(-(o * o) / (2 * 1.05 * 1.05));          // focus 0..1, peaked at centre
+      return { ln, o, y, f };
+    }).filter((it) => it.f > 0.012 && it.y > -24 && it.y < H + 24)
+      .sort((a, b) => a.f - b.f);                                // far→near so the crisp centre lands on top
+
+    const focus = items.length ? items[items.length - 1] : null;
     this._layout = [];
-    let champ = null;
-    active.forEach((m) => {
-      let p = (clock - m.born) / m.dur;
-      if (p >= 1) { this._respawn(m, clock, W, H); p = 0; }
-      if (!paused) { m.x += m.vx * dt; m.y += m.vy * dt; }
-      const tk = m.tk || this._toks()[0];
-      const fs = 11 + m.z * 3;
-      ctx.font = fs + 'px ui-monospace,Menlo,monospace';
-      const w = ctx.measureText('★ ' + tk.text).width;
-      const e = this._env(p);
-      m._p = p; m._w = w; m._fs = fs;
-      m._bx = m.x; m._by = m.y + Math.sin(clock * 0.65 + m.ph) * 2.6;
-      m._a = e * (0.42 + 0.58 * (tk.surprise || 0)) * (0.55 + 0.45 * m.z);
-      if (m._a > 0.12) this._layout.push({ x0: m._bx - 8, x1: m._bx + w + 8, m });
-      if (m._a > 0.3 && (!champ || (tk.surprise || 0) > ((champ.tk && champ.tk.surprise) || 0))) champ = m;
-    });
-    this._champ = champ;
+    for (const it of items) {
+      const { ln, o, y, f } = it;
+      const fs = baseFs * (0.64 + 0.62 * f);
+      const blur = (1 - f) * 3.7;
+      const edge = Math.max(0, Math.min(1, Math.min(y, H - y) / 15));   // dissolve into the band's top/bottom
+      const alpha = (0.10 + 0.90 * f) * edge;
+      if (alpha <= 0.02) continue;
+      const isFocus = it === focus && Math.abs(o) < 0.6;
+      this._drawLine(ctx, ln, padL, y, fs, blur, alpha, f, isFocus, nowS);
+      if (!ln.idle) this._layout.push({ y0: y - fs * 0.72, y1: y + fs * 0.72, ln, f });
+    }
 
-    active.forEach((m) => { if (m !== champ) this._drawMote(ctx, m, false); });
-    if (champ) this._drawMote(ctx, champ, true);
-
-    // edge fades so motes dissolve at the strip's ends
-    const g1 = ctx.createLinearGradient(0, 0, 46, 0); g1.addColorStop(0, '#0a0b10'); g1.addColorStop(1, 'rgba(10,11,16,0)');
-    ctx.fillStyle = g1; ctx.fillRect(0, 0, 46, H);
-    const g2 = ctx.createLinearGradient(W - 46, 0, W, 0); g2.addColorStop(0, 'rgba(10,11,16,0)'); g2.addColorStop(1, '#0a0b10');
-    ctx.fillStyle = g2; ctx.fillRect(W - 46, 0, 46, H);
+    // the glass: a soft specular band across the centre, then a top/bottom vignette into the band edges.
+    const sheen = ctx.createLinearGradient(0, cy - 20, 0, cy + 20);
+    sheen.addColorStop(0, this._rgba(this.accent, 0)); sheen.addColorStop(0.5, this._rgba(this.accent, 0.055)); sheen.addColorStop(1, this._rgba(this.accent, 0));
+    ctx.fillStyle = sheen; ctx.fillRect(0, cy - 20, W, 40);
+    const gt = ctx.createLinearGradient(0, 0, 0, 30); gt.addColorStop(0, bg); gt.addColorStop(1, this._rgba(bg, 0));
+    ctx.fillStyle = gt; ctx.fillRect(0, 0, W, 30);
+    const gb = ctx.createLinearGradient(0, H - 30, 0, H); gb.addColorStop(0, this._rgba(bg, 0)); gb.addColorStop(1, bg);
+    ctx.fillStyle = gb; ctx.fillRect(0, H - 30, W, 30);
   }
 
-  _drawMote(ctx, m, isCh) {
-    const tk = m.tk || this._toks()[0];
-    ctx.font = m._fs + 'px ui-monospace,Menlo,monospace';
-    const blur = (1 - this._env(m._p)) * 3.2;
+  // draw one console line at (x, y): dim timestamp · register glyph · the thought, then the caret. The
+  // focused line reads near-white with a soft register glow; off-focus lines keep their register tint,
+  // blurred and faded by the lens.
+  _drawLine(ctx, ln, x, y, fs, blur, alpha, f, isFocus, nowS) {
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.filter = blur > 0.25 ? ('blur(' + blur.toFixed(2) + 'px)') : 'none';
-    const label = (isCh ? '★ ' : '  ') + tk.text;
-    if (isCh) { const col = tk.color || this.accent; ctx.fillStyle = this._rgba(col, Math.min(1, m._a + 0.3)); ctx.shadowColor = col; ctx.shadowBlur = 16; }
-    else { ctx.shadowBlur = 0; ctx.fillStyle = this._rgba(this._hover === m ? '#ffffff' : '#aeb6c4', m._a); }
-    ctx.fillText(label, m._bx, m._by); ctx.shadowBlur = 0; ctx.filter = 'none';
+    ctx.font = fs + 'px "IBM Plex Mono",ui-monospace,Menlo,monospace';
+    const col = ln.color || this.accent;
+    let cx = x;
+    if (ln.ts) { ctx.fillStyle = this._rgba('#59616f', alpha * 0.8); ctx.fillText(ln.ts, cx, y); cx += ctx.measureText(ln.ts).width + fs * 0.55; }
+    if (ln.glyph) { ctx.fillStyle = this._rgba(col, alpha); ctx.fillText(ln.glyph, cx, y); cx += ctx.measureText(ln.glyph).width + fs * 0.5; }
+    if (isFocus) { ctx.fillStyle = this._rgba('#eef1f7', Math.min(1, alpha + 0.12)); ctx.shadowColor = col; ctx.shadowBlur = 13 * f; }
+    else { ctx.shadowBlur = 0; ctx.fillStyle = this._rgba(this._hover === ln ? '#ffffff' : col, alpha); }
+    ctx.fillText(ln.text, cx, y);
+    cx += ctx.measureText(ln.text).width;
+    ctx.shadowBlur = 0;
+    // the terminal caret — a blinking block riding the focused line's tail.
+    if (isFocus && !ln.idle) { const on = Math.floor(nowS * 1.6) % 2 === 0; if (on) { ctx.fillStyle = this._rgba(col, Math.min(1, alpha + 0.1)); ctx.fillRect(cx + 4, y - fs * 0.42, fs * 0.5, fs * 0.82); } }
+    ctx.filter = 'none';
   }
 
-  // reduced-motion path: a single still frame — the top-few thoughts spaced across the band, the most
-  // surprising starred. No RAF, no rain, no drift; repainted only on feed/resize.
+  // reduced-motion path: a still frame of the recent lines through the same lens — newest at centre,
+  // no rain, no caret blink, no scroll. Repainted only on feed/resize.
   _paintStatic() {
     const c = this._ctx(); if (!c) return;
     const { ctx, W, H } = c;
-    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#0a0b10'; ctx.fillRect(0, 0, W, H);
-    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    const toks = this._toks().slice().sort((a, b) => (b.surprise || 0) - (a.surprise || 0)).slice(0, 3);
-    const champTk = toks[0] || null;
-    this._layout = []; this._champ = champTk ? { tk: champTk } : null;
-    let x = 56;
-    ctx.font = '13px ui-monospace,Menlo,monospace';
-    for (const tk of toks) {
-      const isCh = tk === champTk;
-      const label = (isCh ? '★ ' : '  ') + tk.text;
-      const w = ctx.measureText(label).width;
-      if (x + w > W - 56) break;
-      if (isCh) { const col = tk.color || this.accent; ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 12; }
-      else { ctx.shadowBlur = 0; ctx.fillStyle = '#aeb6c4'; }
-      ctx.fillText(label, x, H / 2); ctx.shadowBlur = 0;
-      this._layout.push({ x0: x - 8, x1: x + w + 8, m: { tk, _bx: x, _w: w, _a: 1 } });
-      x += w + 40;
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#07080d'; ctx.fillRect(0, 0, W, H);
+    const cy = H * 0.56, usable = Math.min(cy, H - cy) - 6, padL = 18;
+    const baseFs = Math.max(12.5, Math.min(17, H * 0.145));
+    const hasLines = this.lines.length > 0;
+    const lines = hasLines ? this.lines : [this._idleLine()];
+    const newest = hasLines ? this.count - 1 : 0;
+    const items = lines.map((ln) => {
+      const o = ln.idle ? 0 : (ln.row - newest);
+      const y = cy + usable * Math.tanh(o * 0.5);
+      const f = Math.exp(-(o * o) / (2 * 1.05 * 1.05));
+      return { ln, o, y, f };
+    }).filter((it) => it.f > 0.02).sort((a, b) => a.f - b.f);
+    const focus = items.length ? items[items.length - 1] : null;
+    this._layout = [];
+    for (const it of items) {
+      const { ln, o, y, f } = it;
+      const fs = baseFs * (0.64 + 0.62 * f);
+      const alpha = 0.12 + 0.88 * f;
+      this._drawLine(ctx, ln, padL, y, fs, 0, alpha, f, it === focus && Math.abs(o) < 0.6, 0);
+      if (!ln.idle) this._layout.push({ y0: y - fs * 0.72, y1: y + fs * 0.72, ln, f });
     }
   }
 
-  _hit(x) {
+  // hit-test by pointer y against the drawn line boxes; prefer the most-focused when boxes overlap.
+  _hit(y) {
     let best = null;
-    for (const it of this._layout) { if (x >= it.x0 && x <= it.x1) { if (!best || (it.m._a || 0) > (best._a || 0)) best = it.m; } }
-    return best;
+    for (const it of this._layout) { if (y >= it.y0 && y <= it.y1) { if (!best || (it.f || 0) > (best.f || 0)) best = it; } }
+    return best ? best.ln : null;
   }
 
   _click(e) {
     if (!this.canvas) return;
     const r = this.canvas.getBoundingClientRect();
-    const m = this._hit(e.clientX - r.left);
-    const tk = m ? m.tk : (this._champ ? this._champ.tk : this._toks()[0]);
-    if (!tk) return;
-    this._openCard(tk, e.clientX);
+    const ln = this._hit(e.clientY - r.top) || (this.lines.length ? this.lines[this.lines.length - 1] : null);
+    if (!ln || ln.idle) return;
+    this._openCard(ln, e.clientX);
   }
 
   _ensureCard() {
     if (this._card) return;
     const card = document.createElement('div');
     card.className = 'eo-mm-card'; card.style.display = 'none';
+    // No surprise bar — surprise is only the gate that let this line in, never a surfaced metric.
     card.innerHTML =
       '<div class="eo-mm-card-head"><div style="display:flex;align-items:center;gap:10px;min-width:0">' +
       '<span class="eo-mm-card-tag"></span><span class="eo-mm-card-src"></span></div>' +
       '<button class="eo-mm-card-x" aria-label="Close">✕</button></div>' +
       '<div class="eo-mm-card-text"></div>' +
-      '<div class="eo-mm-card-note"></div>' +
-      '<div class="eo-mm-card-foot"><span class="eo-mm-card-lbl">surprise</span>' +
-      '<div class="eo-mm-card-bar"><span></span></div><span class="eo-mm-card-val"></span></div>';
+      '<div class="eo-mm-card-note"></div>';
     card.querySelector('.eo-mm-card-x').addEventListener('click', (e) => { if (e && e.stopPropagation) e.stopPropagation(); this._closeCard(); });
     card.addEventListener('click', (e) => { if (e && e.stopPropagation) e.stopPropagation(); });
     this.el.appendChild(card);
     this._card = card;
   }
 
-  _openCard(tk, clientX) {
-    this._open = true; this._sel = tk;
+  _openCard(ln, clientX) {
+    this._open = true; this._sel = ln;
     this._ensureCard();
     const stripR = this.el.getBoundingClientRect();
     const cx = (typeof clientX === 'number') ? clientX : (stripR.left + stripR.width / 2);
     const abs = Math.max(12, Math.min(cx - 190, (window.innerWidth || stripR.width) - 392));
     this._card.style.left = (abs - stripR.left) + 'px';
     // .textContent throughout — the thought/tuple text is shown verbatim, never parsed as HTML.
-    const col = tk.color || this.accent;
+    const col = ln.color || this.accent;
     const tag = this._card.querySelector('.eo-mm-card-tag');
-    tag.textContent = tk.tag || ''; tag.style.color = col;
+    tag.textContent = ln.tag || ''; tag.style.color = col;
     tag.style.border = '1px solid ' + this._rgba((typeof col === 'string' && col[0] === '#') ? col : this.accent, 0.4);
-    this._card.querySelector('.eo-mm-card-src').textContent = tk.sources || '';
-    this._card.querySelector('.eo-mm-card-text').textContent = tk.text || '';
+    this._card.querySelector('.eo-mm-card-src').textContent = ln.sources || '';
+    this._card.querySelector('.eo-mm-card-text').textContent = ln.text || '';
     const note = this._card.querySelector('.eo-mm-card-note');
-    note.textContent = tk.note || ''; note.style.display = tk.note ? '' : 'none';
-    const pct = Math.round(Math.max(0, Math.min(1, tk.surprise || 0)) * 100);
-    const bar = this._card.querySelector('.eo-mm-card-bar span'); bar.style.width = pct + '%'; bar.style.background = col;
-    this._card.querySelector('.eo-mm-card-val').textContent = (tk.surprise || 0).toFixed(2);
+    note.textContent = ln.note || ''; note.style.display = ln.note ? '' : 'none';
     this._card.style.display = '';
     if (this.reduceMotion()) this._paintStatic();
   }
@@ -6752,11 +6756,13 @@ class Component extends DCLogic {
       const surprise = Math.max(0, Math.min(1,
         reg ? Math.max(inten(reg), novelty != null ? novelty * 0.7 : 0)
             : (novelty != null ? novelty * 0.5 : 0.14)));
+      const op = (t.op && this._mmGlyph[t.op]) ? t.op : 'NUL';
       return {
         text: String(t.text),
         tag: reg || (t.op === 'NUL' ? 'resting' : 'reading'),
         color: (reg && this._mmStripInk[reg]) || '#8b93a2',
         surprise,
+        glyph: this._mmGlyph[op] || '·',   // the op glyph — the console line's level marker
         note: reg ? (this._mmGloss[reg] || '') : '',
         sources: this._mmTupleText(t),
       };
