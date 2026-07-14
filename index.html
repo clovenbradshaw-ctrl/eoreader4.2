@@ -1478,82 +1478,11 @@ table{border-collapse:collapse;width:100%}
               </div>
             </div>
 
-            <!-- DOSSIER — a single-subject source (a bio/article) shows its dominant figure's reading -->
-            <!-- (docs/topline.md): the model-WRITTEN account IN THIS DOCUMENT on the left (its info in the -->
-            <!-- context of the reading, span-grounded and steerable — never the raw encyclopedia lead), -->
-            <!-- and on the right the settled Wikipedia referent + lead image over the provenance DAG that -->
-            <!-- receipts every standing property. A diffuse / figure-less source keeps the plain SUMMARY. -->
-            <sc-if value="{{ viewer.dossier.show }}">
-              <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;background:#FAFAFE;padding:13px 20px">
-                <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:11px">
-                  <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">DOSSIER</span>
-                  <span style="font-family:'Newsreader',Georgia,serif;font-size:14px;font-weight:600;color:#2A2A32">{{ viewer.dossier.label }}</span>
-                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B4B4BE">{{ viewer.dossier.counts }}</span>
-                  <span style="flex:1"></span>
-                  <button onClick="{{ viewer.dossier.openFull }}" title="Open this figure's full profile" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:3px 9px" style-hover="background:#E7E2FD">Full profile ↗</button>
-                </div>
-                <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start">
-
-                  <!-- LEFT — the reading's own account of the figure -->
-                  <div style="flex:1 1 360px;min-width:280px">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-                      <span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#A6A0CF">{{ viewer.dossier.summary.panelLabel }}</span>
-                      <sc-if value="{{ viewer.dossier.summary.hasKind }}"><span style="font-size:9px;font-weight:600;color:#B26A2E;text-transform:uppercase;letter-spacing:.04em">{{ viewer.dossier.summary.kindLabel }}</span></sc-if>
-                      <span style="flex:1"></span>
-                      <sc-if value="{{ viewer.dossier.summary.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
-                    </div>
-                    <sc-if value="{{ viewer.dossier.summary.has }}">
-                      <sc-if value="{{ viewer.dossier.summary.hasSpans }}">
-                        <div style="font-family:'Newsreader',Georgia,serif;font-size:14.5px;line-height:1.6;color:#2A2A32"><sc-for list="{{ viewer.dossier.summary.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span title="{{ sp.cite }}">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing in the record witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if></sc-for></div>
-                        <sc-if value="{{ viewer.dossier.summary.anyFlagged }}"><div style="font-size:10px;color:#B08A4A;margin-top:5px">Underlined spans are the model’s own words — not found in the record.</div></sc-if>
-                      </sc-if>
-                      <sc-if value="{{ viewer.dossier.summary.noSpans }}">
-                        <div style="font-family:'Newsreader',Georgia,serif;font-size:14.5px;line-height:1.6;color:#2A2A32">{{ viewer.dossier.summary.text }}</div>
-                      </sc-if>
-                      <sc-if value="{{ viewer.dossier.summary.hasUnmet }}"><div style="font-size:11px;color:#B26A2E;margin-top:6px;font-style:italic">{{ viewer.dossier.summary.unmet }}</div></sc-if>
-                      <div style="display:flex;align-items:center;gap:6px;margin-top:10px;flex-wrap:wrap">
-                        <input value="{{ viewer.dossier.summary.draft }}" onChange="{{ viewer.dossier.summary.onInput }}" onKeyDown="{{ viewer.dossier.summary.onKey }}" placeholder="Tell it what to change — shorter, focus on…, or what's wrong" style="flex:1;min-width:140px;border:1px solid #E1DDF2;border-radius:7px;background:#fff;padding:6px 9px;font-size:11.5px;outline:none" style-focus="border-color:#B7ADF3" />
-                        <button onClick="{{ viewer.dossier.summary.send }}" style="font-size:11px;font-weight:600;color:#fff;background:#6D5EF5;border-radius:7px;padding:6px 12px" style-hover="background:#5B4BE6">Update</button>
-                        <button onClick="{{ viewer.dossier.summary.shorter }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">Shorter</button>
-                        <button onClick="{{ viewer.dossier.summary.longer }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">More</button>
-                        <button onClick="{{ viewer.dossier.summary.regen }}" title="Recompose from the record" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:6px 9px" style-hover="background:#E7E7EF">↻</button>
-                        <sc-if value="{{ viewer.dossier.summary.hasCites }}"><span title="the passages this rests on" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2">{{ viewer.dossier.summary.cites }}</span></sc-if>
-                      </div>
-                    </sc-if>
-                  </div>
-
-                  <!-- RIGHT — the Wikipedia referent (image + link) over the provenance DAG -->
-                  <div style="flex:0 0 320px;max-width:100%;display:flex;flex-direction:column;gap:11px">
-                    <sc-if value="{{ viewer.dossier.hasImage }}">
-                      <a href="{{ viewer.dossier.wikiUrl }}" target="_blank" rel="noopener" title="{{ viewer.dossier.wikiTitle }} — Wikipedia ↗" style="display:block;border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff;text-decoration:none">
-                        <img src="{{ viewer.dossier.image }}" alt="{{ viewer.dossier.imageAlt }}" loading="lazy" referrerpolicy="no-referrer" style="display:block;width:100%;height:auto;max-height:300px;object-fit:cover" />
-                        <sc-if value="{{ viewer.dossier.hasWiki }}">
-                          <span style="display:block;padding:7px 11px;border-top:1px solid #F0F0F4">
-                            <span style="display:block;font-size:11px;font-weight:600;color:#5B4BE6">{{ viewer.dossier.wikiTitle }} ↗</span>
-                            <sc-if value="{{ viewer.dossier.hasWikiDesc }}"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4;margin-top:2px">{{ viewer.dossier.wikiDesc }}</span></sc-if>
-                          </span>
-                        </sc-if>
-                      </a>
-                    </sc-if>
-                    <sc-if value="{{ viewer.dossier.wikiWait }}"><div style="font-size:10.5px;color:#B0AACF;font-style:italic">looking up Wikipedia…</div></sc-if>
-                    <!-- a confirmed referent that carries no lead image still earns its link -->
-                    <sc-if value="{{ viewer.dossier.hasWiki }}"><sc-if value="{{ viewer.dossier.noImage }}">
-                      <a href="{{ viewer.dossier.wikiUrl }}" target="_blank" rel="noopener" style="display:block;border:1px solid #EFEFF3;border-radius:10px;padding:8px 11px;background:#FBFBFD;text-decoration:none">
-                        <span style="display:block;font-size:11px;font-weight:600;color:#5B4BE6">{{ viewer.dossier.wikiTitle }} ↗</span>
-                        <sc-if value="{{ viewer.dossier.hasWikiDesc }}"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4;margin-top:2px">{{ viewer.dossier.wikiDesc }}</span></sc-if>
-                      </a>
-                    </sc-if></sc-if>
-                    <sc-if value="{{ viewer.dossier.hasDag }}">
-                      <div style="border:1px solid #EFEFF3;border-radius:11px;padding:10px 8px 6px;background:#fff">
-                        <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 6px">PROVENANCE <span style="color:#C8C8D0;font-weight:600">· source → passage → property</span></div>
-                        <div ref="{{ viewer.dossier.setDagEl }}"></div>
-                      </div>
-                    </sc-if>
-                  </div>
-
-                </div>
-              </div>
-            </sc-if>
+            <!-- DOSSIER — a single-subject source (a bio/article) leads with its dominant figure's -->
+            <!-- reading. It USED to sit here as a full-width block on top of the reading; it now lives -->
+            <!-- in the RIGHT PANEL (see "DOSSIER" under rightPanelShow below) so the reading — and, for -->
+            <!-- audio, the transcript — stays the hero. A diffuse / figure-less source keeps the plain -->
+            <!-- SUMMARY below. -->
 
             <!-- SUMMARY — the auto-generated topline of this source, composed from the objects the -->
             <!-- machinery decided (never the raw text), with a box to give it feedback that steers it. -->
@@ -2139,6 +2068,89 @@ table{border-collapse:collapse;width:100%}
                   </sc-for>
                 </div>
               </sc-if>
+            </sc-if>
+
+            <!-- DOSSIER — a single-subject source's dominant figure, in the right panel (not on top of -->
+            <!-- the reading, so the transcript stays the hero): its span-grounded, steerable reading, the -->
+            <!-- Wikipedia referent + lead image, and the ENTITY DAG of who it links to. It rides the same -->
+            <!-- default slot as the entity list, leading it; a diffuse source has no dossier, only the list. -->
+            <sc-if value="{{ dossierPanelShow }}">
+              <div style="margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid #F0F0F4">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px">
+                  <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">DOSSIER</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B4B4BE">this source centres on</span>
+                  <span style="flex:1"></span>
+                  <button onClick="{{ viewer.dossier.openFull }}" title="Open this figure's full profile" style="font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:3px 9px" style-hover="background:#E7E2FD">Full profile ↗</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
+                  <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ viewer.dossier.initials }}</span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600;color:#1B1B22;line-height:1.2">{{ viewer.dossier.label }}</span>
+                    <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ viewer.dossier.counts }}</span>
+                  </span>
+                </div>
+
+                <!-- the Wikipedia referent — image + link (only for a CONFIRMED referent) -->
+                <sc-if value="{{ viewer.dossier.hasImage }}">
+                  <a href="{{ viewer.dossier.wikiUrl }}" target="_blank" rel="noopener" title="{{ viewer.dossier.wikiTitle }} — Wikipedia ↗" style="display:block;margin-top:12px;border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff;text-decoration:none">
+                    <img src="{{ viewer.dossier.image }}" alt="{{ viewer.dossier.imageAlt }}" loading="lazy" referrerpolicy="no-referrer" style="display:block;width:100%;height:auto;max-height:220px;object-fit:cover" />
+                    <sc-if value="{{ viewer.dossier.hasWiki }}">
+                      <span style="display:block;padding:7px 11px;border-top:1px solid #F0F0F4">
+                        <span style="display:block;font-size:11px;font-weight:600;color:#5B4BE6">{{ viewer.dossier.wikiTitle }} ↗</span>
+                        <sc-if value="{{ viewer.dossier.hasWikiDesc }}"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4;margin-top:2px">{{ viewer.dossier.wikiDesc }}</span></sc-if>
+                      </span>
+                    </sc-if>
+                  </a>
+                </sc-if>
+                <sc-if value="{{ viewer.dossier.wikiWait }}"><div style="font-size:10.5px;color:#B0AACF;font-style:italic;margin-top:10px">looking up Wikipedia…</div></sc-if>
+                <!-- a confirmed referent that carries no lead image still earns its link -->
+                <sc-if value="{{ viewer.dossier.hasWiki }}"><sc-if value="{{ viewer.dossier.noImage }}">
+                  <a href="{{ viewer.dossier.wikiUrl }}" target="_blank" rel="noopener" style="display:block;margin-top:12px;border:1px solid #EFEFF3;border-radius:10px;padding:8px 11px;background:#FBFBFD;text-decoration:none">
+                    <span style="display:block;font-size:11px;font-weight:600;color:#5B4BE6">{{ viewer.dossier.wikiTitle }} ↗</span>
+                    <sc-if value="{{ viewer.dossier.hasWikiDesc }}"><span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4;margin-top:2px">{{ viewer.dossier.wikiDesc }}</span></sc-if>
+                  </a>
+                </sc-if></sc-if>
+
+                <!-- the reading's own account of the figure — span-grounded, steerable -->
+                <sc-if value="{{ viewer.dossier.summary.has }}">
+                  <div style="margin-top:13px;border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                      <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">{{ viewer.dossier.summary.panelLabel }}</span>
+                      <sc-if value="{{ viewer.dossier.summary.hasKind }}"><span style="font-size:9px;font-weight:600;color:#B26A2E;text-transform:uppercase;letter-spacing:.04em">{{ viewer.dossier.summary.kindLabel }}</span></sc-if>
+                      <span style="flex:1"></span>
+                      <sc-if value="{{ viewer.dossier.summary.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
+                    </div>
+                    <sc-if value="{{ viewer.dossier.summary.hasSpans }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32"><sc-for list="{{ viewer.dossier.summary.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span title="{{ sp.cite }}">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing in the record witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if></sc-for></div>
+                      <sc-if value="{{ viewer.dossier.summary.anyFlagged }}"><div style="font-size:10px;color:#B08A4A;margin-top:5px">Underlined spans are the model’s own words — not found in the record.</div></sc-if>
+                    </sc-if>
+                    <sc-if value="{{ viewer.dossier.summary.noSpans }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ viewer.dossier.summary.text }}</div>
+                    </sc-if>
+                    <sc-if value="{{ viewer.dossier.summary.hasUnmet }}"><div style="font-size:11px;color:#B26A2E;margin-top:6px;font-style:italic">{{ viewer.dossier.summary.unmet }}</div></sc-if>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap">
+                      <input value="{{ viewer.dossier.summary.draft }}" onChange="{{ viewer.dossier.summary.onInput }}" onKeyDown="{{ viewer.dossier.summary.onKey }}" placeholder="Tell it what to change…" style="flex:1;min-width:110px;border:1px solid #E1DDF2;border-radius:7px;background:#fff;padding:6px 9px;font-size:11.5px;outline:none" style-focus="border-color:#B7ADF3" />
+                      <button onClick="{{ viewer.dossier.summary.send }}" style="font-size:11px;font-weight:600;color:#fff;background:#6D5EF5;border-radius:7px;padding:6px 11px" style-hover="background:#5B4BE6">Update</button>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+                      <button onClick="{{ viewer.dossier.summary.shorter }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:3px 8px" style-hover="background:#E7E7EF">Shorter</button>
+                      <button onClick="{{ viewer.dossier.summary.longer }}" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:3px 8px" style-hover="background:#E7E7EF">More</button>
+                      <button onClick="{{ viewer.dossier.summary.regen }}" title="Recompose from the record" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:3px 8px" style-hover="background:#E7E7EF">↻</button>
+                      <span style="flex:1"></span>
+                      <sc-if value="{{ viewer.dossier.summary.hasCites }}"><span title="the passages this rests on" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2">{{ viewer.dossier.summary.cites }}</span></sc-if>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <!-- the ENTITY DAG — this figure at the hub, the entities it links to on the spokes -->
+                <!-- (replaces the property-provenance DAG the dossier used to carry) -->
+                <sc-if value="{{ viewer.dossier.hasEntityDag }}">
+                  <div style="margin-top:14px;border:1px solid #EFEFF3;border-radius:11px;padding:10px 8px 6px;background:#fff">
+                    <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 6px">CONNECTIONS <span style="color:#C8C8D0;font-weight:600">· who this figure links to</span></div>
+                    <div ref="{{ viewer.dossier.setEntityDagEl }}"></div>
+                  </div>
+                </sc-if>
+              </div>
             </sc-if>
 
             <!-- ENTITY LIST -->
@@ -4800,29 +4812,45 @@ class Component extends DCLogic {
     const wkHit = !!(wk && wk.confirmed && wk.text);
     const hasImage = !!(wk && wk.confirmed && wk.thumb);
     const src = app.sourceBySn(p.sn) || {};
+    // The DISTINCT entities this figure links to — collapsed by the other endpoint, the strongest
+    // verb leading with a +N (the same grouping the CONNECTED ENTITIES list uses). This is the entity
+    // DAG's data: the figure at the hub, who it bonds to on the spokes.
+    const neighbors = (() => {
+      const byOther = new Map();
+      for (const r of p.relations) {
+        const otherId = r.srcId === entId ? r.tgtId : r.srcId;
+        const otherLabel = r.srcId === entId ? r.tgtLabel : r.srcLabel;
+        if (!otherId) continue;
+        let g = byOther.get(otherId);
+        if (!g) { g = { otherId, other: otherLabel, vias: [] }; byOther.set(otherId, g); }
+        const via = r.via || r.op;
+        if (via && !g.vias.includes(via)) g.vias.push(via);
+      }
+      return [...byOther.values()].map((g) => ({
+        id: g.otherId, label: g.other,
+        via: g.vias.length > 1 ? `${g.vias[0]} +${g.vias.length - 1}` : (g.vias[0] || ''),
+        pivot: () => this.openEntity(docId, g.otherId),
+      }));
+    })();
     return {
-      show: true, label,
+      show: true, label, initials: this._initials(label),
       counts: (p.mentions.length === 1 ? '1 mention' : p.mentions.length + ' mentions')
         + ' · ' + (p.relations.length === 1 ? '1 link' : p.relations.length + ' links'),
       openFull: () => this.openEntity(docId, entId),
-      // LEFT — the fold-aware contextual reading of this figure (model-written, span-grounded,
-      // steerable). Reuses the entity topline VM whole, so feedback / Shorter / More all steer it.
+      // The fold-aware contextual reading of this figure (model-written, span-grounded, steerable).
+      // Reuses the entity topline VM whole, so feedback / Shorter / More all steer it.
       summary: this._toplineVM('entity', { docId, entId }, label),
-      // RIGHT · the Wikipedia lead image — shown only for a CONFIRMED referent (the honesty rule).
+      // The Wikipedia lead image — shown only for a CONFIRMED referent (the honesty rule).
       wikiWait: !!(wk && wk.busy),
       hasImage, noImage: !hasImage, image: hasImage ? wk.thumb : '', imageAlt: label,
       hasWiki: wkHit, wikiTitle: wkHit ? wk.title : '', wikiUrl: wkHit ? wk.url : '',
       hasWikiDesc: !!(wkHit && wk.description), wikiDesc: wkHit ? (wk.description || '') : '',
-      // RIGHT · the provenance DAG (SOURCE → PASSAGE → PROPERTY), keyed apart from the sidebar's.
-      hasDag: p.defs.length > 0,
-      setDagEl: (el) => this._mountPropDag(el, {
-        source: { title: src.title || p.sourceTitle || 'this source', reg: src.reg || '' },
-        props: p.defs.slice(0, 8).map((d) => ({
-          value: d.value, count: d.count, score: d.score,
-          witnesses: (d.witnesses || []).map((w) => ({ idx: w.idx, text: w.text })),
-        })),
-        onJump: (text) => this._jumpTo(p.sn, text),
-      }, 'dossier:' + docId + '#' + entId + '#' + p.defs.length),
+      // The ENTITY DAG (this figure → the entities it links to), keyed apart from the sidebar's.
+      // It replaces the property-provenance DAG here: on a source about one figure, WHO it connects
+      // to reads truer than where each standing property was witnessed. See _mountEntityDag.
+      hasEntityDag: neighbors.length > 0,
+      setEntityDagEl: (el) => this._mountEntityDag(el, { label, neighbors },
+        'edag:' + docId + '#' + entId + '#' + neighbors.length),
     };
   }
   // Kick the dominant figure's Wikipedia lookup (referent + lead image) exactly once, deferred a
@@ -4920,6 +4948,68 @@ class Component extends DCLogic {
       const t = sv('text', { x: xPropL + 8, y: y + 3, 'font-size': 9.5, fill: '#2A2A32', 'font-family': "'Newsreader',Georgia,serif" }); t.textContent = clip(p.value, 30); g.appendChild(t);
       const badge = sv('text', { x: xPropR - 6, y: y + 3, 'font-size': 7.5, fill: '#A0A0AA', 'text-anchor': 'end' }); badge.textContent = '×' + (p.count || 1); g.appendChild(badge);
       const tt = sv('title'); tt.textContent = p.value; g.appendChild(tt);
+      svg.appendChild(g);
+    });
+    el.appendChild(svg);
+  }
+  // ── the entity DAG ──────────────────────────────────────────────────────────
+  // A small hub-and-spoke DAG for the source dossier: the dominant FIGURE on the left, fanning out
+  // to the DISTINCT entities it links to on the right — one row per neighbour, wearing the verb(s)
+  // that bond them. Click a neighbour to pivot the panel onto it. Same visual language as the
+  // property-provenance DAG (a left→right fan with a paper-halo), but the right column is OTHER
+  // ENTITIES, not properties — "who does this figure connect to?", answered at a glance. Pure
+  // DOM/SVG, mounted imperatively; the key changes only when the figure or its neighbour set does.
+  _mountEntityDag(el, data, key) {
+    if (!el) return;
+    if (el.__edagKey === key) return;   // same figure + neighbour set across re-renders — already drawn
+    el.__edagKey = key;
+    try { this._renderEntityDag(el, data); }
+    catch (e) { el.innerHTML = ''; el.__edagKey = null; }
+  }
+  _renderEntityDag(el, data) {
+    el.innerHTML = '';
+    const nbrs = (data.neighbors || []).filter((n) => n && n.label);
+    if (!nbrs.length) return;
+    const NS = 'http://www.w3.org/2000/svg';
+    const sv = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+    const clip = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
+    // Tier palette shared with the tiered graph: the focus figure (existence) → its neighbours (structure).
+    const C = { hub: '#7F77DD', nbr: '#1D9E75' };
+    const rows = Math.min(nbrs.length, 10);
+    const shown = nbrs.slice(0, rows);
+    const VW = 300, PAD = 12, HEAD = 20;
+    const rowH = 30, rowTop = HEAD + 8;
+    const H = rowTop + rows * rowH + PAD;
+    const svg = sv('svg', { viewBox: `0 0 ${VW} ${H}`, width: '100%', height: H, style: 'display:block;overflow:visible' });
+    // columns: the figure hub on the left, its linked entities as rows on the right
+    const xHub = 22, xRowL = 92, xRowR = VW - 6;
+    const rowY = (i) => rowTop + i * rowH + rowH / 2;
+    const yHub = H / 2;
+    // headers
+    const head = (x, t, c, anchor) => { const e = sv('text', { x, y: 13, 'font-size': 8.5, 'font-weight': 700, 'letter-spacing': '.06em', fill: c, 'text-anchor': anchor }); e.textContent = t; svg.appendChild(e); };
+    head(xHub, 'FIGURE', C.hub, 'middle');
+    head(xRowL, 'LINKS TO', C.nbr, 'start');
+    // edges: hub → each neighbour row
+    const edge = (x1, y1, x2, y2, c) => {
+      const mx = (x1 + x2) / 2;
+      svg.appendChild(sv('path', { d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`, fill: 'none', stroke: c, 'stroke-width': 1.3, 'stroke-opacity': 0.5 }));
+    };
+    shown.forEach((n, i) => edge(xHub + 9, yHub, xRowL - 2, rowY(i), C.nbr));
+    // hub node — the dominant figure
+    const gHub = sv('g');
+    gHub.appendChild(sv('circle', { cx: xHub, cy: yHub, r: 10, fill: C.hub }));
+    const hl = sv('text', { x: xHub, y: yHub + 22, 'font-size': 8, fill: '#7A7A85', 'text-anchor': 'middle' }); hl.textContent = clip(data.label, 11); gHub.appendChild(hl);
+    const ht = sv('title'); ht.textContent = data.label; gHub.appendChild(ht);
+    svg.appendChild(gHub);
+    // neighbour rows — clickable, pivot the panel to that entity
+    shown.forEach((n, i) => {
+      const y = rowY(i), h = rowH - 8;
+      const g = sv('g', { style: 'cursor:pointer' });
+      g.appendChild(sv('rect', { x: xRowL, y: y - h / 2, width: xRowR - xRowL, height: h, rx: 6, fill: '#FBFBFD', stroke: '#EAEAEF', 'stroke-width': 1 }));
+      const t = sv('text', { x: xRowL + 8, y: y + 3, 'font-size': 9.5, fill: '#2A2A32', 'font-family': "'Newsreader',Georgia,serif" }); t.textContent = clip(n.label, 22); g.appendChild(t);
+      if (n.via) { const v = sv('text', { x: xRowR - 6, y: y + 3, 'font-size': 7.5, fill: '#A0A0AA', 'text-anchor': 'end', 'font-family': "'IBM Plex Mono',monospace" }); v.textContent = clip(n.via, 10); g.appendChild(v); }
+      const tt = sv('title'); tt.textContent = n.label + (n.via ? ' · ' + n.via : ''); g.appendChild(tt);
+      if (n.pivot) g.addEventListener('click', n.pivot);
       svg.appendChild(g);
     });
     el.appendChild(svg);
@@ -6798,6 +6888,10 @@ class Component extends DCLogic {
       spanShow: !!spanInsp, span: spanInsp || {},
       inspShow: !spanInsp && !!insp, insp: insp || {}, profShow: !spanInsp && !insp && !!prof, prof: prof || {},
       entListShow: !spanInsp && !insp && !prof, entRows, entCount: String(ents.length), entEmpty: ents.length === 0,
+      // The DOSSIER rides the right panel in the default slot (alongside the entity list, leading it):
+      // a single-subject source shows its dominant figure here — the reading, the referent, the entity
+      // DAG — instead of a full-width block on top of the transcript. A diffuse source has none.
+      dossierPanelShow: !spanInsp && !insp && !prof && !!(viewer && viewer.dossier && viewer.dossier.show),
       // The heading tracks the level: referents ARE the entities; the base level shows the source's
       // own segments/words, so it is named for what it is (SEGMENTS / WORDS / REGIONS / …).
       entHeading: (entPivot && pivotLevel === 'span' && activeSn) ? app.sourceBaseNoun(activeSn).toUpperCase() : 'ENTITIES',
