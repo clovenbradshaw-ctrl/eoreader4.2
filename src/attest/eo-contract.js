@@ -23,4 +23,10 @@ export const CONTRACTS = Object.freeze({
     ops: ['EVA', 'DEF'], targets: ['Lens'], products: ['Lens', 'Atmosphere'],
     stances: ['Dissecting', 'Tracing', 'Binding'], note: 'the attestation ladder — does the span survive in the witness',
   }),
+  // Anchor (§6): SYN a Merkle root from many leaves (a derived whole — Network), EVA an
+  // inclusion proof, SIG the timestamp attributes. Certificate Transparency, applied to a ledger.
+  'src/attest/anchor.js': contract({
+    ops: ['SYN', 'EVA', 'SIG'], targets: ['Network'], products: ['Network', 'Lens'],
+    stances: ['Composing', 'Tracing', 'Binding'], note: 'Merkle-anchor the ledger, prove inclusion',
+  }),
 });
