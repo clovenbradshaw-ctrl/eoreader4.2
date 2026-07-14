@@ -954,6 +954,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       // deterministic telegram lands at once (there is a summary before any talker is warm), and a
       // loaded talker refines the join in the background. Fire-and-forget — never blocks the record.
       sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
+      autoEntitySummaries(src);   // …and a topline for each of its dominant figures (telegram-only)
     }, 0);
     return src;
   };
@@ -976,6 +977,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
     persist(); emit('sources');
     sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
+    autoEntitySummaries(src);   // …and a topline for each of its dominant figures (telegram-only)
   };
 
   // The source's reading as one EoT document (structure + thinking). Memoised on the
@@ -2860,15 +2862,25 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       // not the whole topic pile. `docs` above still holds the full set for the front
       // door and the disambiguation gate; only what the answer GROUNDS on is scoped.
       // Set-aside is logged, never silent — the reader can see the focus it took.
-      const scopedDocs = scopeSources(effectiveQ, topicSources()).map(docFor).filter(Boolean);
+      const scopedSources = scopeSources(effectiveQ, topicSources());
+      const scopedDocs = scopedSources.map(docFor).filter(Boolean);
       const setAside = docs.length - scopedDocs.length;
       if (setAside > 0) logIt('skip', `Focused on ${scopedDocs.length} of ${docs.length} sources for this question — set aside ${setAside} unrelated to it`, topic()?.id);
       const groundDocs = scopedDocs.length ? scopedDocs : docs;
+      // The fold-composed toplines (docs/topline.md), handed to the turn so the model phrases what
+      // the reading already decided rather than re-deriving from raw lines. `foldSummary` is the
+      // standing summary of the source(s) the turn grounds on (auto-composed on record); the entity
+      // map lets the turn fold in the toplines of the figures it centres on. Both are grounded and
+      // containment-checked — pre-digested, safe to lean on. Aligned with groundDocs above.
+      const summarySources = (scopedSources.length ? scopedSources : topicSources()).slice(0, 6);
+      const foldSummary = summarySources.map((s) => (s.summary?.text || '').trim()).filter(Boolean).join('\n\n') || null;
+      const entitySummaries = entitySummaryMap();
       const args = {
         question: effectiveQ, docs: groundDocs, model: m,
         embedder: hashEmb,
         geometricEmbedder: (minilm?.isWarm?.() ? minilm : null) || undefined,
         shapeLibrary: shapeLib || undefined,   // the form predictor (turn/shape.js) — inert until built
+        foldSummary, entitySummaries,          // the fold-composed toplines, pre-digested (docs/topline.md)
         auditLog: audit, history,
         stream: true,
         // Arm the reaction-weighing stage: when a grounded answer earned no witness and the
@@ -3851,14 +3863,14 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
 
   // The two-phase store: phase A writes the deterministic telegram at once (so the surface always has
   // something); phase B refines the join with the loaded talker, if any. `write` persists each phase.
-  const composeTwoPhase = async (inv, prev, write) => {
+  const composeTwoPhase = async (inv, prev, write, { useModel = true } = {}) => {
     const steer = prev?.steer || null;
     const feedback = prev?.feedback || [];
     if (!prev || prev.regenerate) {
       const tele = await composeTopline(inv, { steer, useModel: false });
       write({ ...tele, steer, feedback });
     }
-    if (model) {
+    if (model && useModel) {
       const full = await composeTopline(inv, { steer, useModel: true });
       write({ ...full, steer, feedback });
     }
@@ -3886,12 +3898,14 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
 
   // Generate/refresh an entity topline, keyed by the merged label the explorer groups by. Returns
   // the stored summary; stores in state.summaries.entities and emits.
-  const entitySummary = (docId, entId, { regenerate = false } = {}) => guarded(`e:${docId}#${entId}`, regenerate, async () => {
+  const entitySummary = (docId, entId, { regenerate = false, telegramOnly = false } = {}) => guarded(`e:${docId}#${entId}`, regenerate, async () => {
     const profile = entityProfile(docId, entId);
     if (!profile) return null;
     const key = entityKey(profile.label);
     const prev = state.summaries.entities[key] || null;
-    const upgrade = prev && prev.modelless && !!model;
+    // A telegram-only kick (the auto-gen on record) never upgrades or re-runs a summary that already
+    // stands — it only fills an empty slot, so it costs no model and never contends with a panel open.
+    const upgrade = prev && prev.modelless && !!model && !telegramOnly;
     if (prev && !regenerate && !upgrade) return prev;
     const inv = entityInventory(profile, { mentionCount: profile.mentionCount ?? profile.mentions.length, sourceCount: profile.sourceCount || 1 });
     // When a model is loaded a written reading (the contextual definition) is coming a beat behind
@@ -3900,8 +3914,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // cleared the moment the reading lands below. With no model, nothing more is coming, so the flag
     // stays false and the telegram is shown at once.
     await composeTwoPhase(inv, prev ? { ...prev, regenerate } : { regenerate: true }, (s) => {
-      state.summaries.entities[key] = { ...s, key, label: profile.label, contextualPending: !!model }; persist(); emit('sources');
-    });
+      state.summaries.entities[key] = { ...s, key, label: profile.label, contextualPending: !!model && !telegramOnly }; persist(); emit('sources');
+    }, { useModel: !telegramOnly });
     // The fold-aware contextual definition — a model-WRITTEN companion to the telegram, framed by
     // the document in hand (its title, and the figures it most centres on beside this one). It is
     // safe to let the model write here because the entity panel flanks it: the settled Wikipedia
@@ -3915,7 +3929,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // becomes the new champion, so the system gets better — and, as the champion stabilises, cheaper
     // — at defining, especially similar things.
     const cur0 = state.summaries.entities[key];
-    if (model && cur0 && (regenerate || !cur0.contextual)) {
+    if (model && !telegramOnly && cur0 && (regenerate || !cur0.contextual)) {
       const themes = [...(profile.figures || [])]
         .filter((f) => f.entId !== entId && f.label && f.label !== profile.label)
         .sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 4).map((f) => f.label);
@@ -3992,6 +4006,39 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     }
     return state.summaries.entities[key];
   });
+
+  // Auto-compose the toplines of a source's dominant figures the moment it is recorded — the entity
+  // half of "a summary for every source and every entity" (docs/topline.md). Telegram-only and
+  // fire-and-forget: the deterministic, containment-checked one-liner lands with no model and no
+  // network, so entity panels open with a real summary instead of "nothing found yet", and a turn can
+  // fold these figures' summaries into its prompt. A loaded talker still refines each on panel-open
+  // (the modelless-upgrade path). Capped at the top figures by sighting mass, mirroring sourceReading.
+  const autoEntitySummaries = (src) => {
+    try {
+      const doc = src ? docFor(src) : null;
+      if (!doc?.log) return;
+      const g = projectGraph(doc.log);
+      const rep = g.representative || ((x) => x);
+      const bySight = new Map();
+      for (const [id, ent] of g.entities || []) {
+        const r = rep(id);
+        const cur = bySight.get(r);
+        if (cur) cur.sightings += ent.sightings || 0;
+        else bySight.set(r, { id: r, sightings: ent.sightings || 0 });
+      }
+      const top = [...bySight.values()].sort((a, b) => b.sightings - a.sightings).slice(0, TOPLINE_FIGURES);
+      for (const f of top) entitySummary(src.docId, f.id, { telegramOnly: true }).catch(() => {});
+    } catch { /* a summary must never cost the record */ }
+  };
+
+  // The entity toplines as a label → text map, for feeding a turn (turn/stages.js composeFoldSummary
+  // folds in the ones the turn centres on). Reads the standing store; never generates.
+  const entitySummaryMap = () => {
+    const out = {};
+    for (const e of Object.values(state.summaries.entities || {}))
+      if (e && e.label && e.text) out[e.label] = e.text;
+    return out;
+  };
 
   // ── the entity DIGEST — the explore surface (docs/topline.md) ──────────────────────────────────
   // The topline is the one line the panel opens with; the digest is what a reader DIGS INTO. It has

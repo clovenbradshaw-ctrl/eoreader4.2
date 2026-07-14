@@ -188,6 +188,16 @@ const SETTLED_FRAME = "Already settled with them — they know these; build on t
 const EXEMPLAR_FRAME = 'For the SHAPE only — here is the kind of answer this question wants (it is ' +
   'about a different text; copy its register and length, NOT its facts):';
 
+// THE FOLD SUMMARY — the standing topline the reading ALREADY composed for this source (and,
+// where the turn centres on them, for its figures), handed to the talker pre-digested
+// (docs/topline.md). It is not raw material to be summarised: it is a summary the machinery
+// built over the closed set of grounded objects and checked by set-containment, so it holds
+// nothing the source does not. The talker's job shrinks to phrasing — arrange and voice what
+// the fold decided, do not re-derive it. Network: the reading's own synthesis, handed as language.
+const FOLD_SUMMARY_FRAME = 'What your reading has already made of this source — a standing ' +
+  'summary it composed from the passages and checked against them, so it carries nothing the ' +
+  'source does not. Lean on it: build your answer from this and the lines below, and never contradict it.';
+
 const STRICT_ABSENCE = 'Your reading turned up nothing bearing on their question — it is not covered by what you read. Say that plainly, the way a person would (for example: "I didn\'t find anything about that in what I read" — first person, never "the reading doesn\'t mention…"), then, if you can, answer from general knowledge, making clear that part is not from what you read.';
 
 // The MEASURED-DECLINE hints (turn/stages.js answerable/gate). The answerability floor
@@ -223,6 +233,7 @@ export const groundedView = ({
   meta = false,
   corrective = '',
   exemplar = '',
+  summary = '',
   strict = false,
   now = null,
   graph = '',
@@ -240,7 +251,7 @@ export const groundedView = ({
   const budgetStr = budgetLine(budget);
   return {
     question, spans, orientation, task, budget, conversation, meta, corrective,
-    exemplar, strict, now, graph, arc, reasoning, shape, steer, tail, declineHint,
+    exemplar, summary, strict, now, graph, arc, reasoning, shape, steer, tail, declineHint,
     metaConv, budgetStr,
   };
 };
@@ -281,6 +292,16 @@ export const GROUNDED_BANDS = Object.freeze([
     when: (v) => !!v.graph,
     render: (v) => `Here's the sense of it, from your reading:\n${v.graph}`,
     prose: ["Here's the sense of it, from your reading:"],
+  },
+  // THE FOLD SUMMARY — the standing topline the reading already composed (docs/topline.md),
+  // handed pre-digested so the talker phrases rather than re-derives. Empty by default (no
+  // summary threaded → byte-identical prompt, pinned by tests/prompt-golden.test.js). Network:
+  // the reading's own synthesis, handed as language — the sibling of the fold graph above.
+  {
+    key: 'foldSummary', terrain: 'Network', role: 'user',
+    when: (v) => !!v.summary,
+    render: (v) => `${FOLD_SUMMARY_FRAME}\n${v.summary}`,
+    prose: [FOLD_SUMMARY_FRAME],
   },
   // THE ARC — how the reading itself MOVED (write/gravity.js): order and turns, never
   // causes. Network material; the aside that rides it is register steering and is
