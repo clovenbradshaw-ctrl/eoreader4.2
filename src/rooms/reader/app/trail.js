@@ -34,13 +34,12 @@ export const installTrail = (appCtx) => {
   // turn's trail reads "Thinking…", not "Researching…" (a web walk creates the trail first,
   // with mode 'research', and the first-writer's mode wins).
   //
-  // VERBOSE: the reader watches the WHOLE fold think — every stage speaks, and each beat can be
-  // opened to its full data (the surf reading path, the census counts, and the grounded prompt
-  // itself as it is built). Still the safe `data` projection — verbosity widens what is shown of
-  // the audit, never what the model is fed. The surf / detail / prompt extras ride onto the beat
-  // (beat() spreads them onto the step) for the surface to reveal on demand.
+  // VERBOSE is a DEVELOPER trace, OFF by default: on, every stage dumps its raw `data` cells (the
+  // route/task/gates fields, the internal `eo` operator strings) — machine notation, not meaning to a
+  // regular reader. Default is the CURATED trail alone. Re-enable: ?trace=verbose or eo_trace storage.
+  const traceVerbose = (() => { try { return /(^|[?&])trace=verbose(&|$)/.test(location.search || '') || localStorage.getItem('eo_trace') === 'verbose'; } catch { return false; } })();
   const foldBeat = (msg, name, data) => {
-    const b = foldNarrative(name, data || {}, { verbose: true });
+    const b = foldNarrative(name, data || {}, { verbose: traceVerbose });
     if (!b) return;
     const { kind, text, ...extra } = b;
     beat(msg, kind, text, 'think', Object.keys(extra).length ? extra : null);
