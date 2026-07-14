@@ -354,3 +354,7 @@ export const createChatRoom = ({
     _internals: () => ({ store, crypto, client }),
   });
 };
+
+// The chat surface mounts, re-exported so the entrance covers the whole membrane
+// (holon law: outside the boundary, only index.js is visible).
+export { mountChat, mountChatLauncher } from './mount.js';

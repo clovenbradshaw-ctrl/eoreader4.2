@@ -31,7 +31,7 @@ export const CONTRACTS = Object.freeze({
   'src/surfer/spiral.js': contract({ ops: ['REC'], targets: ['Lens'], products: ['Entity', 'Paradigm'], stances: ['Composing'], note: 'the spiral — REC climbs' }),
   'src/surfer/stance.js': contract({ ops: ['EVA', 'REC', 'DEF'], targets: ['Field', 'Lens'], products: ['Lens', 'Atmosphere'], stances: ['Making', 'Cultivating', 'Clearing'], note: 'update stance + confab guard' }),
   'src/surfer/structure-basis.js': contract({ ops: ['SIG', 'SYN', 'EVA'], targets: ['Field'], products: ['Network', 'Lens'], stances: ['Composing', 'Tracing'], note: 'structural significance basis' }),
-  'src/surfer/surf.js': contract({ ops: ['SEG', 'EVA', 'SYN'], targets: ['Field'], products: ['Field', 'Lens', 'Paradigm'], stances: ['Dissecting', 'Tracing', 'Composing'], note: 'the surfer core — surfFold' }),
+  'src/surfer/surf.js': contract({ ops: ['SEG', 'EVA', 'SYN', 'REC'], targets: ['Field'], products: ['Field', 'Lens', 'Paradigm'], stances: ['Dissecting', 'Tracing', 'Composing'], note: 'the surfer core — surfFold' }),
   'src/surfer/terrain.js': contract({ ops: ['DEF'], targets: ['Field', 'Link'], products: ['Lens'], stances: ['Dissecting'], note: 'site typing by operators' }),
   'src/surfer/trajectory.js': contract({ ops: ['SYN', 'SEG'], targets: ['Link'], products: ['Network'], stances: ['Composing', 'Unraveling'], note: 'arc of an identity' }),
 });

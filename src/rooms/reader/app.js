@@ -50,7 +50,7 @@ import { projectTranscript, REDACTION_MARK } from './transcript-edit.js';
 import { buildFormat, FORMATS as TRANSCRIPT_FORMATS, hasTranscript } from './transcript-export.js';
 import { formatTranscript, detectTranscriptChapters, readThroughIndex, settledText, segmentsOf, chapterAt, referentRuns } from './transcript-format.js';
 import { sha256Hex } from '../archive/file-crypto.js';
-import { outstandingQuestion, answersAwaited } from '../../core/conversation-fold.js';
+import { outstandingQuestion, answersAwaited } from '../../frame/index.js';
 import { senseGate } from '../../turn/sense.js';
 import { createMonitor } from '../../enactor/monitor.js';
 import { createCommitmentLedger } from '../../enactor/ledger.js';

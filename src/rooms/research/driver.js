@@ -38,7 +38,7 @@ import {
   recFrame, voidAbsence, askUser, answerAsk, promoteProposition, phraseSection,
 } from './events.js';
 import { projectReport } from './project.js';
-import { pinPayload, locateSpan } from '../archive/pin.js';
+import { pinPayload, locateSpan } from '../archive/index.js';
 import { admitWebSource } from '../../organs/ingest/websource.js';
 import { fieldVerdict, ANSWERABLE_ALPHA } from '../../surfer/answerable.js';
 import { researchTerms, profileOf, curiosityOf, foldInto, leadsFrom, nextQuery } from '../../turn/research.js';

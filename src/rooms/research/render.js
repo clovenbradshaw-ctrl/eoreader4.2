@@ -9,7 +9,7 @@
 // work over the frozen projection — rendering twice yields identical bytes,
 // because the report IS the log made visible.
 
-import { spanAnchor } from '../archive/pin.js';
+import { spanAnchor } from '../archive/index.js';
 import { describeEvent, coverageSummary, coverageNote } from './live.js';
 import { OPERATORS } from '../../core/operators.js';
 

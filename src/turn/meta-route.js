@@ -40,7 +40,7 @@ import { tok, segmentSentences } from '../perceiver/parse/index.js';
 import { bornSalience } from '../surfer/salience.js';
 import { deriveNull } from '../core/voidnull.js';
 import { relax } from '../weave/longgen/relax.js';
-import { stanceDescOf } from '../core/conversation-fold.js';
+import { stanceDescOf } from '../frame/index.js';
 import { speak } from '../model/speak.js';
 
 // The route alphabet — the directions the relaxation settles over. `research` is a real
