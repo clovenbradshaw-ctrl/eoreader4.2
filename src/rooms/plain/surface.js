@@ -12,6 +12,7 @@
 
 import { questionsFor, terrainOfKind } from './terrain.js';
 import { readAs, basesOf, centerOn } from './select.js';
+import { sourcesDisagree } from './disagreement.js';
 
 const esc = (s) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -124,6 +125,13 @@ const CSS = `
 .pl-bs .n{font-weight:600}
 .pl-bs .d{color:var(--dim);margin-top:3px;margin-left:22px}
 .pl-foot{color:var(--dim);font-size:13px;border-top:1px solid var(--line);padding-top:14px;margin-top:8px}
+/* live term picker */
+.pl-chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 22px}
+.pl-chip{border:1px solid var(--line);background:var(--panel2);border-radius:20px;padding:5px 13px;cursor:pointer;transition:.12s}
+.pl-chip:hover{border-color:var(--accent);color:var(--accent)}
+.pl-termform{display:flex;gap:8px;max-width:520px}
+.pl-terminput{flex:1 1 auto;font-family:var(--sans);font-size:14px;padding:8px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--ink)}
+.pl-terminput:focus{outline:none;border-color:var(--accent)}
 `;
 
 // The six explore cards (doc §1 right rail). Each opens a full view. `sub` is the quiet
@@ -137,17 +145,22 @@ const CARDS = [
   { view: 'map',         h: 'Map',                s: 'the whole field at a glance' },
 ];
 
-export function mountPlainSurface(root, { scene } = {}) {
+export function mountPlainSurface(root, { scene, live = null } = {}) {
   if (!scene) throw new Error('mountPlainSurface needs a scene');
   const S = scene;
+  // `live` (optional, from project.liveModel): { sources:[{id,label,text}], terms:[…],
+  // disagreeFor(term) } — when present the surface reads the person's real ingested sources and
+  // computes "People mean different things by this" from what those documents actually say.
+  const LIVE = live && Array.isArray(live.sources) && live.sources.length ? live : null;
 
   // ── State — small, and the screen is a projection of it. ──
   const st = {
-    view: 'read',          // read | guide | timeline | shifts | meanings | map | blindspots | center | focus
+    view: 'read',          // read | guide | timeline | shifts | meanings | map | blindspots | center | focus | disagree
     pop: null,             // { id, x, y } — the open popover's thing + anchor
     focus: null,           // { id, view } — a question routed to a per-thing focus panel
     basis: 'everyone',     // §3 dropdown
     word: 'surveillance',  // which idea the meanings/shifts views are about
+    meaningsModel: null,   // a live disagreement model (from project.disagreeFor); null → scene fixture
     center: S.GRAPH ? (S.GRAPH.order?.[0] ?? null) : null, // §5 centered node
   };
 
@@ -162,22 +175,26 @@ export function mountPlainSurface(root, { scene } = {}) {
 
   // ── The read screen: three panes. ──
   const renderRead = () => {
-    const sources = S.SOURCES.map((s) =>
-      `<div class="pl-src"><span class="bx">▣</span><span class="lbl">${esc(s.label)}</span></div>`).join('');
-    const seg = S.READING.segments.map((p) => {
-      if (typeof p === 'string') return esc(p);
-      return `<span class="pl-mark" data-thing="${esc(p.id)}">${esc(p.text)}</span>`;
-    }).join('');
+    const srcList = LIVE ? LIVE.sources : S.SOURCES;
+    const sources = srcList.map((s) =>
+      `<div class="pl-src"><span class="bx">▣</span><span class="lbl">${esc(s.label)}</span></div>`).join('')
+      || '<div class="pl-src" style="color:var(--dim)">No sources yet.</div>';
+    const title = LIVE ? 'Your sources' : S.TITLE;
+    // The reading pane: the demo shows a marked passage; live mode shows a term picker over the
+    // real corpus (the honest thing to click on real data are the words the sources actually use).
+    const main = LIVE ? renderLivePicker() : `
+      <div class="pl-read-h">${esc(S.READING.heading)}</div>
+      <div class="pl-read">${S.READING.segments.map((p) => (typeof p === 'string'
+        ? esc(p) : `<span class="pl-mark" data-thing="${esc(p.id)}">${esc(p.text)}</span>`)).join('')}</div>`;
     const cards = CARDS.map((c) =>
       `<div class="pl-card" data-view="${c.view}"><div class="h">${esc(c.h)}</div><div class="s">${esc(c.s)}</div></div>`).join('');
     shell.innerHTML = `
-      <div class="pl-head"><div class="pl-title">${esc(S.TITLE)}</div><div class="sp"></div>
+      <div class="pl-head"><div class="pl-title">${esc(title)}</div><div class="sp"></div>
         <span class="ic">🔍</span><span class="ic">⚙</span></div>
       <div class="pl-body">
         <div class="pl-col pl-left"><div class="pl-kick">Sources</div>${sources}
           <div class="pl-add">+ Add</div></div>
-        <div class="pl-col pl-main"><div class="pl-read-h">${esc(S.READING.heading)}</div>
-          <div class="pl-read">${seg}</div></div>
+        <div class="pl-col pl-main">${main}</div>
         <div class="pl-col pl-right"><div class="pl-kick">Explore</div>${cards}</div>
       </div>`;
     shell.querySelectorAll('.pl-mark').forEach((el) => el.addEventListener('click', (e) => {
@@ -185,7 +202,44 @@ export function mountPlainSurface(root, { scene } = {}) {
       st.pop = { id: el.dataset.thing, x: r.left, y: r.bottom + 6 };
       render();
     }));
-    shell.querySelectorAll('.pl-card').forEach((el) => el.addEventListener('click', () => go(el.dataset.view)));
+    shell.querySelectorAll('.pl-card').forEach((el) => el.addEventListener('click', () => {
+      // In live mode the disagreement card returns to the term picker (the read pane); the other
+      // cards stay demo. Clearing meaningsModel so a fresh pick recomputes.
+      if (LIVE && el.dataset.view === 'meanings') return go('read', { meaningsModel: null });
+      go(el.dataset.view);
+    }));
+    if (LIVE) bindLivePicker();
+  };
+
+  // The live term picker (main pane, live mode). The person picks a word the corpus uses and asks
+  // what each source means by it — the real "People mean different things by this".
+  const renderLivePicker = () => {
+    const chips = (LIVE.terms || []).slice(0, 40)
+      .map((t) => `<span class="pl-chip" data-term="${esc(t)}">${esc(t)}</span>`).join('')
+      || '<span style="color:var(--dim)">No entities read yet — type a word below.</span>';
+    return `
+      <div class="pl-read-h">What does a word mean to each source?</div>
+      <p class="pl-lede">Pick a word your sources use. If they don’t agree on what it means, you’ll see it.</p>
+      <div class="pl-chips">${chips}</div>
+      <form class="pl-termform"><input class="pl-terminput" type="text" placeholder="…or type any word" />
+        <button type="submit">Read it across the sources</button></form>`;
+  };
+  const bindLivePicker = () => {
+    shell.querySelectorAll('.pl-chip').forEach((el) =>
+      el.addEventListener('click', () => openDisagree(el.dataset.term)));
+    const form = shell.querySelector('.pl-termform');
+    if (form) form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = shell.querySelector('.pl-terminput').value.trim();
+      if (v) openDisagree(v);
+    });
+  };
+
+  // Compute the live disagreement for a term and open the meanings view on it.
+  const openDisagree = (term) => {
+    let model = null;
+    try { model = LIVE.disagreeFor(term); } catch { model = null; }
+    go('meanings', { meaningsModel: model, word: term, basis: 'everyone' });
   };
 
   // ── The popover: exactly three questions + center. Driven by terrain.questionsFor. ──
@@ -240,26 +294,53 @@ export function mountPlainSurface(root, { scene } = {}) {
 
   const backBar = () => `<span class="pl-back" data-back="1">← back</span>`;
 
+  // Resolve the meanings model for the §3 view — a LIVE disagreement model (computed from the
+  // person's real sources) when one is set, else the scene fixture for the demo word.
+  const meaningsModel = () => {
+    if (st.meaningsModel) {
+      const m = st.meaningsModel;
+      const n = m.sources ? m.sources.length : (m.bases ? m.bases.length : 0);
+      return {
+        title: `"${m.term}"`,
+        meanings: m.meanings,
+        bases: m.bases,
+        baseLabel: m.baseLabel || {},
+        lede: sourcesDisagree(m)
+          ? `Your ${n} sources don’t agree on what this word means.`
+          : (m.meanings.length ? 'Your sources broadly agree on what this word means.'
+                               : 'None of your sources say what this word is.'),
+      };
+    }
+    const word = S.MEANINGS[st.word] ? st.word : Object.keys(S.MEANINGS)[0];
+    return {
+      title: (S.THINGS[word]?.title) || `"${word}"`,
+      meanings: S.MEANINGS[word],
+      bases: S.BASIS_ORDER,
+      baseLabel: S.BASIS_LABEL || {},
+      lede: 'Your four sources don’t agree on what this word means.',
+    };
+  };
+
   // ── §3 · Where people disagree. The dropdown redraws the bars; select.readAs is the fold. ──
   const renderMeanings = () => {
-    const word = S.MEANINGS[st.word] ? st.word : Object.keys(S.MEANINGS)[0];
-    const meanings = S.MEANINGS[word];
-    const rows = readAs(meanings, st.basis);
-    const bars = rows.map((r) =>
+    const mm = meaningsModel();
+    const rows = readAs(mm.meanings, st.basis);
+    const bars = rows.length ? rows.map((r) =>
       `<div class="pl-brow"><div class="bar" style="width:${Math.round(6 + r.share * 300)}px"></div>
-        <div class="bl">${esc(r.label)}</div></div>`).join('');
-    const opts = basesOf(meanings, S.BASIS_ORDER).map((b) =>
-      `<option value="${esc(b)}"${b === st.basis ? ' selected' : ''}>${esc(S.BASIS_LABEL?.[b] || b)}</option>`).join('');
-    const title = (S.THINGS[word]?.title) || `"${word}"`;
+        <div class="bl">${esc(r.label)}</div></div>`).join('')
+      : '<p class="pl-lede">Nothing here to read — none of these sources characterize the word.</p>';
+    const opts = basesOf(mm.meanings, mm.bases).map((b) =>
+      `<option value="${esc(b)}"${b === st.basis ? ' selected' : ''}>${esc(mm.baseLabel[b] || b)}</option>`).join('');
     shell.innerHTML = `<div class="pl-col" style="overflow:auto"><div class="pl-view">
       ${backBar()}
-      <div class="pl-h1">${esc(title)}</div>
-      <p class="pl-lede">Your four sources don’t agree on what this word means.</p>
+      <div class="pl-h1">${esc(mm.title)}</div>
+      <p class="pl-lede">${esc(mm.lede)}</p>
       <div class="pl-bars">${bars}</div>
       <div class="pl-select">Read it as: <select>${opts}</select></div>
     </div></div>`;
     bindBack();
-    shell.querySelector('select').addEventListener('change', (e) => { st.basis = e.target.value; render(); });
+    const sel = shell.querySelector('select');
+    if (sel) sel.addEventListener('change', (e) => { st.basis = e.target.value; render(); });
   };
 
   // ── §4 · When people changed their minds — a REC scan, one sentence each. ──

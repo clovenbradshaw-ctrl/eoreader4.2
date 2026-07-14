@@ -124,6 +124,18 @@ budget, a thing-done-to-people under the court filing) and re-centering the pict
 void** can build. The worked corpus is `src/rooms/plain/scene.js`; the framework-free surface is
 `surface.js`, the same room idiom as Replay and Render.
 
+It is also a **screen in the main app** — the **Plain** tab in `index.html` (mounted the same way the
+Graph tab hosts its draw, via `window.EO.plain`). There the surface reads the person's **real ingested
+sources**: "People mean different things by this" is not a table but a projection of what the documents
+actually say. `src/rooms/plain/disagreement.js` reads each source's own sentences — every "X is a Y",
+"X, a Y,", "X was described as Y", "X means Y" — buckets the characterizations by head-noun into distinct
+meanings, and tallies each per source; `select.readAs` then re-reads the word under any one source as a
+basis. `src/rooms/plain/project.js` is the live bridge (`window.EO.app` + `perceiver/parse`), folding the
+perceiver's own coref-resolved copular DEFs in on top of the surface sweep. It is tested on real text
+across three genres — **non-fiction** (a civic procurement, "surveillance"), **fiction** (two narrators,
+"the monster"), and **academic papers** (one word, three disciplines, "power") — in
+`tests/plain-disagreement.test.js`, with the engine path pinned end-to-end in `tests/plain-project.test.js`.
+
 ## Replay — watching something get read
 
 Open **`replay.html`** (`npm run serve`) for a surface built on one rule: **no ingest organ
