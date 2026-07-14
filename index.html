@@ -1769,6 +1769,91 @@ table{border-collapse:collapse;width:100%}
                 Open the web graph
               </button>
 
+              <!-- THROUGH THE READING — the deterministic chapter spine (docs/topline.md). Where this -->
+              <!-- referent moves, chapter by chapter: one bullet per chapter it appears in, always -->
+              <!-- present, no model. Open a chapter to pull its fold-prompted reading (lazy — the model -->
+              <!-- is not touched until the reader leans in). This is the explore surface's backbone. -->
+              <sc-if value="{{ prof.hasChapters }}">
+                <div style="margin-top:18px">
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">THROUGH THE READING <span style="color:#C0C0C8;font-weight:600">· chapter by chapter</span></div>
+                  <sc-for list="{{ prof.chapters }}" as="ch">
+                    <div style="border:1px solid #EFEFF3;border-radius:10px;margin-bottom:6px;background:#FBFBFD;overflow:hidden">
+                      <button onClick="{{ ch.toggle }}" title="Read closer — pull this chapter's reading of the figure" style="width:100%;display:flex;align-items:flex-start;gap:9px;padding:9px 11px;text-align:left" style-hover="background:#F5F4FB">
+                        <span style="flex:0 0 auto;margin-top:2px;color:#9A93D6;transform:{{ ch.chevron }};transition:transform .15s"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+                        <span style="flex:1;min-width:0">
+                          <span style="display:flex;align-items:baseline;gap:7px"><span style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;font-weight:600;color:#2A2A32">{{ ch.label }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B4B4BE">{{ ch.countLabel }}</span></span>
+                          <span style="display:block;font-size:12px;line-height:1.45;color:#6A6A74;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ ch.bullet }}</span>
+                        </span>
+                      </button>
+                      <sc-if value="{{ ch.open }}">
+                        <div style="padding:2px 12px 11px 32px">
+                          <sc-if value="{{ ch.busy }}"><div style="font-size:11.5px;color:#B0AACF;font-style:italic;padding:4px 0">reading closer…</div></sc-if>
+                          <sc-if value="{{ ch.hasReading }}">
+                            <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.55;color:#33333B;border-left:2px solid #E4E0FB;padding-left:11px">{{ ch.readingText }}</div>
+                            <sc-if value="{{ ch.hasReadingCites }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2;margin-top:5px;padding-left:11px">{{ ch.readingCites }}</div></sc-if>
+                          </sc-if>
+                          <sc-if value="{{ ch.hasMentions }}">
+                            <div style="margin-top:9px">
+                              <sc-for list="{{ ch.mentions }}" as="mn">
+                                <button onClick="{{ mn.jump }}" style="width:100%;display:flex;gap:8px;padding:6px 9px;border:1px solid #EFEFF3;border-radius:8px;margin-bottom:4px;background:#fff;text-align:left" style-hover="background:#FAFAFC">
+                                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B4B4BE;flex:0 0 auto;margin-top:2px">¶{{ mn.idx }}</span>
+                                  <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:11.5px;line-height:1.4;color:#6A6A74;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ mn.text }}</span>
+                                </button>
+                              </sc-for>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- HIGHLIGHTS — the on-demand digest (docs/topline.md). What the record MOST witnesses -->
+              <!-- about this referent (Most important) and what stands out AGAINST that through-line -->
+              <!-- (Most surprising). Pulled only when the reader opens it — the model is lazy. Each -->
+              <!-- bullet is a grounded, containment-gated phrasing of one object the machinery decided. -->
+              <sc-if value="{{ prof.showDigest }}">
+                <div style="margin-top:18px;border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
+                  <sc-if value="{{ prof.digest.closed }}">
+                    <button onClick="{{ prof.digest.toggle }}" style="width:100%;display:flex;align-items:center;gap:9px;text-align:left" style-hover="opacity:.85">
+                      <span style="flex:0 0 auto;width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#EEEBFE;color:#5B4BE6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></span>
+                      <span style="flex:1;min-width:0"><span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:13.5px;font-weight:600;color:#2A2A32">Read the highlights</span><span style="display:block;font-size:11px;color:#9A9AA4;margin-top:1px">the most important parts, and what's most surprising</span></span>
+                      <span style="flex:0 0 auto;color:#9A93D6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+                    </button>
+                  </sc-if>
+                  <sc-if value="{{ prof.digest.open }}">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                      <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">HIGHLIGHTS</span>
+                      <span style="flex:1"></span>
+                      <sc-if value="{{ prof.digest.busy }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
+                      <sc-if value="{{ prof.digest.has }}"><button onClick="{{ prof.digest.regen }}" title="Recompose from the record" style="font-size:10px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:3px 8px" style-hover="background:#E7E7EF">↻</button></sc-if>
+                    </div>
+                    <sc-if value="{{ prof.digest.hasImportant }}">
+                      <div style="font-size:9px;font-weight:700;letter-spacing:.05em;color:#7C86A0;margin-bottom:5px">MOST IMPORTANT</div>
+                      <sc-for list="{{ prof.digest.important }}" as="b">
+                        <div style="display:flex;gap:8px;margin-bottom:6px">
+                          <span style="flex:0 0 auto;color:#6D5EF5;margin-top:6px">•</span>
+                          <span style="flex:1;min-width:0"><span style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ b.text }}</span> <sc-if value="{{ b.hasCites }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2">{{ b.cites }}</span></sc-if></span>
+                        </div>
+                      </sc-for>
+                    </sc-if>
+                    <sc-if value="{{ prof.digest.hasSurprising }}">
+                      <div style="font-size:9px;font-weight:700;letter-spacing:.05em;color:#B26A2E;margin:11px 0 5px">MOST SURPRISING</div>
+                      <sc-for list="{{ prof.digest.surprising }}" as="b">
+                        <div style="display:flex;gap:8px;margin-bottom:6px">
+                          <span style="flex:0 0 auto;color:#D69A3A;margin-top:6px">•</span>
+                          <span style="flex:1;min-width:0"><span style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ b.text }}</span> <sc-if value="{{ b.hasCites }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2">{{ b.cites }}</span></sc-if></span>
+                        </div>
+                      </sc-for>
+                    </sc-if>
+                    <sc-if value="{{ prof.digest.noSurprise }}">
+                      <div style="font-size:11.5px;color:#9A9AA4;font-style:italic;line-height:1.5;margin-top:8px">Nothing here diverges from the through-line — the record is of one piece about this figure.</div>
+                    </sc-if>
+                  </sc-if>
+                </div>
+              </sc-if>
+
               <!-- The settled referent in its DEFAULT position — shown unless it has already been -->
               <!-- promoted to the lead above (prof.leadWithWiki). -->
               <sc-if value="{{ prof.notLeadWithWiki }}">
@@ -4034,7 +4119,7 @@ class Component extends DCLogic {
   // same. The handlers differ per surface: `pivot(otherId)` follows a connected
   // entity, `openSource(sn)`/`jump(sn, text)` leave for the source viewer, and an
   // optional `openWeb()` renders the sidebar's "Open the web graph" button.
-  _profFor(docId, entId, h) {
+  _profFor(docId, entId, h, opts = {}) {
     const app = this._app;
     const p = app && app.entityProfile ? app.entityProfile(docId, entId) : null;
     if (!p) return null;
@@ -4117,7 +4202,106 @@ class Component extends DCLogic {
       // Requires a real confirmed hit; an unconfirmed guess never earns the lead.
       leadWithWiki: wkHit && tl.isAbsence,
       notLeadWithWiki: !(wkHit && tl.isAbsence),
+      // The EXPLORE surface (docs/topline.md) — the deterministic chapter spine + the on-demand
+      // digest. Built only for the full sidebar profile (opts.explore); the compact graph-overlay
+      // profile omits it. Everything below is lazy: the spine costs no model, and the digest / per-
+      // chapter readings are pulled only when the reader opens them (the handlers kick generation).
+      ...this._exploreVM(docId, entId, p, h, opts.explore),
     };
+  }
+  // The chapter spine + digest view-model for the entity profile. Deterministic spine, on-demand
+  // readings. Returns falsy flags (so nothing renders) when explore is off. Reads stored readings
+  // back synchronously; the toggle handlers are what pull the model, and only on the reader's beat.
+  _exploreVM(docId, entId, p, h, explore) {
+    const app = this._app;
+    if (!explore || !app || !app.entityChapters) {
+      return { hasChapters: false, chapters: [], showDigest: false, digest: { closed: false, open: false } };
+    }
+    const dkey = docId + '#' + entId;
+    const genBusy = this.state.genBusy || {};
+    const cite = (xs) => (xs && xs.length) ? '¶' + xs.join(' ¶') : '';
+    let spine = [];
+    try { spine = app.entityChapters(docId, entId) || []; } catch { spine = []; }
+    const chapters = spine.map((c) => {
+      const ckey = dkey + '#' + c.chapterIdx;
+      const open = !!(this.state.entDeep || {})[ckey];
+      const busy = !!genBusy['chap:' + ckey];
+      let reading = null;
+      try { reading = app.entityChapterReadingFor ? app.entityChapterReadingFor(p.label, c.chapterIdx) : null; } catch { reading = null; }
+      const bt = c.bullet ? c.bullet.text : '';
+      const b0 = c.bullet ? c.bullet.t0 : null, b1 = c.bullet ? c.bullet.t1 : null;
+      const mentions = (c.mentions || []).slice(0, 8).map((mn) => ({
+        idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text, mn.t0, mn.t1),
+      }));
+      return {
+        label: c.label, countLabel: `${c.mentionCount} ${c.mentionCount === 1 ? 'mention' : 'mentions'}`,
+        bullet: bt, jump: () => h.jump(p.sn, bt, b0, b1),
+        open, busy, chevron: open ? 'rotate(90deg)' : 'none',
+        toggle: () => this._toggleChapter(docId, entId, c.chapterIdx, p.label),
+        hasReading: !!(reading && reading.text && !busy),
+        readingText: reading ? reading.text : '',
+        hasReadingCites: !!(reading && reading.cites && reading.cites.length),
+        readingCites: reading ? cite(reading.cites) : '',
+        hasMentions: mentions.length > 0, mentions,
+      };
+    });
+    // The digest is offered for any figure the record actually characterises or names repeatedly.
+    const showDigest = (p.defs.length > 0 || p.mentions.length > 1);
+    const dOpen = !!(this.state.entDigestOpen || {})[dkey];
+    const dBusy = !!genBusy['digest:' + dkey];
+    let stored = null;
+    try { stored = app.entityDigestFor ? app.entityDigestFor(p.label) : null; } catch { stored = null; }
+    const bullets = (xs) => (xs || []).map((b) => ({ text: b.text, hasCites: !!(b.cite && b.cite.length), cites: cite(b.cite) }));
+    const digest = {
+      closed: !dOpen, open: dOpen, busy: dBusy,
+      toggle: () => this._openDigest(docId, entId, p.label, false),
+      regen: () => this._openDigest(docId, entId, p.label, true),
+      has: !!stored,
+      hasImportant: !!(stored && stored.important && stored.important.length),
+      important: bullets(stored && stored.important),
+      hasSurprising: !!(stored && stored.surprising && stored.surprising.length),
+      surprising: bullets(stored && stored.surprising),
+      // an honest "of one piece" note once the digest has landed but found no divergence
+      noSurprise: !!(stored && !dBusy && (!stored.surprising || !stored.surprising.length)),
+    };
+    return { hasChapters: chapters.length > 0, chapters, showDigest, digest };
+  }
+  // Open (and lazily generate) a chapter's fold-prompted reading — the reader leaned in. Toggling
+  // it shut leaves the reading stored; re-opening reads it straight back, no re-generation.
+  _toggleChapter(docId, entId, chapterIdx, label) {
+    const key = docId + '#' + entId + '#' + chapterIdx;
+    const deep = { ...(this.state.entDeep || {}) };
+    const opening = !deep[key];
+    if (opening) deep[key] = true; else delete deep[key];
+    this.setState({ entDeep: deep });
+    if (!opening) return;
+    const app = this._app; if (!app || !app.entityChapterReading) return;
+    let stored = null;
+    try { stored = app.entityChapterReadingFor ? app.entityChapterReadingFor(label, chapterIdx) : null; } catch { stored = null; }
+    if (stored) return;
+    this._setGenBusy('chap:' + key, true);
+    Promise.resolve(app.entityChapterReading(docId, entId, chapterIdx, { generate: true }))
+      .catch(() => {}).finally(() => this._setGenBusy('chap:' + key, false));
+  }
+  // Open (and lazily generate) the Most-important / Most-surprising digest — pulled on the reader's
+  // beat, never auto-kicked. `regenerate` recomposes from the record under any standing steer.
+  _openDigest(docId, entId, label, regenerate) {
+    const dkey = docId + '#' + entId;
+    const open = { ...(this.state.entDigestOpen || {}) };
+    open[dkey] = true;
+    this.setState({ entDigestOpen: open });
+    const app = this._app; if (!app || !app.entityDigest) return;
+    let stored = null;
+    try { stored = app.entityDigestFor ? app.entityDigestFor(label) : null; } catch { stored = null; }
+    if (stored && !regenerate) return;
+    this._setGenBusy('digest:' + dkey, true);
+    Promise.resolve(app.entityDigest(docId, entId, { generate: true, regenerate: !!regenerate }))
+      .catch(() => {}).finally(() => this._setGenBusy('digest:' + dkey, false));
+  }
+  _setGenBusy(key, on) {
+    const busy = { ...(this.state.genBusy || {}) };
+    if (on) busy[key] = true; else delete busy[key];
+    this.setState({ genBusy: busy });
   }
   // ── auto-generated toplines in the surface (docs/topline.md) ─────────────────
   // A summary composed for every source and entity, with a box to give it feedback. The card reads
@@ -5744,7 +5928,7 @@ class Component extends DCLogic {
         openSource: (sn) => this.openViewer(sn),
         jump: (sn, text, t0, t1) => this._jumpTo(sn, text, t0, t1),
         openWeb: () => this.openWebGraph(st.entitySel.docId, st.entitySel.entId),
-      });
+      }, { explore: true });
     }
     // graph-node inspector (focus in the Findings provenance graph wins the panel)
     let insp = null;
