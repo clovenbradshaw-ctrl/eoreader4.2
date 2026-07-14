@@ -172,13 +172,18 @@ export const installIngest = (appCtx) => {
   // stand on; addSource dedupes by content hash and never overwrites, so re-fetching the
   // same page is a no-op on the registry while the doc still rides the turn.
   const webSearchAdmit = async (query, opts = {}) => {
+    // `register: false` — fetch+admit+return the pages for GROUNDING, but do NOT save them as sources.
+    // The multi-hop curiosity walk passes this so a page it fetches while chasing a lead is read, yet
+    // only saved if the walk KEEPS it on topic (via onKeep → saveWalkDoc). Single-shot paths
+    // (verify/corroborate/follow-up) leave it true and save every admitted page, as before.
+    const { register = true, ...searchOpts } = opts;
     // Each fetched+admitted page re-arms the no-progress watchdog: a hop pulling five full pages
     // through the proxy is slow but ALIVE, and without this beat the 45s stall guard was aborting
     // the whole turn mid-walk ("the web lookup stalled"). onAdmit is set AFTER the spread so the
     // stall feed always runs — the caller still tunes k/kind/fetchPages, but can't drop the beat.
     const admitted = await searchAndAdmit(query, {
-      client, k: 5, kind: 'auto', fetchPages: true, ...opts, onAdmit: () => appCtx.stallGuard?.feed() });
-    for (const a of admitted || []) {
+      client, k: 5, kind: 'auto', fetchPages: true, ...searchOpts, onAdmit: () => appCtx.stallGuard?.feed() });
+    if (register) for (const a of admitted || []) {
       if (!a?.doc || !a?.record) continue;
       try {
         appCtx.addSource({
@@ -190,5 +195,28 @@ export const installIngest = (appCtx) => {
     return admitted || [];
   };
 
-  Object.assign(appCtx, { fetchPage, ingestRepo, ingestUrl, navigatePage, recordHit, runCancellable, search, searchLibrary, setBusy, sourceToggleCollapse, webSearchAdmit });
+  // saveWalkDoc(doc) — record ONE page the curiosity walk kept on topic. The gated sibling of
+  // webSearchAdmit's eager save: the walk fetches with `register:false` (nothing saved at fetch
+  // time), then hands back each KEPT hop's docs through onKeep, and only those land as sources. So a
+  // strayed namesake page (Louis Armstrong under a Neil Armstrong ask) is read for grounding but
+  // never fills the sidebar. Dedup, persistence and the EoT read are addSource's, unchanged.
+  const saveWalkDoc = (doc) => {
+    if (!doc || !doc.text) return;
+    try {
+      appCtx.addSource({
+        title: doc.web?.title || doc.title || null,
+        url: doc.web?.url || doc.web?.final_url || null,
+        text: doc.text, kind: 'web', doc,
+        record: doc.web?.content_hash ? { content_hash: doc.web.content_hash, title: doc.web.title, url: doc.web.url } : null,
+      });
+    } catch { /* empty page or dup — the doc still grounded the turn */ }
+  };
+
+  // The meaning embedder for the walk's relevance leash: MiniLM when it is warm, else null (the walk
+  // falls back to the token-space leash, offline-safe). With it, a hop's page is scored for MEANING
+  // against the topic, so a same-surname namesake reads as off-topic despite the shared word — the
+  // Louis-vs-Neil separation the bag-of-words frame could never make (drops the off-topic sources).
+  const walkEmbed = () => (appCtx.minilm?.isWarm?.() ? (t) => appCtx.minilm.embed(t) : null);
+
+  Object.assign(appCtx, { fetchPage, ingestRepo, ingestUrl, navigatePage, recordHit, runCancellable, saveWalkDoc, search, searchLibrary, setBusy, sourceToggleCollapse, walkEmbed, webSearchAdmit });
 };

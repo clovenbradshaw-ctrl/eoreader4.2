@@ -187,6 +187,12 @@ export const installChat = (appCtx) => {
         onStep: (name, ctx, data) => { if (turnSignal.aborted) return; turn.guard.feed(); appCtx.setBusy({ kind: 'turn', label: appCtx.stageLabel(name) }); appCtx.foldBeat(pending, name, data); if (name === 'fold') appCtx.observeMurmur(ctx); appCtx.releaseOnAnswer(pending, name, ctx); },
       }, {
         search: appCtx.webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
+        // The meaning leash: score each hop for MEANING against the topic (the formulated seed query,
+        // enriched by the seed page) so a same-surname namesake strays off the leash, and SAVE only the
+        // pages the walk keeps (onKeep) — never the strayed ones — by fetching with register:false.
+        embed: appCtx.walkEmbed(),
+        onKeep: (docs) => { for (const d of docs) appCtx.saveWalkDoc(d); },
+        searchOpts: { kind: 'auto', fetchPages: true, register: false },
         // The thumb: when the subject is a homonym, commit to ONE sense before gathering and search
         // for it, so "dolphins" doesn't fetch a mix of the animal and the football team (disambiguate.js).
         // keepAliveFn: this 220-token decode runs before the first hop's beat — feed the guard while it thinks.
@@ -541,6 +547,11 @@ export const installChat = (appCtx) => {
           pending.text = ''; emit('stream');
           const walked = await raceGuard(runTurnWithResearch(args, {
             search: appCtx.webSearchAdmit, seed: query, maxHops: RESEARCH_HOPS, k: 3,
+            // The meaning leash + keep-gated save: score hops for meaning against the topic so a
+            // namesake strays, and record only the pages the walk keeps (never the strayed ones).
+            embed: appCtx.walkEmbed(),
+            onKeep: (docs) => { for (const d of docs) appCtx.saveWalkDoc(d); },
+            searchOpts: { kind: 'auto', fetchPages: true, register: false },
             // The thumb: commit to one sense of a homonymous subject before gathering (disambiguate.js).
             // keepAliveFn feeds the guard through this pre-hop decode so a slow model can't false-stall the walk.
             disambiguate: keepAliveFn(modelDisambiguator(m, { history, question: proposal.query, signal: turnSignal })),
