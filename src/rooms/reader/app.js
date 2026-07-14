@@ -882,7 +882,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     return src._doc;
   };
 
-  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null }) => {
+  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null, defer = false }) => {
     const body = String(text || '').trim();
     if (!body) throw new Error('nothing to record — the page had no readable text');
     const hash = record?.content_hash || webContentHash(body);
@@ -932,7 +932,13 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // every large import. It is left to the reading surface to compute lazily (eotFor,
     // memoised) when the reader actually opens that source. Recording never blocks the tab
     // on the full EoT read again.
-    setTimeout(() => {
+    //
+    // `defer` skips this tick entirely: the caller is landing the source AHEAD of its reading
+    // (a big prose import parses in a CHUNKED background pass, not the synchronous sweep docFor
+    // runs here) and folds the doc in with finishReading — which runs the same EoT read + summary
+    // once the reading is ready. Without the skip the eager docFor here would race that background
+    // pass and freeze the tab on the very sweep defer exists to avoid.
+    if (!defer) setTimeout(() => {
       try {
         const d = docFor(src);
         const props = d?.log ? emitEot(d.log).lines.length : 0;
@@ -944,6 +950,26 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
     }, 0);
     return src;
+  };
+
+  // finishReading(src, doc) — fold a background-parsed reading into a source that ALREADY landed
+  // (addSource with `defer`). The source appeared in the registry the instant its text was known;
+  // this attaches the entity/relation doc once the CHUNKED parse finishes, refreshes the derived
+  // caches, and runs the same EoT read + summary addSource's eager tick would have — so the record
+  // shows immediately and its reading catches up without ever freezing the tab. Defensive: a source
+  // removed mid-parse is a no-op.
+  const finishReading = (src, doc) => {
+    if (!src || !doc || !sourceBySn(src.sn)) return;
+    src._doc = doc;
+    src._eot = null;
+    deepReaders.delete(src.docId);
+    try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; }
+    try {
+      const props = doc.log ? emitEot(doc.log).lines.length : 0;
+      logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
+    } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+    persist(); emit('sources');
+    sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
   };
 
   // The source's reading as one EoT document (structure + thinking). Memoised on the
@@ -1659,42 +1685,58 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         }
         return src;
       }
-      // For a structured modality the ORGAN doc is the reading: a table's cells, a JSON
-      // tree's leaves, a binary's string runs ARE its propositions — three-faced events
-      // already on the log — and re-parsing their rendered lines as prose would drop
-      // them. Prose-bearing modalities (pdf, webpage, ocr, audio transcript, plain text)
-      // parse as text so the entity/relation read runs over the actual sentences.
-      // A MIDI score is structured like a table: the ORGAN doc (pitch-class entities +
-      // interval bonds) IS the reading — re-parsing the human summary as prose would drop
-      // the note graph the music organ raised. Its readable `text` is the summary the
-      // organ carries; STRUCTURED_MODALITIES (first-surface.js) keeps the two lists aligned.
       const structured = ['table', 'json', 'binary', 'music'].includes(got.meta?.modality) && got.meta?.doc;
-      // Prose parses through the parser's CHUNKED path (onProgress → yield between chunks),
-      // so a 2,500-page document's entity/relation read no longer runs as one synchronous
-      // sweep that freezes the tab for seconds — it breathes, reports progress, and stays
-      // stoppable. The work and its order are byte-identical to the plain sweep (pipeline.js);
-      // `await` passes the structured (already-parsed) doc straight through unchanged.
-      const doc = structured
-        ? got.meta.doc
-        : await parseText(got.text, {
-            docId: `doc-${shaShort(webContentHash(got.text))}`,
+      // The coverage receipt — proof that 100% of the file was processed, or the named account of
+      // what could not be (import-file.js) — rides the source and the ledger, whichever path lands it.
+      const cov = got.meta?.coverage;
+      const recordCoverage = (src) => {
+        if (!cov || !src) return;
+        src.coverage = cov;
+        if (cov.complete) logIt('record', `Coverage — 100% of ${file.name} processed`, src.reg);
+        else logIt('skip', `Partial read of ${file.name} — ${(cov.dropped || []).join('; ')}`, src.reg);
+        persist();
+      };
+
+      // STRUCTURED — the ORGAN doc IS the reading: a table's cells, a JSON tree's leaves, a binary's
+      // string runs, a MIDI score's note graph ARE its propositions, already three-faced events on
+      // the log; re-parsing their rendered lines as prose would drop them. It is cheap and ready, so
+      // the source lands WITH its doc in one step and its entity count shows at once.
+      if (structured) {
+        const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc: got.meta.doc });
+        settleFile('done');
+        recordCoverage(src);
+        return src;
+      }
+
+      // PROSE (pdf, webpage, ocr, plain text) — land the source AT ONCE from its extracted text,
+      // exactly the way an audio import lands from its acoustic reading, so it shows up in the
+      // sources the instant it is imported: named, on the record, openable as a book (the reader
+      // renders from src.text). `defer` tells addSource NOT to read it eagerly; the entity/relation
+      // read then runs as a CHUNKED background pass (onProgress → yields between chunks) and
+      // finishReading folds it in when it is done. So a 2,500-page document never makes the reader
+      // wait to see its source, and never freezes the tab on one synchronous sweep — until the read
+      // lands, the registry simply shows that source's entity count as an ellipsis.
+      const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', defer: true });
+      // The source has landed and persists (src.text rides the snapshot); the pre-source extract
+      // window the file job covered is over. Drop it — a reload re-derives the reading lazily.
+      settleFile('done');
+      recordCoverage(src);
+      if (src) {
+        try {
+          const doc = await parseText(got.text, {
+            docId: src.docId,
             onProgress: (p) => {
               if (p && p.phase === 'parse' && p.total)
                 progress({ kind: 'file', label: `Reading the text… ${p.done.toLocaleString()} / ${p.total.toLocaleString()} sentences` });
             },
           });
-      const src = addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc });
-      // The source has landed and persists (src.text rides the snapshot); the import is complete, so
-      // drop the file job and its stashed bytes. A reload from here on re-derives the reading lazily.
-      settleFile('done');
-      // The coverage receipt — proof that 100% of the file was processed, or the named
-      // account of what could not be (import-file.js) — rides the source and the ledger.
-      const cov = got.meta?.coverage;
-      if (cov && src) {
-        src.coverage = cov;
-        if (cov.complete) logIt('record', `Coverage — 100% of ${file.name} processed`, src.reg);
-        else logIt('skip', `Partial read of ${file.name} — ${(cov.dropped || []).join('; ')}`, src.reg);
-        persist();
+          finishReading(src, doc);
+        } catch (e) {
+          // The reading failed — but the SOURCE stands (it landed above). Leave it on its text and
+          // let docFor re-read it lazily the next time the reading is actually needed; a recorded
+          // source is never unwound over a parse fault.
+          logIt('skip', `Reading failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`);
+        }
       }
       return src;
     });
