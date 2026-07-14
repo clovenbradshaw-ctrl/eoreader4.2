@@ -53,6 +53,43 @@ test('querySubjectTerms: a broad ask names no subject; a pointed one keeps its t
     '"news" drops out but "asylum policy" survives as the subject');
 });
 
+test('querySubjectTerms: "this audio file" names the SOURCE by its medium, not a subject', () => {
+  // A media-object noun ('audio', 'video', 'recording', 'image', …) is the same deictic "this
+  // ___" reference to the source as 'file'/'document'/'book' — never a content term. Without it,
+  // "what is this audio file?" kept "audio" and point-retrieved on a word a transcript never
+  // says, so the reader shrugged ("a podcast or a lecture recording") instead of reading its
+  // skeleton (the real audit export "What is this audio file", 17-530.mp3).
+  assert.deepEqual(querySubjectTerms('what is this audio file?'), [], 'audio + file are both source-object words');
+  assert.deepEqual(querySubjectTerms('what is this recording about?'), [], 'a bare "what is this recording" names no subject');
+  assert.deepEqual(querySubjectTerms('what is this video?'), []);
+  assert.deepEqual(querySubjectTerms('what is this image?'), []);
+  // a real subject beside the medium word still stands — content questions are untouched
+  assert.deepEqual(querySubjectTerms('what does it say about audio codecs?'), ['codecs'],
+    'the medium word drops out but "codecs" survives as the subject');
+});
+
+// A transcribed clip that OPENS by stating what it is (as an oral argument does), then carries
+// the mid-argument content the real 17-530.mp3 export showed. modality 'audio' is what
+// organs/in/audio.js stamps on a transcribed recording.
+const ARGUMENT = [
+  'We will hear argument first this morning in Case 17-530, Wisconsin Central Limited versus United States.',
+  'This case is about whether stock options are money remuneration taxable under the Railroad Retirement Tax Act.',
+  'Well, what about a bond, you have a savings bond?',
+  'And what Congress did was it said we recognized.',
+  'And I think if this court worked to compare the language that Congress chose to put in the railroad statute compared to what it put in FICA, which was enacted in the Great Depression.',
+  'Well, Justice Ginsburg, the historical record shows that at the time of the Great Depression compensation was in money.',
+].join('\n');
+
+test('retrieve: "what is this audio file?" reads the transcript SKELETON, not a stray line', async () => {
+  const doc = parseText(ARGUMENT, { docId: '17-530.mp3', genderCoref: true });
+  doc.modality = 'audio';   // a transcribed recording keeps its medium (organs/in/audio.js)
+  const out = await stages.retrieve(ctxFor(doc, 'what is this audio file?'));
+  assert.equal(out.retrieval, 'structural', 'the identity question reads the structure, not "audio" as a term');
+  const texts = out.spans.map((s) => s.text).join(' | ');
+  assert.match(texts, /Case 17-530|Wisconsin Central|whether stock options/,
+    'the opening that states what the recording is now reaches the talker');
+});
+
 test('retrieve: a broad ask over an incidental-contact page reads the STRUCTURE, not the stray word', async () => {
   const doc = nprDoc();
   const out = await stages.retrieve(ctxFor(doc, 'whats the news today?'));

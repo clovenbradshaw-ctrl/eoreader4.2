@@ -35,3 +35,20 @@ test('an uploaded file keeps its filename unchanged', () => {
   const doc = { docId: 'river-survey.txt', modality: 'text', sentences: new Array(120) };
   assert.equal(orientationOf(doc), 'river-survey.txt · text · 120 sentences');
 });
+
+test('a source orients by its MEDIUM — a transcribed recording reads "audio", not "text"', () => {
+  // organs/in/audio.js keeps modality 'audio' after transcription (its words are laid into
+  // sentences, but it is still a recording). Labelling it "text" left the talker unable to
+  // connect "this audio file" to what it was reading — the wild answer was "I couldn't find
+  // any information about the audio file itself". The medium is the source's own type; it says
+  // nothing a reader didn't see setting the file down, so the recognition guard (§3) holds.
+  assert.equal(orientationOf({ docId: '17-530.mp3', modality: 'audio', sentences: new Array(568) }),
+    '17-530.mp3 · audio · 568 sentences');
+  assert.equal(orientationOf({ docId: 'clip.mp4', modality: 'video', sentences: new Array(40) }),
+    'clip.mp4 · video · 40 sentences');
+  assert.equal(orientationOf({ docId: 'scan.png', modality: 'image', sentences: new Array(3) }),
+    'scan.png · image · 3 sentences');
+  // everything textual stays 'text', byte-identical to before (webpage included).
+  assert.equal(orientationOf({ docId: 'web-abc', modality: 'webpage', sentences: new Array(3) }),
+    'web-abc · text · 3 sentences');
+});
