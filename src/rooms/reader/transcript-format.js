@@ -59,6 +59,20 @@ const groupBreakAfter = (words, i) => {
   return sa != null && sb != null && sa !== sb;
 };
 
+// A sentence boundary falls after word i — the SAME reading formatTranscript renders as a full stop:
+// a breath-group break, a terminal mark the model already emitted, or a full-stop's worth of silence
+// (a comma/colon the model set is a clause, not an end). Every breath-group boundary is one of these,
+// so sentence boundaries are a superset of breath-group boundaries. detectTranscriptChapters snaps a
+// chapter seam to one of these, so a chapter never opens mid-sentence.
+const sentenceEndsAfter = (words, i) => {
+  if (groupBreakAfter(words, i)) return true;
+  const raw = String(words[i]?.text ?? '');
+  if (TERMINAL.test(raw)) return true;
+  if (ANY_PUNCT_END.test(raw)) return false;
+  const g = gapAfter(words, i);
+  return g != null && g >= SENT_GAP;
+};
+
 // ── 1 · the breath groups — one thought each ─────────────────────────────────────
 // segmentsOf(words) → [{ index, startIdx, endIdx, start, end, speaker }] — the stream cut into breath
 // groups on a PARA_GAP silence or a change of voice. This is the SEG the reading and the formatter
@@ -227,8 +241,9 @@ const keywordsFor = (words, startIdx, endIdx, globalDf, segCount) => {
 // simply reads as flowing prose in reader-render.
 //
 // The cohesion is measured over fixed-size word BLOCKS (TextTiling's pseudo-sentences), not breath
-// groups, so it is robust however densely the speaker paused; an accepted seam is then SNAPPED to the
-// nearest breath-group start, so a chapter always opens on a breath rather than mid-clause.
+// groups, so it is robust however densely the speaker paused; an accepted seam is then SNAPPED to a
+// nearby breath-group start, or failing that to the nearest sentence boundary, so a chapter always
+// opens on a breath — and never in the middle of a sentence.
 //   opts.targetBlocks how many blocks to aim for across the transcript (sets the block size)
 //   opts.minGapSecs   a chapter runs at least this long (default 25s) — no minute-by-minute over-cutting
 //   opts.maxChapters  a ceiling (default 24)
@@ -295,14 +310,25 @@ export const detectTranscriptChapters = (words = [], {
     .map((g) => ({ ...g, rank: g.depth + Math.min(1, g.pause / 3) }))
     .sort((a, b) => b.rank - a.rank);
 
-  // Snap each seam to the nearest breath-group start, so a chapter opens on a breath. Then space the
-  // accepted boundaries at least minGapSecs apart (fallback to ≥ 2·blockWords words), capped.
+  // Snap each seam to a breath-group start so a chapter opens on a breath — but a fixed-size block seam
+  // can fall in a long unbroken run where the nearest breath is many words away, and left there it would
+  // split a sentence. So prefer a breath-group start within a block's reach, and FAIL SAFE to the nearest
+  // sentence start (breath starts are a subset of these), so a chapter never opens mid-sentence. Then
+  // space the accepted boundaries at least minGapSecs apart (fallback to ≥ 2·blockWords words), capped.
   const segs = segmentsOf(ws);
   const segStarts = segs.map((s) => s.startIdx);
-  const snap = (at) => {
-    let best = at, bd = Infinity;
-    for (const s of segStarts) { const d = Math.abs(s - at); if (d < bd && d <= blockWords) { bd = d; best = s; } }
+  const sentStarts = [0];
+  for (let i = 1; i < N; i++) if (sentenceEndsAfter(ws, i - 1)) sentStarts.push(i);
+  const nearest = (starts, at, cap = Infinity) => {
+    let best = null, bd = Infinity;
+    for (const s of starts) { const d = Math.abs(s - at); if (d < bd && d <= cap) { bd = d; best = s; } }
     return best;
+  };
+  const snap = (at) => {
+    const breath = nearest(segStarts, at, blockWords);
+    if (breath != null) return breath;
+    const sent = nearest(sentStarts, at);
+    return sent != null ? sent : at;
   };
   const accepted = [];
   const farEnough = (c) => c.at > 0 && accepted.every((a) => {

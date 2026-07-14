@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   segmentsOf, readThroughIndex, settledText, formatTranscript,
   detectTranscriptChapters, chapterAt, referentRuns, PARA_GAP,
+  SENT_GAP as SENT_GAP_SECS,
 } from '../src/rooms/reader/transcript-format.js';
 
 // The formatting + structure the Listen surface lays over a raw heard word stream (transcript-format.js).
@@ -147,6 +148,40 @@ test('detectTranscriptChapters: a two-topic transcript splits at the lexical-coh
   assert.ok(chapters[0].keywords.some((k) => /rail|tax|remun|stock|payroll|wage|compens|share|money/.test(k)));
   assert.ok(chapters[1].keywords.some((k) => /weath|rain|cloud|storm|forecast|wind|temp|sun|humid|pressure/.test(k)));
   assert.ok(chapters[0].title && chapters[0].title.length > 0);
+});
+
+// A transcript whose topic shifts smoothly — a continuous monologue with sentence-length pauses but NO
+// paragraph-length breath, so the whole run is ONE breath group. The fixed-size cohesion blocks don't
+// line up with the sentence pauses, so a raw block seam lands mid-sentence; the detector must snap it
+// back onto a sentence boundary rather than opening a chapter mid-clause.
+const smoothTopicShift = () => {
+  const railroad = 'railroad employees tax remuneration stock money payroll wages compensation shares'.split(' ');
+  const weather = 'weather rain clouds storm forecast wind temperature sunshine humidity pressure'.split(' ');
+  const specs = [];
+  for (let k = 0; k < 90; k++) {
+    const word = k < 45 ? railroad[k % railroad.length] : weather[k % weather.length];
+    // A full-stop's worth of silence every fifth word (a sentence end), but never a full breath (< PARA_GAP),
+    // so no breath-group boundary ever falls for the snap to land on.
+    const gap = k === 0 ? 0 : (k % 5 === 0 ? SENT_GAP_SECS + 0.1 : 0.12);
+    specs.push([word, gap]);
+  }
+  return stream(specs);
+};
+
+test('detectTranscriptChapters: a seam in an unbroken run snaps to a sentence boundary, never mid-sentence', () => {
+  const ws = smoothTopicShift();
+  // The whole monologue is a single breath group — a breath-only snap has nowhere near to land, so the
+  // seam must fall back to the nearest sentence boundary.
+  assert.equal(segmentsOf(ws).length, 1, 'fixture should be one unbroken breath group');
+  const chapters = detectTranscriptChapters(ws, { minGapSecs: 3 });
+  assert.ok(chapters.length >= 2, `expected the topic shift to open a new chapter, got ${chapters.length}`);
+  // Every chapter after the first opens where a sentence opens — the word before it is followed by a
+  // full-stop's worth of silence (this fixture marks sentence ends only with that pause). Before the
+  // fix, a chapter opened at a fixed block boundary in the middle of a sentence (a 0.12s gap).
+  for (const c of chapters.slice(1)) {
+    const gapBefore = ws[c.startIdx].start - ws[c.startIdx - 1].end;
+    assert.ok(gapBefore >= SENT_GAP_SECS, `chapter "${c.title}" opens mid-sentence at word ${c.startIdx} (only a ${gapBefore.toFixed(2)}s gap before it)`);
+  }
 });
 
 test('detectTranscriptChapters: one continuous subject yields no chapters (the honest empty)', () => {
