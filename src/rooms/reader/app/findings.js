@@ -4,9 +4,33 @@
 // spine (state · emit · trail beats · client) is destructured once at install.
 // findings + provenance (the graph tab, honest)
 import { discourseDag, assertedDag } from '../../../surfer/dag/index.js';
+import { crossSourceConflicts } from '../../../enactor/factcheck/index.js';
 import { shaShort } from './util.js';
 
 export const installFindings = (appCtx) => {
+  // The cross-source pass (P3) — do the topic's SOURCES disagree with EACH OTHER, not
+  // just an answer with the sources? The two answer-vetoes are answer-vs-graph, so a
+  // record whose sources put a different magnitude on the same measure ("18,000 homes"
+  // vs "9,000") read as green until an answer happened to repeat the clash. This asks
+  // it directly, so the Findings lens and the conflict banner reflect the record
+  // contesting ITSELF. Memoized on a cheap signature (which sources, how many sentences
+  // each) so it recomputes only when the source set changes, never on every render.
+  let _xsMemo = { sig: null, val: [] };
+  const sourceConflicts = () => {
+    const srcs = appCtx.topicSources();
+    const sig = srcs.map((s) => `${s.sn}:${(appCtx.docFor(s)?.sentences || []).length}`).join('|');
+    if (_xsMemo.sig === sig) return _xsMemo.val;
+    let val = [];
+    try {
+      const entries = srcs
+        .map((s) => ({ doc: appCtx.docFor(s), source: s.sn, label: s.title }))
+        .filter((e) => e.doc && e.doc.admission);
+      val = crossSourceConflicts(entries).conflicts;
+    } catch { val = []; }
+    _xsMemo = { sig, val };
+    return val;
+  };
+
   // ── findings + provenance (the graph tab, honest) ──────────────────────────
   const findings = () => {
     const t = appCtx.topic();
@@ -47,10 +71,15 @@ export const installFindings = (appCtx) => {
     // at what it searched. The docs are already parsed for the active topic, so this is a cheap sum.
     let recordPassages = 0;
     try { for (const d of appCtx.topicDocs()) recordPassages += (d && d.sentences && d.sentences.length) || 0; } catch { /* keep 0 */ }
+    // Source-vs-source contradictions (the record contesting itself) — kept SEPARATE
+    // from the answer-level `contradictions` so the memo-lock and per-claim "Contested"
+    // math (both answer-grain) are unchanged, while the banner and the Findings lens can
+    // report a disagreement that exists whether or not anyone has asked a question yet.
+    const xs = sourceConflicts();
     return {
       claims: claims.slice(-24), passages: [...passages.values()].slice(-32),
-      contradictions,
-      stats: { claims: claims.length, passages: passages.size, sources: appCtx.topicSources().length, recordPassages, contradictions },
+      contradictions, sourceConflicts: xs,
+      stats: { claims: claims.length, passages: passages.size, sources: appCtx.topicSources().length, recordPassages, contradictions, sourceConflicts: xs.length },
     };
   };
 

@@ -1399,6 +1399,28 @@ table{border-collapse:collapse;width:100%}
                   </div>
                 </sc-for>
               </div>
+              <sc-if value="{{ hasSourceConflicts }}">
+                <div style="margin-bottom:14px;border:1px solid #F2D3CD;border-radius:12px;overflow:hidden;background:#FEF7F5">
+                  <div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid #F6E0DB">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#B23A2E;flex:0 0 auto"></span>
+                    <span style="font-size:12.5px;font-weight:650;color:#B23A2E">Where the sources disagree</span>
+                    <span style="flex:1"></span>
+                    <span style="font-size:10.5px;color:#9A6B62;font-family:'IBM Plex Mono',monospace">{{ sourceConflictNote }}</span>
+                  </div>
+                  <sc-for list="{{ sourceConflicts }}" as="x">
+                    <div style="padding:10px 16px;border-top:1px solid #F6E0DB">
+                      <div style="font-size:12px;color:#5A2A24;margin-bottom:5px"><b style="font-weight:650">{{ x.measure }}</b> · {{ x.subject }}</div>
+                      <sc-for list="{{ x.values }}" as="v">
+                        <button onClick="{{ v.open }}" style="width:100%;display:flex;gap:10px;align-items:baseline;padding:5px 0;text-align:left;border-top:1px solid #FBEEEB" style-hover="opacity:.7">
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:#B23A2E;flex:0 0 auto;min-width:104px">{{ v.amount }}</span>
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A6B62;flex:0 0 auto;min-width:52px">{{ v.srcReg }}</span>
+                          <span style="flex:1;min-width:0;font-size:12px;color:#6A6A74;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ v.text }}</span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
               <sc-if value="{{ pivotActive }}">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:9px 13px;border:1px solid #E4E0FB;background:#F6F4FF;border-radius:10px">
                   <span style="width:7px;height:7px;border-radius:50%;background:#6D5EF5;flex:0 0 auto"></span>
@@ -6977,7 +6999,7 @@ class Component extends DCLogic {
       title: busy ? busy.label : m.state === 'loading' ? `Loading ${m.backend}… ${Math.round((m.progress || 0) * 100)}%` : generating ? 'Phrasing from the record…' : 'Idle · monitoring',
       sub: lastLog ? lastLog.text : 'Nothing recorded yet',
       chip: m.state === 'ready' ? m.backend : `${sources.length} src`,
-      summary: `${findings.stats.claims} claims · ${findings.stats.contradictions} conflicts`,
+      summary: `${findings.stats.claims} claims · ${findings.stats.contradictions + (findings.stats.sourceConflicts || 0)} conflicts`,
     };
     const statusColor = m.state === 'error' ? '#B23A2E' : (busy || generating || m.state === 'loading') ? '#C79A3A' : '#59C08A';
     const LOGC = { record: '#59C08A', hash: '#59C08A', eot: '#6D5EF5', claim: '#6D5EF5', conflict: '#B23A2E', search: '#C79A3A', open: '#8A8A95', skip: '#B4B4BE', reflection: '#7B4FD6', learning: '#7B4FD6' };
@@ -6997,9 +7019,15 @@ class Component extends DCLogic {
       select: () => this.setTab(id),
     }));
     const contradictions = findings.stats.contradictions;
-    const hasFlagLine = findings.stats.claims > 0;
-    const flagLine = contradictions > 0 ? `${contradictions} contradiction${contradictions === 1 ? '' : 's'}` : 'no conflicts on record';
-    const [flagFg, flagBg, flagBd] = contradictions > 0 ? ['#B23A2E', '#FBE9E6', '#F2D3CD'] : ['#1E8A50', '#E7F6EC', '#CFEBD9'];
+    // Two kinds feed the flag: answer-vs-source contradictions AND source-vs-source
+    // conflicts (the record contesting itself). The green copy says "detected", not "on
+    // record" — the pass reports what it FOUND; a clean pass is "none found", never a
+    // claim that none exist (relation-types.js: "no conflict" ≠ "consistent").
+    const sourceConflictN = findings.stats.sourceConflicts || 0;
+    const flagN = contradictions + sourceConflictN;
+    const hasFlagLine = findings.stats.claims > 0 || sourceConflictN > 0;
+    const flagLine = flagN > 0 ? `${flagN} conflict${flagN === 1 ? '' : 's'}` : 'no conflicts detected';
+    const [flagFg, flagBg, flagBd] = flagN > 0 ? ['#B23A2E', '#FBE9E6', '#F2D3CD'] : ['#1E8A50', '#E7F6EC', '#CFEBD9'];
 
     // chat messages
     const msgs = (topic ? topic.messages : []);
@@ -7156,11 +7184,38 @@ class Component extends DCLogic {
         open: () => c.sn && this.openViewer(c.sn, c.quote),
       };
     });
+    // The source-vs-source disagreements, shaped for the Findings "Where the sources
+    // disagree" panel — each measure the record reports two ways, with every witnessing
+    // figure clickable to its verbatim passage. This is the source-conflict lens: it
+    // shows whether the RECORD contests itself, independent of any answer having been asked.
+    const fmtAmt = (v, unit) => {
+      const n = Number(v);
+      const s = Number.isFinite(n) ? n.toLocaleString('en-US') : String(v);
+      if (unit === 'USD') return `$${s}`;
+      return (unit && !['homes', 'jobs', 'acres'].includes(unit)) ? `${s} ${unit}` : s;
+    };
+    const sourceConflicts = (findings.sourceConflicts || []).map((x) => ({
+      measure: x.measureLabel || x.measure,
+      subject: x.subject || '—',
+      values: (x.values || []).map((v) => {
+        const src = app.sourceBySn(v.source) || {};
+        return {
+          amount: fmtAmt(v.value, v.unit),
+          srcReg: src.reg || String(v.source || ''),
+          text: String(v.text || '').trim(),
+          open: () => v.source && this.openViewer(v.source, v.text),
+        };
+      }),
+    }));
+    const hasSourceConflicts = sourceConflicts.length > 0;
+    const sourceConflictNote = hasSourceConflicts
+      ? `${sourceConflicts.length} measure${sourceConflicts.length === 1 ? '' : 's'} reported two ways`
+      : '';
     const overviewStats = [
       { value: String(findings.stats.claims), label: 'claims', color: '#6D5EF5' },
       { value: String(findings.stats.passages), label: 'verbatim passages', color: '#C79A3A' },
       { value: String(findings.stats.sources), label: 'sources on record', color: '#6E7787' },
-      { value: String(contradictions), label: 'contradictions', color: contradictions ? '#B23A2E' : '#1E8A50' },
+      { value: String(flagN), label: 'contradictions', color: flagN ? '#B23A2E' : '#1E8A50' },
     ];
 
     // ── source explorer — the Sources tab is a Drive (folders + files) ──────────
@@ -8014,6 +8069,7 @@ class Component extends DCLogic {
       resetFg: st.focusId ? '#5B4BE6' : '#8A8A95', setViewport: (el) => this.setViewport(el),
       // findings + memo
       evEmpty: claims.length === 0, evClaims, overviewStats,
+      sourceConflicts, hasSourceConflicts, sourceConflictNote,
       // source explorer (the Drive) — breadcrumb, folder cards, file rows, and the move picker
       explorerCrumbs, explorerFolders, explorerFiles, explorerHasFolders, explorerHasFiles,
       explorerEmpty, explorerAtRoot, explorerNotRoot: !explorerAtRoot, explorerCount, explorerMenuOpen, closeExplorerMenu, explorerNewFolder,

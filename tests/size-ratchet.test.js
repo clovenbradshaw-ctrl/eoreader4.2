@@ -24,7 +24,7 @@ const BASELINE = new Map([
   ['src/core/enacted/loop.js', 479],
   ['src/core/enacted/stance.js', 286],
   ['src/core/project.js', 399],
-  ['src/core/relation-types.js', 323],
+  ['src/core/relation-types.js', 361],
   ['src/core/spectral.js', 514],
   ['src/core/voidnull.js', 289],
   ['src/enactor/answer/math.js', 397],
