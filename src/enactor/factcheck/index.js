@@ -31,3 +31,12 @@ export {
 export {
   auditPropositions, personClusters, readOffice, personKey, meaningfulSupport,
 } from './propositions.js';
+// The cross-source veto (P3) — the source-vs-source pass. Where the edge and DEF
+// vetoes grade the ANSWER against the sources, this asks whether the SOURCES agree
+// with EACH OTHER: two documents that put a different magnitude on the same measure
+// of the same subject ("18,000 homes" vs "9,000") are a contradiction the record
+// holds within itself, surfaced (never refused) so a "no conflicts" banner can no
+// longer assert a consistency nothing checked.
+export {
+  crossSourceConflicts, extractQuantities, readQuantities, unpackComposite, measureLabel,
+} from './crosscheck.js';
