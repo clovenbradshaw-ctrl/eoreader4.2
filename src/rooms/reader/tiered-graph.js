@@ -25,14 +25,18 @@
 //     HIDE on edges too short to carry them (screen-space test, re-run on
 //     every zoom) — a glyph never smothers the edge it annotates;
 //   · labels are collision-culled: candidates are placed by priority (the
-//     document first, then degree) and any label whose box would overlap an
-//     already-placed one is dropped, not drawn;
+//     source/document first, then degree) and any label whose box would overlap
+//     an already-placed label OR sit on top of a node circle is dropped, not
+//     drawn — the selected/hovered neighbourhood is exempt from the node test so
+//     its names always read;
 //   · label and glyph sizes are zoom-invariant (font-size 11/k) — zooming in
 //     reveals more culled labels rather than inflating the ones you have;
 //   · a de-overlap pass separates any two nodes closer than a minimum
 //     distance, then clamps into the canvas;
-//   · rings/ranks are ordered by where their neighbours sit (angular mean in
-//     radial, barycentre in flow), and the document sits at the radial centre;
+//   · tiers/rings occupy only the tiers that hold nodes — an absent tier never
+//     leaves a hollow lane — and are ordered by where their neighbours sit
+//     (angular mean in radial, barycentre in flow); a single source/document
+//     sits at the radial centre, the rest ringing out from it;
 //   · names toggles persistent labels; the hovered node's full name always
 //     shows, whatever the toggle says.
 //
@@ -90,6 +94,11 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   // it in (source → figures → claims). The cursor's `upto` reads this off each node.
   const nodes = inNodes.map((n, i) => ({ ...n, x: 340, y: 220, px: 340, py: 220, tx: 340, ty: 220, rank: 0, _ang: 0, _seq: i }));
   const byId = {}; nodes.forEach((n) => byId[n.id] = n);
+  // The record's root anchor — the source/document a reading folds out from. The honest data
+  // builders emit it as kind 'source' (a single-entity web) or one per source (a topic web);
+  // earlier callers used 'doc'. Recognise both so the anchor is centred in radial, drawn a touch
+  // larger, and given first claim on a label — none of which fired while this read only 'doc'.
+  const isRoot = (n) => n && (n.kind === 'source' || n.kind === 'doc');
   const edges = inEdges.filter((e) => byId[e.a] && byId[e.b]);
   const inN = {}, deg = {};
   nodes.forEach((n) => { inN[n.id] = []; deg[n.id] = 0; });
@@ -112,6 +121,10 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   // reveals fewer construction steps; it never mutates the graph, only how much of it shows.
   const cursorMax = Math.max(0, nodes.length - 1);
   const W = 680, H = 440, state = { layout: 'radial', orient: 'h', rot: 0, tiers: { 0: true, 1: true, 2: true }, sel: null, names: true, hover: null, grain: 'auto', cursor: cursorMax };
+  // The id of the node the radial layout parks at the centre (a single source root), or null when
+  // no layout centres one. refine() reads it to seat that node's label ABOVE the dot and never cull
+  // it — the anchor's name must read even though a ring node sits right beside it.
+  let centreId = null;
 
   // A node is "revealed" once the fold cursor has reached its construction step. The cursor
   // gates visibility on EVERY layout, stacked with the tier filter — the layout decides where
@@ -215,67 +228,98 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     separate(60, 30);
   }
   function layoutTiers() {
+    // Bands run across the OCCUPIED tiers only — an absent tier reserves no lane, so two present
+    // tiers sit as a close pair rather than straddling the empty gap a third would fill. Within a
+    // band a tier's nodes take as many columns as the canvas holds at a legible spacing, wrapping
+    // to extra rows only on overflow and centred on the band, so long labels stop crowding their
+    // neighbour and the whole band stays a tidy strip.
     const horiz = state.orient === 'h';
     const groups = { 0: [], 1: [], 2: [] }; nodes.forEach((n) => groups[n.tier].push(n));
     const pos = {}; [0, 1, 2].forEach((t) => groups[t].forEach((n, i) => pos[n.id] = i));
     [1, 2].forEach((t) => { groups[t] = orderBy(groups[t], (id) => pos[id]); groups[t].forEach((n, i) => pos[n.id] = i); });
-    [0, 1, 2].forEach((t) => {
+    const present = [0, 1, 2].filter((t) => groups[t].length);
+    const P = present.length;
+    // Bands sit a MODERATE, centred distance apart — enough to read three strips as three tiers,
+    // but never flung to opposite edges (which, with two tiers, would strand the source a full
+    // canvas above its figures). The gap is capped so a source-plus-figures web stays compact.
+    const gapH = Math.min((H - 116) / Math.max(1, P - 1), 150), topH = H / 2 - gapH * (P - 1) / 2;
+    const gapV = Math.min((W - 168) / Math.max(1, P - 1), 210), topV = W / 2 - gapV * (P - 1) / 2;
+    present.forEach((t, bi) => {
       const arr = groups[t], n = arr.length;
       if (horiz) {
-        const bandY = 68 + t * ((H - 136) / 2), perRow = Math.ceil(n / 2);
-        arr.forEach((nd, k) => { const row = Math.floor(k / perRow), col = k % perRow, rc = Math.min(perRow, n - row * perRow);
-          nd.tx = rc < 2 ? W / 2 : 60 + (col / (rc - 1)) * (W - 120);
-          nd.ty = bandY - 18 + row * 44; });
+        const band = P < 2 ? H / 2 : topH + bi * gapH, span = W - 120;
+        const cols = Math.max(1, Math.min(n, Math.floor(span / 120) + 1)), rows = Math.ceil(n / cols);
+        arr.forEach((nd, k) => { const row = Math.floor(k / cols), rc = Math.min(cols, n - row * cols);
+          nd.tx = rc < 2 ? W / 2 : 60 + ((k % cols) / (rc - 1)) * span;
+          nd.ty = band + (row - (rows - 1) / 2) * 32; });
       } else {
-        const bandX = 88 + t * ((W - 176) / 2), perCol = Math.ceil(n / 2);
-        arr.forEach((nd, k) => { const col = Math.floor(k / perCol), row = k % perCol, cc = Math.min(perCol, n - col * perCol);
-          nd.ty = cc < 2 ? H / 2 : 52 + (row / (cc - 1)) * (H - 104);
-          nd.tx = bandX - 18 + col * 46; });
+        const band = P < 2 ? W / 2 : topV + bi * gapV, span = H - 104;
+        const rows = Math.max(1, Math.min(n, Math.floor(span / 64) + 1)), cols = Math.ceil(n / rows);
+        arr.forEach((nd, k) => { const col = Math.floor(k / rows), cc = Math.min(rows, n - col * rows);
+          nd.ty = cc < 2 ? H / 2 : 52 + ((k % rows) / (cc - 1)) * span;
+          nd.tx = band + (col - (cols - 1) / 2) * 46; });
       }
     });
   }
   function layoutRadial() {
-    // The document is the root of the record — it sits at the centre. Each
-    // ring is ordered by the circular mean angle of its neighbours in the
-    // ring below (a bond between its participants, a claim over its bond),
-    // with a small phase offset per ring so spokes never align.
+    // The source is the root of the record — a single one sits at the centre and the rest
+    // rings out from it; a topic web with many sources keeps them on the innermost ring
+    // instead of picking one to crown. Rings are assigned by OCCUPIED tier, so an absent tier
+    // (e.g. no standing claims) never leaves a hollow ring between two populated ones. Each
+    // ring is ordered by the circular mean angle of its neighbours on the ring within (a bond
+    // between its participants, a claim over its bond), with a small phase offset per ring so
+    // spokes never align.
     const cx = W / 2, cy = H / 2;
+    const roots = nodes.filter(isRoot);
+    const centre = roots.length === 1 ? roots[0] : null;
+    centreId = centre ? centre.id : null;
     const groups = { 0: [], 1: [], 2: [] };
-    nodes.forEach((n) => { if (n.kind === 'doc') { n.tx = cx; n.ty = cy; n._ang = 0; } else groups[n.tier].push(n); });
+    nodes.forEach((n) => { if (n === centre) { n.tx = cx; n.ty = cy; n._ang = 0; } else groups[n.tier].push(n); });
     const meanAng = (ids) => { let sx = 0, sy = 0, c = 0;
-      ids.forEach((id) => { const m = byId[id]; if (m && m.kind !== 'doc') { sx += Math.cos(m._ang); sy += Math.sin(m._ang); c++; } });
+      ids.forEach((id) => { const m = byId[id]; if (m && m !== centre) { sx += Math.cos(m._ang); sy += Math.sin(m._ang); c++; } });
       return c ? Math.atan2(sy, sx) : null; };
-    [0, 1, 2].forEach((t) => {
-      const arr = groups[t], n = arr.length, r = 62 + t * 84;
-      if (t > 0) {
+    const ringTiers = [0, 1, 2].filter((t) => groups[t].length);
+    ringTiers.forEach((t, ri) => {
+      const arr = groups[t], n = arr.length, r = (centre ? 74 : 62) + ri * 84;
+      if (ri > 0) {
         arr.forEach((nd) => { const a = meanAng(inN[nd.id]); nd._want = a == null ? 0 : a; });
         arr.sort((a, b) => (a._want - b._want));
       }
       arr.forEach((nd, k) => {
-        const ang = state.rot * Math.PI / 180 + t * 0.4 + (k / Math.max(1, n)) * Math.PI * 2;
+        const ang = state.rot * Math.PI / 180 + ri * 0.4 + (k / Math.max(1, n)) * Math.PI * 2;
         nd._ang = ang; nd.tx = cx + Math.cos(ang) * r; nd.ty = cy + Math.sin(ang) * r; });
     });
     separate(50, 28);
   }
   // The time axis: fold node record-times into bands, lay the bands out left→right
-  // (oldest → newest), stack each band's nodes by tier down the column. The fold grain
-  // (state.grain) is what "folds it in different ways" — coarser folds more instants
-  // into one column, finer splits them apart. Nodes with no time fall into a trailing
-  // "undated" column so the axis never pretends to know a time it wasn't given.
+  // (oldest → newest). The fold grain (state.grain) is what "folds it in different ways" —
+  // coarser folds more instants into one band, finer splits them apart. Nodes with no time
+  // fall into a trailing "undated" band so the axis never pretends to know a time it wasn't given.
   const AX_L = 64, AX_R = W - 30, AX_TOP = 56, AX_BOT = H - 34;
   function layoutTime() {
     const fold = foldTime(nodes, state.grain, { timeOf: (n) => n.t });
     const B = fold.bands.length || 1;
+    const axW = AX_R - AX_L, axH = AX_BOT - AX_TOP, midY = (AX_TOP + AX_BOT) / 2;
     fold.bands.forEach((band, bi) => {
-      const x = B < 2 ? (AX_L + AX_R) / 2 : AX_L + (bi + 0.5) / B * (AX_R - AX_L);
+      const cx = B < 2 ? (AX_L + AX_R) / 2 : AX_L + (bi + 0.5) / B * axW;
+      const slotW = B < 2 ? axW : axW / B;
+      const usableW = Math.max(30, slotW - 26);   // a gutter keeps adjacent bands' blocks apart
       const arr = band.items.slice().sort((a, b) => (a.tier - b.tier) || 0);
       const m = arr.length;
+      // A band is a time BUCKET, not an instant, so its members share its slot — fill that slot as a
+      // grid (columns across, then rows), centred on the band's time-x and the axis mid-line. A busy
+      // band becomes a compact block AT ITS TIME instead of a one-pixel tower; and a lone "all" band
+      // — every node in one bucket, so the axis carries no real time distinction — spreads across the
+      // whole width rather than collapsing into a single unreadable column. Columns stay ≥92px so the
+      // block never runs the de-overlap pass (which would drift a node off its own band).
+      const cols = Math.max(1, Math.min(m, Math.floor(usableW / 92) + 1));
+      const rows = Math.ceil(m / cols);
+      const colGap = cols < 2 ? 0 : Math.min(usableW / (cols - 1), 130);
+      const rowGap = rows < 2 ? 0 : Math.min(axH / (rows - 1), 46);
       arr.forEach((nd, k) => {
-        // x is the node's TIME and must stay exact — so, unlike the other layouts, the
-        // time axis does not run the de-overlap pass (which would drift x off the band).
-        // Nodes in a column are spread down the full height, which keeps them distinct.
-        nd.tx = x;
-        nd.ty = m < 2 ? (AX_TOP + AX_BOT) / 2 : AX_TOP + (k / (m - 1)) * (AX_BOT - AX_TOP);
+        const row = Math.floor(k / cols), col = k % cols, rc = Math.min(cols, m - row * cols);
+        nd.tx = cx + (col - (rc - 1) / 2) * colGap;
+        nd.ty = midY + (row - (rows - 1) / 2) * rowGap;
       });
     });
     drawAxis(fold.bands, fold);
@@ -299,6 +343,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   }
   function relayout() {
     if (state.layout !== 'time') gA.innerHTML = '';
+    centreId = null;   // only radial re-arms it; every other layout seats the root at an edge
     if (state.layout === 'flow') layoutFlow();
     else if (state.layout === 'tiers') layoutTiers();
     else if (state.layout === 'time') layoutTime();
@@ -310,7 +355,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   const nodeEls = {}, edgeEls = [];
   nodes.forEach((n) => {
     const g = sv('g', { class: 'tg-node' }); g.style.transform = 'translate(' + n.x + 'px,' + n.y + 'px)';
-    const c = sv('circle', { r: n.kind === 'doc' ? 9 : 7, fill: TIER[n.tier].fill, stroke: TIER[n.tier].stroke, 'stroke-width': 1.2 });
+    const c = sv('circle', { r: isRoot(n) ? 9 : 7, fill: TIER[n.tier].fill, stroke: TIER[n.tier].stroke, 'stroke-width': 1.2 });
     g.appendChild(c);
     g.addEventListener('click', (ev) => { ev.stopPropagation(); select(n.id); });
     g.addEventListener('mouseenter', () => { if (!state.sel) { state.hover = n.id; refine(); } });
@@ -369,12 +414,14 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
       o.mt.setAttribute('font-size', fs); o.mt.style.strokeWidth = gsw + 'px'; });
     gL.innerHTML = '';
     let cands = [];
+    const privileged = new Set();   // labels the local focus wants read even where they graze a node
     if (state.sel) {
       const nb = neighborSet(state.sel);
+      privileged.add(state.sel); Object.keys(nb).forEach((x) => privileged.add(x));
       cands = [byId[state.sel]].concat(Object.keys(nb).map((x) => byId[x]).filter((n) => state.tiers[n.tier] && seqVisible(n)));
     } else if (state.names) {
       cands = nodes.filter((n) => state.tiers[n.tier] && seqVisible(n))
-        .sort((x, y) => (x.kind === 'doc' ? -1 : y.kind === 'doc' ? 1 : deg[y.id] - deg[x.id]));
+        .sort((x, y) => (isRoot(x) ? -1 : isRoot(y) ? 1 : deg[y.id] - deg[x.id]));
     }
     // the hovered node's full name ALWAYS shows, whatever the names toggle says — and so do the
     // names of the entities it connects to, so a hover reveals the whole local neighbourhood
@@ -384,21 +431,37 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
       const hn = byId[state.hover];
       const nb = neighborSet(hn.id);
       const neigh = Object.keys(nb).map((x) => byId[x]).filter((n) => n && state.tiers[n.tier] && seqVisible(n));
+      privileged.add(hn.id); neigh.forEach((n) => privileged.add(n.id));
       cands = [hn, ...neigh].concat(cands.filter((n) => n.id !== hn.id && !nb[n.id]));
-      nodeEls[hn.id].c.setAttribute('r', hn.kind === 'doc' ? 11 : 9);
+      nodeEls[hn.id].c.setAttribute('r', isRoot(hn) ? 11 : 9);
     } else if (!state.sel) {
-      nodes.forEach((n) => nodeEls[n.id].c.setAttribute('r', n.kind === 'doc' ? 9 : 7));
+      nodes.forEach((n) => nodeEls[n.id].c.setAttribute('r', isRoot(n) ? 9 : 7));
     }
+    // The occupied boxes seed with every visible node circle, so an ambient label is culled when it
+    // would sit ON a node (its own excepted) — not only when it collides with another label. This is
+    // what stops a long name ("David Scott") smothering the next node along. The boxes are world-space,
+    // so zooming in shrinks them and the culled labels return. The selected/hovered neighbourhood is
+    // privileged: those names must read, so they skip the node test (they still avoid each other).
+    const rectHit = (a, b) => !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
+    const nodeBoxes = nodes.filter((n) => state.tiers[n.tier] && seqVisible(n)).map((n) => {
+      const rr = (isRoot(n) ? 9 : 7) + 2;
+      return { id: n.id, x: n.x - rr, y: n.y - rr, w: rr * 2, h: rr * 2 };
+    });
     const placed = [];
     cands.forEach((n) => {
-      const left = n.x > W * 0.62;
-      const t = sv('text', { 'font-size': fs, 'text-anchor': left ? 'end' : 'start', class: 'tg-plabel' });
+      // The centred root reads best ABOVE its dot (a ring node always sits to its side); every other
+      // node keeps the side placement, flipping to the left once it crosses into the right margin.
+      const centred = n.id === centreId, left = !centred && n.x > W * 0.62;
+      const t = sv('text', { 'font-size': fs, 'text-anchor': centred ? 'middle' : (left ? 'end' : 'start'), class: 'tg-plabel' });
       t.style.strokeWidth = sw + 'px';
-      t.setAttribute('x', (n.x + (left ? -11 : 11)).toFixed(1)); t.setAttribute('y', (n.y + 3.5).toFixed(1));
+      t.setAttribute('x', (centred ? n.x : n.x + (left ? -11 : 11)).toFixed(1));
+      t.setAttribute('y', (centred ? n.y - 13 : n.y + 3.5).toFixed(1));
       t.textContent = n.label; gL.appendChild(t);
       const bb = t.getBBox(), box = { x: bb.x - 1, y: bb.y - 1, w: bb.width + 2, h: bb.height + 2 };
-      const hit = placed.some((pp) => !(box.x + box.w < pp.x || pp.x + pp.w < box.x || box.y + box.h < pp.y || pp.y + pp.h < box.y));
-      if (hit) gL.removeChild(t); else placed.push(box);
+      const priv = centred || privileged.has(n.id);   // the anchor and the local focus must read
+      const hitLabel = placed.some((pp) => rectHit(box, pp));
+      const hitNode = !priv && nodeBoxes.some((nb) => nb.id !== n.id && rectHit(box, nb));
+      if (hitLabel || hitNode) gL.removeChild(t); else placed.push(box);
     });
   }
 
@@ -421,7 +484,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     state.sel = id; state.hover = null;
     const nb = neighborSet(id);
     nodes.forEach((n) => { const past = seqVisible(n); nodeEls[n.id].g.style.opacity = !past ? 0.05 : (n.id === id || nb[n.id]) ? 1 : 0.1;
-      nodeEls[n.id].c.setAttribute('r', n.id === id ? 9 : (n.kind === 'doc' ? 9 : 7)); });
+      nodeEls[n.id].c.setAttribute('r', n.id === id ? 9 : (isRoot(n) ? 9 : 7)); });
     edgeEls.forEach((o) => { const inc = (o.e.a === id || o.e.b === id) && o.seq <= state.cursor;
       o.g.style.opacity = inc ? 1 : (o.seq <= state.cursor ? 0.12 : 0.03);
       o.p.setAttribute('stroke-width', inc ? 2 : 1.1); o.p.setAttribute('stroke-opacity', inc ? 0.85 : 0.3); });
@@ -434,7 +497,11 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
       '<span style="color:var(--ink3,#999);">' + TIER[n.tier].name + '</span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">in <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(glyphs(ins)) + '</span></span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">out <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(glyphs(outs)) + '</span></span>';
-    if (onOpen && (n.kind === 'ent' || n.kind === 'doc')) {
+    // "open →" navigates via the node's ref, so it belongs to exactly the nodes that carry one —
+    // the entities (a source/claim has none). Gating on ref, not a kind string, keeps the button
+    // honest: it appears iff onOpen has somewhere to go. (The old 'ent'/'doc' test matched neither
+    // the 'entity' the builder emits nor a real ref, so the button never showed.)
+    if (onOpen && n.ref) {
       const b = el('button', { class: 'tg-btn', text: 'open →' }); b.style.marginLeft = 'auto'; b.style.flex = '0 0 auto';
       b.addEventListener('click', () => onOpen(n)); detail.appendChild(b);
     }
@@ -442,7 +509,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   }
   function deselect() {
     state.sel = null;
-    nodes.forEach((n) => nodeEls[n.id].c.setAttribute('r', n.kind === 'doc' ? 9 : 7));
+    nodes.forEach((n) => nodeEls[n.id].c.setAttribute('r', isRoot(n) ? 9 : 7));
     edgeEls.forEach((o) => { o.p.setAttribute('stroke-width', 1.1); o.p.setAttribute('stroke-opacity', 0.42); });
     applyFilter();
     detail.innerHTML = '<span style="color:var(--ink3,#999);">click a node to inspect · drag to pan · scroll to zoom</span>';
