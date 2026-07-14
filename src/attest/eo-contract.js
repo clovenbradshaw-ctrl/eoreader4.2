@@ -17,6 +17,10 @@ export const CONTRACTS = Object.freeze({
     ops: ['INS', 'CON', 'EVA'], targets: ['Entity'], products: ['Entity', 'Link', 'Lens'],
     stances: ['Making', 'Binding', 'Tracing'], note: 'third-party witnesses (SPN2, archive.today) of a capture',
   }),
+  'src/attest/wayback.js': contract({
+    ops: ['INS', 'SIG'], targets: ['Entity'], products: ['Entity', 'Lens'],
+    stances: ['Making', 'Binding'], note: 'Wayback/IA request shapes + parsers (no-key availability flow + legacy keyed SPN2)',
+  }),
   // Attestation ladder (§5): EVA the span against the witness (a judgment on a Lens), DEF the
   // divergence cause. Per span, never per page.
   'src/attest/ladder.js': contract({

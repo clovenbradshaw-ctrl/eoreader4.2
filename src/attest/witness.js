@@ -5,11 +5,10 @@
 // — it INDEPENDENTLY re-fetches the URL and co-signs (or diverges from) what it saw. A witness is
 // a Lens: one third party's reading of one situation (§9 assembly 2).
 //
-// This is a SOURCING seam, exactly like ingest/webfetch's proxy seam: the core here is pure and
-// offline — it mints witness records, builds the SPN2 / CDX request SHAPES, parses their
-// responses, and drives a fire-and-forget job queue — while the actual HTTP is an injected
-// `client`. Nothing here holds a credential or reaches the network; §4.1 explicitly warns that
-// SPN's auth and rate limits drift, so the request template is here and the send is the caller's.
+// This is a SOURCING seam: the core here is pure and offline — it mints witness records and drives a
+// fire-and-forget job queue — while the actual HTTP is an injected `client`. The request SHAPES and
+// response PARSERS it drives live in wayback.js (the IA protocol seam), re-exported below so the
+// witness holon reaches through one entrance. Nothing here holds a credential or reaches the network.
 //
 // Two services, on purpose (§4.4): Internet Archive and archive.today FAIL FOR DIFFERENT REASONS,
 // and two witnesses with uncorrelated failure modes corroborate far better than two with the same
@@ -17,6 +16,16 @@
 // two services that both captured are two VOICES → 'corroborated'.
 
 import { makeDiversity } from '../core/index.js';
+import { idReplayUrl, parseStatusResponse, newestCdxDigest } from './wayback.js';
+
+// The Wayback/IA request shapes + parsers, re-exported so callers reach them through the witness
+// entrance exactly as before (both the no-key flow and the legacy keyed SPN2 path).
+export {
+  idReplayUrl, waybackToIso,
+  saveTriggerRequest, availabilityRequest, parseAvailability, waybackSnapshotUrl, isFreshCapture,
+  spnSaveRequest, spnStatusRequest, parseSaveResponse, parseStatusResponse,
+  cdxRequest, parseCdxRows, newestCdxDigest,
+} from './wayback.js';
 
 // ── the witness services (§4.1, §4.4) ───────────────────────────────────────────
 export const SERVICES = Object.freeze({
@@ -29,74 +38,6 @@ const KNOWN_SERVICE = new Set([SERVICES.IA.id, SERVICES.AT.id]);
 // withdrawn. `withdrawn` is set later by watch.js (§7.2) — a capture that EXISTED and is now
 // gone — and it is a finding, not a failure.
 export const WITNESS_STATUS = Object.freeze(['requested', 'queued', 'success', 'failed', 'unarchived', 'withdrawn']);
-
-// ── the id_ replay flag (§4.2) — the single easiest thing to get wrong ───────────
-// The RAW, unmodified payload as captured. Every comparison in the spec uses id_; the default
-// (rewritten) replay injects a toolbar and proxies links and would report ~100% false divergence.
-// So `idReplayUrl` is the one this module hands out, and it always carries the flag.
-export const idReplayUrl = (waybackTimestamp, url) =>
-  waybackTimestamp && url ? `https://web.archive.org/web/${waybackTimestamp}id_/${url}` : null;
-
-// waybackToIso('20260714192311') → '2026-07-14T19:23:11Z'. Pure string surgery on the 14-digit
-// CDX/SPN timestamp — no clock, no timezone guess (Wayback timestamps are UTC by definition).
-export const waybackToIso = (ts) => {
-  const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(String(ts || ''));
-  return m ? `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z` : null;
-};
-
-// ── SPN2 request/response shapes (§4.1) ──────────────────────────────────────────
-// The request TEMPLATE only — no Authorization header is minted here (the LOW accesskey:secret is
-// the caller's credential, injected by the client seam). capture_all rides on; skip_first_archive
-// is 0 so a fresh capture is forced (we want OUR contemporaneous witness, not a months-old one).
-export const spnSaveRequest = (url, { captureAll = true, skipFirstArchive = false } = {}) => ({
-  method: 'POST',
-  url: 'https://web.archive.org/save',
-  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  body: `url=${encodeURIComponent(url)}&capture_all=${captureAll ? 1 : 0}&skip_first_archive=${skipFirstArchive ? 1 : 0}`,
-});
-export const spnStatusRequest = (jobId) => ({
-  method: 'GET', url: `https://web.archive.org/save/status/${encodeURIComponent(jobId)}`,
-});
-
-// parseSaveResponse(json) → { job_id } | null. The POST returns a queued job; we record the id
-// and move on (§4.1 — do not block the crawl).
-export const parseSaveResponse = (json) => {
-  const id = json && (json.job_id || json.jobId);
-  return id ? { job_id: String(id) } : null;
-};
-
-// parseStatusResponse(json) → a normalized status update. success carries the wayback timestamp
-// (→ captured_at ISO + the id_ replay URL); pending stays queued; anything else is a typed fail.
-export const parseStatusResponse = (json, url) => {
-  const status = json && json.status;
-  if (status === 'success') {
-    const ts = json.timestamp || null;
-    return { status: 'success', wayback_timestamp: ts, captured_at: waybackToIso(ts), replay: idReplayUrl(ts, url || json.original_url) };
-  }
-  if (status === 'pending') return { status: 'queued' };
-  return { status: 'failed', error: (json && (json.message || json.status_ext || json.exception)) || 'unknown' };
-};
-
-// ── CDX request/parse (§4.3) — the capture history, used by watch.js (§7) ─────────
-export const cdxRequest = (url, { fields = 'timestamp,digest,statuscode,mimetype,length' } = {}) => ({
-  method: 'GET',
-  url: `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(url)}&output=json&fl=${encodeURIComponent(fields)}`,
-});
-
-// parseCdxRows(json) → [{ timestamp, digest, statuscode, mimetype, length }, …]. CDX json is
-// array-of-arrays with a header row; we key each row by the header so a field reorder on their
-// side does not silently misalign columns. The digest is IA's base32 SHA-1 of the payload.
-export const parseCdxRows = (json) => {
-  if (!Array.isArray(json) || json.length === 0) return [];
-  const rows = Array.isArray(json[0]) ? json : null;
-  if (!rows) return [];
-  const header = rows[0].map(String);
-  return rows.slice(1).map((r) => {
-    const o = {};
-    header.forEach((h, i) => { o[h] = r[i]; });
-    return o;
-  });
-};
 
 // ── the witness record (§9 assembly 2) ──────────────────────────────────────────
 // A witness is a Lens. `tier` marks a near-miss witness (§8.2) — fired WITHOUT custody, so the
@@ -116,7 +57,8 @@ export const mkWitness = (fields = {}) => {
     captured_at: fields.captured_at || null,
     wayback_timestamp: fields.wayback_timestamp || null,
     cdx_digest: fields.cdx_digest || null,
-    replay: fields.replay || null,
+    replay: fields.replay || null,                 // the id_ RAW-payload replay (span-verify uses this)
+    snapshot: fields.snapshot || null,             // the canonical human replay (the citable URL)
     error: fields.error || null,
   });
 };
@@ -146,11 +88,38 @@ export const createWitnessQueue = () => {
     return { witness: w, fresh: true, reason: null };
   };
 
-  // Drive one witness one step: requested → (client.save) → queued; queued → (client.status) →
-  // success | queued | failed. The client is injected: `{ save(service,url) → {job_id} | null,
-  // status(service,jobId) → raw status json }`. A save that returns null (refused / blocked) is a
-  // typed 'unarchived' (§10), not a silent drop. Errors from the client settle to 'failed'.
-  const step = async (w, client) => {
+  // Drive one witness one step. TWO client shapes, and the shape picks the path:
+  //   no-key (default) — `{ trigger, available → parseAvailability shape | null, cdx? }`. requested →
+  //     (trigger fires GET /save) → queued; queued → (poll available) → success once the fresh closest
+  //     lands, filling snapshot + digest. A 429 is RETRYABLE: a throw stays non-terminal so the next
+  //     advance() re-attempts (backoff is the client's, §6). `available` → null means "not yet". The
+  //     caller flags WITNESS_INCOMPLETE after its own patience (§6 + the span-verify in ladder.js).
+  //   legacy keyed — `{ save → {job_id} | null, status → json }`. The SPN2 credential path: save→null
+  //     is 'unarchived', a client error settles to 'failed'. Unchanged.
+  const noKey = (client) => typeof client?.trigger === 'function' && typeof client?.available === 'function';
+
+  const stepNoKey = async (w, client) => {
+    try {
+      if (w.status === 'requested') { await client.trigger(w.service, w.url); return withStatus(w, { status: 'queued' }); }
+      if (w.status === 'queued') {
+        const av = await client.available(w.service, w.url);
+        if (!av) return w;                                    // fresh closest not landed yet — keep polling
+        let cdx_digest = w.cdx_digest;
+        try { if (typeof client.cdx === 'function') cdx_digest = newestCdxDigest(await client.cdx(w.service, w.url)) ?? cdx_digest; } catch { /* digest is best-effort */ }
+        return withStatus(w, {
+          status: 'success',
+          wayback_timestamp: av.wayback_timestamp,
+          captured_at: av.captured_at,
+          replay: idReplayUrl(av.wayback_timestamp, w.url),
+          snapshot: av.snapshot_url,
+          cdx_digest,
+        });
+      }
+    } catch { return w; }                                     // 429 / transient — stay non-terminal, retry next advance
+    return w;
+  };
+
+  const stepKeyed = async (w, client) => {
     try {
       if (w.status === 'requested') {
         const res = await client.save(w.service, w.url);
@@ -166,6 +135,8 @@ export const createWitnessQueue = () => {
     }
     return w;
   };
+
+  const step = (w, client) => (noKey(client) ? stepNoKey(w, client) : stepKeyed(w, client));
 
   // advance(client) → settle every non-terminal witness by one step. Returns the current list.
   const advance = async (client) => {

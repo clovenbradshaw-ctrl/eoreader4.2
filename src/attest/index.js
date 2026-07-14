@@ -18,8 +18,9 @@ export {
 export {
   SERVICES, WITNESS_STATUS,
   idReplayUrl, waybackToIso,
+  saveTriggerRequest, availabilityRequest, parseAvailability, waybackSnapshotUrl, isFreshCapture,
   spnSaveRequest, spnStatusRequest, parseSaveResponse, parseStatusResponse,
-  cdxRequest, parseCdxRows,
+  cdxRequest, parseCdxRows, newestCdxDigest,
   mkWitness, createWitnessQueue, nearMissRequest, witnessDiversity, witnessed,
 } from './witness.js';
 
