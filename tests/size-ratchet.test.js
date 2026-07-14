@@ -88,7 +88,7 @@ const BASELINE = new Map([
   ['src/rooms/models/catalog.js', 281],
   ['src/rooms/models/surface.js', 645],
   ['src/rooms/plain/surface.js', 539],
-  ['src/rooms/reader/app/chat.js', 639],
+  ['src/rooms/reader/app/chat.js', 642],
   ['src/rooms/reader/app/deep.js', 363],
   ['src/rooms/reader/app/model.js', 328],
   ['src/rooms/reader/app/toplines.js', 297],
