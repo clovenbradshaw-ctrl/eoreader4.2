@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EO Reader — the plain version</title>
+<link rel="icon" href="favicon.svg" />
+<style>
+  :root{ --bg:#0c0e12; --ink:#e7ecf3; --dim:#8b93a2; --accent:#7bd0ff;
+    --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace; --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
+  @media (prefers-color-scheme:light){ :root{ --bg:#f4f6fa; --ink:#141821; --dim:#5a6474; --accent:#2a7fd0 } }
+  :root[data-theme="dark"]{ --bg:#0c0e12; --ink:#e7ecf3; --dim:#8b93a2 }
+  :root[data-theme="light"]{ --bg:#f4f6fa; --ink:#141821; --dim:#5a6474 }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;display:flex;flex-direction:column}
+  #mount{flex:1 1 auto;min-height:0}
+  .fallback{padding:40px 20px;color:var(--dim);max-width:70ch}
+  .fallback code{font-family:var(--mono);color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="mount"><div class="fallback">Loading the plain version… if this stays, serve the folder over HTTP (<code>npm run serve</code>) so the ES modules load — opening the file directly will not work.</div></div>
+
+<script type="module">
+  // The plain version: the same engine, with nothing named to the person. Click a highlighted
+  // thing, get exactly three questions — because the thing you clicked already is a terrain, a
+  // terrain sits in a domain, and a domain has three operators. Never a menu, never a mode.
+  import { mountPlainSurface } from './src/rooms/plain/surface.js';
+  import * as scene from './src/rooms/plain/scene.js';
+  const mount = document.getElementById('mount');
+  try {
+    mount.innerHTML = '';
+    mountPlainSurface(mount, { scene });
+  } catch (e) {
+    mount.innerHTML = '<div class="fallback">Could not start the plain version: ' + String(e && e.message || e) + '</div>';
+    console.error(e);
+  }
+</script>
+</body>
+</html>

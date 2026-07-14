@@ -106,6 +106,48 @@ opens empty and fills as you record.
 | shared workspaces + shared vault (optional) | `rooms/archive/room-vault` — a **workspace is an invitable Matrix room**; everything saved into it is stored as an **encrypted, hash-linked blockchain, in binary, in Matrix**, decryptable by **only the room's members** (the block's key rides a Megolm room event). The room timeline is the ledger's ordering, so every member's chain **converges**; room messages carry the updates, `sendSignal` the nudges. `window.EO.spaces` (see [`docs/shared-vault.md`](docs/shared-vault.md)) |
 | sync to Matrix (optional) | `rooms/archive/space-sync` — one per-workspace **opt-in** (default OFF) that mirrors a workspace's sources into its room's encrypted blockchain, opening the room first if needed; content-addressed + debounced so an unchanged source is never re-uploaded. `window.EO.spaces.setSync` / `.sync` |
 
+## The plain version — the algebra, worn as three questions
+
+Open **`plain.html`** (`npm run serve`) for the same engine with **nothing named to the person** —
+not "operator", not "terrain", not "resolution", not once. It rests on one rule: *the person never
+chooses a terrain, because the thing they clicked already is one.* A name is an **Entity**, an arrow
+is a **Link**, a quoted phrase is a **Lens** — and a terrain sits in exactly one domain, and a domain
+has **exactly three operators**. So a click yields **exactly three questions**, always: they are not
+curated, they *are* `operatorsByDomain(domain)` wearing plain-English coats (`src/rooms/plain/terrain.js`).
+
+The person experiences that as restraint; it is arithmetic. `tests/plain-terrain.test.js` pins that the
+three questions of a kind are exactly its domain's three operators, and that the §9 addresses
+(`SIG(Entity, Binding)`, …, `REC(Paradigm, Composing)`) are the ones the design lists. The only two
+things that move under the hand — reading a word under a basis ("surveillance" → a line item under the
+budget, a thing-done-to-people under the court filing) and re-centering the picture — are pure folds
+(`src/rooms/plain/select.js`), reversible and pinned by `tests/plain-select.test.js`. The ✱ cards
+(*When people changed their minds* · *Blind spots*) are the ones no tool without **REC** and a **typed
+void** can build. The worked corpus is `src/rooms/plain/scene.js`; the framework-free surface is
+`surface.js`, the same room idiom as Replay and Render.
+
+It is also a **screen in the main app** — the **Plain** tab in `index.html` (mounted the same way the
+Graph tab hosts its draw, via `window.EO.plain`). There the surface reads the person's **real ingested
+sources**: "People mean different things by this" is not a table but a projection of what the documents
+actually say. `src/rooms/plain/disagreement.js` reads each source's own sentences — every "X is a Y",
+"X, a Y,", "X was described as Y", "X means Y" — buckets the characterizations by head-noun into distinct
+meanings, and tallies each per source; `select.readAs` then re-reads the word under any one source as a
+basis. `src/rooms/plain/project.js` is the live bridge (`window.EO.app` + `perceiver/parse`), folding the
+perceiver's own coref-resolved copular DEFs in on top of the surface sweep. It is tested on real text
+across three genres — **non-fiction** (a civic procurement, "surveillance"), **fiction** (two narrators,
+"the monster"), and **academic papers** (one word, three disciplines, "power") — in
+`tests/plain-disagreement.test.js`, with the engine path pinned end-to-end in `tests/plain-project.test.js`.
+
+The ✱ card — **"When people changed their minds"** (§4) — is REC over corpus time, and it is real too
+(`src/rooms/plain/shifts.js`). The move: a *paradigm* is the meaning a term is predominantly read under,
+so a paradigm **shift** is a change-point in that dominant meaning along a **dated** corpus. The detector
+reads each source's dominant sense (the same DEF sweep), places it in time (a publication date from the
+document's front matter, else when it entered the record), collapses equal senses into runs, smooths a
+lone contrarian source, and reports every run boundary as a break — "before *D* it meant *A*; after, *B*."
+Each break is emitted as a real **REC** event (`recEvents`), the way `equivalence.js` records its merges
+as SYN/NUL, so the shift is auditable in the engine's own grammar. Tested over dated corpora in all three
+genres — non-fiction ("surveillance": tool → capability → procurement), academic ("atom": particle →
+nucleus → cloud), and fiction ("the creature": monster → wretch) — in `tests/plain-shifts.test.js`.
+
 ## Replay — watching something get read
 
 Open **`replay.html`** (`npm run serve`) for a surface built on one rule: **no ingest organ

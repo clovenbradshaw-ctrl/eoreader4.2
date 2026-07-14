@@ -1548,6 +1548,14 @@ table{border-collapse:collapse;width:100%}
           </div>
           </sc-if>
 
+          <!-- PLAIN — the plain version as a screen: the same engine with nothing named to the
+               person. A host div the framework-free surface (rooms/plain) mounts into imperatively,
+               the same way the Graph tab hosts its draw. "People mean different things by this" is
+               computed from the person's real ingested sources (rooms/plain/project). -->
+          <sc-if value="{{ isPlain }}">
+          <div data-screen-label="Plain" ref="{{ setPlainEl }}" style="flex:1;min-height:0;position:relative;overflow:hidden"></div>
+          </sc-if>
+
           <!-- SOURCE STAGE — when a source tab is active it fills the main stage: Reader (themed
                book; the old Document paragraphs are folded in here, revealed by the Links toggle) ·
                Native (the real website) · Facing · EoT (the reading). -->
@@ -3563,6 +3571,9 @@ class Component extends DCLogic {
     // Leaving the Graph tab tears down the live entity/causal draw so re-entry mounts a fresh
     // canvas and redraws clean (the ref only re-fires on a new element).
     if (this.state.tab === 'graph' && tab !== 'graph' && this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; this._tgEl = null; }
+    // Leaving the Plain tab tears down its surface the same way, so re-entry recomputes the live
+    // model against the current sources.
+    if (this.state.tab === 'plain' && tab !== 'plain' && this._plain) { try { this._plain.destroy(); } catch {} this._plain = null; this._plainEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
     const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
     // The Graph tab now hosts the real graph — the entity web / causal DAG of everything in
@@ -5301,6 +5312,24 @@ class Component extends DCLogic {
     if (!this._wg && this.state.tab === 'graph' && this._ensureTopicGraph()) this.setState({ webGraphFor: this._wgMirror() });
     this._drawWebGraph();
   }
+  // The Plain screen's host — the same ref idiom as the Graph tab. Mount the framework-free plain
+  // surface (rooms/plain) into it once, over a LIVE model read from the person's real sources, so
+  // "People mean different things by this" is computed from what those documents actually say. The
+  // surface owns its own state; we only mount and, on tab-leave (setTab), destroy.
+  setPlainEl(el) {
+    if (!el || this._plainEl === el) return;   // same container across re-renders — already mounted
+    this._plainEl = el;
+    el.innerHTML = '';
+    try {
+      const P = window.EO && window.EO.plain;
+      if (!P) { el.innerHTML = '<div style="padding:22px;color:#8A8A95;font-size:13px">The plain surface is not available.</div>'; return; }
+      let live = null;
+      try { live = P.liveModel(this._app); } catch { live = null; }
+      this._plain = P.mount(el, { scene: P.scene, live });
+    } catch (e) {
+      el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Plain failed to mount: ' + String((e && e.message) || e) + '</div>';
+    }
+  }
   setWebKind(kind) {
     if (!this._wg || this._wg.kind === kind) return;
     this._wg.kind = kind;                                   // the two graphs' node vocabularies differ,
@@ -6373,7 +6402,7 @@ class Component extends DCLogic {
     // tabs
     // Ask leads; the conversational Chat is demoted behind it and carries a "beta" pill —
     // the record surface (ask → a typed, cited answer) is the posture, chat the exception.
-    const tabDefs = [['ask', 'Ask', null, false], ['chat', 'Chat', null, true], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['register', 'Sources', sources.length || null, false], ['memo', 'Memo', (topic && topic.memo) ? 1 : null, false]];
+    const tabDefs = [['ask', 'Ask', null, false], ['chat', 'Chat', null, true], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['register', 'Sources', sources.length || null, false], ['memo', 'Memo', (topic && topic.memo) ? 1 : null, false], ['plain', 'Plain', null, true]];
     const tabs = tabDefs.map(([id, label, count, beta]) => ({
       label, count: String(count || ''), hasCount: count != null, beta: !!beta,
       fg: st.tab === id ? '#1B1B22' : '#8A8A95', weight: st.tab === id ? 650 : 500,
@@ -7169,7 +7198,8 @@ class Component extends DCLogic {
       // tabs
       tabs, hasFlagLine, flagLine, flagFg, flagBg, flagBd,
       isAsk: st.tab === 'ask', isChat: st.tab === 'chat', isGraph: st.tab === 'graph', isEvidence: st.tab === 'evidence',
-      isRegister: st.tab === 'register', isMemo: st.tab === 'memo',
+      isRegister: st.tab === 'register', isMemo: st.tab === 'memo', isPlain: st.tab === 'plain',
+      setPlainEl: (el) => this.setPlainEl(el),   // the Plain host ref (mounts rooms/plain, like setWebGraphEl)
       // ask (the primary surface) — the latest exchange as one typed, cited answer
       askSurfaces, askTries, askHasTries: askTries.length > 0, askEmpty, askHasSurface: askSurfaces.length > 0,
       // ask context — breadcrumb (workspace › quest path) + the destination affordance
