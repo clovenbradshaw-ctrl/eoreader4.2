@@ -1539,6 +1539,17 @@ const orientationName = (doc) => {
   return doc.docId || 'the document';
 };
 
+// The type slot of the orientation — the source's MEDIUM, so "this audio file" / "this
+// video" / "this image" is answerable as itself. A transcribed recording keeps modality
+// 'audio' (organs/in/audio.js) even after its words are laid into sentences, so labelling it
+// "text" left the talker unable to connect "this audio file" to what it was reading — it
+// answered "I couldn't find any information about the audio file itself". Only the genuinely
+// non-text media take their own word; everything textual (text, webpage, pdf, document,
+// table, json, composite…) stays 'text', recognition-free and byte-identical to before.
+const ORIENT_TYPE = Object.freeze({
+  audio: 'audio', video: 'video', image: 'image', music: 'music',
+});
+
 // The orientation line: the talker is handed a recognition-free NAME (orientationName), type,
 // and length — and NOTHING that lets it narrate a famous text from memory (§3). The document's
 // own metadata (title, author, date) does not ride here, nor anywhere in the content prompt; it
@@ -1549,7 +1560,7 @@ export const orientationOf = (doc) => {
   const units = doc.units || doc.sentences || [];
   return orientationLine({
     filename: orientationName(doc),
-    type:     doc.modality === 'image' ? 'image' : 'text',
+    type:     ORIENT_TYPE[doc.modality] || 'text',
     length:   units.length,
   });
 };
