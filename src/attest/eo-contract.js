@@ -17,4 +17,10 @@ export const CONTRACTS = Object.freeze({
     ops: ['INS', 'CON', 'EVA'], targets: ['Entity'], products: ['Entity', 'Link', 'Lens'],
     stances: ['Making', 'Binding', 'Tracing'], note: 'third-party witnesses (SPN2, archive.today) of a capture',
   }),
+  // Attestation ladder (§5): EVA the span against the witness (a judgment on a Lens), DEF the
+  // divergence cause. Per span, never per page.
+  'src/attest/ladder.js': contract({
+    ops: ['EVA', 'DEF'], targets: ['Lens'], products: ['Lens', 'Atmosphere'],
+    stances: ['Dissecting', 'Tracing', 'Binding'], note: 'the attestation ladder — does the span survive in the witness',
+  }),
 });
