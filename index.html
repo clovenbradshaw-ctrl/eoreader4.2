@@ -1455,14 +1455,6 @@ table{border-collapse:collapse;width:100%}
                     </div>
                   </sc-for>
                 </sc-if>
-
-                <!-- Encrypted Vault -->
-                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:22px 8px 8px">ENCRYPTED VAULT</div>
-                <div style="margin:0 8px;padding:12px;border:1px solid #EFEFF3;border-radius:11px;background:#FCFCFD">
-                  <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#3A3A44;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>{{ vaultLabel }}</div>
-                  <div style="height:6px;border-radius:4px;background:#EDEDF0;margin:9px 0 8px;overflow:hidden"><div style="height:100%;width:{{ vaultPct }};background:#B4B4BE;border-radius:4px"></div></div>
-                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4">{{ vaultSync }}</div>
-                </div>
               </aside>
 
               <!-- ── CENTRE ── -->
@@ -6887,7 +6879,7 @@ class Component extends DCLogic {
     const explorerNewFolder = () => { const v = prompt('New folder name', 'New folder'); if (v !== null) app.folderNew(v || 'New folder', { parentId: curFolderId }); this.setState({ explorerMenu: null }); };
 
     // ══ SOURCE EXPLORER — the three-column home view ═══════════════════════════════════════════
-    // Left: Quick-Access shelves + the folder tree + the encrypted-vault meter. Centre: a calm,
+    // Left: Quick-Access shelves + the folder tree. Centre: a calm,
     // paginated grid of source cards that search / kind-filter / sort narrow. Right: the Inspector —
     // read & act on the selected source in place. Everything is a read-time projection of the Drive;
     // the mutations (star, touch, add-to-corpus, move) live on the engine.
@@ -6928,13 +6920,6 @@ class Component extends DCLogic {
       }
     };
     walkTree(null, 0);
-
-    // — encrypted-vault meter (recorded bytes against a nominal cap) —
-    const usedBytes = drive.reduce((a, s) => a + (s.bytes || 0), 0);
-    const usedGB = usedBytes / 1073741824;
-    const vaultLabel = `${usedGB >= 0.1 ? usedGB.toFixed(1) : (usedBytes > 0 ? usedGB.toFixed(2) : '0')} / 15 GB`;
-    const vaultPct = Math.min(100, usedBytes > 0 ? Math.max(1.5, (usedGB / 15) * 100) : 0) + '%';
-    const vaultSync = (wsObj && (wsObj.roomId || wsObj.shared)) ? 'synced to Matrix · members-only' : 'on this device · private';
 
     // — the working set for the centre grid: pick the shelf, then kind-filter → search → sort —
     let baseSet;
@@ -7666,7 +7651,6 @@ class Component extends DCLogic {
       qaTopicBg: qaTopic.bg, qaTopicFg: qaTopic.fg, qaTopicWt: qaTopic.wt, qaTopicGo: gotoBucket('topic'), qaTopicCount: String(topicCorpus.length),
       qaAllBg: qaAll.bg, qaAllFg: qaAll.fg, qaAllWt: qaAll.wt, qaAllGo: gotoBucket('all'), qaAllCount: String(drive.length),
       exTree, exTreeHas: exTree.length > 0,
-      vaultLabel, vaultPct, vaultSync,
       // centre: header, breadcrumb, sort + kind chips, jump-back-in, source cards, show-all
       explorerQuery: st.explorerQuery, onExplorerSearch: (e) => this.setState({ explorerQuery: e.target.value, explorerShowAll: false }),
       explorerViewGrid: st.explorerView !== 'list',
