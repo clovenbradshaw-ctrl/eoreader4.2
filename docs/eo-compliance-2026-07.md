@@ -79,20 +79,34 @@ restated in a comment is documentation; a law a test can fail is a checkpoint
    pre-closure helpers of `rooms/reader/app.js` moved to `app/` (net · kv ·
    guards · util). The closure itself (4,700 lines, 33 banner sections, 266
    definitions) resists verbatim splitting: a scope-blind cut cannot tell a
-   closure `let` from its dozens of local shadows (`text`, `model`, `q`…),
-   and 22 names carry cross-section writes — decomposing it safely needs an
-   AST-scoped pass (the install-pattern proven on stages.js, with each
-   section's dependencies computed from real scopes, not regexes). Until that
-   lands, `tests/size-ratchet.test.js` gives the "no file over ~250 lines"
-   law mechanical teeth: no file off the baseline may cross 250, the 130
-   pinned offenders may only SHRINK, and a healed file's row must be deleted.
+   closure `let` from its dozens of local shadows (`text`, `model`, `q`…) —
+   decomposing it safely needed an AST-scoped pass. Meanwhile
+   `tests/size-ratchet.test.js` gives the "no file over ~250 lines" law
+   mechanical teeth: no file off the baseline may cross 250, the pinned
+   offenders may only SHRINK, and a healed file's row must be deleted.
+9. **The reader closure was then decomposed, AST-scoped.** With real scope
+   analysis (acorn + eslint-scope over the closure), every banner section
+   became an `install(appCtx)` module under `app/` — 33 sections + the
+   public membrane (`api.js`) — with the section bodies VERBATIM: references
+   into a sibling section are rewritten (scope-exactly, shorthand properties
+   included) to ride `appCtx` at call time; the core spine (state · emit ·
+   the trail beats · the web client) is destructured once at install; and
+   the 18 genuinely shared mutables (the mint counters, the turn's
+   abort/stallGuard, the live model handle, the wedge streak, the warm
+   MiniLM…) live ON `appCtx`, because a published snapshot of a reassigned
+   `let` goes stale — chat's `stop()` must see the LIVE controller the
+   ingest section armed. `app.js` is now the 234-line assembler: the state,
+   the ctx, thirty-three installs in the closure's original order, and
+   `buildApi(appCtx)`. Four verbatim sections (chat · deep · model ·
+   toplines) are still over the line and enter the ratchet's pin list at
+   their birth size — they may only shrink.
 
 ## The open worklist, honestly
 
-- **The reader closure.** `rooms/reader/app.js` (4,843, pinned) still wants
-  the AST-scoped decomposition above — the coupling map is in this doc's
-  history, the pattern is proven on `turn/stages.js`, and the ratchet holds
-  the line meanwhile.
+- ~~**The reader closure.**~~ Done: decomposed AST-scoped into 33 section
+  modules + the api membrane; the assembler is 234 lines. Four verbatim
+  sections (chat 639 · deep 363 · model 328 · toplines 297) remain pinned
+  and may only shrink.
 - **Law 1 adoption.** The emit-time check is live but opt-in per emitter;
   the parse orchestrator is the first adopter. Each faculty can self-identify
   its authored events (`append(event, { src })`) at its own pace — the
@@ -100,3 +114,39 @@ restated in a comment is documentation; a law a test can fail is a checkpoint
 - ~~**The seam registry.**~~ Done: healed from 195 to zero (one declared row
   remains, with its reason: the conformance registry itself cannot ride
   core's entrance); the boundary test keeps it that way.
+
+## The independent audit — thirteen layers, adversarially verified
+
+Alongside the repairs, a sixty-agent audit read every stack layer against the
+same rubric, one auditor per layer, and then tried to REFUTE each material
+finding independently (58 completed; 61 findings survived verification, 29
+were killed — the adversarial pass earned its keep). Run against the
+pre-repair tree, it independently converged on every defect the repairs
+fixed (the core escape, the pierced membrane, the silent crossings, the two
+god orchestrators, contracts as vanity metadata) — and it settles three
+things the repairs could not:
+
+- **The metabolism is the best-defended doctrine in the codebase** —
+  confirmed, not refuted, at major severity three times over: the desert
+  cell is enforced live and redundantly across four independent layers
+  during actual organ growth; the proposer/judge channels genuinely never
+  write the champion; and evolved organs are runtime-gated against a
+  well-formed EO contract at creation AND at body closure. Where the stakes
+  were highest, the code was already law.
+- **The enactor gates by flag, not by veto — on purpose.** "Nothing is
+  asserted that the record can't witness" is implemented as flag-and-ride:
+  the detection machinery (fact-check, the confabulation guard, mechanical
+  citation, the self-witness firewall) is genuinely live, but an
+  ungrounded claim ships TAGGED rather than suppressed, and the veto
+  battery renounces gating by name. That is a doctrinal softening the
+  prose does not admit — either the docs should say "witnessed or marked",
+  or the gate should close. The human holds that pen.
+- **Dead reserves.** `store/envelope.js` — 228 lines of E2EE envelope
+  crypto — is re-exported but has no running caller (the live path uses a
+  sibling implementation); murmur's steer/attention half is likewise
+  unconsumed. "No dead code paths" says these either find their caller or
+  go.
+
+The residual god-module long tail (perceiver's parser at 964 lines,
+seventeen surfer files over the floor) is the ratchet's territory now:
+pinned, shrink-only, and no new file may cross the line.

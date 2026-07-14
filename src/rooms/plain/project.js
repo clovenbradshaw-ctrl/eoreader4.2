@@ -13,6 +13,7 @@
 import { parseText } from '../../perceiver/parse/index.js';
 import { disagree, sourcesDisagree } from './disagreement.js';
 import { detectShifts } from './shifts.js';
+import { blindSpots, mapModel, timelineModel, studyGuideModel, rankedTerms } from './live-views.js';
 
 // The engine's own characterizations of `term` in a parsed doc: the copular/appositive DEFs the
 // perceiver already extracted (perceiver/parse/relations.js → op DEF, key 'predicate'), resolved
@@ -100,15 +101,46 @@ export const liveTerms = (app) => {
   return out;
 };
 
+// The remaining explore cards, over real sources. Blind spots / map / timeline are pure text
+// projections (live-views.js); the study guide additionally needs to know which leading terms the
+// sources genuinely disagree about or shifted on — that runs the real parser, bounded to the few
+// most-mentioned terms so opening the card stays cheap.
+export const blindSpotsOverSources = (sources, terms) => blindSpots(sources, terms);
+export const mapOverSources = (sources, terms) => mapModel(sources, terms);
+export const timelineOverSources = (sources) => timelineModel(sources);
+
+const contestedLeads = (sources, terms, { parse = parseText, max = 5 } = {}) => {
+  const dis = [], shf = [];
+  for (const t of rankedTerms(sources, terms).slice(0, max)) {
+    try { if (disagreeOverSources(sources, t, { parse }).disagree) dis.push(t); } catch { /* skip */ }
+    try {
+      const m = shiftsOverSources(sources, t, { parse });
+      const b = m.shifted && m.marks.find((x) => x.kind === 'break');
+      if (b) shf.push({ term: t, when: b.when });
+    } catch { /* skip */ }
+  }
+  return { dis, shf };
+};
+
+export const studyGuideOverSources = (sources, terms, { parse = parseText } = {}) => {
+  const { dis, shf } = contestedLeads(sources, terms, { parse });
+  return studyGuideModel(sources, terms, { disagreements: dis, shifts: shf, blind: blindSpots(sources, terms) });
+};
+
 // The whole live model the plain surface needs to run over real data: the sources, the candidate
-// terms, and a bound resolver that computes the disagreement for any chosen term on demand (the
-// heavy parse only runs when a term is actually asked about).
+// terms, and bound resolvers that compute each card on demand (the heavy parse only runs when a
+// card or term is actually asked about).
 export const liveModel = (app, { parse = parseText } = {}) => {
   const sources = liveSources(app);
+  const terms = liveTerms(app);
   return {
     sources,
-    terms: liveTerms(app),
+    terms,
     disagreeFor: (term) => disagreeOverSources(sources, term, { parse }),
     shiftsFor: (term) => shiftsOverSources(sources, term, { parse }),
+    blindSpots: () => blindSpotsOverSources(sources, terms),
+    map: () => mapOverSources(sources, terms),
+    timeline: () => timelineOverSources(sources),
+    studyGuide: () => studyGuideOverSources(sources, terms, { parse }),
   };
 };
