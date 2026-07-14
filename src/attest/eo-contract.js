@@ -41,4 +41,16 @@ export const CONTRACTS = Object.freeze({
     ops: ['NUL', 'SIG', 'EVA'], targets: ['Void', 'Entity'], products: ['Void', 'Entity', 'Lens'],
     stances: ['Clearing', 'Dissecting', 'Binding', 'Tracing'], note: 'selective preservation frontier — the logged decision',
   }),
+  // EOT layer (§9): render attestation records back into EOT surface — the inverse renderer, a
+  // reading cleared into the tape's own line syntax (mirrors ingest/eot-emit.js).
+  'src/attest/eot.js': contract({
+    ops: ['NUL'], targets: ['Network'], products: ['Void'], stances: ['Clearing'],
+    note: 'attestation records rendered to EOT surface',
+  }),
+  // The holon entrance — one door for the whole attest subsystem.
+  'src/attest/index.js': contract({
+    ops: ['INS', 'SIG', 'EVA', 'SYN', 'NUL', 'CON'], targets: ['Void', 'Entity', 'Lens', 'Network'],
+    products: ['Entity', 'Lens', 'Network', 'Void'],
+    stances: ['Making', 'Binding', 'Tracing', 'Composing', 'Clearing', 'Dissecting'], note: 'barrel',
+  }),
 });
