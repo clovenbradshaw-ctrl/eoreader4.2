@@ -100,3 +100,23 @@ test('the scanner is fully Unicode — Greek (another cased script) reads too', 
   ['Σωκράτης ἔφη ταῦτα', 'Γλαύκων ἀπεκρίνατο αὐτῷ', 'Σωκράτης ἤκουσε πάλιν'].forEach((s, i) => a.observe(s, i));
   assert.ok(a.isAdmitted('Σωκράτης') && a.isAdmitted('Γλαύκων'), 'Greek names admit as figures');
 });
+
+// THE INDUCTION IS SCRIPT-AGNOSTIC EVEN WHERE CASE DOES NOT EXIST. Japanese has no capitals and
+// no spaces, so the capital-anchored NAME scanner is blind to it (its figures are kanji with no
+// case signal — found only by gravity, not by a capitalised span). But the slot induction needs
+// neither case nor spaces: fed one character per unit, it clusters the recurring hiragana PARTICLES
+// (は/が/を — the closed grammatical class) into one slot and the content kanji into another, by
+// company alone. This is the creature's method reaching a language whose writing carries no case.
+test('slot induction finds the Japanese particle class with no dictionary (uncased, spaceless)', () => {
+  const jp = ['武士が城を守る', '武士は弓を持つ', '敵が門を破る', '敵は火を放つ',
+              '将軍が兵を送る', '将軍は馬に乗る', '兵が川を渡る', '兵は道を進む'];
+  const stream = [];
+  for (const s of jp) { for (const ch of [...s]) stream.push(ch); stream.push(BOUNDARY); }
+  const { slotOf } = createSlotField({ frameSize: 8, clusterTop: 40, minFreq: 2, k: 6, simFloor: 0.2 })
+    .observe(stream).cluster();
+  // The three case particles share one induced slot — the closed class, read off distribution.
+  assert.equal(slotOf.get('は'), slotOf.get('を'), 'は and を share a slot (both particles)');
+  assert.equal(slotOf.get('が'), slotOf.get('を'), 'が joins them — the particle class');
+  // A content kanji is not in the particle class.
+  assert.notEqual(slotOf.get('城'), slotOf.get('を'), 'a content kanji is not a particle');
+});
