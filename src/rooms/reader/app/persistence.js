@@ -39,6 +39,8 @@ export const installPersistence = (appCtx) => {
     jobs: state.jobs,
     // pins — small plain JSON, each with its embedded anchor (docs/search-and-pins.md)
     pn: appCtx.pn, pins: state.pins,
+    // standing folds — saved comparisons/traces with their last snapshot (app/standing.js)
+    stn: appCtx.stn, standing: state.standing,
   });
   let saveTimer = null;
   const persist = () => {
@@ -79,6 +81,8 @@ export const installPersistence = (appCtx) => {
         state.jobs = Array.isArray(snap.jobs) ? snap.jobs : [];   // pending work to resume below
         state.pins = Array.isArray(snap.pins) ? snap.pins : [];
         appCtx.pn = snap.pn || state.pins.length;
+        state.standing = Array.isArray(snap.standing) ? snap.standing : [];
+        appCtx.stn = snap.stn || state.standing.length;
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
         if (snap.summaries && snap.summaries.entities) {
           // `contextualPending` is a within-session marker that a written reading is mid-compose; it

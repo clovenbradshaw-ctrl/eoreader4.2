@@ -6,6 +6,7 @@ import { contract } from '../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
   'src/surfer/answer.js': contract({ ops: ['SYN', 'SIG'], targets: ['Network', 'Field'], products: ['Network', 'Void'], stances: ['Composing', 'Binding'], note: 'surf reading → answer object' }),
+  'src/surfer/perspective-answer.js': contract({ ops: ['SEG', 'EVA', 'NUL'], targets: ['Lens', 'Field'], products: ['Lens', 'Void'], stances: ['Dissecting', 'Tracing', 'Clearing'], note: 'answer a question from inside one figure’s fold — bounded projection, gated, dwells in the void' }),
   'src/surfer/answerable.js': contract({ ops: ['EVA', 'DEF', 'NUL'], targets: ['Field', 'Entity'], products: ['Void'], stances: ['Clearing', 'Tending'], note: 'answerability — is field void' }),
   'src/surfer/atmosphere.js': contract({ ops: ['SIG', 'EVA'], targets: ['Field', 'Atmosphere'], products: ['Atmosphere'], stances: ['Tending', 'Tracing'], note: 'the Atmosphere pass' }),
   'src/surfer/chorus.js': contract({ ops: ['SIG', 'EVA', 'SYN'], targets: ['Field'], products: ['Field', 'Lens'], stances: ['Tending', 'Binding', 'Composing'], note: 'the surf chorus — chorusStops' }),

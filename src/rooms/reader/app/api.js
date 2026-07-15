@@ -65,6 +65,21 @@ export const buildApi = (appCtx) => {
     // the entity explorer, scoped to one source and read at a chosen HOLONIC LEVEL —
     // its natural-language referents (default) or the modality's raw spans underneath
     sourceLevels: appCtx.sourceLevels, sourceEntities: appCtx.sourceEntities, sourceBaseNoun: appCtx.sourceBaseNoun,
+    // the Rashomon fold — two figures' folds over the same events, diffed (agree / conflict /
+    // diverge / each own), at one source (rashomonSource, by entity id) or the whole topic
+    // (rashomonTopic, by label); rashomonCandidates lists the figures with a voice to compare.
+    rashomonSource: appCtx.rashomonSource, rashomonTopic: appCtx.rashomonTopic, rashomonCandidates: appCtx.rashomonCandidates,
+    // ask a figure — answer a question from inside one figure's fold (bounded to their own words).
+    askFigureSource: appCtx.askFigureSource, askFigureTopic: appCtx.askFigureTopic,
+    // idea transmission — a claim traced from one voice into another's, in document/corpus time,
+    // marking where it mutated (an inverted echo); at one source or across the whole topic.
+    transmissionSource: appCtx.transmissionSource, transmissionTopic: appCtx.transmissionTopic,
+    // standing folds — save a comparison/trace and see what changed since (docs: the living fold).
+    standingSave: appCtx.standingSave, standingRefresh: appCtx.standingRefresh, standingRemove: appCtx.standingRemove, standingList: appCtx.standingList,
+    // fragility — the record's contested claims ranked by how much of the record hangs off them.
+    fragilitySource: appCtx.fragilitySource, fragilityTopic: appCtx.fragilityTopic,
+    // chronology — the order events are told vs. happened; a timeline with flashbacks flagged.
+    chronologySource: appCtx.chronologySource, chronologyTopic: appCtx.chronologyTopic,
     // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
     sourceSummary: appCtx.sourceSummary, sourceSummaryOf: appCtx.sourceSummaryOf, entitySummary: appCtx.entitySummary, entitySummaryFor: appCtx.entitySummaryFor, summaryFeedback: appCtx.summaryFeedback,
     // the figure a single-subject source centres on — the source page shows its dossier (docs/topline.md)
