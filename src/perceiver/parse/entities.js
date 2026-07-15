@@ -36,10 +36,20 @@ const CONN  = String.raw`de|von|van|der|del|di|du|la|le|of|the`;
 // the Latin-1 letter block (À-Ö, Ø-ö, ø-ÿ — excludes × ÷), which carries the acute/grave/diaeresis
 // forms a European-name transliteration uses. These are single UTF-16 code units, so the existing
 // `\b`-anchored, un-`u`-flagged regexes keep working unchanged; only the reach of a name widens.
-const U = String.raw`A-ZÀ-ÖØ-Þ`;            // a capital name-initial, incl. accented (Á É Í Ó Ú …)
-const L = String.raw`A-Za-zÀ-ÖØ-öø-ÿ`;      // a name-internal letter, either case, incl. accented
+// The letter classes carry Latin (incl. the Latin-1 accents a European transliteration uses —
+// Natásha, Kutúzov) AND Cyrillic (А-Я а-я Ё ё), so the scanner reads a Russian name (Пьер,
+// Андрей) as one span, not script it cannot see. All are single BMP code units, so the classes
+// stay un-`u`-flagged; the language of the name never enters the mechanism.
+const U = String.raw`A-ZÀ-ÖØ-ÞА-ЯЁ`;               // a capital name-initial — Latin (incl. accented) or Cyrillic
+const L = String.raw`A-Za-zÀ-ÖØ-öø-ÿА-Яа-яЁё`;     // a name-internal letter, either case, Latin or Cyrillic
 const NAME  = String.raw`[${U}][${L}]+(?:\s+(?:${CONN}\s+)?[${U}][${L}]+)*`;
-const CAP_RE = new RegExp(String.raw`\b(?:${TITLE}\s+)?${NAME}\b`, 'g');
+// The word EDGES, script-agnostically. JS `\b` is ASCII-only — it treats a Cyrillic or accented
+// initial as a non-word char, so `\bПьер` (and even `\bÉmile`) never matches at the leading edge.
+// A name instead begins where the previous character is NOT a name letter and ends where the next
+// is not: single-code-unit lookarounds over the letter class, no `u` flag, any script.
+const EDGE_L = String.raw`(?<![${L}])`;
+const EDGE_R = String.raw`(?![${L}])`;
+const CAP_RE = new RegExp(EDGE_L + String.raw`(?:${TITLE}\s+)?${NAME}` + EDGE_R, 'g');
 
 // ── Initialism (acronym ↔ expansion) — a learned, defeasible org alias ───────
 // The orthographic MECHANISM only (the parse leaf holds mechanism, never a table):
@@ -149,8 +159,13 @@ export const TITLE_WORDS = new Set([
   'Professor','Prof','Capt','Captain','Rev','St','Aunt','Uncle',
 ]);
 
+// A stable id from a label: lowercased, spaces → hyphens, keeping LETTERS and NUMBERS of any
+// script. The old `[^a-z0-9-]` strip was Latin-only — it deleted every Cyrillic character, so a
+// two-word Russian name ("Весь Толстой") collapsed to the id "-" and the whole cast merged into
+// one node. `\p{L}\p{N}` keeps Cyrillic (and the Latin-1 accents a transliteration carries), so
+// the id is faithful to the name in any language.
 const idFor = (label) =>
-  label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  label.toLowerCase().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}-]/gu, '');
 
 // ── Admission by SEMANTIC GRAVITY, not by a sighting count ──────────────────
 //
