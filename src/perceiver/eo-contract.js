@@ -24,6 +24,7 @@ export const CONTRACTS = Object.freeze({
   'src/perceiver/parse/relations.js': contract({ ops: ['CON', 'SIG', 'DEF'], targets: ['Field', 'Entity'], products: ['Link', 'Lens'], stances: ['Binding', 'Tracing'], note: 'relation extraction (CON/SIG/DEF)' }),
   'src/perceiver/parse/sentences.js': contract({ ops: ['SEG', 'EVA'], targets: ['Void'], products: ['Field'], stances: ['Clearing'], note: 'sentence segmentation' }),
   'src/perceiver/parse/tokenize.js': contract({ ops: ['SEG'], targets: ['Void'], products: ['Field'], stances: ['Clearing'], note: 'the single tokenizer' }),
+  'src/perceiver/perspective.js': contract({ ops: ['SIG', 'EVA'], targets: ['Network', 'Entity'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'figure perspective — quotes, voice, the universe from a figure’s fold' }),
   'src/perceiver/predict.js': contract({ ops: ['EVA'], targets: ['Field'], products: ['Lens'], stances: ['Tracing'], note: 'predictive-coding surprise' }),
   'src/perceiver/proposition-equivalence.js': contract({ ops: ['EVA', 'SYN', 'REC', 'NUL', 'DEF'], targets: ['Link', 'Field'], products: ['Network', 'Kind'], stances: ['Composing', 'Binding'], note: 'same-assertion attest' }),
   'src/perceiver/reading.js': contract({ ops: ['REC', 'EVA'], targets: ['Network'], products: ['Lens'], stances: ['Tracing'], note: 'L3 significance (predict/surprise)' }),

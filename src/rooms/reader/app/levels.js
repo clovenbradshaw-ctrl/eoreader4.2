@@ -6,7 +6,7 @@
 import { parseText } from '../../../perceiver/parse/index.js';
 import { projectGraph } from '../../../core/index.js';
 import { readThroughIndex, settledText } from '../transcript-format.js';
-import { figureSurface, rankProperties } from '../../../perceiver/index.js';
+import { figureSurface, rankProperties, perspectiveOf } from '../../../perceiver/index.js';
 
 export const installLevels = (appCtx) => {
   const { state } = appCtx;
@@ -195,6 +195,20 @@ export const installLevels = (appCtx) => {
       score: d.score, confidence: d.confidence, polarity: d.polarity, modality: d.modality,
       witnesses: d.witnesses.map((i) => ({ idx: i, text: sentAt(i) })).filter((w) => w.text),
     }));
+    // The figure's PERSPECTIVE — when the referent is a person or agent, the reading as IT
+    // holds it: its verbatim quotes (its voice), its speech acts, and the universe its own
+    // words instantiate (its fold). Present for every entity; `isAgent` is the honest gate a
+    // surface reads to decide whether to show a voice at all — a place or a platform reads
+    // false and carries no quotes. Text-only (a non-prose organ's referent has no quotes).
+    const persp = (doc.modality === 'text' || !doc.modality) ? perspectiveOf(doc, [entId]) : null;
+    const perspective = (persp && persp.isAgent) ? {
+      isAgent: true, signals: persp.signals,
+      quotes: persp.quotes.map((q) => ({ text: q.text, idx: q.idx, form: q.form,
+        source: sentAt(q.idx) })),
+      attributions: persp.attributions,
+      fold: persp.fold,
+    } : { isAgent: false };
+
     return {
       label, docId, sn: src.sn, sourceTitle: src.title,
       defs, mentionCount: idxs.size,
@@ -203,7 +217,7 @@ export const installLevels = (appCtx) => {
         via: r.via, op: r.op, idx: r.idx, type: r.type, polarity: r.polarity,
       })),
       figures: fs.figures.map((f) => ({ entId: f.id, label: f.label, count: f.count })),
-      mentions,
+      mentions, perspective,
     };
   };
 
