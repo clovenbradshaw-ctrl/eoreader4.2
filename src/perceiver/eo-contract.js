@@ -15,6 +15,7 @@ export const CONTRACTS = Object.freeze({
   'src/perceiver/parse/entities.js': contract({ ops: ['INS', 'SIG', 'SYN'], targets: ['Void'], products: ['Entity', 'Network'], stances: ['Making'], note: 'entity admission by gravity' }),
   'src/perceiver/parse/frame.js': contract({ ops: ['SEG'], targets: ['Field'], products: ['Field'], stances: ['Clearing'], note: 'structural frame (banner bracket)' }),
   'src/perceiver/parse/fuzzy.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Link'], stances: ['Binding'], note: 'bounded edit distance' }),
+  'src/perceiver/parse/grain.js': contract({ ops: ['DEF'], targets: ['Field', 'Network'], products: ['Lens', 'Paradigm', 'Atmosphere'], stances: ['Dissecting', 'Unraveling', 'Clearing'], note: 'the grain reader — figure / kind / setting from a span’s company' }),
   'src/perceiver/parse/index.js': contract({ ops: ['SEG', 'INS', 'CON', 'SYN', 'DEF'], targets: ['Void', 'Field'], products: ['Network', 'Entity', 'Field'], stances: ['Composing'], note: 'barrel' }),
   'src/perceiver/parse/metadata.js': contract({ ops: ['SIG', 'REC'], targets: ['Void'], products: ['Atmosphere', 'Paradigm'], stances: ['Tending'], note: 'front-matter metadata harvest' }),
   'src/perceiver/parse/name-variants.js': contract({ ops: ['SYN', 'NUL'], targets: ['Entity'], products: ['Network'], stances: ['Composing', 'Making'], note: 'name-variant coreference (surface forms of one referent)' }),

@@ -114,6 +114,13 @@ export const createParser = ({
   // triggers it. It only ever lights up input the capital scan leaves completely dark (zero figures),
   // so turning it on adds figures where there were none and changes nothing that already worked.
   uncasedReferents   = true,
+  // Read the GRAIN of each admitted figure (parse/grain.js) — which Existence terrain it sits in:
+  // a figure (Entity), a kind (Kind), or a setting (Void) — from its own company (subject-rate,
+  // oblique-rate, lowercase/plural twin), and record the judgment as a defeasible DEF{key:'grain'}.
+  // ON by default: the pass is ADDITIVE-ONLY (it appends judgments, never changes admission or
+  // edges) and it abstains — no event — wherever the signal is not clean, the no-commit
+  // discipline; the full suite reads identically with it on. Off restores the ungraded log.
+  grainRead          = true,
 } = {}) => {
   // State owned by this parser instance. Mutated by parse(); the mutation
   // is visible only inside the holon. Tests construct one parser per case.
@@ -710,6 +717,28 @@ export const createParser = ({
       // corroborated by the naming scene as it is committed.
       log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
                    reason: 'naming-scene', role: m.role, sentIdx: 0 }, EMIT);
+    }
+
+    // ── The GRAIN of each admitted figure — which Existence terrain ─────────────
+    // LAST, once the cast is fully assembled (merges, namings, edges all in): read each referent's
+    // grain from its company (grain.js) and record it as a defeasible DEF — figure / kind /
+    // setting. One judgment per REFERENT (aliased labels share an id; the most-sighted label
+    // speaks for it), and NONE where the reader abstains: thin evidence appends nothing. Sitting
+    // at the log's tail makes the pass literally ADDITIVE — every event before it is byte-
+    // identical with the flag off. The DEF's own cube grain matches the grain it assigns (calling
+    // a span a Kind IS a Pattern-grain judgment), so each event lies on the diagonal.
+    if (grainRead) {
+      const speaker = new Map();   // id → its most-sighted label (the referent's best evidence)
+      for (const [label, id] of admission.admitted) {
+        const c = admission.counts.get(label) ?? 0;
+        if (!speaker.has(id) || c > speaker.get(id).c) speaker.set(id, { label, c });
+      }
+      for (const [id, { label }] of speaker) {
+        const g = admission.grainOf(label);
+        if (!g) continue;                              // HELD — no clean signal, no event
+        log.append({ op: 'DEF', id, key: 'grain', value: g.value, grain: g.grain,
+                     cue: g.cue, defeasible: true, sentIdx: 0 }, EMIT);
+      }
     }
 
     const tokensBySentence = sentences.map(s => new Set(tok(s)));
