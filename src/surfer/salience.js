@@ -80,6 +80,55 @@ export const threadFigures = (terms, doc) => {
   return figures;
 };
 
+// positionThread(doc, position, { reach, gamma }) → the reader's POSITION as an activated thread,
+// the CO-READING analogue of threadBasis. In deep reading the thread is a chat query, or — idle —
+// nothing (the seed only varies WHICH void the walk starts from; the peak is the document's own
+// steepest structure). Co-reading points that same mechanism at the reader: where the eye sits IS
+// the thread. So the passage at `position` becomes the state |T⟩ — the sentence under the eye
+// weighted fullest, the sentences around it γ-decayed by distance (the live reading context, not
+// one line) — and its figures resolve against the doc, exactly as a query's terms would. The
+// surfer then re-weights the peak toward this passage (surf.js thread conditioning), so "most
+// interesting" means most interesting to WHERE YOU ARE. Embedder-free: the doc's own token sets
+// (no re-tokenisation when tokensBySentence is present), the doc's own entity labels. Empty (→ no
+// conditioning, byte-identical to unseeded deep reading) when the doc is empty or position is not
+// a real index.
+export const positionThread = (doc, position, { reach = 4, gamma = 0.7 } = {}) => {
+  const sents = doc?.units || doc?.sentences || [];
+  const sets = doc?.tokensBySentence || null;
+  const n = sents.length;
+  const terms = new Map();
+  if (!n || !Number.isInteger(position)) return { terms, figures: new Set() };
+  const p = Math.max(0, Math.min(n - 1, position));
+  const addAt = (i, w) => {
+    const ts = (sets && sets[i]) ? sets[i] : tok(String(sents[i] ?? ''));
+    for (const t of ts) terms.set(t, (terms.get(t) || 0) + w);
+  };
+  addAt(p, 1);                                       // the line under the eye — the strongest pull
+  for (let d = 1; d <= reach; d++) {                 // the passage around it, decayed by distance
+    const w = Math.pow(gamma, d);
+    if (p - d >= 0) addAt(p - d, w);
+    if (p + d < n) addAt(p + d, w);
+  }
+  return { terms, figures: threadFigures(terms, doc) };
+};
+
+// combineThreads(a, b) → the union of two threads, so the reader's position can COMPOSE with a
+// live chat thread (or a lens filter) rather than replace it: term weights sum, figure sets union.
+// Either side may be null/empty (then the other passes through unchanged). This is how "where you
+// are" and "what is being discussed" steer the co-reader together — the passage under the eye and
+// the question in the thread both pull on the same |T⟩.
+export const combineThreads = (a, b) => {
+  const ta = (a && (a.terms || a)) || null;
+  const tb = (b && (b.terms || b)) || null;
+  if (!ta || (ta.size === 0)) return b || { terms: new Map(), figures: new Set() };
+  if (!tb || (tb.size === 0)) return a || { terms: new Map(), figures: new Set() };
+  const terms = new Map(ta);
+  for (const [t, w] of tb) terms.set(t, (terms.get(t) || 0) + w);
+  const figures = new Set(a.figures || []);
+  for (const f of (b.figures || [])) figures.add(f);
+  return { terms, figures };
+};
+
 // bornSalience(basis, tokenSet) → |⟨T|s⟩|², the Born weight of a span against the thread.
 // The span is its set of terms (the doc's tokensBySentence entry); the thread is the weighted
 // basis. The overlap is the cosine in the shared term space, squared (the Born rule). 0 when

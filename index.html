@@ -1758,6 +1758,7 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ toggleReadFont }}" title="Type family" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">{{ readFontLabel }}</button>
                   <button onClick="{{ cycleReadWidth }}" title="Column width" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">▤ {{ readWidthLabel }}</button>
                   <button onClick="{{ cycleReadTheme }}" title="Paper theme" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">{{ readThemeLabel }}</button>
+                  <button onClick="{{ cycleReadingMode }}" title="{{ readingModeTitle }}" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ readingModeFg }};background:{{ readingModeBg }};border:1px solid {{ readingModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)">{{ readingModeLabel }}</button>
                   <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ entModeLabel }}</button>
                 </sc-if>
                 <sc-if value="{{ viewerIsPage }}">
@@ -3330,6 +3331,10 @@ class Component extends DCLogic {
       // the height back. Only in Listen mode; resets on tab/source/mode change.
       listenMediaMin: false,
       readPrefs: this._readPrefs(),
+      // The reading-mode ladder (docs/co-reading.md) — "how much is on screen". Paper: clean prose.
+      // Companion: co-read margin-thoughts appear where the reader dwells. Lit: Companion + lenses
+      // (the Link lens on). Persisted; drives body classes on the open book iframe.
+      readingMode: this._prefStr('eo_readingmode', 'paper'),
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
       // A search hit opens as a NATIVE PREVIEW first — the real page, loaded normally in a sandboxed
       // frame — and only becomes a recorded source when you choose to add it. { item, doc, busy, err }.
@@ -3511,6 +3516,9 @@ class Component extends DCLogic {
     }
     if (kind === 'messages') { this._segCache = {}; }
     if (kind === 'stream' || kind === 'messages') { this._seedLive(); this._scrollChatSoon(); this._ensureTyping(); }
+    // A fresh co-read (or at-rest) reflection landed — re-lay the margin notes on the open book so a
+    // thought appears where the reading caught on it, without reloading the iframe.
+    if (kind === 'reflections') this._refreshMargins();
     this._poke();
   }
   // ── the typewriter: reveal streamed text one character at a time ──────────────────────
@@ -5008,6 +5016,50 @@ class Component extends DCLogic {
     if (d && this._render) this._render.scrollToAnchor(d, id);
     this.setState({ tocOpen: false });
   }
+  // ── co-reading: the reading-mode ladder + the margin (docs/co-reading.md) ──────────────────
+  // Cycle Paper → Companion → Lit. Persist, flip the body class on the open book LIVE (no reload),
+  // and — off Paper — read where the eye is now and lay the notes. Paper clears the margin.
+  cycleReadingMode() {
+    const order = ['paper', 'companion', 'lit'];
+    const mode = order[(order.indexOf(this.state.readingMode) + 1) % order.length];
+    this._setPrefStr('eo_readingmode', mode);
+    this.setState({ readingMode: mode });
+    const d = this._readerFrame && this._readerFrame.contentDocument, R = this._render;
+    if (d && R && R.applyReadingMode) { try { R.applyReadingMode(d, mode, { links: !!this.state.entityMode }); } catch {} }
+    if (mode === 'paper') { if (d && R && R.renderMarginNotes) { try { R.renderMarginNotes(d, []); } catch {} } }
+    else { this._coReadNow(); this._refreshMargins(); }
+  }
+  // The positioned reflections for the source open in the reader — the co-read margin-thoughts, each
+  // { id, anchorText, note, verdict } the render helper hangs beside its passage.
+  _marginNotesFor(sn) {
+    const app = this._app; const s = app && app.sourceBySn && app.sourceBySn(sn);
+    if (!s) return [];
+    const refl = (app.state && app.state.reflections) || [];
+    return refl.filter((r) => r && r.positioned && r.docId === s.docId && r.anchorText && r.note)
+      .map((r) => ({ id: r.id, anchorText: r.anchorText, note: r.note, verdict: r.verdict }));
+  }
+  // Re-lay the margin on the open book — called on a fresh reflection and after a mode change. A
+  // no-op on Paper (margins hidden) or when the reader frame is not mounted.
+  _refreshMargins() {
+    if (this.state.readingMode === 'paper') return;
+    const d = this._readerFrame && this._readerFrame.contentDocument, R = this._render;
+    if (!d || !d.body || !R || !R.renderMarginNotes) return;
+    try { R.renderMarginNotes(d, this._marginNotesFor(this._activeSrc())); } catch {}
+  }
+  // Read WHERE THE EYE IS NOW — the block at the top of the viewport — and drive one co-read pass
+  // there (app.coReadHere resolves the visible text to a sentence index, firewalled). Off on Paper.
+  _coReadNow() {
+    if (this.state.readingMode === 'paper') return;
+    const d = this._readerFrame && this._readerFrame.contentDocument, R = this._render, app = this._app;
+    if (!d || !d.body || !R || !R.topVisibleText || !app || !app.coReadHere) return;
+    const s = app.sourceBySn && app.sourceBySn(this._activeSrc()); if (!s) return;
+    let text = ''; try { text = R.topVisibleText(d); } catch {}
+    if (!text) return;
+    try {
+      const r = app.coReadHere(s, text, { after: this._coReadAfter || 0 });
+      if (r) { this._coReadAfter = r.peak; this._refreshMargins(); }
+    } catch {}
+  }
   // The reader iframe ref — capture it, restore the saved scroll position, apply the current
   // theme, and (on a citation jump) scroll to the cited passage. Runs once per mount.
   setReaderFrame(el) {
@@ -5046,6 +5098,20 @@ class Component extends DCLogic {
         win.addEventListener('scroll', () => {
           const max = Math.max(1, (d.documentElement.scrollHeight || 0) - win.innerHeight);
           if (this._posT) return; this._posT = setTimeout(() => { this._posT = null; this._saveReadPos(sn, win.scrollY / max); }, 200);
+        }, { passive: true });
+      }
+      // CO-READING (docs/co-reading.md): set the reading-mode body class, and — off Paper — lay any
+      // margin notes this source already has and read where the book opens. A DWELL handler drives a
+      // fresh co-read when the reader settles (scroll stops for a beat), so a thought appears where
+      // the eye lingers, not on every scroll tick. The engine governs whether anything fires.
+      try { R && R.applyReadingMode && R.applyReadingMode(d, this.state.readingMode, { links: !!this.state.entityMode }); } catch {}
+      this._coReadAfter = 0;
+      if (this.state.readingMode !== 'paper') setTimeout(() => { this._refreshMargins(); this._coReadNow(); }, 140);
+      if (win) {
+        win.addEventListener('scroll', () => {
+          if (this.state.readingMode === 'paper') return;
+          if (this._dwellT) clearTimeout(this._dwellT);
+          this._dwellT = setTimeout(() => { this._dwellT = null; this._coReadNow(); }, 550);
         }, { passive: true });
       }
     };
@@ -8332,6 +8398,17 @@ class Component extends DCLogic {
       readFontLabel: rp.font === 'sans' ? 'Aa Sans' : 'Aa Serif', readWidthLabel: String(rp.w || 720),
       cycleReadTheme: () => this.cycleReadTheme(), toggleReadFont: () => this.toggleReadFont(),
       readSizeUp: () => this.bumpReadFont(1), readSizeDown: () => this.bumpReadFont(-1), cycleReadWidth: () => this.cycleReadWidth(),
+      // reading-mode ladder — Paper · Companion · Lit (docs/co-reading.md)
+      cycleReadingMode: () => this.cycleReadingMode(),
+      readingModeLabel: { paper: '◯ Paper', companion: '◐ Companion', lit: '● Lit' }[st.readingMode] || '◯ Paper',
+      readingModeTitle: st.readingMode === 'paper'
+        ? 'Paper — clean prose. Click for Companion: the reading thinks in the margin where you dwell.'
+        : st.readingMode === 'companion'
+          ? 'Companion — margin-thoughts appear where you settle, ghosted and marked "mine" (never a claimed fact). Click for Lit: + lenses.'
+          : 'Lit — Companion plus the lenses (entity links on). Click to return to clean Paper.',
+      readingModeFg: st.readingMode === 'paper' ? '#8A8A95' : '#5B4BE6',
+      readingModeBg: st.readingMode === 'paper' ? '#F2F2F6' : '#F1EFFE',
+      readingModeBd: st.readingMode === 'paper' ? '#EAEAEF' : '#DED8FD',
       // native render body — the live site, plus its own contents lifted into the reader's drawer
       pageDoc, pageShow: !!pageDoc, pageBusy, pageErr, hasPageErr: !!pageErr, retryPage: () => this.retryPage(),
       setNativeFrame: (el) => this.setNativeFrame(el),

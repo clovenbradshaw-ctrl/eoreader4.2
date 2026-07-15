@@ -8,7 +8,7 @@ import { speakTriples, talkThenVerify } from '../../../weave/write/index.js';
 import { projectGraph } from '../../../core/index.js';
 import { runCuriousResearch } from '../../../turn/index.js';
 import { createDeepReader } from '../../../surfer/fold/index.js';
-import { surfFold } from '../../../surfer/index.js';
+import { surfFold, positionThread, combineThreads, sentenceIndexOfText } from '../../../surfer/index.js';
 import { REFLECTION_CAP, recordReflections, appendLog } from './guards.js';
 import { nowIso, nowMs } from './util.js';
 
@@ -110,6 +110,65 @@ export const installDeep = (appCtx) => {
         appCtx.persist(); emit('reflections');
       }
     } finally { deepRunning = false; }
+  };
+
+  // CO-READING (docs/co-reading.md) — the deep-reading loop TETHERED to the human's position. The
+  // surface reports where the reader has settled (a sentence index in the open book); this points
+  // the reader THERE: the passage under the eye becomes the salience thread (positionThread), the
+  // surfer's peak is re-weighted toward it (surf.js), and — only if that place beats the reach's own
+  // band — ONE reflection fires in the margin of that place. Not everywhere (that would be
+  // rumination, the architecture's named worst failure); only where the reading itself catches on
+  // something. It reuses the at-rest reader, so co-reading and idle deep reading SHARE one
+  // habituation memory — a place already reflected on is never re-read when the eye lands on it, and
+  // vice versa. Firewalled like every reflection: canWitness === false BY TYPE, so a margin-thought
+  // can never launder into a fact the document is claimed to say. An optional live chat `thread`
+  // composes with the position (combineThreads) — "where you are" and "what is being discussed" pull
+  // together. Returns the reflection (for the surface to paint in place), or null when the reading
+  // did not catch on anything there (the companion stays quiet rather than narrate every paragraph).
+  const coReadAt = (src, position, { thread = null, manual = false } = {}) => {
+    if (state.busy && !manual) return null;          // engaged — don't compete with an active turn
+    if (!src || !Number.isInteger(position)) return null;
+    const entry = deepReaderFor(src);
+    if (!entry) return null;
+    const n = (entry.doc.sentences || entry.doc.units || []).length; if (!n) return null;
+    const at = Math.max(0, Math.min(n - 1, position));
+    let res;
+    try {
+      const posThread = positionThread(entry.doc, at, { reach: 4 });
+      res = entry.reader.reflectAt(at, { thread: thread ? combineThreads(posThread, thread) : posThread });
+    } catch { return null; }
+    const r = res && res.reflection;
+    if (!r) return null;                             // nothing beat the band here — the companion stays quiet
+    const sents = entry.base.sentences || entry.base.units || [];
+    const anchorText = String(sents[r.peak] ?? '').trim();   // the sentence the note hangs beside (margin anchor)
+    state.reflectionsSeen = recordReflections(state.reflections, state.reflectionsSeen, [r], (x) => ({
+      t: nowIso(), docId: src.docId, sn: src.sn, title: src.title,
+      peak: x.peak, note: cleanLabels(x.body, entry.base), verdict: x.verdict || '',
+      surprise: x.surprise, canWitness: x.canWitness,   // false — the firewall, surfaced
+      positioned: true,                                 // co-read AT the reader's place — render in its margin
+      anchorText,                                       // the passage under the eye — the surface matches it to a block
+    }));
+    const rec = state.reflections[state.reflections.length - 1];
+    // One coalescing beat per reading lull — the Actions feed points to where the note actually
+    // landed (the margin), rather than stacking a line per glance.
+    logIt('reflection', 'Noticed something where you are reading', 'see it in the margin', { coalesce: true });
+    appCtx.persist(); emit('reflections');
+    return rec;
+  };
+
+  // coReadHere(src, visibleText) — the surface reports where the eye has SETTLED as text (the block
+  // at the top of the reader's viewport, which carries no sentence index — it is reflowed prose).
+  // This resolves that text to the doc sentence index co-reading anchors in (sentenceIndexOfText,
+  // robust to reflow / stripped front matter) and drives one co-read pass there. `after` biases the
+  // resolve forward from the last place read, so a reader riding forward resolves cheaply and a
+  // repeated block near a boundary does not snap backward. Returns the reflection (or null).
+  const coReadHere = (src, visibleText, { after = 0, thread = null } = {}) => {
+    if (!src || !visibleText) return null;
+    const entry = deepReaderFor(src);
+    if (!entry) return null;
+    const at = sentenceIndexOfText(entry.doc, visibleText, { from: after });
+    if (at < 0) return null;                          // the visible text matched no sentence — do nothing
+    return coReadAt(src, at, { thread });
   };
 
   // Voice the just-grounded connections as prose (phase E). Builds grounded subject→relation→object
@@ -359,5 +418,5 @@ export const installDeep = (appCtx) => {
   // on EVERY visit until the user cleared site data.
   appCtx.restore().catch(() => { if (!state.ready) { state.ready = true; emit('ready'); } });
 
-  Object.assign(appCtx, { connectTick, deepIdleStart, deepReaders, deepTick, deepWake, reflections, setMurmurMode, setMurmurVisible, wanderTick });
+  Object.assign(appCtx, { connectTick, coReadAt, coReadHere, deepIdleStart, deepReaders, deepTick, deepWake, reflections, setMurmurMode, setMurmurVisible, wanderTick });
 };

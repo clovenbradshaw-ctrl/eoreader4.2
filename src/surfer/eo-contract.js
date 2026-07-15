@@ -9,6 +9,7 @@ export const CONTRACTS = Object.freeze({
   'src/surfer/answerable.js': contract({ ops: ['EVA', 'DEF', 'NUL'], targets: ['Field', 'Entity'], products: ['Void'], stances: ['Clearing', 'Tending'], note: 'answerability — is field void' }),
   'src/surfer/atmosphere.js': contract({ ops: ['SIG', 'EVA'], targets: ['Field', 'Atmosphere'], products: ['Atmosphere'], stances: ['Tending', 'Tracing'], note: 'the Atmosphere pass' }),
   'src/surfer/chorus.js': contract({ ops: ['SIG', 'EVA', 'SYN'], targets: ['Field'], products: ['Field', 'Lens'], stances: ['Tending', 'Binding', 'Composing'], note: 'the surf chorus — chorusStops' }),
+  'src/surfer/co-read.js': contract({ ops: ['EVA'], targets: ['Field', 'Network', 'Link'], products: ['Lens'], stances: ['Binding', 'Tending'], note: 'co-reading — deep reading tethered to the reader\'s position' }),
   'src/surfer/evaluation.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field', 'Atmosphere'], products: ['Lens'], stances: ['Tracing', 'Binding'], note: 'the modeler — narrator evaluation' }),
   'src/surfer/grow-basis.js': contract({ ops: ['REC', 'EVA'], targets: ['Paradigm', 'Void'], products: ['Paradigm'], stances: ['Composing', 'Cultivating'], note: 'the growing basis' }),
   'src/surfer/helix-predict.js': contract({ ops: ['EVA', 'REC', 'SYN'], targets: ['Field', 'Network'], products: ['Paradigm', 'Field'], stances: ['Tracing', 'Composing'], note: 'helix-aware predictor' }),
