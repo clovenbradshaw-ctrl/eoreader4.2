@@ -87,6 +87,13 @@ const isHeadingLine = (line, nextChar) => {
   return nextChar === '' || /[A-Z0-9"'“(]/.test(nextChar);  // next line opens a fresh unit
 };
 
+// CJK sentence-final marks (ideographic/fullwidth full stop, exclamation, question). Unlike the
+// ASCII floor these are UNCONDITIONAL boundaries: CJK is unspaced, so a mark is not followed by a
+// space (清盛が来た。清盛は去った。) — the "followed by space/end" test the ASCII floor needs would
+// never fire, welding a whole passage into one unit. A CJK final mark also never abbreviates, so it
+// always cuts. Absent from any cased-script text, so this changes nothing there.
+const CJK_FINAL = /[。｡！？﹗﹖]/;
+
 // `extraBoundaries` is a set of marks the reading has LEARNED to treat as sentence
 // ends for this document — beyond the `.!?` floor. It is empty by default (modern
 // prose), and promoted by the boundary-induction loop (parse/boundaries.js) when a
@@ -123,6 +130,13 @@ export const segmentSentences = (
         continue;
       }
       buf += ch;
+      // A CJK sentence-final mark ends the unit outright — no trailing space in an unspaced script.
+      if (CJK_FINAL.test(ch)) {
+        const s = buf.trim();
+        if (s) out.push(s);
+        buf = '';
+        continue;
+      }
       const next = p[i + 1] || '';
       const isFloor = ch === '.' || ch === '!' || ch === '?';
       if ((isFloor || extraBoundaries.has(ch)) && (next === '' || /\s/.test(next))) {

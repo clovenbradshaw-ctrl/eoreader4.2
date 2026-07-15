@@ -27,6 +27,7 @@ import { createCorefField }     from './coref.js';
 import { discoverNamings }      from './naming.js';
 import { distinctReferentCount } from './name-variants.js';
 import { induceInflections } from './inflection.js';
+import { discoverUncasedReferents } from './uncased.js';
 import { tok }                  from './tokenize.js';
 import { createConventions, induceAttributionVerbs, BOUNDARY } from '../../core/conventions/index.js';
 
@@ -106,6 +107,20 @@ export const createParser = ({
   // never merge. OFF by default → English (barely inflected) folds nothing and the read is
   // byte-identical; on, an inflected language's cast stops fracturing across cases.
   foldInflections    = false,
+  // Discover the figures of an UNCASED document (Japanese, Chinese, Arabic, Hebrew) by gravity
+  // (parse/uncased.js), where a name carries no capital for the scanner to anchor on. Unlike the
+  // flags above this defaults ON — but it is byte-identical for any cased document, because it fires
+  // ONLY when most of the text's letters are caseless (\p{Lo}); a Latin/Cyrillic/Greek read never
+  // triggers it. It only ever lights up input the capital scan leaves completely dark (zero figures),
+  // so turning it on adds figures where there were none and changes nothing that already worked.
+  uncasedReferents   = true,
+  // Read the GRAIN of each admitted figure (parse/grain.js) — which Existence terrain it sits in:
+  // a figure (Entity), a kind (Kind), or a setting (Void) — from its own company (subject-rate,
+  // oblique-rate, lowercase/plural twin), and record the judgment as a defeasible DEF{key:'grain'}.
+  // ON by default: the pass is ADDITIVE-ONLY (it appends judgments, never changes admission or
+  // edges) and it abstains — no event — wherever the signal is not clean, the no-commit
+  // discipline; the full suite reads identically with it on. Off restores the ungraded log.
+  grainRead          = true,
 } = {}) => {
   // State owned by this parser instance. Mutated by parse(); the mutation
   // is visible only inside the holon. Tests construct one parser per case.
@@ -152,6 +167,20 @@ export const createParser = ({
     // role words, function words, auxiliaries) from the same conventions ledger the
     // splitter and relation parser use — seed ∪ what this document taught.
     const admission   = createEntityAdmission({ conventions, commonNouns, text });
+
+    // Uncased figures (parse/uncased.js), discovered ONCE up front. Guarded to fire only on a
+    // genuinely uncased document — one whose letters are mostly caseless (\p{Lo}: CJK, Arabic,
+    // Hebrew), which is exactly where the capital-anchored scan above finds nothing. A cased read
+    // (Latin/Cyrillic/Greek) never enters here, so it stays byte-identical. Longest-first so a figure
+    // and its superstring do not double-count when matched into a sentence below.
+    const uncasedForms = (() => {
+      if (!uncasedReferents) return [];
+      const lo = (text.match(/\p{Lo}/gu) || []).length;
+      const letters = (text.match(/\p{L}/gu) || []).length;
+      if (!letters || lo / letters < 0.5) return [];
+      return discoverUncasedReferents(text).referents
+        .map((r) => r.form).sort((a, b) => b.length - a.length);
+    })();
 
     // Transcript detection — the handler is injected, not imported.
     if (transcriptHandler && transcriptHandler.detect && transcriptHandler.detect(text)) {
@@ -340,6 +369,22 @@ export const createParser = ({
           log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.INDETERMINATE,
                        reason: 'surname-containment-thin', surname: obs.surname, sentIdx }, EMIT);
           surnameMerges.push({ synSeq: syn.seq, surname: obs.surname, from: obs.id, to: obs.aliasOf });
+        }
+      }
+
+      // Admit any UNCASED figure occurring in this sentence — the caseless-script names discovered
+      // by gravity up front (empty, so a no-op, for every cased document). Longest-first with masking
+      // so a figure and its superstring do not double-count; each is an INS + a coref trace, exactly
+      // like a scanned name, and advances the arrow of time so a following clause can inherit it.
+      if (uncasedForms.length) {
+        let masked = sent;
+        for (const form of uncasedForms) {
+          if (!masked.includes(form)) continue;
+          masked = masked.split(form).join(' ');     // mask so a substring figure will not re-hit
+          const id = admission.admit(form, sentIdx);
+          log.append({ op: 'INS', id, label: form, sentIdx }, EMIT);
+          corefField.note(id, sentIdx);
+          lastIns = { id, sentIdx };
         }
       }
 
@@ -672,6 +717,28 @@ export const createParser = ({
       // corroborated by the naming scene as it is committed.
       log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
                    reason: 'naming-scene', role: m.role, sentIdx: 0 }, EMIT);
+    }
+
+    // ── The GRAIN of each admitted figure — which Existence terrain ─────────────
+    // LAST, once the cast is fully assembled (merges, namings, edges all in): read each referent's
+    // grain from its company (grain.js) and record it as a defeasible DEF — figure / kind /
+    // setting. One judgment per REFERENT (aliased labels share an id; the most-sighted label
+    // speaks for it), and NONE where the reader abstains: thin evidence appends nothing. Sitting
+    // at the log's tail makes the pass literally ADDITIVE — every event before it is byte-
+    // identical with the flag off. The DEF's own cube grain matches the grain it assigns (calling
+    // a span a Kind IS a Pattern-grain judgment), so each event lies on the diagonal.
+    if (grainRead) {
+      const speaker = new Map();   // id → its most-sighted label (the referent's best evidence)
+      for (const [label, id] of admission.admitted) {
+        const c = admission.counts.get(label) ?? 0;
+        if (!speaker.has(id) || c > speaker.get(id).c) speaker.set(id, { label, c });
+      }
+      for (const [id, { label }] of speaker) {
+        const g = admission.grainOf(label);
+        if (!g) continue;                              // HELD — no clean signal, no event
+        log.append({ op: 'DEF', id, key: 'grain', value: g.value, grain: g.grain,
+                     cue: g.cue, defeasible: true, sentIdx: 0 }, EMIT);
+      }
     }
 
     const tokensBySentence = sentences.map(s => new Set(tok(s)));

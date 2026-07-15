@@ -20,3 +20,5 @@ export { argumentSpanSeg, positionElements, argumentSpansHold,
          SVO_EXTRACTOR, SVO_CONFIDENCE } from './proposition.js';
 export { nameTokens, isSubsequence, clusterAnchors, distinctReferentCount } from './name-variants.js';
 export { TITLE_WORDS } from './entities.js';
+export { discoverUncasedReferents, discoverUncasedRelations } from './uncased.js';
+export { readGrain } from './grain.js';

@@ -39,12 +39,13 @@ test('caseless scripts (Arabic, Hebrew, Devanagari) admit nothing — no \\p{Lu}
   assert.equal(/\p{Lu}/u.test('رامامومحمد'), false);   // the mechanism: uncased → the anchor is empty
 });
 
-test('CHARACTERIZATION: spaceless CJK is one sentence with zero tokens, admits nothing', () => {
-  // 。(U+3002) is not read as a sentence boundary, and CJK has no spaces to tokenize on. This is a
-  // real limit of the current pipeline for East-Asian scripts, pinned so a change is visible.
+test('CJK now segments on 。 into sentences (PR #251); the caseless admitter still finds no name here', () => {
+  // The uncased pass (parse/uncased.js) added CJK sentence segmentation — 。(U+3002) is now a
+  // boundary. Default admission is still empty for this spaceless line: the uncased-referent
+  // discovery, wired into parseText (uncasedReferents on), surfaces no repeated form to admit here.
   const d = parseText('北京很大。李明住在北京。李明喜欢北京。');
-  assert.deepEqual([...d.admission.admitted.keys()], []);
-  assert.equal(d.sentences.length, 1, 'the whole line is one sentence — 。 is not a boundary');
+  assert.equal(d.sentences.length, 3, '。 is a sentence boundary now — CJK is segmented');
+  assert.deepEqual([...d.admission.admitted.keys()], [], 'no capitalized/spaced form → the gravity admitter stays empty');
 });
 
 test('Korean has spaces but Hangul is caseless — admits nothing', () => {
