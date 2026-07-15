@@ -381,6 +381,59 @@ export const installDeep = (appCtx) => {
     } finally { learnRunning = false; }
   };
 
+  // ── the CPU-LLM murmur prosifier (docs/murmur.md — "prosified via the small model") ─────────
+  // The strip's fold voice is template-realised (narrate/voice.js) — fabrication-incapable, but a
+  // little telegraphic. When the local model is warm and the app is at rest, re-voice the last
+  // fold's grounded triples as FLUENT prose with the CPU model and broadcast it to the strip. Same
+  // content the template already showed, realised by the small model instead of the deterministic
+  // realizer — the LLM murmur the redesign asks for. Guarded exactly like prosifyConnections: only
+  // when the model is `ready` AND not engaged, so it never competes with an answer; behind the
+  // propositional veto (talkThenVerify) so the prose can be no more wrong than the reader's own
+  // graph; broadcast through murmur.mutter — a READ side-channel (§9.4), voicing-only, never a fact
+  // and never in a prompt. Cold model / not-clean output ⇒ nothing added; the template line stands.
+  let murmurPending = null;          // { triples, docId, done } — the last fold's raw triples, awaiting a prosify
+  let murmurProseRunning = false;
+  const stashMurmurTriples = (triples, docId) => {
+    const t = Array.isArray(triples) ? triples.filter((p) => p && p.subj && p.verb) : [];
+    if (!t.length) return;
+    murmurPending = { triples: t.slice(0, 4), docId: docId || null, done: false };
+  };
+  const docForDocId = (docId) => {
+    if (!docId) return null;
+    const src = state.sources.find((s) => s.docId === docId);
+    try { return src ? appCtx.docFor(src) : null; } catch { return null; }
+  };
+  const prosifyMurmurTick = async (manual = false) => {
+    if (murmurProseRunning) return 0; murmurProseRunning = true;
+    try {
+      if (!murmur || typeof murmur.mutter !== 'function') return 0;
+      if (state.murmurMode === 'off' || !state.murmurVisible) return 0;   // never prosify unseen (transparency)
+      if (state.busy && !manual) return 0;                                // engaged — the model is answering
+      const pend = murmurPending;
+      if (!pend || pend.done) return 0;
+      if (state.model?.state !== 'ready') return 0;                       // the CPU model isn't warm — template stands
+      pend.done = true;                                                   // one attempt per fold (no hammering on failure)
+      const props = pend.triples;
+      if (!props.length) return 0;
+      let prose = '';
+      try {
+        const model = await appCtx.ensureModel();
+        if (model && typeof model.phrase === 'function') {
+          const out = await talkThenVerify({ propositions: props }, model, { doc: docForDocId(pend.docId) });
+          const fluent = String(out?.fluent || '').trim();
+          if (fluent && out.clean) prose = fluent;                        // clean = nothing fabricated survived the veto
+        }
+      } catch { /* a cold/slow/erroring model never costs the pass */ }
+      if (!prose) return 0;                                               // nothing clean to add; the template line stands
+      const st = (typeof murmur.state === 'function') ? murmur.state() : null;
+      const reg = (st && Array.isArray(st.impressions) && st.impressions[0] && st.impressions[0].register)
+        || (st && Array.isArray(st.voice) && st.voice[0] && st.voice[0].register) || 'recognition';
+      try { murmur.mutter({ phrase: prose, register: reg, intensity: 0.5, source: 'prosify' }); }
+      catch { /* the strip must never cost the pass */ }
+      return 1;
+    } finally { murmurProseRunning = false; }
+  };
+
   // The idle governor: a light interval that fires a deep pass only when NOT engaged — no turn
   // generating, and the user quiet for a beat. A keystroke or tap resets the clock, so deep
   // reading never competes with an active reader; it fills the lulls. Browser only (no timers,
@@ -405,6 +458,7 @@ export const installDeep = (appCtx) => {
         // reflection pass does — a fresh recognition can arrive while deep reading has settled.
         void connectTick(false);
         void wanderTick(false);                             // self-guided learning — self-throttled to human pace
+        void prosifyMurmurTick(false);                      // re-voice the last fold with the CPU model, at rest
         if (deepSettled) return;                            // quiesced until the record grows
         deepTick(false);
       } catch { /* a bad pass never breaks the governor */ }
@@ -418,5 +472,5 @@ export const installDeep = (appCtx) => {
   // on EVERY visit until the user cleared site data.
   appCtx.restore().catch(() => { if (!state.ready) { state.ready = true; emit('ready'); } });
 
-  Object.assign(appCtx, { connectTick, coReadAt, coReadHere, deepIdleStart, deepReaders, deepTick, deepWake, reflections, setMurmurMode, setMurmurVisible, wanderTick });
+  Object.assign(appCtx, { connectTick, coReadAt, coReadHere, deepIdleStart, deepReaders, deepTick, deepWake, prosifyMurmurTick, reflections, setMurmurMode, setMurmurVisible, stashMurmurTriples, wanderTick });
 };

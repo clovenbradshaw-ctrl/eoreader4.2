@@ -45,14 +45,17 @@
 
 import { createParser } from '../../perceiver/parse/index.js';
 import { contractOf } from '../../core/contracts.js';
+import { notate } from '../../core/index.js';
 import { readingAt } from '../../perceiver/index.js';
 import { groundSpans, groundSummary, supportVerdict } from '../../enactor/ground/index.js';
 import { factCheck } from '../../enactor/factcheck/index.js';
 import { discourseDag, assertedDag, mountDagSurface, dagNodeLabel } from '../../surfer/dag/index.js';
 import { createAuditLog } from '../audit/index.js';
+import { createEotLedger, mountEotTerminal } from '../audit/index.js';
 import { createMurmur } from '../../murmur/index.js';
 import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
+import { wireEotFeed } from './eot-feed.js';
 import { APP_NAME, APP_VERSION } from './provenance.js';
 import { mountTieredGraph } from './tiered-graph.js';
 import { mountFacingRenderer, assembleDocument, splitSource, runnableSrcdoc } from '../render/index.js';
@@ -82,6 +85,23 @@ const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a ses
 // to paint the real-time murmur strip; the app feeds it one fold snapshot per turn (app.js).
 const murmur = createMurmur({ audit });
 const app = createReaderApp({ audit, murmur });
+
+// The EOT ledger (docs/eot-ledger.md) — the audit at a second grain: an append-only
+// ring of EVERY operation the app performs, each read out as one EOT surface line with
+// its door (perceiver = the world it read · enactor = the model's own act). The feed
+// translator (eot-feed.js) wires the three live streams the reader ALREADY emits — the
+// activity log, the per-turn audit trail, and the murmur side-channel — onto the
+// ledger's named verbs, so the full terminal shows the machine in its own syntax with
+// no instrumented call sites. It only READS those streams and writes to a ring buffer:
+// nothing enters the answer, and murmur lines ride the enactor door (witness:false), so
+// the §9 firewall holds. `notate` (core) prints each line's operator faces. The terminal
+// mounts with fab:false — the murmur strip is its sole opener (its click calls
+// eotTerminal.open()), so there is no second bottom-corner button beside the audit console.
+const eot = createEotLedger({ capacity: 500 });
+wireEotFeed({ app, audit, murmur, eot });
+let eotTerminal = null;
+try { eotTerminal = mountEotTerminal(eot, { hotkey: true, startOpen: false, fab: false, notate }); }
+catch (e) { console.warn('[EO] EOT terminal not mounted', e); }
 
 // The optional identity. Restores a persisted session from localStorage without a
 // network hit (signed-in survives reload and works offline), then revalidates the
@@ -302,6 +322,8 @@ window.EO = Object.freeze({
   discourseDag, assertedDag, dagNodeLabel,
   audit,
   murmur,   // the peripheral sense — the surface subscribes for the real-time murmur strip (audit-only)
+  eot,               // the EOT operation ledger (docs/eot-ledger.md) — snapshot/subscribe/export the machine's own trail
+  eotTerminal,       // the full activity terminal's mount handle — the murmur strip opens it on click (open/close/toggle)
   workspace,
   mountTieredGraph,
   mountDagSurface,   // the two-cursor causal DAG surface (surfer/dag) — topic-wide + per-entity, with toggles

@@ -40,37 +40,54 @@ table{border-collapse:collapse;width:100%}
 /* the summary skeleton while the local model turns the machinery's telegram into a reading */
 @keyframes eoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .eo-skel{background:linear-gradient(90deg,#ECEAF6 25%,#F4F2FC 50%,#ECEAF6 75%);background-size:200% 100%;animation:eoShimmer 1.5s ease-in-out infinite;border-radius:5px}
-/* ── MURMUR — the peripheral sense, a BOTTLE-LENS TERMINAL of the reader's activity ──
-   The reader's real voiced thoughts (src/murmur/narrate/voice.js — the read side-channel, §9.4)
-   drift up a slim, light lens band — a quiet extension of the page chrome — as timestamped lines. Only
-   what SURPRISES the sense passes the
-   gate and scrolls at all (the filter — never a label); the line crossing the band's centre is sharp
-   and magnified while the rest bow away above/below, as if read through a bottle lying on its side.
-   Clicking any line opens a card carrying the SAME native-EOT tuple the reading grounded
-   (`glyph OP site(s) · res`). Nothing here is fabricated — text, register, and sites all come straight
-   off `window.EO.murmur.state()`; the strip only animates them. Built imperatively (setMurmurStrip →
-   EoMurmurStrip) so the RAF canvas loop is the surface's own, never React's per-poke reconcile.
-   --mm-accent is the strip's ambient hue; --mm-h its height. */
+/* ── MURMUR — the peripheral sense as a light TERMINAL LOG under the tab bar ──
+   The reader's real voiced thoughts (src/murmur/narrate/voice.js — the read side-channel, §9.4) tail
+   in as one monospace log line: a dim timestamp, the operator's glyph tinted by the feeling, a › prompt,
+   then the thought — prosified by the CPU model when it is warm (app/deep.js prosifyMurmurTick), template
+   otherwise — with a soft caret blinking at the tail, the compact holonic address trailing dim, and a
+   tiny register meter. Only what SURPRISES the sense passes the gate and appends at all (the filter —
+   never a label). Clicking the line opens the FULL activity terminal (window.EO.eotTerminal — every
+   read/search/route/prompt/generation/bind/veto, each with its organ.document.record.parameter address);
+   clicking the glyph opens a card that NAMES the feeling (the native-EOT tuple + honest gloss). Nothing
+   here is fabricated — text, register, and sites all come off window.EO.murmur.state(); the strip only
+   tails them. Built imperatively (setMurmurStrip → EoMurmurStrip); the caret/dot blink is pure CSS, so
+   nothing loops off-screen. A LIGHT terminal — dark ink on the page's own band — so it reads as part of
+   the chrome, not a dropped-in dark console. --mm-accent is the ambient hue; --mm-h the band height. */
 .eo-murmur{
   --mm-accent:#8b7bff;--mm-h:46px;
   position:relative;z-index:3;display:flex;align-items:stretch;flex:0 0 auto;height:var(--mm-h);
   border-bottom:1px solid #EAEAEF;background:#F7F6FC;
+  font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   transition:border-color .5s ease,background .5s ease
 }
 /* At rest — nothing has passed the gate — the strip goes plain white and drops its seam, dissolving
    into the white chrome above (the tab bar) and below (the reading) so an idle murmur is never an
-   obstruction. It only tints faintly and firms its hairline when a thought actually drifts through. */
+   obstruction. It only tints faintly and firms its hairline when a thought actually appends. */
 .eo-murmur.eo-mm-quiet{border-bottom-color:transparent;background:#fff}
 .eo-murmur.eo-mm-quiet .eo-mm-badge{opacity:.5;border-right-color:transparent}
 .eo-murmur.eo-mm-quiet .eo-mm-dot{animation:none}
-.eo-mm-badge{display:flex;align-items:center;gap:7px;padding:0 14px;border-right:1px solid #EEEEF2;flex:0 0 auto;transition:opacity .5s ease,border-color .5s ease}
+.eo-murmur.eo-mm-quiet .eo-mm-cursor{opacity:.35}
+.eo-mm-badge{display:flex;align-items:center;gap:7px;padding:0 12px;border-right:1px solid #EEEEF2;flex:0 0 auto;transition:opacity .5s ease,border-color .5s ease}
 .eo-mm-dot{width:5px;height:5px;border-radius:50%;background:var(--mm-accent);animation:mmpulse 1.9s ease-in-out infinite}
-.eo-mm-mark{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:1.5px;color:#AEAEB8;text-transform:uppercase}
-.eo-mm-canvas{flex:1;min-width:0;height:100%;display:block}
+.eo-mm-mark{font-size:9.5px;letter-spacing:1.5px;color:#AEAEB8;text-transform:uppercase}
+/* the tailing log line — one row, the newest gated thought; the full history is a click away */
+.eo-mm-term{flex:1;min-width:0;display:flex;align-items:center;overflow:hidden;cursor:pointer;padding:0 30px 0 13px}
+.eo-mm-row{display:flex;align-items:baseline;gap:7px;width:100%;min-width:0;font-size:13px;line-height:1.4;white-space:nowrap}
+.eo-mm-row.eo-mm-fresh{animation:mm-in .42s ease-out both}
+.eo-mm-time{flex:0 0 auto;color:#B4B4C0;font-size:12px}
+.eo-mm-sigil{flex:0 0 auto;width:15px;text-align:center;font-weight:600;cursor:pointer}
+.eo-mm-gt{flex:0 0 auto;color:#C2C2CB}
+.eo-mm-text{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:#26262E}
+.eo-mm-row.eo-mm-idle .eo-mm-text{color:#9A9AA4;font-style:italic}
+.eo-mm-cursor{flex:0 0 auto;align-self:center;width:6px;height:14px;border-radius:1px;background:var(--mm-accent);animation:mm-blink 1.05s step-end infinite}
+.eo-mm-addr{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;margin-left:auto;padding-left:10px;color:#B2B2BE;font-size:10.5px}
+.eo-mm-bars{flex:0 0 auto;display:flex;align-items:center;gap:2px}
+.eo-mm-bar{width:3px;height:9px;border-radius:1px}
+.eo-mm-mode{flex:0 0 auto;align-self:center;margin-right:34px;font-size:9px;letter-spacing:.5px;color:#9A9AA4;border:1px solid #E9E9EF;border-radius:5px;padding:2px 7px;white-space:nowrap;text-transform:lowercase}
 .eo-mm-x{position:absolute;top:50%;right:8px;transform:translateY(-50%);z-index:4;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#B4B4BE;border:1px solid #EAEAEF;background:rgba(255,255,255,.7);cursor:pointer;opacity:.55;transition:opacity .16s,border-color .12s,color .12s}
 .eo-murmur:hover .eo-mm-x{opacity:1}
 .eo-mm-x:hover{border-color:var(--mm-accent);color:#3A3A44}
-/* the click-through detail card — the mote's full thought + its native-EOT reading + surprise */
+/* the click-through detail card — the mote's full thought + its native-EOT reading + the feeling's gloss */
 .eo-mm-card{position:absolute;z-index:20;top:calc(100% + 6px);width:380px;max-width:calc(100vw - 24px);border:1px solid #E6E6EC;border-radius:14px;background:#fff;box-shadow:0 26px 60px -24px rgba(20,20,30,.3);padding:18px 20px 20px;animation:mmcard .22s ease-out both}
 .eo-mm-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}
 .eo-mm-card-tag{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;border-radius:6px;padding:3px 8px}
@@ -81,16 +98,25 @@ table{border-collapse:collapse;width:100%}
 .eo-mm-card-note{font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:15px;line-height:1.5;color:#8A8A95;margin-top:11px;text-wrap:pretty}
 @keyframes mmpulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
 @keyframes mmcard{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+/* a new line appends from just below and settles — the log tailing in (never a cross-fade) */
+@keyframes mm-in{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@keyframes mm-blink{0%,49%{opacity:1}50%,100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){
   .eo-mm-dot{animation:none}
   .eo-mm-card{animation:none}
+  .eo-mm-row.eo-mm-fresh{animation:none}
+  .eo-mm-cursor{animation:none}
   .eo-murmur{transition:none}
 }
 @media (max-width:720px){
-  /* an even slimmer lens on the phone layer so it never crowds the chat stage */
+  /* an even slimmer band on the phone layer so it never crowds the chat stage; the address trailer
+     and the mode chip drop away first — the glyph + the thought are what must read. */
   .eo-murmur{--mm-h:42px}
   .eo-mm-badge{padding:0 10px}
   .eo-mm-mark{font-size:9px;letter-spacing:1.2px}
+  .eo-mm-addr{display:none}
+  .eo-mm-mode{display:none}
+  .eo-mm-term{padding-right:26px}
 }
 /* Interactive transcript (Listen surface) — a word is a clickable, editable, redactable holon. */
 .eo-w{border-radius:3px;padding:0 1px;cursor:pointer;transition:background .12s,color .12s}
@@ -2806,305 +2832,168 @@ table{border-collapse:collapse;width:100%}
 // one drifts brightest with a ★, and clicking any mote opens a card with its full text, the native-EOT
 // tuple it grounded (`sources`), and its surprise. It reads NOTHING from the engine and touches NOTHING
 // in the answer — the surface maps the snapshot to tokens and feeds them; this only paints (§9.4).
+// ── EoMurmurStrip — the peripheral sense as a light TERMINAL LOG ────────────────────────────────
+// A self-contained controller (its own DOM, never React's reconcile) that TAILS the real voiced
+// thoughts handed to it via feed(). Each gated thought becomes one monospace log line — a dim
+// timestamp, the operator's glyph tinted by the feeling, a › prompt, then the thought (prosified by
+// the CPU model when it is warm, template otherwise) — with a soft caret blinking at the tail, the
+// thought's compact holonic address trailing dim, and a tiny register meter. Lines APPEND and the
+// newest rests in the slim band; the whole history is one click away — clicking the line opens the
+// EOT activity terminal (window.EO.eotTerminal), clicking the glyph opens a small card that NAMES the
+// feeling. It reads NOTHING from the engine and touches NOTHING in the answer — the surface maps the
+// murmur snapshot to tokens and feeds them; this only tails them (§9.4). The caret blink and the live
+// dot are pure CSS (killed under prefers-reduced-motion), so there is no animation loop to run unseen.
 class EoMurmurStrip {
   constructor(el, opts = {}) {
     this.el = el;
     this.accent = opts.accent || '#8b7bff';
     this.reduceMotion = typeof opts.reduceMotion === 'function' ? opts.reduceMotion : () => false;
     this.onHide = typeof opts.onHide === 'function' ? opts.onHide : () => {};
-    // The SURPRISE GATE — the console only logs a line when the sense is surprised enough. Surprise is
-    // the FILTER, never a label: nothing is annotated "surprising", it just decides what scrolls at all.
+    this.onExpand = typeof opts.onExpand === 'function' ? opts.onExpand : () => {};
+    this.modeLabel = typeof opts.modeLabel === 'function' ? opts.modeLabel : () => '';
+    // The SURPRISE GATE — the log only tails a line when the sense is surprised enough. Surprise is
+    // the FILTER, never a label: nothing is annotated "surprising", it just decides what appends at all.
     this.gate = typeof opts.gate === 'number' ? opts.gate : 0.42;
-    this.lines = [];            // the rolling console buffer — surprise-gated log lines, oldest→newest
-    this.count = 0;             // total lines ever pushed; the scroll coordinate (a monotonic row index)
-    this.scroll = 0;            // animated scroll position — eases toward count-1 so the newest rests at centre
-    this.target = 0;            // scroll target (the newest line's row)
-    this._layout = []; this._cols = null; this._colW = -1;
-    this._inside = false; this._hover = null;
-    this._open = false; this._sel = null; this._card = null;
-    this._raf = null; this._last = 0; this._dead = false; this._quiet = null;
+    this.lines = [];            // the rolling log buffer — surprise-gated, oldest→newest (kept for dedup)
+    this.current = null;        // the line currently shown in the band (the newest gated thought)
+    this._card = null; this._open = false;
     this._build();
-    this._start();
     // mark the node so a churned callback ref (React re-attaches a fresh arrow every render) REUSES
     // this controller instead of rebuilding — the surface's setMurmurStrip reads this back.
     try { el.__eoMmStrip = this; } catch { /* ignore */ }
   }
 
-  // Shown at the centre lens when nothing has passed the gate yet — never a blank band, and never a
-  // log entry (idle:true ⇒ not clickable, not counted, not part of the scroll history).
-  _idleLine() { return { idle: true, text: 'the sense is quiet', tag: 'idle', glyph: '∅', color: '#B6B6C0', ts: '' }; }
+  // Shown when nothing has passed the gate yet — never a blank band, and never a log entry
+  // (idle:true ⇒ not clickable as a thought, not counted, dissolves the band into the page chrome).
+  _idleLine() { return { idle: true, text: 'the sense is quiet', tag: 'idle', glyph: '∅', color: '#B6B6C0', ts: '', addr: '' }; }
 
-  // feed(tokens) — the real-time console tick. Keep only what SURPRISES (≥ gate); drop the immediate
-  // repeat and anything still resting on screen (anti-rumination). Each survivor becomes a new line
-  // that scrolls the previous one up out of the lens and rises into the focused centre.
+  // feed(tokens) — the real-time tick. Keep only what SURPRISES (≥ gate); drop the immediate repeat
+  // and the line already on screen (anti-rumination). The last survivor becomes the shown line.
   feed(newTokens) {
     const incoming = Array.isArray(newTokens) ? newTokens : [];
-    let pushed = false;
+    let last = null;
     for (const t of incoming) {
       if (!t || !t.text) continue;
-      if ((t.surprise || 0) < this.gate) continue;                                   // the gate — the only filter
+      if ((t.surprise || 0) < this.gate) continue;                        // the gate — the only filter
+      if (this.current && this.current.text === t.text) continue;         // don't re-tail the shown line
       if (this.lines.length && this.lines[this.lines.length - 1].text === t.text) continue;
-      if (this.lines.some((l) => l.text === t.text)) continue;                        // don't re-log a line still on screen
-      this._push(t); pushed = true;
+      last = this._push(t);
     }
-    if (pushed && this.reduceMotion()) this._paintStatic();
+    if (last) this._render(last, true);
+    else if (!this.current) this._render(null, false);                    // still idle — paint the quiet line
   }
 
-  // append one gated thought as a timestamped console line and aim the scroll at it (the newest row
-  // becomes the centre). Caps the buffer so a long session can't grow it without bound.
+  // append one gated thought as a timestamped log line (HH:MM — a slim band shows one line, the full
+  // terminal keeps every op). Caps the buffer so a long session can't grow it without bound.
   _push(t) {
     let ts = '';
-    try { const d = new Date(); const p = (n) => (n < 10 ? '0' + n : '' + n); ts = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); } catch { ts = ''; }
-    this.lines.push({
-      idle: false, row: this.count,
+    try { const d = new Date(); const p = (n) => (n < 10 ? '0' + n : '' + n); ts = p(d.getHours()) + ':' + p(d.getMinutes()); } catch { ts = ''; }
+    const line = {
+      idle: false,
       text: String(t.text), tag: t.tag || 'reading', glyph: t.glyph || '·',
-      color: t.color || '#8A8A95', note: t.note || '', sources: t.sources || '', ts,
-    });
-    this.count += 1;
-    this.target = this.count - 1;                                    // newest row → the centre lens
+      color: t.color || '#8A8A95', note: t.note || '', sources: t.sources || '',
+      addr: t.addr || '', surprise: Math.max(0, Math.min(1, t.surprise || 0)), ts,
+    };
+    this.lines.push(line);
     if (this.lines.length > 60) this.lines.splice(0, this.lines.length - 60);
+    return line;
   }
 
   _build() {
     const el = this.el;
     el.style.setProperty('--mm-accent', this.accent);
     el.innerHTML =
-      '<div class="eo-mm-badge">' +
-        '<span class="eo-mm-dot"></span><span class="eo-mm-mark">murmur</span>' +
-      '</div>' +
-      '<canvas class="eo-mm-canvas"></canvas>' +
+      '<div class="eo-mm-badge"><span class="eo-mm-dot"></span><span class="eo-mm-mark">murmur</span></div>' +
+      '<div class="eo-mm-term" role="button" tabindex="0" title="Open the full activity terminal"><div class="eo-mm-row"></div></div>' +
+      '<span class="eo-mm-mode"></span>' +
       '<button class="eo-mm-x" title="Hide the murmur — turn it back on in Settings" aria-label="Hide the murmur">' +
       '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
     // start quiet — the strip mounts empty (nothing gated yet), so it blends before the first thought.
-    el.classList.add('eo-mm-quiet'); this._quiet = true;
-    this.canvas = el.querySelector('.eo-mm-canvas');
+    el.classList.add('eo-mm-quiet');
+    this.term = el.querySelector('.eo-mm-term');
+    this.row = el.querySelector('.eo-mm-row');
+    this.modeEl = el.querySelector('.eo-mm-mode');
     const x = el.querySelector('.eo-mm-x');
     if (x) x.addEventListener('click', (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.onHide(); });
-    this._onEnter = () => { this._inside = true; };
-    this._onLeave = () => { this._inside = false; this._hover = null; if (this.canvas) this.canvas.style.cursor = 'default'; };
-    // hit-testing is VERTICAL now (lines stack and scroll) — hover/click resolve by the pointer's y.
-    this._onMove = (e) => { if (!this.canvas) return; const r = this.canvas.getBoundingClientRect(); this._hover = this._hit(e.clientY - r.top); this.canvas.style.cursor = this._hover ? 'pointer' : 'default'; };
-    this._onClick = (e) => this._click(e);
-    this._onResize = () => { this._cols = null; if (this.reduceMotion()) this._paintStatic(); };
-    this.canvas.addEventListener('mouseenter', this._onEnter);
-    this.canvas.addEventListener('mouseleave', this._onLeave);
-    this.canvas.addEventListener('mousemove', this._onMove);
-    this.canvas.addEventListener('click', this._onClick);
-    try { window.addEventListener('resize', this._onResize); } catch { /* ignore */ }
+    // The whole line opens the FULL activity terminal; clicking the glyph opens the little card that
+    // names the feeling (the tuple + gloss). Keyboard: Enter/Space on the focused line opens it too.
+    if (this.term) {
+      this.term.addEventListener('click', (e) => {
+        const sig = e.target && e.target.closest ? e.target.closest('.eo-mm-sigil') : null;
+        if (sig && this.current && !this.current.idle) { if (e.stopPropagation) e.stopPropagation(); this._openCard(this.current, e.clientX); return; }
+        if (e.stopPropagation) e.stopPropagation();
+        this.onExpand();
+      });
+      this.term.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.onExpand(); } });
+    }
+    this._render(null, false);
+    this._syncMode();
+  }
+
+  // the right-hand mode chip mirrors the Settings mode label (look & think / explore the web).
+  _syncMode() {
+    if (!this.modeEl) return;
+    let label = '';
+    try { label = String(this.modeLabel() || ''); } catch { label = ''; }
+    this.modeEl.textContent = label;
+    this.modeEl.style.display = label ? '' : 'none';
   }
 
   destroy() {
-    this._dead = true;
-    if (this._raf) { try { cancelAnimationFrame(this._raf); } catch { /* ignore */ } this._raf = null; }
-    try { window.removeEventListener('resize', this._onResize); } catch { /* ignore */ }
     try { if (this.el && this.el.__eoMmStrip === this) this.el.__eoMmStrip = null; } catch { /* ignore */ }
-    this.lines = []; this._layout = [];
+    this.lines = []; this.current = null;
+    if (this._card) { try { this._card.remove(); } catch { /* ignore */ } this._card = null; }
   }
-
-  // the node left the DOM (mode → off, or a screen swap) — release the per-node marker so a later
-  // remount builds a fresh controller, and stop scheduling frames (nothing animates unseen).
-  _detach() { this._dead = true; try { if (this.el && this.el.__eoMmStrip === this) this.el.__eoMmStrip = null; } catch { /* ignore */ } }
-
-  _start() {
-    if (this.reduceMotion()) { this._paintStatic(); return; }   // no RAF under reduced motion — a still frame
-    this._last = (typeof performance !== 'undefined' ? performance.now() : 0);
-    const loop = (t) => {
-      // React churns the callback ref between renders, so we DON'T tear down on ref(null); the node
-      // actually leaving the DOM is the real unmount signal — end the loop there.
-      if (this._dead || !this.el || !this.el.isConnected) { this._raf = null; this._detach(); return; }
-      this._draw(t);
-      this._raf = requestAnimationFrame(loop);
-    };
-    this._raf = requestAnimationFrame(loop);
-  }
+  // the node left the DOM — nothing animates on a timer here (caret/dot are pure CSS), so there is
+  // no loop to stop; just release the per-node marker so a later remount builds a fresh controller.
+  _detach() { this.destroy(); }
 
   _rgba(hex, a) {
     const n = parseInt(String(hex || '#8b7bff').slice(1), 16);
     return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
   }
+  _esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-  // toggle the at-rest "quiet" skin (plain white, no seam, still dot) as the console empties / gets a line.
-  _setQuiet(q) { if (q === this._quiet) return; this._quiet = q; try { this.el.classList.toggle('eo-mm-quiet', q); } catch { /* ignore */ } }
-
-  // faint glyph-rain behind the lens — terminal noise, dim enough that the scrolling lines read on top.
-  _drawRain(ctx, W, H, dt) {
-    if (!this.lines.length) return;   // no terminal noise while the sense is quiet — idle stays perfectly still
-    this._ensureCols(W, H);
-    const glyphs = '01∅◇⟷▸⧗×+·§⋈○△⊛';
-    ctx.filter = 'none'; ctx.font = '10px "IBM Plex Mono",ui-monospace,Menlo,monospace';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    this._cols.forEach((col, i) => {
-      col.y += col.sp * dt; const headRow = col.y / 13;
-      if (col.y - col.len * 13 > H) col.y = -Math.random() * 40;
-      for (let k = 0; k < col.len; k++) {
-        const yy = (headRow - k) * 13; if (yy < 0 || yy > H) continue;
-        const a = (k === 0 ? 0.07 : 0.04 * (1 - k / col.len));   // a faint texture on the light band, never noise
-        ctx.fillStyle = this._rgba(this.accent, a);
-        ctx.fillText(glyphs[(Math.random() * glyphs.length) | 0], i * 13 + 6, yy);
-      }
-    });
+  // the register meter — N mini-bars, the first ⌈surprise·N⌉ tinted by the feeling, the rest grey.
+  // surprise is only the gate that let this line in; the meter shows HOW MUCH, never a fabricated claim.
+  _barsHtml(color, surprise) {
+    const N = 4; const on = Math.max(0, Math.min(N, Math.ceil((surprise || 0) * N)));
+    let out = '';
+    for (let i = 0; i < N; i++) out += '<span class="eo-mm-bar" style="background:' + (i < on ? color : '#E2E2EA') + '"></span>';
+    return out;
   }
 
-  // resize the backing store to the CSS box × dpr and return a fresh 2d context, or null if unmounted.
-  _ctx() {
-    const cv = this.canvas; if (!cv || !cv.isConnected) return null;
-    const dpr = window.devicePixelRatio || 1;
-    const W = cv.clientWidth, H = cv.clientHeight;
-    if (!W || !H) return null;
-    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); this._cols = null; }
-    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return { ctx, W, H };
+  // toggle the at-rest "quiet" skin (plain white, no seam) as the log empties / gets a line.
+  _setQuiet(q) { try { this.el.classList.toggle('eo-mm-quiet', q); } catch { /* ignore */ } }
+
+  // paint one line into the band's single row (the newest gated thought, or the idle line). The prose
+  // reads dark on the light band; the glyph wears its register ink; the caret rides the text's tail.
+  _render(line, fresh) {
+    if (!this.row) return;
+    const ln = line || this.current || this._idleLine();
+    this.current = ln.idle ? null : ln;
+    this._setQuiet(!!ln.idle);
+    const col = ln.color || this.accent;
+    this.row.className = 'eo-mm-row' + (ln.idle ? ' eo-mm-idle' : '');   // resets any prior fresh class
+    this.row.innerHTML =
+      (ln.ts ? '<span class="eo-mm-time">' + this._esc(ln.ts) + '</span>' : '') +
+      '<span class="eo-mm-sigil" style="color:' + col + '" title="' + this._esc(ln.tag || '') + ' — click for what this is">' + this._esc(ln.glyph || '·') + '</span>' +
+      '<span class="eo-mm-gt">›</span>' +
+      '<span class="eo-mm-text">' + this._esc(ln.text) + '</span>' +
+      '<span class="eo-mm-cursor" aria-hidden="true"></span>' +
+      (ln.addr ? '<span class="eo-mm-addr" title="organ.document.record.parameter — where in the machine this lands">' + this._esc(ln.addr) + '</span>' : '') +
+      (!ln.idle ? '<span class="eo-mm-bars" aria-hidden="true">' + this._barsHtml(col, ln.surprise) + '</span>' : '');
+    // retrigger the append animation (the row element persists across renders, so force a reflow first).
+    if (fresh && !this.reduceMotion()) { try { void this.row.offsetWidth; this.row.classList.add('eo-mm-fresh'); } catch { /* ignore */ } }
+    this._syncMode();
   }
 
-  _ensureCols(W, H) {
-    if (this._cols && this._colW === W) return;
-    this._colW = W;
-    const n = Math.ceil(W / 13);
-    this._cols = Array.from({ length: n }, () => ({ y: Math.random() * H, sp: 26 + Math.random() * 60, len: 5 + (Math.random() * 7 | 0) }));
-  }
-
-  // The bottle-lens terminal: gated console lines stack and scroll UP, and the line crossing the band's
-  // centre is sharp and magnified while the rest bow away above/below — a tanh warp bunches them toward
-  // the ends (the glass curving off) and a gaussian sharpens the middle (the lens). Event-stepped: each
-  // gated line eases the scroll up one row, so the newest rises into focus and the previous drifts out.
-  _draw(t) {
-    const c = this._ctx(); if (!c) return;
-    const { ctx, W, H } = c;
-    const dt = Math.min(0.05, (t - this._last) / 1000); this._last = t;
-    const nowS = t / 1000;
-    const idle = this.lines.length === 0;
-    this._setQuiet(idle);                          // idle ⇒ the strip dissolves into the white page chrome
-    const bg = idle ? '#ffffff' : '#F7F6FC';
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-
-    this._drawRain(ctx, W, H, dt);
-
-    // ease the scroll toward the newest row — unless the reader is inspecting (hover / open card), when
-    // everything freezes so a line can be read and clicked.
-    const paused = this._inside || this._open;
-    if (!paused) {
-      this.scroll += (this.target - this.scroll) * Math.min(1, dt * 7);
-      if (Math.abs(this.target - this.scroll) < 0.001) this.scroll = this.target;
-    }
-
-    // the lens sits a touch below the true middle so the rising history fills the band and the newest
-    // line still reads as centred; curvature is symmetric about it.
-    const cy = H * 0.56, usable = Math.min(cy, H - cy) - 6, padL = 18;
-    const baseFs = Math.max(12.5, Math.min(17, H * 0.145));
-    const lines = this.lines.length ? this.lines : [this._idleLine()];
-
-    // project each line: logical offset from centre (in rows) → a warped screen y + a focus weight.
-    const items = lines.map((ln) => {
-      const o = ln.idle ? 0 : (ln.row - this.scroll);            // 0 at centre; <0 older (above); >0 incoming (below)
-      const y = cy + usable * Math.tanh(o * 0.5);
-      const f = Math.exp(-(o * o) / (2 * 1.05 * 1.05));          // focus 0..1, peaked at centre
-      return { ln, o, y, f };
-    }).filter((it) => it.f > 0.012 && it.y > -24 && it.y < H + 24)
-      .sort((a, b) => a.f - b.f);                                // far→near so the crisp centre lands on top
-
-    const focus = items.length ? items[items.length - 1] : null;
-    this._layout = [];
-    for (const it of items) {
-      const { ln, o, y, f } = it;
-      const fs = baseFs * (0.64 + 0.62 * f);
-      const blur = (1 - f) * 3.7;
-      const edge = Math.max(0, Math.min(1, Math.min(y, H - y) / 15));   // dissolve into the band's top/bottom
-      const alpha = (0.10 + 0.90 * f) * edge;
-      if (alpha <= 0.02) continue;
-      const isFocus = it === focus && Math.abs(o) < 0.6;
-      this._drawLine(ctx, ln, padL, y, fs, blur, alpha, f, isFocus, nowS);
-      if (!ln.idle) this._layout.push({ y0: y - fs * 0.72, y1: y + fs * 0.72, ln, f });
-    }
-
-    // the glass: a soft specular band across the centre, then a top/bottom vignette into the band edges.
-    // Both are SCALED to the band height and kept clear of the centre lens — a fixed 30px vignette on
-    // the slim (46px) strip overlapped in the middle and washed the very line it should frame, which is
-    // what made the reading illegible. Capping the vignette at ~a third of the band leaves the focused
-    // line crisp; the sheen is a whisper and also kept off the text.
-    const vig = Math.min(28, Math.max(8, H * 0.3));
-    const sheenH = Math.min(18, H * 0.22);
-    const sheen = ctx.createLinearGradient(0, cy - sheenH, 0, cy + sheenH);
-    sheen.addColorStop(0, this._rgba(this.accent, 0)); sheen.addColorStop(0.5, this._rgba(this.accent, 0.04)); sheen.addColorStop(1, this._rgba(this.accent, 0));
-    ctx.fillStyle = sheen; ctx.fillRect(0, cy - sheenH, W, sheenH * 2);
-    const gt = ctx.createLinearGradient(0, 0, 0, vig); gt.addColorStop(0, bg); gt.addColorStop(1, this._rgba(bg, 0));
-    ctx.fillStyle = gt; ctx.fillRect(0, 0, W, vig);
-    const gb = ctx.createLinearGradient(0, H - vig, 0, H); gb.addColorStop(0, this._rgba(bg, 0)); gb.addColorStop(1, bg);
-    ctx.fillStyle = gb; ctx.fillRect(0, H - vig, W, vig);
-  }
-
-  // draw one console line at (x, y): dim timestamp · register glyph · the thought, then the caret. The
-  // focused line reads near-white with a soft register glow; off-focus lines keep their register tint,
-  // blurred and faded by the lens.
-  _drawLine(ctx, ln, x, y, fs, blur, alpha, f, isFocus, nowS) {
-    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.filter = blur > 0.25 ? ('blur(' + blur.toFixed(2) + 'px)') : 'none';
-    ctx.font = fs + 'px "IBM Plex Mono",ui-monospace,Menlo,monospace';
-    const col = ln.color || '#8A8A95';
-    const sharp = isFocus && !ln.idle;                 // the crisp centre line — dark ink; idle stays a soft grey
-    let cx = x;
-    if (ln.ts) { ctx.fillStyle = this._rgba('#C2C2CB', alpha * 0.85); ctx.fillText(ln.ts, cx, y); cx += ctx.measureText(ln.ts).width + fs * 0.55; }
-    if (ln.glyph) { ctx.fillStyle = this._rgba(col, alpha); ctx.fillText(ln.glyph, cx, y); cx += ctx.measureText(ln.glyph).width + fs * 0.5; }
-    ctx.shadowBlur = 0;                                 // no glow on the light band — it only muddies dark-on-light
-    if (sharp) ctx.fillStyle = this._rgba('#26262E', Math.min(1, alpha + 0.15));
-    else ctx.fillStyle = this._rgba(this._hover === ln ? '#1B1B22' : col, ln.idle ? alpha * 0.9 : alpha);
-    ctx.fillText(ln.text, cx, y);
-    cx += ctx.measureText(ln.text).width;
-    // the terminal caret — a soft register-tinted block riding the focused line's tail.
-    if (sharp) { const on = Math.floor(nowS * 1.6) % 2 === 0; if (on) { ctx.fillStyle = this._rgba(col, Math.min(1, alpha)); ctx.fillRect(cx + 4, y - fs * 0.42, fs * 0.46, fs * 0.8); } }
-    ctx.filter = 'none';
-  }
-
-  // reduced-motion path: a still frame of the recent lines through the same lens — newest at centre,
-  // no rain, no caret blink, no scroll. Repainted only on feed/resize.
-  _paintStatic() {
-    const c = this._ctx(); if (!c) return;
-    const { ctx, W, H } = c;
-    const idle = this.lines.length === 0;
-    this._setQuiet(idle);
-    ctx.clearRect(0, 0, W, H); ctx.fillStyle = idle ? '#ffffff' : '#F7F6FC'; ctx.fillRect(0, 0, W, H);
-    const cy = H * 0.56, usable = Math.min(cy, H - cy) - 6, padL = 18;
-    const baseFs = Math.max(12.5, Math.min(17, H * 0.145));
-    const hasLines = this.lines.length > 0;
-    const lines = hasLines ? this.lines : [this._idleLine()];
-    const newest = hasLines ? this.count - 1 : 0;
-    const items = lines.map((ln) => {
-      const o = ln.idle ? 0 : (ln.row - newest);
-      const y = cy + usable * Math.tanh(o * 0.5);
-      const f = Math.exp(-(o * o) / (2 * 1.05 * 1.05));
-      return { ln, o, y, f };
-    }).filter((it) => it.f > 0.02).sort((a, b) => a.f - b.f);
-    const focus = items.length ? items[items.length - 1] : null;
-    this._layout = [];
-    for (const it of items) {
-      const { ln, o, y, f } = it;
-      const fs = baseFs * (0.64 + 0.62 * f);
-      const alpha = 0.12 + 0.88 * f;
-      this._drawLine(ctx, ln, padL, y, fs, 0, alpha, f, it === focus && Math.abs(o) < 0.6, 0);
-      if (!ln.idle) this._layout.push({ y0: y - fs * 0.72, y1: y + fs * 0.72, ln, f });
-    }
-  }
-
-  // hit-test by pointer y against the drawn line boxes; prefer the most-focused when boxes overlap.
-  _hit(y) {
-    let best = null;
-    for (const it of this._layout) { if (y >= it.y0 && y <= it.y1) { if (!best || (it.f || 0) > (best.f || 0)) best = it; } }
-    return best ? best.ln : null;
-  }
-
-  _click(e) {
-    if (!this.canvas) return;
-    const r = this.canvas.getBoundingClientRect();
-    const ln = this._hit(e.clientY - r.top) || (this.lines.length ? this.lines[this.lines.length - 1] : null);
-    if (!ln || ln.idle) return;
-    this._openCard(ln, e.clientX);
-  }
-
+  // the click-through detail card — the mote's full thought, its native-EOT tuple (sources), and the
+  // feeling's honest gloss. Kept for the glyph click; the line click opens the full terminal instead.
   _ensureCard() {
     if (this._card) return;
     const card = document.createElement('div');
     card.className = 'eo-mm-card'; card.style.display = 'none';
-    // No surprise bar — surprise is only the gate that let this line in, never a surfaced metric.
     card.innerHTML =
       '<div class="eo-mm-card-head"><div style="display:flex;align-items:center;gap:10px;min-width:0">' +
       '<span class="eo-mm-card-tag"></span><span class="eo-mm-card-src"></span></div>' +
@@ -3118,7 +3007,8 @@ class EoMurmurStrip {
   }
 
   _openCard(ln, clientX) {
-    this._open = true; this._sel = ln;
+    if (!ln || ln.idle) return;
+    this._open = true;
     this._ensureCard();
     const stripR = this.el.getBoundingClientRect();
     const cx = (typeof clientX === 'number') ? clientX : (stripR.left + stripR.width / 2);
@@ -3134,10 +3024,9 @@ class EoMurmurStrip {
     const note = this._card.querySelector('.eo-mm-card-note');
     note.textContent = ln.note || ''; note.style.display = ln.note ? '' : 'none';
     this._card.style.display = '';
-    if (this.reduceMotion()) this._paintStatic();
   }
 
-  _closeCard() { this._open = false; this._sel = null; if (this._card) this._card.style.display = 'none'; }
+  _closeCard() { this._open = false; if (this._card) this._card.style.display = 'none'; }
 }
 
 class Component extends DCLogic {
@@ -6851,8 +6740,21 @@ class Component extends DCLogic {
         glyph: this._mmGlyph[op] || '·',   // the op glyph — the console line's level marker
         note: reg ? (this._mmGloss[reg] || '') : '',
         sources: this._mmTupleText(t),
+        addr: this._mmAddress(t),          // the compact holonic address the strip trails (dim)
       };
     });
+  }
+
+  // _mmAddress(voice) → the thought's compact holonic address, organ.document.record.parameter — the
+  // same four-fold the full terminal prints, but distilled so the strip keeps the GLYPH prominent and
+  // drops the verbose CON(Str,Pat) tag. organ is always `murmur` (the acting faculty here); document is
+  // the session (the sense watches the whole reading); record is the thought's minted existence site
+  // (r#… — coref-stable, from voice.js); parameter is the operator's role. A dim trailer, never a claim.
+  _mmAddress(v) {
+    const OP_PARAM = { CON: 'bond', SIG: 'mark', EVA: 'verdict', REC: 'rule', SEG: 'split', DEF: 'value', INS: 'type', SYN: 'merge', NUL: 'rest' };
+    const op = (v && v.op && OP_PARAM[v.op]) ? v.op : 'NUL';
+    const site = (v && Array.isArray(v.sites) && v.sites[0] && v.sites[0].hash) ? String(v.sites[0].hash) : 'reading';
+    return 'murmur.session.' + site + '.' + (OP_PARAM[op] || 'rest');
   }
 
   // The native-EOT tuple as compact PLAIN TEXT: `glyph OP site(s) · band p`. CON binds its two sites
@@ -6885,9 +6787,27 @@ class Component extends DCLogic {
       accent: '#8b7bff',
       reduceMotion: () => this._reduceMotion(),
       onHide: () => this.toggleMurmur(),        // the strip's × → 'off' (hide == off, nothing unseen)
+      onExpand: () => this._openEotTerminal(),  // clicking the line opens the full activity terminal
+      modeLabel: () => this._murmurModeChip(),  // the right-hand chip (look & think / explore the web)
     });
     // seed from the last snapshot (or a fresh read) so a late-mounting strip paints immediately.
     this._mmStrip.feed(this._mmTokensFrom(this._mmLastState));
+  }
+
+  // Clicking the strip opens the FULL activity terminal (rooms/audit/eot-terminal) — the machine's own
+  // trail: every read/search/route/prompt/generation/bind/veto, each read out in EOT with its door and
+  // holonic address. The strip is its sole on-page opener (mounted fab:false), so this is the one seam.
+  _openEotTerminal() {
+    try { const t = window.EO && window.EO.eotTerminal; if (t && typeof t.open === 'function') t.open(); } catch { /* the terminal is optional */ }
+  }
+
+  // The strip's right-hand mode chip — the Settings mode, lowercased for the terminal frame ("murmur.log
+  // — look & think"). Off ⇒ empty (the strip is hidden then anyway). Read live off the surface state.
+  _murmurModeChip() {
+    const mode = (this.state && this.state.murmurMode) || 'look';
+    if (mode === 'explore') return 'explore the web';
+    if (mode === 'off') return '';
+    return 'look & think';
   }
 
   _versionVals() {

@@ -165,6 +165,30 @@ export const installTrail = (appCtx) => {
     return out;
   };
 
+  // The same grounded x→relation→y edges parsedPropositions realises to template speech, kept as
+  // RAW TRIPLES { subj, verb, obj } so the idle prosifier (app/deep.js) can hand them to the local
+  // model for a fluent re-voicing when it is warm and free — the LLM murmur the mockup calls for,
+  // behind the propositional veto so the prose can be no more wrong than the reader's own graph.
+  const parsedTriples = (ctx, max = 4) => {
+    const st = ctx && ctx.note && ctx.note.levels && ctx.note.levels.structure;
+    if (!st) return [];
+    const out = [];
+    const seen = new Set();
+    for (const r of (st.relations || [])) {
+      if (out.length >= max) break;
+      if (!r || !r.src || !r.tgt || r.polarity === '−') continue;   // skip negated — keep every claim clean
+      const subj = String(r.src.label || '').trim();
+      const obj = String(r.tgt.label || '').trim();
+      const verb = String(r.via || '').trim();
+      if (!subj || !verb) continue;
+      const key = `${subj}|${verb}|${obj}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ subj, verb, obj: obj || null });
+    }
+    return out;
+  };
+
   const observeMurmur = (ctx) => {
     if (!murmur || !ctx) return;
     try {
@@ -191,6 +215,9 @@ export const installTrail = (appCtx) => {
       const queryText = String(ctx.retrievalQuery || ctx.question || '');
       const readingText = ctx.note && ctx.note.text ? String(ctx.note.text) : '';
       const base = { ref, query: ctx.question || '', concentration, passageText: readingText.slice(0, 400), propositions: parsedPropositions(ctx) };
+      // Stash this fold's raw triples for the idle prosifier — the CPU model re-voices them as
+      // fluent murmur prose at rest (never here, on the turn's critical path). Best-effort.
+      try { if (appCtx.stashMurmurTriples) appCtx.stashMurmurTriples(parsedTriples(ctx), ref.docId); } catch { /* prosify is optional */ }
       if (!measures || !queryText) {
         // no meaning space this stop — concentration-only (drift/novelty null by construction).
         void Promise.resolve(murmur.observe({ ...base, measuresMeaning: false }, { turn: auditTurn })).catch(() => {});
