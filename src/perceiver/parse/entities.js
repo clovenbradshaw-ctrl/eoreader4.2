@@ -24,6 +24,7 @@ import {
   SEED_STARTER, SEED_FUNCTION, SEED_PREPOSITION, SEED_ROLE, SEED_AUXILIARY, SEED_DEMONYM, SEED_CALENDAR,
 } from '../../core/conventions/index.js';
 import { clusterAnchors } from './name-variants.js';
+import { readGrain } from './grain.js';
 
 const TITLE = String.raw`(?:Mr|Mrs|Ms|Dr|Miss|Mister|Sir|Madam|Madame|Lady|Lord|Professor|Prof|Capt|Captain|Rev|St|Aunt|Uncle)\.?`;
 // A lowercase connector (von, of, the) only counts when it sits *between* two
@@ -314,7 +315,8 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
   const mentions  = new Map(); // id    → number[] (sentence indices, ordered)
   const initialisms = new Map(); // acronym label → expansion id (learned org alias)
   const strongSeen = new Map(); // label → true once a STRONG cue has vouched for it
-  const subjSight = new Map(); // single-token label → times seen in SUBJECT position (nominative signal)
+  const subjSight = new Map(); // label → times seen in SUBJECT position (nominative signal)
+  const oblSight  = new Map(); // label → times seen OBLIQUE (preceded by an adposition — a setting signal)
 
   // ── The document's own gravity signals — read once, no title list ────────────────
   // A capitalised token is a MOON — a shared honorific, not a referent — when it heads ≥2
@@ -473,13 +475,17 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
         strongCue = cue.strong;
         gravity.set(label, (gravity.get(label) || 0) + cue.g);
         if (strongCue && cue.g > 0) strongSeen.set(label, true);
-        // Subject position (the NOMINATIVE signal): this form is followed by a content word — it
-        // is acting, a subject. A nominative-base does this a lot; an oblique (after a preposition,
-        // as an object) rarely does. This is what tells a declension from an independent name that
-        // merely shares a stem (Франция the subject vs Франца the genitive of Франц).
-        const nx = (sentence.slice(m.index + m[0].length).match(/^\s*([\p{L}'’]+)/u) || [])[1];
-        if (isContent(nx, C)) subjSight.set(label, (subjSight.get(label) || 0) + 1);
       }
+      // Company counters, either width — the GRAIN reader's evidence (grain.js) and the
+      // declension fold's nominative anchor read these. SUBJECT position (followed by a content
+      // word — it acts): a nominative-base does this a lot; an oblique rarely does. This is what
+      // tells a declension from an independent name that merely shares a stem (Франция the
+      // subject vs Франца the genitive of Франц). OBLIQUE position (preceded by an adposition —
+      // "in London", "unto Nineveh"): what is moved THROUGH and seldom acts is a setting.
+      const nx = (sentence.slice(m.index + m[0].length).match(/^\s*([\p{L}'’]+)/u) || [])[1];
+      if (isContent(nx, C)) subjSight.set(label, (subjSight.get(label) || 0) + 1);
+      const pv = (sentence.slice(0, m.index).match(/([\p{L}'’]+)\s*$/u) || [])[1];
+      if (pv && C.isPreposition(pv.toLowerCase())) oblSight.set(label, (oblSight.get(label) || 0) + 1);
       const g = gravity.get(label);
 
       // Gravity gates on a single-token candidate, read from the document's own statistics:
@@ -570,6 +576,16 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     registerInitialism,
     isAdmitted: (label) => admitted.has(label),
     idOf:       (label) => admitted.get(label),
+    // Admit a referent DISCOVERED outside the capital scan — an uncased-script figure found by
+    // gravity (parse/uncased.js), where a name carries no capital to anchor on. It joins the same
+    // maps as a scanned name (id by the same normalisation, one mention per sighting), so the graph,
+    // coref, and reading treat a kanji figure exactly like a capitalised one. Idempotent on the id.
+    admit: (label, sentIdx) => {
+      let id = admitted.get(label);
+      if (!id) { id = idFor(label); admitted.set(label, id); }
+      noteMention(id, sentIdx);
+      return id;
+    },
     initialismOf: (acronymLabel) => initialisms.get(acronymLabel) ?? null,
     labelOf:    (id)    => {
       for (const [label, eid] of admitted) if (eid === id) return label;
@@ -580,6 +596,18 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     get mentions() { return mentions; },
     get initialisms() { return initialisms; },
     get subjSight() { return subjSight; },
+    get oblSight()  { return oblSight; },
+    // The GRAIN of an admitted label (grain.js) — figure / kind / setting, read off the
+    // document's own company statistics. Null = HELD (no clean signal); defeasible by design.
+    grainOf: (label) => readGrain({
+      count: counts.get(label) ?? 0,
+      subj:  subjSight.get(label) ?? 0,
+      obl:   oblSight.get(label) ?? 0,
+      strong: strongSeen.has(label),
+      lowercaseForm: /^\p{Ll}/u.test(label),
+      lowerTwin:  !label.includes(' ') ? (lowCount.get(label.toLowerCase()) ?? 0) : 0,
+      pluralTwin: !label.includes(' ') ? (lowCount.get(label.toLowerCase() + 's') ?? 0) : 0,
+    }),
     // The NOMINATIVE forms — single-token names that behave as SUBJECTS often enough to be a
     // paradigm's base (not an oblique). The declension fold anchors on these so two names sharing
     // a stem (Франц / Франция) never merge. Read-only over the document's subject-position stats.
