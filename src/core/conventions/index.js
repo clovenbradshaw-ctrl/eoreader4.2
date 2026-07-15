@@ -8,6 +8,10 @@ export { createConventions, SEED_SPEECH, SEED_ABBREVIATIONS,
          SEED_CONJUNCTION, SEED_FIELD_LABEL, SEED_DEMONYM, SEED_CALENDAR,
          SEED_NONPERSON } from './ledger.js';
 export { induceAttributionVerbs }  from './induce.js';
+// The scale-free slot-induction primitive (slots.js): units → company → slots → lift, one
+// operation at every scale and modality. The ledger builds a field from it when handed a token
+// stream; a consumer can also use it directly to climb rungs (words → phrases → …).
+export { createSlotField, induceSlots, BOUNDARY } from './slots.js';
 // Corpus conventions as an inheritable prior — carry the harvested relation vocabulary (the
 // HOW) into a new reading, so a corpus-attested verb met once is held firm, not weak. Opt-in.
 export { corpusRelationsInherit } from './corpus.js';

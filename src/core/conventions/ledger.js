@@ -31,7 +31,11 @@
 //   copula       linking verbs → DEF, never a relation (is, am, was, been)      → verb guard
 //   modifier     adverbs/intensifiers/auxiliaries to   (much, more, quite, had) → verb guard
 //                step over before the head verb        the ReVerb skip-list, by hand
-// A consumer asks `is<Register>`; the ledger answers from seed ∪ learned.
+// A consumer asks `is<Register>`; the ledger answers from seed ∪ learned. And when handed a
+// token stream (`induce`), it also carries the SCALE-FREE SLOT FIELD (slots.js) — the seed-free
+// geometry the registers are training wheels for.
+
+import { createSlotField } from './slots.js';
 
 export const SEED_SPEECH = Object.freeze([
   'said', 'says', 'say', 'asked', 'asks', 'replied', 'replies', 'told', 'tells',
@@ -343,7 +347,11 @@ const PRIOR_SUPPORT = 3;
 //                       can the core still read from units alone?)
 //   { inherit: [...] }  loads conventions exported by an earlier read as priors —
 //                       a learned convention inherited exactly as a seed is (TEST 3)
-export const createConventions = ({ seeds = true, inherit = null } = {}) => {
+//   { induce: [...] }   a token stream (this document, lowercased, BOUNDARY between
+//                       segments) → the ledger INDUCES its slots from it (slots.js): the
+//                       scale-free layer under the seeds. This is how a reader with priors
+//                       OFF still learns which units are one KIND — the creature's method.
+export const createConventions = ({ seeds = true, inherit = null, induce = null } = {}) => {
   const rules = [];                 // learned/revised entries, append-only (→ the doc log)
   const reg = {};                   // kind → Map(token → entry)
   // entry = { origin: 'prior'|'learned', weight, support, strain, defeated }
@@ -383,6 +391,23 @@ export const createConventions = ({ seeds = true, inherit = null } = {}) => {
 
   const entryOf = (kind, v) => (reg[kind] ? reg[kind].get(norm(v)) : undefined);
   const has = (kind, v) => { const e = entryOf(kind, v); return !!e && !e.defeated; };
+
+  // ── The induced-slot layer (slots.js) — the seed-free geometry under the registers ──
+  // When a token stream is handed in, build the scale-free slot field: which units keep
+  // which company, clustered into slots, with the closed class emerging as the frame. This
+  // is ADDITIVE and read-only alongside the seeded registers — a consumer adopts the induced
+  // geometry (a unit's slot, its slot-mates, whether it is closed-class) at its own pace, and
+  // a {seeds:false} reading finally has ground to stand on. Nothing here changes an existing
+  // `is<Register>` answer, so a ledger built without `induce` is byte-identical.
+  let slotField = null, slotOfMap = null, slotGroups = null, frameSet = null;
+  if (Array.isArray(induce) && induce.length) {
+    slotField = createSlotField();
+    slotField.observe(induce);
+    const c = slotField.cluster();
+    slotOfMap = c.slotOf; slotGroups = c.slots; frameSet = slotField.frame();
+  }
+  const slotOf = (v) => (slotOfMap ? (slotOfMap.get(norm(v)) ?? null) : null);
+  const slotMatesOf = (v) => { const s = slotOf(v); return (s == null || !slotGroups) ? [] : slotGroups[s].filter((u) => u !== norm(v)); };
 
   // DEF — hold a convention. A freshly held convention is learned sediment; an
   // already-held one (a prior) is reinforced. Recorded as a REC line on the log,
@@ -434,6 +459,18 @@ export const createConventions = ({ seeds = true, inherit = null } = {}) => {
     rec,                            // REC — revise / override
     defeat: (kind, token) => rec(kind, token, { defeat: true }),
     reinstate: (kind, token) => rec(kind, token, { reinstate: true }),
+    // ── The induced-slot layer (read-only; null/empty unless `induce` was handed in) ──
+    // The scale-free geometry every organ can read through this one seam: a unit's slot, its
+    // slot-mates (units of the same KIND by company), whether it is CLOSED-CLASS (in the
+    // emergent frame — the seed-free stand-in for "function word", in any language), its
+    // company-nearest neighbours, and the whole slot partition. Additive: adopting these does
+    // not disturb the seeded predicates above.
+    slotOf,
+    slotMatesOf,
+    isClosedClass: (v) => !!frameSet && frameSet.has(norm(v)),
+    inducedNeighbors: (v, k) => (slotField ? slotField.neighbors(norm(v), k).map(([u]) => u) : []),
+    get inducedSlots() { return slotGroups || []; },
+    get slotField() { return slotField; },
     learnAttribution: (token, weight = 1) => learn('attribution-verb', token, weight),
     learnAbbreviation: (token, weight = 1) => learn('abbreviation', token, weight),
     isAttributionVerb: (v) => has('attribution-verb', v),

@@ -27,7 +27,7 @@ import { createCorefField }     from './coref.js';
 import { discoverNamings }      from './naming.js';
 import { distinctReferentCount } from './name-variants.js';
 import { tok }                  from './tokenize.js';
-import { createConventions, induceAttributionVerbs } from '../../core/conventions/index.js';
+import { createConventions, induceAttributionVerbs, BOUNDARY } from '../../core/conventions/index.js';
 
 // A pronoun-resolved descriptor owner ("his sister") is taken only when the prior
 // field's top candidate outweighs the runner-up by this ratio — an unambiguous
@@ -94,6 +94,11 @@ export const createParser = ({
   // byte-identical (the simple SVO path parses to the same edges, §9 golden parity); the
   // total read only ever ADDS propositions, each graded by how surely it was apprehended.
   totalRead          = false,
+  // Induce the document's SLOTS (core/conventions/slots.js) and carry the field on the ledger,
+  // so every organ that reads conventions inherits the seed-free geometry (a unit's slot, its
+  // slot-mates, the emergent closed class). OFF by default → the ledger and the whole read are
+  // byte-identical; on, the parse additionally learns which units are one KIND from company.
+  induceSlots        = false,
 } = {}) => {
   // State owned by this parser instance. Mutated by parse(); the mutation
   // is visible only inside the holon. Tests construct one parser per case.
@@ -114,7 +119,15 @@ export const createParser = ({
     // reads its abbreviation list from the ledger, so segmentation already honours
     // "Mr. Darcy" before a single word is classified, and the relation parser
     // reads its copula/modifier/speech lists from the same place.
-    const conventions = createConventions(conventionsOpts);
+    // The induce stream is this document's tokens, lowercased, with a BOUNDARY between segments
+    // so no company forms across a break. A naive split suffices — slot statistics don't need
+    // perfect segmentation, only local company. Built only when slot induction is asked for.
+    const induceStream = induceSlots
+      ? String(text || '').split(/[.!?;:]+/).flatMap((seg) =>
+          [...(seg.toLowerCase().match(/[a-zà-öø-ÿ]+(?:['’][a-zà-öø-ÿ]+)?/g) || []), BOUNDARY])
+      : null;
+    const conventions = createConventions(
+      induceStream ? { ...conventionsOpts, induce: induceStream } : conventionsOpts);
     // Before the first cut, let MEANING revise SYNTAX (parse/boundaries.js): the
     // DEF·EVA·REC coherence loop learns whether THIS document uses ':'/';' as
     // sentence boundaries — promoting one only when leaving it ignored fuses
