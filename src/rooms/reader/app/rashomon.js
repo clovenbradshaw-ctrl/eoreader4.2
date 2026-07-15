@@ -11,6 +11,7 @@
 
 import { projectGraph } from '../../../core/index.js';
 import { perspectiveOf, scanQuotes, diffPerspectives, learnedDiff, mergePerspectives } from '../../../perceiver/index.js';
+import { answerFromPerspective } from '../../../surfer/index.js';
 
 export const installRashomon = (appCtx) => {
   const speechOf = (doc) => doc?.conventions?.isAttributionVerb;
@@ -129,5 +130,28 @@ export const installRashomon = (appCtx) => {
     return [...byLabel.values()].sort((x, y) => y.quotes - x.quotes);
   };
 
-  Object.assign(appCtx, { rashomonSource, rashomonTopic, rashomonCandidates, voicesInDoc: agentsInDoc, warmEmbedder });
+  // ── Ask a figure — answer a question from inside ONE figure's fold ──────────────────
+  // A mechanically bounded projection of the figure's own claims (surfer/perspective-answer): it
+  // says only what the figure's words commit to, and dwells in the void when they say nothing.
+  const askFigureSource = (docId, entId, question) => {
+    const doc = appCtx.resolveDoc(docId)?.doc;
+    if (!doc || entId == null) return null;
+    return { scope: 'source', docId, ...answerFromPerspective(perspById(doc, entId), question) };
+  };
+  const askFigureTopic = (label, question) => {
+    if (!label) return null;
+    const packs = [];
+    for (const src of appCtx.topicSources()) {
+      const doc = appCtx.referentDocFor(src);
+      if (!doc?.log) continue;
+      const id = idInDoc(doc, label);
+      if (id == null) continue;
+      const p = perspById(doc, id, src.sn);
+      if (p.quotes.length || p.fold.claims.length) packs.push(p);
+    }
+    const merged = mergePerspectives(packs, { label });
+    return { scope: 'topic', ...answerFromPerspective(merged, question) };
+  };
+
+  Object.assign(appCtx, { rashomonSource, rashomonTopic, rashomonCandidates, askFigureSource, askFigureTopic, voicesInDoc: agentsInDoc, warmEmbedder });
 };

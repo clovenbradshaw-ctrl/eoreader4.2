@@ -54,7 +54,10 @@ const CSS = `
 .rz-watch{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 11px;border:1px solid var(--line);border-radius:20px;background:var(--panel2)}
 .rz-watch b{font-weight:600}
 .rz-watch .ic{cursor:pointer;opacity:.65;font-family:var(--mono)}.rz-watch .ic:hover{opacity:1;color:var(--accent)}
-.rz-watch .rz-delta{color:var(--accent);font-size:11.5px}`;
+.rz-watch .rz-delta{color:var(--accent);font-size:11.5px}
+.rz-ask input{font:inherit;font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);min-width:220px}
+.rz-said{padding:12px 14px;border:1px solid var(--line);border-left:3px solid var(--a);border-radius:10px;background:var(--panel);font-size:14.5px;line-height:1.6}
+.rz-void{padding:12px 14px;border:1px dashed var(--line);border-radius:10px;color:var(--dim);font-style:italic}`;
 
 const optionList = (cands, keyFn, sel) => cands.map((c) => {
   const k = keyFn(c), n = c.quotes != null ? ` · ${c.quotes} said` : '';
@@ -70,8 +73,9 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
   const head = root.querySelector('.rz-head'), body = root.querySelector('.rz-panels'), watchedEl = root.querySelector('.rz-watched');
 
   const srcs = () => { try { return app.topicSources() || []; } catch { return []; } };
-  const st = { mode, scope, sn: sn ?? (srcs()[0]?.sn ?? null), a: null, b: null, diff: null, trace: null, frag: null, chrono: null, loading: false, watched: [], deltas: {} };
+  const st = { mode, scope, sn: sn ?? (srcs()[0]?.sn ?? null), a: null, b: null, diff: null, trace: null, frag: null, chrono: null, answer: null, askQ: '', loading: false, watched: [], deltas: {} };
   const speakerless = (mo) => mo === 'fragile' || mo === 'timeline';
+  const needTwo = (mo) => mo === 'compare' || mo === 'trace';
   const refreshWatched = () => { try { st.watched = app.standingList ? app.standingList() : []; } catch { st.watched = []; } };
 
   const candidates = () => { try { return st.scope === 'source' ? app.rashomonCandidates({ sn: st.sn }) : app.rashomonCandidates(); } catch { return []; } };
@@ -81,7 +85,8 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
   const run = async () => {
     st.loading = true; render();
     try {
-      if (st.mode === 'timeline') st.chrono = st.scope === 'source' ? await app.chronologySource(st.sn) : await app.chronologyTopic();
+      if (st.mode === 'ask') st.answer = (st.a != null && st.askQ.trim()) ? (st.scope === 'source' ? await app.askFigureSource(docId(), st.a, st.askQ) : await app.askFigureTopic(st.a, st.askQ)) : null;
+      else if (st.mode === 'timeline') st.chrono = st.scope === 'source' ? await app.chronologySource(st.sn) : await app.chronologyTopic();
       else if (st.mode === 'fragile') st.frag = st.scope === 'source' ? await app.fragilitySource(st.sn) : await app.fragilityTopic();
       else if (st.mode === 'trace') st.trace = st.scope === 'source' ? await app.transmissionSource(st.sn) : await app.transmissionTopic();
       else if (st.a != null && st.b != null && st.a !== st.b) st.diff = st.scope === 'source' ? await app.rashomonSource(docId(), st.a, st.b) : await app.rashomonTopic(st.a, st.b);
@@ -111,14 +116,18 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
   head.addEventListener('change', (e) => {
     const t = e.target;
     if (t.matches('[data-src]')) { st.sn = t.value; pickDefaults(); run(); }
-    else if (t.matches('[data-a]')) { st.a = t.value; run(); }
+    else if (t.matches('[data-a]')) { st.a = t.value; if (st.mode !== 'ask') run(); }
     else if (t.matches('[data-b]')) { st.b = t.value; run(); }
   });
+  head.addEventListener('input', (e) => { if (e.target.matches('[data-q]')) st.askQ = e.target.value; });
+  head.addEventListener('keydown', (e) => { if (e.target.matches('[data-q]') && e.key === 'Enter') run(); });
+  head.addEventListener('click', (e) => { if (e.target.closest('[data-ask]')) run(); });
 
   function renderHead() {
     const c = candidates();
     const srcSel = st.scope === 'source' ? `<span class="lbl">source</span><select data-src>${srcs().map((s) => `<option value="${esc(s.sn)}"${s.sn === st.sn ? ' selected' : ''}>${esc(s.title || ('Source ' + s.sn))}</option>`).join('')}</select>` : '';
     const pickers = st.mode === 'compare' ? `<span class="lbl rz-a">A</span><select data-a>${optionList(c, keyOf, st.a)}</select><span class="lbl rz-b">B</span><select data-b>${optionList(c, keyOf, st.b)}</select>` : '';
+    const asker = st.mode === 'ask' ? `<span class="lbl">figure</span><select data-a>${optionList(c, keyOf, st.a)}</select><span class="rz-ask"><input data-q placeholder="Ask them something…" value="${esc(st.askQ)}"></span><button class="rz-btn" data-ask>Ask</button>` : '';
     head.innerHTML = `
       <span class="rz-title">Rashomon</span>
       <span class="rz-seg">
@@ -126,13 +135,14 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
         <button data-mode="trace" class="${st.mode === 'trace' ? 'on' : ''}">Trace an idea</button>
         <button data-mode="fragile" class="${st.mode === 'fragile' ? 'on' : ''}">What's fragile</button>
         <button data-mode="timeline" class="${st.mode === 'timeline' ? 'on' : ''}">Timeline</button>
+        <button data-mode="ask" class="${st.mode === 'ask' ? 'on' : ''}">Ask a figure</button>
       </span>
       <span class="rz-seg">
         <button data-scope="source" class="${st.scope === 'source' ? 'on' : ''}">This source</button>
         <button data-scope="topic" class="${st.scope === 'topic' ? 'on' : ''}">Whole topic</button>
       </span>
-      ${srcSel}${pickers}
-      ${speakerless(st.mode) ? '' : '<button class="rz-btn" data-watch title="Save this view; later, see what changed since">★ Watch this</button>'}`;
+      ${srcSel}${pickers}${asker}
+      ${speakerless(st.mode) || st.mode === 'ask' ? '' : '<button class="rz-btn" data-watch title="Save this view; later, see what changed since">★ Watch this</button>'}`;
   }
 
   function renderWatched() {
@@ -204,11 +214,21 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
       <div class="rz-sec"><h3>Where the telling runs against time</h3>${jumps}</div>`;
   }
 
+  function renderAsk() {
+    const a = st.answer;
+    if (!a) { body.innerHTML = `<div class="rz-empty">Pick a figure and ask a question. They answer from <i>their own words only</i> — what the record has them commit to — and say so plainly when their words don't address it. Nothing another figure said, and nothing the document asserts on its own, leaks in.</div>`; return; }
+    if (!a.addressed) { body.innerHTML = `<div class="rz-void">${esc(a.answer)}</div><div class="rz-note" style="margin-top:8px">The figure's words don't reach this question — so nothing is asserted (the record won't fabricate on their behalf).</div>`; return; }
+    const quotes = a.quotes.length ? `<div class="rz-sec" style="margin-top:16px"><h3>In their words</h3>${a.quotes.map((q) => `<div class="rz-row">“${esc(q)}”</div>`).join('')}</div>` : '';
+    const cites = a.claims.length ? `<div class="rz-sec" style="margin-top:14px"><h3>Drawn only from</h3>${a.claims.map((c) => `<div class="rz-row">${esc(c.text)}</div>`).join('')}</div>` : '';
+    body.innerHTML = `<div class="rz-said">${esc(a.answer)}</div><div class="rz-note" style="margin-top:6px">${a.contained ? 'bounded — every name and number here is one the figure used' : '⚠ this stepped outside the fold'}</div>${quotes}${cites}`;
+  }
+
   function render() {
     renderHead(); renderWatched();
-    if (!speakerless(st.mode) && candidates().length < 2) { body.innerHTML = `<div class="rz-empty">This ${st.scope === 'source' ? 'source' : 'topic'} names fewer than two figures with a voice. Compare and Trace read the same events from two people's points of view — ingest sources where people <i>speak</i>. (Try <b>What's fragile</b> or <b>Timeline</b> — they need no speakers.)</div>`; return; }
+    if (needTwo(st.mode) && candidates().length < 2) { body.innerHTML = `<div class="rz-empty">This ${st.scope === 'source' ? 'source' : 'topic'} names fewer than two figures with a voice. Compare and Trace read the same events from two people's points of view — ingest sources where people <i>speak</i>. (Try <b>What's fragile</b> or <b>Timeline</b> — they need no speakers.)</div>`; return; }
+    if (st.mode === 'ask' && candidates().length < 1) { body.innerHTML = `<div class="rz-empty">No figure here has a voice yet — Ask a figure answers from what a person is quoted saying. Ingest a source where someone <i>speaks</i>.</div>`; return; }
     if (st.loading) { body.innerHTML = `<div class="rz-empty">Reading…</div>`; return; }
-    if (st.mode === 'timeline') renderTimeline(); else if (st.mode === 'fragile') renderFragile(); else if (st.mode === 'trace') renderTrace(); else renderCompare();
+    if (st.mode === 'ask') renderAsk(); else if (st.mode === 'timeline') renderTimeline(); else if (st.mode === 'fragile') renderFragile(); else if (st.mode === 'trace') renderTrace(); else renderCompare();
   }
 
   pickDefaults(); refreshWatched(); render(); run();

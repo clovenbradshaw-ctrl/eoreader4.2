@@ -139,3 +139,8 @@ export { createReader, interpret, curiousSurf } from './reader.js';
 
 // (seam healing) re-exported so the module stays behind the entrance
 export { retreads } from './salience.js';
+
+// Answer a question AS THE RECORD HOLDS IT from inside one figure's fold — a mechanically bounded
+// projection of the figure's own claims (never roleplay), gated by referential containment, that
+// dwells in the void rather than fabricate when the figure's words say nothing to the question.
+export { answerFromPerspective, withinFold, foldEscape, foldSurface } from './perspective-answer.js';
