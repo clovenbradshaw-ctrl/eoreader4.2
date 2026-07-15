@@ -23,15 +23,15 @@
 //                 stamped on it. Gravity, not a list (the entities.js discipline).
 
 import { projectGraph } from '../core/index.js';
-import { SEED_SPEECH } from '../core/conventions/index.js';
+import { createConventions } from '../core/conventions/index.js';
 import { parseText } from './parse/index.js';
 import { foldOfQuotes } from './figure-fold.js';
 
 // The speech-verb predicate, defaulting to the seed the SIG classifier uses. Injected so
 // a caller with a live conventions ledger (its seed ∪ what the document taught) can pass
 // its own, exactly as parseRelations takes `opts.isSpeech`.
-const SPEECH_SET = new Set(SEED_SPEECH.map((w) => w.toLowerCase()));
-const defIsSpeech = (w) => SPEECH_SET.has(String(w || '').toLowerCase());
+const DEF_C = createConventions();   // sediment priors — the same ledger everyone reads
+const defIsSpeech = (w) => DEF_C.isAttributionVerb(w);
 
 // A name span: one or more capitalised words, allowing an internal apostrophe/hyphen and
 // a joined title's trailing period ("Mr.", "O'Brien", "Jean-Luc"). Kept deliberately

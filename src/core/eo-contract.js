@@ -14,6 +14,8 @@ export const CONTRACTS = Object.freeze({
   'src/core/conventions/english-verbs.js': contract({ ops: ['NUL'], targets: ['Kind'], products: ['Kind'], stances: ['Clearing'], note: 'irregular verb morphology' }),
   'src/core/conventions/index.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Field'], products: ['Kind', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'barrel' }),
   'src/core/conventions/induce.js': contract({ ops: ['REC'], targets: ['Field'], products: ['Kind'], stances: ['Composing'], note: 'attribution-verb induction (Pass 0)' }),
+  'src/core/conventions/literacy.js': contract({ ops: ['REC'], targets: ['Field'], products: ['Kind', 'Paradigm'], stances: ['Composing'], note: 'the literacy bootstrap — registers induced from a shelf of books (sediment, not seeds)' }),
+  'src/core/conventions/sediment-en.js': contract({ ops: ['REC'], targets: ['Field'], products: ['Kind'], stances: ['Composing'], note: 'GENERATED English literacy sediment (tools/bootstrap-read.mjs); provenance in header' }),
   'src/core/conventions/ledger.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Field'], products: ['Kind', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'the conventions ledger' }),
   'src/core/conventions/slots.js': contract({ ops: ['CON', 'SYN', 'DEF', 'EVA', 'REC'], targets: ['Network'], products: ['Kind', 'Paradigm'], stances: ['Binding', 'Composing'], note: 'the scale-free slot-induction primitive' }),
   'src/core/cube.js': contract({ ops: ['NUL', 'EVA'], targets: ['Kind'], products: ['Kind', 'Lens'], stances: ['Clearing', 'Binding'], note: 'cube geometry + coherence guard', floor: true }),
