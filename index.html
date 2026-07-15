@@ -4605,6 +4605,22 @@ class Component extends DCLogic {
       const snip = src ? this._cmdkSnippet(String(src.text || ''), first, terms) : { segs: [], focus: '' };
       push({ ...this._cmdkRowFor(src || s, { snip }), rkind: 'source' }, 'source');
     }
+    // The outward extension — ALWAYS below the record (grounded beats external), and the header
+    // says honestly whether the record answered at all. Operators are record-only facets, so the
+    // outward query is the bare text.
+    const outQ = (res.parsed && res.parsed.text) || q;
+    if (outQ) {
+      const none = rows.length === 0;
+      const hdr = none ? 'NOTHING ON THE RECORD — REACH OUTWARD' : 'REACH OUTWARD';
+      rows.push({
+        rkind: 'web', group: 'extend', hdr, title: 'Search the web for “' + outQ + '”', favCh: '⤢',
+        snipSegs: [], hasSnippet: false, meta: 'pull the top pages into a search topic on the record', outQ,
+      });
+      rows.push({
+        rkind: 'lib', group: 'extend', title: 'Search the libraries for “' + outQ + '”', favCh: '⌂',
+        snipSegs: [], hasSnippet: false, meta: 'Wikipedia · Project Gutenberg · Wikimedia Commons · GitHub', outQ,
+      });
+    }
     return rows;
   }
   // Highlight every term hit inside one short passage (the two-line clamp does the windowing).
@@ -4649,7 +4665,16 @@ class Component extends DCLogic {
     this.closeCmdk();
     if (!r) return;
     // Every result is a destination: an entity opens its page (the right-panel profile), a claim
-    // or passage opens the source at its verbatim place, a source opens the reader.
+    // or passage opens the source at its verbatim place, a source opens the reader — and the
+    // outward rows extend the SAME query to the web / the library shelves, so ingesting a new
+    // source is a continuation of a search that came up thin, not a separate tool.
+    if (r.rkind === 'web') { if (r.outQ) this.ingestSearch(r.outQ); return; }
+    if (r.rkind === 'lib') {
+      this.setState({ libQ: r.outQ || '' });
+      this.openLibraries();
+      if (r.outQ) setTimeout(() => this.libSearch(), 0);
+      return;
+    }
     if (r.rkind === 'entity' && r.docId && r.entId) { this.openEntity(r.docId, r.entId); return; }
     if (r.sn) { this.openViewer(r.sn, r.focus || undefined); return; }
     if (r.rkind === 'claim') this.setTab('evidence');   // an unanchored claim still has a home
