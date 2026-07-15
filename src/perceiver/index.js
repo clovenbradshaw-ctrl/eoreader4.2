@@ -48,6 +48,9 @@ export { traceTransmission, transmissionFloor } from './idea-transmission.js';
 // A fold against its own past — what changed between two runs of the same comparison or trace, so
 // a saved (standing) fold can say what moved since you last looked. Pure (prev, curr) → delta.
 export { foldDelta, compareDelta, traceDelta } from './fold-delta.js';
+// Fragility — which contested claims are load-bearing: rank the record's disputes by how much of
+// the record hangs off the same subject and would fall with it. Pure (claims, contested) → ranked.
+export { rankFragility } from './fragility.js';
 // The holonic containment address a referent earns from its span — the nesting the
 // flat depth-1 id used to throw away (referent-nesting.js, docs/referent-journey.md).
 export { referentNesting, nestingSummary } from './referent-nesting.js';

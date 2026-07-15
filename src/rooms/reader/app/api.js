@@ -74,6 +74,8 @@ export const buildApi = (appCtx) => {
     transmissionSource: appCtx.transmissionSource, transmissionTopic: appCtx.transmissionTopic,
     // standing folds — save a comparison/trace and see what changed since (docs: the living fold).
     standingSave: appCtx.standingSave, standingRefresh: appCtx.standingRefresh, standingRemove: appCtx.standingRemove, standingList: appCtx.standingList,
+    // fragility — the record's contested claims ranked by how much of the record hangs off them.
+    fragilitySource: appCtx.fragilitySource, fragilityTopic: appCtx.fragilityTopic,
     // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
     sourceSummary: appCtx.sourceSummary, sourceSummaryOf: appCtx.sourceSummaryOf, entitySummary: appCtx.entitySummary, entitySummaryFor: appCtx.entitySummaryFor, summaryFeedback: appCtx.summaryFeedback,
     // the figure a single-subject source centres on — the source page shows its dossier (docs/topline.md)

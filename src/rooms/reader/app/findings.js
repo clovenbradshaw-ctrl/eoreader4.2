@@ -4,7 +4,9 @@
 // spine (state · emit · trail beats · client) is destructured once at install.
 // findings + provenance (the graph tab, honest)
 import { discourseDag, assertedDag } from '../../../surfer/dag/index.js';
+import { inferSignificance } from '../../../surfer/fold/index.js';
 import { crossSourceConflicts } from '../../../enactor/factcheck/index.js';
+import { claimsFromDoc, claimPhrase, rankFragility } from '../../../perceiver/index.js';
 import { recordClaims } from '../claims.js';
 import { shaShort } from './util.js';
 
@@ -128,5 +130,46 @@ export const installFindings = (appCtx) => {
     return which === 'asserted' ? assertedDag(doc) : discourseDag(doc);
   };
 
-  Object.assign(appCtx, { dagFor, findings, provenance, topicEntitySummaries });
+  // ── FRAGILITY — which contested claims are load-bearing (perceiver/fragility.js) ──────
+  // Every claim a doc asserts, tagged with its source and rendered to a phrase — the footprint a
+  // contested subject would carry down with it.
+  const docClaims = (doc, sn) => (doc?.log ? claimsFromDoc(doc) : []).map((c) => ({
+    subject: c.subject, object: c.object || null, text: claimPhrase(c), source: sn,
+  }));
+  // The tensions INSIDE one doc — the significance engine's contradictions (text affirms & denies).
+  const docContradictions = (doc, sn) => {
+    let edges = [];
+    try { edges = inferSignificance(doc); } catch { edges = []; }
+    return edges.filter((e) => e.kind === 'contradicts').map((e) => ({ subject: e.srcLabel, kind: 'contradiction', description: e.body, source: sn }));
+  };
+  // Source scope — the tensions inside one document, ranked by footprint.
+  const fragilitySource = (snId) => {
+    const src = appCtx.sourceBySn(snId);
+    const doc = appCtx.referentDocFor ? (appCtx.referentDocFor(src) || appCtx.docFor(src)) : appCtx.docFor(src);
+    if (!doc?.log) return null;
+    return { scope: 'source', sn: snId, title: src?.title || null, ...rankFragility(docClaims(doc, snId), docContradictions(doc, snId)) };
+  };
+  // Topic scope — cross-source magnitude disagreements + every source's tensions, ranked by how
+  // much of the WHOLE corpus hangs off the contested subject.
+  const fragilityTopic = () => {
+    const srcs = appCtx.topicSources();
+    const claims = [], contested = [], entries = [];
+    for (const s of srcs) {
+      const doc = appCtx.referentDocFor ? appCtx.referentDocFor(s) : appCtx.docFor(s);
+      if (!doc?.log) continue;
+      entries.push({ doc, source: s.sn, label: s.title });
+      claims.push(...docClaims(doc, s.sn));
+      contested.push(...docContradictions(doc, s.sn));
+    }
+    let conflicts = [];
+    try { conflicts = crossSourceConflicts(entries).conflicts; } catch { conflicts = []; }
+    for (const c of conflicts) contested.push({
+      subject: c.subject || c.measureLabel || c.measure, kind: 'magnitude',
+      description: `${c.measureLabel || c.measure}: ` + (c.values || []).map((v) => `${v.raw}${v.sourceLabel ? ` (${v.sourceLabel})` : ''}`).join(' vs '),
+      sources: c.sources,
+    });
+    return { scope: 'topic', sources: srcs.map((s) => ({ sn: s.sn, title: s.title || null })), ...rankFragility(claims, contested) };
+  };
+
+  Object.assign(appCtx, { dagFor, findings, provenance, topicEntitySummaries, fragilitySource, fragilityTopic });
 };

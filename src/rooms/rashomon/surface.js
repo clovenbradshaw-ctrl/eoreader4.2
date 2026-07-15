@@ -70,7 +70,7 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
   const head = root.querySelector('.rz-head'), body = root.querySelector('.rz-panels'), watchedEl = root.querySelector('.rz-watched');
 
   const srcs = () => { try { return app.topicSources() || []; } catch { return []; } };
-  const st = { mode, scope, sn: sn ?? (srcs()[0]?.sn ?? null), a: null, b: null, diff: null, trace: null, loading: false, watched: [], deltas: {} };
+  const st = { mode, scope, sn: sn ?? (srcs()[0]?.sn ?? null), a: null, b: null, diff: null, trace: null, frag: null, loading: false, watched: [], deltas: {} };
   const refreshWatched = () => { try { st.watched = app.standingList ? app.standingList() : []; } catch { st.watched = []; } };
 
   const candidates = () => { try { return st.scope === 'source' ? app.rashomonCandidates({ sn: st.sn }) : app.rashomonCandidates(); } catch { return []; } };
@@ -80,10 +80,11 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
   const run = async () => {
     st.loading = true; render();
     try {
-      if (st.mode === 'trace') st.trace = st.scope === 'source' ? await app.transmissionSource(st.sn) : await app.transmissionTopic();
+      if (st.mode === 'fragile') st.frag = st.scope === 'source' ? await app.fragilitySource(st.sn) : await app.fragilityTopic();
+      else if (st.mode === 'trace') st.trace = st.scope === 'source' ? await app.transmissionSource(st.sn) : await app.transmissionTopic();
       else if (st.a != null && st.b != null && st.a !== st.b) st.diff = st.scope === 'source' ? await app.rashomonSource(docId(), st.a, st.b) : await app.rashomonTopic(st.a, st.b);
       else st.diff = null;
-    } catch { st.diff = null; st.trace = null; }
+    } catch { st.diff = null; st.trace = null; st.frag = null; }
     st.loading = false; render();
   };
   const pickDefaults = () => { const c = candidates(); st.a = c[0] ? keyOf(c[0]) : null; st.b = c[1] ? keyOf(c[1]) : null; };
@@ -121,13 +122,14 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
       <span class="rz-seg">
         <button data-mode="compare" class="${st.mode === 'compare' ? 'on' : ''}">Compare two</button>
         <button data-mode="trace" class="${st.mode === 'trace' ? 'on' : ''}">Trace an idea</button>
+        <button data-mode="fragile" class="${st.mode === 'fragile' ? 'on' : ''}">What's fragile</button>
       </span>
       <span class="rz-seg">
         <button data-scope="source" class="${st.scope === 'source' ? 'on' : ''}">This source</button>
         <button data-scope="topic" class="${st.scope === 'topic' ? 'on' : ''}">Whole topic</button>
       </span>
       ${srcSel}${pickers}
-      <button class="rz-btn" data-watch title="Save this view; later, see what changed since">★ Watch this</button>`;
+      ${st.mode === 'fragile' ? '' : '<button class="rz-btn" data-watch title="Save this view; later, see what changed since">★ Watch this</button>'}`;
   }
 
   function renderWatched() {
@@ -173,11 +175,24 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
       <div class="rz-sec"><h3>Ideas as they moved through the cast</h3>${ideas}</div>`;
   }
 
+  function renderFragile() {
+    const f = st.frag;
+    if (!f) { body.innerHTML = `<div class="rz-empty">Reading what the record rests on…</div>`; return; }
+    const m = f.metric;
+    const items = f.items.map((it) => {
+      const dep = it.dependents.length ? `<div class="rz-note" style="margin-top:6px">If this is wrong, these also come into question:</div>${it.dependents.map((d) => `<div class="rz-row">${esc(d)}</div>`).join('')}` : `<div class="rz-note" style="margin-top:6px">little else in the record rests on this — cheap to be wrong about.</div>`;
+      return `<div class="rz-idea rz-div"><div><span class="rz-subj">${esc(it.subject)}</span> <span class="rz-basis">${esc(it.kind)}</span> <span class="rz-delta">load ${it.load}${it.sources ? ` · ${it.sources} sources` : ''}</span></div><div class="rz-note" style="margin-top:3px">${esc(it.description)}</div>${dep}</div>`;
+    }).join('') || `<div class="rz-note">No disagreement found in this ${f.scope === 'source' ? 'source' : 'topic'} yet — nothing is contested, so nothing is load-bearing.</div>`;
+    body.innerHTML = `
+      <div class="rz-metric"><span class="rz-basis">lexical</span><span><b>${m.contested}</b> contested</span><span><b>${m.loadBearing}</b> load-bearing</span>${f.scope === 'topic' && f.sources ? `<span>across <b>${f.sources.length}</b> sources</span>` : ''}</div>
+      <div class="rz-sec"><h3>Contested claims, most load-bearing first</h3>${items}</div>`;
+  }
+
   function render() {
     renderHead(); renderWatched();
-    if (candidates().length < 2) { body.innerHTML = `<div class="rz-empty">This ${st.scope === 'source' ? 'source' : 'topic'} names fewer than two figures with a voice. Rashomon reads the same events from two people's points of view — ingest sources where people <i>speak</i>, then compare their folds or trace an idea between them.</div>`; return; }
+    if (st.mode !== 'fragile' && candidates().length < 2) { body.innerHTML = `<div class="rz-empty">This ${st.scope === 'source' ? 'source' : 'topic'} names fewer than two figures with a voice. Compare and Trace read the same events from two people's points of view — ingest sources where people <i>speak</i>. (Try <b>What's fragile</b> — it needs no speakers, only disagreement.)</div>`; return; }
     if (st.loading) { body.innerHTML = `<div class="rz-empty">Reading…</div>`; return; }
-    if (st.mode === 'trace') renderTrace(); else renderCompare();
+    if (st.mode === 'fragile') renderFragile(); else if (st.mode === 'trace') renderTrace(); else renderCompare();
   }
 
   pickDefaults(); refreshWatched(); render(); run();
