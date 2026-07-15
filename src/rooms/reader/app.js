@@ -100,6 +100,7 @@ import { installTopicQuestion } from './app/topic-question.js';
 import { installSegments } from './app/segments.js';
 import { installEntities } from './app/entities.js';
 import { installLevels } from './app/levels.js';
+import { installRashomon } from './app/rashomon.js';
 import { installListen } from './app/listen.js';
 import { installToplines } from './app/toplines.js';
 import { installDigest } from './app/digest.js';
@@ -228,6 +229,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installSegments(appCtx);
   installEntities(appCtx);
   installLevels(appCtx);
+  installRashomon(appCtx);
   installListen(appCtx);
   installToplines(appCtx);
   installDigest(appCtx);

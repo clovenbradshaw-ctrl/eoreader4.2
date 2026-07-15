@@ -65,6 +65,10 @@ export const buildApi = (appCtx) => {
     // the entity explorer, scoped to one source and read at a chosen HOLONIC LEVEL —
     // its natural-language referents (default) or the modality's raw spans underneath
     sourceLevels: appCtx.sourceLevels, sourceEntities: appCtx.sourceEntities, sourceBaseNoun: appCtx.sourceBaseNoun,
+    // the Rashomon fold — two figures' folds over the same events, diffed (agree / conflict /
+    // diverge / each own), at one source (rashomonSource, by entity id) or the whole topic
+    // (rashomonTopic, by label); rashomonCandidates lists the figures with a voice to compare.
+    rashomonSource: appCtx.rashomonSource, rashomonTopic: appCtx.rashomonTopic, rashomonCandidates: appCtx.rashomonCandidates,
     // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
     sourceSummary: appCtx.sourceSummary, sourceSummaryOf: appCtx.sourceSummaryOf, entitySummary: appCtx.entitySummary, entitySummaryFor: appCtx.entitySummaryFor, summaryFeedback: appCtx.summaryFeedback,
     // the figure a single-subject source centres on — the source page shows its dossier (docs/topline.md)

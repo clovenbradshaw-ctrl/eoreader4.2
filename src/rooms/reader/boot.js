@@ -72,7 +72,7 @@ import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
 import { mountPlainSurface, scene as plainScene, liveModel as plainLiveModel } from '../plain/index.js';
-
+import { mountRashomon } from '../rashomon/index.js';
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
 // background faculty that watches the same fold geometry the turn emits and raises IMPRESSIONS
@@ -294,7 +294,7 @@ window.EO = Object.freeze({
   // the plain version as a screen in the app — the same engine with nothing named to the person.
   // `mount(el,{scene,live})` drops the surface in; `liveModel(app)` reads the person's real sources
   // so "People mean different things by this" is computed from what those documents actually say.
-  plain: Object.freeze({ mount: mountPlainSurface, liveModel: plainLiveModel, scene: plainScene }),
+  plain: Object.freeze({ mount: mountPlainSurface, liveModel: plainLiveModel, scene: plainScene }), rashomon: Object.freeze({ mount: mountRashomon }),
   parse,
   readingAt,
   groundSpans, groundSummary, supportVerdict,

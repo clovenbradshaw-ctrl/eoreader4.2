@@ -34,6 +34,11 @@ export { referentialConfidence, REFERENT_MARGIN } from './referent.js';
 // A figure's perspective — when a referent is a person/agent, the reading as IT holds it:
 // its verbatim quotes, its speech acts, and the universe its own words instantiate.
 export { perspectiveOf, scanQuotes } from './perspective.js';
+// The Rashomon fold — two figures' folds over the same events, and their DIFFERENCE (agree /
+// conflict / diverge / each own) as a first-class object. Pure lexical floor (diffPerspectives),
+// lifted by the learned same-assertion judgment when a meaning embedder is warm (learnedDiff);
+// mergePerspectives unions one figure's fold across sources for the topic-scope diff.
+export { diffPerspectives, learnedDiff, mergePerspectives, claimText, claimPhrase, claimPolarity } from './perspective-diff.js';
 // The holonic containment address a referent earns from its span — the nesting the
 // flat depth-1 id used to throw away (referent-nesting.js, docs/referent-journey.md).
 export { referentNesting, nestingSummary } from './referent-nesting.js';
