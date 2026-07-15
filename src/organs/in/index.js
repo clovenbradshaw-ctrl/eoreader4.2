@@ -17,10 +17,15 @@
 //                                           words as timed entities on the reading line of time.
 //   ingestPdf(pages)            civic PDF → units = lines with page + bbox + char-range spans
 //                                           (pdf.js text-items injected; geometry kept, not flattened).
+//   ingestPdf({readings})       civic PDF → the QUORUM: the born-digital text layer (a ground-truth
+//                                           eye, pdfTextReading) reconciled with the OCR of the
+//                                           natively-rendered page raster — scanned pages now read,
+//                                           and a bad "searchable" text layer is caught, not trusted.
 //   ingestOcr(result)           scanned   → units = lines with bbox (Tesseract word boxes injected).
 //   ingestOcr({readings})       scanned   → the QUORUM: several eyes reconciled — best reading
 //                                           elected (DEF), disagreements weighed (EVA), each eye's
-//                                           reliability learned (REC). resolveOcr is the pure brain.
+//                                           reliability learned (REC). resolveOcr is the pure brain,
+//                                           quorum-doc.js the shared landing (OCR + PDF both use it).
 //   ingestDocling(doctags)      scanned   → units = layout-aware blocks (SmolDocling VLM injected).
 //   composeScene(seen)          photo     → the detections ingestImage eats, from a vision model's
 //                                           STRUCTURED output (Florence-2 injected): spatial relations
@@ -60,9 +65,10 @@ export { ingestAcoustic, waveformPeaks, analyzeAudio, separateHolons, acousticSu
 export { acousticSignal, resolveTranscript } from './hear.js';
 export { diarize, analyzeUtterance } from './voices.js';
 export { assembleDocument }  from './document.js';
-export { ingestPdf }         from './pdf.js';
+export { ingestPdf, pdfTextReading } from './pdf.js';
 export { ingestOcr }         from './ocr.js';
 export { resolveOcr, ocrBelief, normBox } from './ocr-quorum.js';
+export { assembleQuorumDoc } from './quorum-doc.js';
 export { resolveOcrInContext, revertOcrGuesses, buildOcrContext } from './ocr-context.js';
 export { ingestDocling }     from './docling.js';
 export { ingestWebpage }     from './webpage.js';

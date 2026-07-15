@@ -20,7 +20,7 @@
 // classic single-list path — the quorum is a superset, never a tax on the common case.
 
 import { assembleDocument } from './document.js';
-import { resolveOcr } from './ocr-quorum.js';
+import { assembleQuorumDoc } from './quorum-doc.js';
 
 const bbox = (b) => b ? [b.x0, b.y0, (b.x1 - b.x0), (b.y1 - b.y0)] : null;
 
@@ -71,39 +71,17 @@ export const ingestOcr = (ocr = {}) => {
 
 // ingestOcrQuorum(ocr, { name, page }) — reconcile several eyes into one doc.
 //
-// resolveOcr does the pure reconciliation; assembleDocument lays the elected lines on the
-// spine (each INS carrying its page/box/char locus); then the quorum's own DEF·EVA·REC marks
-// are appended to the SAME append-only log — the frames it weighed (EVA, one per shaky line,
-// pointing at the addressable span) and the rule it learned (REC, one per eye, plus a DEF
-// naming the most reliable). The per-line facts — belief, witnesses, agreement — ride
-// doc.spans[i].ref, so grounding renders "this line, elected from florence, 2/3 eyes, belief
-// 0.54" beside the passage itself.
-const ingestOcrQuorum = (ocr, { name, page }) => {
-  const q = resolveOcr(ocr.readings, { page });
-
-  const doc = assembleDocument({
-    name, modality: 'ocr', blocks: q.blocks,
-    metadata: ocr.metadata || {},
-    extra: { tier: 'quorum', eyes: q.eyes, ...(ocr.derivedFrom != null ? { derivedFrom: ocr.derivedFrom } : {}) },
-  });
-
-  // Lay the DEF·EVA·REC trail on the log the blocks already landed on.
-  q.ledger.forEach((e) => {
-    if (e.op === 'EVA' && e.index != null) {
-      const span = doc.spans[e.index];
-      if (span) doc.log.append({ op: 'EVA', id: span.id, reason: e.reason, value: e.value, sentIdx: e.index, locus: `${name}#char=${span.charStart},${span.charEnd}` });
-    } else if (e.op === 'REC' && e.kind === 'eye-reliability') {
-      doc.log.append({ op: 'REC', kind: 'eye-reliability', engine: e.engine, weight: e.weight, checked: e.checked });
-    } else if (e.op === 'DEF' && e.kind === 'most-reliable-eye') {
-      doc.log.append({ op: 'DEF', key: 'most-reliable-eye', value: e.value });
-    }
-  });
-
-  // The per-span reads the whole engine already knows to look for, plus the quorum's own.
-  doc.confidence = doc.spans.map((s) => s.ref?.confidence ?? null);
-  doc.belief = doc.spans.map((s) => s.ref?.belief ?? null);
-  doc.witnesses = doc.spans.map((s) => s.ref?.witnesses ?? null);
-  doc.reliability = q.reliability;                 // the learned "which eye is best" rule
-  doc.quorum = { eyes: q.eyes, best: q.best, disagreements: q.disagreements };
-  return doc;
-};
+// The whole reconcile-and-land is the shared assembleQuorumDoc (organs/in/quorum-doc.js): the
+// elected lines on the spine (each INS carrying its page/box/char locus), the quorum's own
+// DEF·EVA·REC marks appended to the SAME log (the frames it weighed, one EVA per shaky line
+// pointing at the addressable span; the rule it learned, one REC per eye plus a DEF naming the
+// most reliable), and the per-line facts — belief, witnesses, agreement — on doc.spans[i].ref,
+// so grounding renders "this line, elected from florence, 2/3 eyes, belief 0.54" beside the
+// passage. The PDF organ lands its born-digital-plus-OCR eyes through the very same helper.
+const ingestOcrQuorum = (ocr, { name, page }) => assembleQuorumDoc({
+  name, modality: 'ocr', readings: ocr.readings, page,
+  metadata: ocr.metadata || {},
+  // An OCR is READ FROM a scan — a derived document. `derivedFrom` folds it onto its source
+  // image so a scan and its OCR corroborate as ONE origin (the reflection loop reads this).
+  extra: { tier: 'quorum', ...(ocr.derivedFrom != null ? { derivedFrom: ocr.derivedFrom } : {}) },
+});

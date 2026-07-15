@@ -53,6 +53,7 @@ const spanWeight = (span, cap) => {
 const isEligible = (span) => {
   const r = span?.ref;
   if (!r) return true;                                  // a classic single-eye scan — all lines open
+  if (r.groundTruth) return false;                      // the document's OWN text (a PDF's born-digital layer) — trusted as-is, never guessed
   return !((r.eyes ?? 1) >= 2 && !r.disagreement);
 };
 
