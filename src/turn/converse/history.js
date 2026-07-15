@@ -101,9 +101,22 @@ export const foldConversation = (history = [], opts = {}) => {
 
 const label = (role) => (role === 'assistant' ? 'Me:' : 'You:');
 
-// A rough token estimate — chars/4, the usual heuristic. Exact accounting is the
-// model's; this only has to decide where the verbatim window ends.
-const estTokens = (s) => Math.ceil(String(s || '').length / 4);
+// A rough token estimate, script-aware. Kept in lockstep with the context-window guard's
+// estimateTokens (model/context-budget.js) — the SAME per-code-point rule: ASCII at bytes/4 (so
+// English is byte-identical to the old chars/4 heuristic), every non-ASCII code point at bytes/2.
+// A flat chars/4 UNDER-counts non-Latin badly (Cyrillic ~2–3.5×, CJK/kana ~5–6× denser under the
+// byte-level tokenizer), which over-packs the verbatim window with more turns than it can afford;
+// counting each turn for what it really costs keeps this budget honest across scripts. Left inline
+// rather than imported so the fold stays a self-contained leaf (no cross-holon crossing). Exact
+// accounting is the model's; this only has to decide where the verbatim window ends.
+const utf8Len = (cp) => (cp <= 0x7f ? 1 : cp <= 0x7ff ? 2 : cp <= 0xffff ? 3 : 4);
+const estTokens = (s) => {
+  const str = String(s || '');
+  if (!str.trim()) return 0;
+  let t = 0;
+  for (const ch of str) { const b = utf8Len(ch.codePointAt(0)); t += b === 1 ? 0.25 : b * 0.5; }
+  return Math.ceil(t);
+};
 
 const STOP = new Set((
   'a an the and or but if then so of to in on at for with as is are was were be been ' +
