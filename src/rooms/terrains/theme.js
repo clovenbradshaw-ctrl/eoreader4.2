@@ -87,6 +87,9 @@ export const CSS = `
 .tr-cell.on .tn{color:var(--dot)}
 .tr-cell.on .th{color:var(--dot);opacity:.8}
 .tr-cell.on::before{opacity:1}
+.tr-cell.off{opacity:.34;cursor:default;pointer-events:none}
+.tr-live{margin-top:14px;font-size:11px;color:var(--faint);line-height:1.55;background:var(--panel2);border-radius:9px;padding:9px 11px}
+.tr-live b{color:var(--dim);font-weight:600}
 /* legend */
 .tr-legend{margin-top:20px;font-size:12px;color:var(--dim);line-height:1.6}
 .tr-legend .lh{color:var(--faint);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;margin:0 0 6px}

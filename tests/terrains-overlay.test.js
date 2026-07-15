@@ -126,3 +126,38 @@ test('Void is Existence · Ground — an ambient terrain, not a figure', () => {
   assert.equal(info.domain, 'Existence');
   assert.equal(info.grain, 'Ground');
 });
+
+// ── the live bridge: a real parse → a terrain scene the surface can paint ──
+import { sceneFromText, liveScene } from '../src/rooms/terrains/project.js';
+
+test('sceneFromText builds a paintable scene from real text (entities + sentences)', () => {
+  const text = 'Ada built the engine. The engine impressed Babbage. Babbage praised Ada.';
+  const sc = sceneFromText(text, { label: 'note' });
+  assert.ok(sc, 'a non-empty text yields a scene');
+  assert.equal(sc.TITLE, 'note');
+  assert.ok(sc.SENTENCES.length >= 2, 'text is segmented into sentences');
+  assert.ok(Array.isArray(sc.ENTITIES) && Array.isArray(sc.LINKS) && Array.isArray(sc.FIELD));
+  assert.equal(sc.live, true);
+  // every entity mark names a sentence in range and a surface form actually present there
+  for (const e of sc.ENTITIES) {
+    assert.ok(e.sent >= 0 && e.sent < sc.SENTENCES.length, 'entity sentence in range');
+    assert.ok(sc.SENTENCES[e.sent].includes(e.text), 'entity surface form is findable in its sentence');
+  }
+  // interpretive terrains are left empty (dimmed in the UI), never fabricated
+  assert.deepEqual(sc.LENSES, []); assert.deepEqual(sc.PARADIGM, []); assert.deepEqual(sc.ATMOSPHERE, []);
+});
+
+test('sceneFromText the fold can consume its output (buildOverlay over a live scene)', () => {
+  const sc = sceneFromText('Ada built the engine. Babbage praised Ada.', { label: 'x' });
+  const model = buildOverlay({ inline: new Set(['entity', 'link']) }, sc);
+  assert.equal(model.sentences.length, sc.SENTENCES.length);
+  assert.equal(model.title, 'x');
+  // arcs, if any, reference ids that exist among the scene's entities
+  const ids = new Set(sc.ENTITIES.map((e) => e.id));
+  for (const arc of model.arcs) if (arc.hasFrom) assert.ok(ids.has(arc.from));
+});
+
+test('empty text → null scene (surface falls back to the demo)', () => {
+  assert.equal(sceneFromText('   ', { label: 'y' }), null);
+  assert.equal(liveScene(null), null);
+});

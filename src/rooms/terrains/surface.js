@@ -26,7 +26,16 @@ const COLS = ['Figure', 'Pattern', 'Ground'];   // the answer's order
 const IDENT_INK = '#7f8a9c';                     // identity entities: one quiet underline, not a rainbow
 
 export function mountTerrainSurface(root, { scene = SCENE } = {}) {
-  const idHues = identityHues(scene.ENTITIES);
+  const idHues = identityHues(scene.ENTITIES || []);
+  // Which terrains this scene actually carries data for — the demo has all nine; a live scene
+  // (project.js) has only what the parse recovers, so the rest are dimmed rather than dead.
+  const has = (a) => Array.isArray(a) && a.length > 0;
+  const distinct = (a, k) => new Set((a || []).map((e) => e[k]).filter((v) => v != null)).size;
+  const AVAIL = {
+    Entity: has(scene.ENTITIES), Kind: distinct(scene.ENTITIES, 'kind') >= 2, Void: has(scene.VOIDS),
+    Link: has(scene.LINKS), Network: distinct(scene.ENTITIES, 'cluster') >= 2, Field: has(scene.FIELD),
+    Lens: has(scene.LENSES), Paradigm: has(scene.PARADIGM), Atmosphere: has(scene.ATMOSPHERE),
+  };
   const st = {
     inline: new Set(['entity']),   // Figure/Void marks that stack — Entity on by default (calm)
     recolor: 'identity',           // identity | kind | network  (single-select)
@@ -50,7 +59,7 @@ export function mountTerrainSurface(root, { scene = SCENE } = {}) {
   // Inline stacks; recolour/wash are single-select (click the active one to turn it off). A
   // recolour is OF the figures, so it turns entities on.
   const toggle = (terrain) => {
-    const a = ACTION[terrain]; if (!a) return;
+    const a = ACTION[terrain]; if (!a || !AVAIL[terrain]) return;
     if (a.channel === 'inline') st.inline.has(a.key) ? st.inline.delete(a.key) : st.inline.add(a.key);
     else if (a.channel === 'recolor') { st.recolor = st.recolor === a.key ? 'identity' : a.key; if (st.recolor !== 'identity') st.inline.add('entity'); }
     else st.wash = st.wash === a.key ? 'none' : a.key;
@@ -65,9 +74,10 @@ export function mountTerrainSurface(root, { scene = SCENE } = {}) {
       for (const g of COLS) {
         const terrain = TERRAINS[d][g];
         const hue = DOMAIN_HUE[d];
-        html += `<button class="tr-cell${isOn(terrain) ? ' on' : ''}" data-terrain="${esc(terrain)}"
-          style="--dot:${hue};--dotbg:${withAlpha(hue, .13)}">
-          <div class="tn">${esc(terrain)}</div><div class="th">${esc(ACTION[terrain]?.hint || '')}</div></button>`;
+        const off = AVAIL[terrain] ? '' : ' off';
+        html += `<button class="tr-cell${isOn(terrain) ? ' on' : ''}${off}" data-terrain="${esc(terrain)}"
+          style="--dot:${hue};--dotbg:${withAlpha(hue, .13)}"${off ? ' title="no data for this terrain in the current source"' : ''}>
+          <div class="tn">${esc(terrain)}</div><div class="th">${esc(AVAIL[terrain] ? (ACTION[terrain]?.hint || '') : '—')}</div></button>`;
       }
     }
     return html + `</div>`;
@@ -136,6 +146,7 @@ export function mountTerrainSurface(root, { scene = SCENE } = {}) {
           <div class="tr-kick">The cube — tap a terrain</div>
           ${renderCube()}
           ${renderLegend(model)}
+          ${scene.live ? `<div class="tr-live">Live · <b>${esc(scene.TITLE || 'your source')}</b>. Entities, relations and density are read from what you ingested; the interpretive terrains need a reading the parse doesn't give yet, so they're dimmed.</div>` : ''}
           <div class="tr-note">This switcher is <b>core/cube.js</b> rendered directly — rows are the three domains, columns the three grains. The grain decides how each can be drawn, which is why washes and recolours are one at a time and only the marks stack.</div>
         </div>
         <div class="tr-read"><div class="tr-doc">

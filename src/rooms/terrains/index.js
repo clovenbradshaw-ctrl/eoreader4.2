@@ -3,4 +3,5 @@
 // so "what else can we draw over text besides entities?" has a runnable answer.
 export { mountTerrainSurface } from './surface.js';
 export { buildOverlay, segment } from './overlay.js';
+export { liveScene, sceneFromText } from './project.js';
 export * as scene from './scene.js';

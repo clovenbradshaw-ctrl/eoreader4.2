@@ -8,6 +8,8 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/terrains/scene.js': contract({ ops: ['INS'], targets: ['Void'], products: ['Entity'], stances: ['Making'], note: 'the worked passage the demo reads' }),
   // The fold: it DISSECTS each sentence into atoms (SEG) and BONDS the relation arcs (CON).
   'src/rooms/terrains/overlay.js': contract({ ops: ['SEG', 'CON'], targets: ['Field', 'Link'], products: ['Link', 'Network'], stances: ['Dissecting', 'Binding'], note: 'segment text + build arcs/washes' }),
+  // The live bridge: it ATTRIBUTES the parse's figures and BONDS its relations into a scene.
+  'src/rooms/terrains/project.js': contract({ ops: ['SIG', 'CON'], targets: ['Entity', 'Field'], products: ['Entity', 'Link'], stances: ['Binding'], note: 'engine → terrain-scene bridge' }),
   // The palette + stylesheet: it DEFINES how each terrain reads (a Lens on the reading).
   'src/rooms/terrains/theme.js': contract({ ops: ['DEF'], targets: ['Atmosphere'], products: ['Lens'], stances: ['Dissecting'], note: 'palette + CSS' }),
   // The arc renderer: it BONDS subject to object over the laid-out text.

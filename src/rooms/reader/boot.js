@@ -71,7 +71,7 @@ import { createChatRoom, mountChat, mountChatLauncher } from '../chat/index.js';
 import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
-import { mountPlainSurface, scene as plainScene, liveModel as plainLiveModel } from '../plain/index.js';
+import { mountTerrainSurface, liveScene as terrainLiveScene, scene as terrainScene } from '../terrains/index.js';
 
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
@@ -291,10 +291,10 @@ const render = Object.freeze({
 window.EO = Object.freeze({
   app,
   render,   // the facing-page WYSIWYG renderer — open a source (HTML/CSS/JS) rendered live beside its code
-  // the plain version as a screen in the app — the same engine with nothing named to the person.
-  // `mount(el,{scene,live})` drops the surface in; `liveModel(app)` reads the person's real sources
-  // so "People mean different things by this" is computed from what those documents actually say.
-  plain: Object.freeze({ mount: mountPlainSurface, liveModel: plainLiveModel, scene: plainScene }),
+  // terrains over text — the cube's nine Site-face terrains painted over a passage. `mount(el,{scene})`
+  // drops the surface in; `liveScene(app)` builds a scene from the person's active source (entities,
+  // relations, density read from the real parse), or null → the surface shows the worked demo scene.
+  terrains: Object.freeze({ mount: mountTerrainSurface, liveScene: terrainLiveScene, scene: terrainScene }),
   parse,
   readingAt,
   groundSpans, groundSummary, supportVerdict,
