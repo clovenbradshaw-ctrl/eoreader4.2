@@ -11,14 +11,36 @@
 // then the middle of the largest block, so the model is never handed more than it can hold.
 //
 // It is a NO-OP whenever the prompt already fits — the overwhelming common case — so a normal
-// turn is byte-identical and the golden prompts stand. Token counts are the same chars/4
-// estimate the rest of the surface uses (converse/history.js, the per-chat counter): the exact
-// accounting is the tokenizer's, and this only has to decide WHETHER, and by how much, to trim.
+// turn is byte-identical and the golden prompts stand. Token counts are the same estimate the rest
+// of the surface budgets against (converse/history.js keeps a private copy of this exact rule for
+// its verbatim-window budget): the exact accounting is the tokenizer's, and this only has to decide
+// WHETHER, and by how much, to trim.
 
-// ~4 characters per token, the standard English heuristic. Whitespace-only ⇒ nothing.
+// ESTIMATE TOKENS — script-aware, deliberately CONSERVATIVE. The old rule was a flat chars/4, the
+// standard English heuristic; it is right for ASCII/Latin and badly WRONG for everything else, in
+// the one direction that hurts here. The local talkers (webllm/wllama and every GGUF coder) run
+// byte-level BPE tokenizers, which emit far more tokens for a script they saw little of: a
+// Cyrillic prompt tokenizes ~2–3.5× denser than chars/4 predicts, CJK/kana ~5–6×. chars/4 then
+// calls such a prompt "fits", the guard trims nothing, and the runtime throws
+// ContextWindowSizeExceededError — the exact failure this module exists to prevent (a Russian or
+// Japanese page read at a 4k-window local model). So the estimate is derived from each code
+// point's UTF-8 byte length, the quantity byte-level BPE actually consumes: ASCII stays bytes/4
+// (English is byte-identical to the old rule — the golden prompts stand), and every non-ASCII code
+// point counts at bytes/2 — ~1 token for a 2-byte char (Cyrillic/Greek/accented Latin), ~1.5 for a
+// 3-byte char (CJK/kana/hangul/most Indic), ~2 for a 4-byte char (emoji, rare CJK). That tracks
+// real tokenization closely enough to never severely UNDER-count (overflow, the crash), while at
+// worst over-trimming a non-Latin prompt slightly (safe — the answer still lands). Whitespace-only
+// ⇒ nothing.
+const utf8Len = (cp) => (cp <= 0x7f ? 1 : cp <= 0x7ff ? 2 : cp <= 0xffff ? 3 : 4);
 export const estimateTokens = (str) => {
   const s = String(str ?? '');
-  return s.trim() ? Math.ceil(s.length / 4) : 0;
+  if (!s.trim()) return 0;
+  let t = 0;
+  for (const ch of s) {
+    const bytes = utf8Len(ch.codePointAt(0));
+    t += bytes === 1 ? 0.25 : bytes * 0.5;   // ASCII: bytes/4 (== chars/4); else bytes/2
+  }
+  return Math.ceil(t);
 };
 
 // A per-message framing overhead (role tags, the chat template's turn delimiters). Small and
@@ -83,7 +105,6 @@ export const fitMessages = (messages, limit) => {
   // (2) Truncate the largest block's middle until it fits. A non-system block is preferred as
   // the target (the last/user block holds the excerpts, the sheddable bulk); the system block
   // is only cut as a last resort, when it is the sole thing left to reduce.
-  const CHARS_PER_TOKEN = 4;
   const MIN_KEEP_CHARS = 80;   // below this a block is treated as irreducible — cutting it buys nothing
   for (let guard = 0; guard < 64 && messagesTokens(arr) > limit; guard++) {
     // Pick the reducible target: the longest NON-system block, and only if none qualifies the
@@ -102,10 +123,21 @@ export const fitMessages = (messages, limit) => {
     })();
     if (target < 0) break;   // nothing left large enough to shed
     const over = messagesTokens(arr) - limit;
-    const removeChars = (over + PER_MESSAGE_TOKENS) * CHARS_PER_TOKEN + ELISION.length;
-    const keepChars = Math.max(MIN_KEEP_CHARS, arr[target].content.length - removeChars);
-    const next = truncateMiddle(arr[target].content, keepChars);
-    if (next.length >= arr[target].content.length) break;   // no progress — stop rather than spin
+    // How many CHARS to drop to shed `over` TOKENS — computed at THIS block's OWN token density
+    // (tokens/char), not a fixed 4-chars-per-token. A non-Latin block runs far denser (a CJK char
+    // ≈ 1.5 tokens, Cyrillic ≈ 0.9, vs ASCII's 0.25), so the old fixed ratio over-dropped it
+    // several-fold and needlessly starved the model of context — a Russian page trimmed to a
+    // quarter of the window it was allowed. Dividing the token overage by the block's measured
+    // density adapts the cut to its script. It only has to be close: the loop re-checks and
+    // iterates, so an imperfect step still converges, and the while-guard guarantees the result is
+    // never left over the limit. The floor keeps an all-whitespace block (0 tokens) from dividing
+    // by zero.
+    const content = arr[target].content;
+    const density = Math.max(content.length ? estimateTokens(content) / content.length : 0.25, 0.05);
+    const removeChars = Math.ceil((over + PER_MESSAGE_TOKENS) / density) + ELISION.length;
+    const keepChars = Math.max(MIN_KEEP_CHARS, content.length - removeChars);
+    const next = truncateMiddle(content, keepChars);
+    if (next.length >= content.length) break;   // no progress — stop rather than spin
     arr[target].content = next;
   }
 

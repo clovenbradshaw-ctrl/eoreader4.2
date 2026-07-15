@@ -14,12 +14,29 @@ const sys = (n) => ({ role: 'system', content: 'S'.repeat(n) });
 const usr = (n, tag = 'U') => ({ role: 'user', content: tag.repeat(n) });
 const asst = (n) => ({ role: 'assistant', content: 'A'.repeat(n) });
 
-test('estimateTokens is chars/4, whitespace-only counts as nothing', () => {
+test('estimateTokens: ASCII stays chars/4 (byte-identical), whitespace-only is nothing', () => {
   assert.equal(estimateTokens('abcd'), 1);
   assert.equal(estimateTokens('abcde'), 2);
   assert.equal(estimateTokens('   '), 0);
   assert.equal(estimateTokens(''), 0);
   assert.equal(estimateTokens(null), 0);
+  // A pure-ASCII string of any length matches the old flat chars/4 exactly, so the golden
+  // English prompts are unchanged.
+  const ascii = 'The quick brown fox jumps over the lazy dog. He went first to the market.';
+  assert.equal(estimateTokens(ascii), Math.ceil(ascii.length / 4));
+});
+
+test('estimateTokens counts non-Latin scripts denser than chars/4 (byte-level BPE reality)', () => {
+  // The bug this guards: chars/4 UNDER-counts non-Latin, so a Cyrillic/CJK prompt slips past the
+  // window guard and overflows a 4k local model (ContextWindowSizeExceededError). The estimate
+  // must be strictly higher than chars/4 for these scripts so the guard actually trims them.
+  const ru = 'Сначала он пошёл на рынок, потом домой.';          // Cyrillic — 2-byte code points
+  const ja = '彼は最初に市場へ行き、それから家に帰りました。';    // CJK/kana — 3-byte code points
+  assert.ok(estimateTokens(ru) > Math.ceil(ru.length / 4), 'Cyrillic counts denser than chars/4');
+  assert.ok(estimateTokens(ja) > Math.ceil(ja.length / 4), 'CJK/kana counts denser than chars/4');
+  // CJK/kana is the densest: a 3-byte code point is estimated at ~1.5 tokens, so the count is at
+  // least one token per character — ~6× the chars/4 guess.
+  assert.ok(estimateTokens(ja) >= ja.length, 'each CJK/kana char is estimated at ≥1 token');
 });
 
 test('fitMessages is a no-op — same array — when the prompt already fits', () => {
@@ -67,6 +84,24 @@ test('fitMessages truncates the big block\'s middle, preserving head and the tra
   assert.ok(user.length < head.length + excerpts.length + question.length, 'the block shrank');
 });
 
+test('fitMessages trims a dense non-Latin block to NEAR the budget, not a fraction of it', () => {
+  // Regression on the truncation math: dropping chars at a fixed 4-per-token over-sheds a dense
+  // CJK block ~6×, leaving the model a sliver of the context it was allowed. The cut must land
+  // close to the budget (density-aware), while still fitting and keeping the trailing question.
+  const head = 'READING:\n';
+  const excerpts = 'それから彼は市場へ行きました。'.repeat(500);   // dense CJK/kana (3-byte code points)
+  const question = '\n最初にどこへ行きましたか？';
+  const messages = [{ role: 'system', content: 'S'.repeat(200) },
+                    { role: 'user', content: head + excerpts + question }];
+  const limit = 2000;
+  const out = fitMessages(messages, limit);
+  assert.equal(out.trimmed, true);
+  assert.ok(out.after <= limit, `after=${out.after} must be within the limit`);
+  assert.ok(out.after > limit * 0.6, `after=${out.after} should use most of the ${limit} budget, not a fraction`);
+  assert.ok(out.messages[1].content.startsWith(head.slice(0, 8)), 'the frame head is preserved');
+  assert.ok(out.messages[1].content.endsWith(question), 'the trailing question is preserved');
+});
+
 test('fitMessages tolerates non-arrays and empty input', () => {
   assert.equal(fitMessages(null, 100).messages, null);
   assert.deepEqual(fitMessages([], 100).messages, []);
@@ -98,6 +133,26 @@ test('createModel keeps a prompt within a declared context window before it reac
   assert.ok(seen.phrase !== big, 'the backend received a fitted copy, not the raw oversized prompt');
   assert.ok(messagesTokens(seen.phrase) <= 4096, 'what the backend saw fits the window');
   assert.ok(seen.phrase[1].content.endsWith('\nquestion?'), 'the question still reaches the model');
+});
+
+test('createModel trims a non-Latin prompt the old chars/4 rule would have called "fits"', async () => {
+  // The regression: a CJK excerpt block whose chars/4 estimate sits UNDER the window but whose
+  // real (byte-level-BPE) token count overflows it. The old flat estimator trimmed nothing and the
+  // runtime threw ContextWindowSizeExceededError; the script-aware estimate sheds it to fit.
+  const seen = makeCapture('capture-nonlatin', 4096);
+  const model = createModel('capture-nonlatin');
+  // ~11k CJK characters. chars/4 ⇒ ~2800 "tokens" (looks like it fits under 4096); byte-level
+  // reality is ~1.5 tokens/char ⇒ far past the window.
+  const cjk = '彼は最初に市場へ行きました。'.repeat(800);
+  const question = '\n最初にどこへ行きましたか？';
+  const big = [{ role: 'system', content: 'Answer from the text.' },
+               { role: 'user', content: cjk + question }];
+  const oldChars4 = Math.ceil(big[1].content.length / 4);
+  assert.ok(oldChars4 < 4096, `precondition: chars/4 (${oldChars4}) would have called this a fit`);
+  await model.phrase(big, { maxTokens: 384 });
+  assert.ok(seen.phrase !== big, 'the backend received a fitted copy, not the raw oversized prompt');
+  assert.ok(messagesTokens(seen.phrase) <= 4096, 'what the backend saw fits the window');
+  assert.ok(seen.phrase[1].content.endsWith(question), 'the trailing question still reaches the model');
 });
 
 test('createModel is a pass-through when the prompt already fits (byte-identical)', async () => {
