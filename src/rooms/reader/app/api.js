@@ -31,8 +31,10 @@ export const buildApi = (appCtx) => {
     // search — the sibling of ask(): a query opens a "search topic" and pulls sources into it
     searchTopic: appCtx.searchTopic,
     sourceBySn: appCtx.sourceBySn, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, sourceToggleCollapse: appCtx.sourceToggleCollapse,
-    // chat
-    ask: appCtx.ask, askQuestion: appCtx.askQuestion, stop: appCtx.stop, exportChat: appCtx.exportChat,
+    // chat — with source
+    chat: appCtx.chat, ask: appCtx.chat, stop: appCtx.stop, exportChat: appCtx.exportChat,
+    // askFigureSource and askFigureTopic removed (see rashomon) — stubs for backward compat
+    askFigureSource: () => null, askFigureTopic: () => null,
     // export provenance — WHAT produced this session: app + published build + latest-on-GitHub +
     // the current talker. Composed live so a surface badge can show the build/freshness/model.
     provenance: () => composeProvenance({
@@ -65,15 +67,11 @@ export const buildApi = (appCtx) => {
     // the entity explorer, scoped to one source and read at a chosen HOLONIC LEVEL —
     // its natural-language referents (default) or the modality's raw spans underneath
     sourceLevels: appCtx.sourceLevels, sourceEntities: appCtx.sourceEntities, sourceBaseNoun: appCtx.sourceBaseNoun,
-    // the Rashomon fold — two figures' folds over the same events, diffed (agree / conflict /
-    // diverge / each own), at one source (rashomonSource, by entity id) or the whole topic
-    // (rashomonTopic, by label); rashomonCandidates lists the figures with a voice to compare.
-    rashomonSource: appCtx.rashomonSource, rashomonTopic: appCtx.rashomonTopic, rashomonCandidates: appCtx.rashomonCandidates,
-    // ask a figure — answer a question from inside one figure's fold (bounded to their own words).
-    askFigureSource: appCtx.askFigureSource, askFigureTopic: appCtx.askFigureTopic,
     // idea transmission — a claim traced from one voice into another's, in document/corpus time,
     // marking where it mutated (an inverted echo); at one source or across the whole topic.
     transmissionSource: appCtx.transmissionSource, transmissionTopic: appCtx.transmissionTopic,
+    // Rashomon folds removed — stubs for backward compat
+    rashomonSource: () => null, rashomonTopic: () => null, rashomonCandidates: () => [],
     // standing folds — save a comparison/trace and see what changed since (docs: the living fold).
     standingSave: appCtx.standingSave, standingRefresh: appCtx.standingRefresh, standingRemove: appCtx.standingRemove, standingList: appCtx.standingList,
     // fragility — the record's contested claims ranked by how much of the record hangs off them.
@@ -89,7 +87,7 @@ export const buildApi = (appCtx) => {
     // in and deeper (docs/topline.md)
     entityChapters: appCtx.entityChapters, entityDigest: appCtx.entityDigest, entityDigestFor: appCtx.entityDigestFor, entityChapterReading: appCtx.entityChapterReading, entityChapterReadingFor: appCtx.entityChapterReadingFor,
     entityPassage: appCtx.entityPassage, entityPassageReading: appCtx.entityPassageReading, entityPassageReadingFor: appCtx.entityPassageReadingFor,
-    findings: appCtx.findings, provenance: appCtx.provenance, dagFor: appCtx.dagFor, dagSources: appCtx.dagSources, setMemo: appCtx.setMemo, eotFor: appCtx.eotFor, answerEot: appCtx.answerEot,
+    findings: appCtx.findings, provenance: appCtx.provenance, dagFor: appCtx.dagFor, dagSources: appCtx.dagSources, eotFor: appCtx.eotFor, answerEot: appCtx.answerEot,
     // search over the record + the durable write path (docs/search-and-pins.md)
     searchRecord: appCtx.searchRecord,
     pins: appCtx.pins, pinAdd: appCtx.pinAdd, pinRemove: appCtx.pinRemove, pinUpdate: appCtx.pinUpdate, pinResolve: appCtx.pinResolve, anchorAt: appCtx.anchorAt,

@@ -4,8 +4,8 @@
 // engine holons. The surface never computes, the engine never renders.
 //
 //   sources    the S-registry — every recorded page/file/paste, sha'd + parsed
-//   topics     research topics — each scopes a source set, a chat, and a memo
-//   ask()      one chat turn through turn/runTurn (model + embedder DI'd)
+//   topics     research topics — each scopes a source set and a chat conversation
+//   chat()     one chat turn (with source context) through turn/runTurn (model + embedder DI'd)
 //   ingest*()  URL / search / file / paste, through the organs + admission core
 //   entities() the admitted referents across the topic's docs (the explorer)
 //   provenance() the session's claim→passage→source→fixity DAG (the graph tab)
@@ -100,7 +100,6 @@ import { installTopicQuestion } from './app/topic-question.js';
 import { installSegments } from './app/segments.js';
 import { installEntities } from './app/entities.js';
 import { installLevels } from './app/levels.js';
-import { installRashomon } from './app/rashomon.js';
 import { installTransmission } from './app/transmission.js';
 import { installStanding } from './app/standing.js';
 import { installListen } from './app/listen.js';
@@ -111,7 +110,6 @@ import { installWiki } from './app/wiki.js';
 import { installFindings } from './app/findings.js';
 import { installRecordSearch } from './app/record-search.js';
 import { installPins } from './app/pins.js';
-import { installMemo } from './app/memo.js';
 import { installDeep } from './app/deep.js';
 
 export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch } = {}) => {
@@ -138,7 +136,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // what it learned about defining across reloads (weave/topline/chorus.js).
     summaries: { entities: {}, definer: { champion: null, runs: 0 } },
     // A workspace is the top-level container (Notion's workspace/teamspace): it owns a
-    // nested tree of topics. A topic scopes a source set, a chat and a memo, and now
+    // nested tree of topics. A topic scopes a source set and a chat conversation, and now
     // carries `workspaceId` (which container it lives in) + `parentId` (its parent topic,
     // null at the root) + `collapsed` (whether its subtree is folded in the sidebar), so
     // the flat list becomes a navigable tree that stays legible at scale.
@@ -232,7 +230,6 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installSegments(appCtx);
   installEntities(appCtx);
   installLevels(appCtx);
-  installRashomon(appCtx);
   installTransmission(appCtx);
   installStanding(appCtx);
   installListen(appCtx);
@@ -243,7 +240,6 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installFindings(appCtx);
   installRecordSearch(appCtx);
   installPins(appCtx);
-  installMemo(appCtx);
   installDeep(appCtx);
 
   return buildApi(appCtx);

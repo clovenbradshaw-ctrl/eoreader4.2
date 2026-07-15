@@ -14,10 +14,10 @@ export const installStanding = (appCtx) => {
   const { state, emit } = appCtx;
 
   // Re-run the fold a record names, at its scope — the one place the standing kinds dispatch to
-  // the live Rashomon / transmission methods.
+  // the live transmission methods. Compare folds (rashomon) are no longer available.
   const runFold = async (rec) => {
     if (rec.kind === 'trace') return rec.scope === 'source' ? appCtx.transmissionSource(rec.sn) : appCtx.transmissionTopic();
-    return rec.scope === 'source' ? appCtx.rashomonSource(rec.docId, rec.a, rec.b) : appCtx.rashomonTopic(rec.a, rec.b);
+    return null;   // compare folds (rashomon) removed — return null for backward compat
   };
   const autoLabel = (rec) => rec.kind === 'trace'
     ? `Trace · ${rec.scope === 'source' ? 'this source' : 'whole topic'}`

@@ -277,7 +277,7 @@ export const installChat = (appCtx) => {
       : 'Hey — record a source and ask me about it, or ask me anything.';
   };
 
-  const ask = async (question, { onToken = null, web = null } = {}) => {
+  const chat = async (question, { onToken = null, web = null } = {}) => {
     const t = appCtx.topic();
     const q = String(question || '').trim();
     if (!t || !q) return null;
@@ -646,5 +646,5 @@ export const installChat = (appCtx) => {
     return pending;
   };
 
-  Object.assign(appCtx, { ask, stop });
+  Object.assign(appCtx, { chat, stop });
 };
