@@ -45,3 +45,23 @@ test('the induction primitive clusters Cyrillic by company, with no language kno
   assert.equal(slotOf.get('стоял'), slotOf.get('горел'), 'the Cyrillic verbs share a slot');
   assert.notEqual(slotOf.get('дом'), slotOf.get('стоял'), 'noun and verb slots are distinct');
 });
+
+// The seed-free FUNCTION-WORD filter (cap-rate): a predominantly-lowercase word is not a figure,
+// in any language — what the induced slot cannot decide, since pronouns and names share a slot.
+test('a predominantly-lowercase word is filtered, a name is kept (English, no seeds needed)', () => {
+  const en = 'Very odd it was. He felt very tired, very calm, very slow, very sure, very near, very far.'
+    + ' Pierre arrived. Pierre spoke. Pierre smiled. Pierre left. Pierre returned. Very good.';
+  const a = createEntityAdmission({ text: en });
+  en.split(/[.!?]+/).forEach((s, i) => a.observe(s, i));
+  assert.equal(a.isAdmitted('Very'), false, '"Very" is mostly lowercase → a function/common word, not a figure');
+  assert.equal(a.isAdmitted('Pierre'), true, '"Pierre" is always capital → a figure');
+});
+
+test('the cap-rate filter is omnilingual — it filters a Russian pronoun, keeps a Russian name', () => {
+  const ru = 'Пьер Безухов вошёл. ' + 'он сказал что это так. '.repeat(6)
+    + 'Что случилось? Пьер Безухов сел. Пьер Безухов встал.';
+  const a = createEntityAdmission({ text: ru });
+  ru.split(/[.!?]+/).forEach((s, i) => a.observe(s, i));
+  assert.equal(a.isAdmitted('Что'), false, '"Что" (mostly lowercase) is filtered with no Russian seed list');
+  assert.equal(a.isAdmitted('Пьер Безухов'), true, 'the Russian name is kept');
+});

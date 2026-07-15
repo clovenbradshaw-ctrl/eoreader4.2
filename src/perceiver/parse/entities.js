@@ -324,6 +324,8 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
   // text's own statistics, so admission stays language-free (mechanism, not a list of titles).
   const headNames     = new Map();   // leading token → Set(full label) over multi-word names
   const docLowerVocab = new Set();   // words seen lowercase in the source
+  const capCount      = new Map();   // lowercased form → times it appeared CAPITAL-initial
+  const lowCount      = new Map();   // lowercased form → times it appeared lowercase-initial
   const moonCache     = new Map();   // leading token → { size, val } (recomputed only as the set grows)
   const preferredCase = new Map();   // idFor(label) → the first MIXED-case spelling seen (canonical form)
   const notePlanet = (label) => {
@@ -334,18 +336,28 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
   // heading — is the SAME referent as its mixed-case form ("Nora"). Read the document's own
   // casing: prefer the first mixed-case spelling as canonical, so "NORA"/"MRS LINDE"/"SHERLOCK
   // HOLMES" fold onto "Nora"/"Mrs Linde"/"Sherlock Holmes" instead of standing as loud twins.
-  const isAllCaps = (l) => /[A-ZÀ-Þ]/.test(l) && l === l.toUpperCase();
+  const isAllCaps = (l) => /[A-ZÀ-ÞА-ЯЁ]/.test(l) && l === l.toUpperCase();
   // A word shouted in caps ("LINDE", "NORA") — the mark of a speaker cue / heading token, even
   // inside an otherwise mixed label ("Mrs LINDE").
-  const hasCapsWord = (l) => l.split(' ').some((w) => w.length >= 2 && /[A-ZÀ-Þ]/.test(w) && w === w.toUpperCase());
+  const hasCapsWord = (l) => l.split(' ').some((w) => w.length >= 2 && /[A-ZÀ-ÞА-ЯЁ]/.test(w) && w === w.toUpperCase());
   const canon = (label) => {
     if (!hasCapsWord(label)) return label;
     const pref = preferredCase.get(idFor(label));
     return (pref && pref !== label) ? pref : label;
   };
   if (text) {
-    for (const t of String(text).split(/[^A-Za-zÀ-ÖØ-öø-ÿ'’]+/))
-      if (t && /^[a-zà-öø-ÿ]/.test(t)) docLowerVocab.add(t.replace(/['’].*$/, '').toLowerCase());
+    // Read the document's own casing over words of ANY script (Unicode split, no `u`-flag \b
+    // needed on a split). A word that appears lowercase is orthographically unstable; the
+    // CAP-RATE — how often a form is capital-initial — separates a NAME (always capital) from a
+    // function/common word capitalised only by sentence position (mostly lowercase), in any
+    // language and with no list.
+    for (const t of String(text).split(/[^\p{L}'’]+/u)) {
+      const w = t && t.replace(/['’].*$/, '');
+      if (!w) continue;
+      const lc = w.toLowerCase();
+      if (w[0] === lc[0]) { docLowerVocab.add(lc); lowCount.set(lc, (lowCount.get(lc) || 0) + 1); }
+      else capCount.set(lc, (capCount.get(lc) || 0) + 1);
+    }
     const pre = new RegExp(CAP_RE.source, 'g');
     const labels = [];
     let pm; while ((pm = pre.exec(text)) !== null) { const lab = cleanLabel(pm[0], C); if (lab) labels.push(lab); }
@@ -365,6 +377,17 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     return val;
   };
   const isUnstable = (tok) => docLowerVocab.has(String(tok).toLowerCase());
+  // isFunctionWord(tok) — the seed-free, omnilingual function/common-word test: a form that
+  // recurs AND is PREDOMINANTLY LOWERCASE in the document (capital only ~by sentence position).
+  // Names run ~1.0 capital ("Pierre", "Ростов"); pronouns/openers run low ("he" .19, "ты" .25,
+  // "very" .05, "что" .02); a genuine capitalised topic noun sits in between ("Dolphins" .60),
+  // so a strict floor keeps it. This is what the induced SLOT cannot do — pronouns and names
+  // share one slot; only the writing system's own casing tells them apart.
+  const isFunctionWord = (tok) => {
+    const lc = String(tok).toLowerCase();
+    const c = capCount.get(lc) || 0, l = lowCount.get(lc) || 0, total = c + l;
+    return total >= 5 && (c / total) < 0.35;
+  };
 
   // Sediment a learned acronym↔expansion alias into admission state: a bare acronym
   // now RESOLVES to the expansion's id without re-deriving (the §8 ORG-1 promise).
@@ -458,7 +481,9 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
       //     recurs as an argument IS a discourse topic ("Dolphins" range… Dolphins are…), and
       //     a stable name (never seen lowercase) is unaffected by this gate entirely.
       const bareRefused = !multiword &&
-        (isMoon(label) || (isUnstable(label) && !strongSeen.has(label) && c < 2));
+        (isMoon(label)
+         || (isUnstable(label) && !strongSeen.has(label) && c < 2)
+         || (isFunctionWord(label) && !strongSeen.has(label)));   // predominantly-lowercase → function/common word
       // A still-ALL-CAPS multi-word label (canon found no mixed-case twin) of ≥3 words is a
       // section HEADING shouted in caps ("KINGDOM OF DARIUS", "CONCERNING NEW PRINCIPALITIES…"),
       // not a figure — the document's own casing says so. Refuse it.
