@@ -63,6 +63,7 @@ import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
 import { buildChatExport } from './chat-export.js';
+import { recordClaims } from './claims.js';
 import { wikiReferent } from './wiki-referent.js';
 import { mergeEntitiesByReferent } from './entity-merge.js';
 import { composeProvenance, repoRef, readBuild, fetchLatestCommit, APP_NAME, APP_VERSION } from './provenance.js';
@@ -3086,7 +3087,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
       ? { query: result.webProposal.query, rationale: result.webProposal.rationale || '' } : null;
     msg.bound = (result.bound || []).map((b) => ({ claim: b.claim, citation: b.citation || null, cited: b.cited || b.text || null }));
     msg.verdicts = (result.verdicts || []).map((v) => ({
-      verdict: v.verdict || v.status || '', claim: v.claim || v.text || [v.src, v.via, v.tgt].filter(Boolean).join(' '),
+      // Keep the verdict's own SENTENCE as the claim — edgeVerdicts carry the parsed sentence, and
+      // the findings projection joins Contested onto bound claims by it (claims.js sameClaim). The
+      // entity-id join ([src tgt]) is the last resort, kept only for verdict shapes with no text.
+      verdict: v.verdict || v.status || '', claim: v.claim || v.text || v.sentence || [v.src, v.via, v.tgt].filter(Boolean).join(' '),
     }));
     msg.cites = Object.entries(result.citeOrigins || {}).map(([idx, docId]) => {
       const src = state.sources.find((s) => s.docId === docId);
@@ -3918,7 +3922,9 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // cleared the moment the reading lands below. With no model, nothing more is coming, so the flag
     // stays false and the telegram is shown at once.
     await composeTwoPhase(inv, prev ? { ...prev, regenerate } : { regenerate: true }, (s) => {
-      state.summaries.entities[key] = { ...s, key, label: profile.label, contextualPending: !!model && !telegramOnly }; persist(); emit('sources');
+      // docId/entId ride the record so the findings projection (claims.js summaryClaims) can
+      // attribute this summary's inventory to its lead source — the cites index that doc's units.
+      state.summaries.entities[key] = { ...s, key, label: profile.label, docId, entId, contextualPending: !!model && !telegramOnly }; persist(); emit('sources');
     }, { useModel: !telegramOnly });
     // The fold-aware contextual definition — a model-WRITTEN companion to the telegram, framed by
     // the document in hand (its title, and the figures it most centres on beside this one). It is
@@ -4298,37 +4304,46 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   }).filter(Boolean);
 
   // ── findings + provenance (the graph tab, honest) ──────────────────────────
+  // Entity summaries attributable to this topic's sources — the summary mint's resolver
+  // (claims.js summaryClaims). A summary carries the docId of the lead instance it was composed
+  // over (entitySummary stamps it); older records without one are skipped until a regeneration.
+  const topicEntitySummaries = () => {
+    const bySrc = new Map(topicSources().map((s) => [s.docId, s]));
+    const out = [];
+    for (const sum of Object.values(state.summaries.entities || {})) {
+      const src = sum?.docId ? bySrc.get(sum.docId) : null;
+      if (src) out.push({ summary: sum, sn: src.sn, reg: src.reg, docId: src.docId });
+    }
+    return out;
+  };
+
+  // The findings PROJECTION (docs/search-and-pins.md): claims from every mint the machinery runs —
+  // the reading's own topline (composed on record), the entity toplines, murmur's promoted
+  // connections, and the turns — not just the last few chat answers. Display ids (C1, P1) stay
+  // positional and per-render; the durable identity is each row's `key` (claims.js claimKey).
   const findings = () => {
     const t = topic();
-    const claims = [];
+    const proj = recordClaims({
+      messages: t?.messages || [],
+      sources: topicSources(),
+      docFor: (s) => docFor(s),
+      entitySummaries: topicEntitySummaries(),
+    });
+    const claims = proj.claims.map((c, i) => ({ ...c, id: `C${i + 1}` }));
+    const contradictions = proj.contradictions;
     const passages = new Map();
-    let contradictions = 0;
+    const addPassage = (docId, unit, sn, reg, text) => {
+      if (docId == null || !Number.isInteger(unit) || !text) return;
+      const k = `${docId}:${unit}`;
+      if (!passages.has(k)) passages.set(k, { id: `P${passages.size + 1}`, idx: unit, sn, reg, text, docId });
+    };
+    // Cited passages keyed by their SOURCE-LOCAL unit (cite.unit; composite idx only as a legacy
+    // fallback for messages recorded before units rode the cite), then every mint quote.
     for (const m of t?.messages || []) {
       if (m.role !== 'assistant') continue;
-      for (const b of m.bound || []) {
-        if (!b.claim) continue;
-        const cite = (m.cites || []).find((c) => b.citation && String(b.citation).includes(String(c.idx)));
-        claims.push({
-          id: `C${claims.length + 1}`, text: b.claim, msgId: m.id,
-          status: b.citation ? 'Supported' : 'Uncited',
-          sn: cite?.sn || null, reg: cite?.reg || null, quote: cite?.text || '',
-        });
-      }
-      for (const v of m.verdicts || []) {
-        if (/contradict/i.test(v.verdict)) {
-          contradictions++;
-          const hit = claims.find((c) => c.text === v.claim);
-          if (hit) hit.status = 'Contested';
-        }
-      }
-      for (const c of m.cites || []) {
-        if (!passages.has(`${c.docId}:${c.idx}`)) {
-          passages.set(`${c.docId}:${c.idx}`, {
-            id: `P${passages.size + 1}`, idx: c.idx, sn: c.sn, reg: c.reg, text: c.text, docId: c.docId,
-          });
-        }
-      }
+      for (const c of m.cites || []) addPassage(c.docId, Number.isInteger(c.unit) ? c.unit : c.idx, c.sn, c.reg, c.text);
     }
+    for (const c of claims) addPassage(c.docId, c.unit, c.sn, c.reg, c.quote);
     // How much of the record an abstention actually SEARCHED — the total passages (sentences)
     // across the topic's sources, not the cited count. `passages` above is passages that ended
     // up QUOTED, so it is 0 on an honest abstention; reporting that as "0 passages on record"

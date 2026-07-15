@@ -5480,6 +5480,12 @@ class Component extends DCLogic {
   _stChip(status) {
     if (status === 'Contested') return { fg: '#B23A2E', bg: '#FBE9E6', bd: '#F2D3CD' };
     if (status === 'Uncited') return { fg: '#9A6B12', bg: '#FBF1DA', bd: '#EEDCA9' };
+    // The findings projection's provenance banding (claims.js): the record's own witnessed claims
+    // read purple (the reading), a single-witness statement neutral, a murmur-promoted connection
+    // teal — so where a claim CAME FROM is one glance, everywhere claims render.
+    if (status === 'Witnessed') return { fg: '#5B4BE6', bg: '#F1EFFE', bd: '#DED8FD' };
+    if (status === 'Stated') return { fg: '#6E7787', bg: '#F2F2F6', bd: '#E4E4EA' };
+    if (status === 'Promoted') return { fg: '#1E8A8A', bg: '#E7F6F4', bd: '#CFEBE7' };
     return { fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9' };
   }
   // A stable highlighter colour per source (S1, S2, …) so a span's wash, its citation chip, and its
