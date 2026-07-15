@@ -29,27 +29,24 @@ const TITLE = String.raw`(?:Mr|Mrs|Ms|Dr|Miss|Mister|Sir|Madam|Madame|Lady|Lord|
 // A lowercase connector (von, of, the) only counts when it sits *between* two
 // capitalised words — never trailing, so "Grete the news" is just "Grete".
 const CONN  = String.raw`de|von|van|der|del|di|du|la|le|of|the`;
-// Letters a name is built from. The ASCII class `[A-Z][a-zA-Z]` truncated every name at its
-// first accent — the Maude/Garnett transliteration of War and Peace stresses with acute marks
-// (Natásha, Kutúzov, Denísov, Pávlovna), so the scanner read "Nat", "Kut", "Den", "P", inventing
-// 136 truncated figures and 130 "Anna -> … : p" patronymic-split junk edges. Widen the class to
-// the Latin-1 letter block (À-Ö, Ø-ö, ø-ÿ — excludes × ÷), which carries the acute/grave/diaeresis
-// forms a European-name transliteration uses. These are single UTF-16 code units, so the existing
-// `\b`-anchored, un-`u`-flagged regexes keep working unchanged; only the reach of a name widens.
-// The letter classes carry Latin (incl. the Latin-1 accents a European transliteration uses —
-// Natásha, Kutúzov) AND Cyrillic (А-Я а-я Ё ё), so the scanner reads a Russian name (Пьер,
-// Андрей) as one span, not script it cannot see. All are single BMP code units, so the classes
-// stay un-`u`-flagged; the language of the name never enters the mechanism.
-const U = String.raw`A-ZÀ-ÖØ-ÞА-ЯЁ`;               // a capital name-initial — Latin (incl. accented) or Cyrillic
-const L = String.raw`A-Za-zÀ-ÖØ-öø-ÿА-Яа-яЁё`;     // a name-internal letter, either case, Latin or Cyrillic
+// Letters a name is built from — read by Unicode PROPERTY, not by enumerating scripts. `\p{Lu}`
+// is a capital in ANY cased writing system (Latin incl. accents, Cyrillic, Greek, Armenian,
+// Georgian…), `\p{L}` any letter. So the scanner reads Пьер, Émile, Γλαύκων and Darcy as names
+// with no per-language list — the language never enters the mechanism. (Scripts without case —
+// Chinese, Arabic, Hebrew — carry `\p{Lu}` = ∅, so they simply do not mark names by capital; that
+// is a different signal, not this one.) The `u` flag these need is safe now that the word edges
+// are lookarounds, not the ASCII-only `\b`.
+const U = String.raw`\p{Lu}`;
+const L = String.raw`\p{L}`;
 const NAME  = String.raw`[${U}][${L}]+(?:\s+(?:${CONN}\s+)?[${U}][${L}]+)*`;
 // The word EDGES, script-agnostically. JS `\b` is ASCII-only — it treats a Cyrillic or accented
 // initial as a non-word char, so `\bПьер` (and even `\bÉmile`) never matches at the leading edge.
 // A name instead begins where the previous character is NOT a name letter and ends where the next
-// is not: single-code-unit lookarounds over the letter class, no `u` flag, any script.
+// is not: lookarounds over the letter class (any script), under the `u` flag every letter regex
+// here now carries.
 const EDGE_L = String.raw`(?<![${L}])`;
 const EDGE_R = String.raw`(?![${L}])`;
-const CAP_RE = new RegExp(EDGE_L + String.raw`(?:${TITLE}\s+)?${NAME}` + EDGE_R, 'g');
+const CAP_RE = new RegExp(EDGE_L + String.raw`(?:${TITLE}\s+)?${NAME}` + EDGE_R, 'gu');
 
 // ── Initialism (acronym ↔ expansion) — a learned, defeasible org alias ───────
 // The orthographic MECHANISM only (the parse leaf holds mechanism, never a table):
@@ -82,11 +79,11 @@ export const initialismMatch = (acronym, expansion) => {
 // live admission; reports the pair (with ids where the side is admitted) for the
 // pipeline to commit as a SYN alias and learn as a convention.
 const ACRO_RE = String.raw`[A-Z][A-Z.&]+`;
-const INITIALISM_RE = new RegExp(String.raw`(${NAME})\s*\(\s*(${ACRO_RE})\s*\)`, 'g');
+const INITIALISM_RE = new RegExp(String.raw`(${NAME})\s*\(\s*(${ACRO_RE})\s*\)`, 'gu');
 export const scanInitialisms = (sentence, admission) => {
   const s = String(sentence || '');
   const out = [];
-  const re = new RegExp(INITIALISM_RE.source, 'g');
+  const re = new RegExp(INITIALISM_RE.source, 'gu');
   let m;
   while ((m = re.exec(s)) !== null) {
     const expansion = cleanLabel(m[1]);
@@ -114,11 +111,11 @@ export const scanInitialisms = (sentence, admission) => {
 // (the worked-example-2 functional-conflict veto). Deliberately narrow: a 4-digit year
 // behind an explicit "born"/date-paren, never a bare number, so it cannot misfire on
 // the goldens (which carry no such construction).
-const BIRTH_RE = new RegExp(String.raw`((?:${TITLE}\s+)?${NAME})\s*(?:,?\s+(?:was\s+|were\s+)?born\s+(?:in\s+|on\s+)?|\(\s*(?:born\s+|b\.\s*)?)(\d{4})\b`, 'g');
+const BIRTH_RE = new RegExp(String.raw`((?:${TITLE}\s+)?${NAME})\s*(?:,?\s+(?:was\s+|were\s+)?born\s+(?:in\s+|on\s+)?|\(\s*(?:born\s+|b\.\s*)?)(\d{4})\b`, 'gu');
 export const scanFunctionalAttributes = (sentence, admission) => {
   const s = String(sentence || '');
   const out = [];
-  const re = new RegExp(BIRTH_RE.source, 'g');
+  const re = new RegExp(BIRTH_RE.source, 'gu');
   let m;
   while ((m = re.exec(s)) !== null) {
     const name = cleanLabel(m[1]);
@@ -361,7 +358,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
       if (w[0] === lc[0]) { docLowerVocab.add(lc); lowCount.set(lc, (lowCount.get(lc) || 0) + 1); }
       else capCount.set(lc, (capCount.get(lc) || 0) + 1);
     }
-    const pre = new RegExp(CAP_RE.source, 'g');
+    const pre = new RegExp(CAP_RE.source, 'gu');
     const labels = [];
     let pm; while ((pm = pre.exec(text)) !== null) { const lab = cleanLabel(pm[0], C); if (lab) labels.push(lab); }
     // The canonical spelling of a name is its cleanest cased form — no word shouted in caps.
@@ -444,7 +441,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
   const observe = (sentence, sentIdx = null) => {
     const seenInSentence = new Set();
     const out = [];
-    const re = new RegExp(CAP_RE.source, 'g');
+    const re = new RegExp(CAP_RE.source, 'gu');
     let m;
     while ((m = re.exec(sentence)) !== null) {
       const cleaned = cleanLabel(m[0], C);
@@ -577,7 +574,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
 
 // Exposed so the relation parser can share the exact same entity scanner.
 export const scanEntities = (text) => {
-  const re = new RegExp(CAP_RE.source, 'g');
+  const re = new RegExp(CAP_RE.source, 'gu');
   const out = [];
   let m;
   while ((m = re.exec(text)) !== null) {

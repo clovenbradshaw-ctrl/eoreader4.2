@@ -65,3 +65,12 @@ test('the cap-rate filter is omnilingual — it filters a Russian pronoun, keeps
   assert.equal(a.isAdmitted('Что'), false, '"Что" (mostly lowercase) is filtered with no Russian seed list');
   assert.equal(a.isAdmitted('Пьер Безухов'), true, 'the Russian name is kept');
 });
+
+test('the scanner is fully Unicode — Greek (another cased script) reads too', () => {
+  // Greek capitals carry diacritics (Ἀ, Γ); \p{Lu} sees them, per-script lists would not.
+  assert.deepEqual(scanEntities('κατέβην μετὰ Γλαύκωνος τοῦ Ἀρίστωνος.').map((e) => e.label),
+    ['Γλαύκωνος', 'Ἀρίστωνος']);
+  const a = createEntityAdmission({});
+  ['Σωκράτης ἔφη ταῦτα', 'Γλαύκων ἀπεκρίνατο αὐτῷ', 'Σωκράτης ἤκουσε πάλιν'].forEach((s, i) => a.observe(s, i));
+  assert.ok(a.isAdmitted('Σωκράτης') && a.isAdmitted('Γλαύκων'), 'Greek names admit as figures');
+});
