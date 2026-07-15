@@ -43,9 +43,12 @@ const NAME  = String.raw`[${U}][${L}]+(?:\s+(?:${CONN}\s+)?[${U}][${L}]+)*`;
 // initial as a non-word char, so `\bПьер` (and even `\bÉmile`) never matches at the leading edge.
 // A name instead begins where the previous character is NOT a name letter and ends where the next
 // is not: lookarounds over the letter class (any script), under the `u` flag every letter regex
-// here now carries.
-const EDGE_L = String.raw`(?<![${L}])`;
-const EDGE_R = String.raw`(?![${L}])`;
+// here now carries. The edges also exclude DIGITS (\p{N}), exactly as `\b` did — a letter run
+// glued to a number is an alphanumeric code, not a name, so "CO2" and "80MW" never yield the
+// bare "CO"/"MW" the letter-only edge would have cut out of the middle of the token.
+const EDGE = String.raw`${L}\p{N}`;
+const EDGE_L = String.raw`(?<![${EDGE}])`;
+const EDGE_R = String.raw`(?![${EDGE}])`;
 const CAP_RE = new RegExp(EDGE_L + String.raw`(?:${TITLE}\s+)?${NAME}` + EDGE_R, 'gu');
 
 // ── Initialism (acronym ↔ expansion) — a learned, defeasible org alias ───────
