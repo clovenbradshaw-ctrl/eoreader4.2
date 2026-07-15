@@ -2,11 +2,13 @@
 // The conventions holon: the learned-rules ledger (REC) and the Pass 0
 // induction that fills it before the reading loop runs.
 
+// Five registers are LEARN-ONLY now — auxiliary, role, conjunction, nonperson, field-label
+// carry no seed (measured 2026-07: the full suite reads identically without them; the
+// mechanisms — gravity, cap-rate, construction, symmetry — already cover what they listed).
 export { createConventions, SEED_SPEECH, SEED_ABBREVIATIONS,
          SEED_COPULA, SEED_MODIFIER, SEED_RELATION_TYPES,
-         SEED_PREPOSITION, SEED_AUXILIARY, SEED_ROLE, SEED_FUNCTION, SEED_STARTER,
-         SEED_CONJUNCTION, SEED_FIELD_LABEL, SEED_DEMONYM, SEED_CALENDAR,
-         SEED_NONPERSON } from './ledger.js';
+         SEED_PREPOSITION, SEED_FUNCTION, SEED_STARTER,
+         SEED_DEMONYM, SEED_CALENDAR } from './ledger.js';
 export { induceAttributionVerbs }  from './induce.js';
 // The scale-free slot-induction primitive (slots.js): units → company → slots → lift, one
 // operation at every scale and modality. The ledger builds a field from it when handed a token

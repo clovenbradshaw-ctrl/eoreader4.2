@@ -147,24 +147,13 @@ export const SEED_PREPOSITION = Object.freeze([
   'beneath', 'above', 'below', 'behind', 'around', 'past',
 ]);
 
-// Auxiliaries / copulas as a set — a name immediately before one is the SUBJECT of
-// a predication ("Alice is a baker", "Sarah shall bear"). Copulas keep their own
-// register (SEED_COPULA); these add the modal/have/do auxiliaries, incl. archaic.
-export const SEED_AUXILIARY = Object.freeze([
-  'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being',
-  'have', 'has', 'had', 'do', 'does', 'did',
-  'shall', 'will', 'would', 'should', 'could', 'may', 'might', 'must', 'can',
-  'hath', 'hast', 'doth', 'dost', 'art', 'wast', 'wilt', 'shalt',
-]);
+// The auxiliary register is LEARN-ONLY: no seed. Measured (2026-07): with the seed off the
+// full suite reads identically — the copula register (which isAuxiliary also consults) and the
+// gravity mechanics carry it. A document teaches its own auxiliaries; nothing is pre-known.
 
-// Role / kin / naming words that, sitting just before a name, make it an apposition
-// bearer or possessed referent ("his son Seth", "named Eve", "Abram's wife Sarah").
-export const SEED_ROLE = Object.freeze([
-  'son', 'sons', 'daughter', 'daughters', 'father', 'mother', 'brother', 'brethren',
-  'sister', 'sisters', 'wife', 'wives', 'husband', 'child', 'children', 'firstborn',
-  'seed', 'name', 'named', 'called', 'uncle', 'aunt', 'cousin', 'nephew', 'niece',
-  'his', 'her', 'their', 'my', 'thy', 'our', 'your', 'thine',
-]);
+// The role/kin register is LEARN-ONLY: no seed. Measured (2026-07): the naming-scene and
+// descriptor machinery read kinship from construction (apposition, possessive), not the list —
+// the suite is byte-identical with the seed off. A document teaches its own role words.
 
 // Closed-class words that are never a content head — so a name beside one is not
 // thereby a verb's argument. The union of the function categories; a word may sit in
@@ -178,7 +167,13 @@ export const SEED_FUNCTION = Object.freeze([
   'there', 'then', 'now', 'here', 'very', 'not', 'also', 'thus', 'lo', 'behold',
   'yea', 'nay', 'verily', 'when', 'where', 'why', 'how', 'if', 'because', 'while',
   'though', 'although', 'until', 'unless', 'whether', 'else', 'ever', 'never',
-  ...SEED_PREPOSITION, ...SEED_AUXILIARY,
+  ...SEED_PREPOSITION,
+  // the auxiliary/copula run — held HERE as function words (never content heads). The separate
+  // auxiliary REGISTER is learn-only now; these tokens stay in this composed class only.
+  'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being',
+  'have', 'has', 'had', 'do', 'does', 'did',
+  'shall', 'will', 'would', 'should', 'could', 'may', 'might', 'must', 'can',
+  'hath', 'hast', 'doth', 'dost', 'art', 'wast', 'wilt', 'shalt',
 ]);
 
 // Opening words that begin a clause but name no one — stripped from a
@@ -227,30 +222,9 @@ export const SEED_STARTER = Object.freeze([
   'during',
 ]);
 
-// Front-matter field labels — the token (or short phrase) that, leading a set-off
-// line before a colon, introduces a metadata field: "Title:", "Author:", "Release
-// date:". This is a STRUCTURAL convention, the same register shape as every other —
-// the document's bibliographic header read off its SHAPE, not its words. The colon
-// is the mark (as the frame's banner is a mark), the label is the key, the rest of
-// the line is the value. Seeded with the labels a human-language document
-// conventionally opens with — a book's front matter, an email/memo header, a
-// citation block — and LEARNABLE: a text whose header runs on "Composer:" or "DOI:"
-// teaches that label exactly as a sci-fi text teaches "pinged" as a speech verb.
-// Only the LABELS are conventions and live here; the harvested VALUES are the
-// document's own facts (→ doc.metadata, logged as DEF), not a reusable register.
-// Stored normalized (lowercase) — the seeding loop sets keys verbatim and `has`
-// reads them through `norm`, so seeds must already be normalized, like the others.
-// Coordinating conjunctions — the words that JOIN two like constituents into one
-// (two subjects onto a shared predicate: "Delgado and Reyes listed…"). A STRICT
-// subset of the function words: only the coordinators that yield a plural subject
-// ('and' / 'or' / 'nor'), never the adversative/illative connectives ('but' / 'so' /
-// 'yet') the broader `function` class also holds — "Delgado but Reyes" is not one
-// subject. The comma and the "&" logogram are orthography, read structurally by the
-// parser, not seeded here. Seeded for English; a corpus teaches its own exactly as it
-// does the speech and copula registers.
-export const SEED_CONJUNCTION = Object.freeze([
-  'and', 'or', 'nor',
-]);
+// The conjunction register is LEARN-ONLY: no seed. The coordination reader takes its predicate
+// from here (learned) or from the injected opts; the adposition induction's SYMMETRY test
+// identifies coordinators distributionally (a name on both sides) with no list at all.
 
 // Demonyms / proper adjectives — capitalised words that name a nationality, people,
 // or creed and behave as ADJECTIVES by default ("the Russian novelist", "French
@@ -292,32 +266,12 @@ export const SEED_CALENDAR = Object.freeze([
   'january', 'february', 'september', 'october', 'november', 'december',
 ]);
 
-// Free-capitals that survive sentence-initial capitalisation yet name no PERSON
-// ("God", "Christmas", "Heaven"). A vocative scan finds them in an address position
-// ("O God,"), but they are not a person who can answer a naming scene, so coreference
-// must not merge a role onto them. This is the embedding "feels-like-a-subject" DEF
-// the naming discovery used to hold as a hardcoded set of its own — modality-specific,
-// revisable — now a register like every other: seeded for English and learnable, so a
-// corpus that personifies "Death" or "Nature" as a speaking figure can teach it back
-// out by defeating the prior. The universal merge engine reads only the SYN it feeds;
-// this language-specific list lives here, the home for it, not in the engine.
-export const SEED_NONPERSON = Object.freeze([
-  'god', 'christmas', 'heaven', 'hell',
-]);
+// The nonperson register is LEARN-ONLY: no seed. The merge-engine veto it fed is covered by
+// the goldens with the seed off (measured 2026-07); a corpus that needs it teaches it back.
 
-export const SEED_FIELD_LABEL = Object.freeze([
-  // bibliographic front matter
-  'title', 'subtitle', 'author', 'authors', 'editor', 'translator', 'illustrator',
-  'contributor', 'credits', 'produced by', 'publisher', 'publication', 'imprint',
-  'edition', 'volume', 'series', 'date', 'release date', 'publication date',
-  'published', 'updated', 'last updated', 'most recently updated', 'revised',
-  'language', 'source', 'origin', 'subject', 'subjects', 'keywords', 'genre',
-  'rights', 'copyright', 'license', 'licence', 'isbn', 'issn', 'doi', 'url',
-  // correspondence / memo header
-  'from', 'to', 'cc', 'bcc', 're', 'sender', 'recipient',
-  // creative-work credits
-  'composer', 'director', 'artist', 'performer', 'writer', 'creator',
-]);
+// The field-label register is LEARN-ONLY: no seed. The metadata harvest reads the header's
+// STRUCTURE (label-colon-value); known-label confidence now comes only from what a document
+// or its inheritance taught.
 
 const SEEDS = {
   'attribution-verb': SEED_SPEECH,
@@ -325,15 +279,10 @@ const SEEDS = {
   'copula': SEED_COPULA,
   'modifier': SEED_MODIFIER,
   'preposition': SEED_PREPOSITION,
-  'auxiliary': SEED_AUXILIARY,
-  'role': SEED_ROLE,
   'function': SEED_FUNCTION,
   'starter': SEED_STARTER,
-  'conjunction': SEED_CONJUNCTION,
-  'field-label': SEED_FIELD_LABEL,
   'demonym': SEED_DEMONYM,
   'calendar': SEED_CALENDAR,
-  'nonperson': SEED_NONPERSON,
 };
 
 // The pre-baked strain-history a prior carries: a seed is not an axiom, it is a
