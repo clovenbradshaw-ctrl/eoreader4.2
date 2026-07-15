@@ -26,6 +26,7 @@ import { argumentSpanSeg }      from './proposition.js';
 import { createCorefField }     from './coref.js';
 import { discoverNamings }      from './naming.js';
 import { distinctReferentCount } from './name-variants.js';
+import { induceInflections } from './inflection.js';
 import { tok }                  from './tokenize.js';
 import { createConventions, induceAttributionVerbs, BOUNDARY } from '../../core/conventions/index.js';
 
@@ -99,6 +100,12 @@ export const createParser = ({
   // slot-mates, the emergent closed class). OFF by default → the ledger and the whole read are
   // byte-identical; on, the parse additionally learns which units are one KIND from company.
   induceSlots        = false,
+  // Fold morphological variants (declensions) of a name onto one referent — Наташу→Наташа,
+  // Ἕκτορα→Ἕκτωρ — using the case-suffix set induced from the document (inflection.js), anchored
+  // on the nominatives (forms that behave as subjects) so two names sharing a stem (Франц/Франция)
+  // never merge. OFF by default → English (barely inflected) folds nothing and the read is
+  // byte-identical; on, an inflected language's cast stops fracturing across cases.
+  foldInflections    = false,
 } = {}) => {
   // State owned by this parser instance. Mutated by parse(); the mutation
   // is visible only inside the holon. Tests construct one parser per case.
@@ -489,6 +496,28 @@ export const createParser = ({
                                  reason, surname: m.surname, ...(funcKey ? { key: funcKey } : {}) }, EMIT);
         log.append({ op: 'EVA', site: 'merge', ref: m.synSeq, verdict: VERDICTS.CONTRADICTED,
                      reason: evaReason, surname: m.surname, ...(funcKey ? { key: funcKey } : {}), defeatedBy: seg.seq }, EMIT);
+      }
+    }
+
+    // ── Declension fold (opt-in) — a name's cases are one referent ──────────────
+    // Induce the case-suffix set from the admitted single-token names (inflection.js) and fold
+    // each oblique onto its nominative, anchored on the forms that behave as subjects so two names
+    // that merely share a stem (Франц / Франция) stay apart. Each fold is a SYN merge the
+    // projection unions, exactly like a surname or naming-scene merge. English induces ~no case
+    // set, so this is a no-op there; an inflected language stops fracturing across cases.
+    if (foldInflections) {
+      const forms = new Map();
+      for (const [label, id] of admission.admitted)
+        if (!label.includes(' ')) forms.set(label, (admission.mentions.get(id) || []).length || 1);
+      const { fold } = induceInflections(forms, { nominatives: admission.nominativeForms() });
+      for (const [form, canonical] of fold) {
+        if (form === canonical) continue;
+        const from = admission.idOf(form), to = admission.idOf(canonical);
+        if (!from || !to || from === to) continue;
+        const syn = log.append({ op: 'SYN', kind: 'merge', from, to,
+                                 label: canonical, sentIdx: 0, match: 'inflection', warrant: 'declension' });
+        log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
+                     reason: 'declension-fold', form, sentIdx: 0 });
       }
     }
 

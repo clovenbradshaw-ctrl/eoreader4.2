@@ -311,6 +311,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
   const mentions  = new Map(); // id    → number[] (sentence indices, ordered)
   const initialisms = new Map(); // acronym label → expansion id (learned org alias)
   const strongSeen = new Map(); // label → true once a STRONG cue has vouched for it
+  const subjSight = new Map(); // single-token label → times seen in SUBJECT position (nominative signal)
 
   // ── The document's own gravity signals — read once, no title list ────────────────
   // A capitalised token is a MOON — a shared honorific, not a referent — when it heads ≥2
@@ -469,6 +470,12 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
         strongCue = cue.strong;
         gravity.set(label, (gravity.get(label) || 0) + cue.g);
         if (strongCue && cue.g > 0) strongSeen.set(label, true);
+        // Subject position (the NOMINATIVE signal): this form is followed by a content word — it
+        // is acting, a subject. A nominative-base does this a lot; an oblique (after a preposition,
+        // as an object) rarely does. This is what tells a declension from an independent name that
+        // merely shares a stem (Франция the subject vs Франца the genitive of Франц).
+        const nx = (sentence.slice(m.index + m[0].length).match(/^\s*([\p{L}'’]+)/u) || [])[1];
+        if (isContent(nx, C)) subjSight.set(label, (subjSight.get(label) || 0) + 1);
       }
       const g = gravity.get(label);
 
@@ -569,6 +576,20 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     get admitted() { return admitted; },
     get mentions() { return mentions; },
     get initialisms() { return initialisms; },
+    get subjSight() { return subjSight; },
+    // The NOMINATIVE forms — single-token names that behave as SUBJECTS often enough to be a
+    // paradigm's base (not an oblique). The declension fold anchors on these so two names sharing
+    // a stem (Франц / Франция) never merge. Read-only over the document's subject-position stats.
+    nominativeForms: ({ minSight = 3, minRate = 0.25 } = {}) => {
+      const noms = new Set();
+      for (const label of admitted.keys()) {
+        if (label.includes(' ')) continue;
+        const total = counts.get(label) || 0;
+        const s = subjSight.get(label) || 0;
+        if (s >= minSight && total > 0 && s / total >= minRate) noms.add(label);
+      }
+      return noms;
+    },
   };
 };
 
