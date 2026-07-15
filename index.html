@@ -7136,7 +7136,7 @@ class Component extends DCLogic {
     // Search leads (docs/search-and-pins.md): the record is searched, not conversed with;
     // the question line inside Search is the fallback for what it hasn't pre-answered.
     const pinCount = (this._app && this._app.pins) ? this._app.pins().length : 0;
-    const tabDefs = [['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false], ['register', 'Home', sources.length || null, false], ['memo', 'Memo', (topic && topic.memo) ? 1 : null, false], ['plain', 'Plain', null, true], ['rashomon', 'Rashomon', null, true]];
+    const tabDefs = [['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false], ['register', 'Home', sources.length || null, false]];
     const tabs = tabDefs.map(([id, label, count, beta]) => ({
       label, count: String(count || ''), hasCount: count != null, beta: !!beta,
       fg: st.tab === id ? '#1B1B22' : '#8A8A95', weight: st.tab === id ? 650 : 500,
