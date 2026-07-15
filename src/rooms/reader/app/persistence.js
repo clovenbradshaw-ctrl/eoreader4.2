@@ -37,6 +37,8 @@ export const installPersistence = (appCtx) => {
     // the durable pending-work registry — the fetches / imports / transcriptions still in flight,
     // so a reload mid-way can pick them back up (ingest-jobs.js). Small plain JSON specs only.
     jobs: state.jobs,
+    // pins — small plain JSON, each with its embedded anchor (docs/search-and-pins.md)
+    pn: appCtx.pn, pins: state.pins,
   });
   let saveTimer = null;
   const persist = () => {
@@ -75,6 +77,8 @@ export const installPersistence = (appCtx) => {
         state.folders = Array.isArray(snap.folders) ? snap.folders : [];
         state.log = Array.isArray(snap.log) ? snap.log : [];
         state.jobs = Array.isArray(snap.jobs) ? snap.jobs : [];   // pending work to resume below
+        state.pins = Array.isArray(snap.pins) ? snap.pins : [];
+        appCtx.pn = snap.pn || state.pins.length;
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
         if (snap.summaries && snap.summaries.entities) {
           // `contextualPending` is a within-session marker that a written reading is mid-compose; it

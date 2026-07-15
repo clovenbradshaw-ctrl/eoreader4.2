@@ -5,6 +5,7 @@
 import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
+  'src/rooms/reader/anchor.js': contract({ ops: ['CON', 'EVA'], targets: ['Field', 'Link'], products: ['Link'], stances: ['Binding', 'Tracing'], note: 'the durable passage anchor — mint, and resolve down the honesty ladder' }),
   'src/rooms/reader/app.js': contract({ ops: ['CON', 'INS'], targets: ['Network', 'Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'the reader session controller' }),
   'src/rooms/reader/app/api.js': contract({ ops: ['NUL'], targets: ['Network'], products: ['Void'], stances: ['Clearing'], note: 'the public membrane — the one frozen object the surface holds' }),
   'src/rooms/reader/app/trail.js': contract({ ops: ['SIG', 'INS'], targets: ['Atmosphere', 'Field'], products: ['Field', 'Entity'], stances: ['Tending', 'Making'], note: 'the research trail — the live what-am-I-doing stream' }),
@@ -39,6 +40,8 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/app/wiki.js': contract({ ops: ['SIG', 'CON'], targets: ['Void', 'Network'], products: ['Link', 'Lens'], stances: ['Tending', 'Binding'], note: 'the wiki referent — the entity panel’s encyclopedia lookup' }),
   'src/rooms/reader/app/findings.js': contract({ ops: ['CON', 'INS'], targets: ['Network', 'Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'findings + provenance — the graph tab, honest' }),
   'src/rooms/reader/app/memo.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Tending'], note: 'memo — the topic’s scratch note' }),
+  'src/rooms/reader/app/pins.js': contract({ ops: ['CON', 'INS'], targets: ['Network', 'Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'pins — the durable write path (docs/search-and-pins.md)' }),
+  'src/rooms/reader/app/record-search.js': contract({ ops: ['EVA', 'SEG'], targets: ['Network', 'Field'], products: ['Lens'], stances: ['Tracing', 'Dissecting'], note: 'search the record — provider wiring for search-record.js' }),
   'src/rooms/reader/app/deep.js': contract({ ops: ['NUL', 'EVA', 'SIG'], targets: ['Atmosphere', 'Field'], products: ['Void', 'Lens'], stances: ['Tending', 'Tracing'], note: 'deep reading — the inner monologue at rest' }),
   'src/rooms/reader/app/net.js': contract({ ops: ['SIG', 'CON'], targets: ['Void', 'Network'], products: ['Entity', 'Link'], stances: ['Tending', 'Binding'], note: 'the proxy chain — public CORS proxies raced in order + the full-text mirrors' }),
   'src/rooms/reader/app/kv.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Tending'], note: 'tiny IndexedDB kv (best-effort; absent in Node)' }),
@@ -48,6 +51,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/audio-store.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Tending'], note: 'original-audio byte store (OPFS binary)' }),
   'src/rooms/reader/boot.js': contract({ ops: ['CON', 'SIG'], targets: ['Network', 'Field'], products: ['Link'], stances: ['Binding', 'Tending'], note: 'the surface↔engine membrane' }),
   'src/rooms/reader/chat-export.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'chat + audit export renderer' }),
+  'src/rooms/reader/claims.js': contract({ ops: ['SEG', 'CON'], targets: ['Network', 'Link'], products: ['Network', 'Entity'], stances: ['Dissecting', 'Binding'], note: 'the findings projection — claims from every mint, not just the turns' }),
   'src/rooms/reader/console-surface.js': contract({ ops: ['EVA', 'NUL'], targets: ['Network', 'Field'], products: ['Void'], stances: ['Tracing', 'Clearing'], note: 'the live audit console — a terminal that witnesses every turn' }),
   'src/rooms/reader/entity-merge.js': contract({ ops: ['SEG', 'INS'], targets: ['Network'], products: ['Entity'], stances: ['Dissecting', 'Making'], note: 'cross-source entity merge — fold by referent, never by a shared surname' }),
   'src/rooms/reader/eo-gen.js': contract({ ops: ['EVA', 'DEF'], targets: ['Lens', 'Link'], products: ['Lens', 'Atmosphere'], stances: ['Tracing', 'Making'], note: 'browser grounding seam' }),
@@ -69,6 +73,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/reading-surface.js': contract({ ops: ['NUL'], targets: ['Field'], products: ['Void'], stances: ['Clearing'], note: 'reading-JSONL DOM surface' }),
   'src/rooms/reader/reveal.js': contract({ ops: ['INS', 'DEF'], targets: ['Field'], products: ['Entity'], stances: ['Making', 'Dissecting'], note: 'chat typewriter pace — bounded reveal catch-up' }),
   'src/rooms/reader/scope-sources.js': contract({ ops: ['SEG', 'EVA'], targets: ['Network', 'Field'], products: ['Field'], stances: ['Unraveling', 'Tracing'], note: 'separate signal from noise — scope a turn to the sources that bear on it' }),
+  'src/rooms/reader/search-record.js': contract({ ops: ['EVA', 'SEG'], targets: ['Network', 'Field'], products: ['Lens'], stances: ['Tracing', 'Dissecting'], note: 'search over the record — entities, claims, passages, sources, grouped' }),
   'src/rooms/reader/section-answer.js': contract({ ops: ['SEG', 'DEF'], targets: ['Field', 'Link'], products: ['Field', 'Lens'], stances: ['Dissecting', 'Making'], note: 'section headings by field-shift' }),
   'src/rooms/reader/tiered-graph.js': contract({ ops: ['NUL'], targets: ['Network'], products: ['Void'], stances: ['Clearing'], note: 'tiered graph SVG renderer' }),
   'src/rooms/reader/topic-name.js': contract({ ops: ['SIG', 'DEF'], targets: ['Entity', 'Field'], products: ['Lens'], stances: ['Tending', 'Making'], note: 'topic auto-naming — content → title' }),

@@ -5,6 +5,7 @@
 // findings + provenance (the graph tab, honest)
 import { discourseDag, assertedDag } from '../../../surfer/dag/index.js';
 import { crossSourceConflicts } from '../../../enactor/factcheck/index.js';
+import { recordClaims } from '../claims.js';
 import { shaShort } from './util.js';
 
 export const installFindings = (appCtx) => {
@@ -31,38 +32,47 @@ export const installFindings = (appCtx) => {
     return val;
   };
 
+  // Entity summaries attributable to this topic's sources — the summary mint's resolver
+  // (claims.js summaryClaims). A summary carries the docId of the lead instance it was composed
+  // over (toplines.js stamps it); older records without one are skipped until a regeneration.
+  const topicEntitySummaries = () => {
+    const bySrc = new Map(appCtx.topicSources().map((s) => [s.docId, s]));
+    const out = [];
+    for (const sum of Object.values(appCtx.state.summaries.entities || {})) {
+      const src = sum?.docId ? bySrc.get(sum.docId) : null;
+      if (src) out.push({ summary: sum, sn: src.sn, reg: src.reg, docId: src.docId });
+    }
+    return out;
+  };
+
   // ── findings + provenance (the graph tab, honest) ──────────────────────────
+  // The findings PROJECTION (docs/search-and-pins.md): claims from every mint the machinery runs —
+  // the reading's own topline (composed on record), the entity toplines, murmur's promoted
+  // connections, and the turns — not just the last few chat answers. Display ids (C1, P1) stay
+  // positional and per-render; the durable identity is each row's `key` (claims.js claimKey).
   const findings = () => {
     const t = appCtx.topic();
-    const claims = [];
+    const proj = recordClaims({
+      messages: t?.messages || [],
+      sources: appCtx.topicSources(),
+      docFor: (s) => appCtx.docFor(s),
+      entitySummaries: topicEntitySummaries(),
+    });
+    const claims = proj.claims.map((c, i) => ({ ...c, id: `C${i + 1}` }));
+    const contradictions = proj.contradictions;
     const passages = new Map();
-    let contradictions = 0;
+    const addPassage = (docId, unit, sn, reg, text) => {
+      if (docId == null || !Number.isInteger(unit) || !text) return;
+      const k = `${docId}:${unit}`;
+      if (!passages.has(k)) passages.set(k, { id: `P${passages.size + 1}`, idx: unit, sn, reg, text, docId });
+    };
+    // Cited passages keyed by their SOURCE-LOCAL unit (cite.unit; composite idx only as a legacy
+    // fallback for messages recorded before units rode the cite), then every mint quote.
     for (const m of t?.messages || []) {
       if (m.role !== 'assistant') continue;
-      for (const b of m.bound || []) {
-        if (!b.claim) continue;
-        const cite = (m.cites || []).find((c) => b.citation && String(b.citation).includes(String(c.idx)));
-        claims.push({
-          id: `C${claims.length + 1}`, text: b.claim, msgId: m.id,
-          status: b.citation ? 'Supported' : 'Uncited',
-          sn: cite?.sn || null, reg: cite?.reg || null, quote: cite?.text || '',
-        });
-      }
-      for (const v of m.verdicts || []) {
-        if (/contradict/i.test(v.verdict)) {
-          contradictions++;
-          const hit = claims.find((c) => c.text === v.claim);
-          if (hit) hit.status = 'Contested';
-        }
-      }
-      for (const c of m.cites || []) {
-        if (!passages.has(`${c.docId}:${c.idx}`)) {
-          passages.set(`${c.docId}:${c.idx}`, {
-            id: `P${passages.size + 1}`, idx: c.idx, sn: c.sn, reg: c.reg, text: c.text, docId: c.docId,
-          });
-        }
-      }
+      for (const c of m.cites || []) addPassage(c.docId, Number.isInteger(c.unit) ? c.unit : c.idx, c.sn, c.reg, c.text);
     }
+    for (const c of claims) addPassage(c.docId, c.unit, c.sn, c.reg, c.quote);
     // How much of the record an abstention actually SEARCHED — the total passages (sentences)
     // across the topic's sources, not the cited count. `passages` above is passages that ended
     // up QUOTED, so it is 0 on an honest abstention; reporting that as "0 passages on record"
@@ -118,5 +128,5 @@ export const installFindings = (appCtx) => {
     return which === 'asserted' ? assertedDag(doc) : discourseDag(doc);
   };
 
-  Object.assign(appCtx, { dagFor, findings, provenance });
+  Object.assign(appCtx, { dagFor, findings, provenance, topicEntitySummaries });
 };

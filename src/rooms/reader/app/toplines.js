@@ -167,7 +167,7 @@ export const installToplines = (appCtx) => {
     // cleared the moment the reading lands below. With no model, nothing more is coming, so the flag
     // stays false and the telegram is shown at once.
     await composeTwoPhase(inv, prev ? { ...prev, regenerate } : { regenerate: true }, (s) => {
-      state.summaries.entities[key] = { ...s, key, label: profile.label, contextualPending: !!appCtx.model && !telegramOnly }; appCtx.persist(); emit('sources');
+      state.summaries.entities[key] = { ...s, key, label: profile.label, docId, entId, contextualPending: !!appCtx.model && !telegramOnly }; appCtx.persist(); emit('sources');
     }, { useModel: !telegramOnly });
     // The fold-aware contextual definition — a model-WRITTEN companion to the telegram, framed by
     // the document in hand (its title, and the figures it most centres on beside this one). It is

@@ -14,6 +14,7 @@
 // vetoes ride alongside as `flags`.
 
 import { stages } from './stages.js';
+import { sourceDocsOf, citeOriginsOf, citeUnitsOf, citeTextsOf } from './cites.js';
 import { stageFace } from './stage-faces.js';
 import { createJudgmentLog } from '../core/index.js';
 import { proposeWebSearch } from './propose.js';
@@ -23,44 +24,6 @@ import { assembleBrief } from '../weave/write/index.js';
 import { reflectAnswer } from '../enactor/ground/index.js';
 import { senseReturn, commitVoice } from '../enactor/index.js';
 import { describeModel } from '../model/index.js';
-
-// The documents a turn's citations actually drew on. For a composite (several selected
-// documents folded into one), map each cited sentence index back through the provenance
-// axis to its source document; for a single document it is just that document.
-const sourceDocsOf = (doc, sources) => {
-  if (!doc) return [];
-  if (doc.isComposite && typeof doc.origin === 'function')
-    return [...new Set((sources || []).map(i => doc.origin(i)?.docId).filter(Boolean))];
-  return doc.docId ? [doc.docId] : [];
-};
-
-// Per-CLAIM attribution: each cited sentence index → the source document it came from. Where
-// sourceDocsOf collapses to the set, this keeps the index→source map so the UI can attribute every
-// [sN] in the answer to its specific origin (the EO_Reader sentenceSource model). { idx: docId }.
-const citeOriginsOf = (doc, sources) => {
-  const out = {};
-  if (!doc) return out;
-  const composite = doc.isComposite && typeof doc.origin === 'function';
-  for (const i of (sources || [])) {
-    const id = composite ? doc.origin(i)?.docId : doc.docId;
-    if (id != null) out[i] = id;
-  }
-  return out;
-};
-
-// Per-citation source TEXT: each cited sentence index → the sentence itself, so the UI
-// can show, on hover, exactly what the cited span allegedly says — the companion of
-// citeOriginsOf's idx → docId. { idx: text }.
-const citeTextsOf = (doc, sources) => {
-  const out = {};
-  if (!doc) return out;
-  const units = doc.units || doc.sentences || [];
-  for (const i of (sources || [])) {
-    const t = units[i];
-    if (t != null) out[i] = String(t).replace(/\s+/g, ' ').trim().slice(0, 280);
-  }
-  return out;
-};
 
 const round3 = (x) => (typeof x === 'number' && Number.isFinite(x) ? Math.round(x * 1000) / 1000 : null);
 
@@ -476,6 +439,7 @@ export const runTurn = async ({ question, doc, docs, model, embedder, geometricE
       fedGraph: ctx.fedGraph || null,   // the meaning graph fed to the talker (web path); null otherwise
       citeOrigins: citeOriginsOf(groundingDoc, ctx.sources),   // per-claim attribution: [sN] idx → source docId
       citeTexts:   citeTextsOf(groundingDoc, ctx.sources),     // [sN] idx → the cited sentence itself (hover provenance)
+      citeUnits:   citeUnitsOf(groundingDoc, ctx.sources),     // [sN] idx → SOURCE-LOCAL sentence index (durable anchors)
       // The EOT reflection of the answer against the graph — every lowered proposition with
       // its verdict and the independent origins that witness it. Null on an ungrounded turn.
       reflection,

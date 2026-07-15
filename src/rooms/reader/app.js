@@ -106,6 +106,8 @@ import { installDigest } from './app/digest.js';
 import { installZoom } from './app/zoom.js';
 import { installWiki } from './app/wiki.js';
 import { installFindings } from './app/findings.js';
+import { installRecordSearch } from './app/record-search.js';
+import { installPins } from './app/pins.js';
 import { installMemo } from './app/memo.js';
 import { installDeep } from './app/deep.js';
 
@@ -118,7 +120,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // the mint counters + the cross-section mutables (persistence resets the
     // counters on restore; chat arms abort/stallGuard; a settled answer clears
     // the wedge streak)
-    sn: 0, tn: 0, ln: 0, mn: 0, wn: 0, fon: 0,
+    sn: 0, tn: 0, ln: 0, mn: 0, wn: 0, fon: 0, pn: 0,
     abort: null, stallGuard: null, localWedges: 0,
     audit, murmur, fetchImpl,
   };
@@ -168,6 +170,11 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // on the next boot the still-open jobs are RESUMED (idempotently — dedup by content hash). This
     // is what lets ingestion AND transcription survive a reload even part-way through.
     jobs: [],              // [{ id, kind, status, attempts, topicId, workspaceId, ...spec }]
+    // PINS (docs/search-and-pins.md) — the durable write path. A pin holds an entity, a claim, a
+    // passage, a source, or a QUERY, each with enough embedded identity to survive re-parses and
+    // source drift (anchor.js — sha + charSpan + the quote itself). Top-level on purpose: a pin
+    // outlives topic moves and deletion, exactly like jobs.
+    pins: [],              // [{ id, kind, refKey, topicId, workspaceId, at, label, note, anchor?, entity?, claim?, query? }]
     ready: false,          // restore finished
   };
   // (the mint counters live on ctx — persistence resets them, each section mints from them)
@@ -227,6 +234,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installZoom(appCtx);
   installWiki(appCtx);
   installFindings(appCtx);
+  installRecordSearch(appCtx);
+  installPins(appCtx);
   installMemo(appCtx);
   installDeep(appCtx);
 

@@ -75,6 +75,9 @@ export const buildApi = (appCtx) => {
     entityChapters: appCtx.entityChapters, entityDigest: appCtx.entityDigest, entityDigestFor: appCtx.entityDigestFor, entityChapterReading: appCtx.entityChapterReading, entityChapterReadingFor: appCtx.entityChapterReadingFor,
     entityPassage: appCtx.entityPassage, entityPassageReading: appCtx.entityPassageReading, entityPassageReadingFor: appCtx.entityPassageReadingFor,
     findings: appCtx.findings, provenance: appCtx.provenance, dagFor: appCtx.dagFor, dagSources: appCtx.dagSources, setMemo: appCtx.setMemo, eotFor: appCtx.eotFor, answerEot: appCtx.answerEot,
+    // search over the record + the durable write path (docs/search-and-pins.md)
+    searchRecord: appCtx.searchRecord,
+    pins: appCtx.pins, pinAdd: appCtx.pinAdd, pinRemove: appCtx.pinRemove, pinUpdate: appCtx.pinUpdate, pinResolve: appCtx.pinResolve, anchorAt: appCtx.anchorAt,
     // the commitment ledger (assertions + corrections, persisted) and the session's
     // self/world line readout — the honesty and ledger seams, readable from the surface
     ledger: () => ledger.entries(),

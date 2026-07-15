@@ -88,11 +88,18 @@ export const installTopicQuestion = (appCtx) => {
       ? { query: result.webProposal.query, rationale: result.webProposal.rationale || '' } : null;
     msg.bound = (result.bound || []).map((b) => ({ claim: b.claim, citation: b.citation || null, cited: b.cited || b.text || null }));
     msg.verdicts = (result.verdicts || []).map((v) => ({
-      verdict: v.verdict || v.status || '', claim: v.claim || v.text || [v.src, v.via, v.tgt].filter(Boolean).join(' '),
+      // Keep the verdict's own SENTENCE as the claim — edgeVerdicts carry the parsed sentence, and
+      // the findings projection joins Contested onto bound claims by it (claims.js sameClaim). The
+      // entity-id join ([src tgt]) is the last resort, kept only for verdict shapes with no text.
+      verdict: v.verdict || v.status || '', claim: v.claim || v.text || v.sentence || [v.src, v.via, v.tgt].filter(Boolean).join(' '),
     }));
     msg.cites = Object.entries(result.citeOrigins || {}).map(([idx, docId]) => {
       const src = state.sources.find((s) => s.docId === docId);
-      return { idx: Number(idx), docId, sn: src?.sn || null, reg: src?.reg || null, title: src?.title || docId, text: (result.citeTexts || {})[idx] || '' };
+      // `unit` is the SOURCE-LOCAL sentence index (pipeline citeUnitsOf) — the durable half of the
+      // cite. `idx` stays the turn's composite index (what the [sN] marks in the answer refer to);
+      // anything that outlives the turn (a pin anchor, a findings passage key) must read `unit`.
+      const unit = (result.citeUnits || {})[idx];
+      return { idx: Number(idx), unit: unit != null ? Number(unit) : Number(idx), docId, sn: src?.sn || null, reg: src?.reg || null, title: src?.title || docId, text: (result.citeTexts || {})[idx] || '' };
     });
     msg.reflection = result.reflection || null;
     // the self/world line's reading for this turn (echoes / push-back / commitments)
