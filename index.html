@@ -1365,6 +1365,7 @@ table{border-collapse:collapse;width:100%}
                     <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#7A7A85">{{ c.id }}</span>
                     <span style="font-family:'Newsreader',Georgia,serif;font-size:15px;font-weight:500;color:#1B1B22;flex:1;min-width:0">{{ c.text }}</span>
                     <span style="font-size:10px;font-weight:700;letter-spacing:.03em;color:{{ c.stFg }};background:{{ c.stBg }};border:1px solid {{ c.stBd }};border-radius:6px;padding:3px 8px">{{ c.stLabel }}</span>
+                    <button onClick="{{ c.pin }}" title="{{ c.pinTip }}" style="flex:0 0 auto;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:{{ c.pinFg }}" style-hover="background:#F2F2F6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l1 7 3 2H5l3-2z"/></svg></button>
                   </div>
                   <sc-if value="{{ c.hasQuote }}">
                     <button onClick="{{ c.open }}" style="width:100%;display:flex;gap:13px;padding:13px 16px;border-top:1px solid #F2F2F6" style-hover="background:#FAFAFC">
@@ -1461,6 +1462,35 @@ table{border-collapse:collapse;width:100%}
                     </button>
                   </sc-for>
                 </div>
+              </div>
+            </div>
+          </div>
+          </sc-if>
+
+          <!-- PINS — the durable write path (docs/search-and-pins.md): what the reader kept. A pin
+               carries its own quote and hashes, so when a source moves under it, it says MOVED
+               instead of silently rebinding; a pinned QUERY re-runs live against the record. -->
+          <sc-if value="{{ isPins }}">
+          <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;background:#FBFBFD">
+            <div style="max-width:820px;margin:0 auto;padding:26px 30px 60px">
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#1B1B22">Pinned</div>
+              <div style="font-size:12.5px;color:#6E6E78;line-height:1.55;margin-top:5px">Anything kept from the record — a figure, a claim, a verbatim passage, a source, or a standing search. Each pin embeds its quote and its hashes; if the ground moves under one, it says so.</div>
+              <sc-if value="{{ pinsEmpty }}">
+                <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:28px 24px;color:#8A8A95;font-size:13px;line-height:1.6;background:#fff;margin-top:18px">Nothing pinned yet — pin a search from ⌘K, a claim from Findings, or a figure from its panel.</div>
+              </sc-if>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:18px">
+                <sc-for list="{{ pinRows }}" as="p">
+                  <div style="display:flex;align-items:flex-start;gap:11px;padding:12px 14px;border:1px solid #EAEAEF;border-radius:11px;background:#fff">
+                    <span title="{{ p.kindTip }}" style="width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;background:#EEF0F3;color:#8A8A95">{{ p.glyph }}</span>
+                    <span style="flex:1;min-width:0">
+                      <button onClick="{{ p.open }}" style="display:block;width:100%;text-align:left;font-family:'Newsreader',Georgia,serif;font-size:14.5px;color:#2A2A32;line-height:1.5" style-hover="color:#5B4BE6">{{ p.label }}</button>
+                      <sc-if value="{{ p.hasQuote }}"><span style="display:block;font-size:12px;color:#6E6E78;line-height:1.55;margin-top:3px">“{{ p.quote }}”</span></sc-if>
+                      <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A8A8B2;margin-top:4px">{{ p.meta }}</span>
+                    </span>
+                    <sc-if value="{{ p.hasStatus }}"><span title="{{ p.stTip }}" style="flex:0 0 auto;font-size:10px;font-weight:700;color:{{ p.stFg }};background:{{ p.stBg }};border:1px solid {{ p.stBd }};border-radius:6px;padding:2px 8px">{{ p.stLabel }}</span></sc-if>
+                    <button onClick="{{ p.unpin }}" title="Unpin" style="flex:0 0 auto;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#9A9AA4" style-hover="background:#F2F2F6;color:#B23A2E"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                  </div>
+                </sc-for>
               </div>
             </div>
           </div>
@@ -1904,6 +1934,7 @@ table{border-collapse:collapse;width:100%}
                   <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600;color:#1B1B22;line-height:1.2">{{ prof.label }}</span>
                   <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ prof.counts }}</span>
                 </span>
+                <button onClick="{{ prof.pin }}" title="{{ prof.pinTip }}" style="flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:{{ prof.pinFg }}" style-hover="background:#F2F2F6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l1 7 3 2H5l3-2z"/></svg></button>
               </div>
               <button onClick="{{ prof.openSource }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:6px;padding:3px 8px;margin:6px 0 2px" style-hover="background:#E5E8EC">{{ prof.srcReg }} · {{ prof.srcTitle }}</button>
 
@@ -2467,7 +2498,7 @@ table{border-collapse:collapse;width:100%}
             </button>
           </sc-for>
         </div>
-        <div style="flex:0 0 auto;display:flex;align-items:center;gap:15px;padding:9px 16px;border-top:1px solid #F0F0F4;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A8A8B2"><span>↑↓ move</span><span>↵ open</span><span>⌘K toggle</span><span style="flex:1"></span><span>{{ cmdkCount }}</span></div>
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:15px;padding:9px 16px;border-top:1px solid #F0F0F4;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A8A8B2"><span>↑↓ move</span><span>↵ open</span><span>⌘K toggle</span><sc-if value="{{ cmdkCanPin }}"><button onClick="{{ cmdkPinQuery }}" title="Keep this search as a standing pin — it re-runs live as the record grows" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:3px 8px" style-hover="background:#E7E2FD"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l1 7 3 2H5l3-2z"/></svg>Pin this search</button></sc-if><span style="flex:1"></span><span>{{ cmdkCount }}</span></div>
       </div>
     </div>
   </sc-if>
@@ -4631,6 +4662,72 @@ class Component extends DCLogic {
     this.setState({ cmdkQuery: op + (q ? ' ' + q : ''), cmdkSel: 0 });
     setTimeout(() => { const i = document.getElementById('eo-cmdk-input'); if (i) { try { i.focus(); const n = i.value.length; i.setSelectionRange(n, n); } catch {} } }, 20);
   }
+  // ── pins — the durable write path (docs/search-and-pins.md) ─────────────────────────────────
+  _pinClaim(c) {
+    const app = this._app; if (!app || !app.pinAdd) return;
+    const anchor = c.sn ? app.anchorAt(c.sn, Number.isInteger(c.unit) ? { unit: c.unit } : { quote: c.quote || c.text }) : null;
+    app.pinAdd({ kind: 'claim', label: c.text, refId: c.key || c.text, ...(anchor ? { anchor } : {}), claim: { text: c.text, claimKey: c.key || null, status: c.status } });
+  }
+  _pinEntity(docId, entId, label) {
+    const app = this._app; if (!app || !app.pinAdd) return;
+    app.pinAdd({ kind: 'entity', label, refId: String(label || '').trim().toLowerCase(), entity: { docId, entId, label } });
+  }
+  _pinsVals(st) {
+    if (st.tab !== 'pins') return { pinRows: [], pinsEmpty: false };
+    const app = this._app; if (!app || !app.pins) return { pinRows: [], pinsEmpty: true };
+    const GLYPH = { entity: '◉', claim: '❝', passage: '¶', source: 'S', query: '⌕' };
+    const KIND_TIP = {
+      entity: 'a pinned figure — opens its panel', claim: 'a pinned claim — anchored to its passage',
+      passage: 'a pinned verbatim passage', source: 'a pinned source', query: 'a standing search — re-runs live as the record grows',
+    };
+    // The resolve ladder, worn on the chip (anchor.js): exact — the source is byte-identical;
+    // relocated — the source changed but the words were found verbatim; approx — only the folded
+    // text matches; moved — the ground moved, and the pin says so instead of silently rebinding.
+    const ST = {
+      exact: { label: 'exact', fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9', tip: 'the source is unchanged; the span verifies by hash' },
+      relocated: { label: 'relocated', fg: '#1E8A8A', bg: '#E7F6F4', bd: '#CFEBE7', tip: 'the source changed, but the exact words were found again' },
+      approx: { label: 'approx', fg: '#9A6B12', bg: '#FBF1DA', bd: '#EEDCA9', tip: 'only a folded text match — offsets are approximate' },
+      moved: { label: 'moved', fg: '#B23A2E', bg: '#FBE9E6', bd: '#F2D3CD', tip: 'the ground moved — the words are no longer carried; the quote below still testifies' },
+    };
+    const rows = app.pins().slice().reverse().map((p) => {
+      const row = {
+        glyph: GLYPH[p.kind] || '•', kindTip: KIND_TIP[p.kind] || p.kind,
+        label: p.label || p.refKey, hasQuote: false, quote: '', meta: '',
+        hasStatus: false, stLabel: '', stFg: '', stBg: '', stBd: '', stTip: '',
+        unpin: () => app.pinRemove(p.id),
+        open: () => {},
+      };
+      if (p.kind === 'query') {
+        const q = p.query && p.query.q || '';
+        let total = null;
+        try { const r = app.searchRecord(q); total = r.entities.length + r.claims.length + r.passages.length + r.sources.length; } catch { total = null; }
+        const seen = p.query && p.query.last && p.query.last.counts ? p.query.last.counts.total : null;
+        const fresh = (total != null && seen != null) ? Math.max(0, total - seen) : 0;
+        row.meta = ['standing search', total != null ? (total + ' result' + (total === 1 ? '' : 's')) : null, this._ago(p.at)].filter(Boolean).join('  ·  ');
+        if (fresh) { row.hasStatus = true; Object.assign(row, { stLabel: '+' + fresh + ' new', stFg: '#5B4BE6', stBg: '#F1EFFE', stBd: '#DED8FD', stTip: 'new results since this search was last opened' }); }
+        row.open = () => {
+          if (total != null) app.pinUpdate(p.id, { queryLast: { at: new Date().toISOString(), counts: { total } } });
+          this.setState({ cmdkOpen: true, cmdkQuery: q, cmdkSel: 0 });
+          setTimeout(() => { const i = document.getElementById('eo-cmdk-input'); if (i) { try { i.focus(); } catch {} } }, 30);
+        };
+      } else if (p.kind === 'entity') {
+        row.meta = ['figure', this._ago(p.at)].filter(Boolean).join('  ·  ');
+        row.open = () => { if (p.entity) this.openEntity(p.entity.docId, p.entity.entId); };
+      } else {
+        const r = p.anchor ? app.pinResolve(p) : null;
+        row.hasQuote = !!(p.anchor && p.anchor.text) && p.kind !== 'source' && p.anchor.text !== p.label;
+        row.quote = (p.anchor && p.anchor.text) || '';
+        row.meta = [p.kind, p.anchor && p.anchor.sn, this._ago(p.at)].filter(Boolean).join('  ·  ');
+        if (r && ST[r.status]) { row.hasStatus = true; const s = ST[r.status]; Object.assign(row, { stLabel: s.label, stFg: s.fg, stBg: s.bg, stBd: s.bd, stTip: s.tip }); }
+        row.open = () => {
+          const rr = p.anchor ? app.pinResolve(p) : null;
+          if (rr && rr.jump && rr.jump.sn) this.openViewer(rr.jump.sn, rr.jump.text || undefined);
+        };
+      }
+      return row;
+    });
+    return { pinRows: rows, pinsEmpty: rows.length === 0 };
+  }
   openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'ask' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
   backToEntities() { this.setState({ entitySel: null, focusId: null }); }
   // The wiki referent for the open entity — 4.1's entity-panel Wikipedia search, restored.
@@ -4666,9 +4763,13 @@ class Component extends DCLogic {
     const wk = this.state.wikiDefs[docId + '#' + entId] || null;
     const wkHit = !!(wk && wk.confirmed && wk.text);
     const tl = this._toplineVM('entity', { docId, entId }, p.label);
+    const pinned = (app.pins ? app.pins() : []).some((x) => x.refKey === 'entity:' + String(p.label || '').trim().toLowerCase());
     return {
       label: p.label, initials: this._initials(p.label),
       counts: `${p.mentions.length} mentions · ${p.relations.length} links`,
+      pinned, pinFg: pinned ? '#5B4BE6' : '#B4B4BE',
+      pinTip: pinned ? 'Pinned — this figure is kept' : 'Pin this figure',
+      pin: () => this._pinEntity(docId, entId, p.label),
       wikiWait: !!(wk && wk.busy), hasWiki: wkHit,
       wikiText: wkHit ? wk.text : '', wikiTitle: wkHit ? wk.title : '', wikiUrl: wkHit ? wk.url : '',
       wikiDesc: wkHit ? (wk.description || '') : '', hasWikiDesc: !!(wkHit && wk.description),
@@ -6347,7 +6448,8 @@ class Component extends DCLogic {
     // tabs
     // Ask leads; the conversational Chat is demoted behind it and carries a "beta" pill —
     // the record surface (ask → a typed, cited answer) is the posture, chat the exception.
-    const tabDefs = [['ask', 'Ask', null, false], ['chat', 'Chat', null, true], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['register', 'Sources', sources.length || null, false], ['memo', 'Memo', (topic && topic.memo) ? 1 : null, false]];
+    const pinCount = (this._app && this._app.pins) ? this._app.pins().length : 0;
+    const tabDefs = [['ask', 'Ask', null, false], ['chat', 'Chat', null, true], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false], ['register', 'Sources', sources.length || null, false], ['memo', 'Memo', (topic && topic.memo) ? 1 : null, false]];
     const tabs = tabDefs.map(([id, label, count, beta]) => ({
       label, count: String(count || ''), hasCount: count != null, beta: !!beta,
       fg: st.tab === id ? '#1B1B22' : '#8A8A95', weight: st.tab === id ? 650 : 500,
@@ -6499,12 +6601,16 @@ class Component extends DCLogic {
     const pivotActive = !!pivotFilter;
     const evClaims = shownClaims.slice().reverse().map((c) => {
       const chip = this._stChip(c.status);
+      const pinned = c.key ? (app.pins ? app.pins() : []).some((p) => p.refKey === 'claim:' + c.key) : false;
       return {
         id: c.id, text: c.text, stLabel: c.status, stFg: chip.fg, stBg: chip.bg, stBd: chip.bd,
         hasQuote: !!c.quote, quote: c.quote, rel: c.status === 'Contested' ? 'contested by' : 'supports',
         relColor: c.status === 'Contested' ? '#B23A2E' : '#59C08A',
         srcReg: c.reg || '', srcTitle: (app.sourceBySn(c.sn) || {}).title || '',
         open: () => c.sn && this.openViewer(c.sn, c.quote),
+        pinned, pinFg: pinned ? '#5B4BE6' : '#B4B4BE',
+        pinTip: pinned ? 'Pinned — a durable, anchored reference' : 'Pin this claim — kept with its quote and hashes',
+        pin: () => this._pinClaim(c),
       };
     });
     const overviewStats = [
@@ -7045,7 +7151,8 @@ class Component extends DCLogic {
       leftSources, sourceCount: String(sources.length), noSources: sources.length === 0, hasSources: sources.length > 0,
       // tabs
       tabs, hasFlagLine, flagLine, flagFg, flagBg, flagBd,
-      isAsk: st.tab === 'ask', isChat: st.tab === 'chat', isGraph: st.tab === 'graph', isEvidence: st.tab === 'evidence',
+      isAsk: st.tab === 'ask', isChat: st.tab === 'chat', isGraph: st.tab === 'graph', isEvidence: st.tab === 'evidence', isPins: st.tab === 'pins',
+      ...this._pinsVals(st),
       isRegister: st.tab === 'register', isMemo: st.tab === 'memo',
       // ask (the primary surface) — the latest exchange as one typed, cited answer
       askSurfaces, askTries, askHasTries: askTries.length > 0, askEmpty, askHasSurface: askSurfaces.length > 0,
@@ -7257,6 +7364,12 @@ class Component extends DCLogic {
           cmdkHasHint: st.cmdkOpen && !q && rows.length > 0,
           cmdkHint: 'RECENT',
           cmdkCount: rows.length ? (rows.length + ' result' + (rows.length === 1 ? '' : 's')) : '',
+          cmdkCanPin: !!q && !!(this._app && this._app.pinAdd),
+          cmdkPinQuery: () => {
+            const app = this._app; if (!app || !app.pinAdd || !q) return;
+            app.pinAdd({ kind: 'query', label: q, refId: q.toLowerCase(), query: { q } });
+            this.setTab('pins'); this.closeCmdk();
+          },
         };
       })(),
       // paste

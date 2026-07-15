@@ -62,6 +62,7 @@ import { groundSpans } from '../../enactor/ground/spans.js';
 import { discourseDag, assertedDag } from '../../surfer/dag/index.js';
 import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
+import { anchorFor, resolveAnchor } from './anchor.js';
 import { buildChatExport } from './chat-export.js';
 import { recordClaims } from './claims.js';
 import { searchRecord as searchRecordOver } from './search-record.js';
@@ -315,9 +316,16 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // on the next boot the still-open jobs are RESUMED (idempotently — dedup by content hash). This
     // is what lets ingestion AND transcription survive a reload even part-way through.
     jobs: [],              // [{ id, kind, status, attempts, topicId, workspaceId, ...spec }]
+    // PINS (docs/search-and-pins.md) — the durable write path. A pin holds an entity, a claim, a
+    // passage, a source, or a QUERY, each with enough embedded identity to survive re-parses and
+    // source drift: passages/claims carry a durable anchor (anchor.js — sha + charSpan + the quote
+    // itself), entities carry entityKey + their lead instance, queries re-run live against the
+    // record. Top-level (not on the topic) on purpose: a pin outlives topic moves and deletion,
+    // exactly like jobs; it scopes by the topicId/workspaceId it was minted under.
+    pins: [],              // [{ id, kind, refKey, topicId, workspaceId, at, label, note, anchor?, entity?, claim?, query? }]
     ready: false,          // restore finished
   };
-  let sn = 0, tn = 0, ln = 0, mn = 0, wn = 0;
+  let sn = 0, tn = 0, ln = 0, mn = 0, wn = 0, pn = 0;
   const client = createWebClient({ fetchImpl });
 
   // THE SESSION'S SELF AND SPINE. One monitor for the whole session (one loop, one me):
@@ -561,6 +569,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // the durable pending-work registry — the fetches / imports / transcriptions still in flight,
     // so a reload mid-way can pick them back up (ingest-jobs.js). Small plain JSON specs only.
     jobs: state.jobs,
+    // pins — small plain JSON, each with its embedded anchor (docs/search-and-pins.md)
+    pn, pins: state.pins,
   });
   let saveTimer = null;
   const persist = () => {
@@ -597,6 +607,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
         state.activeWorkspaceId = snap.activeWorkspaceId || null;
         state.log = Array.isArray(snap.log) ? snap.log : [];
         state.jobs = Array.isArray(snap.jobs) ? snap.jobs : [];   // pending work to resume below
+        state.pins = Array.isArray(snap.pins) ? snap.pins : [];
+        pn = snap.pn || state.pins.length;
         if (snap.ledger) ledger.restore(snap.ledger);   // the spine survives reload
         if (snap.summaries && snap.summaries.entities) {
           // `contextualPending` is a within-session marker that a written reading is mid-compose; it
@@ -4390,6 +4402,68 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     });
   };
 
+  // ── pins — the durable write path (docs/search-and-pins.md) ────────────────
+  // A pin is small plain JSON with its identity EMBEDDED (the anchor carries the quote and the
+  // hashes; an entity pin carries entityKey + its lead instance; a query pin carries the query),
+  // so it survives reloads, re-parses, topic moves, and source drift — and when the ground truly
+  // moved, resolution says so instead of silently rebinding.
+  const pinAdd = (spec = {}) => {
+    const kind = spec.kind;
+    if (!['entity', 'claim', 'passage', 'source', 'query'].includes(kind)) return null;
+    const t = topic();
+    const pin = {
+      id: `pin${++pn}`, kind,
+      refKey: `${kind}:${spec.refId ?? spec.anchor?.sn ?? spec.entity?.entityKey ?? spec.claim?.claimKey ?? spec.query?.q ?? pn}`,
+      topicId: t?.id || null, workspaceId: state.activeWorkspaceId || null,
+      at: nowIso(), label: String(spec.label || '').slice(0, 160), note: String(spec.note || ''),
+      ...(spec.anchor ? { anchor: spec.anchor } : {}),
+      ...(spec.entity ? { entity: spec.entity } : {}),
+      ...(spec.claim ? { claim: spec.claim } : {}),
+      ...(spec.query ? { query: { q: String(spec.query.q || ''), last: spec.query.last || null } } : {}),
+    };
+    // idempotent on the refKey — pinning the same thing twice keeps the first record
+    const dupe = state.pins.find((p) => p.refKey === pin.refKey);
+    if (dupe) return dupe;
+    state.pins.push(pin);
+    logIt('pin', `Pinned ${kind} — ${pin.label || pin.refKey}`);
+    persist(); emit('pins');
+    return pin;
+  };
+  const pinRemove = (id) => {
+    const before = state.pins.length;
+    state.pins = state.pins.filter((p) => p.id !== id);
+    if (state.pins.length !== before) { persist(); emit('pins'); }
+  };
+  const pinUpdate = (id, patch = {}) => {
+    const p = state.pins.find((x) => x.id === id);
+    if (!p) return null;
+    if (patch.note != null) p.note = String(patch.note);
+    if (patch.label != null) p.label = String(patch.label).slice(0, 160);
+    if (patch.queryLast && p.query) p.query.last = patch.queryLast;
+    persist(); emit('pins');
+    return p;
+  };
+  const pins = () => state.pins;
+  // Mint an anchor at a place in a source — the pin affordances all come through here.
+  const anchorAt = (snId, { unit = null, quote = null } = {}) => {
+    const src = sourceBySn(snId);
+    if (!src) return null;
+    const doc = Number.isInteger(unit) ? docFor(src) : null;
+    return anchorFor({ src, doc, unit, quote });
+  };
+  // Resolve a pin's anchor down the honesty ladder. The sn is tried first; if the registry row is
+  // gone or renumbered, the source is re-found by its content hash before the ladder runs.
+  const pinResolve = (pin) => {
+    const a = pin?.anchor;
+    if (!a) return null;
+    let src = a.sn ? sourceBySn(a.sn) : null;
+    if (!src && a.sourceSha) src = state.sources.find((s) => s.sha === a.sourceSha) || null;
+    if (!src && a.docId) src = state.sources.find((s) => s.docId === a.docId) || null;
+    const r = resolveAnchor(a, src);
+    if (src && r.jump) r.jump.sn = src.sn;   // follow a renumbered registry row
+    return r;
+  };
+
   const provenance = () => {
     const t = topic();
     const f = findings();
@@ -4832,6 +4906,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     entityChapters, entityDigest, entityDigestFor, entityChapterReading, entityChapterReadingFor,
     findings, provenance, dagFor, dagSources, setMemo, eotFor, answerEot,
     searchRecord: searchTheRecord,
+    pins, pinAdd, pinRemove, pinUpdate, pinResolve, anchorAt,
     // the commitment ledger (assertions + corrections, persisted) and the session's
     // self/world line readout — the honesty and ledger seams, readable from the surface
     ledger: () => ledger.entries(),
