@@ -71,3 +71,6 @@ export { stripWebBoilerplate } from './websource.js';
 // (seam healing) re-exported so the module stays behind the entrance
 export { wikiExtract } from './webfetch.js';
 export { wikiPageUrlOn } from './wikimedia.js';
+// Universal byte ingestion — structure from ANY input (even binary) via the kernel's slot
+// induction. Ingest anything: a text is the case where the bytes spell a language.
+export { ingestBytes, toBytes, periodOf } from './bytes.js';
