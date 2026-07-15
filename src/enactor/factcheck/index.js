@@ -38,5 +38,10 @@ export {
 // holds within itself, surfaced (never refused) so a "no conflicts" banner can no
 // longer assert a consistency nothing checked.
 export {
-  crossSourceConflicts, extractQuantities, readQuantities, unpackComposite, measureLabel,
+  crossSourceConflicts, extractQuantities, unpackComposite,
 } from './crosscheck.js';
+// Text-reading half of the pass — magnitudes and legibility (crosscheck.js splits under
+// the god-module ratchet). Re-exported here so the holon's public surface is unchanged.
+export {
+  readQuantities, measureLabel, isLegibleProse, replacementRatio,
+} from './quantities.js';

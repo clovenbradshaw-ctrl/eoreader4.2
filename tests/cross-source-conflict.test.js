@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { parseText } from '../src/perceiver/parse/index.js';
 import {
-  crossSourceConflicts, extractQuantities, readQuantities,
+  crossSourceConflicts, extractQuantities, readQuantities, isLegibleProse,
 } from '../src/enactor/factcheck/index.js';
 import { quantitiesConflict, attributesConflict } from '../src/core/index.js';
 
@@ -139,4 +139,59 @@ test('crossSourceConflicts: a single source disagreeing with itself is not cross
     { doc: P('The project was 45MW, later upgraded to 80MW.', 'a'), source: 'S1' },
   ]);
   assert.equal(r.counts.conflicts, 0);
+});
+
+// ── mis-decoded bytes do not invent a conflict ───────────────────────────────
+//
+// A source can be admitted and still be no prose at all — a PDF/zip/UTF-16 file read
+// as UTF-8 arrives as mojibake. readQuantities would mine stray digits ("6", "9,000",
+// "$456") out of the garbage and clash them against a legible source, so the Findings
+// "Where the sources disagree" panel showed binary soup as a datum and inflated the
+// conflict count. The extractor now judges each source's legibility as a whole and
+// mines nothing from bytes.
+
+// U+FFFD-dense (a UTF-8 decode failure) and a shifted-ASCII symbol soup — the two
+// shapes mis-decoded bytes take. Each carries stray digits + a "MW"/"$" so the OLD
+// path would have minted a capacity/cost quantity from it.
+const GARBAGE_FFFD = `The Q0��� ��nh�}�V�#< �� 6MW �I6z��J�k qvGy�� 9000 homes`;
+const GARBAGE_SOUP = `Z<DF>C<;=DE[@9\\] ^:D?:DD=<B_@>>=:a<9FD 9000 MW bc:9=dJ>e@fD?@fDe $$456 47859:;;<=7>?@85>A;;?BCBDECFGFB`;
+
+test('isLegibleProse: prose in any script is legible, mis-decoded bytes are not', () => {
+  assert.equal(isLegibleProse('The Riverside Solar Project is an 80MW installation that powers homes.'), true);
+  assert.equal(isLegibleProse('Иван пришёл домой и увидел, что окно было открыто настежь всю ночь.'), true);
+  assert.equal(isLegibleProse('Ο Γλαύκων είπε ότι η πόλη θα χρειαστεί πολλούς νέους φύλακες σύντομα.'), true);
+  assert.equal(isLegibleProse('月が綺麗ですね、今夜は星もたくさん見えますし空気も澄んでいます。'), true);
+  assert.equal(isLegibleProse(GARBAGE_FFFD), false);
+  assert.equal(isLegibleProse(GARBAGE_SOUP), false);
+  // A short fragment is not judged — the guard defers rather than censoring.
+  assert.equal(isLegibleProse('5MW'), true);
+});
+
+test('extractQuantities: a mis-decoded source mints no quantities', () => {
+  assert.equal(extractQuantities(P(GARBAGE_FFFD, 'g1'), { source: 'S-0010' }).length, 0);
+  assert.equal(extractQuantities(P(GARBAGE_SOUP, 'g2'), { source: 'S-0014' }).length, 0);
+});
+
+test('crossSourceConflicts: a legible source and a binary one do not conflict', () => {
+  // The reported scenario: capacity reported "5MW" by a real source, and phantom
+  // magnitudes read out of two mis-decoded ones. No cross-source conflict should survive.
+  const r = crossSourceConflicts([
+    { doc: P('The Riverside Solar Project bans data centers down to 5MW with accessory data centers.', 'real'), source: 'S-0001' },
+    { doc: P(GARBAGE_FFFD, 'g1'), source: 'S-0010' },
+    { doc: P(GARBAGE_SOUP, 'g2'), source: 'S-0014' },
+  ]);
+  assert.equal(r.counts.conflicts, 0);
+});
+
+test('crossSourceConflicts: a real disagreement still fires beside a binary source', () => {
+  // Garbage is dropped, but two LEGIBLE sources that genuinely disagree still conflict —
+  // the "homes powered" finding from the report survives the filter.
+  const r = crossSourceConflicts([
+    { doc: P('The Riverside Solar Project will power 18,000 homes annually.', 'a'), source: 'S-0002' },
+    { doc: P('Contrary to the note, the Riverside Solar Project would power only about 9,000 homes annually.', 'b'), source: 'S-0007' },
+    { doc: P(GARBAGE_SOUP, 'g'), source: 'S-0014' },
+  ]);
+  assert.equal(r.counts.conflicts, 1);
+  assert.equal(r.conflicts[0].measure, 'homes');
+  assert.equal(r.conflicts[0].sources.length, 2);
 });
