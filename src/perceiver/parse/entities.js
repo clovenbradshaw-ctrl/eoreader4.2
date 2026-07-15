@@ -199,9 +199,11 @@ const ABSTRACT_HEADS = new Set(['way', 'time', 'thing', 'matter', 'fact', 'case'
   'moment', 'sense', 'part', 'whole', 'same', 'other', 'first', 'last', 'rest', 'one', 'day', 'night',
   'morning', 'evening', 'while', 'end', 'side', 'reason', 'idea', 'word', 'name', 'sake', 'use', 'need']);
 
-// A content head — an open-class word (`C.isFunction` is false), so a name beside
-// it is a verb's argument rather than a function word's neighbour.
-const isContent = (w, C) => !!w && /^[a-z][a-z'’]*$/.test(w) && w.length >= 2 && !C.isFunction(w);
+// A content head — an open-class word (`C.isFunction` is false), so a name beside it is a verb's
+// argument rather than a function word's neighbour. Lowercase-initial of ANY script (\p{Ll}), so
+// a Russian verb ("сказал") gives its subject the same gravity an English one does; without this
+// the ASCII test saw no Cyrillic neighbour and bare Russian names never earned a sighting.
+const isContent = (w, C) => !!w && /^\p{Ll}[\p{Ll}'’]*$/u.test(w) && w.length >= 2 && !C.isFunction(w);
 
 // The gravity of one sighting, read off its local context against the live conventions `C`.
 // Pure and modelless — position is the witness, the word-classes are the ledger's. Returns
@@ -218,8 +220,9 @@ const sightingGravity = (sentence, start, end, C, label = null) => {
   // followed by other letters, and must NOT read its stem as a possessor (the "Don"/"Isn" bug).
   if (/^['’]s?(?![A-Za-z])/.test(after)) return { g: 1.0, strong: true };   // possessor
   const before = sentence.slice(0, start);
-  const prev = (before.match(/([A-Za-z'’]+)\s*$/) || [])[1];
-  const next = (after.match(/^\s*([A-Za-z'’]+)/) || [])[1];
+  // Neighbours of ANY script (\p{L}), so a Cyrillic verb/noun beside a name is seen as company.
+  const prev = (before.match(/([\p{L}'’]+)\s*$/u) || [])[1];
+  const next = (after.match(/^\s*([\p{L}'’]+)/u) || [])[1];
   // A demonym / proper adjective ("the Russian novelist", "learning about American
   // television", "their Jewish king") is ATTRIBUTIVE — it modifies the following noun,
   // it is not a referent in its own right. That holds REGARDLESS of what precedes it,
