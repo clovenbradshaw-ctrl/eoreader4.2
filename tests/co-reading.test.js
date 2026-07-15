@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  coReadAt, positionThread, combineThreads, surfFold,
+  coReadAt, positionThread, combineThreads, surfFold, sentenceIndexOfText,
 } from '../src/surfer/index.js';
 import { createDeepReader } from '../src/surfer/fold/index.js';
 import { canWitness } from '../src/core/index.js';
@@ -129,6 +129,34 @@ test('coReadAt defaults surf to surfFold, rejects an explicit bad surf, and a lo
   assert.doesNotThrow(() => coReadAt(bookDoc(), 3), 'surf defaults to surfFold — the caller need not inject it');
   assert.throws(() => coReadAt(bookDoc(), 3, { surf: null }), /surf.*must be injected/, 'an explicit non-function surf is rejected');
   assert.equal(coReadAt({}, 3, { surf: surfFold }), null, 'a doc without a log yields null, never a throw');
+});
+
+// ── sentenceIndexOfText — the bridge from rendered reading text back to the doc's sentence space ─
+
+test('sentenceIndexOfText resolves a visible block of prose to its doc sentence index', () => {
+  const doc = bookDoc();
+  const sents = doc.units || doc.sentences;
+  // a block lifted verbatim off the "book" resolves to its own sentence.
+  const i = sentenceIndexOfText(doc, sents[4]);
+  assert.equal(i, 4, 'the exact sentence resolves to its index');
+  // a reflowed block (leading text of a sentence, extra whitespace, smart quotes) still resolves.
+  const messy = '  ' + String(sents[3]).replace(/'/g, '’').toUpperCase() + '  and then some';
+  assert.equal(sentenceIndexOfText(doc, messy), 3, 'reflow / case / smart quotes still resolve to the sentence');
+});
+
+test('sentenceIndexOfText returns -1 when the visible text matches nothing (the caller does nothing)', () => {
+  const doc = bookDoc();
+  assert.equal(sentenceIndexOfText(doc, 'a passage from an entirely different book about turbines'), -1);
+  assert.equal(sentenceIndexOfText(doc, ''), -1, 'empty text → -1');
+  assert.equal(sentenceIndexOfText({}, 'anything'), -1, 'no doc → -1');
+});
+
+test('sentenceIndexOfText biases forward from `after` but still resolves a jump backward', () => {
+  const doc = bookDoc();
+  const sents = doc.units || doc.sentences;
+  // the same lead text, resolved from a later position — a reader who scrolled back up.
+  const i = sentenceIndexOfText(doc, sents[2], { from: 6 });
+  assert.equal(i, 2, 'a match before `after` is still found (wrap-around)');
 });
 
 // ── reflectAt — the governed reader reflects at the human's place, sharing at-rest habituation ─

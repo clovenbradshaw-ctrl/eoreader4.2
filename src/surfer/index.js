@@ -30,7 +30,7 @@ export { threadBasis, threadFigures, bornSalience, figureSalience, linkSalience,
 // the |T⟩ the surfer's peak is re-weighted against — the seam that turns the idle reader into a
 // companion tethered to the human (surfer/co-read.js).
 export { positionThread, combineThreads } from './salience.js';
-export { coReadAt } from './co-read.js';
+export { coReadAt, sentenceIndexOfText } from './co-read.js';
 // Embedding relevance — the meaning-space Born score and its significance-vs-background floor, the
 // leash that tells a same-surname namesake (Louis vs Neil Armstrong) from the subject (retrieve/relevance.js).
 export { bornScore, significanceFloor, renormAdd } from './retrieve/index.js';

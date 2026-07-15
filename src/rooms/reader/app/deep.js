@@ -8,7 +8,7 @@ import { speakTriples, talkThenVerify } from '../../../weave/write/index.js';
 import { projectGraph } from '../../../core/index.js';
 import { runCuriousResearch } from '../../../turn/index.js';
 import { createDeepReader } from '../../../surfer/fold/index.js';
-import { surfFold, positionThread, combineThreads } from '../../../surfer/index.js';
+import { surfFold, positionThread, combineThreads, sentenceIndexOfText } from '../../../surfer/index.js';
 import { REFLECTION_CAP, recordReflections, appendLog } from './guards.js';
 import { nowIso, nowMs } from './util.js';
 
@@ -139,11 +139,14 @@ export const installDeep = (appCtx) => {
     } catch { return null; }
     const r = res && res.reflection;
     if (!r) return null;                             // nothing beat the band here — the companion stays quiet
+    const sents = entry.base.sentences || entry.base.units || [];
+    const anchorText = String(sents[r.peak] ?? '').trim();   // the sentence the note hangs beside (margin anchor)
     state.reflectionsSeen = recordReflections(state.reflections, state.reflectionsSeen, [r], (x) => ({
       t: nowIso(), docId: src.docId, sn: src.sn, title: src.title,
       peak: x.peak, note: cleanLabels(x.body, entry.base), verdict: x.verdict || '',
       surprise: x.surprise, canWitness: x.canWitness,   // false — the firewall, surfaced
       positioned: true,                                 // co-read AT the reader's place — render in its margin
+      anchorText,                                       // the passage under the eye — the surface matches it to a block
     }));
     const rec = state.reflections[state.reflections.length - 1];
     // One coalescing beat per reading lull — the Actions feed points to where the note actually
@@ -151,6 +154,21 @@ export const installDeep = (appCtx) => {
     logIt('reflection', 'Noticed something where you are reading', 'see it in the margin', { coalesce: true });
     appCtx.persist(); emit('reflections');
     return rec;
+  };
+
+  // coReadHere(src, visibleText) — the surface reports where the eye has SETTLED as text (the block
+  // at the top of the reader's viewport, which carries no sentence index — it is reflowed prose).
+  // This resolves that text to the doc sentence index co-reading anchors in (sentenceIndexOfText,
+  // robust to reflow / stripped front matter) and drives one co-read pass there. `after` biases the
+  // resolve forward from the last place read, so a reader riding forward resolves cheaply and a
+  // repeated block near a boundary does not snap backward. Returns the reflection (or null).
+  const coReadHere = (src, visibleText, { after = 0, thread = null } = {}) => {
+    if (!src || !visibleText) return null;
+    const entry = deepReaderFor(src);
+    if (!entry) return null;
+    const at = sentenceIndexOfText(entry.doc, visibleText, { from: after });
+    if (at < 0) return null;                          // the visible text matched no sentence — do nothing
+    return coReadAt(src, at, { thread });
   };
 
   // Voice the just-grounded connections as prose (phase E). Builds grounded subject→relation→object
@@ -400,5 +418,5 @@ export const installDeep = (appCtx) => {
   // on EVERY visit until the user cleared site data.
   appCtx.restore().catch(() => { if (!state.ready) { state.ready = true; emit('ready'); } });
 
-  Object.assign(appCtx, { connectTick, coReadAt, deepIdleStart, deepReaders, deepTick, deepWake, reflections, setMurmurMode, setMurmurVisible, wanderTick });
+  Object.assign(appCtx, { connectTick, coReadAt, coReadHere, deepIdleStart, deepReaders, deepTick, deepWake, reflections, setMurmurMode, setMurmurVisible, wanderTick });
 };

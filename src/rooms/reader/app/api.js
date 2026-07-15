@@ -44,8 +44,9 @@ export const buildApi = (appCtx) => {
     // deep reading — the inner monologue at rest (reflections stream into state.reflections)
     deepTick: appCtx.deepTick, reflections: appCtx.reflections,
     // co-reading — the reader's position drives the loop: the surface reports where the eye has
-    // settled (a sentence index) and coReadAt reflects in the margin of that place, firewalled.
-    coReadAt: appCtx.coReadAt,
+    // settled (a sentence index, or coReadHere with the visible block text) and the reader reflects
+    // in the margin of that place, firewalled.
+    coReadAt: appCtx.coReadAt, coReadHere: appCtx.coReadHere,
     // connective promotion — murmur's candidate connections verified + written at rest (phase 4)
     connectTick: appCtx.connectTick,
     // self-guided learning — the murmur's at-rest wander (murmur/learn): notes stream into

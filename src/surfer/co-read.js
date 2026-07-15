@@ -32,6 +32,43 @@ import { deepReading, REFLECTION_ENACTMENT } from './fold/index.js';
 
 const round = (x) => Math.round(x * 1e4) / 1e4;
 
+// canon — fold smart quotes/dashes/whitespace/case, the same normalisation reader-render.js's
+// scrollToText uses, so a snippet lifted off the rendered book matches the doc's own sentence text.
+const canon = (s) => String(s || '')
+  .replace(/[‘’‚‛]/g, "'").replace(/[“”„]/g, '"')
+  .replace(/[–—‒]/g, '-').replace(/\s+/g, ' ').trim().toLowerCase();
+
+// sentenceIndexOfText(doc, text, { from }) → the doc sentence index a piece of VISIBLE reading text
+// belongs to — the bridge from the rendered book (reflowed paragraphs, no sentence indices) back to
+// the doc's sentence space the co-reader anchors in. The reader reports where the eye has settled as
+// TEXT (the block at the top of the viewport); this resolves it to the sentence index `coReadAt`
+// needs, robust to reflow and to front-matter the book strips but the doc may still carry (it
+// matches by text, never by positional counting). Returns -1 when nothing plausibly matches (→ the
+// caller does nothing). `from` biases the scan forward from a known position (a reader rides
+// forward), but a match anywhere is accepted so a jump backward still resolves.
+export const sentenceIndexOfText = (doc, text, { from = 0 } = {}) => {
+  const sents = doc?.units || doc?.sentences || [];
+  const t = canon(text);
+  if (!t || !sents.length) return -1;
+  const start = Math.max(0, from | 0);
+  // a sentence STARTS the visible block (its head is a prefix of the block), or the block starts the
+  // sentence (a short block — a heading — is a prefix of the sentence). Scan forward first, then wrap.
+  const hit = (cs) => {
+    if (!cs) return false;
+    const h = cs.slice(0, 24);
+    return (h.length >= 8 && t.indexOf(h) === 0) || (t.length >= 8 && cs.indexOf(t.slice(0, 24)) === 0);
+  };
+  for (let i = start; i < sents.length; i++) if (hit(canon(sents[i]))) return i;
+  for (let i = 0; i < start; i++) if (hit(canon(sents[i]))) return i;
+  // fallback: the first sentence whose head appears anywhere in the block (a paragraph that reflows
+  // several sentences — the block's lead sentence still lands us in the right neighbourhood).
+  for (let i = 0; i < sents.length; i++) {
+    const cs = canon(sents[i]);
+    if (cs && cs.length >= 12 && t.indexOf(cs.slice(0, 16)) >= 0) return i;
+  }
+  return -1;
+};
+
 // coReadAt(doc, position, opts) → ONE governed co-reading pass at the reader's position. Builds the
 // position-thread, surfs to the salience-weighted peak near `position`, folds it, and — only if the
 // place beats the band — reflects there, firewalled. Returns the reflection record (as deepReading

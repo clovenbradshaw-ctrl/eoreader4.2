@@ -53,25 +53,52 @@ the thought. The app reuses the at-rest deep reader, so co-reading and idle deep
 *one* habituation memory — a place read at rest is not re-read when the eye lands on it, and vice
 versa.
 
+## The reading-mode ladder — "how much is on screen"
+
+The margin is not always on: it is the middle rung of a density ladder the reader cycles, each rung
+strictly more than the last. The rung is a body class on the open book (`applyReadingMode`), so it
+flips live with no reload.
+
+| rung | on screen | body class |
+|---|---|---|
+| **Paper** | clean prose, nothing ambient (the default — kills the dashboard) | `eo-mode-paper` |
+| **Companion** | + co-read margin-thoughts where the reader dwells | `eo-mode-companion` |
+| **Lit** | + the lenses (the Link lens: entity links on) | `eo-mode-lit` |
+
+Lenses are folded into the top rung. The **Link** lens is wired (it reuses the reader's existing
+entity-link layer, `eo-links-on`); **Void** (named-but-unexplained) and **Atmosphere** (tension
+tint) are scaffolded as further lenses the top rung will light once their per-span data is threaded
+through — the CSS hooks and the body class are already there.
+
 ## The seams
 
 - **Engine, testable, no DOM** — `coReadAt(doc, position, { surf, reflect, thread, visited, … })`
-  is a pure governed pass; `createDeepReader(...).reflectAt(anchor, { thread })` is the same pass
-  on the standing reader, sharing its habituation. `positionThread` / `combineThreads` are pure
-  reads over the doc's own token sets and entity labels — embedder-free.
-- **App, the human seam** — `app.coReadAt(src, position)` takes the sentence index the surface
-  reports (where the eye has settled), reflects there, and streams the note into
-  `state.reflections` marked `positioned:true` so the surface can paint it in the margin of that
-  place. It emits `reflections` and never competes with an active turn.
-- **Surface (presentation, follow-up)** — rendering the positioned reflection in the book's
-  margin, and the lens dials over the book, are presentation over this state. The trigger binding
-  above is what turns a document viewer into a reading *companion*; everything else is over it.
+  is a pure governed pass; `createDeepReader(...).reflectAt(anchor, { thread })` is the same pass on
+  the standing reader, sharing its habituation. `positionThread` / `combineThreads` /
+  `sentenceIndexOfText` are pure reads over the doc's own token sets and entity labels —
+  embedder-free.
+- **App, the human seam** — `app.coReadAt(src, position)` reflects at a sentence index;
+  `app.coReadHere(src, visibleText)` resolves the *text* the surface reports (the block at the top
+  of the viewport — the reflowed book carries no sentence index) to that index and reflects there.
+  Either streams the note into `state.reflections` marked `positioned:true` with the `anchorText` it
+  hangs beside, emits `reflections`, and never competes with an active turn.
+- **Presentation** — three DOM helpers on the reader iframe (`reader-render.js`, called like
+  `applyThemeVars`/`scrollToText`): `applyReadingMode(doc, mode, {links})` sets the rung;
+  `topVisibleText(doc)` is the position signal; `renderMarginNotes(doc, notes)` lays the ghosted,
+  "mine"-marked, `data-canwitness="false"` notes beside their blocks (matched by text, floated into
+  the gutter on wide viewports, inline below the passage otherwise). The surface (`index.html`)
+  wires a **dwell** handler — a co-read fires when the reader settles (scroll stops for a beat), not
+  on every tick — and re-lays the margin on each fresh reflection.
 
 ## Tests
 
-- `tests/co-reading.test.js` — `positionThread` shape and emptiness; `combineThreads`; `coReadAt`
+- `tests/co-reading.test.js` — `positionThread` shape and emptiness; `combineThreads`;
+  `sentenceIndexOfText` (visible text → sentence index, reflow/case/smart-quote tolerant); `coReadAt`
   reflects near the reader, the firewall holds, the peak is tethered to position, the governor
   stays quiet below band, habituation, chat-thread composition; `reflectAt` shares habituation.
+- The presentation DOM helpers (`applyReadingMode` / `topVisibleText` / `renderMarginNotes`) are
+  verified in a real browser against a mounted book iframe (mode classes flip, notes match their
+  anchor block and carry the "mine" / `data-canwitness="false"` firewall marking, Paper hides them).
 - `tests/co-reading-app.test.js` — `app.coReadAt` drives a `positioned` margin-thought into
   `state.reflections`, firewalled, emits `reflections`, is a safe no-op on bad input, and shares
   habituation with at-rest deep reading.

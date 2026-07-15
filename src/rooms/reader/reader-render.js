@@ -241,8 +241,26 @@ const readerCss = (rp) => {
     '.eo-links-on .eo-ent{color:var(--eo-acc);border-bottom:1px dotted var(--eo-acc);cursor:pointer;}' +
     '.eo-links-on .eo-ent:hover{background:var(--eo-flash);border-radius:3px;}' +
     '.eo-links-on p.eo-cited,.eo-links-on pre.eo-cited{border-left:3px solid #C79A3A;padding-left:14px;margin-left:-17px;}' +
-    '.eo-focus{background:var(--eo-flash);border-radius:5px;box-shadow:0 0 0 6px var(--eo-flash);transition:background .5s,box-shadow .5s;}';
+    '.eo-focus{background:var(--eo-flash);border-radius:5px;box-shadow:0 0 0 6px var(--eo-flash);transition:background .5s,box-shadow .5s;}' +
+    // ── CO-READING margin — the reading's OWN thoughts, in the margin of the place they belong ──
+    // The reading-mode ladder (docs/co-reading.md): Paper is clean prose (margins hidden);
+    // Companion shows the co-read margin-thoughts where the reader dwells; Lit is Companion plus the
+    // lenses (here the Link lens — entity links on). A margin-thought is ghosted, italic, and marked
+    // "mine": the FIREWALL made visible — witnessed prose is solid, the reading's own thought is
+    // held open beside it, and the two never blur (it carries data-canwitness="false"). Inline-ghost
+    // below the passage by default (always safe); floated into the right gutter on a wide viewport.
+    '.eo-margin{display:none;}' +
+    '.eo-mode-companion .eo-margin,.eo-mode-lit .eo-margin{display:block;margin:.35em 0 1.2em;padding:2px 0 2px 14px;font:italic 400 .8em/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--eo-fg2);border-left:3px solid var(--eo-rule);opacity:.92;}' +
+    '.eo-margin .eo-mine{font-style:normal;font-weight:700;font-size:.72em;letter-spacing:.05em;text-transform:uppercase;color:var(--eo-acc);opacity:.72;margin-right:7px;vertical-align:1px;}' +
+    '.eo-margin.strain{border-left-color:var(--eo-acc);}' +
+    '@media(min-width:1320px){.eo-mode-companion .eo-margin,.eo-mode-lit .eo-margin{float:right;clear:right;width:200px;margin:0 -228px .5em 22px;border-left-width:2px;padding-left:12px;opacity:.8;transition:opacity .18s;}.eo-mode-companion .eo-margin:hover,.eo-mode-lit .eo-margin:hover{opacity:1;}}';
 };
+
+// canonText — fold smart quotes/dashes/whitespace/case so a snippet lifted off the rendered book
+// matches the doc's own sentence text (shared by scrollToText and the co-reading margin matcher).
+const canonText = (s) => String(s || '')
+  .replace(/[‘’‚‛]/g, "'").replace(/[“”„]/g, '"')
+  .replace(/[–—‒]/g, '-').replace(/\s+/g, ' ').trim().toLowerCase();
 
 // readerHtml(model, prefs, opts) → { html, toc }. `html` is a complete <!doctype> document for an
 // <iframe srcdoc>; `toc` is [{id,label,level}] for the surface's contents menu.
@@ -411,9 +429,7 @@ export const applyThemeVars = (doc, prefsIn = {}) => {
 export const scrollToText = (doc, text) => {
   try {
     if (!doc || !doc.body || !text) return;
-    const canon = (s) => String(s || '')
-      .replace(/[‘’‚‛]/g, "'").replace(/[“”„]/g, '"')
-      .replace(/[–—‒]/g, '-').replace(/\s+/g, ' ').trim().toLowerCase();
+    const canon = canonText;
     const full = canon(text); if (!full) return;
     const leaves = [...doc.body.querySelectorAll('p,li,blockquote,h1,h2,h3,h4,h5,h6,pre,dd,dt')];
     const find = (len) => { const needle = full.slice(0, len); if (needle.length < 8) return null; for (const el of leaves) { if (canon(el.textContent).indexOf(needle) >= 0) return el; } return null; };
@@ -433,6 +449,80 @@ export const scrollToAnchor = (doc, id) => {
     const top = el.getBoundingClientRect().top + win.scrollY - 14;
     try { win.scrollTo({ top: Math.max(0, top), behavior: 'smooth' }); } catch { win.scrollTo(0, Math.max(0, top)); }
   } catch { /* iframe not reachable */ }
+};
+
+// ── CO-READING DOM helpers — the reading-mode ladder + the margin (docs/co-reading.md) ────────
+// The surface calls these against the mounted reader iframe (same-origin, scriptless), exactly as
+// it calls applyThemeVars / scrollToText. The ENGINE decides WHAT the reading catches on (app.coRead*
+// over the firewalled deep reader); these only PRESENT it — set the mode, read the position signal,
+// lay the ghosted notes. No engine logic here, and every one is try/caught so a detached frame is a
+// no-op, never a throw.
+
+// The blocks a reader's eye and a margin note anchor to — prose leaves, not chrome.
+const READ_BLOCKS = 'p,li,blockquote,pre,h2,dd,dt';
+
+// applyReadingMode(doc, mode, { links }) — set the reading-mode body class (paper|companion|lit).
+// Lit also lights the Link lens (entity links on); `links` carries the standalone Links-toggle state
+// so LEAVING Lit restores it rather than forcing links off. Paper hides the margin entirely.
+export const applyReadingMode = (doc, mode = 'paper', { links = false } = {}) => {
+  try {
+    const b = doc && doc.body; if (!b) return;
+    const m = ['paper', 'companion', 'lit'].includes(mode) ? mode : 'paper';
+    b.classList.remove('eo-mode-paper', 'eo-mode-companion', 'eo-mode-lit');
+    b.classList.add('eo-mode-' + m);
+    doc.documentElement.classList.toggle('eo-links-on', m === 'lit' || !!links);
+  } catch { /* iframe not reachable */ }
+};
+
+// topVisibleText(doc) — the reading text at the top of the viewport: the first prose block still
+// below the fold. This is co-reading's POSITION signal (where the eye has settled), handed to
+// app.coReadHere as TEXT because the reflowed book carries no sentence index. '' when nothing is in view.
+export const topVisibleText = (doc) => {
+  try {
+    const win = doc && doc.defaultView; if (!win || !doc.body) return '';
+    const fold = 84;                                    // a little below the top edge — the line being read
+    for (const el of doc.body.querySelectorAll(READ_BLOCKS)) {
+      const r = el.getBoundingClientRect();
+      if (r.bottom > fold && r.top < win.innerHeight) return (el.textContent || '').trim().slice(0, 180);
+    }
+    return '';
+  } catch { return ''; }
+};
+
+// renderMarginNotes(doc, notes) — lay the reading's own thoughts in the margin of the places they
+// belong. Each note { anchorText, note, verdict, id } is matched to the block it hangs beside (the
+// same canon text-match scrollToText uses, retried on shorter prefixes) and a ghosted <aside> is
+// inserted before it, marked "mine" and carrying data-canwitness="false" — the firewall, made
+// visible. Idempotent: it clears the prior notes first, so a refresh re-lays cleanly. A note whose
+// anchor is not on the page (scrolled-away / not rendered) is skipped, never thrown. Returns the count laid.
+export const renderMarginNotes = (doc, notes = []) => {
+  try {
+    if (!doc || !doc.body) return 0;
+    for (const old of doc.body.querySelectorAll('aside.eo-margin')) old.remove();
+    if (!notes.length) return 0;
+    const leaves = [...doc.body.querySelectorAll(READ_BLOCKS)];
+    const findBlock = (text) => {
+      const full = canonText(text); if (full.length < 8) return null;
+      const at = (len) => { const n = full.slice(0, len); if (n.length < 8) return null; for (const el of leaves) if (canonText(el.textContent).indexOf(n) >= 0) return el; return null; };
+      return at(60) || at(36) || at(20);
+    };
+    let placed = 0; const used = new Set();
+    for (const n of notes) {
+      if (!n || !n.note || !n.anchorText) continue;
+      const el = findBlock(n.anchorText); if (!el || used.has(el)) continue;   // one note per block
+      used.add(el);
+      const aside = doc.createElement('aside');
+      aside.className = 'eo-margin' + (n.verdict === 'strain' ? ' strain' : '');
+      aside.setAttribute('data-canwitness', 'false');   // the firewall — never the witnessed text
+      if (n.id) aside.setAttribute('data-refl', String(n.id));
+      const mine = doc.createElement('span'); mine.className = 'eo-mine'; mine.textContent = 'mine';
+      aside.appendChild(mine);
+      aside.appendChild(doc.createTextNode(String(n.note)));
+      el.parentNode.insertBefore(aside, el);
+      placed++;
+    }
+    return placed;
+  } catch { return 0; }
 };
 
 // ── the LIVE-SITE view — the real page, made to read like ours ───────────────────────────────
