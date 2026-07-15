@@ -64,6 +64,7 @@ import { createDeepReader } from '../../surfer/fold/deep-reading.js';
 import { surfFold } from '../../surfer/index.js';
 import { buildChatExport } from './chat-export.js';
 import { recordClaims } from './claims.js';
+import { searchRecord as searchRecordOver } from './search-record.js';
 import { wikiReferent } from './wiki-referent.js';
 import { mergeEntitiesByReferent } from './entity-merge.js';
 import { composeProvenance, repoRef, readBuild, fetchLatestCommit, APP_NAME, APP_VERSION } from './provenance.js';
@@ -4359,6 +4360,36 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     };
   };
 
+  // ── search over the record (docs/search-and-pins.md) ───────────────────────
+  // One query over everything recorded — entities, claims, passages, sources, grouped — with the
+  // operator facets riding fields the record already carries. The module is pure; this is just the
+  // provider wiring: the topic's sources, the merged entity rows, the findings projection, and the
+  // per-entity incident relations the type: facet prices in only when asked for.
+  const searchTheRecord = (query) => {
+    const relationsOf = (row) => {
+      const p = entityProfile(row.docId, row.entId);
+      const viasAsSrc = [], viasAsTgt = [];
+      for (const r of p?.relations || []) {
+        if (!r?.via) continue;
+        if (r.srcId === row.entId) viasAsSrc.push(r.via);
+        else if (r.tgtId === row.entId) viasAsTgt.push(r.via);
+      }
+      return { viasAsSrc, viasAsTgt };
+    };
+    const t = topic();
+    return searchRecordOver(query, {
+      sources: topicSources(),
+      entities: entities({ merge: true, level: 'names' }),
+      // the WHOLE projection, not findings()' display cap — search sees every claim on record
+      claims: recordClaims({
+        messages: t?.messages || [], sources: topicSources(),
+        docFor: (s) => docFor(s), entitySummaries: topicEntitySummaries(),
+      }).claims,
+      docFor: (s) => docFor(s),
+      relationsOf,
+    });
+  };
+
   const provenance = () => {
     const t = topic();
     const f = findings();
@@ -4800,6 +4831,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // the fold-prompted per-chapter reading, all pulled lazily as the reader digs in (docs/topline.md)
     entityChapters, entityDigest, entityDigestFor, entityChapterReading, entityChapterReadingFor,
     findings, provenance, dagFor, dagSources, setMemo, eotFor, answerEot,
+    searchRecord: searchTheRecord,
     // the commitment ledger (assertions + corrections, persisted) and the session's
     // self/world line readout — the honesty and ledger seams, readable from the surface
     ledger: () => ledger.entries(),

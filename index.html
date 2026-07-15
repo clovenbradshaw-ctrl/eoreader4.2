@@ -525,7 +525,7 @@ table{border-collapse:collapse;width:100%}
             <span style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4">SOURCES</span>
             <span style="font-size:10.5px;font-weight:600;color:#C0C0C8">{{ sourceCount }}</span>
             <span style="flex:1"></span>
-            <button onClick="{{ openCmdk }}" title="Search your sources (⌘K)" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:#8A8A95;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 7px" style-hover="background:#EAEAEF;color:#5B4BE6"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>⌘K</button>
+            <button onClick="{{ openCmdk }}" title="Search the record (⌘K) — entities, claims, passages, sources" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:#8A8A95;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 7px" style-hover="background:#EAEAEF;color:#5B4BE6"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>⌘K</button>
           </div>
           <sc-if value="{{ noSources }}">
             <div style="border:1px dashed #E0E0E6;border-radius:10px;padding:14px 12px;font-size:11.5px;color:#9A9AA4;line-height:1.5">Nothing recorded yet. Read a URL, drop a file, paste text, or search the web — every source lands here with its hash.</div>
@@ -2434,8 +2434,15 @@ table{border-collapse:collapse;width:100%}
       <div class="eo-modal" style="position:absolute;left:50%;top:72px;transform:translateX(-50%);width:min(680px,94vw);max-height:calc(100vh - 150px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 28px 80px rgba(20,20,30,.32);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
         <div style="flex:0 0 auto;display:flex;align-items:center;gap:11px;padding:15px 18px;border-bottom:1px solid #F0F0F4">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          <input id="eo-cmdk-input" value="{{ cmdkQuery }}" onChange="{{ onCmdkInput }}" onKeyDown="{{ onCmdkKey }}" placeholder="Search your sources — titles, sites, and every recorded word…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;font-size:15px;color:#1B1B22;background:transparent" />
+          <input id="eo-cmdk-input" value="{{ cmdkQuery }}" onChange="{{ onCmdkInput }}" onKeyDown="{{ onCmdkKey }}" placeholder="Search the record — entities, claims, passages, and every recorded word…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;font-size:15px;color:#1B1B22;background:transparent" />
           <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#B4B4BE;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:5px;padding:2px 6px">ESC</span>
+        </div>
+        <!-- operator chips — the facets as clickable affordances, so the syntax never has to be memorized -->
+        <div style="flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:8px 16px;border-bottom:1px solid #F0F0F4;flex-wrap:wrap">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.06em;color:#B4B4BE">FILTER</span>
+          <sc-for list="{{ cmdkOps }}" as="op">
+            <button onClick="{{ op.add }}" title="{{ op.tip }}" style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#6E6E78;background:#F6F6F9;border:1px solid #EAEAEF;border-radius:6px;padding:3px 8px" style-hover="border-color:#B7ADF3;color:#5B4BE6;background:#F4F2FE">{{ op.label }}</button>
+          </sc-for>
         </div>
         <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:8px">
           <sc-if value="{{ cmdkNone }}">
@@ -2445,6 +2452,9 @@ table{border-collapse:collapse;width:100%}
             <div style="padding:7px 12px 8px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.07em;color:#B4B4BE">{{ cmdkHint }}</div>
           </sc-if>
           <sc-for list="{{ cmdkRows }}" as="cr">
+            <sc-if value="{{ cr.hasHdr }}">
+              <div style="padding:9px 12px 4px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.07em;color:#B4B4BE">{{ cr.hdr }}</div>
+            </sc-if>
             <button onClick="{{ cr.open }}" style="width:100%;display:flex;gap:12px;padding:11px 12px;border-radius:11px;align-items:flex-start;text-align:left;background:{{ cr.bg }}" style-hover="background:#F5F5F8">
               <span style="width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ cr.favBg }};color:{{ cr.favFg }}">{{ cr.favCh }}</span>
               <span style="flex:1;min-width:0">
@@ -4518,34 +4528,65 @@ class Component extends DCLogic {
     const next = Math.max(0, Math.min(rows.length - 1, (this.state.cmdkSel || 0) + d));
     this.setState({ cmdkSel: next });
   }
-  // Rank every recorded source against the query. Title/site hits weigh above body hits; ALL terms
-  // must appear somewhere. An empty query lists the most recent reads so the palette is useful cold.
+  // Search THE RECORD, grouped by kind (docs/search-and-pins.md): entities, claims, verbatim
+  // passages, then sources — the engine's searchRecord does the matching and the operator facets
+  // (entity: / contradicts: / source: / type: / unique:); this only shapes rows for the palette.
+  // An empty query lists the most recent reads so the palette is useful cold.
   _cmdkResults() {
     const app = this._app; if (!app || !app.topicSources) return [];
     let sources = []; try { sources = app.topicSources() || []; } catch { sources = []; }
-    const q = String(this.state.cmdkQuery || '').trim().toLowerCase();
+    const q = String(this.state.cmdkQuery || '').trim();
     if (!q) return sources.slice(-9).reverse().map((s) => this._cmdkRowFor(s, null));
-    const terms = q.split(/\s+/).filter(Boolean);
-    const scored = [];
-    for (const s of sources) {
-      const title = String(s.title || '').toLowerCase();
-      const domain = String(s.domain || '').toLowerCase();
-      const text = String(s.text || '');
-      const low = text.toLowerCase();
-      let score = 0, firstIdx = -1, allPresent = true;
-      for (const t of terms) {
-        let hit = false;
-        if (title.includes(t)) { score += 9; hit = true; }
-        if (domain.includes(t)) { score += 4; hit = true; }
-        const idx = low.indexOf(t);
-        if (idx >= 0) { score += 2; hit = true; if (firstIdx < 0 || idx < firstIdx) firstIdx = idx; }
-        if (!hit) { allPresent = false; break; }
-      }
-      if (!allPresent || score === 0) continue;
-      scored.push({ s, score, snip: this._cmdkSnippet(text, firstIdx, terms) });
+    let res = null;
+    try { res = app.searchRecord ? app.searchRecord(q) : null; } catch { res = null; }
+    if (!res) return [];
+    const terms = (res.parsed && res.parsed.terms) || [];
+    const rows = [];
+    const push = (row, group) => { if (!rows.some((r) => r.group === group)) row.hdr = { entity: 'ENTITIES', claim: 'CLAIMS', passage: 'PASSAGES', source: 'SOURCES' }[group]; row.group = group; rows.push(row); };
+    for (const e of res.entities || []) {
+      push({
+        rkind: 'entity', title: e.label, favCh: (e.label || 'E').trim().charAt(0).toUpperCase(),
+        snipSegs: [], hasSnippet: false,
+        meta: ['entity', e.type && e.type !== 'proper' ? e.type : null, e.mentions + ' mention' + (e.mentions === 1 ? '' : 's'), e.sourceCount + ' source' + (e.sourceCount === 1 ? '' : 's')].filter(Boolean).join('  ·  '),
+        docId: e.docId, entId: e.entId,
+      }, 'entity');
     }
-    scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, 24).map((r) => this._cmdkRowFor(r.s, r));
+    for (const c of res.claims || []) {
+      push({
+        rkind: 'claim', title: c.text, favCh: '❝',
+        snipSegs: c.quote ? [{ s: c.quote, plain: true }] : [], hasSnippet: !!c.quote,
+        meta: ['claim', c.status, c.origin, c.reg || null].filter(Boolean).join('  ·  '),
+        sn: c.sn, focus: c.quote || '',
+      }, 'claim');
+    }
+    for (const p of res.passages || []) {
+      push({
+        rkind: 'passage', title: p.title || p.reg || 'passage', favCh: '¶',
+        snipSegs: this._cmdkHighlight(p.text, terms), hasSnippet: true,
+        meta: ['passage', 'sent ' + p.unit, p.reg || null].filter(Boolean).join('  ·  '),
+        sn: p.sn, focus: String(p.text || '').slice(0, 80),
+      }, 'passage');
+    }
+    for (const s of res.sources || []) {
+      const src = sources.find((x) => x.sn === s.sn);
+      const low = String(src?.text || '').toLowerCase();
+      const first = terms.length ? low.indexOf(terms[0]) : -1;
+      const snip = src ? this._cmdkSnippet(String(src.text || ''), first, terms) : { segs: [], focus: '' };
+      push({ ...this._cmdkRowFor(src || s, { snip }), rkind: 'source' }, 'source');
+    }
+    return rows;
+  }
+  // Highlight every term hit inside one short passage (the two-line clamp does the windowing).
+  _cmdkHighlight(text, terms) {
+    const win = String(text || '');
+    const low = win.toLowerCase();
+    const spans = [];
+    for (const t of terms || []) { let i = low.indexOf(t); while (i >= 0) { spans.push([i, i + t.length]); i = low.indexOf(t, i + t.length); } }
+    spans.sort((a, b) => a[0] - b[0]);
+    const segs = []; let last = 0;
+    for (const [a, b] of spans) { if (a < last) continue; if (a > last) segs.push({ s: win.slice(last, a), plain: true }); segs.push({ s: win.slice(a, b), hit: true }); last = b; }
+    if (last < win.length) segs.push({ s: win.slice(last), plain: true });
+    return segs.length ? segs : [{ s: win, plain: true }];
   }
   // A two-line preview window around the first body match, split into plain / highlighted segments,
   // plus a clean 80-char focus string the reader/native view can scroll to on open.
@@ -4575,7 +4616,20 @@ class Component extends DCLogic {
   }
   _cmdkOpenResult(r) {
     this.closeCmdk();
-    if (r && r.sn) this.openViewer(r.sn, r.focus || undefined);
+    if (!r) return;
+    // Every result is a destination: an entity opens its page (the right-panel profile), a claim
+    // or passage opens the source at its verbatim place, a source opens the reader.
+    if (r.rkind === 'entity' && r.docId && r.entId) { this.openEntity(r.docId, r.entId); return; }
+    if (r.sn) { this.openViewer(r.sn, r.focus || undefined); return; }
+    if (r.rkind === 'claim') this.setTab('evidence');   // an unanchored claim still has a home
+  }
+  // Operator chips under the palette input — clickable so nobody memorizes the syntax. Each chip
+  // prepends its facet; contradicts:/unique: are flags, the rest wait for a value.
+  _cmdkAddOp(op) {
+    const q = String(this.state.cmdkQuery || '');
+    if (q.includes(op)) return;
+    this.setState({ cmdkQuery: op + (q ? ' ' + q : ''), cmdkSel: 0 });
+    setTimeout(() => { const i = document.getElementById('eo-cmdk-input'); if (i) { try { i.focus(); const n = i.value.length; i.setSelectionRange(n, n); } catch {} } }, 20);
   }
   openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'ask' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
   backToEntities() { this.setState({ entitySel: null, focusId: null }); }
@@ -7184,17 +7238,25 @@ class Component extends DCLogic {
           openCmdk: () => this.openCmdk(), closeCmdk: () => this.closeCmdk(),
           cmdkRows: rows.map((r, i) => ({
             ...r,
+            hasHdr: !!r.hdr, hdr: r.hdr || '',
             bg: i === sel ? '#F4F2FE' : 'transparent',
-            favCh: String(r.title || 'S').trim().charAt(0).toUpperCase() || 'S',
+            favCh: r.favCh || String(r.title || 'S').trim().charAt(0).toUpperCase() || 'S',
             favBg: i === sel ? '#DED8FD' : '#EEF0F3', favFg: i === sel ? '#4B3FD0' : '#8A8A95',
-            meta: [r.domain, r.reg].filter(Boolean).join('  ·  '),
+            meta: r.meta != null ? r.meta : [r.domain, r.reg].filter(Boolean).join('  ·  '),
             open: () => this._cmdkOpenResult(r),
           })),
+          cmdkOps: [
+            { label: 'entity:', tip: 'narrow to one figure — entity:"Mont Blanc"' },
+            { label: 'contradicts:', tip: 'only contested claims — where the record disagrees' },
+            { label: 'source:', tip: 'narrow to one source — source:npr, source:S-0002' },
+            { label: 'type:', tip: 'entities by derived type — type:person, type:place, type:work, type:theme' },
+            { label: 'unique:', tip: 'single-witness only — entities in one source, claims one passage carries' },
+          ].map((op) => ({ ...op, add: () => this._cmdkAddOp(op.label) })),
           cmdkNone: st.cmdkOpen && rows.length === 0,
-          cmdkEmptyMsg: q ? ('No recorded source matches “' + q + '”.') : 'Nothing recorded yet — read a URL, drop a file, or paste text, then search it here.',
+          cmdkEmptyMsg: q ? ('Nothing on the record matches “' + q + '”.') : 'Nothing recorded yet — read a URL, drop a file, or paste text, then search it here.',
           cmdkHasHint: st.cmdkOpen && !q && rows.length > 0,
           cmdkHint: 'RECENT',
-          cmdkCount: rows.length ? (rows.length + ' source' + (rows.length === 1 ? '' : 's')) : '',
+          cmdkCount: rows.length ? (rows.length + ' result' + (rows.length === 1 ? '' : 's')) : '',
         };
       })(),
       // paste
