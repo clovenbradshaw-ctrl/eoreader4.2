@@ -28,6 +28,7 @@ import { discoverNamings }      from './naming.js';
 import { distinctReferentCount } from './name-variants.js';
 import { induceInflections } from './inflection.js';
 import { discoverUncasedReferents } from './uncased.js';
+import { readUncasedGrain } from './grain.js';
 import { tok }                  from './tokenize.js';
 import { createConventions, induceAttributionVerbs, BOUNDARY } from '../../core/conventions/index.js';
 
@@ -113,6 +114,8 @@ export const createParser = ({
   // ONLY when most of the text's letters are caseless (\p{Lo}); a Latin/Cyrillic/Greek read never
   // triggers it. It only ever lights up input the capital scan leaves completely dark (zero figures),
   // so turning it on adds figures where there were none and changes nothing that already worked.
+  // Pass an OBJECT to keep it on and hand the discovery its options (e.g. a known closedClass —
+  // sediment from a prior read of the language — or a harness's thresholds).
   uncasedReferents   = true,
   // Read the GRAIN of each admitted figure (parse/grain.js) — which Existence terrain it sits in:
   // a figure (Entity), a kind (Kind), or a setting (Void) — from its own company (subject-rate,
@@ -173,14 +176,15 @@ export const createParser = ({
     // Hebrew), which is exactly where the capital-anchored scan above finds nothing. A cased read
     // (Latin/Cyrillic/Greek) never enters here, so it stays byte-identical. Longest-first so a figure
     // and its superstring do not double-count when matched into a sentence below.
-    const uncasedForms = (() => {
-      if (!uncasedReferents) return [];
+    const uncasedByForm = (() => {
+      if (!uncasedReferents) return new Map();
       const lo = (text.match(/\p{Lo}/gu) || []).length;
       const letters = (text.match(/\p{L}/gu) || []).length;
-      if (!letters || lo / letters < 0.5) return [];
-      return discoverUncasedReferents(text).referents
-        .map((r) => r.form).sort((a, b) => b.length - a.length);
+      if (!letters || lo / letters < 0.5) return new Map();
+      const opts = typeof uncasedReferents === 'object' ? uncasedReferents : undefined;
+      return new Map(discoverUncasedReferents(text, opts).referents.map((r) => [r.form, r]));
     })();
+    const uncasedForms = [...uncasedByForm.keys()].sort((a, b) => b.length - a.length);
 
     // Transcript detection — the handler is injected, not imported.
     if (transcriptHandler && transcriptHandler.detect && transcriptHandler.detect(text)) {
@@ -734,7 +738,9 @@ export const createParser = ({
         if (!speaker.has(id) || c > speaker.get(id).c) speaker.set(id, { label, c });
       }
       for (const [id, { label }] of speaker) {
-        const g = admission.grainOf(label);
+        // The cased judge first (company counters); an uncased figure has none, so its own
+        // particle-company verdict (uncased.js, judged by readUncasedGrain) speaks instead.
+        const g = admission.grainOf(label) ?? readUncasedGrain(uncasedByForm.get(label));
         if (!g) continue;                              // HELD — no clean signal, no event
         log.append({ op: 'DEF', id, key: 'grain', value: g.value, grain: g.grain,
                      cue: g.cue, defeasible: true, sentIdx: 0 }, EMIT);

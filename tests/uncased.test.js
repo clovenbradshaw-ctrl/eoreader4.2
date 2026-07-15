@@ -78,6 +78,67 @@ test('empty / figureless input yields no edge (conservative by construction)', (
   assert.deepEqual(discoverUncasedRelations('。。。'), []);
 });
 
+// ── FOLLOWER-COMPANY REFINEMENTS — glue, kind, the paradigm gate ─────────────
+// Within the closed class, a TRUE PARTICLE attaches to many distinct stems (that is what a case
+// marker IS); a member following only a few is a BOUND MORPHEME, and its attachment rate tells
+// which: obligatory → part of a compound NAME the induction over-cut (glue); optional across ≥2
+// stems → grammatical number on a countable base (a KIND). And a nominal ALTERNATES through ≥2
+// particles — a form frozen onto one (a verb stem, an adverbial) is gated out. The closed class
+// here is HANDED IN (sediment from a prior read) so the tests pin the mechanics, not the sweep.
+const CC = [...'がはをにのてでと達寺し'];
+
+test('glue: an obligatory bound suffix repairs the over-cut compound name', () => {
+  const jp = ['延暦寺が僧兵を送る。', '延暦寺は都城を攻める。', '延暦寺が山門を閉じる。', '延暦寺は神輿を担ぐ。',
+              '興福寺が僧兵を送る。', '興福寺は朝廷に訴える。', '興福寺が大鐘を鳴らす。',
+              '清盛が兵士を集める。', '清盛は都城を守る。', '清盛が僧兵を叱る。',
+              '重盛が兵士を率いる。', '重盛は父上を諫める。',
+              '基房が政務を執る。', '基房は屋敷に住む。', '成親が謀議を巡らす。', '成親は酒宴を開く。'].join('');
+  const { referents } = discoverUncasedReferents(jp, { minCount: 3, closedClass: CC });
+  const forms = referents.map((r) => r.form);
+  assert.ok(forms.includes('延暦寺'), '延暦→寺 is one figure, 延暦寺 — the cut is repaired');
+  assert.ok(forms.includes('興福寺'), '興福寺 likewise');
+  assert.ok(!forms.includes('延暦') && !forms.includes('興福'), 'the fragments do not survive beside the repair');
+  assert.ok(referents.find((r) => r.form === '延暦寺')?.glued, 'the repair is marked');
+});
+
+test('kind: an optional collectivizer across ≥2 stems marks countable bases as kinds', () => {
+  const jp = ['兵士が城門を守る。', '兵士は都城を歩く。', '兵士達が村里を焼く。', '兵士達は山道を越える。', '兵士が大鐘を鳴らす。',
+              '百姓が米俵を運ぶ。', '百姓は村里に住む。', '百姓達が声々を上げる。', '百姓達は都城に来る。', '百姓が田畑を耕す。',
+              '清盛が兵士を見る。', '清盛は百姓を集める。', '重盛が兵士を止める。', '重盛は百姓を守る。'].join('');
+  const { referents } = discoverUncasedReferents(jp, { minCount: 3, closedClass: CC });
+  const grainOf = (f) => referents.find((r) => r.form === f)?.grain?.value ?? null;
+  assert.equal(grainOf('兵士'), 'kind', '兵士/兵士達 — number alternates, so 兵士 ranges over many');
+  assert.equal(grainOf('百姓'), 'kind', '百姓 likewise');
+  assert.equal(grainOf('清盛'), null, 'a name with no such alternation is HELD, not guessed');
+});
+
+test('the paradigm gate: a form frozen onto one particle is not a figure', () => {
+  const jp = ['清盛が兵士を集める。', '清盛は都城を守る。', '清盛が僧兵を叱る。', '清盛は城門を開ける。',
+              '重盛が兵士を率いる。', '重盛は都城に上る。', '重盛が大鐘を聞く。', '重盛は山道に迷う。',
+              '基房が政務を執る。', '基房は屋敷に住む。', '基房が文書を書く。',
+              '退屈して庭園を見る。', '退屈して空模様を仰ぐ。', '退屈して書物を読む。',
+              '仕返しして城門を焼く。', '仕返しして村里を襲う。', '仕返しして兵士を送る。',
+              '勉強して文書を書く。', '支度して都城に出る。', '掃除して庭園を整える。'].join('');
+  const { referents } = discoverUncasedReferents(jp, { minCount: 3, closedClass: CC });
+  const forms = referents.map((r) => r.form);
+  assert.ok(!forms.some((f) => f.startsWith('退屈')), '退屈+し only — a verb stem, gated out');
+  assert.ok(!forms.some((f) => f.startsWith('仕返')), '仕返 likewise');
+  assert.ok(forms.includes('清盛') && forms.includes('重盛') && forms.includes('基房'),
+    'the figures alternate through が/は — they decline, they stay');
+});
+
+test('parseText carries the uncased kind verdict into the log as a grain DEF', () => {
+  const jp = ['兵士が城門を守る。', '兵士は都城を歩く。', '兵士達が村里を焼く。', '兵士達は山道を越える。', '兵士が大鐘を鳴らす。',
+              '百姓が米俵を運ぶ。', '百姓は村里に住む。', '百姓達が声々を上げる。', '百姓達は都城に来る。', '百姓が田畑を耕す。',
+              '清盛が兵士を見る。', '清盛は百姓を集める。', '重盛が兵士を止める。', '重盛は百姓を守る。'].join('');
+  const doc = parseText(jp, { docId: 'jpk', uncasedReferents: { minCount: 3, closedClass: CC } });
+  const grains = doc.log.events.filter((e) => e.op === 'DEF' && e.key === 'grain');
+  const byId = new Map(grains.map((e) => [e.id, e]));
+  assert.equal(byId.get('兵士')?.value, 'kind', '兵士 is graded a kind through the full pipeline');
+  assert.equal(byId.get('兵士')?.cue, 'collectivizer');
+  assert.ok(!byId.has('清盛'), '清盛 (no cased counters, no collectivizer) is HELD — no guess');
+});
+
 // ── WIRED INTO THE PIPELINE ──────────────────────────────────────────────────
 // parseText discovers uncased figures automatically (default on) but ONLY on a genuinely uncased
 // document — most letters caseless (\p{Lo}). A cased read never triggers it, so it stays byte-

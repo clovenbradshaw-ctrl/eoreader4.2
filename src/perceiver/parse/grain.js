@@ -56,3 +56,15 @@ export const readGrain = ({
 // in (Entity / Kind / Void), read back from the cube so a drift there fails here.
 const verdict = (grain, value, cue) =>
   ({ grain, value, cue, terrain: TERRAINS.Existence[grain] });
+
+// readUncasedGrain(referent) → verdict | null — the uncased judge. An uncased figure carries no
+// capital and no subject/oblique counters; what its particle company CAN say (parse/uncased.js)
+// rides on the referent: a COLLECTIVIZER (a rare suffix attaching optionally across ≥2 stems —
+// grammatical number on a countable base, 公卿/公卿達) marks a KIND. What the company cannot
+// tell — figure vs setting vs kind within the plain nominals, which share one case frame — is
+// HELD: null, no guess. The same abstention discipline as the cased reader.
+export const readUncasedGrain = (referent) => {
+  const g = referent?.grain;
+  if (!g) return null;
+  return verdict(g.grain, g.value, g.cue);
+};
