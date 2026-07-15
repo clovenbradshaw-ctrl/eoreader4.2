@@ -29,6 +29,7 @@ import { distinctReferentCount } from './name-variants.js';
 import { induceInflections } from './inflection.js';
 import { discoverUncasedReferents } from './uncased.js';
 import { readUncasedGrain } from './grain.js';
+import { induceAdpositions } from './adpositions.js';
 import { tok }                  from './tokenize.js';
 import { createConventions, induceAttributionVerbs, BOUNDARY } from '../../core/conventions/index.js';
 
@@ -732,15 +733,44 @@ export const createParser = ({
     // identical with the flag off. The DEF's own cube grain matches the grain it assigns (calling
     // a span a Kind IS a Pattern-grain judgment), so each event lies on the diagonal.
     if (grainRead) {
+      // The SETTING rule needs the adposition register, and beyond the English seeds the document
+      // must teach its own (parse/adpositions.js — precedes names, asymmetrically, governing
+      // obliques). Each induced adposition is LEARNED into the ledger ('preposition', seed ∪
+      // learned, defeasible), then the oblique sightings observe()'s seeded register couldn't see
+      // are recounted over just the admitted labels' own sentences — so "в Москве" weighs on
+      // Москва exactly as "in London" weighs on London.
+      const names = new Set(admission.admitted.keys());
+      const induced = induceAdpositions(sentences, { names, nominatives: admission.nominativeForms() })
+        .filter((p) => !conventions.isPreposition(p.token));
+      const oblExtraOf = new Map();
+      if (induced.length) {
+        for (const p of induced) conventions.learn('preposition', p.token, p.nameNext);
+        const prepSet = new Set(induced.map((p) => p.token));
+        for (const label of names) {
+          let extra = 0;
+          for (const si of admission.sightSent.get(label) || []) {
+            const sent = sentences[si] || '';
+            let at = sent.indexOf(label);
+            while (at >= 0) {
+              const prev = (sent.slice(0, at).match(/([\p{L}'’]+)\s*$/u) || [])[1];
+              if (prev && prepSet.has(prev.toLowerCase())) extra++;
+              at = sent.indexOf(label, at + 1);
+            }
+          }
+          if (extra) oblExtraOf.set(label, extra);
+        }
+      }
+
       const speaker = new Map();   // id → its most-sighted label (the referent's best evidence)
       for (const [label, id] of admission.admitted) {
         const c = admission.counts.get(label) ?? 0;
         if (!speaker.has(id) || c > speaker.get(id).c) speaker.set(id, { label, c });
       }
       for (const [id, { label }] of speaker) {
-        // The cased judge first (company counters); an uncased figure has none, so its own
-        // particle-company verdict (uncased.js, judged by readUncasedGrain) speaks instead.
-        const g = admission.grainOf(label) ?? readUncasedGrain(uncasedByForm.get(label));
+        // The cased judge first (company counters, plus any recounted obliques); an uncased
+        // figure has none, so its own particle-company verdict (readUncasedGrain) speaks instead.
+        const g = admission.grainOf(label, { oblExtra: oblExtraOf.get(label) ?? 0 })
+               ?? readUncasedGrain(uncasedByForm.get(label));
         if (!g) continue;                              // HELD — no clean signal, no event
         log.append({ op: 'DEF', id, key: 'grain', value: g.value, grain: g.grain,
                      cue: g.cue, defeasible: true, sentIdx: 0 }, EMIT);

@@ -597,12 +597,15 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     get initialisms() { return initialisms; },
     get subjSight() { return subjSight; },
     get oblSight()  { return oblSight; },
+    get sightSent() { return sightSent; },
     // The GRAIN of an admitted label (grain.js) — figure / kind / setting, read off the
     // document's own company statistics. Null = HELD (no clean signal); defeasible by design.
-    grainOf: (label) => readGrain({
+    // `oblExtra` adds oblique sightings counted AFTER the read — under adpositions the document
+    // itself taught (parse/adpositions.js), which observe()'s seeded register couldn't see.
+    grainOf: (label, { oblExtra = 0 } = {}) => readGrain({
       count: counts.get(label) ?? 0,
       subj:  subjSight.get(label) ?? 0,
-      obl:   oblSight.get(label) ?? 0,
+      obl:   (oblSight.get(label) ?? 0) + oblExtra,
       strong: strongSeen.has(label),
       lowercaseForm: /^\p{Ll}/u.test(label),
       lowerTwin:  !label.includes(' ') ? (lowCount.get(label.toLowerCase()) ?? 0) : 0,
