@@ -41,25 +41,37 @@ import { createSlotField, BOUNDARY } from '../../core/conventions/index.js';
 export const discoverUncasedReferents = (text, {
   minCount = 3, minArgRate = 0.4, minLen = 2, maxLen = 6,
   frameSize = 16, minFreq = 6, k = 10, simFloor = 0.22, clusterTop = 120,
+  // The closed class may be HANDED IN instead of induced — sediment from a prior read of the same
+  // language (conventions are seeded + learnable), or a harness pinning the functor set. Omitted,
+  // the class is induced from this text alone, as ever.
+  closedClass = null,
 } = {}) => {
   // A clause is a run of letters (any script) between non-letters — punctuation, digits, space.
   // \p{L} is script-agnostic, so this segments Japanese (no spaces) and English (spaces) alike.
   const segs = String(text || '').split(/[^\p{L}]+/u).filter((s) => [...s].length > 1);
   if (!segs.length) return { functors: [], referents: [] };
 
-  // 1) induce the closed class: the highest token-mass induced character-slot.
-  const stream = [];
-  for (const s of segs) { for (const ch of [...s]) stream.push(ch); stream.push(BOUNDARY); }
-  const { slots, slotOf } = createSlotField({ frameSize, clusterTop, minFreq, k, simFloor })
-    .observe(stream).cluster();
-  if (!slots.length) return { functors: [], referents: [] };
+  // 1) the closed class: inherited (see above) or induced — the highest token-mass character-slot.
   const freq = new Map();
-  for (const ch of stream) if (ch !== BOUNDARY) freq.set(ch, (freq.get(ch) || 0) + 1);
-  let closed = 0, best = -1;
-  slots.forEach((g, i) => { const m = g.reduce((s, ch) => s + (freq.get(ch) || 0), 0); if (m > best) { best = m; closed = i; } });
-  const isFunctor = (ch) => slotOf.get(ch) === closed;
+  for (const s of segs) for (const ch of [...s]) freq.set(ch, (freq.get(ch) || 0) + 1);
+  let closedChars;
+  if (closedClass) {
+    closedChars = [...closedClass];
+  } else {
+    const stream = [];
+    for (const s of segs) { for (const ch of [...s]) stream.push(ch); stream.push(BOUNDARY); }
+    const { slots } = createSlotField({ frameSize, clusterTop, minFreq, k, simFloor })
+      .observe(stream).cluster();
+    if (!slots.length) return { functors: [], referents: [] };
+    let closed = 0, best = -1;
+    slots.forEach((g, i) => { const m = g.reduce((s, ch) => s + (freq.get(ch) || 0), 0); if (m > best) { best = m; closed = i; } });
+    closedChars = slots[closed] || [];
+  }
+  const functorSet = new Set(closedChars);
+  const isFunctor = (ch) => functorSet.has(ch);
 
-  // 2) content runs between functors; note how often each stands in argument position.
+  // 2) content runs between functors; note argument position and the FOLLOWER distribution (the
+  // char that cut the run — a case particle, a verbal ending, or a bound name-suffix).
   const runs = new Map();
   for (const s of segs) {
     const chars = [...s];
@@ -72,9 +84,12 @@ export const discoverUncasedReferents = (text, {
       if (len >= minLen && len <= maxLen) {
         const form = chars.slice(i, j).join('');
         const next = chars[j];                       // undefined at clause end
-        const r = runs.get(form) || { form, count: 0, arg: 0 };
+        const r = runs.get(form) || { form, count: 0, arg: 0, follow: new Map() };
         r.count++;
-        if (next !== undefined && isFunctor(next)) r.arg++;   // a functor marks its grammatical role
+        if (next !== undefined) {
+          if (isFunctor(next)) r.arg++;              // a functor marks its grammatical role
+          r.follow.set(next, (r.follow.get(next) || 0) + 1);
+        }
         runs.set(form, r);
       }
       i = j;
@@ -83,13 +98,97 @@ export const discoverUncasedReferents = (text, {
 
   // 3) a figure recurs AND mostly stands where the grammar marks an argument. Gravity is its
   // argument-position recurrence (count × arg-rate = arg): what the text keeps casting as an agent.
-  const referents = [...runs.values()]
+  let referents = [...runs.values()]
     .filter((r) => r.count >= minCount && r.arg / r.count >= minArgRate)
     .map((r) => ({ ...r, gravity: r.arg }))
     .sort((a, b) => b.gravity - a.gravity || b.count - a.count
                  || (a.form < b.form ? -1 : a.form > b.form ? 1 : 0));
 
-  return { functors: slots[closed] || [], referents };
+  // ── The follower-company refinements — glue, gate, collectivize ─────────────
+  // Within the closed class, the TRUE PARTICLES are the members that attach to MANY DISTINCT
+  // stems — promiscuity of attachment is what a case marker IS (が follows everything). A member
+  // that follows only a few stems is a BOUND MORPHEME riding on those stems (a name-suffix
+  // 寺/院/山, a collectivizer 達), and its ATTACHMENT RATE tells which:
+  //   · GLUE — a bound follower that is (near-)OBLIGATORY on one stem is part of a compound NAME
+  //     the induction over-cut: 延暦→寺 6/6 is 延暦寺, one figure, so the form is repaired.
+  //   · KIND — a bound follower that attaches OPTIONALLY across ≥2 distinct stems is grammatical
+  //     NUMBER on a countable base (公卿/公卿達): the base ranges over many — a kind, not a
+  //     particular. (The same optional-vs-obligatory logic as the declension fold, one rung up.)
+  //   · GATE — a nominal ALTERNATES through the case paradigm (清盛が … 清盛は …), exactly as a
+  //     declining name alternates through its endings; a form that only ever wears ONE particle
+  //     is a frozen non-nominal (a verb stem 退屈+し, an adverbial 次第+に) the argument filter
+  //     let through — dropped, unless a bound dominant follower marks it a name FRAGMENT
+  //     (藤原+師…), which is kept as-is.
+  // What the company cannot tell — figure vs setting vs kind WITHIN the nominals (基房 and 京都
+  // share one case frame) — is left ungraded: r.grain stays null, the no-commit discipline.
+  const stemsOf = new Map();                          // follower char → Set(distinct run forms)
+  for (const r of runs.values())
+    for (const ch of r.follow.keys()) {
+      let s = stemsOf.get(ch); if (!s) stemsOf.set(ch, s = new Set());
+      s.add(r.form);
+    }
+  // "Attaches this widely" scales with the vocabulary: a case marker follows a sizeable fraction
+  // of all stems (が follows hundreds in a book, a handful in a paragraph); a bound morpheme
+  // follows a few however large the text grows (寺 follows the temples only).
+  const PARTICLE_STEMS = Math.max(4, Math.ceil(runs.size * 0.02));
+  const topP = closedChars.filter((ch) => (stemsOf.get(ch)?.size || 0) >= PARTICLE_STEMS);
+  const topPSet = new Set(topP);
+  const domRare = (r) => {
+    let c = '', n = 0;
+    for (const [ch, k] of r.follow) if (!topPSet.has(ch) && k > n) { c = ch; n = k; }
+    return { c, n };
+  };
+
+  // The refinements run only where a PARADIGM IS VISIBLE — at least two true particles found. In
+  // a tiny sample nothing attaches widely enough to be a particle, so "bound" is meaningless
+  // there (が itself would read as an obligatory suffix and glue 清盛が); below the threshold the
+  // discovery stands exactly as before, unrefined.
+  for (const r of referents) { r.full = r.form; r.grain = null; }
+  if (topP.length >= 2) {
+    // glue: repair the over-cut compound; the follower count is the full form's sighting count.
+    for (const r of referents) {
+      const { c, n } = domRare(r);
+      if (c && n >= 3 && n / r.count >= 0.7) {
+        r.full = r.form + c;
+        r.glued = true;
+        r.count = n;                                 // the sightings that carry the full name
+      }
+    }
+
+    // collectivizers: a bound follower attaching optionally (10–60%) across ≥2 distinct stems.
+    const sufStems = new Map();
+    for (const r of referents) {
+      if (r.glued) continue;
+      for (const [ch, k] of r.follow) {
+        if (topPSet.has(ch) || k < 2) continue;
+        const rate = k / r.count;
+        if (rate >= 0.1 && rate <= 0.6) {
+          let s = sufStems.get(ch); if (!s) sufStems.set(ch, s = new Set());
+          s.add(r.form);
+        }
+      }
+    }
+    const collectivizers = new Set([...sufStems.entries()].filter(([, s]) => s.size >= 2).map(([ch]) => ch));
+    for (const r of referents) {
+      if (r.glued) continue;
+      const { c } = domRare(r);
+      if (c && collectivizers.has(c)) r.grain = { grain: 'Pattern', value: 'kind', cue: 'collectivizer' };
+    }
+
+    // the paradigm gate: a nominal alternates through ≥2 distinct case particles; a form frozen
+    // onto one is not a figure.
+    referents = referents.filter((r) => {
+      if (r.glued) return true;                                   // a repaired name stands
+      if (domRare(r).n >= 2) return true;                         // a name fragment stands as-is
+      let distinct = 0;
+      for (const ch of r.follow.keys()) if (topPSet.has(ch)) distinct++;
+      return distinct >= 2;                                       // it declines → a nominal
+    });
+  }
+
+  // surface the repaired form; drop the raw follow map (internal working state).
+  referents = referents.map(({ follow, full, ...r }) => ({ ...r, form: full ?? r.form }));
+  return { functors: closedChars, referents };
 };
 
 // discoverUncasedRelations(text, opts) → [{ src, via, tgt }]

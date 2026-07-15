@@ -20,9 +20,7 @@
 // not the language. The admission also remembers, per entity, the sentence indices
 // where it was mentioned.
 
-import {
-  SEED_STARTER, SEED_FUNCTION, SEED_PREPOSITION, SEED_ROLE, SEED_AUXILIARY, SEED_DEMONYM, SEED_CALENDAR,
-} from '../../core/conventions/index.js';
+import { createConventions } from '../../core/conventions/index.js';
 import { clusterAnchors } from './name-variants.js';
 import { readGrain } from './grain.js';
 
@@ -134,20 +132,19 @@ export const scanFunctionalAttributes = (sentence, admission) => {
 // The default convention predicates, from the seeds — used by the standalone
 // scanner and by an admission constructed without a live ledger. The pipeline
 // passes its own (seed ∪ learned), so a document's dialect flows straight in.
-const lc = (s) => String(s || '').toLowerCase();
-const setOf = (seed) => new Set(seed.map(lc));
+// The fallback is a DEFAULT LEDGER, not a private copy of any list: the conventions holon is
+// the ONE home of seeded knowledge, and everything reads it through the same accessors —
+// including the registers that now carry no seed at all (role, auxiliary: learn-only).
 const DEFAULT_CONVENTIONS = (() => {
-  const starter = setOf(SEED_STARTER), fn = setOf(SEED_FUNCTION);
-  const prep = setOf(SEED_PREPOSITION), role = setOf(SEED_ROLE), aux = setOf(SEED_AUXILIARY);
-  const demonym = setOf(SEED_DEMONYM), calendar = setOf(SEED_CALENDAR);
+  const c = createConventions();
   return {
-    isStarter:     (w) => starter.has(lc(w)),
-    isFunction:    (w) => fn.has(lc(w)),
-    isPreposition: (w) => prep.has(lc(w)),
-    isRole:        (w) => role.has(lc(w)),
-    isAuxiliary:   (w) => aux.has(lc(w)),
-    isDemonym:     (w) => demonym.has(lc(w)),
-    isCalendar:    (w) => calendar.has(lc(w)),
+    isStarter:     c.isStarter,
+    isFunction:    c.isFunction,
+    isPreposition: c.isPreposition,
+    isRole:        c.isRole,
+    isAuxiliary:   c.isAuxiliary,
+    isDemonym:     c.isDemonym,
+    isCalendar:    c.isCalendar,
   };
 })();
 
@@ -597,12 +594,15 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     get initialisms() { return initialisms; },
     get subjSight() { return subjSight; },
     get oblSight()  { return oblSight; },
+    get sightSent() { return sightSent; },
     // The GRAIN of an admitted label (grain.js) — figure / kind / setting, read off the
     // document's own company statistics. Null = HELD (no clean signal); defeasible by design.
-    grainOf: (label) => readGrain({
+    // `oblExtra` adds oblique sightings counted AFTER the read — under adpositions the document
+    // itself taught (parse/adpositions.js), which observe()'s seeded register couldn't see.
+    grainOf: (label, { oblExtra = 0 } = {}) => readGrain({
       count: counts.get(label) ?? 0,
       subj:  subjSight.get(label) ?? 0,
-      obl:   oblSight.get(label) ?? 0,
+      obl:   (oblSight.get(label) ?? 0) + oblExtra,
       strong: strongSeen.has(label),
       lowercaseForm: /^\p{Ll}/u.test(label),
       lowerTwin:  !label.includes(' ') ? (lowCount.get(label.toLowerCase()) ?? 0) : 0,

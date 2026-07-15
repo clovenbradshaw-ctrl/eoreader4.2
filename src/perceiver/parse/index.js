@@ -21,4 +21,5 @@ export { argumentSpanSeg, positionElements, argumentSpansHold,
 export { nameTokens, isSubsequence, clusterAnchors, distinctReferentCount } from './name-variants.js';
 export { TITLE_WORDS } from './entities.js';
 export { discoverUncasedReferents, discoverUncasedRelations } from './uncased.js';
-export { readGrain } from './grain.js';
+export { readGrain, readUncasedGrain } from './grain.js';
+export { induceAdpositions } from './adpositions.js';

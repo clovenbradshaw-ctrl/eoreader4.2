@@ -20,21 +20,20 @@
 
 import { scanEntities } from './entities.js';
 import { segmentClauses, SEED_CLAUSE_BOUNDARY } from './clauses.js';
-import { SEED_COPULA, SEED_MODIFIER, SEED_SPEECH, SEED_CONJUNCTION } from '../../core/conventions/index.js';
+import { createConventions } from '../../core/conventions/index.js';
 
 // The verb-classification word-lists live in the conventions ledger (the home for
 // the language-specific stuff), seeded and learnable. The parser holds NO list of
-// its own: it takes predicates, defaulting to the ledger's seeds so a standalone
-// call (the edge-grounding veto) still works. The pipeline hands it the live
-// conventions, so a document's learned dialect flows straight in.
-const COPULA_SEED      = new Set(SEED_COPULA);       // is/am/was/… → DEF, never a relation
-const SPEECH_SEED      = new Set(SEED_SPEECH);       // said/asked/… → SIG
-const MODIFIER_SEED    = new Set(SEED_MODIFIER);     // adverbs/intensifiers/auxiliaries to step over
-const CONJUNCTION_SEED = new Set(SEED_CONJUNCTION);  // and/or/nor → joins coordinated subjects
-const defIsCopula      = (w) => COPULA_SEED.has(w);
-const defIsSpeech      = (w) => SPEECH_SEED.has(w);
-const defIsModifier    = (w) => MODIFIER_SEED.has(w);
-const defIsConjunction = (w) => CONJUNCTION_SEED.has(w);
+// its own: it takes predicates, defaulting to a DEFAULT LEDGER's accessors so a
+// standalone call (the edge-grounding veto) still works — one home for the seeded
+// knowledge, no private copies. The pipeline hands it the live conventions, so a
+// document's learned dialect flows straight in. The conjunction register is
+// LEARN-ONLY (no seed): a bare call reads coordination only from what was taught.
+const DEF_C = createConventions();
+const defIsCopula      = (w) => DEF_C.isCopula(w);       // is/am/was/… → DEF, never a relation
+const defIsSpeech      = (w) => DEF_C.isAttributionVerb(w);   // said/asked/… → SIG
+const defIsModifier    = (w) => DEF_C.isModifier(w);     // adverbs/intensifiers to step over
+const defIsConjunction = (w) => DEF_C.isConjunction(w);  // learn-only: taught, never assumed
 
 const SUBJECT_PRONOUN = new Set(['He', 'She', 'They', 'We', 'It', 'I', 'You']);
 
