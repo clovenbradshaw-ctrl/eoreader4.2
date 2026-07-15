@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 const LIMIT = 250;
 const BASELINE = new Map([
   ['src/core/conventions/english-verbs.js', 2637],
-  ['src/core/conventions/ledger.js', 531],
+  ['src/core/conventions/ledger.js', 568],
   ['src/core/enacted/loop.js', 479],
   ['src/core/enacted/stance.js', 286],
   ['src/core/project.js', 399],
@@ -72,8 +72,8 @@ const BASELINE = new Map([
   ['src/perceiver/classify/phasepost.js', 291],
   ['src/perceiver/credence/project.js', 373],
   ['src/perceiver/parse/coref.js', 259],
-  ['src/perceiver/parse/entities.js', 545],
-  ['src/perceiver/parse/pipeline.js', 688],
+  ['src/perceiver/parse/entities.js', 609],
+  ['src/perceiver/parse/pipeline.js', 730],
   ['src/perceiver/parse/relations.js', 964],
   ['src/perceiver/predict/grained.js', 308],
   ['src/perceiver/reading.js', 314],

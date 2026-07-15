@@ -13,7 +13,7 @@
 // bytes) and it returns a structural reading. The organ layer can then admit that reading like any
 // other source; this module only DISCOVERS the structure.
 
-import { createSlotField } from '../../core/conventions/slots.js';
+import { createSlotField } from '../../core/conventions/index.js';
 
 // toBytes(input) → a Uint8Array from whatever was handed in: raw bytes, an ArrayBuffer, a byte
 // array, or a string (UTF-8 encoded — a string is just one byte-encoding of itself).
