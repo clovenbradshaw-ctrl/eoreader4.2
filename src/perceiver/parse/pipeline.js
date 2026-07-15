@@ -27,6 +27,7 @@ import { createCorefField }     from './coref.js';
 import { discoverNamings }      from './naming.js';
 import { distinctReferentCount } from './name-variants.js';
 import { induceInflections } from './inflection.js';
+import { discoverUncasedReferents } from './uncased.js';
 import { tok }                  from './tokenize.js';
 import { createConventions, induceAttributionVerbs, BOUNDARY } from '../../core/conventions/index.js';
 
@@ -106,6 +107,13 @@ export const createParser = ({
   // never merge. OFF by default → English (barely inflected) folds nothing and the read is
   // byte-identical; on, an inflected language's cast stops fracturing across cases.
   foldInflections    = false,
+  // Discover the figures of an UNCASED document (Japanese, Chinese, Arabic, Hebrew) by gravity
+  // (parse/uncased.js), where a name carries no capital for the scanner to anchor on. Unlike the
+  // flags above this defaults ON — but it is byte-identical for any cased document, because it fires
+  // ONLY when most of the text's letters are caseless (\p{Lo}); a Latin/Cyrillic/Greek read never
+  // triggers it. It only ever lights up input the capital scan leaves completely dark (zero figures),
+  // so turning it on adds figures where there were none and changes nothing that already worked.
+  uncasedReferents   = true,
 } = {}) => {
   // State owned by this parser instance. Mutated by parse(); the mutation
   // is visible only inside the holon. Tests construct one parser per case.
@@ -152,6 +160,20 @@ export const createParser = ({
     // role words, function words, auxiliaries) from the same conventions ledger the
     // splitter and relation parser use — seed ∪ what this document taught.
     const admission   = createEntityAdmission({ conventions, commonNouns, text });
+
+    // Uncased figures (parse/uncased.js), discovered ONCE up front. Guarded to fire only on a
+    // genuinely uncased document — one whose letters are mostly caseless (\p{Lo}: CJK, Arabic,
+    // Hebrew), which is exactly where the capital-anchored scan above finds nothing. A cased read
+    // (Latin/Cyrillic/Greek) never enters here, so it stays byte-identical. Longest-first so a figure
+    // and its superstring do not double-count when matched into a sentence below.
+    const uncasedForms = (() => {
+      if (!uncasedReferents) return [];
+      const lo = (text.match(/\p{Lo}/gu) || []).length;
+      const letters = (text.match(/\p{L}/gu) || []).length;
+      if (!letters || lo / letters < 0.5) return [];
+      return discoverUncasedReferents(text).referents
+        .map((r) => r.form).sort((a, b) => b.length - a.length);
+    })();
 
     // Transcript detection — the handler is injected, not imported.
     if (transcriptHandler && transcriptHandler.detect && transcriptHandler.detect(text)) {
@@ -340,6 +362,22 @@ export const createParser = ({
           log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.INDETERMINATE,
                        reason: 'surname-containment-thin', surname: obs.surname, sentIdx }, EMIT);
           surnameMerges.push({ synSeq: syn.seq, surname: obs.surname, from: obs.id, to: obs.aliasOf });
+        }
+      }
+
+      // Admit any UNCASED figure occurring in this sentence — the caseless-script names discovered
+      // by gravity up front (empty, so a no-op, for every cased document). Longest-first with masking
+      // so a figure and its superstring do not double-count; each is an INS + a coref trace, exactly
+      // like a scanned name, and advances the arrow of time so a following clause can inherit it.
+      if (uncasedForms.length) {
+        let masked = sent;
+        for (const form of uncasedForms) {
+          if (!masked.includes(form)) continue;
+          masked = masked.split(form).join(' ');     // mask so a substring figure will not re-hit
+          const id = admission.admit(form, sentIdx);
+          log.append({ op: 'INS', id, label: form, sentIdx }, EMIT);
+          corefField.note(id, sentIdx);
+          lastIns = { id, sentIdx };
         }
       }
 

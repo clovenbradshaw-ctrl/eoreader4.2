@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { discoverUncasedReferents } from '../src/perceiver/parse/uncased.js';
+import { parseText } from '../src/perceiver/parse/pipeline.js';
+import { segmentSentences } from '../src/perceiver/parse/sentences.js';
 
 // UNCASED REFERENT DISCOVERY. Japanese and Chinese carry no case, so the capital-anchored name
 // scanner is blind to their figures (平清盛 has no capital). The figures are found the other way the
@@ -46,4 +48,40 @@ test('a run that never stands in argument position is not a figure (position, no
 test('empty / letterless input is safe', () => {
   assert.deepEqual(discoverUncasedReferents(''), { functors: [], referents: [] });
   assert.deepEqual(discoverUncasedReferents('。、！？ 123 …'), { functors: [], referents: [] });
+});
+
+// ── WIRED INTO THE PIPELINE ──────────────────────────────────────────────────
+// parseText discovers uncased figures automatically (default on) but ONLY on a genuinely uncased
+// document — most letters caseless (\p{Lo}). A cased read never triggers it, so it stays byte-
+// identical; an uncased document, which the capital scan leaves empty, now reads its figures.
+
+const JP = ['清盛が館を建てる。', '清盛は兵を集める。', '重盛が父を諫める。', '重盛は都に上る。',
+            '清盛が重盛を呼ぶ。', '重盛は清盛に従う。', '清盛が政を執る。', '重盛が寺を建てる。',
+            '清盛は敵を討つ。', '重盛は民を助ける。', '庭に花が咲く。'].join('');
+
+test('CJK sentence-final marks are boundaries (。 splits an unspaced passage)', () => {
+  const s = segmentSentences('清盛が来た。重盛は去った。維盛が笑った。', { isAbbreviation: () => false });
+  assert.equal(s.length, 3, 'three 。-terminated units, though the script has no spaces');
+});
+
+test('parseText reads a Japanese cast by gravity (default on), and its mentions accrue', () => {
+  const doc = parseText(JP, { docId: 'jp' });
+  const admitted = [...doc.admission.admitted.keys()];
+  assert.ok(admitted.includes('清盛') && admitted.includes('重盛'), 'the two agents are read as figures');
+  assert.ok((doc.admission.mentions.get(doc.admission.idOf('清盛')) || []).length >= 4,
+    '清盛 accrues a mention per sentence it acts in (CJK segmentation working)');
+  assert.ok(doc.log.events.some((e) => e.op === 'INS' && e.label === '清盛'), 'it reaches the log as an INS');
+});
+
+test('uncasedReferents:false is a no-op — the uncased document reads empty as before', () => {
+  const doc = parseText(JP, { docId: 'jp', uncasedReferents: false });
+  assert.equal(doc.admission.admitted.size, 0, 'off → the capital-anchored read finds nothing');
+});
+
+test('a cased document is byte-identical whether the flag is on or off (the guard holds)', () => {
+  const en = 'Pierre arrived. Pierre spoke to Andrew. Andrew left.';
+  const on  = [...parseText(en, { docId: 'en' }).admission.admitted.keys()].sort();
+  const off = [...parseText(en, { docId: 'en', uncasedReferents: false }).admission.admitted.keys()].sort();
+  assert.deepEqual(on, off, 'the uncased pass never fires on Latin text');
+  assert.ok(on.includes('Pierre') && on.includes('Andrew'), 'the capital scan is unchanged');
 });

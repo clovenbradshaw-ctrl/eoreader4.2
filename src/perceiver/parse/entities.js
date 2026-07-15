@@ -570,6 +570,16 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     registerInitialism,
     isAdmitted: (label) => admitted.has(label),
     idOf:       (label) => admitted.get(label),
+    // Admit a referent DISCOVERED outside the capital scan — an uncased-script figure found by
+    // gravity (parse/uncased.js), where a name carries no capital to anchor on. It joins the same
+    // maps as a scanned name (id by the same normalisation, one mention per sighting), so the graph,
+    // coref, and reading treat a kanji figure exactly like a capitalised one. Idempotent on the id.
+    admit: (label, sentIdx) => {
+      let id = admitted.get(label);
+      if (!id) { id = idFor(label); admitted.set(label, id); }
+      noteMention(id, sentIdx);
+      return id;
+    },
     initialismOf: (acronymLabel) => initialisms.get(acronymLabel) ?? null,
     labelOf:    (id)    => {
       for (const [label, eid] of admitted) if (eid === id) return label;
