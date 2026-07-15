@@ -25,6 +25,15 @@ export { multiLevelSurf, keepSources, sourceRanges } from './multilevel.js';
 // term state, a span's |⟨T|s⟩|² its salience, the same noise null deciding where the surfer's
 // return stops being salient. Embedder-free — the term space, not a learned embedding.
 export { threadBasis, threadFigures, bornSalience, figureSalience, linkSalience, linksBySentence, salienceField } from './salience.js';
+// CO-READING salience: the reader's POSITION as an activated thread (positionThread), and the
+// union that lets it compose with a live chat thread (combineThreads). Where the eye sits becomes
+// the |T⟩ the surfer's peak is re-weighted against — the seam that turns the idle reader into a
+// companion tethered to the human (surfer/co-read.js).
+export { positionThread, combineThreads } from './salience.js';
+export { coReadAt, sentenceIndexOfText } from './co-read.js';
+// Embedding relevance — the meaning-space Born score and its significance-vs-background floor, the
+// leash that tells a same-surname namesake (Louis vs Neil Armstrong) from the subject (retrieve/relevance.js).
+export { bornScore, significanceFloor, renormAdd } from './retrieve/index.js';
 // Trajectory — the arc of one identity's relations across a sequence, segmented at the surf's
 // frame-breaks, with the change read off as an end-to-end delta. The omnimodal "what changed":
 // it reads only operator events (identity · relation · order · turn), never words, so the same
@@ -127,3 +136,6 @@ export { meaningfulness, metacognize, traceReading } from './metacognition.js';
 // surf result at read-time (firewall held); `curiosity` is meta-surprise; `curiousSurf` lets the
 // surf follow what it is curious about — the surprise gradient through the material, not keywords.
 export { createReader, interpret, curiousSurf } from './reader.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { retreads } from './salience.js';

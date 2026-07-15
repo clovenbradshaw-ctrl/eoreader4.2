@@ -39,7 +39,7 @@
 // It NEVER emits a typed edge (a wrong edge ships a claim the fold cannot un-say);
 // the frame shapes how a thing is said, the witness still owns whether it is true.
 
-import { BANDS as SITES } from '../../perceiver/classify/bands.js';
+import { BANDS as SITES } from '../../perceiver/classify/index.js';
 
 // The no-commit floor (the predictor's-VOID analogue, §8). The field must carry a
 // minimum spread of Bayesian surprise before a position is read off it; a flat reach

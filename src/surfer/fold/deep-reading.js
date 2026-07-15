@@ -292,9 +292,11 @@ export const createDeepReader = ({
   const trail = [];
 
   // one governed pass at `anchor`. Peeks (commit:false), applies the median-band governor,
-  // and only THEN commits — so a below-band place leaves no reflection on the log.
-  const step = (anchor = 0) => {
-    const r = deepReading(doc, { surf, reflect, thread, anchor, visited, enactment, commit: false });
+  // and only THEN commits — so a below-band place leaves no reflection on the log. `stepThread`
+  // overrides the construction thread for THIS pass (co-reading feeds the reader's position-thread
+  // per waking, salience.js positionThread) — absent, the reader's standing thread is used.
+  const step = (anchor = 0, stepThread = thread) => {
+    const r = deepReading(doc, { surf, reflect, thread: stepThread, anchor, visited, enactment, commit: false });
     if (!r) return { reflection: null, quiesce: true };     // nothing fresh → rest
     visited.add(r.peak);
     // I3 — the median-band governor: reflect only where the place beats the reach's own band
@@ -314,7 +316,7 @@ export const createDeepReader = ({
   // arrive — WAKE ON IDLE (I4): the caller signals the model is not otherwise busy, and the
   // reader runs governed passes until it quiesces (I3). The anchor rides forward from the
   // place just read, so the walk covers the document rather than circling the head.
-  const arrive = ({ anchor = 0 } = {}) => {
+  const arrive = ({ anchor = 0, thread: waking = thread } = {}) => {
     state = READING;
     const before = reflections.length;
     const last = () => (reflections.length ? reflections[reflections.length - 1].peak : anchor);
@@ -322,7 +324,7 @@ export const createDeepReader = ({
     let passes = 0, a = anchor;
     while (state === READING && passes < maxPasses) {
       passes++;
-      const { quiesce } = step(a);
+      const { quiesce } = step(a, waking);
       if (quiesce) { state = RESTING; break; }
       a = Math.min(nSent - 1, last() + 1);                  // the surf rides forward
     }
@@ -330,11 +332,27 @@ export const createDeepReader = ({
     return { state, passes, reflections: reflections.slice(before), quiesced: state === RESTING };
   };
 
+  // reflectAt — CO-READING (docs/co-reading.md): ONE governed pass at a caller-chosen anchor with a
+  // caller-chosen thread — the human's position and the human's position-thread. Unlike arrive it
+  // does NOT ride forward across the document: it reflects at most once, in the margin of THAT
+  // place, then returns — "a companion glancing up," not the idle walk of the whole book. The
+  // habituation set is SHARED with arrive, so a place already read at rest is not re-read when the
+  // eye lands on it (and vice versa): the rumination cure holds across both wakings. Returns
+  // { reflection, quiesce } like step — reflection is null when the place is below the band (the
+  // reading did not catch on anything there) or already visited.
+  const reflectAt = (anchor = 0, { thread: t = thread } = {}) => {
+    state = READING;
+    const out = step(anchor | 0, t);
+    state = RESTING;
+    return out;
+  };
+
   return {
     get state() { return state; },
     get reflections() { return reflections.slice(); },
     get trail() { return trail.slice(); },
-    step, arrive,
+    get visited() { return new Set(visited); },
+    step, arrive, reflectAt,
     // I2, surfaced as a predicate: a reflection can NEVER ground itself — its reafferent type bars it.
     canGround: (r) => canWitness(r?.event?.prov ?? null),
     isResting: () => state === RESTING,

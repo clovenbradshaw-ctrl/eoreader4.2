@@ -51,6 +51,15 @@ const isNum = (x) => typeof x === 'number' && isFinite(x);
 // engine reads it.
 const SINGLE_EYE_CEIL = 0.5;
 
+// A GROUND-TRUTH eye is not a reading of pixels at all — it is the document's OWN declared
+// text (a PDF's born-digital text layer, handed straight from the file's content stream).
+// It stands outside the corroboration bar: the source is not a witness that could misread
+// itself, so a line the text layer carries is believed at the witness cap even when no OCR
+// eye looked. When an OCR eye DOES look and reads something different, that divergence is
+// still flagged (an EVA on the log) — a "searchable PDF" whose hidden text layer is a stale
+// OCR is exactly the case a reader wants surfaced — but the divergence does not lower the
+// belief of the document's own text below what the source itself declares.
+
 // ── boxes — the geometry every eye speaks, in one shape ──────────────────────────
 //
 // An eye may hand back a Tesseract box ({x0,y0,x1,y1}), a W3C xywh array ([x,y,w,h]), or a
@@ -123,9 +132,12 @@ const normConf = (c) => {
 // however sure that eye was, it is capped at the single-eye ceiling (the veto analog of a
 // heard word that never cleared its own noise null). Whatever the witnesses say, it tops out
 // at the witness ceiling CONVERSATIONAL_CAP: an OCR line is SEEN, never authored.
-export const ocrBelief = ({ agreement = null, confidence = null, eyes = 1 } = {}, cap = CONVERSATIONAL_CAP) => {
+export const ocrBelief = ({ agreement = null, confidence = null, eyes = 1, groundTruth = false } = {}, cap = CONVERSATIONAL_CAP) => {
   const a = isNum(agreement)  ? clamp01(agreement)  : null;   // consensus (the truth, 1st witness)
   const c = isNum(confidence) ? clamp01(confidence) : null;   // the eye's score (2nd witness)
+  // The document's own declared text — the source, not a witness. Believed at the witness cap
+  // however many pixel-eyes did or did not corroborate it (a divergence is flagged, not deducted).
+  if (groundTruth) return +cap.toFixed(4);
   let w;
   if (eyes >= 2) {
     if (a != null && c != null) w = 0.65 * a + 0.35 * c;   // consensus leads, confidence tempers
@@ -151,7 +163,10 @@ export const ocrBelief = ({ agreement = null, confidence = null, eyes = 1 } = {}
 // line in A — and they overlap at all. No IoU threshold we invented; a line whose nearest
 // neighbour in another eye is a mere coincidence overlaps it weakly and is out-competed by
 // the true match, or overlaps nothing and stays its own cluster. Lines from the SAME eye
-// never fold — one eye reads a physical line once.
+// never fold — one eye reads a physical line once. Lines on DIFFERENT PAGES never fold
+// either — a physical line lives on one page, and a PDF's geometry repeats page to page
+// (the box at (72,100) on p.1 is not the box at (72,100) on p.5), so page is part of the
+// address, not just the box.
 const alignReadings = (items) => {
   const n = items.length;
   const parent = items.map((_, i) => i);
@@ -163,6 +178,7 @@ const alignReadings = (items) => {
     const best = new Map();     // eye → { j, ov }
     items.forEach((jt, j) => {
       if (jt.eye === it.eye) return;             // same eye — never a match for itself
+      if (jt.page !== it.page) return;           // a physical line lives on ONE page
       const ov = overlap(it.box, jt.box);
       if (ov <= 0) return;
       const cur = best.get(jt.eye);
@@ -207,23 +223,29 @@ const alignReadings = (items) => {
 export const resolveOcr = (readings = [], { page = 1 } = {}) => {
   const eyes = readings.map((r) => r.engine);
   // Flatten to one list of eye-tagged lines, keeping each eye's reading order for tie-breaks.
+  // `truth` rides each line from its eye's `groundTruth` flag — the born-digital text layer
+  // is the document's own text, not a pixel reading (see SINGLE_EYE_CEIL's neighbour above).
   const items = [];
   readings.forEach((r) => {
+    const truth = !!r.groundTruth;
     (r.lines || []).forEach((ln, idx) => {
       const text = String(ln.text ?? '').trim();
       if (!text) return;
-      items.push({ eye: r.engine, text, norm: normLine(text), conf: normConf(ln.confidence), box: normBox(ln.bbox), page: ln.page ?? page, ord: idx });
+      items.push({ eye: r.engine, text, norm: normLine(text), conf: normConf(ln.confidence), box: normBox(ln.bbox), page: ln.page ?? page, ord: idx, truth });
     });
   });
 
   const clusters = alignReadings(items).map((idxs) => idxs.map((i) => items[i]));
 
-  // Order the physical lines top-to-bottom, then left-to-right, by the union box of each
-  // cluster — reading order, so the assembled document flows as the page does. Clusters with
-  // no geometry keep their arrival order after the boxed ones.
+  // Order the physical lines by PAGE first, then top-to-bottom, then left-to-right, by the
+  // union box of each cluster — reading order, so the assembled document flows as the pages
+  // do. (Alignment is page-scoped, so a cluster is on one page; __page reads it off any
+  // member.) Clusters with no geometry keep their arrival order after the boxed ones on the
+  // same page.
   const clusterBox = (c) => unionBox(c.map((m) => m.box));
-  clusters.forEach((c, i) => { c.__box = clusterBox(c); c.__i = i; });
+  clusters.forEach((c, i) => { c.__box = clusterBox(c); c.__i = i; c.__page = c[0]?.page ?? 1; });
   clusters.sort((a, b) => {
+    if (a.__page !== b.__page) return a.__page - b.__page;
     if (a.__box && b.__box) return (a.__box.y0 - b.__box.y0) || (a.__box.x0 - b.__box.x0) || (a.__i - b.__i);
     if (a.__box) return -1; if (b.__box) return 1; return a.__i - b.__i;
   });
@@ -249,16 +271,24 @@ export const resolveOcr = (readings = [], { page = 1 } = {}) => {
     }
     const groups = [...byNorm.values()].sort((x, y) =>
       (y.eyeSet.size - x.eyeSet.size) || (y.confSum - x.confSum) || (y.members.length - x.members.length) || (x.norm < y.norm ? -1 : 1));
-    const winner = groups[0];
-    const agreement = eyeCount > 0 ? winner.eyeSet.size / eyeCount : null;
 
-    // The elected SURFACE — an actual eye's reading (original casing + punctuation), the most
-    // confident within the winning group; ties to the earliest-listed eye. Never a stitched line.
-    const elected = winner.members.slice().sort((x, y) =>
+    // Election within a physical line, most confident first, ties to the earliest-listed eye,
+    // then reading order — a stable, content-based pick of an ACTUAL eye's reading.
+    const pick = (members) => members.slice().sort((x, y) =>
       ((y.conf ?? -1) - (x.conf ?? -1)) || (eyes.indexOf(x.eye) - eyes.indexOf(y.eye)) || (x.ord - y.ord))[0];
 
+    // The elected SURFACE — an actual eye's reading (original casing + punctuation). When a
+    // GROUND-TRUTH eye (the born-digital text layer) read this line, IT is elected: the
+    // document's own bytes are not put to a vote against OCR eyes that might share a misread.
+    // Otherwise the winning group's most-confident reading wins. Never a stitched line.
+    const truthMembers = cluster.filter((m) => m.truth);
+    const groundTruth = truthMembers.length > 0;
+    const elected = groundTruth ? pick(truthMembers) : pick(groups[0].members);
+    const winner = byNorm.get(elected.norm);
+    const agreement = eyeCount > 0 ? winner.eyeSet.size / eyeCount : null;
+
     const disagreement = eyeCount >= 2 && winner.eyeSet.size < eyeCount;
-    const belief = ocrBelief({ agreement: eyeCount >= 2 ? agreement : null, confidence: elected.conf, eyes: eyeCount });
+    const belief = ocrBelief({ agreement: eyeCount >= 2 ? agreement : null, confidence: elected.conf, eyes: eyeCount, groundTruth });
 
     // Tally the rule: every eye present in a ≥2-eye cluster is CHECKED; those whose reading
     // fell in the winning group AGREED with the consensus.
@@ -287,10 +317,16 @@ export const resolveOcr = (readings = [], { page = 1 } = {}) => {
         elected: elected.eye,
         witnesses,
         disagreement,
+        ...(groundTruth ? { groundTruth: true } : {}),
       },
     });
 
-    if (disagreement || eyeCount < 2) {
+    // A line is worth flagging when the eyes split, or when a lone PIXEL eye saw it with no
+    // second witness. A lone GROUND-TRUTH line is NOT flagged: the born-digital text layer is
+    // the document itself, not an uncorroborated pixel reading — there is nothing to review.
+    // But a ground-truth line the OCR eyes DISAGREED with is still flagged (that divergence is
+    // exactly the "searchable PDF with a stale text layer" a reader wants to see).
+    if (disagreement || (eyeCount < 2 && !groundTruth)) {
       disagreements.push({ index: blocks.length - 1, kind: eyeCount < 2 ? 'single-eye' : 'split', elected: elected.eye, readings: witnesses.map((w) => ({ engine: w.engine, text: w.text })) });
     }
   });

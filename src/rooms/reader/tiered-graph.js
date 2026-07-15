@@ -50,7 +50,7 @@
 //   onSelect(node)  optional — fires when a node is clicked/selected, so the host
 //                   can mirror the selection (e.g. the overlay's details panel)
 
-import { foldTime, TIME_GRAINS } from '../../surfer/fold/time-axis.js';
+import { foldTime, TIME_GRAINS } from '../../surfer/fold/index.js';
 
 const TIER = {
   0: { fill: '#7F77DD', stroke: '#534AB7', edge: '#7F77DD', name: 'existence',    chipBg: '#EEEDFE', chipFg: '#3C3489', glyphs: '∅○●' },

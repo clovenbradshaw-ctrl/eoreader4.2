@@ -15,18 +15,20 @@
 //
 // Pure DOM, no framework, no build step. mountEotTerminal(ledger, opts) → handle.
 
-import { notate } from '../../core/faces.js';
-
 const ESC = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // Print the faces (docs/spec-good-watchmaker.md, migration step 1). The ledger
 // line shows the Act face (the operator) alone; this reads the other two off the
-// same record — operator(Site, Stance), via core's own notate() at the operator's
-// grain — so the terminal a human tails under deadline shows where each operation
-// LANDS and HOW it resolves, not just what it does. Coherent by construction; '?'
-// (never rendered) only if the record somehow carries no operator.
-const faceOf = (rec) => {
+// same record — operator(Site, Stance), via the caller-INJECTED notate() at the
+// operator's grain — so the terminal a human tails under deadline shows where each
+// operation LANDS and HOW it resolves, not just what it does. Injected rather than
+// imported: the audit holon is "a pure ring buffer with no transitive imports
+// outside itself" (docs/architecture.md), so core's notate() comes in through
+// opts.notate; without it the line simply omits the faces. Coherent by
+// construction; '?' (never rendered) only if the record carries no operator.
+const faceOf = (rec, notate) => {
+  if (typeof notate !== 'function') return null;
   try { const f = notate({ op: rec.op }); return f && f !== '?' ? f : null; }
   catch { return null; }
 };
@@ -107,7 +109,7 @@ const CSS = `
 }
 `;
 
-export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false } = {}) => {
+export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false, notate = null } = {}) => {
   if (typeof document === 'undefined' || !ledger) return null;
 
   const style = document.createElement('style');
@@ -164,7 +166,7 @@ export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false } = 
     const raw = rec.raw && Object.keys(rec.raw).length
       ? `<pre class="eotl-raw">${ESC(JSON.stringify(rec.raw, null, 2))}</pre>` : '';
     if (raw) el.classList.add('eotl-clk');
-    const face = faceOf(rec);
+    const face = faceOf(rec, notate);
     const faceSpan = face
       ? ` <span class="eotl-face" title="operator(Site, Stance) — where it lands · how it resolves">${ESC(face)}</span>`
       : '';

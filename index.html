@@ -37,48 +37,60 @@ table{border-collapse:collapse;width:100%}
 @keyframes eoToast{from{transform:translate(-50%,10px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 @keyframes eoBlink{0%,100%{opacity:1}50%{opacity:.2}}
 @keyframes eoSpin{to{transform:rotate(360deg)}}
-/* ── MURMUR — the peripheral sense, rendered in NATIVE EOT (src/murmur/narrate/voice.js) ──
-   Each voiced thought is one event: `glyph OP site(s) · res` — the raw tuple, never prose; this is
-   the inner monologue's own notation, not a sentence about it. The operator palette is the cube's
-   Act-face grains (core/operators.js) so a strip event and a graph edge draw the same mark. Built
-   imperatively (setMurmurStrip) — the fade-out→swap→fade-in lifecycle is the surface's, not React's
-   per-poke reconcile. */
+/* the summary skeleton while the local model turns the machinery's telegram into a reading */
+@keyframes eoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.eo-skel{background:linear-gradient(90deg,#ECEAF6 25%,#F4F2FC 50%,#ECEAF6 75%);background-size:200% 100%;animation:eoShimmer 1.5s ease-in-out infinite;border-radius:5px}
+/* ── MURMUR — the peripheral sense, a BOTTLE-LENS TERMINAL of the reader's activity ──
+   The reader's real voiced thoughts (src/murmur/narrate/voice.js — the read side-channel, §9.4)
+   drift up a slim, light lens band — a quiet extension of the page chrome — as timestamped lines. Only
+   what SURPRISES the sense passes the
+   gate and scrolls at all (the filter — never a label); the line crossing the band's centre is sharp
+   and magnified while the rest bow away above/below, as if read through a bottle lying on its side.
+   Clicking any line opens a card carrying the SAME native-EOT tuple the reading grounded
+   (`glyph OP site(s) · res`). Nothing here is fabricated — text, register, and sites all come straight
+   off `window.EO.murmur.state()`; the strip only animates them. Built imperatively (setMurmurStrip →
+   EoMurmurStrip) so the RAF canvas loop is the surface's own, never React's per-poke reconcile.
+   --mm-accent is the strip's ambient hue; --mm-h its height. */
 .eo-murmur{
-  --mm-nul:#7a808c;--mm-sig:#b45309;--mm-ins:#0891b2;--mm-seg:#7c3aed;--mm-con:#059669;
-  --mm-syn:#db2777;--mm-def:#1b1b22;--mm-eva:#a16207;--mm-rec:#4338ca;--mm-accent:var(--mm-seg);
-  position:relative;display:flex;align-items:center;gap:14px;flex:0 0 auto;
-  padding:11px 16px 12px;border-bottom:1px solid #EDE9F6;background:#FCFBFF;overflow:hidden
+  --mm-accent:#8b7bff;--mm-h:46px;
+  position:relative;z-index:3;display:flex;align-items:stretch;flex:0 0 auto;height:var(--mm-h);
+  border-bottom:1px solid #EAEAEF;background:#F7F6FC;
+  transition:border-color .5s ease,background .5s ease
 }
-.eo-murmur::before{content:"";position:absolute;top:0;right:0;width:92px;height:2px;background:var(--mm-accent);opacity:.6;transition:background .7s ease}
-.eo-murmur[data-op="NUL"]{--mm-accent:var(--mm-nul)}.eo-murmur[data-op="SIG"]{--mm-accent:var(--mm-sig)}
-.eo-murmur[data-op="INS"]{--mm-accent:var(--mm-ins)}.eo-murmur[data-op="SEG"]{--mm-accent:var(--mm-seg)}
-.eo-murmur[data-op="CON"]{--mm-accent:var(--mm-con)}.eo-murmur[data-op="SYN"]{--mm-accent:var(--mm-syn)}
-.eo-murmur[data-op="DEF"]{--mm-accent:var(--mm-def)}.eo-murmur[data-op="EVA"]{--mm-accent:var(--mm-eva)}
-.eo-murmur[data-op="REC"]{--mm-accent:var(--mm-rec)}
-.eo-mm-mark{flex:0 0 auto;align-self:center;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.16em;color:#B7B2C6;text-transform:uppercase}
-.eo-mm-row{flex:1;min-width:0;overflow:hidden;display:flex;align-items:baseline}
-.eo-mm-tuple{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;white-space:nowrap;display:inline-flex;align-items:baseline;gap:8px;line-height:26px;opacity:1;transition:opacity .15s ease}
-.eo-mm-tuple.eo-mm-fading{opacity:.32}
-.eo-mm-glyph{font-size:15px;line-height:1;transform:translateY(1px);color:var(--mm-accent);transition:color .7s ease,text-shadow .7s ease}
-.eo-mm-op{display:inline-block;min-width:32px;font-weight:600;font-size:11px;letter-spacing:.16em;font-variant-numeric:tabular-nums;color:var(--mm-accent);transition:color .7s ease}
-.eo-mm-site{color:#3A3A44;font-weight:500}
-.eo-mm-hash{color:#3A3A44}.eo-mm-grain{color:#9aa0ad}
-.eo-mm-holder{color:#9aa0ad;font-weight:400}.eo-mm-sep{color:#B7B2C6;margin:0 6px}.eo-mm-arrow{color:#B7B2C6;margin:0 6px}
-.eo-mm-res{color:#8A8A95;font-weight:400;padding-left:10px;border-left:1px solid #E6E4EE}
-.eo-mm-band-void{color:#9aa0ad}.eo-mm-band-firm{color:#3A3A44;font-weight:500}.eo-mm-p{font-variant-numeric:tabular-nums}
-.eo-murmur[data-op="INS"] .eo-mm-glyph,.eo-murmur[data-op="CON"] .eo-mm-glyph{text-shadow:0 0 8px color-mix(in oklab,var(--mm-accent) 32%,transparent)}
-.eo-mm-x{flex:0 0 auto;align-self:center;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#B4B4BE;transition:background .12s,color .12s}
-.eo-mm-x:hover{background:#F0EDF9;color:var(--mm-accent)}
+/* At rest — nothing has passed the gate — the strip goes plain white and drops its seam, dissolving
+   into the white chrome above (the tab bar) and below (the reading) so an idle murmur is never an
+   obstruction. It only tints faintly and firms its hairline when a thought actually drifts through. */
+.eo-murmur.eo-mm-quiet{border-bottom-color:transparent;background:#fff}
+.eo-murmur.eo-mm-quiet .eo-mm-badge{opacity:.5;border-right-color:transparent}
+.eo-murmur.eo-mm-quiet .eo-mm-dot{animation:none}
+.eo-mm-badge{display:flex;align-items:center;gap:7px;padding:0 14px;border-right:1px solid #EEEEF2;flex:0 0 auto;transition:opacity .5s ease,border-color .5s ease}
+.eo-mm-dot{width:5px;height:5px;border-radius:50%;background:var(--mm-accent);animation:mmpulse 1.9s ease-in-out infinite}
+.eo-mm-mark{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:1.5px;color:#AEAEB8;text-transform:uppercase}
+.eo-mm-canvas{flex:1;min-width:0;height:100%;display:block}
+.eo-mm-x{position:absolute;top:50%;right:8px;transform:translateY(-50%);z-index:4;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#B4B4BE;border:1px solid #EAEAEF;background:rgba(255,255,255,.7);cursor:pointer;opacity:.55;transition:opacity .16s,border-color .12s,color .12s}
+.eo-murmur:hover .eo-mm-x{opacity:1}
+.eo-mm-x:hover{border-color:var(--mm-accent);color:#3A3A44}
+/* the click-through detail card — the mote's full thought + its native-EOT reading + surprise */
+.eo-mm-card{position:absolute;z-index:20;top:calc(100% + 6px);width:380px;max-width:calc(100vw - 24px);border:1px solid #E6E6EC;border-radius:14px;background:#fff;box-shadow:0 26px 60px -24px rgba(20,20,30,.3);padding:18px 20px 20px;animation:mmcard .22s ease-out both}
+.eo-mm-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}
+.eo-mm-card-tag{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;border-radius:6px;padding:3px 8px}
+.eo-mm-card-src{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:#9A9AA4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eo-mm-card-x{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#9A9AA4;background:transparent;border:1px solid #E6E6EC;border-radius:8px;width:28px;height:28px;cursor:pointer;flex:0 0 auto;transition:border-color .12s,color .12s}
+.eo-mm-card-x:hover{border-color:var(--mm-accent);color:#3A3A44}
+.eo-mm-card-text{font-family:'Newsreader',Georgia,serif;font-size:21px;line-height:1.4;color:#23262e;text-wrap:pretty}
+.eo-mm-card-note{font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:15px;line-height:1.5;color:#8A8A95;margin-top:11px;text-wrap:pretty}
+@keyframes mmpulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
+@keyframes mmcard{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){
-  .eo-mm-tuple{transition:opacity .2s linear!important;filter:none!important;transform:none!important}
-  .eo-murmur::before{transition:none}
+  .eo-mm-dot{animation:none}
+  .eo-mm-card{animation:none}
+  .eo-murmur{transition:none}
 }
 @media (max-width:720px){
-  /* stays ONE line — a COMPACT tuple (glyph + OP keep the EOT identity; the sites/res detail folds
-     away so the × always fits) */
-  .eo-mm-mark{display:none}
-  .eo-mm-site,.eo-mm-res{display:none}
-  .eo-mm-tuple{font-size:11px;gap:6px}
+  /* an even slimmer lens on the phone layer so it never crowds the chat stage */
+  .eo-murmur{--mm-h:42px}
+  .eo-mm-badge{padding:0 10px}
+  .eo-mm-mark{font-size:9px;letter-spacing:1.2px}
 }
 /* Interactive transcript (Listen surface) — a word is a clickable, editable, redactable holon. */
 .eo-w{border-radius:3px;padding:0 1px;cursor:pointer;transition:background .12s,color .12s}
@@ -330,7 +342,10 @@ table{border-collapse:collapse;width:100%}
 
     <sc-if value="{{ modelOpen }}">
       <div class="eo-pop" data-eo-model="1" style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4;padding:2px 6px 8px">MODEL · IN YOUR BROWSER, HOSTED, OR YOUR LOCAL SERVER</div>
+        <div style="display:flex;align-items:baseline;gap:8px;padding:2px 6px 8px">
+          <span style="flex:1;font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">MODEL · IN YOUR BROWSER, HOSTED, OR YOUR LOCAL SERVER</span>
+          <a href="models.html" title="Open the full model manager — install, watch downloads, reclaim disk" style="flex:0 0 auto;font-size:11px;font-weight:600;color:#5B4BE6;text-decoration:none">Manage ↗</a>
+        </div>
         <sc-for list="{{ backends }}" as="b">
           <button onClick="{{ b.pick }}" style="width:100%;display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border-radius:9px;background:{{ b.bg }}" style-hover="background:#F5F5F8">
             <span style="width:15px;height:15px;border-radius:50%;border:2px solid {{ b.ringColor }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px"><span style="width:7px;height:7px;border-radius:50%;background:{{ b.dotColor }}"></span></span>
@@ -590,18 +605,23 @@ table{border-collapse:collapse;width:100%}
         </sc-if>
       </div>
 
-      <!-- REAL-TIME MURMUR STRIP — the peripheral sense (src/murmur), rendered in NATIVE EOT. Each
-           voiced thought is one event: `glyph OP site(s) · res` (src/murmur/narrate/voice.js attaches
-           the tuple; the strip only paints it) — the raw tuple alone, no prose gloss beside it. No
-           gauges, no register %, nothing fabricated — the tuple is a rendering of the SAME real
-           impression the reader grounded (§9.4: a voicing, never a fact). Built imperatively
-           (setMurmurStrip) so the fade-out→swap→fade-in lifecycle is the surface's own; hide from Settings. -->
+      <!-- REAL-TIME MURMUR STRIP — the peripheral sense (src/murmur) as a bottle-lens terminal. The
+           reader's real voiced thoughts (src/murmur/narrate/voice.js, the read side-channel §9.4)
+           scroll up a console band; only what SURPRISES the sense passes the gate (the filter, never a
+           label), and the line crossing the centre is sharp and magnified while the rest bow out of
+           focus above/below — as if read through a sideways bottle. Clicking a line opens a card with
+           the SAME native-EOT tuple (`glyph OP site(s) · res`) the reading grounded. Nothing fabricated
+           — text/register/sites all come off window.EO.murmur.state(); the strip only animates them
+           (§9.4: a voicing, never a fact). Built imperatively (setMurmurStrip → EoMurmurStrip) so the
+           RAF canvas loop is the surface's own, never React's per-poke reconcile; hide it from Settings. -->
       <sc-if value="{{ murmurOn }}">
         <div class="eo-murmur" ref="{{ setMurmurStrip }}" aria-live="polite" aria-label="reader inner monologue"></div>
       </sc-if>
 
       <div style="flex:1;display:flex;min-height:0">
-        <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+        <!-- The reading column. In hero mode it steps aside (display:none) so the entity panel
+             beside it fills the stage; the tab bar above stays put. -->
+        <div style="flex:1;display:{{ mainDisplay }};flex-direction:column;min-width:0">
 
           <!-- SEARCH TAB — the front door (docs/search-and-pins.md). Search first: the record is
                searched, not conversed with — ⌘K opens the grouped record search (entities, claims,
@@ -735,7 +755,25 @@ table{border-collapse:collapse;width:100%}
                             <sc-for list="{{ a.trailSteps }}" as="ts">
                               <div style="display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:11.5px;line-height:1.5;color:#4A4A54">
                                 <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ ts.fg }};flex:0 0 auto;width:12px;text-align:center">{{ ts.glyph }}</span>
-                                <div style="min-width:0;flex:1"><span style="min-width:0">{{ ts.text }}</span></div>
+                                <div style="min-width:0;flex:1">
+                                  <span style="min-width:0">{{ ts.text }}</span>
+                                  <sc-if value="{{ ts.hasDetail }}">
+                                    <div style="margin-top:4px;padding:6px 8px;background:#F7F6FB;border:1px solid #ECEAF5;border-radius:7px">
+                                      <sc-for list="{{ ts.detail }}" as="dr">
+                                        <div style="padding:1px 0;font-size:10.5px;line-height:1.5;overflow-wrap:anywhere">
+                                          <span style="font-family:'IBM Plex Mono',monospace;color:#9A93C4">{{ dr.label }}</span>
+                                          <span style="color:#5A5A64;margin-left:6px">{{ dr.value }}</span>
+                                        </div>
+                                      </sc-for>
+                                    </div>
+                                  </sc-if>
+                                  <sc-if value="{{ ts.hasPrompt }}">
+                                    <div style="margin-top:4px;padding:6px 8px;background:#1B1B22;border-radius:7px">
+                                      <div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#8A84A8;margin-bottom:4px">PROMPT · VERBATIM</div>
+                                      <pre style="margin:0;max-height:200px;overflow:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.45;color:#D6D3E6;white-space:pre-wrap;word-break:break-word">{{ ts.promptText }}</pre>
+                                    </div>
+                                  </sc-if>
+                                </div>
                               </div>
                             </sc-for>
                           </div>
@@ -1145,12 +1183,34 @@ table{border-collapse:collapse;width:100%}
               </sc-if>
               <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
                 <sc-for list="{{ overviewStats }}" as="st">
-                  <div style="border:1px solid #EFEFF3;border-radius:10px;padding:11px 12px;background:#fff">
-                    <div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:{{ st.color }}">{{ st.value }}</div>
-                    <div style="font-size:11px;color:#8A8A95;margin-top:2px">{{ st.label }}</div>
+                  <div style="border:1px solid #EFEFF3;border-left:3px solid {{ st.color }};border-radius:10px;padding:11px 13px;background:#fff">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;line-height:1;color:{{ st.color }}">{{ st.value }}</div>
+                    <div style="font-size:11px;color:#8A8A95;margin-top:5px">{{ st.label }}</div>
                   </div>
                 </sc-for>
               </div>
+              <sc-if value="{{ hasSourceConflicts }}">
+                <div style="margin-bottom:14px;border:1px solid #F2D3CD;border-radius:12px;overflow:hidden;background:#FEF7F5">
+                  <div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid #F6E0DB">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#B23A2E;flex:0 0 auto"></span>
+                    <span style="font-size:12.5px;font-weight:650;color:#B23A2E">Where the sources disagree</span>
+                    <span style="flex:1"></span>
+                    <span style="font-size:10.5px;color:#9A6B62;font-family:'IBM Plex Mono',monospace">{{ sourceConflictNote }}</span>
+                  </div>
+                  <sc-for list="{{ sourceConflicts }}" as="x">
+                    <div style="padding:10px 16px;border-top:1px solid #F6E0DB">
+                      <div style="font-size:12px;color:#5A2A24;margin-bottom:5px"><b style="font-weight:650">{{ x.measure }}</b> · {{ x.subject }}</div>
+                      <sc-for list="{{ x.values }}" as="v">
+                        <button onClick="{{ v.open }}" style="width:100%;display:flex;gap:10px;align-items:baseline;padding:5px 0;text-align:left;border-top:1px solid #FBEEEB" style-hover="opacity:.7">
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:#B23A2E;flex:0 0 auto;min-width:104px">{{ v.amount }}</span>
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A6B62;flex:0 0 auto;min-width:52px">{{ v.srcReg }}</span>
+                          <span style="flex:1;min-width:0;font-size:12px;color:#6A6A74;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ v.text }}</span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
               <sc-if value="{{ pivotActive }}">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:9px 13px;border:1px solid #E4E0FB;background:#F6F4FF;border-radius:10px">
                   <span style="width:7px;height:7px;border-radius:50%;background:#6D5EF5;flex:0 0 auto"></span>
@@ -1186,51 +1246,226 @@ table{border-collapse:collapse;width:100%}
           </div>
           </sc-if>
 
-          <!-- SOURCES TAB -->
+          <!-- SOURCES TAB — the Drive: a folder-navigable source explorer, the hero of this tab -->
           <sc-if value="{{ isRegister }}">
-          <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:22px 26px">
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:#A0A0AA;margin-bottom:2px">SOURCES · THE RECORD</div>
-            <div style="font-family:'Newsreader',Georgia,serif;font-size:20px;font-weight:600;margin-bottom:18px">Citation · provenance · fixity · rights</div>
-            <sc-if value="{{ noSources }}">
-              <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:28px 24px;color:#8A8A95;font-size:13px;line-height:1.6;background:#fff">The record is empty. Ingest a URL, drop a file, or paste text — every source is registered here with its content hash, byte count, retrieval time and rights posture.</div>
-            </sc-if>
-            <sc-if value="{{ hasSources }}">
-            <div style="border:1px solid #EAEAEF;border-radius:12px;overflow:hidden;background:#fff">
-              <table style="font-size:12.5px">
-                <thead>
-                  <tr style="background:#FBFBFD;border-bottom:1px solid #EAEAEF">
-                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">ID</th>
-                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">SOURCE</th>
-                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">RETRIEVED</th>
-                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">FIXITY</th>
-                    <th style="text-align:left;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">RIGHTS</th>
-                    <th style="text-align:right;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:#8A8A95">CITES</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <sc-for list="{{ regRows }}" as="r">
-                    <tr onClick="{{ r.open }}" style="border-bottom:1px solid #F2F2F6;cursor:pointer" style-hover="background:#FAFAFC">
-                      <td style="padding:12px 14px;vertical-align:top"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#6E7787">{{ r.reg }}</span></td>
-                      <td style="padding:12px 14px;vertical-align:top">
-                        <span style="display:block;font-weight:550;color:#2A2A32;max-width:260px">{{ r.title }}</span>
-                        <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ r.domain }} · {{ r.kind }} · {{ r.ents }} {{ r.entsNoun }}</span>
-                      </td>
-                      <td style="padding:12px 14px;vertical-align:top;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6E6E78;white-space:nowrap">{{ r.retrieved }}</td>
-                      <td style="padding:12px 14px;vertical-align:top">
-                        <span style="display:flex;align-items:center;gap:6px">
-                          <span style="color:#1E8A50"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span>
-                          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5A5A64">{{ r.sha }}</span>
-                        </span>
-                        <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:2px">{{ r.bytes }} · content hash</span>
-                      </td>
-                      <td style="padding:12px 14px;vertical-align:top"><span style="font-size:10.5px;font-weight:600;color:{{ r.rightsFg }};background:{{ r.rightsBg }};border-radius:5px;padding:2px 7px;white-space:nowrap">{{ r.rights }}</span></td>
-                      <td style="padding:12px 14px;vertical-align:top;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6E6E78">{{ r.cites }}</td>
-                    </tr>
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;position:relative;background:#FCFCFD">
+
+            <!-- a menu is open → a transparent catcher dismisses it on any outside tap -->
+            <sc-if value="{{ explorerMenuOpen }}"><div onClick="{{ closeExplorerMenu }}" style="position:absolute;inset:0;z-index:5"></div></sc-if>
+
+            <!-- a second catcher dismisses the "+ Ingest" menu on any outside tap -->
+            <sc-if value="{{ explorerIngestOpen }}"><div onClick="{{ toggleExplorerIngest }}" style="position:absolute;inset:0;z-index:5"></div></sc-if>
+
+            <!-- ══ THREE COLUMNS — left rail · centre grid · right inspector ══ -->
+            <div style="flex:1;min-height:0;display:flex">
+
+              <!-- ── LEFT RAIL ── -->
+              <aside class="eo-hide-sm eo-scroll" style="flex:0 0 236px;min-width:0;overflow-y:auto;border-right:1px solid #EFEFF3;background:#fff;padding:16px 12px 24px">
+                <!-- Quick Access -->
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:2px 8px 8px">QUICK ACCESS</div>
+                <button onClick="{{ qaRecentGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaRecentBg }};color:{{ qaRecentFg }};font-weight:{{ qaRecentWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span style="flex:1;min-width:0">Recent</span></button>
+                <button onClick="{{ qaStarredGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaStarredBg }};color:{{ qaStarredFg }};font-weight:{{ qaStarredWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 18.8 6.2 21.9l1.1-6.5L2.6 9.8l6.5-.9z"/></svg><span style="flex:1;min-width:0">Starred</span></button>
+                <button onClick="{{ qaTopicGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaTopicBg }};color:{{ qaTopicFg }};font-weight:{{ qaTopicWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg><span style="flex:1;min-width:0">In topic corpus</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4">{{ qaTopicCount }}</span></button>
+                <button onClick="{{ qaAllGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaAllBg }};color:{{ qaAllFg }};font-weight:{{ qaAllWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span style="flex:1;min-width:0">All sources</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4">{{ qaAllCount }}</span></button>
+
+                <!-- Folders tree -->
+                <sc-if value="{{ exTreeHas }}">
+                  <div style="display:flex;align-items:center;gap:6px;margin:20px 8px 6px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;flex:1">FOLDERS</span><button onClick="{{ explorerNewFolder }}" title="New folder" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#8A8A95;background:none" style-hover="background:#F2F2F6;color:#6E6E78"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
+                  <sc-for list="{{ exTree }}" as="fd">
+                    <div style="display:flex;align-items:center;border-radius:8px;background:{{ fd.bg }}" style-hover="background:#F5F5F8">
+                      <sc-if value="{{ fd.hasKids }}"><button onClick="{{ fd.toggle }}" style="flex:0 0 auto;width:18px;height:30px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;background:none;font-size:10px">{{ fd.arrow }}</button></sc-if>
+                      <button onClick="{{ fd.open }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:6px 8px 6px {{ fd.indent }};background:none;text-align:left"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B4B4BE" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span style="flex:1;min-width:0;font-size:12.5px;color:{{ fd.fg }};font-weight:{{ fd.wt }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fd.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B4B4BE;padding-right:8px">{{ fd.count }}</span></button>
+                    </div>
                   </sc-for>
-                </tbody>
-              </table>
+                </sc-if>
+              </aside>
+
+              <!-- ── CENTRE ── -->
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">
+                <!-- header: workspace + search + view toggle + Ingest -->
+                <div style="flex:0 0 auto;padding:12px 20px;border-bottom:1px solid #EFEFF3;background:#fff;display:flex;align-items:center;gap:14px">
+                  <span style="width:30px;height:30px;flex:0 0 auto;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#ECECEF;color:#6E6E78;font-weight:700;font-size:13px">{{ wsInitial }}</span>
+                  <span class="eo-hide-sm" style="font-size:13px;color:#6E6E78;white-space:nowrap"><span style="font-weight:600;color:#2A2A32">{{ wsName }}</span> · {{ wsSourceCount }} sources</span>
+                  <div style="flex:1;min-width:0;max-width:560px;height:34px;display:flex;align-items:center;gap:8px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;padding:0 12px" style-focus-within="border-color:#D8D8DE;background:#fff"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.9" style="flex:0 0 auto"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input value="{{ explorerQuery }}" onChange="{{ onExplorerSearch }}" placeholder="Search every source, entity or passage…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:13px;color:#1B1B22" /></div>
+                  <div class="eo-hide-sm" style="flex:0 0 auto;display:flex;gap:2px;background:#F2F2F6;border-radius:8px;padding:2px">
+                    <button onClick="{{ setExplorerGrid }}" title="Grid" style="width:30px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:{{ gridBtnBg }};color:{{ gridBtnFg }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+                    <button onClick="{{ setExplorerList }}" title="List" style="width:30px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:{{ listBtnBg }};color:{{ listBtnFg }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+                  </div>
+                  <div style="flex:0 0 auto;position:relative">
+                    <button onClick="{{ toggleExplorerIngest }}" style="display:inline-flex;align-items:center;gap:6px;background:#2A2A32;color:#fff;font-size:12.5px;font-weight:600;border-radius:9px;padding:8px 13px" style-hover="background:#1B1B22"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Ingest</button>
+                    <sc-if value="{{ explorerIngestOpen }}">
+                      <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:11px;box-shadow:0 12px 32px rgba(20,20,30,.16);padding:6px;width:220px">
+                        <sc-for list="{{ ingestActions }}" as="ia"><button onClick="{{ ia.go }}" style="width:100%;display:block;text-align:left;padding:9px 10px;border-radius:8px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8">{{ ia.label }}</button></sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+
+                <!-- breadcrumb + sort chips -->
+                <div style="flex:0 0 auto;padding:12px 20px 0;display:flex;align-items:center;gap:8px">
+                  <div class="eo-scroll" style="flex:1;min-width:0;display:flex;align-items:center;gap:4px;overflow-x:auto;white-space:nowrap;font-size:13px">
+                    <sc-for list="{{ homeCrumbs }}" as="cr">
+                      <sc-if value="{{ cr.notFirst }}"><span style="flex:0 0 auto;color:#C4C4CC">›</span></sc-if>
+                      <sc-if value="{{ cr.isLast }}"><span style="flex:0 0 auto;font-weight:650;color:#2A2A32;max-width:240px;overflow:hidden;text-overflow:ellipsis">{{ cr.name }}</span></sc-if>
+                      <sc-if value="{{ cr.notLast }}"><button onClick="{{ cr.go }}" style="flex:0 0 auto;max-width:200px;overflow:hidden;text-overflow:ellipsis;color:#8A8A95;background:none;font-weight:600" style-hover="color:#5B4BE6">{{ cr.name }}</button></sc-if>
+                    </sc-for>
+                  </div>
+                  <sc-for list="{{ sortChips }}" as="sc"><button onClick="{{ sc.go }}" style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;color:{{ sc.fg }};background:{{ sc.bg }};border:1px solid {{ sc.bd }};border-radius:6px;padding:4px 9px">{{ sc.label }}</button></sc-for>
+                </div>
+
+                <!-- kind-filter chips -->
+                <div class="eo-scroll" style="flex:0 0 auto;padding:12px 20px 0;display:flex;gap:6px;overflow-x:auto;white-space:nowrap">
+                  <sc-for list="{{ kindChips }}" as="kc"><button onClick="{{ kc.go }}" style="flex:0 0 auto;font-size:12px;font-weight:550;color:{{ kc.fg }};background:{{ kc.bg }};border:1px solid {{ kc.bd }};border-radius:8px;padding:5px 11px">{{ kc.label }}</button></sc-for>
+                </div>
+
+                <!-- scroll body -->
+                <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:18px 20px 40px">
+
+                  <!-- empty Drive -->
+                  <sc-if value="{{ homeDriveEmpty }}">
+                    <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:30px 24px;text-align:center;background:#fff;max-width:520px;margin:24px auto 0">
+                      <div style="width:44px;height:44px;border-radius:12px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600;color:#2A2A32;margin-bottom:6px">Your Drive is empty</div>
+                      <div style="font-size:13px;color:#8A8A95;line-height:1.6">Read a URL, drop a file, paste text, or search the web — every source lands here. Make folders to keep a growing library in order.</div>
+                    </div>
+                  </sc-if>
+
+                  <!-- Jump back in -->
+                  <sc-if value="{{ jumpHas }}">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:0 2px 10px">JUMP BACK IN</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:24px">
+                      <sc-for list="{{ jumpBack }}" as="jb">
+                        <button onClick="{{ jb.go }}" style="display:flex;align-items:center;gap:11px;background:#fff;border:1px solid #EAEAEF;border-radius:12px;padding:12px 14px;text-align:left" style-hover="background:#FAFAFB;border-color:#E2E2E7">
+                          <span style="width:34px;height:34px;border-radius:9px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;background:{{ jb.favBg }};color:{{ jb.favFg }}">{{ jb.favCh }}</span>
+                          <span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:600;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ jb.title }}</span><span style="display:block;font-size:11px;color:#9A9AA4;margin-top:2px">{{ jb.when }}</span></span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+
+                  <!-- Folders -->
+                  <sc-if value="{{ showFolderCards }}">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:0 2px 10px">FOLDERS</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:24px">
+                      <sc-for list="{{ explorerFolders }}" as="fd">
+                        <div style="position:relative">
+                          <button onClick="{{ fd.open }}" title="Open folder" style="width:100%;display:flex;align-items:center;gap:11px;background:#fff;border:1px solid #EAEAEF;border-radius:12px;padding:14px 40px 14px 14px;text-align:left" style-hover="background:#FAFAFB;border-color:#E2E2E7">
+                            <span style="width:36px;height:36px;border-radius:10px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:#F2F2F6;color:#8A8A95"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+                            <span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:600;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fd.name }}</span><span style="display:block;font-size:11px;color:#9A9AA4;margin-top:2px">{{ fd.meta }}</span></span>
+                          </button>
+                          <button onClick="{{ fd.menuClick }}" title="Rename, move, or delete" style="position:absolute;top:8px;right:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#B4B4BE;border-radius:7px;background:none" style-hover="background:#ECECF1;color:#6E6E78"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
+                          <sc-if value="{{ fd.menuOpen }}">
+                            <div style="position:absolute;right:8px;top:38px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:172px">
+                              <button onClick="{{ fd.doRename }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename</button>
+                              <button onClick="{{ fd.doMove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M2 12h13M14 5h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/></svg>Move to…</button>
+                              <button onClick="{{ fd.doDelete }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete folder</button>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+
+                  <!-- Sources — the card grid -->
+                  <sc-if value="{{ hasCards }}">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:0 2px 10px">{{ sourcesHeading }}</div>
+                    <div style="display:grid;grid-template-columns:{{ cardCols }};gap:12px">
+                      <sc-for list="{{ cardSources }}" as="cd">
+                        <div style="position:relative;border:1px solid {{ cd.selBd }};border-radius:12px;background:{{ cd.selBg }};overflow:hidden" style-hover="border-color:#E2E2E7">
+                          <button onClick="{{ cd.select }}" style="width:100%;display:block;text-align:left;background:none;padding:0">
+                            <span style="display:flex;align-items:center;justify-content:center;height:64px;background:#F3F3F5;color:#A0A0AA;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em">{{ cd.kindTag }}</span>
+                            <span style="display:block;padding:11px 12px 12px">
+                              <span style="display:block;font-size:13px;font-weight:600;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cd.title }}</span>
+                              <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:6px">{{ cd.sub }}</span>
+                            </span>
+                          </button>
+                          <button onClick="{{ cd.star }}" title="Star" style="position:absolute;top:8px;right:34px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:rgba(255,255,255,.85)"><svg width="14" height="14" viewBox="0 0 24 24" fill="{{ cd.starFg }}" stroke="{{ cd.starStroke }}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 18.8 6.2 21.9l1.1-6.5L2.6 9.8l6.5-.9z"/></svg></button>
+                          <button onClick="{{ cd.menuClick }}" title="Move or remove" style="position:absolute;top:8px;right:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#8A8A95;background:rgba(255,255,255,.85)"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>
+                          <sc-if value="{{ cd.menuOpen }}">
+                            <div style="position:absolute;right:8px;top:34px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:168px">
+                              <button onClick="{{ cd.doMove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M2 12h13M14 5h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/></svg>Move to…</button>
+                              <button onClick="{{ cd.doRemove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Remove source</button>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <sc-if value="{{ hasMore }}">
+                      <div style="text-align:center;margin-top:18px"><button onClick="{{ showAllCards }}" style="font-size:12.5px;font-weight:600;color:#5A5A64;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:9px;padding:8px 16px" style-hover="background:#EAEAEF">{{ showAllLabel }}</button></div>
+                    </sc-if>
+                  </sc-if>
+
+                  <!-- no results in this scope -->
+                  <sc-if value="{{ homeNoResults }}">
+                    <div style="text-align:center;color:#9A9AA4;font-size:13px;padding:40px 20px">Nothing here yet. Try another shelf, clear the kind filter, or ingest a source.</div>
+                  </sc-if>
+                </div>
+              </div>
+
+              <!-- ── RIGHT INSPECTOR ── -->
+              <sc-if value="{{ inspOpen }}">
+                <aside class="eo-hide-sm eo-scroll" style="flex:0 0 322px;min-width:0;overflow-y:auto;border-left:1px solid #EFEFF3;background:#fff;padding:16px 16px 40px">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:12px">INSPECTOR · READ &amp; ACT IN PLACE</div>
+                  <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px">
+                    <span style="width:34px;height:34px;flex:0 0 auto;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;background:{{ insFavBg }};color:{{ insFavFg }}">{{ insFavCh }}</span>
+                    <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:650;color:#2A2A32;line-height:1.35">{{ insTitle }}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ insSub }}</div></div>
+                    <button onClick="{{ insClose }}" title="Close" style="flex:0 0 auto;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#9A9AA4;background:none" style-hover="background:#F2F2F6;color:#6E6E78"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                  </div>
+                  <div style="display:flex;gap:8px;margin-bottom:16px">
+                    <button onClick="{{ insOpenReader }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#2A2A32;color:#fff;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#1B1B22"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h9a3 3 0 0 1 3 3v11a2.5 2.5 0 0 0-2.5-2.5H2z"/><path d="M22 5h-9a3 3 0 0 0-3 3v11a2.5 2.5 0 0 1 2.5-2.5H22z"/></svg>Open in reader</button>
+                    <button onClick="{{ insAddCorpus }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:{{ insAddBg }};color:{{ insAddFg }};border:1px solid {{ insAddBd }};font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#F5F5F8">{{ insAddLabel }}</button>
+                  </div>
+                  <div style="display:flex;gap:14px;border-bottom:1px solid #EFEFF3;margin-bottom:14px">
+                    <sc-for list="{{ insTabs }}" as="it"><button onClick="{{ it.go }}" style="padding:0 0 9px;background:none;font-size:12.5px;font-weight:600;color:{{ it.fg }};border-bottom:2px solid {{ it.bd }};margin-bottom:-1px">{{ it.label }}</button></sc-for>
+                  </div>
+
+                  <sc-if value="{{ insTabRead }}">
+                    <sc-if value="{{ readHas }}"><sc-for list="{{ readParas }}" as="rp"><p style="font-size:13px;line-height:1.6;color:#3A3A44;margin:0 0 11px">{{ rp.t }}</p></sc-for></sc-if>
+                  </sc-if>
+                  <sc-if value="{{ insTabEntities }}">
+                    <sc-if value="{{ insEntsHas }}"><sc-for list="{{ insEnts }}" as="en"><div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid #F4F4F7"><span style="width:6px;height:6px;border-radius:50%;background:#B4B4BE;flex:0 0 auto"></span><span style="flex:1;min-width:0;font-size:13px;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ en.label }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4">{{ en.meta }}</span></div></sc-for></sc-if>
+                    <sc-if value="{{ insEntsEmpty }}"><div style="font-size:12.5px;color:#9A9AA4;padding:6px 0">No named figures read in this source yet.</div></sc-if>
+                  </sc-if>
+                  <sc-if value="{{ insTabProvenance }}">
+                    <sc-for list="{{ fixity }}" as="fx"><div style="display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid #F4F4F7"><span style="flex:0 0 92px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.04em;color:#9A9AA4;text-transform:uppercase">{{ fx.k }}</span><span style="flex:1;min-width:0;font-size:12.5px;color:#3A3A44;word-break:break-all">{{ fx.v }}</span></div></sc-for>
+                  </sc-if>
+                  <sc-if value="{{ insTabEot }}">
+                    <sc-for list="{{ eotRows }}" as="et"><div style="display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid #F4F4F7"><span style="flex:0 0 auto;font-size:14px;color:#6E6E78;width:16px;text-align:center">{{ et.glyph }}</span><span style="flex:0 0 34px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:#8A8A95">{{ et.op }}</span><span style="flex:1;min-width:0;font-size:12.5px;color:#3A3A44">{{ et.txt }}</span></div></sc-for>
+                  </sc-if>
+
+                  <sc-if value="{{ citedHas }}">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin:20px 0 8px">CITED PASSAGES</div>
+                    <sc-for list="{{ citedPassages }}" as="cp"><div style="border-left:2px solid #E2E2E7;background:#FAFAFB;border-radius:0 8px 8px 0;padding:9px 11px;margin-bottom:8px"><div style="font-size:12.5px;line-height:1.55;color:#3A3A44">{{ cp.quote }}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-top:5px">{{ cp.loc }}</div></div></sc-for>
+                  </sc-if>
+                </aside>
+              </sc-if>
+
             </div>
+
+            <!-- MOVE TO… picker — a modal (bottom-sheet feel on mobile) listing the workspace's folders -->
+            <sc-if value="{{ moveOpen }}">
+              <div onClick="{{ closeMove }}" style="position:absolute;inset:0;z-index:20;background:rgba(20,20,30,.30);display:flex;align-items:center;justify-content:center;padding:16px">
+                <div onClick="{{ moveStop }}" style="width:100%;max-width:420px;max-height:80%;display:flex;flex-direction:column;background:#fff;border:1px solid #E6E6EC;border-radius:14px;box-shadow:0 20px 50px rgba(20,20,30,.24);overflow:hidden">
+                  <div style="flex:0 0 auto;padding:14px 16px;border-bottom:1px solid #F2F2F6">
+                    <div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#9A9AA4">MOVE TO…</div>
+                    <div style="font-size:13.5px;font-weight:600;color:#2A2A32;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ moveTitle }}</div>
+                  </div>
+                  <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:6px">
+                    <sc-for list="{{ moveDests }}" as="dt">
+                      <button onClick="{{ dt.pick }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:10px 10px 10px {{ dt.indent }};border-radius:8px;font-size:13px;color:#3A3A44;background:none;text-align:left" style-hover="background:#F5F5F8">
+                        <span style="flex:0 0 auto;color:#B4B4BE"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+                        <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ dt.name }}</span>
+                        <sc-if value="{{ dt.isCurrent }}"><span style="flex:0 0 auto;font-size:10px;font-weight:600;color:#8A8A95;background:#F2F2F6;border-radius:5px;padding:2px 7px">Here now</span></sc-if>
+                      </button>
+                    </sc-for>
+                  </div>
+                  <div style="flex:0 0 auto;padding:10px 16px;border-top:1px solid #F2F2F6;text-align:right">
+                    <button onClick="{{ closeMove }}" style="font-size:12.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border-radius:8px;padding:7px 14px" style-hover="background:#EAEAEF">Cancel</button>
+                  </div>
+                </div>
+              </div>
             </sc-if>
+
           </div>
           </sc-if>
 
@@ -1295,6 +1530,14 @@ table{border-collapse:collapse;width:100%}
           </div>
           </sc-if>
 
+          <!-- PLAIN — the plain version as a screen: the same engine with nothing named to the
+               person. A host div the framework-free surface (rooms/plain) mounts into imperatively,
+               the same way the Graph tab hosts its draw. "People mean different things by this" is
+               computed from the person's real ingested sources (rooms/plain/project). -->
+          <sc-if value="{{ isPlain }}">
+          <div data-screen-label="Plain" ref="{{ setPlainEl }}" style="flex:1;min-height:0;position:relative;overflow:hidden"></div>
+          </sc-if>
+
           <!-- SOURCE STAGE — when a source tab is active it fills the main stage: Reader (themed
                book; the old Document paragraphs are folded in here, revealed by the Links toggle) ·
                Native (the real website) · Facing · EoT (the reading). -->
@@ -1334,6 +1577,7 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ toggleReadFont }}" title="Type family" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">{{ readFontLabel }}</button>
                   <button onClick="{{ cycleReadWidth }}" title="Column width" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">▤ {{ readWidthLabel }}</button>
                   <button onClick="{{ cycleReadTheme }}" title="Paper theme" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">{{ readThemeLabel }}</button>
+                  <button onClick="{{ cycleReadingMode }}" title="{{ readingModeTitle }}" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ readingModeFg }};background:{{ readingModeBg }};border:1px solid {{ readingModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)">{{ readingModeLabel }}</button>
                   <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ entModeLabel }}</button>
                 </sc-if>
                 <sc-if value="{{ viewerIsPage }}">
@@ -1634,8 +1878,8 @@ table{border-collapse:collapse;width:100%}
 
         <!-- RIGHT PANEL — ENTITIES / INSPECTOR (stands down on the Graph tab, which has its own panel) -->
         <sc-if value="{{ rightPanelShow }}">
-        <aside class="eo-scroll eo-right" style="width:340px;flex:0 0 auto;background:#fff;border-left:1px solid #EAEAEF;overflow-y:auto;min-height:0">
-          <div style="padding:14px 16px">
+        <aside class="eo-scroll eo-right" style="width:{{ rightWidth }};flex:{{ rightFlex }};background:#fff;border-left:{{ rightBorder }};overflow-y:auto;min-height:0">
+          <div style="padding:{{ rightBodyPad }};max-width:{{ rightBodyMax }};margin:{{ rightBodyMargin }}">
 
             <!-- SPAN LAYERS — a word clicked in the Listen transcript, and every reading active at that
                  instant: whether EO has folded it, who said it, how sure the ear was, its breath group,
@@ -1726,7 +1970,13 @@ table{border-collapse:collapse;width:100%}
 
             <!-- ENTITY PROFILE -->
             <sc-if value="{{ profShow }}">
-              <button onClick="{{ backToEntities }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#8A8A95;margin-bottom:12px" style-hover="color:#5B4BE6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>All entities</button>
+              <!-- header rail: back to the list, and the promote/demote between rail and full stage -->
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <button onClick="{{ backToEntities }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#8A8A95" style-hover="color:#5B4BE6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>All entities</button>
+                <span style="flex:1"></span>
+                <sc-if value="{{ heroExpandShow }}"><button onClick="{{ toggleHero }}" title="Expand this figure to the full stage" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:7px;padding:4px 9px" style-hover="background:#E7E2FD"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Expand</button></sc-if>
+                <sc-if value="{{ heroCollapseShow }}"><button onClick="{{ toggleHero }}" title="Collapse back to the side panel" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#6E6E78;background:#F0F0F5;border:1px solid #E6E6EC;border-radius:7px;padding:4px 9px" style-hover="background:#E7E7EF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3a2 2 0 0 0 2-2V3M20 8h-3a2 2 0 0 1-2-2V3M4 16h3a2 2 0 0 1 2 2v3M20 16h-3a2 2 0 0 0-2 2v3"/></svg>Collapse</button></sc-if>
+              </div>
               <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
                 <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ prof.initials }}</span>
                 <span style="flex:1;min-width:0">
@@ -1767,6 +2017,19 @@ table{border-collapse:collapse;width:100%}
                     <span style="flex:1"></span>
                     <sc-if value="{{ prof.topline.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
                   </div>
+                  <!-- LOADING — the local model is turning the machinery's telegram into a reading; -->
+                  <!-- an animated skeleton stands in rather than flashing the raw telegram. -->
+                  <sc-if value="{{ prof.topline.loading }}">
+                    <div style="animation:eoFade .2s ease">
+                      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px">
+                        <span style="width:12px;height:12px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span>
+                        <span style="font-size:11px;color:#8A80C8;font-style:italic">{{ prof.topline.loadNote }}</span>
+                      </div>
+                      <div class="eo-skel" style="height:10px;width:97%;margin-bottom:7px"></div>
+                      <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
+                      <div class="eo-skel" style="height:10px;width:64%"></div>
+                    </div>
+                  </sc-if>
                   <sc-if value="{{ prof.topline.has }}">
                     <!-- The written definition, span by span: a grounded span reads plain (with a -->
                     <!-- ¶ jump to the passage it rests on); a flagged span — the model's own word, -->
@@ -1824,11 +2087,37 @@ table{border-collapse:collapse;width:100%}
                           </sc-if>
                           <sc-if value="{{ ch.hasMentions }}">
                             <div style="margin-top:9px">
+                              <!-- ZOOM IN — each mention is a moment the reader can drill INTO: click to -->
+                              <!-- open its neighbourhood (the sentences around it) and a fold-prompted -->
+                              <!-- close reading of the figure at that instant. A ↗ still leaves for the -->
+                              <!-- source. This is the deepest level of the drill: chapter → passage. -->
                               <sc-for list="{{ ch.mentions }}" as="mn">
-                                <button onClick="{{ mn.jump }}" style="width:100%;display:flex;gap:8px;padding:6px 9px;border:1px solid #EFEFF3;border-radius:8px;margin-bottom:4px;background:#fff;text-align:left" style-hover="background:#FAFAFC">
-                                  <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B4B4BE;flex:0 0 auto;margin-top:2px">¶{{ mn.idx }}</span>
-                                  <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:11.5px;line-height:1.4;color:#6A6A74;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ mn.text }}</span>
-                                </button>
+                                <div style="border:1px solid #EFEFF3;border-radius:8px;margin-bottom:4px;background:#fff;overflow:hidden">
+                                  <div style="display:flex;gap:8px;padding:6px 9px" style-hover="background:#FAFAFC">
+                                    <button onClick="{{ mn.zoom }}" title="Zoom into this moment" style="flex:1;min-width:0;display:flex;gap:8px;text-align:left">
+                                      <span style="flex:0 0 auto;margin-top:2px;color:#B7ADE0;transform:{{ mn.chevron }};transition:transform .15s"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+                                      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B4B4BE;flex:0 0 auto;margin-top:2px">¶{{ mn.idx }}</span>
+                                      <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:11.5px;line-height:1.4;color:#6A6A74;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ mn.text }}</span>
+                                    </button>
+                                    <button onClick="{{ mn.jump }}" title="Open this passage in the source" style="flex:0 0 auto;align-self:flex-start;color:#B4B4BE;padding:1px 2px" style-hover="color:#5B4BE6"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></button>
+                                  </div>
+                                  <sc-if value="{{ mn.open }}">
+                                    <div style="padding:2px 11px 10px 27px;border-top:1px solid #F4F3FA">
+                                      <!-- the neighbourhood — the sentences around this moment, the centre marked -->
+                                      <sc-if value="{{ mn.hasHood }}">
+                                        <div style="margin:8px 0 2px;font-family:'Newsreader',Georgia,serif;font-size:12px;line-height:1.55">
+                                          <sc-for list="{{ mn.hood }}" as="ln"><span style="color:{{ ln.color }};background:{{ ln.bg }};border-radius:3px;padding:{{ ln.pad }}">{{ ln.text }} </span></sc-for>
+                                        </div>
+                                      </sc-if>
+                                      <sc-if value="{{ mn.busy }}"><div style="font-size:11px;color:#B0AACF;font-style:italic;padding:5px 0">zooming in…</div></sc-if>
+                                      <sc-if value="{{ mn.hasReading }}">
+                                        <div style="margin-top:8px;font-size:8.5px;font-weight:700;letter-spacing:.05em;color:#8B84C0">AT THIS MOMENT</div>
+                                        <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.5;color:#33333B;border-left:2px solid #E4E0FB;padding-left:10px;margin-top:4px">{{ mn.readingText }}</div>
+                                        <sc-if value="{{ mn.hasReadingCites }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2;margin-top:4px;padding-left:10px">{{ mn.readingCites }}</div></sc-if>
+                                      </sc-if>
+                                    </div>
+                                  </sc-if>
+                                </div>
                               </sc-for>
                             </div>
                           </sc-if>
@@ -1998,7 +2287,7 @@ table{border-collapse:collapse;width:100%}
                 </sc-if></sc-if>
 
                 <!-- the reading's own account of the figure — span-grounded, steerable -->
-                <sc-if value="{{ viewer.dossier.summary.has }}">
+                <sc-if value="{{ viewer.dossier.summary.panel }}">
                   <div style="margin-top:13px;border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                       <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">{{ viewer.dossier.summary.panelLabel }}</span>
@@ -2006,6 +2295,20 @@ table{border-collapse:collapse;width:100%}
                       <span style="flex:1"></span>
                       <sc-if value="{{ viewer.dossier.summary.pending }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">composing…</span></sc-if>
                     </div>
+                    <!-- LOADING — animate while the local model composes the reading; never flash the raw telegram. -->
+                    <sc-if value="{{ viewer.dossier.summary.loading }}">
+                      <div style="animation:eoFade .2s ease">
+                        <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px">
+                          <span style="width:12px;height:12px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span>
+                          <span style="font-size:11px;color:#8A80C8;font-style:italic">{{ viewer.dossier.summary.loadNote }}</span>
+                        </div>
+                        <div class="eo-skel" style="height:10px;width:96%;margin-bottom:7px"></div>
+                        <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
+                        <div class="eo-skel" style="height:10px;width:88%;margin-bottom:7px"></div>
+                        <div class="eo-skel" style="height:10px;width:58%"></div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ viewer.dossier.summary.has }}">
                     <sc-if value="{{ viewer.dossier.summary.hasSpans }}">
                       <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32"><sc-for list="{{ viewer.dossier.summary.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span title="{{ sp.cite }}">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing in the record witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if></sc-for></div>
                       <sc-if value="{{ viewer.dossier.summary.anyFlagged }}"><div style="font-size:10px;color:#B08A4A;margin-top:5px">Underlined spans are the model’s own words — not found in the record.</div></sc-if>
@@ -2025,6 +2328,7 @@ table{border-collapse:collapse;width:100%}
                       <span style="flex:1"></span>
                       <sc-if value="{{ viewer.dossier.summary.hasCites }}"><span title="the passages this rests on" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#B7B2D2">{{ viewer.dossier.summary.cites }}</span></sc-if>
                     </div>
+                    </sc-if>
                   </div>
                 </sc-if>
 
@@ -2487,6 +2791,342 @@ table{border-collapse:collapse;width:100%}
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+// ── EoMurmurStrip — the peripheral sense as a night-sky canvas band ─────────────────────────────────
+// A self-contained controller (its own DOM + RAF loop) that ANIMATES tokens handed to it via feed().
+// Ported from the Murmur standalone and wired to the LIVE murmur side-channel instead of a canned
+// corpus: each token is one real voiced thought { text, tag, color, surprise, note, sources }. The
+// reader's thoughts drift as fading, overlapping motes over a faint glyph-rain; the most-surprising
+// one drifts brightest with a ★, and clicking any mote opens a card with its full text, the native-EOT
+// tuple it grounded (`sources`), and its surprise. It reads NOTHING from the engine and touches NOTHING
+// in the answer — the surface maps the snapshot to tokens and feeds them; this only paints (§9.4).
+class EoMurmurStrip {
+  constructor(el, opts = {}) {
+    this.el = el;
+    this.accent = opts.accent || '#8b7bff';
+    this.reduceMotion = typeof opts.reduceMotion === 'function' ? opts.reduceMotion : () => false;
+    this.onHide = typeof opts.onHide === 'function' ? opts.onHide : () => {};
+    // The SURPRISE GATE — the console only logs a line when the sense is surprised enough. Surprise is
+    // the FILTER, never a label: nothing is annotated "surprising", it just decides what scrolls at all.
+    this.gate = typeof opts.gate === 'number' ? opts.gate : 0.42;
+    this.lines = [];            // the rolling console buffer — surprise-gated log lines, oldest→newest
+    this.count = 0;             // total lines ever pushed; the scroll coordinate (a monotonic row index)
+    this.scroll = 0;            // animated scroll position — eases toward count-1 so the newest rests at centre
+    this.target = 0;            // scroll target (the newest line's row)
+    this._layout = []; this._cols = null; this._colW = -1;
+    this._inside = false; this._hover = null;
+    this._open = false; this._sel = null; this._card = null;
+    this._raf = null; this._last = 0; this._dead = false; this._quiet = null;
+    this._build();
+    this._start();
+    // mark the node so a churned callback ref (React re-attaches a fresh arrow every render) REUSES
+    // this controller instead of rebuilding — the surface's setMurmurStrip reads this back.
+    try { el.__eoMmStrip = this; } catch { /* ignore */ }
+  }
+
+  // Shown at the centre lens when nothing has passed the gate yet — never a blank band, and never a
+  // log entry (idle:true ⇒ not clickable, not counted, not part of the scroll history).
+  _idleLine() { return { idle: true, text: 'the sense is quiet', tag: 'idle', glyph: '∅', color: '#B6B6C0', ts: '' }; }
+
+  // feed(tokens) — the real-time console tick. Keep only what SURPRISES (≥ gate); drop the immediate
+  // repeat and anything still resting on screen (anti-rumination). Each survivor becomes a new line
+  // that scrolls the previous one up out of the lens and rises into the focused centre.
+  feed(newTokens) {
+    const incoming = Array.isArray(newTokens) ? newTokens : [];
+    let pushed = false;
+    for (const t of incoming) {
+      if (!t || !t.text) continue;
+      if ((t.surprise || 0) < this.gate) continue;                                   // the gate — the only filter
+      if (this.lines.length && this.lines[this.lines.length - 1].text === t.text) continue;
+      if (this.lines.some((l) => l.text === t.text)) continue;                        // don't re-log a line still on screen
+      this._push(t); pushed = true;
+    }
+    if (pushed && this.reduceMotion()) this._paintStatic();
+  }
+
+  // append one gated thought as a timestamped console line and aim the scroll at it (the newest row
+  // becomes the centre). Caps the buffer so a long session can't grow it without bound.
+  _push(t) {
+    let ts = '';
+    try { const d = new Date(); const p = (n) => (n < 10 ? '0' + n : '' + n); ts = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); } catch { ts = ''; }
+    this.lines.push({
+      idle: false, row: this.count,
+      text: String(t.text), tag: t.tag || 'reading', glyph: t.glyph || '·',
+      color: t.color || '#8A8A95', note: t.note || '', sources: t.sources || '', ts,
+    });
+    this.count += 1;
+    this.target = this.count - 1;                                    // newest row → the centre lens
+    if (this.lines.length > 60) this.lines.splice(0, this.lines.length - 60);
+  }
+
+  _build() {
+    const el = this.el;
+    el.style.setProperty('--mm-accent', this.accent);
+    el.innerHTML =
+      '<div class="eo-mm-badge">' +
+        '<span class="eo-mm-dot"></span><span class="eo-mm-mark">murmur</span>' +
+      '</div>' +
+      '<canvas class="eo-mm-canvas"></canvas>' +
+      '<button class="eo-mm-x" title="Hide the murmur — turn it back on in Settings" aria-label="Hide the murmur">' +
+      '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
+    // start quiet — the strip mounts empty (nothing gated yet), so it blends before the first thought.
+    el.classList.add('eo-mm-quiet'); this._quiet = true;
+    this.canvas = el.querySelector('.eo-mm-canvas');
+    const x = el.querySelector('.eo-mm-x');
+    if (x) x.addEventListener('click', (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.onHide(); });
+    this._onEnter = () => { this._inside = true; };
+    this._onLeave = () => { this._inside = false; this._hover = null; if (this.canvas) this.canvas.style.cursor = 'default'; };
+    // hit-testing is VERTICAL now (lines stack and scroll) — hover/click resolve by the pointer's y.
+    this._onMove = (e) => { if (!this.canvas) return; const r = this.canvas.getBoundingClientRect(); this._hover = this._hit(e.clientY - r.top); this.canvas.style.cursor = this._hover ? 'pointer' : 'default'; };
+    this._onClick = (e) => this._click(e);
+    this._onResize = () => { this._cols = null; if (this.reduceMotion()) this._paintStatic(); };
+    this.canvas.addEventListener('mouseenter', this._onEnter);
+    this.canvas.addEventListener('mouseleave', this._onLeave);
+    this.canvas.addEventListener('mousemove', this._onMove);
+    this.canvas.addEventListener('click', this._onClick);
+    try { window.addEventListener('resize', this._onResize); } catch { /* ignore */ }
+  }
+
+  destroy() {
+    this._dead = true;
+    if (this._raf) { try { cancelAnimationFrame(this._raf); } catch { /* ignore */ } this._raf = null; }
+    try { window.removeEventListener('resize', this._onResize); } catch { /* ignore */ }
+    try { if (this.el && this.el.__eoMmStrip === this) this.el.__eoMmStrip = null; } catch { /* ignore */ }
+    this.lines = []; this._layout = [];
+  }
+
+  // the node left the DOM (mode → off, or a screen swap) — release the per-node marker so a later
+  // remount builds a fresh controller, and stop scheduling frames (nothing animates unseen).
+  _detach() { this._dead = true; try { if (this.el && this.el.__eoMmStrip === this) this.el.__eoMmStrip = null; } catch { /* ignore */ } }
+
+  _start() {
+    if (this.reduceMotion()) { this._paintStatic(); return; }   // no RAF under reduced motion — a still frame
+    this._last = (typeof performance !== 'undefined' ? performance.now() : 0);
+    const loop = (t) => {
+      // React churns the callback ref between renders, so we DON'T tear down on ref(null); the node
+      // actually leaving the DOM is the real unmount signal — end the loop there.
+      if (this._dead || !this.el || !this.el.isConnected) { this._raf = null; this._detach(); return; }
+      this._draw(t);
+      this._raf = requestAnimationFrame(loop);
+    };
+    this._raf = requestAnimationFrame(loop);
+  }
+
+  _rgba(hex, a) {
+    const n = parseInt(String(hex || '#8b7bff').slice(1), 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+
+  // toggle the at-rest "quiet" skin (plain white, no seam, still dot) as the console empties / gets a line.
+  _setQuiet(q) { if (q === this._quiet) return; this._quiet = q; try { this.el.classList.toggle('eo-mm-quiet', q); } catch { /* ignore */ } }
+
+  // faint glyph-rain behind the lens — terminal noise, dim enough that the scrolling lines read on top.
+  _drawRain(ctx, W, H, dt) {
+    if (!this.lines.length) return;   // no terminal noise while the sense is quiet — idle stays perfectly still
+    this._ensureCols(W, H);
+    const glyphs = '01∅◇⟷▸⧗×+·§⋈○△⊛';
+    ctx.filter = 'none'; ctx.font = '10px "IBM Plex Mono",ui-monospace,Menlo,monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    this._cols.forEach((col, i) => {
+      col.y += col.sp * dt; const headRow = col.y / 13;
+      if (col.y - col.len * 13 > H) col.y = -Math.random() * 40;
+      for (let k = 0; k < col.len; k++) {
+        const yy = (headRow - k) * 13; if (yy < 0 || yy > H) continue;
+        const a = (k === 0 ? 0.07 : 0.04 * (1 - k / col.len));   // a faint texture on the light band, never noise
+        ctx.fillStyle = this._rgba(this.accent, a);
+        ctx.fillText(glyphs[(Math.random() * glyphs.length) | 0], i * 13 + 6, yy);
+      }
+    });
+  }
+
+  // resize the backing store to the CSS box × dpr and return a fresh 2d context, or null if unmounted.
+  _ctx() {
+    const cv = this.canvas; if (!cv || !cv.isConnected) return null;
+    const dpr = window.devicePixelRatio || 1;
+    const W = cv.clientWidth, H = cv.clientHeight;
+    if (!W || !H) return null;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); this._cols = null; }
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, W, H };
+  }
+
+  _ensureCols(W, H) {
+    if (this._cols && this._colW === W) return;
+    this._colW = W;
+    const n = Math.ceil(W / 13);
+    this._cols = Array.from({ length: n }, () => ({ y: Math.random() * H, sp: 26 + Math.random() * 60, len: 5 + (Math.random() * 7 | 0) }));
+  }
+
+  // The bottle-lens terminal: gated console lines stack and scroll UP, and the line crossing the band's
+  // centre is sharp and magnified while the rest bow away above/below — a tanh warp bunches them toward
+  // the ends (the glass curving off) and a gaussian sharpens the middle (the lens). Event-stepped: each
+  // gated line eases the scroll up one row, so the newest rises into focus and the previous drifts out.
+  _draw(t) {
+    const c = this._ctx(); if (!c) return;
+    const { ctx, W, H } = c;
+    const dt = Math.min(0.05, (t - this._last) / 1000); this._last = t;
+    const nowS = t / 1000;
+    const idle = this.lines.length === 0;
+    this._setQuiet(idle);                          // idle ⇒ the strip dissolves into the white page chrome
+    const bg = idle ? '#ffffff' : '#F7F6FC';
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    this._drawRain(ctx, W, H, dt);
+
+    // ease the scroll toward the newest row — unless the reader is inspecting (hover / open card), when
+    // everything freezes so a line can be read and clicked.
+    const paused = this._inside || this._open;
+    if (!paused) {
+      this.scroll += (this.target - this.scroll) * Math.min(1, dt * 7);
+      if (Math.abs(this.target - this.scroll) < 0.001) this.scroll = this.target;
+    }
+
+    // the lens sits a touch below the true middle so the rising history fills the band and the newest
+    // line still reads as centred; curvature is symmetric about it.
+    const cy = H * 0.56, usable = Math.min(cy, H - cy) - 6, padL = 18;
+    const baseFs = Math.max(12.5, Math.min(17, H * 0.145));
+    const lines = this.lines.length ? this.lines : [this._idleLine()];
+
+    // project each line: logical offset from centre (in rows) → a warped screen y + a focus weight.
+    const items = lines.map((ln) => {
+      const o = ln.idle ? 0 : (ln.row - this.scroll);            // 0 at centre; <0 older (above); >0 incoming (below)
+      const y = cy + usable * Math.tanh(o * 0.5);
+      const f = Math.exp(-(o * o) / (2 * 1.05 * 1.05));          // focus 0..1, peaked at centre
+      return { ln, o, y, f };
+    }).filter((it) => it.f > 0.012 && it.y > -24 && it.y < H + 24)
+      .sort((a, b) => a.f - b.f);                                // far→near so the crisp centre lands on top
+
+    const focus = items.length ? items[items.length - 1] : null;
+    this._layout = [];
+    for (const it of items) {
+      const { ln, o, y, f } = it;
+      const fs = baseFs * (0.64 + 0.62 * f);
+      const blur = (1 - f) * 3.7;
+      const edge = Math.max(0, Math.min(1, Math.min(y, H - y) / 15));   // dissolve into the band's top/bottom
+      const alpha = (0.10 + 0.90 * f) * edge;
+      if (alpha <= 0.02) continue;
+      const isFocus = it === focus && Math.abs(o) < 0.6;
+      this._drawLine(ctx, ln, padL, y, fs, blur, alpha, f, isFocus, nowS);
+      if (!ln.idle) this._layout.push({ y0: y - fs * 0.72, y1: y + fs * 0.72, ln, f });
+    }
+
+    // the glass: a soft specular band across the centre, then a top/bottom vignette into the band edges.
+    const sheen = ctx.createLinearGradient(0, cy - 20, 0, cy + 20);
+    sheen.addColorStop(0, this._rgba(this.accent, 0)); sheen.addColorStop(0.5, this._rgba(this.accent, 0.055)); sheen.addColorStop(1, this._rgba(this.accent, 0));
+    ctx.fillStyle = sheen; ctx.fillRect(0, cy - 20, W, 40);
+    const gt = ctx.createLinearGradient(0, 0, 0, 30); gt.addColorStop(0, bg); gt.addColorStop(1, this._rgba(bg, 0));
+    ctx.fillStyle = gt; ctx.fillRect(0, 0, W, 30);
+    const gb = ctx.createLinearGradient(0, H - 30, 0, H); gb.addColorStop(0, this._rgba(bg, 0)); gb.addColorStop(1, bg);
+    ctx.fillStyle = gb; ctx.fillRect(0, H - 30, W, 30);
+  }
+
+  // draw one console line at (x, y): dim timestamp · register glyph · the thought, then the caret. The
+  // focused line reads near-white with a soft register glow; off-focus lines keep their register tint,
+  // blurred and faded by the lens.
+  _drawLine(ctx, ln, x, y, fs, blur, alpha, f, isFocus, nowS) {
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.filter = blur > 0.25 ? ('blur(' + blur.toFixed(2) + 'px)') : 'none';
+    ctx.font = fs + 'px "IBM Plex Mono",ui-monospace,Menlo,monospace';
+    const col = ln.color || '#8A8A95';
+    const sharp = isFocus && !ln.idle;                 // the crisp centre line — dark ink; idle stays a soft grey
+    let cx = x;
+    if (ln.ts) { ctx.fillStyle = this._rgba('#C2C2CB', alpha * 0.85); ctx.fillText(ln.ts, cx, y); cx += ctx.measureText(ln.ts).width + fs * 0.55; }
+    if (ln.glyph) { ctx.fillStyle = this._rgba(col, alpha); ctx.fillText(ln.glyph, cx, y); cx += ctx.measureText(ln.glyph).width + fs * 0.5; }
+    ctx.shadowBlur = 0;                                 // no glow on the light band — it only muddies dark-on-light
+    if (sharp) ctx.fillStyle = this._rgba('#26262E', Math.min(1, alpha + 0.15));
+    else ctx.fillStyle = this._rgba(this._hover === ln ? '#1B1B22' : col, ln.idle ? alpha * 0.9 : alpha);
+    ctx.fillText(ln.text, cx, y);
+    cx += ctx.measureText(ln.text).width;
+    // the terminal caret — a soft register-tinted block riding the focused line's tail.
+    if (sharp) { const on = Math.floor(nowS * 1.6) % 2 === 0; if (on) { ctx.fillStyle = this._rgba(col, Math.min(1, alpha)); ctx.fillRect(cx + 4, y - fs * 0.42, fs * 0.46, fs * 0.8); } }
+    ctx.filter = 'none';
+  }
+
+  // reduced-motion path: a still frame of the recent lines through the same lens — newest at centre,
+  // no rain, no caret blink, no scroll. Repainted only on feed/resize.
+  _paintStatic() {
+    const c = this._ctx(); if (!c) return;
+    const { ctx, W, H } = c;
+    const idle = this.lines.length === 0;
+    this._setQuiet(idle);
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = idle ? '#ffffff' : '#F7F6FC'; ctx.fillRect(0, 0, W, H);
+    const cy = H * 0.56, usable = Math.min(cy, H - cy) - 6, padL = 18;
+    const baseFs = Math.max(12.5, Math.min(17, H * 0.145));
+    const hasLines = this.lines.length > 0;
+    const lines = hasLines ? this.lines : [this._idleLine()];
+    const newest = hasLines ? this.count - 1 : 0;
+    const items = lines.map((ln) => {
+      const o = ln.idle ? 0 : (ln.row - newest);
+      const y = cy + usable * Math.tanh(o * 0.5);
+      const f = Math.exp(-(o * o) / (2 * 1.05 * 1.05));
+      return { ln, o, y, f };
+    }).filter((it) => it.f > 0.02).sort((a, b) => a.f - b.f);
+    const focus = items.length ? items[items.length - 1] : null;
+    this._layout = [];
+    for (const it of items) {
+      const { ln, o, y, f } = it;
+      const fs = baseFs * (0.64 + 0.62 * f);
+      const alpha = 0.12 + 0.88 * f;
+      this._drawLine(ctx, ln, padL, y, fs, 0, alpha, f, it === focus && Math.abs(o) < 0.6, 0);
+      if (!ln.idle) this._layout.push({ y0: y - fs * 0.72, y1: y + fs * 0.72, ln, f });
+    }
+  }
+
+  // hit-test by pointer y against the drawn line boxes; prefer the most-focused when boxes overlap.
+  _hit(y) {
+    let best = null;
+    for (const it of this._layout) { if (y >= it.y0 && y <= it.y1) { if (!best || (it.f || 0) > (best.f || 0)) best = it; } }
+    return best ? best.ln : null;
+  }
+
+  _click(e) {
+    if (!this.canvas) return;
+    const r = this.canvas.getBoundingClientRect();
+    const ln = this._hit(e.clientY - r.top) || (this.lines.length ? this.lines[this.lines.length - 1] : null);
+    if (!ln || ln.idle) return;
+    this._openCard(ln, e.clientX);
+  }
+
+  _ensureCard() {
+    if (this._card) return;
+    const card = document.createElement('div');
+    card.className = 'eo-mm-card'; card.style.display = 'none';
+    // No surprise bar — surprise is only the gate that let this line in, never a surfaced metric.
+    card.innerHTML =
+      '<div class="eo-mm-card-head"><div style="display:flex;align-items:center;gap:10px;min-width:0">' +
+      '<span class="eo-mm-card-tag"></span><span class="eo-mm-card-src"></span></div>' +
+      '<button class="eo-mm-card-x" aria-label="Close">✕</button></div>' +
+      '<div class="eo-mm-card-text"></div>' +
+      '<div class="eo-mm-card-note"></div>';
+    card.querySelector('.eo-mm-card-x').addEventListener('click', (e) => { if (e && e.stopPropagation) e.stopPropagation(); this._closeCard(); });
+    card.addEventListener('click', (e) => { if (e && e.stopPropagation) e.stopPropagation(); });
+    this.el.appendChild(card);
+    this._card = card;
+  }
+
+  _openCard(ln, clientX) {
+    this._open = true; this._sel = ln;
+    this._ensureCard();
+    const stripR = this.el.getBoundingClientRect();
+    const cx = (typeof clientX === 'number') ? clientX : (stripR.left + stripR.width / 2);
+    const abs = Math.max(12, Math.min(cx - 190, (window.innerWidth || stripR.width) - 392));
+    this._card.style.left = (abs - stripR.left) + 'px';
+    // .textContent throughout — the thought/tuple text is shown verbatim, never parsed as HTML.
+    const col = ln.color || this.accent;
+    const tag = this._card.querySelector('.eo-mm-card-tag');
+    tag.textContent = ln.tag || ''; tag.style.color = col;
+    tag.style.border = '1px solid ' + this._rgba((typeof col === 'string' && col[0] === '#') ? col : this.accent, 0.4);
+    this._card.querySelector('.eo-mm-card-src').textContent = ln.sources || '';
+    this._card.querySelector('.eo-mm-card-text').textContent = ln.text || '';
+    const note = this._card.querySelector('.eo-mm-card-note');
+    note.textContent = ln.note || ''; note.style.display = ln.note ? '' : 'none';
+    this._card.style.display = '';
+    if (this.reduceMotion()) this._paintStatic();
+  }
+
+  _closeCard() { this._open = false; this._sel = null; if (this._card) this._card.style.display = 'none'; }
+}
+
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -2498,6 +3138,9 @@ class Component extends DCLogic {
       tab: 'search', omni: '', chatInput: '', toast: null,
       isMobile: mobile,
       leftOpen: mobile ? false : this._pref('eo_left', true), rightOpen: mobile ? false : this._pref('eo_right', true),
+      // The entity panel can be PROMOTED from the 340px right rail to the main stage (hero) — a
+      // figure's profile then reads like a page, with the moment-by-moment drill it holds given room.
+      rightHero: false,
       statusOpen: false, monologueOpen: false, logMode: 'actions',
       // The real-time murmur strip — the peripheral sense (src/murmur) painted on the main page.
       // The MODE is the one control: 'off' (nothing), 'look' (mutters + learns from the record, no
@@ -2528,6 +3171,10 @@ class Component extends DCLogic {
       // the height back. Only in Listen mode; resets on tab/source/mode change.
       listenMediaMin: false,
       readPrefs: this._readPrefs(),
+      // The reading-mode ladder (docs/co-reading.md) — "how much is on screen". Paper: clean prose.
+      // Companion: co-read margin-thoughts appear where the reader dwells. Lit: Companion + lenses
+      // (the Link lens on). Persisted; drives body classes on the open book iframe.
+      readingMode: this._prefStr('eo_readingmode', 'paper'),
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, recordedUrls: {},
       // A search hit opens as a NATIVE PREVIEW first — the real page, loaded normally in a sandboxed
       // frame — and only becomes a recorded source when you choose to add it. { item, doc, busy, err }.
@@ -2542,6 +3189,18 @@ class Component extends DCLogic {
       modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
+      // Source explorer (the Sources tab is a Drive): explorerFolder is the folder currently
+      // open (null = the drive root), explorerMenu the id of the folder/file whose kebab menu is
+      // open ('f:F1' / 's:S1'), and moveTarget the item being filed via the "Move to…" picker.
+      explorerFolder: null, explorerMenu: null, moveTarget: null,
+      // The Source Explorer home view (three columns): which Quick-Access shelf is active
+      // (recent/starred/topic/all — null while a folder is open), the selected source (right
+      // Inspector) + its tab, the search text, grid/list view, sort mode, the kind-filter chip,
+      // whether the source grid is fully expanded, the collapsed folder ids in the rail tree, and
+      // whether the "+ Ingest" menu is open.
+      explorerBucket: 'all', explorerSel: null, inspectorTab: 'read', explorerQuery: '',
+      explorerView: 'grid', explorerSort: 'name', explorerKind: null, explorerShowAll: false,
+      explorerCollapsed: [], explorerIngestOpen: false,
       // Ask surface: where the next question lands — 'follow' (a child quest under the current
       // topic) or 'new' (a fresh top-level quest); and the per-answer "Download audit" menu.
       askScope: 'follow', askAuditMenuOpen: false,
@@ -2590,6 +3249,20 @@ class Component extends DCLogic {
     // (voice.js); these only DRAW it. Kept off the render path (instance maps, set once).
     this._mmGlyph = { NUL: '∅', SEG: '｜', DEF: '⊢', SIG: '○', CON: '⋈', EVA: '⊨', INS: '●', SYN: '△', REC: '⊛' };
     this._mmInk = { unease: '#9B3A2E', drift: '#A25A22', surprise: '#6A46C8', recognition: '#1E7A48', curiosity: '#5A44C0', outward: '#2E6FB8', discovery: '#1E7A48' };
+    // The strip is a light band now, so a mote (and its card's tag chip) wears its register's dark-on-
+    // light ink straight from _mmInk — no separate bright-on-dark palette. A short honest gloss NAMES
+    // the register (the sense's own state, not a fabricated claim) for the card's italic note.
+    this._mmGloss = {
+      unease: 'something in the reading didn’t sit right',
+      drift: 'attention wandered from the anchor',
+      surprise: 'a mark against the field — this was unexpected',
+      recognition: 'this echoes something read earlier',
+      curiosity: 'the sense reached toward this on its own',
+      outward: 'a thread the record names but doesn’t explain',
+      discovery: 'what the wander found, folded back in',
+    };
+    this._mmStrip = null;       // the live EoMurmurStrip controller (built on mount, torn down on hide)
+    this._mmLastState = null;   // the last murmur snapshot, so a late-mounting strip can seed itself
     if (this._app) {
       this._app.subscribe((kind) => this._onEngine(kind));
       if (window.EO.audit && window.EO.audit.subscribe) window.EO.audit.subscribe(() => this._poke());
@@ -2602,9 +3275,10 @@ class Component extends DCLogic {
     this._topicSeen = this._app && this._app.state ? this._app.state.activeTopicId : null;
     if (this._matrix && this._matrix.subscribe) this._matrix.subscribe(() => this._poke());
     if (this._genome && this._genome.subscribe) this._genome.subscribe(() => this._poke());
-    // The murmur strip repaints as the peripheral sense raises impressions (once per turn's fold
-    // stop, plus decay between). Off the critical path — a repaint, never a turn cost.
-    if (this._murmur && this._murmur.subscribe) this._murmur.subscribe(() => this._poke());
+    // The murmur strip feeds off the peripheral sense as it raises impressions (once per turn's fold
+    // stop, plus at-rest wander mutters). Off the critical path — the snapshot flows straight to the
+    // canvas controller (feed), and a light poke keeps the Settings learn-count fresh. Never a turn cost.
+    if (this._murmur && this._murmur.subscribe) this._murmur.subscribe((s) => this._onMurmur(s));
     this._wireDom();
   }
 
@@ -2681,6 +3355,9 @@ class Component extends DCLogic {
     }
     if (kind === 'messages') { this._segCache = {}; }
     if (kind === 'stream' || kind === 'messages') { this._seedLive(); this._scrollChatSoon(); this._ensureTyping(); }
+    // A fresh co-read (or at-rest) reflection landed — re-lay the margin notes on the open book so a
+    // thought appears where the reading caught on it, without reloading the iframe.
+    if (kind === 'reflections') this._refreshMargins();
     this._poke();
   }
   // ── the typewriter: reveal streamed text one character at a time ──────────────────────
@@ -2815,6 +3492,14 @@ class Component extends DCLogic {
   _poke() {
     if (this._raf) return;
     this._raf = requestAnimationFrame(() => { this._raf = null; this.setState({ rev: (this.state.rev || 0) + 1 }); });
+  }
+  // The murmur side-channel (§9.4) fired — stash the snapshot and, if the strip is mounted, feed it
+  // the fresh motes; a light poke keeps the Settings learn-count in sync. Read-only, off the critical
+  // path — the strip never touches the answer and never appends to the log.
+  _onMurmur(s) {
+    this._mmLastState = s || null;
+    if (this._mmStrip) { try { this._mmStrip.feed(this._mmTokensFrom(s)); } catch { /* the strip must never cost a turn */ } }
+    this._poke();
   }
   _scrollChatSoon() {
     setTimeout(() => this._pinChatBottom(), 30);
@@ -3172,7 +3857,7 @@ class Component extends DCLogic {
     // bubble is created — no double-pending, no local decode-gate overlap. stop() rejects the
     // turn's guard.race synchronously, so a single yield is enough. On an idle composer this is the
     // plain ask() path, byte-identical.
-    // The Ask tab is RECORD-FIRST — it grounds every answer in what you have ingested and names
+    // The Search tab's question fallback is RECORD-FIRST — it grounds every answer in what you have ingested and names
     // where it looked. But a measured gap is a question addressed to the world (docs/web-search.md):
     // when no passage on record answers, the turn reaches the web, fetches, and returns an answer
     // grounded in the pages it found (which join the record). So Ask honors the GLOBAL web mode
@@ -3323,6 +4008,9 @@ class Component extends DCLogic {
     // Leaving the Graph tab tears down the live entity/causal draw so re-entry mounts a fresh
     // canvas and redraws clean (the ref only re-fires on a new element).
     if (this.state.tab === 'graph' && tab !== 'graph' && this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; this._tgEl = null; }
+    // Leaving the Plain tab tears down its surface the same way, so re-entry recomputes the live
+    // model against the current sources.
+    if (this.state.tab === 'plain' && tab !== 'plain' && this._plain) { try { this._plain.destroy(); } catch {} this._plain = null; this._plainEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
     const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
     // The Graph tab now hosts the real graph — the entity web / causal DAG of everything in
@@ -4035,7 +4723,14 @@ class Component extends DCLogic {
   toggleRight() {
     const v = !this.state.rightOpen;
     if (!this._mob()) this._setPref('eo_right', v);
-    this.setState({ rightOpen: v, ...(this._mob() && v ? { leftOpen: false } : {}) });
+    this.setState({ rightOpen: v, ...(this._mob() && v ? { leftOpen: false } : {}), ...(v ? {} : { rightHero: false }) });
+  }
+  // Promote / demote the entity panel between the side rail and the full stage. Hero is a desktop
+  // affordance (on mobile the panel is already a near-full-width drawer), and it needs the panel open.
+  toggleRightHero() {
+    if (this._mob()) return;
+    const v = !this.state.rightHero;
+    this.setState({ rightHero: v, ...(v ? { rightOpen: true } : {}) });
   }
   closePanels() { this.setState({ leftOpen: false, rightOpen: false }); }
   toggleStatus() { this.setState({ statusOpen: !this.state.statusOpen }); }
@@ -4166,6 +4861,50 @@ class Component extends DCLogic {
     if (d && this._render) this._render.scrollToAnchor(d, id);
     this.setState({ tocOpen: false });
   }
+  // ── co-reading: the reading-mode ladder + the margin (docs/co-reading.md) ──────────────────
+  // Cycle Paper → Companion → Lit. Persist, flip the body class on the open book LIVE (no reload),
+  // and — off Paper — read where the eye is now and lay the notes. Paper clears the margin.
+  cycleReadingMode() {
+    const order = ['paper', 'companion', 'lit'];
+    const mode = order[(order.indexOf(this.state.readingMode) + 1) % order.length];
+    this._setPrefStr('eo_readingmode', mode);
+    this.setState({ readingMode: mode });
+    const d = this._readerFrame && this._readerFrame.contentDocument, R = this._render;
+    if (d && R && R.applyReadingMode) { try { R.applyReadingMode(d, mode, { links: !!this.state.entityMode }); } catch {} }
+    if (mode === 'paper') { if (d && R && R.renderMarginNotes) { try { R.renderMarginNotes(d, []); } catch {} } }
+    else { this._coReadNow(); this._refreshMargins(); }
+  }
+  // The positioned reflections for the source open in the reader — the co-read margin-thoughts, each
+  // { id, anchorText, note, verdict } the render helper hangs beside its passage.
+  _marginNotesFor(sn) {
+    const app = this._app; const s = app && app.sourceBySn && app.sourceBySn(sn);
+    if (!s) return [];
+    const refl = (app.state && app.state.reflections) || [];
+    return refl.filter((r) => r && r.positioned && r.docId === s.docId && r.anchorText && r.note)
+      .map((r) => ({ id: r.id, anchorText: r.anchorText, note: r.note, verdict: r.verdict }));
+  }
+  // Re-lay the margin on the open book — called on a fresh reflection and after a mode change. A
+  // no-op on Paper (margins hidden) or when the reader frame is not mounted.
+  _refreshMargins() {
+    if (this.state.readingMode === 'paper') return;
+    const d = this._readerFrame && this._readerFrame.contentDocument, R = this._render;
+    if (!d || !d.body || !R || !R.renderMarginNotes) return;
+    try { R.renderMarginNotes(d, this._marginNotesFor(this._activeSrc())); } catch {}
+  }
+  // Read WHERE THE EYE IS NOW — the block at the top of the viewport — and drive one co-read pass
+  // there (app.coReadHere resolves the visible text to a sentence index, firewalled). Off on Paper.
+  _coReadNow() {
+    if (this.state.readingMode === 'paper') return;
+    const d = this._readerFrame && this._readerFrame.contentDocument, R = this._render, app = this._app;
+    if (!d || !d.body || !R || !R.topVisibleText || !app || !app.coReadHere) return;
+    const s = app.sourceBySn && app.sourceBySn(this._activeSrc()); if (!s) return;
+    let text = ''; try { text = R.topVisibleText(d); } catch {}
+    if (!text) return;
+    try {
+      const r = app.coReadHere(s, text, { after: this._coReadAfter || 0 });
+      if (r) { this._coReadAfter = r.peak; this._refreshMargins(); }
+    } catch {}
+  }
   // The reader iframe ref — capture it, restore the saved scroll position, apply the current
   // theme, and (on a citation jump) scroll to the cited passage. Runs once per mount.
   setReaderFrame(el) {
@@ -4204,6 +4943,20 @@ class Component extends DCLogic {
         win.addEventListener('scroll', () => {
           const max = Math.max(1, (d.documentElement.scrollHeight || 0) - win.innerHeight);
           if (this._posT) return; this._posT = setTimeout(() => { this._posT = null; this._saveReadPos(sn, win.scrollY / max); }, 200);
+        }, { passive: true });
+      }
+      // CO-READING (docs/co-reading.md): set the reading-mode body class, and — off Paper — lay any
+      // margin notes this source already has and read where the book opens. A DWELL handler drives a
+      // fresh co-read when the reader settles (scroll stops for a beat), so a thought appears where
+      // the eye lingers, not on every scroll tick. The engine governs whether anything fires.
+      try { R && R.applyReadingMode && R.applyReadingMode(d, this.state.readingMode, { links: !!this.state.entityMode }); } catch {}
+      this._coReadAfter = 0;
+      if (this.state.readingMode !== 'paper') setTimeout(() => { this._refreshMargins(); this._coReadNow(); }, 140);
+      if (win) {
+        win.addEventListener('scroll', () => {
+          if (this.state.readingMode === 'paper') return;
+          if (this._dwellT) clearTimeout(this._dwellT);
+          this._dwellT = setTimeout(() => { this._dwellT = null; this._coReadNow(); }, 550);
         }, { passive: true });
       }
     };
@@ -4559,7 +5312,7 @@ class Component extends DCLogic {
     return { pinRows: rows, pinsEmpty: rows.length === 0 };
   }
   openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'search' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
-  backToEntities() { this.setState({ entitySel: null, focusId: null }); }
+  backToEntities() { this.setState({ entitySel: null, focusId: null, rightHero: false }); }
   // The wiki referent for the open entity — 4.1's entity-panel Wikipedia search, restored.
   // Fired once per (doc, entity): the engine searches Wikipedia and confirms (or refuses)
   // the settled referent against the entity's attested context; the surface only caches
@@ -4697,9 +5450,33 @@ class Component extends DCLogic {
       try { reading = app.entityChapterReadingFor ? app.entityChapterReadingFor(p.label, c.chapterIdx) : null; } catch { reading = null; }
       const bt = c.bullet ? c.bullet.text : '';
       const b0 = c.bullet ? c.bullet.t0 : null, b1 = c.bullet ? c.bullet.t1 : null;
-      const mentions = (c.mentions || []).slice(0, 8).map((mn) => ({
-        idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text, mn.t0, mn.t1),
-      }));
+      // Each mention is a ZOOM target — click to drill into that moment (its neighbourhood + a close
+      // reading), lazily. The ↗ still jumps to the source. Zoom is stored per centre-sentence index.
+      const mentions = (c.mentions || []).slice(0, 8).map((mn) => {
+        const pkey = dkey + '#p' + mn.idx;
+        const zOpen = !!(this.state.entZoom || {})[pkey];
+        const zBusy = !!genBusy['pass:' + pkey];
+        let hood = null, pr = null;
+        if (zOpen) {
+          try { hood = app.entityPassage ? app.entityPassage(docId, entId, mn.idx) : null; } catch { hood = null; }
+          try { pr = app.entityPassageReadingFor ? app.entityPassageReadingFor(p.label, mn.idx) : null; } catch { pr = null; }
+        }
+        const lines = (hood && hood.lines || []).map((ln) => ({
+          text: ln.text,
+          color: ln.center ? '#2A2A32' : '#9A9AA4',
+          bg: ln.center ? '#F3F1FD' : 'transparent',
+          pad: ln.center ? '1px 3px' : '0',
+        }));
+        return {
+          idx: String(mn.idx), text: mn.text,
+          jump: () => h.jump(p.sn, mn.text, mn.t0, mn.t1),
+          zoom: () => this._toggleZoom(docId, entId, mn.idx, p.label),
+          open: zOpen, busy: zBusy, chevron: zOpen ? 'rotate(90deg)' : 'none',
+          hasHood: lines.length > 0, hood: lines,
+          hasReading: !!(pr && pr.text && !zBusy), readingText: pr ? pr.text : '',
+          hasReadingCites: !!(pr && pr.cites && pr.cites.length), readingCites: pr ? cite(pr.cites) : '',
+        };
+      });
       return {
         label: c.label, countLabel: `${c.mentionCount} ${c.mentionCount === 1 ? 'mention' : 'mentions'}`,
         bullet: bt, jump: () => h.jump(p.sn, bt, b0, b1),
@@ -4750,6 +5527,23 @@ class Component extends DCLogic {
     Promise.resolve(app.entityChapterReading(docId, entId, chapterIdx, { generate: true }))
       .catch(() => {}).finally(() => this._setGenBusy('chap:' + key, false));
   }
+  // ZOOM IN on one moment — open (and lazily generate) the passage's close reading. The deepest pull:
+  // chapter → passage. Toggling shut keeps the reading; re-opening reads it straight back.
+  _toggleZoom(docId, entId, idx, label) {
+    const key = docId + '#' + entId + '#p' + idx;
+    const zoom = { ...(this.state.entZoom || {}) };
+    const opening = !zoom[key];
+    if (opening) zoom[key] = true; else delete zoom[key];
+    this.setState({ entZoom: zoom });
+    if (!opening) return;
+    const app = this._app; if (!app || !app.entityPassageReading) return;
+    let stored = null;
+    try { stored = app.entityPassageReadingFor ? app.entityPassageReadingFor(label, idx) : null; } catch { stored = null; }
+    if (stored) return;
+    this._setGenBusy('pass:' + key, true);
+    Promise.resolve(app.entityPassageReading(docId, entId, idx, { generate: true }))
+      .catch(() => {}).finally(() => this._setGenBusy('pass:' + key, false));
+  }
   // Open (and lazily generate) the Most-important / Most-surprising digest — pulled on the reader's
   // beat, never auto-kicked. `regenerate` recomposes from the record under any standing steer.
   _openDigest(docId, entId, label, regenerate) {
@@ -4783,6 +5577,24 @@ class Component extends DCLogic {
     const app = this._app; if (!app) return;
     const p = scope === 'source' ? app.sourceSummary(ids.sn) : app.entitySummary(ids.docId, ids.entId);
     Promise.resolve(p).catch(() => {});
+  }
+  // Upgrade a modelless entity telegram into a model-WRITTEN reading. The auto-gen at record time
+  // stores a telegram-only summary before any model is warm; `_kickTl` only fires when the slot is
+  // empty, so without this the panel would sit on that raw telegram forever. Here we make sure a
+  // local model is actually loading (the mount prewarm may have failed or been skipped), then re-run
+  // entitySummary — its upgrade path recomposes the telegram into a reading once the talker is warm.
+  // Keyed by model-state so a cold→loading→ready transition re-triggers the compose, but a steady
+  // state doesn't kick every render; if the model can't load, entitySummary just returns the telegram.
+  _kickTlUpgrade(scope, ids, key, mstate) {
+    if (scope !== 'entity') return;
+    const app = this._app; if (!app || !ids || !ids.docId) return;
+    this._tlUpgradeKicked = this._tlUpgradeKicked || new Set();
+    const stamp = key + '|' + (mstate || 'cold');
+    if (this._tlUpgradeKicked.has(stamp)) return;
+    this._tlUpgradeKicked.add(stamp);
+    const compose = () => Promise.resolve(app.entitySummary(ids.docId, ids.entId)).catch(() => {});
+    if (app.ensureModel) Promise.resolve(app.ensureModel()).catch(() => {}).finally(compose);
+    else compose();
   }
   _setTlBusy(key, on) {
     const busy = { ...(this.state.tlBusy || {}) };
@@ -4842,8 +5654,32 @@ class Component extends DCLogic {
     // coming) is not pending and shows at once; source summaries carry no contextual and are unaffected.
     const awaitingWritten = !!(sum && sum.contextualPending && !sum.contextual);
     const ready = !!sum && !awaitingWritten;
+    // ── LOADING: hold the panel on an animated skeleton, not the raw telegram ──────────────────
+    // An ENTITY summary is only presentable once the LOCAL model has turned the machinery's telegram
+    // into a reading. The bare telegram — one flat sentence per standing object — reads as nonsense
+    // for a figure with many properties ("X is …; X is …; X is …"), so we never ship it as the
+    // summary. While the model composes (loading the weights, or the chorus writing), the body is an
+    // animated skeleton. Two escape hatches keep it from spinning forever: a source summary (whose
+    // telegram IS the intended form) never enters this state, and if no model can load at all
+    // (state 'error') we fall back to the telegram rather than an endless loader.
+    const isEntity = scope === 'entity';
+    const mstate = (app.state && app.state.model && app.state.model.state) || 'cold';
+    const mprog = (app.state && app.state.model && app.state.model.progress) || 0;
+    const modelBroken = mstate === 'error';
+    // a written reading is WANTED but not yet in hand: the stored summary is the modelless telegram,
+    // or the chorus is mid-compose. (`busy` = a steer/regenerate the user just asked for.)
+    const needsWriting = isEntity && !!sum && (!!sum.modelless || !!sum.contextualPending);
+    if (isEntity && !modelBroken && needsWriting && !busy) this._kickTlUpgrade(scope, ids, key, mstate);
+    const loading = isEntity && !modelBroken && (busy || !sum || needsWriting || awaitingWritten);
+    const loadNote = mstate === 'loading'
+      ? `Loading the local model — ${Math.round(mprog * 100)}%`
+      : (busy ? 'Recomposing from the record…' : 'Reading this with the local model…');
+    const hasBody = loading ? false : ready;
     return {
-      show: true, has: ready, pending: !ready || busy,
+      show: true, has: hasBody, pending: (!loading) && (!ready || busy),
+      // the panel (header + body) is shown whenever there's something to show OR something composing.
+      panel: hasBody || loading,
+      loading, loadNote,
       text: ctx || (sum ? sum.text : ''),
       telegramText: sum ? sum.text : '',
       hasSpans: spans.length > 0, noSpans: spans.length === 0, spans, anyFlagged,
@@ -5200,6 +6036,24 @@ class Component extends DCLogic {
     if (!this._wg && this.state.tab === 'graph' && this._ensureTopicGraph()) this.setState({ webGraphFor: this._wgMirror() });
     this._drawWebGraph();
   }
+  // The Plain screen's host — the same ref idiom as the Graph tab. Mount the framework-free plain
+  // surface (rooms/plain) into it once, over a LIVE model read from the person's real sources, so
+  // "People mean different things by this" is computed from what those documents actually say. The
+  // surface owns its own state; we only mount and, on tab-leave (setTab), destroy.
+  setPlainEl(el) {
+    if (!el || this._plainEl === el) return;   // same container across re-renders — already mounted
+    this._plainEl = el;
+    el.innerHTML = '';
+    try {
+      const P = window.EO && window.EO.plain;
+      if (!P) { el.innerHTML = '<div style="padding:22px;color:#8A8A95;font-size:13px">The plain surface is not available.</div>'; return; }
+      let live = null;
+      try { live = P.liveModel(this._app); } catch { live = null; }
+      this._plain = P.mount(el, { scene: P.scene, live });
+    } catch (e) {
+      el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Plain failed to mount: ' + String((e && e.message) || e) + '</div>';
+    }
+  }
   setWebKind(kind) {
     if (!this._wg || this._wg.kind === kind) return;
     this._wg.kind = kind;                                   // the two graphs' node vocabularies differ,
@@ -5434,7 +6288,17 @@ class Component extends DCLogic {
   }
   zoomIn() { this.setState({ scale: Math.min(2.2, this.state.scale * 1.15), camT: 'transform .18s ease' }); }
   zoomOut() { this.setState({ scale: Math.max(.35, this.state.scale * .87), camT: 'transform .18s ease' }); }
-  fit() { this.setState({ tx: 40, ty: 30, scale: this._fitScale || 1, camT: 'transform .22s ease' }); }
+  // Frame the whole graph, centred, with a little breathing room — scaled to fit both axes but
+  // never blown up past 100%. Falls back to the width-only fit if the content bounds aren't known.
+  fit() {
+    const c = this._content, vp = this._vp;
+    if (!c || !vp) { this.setState({ tx: 40, ty: 30, scale: this._fitScale || 1, camT: 'transform .22s ease' }); return; }
+    const pad = 44, vw = vp.clientWidth || 1200, vh = vp.clientHeight || 420;
+    const cw = Math.max(1, c.maxX - c.minX), ch = Math.max(1, c.maxY - c.minY);
+    const scale = Math.max(.35, Math.min(1, (vw - pad * 2) / cw, (vh - pad * 2) / ch));
+    const tx = (vw - cw * scale) / 2 - c.minX * scale, ty = (vh - ch * scale) / 2 - c.minY * scale;
+    this.setState({ tx, ty, scale, camT: 'transform .22s ease' });
+  }
   focusNode(id) { if (!this._panning) this.setState({ focusId: this.state.focusId === id ? null : id, rightOpen: true, ...(this._mob() ? { leftOpen: false } : {}) }); }
   hoverNode(id) { if (!this._panning && this.state.hoverId !== id) this.setState({ hoverId: id }); }
   clearFocus() { this.setState({ focusId: null, hideContra: false }); }
@@ -5462,6 +6326,20 @@ class Component extends DCLogic {
     return new Date(iso).toISOString().slice(0, 10);
   }
   _bytes(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'; }
+  // A content GENRE for a source — the explorer's kind-filter chips (Book/Article/Policy/Data/Media/
+  // Code) read genre, not the technical `kind` (web/file/audio/video/pasted). Inferred from the
+  // medium, the URL's extension, and the domain, so a chip can narrow a Drive without a classifier.
+  _genre(s) {
+    const url = String(s.url || ''); const dom = String(s.domain || ''); const title = String(s.title || '');
+    const path = url.split('?')[0];
+    if (s.kind === 'audio' || s.kind === 'video') return 'Media';
+    if (s.kind === 'code' || /\.(js|mjs|ts|tsx|jsx|py|rs|go|java|c|cc|cpp|h|rb|php|sh|sql)$/i.test(path)) return 'Code';
+    if (/\.(csv|tsv|json|jsonl|xlsx?|parquet|geojson)$/i.test(path) || /(^|\.)data\.gov|socrata|ckan|opendata/i.test(dom)) return 'Data';
+    if (/\.gov(\.|$)/i.test(dom) || /\b(policy|statute|regulation|ordinance|act|bill|directive)\b/i.test(title)) return 'Policy';
+    if (/gutenberg|\.epub$/i.test(path) || (s.kind === 'file' && (s.bytes || 0) > 400000)) return 'Book';
+    return 'Article';
+  }
+  _genres() { return ['Book', 'Article', 'Policy', 'Data', 'Media', 'Code']; }
   _stChip(status) {
     if (status === 'Contested') return { fg: '#B23A2E', bg: '#FBE9E6', bd: '#F2D3CD' };
     if (status === 'Uncited') return { fg: '#9A6B12', bg: '#FBF1DA', bd: '#EEDCA9' };
@@ -5472,6 +6350,37 @@ class Component extends DCLogic {
     if (status === 'Stated') return { fg: '#6E7787', bg: '#F2F2F6', bd: '#E4E4EA' };
     if (status === 'Promoted') return { fg: '#1E8A8A', bg: '#E7F6F4', bd: '#CFEBE7' };
     return { fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9' };
+  }
+  // A footer flag → a calm, plain-language chip. The pipeline names each caveat with an internal
+  // slug (`unbound-contact`, `assessment-negative`, …); shown raw, in monospace, they read as debug
+  // output. Here the slug becomes a short human phrase, the flag's own sentence rides as the hover
+  // title, and the tone is muted — a red note only for the ones that actually contest the answer,
+  // green for a positive corroboration, a soft amber for everything else. An unknown slug degrades
+  // to its de-slugged words, so a new flag is legible before it is ever named here.
+  _flagChip(f) {
+    const LABEL = {
+      unbound: 'not traced to your record',
+      'unbound-contact': 'only loosely related to your record',
+      'low-coverage': 'thinly sourced',
+      'ground-dropped': 'some unsourced lines left out',
+      'grounding-incomplete': 'grounding check didn’t finish',
+      'factcheck-limited': 'claims not fully checked',
+      'assessment-negative': 'it doubted its own draft',
+      'assessment-revised': 'answered again after a second look',
+      'self-echo': 'echoes my earlier words',
+      'self-corrected': 'noted a correction',
+      'single-source': 'rests on a single source',
+      corroborated: 'independently corroborated',
+      contradicted: 'contradicts your record',
+      unverified: 'unverified draft',
+    };
+    const id = String(f.id || '');
+    const positive = id === 'corroborated' || id === 'assessment-revised';
+    const serious = /contradic|unbound|assessment-negative/.test(id);
+    const tone = positive ? { fg: '#1E8A50', bg: '#E7F6EC', bd: '#CFEBD9' }
+      : serious ? { fg: '#B0463B', bg: '#FBEEEC', bd: '#F1D8D3' }
+      : { fg: '#9A7327', bg: '#FBF6EA', bd: '#ECDFC4' };
+    return { id, label: LABEL[id] || id.replace(/[-_]/g, ' '), title: f.note || '', ...tone };
   }
   // A stable highlighter colour per source (S1, S2, …) so a span's wash, its citation chip, and its
   // footer swatch all read as the SAME source across the whole answer. Hue is picked off the source's
@@ -5562,7 +6471,7 @@ class Component extends DCLogic {
     // provenance cue that rides in EVERY mode (Links on or off, chat or long-form), so an
     // ungrounded fact is disclosed as an underline and never reads as sourced. The literal
     // tag is dropped in favour of the underline.
-    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#C99A3A;text-underline-offset:2px';
+    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#D8C298;text-decoration-thickness:1px;text-underline-offset:2px';
     const out = [];
     const push = (t, style) => { if (t) out.push({ isText: true, s: t, style: style || '' }); };
     // Emphasis parse for one run, with an optional base style layered under `code`/**bold**/*italic*.
@@ -5624,7 +6533,7 @@ class Component extends DCLogic {
   _markStyle(mk) {
     if (!mk) return '';
     const CODE = "font-family:'IBM Plex Mono',monospace;font-size:.92em;background:#EFEFF4;border-radius:4px;padding:.03em 4px";
-    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#C99A3A;text-underline-offset:2px';
+    const UNSOURCED = 'text-decoration:underline;text-decoration-style:wavy;text-decoration-color:#D8C298;text-decoration-thickness:1px;text-underline-offset:2px';
     const parts = [];
     if (mk.kind === 'code') parts.push(CODE);
     else if (mk.kind === 'strong') parts.push('font-weight:650');
@@ -5653,8 +6562,17 @@ class Component extends DCLogic {
     // inherits the emphasis, instead of a raw `*` bleeding through. Fallback: if the render membrane
     // is absent, style each text segment on its own (the old per-segment path).
     const mdMarks = this._render && this._render.inlineMdMarks;
+    const rawParas = this._app.answerSegments(m, { entities: hl, cites: hl, sources: hl });
+    // Does ANYTHING in this answer trace to a source? The warm "ungrounded" wash earns its ink only
+    // as a CONTRAST — a span reads warm because the ones beside it read cool (their source's hue). On
+    // a wholly-ungrounded answer there is no cool to contrast, so the wash just paints every word in
+    // one warm band: a full-paragraph highlight that buries the prose and repeats what the single
+    // "not grounded" note already says. So we wash ungrounded spans only when grounded text sits
+    // beside them; a grounded span always keeps its own hue.
+    const anyGrounded = hl && rawParas.some((p) => (p.segs || []).some((sg) => sg.gsn && wordful(sg.s)));
+    const groundOf = (gsn, isEnt) => (gsn || anyGrounded) ? this._groundStyle(gsn, isEnt) : '';
     let ungrounded = false;
-    const paras = this._app.answerSegments(m, { entities: hl, cites: hl, sources: hl }).map((p) => {
+    const paras = rawParas.map((p) => {
       const segsIn = p.segs.slice();
       let blk = { style: 'margin:0 0 10px', hasPrefix: false, prefix: '', cut: 0 };
       if (segsIn[0] && segsIn[0].t === 'text') {
@@ -5671,13 +6589,13 @@ class Component extends DCLogic {
             ? plan.pieces[si].map((pc) => ({ isText: true, s: pc.s, style: this._markStyle(pc) }))
             : this._inlineMd(sg.s);
           for (const piece of pieces) {
-            const gs = (hl && wordful(piece.s)) ? this._groundStyle(sg.gsn) : '';
+            const gs = (hl && wordful(piece.s)) ? groundOf(sg.gsn) : '';
             piece.style = join(piece.style, gs);
             segs.push(piece);
           }
         } else if (sg.t === 'ent') {
           const em = plan ? this._markStyle(plan.opaque[si]) : '';
-          segs.push({ isEnt: true, s: sg.s, hl: join(hl ? this._groundStyle(sg.gsn, true) : '', em), open: () => this.openEntity(sg.docId, sg.entId) });
+          segs.push({ isEnt: true, s: sg.s, hl: join(hl ? groundOf(sg.gsn, true) : '', em), open: () => this.openEntity(sg.docId, sg.entId) });
         } else {
           const cc = hl ? this._sourceColor(sg.sn) : null;
           segs.push({ isCite: true, label: '[' + (sg.reg || 's' + sg.idx) + ']', quote: sg.quote || '', cfg: cc ? cc.fg : '#5B4BE6', cbg: cc ? cc.chipBg : '#F1EFFE', open: () => this.openViewer(sg.sn, sg.quote) });
@@ -5685,7 +6603,7 @@ class Component extends DCLogic {
       }
       return { style: blk.style, hasPrefix: blk.hasPrefix, prefix: blk.prefix, segs };
     });
-    this._segCache[m.id] = { len: (m.text || '').length, paras, ungrounded };
+    this._segCache[m.id] = { len: (m.text || '').length, paras, ungrounded, hasGrounded: anyGrounded };
     return paras;
   }
   // The chat's facing page for ONE answer, two leaves in one pane. The VERBATIM leaf leads —
@@ -5754,47 +6672,63 @@ class Component extends DCLogic {
 
   // ── the graph layout (honest, dynamic) ───────────────────────────────────
   _layout(prov, open = {}) {
-    const LX = [40, 330, 640, 950, 1230];
-    const W = [240, 260, 260, 230, 190];
+    const Wk = { memo: 240, claim: 260, passage: 260, source: 230, file: 190 };
     const H = { memo: 100, claim: 96, passage: 110, source: 88, file: 70 };
-    const HEADER_H = 40, HEAD_GAP = 12, GAP = 22;
+    const COLGAP = 70, HEADER_H = 40, HEAD_GAP = 12, GAP = 22;
     const pos = {};
     prov.nodes.memo._nid = 'M1';
     prov.nodes.claims.forEach((c) => c._nid = c.id);
     prov.nodes.passages.forEach((p) => p._nid = p.id);
     prov.nodes.sources.forEach((s) => s._nid = s.sn);
     prov.nodes.files.forEach((f) => f._nid = f.id);
-    // The memo is the single root card (col 0) — always shown, vertically centred below.
-    pos.M1 = { x: LX[0], y: 40, w: W[0], h: H.memo };
     // The four collapsible tiers: a fold header sits at each column's top, and its cards
     // stack below ONLY when the tier is open. A collapsed tier's cards fold into the header
     // (they share its position) so edges into/out of the group route to the header, not to
     // scattered points, and are not drawn as cards.
     const tiers = [
-      ['claim', 1, prov.nodes.claims, H.claim],
-      ['passage', 2, prov.nodes.passages, H.passage],
-      ['source', 3, prov.nodes.sources, H.source],
-      ['file', 4, prov.nodes.files, H.file],
+      ['claim', prov.nodes.claims, H.claim],
+      ['passage', prov.nodes.passages, H.passage],
+      ['source', prov.nodes.sources, H.source],
+      ['file', prov.nodes.files, H.file],
     ];
+    // Only the memo and the NON-EMPTY tiers take a column, laid out left→right — an empty claim or
+    // passage tier never reserves a gap, so a sources-only graph sits right beside the topic node
+    // instead of stranded columns apart. (Fit + auto-frame then centre whatever this comes to.)
+    const colX = {}; let x = 40;
+    colX.memo = x; x += Wk.memo + COLGAP;
+    for (const [key, list] of tiers) if (list.length) { colX[key] = x; x += Wk[key] + COLGAP; }
+    const canvasW = Math.max(x - COLGAP + 60, 600);
+    // The memo is the single root card (col 0) — always shown, vertically centred below.
+    pos.M1 = { x: colX.memo, y: 40, w: Wk.memo, h: H.memo };
     let colBottom = 40 + H.memo;
-    for (const [key, col, list, h] of tiers) {
+    for (const [key, list, h] of tiers) {
       if (!list.length) continue;
-      const hid = 'H_' + key;
+      const hid = 'H_' + key, cx = colX[key], w = Wk[key];
       let y = 40;
-      pos[hid] = { x: LX[col], y, w: W[col], h: HEADER_H };
+      pos[hid] = { x: cx, y, w, h: HEADER_H };
       y += HEADER_H;
       if (open[key]) {
         y += HEAD_GAP;
-        for (const n of list) { pos[n._nid] = { x: LX[col], y, w: W[col], h }; y += h + GAP; }
+        for (const n of list) { pos[n._nid] = { x: cx, y, w, h }; y += h + GAP; }
       } else {
         for (const n of list) pos[n._nid] = pos[hid];
       }
       colBottom = Math.max(colBottom, y);
     }
     const canvasH = Math.max(colBottom, 420) + 40;
-    pos.M1.y = Math.max(40, canvasH / 2 - H.memo / 2 - 20);
-    const canvasW = LX[4] + W[4] + 60;
+    // Centre the memo against the ACTUAL content height (colBottom), not the padded canvas: when the
+    // tiers are collapsed the content is short, so the memo sits level with the headers in one clean
+    // TOPIC → … row; when a tier is expanded into a tall column, the memo rides its middle.
+    pos.M1.y = Math.max(40, colBottom / 2 - H.memo / 2 - 20);
     this._fitScale = Math.min(1, (this._vp ? this._vp.clientWidth - 80 : 1200) / canvasW);
+    // The actual bounding box of what's on screen (collapsed cards fold into their header, so
+    // they don't widen it) — fit() frames THIS, not the reserved canvas, so an empty file column
+    // or a half-used width never leaves the graph stranded in a corner.
+    const b = Object.values(pos).reduce((a, p) => ({
+      minX: Math.min(a.minX, p.x), minY: Math.min(a.minY, p.y),
+      maxX: Math.max(a.maxX, p.x + p.w), maxY: Math.max(a.maxY, p.y + p.h),
+    }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+    this._content = Number.isFinite(b.minX) ? b : null;
     return { pos, canvasW, canvasH };
   }
   _edgePath(a, b) {
@@ -5851,107 +6785,79 @@ class Component extends DCLogic {
     };
   }
 
-  // ── the real-time murmur strip, rendered in native EOT ──────────────────────────────────────────
-  // Built imperatively into the ref'd container (like the Listen transcript) so the fade-out→swap→
-  // fade-in lifecycle is ours, not React's per-poke reconcile. It is ONE LINE showing ONE thought —
-  // the most-salient event's tuple (glyph OP site(s) · res) beside the prose mutter it re-voices; the
-  // line changes only when the sense actually surfaces a new event (a fold, a wander mutter), never
-  // on an invented timer. NOTHING here is fabricated: the op/sites/res and the text all come straight
-  // off m.state().voice (the read side-channel, §9.4); the surface only paints them.
-  _murmurStripModel() {
-    const m = this._murmur;
-    let voice = [];
-    if (m) { try { const s = m.state ? m.state() : null; if (s && Array.isArray(s.voice)) voice = s.voice; } catch { /* the strip must never break the surface */ } }
-    const lead = (voice || []).find((t) => t && t.text);   // the single most-salient thought — one line
-    if (lead) return {
-      op: (lead.op && this._mmGlyph[lead.op]) ? lead.op : 'NUL',
-      text: String(lead.text),
-      register: lead.register || null,
-      fg: (lead.register && this._mmInk[lead.register]) || '#2a2d36',
-      tupleHtml: this._murmurTuple(lead),
+  // ── the real-time murmur strip, a night-sky band of drifting thought-motes ──────────────────────
+  // The rendering lives in EoMurmurStrip (a self-contained canvas controller, defined beside this
+  // component); the surface's job is only to (a) MAP the murmur snapshot to motes and (b) own the
+  // controller's lifecycle. NOTHING here is fabricated: text/register/sites/surprise all come straight
+  // off m.state() (the read side-channel §9.4); the strip only animates them — a voicing, never a fact.
+
+  // _mmTokensFrom(state) → the motes for this snapshot. Each real voiced thought { text, register, op,
+  // sites, res } becomes one token: its register picks the tint (and a short gloss NAMING the feeling —
+  // the sense's own state, not a claim), its live intensity (else the reading's novelty) is the surprise,
+  // and its native-EOT tuple rides along as the card's `sources` line so the EOT identity is preserved.
+  _mmTokensFrom(state) {
+    let s = state || this._mmLastState;
+    if (!s && this._murmur && this._murmur.state) { try { s = this._murmur.state(); } catch { s = null; } }
+    const voice = (s && Array.isArray(s.voice)) ? s.voice.filter((t) => t && t.text) : [];
+    const sig = (s && s.signal) ? s.signal : null;
+    const novelty = (sig && typeof sig.novelty === 'number') ? sig.novelty : null;
+    const inten = (reg) => {
+      if (!reg || !s || !Array.isArray(s.impressions)) return 0;
+      const h = s.impressions.find((i) => i && i.register === reg && typeof i.decayedIntensity === 'number');
+      return h ? h.decayedIntensity : 0;
     };
-    // before the first fold (or a broken read) — a real NUL hold, never a blank strip.
-    const idle = { op: 'NUL', sites: [{ hash: 'r#000', grain: 0 }], res: { band: 'void', p: 0.08 } };
-    return { op: 'NUL', text: 'resting — the reading is still, and nothing has stirred me yet', register: null, fg: '#9aa0ad', tupleHtml: this._murmurTuple(idle) };
+    return voice.map((t) => {
+      const reg = t.register || null;
+      // surprise is REAL — the feeling's live intensity for this register, else the reading's novelty.
+      const surprise = Math.max(0, Math.min(1,
+        reg ? Math.max(inten(reg), novelty != null ? novelty * 0.7 : 0)
+            : (novelty != null ? novelty * 0.5 : 0.14)));
+      const op = (t.op && this._mmGlyph[t.op]) ? t.op : 'NUL';
+      return {
+        text: String(t.text),
+        tag: reg || (t.op === 'NUL' ? 'resting' : 'reading'),
+        color: (reg && this._mmInk[reg]) || '#8A8A95',
+        surprise,
+        glyph: this._mmGlyph[op] || '·',   // the op glyph — the console line's level marker
+        note: reg ? (this._mmGloss[reg] || '') : '',
+        sources: this._mmTupleText(t),
+      };
+    });
   }
 
-  // Render one native-EOT tuple to HTML: `glyph OP site(s) · res`. CON draws its two argument sites
-  // bound by ⋈ (the central bond); SYN draws the promotion r#x@g → r#x@g+1; every other op draws its
-  // single site. Mirrors src/core/event.js siteNotation / the tiered-graph legend, so a strip event
-  // and a graph edge never disagree on a mark.
-  _murmurTuple(evt) {
-    const G = this._mmGlyph, esc = (s) => this._escHtml(s);
+  // The native-EOT tuple as compact PLAIN TEXT: `glyph OP site(s) · band p`. CON binds its two sites
+  // with ⋈ (the central bond); SYN shows the promotion r#x@g → r#x@g+1; every other op draws its single
+  // site. Mirrors src/core/event.js siteNotation, so a card and a graph edge never disagree on a mark.
+  _mmTupleText(evt) {
+    const G = this._mmGlyph;
     const op = (evt && evt.op && G[evt.op]) ? evt.op : 'NUL';
     const S = (evt && Array.isArray(evt.sites)) ? evt.sites : [];
-    const siteStr = (s) => {
-      if (!s || !s.hash) return '<span class="eo-mm-hash">r#000</span>@<span class="eo-mm-grain">0</span>';
-      const inner = '<span class="eo-mm-hash">' + esc(s.hash) + '</span>@<span class="eo-mm-grain">' + (s.grain | 0) + '</span>';
-      return s.holder ? '<span class="eo-mm-holder">' + esc(s.holder) + '</span><span class="eo-mm-sep">·</span>' + inner : inner;
-    };
+    const site = (x) => (!x || !x.hash) ? 'r#000@0' : ((x.holder ? x.holder + '·' : '') + x.hash + '@' + (x.grain | 0));
     let sites;
-    if (op === 'CON' && S.length >= 2) {
-      sites = '<span class="eo-mm-site">' + siteStr(S[0]) + '<span class="eo-mm-sep">⋈</span>' + siteStr(S[1]) + '</span>';
-    } else if (op === 'SYN' && S[0]) {
-      const s = S[0], promoted = { hash: s.hash, grain: (s.grain | 0) + 1 };
-      sites = '<span class="eo-mm-site">' + siteStr(s) + '<span class="eo-mm-arrow">→</span>' + siteStr(promoted) + '</span>';
-    } else {
-      sites = '<span class="eo-mm-site">' + siteStr(S[0]) + '</span>';
-    }
+    if (op === 'CON' && S.length >= 2) sites = site(S[0]) + ' ⋈ ' + site(S[1]);
+    else if (op === 'SYN' && S[0]) sites = site(S[0]) + ' → ' + site({ hash: S[0].hash, grain: (S[0].grain | 0) + 1 });
+    else sites = site(S[0]);
     const band = (evt && evt.res && evt.res.band === 'firm') ? 'firm' : 'void';
     const p = (evt && evt.res && typeof evt.res.p === 'number') ? evt.res.p.toFixed(2) : '0.10';
-    const res = '<span class="eo-mm-res"><span class="eo-mm-band-' + band + '">' + band + '</span> <span class="eo-mm-p">' + p + '</span></span>';
-    return '<span class="eo-mm-glyph">' + (G[op] || '·') + '</span><span class="eo-mm-op">' + esc(op) + '</span>' + sites + res;
+    return (G[op] || '·') + ' ' + op + ' ' + sites + ' · ' + band + ' ' + p;
   }
 
+  // The container ref. React churns callback refs — a fresh `setMurmurStrip` arrow each renderVals
+  // means React calls this with null then the SAME node on every poke. So we IGNORE null (the strip's
+  // RAF loop self-stops when the node truly leaves the DOM — nothing murmurs unseen), REUSE the
+  // controller already built into a node, and build a fresh one only for a genuinely new node (mode
+  // toggled back on ⇒ a new sc-if node).
   setMurmurStrip(el) {
     if (!el) return;
-    // build the skeleton once — React renders only the empty shell; the contents are ours to keep.
-    if (!el.__eoMmBuilt) {
-      el.__eoMmBuilt = true;
-      el.innerHTML =
-        '<span class="eo-mm-mark">MURMUR</span>' +
-        '<div class="eo-mm-row"><div class="eo-mm-tuple"></div></div>' +
-        '<button class="eo-mm-x" title="Hide the murmur strip — turn it back on in Settings" aria-label="Hide the murmur strip">' +
-        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
-      el.__eoMmTuple = el.querySelector('.eo-mm-tuple');
-      const x = el.querySelector('.eo-mm-x');
-      if (x) x.addEventListener('click', () => this.toggleMurmur());
-      el.__eoMmSig = null; el.__eoMmFade = null;
-    }
-    const entry = this._murmurStripModel();
-    const sig = entry.op + '|' + entry.text;
-    if (el.__eoMmSig === sig) return;          // no new impression — leave the current line be
-    const firstEver = el.__eoMmSig === null;
-    el.__eoMmSig = sig;
-    this._mmShow(el, entry, firstEver);        // a fresh impression fades the one line over
-  }
-
-  // Paint the one line: fade the tuple out, swap, fade back in — the raw op(site·res) tuple, the
-  // inner monologue's own notation, never prose. Instant on first paint and under prefers-reduced-motion.
-  // A pending fade is cancelled if a newer event arrives mid-swap.
-  _mmShow(el, entry, instant) {
-    if (!el || !entry || !el.__eoMmTuple) return;
-    if (el.__eoMmFade) { clearTimeout(el.__eoMmFade); el.__eoMmFade = null; }
-    const apply = () => {
-      el.setAttribute('data-op', entry.op);
-      el.__eoMmTuple.setAttribute('data-op', entry.op);
-      el.__eoMmTuple.innerHTML = entry.tupleHtml;
-    };
-    const reduce = this._rmq && this._rmq.matches;
-    if (instant || reduce) {
-      apply();
-      el.__eoMmTuple.classList.remove('eo-mm-fading');
-      return;
-    }
-    el.__eoMmTuple.classList.add('eo-mm-fading');
-    el.__eoMmFade = window.setTimeout(() => {
-      el.__eoMmFade = null;
-      if (!el.isConnected) return;
-      apply();
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        el.__eoMmTuple.classList.remove('eo-mm-fading');
-      }));
-    }, 150);
+    if (el.__eoMmStrip) { this._mmStrip = el.__eoMmStrip; return; }   // reuse — no rebuild on churn
+    if (this._mmStrip && this._mmStrip.el !== el) { try { this._mmStrip.destroy(); } catch { /* ignore */ } }
+    this._mmStrip = new EoMurmurStrip(el, {
+      accent: '#8b7bff',
+      reduceMotion: () => this._reduceMotion(),
+      onHide: () => this.toggleMurmur(),        // the strip's × → 'off' (hide == off, nothing unseen)
+    });
+    // seed from the last snapshot (or a fresh read) so a late-mounting strip paints immediately.
+    this._mmStrip.feed(this._mmTokensFrom(this._mmLastState));
   }
 
   _versionVals() {
@@ -6060,6 +6966,7 @@ class Component extends DCLogic {
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
+        mainDisplay: 'flex', rightWidth: '340px', rightFlex: '0 0 auto', rightBorder: '1px solid #EAEAEF', rightBodyPad: '14px 16px', rightBodyMax: 'none', rightBodyMargin: '0',
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals() };
     }
@@ -6267,7 +7174,7 @@ class Component extends DCLogic {
       title: busy ? busy.label : m.state === 'loading' ? `Loading ${m.backend}… ${Math.round((m.progress || 0) * 100)}%` : generating ? 'Phrasing from the record…' : 'Idle · monitoring',
       sub: lastLog ? lastLog.text : 'Nothing recorded yet',
       chip: m.state === 'ready' ? m.backend : `${sources.length} src`,
-      summary: `${findings.stats.claims} claims · ${findings.stats.contradictions} conflicts`,
+      summary: `${findings.stats.claims} claims · ${findings.stats.contradictions + (findings.stats.sourceConflicts || 0)} conflicts`,
     };
     const statusColor = m.state === 'error' ? '#B23A2E' : (busy || generating || m.state === 'loading') ? '#C79A3A' : '#59C08A';
     const LOGC = { record: '#59C08A', hash: '#59C08A', eot: '#6D5EF5', claim: '#6D5EF5', conflict: '#B23A2E', search: '#C79A3A', open: '#8A8A95', skip: '#B4B4BE', reflection: '#7B4FD6', learning: '#7B4FD6' };
@@ -6276,10 +7183,10 @@ class Component extends DCLogic {
     }));
 
     // tabs
-    // Ask leads; the conversational Chat is demoted behind it and carries a "beta" pill —
-    // the record surface (ask → a typed, cited answer) is the posture, chat the exception.
+    // Search leads (docs/search-and-pins.md): the record is searched, not conversed with;
+    // the question line inside Search is the fallback for what it hasn't pre-answered.
     const pinCount = (this._app && this._app.pins) ? this._app.pins().length : 0;
-    const tabDefs = [['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false], ['register', 'Sources', sources.length || null, false], ['memo', 'Memo', (topic && topic.memo) ? 1 : null, false]];
+    const tabDefs = [['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false], ['register', 'Home', sources.length || null, false], ['memo', 'Memo', (topic && topic.memo) ? 1 : null, false], ['plain', 'Plain', null, true]];
     const tabs = tabDefs.map(([id, label, count, beta]) => ({
       label, count: String(count || ''), hasCount: count != null, beta: !!beta,
       fg: st.tab === id ? '#1B1B22' : '#8A8A95', weight: st.tab === id ? 650 : 500,
@@ -6288,9 +7195,15 @@ class Component extends DCLogic {
       select: () => this.setTab(id),
     }));
     const contradictions = findings.stats.contradictions;
-    const hasFlagLine = findings.stats.claims > 0;
-    const flagLine = contradictions > 0 ? `${contradictions} contradiction${contradictions === 1 ? '' : 's'}` : 'no conflicts on record';
-    const [flagFg, flagBg, flagBd] = contradictions > 0 ? ['#B23A2E', '#FBE9E6', '#F2D3CD'] : ['#1E8A50', '#E7F6EC', '#CFEBD9'];
+    // Two kinds feed the flag: answer-vs-source contradictions AND source-vs-source
+    // conflicts (the record contesting itself). The green copy says "detected", not "on
+    // record" — the pass reports what it FOUND; a clean pass is "none found", never a
+    // claim that none exist (relation-types.js: "no conflict" ≠ "consistent").
+    const sourceConflictN = findings.stats.sourceConflicts || 0;
+    const flagN = contradictions + sourceConflictN;
+    const hasFlagLine = findings.stats.claims > 0 || sourceConflictN > 0;
+    const flagLine = flagN > 0 ? `${flagN} conflict${flagN === 1 ? '' : 's'}` : 'no conflicts detected';
+    const [flagFg, flagBg, flagBd] = flagN > 0 ? ['#B23A2E', '#FBE9E6', '#F2D3CD'] : ['#1E8A50', '#E7F6EC', '#CFEBD9'];
 
     // chat messages
     const msgs = (topic ? topic.messages : []);
@@ -6318,10 +7231,11 @@ class Component extends DCLogic {
       });
       // 'unverified' rides as a full banner above the body (a stopped/stalled draft the grounding
       // pipeline never checked), so it does not also need a cryptic footer chip — drop it here.
-      const flagChips = (mm.flags || []).filter((f) => (f.id !== 'low-coverage' || !cites.length) && f.id !== 'unverified').map((f) => ({
-        label: f.id, fg: /contradic|unbound|assessment-negative/.test(f.id) ? '#B23A2E' : '#9A6B12',
-        bg: /contradic|unbound|assessment-negative/.test(f.id) ? '#FBE9E6' : '#FBF1DA', bd: /contradic|unbound|assessment-negative/.test(f.id) ? '#F2D3CD' : '#EEDCA9',
-      }));
+      const flagChips = (mm.flags || []).filter((f) => (f.id !== 'low-coverage' || !cites.length) && f.id !== 'unverified').map((f) => this._flagChip(f));
+      // The standalone "ungrounded" wash-legend is redundant when a flag already tells the reader the
+      // answer isn't sourced — one calm note beats two saying the same thing. Drop it in that case.
+      const groundFlagShown = flagChips.some((f) => /unbound|low-coverage|ground-dropped/.test(f.id));
+      const showUngroundedChip = hasUngrounded && !groundFlagShown;
       const loading = app.state.model.state === 'loading';
       // the research trail — the live "what am I researching / thinking" stream (app.js beats)
       const tr = mm.research;
@@ -6339,9 +7253,17 @@ class Component extends DCLogic {
         // A "Folded the reading" beat carries the surfer's reading PATH (app.js foldBeat) — render
         // it as the auditable walk: each cursor it arrested on, its surprise, and what it read.
         const surf = (s.surf && Array.isArray(s.surf.path) && s.surf.path.length) ? this._surfAudit(s.surf) : null;
+        // The verbose trace: every stage's flattened data rides as `detail` rows, and the `prompt`
+        // stage carries the grounded prompt VERBATIM (fold-narrative.js). Both open on demand, so a
+        // reader can watch exactly what the app read and what it built — the prompt live, not after.
+        const detail = (Array.isArray(s.detail) ? s.detail : [])
+          .map((r) => ({ label: String((r && r.label) || ''), value: String(r && r.value != null ? r.value : '') }))
+          .filter((r) => r.label);
+        const promptText = typeof s.prompt === 'string' ? s.prompt : '';
         return {
           glyph: st.glyph, fg: st.fg, text: s.text, hasSources: sources.length > 0, sources,
           hasSurf: !!surf, surfStops: surf ? surf.stops : [], surfMeta: surf ? surf.meta : '', surfHasMeta: !!(surf && surf.hasMeta),
+          hasDetail: detail.length > 0, detail, hasPrompt: !!promptText, promptText,
         };
       });
       const trailRunning = !!tr && !tr.done;
@@ -6373,7 +7295,7 @@ class Component extends DCLogic {
         badge: mm.grounded ? 'grounded' : (mm.route === 'error' ? 'error' : mm.unbound ? 'unbound' : mm.route || ''),
         badgeFg: mm.grounded ? '#1E8A50' : '#9A6B12', badgeBg: mm.grounded ? '#E7F6EC' : '#FBF1DA',
         hasCites: finished && cites.length > 0, cites,
-        hasProvRow: finished && (cites.length > 0 || hasUngrounded), hasUngroundedChip: hasUngrounded,
+        hasProvRow: finished && (cites.length > 0 || showUngroundedChip), hasUngroundedChip: showUngroundedChip,
         hasFlags: finished && flagChips.length > 0, flagChips,
         hasProposal: finished && !!mm.webProposal, proposalQ: mm.webProposal ? mm.webProposal.query : '',
         runProposal: () => this.runSearch(mm.webProposal.query),
@@ -6393,7 +7315,7 @@ class Component extends DCLogic {
     ];
 
     // ── ask surface ──────────────────────────────────────────────────────────
-    // The Ask tab shows the LATEST exchange as one typed, cited surface (not a thread):
+    // The Search tab shows the LATEST exchange as one typed, cited surface (not a thread):
     // the last answer classified by _askKind, over the same message view-model the chat
     // uses (so paras / cites / trail / facing are rendered identically). Asking again
     // replaces the surface — the record is engaged one question at a time.
@@ -6443,26 +7365,288 @@ class Component extends DCLogic {
         pin: () => this._pinClaim(c),
       };
     });
+    // The source-vs-source disagreements, shaped for the Findings "Where the sources
+    // disagree" panel — each measure the record reports two ways, with every witnessing
+    // figure clickable to its verbatim passage. This is the source-conflict lens: it
+    // shows whether the RECORD contests itself, independent of any answer having been asked.
+    const fmtAmt = (v, unit) => {
+      const n = Number(v);
+      const s = Number.isFinite(n) ? n.toLocaleString('en-US') : String(v);
+      if (unit === 'USD') return `$${s}`;
+      return (unit && !['homes', 'jobs', 'acres'].includes(unit)) ? `${s} ${unit}` : s;
+    };
+    const sourceConflicts = (findings.sourceConflicts || []).map((x) => ({
+      measure: x.measureLabel || x.measure,
+      subject: x.subject || '—',
+      values: (x.values || []).map((v) => {
+        const src = app.sourceBySn(v.source) || {};
+        return {
+          amount: fmtAmt(v.value, v.unit),
+          srcReg: src.reg || String(v.source || ''),
+          text: String(v.text || '').trim(),
+          open: () => v.source && this.openViewer(v.source, v.text),
+        };
+      }),
+    }));
+    const hasSourceConflicts = sourceConflicts.length > 0;
+    const sourceConflictNote = hasSourceConflicts
+      ? `${sourceConflicts.length} measure${sourceConflicts.length === 1 ? '' : 's'} reported two ways`
+      : '';
     const overviewStats = [
       { value: String(findings.stats.claims), label: 'claims', color: '#6D5EF5' },
       { value: String(findings.stats.passages), label: 'verbatim passages', color: '#C79A3A' },
       { value: String(findings.stats.sources), label: 'sources on record', color: '#6E7787' },
-      { value: String(contradictions), label: 'contradictions', color: contradictions ? '#B23A2E' : '#1E8A50' },
+      { value: String(flagN), label: 'contradictions', color: flagN ? '#B23A2E' : '#1E8A50' },
     ];
 
-    // sources register
+    // ── source explorer — the Sources tab is a Drive (folders + files) ──────────
+    // A workspace's whole library organises into a navigable folder tree. The hero shows the
+    // folder you're standing in — its sub-folders as cards, its filed sources as rows — with a
+    // breadcrumb back to the root, so a great deal of content stays legible on any screen.
+    // Grounding is untouched: folders are organisation only, topicSources still scopes answers.
     const citeCounts = {};
     for (const t of app.state.topics) for (const mm of t.messages) for (const c of (mm.cites || [])) if (c.sn) citeCounts[c.sn] = (citeCounts[c.sn] || 0) + 1;
-    const regRows = sources.map((s) => {
-      const r = this._rights(s);
+
+    const wsFolders = app.workspaceFolders();
+    const wsFolderIds = new Set(wsFolders.map((f) => f.id));
+    // The open folder, validated against the active workspace — a stale/deleted id falls back to
+    // the root here (read-only; the click handlers are what actually commit a navigation).
+    const curFolderId = (st.explorerFolder && wsFolderIds.has(st.explorerFolder)) ? st.explorerFolder : null;
+    const driveSources = app.workspaceSources();
+    const sameFolder = (a, b) => (a || null) === (b || null);
+    const foldersInOf = (pid) => wsFolders.filter((f) => sameFolder(f.parentId, pid));
+    const filesInOf = (pid) => driveSources.filter((s) => sameFolder(s.folderId, pid));
+    // total nested tallies so a folder card can hint how much lives beneath it (Drive-like)
+    const tallyOf = (pid) => {
+      let folders = 0, files = filesInOf(pid).length;
+      for (const f of foldersInOf(pid)) { folders += 1; const sub = tallyOf(f.id); folders += sub.folders; files += sub.files; }
+      return { folders, files };
+    };
+
+    // breadcrumb: the workspace (drive root) › … › the open folder
+    const crumbChain = curFolderId ? app.folderPath(curFolderId) : [];
+    const rawCrumbs = [
+      { name: app.activeWorkspace() ? app.activeWorkspace().name : 'Drive', id: null },
+      ...crumbChain.map((f) => ({ name: f.name, id: f.id })),
+    ];
+    const explorerCrumbs = rawCrumbs.map((c, i) => ({
+      name: c.name, notFirst: i > 0, isLast: i === rawCrumbs.length - 1, notLast: i !== rawCrumbs.length - 1,
+      go: () => this.setState({ explorerFolder: c.id, explorerMenu: null }),
+    }));
+
+    // sub-folders in the open folder — cards you tap to descend
+    const explorerFolders = foldersInOf(curFolderId).map((f) => {
+      const t = tallyOf(f.id);
+      const parts = [];
+      if (t.folders) parts.push(`${t.folders} folder${t.folders === 1 ? '' : 's'}`);
+      parts.push(`${t.files} file${t.files === 1 ? '' : 's'}`);
       return {
-        reg: s.reg, title: s.title, domain: s.domain, kind: s.kind, ents: s.entCount == null ? '…' : String(s.entCount),
-        entsNoun: (app.sourceBaseNoun ? app.sourceBaseNoun(s.sn) : 'Entities').toLowerCase(),
-        retrieved: this._ago(s.retrieved), sha: s.sha.replace(/^[^:]*:/, '').slice(0, 12), bytes: this._bytes(s.bytes),
-        rights: r.label, rightsFg: r.fg, rightsBg: r.bg, cites: String(citeCounts[s.sn] || 0),
-        open: () => this.openViewer(s.sn),
+        id: f.id, name: f.name, meta: parts.join(' · '),
+        open: () => this.setState({ explorerFolder: f.id, explorerMenu: null }),
+        menuOpen: st.explorerMenu === 'f:' + f.id,
+        menuClick: () => this.setState({ explorerMenu: st.explorerMenu === 'f:' + f.id ? null : 'f:' + f.id }),
+        doRename: () => { const v = prompt('Rename folder', f.name); if (v) app.folderRename(f.id, v); this.setState({ explorerMenu: null }); },
+        doMove: () => this.setState({ moveTarget: { kind: 'folder', id: f.id }, explorerMenu: null }),
+        doDelete: () => { if (confirm(`Delete folder “${f.name}”? Its contents rise to the parent — nothing recorded is lost.`)) app.folderDelete(f.id); this.setState({ explorerMenu: null }); },
       };
     });
+
+    // files (top-level sources) filed in the open folder
+    let exFavI = 0;
+    const explorerFiles = filesInOf(curFolderId).map((s) => {
+      const fav = FAV[exFavI++ % FAV.length];
+      const r = this._rights(s);
+      const cites = citeCounts[s.sn] || 0;
+      return {
+        sn: s.sn, title: s.title,
+        sub: `${s.reg} · ${s.domain} · ${s.kind} · ${this._bytes(s.bytes)}`,
+        favCh: (s.domain || s.title || '?')[0].toUpperCase(), favBg: fav[0], favFg: fav[1],
+        rights: r.label, rightsFg: r.fg, rightsBg: r.bg,
+        cites: String(cites), hasCites: cites > 0,
+        open: () => this.openViewer(s.sn),
+        menuOpen: st.explorerMenu === 's:' + s.sn,
+        menuClick: () => this.setState({ explorerMenu: st.explorerMenu === 's:' + s.sn ? null : 's:' + s.sn }),
+        doMove: () => this.setState({ moveTarget: { kind: 'source', id: s.sn }, explorerMenu: null }),
+        doRemove: () => { if (confirm(`Remove “${s.title}” from the record? This deletes the source and its readings.`)) app.removeSource(s.sn); this.setState({ explorerMenu: null }); },
+      };
+    });
+
+    const explorerHasFolders = explorerFolders.length > 0;
+    const explorerHasFiles = explorerFiles.length > 0;
+    const explorerEmpty = !explorerHasFolders && !explorerHasFiles;
+    const explorerAtRoot = !curFolderId;
+    const driveTally = tallyOf(null);
+    const explorerCount = `${driveTally.files} file${driveTally.files === 1 ? '' : 's'} · ${wsFolders.length} folder${wsFolders.length === 1 ? '' : 's'}`;
+    const explorerMenuOpen = !!st.explorerMenu;   // a transparent backdrop dismisses any open kebab
+    const closeExplorerMenu = () => this.setState({ explorerMenu: null });
+    const explorerNewFolder = () => { const v = prompt('New folder name', 'New folder'); if (v !== null) app.folderNew(v || 'New folder', { parentId: curFolderId }); this.setState({ explorerMenu: null }); };
+
+    // ══ SOURCE EXPLORER — the three-column home view ═══════════════════════════════════════════
+    // Left: Quick-Access shelves + the folder tree. Centre: a calm,
+    // paginated grid of source cards that search / kind-filter / sort narrow. Right: the Inspector —
+    // read & act on the selected source in place. Everything is a read-time projection of the Drive;
+    // the mutations (star, touch, add-to-corpus, move) live on the engine.
+    const drive = driveSources.filter((s) => !s.parentSn);      // top-level records only
+    const topicCorpus = app.topicSources().filter((s) => !s.parentSn);
+    const inCorpusIds = new Set(topicCorpus.map((s) => s.sn));
+    const touchedAt = (s) => s.openedAt || s.recordedAt || 0;
+    const whenLabel = (s) => (s.openedAt ? 'opened ' : 'added ') + this._ago(new Date(touchedAt(s)).toISOString());
+    const wsObj = app.activeWorkspace();
+    const wsName = wsObj ? wsObj.name : 'Workspace';
+    const bucket = st.explorerFolder ? 'folder' : (st.explorerBucket || 'all');
+    const bucketLabel = { recent: 'Recent', starred: 'Starred', topic: 'In topic corpus', all: 'All sources' }[bucket] || 'All sources';
+    const gotoBucket = (b) => () => this.setState({ explorerBucket: b, explorerFolder: null, explorerSel: null, explorerMenu: null, explorerShowAll: false });
+    const gotoFolder = (id) => () => this.setState({ explorerFolder: id, explorerBucket: null, explorerSel: null, explorerMenu: null, explorerShowAll: false });
+
+    // — a calm neutral placeholder swatch (the explorer stays monochrome; no per-source colour) —
+    const NFAV = ['#ECECEF', '#8A8A95'];
+    // — Quick Access shelves (hardcoded rows so each keeps its own icon; state drives the tint) —
+    const qaTint = (on) => ({ bg: on ? '#EFEFF2' : 'transparent', fg: on ? '#1B1B22' : '#5A5A64', wt: on ? '650' : '500' });
+    const qaRecent = qaTint(bucket === 'recent'), qaStarred = qaTint(bucket === 'starred'), qaTopic = qaTint(bucket === 'topic'), qaAll = qaTint(bucket === 'all');
+
+    // — the folder tree in the rail (nested, collapsible, with nested file tallies) —
+    const collapsedSet = new Set(st.explorerCollapsed || []);
+    const railKids = (pid) => wsFolders.filter((f) => sameFolder(f.parentId, pid)).sort((a, b) => a.name.localeCompare(b.name));
+    const exTree = [];
+    const walkTree = (pid, depth) => {
+      for (const f of railKids(pid)) {
+        const kids = railKids(f.id); const isCol = collapsedSet.has(f.id); const active = st.explorerFolder === f.id;
+        exTree.push({
+          id: f.id, name: f.name, indent: (8 + depth * 14) + 'px',
+          hasKids: kids.length > 0, arrow: kids.length ? (isCol ? '▸' : '▾') : '',
+          count: String(tallyOf(f.id).files),
+          fg: active ? '#1B1B22' : '#5A5A64', bg: active ? '#EFEFF2' : 'transparent', wt: active ? '650' : '500',
+          open: gotoFolder(f.id),
+          toggle: () => { const s = new Set(collapsedSet); s.has(f.id) ? s.delete(f.id) : s.add(f.id); this.setState({ explorerCollapsed: [...s] }); },
+        });
+        if (!isCol) walkTree(f.id, depth + 1);
+      }
+    };
+    walkTree(null, 0);
+
+    // — the working set for the centre grid: pick the shelf, then kind-filter → search → sort —
+    let baseSet;
+    if (bucket === 'folder') baseSet = filesInOf(curFolderId);
+    else if (bucket === 'recent') baseSet = [...drive].sort((a, b) => touchedAt(b) - touchedAt(a));
+    else if (bucket === 'starred') baseSet = drive.filter((s) => s.starred);
+    else if (bucket === 'topic') baseSet = topicCorpus;
+    else baseSet = drive;
+    let working = st.explorerKind ? baseSet.filter((s) => this._genre(s) === st.explorerKind) : baseSet.slice();
+    const q = String(st.explorerQuery || '').trim().toLowerCase();
+    if (q) working = working.filter((s) => (s.title || '').toLowerCase().includes(q) || (s.domain || '').toLowerCase().includes(q) || (s.text || '').slice(0, 4000).toLowerCase().includes(q));
+    const sortMode = st.explorerSort || 'name';
+    if (sortMode === 'name') working.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    else if (sortMode === 'recent') working.sort((a, b) => touchedAt(b) - touchedAt(a));
+    else if (sortMode === 'spans') working.sort((a, b) => (citeCounts[b.sn] || 0) - (citeCounts[a.sn] || 0));
+
+    // — sort + kind chips (state-driven tint) —
+    const chip = (on) => ({ fg: on ? '#fff' : '#5A5A64', bg: on ? '#2A2A32' : '#F2F2F6', bd: on ? '#2A2A32' : '#EAEAEF' });
+    const sortChips = [['name', 'NAME'], ['recent', 'RECENT'], ['spans', 'SPANS']].map(([k, lbl]) => {
+      const c = chip(sortMode === k); return { label: lbl, ...c, go: () => this.setState({ explorerSort: k }) };
+    });
+    const kindChips = [[null, 'All kinds'], ...this._genres().map((g) => [g, g])].map(([k, lbl]) => {
+      const c = chip((st.explorerKind || null) === k); return { label: lbl, ...c, go: () => this.setState({ explorerKind: k, explorerShowAll: false }) };
+    });
+
+    // — "Jump back in" — the two most-recently engaged sources —
+    const jumpBack = [...drive].sort((a, b) => touchedAt(b) - touchedAt(a)).slice(0, 2).map((s) => {
+      return { sn: s.sn, title: s.title, when: whenLabel(s), favBg: NFAV[0], favFg: NFAV[1], favCh: (s.domain || s.title || '?')[0].toUpperCase(),
+        go: () => { app.sourceTouch(s.sn); this.setState({ explorerSel: s.sn, inspectorTab: 'read' }); } };
+    });
+
+    // — the source cards themselves (virtualised: first 12, "show all" expands) —
+    const CARD_CAP = 12;
+    const shownN = st.explorerShowAll ? working.length : Math.min(working.length, CARD_CAP);
+    const cardSources = working.slice(0, shownN).map((s) => {
+      const genre = this._genre(s); const cites = citeCounts[s.sn] || 0;
+      return {
+        sn: s.sn, title: s.title, kindTag: genre.toUpperCase(),
+        sub: cites > 0 ? `${genre} · ${cites} span${cites === 1 ? '' : 's'}` : `${genre} · ${this._bytes(s.bytes)}`,
+        favCh: (s.domain || s.title || '?')[0].toUpperCase(),
+        starred: !!s.starred, starFg: s.starred ? '#3A3A44' : 'none', starStroke: s.starred ? '#3A3A44' : '#C4C4CC',
+        selBd: st.explorerSel === s.sn ? '#B4B4BE' : '#EAEAEF', selBg: st.explorerSel === s.sn ? '#FAFAFB' : '#fff',
+        select: () => { app.sourceTouch(s.sn); this.setState({ explorerSel: s.sn, inspectorTab: 'read' }); },
+        star: () => app.sourceStar(s.sn),
+        menuOpen: st.explorerMenu === 'c:' + s.sn,
+        menuClick: () => this.setState({ explorerMenu: st.explorerMenu === 'c:' + s.sn ? null : 'c:' + s.sn }),
+        doMove: () => this.setState({ moveTarget: { kind: 'source', id: s.sn }, explorerMenu: null }),
+        doRemove: () => { if (confirm(`Remove “${s.title}” from the record? This deletes the source and its readings.`)) app.removeSource(s.sn); this.setState({ explorerMenu: null }); },
+      };
+    });
+    const moreN = working.length - shownN;
+    const scopeName = curFolderId ? (app.folderById(curFolderId)?.name || 'folder') : bucketLabel;
+    const sourcesHeading = `SOURCES · ${working.length} IN ${scopeName.toUpperCase()}`;
+
+    // — breadcrumb (folder path when in a folder, else Workspace › shelf) —
+    const homeCrumbs = curFolderId ? explorerCrumbs : [
+      { name: wsName, notFirst: false, isLast: false, notLast: true, go: gotoBucket('all') },
+      { name: bucketLabel, notFirst: true, isLast: true, notLast: false, go: () => {} },
+    ];
+
+    // — the ingest menu (reuses the hero's four ingest actions; closes on pick) —
+    const ingestActions = heroActions.map((a) => ({ label: a.label, go: () => { this.setState({ explorerIngestOpen: false }); a.go(); } }));
+
+    // — the Inspector (right column) — read & act on the selected source in place —
+    const selSrc = st.explorerSel ? app.sourceBySn(st.explorerSel) : null;
+    const insTab = st.inspectorTab || 'read';
+    let readParas = [], insEnts = [], fixity = [], eotRows = [], citedPassages = [];
+    let insTitle = '', insSub = '', insFavBg = '#EEE', insFavFg = '#666', insFavCh = '?', insInCorpus = false;
+    if (selSrc) {
+      insTitle = selSrc.title; insSub = `${selSrc.reg} · ${selSrc.domain}`; insFavBg = NFAV[0]; insFavFg = NFAV[1];
+      insFavCh = (selSrc.domain || selSrc.title || '?')[0].toUpperCase();
+      insInCorpus = inCorpusIds.has(selSrc.sn);
+      if (insTab === 'read') readParas = String(selSrc.text || '').split(/\n{2,}/).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 8).map((t) => ({ t }));
+      if (insTab === 'entities') insEnts = app.sourceEntities(selSrc.sn).slice(0, 16).map((e) => ({ label: e.label, meta: `${e.mentions} mention${e.mentions === 1 ? '' : 's'}` }));
+      if (insTab === 'provenance') fixity = [
+        { k: 'Registered', v: selSrc.reg }, { k: 'SHA-256', v: String(selSrc.sha || '—').slice(0, 18) },
+        { k: 'Bytes', v: this._bytes(selSrc.bytes) }, { k: 'Rights', v: this._rights(selSrc).label },
+        { k: 'Retrieved', v: String(selSrc.retrieved || '').slice(0, 10) || '—' }, { k: 'Domain', v: selSrc.domain || '—' },
+      ];
+      if (insTab === 'eot') eotRows = [
+        { glyph: '○', op: 'SIG', txt: `${selSrc.reg} · registered ${String(selSrc.retrieved || '').slice(0, 10)}` },
+        { glyph: '●', op: 'INS', txt: `${selSrc.entCount || 0} attestation${selSrc.entCount === 1 ? '' : 's'}` },
+        { glyph: '｜', op: 'SEG', txt: `${this._bytes(selSrc.bytes)} of recorded text` },
+      ];
+      for (const t of app.state.topics) for (const mm of t.messages) for (const c of (mm.cites || [])) if (c.sn === selSrc.sn && c.quote) citedPassages.push({ quote: String(c.quote).slice(0, 220), loc: t.title || selSrc.reg });
+      citedPassages = citedPassages.slice(0, 6);
+    }
+    const insTabs = [['read', 'Read'], ['entities', 'Entities'], ['provenance', 'Provenance'], ['eot', 'EoT']].map(([k, lbl]) => ({
+      label: lbl, on: insTab === k, fg: insTab === k ? '#2A2A32' : '#8A8A95', bd: insTab === k ? '#2A2A32' : 'transparent',
+      go: () => this.setState({ inspectorTab: k }),
+    }));
+
+    // — empty / no-result states —
+    const homeDriveEmpty = drive.length === 0;
+    const homeNoResults = !homeDriveEmpty && cardSources.length === 0 && explorerFolders.length === 0;
+
+    // ── the "Move to…" picker — a flattened, indented list of the workspace's folders ──
+    const mv = st.moveTarget;
+    const moveOpen = !!mv;
+    let moveTitle = '', moveDests = [];
+    if (mv) {
+      // For a folder move, forbid landing inside itself or any descendant (that would be a cycle).
+      const forbidden = new Set();
+      if (mv.kind === 'folder') { const mark = (id) => { forbidden.add(id); for (const c of foldersInOf(id)) mark(c.id); }; mark(mv.id); }
+      const item = mv.kind === 'folder' ? app.folderById(mv.id) : app.sourceBySn(mv.id);
+      const curOf = mv.kind === 'folder' ? (item ? item.parentId : null) : (item ? item.folderId : null);
+      moveTitle = item ? (mv.kind === 'folder' ? item.name : item.title) : '';
+      const pickDest = (destId) => { if (mv.kind === 'folder') app.folderMove(mv.id, destId); else app.sourceMove(mv.id, destId); this.setState({ moveTarget: null }); };
+      const flatten = (pid, depth) => {
+        const rows = [];
+        for (const f of foldersInOf(pid)) {
+          if (forbidden.has(f.id)) continue;
+          rows.push({ id: f.id, name: f.name, indent: `${depth * 16}px`, isCurrent: sameFolder(curOf, f.id), pick: () => pickDest(f.id) });
+          rows.push(...flatten(f.id, depth + 1));
+        }
+        return rows;
+      };
+      moveDests = [
+        { id: null, name: (app.activeWorkspace() ? app.activeWorkspace().name : 'Drive') + ' · root', indent: '0px', isCurrent: sameFolder(curOf, null), pick: () => pickDest(null) },
+        ...flatten(null, 1),
+      ];
+    }
+    const closeMove = () => this.setState({ moveTarget: null });
+    const moveStop = (e) => { if (e && e.stopPropagation) e.stopPropagation(); };
 
     // memo
     const memoClaims = claims.slice(-8).map((c) => {
@@ -6575,6 +7759,14 @@ class Component extends DCLogic {
           }));
         })(),
       };
+      // Auto-frame the DAG the first time this corpus's graph is shown, so it opens centred rather
+      // than clustered in a corner. Keyed on the tier COUNTS (not open/closed state, so expanding a
+      // group never yanks the camera); rAF defers the camera set out of render, like _poke above.
+      const fitKey = [prov.nodes.claims.length, prov.nodes.passages.length, prov.nodes.sources.length, prov.nodes.files.length].join(':');
+      if (this._fitKey !== fitKey && typeof requestAnimationFrame === 'function') {
+        this._fitKey = fitKey;
+        if (!this._fitRaf) this._fitRaf = requestAnimationFrame(() => { this._fitRaf = null; if (this.state.tab === 'evidence') this.fit(); });
+      }
     }
     const legendNodes = [
       { color: '#6D5EF5', label: 'Topic / memo' }, { color: '#8A8A95', label: 'Claim' },
@@ -6950,8 +8142,11 @@ class Component extends DCLogic {
       // chrome
       omni: st.omni, toast: st.toast, dragOver: !!st.dragOver,
       // live recording — the mic button + the take panel
-      leftOpen: st.leftOpen, rightOpen: st.rightOpen,
-      panelBackdrop: !!st.isMobile && (st.leftOpen || st.rightOpen), closePanels: () => this.closePanels(),
+      // The Home tab (Source Explorer) is a self-contained surface with its OWN left rail (Quick
+      // Access · Folders · Vault), so the app's global topic/source rail stands down there — otherwise
+      // the sources list twice and two left rails compete. It returns on every other tab.
+      leftOpen: st.leftOpen && st.tab !== 'register', rightOpen: st.rightOpen,
+      panelBackdrop: !!st.isMobile && ((st.leftOpen && st.tab !== 'register') || st.rightOpen), closePanels: () => this.closePanels(),
       leftBtnFg: st.leftOpen ? '#5B4BE6' : '#9A9AA4', rightBtnFg: st.rightOpen ? '#5B4BE6' : '#9A9AA4',
       onOmniSubmit: (e) => this.onOmniSubmit(e), onOmniInput: (e) => this.onOmniInput(e),
       openMonologue: () => this.openMonologue(), closeMonologue: () => this.closeMonologue(),
@@ -6983,7 +8178,8 @@ class Component extends DCLogic {
       tabs, hasFlagLine, flagLine, flagFg, flagBg, flagBd,
       isSearch: st.tab === 'search', isGraph: st.tab === 'graph', isEvidence: st.tab === 'evidence', isPins: st.tab === 'pins',
       ...this._pinsVals(st),
-      isRegister: st.tab === 'register', isMemo: st.tab === 'memo',
+      isRegister: st.tab === 'register', isMemo: st.tab === 'memo', isPlain: st.tab === 'plain',
+      setPlainEl: (el) => this.setPlainEl(el),   // the Plain host ref (mounts rooms/plain, like setWebGraphEl)
       // ask (the primary surface) — the latest exchange as one typed, cited answer
       askSurfaces, askTries, askHasTries: askTries.length > 0, askEmpty, askHasSurface: askSurfaces.length > 0,
       // ask context — breadcrumb (workspace › quest path) + the destination affordance
@@ -7052,8 +8248,44 @@ class Component extends DCLogic {
       allTiersTitle: allTiersOpen ? 'Fold every group back to its header' : 'Open every group in the graph',
       contraFg: st.hideContra ? '#8A8A95' : '#B23A2E', contraBg: st.hideContra ? '#F2F2F6' : '#FBE9E6', contraBd: st.hideContra ? '#EAEAEF' : '#F2D3CD',
       resetFg: st.focusId ? '#5B4BE6' : '#8A8A95', setViewport: (el) => this.setViewport(el),
-      // findings + register + memo
-      evEmpty: claims.length === 0, evClaims, overviewStats, regRows,
+      // findings + memo
+      evEmpty: claims.length === 0, evClaims, overviewStats,
+      sourceConflicts, hasSourceConflicts, sourceConflictNote,
+      // source explorer (the Drive) — breadcrumb, folder cards, file rows, and the move picker
+      explorerCrumbs, explorerFolders, explorerFiles, explorerHasFolders, explorerHasFiles,
+      explorerEmpty, explorerAtRoot, explorerNotRoot: !explorerAtRoot, explorerCount, explorerMenuOpen, closeExplorerMenu, explorerNewFolder,
+      moveOpen, moveTitle, moveDests, closeMove, moveStop,
+      // ── Source Explorer home view (three columns) ──
+      // left rail: workspace header + Quick Access shelves + folder tree + vault meter
+      wsName, wsInitial: (wsName[0] || '·').toUpperCase(), wsSourceCount: String(drive.length),
+      qaRecentBg: qaRecent.bg, qaRecentFg: qaRecent.fg, qaRecentWt: qaRecent.wt, qaRecentGo: gotoBucket('recent'),
+      qaStarredBg: qaStarred.bg, qaStarredFg: qaStarred.fg, qaStarredWt: qaStarred.wt, qaStarredGo: gotoBucket('starred'),
+      qaTopicBg: qaTopic.bg, qaTopicFg: qaTopic.fg, qaTopicWt: qaTopic.wt, qaTopicGo: gotoBucket('topic'), qaTopicCount: String(topicCorpus.length),
+      qaAllBg: qaAll.bg, qaAllFg: qaAll.fg, qaAllWt: qaAll.wt, qaAllGo: gotoBucket('all'), qaAllCount: String(drive.length),
+      exTree, exTreeHas: exTree.length > 0,
+      // centre: header, breadcrumb, sort + kind chips, jump-back-in, source cards, show-all
+      explorerQuery: st.explorerQuery, onExplorerSearch: (e) => this.setState({ explorerQuery: e.target.value, explorerShowAll: false }),
+      explorerViewGrid: st.explorerView !== 'list',
+      gridBtnBg: st.explorerView !== 'list' ? '#2A2A32' : '#F2F2F6', gridBtnFg: st.explorerView !== 'list' ? '#fff' : '#8A8A95',
+      listBtnBg: st.explorerView === 'list' ? '#2A2A32' : '#F2F2F6', listBtnFg: st.explorerView === 'list' ? '#fff' : '#8A8A95',
+      setExplorerGrid: () => this.setState({ explorerView: 'grid' }), setExplorerList: () => this.setState({ explorerView: 'list' }),
+      explorerIngestOpen: st.explorerIngestOpen, toggleExplorerIngest: () => this.setState({ explorerIngestOpen: !st.explorerIngestOpen }), ingestActions,
+      homeCrumbs, sortChips, kindChips, jumpBack, jumpHas: jumpBack.length > 0,
+      showFolderCards: (bucket === 'all' || bucket === 'folder') && explorerFolders.length > 0,
+      cardCols: st.explorerView === 'list' ? '1fr' : 'repeat(auto-fill,minmax(210px,1fr))',
+      sourcesHeading, cardSources, hasCards: cardSources.length > 0,
+      hasMore: moreN > 0, showAllLabel: `Show all ${working.length} · ${moreN} more`, showAllCards: () => this.setState({ explorerShowAll: true }),
+      homeDriveEmpty, homeNoResults,
+      // right: the Inspector — read & act on the selected source in place
+      inspOpen: !!selSrc, insTitle, insSub, insFavBg, insFavFg, insFavCh, insTabs, insTabRead: insTab === 'read',
+      insTabEntities: insTab === 'entities', insTabProvenance: insTab === 'provenance', insTabEot: insTab === 'eot',
+      readParas, readHas: readParas.length > 0, insEnts, insEntsHas: insEnts.length > 0, insEntsEmpty: insTab === 'entities' && insEnts.length === 0, fixity, eotRows,
+      citedPassages, citedHas: citedPassages.length > 0,
+      insClose: () => this.setState({ explorerSel: null }),
+      insOpenReader: () => { if (selSrc) { app.sourceTouch(selSrc.sn); this.openViewer(selSrc.sn); } },
+      insAddCorpus: () => { if (selSrc && !insInCorpus) { app.sourceAddToTopic(selSrc.sn); this.showToast('Added to this topic’s corpus'); } },
+      insInCorpus, insAddLabel: insInCorpus ? 'In corpus' : '+ Add to corpus',
+      insAddBg: insInCorpus ? '#E7F6EC' : '#fff', insAddFg: insInCorpus ? '#1E8A50' : '#3A3A44', insAddBd: insInCorpus ? '#CFEBD9' : '#E6E6EC',
       // the pivot banner — which node the list is narrowed to, and the counts
       pivotActive, pivotLabel, pivotShown: String(shownClaims.length), pivotTotal: String(claims.length),
       memoTitle: topic ? topic.title : '', memoText: topic ? topic.memo : '',
@@ -7064,6 +8296,29 @@ class Component extends DCLogic {
       // inspector, the entity profile, and finally the entity list.
       spanShow: !!spanInsp, span: spanInsp || {},
       inspShow: !spanInsp && !!insp, insp: insp || {}, profShow: !spanInsp && !insp && !!prof, prof: prof || {},
+      // HERO — the entity profile promoted to the main stage. Only a shown profile can go hero, and
+      // never on mobile (the panel is already a drawer there). When it's on, the main column steps
+      // aside (display:none) and the aside grows to fill the row, its body centring in a reading column.
+      ...(() => {
+        // Hero must mirror the aside's own visibility — the panel stands down on the Graph/Home tabs
+        // (they carry their own), so hero there would hide the reading column AND the panel: a blank
+        // stage. Gate on the same condition rightPanelShow uses, plus a shown profile, desktop only.
+        const panelUp = st.rightOpen && st.tab !== 'graph' && st.tab !== 'register';
+        const heroActive = !!st.rightHero && panelUp && !spanInsp && !insp && !!prof && !st.isMobile;
+        return {
+          mainDisplay: heroActive ? 'none' : 'flex',
+          rightFlex: heroActive ? '1 1 auto' : '0 0 auto',
+          rightWidth: heroActive ? 'auto' : '340px',
+          rightBorder: heroActive ? 'none' : '1px solid #EAEAEF',
+          rightBodyPad: heroActive ? '30px 40px 72px' : '14px 16px',
+          rightBodyMax: heroActive ? '820px' : 'none',
+          rightBodyMargin: heroActive ? '0 auto' : '0',
+          heroActive,
+          heroExpandShow: !st.isMobile && !heroActive,
+          heroCollapseShow: heroActive,
+          toggleHero: () => this.toggleRightHero(),
+        };
+      })(),
       entListShow: !spanInsp && !insp && !prof, entRows, entCount: String(ents.length), entEmpty: ents.length === 0,
       // The DOSSIER rides the right panel in the default slot (alongside the entity list, leading it):
       // a single-subject source shows its dominant figure here — the reading, the referent, the entity
@@ -7138,6 +8393,17 @@ class Component extends DCLogic {
       readFontLabel: rp.font === 'sans' ? 'Aa Sans' : 'Aa Serif', readWidthLabel: String(rp.w || 720),
       cycleReadTheme: () => this.cycleReadTheme(), toggleReadFont: () => this.toggleReadFont(),
       readSizeUp: () => this.bumpReadFont(1), readSizeDown: () => this.bumpReadFont(-1), cycleReadWidth: () => this.cycleReadWidth(),
+      // reading-mode ladder — Paper · Companion · Lit (docs/co-reading.md)
+      cycleReadingMode: () => this.cycleReadingMode(),
+      readingModeLabel: { paper: '◯ Paper', companion: '◐ Companion', lit: '● Lit' }[st.readingMode] || '◯ Paper',
+      readingModeTitle: st.readingMode === 'paper'
+        ? 'Paper — clean prose. Click for Companion: the reading thinks in the margin where you dwell.'
+        : st.readingMode === 'companion'
+          ? 'Companion — margin-thoughts appear where you settle, ghosted and marked "mine" (never a claimed fact). Click for Lit: + lenses.'
+          : 'Lit — Companion plus the lenses (entity links on). Click to return to clean Paper.',
+      readingModeFg: st.readingMode === 'paper' ? '#8A8A95' : '#5B4BE6',
+      readingModeBg: st.readingMode === 'paper' ? '#F2F2F6' : '#F1EFFE',
+      readingModeBd: st.readingMode === 'paper' ? '#EAEAEF' : '#DED8FD',
       // native render body — the live site, plus its own contents lifted into the reader's drawer
       pageDoc, pageShow: !!pageDoc, pageBusy, pageErr, hasPageErr: !!pageErr, retryPage: () => this.retryPage(),
       setNativeFrame: (el) => this.setNativeFrame(el),
@@ -7214,9 +8480,9 @@ class Component extends DCLogic {
       // graph tab explorer (entity web + causal DAG · whole-topic + per-entity · entity toggles)
       ...this._webGraphVals(),
       graphHasSources: sources.length > 0,
-      // The Graph tab carries its own details panel, so the global right drawer stands down there
-      // to give the web room to breathe.
-      rightPanelShow: st.rightOpen && st.tab !== 'graph',
+      // The Graph tab carries its own details panel, and the Home tab (Source Explorer) carries its
+      // own right Inspector, so the global right drawer stands down on both to give them room.
+      rightPanelShow: st.rightOpen && st.tab !== 'graph' && st.tab !== 'register',
       // monologue
       monologueOpen: st.monologueOpen, logCount: String(app.state.log.length),
       auditStats, logActions: st.logMode === 'actions', logReasoning: st.logMode === 'reasoning', logReflections: st.logMode === 'reflections',

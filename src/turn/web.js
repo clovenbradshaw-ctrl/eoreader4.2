@@ -15,7 +15,7 @@ import { runTurn } from './pipeline.js';
 import { createCompositeDoc } from '../organs/in/index.js';
 import { createAuditLog } from '../rooms/audit/index.js';
 import { discourseFrame } from './converse/index.js';
-import { speak } from '../model/speak.js';
+import { speak } from '../model/index.js';
 
 // verifyAgainstWeb(answer, corpus) → does the web corpus SUPPORT the answer? An embedder-free
 // lexical check: how many of the answer's salient (content) terms appear in the fetched text.

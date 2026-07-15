@@ -9,3 +9,6 @@
 
 export { answerTable, isTableQuery } from './query.js';
 export { mountDataSurface } from './surface.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { answerOverTables } from './query.js';

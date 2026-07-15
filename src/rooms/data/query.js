@@ -18,7 +18,7 @@
 // ARR across several notes is de-duplicated to distinct accounts before it is summed, so a
 // per-account figure is never multiplied by how many times the account was written up.
 
-import { traceExpression, formatNumber } from '../../enactor/answer/math.js';
+import { traceExpression, formatNumber } from '../../enactor/answer/index.js';
 import {
   parseAmount, parseDate, classifyColumn, groupByCurrency, formatMoney, formatGroup, numberInText,
 } from './values.js';

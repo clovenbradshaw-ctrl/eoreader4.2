@@ -7,6 +7,7 @@ import { contract } from '../../core/contract.js';
 export const CONTRACTS = Object.freeze({
   'src/weave/topline/index.js': contract({ ops: ['SYN', 'EVA', 'SEG', 'NUL'], targets: ['Network', 'Link', 'Field'], products: ['Field', 'Lens', 'Void'], stances: ['Composing', 'Binding', 'Clearing'], note: 'barrel' }),
   'src/weave/topline/contain.js': contract({ ops: ['EVA', 'SEG'], targets: ['Field', 'Link'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'the set-containment safety gate' }),
+  'src/weave/topline/surface.js': contract({ ops: ['EVA', 'SEG', 'SYN'], targets: ['Field', 'Link', 'Lens'], products: ['Lens', 'Void'], stances: ['Binding', 'Dissecting', 'Composing'], note: 'the form surface — the summarizer contract and its verifier' }),
   'src/weave/topline/inventory.js': contract({ ops: ['SEG', 'CON', 'NUL'], targets: ['Network', 'Link', 'Field'], products: ['Lens', 'Void'], stances: ['Dissecting', 'Binding', 'Clearing'], note: 'the closed, ordered inventory' }),
   'src/weave/topline/adapt.js': contract({ ops: ['SEG', 'CON'], targets: ['Network', 'Link'], products: ['Network'], stances: ['Dissecting', 'Binding'], note: 'profile → closed inventory' }),
   'src/weave/topline/phrase.js': contract({ ops: ['INS', 'DEF', 'EVA'], targets: ['Entity', 'Lens'], products: ['Entity', 'Lens'], stances: ['Making', 'Binding'], note: 'pass one — one object, one sentence' }),
@@ -16,5 +17,5 @@ export const CONTRACTS = Object.freeze({
   'src/weave/topline/contextual.js': contract({ ops: ['SYN'], targets: ['Network', 'Field', 'Lens'], products: ['Field'], stances: ['Composing'], note: 'the fold-aware contextual definition (writer)' }),
   'src/weave/topline/definer.js': contract({ ops: ['EVA', 'SEG'], targets: ['Field', 'Network'], products: ['Lens', 'Atmosphere'], stances: ['Binding', 'Tracing', 'Tending'], note: "the definer's un-authored fitness" }),
   'src/weave/topline/chorus.js': contract({ ops: ['SYN', 'SEG', 'EVA'], targets: ['Network', 'Field'], products: ['Network', 'Lens'], stances: ['Composing', 'Dissecting', 'Tracing'], note: 'the evolving definer chorus' }),
-  'src/weave/topline/digest.js': contract({ ops: ['SYN', 'SEG', 'EVA'], targets: ['Network', 'Field'], products: ['Network', 'Lens'], stances: ['Composing', 'Dissecting', 'Tracing'], note: 'the entity digest — chapter spine + on-demand important/surprising/deeper' }),
+  'src/weave/topline/digest.js': contract({ ops: ['SYN', 'SEG', 'EVA'], targets: ['Network', 'Field'], products: ['Network', 'Lens'], stances: ['Composing', 'Dissecting', 'Tracing'], note: 'the entity digest — chapter spine + on-demand important/surprising + passage zoom' }),
 });

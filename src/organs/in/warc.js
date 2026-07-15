@@ -16,7 +16,7 @@
 // only stable. It reuses the sourcing layer's content hash so a WARC source and a
 // live web source share one provenance shape (src/ingest/websource.js).
 
-import { webContentHash, recordIdOf } from '../ingest/websource.js';
+import { webContentHash, recordIdOf } from '../ingest/index.js';
 import { ingestWebpage }              from './webpage.js';
 
 const textOf = (rec) => {

@@ -30,11 +30,11 @@
 // computed exactly as before — the stack is additive, and with no recorded
 // frame tags a thread projects to the flat single-activity stack (byte parity).
 
-import { openEvent, bindEvent } from '../frame/events.js';
-import { projectFrameStack } from '../frame/project.js';
-import { decideBind } from '../frame/bind.js';
-import { tok } from '../perceiver/parse/tokenize.js';
-import { feltSurprise } from './surprise.js';
+import { openEvent, bindEvent } from './events.js';
+import { projectFrameStack } from './project.js';
+import { decideBind } from './bind.js';
+import { tok } from '../perceiver/parse/index.js';
+import { feltSurprise } from '../core/index.js';
 
 // The compose grammar, kept in sync with app.dc.js's _CV()/_CK(). A creative
 // KIND (poem, story, song…) plus a compose VERB is an explicit compose marker;

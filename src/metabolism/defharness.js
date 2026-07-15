@@ -12,9 +12,9 @@
 // the verdicts itself. When the judges are retyped (v2 #2–#4) the specimens stay, the drive
 // stays, and only the scoreboard's numbers should move.
 
-import { runTurn } from '../turn/pipeline.js';
+import { runTurn } from '../turn/index.js';
 import { parseText } from '../perceiver/parse/index.js';
-import { createHashEmbedder } from '../model/embed-hash.js';
+import { createHashEmbedder } from '../model/index.js';
 import { createAuditLog } from '../rooms/audit/index.js';
 import { shapeAudit, matchGold, scoreStability, mergeRuns, scoreSpecimen, scoreboard } from './defscore.js';
 

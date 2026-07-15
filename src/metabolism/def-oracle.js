@@ -15,7 +15,7 @@
 // deterministic scoreboard — it never gates, it flags DEFs whose witness may not earn their
 // verdict, for a human (or a later judge increment) to re-judge.
 
-import { VERDICTS } from '../core/verdicts.js';
+import { VERDICTS } from '../core/index.js';
 import { JUDGE_MODEL } from './judge.js';
 
 export const ORACLE_MODEL = JUDGE_MODEL;

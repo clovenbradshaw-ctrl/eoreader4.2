@@ -12,7 +12,7 @@
 // No model, no embedder, no weights — the read is the mechanical γ-mass reading, so the surface
 // runs anywhere the src/ modules load.
 
-import { ingestText } from '../../organs/in/text.js';
+import { ingestText } from '../../organs/in/index.js';
 import { readingJsonl } from '../../organs/ingest/index.js';
 import { enactedReadingTo } from '../../enactor/enact/index.js';
 

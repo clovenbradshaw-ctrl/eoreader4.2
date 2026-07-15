@@ -45,7 +45,7 @@
 // exclusive set, a person sharing a surname) are the honest seam; a false refusal
 // is the thing it must never do, so it only ever flags.
 
-import { parseProps }          from '../props.js';
+import { parseProps }          from '../index.js';
 import { parseText }           from '../../perceiver/parse/index.js';
 import { attributesConflict, projectGraph, evaluateSameAs, discriminatorIndex } from '../../core/index.js';
 

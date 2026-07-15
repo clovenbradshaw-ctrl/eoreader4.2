@@ -32,7 +32,7 @@
 // arcPhase)` plus its best-of-n wrapper from the design.
 
 import { arcTarget, arcState, flowVerdict } from '../../surfer/flow/index.js';
-import { speak } from '../../model/speak.js';
+import { speak } from '../../model/index.js';
 
 // ── THE TRANSLATION TABLE ─────────────────────────────────────────────────────
 // The operator → a concrete writing directive (never the operator code, never the

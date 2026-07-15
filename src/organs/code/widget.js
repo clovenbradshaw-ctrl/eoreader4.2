@@ -36,7 +36,7 @@
 // to a named handler; the shell re-renders after each. Handlers and helper Functions
 // (compose-style) may call each other — they order by reference, the helix again.
 
-import { parseEOT } from '../ingest/eot.js';
+import { parseEOT } from '../ingest/index.js';
 import { tarjanSCC } from './helix.js';
 import { readCodebase } from './read.js';
 import { scrub } from './facts.js';

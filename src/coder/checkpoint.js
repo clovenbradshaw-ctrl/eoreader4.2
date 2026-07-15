@@ -19,8 +19,8 @@
 // findings, the way core/contract.js surfaces a contract's whole error list,
 // instead of crashing on the first defect.
 
-import { coherence } from '../core/cube.js';
-import { contract, isContract } from '../core/contract.js';
+import { coherence } from '../core/index.js';
+import { contract, isContract } from '../core/index.js';
 import { CATALOG, hasSurface } from './catalog.js';
 
 // ── The taxonomy (docs/eo-for-coders.md Appendix B + roadmap §4) ─────────────

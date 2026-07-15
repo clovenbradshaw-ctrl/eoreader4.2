@@ -14,68 +14,16 @@
 // vetoes ride alongside as `flags`.
 
 import { stages } from './stages.js';
+import { sourceDocsOf, citeOriginsOf, citeUnitsOf, citeTextsOf } from './cites.js';
 import { stageFace } from './stage-faces.js';
-import { createJudgmentLog } from '../core/def.js';
+import { createJudgmentLog } from '../core/index.js';
 import { proposeWebSearch } from './propose.js';
 import { createCompositeDoc } from '../organs/in/index.js';
 import { siteTerrainAt } from '../surfer/index.js';
 import { assembleBrief } from '../weave/write/index.js';
-import { reflectAnswer } from '../enactor/ground/reflect.js';
-import { senseReturn, commitVoice } from '../enactor/selfline.js';
-import { describeModel } from '../model/interface.js';
-
-// The documents a turn's citations actually drew on. For a composite (several selected
-// documents folded into one), map each cited sentence index back through the provenance
-// axis to its source document; for a single document it is just that document.
-const sourceDocsOf = (doc, sources) => {
-  if (!doc) return [];
-  if (doc.isComposite && typeof doc.origin === 'function')
-    return [...new Set((sources || []).map(i => doc.origin(i)?.docId).filter(Boolean))];
-  return doc.docId ? [doc.docId] : [];
-};
-
-// Per-CLAIM attribution: each cited sentence index → the source document it came from. Where
-// sourceDocsOf collapses to the set, this keeps the index→source map so the UI can attribute every
-// [sN] in the answer to its specific origin (the EO_Reader sentenceSource model). { idx: docId }.
-const citeOriginsOf = (doc, sources) => {
-  const out = {};
-  if (!doc) return out;
-  const composite = doc.isComposite && typeof doc.origin === 'function';
-  for (const i of (sources || [])) {
-    const id = composite ? doc.origin(i)?.docId : doc.docId;
-    if (id != null) out[i] = id;
-  }
-  return out;
-};
-
-// Per-citation SOURCE-LOCAL unit: each cited (composite) sentence index → the sentence's index
-// inside its own source document. The composite axis is a per-turn artifact — its indices shift
-// with whatever else was in scope — so a cite that should outlive the turn (a pin's anchor, a
-// findings passage key) needs the local index the origin back-map already computes. { idx: localIdx }.
-const citeUnitsOf = (doc, sources) => {
-  const out = {};
-  if (!doc) return out;
-  const composite = doc.isComposite && typeof doc.origin === 'function';
-  for (const i of (sources || [])) {
-    const u = composite ? doc.origin(i)?.localIdx : i;
-    if (u != null) out[i] = u;
-  }
-  return out;
-};
-
-// Per-citation source TEXT: each cited sentence index → the sentence itself, so the UI
-// can show, on hover, exactly what the cited span allegedly says — the companion of
-// citeOriginsOf's idx → docId. { idx: text }.
-const citeTextsOf = (doc, sources) => {
-  const out = {};
-  if (!doc) return out;
-  const units = doc.units || doc.sentences || [];
-  for (const i of (sources || [])) {
-    const t = units[i];
-    if (t != null) out[i] = String(t).replace(/\s+/g, ' ').trim().slice(0, 280);
-  }
-  return out;
-};
+import { reflectAnswer } from '../enactor/ground/index.js';
+import { senseReturn, commitVoice } from '../enactor/index.js';
+import { describeModel } from '../model/index.js';
 
 const round3 = (x) => (typeof x === 'number' && Number.isFinite(x) ? Math.round(x * 1000) / 1000 : null);
 
@@ -627,6 +575,13 @@ const summarize = (name, ctx, ms) => {
                               quiesced: ctx.reasoning.quiesced,
                               mine: ctx.reasoning.everyStepIsMine } : base;
     case 'prompt':   return { ...base, promptLen: ctx.promptText?.length || 0,
+                              // The built prompt VERBATIM — the same bytes the post-hoc "what it
+                              // was prompted" panel keeps, carried on the live step so the verbose
+                              // trail (reader/fold-narrative.js) can show the prompt AS it is built,
+                              // not only after. Bounded so a pathological prompt never bloats the
+                              // per-step audit unboundedly; a normal grounded prompt (~6 KB) rides
+                              // whole. This is the audited projection — safe to surface, never ctx.
+                              ...(ctx.promptText ? { promptText: String(ctx.promptText).slice(0, 24000) } : {}),
                               // the arc broadcast rode this turn's window (broadcastArc)
                               ...(ctx.arcBlock ? { arc: true } : {}) };
     case 'llm':      return { ...base, outputLen: ctx.rawOutput?.length || 0, maxTokens: ctx.maxTokens,

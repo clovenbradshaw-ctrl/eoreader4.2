@@ -23,10 +23,10 @@
 // owns the styling, and the organ owns validation — the same division of labor, one
 // level up from a single widget.
 
-import { parseEOT } from '../ingest/eot.js';
+import { parseEOT } from '../ingest/index.js';
 import { readCodebase } from './read.js';
 import { composeWidget, widgetCompleteness } from './widget.js';
-import { joinHolon } from '../../core/holon.js';
+import { joinHolon } from '../../core/index.js';
 import { overridesToCss } from './style.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

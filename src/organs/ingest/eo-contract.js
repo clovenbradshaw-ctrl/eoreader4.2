@@ -6,7 +6,7 @@ import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
   'src/organs/ingest/eot-emit.js': contract({ ops: ['NUL'], targets: ['Network'], products: ['Void'], stances: ['Clearing'], note: 'inverse renderer: log -> EOT surface' }),
-  'src/organs/ingest/eot.js': contract({ ops: ['INS', 'SIG', 'DEF'], targets: ['Field'], products: ['Entity', 'Network'], stances: ['Making', 'Binding', 'Dissecting'], note: 'EOT ingester: surface -> tuples/log' }),
+  'src/organs/ingest/eot.js': contract({ ops: ['INS', 'SIG', 'DEF', 'NUL', 'CON', 'SYN', 'SEG', 'EVA', 'REC'], targets: ['Field'], products: ['Entity', 'Network'], stances: ['Making', 'Binding', 'Dissecting'], note: 'EOT ingester: surface -> tuples/log' }),
   'src/organs/ingest/arxiv.js': contract({ ops: ['SIG', 'SEG', 'INS'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Binding', 'Clearing', 'Making'], note: 'arXiv library — whole papers via ar5iv' }),
   'src/organs/ingest/feed.js': contract({ ops: ['SIG', 'SEG', 'INS'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Binding', 'Clearing', 'Making'], note: 'RSS/Atom feeds read whole — items as sources/table/doc' }),
   'src/organs/ingest/api.js': contract({ ops: ['SIG', 'SEG', 'INS'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Binding', 'Clearing', 'Making'], note: 'generic JSON/REST APIs — navigate to records, admit as source + table' }),

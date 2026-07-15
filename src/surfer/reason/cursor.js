@@ -43,8 +43,8 @@
 // committed act. Nothing removes the firewall; a `conditional` grade is a warrant on a
 // scope, never a witness.
 
-import { canWitness, fromEnactor } from '../../core/provenance.js';
-import { ESSENTIAL_VERBS, ASSOCIATION_VERBS } from '../dag/stance.js';
+import { canWitness, fromEnactor } from '../../core/index.js';
+import { ESSENTIAL_VERBS, ASSOCIATION_VERBS } from '../dag/index.js';
 
 export const CURSOR_REV = 1;
 

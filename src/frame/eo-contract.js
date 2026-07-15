@@ -7,6 +7,7 @@ import { contract } from '../core/contract.js';
 export const CONTRACTS = Object.freeze({
   'src/frame/bind.js': contract({ ops: ['EVA', 'DEF', 'REC'], targets: ['Network', 'Link'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'decideBind — the bind decision' }),
   'src/frame/constants.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Clearing'], note: 'runaway guards (depth/fanout/nodes)' }),
+  'src/frame/conversation-fold.js': contract({ ops: ['SYN', 'DEF', 'EVA'], targets: ['Field'], products: ['Network', 'Lens'], stances: ['Composing', 'Dissecting', 'Tracing'], note: 'the conversation fold (moved from core — it projects through the frame spine)' }),
   'src/frame/events.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Field'], stances: ['Tending'], note: 'append-only event log (TaskEvent kinds + bind)' }),
   'src/frame/grain.js': contract({ ops: ['DEF', 'EVA'], targets: ['Network', 'Paradigm'], products: ['Lens', 'Kind'], stances: ['Dissecting', 'Binding'], note: 'the cube reading + confab guard' }),
   'src/frame/index.js': contract({ ops: ['NUL', 'SYN', 'CON', 'EVA', 'DEF', 'REC'], targets: ['Field', 'Network', 'Paradigm'], products: ['Network', 'Lens', 'Field'], stances: ['Composing', 'Binding', 'Tracing'], note: 'barrel' }),

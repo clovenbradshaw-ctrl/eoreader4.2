@@ -2,6 +2,9 @@
 // The answer holon: mechanical answerers that never warm the model.
 
 export { tryMechanical, answerConfirm, answerRelation, answerWho, answerMath, answerSmalltalk } from './mechanical.js';
-export { answerMath as answerMathAsync, answerMathSync, isMathQuery, evalExpression, evaluateMath, extractExpression, loadMathjs, formatNumber } from './math.js';
+export { answerMath as answerMathAsync, answerMathSync, isMathQuery, evalExpression, evaluateMath, extractExpression, nlToExpression, loadMathjs, formatNumber } from './math.js';
 export { answerVoid } from './void.js';
 export { answerMetadata } from './metadata.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { traceExpression } from './math.js';

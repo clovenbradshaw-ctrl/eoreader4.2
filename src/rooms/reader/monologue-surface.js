@@ -19,7 +19,7 @@
 // place beats the band. Framework-free, so it drops into a standalone page or the app's panel
 // alike, and — like the reflection itself — runs with no model, no embedder, no weights.
 
-import { ingestText } from '../../organs/in/text.js';
+import { ingestText } from '../../organs/in/index.js';
 import { createDeepReader, readReflections, buildSubstrate, auditLog } from '../../surfer/fold/index.js';
 import { surfFold } from '../../surfer/index.js';
 

@@ -26,8 +26,8 @@
 // Pure and model-free: (messages, sources, docs, summaries) in, rows out. Runs in a unit test
 // exactly as it does in the browser.
 
-import { phraseMechanical } from '../../weave/topline/phrase.js';
-import { webContentHash } from '../../organs/ingest/websource.js';
+import { phraseMechanical } from '../../weave/topline/index.js';
+import { webContentHash } from '../../organs/ingest/index.js';
 import { canon } from './anchor.js';
 
 // The durable claim identity — content-addressed, never positional. A findings row id like C7 is

@@ -9,6 +9,7 @@
 import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
+  'src/rooms/render/index.js': contract({ ops: ['SEG', 'SYN', 'INS', 'NUL'], targets: ['Field'], products: ['Network', 'Entity', 'Void'], stances: ['Dissecting', 'Composing', 'Making', 'Clearing'], note: 'barrel — the render room entrance' }),
   'src/rooms/render/facing.js': contract({ ops: ['SEG', 'SYN', 'INS'], targets: ['Field'], products: ['Network', 'Entity'], stances: ['Dissecting', 'Composing', 'Making'], note: 'the facing renderer fold — source panes → one runnable document + a console shim (pure)' }),
   'src/rooms/render/surface.js': contract({ ops: ['INS', 'NUL'], targets: ['Field'], products: ['Entity', 'Void'], stances: ['Making', 'Clearing'], note: 'the facing renderer DOM surface — editor panes, live sandboxed iframe, console strip' }),
 });

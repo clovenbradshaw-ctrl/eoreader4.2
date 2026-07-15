@@ -9,6 +9,7 @@ export const CONTRACTS = Object.freeze({
   'src/surfer/answerable.js': contract({ ops: ['EVA', 'DEF', 'NUL'], targets: ['Field', 'Entity'], products: ['Void'], stances: ['Clearing', 'Tending'], note: 'answerability — is field void' }),
   'src/surfer/atmosphere.js': contract({ ops: ['SIG', 'EVA'], targets: ['Field', 'Atmosphere'], products: ['Atmosphere'], stances: ['Tending', 'Tracing'], note: 'the Atmosphere pass' }),
   'src/surfer/chorus.js': contract({ ops: ['SIG', 'EVA', 'SYN'], targets: ['Field'], products: ['Field', 'Lens'], stances: ['Tending', 'Binding', 'Composing'], note: 'the surf chorus — chorusStops' }),
+  'src/surfer/co-read.js': contract({ ops: ['EVA'], targets: ['Field', 'Network', 'Link'], products: ['Lens'], stances: ['Binding', 'Tending'], note: 'co-reading — deep reading tethered to the reader\'s position' }),
   'src/surfer/evaluation.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field', 'Atmosphere'], products: ['Lens'], stances: ['Tracing', 'Binding'], note: 'the modeler — narrator evaluation' }),
   'src/surfer/grow-basis.js': contract({ ops: ['REC', 'EVA'], targets: ['Paradigm', 'Void'], products: ['Paradigm'], stances: ['Composing', 'Cultivating'], note: 'the growing basis' }),
   'src/surfer/helix-predict.js': contract({ ops: ['EVA', 'REC', 'SYN'], targets: ['Field', 'Network'], products: ['Paradigm', 'Field'], stances: ['Tracing', 'Composing'], note: 'helix-aware predictor' }),
@@ -31,7 +32,7 @@ export const CONTRACTS = Object.freeze({
   'src/surfer/spiral.js': contract({ ops: ['REC'], targets: ['Lens'], products: ['Entity', 'Paradigm'], stances: ['Composing'], note: 'the spiral — REC climbs' }),
   'src/surfer/stance.js': contract({ ops: ['EVA', 'REC', 'DEF'], targets: ['Field', 'Lens'], products: ['Lens', 'Atmosphere'], stances: ['Making', 'Cultivating', 'Clearing'], note: 'update stance + confab guard' }),
   'src/surfer/structure-basis.js': contract({ ops: ['SIG', 'SYN', 'EVA'], targets: ['Field'], products: ['Network', 'Lens'], stances: ['Composing', 'Tracing'], note: 'structural significance basis' }),
-  'src/surfer/surf.js': contract({ ops: ['SEG', 'EVA', 'SYN'], targets: ['Field'], products: ['Field', 'Lens', 'Paradigm'], stances: ['Dissecting', 'Tracing', 'Composing'], note: 'the surfer core — surfFold' }),
+  'src/surfer/surf.js': contract({ ops: ['SEG', 'EVA', 'SYN', 'REC'], targets: ['Field'], products: ['Field', 'Lens', 'Paradigm'], stances: ['Dissecting', 'Tracing', 'Composing'], note: 'the surfer core — surfFold' }),
   'src/surfer/terrain.js': contract({ ops: ['DEF'], targets: ['Field', 'Link'], products: ['Lens'], stances: ['Dissecting'], note: 'site typing by operators' }),
   'src/surfer/trajectory.js': contract({ ops: ['SYN', 'SEG'], targets: ['Link'], products: ['Network'], stances: ['Composing', 'Unraveling'], note: 'arc of an identity' }),
 });

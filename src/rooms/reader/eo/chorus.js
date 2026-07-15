@@ -17,9 +17,9 @@
 import {
   cubeAmplitudes, centeredAmplitudes, bornDistribution,
 } from '../../../weave/chorus/index.js';
-import { renderLane } from '../../../weave/chorus/render.js';
-import { cellCoords } from '../../../weave/chorus/marginals.js';
-import { OPERATORS } from '../../../core/operators.js';
+import { renderLane } from '../../../weave/chorus/index.js';
+import { cellCoords } from '../../../weave/chorus/index.js';
+import { OPERATORS } from '../../../core/index.js';
 
 // A short, human label for a cube cell — "Making · Entity" (stance · terrain),
 // with the operator code kept for the tooltip. No machinery leaks into the label

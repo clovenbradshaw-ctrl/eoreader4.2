@@ -16,7 +16,7 @@ import './rust.js';                         // …and Rust
 import { lowerCorpus, codeDoc } from './eot.js';
 import { dependencyOrder } from './helix.js';
 import { findIssues, issuesToEot, reportText } from './issues.js';
-import { parseEOT } from '../ingest/eot.js';
+import { parseEOT } from '../ingest/index.js';
 
 export const readCodebase = (files, opts = {}) => {
   const factsList = (files ?? []).map((f) =>

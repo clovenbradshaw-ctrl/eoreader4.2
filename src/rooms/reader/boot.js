@@ -29,6 +29,12 @@
 //   vault       OPTIONAL encrypted, hash-chained media store (rooms/archive/vault) —
 //               encrypts each item, uploads only ciphertext to the homeserver media
 //               repo, records a tamper-evident block in an OPFS chain (docs/media-vault.md)
+//   db          the durable substrate + database engine (src/store) — "rooms are
+//               tables, events are rows, fold is the query". A passphrase vault seals
+//               each room's append-only event log as encrypted OPFS bytes (NOT
+//               IndexedDB); locked it is inert, unlocked it rehydrates + persists.
+//               db.rows/buildTable/query/formula give the spreadsheet-database view
+//               (docs/database-framework.md)
 //   spaces      OPTIONAL SHARED vault + collaborative workspaces (rooms/archive/room-vault)
 //               — a workspace becomes an invitable Matrix room; everything saved into it
 //               is encrypted, stored as binary ciphertext in the media repo, and recorded
@@ -38,8 +44,9 @@
 //               bus (docs/shared-vault.md)
 
 import { createParser } from '../../perceiver/parse/index.js';
-import { readingAt } from '../../perceiver/reading.js';
-import { groundSpans, groundSummary, supportVerdict } from '../../enactor/ground/spans.js';
+import { contractOf } from '../../core/contracts.js';
+import { readingAt } from '../../perceiver/index.js';
+import { groundSpans, groundSummary, supportVerdict } from '../../enactor/ground/index.js';
 import { factCheck } from '../../enactor/factcheck/index.js';
 import { discourseDag, assertedDag, mountDagSurface, dagNodeLabel } from '../../surfer/dag/index.js';
 import { createAuditLog } from '../audit/index.js';
@@ -48,25 +55,23 @@ import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
 import { APP_NAME, APP_VERSION } from './provenance.js';
 import { mountTieredGraph } from './tiered-graph.js';
-import { mountFacingRenderer } from '../render/surface.js';
-import { assembleDocument, splitSource, runnableSrcdoc } from '../render/facing.js';
+import { mountFacingRenderer, assembleDocument, splitSource, runnableSrcdoc } from '../render/index.js';
 import * as readerRender from './reader-render.js';
 import * as reveal from './reveal.js';
 import { firstSurfaceKind } from './first-surface.js';
 import { projectTranscript, wordsToText } from './transcript-edit.js';
 import { encodeWav, applyRedactions } from './audio-dsp.js';
-import { createMatrixSession } from '../archive/matrix.js';
-import { depositToArchive, missingConsent, archiveMediatype, REQUIRED_CONSENT, KINDS, ARCHIVE_CASES_WEBHOOK } from '../archive/deposit.js';
-import { createCheckpointLog, checkpointId } from '../archive/checkpoints.js';
-import { createGenomeAutosave } from '../archive/autosave.js';
-import { createChatRoom } from '../chat/index.js';
-import { mountChat, mountChatLauncher } from '../chat/mount.js';
-import { createVault } from '../archive/vault.js';
-import { createRoomVault } from '../archive/room-vault.js';
-import { createSpaceSync } from '../archive/space-sync.js';
-import { mountVaultLauncher } from '../archive/vault-mount.js';
+import {
+  createMatrixSession, depositToArchive, missingConsent, archiveMediatype,
+  REQUIRED_CONSENT, KINDS, ARCHIVE_CASES_WEBHOOK, createCheckpointLog,
+  checkpointId, createGenomeAutosave, createVault, createRoomVault,
+  createSpaceSync, mountVaultLauncher,
+} from '../archive/index.js';
+import { createChatRoom, mountChat, mountChatLauncher } from '../chat/index.js';
+import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
+import { mountPlainSurface, scene as plainScene, liveModel as plainLiveModel } from '../plain/index.js';
 
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
@@ -86,7 +91,12 @@ const matrix = createMatrixSession();
 matrix.restoreAndRevalidate().catch(() => { /* stays signed-out */ });
 
 const parse = (text, opts = {}) => {
-  const parser = createParser(opts);
+  // Law 1 at emit: hand the parser the contract registry's resolver, so every
+  // event the parse orchestrator authors is checked against its declared Act
+  // face at the append chokepoint (core/log.js) — violations recorded, never
+  // thrown. The registry import is a DECLARED seam (src/core/seams.js): it
+  // aggregates every holon's manifest, so it cannot ride core's entrance.
+  const parser = createParser({ contractOf, ...opts });
   return parser.parse(String(text ?? ''));
 };
 
@@ -130,6 +140,16 @@ const chat = {
 // a tamper-evident block (content address + mxc + key) in an OPFS-persisted chain.
 // Signed-out it is inert; `save`/`open`/`verify` lazily start it. See docs/media-vault.md.
 const vault = createVault({ matrix });
+
+// The durable substrate + database engine (src/store). A passphrase vault seals
+// each room's append-only event log as encrypted OPFS bytes — "rooms are tables,
+// events are rows, fold is the query". Constructing it is inert (no key, no OPFS
+// touch); `db.unlock(user, passphrase)` arms it, then `db.openLog(roomId)` hands
+// back a durable log whose appends persist encrypted and whose reopen rehydrates
+// + folds identically, while `db.rows/buildTable/query/formula` give the
+// spreadsheet-database view over any room. This is the membrane the surface
+// adopts to make readings survive the tab and to query the corpus as tables.
+const db = createDatabase();
 
 // The SHARED vault + collaborative workspaces (rooms/archive/room-vault). Where `vault`
 // above is one person's private ledger, `spaces` makes a workspace a real Matrix ROOM:
@@ -271,6 +291,10 @@ const render = Object.freeze({
 window.EO = Object.freeze({
   app,
   render,   // the facing-page WYSIWYG renderer — open a source (HTML/CSS/JS) rendered live beside its code
+  // the plain version as a screen in the app — the same engine with nothing named to the person.
+  // `mount(el,{scene,live})` drops the surface in; `liveModel(app)` reads the person's real sources
+  // so "People mean different things by this" is computed from what those documents actually say.
+  plain: Object.freeze({ mount: mountPlainSurface, liveModel: plainLiveModel, scene: plainScene }),
   parse,
   readingAt,
   groundSpans, groundSummary, supportVerdict,
@@ -295,6 +319,7 @@ window.EO = Object.freeze({
   matrix,
   chat,
   vault,
+  db,             // the durable substrate — encrypted, append-only, OPFS-backed rooms (src/store)
   spaces,   // shared, room-encrypted, hash-chained vault + invitable workspaces (docs/shared-vault.md)
   archive,
   genome,

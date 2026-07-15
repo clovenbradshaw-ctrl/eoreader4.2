@@ -32,7 +32,7 @@
 //                      against the corpus population gradient via deriveNull —
 //                      the accretion pathology measured per turn, not per file
 
-import { deriveNull } from '../core/voidnull.js';
+import { deriveNull } from '../core/index.js';
 import { TERRAIN_GRAIN } from './bands.js';
 
 // The Stance face's grain column (core/cube.js STANCES, transposed): the grain each

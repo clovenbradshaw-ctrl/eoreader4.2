@@ -34,7 +34,7 @@
 // reflect.js mints a diversity whose voices default to origins (it cannot see mirrors); the census
 // here re-mints it with the mirror-collapsed voice count, so the answer's first-class standing
 // downgrades honestly when its "two origins" turn out to be one publisher.
-import { makeDiversity } from '../../core/witness.js';
+import { makeDiversity } from '../../core/index.js';
 
 // A small allow-set of two-label public suffixes, so bbc.co.uk registers as bbc.co.uk (not the
 // bare co.uk that would fuse every UK site into one witness). Deliberately short — the common

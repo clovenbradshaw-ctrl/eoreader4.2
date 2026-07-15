@@ -27,7 +27,7 @@
 // temperature reach. The operator is still drawn, never dictated — a strong REC
 // signal (the weld) overrides the develop bias, as it should.
 
-import { MOVE_ALPHABET } from '../../perceiver/predict/movelog.js';
+import { MOVE_ALPHABET } from '../../perceiver/predict/index.js';
 import { arcTarget } from '../../surfer/flow/index.js';
 
 // When the uncovered budget falls to this fraction of the total, the walk is in its

@@ -13,6 +13,18 @@
 // (the surface's _trailStyle); `null` means a stage with nothing worth narrating (the
 // book-keeping passes, or a pass that did nothing this turn — an empty inquiry, no vetoes).
 // It reads only `data` (never ctx), so it can never leak an internal or reach the model.
+//
+// THE VERBOSE TRACE (`opts.verbose`). The curated view above is the DEFAULT — one honest line
+// per stage that matters, the book-keeping passes silent. But the reader can ask to watch the
+// WHOLE fold think in real time (rooms/reader/app.js foldBeat) — "show me everything the app is
+// reading and doing." Verbose mode does two things and nothing else: (1) it un-silences the
+// book-keeping stages, so EVERY pipeline stage that fired gets a beat, even a no-op one; and
+// (2) it hangs the stage's full `data` projection off the beat as openable `detail` rows, plus
+// the grounded PROMPT text itself on the `prompt` stage — the same bytes the post-hoc "what it
+// was prompted" panel shows, surfaced as the prompt is built rather than after. It is still the
+// SAFE `data` projection (summarize(), turn/pipeline.js) — never ctx — so verbosity widens what
+// the reader sees of the audit, never what the model is fed. Default off → byte-identical to the
+// curated trail, and the golden fold-narrative test stands.
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + 's')}`;
 
@@ -43,9 +55,9 @@ const surfRead = (surf) => {
 // The stages worth speaking, each mapped to the honest line its `data` supports. Kept in
 // step order for reading; a stage absent here (expect, converse, predict, answerable, gate,
 // settle) is internal book-keeping the reader needn't watch, so it returns null and the
-// trail simply doesn't stack a beat for it.
-export const foldNarrative = (name, data = {}) => {
-  const d = data || {};
+// trail simply doesn't stack a beat for it. This is the CURATED headline; verbose mode
+// (foldNarrative below) reuses it and un-silences the rest.
+const curatedBeat = (name, d) => {
   switch (name) {
     case 'route':
       return { kind: 'think', text: d.meta ? 'Reading the conversation' : 'Taking in the question' };
@@ -111,4 +123,72 @@ export const foldNarrative = (name, data = {}) => {
     default:
       return null;
   }
+};
+
+// ── the verbose trace ────────────────────────────────────────────────────────
+// A headline for EVERY stage — including the book-keeping passes the curated view keeps
+// silent, and the no-op turns (nothing bound, no veto fired) it drops. Used only when the
+// curated switch returned null; when it spoke, its own line and glyph win.
+const VERBOSE_LABEL = {
+  route: 'Took in the question', expect: 'Set what to expect', converse: 'Folded the conversation',
+  retrieve: 'Searched the record', inquire: 'Asked the record of itself', fold: 'Folded the reading',
+  predict: 'Drafted a read internally', answerable: 'Judged what it can answer',
+  gate: 'Checked the grounding gate', reason: 'Reasoned it through', prompt: 'Built the grounded prompt',
+  llm: 'Phrasing the answer', bind: 'Bound the citations', factcheck: 'Checked against the record',
+  revise: 'Weighed a revision', veto: 'Screened for unsupported claims', absence: 'Weighed the silence',
+  validate: 'Reacted to its own draft', settle: 'Settled the turn',
+  murmur: 'Took its impression', reflect: 'Reflected on the relations', judgments: 'Logged its judgments',
+};
+const VERBOSE_KIND = {
+  retrieve: 'read', fold: 'fold', predict: 'fold', prompt: 'think', llm: 'phrase', bind: 'bind',
+  factcheck: 'check', judgments: 'check', settle: 'done',
+};
+
+// The keys already shown elsewhere on the beat (surf rides its own audit block; the prompt
+// text and the raw operator cells render specially) — kept out of the flat detail rows so a
+// field is never shown twice.
+const DETAIL_SKIP = new Set(['faces', 'surf', 'path', 'promptText']);
+
+// Flatten the stage's safe `data` projection into openable label/value rows — scalars as
+// themselves, a scalar array joined, an object descended one label deep (referential.w,
+// shape.intent, streamed.chars), a non-scalar array reduced to its count. Total and DOM-free;
+// it reads only what summarize() already put on `data`, so it can surface nothing ctx-private.
+const flattenDetail = (d, prefix = '') => {
+  const rows = [];
+  for (const [k, v] of Object.entries(d || {})) {
+    if (DETAIL_SKIP.has(k) || v == null) continue;
+    const label = prefix ? `${prefix}·${k}` : k;
+    const t = typeof v;
+    if (t === 'string' || t === 'number' || t === 'boolean') {
+      const s = String(v).trim();
+      if (s) rows.push({ label, value: s });
+    } else if (Array.isArray(v)) {
+      if (!v.length) continue;
+      rows.push({ label, value: v.every((x) => typeof x !== 'object') ? v.join(', ') : `${v.length}` });
+    } else if (t === 'object') {
+      rows.push(...flattenDetail(v, label));
+    }
+  }
+  return rows;
+};
+
+// foldNarrative — the curated headline by default; the WHOLE fold, openable, when verbose.
+// Verbose keeps the curated line and glyph wherever a stage already spoke (so "Folded the
+// reading — 3 stops" and its surf audit are untouched), un-silences the rest with a plain
+// label, and hangs each stage's flattened `data` — and, on the prompt stage, the built prompt
+// text — off the beat as `detail`/`prompt` for the surface to reveal on demand.
+export const foldNarrative = (name, data = {}, opts = {}) => {
+  const d = data || {};
+  const curated = curatedBeat(name, d);
+  if (!opts.verbose) return curated;
+  const head = curated || (VERBOSE_LABEL[name]
+    ? { kind: VERBOSE_KIND[name] || 'think', text: VERBOSE_LABEL[name] }
+    : null);
+  if (!head) return null;   // a stage with no name we know — stay silent even here
+  const beat = { kind: head.kind, text: head.text };
+  if (head.surf) beat.surf = head.surf;
+  const detail = flattenDetail(d);
+  if (detail.length) beat.detail = detail;
+  if (name === 'prompt' && typeof d.promptText === 'string' && d.promptText.trim()) beat.prompt = d.promptText;
+  return beat;
 };

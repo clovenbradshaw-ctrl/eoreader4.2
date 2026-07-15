@@ -29,13 +29,19 @@
 // first follow-up; scoping warmth to the conversation cast is what makes the read
 // robust to a question asked right after the document.
 
-import { parseText } from '../../perceiver/parse/pipeline.js';
+import { parseText } from '../../perceiver/parse/index.js';
 import { namedReferents, figureSurface } from '../../perceiver/index.js';
 import { projectGraph } from '../../core/index.js';
 
 const GAMMA = 0.7;   // recency decay along the reading line — matches reading.js
 
 const norm = (s) => String(s || '').trim().toLowerCase();
+
+// Gender agreement for a gendered follow-up pronoun (its own module, converse/gender.js): the read
+// that keeps "where was he born?" off the wife the prior answer named. Re-exported here so callers
+// (and tests) keep reaching it at the reference-resolver's door.
+export { pronounGender, roleGenders } from './gender.js';
+import { pronounGender, roleGenders, genderClashes } from './gender.js';
 
 // The figures the CONVERSATION named, warmest first. The history (USER and TALKER
 // turns alike — the talker's reply is a unit on the line too, §4) and the current
@@ -72,17 +78,44 @@ export const conversationCast = (history = [], question = '') => {
   const rep = projectGraph(doc.log).representative || ((id) => id);
   const label = new Map();
   const mass  = new Map();
+  // Labels come from INS — the naming authority; the earliest-INS label leads, so the canonical
+  // name shows and a later alias never renames a warm figure.
   for (const e of events) {
-    if (e.op !== 'INS') continue;
+    if (e.op !== 'INS' || e.id == null) continue;
     const id = rep(e.id);
     if (!label.has(id)) label.set(id, e.label);
-    // Prior mass only: a figure named AT the cursor (the question's own line) does not
-    // count as already-warm — the same before-the-cursor discipline readingAt keeps.
-    if (e.sentIdx != null && e.sentIdx < at) mass.set(id, (mass.get(id) || 0) + Math.pow(GAMMA, at - 1 - e.sentIdx));
   }
-  return [...mass.entries()]
+  // Warmth counts EVERY reference to a figure, not only its re-namings. A subject the conversation
+  // carries by PRONOUN — "who was HIS wife?", "where was HE born?" — stays warm through the CON/SIG/
+  // DEF edges those pronouns resolve to, so a one-off name dropped in a recent answer (a wife the
+  // subject was merely related to) never outranks the subject the whole thread is about. Before, only
+  // INS (a fresh naming) added mass, so a subject spoken of by pronoun went cold the moment the answer
+  // named someone else, and "he" bound to that someone (the Carol-Held-Knight misfire). Each reference
+  // deposits one γ-decayed unit at its sentence; only references BEFORE the cursor count (the
+  // question's own line is not already-warm), and only a NAMED figure (one with an INS) is a cast member.
+  const bump = (rawId, sentIdx) => {
+    if (rawId == null || sentIdx == null || !(sentIdx < at)) return;
+    const id = rep(rawId);
+    if (!label.has(id)) return;
+    mass.set(id, (mass.get(id) || 0) + Math.pow(GAMMA, at - 1 - sentIdx));
+  };
+  for (const e of events) { bump(e.id, e.sentIdx); bump(e.src, e.sentIdx); bump(e.tgt, e.sentIdx); }
+  const ranked = [...mass.entries()]
     .map(([id, m]) => ({ id, label: label.get(id) || id, mass: m }))
     .sort((a, b) => b.mass - a.mass);
+
+  // Gender agreement: when the live turn carries a gendered pronoun, a figure the conversation marks
+  // as the OTHER gender is DEMOTED below every gender-compatible one (never dropped — a stable partition,
+  // so within each side warmth still decides, and if every figure clashes the ranking is unchanged). This
+  // is what keeps "where was he born?" off the wife the prior answer just named, and lands it on the
+  // subject the thread is about. No gendered pronoun, or no positive gender evidence → the warmth order stands.
+  const pg = pronounGender(question);
+  if (!pg) return ranked;
+  const genders = roleGenders(turns.join('\n\n'));
+  if (genders.size === 0) return ranked;
+  const compatible = ranked.filter(r => !genderClashes(r.label, pg, genders));
+  const clashing   = ranked.filter(r =>  genderClashes(r.label, pg, genders));
+  return clashing.length ? [...compatible, ...clashing] : ranked;
 };
 
 // localeOf — where in the DOCUMENT the referent is established: its strongest incident

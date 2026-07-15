@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { projectFold, clearFoldMemo, outstandingQuestion, answersAwaited } from '../src/core/conversation-fold.js';
+import { projectFold, clearFoldMemo, outstandingQuestion, answersAwaited } from '../src/frame/index.js';
 
 // docs/response-demand.md — the fold carries the assistant's outstanding question-copy, so the next
 // user turn is scored against it: a polar "no"/"yes" or a choice answer ("the animal") is reafferent

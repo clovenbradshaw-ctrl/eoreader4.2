@@ -13,8 +13,8 @@
 // so the next draw leans toward REC/VOID — the engine that starts confabulating
 // stops itself. strain = 1 − boundFraction; the structural prior does the rest.
 
-import { predictNextMove } from '../../perceiver/predict/predictor.js';
-import { MOVE_ALPHABET } from '../../perceiver/predict/movelog.js';
+import { predictNextMove } from '../../perceiver/predict/index.js';
+import { MOVE_ALPHABET } from '../../perceiver/predict/index.js';
 import { applyPhaseBias } from './shape.js';
 
 // The move the loop opens with when there is no self-history yet: CON, the

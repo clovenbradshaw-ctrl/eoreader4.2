@@ -24,8 +24,8 @@
 // page text into the surprise basis, the best-first frontier, the curiosity floor, and the hop
 // trace are all testable with a fake search and a hand-advanced budget — no model, no network.
 
-import { surpriseAt } from '../core/surprise.js';
-import { bornSalience } from '../surfer/salience.js';
+import { surpriseAt } from '../core/index.js';
+import { bornSalience, bornScore, significanceFloor, renormAdd } from '../surfer/index.js';
 import { chooseSense, biasTopic, sharpenSeed } from './disambiguate.js';
 import { makeArchive } from './archive.js';
 import { normalizeQuery } from './prefetch.js';
@@ -185,6 +185,12 @@ export const runCuriousResearch = async (seed, {
   searchOpts = {},
   disambiguate = null,    // async (subject) → sense prior | null — the injected thumb (disambiguate.js). Absent → no change.
   sensePrior = null,      // a precomputed sense prior, letting a caller disambiguate once and reuse across walks
+  embed = null,           // async (text) → Float32Array | null — the MEANING embedder (MiniLM). Present ⇒ the leash is
+                          // measured in the embedding space (Louis vs Neil Armstrong separate); absent ⇒ the token-space
+                          // Born rule as before, so an offline/embedder-free walk is byte-identical to prior behaviour.
+  topicText = null,       // the text the leash measures drift AGAINST (defaults to the anchor) — the subject, not a hop query
+  onKeep = null,          // (docs) → void — fired with a hop's docs the moment the walk KEEPS them (seed + on-leash), so the
+                          // host can save exactly what stayed on topic and never the strayed pages (drops the save-everything bug)
   onHop = null,           // (｛ index, query, term ｝) → void — a progress beat fired BEFORE each hop's fetch
   onHopDone = null,       // (hop) → void — a progress beat fired AFTER each hop, carrying its outcome
   signal = null,          // an AbortSignal (the Stop button): stop the walk between hops, keeping what it gathered
@@ -213,6 +219,19 @@ export const runCuriousResearch = async (seed, {
   for (const t of researchTerms(anchor)) topic.set(t, (topic.get(t) || 0) + ANCHOR_W);
   let topicFrozen = false;
   let baseline = 0;       // the seed page's own saliency to the topic — the "on-topic looks like this" yardstick
+
+  // The MEANING channel for the leash (opt-in via `embed`). `topicVec` is the fixed topic in the
+  // embedding space — the anchor, enriched ONCE by the seed page and then frozen, exactly as the
+  // token frame is. When it is present, a hop's saliency is the Born score of its page against this
+  // vector (so a same-surname namesake — Louis vs Neil Armstrong — reads as off-topic despite the
+  // shared token), and the leash floor rises with the noise NULL of the background of scores seen so
+  // far. A failed/cold embed leaves `topicVec` null and the walk falls back to the token Born rule,
+  // byte-identical to an embedder-free run. `bg` is that background — the non-seed hop scores.
+  let topicVec = null;
+  if (typeof embed === 'function') {
+    try { topicVec = await embed(String(topicText || anchor).slice(0, EMBED_CHARS)) || null; } catch { topicVec = null; }
+  }
+  const bg = [];
   const docs = [];
   const archive = makeArchive({ clock, ...shredTtlOpts });   // parsed-but-strayed readings, leased by content then shredded
   const seenDocIds = new Set();       // docIds already grounded — never archive a page that is a source
@@ -222,6 +241,10 @@ export const runCuriousResearch = async (seed, {
   // gives the host ONE place to learn a hop's OUTCOME (results / kept / strayed) the moment it is
   // known — the live "read N sources" / "set aside" beat, the sibling of `onHop`'s pre-fetch line.
   const record = (h) => { hops.push(h); if (onHopDone) { try { onHopDone(h); } catch { /* a progress beat must never break the walk */ } } };
+  // keep(docs) → hand the host the docs a hop KEPT, the moment it is kept, so it can save exactly the
+  // on-topic pages and never the strayed ones. Fired only from the seed and on-leash branches (never
+  // the strayed branch), so a page the leash set aside is never saved. A host error never breaks the walk.
+  const keep = (ds) => { if (onKeep && ds && ds.length) { try { onKeep(ds); } catch { /* a save error must never break the walk */ } } };
   // The sources a kept hop actually read — {title, url} per doc — so the "Read N sources" beat
   // can be clicked through to the very pages the surf returned, not just their count.
   const srcList = (ds) => ds.map(d => ({
@@ -271,7 +294,13 @@ export const runCuriousResearch = async (seed, {
     // overlap with the fixed topic frame). One says "is this new?", the other "is this still about
     // the question?". An empty fetch is zero on both.
     const { bits, by } = arrival.size ? curiosityOf(prior, arrival, { gamma }) : { bits: 0, by: {} };
-    const salience = arrival.size ? bornSalience(topic, new Set(arrival.keys())) : 0;
+    // SALIENCY. In the meaning channel it is the Born score of this hop's page against the fixed
+    // topic vector (embedding cosine²) — the read that tells Louis Armstrong from Neil Armstrong.
+    // In the token channel (no embedder) it is the |⟨T|s⟩|² over the shared terms, exactly as before.
+    let pv = null;
+    if (topicVec && hopDocs.length) { try { pv = await embed(hopEmbedText(hopDocs)) || null; } catch { pv = null; } }
+    const salience = pv ? bornScore(topicVec, pv)
+      : (arrival.size ? bornSalience(topic, new Set(arrival.keys())) : 0);
 
     // SEED: the question's own footing — always kept and folded, and it CALIBRATES the leash. Its
     // saliency becomes the baseline; the topic frame is enriched with its content, then frozen.
@@ -285,14 +314,19 @@ export const runCuriousResearch = async (seed, {
         committed = chooseSense(new Set(arrival.keys()), commitPrior);
         if (committed && committed.terms.length) { biasTopic(topic, committed.terms); biased = true; }
       }
-      baseline = biased ? bornSalience(topic, new Set(arrival.keys())) : salience;
+      baseline = pv ? salience : (biased ? bornSalience(topic, new Set(arrival.keys())) : salience);
       if (!topicFrozen) { for (const t of arrival.keys()) topic.set(t, (topic.get(t) || 0) + 1); topicFrozen = true; }   // presence, not counts
+      // Enrich the MEANING frame with the seed page too (the first grounding of what the question is
+      // about), then it is frozen — the parallel of the token enrichment above, so a later hop is
+      // scored against "the anchor AND the page it landed on", not the bare query vector.
+      if (topicVec && pv) topicVec = renormAdd(topicVec, pv);
       if (hopDocs.length) {
         docs.push(...hopDocs);
         for (const d of hopDocs) seenDocIds.add(d.docId);
         prior = foldInto(prior, arrival, gamma);
         const leads = leadsFrom(by, { seen: seenLeads, max: leadsPerHop });
         for (const lead of leads) { pushLead(lead, salience); seenLeads.add(lead.term); }
+        keep(hopDocs);
         record({ query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience),
                  results: hopDocs.length, leads: leads.map(l => l.term), kept: true, sources: srcList(hopDocs) });
       } else {
@@ -306,8 +340,16 @@ export const runCuriousResearch = async (seed, {
     // saliency, so the floor self-calibrates to the query (a three-word ask and a paragraph ask have
     // very different absolute overlaps). A baseline of ~0 disables the relative test and leaves only
     // maxHops as the backstop.
-    const floor = baseline > 0 ? salienceRatio * baseline : 0;
+    // In the meaning channel the floor is the significance threshold against the BACKGROUND of
+    // scores seen so far: the plain baseline leash, RAISED by the noise null when the background has
+    // a low off-topic bulk to lift out of (the drift case — most hops are namesakes) and left at the
+    // leash when it does not (an all-on-topic run). In the token channel it stays the bare relative
+    // leash, byte-identical to before.
+    const floor = topicVec
+      ? significanceFloor(bg, { baseline, ratio: salienceRatio, alpha: 0.05 })
+      : (baseline > 0 ? salienceRatio * baseline : 0);
     const strayed = hopDocs.length > 0 && salience < floor;
+    if (topicVec && hopDocs.length) bg.push(salience);   // this hop joins the background for later floors
 
     if (!hopDocs.length || strayed) {
       // A strayed hop was PARSED but is not salient to the question. It never grounds — but the
@@ -336,6 +378,7 @@ export const runCuriousResearch = async (seed, {
     const novel = bits >= curiosityFloor;
     const leads = novel ? leadsFrom(by, { seen: seenLeads, max: leadsPerHop }) : [];
     for (const lead of leads) { pushLead(lead, salience); seenLeads.add(lead.term); }
+    keep(hopDocs);
     record({ query: node.query, term: node.term, curiosity: round(bits), salience: round4(salience),
              results: hopDocs.length, leads: leads.map(l => l.term), kept: true, exhausted: !novel, sources: srcList(hopDocs) });
   }
@@ -348,6 +391,15 @@ export const runCuriousResearch = async (seed, {
 // carries an excerpt on its web metadata.
 const pageText = (doc) =>
   String(doc?.text || doc?.web?.excerpt || doc?.excerpt || '');
+
+// The embedder reads a bounded window per hop — the title (which carries the entity most sharply)
+// plus the head of the prose. Bounded because the meaning model truncates long inputs anyway and a
+// per-hop embed must stay cheap; the head of a page is where it says what it is about.
+const EMBED_CHARS = 1000;
+const hopEmbedText = (hopDocs) => hopDocs
+  .map(d => `${d?.web?.title || d?.title || ''}\n${pageText(d)}`.trim())
+  .join('\n\n')
+  .slice(0, EMBED_CHARS);
 
 // runTurnWithResearch(args, opts) → { ...turn, research } — the inverted-flow orchestrator: gather
 // the web by a curiosity WALK first (instead of the single-shot search the `auto` path runs), fold
@@ -369,12 +421,15 @@ export const runTurnWithResearch = async (args, {
   searchOpts = { kind: 'auto', fetchPages: true },
   disambiguate = null,    // forwarded to the walk — the injected sense thumb (disambiguate.js)
   sensePrior = null,      // forwarded to the walk — a precomputed sense prior
+  embed = null,           // forwarded to the walk — the meaning embedder for the leash (MiniLM); null ⇒ token leash
+  topicText = null,       // forwarded to the walk — the subject the leash measures drift against (defaults to the seed)
+  onKeep = null,          // forwarded to the walk — fired with each hop's KEPT docs so the host saves only on-topic pages
   onHop = null,           // forwarded to the walk — the pre-fetch "searching for…" beat
   onHopDone = null,       // forwarded to the walk — the after-fetch "read N sources" beat
   signal = null,          // forwarded to the walk — the Stop button stops it between hops
 } = {}) => {
   const q0 = String(seed || args?.question || '').trim();
-  const walk = await runCuriousResearch(q0, { search, anchor: q0, maxHops, gamma, curiosityFloor, salienceRatio, strayPatience, leadsPerHop, k, searchOpts, disambiguate, sensePrior, onHop, onHopDone, signal });
+  const walk = await runCuriousResearch(q0, { search, anchor: q0, maxHops, gamma, curiosityFloor, salienceRatio, strayPatience, leadsPerHop, k, searchOpts, disambiguate, sensePrior, embed, topicText: topicText || q0, onKeep, onHop, onHopDone, signal });
 
   const baseDocs = args?.docs || (args?.doc ? [args.doc] : []);
   const turnArgs = walk.docs.length

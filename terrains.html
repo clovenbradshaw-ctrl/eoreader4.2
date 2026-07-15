@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EO Reader — terrains over text</title>
+<link rel="icon" href="favicon.svg" />
+<style>
+  :root{ --bg:#0c0e12; --ink:#e7ecf3; --dim:#8b93a2; --accent:#7bd0ff;
+    --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace; --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
+  @media (prefers-color-scheme:light){ :root{ --bg:#f4f6fa; --ink:#141821; --dim:#5a6474; --accent:#2a7fd0 } }
+  :root[data-theme="dark"]{ --bg:#0c0e12; --ink:#e7ecf3; --dim:#8b93a2 }
+  :root[data-theme="light"]{ --bg:#f4f6fa; --ink:#141821; --dim:#5a6474 }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;display:flex;flex-direction:column}
+  #mount{flex:1 1 auto;min-height:0}
+  .fallback{padding:40px 20px;color:var(--dim);max-width:70ch}
+  .fallback code{font-family:var(--mono);color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="mount"><div class="fallback">Loading terrains… if this stays, serve the folder over HTTP (<code>npm run serve</code>) so the ES modules load — opening the file directly will not work.</div></div>
+
+<script type="module">
+  // Terrains over text: the same passage, nine ways. Every overlay is a terrain of the
+  // cube's Site face (src/core/cube.js) — entities are just one of the nine. The switcher
+  // IS the cube; the grain of each terrain decides how it can be drawn.
+  import { mountTerrainSurface, scene } from './src/rooms/terrains/index.js';
+  const mount = document.getElementById('mount');
+  try {
+    mount.innerHTML = '';
+    mountTerrainSurface(mount, { scene });
+  } catch (e) {
+    mount.innerHTML = '<div class="fallback">Could not start terrains: ' + String(e && e.message || e) + '</div>';
+    console.error(e);
+  }
+</script>
+</body>
+</html>

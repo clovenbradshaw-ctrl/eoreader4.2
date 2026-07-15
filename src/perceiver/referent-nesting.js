@@ -28,7 +28,7 @@
 //                      not just the chain. This is the 58-median / 185-max the read
 //                      reported — the raw depth of the weave at this referent.
 
-import { parseHolon } from '../core/holon.js';
+import { parseHolon } from '../core/index.js';
 import { projectGraph } from '../core/index.js';
 
 // A referent id may carry ':'/'@' (a role referent "role:sister@gregor-samsa") — those

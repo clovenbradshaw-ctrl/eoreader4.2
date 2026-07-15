@@ -27,8 +27,8 @@
 // structural tuple can witness, carrying its file and line. The organ's JUDGMENTS
 // (issues.js) go the other way, through the enactor door — they cite these tuples.
 
-import { eotDoc } from '../ingest/eot.js';
-import { valueLiteral } from '../ingest/eot-emit.js';
+import { eotDoc } from '../ingest/index.js';
+import { valueLiteral } from '../ingest/index.js';
 import { projectGraph } from '../../core/index.js';
 import { seg, nameSeg, modSeg, resolveSpec } from './facts.js';
 

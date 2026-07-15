@@ -206,3 +206,41 @@ export const composeChapterReading = async (profile, chapter, { model = null, si
     modelless: !model,
   };
 };
+
+// ── zooming in — the passage, and the fold-prompted close reading of one moment ──
+// The reader has opened a chapter and clicked a single mention: they want to ZOOM into that moment.
+// Zooming is the same fold discipline, tightened — the fold is now just this passage's NEIGHBOURHOOD,
+// the few sentences around it. `passageNeighborhood` is the deterministic context (always shown, no
+// model): the sentence itself and its neighbours, the centre marked. `composePassageReading` runs the
+// two-pass topline over that tight window alone, so the reading is of the referent AT this instant —
+// the deepest zoom, still grounded and cited to passages inside the window.
+
+// The neighbourhood of a passage — a small symmetric window of sentences around `idx`, the centre
+// marked. Pure and model-free; the context the reader reads while zoomed in. Clamped to the document.
+export const passageNeighborhood = ({ sentences = [], idx = 0, radius = 2 } = {}) => {
+  const n = sentences.length;
+  if (!n || !Number.isInteger(idx)) return { center: idx, start: idx, end: idx, lines: [] };
+  const start = Math.max(0, idx - radius);
+  const end = Math.min(n - 1, idx + radius);
+  const lines = [];
+  for (let i = start; i <= end; i++) {
+    const text = String(sentences[i] || '').trim();
+    if (text) lines.push({ idx: i, text, center: i === idx });
+  }
+  return { center: idx, start, end, lines };
+};
+
+// The fold-prompted close reading of one moment — the two-pass topline scoped to a passage's
+// neighbourhood [idx-radius, idx+radius]. The tightest fold: only the entity's mentions and the
+// properties the record witnesses inside that window. Reuses composeChapterReading over a synthetic
+// window "chapter", so the zoom is the same grounded, containment-gated reading, one level deeper.
+//
+//   idx     — the centre sentence (the mention the reader clicked)
+//   windowMentions — the entity's mentions that fall inside the window (app builds these from range)
+export const composePassageReading = async (profile, { idx = 0, radius = 2, windowMentions = [], label = '' } = {}, { model = null, signal = null } = {}) => {
+  const start = Math.max(0, idx - radius);
+  const end = idx + radius + 1;                       // exclusive upper bound (composeChapterReading uses < end)
+  const chapter = { label: label || `¶${idx}`, start, end, mentions: windowMentions };
+  const reading = await composeChapterReading(profile, chapter, { model, signal });
+  return { ...reading, center: idx };
+};

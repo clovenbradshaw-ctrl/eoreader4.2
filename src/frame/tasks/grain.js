@@ -13,4 +13,4 @@
 export {
   TASK_OPS, GROUND, FIGURE, PATTERN,
   objectGrainOf, holonGrainOf, cubeCellOf, actsOf, grainCoherence, annotateGrain,
-} from '../grain.js';
+} from '../index.js';

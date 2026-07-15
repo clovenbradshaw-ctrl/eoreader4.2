@@ -14,9 +14,9 @@
 // not the judge — when the cuts themselves are retyped (v2 #2–#4), this file rides unchanged;
 // only the verdicts it reads should move.
 
-import { VERDICTS } from '../core/verdicts.js';
-import { createJudgmentLog } from '../core/def.js';
-import { violatesB1 } from '../core/cut.js';
+import { VERDICTS } from '../core/index.js';
+import { createJudgmentLog } from '../core/index.js';
+import { violatesB1 } from '../core/index.js';
 
 // The four typed commitments. INDETERMINATE is the one suspended verdict — abstention, the
 // honest "I lack the witness to cut same-from-other", never counted as a commitment.

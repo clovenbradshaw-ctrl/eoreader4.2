@@ -32,7 +32,7 @@
 // Reuses the SAME Matrix identity as everything else (window.EO.matrix) for the media
 // transport, and the chat holon (window.EO.chat) as the encrypted bus. Injectable and
 // non-throwing throughout.
-import { createOpfsStore } from '../chat/opfs-store.js';
+import { createOpfsStore } from '../chat/index.js';
 import { createMediaStore } from './mxc.js';
 import { createRoomChain } from './room-chain.js';
 import { encryptFile, decryptFile, sha256Hex, asBytes, safeText } from './file-crypto.js';

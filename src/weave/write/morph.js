@@ -13,7 +13,7 @@
 // The closed irregular set is the PACKAGED English-morphology convention (core/conventions/
 // english-verbs.js), the same curated-lexicon "packaged way" as the seed speech/relation
 // lists — not a table hand-rolled here. This module is only the productive RULES.
-import { SEED_IRREGULAR_PAST as IRREGULAR, SEED_PAST_FORMS as PAST } from '../../core/conventions/english-verbs.js';
+import { SEED_IRREGULAR_PAST as IRREGULAR, SEED_PAST_FORMS as PAST } from '../../core/conventions/index.js';
 
 // a present participle ("pushing") back to its base ("push"), undoubling a doubled final
 // consonant ("running" → "run", "sitting" → "sit"). A dropped 'e' ("moving" → "mov") is

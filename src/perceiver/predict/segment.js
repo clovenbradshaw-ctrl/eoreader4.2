@@ -23,7 +23,7 @@
 //
 // Pure over the surprise series; no model call beyond the note grain already run.
 
-import { predictiveSequenceReading } from '../../surfer/sequence.js';
+import { predictiveSequenceReading } from '../../surfer/index.js';
 
 // The high quantile of a value list — the signal's own background level. `q` in
 // [0,1]; q = 1 − alpha is "the level only an alpha-fraction of surprises exceed".

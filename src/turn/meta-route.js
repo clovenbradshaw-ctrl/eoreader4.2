@@ -37,11 +37,11 @@
 // baseline (markers → continuation → fresh-regex-seed) rules, byte-identical to today.
 
 import { tok, segmentSentences } from '../perceiver/parse/index.js';
-import { bornSalience } from '../surfer/salience.js';
-import { deriveNull } from '../core/voidnull.js';
-import { relax } from '../weave/longgen/relax.js';
-import { stanceDescOf } from '../core/conversation-fold.js';
-import { speak } from '../model/speak.js';
+import { bornSalience } from '../surfer/index.js';
+import { deriveNull } from '../core/index.js';
+import { relax } from '../weave/longgen/index.js';
+import { stanceDescOf } from '../frame/index.js';
+import { speak } from '../model/index.js';
 
 // The route alphabet — the directions the relaxation settles over. `research` is a real
 // direction (the discourse says the world has to answer), but it maps to the GROUND verdict

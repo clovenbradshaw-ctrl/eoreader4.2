@@ -43,3 +43,15 @@ export {
   objectGrainOf, holonGrainOf, cubeCellOf, actsOf, grainCoherence, annotateGrain,
 } from './grain.js';
 export { MAX_DEPTH, MAX_FANOUT, MAX_NODES } from './constants.js';
+// The Conversation Fold (conversation-fold.js): a pure projection over the
+// conversation event log, sibling to projectGraph, that carries the STANCE
+// forward so a turn inherits what it's doing (continuation-by-default) instead
+// of re-classifying a bare string. It lives HERE because it projects through the
+// frame spine (events/project/bind) — in core it made the floor import upward.
+// See docs/conversation-fold.md.
+export {
+  projectFold, clearFoldMemo, routeStance, stanceDescOf, isExplicitCompose,
+  switchesFromCompose, composeKind, composeSubject, transitionPrompt, foldRules,
+  bindTurn, outstandingQuestion, answersAwaited, POLAR_ANSWER_SPACE,
+  VERDICTS as FOLD_VERDICTS, COMPOSE_VERBS, COMPOSE_KINDS,
+} from './conversation-fold.js';

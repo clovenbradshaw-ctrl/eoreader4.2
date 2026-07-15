@@ -14,7 +14,7 @@
 // owner-attributed loci against a hand key.
 
 import { coarseSurf } from './levels.js';
-import { plainRel } from '../perceiver/surfaces.js';
+import { plainRel } from '../perceiver/index.js';
 
 const clip = (t, n = 140) => String(t || '').replace(/\s+/g, ' ').trim().slice(0, n);
 // A relation rendered in EOT surface syntax (docs/eot-surface-syntax.md): SUBJECT -> OBJECT :

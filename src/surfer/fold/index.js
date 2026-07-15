@@ -4,6 +4,23 @@
 export { foldNote }        from './integral.js';
 export { impressionQuery } from './impression.js';
 
+// The fold → summary pipeline (summary.js · summary-prompt.js · summary-cross.js):
+// summaryFold packages the surfer's reading at a scope (full · cursor · entity ·
+// topic) as ONE packet; telegramSummary is the model-free floor; realizeSummary is
+// the model voice behind the referential gate (names and numbers must already stand
+// in the packet — prose words are free); the cross-source fold keeps namesakes apart
+// and ships its own collapse metric so a bench can falsify it.
+export { summaryFold, telegramSummary, packetSurface, pickLeadProperty } from './summary.js';
+export {
+  summaryMessages, crossSummaryMessages, SUMMARY_SYSTEMS, SUMMARY_DECODE,
+  cleanSummary, summaryAdditions, referentiallyContained,
+  realizeSummary, realizeCrossSummary,
+} from './summary-prompt.js';
+export {
+  crossSourceSummaryFold, telegramCrossSummary,
+  corefCollapseReport, summaryAttributionErrors,
+} from './summary-cross.js';
+
 // The reading substrate (rich-notes §2·§3): the typed open-world graph the notes
 // project from, and the membrane that crosses it to the talker as plain groups.
 export {
@@ -39,6 +56,11 @@ export { auditMonologue, auditLog, firewallAudit, reportAudit } from './audit.js
 // without laundering (docs/monologue-significance.md).
 export { weaveSignificance, inferSignificance, inferFoldSignificance, buildSignificanceEdge, readSignificance, SIGNIFICANCE } from './significance.js';
 
+// Dispatch (fold/dispatch.js): parse a surf of the graph into discrete pattern-quests — the head of
+// the synthesis pipeline. Model-free by default (the quest count falls out of the born spectrum);
+// the DEF→EVA→REC loop reaches for the local model ONLY when the geometry can't discretize the surf.
+export { dispatch, discretize, findable, pullApart } from './dispatch.js';
+
 // Weave (fold/weave.js): loops on loops. Metacognition — the reflection ABOUT the reflections
 // (loop 2) — and cross-connections — CON bonds between held interpretations (echo · bears-on ·
 // analogy). Both reafferent, band void, canWitness false: the firewall holds at every level.
@@ -57,3 +79,6 @@ export {
   MODE_OF, FATE_OF, modeOf, verdictOf, classifyTensions, recEventsOf,
   sayability, routeSubstrate, VERBALIZABLE, NARRATE_ONLY,
 } from './verdict.js';
+
+// (seam healing) re-exported so the module stays behind the entrance
+export { TIME_GRAINS, foldTime } from './time-axis.js';

@@ -20,7 +20,7 @@
 // MANY independent sources stand behind it", at the grain the graph actually holds.
 
 import { parseText } from '../../perceiver/parse/index.js';
-import { makeDiversity } from '../../core/witness.js';
+import { makeDiversity } from '../../core/index.js';
 
 // Figures are order-insensitive, the relation is not — the same key the provenance
 // classifier grounds on: "Ben was trusted by Anna" ↔ "Anna trusted Ben".

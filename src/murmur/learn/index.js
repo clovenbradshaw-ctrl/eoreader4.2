@@ -18,8 +18,8 @@
 // testable with hand-fed candidates — no model, no network. The web fetch itself is the caller's
 // (the app injects `search`); this holon only decides WHERE the curiosity points.
 
-import { surpriseAt } from '../../core/surprise.js';
-import { fromEnactor, canWitness } from '../../core/provenance.js';
+import { surpriseAt } from '../../core/index.js';
+import { fromEnactor, canWitness } from '../../core/index.js';
 
 export const LEARN_ENACTMENT = 'murmur-wander';
 

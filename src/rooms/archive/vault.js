@@ -16,7 +16,7 @@
 // Reuses the Matrix identity the app already has (archive/matrix, via window.EO.matrix)
 // and needs no libolm — attachment encryption is Web Crypto AES-CTR. Injectable and
 // non-throwing throughout.
-import { createOpfsStore } from '../chat/opfs-store.js';
+import { createOpfsStore } from '../chat/index.js';
 import { createMediaStore } from './mxc.js';
 import { createChain } from './chain.js';
 import { createVaultBackup } from './vault-backup.js';

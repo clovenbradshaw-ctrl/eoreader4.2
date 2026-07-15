@@ -13,7 +13,7 @@
 // is a relaxation oscillator, the way a central pattern generator walks — not a hand-written
 // beat.
 
-import { MOVE_ALPHABET } from '../../perceiver/predict/movelog.js';
+import { MOVE_ALPHABET } from '../../perceiver/predict/index.js';
 
 const NODE_OPS = ['CON', 'DEF', 'INS', 'SIG'];   // introduce — spend fresh ground
 const EDGE_DEV = 'EVA';                            // develop — consume an undeveloped atom

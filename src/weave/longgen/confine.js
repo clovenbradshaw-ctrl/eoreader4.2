@@ -12,7 +12,7 @@
 // logits when a propose/LogitProcessor backend is present; on the echo path it is computed
 // and recorded per atom (the loop now knows each position's coordinate).
 
-import { eoAddressOfEvent } from '../../core/address.js';
+import { eoAddressOfEvent } from '../../core/index.js';
 
 // The surface REGISTER each operator admits — the shape of sentence the move resolves to.
 // This is the Stance face made operational: a register is a soft preference over

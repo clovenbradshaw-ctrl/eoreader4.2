@@ -25,7 +25,7 @@
 // Pure and model-free: (text, units, anchors) in, (spans, verdicts) out. The one import is the
 // shared content hasher, itself pure — so this runs in a unit test exactly as in the browser.
 
-import { webContentHash } from '../../organs/ingest/websource.js';
+import { webContentHash } from '../../organs/ingest/index.js';
 
 // The same fold scrollToText resolves by (reader-render.js) — smart quotes, dashes, whitespace,
 // case. Exported so the approximate rung and the renderer stay one convention.

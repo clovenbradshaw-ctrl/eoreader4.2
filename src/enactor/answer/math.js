@@ -256,9 +256,7 @@ export const loadMathjs = async () => {
     const mod = await import(/* @vite-ignore */ MATHJS_URL);
     const evaluate = mod.evaluate || mod.default?.evaluate;
     _mathjs = typeof evaluate === 'function' ? { evaluate } : null;
-  } catch {
-    _mathjs = null;
-  }
+  } catch { _mathjs = null; }
   return _mathjs;
 };
 
@@ -374,24 +372,26 @@ export const traceExpression = (expr, engine = 'math.js') => {
   }
 };
 
-// The async answerer the route stage uses — math.js (or the fallback) responds to a math
-// problem. Returns the mechanical answer shape, or null when the question is not math.
+// The validated working record: traceExpression, kept only when it agrees with the figure shown.
+const recordFor = (expr, v) => { const r = traceExpression(expr); return r && r.resultText === formatNumber(v) ? r : null; };
+
+// The async answerer the route stage uses — math.js (or the fallback) responds to a math problem.
+// Returns the mechanical answer shape (with `record`: the auditable working, or null), or null.
 export const answerMath = async (question) => {
   const expr = extractExpression(question) || extractExpression(nlToExpression(question));
   if (expr == null) return null;
   const v = await evaluateMath(expr);
   if (v == null || !Number.isFinite(v)) return null;
   const text = `${expr} = ${formatNumber(v)}`;
-  return { route: 'math', text, answer: text, sources: [] };
+  return { route: 'math', text, answer: text, sources: [], record: recordFor(expr, v) };
 };
 
-// A synchronous variant (built-in evaluator only — no mathjs/network) for the legacy
-// mechanical path (tryMechanical) and unit tests that want a pure, sync answer.
+// A synchronous variant (built-in evaluator only) for tryMechanical and tests wanting a pure answer.
 export const answerMathSync = (question) => {
   const expr = extractExpression(question) || extractExpression(nlToExpression(question));
   if (expr == null) return null;
   const v = evalExpression(expr);
   if (v == null || !Number.isFinite(v)) return null;
   const text = `${expr} = ${formatNumber(v)}`;
-  return { route: 'math', text, answer: text, sources: [] };
+  return { route: 'math', text, answer: text, sources: [], record: recordFor(expr, v) };
 };

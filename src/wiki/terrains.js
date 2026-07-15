@@ -19,7 +19,7 @@
 // here — they are read back from the cube (core/cube.js) so a drift in either fails
 // the self-check at load. This module only adds the article-layer profile.
 
-import { TERRAINS as CUBE_TERRAINS, terrainInfo } from '../core/cube.js';
+import { TERRAINS as CUBE_TERRAINS, terrainInfo } from '../core/index.js';
 
 // ── article / event-log shape (the input identityKey and project.js consume) ──────
 // An article is { terrain, log }. `log` is an append-only array of events, each at

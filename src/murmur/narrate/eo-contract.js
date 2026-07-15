@@ -7,5 +7,5 @@ import { contract } from '../../core/contract.js';
 export const CONTRACTS = Object.freeze({
   'src/murmur/narrate/index.js': contract({ ops: ['INS', 'NUL'], targets: ['Void', 'Atmosphere'], products: ['Entity'], stances: ['Making', 'Clearing'], note: 'barrel' }),
   'src/murmur/narrate/narrator.js': contract({ ops: ['INS', 'NUL'], targets: ['Void', 'Atmosphere'], products: ['Entity'], stances: ['Making', 'Clearing'], note: 'the tiny-LM mutter — pluggable backend, refractory-gated, ≤32 tokens, audit-only, never consulted for truth' }),
-  'src/murmur/narrate/voice.js': contract({ ops: ['INS', 'NUL'], targets: ['Void', 'Atmosphere'], products: ['Entity'], stances: ['Making', 'Clearing'], note: 'the model-free inner voice — turns the geometry into first-person oppositions (prose, not gauges); audit-only, never a fact' }),
+  'src/murmur/narrate/voice.js': contract({ ops: ['INS', 'NUL', 'SEG', 'CON'], targets: ['Void', 'Atmosphere'], products: ['Entity'], stances: ['Making', 'Clearing'], note: 'the model-free inner voice — turns the geometry into first-person oppositions (prose, not gauges); audit-only, never a fact' }),
 });

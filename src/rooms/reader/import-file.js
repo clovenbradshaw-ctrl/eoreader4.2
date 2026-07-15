@@ -71,10 +71,12 @@ export async function importAnyFile(file, opts = {}) {
     return await fromHtml(file, title, name);
   }
 
-  // Native-text PDF — pdf.js text-items with geometry, kept as spans (pdf organ).
+  // PDF — the born-digital text layer AND the OCR of the natively-rendered page, reconciled by
+  // the quorum (pdf organ). Scanned pages that carry no text layer are read from their pixels;
+  // a clean born-digital page takes the text-layer-only fast path. Geometry kept as spans.
   if (mime === 'application/pdf' || ext === 'pdf') {
     say('Reading the PDF…');
-    return await fromPdf(file, title, name, say);
+    return await fromPdf(file, title, name, say, opts);
   }
 
   // Spreadsheet — SheetJS rows; CSV/TSV — Papaparse (table organ).
@@ -311,35 +313,81 @@ async function fromHtml(file, title, name) {
     coverage: { complete: true, reader, retained, blocks: doc.spans.length, dropped: [] } } };
 }
 
-async function fromPdf(file, title, name, say) {
+// A PDF is read by MORE THAN ONE EYE. First the born-digital text layer (pdf.js text-items with
+// geometry). Then — the request's heart — each page is RENDERED NATIVELY (rasterised, the way a
+// viewer draws it) and the pixels are read by the OCR eyes (rooms/reader/eo/pdf-eyes.js →
+// ocr-eyes.js): Tesseract always, a VLM when the cheap eye is doubtful. The text layer (a
+// ground-truth eye) and the OCR readings are handed to the SAME quorum a scan gets (the pdf
+// organ → organs/in/quorum-doc.js): the best line per page is elected, disagreements between the
+// embedded text and the visible pixels are flagged, and each eye's reliability is learned. Then
+// the shaky OCR lines are re-read in the document's own confident vocabulary (ocr-context.js).
+//
+// The policy governs SPEND, never correctness (opts.eyes): 'auto' (default) renders only the
+// pages whose text layer is missing or thin — the scanned/figure pages, where the pixels are the
+// only truth — so a clean born-digital PDF pays nothing and takes the classic text-layer path;
+// 'all' renders every page for maximum corroboration; 'text-only' skips rendering entirely.
+// Best-effort throughout: if pdf.js render or the OCR eyes are unavailable, the text layer alone
+// still reads the document — a PDF is never refused over a missing model.
+async function fromPdf(file, title, name, say, opts = {}) {
   const pdfjs = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.min.mjs');
   try { pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs'; } catch {}
   const data = new Uint8Array(await file.arrayBuffer());
   const pdf = await pdfjs.getDocument({ data }).promise;
   const pages = [];
-  const textlessPages = [];   // pages whose text layer is empty (scanned/pictorial) — accounted, never silent
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
     const vp = page.getViewport({ scale: 1 });
     const tc = await page.getTextContent();
     const items = tc.items.filter(it => 'str' in it).map(it => ({ str: it.str, transform: it.transform, width: it.width, height: it.height, hasEOL: it.hasEOL }));
-    if (!items.some(it => /\S/.test(it.str))) textlessPages.push(p);
     pages.push({ pageNumber: p, width: vp.width, height: vp.height, items });
     if (p % 5 === 0) say('Read page ' + p + ' / ' + pdf.numPages + '…');
   }
-  const { ingestPdf } = await IN();
-  const doc = ingestPdf({ name, pages, metadata: { title } });
-  if (!doc.text || !doc.text.trim()) throw new Error('this PDF has no text layer — try it as a scanned image');
-  // A mixed PDF (born-digital pages + scans) used to lose its scanned pages in silence.
-  // They still carry no text here — OCR is the image path's job — but the coverage
-  // receipt now names every one, and the reader is told at import time.
-  if (textlessPages.length) say(`Note: ${textlessPages.length} page(s) had no text layer (p. ${textlessPages.join(', ')}) — import those as images to OCR them.`);
+  const { ingestPdf, pdfTextReading, resolveOcrInContext } = await IN();
+
+  // ── RENDER NATIVELY + READ WITH EYES — the doubtful pages, or every page under 'all' ──
+  let eyes = { ocrReadings: [], ocrPages: [], eyes: [], rendered: [] };
+  const policy = opts.eyes || 'auto';
+  if (policy !== 'text-only') {
+    try {
+      const { readPdfWithEyes } = await import(new URL('./eo/pdf-eyes.js', import.meta.url).href);
+      eyes = await readPdfWithEyes({ pdf, textPages: pages, policy, getVision, onProgress: say, signal: opts.signal });
+    } catch (e) { /* the eyes are best-effort — the text layer still reads the document */ }
+  }
+
+  // ── RECONCILE — the quorum path when the eyes read any page, else the classic text read ──
+  let doc, guesses = 0, quorum = null;
+  if (eyes.ocrReadings.length) {
+    const readings = [pdfTextReading(pages), ...eyes.ocrReadings].filter(r => r.lines && r.lines.length);
+    doc = ingestPdf({ name, readings, pageCount: pdf.numPages, metadata: { title } });
+    // The shaky lines re-read in context — a garble becomes a belief-marked GUESS at what it
+    // likely means given the document's own confident vocabulary. Best-effort; inert on a clean read.
+    try { guesses = resolveOcrInContext(doc, { lexicon: opts.ocrLexicon || null }).edits || 0; }
+    catch { /* the elected reading still stands */ }
+    quorum = { eyes: doc.quorum?.eyes || [], ocrPages: eyes.ocrPages, best: doc.quorum?.best || null,
+               disagreements: (doc.quorum?.disagreements || []).length, reliability: doc.reliability || [] };
+  } else {
+    doc = ingestPdf({ name, pages, metadata: { title } });
+  }
+  if (!doc.text || !doc.text.trim()) throw new Error('this PDF has no recoverable text — even rendering the pages and reading the pixels came up empty');
+
+  // WHICH pages STILL have no text — a page is only "textless" now if NEITHER the text layer NOR
+  // the eyes found anything on it (a truly blank page, or a scan no eye could read). A scanned
+  // page that OCR read is no longer dropped in silence — it lands, reconciled, like any other.
+  const withText = new Set(doc.spans.map(s => s.page).filter(p => p != null));
+  const textlessPages = [];
+  for (let p = 1; p <= pdf.numPages; p++) if (!withText.has(p)) textlessPages.push(p);
+
+  if (eyes.ocrPages.length) say(`Rendered and read ${eyes.ocrPages.length} page(s) with the eyes (${eyes.eyes.join(' + ') || 'none'})${quorum && quorum.disagreements ? ` — ${quorum.disagreements} line(s) where the pixels and the text layer disagree` : ''}.`);
+  if (textlessPages.length) say(`Note: ${textlessPages.length} page(s) still carry no recoverable text (p. ${textlessPages.join(', ')}).`);
+
   const coverage = {
     complete: textlessPages.length === 0,
     pages: pdf.numPages, pagesWithText: pdf.numPages - textlessPages.length, textlessPages,
-    dropped: textlessPages.length ? [`${textlessPages.length} page(s) with no text layer (likely scanned): p. ${textlessPages.join(', ')}`] : [],
+    rendered: eyes.rendered.length, ocrPages: eyes.ocrPages, eyes: eyes.eyes,
+    disagreements: quorum ? quorum.disagreements : 0, guesses,
+    dropped: textlessPages.length ? [`${textlessPages.length} page(s) with no recoverable text (blank, or a scan no eye could read): p. ${textlessPages.join(', ')}`] : [],
   };
-  return { text: doc.text, title, meta: { modality: 'pdf', doc, coverage } };
+  return { text: doc.text, title, meta: { modality: 'pdf', doc, quorum, coverage } };
 }
 
 async function fromCsv(file, title, name, ext) {

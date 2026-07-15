@@ -23,6 +23,7 @@
 import {
   SEED_STARTER, SEED_FUNCTION, SEED_PREPOSITION, SEED_ROLE, SEED_AUXILIARY, SEED_DEMONYM, SEED_CALENDAR,
 } from '../../core/conventions/index.js';
+import { clusterAnchors } from './name-variants.js';
 
 const TITLE = String.raw`(?:Mr|Mrs|Ms|Dr|Miss|Mister|Sir|Madam|Madame|Lady|Lord|Professor|Prof|Capt|Captain|Rev|St|Aunt|Uncle)\.?`;
 // A lowercase connector (von, of, the) only counts when it sits *between* two
@@ -187,14 +188,20 @@ const ABSTRACT_HEADS = new Set(['way', 'time', 'thing', 'matter', 'fact', 'case'
 // it is a verb's argument rather than a function word's neighbour.
 const isContent = (w, C) => !!w && /^[a-z][a-z'’]*$/.test(w) && w.length >= 2 && !C.isFunction(w);
 
-// The gravity of one sighting, read off its local context against the live
-// conventions `C`. Pure and modelless — position is the witness, the word-classes
-// are the ledger's. A sighting earns the floor when it sits in an ARGUMENT
-// position; anything else earns nothing (no count backstop, so a recurring
-// clause-opener never accrues its way in).
+// The gravity of one sighting, read off its local context against the live conventions `C`.
+// Pure and modelless — position is the witness, the word-classes are the ledger's. Returns
+// `{ g, strong }`: `g` is the referential mass (the floor or nothing), `strong` marks a cue
+// that fixes a referent WHATEVER THE WORD IS — a named possession, an apposition/role bearer,
+// a preposition's object, a set-off vocative. A STRONG sighting admits on its own; a WEAK one
+// (mere positional adjacency to a content word or auxiliary) is enough for an orthographically
+// stable name but not for a word that also lives lowercase in this document, since a lone weak
+// sighting is exactly what mis-reads a clause-initial capital ("Very well…") as a subject.
 const sightingGravity = (sentence, start, end, C, label = null) => {
   const after = sentence.slice(end);
-  if (/^['’]s?\b/.test(after)) return 1.0;                            // possessor: "Abram's" / "the Russian's"
+  // A POSSESSIVE is the apostrophe with an optional single possessive `s` and NOTHING more
+  // ("Abram's", "the Russians'"). A CONTRACTION — "Don't", "Isn't", "we'll" — is an apostrophe
+  // followed by other letters, and must NOT read its stem as a possessor (the "Don"/"Isn" bug).
+  if (/^['’]s?(?![A-Za-z])/.test(after)) return { g: 1.0, strong: true };   // possessor
   const before = sentence.slice(0, start);
   const prev = (before.match(/([A-Za-z'’]+)\s*$/) || [])[1];
   const next = (after.match(/^\s*([A-Za-z'’]+)/) || [])[1];
@@ -214,13 +221,13 @@ const sightingGravity = (sentence, start, end, C, label = null) => {
   // it referential gravity wherever it lands, the argument slot included ("reconvene
   // Monday"). A genuinely recurring personification would re-earn it as the convention
   // is revised; the one-shot date that the floor mistook for a figure does not.
-  if (C.isCalendar && C.isCalendar(label ?? sentence.slice(start, end))) return 0.0;
-  if (C.isDemonym && C.isDemonym(label ?? sentence.slice(start, end)))
-    return (next && C.isAuxiliary(next)) ? 1.0 : 0.0;
-  if (prev && (C.isRole(prev) || C.isPreposition(prev))) return 1.0;  // "his son Seth" / "unto Noah"
-  if (isContent(next, C) || isContent(prev, C)) return 1.0;           // subject ("X walked") / object ("begat X")
-  if (next && C.isAuxiliary(next)) return 1.0;                        // subject of a copula/aux ("Alice is …")
-  // A VOCATIVE / set-off name — a proper name inset by punctuation on BOTH sides
+  const word = label ?? sentence.slice(start, end);
+  if (C.isCalendar && C.isCalendar(word)) return { g: 0.0, strong: false };
+  if (C.isDemonym && C.isDemonym(word))
+    return (next && C.isAuxiliary(next)) ? { g: 1.0, strong: false } : { g: 0.0, strong: false };
+  // STRONG cues — the token is a referent whatever the word is.
+  if (prev && (C.isRole(prev) || C.isPreposition(prev))) return { g: 1.0, strong: true };  // "his son Seth" / "unto Noah"
+  // A VOCATIVE / set-off name (STRONG) — a proper name inset by punctuation on BOTH sides
   // (", Friedrich," / ", Friedrich.") — is direct address, apposition, or a list
   // member, and each is a referent: you address a referent, you appose a referent,
   // a comma-run of names is a roster of them ("Adam, Seth, Enosh"). This is the
@@ -233,8 +240,14 @@ const sightingGravity = (sentence, start, end, C, label = null) => {
   // "…, Monday," and "…, Russian," stay refused; and `cleanLabel`'s starter strip has
   // already removed "Behold,"/"Lo,"/"Verily," before a candidate ever reaches gravity,
   // so a KJV clause-opener cannot slip in as a vocative here either.
-  if (/,\s*$/.test(before) && (after === '' || /^\s*[,.;:!?)]/.test(after))) return 1.0;
-  return 0.0;                                                         // no referential gravity
+  if (/,\s*$/.test(before) && (after === '' || /^\s*[,.;:!?)]/.test(after))) return { g: 1.0, strong: true };
+  // WEAK cues — mere positional adjacency to a content word (subject / object) or an
+  // auxiliary. Enough for an orthographically STABLE name, but a lone weak sighting is what
+  // mis-reads a clause-initial capital ("Very well…", "Come along…") as a subject, so an
+  // unstable token (§ observe) needs a strong cue or recurrence before it admits on these.
+  if (isContent(next, C) || isContent(prev, C)) return { g: 1.0, strong: false };  // subject ("X walked") / object ("begat X")
+  if (next && C.isAuxiliary(next)) return { g: 1.0, strong: false };               // subject of a copula/aux ("Alice is …")
+  return { g: 0.0, strong: false };                                  // no referential gravity
 };
 
 // A bare article / coordinator can never be the LAST word of a referent. When sentence
@@ -266,7 +279,7 @@ const cleanLabel = (raw, C = DEFAULT_CONVENTIONS) => {
 // pipeline passes its live ledger (seed ∪ what the document taught); a standalone
 // caller gets the seeds. Only the predicates admission needs are taken, so any
 // conventions object (or a partial stub) works.
-export const createEntityAdmission = ({ conventions, commonNouns = false } = {}) => {
+export const createEntityAdmission = ({ conventions, commonNouns = false, text = '' } = {}) => {
   const C = conventions ? {
     isStarter:     (w) => conventions.isStarter(w),
     isFunction:    (w) => conventions.isFunction(w),
@@ -282,6 +295,61 @@ export const createEntityAdmission = ({ conventions, commonNouns = false } = {})
   const sightSent = new Map(); // label → number[] (every sighting's sentIdx)
   const mentions  = new Map(); // id    → number[] (sentence indices, ordered)
   const initialisms = new Map(); // acronym label → expansion id (learned org alias)
+  const strongSeen = new Map(); // label → true once a STRONG cue has vouched for it
+
+  // ── The document's own gravity signals — read once, no title list ────────────────
+  // A capitalised token is a MOON — a shared honorific, not a referent — when it heads ≥2
+  // DISTINCT PEOPLE ("Prince" over Andrew & Vasíli, "Mr" over Darcy & Bingley): massless as a
+  // bare figure, and it must not fuse the planets it orbits into one node. "Distinct" is by
+  // NAME-VARIANT CONTAINMENT, not by the second token — "Elvis Presley" and "Elvis Aaron
+  // Presley" are ONE person (one folds into the other), so "Elvis" heads a single planet and
+  // is a given name, not a moon. And a token is ORTHOGRAPHICALLY UNSTABLE when it also appears
+  // LOWERCASE in this document ("prince", "church", "come") — a common word capitalised by
+  // position, which a lone weak sighting must not mint as a figure. Both are read from the
+  // text's own statistics, so admission stays language-free (mechanism, not a list of titles).
+  const headNames     = new Map();   // leading token → Set(full label) over multi-word names
+  const docLowerVocab = new Set();   // words seen lowercase in the source
+  const moonCache     = new Map();   // leading token → { size, val } (recomputed only as the set grows)
+  const preferredCase = new Map();   // idFor(label) → the first MIXED-case spelling seen (canonical form)
+  const notePlanet = (label) => {
+    const w = label.split(' ');
+    if (w.length >= 2) { let s = headNames.get(w[0]); if (!s) headNames.set(w[0], s = new Set()); s.add(label); }
+  };
+  // An ALL-CAPS spelling — a play's speaker cue ("NORA."), a sign, a shouted line, a section
+  // heading — is the SAME referent as its mixed-case form ("Nora"). Read the document's own
+  // casing: prefer the first mixed-case spelling as canonical, so "NORA"/"MRS LINDE"/"SHERLOCK
+  // HOLMES" fold onto "Nora"/"Mrs Linde"/"Sherlock Holmes" instead of standing as loud twins.
+  const isAllCaps = (l) => /[A-ZÀ-Þ]/.test(l) && l === l.toUpperCase();
+  // A word shouted in caps ("LINDE", "NORA") — the mark of a speaker cue / heading token, even
+  // inside an otherwise mixed label ("Mrs LINDE").
+  const hasCapsWord = (l) => l.split(' ').some((w) => w.length >= 2 && /[A-ZÀ-Þ]/.test(w) && w === w.toUpperCase());
+  const canon = (label) => {
+    if (!hasCapsWord(label)) return label;
+    const pref = preferredCase.get(idFor(label));
+    return (pref && pref !== label) ? pref : label;
+  };
+  if (text) {
+    for (const t of String(text).split(/[^A-Za-zÀ-ÖØ-öø-ÿ'’]+/))
+      if (t && /^[a-zà-öø-ÿ]/.test(t)) docLowerVocab.add(t.replace(/['’].*$/, '').toLowerCase());
+    const pre = new RegExp(CAP_RE.source, 'g');
+    const labels = [];
+    let pm; while ((pm = pre.exec(text)) !== null) { const lab = cleanLabel(pm[0], C); if (lab) labels.push(lab); }
+    // The canonical spelling of a name is its cleanest cased form — no word shouted in caps.
+    for (const lab of labels) if (!hasCapsWord(lab)) { const id = idFor(lab); if (!preferredCase.has(id)) preferredCase.set(id, lab); }
+    for (const lab of labels) notePlanet(canon(lab));
+  }
+  // A moon heads ≥2 distinct PEOPLE — distinct name-variant CLUSTERS, so co-referential
+  // variants of one person collapse to a single planet before the count.
+  const isMoon = (tok) => {
+    const set = headNames.get(tok);
+    if (!set || set.size < 2) return false;
+    const cached = moonCache.get(tok);
+    if (cached && cached.size === set.size) return cached.val;
+    const val = new Set(clusterAnchors([...set]).values()).size >= 2;
+    moonCache.set(tok, { size: set.size, val });
+    return val;
+  };
+  const isUnstable = (tok) => docLowerVocab.has(String(tok).toLowerCase());
 
   // Sediment a learned acronym↔expansion alias into admission state: a bare acronym
   // now RESOLVES to the expansion's id without re-deriving (the §8 ORG-1 promise).
@@ -338,8 +406,9 @@ export const createEntityAdmission = ({ conventions, commonNouns = false } = {})
     const re = new RegExp(CAP_RE.source, 'g');
     let m;
     while ((m = re.exec(sentence)) !== null) {
-      const label = cleanLabel(m[0], C);
-      if (!label) continue;
+      const cleaned = cleanLabel(m[0], C);
+      if (!cleaned) continue;
+      const label = canon(cleaned);   // fold an ALL-CAPS cue/heading onto its mixed-case referent
       if (seenInSentence.has(label)) continue;
       seenInSentence.add(label);
 
@@ -352,23 +421,48 @@ export const createEntityAdmission = ({ conventions, commonNouns = false } = {})
       const c = (counts.get(label) ?? 0) + 1;
       counts.set(label, c);
       const multiword = label.includes(' ');
-      // Accrue this sighting's gravity. A multi-word proper name is referential on
-      // its face (it is not a clause-opener accident), so it carries the floor.
-      const g = (gravity.get(label) || 0)
-        + (multiword ? GRAVITY_FLOOR : sightingGravity(sentence, m.index, m.index + m[0].length, C, label));
-      gravity.set(label, g);
+      // Accrue this sighting's gravity. A multi-word proper name is referential on its face
+      // (it is not a clause-opener accident), so it carries the floor and counts as strong.
+      let strongCue = true;
+      if (multiword) {
+        gravity.set(label, (gravity.get(label) || 0) + GRAVITY_FLOOR);
+      } else {
+        const cue = sightingGravity(sentence, m.index, m.index + m[0].length, C, label);
+        strongCue = cue.strong;
+        gravity.set(label, (gravity.get(label) || 0) + cue.g);
+        if (strongCue && cue.g > 0) strongSeen.set(label, true);
+      }
+      const g = gravity.get(label);
+
+      // Gravity gates on a single-token candidate, read from the document's own statistics:
+      //   · a MOON (heads ≥2 distinct people — "Prince", "Mr") is never a bare referent, no
+      //     matter how much gravity it accrues — it is a shared honorific, not a figure;
+      //   · an UNSTABLE token (also seen lowercase here) admits on its FIRST sighting only via
+      //     a STRONG cue, so a clause-opener / common noun capitalised by position ("Very",
+      //     "Come") never mints off a lone weak sighting. Recurrence rescues it — a word that
+      //     recurs as an argument IS a discourse topic ("Dolphins" range… Dolphins are…), and
+      //     a stable name (never seen lowercase) is unaffected by this gate entirely.
+      const bareRefused = !multiword &&
+        (isMoon(label) || (isUnstable(label) && !strongSeen.has(label) && c < 2));
+      // A still-ALL-CAPS multi-word label (canon found no mixed-case twin) of ≥3 words is a
+      // section HEADING shouted in caps ("KINGDOM OF DARIUS", "CONCERNING NEW PRINCIPALITIES…"),
+      // not a figure — the document's own casing says so. Refuse it.
+      const headingRefused = multiword && isAllCaps(label) && label.split(/\s+/).length >= 3;
 
       if (admitted.has(label)) {
         const id = admitted.get(label);
         noteMention(id, sentIdx);
         out.push({ status: 'present', id, label });
-      } else if (g >= GRAVITY_FLOOR) {
+      } else if (g >= GRAVITY_FLOOR && !bareRefused && !headingRefused) {
+        if (multiword) notePlanet(label);          // this name feeds the orbital (moon) statistic
         const rawId = idFor(label);
-        const alias = aliasOf(label);
-        // A HEAD (given-name) containment unifies the id here, as it always did. A
-        // TAIL (surname) containment does NOT: the entity keeps its own id, so the
-        // thin merge the pipeline commits can be defeated by a later event without
-        // rewriting this admission — the append-only discipline, applied to identity.
+        let alias = aliasOf(label);
+        // A HEAD (given-name) containment unifies the id — but NOT through a MOON token:
+        // "Prince Vasíli" is not "Prince Andrew" because they share "Prince", so a head match
+        // on a shared honorific is dropped and each name keeps its own id. A TAIL (surname)
+        // containment never unifies here — the entity keeps its own id, so the thin merge the
+        // pipeline commits can be defeated by a later event (the append-only discipline).
+        if (alias && alias.kind === 'head' && isMoon(alias.token)) alias = null;
         const head = alias && alias.kind === 'head';
         const id = head ? alias.id : rawId;
         admitted.set(label, id);
@@ -405,7 +499,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false } = {})
         if (C.isFunction(head) || C.isStarter(head) || (C.isCalendar && C.isCalendar(head)) || ABSTRACT_HEADS.has(head)) continue;
         const hs = dm.index + dm[0].length - head.length;
         const sc = (counts.get(head) ?? 0) + 1; counts.set(head, sc);
-        const sg = (gravity.get(head) || 0) + sightingGravity(sentence, hs, hs + head.length, C, head);
+        const sg = (gravity.get(head) || 0) + sightingGravity(sentence, hs, hs + head.length, C, head).g;
         gravity.set(head, sg);
         const ss = sightSent.get(head) || []; ss.push(sentIdx); sightSent.set(head, ss);
         if (admitted.has(head)) { const id = admitted.get(head); noteMention(id, sentIdx); out.push({ status: 'present', id, label: head }); }

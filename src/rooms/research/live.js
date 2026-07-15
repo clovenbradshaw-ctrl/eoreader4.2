@@ -12,7 +12,7 @@
 
 import { projectReport } from './project.js';
 import { RKIND } from './events.js';
-import { OPERATORS } from '../../core/operators.js';
+import { OPERATORS } from '../../core/index.js';
 
 // The coverage read in PLAIN LANGUAGE — the operator-code grid (NUL/SEG/DEF/…)
 // rewritten as the shape a person actually asks after a research run: how many

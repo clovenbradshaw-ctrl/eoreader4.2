@@ -38,7 +38,7 @@ import { REBIND_THRESHOLD, FLOOR_TOKENS, ceilingFor, EPSILON } from '../arc/inde
 import { groundSaturation } from '../arc/index.js';
 import { flowVerdict } from '../../surfer/flow/index.js';
 import { arcGapMove, OP_DIRECTIVES } from './fold.js';
-import { deepReading } from '../../surfer/fold/deep-reading.js';
+import { deepReading } from '../../surfer/fold/index.js';
 
 // DEEP READING → the reflection handed to the generation model (docs/deep-reading.md).
 // Before a beat is written, the reading turns back on the SOURCE it is writing from,
