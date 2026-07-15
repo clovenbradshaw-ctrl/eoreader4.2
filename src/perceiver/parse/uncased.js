@@ -91,3 +91,51 @@ export const discoverUncasedReferents = (text, {
 
   return { functors: slots[closed] || [], referents };
 };
+
+// discoverUncasedRelations(text, opts) → [{ src, via, tgt }]
+// The figures of an uncased clause take their roles by POSITION and the particle frame: an SOV
+// language writes [agent]-particle [patient]-particle … [predicate], the verb last. So in a clause
+// carrying EXACTLY two figures, the first is the agent, the second the patient, and the content run
+// trailing the last figure (bounded by the clause end) is the predicate that bonds them. That yields
+// src --predicate--> tgt with no dependency grammar — the same gravity read, one rung up.
+//
+// PRECISION IS DELIBERATELY NARROW. Only the exactly-two-figure clause is read (the unambiguous
+// shape); a one-figure clause has no bond and a many-figure clause needs real dependency structure.
+// Even so the edges are only as clean as the figure set feeding them — where discovery admits a
+// common noun as a figure, a spurious edge follows — so this is a building block, not yet wired into
+// the live reader. On a well-formed passage it is exact (清盛→呼ぶ→重盛); on the Heike it still finds
+// the real 興福→争→延暦 (the temple war) among noisier co-occurrences.
+export const discoverUncasedRelations = (text, { maxPredicate = 4, ...opts } = {}) => {
+  const { referents, functors } = discoverUncasedReferents(text, opts);
+  const figs = [...new Set(referents.map((r) => r.form))].sort((a, b) => b.length - a.length);
+  if (figs.length < 2) return [];
+  const funct = new Set(functors);
+  const clauses = String(text || '').split(/[^\p{L}]+/u).filter((s) => [...s].length > 1);
+  const edges = [];
+  for (const clause of clauses) {
+    // locate the figures in this clause (longest-first, masked so a superstring wins), in order.
+    let masked = clause;
+    const present = [];
+    for (const f of figs) {
+      let idx = masked.indexOf(f);
+      while (idx >= 0) {
+        present.push({ form: f, at: idx });
+        masked = masked.slice(0, idx) + ' '.repeat([...f].length) + masked.slice(idx + f.length);
+        idx = masked.indexOf(f);
+      }
+    }
+    if (present.length !== 2) continue;                     // the one unambiguous SOV shape
+    present.sort((a, b) => a.at - b.at);
+    const [src, tgt] = present;
+    if (src.form === tgt.form) continue;
+    // the predicate: the content run (non-functor letters) trailing the last figure — the SOV verb.
+    const chars = [...clause];
+    let pred = '';
+    for (let i = tgt.at + [...tgt.form].length; i < chars.length; i++) if (!funct.has(chars[i])) pred += chars[i];
+    pred = pred.replace(/[^\p{L}]/gu, '');
+    const plen = [...pred].length;
+    if (plen < 1 || plen > maxPredicate) continue;          // a plausible verb, not a run-on tail
+    edges.push({ src: src.form, via: pred, tgt: tgt.form });
+  }
+  return edges;
+};

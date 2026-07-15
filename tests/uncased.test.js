@@ -1,9 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { discoverUncasedReferents } from '../src/perceiver/parse/uncased.js';
+import { discoverUncasedReferents, discoverUncasedRelations } from '../src/perceiver/parse/uncased.js';
 import { parseText } from '../src/perceiver/parse/pipeline.js';
 import { segmentSentences } from '../src/perceiver/parse/sentences.js';
+
+// A controlled Japanese passage reused across the relation and pipeline tests: 清盛 (Kiyomori) and
+// 重盛 (Shigemori) recur as agents; the two-figure clauses are 清盛が重盛を呼ぶ and 重盛は清盛に従う.
+const JP = ['清盛が館を建てる。', '清盛は兵を集める。', '重盛が父を諫める。', '重盛は都に上る。',
+            '清盛が重盛を呼ぶ。', '重盛は清盛に従う。', '清盛が政を執る。', '重盛が寺を建てる。',
+            '清盛は敵を討つ。', '重盛は民を助ける。', '庭に花が咲く。'].join('');
 
 // UNCASED REFERENT DISCOVERY. Japanese and Chinese carry no case, so the capital-anchored name
 // scanner is blind to their figures (平清盛 has no capital). The figures are found the other way the
@@ -50,14 +56,32 @@ test('empty / letterless input is safe', () => {
   assert.deepEqual(discoverUncasedReferents('。、！？ 123 …'), { functors: [], referents: [] });
 });
 
+// ── RELATIONS (one rung up) ──────────────────────────────────────────────────
+// In an SOV clause with exactly two figures, the first is the agent, the second the patient, and the
+// content run trailing the last figure is the predicate that bonds them — src --verb--> tgt, by the
+// same gravity read, no dependency grammar.
+
+test('reads the SVO relation of a two-figure clause (agent → verb → patient)', () => {
+  // The two-figure clauses here are 清盛が重盛を呼ぶ and 重盛は清盛に従う; the rest carry one figure
+  // (館/兵/父… are one-offs, not figures) so bond nothing — the extraction is exact, not noisy.
+  const edges = discoverUncasedRelations(JP, { minCount: 2, minFreq: 3 });
+  const has = (s, v, t) => edges.some((e) => e.src === s && e.via === v && e.tgt === t);
+  assert.ok(has('清盛', '呼ぶ', '重盛'), '清盛 calls 重盛');
+  assert.ok(has('重盛', '従う', '清盛'), '重盛 follows 清盛');
+  // Only figures bond — a one-off object is never an endpoint.
+  assert.ok(edges.every((e) => e.src !== e.tgt), 'no self-edges');
+  assert.ok(!edges.some((e) => e.tgt === '館' || e.tgt === '兵'), 'a non-figure is not an endpoint');
+});
+
+test('empty / figureless input yields no edge (conservative by construction)', () => {
+  assert.deepEqual(discoverUncasedRelations(''), []);
+  assert.deepEqual(discoverUncasedRelations('。。。'), []);
+});
+
 // ── WIRED INTO THE PIPELINE ──────────────────────────────────────────────────
 // parseText discovers uncased figures automatically (default on) but ONLY on a genuinely uncased
 // document — most letters caseless (\p{Lo}). A cased read never triggers it, so it stays byte-
 // identical; an uncased document, which the capital scan leaves empty, now reads its figures.
-
-const JP = ['清盛が館を建てる。', '清盛は兵を集める。', '重盛が父を諫める。', '重盛は都に上る。',
-            '清盛が重盛を呼ぶ。', '重盛は清盛に従う。', '清盛が政を執る。', '重盛が寺を建てる。',
-            '清盛は敵を討つ。', '重盛は民を助ける。', '庭に花が咲く。'].join('');
 
 test('CJK sentence-final marks are boundaries (。 splits an unspaced passage)', () => {
   const s = segmentSentences('清盛が来た。重盛は去った。維盛が笑った。', { isAbbreviation: () => false });
