@@ -39,6 +39,12 @@ export { perspectiveOf, scanQuotes } from './perspective.js';
 // lifted by the learned same-assertion judgment when a meaning embedder is warm (learnedDiff);
 // mergePerspectives unions one figure's fold across sources for the topic-scope diff.
 export { diffPerspectives, learnedDiff, mergePerspectives, claimText, claimPhrase, claimPolarity } from './perspective-diff.js';
+// The shared claim/figure extractor behind a figure's fold (used by perspective + transmission).
+export { claimsFromDoc, figuresFromDoc, foldOfQuotes, parseFold } from './figure-fold.js';
+// Idea transmission — a claim traced from one voice into another's, in document time, marking
+// where it mutated (an inverted echo). Pure lexical floor + a learned lift; the Rashomon discipline
+// pointed at circulation instead of comparison.
+export { traceTransmission, transmissionFloor } from './idea-transmission.js';
 // The holonic containment address a referent earns from its span — the nesting the
 // flat depth-1 id used to throw away (referent-nesting.js, docs/referent-journey.md).
 export { referentNesting, nestingSummary } from './referent-nesting.js';

@@ -129,5 +129,5 @@ export const installRashomon = (appCtx) => {
     return [...byLabel.values()].sort((x, y) => y.quotes - x.quotes);
   };
 
-  Object.assign(appCtx, { rashomonSource, rashomonTopic, rashomonCandidates });
+  Object.assign(appCtx, { rashomonSource, rashomonTopic, rashomonCandidates, voicesInDoc: agentsInDoc, warmEmbedder });
 };

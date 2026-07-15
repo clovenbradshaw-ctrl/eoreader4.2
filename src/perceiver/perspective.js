@@ -25,6 +25,7 @@
 import { projectGraph } from '../core/index.js';
 import { SEED_SPEECH } from '../core/conventions/index.js';
 import { parseText } from './parse/index.js';
+import { foldOfQuotes } from './figure-fold.js';
 
 // The speech-verb predicate, defaulting to the seed the SIG classifier uses. Injected so
 // a caller with a live conventions ledger (its seed ∪ what the document taught) can pass
@@ -129,52 +130,9 @@ const quoteBelongs = (q, focusIds, focusLabels, rep) => {
   return false;
 };
 
-// ── The universe from their fold ──────────────────────────────────────────────────────
-// Re-read the figure's OWN words with the full parser, so their quotes yield figures and
-// claims the way any document does — not what the document says about them, but the little
-// world their utterances instantiate: who they name, what they assert. Pure given `parse`.
-const foldOfQuotes = (quotes, label, parse) => {
-  const empty = { text: '', figures: [], claims: [] };
-  const text = quotes
-    .map((q) => (/[.!?]["”']?\s*$/.test(q.text) ? q.text : q.text + '.'))
-    .join(' ')
-    .trim();
-  if (!text) return empty;
-  let doc = null;
-  try { doc = parse(text, { docId: `${label || 'figure'}~fold` }); } catch { return { ...empty, text }; }
-  if (!doc || !doc.log) return { ...empty, text };
-  const graph = projectGraph(doc.log);
-  const rep = graph.representative || ((x) => x);
-  const labelOf = (id) => doc.admission?.labelOf?.(id) || graph.entities.get(id)?.label || id;
-
-  // The figures their words invoke — their cast, most-sighted first.
-  const figures = [...graph.entities.values()]
-    .map((e) => ({ id: e.id, label: e.label, count: e.sightings || 0 }))
-    .sort((a, b) => b.count - a.count);
-
-  // The claims their words make — an IS-A (a DEF predicate, "this is surveillance") and a
-  // LINK (a CON/SIG bond, "the city runs it"), each traced to its fold-sentence: their lens
-  // made explicit, what in their own telling is the case.
-  const claims = [];
-  for (const e of doc.log.snapshot()) {
-    if (e.op === 'DEF' && e.key === 'predicate' && e.value) {
-      claims.push({ type: 'is-a', subject: labelOf(rep(e.id)), value: e.value, idx: e.sentIdx ?? null,
-        ...(e.polarity && e.polarity !== '+' ? { polarity: e.polarity } : {}),
-        ...(e.modality && e.modality !== 'realis' ? { modality: e.modality } : {}) });
-    }
-  }
-  const seen = new Set();
-  for (const edge of graph.edges) {
-    if (edge.kind !== 'con' && edge.kind !== 'sig') continue;
-    const key = `${rep(edge.from)}|${edge.via}|${rep(edge.to)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    claims.push({ type: 'link', subject: labelOf(rep(edge.from)), via: edge.via,
-      object: labelOf(rep(edge.to)), idx: edge.sentIdx ?? null,
-      ...(edge.polarity ? { polarity: edge.polarity } : {}) });
-  }
-  return { text, figures, claims };
-};
+// The universe from their fold — their quotes re-read as their own document, yielding the
+// figures they invoke and the claims they assert. Factored into figure-fold.js so idea-
+// transmission can fold a single quote the same way; imported here as the figure's whole voice.
 
 // THE FOLD. A focus referent (one or more coreferent ids) → its perspective: the figure's
 // voice (verbatim quotes), its speech acts in the document graph (attributions), the

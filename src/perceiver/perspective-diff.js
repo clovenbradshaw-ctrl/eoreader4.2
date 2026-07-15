@@ -48,12 +48,13 @@ const defaultNorm = (s) => String(s ?? '').toLowerCase().trim().replace(/\s+/g, 
 const stem = (w) => defaultNorm(w).replace(/(?:ies|es|s)$/, '');
 // The polarity-free TOPIC key of a claim under a norm — what it is about, ignoring sign, so
 // "owns"/"does not own" share a key and read as a conflict rather than two unrelated claims.
-const topicKey = (c, norm) => {
+export const claimTopicKey = (c, norm = defaultNorm) => {
   const n = (s) => stem(norm(s));
   if (c.type === 'is-a') return `isa|${n(c.subject)}|${n(c.value)}`;
   if (c.type === 'link') return `lnk|${n(c.subject)}|${n(c.via)}|${n(c.object)}`;
   return `raw|${n(claimText(c))}`;
 };
+const topicKey = claimTopicKey;
 const signedKey = (c, norm) => `${topicKey(c, norm)}|${claimPolarity(c)}`;
 const subjectKey = (c, norm) => stem(norm(c.subject || ''));
 

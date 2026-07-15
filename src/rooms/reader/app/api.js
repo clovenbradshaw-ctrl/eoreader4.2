@@ -69,6 +69,9 @@ export const buildApi = (appCtx) => {
     // diverge / each own), at one source (rashomonSource, by entity id) or the whole topic
     // (rashomonTopic, by label); rashomonCandidates lists the figures with a voice to compare.
     rashomonSource: appCtx.rashomonSource, rashomonTopic: appCtx.rashomonTopic, rashomonCandidates: appCtx.rashomonCandidates,
+    // idea transmission — a claim traced from one voice into another's, in document/corpus time,
+    // marking where it mutated (an inverted echo); at one source or across the whole topic.
+    transmissionSource: appCtx.transmissionSource, transmissionTopic: appCtx.transmissionTopic,
     // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
     sourceSummary: appCtx.sourceSummary, sourceSummaryOf: appCtx.sourceSummaryOf, entitySummary: appCtx.entitySummary, entitySummaryFor: appCtx.entitySummaryFor, summaryFeedback: appCtx.summaryFeedback,
     // the figure a single-subject source centres on — the source page shows its dossier (docs/topline.md)
