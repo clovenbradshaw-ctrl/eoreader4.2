@@ -33,6 +33,36 @@ const faceOf = (rec, notate) => {
   catch { return null; }
 };
 
+// The holonic address of what a line concerns — organ.document.record.parameter, the
+// same four-fold "where in the machine" the strip trails on its own rows. Read straight
+// off the ledger record, never stamped twice: `organ` is the acting faculty (a murmur
+// voicing names itself; otherwise the door — perceiver read the world, enactor is the
+// model's own act); `document` is the source/query the op touched (slugged) else the
+// session; `record` is the target/minted site; `parameter` is the operand's leaf field.
+const slugish = (s) => String(s == null ? '' : s).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'x';
+const leafParam = (rec) => {
+  const o = rec.operand || {};
+  if (o.relation) return String(o.relation);
+  if (o.designation) return String(o.designation);
+  if (o.key) return String(o.key);
+  if (o.type) return String(o.type);
+  if (o.same_as) return 'identity';
+  if (Array.isArray(o.parts)) return 'parts';
+  if (o.old_terms || o.new_terms) return 'rule';
+  if (o.to != null && rec.op !== 'CON') return String(o.to);
+  if (o.value !== undefined) return 'value';
+  return rec.kind || String(rec.op || '').toLowerCase() || 'op';
+};
+const addressOf = (rec) => {
+  if (!rec) return '';
+  const organ = rec.kind === 'murmur' ? 'murmur' : (rec.door === 'perceiver' ? 'perceiver' : 'enactor');
+  const raw = rec.raw || {};
+  const src = raw.source || raw.query || (Array.isArray(raw.urls) && raw.urls[0]) || null;
+  const document = src ? slugish(src) : 'session';
+  const record = rec.target ? String(rec.target) : 'session';
+  return [organ, document, record, leafParam(rec)].map((s) => String(s).slice(0, 40)).join('.');
+};
+
 // two-digit clock off the record's epoch ms (no argless Date — ms is on the record)
 const clock = (ms) => {
   try { const d = new Date(ms); const p = (n) => String(n).padStart(2, '0');
@@ -87,6 +117,9 @@ const CSS = `
 .eotl-prov{color:#7d8a99;}
 .eotl-face{color:#8a6fbf;font-style:italic;}
 .eotl-kind{color:#7d8a99;}
+.eotl-addr{color:#556072;font-size:11px;opacity:.85;}
+.eotl-perc .eotl-addr{color:#4d6a56;}
+.eotl-enac .eotl-addr{color:#6a6150;}
 .eotl-raw{grid-column:3 / -1;margin:3px 0 5px;padding:7px 9px;background:#070b10;border:1px solid #1a2532;border-radius:6px;color:#8b98a8;font-size:11px;max-height:200px;overflow:auto;display:none;}
 .eotl-row.eotl-x .eotl-raw{display:block;}
 .eotl-row.eotl-clk{cursor:pointer;}
@@ -109,7 +142,7 @@ const CSS = `
 }
 `;
 
-export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false, notate = null } = {}) => {
+export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false, notate = null, fab = true } = {}) => {
   if (typeof document === 'undefined' || !ledger) return null;
 
   const style = document.createElement('style');
@@ -137,14 +170,20 @@ export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false, not
     <div class="eotl-body" data-body><div class="eotl-empty">No operations yet — read a source or ask a question, and the machine will print itself here.</div></div>`;
   document.body.appendChild(root);
 
-  const fab = document.createElement('button');
-  fab.className = 'eotl-fab';
-  fab.type = 'button';
-  fab.innerHTML = `<span class="eotl-fdot"></span><span class="eotl-fab-lbl">EOT ledger</span><span class="eotl-badge" data-badge>0</span>`;
-  document.body.appendChild(fab);
+  // The floating opener. Optional (fab:false) so a host that already owns a launcher — the
+  // murmur strip opens this terminal on click — isn't given a second bottom-corner button
+  // beside the audit console's. The drawer + its handle work identically either way.
+  let fabEl = null;
+  if (fab) {
+    fabEl = document.createElement('button');
+    fabEl.className = 'eotl-fab';
+    fabEl.type = 'button';
+    fabEl.innerHTML = `<span class="eotl-fdot"></span><span class="eotl-fab-lbl">EOT ledger</span><span class="eotl-badge" data-badge>0</span>`;
+    document.body.appendChild(fabEl);
+  }
 
   const body = root.querySelector('[data-body]');
-  const badge = fab.querySelector('[data-badge]');
+  const badge = fabEl ? fabEl.querySelector('[data-badge]') : null;
   const liveDot = root.querySelector('[data-live]');
   const findInput = root.querySelector('[data-find]');
 
@@ -174,7 +213,8 @@ export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false, not
       `<span class="eotl-seq">${rec.seq}</span>` +
       `<span class="eotl-time">${clock(rec.ts)}</span>` +
       `<span class="eotl-door" title="${rec.door} · ${rec.witness ? 'can witness' : 'cannot witness'}">${glyph}</span>` +
-      `<span class="eotl-line">${paint(rec.eot)}${faceSpan}${rec.kind ? ` <span class="eotl-kind">· ${ESC(rec.kind)}</span>` : ''}</span>` +
+      `<span class="eotl-line">${paint(rec.eot)}${faceSpan}${rec.kind ? ` <span class="eotl-kind">· ${ESC(rec.kind)}</span>` : ''}` +
+      ` <span class="eotl-addr" title="organ.document.record.parameter — where in the machine this lands">${ESC(addressOf(rec))}</span></span>` +
       raw;
     if (raw) el.addEventListener('click', () => el.classList.toggle('eotl-x'));
     return el;
@@ -212,7 +252,7 @@ export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false, not
   const setOpen = (v) => {
     state.open = v;
     root.classList.toggle('eotl-open', v);
-    fab.style.display = v ? 'none' : 'inline-flex';
+    if (fabEl) fabEl.style.display = v ? 'none' : 'inline-flex';
     if (v) { rebuild(); }
   };
 
@@ -247,12 +287,12 @@ export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false, not
   root.querySelector('[data-act="jsonl"]').addEventListener('click', () => download(`eot-ledger-${stamp()}.jsonl`, ledger.exportJsonl(), 'application/x-ndjson'));
   root.querySelector('[data-act="clear"]').addEventListener('click', () => { ledger.clear(); rebuild(); });
   root.querySelector('[data-act="close"]').addEventListener('click', () => setOpen(false));
-  fab.addEventListener('click', () => setOpen(true));
+  if (fabEl) fabEl.addEventListener('click', () => setOpen(true));
 
   // ── the live feed ──
   const unsub = ledger.subscribe((rec) => {
     state.count = ledger.size;
-    badge.textContent = String(state.count);
+    if (badge) badge.textContent = String(state.count);
     if (!rec) { if (state.open) rebuild(); return; }   // a clear() notifies with null
     if (state.open && !state.paused) append(rec);
   });
@@ -265,13 +305,13 @@ export const mountEotTerminal = (ledger, { hotkey = true, startOpen = false, not
   }
 
   setOpen(state.open);
-  badge.textContent = String(ledger.size);
+  if (badge) badge.textContent = String(ledger.size);
 
   return {
-    root, fab,
+    root, fab: fabEl,
     open: () => setOpen(true),
     close: () => setOpen(false),
     toggle: () => setOpen(!state.open),
-    destroy: () => { try { unsub(); } catch {} root.remove(); fab.remove(); style.remove(); },
+    destroy: () => { try { unsub(); } catch {} root.remove(); if (fabEl) fabEl.remove(); style.remove(); },
   };
 };

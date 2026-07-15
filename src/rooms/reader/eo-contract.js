@@ -70,6 +70,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/model-entry.js': contract({ ops: ['INS', 'SYN', 'DEF'], targets: ['Field', 'Network'], products: ['Entity', 'Lens'], stances: ['Making', 'Composing'], note: 'barrel: models + longgen' }),
   'src/rooms/reader/monologue-surface.js': contract({ ops: ['NUL', 'EVA'], targets: ['Atmosphere', 'Network'], products: ['Void'], stances: ['Clearing', 'Tending'], note: 'inner-monologue surface' }),
   'src/rooms/reader/provenance.js': contract({ ops: ['INS', 'CON'], targets: ['Network', 'Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'export provenance — what produced this' }),
+  'src/rooms/reader/eot-feed.js': contract({ ops: ['SIG'], targets: ['Entity'], products: ['Void'], stances: ['Binding'], note: 'the EOT ledger feed — routes the app activity log, audit turns, and murmur voicings onto the ledger verbs; read-only and reafferent (never a witness)' }),
   'src/rooms/reader/reader-render.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'source→book reader renderer' }),
   'src/rooms/reader/reading-surface.js': contract({ ops: ['NUL'], targets: ['Field'], products: ['Void'], stances: ['Clearing'], note: 'reading-JSONL DOM surface' }),
   'src/rooms/reader/reveal.js': contract({ ops: ['INS', 'DEF'], targets: ['Field'], products: ['Entity'], stances: ['Making', 'Dissecting'], note: 'chat typewriter pace — bounded reveal catch-up' }),
