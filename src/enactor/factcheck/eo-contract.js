@@ -10,4 +10,5 @@ export const CONTRACTS = Object.freeze({
   'src/enactor/factcheck/crosscheck.js': contract({ ops: ['EVA', 'SYN'], targets: ['Field', 'Network', 'Lens'], products: ['Lens', 'Network'], stances: ['Tracing', 'Composing'], note: 'cross-source conflict pass (P3)' }),
   'src/enactor/factcheck/index.js': contract({ ops: ['CON', 'EVA', 'SYN'], targets: ['Field', 'Link', 'Network'], products: ['Lens', 'Link'], stances: ['Binding', 'Composing'], note: 'barrel' }),
   'src/enactor/factcheck/propositions.js': contract({ ops: ['EVA', 'SYN'], targets: ['Field', 'Network', 'Lens'], products: ['Lens', 'Network'], stances: ['Binding', 'Composing'], note: 'proposition DEF-claim veto (P2)' }),
+  'src/enactor/factcheck/quantities.js': contract({ ops: ['SIG', 'DEF'], targets: ['Field'], products: ['Lens'], stances: ['Tracing'], note: 'reading magnitudes + legibility out of prose' }),
 });

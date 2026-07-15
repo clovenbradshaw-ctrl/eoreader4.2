@@ -26,75 +26,11 @@
 
 import { documentFieldAt } from './correspond.js';
 import { quantitiesConflict } from '../../core/index.js';
+import { readQuantities, measureLabel, isLegibleProse, replacementRatio } from './quantities.js';
 
-// ── Reading a magnitude out of prose ─────────────────────────────────────────
-//
-// The parser (perceiver/parse) types COPULAR DEFs and SVO edges; a measured quantity
-// rides inside an object NP ("power 18,000 homes", "an 80MW installation") and never
-// becomes a structured tuple, so this reads it directly. Open-vocabulary in (any
-// number + any trailing unit/noun), a small CLOSED set of measures out — the same
-// discipline the relation algebra follows: extraction stays open, the comparison
-// operates on the projection so two sources' "homes" land on one measure key.
-
-// Scale words are multipliers on the bare number, distinct from units.
-const SCALE = Object.freeze({
-  thousand: 1e3, k: 1e3, million: 1e6, mn: 1e6, m: 1e6, billion: 1e9, bn: 1e9, b: 1e9, trillion: 1e12,
-});
-
-// Each rule tests the window AFTER the number (lowercased). `measure` is the closed
-// key two sources must share to be comparable; `unit` is what the value is carried in;
-// `mul` normalizes a same-measure unit to the group's canonical one (GW→MW, kW→MW) so
-// 0.08 GW and 80 MW compare as one capacity, never two.
-const UNIT_RULES = Object.freeze([
-  { re: /^\s*-?\s*(?:gw|gigawatts?)\b/,                                                    measure: 'capacity', unit: 'MW', mul: 1000 },
-  { re: /^\s*-?\s*(?:kw|kilowatts?)\b/,                                                     measure: 'capacity', unit: 'MW', mul: 0.001 },
-  { re: /^\s*-?\s*(?:mw|megawatts?|megawatt)\b/,                                            measure: 'capacity', unit: 'MW' },
-  { re: /^\s*-?\s*(?:metric\s+)?(?:tons?|tonnes?)\s+of\s+(?:co2|co₂|carbon(?:\s+dioxide)?|emissions)\b/, measure: 'co2', unit: 'tons' },
-  { re: /^\s*-?\s*(?:tons?|tonnes?)\b/,                                                     measure: 'tonnage', unit: 'tons' },
-  { re: /^\s*(?:homes?|households?)\b/,                                                     measure: 'homes', unit: 'homes' },
-  { re: /^\s*(?:jobs?|positions?|roles?)\b/,                                                measure: 'jobs', unit: 'jobs' },
-  { re: /^\s*(?:acres?)\b/,                                                                 measure: 'acres', unit: 'acres' },
-  { re: /^\s*(?:megawatt-hours?|mwh)\b/,                                                    measure: 'energy', unit: 'MWh' },
-]);
-
-// A quantity's measure label for display ("capacity" → "capacity (MW)", "co2" → "CO₂").
-export const measureLabel = (measure, unit) => {
-  const M = { capacity: 'capacity', homes: 'homes powered', co2: 'CO₂ reduction', jobs: 'jobs',
-    cost: 'cost', acres: 'acreage', energy: 'annual output', tonnage: 'tonnage', percent: 'share' };
-  const base = M[measure] || measure;
-  return unit && unit !== measure ? `${base} (${unit})` : base;
-};
-
-// Read the magnitudes a stretch of text states. Returns [{ value, unit, measure, raw }].
-// A number with no recognizable measure is DROPPED (a bare "2021", a footnote "[3]"): an
-// ungoverned magnitude has nothing to be compared against, and guessing one would invent
-// a conflict, the very failure this module exists to avoid.
-export const readQuantities = (text) => {
-  const s = String(text || '');
-  const out = [];
-  // $?  then either comma-grouped (18,000 / 1,234,567) or plain (80 / 2.5 / 18000).
-  const re = /(\$)?\s*(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?!\d)/g;
-  let m;
-  while ((m = re.exec(s))) {
-    const dollar = !!m[1];
-    let value = parseFloat(m[2].replace(/,/g, ''));
-    if (!Number.isFinite(value)) continue;
-    const after = s.slice(re.lastIndex).toLowerCase();
-    const sc = after.match(/^\s*(thousand|million|billion|trillion|bn|mn)\b/);
-    const scaleMul = sc ? (SCALE[sc[1]] || 1) : 1;
-    const afterScale = sc ? after.slice(sc[0].length) : after;
-    let unit = null, measure = null;
-    for (const u of UNIT_RULES) {
-      if (u.re.test(afterScale)) { measure = u.measure; unit = u.unit; if (u.mul) value *= u.mul; break; }
-    }
-    value *= scaleMul;
-    // A dollar sign names the measure regardless of a trailing noun ("$2.5 billion").
-    if (dollar) { measure = 'cost'; unit = 'USD'; }
-    if (!measure) continue;
-    out.push({ value, unit, measure, raw: `${dollar ? '$' : ''}${m[2]}${sc ? sc[0].replace(/\s+/g, ' ') : ''}`.trim() });
-  }
-  return out;
-};
+// Reading a magnitude out of prose (readQuantities/measureLabel) and judging whether a
+// source is prose at all (isLegibleProse) live in ./quantities.js. This file binds each
+// magnitude to its subject and runs the cross-source pass over the bound records.
 
 // ── Binding a magnitude to its subject ───────────────────────────────────────
 
@@ -115,10 +51,19 @@ const dominantLabel = (doc) => {
 export const extractQuantities = (doc, meta = {}) => {
   if (!doc?.admission) return [];
   const sents = doc.sentences || [];
+  // A source of mis-decoded bytes mints no quantities: mining a magnitude out of a
+  // binary read as text ("$456", "9,000 MW") is an artifact of the decoder, never a
+  // figure a source stated, and comparing it to a real source invents a conflict.
+  // Judge the document as a whole — a single garbage line is ambiguous, a binary file
+  // is not (isLegibleProse, quantities.js).
+  if (!isLegibleProse(sents.join(' '))) return [];
   const domLabel = dominantLabel(doc);
   const source = meta.source ?? meta.sn ?? doc.docId ?? null;
   const out = [];
   for (let i = 0; i < sents.length; i++) {
+    // Even inside a legible document, skip a lone mis-decoded line: its replacement
+    // chars are unambiguous decode failure, and its stray digits are not a datum.
+    if (replacementRatio(sents[i]) > 0.02) continue;
     const qs = readQuantities(sents[i]);
     if (!qs.length) continue;
     const field = documentFieldAt(doc, i);
