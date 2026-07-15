@@ -31,6 +31,9 @@ export {
 } from './proposition-equivalence.js';
 export { siteRoles, markSites, siteIndices } from './site.js';
 export { referentialConfidence, REFERENT_MARGIN } from './referent.js';
+// A figure's perspective — when a referent is a person/agent, the reading as IT holds it:
+// its verbatim quotes, its speech acts, and the universe its own words instantiate.
+export { perspectiveOf, scanQuotes } from './perspective.js';
 // The holonic containment address a referent earns from its span — the nesting the
 // flat depth-1 id used to throw away (referent-nesting.js, docs/referent-journey.md).
 export { referentNesting, nestingSummary } from './referent-nesting.js';
