@@ -51,3 +51,19 @@ test('accepts a bare array of forms too', () => {
   assert.equal(fold.get('Машу'), fold.get('Маша'));
   assert.notEqual(fold.get('Анна'), fold.get('Маша'), 'different names stay apart');
 });
+
+test('anchored on nominatives: two names sharing a stem stay apart, obliques route by longest stem', () => {
+  // Franz (Франц) and France (Франция) share the stem "франц" but are two nominatives.
+  const forms = new Map([
+    ['Франц', 15], ['Франца', 9], ['Францу', 4],
+    ['Франция', 12], ['Францию', 9], ['Францией', 7], ['Франции', 44],
+    ['Ростов', 40], ['Ростова', 15], ['Ростову', 9],
+  ]);
+  const nominatives = new Set(['Франц', 'Франция', 'Ростов']);
+  const { fold } = induceInflections(forms, { nominatives, minStems: 1 });
+  assert.notEqual(fold.get('Франц'), fold.get('Франция'), 'Franz and France are two referents, not one');
+  assert.equal(fold.get('Франца'), 'Франц', 'Franz genitive routes to Franz (freq breaks the stem-5 tie)');
+  assert.equal(fold.get('Францию'), 'Франция', 'France accusative routes to France (longer stem "франци")');
+  assert.equal(fold.get('Франции'), 'Франция', 'France genitive routes to France');
+  assert.equal(fold.get('Ростова'), 'Ростов', 'and ordinary declensions still fold');
+});

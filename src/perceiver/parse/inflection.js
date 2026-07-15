@@ -26,10 +26,15 @@ const lcp = (a, b) => { const m = Math.min(a.length, b.length); let i = 0; while
 //   suffixes  the induced inflectional tail set (the case endings, lowercased) incl. '' (bare stem).
 //   fold      Map(form → canonical form) — every declension mapped to its referent's canonical.
 //
-//   minStem    a shared prefix must be this long to count as one stem (guards short collisions).
-//   maxSuffix  a tail longer than this is a different word, not an ending (Ростов vs Ростопчин).
-//   minStems   a tail must alternate on this many distinct stems to be judged an inflection.
-export const induceInflections = (forms, { minStem = 4, maxSuffix = 3, minStems = 3 } = {}) => {
+//   minStem     a shared prefix must be this long to count as one stem (guards short collisions).
+//   maxSuffix   a tail longer than this is a different word, not an ending (Ростов vs Ростопчин).
+//   minStems    a tail must alternate on this many distinct stems to be judged an inflection.
+//   nominatives OPTIONAL Set of the forms that behave as NOMINATIVES (a subject — the base of a
+//     paradigm). When given, the fold is ANCHORED: two nominatives never merge (so Франц the
+//     emperor and Франция the country, which share the stem "франц", stay apart), and each oblique
+//     attaches to the nominative it shares the longest stem with (freq breaks ties). Without it,
+//     the fold is the plain same-stem union — higher recall, but it collides two names on one stem.
+export const induceInflections = (forms, { minStem = 4, maxSuffix = 3, minStems = 3, nominatives = null } = {}) => {
   const counts = forms instanceof Map ? forms
     : (() => { const m = new Map(); for (const f of forms || []) m.set(f, (m.get(f) || 0) + 1); return m; })();
   // Single-token forms only — a declension is a word's ending, not a phrase's.
@@ -56,7 +61,35 @@ export const induceInflections = (forms, { minStem = 4, maxSuffix = 3, minStems 
   const suffixes = new Set(['']);
   for (const [t, stems] of suffixStems) if (t === '' || stems.size >= minStems) suffixes.add(t);
 
-  // 2) fold: link two forms that share a stem AND whose tails are both inflectional.
+  // 2a) ANCHORED fold (when the nominatives are known): a nominative is its own referent and
+  // never merges with another; each oblique joins the nominative it shares the longest inflectional
+  // stem with (frequency breaks a tie). This is what keeps two names that happen to share a stem
+  // apart — only the writing system's cases route the obliques, not raw prefix overlap.
+  if (nominatives) {
+    const anchors = list.filter((f) => nominatives.has(f));
+    const anchorSet = new Set(anchors);
+    const fold = new Map(anchors.map((a) => [a, a]));
+    for (const f of list) {
+      if (anchorSet.has(f)) continue;
+      const lf = low.get(f);
+      let best = null, bestP = 0, bestFreq = -1;
+      for (const a of anchors) {
+        const la = low.get(a);
+        const p = lcp(lf, la);
+        if (p < minStem) continue;
+        const ta = lf.slice(p), tb = la.slice(p);
+        if (ta.length > maxSuffix || tb.length > maxSuffix) continue;
+        if (!suffixes.has(ta) || !suffixes.has(tb)) continue;
+        const fr = counts.get(a) || 0;
+        if (p > bestP || (p === bestP && fr > bestFreq)) { best = a; bestP = p; bestFreq = fr; }
+      }
+      fold.set(f, best || f);   // an oblique with no matching nominative stands as its own referent
+    }
+    return { suffixes, fold };
+  }
+
+  // 2b) plain same-stem union (no nominatives given): link two forms sharing a stem whose tails
+  // are both inflectional. Higher recall; may collide two names that share a stem.
   const parent = new Map(list.map((f) => [f, f]));
   const find = (x) => { let r = x; while (parent.get(r) !== r) r = parent.get(r); while (parent.get(x) !== r) { const n = parent.get(x); parent.set(x, r); x = n; } return r; };
   const uni = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb); };
