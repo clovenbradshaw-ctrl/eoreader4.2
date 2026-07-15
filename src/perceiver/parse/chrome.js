@@ -21,7 +21,11 @@
 
 const FOOTNOTE  = /^\[\d{1,3}\]$/;        // "[12]" — a reference marker, not a datum
 const ROMAN     = /^[ivxlcdm]{1,7}\.?$/i; // a bare roman numeral: "III", "iv."
-const SEPARATOR = /^[\W_]+$/;             // only punctuation/symbols — a separator rule
+// Only punctuation/symbols — a separator rule ("———", "* * *", "___"). Defined by Unicode
+// property: a line carrying NO letter and NO number, in ANY script. JS `\W` is ASCII-only, so
+// `/^[\W_]+$/` counted every Cyrillic, Greek, or CJK letter as a non-word char and held a whole
+// sentence of them ("Иван пришёл домой.") as a separator — censoring all non-Latin prose at parse.
+const SEPARATOR = /^[^\p{L}\p{N}]+$/u;
 
 export const isDegenerate = (sentence) => {
   const s = String(sentence || '').trim();
