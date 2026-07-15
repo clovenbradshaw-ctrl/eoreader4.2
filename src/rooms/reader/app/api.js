@@ -72,6 +72,8 @@ export const buildApi = (appCtx) => {
     // idea transmission — a claim traced from one voice into another's, in document/corpus time,
     // marking where it mutated (an inverted echo); at one source or across the whole topic.
     transmissionSource: appCtx.transmissionSource, transmissionTopic: appCtx.transmissionTopic,
+    // standing folds — save a comparison/trace and see what changed since (docs: the living fold).
+    standingSave: appCtx.standingSave, standingRefresh: appCtx.standingRefresh, standingRemove: appCtx.standingRemove, standingList: appCtx.standingList,
     // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
     sourceSummary: appCtx.sourceSummary, sourceSummaryOf: appCtx.sourceSummaryOf, entitySummary: appCtx.entitySummary, entitySummaryFor: appCtx.entitySummaryFor, summaryFeedback: appCtx.summaryFeedback,
     // the figure a single-subject source centres on — the source page shows its dossier (docs/topline.md)

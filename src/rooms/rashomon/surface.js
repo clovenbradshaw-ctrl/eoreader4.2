@@ -47,7 +47,14 @@ const CSS = `
 .rz-orig{font-weight:600}.rz-orig .who{color:var(--accent)}
 .rz-hop{margin-top:5px;font-size:13px;color:var(--dim);display:flex;gap:8px;align-items:baseline}
 .rz-hop .arr{font-family:var(--mono);color:var(--dim)}
-.rz-echo{color:var(--agree)}.rz-flip{color:var(--clash);font-weight:600}`;
+.rz-echo{color:var(--agree)}.rz-flip{color:var(--clash);font-weight:600}
+.rz-btn{border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:8px;padding:6px 11px;font:inherit;font-size:12.5px;cursor:pointer}
+.rz-btn:hover{border-color:var(--accent)}
+.rz-watched{margin-bottom:14px;display:flex;flex-wrap:wrap;gap:8px}
+.rz-watch{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;padding:5px 11px;border:1px solid var(--line);border-radius:20px;background:var(--panel2)}
+.rz-watch b{font-weight:600}
+.rz-watch .ic{cursor:pointer;opacity:.65;font-family:var(--mono)}.rz-watch .ic:hover{opacity:1;color:var(--accent)}
+.rz-watch .rz-delta{color:var(--accent);font-size:11.5px}`;
 
 const optionList = (cands, keyFn, sel) => cands.map((c) => {
   const k = keyFn(c), n = c.quotes != null ? ` · ${c.quotes} said` : '';
@@ -58,12 +65,13 @@ const rowLines = (arr) => arr.length ? arr.map((t) => `<div class="rz-row">${esc
 export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'compare' } = {}) => {
   const root = document.createElement('div');
   root.className = 'rz';
-  root.innerHTML = `<style>${CSS}</style><div class="rz-head"></div><div class="rz-body"></div>`;
+  root.innerHTML = `<style>${CSS}</style><div class="rz-head"></div><div class="rz-body"><div class="rz-watched"></div><div class="rz-panels"></div></div>`;
   el.appendChild(root);
-  const head = root.querySelector('.rz-head'), body = root.querySelector('.rz-body');
+  const head = root.querySelector('.rz-head'), body = root.querySelector('.rz-panels'), watchedEl = root.querySelector('.rz-watched');
 
   const srcs = () => { try { return app.topicSources() || []; } catch { return []; } };
-  const st = { mode, scope, sn: sn ?? (srcs()[0]?.sn ?? null), a: null, b: null, diff: null, trace: null, loading: false };
+  const st = { mode, scope, sn: sn ?? (srcs()[0]?.sn ?? null), a: null, b: null, diff: null, trace: null, loading: false, watched: [], deltas: {} };
+  const refreshWatched = () => { try { st.watched = app.standingList ? app.standingList() : []; } catch { st.watched = []; } };
 
   const candidates = () => { try { return st.scope === 'source' ? app.rashomonCandidates({ sn: st.sn }) : app.rashomonCandidates(); } catch { return []; } };
   const keyOf = (c) => (st.scope === 'source' ? c.id : c.label);
@@ -80,10 +88,22 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
   };
   const pickDefaults = () => { const c = candidates(); st.a = c[0] ? keyOf(c[0]) : null; st.b = c[1] ? keyOf(c[1]) : null; };
 
+  const save = async () => {
+    if (!app.standingSave) return;
+    const spec = { kind: st.mode === 'trace' ? 'trace' : 'compare', scope: st.scope, sn: st.sn, docId: docId(), a: st.a, b: st.b };
+    try { await app.standingSave(spec); } catch { /* nothing to save */ }
+    refreshWatched(); renderWatched();
+  };
   head.addEventListener('click', (e) => {
     const m = e.target.closest('[data-mode]'), s = e.target.closest('[data-scope]');
+    if (e.target.closest('[data-watch]')) { save(); return; }
     if (m) { st.mode = m.getAttribute('data-mode'); run(); }
     else if (s) { st.scope = s.getAttribute('data-scope'); if (st.scope === 'source' && st.sn == null) st.sn = srcs()[0]?.sn ?? null; pickDefaults(); run(); }
+  });
+  watchedEl.addEventListener('click', async (e) => {
+    const r = e.target.closest('[data-refresh]'), u = e.target.closest('[data-unwatch]');
+    if (r) { const id = r.getAttribute('data-refresh'); try { const res = await app.standingRefresh(id); st.deltas[id] = res?.delta?.summary || '—'; } catch { st.deltas[id] = '—'; } refreshWatched(); renderWatched(); }
+    else if (u) { const id = u.getAttribute('data-unwatch'); try { app.standingRemove(id); } catch { /* gone */ } delete st.deltas[id]; refreshWatched(); renderWatched(); }
   });
   head.addEventListener('change', (e) => {
     const t = e.target;
@@ -106,7 +126,16 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
         <button data-scope="source" class="${st.scope === 'source' ? 'on' : ''}">This source</button>
         <button data-scope="topic" class="${st.scope === 'topic' ? 'on' : ''}">Whole topic</button>
       </span>
-      ${srcSel}${pickers}`;
+      ${srcSel}${pickers}
+      <button class="rz-btn" data-watch title="Save this view; later, see what changed since">★ Watch this</button>`;
+  }
+
+  function renderWatched() {
+    if (!st.watched.length) { watchedEl.innerHTML = ''; return; }
+    watchedEl.innerHTML = st.watched.map((w) => {
+      const d = st.deltas[w.id];
+      return `<span class="rz-watch"><b>${esc(w.label)}</b>${d ? `<span class="rz-delta">${esc(d)}</span>` : ''}<span class="ic" data-refresh="${esc(w.id)}" title="Check what changed">↻</span><span class="ic" data-unwatch="${esc(w.id)}" title="Stop watching">✕</span></span>`;
+    }).join('');
   }
 
   function renderCompare() {
@@ -145,12 +174,12 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
   }
 
   function render() {
-    renderHead();
+    renderHead(); renderWatched();
     if (candidates().length < 2) { body.innerHTML = `<div class="rz-empty">This ${st.scope === 'source' ? 'source' : 'topic'} names fewer than two figures with a voice. Rashomon reads the same events from two people's points of view — ingest sources where people <i>speak</i>, then compare their folds or trace an idea between them.</div>`; return; }
     if (st.loading) { body.innerHTML = `<div class="rz-empty">Reading…</div>`; return; }
     if (st.mode === 'trace') renderTrace(); else renderCompare();
   }
 
-  pickDefaults(); render(); run();
+  pickDefaults(); refreshWatched(); render(); run();
   return { destroy() { try { root.remove(); } catch { /* gone */ } } };
 };

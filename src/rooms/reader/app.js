@@ -102,6 +102,7 @@ import { installEntities } from './app/entities.js';
 import { installLevels } from './app/levels.js';
 import { installRashomon } from './app/rashomon.js';
 import { installTransmission } from './app/transmission.js';
+import { installStanding } from './app/standing.js';
 import { installListen } from './app/listen.js';
 import { installToplines } from './app/toplines.js';
 import { installDigest } from './app/digest.js';
@@ -122,7 +123,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // the mint counters + the cross-section mutables (persistence resets the
     // counters on restore; chat arms abort/stallGuard; a settled answer clears
     // the wedge streak)
-    sn: 0, tn: 0, ln: 0, mn: 0, wn: 0, fon: 0, pn: 0,
+    sn: 0, tn: 0, ln: 0, mn: 0, wn: 0, fon: 0, pn: 0, stn: 0,
     abort: null, stallGuard: null, localWedges: 0,
     audit, murmur, fetchImpl,
   };
@@ -177,6 +178,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // source drift (anchor.js — sha + charSpan + the quote itself). Top-level on purpose: a pin
     // outlives topic moves and deletion, exactly like jobs.
     pins: [],              // [{ id, kind, refKey, topicId, workspaceId, at, label, note, anchor?, entity?, claim?, query? }]
+    standing: [],          // saved comparisons/traces with an embedded snapshot — report what changed since (app/standing.js)
     ready: false,          // restore finished
   };
   // (the mint counters live on ctx — persistence resets them, each section mints from them)
@@ -232,6 +234,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installLevels(appCtx);
   installRashomon(appCtx);
   installTransmission(appCtx);
+  installStanding(appCtx);
   installListen(appCtx);
   installToplines(appCtx);
   installDigest(appCtx);

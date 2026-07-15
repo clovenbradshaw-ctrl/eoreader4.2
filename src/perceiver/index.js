@@ -45,6 +45,9 @@ export { claimsFromDoc, figuresFromDoc, foldOfQuotes, parseFold } from './figure
 // where it mutated (an inverted echo). Pure lexical floor + a learned lift; the Rashomon discipline
 // pointed at circulation instead of comparison.
 export { traceTransmission, transmissionFloor } from './idea-transmission.js';
+// A fold against its own past — what changed between two runs of the same comparison or trace, so
+// a saved (standing) fold can say what moved since you last looked. Pure (prev, curr) → delta.
+export { foldDelta, compareDelta, traceDelta } from './fold-delta.js';
 // The holonic containment address a referent earns from its span — the nesting the
 // flat depth-1 id used to throw away (referent-nesting.js, docs/referent-journey.md).
 export { referentNesting, nestingSummary } from './referent-nesting.js';
