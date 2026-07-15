@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { induceInflections } from '../src/perceiver/parse/inflection.js';
+import { parseText } from '../src/perceiver/parse/pipeline.js';
 
 // MORPHOLOGICAL FOLDING — induce the case-suffix set from the forms themselves, then fold a
 // name's declensions onto one referent. No table, no "genitive"; just which tails the stems of
@@ -66,4 +67,42 @@ test('anchored on nominatives: two names sharing a stem stay apart, obliques rou
   assert.equal(fold.get('Францию'), 'Франция', 'France accusative routes to France (longer stem "франци")');
   assert.equal(fold.get('Франции'), 'Франция', 'France genitive routes to France');
   assert.equal(fold.get('Ростова'), 'Ростов', 'and ordinary declensions still fold');
+});
+
+// THROUGH THE PIPELINE (opt-in). Wired into parseText behind `foldInflections`, the fold reads the
+// admitted names, induces the case set, and commits each oblique→nominative as a SYN merge the
+// projection unions — so an inflected cast stops fracturing across cases. Default off is a no-op.
+test('parseText folds a Russian cast\'s declensions only when foldInflections is on', () => {
+  // Three clean hard-stem names, each a frequent subject (nominative) with a mid-sentence oblique
+  // in -а, so -а attests on three stems and is judged inflectional.
+  const ru = `Иван пришёл. Иван сел. Иван встал. Иван молчал.
+Борис пришёл. Борис сел. Борис встал. Борис читал.
+Антон пришёл. Антон сел. Антон встал. Антон думал.
+Все ждали Ивана. Мы видели Бориса. Она позвала Антона.
+Никто не видел Ивана. Гости ждали Бориса. Дети звали Антона.`;
+
+  const merges = (doc) => new Set(doc.log.events
+    .filter((e) => e.op === 'SYN' && e.match === 'inflection')
+    .map((e) => `${e.from}→${e.to}`));
+
+  // Off (default): no oblique is folded — each surface form is its own referent.
+  assert.equal(merges(parseText(ru, { docId: 'ru' })).size, 0, 'default off is a no-op');
+
+  // On: every oblique folds onto its nominative, and no nominative is folded onto another.
+  const on = merges(parseText(ru, { docId: 'ru', foldInflections: true }));
+  assert.ok(on.has('ивана→иван'),   'Ивана folds onto Иван');
+  assert.ok(on.has('бориса→борис'), 'Бориса folds onto Борис');
+  assert.ok(on.has('антона→антон'), 'Антона folds onto Антон');
+  for (const m of on) assert.ok(!/^(иван|борис|антон)→/.test(m), `a nominative is never folded away (${m})`);
+});
+
+// English is (nearly) uninflected, so the same opt-in pass folds nothing — the read is unchanged.
+test('parseText with foldInflections leaves an English cast intact (nothing to fold)', () => {
+  const en = `Pierre arrived. Pierre spoke. Pierre left.
+Andrew waited. Andrew watched. Andrew rose.
+Elizabeth smiled. Elizabeth read. Elizabeth walked.
+They all saw Pierre. Nobody saw Andrew. Someone called Elizabeth.`;
+  const inflMerges = parseText(en, { docId: 'en', foldInflections: true }).log.events
+    .filter((e) => e.op === 'SYN' && e.match === 'inflection');
+  assert.equal(inflMerges.length, 0, 'English induces ~no case set, so nothing folds');
 });
