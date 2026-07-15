@@ -177,7 +177,7 @@ export const installChat = (appCtx) => {
         embedder: appCtx.hashEmb,
         geometricEmbedder: (appCtx.minilm?.isWarm?.() ? appCtx.minilm : null) || undefined,
         shapeLibrary: appCtx.shapeLib || undefined,   // the form predictor (turn/shape.js) — inert until built
-        auditLog: audit, history: thread,
+        auditLog: audit, history: thread, now: new Date(),   // live clock → a time-relative web answer is dated from fact
         stream: true,
         // A backend slow (or unable) to honor the abort keeps handing us tokens after Stop; appending
         // them to the already-finalized bubble is the "I hit Stop but it kept typing" bug. Once the
@@ -508,7 +508,7 @@ export const installChat = (appCtx) => {
         geometricEmbedder: (appCtx.minilm?.isWarm?.() ? appCtx.minilm : null) || undefined,
         shapeLibrary: appCtx.shapeLib || undefined,   // the form predictor (turn/shape.js) — inert until built
         foldSummary, entitySummaries,          // the fold-composed toplines, pre-digested (docs/topline.md)
-        auditLog: audit, history,
+        auditLog: audit, history, now: new Date(),   // live clock (bands.js currentMomentLine) → date/time answered from fact, not the "no real-time clock" confabulation
         stream: true,
         // Arm the reaction-weighing stage: when a grounded answer earned no witness and the
         // mechanical read already doubts it, the reader is asked to REACT to its own draft and
