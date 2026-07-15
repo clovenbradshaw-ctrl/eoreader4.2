@@ -34,10 +34,11 @@
 // propositions into incoherent run-ons (meaning revising syntax). The promoted marks
 // arrive here as `extraBoundaries`; modern prose, which fuses nothing, is unchanged.
 
-import { SEED_ABBREVIATIONS } from '../../core/conventions/index.js';
+import { createConventions } from '../../core/conventions/index.js';
 
-const SEED_ABBR = new Set(SEED_ABBREVIATIONS);
-const defaultIsAbbreviation = (w) => SEED_ABBR.has(String(w).toLowerCase());
+// The default reads a DEFAULT LEDGER (sediment priors), not a private list — one home.
+const DEF_C = createConventions();
+const defaultIsAbbreviation = (w) => DEF_C.isAbbreviation(w);
 
 // Is the period that ends `buf` an abbreviation/initial, not a sentence boundary?
 // Reads the word immediately before the period. A single capital is an initial

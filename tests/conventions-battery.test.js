@@ -45,9 +45,15 @@ test('relationType: speech precedence over overlapping buckets; untyped → null
   assert.equal(c.relationType('nonexistentverb'), null);
 });
 
-test('the register invariant: "and" is a conjunction, "but" is function-class but NOT a conjunction', () => {
+test('the register invariant: conjunction is LEARN-ONLY, and "but" is function-class, never a coordinator', () => {
+  // The conjunction seed was removed (measured redundant — the coordination reader takes its
+  // predicate from what a document teaches, and the adposition induction identifies coordinators
+  // by SYMMETRY, a name on both sides). The register still works — it just starts empty; and the
+  // real invariant this test protects survives: the adversative "but" is never a coordinator.
   const c = createConventions();
-  assert.equal(c.isConjunction('and'), true);
+  assert.equal(c.isConjunction('and'), false, 'nothing pre-known — the register is learn-only');
+  c.learn('conjunction', 'and');
+  assert.equal(c.isConjunction('and'), true, 'a document (or sediment) teaches it in one step');
   assert.equal(c.isConjunction('but'), false);
   assert.equal(c.isFunction('but'), true);
   assert.equal(Object.isFrozen(SEED_SPEECH), true);

@@ -5,6 +5,8 @@
 // Five registers are LEARN-ONLY now — auxiliary, role, conjunction, nonperson, field-label
 // carry no seed (measured 2026-07: the full suite reads identically without them; the
 // mechanisms — gravity, cap-rate, construction, symmetry — already cover what they listed).
+export { SEDIMENT, SEDIMENT_LANG } from './sediment-en.js';
+export { induceLiteracy } from './literacy.js';
 export { createConventions, SEED_SPEECH, SEED_ABBREVIATIONS,
          SEED_COPULA, SEED_MODIFIER, SEED_RELATION_TYPES,
          SEED_PREPOSITION, SEED_FUNCTION, SEED_STARTER,

@@ -36,6 +36,12 @@
 // geometry the registers are training wheels for.
 
 import { createSlotField } from './slots.js';
+// The literacy SEDIMENT — the same registers, machine-induced from a bootstrap shelf of
+// public-domain books (literacy.js + tools/bootstrap-read.mjs → sediment-en.js). Loadable in
+// place of the hand seeds ({ sediment: true }); the cutover completes register-by-register as
+// the inductions ripen (measured 2026-07: sediment alone passes 87 of the 93 seed-sensitive
+// tests; the residuals are quoteless attribution — "told" — and three relation-shift cases).
+import { SEDIMENT } from './sediment-en.js';
 
 export const SEED_SPEECH = Object.freeze([
   'said', 'says', 'say', 'asked', 'asks', 'replied', 'replies', 'told', 'tells',
@@ -300,7 +306,7 @@ const PRIOR_SUPPORT = 3;
 //                       segments) → the ledger INDUCES its slots from it (slots.js): the
 //                       scale-free layer under the seeds. This is how a reader with priors
 //                       OFF still learns which units are one KIND — the creature's method.
-export const createConventions = ({ seeds = true, inherit = null, induce = null } = {}) => {
+export const createConventions = ({ seeds = true, inherit = null, induce = null, sediment = false } = {}) => {
   const rules = [];                 // learned/revised entries, append-only (→ the doc log)
   const reg = {};                   // kind → Map(token → entry)
   // entry = { origin: 'prior'|'learned', weight, support, strain, defeated }
@@ -312,8 +318,13 @@ export const createConventions = ({ seeds = true, inherit = null, induce = null 
 
   // Seed the inherited priors. A prior is a convention with strain-history baked
   // in, so it enters with weight 0 (unlearned), pre-baked support, no strain.
+  // sediment:true swaps every seeded register for its machine-induced counterpart — the
+  // literacy bootstrap standing exactly where the hand seeds stood, same defeasibility.
+  const PRIORS = sediment
+    ? { ...SEEDS, ...Object.fromEntries(Object.entries(SEDIMENT).filter(([k]) => k in SEEDS)) }
+    : SEEDS;
   if (seeds) {
-    for (const [kind, seed] of Object.entries(SEEDS)) {
+    for (const [kind, seed] of Object.entries(PRIORS)) {
       const m = ensure(kind);
       for (const t of seed)
         m.set(t, { origin: 'prior', weight: 0, support: PRIOR_SUPPORT, strain: 0, defeated: false });
