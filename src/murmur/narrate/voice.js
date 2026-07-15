@@ -27,10 +27,19 @@
 // (§9.3/§9.5). It only re-voices content the reader already grounded; it adds nothing of its own.
 // Pure and offline: unit-testable with hand-fed propositions — no model, no clock, no randomness.
 
+// A passage can carry a raw link inline; the murmur voices THOUGHTS, not URLs ("urls aren't
+// interesting"), so links/file references are stripped before it is condensed. Mirrors learn/cleanText's
+// link pass — the small duplication is the holon-boundary tax (voice imports nothing from learn).
+const stripLinks = (s) => String(s == null ? '' : s)
+  .replace(/\b(?:https?:\/\/|ftp:\/\/|www\.)\S+/gi, ' ')
+  .replace(/\b[^\s/\\]*\.(?:ogg|mp3|mp4|m4a|wav|flac|pdf|epub|png|jpe?g|gif|webp|svg|zip|gz|bin|exe|woff2?)\b\S*/gi, ' ')
+  .replace(/\b[a-z0-9][a-z0-9.\-]*\.[a-z]{2,}\/\S*/gi, ' ')
+  .replace(/\s+/g, ' ').trim();
+
 // The first sentence/clause of a passage, so the "what I'm literally reading" fallback reads like a
 // thought and not a paragraph. Lookbehind-free for old-engine safety.
 const condenseClause = (text, maxWords = 14) => {
-  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  const t = stripLinks(text);
   if (!t) return '';
   const m = t.match(/^(.*?[.!?])(\s|$)/);
   const cut = m ? m[1] : t;

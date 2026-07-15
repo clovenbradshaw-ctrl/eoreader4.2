@@ -3011,13 +3011,19 @@ class EoMurmurStrip {
     }
 
     // the glass: a soft specular band across the centre, then a top/bottom vignette into the band edges.
-    const sheen = ctx.createLinearGradient(0, cy - 20, 0, cy + 20);
-    sheen.addColorStop(0, this._rgba(this.accent, 0)); sheen.addColorStop(0.5, this._rgba(this.accent, 0.055)); sheen.addColorStop(1, this._rgba(this.accent, 0));
-    ctx.fillStyle = sheen; ctx.fillRect(0, cy - 20, W, 40);
-    const gt = ctx.createLinearGradient(0, 0, 0, 30); gt.addColorStop(0, bg); gt.addColorStop(1, this._rgba(bg, 0));
-    ctx.fillStyle = gt; ctx.fillRect(0, 0, W, 30);
-    const gb = ctx.createLinearGradient(0, H - 30, 0, H); gb.addColorStop(0, this._rgba(bg, 0)); gb.addColorStop(1, bg);
-    ctx.fillStyle = gb; ctx.fillRect(0, H - 30, W, 30);
+    // Both are SCALED to the band height and kept clear of the centre lens — a fixed 30px vignette on
+    // the slim (46px) strip overlapped in the middle and washed the very line it should frame, which is
+    // what made the reading illegible. Capping the vignette at ~a third of the band leaves the focused
+    // line crisp; the sheen is a whisper and also kept off the text.
+    const vig = Math.min(28, Math.max(8, H * 0.3));
+    const sheenH = Math.min(18, H * 0.22);
+    const sheen = ctx.createLinearGradient(0, cy - sheenH, 0, cy + sheenH);
+    sheen.addColorStop(0, this._rgba(this.accent, 0)); sheen.addColorStop(0.5, this._rgba(this.accent, 0.04)); sheen.addColorStop(1, this._rgba(this.accent, 0));
+    ctx.fillStyle = sheen; ctx.fillRect(0, cy - sheenH, W, sheenH * 2);
+    const gt = ctx.createLinearGradient(0, 0, 0, vig); gt.addColorStop(0, bg); gt.addColorStop(1, this._rgba(bg, 0));
+    ctx.fillStyle = gt; ctx.fillRect(0, 0, W, vig);
+    const gb = ctx.createLinearGradient(0, H - vig, 0, H); gb.addColorStop(0, this._rgba(bg, 0)); gb.addColorStop(1, bg);
+    ctx.fillStyle = gb; ctx.fillRect(0, H - vig, W, vig);
   }
 
   // draw one console line at (x, y): dim timestamp · register glyph · the thought, then the caret. The
