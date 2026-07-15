@@ -76,6 +76,8 @@ export const buildApi = (appCtx) => {
     standingSave: appCtx.standingSave, standingRefresh: appCtx.standingRefresh, standingRemove: appCtx.standingRemove, standingList: appCtx.standingList,
     // fragility — the record's contested claims ranked by how much of the record hangs off them.
     fragilitySource: appCtx.fragilitySource, fragilityTopic: appCtx.fragilityTopic,
+    // chronology — the order events are told vs. happened; a timeline with flashbacks flagged.
+    chronologySource: appCtx.chronologySource, chronologyTopic: appCtx.chronologyTopic,
     // auto-generated toplines (docs/topline.md) — a summary for every source and entity, + feedback
     sourceSummary: appCtx.sourceSummary, sourceSummaryOf: appCtx.sourceSummaryOf, entitySummary: appCtx.entitySummary, entitySummaryFor: appCtx.entitySummaryFor, summaryFeedback: appCtx.summaryFeedback,
     // the figure a single-subject source centres on — the source page shows its dossier (docs/topline.md)

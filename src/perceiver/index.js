@@ -51,6 +51,9 @@ export { foldDelta, compareDelta, traceDelta } from './fold-delta.js';
 // Fragility — which contested claims are load-bearing: rank the record's disputes by how much of
 // the record hangs off the same subject and would fall with it. Pure (claims, contested) → ranked.
 export { rankFragility } from './fragility.js';
+// Chronology — the order events are TOLD vs. the order they HAPPENED: read the dates the text
+// states, order events by story-time, surface where the telling jumps back (flashback). Pure.
+export { readDates, buildChronology } from './chronology.js';
 // The holonic containment address a referent earns from its span — the nesting the
 // flat depth-1 id used to throw away (referent-nesting.js, docs/referent-journey.md).
 export { referentNesting, nestingSummary } from './referent-nesting.js';

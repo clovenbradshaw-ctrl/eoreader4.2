@@ -6,7 +6,7 @@
 import { discourseDag, assertedDag } from '../../../surfer/dag/index.js';
 import { inferSignificance } from '../../../surfer/fold/index.js';
 import { crossSourceConflicts } from '../../../enactor/factcheck/index.js';
-import { claimsFromDoc, claimPhrase, rankFragility } from '../../../perceiver/index.js';
+import { claimsFromDoc, claimPhrase, rankFragility, buildChronology } from '../../../perceiver/index.js';
 import { recordClaims } from '../claims.js';
 import { shaShort } from './util.js';
 
@@ -171,5 +171,25 @@ export const installFindings = (appCtx) => {
     return { scope: 'topic', sources: srcs.map((s) => ({ sn: s.sn, title: s.title || null })), ...rankFragility(claims, contested) };
   };
 
-  Object.assign(appCtx, { dagFor, findings, provenance, topicEntitySummaries, fragilitySource, fragilityTopic });
+  // ── CHRONOLOGY — the order events are TOLD vs. HAPPENED (perceiver/chronology.js) ─────
+  const sentencesOf = (doc) => (Array.isArray(doc?.sentences) ? doc.sentences : []);
+  const chronoDoc = (s) => (appCtx.referentDocFor ? (appCtx.referentDocFor(s) || appCtx.docFor(s)) : appCtx.docFor(s));
+  // Source scope — one document's own telling vs. its dated events.
+  const chronologySource = (snId) => {
+    const src = appCtx.sourceBySn(snId);
+    const doc = src && chronoDoc(src);
+    if (!doc) return null;
+    const items = sentencesOf(doc).map((text, i) => ({ order: i, text }));
+    return { scope: 'source', sn: snId, title: src?.title || null, ...buildChronology(items) };
+  };
+  // Topic scope — one corpus timeline; each source's sentences keep a global order (source, then
+  // sentence), so a filing that dates an event earlier than another still sorts into place.
+  const chronologyTopic = () => {
+    const srcs = appCtx.topicSources();
+    const items = [];
+    srcs.forEach((s, si) => { const doc = chronoDoc(s); if (!doc) return; sentencesOf(doc).forEach((text, i) => items.push({ order: si * 100000 + i, text, source: s.sn })); });
+    return { scope: 'topic', sources: srcs.map((s) => ({ sn: s.sn, title: s.title || null })), ...buildChronology(items) };
+  };
+
+  Object.assign(appCtx, { dagFor, findings, provenance, topicEntitySummaries, fragilitySource, fragilityTopic, chronologySource, chronologyTopic });
 };

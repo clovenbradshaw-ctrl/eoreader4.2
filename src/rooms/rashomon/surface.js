@@ -70,7 +70,8 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
   const head = root.querySelector('.rz-head'), body = root.querySelector('.rz-panels'), watchedEl = root.querySelector('.rz-watched');
 
   const srcs = () => { try { return app.topicSources() || []; } catch { return []; } };
-  const st = { mode, scope, sn: sn ?? (srcs()[0]?.sn ?? null), a: null, b: null, diff: null, trace: null, frag: null, loading: false, watched: [], deltas: {} };
+  const st = { mode, scope, sn: sn ?? (srcs()[0]?.sn ?? null), a: null, b: null, diff: null, trace: null, frag: null, chrono: null, loading: false, watched: [], deltas: {} };
+  const speakerless = (mo) => mo === 'fragile' || mo === 'timeline';
   const refreshWatched = () => { try { st.watched = app.standingList ? app.standingList() : []; } catch { st.watched = []; } };
 
   const candidates = () => { try { return st.scope === 'source' ? app.rashomonCandidates({ sn: st.sn }) : app.rashomonCandidates(); } catch { return []; } };
@@ -80,11 +81,12 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
   const run = async () => {
     st.loading = true; render();
     try {
-      if (st.mode === 'fragile') st.frag = st.scope === 'source' ? await app.fragilitySource(st.sn) : await app.fragilityTopic();
+      if (st.mode === 'timeline') st.chrono = st.scope === 'source' ? await app.chronologySource(st.sn) : await app.chronologyTopic();
+      else if (st.mode === 'fragile') st.frag = st.scope === 'source' ? await app.fragilitySource(st.sn) : await app.fragilityTopic();
       else if (st.mode === 'trace') st.trace = st.scope === 'source' ? await app.transmissionSource(st.sn) : await app.transmissionTopic();
       else if (st.a != null && st.b != null && st.a !== st.b) st.diff = st.scope === 'source' ? await app.rashomonSource(docId(), st.a, st.b) : await app.rashomonTopic(st.a, st.b);
       else st.diff = null;
-    } catch { st.diff = null; st.trace = null; st.frag = null; }
+    } catch { st.diff = null; st.trace = null; st.frag = null; st.chrono = null; }
     st.loading = false; render();
   };
   const pickDefaults = () => { const c = candidates(); st.a = c[0] ? keyOf(c[0]) : null; st.b = c[1] ? keyOf(c[1]) : null; };
@@ -123,13 +125,14 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
         <button data-mode="compare" class="${st.mode === 'compare' ? 'on' : ''}">Compare two</button>
         <button data-mode="trace" class="${st.mode === 'trace' ? 'on' : ''}">Trace an idea</button>
         <button data-mode="fragile" class="${st.mode === 'fragile' ? 'on' : ''}">What's fragile</button>
+        <button data-mode="timeline" class="${st.mode === 'timeline' ? 'on' : ''}">Timeline</button>
       </span>
       <span class="rz-seg">
         <button data-scope="source" class="${st.scope === 'source' ? 'on' : ''}">This source</button>
         <button data-scope="topic" class="${st.scope === 'topic' ? 'on' : ''}">Whole topic</button>
       </span>
       ${srcSel}${pickers}
-      ${st.mode === 'fragile' ? '' : '<button class="rz-btn" data-watch title="Save this view; later, see what changed since">★ Watch this</button>'}`;
+      ${speakerless(st.mode) ? '' : '<button class="rz-btn" data-watch title="Save this view; later, see what changed since">★ Watch this</button>'}`;
   }
 
   function renderWatched() {
@@ -188,11 +191,24 @@ export const mountRashomon = (el, { app, scope = 'topic', sn = null, mode = 'com
       <div class="rz-sec"><h3>Contested claims, most load-bearing first</h3>${items}</div>`;
   }
 
+  function renderTimeline() {
+    const c = st.chrono;
+    if (!c) { body.innerHTML = `<div class="rz-empty">Reading when things happened…</div>`; return; }
+    const m = c.metric;
+    const events = c.timeline.map((e) => `<div class="rz-row rz-agree"><b>${esc(e.when)}</b> — ${esc(e.text)}${e.source != null && c.scope === 'topic' ? ` <span class="rz-note">· S${esc(e.source)}</span>` : ''}</div>`).join('')
+      || `<div class="rz-note">No stated dates found in this ${c.scope === 'source' ? 'source' : 'topic'} — nothing to place on a timeline yet.</div>`;
+    const jumps = c.reorderings.map((r) => `<div class="rz-row rz-div">the telling jumps back — from <b>${esc(r.from)}</b> to <b>${esc(r.to)}</b>: “${esc(r.text)}”</div>`).join('') || `<div class="rz-note">told in order — no flashbacks.</div>`;
+    body.innerHTML = `
+      <div class="rz-metric"><span class="rz-basis">dated</span><span><b>${m.dated}</b> events placed</span><span><b>${m.undated}</b> undated</span><span><b>${m.reorderings}</b> flashback${m.reorderings === 1 ? '' : 's'}</span>${c.span ? `<span>${esc(c.span.first)} → ${esc(c.span.last)}</span>` : ''}</div>
+      <div class="rz-sec"><h3>What happened, in order</h3>${events}</div>
+      <div class="rz-sec"><h3>Where the telling runs against time</h3>${jumps}</div>`;
+  }
+
   function render() {
     renderHead(); renderWatched();
-    if (st.mode !== 'fragile' && candidates().length < 2) { body.innerHTML = `<div class="rz-empty">This ${st.scope === 'source' ? 'source' : 'topic'} names fewer than two figures with a voice. Compare and Trace read the same events from two people's points of view — ingest sources where people <i>speak</i>. (Try <b>What's fragile</b> — it needs no speakers, only disagreement.)</div>`; return; }
+    if (!speakerless(st.mode) && candidates().length < 2) { body.innerHTML = `<div class="rz-empty">This ${st.scope === 'source' ? 'source' : 'topic'} names fewer than two figures with a voice. Compare and Trace read the same events from two people's points of view — ingest sources where people <i>speak</i>. (Try <b>What's fragile</b> or <b>Timeline</b> — they need no speakers.)</div>`; return; }
     if (st.loading) { body.innerHTML = `<div class="rz-empty">Reading…</div>`; return; }
-    if (st.mode === 'fragile') renderFragile(); else if (st.mode === 'trace') renderTrace(); else renderCompare();
+    if (st.mode === 'timeline') renderTimeline(); else if (st.mode === 'fragile') renderFragile(); else if (st.mode === 'trace') renderTrace(); else renderCompare();
   }
 
   pickDefaults(); refreshWatched(); render(); run();
