@@ -35,8 +35,19 @@ const STOP = new Set(('the a an of to in on for and or but is are was were be be
   'whether either neither may might must shall around along already always never sometimes mostly largely mainly each other another ' +
   'both such including include includes included').split(/\s+/));
 
+// The murmur voices THOUGHTS, not raw links or the signature bytes a non-text file leaks when decoded
+// as text ("urls aren't interesting"). Scrub links/file refs before a passage becomes topic terms or a
+// mutter; a passage that carried one also loses its CamelCase crumbs (`OggS`) and stranded punctuation,
+// while ordinary prose is untouched. (Mirrored in narrate/voice.js — the boundary tax, like STOP.)
+export const cleanText = (text) => {
+  const src = String(text == null ? '' : text);
+  let t = src.replace(/\b(?:https?:\/\/|ftp:\/\/|www\.)\S+/gi, ' ').replace(/\b[^\s/\\]*\.(?:ogg|mp3|mp4|m4a|wav|flac|aac|pdf|epub|mobi|png|jpe?g|gif|webp|svg|zip|gz|tar|bin|exe|dll|iso|woff2?|ttf)\b\S*/gi, ' ').replace(/\b[a-z0-9][a-z0-9.\-]*\.[a-z]{2,}\/\S*/gi, ' ');
+  if (t.length !== src.length) t = t.replace(/\b\w*[a-z][A-Z]\w*\b/g, ' ').replace(/(?:^|\s)[:;,.…—–-]+(?=\s|$)/g, ' ').replace(/^[\s:;,.…—–-]+/, '');
+  return t.replace(/\s+/g, ' ').trim();
+};
+
 export const learnTerms = (s) =>
-  (String(s || '').toLowerCase().match(/[a-z][a-z0-9'’-]{2,}/g) || []).filter((t) => !STOP.has(t));
+  (cleanText(s).toLowerCase().match(/[a-z][a-z0-9'’-]{2,}/g) || []).filter((t) => !STOP.has(t));
 
 // profileOf(text) → Map<term, mass> — a passage reduced to its term-frequency profile, the unit a
 // wander step measures and deposits. Repetition is signal, so mass is the raw count (a passage
@@ -96,7 +107,7 @@ export const leadTerms = (by, seen = new Set(), max = 3) =>
 // A short, readable clause from a passage — the murmur's own words for what caught it, kept prose-y
 // (it renders in the strip's serif italic, so it must read like a mutter, not a token dump).
 const snippet = (text, words = 9) => {
-  const ws = String(text || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean).slice(0, words);
+  const ws = cleanText(text).split(' ').filter(Boolean).slice(0, words);
   return ws.join(' ').replace(/[.,;:—–-]+$/, '').trim();
 };
 

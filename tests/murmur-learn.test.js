@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   createLearning, createMurmur, murmurConfig,
-  learnTerms, profileOf, curiosityOf, foldInto, leadTerms, plausibleTopic,
+  learnTerms, profileOf, curiosityOf, foldInto, leadTerms, plausibleTopic, cleanText,
 } from '../src/murmur/index.js';
 import { canWitness } from '../src/core/provenance.js';
 
@@ -82,6 +82,37 @@ test('artifact shapes never become leads (OCR/markup crumbs)', () => {
   assert.equal(plausibleTopic('vvv'), false);       // smear
   const by = { coogler: 0.9, c0mpany: 1.2 };
   assert.deepEqual(leadTerms(by, new Set()), ['coogler'], 'the garbage token, though heaviest, is dropped');
+});
+
+test('the murmur never voices a raw URL — a link is not a thought (the reported bug)', () => {
+  // the exact garbage from the bug report: an Ogg audiobook recorded as a source, its bytes read as
+  // text, so the reflection led with the file URL and the container's `OggS` signature.
+  const bad = 'https://www.gutenberg.org/files/19513/ogg/19513-01.ogg. OggS: As read stay in focus';
+  const cleaned = cleanText(bad);
+  assert.ok(!/https?:|www\.|\.ogg/i.test(cleaned), 'the URL and file reference are gone');
+  assert.ok(!/OggS/.test(cleaned), 'the binary signature crumb is scrubbed from a machine-artifact passage');
+
+  // and it never rides a mutter, either — the wander picks it, but the phrase it broadcasts is clean.
+  const learn = createLearning({ now: monotonicNow() });
+  const pick = learn.wander([{ text: bad, source: { docId: 'd1' } }]);
+  const note = pick && learn.learn(pick, { origin: 'reading', register: 'curiosity' });
+  assert.ok(note, 'the passage still has readable words to turn over');
+  assert.ok(!/https?:|www\.|\.ogg|OggS/i.test(note.phrase), 'no link or signature survives into the mutter');
+});
+
+test('URL fragments never become topic terms or outward leads', () => {
+  const terms = learnTerms('see https://www.gutenberg.org/files/19513/ogg/19513-01.ogg for the text');
+  for (const junk of ['https', 'www', 'gutenberg', 'org', 'ogg', 'oggs', 'files']) {
+    assert.ok(!terms.includes(junk), `"${junk}" (a URL fragment) is not a topic`);
+  }
+  assert.deepEqual(terms, ['see', 'text'], 'only the real words remain');
+});
+
+test('ordinary prose is left completely untouched — only link-shaped passages are scrubbed', () => {
+  const prose = 'The treaty — signed in the spring — ended the long blockade of GitHub and iPhone alike.';
+  assert.equal(cleanText(prose), prose, 'no URL/file present → nothing is stripped, CamelCase names kept');
+  // a bare sentence period is not a file extension
+  assert.equal(cleanText('He left. She stayed.'), 'He left. She stayed.');
 });
 
 test('minimal helpers: terms drop stopwords, profile counts repetition, foldInto γ-decays', () => {
