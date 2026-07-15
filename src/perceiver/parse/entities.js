@@ -29,17 +29,27 @@ const TITLE = String.raw`(?:Mr|Mrs|Ms|Dr|Miss|Mister|Sir|Madam|Madame|Lady|Lord|
 // A lowercase connector (von, of, the) only counts when it sits *between* two
 // capitalised words — never trailing, so "Grete the news" is just "Grete".
 const CONN  = String.raw`de|von|van|der|del|di|du|la|le|of|the`;
-// Letters a name is built from. The ASCII class `[A-Z][a-zA-Z]` truncated every name at its
-// first accent — the Maude/Garnett transliteration of War and Peace stresses with acute marks
-// (Natásha, Kutúzov, Denísov, Pávlovna), so the scanner read "Nat", "Kut", "Den", "P", inventing
-// 136 truncated figures and 130 "Anna -> … : p" patronymic-split junk edges. Widen the class to
-// the Latin-1 letter block (À-Ö, Ø-ö, ø-ÿ — excludes × ÷), which carries the acute/grave/diaeresis
-// forms a European-name transliteration uses. These are single UTF-16 code units, so the existing
-// `\b`-anchored, un-`u`-flagged regexes keep working unchanged; only the reach of a name widens.
-const U = String.raw`A-ZÀ-ÖØ-Þ`;            // a capital name-initial, incl. accented (Á É Í Ó Ú …)
-const L = String.raw`A-Za-zÀ-ÖØ-öø-ÿ`;      // a name-internal letter, either case, incl. accented
+// Letters a name is built from — read by Unicode PROPERTY, not by enumerating scripts. `\p{Lu}`
+// is a capital in ANY cased writing system (Latin incl. accents, Cyrillic, Greek, Armenian,
+// Georgian…), `\p{L}` any letter. So the scanner reads Пьер, Émile, Γλαύκων and Darcy as names
+// with no per-language list — the language never enters the mechanism. (Scripts without case —
+// Chinese, Arabic, Hebrew — carry `\p{Lu}` = ∅, so they simply do not mark names by capital; that
+// is a different signal, not this one.) The `u` flag these need is safe now that the word edges
+// are lookarounds, not the ASCII-only `\b`.
+const U = String.raw`\p{Lu}`;
+const L = String.raw`\p{L}`;
 const NAME  = String.raw`[${U}][${L}]+(?:\s+(?:${CONN}\s+)?[${U}][${L}]+)*`;
-const CAP_RE = new RegExp(String.raw`\b(?:${TITLE}\s+)?${NAME}\b`, 'g');
+// The word EDGES, script-agnostically. JS `\b` is ASCII-only — it treats a Cyrillic or accented
+// initial as a non-word char, so `\bПьер` (and even `\bÉmile`) never matches at the leading edge.
+// A name instead begins where the previous character is NOT a name letter and ends where the next
+// is not: lookarounds over the letter class (any script), under the `u` flag every letter regex
+// here now carries. The edges also exclude DIGITS (\p{N}), exactly as `\b` did — a letter run
+// glued to a number is an alphanumeric code, not a name, so "CO2" and "80MW" never yield the
+// bare "CO"/"MW" the letter-only edge would have cut out of the middle of the token.
+const EDGE = String.raw`${L}\p{N}`;
+const EDGE_L = String.raw`(?<![${EDGE}])`;
+const EDGE_R = String.raw`(?![${EDGE}])`;
+const CAP_RE = new RegExp(EDGE_L + String.raw`(?:${TITLE}\s+)?${NAME}` + EDGE_R, 'gu');
 
 // ── Initialism (acronym ↔ expansion) — a learned, defeasible org alias ───────
 // The orthographic MECHANISM only (the parse leaf holds mechanism, never a table):
@@ -72,11 +82,11 @@ export const initialismMatch = (acronym, expansion) => {
 // live admission; reports the pair (with ids where the side is admitted) for the
 // pipeline to commit as a SYN alias and learn as a convention.
 const ACRO_RE = String.raw`[A-Z][A-Z.&]+`;
-const INITIALISM_RE = new RegExp(String.raw`(${NAME})\s*\(\s*(${ACRO_RE})\s*\)`, 'g');
+const INITIALISM_RE = new RegExp(String.raw`(${NAME})\s*\(\s*(${ACRO_RE})\s*\)`, 'gu');
 export const scanInitialisms = (sentence, admission) => {
   const s = String(sentence || '');
   const out = [];
-  const re = new RegExp(INITIALISM_RE.source, 'g');
+  const re = new RegExp(INITIALISM_RE.source, 'gu');
   let m;
   while ((m = re.exec(s)) !== null) {
     const expansion = cleanLabel(m[1]);
@@ -104,11 +114,11 @@ export const scanInitialisms = (sentence, admission) => {
 // (the worked-example-2 functional-conflict veto). Deliberately narrow: a 4-digit year
 // behind an explicit "born"/date-paren, never a bare number, so it cannot misfire on
 // the goldens (which carry no such construction).
-const BIRTH_RE = new RegExp(String.raw`((?:${TITLE}\s+)?${NAME})\s*(?:,?\s+(?:was\s+|were\s+)?born\s+(?:in\s+|on\s+)?|\(\s*(?:born\s+|b\.\s*)?)(\d{4})\b`, 'g');
+const BIRTH_RE = new RegExp(String.raw`((?:${TITLE}\s+)?${NAME})\s*(?:,?\s+(?:was\s+|were\s+)?born\s+(?:in\s+|on\s+)?|\(\s*(?:born\s+|b\.\s*)?)(\d{4})\b`, 'gu');
 export const scanFunctionalAttributes = (sentence, admission) => {
   const s = String(sentence || '');
   const out = [];
-  const re = new RegExp(BIRTH_RE.source, 'g');
+  const re = new RegExp(BIRTH_RE.source, 'gu');
   let m;
   while ((m = re.exec(s)) !== null) {
     const name = cleanLabel(m[1]);
@@ -149,8 +159,13 @@ export const TITLE_WORDS = new Set([
   'Professor','Prof','Capt','Captain','Rev','St','Aunt','Uncle',
 ]);
 
+// A stable id from a label: lowercased, spaces → hyphens, keeping LETTERS and NUMBERS of any
+// script. The old `[^a-z0-9-]` strip was Latin-only — it deleted every Cyrillic character, so a
+// two-word Russian name ("Весь Толстой") collapsed to the id "-" and the whole cast merged into
+// one node. `\p{L}\p{N}` keeps Cyrillic (and the Latin-1 accents a transliteration carries), so
+// the id is faithful to the name in any language.
 const idFor = (label) =>
-  label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  label.toLowerCase().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}-]/gu, '');
 
 // ── Admission by SEMANTIC GRAVITY, not by a sighting count ──────────────────
 //
@@ -184,9 +199,11 @@ const ABSTRACT_HEADS = new Set(['way', 'time', 'thing', 'matter', 'fact', 'case'
   'moment', 'sense', 'part', 'whole', 'same', 'other', 'first', 'last', 'rest', 'one', 'day', 'night',
   'morning', 'evening', 'while', 'end', 'side', 'reason', 'idea', 'word', 'name', 'sake', 'use', 'need']);
 
-// A content head — an open-class word (`C.isFunction` is false), so a name beside
-// it is a verb's argument rather than a function word's neighbour.
-const isContent = (w, C) => !!w && /^[a-z][a-z'’]*$/.test(w) && w.length >= 2 && !C.isFunction(w);
+// A content head — an open-class word (`C.isFunction` is false), so a name beside it is a verb's
+// argument rather than a function word's neighbour. Lowercase-initial of ANY script (\p{Ll}), so
+// a Russian verb ("сказал") gives its subject the same gravity an English one does; without this
+// the ASCII test saw no Cyrillic neighbour and bare Russian names never earned a sighting.
+const isContent = (w, C) => !!w && /^\p{Ll}[\p{Ll}'’]*$/u.test(w) && w.length >= 2 && !C.isFunction(w);
 
 // The gravity of one sighting, read off its local context against the live conventions `C`.
 // Pure and modelless — position is the witness, the word-classes are the ledger's. Returns
@@ -203,8 +220,9 @@ const sightingGravity = (sentence, start, end, C, label = null) => {
   // followed by other letters, and must NOT read its stem as a possessor (the "Don"/"Isn" bug).
   if (/^['’]s?(?![A-Za-z])/.test(after)) return { g: 1.0, strong: true };   // possessor
   const before = sentence.slice(0, start);
-  const prev = (before.match(/([A-Za-z'’]+)\s*$/) || [])[1];
-  const next = (after.match(/^\s*([A-Za-z'’]+)/) || [])[1];
+  // Neighbours of ANY script (\p{L}), so a Cyrillic verb/noun beside a name is seen as company.
+  const prev = (before.match(/([\p{L}'’]+)\s*$/u) || [])[1];
+  const next = (after.match(/^\s*([\p{L}'’]+)/u) || [])[1];
   // A demonym / proper adjective ("the Russian novelist", "learning about American
   // television", "their Jewish king") is ATTRIBUTIVE — it modifies the following noun,
   // it is not a referent in its own right. That holds REGARDLESS of what precedes it,
@@ -296,6 +314,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
   const mentions  = new Map(); // id    → number[] (sentence indices, ordered)
   const initialisms = new Map(); // acronym label → expansion id (learned org alias)
   const strongSeen = new Map(); // label → true once a STRONG cue has vouched for it
+  const subjSight = new Map(); // single-token label → times seen in SUBJECT position (nominative signal)
 
   // ── The document's own gravity signals — read once, no title list ────────────────
   // A capitalised token is a MOON — a shared honorific, not a referent — when it heads ≥2
@@ -309,6 +328,8 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
   // text's own statistics, so admission stays language-free (mechanism, not a list of titles).
   const headNames     = new Map();   // leading token → Set(full label) over multi-word names
   const docLowerVocab = new Set();   // words seen lowercase in the source
+  const capCount      = new Map();   // lowercased form → times it appeared CAPITAL-initial
+  const lowCount      = new Map();   // lowercased form → times it appeared lowercase-initial
   const moonCache     = new Map();   // leading token → { size, val } (recomputed only as the set grows)
   const preferredCase = new Map();   // idFor(label) → the first MIXED-case spelling seen (canonical form)
   const notePlanet = (label) => {
@@ -319,19 +340,29 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
   // heading — is the SAME referent as its mixed-case form ("Nora"). Read the document's own
   // casing: prefer the first mixed-case spelling as canonical, so "NORA"/"MRS LINDE"/"SHERLOCK
   // HOLMES" fold onto "Nora"/"Mrs Linde"/"Sherlock Holmes" instead of standing as loud twins.
-  const isAllCaps = (l) => /[A-ZÀ-Þ]/.test(l) && l === l.toUpperCase();
+  const isAllCaps = (l) => /[A-ZÀ-ÞА-ЯЁ]/.test(l) && l === l.toUpperCase();
   // A word shouted in caps ("LINDE", "NORA") — the mark of a speaker cue / heading token, even
   // inside an otherwise mixed label ("Mrs LINDE").
-  const hasCapsWord = (l) => l.split(' ').some((w) => w.length >= 2 && /[A-ZÀ-Þ]/.test(w) && w === w.toUpperCase());
+  const hasCapsWord = (l) => l.split(' ').some((w) => w.length >= 2 && /[A-ZÀ-ÞА-ЯЁ]/.test(w) && w === w.toUpperCase());
   const canon = (label) => {
     if (!hasCapsWord(label)) return label;
     const pref = preferredCase.get(idFor(label));
     return (pref && pref !== label) ? pref : label;
   };
   if (text) {
-    for (const t of String(text).split(/[^A-Za-zÀ-ÖØ-öø-ÿ'’]+/))
-      if (t && /^[a-zà-öø-ÿ]/.test(t)) docLowerVocab.add(t.replace(/['’].*$/, '').toLowerCase());
-    const pre = new RegExp(CAP_RE.source, 'g');
+    // Read the document's own casing over words of ANY script (Unicode split, no `u`-flag \b
+    // needed on a split). A word that appears lowercase is orthographically unstable; the
+    // CAP-RATE — how often a form is capital-initial — separates a NAME (always capital) from a
+    // function/common word capitalised only by sentence position (mostly lowercase), in any
+    // language and with no list.
+    for (const t of String(text).split(/[^\p{L}'’]+/u)) {
+      const w = t && t.replace(/['’].*$/, '');
+      if (!w) continue;
+      const lc = w.toLowerCase();
+      if (w[0] === lc[0]) { docLowerVocab.add(lc); lowCount.set(lc, (lowCount.get(lc) || 0) + 1); }
+      else capCount.set(lc, (capCount.get(lc) || 0) + 1);
+    }
+    const pre = new RegExp(CAP_RE.source, 'gu');
     const labels = [];
     let pm; while ((pm = pre.exec(text)) !== null) { const lab = cleanLabel(pm[0], C); if (lab) labels.push(lab); }
     // The canonical spelling of a name is its cleanest cased form — no word shouted in caps.
@@ -350,6 +381,17 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     return val;
   };
   const isUnstable = (tok) => docLowerVocab.has(String(tok).toLowerCase());
+  // isFunctionWord(tok) — the seed-free, omnilingual function/common-word test: a form that
+  // recurs AND is PREDOMINANTLY LOWERCASE in the document (capital only ~by sentence position).
+  // Names run ~1.0 capital ("Pierre", "Ростов"); pronouns/openers run low ("he" .19, "ты" .25,
+  // "very" .05, "что" .02); a genuine capitalised topic noun sits in between ("Dolphins" .60),
+  // so a strict floor keeps it. This is what the induced SLOT cannot do — pronouns and names
+  // share one slot; only the writing system's own casing tells them apart.
+  const isFunctionWord = (tok) => {
+    const lc = String(tok).toLowerCase();
+    const c = capCount.get(lc) || 0, l = lowCount.get(lc) || 0, total = c + l;
+    return total >= 5 && (c / total) < 0.35;
+  };
 
   // Sediment a learned acronym↔expansion alias into admission state: a bare acronym
   // now RESOLVES to the expansion's id without re-deriving (the §8 ORG-1 promise).
@@ -403,7 +445,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
   const observe = (sentence, sentIdx = null) => {
     const seenInSentence = new Set();
     const out = [];
-    const re = new RegExp(CAP_RE.source, 'g');
+    const re = new RegExp(CAP_RE.source, 'gu');
     let m;
     while ((m = re.exec(sentence)) !== null) {
       const cleaned = cleanLabel(m[0], C);
@@ -431,6 +473,12 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
         strongCue = cue.strong;
         gravity.set(label, (gravity.get(label) || 0) + cue.g);
         if (strongCue && cue.g > 0) strongSeen.set(label, true);
+        // Subject position (the NOMINATIVE signal): this form is followed by a content word — it
+        // is acting, a subject. A nominative-base does this a lot; an oblique (after a preposition,
+        // as an object) rarely does. This is what tells a declension from an independent name that
+        // merely shares a stem (Франция the subject vs Франца the genitive of Франц).
+        const nx = (sentence.slice(m.index + m[0].length).match(/^\s*([\p{L}'’]+)/u) || [])[1];
+        if (isContent(nx, C)) subjSight.set(label, (subjSight.get(label) || 0) + 1);
       }
       const g = gravity.get(label);
 
@@ -443,7 +491,9 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
       //     recurs as an argument IS a discourse topic ("Dolphins" range… Dolphins are…), and
       //     a stable name (never seen lowercase) is unaffected by this gate entirely.
       const bareRefused = !multiword &&
-        (isMoon(label) || (isUnstable(label) && !strongSeen.has(label) && c < 2));
+        (isMoon(label)
+         || (isUnstable(label) && !strongSeen.has(label) && c < 2)
+         || (isFunctionWord(label) && !strongSeen.has(label)));   // predominantly-lowercase → function/common word
       // A still-ALL-CAPS multi-word label (canon found no mixed-case twin) of ≥3 words is a
       // section HEADING shouted in caps ("KINGDOM OF DARIUS", "CONCERNING NEW PRINCIPALITIES…"),
       // not a figure — the document's own casing says so. Refuse it.
@@ -529,12 +579,26 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     get admitted() { return admitted; },
     get mentions() { return mentions; },
     get initialisms() { return initialisms; },
+    get subjSight() { return subjSight; },
+    // The NOMINATIVE forms — single-token names that behave as SUBJECTS often enough to be a
+    // paradigm's base (not an oblique). The declension fold anchors on these so two names sharing
+    // a stem (Франц / Франция) never merge. Read-only over the document's subject-position stats.
+    nominativeForms: ({ minSight = 3, minRate = 0.25 } = {}) => {
+      const noms = new Set();
+      for (const label of admitted.keys()) {
+        if (label.includes(' ')) continue;
+        const total = counts.get(label) || 0;
+        const s = subjSight.get(label) || 0;
+        if (s >= minSight && total > 0 && s / total >= minRate) noms.add(label);
+      }
+      return noms;
+    },
   };
 };
 
 // Exposed so the relation parser can share the exact same entity scanner.
 export const scanEntities = (text) => {
-  const re = new RegExp(CAP_RE.source, 'g');
+  const re = new RegExp(CAP_RE.source, 'gu');
   const out = [];
   let m;
   while ((m = re.exec(text)) !== null) {

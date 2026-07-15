@@ -15,6 +15,7 @@ export const CONTRACTS = Object.freeze({
   'src/core/conventions/index.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Field'], products: ['Kind', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'barrel' }),
   'src/core/conventions/induce.js': contract({ ops: ['REC'], targets: ['Field'], products: ['Kind'], stances: ['Composing'], note: 'attribution-verb induction (Pass 0)' }),
   'src/core/conventions/ledger.js': contract({ ops: ['DEF', 'EVA', 'REC'], targets: ['Field'], products: ['Kind', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Composing'], note: 'the conventions ledger' }),
+  'src/core/conventions/slots.js': contract({ ops: ['CON', 'SYN', 'DEF', 'EVA', 'REC'], targets: ['Network'], products: ['Kind', 'Paradigm'], stances: ['Binding', 'Composing'], note: 'the scale-free slot-induction primitive' }),
   'src/core/cube.js': contract({ ops: ['NUL', 'EVA'], targets: ['Kind'], products: ['Kind', 'Lens'], stances: ['Clearing', 'Binding'], note: 'cube geometry + coherence guard', floor: true }),
   'src/core/cut.js': contract({ ops: ['NUL', 'DEF'], targets: ['Lens'], products: ['Lens'], stances: ['Dissecting', 'Clearing'], note: 'the Cut — the atomic same/other judgment a DEF witness decomposes into' }),
   'src/core/def.js': contract({ ops: ['DEF', 'REC'], targets: ['Lens'], products: ['Lens', 'Atmosphere', 'Paradigm'], stances: ['Dissecting', 'Clearing', 'Composing'], note: 'the judgment DEF + append-only judgment log' }),
