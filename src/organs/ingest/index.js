@@ -62,6 +62,11 @@ export { fetchArxivPaper, parseArxivAtom, arxivIdOf, reduceHtml,
          ARXIV_SOURCES, ARXIV_FULLTEXT } from './arxiv.js';
 export { parseOpenAlex, deInvertAbstract, openalexIdOf,
          OPENALEX_SOURCES, OPENALEX_FULLTEXT } from './openalex.js';
+// UniMorph — outside morphological knowledge (inflection paradigms) pulled in as needed: an
+// on-demand lookup of a verb's irregular past for the long tail the packaged seed omits. Same
+// fetch-through-a-seam, parse-offline discipline every web source travels.
+export { createMorphology, warmMorphology, parseUnimorph,
+         unimorphUrl, UNIMORPH_BASE } from './unimorph.js';
 // The raw web-content store: keep every fetched page in full, as binary, in OPFS (re-readable
 // without a refetch); degrades to in-memory where OPFS is absent.
 export { createRawStore, opfsAvailable, rawFileName, RAW_STORE_DIR } from './opfs-store.js';

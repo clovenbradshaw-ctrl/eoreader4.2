@@ -15,6 +15,21 @@
 // lists — not a table hand-rolled here. This module is only the productive RULES.
 import { SEED_IRREGULAR_PAST as IRREGULAR, SEED_PAST_FORMS as PAST } from '../../core/conventions/index.js';
 
+// A learned overlay for the irregular LONG TAIL — base→past for verbs the packaged seed omits,
+// filled at session time from an outside morphology source (organs/ingest/unimorph.js, pulled in
+// as needed). Consulted AFTER the seed so a curated form always wins; empty until warmed, so the
+// realizer's behaviour is unchanged offline. Kept synchronous on purpose: the network happens in
+// the organ, out of band, and only the resulting plain forms cross into the hot path.
+const LEARNED = new Map();
+export const learnIrregular = (entries) => {
+  for (const [base, past] of entries || []) {
+    const b = String(base || '').toLowerCase(), p = String(past || '').toLowerCase();
+    if (b && p && !IRREGULAR[b]) LEARNED.set(b, p);   // never shadow a curated seed form
+  }
+  return LEARNED.size;
+};
+const irregularPast = (b) => IRREGULAR[b] || LEARNED.get(b) || null;
+
 // a present participle ("pushing") back to its base ("push"), undoubling a doubled final
 // consonant ("running" → "run", "sitting" → "sit"). A dropped 'e' ("moving" → "mov") is
 // recovered in toPast by trying the +'e' lemma against the irregular/regular paths.
@@ -41,7 +56,7 @@ export const toPast = (verb) => {
   if (!v || isPast(v)) return verb;                         // empty or already past — keep the source form
   if (v.endsWith('ing') && v.length > 4) {
     const base = degerund(v);
-    return IRREGULAR[base] || IRREGULAR[base + 'e'] || (PAST.has(base) ? base : regularPast(base));
+    return irregularPast(base) || irregularPast(base + 'e') || (PAST.has(base) ? base : regularPast(base));
   }
-  return IRREGULAR[v] || regularPast(v);
+  return irregularPast(v) || regularPast(v);
 };
