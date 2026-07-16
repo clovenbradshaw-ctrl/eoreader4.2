@@ -1687,7 +1687,7 @@ table{border-collapse:collapse;width:100%}
                         <span style="display:flex;gap:6px;flex-wrap:wrap">
                           <button onClick="{{ sourceLanding.surprise.toggleStructure }}" title="Add or hide the source structure dots along the waveform" style="padding:5px 9px;border-radius:999px;border:1px solid {{ sourceLanding.surprise.structureBd }};background:{{ sourceLanding.surprise.structureBg }};color:{{ sourceLanding.surprise.structureFg }};font-size:10.5px;font-weight:700">Structure dots</button>
                           <button onClick="{{ sourceLanding.surprise.toggleEntities }}" title="Toggle entity labels and entity narrative marks" style="padding:5px 9px;border-radius:999px;border:1px solid {{ sourceLanding.surprise.entitiesBd }};background:{{ sourceLanding.surprise.entitiesBg }};color:{{ sourceLanding.surprise.entitiesFg }};font-size:10.5px;font-weight:700">Entities</button>
-                          <button onClick="{{ sourceLanding.surprise.toggleXkcd }}" title="Show a hand-drawn narrative chart of the main entities (capped at 25)" style="padding:5px 9px;border-radius:999px;border:1px solid {{ sourceLanding.surprise.xkcdBd }};background:{{ sourceLanding.surprise.xkcdBg }};color:{{ sourceLanding.surprise.xkcdFg }};font-size:10.5px;font-weight:700">XKCD chart</button>
+                          <button onClick="{{ sourceLanding.surprise.toggleXkcd }}" title="Overlay entity relationship threads directly on the waveform" style="padding:5px 9px;border-radius:999px;border:1px solid {{ sourceLanding.surprise.xkcdBd }};background:{{ sourceLanding.surprise.xkcdBg }};color:{{ sourceLanding.surprise.xkcdFg }};font-size:10.5px;font-weight:700">Entity threads</button>
                           <button onClick="{{ sourceLanding.surprise.toggleFold }}" title="Open the fold range handles and summary affordance" style="padding:5px 9px;border-radius:999px;border:1px solid #DED8FD;background:#F1EFFE;color:#5140C8;font-size:10.5px;font-weight:700">Fold range</button>
                         </span>
                       </div>
@@ -1712,9 +1712,19 @@ table{border-collapse:collapse;width:100%}
                             </sc-for>
                           </div>
                         </sc-if>
+                        <sc-if value="{{ sourceLanding.surprise.showEntityThreads }}">
+                          <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-label="Entity relationship threads" style="position:absolute;inset:9px 5px;pointer-events:none;overflow:visible">
+                            <sc-for list="{{ sourceLanding.surprise.entityThreads }}" as="r">
+                              <polyline points="{{ r.points }}" fill="none" stroke="{{ r.color }}" stroke-width="{{ r.width }}" stroke-linecap="round" stroke-linejoin="round" opacity="{{ r.opacity }}"></polyline>
+                            </sc-for>
+                          </svg>
+                          <div style="position:absolute;left:8px;right:8px;top:4px;display:flex;gap:6px;flex-wrap:wrap;pointer-events:none">
+                            <sc-for list="{{ sourceLanding.surprise.threadLabels }}" as="r"><span style="font-size:9px;font-weight:800;color:{{ r.color }};background:rgba(255,255,255,.78);border:1px solid rgba(222,216,253,.75);border-radius:999px;padding:1px 5px">{{ r.label }}</span></sc-for>
+                          </div>
+                        </sc-if>
                       </div>
                       <sc-if value="{{ sourceLanding.surprise.showEntities }}"><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><sc-for list="{{ sourceLanding.surprise.entityPills }}" as="e"><button onClick="{{ e.open }}" style="font-size:11px;color:#5140C8;background:#F1EFFE;border:1px solid #DED8FD;border-radius:999px;padding:4px 8px">{{ e.label }}</button></sc-for></div></sc-if>
-                      <sc-if value="{{ sourceLanding.surprise.showXkcd }}"><div style="margin-top:12px;background:#FFFDF7;border:1px solid #EEE0B8;border-radius:12px;padding:12px"><div style="font-family:'Comic Sans MS','Comic Neue',cursive;font-size:12px;color:#6A5632;margin-bottom:8px">main entities · narrative chart · capped at 25</div><div style="display:flex;align-items:flex-end;gap:8px;height:130px;border-left:2px solid #2A2A32;border-bottom:2px solid #2A2A32;padding:8px 6px 0"><sc-for list="{{ sourceLanding.surprise.xkcdEntities }}" as="x"><button onClick="{{ x.open }}" title="{{ x.title }}" style="flex:1;min-width:18px;max-width:44px;height:{{ x.hPct }};border:2px solid #2A2A32;border-radius:999px 999px 7px 7px;background:#fff;transform:rotate({{ x.tilt }}deg);font-family:'Comic Sans MS','Comic Neue',cursive;font-size:10px;color:#2A2A32;overflow:hidden">{{ x.short }}</button></sc-for></div></div></sc-if>
+                      <sc-if value="{{ sourceLanding.surprise.showXkcd }}"><div style="margin-top:8px;font-size:11.5px;color:#6E6E78">Entity threads are overlaid on the waveform: each selected figure runs left → right, pulling closer to connected figures at the turns where the source binds them.</div></sc-if>
                       <sc-if value="{{ sourceLanding.surprise.foldOpen }}"><div style="margin-top:12px;border:1px solid #E6E1F7;background:#FBFAFF;border-radius:12px;padding:12px"><div style="display:flex;gap:10px;align-items:center"><span style="font-size:11px;font-weight:800;color:#7A6AE8">in</span><input type="range" min="0" max="99" value="{{ sourceLanding.surprise.foldIn }}" onChange="{{ sourceLanding.surprise.setFoldIn }}" style="flex:1"/><span style="font-size:11px;font-weight:800;color:#7A6AE8">out</span><input type="range" min="1" max="100" value="{{ sourceLanding.surprise.foldOut }}" onChange="{{ sourceLanding.surprise.setFoldOut }}" style="flex:1"/><button onClick="{{ sourceLanding.surprise.summarizeFold }}" style="background:#5B4BE6;color:#fff;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700">Summarize fold</button></div><div style="font-size:11.5px;color:#6E6E78;margin-top:7px">Requires Anthropic Claude 3 Haiku via API. Other LLMs are hidden from this workflow.</div><sc-if value="{{ sourceLanding.surprise.foldBusy }}"><div style="font-size:12px;color:#8A8A95;margin-top:8px">Summarizing selected fold…</div></sc-if><sc-if value="{{ sourceLanding.surprise.foldHasText }}"><div style="font-size:13px;color:#2A2A32;line-height:1.5;margin-top:8px;white-space:pre-wrap">{{ sourceLanding.surprise.foldText }}</div></sc-if><sc-if value="{{ sourceLanding.surprise.foldHasErr }}"><div style="font-size:12px;color:#B23A2E;margin-top:8px">{{ sourceLanding.surprise.foldErr }}</div></sc-if><details style="margin-top:10px"><summary style="font-size:12px;color:#5B4BE6;font-weight:700;cursor:pointer">Precisely what is returned in this fold</summary><pre style="white-space:pre-wrap;font-size:11px;line-height:1.45;color:#363642;background:#fff;border:1px solid #EEEFF4;border-radius:8px;padding:10px;max-height:220px;overflow:auto">{{ sourceLanding.surprise.foldReturned }}</pre></details></div></sc-if>
                       <div style="display:flex;align-items:center;gap:14px;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">
                         <span>reading order →</span><span style="flex:1"></span>
@@ -6288,6 +6298,59 @@ class Component extends DCLogic {
     const belief = { bars: buildTrack(beliefOf, (f) => f > 0.55 ? '#5B4BE6' : f > 0.28 ? '#8C7DF3' : '#D8D3F7') };
     const gravity = { bars: buildTrack(pullOf, (f) => f > 0.55 ? '#C9963A' : f > 0.28 ? '#DDB56B' : '#F0E0BE') };
     const hasGravity = turns.some((t) => t.bridge != null);
+    const threadPalette = ['#5140C8', '#1E8A50', '#B86820', '#B23A2E', '#26748F', '#7A4A9E', '#8A6D1F', '#44546A'];
+    const normThreadName = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const threadEntities = castSorted.slice(0, 25).map((e, i) => ({
+      ...e,
+      _threadIdx: i,
+      _threadKey: normThreadName(e.label || e.name || e.text || e.entId || ''),
+      _threadColor: threadPalette[i % threadPalette.length],
+    })).filter((e) => e._threadKey);
+    const threadByName = new Map();
+    for (const e of threadEntities) {
+      threadByName.set(e._threadKey, e);
+      for (const part of e._threadKey.split(' ')) if (part.length > 2 && !threadByName.has(part)) threadByName.set(part, e);
+    }
+    const linkedThreadIndexes = (t) => {
+      const axis = Array.isArray(t.bridgeAxis) ? t.bridgeAxis : [];
+      const found = new Set();
+      for (const raw of axis) {
+        const key = normThreadName(raw);
+        const hit = threadByName.get(key) || threadByName.get(key.split(' ').find((p) => p.length > 2) || '');
+        if (hit) found.add(hit._threadIdx);
+      }
+      return [...found];
+    };
+    const threadEvents = turns.map((t) => ({ x: posOf(t), ids: linkedThreadIndexes(t), pull: Math.max(0, pullOf(t)) }))
+      .filter((ev) => ev.x >= 0 && ev.ids.length >= 2);
+    const entityThreads = threadEntities.map((e, row) => {
+      const baseY = 16 + (threadEntities.length <= 1 ? 34 : (row / Math.max(1, threadEntities.length - 1)) * 68);
+      const pts = [];
+      for (let i = 0; i < NBARS; i += 3) {
+        let y = baseY;
+        for (const ev of threadEvents) {
+          if (!ev.ids.includes(e._threadIdx)) continue;
+          const dist = Math.abs(i - ev.x);
+          if (dist > 10) continue;
+          const mateAvg = ev.ids.filter((id) => id !== e._threadIdx).reduce((sum, id) => {
+            const mateRow = threadEntities.find((x) => x._threadIdx === id)?._threadIdx ?? id;
+            return sum + (16 + (threadEntities.length <= 1 ? 34 : (mateRow / Math.max(1, threadEntities.length - 1)) * 68));
+          }, 0) / Math.max(1, ev.ids.length - 1);
+          const influence = (1 - dist / 10) * Math.min(1, 0.35 + ev.pull);
+          y += (mateAvg - y) * influence * 0.72;
+        }
+        const wobble = Math.sin((i + row * 7) / 9) * 1.4;
+        pts.push(`${Math.round((i / (NBARS - 1)) * 1000)},${Math.round((y + wobble) * 10) / 10}`);
+      }
+      return {
+        label: e.label || 'Entity',
+        points: pts.join(' '),
+        color: e._threadColor,
+        width: Math.max(1.2, Math.min(3.2, 1.2 + ((e.mentions || 0) / castMax) * 2)).toFixed(1),
+        opacity: row < 10 ? 0.78 : 0.42,
+      };
+    });
+    const threadLabels = entityThreads.slice(0, 10).map((r) => ({ label: r.label, color: r.color }));
     const waveMode = 'overlay';
     const foldRange = this._overviewFoldRange(s.sn);
     const foldA = Math.max(0, Math.min(sourceUnits.length - 1, Math.floor((foldRange.in / 100) * Math.max(1, sourceUnits.length - 1))));
@@ -6320,6 +6383,7 @@ class Component extends DCLogic {
       toggleEntities: () => this.toggleOverviewEntities(),
       entitiesFg: this.state.overviewEntitiesOn ? '#5140C8' : '#8A8A95', entitiesBg: this.state.overviewEntitiesOn ? '#F1EFFE' : '#fff', entitiesBd: this.state.overviewEntitiesOn ? '#DED8FD' : '#EAEAEF',
       showXkcd: !!this.state.overviewXkcd,
+      showEntityThreads: !!this.state.overviewXkcd && entityThreads.length > 0, entityThreads, threadLabels,
       xkcdEntities: castSorted.slice(0, 25).map((e, i) => ({ label: e.label || 'Entity', short: this._initials(e.label || 'E'), title: `${e.label || 'Entity'} · ${e.mentions || 0} mentions`, hPct: Math.max(18, Math.min(100, 22 + ((e.mentions || 0) / castMax) * 78)) + '%', tilt: ((i % 5) - 2) * 2, open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); } })),
       toggleXkcd: () => this.toggleOverviewXkcd(),
       xkcdFg: this.state.overviewXkcd ? '#5140C8' : '#8A8A95', xkcdBg: this.state.overviewXkcd ? '#F1EFFE' : '#fff', xkcdBd: this.state.overviewXkcd ? '#DED8FD' : '#EAEAEF',
