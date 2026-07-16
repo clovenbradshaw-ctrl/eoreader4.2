@@ -9,7 +9,7 @@ export const createDeixisFrame = ({
   field = () => [],
   minRun = 1,
 } = {}) => {
-  const frames = []; // { startSent, depth, bearer, support, strain }
+  const frames = []; // { startSent, depth, bearer, bearerW, support, strain }
 
   const current = () => frames[frames.length - 1] || null;
 
@@ -27,14 +27,16 @@ export const createDeixisFrame = ({
     if (!ranked.length) return;
     const [top, next] = ranked;
     if (next && (top.w - next.w) < margin) return;
-    cur.bearer = top.id;
+    // Keep the margin-clearing weight: it becomes the teller edge's coupling, so a
+    // teller grounded against competition couples weaker than an uncontested one.
+    cur.bearer = top.id; cur.bearerW = top.w;
   };
 
   const tellerAt = (sentIdx = 0) => {
     const depth = depthAt(sentIdx) ?? 0;
     for (let i = frames.length - 1; i >= 0; i--) {
       const f = frames[i];
-      if (f.startSent <= sentIdx && f.depth === depth) return f.bearer ? { id: f.bearer } : { held: true };
+      if (f.startSent <= sentIdx && f.depth === depth) return f.bearer ? { id: f.bearer, w: f.bearerW } : { held: true };
     }
     return { held: true };
   };
@@ -43,7 +45,7 @@ export const createDeixisFrame = ({
     const cur = current();
     if (!cur) return;
     if (holds) { if (cur.strain > 0) cur.strain -= 1; }
-    else if (++cur.strain > cur.support) cur.bearer = null;
+    else if (++cur.strain > cur.support) { cur.bearer = null; cur.bearerW = undefined; }
   };
 
   return { noteFirstPerson, groundTeller, tellerAt, evaTeller, frames };

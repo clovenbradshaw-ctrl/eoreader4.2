@@ -264,7 +264,7 @@ export const createParser = ({
     // coupling. Nothing is committed — the weight carries the uncertainty.
     const corefField = createCorefField({ ...corefOpts, ...(rolesConflict ? { rolesConflict } : {}) });
     const deixis = createDeixisFrame({ field: (idx) => corefField.field(idx) });
-    // Derived descriptor edges (owner -> bearer : role) accumulate here and are
+    // Derived descriptor edges (owner->bearer:role), logged after the candidates, marked `derived` (defeasible).
     const derivedEdges = [];
 
     // Candidate relations are collected here and emitted AFTER the pass, so each
@@ -331,12 +331,14 @@ export const createParser = ({
       // retention adds no node, edge, or surprise (the formatting is information-neutral).
       // `kind:'span'` marks it a retention hold, distinct from the chrome/frame holds above.
       log.append({ op: 'NUL', kind: 'span', id: `unit:${sentIdx}`, sentIdx, text: sent }, EMIT);
-      // Snapshot the field before this line's own entities are folded in, so
-      // a subject pronoun looks backward for its antecedent. The last-INS register
-      // is snapshotted the same way — a subjectless clause defaults to the referent
-      // activated before this line, never one this line introduces.
+      // Snapshot the field and last-INS register BEFORE this line's entities fold in, so a
+      // subject pronoun — and the first-person deixis teller below — looks strictly backward.
       const priorField = corefField.field(sentIdx);
       const priorLastIns = lastIns;
+      // Ground the teller from that same pre-line field, so "I" binds to the established
+      // narrator and never borrows the salience of an addressee this very line names.
+      if (/^\s*(?:and|but|now|so|then|or|nor|yet|for|therefore|thus)?[\s,]*i\b/i.test(sent))
+        { deixis.noteFirstPerson(sentIdx); deixis.groundTeller(sentIdx); }
 
       // Causal gender cue (opt-in). A title introduces an entity's gender at the moment it
       // is named (a convention, she/he/Mr — not a name table); a leading subject pronoun's
@@ -436,9 +438,9 @@ export const createParser = ({
         log.append({ op: 'DEF', id: a.id, key: a.key, value: a.value, kind: 'attr', defeasible: true, sentIdx }, EMIT);
       }
 
-      // same pre-line field and take the strongest prior candidate. `resolve`
-      // had no implementation, so that call site got nothing and pronoun-owned
-      // kinship bonds dropped silently — only named owners survived. Wired now.
+      // The relations parser reads coref backward through the pre-line field for the
+      // strongest prior candidate; `resolve` (a possessive owner pronoun in a kinship
+      // apposition, "his sister Grete") is now wired, so those pronoun-owned bonds survive.
       // Bias the backward field for a leading subject pronoun by its gender, using only
       // gender noted BEFORE this line. The rule is DEFEASIBLE (EVA): when it excludes
       // incompatible candidates AND a compatible home remains, the excluded beliefs HOLD
@@ -459,8 +461,6 @@ export const createParser = ({
         }
         if (genderAwarePrior[0]) corefField.noteGender(genderAwarePrior[0].id, pg);
       }
-      if (/^\s*(?:and|but|now|so|then|or|nor|yet|for|therefore|thus)?[\s,]*i\b/i.test(sent))
-        { deixis.noteFirstPerson(sentIdx); deixis.groundTeller(sentIdx); }
       const coref = {
         field:   () => genderAwarePrior,
         deixis,
