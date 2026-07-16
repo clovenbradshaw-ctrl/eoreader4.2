@@ -17,6 +17,7 @@ export const CONTRACTS = Object.freeze({
   'src/organs/ingest/github.js': contract({ ops: ['SIG', 'SEG', 'INS'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Binding', 'Clearing', 'Making'], note: 'GitHub library — repos, files, whole codebases (via the code organ)' }),
   'src/organs/ingest/libraries.js': contract({ ops: ['DEF', 'SIG'], targets: ['Field'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Binding'], note: 'library shelf — the customized surface per source kind' }),
   'src/organs/ingest/openalex.js': contract({ ops: ['SIG', 'SEG', 'INS'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Binding', 'Clearing', 'Making'], note: 'OpenAlex catalog — scholarly discovery + citation prior' }),
+  'src/organs/ingest/unimorph.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Kind'], stances: ['Binding', 'Making'], note: 'UniMorph — outside morphology (irregular pasts) pulled in as needed' }),
   'src/organs/ingest/index.js': contract({ ops: ['SIG', 'INS', 'SEG', 'NUL'], targets: ['Void', 'Field', 'Network'], products: ['Entity', 'Field', 'Network', 'Void'], stances: ['Binding', 'Making', 'Clearing'], note: 'barrel' }),
   'src/organs/ingest/opfs-store.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Tending'], note: 'raw web-content store (OPFS binary)' }),
   'src/organs/ingest/read.js': contract({ ops: ['EVA', 'SYN'], targets: ['Network'], products: ['Network', 'Lens'], stances: ['Tracing', 'Composing'], note: 'read a doc into layered EoT' }),
