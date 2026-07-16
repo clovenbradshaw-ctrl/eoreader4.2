@@ -22,6 +22,7 @@ export const installKeeper = (appCtx) => {
   const HEAL_WATCH_MS = 30000;
   const healModel = () => {
     if (!state.ready) return;
+    if (appCtx.synthesisEnabled && !appCtx.synthesisEnabled()) return;
     if (typeof document !== 'undefined' && document.hidden) return;   // heal when the user can see it
     if (appCtx.model?.isLoaded?.() || appCtx.modelLoading) return;                  // nothing to heal / already healing
     if (Date.now() < healNotBefore) return;                           // backing off a failing load

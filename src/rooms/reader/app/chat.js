@@ -257,6 +257,69 @@ export const installChat = (appCtx) => {
     return pending;
   };
 
+  // answerFromRecordOnly() — Audit mode's no-model answer path. It never calls
+  // ensureModel(), never reaches the web, and never invents prose beyond a receipt of
+  // what the deterministic record search found. This keeps Chat useful when optional
+  // synthesis is off: Search/Reader/Findings remain the authority, and the answer is
+  // explicitly a mechanical index into them.
+  const answerFromRecordOnly = (pending, q, docs, { mode = 'auto', floorTalk = null } = {}) => {
+    if (floorTalk) {
+      pending.text = floorTalk.text;
+      pending.route = 'phatic';
+      pending.pending = false;
+      appCtx.persist(); emit('messages');
+      return pending;
+    }
+    if (!docs.length) {
+      pending.text = mode === 'off'
+        ? 'Audit mode is on and nothing is recorded yet. Add a URL, file, or pasted text; the reader core will analyze it without an LLM.'
+        : 'Audit mode is on and nothing is recorded yet. Add a source first, or switch Optional synthesis to CPU/WebGPU/hosted if you want a web-research answer.';
+      pending.route = 'empty';
+      pending.pending = false;
+      appCtx.persist(); emit('messages');
+      return pending;
+    }
+    let r = null;
+    try { r = appCtx.searchRecord(q); } catch { r = null; }
+    const entities = r?.entities || [];
+    const claims = r?.claims || [];
+    const passages = r?.passages || [];
+    const sources = r?.sources || [];
+    const total = entities.length + claims.length + passages.length + sources.length;
+    const lines = [
+      '## Audit mode',
+      'No generative model ran. I searched the recorded sources mechanically and kept the answer to record evidence.',
+    ];
+    if (passages.length) {
+      lines.push('', '## Matching passages');
+      for (const p of passages.slice(0, 3)) {
+        const idx = (pending.cites?.length || 0) + 1;
+        pending.cites = pending.cites || [];
+        pending.cites.push({ idx, sn: p.sn, reg: p.reg, title: p.title, docId: p.docId, unit: p.unit, text: p.text });
+        lines.push(`> ${String(p.text || '').slice(0, 260)} [s${idx}]`);
+      }
+    }
+    if (entities.length) {
+      lines.push('', '## Entities');
+      lines.push(entities.slice(0, 5).map((e) => `**${e.label}** · ${e.mentions || 0} mention${(e.mentions || 0) === 1 ? '' : 's'}`).join('  \n'));
+    }
+    if (claims.length) {
+      lines.push('', '## Claims on record');
+      for (const c of claims.slice(0, 3)) lines.push(`- ${c.text || c.quote || c.subject}`);
+    }
+    if (!total) {
+      lines.push('', 'No exact record hit found. Try the Search tab for lexical matches, or record more sources.');
+    } else {
+      lines.push('', `_${total} deterministic hit${total === 1 ? '' : 's'} found. Use Search, Graph, Findings, or Pins to inspect and save the evidence._`);
+    }
+    pending.text = lines.join('\n');
+    pending.route = 'record-only';
+    pending.grounded = passages.length > 0 || claims.length > 0 || entities.length > 0;
+    pending.pending = false;
+    appCtx.persist(); emit('messages');
+    return pending;
+  };
+
   // phaticReply(model, {question, hasDoc, …}) → one short warm social line IN THE MODEL'S OWN VOICE
   // — the phatic door's whole answer. No regex: the same model that read the turn as social now says
   // the word back, inviting a question (a document in scope) or a recorded source (none). Fail-soft
@@ -299,6 +362,10 @@ export const installChat = (appCtx) => {
     // surfaces honor it (default `auto`): Ask is record-FIRST — it grounds in the record, and a
     // measured gap reaches the web (docs/web-search.md); a global `off` keeps both record-only.
     const mode = web || appCtx.webMode();
+    const floorTalk0 = answerSmalltalk(q, { hasDoc: docs.length > 0 });
+    if (appCtx.synthesisEnabled && !appCtx.synthesisEnabled()) {
+      return answerFromRecordOnly(pending, q, docs, { mode, floorTalk: floorTalk0 });
+    }
 
     // ── THE FRONT DOOR — the phatic short-circuit is DETERMINISTIC (docs/response-demand.md) ──────
     // A turn is answered with one warm social line (and NEVER reaches retrieval / grounding / the
@@ -339,7 +406,7 @@ export const installChat = (appCtx) => {
     // it, a one-word "hi" whose 1B discourse read did not cohere to the phatic door fell through to the
     // grounding pipeline ("The document does not say — scanned N sentences") and, in auto web mode,
     // spent a corpus-steered web walk on a hello.
-    const floorTalk = answerSmalltalk(q, { hasDoc: docs.length > 0 });
+    const floorTalk = floorTalk0 || answerSmalltalk(q, { hasDoc: docs.length > 0 });
     let discourse = '';
     try {
       appCtx.setBusy({ kind: 'turn', label: 'Reading the turn…' });

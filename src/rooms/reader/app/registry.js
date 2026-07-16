@@ -92,6 +92,10 @@ export const installRegistry = (appCtx) => {
         const d = docFor(src);
         const props = d?.log ? emitEot(d.log).lines.length : 0;
         logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
+        const chapters = Array.isArray(d?.chapters) ? d.chapters.length : 0;
+        const entities = Number.isFinite(src.entCount) ? src.entCount : 0;
+        let findings = 0; try { findings = appCtx.findings?.().stats?.claims || 0; } catch { findings = 0; }
+        logIt('record', `Recorded and analyzed without an LLM — ${src.bytes.toLocaleString()} bytes verified · ${chapters} chapters · ${entities} entity candidates · ${findings} findings · ${props.toLocaleString()} EoT operations`, src.reg);
       } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
       // …and auto-compose the source's topline the moment it is recorded. Model-optional: the
       // deterministic telegram lands at once (there is a summary before any talker is warm), and a
@@ -117,6 +121,10 @@ export const installRegistry = (appCtx) => {
     try {
       const props = doc.log ? emitEot(doc.log).lines.length : 0;
       logIt('eot', `Encoded ${src.reg} into EoT — ${props} propositions`, src.reg);
+      const chapters = Array.isArray(doc?.chapters) ? doc.chapters.length : 0;
+      const entities = Number.isFinite(src.entCount) ? src.entCount : 0;
+      let findings = 0; try { findings = appCtx.findings?.().stats?.claims || 0; } catch { findings = 0; }
+      logIt('record', `Recorded and analyzed without an LLM — ${src.bytes.toLocaleString()} bytes verified · ${chapters} chapters · ${entities} entity candidates · ${findings} findings · ${props.toLocaleString()} EoT operations`, src.reg);
     } catch (e) { logIt('skip', `EoT read failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
     appCtx.persist(); emit('sources');
     appCtx.sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
