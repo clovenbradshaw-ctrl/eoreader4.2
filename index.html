@@ -1104,17 +1104,21 @@ table{border-collapse:collapse;width:100%}
             <span style="flex:1"></span>
             <sc-if value="{{ graphLive }}">
             <div class="eo-graphtools" style="display:flex;align-items:center;gap:8px">
+              <sc-if value="{{ graphShown }}">
               <button onClick="{{ toggleAllTiers }}" title="{{ allTiersTitle }}" style="padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#5A5A64;border:1px solid #EAEAEF" style-hover="background:#F5F5F8">{{ allTiersLabel }}</button>
               <button onClick="{{ toggleContra }}" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:{{ contraFg }};background:{{ contraBg }};border:1px solid {{ contraBd }}">
                 <span style="width:7px;height:7px;border-radius:50%;background:#B23A2E"></span>Conflicts
               </button>
               <button onClick="{{ clearFocus }}" style="padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:{{ resetFg }};border:1px solid #EAEAEF" style-hover="background:#F5F5F8">Reset</button>
+              <span style="width:1px;height:20px;background:#EAEAEF;margin:0 2px"></span>
+              </sc-if>
+              <button onClick="{{ toggleGraphPanel }}" title="{{ graphToggleTitle }}" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#5A5A64;border:1px solid #EAEAEF" style-hover="background:#F5F5F8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .18s;transform:rotate({{ graphToggleCaret }}deg)"><path d="m6 9 6 6 6-6"/></svg>{{ graphToggleLabel }}</button>
             </div>
             </sc-if>
           </div>
 
-          <sc-if value="{{ graphLive }}">
-          <div data-screen-label="Provenance DAG" onPointerDown="{{ startPan }}" onWheel="{{ onWheel }}" ref="{{ setViewport }}" style="flex:0 0 auto;height:min(44vh,420px);position:relative;overflow:hidden;background:#F4F4F7;border-bottom:1px solid #EAEAEF;cursor:{{ panCursor }};touch-action:none">
+          <sc-if value="{{ graphShown }}">
+          <div data-screen-label="Provenance DAG" onPointerDown="{{ startPan }}" onWheel="{{ onWheel }}" ref="{{ setViewport }}" style="flex:0 0 auto;height:{{ graphPanelH }};position:relative;overflow:hidden;background:#F4F4F7;border-bottom:1px solid #EAEAEF;cursor:{{ panCursor }};touch-action:none">
             <div style="position:absolute;left:0;top:0;width:{{ canvasW }}px;height:{{ canvasH }}px;transform:translate({{ tx }}px,{{ ty }}px) scale({{ scale }});transform-origin:0 0;transition:{{ camT }};background-image:radial-gradient(#E1E1E9 1px,transparent 1px);background-size:26px 26px">
 
               <!-- sc-camel-width/-d etc.: the raw {{ }} placeholders are only compiled at mount, but this
@@ -1210,20 +1214,37 @@ table{border-collapse:collapse;width:100%}
 
             </div>
 
-            <div style="position:absolute;left:14px;bottom:14px;background:rgba(255,255,255,.94);border:1px solid #EAEAEF;border-radius:10px;padding:9px 11px;box-shadow:0 4px 14px rgba(20,20,30,.06);backdrop-filter:blur(3px)">
-              <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:7px">LEGEND</div>
-              <div style="display:flex;gap:14px">
-                <div style="display:flex;flex-direction:column;gap:5px">
-                  <sc-for list="{{ legendNodes }}" as="lg">
-                    <div style="display:flex;align-items:center;gap:7px"><span style="width:11px;height:11px;border-radius:3px;border-left:3px solid {{ lg.color }};background:#fff;border-top:1px solid #E6E6EC;border-right:1px solid #E6E6EC;border-bottom:1px solid #E6E6EC"></span><span style="font-size:10.5px;color:#5A5A64">{{ lg.label }}</span></div>
-                  </sc-for>
+            <!-- The legend rides as a compact pill so it never sits over the cards; one click blooms
+                 it to the full key, another folds it back. -->
+            <div style="position:absolute;left:14px;bottom:14px">
+              <sc-if value="{{ legendClosed }}">
+                <button onClick="{{ toggleLegend }}" title="Show the legend" style="display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.94);border:1px solid #EAEAEF;border-radius:9px;padding:6px 10px;box-shadow:0 4px 14px rgba(20,20,30,.06);backdrop-filter:blur(3px)" style-hover="background:#fff">
+                  <span style="display:flex;gap:3px">
+                    <sc-for list="{{ legendNodes }}" as="lg"><span style="width:7px;height:11px;border-radius:2px;background:{{ lg.color }}"></span></sc-for>
+                  </span>
+                  <span style="font-size:10.5px;font-weight:600;letter-spacing:.04em;color:#8A8A95">Legend</span>
+                </button>
+              </sc-if>
+              <sc-if value="{{ legendOpen }}">
+                <div style="background:rgba(255,255,255,.94);border:1px solid #EAEAEF;border-radius:10px;padding:9px 11px;box-shadow:0 4px 14px rgba(20,20,30,.06);backdrop-filter:blur(3px)">
+                  <button onClick="{{ toggleLegend }}" title="Hide the legend" style="display:flex;align-items:center;gap:6px;margin-bottom:7px;background:none" style-hover="opacity:.7">
+                    <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4">LEGEND</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#B4B4BE" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  </button>
+                  <div style="display:flex;gap:14px">
+                    <div style="display:flex;flex-direction:column;gap:5px">
+                      <sc-for list="{{ legendNodes }}" as="lg">
+                        <div style="display:flex;align-items:center;gap:7px"><span style="width:11px;height:11px;border-radius:3px;border-left:3px solid {{ lg.color }};background:#fff;border-top:1px solid #E6E6EC;border-right:1px solid #E6E6EC;border-bottom:1px solid #E6E6EC"></span><span style="font-size:10.5px;color:#5A5A64">{{ lg.label }}</span></div>
+                      </sc-for>
+                    </div>
+                    <div style="width:1px;background:#EEEEF2"></div>
+                    <div style="display:flex;flex-direction:column;gap:5px">
+                      <div style="display:flex;align-items:center;gap:7px"><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#CBCBD4" stroke-width="2"/></svg><span style="font-size:10.5px;color:#5A5A64">grounds / traces</span></div>
+                      <div style="display:flex;align-items:center;gap:7px"><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#D98B80" stroke-width="2" stroke-dasharray="2 4"/></svg><span style="font-size:10.5px;color:#5A5A64">contradicts</span></div>
+                    </div>
+                  </div>
                 </div>
-                <div style="width:1px;background:#EEEEF2"></div>
-                <div style="display:flex;flex-direction:column;gap:5px">
-                  <div style="display:flex;align-items:center;gap:7px"><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#CBCBD4" stroke-width="2"/></svg><span style="font-size:10.5px;color:#5A5A64">grounds / traces</span></div>
-                  <div style="display:flex;align-items:center;gap:7px"><svg width="22" height="8"><line x1="0" y1="4" x2="22" y2="4" stroke="#D98B80" stroke-width="2" stroke-dasharray="2 4"/></svg><span style="font-size:10.5px;color:#5A5A64">contradicts</span></div>
-                </div>
-              </div>
+              </sc-if>
             </div>
 
             <div style="position:absolute;right:16px;bottom:16px;display:flex;align-items:center;gap:5px;background:#fff;border:1px solid #E6E6EC;border-radius:10px;padding:5px;box-shadow:0 4px 14px rgba(20,20,30,.08)">
@@ -3089,6 +3110,12 @@ class Component extends DCLogic {
       // Graph tiers fold like NotebookLM sections — collapsed by default; the user opens
       // the groups (claims / passages / sources / files) they want to trace. Absent/false = folded.
       graphOpen: {},
+      // The whole provenance canvas folds away so the claims list — the findings themselves —
+      // can take the full height when the reader is done pivoting. Persisted across sessions.
+      graphCollapsed: this._pref('eo_graph_collapsed', false),
+      // The canvas legend rides as a compact pill by default (it no longer sits over the cards);
+      // one click blooms it to the full key.
+      legendOpen: false,
       // Sources open as TABS IN THE MAIN STAGE — each recorded source you open becomes a tab in
       // the main tab bar (alongside Chat / Graph / …) and fills the stage; no overlay. state.tab
       // holds the active tab, and when it is a source's sn, that source is what the stage shows.
@@ -6261,6 +6288,15 @@ class Component extends DCLogic {
   // stay selected in the inspector — its group header simply stands in for it on the canvas.
   toggleTier(key) { const o = this.state.graphOpen || {}; this.setState({ graphOpen: { ...o, [key]: !o[key] } }); }
   setAllTiers(open) { this.setState({ graphOpen: { claim: open, passage: open, source: open, file: open } }); }
+  // Fold the whole provenance canvas away (or bring it back), handing its height to the claims list.
+  // Re-showing re-frames the camera on the next paint, since the viewport was unmounted while folded.
+  toggleGraphPanel() {
+    const collapsed = !this.state.graphCollapsed;
+    this._setPref('eo_graph_collapsed', collapsed);
+    if (!collapsed) { this._fitKey = null; }
+    this.setState({ graphCollapsed: collapsed });
+  }
+  toggleLegend() { this.setState({ legendOpen: !this.state.legendOpen }); }
 
   // ── topics ───────────────────────────────────────────────────────────────
   goMemo() { this.setTab('memo'); }
@@ -7656,6 +7692,9 @@ class Component extends DCLogic {
     const gOpen = st.graphOpen || {};
     const gTiers = [['claim', prov.nodes.claims], ['passage', prov.nodes.passages], ['source', prov.nodes.sources], ['file', prov.nodes.files]].filter(([, l]) => l.length);
     const allTiersOpen = gTiers.length > 0 && gTiers.every(([k]) => gOpen[k]);
+    // Any expanded tier stacks a tall column; with everything folded the canvas is a single row,
+    // so the panel shrinks to fit rather than floating that row in a tall void.
+    const anyTierOpen = gTiers.some(([k]) => gOpen[k]);
     let graphVals = {};
     if (graphLive) {
       const open = gOpen;
@@ -8224,6 +8263,15 @@ class Component extends DCLogic {
       graphTitle: topic ? topic.title : '', graphExplorerLive, graphExplorerEmpty,
       // findings provenance graph (the pivot) + its camera/controls
       graphLive, graphEmpty: st.tab === 'evidence' && !graphLive && claims.length > 0,
+      // the canvas folds away on demand; when shown, its height adapts to whether a tier is expanded
+      graphShown: graphLive && !st.graphCollapsed,
+      graphCollapsed: st.graphCollapsed,
+      graphPanelH: anyTierOpen ? 'min(46vh,440px)' : '188px',
+      graphToggleLabel: st.graphCollapsed ? 'Show graph' : 'Hide graph',
+      graphToggleTitle: st.graphCollapsed ? 'Show the provenance canvas' : 'Fold the provenance canvas away and give the room to the claims',
+      graphToggleCaret: st.graphCollapsed ? 0 : 180,
+      toggleGraphPanel: () => this.toggleGraphPanel(),
+      legendOpen: st.legendOpen, legendClosed: !st.legendOpen, toggleLegend: () => this.toggleLegend(),
       ...graphVals, legendNodes,
       tx: st.tx, ty: st.ty, scale: st.scale, camT: st.camT, zoomPct: String(Math.round(st.scale * 100)),
       panCursor: 'grab', startPan: (e) => this.startPan(e), stopPan: (e) => this.stopPan(e), onWheel: (e) => this.onWheel(e),

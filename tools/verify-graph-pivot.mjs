@@ -144,6 +144,29 @@ try {
   const fText2 = await stageText();
   check('Findings tab: clicking a graph node pivots the list (banner)', pivoted && /Pivoted to/.test(fText2), pivoted ? '' : 'no clickable node found');
 
+  // ---- collapse the provenance canvas (hand its height to the claims list) ----
+  const clickByText = (re) => page.evaluate((src) => {
+    const rx = new RegExp(src);
+    const b = [...document.querySelectorAll('button')].find((x) => rx.test(x.textContent.trim()));
+    if (b) { b.click(); return true; }
+    return false;
+  }, re.source);
+  const vpPresent = () => page.evaluate(() => !!document.querySelector('[data-screen-label="Provenance DAG"]'));
+  check('Findings tab: canvas shown before collapse', await vpPresent());
+  const hid = await clickByText(/Hide graph/);
+  await sleep(500);
+  check('Findings tab: "Hide graph" folds the canvas away', hid && !(await vpPresent()));
+  check('Findings tab: claims list still present while folded', /Ada Lovelace wrote the first algorithm/.test(await stageText()));
+  const shown = await clickByText(/Show graph/);
+  await sleep(600);
+  check('Findings tab: "Show graph" brings the canvas back', shown && (await vpPresent()));
+  check('Findings tab: no unresolved placeholders after collapse cycle', !(await hasUnresolved()));
+
+  // ---- the legend pill expands to the full key and folds back ----
+  const legendPill = await clickByText(/^Legend$/);
+  await sleep(400);
+  check('Findings tab: legend pill expands to the full key', legendPill && /grounds \/ traces/.test(await stageText()));
+
   // ---- other tabs still fine ----
   await clickTab('Chat'); await sleep(300);
   await clickTab('Memo'); await sleep(300);
