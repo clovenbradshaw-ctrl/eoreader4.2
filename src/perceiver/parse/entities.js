@@ -595,6 +595,26 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     get subjSight() { return subjSight; },
     get oblSight()  { return oblSight; },
     get sightSent() { return sightSent; },
+    // The per-referent signals the individuation gate reads (individuation.js) — a NARROWED
+    // contract over the maps admission already closes over, never a reach into internals.
+    // `mass` is the sighting count, `gravity` the accrued referential mass, and `subjShare`
+    // = subj / (subj + obl) the agency signal (it ACTS — what keeps a setting off the cast).
+    // Accepts a label (admission's native key) or an admitted id; reads nothing it mutates.
+    signals: (labelOrId) => {
+      let label = labelOrId;
+      if (!counts.has(label) && admitted.size) {
+        for (const [lab, id] of admitted) if (id === labelOrId) { label = lab; break; }
+      }
+      const subj = subjSight.get(label) || 0;
+      const obl  = oblSight.get(label) || 0;
+      const denom = subj + obl;
+      return {
+        mass:      counts.get(label) || 0,
+        gravity:   gravity.get(label) || 0,
+        subjShare: denom > 0 ? subj / denom : 0,
+        oblShare:  denom > 0 ? obl / denom : 0,
+      };
+    },
     // The GRAIN of an admitted label (grain.js) — figure / kind / setting, read off the
     // document's own company statistics. Null = HELD (no clean signal); defeasible by design.
     // `oblExtra` adds oblique sightings counted AFTER the read — under adpositions the document

@@ -239,6 +239,20 @@ export const createCorefField = ({
     return d ? Object.freeze({ ...d }) : null;
   };
 
+  // The descriptor channel, read-only — the un-INS'd referents the individuation gate
+  // reads (individuation.js). Each carries its roleKey, the accumulated standing `mass`,
+  // the resolved owner (if any), whether that owner is a name, the bound name id (null
+  // while still unnamed), and the last sighting index. A frozen snapshot; mutates nothing.
+  const descriptorReferents = () => {
+    const out = [];
+    for (const [roleKey, d] of descriptors)
+      out.push(Object.freeze({
+        roleKey, mass: d.mass, ownerId: d.ownerId, ownerNamed: !!d.ownerNamed,
+        bound: d.bound, lastIdx: d.lastIdx,
+      }));
+    return out;
+  };
+
   // The backward field, biased by causal gender when asked. With a pronoun gender `g`, drop
   // the candidates KNOWN to be incompatible — but only while a compatible-or-unknown one
   // remains, so the cue can never empty the field, and with no gender evidence at all it is
@@ -254,6 +268,7 @@ export const createCorefField = ({
     note, noteConversational, reinforce,
     noteGender, evaGender, genderOf, fieldCompatible,
     noteDescriptor, unifyDescriptor, bindDescriptorsByElimination, descriptorState,
+    descriptorReferents,
     field, fieldGrounded, survivesSubtraction,
   };
 };

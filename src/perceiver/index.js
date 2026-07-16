@@ -57,3 +57,9 @@ export { readDates, buildChronology } from './chronology.js';
 // The holonic containment address a referent earns from its span — the nesting the
 // flat depth-1 id used to throw away (referent-nesting.js, docs/referent-journey.md).
 export { referentNesting, nestingSummary } from './referent-nesting.js';
+// The individuation gate — type every referent by how far it climbed the helix (SIG → INS →
+// CON): aggregate coupling per node, read each off the (mass, coupling, agency, INS'd?) plane
+// into holon / emanon / protogon / field / void, and log a name binding as a promotion REC.
+export { REFERENT_TYPES, couplingByNode, deriveGates, salienceOf, classifyReferent,
+         classifyReferents, typeReferents, provisionalId, promotionEvent,
+         promoteBoundDescriptors } from './individuation.js';
