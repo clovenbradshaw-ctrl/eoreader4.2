@@ -351,6 +351,23 @@ const trimFrontFurniture = (paras, gaps, title = '') => {
     if (j - (i + 1) >= 6) { ps = ps.slice(0, i).concat(ps.slice(j)); gs = gs.slice(0, i).concat(gs.slice(j)); }
     break;
   }
+  // (2) When the leading region ANNOUNCES a printed contents — a "CONTENTS" head, or a run-on list
+  // that packs several section markers into one non-sentence line ("Letter 1 Letter 2 … Chapter 24")
+  // — then everything from the top through that contents IS front matter: the title page above it and
+  // the contents itself. Drop up to the first real section (a lone marker heading like "Letter 1") or
+  // the first prose. Anchored on the contents signal, so it needs no title match — a page that never
+  // announces a contents is left untouched, so ordinary articles keep their opening line.
+  const announcesToc = (p) => isContentsHead(p) || (tocMarkerCount(p) >= 4 && !sentencey(p));
+  const lead = Math.min(ps.length, 12);
+  let cAt = -1;
+  for (let k = 0; k < lead; k++) { if (announcesToc(ps[k])) { cAt = k; break; } }
+  if (cAt >= 0) {
+    let k = cAt + 1;
+    while (k < ps.length && k < cAt + 12 && (announcesToc(ps[k]) || (tocMarkerCount(ps[k]) >= 1 && lineForm(ps[k]) == null))) k++;
+    ps = ps.slice(k); gs = gs.slice(k);
+  }
+  // (3) Otherwise (a book with a repeated title page but no printed contents), trim the CONTIGUOUS
+  // title-page furniture matched against the known title: repeated title fragments and the byline.
   const t = canonLine(title);
   const isTitleFrag = (p) => {
     const c = canonLine(p);

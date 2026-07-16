@@ -98,7 +98,7 @@ const BASELINE = new Map([
   ['src/rooms/reader/import-file.js', 802],
   ['src/rooms/reader/midi.js', 294],
   ['src/rooms/reader/monologue-surface.js', 607],
-  ['src/rooms/reader/reader-render.js', 1193],
+  ['src/rooms/reader/reader-render.js', 1210],
   ['src/rooms/reader/tiered-graph.js', 614],
   ['src/rooms/reader/transcript-export.js', 406],
   ['src/rooms/reader/transcript-format.js', 405],
