@@ -552,7 +552,7 @@ table{border-collapse:collapse;width:100%}
             <button onClick="{{ pickFile }}" title="Import a file" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
             <button onClick="{{ openPaste }}" title="Paste text" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button>
             <button onClick="{{ goMemo }}" title="Draft a memo" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></button>
-            <button onClick="{{ goGraph }}" title="The graph — entities & causal DAG" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></button>
+            <button onClick="{{ goGraph }}" title="The graph — entities" style="flex:1;height:33px;display:flex;align-items:center;justify-content:center;border:1px solid #EEEEF2;border-radius:8px;color:#8A8A95" style-hover="background:#F5F5F8;color:#5A5A64"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg></button>
           </div>
         </div>
 
@@ -838,7 +838,7 @@ table{border-collapse:collapse;width:100%}
           </div>
           </sc-if>
 
-          <!-- GRAPH TAB — the real graph: the entity web / causal DAG of everything in focus -->
+          <!-- GRAPH TAB — the real graph: the entity web of everything in focus -->
           <sc-if value="{{ isGraph }}">
           <div class="eo-graphhead" style="flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:11px 18px;border-bottom:1px solid #EAEAEF;background:#fff">
             <div style="min-width:0">
@@ -849,7 +849,6 @@ table{border-collapse:collapse;width:100%}
             <sc-if value="{{ graphExplorerLive }}">
             <div style="display:flex;gap:3px;background:#F4F4F7;border-radius:9px;padding:3px">
               <button onClick="{{ setWebKindEntity }}" title="The figures across the topic and the bonds among them" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindEntFg }};background:{{ webKindEntBg }}">Entities</button>
-              <button onClick="{{ setWebKindCausal }}" title="What the sources are read as asserting causes what" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCausalFg }};background:{{ webKindCausalBg }}">Causal DAG</button>
             </div>
             </sc-if>
           </div>
@@ -2850,7 +2849,7 @@ table{border-collapse:collapse;width:100%}
     </div>
   </sc-if>
 
-  <!-- The entity web + causal DAG now live inline in the Graph tab (see isGraph above); the modal overlay was retired. -->
+  <!-- The entity web now lives inline in the Graph tab (see isGraph above); the modal overlay was retired. -->
 
   <!-- MONOLOGUE DRAWER -->
   <sc-if value="{{ monologueOpen }}">
@@ -3774,8 +3773,7 @@ class Component extends DCLogic {
   // ── the import reveal — the first surface a new source renders ─────────────
   // The moment a source lands (any modality — a PDF, a photo's scene, an audio
   // transcript, a spreadsheet), open the engine's OWN reading of it before anything
-  // else: the causal DAG the source is read as asserting, or the entity web of its
-  // figures and bonds. No model runs — everything shown is the parser's and the graph
+  // else: the entity web of its figures and bonds. No model runs — everything shown is the parser's and the graph
   // projections' work. The organ that read the file picks the surface (first-surface.js,
   // pure + CI-tested); the source also opens as the active tab so the DAG's document
   // cursor reads IT. Best-effort: a reveal that fails leaves the toast + registry intact.
@@ -3787,9 +3785,9 @@ class Component extends DCLogic {
       try { causalEdges = (window.EO.assertedDag(this._app.dagSources()).edges || []).length; } catch { /* no readable sentences yet */ }
       try { entities = (this._app.topicTieredData().nodes || []).filter((n) => n.kind === 'entity').length; } catch { /* no entities yet */ }
       const kind = window.EO.firstSurfaceKind({ modality: src.kind, causalEdges, entities });
-      // Prime the Graph tab's reading (entity or causal) for the freshly-read source, but keep the
+      // Prime the Graph tab's entity reading for the freshly-read source, but keep the
       // source itself in front — the reveal readies the graph, it doesn't yank us off the document.
-      if (kind) this.openTopicGraph(kind, { navigate: false });
+      if (kind) this.openTopicGraph('entity', { navigate: false });
     } catch { /* the record already landed — the reveal never blocks it */ }
   }
   pickFile() { this._ensureFileInput().click(); }
@@ -4077,7 +4075,7 @@ class Component extends DCLogic {
     if (this.state.tab === 'rashomon' && tab !== 'rashomon' && this._rashomon) { try { this._rashomon.destroy(); } catch {} this._rashomon = null; this._rashomonEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
     const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
-    // The Graph tab now hosts the real graph — the entity web / causal DAG of everything in
+    // The Graph tab now hosts the real graph — the entity web of everything in
     // focus. Initialise it lazily the first time we land here (whole-topic entity web).
     if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
     this.setState(patch);
@@ -6408,8 +6406,8 @@ class Component extends DCLogic {
     this.setState({ entPivotLevel: { ...this.state.entPivotLevel, [sn]: level }, entitySel: null });
   }
   // ── the graph explorer overlay ──────────────────────────────────────────────
-  // Two graphs (the entity web + the two-cursor causal DAG), each scoped to the whole topic OR to
-  // one entity, each with entity on/off toggles. `this._wg` is the LIVE config the surface draws
+  // The entity web, scoped to the whole topic OR to one entity, with entity on/off toggles.
+  // `this._wg` is the LIVE config the surface draws
   // from — mutated and redrawn imperatively (instant), because React's setState is async and must
   // not drive the draw. `state.webGraphFor` mirrors only what the control column renders; each draw
   // ends with a setState(tick) so the checkboxes and counts catch up.
@@ -6422,10 +6420,11 @@ class Component extends DCLogic {
     if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; this._tgEl = null; }
     this.setState({ webGraphFor: this._wgMirror(), tab: 'graph', ...(this._mob() ? { leftOpen: false } : {}) });
   }
-  // Configure the Graph tab's web (entity or causal). By default it also navigates to the tab;
+  // Configure the Graph tab's entity web. By default it also navigates to the tab;
   // `navigate:false` only primes it (e.g. an import reveal that keeps the source in front).
   openTopicGraph(kind, opts = {}) {
-    this._wg = { kind: kind === 'causal' ? 'causal' : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+    void kind; // The causal DAG surface is hidden until its reader is reliable enough to expose.
+    this._wg = { kind: 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
     this._tgToggles = [];
     this._seedWgPanel();   // entity kind: the details panel opens on the topic's top figure
     const nav = opts.navigate !== false;
@@ -6506,8 +6505,9 @@ class Component extends DCLogic {
     }
   }
   setWebKind(kind) {
+    kind = 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
     if (!this._wg || this._wg.kind === kind) return;
-    this._wg.kind = kind;                                   // the two graphs' node vocabularies differ,
+    this._wg.kind = kind;
     this._wg.hidden = new Set();                            // so reset the toggles and any focus and
     this._wg.focusKey = null; this._wg.focusLabel = null;  // land on the whole topic in the new kind
     this._wg.scope = 'topic';
@@ -6559,8 +6559,7 @@ class Component extends DCLogic {
     if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; }
     el.innerHTML = '';
     try {
-      if (w.kind === 'causal') this._drawCausal(el, w);
-      else this._drawEntity(el, w);
+      this._drawEntity(el, w);
     } catch (e) {
       el.innerHTML = '<div style="padding:20px;color:#B23A2E;font-size:12.5px">Graph failed to draw: ' + String((e && e.message) || e) + '</div>';
       this._tgToggles = [];
@@ -8171,7 +8170,7 @@ class Component extends DCLogic {
 
     // provenance graph — the pivot at the top of the Findings tab (prov built above with the pivot)
     const graphLive = st.tab === 'evidence' && (prov.nodes.claims.length > 0 || prov.nodes.sources.length > 0);
-    // The Graph tab hosts the real graph — the entity web / causal DAG of everything in focus.
+    // The Graph tab hosts the real graph — the entity web of everything in focus.
     const graphExplorerLive = st.tab === 'graph' && sources.length > 0;
     const graphExplorerEmpty = st.tab === 'graph' && sources.length === 0;
     // Guarantee a configured web on the Graph tab (e.g. a persisted-tab first paint), so
@@ -8761,7 +8760,7 @@ class Component extends DCLogic {
       webModeBg: webMode === 'off' ? '#F2F2F6' : '#F1EFFE',
       webModeBd: webMode === 'off' ? '#E4E4EA' : '#DED8FD',
       cycleWebMode: () => this.cycleWebMode(),
-      // graph tab — the real graph (entity web / causal DAG of everything in focus)
+      // graph tab — the real graph (entity web of everything in focus)
       graphTitle: topic ? topic.title : '', graphExplorerLive, graphExplorerEmpty,
       // findings provenance graph (the pivot) + its camera/controls
       graphLive, graphEmpty: st.tab === 'evidence' && !graphLive && claims.length > 0,
@@ -9027,7 +9026,7 @@ class Component extends DCLogic {
       ...this._versionVals(),
       // the real-time murmur strip (the peripheral sense) + its Settings toggle
       ...this._murmurVals(),
-      // graph tab explorer (entity web + causal DAG · whole-topic + per-entity · entity toggles)
+      // graph tab explorer (entity web · whole-topic + per-entity · entity toggles)
       ...this._webGraphVals(),
       graphHasSources: sources.length > 0,
       // The Graph tab carries its own details panel, and the Home tab (Source Explorer) carries its

@@ -1,5 +1,5 @@
 // Drives the EO Reader in headless Chromium to verify the graph/findings restructure:
-//   - the Graph tab now hosts the real graph (entity web / causal DAG), inline
+//   - the Graph tab now hosts the real graph (entity web), inline
 //   - the Findings tab hosts the provenance DAG on top with the claims list below (the pivot)
 // Boots the app, seeds a source (+ a synthetic grounded turn for claims), then drives the tabs
 // and asserts each renders with every {{ binding }} resolved and no page/console errors.
@@ -80,13 +80,13 @@ try {
   await clickTab('Sources');
   await sleep(400);
 
-  // ---- GRAPH TAB — the real graph (entity web / causal DAG) ----
+  // ---- GRAPH TAB — the real graph (entity web) ----
   await clickTab('Graph');
   await sleep(1200);
   const gText = await stageText();
   check('Graph tab: knowledge-graph header shown', /KNOWLEDGE GRAPH · EVERYTHING IN FOCUS/.test(gText), gText.slice(0, 0));
   check('Graph tab: scope column ("Whole topic") shown', /Whole topic/.test(gText));
-  check('Graph tab: Entities / Causal kind toggle shown', /Entities/.test(gText) && /Causal DAG/.test(gText));
+  check('Graph tab: entity kind shown and causal DAG hidden', /Entities/.test(gText) && !/Causal DAG/.test(gText));
   const canvasKids = await page.evaluate(() => {
     // the web canvas is the ref div inside .eo-wgbody (the middle column)
     const body = document.querySelector('.eo-wgbody');
@@ -100,13 +100,6 @@ try {
   check('Graph tab: entity web drew nodes/edges into the canvas', canvasKids > 3, `canvas descendants=${canvasKids}`);
   check('Graph tab: no unresolved {{ }} placeholders', !(await hasUnresolved()));
 
-  // flip to Causal DAG
-  await page.evaluate(() => {
-    const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === 'Causal DAG');
-    if (b) b.click();
-  });
-  await sleep(900);
-  check('Graph tab: Causal DAG toggle did not error', pageErrors.length === 0);
 
   // ---- FINDINGS TAB — provenance DAG on top, claims list below (the pivot) ----
   await clickTab('Findings');
