@@ -22,6 +22,7 @@
 
 import { createConventions } from '../../core/conventions/index.js';
 import { clusterAnchors } from './name-variants.js';
+import { deriveNull } from '../../core/index.js';
 import { readGrain } from './grain.js';
 
 const TITLE = String.raw`(?:Mr|Mrs|Ms|Dr|Miss|Mister|Sir|Madam|Madame|Lady|Lord|Professor|Prof|Capt|Captain|Rev|St|Aunt|Uncle)\.?`;
@@ -305,6 +306,14 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     isDemonym:     (w) => conventions.isDemonym ? conventions.isDemonym(w) : false,
     isCalendar:    (w) => conventions.isCalendar ? conventions.isCalendar(w) : false,
   } : DEFAULT_CONVENTIONS;
+  const wordsInContent = String(text || '').split(/[^\p{L}\p{N}]+/u).filter(Boolean).length;
+  const contentScale = Math.max(1, Math.log2(Math.max(2, wordsInContent) / 180));
+  const bornFloor = (scores) => {
+    const xs = scores.filter((x) => Number.isFinite(x) && x > 0).sort((a, b) => a - b);
+    const nul = xs.length >= 12 ? deriveNull(xs, { scale: 'linear', alpha: 0.05, N: Math.max(xs.length, Math.ceil(Math.sqrt(Math.max(1, wordsInContent)))), grain: 0.25 }) : Infinity;
+    return Number.isFinite(nul) ? Math.max(GRAVITY_FLOOR, nul, contentScale) : Math.max(GRAVITY_FLOOR, xs.length ? xs[Math.max(0, (xs.length - 1) >> 1)] : 0, contentScale);
+  };
+
   const counts    = new Map(); // label → count
   const gravity   = new Map(); // label → Σ referential gravity over its sightings
   const admitted  = new Map(); // label → id (post-admission)
@@ -392,6 +401,31 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     return total >= 5 && (c / total) < 0.35;
   };
 
+
+  const admissionProfile = (() => {
+    const stats = new Map();
+    for (const unit of String(text || '').split(/(?<=[.!?])\s+|\n+/u).filter(Boolean)) {
+      const re = new RegExp(CAP_RE.source, 'gu'); let m;
+      while ((m = re.exec(unit)) !== null) {
+        const cleaned = cleanLabel(m[0], C); if (!cleaned) continue;
+        const label = canon(cleaned), cue = sightingGravity(unit, m.index, m.index + m[0].length, C, label);
+        const e = stats.get(label) || { count: 0, gravity: 0, strong: false, subject: 0, multiword: label.includes(' ') };
+        e.count += 1; e.gravity += Math.max(0, cue.g); e.strong ||= cue.strong && cue.g > 0;
+        const nx = (unit.slice(m.index + m[0].length).match(/^\s*([\p{L}'’]+)/u) || [])[1];
+        if (isContent(nx, C) || (nx && C.isAuxiliary(nx))) e.subject += 1;
+        stats.set(label, e);
+      }
+    }
+    const scoreOf = (e) => e.gravity + Math.max(0, e.count - 1) * 0.5 + e.subject * 0.5;
+    const floor = bornFloor([...stats.values()].map(scoreOf)), allowed = new Set();
+    for (const [label, e] of stats) {
+      const titled = e.multiword && TITLE_WORDS.has(label.split(/\s+/)[0]?.replace(/\.$/, ''));
+      const holonic = titled || /[^A-Za-z\s.-]/.test(label) || e.strong || e.subject > 0 || e.count >= (e.multiword ? 2 : 3);
+      if ((scoreOf(e) >= floor && holonic) || (e.multiword && holonic)) allowed.add(label);
+    }
+    return { floor, allowed, stats };
+  })();
+
   // Sediment a learned acronym↔expansion alias into admission state: a bare acronym
   // now RESOLVES to the expansion's id without re-deriving (the §8 ORG-1 promise).
   // Re-points the acronym's label so every later sighting is admitted under the
@@ -465,14 +499,11 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
       // Accrue this sighting's gravity. A multi-word proper name is referential on its face
       // (it is not a clause-opener accident), so it carries the floor and counts as strong.
       let strongCue = true;
-      if (multiword) {
-        gravity.set(label, (gravity.get(label) || 0) + GRAVITY_FLOOR);
-      } else {
-        const cue = sightingGravity(sentence, m.index, m.index + m[0].length, C, label);
-        strongCue = cue.strong;
-        gravity.set(label, (gravity.get(label) || 0) + cue.g);
-        if (strongCue && cue.g > 0) strongSeen.set(label, true);
-      }
+      const cue = sightingGravity(sentence, m.index, m.index + m[0].length, C, label);
+      strongCue = multiword ? (cue.strong || (admissionProfile.stats.get(label)?.count || 0) >= 2) : cue.strong;
+      const sightGravity = multiword ? GRAVITY_FLOOR : cue.g;
+      gravity.set(label, (gravity.get(label) || 0) + sightGravity);
+      if ((strongCue || multiword) && sightGravity > 0) strongSeen.set(label, true);
       // Company counters, either width — the GRAIN reader's evidence (grain.js) and the
       // declension fold's nominative anchor read these. SUBJECT position (followed by a content
       // word — it acts): a nominative-base does this a lot; an oblique rarely does. This is what
@@ -506,7 +537,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
         const id = admitted.get(label);
         noteMention(id, sentIdx);
         out.push({ status: 'present', id, label });
-      } else if (g >= GRAVITY_FLOOR && !bareRefused && !headingRefused) {
+      } else if (g >= GRAVITY_FLOOR && !bareRefused && !headingRefused && !(multiword && !admissionProfile.allowed.has(label) && (admissionProfile.stats.get(label)?.count || 0) < 2 && sentence.replace(/^[\s"'“”‘’(]+|[\s"'“”‘’).,;:!?]+$/g, '') === m[0].replace(/^[\s"'“”‘’(]+|[\s"'“”‘’).,;:!?]+$/g, ''))) {
         if (multiword) notePlanet(label);          // this name feeds the orbital (moon) statistic
         const rawId = idFor(label);
         let alias = aliasOf(label);
@@ -601,6 +632,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     get initialisms() { return initialisms; },
     get subjSight() { return subjSight; },
     get oblSight()  { return oblSight; },
+    get admissionFloor() { return admissionProfile.floor; },
     get sightSent() { return sightSent; },
     // The per-referent signals the individuation gate reads (individuation.js) — a NARROWED
     // contract over the maps admission already closes over, never a reach into internals.
