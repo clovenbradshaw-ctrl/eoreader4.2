@@ -6069,10 +6069,8 @@ class Component extends DCLogic {
       empty: !String(metadata[key] || '').trim(), edit: () => this.editSourceMetadata(s.sn, key),
     }));
     const metadataLog = (Array.isArray(s.metadataLog) ? s.metadataLog : []).slice(-6).reverse().map((m) => ({
-      text: `${m.at ? this._ago(m.at) || m.at : 'earlier'} — ${m.action || 'noted'}${m.field ? ` · ${metadataLabels[m.field] || m.field}` : ''}${m.note ? ` · ${m.note}` : ''}`,
+      text: `${m.at ? this._ago(m.at) || m.at : 'earlier'} — ${m.action || 'noted'}${m.field ? `${metadataLabels[m.field] || m.field}` : ''}${m.note ? ` · ${m.note}` : ''}`,
     }));
-    const structureRows = this._sourceStructureRows(s, type, paras);
-    const landingStructure = this._sourceStructureVM(s, structureRows);
     const reviewItems = this._sourceReviewItems(s);
     const findings = [
       { label: `${s.claimCount || 0} claim candidates`, open: () => this.setTab('findings') },
@@ -6081,6 +6079,8 @@ class Component extends DCLogic {
       { label: `${s.causalCandidates || 0} causal candidates above review threshold`, open: () => this.setTab('graph') },
       ...reviewItems.map((r) => ({ label: r.label, open: r.open })),
     ];
+    const structureRows = this._sourceStructureRows(s, type, paras);
+    const landingStructure = this._sourceStructureVM(s, structureRows);
     const topic = (app.activeTopic && app.activeTopic()) || (app.state && app.state.topics && app.state.topics.find((t) => t.id === app.state.topicId)) || {};
     const ws = (app.state && app.state.workspaces && app.state.workspaces.find((w) => w.id === app.state.workspaceId)) || {};
     const canonical = s.canonicalEvidenceSn || s.sn;
