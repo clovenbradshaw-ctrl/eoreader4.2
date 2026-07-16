@@ -16,17 +16,20 @@
 <script src="./support.js"></script>
 <script type="module" src="src/rooms/reader/boot.js"></script>
 <!-- Boot failsafe. The app renders through the dc surface: support.js mounts React
-     into #dc-root, replacing the <x-dc> template block. If that never happens — a
-     stale cached build, a script that failed to load or parse — the page would
-     otherwise paint raw "{{ ... }}" template text. Hide the raw template up front,
-     and if the surface hasn't mounted shortly after load, show an actionable reload
+     into #dc-root, replacing the dc template element in the body. If that never
+     happens — a stale cached build, a script that failed to load or parse — the page
+     would otherwise paint raw template placeholders. Hide the raw template up front,
+     and if the surface has not mounted shortly after load, show an actionable reload
      prompt instead of the gibberish. Pure, dependency-free, and inert on a healthy
-     boot (where <x-dc> is already gone and #dc-root is present). -->
+     boot (where the template element is already gone and #dc-root is present).
+     NB: this file's head must contain NO literal dc opening tag and NO placeholder
+     braces — support.js scans the raw page text for the first such tag, and any
+     stray one here would be mistaken for the start of the template. -->
 <style>x-dc{display:none!important}</style>
 <script>
 (function () {
   function booted() {
-    // A healthy boot removes <x-dc> and inserts #dc-root. Either signal is enough.
+    // Healthy boot removes the dc template element and inserts #dc-root; either signal is enough.
     return !!document.getElementById('dc-root') || !document.querySelector('x-dc');
   }
   function showFallback() {
