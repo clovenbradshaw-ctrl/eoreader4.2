@@ -50,6 +50,11 @@ export const generateTopline = async ({ inventory, steer = null, model = null, s
     // a flat "Stated" banding, because phraseMechanical had no fields to phrase and no standing to read.
     objects: inv.objects.map((o, i) => ({
       text: sentences[i]?.text ?? '', cite: sentences[i]?.cite ?? o.cite ?? [],
+      // `fluent` records whether THIS object's sentence is the talker's veto-passed rewrite (true) or
+      // the deterministic telegram (false). Downstream (claims.js) prefers a fluent sentence for
+      // display but recomputes the telegram for any non-fluent one, so a stale pre-fix mechanical
+      // string is never re-shown — it is re-derived through the current phrasing.
+      fluent: !!sentences[i]?.fluent,
       type: o.type, key: o.key, relational: !!o.relational, standing: o.standing, fields: o.fields,
     })),
     cites,

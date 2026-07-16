@@ -12,6 +12,7 @@
 // mechanical sentence stands.
 
 import { speak } from '../../model/index.js';
+import { isObjectFunctional } from '../../core/index.js';
 import { containedIn } from './contain.js';
 
 const cap = (s) => { const t = String(s || '').trim(); return t ? t[0].toUpperCase() + t.slice(1) : t; };
@@ -34,8 +35,13 @@ export const phraseMechanical = (obj) => {
     case 'claim': {
       if (obj.relational) {
         // a kinship / role bond reads possessively ("Grete is Gregor's sister"); an action reads
-        // verbally ("the father drove Gregor"). The controller marks which via `kinship`.
-        return f.kinship
+        // verbally ("the father drove Gregor"). The controller marks the role bonds via `kinship`.
+        // But a CHANGE-OF-STATE bond carries a VERB on its `via` ("became", "transformed"), not a
+        // role noun, so the possessive template mints garbage — "Henry Clerval is Clerval's became".
+        // Read it verbally regardless of the flag: the object-functional primitive (relation-types.js)
+        // IS the change-of-state marker, so "Henry Clerval became Clerval" falls out of the same algebra.
+        const possessive = f.kinship && !isObjectFunctional(f.via);
+        return possessive
           ? dot(`${cap(f.subject)} is ${neg ? 'not ' : ''}${f.object}'s ${f.via}`)
           : dot(`${cap(f.subject)} ${neg ? 'did not ' : ''}${f.via} ${f.object}`);
       }

@@ -80,6 +80,21 @@ test('readingClaims — topline claim objects become Witnessed/Stated rows; fact
   assert.equal(rows[1].text, "Grete is Gregor's sister.");
 });
 
+test('readingClaims — a veto-passed fluent sentence is DISPLAYED, but the durable key rides the telegram', () => {
+  const doc = { sentences: Array.from({ length: 8 }, (_, i) => `s${i}`) };
+  // Two stored shapes of ONE claim: the telegram (fluent:false) and its later fluent refine.
+  const telObj  = { key: 'rel:1000', type: 'claim', relational: true, standing: 'stated', cite: [7], fluent: false,
+    text: 'Henry Clerval became Clerval.', fields: { subject: 'Henry Clerval', via: 'became', object: 'Clerval', polarity: '+', kinship: true } };
+  const flueObj = { ...telObj, fluent: true, text: 'Henry Clerval had become Clerval.' };
+  const tel  = readingClaims({ sn: 'S1', docId: 'dA', title: 'F', summary: { objects: [telObj]  } }, doc)[0];
+  const flue = readingClaims({ sn: 'S1', docId: 'dA', title: 'F', summary: { objects: [flueObj] } }, doc)[0];
+  // the fluent row shows the talker's rewrite; the telegram row shows the mechanical sentence
+  assert.equal(flue.text, 'Henry Clerval had become Clerval.');
+  assert.equal(tel.text,  'Henry Clerval became Clerval.');
+  // …but both key identically — a telegram→fluent refine never re-keys the claim (pins survive)
+  assert.equal(flue.key, tel.key, 'the durable key rides the deterministic telegram, not the display text');
+});
+
 test('summaryClaims — entity toplines attribute to their lead source', () => {
   const sums = [{ summary: { label: 'Gregor', objects: [invObjects[0]] }, sn: 'S1', reg: 'S-0001', docId: 'dA' }];
   const rows = summaryClaims(sums, () => ({ sentences: { 4: 'Gregor was a travelling salesman.' } }));
