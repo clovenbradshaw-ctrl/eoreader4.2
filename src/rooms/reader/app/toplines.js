@@ -105,6 +105,12 @@ export const installToplines = (appCtx) => {
     };
   };
 
+  // Hold the single decode gate for a composing panel summary so the at-rest murmur passes (deep.js)
+  // yield it rather than queueing a background decode ahead of the summary the user is watching.
+  // Balanced with try/finally at each model call site; a count, since two panels can compose at once.
+  const engageModel = () => { state.foreModel = (state.foreModel || 0) + 1; };
+  const releaseModel = () => { state.foreModel = Math.max(0, (state.foreModel || 0) - 1); };
+
   // In-flight guard so an auto-gen kick and a surface open never race to double-generate one subject.
   const _summaryInFlight = new Map();
   const guarded = (key, regenerate, run) => {
@@ -141,9 +147,13 @@ export const installToplines = (appCtx) => {
     const reading = sourceReading(src);
     if (!reading) return prev;
     const inv = sourceInventory(reading);
-    await composeTwoPhase(inv, prev ? { ...prev, regenerate } : { regenerate: true }, (s) => {
-      src.summary = { ...s, sha: src.sha }; appCtx.persist(); emit('sources');
-    });
+    const usesModel = !!appCtx.model;               // the telegram phase is model-free; only refinement decodes
+    if (usesModel) engageModel();
+    try {
+      await composeTwoPhase(inv, prev ? { ...prev, regenerate } : { regenerate: true }, (s) => {
+        src.summary = { ...s, sha: src.sha }; appCtx.persist(); emit('sources');
+      });
+    } finally { if (usesModel) releaseModel(); }
     return src.summary;
   });
 
@@ -161,6 +171,11 @@ export const installToplines = (appCtx) => {
     const upgrade = prev && prev.modelless && !!appCtx.model && !telegramOnly;
     if (prev && !regenerate && !upgrade) return prev;
     const inv = entityInventory(profile, { mentionCount: profile.mentionCount ?? profile.mentions.length, sourceCount: profile.sourceCount || 1 });
+    // Hold the engine across BOTH model phases below (two-phase refinement + definer chorus) so a
+    // background decode never queues between them. A telegram-only kick uses no model (see engageModel).
+    const usesModel = !!appCtx.model && !telegramOnly;
+    if (usesModel) engageModel();
+    try {
     // When a model is loaded a written reading (the contextual definition) is coming a beat behind
     // this telegram — so mark the telegram as `contextualPending`. The surface holds the panel on
     // "composing…" rather than flashing the machine telegram and swapping it for the reading; it is
@@ -257,6 +272,7 @@ export const installToplines = (appCtx) => {
     if (done && done.contextualPending) {
       state.summaries.entities[key] = { ...done, contextualPending: false }; appCtx.persist(); emit('sources');
     }
+    } finally { if (usesModel) releaseModel(); }
     return state.summaries.entities[key];
   });
 

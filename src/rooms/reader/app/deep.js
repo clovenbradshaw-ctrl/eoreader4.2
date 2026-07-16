@@ -213,7 +213,7 @@ export const installDeep = (appCtx) => {
     if (connectRunning) return 0; connectRunning = true;
     try {
       if (!murmur || typeof murmur.nominations !== 'function') return 0;
-      if (state.busy && !manual) return 0;                  // engaged — a turn is decoding
+      if (appCtx.modelEngaged() && !manual) return 0;       // engaged — a turn OR a panel summary is decoding
       const cands = murmur.nominations();                   // DRAIN the read side-channel
       if (!cands.length) return 0;
       const overlayFor = (docId) => {
@@ -328,7 +328,7 @@ export const installDeep = (appCtx) => {
     try {
       if (!murmur || !murmur.learn || typeof murmur.learn.wander !== 'function') return 0;
       if (state.murmurMode === 'off' || !state.murmurVisible) return 0;   // off / hidden ⇒ paused
-      if (state.busy && !manual) return 0;                                // engaged — a turn is decoding
+      if (appCtx.modelEngaged() && !manual) return 0;                     // engaged — a turn OR a panel summary is decoding
       const cfg = (murmur.config && murmur.config.learn) || {};
       const nowMs = Date.now();
       if (!manual && nowMs - lastWander < (cfg.minStepMs || 20000)) return 0;   // human pace
@@ -408,7 +408,7 @@ export const installDeep = (appCtx) => {
     try {
       if (!murmur || typeof murmur.mutter !== 'function') return 0;
       if (state.murmurMode === 'off' || !state.murmurVisible) return 0;   // never prosify unseen (transparency)
-      if (state.busy && !manual) return 0;                                // engaged — the model is answering
+      if (appCtx.modelEngaged() && !manual) return 0;                     // engaged — a turn OR a panel summary is decoding
       const pend = murmurPending;
       if (!pend || pend.done) return 0;
       if (state.model?.state !== 'ready') return 0;                       // the CPU model isn't warm — template stands
