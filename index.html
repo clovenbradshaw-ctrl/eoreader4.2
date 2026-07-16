@@ -1628,6 +1628,100 @@ table{border-collapse:collapse;width:100%}
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;margin-top:18px;border-top:1px solid rgba(77,123,100,.18)"><sc-for list="{{ sourceLanding.coreCounts }}" as="c"><button onClick="{{ c.open }}" style="text-align:left;background:transparent;border:none;border-right:1px solid rgba(77,123,100,.18);padding:13px 10px 0 0;font-size:13px;color:#202027">{{ c.label }}</button></sc-for></div>
                     <div style="font-size:12px;color:#5A6F65;margin-top:12px">Optional prose synthesis is {{ sourceLanding.synthesisState }}. Everything below remains available.</div>
                   </div>
+
+                  <!-- CHARACTERS — the figures on record for this source, weighted by their mention + -->
+                  <!-- link mass. Each opens the figure's profile. (app.sourceEntities → sfCast shape.) -->
+                  <sc-if value="{{ sourceLanding.castShow }}">
+                    <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff">
+                      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 14px"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Characters</h2><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ sourceLanding.castCount }}</span></div>
+                      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:10px">
+                        <sc-for list="{{ sourceLanding.cast }}" as="c">
+                          <button onClick="{{ c.open }}" title="Open this figure's profile" style="display:flex;gap:11px;align-items:center;text-align:left;background:#FAFAFC;border:1px solid #EEEFF4;border-radius:12px;padding:10px 12px" style-hover="border-color:#CFC7F7;background:#FCFBFF">
+                            <span style="flex:0 0 auto;width:34px;height:34px;border-radius:999px;background:#EEEBFE;color:#5B4BE6;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;font-family:'IBM Plex Mono',monospace">{{ c.initials }}</span>
+                            <span style="min-width:0;flex:1">
+                              <span style="display:block;font-size:13.5px;font-weight:700;color:#24242C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.label }}</span>
+                              <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.meta }}</span>
+                              <span style="display:block;height:4px;border-radius:999px;background:#EDEBF7;margin-top:7px;overflow:hidden"><span style="display:block;height:100%;width:{{ c.weight }};background:#8C7DF3;border-radius:999px"></span></span>
+                            </span>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </section>
+                  </sc-if>
+
+                  <!-- TWIN WAVEFORMS — the reading's turning points (eot.turns), drawn like an audio -->
+                  <!-- track (mirrored around a centre line, not bar-chart columns): BELIEF (Δbelief/KL, -->
+                  <!-- the mass channel) and GRAVITATIONAL PULL (the bridge/connectivity channel — how -->
+                  <!-- strongly a turn draws two figures into bond). Solo either or overlay both, exactly -->
+                  <!-- like A/B-ing two tracks. For audio/video the acoustic waveform sits below it. -->
+                  <sc-if value="{{ sourceLanding.surprise.has }}">
+                    <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff">
+                      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 14px;flex-wrap:wrap">
+                        <h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">The waveform of surprise</h2>
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ sourceLanding.surprise.count }}</span>
+                        <span style="flex:1"></span>
+                        <sc-if value="{{ sourceLanding.surprise.hasGravity }}">
+                          <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
+                            <button onClick="{{ sourceLanding.surprise.setBelief }}" title="Belief alone — Δbelief/KL, the mass channel" style="padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ sourceLanding.surprise.beliefFg }};background:{{ sourceLanding.surprise.beliefBg }}">Belief</button>
+                            <button onClick="{{ sourceLanding.surprise.setGravity }}" title="Gravitational pull alone — the bridge/connectivity channel" style="padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ sourceLanding.surprise.gravityFg }};background:{{ sourceLanding.surprise.gravityBg }}">Pull</button>
+                            <button onClick="{{ sourceLanding.surprise.setOverlay }}" title="Overlay both tracks" style="padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ sourceLanding.surprise.overlayFg }};background:{{ sourceLanding.surprise.overlayBg }}">Overlay</button>
+                          </span>
+                        </sc-if>
+                      </div>
+                      <div class="eo-wave" style="position:relative;height:86px;padding:9px 5px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:10px;overflow:hidden">
+                        <div style="position:absolute;left:5px;right:5px;top:50%;height:1px;background:#E7E4EC"></div>
+                        <sc-if value="{{ sourceLanding.surprise.showBeliefLayer }}">
+                          <div style="position:absolute;inset:9px 5px;display:flex;align-items:center;gap:1px;mix-blend-mode:multiply">
+                            <sc-for list="{{ sourceLanding.surprise.belief }}" as="b">
+                              <div title="{{ b.title }}" style="flex:1 1 0;min-width:1px;height:{{ b.hPct }};background:{{ b.bg }};border-radius:2px"></div>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ sourceLanding.surprise.showGravityLayer }}">
+                          <div style="position:absolute;inset:9px 5px;display:flex;align-items:center;gap:1px;mix-blend-mode:multiply">
+                            <sc-for list="{{ sourceLanding.surprise.gravity }}" as="g">
+                              <div title="{{ g.title }}" style="flex:1 1 0;min-width:1px;height:{{ g.hPct }};background:{{ g.bg }};border-radius:2px"></div>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:14px;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">
+                        <span>reading order →</span><span style="flex:1"></span>
+                        <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#5B4BE6;display:inline-block"></span>belief · Δ KL</span>
+                        <sc-if value="{{ sourceLanding.surprise.hasGravity }}"><span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#C9963A;display:inline-block"></span>gravitational pull</span></sc-if>
+                      </div>
+                      <div style="margin-top:14px;display:flex;flex-direction:column;gap:2px">
+                        <sc-for list="{{ sourceLanding.surprise.turns }}" as="t">
+                          <button onClick="{{ t.open }}" title="Open the EoT reading" style="display:grid;grid-template-columns:64px minmax(0,1fr) auto auto;gap:10px;align-items:center;text-align:left;background:transparent;border:none;border-top:1px solid #F1F1F4;padding:8px 0" style-hover="background:#FBFAFF">
+                            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8C7DF3;font-weight:700">{{ t.line }}</span>
+                            <span style="min-width:0;font-size:12.5px;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.text }}</span>
+                            <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">{{ t.bits }}</span>
+                            <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B08A3E">{{ t.pull }}</span>
+                          </button>
+                        </sc-for>
+                      </div>
+                      <sc-if value="{{ viewer.media.hasWave }}">
+                        <div style="margin-top:16px;border-top:1px solid #F1F1F4;padding-top:14px">
+                          <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;text-transform:uppercase;margin-bottom:8px">Acoustic waveform · signal vs noise</div>
+                          <div class="eo-wave" onClick="{{ seekFromWave }}" title="Click to jump the player here" style="display:flex;align-items:center;gap:1px;height:56px;padding:7px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden;cursor:pointer">
+                            <sc-for list="{{ viewer.media.bars }}" as="b">
+                              <div style="flex:1 1 0;min-width:1px;height:{{ b.hPct }}%;background:{{ b.bg }};border-radius:1px"></div>
+                            </sc-for>
+                          </div>
+                        </div>
+                      </sc-if>
+                    </section>
+                  </sc-if>
+
+                  <!-- RELATIONS — for a source that centres on one figure, the entity DAG (who it links -->
+                  <!-- to). Reuses the dossier's neighbour graph mount; hidden for a diffuse source. -->
+                  <sc-if value="{{ viewer.dossier.hasEntityDag }}">
+                    <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff">
+                      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 6px"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Relations</h2><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ viewer.dossier.label }} · {{ viewer.dossier.counts }}</span></div>
+                      <div ref="{{ viewer.dossier.setEntityDagEl }}" style="width:100%;min-height:220px"></div>
+                    </section>
+                  </sc-if>
+
                   <div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(270px,.48fr);gap:14px;margin-top:14px">
                     <section style="padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">At a glance</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px"><sc-for list="{{ sourceLanding.glance }}" as="g"><div style="background:#FAFAFC;border:1px solid #EEEFF4;border-radius:10px;padding:10px"><div style="font-size:10px;font-weight:800;color:#9A9AA4;text-transform:uppercase">{{ g.label }}</div><div style="font-size:13px;color:#2A2A32;margin-top:4px;line-height:1.4">{{ g.value }}</div></div></sc-for></div></section>
                     <aside style="padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Source record</h2><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#555;line-height:1.8">{{ sourceLanding.recordId }}<br>SHA {{ sourceLanding.sha }}<br>{{ sourceLanding.provenance }}<br>Rights: {{ sourceLanding.rights }}</div><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:18px 0 10px">Grounding &amp; audit status</h2><sc-for list="{{ sourceLanding.reviewItems }}" as="r"><button onClick="{{ r.open }}" style="display:block;width:100%;text-align:left;margin:5px 0;background:#FFF8EC;border:1px solid #F0DFC0;border-radius:8px;padding:7px 9px;font-size:12px;color:#7A5416">{{ r.label }}</button></sc-for></aside>
@@ -3111,6 +3205,10 @@ class Component extends DCLogic {
       // the main tab bar (alongside Chat / Graph / …) and fills the stage; no overlay. state.tab
       // holds the active tab, and when it is a source's sn, that source is what the stage shows.
       viewerTabs: [], viewerModes: {}, viewerFocus: {}, nativeToc: [],
+      // Overview's twin waveform — belief (Δbelief/KL, the mass channel) vs gravitational pull
+      // (the bridge/connectivity channel — how strongly a turn draws entities into bond) — can be
+      // viewed solo or overlaid. One global toggle; every source's Overview shares it.
+      waveMode: 'overlay',
       viewerPages: {},   // sn -> { doc, busy, err } for the native render, fetched on demand
       tocOpen: false,
       // The reader's scroll progress (0–100), shown as a % and a thin bar; updated from the reader
@@ -4737,12 +4835,11 @@ class Component extends DCLogic {
     // reader cache is otherwise held for the life of the tab (prefs apply live, no rebuild).
     delete this._readerCache[sn];
     const tabs = this.state.viewerTabs.includes(sn) ? this.state.viewerTabs : [...this.state.viewerTabs, sn];
-    // PDF (the pages themselves) is the default surface for a PDF — click it and you land on the
-    // document as a PDF, the way a viewer draws it; the clean Reader book is one tab away. Native
-    // (the real website) is the default for a web source that carries a URL. A source with no URL
-    // (pasted text, a local text file) has no page to render, so it opens in Reader.
-    const pdfFirst = src.kind === 'pdf' && this._app.pdfRenderable && this._app.pdfRenderable(src);
-    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = src.kind === 'audio' ? 'listen' : (pdfFirst ? 'pdf' : (src.url ? 'native' : 'reader'));
+    // OVERVIEW (the source landing page — provenance, characters, the waveform of surprise, ways in)
+    // is the default surface for every source: clicking a source answers "what do we know about it?"
+    // first, and every reading mode (Reader, Native, PDF, Listen, EoT) is one click away on the mode
+    // row. A saved per-source mode still wins, so an explicit choice is never overridden.
+    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = 'overview';
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
     // Open the source AS A TAB in the main stage and make it the active tab.
     this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) });
@@ -4768,6 +4865,8 @@ class Component extends DCLogic {
     if (mode === 'native') this.loadPage(sn);
     if (mode === 'pdf') this.loadPdf(sn);
   }
+  // Overview's twin waveform toggle — belief solo, gravitational pull solo, or both overlaid.
+  setWaveMode(mode) { this.setState({ waveMode: mode }); }
   // Ensure a PDF source has a renderable object URL for its PDF surface. The live blob is already on
   // the source if this session imported it; after a reload it is rehydrated from the persisted bytes
   // (app.pdfUrl → OPFS), which emits 'sources' and re-renders the viewer once the URL is ready.
@@ -5905,6 +6004,75 @@ class Component extends DCLogic {
     const topic = (app.activeTopic && app.activeTopic()) || (app.state && app.state.topics && app.state.topics.find((t) => t.id === app.state.topicId)) || {};
     const ws = (app.state && app.state.workspaces && app.state.workspaces.find((w) => w.id === app.state.workspaceId)) || {};
     const canonical = s.canonicalEvidenceSn || s.sn;
+    // CHARACTERS — the figures on record (app.sourceEntities), weighted by their mention + link
+    // mass, each an avatar + weight bar that opens the figure's profile. Same row shape the CAST
+    // surface uses (sfCast), read straight from this one source's reading.
+    const castRows = (() => { try { return (app.sourceEntities ? app.sourceEntities(s.sn) : []) || []; } catch { return []; } })();
+    const castMax = castRows.reduce((m, e) => Math.max(m, (e.mentions || 0) + (e.links || 0)), 0) || 1;
+    const cast = castRows.slice(0, 24).map((e) => {
+      const mass = (e.mentions || 0) + (e.links || 0);
+      return {
+        label: e.label, initials: this._initials(e.label), type: e.kind || '',
+        meta: [e.kind || null, `${e.mentions || 0} mention${e.mentions === 1 ? '' : 's'}`, `${e.links || 0} link${e.links === 1 ? '' : 's'}`].filter(Boolean).join('  ·  '),
+        weight: Math.max(6, Math.round((mass / castMax) * 100)) + '%',
+        open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); },
+      };
+    });
+    const castNoun = (app.sourceBaseNoun ? app.sourceBaseNoun(s.sn) : 'Figures');
+    // TWIN WAVEFORMS, read like an audio track — the reading's turning points (eot.turns) plotted
+    // across the document, mirrored around a centre line rather than drawn as bar-chart columns:
+    //   · BELIEF (Δbelief/KL, the mass channel) — how far the reading's belief moved, bayesBits.
+    //   · GRAVITATIONAL PULL (the bridge/connectivity channel, docs/core/index.js#bridgeSurprise) —
+    //     how strongly a turn draws two (coref-resolved) figures into bond, independent of mass.
+    // Either can be viewed solo or overlaid — the same click-to-A/B a DAW gives you over two tracks.
+    const turns = (eot && Array.isArray(eot.turns)) ? eot.turns : [];
+    const unitsN = (eot && eot.units) || 0;
+    const NBARS = 96;
+    const posOf = (t) => (unitsN <= 0 || t.idx == null) ? -1 : Math.min(NBARS - 1, Math.max(0, Math.round((t.idx / Math.max(1, unitsN - 1)) * (NBARS - 1))));
+    const beliefOf = (t) => Math.max(t.bayesBits || 0, t.surprisalBits || 0);
+    const pullOf = (t) => (t.bridge != null ? t.bridge : 0);
+    // Mirrored waveform bars: rendered inside a flex row with align-items:center, so a bar of height
+    // H sits centred on the strip's midline and grows symmetrically up AND down as H grows — the
+    // silhouette of a real audio track, not a bottom-anchored bar chart.
+    const buildTrack = (magOf, colorAt) => {
+      const peak = turns.reduce((m, t) => Math.max(m, magOf(t)), 0) || 1;
+      const mags = Array.from({ length: NBARS }, () => 0);
+      const at = Array.from({ length: NBARS }, () => null);
+      for (const t of turns) {
+        const bi = posOf(t); if (bi < 0) continue;
+        const frac = magOf(t) / peak;
+        if (frac > mags[bi]) { mags[bi] = frac; at[bi] = t; }
+      }
+      return mags.map((frac, i) => ({
+        hPct: Math.round(6 + frac * 94) + '%',
+        bg: colorAt(frac),
+        title: at[i] ? `line ${at[i].idx}` : '',
+      }));
+    };
+    const belief = { bars: buildTrack(beliefOf, (f) => f > 0.55 ? '#5B4BE6' : f > 0.28 ? '#8C7DF3' : '#D8D3F7') };
+    const gravity = { bars: buildTrack(pullOf, (f) => f > 0.55 ? '#C9963A' : f > 0.28 ? '#DDB56B' : '#F0E0BE') };
+    const hasGravity = turns.some((t) => t.bridge != null);
+    const waveMode = hasGravity ? (this.state.waveMode || 'overlay') : 'belief';
+    const surpriseTurns = turns.slice().sort((a, b) => beliefOf(b) - beliefOf(a)).slice(0, 6).map((t) => ({
+      line: `line ${t.idx}`,
+      text: (t.surprises && t.surprises[0] && t.surprises[0].text) || (t.sentence ? String(t.sentence).replace(/\s+/g, ' ').trim().slice(0, 84) : 'a turn in the reading'),
+      op: (t.surprises && t.surprises[0] && t.surprises[0].op) || '',
+      bits: t.bayesBits != null ? `${t.bayesBits}b Δbelief` : (t.surprisalBits != null ? `${t.surprisalBits}b` : ''),
+      pull: t.bridge != null ? `${t.bridge}${t.bridgeAxis ? ` pull (${t.bridgeAxis.join('—')})` : ' pull'}` : '',
+      open: () => this.setSourceMode('eot'),
+    }));
+    const surprise = {
+      has: turns.length > 0, hasGravity, turns: surpriseTurns,
+      count: `${turns.length} turning point${turns.length === 1 ? '' : 's'}`,
+      openEot: () => this.setSourceMode('eot'),
+      mode: waveMode, showBelief: waveMode === 'belief', showGravity: waveMode === 'gravity', showOverlay: waveMode === 'overlay',
+      showBeliefLayer: waveMode !== 'gravity', showGravityLayer: hasGravity && waveMode !== 'belief',
+      beliefFg: waveMode === 'belief' ? '#1B1B22' : '#8A8A95', beliefBg: waveMode === 'belief' ? '#fff' : 'transparent',
+      gravityFg: waveMode === 'gravity' ? '#1B1B22' : '#8A8A95', gravityBg: waveMode === 'gravity' ? '#fff' : 'transparent',
+      overlayFg: waveMode === 'overlay' ? '#1B1B22' : '#8A8A95', overlayBg: waveMode === 'overlay' ? '#fff' : 'transparent',
+      belief: belief.bars, gravity: gravity.bars,
+      setBelief: () => this.setWaveMode('belief'), setGravity: () => this.setWaveMode('gravity'), setOverlay: () => this.setWaveMode('overlay'),
+    };
     return {
       workspace: ws.name || 'Workspace', topic: topic.title || 'Topic', sourceLabel: s.reg || 'Source', icon, typeLabel: type.toUpperCase(), title,
       origin, verification: s.verified === false ? 'UNVERIFIED' : 'VERIFIED', rights: this._rights(s).label, retrieved: this._ago(s.retrieved) || 'captured',
@@ -5913,6 +6081,8 @@ class Component extends DCLogic {
       reviewItems, lenses, ideas, currentLens: ideas[0] ? `${ideas[0].title} · complete source` : 'Source overview · complete record',
       pins: [{ label: `${s.pinnedFigures || 0} pinned figures` }, { label: `${s.pinnedPassages || 0} pinned passages` }, { label: `${s.pinnedClaims || 0} pinned claims` }, { label: `${s.savedLenses || 0} saved lenses` }, { label: s.recentPosition || 'Recent position: start' }], openPins: () => this.setTab('pins'),
       structure, findings,
+      cast, castShow: !!cast.length, castCount: `${castRows.length} on record`, castNoun,
+      surprise,
       lineage: `${title} — logical work\n└─ ${s.reg || 'Landing record'} — catalog/landing record\n   └─ ${canonical === s.sn ? (s.title || s.reg || 'canonical file') : ('S-' + canonical)} — canonical evidence`,
       lineageNote: canonical === s.sn ? 'This file supplies canonical evidence. Derived or duplicate representations stay visible for provenance and do not vote independently.' : 'A separate canonical evidence file supplies aggregate counts; this representation is retained for provenance.',
     };
@@ -8229,7 +8399,7 @@ class Component extends DCLogic {
     if (activeSn) {
       const s = app.sourceBySn(activeSn);
       if (s) {
-        vMode = st.viewerModes[activeSn] || (s.kind === 'audio' ? 'listen' : ((s.kind === 'pdf' && (s._pdfUrl || (s.pdfRef && s.pdfRef.opfs))) ? 'pdf' : 'reader'));
+        vMode = st.viewerModes[activeSn] || 'overview';
         // 'text' (the old Document tab) is now the Reader with links on — fold any saved value in.
         if (vMode === 'text') vMode = 'reader';
         const r = this._rights(s);
