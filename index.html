@@ -404,7 +404,7 @@ table{border-collapse:collapse;width:100%}
     <sc-if value="{{ modelOpen }}">
       <div class="eo-pop" data-eo-model="1" style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
         <div style="display:flex;align-items:baseline;gap:8px;padding:2px 6px 8px">
-          <span style="flex:1;font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">OPTIONAL SYNTHESIS · OFF, CPU, WEBGPU, HOSTED</span>
+          <span style="flex:1;font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">OPTIONAL SYNTHESIS · OFF OR ANTHROPIC API</span>
           <a href="models.html" title="Open the full model manager — install, watch downloads, reclaim disk" style="flex:0 0 auto;font-size:11px;font-weight:600;color:#5B4BE6;text-decoration:none">Manage ↗</a>
         </div>
         <sc-for list="{{ backends }}" as="b">
@@ -1681,16 +1681,20 @@ table{border-collapse:collapse;width:100%}
                         <h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Patterns</h2>
                         <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ sourceLanding.surprise.count }}</span>
                         <span style="flex:1"></span>
-                        <sc-if value="{{ sourceLanding.surprise.hasGravity }}">
-                          <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
-                            <button onClick="{{ sourceLanding.surprise.setBelief }}" title="Belief alone — Δbelief/KL, the mass channel" style="padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ sourceLanding.surprise.beliefFg }};background:{{ sourceLanding.surprise.beliefBg }}">Belief</button>
-                            <button onClick="{{ sourceLanding.surprise.setGravity }}" title="Gravitational pull alone — the bridge/connectivity channel" style="padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ sourceLanding.surprise.gravityFg }};background:{{ sourceLanding.surprise.gravityBg }}">Pull</button>
-                            <button onClick="{{ sourceLanding.surprise.setOverlay }}" title="Overlay both tracks" style="padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ sourceLanding.surprise.overlayFg }};background:{{ sourceLanding.surprise.overlayBg }}">Overlay</button>
-                          </span>
-                        </sc-if>
+                        <span style="display:flex;gap:6px;flex-wrap:wrap">
+                          <button onClick="{{ sourceLanding.surprise.toggleStructure }}" title="Add or hide the source structure dots along the waveform" style="padding:5px 9px;border-radius:999px;border:1px solid {{ sourceLanding.surprise.structureBd }};background:{{ sourceLanding.surprise.structureBg }};color:{{ sourceLanding.surprise.structureFg }};font-size:10.5px;font-weight:700">Structure dots</button>
+                          <button onClick="{{ sourceLanding.surprise.toggleEntities }}" title="Toggle entity labels and entity narrative marks" style="padding:5px 9px;border-radius:999px;border:1px solid {{ sourceLanding.surprise.entitiesBd }};background:{{ sourceLanding.surprise.entitiesBg }};color:{{ sourceLanding.surprise.entitiesFg }};font-size:10.5px;font-weight:700">Entities</button>
+                          <button onClick="{{ sourceLanding.surprise.toggleXkcd }}" title="Show a hand-drawn narrative chart of the main entities (capped at 25)" style="padding:5px 9px;border-radius:999px;border:1px solid {{ sourceLanding.surprise.xkcdBd }};background:{{ sourceLanding.surprise.xkcdBg }};color:{{ sourceLanding.surprise.xkcdFg }};font-size:10.5px;font-weight:700">XKCD chart</button>
+                          <button onClick="{{ sourceLanding.surprise.toggleFold }}" title="Open the fold range handles and summary affordance" style="padding:5px 9px;border-radius:999px;border:1px solid #DED8FD;background:#F1EFFE;color:#5140C8;font-size:10.5px;font-weight:700">Fold range</button>
+                        </span>
                       </div>
                       <div style="font-size:12.5px;color:#6E6E78;margin:-4px 0 12px">Connections, shifts, and distribution across the source.</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px"><sc-for list="{{ sourceLanding.lenses }}" as="l"><button onClick="{{ l.open }}" title="{{ l.intent }}" style="background:#F1EFFE;border:1px solid #DED8FD;color:#5140C8;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:650">{{ l.label }}</button></sc-for></div><div style="font-size:12.5px;color:#4E5765;margin:0 0 12px"><b>Active frame</b> · {{ sourceLanding.currentLens }}</div><div class="eo-wave" style="position:relative;height:86px;padding:9px 5px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:10px;overflow:hidden">
                         <div style="position:absolute;left:5px;right:5px;top:50%;height:1px;background:#E7E4EC"></div>
+                        <sc-if value="{{ sourceLanding.surprise.showStructureDots }}">
+                          <div style="position:absolute;left:8px;right:8px;top:50%;height:0;display:flex;justify-content:space-between;pointer-events:none">
+                            <sc-for list="{{ sourceLanding.surprise.structureDots }}" as="d"><span title="{{ d.title }}" style="width:7px;height:7px;border-radius:50%;background:#fff;border:1px solid #7B728A;transform:translateY(-3px);box-shadow:0 1px 2px rgba(0,0,0,.12)"></span></sc-for>
+                          </div>
+                        </sc-if>
                         <sc-if value="{{ sourceLanding.surprise.showBeliefLayer }}">
                           <div style="position:absolute;inset:9px 5px;display:flex;align-items:center;gap:1px;mix-blend-mode:multiply">
                             <sc-for list="{{ sourceLanding.surprise.belief }}" as="b">
@@ -1706,6 +1710,9 @@ table{border-collapse:collapse;width:100%}
                           </div>
                         </sc-if>
                       </div>
+                      <sc-if value="{{ sourceLanding.surprise.showEntities }}"><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><sc-for list="{{ sourceLanding.surprise.entityPills }}" as="e"><button onClick="{{ e.open }}" style="font-size:11px;color:#5140C8;background:#F1EFFE;border:1px solid #DED8FD;border-radius:999px;padding:4px 8px">{{ e.label }}</button></sc-for></div></sc-if>
+                      <sc-if value="{{ sourceLanding.surprise.showXkcd }}"><div style="margin-top:12px;background:#FFFDF7;border:1px solid #EEE0B8;border-radius:12px;padding:12px"><div style="font-family:'Comic Sans MS','Comic Neue',cursive;font-size:12px;color:#6A5632;margin-bottom:8px">main entities · narrative chart · capped at 25</div><div style="display:flex;align-items:flex-end;gap:8px;height:130px;border-left:2px solid #2A2A32;border-bottom:2px solid #2A2A32;padding:8px 6px 0"><sc-for list="{{ sourceLanding.surprise.xkcdEntities }}" as="x"><button onClick="{{ x.open }}" title="{{ x.title }}" style="flex:1;min-width:18px;max-width:44px;height:{{ x.hPct }};border:2px solid #2A2A32;border-radius:999px 999px 7px 7px;background:#fff;transform:rotate({{ x.tilt }}deg);font-family:'Comic Sans MS','Comic Neue',cursive;font-size:10px;color:#2A2A32;overflow:hidden">{{ x.short }}</button></sc-for></div></div></sc-if>
+                      <sc-if value="{{ sourceLanding.surprise.foldOpen }}"><div style="margin-top:12px;border:1px solid #E6E1F7;background:#FBFAFF;border-radius:12px;padding:12px"><div style="display:flex;gap:10px;align-items:center"><span style="font-size:11px;font-weight:800;color:#7A6AE8">in</span><input type="range" min="0" max="99" value="{{ sourceLanding.surprise.foldIn }}" onChange="{{ sourceLanding.surprise.setFoldIn }}" style="flex:1"/><span style="font-size:11px;font-weight:800;color:#7A6AE8">out</span><input type="range" min="1" max="100" value="{{ sourceLanding.surprise.foldOut }}" onChange="{{ sourceLanding.surprise.setFoldOut }}" style="flex:1"/><button onClick="{{ sourceLanding.surprise.summarizeFold }}" style="background:#5B4BE6;color:#fff;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700">Summarize fold</button></div><div style="font-size:11.5px;color:#6E6E78;margin-top:7px">Requires Anthropic Claude 3 Haiku via API. Other LLMs are hidden from this workflow.</div><sc-if value="{{ sourceLanding.surprise.foldBusy }}"><div style="font-size:12px;color:#8A8A95;margin-top:8px">Summarizing selected fold…</div></sc-if><sc-if value="{{ sourceLanding.surprise.foldHasText }}"><div style="font-size:13px;color:#2A2A32;line-height:1.5;margin-top:8px;white-space:pre-wrap">{{ sourceLanding.surprise.foldText }}</div></sc-if><sc-if value="{{ sourceLanding.surprise.foldHasErr }}"><div style="font-size:12px;color:#B23A2E;margin-top:8px">{{ sourceLanding.surprise.foldErr }}</div></sc-if><details style="margin-top:10px"><summary style="font-size:12px;color:#5B4BE6;font-weight:700;cursor:pointer">Precisely what is returned in this fold</summary><pre style="white-space:pre-wrap;font-size:11px;line-height:1.45;color:#363642;background:#fff;border:1px solid #EEEFF4;border-radius:8px;padding:10px;max-height:220px;overflow:auto">{{ sourceLanding.surprise.foldReturned }}</pre></details></div></sc-if>
                       <div style="display:flex;align-items:center;gap:14px;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">
                         <span>reading order →</span><span style="flex:1"></span>
                         <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#5B4BE6;display:inline-block"></span>belief · Δ KL</span>
@@ -3275,7 +3282,7 @@ class Component extends DCLogic {
       // Overview's twin waveform — belief (Δbelief/KL, the mass channel) vs gravitational pull
       // (the bridge/connectivity channel — how strongly a turn draws entities into bond) — can be
       // viewed solo or overlaid. One global toggle; every source's Overview shares it.
-      waveMode: 'overlay',
+      waveMode: 'overlay', overviewStructureDots: true, overviewEntitiesOn: true, overviewXkcd: false, overviewFoldOpen: false, overviewFoldRanges: {}, overviewFoldSummaries: {},
       // Source overview's Characters card can be re-ranked without changing the underlying
       // reading: mass (mentions + links), explicit first appearance in the source text, or A–Z.
       castSort: 'mass', castQuery: '', castExpanded: false,
@@ -5004,8 +5011,41 @@ class Component extends DCLogic {
     if (mode === 'native') this.loadPage(sn);
     if (mode === 'pdf') this.loadPdf(sn);
   }
-  // Overview's twin waveform toggle — belief solo, gravitational pull solo, or both overlaid.
-  setWaveMode(mode) { this.setState({ waveMode: mode }); }
+  // Overview waveform controls — the only surprise view is the overlay; the toggles add structure,
+  // entities, the xkcd-style narrative sketch, and the draggable fold in/out handles.
+  setWaveMode(mode) { this.setState({ waveMode: 'overlay' }); }
+  toggleOverviewStructureDots() { this.setState({ overviewStructureDots: !this.state.overviewStructureDots }); }
+  toggleOverviewEntities() { this.setState({ overviewEntitiesOn: !this.state.overviewEntitiesOn }); }
+  toggleOverviewXkcd() { this.setState({ overviewXkcd: !this.state.overviewXkcd }); }
+  toggleOverviewFoldOpen() { this.setState({ overviewFoldOpen: !this.state.overviewFoldOpen }); }
+  setOverviewFoldPoint(sn, edge, value) {
+    const n = Math.max(0, Math.min(100, Number(value) || 0));
+    const cur = this.state.overviewFoldRanges[sn] || { in: 15, out: 65 };
+    const next = edge === 'in' ? { ...cur, in: Math.min(n, cur.out - 1) } : { ...cur, out: Math.max(n, cur.in + 1) };
+    this.setState({ overviewFoldRanges: { ...this.state.overviewFoldRanges, [sn]: next } });
+  }
+  async summarizeOverviewFold(sn) {
+    const app = this._app, src = app && app.sourceBySn && app.sourceBySn(sn); if (!app || !src) return;
+    const key = sn;
+    const put = (patch) => this.setState({ overviewFoldSummaries: { ...this.state.overviewFoldSummaries, [key]: { ...(this.state.overviewFoldSummaries[key] || {}), ...patch } } });
+    put({ busy: true, err: '', text: '' });
+    try {
+      try { localStorage.setItem('eo_claude_model', localStorage.getItem('eo_claude_model') || 'claude-3-haiku-20240307'); } catch {}
+      if (app.backendPref && app.backendPref() !== 'claude') app.setBackend('claude');
+      if (app.ensureModel) await app.ensureModel();
+      if (!app.model || !app.model.phrase) throw new Error('Anthropic API model unavailable — pick Claude and add an API key.');
+      const eot = app.eotForSource ? app.eotForSource(src) : null;
+      const units = eot && Array.isArray(eot.unitText) ? eot.unitText : String(src.text || '').split(/(?<=[.!?])\s+/);
+      const r = this._overviewFoldRange(sn);
+      const a = Math.max(0, Math.min(units.length - 1, Math.floor((r.in / 100) * Math.max(1, units.length - 1))));
+      const b = Math.max(a, Math.min(units.length - 1, Math.ceil((r.out / 100) * Math.max(1, units.length - 1))));
+      const returned = units.slice(a, b + 1).map((x, i) => `${a + i}: ${String(x || '').replace(/\s+/g, ' ').trim()}`).filter(Boolean).slice(0, 80);
+      const prompt = `Summarize this selected fold from ${src.title || src.reg || 'a source'} in 4 concise bullets. Use only these returned lines; do not add outside facts.\n\n${returned.join('\n')}`;
+      const text = await app.model.phrase([{ role: 'user', content: prompt }], { maxTokens: 320 });
+      put({ busy: false, err: '', text: String(text || '').trim() || 'No summary returned.', model: 'Anthropic Claude 3 Haiku', returned });
+    } catch (e) { put({ busy: false, err: String((e && e.message) || e), text: '' }); }
+  }
+  _overviewFoldRange(sn) { return this.state.overviewFoldRanges[sn] || { in: 15, out: 65 }; }
   // Characters card sort — mass, explicit first naming in the source, or alphabetical.
   setCastSort(mode) { this.setState({ castSort: mode }); }
   setCastQuery(q) { this.setState({ castQuery: String(q || ''), castExpanded: false }); }
@@ -6139,7 +6179,7 @@ class Component extends DCLogic {
     // Either can be viewed solo or overlaid — the same click-to-A/B a DAW gives you over two tracks.
     const turns = (eot && Array.isArray(eot.turns)) ? eot.turns : [];
     const unitsN = (eot && eot.units) || 0;
-    const sourceUnits = (eot && Array.isArray(eot.unitText)) ? eot.unitText : [];
+    const sourceUnits = (eot && Array.isArray(eot.unitText) && eot.unitText.length) ? eot.unitText : (paras.length ? paras.map((p) => p.text || p.s || p.label || '') : String(s.text || '').split(/(?<=[.!?])\s+/));
     const NBARS = 96;
     const posOf = (t) => (unitsN <= 0 || t.idx == null) ? -1 : Math.min(NBARS - 1, Math.max(0, Math.round((t.idx / Math.max(1, unitsN - 1)) * (NBARS - 1))));
     const beliefOf = (t) => Math.max(t.bayesBits || 0, t.surprisalBits || 0);
@@ -6186,7 +6226,12 @@ class Component extends DCLogic {
     const belief = { bars: buildTrack(beliefOf, (f) => f > 0.55 ? '#5B4BE6' : f > 0.28 ? '#8C7DF3' : '#D8D3F7') };
     const gravity = { bars: buildTrack(pullOf, (f) => f > 0.55 ? '#C9963A' : f > 0.28 ? '#DDB56B' : '#F0E0BE') };
     const hasGravity = turns.some((t) => t.bridge != null);
-    const waveMode = hasGravity ? (this.state.waveMode || 'overlay') : 'belief';
+    const waveMode = 'overlay';
+    const foldRange = this._overviewFoldRange(s.sn);
+    const foldA = Math.max(0, Math.min(sourceUnits.length - 1, Math.floor((foldRange.in / 100) * Math.max(1, sourceUnits.length - 1))));
+    const foldB = Math.max(foldA, Math.min(sourceUnits.length - 1, Math.ceil((foldRange.out / 100) * Math.max(1, sourceUnits.length - 1))));
+    const foldReturned = sourceUnits.slice(foldA, foldB + 1).map((x, i) => `${foldA + i}: ${String(x || '').replace(/\s+/g, ' ').trim()}`).filter(Boolean);
+    const foldRec = this.state.overviewFoldSummaries[s.sn] || {};
     const surpriseTurns = turns.slice().sort((a, b) => beliefOf(b) - beliefOf(a)).slice(0, 6).map((t) => ({
       line: `line ${t.idx}`,
       text: (t.surprises && t.surprises[0] && t.surprises[0].text) || (t.sentence ? String(t.sentence).replace(/\s+/g, ' ').trim().slice(0, 84) : 'a turn in the reading'),
@@ -6197,15 +6242,33 @@ class Component extends DCLogic {
     }));
     const surprise = {
       has: turns.length > 0, hasGravity, turns: surpriseTurns,
-      count: `${turns.length} turning point${turns.length === 1 ? '' : 's'}`,
+      count: `${turns.length} turning point${turns.length === 1 ? '' : 's'} · overlay`,
       openEot: () => this.setSourceMode('eot'),
-      mode: waveMode, showBelief: waveMode === 'belief', showGravity: waveMode === 'gravity', showOverlay: waveMode === 'overlay',
-      showBeliefLayer: waveMode !== 'gravity', showGravityLayer: hasGravity && waveMode !== 'belief',
-      beliefFg: waveMode === 'belief' ? '#1B1B22' : '#8A8A95', beliefBg: waveMode === 'belief' ? '#fff' : 'transparent',
-      gravityFg: waveMode === 'gravity' ? '#1B1B22' : '#8A8A95', gravityBg: waveMode === 'gravity' ? '#fff' : 'transparent',
-      overlayFg: waveMode === 'overlay' ? '#1B1B22' : '#8A8A95', overlayBg: waveMode === 'overlay' ? '#fff' : 'transparent',
+      mode: waveMode, showBelief: false, showGravity: false, showOverlay: true,
+      showBeliefLayer: true, showGravityLayer: hasGravity,
+      beliefFg: '#8A8A95', beliefBg: 'transparent', gravityFg: '#8A8A95', gravityBg: 'transparent', overlayFg: '#1B1B22', overlayBg: '#fff',
       belief: belief.bars, gravity: gravity.bars,
-      setBelief: () => this.setWaveMode('belief'), setGravity: () => this.setWaveMode('gravity'), setOverlay: () => this.setWaveMode('overlay'),
+      setBelief: () => this.setWaveMode('overlay'), setGravity: () => this.setWaveMode('overlay'), setOverlay: () => this.setWaveMode('overlay'),
+      showStructureDots: !!this.state.overviewStructureDots,
+      structureDots: structure.slice(0, 18).map((u) => ({ title: `${u.unit} · ${u.label}` })),
+      toggleStructure: () => this.toggleOverviewStructureDots(),
+      structureFg: this.state.overviewStructureDots ? '#5140C8' : '#8A8A95', structureBg: this.state.overviewStructureDots ? '#F1EFFE' : '#fff', structureBd: this.state.overviewStructureDots ? '#DED8FD' : '#EAEAEF',
+      showEntities: !!this.state.overviewEntitiesOn,
+      entityPills: castSorted.slice(0, 25).map((e) => ({ label: e.label || 'Entity', open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); } })),
+      toggleEntities: () => this.toggleOverviewEntities(),
+      entitiesFg: this.state.overviewEntitiesOn ? '#5140C8' : '#8A8A95', entitiesBg: this.state.overviewEntitiesOn ? '#F1EFFE' : '#fff', entitiesBd: this.state.overviewEntitiesOn ? '#DED8FD' : '#EAEAEF',
+      showXkcd: !!this.state.overviewXkcd,
+      xkcdEntities: castSorted.slice(0, 25).map((e, i) => ({ label: e.label || 'Entity', short: this._initials(e.label || 'E'), title: `${e.label || 'Entity'} · ${e.mentions || 0} mentions`, hPct: Math.max(18, Math.min(100, 22 + ((e.mentions || 0) / castMax) * 78)) + '%', tilt: ((i % 5) - 2) * 2, open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); } })),
+      toggleXkcd: () => this.toggleOverviewXkcd(),
+      xkcdFg: this.state.overviewXkcd ? '#5140C8' : '#8A8A95', xkcdBg: this.state.overviewXkcd ? '#F1EFFE' : '#fff', xkcdBd: this.state.overviewXkcd ? '#DED8FD' : '#EAEAEF',
+      foldOpen: !!this.state.overviewFoldOpen, toggleFold: () => this.toggleOverviewFoldOpen(),
+      foldIn: foldRange.in, foldOut: foldRange.out,
+      setFoldIn: (e) => this.setOverviewFoldPoint(s.sn, 'in', e && e.target ? e.target.value : e),
+      setFoldOut: (e) => this.setOverviewFoldPoint(s.sn, 'out', e && e.target ? e.target.value : e),
+      summarizeFold: () => this.summarizeOverviewFold(s.sn),
+      foldBusy: !!foldRec.busy, foldText: foldRec.text || '', foldHasText: !!foldRec.text,
+      foldErr: foldRec.err || '', foldHasErr: !!foldRec.err,
+      foldReturned: (foldRec.returned || foldReturned).join('\n') || '(no source units returned for this selection)',
     };
     return {
       workspace: ws.name || 'Workspace', topic: topic.title || 'Topic', sourceLabel: s.reg || 'Source', icon, typeLabel: type.toUpperCase(), title,
@@ -7765,7 +7828,7 @@ class Component extends DCLogic {
       ['ollama', 'Ollama · local server', 'Run big models via Ollama on this machine. Start it with OLLAMA_ORIGINS=* ollama serve, then pick this — it uses whatever you’ve pulled. Re-pick to set a custom URL.'],
     ];
     const pref = app.backendPref();
-    const backends = BACKENDS.map(([id, label, desc]) => ({
+    const backends = BACKENDS.filter(([id]) => id === 'none' || id === 'claude').map(([id, label, desc]) => ({
       label, desc, bg: pref === id ? '#F7F7FA' : 'transparent',
       ringColor: pref === id ? '#6D5EF5' : '#D4D4DC', dotColor: pref === id ? '#6D5EF5' : 'transparent',
       pick: () => {
