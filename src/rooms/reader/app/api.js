@@ -90,6 +90,8 @@ export const buildApi = (appCtx) => {
     findings: appCtx.findings, provenance: appCtx.provenance, dagFor: appCtx.dagFor, dagSources: appCtx.dagSources, eotFor: appCtx.eotFor, answerEot: appCtx.answerEot,
     // search over the record + the durable write path (docs/search-and-pins.md)
     searchRecord: appCtx.searchRecord,
+    // search as a surface — a query routed to its best preset template (concordance/cast/contrast)
+    searchSurface: appCtx.searchSurface,
     pins: appCtx.pins, pinAdd: appCtx.pinAdd, pinRemove: appCtx.pinRemove, pinUpdate: appCtx.pinUpdate, pinResolve: appCtx.pinResolve, anchorAt: appCtx.anchorAt,
     // the commitment ledger (assertions + corrections, persisted) and the session's
     // self/world line readout — the honesty and ledger seams, readable from the surface

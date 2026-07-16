@@ -719,50 +719,113 @@ table{border-collapse:collapse;width:100%}
                   </sc-if>
                 </div>
 
-                <!-- SEARCH FIRST — the record is the destination. One click (or ⌘K) opens the
-                     grouped record search; the question line below is the fallback for what the
-                     record hasn't pre-answered. -->
-                <button onClick="{{ openCmdk }}" style="width:100%;display:flex;align-items:center;gap:11px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:12px;padding:13px 16px;margin-bottom:18px;text-align:left" style-hover="border-color:#B7ADF3;background:#F4F2FE">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round" style="flex:0 0 auto"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-                  <span style="flex:1;min-width:0;font-size:14px;color:#8A8A95">Search the record — entities, claims, passages, sources…</span>
-                  <span style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#B4B4BE;background:#fff;border:1px solid #EAEAEF;border-radius:5px;padding:2px 6px">⌘K</span>
-                </button>
-
-                <!-- the question fallback — for what the record hasn't pre-answered -->
-                <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.07em;color:#B4B4BE;margin-bottom:8px">STILL HAVE A QUESTION?</div>
-                <div style="position:relative;margin-bottom:10px">
-                  <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="{{ chatPlaceholder }}" style="width:100%;border:none;border-bottom:2px solid #1B1B22;outline:none;background:transparent;font-size:23px;font-weight:300;color:#1B1B22;padding:6px 42px 12px 0" />
-                  <sc-if value="{{ generating }}">
-                    <button onClick="{{ stopGen }}" title="Stop" style="position:absolute;right:0;bottom:11px;width:32px;height:32px;border-radius:9px;background:#FBE9E6;color:#B23A2E;display:flex;align-items:center;justify-content:center" style-hover="background:#F6DCD7"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
-                  </sc-if>
-                  <sc-if value="{{ showSend }}">
-                    <button onClick="{{ sendChat }}" title="Ask" style="position:absolute;right:0;bottom:11px;width:32px;height:32px;border-radius:9px;background:#6D5EF5;color:#fff;display:flex;align-items:center;justify-content:center" style-hover="background:#5B4BE6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+                <!-- THE SEARCH SURFACE — the best-ever ctrl+F. A question over the record, rendered
+                     as its best preset surface (search-surface.js): occurrences (verbatim, lit), the
+                     cast, or the contrast. Less prose, more seeing. The source rail toggles scope;
+                     the surface auto-pivots. ⌘K remains the quick palette; this tab IS the search. -->
+                <div style="position:relative;margin-bottom:14px">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round" style="position:absolute;left:2px;top:11px"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                  <input id="eo-sf-input" value="{{ sfQuery }}" onChange="{{ onSfInput }}" placeholder="Search the record — a word, a name, or a question…" autocomplete="off" spellcheck="false" style="width:100%;border:none;border-bottom:2px solid #1B1B22;outline:none;background:transparent;font-size:22px;font-weight:300;color:#1B1B22;padding:5px 40px 11px 30px" />
+                  <sc-if value="{{ sfAsked }}">
+                    <button onClick="{{ sfClear }}" title="Clear" style="position:absolute;right:0;bottom:10px;width:30px;height:30px;border-radius:8px;color:#8A8A95;display:flex;align-items:center;justify-content:center" style-hover="background:#F2F2F6;color:#3A3A44"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
                   </sc-if>
                 </div>
-                <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#A0A0AA;margin-bottom:16px">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
-                  <span style="flex:1;min-width:0">Every answer is measured against your record, names where it looked — and its claims land in Findings.</span>
-                  <button onClick="{{ cycleWebMode }}" title="{{ webModeTitle }}" style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;color:{{ webModeFg }};background:{{ webModeBg }};border:1px solid {{ webModeBd }}" style-hover="filter:brightness(.97)">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.6 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.6-3.8-9s1.3-6.5 3.8-9z"/></svg>
-                    {{ webModeLabel }}
-                  </button>
-                </div>
 
-                <!-- tries -->
-                <sc-if value="{{ askHasTries }}">
-                  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
-                    <sc-for list="{{ askTries }}" as="tr">
-                      <button onClick="{{ tr.go }}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6E6E78;background:transparent;border:1px solid #E6E6EC;border-radius:7px;padding:5px 9px" style-hover="border-color:#6D5EF5;color:#3A3A44">{{ tr.label }}</button>
+                <!-- the source rail — signal from noise. A lit dot = this source carries the query;
+                     click to drop a source and the surface re-scopes; click again to bring it back. -->
+                <sc-if value="{{ sfHasRail }}">
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#B4B4BE;margin-right:2px">SOURCES</span>
+                    <sc-for list="{{ sfRail }}" as="r">
+                      <button onClick="{{ r.toggle }}" title="Toggle this source in scope" style="display:inline-flex;align-items:center;gap:6px;max-width:220px;border:1px solid {{ r.bd }};background:{{ r.bg }};border-radius:20px;padding:3px 10px 3px 8px;font-size:11px;font-weight:600;color:{{ r.fg }}" style-hover="filter:brightness(.98)">
+                        <span style="width:7px;height:7px;border-radius:50%;background:{{ r.dot }};flex:0 0 auto"></span>
+                        <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }}</span>
+                        <sc-if value="{{ r.hasCount }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;color:#6D5EF5;background:#EEEBFE;border-radius:9px;padding:0 5px">{{ r.count }}</span></sc-if>
+                      </button>
                     </sc-for>
                   </div>
                 </sc-if>
 
-                <!-- empty -->
-                <sc-if value="{{ askEmpty }}">
-                  <div style="padding:36px 4px 12px;text-align:center">
-                    <div style="width:46px;height:46px;border-radius:13px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin:0 auto 16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+                <!-- asked — the surface, with its template switcher -->
+                <sc-if value="{{ sfAsked }}">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+                    <div style="flex:1;min-width:120px;font-size:11.5px;color:#8A8A95">{{ sfSignalLabel }}</div>
+                    <div style="display:flex;gap:3px;background:#F4F4F7;border:1px solid #EAEAEF;border-radius:9px;padding:2px">
+                      <sc-for list="{{ sfTabs }}" as="t">
+                        <button onClick="{{ t.set }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;color:{{ t.fg }};background:{{ t.bg }};border:1px solid {{ t.bd }}" style-hover="filter:brightness(.98)">{{ t.label }}<sc-if value="{{ t.hasN }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">{{ t.n }}</span></sc-if></button>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <!-- CONCORDANCE — every verbatim occurrence, grouped by source, terms lit -->
+                  <sc-if value="{{ sfIsConcordance }}">
+                    <sc-for list="{{ sfConcordance }}" as="h">
+                      <div style="margin-bottom:18px">
+                        <button onClick="{{ h.open }}" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;margin-bottom:8px" style-hover="color:#5B4BE6">
+                          <span style="color:#6D5EF5">{{ h.reg }}</span>
+                          <span style="text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">{{ h.title }}</span>
+                          <span style="flex:1;height:1px;background:#EFEFF3"></span>
+                          <span style="flex:0 0 auto;color:#B4B4BE">{{ h.countLabel }}</span>
+                        </button>
+                        <sc-for list="{{ h.occurrences }}" as="o">
+                          <button onClick="{{ o.open }}" title="Open this occurrence in the source" style="display:block;width:100%;text-align:left;border:none;border-left:2px solid #EDEBF9;background:transparent;padding:5px 0 5px 12px;margin-bottom:2px;font-family:'Newsreader',Georgia,serif;font-size:15px;line-height:1.55;color:#3A3A44" style-hover="border-color:#6D5EF5;background:#FAFAFE">
+                            <sc-for list="{{ o.segs }}" as="sg"><sc-if value="{{ sg.hit }}"><span style="background:#FAEEDA;color:#4A1B0C;border-radius:2px;padding:0 1px">{{ sg.s }}</span></sc-if><sc-if value="{{ sg.plain }}"><span>{{ sg.s }}</span></sc-if></sc-for>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ sfThin }}">
+                      <div style="padding:34px 4px;text-align:center;font-size:13.5px;color:#8A8A95;line-height:1.6">{{ sfThinLabel }}</div>
+                    </sc-if>
+                  </sc-if>
+
+                  <!-- CAST — the figures on record, weighted by how much they carry -->
+                  <sc-if value="{{ sfIsCast }}">
+                    <sc-for list="{{ sfCast }}" as="c">
+                      <button onClick="{{ c.open }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid #EEEEF2;border-radius:11px;padding:11px 13px;margin-bottom:7px;background:#fff" style-hover="border-color:#DED8FD;background:#FBFAFF">
+                        <span style="flex:0 0 auto;width:34px;height:34px;border-radius:9px;background:#EEEBFE;color:#6D5EF5;display:flex;align-items:center;justify-content:center;font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600">{{ c.fav }}</span>
+                        <div style="flex:1;min-width:0">
+                          <div style="font-size:14px;font-weight:600;color:#1B1B22;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.label }}</div>
+                          <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ c.meta }}</div>
+                        </div>
+                        <div style="flex:0 0 64px;height:6px;border-radius:3px;background:#F0F0F4;overflow:hidden"><div style="height:100%;width:{{ c.weight }};background:#6D5EF5;border-radius:3px"></div></div>
+                      </button>
+                    </sc-for>
+                    <sc-if value="{{ sfThin }}">
+                      <div style="padding:34px 4px;text-align:center;font-size:13.5px;color:#8A8A95;line-height:1.6">{{ sfThinLabel }}</div>
+                    </sc-if>
+                  </sc-if>
+
+                  <!-- CONTRAST — where the record contests itself, or the claims that bear on this -->
+                  <sc-if value="{{ sfIsContrast }}">
+                    <sc-if value="{{ sfHasContrastNote }}">
+                      <div style="font-size:12px;color:#8A8A95;margin-bottom:12px">{{ sfContrastNote }}</div>
+                    </sc-if>
+                    <sc-for list="{{ sfContrast }}" as="c">
+                      <div style="border:1px solid #EEEEF2;border-left:3px solid {{ c.bar }};border-radius:0 10px 10px 0;padding:11px 14px;margin-bottom:8px;background:#fff">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                          <sc-if value="{{ c.subject }}"><span style="font-size:11px;font-weight:700;color:#6E6E78">{{ c.subject }}</span></sc-if>
+                          <span style="flex:1"></span>
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.04em;color:{{ c.stFg }};background:{{ c.stBg }};border:1px solid {{ c.stBd }};border-radius:5px;padding:1px 6px">{{ c.status }}</span>
+                        </div>
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.5;color:#1B1B22">{{ c.text }}</div>
+                        <sc-if value="{{ c.hasQuote }}">
+                          <button onClick="{{ c.open }}" title="Open the passage" style="display:block;width:100%;text-align:left;margin-top:8px;font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:13.5px;line-height:1.5;color:#6E6E78;border-left:2px solid #EAEAEF;padding-left:11px" style-hover="border-color:#6D5EF5;color:#3A3A44">“{{ c.quote }}”</button>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ sfThin }}">
+                      <div style="padding:34px 4px;text-align:center;font-size:13.5px;color:#8A8A95;line-height:1.6">{{ sfThinLabel }}</div>
+                    </sc-if>
+                  </sc-if>
+                </sc-if>
+
+                <!-- cold — nothing typed yet: the invitation to record, then search -->
+                <sc-if value="{{ sfEmpty }}">
+                  <div style="padding:30px 4px 12px;text-align:center">
+                    <div style="width:46px;height:46px;border-radius:13px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin:0 auto 16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div>
                     <div style="font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:600;color:#1B1B22">Search the record</div>
-                    <div style="font-size:13.5px;color:#6E6E78;line-height:1.6;max-width:440px;margin:8px auto 20px">Record a web page, a file, or pasted text — the reading itself mints entities and claims you can search and pin. For anything it hasn't pre-answered, ask above: every answer traces to a verbatim passage, and when the record is silent it says so.</div>
+                    <div style="font-size:13.5px;color:#6E6E78;line-height:1.6;max-width:460px;margin:8px auto 20px">Type a word or a name to see every verbatim occurrence lit across your sources — the best-ever ctrl+F. Ask <i>who</i> for the cast, or <i>where do the sources disagree</i> for the contrast. Turn sources off in the rail and the surface re-scopes.</div>
                     <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
                       <sc-for list="{{ heroActions }}" as="h">
                         <button onClick="{{ h.go }}" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:10px;padding:9px 14px;font-size:12.5px;font-weight:600;color:#3A3A44" style-hover="background:#F2F2F6">{{ h.label }}</button>
@@ -770,171 +833,6 @@ table{border-collapse:collapse;width:100%}
                     </div>
                   </div>
                 </sc-if>
-
-                <!-- the surface (the latest answer, typed) -->
-                <sc-for list="{{ askSurfaces }}" as="a">
-                  <div style="animation:eoFade .18s ease">
-
-                    <!-- kind -->
-                    <sc-if value="{{ a.isPending }}">
-                      <div style="display:flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#8A8A95;margin-bottom:16px"><span style="animation:eoBlink 1.4s ease-in-out infinite">{{ a.pendingLabel }}</span><span style="flex:1;height:1px;background:#EAEAEF"></span></div>
-                    </sc-if>
-                    <sc-if value="{{ a.notPending }}">
-                      <div style="display:flex;align-items:center;gap:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:{{ a.kindFg }};margin-bottom:14px">{{ a.kind }}<sc-if value="{{ a.hasCorr }}"><span style="font-size:9px;font-weight:600;letter-spacing:.05em;color:{{ a.corrFg }};background:{{ a.corrBg }};border:1px solid {{ a.corrBd }};border-radius:4px;padding:1px 6px">{{ a.corrLabel }}</span></sc-if><span style="flex:1;height:1px;background:#EAEAEF"></span><span style="flex:0 0 auto;display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:normal">
-                        <sc-if value="{{ a.hasBody }}"><button onClick="{{ toggleEntityMode }}" title="{{ askLinksTitle }}" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }}" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ askLinksLabel }}</button></sc-if>
-                        <span style="position:relative;display:inline-flex">
-                          <button onClick="{{ toggleAskAuditMenu }}" title="Download this answer's full audit — the question, its grounded passages and verdicts, and the verbatim prompt" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF" style-hover="background:#EAEAEF;color:#5B4BE6"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Audit</button>
-                          <sc-if value="{{ askAuditMenuOpen }}">
-                            <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:#fff;border:1px solid #EAEAEF;border-radius:10px;box-shadow:0 12px 30px rgba(20,20,30,.16);padding:5px;width:216px">
-                              <div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;color:#9A9AA4;padding:5px 8px 4px">DOWNLOAD AUDIT</div>
-                              <button onClick="{{ downloadAskAuditMd }}" style="display:block;width:100%;text-align:left;border-radius:7px;padding:7px 9px;font-size:12px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF">Markdown<div style="font-size:10px;font-weight:500;color:#8A8A95;margin-top:1px">Readable — passages &amp; verdicts under the answer</div></button>
-                              <button onClick="{{ downloadAskAuditJson }}" style="display:block;width:100%;text-align:left;border-radius:7px;padding:7px 9px;font-size:12px;font-weight:600;color:#2A2A32" style-hover="background:#F4F3FF">JSON<div style="font-size:10px;font-weight:500;color:#8A8A95;margin-top:1px">Structured — the answer paired to its trail</div></button>
-                            </div>
-                          </sc-if>
-                        </span>
-                      </span></div>
-                    </sc-if>
-
-                    <!-- the question, restated -->
-                    <sc-if value="{{ a.hasQuestion }}">
-                      <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-style:italic;color:#6E6E78;margin-bottom:16px">{{ a.question }}</div>
-                    </sc-if>
-
-                    <!-- research / thinking trail (reading the record) -->
-                    <sc-if value="{{ a.hasTrail }}">
-                      <div style="margin:2px 0 12px;border:1px solid #E8E6F4;background:#FAFAFE;border-radius:9px;overflow:hidden">
-                        <button onClick="{{ a.toggleTrail }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:7px 10px;text-align:left" style-hover="background:#F4F2FD">
-                          <sc-if value="{{ a.trailRunning }}"><span style="width:11px;height:11px;border:2px solid #C9C2F2;border-top-color:#6D5EF5;border-radius:50%;display:inline-block;animation:eoSpin .7s linear infinite;flex:0 0 auto"></span></sc-if>
-                          <sc-if value="{{ a.trailIdle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></sc-if>
-                          <span style="font-size:11.5px;font-weight:600;color:#5A5A64;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.trailSummary }}</span>
-                          <span style="flex:1"></span>
-                          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;flex:0 0 auto">{{ a.trailClock }}</span>
-                          <span style="font-size:10px;color:#A0A0AA;flex:0 0 auto">{{ a.trailCaret }}</span>
-                        </button>
-                        <sc-if value="{{ a.trailOpen }}">
-                          <div style="max-height:220px;overflow-y:auto;padding:2px 10px 9px;border-top:1px solid #EFEDF9">
-                            <sc-for list="{{ a.trailSteps }}" as="ts">
-                              <div style="display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:11.5px;line-height:1.5;color:#4A4A54">
-                                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ ts.fg }};flex:0 0 auto;width:12px;text-align:center">{{ ts.glyph }}</span>
-                                <div style="min-width:0;flex:1">
-                                  <span style="min-width:0">{{ ts.text }}</span>
-                                  <sc-if value="{{ ts.hasDetail }}">
-                                    <div style="margin-top:4px;padding:6px 8px;background:#F7F6FB;border:1px solid #ECEAF5;border-radius:7px">
-                                      <sc-for list="{{ ts.detail }}" as="dr">
-                                        <div style="padding:1px 0;font-size:10.5px;line-height:1.5;overflow-wrap:anywhere">
-                                          <span style="font-family:'IBM Plex Mono',monospace;color:#9A93C4">{{ dr.label }}</span>
-                                          <span style="color:#5A5A64;margin-left:6px">{{ dr.value }}</span>
-                                        </div>
-                                      </sc-for>
-                                    </div>
-                                  </sc-if>
-                                  <sc-if value="{{ ts.hasPrompt }}">
-                                    <div style="margin-top:4px;padding:6px 8px;background:#1B1B22;border-radius:7px">
-                                      <div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#8A84A8;margin-bottom:4px">PROMPT · VERBATIM</div>
-                                      <pre style="margin:0;max-height:200px;overflow:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.45;color:#D6D3E6;white-space:pre-wrap;word-break:break-word">{{ ts.promptText }}</pre>
-                                    </div>
-                                  </sc-if>
-                                </div>
-                              </div>
-                            </sc-for>
-                          </div>
-                        </sc-if>
-                      </div>
-                    </sc-if>
-
-                    <!-- unverified draft banner -->
-                    <sc-if value="{{ a.unverified }}">
-                      <div style="display:flex;align-items:flex-start;gap:7px;margin:2px 0 12px;padding:7px 10px;background:#FBF1DA;border:1px solid #EEDCA9;border-radius:8px;font-size:12px;line-height:1.5;color:#8A6A12">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;margin-top:1px"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
-                        <span>Stopped before this could be checked against your record — the text below is the model's unverified draft, not a grounded answer.</span>
-                      </div>
-                    </sc-if>
-
-                    <!-- the answer body (the lede), with inline citations + entity links -->
-                    <sc-if value="{{ a.hasBody }}">
-                      <div style="font-family:'Newsreader',Georgia,serif;font-size:20px;line-height:1.5;color:#1B1B22;letter-spacing:-.005em">
-                        <sc-for list="{{ a.paras }}" as="pp">
-                          <div style="{{ pp.style }}">
-                            <sc-if value="{{ pp.hasPrefix }}"><span style="color:#8A8A95">{{ pp.prefix }}</span></sc-if>
-                            <sc-for list="{{ pp.segs }}" as="sg">
-                              <sc-if value="{{ sg.isText }}"><span style="{{ sg.style }}">{{ sg.s }}</span></sc-if>
-                              <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;color:#5B4BE6;font-weight:550;font-size:inherit;line-height:inherit;{{ sg.hl }}" style-hover="filter:brightness(.97)">{{ sg.s }}</button></sc-if>
-                              <sc-if value="{{ sg.isCite }}"><button onClick="{{ sg.open }}" title="{{ sg.quote }}" style="display:inline-flex;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.02em;color:{{ sg.cfg }};background:{{ sg.cbg }};border-radius:4px;padding:1px 4px;margin:0 1px 0 2px;vertical-align:baseline" style-hover="filter:brightness(.96)">{{ sg.label }}</button></sc-if>
-                            </sc-for>
-                          </div>
-                        </sc-for>
-                      </div>
-                    </sc-if>
-
-                    <!-- the gap — the step the record does not carry -->
-                    <sc-if value="{{ a.hasGap }}">
-                      <div style="border:1px dashed #C9938E;border-radius:9px;padding:14px 16px;margin-top:18px;background:rgba(178,58,46,.03)">
-                        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#B23A2E;display:block;margin-bottom:6px">{{ a.gapLabel }}</span>
-                        <div style="font-family:'Newsreader',Georgia,serif;font-size:15.5px;line-height:1.55;color:#8F3030">{{ a.gapText }}</div>
-                      </div>
-                    </sc-if>
-
-                    <!-- web-search proposal (a measured gap the record couldn't close) -->
-                    <sc-if value="{{ a.hasProposal }}">
-                      <button onClick="{{ a.runProposal }}" style="display:inline-flex;align-items:center;gap:7px;margin-top:14px;border:1px solid #DED8FD;background:#F6F4FF;border-radius:9px;padding:7px 12px;font-size:12px;font-weight:600;color:#5B4BE6" style-hover="background:#EEEBFE">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-                        Search the web: “{{ a.proposalQ }}”
-                      </button>
-                    </sc-if>
-
-                    <!-- provenance — the passages as doors into the record -->
-                    <sc-if value="{{ a.hasDoors }}">
-                      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#9A9AA4;margin:26px 0 10px">Grounded in</div>
-                      <sc-for list="{{ a.doors }}" as="d">
-                        <button onClick="{{ d.open }}" title="Open this passage in the source" style="display:block;width:100%;text-align:left;border:none;border-left:3px solid {{ d.pc }};background:#FBFCF9;padding:11px 0 11px 14px;margin-bottom:2px" style-hover="background:#F2F5EF">
-                          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#A0A0AA;margin-bottom:5px"><span style="color:{{ d.pc }}">{{ d.pre }}</span> · {{ d.reg }} · {{ d.title }} <span style="color:#B4B4BE">↗</span></div>
-                          <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;line-height:1.5;color:#2A2A32">{{ d.quote }}</div>
-                        </button>
-                      </sc-for>
-                    </sc-if>
-
-                    <!-- the facing page — the verbatim prompt + the answer's own EoT reading -->
-                    <sc-if value="{{ a.facingClosed }}">
-                      <button onClick="{{ a.facingToggle }}" title="Reveal how this answer was made — the verbatim prompt the model was handed, and the reply beside its own EoT reading" style="position:relative;display:flex;align-items:center;gap:8px;width:100%;margin-top:16px;padding:9px 13px 10px;border:1px solid #E4E0FB;border-radius:11px;background:linear-gradient(180deg,#FBFAFF,#F3F1FD);color:#5B4BE6;text-align:left;overflow:hidden" style-hover="background:#EFEBFE">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="M12 6.5C10.5 5.5 8.5 5 6 5H3v13h3c2.5 0 4.5.5 6 1.5M12 6.5C13.5 5.5 15.5 5 18 5h3v13h-3c-2.5 0-4.5.5-6 1.5M12 6.5v13"/></svg>
-                        <span style="flex:0 0 auto;font-weight:600;font-size:12.5px;white-space:nowrap">What it was prompted</span>
-                        <span style="flex:1 1 0;min-width:0;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;color:#9E96D6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">· reveal the verbatim prompt &amp; the reading</span>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="m6 9 6 6 6-6"/></svg>
-                      </button>
-                    </sc-if>
-                    <sc-if value="{{ a.facingOpen }}">
-                      <div style="margin-top:16px;border:1px solid #1d222c;border-radius:12px;overflow:hidden;background:#0d1017">
-                        <div onClick="{{ a.facingToggle }}" title="Hide the reading" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 14px;border-bottom:1px solid #1d222c;background:#0a0d13;cursor:pointer" style-hover="background:#0e131b">
-                          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8B93A3">What it was prompted</span>
-                          <span style="flex:1"></span>
-                          <sc-for list="{{ a.facingLegend }}" as="lg">
-                            <span style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8b93a3"><span style="width:8px;height:8px;border-radius:2px;background:{{ lg.color }};flex:0 0 auto"></span>{{ lg.label }}</span>
-                          </sc-for>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8B93A3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;margin-left:2px"><path d="m6 15 6-6 6 6"/></svg>
-                        </div>
-                        <div class="eo-scroll" style="max-height:360px;overflow:auto;padding:12px 4px 16px">
-                          <sc-for list="{{ a.facingLines }}" as="fl">
-                            <div style="display:flex;align-items:baseline;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.6;white-space:pre;background:{{ fl.rowBg }}">
-                              <span style="flex:0 0 auto;width:40px;text-align:right;padding-right:12px;color:#7A8494;user-select:none">{{ fl.n }}</span>
-                              <span style="flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;opacity:{{ fl.opacity }}"><sc-for list="{{ fl.segs }}" as="sg"><span style="color:{{ sg.color }}">{{ sg.s }}</span></sc-for></span>
-                            </div>
-                          </sc-for>
-                          <sc-if value="{{ a.facingEmpty }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8B93A3;padding:8px 0 0 52px">No propositions were read from this answer.</div></sc-if>
-                          <sc-if value="{{ a.facingTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8B93A3;padding:10px 0 0 52px">… {{ a.facingMore }} more lines.</div></sc-if>
-                        </div>
-                      </div>
-                    </sc-if>
-
-                    <!-- the receipt — where it looked, so the claim or the silence can be checked -->
-                    <sc-if value="{{ a.hasReceipt }}">
-                      <div style="margin-top:30px;padding-top:13px;border-top:1px solid #EAEAEF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.7;color:#A0A0AA">
-                        <span style="color:#6E6E78">{{ a.receiptA }}</span>
-                        <span style="display:block;margin-top:7px;font-family:'Newsreader',Georgia,serif;font-size:14px;font-style:italic;color:#6E6E78;line-height:1.5">{{ a.receiptWhy }}</span>
-                      </div>
-                    </sc-if>
-
-                  </div>
-                </sc-for>
               </div>
             </div>
           </div>
@@ -3122,6 +3020,9 @@ class Component extends DCLogic {
       libOpen: false, libId: 'wikipedia', libQ: '', libBusy: false, libResults: null,
       // ⌘K source palette — full-text search across every recorded source (title · site · body)
       cmdkOpen: false, cmdkQuery: '', cmdkSel: 0,
+      // the search SURFACE (the Search tab) — a query routed to its best preset template, the
+      // best-ever ctrl+F. sfTemplate 'auto' routes by intent; sfDisabled is the source rail's off set.
+      sfQuery: '', sfTemplate: 'auto', sfDisabled: new Set(),
       pasteOpen: false, pasteTitle: '', pasteBody: '',
       modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
@@ -5185,6 +5086,130 @@ class Component extends DCLogic {
     this.setState({ cmdkQuery: op + (q ? ' ' + q : ''), cmdkSel: 0 });
     setTimeout(() => { const i = document.getElementById('eo-cmdk-input'); if (i) { try { i.focus(); const n = i.value.length; i.setSelectionRange(n, n); } catch {} } }, 20);
   }
+  // ── the search surface (the Search tab) — the best-ever ctrl+F ──────────────────────────────
+  // Every question over the record, rendered as its BEST preset surface (search-surface.js): the
+  // concordance (verbatim occurrences, lit), the cast (the figures), or the contrast (the contested
+  // claims). Less prose, more seeing. The source rail toggles what is in scope; the surface pivots.
+  onSfInput(e) { this.setState({ sfQuery: e && e.target ? e.target.value : '' }); }
+  _sfSetTemplate(t) { this.setState({ sfTemplate: t }); }
+  _sfToggleSource(sn) {
+    const cur = this.state.sfDisabled instanceof Set ? this.state.sfDisabled : new Set();
+    const next = new Set(cur);
+    if (next.has(sn)) next.delete(sn); else next.add(sn);
+    this.setState({ sfDisabled: next });
+  }
+  _sfClear() { this.setState({ sfQuery: '', sfTemplate: 'auto' }); }
+  // _surfaceVals(app, sources) → every val the Search-tab surface binds. Pure over app.searchSurface;
+  // the source rail is rebuilt from the FULL source list so a disabled source stays visible (and
+  // re-enable-able) even though the scan itself only reads the enabled ones.
+  _surfaceVals(app, sources) {
+    const st = this.state;
+    const q = String(st.sfQuery || '').trim();
+    const template = st.sfTemplate || 'auto';
+    const disabled = st.sfDisabled instanceof Set ? st.sfDisabled : new Set();
+    const all = sources || [];
+    const base = {
+      sfQuery: st.sfQuery || '', sfAsked: false, sfEmpty: !q,
+      sfIsConcordance: false, sfIsCast: false, sfIsContrast: false, sfThin: false,
+      sfRail: [], sfHasRail: all.length > 1, sfConcordance: [], sfCast: [], sfContrast: [],
+      sfContrastNote: '', sfTotal: 0, sfTotalLabel: '', sfSignalLabel: '', sfThinLabel: '',
+      sfTabs: [], sfSubject: q,
+      onSfInput: (e) => this.onSfInput(e), sfClear: () => this._sfClear(),
+    };
+    if (!q || !app || !app.searchSurface) return base;
+    let surf = null;
+    try {
+      const enabledSns = new Set(all.filter((s) => !disabled.has(s.sn)).map((s) => s.sn));
+      surf = app.searchSurface(q, { enabledSns, template });
+    } catch { surf = null; }
+    if (!surf) return base;
+
+    // the source rail — the full list, each with its live signal/count and toggle.
+    const railBySn = new Map((surf.rail || []).map((r) => [r.sn, r]));
+    const sfRail = all.map((s) => {
+      const on = !disabled.has(s.sn);
+      const r = on ? railBySn.get(s.sn) : null;
+      const signal = !!(r && r.signal);
+      return {
+        sn: s.sn, title: s.title || s.domain || s.url || '(untitled source)', reg: s.reg || '',
+        on, off: !on, signal, noise: on && !signal, count: r ? r.count : 0, hasCount: !!(r && r.count),
+        dot: !on ? '#D4D4DC' : signal ? '#6D5EF5' : '#D4D4DC',
+        fg: !on ? '#B4B4BE' : signal ? '#3A3A44' : '#9A9AA4',
+        bd: !on ? '#EAEAEF' : signal ? '#DED8FD' : '#EAEAEF',
+        bg: on && signal ? '#F6F4FF' : '#fff',
+        toggle: () => this._sfToggleSource(s.sn),
+      };
+    });
+
+    // the template switcher — auto + the three presets, the active one lit, each with its yield.
+    const counts = { concordance: surf.total, cast: (surf.cast || []).length, contrast: (surf.contrast || []).length };
+    const active = surf.template;
+    const tabDefs = [
+      { key: 'auto', label: 'Auto', n: null },
+      { key: 'concordance', label: 'Occurrences', n: counts.concordance },
+      { key: 'cast', label: 'Cast', n: counts.cast },
+      { key: 'contrast', label: 'Contrast', n: counts.contrast },
+    ];
+    const sfTabs = tabDefs.map((t) => {
+      const on = template === t.key || (template === 'auto' && t.key === 'auto');
+      const isActiveSurface = t.key === active;
+      return {
+        label: t.label, hasN: t.n != null, n: t.n,
+        on, fg: on ? '#5B4BE6' : (isActiveSurface ? '#3A3A44' : '#8A8A95'),
+        bg: on ? '#EEEBFE' : 'transparent', bd: on ? '#DED8FD' : '#EAEAEF',
+        set: () => this._sfSetTemplate(t.key),
+      };
+    });
+
+    const signalN = sfRail.filter((r) => r.signal).length;
+    const enabledN = sfRail.filter((r) => r.on).length;
+    const out = {
+      ...base, sfAsked: true, sfEmpty: false, sfSubject: surf.subject || q,
+      sfRail, sfHasRail: all.length > 1, sfTabs,
+      sfIsConcordance: active === 'concordance', sfIsCast: active === 'cast', sfIsContrast: active === 'contrast',
+      sfTotal: surf.total, sfThin: surf.thin,
+      sfTotalLabel: surf.total + ' occurrence' + (surf.total === 1 ? '' : 's'),
+      sfSignalLabel: signalN + ' of ' + enabledN + ' source' + (enabledN === 1 ? '' : 's') + ' carry this',
+    };
+
+    if (active === 'concordance') {
+      out.sfConcordance = (surf.concordance || []).map((h) => ({
+        sn: h.sn, reg: h.reg, title: h.title,
+        countLabel: h.count + ' hit' + (h.count === 1 ? '' : 's'),
+        occurrences: (h.occurrences || []).map((o) => ({
+          segs: (o.segs || []).map((sg) => ({ s: sg.s, hit: !!sg.hit, plain: !sg.hit })),
+          open: () => this.openViewer(h.sn, o.text),
+        })),
+      }));
+      out.sfThinLabel = 'No occurrences of “' + (surf.subject || q) + '” across the ' + enabledN + ' source' + (enabledN === 1 ? '' : 's') + ' in scope.';
+    } else if (active === 'cast') {
+      out.sfCast = (surf.cast || []).map((e) => ({
+        label: e.label, type: e.type || '',
+        meta: [e.type || null, e.mentions + ' mention' + (e.mentions === 1 ? '' : 's'), e.sourceCount + ' source' + (e.sourceCount === 1 ? '' : 's')].filter(Boolean).join('  ·  '),
+        fav: (e.label || 'E').trim().charAt(0).toUpperCase(),
+        weight: Math.max(6, Math.min(100, (e.mentions || 1) * 12)) + '%',
+        open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); },
+      }));
+      out.sfThinLabel = 'No figures on record for “' + (surf.subject || q) + '”.';
+    } else if (active === 'contrast') {
+      out.sfContrastNote = surf.contrastKind === 'contested'
+        ? 'Where the record contests itself.'
+        : (surf.contrastKind === 'claims' ? 'No open contradiction — the claims that bear on this, graded.' : '');
+      out.sfHasContrastNote = !!out.sfContrastNote;
+      out.sfContrast = (surf.contrast || []).map((c) => {
+        const contested = c.status === 'Contested';
+        return {
+          text: c.text, quote: c.quote || '', hasQuote: !!c.quote, subject: c.subject || '',
+          status: c.status || '', reg: c.reg || '',
+          stFg: contested ? '#B23A2E' : '#6E6E78', stBg: contested ? '#FBE9E6' : '#F2F2F6', stBd: contested ? '#F2D3CD' : '#EAEAEF',
+          bar: contested ? '#B23A2E' : '#C4C4CC',
+          open: () => { if (c.sn != null) this.openViewer(c.sn, c.quote || undefined); else this.setTab('evidence'); },
+        };
+      });
+      out.sfThinLabel = 'No contested or bearing claims for “' + (surf.subject || q) + '”.';
+    }
+    return out;
+  }
   // ── pins — the durable write path (docs/search-and-pins.md) ─────────────────────────────────
   _pinClaim(c) {
     const app = this._app; if (!app || !app.pinAdd) return;
@@ -6947,7 +6972,7 @@ class Component extends DCLogic {
   renderVals() {
     try { return this._vals(); }
     catch (err) {
-      return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
+      return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, sfClear: () => {}, sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
@@ -6961,7 +6986,7 @@ class Component extends DCLogic {
     const st = this.state;
     const app = this._app;
     if (!app) {
-      return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
+      return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, sfClear: () => {}, sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
         statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
@@ -8168,6 +8193,9 @@ class Component extends DCLogic {
       setRashomonEl: (el) => this.setRashomonEl(el),   // the Rashomon host ref (mounts rooms/rashomon)
       // ask (the primary surface) — the latest exchange as one typed, cited answer
       askSurfaces, askTries, askHasTries: askTries.length > 0, askEmpty, askHasSurface: askSurfaces.length > 0,
+      // the search surface — the Search tab IS the search: a query routed to its best preset
+      // template (concordance/cast/contrast), the source rail toggling scope (docs: best ctrl+F).
+      ...this._surfaceVals(app, sources),
       // ask context — breadcrumb (workspace › quest path) + the destination affordance
       askWsName: activeWs ? activeWs.name : 'Workspace',
       askWsDot: activeWs ? (activeWs.color || '#6D5EF5') : '#6D5EF5',
