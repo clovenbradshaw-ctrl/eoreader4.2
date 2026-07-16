@@ -4982,10 +4982,11 @@ class Component extends DCLogic {
     delete this._readerCache[sn];
     const tabs = this.state.viewerTabs.includes(sn) ? this.state.viewerTabs : [...this.state.viewerTabs, sn];
     // OVERVIEW (the source landing page — provenance, characters, the waveform of surprise, ways in)
-    // is the default surface for every source: clicking a source answers "what do we know about it?"
-    // first, and every reading mode (Reader, Native, PDF, Listen, EoT) is one click away on the mode
-    // row. A saved per-source mode still wins, so an explicit choice is never overridden.
-    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = 'overview';
+    // is the entry surface for every source open. Even if this source tab was already sitting in a
+    // deeper mode (Reader, Native, Search-adjacent exploration, PDF, Listen, EoT), a fresh open from
+    // the library/graph/citation brings the user back to the Overview first; explicit reading modes
+    // remain one click away on the mode row and persist only while the user stays in that source.
+    const modes = { ...this.state.viewerModes, [sn]: 'overview' };
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
     // Open the source AS A TAB in the main stage and make it the active tab.
     this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) });
