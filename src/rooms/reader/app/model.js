@@ -14,7 +14,7 @@ export const installModel = (appCtx) => {
   const backendPref = () => {
     if (backendOverride) return backendOverride;
     try { const v = localStorage.getItem('eo_backend'); if (v) return v; } catch { /* default */ }
-    return (typeof navigator !== 'undefined' && navigator.gpu) ? 'webllm' : 'none';
+    return 'none';   // lean default: model installs are opt-in, never WebGPU-triggered at boot
   };
   // The WebGPU talkers — both ride the web-llm engine, so they share the stall wording,
   // the no-WebGPU blame check, and the wedge ladder's step down to the CPU model.
