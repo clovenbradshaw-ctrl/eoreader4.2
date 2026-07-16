@@ -32,8 +32,17 @@ export const ingestText = async (file, opts = {}) => {
   // it the parse is the synchronous, byte-identical sweep. `await` is safe either way —
   // awaiting the plain doc the sync path returns just resolves to it.
   const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : undefined;
+  // The DARK-REFERENT read (perceiver/parse/dark-referent.js) is ON in the reader: a figure with
+  // no proper name — only a description the text keeps returning to ("the creature") — is detected
+  // by the gravity warping around it and admitted, so a nameless protagonist reaches the entity
+  // explorer instead of vanishing. Precision-gated (recurrence × agency × star-scale mass), so a
+  // document whose figures are all named is unchanged. `opts.nameReferent` (optional, ideally the
+  // talker) may rename a body or fold its synonyms before admission; without it the body is named
+  // by its own dominant description. Either can be turned off explicitly for a byte-identical parse.
+  const darkReferents = opts.darkReferents ?? true;
   const doc   = await parseText(text, { docId: name, rolesConflict, corefOpts: opts.corefOpts,
-                                        coordSubjects, onProgress, chunkSize: opts.chunkSize });
+                                        coordSubjects, darkReferents, nameReferent: opts.nameReferent,
+                                        onProgress, chunkSize: opts.chunkSize });
 
   // The graph is a fold of the log. Expose it as a frame-parameterised
   // projection so the UI can re-weight around a reading cursor (γ decay)

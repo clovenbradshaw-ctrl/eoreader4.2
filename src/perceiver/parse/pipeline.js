@@ -29,6 +29,7 @@ import { discoverNamings }      from './naming.js';
 import { distinctReferentCount } from './name-variants.js';
 import { induceInflections } from './inflection.js';
 import { discoverUncasedReferents } from './uncased.js';
+import { admitDarkReferents } from './dark-referent.js';
 import { readUncasedGrain } from './grain.js';
 import { induceAdpositions } from './adpositions.js';
 import { tok }                  from './tokenize.js';
@@ -126,6 +127,14 @@ export const createParser = ({
   // edges) and it abstains — no event — wherever the signal is not clean, the no-commit
   // discipline; the full suite reads identically with it on. Off restores the ungraded log.
   grainRead          = true,
+  // The DARK-REFERENT read (dark-referent.js) — admit a figure that has NO proper name, only a
+  // definite description the text keeps returning to ("the creature"), detected by the gravity
+  // warping around it (recurrence × subject-agency × star-scale mass). OFF by default → byte-
+  // identical (the gate is distributional, not a hard binary like the uncased read's, so it could
+  // nudge a golden); the reader turns it ON (organs/in/text.js). `nameReferent` is the optional
+  // injected hook (ideally the talker) that may rename/fold bodies before they are admitted.
+  darkReferents      = false,
+  nameReferent       = null,
 } = {}) => {
   // State owned by this parser instance. Mutated by parse(); the mutation
   // is visible only inside the holon. Tests construct one parser per case.
@@ -775,6 +784,15 @@ export const createParser = ({
         log.append({ op: 'DEF', id, key: 'grain', value: g.value, grain: g.grain,
                      cue: g.cue, defeasible: true, sentIdx: 0 }, EMIT);
       }
+    }
+
+    // ── The DARK-REFERENT read — admit the figure that has no name ──────────────
+    // LAST in finalize (purely additive — every event above is byte-identical) and after the whole
+    // named cast is assembled (so a body's mass is measured against real, merged names). The whole
+    // pass lives in the dark-referent holon; it returns the last INS so the arrow of time advances.
+    if (darkReferents) {
+      const dr = admitDarkReferents({ sentences, admission, conventions, corefField, log, emit: EMIT, nameReferent });
+      if (dr.lastIns) lastIns = dr.lastIns;
     }
 
     const tokensBySentence = sentences.map(s => new Set(tok(s)));
