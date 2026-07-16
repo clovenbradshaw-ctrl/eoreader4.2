@@ -150,6 +150,58 @@ export const discoverDarkReferents = (sentences, {
 
 export { idFor as darkReferentId };
 
+// ── The coreference fold — many descriptions, one nameless body ─────────────
+// The mechanics find each recurring nameless description on its own ("the creature", "the
+// wretch", "the monster"). Whether they are ONE body is world knowledge the read abstains on —
+// deferred to `nameReferent` when a talker is present. Absent one, the DEFAULT reading folds
+// every surviving dark body onto the HEAVIEST: a document almost never carries two nameless
+// star-scale protagonists, so "the wretch" is the creature under another description. The one
+// refusal keeps the honest case apart — two descriptions that each stand as a SUBJECT (the head
+// immediately followed by a content word) in the SAME sentence are two figures on stage at once
+// ("the plaintiff alleges … the defendant denies"), and are left as distinct bodies. The fold is
+// PROPOSED here; admitDarkReferents commits it as a DEFEASIBLE SYN, overturnable like a surname.
+// The word after a description that is NOT its verb — a particle ("drove the wretch AWAY"), a
+// preposition ("the creature IN the woods"), or a bleached adverb/connector. A follower in this
+// class means the description did not ACT there, so it does not witness two figures on stage.
+const NOT_PREDICATE = new Set([
+  'away', 'out', 'off', 'up', 'down', 'back', 'aside', 'apart', 'along', 'ahead', 'forward',
+  'onward', 'around', 'about', 'over', 'through', 'aboard', 'overboard', 'here', 'there',
+  'to', 'into', 'onto', 'of', 'in', 'on', 'at', 'from', 'with', 'for', 'by', 'as', 'than',
+  'toward', 'towards', 'upon', 'within', 'against', 'near', 'past', 'after', 'before', 'until',
+  'then', 'again', 'too', 'also', 'once', 'soon', 'later', 'now', 'and', 'or', 'but', 'so', 'yet', 'nor',
+]);
+const bothActInOneSentence = (sentences, headA, headB, C) => {
+  const subjRe = (h) => new RegExp(String.raw`\b${DET}\s+${MODS}?${h}\b\s+([\p{L}'’]+)`, 'u');
+  const reA = subjRe(headA), reB = subjRe(headB);
+  const acted = (m) => m && isContent(m[1], C) && !NOT_PREDICATE.has(m[1].toLowerCase());
+  for (const s of sentences) {
+    const str = String(s);
+    if (acted(reA.exec(str)) && acted(reB.exec(str))) return true;   // both acted here → distinct
+  }
+  return false;
+};
+
+// foldDarkReferents(proposals, sentences, C) → proposals
+//   The heaviest body absorbs each other body it does not co-act with; each absorbed body rides
+//   on as a `mergedFrom` alias (carrying its head, so its description surface can be registered),
+//   and the survivor's mentions are the union. A genuinely distinct nameless figure (the co-actor)
+//   is kept as its own body. Idempotent-shaped: with 0/1 proposals, or no fold, the input stands.
+export const foldDarkReferents = (proposals, sentences = [], C = { isFunction: () => false }) => {
+  if (!Array.isArray(proposals) || proposals.length < 2) return proposals;
+  const sorted = [...proposals].sort((a, b) => (b.mass || 0) - (a.mass || 0) || (a.label < b.label ? -1 : 1));
+  const primary = sorted[0];
+  const distinct = [];       // dark bodies that ACT alongside the primary → not the same figure
+  const folded = [];         // dark bodies with no such conflict → the primary under another description
+  for (const p of sorted.slice(1))
+    (bothActInOneSentence(sentences, primary.head, p.head, C) ? distinct : folded).push(p);
+  if (!folded.length) return proposals;
+  const mentions = [...new Set([...(primary.mentions || []), ...folded.flatMap((f) => f.mentions || [])])]
+    .sort((a, b) => a - b);
+  const mergedFrom = folded.map((f) => ({ id: f.id, label: f.label, head: f.head }));
+  const surfaces = [...new Set([...(primary.surfaces || []), ...folded.flatMap((f) => f.surfaces || [])])];
+  return [{ ...primary, mentions, surfaces, mergedFrom }, ...distinct];
+};
+
 // admitDarkReferents(ctx) — the pipeline's whole dark-referent pass, kept in this holon so the
 // orchestrator gains only a call. Detects the nameless bodies (above), lets an injected
 // `nameReferent(proposals,{sentences}) → proposals` hook rename/fold them (ideally the talker;
@@ -158,14 +210,26 @@ export { idFor as darkReferentId };
 // folding any hook-merged synonym onto the body, and a defeasible figure-grain DEF. Returns the
 // last INS `{ id, sentIdx }` so the orchestrator can advance its arrow of time. Pure but for the
 // log/admission/coref it is handed — the same injected-substrate discipline the pipeline uses.
-export const admitDarkReferents = ({ sentences, admission, conventions, corefField, log, emit, nameReferent } = {}) => {
-  if (!log || !admission) return { lastIns: null };
+export const admitDarkReferents = ({ sentences, admission, conventions, corefField, log, emit,
+                                     nameReferent, npEndpoints } = {}) => {
+  if (!log || !admission) return { lastIns: null, darkRefs: [] };
   let proposals = discoverDarkReferents(sentences, { admission, conventions });
   if (proposals.length && typeof nameReferent === 'function') {
     try { const named = nameReferent(proposals, { sentences }); if (Array.isArray(named)) proposals = named; }
     catch { /* naming is optional — the mechanical labels stand */ }
+  } else if (proposals.length > 1) {
+    // No talker: fold the coreferent descriptions onto one body, mechanically and defeasibly.
+    const C = { isFunction: (w) => conventions?.isFunction?.(w) ?? false };
+    proposals = foldDarkReferents(proposals, sentences, C);
   }
+  // The np-object endpoints the main read already emitted (ids the relation parser minted from
+  // a bare description in OBJECT position, e.g. "Frankenstein pursued the wretch" → tgt "wretch").
+  // A description HEAD folded onto the body must union those orphaned lemma nodes onto it, so the
+  // bond the main read DID make lands on the referent too — not just the ones the re-read adds.
+  const npEnd = npEndpoints instanceof Set ? npEndpoints : new Set();
+  const headOf = (label) => { const t = String(label || '').trim().toLowerCase().split(/\s+/); return singular(t[t.length - 1] || ''); };
   let lastIns = null;
+  const darkRefs = [];
   for (const p of proposals) {
     if (!p || !p.label || !Array.isArray(p.mentions) || !p.mentions.length) continue;
     let id = null;
@@ -186,8 +250,23 @@ export const admitDarkReferents = ({ sentences, admission, conventions, corefFie
                      reason: 'dark-referent-coreference', sentIdx: 0 }, emit);
       }
     }
+    // Register every description HEAD this body wears — its own and each merged alias's — onto the
+    // one referent id, so the relation parser resolves "the creature <verb>" / "the wretch <verb>"
+    // to it when the sentences are re-read at the retroactive cursor. Where the SAME head already
+    // rode as an np-object lemma in the main read, a SYN unions that orphaned node onto the body.
+    const heads = [...new Set([headOf(p.label), ...(p.mergedFrom || []).map((a) => a.head || headOf(a.label))].filter(Boolean))];
+    for (const h of heads) {
+      admission.aliasTo?.(h, id);
+      if (idFor(h) !== id && npEnd.has(h)) {
+        const syn = log.append({ op: 'SYN', kind: 'merge', from: idFor(h), to: id, label: p.label,
+                                 sentIdx: 0, match: 'dark-surface', warrant: 'description' }, emit);
+        log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
+                     reason: 'dark-referent-description', head: h, sentIdx: 0 }, emit);
+      }
+    }
     log.append({ op: 'DEF', id, key: 'grain', value: 'figure', grain: 'Figure',
                  cue: 'dark-referent', defeasible: true, sentIdx: 0 }, emit);
+    darkRefs.push({ id, label: p.label, head: p.head, heads, mentions: [...p.mentions].sort((a, b) => a - b) });
   }
-  return { lastIns };
+  return { lastIns, darkRefs };
 };

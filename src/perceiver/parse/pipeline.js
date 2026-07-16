@@ -32,6 +32,7 @@ import { discoverUncasedReferents } from './uncased.js';
 import { admitDarkReferents } from './dark-referent.js';
 import { readUncasedGrain } from './grain.js';
 import { induceAdpositions } from './adpositions.js';
+import { buildReferents }       from '../referents/index.js';
 import { tok }                  from './tokenize.js';
 import { createConventions, induceAttributionVerbs, BOUNDARY } from '../../core/conventions/index.js';
 
@@ -135,6 +136,14 @@ export const createParser = ({
   // injected hook (ideally the talker) that may rename/fold bodies before they are admitted.
   darkReferents      = false,
   nameReferent       = null,
+  // REFERENT-FIRST IDENTITY (perceiver/referents/). OFF by default → byte-identical (the whole
+  // layer is skipped, no surface/denotation events are appended). Set to 'mention' to build the
+  // mention→referent quotient on top of the finished read: a spelling becomes an observed surface
+  // that DENOTES an opaque referent, identity is shared denotation (never string-merging), and the
+  // doc gains the referent API (surfaceMentions / referents / referentOf / surfacesOf / propose /
+  // assert / assertDistinct / retract / referentEdges). The label quotient stays intact beneath it
+  // as the compatibility bridge — this is additive.
+  referentIdentity   = null,
 } = {}) => {
   // State owned by this parser instance. Mutated by parse(); the mutation
   // is visible only inside the holon. Tests construct one parser per case.
@@ -791,15 +800,81 @@ export const createParser = ({
     // named cast is assembled (so a body's mass is measured against real, merged names). The whole
     // pass lives in the dark-referent holon; it returns the last INS so the arrow of time advances.
     if (darkReferents) {
-      const dr = admitDarkReferents({ sentences, admission, conventions, corefField, log, emit: EMIT, nameReferent });
+      // The np-object lemma ids the main read already minted from a bare description in object
+      // position — handed to the dark read so a folded head can union its orphaned node onto the body.
+      const npEndpoints = new Set();
+      for (const { rel } of candidates)
+        if ((rel.op === 'CON' || rel.op === 'SIG') && rel.tgtKind === 'np') npEndpoints.add(rel.tgt);
+
+      const dr = admitDarkReferents({ sentences, admission, conventions, corefField, log, emit: EMIT, nameReferent, npEndpoints });
       if (dr.lastIns) lastIns = dr.lastIns;
+
+      // ── The retroactive structure re-read — the second cursor ─────────────────────
+      // The main read scanned each sentence in READING ORDER, where a nameless figure's
+      // description was not yet a referent, so "the creature stretched…" bonded NOTHING — the
+      // subject slot fell to silence. admitDarkReferents has since admitted the body and
+      // registered its description heads. Now re-read ONLY the sentences that mention it, with
+      // pronoun coref OFF (the descriptions resolve on their own; the pronouns were read in the
+      // main pass), and append every SUBJECT-side bond the referent now anchors. This is a
+      // DIFFERENT cursor than the course of the text: the record realizes, after the fact, what
+      // the reading was doing — the same append-only move the surname unmerge makes, adding real
+      // relational structure under the referent rather than a cosmetic identity merge over it.
+      if (dr.darkRefs && dr.darkRefs.length) {
+        const darkIds = new Set(dr.darkRefs.map((d) => d.id));
+        const edgeKey = (r) => r.op === 'DEF' ? `DEF|${r.id}|${r.value}` : `${r.op}|${r.src}|${r.tgt}|${r.via || ''}`;
+        const seen = new Set(candidates.map(({ rel }) => edgeKey(rel)));
+        // A coref with an empty field and no deixis: a description-surface or a name resolves, a
+        // pronoun does not — so the re-read adds no guessed pronoun subjects (the main pass owns
+        // those), only the structure the newly-admitted description makes reachable.
+        const staticCoref = { field: () => [], resolve: () => null, lastIns: () => null };
+        const relRead = { isSpeech, isCopula: conventions.isCopula, isModifier: conventions.isModifier,
+                          isConjunction: conventions.isConjunction, referents: true, coordSubjects, totalRead };
+        const mentionSents = [...new Set(dr.darkRefs.flatMap((d) => d.mentions))].sort((a, b) => a - b);
+        for (const si of mentionSents) {
+          const sent = sentences[si];
+          if (sent == null) continue;
+          for (const rel of parseRelations(sent, admission, staticCoref, { ...relRead, sentIdx: si })) {
+            const anchors = rel.op === 'DEF' ? darkIds.has(rel.id) : darkIds.has(rel.src);
+            if (!anchors) continue;                       // only the referent's OWN agency
+            const k = edgeKey(rel);
+            if (seen.has(k)) continue; seen.add(k);       // never double-count a bond the main read made
+            const { args, coord, ...edge } = rel;
+            if (edge.op === 'CON' || edge.op === 'SIG') {
+              // The SAME recurrence physics the candidate loop uses: a one-off verb rides weak.
+              const recurrent = (viaCount.get(edge.via) || 1) >= 2 || conventions.isRelation(edge.via);
+              let factor = recurrent ? 1 : 0.5;
+              if (edge.tgtKind === 'np' && (nounCount.get(edge.tgt) || 1) < 2) factor *= 0.5;
+              const base = edge.w == null ? 1 : edge.w;
+              const w = Math.round(base * factor * 1000) / 1000;
+              if (w < 1) edge.w = w; else delete edge.w;
+              const relType = conventions.relationType(edge.via);
+              if (relType) edge.relType = relType;
+            }
+            // `retro` marks the second cursor — a bond realized after the reading order, not on it.
+            if (args) {
+              const seg = log.append(argumentSpanSeg(args, si));
+              log.append({ ...edge, sentIdx: si, argspan: seg.seq, retro: true }, EMIT);
+            } else {
+              log.append({ ...edge, sentIdx: si, retro: true }, EMIT);
+            }
+          }
+        }
+      }
     }
 
     const tokensBySentence = sentences.map(s => new Set(tok(s)));
 
+    // REFERENT-FIRST IDENTITY — built LAST, once the whole read (and its dark referents / merges)
+    // is on the log, so the mention→referent quotient seeds from the finished label quotient. OFF
+    // → skipped entirely, so the doc and log are byte-identical (acceptance 10).
+    const referentApi = referentIdentity === 'mention'
+      ? buildReferents({ log, sentences, admission, corefField, docId })
+      : null;
+
     return {
       docId, text, sentences, log,
       tokensBySentence,
+      ...(referentApi || {}),
       admission,
       conventions,                  // the learned-rules ledger (REC)
       metadata: metadata.byKey,     // the document's front-matter facts, by canonical key

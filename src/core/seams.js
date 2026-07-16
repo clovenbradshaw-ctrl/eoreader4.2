@@ -20,6 +20,8 @@
 export const SEAMS = Object.freeze([
   ['src/rooms/reader/boot.js', 'src/core/contracts.js',
     'Law 1 at emit: the conformance registry aggregates every holon\'s manifest, so it cannot ride core\'s entrance — core imports nothing; only the assembly membrane may load it'],
+  ['src/perceiver/referents/mentions.js', 'src/perceiver/parse/entities.js',
+    'the referent read observes surfaces with the parser\'s OWN entity scanner (scanEntities), so a mention\'s span is exactly the span the relation extractor cites; routing it through parse/index.js would close an import cycle (parse barrel → pipeline → referents → parse barrel), so it reads the leaf directly'],
 ].map(Object.freeze));
 
 // The seam set, keyed "from → to", for the boundary test's membership check.
