@@ -6742,9 +6742,9 @@ class Component extends DCLogic {
     // (they share its position) so edges into/out of the group route to the header, not to
     // scattered points, and are not drawn as cards.
     const tiers = [
-      ['claim', prov.nodes.claims, H.claim],
-      ['passage', prov.nodes.passages, H.passage],
       ['source', prov.nodes.sources, H.source],
+      ['passage', prov.nodes.passages, H.passage],
+      ['claim', prov.nodes.claims, H.claim],
       ['file', prov.nodes.files, H.file],
     ];
     // Only the memo and the NON-EMPTY tiers take a column, laid out left→right — an empty claim or
@@ -7480,9 +7480,9 @@ class Component extends DCLogic {
       ? `${sourceConflicts.length} measure${sourceConflicts.length === 1 ? '' : 's'} reported two ways`
       : '';
     const overviewStats = [
-      { value: String(findings.stats.claims), label: 'claims', color: '#6D5EF5' },
-      { value: String(findings.stats.passages), label: 'verbatim passages', color: '#C79A3A' },
       { value: String(findings.stats.sources), label: 'sources on record', color: '#6E7787' },
+      { value: String(findings.stats.passages), label: 'verbatim passages', color: '#C79A3A' },
+      { value: String(findings.stats.claims), label: 'claims', color: '#6D5EF5' },
       { value: String(flagN), label: 'contradictions', color: flagN ? '#B23A2E' : '#1E8A50' },
     ];
 
@@ -7756,7 +7756,7 @@ class Component extends DCLogic {
     // Which tiers are folded (collapsed by default): a tier is open only when graphOpen[key] is
     // explicitly true. The Expand-all / Collapse-all control reads whether every present tier is open.
     const gOpen = st.graphOpen || {};
-    const gTiers = [['claim', prov.nodes.claims], ['passage', prov.nodes.passages], ['source', prov.nodes.sources], ['file', prov.nodes.files]].filter(([, l]) => l.length);
+    const gTiers = [['source', prov.nodes.sources], ['passage', prov.nodes.passages], ['claim', prov.nodes.claims], ['file', prov.nodes.files]].filter(([, l]) => l.length);
     const allTiersOpen = gTiers.length > 0 && gTiers.every(([k]) => gOpen[k]);
     // Any expanded tier stacks a tall column; with everything folded the canvas is a single row,
     // so the panel shrinks to fit rather than floating that row in a tall void.
@@ -7792,9 +7792,9 @@ class Component extends DCLogic {
       // kind + count and a caret; collapsed by default, click to open. A header stays lit while
       // any of its nodes is in the highlighted neighbourhood, so a hover never dims a live group.
       const TIERS = [
-        { key: 'claim',   label: 'CLAIMS',   accent: '#8A8A95', chipFg: '#7A7A85', chipBg: '#F2F2F6', list: prov.nodes.claims },
-        { key: 'passage', label: 'PASSAGES', accent: '#C79A3A', chipFg: '#9A6B12', chipBg: '#FBF1DA', list: prov.nodes.passages },
         { key: 'source',  label: 'SOURCES',  accent: '#6E7787', chipFg: '#4E5765', chipBg: '#EEF0F3', list: prov.nodes.sources },
+        { key: 'passage', label: 'PASSAGES', accent: '#C79A3A', chipFg: '#9A6B12', chipBg: '#FBF1DA', list: prov.nodes.passages },
+        { key: 'claim',   label: 'CLAIMS',   accent: '#8A8A95', chipFg: '#7A7A85', chipBg: '#F2F2F6', list: prov.nodes.claims },
         { key: 'file',    label: 'FILES',    accent: '#1E8A50', chipFg: '#1E8A50', chipBg: '#E7F6EC', list: prov.nodes.files },
       ];
       const tierLit = (list) => !hi || list.some((n) => connected.has(n._nid));
