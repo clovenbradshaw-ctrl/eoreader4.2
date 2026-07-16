@@ -1551,6 +1551,7 @@ table{border-collapse:collapse;width:100%}
                   <sc-if value="{{ viewerIsAudio }}"><button onClick="{{ viewerModeListen }}" title="Listen — player, waveform + interactive transcript" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmListenFg }};background:{{ vmListenBg }}">Listen</button></sc-if>
                   <sc-if value="{{ viewer.isPdf }}"><button onClick="{{ viewerModePdf }}" title="The pages themselves — the document as a PDF" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPdfFg }};background:{{ vmPdfBg }}">PDF</button></sc-if>
                   <sc-if value="{{ viewerCanPage }}"><button onClick="{{ viewerModePage }}" title="Render the real website" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPageFg }};background:{{ vmPageBg }}">Native</button></sc-if>
+                  <button onClick="{{ viewerModeOverview }}" title="Source landing page — provenance, counts, ways in, findings, pins and synthesis" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmOverviewFg }};background:{{ vmOverviewBg }}">Overview</button>
                   <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">Facing</button>
                   <button onClick="{{ viewerModeEot }}" title="The reading, as EoT" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">EoT · {{ viewer.eotCount }}</button>
@@ -1578,6 +1579,56 @@ table{border-collapse:collapse;width:100%}
                 <sc-if value="{{ viewerIsEot }}"><button onClick="{{ downloadEot }}" style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:4px 9px" style-hover="background:#E7E2FD">↓ .eot</button></sc-if>
               </div>
             </div>
+
+
+
+            <sc-if value="{{ viewerIsOverview }}">
+              <div class="eo-scroll" style="flex:1;min-height:0;overflow:auto;background:#F5F5F7;padding:24px 28px">
+                <div style="max-width:1180px;margin:0 auto;background:transparent;border:none;box-shadow:none;overflow:visible">
+                  <div style="padding:0 0 16px;font-size:12px;color:#77717D;display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+                    <button onClick="{{ sourceLanding.openWorkspace }}" style="color:#5B4BE6;font-weight:600">{{ sourceLanding.workspace }}</button><span>›</span>
+                    <button onClick="{{ sourceLanding.openTopic }}" style="color:#5B4BE6;font-weight:600">{{ sourceLanding.topic }}</button><span>›</span>
+                    <span style="font-weight:600;color:#2A2A32">{{ sourceLanding.sourceLabel }}</span>
+                  </div>
+                  <div style="padding:28px;border:1px solid #E3E0E7;border-radius:16px;background:#fff;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:start;box-shadow:0 1px 2px rgba(24,24,32,.025)">
+                    <div style="min-width:0">
+                      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:800;letter-spacing:.05em;color:#4E5765;background:#EEF0F3;border-radius:6px;padding:3px 8px">{{ sourceLanding.icon }} {{ sourceLanding.typeLabel }}</span>
+                        <span style="font-size:10px;font-weight:800;color:#1E8A50;background:#E7F6EC;border:1px solid #CDEBD8;border-radius:999px;padding:3px 8px">✓ {{ sourceLanding.verification }}</span>
+                      </div>
+                      <h1 style="margin:10px 0 6px;font-family:'Newsreader',Georgia,serif;font-size:38px;line-height:1.04;color:#202027;font-weight:500">{{ sourceLanding.title }}</h1>
+                      <div style="font-size:13px;color:#6E6E78;display:flex;gap:8px;flex-wrap:wrap"><span>{{ sourceLanding.origin }}</span><span>·</span><span>{{ sourceLanding.rights }}</span><span>·</span><span>{{ sourceLanding.retrieved }}</span></div>
+                    </div>
+                    <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
+                      <button onClick="{{ sourceLanding.primary }}" style="background:#19191F;color:white;border-radius:8px;padding:10px 16px;font-size:12px;font-weight:700">{{ sourceLanding.primaryLabel }}</button>
+                      <button onClick="{{ sourceLanding.search }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:650;color:#4E5765">Search within</button>
+                      <button onClick="{{ sourceLanding.explore }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:650;color:#4E5765">Explore ▾</button>
+                      <button onClick="{{ sourceLanding.pin }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:650;color:#4E5765">Pin source</button>
+                      <button style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:650;color:#4E5765">•••</button>
+                    </div>
+                  </div>
+                  <div style="margin-top:14px;padding:20px 22px;border:1px solid #CFE8DC;border-radius:16px;background:#EAF7F0">
+                    <div style="display:flex;align-items:center;gap:12px"><span style="width:28px;height:28px;border-radius:999px;background:#1F9D68;color:white;display:inline-flex;align-items:center;justify-content:center;font-weight:800">✓</span><div><div style="font-size:15px;font-weight:800;color:#202027">Core analysis complete</div><div style="font-size:12px;color:#4E635A;margin-top:2px">Recorded, structured and ready to explore without a generative model.</div></div></div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;margin-top:18px;border-top:1px solid rgba(77,123,100,.18)"><sc-for list="{{ sourceLanding.coreCounts }}" as="c"><button onClick="{{ c.open }}" style="text-align:left;background:transparent;border:none;border-right:1px solid rgba(77,123,100,.18);padding:13px 10px 0 0;font-size:13px;color:#202027">{{ c.label }}</button></sc-for></div>
+                    <div style="font-size:12px;color:#5A6F65;margin-top:12px">Optional prose synthesis is {{ sourceLanding.synthesisState }}. Everything below remains available.</div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(270px,.48fr);gap:14px;margin-top:14px">
+                    <section style="padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">At a glance</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px"><sc-for list="{{ sourceLanding.glance }}" as="g"><div style="background:#FAFAFC;border:1px solid #EEEFF4;border-radius:10px;padding:10px"><div style="font-size:10px;font-weight:800;color:#9A9AA4;text-transform:uppercase">{{ g.label }}</div><div style="font-size:13px;color:#2A2A32;margin-top:4px;line-height:1.4">{{ g.value }}</div></div></sc-for></div></section>
+                    <aside style="padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Source record</h2><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#555;line-height:1.8">{{ sourceLanding.recordId }}<br>SHA {{ sourceLanding.sha }}<br>{{ sourceLanding.provenance }}<br>Rights: {{ sourceLanding.rights }}</div><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:18px 0 10px">Grounding &amp; audit status</h2><sc-for list="{{ sourceLanding.reviewItems }}" as="r"><button onClick="{{ r.open }}" style="display:block;width:100%;text-align:left;margin:5px 0;background:#FFF8EC;border:1px solid #F0DFC0;border-radius:8px;padding:7px 9px;font-size:12px;color:#7A5416">{{ r.label }}</button></sc-for></aside>
+                  </div>
+                  <div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(270px,.48fr);gap:14px;margin-top:14px">
+                    <section style="padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Explore this source</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ sourceLanding.lenses }}" as="l"><button onClick="{{ l.open }}" title="{{ l.intent }}" style="background:#F1EFFE;border:1px solid #DED8FD;color:#5140C8;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:650">{{ l.label }}</button></sc-for></div><div style="margin-top:12px;font-size:12.5px;color:#4E5765"><b>Active frame</b> · {{ sourceLanding.currentLens }}</div></section>
+                    <aside style="padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Pins and recent work</h2><sc-for list="{{ sourceLanding.pins }}" as="p"><div style="font-size:12px;color:#4E5765;margin:5px 0">{{ p.label }}</div></sc-for><button onClick="{{ sourceLanding.openPins }}" style="margin-top:8px;color:#5B4BE6;font-size:12px;font-weight:700">Open Pins board</button></aside>
+                  </div>
+
+                  <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Major ideas in this source</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px"><sc-for list="{{ sourceLanding.ideas }}" as="idea"><button onClick="{{ idea.open }}" style="text-align:left;background:#FFFFFF;border:1px solid #E9E6DC;border-radius:12px;padding:13px 14px;box-shadow:0 1px 0 rgba(32,32,39,.03)" style-hover="border-color:#CFC7F7;background:#FCFBFF"><div style="display:flex;gap:8px;align-items:flex-start"><span style="color:#5B4BE6;font-size:15px;line-height:1">◉</span><div style="min-width:0"><div style="font-size:14px;font-weight:760;color:#24242C;line-height:1.25">{{ idea.title }}</div><p style="font-size:12.5px;color:#5F626B;line-height:1.48;margin:7px 0 10px">{{ idea.summary }}</p><span style="font-size:11.5px;color:#6B5BE8;font-weight:700">Evidence: {{ idea.evidenceLabel }}</span></div></div></button></sc-for></div><div style="margin-top:10px;font-size:11.5px;color:#8A8A95">Advanced operator details stay available in the EoT view; this overview leads with reader-facing concepts.</div></section>
+                  <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Structure</h2><sc-for list="{{ sourceLanding.structure }}" as="u"><div style="display:grid;grid-template-columns:160px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #F1F1F4"><b style="font-size:12px;color:#4E5765">{{ u.unit }}</b><span style="font-size:13px;color:#2A2A32">{{ u.label }}</span><button onClick="{{ u.open }}" style="font-size:12px;color:#5B4BE6;font-weight:700">Open →</button></div></sc-for></section>
+                  <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Findings as candidates with evidence</h2><sc-for list="{{ sourceLanding.findings }}" as="f"><button onClick="{{ f.open }}" style="display:block;width:100%;text-align:left;padding:8px 0;border-top:1px solid #F1F1F4;font-size:13px;color:#2A2A32">{{ f.label }}</button></sc-for></section>
+                  <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Source family</h2><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.8;color:#4E5765;white-space:pre-wrap">{{ sourceLanding.lineage }}</div><p style="font-size:12px;color:#7B7881;margin:10px 0 0">{{ sourceLanding.lineageNote }}</p></section>
+                  <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 8px">Optional narrative synthesis</h2><p style="font-size:13px;color:#4E5765;margin:0 0 12px">The source is already indexed and explorable. Connect a model only if you want a prose interpretation.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:7px 10px;font-size:12px;color:#6E6E78">Use CPU model</button><button style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:7px 10px;font-size:12px;color:#6E6E78">Use WebGPU</button><button style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:7px 10px;font-size:12px;color:#6E6E78">Connect hosted model</button></div></section>
+                </div>
+              </div>
+            </sc-if>
 
             <!-- DOSSIER — a single-subject source (a bio/article) leads with its dominant figure's -->
             <!-- reading. It USED to sit here as a full-width block on top of the reading; it now lives -->
@@ -2255,7 +2306,9 @@ table{border-collapse:collapse;width:100%}
               </sc-if>
             </sc-if>
 
-            <!-- DOSSIER — a single-subject source's dominant figure, in the right panel (not on top of -->
+
+
+                        <!-- DOSSIER — a single-subject source's dominant figure, in the right panel (not on top of -->
             <!-- the reading, so the transcript stays the hero): its span-grounded, steerable reading, the -->
             <!-- Wikipedia referent + lead image, and the ENTITY DAG of who it links to. It rides the same -->
             <!-- default slot as the entity list, leading it; a diffuse source has no dossier, only the list. -->
@@ -5744,6 +5797,138 @@ class Component extends DCLogic {
       regen: () => this._regenTl(scope, ids, key),
     };
   }
+
+  // ── adaptive source landing shell ───────────────────────────────────────────
+  // A deterministic, modelless overview for every source type. It keeps identity,
+  // provenance, counts, lenses, findings, curation, pins, lineage and optional synthesis
+  // in stable positions; only the source-specific terms change.
+  _sourceLandingVM(s, eot) {
+    const app = this._app;
+    const kind = String(s && s.kind || 'unknown').toLowerCase();
+    const type = kind === 'pdf' ? 'PDF' : kind === 'audio' ? 'Audio' : kind === 'video' ? 'Video'
+      : kind === 'image' ? 'Image' : kind === 'dataset' ? 'Dataset' : kind === 'code' ? 'Code file'
+        : kind === 'repository' || kind === 'repo' ? 'Repository' : kind === 'conversation' ? 'Conversation'
+          : kind === 'web' || kind === 'html' ? 'Webpage' : kind === 'book' ? 'Book' : kind === 'text' ? 'Plain text/notes' : 'Unknown file';
+    const icon = type === 'PDF' ? '📄' : type === 'Audio' ? '🎧' : type === 'Video' ? '🎬' : type === 'Image' ? '🖼' : type === 'Dataset' ? '▦' : type === 'Code file' ? '⌘' : type === 'Repository' ? '⎇' : type === 'Conversation' ? '💬' : type === 'Book' ? '📚' : type === 'Webpage' ? '🌐' : '□';
+    const primaryLabel = type === 'PDF' ? 'Open document' : type === 'Webpage' ? 'Read captured page' : type === 'Audio' ? 'Listen' : type === 'Video' ? 'Watch' : type === 'Image' ? 'Inspect' : type === 'Dataset' ? 'Explore data' : type === 'Code file' ? 'Browse code' : type === 'Repository' ? 'Explore repository' : type === 'Conversation' ? 'Read conversation' : type === 'Unknown file' ? 'Inspect source' : 'Read';
+    const primaryMode = type === 'PDF' ? 'pdf' : type === 'Webpage' ? 'native' : type === 'Audio' || type === 'Video' ? 'listen' : 'reader';
+    const title = s.title || s.domain || s.reg || 'Untitled source';
+    const origin = s.creator || s.author || s.publisher || s.domain || (s.url ? new URL(s.url, location.href).hostname : 'Local record');
+    const paras = (() => { try { return app.viewerParas(s.sn, { entities: false }) || []; } catch { return []; } })();
+    const eotLines = eot && eot.structure && Array.isArray(eot.structure.lines) ? eot.structure.lines.length : 0;
+    const entN = s.entCount == null ? 0 : Number(s.entCount) || 0;
+    const words = String(s.text || '').trim().split(/\s+/).filter(Boolean).length;
+    const mins = words ? Math.max(1, Math.round(words / 220)) : 0;
+    const headings = paras.filter((p) => p && (p.heading || /^#{1,6}\s/.test((p.text || p.s || '').trim()))).length;
+    const baseCounts = [
+      { label: `${paras.length || 0} passages`, open: () => this.setSourceMode('reader') },
+      { label: `${entN} ${entN === 1 ? 'entity' : 'entities'}`, open: () => this.setTab('entities') },
+      { label: `${eotLines} EoT`, open: () => this.setSourceMode('eot') },
+      { label: `${this._sourceReviewItems(s).length} reviews`, open: () => this.setSourceMode('overview') },
+    ];
+    const size = this._bytes(s.bytes || String(s.text || '').length || 0);
+    const statsByType = {
+      'Dataset': [['Rows', s.rows || 'Unknown'], ['Columns', s.columns || 'Unknown'], ['Schema', s.schema || 'Detected structure'], ['Missing values', s.missingValues || 'Unknown']],
+      'Audio': [['Duration', s.durationLabel || 'Unknown'], ['Speakers', s.speakerCount || 'Unknown'], ['Transcript coverage', s.transcriptCoverage || (s.text ? 'Available' : 'Unknown')], ['Confidence', s.confidence || 'Unknown']],
+      'Video': [['Duration', s.durationLabel || 'Unknown'], ['Speakers', s.speakerCount || 'Unknown'], ['Scenes', s.scenes || 'Unknown'], ['Transcript', s.text ? 'Available' : 'Unknown']],
+      'PDF': [['Pages', s.pages || 'Unknown'], ['Reconstructed sections', headings || 'Unknown'], ['OCR coverage', s.ocrCoverage || (s.text ? 'Text available' : 'Unknown')], ['Layout quality', s.layoutQuality || 'Unknown']],
+      'Code file': [['Language', s.language || 'Unknown'], ['Lines', String(s.text || '').split('\n').length], ['Symbols', entN], ['Dependencies', s.dependencies || 'Unknown']],
+      'Repository': [['Files', s.files || 'Unknown'], ['Languages', s.languages || s.language || 'Unknown'], ['Entry points', s.entryPoints || 'Unknown'], ['Tests', s.tests || 'Unknown']],
+      'Image': [['Dimensions', s.dimensions || 'Unknown'], ['Objects', entN], ['OCR text', s.text ? 'Available' : 'Unknown'], ['Rights', this._rights(s).label]],
+      'Conversation': [['Participants', s.participants || 'Unknown'], ['Messages', s.messages || paras.length || 'Unknown'], ['Time range', s.timeRange || 'Unknown'], ['Threads', s.threads || 'Unknown']],
+    };
+    const generic = type === 'Book' ? [['Structure', `${headings || 'Unknown'} chapters/sections · ${size}`], ['Reading time', mins ? `${mins} min` : 'Unknown'], ['Characters / figures', String(entN)], ['Recurring language', 'Open EoT for terms']]
+      : type === 'Webpage' ? [['Headings', String(headings || 0)], ['Author / origin', origin], ['Captured', this._ago(s.retrieved) || 'Unknown'], ['Named figures', String(entN)]]
+        : [['File type', type], ['Bytes', size], ['Extracted text', words ? `${words} words` : 'Unknown'], ['Processing quality', eotLines ? 'Indexed' : 'Pending']];
+    const glance = (statsByType[type] || generic).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([label, value]) => ({ label, value: String(value) }));
+    const firstEnts = (() => { try { return (app.sourceEntities ? app.sourceEntities(s.sn) : []).slice(0, 3); } catch { return []; } })();
+    const ideas = this._sourceMajorIdeas(s, paras, firstEnts, type);
+    const lenses = [
+      ...ideas.slice(0, 5).map((idea) => ({ label: idea.shortLabel, intent: `Explore passages about ${idea.title}`, open: idea.open })),
+      ...firstEnts.slice(0, Math.max(0, 3 - ideas.length)).map((x) => ({ label: x.label || x.name || x.text, intent: 'Pivot around this figure or entity', open: () => this.openEntity(x.docId || s.sn, x.entId || x.id) })),
+      { label: 'Choose another…', intent: 'Search for another theme, figure, question, or passage', open: () => this.setTab('search') },
+    ];
+    const structure = (paras.slice(0, 6).map((p, i) => ({ unit: type === 'Audio' || type === 'Video' ? (p.time || `Segment ${i + 1}`) : type === 'Dataset' ? `Group ${i + 1}` : type === 'Code file' ? `Symbol ${i + 1}` : `Section ${i + 1}`, label: (p.label || p.heading || (p.text || p.segs?.map?.((x)=>x.s).join('') || 'Open source')).slice(0, 90), open: () => this.setSourceMode('reader') })));
+    if (!structure.length) structure.push({ unit: 'Source', label: 'Open the canonical evidence representation', open: () => this.setSourceMode(primaryMode) });
+    const reviewItems = this._sourceReviewItems(s);
+    const findings = [
+      { label: `${s.claimCount || 0} claim candidates`, open: () => this.setTab('findings') },
+      { label: `${s.supportingPassages || paras.length || 0} supporting passages`, open: () => this.setSourceMode('facing') },
+      { label: `${s.contradictionPairs || 0} cross-source contradiction pairs`, open: () => this.setTab('findings') },
+      { label: `${s.causalCandidates || 0} causal candidates above review threshold`, open: () => this.setTab('graph') },
+      ...reviewItems.map((r) => ({ label: r.label, open: r.open })),
+    ];
+    const topic = (app.activeTopic && app.activeTopic()) || (app.state && app.state.topics && app.state.topics.find((t) => t.id === app.state.topicId)) || {};
+    const ws = (app.state && app.state.workspaces && app.state.workspaces.find((w) => w.id === app.state.workspaceId)) || {};
+    const canonical = s.canonicalEvidenceSn || s.sn;
+    return {
+      workspace: ws.name || 'Workspace', topic: topic.title || 'Topic', sourceLabel: s.reg || 'Source', icon, typeLabel: type.toUpperCase(), title,
+      origin, verification: s.verified === false ? 'UNVERIFIED' : 'VERIFIED', rights: this._rights(s).label, retrieved: this._ago(s.retrieved) || 'captured',
+      primaryLabel, primary: () => this.setSourceMode(primaryMode), search: () => this.setTab('search'), explore: () => this.setTab('graph'), pin: () => this._pinSource?.(s.sn), openWorkspace: () => this.setTab('register'), openTopic: () => this.setTab('chat'),
+      coreCounts: baseCounts, synthesisState: 'off', glance, recordId: s.reg || `S-${s.sn}`, sha: String(s.sha || '').replace(/^[^:]*:/, '').slice(0, 16) || 'Unknown', provenance: s.url ? `Captured from ${s.domain || 'web'}` : 'Local/imported source',
+      reviewItems, lenses, ideas, currentLens: ideas[0] ? `${ideas[0].title} · complete source` : 'Source overview · complete record',
+      pins: [{ label: `${s.pinnedFigures || 0} pinned figures` }, { label: `${s.pinnedPassages || 0} pinned passages` }, { label: `${s.pinnedClaims || 0} pinned claims` }, { label: `${s.savedLenses || 0} saved lenses` }, { label: s.recentPosition || 'Recent position: start' }], openPins: () => this.setTab('pins'),
+      structure, findings,
+      lineage: `${title} — logical work\n└─ ${s.reg || 'Landing record'} — catalog/landing record\n   └─ ${canonical === s.sn ? (s.title || s.reg || 'canonical file') : ('S-' + canonical)} — canonical evidence`,
+      lineageNote: canonical === s.sn ? 'This file supplies canonical evidence. Derived or duplicate representations stay visible for provenance and do not vote independently.' : 'A separate canonical evidence file supplies aggregate counts; this representation is retained for provenance.',
+    };
+  }
+  _sourceMajorIdeas(s, paras, ents, type) {
+    const titleCase = (txt) => String(txt || '').replace(/[_-]+/g, ' ').trim().replace(/\s+/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+    const stop = new Set('about above after again against along also among because before being between could every first from have into like made many more most only other over same some such than that their them then there these they this through under very were when where which while with would your'.split(' '));
+    const textOf = (p) => String(p && (p.text || p.s || (p.segs && p.segs.map((x) => x.s).join('')) || '') || '');
+    const allText = paras.map(textOf).join(' ');
+    const candidates = [];
+    (ents || []).forEach((e) => {
+      const label = e.label || e.name || e.text;
+      if (label) candidates.push({ label, kind: 'entity' });
+    });
+    paras.forEach((p) => {
+      const h = p && (p.heading || p.label);
+      if (h && String(h).length > 3) candidates.push({ label: h, kind: 'section' });
+    });
+    const words = String(allText).toLowerCase().match(/[a-z][a-z'’-]{3,}/g) || [];
+    const freq = new Map();
+    words.forEach((w) => { if (!stop.has(w)) freq.set(w, (freq.get(w) || 0) + 1); });
+    [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).forEach(([label]) => candidates.push({ label, kind: 'term' }));
+    const seen = new Set();
+    const picked = candidates.filter((c) => {
+      const key = String(c.label || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      if (!key || key.length < 3 || seen.has(key)) return false;
+      seen.add(key); return true;
+    }).slice(0, 3);
+    if (!picked.length) picked.push({ label: type === 'Dataset' ? 'Key dimensions' : type === 'Code file' || type === 'Repository' ? 'Main code paths' : 'Central questions', kind: 'fallback' });
+    return picked.map((c) => {
+      const raw = String(c.label || 'Source').trim();
+      const evidence = paras.filter((p) => textOf(p).toLowerCase().includes(raw.toLowerCase())).length || paras.length || 0;
+      const noun = titleCase(raw).slice(0, 64);
+      const title = c.kind === 'entity' ? `${noun} and its relationships` : c.kind === 'section' ? noun : `${noun} across the source`;
+      const summary = type === 'Dataset'
+        ? `Use this frame to inspect records, fields, and exceptions connected to ${raw}.`
+        : type === 'Code file' || type === 'Repository'
+          ? `Use this frame to follow symbols, callers, dependencies, and tests connected to ${raw}.`
+          : c.kind === 'entity'
+            ? `Use this frame to see where ${raw} appears, who or what it connects to, and which passages support those connections.`
+            : `Use this frame to read recurring passages, questions, and source structure connected to ${raw}.`;
+      return { title, shortLabel: noun, summary, evidenceLabel: `${evidence} ${evidence === 1 ? 'passage' : 'passages'}`, open: () => this.setTab(c.kind === 'entity' ? 'entities' : 'search') };
+    });
+  }
+
+  _sourceReviewItems(s) {
+    const out = [];
+    if (!s) return out;
+    const add = (label) => out.push({ label, open: () => this.setSourceMode('overview') });
+    add(`Span resolution: ${s.unresolvedSpans ? `${s.unresolvedSpans} unresolved` : 'passage-grounded'}`);
+    add(`Parse confidence: ${s.parseConfidence || (s.text ? 'structure indexed' : 'limited text')}`);
+    add('Optional synthesis: off');
+    if (s.duplicateOf || s.duplicateSn) add('Probable duplicate source');
+    if (s.kind === 'pdf' && !s.text) add('Low OCR coverage');
+    if ((s.kind === 'audio' || s.kind === 'video') && !s.speakerCount) add('Ambiguous speaker');
+    if (!s.title || /^untitled/i.test(s.title)) add('Missing metadata');
+    if (s.derivedFrom || s.canonicalEvidenceSn) add('Derived representation excluded from counts');
+    return out;
+  }
+
   // ── the source page's entity DOSSIER (docs/topline.md) ───────────────────────
   // When a source CENTRES on one dominant figure (a bio, an article about a subject), its summary
   // panel becomes that figure's dossier rather than a machine telegram: the model-WRITTEN reading of
@@ -7958,7 +8143,7 @@ class Component extends DCLogic {
     }
 
     // ── the source viewer: sources open as TABS IN THE MAIN STAGE ──────────────
-    let viewer = null;
+    let viewer = null, sourceLanding = null;
     let viewerParas = [], eotLines = [], eotLegend = [], eotKindLegend = [], eotTruncated = false, eotMore = '';
     let facingLines = [], facingLegend = [], facingKindLegend = [], facingTruncated = false, facingMore = '';
     let readerDoc = '', readerToc = [], pageDoc = '', pageBusy = false, pageErr = '';
@@ -8006,8 +8191,9 @@ class Component extends DCLogic {
         // The DOSSIER — a single-subject source (a bio/article) shows its dominant figure's reading:
         // the model-written account IN THIS DOCUMENT beside the Wikipedia referent + image over the
         // provenance DAG. A diffuse source keeps its plain SUMMARY, so the two are mutually exclusive.
+        viewer.sourceLanding = this._sourceLandingVM(s, eot); sourceLanding = viewer.sourceLanding;
         viewer.dossier = this._sourceDossierVM(s);
-        viewer.plainSummary = !!(viewer.topline && viewer.topline.show) && !viewer.dossier.show;
+        viewer.plainSummary = !!(viewer.topline && viewer.topline.show) && !viewer.dossier.show && vMode !== 'overview';
         // The media panel — player + waveform + signal/noise holons + transcription status —
         // shown above the reading for a decoded audio/video source, in every viewer mode.
         viewer.media = this._mediaVM(s) || { show: false };
@@ -8475,11 +8661,11 @@ class Component extends DCLogic {
         : 'Show entity links, citation chips, and every span highlighted by its source. Click to show.',
       // source viewer — sources are TABS IN THE MAIN STAGE; srcTabs render in the main tab bar,
       // and when a source tab is active the stage shows it (isSource) instead of a fixed view.
-      srcTabs, hasSrcTabs: srcTabs.length > 0, isSource: !!viewer, viewer: viewer || {}, viewerParas,
+      srcTabs, hasSrcTabs: srcTabs.length > 0, isSource: !!viewer, viewer: viewer || {}, sourceLanding: sourceLanding || {}, viewerParas,
       // per-source render modes: Reader (themed book, with the Document's links merged in) · Native
       // (real site) · Facing · EoT
       viewerCanPage: !!viewer && viewer.hasUrl,
-      viewerIsReader: vMode === 'reader', viewerIsPage: vMode === 'native', viewerIsFacing: vMode === 'facing', viewerIsEot: vMode === 'eot',
+      viewerIsOverview: vMode === 'overview', viewerIsReader: vMode === 'reader', viewerIsPage: vMode === 'native', viewerIsFacing: vMode === 'facing', viewerIsEot: vMode === 'eot',
       viewerIsListen: vMode === 'listen', viewerIsAudio: !!viewer && viewer.kind === 'audio',
       // PDF surface — the pages themselves, drawn by the browser's own PDF viewer from the blob URL.
       viewerIsPdf: vMode === 'pdf',
@@ -8489,9 +8675,10 @@ class Component extends DCLogic {
       pdfMissing: vMode === 'pdf' && !!(viewer && !viewer.pdfUrl && !viewer.pdfHasBytes),
       // The media panel folds only while reading a Listen transcript; every other mode shows it whole.
       mediaMinClass: (st.listenMediaMin && vMode === 'listen') ? 'eo-media-min' : '',
-      viewerModeReader: () => this.setSourceMode('reader'), viewerModePage: () => this.setSourceMode('native'),
+      viewerModeOverview: () => this.setSourceMode('overview'), viewerModeReader: () => this.setSourceMode('reader'), viewerModePage: () => this.setSourceMode('native'),
       viewerModeFacing: () => this.setSourceMode('facing'), viewerModeEot: () => this.setSourceMode('eot'),
       viewerModeListen: () => this.setSourceMode('listen'), viewerModePdf: () => this.setSourceMode('pdf'),
+      vmOverviewFg: vMode === 'overview' ? '#1B1B22' : '#8A8A95', vmOverviewBg: vMode === 'overview' ? '#fff' : 'transparent',
       vmPdfFg: vMode === 'pdf' ? '#1B1B22' : '#8A8A95', vmPdfBg: vMode === 'pdf' ? '#fff' : 'transparent',
       vmListenFg: vMode === 'listen' ? '#1B1B22' : '#8A8A95', vmListenBg: vMode === 'listen' ? '#fff' : 'transparent',
       vmReaderFg: vMode === 'reader' ? '#1B1B22' : '#8A8A95', vmReaderBg: vMode === 'reader' ? '#fff' : 'transparent',
