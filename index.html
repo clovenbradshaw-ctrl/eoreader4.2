@@ -7508,14 +7508,13 @@ class Component extends DCLogic {
     }));
     const contradictions = findings.stats.contradictions;
     // Two kinds feed the flag: answer-vs-source contradictions AND source-vs-source
-    // conflicts (the record contesting itself). The green copy says "detected", not "on
-    // record" — the pass reports what it FOUND; a clean pass is "none found", never a
-    // claim that none exist (relation-types.js: "no conflict" ≠ "consistent").
+    // conflicts (the record contesting itself). Only actual findings get a tab-bar badge;
+    // a clean pass stays quiet rather than advertising "no conflicts detected" as a claim.
     const sourceConflictN = findings.stats.sourceConflicts || 0;
     const flagN = contradictions + sourceConflictN;
-    const hasFlagLine = findings.stats.claims > 0 || sourceConflictN > 0;
-    const flagLine = flagN > 0 ? `${flagN} conflict${flagN === 1 ? '' : 's'}` : 'no conflicts detected';
-    const [flagFg, flagBg, flagBd] = flagN > 0 ? ['#B23A2E', '#FBE9E6', '#F2D3CD'] : ['#1E8A50', '#E7F6EC', '#CFEBD9'];
+    const hasFlagLine = flagN > 0;
+    const flagLine = `${flagN} conflict${flagN === 1 ? '' : 's'}`;
+    const [flagFg, flagBg, flagBd] = ['#B23A2E', '#FBE9E6', '#F2D3CD'];
 
     // chat messages
     const msgs = (topic ? topic.messages : []);
