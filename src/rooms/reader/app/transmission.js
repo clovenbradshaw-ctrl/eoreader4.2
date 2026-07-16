@@ -9,14 +9,35 @@
 // the model-free lexical floor unless MiniLM is warm, in which case the learned proposition-
 // equivalence widens it to paraphrases and inversions (perceiver/idea-transmission.js).
 
-import { perspectiveOf, parseFold, claimsFromDoc, traceTransmission, transmissionFloor } from '../../../perceiver/index.js';
+import { projectGraph } from '../../../core/index.js';
+import { perspectiveOf, scanQuotes, parseFold, claimsFromDoc, traceTransmission, transmissionFloor } from '../../../perceiver/index.js';
 
 const SRC_STRIDE = 100000;   // global-time offset per source so the topic timeline stays ordered
 
 export const installTransmission = (appCtx) => {
   const speechOf = (doc) => doc?.conventions?.isAttributionVerb;
-  const warm = () => (appCtx.warmEmbedder ? appCtx.warmEmbedder() : null);
+  const warm = () => (appCtx.minilm?.isWarm?.() ? appCtx.minilm : null);
   const run = async (streams) => { const e = warm(); return e ? traceTransmission(streams, { embedder: e }) : transmissionFloor(streams); };
+
+  // The agents a doc names — the figures with a VOICE, read once from the quote scan (the same
+  // seam perspectiveOf uses). Formerly the shared voicesInDoc installed by rashomon; inlined here
+  // now that rashomon is gone and transmission is its only remaining consumer.
+  const agentsInDoc = (doc) => {
+    const out = new Map();
+    if (!doc?.log || !Array.isArray(doc.sentences)) return out;
+    const g = projectGraph(doc.log); const rep = g.representative || ((x) => x);
+    const labelOf = (id) => doc.admission?.labelOf?.(id) || g.entities.get(id)?.label || id;
+    for (const s of doc.sentences) {
+      for (const q of scanQuotes(s, { isSpeech: speechOf(doc), admission: doc.admission })) {
+        const id = q.speakerId ? rep(q.speakerId) : null;
+        const key = id || (q.speakerLabel ? `~${q.speakerLabel.toLowerCase()}` : null);
+        if (!key) continue;
+        const row = out.get(key) || { id, label: id ? labelOf(id) : q.speakerLabel, quotes: 0 };
+        row.quotes += 1; out.set(key, row);
+      }
+    }
+    return out;
+  };
 
   // One figure's timed claims in one doc: parse each quote on its own so every claim carries the
   // document sentence index the figure said it in (+ a global offset for the corpus timeline).
@@ -31,8 +52,8 @@ export const installTransmission = (appCtx) => {
   };
 
   // The figures worth tracing — those with a voice — capped so a crowded document stays a few
-  // parse-loops, not hundreds. voicesInDoc is the shared quote-scan installed by rashomon.
-  const voices = (doc, cap = 16) => (appCtx.voicesInDoc(doc) ? [...appCtx.voicesInDoc(doc).values()] : [])
+  // parse-loops, not hundreds.
+  const voices = (doc, cap = 16) => [...agentsInDoc(doc).values()]
     .filter((v) => v.id).sort((a, b) => b.quotes - a.quotes).slice(0, cap);
 
   // ── Source scope — ideas circulating within ONE document ────────────────────────────

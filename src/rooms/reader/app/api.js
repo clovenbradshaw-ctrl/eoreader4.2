@@ -32,7 +32,7 @@ export const buildApi = (appCtx) => {
     searchTopic: appCtx.searchTopic,
     sourceBySn: appCtx.sourceBySn, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, sourceToggleCollapse: appCtx.sourceToggleCollapse,
     // chat — with source
-    chat: appCtx.chat, ask: appCtx.chat, stop: appCtx.stop, exportChat: appCtx.exportChat,
+    chat: appCtx.chat, ask: appCtx.chat, askQuestion: appCtx.askQuestion, stop: appCtx.stop, exportChat: appCtx.exportChat,
     // askFigureSource and askFigureTopic removed (see rashomon) — stubs for backward compat
     askFigureSource: () => null, askFigureTopic: () => null,
     // export provenance — WHAT produced this session: app + published build + latest-on-GitHub +

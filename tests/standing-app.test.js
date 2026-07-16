@@ -36,20 +36,9 @@ test('a saved trace reports new ideas that changed hands after a source arrives'
   assert.equal(again.delta.changed, false);
 });
 
-test('a saved comparison reports a newly appeared conflict', async () => {
-  const app = await freshApp();
-  app.ingestText('Reyes and Delgado met. Reyes said, "Fusus records faces." Delgado said, "Fusus is a safety tool."', 'One');
-  const src = app.topicSources()[0];
-  const cands = app.rashomonCandidates({ sn: src.sn });
-  const a = cands.find((c) => c.label === 'Reyes'), b = cands.find((c) => c.label === 'Delgado');
-
-  const saved = await app.standingSave({ kind: 'compare', scope: 'source', sn: src.sn, docId: src.docId, a: a.id, b: b.id });
-  assert.ok(saved, 'the comparison is watched');
-
-  const { delta } = await app.standingRefresh(saved.id);
-  assert.equal(delta.kind, 'compare');
-  assert.equal(delta.changed, false);   // nothing changed on an immediate refresh
-});
+// NOTE: compare (rashomon) standing folds were removed with the rashomon room; a saved compare
+// fold no longer resolves (standingSave returns null for kind: 'compare'). Only trace folds
+// remain, covered above and below.
 
 test('standing folds persist across a reload and stay scoped to their topic', async () => {
   const app = await freshApp();

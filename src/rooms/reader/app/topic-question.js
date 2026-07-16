@@ -46,7 +46,7 @@ export const installTopicQuestion = (appCtx) => {
       child.sourceSns = [...(cur.sourceSns || [])];   // the child reads the same record as its parent
       appCtx.persist(); emit('topics');
     }
-    return appCtx.ask(q, opts);
+    return appCtx.chat(q, opts);
   };
 
   const stageLabel = (name) => ({
