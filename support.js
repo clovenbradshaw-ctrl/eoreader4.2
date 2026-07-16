@@ -1591,9 +1591,17 @@
   }
 
   // src/index.ts
-  var REACT_URL = "https://unpkg.com/react@18.3.1/umd/react.production.min.js";
+  // Resolve React from the locally vendored copies (vendor/*.js) rather than a
+  // third-party CDN. Loading from unpkg.com meant the whole app failed to boot —
+  // and rendered raw `{{ }}` templates — whenever that CDN was blocked (Brave
+  // Shields, ad/tracker blockers, offline, corporate proxies) or slow. The
+  // vendored files are byte-identical to unpkg's react@18.3.1 UMD builds, so the
+  // SRI hashes below still apply. Resolve relative to this script's own URL so it
+  // works regardless of the page's path (e.g. the /eoreader4.2/ Pages subpath).
+  var DC_SCRIPT_BASE = (typeof document !== "undefined" && document.currentScript && document.currentScript.src) || (typeof document !== "undefined" && document.baseURI) || "/";
+  var REACT_URL = new URL("./vendor/react.production.min.js", DC_SCRIPT_BASE).href;
   var REACT_SRI = "sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z";
-  var REACT_DOM_URL = "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js";
+  var REACT_DOM_URL = new URL("./vendor/react-dom.production.min.js", DC_SCRIPT_BASE).href;
   var REACT_DOM_SRI = "sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1";
   function hideRawTemplate() {
     const s = document.createElement("style");
