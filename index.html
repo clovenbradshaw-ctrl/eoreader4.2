@@ -1635,7 +1635,8 @@ table{border-collapse:collapse;width:100%}
                   <!-- link mass. Each opens the figure's profile. (app.sourceEntities → sfCast shape.) -->
                   <sc-if value="{{ sourceLanding.castShow }}">
                     <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff">
-                      <div style="display:flex;align-items:center;gap:9px;margin:0 0 14px;flex-wrap:wrap"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Source index</h2><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ sourceLanding.castCount }}</span><span style="flex:1"></span><span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px"><button onClick="{{ sourceLanding.castSort.mass }}" title="Sort by greatest mention + link mass" style="padding:4px 9px;border-radius:6px;font-size:10.5px;font-weight:650;color:{{ sourceLanding.castSort.massFg }};background:{{ sourceLanding.castSort.massBg }}">Mass</button><button onClick="{{ sourceLanding.castSort.appearance }}" title="Sort by first explicit naming in this source" style="padding:4px 9px;border-radius:6px;font-size:10.5px;font-weight:650;color:{{ sourceLanding.castSort.appearanceFg }};background:{{ sourceLanding.castSort.appearanceBg }}">Appearance</button><button onClick="{{ sourceLanding.castSort.alpha }}" title="Sort alphabetically by figure name" style="padding:4px 9px;border-radius:6px;font-size:10.5px;font-weight:650;color:{{ sourceLanding.castSort.alphaFg }};background:{{ sourceLanding.castSort.alphaBg }}">A–Z</button></span></div>
+                      <div style="display:flex;align-items:center;gap:9px;margin:0 0 14px;flex-wrap:wrap"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Source index</h2><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ sourceLanding.castCount }}</span><span style="flex:1"></span><label title="Search figures in this source index" style="min-width:210px;flex:0 1 280px;display:flex;align-items:center;gap:6px;background:#FAFAFC;border:1px solid #EAEAEF;border-radius:8px;padding:5px 8px;color:#8A8A95"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input value="{{ sourceLanding.castQuery }}" onChange="{{ sourceLanding.onCastSearch }}" placeholder="Search figures…" autocomplete="off" spellcheck="false" style="min-width:0;flex:1;border:none;outline:none;background:transparent;font-size:12px;color:#202027" /></label><span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px"><button onClick="{{ sourceLanding.castSort.mass }}" title="Sort by greatest mention + link mass" style="padding:4px 9px;border-radius:6px;font-size:10.5px;font-weight:650;color:{{ sourceLanding.castSort.massFg }};background:{{ sourceLanding.castSort.massBg }}">Mass</button><button onClick="{{ sourceLanding.castSort.appearance }}" title="Sort by first explicit naming in this source" style="padding:4px 9px;border-radius:6px;font-size:10.5px;font-weight:650;color:{{ sourceLanding.castSort.appearanceFg }};background:{{ sourceLanding.castSort.appearanceBg }}">Appearance</button><button onClick="{{ sourceLanding.castSort.alpha }}" title="Sort alphabetically by figure name" style="padding:4px 9px;border-radius:6px;font-size:10.5px;font-weight:650;color:{{ sourceLanding.castSort.alphaFg }};background:{{ sourceLanding.castSort.alphaBg }}">A–Z</button></span></div>
+                      <sc-if value="{{ sourceLanding.castEmpty }}"><div style="padding:18px;border:1px dashed #E4E1E8;border-radius:12px;background:#FAFAFC;color:#8A8A95;font-size:13px">No figures match “{{ sourceLanding.castQuery }}”.</div></sc-if>
                       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:10px">
                         <sc-for list="{{ sourceLanding.cast }}" as="c">
                           <button onClick="{{ c.open }}" title="Open this figure's profile" style="display:flex;gap:11px;align-items:center;text-align:left;background:#FAFAFC;border:1px solid #EEEFF4;border-radius:12px;padding:10px 12px" style-hover="border-color:#CFC7F7;background:#FCFBFF">
@@ -1648,6 +1649,7 @@ table{border-collapse:collapse;width:100%}
                           </button>
                         </sc-for>
                       </div>
+                      <sc-if value="{{ sourceLanding.castExpandShow }}"><div style="display:flex;justify-content:center;margin-top:14px"><button onClick="{{ sourceLanding.toggleCastExpanded }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:999px;padding:8px 13px;font-size:12px;font-weight:700;color:#5B4BE6">{{ sourceLanding.castExpandLabel }}</button></div></sc-if>
                     </section>
                   </sc-if>
 
@@ -3252,7 +3254,7 @@ class Component extends DCLogic {
       waveMode: 'overlay',
       // Source overview's Characters card can be re-ranked without changing the underlying
       // reading: mass (mentions + links), explicit first appearance in the source text, or A–Z.
-      castSort: 'mass',
+      castSort: 'mass', castQuery: '', castExpanded: false,
       viewerPages: {},   // sn -> { doc, busy, err } for the native render, fetched on demand
       tocOpen: false,
       // The reader's scroll progress (0–100), shown as a % and a thin bar; updated from the reader
@@ -4976,6 +4978,8 @@ class Component extends DCLogic {
   setWaveMode(mode) { this.setState({ waveMode: mode }); }
   // Characters card sort — mass, explicit first naming in the source, or alphabetical.
   setCastSort(mode) { this.setState({ castSort: mode }); }
+  setCastQuery(q) { this.setState({ castQuery: String(q || ''), castExpanded: false }); }
+  toggleCastExpanded() { this.setState({ castExpanded: !this.state.castExpanded }); }
   // Ensure a PDF source has a renderable object URL for its PDF surface. The live blob is already on
   // the source if this session imported it; after a reload it is rehydrated from the persisted bytes
   // (app.pdfUrl → OPFS), which emits 'sources' and re-renders the viewer once the URL is ready.
@@ -6052,15 +6056,21 @@ class Component extends DCLogic {
     };
     const byName = (a, b) => String(a.label || '').localeCompare(String(b.label || ''), undefined, { sensitivity: 'base' });
     const castMode = ['mass', 'appearance', 'alpha'].includes(this.state.castSort) ? this.state.castSort : 'mass';
-    const castSorted = castRows.map((e, i) => ({ e, i, mass: (e.mentions || 0) + (e.links || 0), firstAt: firstExplicitAt(e) }))
+    const castQuery = String(this.state.castQuery || '').trim();
+    const castNeedle = castQuery.toLowerCase();
+    const castFiltered = castNeedle
+      ? castRows.filter((e) => [e.label, e.kind, e.type, e.level].some((v) => String(v || '').toLowerCase().includes(castNeedle)))
+      : castRows;
+    const castSorted = castFiltered.map((e, i) => ({ e, i, mass: (e.mentions || 0) + (e.links || 0), firstAt: firstExplicitAt(e) }))
       .sort((a, b) => castMode === 'alpha'
         ? byName(a.e, b.e)
         : castMode === 'appearance'
           ? (a.firstAt - b.firstAt) || byName(a.e, b.e)
           : (b.mass - a.mass) || byName(a.e, b.e))
       .map((x) => x.e);
-    const castMax = castRows.reduce((m, e) => Math.max(m, (e.mentions || 0) + (e.links || 0)), 0) || 1;
-    const cast = castSorted.slice(0, 24).map((e) => {
+    const castMax = castFiltered.reduce((m, e) => Math.max(m, (e.mentions || 0) + (e.links || 0)), 0) || 1;
+    const castLimit = this.state.castExpanded ? castSorted.length : 24;
+    const cast = castSorted.slice(0, castLimit).map((e) => {
       const mass = (e.mentions || 0) + (e.links || 0);
       return {
         label: e.label, initials: this._initials(e.label), type: e.kind || '',
@@ -6147,7 +6157,12 @@ class Component extends DCLogic {
       reviewItems, lenses, ideas, currentLens: ideas[0] ? `${ideas[0].title} · complete source` : 'Source overview · complete record',
       pins: [{ label: `${s.pinnedFigures || 0} pinned figures` }, { label: `${s.pinnedPassages || 0} pinned passages` }, { label: `${s.pinnedClaims || 0} pinned claims` }, { label: `${s.savedLenses || 0} saved lenses` }, { label: s.recentPosition || 'Recent position: start' }], openPins: () => this.setTab('pins'),
       structure, findings,
-      cast, castShow: !!cast.length, castCount: `${castRows.length} on record`, castNoun,
+      cast, castShow: !!castRows.length, castEmpty: castRows.length > 0 && castSorted.length === 0,
+      castCount: castQuery ? `${castSorted.length} of ${castRows.length} on record` : `${castRows.length} on record`, castNoun,
+      castQuery, onCastSearch: (e) => this.setCastQuery(e && e.target ? e.target.value : e),
+      castExpandShow: castSorted.length > 24,
+      castExpandLabel: this.state.castExpanded ? 'Show fewer' : `Show more (${castSorted.length - 24} more)`,
+      toggleCastExpanded: () => this.toggleCastExpanded(),
       castSort: {
         mode: castMode,
         mass: () => this.setCastSort('mass'), appearance: () => this.setCastSort('appearance'), alpha: () => this.setCastSort('alpha'),
