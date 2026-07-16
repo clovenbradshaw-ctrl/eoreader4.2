@@ -51,6 +51,7 @@
 //                   can mirror the selection (e.g. the overlay's details panel)
 
 import { foldTime, TIME_GRAINS } from '../../surfer/fold/index.js';
+import { spreadDefault, clampBox, applySpread, applyAttraction, hitNode } from './tiered-graph-forces.js';
 
 const TIER = {
   0: { fill: '#7F77DD', stroke: '#534AB7', edge: '#7F77DD', name: 'existence',    chipBg: '#EEEDFE', chipFg: '#3C3489', glyphs: '∅○●' },
@@ -76,6 +77,8 @@ const CSS = `
 .eo-tg .tg-fold{font-size:11px;padding:4px 8px;}
 .eo-tg .tg-cur{font-size:11px;padding:4px 8px;}
 .eo-tg input[type=range].tg-curslider{flex:1 1 140px;min-width:120px;accent-color:var(--ink,#15181e);cursor:pointer;height:4px;}
+.eo-tg input[type=range].tg-forceslider{flex:0 1 96px;min-width:70px;accent-color:var(--ink,#15181e);cursor:pointer;height:4px;vertical-align:middle;}
+.eo-tg .tg-pin{fill:none;stroke:var(--ink,#15181e);stroke-opacity:.55;stroke-width:1.2;stroke-dasharray:2 2;pointer-events:none;}
 .eo-tg .tg-axisline{stroke:var(--line2,#e5e7eb);stroke-width:1;stroke-dasharray:2 3;}
 .eo-tg .tg-axislabel{fill:var(--ink3,#999);font-size:10px;font-family:var(--mono,ui-monospace,Menlo,monospace);paint-order:stroke;stroke:var(--card,#fff);stroke-width:3px;stroke-linejoin:round;}
 `;
@@ -120,7 +123,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   // cursor.upto starts at the end (cursorMax) — IDENTITY, the whole fold. Scrubbing it back
   // reveals fewer construction steps; it never mutates the graph, only how much of it shows.
   const cursorMax = Math.max(0, nodes.length - 1);
-  const W = 680, H = 440, state = { layout: 'radial', orient: 'h', rot: 0, tiers: { 0: true, 1: true, 2: true }, sel: null, names: true, hover: null, grain: 'auto', cursor: cursorMax };
+  const W = 680, H = 440, state = { layout: 'radial', orient: 'h', rot: 0, tiers: { 0: true, 1: true, 2: true }, sel: null, names: true, hover: null, grain: 'auto', cursor: cursorMax, rho: spreadDefault(nodes.length), alpha: 0 };
   // The id of the node the radial layout parks at the centre (a single source root), or null when
   // no layout centres one. refine() reads it to seat that node's label ABOVE the dot and never cull
   // it — the anchor's name must read even though a ring node sits right beside it.
@@ -153,6 +156,13 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     '<div style="display:flex;align-items:center;gap:7px;padding:8px 12px;border-bottom:1px solid var(--line,#e5e7eb);flex-wrap:wrap;">' +
       '<span style="font-size:11px;color:var(--ink3,#999);letter-spacing:.04em;margin-right:2px;">tiers</span>' +
       [0, 1, 2].map((t) => '<span class="tg-chip" data-tier="' + t + '" style="background:' + TIER[t].chipBg + ';color:' + TIER[t].chipFg + ';"><span class="gl">' + TIER[t].glyphs + '</span>' + TIER[t].name + '</span>').join('') +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line,#e5e7eb);flex-wrap:wrap;">' +
+      '<span style="font-size:11px;color:var(--ink3,#999);letter-spacing:.04em;margin-right:2px;" title="Spread all nodes apart (repel) or pull bonded nodes together (gather). Drag a node to pin it.">forces</span>' +
+      '<label style="font-size:11px;color:var(--ink2,#555);display:inline-flex;align-items:center;gap:5px;" title="Repel — spread every node apart">repel<input class="tg-forceslider" data-rho type="range" min="1" max="2.2" step="0.05" value="' + state.rho.toFixed(2) + '" aria-label="repel — node spread"></label>' +
+      '<label style="font-size:11px;color:var(--ink2,#555);display:inline-flex;align-items:center;gap:5px;" title="Gather — pull bonded nodes together (radial &amp; flow)">gather<input class="tg-forceslider" data-alpha type="range" min="0" max="1" step="0.05" value="' + state.alpha.toFixed(2) + '" aria-label="gather — pull bonded nodes together"></label>' +
+      '<button class="tg-btn tg-cur" data-freset title="Reset spread &amp; gather to the default">⟲ reset</button>' +
+      '<button class="tg-btn tg-cur" data-pins hidden title="Release every pinned node">⟲ pins</button>' +
     '</div>' +
     '<div data-cursorrow style="display:none;align-items:center;gap:7px;padding:8px 12px;border-bottom:1px solid var(--line,#e5e7eb);flex-wrap:wrap;">' +
       '<span style="font-size:11px;color:var(--ink3,#999);letter-spacing:.04em;margin-right:2px;" title="Scrub the fold&#39;s construction — the graph as it stood at step k. Slide to the end for the whole fold.">cursor</span>' +
@@ -189,19 +199,23 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   const detail = wrap.querySelector('[data-detail]'), countsEl = wrap.querySelector('[data-counts]');
   const foldRow = wrap.querySelector('[data-foldrow]'), foldNote = wrap.querySelector('[data-foldnote]');
   const curRow = wrap.querySelector('[data-cursorrow]'), curSlider = wrap.querySelector('[data-curslider]'), curNote = wrap.querySelector('[data-curnote]'), curPlay = wrap.querySelector('[data-curplay]');
+  const rhoSlider = wrap.querySelector('[data-rho]'), alphaSlider = wrap.querySelector('[data-alpha]'), pinsBtn = wrap.querySelector('[data-pins]');
 
   // ── layouts ──────────────────────────────────────────────────────────────
   // De-overlap: any two nodes closer than minD are pushed apart, then clamped
   // into the canvas — no layout is allowed to stack nodes.
-  function separate(iters, minD) {
+  function separate(iters, minD, box) {
+    const bx = box || { x0: 28, y0: 22, x1: W - 28, y1: H - 22 };
     for (let it = 0; it < iters; it++) {
       for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
         const a = nodes[i], b = nodes[j]; let dx = b.tx - a.tx, dy = b.ty - a.ty;
         const d = Math.hypot(dx, dy) || 0.01;
-        if (d < minD) { const f = (minD - d) / 2 / d; dx *= f; dy *= f; a.tx -= dx; a.ty -= dy; b.tx += dx; b.ty += dy; }
+        // a pinned node is an anchor — it shoves its neighbour but never yields itself
+        if (d < minD) { const f = (minD - d) / 2 / d; dx *= f; dy *= f;
+          if (!a.pinned) { a.tx -= dx; a.ty -= dy; } if (!b.pinned) { b.tx += dx; b.ty += dy; } }
       }
     }
-    nodes.forEach((n) => { n.tx = Math.max(28, Math.min(W - 28, n.tx)); n.ty = Math.max(22, Math.min(H - 22, n.ty)); });
+    nodes.forEach((n) => { if (n.pinned) return; n.tx = Math.max(bx.x0, Math.min(bx.x1, n.tx)); n.ty = Math.max(bx.y0, Math.min(bx.y1, n.ty)); });
   }
   // Rank/band ordering by barycentre of in-neighbours: nodes land near what
   // they hang from, so edges run short and cross rarely.
@@ -341,6 +355,18 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
       ? `${fold.grain}${fold.requested === 'auto' ? ' (auto)' : ''} · ${B} band${B === 1 ? '' : 's'}${fold.undated ? ` · ${fold.undated} undated` : ''}`
       : '';
   }
+  // The forces layer: relax the deterministic seed under the two global knobs. Spread
+  // pushes everything apart (every layout); gather pulls bonded nodes together along the
+  // layout's free axis (radial + flow only). Pinned nodes are then snapped back to where
+  // the user parked them, and a final ρ-aware de-overlap re-spreads any pile-up. Runs at
+  // layout time ONLY — never per cursor step — so scrubbing the fold leaves positions static.
+  function forces() {
+    const geom = { W, H, cx: W / 2, cy: H / 2, midY: (AX_TOP + AX_BOT) / 2, AX_TOP, AX_BOT, orient: state.orient, centreId };
+    applySpread(nodes, state.layout, state.rho, geom);
+    applyAttraction(nodes, state.layout, state.alpha, { edges, byId, geom });
+    nodes.forEach((n) => { if (n.pinned) { n.tx = n.pinX; n.ty = n.pinY; } });
+    if (state.layout === 'flow' || state.layout === 'radial') separate(24, 28 * state.rho, clampBox(state.rho, geom));
+  }
   function relayout() {
     if (state.layout !== 'time') gA.innerHTML = '';
     centreId = null;   // only radial re-arms it; every other layout seats the root at an edge
@@ -348,6 +374,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     else if (state.layout === 'tiers') layoutTiers();
     else if (state.layout === 'time') layoutTime();
     else layoutRadial();
+    forces();
     animate();
   }
 
@@ -355,12 +382,15 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   const nodeEls = {}, edgeEls = [];
   nodes.forEach((n) => {
     const g = sv('g', { class: 'tg-node' }); g.style.transform = 'translate(' + n.x + 'px,' + n.y + 'px)';
+    const pin = sv('circle', { r: (isRoot(n) ? 9 : 7) + 4, class: 'tg-pin' }); pin.style.display = 'none';
     const c = sv('circle', { r: isRoot(n) ? 9 : 7, fill: TIER[n.tier].fill, stroke: TIER[n.tier].stroke, 'stroke-width': 1.2 });
-    g.appendChild(c);
-    g.addEventListener('click', (ev) => { ev.stopPropagation(); select(n.id); });
+    g.appendChild(pin); g.appendChild(c);
+    // a drag that lands on a node also fires the circle's click — swallow that one so a pull-to-pin
+    // never doubles as a select (which would flip the host's details panel).
+    g.addEventListener('click', (ev) => { ev.stopPropagation(); if (justDragged) { justDragged = false; return; } select(n.id); });
     g.addEventListener('mouseenter', () => { if (!state.sel) { state.hover = n.id; refine(); } });
     g.addEventListener('mouseleave', () => { if (!state.sel) { state.hover = null; refine(); } });
-    gN.appendChild(g); nodeEls[n.id] = { g, c };
+    gN.appendChild(g); nodeEls[n.id] = { g, c, pin };
   });
   edges.forEach((e) => {
     const g = sv('g', {});
@@ -527,11 +557,31 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     const k = Math.min(W / (b - a), H / (d - c), 1.5); view.k = k; view.x = (W - (a + b) * k) / 2; view.y = (H - (c + d) * k) / 2; apply(); refine();
   }
 
-  let drag = null;
-  const onDown = (e) => { drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false }; svg.style.cursor = 'grabbing'; svg.setPointerCapture(e.pointerId); };
+  let drag = null, justDragged = false;
+  // pointer → world (vp-content) coords: undo the viewBox scale, then the pan/zoom transform
+  const worldOf = (e) => { const r = svg.getBoundingClientRect(), sc = W / r.width;
+    return { wx: ((e.clientX - r.left) * sc - view.x) / view.k, wy: ((e.clientY - r.top) * sc - view.y) / view.k }; };
+  const onDown = (e) => {
+    const { wx, wy } = worldOf(e);
+    // a pointerdown ON a node grabs THAT node (drag-to-pin); on empty canvas it pans
+    const node = hitNode(nodes, wx, wy, isRoot, 6, (n) => state.tiers[n.tier] && seqVisible(n));
+    drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false, node };
+    svg.style.cursor = 'grabbing'; svg.setPointerCapture(e.pointerId);
+  };
   const onMove = (e) => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    if (drag.node && drag.moved) {   // node-drag: pin it under the pointer, never pan
+      const { wx, wy } = worldOf(e), bx = clampBox(state.rho, { W, H, cx: W / 2, cy: H / 2 });
+      const n = drag.node; n.tx = n.x = Math.max(bx.x0, Math.min(bx.x1, wx)); n.ty = n.y = Math.max(bx.y0, Math.min(bx.y1, wy));
+      n.pinned = true; n.pinX = n.tx; n.pinY = n.ty;
+      nodeEls[n.id].g.style.transform = 'translate(' + n.x.toFixed(1) + 'px,' + n.y.toFixed(1) + 'px)';
+      nodeEls[n.id].pin.style.display = ''; pinsBtn.hidden = false; draw(true); return;
+    }
     const r = svg.getBoundingClientRect(), sc = W / r.width; view.x = drag.vx + dx * sc; view.y = drag.vy + dy * sc; apply(); };
-  const onUp = () => { if (drag && !drag.moved) deselect(); drag = null; svg.style.cursor = 'grab'; };
+  const onUp = () => {
+    if (drag && drag.node && drag.moved) { justDragged = true; draw(false); refine(); }
+    else if (drag && !drag.moved) deselect();
+    drag = null; svg.style.cursor = 'grab';
+  };
   const onWheel = (e) => { e.preventDefault(); const r = svg.getBoundingClientRect(), sc = W / r.width;
     const mx = (e.clientX - r.left) * sc, my = (e.clientY - r.top) * sc, f = e.deltaY < 0 ? 1.12 : 1 / 1.12, nk = Math.max(0.4, Math.min(3, view.k * f));
     view.x = mx - (mx - view.x) * (nk / view.k); view.y = my - (my - view.y) * (nk / view.k); view.k = nk; apply(); schedule(); };
@@ -551,6 +601,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     state.layout = b.dataset.layout;
     wrap.querySelector('[data-pivot-lbl]').textContent = state.layout === 'radial' ? 'rotate' : 'pivot';
     syncLayoutChrome();
+    clearPins();   // a pin fixed to a ring position is meaningless once the layout changes
     if (state.sel) deselect();
     relayout(); setTimeout(fit, 470);
   }));
@@ -575,6 +626,21 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   wrap.querySelector('[data-zin]').addEventListener('click', () => { view.k = Math.min(3, view.k * 1.2); apply(); schedule(); });
   wrap.querySelector('[data-zout]').addEventListener('click', () => { view.k = Math.max(0.4, view.k / 1.2); apply(); schedule(); });
   wrap.querySelector('[data-fit]').addEventListener('click', fit);
+
+  // ── forces: repel (ρ) / gather (α) sliders, reset, release-pins ────────────
+  // A drag on a slider fires 'input' every few pixels; collapse the flood to one relayout
+  // per frame (each animate() cancels the last, so the graph smoothly follows the knob).
+  let forceRaf = null;
+  const forceRelayout = () => { if (forceRaf) return; forceRaf = requestAnimationFrame(() => { forceRaf = null; relayout(); setTimeout(fit, 470); }); };
+  const clearPins = () => { nodes.forEach((n) => { n.pinned = false; nodeEls[n.id].pin.style.display = 'none'; }); pinsBtn.hidden = true; };
+  rhoSlider.addEventListener('input', () => { state.rho = +rhoSlider.value; if (state.sel) deselect(); forceRelayout(); });
+  alphaSlider.addEventListener('input', () => { state.alpha = +alphaSlider.value; if (state.sel) deselect(); forceRelayout(); });
+  wrap.querySelector('[data-freset]').addEventListener('click', () => {
+    state.rho = spreadDefault(nodes.length); state.alpha = 0;
+    rhoSlider.value = state.rho.toFixed(2); alphaSlider.value = '0';
+    if (state.sel) deselect(); relayout(); setTimeout(fit, 470);
+  });
+  pinsBtn.addEventListener('click', () => { clearPins(); if (state.sel) deselect(); relayout(); setTimeout(fit, 470); });
 
   // ── the fold cursor: scrub `upto` over construction order, on any layout ───
   // Positions never move as the cursor scrubs (the layout is computed for the whole fold);
@@ -607,8 +673,8 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   // the cursor only earns its row when there are enough steps to walk
   if (cursorMax >= 2) { curRow.style.display = 'flex'; curNote.textContent = curNoteText(); }
 
-  layoutRadial(); nodes.forEach((n) => { n.x = n.tx; n.y = n.ty; nodeEls[n.id].g.style.transform = 'translate(' + n.x + 'px,' + n.y + 'px)'; });
+  layoutRadial(); forces(); nodes.forEach((n) => { n.x = n.tx; n.y = n.ty; nodeEls[n.id].g.style.transform = 'translate(' + n.x + 'px,' + n.y + 'px)'; });
   draw(false); applyFilter(); fit();
 
-  return { destroy() { if (animT) cancelAnimationFrame(animT); if (refineT) clearTimeout(refineT); stopPlay(); wrap.remove(); } };
+  return { destroy() { if (animT) cancelAnimationFrame(animT); if (refineT) clearTimeout(refineT); if (forceRaf) cancelAnimationFrame(forceRaf); stopPlay(); wrap.remove(); } };
 }
