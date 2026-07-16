@@ -63,6 +63,17 @@ test('a clause-opener capitalised by position does not mint a figure off one wea
   assert.equal(a.isAdmitted('Gregor'), true, 'a stable name (never seen lowercase) is unaffected');
 });
 
+test('a month abbreviation in a dateline is a temporal token, not a figure', () => {
+  // Frankenstein's letters open "St. Petersburgh, Dec. 11th, 17—": the comma before and
+  // the period after "Dec" read as a set-off vocative, so the gravity floor minted it as
+  // the strongest "character" on record. The calendar register denies that gravity — the
+  // abbreviation carries the same temporal signal as the full month name.
+  const a = run('St. Petersburgh, Dec. 11th, 17—. I arrived here yesterday. '
+    + 'To Mrs. Saville, England. Dec. 12th. Felix walked to the door.');
+  assert.equal(a.isAdmitted('Dec'), false, 'a dateline month abbreviation is not a figure');
+  assert.equal(a.isAdmitted('Felix'), true, 'a real name in the same text still admits');
+});
+
 test('an ALL-CAPS multi-word heading is refused', () => {
   const a = run('CONCERNING NEW PRINCIPALITIES WHICH ARE ACQUIRED. Cesare Borgia rose to power. Borgia acted.');
   assert.equal(a.isAdmitted('CONCERNING NEW PRINCIPALITIES WHICH ARE ACQUIRED'), false);
