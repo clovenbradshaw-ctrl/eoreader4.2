@@ -2231,6 +2231,30 @@ table{border-collapse:collapse;width:100%}
                 </div>
               </sc-if></sc-if>
 
+              <!-- The settled referent in its DEFAULT position — moved up near the top of the panel -->
+              <!-- (ahead of the web-graph button and the chapter spine) unless it has already been -->
+              <!-- promoted to the lead above (prof.leadWithWiki). -->
+              <sc-if value="{{ prof.notLeadWithWiki }}">
+              <div style="margin-top:16px">
+                <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
+                <sc-if value="{{ prof.wikiWait }}">
+                  <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">Looking for a matching article…</div>
+                </sc-if>
+                <sc-if value="{{ prof.hasWiki }}">
+                  <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;background:#FBFBFD">
+                    <sc-if value="{{ prof.hasWikiDesc }}">
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ prof.wikiDesc }}</div>
+                    </sc-if>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ prof.wikiText }}</div>
+                    <a href="{{ prof.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:#5B4BE6;margin-top:7px;text-decoration:none">{{ prof.wikiTitle }} ↗</a>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ prof.wikiAbsent }}">
+                  <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">No confirmed Wikipedia match for this referent.</div>
+                </sc-if>
+              </div>
+              </sc-if>
+
               <button onClick="{{ prof.openWeb }}" style="width:100%;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:7px;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:12.5px;border-radius:9px;padding:9px" style-hover="background:#E7E2FD">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7.4 10.6 16M16.8 7.6 13.4 16M7 6h10"/></svg>
                 Open the web graph
@@ -2299,6 +2323,12 @@ table{border-collapse:collapse;width:100%}
                       </sc-if>
                     </div>
                   </sc-for>
+                  <sc-if value="{{ prof.hasMoreChapters }}">
+                    <button onClick="{{ prof.showMoreChapters }}" style="width:100%;text-align:center;font-size:11.5px;font-weight:600;color:#5B4BE6;background:#F5F4FB;border-radius:8px;padding:7px" style-hover="background:#EEEBFE">{{ prof.moreChaptersLabel }}</button>
+                  </sc-if>
+                  <sc-if value="{{ prof.hasFewerChapters }}">
+                    <button onClick="{{ prof.showFewerChapters }}" style="width:100%;text-align:center;font-size:11.5px;font-weight:600;color:#8A8A95;background:#F5F4FB;border-radius:8px;padding:7px" style-hover="background:#EEEEF3">Show fewer chapters</button>
+                  </sc-if>
                 </div>
               </sc-if>
 
@@ -2345,29 +2375,6 @@ table{border-collapse:collapse;width:100%}
                     </sc-if>
                   </sc-if>
                 </div>
-              </sc-if>
-
-              <!-- The settled referent in its DEFAULT position — shown unless it has already been -->
-              <!-- promoted to the lead above (prof.leadWithWiki). -->
-              <sc-if value="{{ prof.notLeadWithWiki }}">
-              <div style="margin-top:16px">
-                <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
-                <sc-if value="{{ prof.wikiWait }}">
-                  <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">Looking for a matching article…</div>
-                </sc-if>
-                <sc-if value="{{ prof.hasWiki }}">
-                  <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;background:#FBFBFD">
-                    <sc-if value="{{ prof.hasWikiDesc }}">
-                      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ prof.wikiDesc }}</div>
-                    </sc-if>
-                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ prof.wikiText }}</div>
-                    <a href="{{ prof.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:#5B4BE6;margin-top:7px;text-decoration:none">{{ prof.wikiTitle }} ↗</a>
-                  </div>
-                </sc-if>
-                <sc-if value="{{ prof.wikiAbsent }}">
-                  <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">No confirmed Wikipedia match for this referent.</div>
-                </sc-if>
-              </div>
               </sc-if>
 
               <sc-if value="{{ prof.hasDefs }}">
@@ -5678,7 +5685,15 @@ class Component extends DCLogic {
     const cite = (xs) => (xs && xs.length) ? '¶' + xs.join(' ¶') : '';
     let spine = [];
     try { spine = app.entityChapters(docId, entId) || []; } catch { spine = []; }
-    const chapters = spine.map((c) => {
+    // THROUGH THE READING can run long for a figure that recurs across dozens of chapters — cap the
+    // visible list and let the reader pull the rest in, rather than dumping the whole spine at once.
+    const CHAPTER_CAP = 6;
+    const chaptersExpanded = !!(this.state.entChaptersOpen || {})[dkey];
+    const chapterCount = spine.length;
+    const spineShown = chaptersExpanded ? spine : spine.slice(0, CHAPTER_CAP);
+    const hasMoreChapters = chapterCount > CHAPTER_CAP;
+    const moreChaptersCount = chapterCount - CHAPTER_CAP;
+    const chapters = spineShown.map((c) => {
       const ckey = dkey + '#' + c.chapterIdx;
       const open = !!(this.state.entDeep || {})[ckey];
       const busy = !!genBusy['chap:' + ckey];
@@ -5744,7 +5759,22 @@ class Component extends DCLogic {
       // an honest "of one piece" note once the digest has landed but found no divergence
       noSurprise: !!(stored && !dBusy && (!stored.surprising || !stored.surprising.length)),
     };
-    return { hasChapters: chapters.length > 0, chapters, showDigest, digest };
+    return {
+      hasChapters: chapterCount > 0, chapters, showDigest, digest,
+      hasMoreChapters: hasMoreChapters && !chaptersExpanded,
+      moreChaptersLabel: `Show ${moreChaptersCount} more ${moreChaptersCount === 1 ? 'chapter' : 'chapters'}`,
+      showMoreChapters: () => this._toggleChaptersExpanded(docId, entId),
+      hasFewerChapters: hasMoreChapters && chaptersExpanded,
+      showFewerChapters: () => this._toggleChaptersExpanded(docId, entId),
+    };
+  }
+  // Expand/collapse the capped THROUGH THE READING list for one entity — a plain UI toggle, no
+  // model touched (the per-chapter readings underneath still generate lazily on their own open).
+  _toggleChaptersExpanded(docId, entId) {
+    const key = docId + '#' + entId;
+    const open = { ...(this.state.entChaptersOpen || {}) };
+    if (open[key]) delete open[key]; else open[key] = true;
+    this.setState({ entChaptersOpen: open });
   }
   // Open (and lazily generate) a chapter's fold-prompted reading — the reader leaned in. Toggling
   // it shut leaves the reading stored; re-opening reads it straight back, no re-generation.
