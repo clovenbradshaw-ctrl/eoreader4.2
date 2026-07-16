@@ -20,7 +20,7 @@ export const buildApi = (appCtx) => {
     folderNew: appCtx.folderNew, folderRename: appCtx.folderRename, folderMove: appCtx.folderMove, folderDelete: appCtx.folderDelete, folderById: appCtx.folderById, folderPath: appCtx.folderPath,
     workspaceFolders: appCtx.workspaceFolders, workspaceSources: appCtx.workspaceSources, sourceMove: appCtx.sourceMove, sourceStar: appCtx.sourceStar, sourceTouch: appCtx.sourceTouch, sourceAddToTopic: appCtx.sourceAddToTopic,
     // ingest
-    ingestUrl: appCtx.ingestUrl, ingestText: appCtx.ingestText, ingestFile: appCtx.ingestFile, search: appCtx.search, recordHit: appCtx.recordHit, webSearchAdmit: appCtx.webSearchAdmit, fetchPage: appCtx.fetchPage, navigatePage: appCtx.navigatePage,
+    ingestUrl: appCtx.ingestUrl, ingestText: appCtx.ingestText, ingestFile: appCtx.ingestFile, search: appCtx.search, recordHit: appCtx.recordHit, reReadSource: appCtx.reReadSource, webSearchAdmit: appCtx.webSearchAdmit, fetchPage: appCtx.fetchPage, navigatePage: appCtx.navigatePage,
     // the library shelf — search ONE shelf on its own surface (article/book/media/code), and the
     // deliberate "ingest all code" path (a whole repo through the code organ)
     searchLibrary: appCtx.searchLibrary, ingestRepo: appCtx.ingestRepo, libraries: librariesManifest(),
