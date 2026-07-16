@@ -88,6 +88,7 @@ import { installSearch } from './app/search.js';
 import { installAudio } from './app/audio.js';
 import { installTranscript } from './app/transcript.js';
 import { installPicture } from './app/picture.js';
+import { installPaper } from './app/paper.js';
 import { installResume } from './app/resume.js';
 import { installModel } from './app/model.js';
 import { installKeeper } from './app/keeper.js';
@@ -218,6 +219,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installAudio(appCtx);
   installTranscript(appCtx);
   installPicture(appCtx);
+  installPaper(appCtx);
   installResume(appCtx);
   installModel(appCtx);
   installKeeper(appCtx);

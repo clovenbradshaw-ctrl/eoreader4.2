@@ -214,6 +214,13 @@ export const installPicture = (appCtx) => {
       // window the file job covered is over. Drop it — a reload re-derives the reading lazily.
       settleFile('done');
       recordCoverage(src);
+      // A PDF opens AS A PDF first — the real pages, not the reflowed book — so keep its original
+      // bytes for that surface (the reader is one tab away). Best-effort, off the critical path:
+      // fired, not awaited, so the (background) OCR read never waits on the OPFS write, and a fault
+      // never fails the import — the reader book still stands.
+      if (src && got.meta?.modality === 'pdf' && appCtx.persistPdfBytes) {
+        try { appCtx.persistPdfBytes(src, file); } catch { /* the reader book still renders it */ }
+      }
       if (src) {
         try {
           const doc = await parseText(got.text, {
