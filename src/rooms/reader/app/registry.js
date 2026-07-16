@@ -136,7 +136,17 @@ export const installRegistry = (appCtx) => {
   const eotFor = (snId) => {
     const src = sourceBySn(snId);
     if (!src) return null;
-    if (!src._eot) src._eot = readIngest(docFor(src));
+    if (!src._eot) {
+      const doc = docFor(src);
+      // Scale the turning-point spine to the DOCUMENT. The library default (k=12) is right for a
+      // short record but starves a whole work — a novel's dozen turns are a scatter of dots on a
+      // near-empty waveform, "nowhere near enough surprise to cover all of Frankenstein". Ask for
+      // ~1 turning point per 40 units, floored at the old default so a short source is unchanged
+      // and capped so the waveform + list stay legible (and well under the spine's sampling budget).
+      const nUnits = ((doc && (doc.units || doc.sentences)) || []).length;
+      const k = Math.max(12, Math.min(140, Math.round(nUnits / 40)));
+      src._eot = readIngest(doc, k === 12 ? undefined : { k });
+    }
     return src._eot;
   };
 
