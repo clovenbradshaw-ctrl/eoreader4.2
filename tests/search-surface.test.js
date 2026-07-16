@@ -128,3 +128,12 @@ test('an empty query yields an empty, un-asked surface', () => {
   assert.equal(surf.empty, true);
   assert.equal(surf.asked, false);
 });
+
+test('every search fills the structured fold slots up front', () => {
+  const surf = routeSurface('who Walton', providers());
+  assert.equal(surf.elements.length, 4);
+  assert.deepEqual(surf.elements.map((e) => e.key), ['sources', 'occurrences', 'cast', 'claims']);
+  assert.ok(surf.elements.find((e) => e.key === 'occurrences').count >= 1);
+  assert.ok(surf.cast.length > 0, 'cast slot is filled even for a question');
+  assert.ok(surf.concepts.some((c) => c.label === 'Walton'), 'graph concepts include relevant figures');
+});
