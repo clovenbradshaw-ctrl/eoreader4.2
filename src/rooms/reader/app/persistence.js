@@ -33,7 +33,7 @@ export const installPersistence = (appCtx) => {
     // the commitment ledger — assertions and corrections survive reload (the spine)
     ledger: ledger.serialize(),
     // entity toplines (source toplines ride on each source above) — the summary + its feedback
-    summaries: { entities: state.summaries.entities, definer: state.summaries.definer },
+    summaries: { entities: state.summaries.entities, definer: state.summaries.definer, folds: state.summaries.folds || {} },
     // the durable pending-work registry — the fetches / imports / transcriptions still in flight,
     // so a reload mid-way can pick them back up (ingest-jobs.js). Small plain JSON specs only.
     jobs: state.jobs,
@@ -93,7 +93,12 @@ export const installPersistence = (appCtx) => {
             const e = snap.summaries.entities[k];
             ents[k] = (e && e.contextualPending) ? { ...e, contextualPending: false } : e;
           }
-          state.summaries = { entities: ents, definer: snap.summaries.definer || { champion: null, runs: 0 } };
+          state.summaries = {
+            entities: ents,
+            definer: snap.summaries.definer || { champion: null, runs: 0 },
+            // fold summaries (app/summaries.js) — plain records, restored as-is
+            folds: (snap.summaries.folds && typeof snap.summaries.folds === 'object') ? snap.summaries.folds : {},
+          };
         }
       }
     } catch { /* fresh session */ }

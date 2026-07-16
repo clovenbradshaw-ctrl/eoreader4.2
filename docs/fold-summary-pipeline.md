@@ -1,8 +1,10 @@
 # The fold → summary pipeline
 
-`src/surfer/fold/summary.js` · `summary-prompt.js` · `summary-cross.js` —
+`src/surfer/fold/summary.js` · `summary-prompt.js` · `summary-detail.js` ·
+`summary-arc.js` · `summary-cross.js` · reader wiring: `src/rooms/reader/app/summaries.js` —
 bench: `tools/fold-summary-bench.mjs` · corpus: `tools/corpus-fetch-summary.mjs` →
-`data/corpus/summary/` · tests: `tests/fold-summary.test.js` · recorded run:
+`data/corpus/summary/` · tests: `tests/fold-summary.test.js` ·
+`tests/fold-summary-detail.test.js` · `tests/fold-summary-app.test.js` · recorded run:
 `docs/fold-summary-battery-2026-07.md`
 
 ## The gap this closes
@@ -39,6 +41,48 @@ Four scopes, the four summaries a reader actually asks for:
 | `cursor` | the deep reader's local window at any sentence | *what is going on here?* |
 | `entity` | thread-conditioned on the named referent's terms **and** coref-resolved ids; structure from `figureSurface` | *what does this say about X?* |
 | `topic` | thread-conditioned on the theme's terms | *what does this say about Y-the-theme?* |
+
+## The detail tiers — how much summary, at what cost
+
+`summary-detail.js` (`SUMMARY_DETAILS`). One pipeline, three levels of detail, each a
+**one-shot prompt** — a single system+user pair, no multi-message chains — and each
+sized for the smallest local window in the fleet (webllm/wllama hold 4k tokens):
+
+| tier | output | decode | input budget | what it is for |
+|---|---|---|---|---|
+| `brief` | 1 sentence (2 at most) | ≤64 tokens, stop `\n` | ~700 tokens | the fast voice — cheap enough to ask at **any place in the fold** as the reader moves; prefill is the cost on a CPU model, so the ask is tight and the system message short |
+| `standard` | 3 sentences | ≤220 tokens | ~1800 tokens | the default the pipeline always made |
+| `paragraph` | ONE paragraph, ≤7 sentences, never more | ≤320 tokens | ~2700 tokens | the whole work — *"the entire novel, in a paragraph"* |
+
+The voice follows scope × detail (`summarySystem`): the brief tier speaks a
+deliberately short system message; the paragraph tier over an arc-coverage packet
+speaks the **whole-work voice** ("how it moves from its opening to its close"), while
+a paragraph-length entity or topic summary keeps its scope's own frame.
+
+**The window fit is deterministic and happens before the model's own guard ever
+could.** `fitSummaryAsk` holds the ask under the tier's input budget by shedding what
+matters least first: the **middle** spans go before the first and last (the arc's ends
+— for a whole-work packet, the opening and the close), then the tail of the note
+groups, and only then is the longest surviving span middle-truncated. Token costs use
+the same script-aware rule as `model/context-budget.js` (ASCII bytes/4, non-ASCII
+bytes/2 — a private copy, the `converse/history.js` precedent), so a CJK or Cyrillic
+packet is never under-counted into an overflow. Every tier's
+`inputBudget + decode + reserve` fits a 4k window by construction (pinned by test).
+
+## Arc coverage — the whole novel in one packet
+
+`summary-arc.js` (`arcStops`), engaged by `summaryFold(doc, { scope: 'full',
+coverage: 'arc' })`. One adaptive surf reads a *place* well; it cannot represent a
+novel — its stops are wherever the walk peaked. For the whole-work summary the stops
+are instead **stratified across the document's own grain**: the injected `grain`
+(the reader wires `detectGrain`, so the author's chapters cut the arc when the
+document carries them; the fallback is even quantiles — pure arithmetic), one **local**
+surf per sampled boundary (the same cheap reach as the cursor scope — never the
+whole-doc walk, K times), each neighbourhood's strongest stop kept, first and last
+segments always sampled. The packet's spans then run beginning → end in reading
+order, which is exactly what the whole-work voice tells the model it is being handed.
+A document too short to have an arc (≤40 sentences) degrades to the peak walk —
+`packet.coverage` says which one you got.
 
 ## Realization: floor, voice, gate
 
@@ -124,6 +168,32 @@ One honest limitation, surfaced by the chat register: a source that discusses
 earliest-introduced bearer (the same policy as `entity-merge.js`). Per-mention
 routing inside such a source is future work; the attribution metric exists
 precisely to expose what that policy costs.
+
+## Wired into the reader — a summary at any place, any lens, any detail
+
+`src/rooms/reader/app/summaries.js` (`installSummaries`) puts the pipeline behind one
+door on the session controller, so **any surface** can ask for the fold's reading:
+
+```js
+app.foldSummary({ sn, scope: 'cursor', cursor: 118, detail: 'brief'  })   // this place, fast
+app.foldSummary({ sn, scope: 'entity', entity: 'Pierre'              })   // this lens
+app.foldSummary({ sn, scope: 'topic',  topic: 'the retreat'          })   // this theme
+app.foldSummary({ sn, scope: 'full',   detail: 'paragraph'           })   // the whole work, one ¶
+app.foldSummaryFor({ ... })                                               // read the stored record back, sync
+```
+
+The discipline is the topline's own two-phase store: the **deterministic telegram
+lands first** (stored the moment the packet exists — there is a summary before any
+talker is warm), and a loaded talker refines it behind the referential gate in the
+same call; a decode that adds a name or number the packet never carried ships the
+telegram instead, with the additions kept on the record for the audit. Generation
+holds the fore-model count so the at-rest murmur yields the decode gate to a summary
+the user is watching. Records live in `state.summaries.folds` — a bounded ring
+(cursor keys churn as the reader moves) keyed by `sn·scope·place·detail` — and
+persist across reload. Paragraph-detail full-scope asks build their packet with arc
+coverage and twelve spans; brief asks build a four-span packet so the CPU prefill
+stays small. Wiring pinned end-to-end in `tests/fold-summary-app.test.js`; the tiers
+and the arc in `tests/fold-summary-detail.test.js`.
 
 ## The corpus
 

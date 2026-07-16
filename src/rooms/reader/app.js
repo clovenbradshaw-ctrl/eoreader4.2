@@ -23,22 +23,15 @@ import { promoteConnection } from '../../enactor/connect/index.js';
 import { speakTriples, talkThenVerify } from '../../weave/write/index.js';
 import { toPast } from '../../weave/write/index.js';
 import { projectGraph, operatorsOf, glyphOf } from '../../core/index.js';
-import { createModel, describeModel } from '../../model/index.js';
-import { wrapRedacting } from '../../model/index.js';
-import { probeOrigins, explainReach } from '../../model/index.js';
-import { createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
+import { createModel, describeModel, wrapRedacting, probeOrigins, explainReach,
+         createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement, anchorTopicless,
          runTurnWithResearch, runCuriousResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
          runTurnWithCorroboration, corroborationAnnouncement, corroborationSettled,
-         readDiscourse, clarifyDemandOf, loadShapeLibrary } from '../../turn/index.js';
-import { loadShapeGrammars } from '../../turn/index.js';
-import { extendLibraryWithNavPool } from '../../turn/index.js';
-import { createWebClient, htmlToText, searchAndAdmit } from '../../organs/ingest/index.js';
-import { admitWebSource, webContentHash } from '../../organs/ingest/index.js';
-import { fetchGithubRepo } from '../../organs/ingest/index.js';
-import { LIBRARIES, surfaceCard, librariesManifest } from '../../organs/ingest/index.js';
-import { readIngest } from '../../organs/ingest/index.js';
-import { emitEot } from '../../organs/ingest/index.js';
+         readDiscourse, clarifyDemandOf, loadShapeLibrary,
+         loadShapeGrammars, extendLibraryWithNavPool } from '../../turn/index.js';
+import { createWebClient, htmlToText, searchAndAdmit, admitWebSource, webContentHash,
+         fetchGithubRepo, LIBRARIES, surfaceCard, librariesManifest, readIngest, emitEot } from '../../organs/ingest/index.js';
 import { createCompositeDoc } from '../../organs/in/index.js';
 import { scopeSources } from './scope-sources.js';
 import { createAudioStore } from './audio-store.js';
@@ -105,6 +98,7 @@ import { installTransmission } from './app/transmission.js';
 import { installStanding } from './app/standing.js';
 import { installListen } from './app/listen.js';
 import { installToplines } from './app/toplines.js';
+import { installSummaries } from './app/summaries.js';
 import { installDigest } from './app/digest.js';
 import { installZoom } from './app/zoom.js';
 import { installWiki } from './app/wiki.js';
@@ -135,7 +129,8 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // entity toplines, and the DEFINER's evolving champion — the chorus's reigning strategy plus a
     // run counter that drives the (deterministic) exploration beat. Persisted so the organism keeps
     // what it learned about defining across reloads (weave/topline/chorus.js).
-    summaries: { entities: {}, definer: { champion: null, runs: 0 } },
+    // `folds` beside them: the fold-summary records (app/summaries.js) — a bounded ring.
+    summaries: { entities: {}, definer: { champion: null, runs: 0 }, folds: {} },
     // A workspace is the top-level container (Notion's workspace/teamspace): it owns a
     // nested tree of topics. A topic scopes a source set and a chat conversation, and now
     // carries `workspaceId` (which container it lives in) + `parentId` (its parent topic,
@@ -240,6 +235,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installStanding(appCtx);
   installListen(appCtx);
   installToplines(appCtx);
+  installSummaries(appCtx);
   installDigest(appCtx);
   installZoom(appCtx);
   installWiki(appCtx);

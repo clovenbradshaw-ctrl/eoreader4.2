@@ -82,6 +82,12 @@ export const buildApi = (appCtx) => {
     sourceSummary: appCtx.sourceSummary, sourceSummaryOf: appCtx.sourceSummaryOf, entitySummary: appCtx.entitySummary, entitySummaryFor: appCtx.entitySummaryFor, summaryFeedback: appCtx.summaryFeedback,
     // the figure a single-subject source centres on — the source page shows its dossier (docs/topline.md)
     sourceDominantEntity: appCtx.sourceDominantEntity,
+    // fold summaries (docs/fold-summary-pipeline.md) — the fold's reading realized behind the
+    // referential gate, at any place ({scope:'cursor',cursor}), any lens ({scope:'entity'|'topic'}),
+    // and any DETAIL: 'brief' (one fast sentence), 'standard', 'paragraph' (the whole work, one
+    // paragraph). foldSummary generates (telegram first, model refinement behind it);
+    // foldSummaryFor reads the stored record back synchronously.
+    foldSummary: appCtx.foldSummary, foldSummaryFor: appCtx.foldSummaryFor,
     // the entity explore surface — the deterministic chapter spine + on-demand important/surprising +
     // the fold-prompted per-chapter reading + the passage ZOOM, all pulled lazily as the reader digs
     // in and deeper (docs/topline.md)
