@@ -10,9 +10,14 @@ export { impressionQuery } from './impression.js';
 // the model voice behind the referential gate (names and numbers must already stand
 // in the packet — prose words are free); the cross-source fold keeps namesakes apart
 // and ships its own collapse metric so a bench can falsify it.
+// Detail tiers (SUMMARY_DETAILS): brief (one fast sentence at any place in the fold),
+// standard (the 3-sentence default), paragraph (the whole work — arc-coverage packet,
+// ONE paragraph out, never more). Every tier is a single one-shot prompt, budget-fitted
+// to the smallest local window before the backend's blind context guard ever runs.
 export { summaryFold, telegramSummary, packetSurface, pickLeadProperty } from './summary.js';
 export {
   summaryMessages, crossSummaryMessages, SUMMARY_SYSTEMS, SUMMARY_DECODE,
+  SUMMARY_DETAILS, summarySystem,
   cleanSummary, summaryAdditions, referentiallyContained,
   realizeSummary, realizeCrossSummary,
 } from './summary-prompt.js';

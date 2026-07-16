@@ -17,6 +17,8 @@ export const CONTRACTS = Object.freeze({
   'src/surfer/fold/substrate.js': contract({ ops: ['SYN', 'EVA', 'NUL'], targets: ['Field', 'Network'], products: ['Network', 'Void'], stances: ['Composing', 'Binding', 'Clearing'], note: 'the reading substrate (typed graph)' }),
   'src/surfer/fold/summary.js': contract({ ops: ['SEG', 'SYN', 'EVA'], targets: ['Field', 'Network'], products: ['Lens'], stances: ['Clearing', 'Composing', 'Tracing'], note: 'the summary fold; fold → summary packet' }),
   'src/surfer/fold/summary-prompt.js': contract({ ops: ['DEF', 'SEG', 'EVA'], targets: ['Field', 'Lens'], products: ['Lens'], stances: ['Dissecting', 'Binding', 'Tracing'], note: 'the summary prompt + referential gate' }),
+  'src/surfer/fold/summary-detail.js': contract({ ops: ['DEF', 'SEG'], targets: ['Lens', 'Field'], products: ['Lens'], stances: ['Dissecting', 'Clearing'], note: 'the detail tiers — voices, budgets, the window fit' }),
+  'src/surfer/fold/summary-arc.js': contract({ ops: ['SEG', 'EVA'], targets: ['Field'], products: ['Field'], stances: ['Clearing', 'Tracing'], note: 'arc coverage — stops stratified across the whole work' }),
   'src/surfer/fold/summary-cross.js': contract({ ops: ['SEG', 'SYN', 'EVA'], targets: ['Network'], products: ['Network', 'Lens'], stances: ['Dissecting', 'Composing', 'Tracing'], note: 'the cross-source summary fold; referent-safe' }),
   'src/surfer/fold/time-axis.js': contract({ ops: ['SEG', 'NUL'], targets: ['Network', 'Field'], products: ['Network'], stances: ['Clearing', 'Composing'], note: 'the graph time axis + its folds' }),
   'src/surfer/fold/verdict.js': contract({ ops: ['EVA', 'DEF'], targets: ['Network', 'Lens'], products: ['Lens'], stances: ['Tracing', 'Binding'], note: 'living-or-dead + sayable-or-not' }),

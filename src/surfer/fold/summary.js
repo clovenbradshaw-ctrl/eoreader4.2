@@ -36,6 +36,7 @@ import { namedReferents, figureSurface, rankProperties, plainRel } from '../../p
 import { tok } from '../../perceiver/parse/index.js';
 import { foldNote } from './integral.js';
 import { projectNotes } from './project.js';
+import { arcStops } from './summary-arc.js';
 
 const DEFAULTS = Object.freeze({ maxSpans: 8, maxRelations: 6, maxProperties: 6, maxFigures: 8 });
 
@@ -84,8 +85,14 @@ const summaryRelations = (relations, max) => {
 //   cursor   the place, for scope 'cursor'
 //   entity   the referent's name as a reader would say it, for scope 'entity'
 //   topic    the theme phrase, for scope 'topic'
+//   coverage 'peak' (the adaptive surf's own stops — the default, unchanged) | 'arc'
+//            (full scope only: stops stratified across the whole work, for the
+//            paragraph-tier "summarize the entire novel" packet)
+//   grain    INJECTED, optional — (doc) => { bounds } (the caller wires detectGrain);
+//            only read by the arc coverage, which falls back to even quantiles.
 export const summaryFold = (doc, {
   surf, scope = 'full', cursor = null, entity = null, topic = null, title = null,
+  coverage = 'peak', grain = null,
   maxSpans = DEFAULTS.maxSpans, maxRelations = DEFAULTS.maxRelations,
   maxProperties = DEFAULTS.maxProperties, maxFigures = DEFAULTS.maxFigures,
 } = {}) => {
@@ -112,13 +119,24 @@ export const summaryFold = (doc, {
     surfOpts = { reach: 'adaptive', thread: termThread(topic) };
   }
 
-  const s = surf(doc, anchor, surfOpts) || null;
-  if (!s || !Array.isArray(s.stops) || !s.stops.length) return null;
-  const byIdx = new Map((s.field || []).map((f) => [f.idx, f.bayes]));
-  const scoreAt = (c) => byIdx.get(c) ?? 0;
+  // The walk: one surf at the scope's anchor (the default), or — full scope, arc
+  // coverage, a document long enough to have an arc — one local surf per sampled
+  // segment so the stops span the whole work. A failed arc falls back to the peak
+  // walk rather than returning nothing.
+  let walk = null;
+  const wantsArc = scope === 'full' && coverage === 'arc' && sents.length > 40;
+  if (wantsArc) walk = arcStops(doc, surf, { grain, want: maxSpans });
+  let surfed = null;
+  if (!walk) {
+    surfed = surf(doc, anchor, surfOpts) || null;
+    if (!surfed || !Array.isArray(surfed.stops) || !surfed.stops.length) return null;
+    const byIdx = new Map((surfed.field || []).map((f) => [f.idx, f.bayes]));
+    walk = { stops: surfed.stops, peak: surfed.peak, scoreAt: (c) => byIdx.get(c) ?? 0 };
+  }
+  const s = { stops: walk.stops, peak: walk.peak };
 
-  const spans = spansAtStops(doc, s.stops, scoreAt, maxSpans);
-  const fold = foldNote(spans, { doc, cursor: s.peak, focus, surf: s, grouped: true });
+  const spans = spansAtStops(doc, s.stops, walk.scoreAt, maxSpans);
+  const fold = foldNote(spans, { doc, cursor: s.peak, focus, surf: surfed, grouped: true });
 
   // The three groups (settled / held open / turns) off the substrate when the grouped
   // fold produced one; else the flat note split to lines — either way membrane-safe.
@@ -140,7 +158,8 @@ export const summaryFold = (doc, {
   const labelOf = (id) => doc.admission?.labelOf?.(id) || id;
 
   return Object.freeze({
-    scope, docId: doc.docId ?? null, title: title || null,
+    scope, coverage: wantsArc && !surfed ? 'arc' : 'peak',
+    docId: doc.docId ?? null, title: title || null,
     anchor, cursor: s.peak, stops: [...s.stops],
     focus: focus.map(labelOf),
     entity: entity || null, topic: topic || null,

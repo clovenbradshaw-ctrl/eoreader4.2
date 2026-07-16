@@ -18,71 +18,33 @@
 // scaffolding, caps the sentence count, and rejects degenerate residue.
 
 import { telegramSummary, packetSurface } from './summary.js';
-
-// ── the voices ────────────────────────────────────────────────────────────────────────
-// One frame, three scopes. The notes vocabulary ("settles", "holds open", "turns") is
-// carried into the ask so the model treats the held-open group as UNSETTLED — the void
-// band as a prompt constraint, the same firewall-as-instruction move the reflect
-// prompt makes.
-const COMMON_RULES =
-  ' Use only the people, places, works, dates and numbers that appear in the material.' +
-  ' If the notes hold something open, report it as unsettled — never decide it.' +
-  ' Plain prose only: no list, no heading, no preamble, and never mention notes,' +
-  ' passages, documents-as-documents, or these instructions.';
-
-const DOCUMENT_SYSTEM =
-  'You have just read a document. Below are its key passages and the reading notes —' +
-  ' what it settles, what it holds open, where it turns. Write the summary a careful' +
-  ' reader would give: what the document is about and what actually happens or is' +
-  ' claimed in it, concrete and specific.' + COMMON_RULES;
-
-const ENTITY_SYSTEM =
-  'You have just read a document, attending to one figure in it. Below are the' +
-  ' passages where that figure appears and the reading notes about it. Write what this' +
-  ' document says about the figure — who or what it is here, what it does, what is' +
-  ' said of it. Only what this material carries.' + COMMON_RULES;
-
-const CROSS_SYSTEM =
-  'You have read several sources that discuss related figures. Below, grouped per' +
-  ' figure, are passages and reading notes from each source. Write a summary that' +
-  ' keeps every figure distinct: attribute each claim to the figure it belongs to,' +
-  ' use full names, and never blend two people who happen to share a name.' + COMMON_RULES;
-
-export const SUMMARY_SYSTEMS = Object.freeze({
-  full: DOCUMENT_SYSTEM, cursor: DOCUMENT_SYSTEM, topic: DOCUMENT_SYSTEM,
-  entity: ENTITY_SYSTEM, cross: CROSS_SYSTEM,
-});
+// The detail tiers, the scope×detail voice table, and the deterministic window fit all
+// live in summary-detail.js (how MUCH summary, at what cost); this module keeps the
+// discipline (build the ask, clean the output, hold the gate, guarantee the floor).
+import {
+  SUMMARY_DETAILS, tierOf, summarySystem, SUMMARY_SYSTEMS, CROSS_SYSTEM,
+  notesBlock, passagesBlock, fitSummaryAsk,
+} from './summary-detail.js';
+export { SUMMARY_DETAILS, summarySystem, SUMMARY_SYSTEMS };
 
 // ── the ask ───────────────────────────────────────────────────────────────────────────
-// The packet rendered for the model: passages first (the prose it will echo), the three
-// note groups after (the reading it must respect), the ask last with the length stated
-// in sentences. Sources for the cross scope are rendered per referent.
-
-// The turns group is deliberately NOT fed to the model: "the reading turns around X"
-// is the surfer's navigation record, and a small model handed it echoes it back as if
-// it were content (the parroted-frame failure the reflect prompt already met). The
-// packet still carries turns for the audit; the summary ask reads settled + held-open.
-const notesBlock = (groups) => {
-  const parts = [];
-  const block = (head, lines) => { if (lines && lines.length) parts.push(`${head}\n${lines.map((l) => `- ${l}`).join('\n')}`); };
-  block('Settled:', groups?.settled);
-  block('Held open (do not settle):', groups?.heldOpen);
-  return parts.join('\n');
-};
-
-const passagesBlock = (spans) =>
-  (spans || []).map((s) => `- ${s.text}`).join('\n');
-
-export const summaryMessages = (packet, { sentences = 3 } = {}) => {
+// The packet rendered for the model: passages first (the prose it will echo), the note
+// groups after (the reading it must respect — turns withheld, see summary-detail.js),
+// the ask last with the length stated in sentences, the whole fit to the tier's input
+// budget (fitSummaryAsk — the middle spans shed first, the arc's ends kept). Sources
+// for the cross scope are rendered per referent.
+export const summaryMessages = (packet, { sentences = null, detail = 'standard' } = {}) => {
+  const tier = tierOf(detail);
+  const n = sentences ?? tier.sentences;
   const scope = packet?.scope || 'full';
-  const system = SUMMARY_SYSTEMS[scope] || DOCUMENT_SYSTEM;
+  const system = summarySystem(scope, detail, packet);
   const head = scope === 'entity' && packet.entity ? `Figure: ${packet.entity}\n`
     : scope === 'topic' && packet.topic ? `Theme: ${packet.topic}\n`
     : packet.title ? `Title: ${packet.title}\n` : '';
-  const user =
-    `${head}Passages:\n${passagesBlock(packet?.spans)}\n\n` +
-    `Reading notes:\n${notesBlock(packet?.groups)}\n\n` +
-    `Summary (${sentences} sentence${sentences === 1 ? '' : 's'}):`;
+  const ask = detail === 'paragraph'
+    ? `Summary (one paragraph, at most ${n} sentences):`
+    : `Summary (${n} sentence${n === 1 ? '' : 's'}):`;
+  const user = fitSummaryAsk(packet, system, head, ask, tier.inputBudget);
   return [{ role: 'system', content: system }, { role: 'user', content: user }];
 };
 
@@ -207,24 +169,29 @@ export const referentiallyContained = (text, surface) => {
 // on a gate rejection, what the model tried to add — the audit trail the bench reads.
 
 export const realizeSummary = async (packet, {
-  phrase = null, sentences = 3, maxSentences = null, telegram = null,
+  phrase = null, detail = 'standard', sentences = null, maxSentences = null, telegram = null,
 } = {}) => {
+  const tier = tierOf(detail);
+  const want = sentences ?? tier.sentences;
+  // An explicit `sentences` keeps the historical cap (sentences + 1); otherwise the
+  // tier's own cap stands — a paragraph is never allowed a second paragraph.
+  const cap = maxSentences ?? (sentences != null ? sentences + 1 : tier.maxSentences);
   const floor = typeof telegram === 'function'
     ? telegram(packet)
-    : telegramSummary(packet, { maxSentences: maxSentences ?? sentences + 1 });
+    : telegramSummary(packet, { maxSentences: cap });
   if (!packet) return { text: '', via: 'telegram', additions: null };
-  if (typeof phrase !== 'function') return { text: floor, via: 'telegram', additions: null };
+  if (typeof phrase !== 'function') return { text: floor, via: 'telegram', additions: null, detail };
   let raw = '';
   try {
-    raw = await phrase(summaryMessages(packet, { sentences }), SUMMARY_DECODE);
+    raw = await phrase(summaryMessages(packet, { sentences: want, detail }), tier.decode);
   } catch { raw = ''; }
-  const cleaned = cleanSummary(raw, { maxSentences: maxSentences ?? sentences + 1 });
-  if (!cleaned) return { text: floor, via: 'telegram', additions: null, raw };
+  const cleaned = cleanSummary(raw, { maxSentences: cap, maxLen: tier.maxLen });
+  if (!cleaned) return { text: floor, via: 'telegram', additions: null, raw, detail };
   const additions = summaryAdditions(cleaned, packetSurface(packet));
   if (additions.names.length || additions.numbers.length) {
-    return { text: floor, via: 'telegram-gated', additions, rejected: cleaned, raw };
+    return { text: floor, via: 'telegram-gated', additions, rejected: cleaned, raw, detail };
   }
-  return { text: cleaned, via: 'model', additions, raw };
+  return { text: cleaned, via: 'model', additions, raw, detail };
 };
 
 // The cross-source twin. Two modes, and the difference IS the coref discipline:
@@ -241,7 +208,7 @@ export const realizeSummary = async (packet, {
 //     see cross-ATTRIBUTION (every name is licensed somewhere) — that is what
 //     summaryAttributionErrors measures. Kept as the bench's hard condition.
 export const realizeCrossSummary = async (referents, {
-  phrase = null, sentences = 4, telegram, maxSentences = null, mode = 'sequential',
+  phrase = null, detail = 'standard', sentences = 4, telegram, maxSentences = null, mode = 'sequential',
 } = {}) => {
   const floor = typeof telegram === 'function' ? telegram(referents) : '';
   if (!referents?.length) return { text: '', via: 'telegram', additions: null };
@@ -255,7 +222,7 @@ export const realizeCrossSummary = async (referents, {
     for (const r of referents) {
       const packet = { ...r, scope: 'entity', entity: r.referent };
       const one = await realizeSummary(packet, {
-        phrase, sentences: per, maxSentences: per + 1,
+        phrase, detail, sentences: per, maxSentences: per + 1,
         telegram: typeof telegram === 'function' ? () => telegram([r]) : null,
       });
       if (one.text) parts.push(one.text);
@@ -273,7 +240,7 @@ export const realizeCrossSummary = async (referents, {
 
   let raw = '';
   try {
-    raw = await phrase(crossSummaryMessages(referents, { sentences }), SUMMARY_DECODE);
+    raw = await phrase(crossSummaryMessages(referents, { sentences }), tierOf(detail).decode);
   } catch { raw = ''; }
   const cleaned = cleanSummary(raw, { maxSentences: maxSentences ?? sentences + 2 });
   if (!cleaned) return { text: floor, via: 'telegram', additions: null, raw, mode };
