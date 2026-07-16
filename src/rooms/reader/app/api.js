@@ -62,6 +62,7 @@ export const buildApi = (appCtx) => {
     redactRemote: appCtx.redactRemote, setRedactRemote: appCtx.setRedactRemote,
     // model
     ensureModel: appCtx.ensureModel, setBackend: appCtx.setBackend, backendPref: appCtx.backendPref, setSpeed: appCtx.setSpeed, speedPref: appCtx.speedPref,
+    optionalModel: appCtx.optionalModel, readerCoreStatus: appCtx.readerCoreStatus, synthesisEnabled: appCtx.synthesisEnabled, synthesisMode: appCtx.synthesisMode,
     // projections for the surface
     answerSegments: appCtx.answerSegments, viewerParas: appCtx.viewerParas, readerLink: appCtx.readerLink, transcriptEntityRuns: appCtx.transcriptEntityRuns, entities: appCtx.entities, entityProfile: appCtx.entityProfile, entityWiki: appCtx.entityWiki, tieredData: appCtx.tieredData, topicTieredData: appCtx.topicTieredData,
     // the entity explorer, scoped to one source and read at a chosen HOLONIC LEVEL —

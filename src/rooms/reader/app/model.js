@@ -14,11 +14,22 @@ export const installModel = (appCtx) => {
   const backendPref = () => {
     if (backendOverride) return backendOverride;
     try { const v = localStorage.getItem('eo_backend'); if (v) return v; } catch { /* default */ }
-    return (typeof navigator !== 'undefined' && navigator.gpu) ? 'webllm' : 'wllama';
+    return (typeof navigator !== 'undefined' && navigator.gpu) ? 'webllm' : 'none';
   };
   // The WebGPU talkers — both ride the web-llm engine, so they share the stall wording,
   // the no-WebGPU blame check, and the wedge ladder's step down to the CPU model.
   const isWebgpuTalker = (b) => b === 'webllm' || b === 'qwen';
+  const synthesisMode = () => {
+    const b = backendPref();
+    if (b === 'none') return 'off';
+    if (b === 'claude' || b === 'lmstudio' || b === 'ollama') return 'hosted';
+    if (b === 'wllama') return 'CPU';
+    if (isWebgpuTalker(b)) return 'WebGPU';
+    return state.model.state === 'ready' ? (state.model.backend || b) : 'off';
+  };
+  const readerCoreStatus = () => (state.ready ? 'ready' : 'starting');
+  const synthesisEnabled = () => backendPref() !== 'none';
+  const optionalModel = () => (synthesisEnabled() && appCtx.model?.isLoaded?.() ? appCtx.model : null);
   appCtx.model = null; appCtx.modelLoading = null; appCtx.modelGen = 0;
   // Consecutive in-browser decode wedges (a lost / OOM'd WebGPU device). A clean answer clears it
   // (finishMessage); a second straight wedge steps DOWN to the smaller/CPU backup (resetWedgedLocalModel).
@@ -116,6 +127,11 @@ export const installModel = (appCtx) => {
     } catch { /* no storage manager here */ }
   };
   const ensureModel = async () => {
+    if (backendPref() === 'none') {
+      state.model = { backend: 'none', state: 'off', progress: 0, note: 'Audit mode — no generative model' };
+      emit('model');
+      throw new Error('Optional synthesis is off');
+    }
     if (appCtx.model?.isLoaded?.()) return appCtx.model;
     if (appCtx.modelLoading) return appCtx.modelLoading;
     const gen = ++appCtx.modelGen;
@@ -356,5 +372,5 @@ export const installModel = (appCtx) => {
   // contention is habitual promote the murmur to its own CPU engine (loaded once, then reused).
   const noteBgYield = () => { if (!bgReady() && !appCtx.bgLoading && ++bgYields >= BG_YIELD_THRESHOLD) void loadBackgroundModel(); };
 
-  Object.assign(appCtx, { backendPref, bgReady, bgTalker, ensureModel, freeOrphan, loadBackgroundModel, noteBgYield, orphanModel, resetWedgedLocalModel, setBackend, setSpeed, speedPref });
+  Object.assign(appCtx, { backendPref, bgReady, bgTalker, ensureModel, freeOrphan, loadBackgroundModel, noteBgYield, optionalModel, orphanModel, readerCoreStatus, resetWedgedLocalModel, setBackend, setSpeed, speedPref, synthesisEnabled, synthesisMode });
 };

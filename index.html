@@ -256,13 +256,13 @@ table{border-collapse:collapse;width:100%}
       </div>
     </form>
 
-    <button onClick="{{ toggleModel }}" title="Model" data-eo-model="1" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
+    <button onClick="{{ toggleModel }}" title="Optional synthesis" data-eo-model="1" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;color:#5A5A64" style-hover="background:#F2F2F6">
       <span style="width:7px;height:7px;border-radius:50%;background:{{ modelDot }};flex:0 0 auto"></span>
       <span class="eo-modelchip-label">{{ modelChip }}</span>
     </button>
-    <button onClick="{{ openLibraries }}" title="Search libraries — Wikipedia, Project Gutenberg, Wikimedia Commons, GitHub" style="display:flex;align-items:center;gap:6px;background:#EEF0FE;color:#4B45C6;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600" style-hover="background:#E4E6FD">
+    <button onClick="{{ openLibraries }}" title="Add sources — Wikipedia, Project Gutenberg, Wikimedia Commons, GitHub" style="display:flex;align-items:center;gap:6px;background:#EEF0FE;color:#4B45C6;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600" style-hover="background:#E4E6FD">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      <span class="eo-hide-sm">Libraries</span>
+      <span class="eo-hide-sm">Add sources</span>
     </button>
     <button onClick="{{ openMonologue }}" style="display:flex;align-items:center;gap:6px;background:#E7F6EC;color:#1E8A50;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600" style-hover="background:#DDF0E4">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
@@ -404,7 +404,7 @@ table{border-collapse:collapse;width:100%}
     <sc-if value="{{ modelOpen }}">
       <div class="eo-pop" data-eo-model="1" style="position:absolute;right:120px;top:46px;z-index:30;background:#fff;border:1px solid #E6E6EC;border-radius:12px;box-shadow:0 14px 36px rgba(20,20,30,.16);padding:10px;width:300px">
         <div style="display:flex;align-items:baseline;gap:8px;padding:2px 6px 8px">
-          <span style="flex:1;font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">MODEL · IN YOUR BROWSER, HOSTED, OR YOUR LOCAL SERVER</span>
+          <span style="flex:1;font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">OPTIONAL SYNTHESIS · OFF, CPU, WEBGPU, HOSTED</span>
           <a href="models.html" title="Open the full model manager — install, watch downloads, reclaim disk" style="flex:0 0 auto;font-size:11px;font-weight:600;color:#5B4BE6;text-decoration:none">Manage ↗</a>
         </div>
         <sc-for list="{{ backends }}" as="b">
@@ -2487,7 +2487,7 @@ table{border-collapse:collapse;width:100%}
       <div class="eo-modal" style="position:absolute;left:50%;top:52px;transform:translateX(-50%);width:min(760px,95vw);max-height:calc(100vh - 100px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
         <!-- SHELF PICKER -->
         <div style="flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid #EAEAEF">
-          <span style="font-family:'Newsreader',Georgia,serif;font-size:16px;font-weight:600;flex:0 0 auto">Libraries</span>
+          <span style="font-family:'Newsreader',Georgia,serif;font-size:16px;font-weight:600;flex:0 0 auto">Add sources</span>
           <div style="flex:1;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
             <sc-for list="{{ libChips }}" as="lc">
               <button onClick="{{ lc.pick }}" style="{{ lc.style }}">{{ lc.icon }} {{ lc.label }}</button>
@@ -5626,8 +5626,10 @@ class Component extends DCLogic {
     if (this._tlUpgradeKicked.has(stamp)) return;
     this._tlUpgradeKicked.add(stamp);
     const compose = () => Promise.resolve(app.entitySummary(ids.docId, ids.entId)).catch(() => {});
-    if (app.ensureModel) Promise.resolve(app.ensureModel()).catch(() => {}).finally(compose);
-    else compose();
+    // Primary entity facts are deterministic. Compose the telegram directly; if a
+    // model is already loaded, app.entitySummary may add optional prose, but this
+    // path never loads one just to fill the panel.
+    compose();
   }
   _setTlBusy(key, on) {
     const busy = { ...(this.state.tlBusy || {}) };
@@ -5699,19 +5701,20 @@ class Component extends DCLogic {
     const mstate = (app.state && app.state.model && app.state.model.state) || 'cold';
     const mprog = (app.state && app.state.model && app.state.model.progress) || 0;
     const modelBroken = mstate === 'error';
+    const synthesisActive = mstate === 'loading' || mstate === 'ready';
     // a written reading is WANTED but not yet in hand: the stored summary is the modelless telegram,
     // or the chorus is mid-compose. (`busy` = a steer/regenerate the user just asked for.)
     const needsWriting = isEntity && !!sum && (!!sum.modelless || !!sum.contextualPending);
-    if (isEntity && !modelBroken && needsWriting && !busy) this._kickTlUpgrade(scope, ids, key, mstate);
-    const loading = isEntity && !modelBroken && (busy || !sum || needsWriting || awaitingWritten);
+    if (isEntity && !modelBroken && needsWriting && !busy && synthesisActive) this._kickTlUpgrade(scope, ids, key, mstate);
+    const loading = isEntity && !modelBroken && synthesisActive && (busy || awaitingWritten);
     const loadNote = mstate === 'loading'
       ? `Loading the local model — ${Math.round(mprog * 100)}%`
-      : (busy ? 'Recomposing from the record…' : 'Reading this with the local model…');
+      : (busy ? 'Recomposing from the record…' : 'Core analysis complete. Optional prose summary is still generating.');
     const hasBody = loading ? false : ready;
     return {
-      show: true, has: hasBody, pending: (!loading) && (!ready || busy),
+      show: true, has: loading ? false : !!(sum || ready), pending: (!loading) && (!ready || busy),
       // the panel (header + body) is shown whenever there's something to show OR something composing.
-      panel: hasBody || loading,
+      panel: loading || !!sum || hasBody,
       loading, loadNote,
       text: ctx || (sum ? sum.text : ''),
       telegramText: sum ? sum.text : '',
@@ -7065,7 +7068,7 @@ class Component extends DCLogic {
     if (!app) {
       return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, sfClear: () => {}, sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
-        status: { title: 'Engine booting…', sub: 'window.EO not up yet — this page needs ES-module support', chip: '…' },
+        status: { title: 'Engine booting…', sub: 'Starting EO Reader…', chip: '…' },
         statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals() };
@@ -7154,10 +7157,13 @@ class Component extends DCLogic {
 
     // model
     const m = app.state.model;
-    const modelDot = m.state === 'ready' ? '#59C08A' : m.state === 'loading' ? '#C79A3A' : m.state === 'error' ? '#B23A2E' : '#B4B4BE';
-    const modelChip = m.state === 'loading' ? `${m.backend} · ${Math.round((m.progress || 0) * 100)}%`
-      : m.state === 'ready' ? m.backend : (m.backend || app.backendPref());
+    const modelDot = m.state === 'ready' ? '#59C08A' : m.state === 'loading' ? '#C79A3A' : m.state === 'error' ? '#B23A2E' : m.state === 'off' ? '#8A8A95' : '#B4B4BE';
+    const synth = app.synthesisMode ? app.synthesisMode() : 'off';
+    const core = app.readerCoreStatus ? app.readerCoreStatus() : (app.state.ready ? 'ready' : 'starting');
+    const modelChip = m.state === 'loading' ? `Optional synthesis · ${m.backend} · ${Math.round((m.progress || 0) * 100)}%`
+      : `Optional synthesis · ${synth}`;
     const BACKENDS = [
+      ['none', 'Audit mode — no generative model', 'Reader core only: ingest, search, graph, findings, pins and EoT work without model loading.'],
       ['wllama', 'SmolLM2 · CPU', 'Small and universal — runs on WASM everywhere, ~140 MB download, cached after the first load.'],
       ['webllm', 'Llama 3.2 · WebGPU', 'The local talker — the quick 1B build (~1 GB) by default, Fluent below opts into 3B. Needs WebGPU (Chrome/Edge).'],
       ['qwen', 'Qwen 2.5 · WebGPU', 'Alibaba’s small talker — 1.5B, about the same ~1 GB weight class as the Llama default. Needs WebGPU (Chrome/Edge).'],
@@ -7173,7 +7179,9 @@ class Component extends DCLogic {
       label, desc, bg: pref === id ? '#F7F7FA' : 'transparent',
       ringColor: pref === id ? '#6D5EF5' : '#D4D4DC', dotColor: pref === id ? '#6D5EF5' : 'transparent',
       pick: () => {
-        if (id === 'claude') {
+        if (id === 'none') {
+          app.setBackend('none');
+        } else if (id === 'claude') {
           // The key lives only in this browser. No key yet → ask for one; picking
           // Claude again while it is already selected re-asks, so a stale key can
           // be replaced without any extra UI.
@@ -7273,7 +7281,7 @@ class Component extends DCLogic {
     // Search leads (docs/search-and-pins.md): the record is searched, not conversed with;
     // the question line inside Search is the fallback for what it hasn't pre-answered.
     const pinCount = (this._app && this._app.pins) ? this._app.pins().length : 0;
-    const tabDefs = [['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false], ['register', 'Home', sources.length || null, false]];
+    const tabDefs = [['register', 'Workspace', sources.length || null, false], ['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false]];
     const tabs = tabDefs.map(([id, label, count, beta]) => ({
       label, count: String(count || ''), hasCount: count != null, beta: !!beta,
       fg: st.tab === id ? '#1B1B22' : '#8A8A95', weight: st.tab === id ? 650 : 500,
@@ -8249,9 +8257,9 @@ class Component extends DCLogic {
       modelChip, modelDot, modelOpen: st.modelOpen, toggleModel: () => this.toggleModel(), backends,
       showSpeed, speedFast, speedFluent,
       showRedact, redactHosted,
-      modelNote: m.state === 'error' ? `Load failed: ${m.note}` : m.state === 'ready' ? `${m.backend} is loaded and answering.` : m.state === 'loading' ? `Loading ${m.backend}${m.note ? ` · ${m.note}` : ''} — ${Math.round((m.progress || 0) * 100)}%` : 'The model loads on first question — or load it now.',
-      loadModelLabel: m.state === 'loading' ? `${Math.round((m.progress || 0) * 100)}%…` : m.state === 'ready' ? 'Reload' : 'Load now',
-      loadModelNow: () => { app.ensureModel().catch(() => {}); },
+      modelNote: m.state === 'error' ? `Reader core: ${core}. Optional synthesis: off — ${m.note}. Continue without a model or pick CPU/WebGPU/hosted.` : m.state === 'ready' ? `Reader core: ${core}. Optional synthesis: ${synth}.` : m.state === 'loading' ? `Reader core: ${core}. Optional synthesis: ${synth} · Loading ${m.backend}${m.note ? ` · ${m.note}` : ''} — ${Math.round((m.progress || 0) * 100)}%` : `Reader core: ${core}. Optional synthesis: ${synth}.`,
+      loadModelLabel: (m.state === 'off' || app.backendPref() === 'none') ? 'Continue without a model' : m.state === 'loading' ? `${Math.round((m.progress || 0) * 100)}%…` : m.state === 'ready' ? 'Reload' : 'Load now',
+      loadModelNow: () => { if (app.backendPref && app.backendPref() === 'none') { app.setBackend('none'); this._poke(); } else app.ensureModel().catch(() => {}); },
       // status + sidebar
       status, statusColor, statusOpen: st.statusOpen, statusRot: st.statusOpen ? '90deg' : '0deg',
       toggleStatus: () => this.toggleStatus(), statusPeek,
