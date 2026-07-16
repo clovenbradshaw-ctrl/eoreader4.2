@@ -5,9 +5,8 @@
 // is an admitted entity, or a pronoun resolved by coreference to one. The
 // gains over the single rigid SVO regex are where the weakness was:
 //
-//   - Coreference. A leading subject pronoun ("He", "She", "They") resolves
-//     to the most recently mentioned entity (within a few sentences). In a
-//     single-protagonist text this is the difference between a handful of
+//   - Coreference. A leading subject pronoun resolves to the most recent mention;
+//     first-person "I" resolves via the deixis channel to the grounded teller (else HOLD).
 //   - Verb classification. Speech / attribution verbs ("said", "told",
 //     "asked") emit SIG; copulas ("is", "was") emit DEF; everything else
 //     that links two entities emits CON.
@@ -222,7 +221,8 @@ const leadingSubject = (sentence, admission, coref, sentIdx = 0) => {
     const start = lead + (pn[0].length - pn[1].length); // the pronoun's offset past the lead
     if (pron === 'i' && coref?.deixis?.tellerAt) {
       const teller = coref.deixis.tellerAt(sentIdx);
-      return { id: teller?.id ?? null, start, end: lead + pn[0].length, text: pn[1], kind: 'deixis', w: teller?.id ? 1 : 0 };
+      // Coupling = the teller's grounding confidence (a distribution, not a flat-1 verdict).
+      return { id: teller?.id ?? null, start, end: lead + pn[0].length, text: pn[1], kind: 'deixis', w: teller?.id ? (teller.w ?? 1) : 0 };
     }
     const cands = coref?.field ? coref.field() : [];
     const top = cands[0];
