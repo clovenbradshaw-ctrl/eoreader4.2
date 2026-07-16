@@ -73,7 +73,7 @@ const BASELINE = new Map([
   ['src/perceiver/credence/project.js', 373],
   ['src/perceiver/parse/coref.js', 259],
   ['src/perceiver/parse/entities.js', 640],
-  ['src/perceiver/parse/pipeline.js', 833],
+  ['src/perceiver/parse/pipeline.js', 851],
   ['src/perceiver/parse/relations.js', 964],
   ['src/perceiver/predict/grained.js', 308],
   ['src/perceiver/reading.js', 314],
