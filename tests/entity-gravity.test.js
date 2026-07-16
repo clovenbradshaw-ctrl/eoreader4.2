@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createEntityAdmission } from '../src/perceiver/parse/entities.js';
+import { segmentSentences } from '../src/perceiver/parse/sentences.js';
+import { createConventions } from '../src/core/conventions/index.js';
 
 // ENTITY ADMISSION READS TITLES, CASE, AND CONTRACTIONS FROM THE DOCUMENT'S OWN GRAVITY —
 // no honorific list. A shared honorific is a MOON (massless as a bare figure, and it never
@@ -13,6 +15,18 @@ import { createEntityAdmission } from '../src/perceiver/parse/entities.js';
 const run = (text) => {
   const a = createEntityAdmission({ text });
   text.split(/(?<=[.!?])\s+/).forEach((s, i) => a.observe(s, i));
+  return a;
+};
+
+// The pipeline's real path: segment with the conventions (so an abbreviated dateline
+// "Dec. 11th" stays ONE unit — "dec" is a seeded abbreviation, the period is not a cut),
+// then observe against the same ledger. A date test must use this, since the naive splitter
+// above shatters "Dec. 11th" at the period and hides the very shape the reader keys on.
+const runReal = (text) => {
+  const conventions = createConventions();
+  const a = createEntityAdmission({ text, conventions });
+  segmentSentences(text, { isAbbreviation: (w) => conventions.isAbbreviation(w) })
+    .forEach((s, i) => a.observe(s, i));
   return a;
 };
 
@@ -63,15 +77,29 @@ test('a clause-opener capitalised by position does not mint a figure off one wea
   assert.equal(a.isAdmitted('Gregor'), true, 'a stable name (never seen lowercase) is unaffected');
 });
 
-test('a month abbreviation in a dateline is a temporal token, not a figure', () => {
-  // Frankenstein's letters open "St. Petersburgh, Dec. 11th, 17—": the comma before and
-  // the period after "Dec" read as a set-off vocative, so the gravity floor minted it as
-  // the strongest "character" on record. The calendar register denies that gravity — the
-  // abbreviation carries the same temporal signal as the full month name.
-  const a = run('St. Petersburgh, Dec. 11th, 17—. I arrived here yesterday. '
+test('a date is a temporal setting, read by SHAPE not a month list', () => {
+  // Frankenstein's letters open "St. Petersburgh, Dec. 11th, 17—": the comma before "Dec"
+  // and the period after read as a set-off vocative, so the gravity floor minted it as the
+  // strongest "character" on record. A date is the ambient WHEN — a setting, not a figure —
+  // and it is read by the SHAPE around the token (a day it governs, a year it heads), which
+  // needs no dictionary of month spellings and catches the abbreviated dateline.
+  const a = runReal('St. Petersburgh, Dec. 11th, 17—. I arrived here yesterday. '
     + 'To Mrs. Saville, England. Dec. 12th. Felix walked to the door.');
-  assert.equal(a.isAdmitted('Dec'), false, 'a dateline month abbreviation is not a figure');
+  assert.equal(a.isAdmitted('Dec'), false, 'a dateline month abbreviation is a setting, not a figure');
   assert.equal(a.isAdmitted('Felix'), true, 'a real name in the same text still admits');
+});
+
+test('shape, not identity: a name-colliding month is a date only where it wears one', () => {
+  // "March"/"May"/"August" are also names, so the seeded month LIST omits them (it cannot
+  // tell the date from the person). The SHAPE reader can — the same token is a date only
+  // where a day or year sits beside it, so both readings survive in one text.
+  const a = runReal('August 1929 was cruel. The crops failed. '
+    + 'August smiled at the harvest, and August walked the fields all day.');
+  assert.equal(a.isAdmitted('August'), true,
+    'August the person acts (never denied by a month list — August is not on it) — a figure');
+  // With no name use, the same token heading a year is a pure setting and never joins the cast.
+  const b = runReal('It happened on August 3rd, 1929. The market fell. On the 3rd of August all was lost.');
+  assert.equal(b.isAdmitted('August'), false, 'a month wearing a day/year is a date, not a figure');
 });
 
 test('an ALL-CAPS multi-word heading is refused', () => {

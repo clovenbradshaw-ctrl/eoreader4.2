@@ -188,6 +188,24 @@ const idFor = (label) =>
 
 const GRAVITY_FLOOR = 1.0;
 
+// ── A DATE is a temporal SETTING — read by SHAPE, not a month table ──────────────────────
+// The cube's Site face (grain.js) sorts a thing into a FIGURE (acts), a KIND, or a SETTING — the
+// ambient where/WHEN. A date is the WHEN: a calendar coordinate, the time-analog of "in London",
+// never an agent, so a capitalised token wearing a date's MONTH slot earns NO figure gravity.
+// What marks the slot is the date's SHAPE — a day it governs (ordinal "11th", or a number then a
+// year) or a year it heads — not the word's IDENTITY. Reading shape tells "May 1817" (a date)
+// from "May smiled" (a person), dissolving the name-collision the seeded month list dodged by
+// omitting March/May/June/July/August; and it needs no dictionary, catching the abbreviated
+// dateline "St. Petersburgh, Dec. 11th, 17—" (which minted "Dec" as the top "character") by the
+// ordinal day alone. chronology.js still reads the date for the time axis; it just leaves the cast.
+// RIGHT: token GOVERNS a day and/or year ("Dec. 11th", "December 11, 1817", "May 1817"), an
+// abbreviation "." or "," allowed before the number. LEFT: a day GOVERNS it ("11th December",
+// "3rd of May") — the ordinal is required, so a bare "of" (Bank of America) is never a date.
+const _DAY = String.raw`\d{1,2}`, _ORD = String.raw`(?:st|nd|rd|th)`, _YEAR = String.raw`(?:1[5-9]\d\d|20\d\d)`;
+const DATE_AFTER  = new RegExp(String.raw`^[.,]?\s+(?:${_DAY}${_ORD}|${_DAY},?\s+${_YEAR}|${_YEAR}\b)`, 'u');
+const DATE_BEFORE = new RegExp(String.raw`${_DAY}${_ORD}\s+(?:of\s+)?$`, 'u');
+const isDateShape = (before, after) => DATE_AFTER.test(after) || DATE_BEFORE.test(before);
+
 // The INHIBITOR for the common-noun admission catalyst (opt-in): heads that name no referent
 // however often they recur — temporal, quantifier, and abstract-relational nouns. Without
 // this, admitting definite common nouns runs away (the day / the way / the time flood the
@@ -238,6 +256,11 @@ const sightingGravity = (sentence, start, end, C, label = null) => {
   // Monday"). A genuinely recurring personification would re-earn it as the convention
   // is revised; the one-shot date that the floor mistook for a figure does not.
   const word = label ?? sentence.slice(start, end);
+  // A DATE is a temporal SETTING (the ambient WHEN), not a figure — denied by the SHAPE around
+  // it (isDateShape), tested BEFORE any argument cue reads the month as subject/object/vocative
+  // ("May 1817" is a date, not "May" the object of "on"). The calendar register is the weak
+  // fallback for a BARE calendar word with no shape to read ("reconvene Monday", "due January").
+  if (isDateShape(before, after)) return { g: 0.0, strong: false };
   if (C.isCalendar && C.isCalendar(word)) return { g: 0.0, strong: false };
   if (C.isDemonym && C.isDemonym(word))
     return (next && C.isAuxiliary(next)) ? { g: 1.0, strong: false } : { g: 0.0, strong: false };

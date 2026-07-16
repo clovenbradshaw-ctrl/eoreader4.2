@@ -266,21 +266,16 @@ export const SEED_DEMONYM = Object.freeze([
 // plus only the months that do NOT collide with given names — March/April/May/June/
 // July/August are also names, so they are OMITTED rather than silently drop a character.
 //
-// The THREE-LETTER MONTH ABBREVIATIONS carry the same temporal signal in the dateline
-// register epistolary and journal texts favour ("St. Petersburgh, Dec. 11th, 17—") —
-// where the trailing period the writer puts after "Dec" makes it look like a set-off
-// vocative and the gravity floor admits it as a one-shot figure (Frankenstein's letters
-// minted "Dec" as a character). `norm` strips that trailing period, so the bare stem is
-// what admission tests. Included on the SAME collision rule as the full names: an
-// abbreviation is admitted here only when it collides with no common given name — so
-// "Jan" (the name Jan) is OMITTED though "January" is safe, and the March/…/August
-// family stays omitted wholesale. That leaves the unambiguous set below.
+// This register is the WEAK, no-shape fallback: a BARE calendar word with no date around
+// it ("reconvene Monday", "due January"). A date that wears its own shape — a month
+// abutting a day or a year ("Dec. 11th, 17—", "May 1817") — is caught upstream in entity
+// admission by that SHAPE (parse/entities.js · isDateShape), spelling- and collision-free,
+// so no month abbreviation needs enumerating here.
 // Seeded for English and learnable like every register; a personified "Monday" that
 // truly recurs as a figure can still earn its way back as the convention is revised.
 export const SEED_CALENDAR = Object.freeze([
   'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
   'january', 'february', 'september', 'october', 'november', 'december',
-  'feb', 'sep', 'sept', 'oct', 'nov', 'dec',
 ]);
 
 // The nonperson register is LEARN-ONLY: no seed. The merge-engine veto it fed is covered by
