@@ -1630,6 +1630,7 @@ table{border-collapse:collapse;width:100%}
               <div style="display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap">
                 <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
                   <sc-if value="{{ viewerIsAudio }}"><button onClick="{{ viewerModeListen }}" title="Listen — player, waveform + interactive transcript" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmListenFg }};background:{{ vmListenBg }}">Listen</button></sc-if>
+                  <sc-if value="{{ viewer.isPdf }}"><button onClick="{{ viewerModePdf }}" title="The pages themselves — the document as a PDF" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPdfFg }};background:{{ vmPdfBg }}">PDF</button></sc-if>
                   <sc-if value="{{ viewerCanPage }}"><button onClick="{{ viewerModePage }}" title="Render the real website" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPageFg }};background:{{ vmPageBg }}">Native</button></sc-if>
                   <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">Facing</button>
@@ -1866,6 +1867,28 @@ table{border-collapse:collapse;width:100%}
                       <button onClick="{{ c.go }}" style="display:block;width:100%;text-align:left;font-family:'Newsreader',Georgia,serif;font-size:13.5px;color:#2A2A32;border-radius:7px;padding:7px 10px 7px {{ c.pad }}px" style-hover="background:#F2F2F6">{{ c.label }}</button>
                     </sc-for>
                   </div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <!-- PDF — the document AS A PDF: the browser's own viewer draws the real pages (fonts,
+                 figures, layout) from the original bytes' blob URL. The reflowed Reader book, the
+                 engine's reading, and the EoT are all one mode chip away. -->
+            <sc-if value="{{ viewerIsPdf }}">
+              <div style="flex:1;min-height:0;position:relative;background:#525659">
+                <sc-if value="{{ pdfBusy }}">
+                  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#D8D8DE">
+                    <span style="width:26px;height:26px;border-radius:50%;border:3px solid rgba(255,255,255,.22);border-top-color:#fff;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box"></span>
+                    <span style="font-size:12.5px">Opening the PDF…</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ pdfMissing }}">
+                  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:34px;text-align:center;color:#D8D8DE">
+                    <span style="font-size:13px;line-height:1.55">The original PDF isn’t stored for this source — re-import the file to see its pages.<br><button onClick="{{ viewerModeReader }}" style="color:#B9AEFF;font-weight:600;display:inline">Read it as a book instead →</button></span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ pdfShow }}">
+                  <iframe src="{{ pdfUrl }}" title="{{ viewer.title }}" style="width:100%;height:100%;border:none;display:block;background:#525659"></iframe>
                 </sc-if>
               </div>
             </sc-if>
@@ -3957,8 +3980,13 @@ class Component extends DCLogic {
     // focus. Initialise it lazily the first time we land here (whole-topic entity web).
     if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
     this.setState(patch);
-    // Switching to a source tab whose mode is Native kicks off (or reuses) its page fetch.
-    if (this.state.viewerTabs.includes(tab) && (this.state.viewerModes[tab] || 'reader') === 'native') this.loadPage(tab);
+    // Switching to a source tab whose mode is Native kicks off (or reuses) its page fetch; a PDF tab
+    // rehydrates its pages the same way (a no-op when the blob URL is already in hand).
+    if (this.state.viewerTabs.includes(tab)) {
+      const m = this.state.viewerModes[tab] || 'reader';
+      if (m === 'native') this.loadPage(tab);
+      else if (m === 'pdf') this.loadPdf(tab);
+    }
   }
   // Seed the whole-topic entity web as the Graph tab's default view, if nothing is configured
   // yet. Returns whether it initialised (so the caller can mirror it into render state).
@@ -4707,14 +4735,17 @@ class Component extends DCLogic {
     // reader cache is otherwise held for the life of the tab (prefs apply live, no rebuild).
     delete this._readerCache[sn];
     const tabs = this.state.viewerTabs.includes(sn) ? this.state.viewerTabs : [...this.state.viewerTabs, sn];
-    // Native (the real website) is the default surface for a web source that carries a URL — click a
-    // source and you land on the page itself; the clean Reader book is one tab away. A source with no
-    // URL (pasted text, a local file) has no page to render, so it opens in Reader.
-    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = src.kind === 'audio' ? 'listen' : (src.url ? 'native' : 'reader');
+    // PDF (the pages themselves) is the default surface for a PDF — click it and you land on the
+    // document as a PDF, the way a viewer draws it; the clean Reader book is one tab away. Native
+    // (the real website) is the default for a web source that carries a URL. A source with no URL
+    // (pasted text, a local text file) has no page to render, so it opens in Reader.
+    const pdfFirst = src.kind === 'pdf' && this._app.pdfRenderable && this._app.pdfRenderable(src);
+    const modes = { ...this.state.viewerModes }; if (!modes[sn]) modes[sn] = src.kind === 'audio' ? 'listen' : (pdfFirst ? 'pdf' : (src.url ? 'native' : 'reader'));
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
     // Open the source AS A TAB in the main stage and make it the active tab.
     this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) });
     if (modes[sn] === 'native') this.loadPage(sn);
+    if (modes[sn] === 'pdf') this.loadPdf(sn);
   }
   closeTab(sn, e) {
     if (e && e.stopPropagation) e.stopPropagation();
@@ -4733,6 +4764,16 @@ class Component extends DCLogic {
     this._readerFrame = null; this._nativeFrame = null;
     this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false });
     if (mode === 'native') this.loadPage(sn);
+    if (mode === 'pdf') this.loadPdf(sn);
+  }
+  // Ensure a PDF source has a renderable object URL for its PDF surface. The live blob is already on
+  // the source if this session imported it; after a reload it is rehydrated from the persisted bytes
+  // (app.pdfUrl → OPFS), which emits 'sources' and re-renders the viewer once the URL is ready.
+  loadPdf(sn) {
+    const s = this._app && this._app.sourceBySn(sn);
+    if (!s || !this._app.pdfUrl) return;
+    if (s._pdfUrl || !(s.pdfRef && s.pdfRef.opfs)) return;   // already renderable, or nothing to rehydrate
+    this._app.pdfUrl(s).catch(() => { /* the mode chip still offers the Reader book */ });
   }
   // The native render — fetch the real page's HTML through the app's proxy, sanitize it, hand it to
   // a sandboxed iframe. Cached per source in viewerPages; a plain-text URL reflows into the reader.
@@ -7868,7 +7909,7 @@ class Component extends DCLogic {
     if (activeSn) {
       const s = app.sourceBySn(activeSn);
       if (s) {
-        vMode = st.viewerModes[activeSn] || (s.kind === 'audio' ? 'listen' : 'reader');
+        vMode = st.viewerModes[activeSn] || (s.kind === 'audio' ? 'listen' : ((s.kind === 'pdf' && (s._pdfUrl || (s.pdfRef && s.pdfRef.opfs))) ? 'pdf' : 'reader'));
         // 'text' (the old Document tab) is now the Reader with links on — fold any saved value in.
         if (vMode === 'text') vMode = 'reader';
         const r = this._rights(s);
@@ -7877,6 +7918,10 @@ class Component extends DCLogic {
         viewer = {
           reg: s.reg, title: s.title, domain: s.domain, kind: s.kind,
           hasUrl: !!s.url, url: s.url || '#',
+          // PDF surface — this source renders as a PDF (its own pages) when it is a PDF; pdfUrl is the
+          // live/rehydrated blob (empty until ready), pdfHasBytes says a URL is coming or already here.
+          isPdf: s.kind === 'pdf', pdfUrl: s._pdfUrl || '',
+          pdfHasBytes: s.kind === 'pdf' && !!(s._pdfUrl || (s.pdfRef && s.pdfRef.opfs)),
           sha: s.sha.replace(/^[^:]*:/, '').slice(0, 16), bytes: this._bytes(s.bytes),
           retrieved: this._ago(s.retrieved), rights: r.label, rightsFg: r.fg, rightsBg: r.bg,
           ents: s.entCount == null ? '…' : String(s.entCount),
@@ -8352,11 +8397,18 @@ class Component extends DCLogic {
       viewerCanPage: !!viewer && viewer.hasUrl,
       viewerIsReader: vMode === 'reader', viewerIsPage: vMode === 'native', viewerIsFacing: vMode === 'facing', viewerIsEot: vMode === 'eot',
       viewerIsListen: vMode === 'listen', viewerIsAudio: !!viewer && viewer.kind === 'audio',
+      // PDF surface — the pages themselves, drawn by the browser's own PDF viewer from the blob URL.
+      viewerIsPdf: vMode === 'pdf',
+      pdfUrl: viewer ? (viewer.pdfUrl || '') : '',
+      pdfShow: vMode === 'pdf' && !!(viewer && viewer.pdfUrl),
+      pdfBusy: vMode === 'pdf' && !!(viewer && !viewer.pdfUrl && viewer.pdfHasBytes),
+      pdfMissing: vMode === 'pdf' && !!(viewer && !viewer.pdfUrl && !viewer.pdfHasBytes),
       // The media panel folds only while reading a Listen transcript; every other mode shows it whole.
       mediaMinClass: (st.listenMediaMin && vMode === 'listen') ? 'eo-media-min' : '',
       viewerModeReader: () => this.setSourceMode('reader'), viewerModePage: () => this.setSourceMode('native'),
       viewerModeFacing: () => this.setSourceMode('facing'), viewerModeEot: () => this.setSourceMode('eot'),
-      viewerModeListen: () => this.setSourceMode('listen'),
+      viewerModeListen: () => this.setSourceMode('listen'), viewerModePdf: () => this.setSourceMode('pdf'),
+      vmPdfFg: vMode === 'pdf' ? '#1B1B22' : '#8A8A95', vmPdfBg: vMode === 'pdf' ? '#fff' : 'transparent',
       vmListenFg: vMode === 'listen' ? '#1B1B22' : '#8A8A95', vmListenBg: vMode === 'listen' ? '#fff' : 'transparent',
       vmReaderFg: vMode === 'reader' ? '#1B1B22' : '#8A8A95', vmReaderBg: vMode === 'reader' ? '#fff' : 'transparent',
       vmPageFg: vMode === 'native' ? '#1B1B22' : '#8A8A95', vmPageBg: vMode === 'native' ? '#fff' : 'transparent',
