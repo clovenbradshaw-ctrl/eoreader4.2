@@ -30,7 +30,7 @@ export const buildApi = (appCtx) => {
     resumeJobs: appCtx.resumeJobs,
     // search — the sibling of ask(): a query opens a "search topic" and pulls sources into it
     searchTopic: appCtx.searchTopic,
-    sourceBySn: appCtx.sourceBySn, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, sourceToggleCollapse: appCtx.sourceToggleCollapse,
+    sourceBySn: appCtx.sourceBySn, sourceRename: appCtx.sourceRename, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, sourceToggleCollapse: appCtx.sourceToggleCollapse,
     // chat — with source
     chat: appCtx.chat, ask: appCtx.chat, askQuestion: appCtx.askQuestion, stop: appCtx.stop, exportChat: appCtx.exportChat,
     // askFigureSource and askFigureTopic removed (see rashomon) — stubs for backward compat

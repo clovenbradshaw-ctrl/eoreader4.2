@@ -148,3 +148,20 @@ test('deleting a workspace re-homes its Drive folders so filed sources stay vali
   assert.equal(app.folderById(f.id).workspaceId, personal, 'the folder re-homed into Personal');
   assert.equal(app.sourceBySn(src.sn).folderId, f.id, 'the source keeps a valid folderId');
 });
+
+test('sourceRename changes a source title while preserving folder and corpus membership', async () => {
+  const app = await freshApp();
+  const f = app.folderNew('Folder');
+  const src = app.ingestText('renameable source body', 'Original title');
+  app.sourceMove(src.sn, f.id);
+
+  const renamed = app.sourceRename(src.sn, '  Renamed source  ');
+
+  assert.equal(renamed.title, 'Renamed source');
+  assert.equal(app.sourceBySn(src.sn).title, 'Renamed source');
+  assert.equal(app.sourceBySn(src.sn).folderId, f.id, 'renaming does not move the source');
+  assert.deepEqual(app.topicSources().map((s) => s.sn), [src.sn], 'renaming keeps the source in the topic corpus');
+
+  app.sourceRename(src.sn, '   ');
+  assert.equal(app.sourceBySn(src.sn).title, 'Renamed source', 'a blank rename is a no-op');
+});
