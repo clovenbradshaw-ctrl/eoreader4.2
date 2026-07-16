@@ -40,6 +40,14 @@ test('scanAll finds verbatim occurrences and counts them per source', () => {
   assert.equal(hits[0].sn, 1);
 });
 
+test('scanAll carries line labels for each occurrence when source text is available', () => {
+  const source = { sn: 9, reg: 'S-0009', title: 'Lines', text: 'Alpha starts here.\nVictor enters here.\nThen Victor returns.' };
+  const doc = { sentences: ['Alpha starts here.', 'Victor enters here.', 'Then Victor returns.'] };
+  const { hits } = scanAll([source], ['victor'], () => doc);
+  assert.deepEqual(hits[0].occurrences.map((o) => o.line), [2, 3]);
+  assert.deepEqual(hits[0].occurrences.map((o) => o.label), ['L2', 'L3']);
+});
+
 test('routeIntent — who → cast, disagree → contrast, plain → concordance', () => {
   assert.equal(routeIntent(parseQuery('who is on the ship')), 'cast');
   assert.equal(routeIntent(parseQuery('where do the sources disagree')), 'contrast');
