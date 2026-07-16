@@ -324,5 +324,37 @@ export const installModel = (appCtx) => {
     })().catch(() => { /* recovery must never throw */ }).finally(() => { wedgeProbe = null; });
   };
 
-  Object.assign(appCtx, { backendPref, ensureModel, freeOrphan, orphanModel, resetWedgedLocalModel, setBackend, setSpeed, speedPref });
+  // ── the dedicated background engine (the CPU murmur, on its own) ─────────────
+  // The at-rest murmur passes (deep.js) share the ONE foreground engine, so on a GPU (webllm)
+  // session their CPU-cheap prose still queues on the foreground's single decode gate behind the
+  // reader's own summaries — the "reading with the local model dragging" contention. When that
+  // contention actually shows (bgYields crosses the threshold) AND the foreground is a GPU talker,
+  // load a SEPARATE small wllama (SmolLM2-135M, CPU/WASM) — its own runtime, its own gate — and
+  // route the murmur there so it never competes again. Lazy + thresholded on PURPOSE: a light
+  // session, or a CPU-only foreground (where a second wllama would just fight for the same cores),
+  // never pays for the second model. Load failure is silent — the shared-engine yield still holds.
+  appCtx.bgModel = null; appCtx.bgLoading = null;
+  let bgYields = 0;
+  const BG_YIELD_THRESHOLD = 3;
+  const bgReady = () => !!appCtx.bgModel?.isLoaded?.();
+  const bgTalker = () => (bgReady() ? appCtx.bgModel : appCtx.model);
+  const loadBackgroundModel = () => {
+    if (appCtx.bgLoading || bgReady()) return appCtx.bgLoading;
+    if (!isWebgpuTalker(backendPref())) return null;    // CPU foreground ⇒ a second CPU engine just contends
+    appCtx.bgLoading = (async () => {
+      const m = createModel('wllama', { speed: 'fast' });   // the small CPU build — cheap to hold beside the GPU one
+      if (m.kind === 'local') ensurePersistentStorage();
+      await m.load(() => { /* silent — the model chip tracks the foreground engine only */ });
+      try { await m.phrase([{ role: 'user', content: '.' }], { maxTokens: 1, temperature: 0 }); } catch { /* warmed or not, it loaded */ }
+      appCtx.bgModel = m;
+      logIt('record', 'Loaded a small CPU model for the background murmur — it runs on its own now, off the reader’s engine');
+      return m;
+    })().catch(() => { appCtx.bgModel = null; /* stay on the shared-engine fallback */ }).finally(() => { appCtx.bgLoading = null; });
+    return appCtx.bgLoading;
+  };
+  // A background decode just yielded the shared engine to the foreground — count it, and once the
+  // contention is habitual promote the murmur to its own CPU engine (loaded once, then reused).
+  const noteBgYield = () => { if (!bgReady() && !appCtx.bgLoading && ++bgYields >= BG_YIELD_THRESHOLD) void loadBackgroundModel(); };
+
+  Object.assign(appCtx, { backendPref, bgReady, bgTalker, ensureModel, freeOrphan, loadBackgroundModel, noteBgYield, orphanModel, resetWedgedLocalModel, setBackend, setSpeed, speedPref });
 };
