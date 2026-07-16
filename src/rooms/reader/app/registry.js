@@ -9,6 +9,7 @@ import { webContentHash } from '../../../organs/ingest/index.js';
 import { readIngest } from '../../../organs/ingest/index.js';
 import { emitEot } from '../../../organs/ingest/index.js';
 import { nowIso, nowMs, domainOf, shaShort, bytesOf } from './util.js';
+import { buildSourceExport } from '../source-export.js';
 
 export const installRegistry = (appCtx) => {
   const { emit, logIt, state } = appCtx;
@@ -270,5 +271,17 @@ export const installRegistry = (appCtx) => {
   // the entity explorer lists (a base doc carries no `admission`, so it would link nothing).
   const topicReferentDocs = () => topicSources().map(appCtx.referentDocFor).filter(Boolean);
 
-  Object.assign(appCtx, { addSource, answerEot, docFor, eotFor, finishReading, releaseParsesOutsideTopic, removeSource, sourceBySn, sourceRename, sourceUpdateMetadata, topicDocs, topicReferentDocs, topicSources });
+  const sourceExport = (snId, opts = {}) => {
+    const source = sourceBySn(snId);
+    if (!source) return null;
+    const doc = docFor(source);
+    let eot = null;
+    if (opts.includeEot) { try { eot = eotFor(snId); } catch { eot = null; } }
+    return buildSourceExport({ source, doc, eot, format: opts.format || 'jsonl', cursor: opts.cursor || null, baseName: opts.baseName || source.title || source.sn });
+  };
+
+  const sourceHistoryJsonl = (snId, opts = {}) => sourceExport(snId, { ...opts, format: 'jsonl' });
+  const sourceCursorJson = (snId, cursor = {}, opts = {}) => sourceExport(snId, { ...opts, cursor, format: 'cursor-json' });
+
+  Object.assign(appCtx, { addSource, answerEot, docFor, eotFor, finishReading, releaseParsesOutsideTopic, removeSource, sourceBySn, sourceRename, sourceUpdateMetadata, sourceExport, sourceHistoryJsonl, sourceCursorJson, topicDocs, topicReferentDocs, topicSources });
 };
