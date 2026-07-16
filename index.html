@@ -1633,7 +1633,7 @@ table{border-collapse:collapse;width:100%}
                   <!-- link mass. Each opens the figure's profile. (app.sourceEntities → sfCast shape.) -->
                   <sc-if value="{{ sourceLanding.castShow }}">
                     <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff">
-                      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 14px"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Characters</h2><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ sourceLanding.castCount }}</span></div>
+                      <div style="display:flex;align-items:center;gap:9px;margin:0 0 14px;flex-wrap:wrap"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Characters</h2><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ sourceLanding.castCount }}</span><span style="flex:1"></span><span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px"><button onClick="{{ sourceLanding.castSort.mass }}" title="Sort by greatest mention + link mass" style="padding:4px 9px;border-radius:6px;font-size:10.5px;font-weight:650;color:{{ sourceLanding.castSort.massFg }};background:{{ sourceLanding.castSort.massBg }}">Mass</button><button onClick="{{ sourceLanding.castSort.appearance }}" title="Sort by first explicit naming in this source" style="padding:4px 9px;border-radius:6px;font-size:10.5px;font-weight:650;color:{{ sourceLanding.castSort.appearanceFg }};background:{{ sourceLanding.castSort.appearanceBg }}">Appearance</button><button onClick="{{ sourceLanding.castSort.alpha }}" title="Sort alphabetically by figure name" style="padding:4px 9px;border-radius:6px;font-size:10.5px;font-weight:650;color:{{ sourceLanding.castSort.alphaFg }};background:{{ sourceLanding.castSort.alphaBg }}">A–Z</button></span></div>
                       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:10px">
                         <sc-for list="{{ sourceLanding.cast }}" as="c">
                           <button onClick="{{ c.open }}" title="Open this figure's profile" style="display:flex;gap:11px;align-items:center;text-align:left;background:#FAFAFC;border:1px solid #EEEFF4;border-radius:12px;padding:10px 12px" style-hover="border-color:#CFC7F7;background:#FCFBFF">
@@ -3210,6 +3210,9 @@ class Component extends DCLogic {
       // (the bridge/connectivity channel — how strongly a turn draws entities into bond) — can be
       // viewed solo or overlaid. One global toggle; every source's Overview shares it.
       waveMode: 'overlay',
+      // Source overview's Characters card can be re-ranked without changing the underlying
+      // reading: mass (mentions + links), explicit first appearance in the source text, or A–Z.
+      castSort: 'mass',
       viewerPages: {},   // sn -> { doc, busy, err } for the native render, fetched on demand
       tocOpen: false,
       // The reader's scroll progress (0–100), shown as a % and a thin bar; updated from the reader
@@ -4869,6 +4872,8 @@ class Component extends DCLogic {
   }
   // Overview's twin waveform toggle — belief solo, gravitational pull solo, or both overlaid.
   setWaveMode(mode) { this.setState({ waveMode: mode }); }
+  // Characters card sort — mass, explicit first naming in the source, or alphabetical.
+  setCastSort(mode) { this.setState({ castSort: mode }); }
   // Ensure a PDF source has a renderable object URL for its PDF surface. The live blob is already on
   // the source if this session imported it; after a reload it is rehydrated from the persisted bytes
   // (app.pdfUrl → OPFS), which emits 'sources' and re-renders the viewer once the URL is ready.
@@ -6010,8 +6015,24 @@ class Component extends DCLogic {
     // mass, each an avatar + weight bar that opens the figure's profile. Same row shape the CAST
     // surface uses (sfCast), read straight from this one source's reading.
     const castRows = (() => { try { return (app.sourceEntities ? app.sourceEntities(s.sn) : []) || []; } catch { return []; } })();
+    const sourceTextLower = String(s.text || '').toLowerCase();
+    const firstExplicitAt = (e) => {
+      const label = String(e.label || '').trim().toLowerCase();
+      if (!label || !sourceTextLower) return Number.POSITIVE_INFINITY;
+      const at = sourceTextLower.indexOf(label);
+      return at < 0 ? Number.POSITIVE_INFINITY : at;
+    };
+    const byName = (a, b) => String(a.label || '').localeCompare(String(b.label || ''), undefined, { sensitivity: 'base' });
+    const castMode = ['mass', 'appearance', 'alpha'].includes(this.state.castSort) ? this.state.castSort : 'mass';
+    const castSorted = castRows.map((e, i) => ({ e, i, mass: (e.mentions || 0) + (e.links || 0), firstAt: firstExplicitAt(e) }))
+      .sort((a, b) => castMode === 'alpha'
+        ? byName(a.e, b.e)
+        : castMode === 'appearance'
+          ? (a.firstAt - b.firstAt) || byName(a.e, b.e)
+          : (b.mass - a.mass) || byName(a.e, b.e))
+      .map((x) => x.e);
     const castMax = castRows.reduce((m, e) => Math.max(m, (e.mentions || 0) + (e.links || 0)), 0) || 1;
-    const cast = castRows.slice(0, 24).map((e) => {
+    const cast = castSorted.slice(0, 24).map((e) => {
       const mass = (e.mentions || 0) + (e.links || 0);
       return {
         label: e.label, initials: this._initials(e.label), type: e.kind || '',
@@ -6084,6 +6105,13 @@ class Component extends DCLogic {
       pins: [{ label: `${s.pinnedFigures || 0} pinned figures` }, { label: `${s.pinnedPassages || 0} pinned passages` }, { label: `${s.pinnedClaims || 0} pinned claims` }, { label: `${s.savedLenses || 0} saved lenses` }, { label: s.recentPosition || 'Recent position: start' }], openPins: () => this.setTab('pins'),
       structure, findings,
       cast, castShow: !!cast.length, castCount: `${castRows.length} on record`, castNoun,
+      castSort: {
+        mode: castMode,
+        mass: () => this.setCastSort('mass'), appearance: () => this.setCastSort('appearance'), alpha: () => this.setCastSort('alpha'),
+        massFg: castMode === 'mass' ? '#1B1B22' : '#8A8A95', massBg: castMode === 'mass' ? '#fff' : 'transparent',
+        appearanceFg: castMode === 'appearance' ? '#1B1B22' : '#8A8A95', appearanceBg: castMode === 'appearance' ? '#fff' : 'transparent',
+        alphaFg: castMode === 'alpha' ? '#1B1B22' : '#8A8A95', alphaBg: castMode === 'alpha' ? '#fff' : 'transparent',
+      },
       surprise,
       lineage: `${title} — logical work\n└─ ${s.reg || 'Landing record'} — catalog/landing record\n   └─ ${canonical === s.sn ? (s.title || s.reg || 'canonical file') : ('S-' + canonical)} — canonical evidence`,
       lineageNote: canonical === s.sn ? 'This file supplies canonical evidence. Derived or duplicate representations stay visible for provenance and do not vote independently.' : 'A separate canonical evidence file supplies aggregate counts; this representation is retained for provenance.',
