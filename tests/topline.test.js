@@ -100,6 +100,9 @@ test('mechanical phrasing reads each object type as a clean telegram sentence', 
   assert.equal(phraseMechanical({ type: 'claim', fields: { subject: 'gregor', value: 'a travelling salesman' } }), 'Gregor is a travelling salesman.');
   assert.equal(phraseMechanical({ type: 'claim', fields: { subject: 'gregor', value: 'the clerk', polarity: '−' } }), 'Gregor is not the clerk.');
   assert.equal(phraseMechanical({ type: 'claim', relational: true, fields: { subject: 'Grete', via: 'sister', object: 'Gregor', kinship: true } }), "Grete is Gregor's sister.");
+  // A change-of-state bond carries a VERB on its via, so it reads verbally even when the controller
+  // marked it kinship — never the possessive garbage "Henry Clerval is Clerval's became."
+  assert.equal(phraseMechanical({ type: 'claim', relational: true, fields: { subject: 'Henry Clerval', via: 'became', object: 'Clerval', kinship: true } }), 'Henry Clerval became Clerval.');
   assert.equal(phraseMechanical({ type: 'fact', fields: { kind: 'count', verb: 'appears in', n: 7, noun: 'passages' } }), 'Appears in 7 passages.');
   assert.equal(phraseMechanical({ type: 'fact', fields: { kind: 'value', verb: 'dated', value: '1912' } }), 'Dated 1912.');
 });

@@ -15,8 +15,10 @@
 //   turn     — what an answer asserted (msg.bound), with its fact-check verdicts.
 //
 // Each row carries its mint (`origin`) and the standing it arrived with, so the provenance banding
-// is one field read, everywhere. Phrasing REUSES the topline's own mechanical telegram
-// (weave/topline/phrase.js phraseMechanical) — this module never invents a phrasing discipline.
+// is one field read, everywhere. Phrasing REUSES the topline's own discipline (weave/topline/phrase.js):
+// a row DISPLAYS the object's veto-passed fluent sentence when the talker composed one, and the
+// deterministic mechanical telegram otherwise — this module never invents a phrasing of its own, and
+// its durable identity always rides the telegram so a telegram→fluent refine never re-keys a claim.
 //
 // Two joins here replace latent defects in the old derivation: the citation join is exact on the
 // cite's index (the old substring test let 's12' match cite 1), and the contested join compares
@@ -56,15 +58,23 @@ const inventoryRows = (objects, { origin, sn, reg, docId, doc, subject }) => {
   const rows = [];
   for (const obj of objects || []) {
     if (!obj || obj.type !== 'claim') continue;
-    // Prefer the object's own fields — the mechanical telegram is the findings phrasing discipline.
-    // But a topline stored before its objects carried `fields` (older records) has only its phrased
-    // `text`; without fields phraseMechanical degrades to "is undefined.", so fall back to that text.
-    const text = obj.fields ? phraseMechanical(obj) : String(obj.text || '');
+    // DISPLAY prefers the talker's cleaner sentence — the object's stored `text` when it is a
+    // FLUENT rewrite, which the topline accepted at compose time only after the containment veto
+    // proved it added nothing (weave/topline phraseObject → contain.js). That is "let the local
+    // talker say it cleaner, with the veto so it can't error": on no talker or a vetoed rewrite
+    // there simply is no fluent sentence and this degrades to the mechanical telegram, freshly
+    // re-derived so a stale pre-fix string is never re-shown. IDENTITY, though, always rides the
+    // deterministic telegram: a summary that later refines telegram→fluent must not re-key the
+    // claim and orphan a pin. Older records with no `fields` keep only their phrased `text`.
+    const mech = obj.fields ? phraseMechanical(obj) : '';
+    const fluent = obj.fluent ? String(obj.text || '').trim() : '';
+    const text = fluent || mech || String(obj.text || '');
     if (!text) continue;
+    const keyText = mech || text;
     const unit = Number.isInteger(obj.cite?.[0]) ? obj.cite[0] : null;
     const quote = (unit != null && doc?.sentences?.[unit]) ? String(doc.sentences[unit]).slice(0, 280) : '';
     rows.push({
-      key: claimKey(text, docId, unit),
+      key: claimKey(keyText, docId, unit),
       origin, band: obj.standing || 'stated',
       status: STANDING_STATUS[obj.standing] || 'Stated',
       text, subject: subject || obj.fields?.subject || null,
