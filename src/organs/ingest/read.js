@@ -47,7 +47,7 @@ const cache = new WeakMap();   // doc → default reading, keyed by identity (th
 
 const round = (x) => (typeof x === 'number' ? Math.round(x * 100) / 100 : x);
 
-// readIngest(doc, opts) → { docId, units, stride, structure, turns, enacted, text }
+// readIngest(doc, opts) → { docId, units, unitText, stride, structure, turns, enacted, text }
 //   structure  { lines, text, skipped } — emitEot over the log (the round-trippable layer)
 //   turns      [{ idx, sentence, predicted, surprisalBits, bayesBits, bridge, surprises }]
 //              the document's turning points, each read through the predictive channels
@@ -106,7 +106,7 @@ export const readIngest = (doc, opts = {}) => {
   }
 
   const text = renderReading({ docId, units: units.length, spine, structure, turns, frame });
-  const reading = Object.freeze({ docId, units: units.length, stride: spine.stride, structure, turns, enacted: frame, text });
+  const reading = Object.freeze({ docId, units: units.length, unitText: units.slice(), stride: spine.stride, structure, turns, enacted: frame, text });
   if (isDefault) cache.set(doc, reading);
   return reading;
 };

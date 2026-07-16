@@ -172,11 +172,13 @@ export const installRegistry = (appCtx) => {
       // Scale the turning-point spine to the DOCUMENT. The library default (k=12) is right for a
       // short record but starves a whole work — a novel's dozen turns are a scatter of dots on a
       // near-empty waveform, "nowhere near enough surprise to cover all of Frankenstein". Ask for
-      // ~1 turning point per 40 units, floored at the old default so a short source is unchanged
-      // and capped so the waveform + list stay legible (and well under the spine's sampling budget).
+      // ~1 turning point per 20 units, floored at the old default so a short source is unchanged.
+      // Long books also get a denser sampling budget so the peaks are actual content turns rather
+      // than whichever sentence happened to sit on a coarse stride.
       const nUnits = ((doc && (doc.units || doc.sentences)) || []).length;
-      const k = Math.max(12, Math.min(140, Math.round(nUnits / 40)));
-      src._eot = readIngest(doc, k === 12 ? undefined : { k });
+      const k = Math.max(12, Math.min(220, Math.round(nUnits / 20)));
+      const budget = nUnits > 900 ? Math.min(1800, Math.max(900, Math.round(nUnits / 2))) : undefined;
+      src._eot = readIngest(doc, k === 12 && budget == null ? undefined : { k, ...(budget ? { budget } : {}) });
     }
     return src._eot;
   };
