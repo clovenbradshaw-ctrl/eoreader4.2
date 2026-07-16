@@ -5697,8 +5697,6 @@ class Component extends DCLogic {
       const ckey = dkey + '#' + c.chapterIdx;
       const open = !!(this.state.entDeep || {})[ckey];
       const busy = !!genBusy['chap:' + ckey];
-      let reading = null;
-      try { reading = app.entityChapterReadingFor ? app.entityChapterReadingFor(p.label, c.chapterIdx) : null; } catch { reading = null; }
       const bt = c.bullet ? c.bullet.text : '';
       const b0 = c.bullet ? c.bullet.t0 : null, b1 = c.bullet ? c.bullet.t1 : null;
       // Each mention is a ZOOM target — click to drill into that moment (its neighbourhood + a close
@@ -5707,10 +5705,9 @@ class Component extends DCLogic {
         const pkey = dkey + '#p' + mn.idx;
         const zOpen = !!(this.state.entZoom || {})[pkey];
         const zBusy = !!genBusy['pass:' + pkey];
-        let hood = null, pr = null;
+        let hood = null;
         if (zOpen) {
           try { hood = app.entityPassage ? app.entityPassage(docId, entId, mn.idx) : null; } catch { hood = null; }
-          try { pr = app.entityPassageReadingFor ? app.entityPassageReadingFor(p.label, mn.idx) : null; } catch { pr = null; }
         }
         const lines = (hood && hood.lines || []).map((ln) => ({
           text: ln.text,
@@ -5724,8 +5721,10 @@ class Component extends DCLogic {
           zoom: () => this._toggleZoom(docId, entId, mn.idx, p.label),
           open: zOpen, busy: zBusy, chevron: zOpen ? 'rotate(90deg)' : 'none',
           hasHood: lines.length > 0, hood: lines,
-          hasReading: !!(pr && pr.text && !zBusy), readingText: pr ? pr.text : '',
-          hasReadingCites: !!(pr && pr.cites && pr.cites.length), readingCites: pr ? cite(pr.cites) : '',
+          // The LLM close reading ("AT THIS MOMENT") is no longer surfaced — the model prose was too
+          // often worse than no summary (cf. the source/entity topline cards). The deterministic
+          // neighbourhood (the sentences around the moment) remains.
+          hasReading: false, readingText: '', hasReadingCites: false, readingCites: '',
         };
       });
       return {
@@ -5733,10 +5732,10 @@ class Component extends DCLogic {
         bullet: bt, jump: () => h.jump(p.sn, bt, b0, b1),
         open, busy, chevron: open ? 'rotate(90deg)' : 'none',
         toggle: () => this._toggleChapter(docId, entId, c.chapterIdx, p.label),
-        hasReading: !!(reading && reading.text && !busy),
-        readingText: reading ? reading.text : '',
-        hasReadingCites: !!(reading && reading.cites && reading.cites.length),
-        readingCites: reading ? cite(reading.cites) : '',
+        // The LLM fold-prompted chapter reading is no longer surfaced — the model prose was too often
+        // worse than no summary (cf. the source/entity topline cards, PR #290). The deterministic
+        // chapter spine (this bullet) and the per-chapter mentions below remain.
+        hasReading: false, readingText: '', hasReadingCites: false, readingCites: '',
         hasMentions: mentions.length > 0, mentions,
       };
     });
@@ -5776,39 +5775,23 @@ class Component extends DCLogic {
     if (open[key]) delete open[key]; else open[key] = true;
     this.setState({ entChaptersOpen: open });
   }
-  // Open (and lazily generate) a chapter's fold-prompted reading — the reader leaned in. Toggling
-  // it shut leaves the reading stored; re-opening reads it straight back, no re-generation.
+  // Open a chapter to see its mentions — the deterministic per-chapter spine. The LLM fold-prompted
+  // reading is no longer surfaced (cf. the hidden topline cards), so opening no longer kicks a model.
   _toggleChapter(docId, entId, chapterIdx, label) {
     const key = docId + '#' + entId + '#' + chapterIdx;
     const deep = { ...(this.state.entDeep || {}) };
     const opening = !deep[key];
     if (opening) deep[key] = true; else delete deep[key];
     this.setState({ entDeep: deep });
-    if (!opening) return;
-    const app = this._app; if (!app || !app.entityChapterReading) return;
-    let stored = null;
-    try { stored = app.entityChapterReadingFor ? app.entityChapterReadingFor(label, chapterIdx) : null; } catch { stored = null; }
-    if (stored) return;
-    this._setGenBusy('chap:' + key, true);
-    Promise.resolve(app.entityChapterReading(docId, entId, chapterIdx, { generate: true }))
-      .catch(() => {}).finally(() => this._setGenBusy('chap:' + key, false));
   }
-  // ZOOM IN on one moment — open (and lazily generate) the passage's close reading. The deepest pull:
-  // chapter → passage. Toggling shut keeps the reading; re-opening reads it straight back.
+  // ZOOM IN on one moment — open its neighbourhood (the deterministic sentences around it). The LLM
+  // close reading is no longer surfaced, so opening no longer kicks a model.
   _toggleZoom(docId, entId, idx, label) {
     const key = docId + '#' + entId + '#p' + idx;
     const zoom = { ...(this.state.entZoom || {}) };
     const opening = !zoom[key];
     if (opening) zoom[key] = true; else delete zoom[key];
     this.setState({ entZoom: zoom });
-    if (!opening) return;
-    const app = this._app; if (!app || !app.entityPassageReading) return;
-    let stored = null;
-    try { stored = app.entityPassageReadingFor ? app.entityPassageReadingFor(label, idx) : null; } catch { stored = null; }
-    if (stored) return;
-    this._setGenBusy('pass:' + key, true);
-    Promise.resolve(app.entityPassageReading(docId, entId, idx, { generate: true }))
-      .catch(() => {}).finally(() => this._setGenBusy('pass:' + key, false));
   }
   // Open (and lazily generate) the Most-important / Most-surprising digest — pulled on the reader's
   // beat, never auto-kicked. `regenerate` recomposes from the record under any standing steer.
