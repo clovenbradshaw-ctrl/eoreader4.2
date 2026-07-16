@@ -23,10 +23,8 @@ import { promoteConnection } from '../../enactor/connect/index.js';
 import { speakTriples, talkThenVerify } from '../../weave/write/index.js';
 import { toPast } from '../../weave/write/index.js';
 import { projectGraph, operatorsOf, glyphOf } from '../../core/index.js';
-import { createModel, describeModel } from '../../model/index.js';
-import { wrapRedacting } from '../../model/index.js';
-import { probeOrigins, explainReach } from '../../model/index.js';
-import { createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
+import { createModel, describeModel, wrapRedacting, probeOrigins, explainReach,
+         createHashEmbedder, createMiniLMEmbedder, withPersistentEmbedCache } from '../../model/index.js';
 import { runTurn, runWebFollowup, formulateSearchQuery, searchAnnouncement, anchorTopicless,
          runTurnWithResearch, runCuriousResearch, researchAnnouncement, modelDisambiguator, senseAnnouncement,
          runTurnWithCorroboration, corroborationAnnouncement, corroborationSettled,
