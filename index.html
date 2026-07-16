@@ -5803,11 +5803,9 @@ class Component extends DCLogic {
     this.setState({ genBusy: busy });
   }
   // ── auto-generated toplines in the surface (docs/topline.md) ─────────────────
-  // A summary composed for every source and entity, with a box to give it feedback. The card reads
-  // the stored topline (app.sourceSummaryOf / app.entitySummaryFor) and kicks generation ONCE if it
-  // is absent; the controller emits when it lands, so the card fills in on the next render. Feedback
-  // is a steer over the CLOSED set — re-order, bound, suppress — never an addition, so a request
-  // outside the record comes back as "not in the record", never a fabrication.
+  // Quality summaries were too often worse than no summary: the surface no longer shows
+  // or auto-kicks source/entity topline cards. Deterministic structure (mentions,
+  // relations, chapters, provenance DAGs, Wikipedia referents) remains available.
   _kickTl(scope, ids, key) {
     this._tlKicked = this._tlKicked || new Set();
     if (this._tlKicked.has(key)) return;
@@ -5864,89 +5862,11 @@ class Component extends DCLogic {
     Promise.resolve(p).catch(() => {}).finally(() => this._setTlBusy(key, false));
   }
   _toplineVM(scope, ids, label) {
-    const app = this._app; if (!app) return { show: false };
-    const key = scope + ':' + (scope === 'source' ? ids.sn : String(label || '').trim().toLowerCase());
-    let sum = null;
-    try { sum = scope === 'source' ? app.sourceSummaryOf(ids.sn) : app.entitySummaryFor(label); } catch { sum = null; }
-    if (!sum) this._kickTl(scope, ids, key);
-    const draft = String((this.state.tlFeedback || {})[key] || '');
-    const busy = !!(this.state.tlBusy || {})[key];
-    const KIND = { absence: 'nothing found yet', contradiction: 'the record contests itself', plain: '' };
-    // The fold-aware contextual definition, when the model wrote one — the panel's layer 2. It
-    // prefers this over the telegram `text`; the telegram remains the fallback (and still what a
-    // source summary shows, which carries no contextual field).
-    const ctx = sum && sum.contextual ? String(sum.contextual) : '';
-    // Per-span grounding: each span of the written definition is either anchored to the record
-    // (grounded) or the model's own word (flagged). The surface tints the flagged ones and offers
-    // a jump on the grounded ones, so "every span grounded or flagged" is legible, not just stored.
-    const rawSpans = (sum && Array.isArray(sum.contextualSpans)) ? sum.contextualSpans : [];
-    const spans = rawSpans.map((s, i) => ({
-      s: String(s.text || '') + (i < rawSpans.length - 1 ? ' ' : ''),
-      grounded: !!s.grounded, flagged: !s.grounded,
-      hasCite: Number.isInteger(s.cite),
-      cite: Number.isInteger(s.cite) ? ('¶' + s.cite) : '',
-    }));
-    const anyFlagged = spans.some((s) => !s.grounded);
-    // An entity's written reading (the contextual definition) lands a beat after its telegram: the app
-    // stores the telegram first with `contextualPending`, then the chorus writes the reading and clears
-    // it. Until it clears we hold the panel BODY on "composing…" rather than flashing the machine
-    // telegram and swapping it for the reading. A telegram-only summary (no model — nothing more is
-    // coming) is not pending and shows at once; source summaries carry no contextual and are unaffected.
-    const awaitingWritten = !!(sum && sum.contextualPending && !sum.contextual);
-    const ready = !!sum && !awaitingWritten;
-    // ── LOADING: hold the panel on an animated skeleton, not the raw telegram ──────────────────
-    // An ENTITY summary is only presentable once the LOCAL model has turned the machinery's telegram
-    // into a reading. The bare telegram — one flat sentence per standing object — reads as nonsense
-    // for a figure with many properties ("X is …; X is …; X is …"), so we never ship it as the
-    // summary. While the model composes (loading the weights, or the chorus writing), the body is an
-    // animated skeleton. Two escape hatches keep it from spinning forever: a source summary (whose
-    // telegram IS the intended form) never enters this state, and if no model can load at all
-    // (state 'error') we fall back to the telegram rather than an endless loader.
-    const isEntity = scope === 'entity';
-    const mstate = (app.state && app.state.model && app.state.model.state) || 'cold';
-    const mprog = (app.state && app.state.model && app.state.model.progress) || 0;
-    const modelBroken = mstate === 'error';
-    const synthesisActive = mstate === 'loading' || mstate === 'ready';
-    // a written reading is WANTED but not yet in hand: the stored summary is the modelless telegram,
-    // or the chorus is mid-compose. (`busy` = a steer/regenerate the user just asked for.)
-    const needsWriting = isEntity && !!sum && (!!sum.modelless || !!sum.contextualPending);
-    if (isEntity && !modelBroken && needsWriting && !busy && synthesisActive) this._kickTlUpgrade(scope, ids, key, mstate);
-    const loading = isEntity && !modelBroken && synthesisActive && (busy || awaitingWritten);
-    const loadNote = mstate === 'loading'
-      ? `Loading the local model — ${Math.round(mprog * 100)}%`
-      : (busy ? 'Recomposing from the record…' : 'Core analysis complete. Optional prose summary is still generating.');
-    const hasBody = loading ? false : ready;
     return {
-      show: true, has: loading ? false : !!(sum || ready), pending: (!loading) && (!ready || busy),
-      // the panel (header + body) is shown whenever there's something to show OR something composing.
-      panel: loading || !!sum || hasBody,
-      loading, loadNote,
-      text: ctx || (sum ? sum.text : ''),
-      telegramText: sum ? sum.text : '',
-      hasSpans: spans.length > 0, noSpans: spans.length === 0, spans, anyFlagged,
-      hasContextual: !!ctx, contextualWritten: !!(sum && sum.contextualWritten),
-      // a model-WRITTEN definition is labelled as the contextual reading it is; a fallback telegram
-      // keeps the plain "summary" label so we never dress a machine telegram up as a reading.
-      panelLabel: (sum && sum.contextualWritten) ? 'IN THIS READING' : 'SUMMARY',
-      kind: sum ? sum.kind : '',
-      // absence == the record names the referent but says nothing further. When we ALSO hold a
-      // confirmed Wikipedia referent, the panel leads with that settled definition instead of the
-      // "nothing found yet" banner (see _profFor.leadWithWiki), and this demotes the summary here.
-      isAbsence: !!(sum && sum.kind === 'absence'),
-      kindLabel: sum ? (KIND[sum.kind] || '') : '',
-      hasKind: !!(sum && KIND[sum.kind]),
-      refined: !!(sum && sum.joined), modelless: !!(sum && sum.modelless),
-      hasUnmet: !!(sum && sum.unmet && sum.unmet.length),
-      unmet: sum && sum.unmet && sum.unmet.length ? ('Not in the record: ' + sum.unmet.join(', ')) : '',
-      hasCites: !!(sum && sum.cites && sum.cites.length),
-      cites: sum && sum.cites ? sum.cites.map((c) => '¶' + c).join(' ') : '',
-      draft,
-      onInput: (e) => this._onTlInput(key, e),
-      onKey: (e) => { if (e && e.key === 'Enter') { e.preventDefault(); this._sendTl(scope, ids, key); } },
-      send: () => this._sendTl(scope, ids, key),
-      shorter: () => this._tlFeedback(scope, ids, key, 'make it shorter'),
-      longer: () => this._tlFeedback(scope, ids, key, 'more detail'),
-      regen: () => this._regenTl(scope, ids, key),
+      show: false, panel: false, has: false, pending: false, loading: false,
+      hasKind: false, hasCites: false, hasUnmet: false, isAbsence: false,
+      text: '', telegramText: '', spans: [], hasSpans: false, noSpans: true,
+      anyFlagged: false, contextualWritten: false,
     };
   }
 
