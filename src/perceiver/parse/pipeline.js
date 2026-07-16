@@ -24,6 +24,7 @@ import { createEntityAdmission, scanInitialisms, scanFunctionalAttributes }from 
 import { parseRelations, scanDescriptors } from './relations.js';
 import { argumentSpanSeg }      from './proposition.js';
 import { createCorefField }     from './coref.js';
+import { createDeixisFrame }    from './deixis.js';
 import { discoverNamings }      from './naming.js';
 import { distinctReferentCount } from './name-variants.js';
 import { induceInflections } from './inflection.js';
@@ -253,9 +254,8 @@ export const createParser = ({
     // this sentence* and the strongest candidate's weight becomes the bond's
     // coupling. Nothing is committed — the weight carries the uncertainty.
     const corefField = createCorefField({ ...corefOpts, ...(rolesConflict ? { rolesConflict } : {}) });
+    const deixis = createDeixisFrame({ field: (idx) => corefField.field(idx) });
     // Derived descriptor edges (owner -> bearer : role) accumulate here and are
-    // logged after the candidate relations — they are the trigger's output, marked
-    // `derived` so the graph and the edge-grounding veto read them as defeasible.
     const derivedEdges = [];
 
     // Candidate relations are collected here and emitted AFTER the pass, so each
@@ -427,9 +427,6 @@ export const createParser = ({
         log.append({ op: 'DEF', id: a.id, key: a.key, value: a.value, kind: 'attr', defeasible: true, sentIdx }, EMIT);
       }
 
-      // The relations parser reads coref two ways: `field()` for a leading
-      // subject pronoun, and `resolve()` for a possessive owner pronoun in a
-      // kinship apposition ("his sister Grete"). Both look backward through the
       // same pre-line field and take the strongest prior candidate. `resolve`
       // had no implementation, so that call site got nothing and pronoun-owned
       // kinship bonds dropped silently — only named owners survived. Wired now.
@@ -453,8 +450,11 @@ export const createParser = ({
         }
         if (genderAwarePrior[0]) corefField.noteGender(genderAwarePrior[0].id, pg);
       }
+      if (/^\s*(?:and|but|now|so|then|or|nor|yet|for|therefore|thus)?[\s,]*i\b/i.test(sent))
+        { deixis.noteFirstPerson(sentIdx); deixis.groundTeller(sentIdx); }
       const coref = {
         field:   () => genderAwarePrior,
+        deixis,
         resolve: () => priorField[0]?.id ?? null,
         // The last INS referent activated before this line, for a subjectless
         // clause to default to — within the activation reach, weight decayed by how
@@ -469,7 +469,7 @@ export const createParser = ({
       const relOpts = { isSpeech, isCopula: conventions.isCopula, isModifier: conventions.isModifier,
                         isConjunction: conventions.isConjunction,   // ledger coordinator predicate
                         referents: true, coordSubjects,   // open the NP object slot (move 2); coord subjects (gated)
-                        totalRead };   // §1–§9 the total read (gated; adds graded propositions)
+                        totalRead, sentIdx };   // §1–§9 the total read (gated; adds graded propositions)
       for (const rel of parseRelations(sent, admission, coref, relOpts)) candidates.push({ rel, sentIdx });
 
       // Standing descriptors — the third coref channel (extraction half). A role

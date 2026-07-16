@@ -8,13 +8,9 @@
 //   - Coreference. A leading subject pronoun ("He", "She", "They") resolves
 //     to the most recently mentioned entity (within a few sentences). In a
 //     single-protagonist text this is the difference between a handful of
-//     edges and a real graph.
 //   - Verb classification. Speech / attribution verbs ("said", "told",
 //     "asked") emit SIG; copulas ("is", "was") emit DEF; everything else
 //     that links two entities emits CON.
-//   - An open verb slot. The verb is no longer a tiny whitelist — any verb
-//     between two admitted entities bonds them. Precision is held by the
-//     admitted-endpoints rule, not by enumerating verbs.
 //   - Kinship apposition. "his sister Grete", "Gregor's father" bond the
 //     owner to the named relative through the kin term.
 
@@ -213,7 +209,7 @@ const LEAD_COORD = /^\s*(?:and|but|now|so|then|or|nor|yet|for|therefore|thus)\b[
 // and appended to the seeded boundary list — a text-organ token, not an engine fact.
 const COORD_CLAUSE_BOUNDARY = [...SEED_CLAUSE_BOUNDARY, ': '];
 
-const leadingSubject = (sentence, admission, coref) => {
+const leadingSubject = (sentence, admission, coref, sentIdx = 0) => {
   const lead = (sentence.match(LEAD_COORD) || [''])[0].length;   // skip a leading coordinator
   const rest = sentence.slice(lead);
   // Case-INSENSITIVE: clause segmentation yields lowercase-initial clauses
@@ -222,9 +218,14 @@ const leadingSubject = (sentence, admission, coref) => {
   // pronoun subject — the half of Move 1 that was never wired to the clause splitter.
   const pn = rest.match(/^\s*(he|she|they|we|it|i|you)\b/i);
   if (pn) {
+    const pron = pn[1].toLowerCase();
+    const start = lead + (pn[0].length - pn[1].length); // the pronoun's offset past the lead
+    if (pron === 'i' && coref?.deixis?.tellerAt) {
+      const teller = coref.deixis.tellerAt(sentIdx);
+      return { id: teller?.id ?? null, start, end: lead + pn[0].length, text: pn[1], kind: 'deixis', w: teller?.id ? 1 : 0 };
+    }
     const cands = coref?.field ? coref.field() : [];
     const top = cands[0];
-    const start = lead + (pn[0].length - pn[1].length); // the pronoun's offset past the lead
     return { id: top?.id ?? null, start, end: lead + pn[0].length, text: pn[1], kind: 'pronoun', w: top?.w ?? 0 };
   }
   // Otherwise the first capitalised phrase, if it is an admitted entity.
@@ -748,7 +749,7 @@ export const parseRelations = (sentence, admission, coref = {}, opts = {}) => {
       }
     }
 
-    let subj = leadingSubject(clause.text, admission, coref);
+    let subj = leadingSubject(clause.text, admission, coref, opts.sentIdx ?? 0);
     if (!subj || !subj.id) {
       // No subject token, but a head verb after any coordinator → DEFAULT TO THE
       // LAST INS REFERENT ACTIVATED. The arrow of time, not the gravity well: the
