@@ -186,9 +186,9 @@ export const installDeep = (appCtx) => {
       if (event.src && event.via) props.push({ subj: lab(event.src), verb: event.via, obj: event.tgt ? lab(event.tgt) : null });
     }
     if (!props.length) return '';
-    if (state.model?.state === 'ready') {
+    if (appCtx.bgReady() || state.model?.state === 'ready') {
       try {
-        const model = await appCtx.ensureModel();
+        const model = appCtx.bgReady() ? appCtx.bgTalker() : await appCtx.ensureModel();
         if (model && typeof model.phrase === 'function') {
           const out = await talkThenVerify({ propositions: props }, model, { doc: promoted[0].doc });
           const fluent = String(out?.fluent || '').trim();
@@ -213,7 +213,8 @@ export const installDeep = (appCtx) => {
     if (connectRunning) return 0; connectRunning = true;
     try {
       if (!murmur || typeof murmur.nominations !== 'function') return 0;
-      if (state.busy && !manual) return 0;                  // engaged — a turn is decoding
+      if (!appCtx.bgReady() && appCtx.modelEngaged() && !manual) { appCtx.noteBgYield(); return 0; }   // shared engine, foreground decoding — yield
+      // (a dedicated CPU engine, once loaded, runs the murmur on its own gate — no yield needed)
       const cands = murmur.nominations();                   // DRAIN the read side-channel
       if (!cands.length) return 0;
       const overlayFor = (docId) => {
@@ -328,7 +329,7 @@ export const installDeep = (appCtx) => {
     try {
       if (!murmur || !murmur.learn || typeof murmur.learn.wander !== 'function') return 0;
       if (state.murmurMode === 'off' || !state.murmurVisible) return 0;   // off / hidden ⇒ paused
-      if (state.busy && !manual) return 0;                                // engaged — a turn is decoding
+      if (appCtx.modelEngaged() && !manual) return 0;                     // engaged — a turn OR a panel summary is decoding
       const cfg = (murmur.config && murmur.config.learn) || {};
       const nowMs = Date.now();
       if (!manual && nowMs - lastWander < (cfg.minStepMs || 20000)) return 0;   // human pace
@@ -408,16 +409,16 @@ export const installDeep = (appCtx) => {
     try {
       if (!murmur || typeof murmur.mutter !== 'function') return 0;
       if (state.murmurMode === 'off' || !state.murmurVisible) return 0;   // never prosify unseen (transparency)
-      if (state.busy && !manual) return 0;                                // engaged — the model is answering
+      if (!appCtx.bgReady() && appCtx.modelEngaged() && !manual) { appCtx.noteBgYield(); return 0; }   // shared engine, foreground busy — yield
       const pend = murmurPending;
       if (!pend || pend.done) return 0;
-      if (state.model?.state !== 'ready') return 0;                       // the CPU model isn't warm — template stands
+      if (!appCtx.bgReady() && state.model?.state !== 'ready') return 0;  // no engine warm — template stands (bg has its own)
       pend.done = true;                                                   // one attempt per fold (no hammering on failure)
       const props = pend.triples;
       if (!props.length) return 0;
       let prose = '';
       try {
-        const model = await appCtx.ensureModel();
+        const model = appCtx.bgReady() ? appCtx.bgTalker() : await appCtx.ensureModel();
         if (model && typeof model.phrase === 'function') {
           const out = await talkThenVerify({ propositions: props }, model, { doc: docForDocId(pend.docId) });
           const fluent = String(out?.fluent || '').trim();

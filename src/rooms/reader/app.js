@@ -166,6 +166,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     murmurVisible: true,   // the strip shown? hidden ⇒ the wander PAUSES (nothing muttered unseen)
     model: { backend: null, state: 'cold', progress: 0, note: '' },
     busy: null,            // { kind, label } while a long op runs
+    foreModel: 0,          // count of user-facing decodes OUTSIDE a turn (panel topline + chorus); see modelEngaged
     // DURABLE PENDING WORK (ingest-jobs.js). The reader records a source only when a fetch, a file
     // import, or a transcription has FINISHED — so a refresh mid-way used to lose the work with no
     // trace. A job is opened when the work begins, rides the snapshot, and is dropped when it lands;
@@ -205,7 +206,10 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     emit('log');
   };
 
-  Object.assign(appCtx, { audit, client, emit, fetchImpl, ledger, logIt, monitor, murmur, state, subs, subscribe });
+  // Engine working for the user — a turn (busy) or a composing panel summary (foreModel); deep.js yields to it.
+  const modelEngaged = () => !!state.busy || (state.foreModel || 0) > 0;
+
+  Object.assign(appCtx, { audit, client, emit, fetchImpl, ledger, logIt, modelEngaged, monitor, murmur, state, subs, subscribe });
 
   installTrail(appCtx);
   installPersistence(appCtx);
