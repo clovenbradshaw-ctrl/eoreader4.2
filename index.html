@@ -1646,7 +1646,7 @@ table{border-collapse:collapse;width:100%}
                     <aside style="padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Workspace</h2><sc-for list="{{ sourceLanding.pins }}" as="p"><div style="font-size:12px;color:#4E5765;margin:7px 0">{{ p.label }}</div></sc-for><button onClick="{{ sourceLanding.openPins }}" style="margin-top:8px;color:#5B4BE6;font-size:12px;font-weight:700">Open workspace</button></aside>
                   </div>
 
-                  <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Contents</h2><p style="font-size:12.5px;color:#6E6E78;margin:0 0 10px">Detected sections are shown in source order.</p><sc-for list="{{ sourceLanding.structure }}" as="u"><div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #F1F1F4"><b style="font-size:12px;color:#4E5765">{{ u.unit }}</b><span style="font-size:13px;color:#2A2A32">{{ u.label }}</span><button onClick="{{ u.open }}" style="font-size:12px;color:#5B4BE6;font-weight:700">Open →</button></div></sc-for></section>
+                  <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><div style="display:flex;align-items:baseline;gap:9px;margin:0 0 12px"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Contents</h2><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ sourceLanding.structureCount }}</span></div><p style="font-size:12.5px;color:#6E6E78;margin:0 0 10px">Detected sections are shown in source order.</p><sc-for list="{{ sourceLanding.structure }}" as="u"><div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;padding:8px 0;border-top:1px solid #F1F1F4"><b style="font-size:12px;color:#4E5765;padding-left:{{ u.pad }}px">{{ u.unit }}</b><span style="font-size:13px;color:#2A2A32;line-height:1.45">{{ u.label }} <sc-if value="{{ u.needsMore }}"><button onClick="{{ u.toggleMore }}" style="display:inline;color:#5B4BE6;font-size:12px;font-weight:700;margin-left:6px">{{ u.moreLabel }}</button></sc-if></span><button onClick="{{ u.open }}" style="font-size:12px;color:#5B4BE6;font-weight:700;white-space:nowrap">Open →</button></div></sc-for><sc-if value="{{ sourceLanding.structureExpandShow }}"><div style="display:flex;justify-content:center;margin-top:14px"><button onClick="{{ sourceLanding.toggleStructureExpanded }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:999px;padding:8px 13px;font-size:12px;font-weight:700;color:#5B4BE6">{{ sourceLanding.structureExpandLabel }}</button></div></sc-if></section>
 
                   <!-- CHARACTERS — the figures on record for this source, weighted by their mention + -->
                   <!-- link mass. Each opens the figure's profile. (app.sourceEntities → sfCast shape.) -->
@@ -3271,7 +3271,7 @@ class Component extends DCLogic {
       waveMode: 'overlay',
       // Source overview's Characters card can be re-ranked without changing the underlying
       // reading: mass (mentions + links), explicit first appearance in the source text, or A–Z.
-      castSort: 'mass', castQuery: '', castExpanded: false,
+      castSort: 'mass', castQuery: '', castExpanded: false, sourceStructureExpanded: false, sourceCardOpen: {},
       viewerPages: {},   // sn -> { doc, busy, err } for the native render, fetched on demand
       tocOpen: false,
       // The reader's scroll progress (0–100), shown as a % and a thin bar; updated from the reader
@@ -4997,6 +4997,12 @@ class Component extends DCLogic {
   setCastSort(mode) { this.setState({ castSort: mode }); }
   setCastQuery(q) { this.setState({ castQuery: String(q || ''), castExpanded: false }); }
   toggleCastExpanded() { this.setState({ castExpanded: !this.state.castExpanded }); }
+  toggleSourceStructureExpanded() { this.setState({ sourceStructureExpanded: !this.state.sourceStructureExpanded }); }
+  toggleSourceCard(key) {
+    const open = { ...(this.state.sourceCardOpen || {}) };
+    if (open[key]) delete open[key]; else open[key] = true;
+    this.setState({ sourceCardOpen: open });
+  }
   // Ensure a PDF source has a renderable object URL for its PDF surface. The live blob is already on
   // the source if this session imported it; after a reload it is rehydrated from the persisted bytes
   // (app.pdfUrl → OPFS), which emits 'sources' and re-renders the viewer once the URL is ready.
@@ -6051,8 +6057,52 @@ class Component extends DCLogic {
       ...firstEnts.slice(0, Math.max(0, 3 - ideas.length)).map((x) => ({ label: x.label || x.name || x.text, intent: 'Pivot around this figure or entity', open: () => this.openEntity(x.docId || s.sn, x.entId || x.id) })),
       { label: 'Choose another…', intent: 'Search for another theme, figure, question, or passage', open: () => this.setTab('search') },
     ];
-    const structure = (paras.slice(0, 6).map((p, i) => ({ unit: type === 'Audio' || type === 'Video' ? (p.time || `Segment ${i + 1}`) : type === 'Dataset' ? `Group ${i + 1}` : type === 'Code file' ? `Symbol ${i + 1}` : `Section ${i + 1}`, label: (p.label || p.heading || (p.text || p.segs?.map?.((x)=>x.s).join('') || 'Open source')).slice(0, 90), open: () => this.setSourceMode('reader') })));
-    if (!structure.length) structure.push({ unit: 'Source', label: 'Open the canonical evidence representation', open: () => this.setSourceMode(primaryMode) });
+    const textOfPara = (p) => String(p && (p.label || p.heading || p.text || (p.segs && p.segs.map((x)=>x.s).join('')) || '') || '').replace(/\s+/g, ' ').trim();
+    const model = (() => { try { return this._render && this._render.readerModel ? this._render.readerModel(s) : null; } catch { return null; } })();
+    const modelSections = model && Array.isArray(model.sections) ? model.sections : [];
+    const rawLines = String(s.text || '').split(/\r?\n/).map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    const paperHeadings = (() => {
+      const out = [];
+      const seen = new Set();
+      const add = (label, level = 1) => {
+        const clean = String(label || '').replace(/\s+/g, ' ').trim();
+        const key = clean.toLowerCase();
+        if (!clean || clean.length > 140 || seen.has(key)) return;
+        seen.add(key); out.push({ label: clean, level });
+      };
+      for (const ln of rawLines) {
+        const m = ln.match(/^(?:([0-9]{1,2})(?:\.([0-9]{1,2}))*)\s+(.{2,120})$/);
+        if (m && !/[.?!]$/.test(ln)) add(ln, (ln.match(/\./g) || []).length + 1);
+        else if (/^(abstract|introduction|background|related work|pre-?training|adaptation tuning|utilization|capacity evaluation|conclusion|references|appendix|acknowledg(?:e)?ments?)\b/i.test(ln) && ln.split(' ').length <= 12) add(ln, 1);
+        if (out.length >= 80) break;
+      }
+      return out;
+    })();
+    const rawStructure = (modelSections.length ? modelSections.map((sec) => ({
+      unit: sec.level && sec.level > 1 ? `§ ${sec.level}` : 'Section',
+      label: sec.label, level: sec.level || 1, focus: sec.label,
+    })) : paperHeadings.length ? paperHeadings.map((sec) => ({
+      unit: sec.level && sec.level > 1 ? `§ ${sec.level}` : 'Section', label: sec.label, level: sec.level || 1, focus: sec.label,
+    })) : paras.map((p, i) => ({
+      unit: type === 'Audio' || type === 'Video' ? (p.time || `Segment ${i + 1}`) : type === 'Dataset' ? `Group ${i + 1}` : type === 'Code file' ? `Symbol ${i + 1}` : `Passage ${i + 1}`,
+      label: textOfPara(p) || 'Open source', level: 1, focus: textOfPara(p),
+    })));
+    const structureRows = rawStructure.length ? rawStructure : [{ unit: 'Source', label: 'Open the canonical evidence representation', level: 1, focus: '' }];
+    const structureLimit = this.state.sourceStructureExpanded ? structureRows.length : 12;
+    const structure = structureRows.slice(0, structureLimit).map((u, i) => {
+      const fullLabel = String(u.label || 'Open source');
+      const cardKey = `${s.sn}:structure:${i}`;
+      const cardOpen = !!(this.state.sourceCardOpen || {})[cardKey];
+      const needsMore = fullLabel.length > 120;
+      return {
+        unit: u.unit || `Section ${i + 1}`, label: cardOpen || !needsMore ? fullLabel : fullLabel.slice(0, 120) + '…',
+        fullLabel, pad: String(8 + Math.max(0, (u.level || 1) - 1) * 16), cardOpen, needsMore,
+        moreLabel: cardOpen ? 'Show less' : 'Show more', toggleMore: () => this.toggleSourceCard(cardKey),
+        open: () => {
+          this.setState({ viewerModes: { ...this.state.viewerModes, [s.sn]: 'reader' }, viewerFocus: { ...this.state.viewerFocus, [s.sn]: u.focus || fullLabel }, tocOpen: false, nativeToc: [] });
+        },
+      };
+    });
     const reviewItems = this._sourceReviewItems(s);
     const findings = [
       { label: `${s.claimCount || 0} claim candidates`, open: () => this.setTab('findings') },
@@ -6177,7 +6227,7 @@ class Component extends DCLogic {
       coreCounts: baseCounts, synthesisState: 'off', glance, recordId: s.reg || `S-${s.sn}`, sha: String(s.sha || '').replace(/^[^:]*:/, '').slice(0, 16) || 'Unknown', provenance: s.url ? `Captured from ${s.domain || 'web'}` : 'Local/imported source',
       reviewItems, lenses, ideas, currentLens: ideas[0] ? `${ideas[0].title} · complete source` : 'Source overview · complete record',
       pins: [{ label: `${s.pinnedFigures || 0} pinned figures` }, { label: `${s.pinnedPassages || 0} pinned passages` }, { label: `${s.pinnedClaims || 0} pinned claims` }, { label: `${s.savedLenses || 0} saved lenses` }, { label: s.recentPosition || 'Recent position: start' }], openPins: () => this.setTab('pins'),
-      structure, findings,
+      structure, structureCount: `${structureRows.length} detected`, structureExpandShow: structureRows.length > 12, structureExpandLabel: this.state.sourceStructureExpanded ? 'Show fewer' : `Show more (${structureRows.length - 12} more)`, toggleStructureExpanded: () => this.toggleSourceStructureExpanded(), findings,
       cast, castShow: !!castRows.length, castEmpty: castRows.length > 0 && castSorted.length === 0,
       castCount: castQuery ? `${castSorted.length} of ${castRows.length} on record` : `${castRows.length} on record`, castNoun,
       castQuery, onCastSearch: (e) => this.setCastQuery(e && e.target ? e.target.value : e),
