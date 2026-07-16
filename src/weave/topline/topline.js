@@ -43,7 +43,15 @@ export const generateTopline = async ({ inventory, steer = null, model = null, s
     telegram: joined.telegram,
     joined: joined.joined,
     kind: inv.kind,
-    objects: sentences.map((s) => ({ text: s.text, cite: s.cite, type: s.type })),
+    // Each stored object carries BOTH its phrased sentence (pass one/two) AND the closed-inventory
+    // fields it was phrased from — `fields`, `standing`, `relational`, `key`. Downstream consumers
+    // (the findings projection, claims.js) re-derive the mechanical telegram and read the claim's
+    // standing straight off these; dropping them left every projected claim as "is undefined." with
+    // a flat "Stated" banding, because phraseMechanical had no fields to phrase and no standing to read.
+    objects: inv.objects.map((o, i) => ({
+      text: sentences[i]?.text ?? '', cite: sentences[i]?.cite ?? o.cite ?? [],
+      type: o.type, key: o.key, relational: !!o.relational, standing: o.standing, fields: o.fields,
+    })),
     cites,
     unmet: steered.unmet,
     verdict,

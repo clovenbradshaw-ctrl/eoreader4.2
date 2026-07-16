@@ -56,7 +56,10 @@ const inventoryRows = (objects, { origin, sn, reg, docId, doc, subject }) => {
   const rows = [];
   for (const obj of objects || []) {
     if (!obj || obj.type !== 'claim') continue;
-    const text = phraseMechanical(obj);
+    // Prefer the object's own fields — the mechanical telegram is the findings phrasing discipline.
+    // But a topline stored before its objects carried `fields` (older records) has only its phrased
+    // `text`; without fields phraseMechanical degrades to "is undefined.", so fall back to that text.
+    const text = obj.fields ? phraseMechanical(obj) : String(obj.text || '');
     if (!text) continue;
     const unit = Number.isInteger(obj.cite?.[0]) ? obj.cite[0] : null;
     const quote = (unit != null && doc?.sentences?.[unit]) ? String(doc.sentences[unit]).slice(0, 280) : '';
