@@ -82,6 +82,7 @@ export const routeSurface = (query, providers = {}, opts = {}) => {
     subject: parsed.text || String(parsed.ops.entity || '').trim(),
     terms, asked, rail, signalCount, total,
     concordance: [], cast: [], contrast: [], contrastKind: '',
+    elements: [], concepts: [],
     empty: !asked, thin: false,
   };
   if (!asked) return out;
@@ -99,6 +100,22 @@ export const routeSurface = (query, providers = {}, opts = {}) => {
     subject: c.subject || '', text: c.text, quote: c.quote || '', status: c.status || '',
     origin: c.origin || '', sn: c.sn ?? null, reg: c.reg || '',
   }));
+  out.elements = [
+    { key: 'sources', label: 'Sources', count: signalCount, total: rail.length },
+    { key: 'occurrences', label: 'Occurrences', count: total },
+    { key: 'cast', label: 'Cast', count: out.cast.length },
+    { key: 'claims', label: 'Claims', count: out.contrast.length },
+  ];
+  const conceptSeen = new Set();
+  const addConcept = (label, kind = 'concept', weight = 0, meta = '') => {
+    const clean = String(label || '').trim();
+    const key = clean.toLowerCase();
+    if (!clean || conceptSeen.has(key)) return;
+    conceptSeen.add(key); out.concepts.push({ label: clean, kind, weight, meta });
+  };
+  for (const e of out.cast.slice(0, 8)) addConcept(e.label, e.type || 'figure', e.mentions || 0, e.sourceCount + ' src');
+  for (const c of out.contrast.slice(0, 8)) addConcept(c.subject || c.text, c.status || 'claim', 1, c.reg || '');
+  for (const h of hits.slice(0, 6)) addConcept(h.title, 'source', h.count, h.reg || '');
 
   // route to the best surface — the query's intent, unless a template is forced. When the intended
   // surface is empty but the concordance has hits, fall to the concordance rather than show nothing.

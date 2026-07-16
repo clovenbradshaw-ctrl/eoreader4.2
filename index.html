@@ -746,8 +746,24 @@ table{border-collapse:collapse;width:100%}
                   </div>
                 </sc-if>
 
-                <!-- asked — the surface, with its template switcher -->
+                <!-- asked — the fold, filled in every time: elements, occurrences, cast, graph concepts -->
                 <sc-if value="{{ sfAsked }}">
+                  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px">
+                    <sc-for list="{{ sfElements }}" as="e">
+                      <button onClick="{{ e.open }}" title="{{ e.tip }}" style="text-align:left;border:1px solid #EEEEF2;border-radius:11px;background:#fff;padding:9px 10px" style-hover="border-color:#DED8FD;background:#FBFAFF">
+                        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;text-transform:uppercase">{{ e.label }}</div>
+                        <div style="font-size:18px;font-weight:650;color:#1B1B22;margin-top:2px">{{ e.value }}</div>
+                      </button>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ sfHasConcepts }}">
+                    <div style="border:1px solid #EEEEF2;border-radius:12px;background:#FCFCFE;padding:10px 11px;margin-bottom:14px">
+                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#B4B4BE">GRAPH</span><span style="height:1px;background:#EFEFF3;flex:1"></span><span style="font-size:11px;color:#8A8A95">relevant concepts</span></div>
+                      <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        <sc-for list="{{ sfConcepts }}" as="g"><button onClick="{{ g.open }}" style="display:inline-flex;align-items:center;gap:6px;border:1px solid #E6E3FA;border-radius:20px;background:#fff;color:#3A3A44;padding:4px 9px;font-size:11.5px;font-weight:600" style-hover="background:#F6F4FF;border-color:#DED8FD"><span style="width:6px;height:6px;border-radius:50%;background:#6D5EF5"></span>{{ g.label }}<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ g.meta }}</span></button></sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
                   <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
                     <div style="flex:1;min-width:120px;font-size:11.5px;color:#8A8A95">{{ sfSignalLabel }}</div>
                     <div style="display:flex;gap:3px;background:#F4F4F7;border:1px solid #EAEAEF;border-radius:9px;padding:2px">
@@ -5486,7 +5502,7 @@ class Component extends DCLogic {
       sfIsConcordance: false, sfIsCast: false, sfIsContrast: false, sfThin: false,
       sfRail: [], sfHasRail: all.length > 1, sfConcordance: [], sfCast: [], sfContrast: [],
       sfContrastNote: '', sfTotal: 0, sfTotalLabel: '', sfSignalLabel: '', sfThinLabel: '',
-      sfTabs: [], sfSubject: q,
+      sfTabs: [], sfSubject: q, sfElements: [], sfConcepts: [], sfHasConcepts: false,
       onSfInput: (e) => this.onSfInput(e), sfClear: () => this._sfClear(),
     };
     if (!q || !app || !app.searchSurface) return base;
@@ -5541,6 +5557,9 @@ class Component extends DCLogic {
       sfRail, sfHasRail: all.length > 1, sfTabs,
       sfIsConcordance: active === 'concordance', sfIsCast: active === 'cast', sfIsContrast: active === 'contrast',
       sfTotal: surf.total, sfThin: surf.thin,
+      sfElements: (surf.elements || []).map((e) => ({ label: e.label, value: e.total != null ? (e.count + '/' + e.total) : String(e.count || 0), tip: 'Show ' + e.label.toLowerCase(), open: () => this._sfSetTemplate(e.key === 'occurrences' ? 'concordance' : e.key === 'claims' ? 'contrast' : e.key === 'cast' ? 'cast' : 'auto') })),
+      sfConcepts: (surf.concepts || []).slice(0, 14).map((g) => ({ label: g.label, meta: g.meta || g.kind || '', dot: g.kind === 'source' ? '#9A9AA4' : g.kind === 'claim' || g.kind === 'Contested' ? '#B23A2E' : '#6D5EF5', open: () => this.setState({ sfQuery: g.label, sfTemplate: 'auto' }) })),
+      sfHasConcepts: !!(surf.concepts && surf.concepts.length),
       sfTotalLabel: surf.total + ' occurrence' + (surf.total === 1 ? '' : 's'),
       sfSignalLabel: signalN + ' of ' + enabledN + ' source' + (enabledN === 1 ? '' : 's') + ' carry this',
     };
