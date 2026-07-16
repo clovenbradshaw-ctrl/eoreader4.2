@@ -14,6 +14,35 @@ export const installRegistry = (appCtx) => {
   const { emit, logIt, state } = appCtx;
   // ── the S-registry ─────────────────────────────────────────────────────────
   const sourceBySn = (id) => state.sources.find((s) => s.sn === id);
+
+  const metadataValue = (...vals) => vals.map((v) => String(v ?? '').replace(/\s+/g, ' ').trim()).find(Boolean) || '';
+  const sourceContentType = (kind) => {
+    const k = String(kind || '').toLowerCase();
+    return k === 'pdf' ? 'PDF' : k === 'web' || k === 'html' ? 'Webpage' : k === 'audio' ? 'Audio'
+      : k === 'video' ? 'Video' : k === 'image' ? 'Image' : k === 'table' ? 'Dataset'
+        : k === 'json' ? 'JSON' : k === 'music' ? 'Music/score' : k === 'text' ? 'Plain text/notes'
+          : k === 'file' ? 'File' : k || 'Document';
+  };
+  const inferSourceMetadata = ({ title, url = null, kind = 'web', record = null, doc = null } = {}, src = null) => {
+    const md = { ...(doc?.metadata || {}), ...(record?.metadata || {}) };
+    const web = doc?.web || {};
+    const now = nowIso();
+    return {
+      title: metadataValue(md.title, record?.title, title, src?.title, url, 'Untitled'),
+      author: metadataValue(md.author, md.creator, md.artist, md.composer, md.director, record?.byline, record?.author, src?.creator, src?.author),
+      documentCreationDate: metadataValue(md.created, md.creation_date, md.creationDate, md['creation date'], md.produced, md.generated, md.dateCreated),
+      contentCreationDate: metadataValue(md.date, md.published, md.publication_date, md.publicationDate, record?.published, web.published, src?.published),
+      contentType: metadataValue(md.type, md.content_type, md.contentType, sourceContentType(kind || src?.kind)),
+      lastRevised: metadataValue(md.updated, md.modified, md.revised, md.lastModified, md.last_revised, md['last revised'], record?.updated, web.updated),
+      extraction: { at: now, source: 'best-effort ingest metadata' },
+    };
+  };
+  const mergeSourceMetadata = (src, inferred) => {
+    const prev = src.metadata || {};
+    src.metadata = { ...inferred, ...prev, extraction: inferred.extraction || prev.extraction };
+    src.metadataLog = Array.isArray(src.metadataLog) ? src.metadataLog : [];
+    if (!src.metadataLog.length) src.metadataLog.push({ at: nowIso(), action: 'extracted', fields: Object.keys(inferred).filter((k) => k !== 'extraction'), note: 'Best-effort metadata extracted on ingest; every field remains editable.' });
+  };
   const docFor = (src) => {
     if (!src) return null;
     if (!src._doc) {
@@ -56,6 +85,7 @@ export const installRegistry = (appCtx) => {
       folderId: parentSn ? (sourceBySn(parentSn)?.folderId || null) : null,
       text: body, entCount: null, _doc: doc || null,
     };
+    mergeSourceMetadata(src, inferSourceMetadata({ title, url, kind, record, doc }, src));
     if (doc) { try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; } }
     state.sources.push(src);
     const t = appCtx.topic();
@@ -115,6 +145,7 @@ export const installRegistry = (appCtx) => {
   const finishReading = (src, doc) => {
     if (!src || !doc || !sourceBySn(src.sn)) return;
     src._doc = doc;
+    mergeSourceMetadata(src, inferSourceMetadata({ title: src.title, url: src.url, kind: src.kind, record: src.record, doc }, src));
     src._eot = null;
     appCtx.deepReaders.delete(src.docId);
     try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; }
@@ -185,6 +216,22 @@ export const installRegistry = (appCtx) => {
     return root;
   };
 
+  const sourceUpdateMetadata = (id, key, value) => {
+    const s = sourceBySn(id);
+    if (!s) return null;
+    const allowed = new Set(['title', 'author', 'documentCreationDate', 'contentCreationDate', 'contentType', 'lastRevised']);
+    if (!allowed.has(key)) return s;
+    const next = String(value ?? '').replace(/\s+/g, ' ').trim();
+    s.metadata = { ...(s.metadata || {}), [key]: next };
+    if (key === 'title' && next) s.title = next;
+    s.metadataLog = Array.isArray(s.metadataLog) ? s.metadataLog : [];
+    const label = ({ title: 'Title', author: 'Author', documentCreationDate: 'Document Creation Date', contentCreationDate: 'Content Creation Date', contentType: 'Content Type', lastRevised: 'Last Revised' })[key] || key;
+    logIt('record', `Metadata revised — ${label}: ${next || 'blank'}`, s.reg);
+    s.metadataLog.push({ at: nowIso(), action: 'revised', field: key, value: next });
+    appCtx.persist(); emit('sources');
+    return s;
+  };
+
   const removeSource = (id) => {
     const gone = sourceBySn(id);
     if (gone) appCtx.deepReaders.delete(gone.docId);   // or the deep reader keeps the removed doc resident
@@ -221,5 +268,5 @@ export const installRegistry = (appCtx) => {
   // the entity explorer lists (a base doc carries no `admission`, so it would link nothing).
   const topicReferentDocs = () => topicSources().map(appCtx.referentDocFor).filter(Boolean);
 
-  Object.assign(appCtx, { addSource, answerEot, docFor, eotFor, finishReading, releaseParsesOutsideTopic, removeSource, sourceBySn, sourceRename, topicDocs, topicReferentDocs, topicSources });
+  Object.assign(appCtx, { addSource, answerEot, docFor, eotFor, finishReading, releaseParsesOutsideTopic, removeSource, sourceBySn, sourceRename, sourceUpdateMetadata, topicDocs, topicReferentDocs, topicSources });
 };

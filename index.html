@@ -1727,6 +1727,7 @@ table{border-collapse:collapse;width:100%}
                   </sc-if>
 
 
+                  <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><div style="display:flex;align-items:baseline;gap:8px;margin:0 0 12px"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Metadata</h2><span style="font-size:11px;color:#9A9AA4">best-effort · click any field to revise</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px"><sc-for list="{{ sourceLanding.metadataRows }}" as="md"><button onClick="{{ md.edit }}" title="Revise {{ md.label }}" style="text-align:left;background:#FAFAFC;border:1px solid #ECECF2;border-radius:11px;padding:10px 12px" style-hover="border-color:#CFC7F7;background:#FCFBFF"><div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9A9AA4;margin-bottom:5px">{{ md.label }}</div><div style="font-size:13px;font-weight:650;color:#2A2A32;line-height:1.35;word-break:break-word">{{ md.value }}</div></button></sc-for></div><sc-if value="{{ sourceLanding.metadataLogShow }}"><div style="margin-top:12px;border-top:1px solid #F1F1F4;padding-top:9px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#7B7881;line-height:1.7"><sc-for list="{{ sourceLanding.metadataLog }}" as="ml"><div>{{ ml.text }}</div></sc-for></div></sc-if></section>
                   <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Major ideas in this source</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px"><sc-for list="{{ sourceLanding.ideas }}" as="idea"><button onClick="{{ idea.open }}" style="text-align:left;background:#FFFFFF;border:1px solid #E9E6DC;border-radius:12px;padding:13px 14px;box-shadow:0 1px 0 rgba(32,32,39,.03)" style-hover="border-color:#CFC7F7;background:#FCFBFF"><div style="display:flex;gap:8px;align-items:flex-start"><span style="color:#5B4BE6;font-size:15px;line-height:1">◉</span><div style="min-width:0"><div style="font-size:14px;font-weight:760;color:#24242C;line-height:1.25">{{ idea.title }}</div><p style="font-size:12.5px;color:#5F626B;line-height:1.48;margin:7px 0 10px">{{ idea.summary }}</p><span style="font-size:11.5px;color:#6B5BE8;font-weight:700">Evidence: {{ idea.evidenceLabel }}</span></div></div></button></sc-for></div><div style="margin-top:10px;font-size:11.5px;color:#8A8A95">Advanced operator details stay available in the EoT view; this overview leads with reader-facing concepts.</div></section>
                   <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Findings as candidates with evidence</h2><sc-for list="{{ sourceLanding.findings }}" as="f"><button onClick="{{ f.open }}" style="display:block;width:100%;text-align:left;padding:8px 0;border-top:1px solid #F1F1F4;font-size:13px;color:#2A2A32">{{ f.label }}</button></sc-for></section>
                   <section style="margin-top:14px;padding:18px 24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 10px">▸ Source details</h2><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#555;line-height:1.8">{{ sourceLanding.recordId }} · SHA {{ sourceLanding.sha }} · {{ sourceLanding.provenance }} · Rights: {{ sourceLanding.rights }}</div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px"><sc-for list="{{ sourceLanding.reviewItems }}" as="r"><button onClick="{{ r.open }}" style="background:#FFF8EC;border:1px solid #F0DFC0;border-radius:8px;padding:7px 9px;font-size:12px;color:#7A5416">{{ r.label }}</button></sc-for></div></section>
@@ -6032,6 +6033,18 @@ class Component extends DCLogic {
     ];
     const structure = (paras.slice(0, 6).map((p, i) => ({ unit: type === 'Audio' || type === 'Video' ? (p.time || `Segment ${i + 1}`) : type === 'Dataset' ? `Group ${i + 1}` : type === 'Code file' ? `Symbol ${i + 1}` : `Section ${i + 1}`, label: (p.label || p.heading || (p.text || p.segs?.map?.((x)=>x.s).join('') || 'Open source')).slice(0, 90), open: () => this.setSourceMode('reader') })));
     if (!structure.length) structure.push({ unit: 'Source', label: 'Open the canonical evidence representation', open: () => this.setSourceMode(primaryMode) });
+    const metadataLabels = {
+      title: 'Title', author: 'Author', documentCreationDate: 'Document Creation Date',
+      contentCreationDate: 'Content Creation Date', contentType: 'Content Type', lastRevised: 'Last Revised',
+    };
+    const metadata = s.metadata || {};
+    const metadataRows = Object.keys(metadataLabels).map((key) => ({
+      key, label: metadataLabels[key], value: String(metadata[key] || '').trim() || 'Unknown',
+      empty: !String(metadata[key] || '').trim(), edit: () => this.editSourceMetadata(s.sn, key),
+    }));
+    const metadataLog = (Array.isArray(s.metadataLog) ? s.metadataLog : []).slice(-6).reverse().map((m) => ({
+      text: `${m.at ? this._ago(m.at) || m.at : 'earlier'} — ${m.action || 'noted'}${m.field ? ` ${metadataLabels[m.field] || m.field}` : ''}${m.note ? ` · ${m.note}` : ''}`,
+    }));
     const reviewItems = this._sourceReviewItems(s);
     const findings = [
       { label: `${s.claimCount || 0} claim candidates`, open: () => this.setTab('findings') },
@@ -6170,7 +6183,7 @@ class Component extends DCLogic {
         appearanceFg: castMode === 'appearance' ? '#1B1B22' : '#8A8A95', appearanceBg: castMode === 'appearance' ? '#fff' : 'transparent',
         alphaFg: castMode === 'alpha' ? '#1B1B22' : '#8A8A95', alphaBg: castMode === 'alpha' ? '#fff' : 'transparent',
       },
-      surprise,
+      surprise, metadataRows, metadataLog, metadataLogShow: metadataLog.length > 0,
       lineage: `${title} — logical work\n└─ ${s.reg || 'Landing record'} — catalog/landing record\n   └─ ${canonical === s.sn ? (s.title || s.reg || 'canonical file') : ('S-' + canonical)} — canonical evidence`,
       lineageNote: canonical === s.sn ? 'This file supplies canonical evidence. Derived or duplicate representations stay visible for provenance and do not vote independently.' : 'A separate canonical evidence file supplies aggregate counts; this representation is retained for provenance.',
     };
@@ -6214,6 +6227,19 @@ class Component extends DCLogic {
             : `Use this frame to read recurring passages, questions, and source structure connected to ${raw}.`;
       return { title, shortLabel: noun, summary, evidenceLabel: `${evidence} ${evidence === 1 ? 'passage' : 'passages'}`, open: () => { if (c.kind === 'entity') { if (!this.state.rightOpen) this.toggleRight(); } else this.setTab('search'); } };
     });
+  }
+
+  editSourceMetadata(sn, key) {
+    const app = this._app;
+    const src = app && app.sourceBySn ? app.sourceBySn(sn) : null;
+    if (!src || !app.sourceUpdateMetadata) return;
+    const labels = { title: 'Title', author: 'Author', documentCreationDate: 'Document Creation Date', contentCreationDate: 'Content Creation Date', contentType: 'Content Type', lastRevised: 'Last Revised' };
+    const label = labels[key] || key;
+    const cur = src.metadata && src.metadata[key] ? String(src.metadata[key]) : '';
+    const next = prompt(`Revise ${label}`, cur);
+    if (next == null) return;
+    app.sourceUpdateMetadata(sn, key, next);
+    this.showToast(`Updated ${label}`);
   }
 
   _sourceReviewItems(s) {
