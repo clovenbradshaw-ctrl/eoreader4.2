@@ -882,6 +882,17 @@ table{border-collapse:collapse;width:100%}
                 <button onClick="{{ webAllOn }}" style="font-size:10.5px;font-weight:600;color:#5B4BE6;padding:2px 7px;border-radius:6px" style-hover="background:#F1EFFE">All</button>
                 <button onClick="{{ webNoneOn }}" style="font-size:10.5px;font-weight:600;color:#8A8A95;padding:2px 7px;border-radius:6px" style-hover="background:#F2F2F6">None</button>
               </div>
+              <sc-if value="{{ webSearchShow }}">
+                <div style="padding:0 13px 8px">
+                  <div style="display:flex;align-items:center;gap:6px;height:28px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:8px;padding:0 9px" style-focus-within="border-color:#DED8FD;background:#fff">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="2" style="flex:0 0 auto"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input value="{{ webEntQuery }}" onChange="{{ onWebEntSearch }}" placeholder="{{ webSearchPlaceholder }}" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:11.5px;color:#1B1B22" />
+                    <sc-if value="{{ webSearchHasQuery }}">
+                      <button onClick="{{ webSearchClear }}" title="Clear the filter" style="flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#9A9AA4;padding:1px" style-hover="color:#5A5A64"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-if>
               <div class="eo-scroll" style="flex:1;min-height:60px;overflow-y:auto;padding:0 8px 12px">
                 <sc-for list="{{ webToggles }}" as="t">
                   <div onClick="{{ t.toggle }}" title="{{ t.label }}" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12px;color:{{ t.fg }}" style-hover="background:#F4F4F7">
@@ -3093,6 +3104,7 @@ class Component extends DCLogic {
       // topic) or 'new' (a fresh top-level quest); and the per-answer "Download audit" menu.
       askScope: 'follow', askAuditMenuOpen: false,
       entitySel: null, entityMode: this._pref('eo_entmode', true), webGraphFor: null, webGraphTick: 0,
+      webEntQuery: '',   // the graph panel's entity/node filter — narrows the toggle list live
       // The entity explorer PIVOTS to the source open in the stage: when a source is in front
       // it shows that source's figures, not the whole topic's. entScopeAll escapes back to the
       // topic-wide list; entPivotLevel[sn] picks the per-source HOLONIC LEVEL (its natural-language
@@ -6058,7 +6070,7 @@ class Component extends DCLogic {
   closeWebGraph() {
     if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; }
     this._tgEl = null; this._wg = null; this._tgToggles = []; this._wgPanel = null;
-    this.setState({ webGraphFor: null });
+    this.setState({ webGraphFor: null, webEntQuery: '' });
   }
   setWebGraphEl(el) {
     if (!el) return;
@@ -6108,7 +6120,7 @@ class Component extends DCLogic {
     this._wg.focusKey = null; this._wg.focusLabel = null;  // land on the whole topic in the new kind
     this._wg.scope = 'topic';
     this._seedWgPanel();   // entity kind reopens the panel on the top figure; causal has none
-    this.setState({ webGraphFor: this._wgMirror() });
+    this.setState({ webGraphFor: this._wgMirror(), webEntQuery: '' });   // the vocabularies differ — drop any stale filter
     this._drawWebGraph();
   }
   setWebScope(scope) {
@@ -6126,7 +6138,12 @@ class Component extends DCLogic {
   }
   webEntitiesAll(on) {
     if (!this._wg) return;
-    this._wg.hidden = on ? new Set() : new Set((this._tgToggles || []).map((t) => t.id));
+    // Scope to the entities the panel filter is showing — no filter means the whole list.
+    const q = String(this.state.webEntQuery || '').trim().toLowerCase();
+    const all = this._tgToggles || [];
+    const ids = q ? all.filter((t) => String(t.label).toLowerCase().includes(q)).map((t) => t.id) : all.map((t) => t.id);
+    const h = this._wg.hidden || (this._wg.hidden = new Set());
+    if (on) ids.forEach((id) => h.delete(id)); else ids.forEach((id) => h.add(id));
     this._drawWebGraph();
   }
   _webFocusEntity(ref) {   // entity-kind: focus the tiered web on a clicked entity node
@@ -6225,6 +6242,11 @@ class Component extends DCLogic {
     const kind = wg.kind, scope = wg.scope, hidden = wg.hidden || new Set();
     const toggles = this._tgToggles || [];
     const onCount = toggles.reduce((n, t) => n + (hidden.has(t.id) ? 0 : 1), 0);
+    // The panel filter — narrow the toggle list to labels matching the query. The head count
+    // still reports the whole universe (what the graph could draw), not just what's in view.
+    const query = String(this.state.webEntQuery || '').trim();
+    const ql = query.toLowerCase();
+    const shownToggles = ql ? toggles.filter((t) => String(t.label).toLowerCase().includes(ql)) : toggles;
     const isEnt = kind === 'entity';
     const focusName = isEnt ? (wg.entLabel || 'this entity') : (wg.focusLabel || 'this node');
     const hasFocus = scope === 'entity' && (isEnt ? wg.entId != null : !!wg.focusKey);
@@ -6262,18 +6284,28 @@ class Component extends DCLogic {
         ? 'Figures across the topic and the bonds among them. Click a node to focus its web.'
         : 'What the sources are read as asserting causes what. Open a node, then “focus the DAG here”.',
       webToggleHead: `${isEnt ? 'ENTITIES' : 'NODES'} ${onCount}/${toggles.length}`,
+      // Show the filter once the list is long enough to be worth searching.
+      webSearchShow: toggles.length >= 8,
+      webSearchPlaceholder: `Filter ${isEnt ? 'entities' : 'nodes'}…`,
+      webEntQuery: query,
+      webSearchHasQuery: ql.length > 0,
+      onWebEntSearch: (e) => this.setState({ webEntQuery: e && e.target ? e.target.value : '' }),
+      webSearchClear: () => this.setState({ webEntQuery: '' }),
+      // All/None act on what's in view — with a filter active they scope to the matches, so you
+      // can show or hide just the entities you searched for; with no filter they cover everything.
       webAllOn: () => this.webEntitiesAll(true),
       webNoneOn: () => this.webEntitiesAll(false),
-      webToggles: toggles.map((t) => {
+      webToggles: shownToggles.map((t) => {
         const on = !hidden.has(t.id);
         return { id: t.id, label: t.label, toggle: () => this.toggleWebEntity(t.id),
           fg: on ? '#33333B' : '#9A9AA4', boxBg: on ? '#5B4BE6' : 'transparent',
           boxBd: on ? '#5B4BE6' : '#CBCBD4', check: on ? '✓' : '' };
       }),
-      webTogglesEmpty: toggles.length === 0,
-      webTogglesEmptyMsg: isEnt
-        ? 'No entities in this topic yet — record a source first.'
-        : 'No causal claims read in these sources yet.',
+      webTogglesEmpty: shownToggles.length === 0,
+      webTogglesEmptyMsg: toggles.length === 0
+        ? (isEnt ? 'No entities in this topic yet — record a source first.'
+                 : 'No causal claims read in these sources yet.')
+        : `No ${isEnt ? 'entities' : 'nodes'} match “${query}”.`,
     };
   }
 
