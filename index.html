@@ -1371,9 +1371,10 @@ table{border-collapse:collapse;width:100%}
                             </span>
                           </button>
                           <button onClick="{{ cd.star }}" title="Star" style="position:absolute;top:8px;right:34px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:rgba(255,255,255,.85)"><svg width="14" height="14" viewBox="0 0 24 24" fill="{{ cd.starFg }}" stroke="{{ cd.starStroke }}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 18.8 6.2 21.9l1.1-6.5L2.6 9.8l6.5-.9z"/></svg></button>
-                          <button onClick="{{ cd.menuClick }}" title="Move or remove" style="position:absolute;top:8px;right:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#8A8A95;background:rgba(255,255,255,.85)"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>
+                          <button onClick="{{ cd.menuClick }}" title="Rename, move, or remove" style="position:absolute;top:8px;right:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#8A8A95;background:rgba(255,255,255,.85)"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>
                           <sc-if value="{{ cd.menuOpen }}">
                             <div style="position:absolute;right:8px;top:34px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:168px">
+                              <button onClick="{{ cd.doRename }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename</button>
                               <button onClick="{{ cd.doMove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M2 12h13M14 5h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/></svg>Move to…</button>
                               <button onClick="{{ cd.doRemove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Remove source</button>
                             </div>
@@ -1404,6 +1405,7 @@ table{border-collapse:collapse;width:100%}
                   </div>
                   <div style="display:flex;gap:8px;margin-bottom:16px">
                     <button onClick="{{ insOpenReader }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#2A2A32;color:#fff;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#1B1B22"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h9a3 3 0 0 1 3 3v11a2.5 2.5 0 0 0-2.5-2.5H2z"/><path d="M22 5h-9a3 3 0 0 0-3 3v11a2.5 2.5 0 0 1 2.5-2.5H22z"/></svg>Open in reader</button>
+                    <button onClick="{{ insRename }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#F2F2F6;color:#3A3A44;border:1px solid #EAEAEF;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#EAEAEF">Rename</button>
                     <button onClick="{{ insAddCorpus }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:{{ insAddBg }};color:{{ insAddFg }};border:1px solid {{ insAddBd }};font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#F5F5F8">{{ insAddLabel }}</button>
                   </div>
                   <div style="display:flex;gap:14px;border-bottom:1px solid #EFEFF3;margin-bottom:14px">
@@ -8009,6 +8011,7 @@ class Component extends DCLogic {
         open: () => this.openViewer(s.sn),
         menuOpen: st.explorerMenu === 's:' + s.sn,
         menuClick: () => this.setState({ explorerMenu: st.explorerMenu === 's:' + s.sn ? null : 's:' + s.sn }),
+        doRename: () => { const v = prompt('Rename source', s.title || 'Untitled'); if (v) app.sourceRename(s.sn, v); this.setState({ explorerMenu: null }); },
         doMove: () => this.setState({ moveTarget: { kind: 'source', id: s.sn }, explorerMenu: null }),
         doRemove: () => { if (confirm(`Remove “${s.title}” from the record? This deletes the source and its readings.`)) app.removeSource(s.sn); this.setState({ explorerMenu: null }); },
       };
@@ -8112,6 +8115,7 @@ class Component extends DCLogic {
         star: () => app.sourceStar(s.sn),
         menuOpen: st.explorerMenu === 'c:' + s.sn,
         menuClick: () => this.setState({ explorerMenu: st.explorerMenu === 'c:' + s.sn ? null : 'c:' + s.sn }),
+        doRename: () => { const v = prompt('Rename source', s.title || 'Untitled'); if (v) app.sourceRename(s.sn, v); this.setState({ explorerMenu: null }); },
         doMove: () => this.setState({ moveTarget: { kind: 'source', id: s.sn }, explorerMenu: null }),
         doRemove: () => { if (confirm(`Remove “${s.title}” from the record? This deletes the source and its readings.`)) app.removeSource(s.sn); this.setState({ explorerMenu: null }); },
       };
@@ -8847,6 +8851,7 @@ class Component extends DCLogic {
       citedPassages, citedHas: citedPassages.length > 0,
       insClose: () => this.setState({ explorerSel: null }),
       insOpenReader: () => { if (selSrc) { app.sourceTouch(selSrc.sn); this.openViewer(selSrc.sn); } },
+      insRename: () => { if (!selSrc) return; const v = prompt('Rename source', selSrc.title || 'Untitled'); if (v) { app.sourceRename(selSrc.sn, v); this.showToast('Source renamed'); } },
       insAddCorpus: () => { if (selSrc && !insInCorpus) { app.sourceAddToTopic(selSrc.sn); this.showToast('Added to this topic’s corpus'); } },
       insInCorpus, insAddLabel: insInCorpus ? 'In corpus' : '+ Add to corpus',
       insAddBg: insInCorpus ? '#E7F6EC' : '#fff', insAddFg: insInCorpus ? '#1E8A50' : '#3A3A44', insAddBd: insInCorpus ? '#CFEBD9' : '#E6E6EC',

@@ -159,6 +159,22 @@ export const installRegistry = (appCtx) => {
     return eot;
   };
 
+  // Rename a recorded source without touching its text, fixity, or folder/corpus membership.
+  // If the UI is pointed at a followed sub-page, rename the top-level source it rides under —
+  // the Drive only exposes top-level records as files. Blank names are ignored.
+  const sourceRename = (id, title) => {
+    const s = sourceBySn(id);
+    if (!s) return null;
+    const root = s.parentSn ? (sourceBySn(s.parentSn) || s) : s;
+    const next = String(title || '').replace(/\s+/g, ' ').trim();
+    if (!next) return root;
+    const prev = root.title || root.reg || 'source';
+    root.title = next;
+    logIt('record', `Renamed source — ${prev} → ${next}`, root.reg);
+    appCtx.persist(); emit('sources');
+    return root;
+  };
+
   const removeSource = (id) => {
     const gone = sourceBySn(id);
     if (gone) appCtx.deepReaders.delete(gone.docId);   // or the deep reader keeps the removed doc resident
@@ -195,5 +211,5 @@ export const installRegistry = (appCtx) => {
   // the entity explorer lists (a base doc carries no `admission`, so it would link nothing).
   const topicReferentDocs = () => topicSources().map(appCtx.referentDocFor).filter(Boolean);
 
-  Object.assign(appCtx, { addSource, answerEot, docFor, eotFor, finishReading, releaseParsesOutsideTopic, removeSource, sourceBySn, topicDocs, topicReferentDocs, topicSources });
+  Object.assign(appCtx, { addSource, answerEot, docFor, eotFor, finishReading, releaseParsesOutsideTopic, removeSource, sourceBySn, sourceRename, topicDocs, topicReferentDocs, topicSources });
 };
