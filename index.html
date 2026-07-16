@@ -1669,6 +1669,7 @@ table{border-collapse:collapse;width:100%}
                           </span>
                         </sc-if>
                       </div>
+                      <sc-if value="{{ sourceLanding.surprise.hasSubtitle }}"><div style="font-size:12px;color:#9A9AA4;margin:-6px 0 12px">{{ sourceLanding.surprise.subtitle }}</div></sc-if>
                       <div class="eo-wave" style="position:relative;height:86px;padding:9px 5px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:10px;overflow:hidden">
                         <div style="position:absolute;left:5px;right:5px;top:50%;height:1px;background:#E7E4EC"></div>
                         <sc-if value="{{ sourceLanding.surprise.showBeliefLayer }}">
@@ -2403,6 +2404,54 @@ table{border-collapse:collapse;width:100%}
                       <span style="color:#C4C4CC;flex:0 0 auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
                     </button>
                   </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- THE WAVEFORM OF SURPRISE, PIVOTED TO THIS FIGURE — the world turning around the hero: -->
+              <!-- where the reading turned ON them, across the whole text. Same instrument as the source -->
+              <!-- Overview (belief · gravitational pull, solo or overlaid), scoped to the figure; every -->
+              <!-- bar and row opens the same surprise modal. Hidden for a figure the reading never turned on. -->
+              <sc-if value="{{ prof.surprise.has }}">
+                <div style="margin-top:18px">
+                  <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:4px;flex-wrap:wrap">
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4">WAVEFORM OF SURPRISE</div>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B4B4BE">{{ prof.surprise.count }}</span>
+                    <span style="flex:1"></span>
+                    <sc-if value="{{ prof.surprise.hasGravity }}">
+                      <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:7px;padding:2px">
+                        <button onClick="{{ prof.surprise.setBelief }}" title="Belief alone — Δbelief/KL" style="padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;color:{{ prof.surprise.beliefFg }};background:{{ prof.surprise.beliefBg }}">Belief</button>
+                        <button onClick="{{ prof.surprise.setGravity }}" title="Gravitational pull alone" style="padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;color:{{ prof.surprise.gravityFg }};background:{{ prof.surprise.gravityBg }}">Pull</button>
+                        <button onClick="{{ prof.surprise.setOverlay }}" title="Overlay both" style="padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;color:{{ prof.surprise.overlayFg }};background:{{ prof.surprise.overlayBg }}">Overlay</button>
+                      </span>
+                    </sc-if>
+                  </div>
+                  <sc-if value="{{ prof.surprise.hasSubtitle }}"><div style="font-size:11px;color:#9A9AA4;margin-bottom:8px">{{ prof.surprise.subtitle }}</div></sc-if>
+                  <div class="eo-wave" style="position:relative;height:64px;padding:8px 5px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:10px;overflow:hidden">
+                    <div style="position:absolute;left:5px;right:5px;top:50%;height:1px;background:#E7E4EC"></div>
+                    <sc-if value="{{ prof.surprise.showBeliefLayer }}">
+                      <div style="position:absolute;inset:8px 5px;display:flex;align-items:center;gap:1px;mix-blend-mode:multiply">
+                        <sc-for list="{{ prof.surprise.belief }}" as="b">
+                          <div onClick="{{ b.open }}" title="{{ b.title }}" style="flex:1 1 0;min-width:1px;height:{{ b.hPct }};background:{{ b.bg }};border-radius:2px;cursor:{{ b.cursor }}" style-hover="filter:brightness(.9)"></div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ prof.surprise.showGravityLayer }}">
+                      <div style="position:absolute;inset:8px 5px;display:flex;align-items:center;gap:1px;mix-blend-mode:multiply">
+                        <sc-for list="{{ prof.surprise.gravity }}" as="g">
+                          <div onClick="{{ g.open }}" title="{{ g.title }}" style="flex:1 1 0;min-width:1px;height:{{ g.hPct }};background:{{ g.bg }};border-radius:2px;cursor:{{ g.cursor }}" style-hover="filter:brightness(.9)"></div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                  <div style="margin-top:10px;display:flex;flex-direction:column;gap:2px">
+                    <sc-for list="{{ prof.surprise.turns }}" as="t">
+                      <button onClick="{{ t.open }}" title="Hold up this turn — its sentence, what shifted, and a jump into the text" style="display:grid;grid-template-columns:60px minmax(0,1fr) auto;gap:9px;align-items:center;text-align:left;background:transparent;border:none;border-top:1px solid #F1F1F4;padding:7px 0;cursor:pointer" style-hover="background:#FBFAFF">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8C7DF3;font-weight:700">{{ t.line }}</span>
+                        <span style="min-width:0;font-size:12px;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.text }}</span>
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ t.bits }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
                 </div>
               </sc-if>
 
@@ -3853,6 +3902,92 @@ class Component extends DCLogic {
     this.closeSurprise();
     if (m.sentence) this.openViewer(m.sn, m.sentence);
     else { this.openViewer(m.sn); this.setSourceMode('eot'); }
+  }
+  // THE WAVEFORM OF SURPRISE, as one reusable view-model. `turns` are eot.turns (or a subset — a
+  // figure's own turning points, for the entity hero); `unitsN` is the document length the bars are
+  // laid across so a turn sits where it falls in the text; `sn` is the source the modal jumps into;
+  // `subtitle` names WHOSE surprise this is (a source's reading, or a figure's). Belief + gravitational
+  // pull are drawn as a mirrored audio-style track, solo-able or overlaid, and every bar / row opens
+  // the surprise modal. Extracted from the source landing so the source Overview and the entity hero
+  // draw the identical component — the world pivots to the figure, the instrument stays the same.
+  _surpriseVM(turns, unitsN, sn, subtitle) {
+    turns = Array.isArray(turns) ? turns : [];
+    const NBARS = 96;
+    const posOf = (t) => (unitsN <= 0 || t.idx == null) ? -1 : Math.min(NBARS - 1, Math.max(0, Math.round((t.idx / Math.max(1, unitsN - 1)) * (NBARS - 1))));
+    const beliefOf = (t) => Math.max(t.bayesBits || 0, t.surprisalBits || 0);
+    const pullOf = (t) => (t.bridge != null ? t.bridge : 0);
+    const turnPayload = (t) => ({
+      sn,
+      line: `line ${t.idx}`,
+      sentence: t.sentence ? String(t.sentence).replace(/\s+/g, ' ').trim() : '',
+      surprises: (t.surprises || []).map((x) => ({ op: x.op || '', text: x.text || '' })),
+      bits: t.bayesBits != null ? `${t.bayesBits}b Δbelief` : (t.surprisalBits != null ? `${t.surprisalBits}b surprisal` : ''),
+      pull: t.bridge != null ? `${t.bridge} pull${t.bridgeAxis ? ` (${t.bridgeAxis.join('—')})` : ''}` : '',
+    });
+    const buildTrack = (magOf, colorAt) => {
+      const peak = turns.reduce((m, t) => Math.max(m, magOf(t)), 0) || 1;
+      const mags = Array.from({ length: NBARS }, () => 0);
+      const at = Array.from({ length: NBARS }, () => null);
+      for (const t of turns) {
+        const bi = posOf(t); if (bi < 0) continue;
+        const frac = magOf(t) / peak;
+        if (frac > mags[bi]) { mags[bi] = frac; at[bi] = t; }
+      }
+      return mags.map((frac, i) => ({
+        hPct: Math.round(6 + frac * 94) + '%',
+        bg: colorAt(frac),
+        title: at[i] ? `line ${at[i].idx} — click to hold up this turn` : '',
+        hasTurn: !!at[i],
+        cursor: at[i] ? 'pointer' : 'default',
+        open: at[i] ? () => this.openSurprise(turnPayload(at[i])) : () => {},
+      }));
+    };
+    const belief = { bars: buildTrack(beliefOf, (f) => f > 0.55 ? '#5B4BE6' : f > 0.28 ? '#8C7DF3' : '#D8D3F7') };
+    const gravity = { bars: buildTrack(pullOf, (f) => f > 0.55 ? '#C9963A' : f > 0.28 ? '#DDB56B' : '#F0E0BE') };
+    const hasGravity = turns.some((t) => t.bridge != null);
+    const waveMode = hasGravity ? (this.state.waveMode || 'overlay') : 'belief';
+    const surpriseTurns = turns.slice().sort((a, b) => beliefOf(b) - beliefOf(a)).slice(0, 6).map((t) => ({
+      line: `line ${t.idx}`,
+      text: (t.surprises && t.surprises[0] && t.surprises[0].text) || (t.sentence ? String(t.sentence).replace(/\s+/g, ' ').trim().slice(0, 84) : 'a turn in the reading'),
+      op: (t.surprises && t.surprises[0] && t.surprises[0].op) || '',
+      bits: t.bayesBits != null ? `${t.bayesBits}b Δbelief` : (t.surprisalBits != null ? `${t.surprisalBits}b` : ''),
+      pull: t.bridge != null ? `${t.bridge}${t.bridgeAxis ? ` pull (${t.bridgeAxis.join('—')})` : ' pull'}` : '',
+      open: () => this.openSurprise(turnPayload(t)),
+    }));
+    return {
+      has: turns.length > 0, hasGravity, turns: surpriseTurns,
+      subtitle: subtitle || '', hasSubtitle: !!subtitle,
+      count: `${turns.length} turning point${turns.length === 1 ? '' : 's'}`,
+      openEot: () => { if (sn) this.openViewer(sn); this.setSourceMode('eot'); },
+      mode: waveMode, showBelief: waveMode === 'belief', showGravity: waveMode === 'gravity', showOverlay: waveMode === 'overlay',
+      showBeliefLayer: waveMode !== 'gravity', showGravityLayer: hasGravity && waveMode !== 'belief',
+      beliefFg: waveMode === 'belief' ? '#1B1B22' : '#8A8A95', beliefBg: waveMode === 'belief' ? '#fff' : 'transparent',
+      gravityFg: waveMode === 'gravity' ? '#1B1B22' : '#8A8A95', gravityBg: waveMode === 'gravity' ? '#fff' : 'transparent',
+      overlayFg: waveMode === 'overlay' ? '#1B1B22' : '#8A8A95', overlayBg: waveMode === 'overlay' ? '#fff' : 'transparent',
+      belief: belief.bars, gravity: gravity.bars,
+      setBelief: () => this.setWaveMode('belief'), setGravity: () => this.setWaveMode('gravity'), setOverlay: () => this.setWaveMode('overlay'),
+    };
+  }
+  // A FIGURE'S own waveform of surprise — the entity hero pivoting the world to itself. The source's
+  // turning points, kept where THIS figure is the one the reading turned on: its name (any token ≥3
+  // chars, word-bounded so "De" alone never matches "De Lacey") appears in the turn's predicted cast,
+  // its surprise operations, or its sentence. Laid across the same document span, so a figure's turns
+  // read as a trajectory through the whole text. Empty (has:false) when nothing names the figure —
+  // honest for a walk-on; rich for a protagonist. Reuses _surpriseVM, so the modal + jump come free.
+  _entitySurpriseVM(p, label) {
+    const app = this._app;
+    if (!p || !app || !app.eotFor) return { has: false };
+    let eot = null; try { eot = app.eotFor(p.sn); } catch { eot = null; }
+    const turns = (eot && Array.isArray(eot.turns)) ? eot.turns : [];
+    const unitsN = (eot && eot.units) || 0;
+    const toks = String(label || '').split(/\s+/).map((w) => w.replace(/[^A-Za-z0-9'’-]/g, '')).filter((w) => w.length >= 3);
+    if (!turns.length || !toks.length) return { has: false };
+    const esc = (n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp('\\b(' + toks.map(esc).join('|') + ')\\b', 'i');
+    const names = (t) => re.test([(t.sentence || ''), ...(t.predicted || []), ...((t.surprises || []).map((x) => x.text || ''))].join('  '));
+    const mine = turns.filter(names);
+    if (!mine.length) return { has: false };
+    return this._surpriseVM(mine, unitsN, p.sn, `where the reading turned on ${label}`);
   }
   // Split the surprising sentence into flat spans, lighting the FIGURES the turn's surprise operations
   // named (INS "X enters", REL "X via Y", SEG "focus shifts off X", …) where they fall in the prose —
@@ -5697,6 +5832,10 @@ class Component extends DCLogic {
       wikiAbsent: !!(wk && !wk.busy && !wkHit),
       srcReg: src.reg || '', srcTitle: src.title || '', openSource: () => h.openSource(p.sn),
       openWeb: h.openWeb || (() => {}),
+      // THE WAVEFORM OF SURPRISE, pivoted to THIS figure — where the reading turned on them, across the
+      // whole text. The world pivots around the hero: the same instrument the source Overview draws,
+      // now scoped to the figure. Empty for a walk-on the reading never turned on.
+      surprise: this._entitySurpriseVM(p, p.label),
       // STANDING PROPERTIES — ranked (app.rankProperties), each carrying its provenance:
       // how many passages witness it, the source it came from, and clickable ¶ chips that
       // jump straight to the witnessing sentence. The value alone is no longer the whole row.
@@ -6064,75 +6203,10 @@ class Component extends DCLogic {
       };
     });
     const castNoun = (app.sourceBaseNoun ? app.sourceBaseNoun(s.sn) : 'Figures');
-    // TWIN WAVEFORMS, read like an audio track — the reading's turning points (eot.turns) plotted
-    // across the document, mirrored around a centre line rather than drawn as bar-chart columns:
-    //   · BELIEF (Δbelief/KL, the mass channel) — how far the reading's belief moved, bayesBits.
-    //   · GRAVITATIONAL PULL (the bridge/connectivity channel, docs/core/index.js#bridgeSurprise) —
-    //     how strongly a turn draws two (coref-resolved) figures into bond, independent of mass.
-    // Either can be viewed solo or overlaid — the same click-to-A/B a DAW gives you over two tracks.
-    const turns = (eot && Array.isArray(eot.turns)) ? eot.turns : [];
-    const unitsN = (eot && eot.units) || 0;
-    const NBARS = 96;
-    const posOf = (t) => (unitsN <= 0 || t.idx == null) ? -1 : Math.min(NBARS - 1, Math.max(0, Math.round((t.idx / Math.max(1, unitsN - 1)) * (NBARS - 1))));
-    const beliefOf = (t) => Math.max(t.bayesBits || 0, t.surprisalBits || 0);
-    const pullOf = (t) => (t.bridge != null ? t.bridge : 0);
-    // Mirrored waveform bars: rendered inside a flex row with align-items:center, so a bar of height
-    // H sits centred on the strip's midline and grows symmetrically up AND down as H grows — the
-    // silhouette of a real audio track, not a bottom-anchored bar chart.
-    // One turning point → the payload the surprise modal reads: the source, the line, the full
-    // (whitespace-collapsed) sentence, the EO surprise operations that fired there, and the
-    // belief/pull labels. Shared by the waveform bars and the reading-order list so a click on
-    // either opens the same modal.
-    const turnPayload = (t) => ({
-      sn: s.sn,
-      line: `line ${t.idx}`,
-      sentence: t.sentence ? String(t.sentence).replace(/\s+/g, ' ').trim() : '',
-      surprises: (t.surprises || []).map((x) => ({ op: x.op || '', text: x.text || '' })),
-      bits: t.bayesBits != null ? `${t.bayesBits}b Δbelief` : (t.surprisalBits != null ? `${t.surprisalBits}b surprisal` : ''),
-      pull: t.bridge != null ? `${t.bridge} pull${t.bridgeAxis ? ` (${t.bridgeAxis.join('—')})` : ''}` : '',
-    });
-    const buildTrack = (magOf, colorAt) => {
-      const peak = turns.reduce((m, t) => Math.max(m, magOf(t)), 0) || 1;
-      const mags = Array.from({ length: NBARS }, () => 0);
-      const at = Array.from({ length: NBARS }, () => null);
-      for (const t of turns) {
-        const bi = posOf(t); if (bi < 0) continue;
-        const frac = magOf(t) / peak;
-        if (frac > mags[bi]) { mags[bi] = frac; at[bi] = t; }
-      }
-      return mags.map((frac, i) => ({
-        hPct: Math.round(6 + frac * 94) + '%',
-        bg: colorAt(frac),
-        title: at[i] ? `line ${at[i].idx} — click to hold up this turn` : '',
-        hasTurn: !!at[i],
-        cursor: at[i] ? 'pointer' : 'default',
-        open: at[i] ? () => this.openSurprise(turnPayload(at[i])) : () => {},
-      }));
-    };
-    const belief = { bars: buildTrack(beliefOf, (f) => f > 0.55 ? '#5B4BE6' : f > 0.28 ? '#8C7DF3' : '#D8D3F7') };
-    const gravity = { bars: buildTrack(pullOf, (f) => f > 0.55 ? '#C9963A' : f > 0.28 ? '#DDB56B' : '#F0E0BE') };
-    const hasGravity = turns.some((t) => t.bridge != null);
-    const waveMode = hasGravity ? (this.state.waveMode || 'overlay') : 'belief';
-    const surpriseTurns = turns.slice().sort((a, b) => beliefOf(b) - beliefOf(a)).slice(0, 6).map((t) => ({
-      line: `line ${t.idx}`,
-      text: (t.surprises && t.surprises[0] && t.surprises[0].text) || (t.sentence ? String(t.sentence).replace(/\s+/g, ' ').trim().slice(0, 84) : 'a turn in the reading'),
-      op: (t.surprises && t.surprises[0] && t.surprises[0].op) || '',
-      bits: t.bayesBits != null ? `${t.bayesBits}b Δbelief` : (t.surprisalBits != null ? `${t.surprisalBits}b` : ''),
-      pull: t.bridge != null ? `${t.bridge}${t.bridgeAxis ? ` pull (${t.bridgeAxis.join('—')})` : ' pull'}` : '',
-      open: () => this.openSurprise(turnPayload(t)),
-    }));
-    const surprise = {
-      has: turns.length > 0, hasGravity, turns: surpriseTurns,
-      count: `${turns.length} turning point${turns.length === 1 ? '' : 's'}`,
-      openEot: () => this.setSourceMode('eot'),
-      mode: waveMode, showBelief: waveMode === 'belief', showGravity: waveMode === 'gravity', showOverlay: waveMode === 'overlay',
-      showBeliefLayer: waveMode !== 'gravity', showGravityLayer: hasGravity && waveMode !== 'belief',
-      beliefFg: waveMode === 'belief' ? '#1B1B22' : '#8A8A95', beliefBg: waveMode === 'belief' ? '#fff' : 'transparent',
-      gravityFg: waveMode === 'gravity' ? '#1B1B22' : '#8A8A95', gravityBg: waveMode === 'gravity' ? '#fff' : 'transparent',
-      overlayFg: waveMode === 'overlay' ? '#1B1B22' : '#8A8A95', overlayBg: waveMode === 'overlay' ? '#fff' : 'transparent',
-      belief: belief.bars, gravity: gravity.bars,
-      setBelief: () => this.setWaveMode('belief'), setGravity: () => this.setWaveMode('gravity'), setOverlay: () => this.setWaveMode('overlay'),
-    };
+    // The waveform of surprise for THIS source — the reading's turning points across the whole text.
+    // Built by the shared _surpriseVM so a focused figure's OWN turns (the entity hero) draw the
+    // identical component and open the identical modal.
+    const surprise = this._surpriseVM((eot && Array.isArray(eot.turns)) ? eot.turns : [], (eot && eot.units) || 0, s.sn, `the reading's turns across ${title}`);
     return {
       workspace: ws.name || 'Workspace', topic: topic.title || 'Topic', sourceLabel: s.reg || 'Source', icon, typeLabel: type.toUpperCase(), title,
       origin, verification: s.verified === false ? 'UNVERIFIED' : 'VERIFIED', rights: this._rights(s).label, retrieved: this._ago(s.retrieved) || 'captured',
