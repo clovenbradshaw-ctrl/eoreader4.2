@@ -1674,14 +1674,14 @@ table{border-collapse:collapse;width:100%}
                         <sc-if value="{{ sourceLanding.surprise.showBeliefLayer }}">
                           <div style="position:absolute;inset:9px 5px;display:flex;align-items:center;gap:1px;mix-blend-mode:multiply">
                             <sc-for list="{{ sourceLanding.surprise.belief }}" as="b">
-                              <div title="{{ b.title }}" style="flex:1 1 0;min-width:1px;height:{{ b.hPct }};background:{{ b.bg }};border-radius:2px"></div>
+                              <div onClick="{{ b.open }}" title="{{ b.title }}" style="flex:1 1 0;min-width:1px;height:{{ b.hPct }};background:{{ b.bg }};border-radius:2px;cursor:{{ b.cursor }}" style-hover="filter:brightness(.9)"></div>
                             </sc-for>
                           </div>
                         </sc-if>
                         <sc-if value="{{ sourceLanding.surprise.showGravityLayer }}">
                           <div style="position:absolute;inset:9px 5px;display:flex;align-items:center;gap:1px;mix-blend-mode:multiply">
                             <sc-for list="{{ sourceLanding.surprise.gravity }}" as="g">
-                              <div title="{{ g.title }}" style="flex:1 1 0;min-width:1px;height:{{ g.hPct }};background:{{ g.bg }};border-radius:2px"></div>
+                              <div onClick="{{ g.open }}" title="{{ g.title }}" style="flex:1 1 0;min-width:1px;height:{{ g.hPct }};background:{{ g.bg }};border-radius:2px;cursor:{{ g.cursor }}" style-hover="filter:brightness(.9)"></div>
                             </sc-for>
                           </div>
                         </sc-if>
@@ -1693,7 +1693,7 @@ table{border-collapse:collapse;width:100%}
                       </div>
                       <div style="margin-top:14px;display:flex;flex-direction:column;gap:2px">
                         <sc-for list="{{ sourceLanding.surprise.turns }}" as="t">
-                          <button onClick="{{ t.open }}" title="Open the EoT reading" style="display:grid;grid-template-columns:64px minmax(0,1fr) auto auto;gap:10px;align-items:center;text-align:left;background:transparent;border:none;border-top:1px solid #F1F1F4;padding:8px 0" style-hover="background:#FBFAFF">
+                          <button onClick="{{ t.open }}" title="Hold up this turn — its sentence, what shifted, and a jump into the text" style="display:grid;grid-template-columns:64px minmax(0,1fr) auto auto;gap:10px;align-items:center;text-align:left;background:transparent;border:none;border-top:1px solid #F1F1F4;padding:8px 0;cursor:pointer" style-hover="background:#FBFAFF">
                             <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8C7DF3;font-weight:700">{{ t.line }}</span>
                             <span style="min-width:0;font-size:12.5px;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.text }}</span>
                             <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">{{ t.bits }}</span>
@@ -2798,6 +2798,45 @@ table{border-collapse:collapse;width:100%}
     </div>
   </sc-if>
 
+  <!-- THE WAVEFORM OF SURPRISE → ONE TURNING POINT, HELD UP -->
+  <!-- Click a bar or a reading-order row and the turn opens here: the surprising sentence, the -->
+  <!-- figures its EO operations named lit inside it, the Δbelief/pull it moved, and a jump that -->
+  <!-- lands the passage centred and flashed in the reader (openViewer → scrollToText). -->
+  <sc-if value="{{ surpriseModalShow }}">
+    <div style="position:absolute;inset:0;z-index:46">
+      <div onClick="{{ closeSurprise }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
+      <div class="eo-modal" style="position:absolute;left:50%;top:72px;transform:translateX(-50%);width:min(620px,93vw);max-height:calc(100vh - 140px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+        <div style="display:flex;align-items:baseline;gap:10px;padding:18px 22px 12px;flex-wrap:wrap;border-bottom:1px solid #F1F1F4">
+          <span style="font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;font-weight:700">Where the reading turned</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8C7DF3;font-weight:700">{{ surpriseLine }}</span>
+          <span style="flex:1"></span>
+          <sc-if value="{{ surpriseHasBits }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#5B4BE6">{{ surpriseBits }}</span></sc-if>
+          <sc-if value="{{ surpriseHasPull }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B08A3E">{{ surprisePull }}</span></sc-if>
+        </div>
+        <div style="padding:18px 22px;overflow-y:auto">
+          <sc-if value="{{ surpriseHasSentence }}">
+            <p style="font-family:'Newsreader',Georgia,serif;font-size:18px;line-height:1.62;margin:0 0 4px"><sc-for list="{{ surpriseSegs }}" as="g"><span style="background:{{ g.bg }};color:{{ g.fg }};font-weight:{{ g.wt }};border-radius:3px;padding:0 1px">{{ g.t }}</span></sc-for></p>
+          </sc-if>
+          <sc-if value="{{ surpriseHasOps }}">
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA4">What shifted</span>
+              <sc-for list="{{ surpriseOps }}" as="o">
+                <div style="display:flex;align-items:baseline;gap:8px">
+                  <sc-if value="{{ o.hasOp }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;color:#8C7DF3;background:#F1EFFE;border-radius:5px;padding:2px 6px;flex:0 0 auto">{{ o.op }}</span></sc-if>
+                  <span style="font-size:13px;color:#3A3A44;line-height:1.5">{{ o.text }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;padding:12px 22px 18px;border-top:1px solid #F1F1F4">
+          <button onClick="{{ closeSurprise }}" style="border:1px solid #EAEAEF;border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:600;color:#6E6E78" style-hover="background:#F5F5F8">Close</button>
+          <button onClick="{{ readSurpriseInContext }}" style="display:inline-flex;align-items:center;gap:6px;background:#6D5EF5;color:#fff;border-radius:9px;padding:8px 16px;font-size:12.5px;font-weight:600" style-hover="background:#5B4BE6">Read in context <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- MATRIX SIGN-IN (OPTIONAL) -->
   <sc-if value="{{ loginShow }}">
     <div style="position:absolute;inset:0;z-index:47">
@@ -3250,6 +3289,9 @@ class Component extends DCLogic {
       // best-ever ctrl+F. sfTemplate 'auto' routes by intent; sfDisabled is the source rail's off set.
       sfQuery: '', sfTemplate: 'auto', sfDisabled: new Set(),
       pasteOpen: false, pasteTitle: '', pasteBody: '',
+      // A turning point clicked open in the waveform of surprise: the surprising sentence held up
+      // in a modal (line, Δbelief/pull, the EO operations that fired), with a jump into the reader.
+      surpriseModal: null,
       modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
@@ -3799,6 +3841,66 @@ class Component extends DCLogic {
 
   openPaste() { this.setState({ pasteOpen: true, pasteTitle: '', pasteBody: '' }); }
   closePaste() { this.setState({ pasteOpen: false }); }
+  // The waveform of surprise → one turning point, held up in a modal. `turn` carries the source, the
+  // line, the full sentence, the EO surprise operations that fired there, and the belief/pull labels.
+  openSurprise(turn) { if (turn) this.setState({ surpriseModal: turn }); }
+  closeSurprise() { this.setState({ surpriseModal: null }); }
+  // Leave the modal and jump into the reader AT that sentence — openViewer sets viewerFocus, which the
+  // reader's scrollToText resolves and flashes (reader-render.js#scrollToText), so the surprising
+  // passage lands centred and lit in its full context.
+  readSurpriseInContext() {
+    const m = this.state.surpriseModal; if (!m || !m.sn) return this.closeSurprise();
+    this.closeSurprise();
+    if (m.sentence) this.openViewer(m.sn, m.sentence);
+    else { this.openViewer(m.sn); this.setSourceMode('eot'); }
+  }
+  // Split the surprising sentence into flat spans, lighting the FIGURES the turn's surprise operations
+  // named (INS "X enters", REL "X via Y", SEG "focus shifts off X", …) where they fall in the prose —
+  // so the eye lands on WHO/WHAT moved belief, not just the line. Names are the capitalised runs in the
+  // operation text; longest-first so "De Lacey" wins over "De". Degrades to one plain span (no match, no
+  // names) — the sentence is always readable whole. Pure string work; each span carries its own style.
+  _surpriseSegs(sentence, surprises) {
+    const text = String(sentence || '');
+    const plain = (t) => ({ t, bg: 'transparent', fg: '#2A2A32', wt: '400' });
+    const lit = (t) => ({ t, bg: '#FDE68A', fg: '#7A5B00', wt: '600' });
+    if (!text) return [];
+    const names = new Set();
+    for (const s of (surprises || [])) {
+      const runs = String(s && s.text || '').match(/[A-Z][A-Za-z'’.\-]+(?:\s+[A-Z][A-Za-z'’.\-]+)*/g) || [];
+      for (const r of runs) { const w = r.trim(); if (w.length >= 3) names.add(w); }
+    }
+    if (!names.size) return [plain(text)];
+    const esc = (n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp('(' + [...names].sort((a, b) => b.length - a.length).map(esc).join('|') + ')', 'g');
+    const segs = []; let last = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) segs.push(plain(text.slice(last, m.index)));
+      segs.push(lit(m[0]));
+      last = m.index + m[0].length;
+      if (re.lastIndex === m.index) re.lastIndex++;
+    }
+    if (last < text.length) segs.push(plain(text.slice(last)));
+    return segs.length ? segs : [plain(text)];
+  }
+  // The surprise modal's template scope, folded from the held turn (null → an empty, hidden shell).
+  _surpriseModalVals(m) {
+    const ops = (m && m.surprises || []).filter((s) => s && (s.text || s.op)).map((s) => ({
+      text: s.text || '', op: s.op || '', hasOp: !!s.op,
+    }));
+    return {
+      surpriseModalShow: !!m,
+      surpriseLine: m ? m.line : '',
+      surpriseBits: m ? (m.bits || '') : '',
+      surprisePull: m ? (m.pull || '') : '',
+      surpriseHasPull: !!(m && m.pull),
+      surpriseHasBits: !!(m && m.bits),
+      surpriseSegs: m ? this._surpriseSegs(m.sentence, m.surprises) : [],
+      surpriseHasSentence: !!(m && m.sentence),
+      surpriseOps: ops, surpriseHasOps: ops.length > 0,
+      closeSurprise: () => this.closeSurprise(),
+      readSurpriseInContext: () => this.readSurpriseInContext(),
+    };
+  }
   onPasteTitle(e) { this.setState({ pasteTitle: e.target.value }); }
   onPasteBody(e) { this.setState({ pasteBody: e.target.value }); }
   submitPaste() {
@@ -5977,6 +6079,18 @@ class Component extends DCLogic {
     // Mirrored waveform bars: rendered inside a flex row with align-items:center, so a bar of height
     // H sits centred on the strip's midline and grows symmetrically up AND down as H grows — the
     // silhouette of a real audio track, not a bottom-anchored bar chart.
+    // One turning point → the payload the surprise modal reads: the source, the line, the full
+    // (whitespace-collapsed) sentence, the EO surprise operations that fired there, and the
+    // belief/pull labels. Shared by the waveform bars and the reading-order list so a click on
+    // either opens the same modal.
+    const turnPayload = (t) => ({
+      sn: s.sn,
+      line: `line ${t.idx}`,
+      sentence: t.sentence ? String(t.sentence).replace(/\s+/g, ' ').trim() : '',
+      surprises: (t.surprises || []).map((x) => ({ op: x.op || '', text: x.text || '' })),
+      bits: t.bayesBits != null ? `${t.bayesBits}b Δbelief` : (t.surprisalBits != null ? `${t.surprisalBits}b surprisal` : ''),
+      pull: t.bridge != null ? `${t.bridge} pull${t.bridgeAxis ? ` (${t.bridgeAxis.join('—')})` : ''}` : '',
+    });
     const buildTrack = (magOf, colorAt) => {
       const peak = turns.reduce((m, t) => Math.max(m, magOf(t)), 0) || 1;
       const mags = Array.from({ length: NBARS }, () => 0);
@@ -5989,7 +6103,10 @@ class Component extends DCLogic {
       return mags.map((frac, i) => ({
         hPct: Math.round(6 + frac * 94) + '%',
         bg: colorAt(frac),
-        title: at[i] ? `line ${at[i].idx}` : '',
+        title: at[i] ? `line ${at[i].idx} — click to hold up this turn` : '',
+        hasTurn: !!at[i],
+        cursor: at[i] ? 'pointer' : 'default',
+        open: at[i] ? () => this.openSurprise(turnPayload(at[i])) : () => {},
       }));
     };
     const belief = { bars: buildTrack(beliefOf, (f) => f > 0.55 ? '#5B4BE6' : f > 0.28 ? '#8C7DF3' : '#D8D3F7') };
@@ -6002,7 +6119,7 @@ class Component extends DCLogic {
       op: (t.surprises && t.surprises[0] && t.surprises[0].op) || '',
       bits: t.bayesBits != null ? `${t.bayesBits}b Δbelief` : (t.surprisalBits != null ? `${t.surprisalBits}b` : ''),
       pull: t.bridge != null ? `${t.bridge}${t.bridgeAxis ? ` pull (${t.bridgeAxis.join('—')})` : ' pull'}` : '',
-      open: () => this.setSourceMode('eot'),
+      open: () => this.openSurprise(turnPayload(t)),
     }));
     const surprise = {
       has: turns.length > 0, hasGravity, turns: surpriseTurns,
@@ -8973,6 +9090,8 @@ class Component extends DCLogic {
       pasteShow: st.pasteOpen, pasteTitle: st.pasteTitle, pasteBody: st.pasteBody,
       onPasteTitle: (e) => this.onPasteTitle(e), onPasteBody: (e) => this.onPasteBody(e),
       closePaste: () => this.closePaste(), submitPaste: () => this.submitPaste(),
+      // the waveform of surprise → a turning point held up in a modal
+      ...this._surpriseModalVals(st.surpriseModal),
       // optional Matrix account + the quiet "save system genome online?" setting
       ...this._acctVals(),
       // Settings → roll back to a prior PR (the version time-machine)
