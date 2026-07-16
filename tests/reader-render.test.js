@@ -80,6 +80,78 @@ test('detectStructure invents no chapters for a plain web article', () => {
   assert.equal(m.paras.length, 3);
 });
 
+// ── the unified structure detector — one pass, source-agnostic (structure is structure) ─────────
+// Each fixture is a stripped-down shape of a real document family (book / paper / encyclopedia
+// extract / news), built full-length enough to clear the sparsity guards.
+const prose = (n) => `This is body sentence ${n}, long enough to read as real prose rather than a `
+  + `heading, carrying several lowercase words so the sentence test knows it is not a title at all.`;
+const bodyRun = (k) => Array.from({ length: k }, (_, i) => prose(i + 1)).join('\n\n');
+
+test('detectStructure: a marker heading whose TITLE reads like a sentence is still a heading', () => {
+  // "CHAPTER 42. The Whiteness of the Whale." ends like a sentence — the number/marker is the form,
+  // so the sentence-veto must not drop it (the Moby-Dick regression: whole chapters vanished).
+  const book = [1, 2, 3, 4, 5, 6].map((n) => `CHAPTER ${n}. The Something of the Thing.\n\n${bodyRun(16)}`).join('\n\n');
+  const m = readerModel({ text: book, title: 'A Whale Book' });
+  assert.equal(m.sections.length, 6, `all six sentence-titled chapters found, got ${m.sections.length}`);
+  assert.ok(m.sections.every((s) => /^CHAPTER \d+\./.test(s.label)), 'each kept its marker label');
+});
+
+test('detectStructure: a numbered story family survives the first-person pronoun "I"', () => {
+  // A first-person book opens half its sentences with "I " (a valid roman numeral). Those are prose,
+  // not headings; only the delimited, ALL-CAPS story heads ("I. A SCANDAL…") form the section run.
+  const stories = ['I. A SCANDAL', 'II. THE LEAGUE', 'III. A CASE', 'IV. THE MYSTERY', 'V. THE PIPS']
+    .map((h) => `${h}\n\nI walked to the door and thought about the case for a long, quiet while.\n\n`
+      + `I could not say why, but I felt uneasy about the whole strange and singular affair.\n\n${bodyRun(14)}`).join('\n\n');
+  const m = readerModel({ text: stories, title: 'The Adventures' });
+  assert.equal(m.sections.length, 5, `five story heads, got ${m.sections.length}: ${m.sections.map((s) => s.label)}`);
+  assert.deepEqual(m.sections.map((s) => s.label), ['I. A SCANDAL', 'II. THE LEAGUE', 'III. A CASE', 'IV. THE MYSTERY', 'V. THE PIPS']);
+});
+
+test('detectStructure: an academic paper nests decimal sections by depth (1 · N.M · N.M.K)', () => {
+  const paper = ['Abstract', bodyRun(9),
+    '1 Introduction', bodyRun(9), '2 Background', bodyRun(9),
+    '3 Model Architecture', bodyRun(4), '3.1 Encoder Stacks', bodyRun(9),
+    '3.2 Attention', bodyRun(4), '3.2.1 Scaled Dot-Product Attention', bodyRun(9),
+    '3.2.2 Multi-Head Attention', bodyRun(9), '4 Why Self-Attention', bodyRun(9),
+    '4.1 Complexity', bodyRun(9), '5 Conclusion', bodyRun(9), 'References', bodyRun(4)].join('\n\n');
+  const m = readerModel({ text: paper, title: 'Attention' });
+  const at = (label) => m.sections.find((s) => s.label === label);
+  assert.ok(at('1 Introduction') && at('1 Introduction').level === 1, 'integer sections are level 1');
+  assert.ok(at('3.1 Encoder Stacks') && at('3.1 Encoder Stacks').level === 2, 'one-dot decimals are level 2');
+  assert.ok(at('3.2.1 Scaled Dot-Product Attention') && at('3.2.1 Scaled Dot-Product Attention').level === 3, 'two-dot decimals are level 3');
+  assert.ok(at('Abstract') && at('References'), 'canonical Abstract / References are headings too');
+});
+
+test('detectStructure: a Wikipedia-style extract finds sentence-case heads by the blank-gap alone', () => {
+  // No numeral, no markup, no title-case — a section head is a short line set above a DOUBLE blank
+  // line where paragraphs are single-spaced. The gap is the only signal, and it must carry.
+  const heads = ['Overview', 'Photosynthetic membranes and organelles', 'Light-dependent reactions',
+    'Water photolysis', 'Carbon concentrating mechanisms', 'Evolution', 'See also'];
+  const wiki = 'Photosynthesis is a process used by plants to convert light into chemical energy stored in sugars.\n\n'
+    + heads.map((h) => `${h}\n\n${prose(1)}\n\n${prose(2)}`).join('\n\n\n');   // TWO blank lines before each head
+  const m = readerModel({ text: wiki, title: 'Photosynthesis' });
+  assert.ok(m.sections.length >= 6, `gap-set-off heads found, got ${m.sections.length}`);
+  assert.ok(m.sections.some((s) => s.label === 'Photosynthetic membranes and organelles'), 'a sentence-case head is caught');
+});
+
+test('detectStructure: an inline multi-line table of contents is not double-counted', () => {
+  // A printed contents (a "CONTENTS" head + one chapter per line) duplicates every heading. Left in,
+  // the doubled family trips the density guard and NO structure is found; it must be stripped.
+  const toc = 'CONTENTS\n\n' + Array.from({ length: 8 }, (_, i) => `Chapter ${i + 1}. The Title.`).join('\n\n');
+  const body = Array.from({ length: 8 }, (_, i) => `Chapter ${i + 1}. The Title.\n\n${bodyRun(16)}`).join('\n\n');
+  const m = readerModel({ text: `The Book\n\n${toc}\n\n${body}`, title: 'The Book' });
+  assert.equal(m.sections.length, 8, `eight chapters once each, not sixteen — got ${m.sections.length}`);
+});
+
+test('detectStructure: an epistolary frame (Letters) and the chapters both make the contents', () => {
+  const letters = [1, 2, 3, 4].map((n) => `Letter ${n}\n\n${bodyRun(16)}`).join('\n\n');
+  const chapters = Array.from({ length: 10 }, (_, i) => `Chapter ${i + 1}\n\n${bodyRun(16)}`).join('\n\n');
+  const m = readerModel({ text: `${letters}\n\n${chapters}`, title: 'Frankenstein' });
+  assert.equal(m.sections.filter((s) => /^Letter/.test(s.label)).length, 4, 'all four frame letters');
+  assert.equal(m.sections.filter((s) => /^Chapter/.test(s.label)).length, 10, 'all ten chapters');
+  assert.ok(m.sections.every((s) => s.level === 1), 'a disjoint sibling frame stays top-level, not nested');
+});
+
 test('readerHtml renders a themed book with a title, chapters, TOC and a drop cap', () => {
   const m = readerModel({ text: PG_BOOK });
   const { html, toc } = readerHtml(m, { theme: 'sepia', font: 'serif' });
