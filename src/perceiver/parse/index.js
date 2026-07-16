@@ -23,3 +23,4 @@ export { TITLE_WORDS } from './entities.js';
 export { discoverUncasedReferents, discoverUncasedRelations } from './uncased.js';
 export { readGrain, readUncasedGrain } from './grain.js';
 export { induceAdpositions } from './adpositions.js';
+export { createDeixisFrame } from './deixis.js';
