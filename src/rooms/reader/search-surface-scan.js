@@ -40,17 +40,49 @@ export const highlight = (text, terms) => {
 const sentencesOf = (src, docFor) => { let d = null; try { d = docFor(src); } catch { d = null; } return (d && d.sentences) || []; };
 const carriesAll = (low, terms) => terms.every((t) => low.includes(t));
 
+// lineStarts(src) → the 0-based character offsets where source lines begin. The concordance opens
+// by sentence/unit, but readers orient by line numbers; derive those from the stored plain text when
+// it is available, without making parsed docs carry renderer-only coordinates.
+const lineStarts = (src) => {
+  const text = String(src?.text || '');
+  const starts = [0];
+  for (let i = 0; i < text.length; i++) if (text[i] === '\n') starts.push(i + 1);
+  return starts;
+};
+
+const lineNumberAt = (starts, pos) => {
+  if (!Number.isFinite(pos) || pos < 0) return null;
+  let lo = 0, hi = starts.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (starts[mid] <= pos) lo = mid + 1; else hi = mid - 1;
+  }
+  return hi + 1;
+};
+
+const locateUnitLine = (src, raw, searchFrom) => {
+  const text = String(src?.text || '');
+  if (!text) return { line: null, nextFrom: searchFrom };
+  const starts = lineStarts(src);
+  let pos = text.indexOf(raw, Math.max(0, searchFrom || 0));
+  if (pos < 0) pos = text.indexOf(raw);
+  return { line: lineNumberAt(starts, pos), nextFrom: pos >= 0 ? pos + Math.max(1, raw.length) : searchFrom };
+};
+
 // scanSource(src, terms, docFor, cap) → the occurrence rows for one source: each a sentence that
 // carries EVERY term, with its unit index (a door back into the source) and the lit segments.
 export const scanSource = (src, terms, docFor, cap = OCC_CAP) => {
   const out = [];
   if (!terms || !terms.length) return out;
   const units = sentencesOf(src, docFor);
+  let searchFrom = 0;
   for (let i = 0; i < units.length && out.length < cap; i++) {
     const raw = String(units[i]);
     if (!carriesAll(raw.toLowerCase(), terms)) continue;
     const text = raw.length > SNIP_CAP ? raw.slice(0, SNIP_CAP) + '…' : raw;
-    out.push({ unit: i, text, segs: highlight(text, terms) });
+    const loc = locateUnitLine(src, raw, searchFrom);
+    searchFrom = loc.nextFrom;
+    out.push({ unit: i, line: loc.line, label: loc.line ? `L${loc.line}` : `§${i + 1}`, text, segs: highlight(text, terms) });
   }
   return out;
 };

@@ -768,8 +768,9 @@ table{border-collapse:collapse;width:100%}
                           <span style="flex:0 0 auto;color:#B4B4BE">{{ h.countLabel }}</span>
                         </button>
                         <sc-for list="{{ h.occurrences }}" as="o">
-                          <button onClick="{{ o.open }}" title="Open this occurrence in the source" style="display:block;width:100%;text-align:left;border:none;border-left:2px solid #EDEBF9;background:transparent;padding:5px 0 5px 12px;margin-bottom:2px;font-family:'Newsreader',Georgia,serif;font-size:15px;line-height:1.55;color:#3A3A44" style-hover="border-color:#6D5EF5;background:#FAFAFE">
-                            <sc-for list="{{ o.segs }}" as="sg"><sc-if value="{{ sg.hit }}"><span style="background:#FAEEDA;color:#4A1B0C;border-radius:2px;padding:0 1px">{{ sg.s }}</span></sc-if><sc-if value="{{ sg.plain }}"><span>{{ sg.s }}</span></sc-if></sc-for>
+                          <button onClick="{{ o.open }}" title="Open this occurrence in the source" style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;width:100%;text-align:left;border:none;border-left:2px solid #EDEBF9;background:transparent;padding:5px 0 5px 12px;margin-bottom:2px;font-family:'Newsreader',Georgia,serif;font-size:15px;line-height:1.55;color:#3A3A44" style-hover="border-color:#6D5EF5;background:#FAFAFE">
+                            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:#6D5EF5;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:1px 5px;align-self:start;margin-top:2px;white-space:nowrap">{{ o.sourceLabel }}</span>
+                            <span><sc-for list="{{ o.segs }}" as="sg"><sc-if value="{{ sg.hit }}"><span style="background:#FAEEDA;color:#4A1B0C;border-radius:2px;padding:0 1px">{{ sg.s }}</span></sc-if><sc-if value="{{ sg.plain }}"><span>{{ sg.s }}</span></sc-if></sc-for></span>
                           </button>
                         </sc-for>
                       </div>
@@ -5554,6 +5555,7 @@ class Component extends DCLogic {
         sn: h.sn, reg: h.reg, title: h.title,
         countLabel: h.count + ' hit' + (h.count === 1 ? '' : 's'),
         occurrences: (h.occurrences || []).map((o) => ({
+          sourceLabel: (h.reg ? h.reg + ' · ' : '') + (o.label || (o.line ? ('L' + o.line) : ('§' + ((o.unit || 0) + 1)))),
           segs: (o.segs || []).map((sg) => ({ s: sg.s, hit: !!sg.hit, plain: !sg.hit })),
           open: () => this.openViewer(h.sn, o.text),
         })),
