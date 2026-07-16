@@ -5866,7 +5866,7 @@ class Component extends DCLogic {
     const headings = paras.filter((p) => p && (p.heading || /^#{1,6}\s/.test((p.text || p.s || '').trim()))).length;
     const baseCounts = [
       { label: `${paras.length || 0} passages`, open: () => this.setSourceMode('reader') },
-      { label: `${entN} ${entN === 1 ? 'entity' : 'entities'}`, open: () => this.setTab('entities') },
+      { label: `${entN} ${entN === 1 ? 'entity' : 'entities'}`, open: () => { if (!this.state.rightOpen) this.toggleRight(); } },
       { label: `${eotLines} EoT`, open: () => this.setSourceMode('eot') },
       { label: `${this._sourceReviewItems(s).length} reviews`, open: () => this.setSourceMode('overview') },
     ];
@@ -5954,7 +5954,7 @@ class Component extends DCLogic {
           : c.kind === 'entity'
             ? `Use this frame to see where ${raw} appears, who or what it connects to, and which passages support those connections.`
             : `Use this frame to read recurring passages, questions, and source structure connected to ${raw}.`;
-      return { title, shortLabel: noun, summary, evidenceLabel: `${evidence} ${evidence === 1 ? 'passage' : 'passages'}`, open: () => this.setTab(c.kind === 'entity' ? 'entities' : 'search') };
+      return { title, shortLabel: noun, summary, evidenceLabel: `${evidence} ${evidence === 1 ? 'passage' : 'passages'}`, open: () => { if (c.kind === 'entity') { if (!this.state.rightOpen) this.toggleRight(); } else this.setTab('search'); } };
     });
   }
 
@@ -7530,7 +7530,7 @@ class Component extends DCLogic {
     // Search leads (docs/search-and-pins.md): the record is searched, not conversed with;
     // the question line inside Search is the fallback for what it hasn't pre-answered.
     const pinCount = (this._app && this._app.pins) ? this._app.pins().length : 0;
-    const tabDefs = [['register', 'Workspace', sources.length || null, false], ['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false]];
+    const tabDefs = [['register', 'Sources', sources.length || null, false], ['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false]];
     const tabs = tabDefs.map(([id, label, count, beta]) => ({
       label, count: String(count || ''), hasCount: count != null, beta: !!beta,
       fg: st.tab === id ? '#1B1B22' : '#8A8A95', weight: st.tab === id ? 650 : 500,
@@ -7894,7 +7894,7 @@ class Component extends DCLogic {
     // — "Jump back in" — the two most-recently engaged sources —
     const jumpBack = [...drive].sort((a, b) => touchedAt(b) - touchedAt(a)).slice(0, 2).map((s) => {
       return { sn: s.sn, title: s.title, when: whenLabel(s), favBg: NFAV[0], favFg: NFAV[1], favCh: (s.domain || s.title || '?')[0].toUpperCase(),
-        go: () => { app.sourceTouch(s.sn); this.setState({ explorerSel: s.sn, inspectorTab: 'read' }); } };
+        go: () => { app.sourceTouch(s.sn); this.setState({ explorerSel: s.sn, inspectorTab: 'read' }); this.openViewer(s.sn); } };
     });
 
     // — the source cards themselves (virtualised: first 12, "show all" expands) —
@@ -7908,7 +7908,7 @@ class Component extends DCLogic {
         favCh: (s.domain || s.title || '?')[0].toUpperCase(),
         starred: !!s.starred, starFg: s.starred ? '#3A3A44' : 'none', starStroke: s.starred ? '#3A3A44' : '#C4C4CC',
         selBd: st.explorerSel === s.sn ? '#B4B4BE' : '#EAEAEF', selBg: st.explorerSel === s.sn ? '#FAFAFB' : '#fff',
-        select: () => { app.sourceTouch(s.sn); this.setState({ explorerSel: s.sn, inspectorTab: 'read' }); },
+        select: () => { app.sourceTouch(s.sn); this.setState({ explorerSel: s.sn, inspectorTab: 'read' }); this.openViewer(s.sn); },
         star: () => app.sourceStar(s.sn),
         menuOpen: st.explorerMenu === 'c:' + s.sn,
         menuClick: () => this.setState({ explorerMenu: st.explorerMenu === 'c:' + s.sn ? null : 'c:' + s.sn }),
