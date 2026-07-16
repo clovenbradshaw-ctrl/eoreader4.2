@@ -37,6 +37,44 @@ export const isSubsequence = (a, b) => {
   return i === a.length;
 };
 
+// ── the epithet-fold: a UNIQUE referent decorated, not a family distinguished ────
+// Containment cannot tell "Good God" / "Great God" (one God, twice praised) from
+// "George Herbert Bush" / "George Walker Bush" (two men) or "Old Testament" / "New
+// Testament" (two books): each pair is two incomparable full names sharing a head, and
+// the bare head ("God" / "George Bush" / "Testament") is a subsequence of both, so
+// sticky abstention holds all three cases as SEPARATE referents. That is exactly right
+// for the Bushes and the Testaments and WRONG only for God — and the thing that makes
+// God different is not orthography, it is that "God" is a UNIQUE non-person referent
+// (the ledger's `isNonPerson` register — "God", "Christmas") and "Good"/"Great" are
+// EPITHETS (the `isModifier` register — adjectives that range predominantly lowercase),
+// so they qualify the one God rather than pick out one man from a family.
+//
+// `epithetReducedHead` reads that signal off a name's tokens: the label decorates a
+// unique head H iff exactly one of its tokens is an `epithetHead` (H) and EVERY other
+// token is an `isEpithet`. It returns H, or null when no such head exists — in which
+// case nothing folds and the caller keeps the plain containment behaviour. Both
+// predicates default to false, so a caller that passes neither gets byte-identical
+// clustering: the fold is strictly opt-in and never fires on its own.
+//
+//   "God"          → god     (bare head, no epithets)
+//   "Good God"     → god     ("good" is an epithet of the head "god")
+//   "Almighty God" → god
+//   "George Bush"  → null    (no token is a non-person head)
+//   "Old Testament"→ null    ("testament" is not a unique non-person head)
+//   "Lord God"     → null    (two heads, neither an epithet of the other — abstain)
+export const epithetReducedHead = (tokens, { isEpithet, epithetHead } = {}) => {
+  const isEp   = isEpithet   || (() => false);
+  const isHead = epithetHead || (() => false);
+  const toks = Array.isArray(tokens) ? tokens : [];
+  let head = null;
+  for (const t of toks) {
+    if (!isHead(t)) continue;
+    if (head !== null) return null;                 // two unique heads → not a decoration, abstain
+    if (toks.every((u) => u === t || isEp(u))) head = t;
+  }
+  return head;
+};
+
 // Cluster a bag of surface labels into referents by containment. Returns a Map from
 // each input label to its ANCHOR label — the most-specific name of its cluster, or the
 // label itself when it is a chain head or abstains. Distinct labels that tokenise the
@@ -48,7 +86,7 @@ export const isSubsequence = (a, b) => {
 //   · exactly one maximal → A folds into it (chain upward to the top).
 //   · zero → A is a chain head (its own anchor).
 //   · two or more incomparable maximal → ABSTAIN (A is its own anchor; the null).
-export const clusterAnchors = (labels) => {
+export const clusterAnchors = (labels, { isEpithet, epithetHead } = {}) => {
   const uniqLabels = [...new Set((labels || []).filter(Boolean).map(String))];
   // Dedup to token-keys; keep the first-seen label as each key's representative.
   const keyToRep  = new Map();   // token-key → representative label
@@ -81,6 +119,30 @@ export const clusterAnchors = (labels) => {
   };
   const anchor = new Map();
   for (const l of uniqLabels) anchor.set(l, keyToRep.get(rootKey(labelKey.get(l))));
+
+  // ── epithet-fold override (opt-in) ──────────────────────────────────────────
+  // With no predicates this loop finds no heads and the anchors above stand unchanged.
+  // With them, every label that decorates a unique non-person head H (see
+  // epithetReducedHead) is re-anchored onto H's cluster — collapsing "God", "Good God"
+  // and "Great God" into one referent while "George Bush"/… and "Old/New Testament"
+  // (whose heads are no `epithetHead`) are never touched. The head's representative is
+  // the BARE-head key when the corpus carries it (a single-token key equal to H), else
+  // the first-seen decorating form — a deterministic choice over `keys`' reading order.
+  if (isEpithet || epithetHead) {
+    const headOf = new Map();          // token-key → the unique head it decorates, or null
+    const repKeyByHead = new Map();    // head token → chosen representative token-key
+    for (const k of keys) {
+      const h = epithetReducedHead(tokOf.get(k), { isEpithet, epithetHead });
+      headOf.set(k, h);
+      if (!h) continue;
+      if (!repKeyByHead.has(h)) repKeyByHead.set(h, k);      // first-seen fallback
+      if (tokOf.get(k).length === 1) repKeyByHead.set(h, k); // the bare head H itself wins
+    }
+    for (const l of uniqLabels) {
+      const h = headOf.get(labelKey.get(l));
+      if (h && repKeyByHead.has(h)) anchor.set(l, keyToRep.get(repKeyByHead.get(h)));
+    }
+  }
   return anchor;
 };
 

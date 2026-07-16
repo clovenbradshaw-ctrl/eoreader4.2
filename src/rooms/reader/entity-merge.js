@@ -31,6 +31,8 @@
 // Same input → same output; no clock, no Map-order dependence leaks into a tie (every max is the
 // first-seen on a tie, and the rows arrive in a deterministic reading order).
 
+import { epithetReducedHead } from '../../perceiver/parse/index.js';
+
 const DEFAULT_KEY = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
 // A crude singular↔plural fold so "Armstrong"/"Armstrongs" (the family, "the Armstrongs") compare
@@ -45,8 +47,25 @@ const surnameOf = (label) => { const t = tokensOf(label); return t.length ? stem
 // The separator that keeps a per-source stray key from ever colliding with a real label key.
 const SEP = '␟';
 
-export const mergeEntitiesByReferent = (rows, { entityKey = DEFAULT_KEY } = {}) => {
+// The head token in its ORIGINAL casing — "Good God" with head "god" displays as "God".
+// Falls back to a capitalised head when no member spells it (an all-epithet cluster).
+const casedHead = (label, headStem) => {
+  for (const t of tokensOf(label)) if (stem(t) === headStem) return t;
+  return headStem ? headStem[0].toUpperCase() + headStem.slice(1) : headStem;
+};
+
+// `isEpithet` / `epithetHead` are the conventions ledger's `isModifier` / `isNonPerson`
+// registers (see name-variants.js epithetReducedHead). With neither supplied the merge
+// is byte-identical to before: no row reduces to a head, the epithet branch never fires.
+export const mergeEntitiesByReferent = (rows, { entityKey = DEFAULT_KEY, isEpithet, epithetHead } = {}) => {
   const all = Array.isArray(rows) ? rows : [];
+  const epithetOn = !!(isEpithet || epithetHead);
+  // The unique non-person head a row decorates ("Good God" → "god"), or '' for a plain row.
+  // Tokens are lowercased so the fold key is casing-stable across sources; the display label
+  // (casedHead) still recovers the head's original spelling.
+  const headOf = (label) => (epithetOn
+    ? (epithetReducedHead(tokensOf(label).map((t) => t.toLowerCase()), { isEpithet, epithetHead }) || '')
+    : '');
 
   // ── which single tokens are CONTESTED surnames ──────────────────────────────
   // A surname is contested when ≥2 DISTINCT full names across the corpus end in it — "Armstrong"
@@ -69,6 +88,14 @@ export const mergeEntitiesByReferent = (rows, { entityKey = DEFAULT_KEY } = {}) 
 
   // The merge key + display label a row folds under, and whether the row is a genuine full-name node.
   const routeOf = (it) => {
+    // A row that decorates a unique non-person head ("Good God", "Great God", bare "God")
+    // folds onto the HEAD — the one God, twice praised — ahead of the surname logic. The
+    // display label is the head in its own casing ("God"), never the epithet form. This is
+    // the ONLY branch that can unite two incomparable full names, and it fires only for a
+    // learned `epithetHead`, so "Old Testament"/"New Testament" and "George * Bush" — whose
+    // heads are ordinary nouns/surnames — fall through to the untouched behaviour below.
+    const h = headOf(it.label);
+    if (h) return { key: `${SEP}epithet${SEP}${h}`, label: casedHead(it.label, h), origFull: false };
     if (isMulti(it.label)) return { key: entityKey(it.label), label: it.label, origFull: true };
     const s = surnameOf(it.label);
     if (!s || !isContested(s)) return { key: entityKey(it.label), label: it.label, origFull: false };

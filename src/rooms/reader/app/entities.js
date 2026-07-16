@@ -57,16 +57,26 @@ export const installEntities = (appCtx) => {
   // leak into the names list — the bug that filled it with 'the/of/court' word-holons and, before a
   // clip was transcribed, with the acoustic summary's own 'Signal/Noise/Dynamic'.
   const entities = ({ merge = true, level = 'names' } = {}) => {
-    const nameRows = [], baseRows = [];
+    const nameRows = [], baseRows = [], convs = [];
     for (const src of appCtx.topicSources()) {
       if (level !== 'signal') {                 // 'names' + 'all' want the referents (the meaning)
         const rd = appCtx.referentDocFor(src);
-        if (rd) nameRows.push(...entitiesInDoc(rd, src.sn));
+        if (rd) { nameRows.push(...entitiesInDoc(rd, src.sn)); if (rd.conventions) convs.push(rd.conventions); }
       }
       if (level !== 'names') {                  // 'signal' + 'all' want the raw base spans underneath
-        baseRows.push(...entitiesInDoc(appCtx.docFor(src), src.sn));
+        const bd = appCtx.docFor(src);
+        baseRows.push(...entitiesInDoc(bd, src.sn));
+        if (bd?.conventions) convs.push(bd.conventions);
       }
     }
+    // The epithet-fold signal, unioned over every source read (a register is live if ANY
+    // source learned it): "God" is a unique non-person referent and "Good"/"Great" are its
+    // epithets, so "God" / "Good God" / "Great God" collapse to one row. Only wired when a
+    // source actually carries the `isNonPerson` register, so a corpus that never learned it
+    // (every existing reading) folds byte-identically to before.
+    const anyConv = (m) => (convs.some((c) => typeof c?.[m] === 'function') ? (v) => convs.some((c) => c?.[m]?.(v)) : undefined);
+    const epithetHead = anyConv('isNonPerson');
+    const isEpithet = anyConv('isModifier');
     // The acoustic cut: 'signal' is the signal/noise holons of the base reading (the audio case).
     const acoustic = (it) => it.kind === 'signal' || it.kind === 'noise';
     const rows = level === 'names' ? nameRows
@@ -78,7 +88,7 @@ export const installEntities = (appCtx) => {
       // Gerry share — is folded into the full-name bearer of its own source, so a read about Neil
       // Armstrong never inherits Louis Armstrong's chapters (entity-merge.js). The strongest
       // instance still leads, mentions and links aggregate, and `sourceCount` records the reach.
-      return mergeEntitiesByReferent(rows, { entityKey });
+      return mergeEntitiesByReferent(rows, { entityKey, isEpithet, epithetHead });
     }
     rows.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
     return rows;
