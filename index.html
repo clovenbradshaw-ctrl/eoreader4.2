@@ -15,6 +15,38 @@
 <script defer src="vendor/olm/olm.js"></script>
 <script src="./support.js"></script>
 <script type="module" src="src/rooms/reader/boot.js"></script>
+<!-- Boot failsafe. The app renders through the dc surface: support.js mounts React
+     into #dc-root, replacing the <x-dc> template block. If that never happens — a
+     stale cached build, a script that failed to load or parse — the page would
+     otherwise paint raw "{{ ... }}" template text. Hide the raw template up front,
+     and if the surface hasn't mounted shortly after load, show an actionable reload
+     prompt instead of the gibberish. Pure, dependency-free, and inert on a healthy
+     boot (where <x-dc> is already gone and #dc-root is present). -->
+<style>x-dc{display:none!important}</style>
+<script>
+(function () {
+  function booted() {
+    // A healthy boot removes <x-dc> and inserts #dc-root. Either signal is enough.
+    return !!document.getElementById('dc-root') || !document.querySelector('x-dc');
+  }
+  function showFallback() {
+    if (document.getElementById('eo-boot-fallback') || booted()) return;
+    var d = document.createElement('div');
+    d.id = 'eo-boot-fallback';
+    d.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:24px;background:#F4F4F7;color:#1a1a2e;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-align:center';
+    d.innerHTML =
+      '<div style="max-width:34rem">' +
+      '<div style="font-size:2rem;font-weight:600;margin-bottom:.5rem">EO Reader</div>' +
+      '<p style="margin:.25rem 0 1.25rem;color:#4a4a63">The reader didn’t finish loading. This is usually an older cached copy of the app.</p>' +
+      '<button id="eo-boot-reload" style="border:none;border-radius:10px;padding:.7rem 1.3rem;background:#5b5bd6;color:#fff;font:inherit;font-weight:600;cursor:pointer">Reload the app</button>' +
+      '<p style="margin:1rem 0 0;font-size:.85rem;color:#7a7a90">If it keeps happening, hard-reload with Ctrl/Cmd + Shift + R.</p>' +
+      '</div>';
+    document.body.appendChild(d);
+    document.getElementById('eo-boot-reload').addEventListener('click', function () { location.reload(); });
+  }
+  window.addEventListener('load', function () { setTimeout(showFallback, 5000); });
+})();
+</script>
 </head>
 <body>
 <x-dc>
