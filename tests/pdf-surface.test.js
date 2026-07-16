@@ -78,3 +78,10 @@ test('index.html openViewer defaults a source to the overview surface', () => {
   assert.match(html, /viewerIsPdf:\s*vMode === 'pdf'/, 'the pdf surface remains a real viewer mode');
   assert.match(html, /if \(mode === 'pdf'\) this\.loadPdf\(sn\)/, 'switching to the pdf mode still loads the pdf lazily');
 });
+
+test('source overview header wraps long titles and uses the active workspace name', () => {
+  const html = readFileSync(join(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,520px\),1fr\)\)/, 'hero actions wrap below the title instead of overlapping it');
+  assert.match(html, /overflow-wrap:anywhere/, 'long imported filenames can break inside the title');
+  assert.match(html, /w\.id === app\.state\.activeWorkspaceId/, 'breadcrumbs read the active workspace, not a stale workspace id');
+});
