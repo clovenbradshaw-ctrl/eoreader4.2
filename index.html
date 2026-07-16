@@ -1392,6 +1392,7 @@ table{border-collapse:collapse;width:100%}
                             <div style="position:absolute;right:8px;top:34px;z-index:8;background:#fff;border:1px solid #E6E6EC;border-radius:10px;box-shadow:0 10px 26px rgba(20,20,30,.16);padding:5px;width:168px">
                               <button onClick="{{ cd.doRename }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename</button>
                               <button onClick="{{ cd.doMove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E8A50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M2 12h13M14 5h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/></svg>Move to…</button>
+                              <button onClick="{{ cd.doReRead }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#3A3A44" style-hover="background:#F5F5F8">↻ Re-read…</button>
                               <button onClick="{{ cd.doRemove }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Remove source</button>
                             </div>
                           </sc-if>
@@ -1422,6 +1423,7 @@ table{border-collapse:collapse;width:100%}
                   <div style="display:flex;gap:8px;margin-bottom:16px">
                     <button onClick="{{ insOpenReader }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#2A2A32;color:#fff;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#1B1B22"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h9a3 3 0 0 1 3 3v11a2.5 2.5 0 0 0-2.5-2.5H2z"/><path d="M22 5h-9a3 3 0 0 0-3 3v11a2.5 2.5 0 0 1 2.5-2.5H22z"/></svg>Open in reader</button>
                     <button onClick="{{ insRename }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#F2F2F6;color:#3A3A44;border:1px solid #EAEAEF;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#EAEAEF">Rename</button>
+                    <button onClick="{{ insReRead }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#F2F2F6;color:#3A3A44;border:1px solid #EAEAEF;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#EAEAEF">Re-read</button>
                     <button onClick="{{ insAddCorpus }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:{{ insAddBg }};color:{{ insAddFg }};border:1px solid {{ insAddBd }};font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#F5F5F8">{{ insAddLabel }}</button>
                   </div>
                   <div style="display:flex;gap:14px;border-bottom:1px solid #EFEFF3;margin-bottom:14px">
@@ -1617,7 +1619,7 @@ table{border-collapse:collapse;width:100%}
 
 
             <sc-if value="{{ viewerIsOverview }}">
-              <div class="eo-scroll" style="flex:1;min-height:0;overflow:auto;background:#F5F5F7;padding:24px 28px">
+              <div class="eo-scroll" onContextMenu="{{ viewerOverviewContext }}" style="flex:1;min-height:0;overflow:auto;background:#F5F5F7;padding:24px 28px">
                 <div style="max-width:1180px;margin:0 auto;background:transparent;border:none;box-shadow:none;overflow:visible">
                   <div style="padding:0 0 16px;font-size:12px;color:#77717D;display:flex;gap:7px;align-items:center;flex-wrap:wrap">
                     <button onClick="{{ sourceLanding.openWorkspace }}" style="color:#5B4BE6;font-weight:600">{{ sourceLanding.workspace }}</button><span>›</span>
@@ -1635,6 +1637,7 @@ table{border-collapse:collapse;width:100%}
                     </div>
                     <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;align-content:flex-start;min-width:0">
                       <button onClick="{{ sourceLanding.primary }}" style="background:#19191F;color:white;border-radius:8px;padding:10px 16px;font-size:12px;font-weight:700">{{ sourceLanding.primaryLabel }}</button>
+                      <button onClick="{{ sourceLanding.reread }}" style="background:#F1EFFE;border:1px solid #DED8FD;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;color:#5B4BE6">↻ Re-read</button>
                       <button onClick="{{ sourceLanding.search }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:650;color:#4E5765">Search within</button>
                       <button onClick="{{ sourceLanding.explore }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:650;color:#4E5765">Explore ▾</button>
                       <button onClick="{{ sourceLanding.pin }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:650;color:#4E5765">Pin source</button>
@@ -3025,6 +3028,26 @@ table{border-collapse:collapse;width:100%}
   </sc-if>
 
   <!-- TOAST -->
+
+  <sc-if value="{{ rereadModalOpen }}">
+    <div style="position:absolute;inset:0;z-index:55;background:rgba(20,20,30,.34);animation:eoFade .14s ease" onClick="{{ rereadClose }}"></div>
+    <div class="eo-modal" style="position:absolute;left:50%;top:78px;transform:translateX(-50%);z-index:56;width:min(560px,94vw);background:#fff;border:1px solid #E6E6EC;border-radius:16px;box-shadow:0 28px 80px rgba(20,20,30,.32);overflow:hidden;animation:eoFade .18s ease">
+      <div style="padding:18px 20px 14px;border-bottom:1px solid #EFEFF3;display:flex;gap:12px;align-items:flex-start">
+        <div style="flex:1;min-width:0"><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:800;letter-spacing:.08em;color:#8A8A95;text-transform:uppercase">Re-read source</div><div style="font-size:18px;font-weight:700;color:#24242C;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ rereadTitle }}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ rereadSub }}</div></div>
+        <button onClick="{{ rereadClose }}" title="Close" style="width:30px;height:30px;border-radius:8px;color:#8A8A95;display:flex;align-items:center;justify-content:center" style-hover="background:#F2F2F6;color:#5A5A64">×</button>
+      </div>
+      <div style="padding:16px 18px 18px">
+        <p style="font-size:13px;line-height:1.5;color:#5A5A64;margin:0 0 14px">Choose how this source should be read again before anything changes.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">
+          <button onClick="{{ rereadPreserve }}" style="text-align:left;border:1px solid #E6E6EC;border-radius:12px;background:#fff;padding:13px" style-hover="background:#FAFAFF;border-color:#DED8FD"><div style="font-size:13.5px;font-weight:750;color:#24242C">Preserve old reading</div><div style="font-size:12px;color:#6E6E78;line-height:1.4;margin-top:5px">Add the fresh read as a new version/source.</div></button>
+          <button onClick="{{ rereadOverwrite }}" style="text-align:left;border:1px solid #E6E6EC;border-radius:12px;background:#fff;padding:13px" style-hover="background:#FAFAFF;border-color:#DED8FD"><div style="font-size:13.5px;font-weight:750;color:#24242C">Overwrite this source</div><div style="font-size:12px;color:#6E6E78;line-height:1.4;margin-top:5px">Replace the current read and keep prior fixity in history.</div></button>
+          <button onClick="{{ rereadPreserveContext }}" style="text-align:left;border:1px solid #E6E6EC;border-radius:12px;background:#fff;padding:13px" style-hover="background:#FAFAFF;border-color:#DED8FD"><div style="font-size:13.5px;font-weight:750;color:#24242C">Preserve + add context</div><div style="font-size:12px;color:#6E6E78;line-height:1.4;margin-top:5px">Create a new version and gather other sources around it.</div></button>
+          <button onClick="{{ rereadOverwriteContext }}" style="text-align:left;border:1px solid #E6E6EC;border-radius:12px;background:#fff;padding:13px" style-hover="background:#FAFAFF;border-color:#DED8FD"><div style="font-size:13.5px;font-weight:750;color:#24242C">Overwrite + add context</div><div style="font-size:12px;color:#6E6E78;line-height:1.4;margin-top:5px">Refresh this source, then bring in nearby witnesses.</div></button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ toast }}">
     <div class="eo-toast" style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;background:#1B1B22;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(20,20,30,.3);animation:eoToast .2s ease;max-width:520px">{{ toast }}</div>
   </sc-if>
@@ -3322,6 +3345,7 @@ class Component extends DCLogic {
       // best-ever ctrl+F. sfTemplate 'auto' routes by intent; sfDisabled is the source rail's off set.
       sfQuery: '', sfTemplate: 'auto', sfDisabled: new Set(),
       pasteOpen: false, pasteTitle: '', pasteBody: '',
+      rereadModal: null,
       // A turning point clicked open in the waveform of surprise: the surprising sentence held up
       // in a modal (line, Δbelief/pull, the EO operations that fired), with a jump into the reader.
       surpriseModal: null,
@@ -3721,6 +3745,28 @@ class Component extends DCLogic {
     this._fileInput = inp;
     return inp;
   }
+
+  openReReadModal(sn) {
+    if (!this._app || !this._app.reReadSource || !sn) return;
+    const src = this._app.sourceBySn ? this._app.sourceBySn(sn) : null;
+    if (!src) return;
+    this.setState({ rereadModal: { sn } });
+  }
+  closeReReadModal() { this.setState({ rereadModal: null }); }
+  chooseReRead(mode, context = false) {
+    const rr = this.state.rereadModal;
+    if (!rr || !rr.sn || !this._app || !this._app.reReadSource) return;
+    this.setState({ rereadModal: null });
+    this._app.reReadSource(rr.sn, { mode, context }).then((r) => {
+      const main = r && (r.source || r);
+      if (main && main.sn) { this.showToast(`Re-read ${main.reg} — ${main.title}${r.extras && r.extras.length ? ` (+${r.extras.length} context)` : ''}`); this._revealImport(main); }
+      else this.showToast('Re-read complete');
+    }).catch((err) => {
+      if (err && (err.name === 'AbortError' || /abort/i.test(String((err && err.message) || err)))) return;
+      this.showToast(`Couldn’t re-read: ${String((err && err.message) || err).slice(0, 90)}`);
+    });
+  }
+  reReadSourceWithOptions(sn) { this.openReReadModal(sn); }
 
   // ── ingest ────────────────────────────────────────────────────────────────
   showToast(msg) {
@@ -4970,6 +5016,21 @@ class Component extends DCLogic {
   toggleMurmur() { this.setMurmurMode('off'); }
   toggleLearningLayer() { const on = !this.state.learningLayer; this._setPref('eo_learning_layer', on); this.setState({ learningLayer: on }); }
   toggleModel() { this.setState({ modelOpen: !this.state.modelOpen, settingsOpen: false }); }
+  _rereadModalVals() {
+    const rr = this.state.rereadModal;
+    const src = rr && this._app && this._app.sourceBySn ? this._app.sourceBySn(rr.sn) : null;
+    const title = src ? (src.title || src.reg || 'source') : '';
+    const sub = src ? [src.reg, src.domain, src.kind].filter(Boolean).join(' · ') : '';
+    return {
+      rereadModalOpen: !!src, rereadTitle: title, rereadSub: sub,
+      rereadClose: () => this.closeReReadModal(),
+      rereadPreserve: () => this.chooseReRead('preserve', false),
+      rereadOverwrite: () => this.chooseReRead('overwrite', false),
+      rereadPreserveContext: () => this.chooseReRead('preserve', true),
+      rereadOverwriteContext: () => this.chooseReRead('overwrite', true),
+    };
+  }
+
   // ── the source viewer: a modal whose TABS ARE THE OPEN SOURCES ──────────────
   // openViewer(sn, focus) opens a source AS A TAB in front (or focuses it if already open). Several
   // sources stay open at once; each keeps its own render mode and citation focus.
@@ -6274,7 +6335,7 @@ class Component extends DCLogic {
     return {
       workspace: ws.name || 'Workspace', topic: topic.title || 'Topic', sourceLabel: s.reg || 'Source', icon, typeLabel: type.toUpperCase(), title,
       origin, verification: s.verified === false ? 'UNVERIFIED' : 'VERIFIED', rights: this._rights(s).label, retrieved: this._ago(s.retrieved) || 'captured',
-      primaryLabel, primary: () => this.setSourceMode(primaryMode), search: () => this.setTab('search'), explore: () => this.setTab('graph'), pin: () => this._pinSource?.(s.sn), openWorkspace: () => this.setTab('register'), openTopic: () => this.setTab('chat'),
+      primaryLabel, primary: () => this.setSourceMode(primaryMode), search: () => this.setTab('search'), explore: () => this.setTab('graph'), pin: () => this._pinSource?.(s.sn), reread: () => this.openReReadModal(s.sn), openWorkspace: () => this.setTab('register'), openTopic: () => this.setTab('chat'),
       coreCounts: baseCounts, synthesisState: 'off', glance, recordId: s.reg || `S-${s.sn}`, sha: String(s.sha || '').replace(/^[^:]*:/, '').slice(0, 16) || 'Unknown', provenance: s.url ? `Captured from ${s.domain || 'web'}` : 'Local/imported source',
       reviewItems, lenses, ideas, currentLens: ideas[0] ? `${ideas[0].title} · complete source` : 'Source overview · complete record',
       pins: [{ label: `${s.pinnedFigures || 0} pinned figures` }, { label: `${s.pinnedPassages || 0} pinned passages` }, { label: `${s.pinnedClaims || 0} pinned claims` }, { label: `${s.savedLenses || 0} saved lenses` }, { label: s.recentPosition || 'Recent position: start' }], openPins: () => this.setTab('pins'),
@@ -8216,6 +8277,7 @@ class Component extends DCLogic {
         menuClick: () => this.setState({ explorerMenu: st.explorerMenu === 's:' + s.sn ? null : 's:' + s.sn }),
         doRename: () => { const v = prompt('Rename source', s.title || 'Untitled'); if (v) app.sourceRename(s.sn, v); this.setState({ explorerMenu: null }); },
         doMove: () => this.setState({ moveTarget: { kind: 'source', id: s.sn }, explorerMenu: null }),
+        doReRead: () => { this.reReadSourceWithOptions(s.sn); this.setState({ explorerMenu: null }); },
         doRemove: () => { if (confirm(`Remove “${s.title}” from the record? This deletes the source and its readings.`)) app.removeSource(s.sn); this.setState({ explorerMenu: null }); },
       };
     });
@@ -8320,6 +8382,7 @@ class Component extends DCLogic {
         menuClick: () => this.setState({ explorerMenu: st.explorerMenu === 'c:' + s.sn ? null : 'c:' + s.sn }),
         doRename: () => { const v = prompt('Rename source', s.title || 'Untitled'); if (v) app.sourceRename(s.sn, v); this.setState({ explorerMenu: null }); },
         doMove: () => this.setState({ moveTarget: { kind: 'source', id: s.sn }, explorerMenu: null }),
+        doReRead: () => { this.reReadSourceWithOptions(s.sn); this.setState({ explorerMenu: null }); },
         doRemove: () => { if (confirm(`Remove “${s.title}” from the record? This deletes the source and its readings.`)) app.removeSource(s.sn); this.setState({ explorerMenu: null }); },
       };
     });
@@ -9055,6 +9118,7 @@ class Component extends DCLogic {
       insClose: () => this.setState({ explorerSel: null }),
       insOpenReader: () => { if (selSrc) { app.sourceTouch(selSrc.sn); this.openViewer(selSrc.sn); } },
       insRename: () => { if (!selSrc) return; const v = prompt('Rename source', selSrc.title || 'Untitled'); if (v) { app.sourceRename(selSrc.sn, v); this.showToast('Source renamed'); } },
+      insReRead: () => { if (selSrc) this.reReadSourceWithOptions(selSrc.sn); },
       insAddCorpus: () => { if (selSrc && !insInCorpus) { app.sourceAddToTopic(selSrc.sn); this.showToast('Added to this topic’s corpus'); } },
       insInCorpus, insAddLabel: insInCorpus ? 'In corpus' : '+ Add to corpus',
       insAddBg: insInCorpus ? '#E7F6EC' : '#fff', insAddFg: insInCorpus ? '#1E8A50' : '#3A3A44', insAddBd: insInCorpus ? '#CFEBD9' : '#E6E6EC',
@@ -9149,7 +9213,7 @@ class Component extends DCLogic {
       pdfMissing: vMode === 'pdf' && !!(viewer && !viewer.pdfUrl && !viewer.pdfHasBytes),
       // The media panel folds only while reading a Listen transcript; every other mode shows it whole.
       mediaMinClass: (st.listenMediaMin && vMode === 'listen') ? 'eo-media-min' : '',
-      viewerModeOverview: () => this.setSourceMode('overview'), viewerModeReader: () => this.setSourceMode('reader'), viewerModePage: () => this.setSourceMode('native'),
+      viewerModeOverview: () => this.setSourceMode('overview'), viewerOverviewContext: (e) => { if (e && e.preventDefault) e.preventDefault(); const a = this._activeSrc(); if (a) this.openReReadModal(a); }, viewerModeReader: () => this.setSourceMode('reader'), viewerModePage: () => this.setSourceMode('native'),
       viewerModeFacing: () => this.setSourceMode('facing'), viewerModeEot: () => this.setSourceMode('eot'),
       viewerModeListen: () => this.setSourceMode('listen'), viewerModePdf: () => this.setSourceMode('pdf'),
       vmOverviewFg: vMode === 'overview' ? '#1B1B22' : '#8A8A95', vmOverviewBg: vMode === 'overview' ? '#fff' : 'transparent',

@@ -105,6 +105,7 @@ import { installWiki } from './app/wiki.js';
 import { installFindings } from './app/findings.js';
 import { installRecordSearch } from './app/record-search.js';
 import { installPins } from './app/pins.js';
+import { installReread } from './app/reread.js';
 import { installDeep } from './app/deep.js';
 
 export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch } = {}) => {
@@ -242,6 +243,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installFindings(appCtx);
   installRecordSearch(appCtx);
   installPins(appCtx);
+  installReread(appCtx);
   installDeep(appCtx);
 
   return buildApi(appCtx);
