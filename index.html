@@ -6057,8 +6057,8 @@ class Component extends DCLogic {
       ...firstEnts.slice(0, Math.max(0, 3 - ideas.length)).map((x) => ({ label: x.label || x.name || x.text, intent: 'Pivot around this figure or entity', open: () => this.openEntity(x.docId || s.sn, x.entId || x.id) })),
       { label: 'Choose another…', intent: 'Search for another theme, figure, question, or passage', open: () => this.setTab('search') },
     ];
-    const structureRows = this._sourceStructureRows(s, type, paras);
-    const structure = this._sourceStructureVM(s, structureRows);
+    const structure = (paras.slice(0, 6).map((p, i) => ({ unit: type === 'Audio' || type === 'Video' ? (p.time || `Segment ${i + 1}`) : type === 'Dataset' ? `Group ${i + 1}` : type === 'Code file' ? `Symbol ${i + 1}` : `Section ${i + 1}`, label: (p.label || p.heading || (p.text || p.segs?.map?.((x)=>x.s).join('') || 'Open source')).slice(0, 90), open: () => this.setSourceMode('reader') })));
+    if (!structure.length) structure.push({ unit: 'Source', label: 'Open the canonical evidence representation', open: () => this.setSourceMode(primaryMode) });
     const metadataLabels = {
       title: 'Title', author: 'Author', documentCreationDate: 'Document Creation Date',
       contentCreationDate: 'Content Creation Date', contentType: 'Content Type', lastRevised: 'Last Revised',
@@ -6071,6 +6071,8 @@ class Component extends DCLogic {
     const metadataLog = (Array.isArray(s.metadataLog) ? s.metadataLog : []).slice(-6).reverse().map((m) => ({
       text: `${m.at ? this._ago(m.at) || m.at : 'earlier'} — ${m.action || 'noted'}${m.field ? ` · ${metadataLabels[m.field] || m.field}` : ''}${m.note ? ` · ${m.note}` : ''}`,
     }));
+    const structureRows = this._sourceStructureRows(s, type, paras);
+    const landingStructure = this._sourceStructureVM(s, structureRows);
     const reviewItems = this._sourceReviewItems(s);
     const findings = [
       { label: `${s.claimCount || 0} claim candidates`, open: () => this.setTab('findings') },
@@ -6195,7 +6197,7 @@ class Component extends DCLogic {
       coreCounts: baseCounts, synthesisState: 'off', glance, recordId: s.reg || `S-${s.sn}`, sha: String(s.sha || '').replace(/^[^:]*:/, '').slice(0, 16) || 'Unknown', provenance: s.url ? `Captured from ${s.domain || 'web'}` : 'Local/imported source',
       reviewItems, lenses, ideas, currentLens: ideas[0] ? `${ideas[0].title} · complete source` : 'Source overview · complete record',
       pins: [{ label: `${s.pinnedFigures || 0} pinned figures` }, { label: `${s.pinnedPassages || 0} pinned passages` }, { label: `${s.pinnedClaims || 0} pinned claims` }, { label: `${s.savedLenses || 0} saved lenses` }, { label: s.recentPosition || 'Recent position: start' }], openPins: () => this.setTab('pins'),
-      structure, metadataRows, metadataLog, metadataShow: metadataRows.some((r) => !r.empty) || metadataLog.length > 0, structureCount: `${structureRows.length} detected`, structureExpandShow: structureRows.length > 12, structureExpandLabel: this.state.sourceStructureExpanded ? 'Show fewer' : `Show more (${structureRows.length - 12} more)`, toggleStructureExpanded: () => this.toggleSourceStructureExpanded(), findings,
+      structure: landingStructure, metadataRows, metadataLog, metadataShow: metadataRows.some((r) => !r.empty) || metadataLog.length > 0, structureCount: `${structureRows.length} detected`, structureExpandShow: structureRows.length > 12, structureExpandLabel: this.state.sourceStructureExpanded ? 'Show fewer' : `Show more (${structureRows.length - 12} more)`, toggleStructureExpanded: () => this.toggleSourceStructureExpanded(), findings,
       cast, castShow: !!castRows.length, castEmpty: castRows.length > 0 && castSorted.length === 0,
       castCount: castQuery ? `${castSorted.length} of ${castRows.length} on record` : `${castRows.length} on record`, castNoun,
       castQuery, onCastSearch: (e) => this.setCastQuery(e && e.target ? e.target.value : e),
