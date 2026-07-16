@@ -583,6 +583,13 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
       noteMention(id, sentIdx);
       return id;
     },
+    // Point a surface at an ALREADY-KNOWN referent id, the way registerInitialism re-points a
+    // bare acronym onto its expansion. The dark-referent read uses it to register a nameless
+    // figure's description HEADS ("creature", "wretch") on the ONE body it admitted, so the
+    // relation parser's definite-common-noun subject path (relations.js: "the creature <verb>")
+    // resolves them to that body when the read is re-run at the retroactive cursor. Never mints
+    // an id — the id must already exist — and never rewrites a real admission that carries mass.
+    aliasTo: (label, id) => { if (label && id) admitted.set(label, id); },
     initialismOf: (acronymLabel) => initialisms.get(acronymLabel) ?? null,
     labelOf:    (id)    => {
       for (const [label, eid] of admitted) if (eid === id) return label;

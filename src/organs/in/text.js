@@ -40,8 +40,14 @@ export const ingestText = async (file, opts = {}) => {
   // talker) may rename a body or fold its synonyms before admission; without it the body is named
   // by its own dominant description. Either can be turned off explicitly for a byte-identical parse.
   const darkReferents = opts.darkReferents ?? true;
+  // REFERENT-FIRST IDENTITY (perceiver/referents/) — opt-in, OFF by default so the reader's parse
+  // is byte-identical until it deliberately adopts the mention→referent model. Pass
+  // `referentIdentity:'mention'` to build the layer (the doc gains surfaceMentions / referents /
+  // referentOf / surfacesOf / propose / assert / assertDistinct / retract / referentEdges).
+  const referentIdentity = opts.referentIdentity ?? null;
   const doc   = await parseText(text, { docId: name, rolesConflict, corefOpts: opts.corefOpts,
                                         coordSubjects, darkReferents, nameReferent: opts.nameReferent,
+                                        referentIdentity,
                                         onProgress, chunkSize: opts.chunkSize });
 
   // The graph is a fold of the log. Expose it as a frame-parameterised
