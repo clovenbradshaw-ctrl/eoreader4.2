@@ -2816,14 +2816,20 @@ table{border-collapse:collapse;width:100%}
         <div style="display:flex;align-items:baseline;gap:10px;padding:18px 22px 12px;flex-wrap:wrap;border-bottom:1px solid #F1F1F4">
           <span style="font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;font-weight:700">Where the reading turned</span>
           <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8C7DF3;font-weight:700">{{ surpriseLine }}</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ surpriseSource }}</span>
           <span style="flex:1"></span>
           <sc-if value="{{ surpriseHasBits }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#5B4BE6">{{ surpriseBits }}</span></sc-if>
           <sc-if value="{{ surpriseHasPull }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#B08A3E">{{ surprisePull }}</span></sc-if>
         </div>
         <div style="padding:18px 22px;overflow-y:auto">
+          <div style="font-size:11px;color:#8A8A95;margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><span>{{ surpriseOrigin }}</span><span>·</span><span>{{ surpriseLine }}</span></div>
+          <sc-if value="{{ surpriseHasContextBefore }}"><p style="font-family:'Newsreader',Georgia,serif;font-size:14.5px;line-height:1.55;color:#8A8A95;margin:0 0 8px">{{ surpriseContextBefore }}</p></sc-if>
           <sc-if value="{{ surpriseHasSentence }}">
-            <p style="font-family:'Newsreader',Georgia,serif;font-size:18px;line-height:1.62;margin:0 0 4px"><sc-for list="{{ surpriseSegs }}" as="g"><span style="background:{{ g.bg }};color:{{ g.fg }};font-weight:{{ g.wt }};border-radius:3px;padding:0 1px">{{ g.t }}</span></sc-for></p>
+            <div style="border-left:3px solid #F6C453;background:#FFF8E5;border-radius:8px;padding:10px 12px;margin:0 0 8px">
+              <p style="font-family:'Newsreader',Georgia,serif;font-size:18px;line-height:1.62;margin:0"><sc-for list="{{ surpriseSegs }}" as="g"><span style="background:{{ g.bg }};color:{{ g.fg }};font-weight:{{ g.wt }};border-radius:3px;padding:0 1px">{{ g.t }}</span></sc-for></p>
+            </div>
           </sc-if>
+          <sc-if value="{{ surpriseHasContextAfter }}"><p style="font-family:'Newsreader',Georgia,serif;font-size:14.5px;line-height:1.55;color:#8A8A95;margin:0 0 4px">{{ surpriseContextAfter }}</p></sc-if>
           <sc-if value="{{ surpriseHasOps }}">
             <div style="margin-top:16px;display:flex;flex-direction:column;gap:6px">
               <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA4">What shifted</span>
@@ -3897,12 +3903,18 @@ class Component extends DCLogic {
     return {
       surpriseModalShow: !!m,
       surpriseLine: m ? m.line : '',
+      surpriseSource: m ? [m.sourceLabel, m.sourceTitle].filter(Boolean).join(' · ') : '',
+      surpriseOrigin: m ? (m.origin || '') : '',
       surpriseBits: m ? (m.bits || '') : '',
       surprisePull: m ? (m.pull || '') : '',
       surpriseHasPull: !!(m && m.pull),
       surpriseHasBits: !!(m && m.bits),
       surpriseSegs: m ? this._surpriseSegs(m.sentence, m.surprises) : [],
       surpriseHasSentence: !!(m && m.sentence),
+      surpriseContextBefore: m ? (m.contextBefore || '') : '',
+      surpriseContextAfter: m ? (m.contextAfter || '') : '',
+      surpriseHasContextBefore: !!(m && m.contextBefore),
+      surpriseHasContextAfter: !!(m && m.contextAfter),
       surpriseOps: ops, surpriseHasOps: ops.length > 0,
       closeSurprise: () => this.closeSurprise(),
       readSurpriseInContext: () => this.readSurpriseInContext(),
@@ -6085,6 +6097,7 @@ class Component extends DCLogic {
     // Either can be viewed solo or overlaid — the same click-to-A/B a DAW gives you over two tracks.
     const turns = (eot && Array.isArray(eot.turns)) ? eot.turns : [];
     const unitsN = (eot && eot.units) || 0;
+    const sourceUnits = (eot && Array.isArray(eot.unitText)) ? eot.unitText : [];
     const NBARS = 96;
     const posOf = (t) => (unitsN <= 0 || t.idx == null) ? -1 : Math.min(NBARS - 1, Math.max(0, Math.round((t.idx / Math.max(1, unitsN - 1)) * (NBARS - 1))));
     const beliefOf = (t) => Math.max(t.bayesBits || 0, t.surprisalBits || 0);
@@ -6096,10 +6109,16 @@ class Component extends DCLogic {
     // (whitespace-collapsed) sentence, the EO surprise operations that fired there, and the
     // belief/pull labels. Shared by the waveform bars and the reading-order list so a click on
     // either opens the same modal.
+    const cleanUnit = (i) => (i == null || i < 0 || i >= sourceUnits.length) ? '' : String(sourceUnits[i] || '').replace(/\s+/g, ' ').trim();
     const turnPayload = (t) => ({
       sn: s.sn,
+      sourceTitle: title,
+      sourceLabel: s.reg || `S-${s.sn}`,
+      origin: origin || (s.domain || 'source'),
       line: `line ${t.idx}`,
       sentence: t.sentence ? String(t.sentence).replace(/\s+/g, ' ').trim() : '',
+      contextBefore: cleanUnit((t.idx ?? 0) - 1),
+      contextAfter: cleanUnit((t.idx ?? 0) + 1),
       surprises: (t.surprises || []).map((x) => ({ op: x.op || '', text: x.text || '' })),
       bits: t.bayesBits != null ? `${t.bayesBits}b Δbelief` : (t.surprisalBits != null ? `${t.surprisalBits}b surprisal` : ''),
       pull: t.bridge != null ? `${t.bridge} pull${t.bridgeAxis ? ` (${t.bridgeAxis.join('—')})` : ''}` : '',
