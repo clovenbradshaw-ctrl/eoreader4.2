@@ -54,4 +54,9 @@ export const CSS = `
 .gen-catalog{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .gen-chip{font-size:11px;color:var(--dim);background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-family:var(--mono)}
 .gen-copy{font-size:11px;color:var(--accent);background:none;border:none;padding:2px 0;font-weight:600}
+.gen-plan{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:12px 14px;font-size:12.5px}
+.gen-plan p{margin:0 0 8px;color:var(--ink)}
+.gen-plan ul{margin:0;padding-left:18px;line-height:1.7}
+.gen-preview{width:100%;height:360px;border:1px solid var(--line);border-radius:9px;background:#fff;margin-top:12px}
+.gen-code{white-space:pre-wrap;word-break:break-word;font-family:var(--mono);font-size:11.5px;line-height:1.6;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:12px;max-height:340px;overflow-y:auto;margin-top:10px}
 `;

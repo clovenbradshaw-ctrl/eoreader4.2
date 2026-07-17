@@ -3,10 +3,12 @@
 // (what it writes). Validated by tests/contracts.test.js against the cube's
 // coherence guard. See docs/eo-for-coders.md.
 //
-// The generation room: two leaf-model surfaces (docs/model-as-contracted-part.md,
-// docs/longform-generation.md). Write drives weave/essay's runEssay over pasted
-// source material; Build drives src/coder's build() over a model-proposed set
-// of EOT intents. surface.js drives both and paints what they decide.
+// The generation room: three leaf-model surfaces (docs/model-as-contracted-
+// part.md, docs/longform-generation.md). Write drives weave/essay's runEssay
+// over pasted source material; Build drives src/coder's build() over a
+// model-proposed set of EOT intents; Code plans, writes, sandbox-runs, and
+// self-corrects one self-contained document. surface.js drives all three and
+// paints what they decide.
 import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
@@ -20,5 +22,9 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/generation/styles.js': contract({ ops: ['NUL'], targets: ['Field'], products: ['Void'], stances: ['Clearing'], note: 'the generation surface\'s CSS, as data' }),
   'src/rooms/generation/write-panel.js': contract({ ops: ['SYN', 'EVA'], targets: ['Field', 'Network'], products: ['Network', 'Lens'], stances: ['Composing', 'Tracing'], note: 'the Write tab — markup + the generate/copy actions, driving weave/essay runEssay' }),
   'src/rooms/generation/build-panel.js': contract({ ops: ['SYN', 'EVA'], targets: ['Network', 'Lens'], products: ['Lens', 'Network'], stances: ['Composing', 'Tracing'], note: 'the Build tab — markup + the propose/build actions, driving codegen.js and src/coder' }),
-  'src/rooms/generation/surface.js': contract({ ops: ['INS', 'NUL'], targets: ['Field'], products: ['Entity', 'Void'], stances: ['Making', 'Clearing'], note: 'the generation room DOM surface — Write / Build tabs, live progress, model status chip' }),
+  'src/rooms/generation/sandbox-run.js': contract({ ops: ['INS', 'EVA'], targets: ['Lens'], products: ['Entity', 'Lens'], stances: ['Making', 'Tracing'], note: 'run a generated document in a sandboxed iframe and read back console/error output' }),
+  'src/rooms/generation/code-prompts.js': contract({ ops: ['DEF', 'SEG'], targets: ['Lens'], products: ['Paradigm', 'Network'], stances: ['Dissecting', 'Unraveling'], note: 'plan/code/fix prompts for the Code tab, and the defensive parse of each reply' }),
+  'src/rooms/generation/codewrite.js': contract({ ops: ['SYN', 'EVA', 'REC'], targets: ['Lens', 'Network'], products: ['Network', 'Lens'], stances: ['Composing', 'Tracing', 'Binding'], note: 'plan → generate → sandbox-verify → fix loop, capped' }),
+  'src/rooms/generation/code-panel.js': contract({ ops: ['SYN', 'EVA'], targets: ['Lens', 'Network'], products: ['Network', 'Lens'], stances: ['Composing', 'Tracing'], note: 'the Code tab — plan/generate actions, live sandboxed preview, copy/download' }),
+  'src/rooms/generation/surface.js': contract({ ops: ['INS', 'NUL'], targets: ['Field'], products: ['Entity', 'Void'], stances: ['Making', 'Clearing'], note: 'the generation room DOM surface — Write / Build / Code tabs, live progress, model status chip' }),
 });
