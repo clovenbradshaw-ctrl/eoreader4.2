@@ -5,6 +5,7 @@
 // entities (the explorer)
 import { projectGraph } from '../../../core/index.js';
 import { mergeEntitiesByReferent } from '../entity-merge.js';
+import { buildReferents } from '../../../perceiver/referents/index.js';
 
 export const installEntities = (appCtx) => {
   // ── entities (the explorer) ────────────────────────────────────────────────
@@ -16,11 +17,89 @@ export const installEntities = (appCtx) => {
   // links sum over every source, tagged with how many sources it spans. Pass
   // { merge: false } for the raw per-source instances (the old behaviour).
   const entityKey = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, ' ');
-  // The merged referents a SINGLE doc admits — one row per union-find representative, with
-  // its sighting mass and incident degree. Pulled out of `entities()` so the topic explorer,
-  // the per-source pivot, and the holonic-level toggle all read a source the same way. Each row
-  // also carries the acoustic holon tag (kind='signal'|'noise', from organs/in/acoustic.js) and
-  // the numeric holon level off the entity's DEF props, so callers can filter by holonic level.
+
+  // The referent-first identity layer (perceiver/referents) denotes "Victor" and
+  // "Frankenstein" as ONE opaque referent by shared denotation, not spelling — the
+  // union-find above never bridges them (no token overlap, and a contested surname
+  // defeats the tail merge). It ships off by a parse-time flag (byte-identical when
+  // unset) and no reading path threads that flag through, so it never actually ran.
+  // Built here instead, LAZILY and POST-HOC straight off the already-parsed doc's
+  // own log/sentences/admission/corefField — no re-parse, no change to parseText's
+  // default output, cached on the doc so a re-render doesn't rebuild it.
+  const referentApiFor = (doc) => {
+    if (!doc || !doc.log || doc.modality !== 'text') return null;
+    if (typeof doc.referents === 'function') return doc;   // flag was already on upstream
+    if (doc._referentApi === undefined) {
+      try {
+        doc._referentApi = buildReferents({
+          log: doc.log, sentences: doc.sentences, admission: doc.admission,
+          corefField: doc.corefField, docId: doc.docId,
+        });
+      } catch { doc._referentApi = null; }
+    }
+    return doc._referentApi;
+  };
+
+  // Which union-find root each referent's NAME/DESCRIPTION surfaces resolve to, so rows
+  // built off the firm graph (below) can be folded by shared referent. A root absent from
+  // this map denotes no referent (an un-admitted mention) and is left ungrouped.
+  const refIdByRoot = (doc, api, rep) => {
+    const admission = doc.admission;
+    const out = new Map();
+    for (const ref of api.referents()) {
+      for (const m of api.surfacesOf(ref.id)) {
+        if (m.form === 'name' && admission?.isAdmitted?.(m.label)) {
+          out.set(rep(admission.idOf(m.label)), ref.id);
+        } else if (m.form === 'description' && admission?.isAdmitted?.(m.normalized)) {
+          out.set(rep(admission.idOf(m.normalized)), ref.id);
+        }
+      }
+    }
+    return out;
+  };
+
+  // Fold the firm per-root rows by shared referent — the ONLY structural change from the
+  // plain union-find rows: entId/key/label keep coming from a REAL underlying root (so
+  // entityProfile's drill-down, which looks entId up directly in the doc's graph, keeps
+  // working unmodified) but two or more roots the referent layer denotes as one figure
+  // (Victor + bare Frankenstein; the creature + the wretch) now report as a single row,
+  // opening on the fullest-named / most-mentioned root, mentions and links summed. Rows
+  // the referent layer never touched (no name/description surface, or the layer failed to
+  // build) pass through unchanged — this is additive, never lossy.
+  const foldRowsByReferent = (doc, rows) => {
+    const api = referentApiFor(doc);
+    if (!api) return rows;
+    const g = projectGraph(doc.log);
+    const rep = g.representative || ((x) => x);
+    const refOf = refIdByRoot(doc, api, rep);
+    const isMulti = (l) => String(l || '').trim().split(/\s+/).filter(Boolean).length >= 2;
+    const groups = new Map();               // referent id (or lone root) → rows sharing it
+    for (const row of rows) {
+      const gid = refOf.get(row.entId) || row.entId;
+      let grp = groups.get(gid);
+      if (!grp) { grp = []; groups.set(gid, grp); }
+      grp.push(row);
+    }
+    const out = [];
+    for (const grp of groups.values()) {
+      if (grp.length === 1) { out.push(grp[0]); continue; }
+      // Open on the busiest full (multi-word) row; failing that, the busiest row overall —
+      // the same "fullest name leads" preference entity-merge.js applies across sources.
+      const full = grp.filter((r) => isMulti(r.label)).sort((a, b) => (b.mentions || 0) - (a.mentions || 0))[0];
+      const lead = full || grp.slice().sort((a, b) => (b.mentions || 0) - (a.mentions || 0))[0];
+      const mentions = grp.reduce((s, r) => s + (r.mentions || 0), 0);
+      const links = grp.reduce((s, r) => s + (r.links || 0), 0);
+      out.push({ ...lead, mentions, links });
+    }
+    return out;
+  };
+
+  // The merged referents a SINGLE doc admits — one row per union-find representative
+  // (further folded by shared referent, above), with its sighting mass and incident
+  // degree. Pulled out of `entities()` so the topic explorer, the per-source pivot, and
+  // the holonic-level toggle all read a source the same way. Each row also carries the
+  // acoustic holon tag (kind='signal'|'noise', from organs/in/acoustic.js) and the numeric
+  // holon level off the entity's DEF props, so callers can filter by holonic level.
   const entitiesInDoc = (doc, sn) => {
     const rows = [];
     if (!doc?.log) return rows;
@@ -47,7 +126,7 @@ export const installEntities = (appCtx) => {
       const lvl = (ent.props && ent.props.level != null) ? +ent.props.level : null;
       rows.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn, label, mentions: ent.sightings || 0, links, sourceCount: 1, kind, level: lvl });
     }
-    return rows;
+    return foldRowsByReferent(doc, rows);
   };
   // `level` selects the HOLONIC LEVEL of the topic explorer: 'names' (default) is the natural-
   // language REFERENTS — the people, places and things the content NAMES — read from each source's
