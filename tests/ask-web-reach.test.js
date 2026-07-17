@@ -54,12 +54,31 @@ test('an unpinned Ask turn follows the GLOBAL mode — confirm offers the web pr
   assert.equal(offered.route, 'empty');
   assert.ok(offered.webProposal, 'under global confirm, an unpinned Ask turn offers the web-search proposal');
   assert.equal(offered.webProposal.query, 'what is the capital of france?');
+  // The go-ahead (the surface's approveWebSearch) re-runs the ORIGINAL question with the web pinned
+  // to auto — a grounded re-run, not a passive results popup — so the question must ride the proposal.
+  assert.equal(offered.webProposal.question, 'what is the capital of france?',
+    'the proposal carries the original question for the confirm-mode go-ahead to re-run');
 
   const offApp = await freshApp('off');
   const silent = await offApp.ask('what is the capital of germany?');
   assert.equal(silent.route, 'empty');
   assert.ok(!silent.webProposal, 'under global off, an unpinned Ask turn stays record-only — no proposal');
   assert.match(silent.text || '', /Nothing is on the record/i, 'and it says the record is silent');
+});
+
+test('the confirm-mode go-ahead re-runs the proposal question with the web engaged', async () => {
+  // The surface's approveWebSearch is `ask(proposal.question, { web: 'auto' })` — confirm PROPOSES,
+  // then the click runs the same grounded reach auto runs, gated behind the go-ahead. Here we drive
+  // that core: a confirm turn offers a proposal, and re-asking its question pinned to auto leaves the
+  // record for the web (failFetch → the web-reach report), instead of the popup the old button opened.
+  const app = await freshApp('confirm', { fetchImpl: failFetch });
+  const offered = await app.ask('who is neil armstrong married to?');
+  assert.ok(offered.webProposal && offered.webProposal.question, 'confirm offered a proposal carrying the question');
+  const answered = await app.ask(offered.webProposal.question, { web: 'auto' });
+  assert.doesNotMatch(answered.text || '', /Nothing is on the record/i,
+    'the go-ahead did NOT take the record-only branch — it reached the web');
+  assert.match(answered.text || '', /searched the web|couldn.t pull anything readable|web (lookup|proxy)/i,
+    'the go-ahead reports a web reach, not a record-only abstention or a passive popup');
 });
 
 test('an unpinned Ask turn REACHES the web under the default auto mode', async () => {

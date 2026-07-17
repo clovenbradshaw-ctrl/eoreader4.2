@@ -468,8 +468,9 @@ export const installChat = (appCtx) => {
       if (mode === 'auto') return answerFromWeb(pending, q, { onToken });
       pending.text = 'Nothing is on the record yet, so I can\'t ground an answer to that. I can search the web and record what comes back — or read any URL, file, or pasted text you drop in the bar above.';
       pending.route = 'empty';
-      // Offer the one-click search button in confirm mode; in off, respect the opt-out.
-      if (mode === 'confirm') pending.webProposal = { query: q, rationale: 'no sources recorded yet', trigger: 'gap' };
+      // Offer the one-click search button in confirm mode; in off, respect the opt-out. `question`
+      // rides along so the go-ahead (approveWebSearch) re-runs THIS turn with the web engaged.
+      if (mode === 'confirm') pending.webProposal = { query: q, question: q, rationale: 'no sources recorded yet', trigger: 'gap' };
       pending.pending = false;
       appCtx.persist(); emit('messages');
       return pending;
@@ -677,6 +678,8 @@ export const installChat = (appCtx) => {
         }
       }
       appCtx.finishMessage(pending, result, mode);
+      // The confirm go-ahead re-asks the ORIGINAL question (finishMessage keeps only the sharpened query).
+      if (pending.webProposal) pending.webProposal.question = q;
     } catch (e) {
       // A stall (watchdog trip) or a user Stop keeps whatever streamed rather than blanking the
       // bubble to an error — only a genuine mid-turn fault gets the error line.

@@ -3827,7 +3827,10 @@ class Component extends DCLogic {
       this.showToast(`Couldn’t search: ${String((err && err.message) || err).slice(0, 90)}`);
     });
   }
-  // Still used by the in-chat "search the web for this?" proposal, which opens the results popup.
+  // The raw-results popup: search a query and list the hits for the user to preview + record by
+  // hand. The confirm-mode proposal button no longer routes here — its go-ahead now runs a grounded
+  // web answer (approveWebSearch), matching auto — so this is retained only for a future explicit
+  // "browse results" affordance, not wired to the proposal.
   runSearch(q) {
     this.setState({ searchOpen: true, searchQ: q, searchBusy: true, searchResults: null, searchError: null });
     this._app.search(q, { k: 8 }).then((items) => this.setState({ searchBusy: false, searchResults: items }))
@@ -4166,6 +4169,24 @@ class Component extends DCLogic {
     this.showToast(next === 'auto' ? 'Web search: auto — I fetch on a measured gap and record what I read'
       : next === 'confirm' ? 'Web search: confirm — I propose a query; you click to search'
       : 'Web search: off — I answer only from what you record');
+  }
+  // The confirm-mode "Search the web" go-ahead. Confirm mode PROPOSES a search but waits on the
+  // user's click before touching the net (the privacy gate). On the click, run the search the way
+  // AUTO would — fetch the pages and answer GROUNDED in them, streaming the research trail — rather
+  // than opening a passive list of links to record by hand. Mechanically this re-asks the ORIGINAL
+  // question with the web pinned to `auto` for that one turn: the same grounded gap-walk auto runs,
+  // only gated behind the click (docs/web-search.md, "confirm → go-ahead → fetch → grounded re-run").
+  // The stored global web mode is untouched — the pin is per-turn. `question` rides on the proposal
+  // (app/chat.js); the sharpened `query` is the fallback for an older message that predates it.
+  approveWebSearch(proposal) {
+    const q = String((proposal && (proposal.question || proposal.query)) || '').trim();
+    if (!q || !this._app) return;
+    this._chatStick = true;   // the answer streams in below — follow it to the live bottom
+    const onAsk = this.state.tab === 'ask';
+    const fire = () => { (onAsk ? this._app.askQuestion(q, { web: 'auto' }) : this._app.ask(q, { web: 'auto' })).catch(() => {}); };
+    // Mirror sendChat: a click while a turn is still running interrupts it, then asks on the next
+    // macrotask so the prior turn's finally has settled (no double-pending, no decode-gate overlap).
+    if (this._generating()) { this._app.stop(); setTimeout(fire, 0); } else { fire(); }
   }
 
   // ── ask the record ─────────────────────────────────────────────────────────
@@ -8302,7 +8323,7 @@ class Component extends DCLogic {
         hasProvRow: finished && (cites.length > 0 || showUngroundedChip), hasUngroundedChip: showUngroundedChip,
         hasFlags: finished && flagChips.length > 0, flagChips,
         hasProposal: finished && !!mm.webProposal, proposalQ: mm.webProposal ? mm.webProposal.query : '',
-        runProposal: () => this.runSearch(mm.webProposal.query),
+        runProposal: () => this.approveWebSearch(mm.webProposal),
         footer: finished && cites.length > 0, trace: () => this.setTab('evidence'),
         // the chat's facing page — a reveal affordance (the page-edge handle) that opens this
         // answer's own EoT reading beneath it; `facingClosed` shows the handle, `facingOpen` the panel
