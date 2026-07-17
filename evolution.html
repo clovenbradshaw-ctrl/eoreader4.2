@@ -128,6 +128,17 @@
     <div class="muted" style="margin-top:8px">Claude plays a <b>normal user</b>: it poses a real question and EOReader answers it by running a <b>real turn</b> — it searches the <b>live web</b>, folds every page it keeps, and renders a grounded answer (exactly the reader's pipeline). Claude then scores how well that answer turned the pages it <b>retrieved</b> into <b>grounded, flowing</b> output — never fact-checked against Claude's own knowledge. That score is what the population evolves toward. Claude grades; it never touches a weight, and it never answers its own question.</div>
   </div>
 
+  <div class="panel">
+    <h2>Calibration mode — grade the fold/plan against the ideal</h2>
+    <div class="row" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
+      <button id="calibrate">🎯 Run a calibration cycle</button>
+      <label style="margin-left:0"><input type="checkbox" id="calibrateAuto" style="accent-color:var(--accent)"> keep calibrating</label>
+      <span id="calibrateState" class="muted" style="flex:1;min-width:180px"></span>
+    </div>
+    <div id="calibrateOut"></div>
+    <div class="muted" style="margin-top:8px">Claude poses a task, then answers it <b>directly</b> — no fold, no plan, nothing narrowed — as the <b>ideal</b>. EOReader answers the SAME task through its <b>real</b> pipeline, at the champion's live allocation. Claude then grades three things SEPARATELY: the <b>fold</b> (did it carry what the ideal needed), the <b>plan</b> (the surfer's own beat order — right shape, right coverage), and the <b>answer</b> (grounded/flowing/resolved) — so the breeder can tell which stage to fix, and proposes ONE dial move a challenger genome must still earn its way past the tournament to keep. Full write-up: <a href="docs/calibration-mode.md">docs/calibration-mode.md</a>.</div>
+  </div>
+
   <footer>
     Evolution goes as deep as the body; judgement stays with you.<br>
     The deeper mechanics — the freeze boundary, Void-respect, and the transfer probe — live in <a href="docs/organ-level-evolution.md">docs/organ-level-evolution.md</a>.
@@ -139,6 +150,7 @@ import { createMetabolism, createScarcity, createOrganism, createSoma, createPop
          createChallenger, runChallengeCycle, buildAudit, auditToJSON, auditToMarkdown,
          createSanctionLadder, createHomeostat } from './src/metabolism/index.js';
 import { createResearchAnswerer } from './src/metabolism/index.js';
+import { createProposer, createFoldPlanJudge, runCalibrationCycle, createCalibrationLocal } from './src/metabolism/index.js';
 import { DIAGONAL_CELLS } from './src/core/index.js';
 import { createModel, createHashEmbedder } from './src/model/index.js';
 import { createAuditLog } from './src/rooms/audit/index.js';
@@ -151,7 +163,7 @@ const $ = (id) => document.getElementById(id);
 const cellFor = (op,g) => Object.values(DIAGONAL_CELLS).find(c => c.op===op && c.grain===g);
 const escapeHtml = (s)=>String(s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 
-let metab, timer=null, claudeTimer=null, period=0, lastGrown=new Set(), challengeLog=[], challengeBusy=false, trailLines=[];
+let metab, timer=null, claudeTimer=null, calibrateTimer=null, period=0, lastGrown=new Set(), challengeLog=[], challengeBusy=false, calibrateBusy=false, trailLines=[];
 const pct = (x)=> (x==null ? '—' : (x*100).toFixed(0)+'%');
 
 // ── Evolve turns are REAL turns ────────────────────────────────────────────────
@@ -166,6 +178,34 @@ const hasKey = ()=>{ try{ return !!(localStorage.getItem('eo_claude_key')||'').t
 const claudeBackend = createModel('claude');
 const challenger = createChallenger({ enabled:true, budget:{ calls:60 },
   generate: async (msgs, opts)=>{ if(!claudeBackend.isLoaded()) await claudeBackend.load(); return claudeBackend.phrase(msgs, opts); } });
+// the breeder (proposer.js) — Claude reads a demanding critique list and proposes ONE heritable change;
+// it never writes the champion (the firewall) — metab.proposeAndSeat only ever SEATS a challenger the
+// tournament must still ratify. Same transport as the challenger — plain messages in, a JSON string out.
+const proposer = createProposer({ enabled:true, budget:{ calls:40 },
+  generate: async (msgs, opts)=>{ if(!claudeBackend.isLoaded()) await claudeBackend.load(); return claudeBackend.phrase(msgs, opts); } });
+// fold-plan-judge.js (and judge.js) speak the raw Messages-API request shape (system + a JSON-schema
+// output format) — the browser `claude` backend's phrase() does not implement that (src/model/anthropic.js
+// only takes a flat message list and streams plain text). This adapter translates: ask for the JSON in
+// prose (the same instruction the request's own system prompt already gives), extract the object, and
+// wrap the reply back in the Messages API's own response envelope so parseFoldVerdict/parsePlanVerdict —
+// unmodified — can read it.
+const callViaPhrase = async (request) => {
+  if(!claudeBackend.isLoaded()) await claudeBackend.load();
+  const msgs = [{ role:'system', content: request.system || '' }, ...(request.messages||[])];
+  const text = await claudeBackend.phrase(msgs, { maxTokens: request.max_tokens || 512 });
+  const m = text.match(/\{[\s\S]*\}/);
+  return { content: [{ type:'text', text: m ? m[0] : text }] };
+};
+const foldPlanJudge = createFoldPlanJudge({ enabled:true, budget:{ calls:40 }, call: callViaPhrase });
+// the IDEAL — Claude answers the calibration task DIRECTLY: no fold, no plan, nothing narrowed. This is
+// the ceiling calibration mode reads the local pipeline's fold/plan/answer against (docs/calibration-mode.md §2).
+async function ideal(task){
+  if(!claudeBackend.isLoaded()) await claudeBackend.load();
+  return claudeBackend.phrase([
+    { role:'system', content: 'Answer directly and completely from your own knowledge and reasoning — no fold, no plan, nothing narrowed. Do not ask clarifying questions; make reasonable assumptions and state them briefly if needed.' },
+    { role:'user', content: task?.question || '' },
+  ], { maxTokens: 700 });
+}
 
 // EOReader's OWN answering model — never Claude — plus the live web primitive: fetch each hit's full
 // page through the proxy and admit it as a frozen source (exactly the reader's webSearchAdmit).
@@ -202,6 +242,12 @@ const researchAnswerer = createResearchAnswerer({
   model: ()=>ensureAnswerModel(), embedder: hashEmb, auditLog: turnAudit,
   search: webSearch, maxHops: 4, k: 3, onResearch,
 });
+// calibration mode's local() — the SAME real pipeline (createResearchAnswerer under the hood), but a
+// fresh one per cycle so the running genome's allocation (maxTokens/retrieveK) actually reaches this
+// call, and with the turn's fold/plan surfaced (calibration-local.js) rather than discarded.
+const calibrationLocal = createCalibrationLocal({
+  model: ()=>ensureAnswerModel(), embedder: hashEmb, auditLog: turnAudit, search: webSearch, maxHops: 4,
+});
 function scheduleNextChallenge(){ if(claudeTimer) clearTimeout(claudeTimer); claudeTimer=setTimeout(()=>{ if($('claudeAuto').checked) doChallenge(); }, 1500); }
 
 function build(){
@@ -210,7 +256,7 @@ function build(){
   // and a homeostat holding diversity in a critical band — all recorded into the audit.
   const population = createPopulation({ scarcity, founder: createOrganism({ soma: createSoma({ maxOrgans: 11 }) }), size: 16, capacity: 30, reservoir: 3,
     sanction: createSanctionLadder(), homeostat: createHomeostat({ target: 0.12, band: 0.05 }) });
-  metab = createMetabolism({ scarcity, population });
+  metab = createMetabolism({ scarcity, population, proposer });
   period = 0; lastGrown = new Set();
   renderCubeSkeleton();
   render();
@@ -309,6 +355,43 @@ async function doChallenge(){
   finally{ challengeBusy=false; $('claude').disabled=false; if($('claudeAuto').checked) scheduleNextChallenge(); }
 }
 
+function scheduleNextCalibration(){ if(calibrateTimer) clearTimeout(calibrateTimer); calibrateTimer=setTimeout(()=>{ if($('calibrateAuto').checked) doCalibrate(); }, 1500); }
+
+// one calibration cycle (docs/calibration-mode.md): Claude poses a task and answers it DIRECTLY as the
+// ideal; EOReader answers the SAME task through the real pipeline at the champion's live allocation;
+// Claude grades the fold, the plan, and the answer SEPARATELY; the breeder reads all three critiques
+// and — if it offers a legal change — metab.proposeAndSeat seats a challenger genome the tournament
+// must still ratify (the firewall: it proposes, it never writes the champion).
+async function doCalibrate(){
+  if(!hasKey()){ $('calibrateState').innerHTML = 'add a Claude key to calibrate — open the <a href="index.html">reader</a>, pick “Claude · hosted”, paste a key, then come back.'; if($('calibrateAuto').checked) $('calibrateAuto').checked=false; return; }
+  if(calibrateBusy) return;
+  calibrateBusy = true; $('calibrate').disabled = true;
+  $('calibrateState').textContent = 'Claude is posing a task…';
+  try{
+    const r = await runCalibrationCycle({ challenger, foldPlanJudge, ideal, local: calibrationLocal, genome: metab.championUnit() });
+    if(!r){ $('calibrateState').textContent = challenger.budget().exhausted ? 'Claude budget spent for this session (reset to refill)' : 'Claude did not respond — check the key/network'; return; }
+    const bred = await metab.proposeAndSeat({ critiques: r.critiques });
+    period++; render();
+    const fv = r.foldVerdict, pv = r.planVerdict, sat = r.satisfaction;
+    $('calibrateOut').innerHTML =
+      `<div class="doc"><div class="s">task · ${escapeHtml(r.task.difficulty||'')}</div>`
+      + `<div class="t">${escapeHtml(r.task.question)}</div>`
+      + `<div class="x" style="margin-top:6px"><b>ideal (frontier, unconstrained):</b> ${escapeHtml((r.idealAnswer||'').slice(0,300))||'(no reply)'}</div>`
+      + `<div class="x" style="margin-top:4px"><b>local (real pipeline):</b> ${escapeHtml((r.answer||'').slice(0,300))||'(no answer)'}</div>`
+      + `<div class="vitals" style="margin-top:8px">`
+        + (fv ? stat('fold sufficient', fv.sufficient?'yes':'no', `salience ${pct(fv.salience)}`) : '')
+        + (pv ? stat('plan coverage', pct(pv.coverage), `decomp ${pct(pv.decomposition)}`) : '')
+        + (sat ? stat('answer satisfied', pct(sat.satisfied)) : '')
+      + `</div>`
+      + (r.critiques.length ? `<div class="muted" style="margin-top:6px;line-height:1.6">${r.critiques.map(c=>`· ${escapeHtml(c.critique)}`).join('<br>')}</div>` : '')
+      + (bred && bred.challenger ? `<div class="muted" style="margin-top:6px">🧬 the breeder proposed <b>${escapeHtml(bred.gene || bred.route || 'a change')}</b> — seated to compete next period: “${escapeHtml(bred.rationale||'')}”</div>`
+        : bred && bred.refused ? `<div class="muted" style="margin-top:6px">the breeder's proposal was refused: ${escapeHtml(bred.reason||'')}</div>` : '')
+      + `</div>`;
+    $('calibrateState').textContent = `${challenger.budget().remaining} Claude calls left`;
+  }catch(err){ $('calibrateState').textContent = 'calibration failed: ' + err.message; if($('calibrateAuto').checked) $('calibrateAuto').checked=false; }
+  finally{ calibrateBusy=false; $('calibrate').disabled=false; if($('calibrateAuto').checked) scheduleNextCalibration(); }
+}
+
 // export a complete, inspectable audit of the run — the JSON (the full record) and a Markdown
 // evaluation (findings, lineage, challenges, timeline). The evolution, fully auditable.
 function download(name, text, type){ const blob=new Blob([text],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 1500); }
@@ -324,13 +407,21 @@ $('run').onclick = ()=>{ if(timer){ clearInterval(timer); timer=null; $('run').t
 $('step').onclick = step;
 $('audit').onclick = exportAudit;
 $('reset').onclick = ()=>{ if(timer){ clearInterval(timer); timer=null; $('run').textContent='▶ Start'; $('run').classList.add('primary'); }
-  if(claudeTimer){ clearTimeout(claudeTimer); claudeTimer=null; } $('claudeAuto').checked=false; $('claudeOut').innerHTML=''; if($('trail')) $('trail').innerHTML=''; trailLines=[]; challengeLog=[]; build(); showKeyHint(); };
+  if(claudeTimer){ clearTimeout(claudeTimer); claudeTimer=null; } $('claudeAuto').checked=false; $('claudeOut').innerHTML=''; if($('trail')) $('trail').innerHTML=''; trailLines=[]; challengeLog=[];
+  if(calibrateTimer){ clearTimeout(calibrateTimer); calibrateTimer=null; } $('calibrateAuto').checked=false; $('calibrateOut').innerHTML='';
+  build(); showKeyHint(); };
 $('regime').onchange = ()=>$('reset').click();
 $('claude').onclick = doChallenge;
 // research turns are slow, so "keep asking" self-schedules the next one only AFTER the current finishes.
 $('claudeAuto').onchange = (e)=>{ if(e.target.checked){ doChallenge(); } else if(claudeTimer){ clearTimeout(claudeTimer); claudeTimer=null; } };
+$('calibrate').onclick = doCalibrate;
+$('calibrateAuto').onchange = (e)=>{ if(e.target.checked){ doCalibrate(); } else if(calibrateTimer){ clearTimeout(calibrateTimer); calibrateTimer=null; } };
 
-function showKeyHint(){ if(!hasKey()) $('claudeState').innerHTML = 'optional — add a Claude key (in the <a href="index.html">reader</a>) to let a real user-model ask questions the system answers by live web research.'; }
+function showKeyHint(){
+  if(hasKey()) return;
+  $('claudeState').innerHTML = 'optional — add a Claude key (in the <a href="index.html">reader</a>) to let a real user-model ask questions the system answers by live web research.';
+  $('calibrateState').innerHTML = 'optional — add a Claude key (in the <a href="index.html">reader</a>) to calibrate the fold/plan/answer against a frontier ideal.';
+}
 
 // Default the answering model to the one the user actually chats with in the reader — but NEVER
 // 'claude' (that is the judge; it must not answer its own question). Unknown/absent → echo.
