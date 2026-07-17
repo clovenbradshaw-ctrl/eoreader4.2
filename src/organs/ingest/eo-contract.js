@@ -24,4 +24,5 @@ export const CONTRACTS = Object.freeze({
   'src/organs/ingest/webfetch.js': contract({ ops: ['SIG', 'SEG', 'INS'], targets: ['Void', 'Field'], products: ['Field', 'Entity'], stances: ['Binding', 'Clearing', 'Making'], note: 'live fetch/search client over CORS proxy' }),
   'src/organs/ingest/websource.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Atmosphere'], stances: ['Binding', 'Making'], note: 'admit web pages as groundable sources' }),
   'src/organs/ingest/wikimedia.js': contract({ ops: ['SIG', 'SEG'], targets: ['Void'], products: ['Field'], stances: ['Binding', 'Dissecting'], note: 'Wikimedia reference shelf + Wikidata' }),
+  'src/organs/ingest/youtube.js': contract({ ops: ['SIG', 'SEG', 'INS'], targets: ['Void'], products: ['Field', 'Entity'], stances: ['Binding', 'Clearing', 'Making'], note: 'YouTube library — video transcripts (captions), no media pipeline' }),
 });
