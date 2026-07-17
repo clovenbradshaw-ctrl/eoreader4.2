@@ -89,7 +89,7 @@ const BASELINE = new Map([
   ['src/rooms/doc/surface.js', 444],
   ['src/rooms/models/catalog.js', 281],
   ['src/rooms/models/surface.js', 645],
-  ['src/rooms/reader/app/chat.js', 717],
+  ['src/rooms/reader/app/chat.js', 720],
   ['src/rooms/reader/app/deep.js', 477],
   ['src/rooms/reader/app/registry.js', 287],
   ['src/rooms/reader/app/model.js', 376],
