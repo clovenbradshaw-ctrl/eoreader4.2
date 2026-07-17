@@ -63,3 +63,7 @@ export { referentNesting, nestingSummary } from './referent-nesting.js';
 export { REFERENT_TYPES, couplingByNode, deriveGates, salienceOf, classifyReferent,
          classifyReferents, typeReferents, provisionalId, promotionEvent,
          promoteBoundDescriptors } from './individuation.js';
+// The deviation-waveform perceiver contract (docs/omnimodal-waveform.md §2): the
+// Reading shape every perceiver emits and the invariant core (src/weave/waveform/)
+// validates against before building a WaveformModel.
+export { ROLES, validateReading, assertReading } from './contract.js';

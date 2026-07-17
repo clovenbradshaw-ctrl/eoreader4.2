@@ -51,4 +51,12 @@ export const CONTRACTS = Object.freeze({
   'src/perceiver/site.js': contract({ ops: ['DEF', 'EVA'], targets: ['Field', 'Network'], products: ['Lens'], stances: ['Dissecting'], note: 'site vs figure role' }),
   'src/perceiver/spine.js': contract({ ops: ['EVA', 'SEG'], targets: ['Network', 'Field'], products: ['Field'], stances: ['Tracing'], note: 'significance spine / turning points' }),
   'src/perceiver/surfaces.js': contract({ ops: ['SIG', 'NUL'], targets: ['Network', 'Field'], products: ['Lens', 'Void'], stances: ['Binding', 'Clearing'], note: '3 reading surfaces + note render' }),
+  // The deviation-waveform perceiver contract (docs/omnimodal-waveform.md §2) and its
+  // three reference perceivers + shared clustering utility.
+  'src/perceiver/contract.js': contract({ ops: ['NUL'], targets: ['Field'], products: ['Void'], stances: ['Clearing'], note: 'the Reading contract — validateReading, the seam a Reading must clear before reaching the invariant core' }),
+  'src/perceiver/text/waveform.js': contract({ ops: ['SIG'], targets: ['Entity', 'Field'], products: ['Field'], stances: ['Tending'], note: 'text perceiver — maps the existing modelless read onto a Reading' }),
+  'src/perceiver/audio/dsp.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Field'], stances: ['Tending'], note: 'audio DSP — FFT, windowing, log-band spectral energies (the field descriptor)' }),
+  'src/perceiver/audio/waveform.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Field'], stances: ['Tending'], note: 'audio perceiver — spectral field per frame + signal/noise holon segments as a Reading' }),
+  'src/perceiver/tabular/waveform.js': contract({ ops: ['DEF'], targets: ['Field'], products: ['Field'], stances: ['Clearing'], note: 'tabular perceiver — numeric column z-scoring into a Reading' }),
+  'src/perceiver/shared/cluster.js': contract({ ops: ['SIG', 'SEG'], targets: ['Field'], products: ['Network'], stances: ['Tending', 'Dissecting'], note: 'shared cluster-based referent detection for the audio and tabular perceivers' }),
 });
