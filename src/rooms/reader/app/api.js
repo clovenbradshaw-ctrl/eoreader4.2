@@ -107,6 +107,8 @@ export const buildApi = (appCtx) => {
     entityChapters: appCtx.entityChapters, entityDigest: appCtx.entityDigest, entityDigestFor: appCtx.entityDigestFor, entityChapterReading: appCtx.entityChapterReading, entityChapterReadingFor: appCtx.entityChapterReadingFor,
     entityPassage: appCtx.entityPassage, entityPassageReading: appCtx.entityPassageReading, entityPassageReadingFor: appCtx.entityPassageReadingFor,
     findings: appCtx.findings, provenance: appCtx.provenance, dagFor: appCtx.dagFor, dagSources: appCtx.dagSources, eotFor: appCtx.eotFor, answerEot: appCtx.answerEot,
+    // the cross-source comparison matrix — measure × source, each cell opening its passage
+    comparisonMatrix: appCtx.comparisonMatrix,
     // search over the record + the durable write path (docs/search-and-pins.md)
     searchRecord: appCtx.searchRecord,
     // search as a surface — a query routed to its best preset template (concordance/cast/contrast)

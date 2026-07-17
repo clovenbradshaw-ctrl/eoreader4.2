@@ -39,9 +39,17 @@ export {
 // longer assert a consistency nothing checked.
 export {
   crossSourceConflicts, extractQuantities, unpackComposite,
+  subjectsCompatible, subjectOf, measureTol,
 } from './crosscheck.js';
 // Text-reading half of the pass — magnitudes and legibility (crosscheck.js splits under
 // the god-module ratchet). Re-exported here so the holon's public surface is unchanged.
 export {
-  readQuantities, measureLabel, isLegibleProse, replacementRatio,
+  readQuantities, readMeasures, readScheduleYears, readMeasuresFlat,
+  measureLabel, boundBefore, isLegibleProse, replacementRatio,
 } from './quantities.js';
+// The cross-source comparison matrix — the whole grid behind the conflict yes/no: one row
+// per measured thing, one column per source, each cell opening to the sentence it was read
+// from, with a deterministic reading of the spread. Built on the same bound records.
+export {
+  comparisonMatrix, cellDisplay,
+} from './comparison.js';
