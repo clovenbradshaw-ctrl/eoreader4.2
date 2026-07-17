@@ -3,7 +3,8 @@
 > Status: draft
 > Suggested location: `docs/coreference-timeline.md`
 > Consumes: `perceiver/referents/index.js`, `perceiver/parse/coref.js`, `enactor/factcheck/coref.js`,
->   `core/resolution-spectrum.js`, `core/def.js`, `rooms/reader/app/levels.js` (`entityProfile`),
+>   `core/resolution-spectrum.js`, `core/def.js`, `core/conventions/ledger.js`,
+>   `enactor/ground/corroboration.js`, `rooms/reader/app/levels.js` (`entityProfile`),
 >   `rooms/reader/app/wiki.js` (`topicTieredData`), `surfer/reason/cursor.js`, `surfer/fold/time-axis.js`
 > Related: `docs/dag-corpus.md`, `docs/co-reading.md`, `docs/llm-prosification-security.md`,
 >   `docs/multi-source-corroboration.md`, `docs/deviation-waveform.md`
@@ -156,6 +157,112 @@ mechanism that would let "the city writes its own dictionary" over a growing cor
 crossing into merging on lexical similarity — every promoted rule traces to a specific corroborated
 merge, inspectable and revocable like every other assertion in the log.
 
+## The promotion threshold
+
+The question the previous draft left open: *how many corroborated instances of a label pair
+justify treating it as a standing engine-tier candidate, versus requiring a witness every time?*
+The answer is not a number to pick. It's a mechanism this codebase already has, built for exactly
+this shape of problem, that has never needed a hand-tuned threshold: `core/conventions/ledger.js`'s
+**support/strain register**.
+
+### Reuse, don't invent
+
+`createConventions()` already holds a defeasible learned claim — today, things like "'pinged' is
+this document's attribution verb" — as `{ origin, weight, support, strain, defeated }`, with the
+rule stated once in the module's own header and never touched since: *"EVA: test it against what
+the stream gives → reinforce (support grows) on a hold, accrue strain on a break. REC: revise: when
+strain overtakes support the convention is DEFEATED."* No promotion count is chosen anywhere in
+that file. A convention exists the moment it's first learned (`support = weight` of the first
+`learn()`), and it survives exactly as long as its holds outnumber its breaks. That relative rule —
+never an absolute one — is what this spec reuses verbatim for synonym pairs: a new register kind,
+`'synonym-pair'`, keyed on the order-independent normalized pair
+(`pairKey(a, b) = a < b ? \`${a}~${b}\` : \`${b}~${a}\``, the identical helper `surfer/reason/cursor.js`
+already defines for exactly this shape of key), where the token is a normalized label pair instead
+of a word.
+
+### The gate before the first `learn()` — reusing "two," not choosing it
+
+A pair earns its *first* entry in the ledger only once it has been corroborated by **at least two
+distinct-voice sources** — reusing `enactor/ground/corroboration.js`'s `distinctEnough(descriptors,
+{ target = 2 })` unchanged, the exact predicate `docs/multi-source-corroboration.md` already uses to
+decide whether a *factual claim* is corroborated, and the exact `sameWitness` test (same doc id,
+same content hash, same registrable host, same byline) that keeps a single voice repeating itself
+from counting twice. This is the load-bearing move: **two mentions of "the housing trust" and "the
+Barnes Fund" inside one document never promote the pair**, no matter how confidently that one
+document treats them as the same thing — one writer's habitual phrasing is not corpus consensus,
+exactly as one republished wire story is not two corroborating sources. The pair has to be
+independently proposed-and-corroborated (via `enactor/factcheck/coref.js`'s `corroborateCoref`, or
+directly `assertCoreference`'d by a reader) in two separate voices before the crosswalk learns
+anything from it at all. Below that gate, every occurrence of the pair stays at the **model** tier,
+unchanged from today — the witness channel runs every single time, exactly as `resolution-spectrum.js`
+already specifies for a pair the engine has no standing basis to shortcut.
+
+### What crossing the gate actually changes
+
+Promotion never touches the safety gate — it only changes who has to ask the question. Before
+promotion, generating a *proposal* for "are these the same" requires the witness channel (a model
+judgment) to fire at all. After promotion, `perceiver/referents/index.js`'s `proposeCoreference`
+can fire **deterministically** off `ledger.has('synonym-pair', pairKey)` the next time both labels
+appear in a document — the pair has moved from the **model** tier to the **engine** tier, exactly
+the tier-ladder move `core/resolution-spectrum.js` already names. What does *not* change: the
+proposal still runs through the unmodified `evaluateConvergence` / negative-evidence check every
+other proposal runs through (a functional-key conflict, a surname-collision-style veto). A learned
+pair gets suggested for free; it does not get merged for free. The ledger shortens the path to a
+proposal, never the path to a commit.
+
+### Accounting — no head start, compounding trust, defeat is real
+
+Unlike the grammatical registers, a synonym pair gets **no `PRIOR_SUPPORT` head start** — nothing
+here should arrive pre-trusted the way an inherited grammatical prior legitimately does; a
+concept-synonym rule has to earn its trust from this corpus, in full, every time. So:
+
+- **On promotion** (the two-distinct-voice gate above is met): `support = 2` (one unit of support
+  per corroborating voice, not per mention), `strain = 0`, `origin: 'learned'`.
+- **Each further independent corroboration** (a third, fourth, … distinct voice where the pair
+  again converges) reinforces: `support += 1` — exactly `ledger.eva(kind, token, true)`. A pair
+  corroborated by five sources is harder to overturn than one barely past the gate, without
+  choosing a bigger number anywhere — it falls out of accumulation, not a bigger threshold.
+- **Every `assertDistinct` a reader (or a later document's own negative evidence) commits against
+  this same pair** — not a specific mention pair, the *standing rule* — accrues strain:
+  `strain += 1`, exactly `ledger.eva(kind, token, false)`.
+- **Defeat is the ledger's existing, unmodified rule**: `strain > support ⇒ defeated = true`,
+  `has()` → false. The pair falls back to the model tier — the next occurrence needs the witness
+  channel from scratch, as if it had never been promoted.
+- **Contested, not binary**: while `0 < strain ≤ support` (a dissent exists but hasn't overturned
+  the standing rule), render the `SynonymEdge.contested` flag (§ signal model) true rather than
+  treating trust as a single on/off bit. A pair with six corroborations and one dissent should
+  *look* different from a pair with two corroborations and one dissent, and this accounting gives
+  that difference for free.
+- **No silent reinstatement.** `ledger.js`'s own `reinstate()` is a deliberate call, never automatic
+  — matched here: once a pair is defeated by a real identity dispute, it does not mechanically
+  re-promote itself past the gate again. Reinstating it requires a person's explicit
+  `assertCoreference` (`warrant: 'reader-assertion'`), the same authoritative channel that already
+  outranks the mechanical layer everywhere else in this codebase.
+
+Every `learn` / `eva` / defeat on a `'synonym-pair'` entry is its own `REC`-shaped log line, exactly
+as `ledger.js` already emits for every other register (`rules.push({ op: 'REC', kind, token, … })`)
+— which means a promotion and a later defeat are themselves corpus-cursor events, exactly as
+scrubbable and dateable as the `label-shift` signal below. "This crosswalk rule was learned reading
+document 4, and defeated reading document 9" is not a new capability this spec has to build; it's
+the same log the rest of the surface already plays back.
+
+### Worked through the housing fixture
+
+Doc 1 introduces "the Barnes Fund." Doc 2 (a distinct voice) uses "the housing trust" for what
+`enactor/factcheck/coref.js` corroborates as the same referent — one corroborating voice, below the
+gate, still model-tier: the *next* document still needs a witness to connect either label to
+anything. Doc 3 (a third, distinct voice) uses "the affordable-housing fund," which also
+corroborates against that same cluster — **two distinct voices now support the
+Barnes-Fund/housing-trust pairing** (docs 1+2, or 2+3, whichever pair the corroboration actually
+ran between), so that pair promotes: `support = 2`, logged. A hypothetical doc 5 that reuses "the
+Barnes Fund" and "the housing trust" together no longer needs the witness channel to propose the
+merge — the ledger already trusts the pair, and the ordinary convergence check still has final say.
+Doc 4's "workforce housing," meanwhile, never corroborates against the cluster at all — most of the
+time this is the common case (the proposal is never generated because the negative evidence never
+lets `corroborateCoref` commit in the first place), but the strain path exists for the other case
+too: if a pair *had* wrongly promoted, a reader's `assertDistinct` on it is exactly what accrues
+strain against that specific standing rule rather than against one mention.
+
 ## The label-shift signal
 
 A `ReferentState.labelHistory` entry with more than one row, at a fixed reading cursor of
@@ -250,12 +357,14 @@ that's a real open question (below), not a detail to defer indefinitely.
   filings) may need the same auto/decade/year/… grain-folding `surfer/fold/time-axis.js` already
   offers for record-time, applied to *ingestion count* rather than calendar time. Needs a real
   corpus to test against before deciding.
-- **Promotion threshold for the crosswalk.** How many corroborated instances of a label pair
-  justify treating it as an engine-tier candidate on the next document, versus still requiring a
-  witness every time? `core/resolution-spectrum.js`'s existing tiers don't yet specify a promotion
-  rule between them; this spec needs one, following the same non-tuned-coefficient discipline
-  `docs/multi-source-corroboration.md` insists on ("two," not a tuned number) rather than inventing
-  a threshold.
+- **Promotion threshold** — now specified (§ "The promotion threshold"): the `core/conventions/ledger.js`
+  support/strain register, gated by `enactor/ground/corroboration.js`'s existing `distinctEnough`
+  (target 2), reused rather than a new number invented. The one residual calibration question this
+  doesn't close: whether a *conceptual* merge (two different program names) should really share the
+  same distinct-voice target as a *factual* claim (`docs/multi-source-corroboration.md`'s original
+  use), or whether identity claims about civic programs are high-stakes enough to warrant a higher
+  target than 2 — that's a domain-calibration question for the validation fixture, not an
+  architectural one.
 - **Access control**, named above and not resolved here.
 - **Convergence surfacing** — the essay motivating this spec (a narrative claim and a data anchor
   landing on the same place/program/time joint) is a real, valuable extension, structurally close
