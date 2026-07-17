@@ -866,6 +866,7 @@ table{border-collapse:collapse;width:100%}
             <sc-if value="{{ graphExplorerLive }}">
             <div style="display:flex;gap:3px;background:#F4F4F7;border-radius:9px;padding:3px">
               <button onClick="{{ setWebKindEntity }}" title="The figures across the topic and the bonds among them" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindEntFg }};background:{{ webKindEntBg }}">Entities</button>
+              <button onClick="{{ setWebKindNetwork }}" title="The sources themselves, linked by what they corroborate" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindNetworkFg }};background:{{ webKindNetworkBg }}">Network</button>
             </div>
             </sc-if>
           </div>
@@ -6922,13 +6923,13 @@ class Component extends DCLogic {
     }
   }
   setWebKind(kind) {
-    kind = 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
+    kind = kind === 'network' ? 'network' : 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
     if (!this._wg || this._wg.kind === kind) return;
     this._wg.kind = kind;
     this._wg.hidden = new Set();                            // so reset the toggles and any focus and
     this._wg.focusKey = null; this._wg.focusLabel = null;  // land on the whole topic in the new kind
     this._wg.scope = 'topic';
-    this._seedWgPanel();   // entity kind reopens the panel on the top figure; causal has none
+    this._seedWgPanel();   // entity kind reopens the panel on the top figure; network/causal have none
     this.setState({ webGraphFor: this._wgMirror(), webEntQuery: '' });   // the vocabularies differ — drop any stale filter
     this._drawWebGraph();
   }
@@ -6976,7 +6977,7 @@ class Component extends DCLogic {
     if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; }
     el.innerHTML = '';
     try {
-      this._drawEntity(el, w);
+      if (w.kind === 'network') this._drawNetwork(el, w); else this._drawEntity(el, w);
     } catch (e) {
       el.innerHTML = '<div style="padding:20px;color:#B23A2E;font-size:12.5px">Graph failed to draw: ' + String((e && e.message) || e) + '</div>';
       this._tgToggles = [];
@@ -7009,6 +7010,32 @@ class Component extends DCLogic {
     const deg = new Map();
     for (const e of edges) { deg.set(e.a, (deg.get(e.a) || 0) + 1); deg.set(e.b, (deg.get(e.b) || 0) + 1); }
     const kept = nodes.filter((n) => n.kind === 'entity' || (deg.get(n.id) || 0) > 0);
+    const keptIds = new Set(kept.map((n) => n.id));
+    return { nodes: kept, edges: edges.filter((e) => keptIds.has(e.a) && keptIds.has(e.b)) };
+  }
+  // The Network surface (src/wiki/network-article.js) — the topic's sources themselves, linked
+  // by what they corroborate, not a bag of entity nodes. Toggling scopes by SOURCE (not entity —
+  // the network's own vocabulary); a hidden source's Links and, once none remain, the whole
+  // Network node drop with it, exactly as _filterTiered drops context nodes for the entity web.
+  _drawNetwork(el, w) {
+    const data = this._app.networkTieredData();
+    this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'source')
+      .map((n) => ({ id: n.id, label: n.label }))
+      .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    const show = this._filterNetwork(data, w.hidden);
+    this._tg = window.EO.mountTieredGraph(el, {
+      nodes: show.nodes, edges: show.edges,
+      countsLabel: `${show.nodes.length} nodes · ${show.edges.length} edges`,
+    });
+  }
+  _filterNetwork(data, hidden) {
+    if (!hidden || !hidden.size) return data;
+    const nodes = data.nodes.filter((n) => !(n.kind === 'source' && hidden.has(n.id)));
+    const live = new Set(nodes.map((n) => n.id));
+    let edges = data.edges.filter((e) => live.has(e.a) && live.has(e.b));
+    const deg = new Map();
+    for (const e of edges) { deg.set(e.a, (deg.get(e.a) || 0) + 1); deg.set(e.b, (deg.get(e.b) || 0) + 1); }
+    const kept = nodes.filter((n) => n.kind === 'source' || (deg.get(n.id) || 0) > 0);
     const keptIds = new Set(kept.map((n) => n.id));
     return { nodes: kept, edges: edges.filter((e) => keptIds.has(e.a) && keptIds.has(e.b)) };
   }
@@ -7056,6 +7083,7 @@ class Component extends DCLogic {
     const ql = query.toLowerCase();
     const shownToggles = ql ? toggles.filter((t) => String(t.label).toLowerCase().includes(ql)) : toggles;
     const isEnt = kind === 'entity';
+    const isNetwork = kind === 'network';
     const focusName = isEnt ? (wg.entLabel || 'this entity') : (wg.focusLabel || 'this node');
     const hasFocus = scope === 'entity' && (isEnt ? wg.entId != null : !!wg.focusKey);
     // The details panel — the profile of the entity the overlay opened on (or the one last
@@ -7078,8 +7106,10 @@ class Component extends DCLogic {
       setWebGraphEl: noop,
       closeWebGraph: () => this.closeWebGraph(),
       setWebKindEntity: () => this.setWebKind('entity'),
+      setWebKindNetwork: () => this.setWebKind('network'),
       setWebKindCausal: () => this.setWebKind('causal'),
       webKindEntFg: isEnt ? '#1B1B22' : '#8A8A95', webKindEntBg: isEnt ? '#fff' : 'transparent',
+      webKindNetworkFg: isNetwork ? '#1B1B22' : '#8A8A95', webKindNetworkBg: isNetwork ? '#fff' : 'transparent',
       webKindCausalFg: !isEnt ? '#1B1B22' : '#8A8A95', webKindCausalBg: !isEnt ? '#fff' : 'transparent',
       webGraphTitle: hasFocus ? focusName : 'Whole topic',
       setWebScopeTopic: () => this.setWebScope('topic'),
@@ -7090,11 +7120,13 @@ class Component extends DCLogic {
       webScopeFocusFg: '#1B1B22', webScopeFocusBg: '#EEEBFE', webScopeFocusBd: '#DED8FD',
       webKindNote: isEnt
         ? 'Figures across the topic and the bonds among them. Click a node to focus its web.'
+        : isNetwork
+        ? 'The sources themselves, linked by what they corroborate — never merged on a bare label match. A source that shares nothing with the others stays visibly its own node.'
         : 'What the sources are read as asserting causes what. Open a node, then “focus the DAG here”.',
-      webToggleHead: `${isEnt ? 'ENTITIES' : 'NODES'} ${onCount}/${toggles.length}`,
+      webToggleHead: `${isEnt ? 'ENTITIES' : isNetwork ? 'SOURCES' : 'NODES'} ${onCount}/${toggles.length}`,
       // Show the filter once the list is long enough to be worth searching.
       webSearchShow: toggles.length >= 8,
-      webSearchPlaceholder: `Filter ${isEnt ? 'entities' : 'nodes'}…`,
+      webSearchPlaceholder: `Filter ${isEnt ? 'entities' : isNetwork ? 'sources' : 'nodes'}…`,
       webEntQuery: query,
       webSearchHasQuery: ql.length > 0,
       onWebEntSearch: (e) => this.setState({ webEntQuery: e && e.target ? e.target.value : '' }),
@@ -7112,8 +7144,9 @@ class Component extends DCLogic {
       webTogglesEmpty: shownToggles.length === 0,
       webTogglesEmptyMsg: toggles.length === 0
         ? (isEnt ? 'No entities in this topic yet — record a source first.'
-                 : 'No causal claims read in these sources yet.')
-        : `No ${isEnt ? 'entities' : 'nodes'} match “${query}”.`,
+           : isNetwork ? 'Not enough sources corroborate each other yet — record a second source that shares a figure with the first.'
+           : 'No causal claims read in these sources yet.')
+        : `No ${isEnt ? 'entities' : isNetwork ? 'sources' : 'nodes'} match “${query}”.`,
     };
   }
 
