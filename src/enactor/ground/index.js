@@ -50,3 +50,7 @@ export { archonReview, buildArchon } from './archon.js';
 // reaction is projected onto a valence basis and put through the Born rule — a positive
 // reaction (the good frame holds its squared mass) goes forward, a negative one goes back.
 export { assessAnswer, bornAssessment, embeddingAssessment, valenceAtoms, buildAssessmentMessages, SYSTEM_ASSESS } from './validate.js';
+// The crosswalk that learns (docs/coreference-timeline.md): a corroborated cross-source synonym
+// pair, gated by this holon's own distinctEnough, promoted into a standing engine-tier candidate
+// via core/conventions/ledger.js's support/strain register.
+export { createSynonymPromotion } from './synonym-promotion.js';

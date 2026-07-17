@@ -1,6 +1,12 @@
 # Coreference timeline — scrubbing a definition across the reading cursor and the corpus cursor
 
-> Status: draft
+> Status: core fold landed — `rooms/reader/app/trajectory.js` (the `Trajectory` fold: reading-cursor
+>   replay + corpus-cursor crosswalk + the label-shift signal) and `enactor/ground/synonym-promotion.js`
+>   (the promotion-threshold register, § "The promotion threshold") are implemented and tested
+>   (`tests/trajectory.test.js`, `tests/synonym-promotion.test.js`) against this spec's own Validation
+>   § fixture. Wired onto the reader app as `trajectory()` / `crosswalk()` (`rooms/reader/app/api.js`).
+>   NOT yet done: the rendering step (§ "Rendering") — retargeting `tiered-graph.js`'s two scrub
+>   controls at these two cursors is still open, a UI-only follow-up over the now-landed fold.
 > Suggested location: `docs/coreference-timeline.md`
 > Consumes: `perceiver/referents/index.js`, `perceiver/parse/coref.js`, `enactor/factcheck/coref.js`,
 >   `core/resolution-spectrum.js`, `core/def.js`, `core/conventions/ledger.js`,

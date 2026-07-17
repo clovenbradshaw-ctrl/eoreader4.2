@@ -428,6 +428,7 @@ export const createConventions = ({ seeds = true, inherit = null, induce = null,
     def: learn,                     // DEF — hold (alias; a held convention is learned sediment)
     eva,                            // EVA — test against the stream
     rec,                            // REC — revise / override
+    has,                            // generic — is this (kind, token) held and not defeated?
     defeat: (kind, token) => rec(kind, token, { defeat: true }),
     reinstate: (kind, token) => rec(kind, token, { reinstate: true }),
     // ── The induced-slot layer (read-only; null/empty unless `induce` was handed in) ──

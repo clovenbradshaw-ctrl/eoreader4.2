@@ -58,7 +58,6 @@ import { mergeEntitiesByReferent } from './entity-merge.js';
 import { composeProvenance, repoRef, readBuild, fetchLatestCommit, APP_NAME, APP_VERSION } from './provenance.js';
 import { foldNarrative } from './fold-narrative.js';
 import { deriveTopicTitle, isDefaultTopicTitle, DEFAULT_TOPIC_TITLE } from './topic-name.js';
-
 // The pre-closure helpers moved to app/ (net · kv · guards · util) in the 2026-07
 // compliance pass — same holon, one file per concern, this file re-exports the
 // public ones at their historical site.
@@ -102,6 +101,7 @@ import { installSummaries } from './app/summaries.js';
 import { installDigest } from './app/digest.js';
 import { installZoom } from './app/zoom.js';
 import { installWiki } from './app/wiki.js';
+import { installTrajectory } from './app/trajectory.js';
 import { installFindings } from './app/findings.js';
 import { installRecordSearch } from './app/record-search.js';
 import { installPins } from './app/pins.js';
@@ -239,7 +239,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installSummaries(appCtx);
   installDigest(appCtx);
   installZoom(appCtx);
-  installWiki(appCtx);
+  installWiki(appCtx); installTrajectory(appCtx);
   installFindings(appCtx);
   installRecordSearch(appCtx);
   installPins(appCtx);
