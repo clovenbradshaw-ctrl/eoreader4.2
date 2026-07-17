@@ -740,11 +740,22 @@ table{border-collapse:collapse;width:100%}
                      the surface auto-pivots. ⌘K remains the quick palette; this tab IS the search. -->
                 <div style="position:relative;margin-bottom:14px">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round" style="position:absolute;left:2px;top:11px"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-                  <input id="eo-sf-input" value="{{ sfQuery }}" onChange="{{ onSfInput }}" placeholder="Search the record — a word, a name, or a question…" autocomplete="off" spellcheck="false" style="width:100%;border:none;border-bottom:2px solid #1B1B22;outline:none;background:transparent;font-size:22px;font-weight:300;color:#1B1B22;padding:5px 40px 11px 30px" />
+                  <input id="eo-sf-input" value="{{ sfQuery }}" onChange="{{ onSfInput }}" onKeyDown="{{ onSfKey }}" enterkeyhint="search" placeholder="Search the record — or press ⏎ to search the web…" autocomplete="off" spellcheck="false" style="width:100%;border:none;border-bottom:2px solid #1B1B22;outline:none;background:transparent;font-size:22px;font-weight:300;color:#1B1B22;padding:5px 40px 11px 30px" />
                   <sc-if value="{{ sfAsked }}">
                     <button onClick="{{ sfClear }}" title="Clear" style="position:absolute;right:0;bottom:10px;width:30px;height:30px;border-radius:8px;color:#8A8A95;display:flex;align-items:center;justify-content:center" style-hover="background:#F2F2F6;color:#3A3A44"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
                   </sc-if>
                 </div>
+
+                <!-- WEB FALLTHROUGH — when the record carries nothing on the query (an empty record on
+                     first load, or a query the sources don't hold), reach the web: pull the top salient
+                     sources into a new search topic. Enter does the same; this button makes it tappable
+                     on mobile, where there is no Enter hint and the omnibox is easy to miss. -->
+                <sc-if value="{{ sfWebShow }}">
+                  <button onClick="{{ sfWebGo }}" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:16px;background:#6D5EF5;color:#fff;border-radius:10px;padding:9px 15px;font-size:13px;font-weight:600" style-hover="background:#5B4BE6">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    Search the web for {{ sfWebLabel }}
+                  </button>
+                </sc-if>
 
                 <!-- the source rail — signal from noise. A lit dot = this source carries the query;
                      click to drop a source and the surface re-scopes; click again to bring it back. -->
@@ -5856,6 +5867,23 @@ class Component extends DCLogic {
   // concordance (verbatim occurrences, lit), the cast (the figures), or the contrast (the contested
   // claims). Less prose, more seeing. The source rail toggles what is in scope; the surface pivots.
   onSfInput(e) { this.setState({ sfQuery: e && e.target ? e.target.value : '' }); }
+  // Enter in the Search-the-record box grows the record from the web. On first load — and any time
+  // the record has nothing on the query — the record scan comes up empty, so the natural motion is
+  // to pull sources in. Mobile keyboards submit with a "Search"/"Go" key (no form, so we key off
+  // Enter directly), which is why "type on first load → web search" felt dead before this.
+  onSfKey(e) {
+    if (!e || (e.key !== 'Enter' && e.keyCode !== 13)) return;
+    if (e.preventDefault) e.preventDefault();
+    this.sfWebSearch(this.state.sfQuery);
+  }
+  // Pull the top salient web sources for the typed query into a new search topic (the same motion as
+  // the omnibox and the "Search the web" hero). ingestSearch reveals the first source on success, so
+  // we leave sfQuery in place: a fruitless search keeps the box filled with the words to retry.
+  sfWebSearch(q) {
+    const query = String(q || '').trim();
+    if (!query) return;
+    this.ingestSearch(query);
+  }
   _sfSetTemplate(t) { this.setState({ sfTemplate: t }); }
   _sfToggleSource(sn) {
     const cur = this.state.sfDisabled instanceof Set ? this.state.sfDisabled : new Set();
@@ -5880,6 +5908,13 @@ class Component extends DCLogic {
       sfContrastNote: '', sfTotal: 0, sfTotalLabel: '', sfSignalLabel: '', sfThinLabel: '',
       sfTabs: [], sfSubject: q, sfElements: [], sfConcepts: [], sfHasConcepts: false,
       onSfInput: (e) => this.onSfInput(e), sfClear: () => this._sfClear(),
+      // Web-search escape hatch — Enter, and a visible button when the record has nothing (an empty
+      // record on first load, or a query the sources don't carry). Lets a search "reach the web as
+      // needed" instead of dead-ending on "0 sources". sfWebShow: shown when there's a query and no
+      // record surface has been built yet (empty record / searchSurface unavailable).
+      onSfKey: (e) => this.onSfKey(e),
+      sfWebGo: () => this.sfWebSearch(q), sfWebLabel: '“' + q + '”',
+      sfWebShow: !!q,
     };
     if (!q || !app || !app.searchSurface) return base;
     let surf = null;
@@ -5977,6 +6012,10 @@ class Component extends DCLogic {
       });
       out.sfThinLabel = 'No contested or bearing claims for “' + (surf.subject || q) + '”.';
     }
+    // Offer the web only when the record itself came up empty on this query — a full result set has
+    // no need of it. With nothing recorded at all, say so plainly rather than "across the 0 sources".
+    out.sfWebShow = !!q && !!out.sfThin;
+    if (all.length === 0) out.sfThinLabel = 'Nothing recorded yet — search the web to pull sources in.';
     return out;
   }
   // ── pins — the durable write path (docs/search-and-pins.md) ─────────────────────────────────
@@ -8241,7 +8280,7 @@ class Component extends DCLogic {
   renderVals() {
     try { return this._vals(); }
     catch (err) {
-      return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, sfClear: () => {}, sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
+      return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, onSfKey: () => {}, sfClear: () => {}, sfWebShow: false, sfWebGo: () => {}, sfWebLabel: '', sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
@@ -8255,7 +8294,7 @@ class Component extends DCLogic {
     const st = this.state;
     const app = this._app;
     if (!app) {
-      return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, sfClear: () => {}, sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
+      return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, onSfKey: () => {}, sfClear: () => {}, sfWebShow: false, sfWebGo: () => {}, sfWebLabel: '', sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Engine booting…', sub: 'Starting EO Reader…', chip: '…' },
         statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
