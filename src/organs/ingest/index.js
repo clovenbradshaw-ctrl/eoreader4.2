@@ -42,6 +42,11 @@ export { directCorsUrl } from './direct-cors.js';
 // the same fetch-through-proxy, admit-with-provenance path (docs/web-search.md).
 export { fetchGutenbergBook, stripGutenbergBoilerplate, gutenbergIdOf,
          GUTENBERG_SOURCES, GUTENBERG_FULLTEXT } from './gutenberg.js';
+// YouTube — a video's CAPTIONS read as a timestamped, groundable transcript. Two GET fetches
+// (the watch page, then the chosen caption track's json3 payload), no media pipeline touched.
+export { fetchYoutubeTranscript, youtubeIdOf, youtubeWatchUrl, parsePlayerResponse,
+         captionTracksOf, pickCaptionTrack, captionTrackUrl, parseJson3Captions,
+         cuesToProse } from './youtube.js';
 export { WIKIMEDIA_PROJECTS, WIKIMEDIA_SOURCES, WIKIMEDIA_FULLTEXT,
          mediaWikiExtract, renderWikidataEntity,
          parseCommonsMedia, renderCommonsMedia, commonsMediaSearchUrl } from './wikimedia.js';
