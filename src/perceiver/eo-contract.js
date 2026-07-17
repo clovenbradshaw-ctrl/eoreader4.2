@@ -6,7 +6,9 @@ import { contract } from '../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
   'src/perceiver/equivalence.js': contract({ ops: ['SYN', 'NUL', 'DEF'], targets: ['Field', 'Entity'], products: ['Kind', 'Network'], stances: ['Composing'], note: 'emergent equivalence (MNN merge)' }),
+  'src/perceiver/absolute-descriptors.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Kind'], stances: ['Tracing'], note: 'ownerless absolute-description candidates for the individuation gate (opt-in intake)' }),
   'src/perceiver/index.js': contract({ ops: ['EVA', 'SIG', 'SYN', 'REC'], targets: ['Network', 'Field'], products: ['Lens', 'Network'], stances: ['Binding', 'Tracing', 'Composing'], note: 'barrel' }),
+  'src/perceiver/parse/absolute-descriptors.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Kind'], stances: ['Tracing'], note: 'scanAbsoluteDescriptors — ownerless definite-description scan (the descriptor intake\'s owned half is relations.js/scanDescriptors)' }),
   'src/perceiver/parse/adpositions.js': contract({ ops: ['REC'], targets: ['Field'], products: ['Kind'], stances: ['Composing'], note: 'adposition induction — the setting register, learned from the document' }),
   'src/perceiver/parse/boundaries.js': contract({ ops: ['EVA', 'REC', 'DEF'], targets: ['Field'], products: ['Paradigm'], stances: ['Composing'], note: 'boundary induction (meaning revises syntax)' }),
   'src/perceiver/parse/chrome.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Clearing'], note: 'degenerate-line guard' }),

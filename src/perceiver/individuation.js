@@ -21,6 +21,7 @@
 // Canon read: docs/holons.md (the composition holon, one grain up), docs/edge-grounding.md.
 
 import { projectGraph, deriveNull, boundedNull } from '../core/index.js';
+import { scanAbsoluteDescriptorCands } from './absolute-descriptors.js';
 
 // The five types the plane cuts a referent into (§2).
 export const REFERENT_TYPES = Object.freeze({
@@ -198,6 +199,21 @@ export const typeReferents = (doc, opts = {}) => {
       rho: rho ? rho.rho : (dr.rho || 0),
       subjShare: Number.isFinite(dr.subjShare) ? dr.subjShare : 1,  // a role epithet is subject of its clause
     });
+  }
+
+  // Ownerless absolute descriptions (absolute-descriptors.js), opt-gated for a byte-identical
+  // default, typed against the gates the ESTABLISHED cast sets — never a re-derived pool.
+  if (opts.absoluteDescriptors) {
+    const gates = deriveGates(cands, opts);
+    const have = new Set(cands.map((c) => c.id));
+    const extra = scanAbsoluteDescriptorCands(doc).map((a) => ({
+      id: provisionalId(a.roleKey), label: a.label, ins: false, provisional: true,
+      mass: a.mass, rho: a.rho, subjShare: a.subjShare,
+    })).filter((c) => !have.has(c.id));
+    const named = classifyReferents(cands, opts);
+    const added = extra.map((c) => classifyReferent(c, gates));
+    return [...named, ...added].sort((a, b) => b.salience - a.salience)
+      .map((c) => ({ ...c, boundName: bound.has(c.id) || undefined }));
   }
 
   return classifyReferents(cands, opts).map((c) => ({ ...c, boundName: bound.has(c.id) || undefined }));
