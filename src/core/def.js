@@ -41,13 +41,20 @@ export const isGrain   = (g) => GRAIN_SET.has(g);
 
 // The verdict value → the camelCase census key the distribution reports (and the label reads).
 const VERDICT_KEY = Object.freeze({
-  [VERDICTS.CORROBORATED]:  'corroborated',
-  [VERDICTS.UNSUPPORTED]:   'unsupported',
-  [VERDICTS.CONTRADICTED]:  'contradicted',
-  [VERDICTS.INDETERMINATE]: 'indeterminate',
-  [VERDICTS.OFF_DIAGONAL]:  'offDiagonal',
+  [VERDICTS.CORROBORATED]:   'corroborated',
+  [VERDICTS.CONSONANT]:      'consonant',
+  [VERDICTS.CIRCUMSTANTIAL]: 'circumstantial',
+  [VERDICTS.CONTRADICTED]:   'contradicted',
+  [VERDICTS.UNDERMINED]:     'undermined',
+  [VERDICTS.UNSUPPORTED]:    'unsupported',
+  [VERDICTS.INDETERMINATE]:  'indeterminate',
+  [VERDICTS.SILENT]:         'silent',
+  [VERDICTS.OFF_DIAGONAL]:   'offDiagonal',
 });
-const zeroCounts = () => ({ corroborated: 0, unsupported: 0, contradicted: 0, indeterminate: 0, offDiagonal: 0 });
+const zeroCounts = () => ({
+  corroborated: 0, consonant: 0, circumstantial: 0, contradicted: 0, undermined: 0,
+  unsupported: 0, indeterminate: 0, silent: 0, offDiagonal: 0,
+});
 
 // makeDef — construct a frozen DEF event. The shape of a re-judgeable judgment:
 //   verdict  — a typed verdict (core/verdicts.js); the cut, same vs other
@@ -142,8 +149,9 @@ export const createJudgmentLog = () => {
     };
     for (const ev of project().values()) tally(ev);
     for (const ev of events) if (ev.of == null) tally(ev);
-    counts.total = counts.corroborated + counts.unsupported + counts.contradicted
-      + counts.indeterminate + counts.offDiagonal;
+    counts.total = counts.corroborated + counts.consonant + counts.circumstantial
+      + counts.contradicted + counts.undermined + counts.unsupported + counts.indeterminate
+      + counts.silent + counts.offDiagonal;
     counts.byGrain = byGrain;
     return counts;
   };
