@@ -870,6 +870,7 @@ table{border-collapse:collapse;width:100%}
               <button onClick="{{ setWebKindEntity }}" title="The figures across the topic and the bonds among them" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindEntFg }};background:{{ webKindEntBg }}">Entities</button>
               <button onClick="{{ setWebKindNetwork }}" title="The sources themselves, linked by what they corroborate" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindNetworkFg }};background:{{ webKindNetworkBg }}">Network</button>
               <button onClick="{{ setWebKindCrosswalk }}" title="A referent's identity scrubbed across sources — what it was called, and what it merged with, as the corpus was read" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCrosswalkFg }};background:{{ webKindCrosswalkBg }}">Crosswalk</button>
+              <button onClick="{{ setWebKindCompare }}" title="A deterministic table — the same measure normalized across every source: cost, schedule, counts, revisions and disagreements included" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCompareFg }};background:{{ webKindCompareBg }}">Compare</button>
             </div>
             </sc-if>
           </div>
@@ -7047,7 +7048,7 @@ class Component extends DCLogic {
     }
   }
   setWebKind(kind) {
-    kind = (kind === 'network' || kind === 'crosswalk') ? kind : 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
+    kind = (kind === 'network' || kind === 'crosswalk' || kind === 'compare') ? kind : 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
     if (!this._wg || this._wg.kind === kind) return;
     this._wg.kind = kind;
     this._wg.hidden = new Set();                            // so reset the toggles and any focus and
@@ -7103,6 +7104,7 @@ class Component extends DCLogic {
     try {
       if (w.kind === 'network') this._drawNetwork(el, w);
       else if (w.kind === 'crosswalk') this._drawCrosswalk(el, w);
+      else if (w.kind === 'compare') this._drawCompare(el, w);
       else this._drawEntity(el, w);
     } catch (e) {
       el.innerHTML = '<div style="padding:20px;color:#B23A2E;font-size:12.5px">Graph failed to draw: ' + String((e && e.message) || e) + '</div>';
@@ -7156,6 +7158,80 @@ class Component extends DCLogic {
       nodes: show.nodes, edges: show.edges,
       countsLabel: `${show.nodes.length} nodes · ${show.edges.length} edges`,
     });
+  }
+  // The Compare surface (src/enactor/factcheck/matrix.js) — a deterministic table, not a
+  // graph: one row per measure any source states (a budget, a completion date, a count),
+  // one cell per source, and a short computed 'reading' (revised/agree/disagree). Toggling
+  // scopes by SOURCE, same vocabulary as Network, so hiding a source drops its column and any
+  // row left with nothing to show. Built with plain DOM (no tiered-graph mount) since a table
+  // is the honest shape for this data — a click on a cell opens the source at that passage.
+  _drawCompare(el, w) {
+    const srcs = this._app.topicSources ? this._app.topicSources() : [];
+    this._tgToggles = srcs.map((s) => ({ id: s.sn, label: s.title || s.reg || s.sn }))
+      .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    const hidden = w.hidden || new Set();
+    const cols = srcs.filter((s) => !hidden.has(s.sn));
+    const visible = new Set(cols.map((s) => s.sn));
+    const data = this._app.comparisonMatrix ? this._app.comparisonMatrix() : { rows: [] };
+    const rows = data.rows
+      .map((r) => ({ ...r, cells: r.cells.filter((c) => visible.has(c.source)) }))
+      .filter((r) => r.cells.length);
+    el.innerHTML = '';
+    if (!cols.length || !rows.length) {
+      const msg = !srcs.length ? 'Record at least one source to populate the comparison.'
+        : !cols.length ? 'Every source is hidden — turn one back on in the rail.'
+        : 'No measures match the sources currently shown — a shared figure (a budget, a date, a count) across two or more sources populates a row.';
+      el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:60ch">' + msg + '</div>';
+      return;
+    }
+    const esc = (str) => String(str ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'padding:16px;overflow:auto;height:100%;box-sizing:border-box;';
+    const note = document.createElement('div');
+    note.style.cssText = 'font-family:var(--mono,ui-monospace,monospace);font-size:11px;color:#9A9AA4;margin-bottom:10px;';
+    note.textContent = `${rows.length} measure${rows.length === 1 ? '' : 's'} · ${cols.length} source${cols.length === 1 ? '' : 's'} · ${data.counts ? data.counts.quantities : 0} figures read`;
+    wrap.appendChild(note);
+    const table = document.createElement('table');
+    table.style.cssText = 'border-collapse:collapse;width:100%;font-size:12.5px;';
+    const thCss = (first) => 'text-align:left;padding:8px 12px;border-bottom:1.5px solid #E5E5EC;font-size:10.5px;font-weight:700;letter-spacing:.04em;color:#9A9AA4;white-space:nowrap;' + (first ? '' : 'min-width:120px;');
+    const tdCss = (first) => 'padding:9px 12px;border-bottom:1px solid #F0F0F4;vertical-align:top;' + (first ? '' : 'min-width:120px;');
+    const thead = document.createElement('thead'); const headRow = document.createElement('tr');
+    const thM = document.createElement('th'); thM.textContent = 'Measure'; thM.style.cssText = thCss(true); headRow.appendChild(thM);
+    cols.forEach((s) => { const th = document.createElement('th'); th.textContent = s.title || s.reg || s.sn; th.style.cssText = thCss(false); headRow.appendChild(th); });
+    const thR = document.createElement('th'); thR.textContent = 'Reading'; thR.style.cssText = thCss(false); headRow.appendChild(thR);
+    thead.appendChild(headRow); table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    const CMP = { gte: '≥', lte: '≤', gt: '>', lt: '<' };
+    rows.forEach((r) => {
+      const tr = document.createElement('tr');
+      const tdM = document.createElement('td'); tdM.style.cssText = tdCss(true);
+      tdM.innerHTML = '<div style="font-weight:600;color:#1B1B22;text-transform:capitalize">' + esc(r.measureLabel) + '</div>' +
+        (r.subject ? '<div style="font-size:11px;color:#9A9AA4;margin-top:2px;max-width:20ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.subject) + '</div>' : '');
+      tr.appendChild(tdM);
+      cols.forEach((s) => {
+        const c = r.cells.find((x) => x.source === s.sn);
+        const td = document.createElement('td'); td.style.cssText = tdCss(false);
+        if (c) {
+          const btn = document.createElement('button'); btn.type = 'button';
+          btn.style.cssText = 'all:unset;cursor:pointer;color:#2A2A32;display:block;font-size:12.5px;';
+          btn.title = 'Open the source passage this figure was read from';
+          const bound = c.comparator && CMP[c.comparator] ? CMP[c.comparator] + ' ' : '';
+          btn.textContent = c.changedFromRaw ? (c.changedFromRaw + ' → ' + bound + c.raw) : (bound + c.raw);
+          btn.addEventListener('mouseenter', () => { btn.style.textDecoration = 'underline'; });
+          btn.addEventListener('mouseleave', () => { btn.style.textDecoration = 'none'; });
+          btn.addEventListener('click', () => this.openViewer(s.sn, c.text));
+          td.appendChild(btn);
+        } else {
+          td.innerHTML = '<span style="color:#D2D2D8">—</span>';
+        }
+        tr.appendChild(td);
+      });
+      const tdR = document.createElement('td'); tdR.style.cssText = tdCss(false);
+      tdR.innerHTML = r.reading ? '<span style="color:#5A5A64">' + esc(r.reading) + '</span>' : '<span style="color:#D2D2D8">—</span>';
+      tr.appendChild(tdR);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody); wrap.appendChild(table); el.appendChild(wrap);
   }
   // The Network surface (src/wiki/network-article.js) — the topic's sources themselves, linked
   // by what they corroborate, not a bag of entity nodes. Toggling scopes by SOURCE (not entity —
@@ -7229,6 +7305,7 @@ class Component extends DCLogic {
     const isEnt = kind === 'entity';
     const isNetwork = kind === 'network';
     const isCrosswalk = kind === 'crosswalk';
+    const isCompare = kind === 'compare';
     const focusName = isEnt ? (wg.entLabel || 'this entity') : (wg.focusLabel || 'this node');
     const hasFocus = scope === 'entity' && (isEnt ? wg.entId != null : !!wg.focusKey);
     // The details panel — the profile of the entity the overlay opened on (or the one last
@@ -7253,10 +7330,12 @@ class Component extends DCLogic {
       setWebKindEntity: () => this.setWebKind('entity'),
       setWebKindNetwork: () => this.setWebKind('network'),
       setWebKindCrosswalk: () => this.setWebKind('crosswalk'),
+      setWebKindCompare: () => this.setWebKind('compare'),
       setWebKindCausal: () => this.setWebKind('causal'),
       webKindEntFg: isEnt ? '#1B1B22' : '#8A8A95', webKindEntBg: isEnt ? '#fff' : 'transparent',
       webKindNetworkFg: isNetwork ? '#1B1B22' : '#8A8A95', webKindNetworkBg: isNetwork ? '#fff' : 'transparent',
       webKindCrosswalkFg: isCrosswalk ? '#1B1B22' : '#8A8A95', webKindCrosswalkBg: isCrosswalk ? '#fff' : 'transparent',
+      webKindCompareFg: isCompare ? '#1B1B22' : '#8A8A95', webKindCompareBg: isCompare ? '#fff' : 'transparent',
       webKindCausalFg: !isEnt ? '#1B1B22' : '#8A8A95', webKindCausalBg: !isEnt ? '#fff' : 'transparent',
       webGraphTitle: hasFocus ? focusName : 'Whole topic',
       setWebScopeTopic: () => this.setWebScope('topic'),
@@ -7271,11 +7350,13 @@ class Component extends DCLogic {
         ? 'The sources themselves, linked by what they corroborate — never merged on a bare label match. A source that shares nothing with the others stays visibly its own node.'
         : isCrosswalk
         ? 'A referent folded across sources by corroborated identity, never spelling alone. Scrub the ⏱ time axis at the sequence grain for the corpus cursor (one band per source, in reading order); a "…" claim node marks where its dominant label changed.'
+        : isCompare
+        ? 'A deterministic table — the same measure (a budget, a date, a count) normalized across every source, revisions and bounds ("at least", "not before") included. Click a cell to open its source passage. No model is involved.'
         : 'What the sources are read as asserting causes what. Open a node, then “focus the DAG here”.',
-      webToggleHead: `${isEnt ? 'ENTITIES' : isNetwork ? 'SOURCES' : isCrosswalk ? 'REFERENTS' : 'NODES'} ${onCount}/${toggles.length}`,
+      webToggleHead: `${isEnt ? 'ENTITIES' : isNetwork ? 'SOURCES' : isCrosswalk ? 'REFERENTS' : isCompare ? 'SOURCES' : 'NODES'} ${onCount}/${toggles.length}`,
       // Show the filter once the list is long enough to be worth searching.
       webSearchShow: toggles.length >= 8,
-      webSearchPlaceholder: `Filter ${isEnt ? 'entities' : isNetwork ? 'sources' : isCrosswalk ? 'referents' : 'nodes'}…`,
+      webSearchPlaceholder: `Filter ${isEnt ? 'entities' : isNetwork ? 'sources' : isCrosswalk ? 'referents' : isCompare ? 'sources' : 'nodes'}…`,
       webEntQuery: query,
       webSearchHasQuery: ql.length > 0,
       onWebEntSearch: (e) => this.setState({ webEntQuery: e && e.target ? e.target.value : '' }),
@@ -7294,8 +7375,10 @@ class Component extends DCLogic {
       webTogglesEmptyMsg: toggles.length === 0
         ? (isEnt ? 'No entities in this topic yet — record a source first.'
            : isNetwork ? 'Not enough sources corroborate each other yet — record a second source that shares a figure with the first.'
+           : isCrosswalk ? 'No shared referents corroborated across two or more sources yet.'
+           : isCompare ? 'No sources recorded yet — add one to begin comparing.'
            : 'No causal claims read in these sources yet.')
-        : `No ${isEnt ? 'entities' : isNetwork ? 'sources' : 'nodes'} match “${query}”.`,
+        : `No ${isEnt ? 'entities' : isNetwork ? 'sources' : isCompare ? 'sources' : 'nodes'} match “${query}”.`,
     };
   }
 

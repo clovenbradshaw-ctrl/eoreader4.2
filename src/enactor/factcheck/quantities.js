@@ -45,15 +45,65 @@ const UNIT_RULES = Object.freeze([
 // A quantity's measure label for display ("capacity" → "capacity (MW)", "co2" → "CO₂").
 export const measureLabel = (measure, unit) => {
   const M = { capacity: 'capacity', homes: 'homes powered', co2: 'CO₂ reduction', jobs: 'jobs',
-    cost: 'cost', acres: 'acreage', energy: 'annual output', tonnage: 'tonnage', percent: 'share' };
+    cost: 'cost', acres: 'acreage', energy: 'annual output', tonnage: 'tonnage', percent: 'share',
+    completion: 'completion' };
   const base = M[measure] || measure;
   return unit && unit !== measure ? `${base} (${unit})` : base;
 };
 
-// Read the magnitudes a stretch of text states. Returns [{ value, unit, measure, raw }].
-// A number with no recognizable measure is DROPPED (a bare "2021", a footnote "[3]"): an
-// ungoverned magnitude has nothing to be compared against, and guessing one would invent
-// a conflict, the very failure this module exists to avoid.
+// ── Change language ("from X to Y") and comparator language ("at least X") ──────
+//
+// A source rarely just STATES a figure — it revises one ("the budget, revised from $120
+// million to $145 million"), or bounds one ("at least $145 million", "not before 2032").
+// Both are read here, off the number's own surrounding text, so a downstream comparison
+// (crosscheck.js's cross-source pass, the comparison matrix) can prefer the CURRENT value
+// of a revision instead of picking whichever number happened to print first in the
+// sentence, and can carry a stated bound through to display instead of silently dropping it.
+//
+// CHANGE_VERBS: the verb that licenses reading two same-measure numbers, joined by "to",
+// as one figure's old value and new value — never a bare "to" (which reads as prose in a
+// hundred other constructions). "from" alone also licenses it — "from $120M to $145M".
+const CHANGE_VERBS = /\b(?:from|revised\s+from|changed\s+from|updated\s+from|moved\s+from|up\s+from|down\s+from|increased\s+from|decreased\s+from|raised\s+from|lowered\s+from|rose\s+from|fell\s+from|grew\s+from|shrank\s+from|shrunk\s+from)\s*$/i;
+// A single figure named as the CURRENT one, with no "from" partner in this sentence — the
+// old value may sit in a different sentence, or may not be on record at all; either way this
+// figure is the one to prefer.
+const CURRENT_VERBS = /\b(?:revised|updated|changed|upgraded|amended|now|currently)\s+(?:to\s+|at\s+)?$/i;
+
+// A comparator names a BOUND, not a point value: "at least $145M" means the true figure is
+// >= 145M, not that it equals 145M. Ordered longest-phrase-first so "no more than" doesn't
+// fall through to a looser rule. Read off the text immediately BEFORE the number.
+const COMPARATORS = Object.freeze([
+  { re: /\bat\s+least\s*$/i, cmp: 'gte' }, { re: /\bno\s+less\s+than\s*$/i, cmp: 'gte' },
+  { re: /\bnot\s+before\s*$/i, cmp: 'gte' }, { re: /\bno\s+earlier\s+than\s*$/i, cmp: 'gte' },
+  { re: /\bno\s+more\s+than\s*$/i, cmp: 'lte' }, { re: /\bnot\s+more\s+than\s*$/i, cmp: 'lte' },
+  { re: /\bno\s+later\s+than\s*$/i, cmp: 'lte' }, { re: /\bnot\s+later\s+than\s*$/i, cmp: 'lte' },
+  { re: /\bup\s+to\s*$/i, cmp: 'lte' },
+  { re: /\bmore\s+than\s*$/i, cmp: 'gt' }, { re: /\bover\s*$/i, cmp: 'gt' },
+  { re: /\bless\s+than\s*$/i, cmp: 'lt' }, { re: /\bunder\s*$/i, cmp: 'lt' },
+]);
+const comparatorBefore = (s, start) => {
+  const before = s.slice(Math.max(0, start - 26), start);
+  for (const c of COMPARATORS) if (c.re.test(before)) return c.cmp;
+  return null;
+};
+
+// A bare year ("2030") carries no trailing unit, so the main loop below correctly drops it
+// as an ungoverned number — UNLESS it sits under a completion/schedule word ("finish in
+// 2030", "target completion 2032", "deadline of 2030"), in which case it is exactly the kind
+// of governed figure two sources can disagree about ("2030" vs "2032"). The context word
+// must precede the year within a short window so an unrelated nearby year never qualifies.
+const YEAR_CONTEXT = /\b(?:complet(?:e|ed|ion|ing)|finish(?:ed|es|ing)?|schedul(?:e|ed|ing)|target(?:ed)?|deadline|due|launch(?:ed|es|ing)?|open(?:ed|s|ing)?|planned|expect(?:ed)?|slated|set\s+for)\b[^.?!]{0,24}$/i;
+const YEAR_RE = /\b((?:19|20)\d{2})\b/g;
+
+// Read the magnitudes a stretch of text states. Returns [{ value, unit, measure, raw, start,
+// end, comparator, role }]. A number with no recognizable measure is DROPPED (a bare "2021",
+// a footnote "[3]"): an ungoverned magnitude has nothing to be compared against, and guessing
+// one would invent a conflict, the very failure this module exists to avoid.
+//
+// role is null, 'old', or 'new' — set only when the SENTENCE ITSELF licenses reading a
+// number as a revision (readQuantities never infers a change across sentences or sources).
+// A 'new' record paired with an 'old' one also carries changeId (shared by the pair) so a
+// caller can print "$120M → $145M" instead of just the current figure.
 export const readQuantities = (text) => {
   const s = String(text || '');
   const out = [];
@@ -64,21 +114,59 @@ export const readQuantities = (text) => {
     const dollar = !!m[1];
     let value = parseFloat(m[2].replace(/,/g, ''));
     if (!Number.isFinite(value)) continue;
-    const after = s.slice(re.lastIndex).toLowerCase();
+    const numEnd = re.lastIndex;
+    const after = s.slice(numEnd).toLowerCase();
     const sc = after.match(/^\s*(thousand|million|billion|trillion|bn|mn)\b/);
     const scaleMul = sc ? (SCALE[sc[1]] || 1) : 1;
     const afterScale = sc ? after.slice(sc[0].length) : after;
-    let unit = null, measure = null;
+    let unit = null, measure = null, unitLen = 0;
     for (const u of UNIT_RULES) {
-      if (u.re.test(afterScale)) { measure = u.measure; unit = u.unit; if (u.mul) value *= u.mul; break; }
+      const um = afterScale.match(u.re);
+      if (um) { measure = u.measure; unit = u.unit; unitLen = um[0].length; if (u.mul) value *= u.mul; break; }
     }
     value *= scaleMul;
     // A dollar sign names the measure regardless of a trailing noun ("$2.5 billion").
     if (dollar) { measure = 'cost'; unit = 'USD'; }
     if (!measure) continue;
-    out.push({ value, unit, measure, raw: `${dollar ? '$' : ''}${m[2]}${sc ? sc[0].replace(/\s+/g, ' ') : ''}`.trim() });
+    out.push({
+      value, unit, measure, raw: `${dollar ? '$' : ''}${m[2]}${sc ? sc[0].replace(/\s+/g, ' ') : ''}`.trim(),
+      start: m.index, end: numEnd + (sc ? sc[0].length : 0) + unitLen,
+      role: null, changeId: null, comparator: comparatorBefore(s, m.index),
+    });
   }
-  return out;
+  // A completion/schedule year — read only under YEAR_CONTEXT, kept in reading order with
+  // the rest so the change-pairing pass below sees it alongside any other completion figure.
+  let ym;
+  while ((ym = YEAR_RE.exec(s))) {
+    const start = ym.index, end = YEAR_RE.lastIndex;
+    if (!YEAR_CONTEXT.test(s.slice(Math.max(0, start - 40), start))) continue;
+    out.push({
+      value: parseInt(ym[1], 10), unit: 'year', measure: 'completion', raw: ym[1],
+      start, end, role: null, changeId: null, comparator: comparatorBefore(s, start),
+    });
+  }
+  out.sort((a, b) => a.start - b.start);
+
+  // "from $120M to $145M" / "the deadline moved from 2030 to 2032" — a same-measure pair
+  // joined by a bare "to", licensed by a change verb just before the first figure.
+  const byMeasure = new Map();
+  out.forEach((q) => { const a = byMeasure.get(q.measure) || []; a.push(q); byMeasure.set(q.measure, a); });
+  let chg = 0;
+  for (const arr of byMeasure.values()) {
+    for (let i = 0; i < arr.length - 1; i++) {
+      const a = arr[i], b = arr[i + 1];
+      if (a.role || b.role) continue;
+      const gap = s.slice(a.end, b.start);
+      if (!/^\s*(?:to|through|thru)\s*$/i.test(gap)) continue;
+      if (!CHANGE_VERBS.test(s.slice(Math.max(0, a.start - 30), a.start))) continue;
+      const id = `${a.measure}-chg-${chg++}`;
+      a.role = 'old'; b.role = 'new'; a.changeId = id; b.changeId = id;
+    }
+  }
+  // A lone "revised to $145M" — a current figure with no "from" partner in this sentence.
+  for (const q of out) if (!q.role && CURRENT_VERBS.test(s.slice(Math.max(0, q.start - 24), q.start))) q.role = 'new';
+
+  return out.map(({ start, end, ...q }) => q);
 };
 
 // ── Legible prose vs mis-decoded bytes ───────────────────────────────────────

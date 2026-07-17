@@ -5,7 +5,7 @@
 // findings + provenance (the graph tab, honest)
 import { discourseDag, assertedDag } from '../../../surfer/dag/index.js';
 import { inferSignificance } from '../../../surfer/fold/index.js';
-import { crossSourceConflicts } from '../../../enactor/factcheck/index.js';
+import { crossSourceConflicts, comparisonMatrix } from '../../../enactor/factcheck/index.js';
 import { claimsFromDoc, claimPhrase, rankFragility, buildChronology } from '../../../perceiver/index.js';
 import { recordClaims } from '../claims.js';
 import { shaShort } from './util.js';
@@ -31,6 +31,27 @@ export const installFindings = (appCtx) => {
       val = crossSourceConflicts(entries).conflicts;
     } catch { val = []; }
     _xsMemo = { sig, val };
+    return val;
+  };
+
+  // The comparison matrix (docs the report as "the surface the app really needs") — the
+  // wider, corroboration-included sibling of sourceConflicts: one row per measure ANY
+  // source states, one cell per source, not only the measures two sources happen to
+  // contest. Same memo discipline (recomputes only when the topic's source set changes).
+  let _cmMemo = { sig: null, val: null };
+  const EMPTY_MATRIX = { rows: [], counts: { rows: 0, measuresCompared: 0, quantities: 0, sources: 0 } };
+  const topicComparisonMatrix = () => {
+    const srcs = appCtx.topicSources();
+    const sig = srcs.map((s) => `${s.sn}:${(appCtx.docFor(s)?.sentences || []).length}`).join('|');
+    if (_cmMemo.sig === sig) return _cmMemo.val;
+    let val = EMPTY_MATRIX;
+    try {
+      const entries = srcs
+        .map((s) => ({ doc: appCtx.docFor(s), source: s.sn, label: s.title }))
+        .filter((e) => e.doc && e.doc.admission);
+      val = comparisonMatrix(entries);
+    } catch { val = EMPTY_MATRIX; }
+    _cmMemo = { sig, val };
     return val;
   };
 
@@ -191,5 +212,5 @@ export const installFindings = (appCtx) => {
     return { scope: 'topic', sources: srcs.map((s) => ({ sn: s.sn, title: s.title || null })), ...buildChronology(items) };
   };
 
-  Object.assign(appCtx, { dagFor, findings, provenance, topicEntitySummaries, fragilitySource, fragilityTopic, chronologySource, chronologyTopic });
+  Object.assign(appCtx, { dagFor, findings, provenance, topicEntitySummaries, fragilitySource, fragilityTopic, chronologySource, chronologyTopic, comparisonMatrix: topicComparisonMatrix });
 };

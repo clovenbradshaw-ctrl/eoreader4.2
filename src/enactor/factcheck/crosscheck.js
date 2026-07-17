@@ -32,6 +32,16 @@ import { readQuantities, measureLabel, isLegibleProse, replacementRatio } from '
 // source is prose at all (isLegibleProse) live in ./quantities.js. This file binds each
 // magnitude to its subject and runs the cross-source pass over the bound records.
 
+// A measure's MAGNITUDE and a measure's ORDINAL label are different kinds of quantity.
+// "45MW" vs "45.2MW" is one fact rounded two ways, so the 5%-of-magnitude default band
+// (quantitiesConflict) rightly defers. A calendar year is never a rounding of another —
+// "2030" vs "2032" is a two-year slip a reader needs to see, but at a year's own scale
+// (~2000) the same 5% band swallows it whole (a ~100-year tolerance). Discrete measures
+// get an exact-match band unless the caller overrides it.
+const DISCRETE_MEASURES = new Set(['completion']);
+export const toleranceFor = (measure, { relTol, absTol }) =>
+  DISCRETE_MEASURES.has(measure) ? { relTol: 0, absTol: 0 } : { relTol, absTol };
+
 // ── Binding a magnitude to its subject ───────────────────────────────────────
 
 // The doc's dominant referent — the fallback subject for a sentence whose own field is
@@ -69,12 +79,23 @@ export const extractQuantities = (doc, meta = {}) => {
     const field = documentFieldAt(doc, i);
     const top = field && field[0];
     const subjLabel = (top && doc.admission.labelOf?.(top.id)) || domLabel || null;
-    for (const q of qs) out.push({
-      subj: top?.id ?? null, subjLabel,
-      measure: q.measure, value: q.value, unit: q.unit, raw: q.raw,
-      sentIdx: i, text: sents[i],
-      source, sourceLabel: meta.label ?? meta.title ?? null, date: meta.date ?? null,
-    });
+    for (const q of qs) {
+      // A 'new'-role figure paired (readQuantities' changeId) with an 'old' one in the SAME
+      // sentence carries its prior value along, so a witness pick or a matrix cell can print
+      // "$120M → $145M" instead of silently discarding what it was revised from.
+      let changedFromRaw = null, changedFromValue = null;
+      if (q.role === 'new' && q.changeId) {
+        const was = qs.find((x) => x.changeId === q.changeId && x.role === 'old');
+        if (was) { changedFromRaw = was.raw; changedFromValue = was.value; }
+      }
+      out.push({
+        subj: top?.id ?? null, subjLabel,
+        measure: q.measure, value: q.value, unit: q.unit, raw: q.raw,
+        role: q.role || null, comparator: q.comparator || null, changedFromRaw, changedFromValue,
+        sentIdx: i, text: sents[i],
+        source, sourceLabel: meta.label ?? meta.title ?? null, date: meta.date ?? null,
+      });
+    }
   }
   return out;
 };
@@ -94,7 +115,7 @@ const GENERIC = new Set(['the', 'a', 'an', 'this', 'that', 'it', 'its', 'their',
 const nameTokens = (label) => new Set(
   String(label || '').toLowerCase().replace(/['’]/g, '').split(/[^a-z0-9]+/)
     .filter((t) => t.length > 2 && !GENERIC.has(t)));
-const subjectsCompatible = (a, b) => {
+export const subjectsCompatible = (a, b) => {
   if (!a || !b) return true;                       // unresolved → defer to the measure scope
   const A = nameTokens(a), B = nameTokens(b);
   if (!A.size || !B.size) return true;             // only generics on a side → defer
@@ -141,6 +162,7 @@ export const crossSourceConflicts = (sources = [], opts = {}) => {
 
   const conflicts = [];
   for (const [measure, recs] of byMeasure) {
+    const tol = toleranceFor(measure, { relTol, absTol });
     // Any cross-source, subject-compatible pair that disagrees beyond tolerance?
     let hit = false;
     for (let i = 0; i < recs.length && !hit; i++) {
@@ -148,20 +170,28 @@ export const crossSourceConflicts = (sources = [], opts = {}) => {
         const a = recs[i], b = recs[j];
         if (a.source === b.source) continue;                       // one source is not a disagreement
         if (!subjectsCompatible(a.subjLabel, b.subjLabel)) continue;
-        if (quantitiesConflict(a.value, b.value, { relTol, absTol }).conflict) hit = true;
+        if (quantitiesConflict(a.value, b.value, tol).conflict) hit = true;
       }
     }
     if (!hit) continue;
-    // Collect one witness per source (first mention), so the finding shows the full spread.
+    // Collect one witness per source — first mention, UNLESS a later mention in that same
+    // source is flagged 'new' (readQuantities' change-language read, "revised from X to Y"):
+    // a revision's CURRENT figure is the source's actual witness, not whichever number the
+    // sentence happened to print first. (The reported failure: a PDF stating "revised from
+    // $120M to $145M" was witnessed at its stale $120M because first-mention ignored role.)
     const bySource = new Map();
-    for (const r of recs) if (!bySource.has(r.source)) bySource.set(r.source, r);
+    for (const r of recs) {
+      const cur = bySource.get(r.source);
+      if (!cur || (r.role === 'new' && cur.role !== 'new')) bySource.set(r.source, r);
+    }
     const witnesses = [...bySource.values()];
     // Keep only the witnesses whose subject is compatible with the conflict's subject.
     const subject = subjectOf(witnesses);
     const values = witnesses
       .filter((r) => subjectsCompatible(r.subjLabel, subject))
       .map((r) => ({ value: r.value, unit: r.unit, raw: r.raw, source: r.source,
-        sourceLabel: r.sourceLabel, sentIdx: r.sentIdx, text: r.text }));
+        sourceLabel: r.sourceLabel, sentIdx: r.sentIdx, text: r.text,
+        comparator: r.comparator || null, changedFromRaw: r.changedFromRaw || null }));
     if (new Set(values.map((v) => v.source)).size < 2) continue;   // needs ≥2 distinct sources
     conflicts.push({
       id: `X-${measure}`, measure, measureLabel: measureLabel(measure, values[0]?.unit),

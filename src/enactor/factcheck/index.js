@@ -40,6 +40,11 @@ export {
 export {
   crossSourceConflicts, extractQuantities, unpackComposite,
 } from './crosscheck.js';
+// The wider, corroboration-included read of the same extraction (crosscheck.js splits
+// under the god-module ratchet, the same reason quantities.js split out before it).
+export {
+  comparisonMatrix,
+} from './matrix.js';
 // Text-reading half of the pass — magnitudes and legibility (crosscheck.js splits under
 // the god-module ratchet). Re-exported here so the holon's public surface is unchanged.
 export {
