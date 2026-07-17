@@ -15,4 +15,5 @@ export const CONTRACTS = Object.freeze({
   'src/wiki/migrate.js': contract({ ops: ['REC', 'SEG'], targets: ['Void'], products: ['Entity', 'Network'], stances: ['Composing', 'Unraveling'], note: 'terrain migration — supersession, never overwrite' }),
   'src/wiki/render.js': contract({ ops: ['SIG', 'CON'], targets: ['Entity'], products: ['Lens', 'Atmosphere'], stances: ['Binding', 'Tending'], note: 'the narrow-panel + hero article view' }),
   'src/wiki/index.js': contract({ ops: ['SYN', 'SIG'], targets: ['Kind'], products: ['Network', 'Field'], stances: ['Composing', 'Binding'], note: 'the wiki holon barrel' }),
+  'src/wiki/network-article.js': contract({ ops: ['SYN', 'DEF'], targets: ['Entity'], products: ['Link', 'Network'], stances: ['Making', 'Composing'], note: 'a corpus-level Network article, built bottom-up from cross-source Links' }),
 });
