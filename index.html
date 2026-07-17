@@ -870,6 +870,7 @@ table{border-collapse:collapse;width:100%}
               <button onClick="{{ setWebKindEntity }}" title="The figures across the topic and the bonds among them" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindEntFg }};background:{{ webKindEntBg }}">Entities</button>
               <button onClick="{{ setWebKindNetwork }}" title="The sources themselves, linked by what they corroborate" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindNetworkFg }};background:{{ webKindNetworkBg }}">Network</button>
               <button onClick="{{ setWebKindCrosswalk }}" title="A referent's identity scrubbed across sources — what it was called, and what it merged with, as the corpus was read" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCrosswalkFg }};background:{{ webKindCrosswalkBg }}">Crosswalk</button>
+              <button onClick="{{ setWebKindCompare }}" title="A measure-by-source table — what each source says a value is, and the value it revised from; every cell opens its passage" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCompareFg }};background:{{ webKindCompareBg }}">Compare</button>
             </div>
             </sc-if>
           </div>
@@ -3551,7 +3552,7 @@ class Component extends DCLogic {
         // scope, keeping the current kind) and redraw in place if the tab is showing — so a topic
         // switch never strands the previous topic's web nor blanks the canvas.
         if (this._wg) {
-          this._wg = { kind: ['causal', 'network', 'crosswalk'].includes(this._wg.kind) ? this._wg.kind : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+          this._wg = { kind: ['causal', 'network', 'crosswalk', 'compare'].includes(this._wg.kind) ? this._wg.kind : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
           this._tgToggles = []; this._wgPanel = null; this._seedWgPanel();
           this.setState({ webGraphFor: this._wgMirror() });
           if (this.state.tab === 'graph' && this._tgEl) this._drawWebGraph();
@@ -7047,7 +7048,7 @@ class Component extends DCLogic {
     }
   }
   setWebKind(kind) {
-    kind = (kind === 'network' || kind === 'crosswalk') ? kind : 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
+    kind = (kind === 'network' || kind === 'crosswalk' || kind === 'compare') ? kind : 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
     if (!this._wg || this._wg.kind === kind) return;
     this._wg.kind = kind;
     this._wg.hidden = new Set();                            // so reset the toggles and any focus and
@@ -7103,6 +7104,7 @@ class Component extends DCLogic {
     try {
       if (w.kind === 'network') this._drawNetwork(el, w);
       else if (w.kind === 'crosswalk') this._drawCrosswalk(el, w);
+      else if (w.kind === 'compare') this._drawCompare(el, w);
       else this._drawEntity(el, w);
     } catch (e) {
       el.innerHTML = '<div style="padding:20px;color:#B23A2E;font-size:12.5px">Graph failed to draw: ' + String((e && e.message) || e) + '</div>';
@@ -7155,6 +7157,53 @@ class Component extends DCLogic {
     this._tg = window.EO.mountTieredGraph(el, {
       nodes: show.nodes, edges: show.edges,
       countsLabel: `${show.nodes.length} nodes · ${show.edges.length} edges`,
+    });
+  }
+  // The Compare surface (src/enactor/factcheck/comparison.js) — the deterministic comparison
+  // matrix the corpus asks for: one row per measured thing, one column per source, each cell
+  // the value that source states (and the value it revised FROM), every cell opening its own
+  // passage. No graph, no model — the same reading the conflict banner runs, pivoted into a
+  // grid. It needs no tiered-graph mount, so it renders its own table straight into `el`.
+  _drawCompare(el, w) {
+    void w;
+    this._tgToggles = [];
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const m = (this._app.comparisonMatrix && this._app.comparisonMatrix()) || { rows: [], sources: [] };
+    if (!m.rows.length) {
+      el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:62ch;line-height:1.55">'
+        + 'Nothing to compare yet. This grid folds the <b>measured</b> values across the topic’s sources — a budget, a completion year, an acreage — so it fills once two or more sources state a figure about the same thing. Record another source that puts a number on what the first one did.'
+        + '</div>';
+      return;
+    }
+    const cols = m.sources || [];
+    const readTint = (r) => r.conflict ? '#B23A2E' : (r.changed ? '#B06A1B' : '#3E8E4F');
+    const readBg = (r) => r.conflict ? '#FBEDEB' : (r.changed ? '#FBF3E6' : '#EDF6EF');
+    const head = '<tr><th style="text-align:left;padding:8px 12px;position:sticky;left:0;background:#FAFAFC;font-size:11px;font-weight:700;color:#6A6A74;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #ECECF1">Measure</th>'
+      + cols.map((c) => `<th style="text-align:left;padding:8px 12px;font-size:11.5px;font-weight:700;color:#33333B;border-bottom:1px solid #ECECF1;min-width:96px">${esc(c.label || c.source)}</th>`).join('')
+      + '<th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:700;color:#6A6A74;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #ECECF1">Reading</th></tr>';
+    const rows = m.rows.map((r) => {
+      const cells = r.cells.map((cell) => {
+        if (!cell) return '<td style="padding:7px 12px;color:#C4C4CC;border-bottom:1px solid #F2F2F5">—</td>';
+        const tip = esc(cell.text || '');
+        const badge = cell.transition ? ' style="font-weight:650;color:#B06A1B"' : (cell.bound !== 'exact' ? ' style="color:#5A5A64"' : '');
+        return `<td data-sn="${esc(cell.source)}" data-text="${tip}" title="${tip}\n\n(click to open the passage)" `
+          + 'style="padding:7px 12px;border-bottom:1px solid #F2F2F5;cursor:pointer;font-size:12.5px" class="cmp-cell">'
+          + `<span${badge}>${esc(cell.display)}</span></td>`;
+      }).join('');
+      const measCell = `<th style="text-align:left;padding:7px 12px;position:sticky;left:0;background:#fff;font-size:12.5px;font-weight:650;color:#1B1B22;border-bottom:1px solid #F2F2F5;white-space:nowrap">${esc(r.measureLabel)}</th>`;
+      const reading = `<td style="padding:7px 12px;border-bottom:1px solid #F2F2F5"><span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;color:${readTint(r)};background:${readBg(r)}">${esc(r.reading)}</span></td>`;
+      return `<tr>${measCell}${cells}${reading}</tr>`;
+    }).join('');
+    const subj = m.rows.find((r) => r.subject) ? m.rows.find((r) => r.subject).subject : null;
+    el.innerHTML = '<div style="padding:6px 2px 2px;overflow:auto;max-height:100%">'
+      + (subj ? `<div style="padding:2px 12px 10px;font-size:12px;color:#8A8A95">Subject: <b style="color:#5A5A64">${esc(subj)}</b> · ${m.counts.conflicts} disagreement${m.counts.conflicts === 1 ? '' : 's'} across ${cols.length} source${cols.length === 1 ? '' : 's'}</div>` : '')
+      + '<table style="border-collapse:collapse;width:100%;font-family:inherit"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>';
+    // Every cell opens the exact passage it was read from — the matrix is an index into the record.
+    el.querySelectorAll('.cmp-cell').forEach((td) => {
+      td.addEventListener('click', () => {
+        const sn = td.getAttribute('data-sn'), text = td.getAttribute('data-text');
+        if (sn) { try { this.openViewer(sn, text || undefined); } catch {} }
+      });
     });
   }
   // The Network surface (src/wiki/network-article.js) — the topic's sources themselves, linked
@@ -7229,6 +7278,7 @@ class Component extends DCLogic {
     const isEnt = kind === 'entity';
     const isNetwork = kind === 'network';
     const isCrosswalk = kind === 'crosswalk';
+    const isCompare = kind === 'compare';
     const focusName = isEnt ? (wg.entLabel || 'this entity') : (wg.focusLabel || 'this node');
     const hasFocus = scope === 'entity' && (isEnt ? wg.entId != null : !!wg.focusKey);
     // The details panel — the profile of the entity the overlay opened on (or the one last
@@ -7253,10 +7303,12 @@ class Component extends DCLogic {
       setWebKindEntity: () => this.setWebKind('entity'),
       setWebKindNetwork: () => this.setWebKind('network'),
       setWebKindCrosswalk: () => this.setWebKind('crosswalk'),
+      setWebKindCompare: () => this.setWebKind('compare'),
       setWebKindCausal: () => this.setWebKind('causal'),
       webKindEntFg: isEnt ? '#1B1B22' : '#8A8A95', webKindEntBg: isEnt ? '#fff' : 'transparent',
       webKindNetworkFg: isNetwork ? '#1B1B22' : '#8A8A95', webKindNetworkBg: isNetwork ? '#fff' : 'transparent',
       webKindCrosswalkFg: isCrosswalk ? '#1B1B22' : '#8A8A95', webKindCrosswalkBg: isCrosswalk ? '#fff' : 'transparent',
+      webKindCompareFg: isCompare ? '#1B1B22' : '#8A8A95', webKindCompareBg: isCompare ? '#fff' : 'transparent',
       webKindCausalFg: !isEnt ? '#1B1B22' : '#8A8A95', webKindCausalBg: !isEnt ? '#fff' : 'transparent',
       webGraphTitle: hasFocus ? focusName : 'Whole topic',
       setWebScopeTopic: () => this.setWebScope('topic'),
@@ -7271,8 +7323,10 @@ class Component extends DCLogic {
         ? 'The sources themselves, linked by what they corroborate — never merged on a bare label match. A source that shares nothing with the others stays visibly its own node.'
         : isCrosswalk
         ? 'A referent folded across sources by corroborated identity, never spelling alone. Scrub the ⏱ time axis at the sequence grain for the corpus cursor (one band per source, in reading order); a "…" claim node marks where its dominant label changed.'
+        : isCompare
+        ? 'A measure-by-source table read deterministically off the record — one row per figure (a budget, a completion year, an acreage), one column per source. A cell shows the value that source states, and the move if it revised one ("$120M → $145M"). Click any cell to open its passage.'
         : 'What the sources are read as asserting causes what. Open a node, then “focus the DAG here”.',
-      webToggleHead: `${isEnt ? 'ENTITIES' : isNetwork ? 'SOURCES' : isCrosswalk ? 'REFERENTS' : 'NODES'} ${onCount}/${toggles.length}`,
+      webToggleHead: `${isEnt ? 'ENTITIES' : isNetwork ? 'SOURCES' : isCrosswalk ? 'REFERENTS' : isCompare ? 'MEASURES' : 'NODES'} ${onCount}/${toggles.length}`,
       // Show the filter once the list is long enough to be worth searching.
       webSearchShow: toggles.length >= 8,
       webSearchPlaceholder: `Filter ${isEnt ? 'entities' : isNetwork ? 'sources' : isCrosswalk ? 'referents' : 'nodes'}…`,
@@ -7294,6 +7348,8 @@ class Component extends DCLogic {
       webTogglesEmptyMsg: toggles.length === 0
         ? (isEnt ? 'No entities in this topic yet — record a source first.'
            : isNetwork ? 'Not enough sources corroborate each other yet — record a second source that shares a figure with the first.'
+           : isCompare ? 'The comparison is in the table on the left — it needs no filter.'
+           : isCrosswalk ? 'No referents folded across sources yet.'
            : 'No causal claims read in these sources yet.')
         : `No ${isEnt ? 'entities' : isNetwork ? 'sources' : 'nodes'} match “${query}”.`,
     };

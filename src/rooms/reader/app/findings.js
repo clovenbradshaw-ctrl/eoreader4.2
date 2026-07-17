@@ -5,7 +5,7 @@
 // findings + provenance (the graph tab, honest)
 import { discourseDag, assertedDag } from '../../../surfer/dag/index.js';
 import { inferSignificance } from '../../../surfer/fold/index.js';
-import { crossSourceConflicts } from '../../../enactor/factcheck/index.js';
+import { crossSourceConflicts, comparisonMatrix as buildComparisonMatrix } from '../../../enactor/factcheck/index.js';
 import { claimsFromDoc, claimPhrase, rankFragility, buildChronology } from '../../../perceiver/index.js';
 import { recordClaims } from '../claims.js';
 import { shaShort } from './util.js';
@@ -31,6 +31,28 @@ export const installFindings = (appCtx) => {
       val = crossSourceConflicts(entries).conflicts;
     } catch { val = []; }
     _xsMemo = { sig, val };
+    return val;
+  };
+
+  // The cross-source comparison matrix (enactor/factcheck/comparison.js) — one row per
+  // measured thing the corpus states, one column per source, each cell the value that
+  // source states (and the value it revised from). Built on the SAME reading the conflict
+  // banner runs, so the grid behind the "1 conflict" count is always the whole spread, not
+  // just the clashes. Memoized on the same source signature as sourceConflicts.
+  let _cmMemo = { sig: null, val: null };
+  const comparisonMatrix = () => {
+    const srcs = appCtx.topicSources();
+    const sig = srcs.map((s) => `${s.sn}:${(appCtx.docFor(s)?.sentences || []).length}`).join('|');
+    if (_cmMemo.sig === sig) return _cmMemo.val;
+    let val = { rows: [], sources: [], counts: { rows: 0, measures: 0, conflicts: 0, sources: 0 } };
+    try {
+      const entries = srcs
+        .map((s) => ({ doc: appCtx.docFor(s), source: s.sn, label: s.title || s.reg || s.sn,
+          date: appCtx.srcTimeMs ? appCtx.srcTimeMs(s) : null }))
+        .filter((e) => e.doc && e.doc.admission);
+      val = buildComparisonMatrix(entries);
+    } catch { /* keep the empty matrix */ }
+    _cmMemo = { sig, val };
     return val;
   };
 
@@ -191,5 +213,5 @@ export const installFindings = (appCtx) => {
     return { scope: 'topic', sources: srcs.map((s) => ({ sn: s.sn, title: s.title || null })), ...buildChronology(items) };
   };
 
-  Object.assign(appCtx, { dagFor, findings, provenance, topicEntitySummaries, fragilitySource, fragilityTopic, chronologySource, chronologyTopic });
+  Object.assign(appCtx, { dagFor, findings, provenance, comparisonMatrix, topicEntitySummaries, fragilitySource, fragilityTopic, chronologySource, chronologyTopic });
 };
