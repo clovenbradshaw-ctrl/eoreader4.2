@@ -128,6 +128,26 @@ test('pickReferent ranks the corroborated referent above the lexical stranger', 
   assert.equal(best.title, 'Outside (magazine)');
 });
 
+test('pickReferent REFUSES Elizabeth I of England for a fictional Elizabeth in Pride and Prejudice', () => {
+  // The bare label "Elizabeth" plus a Regency-novel graph (Darcy, Bennet, Wickham,
+  // Collins) must never confirm the historical Queen: her article shares none of the
+  // graph's specific proper names, and generic kinship/royal words ("daughter",
+  // "sister", "queen") are not corroboration.
+  const ctx = referentContext({
+    label: 'Elizabeth',
+    statements: ['Elizabeth is the second daughter of Mr and Mrs Bennet.', 'She has four sisters.'],
+    neighbors: ['Mr Darcy', 'Mrs Bennet', 'Mr Collins', 'Wickham', 'Mr Bingley', 'Jane', 'Lady Catherine'],
+  });
+  const best = pickReferent('Elizabeth', ctx, [{
+    title: 'Elizabeth I',
+    description: 'Queen of England and Ireland from 1558 to 1603',
+    extract: 'Elizabeth I was Queen of England and Ireland. She was the daughter of Henry VIII and Anne Boleyn, ' +
+      'and the sister of Mary I. She never married.',
+  }]);
+  assert.equal(best.confirmed, false);
+  assert.equal(best.disconfirmed, true);
+});
+
 test('pickReferent returns null on an empty candidate set', () => {
   assert.equal(pickReferent('Anything', referentContext({ label: 'Anything' }), []), null);
 });

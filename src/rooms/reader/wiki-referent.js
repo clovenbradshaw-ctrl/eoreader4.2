@@ -37,12 +37,12 @@ const STOP = new Set(('the a an of to in on at for and or but with by from as is
 // Org-type / geographic / calendar filler that is NOT an identifying referent. These
 // collide across unrelated topics (a solar "corporation" vs a security "corporation"),
 // so they must never count as coref corroboration — only true proper names do.
-const GENERIC_NAMES = new Set(('state city cities county counties court courts board council councils department ' +
-  'departments division office agency authority commission committee bureau national federal american inc llc ltd co ' +
-  'company companies corporation corp management partnership group holdings services service systems system solutions ' +
-  'association foundation institute university college school center centre downtown district new north south east west ' +
-  'northern southern eastern western street road avenue region area january february march april may june july august ' +
-  'september october november december monday tuesday wednesday thursday friday saturday sunday').split(' '));
+const GENERIC_NAMES = new Set(('state city cities county counties court courts board council councils department departments division office agency authority commission committee bureau national federal ' +
+  'american inc llc ltd co company companies corporation corp management partnership group holdings services service systems system solutions association foundation institute ' +
+  'university college school center centre downtown district new north south east west northern southern eastern western street road avenue region area ' +
+  'january february march april may june july august september october november december monday tuesday wednesday thursday friday saturday sunday daughter daughters ' +
+  'son sons sister sisters brother brothers mother father parent parents husband wife widow widower married marriage king queen prince princess crown ' +
+  'throne reign kingdom monarch royal empire emperor empress duke duchess earl countess baron baroness knight heir heiress successor').split(' '));
 
 // Leading honorific/role tokens an encyclopedia article is never keyed on.
 const ROLE_TOKENS = new Set(('president vice senator sen senate representative rep congressman congresswoman governor ' +
@@ -84,12 +84,12 @@ export const nameCore = (label) => {
   return toks.slice(i).join(' ');
 };
 
-// Token affinity between an entity label and a candidate article title: light-stemmed
-// content-token coverage in both directions + head-noun match — never a bare span check.
+// Token affinity between an entity label and a candidate article title: light-stemmed content-token
+// coverage in both directions + head-noun match, with a bare regnal numeral ("Elizabeth I") still counting as a token.
 export const titleAffinity = (label, title) => {
   const small = new Set('the of and for a an on in to at de la von van el le with by as from'.split(' '));
-  const toks = (s) => String(s || '').toLowerCase().replace(/\([^)]*\)/g, ' ')
-    .split(/[^a-z0-9]+/).filter((w) => w.length > 1 && !small.has(w)).map(stem);
+  const toks = (s) => String(s || '').toLowerCase().replace(/\([^)]*\)/g, ' ').split(/[^a-z0-9]+/)
+    .filter((w) => (w.length > 1 || /^[ivxlcdm]+$/.test(w)) && !small.has(w)).map(stem);
   const L = toks(label), T = toks(title);
   if (!L.length || !T.length) return { covL: 0, covT: 0, headMatch: false, headBack: false, exact: false };
   const Ls = new Set(L), Ts = new Set(T);
@@ -144,7 +144,7 @@ export const articleNames = (text) => {
 export const referentContext = ({ label, statements = [], neighbors = [], pageTitles = [] }) => {
   const strong = new Set(), weak = new Set();
   const addTo = (set, t) => String(t || '').toLowerCase().split(/[^a-z0-9]+/)
-    .forEach((w) => { if (w.length >= 4 && !STOP.has(w)) set.add(stem(w)); });
+    .forEach((w) => { const s = stem(w); if (w.length >= 4 && !STOP.has(w) && !GENERIC_NAMES.has(s)) set.add(s); });
   neighbors.slice(0, 16).forEach((l) => addTo(strong, l));
   statements.slice(0, 10).forEach((s) => addTo(strong, s));
   pageTitles.forEach((t) => addTo(weak, t));
