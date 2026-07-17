@@ -22,7 +22,13 @@
 // can still spike from being talked-about (Kurtz) without a single direct
 // mention inflating its mass.
 
-import { createHashEmbedder } from '../../model/index.js';
+// A declared seam (src/core/seams.js), not routed through model/index.js:
+// that barrel also pulls in every model backend (anthropic.js, wllama.js,
+// webllm.js, …), several of which reach weave/write -> organs/ingest -> the
+// perceiver entrance — closing a cycle back on this very module the instant
+// model/index.js's barrel is evaluated. embed-hash.js has no such risk (its
+// only import is perceiver/parse/index.js, a leaf that never reaches back up).
+import { createHashEmbedder } from '../../model/embed-hash.js';
 import { boundedNull } from '../../core/index.js';
 import { cosineMetric } from '../../weave/waveform/index.js';
 import { ROLES } from '../contract.js';

@@ -18,7 +18,13 @@
 import { magnitudeSpectrum, logBandEnergies, nextPow2 } from './dsp.js';
 import { deriveClusterRadius, clusterUnits, referentsAndSightingsFromClusters } from '../shared/cluster.js';
 import { cosineMetric } from '../../weave/waveform/index.js';
-import { separateHolons } from '../../organs/in/index.js';
+// A declared seam (src/core/seams.js), not routed through organs/in/index.js:
+// that barrel now also re-exports reading-dispatch.js, which imports THIS
+// holon's own entrance (perceiver/index.js) for buildAudioReading — riding
+// organs/in's entrance here would close that cycle back on itself the moment
+// either barrel's module graph is evaluated, regardless of what actually calls
+// what at runtime (a barrel export forces its whole module graph to load).
+import { separateHolons } from '../../organs/in/acoustic.js';
 
 const VOCAB = Object.freeze({ FOREGROUND: 'stated', PRESENT: 'in the texture', LATENT: 'implied' });
 
