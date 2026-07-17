@@ -330,8 +330,8 @@ export { foresightOf, arrivalsOfDoc } from './foresight.js';   // the truth seam
 export { createProposer, buildProposeMessages, mutationSurface, validateProposal, realize, clampGene, ORGAN_ROUTES, PROPOSER_MODEL } from './proposer.js';
 export { createFoldPlanJudge, buildFoldRequest, buildPlanRequest, parseFoldVerdict, parsePlanVerdict, FOLD_PLAN_JUDGE_MODEL } from './fold-plan-judge.js';   // calibration mode: grade FOLD/PLAN against a frontier IDEAL (docs/calibration-mode.md)
 export { runCalibrationCycle, calibrationRunner } from './calibrate.js';
+export { createCalibrationLocal } from './calibration-local.js';
 export { buildAudit, auditToJSON, auditToMarkdown } from './audit.js';
 export { createSanctionLadder, controlledDeath, RUNGS } from './sanction.js';
 export { createHomeostat } from './homeostat.js';
-// (seam healing) re-exported so the module stays behind the entrance
-export { createResearchAnswerer } from './answerer.js';
+export { createResearchAnswerer } from './answerer.js';   // (seam healing) re-exported so the module stays behind the entrance

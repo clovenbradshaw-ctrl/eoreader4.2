@@ -30,6 +30,7 @@ export const createResearchAnswerer = ({
   search,                      // (query, { k }) → admitted[] — the fetch+admit web primitive (searchAndAdmit)
   maxHops = 4,                 // bound the walk — the honest cost of "go slower and actually research"
   k = 3,
+  maxTokens = null,             // runTurn's own per-call output ceiling (genome.js GENES.maxTokens) — null → the stage's default
   onResearch = null,           // (ev) → void — live trail beats for a surface: { phase:'start'|'hop'|'hopDone'|'done'|'error', ... }
   formulate = formulateSearchQuery,
   runResearch = runTurnWithResearch,
@@ -73,7 +74,7 @@ export const createResearchAnswerer = ({
       result = await runResearch({
         question, docs: [], model: m,
         embedder, geometricEmbedder: geometricEmbedder || undefined,
-        auditLog, history: [], grounding: 'auto',
+        auditLog, history: [], grounding: 'auto', maxTokens,
       }, {
         search: collectingSearch, seed, maxHops, k,
         onHop: (h) => onResearch?.({ phase: 'hop', hop: h }),
@@ -111,6 +112,11 @@ export const createResearchAnswerer = ({
       const seqs = keptDocs.flatMap((d) => arrivalsOfDoc(d));
       if (seqs.length) arrivals = seqs;
     } catch { arrivals = null; }
-    return { answer: String(result.answer || ''), sources, trail, arrivals };
+    // the mechanical reading the turn actually computed (pipeline.js buildReading: retrieved spans,
+    // the surfer's field/stops, the assembled llm brief) — the closest thing turn/ has to a FOLD
+    // object today. Surfaced (not previously) so calibration-local.js can grade it without a second
+    // pipeline run; unused by the challenger cycle, which only ever reads answer/sources/trail.
+    const reading = result.turn?.reading || null;
+    return { answer: String(result.answer || ''), sources, trail, arrivals, reading };
   };
 };

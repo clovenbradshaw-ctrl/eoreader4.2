@@ -42,4 +42,5 @@ export const CONTRACTS = Object.freeze({
   // ideal, one faculty over from lift.js's retrieval-scaffolding objective.
   'src/metabolism/fold-plan-judge.js': contract({ ops: ['EVA'], targets: ['Lens', 'Atmosphere'], products: ['Lens'], stances: ['Binding', 'Dissecting', 'Tending'], note: 'the fold/plan judge — grades the FOLD and the PLAN, not only the finished answer, against a frontier IDEAL' }),
   'src/metabolism/calibrate.js': contract({ ops: ['EVA', 'SEG', 'REC'], targets: ['Lens', 'Network'], products: ['Paradigm', 'Atmosphere'], stances: ['Binding', 'Tracing', 'Composing'], note: 'the calibration cycle — challenge, ideal vs local, four stage-tagged reads, the transfer falsifier, the breeder proposal' }),
+  'src/metabolism/calibration-local.js': contract({ ops: ['INS', 'SIG', 'CON'], targets: ['Void', 'Network'], products: ['Entity', 'Lens'], stances: ['Making', 'Tending', 'Binding'], note: 'the calibration local() adapter — the SAME real turn pipeline answerer.js drives, read at the running allocation, its fold/plan surfaced' }),
 });
