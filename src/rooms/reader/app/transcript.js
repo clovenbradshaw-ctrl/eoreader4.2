@@ -196,6 +196,22 @@ export const installTranscript = (appCtx) => {
             lastPartialSave = now;
             src.transcription = { ...(src.transcription || {}), state: src._asr.state, pct: src._asr.pct || 0,
               words: p.words.map((w) => ({ text: w.text, start: w.start, end: w.end })), partial: String(p.text || '').slice(-2000) };
+            // Fold the words heard SO FAR into the source's readable text, on the SAME projection the
+            // finished transcript uses (transcript-edit.js wordsToText). Without this, every surface
+            // that reads src.text — Reader, the source's Contents/structure listing, Facing, search —
+            // keeps showing the pre-transcription acoustic placeholder (organs/in/acoustic.js: "Signal
+            // 52 — 0:45.8–0:46.4…") for the ENTIRE length of a long transcription, while the real words
+            // are heard but stranded on `_asr`. Folding them in here means the reader gets the real,
+            // most-useful holonic layer — actual spoken text — the moment there is any to show, not
+            // only once the job fully completes.
+            const body = (projectTranscript(p.words, src.audioEvents || []).text || '').trim();
+            if (body) {
+              if (src._motionDoc) { src._transcriptDoc = null; src._transcriptText = body; appCtx.recomposeVideoDoc(src); }
+              else {
+                src.text = body; src.bytes = bytesOf(body); src.sha = webContentHash(body);
+                src._doc = null; src._eot = null; appCtx.deepReaders.delete(src.docId);
+              }
+            }
             appCtx.persist();
           }
           // Repaint the media panel's live transcript at most a few times a second.
