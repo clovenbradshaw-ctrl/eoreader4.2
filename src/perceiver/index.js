@@ -63,3 +63,18 @@ export { referentNesting, nestingSummary } from './referent-nesting.js';
 export { REFERENT_TYPES, couplingByNode, deriveGates, salienceOf, classifyReferent,
          classifyReferents, typeReferents, provisionalId, promotionEvent,
          promoteBoundDescriptors } from './individuation.js';
+// The deviation-waveform perceiver contract (docs/omnimodal-waveform.md §2): the
+// Reading shape every perceiver emits and the invariant core (src/weave/waveform/)
+// validates against before building a WaveformModel. Three of the four
+// reference perceivers, so organs/in/reading-dispatch.js can reach them
+// through this one entrance. NOT audio/waveform.js: it depends on
+// organs/in/acoustic.js (for separateHolons), and organs/in/acoustic.js itself
+// depends on organs/ingest (attachReading) which depends on THIS barrel
+// (organs/ingest/read.js) — so re-exporting it here would close that cycle the
+// instant this barrel is evaluated. reading-dispatch.js reaches it as a
+// declared seam (src/core/seams.js) instead.
+export { ROLES, validateReading, assertReading } from './contract.js';
+export { buildTextReading } from './text/waveform.js';
+export { decodeWav } from './audio/wav.js';
+export { buildTabularReading } from './tabular/waveform.js';
+export { buildBinaryReading } from './binary/waveform.js';
