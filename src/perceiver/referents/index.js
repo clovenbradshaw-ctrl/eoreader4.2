@@ -12,10 +12,10 @@
 // moves identity by APPENDING, and the whole quotient is a fold, so undo is a retraction, never a
 // rewrite (invariant 6). The seed assignments carry warrant:'legacy-label-quotient' so they stay
 // auditable and revisable — nothing here is promoted to truth by being a spelling.
-
 import { projectGraph } from '../../core/index.js';
 import { observeMentions } from './mentions.js';
 import { foldReferents, createMinter } from './field.js';
+export { foldReferents };   // re-exported: fold the SAME quotient at an arbitrary seq slice
 import { evaluateConvergence } from './evaluate.js';
 
 const EMIT = Object.freeze({ src: 'src/perceiver/referents/index.js' });

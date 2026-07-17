@@ -13,6 +13,7 @@ export const CONTRACTS = Object.freeze({
   'src/enactor/ground/reflect.js': contract({ ops: ['EVA', 'CON'], targets: ['Network', 'Link'], products: ['Lens'], stances: ['Tracing', 'Binding'], note: 'answer reflection (reflectAnswer)' }),
   'src/enactor/ground/section.js': contract({ ops: ['CON', 'EVA'], targets: ['Field', 'Lens'], products: ['Link', 'Lens'], stances: ['Binding', 'Tracing'], note: 'per-section bind+veto (bindAndVeto)' }),
   'src/enactor/ground/spans.js': contract({ ops: ['EVA', 'CON'], targets: ['Field', 'Network'], products: ['Link', 'Lens'], stances: ['Binding', 'Tracing'], note: 'per-span provenance + badge (groundSpans)' }),
+  'src/enactor/ground/synonym-promotion.js': contract({ ops: ['EVA', 'REC'], targets: ['Network', 'Field'], products: ['Kind', 'Paradigm'], stances: ['Binding', 'Composing'], note: 'the crosswalk that learns — a corroborated cross-source synonym pair promoted to a standing engine-tier candidate (docs/coreference-timeline.md)' }),
   'src/enactor/ground/validate.js': contract({ ops: ['EVA'], targets: ['Link', 'Lens'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'the answer weighed by the reader’s own reaction, Born-measured (assessAnswer)' }),
   'src/enactor/ground/veto.js': contract({ ops: ['EVA'], targets: ['Link', 'Lens'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'the veto battery (runVetoes)' }),
 });

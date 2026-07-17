@@ -109,3 +109,6 @@ export { holonId, parseHolon, holonLevels, depthOf, parentOf, leafOf, joinHolon,
 // (seam healing) re-exported so the module stays behind the entrance
 export { STANCE_NAMES, TERRAIN_NAMES, contract, isContract, notateContract, DESERT_CELL, HELIX } from './contract.js';
 export { supersedeEntries, costOfSuperseding, standing, statusOf, unsettledRefs } from './supersede.js';
+// the witness axis of coref/identity resolution (docs/coreference-timeline.md consumes TIER to
+// render a SynonymEdge's tier — resolved/engine/mixed/model)
+export { TIER, needsWitness, SPECTRUM, spectrumOf, classifyResolutions } from './resolution-spectrum.js';

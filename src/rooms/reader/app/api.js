@@ -71,6 +71,12 @@ export const buildApi = (appCtx) => {
     // the Network surface (src/wiki/network-article.js) — the topic's sources linked by what
     // they corroborate; networkOf unpacks one composite (parentSn) source's own children
     networkTieredData: appCtx.networkTieredData, networkOf: appCtx.networkOf,
+    // the cross-source crosswalk surface (docs/coreference-timeline.md) — a referent's identity
+    // scrubbed at two independent cursors: `trajectory` reads ONE document's own telling order
+    // (the reading cursor); `crosswalk` reads the corpus's ingestion order (the corpus cursor),
+    // merging labels across sources and surfacing label-shift ticks as it advances.
+    // crosswalkTieredData shapes that same fold for mountTieredGraph (rooms/reader/tiered-graph.js).
+    trajectory: appCtx.trajectory, crosswalk: appCtx.crosswalk, crosswalkTieredData: appCtx.crosswalkTieredData,
     // the entity explorer, scoped to one source and read at a chosen HOLONIC LEVEL —
     // its natural-language referents (default) or the modality's raw spans underneath
     sourceLevels: appCtx.sourceLevels, sourceEntities: appCtx.sourceEntities, sourceBaseNoun: appCtx.sourceBaseNoun,
