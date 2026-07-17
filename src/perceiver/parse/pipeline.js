@@ -152,12 +152,10 @@ export const createParser = ({
     transcriptActive: false,
   };
 
-  // `onProgress` and `chunkSize` are the FEEDBACK channel (large-document ingestion).
-  // With no sink the parse runs as one synchronous sweep, byte-identical to before —
-  // every golden parse and every test takes this path. When a caller wants progress
-  // (the UI ingesting a big file), it passes `onProgress`; the per-sentence pass then
-  // runs in chunks of `chunkSize`, yielding to the event loop between them so the page
-  // stays responsive, and parse returns a Promise. The work and its order are identical.
+  // `onProgress` and `chunkSize` are the FEEDBACK channel (large-document ingestion). With
+  // no sink the parse runs as one synchronous sweep, byte-identical to before — every golden
+  // parse and every test takes this path. With a sink the per-sentence pass yields to the
+  // event loop as it goes (below), and parse returns a Promise instead.
   const parse = (text, { docId, onProgress, chunkSize = 250 } = {}) => {
     const log         = createLog({ docId, contractOf });
     // Conventions first — the home for the language-specific stuff. The splitter
@@ -890,10 +888,9 @@ export const createParser = ({
     };
     };  // end finalize
 
-    // Driver selection. Default: one synchronous sweep, byte-identical to the forEach
-    // this replaced (the path every test and golden parse takes). With a feedback sink:
-    // a chunked sweep that yields to the event loop and reports progress, returning a
-    // Promise. Either way `finalize()` runs once, after the last sentence is folded in.
+    // Driver selection. Default: one synchronous sweep, byte-identical to the forEach this
+    // replaced (every test and golden parse takes this path). With a feedback sink: a
+    // yielding sweep that reports progress, returning a Promise. `finalize()` runs once either way.
     if (!onProgress) {
       sentences.forEach(processSentence);
       return finalize();
@@ -902,13 +899,16 @@ export const createParser = ({
     const chunk = Math.max(1, chunkSize | 0);
     onProgress({ phase: 'parse', done: 0, total });
     return (async () => {
+      // A fixed count is a bad cost proxy — a dense passage runs past budget before the
+      // count-based yield fires — so also time-box it. Never after the last sentence.
+      const FRAME_BUDGET_MS = 32;
+      let chunkStart = performance.now();
       for (let i = 0; i < total; i++) {
         processSentence(sentences[i], i);
-        // Report and breathe between chunks — but not after the last sentence, since
-        // finalize() follows immediately and the terminal 100% is emitted below it.
-        if ((i + 1) % chunk === 0 && i + 1 < total) {
+        if (i + 1 < total && ((i + 1) % chunk === 0 || performance.now() - chunkStart >= FRAME_BUDGET_MS)) {
           onProgress({ phase: 'parse', done: i + 1, total });
           await new Promise(r => setTimeout(r, 0));
+          chunkStart = performance.now();
         }
       }
       onProgress({ phase: 'parse', done: total, total });
