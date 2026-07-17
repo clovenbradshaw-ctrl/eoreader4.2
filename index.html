@@ -193,6 +193,19 @@ table{border-collapse:collapse;width:100%}
 .eo-media-min{padding-top:8px!important;padding-bottom:8px!important;gap:7px!important}
 .eo-media-min .eo-wave{height:30px!important;padding-top:2px!important;padding-bottom:2px!important}
 .eo-media-min .eo-media-fold{display:none!important}
+/* Media dock — the compact, hideable player that rides the foot of the reading in every non-Listen
+   mode. A slim handle bar (mini scrubbable waveform + length + live transcription state) that
+   expands to the full player, stats and streaming transcript, or is dismissed to a small restore
+   pill. The handle is the only thing that shows when collapsed. */
+.eo-media-dock{flex:0 0 auto;background:#fff;border-top:1px solid #EAEAEF;box-shadow:0 -2px 14px rgba(20,20,30,.04)}
+.eo-media-handle{display:flex;align-items:center;gap:11px;padding:8px 16px}
+.eo-media-handle .eo-dockbtn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#9A9AA4;flex:0 0 auto;transition:background .12s,color .12s}
+.eo-media-handle .eo-dockbtn:hover{background:#F2F2F6;color:#5A5A64}
+.eo-wave-mini{display:flex;align-items:center;gap:1px;height:26px;flex:1 1 auto;min-width:70px;max-width:420px;overflow:hidden;cursor:pointer;opacity:.9}
+.eo-wave-mini:hover{opacity:1}
+.eo-media-body{padding:0 16px 13px;display:flex;flex-direction:column;gap:11px;max-height:46vh;overflow-y:auto}
+.eo-media-restore{position:absolute;right:18px;bottom:16px;z-index:12;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #E6E6EC;border-radius:999px;padding:7px 13px;font-size:11.5px;font-weight:600;color:#5A5A64;box-shadow:0 6px 20px rgba(20,20,30,.12)}
+.eo-media-restore:hover{background:#F7F7FA;color:#3A3A44}
 .eo-scroll::-webkit-scrollbar{width:11px;height:11px}
 .eo-scroll::-webkit-scrollbar-thumb{background:#dadae1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
 .eo-scroll::-webkit-scrollbar-thumb:hover{background:#c7c7d0;background-clip:content-box}
@@ -1605,7 +1618,7 @@ table{border-collapse:collapse;width:100%}
                book; the old Document paragraphs are folded in here, revealed by the Links toggle) ·
                Native (the real website) · Facing · EoT (the reading). -->
           <sc-if value="{{ isSource }}">
-          <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff">
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff;position:relative">
             <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;padding:12px 20px;background:#FBFBFD">
               <div style="display:flex;align-items:center;gap:10px">
                 <div style="flex:1;min-width:0">
@@ -1851,10 +1864,10 @@ table{border-collapse:collapse;width:100%}
               </div>
             </sc-if>
 
-            <!-- MEDIA PANEL — a decoded audio/video source plays here, above its reading, in every -->
-            <!-- mode: the file itself, its waveform tinted by the signal/noise holons, the basic -->
-            <!-- analysis, and the live transcription status. -->
-            <sc-if value="{{ viewer.media.show }}">
+            <!-- MEDIA PANEL (Listen mode) — the decoded audio/video source is the hero above its
+                 interactive transcript: player, waveform tinted by the signal/noise holons, stats,
+                 and the live transcription status. Folds to a slim strip once the reader scrolls in. -->
+            <sc-if value="{{ mediaListenShow }}">
               <div class="eo-scroll eo-media {{ mediaMinClass }}" style="flex:0 0 auto;max-height:44%;overflow-y:auto;background:#fff;border-bottom:1px solid #EAEAEF;padding:13px 18px;display:flex;flex-direction:column;gap:11px">
                 <sc-if value="{{ viewer.media.showVideo }}">
                   <video ref="{{ setListenAudio }}" controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;max-height:260px;border-radius:9px;background:#000;display:block"></video>
@@ -1894,6 +1907,83 @@ table{border-collapse:collapse;width:100%}
                   </div>
                 </sc-if>
               </div>
+            </sc-if>
+
+            <!-- MEDIA DOCK (every non-Listen mode) — a compact, hideable strip at the foot of the
+                 reading. The handle carries the essentials: a scrubbable mini-waveform, the length,
+                 and live transcription state. Expand it for the full player, stats and streaming
+                 transcript, or dismiss it to a small restore pill. Prefs persist. -->
+            <sc-if value="{{ mediaDockShow }}">
+              <div class="eo-media-dock">
+                <div class="eo-media-handle">
+                  <span title="{{ viewer.media.kindLabel }}" style="display:flex;color:#8A80C8;flex:0 0 auto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><path d="M21 16a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2zM3 16a2 2 0 0 0 2 2h1v-6H5a2 2 0 0 0-2 2z"/></svg></span>
+                  <span style="font-size:11.5px;font-weight:600;color:#5A5A64;flex:0 0 auto">{{ viewer.media.kindLabel }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;flex:0 0 auto">{{ viewer.media.lengthLabel }}</span>
+                  <sc-if value="{{ mediaHandleWave }}">
+                    <div class="eo-wave-mini" onClick="{{ seekFromWave }}" title="Click to jump the player here">
+                      <sc-for list="{{ viewer.media.bars }}" as="b">
+                        <div style="flex:1 1 0;min-width:1px;height:{{ b.hPct }}%;background:{{ b.bg }};border-radius:1px"></div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ mediaHandleAsr }}">
+                    <span style="display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;color:{{ viewer.media.asrTone }};background:{{ viewer.media.asrBg }};border-radius:999px;padding:3px 10px;flex:0 0 auto;white-space:nowrap">
+                      <sc-if value="{{ viewer.media.asrBusy }}"><span style="width:10px;height:10px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span></sc-if>
+                      {{ viewer.media.asrShort }}
+                    </span>
+                  </sc-if>
+                  <span style="flex:1 1 auto"></span>
+                  <button class="eo-dockbtn" onClick="{{ toggleMediaCollapsed }}" title="{{ mediaCollapseTitle }}" style="font-size:13px;font-weight:700;line-height:1">{{ mediaCollapseIcon }}</button>
+                  <button class="eo-dockbtn" onClick="{{ hideMedia }}" title="Hide the player — bring it back from the pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                </div>
+                <sc-if value="{{ mediaExpanded }}">
+                  <div class="eo-media-body eo-scroll">
+                    <sc-if value="{{ viewer.media.showVideo }}">
+                      <video ref="{{ setListenAudio }}" controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;max-height:220px;border-radius:9px;background:#000;display:block"></video>
+                    </sc-if>
+                    <sc-if value="{{ viewer.media.showAudio }}">
+                      <audio ref="{{ setListenAudio }}" controls="controls" preload="metadata" src="{{ viewer.media.url }}" style="width:100%;display:block"></audio>
+                    </sc-if>
+                    <sc-if value="{{ viewer.media.hasWave }}">
+                      <div>
+                        <div class="eo-wave" onClick="{{ seekFromWave }}" title="Click to jump the player here" style="display:flex;align-items:center;gap:1px;height:52px;padding:6px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden;cursor:pointer">
+                          <sc-for list="{{ viewer.media.bars }}" as="b">
+                            <div style="flex:1 1 0;min-width:1px;height:{{ b.hPct }}%;background:{{ b.bg }};border-radius:1px"></div>
+                          </sc-for>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;margin-top:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">
+                          <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#6D5EF5;display:inline-block"></span>signal</span>
+                          <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#C9CBD6;display:inline-block"></span>noise / silence</span>
+                        </div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ viewer.media.hasStats }}">
+                      <div style="display:flex;flex-wrap:wrap;gap:6px">
+                        <sc-for list="{{ viewer.media.stats }}" as="st">
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:3px 8px"><b style="color:#8A8A95;font-weight:600">{{ st.label }}</b>&nbsp;{{ st.val }}</span>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ viewer.media.asrShow }}">
+                      <div style="display:flex;flex-direction:column;gap:6px;background:{{ viewer.media.asrBg }};border-radius:8px;padding:9px 12px">
+                        <div style="display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600;color:{{ viewer.media.asrTone }}">
+                          <sc-if value="{{ viewer.media.asrBusy }}"><span style="width:13px;height:13px;border-radius:50%;border:2px solid rgba(109,94,245,.25);border-top-color:#6D5EF5;animation:eoSpin .8s linear infinite;display:inline-block;box-sizing:border-box;flex:0 0 auto"></span></sc-if>
+                          <span>{{ viewer.media.asrLabel }}</span>
+                        </div>
+                        <sc-if value="{{ viewer.media.hasPartial }}">
+                          <div class="eo-scroll" ref="{{ viewer.media.setPartialEl }}" style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#5A5A66;line-height:1.55;max-height:160px;overflow-y:auto">…{{ viewer.media.asrPartial }}</div>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{ mediaDockHidden }}">
+              <button class="eo-media-restore" onClick="{{ showMedia }}" title="Show the audio player">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><path d="M21 16a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2zM3 16a2 2 0 0 0 2 2h1v-6H5a2 2 0 0 0-2 2z"/></svg>
+                {{ viewer.media.kindLabel }}
+              </button>
             </sc-if>
 
             <sc-if value="{{ viewerIsReader }}">
@@ -3384,6 +3474,10 @@ class Component extends DCLogic {
       // the transcript (a scroll listener flips this when it crosses the threshold), so the words get
       // the height back. Only in Listen mode; resets on tab/source/mode change.
       listenMediaMin: false,
+      // The media dock (non-Listen modes) — a compact, hideable strip at the foot of the reading.
+      // Collapsed by default (just the handle + a scrubbable mini-waveform); expandable to the full
+      // player + stats + streaming transcript, or dismissed entirely. Both prefs persist.
+      mediaCollapsed: this._pref('eo_media_collapsed', true), mediaHidden: this._pref('eo_media_hidden', false),
       readPrefs: this._readPrefs(),
       // The reading-mode ladder (docs/co-reading.md) — "how much is on screen". Paper: clean prose.
       // Companion: co-read margin-thoughts appear where the reader dwells. Lit: Companion + lenses
@@ -5045,6 +5139,17 @@ class Component extends DCLogic {
       else if (asr.state === 'error') { asrShow = true; asrLabel = `Transcription failed — ${asr.reason || 'error'}`; asrTone = '#B4402F'; asrBg = '#FBEAE6'; }
       else if (asr.state === 'done') { asrShow = false; }
     }
+    // A compact form of the transcription state for the collapsed dock handle — a short verb and,
+    // while running, the live percentage so the strip carries the progress without the full banner.
+    const asrPct = (asr && asr.state === 'running' && asr.pct != null) ? asr.pct : null;
+    let asrShort = '';
+    if (asr) {
+      if (asr.state === 'pending') asrShort = 'Queued';
+      else if (asr.state === 'running') asrShort = asrPct != null ? `Transcribing ${asrPct}%` : 'Transcribing';
+      else if (asr.state === 'skipped') asrShort = 'Not transcribed';
+      else if (asr.state === 'stopped') asrShort = 'Transcription stopped';
+      else if (asr.state === 'error') asrShort = 'Transcription failed';
+    }
 
     // The playable URL: a redacted re-synthesis if this source has active redactions, else the live
     // blob, else rehydrate the persisted bytes (OPFS / the encrypted Matrix copy) on first sight so
@@ -5071,6 +5176,11 @@ class Component extends DCLogic {
       hasStats: stats.length > 0,
       asrShow, asrLabel, asrTone, asrBg, asrBusy, asrPartial,
       hasPartial: !!asrPartial,
+      // compact fields for the collapsible dock handle
+      kindLabel: isVideo ? 'Video' : 'Audio',
+      lengthLabel: clock(dur),
+      asrShort, hasAsrShort: !!asrShort,
+      asrPct, asrPctW: asrPct != null ? `${Math.max(0, Math.min(100, asrPct))}%` : '0%',
       // Pin the live partial-transcript box to its own live edge as new words stream in — the
       // box is a running tail (asrPartial is already the last ~2000 heard chars), so without this
       // a grown box just sits scrolled to its stale top, hiding exactly the newest words a
@@ -5297,6 +5407,10 @@ class Component extends DCLogic {
   bumpReadFont(d) { this._applyRead({ fs: (this.state.readPrefs.fs || 19) + d }); }
   cycleReadWidth() { const o = [600, 720, 860]; const i = o.indexOf(this.state.readPrefs.w); this._applyRead({ w: o[(i + 1) % o.length] }); }
   toggleToc() { this.setState({ tocOpen: !this.state.tocOpen }); }
+  // Media dock (non-Listen modes): expand/collapse the strip, and hide/restore it entirely.
+  toggleMediaCollapsed() { const v = !this.state.mediaCollapsed; this._setPref('eo_media_collapsed', v); this.setState({ mediaCollapsed: v }); }
+  hideMedia() { this._setPref('eo_media_hidden', true); this.setState({ mediaHidden: true }); }
+  showMedia() { this._setPref('eo_media_hidden', false); this.setState({ mediaHidden: false, mediaCollapsed: false }); }
   gotoChapter(id) {
     const d = this._readerFrame && this._readerFrame.contentDocument;
     if (d && this._render) this._render.scrollToAnchor(d, id);
@@ -9615,6 +9729,18 @@ class Component extends DCLogic {
       pdfMissing: vMode === 'pdf' && !!(viewer && !viewer.pdfUrl && !viewer.pdfHasBytes),
       // The media panel folds only while reading a Listen transcript; every other mode shows it whole.
       mediaMinClass: (st.listenMediaMin && vMode === 'listen') ? 'eo-media-min' : '',
+      // Media surfaces — the Listen hero (full player above the transcript) versus the compact dock
+      // that rides the foot of every other mode. The dock is collapsible and hideable, both persisted.
+      mediaListenShow: !!(viewer && viewer.media && viewer.media.show) && vMode === 'listen',
+      mediaDockShow: !!(viewer && viewer.media && viewer.media.show) && vMode !== 'listen' && !st.mediaHidden,
+      mediaDockHidden: !!(viewer && viewer.media && viewer.media.show) && vMode !== 'listen' && !!st.mediaHidden,
+      mediaExpanded: !st.mediaCollapsed,
+      mediaHandleWave: !!(viewer && viewer.media && viewer.media.hasWave) && !!st.mediaCollapsed,
+      mediaHandleAsr: !!(viewer && viewer.media && viewer.media.asrShow && viewer.media.hasAsrShort) && !!st.mediaCollapsed,
+      mediaCollapseIcon: st.mediaCollapsed ? '⌃' : '⌄',
+      mediaCollapseTitle: st.mediaCollapsed ? 'Expand — player, stats and transcript' : 'Collapse to a strip',
+      toggleMediaCollapsed: () => this.toggleMediaCollapsed(),
+      hideMedia: () => this.hideMedia(), showMedia: () => this.showMedia(),
       viewerModeOverview: () => this.setSourceMode('overview'), viewerOverviewContext: (e) => { if (e && e.preventDefault) e.preventDefault(); const a = this._activeSrc(); if (a) this.openReReadModal(a); }, viewerModeReader: () => this.setSourceMode('reader'), viewerModePage: () => this.setSourceMode('native'),
       viewerModeFacing: () => this.setSourceMode('facing'), viewerModeEot: () => this.setSourceMode('eot'),
       viewerModeListen: () => this.setSourceMode('listen'), viewerModePdf: () => this.setSourceMode('pdf'),
