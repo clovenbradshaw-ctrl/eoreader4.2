@@ -869,6 +869,7 @@ table{border-collapse:collapse;width:100%}
             <div style="display:flex;gap:3px;background:#F4F4F7;border-radius:9px;padding:3px">
               <button onClick="{{ setWebKindEntity }}" title="The figures across the topic and the bonds among them" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindEntFg }};background:{{ webKindEntBg }}">Entities</button>
               <button onClick="{{ setWebKindNetwork }}" title="The sources themselves, linked by what they corroborate" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindNetworkFg }};background:{{ webKindNetworkBg }}">Network</button>
+              <button onClick="{{ setWebKindCrosswalk }}" title="A referent's identity scrubbed across sources — what it was called, and what it merged with, as the corpus was read" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCrosswalkFg }};background:{{ webKindCrosswalkBg }}">Crosswalk</button>
             </div>
             </sc-if>
           </div>
@@ -3507,7 +3508,7 @@ class Component extends DCLogic {
         // scope, keeping the current kind) and redraw in place if the tab is showing — so a topic
         // switch never strands the previous topic's web nor blanks the canvas.
         if (this._wg) {
-          this._wg = { kind: this._wg.kind === 'causal' ? 'causal' : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+          this._wg = { kind: ['causal', 'network', 'crosswalk'].includes(this._wg.kind) ? this._wg.kind : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
           this._tgToggles = []; this._wgPanel = null; this._seedWgPanel();
           this.setState({ webGraphFor: this._wgMirror() });
           if (this.state.tab === 'graph' && this._tgEl) this._drawWebGraph();
@@ -6964,7 +6965,7 @@ class Component extends DCLogic {
     }
   }
   setWebKind(kind) {
-    kind = kind === 'network' ? 'network' : 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
+    kind = (kind === 'network' || kind === 'crosswalk') ? kind : 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
     if (!this._wg || this._wg.kind === kind) return;
     this._wg.kind = kind;
     this._wg.hidden = new Set();                            // so reset the toggles and any focus and
@@ -7018,7 +7019,9 @@ class Component extends DCLogic {
     if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; }
     el.innerHTML = '';
     try {
-      if (w.kind === 'network') this._drawNetwork(el, w); else this._drawEntity(el, w);
+      if (w.kind === 'network') this._drawNetwork(el, w);
+      else if (w.kind === 'crosswalk') this._drawCrosswalk(el, w);
+      else this._drawEntity(el, w);
     } catch (e) {
       el.innerHTML = '<div style="padding:20px;color:#B23A2E;font-size:12.5px">Graph failed to draw: ' + String((e && e.message) || e) + '</div>';
       this._tgToggles = [];
@@ -7053,6 +7056,24 @@ class Component extends DCLogic {
     const kept = nodes.filter((n) => n.kind === 'entity' || (deg.get(n.id) || 0) > 0);
     const keptIds = new Set(kept.map((n) => n.id));
     return { nodes: kept, edges: edges.filter((e) => keptIds.has(e.a) && keptIds.has(e.b)) };
+  }
+  // The Crosswalk surface (docs/coreference-timeline.md; src/rooms/reader/app/trajectory.js) — a
+  // referent's identity scrubbed across the corpus, folded by CORROBORATED identity, never a bare
+  // label match. Same node/edge vocabulary as the entity web (tier 0 source, tier 1 referent,
+  // tier 2 label-shift claim), so _filterTiered's entity-toggle logic reuses unchanged; the two
+  // cursors the spec asks for ride tiered-graph.js's OWN existing controls with no new code there
+  // — the fold-cursor slider is the corpus's discovery order, and the ⏱ time axis at the
+  // 'sequence' grain unfolds one band per source in ingestion order (the corpus cursor).
+  _drawCrosswalk(el, w) {
+    const data = this._app.crosswalkTieredData();
+    this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
+      .map((n) => ({ id: n.id, label: n.label }))
+      .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    const show = this._filterTiered(data, w.hidden);
+    this._tg = window.EO.mountTieredGraph(el, {
+      nodes: show.nodes, edges: show.edges,
+      countsLabel: `${show.nodes.length} nodes · ${show.edges.length} edges`,
+    });
   }
   // The Network surface (src/wiki/network-article.js) — the topic's sources themselves, linked
   // by what they corroborate, not a bag of entity nodes. Toggling scopes by SOURCE (not entity —
@@ -7125,6 +7146,7 @@ class Component extends DCLogic {
     const shownToggles = ql ? toggles.filter((t) => String(t.label).toLowerCase().includes(ql)) : toggles;
     const isEnt = kind === 'entity';
     const isNetwork = kind === 'network';
+    const isCrosswalk = kind === 'crosswalk';
     const focusName = isEnt ? (wg.entLabel || 'this entity') : (wg.focusLabel || 'this node');
     const hasFocus = scope === 'entity' && (isEnt ? wg.entId != null : !!wg.focusKey);
     // The details panel — the profile of the entity the overlay opened on (or the one last
@@ -7148,9 +7170,11 @@ class Component extends DCLogic {
       closeWebGraph: () => this.closeWebGraph(),
       setWebKindEntity: () => this.setWebKind('entity'),
       setWebKindNetwork: () => this.setWebKind('network'),
+      setWebKindCrosswalk: () => this.setWebKind('crosswalk'),
       setWebKindCausal: () => this.setWebKind('causal'),
       webKindEntFg: isEnt ? '#1B1B22' : '#8A8A95', webKindEntBg: isEnt ? '#fff' : 'transparent',
       webKindNetworkFg: isNetwork ? '#1B1B22' : '#8A8A95', webKindNetworkBg: isNetwork ? '#fff' : 'transparent',
+      webKindCrosswalkFg: isCrosswalk ? '#1B1B22' : '#8A8A95', webKindCrosswalkBg: isCrosswalk ? '#fff' : 'transparent',
       webKindCausalFg: !isEnt ? '#1B1B22' : '#8A8A95', webKindCausalBg: !isEnt ? '#fff' : 'transparent',
       webGraphTitle: hasFocus ? focusName : 'Whole topic',
       setWebScopeTopic: () => this.setWebScope('topic'),
@@ -7163,11 +7187,13 @@ class Component extends DCLogic {
         ? 'Figures across the topic and the bonds among them. Click a node to focus its web.'
         : isNetwork
         ? 'The sources themselves, linked by what they corroborate — never merged on a bare label match. A source that shares nothing with the others stays visibly its own node.'
+        : isCrosswalk
+        ? 'A referent folded across sources by corroborated identity, never spelling alone. Scrub the ⏱ time axis at the sequence grain for the corpus cursor (one band per source, in reading order); a "…" claim node marks where its dominant label changed.'
         : 'What the sources are read as asserting causes what. Open a node, then “focus the DAG here”.',
-      webToggleHead: `${isEnt ? 'ENTITIES' : isNetwork ? 'SOURCES' : 'NODES'} ${onCount}/${toggles.length}`,
+      webToggleHead: `${isEnt ? 'ENTITIES' : isNetwork ? 'SOURCES' : isCrosswalk ? 'REFERENTS' : 'NODES'} ${onCount}/${toggles.length}`,
       // Show the filter once the list is long enough to be worth searching.
       webSearchShow: toggles.length >= 8,
-      webSearchPlaceholder: `Filter ${isEnt ? 'entities' : isNetwork ? 'sources' : 'nodes'}…`,
+      webSearchPlaceholder: `Filter ${isEnt ? 'entities' : isNetwork ? 'sources' : isCrosswalk ? 'referents' : 'nodes'}…`,
       webEntQuery: query,
       webSearchHasQuery: ql.length > 0,
       onWebEntSearch: (e) => this.setState({ webEntQuery: e && e.target ? e.target.value : '' }),

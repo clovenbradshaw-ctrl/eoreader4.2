@@ -209,5 +209,7 @@ export const installWiki = (appCtx) => {
     return { docId: src.title || src.url || src.docId, sn: src.sn, sentences: doc.sentences, log: doc.log };
   }).filter(Boolean);
 
-  Object.assign(appCtx, { dagSources, entityWiki, tieredData, topicTieredData, networkTieredData, networkOf, wikiCache });
+  // srcTimeMs re-exported: the crosswalk surface (app/trajectory.js) needs the SAME "earliest
+  // recording" time reading topicTieredData's own node.t uses, rather than a second copy of it.
+  Object.assign(appCtx, { dagSources, entityWiki, tieredData, topicTieredData, networkTieredData, networkOf, wikiCache, srcTimeMs });
 };

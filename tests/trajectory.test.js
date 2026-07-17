@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { parseText } from '../src/perceiver/parse/index.js';
-import { trajectoryWithinDoc, crosswalkCorpus } from '../src/rooms/reader/app/trajectory.js';
+import { trajectoryWithinDoc, crosswalkCorpus, installTrajectory } from '../src/rooms/reader/app/trajectory.js';
 
 // docs/coreference-timeline.md — the Cross-Source Crosswalk Surface. These tests exercise the
 // spec's own Validation § fixture: a housing plan ("the Barnes Fund"), a budget filing that calls
@@ -95,4 +95,43 @@ test('the corpus cursor scrubs — folding to 1 source shows only that source\'s
 
   const atTwo = crosswalkCorpus(sources, { corpus: 2, sameReferent });
   assert.deepEqual(new Set(atTwo.nodes[0].sourceIds), new Set(['doc1', 'doc2']));
+});
+
+test('crosswalkTieredData shapes the fold for mountTieredGraph — reusing its existing node/edge vocabulary', () => {
+  const doc1 = docOf('doc1', repeat('The Barnes Fund provides down payment assistance to city residents.', 2));
+  const doc2 = docOf('doc2', repeat('The Housing Trust provides down payment assistance to city residents.', 3));
+  const doc3 = docOf('doc3', repeat('The Affordable Housing Fund provides down payment assistance to city residents.', 4));
+
+  const SAME_PROGRAM = new Set(['barnes fund', 'housing trust', 'affordable housing fund']);
+  const stripThe = (s) => s.trim().toLowerCase().replace(/^the\s+/, '');
+  const sameReferent = (a, b) => SAME_PROGRAM.has(stripThe(a)) && SAME_PROGRAM.has(stripThe(b));
+
+  // a minimal appCtx stub — exactly the shape installTrajectory reads (topicSources/docFor/srcTimeMs),
+  // the same seam wiki.js's topicTieredData() itself reads.
+  const srcs = [
+    { sn: 'doc1', t: 1 }, { sn: 'doc2', t: 2 }, { sn: 'doc3', t: 3 },
+  ];
+  const docBySn = { doc1, doc2, doc3 };
+  const appCtx = {
+    topicSources: () => srcs,
+    docFor: (src) => docBySn[src.sn],
+    srcTimeMs: (src) => src.t,
+  };
+  installTrajectory(appCtx);
+  const data = appCtx.crosswalkTieredData(null, { sameReferent });
+
+  const sourceNodes = data.nodes.filter((n) => n.kind === 'source');
+  const entityNodes = data.nodes.filter((n) => n.kind === 'entity');
+  assert.equal(sourceNodes.length, 3, 'one source node per document');
+  assert.equal(entityNodes.length, 1, 'the three relabellings folded into one merged referent node');
+  assert.ok(entityNodes[0].id.startsWith('xref-'), 'an opaque crosswalk id, never a slug of a label');
+
+  const sourceEdges = data.edges.filter((e) => e.code === 'INS');
+  assert.equal(sourceEdges.length, 3, 'one source→entity edge per corroborating source');
+
+  const claimNodes = data.nodes.filter((n) => n.kind === 'claim');
+  assert.ok(claimNodes.length >= 1, 'at least one label-shift tick renders as a tier-2 claim node');
+  assert.ok(claimNodes.every((n) => n.tier === 2));
+  const claimEdges = data.edges.filter((e) => e.code === 'DEF');
+  assert.equal(claimEdges.length, claimNodes.length, 'every claim node hangs off the referent by a DEF edge');
 });

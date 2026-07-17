@@ -1,12 +1,20 @@
 # Coreference timeline — scrubbing a definition across the reading cursor and the corpus cursor
 
-> Status: core fold landed — `rooms/reader/app/trajectory.js` (the `Trajectory` fold: reading-cursor
->   replay + corpus-cursor crosswalk + the label-shift signal) and `enactor/ground/synonym-promotion.js`
->   (the promotion-threshold register, § "The promotion threshold") are implemented and tested
+> Status: landed — `rooms/reader/app/trajectory.js` (the `Trajectory` fold: reading-cursor replay +
+>   corpus-cursor crosswalk + the label-shift signal) and `enactor/ground/synonym-promotion.js` (the
+>   promotion-threshold register, § "The promotion threshold") are implemented and tested
 >   (`tests/trajectory.test.js`, `tests/synonym-promotion.test.js`) against this spec's own Validation
->   § fixture. Wired onto the reader app as `trajectory()` / `crosswalk()` (`rooms/reader/app/api.js`).
->   NOT yet done: the rendering step (§ "Rendering") — retargeting `tiered-graph.js`'s two scrub
->   controls at these two cursors is still open, a UI-only follow-up over the now-landed fold.
+>   § fixture. Wired onto the reader app as `trajectory()` / `crosswalk()` / `crosswalkTieredData()`
+>   (`rooms/reader/app/api.js`). The Rendering § is done too, exactly as specced — no new layout, no
+>   new node/edge primitive: a "Crosswalk" surface (`index.html`'s Graph tab, alongside Entities/
+>   Network) reuses `tiered-graph.js`'s existing dual scrub UI unchanged — its fold-cursor slider is
+>   the corpus's own discovery order, and its ⏱ time axis at the `sequence` grain unfolds one band per
+>   source in ingestion order (the corpus cursor, resolving the "corpus-cursor grain" open question
+>   below by reuse). A label-shift tick renders as a tier-2 claim node off the referent it belongs to.
+>   Open follow-up: the per-document READING cursor (scrubbing sentence-by-sentence within one
+>   source) is implemented in the fold (`trajectoryWithinDoc`) but not yet given its own UI entry
+>   point alongside the corpus-cursor Crosswalk view — the single-entity web today still reads at
+>   "whole document."
 > Suggested location: `docs/coreference-timeline.md`
 > Consumes: `perceiver/referents/index.js`, `perceiver/parse/coref.js`, `enactor/factcheck/coref.js`,
 >   `core/resolution-spectrum.js`, `core/def.js`, `core/conventions/ledger.js`,

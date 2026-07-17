@@ -180,14 +180,53 @@ export const installTrajectory = (appCtx) => {
     return trajectoryWithinDoc(doc, refId, { reading, promotion });
   };
 
-  const crosswalk = (srcsOverride, { corpus = Infinity, sameReferent } = {}) => {
+  // orderedSources(srcsOverride) — the corpus's own ingestion order, each carrying its doc and
+  // its "earliest recording" time (the SAME reading topicTieredData's node.t already uses, via
+  // appCtx.srcTimeMs — never a second copy of that clock).
+  const orderedSources = (srcsOverride) => {
     const srcs = srcsOverride || (appCtx.topicSources ? appCtx.topicSources() : []);
-    const sources = srcs.map((src) => {
+    return srcs.map((src) => {
       const doc = appCtx.docFor ? appCtx.docFor(src) : null;
-      return doc ? { id: src.sn ?? src.docId, doc, t: appCtx.srcTimeMs ? appCtx.srcTimeMs(src) : 0 } : null;
+      return doc ? { id: src.sn ?? src.docId, doc, t: appCtx.srcTimeMs ? appCtx.srcTimeMs(src) : 0, src } : null;
     }).filter(Boolean);
-    return crosswalkCorpus(sources, { corpus, sameReferent, promotion });
   };
 
-  Object.assign(appCtx, { trajectory, crosswalk, synonymPromotion: promotion });
+  const crosswalk = (srcsOverride, { corpus = Infinity, sameReferent } = {}) =>
+    crosswalkCorpus(orderedSources(srcsOverride), { corpus, sameReferent, promotion });
+
+  // crosswalkTieredData(srcsOverride) — the crosswalk shaped for mountTieredGraph, reusing the
+  // EXACT node/edge vocabulary topicTieredData() already draws (tier 0 source, tier 1 merged
+  // referent, tier 2 claim) so tiered-graph.js needs no new primitive, per the spec's Rendering §.
+  // Its two ALREADY-EXISTING scrub axes carry the spec's two cursors with no code change there:
+  // the fold cursor (state.cursor) is the corpus's own discovery order; the time axis, folded at
+  // the 'sequence' grain over each node's earliest-recording `t`, unfolds one band per source in
+  // ingestion order — literally the corpus cursor `surfer/fold/time-axis.js` already generalises.
+  // Each label-shift tick (§ "The label-shift signal") renders as a tier-2 claim off the referent
+  // it belongs to, the same "ranked/witnessed" reuse the spec asks the defs panel to make.
+  const crosswalkTieredData = (srcsOverride, { sameReferent } = {}) => {
+    const sources = orderedSources(srcsOverride);
+    const { nodes: xnodes, labelShifts } = crosswalkCorpus(sources, { sameReferent, promotion });
+    const srcById = new Map(sources.map((s) => [s.id, s]));
+    const nodes = [], edges = [], seen = new Set();
+    const push = (id, tier, label, kind, t = 0) => { if (!seen.has(id)) { seen.add(id); nodes.push({ id, tier, label, kind, terrain: 'Entity', t }); } };
+    for (const n of xnodes) {
+      push(n.id, 1, n.label, 'entity', n.t);
+      for (const sid of n.sourceIds) {
+        const s = srcById.get(sid);
+        const srcNodeId = `src:${sid}`;
+        push(srcNodeId, 0, (s?.src?.title || s?.src?.reg || String(sid)), 'source', s ? s.t : 0);
+        edges.push({ a: srcNodeId, b: n.id, tier: 0, gl: '●', code: 'INS' });
+      }
+    }
+    const shiftsByRef = new Map();
+    for (const s of labelShifts) { const arr = shiftsByRef.get(s.refId) || []; shiftsByRef.set(s.refId, arr); arr.push(s); }
+    for (const [refId, shifts] of shiftsByRef) shifts.forEach((s, i) => {
+      const cid = `shift:${refId}:${i}`, srcNode = srcById.get(s.sourceId);
+      push(cid, 2, `"${s.from}" → "${s.to}"`, 'claim', srcNode ? srcNode.t : 0);
+      edges.push({ a: refId, b: cid, tier: 2, gl: '⊢', code: 'DEF' });
+    });
+    return { nodes, edges };
+  };
+
+  Object.assign(appCtx, { trajectory, crosswalk, crosswalkTieredData, synonymPromotion: promotion });
 };
