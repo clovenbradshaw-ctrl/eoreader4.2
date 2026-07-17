@@ -131,8 +131,11 @@ export const VETOES = [
     // A claim tracing to the reasoning walk's own committed step (`reach`, factcheck/
     // correspond.js) is EXCLUDED here: an unwitnessed reach the engine chose to make is
     // bind-or-MARK, not a grounding failure — the marked-reach veto below carries it.
+    // 'silent' (no edge at all) joins 'unsupported' (an edge exists, doesn't correspond) —
+    // both mean the document does not witness this relation.
     id: 'edge-unsupported',
-    test: ({ edgeVerdicts }) => (edgeVerdicts || []).some(v => v.verdict === 'unsupported' && !v.reach),
+    test: ({ edgeVerdicts }) => (edgeVerdicts || []).some(
+      v => (v.verdict === 'unsupported' || v.verdict === 'silent') && !v.reach),
     refuses: false, // flag-only; the claim rides, marked unwitnessed
     message: 'A claimed relation has no witness in the document reading.',
   },

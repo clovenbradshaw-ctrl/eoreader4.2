@@ -20,6 +20,11 @@ export { projectGraph, projectionStats, DEFAULT_PROJECTION_RULES } from './proje
 // identity — like the void it reuses — is the system's primitive, not a faculty's.
 export { latentAsterisks, evaluateSameAs, discriminatorIndex, identityFrontier, normLabel } from './asterisk.js';
 export { VERDICTS } from './verdicts.js';
+// The EVA resolution face — the generator core/verdicts.js's vocabulary is a lossy projection
+// of (spec:verdict-space-taxonomy): Bearing × Determinacy → verdict, and the map back down to
+// what today's code actually ships.
+export { BEARING, DETERMINACY, RESOLUTION_FACE, DEF_EXPORT_CELL, verdictOf, cellOfVerdict,
+         LEGAL_VERDICTS, SHIPPED_FOLD } from './resolution-face.js';
 // The judgment DEF — every same-vs-other verdict, logged as a revisable judgment, not a flag.
 export { GRAINS as DEF_GRAINS, makeDef, createJudgmentLog, isVerdict, isGrain } from './def.js';
 // The Cut — the atomic same/other judgment a DEF's witness decomposes into (the typed cut).

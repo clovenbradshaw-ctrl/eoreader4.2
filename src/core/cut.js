@@ -51,10 +51,16 @@ const KIND_GROUNDS = Object.freeze({
 
 const KIND_SET   = new Set(Object.values(CUT_KINDS));
 const GROUNDS_SET = new Set(Object.values(GROUNDS));
-// A cut's verdict is one of the four grounding verdicts — OFF_DIAGONAL is the diagonal guard's,
-// orthogonal to a same/other cut and never a cut verdict.
+// A cut's verdict is one of the grounding verdicts — OFF_DIAGONAL is the diagonal guard's,
+// orthogonal to a same/other cut and never a cut verdict. SILENT joins the presence cut's
+// legal outcomes (core/resolution-face.js Generate×Ground): a presence cut answers "is there a
+// mark, or not" — SILENT is the "not", read at Ground rather than folded into UNSUPPORTED's
+// Figure-grade "material exists, does not support" (turn/judgments.js `recordVoidDef`). The
+// other three reserved verdicts (CONSONANT/CIRCUMSTANTIAL/UNDERMINED) are not yet produced by
+// any cut, so they stay out of this set until a call site actually needs them.
 const CUT_VERDICTS = new Set([
   VERDICTS.CORROBORATED, VERDICTS.UNSUPPORTED, VERDICTS.CONTRADICTED, VERDICTS.INDETERMINATE,
+  VERDICTS.SILENT,
 ]);
 
 export const isCutKind    = (k) => KIND_SET.has(k);

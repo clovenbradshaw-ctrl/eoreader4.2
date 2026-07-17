@@ -18,7 +18,7 @@
 // makes the talker faithful to the graph, not the graph faithful to the world.
 //
 // The check REUSES three organs already built — the SVO clause parser, the
-// document referent table, the centroid classifier — and adds the four-way
+// document referent table, the centroid classifier — and adds the five-way
 // verdict and the geometric relation comparison.
 
 import { segmentSentences }       from '../../perceiver/parse/index.js';
@@ -28,9 +28,9 @@ import { checkRelationConflict, checkObjectFunctionalConflict, checkRelationAgre
 import { coherence, terrainInfo, canWitness }  from '../../core/index.js';
 import { operatorsByDomain }       from '../../core/index.js';
 
-// The four-way verdict vocabulary now lives in core (a leaf both factcheck and
-// read import down into — see core/verdicts.js). Re-exported here so the holon's
-// public surface (factcheck/index.js → VERDICTS) is unchanged.
+// The verdict vocabulary lives in core (a leaf both factcheck and read import down
+// into — see core/verdicts.js). Re-exported here so the holon's public surface
+// (factcheck/index.js → VERDICTS) is unchanged.
 import { VERDICTS } from '../../core/index.js';
 export { VERDICTS };
 
@@ -222,7 +222,7 @@ const voidDenial = async ({ src, tgt, talkerCell }, { graph, classifier, adj }) 
   return null;
 };
 
-// Check ONE claimed edge against the document reading. The four verdicts, in
+// Check ONE claimed edge against the document reading. The five verdicts, in
 // precedence order so each absence is reported for what it is:
 //
 //   indeterminate  — endpoints won't resolve, OR the relation types to no-commit,
@@ -234,9 +234,13 @@ const voidDenial = async ({ src, tgt, talkerCell }, { graph, classifier, adj }) 
 //                    adjacent Pattern cell. Stands, and EARNS that edge's
 //                    citation (§7) — the same correspondence that vetoes an
 //                    invented relation cites a real one.
-//   unsupported    — endpoints resolve, relation types, but nothing in the
-//                    document reading witnesses this relation. Not false —
-//                    unwitnessed. Stripped or flagged.
+//   unsupported    — endpoints resolve, relation types, and a same-endpoint
+//                    document edge exists, but it does not correspond to the
+//                    claimed relation. Material exists; it does not support.
+//   silent         — endpoints resolve, relation types, but NOTHING connects
+//                    them in the document reading at all — no candidate edge,
+//                    of any relation. "No material", not "doesn't support"
+//                    (core/resolution-face.js Generate×Ground vs Generate×Figure).
 export const checkClaim = async (claim, { doc, graph, classifier, adjacency, changeOfState = false } = {}) => {
   if (!claim?.resolved) return result(VERDICTS.INDETERMINATE, { reason: 'unresolved-endpoints' });
 
@@ -312,11 +316,11 @@ export const checkClaim = async (claim, { doc, graph, classifier, adjacency, cha
   // discipline at the verdict).
   if (candidates.length && !couldType) return result(VERDICTS.INDETERMINATE, { reason: 'doc-relation-no-commit', talkerCell });
 
-  // Endpoints resolve, relation types, but the document reading does not witness
-  // this relation between them. Unwitnessed, not false.
-  return result(VERDICTS.UNSUPPORTED, {
-    reason: candidates.length ? 'relation-not-corresponding' : 'no-edge', talkerCell,
-  });
+  // Endpoints resolve, relation types, but the document reading does not witness this
+  // relation between them. Unwitnessed, not false. A same-endpoint edge that simply
+  // doesn't correspond is UNSUPPORTED (material exists); no edge at all is SILENT.
+  if (candidates.length) return result(VERDICTS.UNSUPPORTED, { reason: 'relation-not-corresponding', talkerCell });
+  return result(VERDICTS.SILENT, { reason: 'no-edge', talkerCell });
 };
 
 // The grain of a claimed edge. A resolved relational claim — a bond (CON) or an
@@ -430,6 +434,7 @@ export const factCheck = async ({ prose, doc, graph, classifier, adjacency, curs
     unsupported:   checked.filter(c => c.verdict === VERDICTS.UNSUPPORTED).length,
     contradicted:  checked.filter(c => c.verdict === VERDICTS.CONTRADICTED).length,
     indeterminate: checked.filter(c => c.verdict === VERDICTS.INDETERMINATE).length,
+    silent:        checked.filter(c => c.verdict === VERDICTS.SILENT).length,
   };
   // The contradiction veto is a likelihood gate, not a boolean: a contradiction
   // refuses only when its joint typing confidence clears the floor. A contradiction
@@ -443,13 +448,14 @@ export const factCheck = async ({ prose, doc, graph, classifier, adjacency, curs
   else if (weakContra)     fired.push({ id: 'edge-contradicted-weak', refuses: false, message: 'A claimed relation conflicts with the document reading, but the relation typing is too uncertain to refuse on.' });
   // A claim that matches only the walk's own committed reach is a correctly MARKED ungrounded
   // emission, not a grounding failure — bind-or-mark, not bind-or-veto. The plain unsupported
-  // flag keeps to claims with no walk step behind them.
-  const unsupportedPlain = checked.filter(c => c.verdict === VERDICTS.UNSUPPORTED && !c.reach).length;
+  // flag keeps to claims with no walk step behind them. SILENT joins UNSUPPORTED here — both
+  // mean "the document does not witness this."
+  const unsupportedPlain = checked.filter(c => (c.verdict === VERDICTS.UNSUPPORTED || c.verdict === VERDICTS.SILENT) && !c.reach).length;
   if (unsupportedPlain)    fired.push({ id: 'edge-unsupported',       refuses: false, message: 'A claimed relation has no witness in the document reading.' });
   if (checked.some(c => c.reach)) fired.push({ id: 'marked-reach', refuses: false, message: 'A claim rests on the reading’s own reasoning — a deliberate inference past the text, marked as such, never attested by the document.' });
 
   // The diagonal guard's off-diagonal verdicts ride in `edgeVerdicts` beside the
-  // four-way ones; the veto battery reads them by `verdict:'off_diagonal'`.
+  // five-way ones; the veto battery reads them by `verdict:'off_diagonal'`.
   const offDiagonal = diagonalGuard(checked, terrain);
 
   return Object.freeze({

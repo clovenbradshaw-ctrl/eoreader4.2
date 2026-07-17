@@ -611,6 +611,7 @@ const summarize = (name, ctx, ms) => {
                               contradicted:  ctx.factcheck?.counts?.contradicted  || 0,
                               unsupported:   ctx.factcheck?.counts?.unsupported   || 0,
                               indeterminate: ctx.factcheck?.counts?.indeterminate || 0,
+                              silent:        ctx.factcheck?.counts?.silent        || 0,
                               offDiagonal:   ctx.factcheck?.counts?.offDiagonal   || 0,
                               refuse:        ctx.factcheck?.refuse || false };
     case 'revise':   return { ...base,

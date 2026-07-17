@@ -38,6 +38,7 @@ export const CONTRACTS = Object.freeze({
   'src/core/proposition.js': contract({ ops: ['SYN'], targets: ['Void'], products: ['Link'], stances: ['Making'], note: 'the proposition (floor of meaning)' }),
   'src/core/provenance.js': contract({ ops: ['DEF', 'INS'], targets: ['Entity'], products: ['Lens', 'Entity'], stances: ['Dissecting', 'Making'], note: 'me-ness type law', floor: true }),
   'src/core/relation-types.js': contract({ ops: ['DEF', 'EVA'], targets: ['Kind', 'Link'], products: ['Kind', 'Lens'], stances: ['Dissecting', 'Binding'], note: 'relation typing bridge' }),
+  'src/core/resolution-face.js': contract({ ops: ['NUL', 'EVA'], targets: ['Kind'], products: ['Kind', 'Lens'], stances: ['Clearing', 'Binding'], note: 'the EVA resolution face — Bearing × Determinacy → verdict, and the map to the shipped subset' }),
   'src/core/seams.js': contract({ ops: ['CON'], targets: ['Network'], products: ['Link'], stances: ['Binding'], note: 'the declared cross-holon seams (§7.5 — a crossing is legal when declared)', floor: true }),
   'src/core/resolution-spectrum.js': contract({ ops: ['DEF', 'EVA'], targets: ['Network', 'Paradigm'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Tracing'], note: 'witness axis of coref' }),
   'src/core/self/index.js': contract({ ops: ['NUL', 'SIG'], targets: ['Entity'], products: ['Entity'], stances: ['Clearing', 'Tending'], note: 'the self/world line' }),

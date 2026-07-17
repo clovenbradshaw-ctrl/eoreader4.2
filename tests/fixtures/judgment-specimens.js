@@ -204,8 +204,10 @@ export const SPECIMENS = Object.freeze([
     partial: 4,
     answer: 'The sources do not mention Errol Musk.',
     gold: Object.freeze([
-      Object.freeze({ grain: 'field', match: '*', accept: Object.freeze(['unsupported']),
-        why: 'the absence is real and measured; a DEF of absence is still a DEF' }),
+      Object.freeze({ grain: 'field', match: '*', accept: Object.freeze(['silent']),
+        why: 'the absence is real and measured; a DEF of absence is still a DEF. SILENT, not ' +
+             'UNSUPPORTED (spec:verdict-space-taxonomy §4): a corpus-wide scan that finds nothing ' +
+             'is "no material", a different claim than "material exists, does not support".' }),
     ]),
     ratchet: true,
     notes: 'Ratchet candidate: today\'s three-clause void measure should already type this absence.',
