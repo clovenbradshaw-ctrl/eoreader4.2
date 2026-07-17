@@ -1847,7 +1847,7 @@ table{border-collapse:collapse;width:100%}
                       <span>{{ viewer.media.asrLabel }}</span>
                     </div>
                     <sc-if value="{{ viewer.media.hasPartial }}">
-                      <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#5A5A66;line-height:1.55;max-height:58px;overflow:hidden">…{{ viewer.media.asrPartial }}</div>
+                      <div class="eo-scroll" ref="{{ viewer.media.setPartialEl }}" style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#5A5A66;line-height:1.55;max-height:200px;overflow-y:auto">…{{ viewer.media.asrPartial }}</div>
                     </sc-if>
                   </div>
                 </sc-if>
@@ -3484,9 +3484,11 @@ class Component extends DCLogic {
     if (kind === 'sources') {
       this._entCache = null; this._srcEntCache = null; this._viewCache = null; this._segCache = {};
       // A source's text can change AFTER it lands — an audio source is recorded from its
-      // acoustic reading, then its transcript folds in. Drop the cached reader iframe for any
-      // open source whose content signature moved, so the reader re-renders the new text (and
-      // only then — a partial-progress emit leaves the text untouched, so no needless reload).
+      // acoustic reading, then the transcript folds in as it is heard (throttled, ~every 4s
+      // while a transcription runs) and again in full once it completes. Drop the cached reader
+      // iframe for any open source whose content signature moved, so the reader re-renders the
+      // new text — and only then, so a partial-progress emit that didn't touch the text causes
+      // no needless reload.
       for (const sn in this._readerCache) {
         const s = this._app && this._app.sourceBySn(sn);
         if (!s || (this._readerCache[sn] && this._readerCache[sn]._sig !== s.sha)) delete this._readerCache[sn];
@@ -5013,6 +5015,11 @@ class Component extends DCLogic {
       hasStats: stats.length > 0,
       asrShow, asrLabel, asrTone, asrBg, asrBusy, asrPartial,
       hasPartial: !!asrPartial,
+      // Pin the live partial-transcript box to its own live edge as new words stream in — the
+      // box is a running tail (asrPartial is already the last ~2000 heard chars), so without this
+      // a grown box just sits scrolled to its stale top, hiding exactly the newest words a
+      // listener wants to see (mirrors the chat surface's setChatScroll).
+      setPartialEl: (el) => { if (el) el.scrollTop = el.scrollHeight; },
     };
   }
   // On mobile the panels are one-at-a-time overlay drawers: opening one closes the other,
