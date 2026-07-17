@@ -1442,6 +1442,12 @@ table{border-collapse:collapse;width:100%}
                   </sc-if>
                   <sc-if value="{{ insTabProvenance }}">
                     <sc-for list="{{ fixity }}" as="fx"><div style="display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid #F4F4F7"><span style="flex:0 0 92px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.04em;color:#9A9AA4;text-transform:uppercase">{{ fx.k }}</span><span style="flex:1;min-width:0;font-size:12.5px;color:#3A3A44;word-break:break-all">{{ fx.v }}</span></div></sc-for>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin:18px 0 8px">DOWNLOAD</div>
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                      <button onClick="{{ insDownloadOriginal }}" title="The file/text as ingested, untouched since import" style="width:100%;text-align:left;background:#F2F2F6;color:#3A3A44;border:1px solid #EAEAEF;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#EAEAEF">↓ {{ insDownloadOriginalLabel }}</button>
+                      <button onClick="{{ insDownloadHistory }}" title="Every parse/read/edit event, in order, as newline-delimited JSON" style="width:100%;text-align:left;background:#F2F2F6;color:#3A3A44;border:1px solid #EAEAEF;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#EAEAEF">↓ Full history (.jsonl)</button>
+                      <button onClick="{{ insDownloadSnapshot }}" title="The current parsed/read state — sentences, mentions, EoT — as one JSON file" style="width:100%;text-align:left;background:#F2F2F6;color:#3A3A44;border:1px solid #EAEAEF;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px 10px" style-hover="background:#EAEAEF">↓ Current snapshot (.json)</button>
+                    </div>
                   </sc-if>
                   <sc-if value="{{ insTabEot }}">
                     <sc-for list="{{ eotRows }}" as="et"><div style="display:flex;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px solid #F4F4F7"><span style="flex:0 0 auto;font-size:14px;color:#6E6E78;width:16px;text-align:center">{{ et.glyph }}</span><span style="flex:0 0 34px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:#8A8A95">{{ et.op }}</span><span style="flex:1;min-width:0;font-size:12.5px;color:#3A3A44">{{ et.txt }}</span></div></sc-for>
@@ -5482,6 +5488,34 @@ class Component extends DCLogic {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     this.showToast('Transcript exported — ' + out.filename);
   }
+  // Download a source's ORIGINAL file/bytes as ingested (PDF/audio/video bytes from OPFS, or the
+  // admitted text for every other kind) — the sibling of exportTranscriptAs/exportChatAs for the
+  // Inspector's Provenance tab. Async: a byte read may hit OPFS, so the Blob/<a download> fires
+  // once the bytes resolve rather than on click.
+  downloadSourceOriginal(sn) {
+    if (sn == null || !this._app || !this._app.sourceOriginalExport) return;
+    this._app.sourceOriginalExport(sn).then((out) => {
+      if (!out) { this.showToast('No original file kept for this source'); return; }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([out.bytes || out.text], { type: out.mime }));
+      a.download = out.filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      this.showToast('Source downloaded — ' + out.filename);
+    }).catch(() => this.showToast('Could not download the original file'));
+  }
+  // Download a source's edited/read/interpreted state as JSONL (the full append-only history) or
+  // JSON (the current parsed snapshot) — built by source-export.js.
+  downloadSourceExport(sn, format) {
+    const out = sn != null && this._app && this._app.sourceExport && this._app.sourceExport(sn, { format });
+    if (!out) { this.showToast('Nothing to export yet'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([out.text], { type: out.mime }));
+    a.download = out.filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    this.showToast('Source exported — ' + out.filename);
+  }
   exportChatAs(format) {
     this.setState({ exportMenuOpen: false });
     this._downloadExport(format, 'Chat exported — ');
@@ -8627,7 +8661,11 @@ class Component extends DCLogic {
     const insTab = st.inspectorTab || 'read';
     let readParas = [], insEnts = [], fixity = [], eotRows = [], citedPassages = [];
     let insTitle = '', insSub = '', insFavBg = '#EEE', insFavFg = '#666', insFavCh = '?', insInCorpus = false;
+    let insDownloadOriginalLabel = 'Original file';
     if (selSrc) {
+      insDownloadOriginalLabel = selSrc.pdfRef ? 'Original PDF'
+        : selSrc.audioRef ? (String(selSrc.audioRef.mime || '').startsWith('video') ? 'Original video' : 'Original audio')
+        : 'Original text';
       insTitle = selSrc.title; insSub = `${selSrc.reg} · ${selSrc.domain}`; insFavBg = NFAV[0]; insFavFg = NFAV[1];
       insFavCh = (selSrc.domain || selSrc.title || '?')[0].toUpperCase();
       insInCorpus = inCorpusIds.has(selSrc.sn);
@@ -9345,6 +9383,10 @@ class Component extends DCLogic {
       insAddCorpus: () => { if (selSrc && !insInCorpus) { app.sourceAddToTopic(selSrc.sn); this.showToast('Added to this topic’s corpus'); } },
       insInCorpus, insAddLabel: insInCorpus ? 'In corpus' : '+ Add to corpus',
       insAddBg: insInCorpus ? '#E7F6EC' : '#fff', insAddFg: insInCorpus ? '#1E8A50' : '#3A3A44', insAddBd: insInCorpus ? '#CFEBD9' : '#E6E6EC',
+      insDownloadOriginalLabel,
+      insDownloadOriginal: () => { if (selSrc) this.downloadSourceOriginal(selSrc.sn); },
+      insDownloadHistory: () => { if (selSrc) this.downloadSourceExport(selSrc.sn, 'jsonl'); },
+      insDownloadSnapshot: () => { if (selSrc) this.downloadSourceExport(selSrc.sn, 'json'); },
       // the pivot banner — which node the list is narrowed to, and the counts
       pivotActive, pivotLabel, pivotShown: String(shownClaims.length), pivotTotal: String(claims.length),
       memoTitle: topic ? topic.title : '', memoText: topic ? topic.memo : '',

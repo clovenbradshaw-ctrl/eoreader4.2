@@ -80,6 +80,19 @@ export const exportSourceJsonl = ({ source, doc, eot = null } = {}) => {
   return lines.map(jsonLine).join('\n') + '\n';
 };
 
+// The full CURRENT state as one pretty JSON object — every sentence/unit/mention the parse holds,
+// not a cursor-truncated slice. The JSON sibling of exportSourceJsonl's NDJSON history: same three
+// folds (source · document · log), read as a single snapshot instead of an append-only stream.
+export const exportSourceSnapshot = ({ source, doc, eot = null } = {}) => {
+  const events = logEvents(doc);
+  return JSON.stringify({
+    type: 'source-snapshot', exportedAt: new Date().toISOString(),
+    source: sourceRecord(source), document: docRecord(doc),
+    eot: eot ? clean(eot) : null,
+    log: { eventCount: events.length, events: clean(events) },
+  }, null, 2);
+};
+
 export const exportSourceAtCursor = ({ source, doc, cursor = {}, eot = null } = {}) => {
   const mode = cursor?.mode || cursor?.kind || (cursor?.at || cursor?.timestamp || cursor?.time ? 'log-time' : 'text');
   const cur = mode === 'log-time' || mode === 'timestamp'
@@ -97,8 +110,16 @@ export const exportSourceAtCursor = ({ source, doc, cursor = {}, eot = null } = 
   }, null, 2);
 };
 
+// A source title/sn, made safe for a filename — shared by every export (original + jsonl + json)
+// so a source's downloads all sit under the same base name.
+export const safeSourceName = (baseName, source) =>
+  String(baseName || source?.title || source?.sn || 'source').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'source';
+
 export const buildSourceExport = ({ source, doc, eot = null, format = 'jsonl', cursor = null, baseName = 'source' } = {}) => {
-  const safe = String(baseName || source?.title || source?.sn || 'source').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'source';
-  if (format === 'cursor-json' || format === 'json') return { text: exportSourceAtCursor({ source, doc, eot, cursor: cursor || {} }), ext: 'json', mime: 'application/json', filename: `${safe}.cursor.json` };
+  const safe = safeSourceName(baseName, source);
+  // A cursor was explicitly given → fold the point-in-time projection it names. No cursor → the
+  // full current state (exportSourceSnapshot), not a truncated one folded at the default (char 0).
+  if (format === 'cursor-json' && cursor) return { text: exportSourceAtCursor({ source, doc, eot, cursor }), ext: 'json', mime: 'application/json', filename: `${safe}.cursor.json` };
+  if (format === 'json' || format === 'cursor-json') return { text: exportSourceSnapshot({ source, doc, eot }), ext: 'json', mime: 'application/json', filename: `${safe}.json` };
   return { text: exportSourceJsonl({ source, doc, eot }), ext: 'jsonl', mime: 'application/x-ndjson', filename: `${safe}.history.jsonl` };
 };

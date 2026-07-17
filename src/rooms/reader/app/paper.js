@@ -61,5 +61,13 @@ export const installPaper = (appCtx) => {
   // Can this source render as a PDF at all — a live blob this session, or bytes to rehydrate?
   const pdfRenderable = (src) => !!(src && src.kind === 'pdf' && (src._pdfUrl || (src.pdfRef && src.pdfRef.opfs)));
 
-  Object.assign(appCtx, { persistPdfBytes, pdfUrl, pdfRenderable });
+  // The raw persisted PDF bytes — for a source's original-format download. Null when nothing was
+  // kept (too large to persist, or the bytes were evicted).
+  const pdfBytes = async (src) => {
+    const ref = src && src.pdfRef;
+    if (!ref || !ref.opfs) return null;
+    try { return await paperStore.getBytes(ref.opfs); } catch { return null; }
+  };
+
+  Object.assign(appCtx, { persistPdfBytes, pdfBytes, pdfUrl, pdfRenderable });
 };
