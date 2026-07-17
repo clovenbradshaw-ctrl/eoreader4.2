@@ -20,6 +20,9 @@ export const createMiniLMEmbedder = () => {
   let warming  = null;
   let warm     = false;
   let pipeline = null;
+  // Bounded (FIFO) so a long session can't grow the heap one vector per distinct text
+  // forever — the same ceiling model/embed-cache.js keeps on the app's live embedder.
+  const CACHE_CAP = 4096;
   const cache  = new Map();
 
   return {
@@ -64,6 +67,7 @@ export const createMiniLMEmbedder = () => {
       if (cache.has(key)) return cache.get(key);
       const out = await pipeline(key, { pooling: 'mean', normalize: true });
       const v = new Float32Array(out.data);
+      if (cache.size >= CACHE_CAP) cache.delete(cache.keys().next().value);   // evict oldest
       cache.set(key, v);
       return v;
     },

@@ -237,7 +237,7 @@ export const installRegistry = (appCtx) => {
 
   const removeSource = (id) => {
     const gone = sourceBySn(id);
-    if (gone) appCtx.deepReaders.delete(gone.docId);   // or the deep reader keeps the removed doc resident
+    if (gone) { appCtx.deepReaders.delete(gone.docId); try { gone._doc?.releaseEmbeddings?.(); gone._nlDoc?.releaseEmbeddings?.(); } catch { /* */ } }  // free matrices held in the global budget
     state.sources = state.sources.filter((s) => s.sn !== id);
     // A removed source's sub-objects rise to the top level rather than vanish with their parent.
     for (const s of state.sources) if (s.parentSn === id) s.parentSn = null;
@@ -255,7 +255,7 @@ export const installRegistry = (appCtx) => {
     const keep = new Set(t ? t.sourceSns : []);
     for (const s of state.sources) {
       if (keep.has(s.sn)) continue;
-      appCtx.deepReaders.delete(s.docId);
+      appCtx.deepReaders.delete(s.docId); try { s._doc?.releaseEmbeddings?.(); s._nlDoc?.releaseEmbeddings?.(); } catch { /* */ }  // free matrices; re-hydrate from the embed cache on reopen
       s._doc = null; s._eot = null; s._nlDoc = null;
     }
   };

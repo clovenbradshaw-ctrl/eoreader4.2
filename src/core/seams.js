@@ -28,6 +28,19 @@ export const SEAMS = Object.freeze([
     'the perceiver entrance deliberately does not re-export buildAudioReading (same cycle as the seam above, from the other side): audio/waveform.js -> organs/in/acoustic.js -> organs/ingest -> the perceiver entrance would close on itself if the entrance also carried buildAudioReading, so this reads the leaf directly'],
   ['src/perceiver/text/waveform.js', 'src/model/embed-hash.js',
     'model/index.js also pulls in every model backend (anthropic.js, wllama.js, webllm.js, …), several of which reach weave/write -> organs/ingest -> the perceiver entrance — closing a cycle back on this very module the instant model/index.js is evaluated, so it reads the leaf directly'],
+  // Every ingest organ pins its sentence/clause embedding matrices under the shared global
+  // budget (model/embed-store.js). Riding model/index.js would pull the whole backend barrel
+  // (webllm/wllama/anthropic → weave/write → organs/ingest), closing an import cycle the moment
+  // an organ loads — the same hazard the embed-hash seam above records — so each reads the leaf.
+  ['src/organs/in/text.js',     'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
+  ['src/organs/in/audio.js',    'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
+  ['src/organs/in/motion.js',   'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
+  ['src/organs/in/acoustic.js', 'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
+  ['src/organs/in/image.js',    'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
+  ['src/organs/in/table.js',    'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
+  ['src/organs/in/document.js', 'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
+  ['src/organs/in/json.js',     'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
+  ['src/organs/in/music.js',    'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
 ].map(Object.freeze));
 
 // The seam set, keyed "from → to", for the boundary test's membership check.

@@ -25,6 +25,7 @@ import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
 import { attachReading }     from '../ingest/index.js';
+import { createEmbeddingMemo } from '../../model/embed-store.js';
 
 // mm:ss(.d) for a time in seconds — the reader's clock on the waveform.
 const clock = (sec) => {
@@ -416,12 +417,10 @@ export const ingestAcoustic = (spec = {}) => {
   // waveform click resolves to.
   doc.holonAt = (t) => top.find((c) => t >= c.start - 0.02 && t <= c.end + 0.02) || null;
 
-  const vecByOrgan = new Map();
-  doc.sentenceEmbeddings = async (embedder) => {
-    const key = embedder?.id || 'default';
-    if (!vecByOrgan.has(key)) vecByOrgan.set(key, Promise.all(sentences.map((s) => embedder.embed(s))));
-    return vecByOrgan.get(key);
-  };
+  const sentMemo = createEmbeddingMemo();   // globally budgeted (model/embed-store.js)
+  doc.sentenceEmbeddings = async (embedder) =>
+    sentMemo.get(embedder?.id || 'default', sentences.length, () => Promise.all(sentences.map((s) => embedder.embed(s))));
+  doc.releaseEmbeddings = () => sentMemo.release();
 
   return doc;
 };

@@ -74,7 +74,7 @@ const canonicalFrame = (f) => {
 };
 
 const computeProjection = (log, frame) => {
-  const events    = log.snapshot();
+  const events    = Array.isArray(log.events) ? log.events : log.snapshot();  // live frozen append-only array (read-only fold) — no per-miss full copy
   const entities  = new Map();
   const edges     = [];
   const voidsRaw  = [];

@@ -14,6 +14,7 @@ export const CONTRACTS = Object.freeze({
   'src/model/echo.js': contract({ ops: ['INS', 'NUL'], targets: ['Field'], products: ['Entity'], stances: ['Making', 'Clearing'], note: 'echo backend, verbatim excerpts' }),
   'src/model/embed-cache.js': contract({ ops: ['REC', 'NUL'], targets: ['Atmosphere'], products: ['Atmosphere'], stances: ['Composing', 'Clearing'], note: 'persistent embedding cache (IndexedDB)' }),
   'src/model/embed-hash.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Atmosphere'], stances: ['Tending'], note: 'hash embedder' }),
+  'src/model/embed-store.js': contract({ ops: ['REC', 'NUL'], targets: ['Atmosphere'], products: ['Atmosphere'], stances: ['Composing', 'Clearing'], note: 'bounded per-document embedding matrices (global LRU budget)' }),
   'src/model/embed.js': contract({ ops: ['SIG', 'INS'], targets: ['Field'], products: ['Atmosphere', 'Entity'], stances: ['Tending', 'Making'], note: 'MiniLM semantic embedder' }),
   'src/model/index.js': contract({ ops: ['INS', 'SYN', 'SIG'], targets: ['Field'], products: ['Entity', 'Field'], stances: ['Making', 'Tending'], note: 'barrel' }),
   'src/model/interface.js': contract({ ops: ['INS'], targets: ['Kind'], products: ['Entity'], stances: ['Making'], note: 'backend registry + createModel' }),

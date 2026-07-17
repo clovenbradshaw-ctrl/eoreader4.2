@@ -18,6 +18,7 @@ import { projectGraph }     from '../../core/index.js';
 import { createConventions }from '../../core/conventions/index.js';
 import { tok }              from '../../perceiver/parse/index.js';
 import { attachReading }    from '../ingest/index.js';
+import { createEmbeddingMemo } from '../../model/embed-store.js';
 
 const slug = (s) => String(s || 'thing').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
@@ -92,12 +93,10 @@ export const ingestImage = (detections = {}) => {
   // Cached per embedder organ — hash-space and MiniLM-space vectors are not
   // interchangeable, so a single unkeyed cache would return the wrong space to a
   // later caller (see organs/in/text.js).
-  const vecByOrgan = new Map();
-  doc.sentenceEmbeddings = async (embedder) => {
-    const key = embedder?.id || 'default';
-    if (!vecByOrgan.has(key)) vecByOrgan.set(key, Promise.all(sentences.map(s => embedder.embed(s))));
-    return vecByOrgan.get(key);
-  };
+  const sentMemo = createEmbeddingMemo();   // globally budgeted (model/embed-store.js)
+  doc.sentenceEmbeddings = async (embedder) =>
+    sentMemo.get(embedder?.id || 'default', sentences.length, () => Promise.all(sentences.map(s => embedder.embed(s))));
+  doc.releaseEmbeddings = () => sentMemo.release();
 
   // Every source encodes into EoT (ingest/read.js): region-INS, spatial CONs, caption
   // DEFs â the scene’s three-faced events, rendered whole on demand.

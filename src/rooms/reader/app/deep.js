@@ -37,7 +37,7 @@ export const installDeep = (appCtx) => {
     const log = {
       append: (e) => { extra.push(e); return e; },
       snapshot: () => base.log.snapshot().concat(extra),
-      get length() { return base.log.snapshot().length + extra.length; },
+      get length() { return (base.log.length ?? base.log.snapshot().length) + extra.length; },  // no full snapshot copy just to count
     };
     return { log, units: base.units, sentences: base.sentences, tokensBySentence: base.tokensBySentence, docId: base.docId };
   };
