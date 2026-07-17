@@ -615,9 +615,10 @@ table{border-collapse:collapse;width:100%}
                 </sc-if>
                 <sc-if value="{{ sc.noKids }}"><span style="flex:0 0 auto;width:15px"></span></sc-if>
                 <button onClick="{{ sc.open }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px" style-hover="background:#F5F5F8">
-                  <span style="width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ sc.favBg }};color:{{ sc.favFg }}">{{ sc.favCh }}</span>
+                  <sc-if value="{{ sc.pending }}"><span style="width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:{{ sc.favBg }}"><span style="width:13px;height:13px;border:2px solid #DED8FD;border-top-color:#5B4BE6;border-radius:50%;animation:eoSpin .7s linear infinite;flex:0 0 auto"></span></span></sc-if>
+                  <sc-if value="{{ sc.notPending }}"><span style="width:24px;height:24px;border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:{{ sc.favBg }};color:{{ sc.favFg }}">{{ sc.favCh }}</span></sc-if>
                   <span style="flex:1;min-width:0">
-                    <span style="display:block;font-size:12.5px;font-weight:550;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.title }}</span>
+                    <span style="display:block;font-size:12.5px;font-weight:550;color:{{ sc.titleColor }};font-style:{{ sc.titleStyle }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.title }}</span>
                     <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.reg }} · {{ sc.domain }}</span>
                   </span>
                   <sc-if value="{{ sc.hasKids }}"><span title="followed pages recorded here" style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#A0A0AA;background:#F2F2F6;border-radius:5px;padding:1px 5px">{{ sc.kidCount }}</span></sc-if>
@@ -8012,6 +8013,7 @@ class Component extends DCLogic {
         leftSources.push({
           sn: s.sn, title: s.title, reg: s.reg, domain: s.domain,
           favCh: (s.domain || s.title || '?')[0].toUpperCase(), favBg: fav[0], favFg: fav[1],
+          pending: false, notPending: true, titleColor: '#3A3A44', titleStyle: 'normal',
           indent: `${depth * 15}px`, isChild: depth > 0,
           hasKids, noKids: !hasKids, kidCount: hasKids ? String(kids.length) : '',
           caret: hasKids ? (collapsed ? '▸' : '▾') : '',
@@ -8025,6 +8027,32 @@ class Component extends DCLogic {
       }
     };
     emitSourceRows(kidsOf.get(null) || [], 0);
+    // Pending rows — a source in the middle of being pulled in (a URL fetch, a dropped file)
+    // has no S-number yet (addSource only lands once the fetch/parse resolves), but the user
+    // just acted and the bucket must not look untouched while that round-trip is in flight.
+    // state.jobs already tracks this work durably (ingest-jobs.js); a `running` url/file job
+    // scoped to the active topic gets a placeholder row up top with a spinner instead of the
+    // favicon square, so "pulled a source" registers in the sidebar at the moment of the ask,
+    // not only once the network settles.
+    const activeTid = app.state.activeTopicId;
+    const pendingRows = (app.state.jobs || [])
+      .filter((j) => j && j.status === 'running' && (j.kind === 'url' || j.kind === 'file') && j.topicId === activeTid)
+      .map((j) => {
+        let domain = '';
+        if (j.kind === 'file') domain = 'local file';
+        else { try { domain = new URL(j.url).hostname.replace(/^www\./, ''); } catch { domain = j.url || ''; } }
+        return {
+          sn: `pending:${j.id}`, pending: true, notPending: false,
+          title: j.kind === 'file' ? (j.name || 'Reading file…') : `Reading ${domain}…`,
+          titleColor: '#9A9AA4', titleStyle: 'italic',
+          reg: '···', domain,
+          favCh: '', favBg: '#F2F2F6', favFg: '#8A8A95',
+          indent: '0px', isChild: false,
+          hasKids: false, noKids: true, kidCount: '', caret: '',
+          open: () => {}, toggle: () => {},
+        };
+      });
+    leftSources.unshift(...pendingRows);
 
     // model
     const m = app.state.model;
@@ -9150,7 +9178,7 @@ class Component extends DCLogic {
       wsShared: activeWs ? !!activeWs.shared : false,
       newWorkspace: () => { const v = prompt('New workspace name', 'New workspace'); if (v) app.workspaceNew(v); this.setState({ wsMenuOpen: false }); },
       topics, topicCount: String((app.state.topics || []).filter((t) => t.workspaceId === app.state.activeWorkspaceId).length),
-      leftSources, sourceCount: String(sources.length), noSources: sources.length === 0, hasSources: sources.length > 0,
+      leftSources, sourceCount: String(sources.length), noSources: sources.length === 0 && pendingRows.length === 0, hasSources: sources.length > 0,
       // tabs
       tabs, hasFlagLine, flagLine, flagFg, flagBg, flagBd,
       isSearch: st.tab === 'search', isGraph: st.tab === 'graph', isEvidence: st.tab === 'evidence', isPins: st.tab === 'pins',
