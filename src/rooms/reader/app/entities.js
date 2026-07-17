@@ -94,6 +94,47 @@ export const installEntities = (appCtx) => {
     return out;
   };
 
+  // ── transcription-variant fold: one SCREAMING-CAPS code, mis-heard ──────────────
+  // The referent layer folds by shared denotation and the surname logic folds by token
+  // containment — but neither catches a single-character MIS-TRANSCRIPTION of an acronym /
+  // system name: "FUSUS" (the real system) and "FUSIS" (an ASR/OCR slip) share no token and
+  // are not a containment pair, so they admit as two entities and inflate the per-source
+  // count. This is a deliberately NARROW orthographic fold, gated so it cannot touch an
+  // ordinary name: BOTH labels must be single-token, ALL-CAPS codes (a Titlecase name like
+  // "Marisa"/"Marina" is excluded by the caps test), of the SAME length ≥ 5, differing at
+  // exactly ONE position (Hamming distance 1). The busier spelling (more sightings) is kept
+  // as the canonical row and opens the profile, so "FUSUS" wins over the rarer "FUSIS".
+  const isScreamCode = (label) => {
+    const s = String(label || '');
+    return !s.includes(' ') && s.length >= 5 && s === s.toUpperCase() && s !== s.toLowerCase();
+  };
+  const isTranscriptionVariant = (a, b) => {
+    if (a === b || a.length !== b.length || !isScreamCode(a) || !isScreamCode(b)) return false;
+    let diff = 0;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i] && ++diff > 1) return false;
+    return diff === 1;
+  };
+  const foldSpellingVariants = (rows) => {
+    const codes = rows.filter((r) => isScreamCode(r.label));
+    if (codes.length < 2) return rows;
+    // Order candidates by sighting mass so the busiest spelling anchors its variants.
+    const ranked = codes.slice().sort((a, b) => (b.mentions || 0) - (a.mentions || 0));
+    const foldedInto = new Map();   // variant row → anchor row
+    for (let i = 0; i < ranked.length; i++) {
+      if (foldedInto.has(ranked[i])) continue;
+      for (let j = i + 1; j < ranked.length; j++) {
+        if (foldedInto.has(ranked[j])) continue;
+        if (isTranscriptionVariant(ranked[i].label, ranked[j].label)) foldedInto.set(ranked[j], ranked[i]);
+      }
+    }
+    if (!foldedInto.size) return rows;
+    for (const [variant, anchor] of foldedInto) {
+      anchor.mentions = (anchor.mentions || 0) + (variant.mentions || 0);
+      anchor.links = (anchor.links || 0) + (variant.links || 0);
+    }
+    return rows.filter((r) => !foldedInto.has(r));
+  };
+
   // The merged referents a SINGLE doc admits — one row per union-find representative
   // (further folded by shared referent, above), with its sighting mass and incident
   // degree. Pulled out of `entities()` so the topic explorer, the per-source pivot, and
@@ -126,7 +167,7 @@ export const installEntities = (appCtx) => {
       const lvl = (ent.props && ent.props.level != null) ? +ent.props.level : null;
       rows.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn, label, mentions: ent.sightings || 0, links, sourceCount: 1, kind, level: lvl });
     }
-    return foldRowsByReferent(doc, rows);
+    return foldSpellingVariants(foldRowsByReferent(doc, rows));
   };
   // `level` selects the HOLONIC LEVEL of the topic explorer: 'names' (default) is the natural-
   // language REFERENTS — the people, places and things the content NAMES — read from each source's

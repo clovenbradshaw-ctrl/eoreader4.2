@@ -39,7 +39,7 @@ export const installTopics = (appCtx) => {
     state.topics.push(t);
     state.activeTopicId = t.id;
     if (t.parentId) expandAncestors(t.parentId);   // a sub-topic opens its ancestors
-    if (!silent) { logIt('open', `New topic — ${title}`); appCtx.persist(); emit('topics'); }
+    if (!silent) { logIt('open', isDefaultTopicTitle(title) ? 'New topic created' : `New topic — ${title}`); appCtx.persist(); emit('topics'); }
     return t;
   };
   const topic = () => state.topics.find((t) => t.id === state.activeTopicId) || state.topics[0];
