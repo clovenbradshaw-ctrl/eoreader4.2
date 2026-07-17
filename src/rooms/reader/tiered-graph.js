@@ -524,7 +524,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     countsEl.style.display = 'none';   // the inspector needs the full footer row
     detail.innerHTML = '<span style="width:16px;height:16px;flex:0 0 auto;border-radius:5px;background:' + TIER[n.tier].fill + ';display:inline-block;"></span>' +
       '<span style="color:var(--ink,#15181e);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34%;">' + esc(n.label) + '</span>' +
-      '<span style="color:var(--ink3,#999);">' + TIER[n.tier].name + '</span>' +
+      '<span style="color:var(--ink3,#999);">' + TIER[n.tier].name + (n.terrain ? ' · ' + esc(n.terrain) : '') + '</span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">in <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(glyphs(ins)) + '</span></span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">out <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(glyphs(outs)) + '</span></span>';
     // "open →" navigates via the node's ref, so it belongs to exactly the nodes that carry one —

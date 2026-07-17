@@ -85,6 +85,10 @@ export {
 } from './motion.js';
 export { ingestCodons }      from './codon.js';
 export { ingestCode }        from './code.js';
+// The generalized deviation-waveform entry point (docs/omnimodal-waveform.md §0):
+// bytes in, a Reading out, for any input at all — sniffs WAV/text and falls
+// through to the generic binary perceiver otherwise.
+export { buildReadingFromBytes } from './reading-dispatch.js';
 export {
   parseFasta, complement, reverseComplement, codonsOf, isStop,
   codonVector, vectorDim, codonReadings, frameReading, sixFrameReadings,

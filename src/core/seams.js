@@ -22,6 +22,12 @@ export const SEAMS = Object.freeze([
     'Law 1 at emit: the conformance registry aggregates every holon\'s manifest, so it cannot ride core\'s entrance — core imports nothing; only the assembly membrane may load it'],
   ['src/perceiver/referents/mentions.js', 'src/perceiver/parse/entities.js',
     'the referent read observes surfaces with the parser\'s OWN entity scanner (scanEntities), so a mention\'s span is exactly the span the relation extractor cites; routing it through parse/index.js would close an import cycle (parse barrel → pipeline → referents → parse barrel), so it reads the leaf directly'],
+  ['src/perceiver/audio/waveform.js', 'src/organs/in/acoustic.js',
+    'organs/in/acoustic.js itself depends on organs/ingest (attachReading), which depends on the perceiver entrance (organs/ingest/read.js) — riding organs/in\'s entrance here would close that cycle the instant either barrel is evaluated, so it reads the leaf directly'],
+  ['src/organs/in/reading-dispatch.js', 'src/perceiver/audio/waveform.js',
+    'the perceiver entrance deliberately does not re-export buildAudioReading (same cycle as the seam above, from the other side): audio/waveform.js -> organs/in/acoustic.js -> organs/ingest -> the perceiver entrance would close on itself if the entrance also carried buildAudioReading, so this reads the leaf directly'],
+  ['src/perceiver/text/waveform.js', 'src/model/embed-hash.js',
+    'model/index.js also pulls in every model backend (anthropic.js, wllama.js, webllm.js, …), several of which reach weave/write -> organs/ingest -> the perceiver entrance — closing a cycle back on this very module the instant model/index.js is evaluated, so it reads the leaf directly'],
 ].map(Object.freeze));
 
 // The seam set, keyed "from → to", for the boundary test's membership check.

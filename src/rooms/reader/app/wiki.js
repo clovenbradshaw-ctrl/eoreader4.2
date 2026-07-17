@@ -6,6 +6,7 @@
 import { projectGraph, operatorsOf, glyphOf } from '../../../core/index.js';
 import { figureSurface } from '../../../perceiver/index.js';
 import { wikiReferent } from '../wiki-referent.js';
+import { networkGraphData } from '../../../wiki/index.js';
 
 export const installWiki = (appCtx) => {
   const { client } = appCtx;
@@ -48,12 +49,16 @@ export const installWiki = (appCtx) => {
     const p = appCtx.entityProfile(docId, entId);
     if (!p) return { nodes: [], edges: [] };
     const srcT = srcTimeMs(appCtx.resolveDoc(docId)?.src);
-    const nodes = [{ id: 'src', tier: 0, label: p.sourceTitle, kind: 'source', t: srcT }];
+    // terrain: a source is Entity (Existence×Figure — a specific, bounded document); an entity
+    // node is likewise Entity; a standing claim (a DEF value held about the focus) is Lens
+    // (Significance×Figure — a specific reading), the closest of the nine terrains to what a
+    // ranked/witnessed property actually is. See docs/terrain-typed-templates.md.
+    const nodes = [{ id: 'src', tier: 0, label: p.sourceTitle, kind: 'source', terrain: 'Entity', t: srcT }];
     const edges = [];
     const seen = new Set();
     const addEnt = (id, label) => {
       const nid = `e:${id}`;
-      if (!seen.has(nid)) { seen.add(nid); nodes.push({ id: nid, tier: 1, label, kind: 'entity', ref: { docId, entId: id }, t: srcT }); }
+      if (!seen.has(nid)) { seen.add(nid); nodes.push({ id: nid, tier: 1, label, kind: 'entity', terrain: 'Entity', ref: { docId, entId: id }, t: srcT }); }
       return nid;
     };
     const focus = addEnt(entId, p.label);
@@ -72,7 +77,7 @@ export const installWiki = (appCtx) => {
     }
     p.defs.slice(0, 16).forEach((d, i) => {
       const id = `c:${i}`;
-      nodes.push({ id, tier: 2, label: d.value, kind: 'claim', t: srcT });
+      nodes.push({ id, tier: 2, label: d.value, kind: 'claim', terrain: 'Lens', t: srcT });
       edges.push({ a: focus, b: id, tier: 2, gl: '⊢', code: 'DEF' });
     });
     return { nodes, edges };
@@ -86,10 +91,15 @@ export const installWiki = (appCtx) => {
   // FULL graph — the surface's entity on/off toggles filter it for display, so a hidden entity can
   // still be turned back on. Entity nodes carry a representative { docId, entId } so a click opens
   // the entity panel, exactly like the single-entity web.
-  const topicTieredData = () => {
-    const srcs = appCtx.topicSources();
+  // srcsOverride: the same builder scoped to an explicit source list rather than the whole
+  // topic — how networkOf (below) unpacks one composite source's own children into their own
+  // network at a finer grain, without duplicating this traversal.
+  const topicTieredData = (srcsOverride) => {
+    const srcs = srcsOverride || appCtx.topicSources();
     const nodes = [], edges = [], seen = new Set();
-    const push = (id, tier, label, kind, ref, t = 0) => { if (!seen.has(id)) { seen.add(id); nodes.push({ id, tier, label, kind, ref, t }); } };
+    // terrain: a source and a merged entity are both Entity (Existence×Figure) at this grain —
+    // see tieredData's note above; docs/terrain-typed-templates.md.
+    const push = (id, tier, label, kind, ref, t = 0) => { if (!seen.has(id)) { seen.add(id); nodes.push({ id, tier, label, kind, terrain: 'Entity', ref, t }); } };
     const norm = (s) => String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
     const urlish = (s) => /^(https?:\/\/|www\.)/i.test(String(s || '')) || String(s || '').includes('://');
     const merged = new Map();       // normLabel → { id, label, mentions, sns:Set, ref }
@@ -151,6 +161,44 @@ export const installWiki = (appCtx) => {
     return { nodes, edges };
   };
 
+  // ── the Network surface (docs/terrain-typed-templates.md; src/wiki/network-article.js) ──
+  // The corpus read at the Network terrain (Structure×Pattern, core/cube.js) — the architecture
+  // of connections AMONG SOURCES, not a bag of entity nodes. Reuses topicTieredData()'s own
+  // cross-source entity merge (never re-walks a doc's log): two sources sharing a merged
+  // referent earn a Link between them; the Links' own topology is the Network.
+  //
+  // rootSourceId / sourceLabel: a composite source — one with children via registry.js's
+  // `parentSn` (a crawled site's sub-pages, a bundled report's sub-documents like "the Unified
+  // Housing Strategy") — collapses to its own root and is ONE Entity node here, "in one
+  // ontological sense … treated as a single source." Unpacking it is `networkOf`, below —
+  // grain, not terrain migration (surfer/reason/cursor.js's `grain` cursor: "unpacking descends
+  // a SYN to its members").
+  const rootSourceId = (id) => {
+    const sn = String(id).replace(/^src:/, '');
+    const s = appCtx.sourceBySn(sn);
+    const rsn = (s && s.parentSn && appCtx.sourceBySn(s.parentSn)) ? s.parentSn : sn;
+    return `src:${rsn}`;
+  };
+  const sourceLabel = (id) => {
+    const sn = String(id).replace(/^src:/, '');
+    const s = appCtx.sourceBySn(sn);
+    return (s && (s.title || s.reg)) || sn;
+  };
+
+  // The whole topic's Network — every composite source collapsed to its root first, so "the
+  // Unified Housing Strategy" reads as one node even though it may carry several sub-pages.
+  const networkTieredData = () => networkGraphData(topicTieredData(), { rootOf: rootSourceId, labelOf: sourceLabel });
+
+  // networkOf(rootSn) — the SAME builder, scoped to just one composite source's own children:
+  // its OWN network at a finer grain, unpacked rather than collapsed. Returns null when the
+  // source has no children — an honest absence (nothing to unpack), never a fabricated one.
+  const networkOf = (rootSn) => {
+    const root = appCtx.sourceBySn(rootSn);
+    const kids = appCtx.topicSources().filter((s) => s.parentSn === rootSn);
+    if (!root || !kids.length) return null;
+    return networkGraphData(topicTieredData([root, ...kids]), { labelOf: sourceLabel });
+  };
+
   // The topic's sources shaped for the causal DAG surface (mountDagSurface). A readable id (the
   // source title) rides in front of the parsed sentences + log the two cursors read: cursor 2 runs
   // over ALL of them so cross-source confounders and disagreements surface; cursor 1 reads the
@@ -161,5 +209,5 @@ export const installWiki = (appCtx) => {
     return { docId: src.title || src.url || src.docId, sn: src.sn, sentences: doc.sentences, log: doc.log };
   }).filter(Boolean);
 
-  Object.assign(appCtx, { dagSources, entityWiki, tieredData, topicTieredData, wikiCache });
+  Object.assign(appCtx, { dagSources, entityWiki, tieredData, topicTieredData, networkTieredData, networkOf, wikiCache });
 };

@@ -13,6 +13,8 @@
 //   project   renderArticle(eventLog, terrain, asOf) — the article as a view
 //   migrate   propose/apply terrain migration (append-only, supersession not overwrite)
 //   render    the narrow-panel + hero HTML view
+//   network-article  a corpus-level Network article — sources linked by what they
+//             corroborate, built bottom-up from Link members (docs/terrain-typed-templates.md)
 
 export { TERRAINS, TERRAIN_NAMES, profileOf, identityKeyOf, sameArticle, foldFacets } from './terrains.js';
 export { SPINE, HELIX_POSITION, slotOf, contractOf, sectionFor, sectionsOf } from './spine.js';
@@ -23,3 +25,4 @@ export { deriveName, nameArticle, namingPrompt, needsGeneration } from './naming
 export { renderArticle, ledeAt } from './project.js';
 export { proposeMigration, applyMigration, migrationPathsFrom } from './migrate.js';
 export { articleView, renderArticleHTML, promoteToHero, accentOf, WIKI_PANEL_CSS } from './render.js';
+export { buildSourceLinks, topologyOf, buildNetworkArticle, networkGraphData } from './network-article.js';
