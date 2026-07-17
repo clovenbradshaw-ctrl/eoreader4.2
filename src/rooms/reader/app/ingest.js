@@ -6,6 +6,7 @@
 import { htmlToText, searchAndAdmit } from '../../../organs/ingest/index.js';
 import { admitWebSource } from '../../../organs/ingest/index.js';
 import { fetchGithubRepo } from '../../../organs/ingest/index.js';
+import { fetchGutenbergBook, gutenbergIdOf } from '../../../organs/ingest/index.js';
 import { LIBRARIES, surfaceCard } from '../../../organs/ingest/index.js';
 import { FULL_TEXT } from './net.js';
 import { nowIso, domainOf } from './util.js';
@@ -49,6 +50,25 @@ export const installIngest = (appCtx) => {
       // (a re-fetch dedups by content hash, so a page that actually landed is a no-op on resume).
       const jid = appCtx.beginJob({ kind: 'url', url: norm });
       try {
+        // Gutenberg URLs (a .txt cache URL, an /ebooks/… landing page, an /files/… bare text) are
+        // recognised and read as WHOLE BOOKS — fetchGutenbergBook strips the transcription
+        // furniture (the ~15KB PG license header/footer that otherwise floods the reading with
+        // non-prose) and admits the novel itself, so a pasted `pg84.txt` lands as Frankenstein
+        // rather than as boilerplate concatenated with the book. Falls through to the generic
+        // page path when the URL is a search page or the id cannot be recovered.
+        const gid = gutenbergIdOf(norm);
+        if (gid != null) {
+          const bound = { ...client, fetchUrl: (u, o = {}) => client.fetchUrl(u, { signal, ...o }) };
+          const admitted = await fetchGutenbergBook(norm, { client: bound, fetched_at: nowIso() });
+          if (admitted?.doc && admitted?.record) {
+            const src = appCtx.addSource({
+              title: admitted.record.title, url: admitted.record.url || norm,
+              text: admitted.doc.text, kind: 'web', record: admitted.record, doc: admitted.doc,
+            });
+            appCtx.settleJob(jid, 'done');
+            return src;
+          }
+        }
         const raw = (await client.fetchUrl(norm, { signal })).text;
         const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
         const text = htmlToText(raw);
