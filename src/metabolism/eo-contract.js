@@ -38,4 +38,8 @@ export const CONTRACTS = Object.freeze({
   'src/metabolism/foresight.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field'], products: ['Lens', 'Atmosphere'], stances: ['Tracing', 'Binding', 'Tending'], note: 'the truth seam — the one surprise wired to selection: predictive skill on the held-out world anchors fitness' }),
   'src/metabolism/sanction.js': contract({ ops: ['SEG', 'REC', 'CON'], targets: ['Network', 'Lens'], products: ['Link', 'Network'], stances: ['Dissecting', 'Tracing', 'Binding'], note: 'graduated sanctions with a path back, and controlled death — the ration returns to the pool, organs to the reservoir, lineage preserved' }),
   'src/metabolism/homeostat.js': contract({ ops: ['EVA', 'SEG', 'SIG'], targets: ['Network'], products: ['Atmosphere', 'Network'], stances: ['Binding', 'Tracing', 'Tending'], note: 'the population homeostat — renormalize selection pressure to hold gene-pool diversity in a critical band' }),
+  // calibration mode (docs/calibration-mode.md) — grade the fold/plan stages against a frontier
+  // ideal, one faculty over from lift.js's retrieval-scaffolding objective.
+  'src/metabolism/fold-plan-judge.js': contract({ ops: ['EVA'], targets: ['Lens', 'Atmosphere'], products: ['Lens'], stances: ['Binding', 'Dissecting', 'Tending'], note: 'the fold/plan judge — grades the FOLD and the PLAN, not only the finished answer, against a frontier IDEAL' }),
+  'src/metabolism/calibrate.js': contract({ ops: ['EVA', 'SEG', 'REC'], targets: ['Lens', 'Network'], products: ['Paradigm', 'Atmosphere'], stances: ['Binding', 'Tracing', 'Composing'], note: 'the calibration cycle — challenge, ideal vs local, four stage-tagged reads, the transfer falsifier, the breeder proposal' }),
 });

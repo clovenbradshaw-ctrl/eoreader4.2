@@ -76,6 +76,13 @@ Claude poses a real challenge, the local model answers, Claude scores whether it
 toward. It grades; it never touches a weight. Full write-up:
 [`docs/organ-level-evolution.md`](docs/organ-level-evolution.md).
 
+The same machinery, pointed one faculty over, is **calibration mode**: instead of
+grading the finished answer alone, a frontier model also grades the FOLD (did it carry
+what the answer needed) and the PLAN (did it decompose/cover/order correctly) against
+its own unconstrained IDEAL answer to the task — so the breeder can tell a bad fold
+from a bad plan from a bad chunk prompt, and tune the right dial. `src/metabolism/calibrate.js`
++ `fold-plan-judge.js`; full write-up: [`docs/calibration-mode.md`](docs/calibration-mode.md).
+
 ## The surface
 
 `index.html` is the new dc surface (screens: **EOReader** and **Provenance DAG**),
