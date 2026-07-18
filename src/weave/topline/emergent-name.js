@@ -46,9 +46,24 @@ export const emergentLabel = (groupMentions, { global, exclude }) => {
   // Only name when EARNED — the term is genuinely concentrated in this stretch (distinct ≥ 1.5), not
   // merely present. Otherwise the caller keeps the positional placeholder — an honest non-name.
   if (!best || bestDistinct < 1.5) return '';
-  // Grow to a 1–2 word phrase only from a RARE modifier (global freq ≤ 1): "lunar surface" survives,
-  // but a recurring word never gets prepended.
-  const m = new RegExp('\\b([a-z][a-z\'-]{3,})\\s+' + best + '\\b', 'i').exec(text);
-  const mod = m && m[1].toLowerCase();
-  return titleCase(mod && !STOP.has(mod) && !exclude.has(mod) && (global.get(mod) || 0) <= 1 ? mod + ' ' + best : best);
+  // Clip a short phrase AROUND the distinctive term's first occurrence, straight out of the source
+  // sentence — a title reads as "Sixth X-15 Flight", not the bare word "Flight". Walk outward from the
+  // term word-by-word and stop at the first stopword / excluded (referent-name) / too-short word on
+  // each side, so the phrase never runs into the subject the spine must never be headed by. Still
+  // grounded: every word is lifted verbatim from an actual mention, never invented.
+  const norm = (t) => String(t).toLowerCase().replace(/'s$/, '').replace(/[^a-z'-]/g, '');
+  const blocked = (t) => { const w = norm(t); return w.length < 3 || STOP.has(w) || exclude.has(w); };
+  let phraseWords = [best];
+  for (const m of (groupMentions || [])) {
+    const toks = String(m.text || '').match(/[A-Za-z][A-Za-z'-]*/g) || [];
+    const i = toks.findIndex((t) => norm(t) === best);
+    if (i < 0) continue;
+    const pre = [];
+    for (let j = i - 1; j >= 0 && pre.length < 3; j--) { if (blocked(toks[j])) break; pre.unshift(toks[j]); }
+    const post = [];
+    for (let j = i + 1; j < toks.length && post.length < 2; j++) { if (blocked(toks[j])) break; post.push(toks[j]); }
+    phraseWords = [...pre, toks[i], ...post];
+    break;
+  }
+  return titleCase(phraseWords.join(' '));
 };
