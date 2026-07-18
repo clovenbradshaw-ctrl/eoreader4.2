@@ -63,7 +63,7 @@ import { deriveTopicTitle, isDefaultTopicTitle, DEFAULT_TOPIC_TITLE } from './to
 // public ones at their historical site.
 import { chainFetch, FULL_TEXT } from './app/net.js';
 import { kv } from './app/kv.js';
-import { keepGuardAlive, probeModelAlive, REFLECTION_CAP, recordReflections, LOG_CAP, appendLog } from './app/guards.js';
+import { keepGuardAlive, probeModelAlive, REFLECTION_CAP, recordReflections, LOG_CAP, appendLog, exportLogJson } from './app/guards.js';
 import { nowIso, nowMs, RESEARCH_HOPS, wantsLongform, LONGFORM_MAX_TOKENS, domainOf, shaShort, LINK_TITLES, bytesOf, esc } from './app/util.js';
 export { keepGuardAlive, probeModelAlive, REFLECTION_CAP, recordReflections, LOG_CAP, appendLog };
 // ── the app ──────────────────────────────────────────────────────────────────
@@ -195,17 +195,17 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   const subscribe = (fn) => { subs.add(fn); return () => subs.delete(fn); };
   const emit = (kind, data = null) => { for (const fn of subs) { try { fn(kind, data); } catch { /* surface's problem */ } } };
 
-  // `opts.coalesce` folds a repeating beat into the tail rather than appending a fresh line —
-  // used only by the at-rest reflection, so idle passes don't flood the Actions feed (see appendLog).
+  // opts.coalesce folds a repeating beat into the tail (see appendLog); also mirrors to the console.
   const logIt = (kind, text, effect = '', opts = {}) => {
     appendLog(state.log, { kind, t: nowIso(), text, effect }, () => `L${++appCtx.ln}`, opts);
-    emit('log');
+    try { console.info(`[eo:${kind}]`, text, effect || ''); } catch { /* console never gates the pass */ } emit('log');
   };
+  const exportLog = () => exportLogJson(state.log, nowIso());
 
   // Engine working for the user — a turn (busy) or a composing panel summary (foreModel); deep.js yields to it.
   const modelEngaged = () => !!state.busy || (state.foreModel || 0) > 0;
 
-  Object.assign(appCtx, { audit, client, emit, fetchImpl, ledger, logIt, modelEngaged, monitor, murmur, state, subs, subscribe });
+  Object.assign(appCtx, { audit, client, emit, exportLog, fetchImpl, ledger, logIt, modelEngaged, monitor, murmur, state, subs, subscribe });
 
   installTrail(appCtx);
   installPersistence(appCtx);
