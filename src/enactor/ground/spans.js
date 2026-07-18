@@ -21,11 +21,11 @@
 // Pure and DOM-free (like ground/reflect.js): the chat renders what this returns.
 
 import { classifyProvenance } from './provenance.js';
+import { STOPWORDS } from '../../core/index.js';
 
 // CITE_VERBATIM — the overlap at or above which a lexical match is a genuine LIFT: so much of the
 // claim is the passage's own words that the surface IS the grounding, and no propositional check is
-// owed (the same 0.6 the groundSpans doc-guard treats as near-verbatim). Below it, shared vocabulary
-// is not yet evidence of a lift.
+// owed (the same 0.6 the groundSpans doc-guard treats as near-verbatim); below it, shared vocabulary is not yet evidence of a lift.
 export const CITE_VERBATIM = 0.6;
 
 // citationHolds(claim, passageText, lexScore) → may this lexical match stand as a CITATION?
@@ -54,10 +54,10 @@ export const citationHolds = (claim, passageText, lexScore) => {
 };
 
 // The content terms a span binds on — the same shape the reader's _researchTerms and the
-// witness's contentWords use: lowercased words of ≥3 chars, function words stripped. The one
-// unavoidable lexical boundary (a span arrives as words); past it, meaning decides.
-const STOP = new Set(('a an the of to in on at by for with and or but nor so yet as is was were are be been being it its it\'s he she they them his her their him this that these those not no into out over under up down off then than now once would will do did had has have from about into their our your my me we you i').split(' '));
-const terms = (s) => (String(s ?? '').toLowerCase().match(/[a-z][a-z0-9'’-]{2,}/g) || []).filter((t) => !STOP.has(t));
+// witness's contentWords use: lowercased words of ≥3 chars, function words stripped (the
+// closed class is core/stopwords.js, shared with rooms/doc/ground.js). The one unavoidable
+// lexical boundary (a span arrives as words); past it, meaning decides.
+const terms = (s) => (String(s ?? '').toLowerCase().match(/[a-z][a-z0-9'’-]{2,}/g) || []).filter((t) => !STOPWORDS.has(t));
 // The same content-term read, exported: the self-read weld's refold signal uses it
 // so "does this sentence carry enough content to bind anywhere" is ONE rule here
 // and there — a connective that binds nowhere is scaffolding, never contamination.

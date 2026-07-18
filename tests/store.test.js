@@ -14,8 +14,6 @@ import {
   memoryBackend,
   EventStore,
   attachStore, openPersistentLog,
-  generateWorkspaceKey, wrapWorkspaceKey, unwrapWorkspaceKey,
-  generateIdentityKeyPair, encryptPayload, decryptPayload,
   createDatabase,
 } from '../src/store/index.js';
 
@@ -92,21 +90,6 @@ test('vault: unlock round-trips bytes; wrong passphrase fails; lock seals', asyn
   // …and rejects the wrong one.
   const v3 = new Vault();
   assert.equal(await v3.unlock('reader@local', 'battery staple'), false);
-});
-
-// ── envelope: multi-user key sharing (B3) ────────────────────────────────────
-
-test('envelope: a workspace key ECIES-wraps to a recipient and unwraps back', async () => {
-  const recipient = await generateIdentityKeyPair();
-  const wck = generateWorkspaceKey();
-  const grant = await wrapWorkspaceKey(recipient.publicKey, wck);
-  const opened = await unwrapWorkspaceKey(recipient.privateKey, grant);
-  assert.deepEqual(opened, wck);
-
-  const env = await encryptPayload(wck, 0, 'INS', { id: 'x', label: 'X' });
-  const { op, content } = await decryptPayload(wck, env);
-  assert.equal(op, 'INS');
-  assert.deepEqual(content, { id: 'x', label: 'X' });
 });
 
 // ── event-store: encrypted append-only persistence ───────────────────────────

@@ -17,17 +17,11 @@
 
 import { EKIND } from './events.js';
 import { makeSpine, withState, renderOrder, insert as spineInsert, split as spineSplit, merge as spineMerge, reorder as spineReorder } from './spine.js';
-
-const memo = new WeakMap(); // log → Map(cursor → essay)
+import { memoizeOnLogAt } from '../../core/index.js';
 
 export const projectEssay = (log, cursor = null) => {
   const at = cursor == null ? log.length : Math.max(0, Math.min(log.length, cursor));
-  let byCursor = memo.get(log);
-  if (byCursor?.has(at)) return byCursor.get(at);
-  const essay = computeEssay(log, at);
-  if (!byCursor) { byCursor = new Map(); memo.set(log, byCursor); }
-  byCursor.set(at, essay);
-  return essay;
+  return _projectEssay(log, at);
 };
 
 const computeEssay = (log, at) => {
@@ -235,6 +229,8 @@ const computeEssay = (log, at) => {
     },
   });
 };
+
+const _projectEssay = memoizeOnLogAt(computeEssay);
 
 const deepFreeze = (x) => {
   if (x && typeof x === 'object' && !Object.isFrozen(x)) {

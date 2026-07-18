@@ -6,7 +6,6 @@
 //    holds only ciphertext it cannot read."
 //
 // Layers, low to high:
-//   envelope.js       pure Web-Crypto primitives (AES-GCM + ECDH key hierarchy)
 //   vault.js          passphrase → in-memory AES key; seal/open bytes at rest
 //   pack.js           native event ⇄ compact binary (header-scannable)
 //   backends.js       byte sinks — in-memory (Node/fallback) + OPFS (browser)
@@ -22,22 +21,13 @@
 // A browser durable table lives in OPFS, NOT IndexedDB; under Node/tests it lives
 // in memory. The same encrypted code path runs in both.
 
-export {
-  b64, unb64,
-  deriveAccountKey,
-  generateIdentityKeyPair, exportIdentityPublicKey, importIdentityPublicKey,
-  wrapIdentityPrivateKey, unwrapIdentityPrivateKey,
-  generateWorkspaceKey, wrapWorkspaceKey, unwrapWorkspaceKey,
-  encryptPayload, decryptPayload,
-  encryptBytesWithKey, decryptBytesWithKey,
-} from './envelope.js';
-
 export { Vault, vault, configureVaultStorage, listVaultUsers } from './vault.js';
 
 export { packEvent, packBatch, unpackAll, unpackSince, scanMeta, HEADER_SIZE, OP_ORDER } from './pack.js';
 
 export {
   memoryBackend, opfsBackend, autoBackend, opfsAvailable, requestPersistentStorage,
+  resolveOpfsDir,
 } from './backends.js';
 
 export { EventStore, openEventStore, roomFileName, checkpointFileName } from './event-store.js';

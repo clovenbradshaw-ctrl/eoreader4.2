@@ -17,6 +17,8 @@
 // manifest is itself persisted to OPFS, so the pointers survive a reload even though the in-memory
 // byte cache does not.
 
+import { resolveOpfsDir } from '../../store/index.js';
+
 const enc = () => new TextEncoder();
 const dec = () => new TextDecoder();
 
@@ -44,10 +46,7 @@ export const createRawStore = ({ dir = RAW_STORE_DIR } = {}) => {
   let dirPromise = null;
   let manifestLoaded = false;
   const directory = async () => {
-    if (!opfsAvailable()) return null;
-    if (!dirPromise) dirPromise = navigator.storage.getDirectory()
-      .then((root) => root.getDirectoryHandle(dir, { create: true }))
-      .catch(() => null);
+    if (!dirPromise) dirPromise = resolveOpfsDir(dir);
     return dirPromise;
   };
 

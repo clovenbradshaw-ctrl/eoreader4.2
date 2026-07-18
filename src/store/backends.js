@@ -70,12 +70,34 @@ export async function requestPersistentStorage() {
 }
 
 /**
+ * Resolve a directory handle under the browser's Origin Private File System —
+ * the root itself when `dirName` is omitted, or a named subdirectory of it
+ * (created if absent). Null when OPFS is unavailable or any step fails, so a
+ * caller degrades to an in-memory fallback without a try/catch of its own.
+ * `navigator` is injectable (tests pass a fake or nothing); it defaults to
+ * the global. The one place every OPFS-backed store in the tree resolves its
+ * directory — this file's own opfsBackend, rooms/chat's E2EE keystore,
+ * organs/ingest's raw page store, and the reader's audio store all ran this
+ * exact dance independently before it moved here.
+ */
+export async function resolveOpfsDir(dirName = null, { navigator: nav = (typeof navigator !== 'undefined' ? navigator : null) } = {}) {
+  const storage = nav && nav.storage;
+  if (!storage || typeof storage.getDirectory !== 'function') return null;
+  try {
+    const root = await storage.getDirectory();
+    return dirName == null ? root : await root.getDirectoryHandle(String(dirName), { create: true });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * OPFS-backed byte file named `fileName`. Returns null when OPFS is unavailable
  * so the caller can fall back to memoryBackend() without a try/catch dance.
  */
 export async function opfsBackend(fileName) {
-  if (!(await opfsAvailable())) return null;
-  const dir = await navigator.storage.getDirectory();
+  const dir = await resolveOpfsDir();
+  if (!dir) return null;
 
   const getHandle = (create) => dir.getFileHandle(fileName, { create });
 

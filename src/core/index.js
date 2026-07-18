@@ -121,3 +121,8 @@ export { TIER, needsWitness, SPECTRUM, spectrumOf, classifyResolutions } from '.
 // projection of a WaveformModel, and the nearest-fold lookup every scrubber-driven
 // surface (poincare.js, operator-clock) reads instead of re-deriving its own.
 export { buildFoldTrace, nearestFoldIndex } from './fold-trace.js';
+// The shared cache shape every projectX(log, ...) fold in the tree needs — one slot
+// per log keyed by (length, sig) for a frame-parametrized fold, or one slot per
+// cursor kept forever for a cursor-bounded fold (memo-log.js).
+export { memoizeOnLog, memoizeOnLogAt, canonicalJSON } from './memo-log.js';
+export { STOPWORDS } from './stopwords.js';

@@ -97,7 +97,6 @@ export { reanalyze, applyReanalysis } from './reanalyze.js';
 // the SELF is the closed loop drawn by the efference copy + the one monitor + core/self.
 // learn-links/corpus-relations measure what CAN be extracted as shared convention (the HOW,
 // only form); the sense is conjectured live by that existing self — not by anything here.
-export { persistentFigures, coherentFigures, motionReading, detectMotion } from './motion.js';
 export { fieldVerdict, fieldIsVoid, ANSWERABLE_ALPHA } from './answerable.js';
 export * from './sequence.js';
 // The accumulation layer — fold the sentence-grain total read into adaptive coarse units
