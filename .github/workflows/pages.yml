@@ -28,6 +28,16 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Bundle the reader module graph
+        # src/** stays a buildless ES-module graph in the repo (local dev/tests never build);
+        # this is the one deploy-time step that turns it into a single fast-loading bundle —
+        # see build/build.mjs and sw.js's header comment for why the graph was ~800 requests.
+        run: |
+          npm ci
+          npm run build
       - name: Stage the site (exclude repo cruft)
         run: |
           mkdir -p _site
@@ -36,6 +46,7 @@ jobs:
             --exclude='_site' \
             --exclude='.github' \
             --exclude='node_modules' \
+            --exclude='build' \
             ./ _site/
           touch _site/.nojekyll
       - name: Stamp the build version (what produced this)
@@ -43,18 +54,31 @@ jobs:
         # as ./version.json (rooms/reader/provenance.js) so every exported conversation audit can
         # name its producer — the app, the build, and how current that build is against GitHub.
         run: |
+          SHORT_SHA="$(echo "${{ github.sha }}" | cut -c1-7)"
+          echo "SHORT_SHA=$SHORT_SHA" >> "$GITHUB_ENV"
           cat > _site/version.json <<JSON
           {
             "app": "EO Reader",
             "version": "4.2",
             "commit": "${{ github.sha }}",
-            "shortCommit": "$(echo "${{ github.sha }}" | cut -c1-7)",
+            "shortCommit": "$SHORT_SHA",
             "ref": "${{ github.ref_name }}",
             "builtAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "repo": "${{ github.repository }}",
             "runId": "${{ github.run_id }}"
           }
           JSON
+      - name: Point the deployed shell at the bundle
+        # The committed index.html loads src/rooms/reader/boot.js directly (unbundled — that's
+        # what local dev/tests run against). Only the deployed copy is repointed at the bundled
+        # entry produced above, tagged with this commit so the SAME URL can never serve two
+        # different builds — sw.js trusts that to skip revalidation for this one file (see its
+        # `?v=` handling) instead of a 304 round trip on every load.
+        run: |
+          sed -i \
+            "s#<script type=\"module\" src=\"src/rooms/reader/boot.js\"></script>#<script type=\"module\" src=\"src/rooms/reader/boot.bundle.js?v=${SHORT_SHA}\"></script>#" \
+            _site/index.html
+          grep -q "boot.bundle.js?v=${SHORT_SHA}" _site/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

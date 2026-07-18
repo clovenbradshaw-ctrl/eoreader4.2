@@ -19,7 +19,7 @@
 // activate, skips waiting on install, and purges any cache it didn't create. Bump CACHE_VERSION to
 // invalidate the offline mirror.
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const RUNTIME_CACHE = `eo-runtime-${CACHE_VERSION}`;
 
 self.addEventListener('install', (event) => {
@@ -45,11 +45,35 @@ function shouldRevalidate(request, url) {
   return true;
 }
 
+// The one exception to "always revalidate": the deploy-bundled entry (build/build.mjs), whose
+// URL is tagged `?v=<commit>` by pages.yml. That query makes the URL itself content-addressed —
+// a stale copy under the SAME URL is structurally impossible, so there is nothing to revalidate.
+// Cache-first here trades the 858-file "no request is ever stale" guarantee (still true for
+// everything else this worker touches) for skipping a round trip on every repeat load; a NEW
+// deploy is a NEW URL, so it is always a cache miss and fetched fresh regardless.
+function isVersionedBundle(url) {
+  return url.searchParams.has('v') && /\/boot\.bundle\.js$/.test(url.pathname);
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   let url;
   try { url = new URL(request.url); } catch { return; }
   if (!shouldRevalidate(request, url)) return; // pass-through: the browser handles it as usual
+
+  if (isVersionedBundle(url)) {
+    event.respondWith((async () => {
+      const cached = await caches.match(request);
+      if (cached) return cached;
+      const fresh = await fetch(request);
+      if (fresh && fresh.ok && fresh.type === 'basic') {
+        const copy = fresh.clone();
+        caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+      }
+      return fresh;
+    })());
+    return;
+  }
 
   event.respondWith((async () => {
     try {
