@@ -33,8 +33,7 @@
 import { KIND } from './events.js';
 import { STATUS, rollupStatus, assembleOutput, assembleSources } from './node.js';
 import { annotateGrain } from './grain.js';
-
-const memo = new WeakMap(); // log → { length, result }
+import { memoizeOnLog } from '../core/index.js';
 
 // computeProjection — the actual fold. Single pass to gather each node's events
 // and walk the active leaf, then a recursive build from the root that derives
@@ -230,10 +229,6 @@ const computeProjection = (log) => {
   return { root, byId, order: order.slice(), activeId, path, suspended };
 };
 
-export const projectFrameStack = (log = []) => {
-  const cached = memo.get(log);
-  if (cached && cached.length === log.length) return cached.result;
-  const result = computeProjection(log);
-  memo.set(log, { length: log.length, result });
-  return result;
-};
+const _projectFrameStack = memoizeOnLog(computeProjection);
+
+export const projectFrameStack = (log = []) => _projectFrameStack(log);

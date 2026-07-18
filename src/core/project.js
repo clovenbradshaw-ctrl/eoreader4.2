@@ -20,6 +20,7 @@
 
 import { discriminatorIndex, evaluateSameAs, normLabel } from './asterisk.js';
 import { deriveNull } from './voidnull.js';
+import { memoizeOnLog, canonicalJSON } from './memo-log.js';
 
 export const DEFAULT_PROJECTION_RULES = Object.freeze({
   // Mass decays at γ per unit of stream-distance from the cursor (unit.js —
@@ -38,39 +39,15 @@ export const DEFAULT_PROJECTION_RULES = Object.freeze({
   same_as_min_convergence: 1,
 });
 
-const memo = new WeakMap(); // log → { length, frameSig, result }
-
 export const projectGraph = (log, frame = {}) => {
   const rules     = { ...DEFAULT_PROJECTION_RULES, ...(frame.rules || {}) };
   const fullFrame = { ...frame, rules };
-  const frameSig  = canonicalFrame(fullFrame);
-  const cached    = memo.get(log);
-  if (cached && cached.length === log.length && cached.frameSig === frameSig) {
-    return cached.result;
-  }
-  const result = computeProjection(log, fullFrame);
-  memo.set(log, { length: log.length, frameSig, result });
-  return result;
+  return _projectGraph(log, fullFrame);
 };
 
 export const projectionStats = (log) => {
-  const c = memo.get(log);
-  return c
-    ? { cached: true, atLength: c.length, frameSig: c.frameSig }
-    : { cached: false };
-};
-
-const canonicalFrame = (f) => {
-  // Deterministic serialization: sorted keys, recursive on plain objects.
-  // Rules are a plain object so the inner keys must also be sorted.
-  const ser = (v) => {
-    if (v && typeof v === 'object' && !Array.isArray(v)) {
-      const keys = Object.keys(v).sort();
-      return '{' + keys.map(k => JSON.stringify(k) + ':' + ser(v[k])).join(',') + '}';
-    }
-    return JSON.stringify(v);
-  };
-  return ser(f);
+  const c = _projectGraph.stats(log);
+  return c.cached ? { cached: true, atLength: c.atLength, frameSig: c.sig } : { cached: false };
 };
 
 const computeProjection = (log, frame) => {
@@ -397,3 +374,5 @@ const computeProjection = (log, frame) => {
     rev: events.length,
   });
 };
+
+const _projectGraph = memoizeOnLog(computeProjection, { sig: canonicalJSON });

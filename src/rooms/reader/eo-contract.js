@@ -64,7 +64,6 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/entity-merge.js': contract({ ops: ['SEG', 'INS'], targets: ['Network'], products: ['Entity'], stances: ['Dissecting', 'Making'], note: 'cross-source entity merge — fold by referent, never by a shared surname' }),
   'src/rooms/reader/eo-gen.js': contract({ ops: ['EVA', 'DEF'], targets: ['Lens', 'Link'], products: ['Lens', 'Atmosphere'], stances: ['Tracing', 'Making'], note: 'browser grounding seam' }),
   'src/rooms/reader/eo/chorus.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field', 'Paradigm'], products: ['Paradigm'], stances: ['Tracing'], note: 'chorus Born-measure reader' }),
-  'src/rooms/reader/eo/embed.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Atmosphere'], stances: ['Tending'], note: 'MiniLM meaning embedder organ' }),
   'src/rooms/reader/eo/ocr-eyes.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Field'], stances: ['Making', 'Tending'], note: 'OCR eyes — a pluggable set of witnesses (Tesseract + Florence-2 OCR)' }),
   'src/rooms/reader/eo/pdf-eyes.js': contract({ ops: ['SIG', 'INS'], targets: ['Void'], products: ['Entity', 'Field'], stances: ['Making', 'Tending'], note: 'PDF eyes — render a page natively, read the pixels with the OCR eyes' }),
   'src/rooms/reader/eo/phasepost.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field', 'Kind'], products: ['Lens'], stances: ['Binding', 'Tracing'], note: 'geometric cell classifier' }),

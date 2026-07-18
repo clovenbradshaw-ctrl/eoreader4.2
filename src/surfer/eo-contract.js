@@ -23,7 +23,6 @@ export const CONTRACTS = Object.freeze({
   'src/surfer/learn-links.js': contract({ ops: ['REC', 'EVA'], targets: ['Link', 'Field'], products: ['Kind', 'Paradigm'], stances: ['Composing', 'Binding'], note: 'grow link-types from labels' }),
   'src/surfer/levels.js': contract({ ops: ['SEG', 'SYN', 'EVA'], targets: ['Field', 'Network'], products: ['Network', 'Field'], stances: ['Unraveling', 'Composing', 'Tracing'], note: 'multi-grain coarse spine' }),
   'src/surfer/metacognition.js': contract({ ops: ['EVA', 'NUL'], targets: ['Field'], products: ['Lens', 'Void'], stances: ['Binding', 'Clearing'], note: 'meaningfulness + visible trace' }),
-  'src/surfer/motion.js': contract({ ops: ['EVA', 'NUL', 'DEF'], targets: ['Field', 'Entity'], products: ['Entity', 'Void'], stances: ['Tracing', 'Clearing'], note: 'moving-shape reader (video)' }),
   'src/surfer/multilevel.js': contract({ ops: ['SEG', 'SIG', 'SYN'], targets: ['Network'], products: ['Field', 'Network'], stances: ['Dissecting', 'Tending', 'Composing'], note: 'multi-level surf — sources then content' }),
   'src/surfer/reader.js': contract({ ops: ['EVA', 'REC'], targets: ['Field', 'Lens'], products: ['Lens', 'Field'], stances: ['Binding', 'Tracing', 'Composing'], note: 'the reader — ρ-side surprise' }),
   'src/surfer/reanalyze.js': contract({ ops: ['REC'], targets: ['Link', 'Entity'], products: ['Lens', 'Link'], stances: ['Making'], note: 'garden-path reanalysis' }),

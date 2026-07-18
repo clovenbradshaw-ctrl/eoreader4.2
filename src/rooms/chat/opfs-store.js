@@ -16,6 +16,8 @@
 // promise and NEVER rejects: a fault degrades to null / a no-op, never a throw, so a
 // storage hiccup can never wedge the chat session.
 
+import { resolveOpfsDir } from '../../store/index.js';
+
 // A key ('crypto/account', 'megolm/in/<id>', 'sync/token') maps to ONE flat file in
 // the store's directory. Slashes and anything filesystem-hostile are percent-encoded
 // so the whole keyspace lives in a single directory with no nesting to walk.
@@ -72,19 +74,6 @@ const opfsBackend = async (dirHandle) => ({
   },
 });
 
-// Resolve the OPFS directory handle for `root` under the origin's private root, or
-// null when OPFS is not offered by this environment. Best-effort: any fault (private
-// mode denying storage, an ancient browser) resolves to null and the caller falls
-// back to memory.
-const resolveOpfsDir = async (nav, root) => {
-  const storage = nav && nav.storage;
-  if (!storage || typeof storage.getDirectory !== 'function') return null;
-  try {
-    const rootDir = await storage.getDirectory();
-    return await rootDir.getDirectoryHandle(String(root), { create: true });
-  } catch { return null; }
-};
-
 // createOpfsStore({ navigator, root, memory }) → a promise for the store. Pass
 // `memory: true` to force the in-memory backend regardless of OPFS availability
 // (tests, or an explicit ephemeral session). `root` names the private subdirectory
@@ -96,7 +85,7 @@ export const createOpfsStore = async ({
 } = {}) => {
   let backend = null;
   if (!memory) {
-    const dir = await resolveOpfsDir(nav, root);
+    const dir = await resolveOpfsDir(root, { navigator: nav });
     if (dir) { try { backend = await opfsBackend(dir); } catch { backend = null; } }
   }
   if (!backend) backend = memoryBackend();

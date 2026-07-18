@@ -10,18 +10,11 @@
 //
 // This is deliberately the same shape as the reader's own grounding rule ("the
 // default grounding is a content-word overlap; function-word claims ground
-// trivially") so a document and an answer are held to one standard.
+// trivially") so a document and an answer are held to one standard — including
+// the closed-class list itself (core/stopwords.js), shared with
+// enactor/ground/spans.js's contentTerms rather than kept as a second copy.
 
-const STOP = new Set([
-  'the', 'a', 'an', 'of', 'to', 'in', 'on', 'at', 'by', 'for', 'with', 'from', 'as',
-  'and', 'or', 'but', 'nor', 'so', 'yet', 'is', 'are', 'was', 'were', 'be', 'been',
-  'being', 'am', 'it', 'its', 'this', 'that', 'these', 'those', 'they', 'them',
-  'their', 'he', 'she', 'his', 'her', 'we', 'our', 'you', 'your', 'i', 'me', 'my',
-  'not', 'no', 'do', 'does', 'did', 'has', 'have', 'had', 'will', 'would', 'can',
-  'could', 'may', 'might', 'must', 'shall', 'should', 'if', 'then', 'than', 'there',
-  'here', 'which', 'who', 'whom', 'what', 'when', 'where', 'how', 'all', 'any',
-  'some', 'each', 'into', 'out', 'up', 'down', 'over', 'about', 'more', 'most',
-]);
+import { STOPWORDS as STOP } from '../../core/index.js';
 
 // The content words of a string — lowercased tokens of length ≥ 3 that are not
 // function words. Numbers count (a figure is content), apostrophes are kept.
