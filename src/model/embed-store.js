@@ -19,6 +19,16 @@
 // The budget is generous by default (≈ the working set of a handful of large docs),
 // so an ordinary corpus never evicts and current performance is unchanged; only a
 // pathological session — many big sources open at once — is held to the ceiling.
+//
+// The resident matrices are also QUANTIZED to int8 (a quarter the Float32 footprint).
+// Every reader of these vectors scores them with COSINE — semantic retrieval, the
+// significance/atmosphere projection (projectUnit), the site-role pass, the impression
+// query — and cosine re-normalizes both operands, so a per-vector rescale cancels
+// exactly. Symmetric per-vector int8 (round(x · 127/max|x|)) preserves DIRECTION to
+// ~0.4%/component, which leaves top-k rankings unchanged while cutting the held bytes
+// 4×. The query vector stays full-precision Float32 (it is embedded fresh, never
+// stored). Disable with setEmbeddingQuantization(false) if a magnitude-sensitive
+// reader is ever added.
 
 // Resident-vector budget across all documents. 60k MiniLM (384-dim f32) vectors ≈
 // 92 MB; the hash-space copies (64-dim) are a quarter of that. Tunable at runtime.
@@ -38,6 +48,39 @@ export const setEmbeddingBudget = (n) => {
 
 /** Observability: current residency against the budget (for a memory readout). */
 export const embeddingResidency = () => ({ resident, budget: BUDGET, cells: cells.size });
+
+// int8 quantization of resident matrices (on by default). The escape hatch exists for
+// a future magnitude-sensitive reader; cosine readers are unaffected either way.
+let QUANTIZE = true;
+export const setEmbeddingQuantization = (on) => { QUANTIZE = !!on; };
+
+// Quantize an array of float vectors into ONE contiguous Int8Array, returned as per-unit
+// subarray views (each a length-`dim` Int8Array — array-like, so every cosine caller reads
+// it exactly as it read the Float32 version). Symmetric per-vector scaling to [-127, 127]
+// preserves direction; the scale cancels under cosine, so retrieval is unchanged to within
+// int8 rounding. A ragged or empty input (mismatched dims, no vectors) is returned as-is.
+export const quantizeVectors = (vectors) => {
+  if (!QUANTIZE || !Array.isArray(vectors) || vectors.length === 0) return vectors;
+  const dim = vectors[0]?.length | 0;
+  if (!dim) return vectors;
+  for (const v of vectors) if (!v || v.length !== dim) return vectors;   // ragged → leave untouched
+  const buf = new Int8Array(vectors.length * dim);
+  const out = new Array(vectors.length);
+  for (let r = 0; r < vectors.length; r++) {
+    const v = vectors[r];
+    let max = 0;
+    for (let i = 0; i < dim; i++) { const a = v[i] < 0 ? -v[i] : v[i]; if (a > max) max = a; }
+    const s = max > 0 ? 127 / max : 0;
+    const off = r * dim;
+    for (let i = 0; i < dim; i++) {
+      let q = Math.round(v[i] * s);
+      q = q > 127 ? 127 : q < -127 ? -127 : q;   // clamp (round can reach ±127 already; guard the edge)
+      buf[off + i] = q;
+    }
+    out[r] = buf.subarray(off, off + dim);
+  }
+  return out;
+};
 
 // Drop least-recently-used cells until residency is within budget. A cell still being
 // computed (`pinned`) is never dropped — a matrix mid-turn must survive to its await —
@@ -82,6 +125,7 @@ export const createEmbeddingMemo = () => {
       };
       cell.promise = Promise.resolve()
         .then(compute)
+        .then(quantizeVectors)   // hold the matrix as int8; cosine readers see identical rankings
         .then((v) => { cell.pinned = false; evict(cell); return v; })
         .catch((err) => {
           // A failed compute must not wedge the slot: unregister so a retry recomputes.
