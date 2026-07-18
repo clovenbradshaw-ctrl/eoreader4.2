@@ -3,10 +3,8 @@
 // render) and a real loaded document. The surface holon knows only bytes; THIS knows how to get
 // the bytes of any source the reader holds (app.sourceOriginalExport — a PDF/audio/video's true
 // bytes, or a text source's own text as UTF-8) and paints the picture beside a source picker, a
-// layer switch, a legend, and a live byte readout. Two entrances:
+// layer switch, a legend, and a live byte readout. One entrance:
 //   mountBinvis(el, { app, sn, layer })  — drop the surface into any element. Returns { destroy, show }.
-//   mountBinvisLauncher(host, { app })   — the floating launcher: a corner button that opens the
-//                                          surface over whatever is loaded, no dc-surface edit.
 // The surface reads the record, paints, wires clicks through callbacks, and logs nothing.
 
 import { renderToContainer, LAYERS, DEFAULT_LAYER } from '../../surfaces/binvis/index.js';
@@ -19,17 +17,6 @@ export { bytesOfSource, readingSignificance };
 const STYLE_ID = 'eo-binvis-style';
 
 const CSS = `
-.eo-binvis-fab{position:fixed;left:18px;bottom:66px;z-index:2147482880;display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #263042;border-radius:9px;background:#0f1420;color:#c7d2e2;cursor:pointer;font:600 12px/1 ui-sans-serif,system-ui,sans-serif;box-shadow:0 3px 14px rgba(0,0,0,.35)}
-.eo-binvis-fab:hover{background:#151d2c;color:#eaf1fb}
-.eo-binvis-fab svg{display:block}
-@media (max-width:640px){.eo-binvis-fab{left:10px;bottom:calc(58px + env(safe-area-inset-bottom));padding:8px}}
-.eo-binvis{position:fixed;right:0;top:0;bottom:0;width:min(430px,94vw);z-index:2147482881;display:none;flex-direction:column;background:#0b0f18;color:#c9d3e2;border-left:1px solid #1c2333;box-shadow:-8px 0 30px rgba(0,0,0,.4);font:13px/1.5 ui-sans-serif,system-ui,sans-serif}
-.eo-binvis.open{display:flex}
-.eo-binvis__head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #1c2333}
-.eo-binvis__title{font-weight:700;font-size:13px;color:#eaf1fb;letter-spacing:.01em}
-.eo-binvis__sub{font-size:11px;color:#6f7d92}
-.eo-binvis__x{margin-left:auto;background:none;border:1px solid #263042;color:#8b98ad;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1}
-.eo-binvis__x:hover{color:#eaf1fb;border-color:#3a4863}
 .eo-binvis__body{padding:12px;overflow:auto;display:flex;flex-direction:column;gap:12px}
 .eo-binvis__row{display:flex;flex-direction:column;gap:5px}
 .eo-binvis__lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5f6d82}
@@ -204,43 +191,4 @@ export const mountBinvis = (host, { app, sn = null, layer = DEFAULT_LAYER, displ
     show: (nextSn) => { if (nextSn != null) curSn = nextSn; render(); },
     destroy: () => { try { unsub(); } catch {} try { handle && handle.destroy(); } catch {} host.innerHTML = ''; },
   };
-};
-
-// mountBinvisLauncher — the floating launcher. A corner button opens the surface as a
-// right-docked panel over whatever the reader has loaded. Idempotent per host.
-export const mountBinvisLauncher = (host, { app } = {}) => {
-  const doc = host.ownerDocument || document;
-  if (doc.querySelector('.eo-binvis-fab')) return () => {};
-  ensureStyle(doc);
-
-  const fab = el(doc, 'button', 'eo-binvis-fab');
-  fab.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">'
-    + '<rect x="0" y="0" width="6" height="6" rx="1" fill="#4682dc"/><rect x="8" y="0" width="6" height="6" rx="1" fill="#5abe6e"/>'
-    + '<rect x="0" y="8" width="6" height="6" rx="1" fill="#d74b46"/><rect x="8" y="8" width="6" height="6" rx="1" fill="#ecedf0"/></svg>'
-    + '<span>Structure</span>';
-  fab.title = "Byte-structure view (Aldo Cortesi's binvis) of any loaded document";
-
-  const panel = el(doc, 'div', 'eo-binvis');
-  const head = el(doc, 'div', 'eo-binvis__head');
-  const titles = el(doc, 'div');
-  titles.appendChild(el(doc, 'div', 'eo-binvis__title', 'Byte structure'));
-  titles.appendChild(el(doc, 'div', 'eo-binvis__sub', "binvis · Hilbert curve · structure · entropy · significance"));
-  head.appendChild(titles);
-  const x = el(doc, 'button', 'eo-binvis__x', '×');
-  head.appendChild(x);
-  panel.appendChild(head);
-
-  host.appendChild(fab); host.appendChild(panel);
-
-  let surface = null;
-  const open = () => {
-    panel.classList.add('open');
-    if (!surface) surface = mountBinvis(panel, { app });
-    else surface.show();
-  };
-  const close = () => panel.classList.remove('open');
-  fab.addEventListener('click', () => (panel.classList.contains('open') ? close() : open()));
-  x.addEventListener('click', close);
-
-  return () => { try { surface && surface.destroy(); } catch {} fab.remove(); panel.remove(); };
 };
