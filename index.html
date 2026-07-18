@@ -2043,7 +2043,11 @@ table{border-collapse:collapse;width:100%}
                 <sc-if value="{{ topicOverview.hasSources }}">
                   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:12px">
                     <sc-for list="{{ topicOverview.cards }}" as="c">
-                      <button onClick="{{ c.open }}" title="Open this source's overview" style="display:flex;flex-direction:column;gap:9px;text-align:left;background:#FAFAFC;border:1px solid #EEEFF4;border-radius:14px;padding:14px;opacity:{{ c.cardOpacity }}" style-hover="border-color:#CFC7F7;background:#FCFBFF">
+                      <!-- A DIV, not a button: it wraps the per-source Include/Exclude toggle, which is
+                           itself a real button — and a button cannot legally contain a button (the HTML5
+                           parser silently auto-closes the outer one, corrupting everything nested after it,
+                           which is why the entities panel used to render detached at the foot of the page). -->
+                      <div role="button" tabindex="0" onClick="{{ c.open }}" onKeyDown="{{ c.openKey }}" title="Open this source's overview" style="display:flex;flex-direction:column;gap:9px;text-align:left;cursor:pointer;background:#FAFAFC;border:1px solid #EEEFF4;border-radius:14px;padding:14px;opacity:{{ c.cardOpacity }}" style-hover="border-color:#CFC7F7;background:#FCFBFF">
                         <div style="display:flex;gap:11px;align-items:center;min-width:0;width:100%">
                           <span style="flex:0 0 auto;width:38px;height:38px;border-radius:10px;background:{{ c.favBg }};color:{{ c.favFg }};display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;font-family:'IBM Plex Mono',monospace">{{ c.favCh }}</span>
                           <span style="min-width:0;flex:1">
@@ -2054,7 +2058,7 @@ table{border-collapse:collapse;width:100%}
                         </div>
                         <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#7B7881">{{ c.countLine }}</div>
                         <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#9A9AA4;width:100%"><span style="font-weight:600;color:#4E5765;background:#EEF0F3;border-radius:5px;padding:1px 6px">{{ c.reg }}</span><span style="flex:1"></span><span>{{ c.when }}</span><button onClick="{{ c.toggleScope }}" style="font-weight:600;color:#5B4BE6;padding:1px 7px;border-radius:6px;border:1px solid #DED8FD" style-hover="background:#F1EFFE">{{ c.toggleScopeLabel }}</button></div>
-                      </button>
+                      </div>
                     </sc-for>
                   </div>
                 </sc-if>
@@ -7689,6 +7693,7 @@ class Component extends DCLogic {
         toggleScope: (e) => { if (e && e.stopPropagation) e.stopPropagation(); if (t && app.setSourceScopeEnabled) this._toggleEvidenceScope(t.id, s.sn, !active); },
         toggleScopeLabel: active ? 'Exclude' : 'Include',
         open: () => this.openViewer(s.sn),
+        openKey: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openViewer(s.sn); } },
       };
     });
     // sub-topics — the child quests directly under this one, each a door across (setTopic)
