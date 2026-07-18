@@ -11,7 +11,7 @@ export const buildApi = (appCtx) => {
   return Object.freeze({
     state, subscribe,
     // topics — a nested tree within a workspace
-    topicNew: appCtx.topicNew, setTopic: appCtx.setTopic, topicRename: appCtx.topicRename, topicDelete: appCtx.topicDelete, topic: appCtx.topic,
+    topicNew: appCtx.topicNew, setTopic: appCtx.setTopic, topicRename: appCtx.topicRename, topicDelete: appCtx.topicDelete, topic: appCtx.topic, topicById: appCtx.topicById,
     topicMove: appCtx.topicMove, topicToggleCollapse: appCtx.topicToggleCollapse, topicTree: appCtx.topicTree, topicRows: appCtx.topicRows,
     // workspaces — the top-level containers; a shared workspace is a Matrix room (roomId)
     workspaceNew: appCtx.workspaceNew, setWorkspace: appCtx.setWorkspace, workspaceRename: appCtx.workspaceRename, workspaceDelete: appCtx.workspaceDelete, activeWorkspace: appCtx.activeWorkspace,
@@ -30,6 +30,16 @@ export const buildApi = (appCtx) => {
     resumeJobs: appCtx.resumeJobs,
     // search — the sibling of ask(): a query opens a "search topic" and pulls sources into it
     searchTopic: appCtx.searchTopic,
+    // Research Review (docs/research-review.md) — a search result becomes a provisional,
+    // inspectable corpus before anything is admitted to a "real" topic. reviewStart opens the
+    // review topic and reviews the first batch; reviewMore pulls in more discovered candidates;
+    // reviewToggleExclude/reviewApplyRecipe shape the working selection; reviewAdmit is the
+    // explicit act that copies the selection into a real topic; reviewCompute is the whole
+    // computed screen (evidence areas, duplicate clusters, connections, recipes, corpus preview).
+    reviewStart: appCtx.reviewStart, reviewMore: appCtx.reviewMore,
+    reviewAddUrl: appCtx.reviewAddUrl, reviewImportFile: appCtx.reviewImportFile,
+    reviewToggleExclude: appCtx.reviewToggleExclude, reviewApplyRecipe: appCtx.reviewApplyRecipe,
+    reviewAdmit: appCtx.reviewAdmit, reviewCompute: appCtx.reviewCompute,
     sourceBySn: appCtx.sourceBySn, sourceRename: appCtx.sourceRename, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, sourceToggleCollapse: appCtx.sourceToggleCollapse,
     // source export — full append-only history as JSONL, one JSON snapshot (or one folded at a
     // text/log cursor), and the ORIGINAL file/bytes as ingested (PDF/audio/video bytes, else text)

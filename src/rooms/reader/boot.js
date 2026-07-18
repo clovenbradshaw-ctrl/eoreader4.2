@@ -75,6 +75,7 @@ import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
 import { mountBinvis } from './binvis-surface.js';
+import { mountResearchReview } from './research-review-surface.js';
 import * as binvis from '../../surfaces/binvis/index.js';
 import { createPipelineSurface } from './pipeline-surface.js';
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
@@ -337,6 +338,9 @@ window.EO = Object.freeze({
   // curve, coloured by byte class. The pure holon + mountBinvis (the dc surface can host it as a
   // tab); the floating launcher below makes it visible now. Structural layer today, more to come.
   binvis: Object.freeze({ ...binvis, mount: mountBinvis }),
+  // Research Review (docs/research-review.md) — a search result becomes a provisional, inspectable
+  // corpus (discovered/reviewed/admitted) before anything joins a real topic. Mounted, binvis-style.
+  researchReview: Object.freeze({ mount: mountResearchReview }),
   firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
   projectTranscript, wordsToText,   // the interactive transcript fold (baseline + edits/redactions → live reading)
   encodeWav, applyRedactions,       // audio DSP for the Listen surface's redaction re-synthesis + WAV export
