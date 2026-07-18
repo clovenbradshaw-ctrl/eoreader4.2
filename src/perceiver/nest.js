@@ -48,9 +48,15 @@ const nameOf = (text, k, docId) => {
 
 // nestComposite(doc, opts) → the SAME text as a COMPOSITE of its nested sub-documents (isComposite,
 // origin per unit), ready for the chorus to triage; or the doc UNCHANGED when it shows no nesting.
-// Segments of one file are held as DISTINCT sources (crossDocSyn: false): the whole point is to
-// keep an off-topic sub-document from bleeding into the one the reader asked about, so we do not
-// let the cross-doc synonym pass re-merge them by shared surface words.
+// Segments of one file get the SAME cross-doc SYN pass any composite gets (crossDocSyn: true, the
+// createCompositeDoc default) — NOT held apart. This matters for the case nesting exists to serve
+// as much as the journal does: a chaptered NOVEL. Split into chapters, "Victor Frankenstein" named
+// identically in chapter 1 and chapter 15 must still resolve to ONE referent, or the nesting that
+// let the chorus find the right chapter would break coreference across the very work it read. The
+// cross-doc pass is exactly the machinery the Armstrong probe validates: it merges a SHARED,
+// specific label across parts (the same Victor); it does not merge distinct labels that merely
+// share a surname (Neil Armstrong stays apart from Louis Armstrong) — so a journal's unrelated
+// reviews are no more at risk here than any other composite already accepts.
 export const nestComposite = (doc, { alpha = 0.06, minGap = 6, minSegments = 2 } = {}) => {
   if (!doc) return doc;
   const units = doc.units || doc.sentences || [];
@@ -79,5 +85,5 @@ export const nestComposite = (doc, { alpha = 0.06, minGap = 6, minSegments = 2 }
     parts.push(parseText(segText, { docId: nameOf(segText, k, doc.docId) }));
   }
   if (parts.length < minSegments) return doc;
-  return createCompositeDoc(parts, { crossDocSyn: false });
+  return createCompositeDoc(parts);
 };

@@ -63,6 +63,12 @@ export { readDates, buildChronology } from './chronology.js';
 // The holonic containment address a referent earns from its span — the nesting the
 // flat depth-1 id used to throw away (referent-nesting.js, docs/referent-journey.md).
 export { referentNesting, nestingSummary } from './referent-nesting.js';
+// nestComposite/nestBoundaries (nest.js) are deliberately NOT re-exported here: nest.js
+// reads surfer/index.js (for surfFold) and organs/in/index.js (for createCompositeDoc), and
+// both of those already depend on THIS entrance (surf.js -> readingAt, reading-dispatch.js ->
+// buildTextReading) — riding this barrel would close the cycle the instant it loads, the same
+// hazard the audio/waveform and embed-hash seams record. A caller reads the leaf directly
+// (a declared seam in core/seams.js).
 // The individuation gate — type every referent by how far it climbed the helix (SIG → INS →
 // CON): aggregate coupling per node, read each off the (mass, coupling, agency, INS'd?) plane
 // into holon / emanon / protogon / field / void, and log a name binding as a promotion REC.
