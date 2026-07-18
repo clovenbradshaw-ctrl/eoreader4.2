@@ -115,6 +115,23 @@ table{border-collapse:collapse;width:100%}
 /* the summary skeleton while the local model turns the machinery's telegram into a reading */
 @keyframes eoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .eo-skel{background:linear-gradient(90deg,#ECEAF6 25%,#F4F2FC 50%,#ECEAF6 75%);background-size:200% 100%;animation:eoShimmer 1.5s ease-in-out infinite;border-radius:5px}
+/* ── AI-GENERATED SUMMARY — the fold→summary pipeline's model voice (docs/fold-summary-pipeline.md),
+   made explicitly visible wherever it renders (the cursor peek, a source card, an entity profile). This
+   is NOT the same treatment as the topline's purple (an inventory composed from the record's own
+   objects) — a fold summary is a small CPU/local model's own reading, phrased and gated (the referential
+   + grounding firewalls, src/surfer/fold/summary-prompt.js), and the surface says so plainly: a sparkle
+   badge, a soft violet→cyan wash, a dashed border (echoing the "temporary reading" dashed convention
+   the fold-peek toggle already uses). Only rendered when `via==='model'` — the deterministic telegram
+   floor a caller falls back to on a gate/ground rejection is NOT relabeled as AI-generated; that would
+   be exactly the honesty failure the grounding firewall exists to prevent. See summaryBadgeHtml(). */
+@keyframes eoAiSheen{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+.eo-ai-summary{position:relative;border:1px dashed #C9BFF5;border-radius:10px;padding:10px 12px 9px;
+  background:linear-gradient(120deg,#F6F3FF 0%,#F1FBFA 55%,#F6F3FF 100%);background-size:220% 100%}
+.eo-ai-badge{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;
+  font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#6D5EF5;
+  background:linear-gradient(90deg,#EDE8FF,#E3F7F4,#EDE8FF);background-size:220% 100%;
+  animation:eoAiSheen 5s ease-in-out infinite;border-radius:999px;padding:3px 8px 3px 7px;margin-bottom:6px}
+.eo-ai-badge .dot{width:5px;height:5px;border-radius:50%;flex:0 0 auto}
 /* ── MURMUR — the peripheral sense as a light TERMINAL LOG under the tab bar ──
    The reader's real voiced thoughts (src/murmur/narrate/voice.js — the read side-channel, §9.4) tail
    in as one monospace log line: a dim timestamp, the operator's glyph tinted by the feeling, a › prompt,
@@ -1057,6 +1074,67 @@ table{border-collapse:collapse;width:100%}
             </sc-if>
           </div>
 
+          <!-- EVIDENCE SCOPE — same topic-wide toggle as the Topic Overview and Findings tab
+               (_evidenceScopeVM(), shared `scope` binding). Distinct from the DISPLAY FILTERS
+               list in the left rail below (webToggles) — that only hides nodes already drawn;
+               this changes what the graph's Entities/Network/Crosswalk/Compare kinds compute. -->
+          <div style="flex:0 0 auto;padding:9px 18px;border-bottom:1px solid #EAEAEF;background:#FCFBFE;display:flex;flex-wrap:wrap;align-items:center;gap:8px;position:relative">
+            <span title="Evidence scope changes what gets computed across every cross-source view — not just what's shown here" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:800;letter-spacing:.05em;color:#6D5EF5;background:#EEEBFE;border-radius:5px;padding:3px 7px">EVIDENCE SCOPE</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8A95">{{ scope.activeCount }} of {{ scope.total }} sources</span>
+            <sc-if value="{{ scope.expanded }}">
+              <sc-for list="{{ scope.chips }}" as="c">
+                <button onClick="{{ c.toggle }}" title="{{ c.title }}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:{{ c.fg }};background:{{ c.bg }};border:1px solid {{ c.bd }};border-radius:7px;padding:4px 9px">{{ c.check }}{{ c.reg }}</button>
+              </sc-for>
+              <button onClick="{{ scope.all }}" style="font-size:10.5px;font-weight:600;color:#5B4BE6;padding:4px 8px;border-radius:6px" style-hover="background:#F1EFFE">All</button>
+              <button onClick="{{ scope.none }}" style="font-size:10.5px;font-weight:600;color:#8A8A95;padding:4px 8px;border-radius:6px" style-hover="background:#F2F2F6">None</button>
+              <button onClick="{{ scope.invert }}" style="font-size:10.5px;font-weight:600;color:#4E5765;padding:4px 8px;border-radius:6px" style-hover="background:#F2F2F6">Invert</button>
+              <button onClick="{{ scope.saveView }}" style="font-size:10.5px;font-weight:600;color:#4E5765;padding:4px 8px;border-radius:6px" style-hover="background:#F2F2F6">Save view</button>
+            </sc-if>
+            <sc-if value="{{ scope.collapsed }}">
+              <div style="position:relative">
+                <button onClick="{{ scope.openPopover }}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:7px;padding:4px 9px">{{ scope.collapseLabel }} ▾</button>
+                <sc-if value="{{ scope.popoverOpen }}">
+                  <div style="position:absolute;top:32px;left:0;z-index:40;width:280px;background:#fff;border:1px solid #E4E1E8;border-radius:12px;box-shadow:0 12px 30px rgba(20,20,30,.14);padding:12px">
+                    <div style="display:flex;align-items:center;gap:6px;height:28px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:8px;padding:0 9px;margin-bottom:9px">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                      <input value="{{ scope.search }}" onChange="{{ scope.onSearch }}" placeholder="Search sources…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:11.5px;color:#1B1B22" />
+                    </div>
+                    <div style="max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:3px;margin-bottom:8px">
+                      <sc-for list="{{ scope.chips }}" as="c">
+                        <div onClick="{{ c.toggle }}" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12px;color:{{ c.boxFg }}" style-hover="background:#F4F4F7">
+                          <span style="width:15px;height:15px;border-radius:4px;border:1.5px solid {{ c.boxBd }};background:{{ c.boxBg }};flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;line-height:1">{{ c.boxCheck }}</span>
+                          <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.reg }} — {{ c.title }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;gap:6px;margin-bottom:8px">
+                      <button onClick="{{ scope.all }}" style="flex:1;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border-radius:6px;padding:5px">All</button>
+                      <button onClick="{{ scope.none }}" style="flex:1;font-size:11px;font-weight:600;color:#8A8A95;background:#F2F2F6;border-radius:6px;padding:5px">None</button>
+                      <button onClick="{{ scope.invert }}" style="flex:1;font-size:11px;font-weight:600;color:#4E5765;background:#F2F2F6;border-radius:6px;padding:5px">Invert</button>
+                    </div>
+                    <sc-if value="{{ scope.hasSavedScopes }}">
+                      <div style="border-top:1px solid #EEEFF4;padding-top:8px;margin-bottom:8px">
+                        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.06em;color:#A0A0AA;margin-bottom:5px">SAVED VIEWS</div>
+                        <sc-for list="{{ scope.savedScopes }}" as="sv">
+                          <div style="display:flex;align-items:center;gap:6px;padding:3px 0">
+                            <button onClick="{{ sv.apply }}" style="flex:1;text-align:left;font-size:11.5px;color:#3A3A44" style-hover="color:#5B4BE6">{{ sv.name }}</button>
+                            <button onClick="{{ sv.remove }}" title="Delete this saved scope" style="font-size:11px;color:#B4B4BE" style-hover="color:#B23A2E">✕</button>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <div style="display:flex;gap:6px">
+                      <button onClick="{{ scope.saveView }}" style="flex:1;font-size:11px;font-weight:600;color:#4E5765;background:#F2F2F6;border-radius:6px;padding:6px">Save view</button>
+                      <button onClick="{{ scope.closePopover }}" style="flex:1;font-size:11px;font-weight:600;color:#fff;background:#19191F;border-radius:6px;padding:6px">Done</button>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+            <span style="flex:1"></span>
+            <span style="font-size:11px;color:#9A9AA4">{{ scope.provenanceLabel }}</span>
+          </div>
+
           <sc-if value="{{ graphExplorerEmpty }}">
             <div style="flex:1;display:flex;align-items:center;justify-content:center;background:#F4F4F7">
               <div style="text-align:center;max-width:400px;padding:24px">
@@ -1071,7 +1149,7 @@ table{border-collapse:collapse;width:100%}
           <div class="eo-wgbody" style="flex:1;min-height:0;display:flex">
             <div class="eo-wgside" style="flex:0 0 232px;border-right:1px solid #EEEEF2;display:flex;flex-direction:column;overflow:hidden;background:#FCFCFD">
               <div style="padding:11px 13px;border-bottom:1px solid #EEEEF2">
-                <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#A0A0AA;margin-bottom:6px">SCOPE</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#A0A0AA;margin-bottom:6px">FOCUS</div>
                 <div style="display:flex;flex-direction:column;gap:5px">
                   <button onClick="{{ setWebScopeTopic }}" style="text-align:left;padding:7px 10px;border-radius:8px;font-size:12px;font-weight:600;color:{{ webScopeTopicFg }};background:{{ webScopeTopicBg }};border:1px solid {{ webScopeTopicBd }}">Whole topic</button>
                   <sc-if value="{{ webHasFocus }}">
@@ -1080,7 +1158,8 @@ table{border-collapse:collapse;width:100%}
                 </div>
                 <div style="font-size:10.5px;color:#9A9AA4;line-height:1.5;margin-top:8px">{{ webKindNote }}</div>
               </div>
-              <div style="padding:10px 13px 7px;display:flex;align-items:center;gap:7px">
+              <div style="padding:10px 13px 0;font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE" title="A display filter only hides what's already drawn — it never changes what the graph computed. To change the evidence itself, use the Evidence scope bar above.">DISPLAY FILTERS — HIDES NODES HERE ONLY</div>
+              <div style="padding:6px 13px 7px;display:flex;align-items:center;gap:7px">
                 <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#A0A0AA;flex:1;min-width:0">{{ webToggleHead }}</div>
                 <button onClick="{{ webAllOn }}" style="font-size:10.5px;font-weight:600;color:#5B4BE6;padding:2px 7px;border-radius:6px" style-hover="background:#F1EFFE">All</button>
                 <button onClick="{{ webNoneOn }}" style="font-size:10.5px;font-weight:600;color:#8A8A95;padding:2px 7px;border-radius:6px" style-hover="background:#F2F2F6">None</button>
@@ -1243,6 +1322,66 @@ table{border-collapse:collapse;width:100%}
               <button onClick="{{ toggleGraphPanel }}" title="{{ graphToggleTitle }}" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;color:#5A5A64;border:1px solid #EAEAEF" style-hover="background:#F5F5F8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .18s;transform:rotate({{ graphToggleCaret }}deg)"><path d="m6 9 6 6 6-6"/></svg>{{ graphToggleLabel }}</button>
             </div>
             </sc-if>
+          </div>
+
+          <!-- EVIDENCE SCOPE — same topic-wide toggle as the Topic Overview and Graph tab
+               (_evidenceScopeVM(), shared `scope` binding). Excluding a source here recomputes
+               findings/claims/passages at once — it's the SAME view-model as topicSources(). -->
+          <div style="flex:0 0 auto;padding:9px 18px;border-bottom:1px solid #EAEAEF;background:#FCFBFE;display:flex;flex-wrap:wrap;align-items:center;gap:8px;position:relative">
+            <span title="Evidence scope changes what gets computed across every cross-source view — not just what's shown here" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:800;letter-spacing:.05em;color:#6D5EF5;background:#EEEBFE;border-radius:5px;padding:3px 7px">EVIDENCE SCOPE</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8A95">{{ scope.activeCount }} of {{ scope.total }} sources</span>
+            <sc-if value="{{ scope.expanded }}">
+              <sc-for list="{{ scope.chips }}" as="c">
+                <button onClick="{{ c.toggle }}" title="{{ c.title }}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:{{ c.fg }};background:{{ c.bg }};border:1px solid {{ c.bd }};border-radius:7px;padding:4px 9px">{{ c.check }}{{ c.reg }}</button>
+              </sc-for>
+              <button onClick="{{ scope.all }}" style="font-size:10.5px;font-weight:600;color:#5B4BE6;padding:4px 8px;border-radius:6px" style-hover="background:#F1EFFE">All</button>
+              <button onClick="{{ scope.none }}" style="font-size:10.5px;font-weight:600;color:#8A8A95;padding:4px 8px;border-radius:6px" style-hover="background:#F2F2F6">None</button>
+              <button onClick="{{ scope.invert }}" style="font-size:10.5px;font-weight:600;color:#4E5765;padding:4px 8px;border-radius:6px" style-hover="background:#F2F2F6">Invert</button>
+              <button onClick="{{ scope.saveView }}" style="font-size:10.5px;font-weight:600;color:#4E5765;padding:4px 8px;border-radius:6px" style-hover="background:#F2F2F6">Save view</button>
+            </sc-if>
+            <sc-if value="{{ scope.collapsed }}">
+              <div style="position:relative">
+                <button onClick="{{ scope.openPopover }}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:7px;padding:4px 9px">{{ scope.collapseLabel }} ▾</button>
+                <sc-if value="{{ scope.popoverOpen }}">
+                  <div style="position:absolute;top:32px;left:0;z-index:40;width:280px;background:#fff;border:1px solid #E4E1E8;border-radius:12px;box-shadow:0 12px 30px rgba(20,20,30,.14);padding:12px">
+                    <div style="display:flex;align-items:center;gap:6px;height:28px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:8px;padding:0 9px;margin-bottom:9px">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                      <input value="{{ scope.search }}" onChange="{{ scope.onSearch }}" placeholder="Search sources…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:11.5px;color:#1B1B22" />
+                    </div>
+                    <div style="max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:3px;margin-bottom:8px">
+                      <sc-for list="{{ scope.chips }}" as="c">
+                        <div onClick="{{ c.toggle }}" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12px;color:{{ c.boxFg }}" style-hover="background:#F4F4F7">
+                          <span style="width:15px;height:15px;border-radius:4px;border:1.5px solid {{ c.boxBd }};background:{{ c.boxBg }};flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;line-height:1">{{ c.boxCheck }}</span>
+                          <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.reg }} — {{ c.title }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;gap:6px;margin-bottom:8px">
+                      <button onClick="{{ scope.all }}" style="flex:1;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border-radius:6px;padding:5px">All</button>
+                      <button onClick="{{ scope.none }}" style="flex:1;font-size:11px;font-weight:600;color:#8A8A95;background:#F2F2F6;border-radius:6px;padding:5px">None</button>
+                      <button onClick="{{ scope.invert }}" style="flex:1;font-size:11px;font-weight:600;color:#4E5765;background:#F2F2F6;border-radius:6px;padding:5px">Invert</button>
+                    </div>
+                    <sc-if value="{{ scope.hasSavedScopes }}">
+                      <div style="border-top:1px solid #EEEFF4;padding-top:8px;margin-bottom:8px">
+                        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.06em;color:#A0A0AA;margin-bottom:5px">SAVED VIEWS</div>
+                        <sc-for list="{{ scope.savedScopes }}" as="sv">
+                          <div style="display:flex;align-items:center;gap:6px;padding:3px 0">
+                            <button onClick="{{ sv.apply }}" style="flex:1;text-align:left;font-size:11.5px;color:#3A3A44" style-hover="color:#5B4BE6">{{ sv.name }}</button>
+                            <button onClick="{{ sv.remove }}" title="Delete this saved scope" style="font-size:11px;color:#B4B4BE" style-hover="color:#B23A2E">✕</button>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <div style="display:flex;gap:6px">
+                      <button onClick="{{ scope.saveView }}" style="flex:1;font-size:11px;font-weight:600;color:#4E5765;background:#F2F2F6;border-radius:6px;padding:6px">Save view</button>
+                      <button onClick="{{ scope.closePopover }}" style="flex:1;font-size:11px;font-weight:600;color:#fff;background:#19191F;border-radius:6px;padding:6px">Done</button>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+            <span style="flex:1"></span>
+            <span style="font-size:11px;color:#9A9AA4">{{ scope.provenanceLabel }}</span>
           </div>
 
           <sc-if value="{{ graphShown }}">
@@ -1825,7 +1964,7 @@ table{border-collapse:collapse;width:100%}
                 <div style="min-width:0;flex:1 1 340px">
                   <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:800;letter-spacing:.05em;color:#4E5765;background:#EEF0F3;border-radius:6px;padding:3px 8px">TOPIC</span>
                   <h1 style="margin:10px 0 6px;font-family:'Newsreader',Georgia,serif;font-size:clamp(26px,3.6vw,34px);line-height:1.1;color:#202027;font-weight:500;overflow-wrap:anywhere;word-break:break-word">{{ topicOverview.title }}</h1>
-                  <div style="font-size:13px;color:#6E6E78;display:flex;gap:8px;flex-wrap:wrap"><span>{{ topicOverview.sourceCountLabel }}</span><span>·</span><span>{{ topicOverview.answersLabel }}</span></div>
+                  <div style="font-size:13px;color:#6E6E78;display:flex;gap:8px;flex-wrap:wrap"><span>{{ topicOverview.sourceCountLabel }}</span><span>·</span><span>{{ topicOverview.entityLabel }}</span><span>·</span><span>{{ topicOverview.findingLabel }}</span><span>·</span><span>{{ topicOverview.answersLabel }}</span></div>
                 </div>
                 <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;align-content:flex-start">
                   <button onClick="{{ topicOverview.ask }}" style="background:#19191F;color:#fff;border-radius:8px;padding:10px 16px;font-size:12px;font-weight:700">Ask about this topic</button>
@@ -1834,6 +1973,66 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ topicOverview.openGraph }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:650;color:#4E5765">Graph</button>
                 </div>
               </div>
+
+              <!-- EVIDENCE SCOPE — a topic-wide, persistent source toggle. Distinct from a view's
+                   own DISPLAY FILTERS (e.g. the graph's node checkboxes): this changes what gets
+                   COMPUTED (findings, entities, the graph's cross-source kinds…), not just shown.
+                   Shared verbatim with the Findings and Graph tabs — _evidenceScopeVM(). -->
+              <div style="margin-top:14px;padding:12px 16px;border:1px solid #E4E1E8;border-radius:12px;background:#FCFBFE;display:flex;flex-wrap:wrap;align-items:center;gap:8px;position:relative">
+                <span title="Evidence scope changes what gets computed across every cross-source view — not just what's shown here" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:800;letter-spacing:.05em;color:#6D5EF5;background:#EEEBFE;border-radius:5px;padding:3px 7px">EVIDENCE SCOPE</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A8A95">{{ scope.activeCount }} of {{ scope.total }} sources</span>
+                <sc-if value="{{ scope.expanded }}">
+                  <sc-for list="{{ scope.chips }}" as="c">
+                    <button onClick="{{ c.toggle }}" title="{{ c.title }}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:{{ c.fg }};background:{{ c.bg }};border:1px solid {{ c.bd }};border-radius:7px;padding:4px 9px">{{ c.check }}{{ c.reg }}</button>
+                  </sc-for>
+                  <button onClick="{{ scope.all }}" style="font-size:10.5px;font-weight:600;color:#5B4BE6;padding:4px 8px;border-radius:6px" style-hover="background:#F1EFFE">All</button>
+                  <button onClick="{{ scope.none }}" style="font-size:10.5px;font-weight:600;color:#8A8A95;padding:4px 8px;border-radius:6px" style-hover="background:#F2F2F6">None</button>
+                  <button onClick="{{ scope.invert }}" style="font-size:10.5px;font-weight:600;color:#4E5765;padding:4px 8px;border-radius:6px" style-hover="background:#F2F2F6">Invert</button>
+                  <button onClick="{{ scope.saveView }}" style="font-size:10.5px;font-weight:600;color:#4E5765;padding:4px 8px;border-radius:6px" style-hover="background:#F2F2F6">Save view</button>
+                </sc-if>
+                <sc-if value="{{ scope.collapsed }}">
+                  <div style="position:relative">
+                    <button onClick="{{ scope.openPopover }}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#4E5765;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:7px;padding:4px 9px">{{ scope.collapseLabel }} ▾</button>
+                    <sc-if value="{{ scope.popoverOpen }}">
+                      <div style="position:absolute;top:32px;left:0;z-index:40;width:280px;background:#fff;border:1px solid #E4E1E8;border-radius:12px;box-shadow:0 12px 30px rgba(20,20,30,.14);padding:12px">
+                        <div style="display:flex;align-items:center;gap:6px;height:28px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:8px;padding:0 9px;margin-bottom:9px">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                          <input value="{{ scope.search }}" onChange="{{ scope.onSearch }}" placeholder="Search sources…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:11.5px;color:#1B1B22" />
+                        </div>
+                        <div style="max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:3px;margin-bottom:8px">
+                          <sc-for list="{{ scope.chips }}" as="c">
+                            <div onClick="{{ c.toggle }}" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12px;color:{{ c.boxFg }}" style-hover="background:#F4F4F7">
+                              <span style="width:15px;height:15px;border-radius:4px;border:1.5px solid {{ c.boxBd }};background:{{ c.boxBg }};flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;line-height:1">{{ c.boxCheck }}</span>
+                              <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.reg }} — {{ c.title }}</span>
+                            </div>
+                          </sc-for>
+                        </div>
+                        <div style="display:flex;gap:6px;margin-bottom:8px">
+                          <button onClick="{{ scope.all }}" style="flex:1;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border-radius:6px;padding:5px">All</button>
+                          <button onClick="{{ scope.none }}" style="flex:1;font-size:11px;font-weight:600;color:#8A8A95;background:#F2F2F6;border-radius:6px;padding:5px">None</button>
+                          <button onClick="{{ scope.invert }}" style="flex:1;font-size:11px;font-weight:600;color:#4E5765;background:#F2F2F6;border-radius:6px;padding:5px">Invert</button>
+                        </div>
+                        <sc-if value="{{ scope.hasSavedScopes }}">
+                          <div style="border-top:1px solid #EEEFF4;padding-top:8px;margin-bottom:8px">
+                            <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.06em;color:#A0A0AA;margin-bottom:5px">SAVED VIEWS</div>
+                            <sc-for list="{{ scope.savedScopes }}" as="sv">
+                              <div style="display:flex;align-items:center;gap:6px;padding:3px 0">
+                                <button onClick="{{ sv.apply }}" style="flex:1;text-align:left;font-size:11.5px;color:#3A3A44" style-hover="color:#5B4BE6">{{ sv.name }}</button>
+                                <button onClick="{{ sv.remove }}" title="Delete this saved scope" style="font-size:11px;color:#B4B4BE" style-hover="color:#B23A2E">✕</button>
+                              </div>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                        <div style="display:flex;gap:6px">
+                          <button onClick="{{ scope.saveView }}" style="flex:1;font-size:11px;font-weight:600;color:#4E5765;background:#F2F2F6;border-radius:6px;padding:6px">Save view</button>
+                          <button onClick="{{ scope.closePopover }}" style="flex:1;font-size:11px;font-weight:600;color:#fff;background:#19191F;border-radius:6px;padding:6px">Done</button>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+              <div style="margin-top:6px;font-size:11px;color:#9A9AA4">{{ scope.provenanceLabel }}</div>
 
               <sc-if value="{{ topicOverview.hasSubTopics }}">
                 <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff">
@@ -1861,17 +2060,22 @@ table{border-collapse:collapse;width:100%}
                 <sc-if value="{{ topicOverview.hasSources }}">
                   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:12px">
                     <sc-for list="{{ topicOverview.cards }}" as="c">
-                      <button onClick="{{ c.open }}" title="Open this source's overview" style="display:flex;flex-direction:column;gap:9px;text-align:left;background:#FAFAFC;border:1px solid #EEEFF4;border-radius:14px;padding:14px" style-hover="border-color:#CFC7F7;background:#FCFBFF">
+                      <!-- A DIV, not a button: it wraps the per-source Include/Exclude toggle, which is
+                           itself a real button — and a button cannot legally contain a button (the HTML5
+                           parser silently auto-closes the outer one, corrupting everything nested after it,
+                           which is why the entities panel used to render detached at the foot of the page). -->
+                      <div role="button" tabindex="0" onClick="{{ c.open }}" onKeyDown="{{ c.openKey }}" title="Open this source's overview" style="display:flex;flex-direction:column;gap:9px;text-align:left;cursor:pointer;background:#FAFAFC;border:1px solid #EEEFF4;border-radius:14px;padding:14px;opacity:{{ c.cardOpacity }}" style-hover="border-color:#CFC7F7;background:#FCFBFF">
                         <div style="display:flex;gap:11px;align-items:center;min-width:0;width:100%">
                           <span style="flex:0 0 auto;width:38px;height:38px;border-radius:10px;background:{{ c.favBg }};color:{{ c.favFg }};display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;font-family:'IBM Plex Mono',monospace">{{ c.favCh }}</span>
                           <span style="min-width:0;flex:1">
                             <span style="display:block;font-size:14px;font-weight:730;color:#24242C;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.title }}</span>
                             <span style="display:block;font-size:11px;color:#9A9AA4;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.icon }} {{ c.typeLabel }} · {{ c.origin }}</span>
                           </span>
+                          <span title="This source's evidence scope — Excluded means it is a topic member but left out of every cross-source computation" style="flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.03em;color:{{ c.scopeFg }};background:{{ c.scopeBg }};border-radius:5px;padding:2px 6px">{{ c.scopeLabel }}</span>
                         </div>
                         <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#7B7881">{{ c.countLine }}</div>
-                        <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#9A9AA4;width:100%"><span style="font-weight:600;color:#4E5765;background:#EEF0F3;border-radius:5px;padding:1px 6px">{{ c.reg }}</span><span style="flex:1"></span><span>{{ c.when }}</span></div>
-                      </button>
+                        <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#9A9AA4;width:100%"><span style="font-weight:600;color:#4E5765;background:#EEF0F3;border-radius:5px;padding:1px 6px">{{ c.reg }}</span><span style="flex:1"></span><span>{{ c.when }}</span><button onClick="{{ c.toggleScope }}" style="font-weight:600;color:#5B4BE6;padding:1px 7px;border-radius:6px;border:1px solid #DED8FD" style-hover="background:#F1EFFE">{{ c.toggleScopeLabel }}</button></div>
+                      </div>
                     </sc-for>
                   </div>
                 </sc-if>
@@ -1910,6 +2114,7 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">Facing</button>
                   <button onClick="{{ viewerModeStructure }}" title="Byte structure — the document's raw bytes on a Hilbert curve (Aldo Cortesi's binvis): its shape (structure), its packed regions (entropy), and where the reading turned (significance)" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmStructureFg }};background:{{ vmStructureBg }}">Structure</button>
+                  <button onClick="{{ viewerModeGraph }}" title="This source's knowledge graph — the figures it names and the bonds among them. Click a node to open its profile." style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmGraphFg }};background:{{ vmGraphBg }}">Graph</button>
                   <button onClick="{{ viewerModeEot }}" title="The reading, as EoT" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">EoT · {{ viewer.eotCount }}</button>
                 </span>
                 <span style="flex:1"></span>
@@ -2132,6 +2337,35 @@ table{border-collapse:collapse;width:100%}
               </div>
             </sc-if>
 
+            <!-- FOLD SUMMARY — a REAL reading of the source (the full-power surf's own fold, phrased
+                 by the local model, gated referentially and against the record — surfer/fold/, docs/
+                 fold-summary-pipeline.md). Independent of the SUMMARY panel above, which composes the
+                 record's own inventory rather than reading it. The eo-ai-summary/eo-ai-badge treatment
+                 (shared <style>) marks this explicitly as the model's own voice — never shown for the
+                 mechanical telegram floor (summaryBadge() only badges via==='model'). -->
+            <sc-if value="{{ viewer.showFoldSummary }}">
+              <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;padding:11px 20px">
+                <sc-if value="{{ viewer.foldSummary.has }}">
+                  <sc-if value="{{ viewer.foldSummary.isAi }}">
+                    <div class="eo-ai-summary">
+                      <div class="eo-ai-badge">{{ viewer.foldSummary.badgeLabel }}<sc-if value="{{ viewer.foldSummary.hasGroundDot }}"><span class="dot" title="{{ viewer.foldSummary.groundLabel }}" style="background:{{ viewer.foldSummary.groundDot }}"></span></sc-if></div>
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32">{{ viewer.foldSummary.text }}</div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ !viewer.foldSummary.isAi }}">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                      <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
+                      <sc-if value="{{ viewer.foldSummary.composing }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">the local model is composing…</span></sc-if>
+                    </div>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32">{{ viewer.foldSummary.text }}</div>
+                  </sc-if>
+                </sc-if>
+                <sc-if value="{{ !viewer.foldSummary.has }}">
+                  <button onClick="{{ viewer.foldSummary.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px" style-hover="background:#E7E3FD">✨ Read the fold — a real summary of this source</button>
+                </sc-if>
+              </div>
+            </sc-if>
+
             <!-- MEDIA PANEL (Listen mode) — the decoded audio/video source is the hero above its
                  interactive transcript: player, waveform tinted by the signal/noise holons, stats,
                  and the live transcription status. Folds to a slim strip once the reader scrolls in. -->
@@ -2311,8 +2545,24 @@ table{border-collapse:collapse;width:100%}
                         <div style="font-size:9px;font-weight:700;letter-spacing:.05em;color:#F7768E;margin:7px 0 3px">TURNS</div>
                         <sc-for list="{{ foldPeekTurns }}" as="x"><div style="margin:0 0 3px;color:#C8CEDA">{{ x.t }}</div></sc-for>
                       </sc-if>
+                      <!-- The AI-generated fold summary — a SEPARATE block from the mechanical telegram
+                           below, deliberately: `via==='model'` is the only case the small local model's
+                           own phrasing shipped (referential + grounding firewalls passed); anything else
+                           IS the deterministic telegram and must never wear this badge (see .eo-ai-summary
+                           in the shared <style>). Dark-panel colors here (the peek overlay's own palette),
+                           not the light .eo-ai-badge class — same sparkle-badge idea, this panel's ink. -->
+                      <sc-if value="{{ foldPeekAiShow }}">
+                        <div style="border:1px dashed #4B4470;border-radius:8px;padding:8px 10px 7px;margin:9px 0;background:linear-gradient(120deg,#1D1B33,#182823,#1D1B33)">
+                          <div style="display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#BB9AF7;margin-bottom:5px">{{ foldPeekAiLabel }}</div>
+                          <sc-if value="{{ foldPeekAiHasGroundDot }}"><span title="{{ foldPeekAiGroundLabel }}" style="display:inline-block;width:5px;height:5px;border-radius:50%;background:{{ foldPeekAiGroundDot }};margin-left:5px"></span></sc-if>
+                          <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#DCD6F5">{{ foldPeekAiText }}</div>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{ foldPeekAiLoading }}">
+                        <div style="font-size:10px;color:#6E7688;font-style:italic;margin:9px 0 4px">the local model is reading here…</div>
+                      </sc-if>
                       <sc-if value="{{ foldPeekTelegram }}">
-                        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8791A3;margin:9px 0 4px">Fold summary</div>
+                        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8791A3;margin:9px 0 4px">Fold summary (mechanical)</div>
                         <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#B7BFD1;margin-bottom:9px">{{ foldPeekTelegram }}</div>
                       </sc-if>
                       <sc-if value="{{ foldPeekHasSpans }}">
@@ -2546,6 +2796,15 @@ table{border-collapse:collapse;width:100%}
                    scoped to the active source (window.EO.binvis.mount, pickSource:false). -->
               <div ref="{{ setStructureEl }}" data-screen-label="Byte structure" class="eo-scroll" style="flex:1;min-height:0;overflow:auto;background:#0b0f18"></div>
             </sc-if>
+
+            <sc-if value="{{ viewerIsGraph }}">
+              <!-- The per-source KNOWLEDGE GRAPH tab — the topic entity web (topicTieredData /
+                   mountTieredGraph) scoped to just this source: its figures at tier 1, the standing
+                   claims at tier 2, the bonds among them as edges. Same surface the Graph tab draws
+                   for the whole topic, mounted here over one source via setSourceGraphEl. Clicking a
+                   figure opens its profile in the entity panel. -->
+              <div ref="{{ setSourceGraphEl }}" data-screen-label="Source graph" class="eo-scroll" style="flex:1;min-height:0;overflow:auto;background:#F4F4F7"></div>
+            </sc-if>
           </div>
           </sc-if>
 
@@ -2646,16 +2905,21 @@ table{border-collapse:collapse;width:100%}
             <!-- ENTITY PROFILE -->
             <sc-if value="{{ profShow }}">
               <!-- header rail: back to the list, and the promote/demote between rail and full stage -->
+              <!-- The Expand/Collapse control is flex:0 0 auto so it stays pinned and fully visible in
+                   the 340px rail; the discoverability tip is the flexible element (min-width:0 +
+                   ellipsis) so it yields and truncates instead of pushing the button off screen. -->
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-                <button onClick="{{ backToEntities }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#8A8A95" style-hover="color:#5B4BE6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>All entities</button>
-                <span style="flex:1"></span>
-                <sc-if value="{{ heroHintShow }}"><span style="font-size:10.5px;font-weight:600;color:#B0A8F8;white-space:nowrap">Tip: expand for the full view →</span></sc-if>
-                <sc-if value="{{ heroExpandShow }}"><button onClick="{{ toggleHero }}" title="Expand this figure to the full stage" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:7px;padding:4px 9px" style-hover="background:#E7E2FD"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Expand</button></sc-if>
-                <sc-if value="{{ heroCollapseShow }}"><button onClick="{{ toggleHero }}" title="Collapse back to the side panel" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#6E6E78;background:#F0F0F5;border:1px solid #E6E6EC;border-radius:7px;padding:4px 9px" style-hover="background:#E7E7EF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3a2 2 0 0 0 2-2V3M20 8h-3a2 2 0 0 1-2-2V3M4 16h3a2 2 0 0 1 2 2v3M20 16h-3a2 2 0 0 0-2 2v3"/></svg>Collapse</button></sc-if>
+                <button onClick="{{ backToEntities }}" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#8A8A95" style-hover="color:#5B4BE6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>All entities</button>
+                <span style="flex:1 1 auto"></span>
+                <sc-if value="{{ heroHintShow }}"><span style="flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;font-weight:600;color:#B0A8F8">Tip: expand for the full view →</span></sc-if>
+                <sc-if value="{{ heroExpandShow }}"><button onClick="{{ toggleHero }}" title="Expand this figure to the full stage" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:7px;padding:5px 10px" style-hover="background:#E7E2FD"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Expand</button></sc-if>
+                <sc-if value="{{ heroCollapseShow }}"><button onClick="{{ toggleHero }}" title="Collapse back to the side panel" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#6E6E78;background:#F0F0F5;border:1px solid #E6E6EC;border-radius:7px;padding:5px 10px" style-hover="background:#E7E7EF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3a2 2 0 0 0 2-2V3M20 8h-3a2 2 0 0 1-2-2V3M4 16h3a2 2 0 0 1 2 2v3M20 16h-3a2 2 0 0 0-2 2v3"/></svg>Collapse</button></sc-if>
               </div>
               <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
-                <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ prof.initials }}</span>
-                <span style="flex:1;min-width:0">
+                <!-- initials + name promote the figure to the full stage (heroPromote is inert once
+                     already hero / on mobile); the pin button sits outside this hit target. -->
+                <span onClick="{{ heroPromote }}" title="{{ heroPromoteTitle }}" style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6;cursor:{{ heroPromoteCursor }}">{{ prof.initials }}</span>
+                <span onClick="{{ heroPromote }}" title="{{ heroPromoteTitle }}" style="flex:1;min-width:0;cursor:{{ heroPromoteCursor }}">
                   <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600;color:#1B1B22;line-height:1.2">{{ prof.label }}</span>
                   <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ prof.counts }}</span>
                 </span>
@@ -2732,6 +2996,32 @@ table{border-collapse:collapse;width:100%}
                   </sc-if>
                 </div>
               </sc-if></sc-if>
+
+              <!-- FOLD SUMMARY — a REAL reading of THIS figure (scope 'entity': the surf thread-
+                   conditioned on it, coref-collapsed, gated referentially and against the record).
+                   Independent of the topline above; never auto-fired (see _foldSummaryVM). -->
+              <div style="margin-top:13px">
+                <sc-if value="{{ prof.foldSummary.has }}">
+                  <sc-if value="{{ prof.foldSummary.isAi }}">
+                    <div class="eo-ai-summary">
+                      <div class="eo-ai-badge">{{ prof.foldSummary.badgeLabel }}<sc-if value="{{ prof.foldSummary.hasGroundDot }}"><span class="dot" title="{{ prof.foldSummary.groundLabel }}" style="background:{{ prof.foldSummary.groundDot }}"></span></sc-if></div>
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ prof.foldSummary.text }}</div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ !prof.foldSummary.isAi }}">
+                    <div style="border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
+                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                        <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
+                        <sc-if value="{{ prof.foldSummary.composing }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">the local model is composing…</span></sc-if>
+                      </div>
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ prof.foldSummary.text }}</div>
+                    </div>
+                  </sc-if>
+                </sc-if>
+                <sc-if value="{{ !prof.foldSummary.has }}">
+                  <button onClick="{{ prof.foldSummary.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px" style-hover="background:#E7E3FD">✨ Read the fold — a real summary of this figure</button>
+                </sc-if>
+              </div>
 
               <!-- The settled referent in its DEFAULT position — moved up near the top of the panel -->
               <!-- (ahead of the web-graph button and the chapter spine) unless it has already been -->
@@ -3787,6 +4077,12 @@ class EoMurmurStrip {
   _closeCard() { this._open = false; if (this._card) this._card.style.display = 'none'; }
 }
 
+// How long the Search box waits after typing settles before it speculatively warms the web for
+// the in-progress query (docs/web-search.md). Deliberately unhurried — the network cost is real
+// and unbidden until Enter, so we only prime once the user has clearly paused. Enter flushes the
+// wait and runs the search immediately (onSfKey), taking whatever was warmed.
+const SF_PREFETCH_MS = 3000;
+
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -4037,6 +4333,7 @@ class Component extends DCLogic {
         // topic's query text sits in the box and re-runs against the new topic, and a source
         // disabled in the old topic stays disabled. Clear them on a real switch.
         if (this.state.sfQuery || this.state.sfTemplate !== 'auto' || (this.state.sfDisabled && this.state.sfDisabled.size)) {
+          this._cancelPrefetch();   // a pending warm for the old topic's query must not fire after the switch
           this.setState({ sfQuery: '', sfTemplate: 'auto', sfDisabled: new Set() });
         }
         // The peripheral sense (murmur) anchors its semantic-drift tracker on the topic it has
@@ -5008,6 +5305,27 @@ class Component extends DCLogic {
   // the element (its own __eoSig / __eoWired) keep the build + listener-wiring to once per change.
   _escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
+  // ── the AI-summary badge fields, shared by every surface a fold summary renders on ─────────
+  // A fold-summary record (rooms/reader/app/summaries.js: {text, via, ground, model, telegram, …}).
+  // `via` is the honesty seam: only 'model' actually shipped the local model's phrasing — a
+  // referential-gate or grounding rejection (telegram-gated / telegram-ungrounded) or the plain
+  // 'telegram' floor is the deterministic reading, and MUST NOT wear the AI badge (see the
+  // .eo-ai-summary CSS comment). ground.kind ('sourced'|'partial'|'void'|'empty', enactor/ground)
+  // becomes the small grounded/partial dot beside the badge — 'void'/'empty' never reaches here
+  // (realizeSummary already vetoed to the floor), so only sourced/partial are shown.
+  summaryBadge(rec) {
+    const isAi = !!rec && rec.via === 'model';
+    const groundKind = isAi ? rec.ground?.kind : null;
+    const groundDot = groundKind === 'sourced' ? '#1E9E7A' : groundKind === 'partial' ? '#B58A2E' : null;
+    const groundLabel = groundKind === 'sourced' ? 'grounded in the record'
+      : groundKind === 'partial' ? 'partly grounded — some of this is the model’s own phrasing' : '';
+    return {
+      isAi,
+      badgeLabel: isAi ? `✨ AI summary${rec.model ? ` · ${rec.model}` : ''}` : '',
+      groundDot, groundLabel, hasGroundDot: !!groundDot,
+    };
+  }
+
   // The audio/video element for the active source — set (and re-set on a source switch) by the ref
   // on the player. The whole Listen surface drives THIS one element.
   setListenAudio(el) { if (el) this._listenAudio = el; }
@@ -5794,6 +6112,9 @@ class Component extends DCLogic {
     // Leaving the Structure tab tears down the binvis surface (and its app subscription) so it never
     // keeps rendering into a detached container; re-entering mounts it fresh.
     if (mode !== 'structure' && this._binvis) { try { this._binvis.destroy(); } catch {} this._binvis = null; this._binvisEl = null; this._binvisSn = null; }
+    // Leaving the source Graph tab tears down its tiered-graph mount so it never keeps drawing into
+    // a detached container; re-entering mounts it fresh via setSourceGraphEl.
+    if (mode !== 'graph' && this._srcGraph) { try { this._srcGraph.destroy(); } catch {} this._srcGraph = null; this._srcGraphEl = null; this._srcGraphSn = null; }
     this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false });
     if (mode === 'native') this.loadPage(sn);
     if (mode === 'pdf') this.loadPdf(sn);
@@ -6005,6 +6326,13 @@ class Component extends DCLogic {
     if (!peek) return;
     this._foldPeekAfter = peek.cursor;
     this.setState({ foldPeek: peek });
+    // The AI-generated reading at this same cursor — 'brief' detail, cheap enough to ask at any
+    // place as the reader moves (SUMMARY_DETAILS.brief, ≤64 decode tokens). foldSummary is
+    // idempotent for an unchanged key (returns the cached promise), so re-firing on every dwell
+    // tick costs nothing once the cursor has settled; it only actually decodes on a real move.
+    if (app.foldSummary) {
+      app.foldSummary({ sn, scope: 'cursor', cursor: peek.cursor, detail: 'brief' }).catch(() => {});
+    }
   }
   // Toggle the fold-peek overlay on/off. On → read the place under the eye at once; off → clear it.
   toggleFoldPeek() {
@@ -6411,7 +6739,25 @@ class Component extends DCLogic {
   // Every question over the record, rendered as its BEST preset surface (search-surface.js): the
   // concordance (verbatim occurrences, lit), the cast (the figures), or the contrast (the contested
   // claims). Less prose, more seeing. The source rail toggles what is in scope; the surface pivots.
-  onSfInput(e) { this.setState({ sfQuery: e && e.target ? e.target.value : '' }); }
+  onSfInput(e) {
+    const v = e && e.target ? e.target.value : '';
+    this.setState({ sfQuery: v });
+    this._schedulePrefetch(v);
+  }
+  // Speculative web prefetch, on a typing-settled debounce — NOT on every keystroke. Each edit
+  // resets the clock; only once typing has been quiet for SF_PREFETCH_MS do we warm the web for the
+  // in-progress query (or when Enter fires, which flushes the timer and runs the real search). The
+  // app's specPrime gates on web mode `auto`, so this is a no-op in off/confirm.
+  _schedulePrefetch(text) {
+    if (this._sfPrimeTimer) { clearTimeout(this._sfPrimeTimer); this._sfPrimeTimer = null; }
+    if (!this._app || typeof this._app.specPrime !== 'function') return;
+    const q = String(text || '');
+    this._sfPrimeTimer = setTimeout(() => {
+      this._sfPrimeTimer = null;
+      try { this._app.specPrime(q); } catch { /* a speculative miss must never surface to the user */ }
+    }, SF_PREFETCH_MS);
+  }
+  _cancelPrefetch() { if (this._sfPrimeTimer) { clearTimeout(this._sfPrimeTimer); this._sfPrimeTimer = null; } }
   // Enter in the Search-the-record box grows the record from the web. On first load — and any time
   // the record has nothing on the query — the record scan comes up empty, so the natural motion is
   // to pull sources in. Mobile keyboards submit with a "Search"/"Go" key (no form, so we key off
@@ -6419,6 +6765,7 @@ class Component extends DCLogic {
   onSfKey(e) {
     if (!e || (e.key !== 'Enter' && e.keyCode !== 13)) return;
     if (e.preventDefault) e.preventDefault();
+    this._cancelPrefetch();   // typing is over — the search runs now and takes whatever was warmed
     this.sfWebSearch(this.state.sfQuery);
   }
   // Pull the top salient web sources for the typed query into a new search topic (the same motion as
@@ -6436,7 +6783,7 @@ class Component extends DCLogic {
     if (next.has(sn)) next.delete(sn); else next.add(sn);
     this.setState({ sfDisabled: next });
   }
-  _sfClear() { this.setState({ sfQuery: '', sfTemplate: 'auto' }); }
+  _sfClear() { this._cancelPrefetch(); this.setState({ sfQuery: '', sfTemplate: 'auto' }); }
   // _highlightTerms(text, terms) → [{ s, hit }] segments, the query terms lit — the search-engine
   // snippet's highlighting, shared by the Results view's source snippets and passage rows. Verbatim:
   // every character of `text` is kept, only sliced at term boundaries.
@@ -6910,6 +7257,7 @@ class Component extends DCLogic {
       })(),
       // the auto-generated topline for this entity + its feedback box (docs/topline.md)
       topline: tl,
+      foldSummary: this._foldSummaryVM(p.sn, p.label),
       // When the record only NAMES the referent (topline absence) but we hold a CONFIRMED
       // Wikipedia article, that settled definition is the most confident thing we have — so it
       // leads the panel and the "nothing found yet" summary drops to a quiet footnote beneath it.
@@ -7129,6 +7477,33 @@ class Component extends DCLogic {
       hasKind: false, hasCites: false, hasUnmet: false, isAbsence: false,
       text: '', telegramText: '', spans: [], hasSpans: false, noSpans: true,
       anyFlagged: false, contextualWritten: false,
+    };
+  }
+
+  // ── the fold summary panel — a whole source ('full') or one figure in it ('entity') ─────────
+  // (docs/fold-summary-pipeline.md). A REAL reading — the full-power surf's own fold, phrased by
+  // the local model and gated (referential + grounding), not the topline's inventory composition.
+  // Read-only here: app.foldSummary self-stores (telegram first, model refinement behind it) and
+  // re-emits, so a click just fires the request; the next render picks up foldSummaryFor's result.
+  // NEVER auto-fired on mount — docs/topline.md's "Hide low-quality summary cards" (2026-07-16)
+  // turned off exactly that auto-kick because an unreviewed summary too often read worse than
+  // none; this panel stays an explicit ask, and the AI badge only ever marks a draft that passed
+  // BOTH firewalls (via==='model') — the honest mechanical floor or nothing is what a reject shows.
+  _foldSummaryVM(sn, entity = null) {
+    const app = this._app;
+    if (!app || !app.foldSummaryFor) return { show: false };
+    const q = entity ? { sn, scope: 'entity', entity, detail: 'standard' } : { sn, scope: 'full', detail: 'standard' };
+    const rec = app.foldSummaryFor(q);
+    const badge = rec ? this.summaryBadge(rec) : { isAi: false };
+    // rec.modelless (phase-A telegram stood, phase-B model refinement hasn't landed — or there
+    // is no model) is the only "still working" signal foldSummary exposes; a warm model plus the
+    // still-modelless floor is a compose in flight, worth a "composing…" note.
+    const composing = !!(rec && rec.modelless && app.optionalModel && app.optionalModel());
+    return {
+      show: true, has: !!rec, text: rec ? rec.text : '', composing,
+      isAi: badge.isAi, badgeLabel: badge.badgeLabel || '',
+      hasGroundDot: !!badge.hasGroundDot, groundDot: badge.groundDot || '', groundLabel: badge.groundLabel || '',
+      generate: () => { app.foldSummary(q).catch(() => {}); },
     };
   }
 
@@ -7443,11 +7818,15 @@ class Component extends DCLogic {
   // reading lives. Built cheaply from topic.sourceSns / topicSources() — no per-source parse.
   _topicOverviewVM() {
     const app = this._app;
-    if (!app) return { has: false, cards: [], subTopics: [], empty: true, hasSources: false, hasSubTopics: false, title: 'Topic', workspace: 'Workspace', wsInitial: '?', wsDot: '#6D5EF5', sourceCount: '0', sourceCountLabel: '0 sources', answersLabel: '0 answers', ask: () => {}, openFindings: () => {}, openGraph: () => {}, openExplorer: () => {}, openWorkspace: () => {} };
+    if (!app) return { has: false, cards: [], subTopics: [], empty: true, hasSources: false, hasSubTopics: false, title: 'Topic', workspace: 'Workspace', wsInitial: '?', wsDot: '#6D5EF5', sourceCount: '0', sourceCountLabel: '0 sources', answersLabel: '0 answers', entityLabel: '0 entities', findingLabel: '0 findings', ask: () => {}, openFindings: () => {}, openGraph: () => {}, openExplorer: () => {}, openWorkspace: () => {} };
     const t = (app.topic && app.topic()) || null;
     const ws = (app.activeWorkspace && app.activeWorkspace()) || null;
     let sources = [];
-    try { sources = (app.topicSources && app.topicSources()) || []; } catch { sources = []; }
+    // ALL topic sources — including any excluded from the active evidence scope. A card must
+    // never disappear when its source is toggled off (only its own countLine reflects that);
+    // only the header totals below read the scoped topicSources().
+    try { sources = (app.topicSourcesAll && app.topicSourcesAll()) || []; } catch { sources = []; }
+    const disabled = new Set(t && app.topicScopeDisabledSns ? app.topicScopeDisabledSns(t.id) : []);
     const roots = sources.filter((s) => !s.parentSn);   // a followed sub-page rides inside its site's card
     const typeOf = (s) => {
       const kind = String((s && s.kind) || '').toLowerCase();
@@ -7458,19 +7837,25 @@ class Component extends DCLogic {
     const cards = roots.map((s, i) => {
       const [icon, typeLabel] = typeOf(s);
       const fav = FAV[i % FAV.length];
+      const active = !disabled.has(s.sn);
       const entN = s.entCount == null ? 0 : Number(s.entCount) || 0;
-      const claimN = s.claimCount == null ? 0 : Number(s.claimCount) || 0;
-      const words = String(s.text || '').trim().split(/\s+/).filter(Boolean).length;
+      let claimN = 0; try { claimN = app.sourceClaimCount ? app.sourceClaimCount(s.sn) : 0; } catch { claimN = 0; }
       let origin = s.domain || '';
       if (!origin && s.url) { try { origin = new URL(s.url, location.href).hostname; } catch { origin = ''; } }
-      const countLine = [`${entN} ${entN === 1 ? 'entity' : 'entities'}`, `${claimN} claim${claimN === 1 ? '' : 's'}`, words ? `${words.toLocaleString()} words` : null].filter(Boolean).join('  ·  ');
+      const countLine = [`${entN} ${entN === 1 ? 'entity' : 'entities'}`, `${claimN} finding${claimN === 1 ? '' : 's'}`].filter(Boolean).join('  ·  ');
       return {
         sn: s.sn, title: s.title || s.domain || s.reg || 'Untitled source',
         icon, typeLabel, reg: s.reg || '', origin: origin || 'Local record',
         favCh: (String(s.domain || s.title || '?').trim().charAt(0).toUpperCase()) || 'S',
-        favBg: fav[0], favFg: fav[1], countLine,
+        favBg: active ? fav[0] : '#F0F0F3', favFg: active ? fav[1] : '#ABABB4', countLine,
         when: (s.retrieved ? this._ago(s.retrieved) : '') || '',
+        active, cardOpacity: active ? '1' : '.55',
+        scopeLabel: active ? 'Active' : 'Excluded',
+        scopeFg: active ? '#1E8A50' : '#B23A2E', scopeBg: active ? '#E7F6EC' : '#FBE9E6',
+        toggleScope: (e) => { if (e && e.stopPropagation) e.stopPropagation(); if (t && app.setSourceScopeEnabled) this._toggleEvidenceScope(t.id, s.sn, !active); },
+        toggleScopeLabel: active ? 'Exclude' : 'Include',
         open: () => this.openViewer(s.sn),
+        openKey: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openViewer(s.sn); } },
       };
     });
     // sub-topics — the child quests directly under this one, each a door across (setTopic)
@@ -7480,6 +7865,12 @@ class Component extends DCLogic {
       return { title: k.title, meta: `${n} source${n === 1 ? '' : 's'}`, open: () => { app.setTopic(k.id); this.setTab('topic'); } };
     });
     const answers = t ? (t.messages || []).filter((m) => m.role === 'assistant' && !m.pending).length : 0;
+    // Cross-source totals — read through the ACTIVE evidence scope (app.entities/app.findings
+    // both build off the scope-filtered topicSources()), so these move the instant a chip toggles.
+    let entityCount = 0, findingCount = 0;
+    try { entityCount = (app.entities ? app.entities() : []).length; } catch { entityCount = 0; }
+    try { findingCount = (app.findings ? app.findings() : { stats: {} }).stats.claims || 0; } catch { findingCount = 0; }
+    const activeCount = roots.length - roots.filter((s) => disabled.has(s.sn)).length;
     return {
       has: !!t,
       title: t ? t.title : 'Topic',
@@ -7487,8 +7878,10 @@ class Component extends DCLogic {
       wsInitial: ws ? (((ws.name || '?').trim().charAt(0) || '?').toUpperCase()) : '?',
       wsDot: ws ? (ws.color || '#6D5EF5') : '#6D5EF5',
       sourceCount: String(roots.length),
-      sourceCountLabel: `${roots.length} source${roots.length === 1 ? '' : 's'}`,
+      sourceCountLabel: `${activeCount} of ${roots.length} source${roots.length === 1 ? '' : 's'} active`,
       answersLabel: `${answers} answer${answers === 1 ? '' : 's'}`,
+      entityLabel: `${entityCount} distinct entit${entityCount === 1 ? 'y' : 'ies'}`,
+      findingLabel: `${findingCount} cross-source finding${findingCount === 1 ? '' : 's'}`,
       hasSources: cards.length > 0, empty: cards.length === 0, cards,
       hasSubTopics: subTopics.length > 0, subTopics,
       ask: () => this.setTab('search'),
@@ -7496,6 +7889,89 @@ class Component extends DCLogic {
       openGraph: () => this.setTab('graph'),
       openExplorer: () => this.setTab('register'),
       openWorkspace: () => this.setTab('register'),
+    };
+  }
+  // Flip one source's evidence-scope toggle and, if that EXCLUDED it, show the consequence toast
+  // (docs/topic-source-scope: "turning a source off should recompute the current view immediately
+  // … make the consequence visible"). setSourceScopeEnabled (topics.js) reports exactly what the
+  // toggle removed from the current view (entities / shared entities / findings) by diffing
+  // app.entities()/app.findings() before and after — this only turns that into words.
+  _toggleEvidenceScope(topicId, sn, enabled) {
+    const app = this._app; if (!app || !app.setSourceScopeEnabled) return;
+    const src = app.sourceBySn ? app.sourceBySn(sn) : null;
+    const r = app.setSourceScopeEnabled(topicId, sn, enabled);
+    if (!r) { this.setState({}); return; }
+    if (!enabled && r.removed) {
+      const label = (src && (src.title || src.reg)) || sn;
+      const parts = [];
+      if (r.removed.entities) parts.push(`${r.removed.entities} ${r.removed.entities === 1 ? 'entity' : 'entities'}`);
+      if (r.removed.findings) parts.push(`${r.removed.findings} finding${r.removed.findings === 1 ? '' : 's'}`);
+      if (r.removed.sharedEntities) parts.push(`${r.removed.sharedEntities} cross-source connection${r.removed.sharedEntities === 1 ? '' : 's'}`);
+      this.showToast(`Excluded “${label}.”${parts.length ? ' ' + parts.join(', ') + ' removed from this view.' : ' Nothing else in this view depended on it.'}`);
+    } else {
+      this.setState({});
+    }
+  }
+  // The EVIDENCE SCOPE bar — a topic-wide, persistent source toggle shared by every cross-source
+  // surface (Topic Overview, Findings, the graph's Entities/Network/Crosswalk/Compare kinds).
+  // Distinct from a view's own DISPLAY FILTERS (e.g. the graph's node checkboxes, webToggles
+  // below): this changes what topicSources() returns and so what gets COMPUTED; a display filter
+  // only hides what's already on screen. One VM, reused verbatim across those templates.
+  _evidenceScopeVM() {
+    const app = this._app; const st = this.state;
+    const empty = { has: false, chips: [], total: 0, activeCount: 0, collapsed: false, popoverOpen: false, hasSavedScopes: false, savedScopes: [], summaryLabel: '', collapseLabel: '', provenanceLabel: '' };
+    if (!app || !app.topic) return empty;
+    const t = app.topic();
+    if (!t) return empty;
+    let all = []; try { all = (app.topicSourcesAll ? app.topicSourcesAll() : []).filter((s) => !s.parentSn); } catch { all = []; }
+    const disabled = new Set(app.topicScopeDisabledSns ? app.topicScopeDisabledSns(t.id) : []);
+    const total = all.length;
+    const activeCount = total - all.filter((s) => disabled.has(s.sn)).length;
+    const COLLAPSE_AT = 6;
+    const collapsed = total > COLLAPSE_AT;
+    const toggle = (sn, wasActive) => () => this._toggleEvidenceScope(t.id, sn, !wasActive);
+    const chipOf = (s) => {
+      const active = !disabled.has(s.sn);
+      return {
+        sn: s.sn, reg: s.reg || s.sn, title: s.title || s.reg || s.sn, active,
+        fg: active ? '#1B1B22' : '#B4B4BE', bg: active ? '#fff' : '#F4F4F7', bd: active ? '#DED8FD' : '#EAEAEF',
+        check: active ? '✓ ' : '',
+        boxFg: active ? '#33333B' : '#9A9AA4', boxBg: active ? '#5B4BE6' : 'transparent', boxBd: active ? '#5B4BE6' : '#CBCBD4', boxCheck: active ? '✓' : '',
+        toggle: toggle(s.sn, active),
+      };
+    };
+    const chips = all.map(chipOf);
+    const q = String(st.scopeSearch || '').trim().toLowerCase();
+    const visibleChips = q ? chips.filter((c) => c.title.toLowerCase().includes(q) || c.reg.toLowerCase().includes(q)) : chips;
+    const setAll = (on) => () => { if (app.setTopicScopeAll) { app.setTopicScopeAll(t.id, on); this.setState({}); } };
+    const invert = () => { if (app.invertTopicScope) { app.invertTopicScope(t.id); this.setState({}); } };
+    const saveView = () => {
+      const name = prompt('Name this evidence scope — the sources currently active');
+      if (name && app.saveTopicScope) { app.saveTopicScope(t.id, name); this.setState({}); }
+    };
+    const savedScopes = (t.savedScopes || []).map((sc) => ({
+      id: sc.id, name: sc.name,
+      apply: () => { if (app.applyTopicScope) { app.applyTopicScope(t.id, sc.id); this.setState({ scopePopoverOpen: false }); } },
+      remove: () => { if (app.deleteTopicScope) { app.deleteTopicScope(t.id, sc.id); this.setState({}); } },
+    }));
+    const excludedRegs = all.filter((s) => disabled.has(s.sn)).map((s) => s.reg || s.sn);
+    return {
+      has: true, total, activeCount, disabledCount: total - activeCount,
+      chips: visibleChips, allChips: chips,
+      summaryLabel: `Evidence scope · ${activeCount} of ${total} source${total === 1 ? '' : 's'}`,
+      collapseLabel: `Sources: ${activeCount} of ${total} active`,
+      collapsed, expanded: !collapsed,
+      popoverOpen: !!st.scopePopoverOpen,
+      openPopover: () => this.setState({ scopePopoverOpen: true }),
+      closePopover: () => this.setState({ scopePopoverOpen: false, scopeSearch: '' }),
+      search: st.scopeSearch || '',
+      onSearch: (e) => this.setState({ scopeSearch: (e && e.target) ? e.target.value : '' }),
+      hasSearch: total > COLLAPSE_AT,
+      all: setAll(true), none: setAll(false), invert, saveView,
+      savedScopes, hasSavedScopes: savedScopes.length > 0,
+      provenanceLabel: activeCount === total
+        ? `Based on all ${total} topic source${total === 1 ? '' : 's'}.`
+        : `Based on ${activeCount} of ${total} topic sources. ${excludedRegs.join(', ')} excluded.`,
     };
   }
   _sourceStructureRows(s, type, paras) {
@@ -8080,6 +8556,40 @@ class Component extends DCLogic {
     this._rr = null; this._rrEl = null; this._rrTopicId = null;
     this.setState({ rrOpen: false, rrTopicId: null });
     if (target) this.showToast(`Added sources to “${target.title}”`);
+  }
+  // The per-source Graph tab's host — the same entity web the topic Graph tab draws
+  // (topicTieredData / mountTieredGraph), scoped to just the active source. Same ref idiom as the
+  // Structure tab: one container persists while the active source switches under it, so re-scope
+  // in place (destroying the prior mount first so the surface never leaks). A node click opens
+  // that figure's profile in the entity panel.
+  setSourceGraphEl(el) {
+    if (!el) return;
+    const sn = this._activeSrc ? this._activeSrc() : null;
+    const fresh = this._srcGraphEl !== el;
+    if (!fresh && this._srcGraphSn === sn) return;   // same container + source — already drawn
+    this._srcGraphEl = el; this._srcGraphSn = sn;
+    try { this._srcGraph && this._srcGraph.destroy(); } catch {}
+    this._srcGraph = null;
+    el.innerHTML = '';
+    try {
+      const src = sn && this._app.sourceBySn ? this._app.sourceBySn(sn) : null;
+      if (!src) { el.innerHTML = '<div style="padding:22px;color:#8A8A95;font-size:13px">No source to graph.</div>'; return; }
+      const data = this._app.topicTieredData ? this._app.topicTieredData([src]) : { nodes: [], edges: [] };
+      if (!data.nodes || !data.nodes.length) {
+        el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:60ch;line-height:1.55">No figures read in this source yet — its knowledge graph fills once the reading names people, places, or things and the bonds among them.</div>';
+        return;
+      }
+      this._srcGraph = window.EO.mountTieredGraph(el, {
+        nodes: data.nodes, edges: data.edges,
+        // A figure node click opens its profile in the entity panel (openEntity keeps the source
+        // tab in front and opens the right rail on that entity).
+        onOpen: (node) => { if (node && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
+        onSelect: (node) => { if (node && node.kind === 'entity' && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
+        countsLabel: `${data.nodes.length} nodes · ${data.edges.length} edges`,
+      });
+    } catch (e) {
+      el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Graph failed to draw: ' + String((e && e.message) || e) + '</div>';
+    }
   }
   setWebKind(kind) {
     kind = (kind === 'network' || kind === 'crosswalk' || kind === 'compare') ? kind : 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
@@ -9195,7 +9705,10 @@ class Component extends DCLogic {
         statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals() };
     }
     const topic = app.topic();
-    const sources = app.topicSources();
+    // The sidebar/Sources-tab list is MEMBERSHIP, not the active evidence scope — an excluded
+    // source must stay reachable (never silently disappear from navigation); only cross-source
+    // computations (findings below, entities, the graph) read the scope-filtered topicSources().
+    const sources = app.topicSourcesAll ? app.topicSourcesAll() : app.topicSources();
     const findings = app.findings();
     const generating = this._generating();
     const webMode = app.webMode ? app.webMode() : 'auto';
@@ -9753,7 +10266,9 @@ class Component extends DCLogic {
     // read & act on the selected source in place. Everything is a read-time projection of the Drive;
     // the mutations (star, touch, add-to-corpus, move) live on the engine.
     const drive = driveSources.filter((s) => !s.parentSn);      // top-level records only
-    const topicCorpus = app.topicSources().filter((s) => !s.parentSn);
+    // Membership, not the active evidence scope — a source stays "in topic corpus" here even
+    // while its scope toggle has it excluded from findings/entities/graph computations.
+    const topicCorpus = (app.topicSourcesAll ? app.topicSourcesAll() : app.topicSources()).filter((s) => !s.parentSn);
     const inCorpusIds = new Set(topicCorpus.map((s) => s.sn));
     const touchedAt = (s) => s.openedAt || s.recordedAt || 0;
     const whenLabel = (s) => (s.openedAt ? 'opened ' : 'added ') + this._ago(new Date(touchedAt(s)).toISOString());
@@ -10182,6 +10697,7 @@ class Component extends DCLogic {
           eotCount: eot && eot.structure ? String(eot.structure.lines ? eot.structure.lines.length : 0) : '0',
           // the auto-generated topline for this source + its feedback box (docs/topline.md)
           topline: this._toplineVM('source', { sn: s.sn }, s.title),
+          foldSummary: this._foldSummaryVM(s.sn),
         };
         // The DOSSIER — a single-subject source (a bio/article) shows its dominant figure's reading:
         // the model-written account IN THIS DOCUMENT beside the Wikipedia referent + image over the
@@ -10189,6 +10705,13 @@ class Component extends DCLogic {
         viewer.sourceLanding = this._sourceLandingVM(s, eot); sourceLanding = viewer.sourceLanding;
         viewer.dossier = this._sourceDossierVM(s);
         viewer.plainSummary = !!(viewer.topline && viewer.topline.show) && !viewer.dossier.show && vMode !== 'overview';
+        // The fold-summary panel stands independently of BOTH the topline (above, a composed
+        // inventory) and the dossier (an entity-level reading): sourceDominantEntity has no
+        // margin requirement, so almost any source with a repeated figure shows a dossier, and
+        // gating on its absence would make this document-level summary the rare exception rather
+        // than the norm. A source can have a figure it centres on AND still want a whole-document
+        // reading — they answer different questions ("who is this about" vs "what does it say").
+        viewer.showFoldSummary = vMode !== 'overview';
         // The media panel — player + waveform + signal/noise holons + transcription status —
         // shown above the reading for a decoded audio/video source, in every viewer mode.
         viewer.media = this._mediaVM(s) || { show: false };
@@ -10479,6 +11002,7 @@ class Component extends DCLogic {
       ...this._pinsVals(st),
       isRegister: st.tab === 'register', isMemo: st.tab === 'memo', isPlain: st.tab === 'plain', isRashomon: st.tab === 'rashomon',
       isTopicOverview: st.tab === 'topic', topicOverview: this._topicOverviewVM(),
+      scope: this._evidenceScopeVM(),
       setPlainEl: (el) => this.setPlainEl(el),   // the Plain host ref (mounts rooms/plain, like setWebGraphEl)
       setRashomonEl: (el) => this.setRashomonEl(el),   // the Rashomon host ref (mounts rooms/rashomon)
       // ask (the primary surface) — the latest exchange as one typed, cited answer
@@ -10645,6 +11169,12 @@ class Component extends DCLogic {
           // pref flips permanently once the reader has ever gone hero, so this never nags.
           heroHintShow: !st.isMobile && !heroActive && !this._pref('eo_hero_used', false),
           toggleHero: () => this.toggleRightHero(),
+          // The identity strip itself promotes the profile to the full stage — a large, obvious
+          // hit target so making a figure the hero doesn't hinge on the small Expand chip. Inert
+          // (no cursor, no handler) once already hero or on mobile, where the panel is a drawer.
+          heroPromote: (!st.isMobile && !heroActive) ? (() => this.toggleRightHero()) : (() => {}),
+          heroPromoteCursor: (!st.isMobile && !heroActive) ? 'pointer' : 'default',
+          heroPromoteTitle: (!st.isMobile && !heroActive) ? 'Expand this figure to the full stage' : '',
         };
       })(),
       entListShow: !spanInsp && !insp && !prof, entRows, entCount: String(ents.length), entEmpty: ents.length === 0,
@@ -10694,6 +11224,7 @@ class Component extends DCLogic {
       viewerCanPage: !!viewer && viewer.hasUrl,
       viewerIsOverview: vMode === 'overview', viewerIsReader: vMode === 'reader', viewerIsPage: vMode === 'native', viewerIsFacing: vMode === 'facing', viewerIsEot: vMode === 'eot',
       viewerIsStructure: vMode === 'structure',
+      viewerIsGraph: vMode === 'graph',
       viewerIsListen: vMode === 'listen', viewerIsAudio: !!viewer && viewer.kind === 'audio',
       // PDF surface — the pages themselves, drawn by the browser's own PDF viewer from the blob URL.
       viewerIsPdf: vMode === 'pdf',
@@ -10719,6 +11250,8 @@ class Component extends DCLogic {
       viewerModeFacing: () => this.setSourceMode('facing'), viewerModeEot: () => this.setSourceMode('eot'),
       viewerModeStructure: () => this.setSourceMode('structure'),
       setStructureEl: (el) => this.setStructureEl(el),
+      viewerModeGraph: () => this.setSourceMode('graph'),
+      setSourceGraphEl: (el) => this.setSourceGraphEl(el),
       viewerModeListen: () => this.setSourceMode('listen'), viewerModePdf: () => this.setSourceMode('pdf'),
       vmOverviewFg: vMode === 'overview' ? '#1B1B22' : '#8A8A95', vmOverviewBg: vMode === 'overview' ? '#fff' : 'transparent',
       vmPdfFg: vMode === 'pdf' ? '#1B1B22' : '#8A8A95', vmPdfBg: vMode === 'pdf' ? '#fff' : 'transparent',
@@ -10727,6 +11260,7 @@ class Component extends DCLogic {
       vmPageFg: vMode === 'native' ? '#1B1B22' : '#8A8A95', vmPageBg: vMode === 'native' ? '#fff' : 'transparent',
       vmFacingFg: vMode === 'facing' ? '#1B1B22' : '#8A8A95', vmFacingBg: vMode === 'facing' ? '#fff' : 'transparent',
       vmStructureFg: vMode === 'structure' ? '#1B1B22' : '#8A8A95', vmStructureBg: vMode === 'structure' ? '#fff' : 'transparent',
+      vmGraphFg: vMode === 'graph' ? '#1B1B22' : '#8A8A95', vmGraphBg: vMode === 'graph' ? '#fff' : 'transparent',
       vmEotFg: vMode === 'eot' ? '#1B1B22' : '#8A8A95', vmEotBg: vMode === 'eot' ? '#fff' : 'transparent',
       // Listen surface — the interactive transcript refs + edit/redaction actions
       setListenAudio: (el) => this.setListenAudio(el),
@@ -10783,6 +11317,23 @@ class Component extends DCLogic {
           foldPeekTurns: r ? r.turns.map((t) => ({ t })) : [], foldPeekHasTurns: !!(r && r.turns.length),
           foldPeekSpans: fp ? fp.spans.map((s) => ({ t: s.text })) : [], foldPeekHasSpans: !!(fp && fp.spans.length),
           foldPeekTelegram: fp ? fp.telegram : '',
+          // The AI-generated reading at this same place — a SEPARATE record from `fp` (which is
+          // cursorFold's own model-free peek): foldSummaryFor reads back whatever foldSummary
+          // (fired from _foldPeekNow, fire-and-forget) has stored for this exact cursor so far.
+          ...(() => {
+            if (!fp || !app || !app.foldSummaryFor) return { foldPeekAiShow: false, foldPeekAiLoading: false };
+            const rec = app.foldSummaryFor({ sn: fp.sn, scope: 'cursor', cursor: fp.cursor, detail: 'brief' });
+            const badge = rec ? this.summaryBadge(rec) : { isAi: false };
+            return {
+              foldPeekAiShow: badge.isAi,
+              foldPeekAiLoading: !rec || rec.modelless,   // still just the telegram, or nothing stored yet
+              foldPeekAiLabel: badge.badgeLabel || '',
+              foldPeekAiText: badge.isAi ? rec.text : '',
+              foldPeekAiHasGroundDot: !!badge.hasGroundDot,
+              foldPeekAiGroundDot: badge.groundDot || '',
+              foldPeekAiGroundLabel: badge.groundLabel || '',
+            };
+          })(),
         };
       })(),
       // native render body — the live site, plus its own contents lifted into the reader's drawer

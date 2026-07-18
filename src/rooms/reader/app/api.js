@@ -13,6 +13,11 @@ export const buildApi = (appCtx) => {
     // topics — a nested tree within a workspace
     topicNew: appCtx.topicNew, setTopic: appCtx.setTopic, topicRename: appCtx.topicRename, topicDelete: appCtx.topicDelete, topic: appCtx.topic, topicById: appCtx.topicById,
     topicMove: appCtx.topicMove, topicToggleCollapse: appCtx.topicToggleCollapse, topicTree: appCtx.topicTree, topicRows: appCtx.topicRows,
+    // evidence scope — a topic-wide, persistent source toggle (topics.js). topicSources (below)
+    // reads it; topicSourcesAll ignores it (full membership, for the scope bar + navigation).
+    topicScopeDisabledSns: appCtx.topicScopeDisabledSns, topicScopeSummary: appCtx.topicScopeSummary,
+    setSourceScopeEnabled: appCtx.setSourceScopeEnabled, setTopicScopeAll: appCtx.setTopicScopeAll, invertTopicScope: appCtx.invertTopicScope,
+    saveTopicScope: appCtx.saveTopicScope, applyTopicScope: appCtx.applyTopicScope, deleteTopicScope: appCtx.deleteTopicScope,
     // workspaces — the top-level containers; a shared workspace is a Matrix room (roomId)
     workspaceNew: appCtx.workspaceNew, setWorkspace: appCtx.setWorkspace, workspaceRename: appCtx.workspaceRename, workspaceDelete: appCtx.workspaceDelete, activeWorkspace: appCtx.activeWorkspace,
     workspaceBindRoom: appCtx.workspaceBindRoom, workspaceByRoom: appCtx.workspaceByRoom, workspaceSetSync: appCtx.workspaceSetSync,
@@ -28,8 +33,12 @@ export const buildApi = (appCtx) => {
     // that re-runs them (so ingestion AND transcription survive a reload even part-way through)
     jobs: () => state.jobs.slice(),
     resumeJobs: appCtx.resumeJobs,
-    // search — the sibling of ask(): a query opens a "search topic" and pulls sources into it
-    searchTopic: appCtx.searchTopic,
+    // search — the sibling of ask(): a query opens a "search topic" and pulls sources into it.
+    // specPrime warms that same web search speculatively while the user types (behind auto mode);
+    // the surface calls it on a typing-settled debounce, and searchTopic takes the warmed entry.
+    // (Research Review's reviewStart, below, does not yet consume this quarantine — a warmed entry
+    // goes unused on that path and is swept by its own TTL; see docs/research-review.md.)
+    searchTopic: appCtx.searchTopic, specPrime: appCtx.specPrime,
     // Research Review (docs/research-review.md) — a search result becomes a provisional,
     // inspectable corpus before anything is admitted to a "real" topic. reviewStart opens the
     // review topic and reviews the first batch; reviewMore pulls in more discovered candidates;
@@ -40,7 +49,7 @@ export const buildApi = (appCtx) => {
     reviewAddUrl: appCtx.reviewAddUrl, reviewImportFile: appCtx.reviewImportFile,
     reviewToggleExclude: appCtx.reviewToggleExclude, reviewApplyRecipe: appCtx.reviewApplyRecipe,
     reviewAdmit: appCtx.reviewAdmit, reviewCompute: appCtx.reviewCompute,
-    sourceBySn: appCtx.sourceBySn, sourceRename: appCtx.sourceRename, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, sourceToggleCollapse: appCtx.sourceToggleCollapse,
+    sourceBySn: appCtx.sourceBySn, sourceRename: appCtx.sourceRename, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, topicSourcesAll: appCtx.topicSourcesAll, sourceToggleCollapse: appCtx.sourceToggleCollapse,
     // source export — full append-only history as JSONL, one JSON snapshot (or one folded at a
     // text/log cursor), and the ORIGINAL file/bytes as ingested (PDF/audio/video bytes, else text)
     sourceExport: appCtx.sourceExport, sourceHistoryJsonl: appCtx.sourceHistoryJsonl, sourceCursorJson: appCtx.sourceCursorJson, sourceOriginalExport: appCtx.sourceOriginalExport,
@@ -119,7 +128,7 @@ export const buildApi = (appCtx) => {
     // in and deeper (docs/topline.md)
     entityChapters: appCtx.entityChapters, entityDigest: appCtx.entityDigest, entityDigestFor: appCtx.entityDigestFor, entityChapterReading: appCtx.entityChapterReading, entityChapterReadingFor: appCtx.entityChapterReadingFor,
     entityPassage: appCtx.entityPassage, entityPassageReading: appCtx.entityPassageReading, entityPassageReadingFor: appCtx.entityPassageReadingFor,
-    findings: appCtx.findings, provenance: appCtx.provenance, dagFor: appCtx.dagFor, dagSources: appCtx.dagSources, eotFor: appCtx.eotFor, answerEot: appCtx.answerEot,
+    findings: appCtx.findings, provenance: appCtx.provenance, dagFor: appCtx.dagFor, dagSources: appCtx.dagSources, eotFor: appCtx.eotFor, answerEot: appCtx.answerEot, sourceClaimCount: appCtx.sourceClaimCount,
     // the cross-source comparison matrix — measure × source, each cell opening its passage
     comparisonMatrix: appCtx.comparisonMatrix,
     // search over the record + the durable write path (docs/search-and-pins.md)

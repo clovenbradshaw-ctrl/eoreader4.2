@@ -117,7 +117,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
     // the mint counters + the cross-section mutables (persistence resets the
     // counters on restore; chat arms abort/stallGuard; a settled answer clears
     // the wedge streak)
-    sn: 0, tn: 0, ln: 0, mn: 0, wn: 0, fon: 0, pn: 0, stn: 0,
+    sn: 0, tn: 0, ln: 0, mn: 0, wn: 0, fon: 0, pn: 0, stn: 0, scn: 0,
     abort: null, stallGuard: null, localWedges: 0,
     audit, murmur, fetchImpl,
   };

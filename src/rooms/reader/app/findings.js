@@ -145,6 +145,16 @@ export const installFindings = (appCtx) => {
     return { nodes, edges };
   };
 
+  // A single source's claim count, read directly off its own doc — independent of the topic's
+  // evidence scope, so a source card can state what a source contributes even while its
+  // evidence-scope toggle is off (setSourceScopeEnabled only ever touches topicSources()).
+  const sourceClaimCount = (snId) => {
+    const src = appCtx.sourceBySn(snId);
+    const doc = src && appCtx.docFor(src);
+    if (!doc?.log) return 0;
+    try { return claimsFromDoc(doc).length; } catch { return 0; }
+  };
+
   const dagFor = (snId, which = 'discourse') => {
     const src = appCtx.sourceBySn(snId);
     const doc = src && appCtx.docFor(src);
@@ -213,5 +223,5 @@ export const installFindings = (appCtx) => {
     return { scope: 'topic', sources: srcs.map((s) => ({ sn: s.sn, title: s.title || null })), ...buildChronology(items) };
   };
 
-  Object.assign(appCtx, { dagFor, findings, provenance, comparisonMatrix, topicEntitySummaries, fragilitySource, fragilityTopic, chronologySource, chronologyTopic });
+  Object.assign(appCtx, { dagFor, findings, provenance, comparisonMatrix, topicEntitySummaries, sourceClaimCount, fragilitySource, fragilityTopic, chronologySource, chronologyTopic });
 };

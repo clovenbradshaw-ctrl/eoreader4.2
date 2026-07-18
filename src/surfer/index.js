@@ -17,6 +17,10 @@
 // does (the field is VOID) is the surfer's own negative result.
 
 export { surfFold } from './surf.js';
+// richSurf — surfFold with the significance column + the multi-level chorus folded in, one
+// injectable function (a safe drop-in: single-source docs read byte-identically, composites
+// get their off-topic sources dropped). The full-power surf for the fold's injected-surf slot.
+export { richSurf } from './rich-surf.js';
 // The surf chorus (chorus.js) and multi-level surf (multilevel.js) — a chorus of rides merged
 // born-soft, and the source-then-content two-level read over a composite. Both default-off.
 export { chorusStops, FAMILY as CHORUS_FAMILY } from './chorus.js';

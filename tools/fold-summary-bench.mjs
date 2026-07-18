@@ -44,6 +44,7 @@ import {
   crossSourceSummaryFold, telegramCrossSummary, summaryAttributionErrors,
   seededRng,
 } from '../src/surfer/fold/index.js';
+import { groundText } from '../src/enactor/ground/index.js';
 import { createModel } from '../src/model/interface.js';
 import '../src/model/openai-local.js';
 
@@ -116,6 +117,7 @@ async function main() {
 
   const rows = [];
   const gateCatches = [];
+  const groundCatches = [];
 
   // per-document conditions
   for (const { meta, text, doc } of docsById.values()) {
@@ -152,13 +154,25 @@ async function main() {
         telegram: { text: tele, ...score(tele, packet, text.length) },
       };
       if (phrase) {
-        const r = await realizeSummary(packet, { phrase, sentences: SENTENCES });
-        row.model = { via: r.via, text: r.text, ...score(r.text, packet, text.length) };
-        // what the gate caught, before the fallback hid it — the RAW column
+        // BOTH firewalls: the referential gate (summaryAdditions, inside realizeSummary) AND the
+        // grounding stack (groundText — the same the answer path runs), injected here. The packet's
+        // witnessed spans are the read passages; the doc gives the propositional, coref-intact witness.
+        const ground = (packetText) => groundText(packetText, {
+          passages: (packet.spans || []).map((s) => ({ u: packet.docId, idx: s.idx, text: s.text })),
+          doc,
+        });
+        const r = await realizeSummary(packet, { phrase, sentences: SENTENCES, ground });
+        row.model = { via: r.via, text: r.text, ground: r.ground ? { kind: r.ground.kind, source: r.ground.source, claims: r.ground.claims } : null, ...score(r.text, packet, text.length) };
+        // what the referential gate caught, before the fallback hid it — the RAW column
         if (r.via === 'telegram-gated') {
           gateCatches.push({ doc: meta.id, condition: c.kind, rejected: r.rejected, additions: r.additions });
           row.model.rawRejected = r.rejected;
           row.model.rawAdditions = r.additions;
+        }
+        // what the GROUNDING firewall caught: a referentially-clean draft that traced to nothing read.
+        if (r.via === 'telegram-ungrounded') {
+          groundCatches.push({ doc: meta.id, condition: c.kind, rejected: r.rejected, ground: r.ground });
+          row.model.rawRejected = r.rejected;
         }
       }
       rows.push(row);
@@ -226,7 +240,8 @@ async function main() {
   board.push(`telegram   n=${teleAgg?.n}  fabricated names ${fmt(teleAgg?.fabricatedNames)}  numbers ${fmt(teleAgg?.fabricatedNumbers)}  coverage ${fmt(teleAgg?.coverage)}  compression ${fmt(teleAgg?.compression)}`);
   if (modelAgg) {
     board.push(`model      n=${modelAgg.n}  fabricated names ${fmt(modelAgg.fabricatedNames)}  numbers ${fmt(modelAgg.fabricatedNumbers)}  coverage ${fmt(modelAgg.coverage)}  compression ${fmt(modelAgg.compression)}`);
-    board.push(`model via: ${Object.entries(modelVias).map(([k, v]) => `${k} ${v}`).join(' · ')}  (gate caught ${gateCatches.length} fabrications)`);
+    board.push(`model via: ${Object.entries(modelVias).map(([k, v]) => `${k} ${v}`).join(' · ')}`);
+    board.push(`firewalls: referential gate caught ${gateCatches.length} fabricated referent(s) · grounding caught ${groundCatches.length} referentially-clean draft(s) that traced to nothing read`);
   }
   for (const g of cross) {
     board.push('');
@@ -239,7 +254,7 @@ async function main() {
   }
   console.log(board.join('\n'));
 
-  const out = { seed: SEED, sentences: SENTENCES, base: model ? BASE : null, rows, cross, gateCatches,
+  const out = { seed: SEED, sentences: SENTENCES, base: model ? BASE : null, rows, cross, gateCatches, groundCatches,
     aggregate: { telegram: teleAgg, model: modelAgg, modelVias } };
   if (JSON_OUT) { writeFileSync(JSON_OUT, JSON.stringify(out, null, 2) + '\n'); console.error(`json -> ${JSON_OUT}`); }
   if (REPORT_OUT) { writeFileSync(REPORT_OUT, renderReport(out, board)); console.error(`report -> ${REPORT_OUT}`); }
@@ -271,10 +286,23 @@ const renderReport = (out, board) => {
     }
   }
   if (out.gateCatches.length) {
-    L.push('## What the referential gate caught');
+    L.push('## What the referential gate caught (fabricated referents)');
     L.push('');
     for (const c of out.gateCatches) {
       L.push(`- **${c.doc} · ${c.condition}** added ${[...c.additions.names, ...c.additions.numbers].join(', ')}:`);
+      L.push(`  > ${c.rejected}`);
+    }
+    L.push('');
+  }
+  if ((out.groundCatches || []).length) {
+    L.push('## What the grounding firewall caught (referentially clean, but traced to nothing read)');
+    L.push('');
+    L.push('These drafts add no name or number the packet lacked — the referential gate passes them —');
+    L.push('yet their substantive claims ground to the VOID: the small model wrote them from its own');
+    L.push('training, reusing only the packet\'s vocabulary. The grounding stack ships the telegram floor instead.');
+    L.push('');
+    for (const c of out.groundCatches) {
+      L.push(`- **${c.doc} · ${c.condition}** (ground: ${c.ground?.kind}, ${c.ground?.source}/${c.ground?.claims} spans sourced):`);
       L.push(`  > ${c.rejected}`);
     }
     L.push('');

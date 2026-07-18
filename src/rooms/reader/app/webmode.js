@@ -23,6 +23,9 @@ export const installWebmode = (appCtx) => {
     if (!['off', 'confirm', 'auto'].includes(mode)) return;
     webModeOverride = mode;
     try { localStorage.setItem('eo_web_mode', mode); } catch { /* session-only */ }
+    // Leaving `auto` withdraws the standing authorization the speculative prefetch rode on — drop
+    // the quarantine so nothing warmed under auto lingers (docs/web-search.md).
+    if (mode !== 'auto') appCtx.specClear?.();
     logIt('web', `Web search set to ${mode}`);
     emit('web');
   };
