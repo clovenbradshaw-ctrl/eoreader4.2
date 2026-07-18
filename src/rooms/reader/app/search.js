@@ -6,10 +6,26 @@
 import { parseText } from '../../../perceiver/parse/index.js';
 import { searchAndAdmit } from '../../../organs/ingest/index.js';
 import { webContentHash } from '../../../organs/ingest/index.js';
+import { createSpeculativeWeb } from '../../../turn/index.js';
 import { shaShort } from './util.js';
 
 export const installSearch = (appCtx) => {
   const { client, emit, logIt, state } = appCtx;
+  // Speculative web prefetch (docs/web-search.md — the quarantine discipline). `search` is the
+  // SAME fetch+admit primitive fillSearchTopic runs on Enter, so a warmed entry is byte-identical
+  // to a live one; store/rawStore stay null, so priming touches the network and builds records but
+  // NEVER mutates the topic graph — that only happens when a take() feeds addSource below.
+  const specWeb = createSpeculativeWeb({
+    search: (query, opts = {}) => searchAndAdmit(query, { client, ...opts }),
+  });
+  // specPrime(text) — warm the web for the in-progress query, gated to web mode `auto` (standing
+  // authorization). The UI calls this behind a typing-settled debounce, never on every keystroke.
+  const specPrime = (text) => {
+    if (appCtx.webMode && appCtx.webMode() !== 'auto') return null;
+    return specWeb.prime(text, { k: 3, kind: 'auto', fetchPages: true });
+  };
+  // Drop the quarantine (e.g. web mode leaves `auto`): warmed-but-unused fetches author nothing.
+  const specClear = () => specWeb.clear();
   // ── SEARCH — the sibling of ask() ──────────────────────────────────────────
   // ask() answers a question over the record; searchTopic() does the opposite motion — it GROWS
   // the record. A query typed in the search box is not answered: we open a dedicated "search
@@ -28,7 +44,11 @@ export const installSearch = (appCtx) => {
   // addSource dedups by content hash, so re-running against a half-filled topic just tops it up.
   const fillSearchTopic = async (t, query, k, signal) => {
     let count = 0, first = null;
-    const admitted = await searchAndAdmit(query, { client, k, kind: 'auto', fetchPages: true, signal });
+    // Take the speculative prefetch first — if the user's typing warmed this exact (normalized)
+    // query, its admitted docs are already here and we skip the round-trip. A miss (or a query the
+    // prefetch never saw) falls back to a live fetch. Same shape either way, so the admit loop below
+    // is unchanged. This is the ONLY place a quarantined fetch hardens into a real source.
+    const admitted = (await specWeb.take(query)) || await searchAndAdmit(query, { client, k, kind: 'auto', fetchPages: true, signal });
     for (const a of admitted || []) {
       if (!a?.doc || !a?.record) continue;
       try {
@@ -89,5 +109,5 @@ export const installSearch = (appCtx) => {
     return appCtx.addSource({ title, text: String(text), kind: 'text', doc });
   };
 
-  Object.assign(appCtx, { fillSearchTopic, ingestText, searchTopic });
+  Object.assign(appCtx, { fillSearchTopic, ingestText, searchTopic, specPrime, specClear });
 };

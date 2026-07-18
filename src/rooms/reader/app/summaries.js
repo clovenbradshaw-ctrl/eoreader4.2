@@ -17,11 +17,26 @@
 // pipeline's own: the deterministic telegram lands FIRST (stored at once, model-free),
 // the model only refines it, and a decode that adds a name or number the packet never
 // carried ships the telegram instead. A summary must never cost the caller its record.
-import { surfFold, detectGrain, sentenceIndexOfText } from '../../../surfer/index.js';
+// richSurf, not bare surfFold: the full-power surf (significance column + multi-level chorus).
+// A safe drop-in — byte-identical on a single-source doc — but when the reading doc is a
+// COMPOSITE (a multi-file source, a video's motion+transcript), the chorus reads the relevant
+// sub-document and drops the rest, instead of the single-ride surf drifting into one neighbourhood.
+import { richSurf, detectGrain, sentenceIndexOfText } from '../../../surfer/index.js';
 import { summaryFold, telegramSummary, realizeSummary, SUMMARY_DETAILS } from '../../../surfer/fold/index.js';
 import { documentFieldAt } from '../../../enactor/factcheck/index.js';
+import { groundText } from '../../../enactor/ground/index.js';
 import { describeModel } from '../../../model/index.js';
 import { nowIso } from './util.js';
+
+// The grounding a fold summary stands on — the SAME span-provenance the answer path runs.
+// The packet's witnessed spans ARE the read passages ({ u, idx, text } — the jumpable
+// "where"); the doc gives the propositional, coref-intact witness. A referentially-clean
+// draft that nonetheless traces to nothing read grounds to the void, and realizeSummary
+// ships the telegram floor instead of the model's own recollection.
+const groundFold = (doc, packet) => (text) => groundText(text, {
+  passages: (packet.spans || []).map((s) => ({ u: packet.docId, idx: s.idx, text: s.text })),
+  doc,
+});
 
 // The packet sized to its tier: the brief voice reads a small packet (prefill is the
 // cost the reader waits through on a CPU model); the paragraph voice reads a wide one
@@ -83,7 +98,7 @@ export const installSummaries = (appCtx) => {
       let packet = null;
       try {
         packet = summaryFold(doc, {
-          surf: surfFold,
+          surf: richSurf,
           grain: (d) => detectGrain(d, { grain: 'auto' }),
           scope: norm.scope, cursor: norm.cursor, entity: norm.entity, topic: norm.topic,
           title: src.title || null,
@@ -109,10 +124,14 @@ export const installSummaries = (appCtx) => {
             detail: norm.detail,
             phrase: (m, o) => appCtx.model.phrase(m, o),
             telegram: () => telegram,
+            ground: groundFold(doc, packet),
           });
           store(key, {
             ...base, text: out.text, telegram, via: out.via,
             additions: out.additions && (out.additions.names?.length || out.additions.numbers?.length) ? out.additions : null,
+            // The grounding badge for the shipped voice — source/void span tally + the
+            // support kind — so the surface can say whether the summary stands on the record.
+            ground: out.ground ? { kind: out.ground.kind, supported: out.ground.supported, source: out.ground.source, claims: out.ground.claims } : null,
             modelless: out.via !== 'model',
             model: describeModel(appCtx.model)?.label || describeModel(appCtx.model)?.backend || null,
             generatedAt: nowIso(),
@@ -153,7 +172,7 @@ export const installSummaries = (appCtx) => {
     let packet = null;
     try {
       packet = summaryFold(doc, {
-        surf: surfFold, scope: 'cursor', cursor: at,
+        surf: richSurf, scope: 'cursor', cursor: at,
         title: src.title || null, ...PACKET_CAPS.brief,
       });
     } catch { packet = null; }

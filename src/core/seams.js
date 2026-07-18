@@ -41,6 +41,8 @@ export const SEAMS = Object.freeze([
   ['src/organs/in/document.js', 'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
   ['src/organs/in/json.js',     'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
   ['src/organs/in/music.js',    'src/model/embed-store.js', 'bounded embedding matrices — leaf import avoids the model-barrel cycle (see embed-hash seam)'],
+  ['src/rooms/reader/app/registry.js', 'src/perceiver/nest.js',
+    'docFor recovers a source\'s nested structure via nestComposite before caching it — but nest.js depends on surfer/index.js and organs/in/index.js, both of which already depend back on the perceiver entrance (surf.js -> readingAt, reading-dispatch.js -> buildTextReading), so riding perceiver/index.js here would close that cycle the instant it loads; this reads the leaf directly'],
 ].map(Object.freeze));
 
 // The seam set, keyed "from → to", for the boundary test's membership check.

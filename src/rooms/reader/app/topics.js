@@ -35,7 +35,11 @@ export const installTopics = (appCtx) => {
     // `named` — was this title CHOSEN (passed in as a real name, or set by a manual rename)?
     // While false the topic auto-names itself from its content (topicAutoName); a chosen
     // name is never overwritten.
-    const t = { id: `t${++appCtx.tn}`, title, created: nowIso(), workspaceId: wsId, parentId: parentId ?? null, collapsed: false, named: !isDefaultTopicTitle(title), sourceSns: [], messages: [], memo: '' };
+    // scopeDisabled: sn's of this topic's sources that are OFF the evidence scope — a source
+    // stays a member (sourceSns) but is excluded from every cross-source computation
+    // (topicSources filters it out) until re-enabled. savedScopes: named snapshots of
+    // scopeDisabled a user can re-apply later ("Primary sources only", "Before July 2025").
+    const t = { id: `t${++appCtx.tn}`, title, created: nowIso(), workspaceId: wsId, parentId: parentId ?? null, collapsed: false, named: !isDefaultTopicTitle(title), sourceSns: [], messages: [], memo: '', scopeDisabled: [], savedScopes: [] };
     state.topics.push(t);
     state.activeTopicId = t.id;
     if (t.parentId) expandAncestors(t.parentId);   // a sub-topic opens its ancestors
@@ -150,5 +154,80 @@ export const installTopics = (appCtx) => {
     return out;
   };
 
-  Object.assign(appCtx, { setTopic, topic, topicAutoName, topicById, topicDelete, topicMove, topicNew, topicRename, topicRows, topicThread, topicToggleCollapse, topicTree });
+  // ── evidence scope — a topic-wide, persistent source toggle ────────────────
+  // A source stays a MEMBER of the topic (sourceSns) even when its scope toggle is off;
+  // scopeDisabled only drops it from topicSources() (registry.js) — the read EVERY
+  // cross-source computation (findings, entities, the graph's network/crosswalk/compare
+  // kinds…) is built from. Flipping one source's toggle therefore recomputes every one of
+  // those views, not just the chip that shows the toggle.
+  const topicScopeDisabledSns = (id) => { const t = topicById(id); return t && Array.isArray(t.scopeDisabled) ? t.scopeDisabled.slice() : []; };
+  const topicScopeSummary = (id) => {
+    const t = topicById(id);
+    const total = t ? t.sourceSns.length : 0;
+    const disabled = t ? topicScopeDisabledSns(id).filter((sn) => t.sourceSns.includes(sn)).length : 0;
+    return { total, active: total - disabled, disabled };
+  };
+  // A cheap read of what's IN the current view — entities, shared (cross-source) entities,
+  // findings — taken before/after a scope change so the consequence toast ("Excluded X — N
+  // entities, M findings… removed") names exactly what changed, not just that something did.
+  const _scopeImpactSnapshot = () => {
+    let entities = 0, sharedEntities = 0, findings = 0;
+    try { const rows = appCtx.entities?.() || []; entities = rows.length; sharedEntities = rows.filter((r) => r.sourceCount > 1).length; } catch { /* best-effort */ }
+    try { findings = appCtx.findings?.()?.stats?.claims || 0; } catch { /* best-effort */ }
+    return { entities, sharedEntities, findings };
+  };
+  const setSourceScopeEnabled = (id, sn, enabled) => {
+    const t = topicById(id); if (!t || !t.sourceSns.includes(sn)) return null;
+    if (!Array.isArray(t.scopeDisabled)) t.scopeDisabled = [];
+    const was = t.scopeDisabled.includes(sn);
+    if (enabled === !was) return null;   // already in the requested state
+    const before = enabled ? null : _scopeImpactSnapshot();   // only disabling removes anything to report
+    t.scopeDisabled = enabled ? t.scopeDisabled.filter((x) => x !== sn) : [...t.scopeDisabled, sn];
+    appCtx.persist(); emit('topics'); emit('sources');
+    if (!before) return { sn, enabled, removed: null };
+    const after = _scopeImpactSnapshot();
+    return { sn, enabled, removed: {
+      entities: Math.max(0, before.entities - after.entities),
+      sharedEntities: Math.max(0, before.sharedEntities - after.sharedEntities),
+      findings: Math.max(0, before.findings - after.findings),
+    } };
+  };
+  const setTopicScopeAll = (id, enabled) => {
+    const t = topicById(id); if (!t) return;
+    t.scopeDisabled = enabled ? [] : t.sourceSns.slice();
+    appCtx.persist(); emit('topics'); emit('sources');
+  };
+  const invertTopicScope = (id) => {
+    const t = topicById(id); if (!t) return;
+    const dis = new Set(t.scopeDisabled || []);
+    t.scopeDisabled = t.sourceSns.filter((sn) => !dis.has(sn));
+    appCtx.persist(); emit('topics'); emit('sources');
+  };
+  // Named scopes — a saved snapshot of scopeDisabled a user can re-apply later ("Primary
+  // sources only", "Before July 2025"). Reversible: applying one only edits scopeDisabled.
+  const saveTopicScope = (id, name) => {
+    const t = topicById(id); const label = String(name || '').trim().slice(0, 60);
+    if (!t || !label) return null;
+    if (!Array.isArray(t.savedScopes)) t.savedScopes = [];
+    const scope = { id: `sc${++appCtx.scn}`, name: label, disabledSns: (t.scopeDisabled || []).slice(), created: nowIso() };
+    t.savedScopes.push(scope);
+    appCtx.persist(); emit('topics');
+    return scope;
+  };
+  const applyTopicScope = (id, scopeId) => {
+    const t = topicById(id); if (!t) return;
+    const scope = (t.savedScopes || []).find((s) => s.id === scopeId); if (!scope) return;
+    t.scopeDisabled = scope.disabledSns.filter((sn) => t.sourceSns.includes(sn));
+    appCtx.persist(); emit('topics'); emit('sources');
+  };
+  const deleteTopicScope = (id, scopeId) => {
+    const t = topicById(id); if (!t) return;
+    t.savedScopes = (t.savedScopes || []).filter((s) => s.id !== scopeId);
+    appCtx.persist(); emit('topics');
+  };
+
+  Object.assign(appCtx, {
+    setTopic, topic, topicAutoName, topicById, topicDelete, topicMove, topicNew, topicRename, topicRows, topicThread, topicToggleCollapse, topicTree,
+    topicScopeDisabledSns, topicScopeSummary, setSourceScopeEnabled, setTopicScopeAll, invertTopicScope, saveTopicScope, applyTopicScope, deleteTopicScope,
+  });
 };
