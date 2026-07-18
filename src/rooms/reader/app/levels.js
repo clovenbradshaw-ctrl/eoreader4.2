@@ -206,7 +206,10 @@ export const installLevels = (appCtx) => {
     // reader wants to see the Russian nest-doll: the shells the figure's words open, and the
     // matryoshka each single quote unfolds into. Pure over the perspective packet, so it costs a
     // re-scan of the figure's already-collected words, never another parse.
-    const relay = (persp && persp.isAgent) ? relaysOfPerspective(persp, { isSpeech: doc.conventions?.isAttributionVerb, admission: doc.admission }) : null;
+    const relay = (persp && persp.isAgent) ? relaysOfPerspective(persp, {
+      isSpeech: doc.conventions?.isAttributionVerb, isReport: doc.conventions?.isReport,
+      isSourceNoun: doc.conventions?.isSourceNoun, admission: doc.admission,
+    }) : null;
     const perspective = (persp && persp.isAgent) ? {
       isAgent: true, signals: persp.signals,
       quotes: persp.quotes.map((q) => ({ text: q.text, idx: q.idx, form: q.form,

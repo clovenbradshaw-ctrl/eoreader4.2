@@ -20,47 +20,44 @@
 //             teller. `content` is text.slice(contentStart, contentEnd) — re-scannable, so the
 //             nesting layer can descend into it for the next doll down.
 
-import { createConventions } from '../core/index.js';
+import { createConventions, induceAttributionFrames } from '../core/index.js';
 import { scanQuotes } from './perspective.js';
 
-// The speech register (SEED_SPEECH) governs a direct quote and a bare "X said that …". The
-// REPORT register is wider: the verbs research and reportage write in — "found that", "argues
-// that", "shows that" — a claim handed on under a that-clause. A seed like SEED_SPEECH: the
-// conventions that have already held, injectable so a live ledger widens it (opts.isReport).
+// The lexical fillers of a frame — which VERBS hand a claim on ("argues that …") and which NOUNS
+// bear a voice ("the study found that …") — are NOT a list this file carries. They are registers,
+// learn-only and language-neutral: a report verb is whatever occupies the ⟨subject⟩ ___ ⟨marker⟩
+// slot, a source noun whatever recurrently subjects such a frame (conventions/induce.js). The only
+// floor is the SPEECH register (isAttributionVerb, itself sedimentable); source nouns have no floor
+// — they emerge or the frame stays silent. `defIsReport`/`defIsSourceNoun` read that floor; a caller
+// with a live ledger (a parsed doc's `conventions`, corpus-induced) passes richer predicates.
 const DEF_C = createConventions();
 const defIsSpeech = (w) => DEF_C.isAttributionVerb(String(w || '').toLowerCase());
-const SEED_REPORT = new Set([
-  'found', 'find', 'finds', 'showed', 'show', 'shows', 'argues', 'argue', 'argued',
-  'claims', 'claim', 'claimed', 'suggests', 'suggest', 'suggested', 'notes', 'note', 'noted',
-  'reports', 'report', 'reported', 'concludes', 'conclude', 'concluded', 'demonstrates',
-  'demonstrate', 'demonstrated', 'contends', 'contend', 'contended', 'maintains', 'maintain',
-  'maintained', 'holds', 'hold', 'reveals', 'reveal', 'revealed', 'indicates', 'indicate',
-  'indicated', 'states', 'state', 'stated', 'asserts', 'assert', 'asserted', 'posits', 'posit',
-  'posited', 'proposes', 'propose', 'proposed', 'estimates', 'estimate', 'estimated', 'predicts',
-  'predict', 'predicted', 'warns', 'warn', 'warned', 'observes', 'observe', 'recounts', 'recount',
-  'recounted', 'describes', 'describe', 'described', 'believes', 'believe', 'believed', 'fears',
-  'fear', 'feared', 'suspects', 'suspect', 'suspected', 'alleges', 'allege', 'alleged',
-]);
-const defIsReport = (w) => { const s = String(w || '').toLowerCase(); return defIsSpeech(s) || SEED_REPORT.has(s); };
+const defIsReport = (w) => DEF_C.isReport(String(w || '').toLowerCase());
+const defIsSourceNoun = (w) => DEF_C.isSourceNoun(String(w || '').toLowerCase());
 
-// Source-nouns: the common-noun bearers a report construction promotes. NOT read on their own —
-// only when they SUBJECT a report-verb-plus-that ("the novel says that …") does the noun bear a
-// voice, so this is a seed that gates a construction, not a noun the scan ever admits alone. The
-// user's spine: a NOVEL quotes RESEARCH that cites a STUDY. Learnable later, seeded now.
-const SEED_SOURCE_NOUN = [
-  'study', 'studies', 'report', 'reports', 'paper', 'papers', 'novel', 'novels', 'book', 'books',
-  'article', 'articles', 'research', 'survey', 'surveys', 'analysis', 'review', 'reviews', 'essay',
-  'essays', 'letter', 'letters', 'account', 'accounts', 'findings', 'data', 'evidence', 'theory',
-  'theories', 'model', 'models', 'author', 'authors', 'scientists', 'researchers', 'experiment',
-  'experiments', 'poll', 'polls', 'memo', 'document', 'documents', 'text', 'texts', 'story',
-  'stories', 'chapter', 'manuscript', 'dossier', 'transcript', 'testimony', 'statement', 'abstract',
-];
+// Self-induction — when the nest is handed a bare text with no ledger (a standalone scan, a folded
+// quote), it learns the frame registers off THAT text before reading it, exactly as the parse
+// pipeline's Pass 0 does over a whole document. So `nestFrames("the study found that …")` works
+// with no corpus and no seed: the slot in the very sentence teaches "found" and "study". Seeded
+// with the speech register so the marker can bootstrap; the closed-class filter comes free if the
+// ledger induced a slot field (it has not here), else the determiner heuristic alone guards it.
+export const frameRegistersFor = (text) => {
+  const segs = String(text || '').split(/(?<=[.!?"”])\s+/).filter(Boolean);
+  const c = createConventions();
+  const fr = induceAttributionFrames(segs.length ? segs : [String(text || '')], {
+    isSpeech: c.isAttributionVerb, isClosedClass: c.isClosedClass,
+  });
+  for (const { token, count } of fr.reportVerbs) c.learnReport(token, count);
+  for (const { token, count } of fr.sourceNouns) c.learnSourceNoun(token, count);
+  return { isSpeech: c.isAttributionVerb, isReport: c.isReport, isSourceNoun: c.isSourceNoun };
+};
 
 // A name span (perspective.js's NAME, kept in step): capitalised words, internal apostrophe/
 // hyphen, a joined title's trailing period. Resolution to a referent is admission's job.
 const NAME = String.raw`[A-Z][\w'’.-]*(?:\s+[A-Z][\w'’.-]*)*`;
+// A determiner opens a source-NP bearer ("THE study"); a small closed-class set, the one
+// structural hint the source-noun detector needs — the head noun itself is the induced register.
 const DET = String.raw`the|a|an|this|that|these|those|his|her|their|its|one|another|recent|earlier|later|prior|new|old`;
-const SOURCE = SEED_SOURCE_NOUN.join('|');
 // Two normalisations, deliberately different. `clean` is the bearer's SURFACE label — whitespace
 // collapsed, edge punctuation trimmed, CASE PRESERVED so "Smith"/"Jones" still resolve to an
 // admitted referent. `norm` is the case-insensitive KEY used only for cycle-detection and dedup,
@@ -107,7 +104,10 @@ const quoteFrames = (text, isSpeech, admission) => {
 // Reported speech — "<subject> <report-verb> that <content>". The subject is a NAME, or a
 // determined source-noun the construction promotes; an optional adverb and a narrative
 // citation year ("Smith (2019) argued that …") are stepped over so the verb still lands.
-const reportFrames = (text, isReport) => {
+// `isReport` and `isSourceNoun` are the induced registers, not lists — the verb and the noun
+// are admitted by what the text taught, so a novel reporting verb or bearer noun frames the
+// moment its slot recurs, and the seed floor (speech only) frames just the plainest cases.
+const reportFrames = (text, isReport, isSourceNoun) => {
   const out = [];
   const named = new RegExp(String.raw`(${NAME})\s+(?:\(\s*(\d{4}[a-z]?)\s*\)\s+)?(?:\w+ly\s+)?(\w+)\s+that\b`, 'g');
   let m;
@@ -117,14 +117,17 @@ const reportFrames = (text, isReport) => {
     out.push({ mode: 'report', bearer: m[1], verb: m[3].toLowerCase(), year: m[2] || null,
       marker: 'that', triggerStart: m.index, contentStart: cs, contentEnd: text.length });
   }
-  const sourced = new RegExp(String.raw`\b((?:${DET})\s+)?(${SOURCE})\s+(?:\w+ly\s+)?(\w+)\s+that\b`, 'gi');
+  // Source-NP subject: a determiner opens it, the head noun is the INDUCED source register, and
+  // the verb the INDUCED report register — no baked noun list. A capitalised head is a NAME the
+  // pass above already took, not a common source noun, so it is skipped here.
+  const sourced = new RegExp(String.raw`\b((?:${DET})\s+)?([a-z][a-z'’-]{2,})\s+(?:\w+ly\s+)?(\w+)\s+that\b`, 'gi');
   while ((m = sourced.exec(text)) !== null) {
-    if (!isReport(m[3])) continue;
-    // Skip when the source-noun head is itself part of a NAME the named pass already took
-    // (a capitalised "Study"): the two passes must not both frame one construction.
+    const noun = m[2], verb = m[3];
+    if (/^[A-Z]/.test(noun)) continue;
+    if (!isReport(verb) || !isSourceNoun(noun)) continue;
     if (out.some((f) => f.mode === 'report' && f.triggerStart <= m.index && m.index < f.contentStart)) continue;
     const cs = m.index + m[0].length;
-    out.push({ mode: 'report', bearer: clean((m[1] || '') + m[2]), verb: m[3].toLowerCase(), year: null,
+    out.push({ mode: 'report', bearer: clean((m[1] || '') + noun), verb: verb.toLowerCase(), year: null,
       marker: 'that', triggerStart: m.index, contentStart: cs, contentEnd: text.length });
   }
   // Agentless relay — "it is said / has been argued that …": a real lens with a NULL bearer.
@@ -178,10 +181,10 @@ const citeFrames = (text) => {
 // All frames in one text, de-nested to the OUTERMOST layer: a frame kept only when its trigger
 // does not sit inside another frame's content span. The ones dropped here are not lost — the
 // recursion re-finds them when it re-scans the surviving frame's content, one doll deeper.
-const outermostFrames = (text, isSpeech, isReport, admission) => {
+const outermostFrames = (text, isSpeech, isReport, isSourceNoun, admission) => {
   const all = [
     ...quoteFrames(text, isSpeech, admission),
-    ...reportFrames(text, isReport),
+    ...reportFrames(text, isReport, isSourceNoun),
     ...attributionFramesRaw(text),
     ...citeFrames(text),
   ];
@@ -192,6 +195,7 @@ const outermostFrames = (text, isSpeech, isReport, admission) => {
   return kept;
 };
 
-// The seam attribution-nesting.js reads through: the outermost-layer detector plus the shared
-// bearer helpers (resolution, the two normalisations) and the default register predicates.
-export { outermostFrames, resolveBearer, clean, norm, defIsSpeech, defIsReport, SEED_REPORT, SEED_SOURCE_NOUN };
+// The seam attribution-nesting.js reads through: the outermost-layer detector, the shared bearer
+// helpers (resolution, the two normalisations), the floor register predicates, and the self-
+// induction (frameRegistersFor) a bare-text scan learns its own registers with.
+export { outermostFrames, resolveBearer, clean, norm, defIsSpeech, defIsReport, defIsSourceNoun };
