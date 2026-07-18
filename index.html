@@ -2052,6 +2052,25 @@ table{border-collapse:collapse;width:100%}
               </div>
               <div style="margin-top:6px;font-size:11px;color:#9A9AA4">{{ scope.provenanceLabel }}</div>
 
+              <!-- CORPUS EVENTS — the topic-level waveform (docs/omnimodal-waveform.md). Units are
+                   corpus events (a source's admission, a contested/revised/corroborated cross-source
+                   measure), not raw source content. Clicking one opens the same evidence modal a
+                   source's own waveform turn opens (openSurprise), listing every supporting location. -->
+              <sc-if value="{{ topicOverview.eventsShow }}">
+                <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff">
+                  <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 12px"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Corpus events</h2><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ topicOverview.eventCount }}</span></div>
+                  <div style="font-size:12.5px;color:#6E6E78;margin:-4px 0 12px">Sources admitted, and where the corpus's own record agrees, disagrees, or was revised.</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <sc-for list="{{ topicOverview.events }}" as="ev">
+                      <button onClick="{{ ev.open }}" title="{{ ev.tag }}" style="display:flex;align-items:center;gap:7px;background:#FAFAFC;border:1px solid #EEEFF4;border-radius:999px;padding:6px 11px" style-hover="border-color:#CFC7F7;background:#FCFBFF">
+                        <span style="width:7px;height:7px;border-radius:50%;background:{{ ev.dot }};flex:0 0 auto"></span>
+                        <span style="font-size:11.5px;font-weight:650;color:#2A2A32;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis">{{ ev.label }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </section>
+              </sc-if>
+
               <sc-if value="{{ topicOverview.hasSubTopics }}">
                 <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff">
                   <h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Sub-topics</h2>
@@ -3656,17 +3675,21 @@ table{border-collapse:collapse;width:100%}
     </div>
   </sc-if>
 
-  <!-- THE WAVEFORM OF SURPRISE → ONE TURNING POINT, HELD UP -->
-  <!-- Click a bar or a reading-order row and the turn opens here: the surprising sentence, the -->
-  <!-- figures its EO operations named lit inside it, the Δbelief/pull it moved, and a jump that -->
-  <!-- lands the passage centred and flashed in the reader (openViewer → scrollToText). -->
+  <!-- THE EVIDENCE MODAL — every meaningful mark on a source's waveform opens here before the -->
+  <!-- reader commits to leaving the overview (docs/omnimodal-waveform.md). Five fixed regions, -->
+  <!-- always in this order: LOCATOR, NATIVE PREVIEW, WHY IT SURFACED, CONTEXT & CONNECTIONS, -->
+  <!-- DESTINATIONS. This app's only mark today is a text turn (eot.turns), so the locator is -->
+  <!-- always a passage number and the destinations are Reader / native page / evidence matrix / -->
+  <!-- pin / citation — but the modal's shape is the one every future modality's mark reuses. -->
   <sc-if value="{{ surpriseModalShow }}">
     <div style="position:absolute;inset:0;z-index:46">
       <div onClick="{{ closeSurprise }}" style="position:absolute;inset:0;background:rgba(20,20,28,.3);animation:eoFade .16s ease"></div>
       <div class="eo-modal" style="position:absolute;left:50%;top:72px;transform:translateX(-50%);width:min(620px,93vw);max-height:calc(100vh - 140px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
+        <!-- 1 · LOCATOR -->
         <div style="display:flex;align-items:baseline;gap:10px;padding:18px 22px 12px;flex-wrap:wrap;border-bottom:1px solid #F1F1F4">
-          <span style="font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;font-weight:700">Where the reading turned</span>
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8C7DF3;font-weight:700">{{ surpriseLine }}</span>
+          <sc-if value="{{ surpriseHasLocator }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.05em;color:#8A8A95;font-weight:700">{{ surpriseLocator }}</span></sc-if>
+          <span style="font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;font-weight:700">{{ surpriseKind }}</span>
+          <span style="font-size:10.5px;font-weight:700;color:#5B4BE6">· {{ surpriseConfidence }}</span>
           <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ surpriseSource }}</span>
           <span style="flex:1"></span>
           <sc-if value="{{ surpriseHasBits }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#5B4BE6">{{ surpriseBits }}</span></sc-if>
@@ -3674,6 +3697,7 @@ table{border-collapse:collapse;width:100%}
         </div>
         <div style="padding:18px 22px;overflow-y:auto">
           <div style="font-size:11px;color:#8A8A95;margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><span>{{ surpriseOrigin }}</span><span>·</span><span>{{ surpriseLine }}</span></div>
+          <!-- 2 · NATIVE PREVIEW -->
           <sc-if value="{{ surpriseHasContextBefore }}"><p style="font-family:'Newsreader',Georgia,serif;font-size:14.5px;line-height:1.55;color:#8A8A95;margin:0 0 8px">{{ surpriseContextBefore }}</p></sc-if>
           <sc-if value="{{ surpriseHasSentence }}">
             <div style="border-left:3px solid #F6C453;background:#FFF8E5;border-radius:8px;padding:10px 12px;margin:0 0 8px">
@@ -3681,8 +3705,15 @@ table{border-collapse:collapse;width:100%}
             </div>
           </sc-if>
           <sc-if value="{{ surpriseHasContextAfter }}"><p style="font-family:'Newsreader',Georgia,serif;font-size:14.5px;line-height:1.55;color:#8A8A95;margin:0 0 4px">{{ surpriseContextAfter }}</p></sc-if>
+          <!-- 3 · WHY IT SURFACED -->
+          <sc-if value="{{ surpriseWhy }}">
+            <div style="margin-top:14px">
+              <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA4">Why this surfaced</span>
+              <p style="font-size:13px;color:#3A3A44;line-height:1.5;margin:5px 0 0">{{ surpriseWhy }}</p>
+            </div>
+          </sc-if>
           <sc-if value="{{ surpriseHasOps }}">
-            <div style="margin-top:16px;display:flex;flex-direction:column;gap:6px">
+            <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
               <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA4">What shifted</span>
               <sc-for list="{{ surpriseOps }}" as="o">
                 <div style="display:flex;align-items:baseline;gap:8px">
@@ -3692,10 +3723,31 @@ table{border-collapse:collapse;width:100%}
               </sc-for>
             </div>
           </sc-if>
+          <!-- 4 · CONTEXT AND CONNECTIONS -->
+          <sc-if value="{{ surpriseHasReferents }}">
+            <div style="margin-top:14px">
+              <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA4">Present here</span>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+                <sc-for list="{{ surpriseReferents }}" as="r"><button onClick="{{ r.open }}" style="font-size:11px;color:#5140C8;background:#F1EFFE;border:1px solid #DED8FD;border-radius:999px;padding:4px 8px">{{ r.label }}</button></sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ surpriseXsShow }}">
+            <div style="margin-top:14px;border-top:1px solid #F1F1F4;padding-top:12px">
+              <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA4">Also appears in</span>
+              <div style="font-size:11.5px;color:#8A8A95;margin:4px 0 6px">{{ surpriseXsLabel }}</div>
+              <sc-for list="{{ surpriseXsEntries }}" as="x"><button onClick="{{ x.open }}" style="display:block;width:100%;text-align:left;padding:5px 0;font-size:12.5px;color:#2A2A32" style-hover="color:#5B4BE6">{{ x.label }}</button></sc-for>
+            </div>
+          </sc-if>
         </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;padding:12px 22px 18px;border-top:1px solid #F1F1F4">
-          <button onClick="{{ closeSurprise }}" style="border:1px solid #EAEAEF;border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:600;color:#6E6E78" style-hover="background:#F5F5F8">Close</button>
-          <button onClick="{{ readSurpriseInContext }}" style="display:inline-flex;align-items:center;gap:6px;background:#6D5EF5;color:#fff;border-radius:9px;padding:8px 16px;font-size:12.5px;font-weight:600" style-hover="background:#5B4BE6">Read in context <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <!-- 5 · DESTINATIONS -->
+        <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;padding:12px 22px 18px;border-top:1px solid #F1F1F4">
+          <button onClick="{{ closeSurprise }}" style="border:1px solid #EAEAEF;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:600;color:#6E6E78" style-hover="background:#F5F5F8">Close</button>
+          <button onClick="{{ copySurpriseCitation }}" style="border:1px solid #EAEAEF;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:600;color:#6E6E78" style-hover="background:#F5F5F8">Copy citation</button>
+          <sc-if value="{{ surpriseHasSingleSource }}"><button onClick="{{ pinSurprise }}" style="border:1px solid #EAEAEF;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:600;color:#6E6E78" style-hover="background:#F5F5F8">Pin</button></sc-if>
+          <sc-if value="{{ surpriseXsShow }}"><button onClick="{{ openEvidenceMatrix }}" style="border:1px solid #DED8FD;background:#F1EFFE;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:600;color:#5140C8" style-hover="background:#E7E2FD">Open evidence matrix</button></sc-if>
+          <sc-if value="{{ surpriseOriginalShow }}"><button onClick="{{ openSurpriseOriginal }}" style="border:1px solid #EAEAEF;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:600;color:#4E5765" style-hover="background:#F5F5F8">{{ surpriseOriginalLabel }}</button></sc-if>
+          <sc-if value="{{ surpriseHasSingleSource }}"><button onClick="{{ readSurpriseInContext }}" style="display:inline-flex;align-items:center;gap:6px;background:#6D5EF5;color:#fff;border-radius:9px;padding:8px 16px;font-size:12.5px;font-weight:600" style-hover="background:#5B4BE6">Open in Reader <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></sc-if>
         </div>
       </div>
     </div>
@@ -5007,11 +5059,22 @@ class Component extends DCLogic {
     if (last < text.length) segs.push(plain(text.slice(last)));
     return segs.length ? segs : [plain(text)];
   }
-  // The surprise modal's template scope, folded from the held turn (null → an empty, hidden shell).
+  // The evidence modal's template scope, folded from the held turn (null → an empty, hidden
+  // shell). This is the app's one instance of the omnimodal evidence modal (docs/omnimodal-
+  // waveform.md): locator + native preview + why-it-surfaced + context/connections +
+  // destinations, always in that order, whatever mark it was opened from. `m.mark` carries the
+  // invariant contract (window.EO.evidence.buildMark); everything else on `m` is this text
+  // modality's own display detail (segments, before/after context).
   _surpriseModalVals(m) {
+    const mark = m && m.mark;
     const ops = (m && m.surprises || []).filter((s) => s && (s.text || s.op)).map((s) => ({
       text: s.text || '', op: s.op || '', hasOp: !!s.op,
     }));
+    const src = (m && m.sn != null && this._app && this._app.sourceBySn) ? this._app.sourceBySn(m.sn) : null;
+    const originalIsPdf = !!(src && src.kind === 'pdf');
+    const originalIsNative = !originalIsPdf && !!(src && src.url);
+    const referents = (mark && mark.referents) || [];
+    const xs = mark && mark.correspondingEvidence;
     return {
       surpriseModalShow: !!m,
       surpriseLine: m ? m.line : '',
@@ -5028,9 +5091,64 @@ class Component extends DCLogic {
       surpriseHasContextBefore: !!(m && m.contextBefore),
       surpriseHasContextAfter: !!(m && m.contextAfter),
       surpriseOps: ops, surpriseHasOps: ops.length > 0,
+      // LOCATOR — "TEXT · PASSAGE 218 OF 385" (a topic-level mark supplies its own prefix)
+      surpriseLocator: mark ? mark.locatorLabel : '',
+      surpriseHasLocator: !!(mark && mark.locatorLabel),
+      // A topic-level corpus event (a contested/revised/corroborated measure) has no single
+      // source of its own — sn stays null and the single-source-only destinations (Open in
+      // Reader, Open original, Pin) hide in favour of the per-entry links in "Also appears in".
+      surpriseHasSingleSource: !!(m && m.sn != null),
+      surpriseKind: mark ? mark.kindLabel : '',
+      surpriseConfidence: mark ? mark.confidenceLabel : '',
+      // WHY IT SURFACED — one measured sentence, separate from the raw "what shifted" op list.
+      surpriseWhy: mark ? mark.explanation : '',
+      // CONTEXT AND CONNECTIONS — referents present, and other sources holding the same measure.
+      surpriseReferents: referents,
+      surpriseHasReferents: referents.length > 0,
+      surpriseXsShow: !!xs,
+      surpriseXsLabel: xs ? `${xs.measureLabel || xs.measure}${xs.conflict ? ' · sources disagree' : ''}` : '',
+      surpriseXsEntries: xs ? xs.entries.map((e) => ({
+        label: [e.sourceLabel, e.display || e.text].filter(Boolean).join(' · '),
+        open: () => { this.closeSurprise(); if (e.source != null) this.openViewer(e.source, e.text || undefined); },
+      })) : [],
+      // DESTINATIONS
+      surpriseOriginalShow: originalIsPdf || originalIsNative,
+      surpriseOriginalLabel: originalIsPdf ? 'Open PDF page' : 'Open original page',
+      openSurpriseOriginal: () => this._openSurpriseOriginal(m, { originalIsPdf, originalIsNative }),
+      openEvidenceMatrix: () => { this.closeSurprise(); this.openTopicGraph('compare'); },
+      pinSurprise: () => this._pinPassage(m),
+      copySurpriseCitation: () => this._copySurpriseCitation(m),
       closeSurprise: () => this.closeSurprise(),
       readSurpriseInContext: () => this.readSurpriseInContext(),
     };
+  }
+  // "Open original page" / "Open PDF page" — the native-context destination, source-type-aware
+  // (spec: never a bare "Native" label). A plain text/pasted source has no separate native form,
+  // so the destination is hidden rather than shown disabled (surpriseOriginalShow, above).
+  _openSurpriseOriginal(m, { originalIsPdf, originalIsNative }) {
+    if (!m || m.sn == null) return this.closeSurprise();
+    this.closeSurprise();
+    this.openViewer(m.sn);
+    if (originalIsPdf) this.setSourceMode('pdf');
+    else if (originalIsNative) this.setSourceMode('native');
+  }
+  // "Pin" — the durable write path (docs/search-and-pins.md); a passage pin anchors on the
+  // sentence itself so it resolves even if the source is later re-parsed or renumbered.
+  _pinPassage(m) {
+    const app = this._app; if (!app || !app.pinAdd || !m || m.sn == null) return;
+    const unit = m.mark ? m.mark.unitStart : null;
+    const label = m.sentence || m.line || m.sourceTitle || m.sourceLabel || '';
+    const anchor = app.anchorAt(m.sn, Number.isInteger(unit) ? { unit } : { quote: m.sentence || '' });
+    app.pinAdd({ kind: 'passage', label, refId: `${m.sn}:${Number.isInteger(unit) ? unit : (m.sentence || m.line || '')}`, ...(anchor ? { anchor } : {}) });
+    this.showToast('Pinned passage');
+  }
+  // "Copy citation" — a plain-text citation (source · line — quoted sentence), clipboard-only.
+  _copySurpriseCitation(m) {
+    if (!m) return;
+    const text = window.EO.evidence.citationFor({ sourceLabel: m.sourceLabel, sourceTitle: m.sourceTitle, line: m.line, sentence: m.sentence });
+    const done = () => this.showToast('Citation copied');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => this.showToast(text));
+    else this.showToast(text);
   }
   onPasteTitle(e) { this.setState({ pasteTitle: e.target.value }); }
   onPasteBody(e) { this.setState({ pasteBody: e.target.value }); }
@@ -7744,27 +7862,48 @@ class Component extends DCLogic {
     const posOf = (t) => (unitsN <= 0 || t.idx == null) ? -1 : Math.min(NBARS - 1, Math.max(0, Math.round((t.idx / Math.max(1, unitsN - 1)) * (NBARS - 1))));
     const beliefOf = (t) => Math.max(t.bayesBits || 0, t.surprisalBits || 0);
     const pullOf = (t) => (t.bridge != null ? t.bridge : 0);
+    const peakBelief = turns.reduce((m, t) => Math.max(m, beliefOf(t)), 0) || 1;
     // Mirrored waveform bars: rendered inside a flex row with align-items:center, so a bar of height
     // H sits centred on the strip's midline and grows symmetrically up AND down as H grows — the
     // silhouette of a real audio track, not a bottom-anchored bar chart.
-    // One turning point → the payload the surprise modal reads: the source, the line, the full
-    // (whitespace-collapsed) sentence, the EO surprise operations that fired there, and the
-    // belief/pull labels. Shared by the waveform bars and the reading-order list so a click on
-    // either opens the same modal.
+    // One turning point → the payload the evidence modal reads: the source, the line, the full
+    // (whitespace-collapsed) sentence, the EO surprise operations that fired there, the belief/pull
+    // labels, and — mark — the invariant evidence-modal contract (docs/omnimodal-waveform.md
+    // "Required technical contract"; window.EO.evidence) so this turn opens the SAME five-region
+    // modal any other modality's mark eventually will. Shared by the waveform bars and the
+    // reading-order list so a click on either opens the same modal.
     const cleanUnit = (i) => (i == null || i < 0 || i >= sourceUnits.length) ? '' : String(sourceUnits[i] || '').replace(/\s+/g, ' ').trim();
-    const turnPayload = (t) => ({
-      sn: s.sn,
-      sourceTitle: title,
-      sourceLabel: s.reg || `S-${s.sn}`,
-      origin: origin || (s.domain || 'source'),
-      line: `line ${t.idx}`,
-      sentence: t.sentence ? String(t.sentence).replace(/\s+/g, ' ').trim() : '',
-      contextBefore: cleanUnit((t.idx ?? 0) - 1),
-      contextAfter: cleanUnit((t.idx ?? 0) + 1),
-      surprises: (t.surprises || []).map((x) => ({ op: x.op || '', text: x.text || '' })),
-      bits: t.bayesBits != null ? `${t.bayesBits}b Δbelief` : (t.surprisalBits != null ? `${t.surprisalBits}b surprisal` : ''),
-      pull: t.bridge != null ? `${t.bridge} pull${t.bridgeAxis ? ` (${t.bridgeAxis.join('—')})` : ''}` : '',
-    });
+    // The referents a bridge/pull event actually named, resolved back to an openable figure when
+    // this source's own cast has one by that name — never invented, only what linkedThreadIndexes
+    // (the same lookup the entity-thread overlay uses) already resolves.
+    const referentsFor = (t) => linkedThreadIndexes(t)
+      .map((i) => threadEntities.find((e) => e._threadIdx === i))
+      .filter(Boolean)
+      .map((e) => ({ label: e.label || 'Entity', open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); } }));
+    const turnPayload = (t) => {
+      const mark = window.EO.evidence.buildMark({
+        sourceId: s.sn, idx: t.idx, total: sourceUnits.length,
+        sentence: t.sentence ? String(t.sentence).replace(/\s+/g, ' ').trim() : '',
+        frac: beliefOf(t) / peakBelief, hasBridge: t.bridge != null, bridgeAxis: t.bridgeAxis || [],
+        referents: referentsFor(t), docId: s.docId,
+        claims: (this._app.findings ? this._app.findings().claims : []) || [],
+        matrix: this._app.comparisonMatrix ? this._app.comparisonMatrix() : null,
+      });
+      return {
+        sn: s.sn,
+        sourceTitle: title,
+        sourceLabel: s.reg || `S-${s.sn}`,
+        origin: origin || (s.domain || 'source'),
+        line: `line ${t.idx}`,
+        sentence: t.sentence ? String(t.sentence).replace(/\s+/g, ' ').trim() : '',
+        contextBefore: cleanUnit((t.idx ?? 0) - 1),
+        contextAfter: cleanUnit((t.idx ?? 0) + 1),
+        surprises: (t.surprises || []).map((x) => ({ op: x.op || '', text: x.text || '' })),
+        bits: t.bayesBits != null ? `${t.bayesBits}b Δbelief` : (t.surprisalBits != null ? `${t.surprisalBits}b surprisal` : ''),
+        pull: t.bridge != null ? `${t.bridge} pull${t.bridgeAxis ? ` (${t.bridgeAxis.join('—')})` : ''}` : '',
+        mark,
+      };
+    };
     const buildTrack = (magOf, colorAt) => {
       const peak = turns.reduce((m, t) => Math.max(m, magOf(t)), 0) || 1;
       const mags = Array.from({ length: NBARS }, () => 0);
@@ -7939,7 +8078,7 @@ class Component extends DCLogic {
   // reading lives. Built cheaply from topic.sourceSns / topicSources() — no per-source parse.
   _topicOverviewVM() {
     const app = this._app;
-    if (!app) return { has: false, cards: [], subTopics: [], empty: true, hasSources: false, hasSubTopics: false, title: 'Topic', workspace: 'Workspace', wsInitial: '?', wsDot: '#6D5EF5', sourceCount: '0', sourceCountLabel: '0 sources', answersLabel: '0 answers', entityLabel: '0 entities', findingLabel: '0 findings', ask: () => {}, openFindings: () => {}, openGraph: () => {}, openExplorer: () => {}, openWorkspace: () => {} };
+    if (!app) return { has: false, cards: [], subTopics: [], empty: true, hasSources: false, hasSubTopics: false, eventsShow: false, events: [], eventCount: '0 events', title: 'Topic', workspace: 'Workspace', wsInitial: '?', wsDot: '#6D5EF5', sourceCount: '0', sourceCountLabel: '0 sources', answersLabel: '0 answers', entityLabel: '0 entities', findingLabel: '0 findings', ask: () => {}, openFindings: () => {}, openGraph: () => {}, openExplorer: () => {}, openWorkspace: () => {} };
     const t = (app.topic && app.topic()) || null;
     const ws = (app.activeWorkspace && app.activeWorkspace()) || null;
     let sources = [];
@@ -7991,6 +8130,54 @@ class Component extends DCLogic {
       return { title: k.title, meta: `${n} source${n === 1 ? '' : 's'}`, open: () => { app.setTopic(k.id); this.setTab('topic'); } };
     });
     const answers = t ? (t.messages || []).filter((m) => m.role === 'assistant' && !m.pending).length : 0;
+    // CORPUS EVENTS — the topic-level waveform (docs/omnimodal-waveform.md "Topic-level
+    // waveform"): units are corpus events, not raw source content — a source's admission, and
+    // the cross-source comparison matrix's own contested/revised/corroborated rows (already
+    // computed for the Findings lens and the Compare graph view — never a second detector).
+    // Clicking any of them opens the SAME evidence modal a source's own waveform turn opens
+    // (openSurprise), listing every supporting source location.
+    const admissions = roots.filter((s) => s.retrieved).slice()
+      .sort((a, b) => new Date(a.retrieved).getTime() - new Date(b.retrieved).getTime())
+      .map((s) => ({
+        key: `adm:${s.sn}`, tag: 'Admitted', dot: '#8A8A95', label: s.title || s.reg || `S-${s.sn}`,
+        open: () => this.openSurprise({
+          sn: s.sn, sourceTitle: s.title || '', sourceLabel: s.reg || `S-${s.sn}`,
+          origin: 'Topic · corpus event', line: '', sentence: '', contextBefore: '', contextAfter: '',
+          surprises: [], bits: '', pull: '',
+          mark: {
+            locatorLabel: 'SOURCE · ADMITTED', kindLabel: 'Source admitted',
+            confidenceLabel: this._ago(s.retrieved) || '', referents: [],
+            explanation: `${s.title || s.reg || 'This source'} was added to this topic's corpus.`,
+            correspondingEvidence: null,
+          },
+        }),
+      }));
+    let matrix = { rows: [] };
+    try { matrix = app.comparisonMatrix ? app.comparisonMatrix() : matrix; } catch { /* keep empty */ }
+    const rows = matrix.rows || [];
+    const propositionEvents = rows.map((row, i) => {
+      const present = (row.cells || []).filter(Boolean);
+      const kindLabel = row.conflict ? 'Contested proposition' : row.changed ? 'Measure revision' : 'Corroborated proposition';
+      const dot = row.conflict ? '#B23A2E' : row.changed ? '#B08A3E' : '#1E8A50';
+      return {
+        key: `row:${row.measure}`, tag: kindLabel, dot, label: row.measureLabel || row.measure,
+        open: () => this.openSurprise({
+          sn: null, sourceTitle: '', sourceLabel: `${present.length} source${present.length === 1 ? '' : 's'}`,
+          origin: 'Topic · corpus event', line: '', sentence: (present[0] && present[0].text) || '',
+          contextBefore: '', contextAfter: '', surprises: [], bits: '', pull: '',
+          mark: {
+            locatorLabel: `TOPIC · MEASURE ${i + 1} OF ${rows.length}`, kindLabel,
+            confidenceLabel: row.reading || '', referents: [],
+            explanation: `${present.length} source${present.length === 1 ? '' : 's'} state ${row.measureLabel || row.measure}. ${row.reading || ''}.`,
+            correspondingEvidence: {
+              measure: row.measure, measureLabel: row.measureLabel, reading: row.reading, conflict: !!row.conflict,
+              entries: present.map((c) => ({ source: c.source, sourceLabel: c.sourceLabel, display: c.display, text: c.text, sentIdx: c.sentIdx })),
+            },
+          },
+        }),
+      };
+    });
+    const events = [...admissions, ...propositionEvents];
     // Cross-source totals — read through the ACTIVE evidence scope (app.entities/app.findings
     // both build off the scope-filtered topicSources()), so these move the instant a chip toggles.
     let entityCount = 0, findingCount = 0;
@@ -8010,6 +8197,7 @@ class Component extends DCLogic {
       findingLabel: `${findingCount} cross-source finding${findingCount === 1 ? '' : 's'}`,
       hasSources: cards.length > 0, empty: cards.length === 0, cards,
       hasSubTopics: subTopics.length > 0, subTopics,
+      eventsShow: events.length > 0, events, eventCount: `${events.length} event${events.length === 1 ? '' : 's'}`,
       ask: () => this.setTab('search'),
       openFindings: () => this.setTab('evidence'),
       openGraph: () => this.setTab('graph'),
@@ -8535,8 +8723,10 @@ class Component extends DCLogic {
   // Configure the Graph tab's entity web. By default it also navigates to the tab;
   // `navigate:false` only primes it (e.g. an import reveal that keeps the source in front).
   openTopicGraph(kind, opts = {}) {
-    void kind; // The causal DAG surface is hidden until its reader is reliable enough to expose.
-    this._wg = { kind: 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+    // The causal DAG surface stays hidden until its reader is reliable enough to expose — any
+    // kind outside this allowlist (same one setWebKind guards with) lands on the entity web.
+    kind = (kind === 'network' || kind === 'crosswalk' || kind === 'compare') ? kind : 'entity';
+    this._wg = { kind, scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
     this._tgToggles = [];
     this._seedWgPanel();   // entity kind: the details panel opens on the topic's top figure
     const nav = opts.navigate !== false;

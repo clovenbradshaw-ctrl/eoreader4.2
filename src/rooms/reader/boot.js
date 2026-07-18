@@ -78,6 +78,7 @@ import { mountBinvis } from './binvis-surface.js';
 import { mountResearchReview } from './research-review-surface.js';
 import * as binvis from '../../surfaces/binvis/index.js';
 import { createPipelineSurface } from './pipeline-surface.js';
+import * as evidence from './evidence.js';
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
 // background faculty that watches the same fold geometry the turn emits and raises IMPRESSIONS
@@ -342,6 +343,7 @@ window.EO = Object.freeze({
   // corpus (discovered/reviewed/admitted) before anything joins a real topic. Mounted, binvis-style.
   researchReview: Object.freeze({ mount: mountResearchReview }),
   firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
+  evidence,   // the evidence-modal contract — a waveform mark → the five-region modal shape (docs/omnimodal-waveform.md)
   projectTranscript, wordsToText,   // the interactive transcript fold (baseline + edits/redactions → live reading)
   encodeWav, applyRedactions,       // audio DSP for the Listen surface's redaction re-synthesis + WAV export
 
