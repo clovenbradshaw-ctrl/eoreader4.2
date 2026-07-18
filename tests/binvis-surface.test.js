@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { d2xy, xy2d, sideFor } from '../src/surfaces/binvis/curve.js';
 import { byteClass, byteColor, BINVIS_PALETTE, LAYERS, DEFAULT_LAYER } from '../src/surfaces/binvis/classify.js';
 import { buildScene, locate, toBytes } from '../src/surfaces/binvis/render.strict.js';
+import { windowedEntropy, entropyColor, ENTROPY_STOPS } from '../src/surfaces/binvis/entropy.js';
 
 // THE BINVIS SURFACE — the prior art (Cortesi's binvis) as a pure, testable holon: a
 // Hilbert layout, a byte-class palette, and the Scene the canvas adapter blits. The DOM
@@ -137,9 +138,57 @@ test('locate: past the file end returns null (the curve overshoots a non-square 
 
 // ---- the layer registry -----------------------------------------------------
 
-test('LAYERS: structure paints today; entropy + significance are declared but not yet', () => {
+// ---- the entropy layer ------------------------------------------------------
+
+test('windowedEntropy: a constant region is ~0, a maximally-varied region is ~1', () => {
+  const flat = windowedEntropy(new Uint8Array(1024).fill(0x41), { window: 256 });
+  for (const e of flat) assert.ok(e < 1e-6, 'constant bytes carry no entropy');
+
+  const varied = new Uint8Array(1024);
+  for (let i = 0; i < varied.length; i++) varied[i] = i & 0xff;   // every value equally often
+  const ent = windowedEntropy(varied, { window: 256 });
+  assert.ok(ent[0] > 0.98, `256 distinct values in a 256 window ≈ full entropy, got ${ent[0]}`);
+});
+
+test('windowedEntropy: output is one value per byte, all within [0,1]', () => {
+  const e = windowedEntropy(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]), { window: 4 });
+  assert.equal(e.length, 8);
+  for (const v of e) assert.ok(v >= 0 && v <= 1);
+  assert.equal(windowedEntropy(new Uint8Array(0)).length, 0);   // empty is empty, no throw
+});
+
+test('entropyColor: clamps its input and lands on the ramp endpoints', () => {
+  assert.deepEqual(entropyColor(0), [...ENTROPY_STOPS[0].color]);
+  assert.deepEqual(entropyColor(1), [...ENTROPY_STOPS[ENTROPY_STOPS.length - 1].color]);
+  assert.deepEqual(entropyColor(-5), [...ENTROPY_STOPS[0].color]);   // clamps low
+  assert.deepEqual(entropyColor(9), [...ENTROPY_STOPS[ENTROPY_STOPS.length - 1].color]);   // clamps high
+  const mid = entropyColor(0.5);
+  assert.ok(mid.every((c) => c >= 0 && c <= 255));
+});
+
+test('buildScene: the entropy layer is available and paints a gradient legend', () => {
+  const bytes = new Uint8Array(1024);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = (i * 131 + 7) & 0xff;   // spread of values
+  const s = buildScene(bytes, { layer: 'entropy' });
+  assert.equal(s.layer, 'entropy');
+  assert.equal(s.legendKind, 'gradient');
+  assert.ok(Array.isArray(s.gradient) && s.gradient.length >= 2);
+  // a high-variety file paints a non-black picture under the entropy ramp
+  let opaque = 0; for (let i = 3; i < s.pixels.length; i += 4) if (s.pixels[i] === 255) opaque++;
+  assert.ok(opaque > 0, 'entropy layer paints');
+});
+
+test('buildScene: structure stays the classes legend (no regression)', () => {
+  const s = buildScene(new Uint8Array([0x41, 0x42]), { layer: 'structure' });
+  assert.equal(s.legendKind, 'classes');
+  assert.equal(s.gradient, null);
+});
+
+test('LAYERS: structure + entropy paint today; significance is declared but not yet', () => {
   assert.equal(LAYERS.structure.available, true);
-  assert.equal(typeof LAYERS.structure.color, 'function');
-  assert.equal(LAYERS.entropy.available, false);
+  assert.equal(typeof LAYERS.structure.build, 'function');
+  assert.equal(LAYERS.entropy.available, true);
+  assert.equal(typeof LAYERS.entropy.build, 'function');
   assert.equal(LAYERS.significance.available, false);
+  assert.equal(LAYERS.significance.build, null);
 });

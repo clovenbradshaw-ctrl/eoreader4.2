@@ -14,7 +14,7 @@
 //                                       opts.onNavigate({offset,length})), never app state.
 
 import { sideFor, d2xy, xy2d } from './curve.js';
-import { LAYERS, DEFAULT_LAYER, byteClass, byteColor, BINVIS_PALETTE, CLASSES, CLASS_LABEL } from './classify.js';
+import { LAYERS, DEFAULT_LAYER, byteClass, BINVIS_PALETTE, CLASSES, CLASS_LABEL } from './classify.js';
 
 const MAX_SIDE = 512;   // 512² = 262 144 pixels — past this each pixel aggregates a bucket
 
@@ -33,8 +33,9 @@ export const toBytes = (input) => {
 
 // buildScene — the whole rendering decision, pure. bytes → a Scene: the RGBA buffer laid
 // out on the Hilbert plane, plus the class histogram and legend the surface paints beside
-// it. `opts.layer` selects a classify.js layer (only 'structure' paints today; an
-// unavailable layer falls back to structure so the picture is never blank).
+// it. `opts.layer` selects a classify.js layer (structure or entropy today); an unavailable
+// layer falls back to structure so the picture is never blank. The layer's `build(bytes)`
+// returns a per-index colourer, so a pointwise layer and a windowed one share this loop.
 export const buildScene = (input, { layer = DEFAULT_LAYER, maxSide = MAX_SIDE } = {}) => {
   const bytes = toBytes(input);
   const n = bytes.length;
@@ -43,7 +44,7 @@ export const buildScene = (input, { layer = DEFAULT_LAYER, maxSide = MAX_SIDE } 
   const bucket = Math.max(1, Math.ceil(n / cells));
 
   const layerDef = (LAYERS[layer] && LAYERS[layer].available) ? LAYERS[layer] : LAYERS[DEFAULT_LAYER];
-  const color = layerDef.color || byteColor;
+  const colorAt = (layerDef.build || LAYERS[DEFAULT_LAYER].build)(bytes);
 
   const pixels = new Uint8ClampedArray(cells * 4);   // alpha defaults to 0 → uncovered tail is transparent
   for (let p = 0; p < cells; p++) {
@@ -51,7 +52,7 @@ export const buildScene = (input, { layer = DEFAULT_LAYER, maxSide = MAX_SIDE } 
     if (start >= n) break;                            // the curve runs past the file's end — leave it clear
     const end = Math.min(n, start + bucket);
     let r = 0, g = 0, b = 0;
-    for (let i = start; i < end; i++) { const c = color(bytes[i]); r += c[0]; g += c[1]; b += c[2]; }
+    for (let i = start; i < end; i++) { const c = colorAt(i); r += c[0]; g += c[1]; b += c[2]; }
     const m = end - start;
     const [x, y] = d2xy(side, p);
     const idx = (y * side + x) * 4;
@@ -65,6 +66,7 @@ export const buildScene = (input, { layer = DEFAULT_LAYER, maxSide = MAX_SIDE } 
   return {
     n, side, cells, bucket,
     layer: layerDef.id, layerAvailable: layerDef.available !== false,
+    legendKind: layerDef.legendKind, gradient: layerDef.gradient,
     pixels, histogram, legend, palette: BINVIS_PALETTE,
   };
 };

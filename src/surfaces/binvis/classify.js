@@ -12,10 +12,12 @@
 //   high        0x80–0xFE          extended / non-ASCII — packed or binary        → red
 //   ones        0xFF               a run of 0xFF — the other padding value        → white
 //
-// This is the "structural" layer. Other layers (an entropy heatmap, and a
-// significance layer keyed to the reading the perceiver already maintains) are declared
-// in LAYERS below but not yet painted — the surface reads that registry so a new layer
-// slots in without touching the render.
+// This is the "structural" layer. The entropy layer (entropy.js) is the second binvis view;
+// a significance layer keyed to the reading the perceiver maintains is declared in LAYERS but
+// not yet painted — the surface reads that registry so a new layer slots in without touching
+// the render.
+
+import { windowedEntropy, entropyColor, ENTROPY_STOPS } from './entropy.js';
 
 export const CLASSES = Object.freeze(['null', 'low', 'printable', 'high', 'ones']);
 
@@ -50,24 +52,26 @@ export const byteClass = (b) => {
 // byte → RGB triple, via its class. The atom the render aggregates.
 export const byteColor = (b) => BINVIS_PALETTE[byteClass(b)];
 
-// The layer registry — the surface's "which meaning are we colouring by" axis. Only the
-// structural layer paints today; the rest are declared so the UI can name what's coming
-// and a future contributor adds one `color`/`available` here, nowhere else.
+// The layer registry — the surface's "which meaning are we colouring by" axis. A layer is a
+// `build(bytes) → (i) → rgb`: given the whole byte array it returns a per-index colourer, so a
+// pointwise layer (structure: colour byte i by its class) and a windowed one (entropy: colour
+// byte i by the local entropy around it) share one contract. `legendKind` tells the surface
+// which scale to draw. A future contributor adds one entry here, nowhere else.
 export const LAYERS = Object.freeze({
   structure: Object.freeze({
-    id: 'structure', label: 'Structure', available: true,
+    id: 'structure', label: 'Structure', available: true, legendKind: 'classes', gradient: null,
     blurb: "Aldo Cortesi's binvis byte-class colouring — the file's raw shape.",
-    color: byteColor,
+    build: (bytes) => (i) => byteColor(bytes[i]),
   }),
   entropy: Object.freeze({
-    id: 'entropy', label: 'Entropy', available: false,
-    blurb: 'Local Shannon entropy — compressed/encrypted regions light up. Coming.',
-    color: null,
+    id: 'entropy', label: 'Entropy', available: true, legendKind: 'gradient', gradient: ENTROPY_STOPS,
+    blurb: 'Local Shannon entropy — compressed / encrypted / packed regions glow.',
+    build: (bytes) => { const e = windowedEntropy(bytes); return (i) => entropyColor(e[i]); },
   }),
   significance: Object.freeze({
-    id: 'significance', label: 'Significance', available: false,
+    id: 'significance', label: 'Significance', available: false, legendKind: 'gradient', gradient: null,
     blurb: 'Keyed to the reading the perceiver maintains — where the meaning is. Coming.',
-    color: null,
+    build: null,
   }),
 });
 
