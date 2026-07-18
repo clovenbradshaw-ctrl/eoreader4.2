@@ -44,6 +44,9 @@ export const renderCandidateCard = (doc, card, ctx) => {
   wrap.appendChild(title);
   wrap.appendChild(el(doc, 'div', 'eo-rr__cardMeta', [row.domain, row.kind, fmtAgo(row.retrieved)].filter(Boolean).join(' · ')));
 
+  if (ctx.waveform && ctx.waveform.bars && ctx.waveform.bars.length) {
+    wrap.appendChild(renderWaveformBars(doc, ctx.waveform, { onOpen: (ordinal) => ctx.onOpenMark && ctx.onOpenMark(row.sn, ordinal) }));
+  }
   if (role.contributes.length) {
     const c = el(doc, 'div', 'eo-rr__cardRow');
     c.appendChild(el(doc, 'span', 'eo-rr__cardLbl', 'Contributes'));
@@ -70,6 +73,29 @@ export const renderCandidateCard = (doc, card, ctx) => {
   const open = el(doc, 'button', 'eo-rr__openLink', 'Open source ↗');
   open.addEventListener('click', () => ctx.onOpen(row.sn));
   wrap.appendChild(open);
+  return wrap;
+};
+
+// renderWaveformBars(doc, waveform, ctx) → the compact per-candidate waveform preview (§6): one
+// <button> per bar, only bars with a turn are clickable. Buttons are natively tab-stops in DOM
+// (ordinal) order, so this is keyboard-traversable with no extra wiring (§15). ctx: { onOpen(ordinal) }.
+export const renderWaveformBars = (doc, waveform, ctx) => {
+  const wrap = el(doc, 'div', 'eo-rr__wave');
+  wrap.setAttribute('role', 'img');
+  wrap.setAttribute('aria-label', 'Significant-turn waveform preview — click a mark to inspect it');
+  for (const bar of (waveform && waveform.bars) || []) {
+    const b = doc.createElement('button');
+    b.type = 'button';
+    b.className = 'eo-rr__bar' + (bar.hasTurn ? ' eo-rr__bar--turn' : '') + (bar.hasBridge ? ' eo-rr__bar--bridge' : '') + (bar.hasMeasure ? ' eo-rr__bar--measure' : '');
+    b.style.height = `${bar.hPct}%`;
+    b.disabled = !bar.hasTurn;
+    b.tabIndex = bar.hasTurn ? 0 : -1;
+    if (bar.hasTurn) {
+      b.title = `line ${bar.ordinal} — click to open`;
+      b.addEventListener('click', () => ctx.onOpen(bar.ordinal));
+    }
+    wrap.appendChild(b);
+  }
   return wrap;
 };
 

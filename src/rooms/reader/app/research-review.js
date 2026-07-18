@@ -8,6 +8,7 @@
 // kept as the audit record — the search query, every candidate's fate, and the recipe used.
 import { admitWebSource, htmlToText } from '../../../organs/ingest/index.js';
 import { researchReview } from '../research-review-corpus.js';
+import { candidateWaveform } from '../research-review-waveform.js';
 import { FULL_TEXT } from './net.js';
 import { nowIso } from './util.js';
 
@@ -47,6 +48,7 @@ export const installResearchReview = (appCtx) => {
       t.review = {
         query, discovered: [], excludedSns: [], recipe: 'balanced', createdAt: nowIso(),
         admittedAt: null, targetTopicId: null, admittedSns: [],
+        independentOverrides: [], identityDecisions: {},
       };
       const jid = appCtx.beginJob({ kind: 'review', query, topicId: t.id });
       try {
@@ -155,6 +157,8 @@ export const installResearchReview = (appCtx) => {
   // scoped to this review topic's reviewed candidates. entities()/comparisonMatrix() read the
   // ACTIVE topic, so this makes the review topic active first if it drifted (e.g. the sidebar was
   // clicked elsewhere while the panel stayed open) — a read, not a navigation the reader asked for.
+  // Also attaches a per-candidate waveform bar track (research-review-waveform.js), read off the
+  // SAME eot every Overview waveform reads — cheap after the first call since eotFor memoizes.
   const reviewCompute = (topicId) => {
     const t = appCtx.topicById(topicId); if (!t || !t.review) return null;
     if (state.activeTopicId !== topicId) appCtx.setTopic(topicId);
@@ -164,12 +168,22 @@ export const installResearchReview = (appCtx) => {
     let entities = [], matrix = null;
     try { entities = appCtx.entities({ merge: true, level: 'names' }) || []; } catch { entities = []; }
     try { matrix = appCtx.comparisonMatrix(); } catch { matrix = null; }
-    const view = researchReview({ rows, entities, matrix, query: t.review.query });
-    return { ...view, topic: t, excludedSns: new Set(t.review.excludedSns || []), discovered: t.review.discovered || [] };
+    const view = researchReview({
+      rows, entities, matrix, query: t.review.query,
+      independentOverrides: t.review.independentOverrides || [],
+      identityDecisions: t.review.identityDecisions || {},
+      excludedSns: t.review.excludedSns || [],
+    });
+    const waveforms = {};
+    for (const row of rows) {
+      try { waveforms[row.sn] = candidateWaveform(appCtx.eotFor(row.sn), { matrix, sn: row.sn }); }
+      catch { waveforms[row.sn] = { bars: [], turns: [] }; }
+    }
+    return { ...view, topic: t, excludedSns: new Set(t.review.excludedSns || []), discovered: t.review.discovered || [], waveforms };
   };
 
   Object.assign(appCtx, {
-    reviewStart, reviewMore, reviewAddUrl, reviewImportFile,
+    reviewFetchOne, reviewStart, reviewMore, reviewAddUrl, reviewImportFile,
     reviewToggleExclude, reviewApplyRecipe, reviewAdmit, reviewCompute,
   });
 };

@@ -70,6 +70,10 @@ export const independentOriginCount = (rows) => clusterDuplicates(rows).length;
 // clusterOf(sn, clusters) → the cluster a source belongs to, or null.
 export const clusterOf = (sn, clusters) => (clusters || []).find((c) => c.members.some((m) => m.sn === sn)) || null;
 
+// matchReason, applyIndependentOverrides, identityCandidates, connectionNarrative, and sourceNetwork
+// live in research-review-network.js (the god-module ratchet, ~250 lines/file) — the connections/
+// identity/network half of this read, over the same clusters/areas computed here.
+
 // ── evidence areas ────────────────────────────────────────────────────────────────────────────
 
 // evidenceAreas(rows) → [{ label, terms:[…], sns:[…], sourceCount, independentOrigins }] — a greedy
@@ -139,55 +143,47 @@ const refCore = (label) => {
   return (core.length < 3 || REF_STOP.has(core)) ? '' : core;
 };
 
+// referentCoreGroups(rows, entityRows) → [{ core, sns:[…], chip:{label,docId,entId} }] — one group
+// per referent CORE (the shared-vocabulary reduction refCore does), each carrying which reviewed
+// candidates mention it and a representative display chip. The shared substrate under BOTH
+// sharedReferentLinks (pairs, for connections) and identityCandidates (the reviewable list, for
+// §7.3) — one grouping computed once and read two ways, so a confirmed/rejected identity decision
+// and a drawn connection line can never disagree about which referent they mean.
+export const referentCoreGroups = (rows, entityRows) => {
+  const sns = new Set((rows || []).map((r) => r.sn));
+  const coreMap = new Map();
+  for (const e of entityRows || []) {
+    const core = refCore(e.label); if (!core) continue;
+    let g = coreMap.get(core); if (!g) coreMap.set(core, g = { core, sns: new Set(), rep: null });
+    for (const i of e.instances || []) if (sns.has(i.sn)) g.sns.add(i.sn);
+    const len = String(e.label || '').length;
+    if (e.docId && e.entId && (!g.rep || len > g.rep.len)) g.rep = { label: e.label, docId: e.docId, entId: e.entId, len };
+  }
+  return [...coreMap.values()]
+    .filter((g) => g.rep && g.sns.size)
+    .map((g) => ({ core: g.core, sns: [...g.sns], chip: { label: g.rep.label, docId: g.rep.docId, entId: g.rep.entId } }));
+};
+
 // sharedReferentLinks(rows, entityRows) → [{ a, b, sharedCount, shared:[{label,docId,entId}] }] —
 // two candidates are linked when they name the same referent (grouped by referent core, since raw
 // cross-source coref does not run here — "Frankenstein" in one source and "Victor" in another stay
 // distinct entity rows without cross-source coref). Mirrors the Results-landing precedent
 // (index.html's sfrLinks) but scoped to an arbitrary candidate set, not the whole record.
 export const sharedReferentLinks = (rows, entityRows) => {
-  const sns = new Set((rows || []).map((r) => r.sn));
-  const coreMap = new Map();
-  for (const e of entityRows || []) {
-    const core = refCore(e.label); if (!core) continue;
-    let g = coreMap.get(core); if (!g) coreMap.set(core, g = { sns: new Set(), rep: null });
-    for (const i of e.instances || []) if (sns.has(i.sn)) g.sns.add(i.sn);
-    const len = String(e.label || '').length;
-    if (e.docId && e.entId && (!g.rep || len > g.rep.len)) g.rep = { label: e.label, docId: e.docId, entId: e.entId, len };
-  }
+  const groups = referentCoreGroups(rows, entityRows);
   const pairs = new Map();
-  for (const g of coreMap.values()) {
-    const list = [...g.sns]; if (list.length < 2 || !g.rep) continue;
-    const chip = { label: g.rep.label, docId: g.rep.docId, entId: g.rep.entId };
+  for (const g of groups) {
+    const list = g.sns; if (list.length < 2) continue;
     for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
       const key = [String(list[i]), String(list[j])].sort().join('|');
       let pr = pairs.get(key);
       if (!pr) pairs.set(key, pr = { a: list[i], b: list[j], shared: [] });
-      pr.shared.push(chip);
+      pr.shared.push(g.chip);
     }
   }
   return [...pairs.values()]
     .map((p) => ({ ...p, sharedCount: p.shared.length }))
     .sort((a, b) => b.sharedCount - a.sharedCount);
-};
-
-// connectionNarrative(rows, clusters, links) → a handful of readable sentences naming the shape of
-// the graph, BEFORE any interactive view — "readable, not graph-first" (docs/research-review.md).
-export const connectionNarrative = (rows, clusters, links) => {
-  const bySn = new Map((rows || []).map((r) => [r.sn, r]));
-  const lines = [];
-  for (const c of clusters || []) {
-    if (c.derivative.length === 0) continue;
-    const originTitle = c.origin.title || c.origin.domain || c.origin.sn;
-    const names = c.derivative.map((d) => d.title || d.domain || d.sn);
-    lines.push(`${originTitle} appears to be the origin ${c.derivative.length === 1 ? 'source' : 'for ' + c.derivative.length + ' others'}${names.length ? ' — ' + names.join(', ') : ''}.`);
-  }
-  for (const l of (links || []).slice(0, 5)) {
-    const a = bySn.get(l.a), b = bySn.get(l.b);
-    if (!a || !b) continue;
-    const names = [...new Set(l.shared.map((s) => s.label))].slice(0, 3).join(', ');
-    lines.push(`${a.title || a.sn} and ${b.title || b.sn} share ${l.sharedCount} referent${l.sharedCount === 1 ? '' : 's'}${names ? ' — ' + names : ''}.`);
-  }
-  return lines;
 };
 
 // ── the research reading paragraph ────────────────────────────────────────────────────────────

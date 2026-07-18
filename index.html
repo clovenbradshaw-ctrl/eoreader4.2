@@ -8849,6 +8849,7 @@ class Component extends DCLogic {
           app: this._app, topicId: this.state.rrTopicId,
           onClose: (target) => this.closeResearchReview(target),
           onOpenSource: (sn) => { this.closeResearchReview(); this.openViewer(sn); },
+          onOpenMark: (mark) => this.openSurprise(mark),
         });
       } else {
         this._rr.show(this.state.rrTopicId);

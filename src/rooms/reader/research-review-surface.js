@@ -1,98 +1,53 @@
 // EO: SIG(Lens → Lens, Tending) — Research Review, the mounted surface (docs/research-review.md).
 // Search results become a provisional, inspectable corpus before anything is admitted to a real
 // topic. Vanilla DOM, own CSS-in-JS, no framework — the same room idiom as binvis-surface.js:
-//   mountResearchReview(host, { app, topicId, onClose }) → { show(topicId), destroy }
+//   mountResearchReview(host, { app, topicId, onClose, onOpenSource, onOpenMark }) → { show, destroy }
 // The engine (research-review.js / research-review-corpus.js) computes everything; this only
-// paints it and wires clicks through app.review* calls.
-import { el, badge, renderCandidateCard, renderArea, renderMeasureRow } from './research-review-cards.js';
+// paints it and wires clicks through app.review* calls. The newer §7/§9 sections (evidence matrix,
+// source network, identity review, derivative-cluster actions, gap-directed research) render
+// through research-review-surface2.js — split out under the god-module ratchet (~250 lines/file).
+import { el, renderCandidateCard, renderArea, renderMeasureRow } from './research-review-cards.js';
+import {
+  renderEvidenceMatrixSection, renderSourceNetworkSection, renderIdentityReviewSection,
+  renderDerivativeClustersSection, renderGapDirectedSection,
+} from './research-review-surface2.js';
+import { ensureStyle } from './research-review-style.js';
 
-const STYLE_ID = 'eo-rr-style';
-const CSS = `
-.eo-rr__body{padding:20px 22px 90px;overflow:auto;max-width:820px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1B1B22}
-.eo-rr__crumb{font-size:11px;color:#9A9AA4;text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace}
-.eo-rr__title{font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:600;margin:2px 0 6px}
-.eo-rr__stats{font-size:12px;color:#8A8A95;margin-bottom:14px}
-.eo-rr__toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
-.eo-rr__toolbar input[type=text]{flex:1;min-width:160px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;padding:8px 11px;font-size:13px;color:#1B1B22}
-.eo-rr__btn{font-size:12px;font-weight:600;color:#3A3A44;background:#fff;border:1px solid #E0E0E6;border-radius:9px;padding:7px 12px;cursor:pointer}
-.eo-rr__btn:hover{background:#F5F5F8}
-.eo-rr__btn--accent{color:#fff;background:#6D5EF5;border-color:#6D5EF5}
-.eo-rr__btn--accent:hover{background:#5B4BE6}
-.eo-rr__closeBtn{margin-left:auto;width:28px;height:28px;border-radius:7px;color:#8A8A95;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer}
-.eo-rr__closeBtn:hover{background:#F2F2F6}
-.eo-rr__recipes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
-.eo-rr__recipe{font-size:11.5px;font-weight:600;border-radius:999px;padding:5px 11px;border:1px solid #EAEAEF;background:#fff;color:#4E4E58;cursor:pointer}
-.eo-rr__recipe--on{background:#EEEBFE;border-color:#DED8FD;color:#5B4BE6}
-.eo-rr__why{font-size:11.5px;color:#8A8A95;margin-bottom:16px}
-.eo-rr__section{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.07em;color:#B4B4BE;text-transform:uppercase;display:flex;align-items:center;gap:8px;margin:22px 0 10px}
-.eo-rr__section::after{content:'';flex:1;height:1px;background:#EFEFF3}
-.eo-rr__reading p{font-family:'Newsreader',Georgia,serif;font-size:15px;line-height:1.6;color:#3A3A44;margin:0 0 8px}
-.eo-rr__areaRow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #F4F4F8;padding:8px 4px;cursor:pointer;font:inherit}
-.eo-rr__areaRow--on{background:#FBFAFF}
-.eo-rr__areaLabel{flex:1;font-size:13px;color:#1B1B22;font-weight:500}
-.eo-rr__dots{display:flex;gap:2px}
-.eo-rr__dot{width:6px;height:6px;border-radius:50%;background:#EAEAEF}
-.eo-rr__dot--on{background:#6D5EF5}
-.eo-rr__areaN{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;white-space:nowrap}
-.eo-rr__filters{display:flex;gap:6px;margin-bottom:12px}
-.eo-rr__filter{font-size:11.5px;font-weight:600;border-radius:999px;padding:4px 10px;border:1px solid #EAEAEF;background:#fff;color:#8A8A95;cursor:pointer}
-.eo-rr__filter--on{background:#F4F4F7;color:#1B1B22;border-color:#D8D8E0}
-.eo-rr__cards{display:flex;flex-direction:column;gap:10px}
-.eo-rr__card{border:1px solid #EEEEF2;border-radius:12px;padding:12px 13px}
-.eo-rr__cardHead{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.eo-rr__check{flex:0 0 auto}
-.eo-rr__badges{display:flex;gap:5px;flex-wrap:wrap}
-.eo-rr__badge{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.03em;border-radius:5px;padding:2px 6px}
-.eo-rr__badge--rec{background:#E7F6EC;color:#1E8A50}
-.eo-rr__badge--prim{background:#EEEBFE;color:#5B4BE6}
-.eo-rr__badge--dup{background:#FBF1DA;color:#9A6B12}
-.eo-rr__badge--origin{background:#F1EFFE;color:#6D5EF5}
-.eo-rr__badge--neutral{background:#F2F2F6;color:#6E6E78}
-.eo-rr__cardTitle{display:block;text-align:left;background:none;border:none;font-size:14px;font-weight:600;color:#1B1B22;cursor:pointer;padding:0;margin-bottom:2px}
-.eo-rr__cardTitle:hover{color:#5B4BE6}
-.eo-rr__cardMeta{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:6px}
-.eo-rr__cardRow{font-size:12px;color:#4E4E58;margin-bottom:3px}
-.eo-rr__cardLbl{font-weight:600;color:#3A3A44;margin-right:6px}
-.eo-rr__caution{font-size:11.5px;color:#9A6B12;background:#FBF4E6;border-radius:8px;padding:6px 9px;margin-top:6px}
-.eo-rr__openLink{margin-top:8px;font-size:11.5px;font-weight:600;color:#5B4BE6;background:none;border:none;cursor:pointer;padding:0}
-.eo-rr__narrative p{font-size:13px;color:#4E4E58;line-height:1.5;margin:0 0 6px}
-.eo-rr__measureRow{border:1px solid #EEEEF2;border-radius:10px;padding:8px 10px;margin-bottom:6px}
-.eo-rr__measureRow--conflict{border-color:#F2D3CD;background:#FDF7F6}
-.eo-rr__measureLabel{font-weight:600;font-size:12.5px;margin-right:8px}
-.eo-rr__measureReading{font-size:11.5px;color:#8A8A95}
-.eo-rr__measureCells{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.eo-rr__measureCell{font-family:'IBM Plex Mono',monospace;font-size:10.5px;background:#F7F7FA;border:1px solid #EAEAEF;border-radius:6px;padding:3px 7px;cursor:pointer}
-.eo-rr__discovered{display:flex;flex-direction:column;gap:6px}
-.eo-rr__discoveredRow{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;color:#4E4E58;border-bottom:1px solid #F4F4F8;padding:6px 2px}
-.eo-rr__footer{position:sticky;bottom:0;background:#fff;border-top:1px solid #EAEAEF;padding:12px 22px;display:flex;align-items:center;gap:12px}
-.eo-rr__footerStats{font-size:12px;color:#4E4E58;flex:1}
-.eo-rr__empty{padding:40px 20px;text-align:center;color:#8A8A95;font-size:13px}
-`;
-const ensureStyle = (doc) => { if (doc.getElementById(STYLE_ID)) return; const s = doc.createElement('style'); s.id = STYLE_ID; s.textContent = CSS; doc.head.appendChild(s); };
-
-const RECIPES = [['balanced', 'Balanced'], ['primary', 'Primary evidence'], ['smallest', 'Smallest sufficient'], ['perspectives', 'Perspectives'], ['contradiction', 'Contradiction-seeking']];
+const RECIPES = [['balanced', 'Balanced'], ['primary', 'Primary evidence'], ['smallest', 'Smallest sufficient'], ['perspectives', 'Perspectives'], ['contradiction', 'Contradiction-seeking'], ['historical', 'Historical']];
 const FILTERS = [['all', 'All'], ['recommended', 'Recommended'], ['primary', 'Primary'], ['duplicates', 'Duplicates']];
 
-export const mountResearchReview = (host, { app, topicId, onClose = () => {}, onOpenSource = null } = {}) => {
+export const mountResearchReview = (host, { app, topicId, onClose = () => {}, onOpenSource = null, onOpenMark = null } = {}) => {
   const doc = host.ownerDocument || document;
   ensureStyle(doc);
   const root = el(doc, 'div', 'eo-rr__body');
+  root.setAttribute('role', 'region');
+  root.setAttribute('aria-label', 'Research Review');
+  const live = el(doc, 'div', 'eo-rr__live');
+  live.setAttribute('aria-live', 'polite');
+  live.setAttribute('role', 'status');
   host.appendChild(root);
+  host.appendChild(live);
 
-  let curTopicId = topicId, filter = 'all', areaFilter = null, admitTarget = 'new', admitTargetId = null;
+  let curTopicId = topicId, filter = 'all', areaFilter = null, admitTargetId = null;
+  let netExpanded = false;
+  const diffOpenSet = new Set();
 
+  const announce = (msg) => { live.textContent = ''; setTimeout(() => { live.textContent = msg; }, 30); };
   const openSource = (sn) => { if (onOpenSource) onOpenSource(sn); };
+  const openMark = (sn, ordinal) => { if (!onOpenMark) return; const payload = app.reviewOpenMark ? app.reviewOpenMark(curTopicId, sn, ordinal) : null; if (payload) onOpenMark(payload); };
+  const titleOf = (sn, view) => { const r = view.rows.find((x) => x.sn === sn); return (r && (r.title || r.domain)) || sn; };
 
   const render = () => {
     root.innerHTML = '';
     const view = app.reviewCompute(curTopicId);
     if (!view) { root.appendChild(el(doc, 'div', 'eo-rr__empty', 'This research review is no longer available.')); return; }
+    const titleFor = (sn) => titleOf(sn, view);
 
     // header
     root.appendChild(el(doc, 'div', 'eo-rr__crumb', 'Research Review'));
     const titleRow = el(doc, 'div'); titleRow.style.cssText = 'display:flex;align-items:flex-start;gap:10px';
     titleRow.appendChild(el(doc, 'div', 'eo-rr__title', view.topic.title || view.query));
-    const closeBtn = el(doc, 'button', 'eo-rr__closeBtn', '×'); closeBtn.addEventListener('click', () => onClose());
+    const closeBtn = el(doc, 'button', 'eo-rr__closeBtn', '×'); closeBtn.setAttribute('aria-label', 'Close Research Review'); closeBtn.addEventListener('click', () => onClose());
     titleRow.appendChild(closeBtn);
     root.appendChild(titleRow);
     root.appendChild(el(doc, 'div', 'eo-rr__stats',
@@ -117,7 +72,7 @@ export const mountResearchReview = (host, { app, topicId, onClose = () => {}, on
     const curRecipeKey = view.topic.review.recipe;
     for (const [key, label] of RECIPES) {
       const b = el(doc, 'button', 'eo-rr__recipe' + (curRecipeKey === key ? ' eo-rr__recipe--on' : ''), label);
-      b.addEventListener('click', () => { app.reviewApplyRecipe(curTopicId, key); render(); });
+      b.addEventListener('click', () => { app.reviewApplyRecipe(curTopicId, key); announce(`${label} recipe applied`); render(); });
       recipeRow.appendChild(b);
     }
     root.appendChild(recipeRow);
@@ -136,6 +91,12 @@ export const mountResearchReview = (host, { app, topicId, onClose = () => {}, on
       for (const a of view.areas) root.appendChild(renderArea(doc, a, { active: areaFilter === a.label, onClick: (label) => { areaFilter = areaFilter === label ? null : label; render(); } }));
     }
 
+    // what the corpus covers (§9 gap-directed research)
+    const gapSec = renderGapDirectedSection(doc, view, {
+      onSearch: (area, key) => { app.reviewExpand(curTopicId, { template: key, area }).then((n) => { announce(`${n || 0} candidate${n === 1 ? '' : 's'} added`); render(); }); },
+    });
+    if (gapSec) root.appendChild(gapSec);
+
     // how the sources connect
     if (view.narrative.length) {
       root.appendChild(el(doc, 'div', 'eo-rr__section', 'How the sources connect'));
@@ -143,8 +104,27 @@ export const mountResearchReview = (host, { app, topicId, onClose = () => {}, on
       for (const line of view.narrative) nar.appendChild(el(doc, 'p', null, line));
       root.appendChild(nar);
     }
+    const netSec = renderSourceNetworkSection(doc, view, {
+      titleOf: titleFor, onOpenSource: openSource, expanded: netExpanded,
+      onToggleExpand: () => { netExpanded = !netExpanded; render(); },
+    });
+    if (netSec) root.appendChild(netSec);
+    const clusterSec = renderDerivativeClustersSection(doc, view, {
+      titleOf: titleFor, diffOpenSet,
+      onAction: (originSn, action) => { app.reviewClusterAction(curTopicId, originSn, action); render(); },
+      onToggleDiff: (originSn) => { if (diffOpenSet.has(originSn)) diffOpenSet.delete(originSn); else diffOpenSet.add(originSn); render(); },
+      onMarkIndependent: (sn) => { app.reviewToggleIndependent(curTopicId, sn); render(); },
+    });
+    if (clusterSec) root.appendChild(clusterSec);
 
-    // agreements / disagreements
+    // identity review (§7.3)
+    const idSec = renderIdentityReviewSection(doc, view, {
+      titleOf: titleFor,
+      onSet: (key, decision) => { app.reviewSetIdentity(curTopicId, key, decision); render(); },
+    });
+    if (idSec) root.appendChild(idSec);
+
+    // agreements / disagreements (measure prose) + the unified evidence matrix (§7.1)
     if (view.topic.review && app.comparisonMatrix) {
       let matrix = null; try { matrix = app.comparisonMatrix(); } catch { matrix = null; }
       if (matrix && matrix.rows.length) {
@@ -152,6 +132,8 @@ export const mountResearchReview = (host, { app, topicId, onClose = () => {}, on
         for (const row of matrix.rows.slice(0, 10)) root.appendChild(renderMeasureRow(doc, row, matrix.sources, { onOpen: openSource }));
       }
     }
+    const matrixSec = renderEvidenceMatrixSection(doc, view, { onOpenSource: openSource });
+    if (matrixSec) root.appendChild(matrixSec);
 
     // candidate sources
     root.appendChild(el(doc, 'div', 'eo-rr__section', 'Candidate sources'));
@@ -176,8 +158,10 @@ export const mountResearchReview = (host, { app, topicId, onClose = () => {}, on
     });
     for (const card of visible) {
       cardsWrap.appendChild(renderCandidateCard(doc, card, {
-        checked: !view.excludedSns.has(card.row.sn), onToggle: (sn) => { app.reviewToggleExclude(curTopicId, sn); render(); },
-        onOpen: openSource, connections: linksBySn.get(card.row.sn) || [],
+        checked: !view.excludedSns.has(card.row.sn),
+        onToggle: (sn) => { app.reviewToggleExclude(curTopicId, sn); announce('Selection updated'); render(); },
+        onOpen: openSource, onOpenMark: openMark, connections: linksBySn.get(card.row.sn) || [],
+        waveform: view.waveforms && view.waveforms[card.row.sn],
       }));
     }
     root.appendChild(cardsWrap);
@@ -197,10 +181,15 @@ export const mountResearchReview = (host, { app, topicId, onClose = () => {}, on
       root.appendChild(moreBtn);
     }
 
-    // footer — selected corpus preview + admission
+    // footer — selected corpus preview (§5.7, scoped to the current selection) + admission
+    const s = view.selectedStats || view.stats;
     const kept = view.rows.map((r) => r.sn).filter((sn) => !view.excludedSns.has(sn));
     const footer = el(doc, 'div', 'eo-rr__footer');
-    footer.appendChild(el(doc, 'div', 'eo-rr__footerStats', `${kept.length} selected · ${view.stats.independentOrigins} origins`));
+    footer.appendChild(el(doc, 'div', 'eo-rr__footerStats',
+      `${kept.length} selected · ${s.independentOrigins} origin${s.independentOrigins === 1 ? '' : 's'} · `
+      + `${s.sharedReferents} shared referent${s.sharedReferents === 1 ? '' : 's'} · ${s.comparablePropositions ?? 0} comparable proposition${s.comparablePropositions === 1 ? '' : 's'} · `
+      + `${s.comparableMeasures} measure${s.comparableMeasures === 1 ? '' : 's'} · ${s.disagreements} disagreement${s.disagreements === 1 ? '' : 's'} · `
+      + `${s.unresolvedIdentityCount ?? 0} unresolved identity match${s.unresolvedIdentityCount === 1 ? '' : 'es'}`));
     const admitBtn = el(doc, 'button', 'eo-rr__btn eo-rr__btn--accent', `Add ${kept.length} selected to topic`);
     admitBtn.disabled = !kept.length;
     admitBtn.addEventListener('click', () => {

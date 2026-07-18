@@ -140,3 +140,113 @@ test('reviewMore pulls discovered-only stubs into Reviewed on demand', async () 
   assert.equal(t2.review.discovered.length, 0, 'both remaining stubs were pulled in');
   assert.equal(t2.sourceSns.length, 3 + gained);
 });
+
+// ── the newer §7/§9 actions (research-review-actions.js) ──────────────────────────────────────
+
+test('reviewToggleIndependent flips a source in/out of independentOverrides, splitting/rejoining its cluster', async () => {
+  const app = await freshApp();
+  const t = await app.reviewStart('latest news on the harbor seawall', { discoverK: 5, reviewK: 3 });
+  const view = app.reviewCompute(t.id);
+  const cluster = view.clusters.find((c) => c.members.length > 1);
+  assert.ok(cluster, 'story-a/story-b clustered as one origin (same host)');
+  const derivativeSn = cluster.derivative[0].sn;
+
+  app.reviewToggleIndependent(t.id, derivativeSn);
+  assert.ok(app.topicById(t.id).review.independentOverrides.includes(derivativeSn));
+  const view2 = app.reviewCompute(t.id);
+  assert.ok(view2.clusters.find((c) => c.members.length === 1 && c.origin.sn === derivativeSn), 'now its own singleton cluster');
+
+  app.reviewToggleIndependent(t.id, derivativeSn);
+  assert.ok(!app.topicById(t.id).review.independentOverrides.includes(derivativeSn));
+  const view3 = app.reviewCompute(t.id);
+  assert.ok(view3.clusters.find((c) => c.members.length > 1), 'rejoined on the second toggle');
+});
+
+test('reviewClusterAction "keep-origin" excludes every derivative; "keep-all" restores them', async () => {
+  const app = await freshApp();
+  const t = await app.reviewStart('latest news on the harbor seawall', { discoverK: 5, reviewK: 3 });
+  const view = app.reviewCompute(t.id);
+  const cluster = view.clusters.find((c) => c.members.length > 1);
+
+  app.reviewClusterAction(t.id, cluster.origin.sn, 'keep-origin');
+  const t1 = app.topicById(t.id);
+  for (const d of cluster.derivative) assert.ok(t1.review.excludedSns.includes(d.sn));
+  assert.ok(!t1.review.excludedSns.includes(cluster.origin.sn));
+  assert.equal(t1.review.recipe, 'custom');
+
+  app.reviewClusterAction(t.id, cluster.origin.sn, 'keep-all');
+  const t2 = app.topicById(t.id);
+  for (const d of cluster.derivative) assert.ok(!t2.review.excludedSns.includes(d.sn));
+});
+
+test('reviewSetIdentity persists a confirm/reject decision keyed by referent core; a null decision resets it', async () => {
+  // This fixture's pages are too thin for a shared NAMED referent to surface (identityCandidates
+  // is exercised with a richer fixture in research-review.test.js); this test covers the app-layer
+  // plumbing — persisting a decision and reading it back through reviewCompute — independent of
+  // whether the key happens to name a candidate currently detected in this tiny corpus.
+  const app = await freshApp();
+  const t = await app.reviewStart('latest news on the harbor seawall', { discoverK: 5, reviewK: 3 });
+  const key = 'seawall';
+
+  app.reviewSetIdentity(t.id, key, 'aligned');
+  assert.equal(app.topicById(t.id).review.identityDecisions[key], 'aligned');
+
+  app.reviewSetIdentity(t.id, key, 'separate');
+  assert.equal(app.topicById(t.id).review.identityDecisions[key], 'separate', 'a second decision overwrites the first');
+
+  app.reviewSetIdentity(t.id, key, null);
+  assert.equal(app.topicById(t.id).review.identityDecisions[key], undefined, 'reset removes the key entirely');
+});
+
+test('reviewExpand runs a templated gap search and lands new candidates in the SAME review topic, never a new one', async () => {
+  const app = await freshApp();
+  const t = await app.reviewStart('latest news on the harbor seawall', { discoverK: 5, reviewK: 3 });
+  const before = app.state.topics.length;
+  const view = app.reviewCompute(t.id);
+  const area = view.areas[0];
+  assert.ok(area);
+
+  const gained = await app.reviewExpand(t.id, { template: 'dataset', area });
+  assert.equal(app.state.topics.length, before, 'no new topic was created');
+  const t2 = app.topicById(t.id);
+  assert.equal(t2.sourceSns.length, 3 + gained);
+});
+
+test('reviewExpand with no template/area and no queryAddendum is a no-op', async () => {
+  const app = await freshApp();
+  const t = await app.reviewStart('latest news on the harbor seawall', { discoverK: 5, reviewK: 3 });
+  const gained = await app.reviewExpand(t.id, {});
+  assert.equal(gained, 0);
+});
+
+test('reviewOpenMark returns null for an ordinal with no turn, and the shared evidence-modal payload for a real one', async () => {
+  const richPage = 'https://harboragency.example/press-3';
+  const richText = Array.from({ length: 14 }, (_, i) => `The seawall project entered phase ${i + 1} this week, with engineers reporting steady progress on the reinforced concrete barrier and continued monitoring of tidal stress along the eastern span.`).join(' ');
+  // "latest news on…" routes client.search's kind:'auto' to the Google-News RSS provider — the
+  // same routing the other fixtures in this file depend on ("rich seawall update" alone would
+  // route to Wikipedia search instead and never hit richPage).
+  const richQuery = 'latest news on the rich seawall update';
+  const richSearchUrl = 'https://news.google.com/rss/search?q=' + encodeURIComponent(richQuery);
+  const app = createReaderApp({
+    audit: { turns: [] },
+    fetchImpl: fakeFetch({
+      [richSearchUrl]: `<?xml version="1.0"?><rss version="2.0"><channel><title>q</title>
+        <item><title>Rich seawall update</title><link>${richPage}</link><description>d</description></item>
+      </channel></rss>`,
+      [richPage]: `<html><head><title>Rich</title></head><body><p>${richText}</p></body></html>`,
+    }),
+  });
+  if (!app.state.ready) await new Promise((res) => { const un = app.subscribe((k) => { if (k === 'ready') { un(); res(); } }); });
+  const t = await app.reviewStart(richQuery, { discoverK: 1, reviewK: 1 });
+  const [sn] = t.sourceSns;
+
+  assert.equal(app.reviewOpenMark(t.id, sn, 999999), null, 'no turn at that ordinal');
+
+  const eot = app.eotFor(sn);
+  assert.ok(eot && eot.turns && eot.turns.length, 'a long enough page produces at least one turn');
+  const payload = app.reviewOpenMark(t.id, sn, eot.turns[0].idx);
+  assert.ok(payload);
+  assert.equal(payload.sn, sn);
+  assert.ok(payload.mark, 'built through the shared evidence-modal contract (evidence.js buildMark)');
+  assert.equal(payload.mark.sourceId, sn);
+});
