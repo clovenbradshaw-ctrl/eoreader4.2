@@ -22,6 +22,10 @@ export { groundSpans, groundSummary } from './spans.js';
 // into an honest "is this actually grounded, or the model's own words wearing a source's passages?"
 // decision (SUPPORT_FLOOR). Modality-neutral, so the chat answer path and the text organ share it.
 export { supportVerdict, SUPPORT_FLOOR } from './spans.js';
+// groundText composes the span-grounding chain (segment → groundSpans → groundSummary →
+// supportVerdict) once, modality-neutrally — the fold summary stands on the same ground as
+// a chat answer through it, rather than re-wiring the three steps at each call site.
+export { groundText } from './compose.js';
 // citationHolds is the per-CITATION honesty gate the render binder reads: below the verbatim floor a
 // lexical passage match may stand only if the passage actually WITNESSES the claim (propositional
 // correspondence, not shared words), so a citation is never severed from the claim it carries.

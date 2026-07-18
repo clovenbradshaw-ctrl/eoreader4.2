@@ -15,6 +15,7 @@ import {
   summaryMessages, summarySystem, SUMMARY_DETAILS,
   realizeSummary, summaryAdditions,
 } from '../src/surfer/fold/index.js';
+import { groundText } from '../src/enactor/ground/index.js';
 
 // ── fixtures ──────────────────────────────────────────────────────────────────────────
 
@@ -168,6 +169,59 @@ test('the referential gate holds at every tier', async () => {
     assert.ok(out.additions.names.length > 0);
     assert.equal(out.text, telegramSummary(p, { maxSentences: SUMMARY_DETAILS[detail].maxSentences }));
   }
+});
+
+// ── the second firewall: the summary stands on what was read, not just its vocabulary ──
+// The referential gate (summaryAdditions) guards REFERENTS — a name or number the packet
+// never carried. But a small model can write a fluent, referentially-clean summary entirely
+// from its own training, reusing only the packet's own words, that traces to NOTHING read.
+// The grounding stack (groundText → supportVerdict) is the second firewall; realizeSummary
+// ships the telegram floor when a referentially-clean draft grounds to the void.
+
+test('groundText: a faithful lift is sourced; an unwitnessed claim in-vocabulary is void', () => {
+  const passages = [
+    { u: 'd', idx: 0, text: 'Armstrong was born in Wapakoneta, Ohio, on August 5, 1930.' },
+    { u: 'd', idx: 1, text: 'He attended Blume High School and took flying lessons at the local airfield.' },
+  ];
+  const faithful = groundText('Armstrong was born in Wapakoneta, Ohio in 1930. He attended Blume High School and learned to fly.', { passages });
+  assert.equal(faithful.kind, 'sourced');
+  assert.ok(faithful.supported && faithful.source >= 1);
+  // The words are the subject's own vocabulary, yet the passages witness no such claim —
+  // it grounds to the void, which the referential gate (shared vocabulary) cannot see.
+  const voidish = groundText('Armstrong walked on the Moon and became a global hero of flying.', { passages });
+  assert.equal(voidish.source, 0);
+  assert.equal(voidish.kind, 'void');
+  assert.equal(voidish.supported, false);
+});
+
+test('realizeSummary: an injected ground vetoes a referentially-clean but void draft', async () => {
+  const doc = parseText(LOUIS_TEXT);
+  const p = summaryFold(doc, { surf: surfFold, scope: 'entity', entity: 'Louis Armstrong', maxSpans: 4 });
+  // A draft that passes the referential gate — every word of it is in the packet surface.
+  const clean = 'Louis Armstrong was a trumpeter and singer from New Orleans. He recorded West End Blues.';
+  assert.deepEqual(summaryAdditions(clean, packetSurface(p)), { names: [], numbers: [] },
+    'the draft is referentially contained — the first firewall would pass it');
+  const phrase = async () => clean;
+  const floor = telegramSummary(p, { maxSentences: SUMMARY_DETAILS.standard.maxSentences });
+
+  // Ground says void → the model draft never ships; the honest floor does, under a via
+  // that names why (telegram-ungrounded), distinct from the referential gate's telegram-gated.
+  const vetoed = await realizeSummary(p, { phrase, ground: () => ({ supported: false, kind: 'void', source: 0, claims: 2 }) });
+  assert.equal(vetoed.via, 'telegram-ungrounded');
+  assert.equal(vetoed.text, floor);
+  assert.ok(vetoed.ground && vetoed.ground.kind === 'void');
+
+  // Ground says sourced → the model voice ships, carrying its grounding badge.
+  const shipped = await realizeSummary(p, { phrase, ground: () => ({ supported: true, kind: 'sourced', source: 2, claims: 2 }) });
+  assert.equal(shipped.via, 'model');
+  assert.equal(shipped.text, clean);
+  assert.ok(shipped.ground && shipped.ground.kind === 'sourced');
+
+  // No injected ground → behaviour is exactly as before (referential gate only): the draft ships.
+  const legacy = await realizeSummary(p, { phrase });
+  assert.equal(legacy.via, 'model');
+  assert.equal(legacy.text, clean);
+  assert.equal(legacy.ground, undefined);
 });
 
 test('the whole-work ask carries no ids, tags, or machinery', () => {

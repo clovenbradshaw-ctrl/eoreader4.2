@@ -14,6 +14,10 @@ import { surfFold } from '../src/surfer/surf.js';
 import {
   summaryFold, telegramSummary, packetSurface, summaryAdditions, cleanSummary,
 } from '../src/surfer/fold/index.js';
+// The grounding subsystem the ANSWER path uses — per-span source/void provenance
+// (propositional, not just lexical), the answer-grain support verdict. A fold summary
+// should stand on the SAME ground, not a thin referential-containment check of its own.
+import { groundText } from '../src/enactor/ground/index.js';
 import { createModel } from '../src/model/interface.js';
 import '../src/model/openai-local.js';
 
@@ -52,6 +56,22 @@ const model = createModel('lmstudio', { baseURL: BASE });
 await model.load();
 const phrase = (m, o) => model.phrase(m, o);
 const surface = packetSurface(packet);
+
+// The packet's witnessed spans, in the { u, idx, text } shape groundText reads as the
+// jumpable "where" — the same passages the answer path hands the grounder. The doc is
+// passed too, so the witness is PROPOSITIONAL (coref-intact), not merely lexical.
+const passages = packet.spans.map((s) => ({ u: packet.docId, idx: s.idx, text: s.text }));
+
+// The grounded verdict for one summary, via the SAME groundText the production summary
+// caller now injects into realizeSummary — it catches the failure the referential gate
+// cannot: a fabricated RELATION built from words that ARE all in the surface (Louis
+// Armstrong "walked on the Moon"), which passes summaryAdditions (no novel name/number)
+// yet grounds to the VOID (nothing read witnesses it).
+const grounded = (text) => {
+  const g = groundText(text, { passages, doc });
+  const voidSents = (g.verdicts || []).filter((v) => v.kind === 'llm' && v.role === 'assertion').map((v) => v.text);
+  return { sum: g.summary, sup: g, voidSents };
+};
 
 // ── prompt variants under test ──────────────────────────────────────────────────────
 // Each variant returns [{role,content}] messages for the SAME packet/ask, so the only
@@ -119,8 +139,10 @@ for (const [name, v] of Object.entries(VARIANTS)) {
   const cleaned = cleanSummary(raw, { maxSentences: SENTENCES + 1, maxLen: 900 });
   const additions = summaryAdditions(cleaned || raw, surface);
   const gated = additions.names.length || additions.numbers.length;
-  console.log(`── ${name} (${ms}ms) ${gated ? 'GATED ⚠' : 'clean ✓'} ${cleaned ? '' : '(cleanSummary rejected)'}`);
+  const g = grounded(cleaned || raw);
+  console.log(`── ${name} (${ms}ms) · ref-gate ${gated ? 'GATED ⚠' : 'clean ✓'} · ground ${g.sup.kind}${g.sup.supported ? ' ✓' : ' ✗'} (${g.sum.source}/${g.sum.source + g.sum.assertion} spans sourced) ${cleaned ? '' : '(cleanSummary rejected)'}`);
   console.log(`   raw: ${raw.replace(/\n/g, ' ⏎ ')}`);
-  if (gated) console.log(`   would-add: names=${additions.names.join(',')} numbers=${additions.numbers.join(',')}`);
+  if (gated) console.log(`   ref-gate would-add: names=${additions.names.join(',')} numbers=${additions.numbers.join(',')}`);
+  if (g.voidSents.length) console.log(`   grounds-to-void (model's own, nothing read witnesses): ${g.voidSents.map((s) => `“${s}”`).join(' ')}`);
   console.log('');
 }
