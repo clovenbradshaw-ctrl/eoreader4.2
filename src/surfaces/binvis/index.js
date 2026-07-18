@@ -10,3 +10,4 @@ export {
   byteClass, byteColor, BINVIS_PALETTE, CLASSES, CLASS_LABEL, LAYERS, DEFAULT_LAYER,
 } from './classify.js';
 export { windowedEntropy, entropyColor, ENTROPY_STOPS } from './entropy.js';
+export { significanceColor, SIGNIFICANCE_STOPS } from './significance.js';

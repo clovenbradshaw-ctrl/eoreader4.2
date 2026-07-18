@@ -33,10 +33,12 @@ export const toBytes = (input) => {
 
 // buildScene — the whole rendering decision, pure. bytes → a Scene: the RGBA buffer laid
 // out on the Hilbert plane, plus the class histogram and legend the surface paints beside
-// it. `opts.layer` selects a classify.js layer (structure or entropy today); an unavailable
-// layer falls back to structure so the picture is never blank. The layer's `build(bytes)`
-// returns a per-index colourer, so a pointwise layer and a windowed one share this loop.
-export const buildScene = (input, { layer = DEFAULT_LAYER, maxSide = MAX_SIDE } = {}) => {
+// it. `opts.layer` selects a classify.js layer (structure / entropy / significance); an
+// unavailable layer falls back to structure so the picture is never blank. `opts.signal` is an
+// optional per-byte weight the significance layer colours by — an opaque numeric overlay, never
+// a Reading, so this render stays modality-blind. The layer's `build(bytes, opts)` returns a
+// per-index colourer, so a pointwise, a windowed, and a signal-keyed layer share this loop.
+export const buildScene = (input, { layer = DEFAULT_LAYER, maxSide = MAX_SIDE, signal = null } = {}) => {
   const bytes = toBytes(input);
   const n = bytes.length;
   const side = sideFor(n, { maxSide });
@@ -44,7 +46,7 @@ export const buildScene = (input, { layer = DEFAULT_LAYER, maxSide = MAX_SIDE } 
   const bucket = Math.max(1, Math.ceil(n / cells));
 
   const layerDef = (LAYERS[layer] && LAYERS[layer].available) ? LAYERS[layer] : LAYERS[DEFAULT_LAYER];
-  const colorAt = (layerDef.build || LAYERS[DEFAULT_LAYER].build)(bytes);
+  const colorAt = (layerDef.build || LAYERS[DEFAULT_LAYER].build)(bytes, { signal });
 
   const pixels = new Uint8ClampedArray(cells * 4);   // alpha defaults to 0 → uncovered tail is transparent
   for (let p = 0; p < cells; p++) {

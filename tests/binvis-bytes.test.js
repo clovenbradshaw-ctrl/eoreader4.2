@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { bytesOfSource } from '../src/rooms/reader/binvis-surface.js';
+import { bytesOfSource, readingSignificance } from '../src/rooms/reader/binvis-surface.js';
 
 // bytesOfSource — the seam that gets ANY loaded source's bytes for the byte-structure
 // surface. The regression this guards: an empty/evicted media clip must NOT masquerade as a
@@ -85,4 +85,51 @@ test('bytesOfSource: plain text source (no media flag)', async () => {
   assert.equal(r.kind, 'text');
   assert.equal(r.media, false);
   assert.deepEqual([...r.bytes], [0x41, 0x42]);
+});
+
+// ---- readingSignificance — the meaning-keyed layer's per-byte signal --------
+// The one binvis layer keyed to the reading (not the raw bytes): it visualises the reading's
+// OWN text bytes (its units, in order) and weights each by how much the reading turned there.
+
+const eotApp = (eot) => ({ eotFor: () => eot });
+
+test('readingSignificance: null when there is no reading with unit text', () => {
+  assert.equal(readingSignificance(eotApp(null), 1), null);
+  assert.equal(readingSignificance(eotApp({ unitText: [] }), 1), null);
+  assert.equal(readingSignificance({}, 1), null);   // no eotFor at all
+});
+
+test('readingSignificance: bytes ARE the units joined, aligned to a same-length signal', () => {
+  const eot = { unitText: ['AB', 'CD', 'EF'], turns: [{ idx: 1, bayesBits: 4 }] };
+  const r = readingSignificance(eotApp(eot), 1);
+  assert.ok(r, 'a reading with units yields a signal');
+  // units joined by '\n': "AB\nCD\nEF" — 8 bytes
+  assert.deepEqual([...r.bytes], [...new TextEncoder().encode('AB\nCD\nEF')]);
+  assert.equal(r.signal.length, r.bytes.length, 'signal is aligned byte-for-byte with bytes');
+  assert.equal(r.units, 3);
+  assert.equal(r.turns, 1);
+});
+
+test('readingSignificance: the turned unit carries the peak; a flat unit stays at zero', () => {
+  // three well-separated units so the triangular spread (U/160 → 1) does not bleed the turn across all
+  const eot = { unitText: ['unit zero', 'unit one', 'unit two'], turns: [{ idx: 0, bayesBits: 10 }] };
+  const r = readingSignificance(eotApp(eot), 1);
+  // byte 0 is inside unit 0 (the turn) → normalised to the peak = 1
+  assert.equal(r.signal[0], 1);
+  // the last unit is far from the turn → flat (0)
+  assert.equal(r.signal[r.signal.length - 1], 0);
+});
+
+test('readingSignificance: a flat reading (no turns) yields an all-zero signal, still aligned', () => {
+  const eot = { unitText: ['one', 'two'], turns: [] };
+  const r = readingSignificance(eotApp(eot), 1);
+  assert.ok(r);
+  assert.equal(r.turns, 0);
+  assert.equal(r.signal.length, r.bytes.length);
+  assert.ok([...r.signal].every((v) => v === 0), 'no turning points → no significance anywhere');
+});
+
+test('readingSignificance: survives a thrown eotFor', () => {
+  const app = { eotFor: () => { throw new Error('reading blew up'); } };
+  assert.equal(readingSignificance(app, 1), null);
 });
