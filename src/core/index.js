@@ -102,7 +102,7 @@ export {
 // The learning layer (reshape §5): one defeasible ledger, priors + learned, same
 // slot. It lives in the core because the built-in reading knowledge is inherited
 // sediment, the same substance the DEF·EVA·REC loop deposits while reading.
-export { createConventions } from './conventions/index.js';
+export { createConventions, induceAttributionFrames } from './conventions/index.js';
 // The geometry, made first-class (add-on 2). The cognition triad (perceiver · surfer ·
 // enactor, the surfer in the middle), the three faces (Act · Site · Stance) and the
 // operator(Site, Stance) notation, and holonic Site addressing (which place an

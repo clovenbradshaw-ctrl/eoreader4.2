@@ -34,7 +34,7 @@ import { readUncasedGrain } from './grain.js';
 import { induceAdpositions } from './adpositions.js';
 import { buildReferents }       from '../referents/index.js';
 import { tok }                  from './tokenize.js';
-import { createConventions, induceAttributionVerbs, BOUNDARY } from '../../core/conventions/index.js';
+import { createConventions, induceAttributions, BOUNDARY } from '../../core/conventions/index.js';
 
 // A pronoun-resolved descriptor owner ("his sister") is taken only when the prior
 // field's top candidate outweighs the runner-up by this ratio — an unambiguous
@@ -217,13 +217,11 @@ export const createParser = ({
       }
     }
 
-    // Pass 0 — learn the document's conventions before reading it. Induced
-    // attribution verbs become REC entries in the ledger and are written into
-    // the log, so how *this* text marks speech biases every later sentence.
-    // (The conventions ledger was created above, before segmentation.)
-    for (const { token, count } of induceAttributionVerbs(sentences)) {
-      conventions.learnAttribution(token, count);
-    }
+    // Pass 0 — learn the document's conventions before reading it, off their SLOTS: how this
+    // text marks SPEECH (attribution verbs against quotation) AND how it RELAYS claims (the
+    // report verbs and source nouns of the attribution nest, "the study found that …"). All
+    // become REC entries in the ledger, written into the log, biasing every later sentence.
+    induceAttributions(conventions, sentences);
 
     // Structural frame: the head and tail OUTSIDE the body the banners bracket (the
     // licence header, the title block, the boilerplate footer). Read from the
