@@ -1156,7 +1156,14 @@ table{border-collapse:collapse;width:100%}
 
                   <sc-if value="{{ webProf.hasRelations }}">
                     <div style="margin-top:15px">
-                      <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">CONNECTED ENTITIES</div>
+                      <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+                        <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;flex:0 0 auto">CONNECTED ENTITIES</div>
+                        <label title="Search connected entities" style="flex:1;min-width:0;display:flex;align-items:center;gap:5px;background:#FAFAFC;border:1px solid #EAEAEF;border-radius:7px;padding:3px 7px;color:#B4B4BE">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                          <input value="{{ webProf.relQuery }}" onChange="{{ webProf.onRelSearch }}" placeholder="Search…" autocomplete="off" spellcheck="false" style="min-width:0;flex:1;border:none;outline:none;background:transparent;font-size:11px;color:#202027" />
+                        </label>
+                      </div>
+                      <sc-if value="{{ webProf.relEmpty }}"><div style="padding:10px;border:1px dashed #E4E1E8;border-radius:9px;color:#9A9AA4;font-size:11.5px;margin-bottom:5px">No connected entities match “{{ webProf.relQuery }}”.</div></sc-if>
                       <sc-for list="{{ webProf.relations }}" as="r">
                         <button onClick="{{ r.pivot }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:7px 10px;border:1px solid #EAEAEF;border-radius:9px;margin-bottom:5px" style-hover="background:#FAFAFC">
                           <span style="flex:1;min-width:0;font-size:12px;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left"><b style="font-weight:600">{{ r.other }}</b></span>
@@ -1164,18 +1171,27 @@ table{border-collapse:collapse;width:100%}
                           <span style="color:#C4C4CC;flex:0 0 auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
                         </button>
                       </sc-for>
+                      <sc-if value="{{ webProf.relExpandShow }}"><div style="display:flex;justify-content:center;margin-top:4px"><button onClick="{{ webProf.toggleRelExpanded }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:999px;padding:6px 12px;font-size:11px;font-weight:700;color:#5B4BE6">{{ webProf.relExpandLabel }}</button></div></sc-if>
                     </div>
                   </sc-if>
 
                   <sc-if value="{{ webProf.hasMentions }}">
                     <div style="margin-top:15px">
-                      <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">MENTIONS · {{ webProf.mentionCount }}</div>
+                      <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+                        <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;flex:0 0 auto">MENTIONS · {{ webProf.mentionCount }}</div>
+                        <label title="Search mentions" style="flex:1;min-width:0;display:flex;align-items:center;gap:5px;background:#FAFAFC;border:1px solid #EAEAEF;border-radius:7px;padding:3px 7px;color:#B4B4BE">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                          <input value="{{ webProf.mentionQuery }}" onChange="{{ webProf.onMentionSearch }}" placeholder="Search…" autocomplete="off" spellcheck="false" style="min-width:0;flex:1;border:none;outline:none;background:transparent;font-size:11px;color:#202027" />
+                        </label>
+                      </div>
+                      <sc-if value="{{ webProf.mentionEmpty }}"><div style="padding:10px;border:1px dashed #E4E1E8;border-radius:9px;color:#9A9AA4;font-size:11.5px;margin-bottom:5px">No mentions match “{{ webProf.mentionQuery }}”.</div></sc-if>
                       <sc-for list="{{ webProf.mentions }}" as="mn">
                         <button onClick="{{ mn.jump }}" title="Open the source at this passage" style="width:100%;display:flex;gap:9px;padding:7px 10px;border:1px solid #EFEFF3;border-radius:9px;margin-bottom:5px;background:#FBFBFD" style-hover="background:#fff">
                           <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B4B4BE;flex:0 0 auto;margin-top:2px">¶{{ mn.idx }}</span>
                           <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.45;color:#5A5A64;text-align:left;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ mn.text }}</span>
                         </button>
                       </sc-for>
+                      <sc-if value="{{ webProf.mentionExpandShow }}"><div style="display:flex;justify-content:center;margin-top:4px"><button onClick="{{ webProf.toggleMentionExpanded }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:999px;padding:6px 12px;font-size:11px;font-weight:700;color:#5B4BE6">{{ webProf.mentionExpandLabel }}</button></div></sc-if>
                     </div>
                   </sc-if>
                 </div>
@@ -2868,7 +2884,14 @@ table{border-collapse:collapse;width:100%}
 
               <sc-if value="{{ prof.hasRelations }}">
                 <div style="margin-top:16px">
-                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">CONNECTED ENTITIES</div>
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;flex:0 0 auto">CONNECTED ENTITIES</div>
+                    <label title="Search connected entities" style="flex:1;min-width:0;display:flex;align-items:center;gap:5px;background:#FAFAFC;border:1px solid #EAEAEF;border-radius:7px;padding:3px 7px;color:#B4B4BE">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                      <input value="{{ prof.relQuery }}" onChange="{{ prof.onRelSearch }}" placeholder="Search…" autocomplete="off" spellcheck="false" style="min-width:0;flex:1;border:none;outline:none;background:transparent;font-size:11px;color:#202027" />
+                    </label>
+                  </div>
+                  <sc-if value="{{ prof.relEmpty }}"><div style="padding:10px;border:1px dashed #E4E1E8;border-radius:9px;color:#9A9AA4;font-size:11.5px;margin-bottom:5px">No connected entities match “{{ prof.relQuery }}”.</div></sc-if>
                   <sc-for list="{{ prof.relations }}" as="r">
                     <button onClick="{{ r.pivot }}" style="width:100%;display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid #EAEAEF;border-radius:9px;margin-bottom:5px" style-hover="background:#FAFAFC">
                       <span style="flex:1;min-width:0;font-size:12px;color:#3A3A44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b style="font-weight:600">{{ r.other }}</b></span>
@@ -2876,18 +2899,27 @@ table{border-collapse:collapse;width:100%}
                       <span style="color:#C4C4CC;flex:0 0 auto"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
                     </button>
                   </sc-for>
+                  <sc-if value="{{ prof.relExpandShow }}"><div style="display:flex;justify-content:center;margin-top:4px"><button onClick="{{ prof.toggleRelExpanded }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:999px;padding:6px 12px;font-size:11px;font-weight:700;color:#5B4BE6">{{ prof.relExpandLabel }}</button></div></sc-if>
                 </div>
               </sc-if>
 
               <sc-if value="{{ prof.hasMentions }}">
                 <div style="margin-top:16px">
-                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">MENTIONS · {{ prof.mentionCount }}</div>
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;flex:0 0 auto">MENTIONS · {{ prof.mentionCount }}</div>
+                    <label title="Search mentions" style="flex:1;min-width:0;display:flex;align-items:center;gap:5px;background:#FAFAFC;border:1px solid #EAEAEF;border-radius:7px;padding:3px 7px;color:#B4B4BE">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                      <input value="{{ prof.mentionQuery }}" onChange="{{ prof.onMentionSearch }}" placeholder="Search…" autocomplete="off" spellcheck="false" style="min-width:0;flex:1;border:none;outline:none;background:transparent;font-size:11px;color:#202027" />
+                    </label>
+                  </div>
+                  <sc-if value="{{ prof.mentionEmpty }}"><div style="padding:10px;border:1px dashed #E4E1E8;border-radius:9px;color:#9A9AA4;font-size:11.5px;margin-bottom:5px">No mentions match “{{ prof.mentionQuery }}”.</div></sc-if>
                   <sc-for list="{{ prof.mentions }}" as="mn">
                     <button onClick="{{ mn.jump }}" style="width:100%;display:flex;gap:9px;padding:8px 11px;border:1px solid #EFEFF3;border-radius:9px;margin-bottom:5px;background:#FBFBFD" style-hover="background:#fff">
                       <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#B4B4BE;flex:0 0 auto;margin-top:2px">¶{{ mn.idx }}</span>
                       <span style="flex:1;min-width:0;font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.45;color:#5A5A64;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ mn.text }}</span>
                     </button>
                   </sc-for>
+                  <sc-if value="{{ prof.mentionExpandShow }}"><div style="display:flex;justify-content:center;margin-top:4px"><button onClick="{{ prof.toggleMentionExpanded }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:999px;padding:6px 12px;font-size:11px;font-weight:700;color:#5B4BE6">{{ prof.mentionExpandLabel }}</button></div></sc-if>
                 </div>
               </sc-if>
             </sc-if>
@@ -5653,6 +5685,10 @@ class Component extends DCLogic {
   setCastSort(mode) { this.setState({ castSort: mode }); }
   setCastQuery(q) { this.setState({ castQuery: String(q || ''), castExpanded: false }); }
   toggleCastExpanded() { this.setState({ castExpanded: !this.state.castExpanded }); }
+  // Entity-profile relation/mention search + expand — shared by the sidebar profile
+  // (prefix "prof") and the web-graph overlay's details panel (prefix "webProf").
+  _setProfQuery(prefix, kind, q) { this.setState({ [prefix + kind + 'Query']: String(q || ''), [prefix + kind + 'Expanded']: false }); }
+  _toggleProfExpanded(prefix, kind) { this.setState({ [prefix + kind + 'Expanded']: !this.state[prefix + kind + 'Expanded'] }); }
   toggleSourceStructureExpanded() { this.setState({ sourceStructureExpanded: !this.state.sourceStructureExpanded }); }
   toggleSourceCard(key) {
     const open = { ...(this.state.sourceCardOpen || {}) };
@@ -6602,6 +6638,10 @@ class Component extends DCLogic {
     const app = this._app;
     const p = app && app.entityProfile ? app.entityProfile(docId, entId) : null;
     if (!p) return null;
+    // Two panels share this builder (the sidebar profile and the web-graph overlay's
+    // details panel) — namespace their search/expand state by prefix so searching one
+    // doesn't clobber or reset the other.
+    const prefix = opts.statePrefix || 'prof';
     const src = app.sourceBySn(p.sn) || {};
     // The Wikipedia referent (_ensureWiki kicked the lookup off; render what landed).
     // Shown only when CONFIRMED — an unconfirmed best guess reads as "no confirmed
@@ -6656,8 +6696,10 @@ class Component extends DCLogic {
       // touched / lived / realized …) would otherwise appear once per verb and read as
       // many different entities. Collapse by the other endpoint's id, keeping the vias
       // in the salience order figureSurface already ranked them; the strongest verb
-      // leads and a `+N` records the rest.
-      relations: (() => {
+      // leads and a `+N` records the rest. Search narrows by neighbour name or verb;
+      // "Show more" reveals the rest of whatever search left standing, same cap-and-
+      // expand pattern the source index cast list uses (see setCastQuery/toggleCastExpanded).
+      ...(() => {
         const byOther = new Map();
         for (const r of p.relations) {
           const otherId = r.srcId === entId ? r.tgtId : r.srcId;
@@ -6667,16 +6709,52 @@ class Component extends DCLogic {
           const via = r.via || r.op;
           if (via && !g.vias.includes(via)) g.vias.push(via);
         }
-        return [...byOther.values()].slice(0, 14).map((g) => ({
-          other: g.other,
-          via: g.vias.length > 1 ? `${g.vias[0]} +${g.vias.length - 1}` : (g.vias[0] || ''),
-          pivot: () => h.pivot(g.otherId),
-        }));
+        const groups = [...byOther.values()];
+        const REL_CAP = 14;
+        const relQuery = String(this.state[prefix + 'RelQuery'] || '').trim();
+        const relNeedle = relQuery.toLowerCase();
+        const relFiltered = relNeedle
+          ? groups.filter((g) => [g.other, ...g.vias].some((v) => String(v || '').toLowerCase().includes(relNeedle)))
+          : groups;
+        const relExpanded = !!this.state[prefix + 'RelExpanded'];
+        const relLimit = relExpanded ? relFiltered.length : REL_CAP;
+        return {
+          relQuery,
+          onRelSearch: (e) => this._setProfQuery(prefix, 'Rel', e && e.target ? e.target.value : e),
+          relEmpty: relQuery.length > 0 && relFiltered.length === 0,
+          relations: relFiltered.slice(0, relLimit).map((g) => ({
+            other: g.other,
+            via: g.vias.length > 1 ? `${g.vias[0]} +${g.vias.length - 1}` : (g.vias[0] || ''),
+            pivot: () => h.pivot(g.otherId),
+          })),
+          relExpandShow: relFiltered.length > REL_CAP,
+          relExpandLabel: relExpanded ? 'Show fewer' : `Show more (${relFiltered.length - REL_CAP} more)`,
+          toggleRelExpanded: () => this._toggleProfExpanded(prefix, 'Rel'),
+        };
       })(),
       hasMentions: p.mentions.length > 0, mentionCount: String(p.mentions.length),
       // Each mention carries its clock (mn.t0/mn.t1) when the reading keeps one, so a click SEEKS
       // the clip to the instant it was said; a prose mention (no time) jumps the text instead.
-      mentions: p.mentions.slice(0, 10).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text, mn.t0, mn.t1) })),
+      // Search narrows by passage text; "Show more" reveals the rest of the search results.
+      ...(() => {
+        const MENTION_CAP = 10;
+        const mentionQuery = String(this.state[prefix + 'MentionQuery'] || '').trim();
+        const mentionNeedle = mentionQuery.toLowerCase();
+        const mentionsFiltered = mentionNeedle
+          ? p.mentions.filter((mn) => String(mn.text || '').toLowerCase().includes(mentionNeedle))
+          : p.mentions;
+        const mentionExpanded = !!this.state[prefix + 'MentionExpanded'];
+        const mentionLimit = mentionExpanded ? mentionsFiltered.length : MENTION_CAP;
+        return {
+          mentionQuery,
+          onMentionSearch: (e) => this._setProfQuery(prefix, 'Mention', e && e.target ? e.target.value : e),
+          mentionEmpty: mentionQuery.length > 0 && mentionsFiltered.length === 0,
+          mentions: mentionsFiltered.slice(0, mentionLimit).map((mn) => ({ idx: String(mn.idx), text: mn.text, jump: () => h.jump(p.sn, mn.text, mn.t0, mn.t1) })),
+          mentionExpandShow: mentionsFiltered.length > MENTION_CAP,
+          mentionExpandLabel: mentionExpanded ? 'Show fewer' : `Show more (${mentionsFiltered.length - MENTION_CAP} more)`,
+          toggleMentionExpanded: () => this._toggleProfExpanded(prefix, 'Mention'),
+        };
+      })(),
       // the auto-generated topline for this entity + its feedback box (docs/topline.md)
       topline: tl,
       // When the record only NAMES the referent (topline absence) but we hold a CONFIRMED
@@ -8048,7 +8126,7 @@ class Component extends DCLogic {
       pivot: (otherId) => this._setWgPanel(panel.docId, otherId),
       openSource: (sn) => { this.openViewer(sn); },
       jump: (sn, text, t0, t1) => this._jumpTo(sn, text, t0, t1),
-    }) : null;
+    }, { statePrefix: 'webProf' }) : null;
     return {
       webProfShow: !!webProf, webProf,
       // focus the web on the panel's entity — the panel-side twin of a node's "open →"
@@ -9817,7 +9895,7 @@ class Component extends DCLogic {
         openSource: (sn) => this.openViewer(sn),
         jump: (sn, text, t0, t1) => this._jumpTo(sn, text, t0, t1),
         openWeb: () => this.openWebGraph(st.entitySel.docId, st.entitySel.entId),
-      }, { explore: true });
+      }, { explore: true, statePrefix: 'prof' });
     }
     // graph-node inspector (focus in the Findings provenance graph wins the panel)
     let insp = null;
