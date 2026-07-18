@@ -3,9 +3,9 @@
 // across the three helix tiers — existence (the source and the figures INSed
 // from it), structure (the bonds between them), significance (the claims
 // those bonds trace to) — connected by operator edges, each edge wearing its
-// glyph ON the line. Four switchable layouts (flow · tiers · radial · time,
-// radial default) with animated pivoting, tier filtering, a names toggle,
-// pan/zoom/fit, and click-to-inspect.
+// glyph ON the line. A single radial DAG layout with ⟲ rotate, tier filtering,
+// a names toggle, pan/zoom/fit, and click-to-inspect. (The flow · tiers · time
+// layouts and their switcher were retired — radial is the only surface now.)
 //
 // THE FOLD CURSOR (reason/cursor.js `upto`). A graph is readGraph(log, cursor);
 // what you see is the fold at cursor = IDENTITY — upto:Infinity, the reading as
@@ -139,12 +139,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   wrap.innerHTML =
     '<div style="border:1px solid var(--line,#e5e7eb);border-radius:12px;overflow:hidden;background:var(--card,#fff);">' +
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line,#e5e7eb);background:var(--app,#f7f8fb);">' +
-      '<div class="tg-seg">' +
-        '<button class="tg-btn" data-layout="flow">⇢ flow</button>' +
-        '<button class="tg-btn" data-layout="tiers">≡ tiers</button>' +
-        '<button class="tg-btn on" data-layout="radial">◎ radial</button>' +
-        '<button class="tg-btn" data-layout="time">⏱ time</button>' +
-      '</div>' +
+      '<span class="tg-seg" style="font-size:12px;color:var(--ink2,#555);padding:5px 11px;">◎ radial</span>' +
       '<button class="tg-btn" data-pivot>⟲ <span data-pivot-lbl>rotate</span></button>' +
       '<button class="tg-btn on" data-names title="Toggle persistent node names — hover always shows the full name">names</button>' +
       '<div style="display:flex;gap:5px;margin-left:auto;">' +
@@ -596,15 +591,8 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     foldRow.style.display = isTime ? 'flex' : 'none';   // the fold controls only bite on the time axis
     pivotBtn.style.display = isTime ? 'none' : 'inline-flex';  // no pivot on a left→right time axis
   };
-  wrap.querySelectorAll('[data-layout]').forEach((b) => b.addEventListener('click', () => {
-    wrap.querySelectorAll('[data-layout]').forEach((x) => x.classList.remove('on')); b.classList.add('on');
-    state.layout = b.dataset.layout;
-    wrap.querySelector('[data-pivot-lbl]').textContent = state.layout === 'radial' ? 'rotate' : 'pivot';
-    syncLayoutChrome();
-    clearPins();   // a pin fixed to a ring position is meaningless once the layout changes
-    if (state.sel) deselect();
-    relayout(); setTimeout(fit, 470);
-  }));
+  // The surface is radial-only now — no layout switcher — so the chrome settles once at mount.
+  syncLayoutChrome();
   wrap.querySelectorAll('[data-grain]').forEach((c) => c.addEventListener('click', () => {
     state.grain = c.dataset.grain; syncFoldChips();
     if (state.layout !== 'time') return;   // a fold pick outside the time axis just arms the grain
