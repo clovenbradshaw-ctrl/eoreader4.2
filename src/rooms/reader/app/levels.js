@@ -6,7 +6,7 @@
 import { parseText } from '../../../perceiver/parse/index.js';
 import { projectGraph } from '../../../core/index.js';
 import { readThroughIndex, settledText } from '../transcript-format.js';
-import { figureSurface, rankProperties, perspectiveOf } from '../../../perceiver/index.js';
+import { figureSurface, rankProperties, perspectiveOf, relaysOfPerspective } from '../../../perceiver/index.js';
 
 export const installLevels = (appCtx) => {
   const { state } = appCtx;
@@ -201,12 +201,23 @@ export const installLevels = (appCtx) => {
     // surface reads to decide whether to show a voice at all — a place or a platform reads
     // false and carries no quotes. Text-only (a non-prose organ's referent has no quotes).
     const persp = (doc.modality === 'text' || !doc.modality) ? perspectiveOf(doc, [entId]) : null;
+    // The attribution NEST inside the figure's own voice — whom THEY are relaying. A figure does
+    // not only assert; it wraps other voices (a report, a citation, a quoted person), and the
+    // reader wants to see the Russian nest-doll: the shells the figure's words open, and the
+    // matryoshka each single quote unfolds into. Pure over the perspective packet, so it costs a
+    // re-scan of the figure's already-collected words, never another parse.
+    const relay = (persp && persp.isAgent) ? relaysOfPerspective(persp, { isSpeech: doc.conventions?.isAttributionVerb, admission: doc.admission }) : null;
     const perspective = (persp && persp.isAgent) ? {
       isAgent: true, signals: persp.signals,
       quotes: persp.quotes.map((q) => ({ text: q.text, idx: q.idx, form: q.form,
         source: sentAt(q.idx) })),
       attributions: persp.attributions,
       fold: persp.fold,
+      // The shells inside the figure's voice (relays) and the per-utterance nest (nested), so a
+      // surface can render "Reyes relays → the report relays → the vendor" beneath a quote.
+      relays: relay?.relays || [],
+      nested: relay?.byQuote || [],
+      relayDepth: relay?.maxDepth || 0,
     } : { isAgent: false };
 
     return {
