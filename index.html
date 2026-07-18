@@ -45,9 +45,44 @@
       '<p style="margin:1rem 0 0;font-size:.85rem;color:#7a7a90">If it keeps happening, hard-reload with Ctrl/Cmd + Shift + R.</p>' +
       '</div>';
     document.body.appendChild(d);
-    document.getElementById('eo-boot-reload').addEventListener('click', function () { location.reload(); });
+    document.getElementById('eo-boot-reload').addEventListener('click', hardReset);
   }
+  // A true escape hatch from a stuck cached copy: drop every cache and controlling worker, then
+  // reload from the network. This is what actually ejects an old build when a plain reload won't.
+  function hardReset() {
+    var done = function () { location.reload(); };
+    try {
+      var jobs = [];
+      if (window.caches && caches.keys) {
+        jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
+      }
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+        jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+      }
+      Promise.all(jobs).then(done, done);
+      setTimeout(done, 1500); // never hang on the escape hatch
+    } catch (e) { done(); }
+  }
+  window.hardReset = hardReset; // reachable from the app's Settings ("Reset app / clear cache")
   window.addEventListener('load', function () { setTimeout(showFallback, 5000); });
+
+  // Freshness guard: register the network-revalidating worker (see sw.js) so a returning phone can
+  // never boot a stale build while online. `updateViaCache:'none'` means the worker script itself is
+  // always fetched fresh, so a fix to the worker ships on the next load. When a newly-installed worker
+  // takes control, reload ONCE so the page runs under it (and thus gets force-revalidated assets).
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+        .then(function (reg) { reg.update(); })
+        .catch(function () {});
+    });
+    var swRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (swRefreshing) return;
+      swRefreshing = true;
+      location.reload();
+    });
+  }
 })();
 </script>
 </head>
@@ -56,7 +91,12 @@
 <helmet>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Load the webfonts WITHOUT blocking first paint. `media="print"` makes the stylesheet
+     non-render-blocking; the onload swap flips it to `all` once it arrives, so text paints
+     immediately in the system-font fallback (all our type stacks name one) and upgrades when the
+     webfont lands. The <noscript> keeps the fonts for a scripting-off client. -->
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
