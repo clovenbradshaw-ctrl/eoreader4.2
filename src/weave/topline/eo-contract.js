@@ -18,4 +18,5 @@ export const CONTRACTS = Object.freeze({
   'src/weave/topline/definer.js': contract({ ops: ['EVA', 'SEG'], targets: ['Field', 'Network'], products: ['Lens', 'Atmosphere'], stances: ['Binding', 'Tracing', 'Tending'], note: "the definer's un-authored fitness" }),
   'src/weave/topline/chorus.js': contract({ ops: ['SYN', 'SEG', 'EVA'], targets: ['Network', 'Field'], products: ['Network', 'Lens'], stances: ['Composing', 'Dissecting', 'Tracing'], note: 'the evolving definer chorus' }),
   'src/weave/topline/digest.js': contract({ ops: ['SYN', 'SEG', 'EVA'], targets: ['Network', 'Field'], products: ['Network', 'Lens'], stances: ['Composing', 'Dissecting', 'Tracing'], note: 'the entity digest — chapter spine + on-demand important/surprising + passage zoom' }),
+  'src/weave/topline/emergent-name.js': contract({ ops: ['SEG', 'DEF'], targets: ['Field', 'Link'], products: ['Field', 'Lens'], stances: ['Dissecting', 'Making'], note: 'emergent section names — the distinctive term of a stretch' }),
 });

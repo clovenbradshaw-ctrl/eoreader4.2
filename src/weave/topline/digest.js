@@ -4,19 +4,18 @@
 // (the chapter bullets: where this referent moves through the reading, chapter by chapter) plus two
 // on-demand readings the reader pulls only when they lean in: what the record MOST witnesses about it
 // (Most important) and what stands out AGAINST that through-line (Most surprising).
-//
 // The discipline is the topline's, unchanged: the model never sees the source, only a CLOSED set of
 // objects the machinery already decided. Every phrasing here is phraseAll — one object, one bullet,
 // each gated by containment (contain.js), so a bullet can rephrase but never add. "Most surprising"
 // is a SELECTION from the closed set (the outlier claim), never a judgement the model reaches for —
 // the surprise is measured off the record's own footing; the model only phrases the claim it picks.
-//
 // Nothing here reads source text or wall-clock time. Selection is pure; the caller stamps the time.
 
 import { entityInventory } from './adapt.js';
 import { buildInventory } from './inventory.js';
 import { phraseAll } from './phrase.js';
 import { generateTopline } from './topline.js';
+import { labelContext, emergentLabel } from './emergent-name.js';
 
 const cite = (xs) => (xs || []).map((x) => (typeof x === 'number' ? x : x?.idx)).filter((n) => Number.isInteger(n));
 const words = (v) => (String(v || '').toLowerCase().match(/\p{L}+/gu) || []);
@@ -46,58 +45,63 @@ const salientMention = (mentions) => {
 
 // ── the chapter spine — deterministic, model-free, always present ─────────────
 // Group an entity's mentions into the document's coarse grain and emit one bullet per chapter it
-// appears in. STRUCTURAL grain (the author's own chapter lines) uses the heading as the label; any
+// appears in. STRUCTURAL grain (the author's own chapter lines) heads each with its heading; any
 // other grain (a short or unstructured document) is split into a few even quantile windows over the
-// mention span, so the spine is legible whether or not the author cut chapters.
-//
-//   bounds  — the coarse-unit starts, as sentence indices (surfer/levels.js detectGrain .bounds)
-//   mode    — 'structural' | 'window' | 'sentence' | 'empty' (detectGrain .mode)
-//   sentences — the document's sentences (only sentences[bound] is read, for the label)
-//   mentions  — [{ idx, text, t0?, t1? }] the entity's mentions (app.entityProfile .mentions)
+// mention span, so the spine is legible whether or not the author cut chapters. Args: bounds (the
+// coarse-unit starts as sentence indices, detectGrain .bounds), mode ('structural' | 'window' | …),
+// sentences (only sentences[bound] is read, for the heading), mentions ([{ idx, text, t0?, t1? }],
+// app.entityProfile .mentions), label (the entity's own name, excluded from emergent section names).
 //
 // Returns [{ chapterIdx, label, start, end, mentionCount, bullet:{ idx, text }, mentions }],
 // chapterIdx a STABLE id (the bound's position for structural; the window ordinal otherwise), so a
-// pulled-on-demand reading can be cached against it.
-export const chapterBullets = ({ bounds = [], mode = 'window', sentences = [], mentions = [] } = {}) => {
+// pulled-on-demand reading can be cached against it. A section's `label` is EMERGENT where the
+// content earns it — the distinctive term of that stretch (emergent-name.js) — positional otherwise.
+export const chapterBullets = ({ bounds = [], mode = 'window', sentences = [], mentions = [], label = '' } = {}) => {
   const ms = (mentions || []).filter((m) => Number.isInteger(m.idx) && m.text).sort((a, b) => a.idx - b.idx);
   if (!ms.length) return [];
   const n = sentences.length || (ms[ms.length - 1].idx + 1);
 
+  // Emit one row per group, named by its distinctive term where the content earns it (an author's
+  // heading always wins) and by a positional placeholder otherwise. The label context spans ALL
+  // groups, so a term concentrated in one stretch beats the subject spread across every stretch.
+  const emit = (groups, place) => {
+    const ctx = labelContext(groups.map((g) => g.ms), label);
+    return groups.map((g) => ({
+      chapterIdx: g.k, label: g.head || emergentLabel(g.ms, ctx) || place(g.k),
+      start: g.start, end: g.end, mentionCount: g.ms.length, bullet: salientMention(g.ms), mentions: g.ms,
+    }));
+  };
+
   // STRUCTURAL: real chapters, bounded by the author's heading lines. Keep only the chapters the
   // entity actually appears in, but number them by their true position so the id stays stable.
   if (mode === 'structural' && bounds.length >= 2) {
-    const out = [];
+    const groups = [];
     for (let k = 0; k < bounds.length; k++) {
-      const start = bounds[k];
-      const end = k + 1 < bounds.length ? bounds[k + 1] : n;
+      const start = bounds[k]; const end = k + 1 < bounds.length ? bounds[k + 1] : n;
       const inChap = ms.filter((m) => m.idx >= start && m.idx < end);
       if (!inChap.length) continue;
       const head = HEADING_RE.test(String(sentences[start] || '')) ? headingLabel(sentences[start]) : '';
-      const label = head || (k === 0 ? 'Opening' : `Part ${k + 1}`);
-      out.push({ chapterIdx: k, label, start, end, mentionCount: inChap.length, bullet: salientMention(inChap), mentions: inChap });
+      groups.push({ k, start, end, ms: inChap, head });
     }
-    if (out.length) return out;
+    if (groups.length) return emit(groups, (k) => (k === 0 ? 'Opening' : `Part ${k + 1}`));
   }
 
-  // OTHERWISE (short / unstructured): split the mentions into a handful of even quantile windows,
-  // each a contiguous run of mentions, so every part carries content. One part when the mentions are
-  // few; up to five when they are many. Labelled by position in the reading.
+  // OTHERWISE (short / unstructured): split the mentions into even quantile windows (contiguous runs
+  // so every part carries content), one when few and up to five when many — named the same way.
   const K = Math.max(1, Math.min(5, Math.ceil(ms.length / 2)));
   if (K === 1) {
     return [{ chapterIdx: 0, label: 'The reading', start: ms[0].idx, end: n, mentionCount: ms.length, bullet: salientMention(ms), mentions: ms }];
   }
   const per = Math.ceil(ms.length / K);
   const PLACE = ['Opening', 'Early on', 'Midway', 'Later', 'Toward the end'];
-  const out = [];
+  const groups = [];
   for (let k = 0; k < K; k++) {
     const grp = ms.slice(k * per, (k + 1) * per);
     if (!grp.length) continue;
-    const start = grp[0].idx;
     const end = k + 1 < K && ms[(k + 1) * per] ? ms[(k + 1) * per].idx : n;
-    const label = K <= PLACE.length ? PLACE[k] : `Part ${k + 1}`;
-    out.push({ chapterIdx: k, label, start, end, mentionCount: grp.length, bullet: salientMention(grp), mentions: grp });
+    groups.push({ k, start: grp[0].idx, end, ms: grp });
   }
-  return out;
+  return emit(groups, (k) => (K <= PLACE.length ? PLACE[k] : `Part ${k + 1}`));
 };
 
 // ── Most important — the record's strongest standing about this entity ────────
