@@ -2646,16 +2646,21 @@ table{border-collapse:collapse;width:100%}
             <!-- ENTITY PROFILE -->
             <sc-if value="{{ profShow }}">
               <!-- header rail: back to the list, and the promote/demote between rail and full stage -->
+              <!-- The Expand/Collapse control is flex:0 0 auto so it stays pinned and fully visible in
+                   the 340px rail; the discoverability tip is the flexible element (min-width:0 +
+                   ellipsis) so it yields and truncates instead of pushing the button off screen. -->
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-                <button onClick="{{ backToEntities }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#8A8A95" style-hover="color:#5B4BE6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>All entities</button>
-                <span style="flex:1"></span>
-                <sc-if value="{{ heroHintShow }}"><span style="font-size:10.5px;font-weight:600;color:#B0A8F8;white-space:nowrap">Tip: expand for the full view →</span></sc-if>
-                <sc-if value="{{ heroExpandShow }}"><button onClick="{{ toggleHero }}" title="Expand this figure to the full stage" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:7px;padding:4px 9px" style-hover="background:#E7E2FD"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Expand</button></sc-if>
-                <sc-if value="{{ heroCollapseShow }}"><button onClick="{{ toggleHero }}" title="Collapse back to the side panel" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#6E6E78;background:#F0F0F5;border:1px solid #E6E6EC;border-radius:7px;padding:4px 9px" style-hover="background:#E7E7EF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3a2 2 0 0 0 2-2V3M20 8h-3a2 2 0 0 1-2-2V3M4 16h3a2 2 0 0 1 2 2v3M20 16h-3a2 2 0 0 0-2 2v3"/></svg>Collapse</button></sc-if>
+                <button onClick="{{ backToEntities }}" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#8A8A95" style-hover="color:#5B4BE6"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>All entities</button>
+                <span style="flex:1 1 auto"></span>
+                <sc-if value="{{ heroHintShow }}"><span style="flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;font-weight:600;color:#B0A8F8">Tip: expand for the full view →</span></sc-if>
+                <sc-if value="{{ heroExpandShow }}"><button onClick="{{ toggleHero }}" title="Expand this figure to the full stage" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:7px;padding:5px 10px" style-hover="background:#E7E2FD"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Expand</button></sc-if>
+                <sc-if value="{{ heroCollapseShow }}"><button onClick="{{ toggleHero }}" title="Collapse back to the side panel" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#6E6E78;background:#F0F0F5;border:1px solid #E6E6EC;border-radius:7px;padding:5px 10px" style-hover="background:#E7E7EF"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3a2 2 0 0 0 2-2V3M20 8h-3a2 2 0 0 1-2-2V3M4 16h3a2 2 0 0 1 2 2v3M20 16h-3a2 2 0 0 0-2 2v3"/></svg>Collapse</button></sc-if>
               </div>
               <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
-                <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ prof.initials }}</span>
-                <span style="flex:1;min-width:0">
+                <!-- initials + name promote the figure to the full stage (heroPromote is inert once
+                     already hero / on mobile); the pin button sits outside this hit target. -->
+                <span onClick="{{ heroPromote }}" title="{{ heroPromoteTitle }}" style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6;cursor:{{ heroPromoteCursor }}">{{ prof.initials }}</span>
+                <span onClick="{{ heroPromote }}" title="{{ heroPromoteTitle }}" style="flex:1;min-width:0;cursor:{{ heroPromoteCursor }}">
                   <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600;color:#1B1B22;line-height:1.2">{{ prof.label }}</span>
                   <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ prof.counts }}</span>
                 </span>
@@ -10578,6 +10583,12 @@ class Component extends DCLogic {
           // pref flips permanently once the reader has ever gone hero, so this never nags.
           heroHintShow: !st.isMobile && !heroActive && !this._pref('eo_hero_used', false),
           toggleHero: () => this.toggleRightHero(),
+          // The identity strip itself promotes the profile to the full stage — a large, obvious
+          // hit target so making a figure the hero doesn't hinge on the small Expand chip. Inert
+          // (no cursor, no handler) once already hero or on mobile, where the panel is a drawer.
+          heroPromote: (!st.isMobile && !heroActive) ? (() => this.toggleRightHero()) : (() => {}),
+          heroPromoteCursor: (!st.isMobile && !heroActive) ? 'pointer' : 'default',
+          heroPromoteTitle: (!st.isMobile && !heroActive) ? 'Expand this figure to the full stage' : '',
         };
       })(),
       entListShow: !spanInsp && !insp && !prof, entRows, entCount: String(ents.length), entEmpty: ents.length === 0,
