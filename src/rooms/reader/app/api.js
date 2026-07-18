@@ -13,6 +13,11 @@ export const buildApi = (appCtx) => {
     // topics — a nested tree within a workspace
     topicNew: appCtx.topicNew, setTopic: appCtx.setTopic, topicRename: appCtx.topicRename, topicDelete: appCtx.topicDelete, topic: appCtx.topic,
     topicMove: appCtx.topicMove, topicToggleCollapse: appCtx.topicToggleCollapse, topicTree: appCtx.topicTree, topicRows: appCtx.topicRows,
+    // evidence scope — a topic-wide, persistent source toggle (topics.js). topicSources (below)
+    // reads it; topicSourcesAll ignores it (full membership, for the scope bar + navigation).
+    topicScopeDisabledSns: appCtx.topicScopeDisabledSns, topicScopeSummary: appCtx.topicScopeSummary,
+    setSourceScopeEnabled: appCtx.setSourceScopeEnabled, setTopicScopeAll: appCtx.setTopicScopeAll, invertTopicScope: appCtx.invertTopicScope,
+    saveTopicScope: appCtx.saveTopicScope, applyTopicScope: appCtx.applyTopicScope, deleteTopicScope: appCtx.deleteTopicScope,
     // workspaces — the top-level containers; a shared workspace is a Matrix room (roomId)
     workspaceNew: appCtx.workspaceNew, setWorkspace: appCtx.setWorkspace, workspaceRename: appCtx.workspaceRename, workspaceDelete: appCtx.workspaceDelete, activeWorkspace: appCtx.activeWorkspace,
     workspaceBindRoom: appCtx.workspaceBindRoom, workspaceByRoom: appCtx.workspaceByRoom, workspaceSetSync: appCtx.workspaceSetSync,
@@ -30,7 +35,7 @@ export const buildApi = (appCtx) => {
     resumeJobs: appCtx.resumeJobs,
     // search — the sibling of ask(): a query opens a "search topic" and pulls sources into it
     searchTopic: appCtx.searchTopic,
-    sourceBySn: appCtx.sourceBySn, sourceRename: appCtx.sourceRename, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, sourceToggleCollapse: appCtx.sourceToggleCollapse,
+    sourceBySn: appCtx.sourceBySn, sourceRename: appCtx.sourceRename, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, topicSourcesAll: appCtx.topicSourcesAll, sourceToggleCollapse: appCtx.sourceToggleCollapse,
     // source export — full append-only history as JSONL, one JSON snapshot (or one folded at a
     // text/log cursor), and the ORIGINAL file/bytes as ingested (PDF/audio/video bytes, else text)
     sourceExport: appCtx.sourceExport, sourceHistoryJsonl: appCtx.sourceHistoryJsonl, sourceCursorJson: appCtx.sourceCursorJson, sourceOriginalExport: appCtx.sourceOriginalExport,
@@ -109,7 +114,7 @@ export const buildApi = (appCtx) => {
     // in and deeper (docs/topline.md)
     entityChapters: appCtx.entityChapters, entityDigest: appCtx.entityDigest, entityDigestFor: appCtx.entityDigestFor, entityChapterReading: appCtx.entityChapterReading, entityChapterReadingFor: appCtx.entityChapterReadingFor,
     entityPassage: appCtx.entityPassage, entityPassageReading: appCtx.entityPassageReading, entityPassageReadingFor: appCtx.entityPassageReadingFor,
-    findings: appCtx.findings, provenance: appCtx.provenance, dagFor: appCtx.dagFor, dagSources: appCtx.dagSources, eotFor: appCtx.eotFor, answerEot: appCtx.answerEot,
+    findings: appCtx.findings, provenance: appCtx.provenance, dagFor: appCtx.dagFor, dagSources: appCtx.dagSources, eotFor: appCtx.eotFor, answerEot: appCtx.answerEot, sourceClaimCount: appCtx.sourceClaimCount,
     // the cross-source comparison matrix — measure × source, each cell opening its passage
     comparisonMatrix: appCtx.comparisonMatrix,
     // search over the record + the durable write path (docs/search-and-pins.md)

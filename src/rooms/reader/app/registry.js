@@ -260,10 +260,10 @@ export const installRegistry = (appCtx) => {
     }
   };
 
-  const topicSources = () => {
-    const t = appCtx.topic();
-    return t ? t.sourceSns.map(sourceBySn).filter(Boolean) : [];
-  };
+  // Full membership regardless of evidence-scope toggle; topicSources below is the ACTIVE scope.
+  const topicSourcesAll = () => { const t = appCtx.topic(); return t ? t.sourceSns.map(sourceBySn).filter(Boolean) : []; };
+  const topicSources = () => { const t = appCtx.topic(); if (!t) return [];
+    return t.sourceSns.map(sourceBySn).filter((s) => s && !(t.scopeDisabled || []).includes(s.sn)); };
   const topicDocs = () => topicSources().map(docFor).filter(Boolean);
   // The MEANING-layer docs for the topic — a clip's/video's figures live in its transcript, read
   // as prose on top (referentDocFor), not in the raw word/segment spans of the base organ doc. This
@@ -283,5 +283,5 @@ export const installRegistry = (appCtx) => {
   const sourceHistoryJsonl = (snId, opts = {}) => sourceExport(snId, { ...opts, format: 'jsonl' });
   const sourceCursorJson = (snId, cursor = {}, opts = {}) => sourceExport(snId, { ...opts, cursor, format: 'cursor-json' });
 
-  Object.assign(appCtx, { addSource, answerEot, docFor, eotFor, finishReading, releaseParsesOutsideTopic, removeSource, sourceBySn, sourceRename, sourceUpdateMetadata, sourceExport, sourceHistoryJsonl, sourceCursorJson, topicDocs, topicReferentDocs, topicSources });
+  Object.assign(appCtx, { addSource, answerEot, docFor, eotFor, finishReading, releaseParsesOutsideTopic, removeSource, sourceBySn, sourceRename, sourceUpdateMetadata, sourceExport, sourceHistoryJsonl, sourceCursorJson, topicDocs, topicReferentDocs, topicSources, topicSourcesAll });
 };
