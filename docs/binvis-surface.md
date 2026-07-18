@@ -1,6 +1,6 @@
 # Byte-structure surface (binvis) — implementation notes
 
-> Status: built (structural layer)
+> Status: built (structure + entropy layers)
 > Location: `src/surfaces/binvis/` (the pure holon) + `src/rooms/reader/binvis-surface.js` (the launcher)
 > Prior art: Aldo Cortesi, *Visualizing binaries with space-filling curves* (binvis.io)
 
@@ -12,10 +12,20 @@ file's bytes down a **Hilbert curve** (so adjacency in the file stays adjacency 
 the plane) and colours each byte by a coarse **class** (text vs. padding vs.
 packed/binary). The file's *shape* reads at a glance without decoding a value.
 
-This is the first of several layers. The structural layer (byte class) ships now;
-an **entropy** layer and a reading-keyed **significance** layer are declared in the
-layer registry (`classify.js`, `LAYERS`) and will paint later without touching the
+Two layers ship now — **structure** (byte class) and **entropy** (local Shannon
+entropy, binvis's second view). A reading-keyed **significance** layer is declared in
+the layer registry (`classify.js`, `LAYERS`) and will paint later without touching the
 render.
+
+### The layer contract
+
+A layer is `build(bytes) → (i) → rgb`: given the whole byte array it returns a
+per-index colourer, plus a `legendKind` (`classes` or `gradient`). This one shape
+covers both a **pointwise** layer (structure colours byte *i* by its class) and a
+**windowed** one (entropy colours byte *i* by the local entropy around it, computed
+once in `entropy.js` — an O(n) sliding window). `buildScene` calls `build(bytes)` once
+and averages the colourer over each pixel's byte bucket. Adding a layer is one entry in
+`LAYERS`, nowhere else — the significance layer will be a third `build`.
 
 ## 1. Layered architecture
 
@@ -36,6 +46,9 @@ text as UTF-8).
 - `classify.js` — the five-class binvis taxonomy, its palette, and the `LAYERS`
   registry. `null` (0x00) → black, `low` (0x01–0x1F, 0x7F) → green, `printable`
   (0x20–0x7E) → blue, `high` (0x80–0xFE) → red, `ones` (0xFF) → white.
+- `entropy.js` — the entropy layer: `windowedEntropy(bytes)` (O(n) sliding-window
+  Shannon entropy, normalised to [0,1]) and the heat ramp `entropyColor` — dark/cool
+  for ordered regions, bright/warm for packed/encrypted ones.
 - `render.strict.js` — `buildScene(bytes, opts)` (pure: bytes → the RGBA pixel
   buffer laid on the plane + histogram/legend) and `renderToContainer(bytes, el,
   opts)` (the canvas adapter; hover/click wired through injected callbacks only).
@@ -59,4 +72,5 @@ with class percentages, and a live byte readout. No dc-surface edit was needed.
 
 Same rule as the waveform: nothing under `src/surfaces/binvis/` may branch on
 modality, and the render asserts nothing (`SIG(Lens → Lens, Tending)`). A new layer
-is a `color` function + an `available` flag in `classify.js`, nowhere else.
+is a `build` function + an `available` flag + a `legendKind` in `classify.js`, nowhere
+else.

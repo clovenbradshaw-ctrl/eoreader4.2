@@ -9,3 +9,4 @@ export { d2xy, xy2d, sideFor } from './curve.js';
 export {
   byteClass, byteColor, BINVIS_PALETTE, CLASSES, CLASS_LABEL, LAYERS, DEFAULT_LAYER,
 } from './classify.js';
+export { windowedEntropy, entropyColor, ENTROPY_STOPS } from './entropy.js';

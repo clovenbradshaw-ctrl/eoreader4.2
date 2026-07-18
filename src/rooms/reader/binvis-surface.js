@@ -54,6 +54,8 @@ const CSS = `
 .eo-binvis__legend{display:flex;flex-direction:column;gap:4px}
 .eo-binvis__leg{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#9fb0c6}
 .eo-binvis__sw{width:12px;height:12px;border-radius:3px;flex:none;border:1px solid rgba(255,255,255,.12)}
+.eo-binvis__bar{height:12px;border-radius:4px;border:1px solid rgba(255,255,255,.12)}
+.eo-binvis__ends{display:flex;justify-content:space-between;font-size:10.5px;color:#6f7d92;margin-top:2px}
 .eo-binvis__leg .n{margin-left:auto;color:#6f7d92;font-variant-numeric:tabular-nums}
 .eo-binvis__note{font-size:11px;color:#6f7d92;line-height:1.5}
 .eo-binvis__empty{padding:30px 12px;text-align:center;color:#6f7d92;font-size:12.5px}
@@ -161,13 +163,22 @@ export const mountBinvis = (host, { app, sn = null, layer = DEFAULT_LAYER, displ
       const per = sc.bucket === 1 ? '1 byte / pixel' : `≈ ${sc.bucket.toLocaleString()} bytes / pixel`;
       cap.textContent = `${kb(total)}${truncated ? ' (head sampled)' : ''} · ${sc.side}×${sc.side} Hilbert · ${per}`;
       legend.innerHTML = '';
-      for (const L of sc.legend) {
-        const row = el(doc, 'div', 'eo-binvis__leg');
-        const sw = el(doc, 'span', 'eo-binvis__sw'); sw.style.background = `rgb(${L.color.join(',')})`;
-        row.appendChild(sw); row.appendChild(el(doc, 'span', null, L.label));
-        const pct = sc.n ? Math.round((L.count / sc.n) * 100) : 0;
-        row.appendChild(el(doc, 'span', 'n', `${pct}%`));
-        legend.appendChild(row);
+      if (sc.legendKind === 'gradient' && sc.gradient) {
+        const bar = el(doc, 'div', 'eo-binvis__bar');
+        bar.style.background = `linear-gradient(90deg,${sc.gradient.map((s) => `rgb(${s.color.join(',')}) ${Math.round(s.at * 100)}%`).join(',')})`;
+        legend.appendChild(bar);
+        const ends = el(doc, 'div', 'eo-binvis__ends');
+        ends.appendChild(el(doc, 'span', null, 'low entropy — ordered')); ends.appendChild(el(doc, 'span', null, 'high — packed'));
+        legend.appendChild(ends);
+      } else {
+        for (const L of sc.legend) {
+          const row = el(doc, 'div', 'eo-binvis__leg');
+          const sw = el(doc, 'span', 'eo-binvis__sw'); sw.style.background = `rgb(${L.color.join(',')})`;
+          row.appendChild(sw); row.appendChild(el(doc, 'span', null, L.label));
+          const pct = sc.n ? Math.round((L.count / sc.n) * 100) : 0;
+          row.appendChild(el(doc, 'span', 'n', `${pct}%`));
+          legend.appendChild(row);
+        }
       }
       note.textContent = truncated
         ? `Showing the first ${kb(MAX_BYTES)} of ${kb(total)}.`
@@ -202,7 +213,7 @@ export const mountBinvisLauncher = (host, { app } = {}) => {
   const head = el(doc, 'div', 'eo-binvis__head');
   const titles = el(doc, 'div');
   titles.appendChild(el(doc, 'div', 'eo-binvis__title', 'Byte structure'));
-  titles.appendChild(el(doc, 'div', 'eo-binvis__sub', "binvis · Hilbert curve · byte-class layer"));
+  titles.appendChild(el(doc, 'div', 'eo-binvis__sub', "binvis · Hilbert curve · structure + entropy"));
   head.appendChild(titles);
   const x = el(doc, 'button', 'eo-binvis__x', '×');
   head.appendChild(x);
