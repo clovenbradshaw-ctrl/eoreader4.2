@@ -352,9 +352,9 @@ table{border-collapse:collapse;width:100%}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
       <span class="eo-hide-sm">Add sources</span>
     </button>
-    <button onClick="{{ openMonologue }}" style="display:flex;align-items:center;gap:6px;background:#E7F6EC;color:#1E8A50;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600" style-hover="background:#DDF0E4">
+    <button onClick="{{ openMonologue }}" title="Every claim traces to a passage, a stored source, and a hash-verified file" style="display:flex;align-items:center;gap:6px;background:#E7F6EC;color:#1E8A50;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600" style-hover="background:#DDF0E4">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/></svg>
-      <span class="eo-hide-sm">Auditable</span>
+      <span class="eo-hide-sm">{{ auditLabel }}</span>
     </button>
 
     <button onClick="{{ toggleSettings }}" title="Settings — roll back to a prior version" style="width:31px;height:31px;display:flex;align-items:center;justify-content:center;border:1px solid #E6E6EC;background:{{ settingsBtnBg }};border-radius:999px;color:{{ settingsBtnFg }};flex:0 0 auto" style-hover="background:#F2F2F6">
@@ -375,8 +375,8 @@ table{border-collapse:collapse;width:100%}
           <sc-if value="{{ verHasHere }}"><span title="The build this live site is running" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#1E8A50;background:#E7F6EC;border-radius:5px;padding:2px 6px">on {{ verHereLabel }}</span></sc-if>
         </div>
 
-        <div style="padding:0 2px 4px"><span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">MURMUR — THE PERIPHERAL SENSE</span></div>
-        <div style="font-size:11.5px;color:#8A8A95;line-height:1.5;padding:0 2px 8px">At rest it wanders — looking at what's interesting, muttering it in the strip, and keeping <b style="color:#6E6E78;font-weight:600">self-guided learning</b>. It only ever runs while you can see it: turning it off hides it, and nothing murmurs unseen.</div>
+        <div style="padding:0 2px 4px"><span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">{{ murmurSectionLabel }}</span></div>
+        <div style="font-size:11.5px;color:#8A8A95;line-height:1.5;padding:0 2px 8px">At rest it wanders — looking at what's interesting, noting it in the strip, and keeping <b style="color:#6E6E78;font-weight:600">self-guided learning</b>. It only ever runs while you can see it: turning it off hides it, and nothing runs unseen.</div>
         <div style="display:flex;gap:5px;margin-bottom:6px">
           <sc-for list="{{ murmurModeOptions }}" as="o">
             <button onClick="{{ o.onSelect }}" title="{{ o.desc }}" style="flex:1;padding:7px 4px;border-radius:8px;font-size:11.5px;font-weight:600;color:{{ o.fg }};background:{{ o.bg }};transition:background .14s,color .14s" style-hover="filter:brightness(.97)">{{ o.label }}</button>
@@ -392,6 +392,16 @@ table{border-collapse:collapse;width:100%}
             <span style="position:relative;width:34px;height:19px;border-radius:999px;background:{{ learningTrackBg }};flex:0 0 auto;transition:background .16s"><span style="position:absolute;top:2px;left:{{ learningKnobX }};width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .16s"></span></span>
           </button>
         </sc-if>
+        <div style="border-top:1px solid #F2F2F6;margin:6px 0 10px"></div>
+
+        <div style="padding:0 2px 4px"><span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">EXPERT LABELS</span></div>
+        <button onClick="{{ toggleExpertMode }}" title="Show EO's own vocabulary (EoT, Fold, Facing, Murmur, holon…) beside the plain-language label every control already leads with" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;text-align:left;margin-bottom:4px" style-hover="background:#F7F7FA">
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+            <span style="font-size:12.5px;font-weight:600;color:#3A3A44">Show EO terms alongside plain labels</span>
+            <span style="font-size:11px;color:#9A9AA4">e.g. “Audit trail · EoT” instead of “Audit trail”</span>
+          </span>
+          <span style="position:relative;width:34px;height:19px;border-radius:999px;background:{{ expertTrackBg }};flex:0 0 auto;transition:background .16s"><span style="position:absolute;top:2px;left:{{ expertKnobX }};width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .16s"></span></span>
+        </button>
         <div style="border-top:1px solid #F2F2F6;margin:6px 0 10px"></div>
 
         <div style="display:flex;align-items:center;gap:8px;padding:0 2px 4px">
@@ -1038,15 +1048,22 @@ table{border-collapse:collapse;width:100%}
                   </sc-if>
                 </sc-if>
 
-                <!-- cold — nothing typed yet: the invitation to record, then search -->
+                <!-- cold — nothing typed yet: explain the product, then offer one guided example
+                     (item 1 of the onboarding pass — plain language before EO's own vocabulary). -->
                 <sc-if value="{{ sfEmpty }}">
-                  <div style="padding:30px 4px 12px;text-align:center">
+                  <div style="padding:26px 4px 12px;text-align:center">
                     <div style="width:46px;height:46px;border-radius:13px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;color:#6D5EF5;margin:0 auto 16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div>
-                    <div style="font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:600;color:#1B1B22">Search the record</div>
-                    <div style="font-size:13.5px;color:#6E6E78;line-height:1.6;max-width:460px;margin:8px auto 20px">Type a word or a name to see every verbatim occurrence lit across your sources — the best-ever ctrl+F. Ask <i>who</i> for the cast, or <i>where do the sources disagree</i> for the contrast. Turn sources off in the rail and the surface re-scopes.</div>
-                    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-                      <sc-for list="{{ heroActions }}" as="h">
-                        <button onClick="{{ h.go }}" style="display:flex;align-items:center;gap:7px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:10px;padding:9px 14px;font-size:12.5px;font-weight:600;color:#3A3A44" style-hover="background:#F2F2F6">{{ h.label }}</button>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:600;color:#1B1B22;line-height:1.3;max-width:560px;margin:0 auto">Build an inspectable evidence map from documents, data, feeds, and media.</div>
+                    <div style="font-size:13.5px;color:#6E6E78;line-height:1.6;max-width:480px;margin:10px auto 24px">Search the web or add sources above. EO Reader extracts structure, tracks referents, compares evidence, and keeps every result linked to its origin.</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;max-width:660px;margin:0 auto;text-align:left">
+                      <sc-for list="{{ guidedExamples }}" as="h">
+                        <button onClick="{{ h.go }}" style="display:flex;gap:10px;align-items:flex-start;text-align:left;background:#fff;border:1px solid #E6E6EC;border-radius:12px;padding:12px 13px" style-hover="border-color:#DED8FD;background:#FBFAFF">
+                          <span style="font-size:17px;line-height:1.1;flex:0 0 auto">{{ h.icon }}</span>
+                          <span style="min-width:0">
+                            <span style="display:block;font-size:13px;font-weight:700;color:#1B1B22">{{ h.label }}</span>
+                            <span style="display:block;font-size:11.5px;color:#8A8A95;margin-top:3px;line-height:1.45">{{ h.desc }}</span>
+                          </span>
+                        </button>
                       </sc-for>
                     </div>
                   </div>
@@ -1068,7 +1085,7 @@ table{border-collapse:collapse;width:100%}
             <div style="display:flex;gap:3px;background:#F4F4F7;border-radius:9px;padding:3px">
               <button onClick="{{ setWebKindEntity }}" title="The figures across the topic and the bonds among them" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindEntFg }};background:{{ webKindEntBg }}">Entities</button>
               <button onClick="{{ setWebKindNetwork }}" title="The sources themselves, linked by what they corroborate" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindNetworkFg }};background:{{ webKindNetworkBg }}">Network</button>
-              <button onClick="{{ setWebKindCrosswalk }}" title="A referent's identity scrubbed across sources — what it was called, and what it merged with, as the corpus was read" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCrosswalkFg }};background:{{ webKindCrosswalkBg }}">Crosswalk</button>
+              <button onClick="{{ setWebKindCrosswalk }}" title="A referent's identity scrubbed across sources — what it was called, and what it merged with, as the selected sources were read" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCrosswalkFg }};background:{{ webKindCrosswalkBg }}">Crosswalk</button>
               <button onClick="{{ setWebKindCompare }}" title="A measure-by-source table — what each source says a value is, and the value it revised from; every cell opens its passage" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCompareFg }};background:{{ webKindCompareBg }}">Compare</button>
             </div>
             </sc-if>
@@ -1624,7 +1641,7 @@ table{border-collapse:collapse;width:100%}
                 <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;color:#9A9AA4;margin:2px 8px 8px">QUICK ACCESS</div>
                 <button onClick="{{ qaRecentGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaRecentBg }};color:{{ qaRecentFg }};font-weight:{{ qaRecentWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span style="flex:1;min-width:0">Recent</span></button>
                 <button onClick="{{ qaStarredGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaStarredBg }};color:{{ qaStarredFg }};font-weight:{{ qaStarredWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 18.8 6.2 21.9l1.1-6.5L2.6 9.8l6.5-.9z"/></svg><span style="flex:1;min-width:0">Starred</span></button>
-                <button onClick="{{ qaTopicGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaTopicBg }};color:{{ qaTopicFg }};font-weight:{{ qaTopicWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg><span style="flex:1;min-width:0">In topic corpus</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4">{{ qaTopicCount }}</span></button>
+                <button onClick="{{ qaTopicGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaTopicBg }};color:{{ qaTopicFg }};font-weight:{{ qaTopicWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg><span style="flex:1;min-width:0">{{ qaTopicLabel }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4">{{ qaTopicCount }}</span></button>
                 <button onClick="{{ qaAllGo }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:{{ qaAllBg }};color:{{ qaAllFg }};font-weight:{{ qaAllWt }};font-size:13px;text-align:left" style-hover="background:#F5F5F8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span style="flex:1;min-width:0">All sources</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4">{{ qaAllCount }}</span></button>
 
                 <!-- Folders tree -->
@@ -2109,13 +2126,13 @@ table{border-collapse:collapse;width:100%}
                 <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
                   <sc-if value="{{ viewerIsAudio }}"><button onClick="{{ viewerModeListen }}" title="Listen — player, waveform + interactive transcript" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmListenFg }};background:{{ vmListenBg }}">Listen</button></sc-if>
                   <sc-if value="{{ viewer.isPdf }}"><button onClick="{{ viewerModePdf }}" title="The pages themselves — the document as a PDF" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPdfFg }};background:{{ vmPdfBg }}">PDF</button></sc-if>
-                  <sc-if value="{{ viewerCanPage }}"><button onClick="{{ viewerModePage }}" title="Render the real website" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPageFg }};background:{{ vmPageBg }}">Native</button></sc-if>
+                  <sc-if value="{{ viewerCanPage }}"><button onClick="{{ viewerModePage }}" title="Render the real website" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPageFg }};background:{{ vmPageBg }}">{{ vmPageLabel }}</button></sc-if>
                   <button onClick="{{ viewerModeOverview }}" title="Source landing page — provenance, counts, ways in, findings, pins and synthesis" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmOverviewFg }};background:{{ vmOverviewBg }}">Overview</button>
                   <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
-                  <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">Facing</button>
+                  <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">{{ vmFacingLabel }}</button>
                   <button onClick="{{ viewerModeStructure }}" title="Byte structure — the document's raw bytes on a Hilbert curve (Aldo Cortesi's binvis): its shape (structure), its packed regions (entropy), and where the reading turned (significance)" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmStructureFg }};background:{{ vmStructureBg }}">Structure</button>
                   <button onClick="{{ viewerModeGraph }}" title="This source's knowledge graph — the figures it names and the bonds among them. Click a node to open its profile." style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmGraphFg }};background:{{ vmGraphBg }}">Graph</button>
-                  <button onClick="{{ viewerModeEot }}" title="The reading, as EoT" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">EoT · {{ viewer.eotCount }}</button>
+                  <button onClick="{{ viewerModeEot }}" title="Every proposition this reading admitted, with its own thinking alongside" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">{{ vmEotLabel }} · {{ viewer.eotCount }}</button>
                 </span>
                 <span style="flex:1"></span>
                 <sc-if value="{{ viewerIsReader }}">
@@ -2133,7 +2150,7 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ cycleReadWidth }}" title="Column width" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">▤ {{ readWidthLabel }}</button>
                   <button onClick="{{ cycleReadTheme }}" title="Paper theme" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">{{ readThemeLabel }}</button>
                   <button onClick="{{ cycleReadingMode }}" title="{{ readingModeTitle }}" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ readingModeFg }};background:{{ readingModeBg }};border:1px solid {{ readingModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)">{{ readingModeLabel }}</button>
-                  <button onClick="{{ toggleFoldPeek }}" title="Temporary — show the summary fold at the cursor: the objects in focus and the reading's assertions (settled · held open · turns · properties · relations), not just the spans." style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ foldPeekFg }};background:{{ foldPeekBg }};border:1px dashed {{ foldPeekBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)">⌖ Fold</button>
+                  <button onClick="{{ toggleFoldPeek }}" title="Temporary — show what the reading holds at the cursor: the objects in focus and its assertions (settled · held open · turns · properties · relations), not just the spans." style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ foldPeekFg }};background:{{ foldPeekBg }};border:1px dashed {{ foldPeekBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)">{{ foldPeekLabel }}</button>
                   <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ entModeLabel }}</button>
                 </sc-if>
                 <sc-if value="{{ viewerIsPage }}">
@@ -2219,7 +2236,7 @@ table{border-collapse:collapse;width:100%}
                           <button onClick="{{ sourceLanding.surprise.toggleStructure }}" title="Add or hide the source structure dots along the waveform" style="padding:5px 9px;border-radius:999px;border:1px solid {{ sourceLanding.surprise.structureBd }};background:{{ sourceLanding.surprise.structureBg }};color:{{ sourceLanding.surprise.structureFg }};font-size:10.5px;font-weight:700">Structure dots</button>
                           <button onClick="{{ sourceLanding.surprise.toggleEntities }}" title="Toggle entity labels and entity narrative marks" style="padding:5px 9px;border-radius:999px;border:1px solid {{ sourceLanding.surprise.entitiesBd }};background:{{ sourceLanding.surprise.entitiesBg }};color:{{ sourceLanding.surprise.entitiesFg }};font-size:10.5px;font-weight:700">Entities</button>
                           <button onClick="{{ sourceLanding.surprise.toggleXkcd }}" title="Overlay entity relationship threads directly on the waveform" style="padding:5px 9px;border-radius:999px;border:1px solid {{ sourceLanding.surprise.xkcdBd }};background:{{ sourceLanding.surprise.xkcdBg }};color:{{ sourceLanding.surprise.xkcdFg }};font-size:10.5px;font-weight:700">Entity threads</button>
-                          <button onClick="{{ sourceLanding.surprise.toggleFold }}" title="Open the fold range handles and summary affordance" style="padding:5px 9px;border-radius:999px;border:1px solid #DED8FD;background:#F1EFFE;color:#5140C8;font-size:10.5px;font-weight:700">Fold range</button>
+                          <button onClick="{{ sourceLanding.surprise.toggleFold }}" title="Pick a range to summarize" style="padding:5px 9px;border-radius:999px;border:1px solid #DED8FD;background:#F1EFFE;color:#5140C8;font-size:10.5px;font-weight:700">{{ sourceLanding.surprise.foldRangeLabel }}</button>
                         </span>
                       </div>
                       <div style="font-size:12.5px;color:#6E6E78;margin:-4px 0 12px">Connections, shifts, and distribution across the source.</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px"><sc-for list="{{ sourceLanding.lenses }}" as="l"><button onClick="{{ l.open }}" title="{{ l.intent }}" style="background:#F1EFFE;border:1px solid #DED8FD;color:#5140C8;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:650">{{ l.label }}</button></sc-for></div><div style="font-size:12.5px;color:#4E5765;margin:0 0 12px"><b>Active frame</b> · {{ sourceLanding.currentLens }}</div><div class="eo-wave" style="position:relative;height:86px;padding:9px 5px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:10px;overflow:hidden">
@@ -2256,7 +2273,7 @@ table{border-collapse:collapse;width:100%}
                       </div>
                       <sc-if value="{{ sourceLanding.surprise.showEntities }}"><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><sc-for list="{{ sourceLanding.surprise.entityPills }}" as="e"><button onClick="{{ e.open }}" style="font-size:11px;color:#5140C8;background:#F1EFFE;border:1px solid #DED8FD;border-radius:999px;padding:4px 8px">{{ e.label }}</button></sc-for></div></sc-if>
                       <sc-if value="{{ sourceLanding.surprise.showXkcd }}"><div style="margin-top:8px;font-size:11.5px;color:#6E6E78">Entity threads are overlaid on the waveform: each selected figure runs left → right, pulling closer to connected figures at the turns where the source binds them.</div></sc-if>
-                      <sc-if value="{{ sourceLanding.surprise.foldOpen }}"><div style="margin-top:12px;border:1px solid #E6E1F7;background:#FBFAFF;border-radius:12px;padding:12px"><div style="display:flex;gap:10px;align-items:center"><span style="font-size:11px;font-weight:800;color:#7A6AE8">in</span><input type="range" min="0" max="99" value="{{ sourceLanding.surprise.foldIn }}" onChange="{{ sourceLanding.surprise.setFoldIn }}" style="flex:1"/><span style="font-size:11px;font-weight:800;color:#7A6AE8">out</span><input type="range" min="1" max="100" value="{{ sourceLanding.surprise.foldOut }}" onChange="{{ sourceLanding.surprise.setFoldOut }}" style="flex:1"/><button onClick="{{ sourceLanding.surprise.summarizeFold }}" style="background:#5B4BE6;color:#fff;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700">Summarize fold</button></div><div style="font-size:11.5px;color:#6E6E78;margin-top:7px">Requires Anthropic Claude 3 Haiku via API. Other LLMs are hidden from this workflow.</div><sc-if value="{{ sourceLanding.surprise.foldBusy }}"><div style="font-size:12px;color:#8A8A95;margin-top:8px">Summarizing selected fold…</div></sc-if><sc-if value="{{ sourceLanding.surprise.foldHasText }}"><div style="font-size:13px;color:#2A2A32;line-height:1.5;margin-top:8px;white-space:pre-wrap">{{ sourceLanding.surprise.foldText }}</div></sc-if><sc-if value="{{ sourceLanding.surprise.foldHasErr }}"><div style="font-size:12px;color:#B23A2E;margin-top:8px">{{ sourceLanding.surprise.foldErr }}</div></sc-if><details style="margin-top:10px"><summary style="font-size:12px;color:#5B4BE6;font-weight:700;cursor:pointer">Precisely what is returned in this fold</summary><pre style="white-space:pre-wrap;font-size:11px;line-height:1.45;color:#363642;background:#fff;border:1px solid #EEEFF4;border-radius:8px;padding:10px;max-height:220px;overflow:auto">{{ sourceLanding.surprise.foldReturned }}</pre></details></div></sc-if>
+                      <sc-if value="{{ sourceLanding.surprise.foldOpen }}"><div style="margin-top:12px;border:1px solid #E6E1F7;background:#FBFAFF;border-radius:12px;padding:12px"><div style="display:flex;gap:10px;align-items:center"><span style="font-size:11px;font-weight:800;color:#7A6AE8">in</span><input type="range" min="0" max="99" value="{{ sourceLanding.surprise.foldIn }}" onChange="{{ sourceLanding.surprise.setFoldIn }}" style="flex:1"/><span style="font-size:11px;font-weight:800;color:#7A6AE8">out</span><input type="range" min="1" max="100" value="{{ sourceLanding.surprise.foldOut }}" onChange="{{ sourceLanding.surprise.setFoldOut }}" style="flex:1"/><button onClick="{{ sourceLanding.surprise.summarizeFold }}" style="background:#5B4BE6;color:#fff;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700">{{ sourceLanding.surprise.summarizeLabel }}</button></div><div style="font-size:11.5px;color:#6E6E78;margin-top:7px">Requires Anthropic Claude 3 Haiku via API. Other LLMs are hidden from this workflow.</div><sc-if value="{{ sourceLanding.surprise.foldBusy }}"><div style="font-size:12px;color:#8A8A95;margin-top:8px">{{ sourceLanding.surprise.summarizingLabel }}</div></sc-if><sc-if value="{{ sourceLanding.surprise.foldHasText }}"><div style="font-size:13px;color:#2A2A32;line-height:1.5;margin-top:8px;white-space:pre-wrap">{{ sourceLanding.surprise.foldText }}</div></sc-if><sc-if value="{{ sourceLanding.surprise.foldHasErr }}"><div style="font-size:12px;color:#B23A2E;margin-top:8px">{{ sourceLanding.surprise.foldErr }}</div></sc-if><details style="margin-top:10px"><summary style="font-size:12px;color:#5B4BE6;font-weight:700;cursor:pointer">{{ sourceLanding.surprise.returnedLabel }}</summary><pre style="white-space:pre-wrap;font-size:11px;line-height:1.45;color:#363642;background:#fff;border:1px solid #EEEFF4;border-radius:8px;padding:10px;max-height:220px;overflow:auto">{{ sourceLanding.surprise.foldReturned }}</pre></details></div></sc-if>
                       <div style="display:flex;align-items:center;gap:14px;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">
                         <span>reading order →</span><span style="flex:1"></span>
                         <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#5B4BE6;display:inline-block"></span>belief · Δ KL</span>
@@ -2507,7 +2524,7 @@ table{border-collapse:collapse;width:100%}
                 <sc-if value="{{ foldPeekOn }}">
                   <div class="eo-scroll" style="position:absolute;top:10px;right:10px;bottom:10px;width:322px;overflow-y:auto;background:#0F1115;color:#E6E9EF;border:1px dashed #3D4657;border-radius:12px;box-shadow:0 14px 44px rgba(10,10,18,.3);padding:12px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.5">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-                      <span style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#E0AF68">⌖ Fold · temporary</span>
+                      <span style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#E0AF68">⌖ {{ foldPeekHeaderLabel }}</span>
                       <span style="flex:1"></span>
                       <span style="font-size:10px;color:#7AA2F7">{{ foldPeekCursorLabel }}</span>
                       <button onClick="{{ toggleFoldPeek }}" title="Close" style="color:#8791A3;background:transparent;border:none;font-size:13px;line-height:1;padding:0 2px">✕</button>
@@ -2562,7 +2579,7 @@ table{border-collapse:collapse;width:100%}
                         <div style="font-size:10px;color:#6E7688;font-style:italic;margin:9px 0 4px">the local model is reading here…</div>
                       </sc-if>
                       <sc-if value="{{ foldPeekTelegram }}">
-                        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8791A3;margin:9px 0 4px">Fold summary (mechanical)</div>
+                        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8791A3;margin:9px 0 4px">{{ foldPeekSummaryLabel }} (mechanical)</div>
                         <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#B7BFD1;margin-bottom:9px">{{ foldPeekTelegram }}</div>
                       </sc-if>
                       <sc-if value="{{ foldPeekHasSpans }}">
@@ -3930,10 +3947,10 @@ class EoMurmurStrip {
     const el = this.el;
     el.style.setProperty('--mm-accent', this.accent);
     el.innerHTML =
-      '<div class="eo-mm-badge"><span class="eo-mm-dot"></span><span class="eo-mm-mark">murmur</span></div>' +
+      '<div class="eo-mm-badge"><span class="eo-mm-dot"></span><span class="eo-mm-mark">activity</span></div>' +
       '<div class="eo-mm-term" role="button" tabindex="0" title="Open the full activity terminal"><div class="eo-mm-row"></div></div>' +
       '<span class="eo-mm-mode"></span>' +
-      '<button class="eo-mm-x" title="Hide the murmur — turn it back on in Settings" aria-label="Hide the murmur">' +
+      '<button class="eo-mm-x" title="Hide this — turn it back on in Settings" aria-label="Hide this">' +
       '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
     // start quiet — the strip mounts empty (nothing gated yet), so it blends before the first thought.
     el.classList.add('eo-mm-quiet');
@@ -4062,6 +4079,20 @@ class EoMurmurStrip {
 // wait and runs the search immediately (onSfKey), taking whatever was warmed.
 const SF_PREFETCH_MS = 3000;
 
+// Plain-language vocabulary layer — every control leads with the ordinary-language name for what
+// it does; EO's own terms (the conceptual system the engine is built on) stay one Settings toggle
+// away rather than being the entry fee. Expert mode appends the EO term after the plain one.
+const EO_TERMS = {
+  eot: { plain: 'Audit trail', jargon: 'EoT' },
+  fold: { plain: 'Active reading', jargon: 'Fold' },
+  facing: { plain: 'Source + analysis', jargon: 'Facing' },
+  murmur: { plain: 'Activity', jargon: 'Murmur' },
+  holon: { plain: 'referent', jargon: 'holon' },
+  native: { plain: 'Original', jargon: 'Native' },
+  corpus: { plain: 'Selected sources', jargon: 'Corpus' },
+  auditable: { plain: 'Audit trail', jargon: 'Auditable' },
+};
+
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -4083,6 +4114,9 @@ class Component extends DCLogic {
       // (off ⇒ hidden), so there is never any muttering the user can't see. Persisted across sessions.
       murmurMode: this._murmurMode(),
       learningLayer: this._pref('eo_learning_layer', true),   // show the self-guided-learning graph layer
+      // Expert mode — appends EO's own vocabulary (EoT, Fold, Facing, Murmur, holon…) after the
+      // plain-language label every control leads with by default. Off by default; persisted.
+      expertMode: this._pref('eo_expert_mode', false),
       focusId: null, hideContra: false, tx: 40, ty: 30, scale: 1, camT: 'none',
       // Graph tiers fold like NotebookLM sections — collapsed by default; the user opens
       // the groups (claims / passages / sources / files) they want to trace. Absent/false = folded.
@@ -4256,6 +4290,34 @@ class Component extends DCLogic {
   _setPref(k, v) { try { localStorage.setItem(k, v ? '1' : '0'); } catch {} }
   _prefStr(k, dflt) { try { const v = localStorage.getItem(k); return v == null ? dflt : v; } catch { return dflt; } }
   _setPrefStr(k, v) { try { localStorage.setItem(k, String(v)); } catch {} }
+
+  // ── plain-language vocabulary layer (EO_TERMS above) ────────────────────────────────────────
+  // _term: the label a button/tab/header shows — plain by default, "Plain · Jargon" in Expert
+  // mode. _termLower: the plain word lowercased for mid-sentence use (with the jargon parenthesized
+  // in Expert mode), e.g. "Summarize the active reading (fold)".
+  _term(key) {
+    const t = EO_TERMS[key]; if (!t) return key;
+    return this.state.expertMode ? `${t.plain} · ${t.jargon}` : t.plain;
+  }
+  _termLower(key) {
+    const t = EO_TERMS[key]; if (!t) return key;
+    return this.state.expertMode ? `${t.plain.toLowerCase()} (${t.jargon})` : t.plain.toLowerCase();
+  }
+  toggleExpertMode() { const v = !this.state.expertMode; this._setPref('eo_expert_mode', v); this.setState({ expertMode: v }); }
+  _termVals() {
+    const on = !!this.state.expertMode;
+    return {
+      expertMode: on, toggleExpertMode: () => this.toggleExpertMode(),
+      expertTrackBg: on ? '#7B4FD6' : '#D4D4DC', expertKnobX: on ? '17px' : '2px',
+      auditLabel: this._term('auditable'),
+      vmPageLabel: this._term('native'), vmFacingLabel: this._term('facing'),
+      vmEotLabel: this._term('eot'),
+      foldPeekLabel: '⌖ ' + this._term('fold'),
+      foldPeekHeaderLabel: this._term('fold') + ' · temporary',
+      foldPeekSummaryLabel: this._term('fold') + ' summary',
+      murmurSectionLabel: (this._term('murmur') + ' — the peripheral sense').toUpperCase(),
+    };
+  }
   // The e-book reading preferences (paper theme, type family, size, width) — persisted whole
   // as JSON, clamped by the render module so a hand-edited value can't break the reader.
   _readPrefs() {
@@ -4717,6 +4779,20 @@ class Component extends DCLogic {
     const el = document.getElementById('eo-omnibox-input');
     if (el) el.focus();
     if (msg) this.showToast(msg);
+  }
+  // The Search tab's own big serif field (#eo-sf-input) — Enter there already runs the same
+  // "pull sources into a topic" motion as the omnibox (onSfKey → sfWebSearch), so "Research a
+  // question" just needs to land the caret in it.
+  focusSearchField() {
+    const el = document.getElementById('eo-sf-input');
+    if (el) el.focus();
+  }
+  // "Explore a prepared example" (cold-start guided option) — opens the Libraries picker on one
+  // of its own pre-curated example queries (docs/library-search.md's `examples` per shelf), so it
+  // reuses the real, already-tested search path rather than fabricating a canned demo corpus.
+  exploreExample() {
+    this.setState({ libOpen: true, searchOpen: false, libId: 'wikipedia', libResults: null, libQ: 'Ada Lovelace' });
+    setTimeout(() => this.libSearch(), 0);
   }
   onOmniInput(e) { this.setState({ omni: e.target.value }); }
   onOmniSubmit(e) {
@@ -5928,7 +6004,7 @@ class Component extends DCLogic {
       stats.push({ label: 'Silence', val: `${Math.round(A.silencePct || 0)}%` });
     }
     const sigSec = h ? h.signalSeconds : (meta ? meta.signalSeconds : null);
-    if (sigSec != null) stats.push({ label: 'Signal', val: `${clock(sigSec || 0)} · ${spans.length} holon${spans.length === 1 ? '' : 's'}` });
+    if (sigSec != null) stats.push({ label: 'Signal', val: `${clock(sigSec || 0)} · ${spans.length} ${this.state.expertMode ? 'referent (holon)' : 'referent'}${spans.length === 1 ? '' : 's'}` });
 
     // The transcription banner — pending / running (with % + a live tail) / done / skipped / error.
     const asr = s._asr || null;
@@ -7753,10 +7829,14 @@ class Component extends DCLogic {
       toggleXkcd: () => this.toggleOverviewXkcd(),
       xkcdFg: this.state.overviewXkcd ? '#5140C8' : '#8A8A95', xkcdBg: this.state.overviewXkcd ? '#F1EFFE' : '#fff', xkcdBd: this.state.overviewXkcd ? '#DED8FD' : '#EAEAEF',
       foldOpen: !!this.state.overviewFoldOpen, toggleFold: () => this.toggleOverviewFoldOpen(),
+      foldRangeLabel: this._term('fold') + ' range',
       foldIn: foldRange.in, foldOut: foldRange.out,
       setFoldIn: (e) => this.setOverviewFoldPoint(s.sn, 'in', e && e.target ? e.target.value : e),
       setFoldOut: (e) => this.setOverviewFoldPoint(s.sn, 'out', e && e.target ? e.target.value : e),
       summarizeFold: () => this.summarizeOverviewFold(s.sn),
+      summarizeLabel: 'Summarize the ' + this._termLower('fold'),
+      summarizingLabel: 'Summarizing the ' + this._termLower('fold') + '…',
+      returnedLabel: 'Precisely what is returned in this ' + this._termLower('fold'),
       foldBusy: !!foldRec.busy, foldText: foldRec.text || '', foldHasText: !!foldRec.text,
       foldErr: foldRec.err || '', foldHasErr: !!foldRec.err,
       foldReturned: (foldRec.returned || foldReturned).join('\n') || '(no source units returned for this selection)',
@@ -9621,7 +9701,7 @@ class Component extends DCLogic {
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', omniAttach: () => {}, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         mainDisplay: 'flex', rightWidth: '340px', rightFlex: '0 0 auto', rightBorder: '1px solid #EAEAEF', rightBodyPad: '14px 16px', rightBodyMax: 'none', rightBodyMargin: '0',
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals() };
+        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
     }
   }
 
@@ -9635,7 +9715,7 @@ class Component extends DCLogic {
         crumb: { show: false },
         statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, omniAttach: () => this.pickFile(), chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals() };
+        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
     }
     const topic = app.topic();
     // The sidebar/Sources-tab list is MEMBERSHIP, not the active evidence scope — an excluded
@@ -10009,6 +10089,17 @@ class Component extends DCLogic {
       { label: '📄 Import a file', go: () => this.pickFile() },
       { label: '📋 Paste text', go: () => this.openPaste() },
     ];
+    // Four task-shaped ways in for the cold Search tab (onboarding pass, item 1) — each names
+    // what the person is trying to DO before any EO vocabulary shows up. "Explore a prepared
+    // example" only makes sense before the record holds anything of its own.
+    const guidedExamples = [
+      { icon: '🔎', label: 'Research a question', desc: 'Type a question or topic above — pull in sources and see every occurrence, who’s involved, and where they disagree.', go: () => this.focusSearchField() },
+      { icon: '📑', label: 'Compare documents', desc: 'Add two or more files at once — see what they corroborate and where they conflict.', go: () => this.pickFile() },
+      { icon: '🎧', label: 'Examine a media file', desc: 'Add audio, video, or an image — get a waveform, a transcript, and the referents it names.', go: () => this.pickFile() },
+    ];
+    if (!sources || !sources.length) {
+      guidedExamples.push({ icon: '✨', label: 'Explore a prepared example', desc: 'Open a real, already-read source and see the structure, referents, and evidence it produced.', go: () => this.exploreExample() });
+    }
 
     // ── ask surface ──────────────────────────────────────────────────────────
     // The Search tab shows the LATEST exchange as one typed, cited surface (not a thread):
@@ -10208,7 +10299,7 @@ class Component extends DCLogic {
     const wsObj = app.activeWorkspace();
     const wsName = wsObj ? wsObj.name : 'Workspace';
     const bucket = st.explorerFolder ? 'folder' : (st.explorerBucket || 'all');
-    const bucketLabel = { recent: 'Recent', starred: 'Starred', topic: 'In topic corpus', all: 'All sources' }[bucket] || 'All sources';
+    const bucketLabel = { recent: 'Recent', starred: 'Starred', topic: 'In ' + this._term('corpus'), all: 'All sources' }[bucket] || 'All sources';
     const gotoBucket = (b) => () => this.setState({ explorerBucket: b, explorerFolder: null, explorerSel: null, explorerMenu: null, explorerShowAll: false });
     const gotoFolder = (id) => () => this.setState({ explorerFolder: id, explorerBucket: null, explorerSel: null, explorerMenu: null, explorerShowAll: false });
 
@@ -10331,7 +10422,7 @@ class Component extends DCLogic {
       for (const t of app.state.topics) for (const mm of t.messages) for (const c of (mm.cites || [])) if (c.sn === selSrc.sn && c.quote) citedPassages.push({ quote: String(c.quote).slice(0, 220), loc: t.title || selSrc.reg });
       citedPassages = citedPassages.slice(0, 6);
     }
-    const insTabs = [['read', 'Read'], ['entities', 'Entities'], ['provenance', 'Provenance'], ['eot', 'EoT']].map(([k, lbl]) => ({
+    const insTabs = [['read', 'Read'], ['entities', 'Entities'], ['provenance', 'Provenance'], ['eot', this._term('eot')]].map(([k, lbl]) => ({
       label: lbl, on: insTab === k, fg: insTab === k ? '#2A2A32' : '#8A8A95', bd: insTab === k ? '#2A2A32' : 'transparent',
       go: () => this.setState({ inspectorTab: k }),
     }));
@@ -10964,7 +11055,7 @@ class Component extends DCLogic {
       downloadAskAuditMd: () => this.downloadAskAudit('md'),
       downloadAskAuditJson: () => this.downloadAskAudit('json'),
       // chat (demoted, beta)
-      chatEmpty: messages.length === 0, messages, heroActions,
+      chatEmpty: messages.length === 0, messages, heroActions, guidedExamples,
       chatInput: st.chatInput, onChatInput: (e) => this.onChatInput(e), onChatKey: (e) => this.onChatKey(e),
       sendChat: () => this.sendChat(), setChatScroll: (el) => this.setChatScroll(el),
       generating, notGenerating: !generating, stopGen: () => app.stop(),
@@ -11031,6 +11122,7 @@ class Component extends DCLogic {
       qaRecentBg: qaRecent.bg, qaRecentFg: qaRecent.fg, qaRecentWt: qaRecent.wt, qaRecentGo: gotoBucket('recent'),
       qaStarredBg: qaStarred.bg, qaStarredFg: qaStarred.fg, qaStarredWt: qaStarred.wt, qaStarredGo: gotoBucket('starred'),
       qaTopicBg: qaTopic.bg, qaTopicFg: qaTopic.fg, qaTopicWt: qaTopic.wt, qaTopicGo: gotoBucket('topic'), qaTopicCount: String(topicCorpus.length),
+      qaTopicLabel: 'In ' + this._term('corpus'),
       qaAllBg: qaAll.bg, qaAllFg: qaAll.fg, qaAllWt: qaAll.wt, qaAllGo: gotoBucket('all'), qaAllCount: String(drive.length),
       exTree, exTreeHas: exTree.length > 0,
       // centre: header, breadcrumb, sort + kind chips, jump-back-in, source cards, show-all
@@ -11061,8 +11153,8 @@ class Component extends DCLogic {
       insOpenReader: () => { if (selSrc) { app.sourceTouch(selSrc.sn); this.openViewer(selSrc.sn); } },
       insRename: () => { if (!selSrc) return; this.setState({ renameSn: selSrc.sn, renameVal: selSrc.title || 'Untitled' }); },
       insReRead: () => { if (selSrc) this.reReadSourceWithOptions(selSrc.sn); },
-      insAddCorpus: () => { if (!selSrc) return; if (insInCorpus) { this.showToast('Already in this topic’s corpus'); return; } app.sourceAddToTopic(selSrc.sn); this.showToast('Added to this topic’s corpus'); },
-      insInCorpus, insAddLabel: insInCorpus ? 'In corpus' : '+ Add to corpus',
+      insAddCorpus: () => { if (!selSrc) return; if (insInCorpus) { this.showToast('Already in this topic’s ' + this._termLower('corpus')); return; } app.sourceAddToTopic(selSrc.sn); this.showToast('Added to this topic’s ' + this._termLower('corpus')); },
+      insInCorpus, insAddLabel: insInCorpus ? 'In ' + this._term('corpus') : '+ Add to ' + this._term('corpus'),
       insAddBg: insInCorpus ? '#E7F6EC' : '#fff', insAddFg: insInCorpus ? '#1E8A50' : '#3A3A44', insAddBd: insInCorpus ? '#CFEBD9' : '#E6E6EC',
       insDownloadOriginalLabel,
       insDownloadOriginal: () => { if (selSrc) this.downloadSourceOriginal(selSrc.sn); },
@@ -11138,11 +11230,14 @@ class Component extends DCLogic {
       entLevelBtnShow: !entPivot,
       cycleEntLevel: () => this.cycleEntLevel(),
       entLevelLabel: entLevel === 'signal' ? 'signal' : entLevel === 'all' ? 'all' : 'names',
-      entLevelTitle: entLevel === 'names'
-        ? 'Showing natural-language entities — people, places, things. Click to show the acoustic signal / noise span holons instead.'
-        : entLevel === 'signal'
-          ? 'Showing the acoustic signal / noise span holons. Click to show every level at once.'
-          : 'Showing every holonic level. Click to return to natural-language entities.',
+      entLevelTitle: (() => {
+        const holonWord = this.state.expertMode ? 'referents (holons)' : 'referents';
+        return entLevel === 'names'
+          ? `Showing natural-language entities — people, places, things. Click to show the acoustic signal / noise span ${holonWord} instead.`
+          : entLevel === 'signal'
+            ? `Showing the acoustic signal / noise span ${holonWord}. Click to show every level at once.`
+            : 'Showing every level of structure at once. Click to return to natural-language entities.';
+      })(),
       toggleEntityMode: () => this.toggleEntityMode(),
       entModeFg: st.entityMode ? '#5B4BE6' : '#8A8A95', entModeBg: st.entityMode ? '#F1EFFE' : '#F2F2F6', entModeBd: st.entityMode ? '#DED8FD' : '#EAEAEF',
       entModeLabel: st.entityMode ? 'Links · on' : 'Links · off',
@@ -11346,6 +11441,8 @@ class Component extends DCLogic {
       ...this._versionVals(),
       // the real-time murmur strip (the peripheral sense) + its Settings toggle
       ...this._murmurVals(),
+      // the plain-language / EO-vocabulary layer (Settings → Expert labels)
+      ...this._termVals(),
       // graph tab explorer (entity web · whole-topic + per-entity · entity toggles)
       ...this._webGraphVals(),
       graphHasSources: sources.length > 0,
