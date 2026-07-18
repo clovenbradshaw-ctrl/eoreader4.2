@@ -63,7 +63,11 @@ text as UTF-8).
   entropy's warm heat). Owns only the colour; the per-byte signal is built one storey up.
 - `render.strict.js` — `buildScene(bytes, opts)` (pure: bytes → the RGBA pixel
   buffer laid on the plane + histogram/legend; `opts.signal` feeds the significance
-  layer) and `renderToContainer(bytes, el, opts)` (the canvas adapter; hover/click
+  layer), `locate(scene, x, y)` (a pixel → the byte range under it — names WHERE a
+  hover sits), `previewOf(bytes, offset, length, opts)` (that byte range → an actual
+  human-legible preview — names WHAT is there: the document's own words for a mostly
+  text span, decoded straight off the bytes, or a short hex run for a mostly-binary
+  one), and `renderToContainer(bytes, el, opts)` (the canvas adapter; hover/click
   wired through injected callbacks only).
 
 ## 2. Aggregation for large files
@@ -75,22 +79,28 @@ pixel per byte. The launcher reads at most 6 MB and says so when it sampled the 
 
 ## 3. Where it is wired
 
-`window.EO.binvis` exposes the pure holon plus `mount`. It is reached two ways:
+`window.EO.binvis` exposes the pure holon plus `mount`. It is reached as a **Source-viewer
+tab**: the source viewer carries a **Structure** tab beside Native / Overview / Reader /
+Facing / Graph — the same row, the same tab-button idiom, right next to how you already
+read this source. It mounts the surface scoped to the active source (`mount(el, { app, sn,
+pickSource: false })` — no picker, since the tab already IS one source) and re-scopes in
+place via `show(sn)` when the active source changes. `setStructureEl` (index.html) owns the
+ref-mount lifecycle, destroying the prior handle before any fresh mount so binvis's app
+subscription never leaks, and on leaving the tab. `mount` also takes `pickSource: true`
+(its default) for a standalone host with its own source picker, should another surface ever
+want to embed it scoped to a whole topic rather than one source — nothing in the app does
+that today.
 
-- **Source-viewer tab.** The source viewer carries a **Structure** tab beside
-  Native / Overview / Reader / Facing / EoT. It mounts the surface scoped to the active
-  source (`mount(el, { app, sn, pickSource: false })` — no picker, since the tab already
-  IS one source) and re-scopes in place via `show(sn)` when the active source changes.
-  `setStructureEl` (index.html) owns the ref-mount lifecycle, destroying the prior handle
-  before any fresh mount so binvis's app subscription never leaks, and on leaving the tab.
-- **Floating launcher.** A bottom-left corner button ("Structure") mounted in `boot.js`
-  beside the audit console opens the same surface as a right-docked panel *with* the
-  source picker, over whatever is loaded.
-
-Both show the layer switch (structure · entropy · significance), the mosaic, a legend
+It shows the layer switch (structure · entropy · significance), the mosaic, a legend
 (class percentages, or the gradient scale for the entropy/significance ramps), and a live
-byte readout — which, on the significance layer, also names the reading's weight under the
-pointer.
+readout — which, on the significance layer, also names the reading's weight under the
+pointer. The readout has two lines: the technical one (offset, byte count, significance %)
+and, beneath it, `previewOf`'s decoding of what is actually THERE — the document's own
+words, quoted, for a text span (set in the reader's own Newsreader serif, the same
+typeface every other quoted passage in the app uses — this is a real look at the document,
+not a debug dump), or a short hex run for a packed/binary one. On the significance layer
+this is exactly the sentence that made the reading turn. A click PINS the cell so its
+reading survives the pointer leaving the canvas — click the same cell again to release it.
 
 ## 4. Discipline
 

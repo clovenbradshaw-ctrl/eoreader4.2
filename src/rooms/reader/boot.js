@@ -335,9 +335,8 @@ window.EO = Object.freeze({
   mountDagSurface,   // the two-cursor causal DAG surface (surfer/dag) — topic-wide + per-entity, with toggles
   readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   reveal,   // the chat typewriter's pace (bounded catch-up) — pure, so the freeze regression is CI-tested
-  // the byte-structure surface (Aldo Cortesi's binvis) — a loaded document's bytes on a Hilbert
-  // curve, coloured by byte class. The pure holon + mountBinvis (the dc surface can host it as a
-  // tab); the floating launcher below makes it visible now. Structural layer today, more to come.
+  // the byte-structure surface (Aldo Cortesi's binvis) — a document's bytes on a Hilbert curve,
+  // coloured by class/entropy/significance. index.html wires mountBinvis into the Structure tab.
   binvis: Object.freeze({ ...binvis, mount: mountBinvis }),
   // Research Review (docs/research-review.md) — a search result becomes a provisional, inspectable
   // corpus (discovered/reviewed/admitted) before anything joins a real topic. Mounted, binvis-style.

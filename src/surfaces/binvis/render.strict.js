@@ -84,6 +84,39 @@ export const locate = (scene, x, y) => {
   return { offset, length: Math.min(scene.bucket, scene.n - offset), x, y };
 };
 
+const isTextish = (b) => (b >= 0x20 && b <= 0x7e) || b === 9 || b === 10 || b === 13;
+
+// previewOf(bytes, offset, length, opts) → { kind: 'empty'|'text'|'binary', text, hex }
+// locate() names WHERE a hover sits; this names WHAT is actually there. Mostly-printable
+// bytes decode as their own characters — for a text source (or the significance layer's
+// reading-text bytes) this IS the document's own words, not a re-derivation of them; stray
+// control bytes stand in as a middle dot rather than corrupting the string. A mostly-binary
+// span (packed data, a media container) decodes as a short hex run instead, so it reads as
+// bytes rather than as garbled text. `length` is widened up to `context` bytes so a hover
+// over a heavily-aggregated pixel (many bytes/pixel on a big file) still surfaces a legible
+// snippet rather than the one or two bytes that one pixel happens to bucket.
+export const previewOf = (bytes, offset, length, { max = 140, context = 24 } = {}) => {
+  const n = bytes.length;
+  const start = Math.max(0, Math.min(offset, n));
+  const want = Math.max(Math.max(0, length), context);
+  const end = Math.max(start, Math.min(n, start + want));
+  const slice = bytes.subarray(start, end);
+  if (!slice.length) return { kind: 'empty', text: '', hex: '' };
+
+  let textish = 0;
+  for (let i = 0; i < slice.length; i++) if (isTextish(slice[i])) textish++;
+  if (textish / slice.length >= 0.6) {
+    const decodeSlice = slice.subarray(0, Math.min(slice.length, max * 4));
+    let s = new TextDecoder('utf-8', { fatal: false }).decode(decodeSlice);
+    s = s.replace(/�/g, '·').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '·').replace(/\s+/g, ' ').trim();
+    if (s.length > max) s = s.slice(0, max - 1) + '…';
+    return { kind: 'text', text: s, hex: '' };
+  }
+  const hb = slice.subarray(0, Math.min(slice.length, 16));
+  const hex = Array.from(hb, (b) => b.toString(16).padStart(2, '0').toUpperCase()).join(' ') + (slice.length > 16 ? ' …' : '');
+  return { kind: 'binary', text: '', hex };
+};
+
 // ---- the DOM adapter --------------------------------------------------------
 
 // renderToContainer — blits buildScene's pixels onto a <canvas> in `el` at native

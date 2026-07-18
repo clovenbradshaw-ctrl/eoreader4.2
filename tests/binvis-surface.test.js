@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { d2xy, xy2d, sideFor } from '../src/surfaces/binvis/curve.js';
 import { byteClass, byteColor, BINVIS_PALETTE, LAYERS, DEFAULT_LAYER } from '../src/surfaces/binvis/classify.js';
-import { buildScene, locate, toBytes } from '../src/surfaces/binvis/render.strict.js';
+import { buildScene, locate, toBytes, previewOf } from '../src/surfaces/binvis/render.strict.js';
 import { windowedEntropy, entropyColor, ENTROPY_STOPS } from '../src/surfaces/binvis/entropy.js';
 import { significanceColor, SIGNIFICANCE_STOPS } from '../src/surfaces/binvis/significance.js';
 
@@ -135,6 +135,50 @@ test('locate: past the file end returns null (the curve overshoots a non-square 
   for (let d = 0; d < s.cells; d++) { const [x, y] = d2xy(s.side, d); (locate(s, x, y) ? covered++ : blank++); }
   assert.equal(covered, 5);
   assert.equal(blank, s.cells - 5);
+});
+
+// ---- previewOf: naming WHAT is under a hover, not just where -----------------
+
+test('previewOf: a mostly-printable span decodes as the document\'s own text', () => {
+  const bytes = toBytes('The quick brown fox jumps over the lazy dog.');
+  const p = previewOf(bytes, 4, 5);
+  assert.equal(p.kind, 'text');
+  assert.ok(p.text.startsWith('quick'), `expected the actual words, got "${p.text}"`);
+});
+
+test('previewOf: control bytes inside a text span stand in as a middle dot, not corruption', () => {
+  const bytes = toBytes('one\x01two\x02three');
+  const p = previewOf(bytes, 0, bytes.length, { context: 0 });
+  assert.equal(p.kind, 'text');
+  assert.ok(p.text.includes('·'), `expected a placeholder dot, got "${p.text}"`);
+  assert.ok(!p.text.includes('\x01'), 'the raw control byte must not leak into the preview');
+});
+
+test('previewOf: a mostly-binary span decodes as a short hex run instead of garbled text', () => {
+  const bytes = new Uint8Array([0x00, 0xff, 0x80, 0x01, 0x02, 0x03, 0x90, 0xa0, 0x00, 0xff]);
+  const p = previewOf(bytes, 0, bytes.length, { context: 0 });
+  assert.equal(p.kind, 'binary');
+  assert.equal(p.hex, '00 FF 80 01 02 03 90 A0 00 FF');
+});
+
+test('previewOf: widens a tiny bucket up to `context` bytes so a heavily-aggregated hover is legible', () => {
+  const bytes = toBytes('abcdefghijklmnopqrstuvwxyz');
+  const p = previewOf(bytes, 0, 1, { context: 10 });
+  assert.equal(p.text, 'abcdefghij');   // not just "a"
+});
+
+test('previewOf: never reads past the end of the array, even past-EOF offsets', () => {
+  const bytes = toBytes('hi');
+  assert.deepEqual(previewOf(bytes, 2, 1), { kind: 'empty', text: '', hex: '' });
+  assert.deepEqual(previewOf(bytes, 50, 1), { kind: 'empty', text: '', hex: '' });
+});
+
+test('previewOf: a long text span is truncated with an ellipsis, not run unbounded', () => {
+  const bytes = toBytes('x'.repeat(500));
+  const p = previewOf(bytes, 0, 500, { max: 50 });
+  assert.equal(p.kind, 'text');
+  assert.equal(p.text.length, 50);
+  assert.ok(p.text.endsWith('…'));
 });
 
 // ---- the layer registry -----------------------------------------------------
