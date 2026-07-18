@@ -115,6 +115,23 @@ table{border-collapse:collapse;width:100%}
 /* the summary skeleton while the local model turns the machinery's telegram into a reading */
 @keyframes eoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .eo-skel{background:linear-gradient(90deg,#ECEAF6 25%,#F4F2FC 50%,#ECEAF6 75%);background-size:200% 100%;animation:eoShimmer 1.5s ease-in-out infinite;border-radius:5px}
+/* ── AI-GENERATED SUMMARY — the fold→summary pipeline's model voice (docs/fold-summary-pipeline.md),
+   made explicitly visible wherever it renders (the cursor peek, a source card, an entity profile). This
+   is NOT the same treatment as the topline's purple (an inventory composed from the record's own
+   objects) — a fold summary is a small CPU/local model's own reading, phrased and gated (the referential
+   + grounding firewalls, src/surfer/fold/summary-prompt.js), and the surface says so plainly: a sparkle
+   badge, a soft violet→cyan wash, a dashed border (echoing the "temporary reading" dashed convention
+   the fold-peek toggle already uses). Only rendered when `via==='model'` — the deterministic telegram
+   floor a caller falls back to on a gate/ground rejection is NOT relabeled as AI-generated; that would
+   be exactly the honesty failure the grounding firewall exists to prevent. See summaryBadgeHtml(). */
+@keyframes eoAiSheen{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+.eo-ai-summary{position:relative;border:1px dashed #C9BFF5;border-radius:10px;padding:10px 12px 9px;
+  background:linear-gradient(120deg,#F6F3FF 0%,#F1FBFA 55%,#F6F3FF 100%);background-size:220% 100%}
+.eo-ai-badge{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;
+  font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#6D5EF5;
+  background:linear-gradient(90deg,#EDE8FF,#E3F7F4,#EDE8FF);background-size:220% 100%;
+  animation:eoAiSheen 5s ease-in-out infinite;border-radius:999px;padding:3px 8px 3px 7px;margin-bottom:6px}
+.eo-ai-badge .dot{width:5px;height:5px;border-radius:50%;flex:0 0 auto}
 /* ── MURMUR — the peripheral sense as a light TERMINAL LOG under the tab bar ──
    The reader's real voiced thoughts (src/murmur/narrate/voice.js — the read side-channel, §9.4) tail
    in as one monospace log line: a dim timestamp, the operator's glyph tinted by the feeling, a › prompt,
@@ -2316,6 +2333,35 @@ table{border-collapse:collapse;width:100%}
               </div>
             </sc-if>
 
+            <!-- FOLD SUMMARY — a REAL reading of the source (the full-power surf's own fold, phrased
+                 by the local model, gated referentially and against the record — surfer/fold/, docs/
+                 fold-summary-pipeline.md). Independent of the SUMMARY panel above, which composes the
+                 record's own inventory rather than reading it. The eo-ai-summary/eo-ai-badge treatment
+                 (shared <style>) marks this explicitly as the model's own voice — never shown for the
+                 mechanical telegram floor (summaryBadge() only badges via==='model'). -->
+            <sc-if value="{{ viewer.showFoldSummary }}">
+              <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;padding:11px 20px">
+                <sc-if value="{{ viewer.foldSummary.has }}">
+                  <sc-if value="{{ viewer.foldSummary.isAi }}">
+                    <div class="eo-ai-summary">
+                      <div class="eo-ai-badge">{{ viewer.foldSummary.badgeLabel }}<sc-if value="{{ viewer.foldSummary.hasGroundDot }}"><span class="dot" title="{{ viewer.foldSummary.groundLabel }}" style="background:{{ viewer.foldSummary.groundDot }}"></span></sc-if></div>
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32">{{ viewer.foldSummary.text }}</div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ !viewer.foldSummary.isAi }}">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                      <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
+                      <sc-if value="{{ viewer.foldSummary.composing }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">the local model is composing…</span></sc-if>
+                    </div>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32">{{ viewer.foldSummary.text }}</div>
+                  </sc-if>
+                </sc-if>
+                <sc-if value="{{ !viewer.foldSummary.has }}">
+                  <button onClick="{{ viewer.foldSummary.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px" style-hover="background:#E7E3FD">✨ Read the fold — a real summary of this source</button>
+                </sc-if>
+              </div>
+            </sc-if>
+
             <!-- MEDIA PANEL (Listen mode) — the decoded audio/video source is the hero above its
                  interactive transcript: player, waveform tinted by the signal/noise holons, stats,
                  and the live transcription status. Folds to a slim strip once the reader scrolls in. -->
@@ -2495,8 +2541,24 @@ table{border-collapse:collapse;width:100%}
                         <div style="font-size:9px;font-weight:700;letter-spacing:.05em;color:#F7768E;margin:7px 0 3px">TURNS</div>
                         <sc-for list="{{ foldPeekTurns }}" as="x"><div style="margin:0 0 3px;color:#C8CEDA">{{ x.t }}</div></sc-for>
                       </sc-if>
+                      <!-- The AI-generated fold summary — a SEPARATE block from the mechanical telegram
+                           below, deliberately: `via==='model'` is the only case the small local model's
+                           own phrasing shipped (referential + grounding firewalls passed); anything else
+                           IS the deterministic telegram and must never wear this badge (see .eo-ai-summary
+                           in the shared <style>). Dark-panel colors here (the peek overlay's own palette),
+                           not the light .eo-ai-badge class — same sparkle-badge idea, this panel's ink. -->
+                      <sc-if value="{{ foldPeekAiShow }}">
+                        <div style="border:1px dashed #4B4470;border-radius:8px;padding:8px 10px 7px;margin:9px 0;background:linear-gradient(120deg,#1D1B33,#182823,#1D1B33)">
+                          <div style="display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#BB9AF7;margin-bottom:5px">{{ foldPeekAiLabel }}</div>
+                          <sc-if value="{{ foldPeekAiHasGroundDot }}"><span title="{{ foldPeekAiGroundLabel }}" style="display:inline-block;width:5px;height:5px;border-radius:50%;background:{{ foldPeekAiGroundDot }};margin-left:5px"></span></sc-if>
+                          <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#DCD6F5">{{ foldPeekAiText }}</div>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{ foldPeekAiLoading }}">
+                        <div style="font-size:10px;color:#6E7688;font-style:italic;margin:9px 0 4px">the local model is reading here…</div>
+                      </sc-if>
                       <sc-if value="{{ foldPeekTelegram }}">
-                        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8791A3;margin:9px 0 4px">Fold summary</div>
+                        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8791A3;margin:9px 0 4px">Fold summary (mechanical)</div>
                         <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#B7BFD1;margin-bottom:9px">{{ foldPeekTelegram }}</div>
                       </sc-if>
                       <sc-if value="{{ foldPeekHasSpans }}">
@@ -2930,6 +2992,32 @@ table{border-collapse:collapse;width:100%}
                   </sc-if>
                 </div>
               </sc-if></sc-if>
+
+              <!-- FOLD SUMMARY — a REAL reading of THIS figure (scope 'entity': the surf thread-
+                   conditioned on it, coref-collapsed, gated referentially and against the record).
+                   Independent of the topline above; never auto-fired (see _foldSummaryVM). -->
+              <div style="margin-top:13px">
+                <sc-if value="{{ prof.foldSummary.has }}">
+                  <sc-if value="{{ prof.foldSummary.isAi }}">
+                    <div class="eo-ai-summary">
+                      <div class="eo-ai-badge">{{ prof.foldSummary.badgeLabel }}<sc-if value="{{ prof.foldSummary.hasGroundDot }}"><span class="dot" title="{{ prof.foldSummary.groundLabel }}" style="background:{{ prof.foldSummary.groundDot }}"></span></sc-if></div>
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ prof.foldSummary.text }}</div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ !prof.foldSummary.isAi }}">
+                    <div style="border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
+                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                        <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
+                        <sc-if value="{{ prof.foldSummary.composing }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">the local model is composing…</span></sc-if>
+                      </div>
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ prof.foldSummary.text }}</div>
+                    </div>
+                  </sc-if>
+                </sc-if>
+                <sc-if value="{{ !prof.foldSummary.has }}">
+                  <button onClick="{{ prof.foldSummary.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px" style-hover="background:#E7E3FD">✨ Read the fold — a real summary of this figure</button>
+                </sc-if>
+              </div>
 
               <!-- The settled referent in its DEFAULT position — moved up near the top of the panel -->
               <!-- (ahead of the web-graph button and the chapter spine) unless it has already been -->
@@ -5195,6 +5283,27 @@ class Component extends DCLogic {
   // the element (its own __eoSig / __eoWired) keep the build + listener-wiring to once per change.
   _escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
+  // ── the AI-summary badge fields, shared by every surface a fold summary renders on ─────────
+  // A fold-summary record (rooms/reader/app/summaries.js: {text, via, ground, model, telegram, …}).
+  // `via` is the honesty seam: only 'model' actually shipped the local model's phrasing — a
+  // referential-gate or grounding rejection (telegram-gated / telegram-ungrounded) or the plain
+  // 'telegram' floor is the deterministic reading, and MUST NOT wear the AI badge (see the
+  // .eo-ai-summary CSS comment). ground.kind ('sourced'|'partial'|'void'|'empty', enactor/ground)
+  // becomes the small grounded/partial dot beside the badge — 'void'/'empty' never reaches here
+  // (realizeSummary already vetoed to the floor), so only sourced/partial are shown.
+  summaryBadge(rec) {
+    const isAi = !!rec && rec.via === 'model';
+    const groundKind = isAi ? rec.ground?.kind : null;
+    const groundDot = groundKind === 'sourced' ? '#1E9E7A' : groundKind === 'partial' ? '#B58A2E' : null;
+    const groundLabel = groundKind === 'sourced' ? 'grounded in the record'
+      : groundKind === 'partial' ? 'partly grounded — some of this is the model’s own phrasing' : '';
+    return {
+      isAi,
+      badgeLabel: isAi ? `✨ AI summary${rec.model ? ` · ${rec.model}` : ''}` : '',
+      groundDot, groundLabel, hasGroundDot: !!groundDot,
+    };
+  }
+
   // The audio/video element for the active source — set (and re-set on a source switch) by the ref
   // on the player. The whole Listen surface drives THIS one element.
   setListenAudio(el) { if (el) this._listenAudio = el; }
@@ -6195,6 +6304,13 @@ class Component extends DCLogic {
     if (!peek) return;
     this._foldPeekAfter = peek.cursor;
     this.setState({ foldPeek: peek });
+    // The AI-generated reading at this same cursor — 'brief' detail, cheap enough to ask at any
+    // place as the reader moves (SUMMARY_DETAILS.brief, ≤64 decode tokens). foldSummary is
+    // idempotent for an unchanged key (returns the cached promise), so re-firing on every dwell
+    // tick costs nothing once the cursor has settled; it only actually decodes on a real move.
+    if (app.foldSummary) {
+      app.foldSummary({ sn, scope: 'cursor', cursor: peek.cursor, detail: 'brief' }).catch(() => {});
+    }
   }
   // Toggle the fold-peek overlay on/off. On → read the place under the eye at once; off → clear it.
   toggleFoldPeek() {
@@ -7119,6 +7235,7 @@ class Component extends DCLogic {
       })(),
       // the auto-generated topline for this entity + its feedback box (docs/topline.md)
       topline: tl,
+      foldSummary: this._foldSummaryVM(p.sn, p.label),
       // When the record only NAMES the referent (topline absence) but we hold a CONFIRMED
       // Wikipedia article, that settled definition is the most confident thing we have — so it
       // leads the panel and the "nothing found yet" summary drops to a quiet footnote beneath it.
@@ -7338,6 +7455,33 @@ class Component extends DCLogic {
       hasKind: false, hasCites: false, hasUnmet: false, isAbsence: false,
       text: '', telegramText: '', spans: [], hasSpans: false, noSpans: true,
       anyFlagged: false, contextualWritten: false,
+    };
+  }
+
+  // ── the fold summary panel — a whole source ('full') or one figure in it ('entity') ─────────
+  // (docs/fold-summary-pipeline.md). A REAL reading — the full-power surf's own fold, phrased by
+  // the local model and gated (referential + grounding), not the topline's inventory composition.
+  // Read-only here: app.foldSummary self-stores (telegram first, model refinement behind it) and
+  // re-emits, so a click just fires the request; the next render picks up foldSummaryFor's result.
+  // NEVER auto-fired on mount — docs/topline.md's "Hide low-quality summary cards" (2026-07-16)
+  // turned off exactly that auto-kick because an unreviewed summary too often read worse than
+  // none; this panel stays an explicit ask, and the AI badge only ever marks a draft that passed
+  // BOTH firewalls (via==='model') — the honest mechanical floor or nothing is what a reject shows.
+  _foldSummaryVM(sn, entity = null) {
+    const app = this._app;
+    if (!app || !app.foldSummaryFor) return { show: false };
+    const q = entity ? { sn, scope: 'entity', entity, detail: 'standard' } : { sn, scope: 'full', detail: 'standard' };
+    const rec = app.foldSummaryFor(q);
+    const badge = rec ? this.summaryBadge(rec) : { isAi: false };
+    // rec.modelless (phase-A telegram stood, phase-B model refinement hasn't landed — or there
+    // is no model) is the only "still working" signal foldSummary exposes; a warm model plus the
+    // still-modelless floor is a compose in flight, worth a "composing…" note.
+    const composing = !!(rec && rec.modelless && app.optionalModel && app.optionalModel());
+    return {
+      show: true, has: !!rec, text: rec ? rec.text : '', composing,
+      isAi: badge.isAi, badgeLabel: badge.badgeLabel || '',
+      hasGroundDot: !!badge.hasGroundDot, groundDot: badge.groundDot || '', groundLabel: badge.groundLabel || '',
+      generate: () => { app.foldSummary(q).catch(() => {}); },
     };
   }
 
@@ -10481,6 +10625,7 @@ class Component extends DCLogic {
           eotCount: eot && eot.structure ? String(eot.structure.lines ? eot.structure.lines.length : 0) : '0',
           // the auto-generated topline for this source + its feedback box (docs/topline.md)
           topline: this._toplineVM('source', { sn: s.sn }, s.title),
+          foldSummary: this._foldSummaryVM(s.sn),
         };
         // The DOSSIER — a single-subject source (a bio/article) shows its dominant figure's reading:
         // the model-written account IN THIS DOCUMENT beside the Wikipedia referent + image over the
@@ -10488,6 +10633,13 @@ class Component extends DCLogic {
         viewer.sourceLanding = this._sourceLandingVM(s, eot); sourceLanding = viewer.sourceLanding;
         viewer.dossier = this._sourceDossierVM(s);
         viewer.plainSummary = !!(viewer.topline && viewer.topline.show) && !viewer.dossier.show && vMode !== 'overview';
+        // The fold-summary panel stands independently of BOTH the topline (above, a composed
+        // inventory) and the dossier (an entity-level reading): sourceDominantEntity has no
+        // margin requirement, so almost any source with a repeated figure shows a dossier, and
+        // gating on its absence would make this document-level summary the rare exception rather
+        // than the norm. A source can have a figure it centres on AND still want a whole-document
+        // reading — they answer different questions ("who is this about" vs "what does it say").
+        viewer.showFoldSummary = vMode !== 'overview';
         // The media panel — player + waveform + signal/noise holons + transcription status —
         // shown above the reading for a decoded audio/video source, in every viewer mode.
         viewer.media = this._mediaVM(s) || { show: false };
@@ -11093,6 +11245,23 @@ class Component extends DCLogic {
           foldPeekTurns: r ? r.turns.map((t) => ({ t })) : [], foldPeekHasTurns: !!(r && r.turns.length),
           foldPeekSpans: fp ? fp.spans.map((s) => ({ t: s.text })) : [], foldPeekHasSpans: !!(fp && fp.spans.length),
           foldPeekTelegram: fp ? fp.telegram : '',
+          // The AI-generated reading at this same place — a SEPARATE record from `fp` (which is
+          // cursorFold's own model-free peek): foldSummaryFor reads back whatever foldSummary
+          // (fired from _foldPeekNow, fire-and-forget) has stored for this exact cursor so far.
+          ...(() => {
+            if (!fp || !app || !app.foldSummaryFor) return { foldPeekAiShow: false, foldPeekAiLoading: false };
+            const rec = app.foldSummaryFor({ sn: fp.sn, scope: 'cursor', cursor: fp.cursor, detail: 'brief' });
+            const badge = rec ? this.summaryBadge(rec) : { isAi: false };
+            return {
+              foldPeekAiShow: badge.isAi,
+              foldPeekAiLoading: !rec || rec.modelless,   // still just the telegram, or nothing stored yet
+              foldPeekAiLabel: badge.badgeLabel || '',
+              foldPeekAiText: badge.isAi ? rec.text : '',
+              foldPeekAiHasGroundDot: !!badge.hasGroundDot,
+              foldPeekAiGroundDot: badge.groundDot || '',
+              foldPeekAiGroundLabel: badge.groundLabel || '',
+            };
+          })(),
         };
       })(),
       // native render body — the live site, plus its own contents lifted into the reader's drawer
