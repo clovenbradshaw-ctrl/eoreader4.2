@@ -712,6 +712,26 @@ table{border-collapse:collapse;width:100%}
 
     <main style="flex:1;display:flex;flex-direction:column;min-width:0">
 
+      <!-- BREADCRUMB — persistent across every screen (Overview, Sources, Search, Graph, Findings,
+           Pins, and any open source), unlike the two ad-hoc breadcrumbs formerly living only inside
+           the Topic Overview and Source Overview cards. Names the level explicitly (workspace ›
+           topic › source) so "where am I" never depends on which screen happens to render one. -->
+      <sc-if value="{{ crumb.show }}">
+      <div class="eo-breadcrumb" style="flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:7px 16px;font-size:11.5px;color:#8A8A95;overflow-x:auto;white-space:nowrap;background:#fff;border-bottom:1px solid #F2F2F6">
+        <span style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto">
+          <span style="width:14px;height:14px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;background:{{ crumb.wsDot }}">{{ crumb.wsInitial }}</span>
+          <span style="font-weight:600;color:#6E6E78">{{ crumb.wsName }}</span>
+        </span>
+        <span style="flex:0 0 auto;color:#C4C4CC">›</span>
+        <sc-if value="{{ crumb.topicIsLast }}"><span style="flex:0 1 auto;min-width:0;font-weight:650;color:#2A2A32;overflow:hidden;text-overflow:ellipsis">{{ crumb.topicTitle }}</span></sc-if>
+        <sc-if value="{{ crumb.topicNotLast }}"><button onClick="{{ crumb.openTopic }}" title="Back to the topic overview" style="flex:0 1 auto;min-width:0;color:#5B4BE6;font-weight:600;background:none;overflow:hidden;text-overflow:ellipsis">{{ crumb.topicTitle }}</button></sc-if>
+        <sc-if value="{{ crumb.hasSource }}">
+          <span style="flex:0 0 auto;color:#C4C4CC">›</span>
+          <span style="flex:0 1 auto;min-width:0;font-weight:650;color:#2A2A32;overflow:hidden;text-overflow:ellipsis">{{ crumb.sourceTitle }}</span>
+        </sc-if>
+      </div>
+      </sc-if>
+
       <div class="eo-tabbar" style="flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:0 12px;border-bottom:1px solid #EAEAEF;background:#fff;height:46px">
         <!-- Only the TABS scroll horizontally. The export menu + flag line sit OUTSIDE this
              overflow-x container so the export dropdown can drop below the 46px bar without
@@ -3993,6 +4013,9 @@ class Component extends DCLogic {
     // A fresh co-read (or at-rest) reflection landed — re-lay the margin notes on the open book so a
     // thought appears where the reading caught on it, without reloading the iframe.
     if (kind === 'reflections') this._refreshMargins();
+    // Restore from IndexedDB just finished — topics/sources now exist, so a bookmarked/shared
+    // route (or, absent one, the default landing state) can finally be applied/stamped in.
+    if (kind === 'ready') this._applyInitialRouteFromHash();
     this._poke();
   }
   // ── the typewriter: reveal streamed text one character at a time ──────────────────────
@@ -4205,6 +4228,114 @@ class Component extends DCLogic {
       if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq);
     } catch {}
   }
+
+  // ── URL / history routing ───────────────────────────────────────────────────
+  // Every screen used to share one URL (the homepage), so Back, refresh, and sharing a link could
+  // never represent "where the user is". This maps the existing nav state — topic id, which topic
+  // tab, which source + its view mode, which Graph subview — onto a hash route, one-directionally
+  // reconciled both ways: state → hash (_syncRoute, called from the handful of methods that change
+  // tab/source/mode/graph-kind) and hash → state (_applyRoute, called on boot and on popstate). A
+  // HASH route (not a real path) is deliberate: GitHub Pages serves this app with no 404.html SPA
+  // fallback, so a pushState path would 404 on reload or a shared link; a hash fragment never
+  // leaves the browser, so it needs no server-side support at all.
+  _routeScreens() { return { topic: 'overview', register: 'sources', search: 'search', graph: 'graph', evidence: 'findings', pins: 'pins' }; }
+  _routeScreensRev() {
+    const rev = {};
+    for (const k in this._routeScreens()) rev[this._routeScreens()[k]] = k;
+    return rev;
+  }
+  // The current nav state, serialized. Deliberately shallow — topic, screen/source, source mode,
+  // graph subview — not every fold/panel toggle; those stay session-only, same as today.
+  _routeHash() {
+    const app = this._app;
+    const topicId = app && app.state ? app.state.activeTopicId : null;
+    if (!topicId) return '#/';
+    let path = `#/topic/${encodeURIComponent(topicId)}`;
+    const tab = this.state.tab;
+    const activeSn = this._activeSrc ? this._activeSrc() : null;
+    if (activeSn) {
+      const mode = this.state.viewerModes[activeSn] || 'overview';
+      path += `/source/${encodeURIComponent(activeSn)}/${encodeURIComponent(mode)}`;
+    } else {
+      const screen = this._routeScreens()[tab] || 'overview';
+      if (screen !== 'overview') path += `/${screen}`;
+      if (tab === 'graph' && this._wg && this._wg.kind && this._wg.kind !== 'entity') path += `/${encodeURIComponent(this._wg.kind)}`;
+    }
+    return path;
+  }
+  // Writes the current state into the URL if it doesn't already match — never fires a hashchange
+  // (pushState/replaceState don't), so this can never re-trigger _applyRoute itself. `replace`
+  // (true only for the boot-time default) avoids planting a spurious history entry before the
+  // user has navigated anywhere.
+  _syncRoute(replace) {
+    if (this._routerApplying || typeof window === 'undefined' || !window.history) return;
+    const hash = this._routeHash();
+    const cur = window.location.hash || '#/';
+    if (cur === hash) return;
+    try { (replace ? window.history.replaceState : window.history.pushState).call(window.history, null, '', hash); } catch {}
+  }
+  _parseRouteHash(hash) {
+    const raw = String(hash || '').replace(/^#\/?/, '');
+    if (!raw) return null;
+    const parts = raw.split('/').filter(Boolean).map((p) => { try { return decodeURIComponent(p); } catch { return p; } });
+    if (parts[0] !== 'topic' || !parts[1]) return null;
+    const route = { topicId: parts[1] };
+    if (parts[2] === 'source' && parts[3]) { route.sourceId = parts[3]; route.sourceMode = parts[4] || 'overview'; }
+    else if (parts[2]) { route.screen = this._routeScreensRev()[parts[2]] || null; if (parts[2] === 'graph' && parts[3]) route.graphKind = parts[3]; }
+    return route;
+  }
+  // Applies a parsed route to the app/UI state. Guarded re-entrantly (_routerApplying) so the
+  // setTab/setSourceMode/setWebKind/openViewer calls it makes don't each push their own history
+  // entry on top of the navigation that's already in flight.
+  _applyRoute(route) {
+    const app = this._app;
+    if (!app || !route) return;
+    this._routerApplying = true;
+    try {
+      if (route.topicId && app.state.activeTopicId !== route.topicId) {
+        const exists = (app.state.topics || []).some((t) => t.id === route.topicId);
+        if (!exists) { this.showToast('That topic could not be found.'); return; }
+        app.setTopic(route.topicId);
+      }
+      if (route.sourceId) {
+        const src = app.sourceBySn ? app.sourceBySn(route.sourceId) : null;
+        if (src) { this.openViewer(route.sourceId); this.setSourceMode(route.sourceMode || 'overview'); }
+        else this.showToast('That source could not be found.');
+      } else if (route.screen) {
+        this.setTab(route.screen);
+        if (route.screen === 'graph' && route.graphKind) this.setWebKind(route.graphKind);
+      }
+    } finally { this._routerApplying = false; }
+  }
+  // Both the 'ready' engine event and componentDidMount can reach this on boot (whichever loses
+  // the race calls it second); _initialRouteApplied makes the one-time boot routing idempotent so
+  // the loser is a harmless no-op rather than a second, redundant apply.
+  _applyInitialRouteFromHash() {
+    if (typeof window === 'undefined' || this._initialRouteApplied) return;
+    if (!this._app || !this._app.state || !this._app.state.ready) return;
+    this._initialRouteApplied = true;
+    const route = this._parseRouteHash(window.location.hash);
+    if (route) this._applyRoute(route);
+    else this._syncRoute(true);   // no hash yet (fresh load) — stamp the current default landing state in, no history entry
+  }
+  componentDidMount() {
+    if (typeof window === 'undefined') return;
+    this._onPopStateBound = () => this._onPopState();
+    window.addEventListener('popstate', this._onPopStateBound);
+    // If the engine already finished its IndexedDB restore before this mounted, _onEngine('ready')
+    // already fired (and found no subscriber yet) — apply the boot route now instead of waiting.
+    this._applyInitialRouteFromHash();
+  }
+  // Real back/forward navigation: the browser already updated location.hash before this fires.
+  _onPopState() {
+    const route = this._parseRouteHash(window.location.hash);
+    if (route) this._applyRoute(route);
+  }
+  componentWillUnmount() {
+    if (typeof window === 'undefined' || !this._onPopStateBound) return;
+    window.removeEventListener('popstate', this._onPopStateBound);
+  }
+
   _ensureFileInput() {
     if (this._fileInput && document.body.contains(this._fileInput)) return this._fileInput;
     const inp = document.createElement('input');
@@ -4795,6 +4926,7 @@ class Component extends DCLogic {
       if (m === 'native') this.loadPage(tab);
       else if (m === 'pdf') this.loadPdf(tab);
     }
+    this._syncRoute();
   }
   // Seed the whole-topic entity web as the Graph tab's default view, if nothing is configured
   // yet. Returns whether it initialised (so the caller can mirror it into render state).
@@ -5591,6 +5723,7 @@ class Component extends DCLogic {
     this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) });
     if (modes[sn] === 'native') this.loadPage(sn);
     if (modes[sn] === 'pdf') this.loadPdf(sn);
+    this._syncRoute();
   }
   closeTab(sn, e) {
     if (e && e.stopPropagation) e.stopPropagation();
@@ -5603,6 +5736,7 @@ class Component extends DCLogic {
     let tab = this.state.tab;
     if (tab === sn) { const i = this.state.viewerTabs.indexOf(sn); tab = tabs[Math.max(0, i - 1)] || tabs[i] || 'register'; this._readerFrame = null; this._nativeFrame = null; this._viewCache = null; }
     this.setState({ viewerTabs: tabs, viewerModes: modes, viewerFocus: focus, viewerPages: pages, tab, tocOpen: false, nativeToc: [] });
+    this._syncRoute();
   }
   setSourceMode(mode) {
     const sn = this._activeSrc(); if (!sn) return;
@@ -5613,6 +5747,7 @@ class Component extends DCLogic {
     this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false });
     if (mode === 'native') this.loadPage(sn);
     if (mode === 'pdf') this.loadPdf(sn);
+    this._syncRoute();
   }
   // Overview waveform controls — the only surprise view is the overlay; the toggles add structure,
   // entities, the xkcd-style narrative sketch, and the draggable fold in/out handles.
@@ -7811,6 +7946,7 @@ class Component extends DCLogic {
     this._seedWgPanel();   // entity kind reopens the panel on the top figure; network/causal have none
     this.setState({ webGraphFor: this._wgMirror(), webEntQuery: '' });   // the vocabularies differ — drop any stale filter
     this._drawWebGraph();
+    this._syncRoute();
   }
   setWebScope(scope) {
     if (!this._wg) return;
@@ -8893,6 +9029,7 @@ class Component extends DCLogic {
       return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, onSfKey: () => {}, sfClear: () => {}, sfWebShow: false, sfWebGo: () => {}, sfWebLabel: '', sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
+        crumb: { show: false },
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', omniAttach: () => {}, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         mainDisplay: 'flex', rightWidth: '340px', rightFlex: '0 0 auto', rightBorder: '1px solid #EAEAEF', rightBodyPad: '14px 16px', rightBodyMax: 'none', rightBodyMargin: '0',
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
@@ -8907,6 +9044,7 @@ class Component extends DCLogic {
       return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, onSfKey: () => {}, sfClear: () => {}, sfWebShow: false, sfWebGo: () => {}, sfWebLabel: '', sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Engine booting…', sub: 'Starting EO Reader…', chip: '…' },
+        crumb: { show: false },
         statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, omniAttach: () => this.pickFile(), chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals() };
@@ -10138,8 +10276,23 @@ class Component extends DCLogic {
     }));
     const askScope = st.askScope || 'follow';
 
+    // BREADCRUMB — workspace › topic › (source). `viewer` (the open-source view-model, built
+    // above) is already null unless a source tab is active, so its presence alone decides whether
+    // the trail has a third, non-clickable "you are here" segment.
+    const crumb = {
+      show: !!topic,
+      wsName: activeWs ? activeWs.name : 'Workspace',
+      wsInitial: activeWs ? (((activeWs.name || '?').trim()[0] || '?').toUpperCase()) : '?',
+      wsDot: activeWs ? (activeWs.color || '#6D5EF5') : '#6D5EF5',
+      topicTitle: topic ? topic.title : '',
+      topicIsLast: !viewer, topicNotLast: !!viewer,
+      openTopic: () => this.setTab('topic'),
+      hasSource: !!viewer, sourceTitle: viewer ? viewer.title : '',
+    };
+
     return {
       // chrome
+      crumb,
       omni: st.omni, toast: st.toast, dragOver: !!st.dragOver,
       // live recording — the mic button + the take panel
       // The Home tab (Source Explorer) is a self-contained surface with its OWN left rail (Quick
