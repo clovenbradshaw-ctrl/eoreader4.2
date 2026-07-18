@@ -74,7 +74,7 @@ import { createChatRoom, mountChat, mountChatLauncher } from '../chat/index.js';
 import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
-import { mountBinvis, mountBinvisLauncher } from './binvis-surface.js';
+import { mountBinvis } from './binvis-surface.js';
 import * as binvis from '../../surfaces/binvis/index.js';
 import { createPipelineSurface } from './pipeline-surface.js';
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
@@ -375,8 +375,3 @@ catch (e) { console.warn('[EO] vault launcher not mounted', e); }
 // watchdog in the surface, so a freeze like the essay hang is visible as it happens.
 try { if (typeof document !== 'undefined') mountConsole(document.body, { audit, app, appName: APP_NAME, version: APP_VERSION }); }
 catch (e) { console.warn('[EO] console not mounted', e); }
-
-// …and the byte-structure launcher (rooms/reader/binvis-surface.js) — a corner button opening
-// Aldo Cortesi's binvis over ANY loaded document (its bytes on a Hilbert curve, coloured by byte class).
-try { if (typeof document !== 'undefined') mountBinvisLauncher(document.body, { app }); }
-catch (e) { console.warn('[EO] binvis launcher not mounted', e); }
