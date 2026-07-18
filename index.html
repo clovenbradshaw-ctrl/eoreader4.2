@@ -218,25 +218,30 @@ table{border-collapse:collapse;width:100%}
    820px the side panels become overlay drawers, the header sheds its labels,
    modals go edge-to-edge, and inputs hold 16px so iOS never auto-zooms. */
 @media (max-width: 820px){
+  /* The header can't fit the omnibar AND nine controls in one 50px row — squeezed to a
+     ~37px sliver, the search box read as broken and unusable. Below the breakpoint the
+     header becomes two rows: the icon/action buttons up top, and the omnibar full-width
+     on its own line beneath them (order:99 + 100% basis wraps it there). --eo-hdr is the
+     resulting two-row height; the side drawers and their backdrop hang off it so they
+     still start flush under the header. */
+  :root{--eo-hdr:calc(94px + env(safe-area-inset-top,0px))}
   .eo-root{height:100dvh !important}
   .eo-hide-sm{display:none !important}
-  .eo-header{gap:6px !important;padding:0 max(8px,env(safe-area-inset-right)) 0 max(8px,env(safe-area-inset-left)) !important}
-  /* The omnibar must be free to shrink — min-width:auto on the form/input otherwise
-     holds the input's intrinsic width and shoves the right-side buttons off-screen. */
-  .eo-header form{min-width:0}
-  .eo-header form>div{min-width:0;padding:0 10px !important;gap:6px !important}
+  .eo-header{height:var(--eo-hdr) !important;flex-wrap:wrap !important;align-content:flex-start !important;gap:6px !important;padding:calc(7px + env(safe-area-inset-top,0px)) max(8px,env(safe-area-inset-right)) 8px max(8px,env(safe-area-inset-left)) !important}
+  .eo-header>form{order:99;flex:1 1 100% !important;min-width:0;justify-content:stretch !important}
+  .eo-header form>div{min-width:0;max-width:none !important;height:40px;padding:0 13px !important;gap:9px !important}
   .eo-header input{font-size:16px !important;min-width:0;text-overflow:ellipsis}
   .eo-modelchip-label{display:none}
-  .eo-left{position:fixed !important;left:0;top:50px;bottom:0;width:min(86vw,330px) !important;z-index:44;box-shadow:14px 0 44px rgba(20,20,30,.18);animation:eoDrawerL .22s cubic-bezier(.4,0,.2,1)}
-  .eo-right{position:fixed !important;right:0;top:50px;bottom:0;width:min(88vw,350px) !important;z-index:44;box-shadow:-14px 0 44px rgba(20,20,30,.18);animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)}
-  .eo-backdrop{display:block;position:fixed;left:0;right:0;top:50px;bottom:0;z-index:43;background:rgba(20,20,28,.32);animation:eoFade .16s ease}
+  .eo-left{position:fixed !important;left:0;top:var(--eo-hdr);bottom:0;width:min(86vw,330px) !important;z-index:44;box-shadow:14px 0 44px rgba(20,20,30,.18);animation:eoDrawerL .22s cubic-bezier(.4,0,.2,1)}
+  .eo-right{position:fixed !important;right:0;top:var(--eo-hdr);bottom:0;width:min(88vw,350px) !important;z-index:44;box-shadow:-14px 0 44px rgba(20,20,30,.18);animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)}
+  .eo-backdrop{display:block;position:fixed;left:0;right:0;top:var(--eo-hdr);bottom:0;z-index:43;background:rgba(20,20,28,.32);animation:eoFade .16s ease}
   .eo-tabbar{padding:0 6px !important}
   .eo-chatscroll{padding:18px 12px !important}
   .eo-composer{padding:10px 10px calc(10px + env(safe-area-inset-bottom)) !important}
   .eo-chatinput{font-size:16px !important}
   .eo-graphhead{flex-wrap:wrap !important;height:auto !important;padding:10px 12px !important;gap:8px !important}
   .eo-graphtools{flex-wrap:wrap !important;row-gap:6px}
-  .eo-pop{max-width:calc(100vw - 16px) !important;right:8px !important}
+  .eo-pop{max-width:calc(100vw - 16px) !important;right:8px !important;left:auto !important;top:calc(var(--eo-hdr) + 4px) !important}
   .eo-modal{left:8px !important;right:8px !important;width:auto !important;transform:none !important;top:12px !important;max-height:calc(100dvh - 24px) !important}
   .eo-tall{bottom:12px !important;max-height:none !important}
   .eo-sheet{left:8px !important;right:8px !important;width:auto !important;transform:none !important;max-height:calc(100dvh - 24px);overflow-y:auto}
