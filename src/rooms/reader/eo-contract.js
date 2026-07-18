@@ -96,4 +96,12 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/versions.js': contract({ ops: ['SIG', 'CON'], targets: ['Network', 'Void'], products: ['Link'], stances: ['Tending', 'Binding'], note: 'the version time-machine — roll back to a prior PR' }),
   'src/rooms/reader/video-frames.js': contract({ ops: ['SEG'], targets: ['Field'], products: ['Field'], stances: ['Dissecting'], note: 'video front-end — decode + sample a clip into luminance-grid frames' }),
   'src/rooms/reader/wiki-referent.js': contract({ ops: ['CON', 'EVA'], targets: ['Network'], products: ['Link'], stances: ['Binding', 'Tracing'], note: 'the entity panel wiki referent — search, score, confirm' }),
+  // the pipeline surface — an n8n/TouchDesigner-style graph wiring a source's derivations
+  // (transcript, waveform, characters, motifs) to a sink (note, download, webhook, TouchDesigner)
+  'src/rooms/reader/pipeline-nodes.js': contract({ ops: ['SEG', 'INS', 'CON'], targets: ['Field'], products: ['Entity', 'Network'], stances: ['Dissecting', 'Making', 'Binding'], note: 'the pipeline surface’s node vocabulary — source derivations, text→motifs, any→a sink' }),
+  'src/rooms/reader/pipeline-engine.js': contract({ ops: ['CON', 'INS', 'NUL'], targets: ['Void', 'Network'], products: ['Entity', 'Link', 'Void'], stances: ['Making', 'Binding', 'Tending'], note: 'the pipeline surface’s graph CRUD, topological executor, and browser transports' }),
+  'src/rooms/reader/pipeline-dom.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Clearing'], note: 'shared style sheet + DOM/geometry helpers for the pipeline surface' }),
+  'src/rooms/reader/pipeline-canvas.js': contract({ ops: ['INS', 'CON'], targets: ['Field'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'the pipeline surface’s canvas — palette, node/edge rendering, drag-to-move, drag-to-wire' }),
+  'src/rooms/reader/pipeline-inspector.js': contract({ ops: ['SEG', 'DEF'], targets: ['Field'], products: ['Lens'], stances: ['Dissecting', 'Binding'], note: 'the pipeline surface’s parameter inspector — single node or a whole series edited at once' }),
+  'src/rooms/reader/pipeline-surface.js': contract({ ops: ['SIG', 'INS'], targets: ['Field'], products: ['Entity'], stances: ['Tending', 'Making'], note: 'the pipeline surface’s DOM shell — mounts the overlay, wires the top bar, delegates to canvas/inspector' }),
 });

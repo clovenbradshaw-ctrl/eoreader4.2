@@ -76,6 +76,7 @@ import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
 import { mountBinvis, mountBinvisLauncher } from './binvis-surface.js';
 import * as binvis from '../../surfaces/binvis/index.js';
+import { createPipelineSurface } from './pipeline-surface.js';
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
 // background faculty that watches the same fold geometry the turn emits and raises IMPRESSIONS
@@ -308,9 +309,12 @@ const render = Object.freeze({
   },
 });
 
+// The n8n/TouchDesigner-style wiring surface — a source's derivations to a sink (pipeline-*.js).
+const pipeline = createPipelineSurface({ app });
 window.EO = Object.freeze({
   app,
   render,   // the facing-page WYSIWYG renderer — open a source (HTML/CSS/JS) rendered live beside its code
+  pipeline, // the n8n/TouchDesigner-style wiring surface — open({sourceIds}), plus the graph CRUD + run
   parse,
   readingAt,
   groundSpans, groundSummary, supportVerdict,

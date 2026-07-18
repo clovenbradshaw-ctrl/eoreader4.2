@@ -94,7 +94,7 @@ const BASELINE = new Map([
   ['src/rooms/reader/app/registry.js', 287],
   ['src/rooms/reader/app/model.js', 376],
   ['src/rooms/reader/app/toplines.js', 313],
-  ['src/rooms/reader/boot.js', 374],
+  ['src/rooms/reader/boot.js', 378],
   ['src/rooms/reader/chat-export.js', 514],
   ['src/rooms/reader/console-surface.js', 438],
   ['src/rooms/reader/eo/phasepost.js', 401],
