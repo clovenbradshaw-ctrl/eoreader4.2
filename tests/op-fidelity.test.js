@@ -35,6 +35,7 @@ const EXEMPT = new Map([
   ['src/surfer/metacognition.js', 'narrates logged events into EOT lines; op labels the narrated event'],
   ['src/weave/topline/surface.js', 'drift classifications label a divergence by the op it resembles'],
   ['src/rooms/generation/intents.js', 'the few-shot EXAMPLE is a literal illustration of the intent shape the model should return; this module\'s own act is DEF·SEG (schema + parse), not INS'],
+  ['src/core/fold-trace.js', 'the grain-mixed check PROBES the coherence guard with a candidate (REC, Entity) pairing to see whether it diagonals — asking the guard is not firing REC; this module\'s own act is EVA (labeling an already-built WaveformModel)'],
 ]);
 
 const stripComments = (s) =>
