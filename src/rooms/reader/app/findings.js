@@ -117,9 +117,12 @@ export const installFindings = (appCtx) => {
     };
   };
 
-  const provenance = () => {
+  // `precomputed` lets a caller that already ran findings() this render (index.html's _vals(),
+  // which needs the claims list AND the provenance DAG off the same reading) hand it straight
+  // in, instead of provenance() re-running the whole recordClaims pass a second time.
+  const provenance = (precomputed = null) => {
     const t = appCtx.topic();
-    const f = findings();
+    const f = precomputed || findings();
     const srcs = appCtx.topicSources();
     const usedSns = new Set(f.passages.map((p) => p.sn).filter(Boolean));
     const shown = srcs.filter((s) => usedSns.has(s.sn) || usedSns.size === 0).slice(0, 8);
