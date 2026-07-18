@@ -84,3 +84,11 @@ export const appendLog = (log, { kind, t, text, effect = '' }, mintId, { coalesc
   return log;
 };
 
+// The full session log as JSON, for export/download — a raw dump of every entry logIt recorded
+// (state.log itself is capped at LOG_CAP; a live devtools console mirror covers the uncapped run).
+export const exportLogJson = (log, stamp) => ({
+  text: JSON.stringify(log, null, 2),
+  mime: 'application/json',
+  filename: `eo-log-${String(stamp).replace(/[:.]/g, '-')}.json`,
+});
+

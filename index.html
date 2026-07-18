@@ -570,7 +570,11 @@ table{border-collapse:collapse;width:100%}
         </div>
 
         <div style="display:flex;flex-direction:column">
-          <div style="display:flex;align-items:center;gap:8px">
+          <!-- The status widget (Idle · monitoring / last log line / N src) restated in prose what
+               the console already logs verbatim in real time (see logIt in app.js) — a second, laggier
+               readout of the same events. Hidden here; the console is now the live readout, and the
+               "Auditable" pill (top bar) still opens the same Master log drawer for a full history. -->
+          <div style="display:none;align-items:center;gap:8px">
             <button onClick="{{ toggleStatus }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:11px;background:#F7F7FA;border:1px solid #ECECF1;border-radius:10px;padding:10px 12px" style-hover="background:#F2F2F6">
               <span style="position:relative;width:8px;height:8px;flex:0 0 auto"><span style="position:absolute;inset:0;border-radius:50%;background:{{ statusColor }};animation:eoPulse 2.6s ease-in-out infinite"></span></span>
               <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
@@ -580,13 +584,16 @@ table{border-collapse:collapse;width:100%}
               <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#5B4BE6;background:#F1EFFE;border-radius:6px;padding:2px 6px;flex:0 0 auto">{{ status.chip }}</span>
               <span style="color:#B4B4BE;flex:0 0 auto;transform:rotate({{ statusRot }});transition:transform .16s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
             </button>
-            <!-- The UNIVERSAL Stop — shown whenever anything long is running (a chat turn OR an ingest:
-                 a URL fetch, a web search, a page/file import), so Stop is reachable no matter which op
-                 is in flight or which tab is open. app.stop() trips the current op's signal at once. -->
-            <sc-if value="{{ canStop }}">
-              <button onClick="{{ stopGen }}" title="Stop" aria-label="Stop" style="flex:0 0 auto;width:40px;height:40px;border-radius:10px;background:#FBE9E6;color:#B23A2E;border:1px solid #F3D5CF;display:flex;align-items:center;justify-content:center" style-hover="background:#F6DCD7"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
-            </sc-if>
           </div>
+          <!-- The UNIVERSAL Stop — shown whenever anything long is running (a chat turn OR an ingest:
+               a URL fetch, a web search, a page/file import), so Stop is reachable no matter which op
+               is in flight or which tab is open. app.stop() trips the current op's signal at once. Kept
+               outside the (now hidden) status row so it stays reachable regardless. -->
+          <sc-if value="{{ canStop }}">
+            <div style="display:flex;align-items:center;gap:8px">
+              <button onClick="{{ stopGen }}" title="Stop" aria-label="Stop" style="flex:0 0 auto;width:40px;height:40px;border-radius:10px;background:#FBE9E6;color:#B23A2E;border:1px solid #F3D5CF;display:flex;align-items:center;justify-content:center" style-hover="background:#F6DCD7"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+            </div>
+          </sc-if>
           <sc-if value="{{ statusOpen }}">
             <div style="margin-top:8px;background:#FBFBFD;border:1px solid #EFEFF3;border-radius:10px;padding:12px">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
@@ -3297,9 +3304,10 @@ table{border-collapse:collapse;width:100%}
             <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;font-weight:600">Master log</div>
             <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#5B4BE6;background:#F1EFFE;border-radius:6px;padding:2px 7px">{{ logCount }} events</span>
             <span style="flex:1"></span>
+            <button onClick="{{ downloadLog }}" title="Export the full session log as JSON" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8A8A95" style-hover="background:#F2F2F6;color:#5B4BE6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
             <button onClick="{{ closeMonologue }}" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
           </div>
-          <div style="font-size:12px;color:#8A8A95;margin-top:3px">Everything that touched the record — every action, the reasoning behind it, and what the reading reflects at rest.</div>
+          <div style="font-size:12px;color:#8A8A95;margin-top:3px">Everything that touched the record — every action, the reasoning behind it, and what the reading reflects at rest. Also mirrored live to the browser console.</div>
         </div>
 
         <div style="padding:16px 18px">
@@ -5942,6 +5950,18 @@ class Component extends DCLogic {
   exportChatAs(format) {
     this.setState({ exportMenuOpen: false });
     this._downloadExport(format, 'Chat exported — ');
+  }
+  // Download the full session log (every action logIt recorded) as JSON — the same events the
+  // devtools console mirrors live.
+  downloadLog() {
+    const out = this._app && this._app.exportLog && this._app.exportLog();
+    if (!out) { this.showToast('Nothing to export yet'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([out.text], { type: out.mime }));
+    a.download = out.filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    this.showToast('Log exported — ' + out.filename);
   }
   // Download the audit of THIS ask. One grounded question per topic means the open topic IS the
   // question, so its export is the answer's full trail — the question, the grounded passages and
@@ -10329,7 +10349,7 @@ class Component extends DCLogic {
       // own right Inspector, so the global right drawer stands down on both to give them room.
       rightPanelShow: st.rightOpen && st.tab !== 'graph' && st.tab !== 'register',
       // monologue
-      monologueOpen: st.monologueOpen, logCount: String(app.state.log.length),
+      monologueOpen: st.monologueOpen, logCount: String(app.state.log.length), downloadLog: () => this.downloadLog(),
       auditStats, logActions: st.logMode === 'actions', logReasoning: st.logMode === 'reasoning', logReflections: st.logMode === 'reflections',
       setLogActions: () => this.setState({ logMode: 'actions' }), setLogReasoning: () => this.setState({ logMode: 'reasoning' }),
       setLogReflections: () => this.setState({ logMode: 'reflections' }),
