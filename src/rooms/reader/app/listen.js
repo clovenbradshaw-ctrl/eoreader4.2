@@ -4,7 +4,7 @@
 // spine (state · emit · trail beats · client) is destructured once at install.
 // the Listen surface's layered reading — words, read-state, referents, chapters, span layers
 import { projectTranscript } from '../transcript-edit.js';
-import { formatTranscript, detectTranscriptChapters, readThroughIndex, segmentsOf, chapterAt, referentRuns } from '../transcript-format.js';
+import { formatTranscript, detectTranscriptChapters, transcriptContents as transcriptContentsOf, readThroughIndex, segmentsOf, chapterAt, referentRuns } from '../transcript-format.js';
 
 export const installListen = (appCtx) => {
   const { state } = appCtx;
@@ -54,6 +54,21 @@ export const installListen = (appCtx) => {
       s._chapters = { sig, chapters };
     }
     return s._chapters.chapters;
+  };
+
+  // The clip's CONTENTS LADDER — the highest structural level first (topic chapters, else breath-group
+  // segments), so the source-landing opens on the whole shape of the reading rather than the raw spans
+  // beneath it (transcript-format.transcriptContents). Memoised on the source by word count + whether the
+  // final transcript has landed, exactly as transcriptChapters is — a landing render never re-cuts.
+  const transcriptContents = (sn) => {
+    const s = appCtx.sourceBySn(sn); if (!s) return { level: 'segment', rows: [] };
+    const { baseWords, streaming } = listenBase(s);
+    const sig = `${baseWords.length}·${streaming ? 'live' : 'done'}·${(s.audioEvents || []).length}`;
+    if (!s._contents || s._contents.sig !== sig) {
+      const words = projectTranscript(baseWords, s.audioEvents || []).words;
+      s._contents = { sig, contents: transcriptContentsOf(words) };
+    }
+    return s._contents.contents;
   };
 
   const mmss = (x) => { const t = Math.max(0, Math.round(x || 0)); const m = Math.floor(t / 60); return `${m}:${String(t % 60).padStart(2, '0')}`; };
@@ -147,5 +162,5 @@ export const installListen = (appCtx) => {
     };
   };
 
-  Object.assign(appCtx, { spanLayers, transcriptChapters, transcriptView });
+  Object.assign(appCtx, { spanLayers, transcriptChapters, transcriptContents, transcriptView });
 };
