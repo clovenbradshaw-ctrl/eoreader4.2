@@ -73,7 +73,7 @@ import { installPersistence } from './app/persistence.js';
 import { installJobs } from './app/jobs.js';
 import { installTopics } from './app/topics.js';
 import { installWorkspaces } from './app/workspaces.js';
-import { installRegistry } from './app/registry.js';
+import { installRegistry } from './app/registry.js'; import { installSourceStage } from './app/source-stage.js';
 import { installFolders } from './app/folders.js';
 import { installIngest } from './app/ingest.js';
 import { installSearch } from './app/search.js'; import { installResearchReview } from './app/research-review.js';
@@ -212,7 +212,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installJobs(appCtx);
   installTopics(appCtx);
   installWorkspaces(appCtx);
-  installRegistry(appCtx);
+  installRegistry(appCtx); installSourceStage(appCtx);
   installFolders(appCtx);
   installIngest(appCtx);
   installSearch(appCtx); installResearchReview(appCtx);

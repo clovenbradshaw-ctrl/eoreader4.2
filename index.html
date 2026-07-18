@@ -726,6 +726,7 @@ table{border-collapse:collapse;width:100%}
                     <span style="display:block;font-size:12.5px;font-weight:550;color:{{ sc.titleColor }};font-style:{{ sc.titleStyle }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.title }}</span>
                     <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sc.reg }} · {{ sc.domain }}</span>
                   </span>
+                  <sc-if value="{{ sc.stageShow }}"><span title="{{ sc.stageTip }}" style="flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:{{ sc.stageDot }}"></span></sc-if>
                   <sc-if value="{{ sc.hasKids }}"><span title="followed pages recorded here" style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#A0A0AA;background:#F2F2F6;border-radius:5px;padding:1px 5px">{{ sc.kidCount }}</span></sc-if>
                 </button>
               </div>
@@ -2178,10 +2179,11 @@ table{border-collapse:collapse;width:100%}
                     <div style="min-width:0">
                       <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
                         <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:800;letter-spacing:.05em;color:#4E5765;background:#EEF0F3;border-radius:6px;padding:3px 8px">{{ sourceLanding.icon }} {{ sourceLanding.typeLabel }}</span>
-                        <span style="font-size:10px;font-weight:800;color:#1E8A50;background:#E7F6EC;border:1px solid #CDEBD8;border-radius:999px;padding:3px 8px">✓ {{ sourceLanding.verification }}</span><span style="font-size:10px;font-weight:800;color:#5B4BE6;background:#F1EFFE;border:1px solid #DED8FD;border-radius:999px;padding:3px 8px">● READY</span>
+                        <span style="font-size:10px;font-weight:800;color:#1E8A50;background:#E7F6EC;border:1px solid #CDEBD8;border-radius:999px;padding:3px 8px">✓ {{ sourceLanding.verification }}</span><span title="{{ sourceLanding.processingStage.detail }}" style="font-size:10px;font-weight:800;color:{{ sourceLanding.processingStage.fg }};background:{{ sourceLanding.processingStage.bg }};border:1px solid {{ sourceLanding.processingStage.bd }};border-radius:999px;padding:3px 8px">● {{ sourceLanding.processingStage.labelUpper }}</span>
                       </div>
                       <h1 title="{{ sourceLanding.title }}" style="margin:10px 0 6px;font-family:'Newsreader',Georgia,serif;font-size:clamp(28px,4vw,38px);line-height:1.08;color:#202027;font-weight:500;overflow-wrap:anywhere;word-break:break-word;hyphens:auto">{{ sourceLanding.title }}</h1>
                       <div style="font-size:13px;color:#6E6E78;display:flex;gap:8px;flex-wrap:wrap"><span>{{ sourceLanding.origin }}</span><span>·</span><span>{{ sourceLanding.rights }}</span><span>·</span><span>{{ sourceLanding.retrieved }}</span></div>
+                      <sc-if value="{{ sourceLanding.processingStage.hasDetail }}"><div style="margin-top:6px;font-size:12px;color:{{ sourceLanding.processingStage.fg }}">{{ sourceLanding.processingStage.detail }}</div></sc-if>
                     </div>
                     <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;align-content:flex-start;min-width:0">
                       <button onClick="{{ sourceLanding.primary }}" style="background:#19191F;color:white;border-radius:8px;padding:10px 16px;font-size:12px;font-weight:700">{{ sourceLanding.primaryLabel }}</button>
@@ -7601,13 +7603,27 @@ class Component extends DCLogic {
     const origin = s.creator || s.author || s.publisher || s.domain || (s.url ? new URL(s.url, location.href).hostname : 'Local record');
     const paras = (() => { try { return app.viewerParas(s.sn, { entities: false }) || []; } catch { return []; } })();
     const eotLines = eot && eot.structure && Array.isArray(eot.structure.lines) ? eot.structure.lines.length : 0;
-    const entN = s.entCount == null ? 0 : Number(s.entCount) || 0;
+    // entPending: the background parse that builds referents/structure hasn't landed yet — every
+    // count that DEPENDS on it (entities, claims) must say so rather than coalesce to a false zero
+    // (docs/comprehension roadmap: "every zero should be meaningful").
+    const entPending = s.entCount == null;
+    const entN = entPending ? 0 : Number(s.entCount) || 0;
+    const entLabel = entPending ? 'Structuring…' : `${entN} ${entN === 1 ? 'entity' : 'entities'}`;
+    // A source's own claim count, read straight off its doc (app.sourceClaimCount) — the SAME
+    // number the Topic Overview card shows for this source, so the Overview tab never disagrees
+    // with the Topic Overview about how many claims one source contributes. null while the doc
+    // hasn't been parsed yet; calling sourceClaimCount early would force a redundant synchronous
+    // parse racing the background one (registry.js docFor).
+    let sourceClaimN = null;
+    if (!entPending) { try { sourceClaimN = app.sourceClaimCount ? app.sourceClaimCount(s.sn) : 0; } catch { sourceClaimN = 0; } }
+    const stageRaw = (app.sourceStage ? app.sourceStage(s.sn) : null) || { stage: 'ready', label: 'Ready', detail: '', fg: '#5B4BE6', bg: '#F1EFFE', bd: '#DED8FD' };
+    const processingStage = { ...stageRaw, labelUpper: String(stageRaw.label || 'Ready').toUpperCase(), hasDetail: !!stageRaw.detail };
     const words = String(s.text || '').trim().split(/\s+/).filter(Boolean).length;
     const mins = words ? Math.max(1, Math.round(words / 220)) : 0;
     const headings = paras.filter((p) => p && (p.heading || /^#{1,6}\s/.test((p.text || p.s || '').trim()))).length;
     const baseCounts = [
       { label: `${paras.length || 0} passages`, open: () => this.setSourceMode('reader') },
-      { label: `${entN} ${entN === 1 ? 'entity' : 'entities'}`, open: () => { if (!this.state.rightOpen) this.toggleRight(); } },
+      { label: entLabel, open: () => { if (!this.state.rightOpen) this.toggleRight(); } },
       { label: `${eotLines} EoT`, open: () => this.setSourceMode('eot') },
       { label: `${this._sourceReviewItems(s).length} reviews`, open: () => this.setSourceMode('overview') },
     ];
@@ -7616,14 +7632,17 @@ class Component extends DCLogic {
       'Dataset': [['Rows', s.rows || 'Unknown'], ['Columns', s.columns || 'Unknown'], ['Schema', s.schema || 'Detected structure'], ['Missing values', s.missingValues || 'Unknown']],
       'Audio': [['Duration', s.durationLabel || 'Unknown'], ['Speakers', s.speakerCount || 'Unknown'], ['Transcript coverage', s.transcriptCoverage || (s.text ? 'Available' : 'Unknown')], ['Confidence', s.confidence || 'Unknown']],
       'Video': [['Duration', s.durationLabel || 'Unknown'], ['Speakers', s.speakerCount || 'Unknown'], ['Scenes', s.scenes || 'Unknown'], ['Transcript', s.text ? 'Available' : 'Unknown']],
-      'PDF': [['Pages', s.pages || 'Unknown'], ['Reconstructed sections', headings || 'Unknown'], ['OCR coverage', s.ocrCoverage || (s.text ? 'Text available' : 'Unknown')], ['Layout quality', s.layoutQuality || 'Unknown']],
-      'Code file': [['Language', s.language || 'Unknown'], ['Lines', String(s.text || '').split('\n').length], ['Symbols', entN], ['Dependencies', s.dependencies || 'Unknown']],
+      // OCR coverage / layout quality — read the real coverage receipt (import-file.js) instead of
+      // the s.ocrCoverage/s.layoutQuality fields, which no importer ever assigns. 'Text available'
+      // used to show unconditionally even on a partial OCR read; now it names what was actually lost.
+      'PDF': [['Pages', s.pages || (s.coverage && s.coverage.pages) || 'Unknown'], ['Reconstructed sections', headings || 'Unknown'], ['OCR coverage', this._ocrCoverageLabel(s)], ['Layout quality', s.coverage && s.coverage.disagreements ? `${s.coverage.disagreements} line(s) needed reconciling` : (s.text ? 'No disagreements reconciled' : 'Unknown')]],
+      'Code file': [['Language', s.language || 'Unknown'], ['Lines', String(s.text || '').split('\n').length], ['Symbols', entPending ? 'Structuring…' : entN], ['Dependencies', s.dependencies || 'Unknown']],
       'Repository': [['Files', s.files || 'Unknown'], ['Languages', s.languages || s.language || 'Unknown'], ['Entry points', s.entryPoints || 'Unknown'], ['Tests', s.tests || 'Unknown']],
-      'Image': [['Dimensions', s.dimensions || 'Unknown'], ['Objects', entN], ['OCR text', s.text ? 'Available' : 'Unknown'], ['Rights', this._rights(s).label]],
+      'Image': [['Dimensions', s.dimensions || 'Unknown'], ['Objects', entPending ? 'Structuring…' : entN], ['OCR text', s.text ? 'Available' : 'Unknown'], ['Rights', this._rights(s).label]],
       'Conversation': [['Participants', s.participants || 'Unknown'], ['Messages', s.messages || paras.length || 'Unknown'], ['Time range', s.timeRange || 'Unknown'], ['Threads', s.threads || 'Unknown']],
     };
-    const generic = type === 'Book' ? [['Structure', `${headings || 'Unknown'} chapters/sections · ${size}`], ['Reading time', mins ? `${mins} min` : 'Unknown'], ['Characters / figures', String(entN)], ['Recurring language', 'Open EoT for terms']]
-      : type === 'Webpage' ? [['Headings', String(headings || 0)], ['Author / origin', origin], ['Captured', this._ago(s.retrieved) || 'Unknown'], ['Named figures', String(entN)]]
+    const generic = type === 'Book' ? [['Structure', `${headings || 'Unknown'} chapters/sections · ${size}`], ['Reading time', mins ? `${mins} min` : 'Unknown'], ['Characters / figures', entPending ? 'Structuring…' : String(entN)], ['Recurring language', 'Open EoT for terms']]
+      : type === 'Webpage' ? [['Headings', String(headings || 0)], ['Author / origin', origin], ['Captured', this._ago(s.retrieved) || 'Unknown'], ['Named figures', entPending ? 'Structuring…' : String(entN)]]
         : [['File type', type], ['Bytes', size], ['Extracted text', words ? `${words} words` : 'Unknown'], ['Processing quality', eotLines ? 'Indexed' : 'Pending']];
     const glance = (statsByType[type] || generic).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([label, value]) => ({ label, value: String(value) }));
     const firstEnts = (() => { try { return (app.sourceEntities ? app.sourceEntities(s.sn) : []).slice(0, 3); } catch { return []; } })();
@@ -7648,11 +7667,21 @@ class Component extends DCLogic {
       text: `${m.at ? this._ago(m.at) || m.at : 'earlier'} — ${m.action || 'noted'}${m.field ? ` ${metadataLabels[m.field] || m.field}` : ''}${m.note ? ` · ${m.note}` : ''}`,
     }));
     const reviewItems = this._sourceReviewItems(s);
+    // Claim candidates: the SAME number app.sourceClaimCount gives the Topic Overview card for
+    // this source (index.html _topicOverviewVM), so this tab never shows "0" while that one shows
+    // a real count for the identical source. "Not examined" — not "0" — while the doc is still
+    // structuring, since a zero here would otherwise claim extraction ran and found nothing.
+    const claimLabel = sourceClaimN == null
+      ? 'Claim candidates: Not examined — still structuring'
+      : `${sourceClaimN} claim candidate${sourceClaimN === 1 ? '' : 's'}`;
     const findings = [
-      { label: `${s.claimCount || 0} claim candidates`, open: () => this.setTab('findings') },
-      { label: `${s.supportingPassages || paras.length || 0} supporting passages`, open: () => this.setSourceMode('facing') },
-      { label: `${s.contradictionPairs || 0} cross-source contradiction pairs`, open: () => this.setTab('findings') },
-      { label: `${s.causalCandidates || 0} causal candidates above review threshold`, open: () => this.setTab('graph') },
+      { label: claimLabel, open: () => this.setTab('findings') },
+      { label: `${paras.length || 0} passages in this source`, open: () => this.setSourceMode('facing') },
+      // Cross-source contradiction pairs and causal-candidate ranking have no extractor behind them
+      // yet (unlike claims, entities, and coverage) — "Not examined" says so honestly instead of a
+      // manufactured zero that would read as "checked, found none".
+      { label: 'Cross-source contradiction pairs: Not examined', open: () => this.setTab('findings') },
+      { label: 'Causal candidates above review threshold: Not examined', open: () => this.setTab('graph') },
       ...reviewItems.map((r) => ({ label: r.label, open: r.open })),
     ];
     const structureRows = this._sourceStructureRows(s, type, paras);
@@ -7859,13 +7888,25 @@ class Component extends DCLogic {
       foldErr: foldRec.err || '', foldHasErr: !!foldRec.err,
       foldReturned: (foldRec.returned || foldReturned).join('\n') || '(no source units returned for this selection)',
     };
+    // Real per-source pin counts (app.pins(), the same durable list the Pins tab reads) — the
+    // pinnedFigures/pinnedPassages/pinnedClaims fields these used to read are never assigned
+    // anywhere, so this panel always showed "0" even when the Pins tab, one click over, held real
+    // pins for this exact source.
+    let pinnedFigures = 0, pinnedPassages = 0, pinnedClaims = 0;
+    try {
+      const allPins = app.pins ? app.pins() : [];
+      pinnedFigures = allPins.filter((p) => p.kind === 'entity' && p.entity && p.entity.docId === s.docId).length;
+      pinnedPassages = allPins.filter((p) => p.kind === 'passage' && p.anchor && p.anchor.sn === s.sn).length;
+      pinnedClaims = allPins.filter((p) => p.kind === 'claim' && p.anchor && p.anchor.sn === s.sn).length;
+    } catch { /* keep zeros */ }
     return {
       workspace: ws.name || 'Workspace', topic: topic.title || 'Topic', sourceLabel: s.reg || 'Source', icon, typeLabel: type.toUpperCase(), title,
       origin, verification: s.verified === false ? 'UNVERIFIED' : 'VERIFIED', rights: this._rights(s).label, retrieved: this._ago(s.retrieved) || 'captured',
       primaryLabel, primary: () => this.setSourceMode(primaryMode), search: () => this.setTab('search'), explore: () => this.setTab('graph'), pin: () => this._pinSource?.(s.sn), reread: () => this.openReReadModal(s.sn), openWorkspace: () => this.setTab('register'), openTopic: () => this.setTab('chat'),
       coreCounts: baseCounts, synthesisState: 'off', glance, recordId: s.reg || `S-${s.sn}`, sha: String(s.sha || '').replace(/^[^:]*:/, '').slice(0, 16) || 'Unknown', provenance: s.url ? `Captured from ${s.domain || 'web'}` : 'Local/imported source',
       reviewItems, lenses, ideas, currentLens: ideas[0] ? `${ideas[0].title} · complete source` : 'Source overview · complete record',
-      pins: [{ label: `${s.pinnedFigures || 0} pinned figures` }, { label: `${s.pinnedPassages || 0} pinned passages` }, { label: `${s.pinnedClaims || 0} pinned claims` }, { label: `${s.savedLenses || 0} saved lenses` }, { label: s.recentPosition || 'Recent position: start' }], openPins: () => this.setTab('pins'),
+      pins: [{ label: `${pinnedFigures} pinned figure${pinnedFigures === 1 ? '' : 's'}` }, { label: `${pinnedPassages} pinned passage${pinnedPassages === 1 ? '' : 's'}` }, { label: `${pinnedClaims} pinned claim${pinnedClaims === 1 ? '' : 's'}` }, { label: s.recentPosition || 'Recent position: start' }], openPins: () => this.setTab('pins'),
+      processingStage,
       structure: landingStructure, structureCount: `${structureRows.length} detected`, structureExpandShow: structureRows.length > 12, structureExpandLabel: this.state.sourceStructureExpanded ? 'Show fewer' : `Show more (${structureRows.length - 12} more)`, toggleStructureExpanded: () => this.toggleSourceStructureExpanded(), findings,
       cast, castShow: !!castRows.length, castEmpty: castRows.length > 0 && castSorted.length === 0,
       castCount: castQuery ? `${castSorted.length} of ${castRows.length} on record` : `${castRows.length} on record`, castNoun,
@@ -7918,11 +7959,16 @@ class Component extends DCLogic {
       const [icon, typeLabel] = typeOf(s);
       const fav = FAV[i % FAV.length];
       const active = !disabled.has(s.sn);
-      const entN = s.entCount == null ? 0 : Number(s.entCount) || 0;
-      let claimN = 0; try { claimN = app.sourceClaimCount ? app.sourceClaimCount(s.sn) : 0; } catch { claimN = 0; }
+      const entPending = s.entCount == null;
+      const entN = entPending ? 0 : Number(s.entCount) || 0;
+      // Skip sourceClaimCount while still structuring — it forces a synchronous parse (docFor)
+      // that would race the background chunked one already running for this source.
+      let claimN = 0; if (!entPending) { try { claimN = app.sourceClaimCount ? app.sourceClaimCount(s.sn) : 0; } catch { claimN = 0; } }
       let origin = s.domain || '';
       if (!origin && s.url) { try { origin = new URL(s.url, location.href).hostname; } catch { origin = ''; } }
-      const countLine = [`${entN} ${entN === 1 ? 'entity' : 'entities'}`, `${claimN} finding${claimN === 1 ? '' : 's'}`].filter(Boolean).join('  ·  ');
+      // Same wording, same numbers as this source's own Overview tab (_sourceLandingVM) — a card
+      // here must never disagree with what the source itself reports for entities/claims.
+      const countLine = entPending ? 'Structuring…' : [`${entN} ${entN === 1 ? 'entity' : 'entities'}`, `${claimN} finding${claimN === 1 ? '' : 's'}`].filter(Boolean).join('  ·  ');
       return {
         sn: s.sn, title: s.title || s.domain || s.reg || 'Untitled source',
         icon, typeLabel, reg: s.reg || '', origin: origin || 'Local record',
@@ -8189,8 +8235,15 @@ class Component extends DCLogic {
     add(`Parse confidence: ${s.parseConfidence || (s.text ? 'structure indexed' : 'limited text')}`);
     add('Optional synthesis: off');
     if (s.duplicateOf || s.duplicateSn) add('Probable duplicate source');
-    if (s.kind === 'pdf' && !s.text) add('Low OCR coverage');
-    if ((s.kind === 'audio' || s.kind === 'video') && !s.speakerCount) add('Ambiguous speaker');
+    // Read the real coverage receipt rather than `!s.text` — a PDF with zero recoverable text never
+    // lands as a source at all (fromPdf throws before addSource runs), so the old check was
+    // effectively dead. This fires on the honest "ready with limitations" case: some pages landed,
+    // some did not.
+    if (s.kind === 'pdf' && s.coverage && s.coverage.complete === false) {
+      const n = (s.coverage.textlessPages && s.coverage.textlessPages.length) || 0;
+      add(n ? `${n} page${n === 1 ? '' : 's'} had no recoverable text` : 'Partial OCR coverage');
+    }
+    if ((s.kind === 'audio' || s.kind === 'video') && !(Array.isArray(s.speakers) && s.speakers.length)) add('Ambiguous speaker');
     if (!s.title || /^untitled/i.test(s.title)) add('Missing metadata');
     if (s.derivedFrom || s.canonicalEvidenceSn) add('Derived representation excluded from counts');
     return out;
@@ -9089,6 +9142,20 @@ class Component extends DCLogic {
     return new Date(iso).toISOString().slice(0, 10);
   }
   _bytes(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? Math.round(n / 1024) + ' KB' : n + ' B'; }
+  // The real OCR coverage line for a PDF/scan (import-file.js's coverage receipt), read honestly
+  // rather than the s.ocrCoverage field no importer ever sets. A complete text-layer read says so
+  // plainly; a partial one names how many pages had no recoverable text, not a blanket "Text available".
+  _ocrCoverageLabel(s) {
+    const cov = s && s.coverage;
+    if (!cov) return s && s.text ? 'Text available' : 'Unknown';
+    if (cov.complete === false) {
+      const n = (cov.textlessPages && cov.textlessPages.length) || 0;
+      const of = cov.pages ? ` of ${cov.pages}` : '';
+      return n ? `${n}${of} page${n === 1 ? '' : 's'} had no recoverable text` : 'Partial — some pages had no recoverable text';
+    }
+    if (cov.ocrPages && cov.ocrPages.length) return `${cov.ocrPages.length} page(s) read by OCR · complete`;
+    return 'Text layer complete';
+  }
   // A content GENRE for a source — the explorer's kind-filter chips (Book/Article/Policy/Data/Media/
   // Code) read genre, not the technical `kind` (web/file/audio/video/pasted). Inferred from the
   // medium, the URL's extension, and the domain, so a chip can narrow a Drive without a classifier.
@@ -9852,10 +9919,15 @@ class Component extends DCLogic {
         const hasKids = kids.length > 0;
         const collapsed = s.collapsed !== false;   // undefined (older records) → folded
         const fav = FAV[favI++ % FAV.length];
+        // A source's processing stage — shown only when it is NOT plain "ready", so the common
+        // case (a fully-read source) keeps today's quiet row and only a source still structuring,
+        // still transcribing, ready-with-limitations, or failed gets a marker at all.
+        const stage = (app.sourceStage ? app.sourceStage(s.sn) : null) || { stage: 'ready', label: 'Ready', detail: '', fg: '#5B4BE6', bg: '#F1EFFE', bd: '#DED8FD' };
         leftSources.push({
           sn: s.sn, title: s.title, reg: s.reg, domain: s.domain,
           favCh: (s.domain || s.title || '?')[0].toUpperCase(), favBg: fav[0], favFg: fav[1],
           pending: false, notPending: true, titleColor: '#3A3A44', titleStyle: 'normal',
+          stageShow: stage.stage !== 'ready', stageDot: stage.fg, stageTip: `${stage.label}${stage.detail ? ` — ${stage.detail}` : ''}`,
           indent: `${depth * 15}px`, isChild: depth > 0,
           hasKids, noKids: !hasKids, kidCount: hasKids ? String(kids.length) : '',
           caret: hasKids ? (collapsed ? '▸' : '▾') : '',
