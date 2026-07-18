@@ -92,7 +92,7 @@ const summaryRelations = (relations, max) => {
 //            only read by the arc coverage, which falls back to even quantiles.
 export const summaryFold = (doc, {
   surf, scope = 'full', cursor = null, entity = null, topic = null, title = null,
-  coverage = 'peak', grain = null,
+  coverage = 'peak', grain = null, from = null, to = null, excludeEntities = null,
   maxSpans = DEFAULTS.maxSpans, maxRelations = DEFAULTS.maxRelations,
   maxProperties = DEFAULTS.maxProperties, maxFigures = DEFAULTS.maxFigures,
 } = {}) => {
@@ -100,6 +100,9 @@ export const summaryFold = (doc, {
   if (!doc || !doc.log) return null;
   const sents = doc.units || doc.sentences || [];
   if (!sents.length) return null;
+  const excludeSet = excludeEntities
+    ? new Set([...excludeEntities].map((x) => String(x || '').trim().toLowerCase()).filter(Boolean))
+    : null;
 
   // Where the surf sets down, and what conditions it, per scope.
   let anchor = 0;
@@ -117,6 +120,16 @@ export const summaryFold = (doc, {
     surfOpts = { reach: 'adaptive', thread: { terms: termThread(entity), figures: new Set(focus) } };
   } else if (scope === 'topic' && topic) {
     surfOpts = { reach: 'adaptive', thread: termThread(topic) };
+  } else if (scope === 'range') {
+    // A BOUNDED WINDOW — the reader's own [from, to] (an in-point/out-point on a waveform,
+    // resolved to sentence indices via doc.utteranceAt), not a place the surf finds on its
+    // own. Fixed reach exactly spanning the window (never adaptive — adaptive would read past
+    // the bounds the caller asked for); the median arrest still picks the salient sentences
+    // within it, spansAtStops/maxSpans still cap what lands in the packet.
+    const lo = Math.max(0, Math.min(sents.length - 1, from | 0));
+    const hi = Math.max(lo, Math.min(sents.length - 1, (to ?? from) | 0));
+    anchor = lo;
+    surfOpts = { behind: 0, ahead: hi - lo, maxStops: Infinity };
   }
 
   // The walk: one surf at the scope's anchor (the default), or — full scope, arc
@@ -150,10 +163,22 @@ export const summaryFold = (doc, {
     ? figureSurface(doc, focus)
     : (fold.levels?.structure || { figures: [], relations: [], defs: [] });
 
-  const properties = rankProperties(structure.defs).slice(0, maxProperties)
+  let properties = rankProperties(structure.defs).slice(0, maxProperties)
     .map(({ label, value, witnesses, count, score }) => ({ label, value, witnesses, count, score }));
-  const relations = summaryRelations(structure.relations, maxRelations);
-  const figures = (structure.figures || []).slice(0, maxFigures).map((f) => ({ label: f.label, count: f.count }));
+  let relations = summaryRelations(structure.relations, maxRelations);
+  let figures = (structure.figures || []).slice(0, maxFigures).map((f) => ({ label: f.label, count: f.count }));
+
+  // excludeEntities — the reader's OWN choice of who this reading is not about (a waveform
+  // range's entity toggles: "leave the harbourmaster out of it"). A label-set filter over the
+  // STRUCTURED reading only: figures, the properties/relations tied to an excluded label. Spans
+  // stay verbatim — the excerpt a summary quotes is not un-said by excluding its subject from the
+  // structured account, and dropping partial sentences would fragment the prose the model reads.
+  if (excludeSet && excludeSet.size) {
+    const excluded = (label) => excludeSet.has(String(label || '').trim().toLowerCase());
+    figures = figures.filter((f) => !excluded(f.label));
+    properties = properties.filter((p) => !excluded(p.label));
+    relations = relations.filter((r) => !excluded(r.subject) && !excluded(r.object));
+  }
 
   const labelOf = (id) => doc.admission?.labelOf?.(id) || id;
 
@@ -163,6 +188,7 @@ export const summaryFold = (doc, {
     anchor, cursor: s.peak, stops: [...s.stops],
     focus: focus.map(labelOf),
     entity: entity || null, topic: topic || null,
+    range: scope === 'range' ? { from: anchor, to: anchor + (surfOpts.ahead || 0) } : null,
     spans, groups, properties, relations, figures,
     sources: fold.sources || spans.map((x) => x.idx),
   });

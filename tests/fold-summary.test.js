@@ -85,6 +85,51 @@ test('summaryFold topic scope rides the theme', () => {
   assert.ok(p.spans.length >= 1);
 });
 
+// ── range scope — a bounded [from,to] window (a waveform in/out selection) ────────────
+
+test('summaryFold range scope stays inside its own [from,to] bound', () => {
+  const doc = parseText(NEIL_TEXT);
+  const p = summaryFold(doc, { surf: surfFold, scope: 'range', from: 0, to: 2 });
+  assert.equal(p.scope, 'range');
+  assert.deepEqual(p.range, { from: 0, to: 2 });
+  assert.ok(p.spans.every((s) => s.idx >= 0 && s.idx <= 2), `every span stays in [0,2]: ${p.spans.map((s) => s.idx)}`);
+});
+
+test('summaryFold range scope never reads past a document its own reach cannot cover', () => {
+  const doc = parseText(LOUIS_TEXT);   // 6 sentences, idx 0..5
+  const p = summaryFold(doc, { surf: surfFold, scope: 'range', from: 3, to: 999 });
+  assert.ok(p.spans.every((s) => s.idx <= 5), 'to clamps to the document\'s last sentence');
+});
+
+test('summaryFold range scope: a single point (to omitted) reads just that sentence\'s neighbourhood', () => {
+  const doc = parseText(NEIL_TEXT);
+  const p = summaryFold(doc, { surf: surfFold, scope: 'range', from: 2 });
+  assert.deepEqual(p.range, { from: 2, to: 2 });
+});
+
+// ── excludeEntities — the reader's own choice of who a reading is not about ───────────
+
+test('excludeEntities drops a figure from the structured reading but leaves spans (quoted text) alone', () => {
+  const doc = parseText(NEIL_TEXT);
+  const withJanet = summaryFold(doc, { surf: surfFold, scope: 'entity', entity: 'Neil Armstrong' });
+  assert.ok(withJanet.figures.some((f) => /janet/i.test(f.label)), 'Janet is a figure absent an exclusion');
+  assert.ok(withJanet.relations.some((r) => /janet/i.test(r.object)), 'the marriage bond is a relation absent an exclusion');
+  const withoutJanet = summaryFold(doc, { surf: surfFold, scope: 'entity', entity: 'Neil Armstrong', excludeEntities: ['Janet Shearon'] });
+  assert.ok(!withoutJanet.figures.some((f) => /janet/i.test(f.label)), 'excluded from figures');
+  assert.ok(!withoutJanet.relations.some((r) => /janet/i.test(r.subject) || /janet/i.test(r.object)), 'excluded from relations');
+  // spans are verbatim source text — excluding a figure from the STRUCTURED reading must not
+  // silently rewrite or drop the sentences that happen to mention them.
+  const surface = packetSurface(withoutJanet);
+  assert.ok(/janet/i.test(surface), 'the verbatim spans still carry whatever the surf actually read');
+});
+
+test('excludeEntities is case-insensitive and tolerates an unmatched label (a no-op, not an error)', () => {
+  const doc = parseText(LOUIS_TEXT);
+  const p = summaryFold(doc, { surf: surfFold, scope: 'entity', entity: 'Louis Armstrong', excludeEntities: ['LUCILLE ARMSTRONG', 'Someone Not In This Document'] });
+  assert.ok(p, 'still produces a packet');
+  assert.ok(!p.figures.some((f) => /lucille/i.test(f.label)), 'the case-insensitive match excludes Lucille');
+});
+
 // ── the telegram floor ────────────────────────────────────────────────────────────────
 
 test('telegramSummary is non-empty and referentially contained in its own packet', () => {

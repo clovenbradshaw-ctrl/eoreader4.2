@@ -120,6 +120,10 @@ export const buildApi = (appCtx) => {
     // paragraph). foldSummary generates (telegram first, model refinement behind it);
     // foldSummaryFor reads the stored record back synchronously.
     foldSummary: appCtx.foldSummary, foldSummaryFor: appCtx.foldSummaryFor,
+    // scope:'range' bounds the ask to [from,to] sentence indices (a waveform in/out selection —
+    // sentenceAtTime resolves a clip TIME to the index); excludeEntities (any scope) drops a
+    // figure from the structured reading (figures/properties/relations), not from quoted spans.
+    sentenceAtTime: appCtx.sentenceAtTime,
     // TEMPORARY — the fold at a cursor made VISIBLE (the objects in focus + the reading's assertions,
     // not just the spans); synchronous, model-free, unstored. Drives the reader's fold-peek overlay.
     cursorFold: appCtx.cursorFold,

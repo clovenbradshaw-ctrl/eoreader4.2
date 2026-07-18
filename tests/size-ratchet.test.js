@@ -124,6 +124,7 @@ const BASELINE = new Map([
   ['src/surfer/fold/deep-reading.js', 360],
   ['src/surfer/fold/significance.js', 285],
   ['src/surfer/fold/substrate.js', 314],
+  ['src/surfer/fold/summary.js', 275],
   ['src/surfer/fold/summary-cross.js', 314],
   ['src/surfer/fold/summary-prompt.js', 286],
   ['src/surfer/fold/weave.js', 458],

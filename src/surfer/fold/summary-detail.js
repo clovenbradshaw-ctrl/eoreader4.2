@@ -85,12 +85,12 @@ const WORK_SYSTEM =
   ' its close. Never more than one paragraph.' + COMMON_RULES;
 
 export const SUMMARY_SYSTEMS = Object.freeze({
-  full: DOCUMENT_SYSTEM, cursor: DOCUMENT_SYSTEM, topic: DOCUMENT_SYSTEM,
+  full: DOCUMENT_SYSTEM, cursor: DOCUMENT_SYSTEM, topic: DOCUMENT_SYSTEM, range: DOCUMENT_SYSTEM,
   entity: ENTITY_SYSTEM, cross: CROSS_SYSTEM,
 });
 
 const BRIEF_SYSTEMS = Object.freeze({
-  full: BRIEF_DOCUMENT_SYSTEM, cursor: BRIEF_DOCUMENT_SYSTEM, topic: BRIEF_DOCUMENT_SYSTEM,
+  full: BRIEF_DOCUMENT_SYSTEM, cursor: BRIEF_DOCUMENT_SYSTEM, topic: BRIEF_DOCUMENT_SYSTEM, range: BRIEF_DOCUMENT_SYSTEM,
   entity: BRIEF_ENTITY_SYSTEM, cross: CROSS_SYSTEM,
 });
 
