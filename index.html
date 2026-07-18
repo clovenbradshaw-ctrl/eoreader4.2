@@ -850,6 +850,86 @@ table{border-collapse:collapse;width:100%}
                     </div>
                   </div>
 
+                  <!-- RESULTS — the search-engine landing: the figures on record and the sources that
+                       carry the query, on one page, each a card that opens (an entity → its profile;
+                       a source → its full Overview), plus how those sources connect (shared referents). -->
+                  <sc-if value="{{ sfIsResults }}">
+                    <!-- FIGURES — entities on record for this query -->
+                    <sc-if value="{{ sfrHasEntities }}">
+                      <div style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#B4B4BE">FIGURES</span><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C4C4CC">{{ sfrEntCount }}</span><span style="height:1px;background:#EFEFF3;flex:1"></span><span style="font-size:11px;color:#8A8A95">entities on record — open a profile</span></div>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px">
+                          <sc-for list="{{ sfrEntities }}" as="e">
+                            <button onClick="{{ e.open }}" title="Open this figure's profile" style="display:flex;align-items:center;gap:11px;text-align:left;border:1px solid #EEEEF2;border-radius:11px;padding:10px 12px;background:#fff" style-hover="border-color:#DED8FD;background:#FBFAFF">
+                              <span style="flex:0 0 auto;width:32px;height:32px;border-radius:9px;background:#EEEBFE;color:#6D5EF5;display:flex;align-items:center;justify-content:center;font-family:'Newsreader',Georgia,serif;font-size:16px;font-weight:600">{{ e.fav }}</span>
+                              <div style="flex:1;min-width:0">
+                                <div style="font-size:13.5px;font-weight:600;color:#1B1B22;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ e.label }}</div>
+                                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ e.meta }}</div>
+                              </div>
+                            </button>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <!-- SOURCES — one result row per source that carries the query, with a lit snippet -->
+                    <sc-if value="{{ sfrHasSources }}">
+                      <div style="margin-bottom:20px">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#B4B4BE">SOURCES</span><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C4C4CC">{{ sfrSrcCount }}</span><span style="height:1px;background:#EFEFF3;flex:1"></span><span style="font-size:11px;color:#8A8A95">open the full overview</span></div>
+                        <sc-for list="{{ sfrSources }}" as="s">
+                          <button onClick="{{ s.open }}" title="Open this source's overview" style="display:block;width:100%;text-align:left;border:1px solid #EEEEF2;border-radius:12px;padding:12px 14px;margin-bottom:8px;background:#fff" style-hover="border-color:#DED8FD;background:#FBFAFF">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+                              <sc-if value="{{ s.reg }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:#6D5EF5;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:1px 6px;flex:0 0 auto">{{ s.reg }}</span></sc-if>
+                              <span style="flex:1;min-width:0;font-size:14.5px;font-weight:600;color:#1B1B22;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.title }}</span>
+                              <sc-if value="{{ s.hasMeta }}"><span style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">{{ s.meta }}</span></sc-if>
+                            </div>
+                            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A0A0AA;margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.domain }}</div>
+                            <sc-if value="{{ s.hasSnippet }}">
+                              <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#4E4E58"><sc-for list="{{ s.segs }}" as="sg"><sc-if value="{{ sg.hit }}"><span style="background:#FAEEDA;color:#4A1B0C;border-radius:2px;padding:0 1px">{{ sg.s }}</span></sc-if><sc-if value="{{ sg.plain }}"><span>{{ sg.s }}</span></sc-if></sc-for></div>
+                            </sc-if>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+
+                    <!-- RELATIONSHIPS — how the result sources connect: shared referents tie them -->
+                    <sc-if value="{{ sfrHasLinks }}">
+                      <div style="margin-bottom:20px;border:1px solid #EEEEF2;border-radius:12px;background:#FCFCFE;padding:12px 13px">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#B4B4BE">RELATIONSHIPS</span><span style="height:1px;background:#EFEFF3;flex:1"></span><span style="font-size:11px;color:#8A8A95">sources linked by what they share</span></div>
+                        <sc-for list="{{ sfrLinks }}" as="l">
+                          <div style="padding:8px 0;border-top:1px solid #F1F1F4">
+                            <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:6px">
+                              <button onClick="{{ l.openA }}" title="Open this source" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:650;color:#3A3A44;background:#F4F4F7;border:1px solid #EAEAEF;border-radius:7px;padding:3px 8px;max-width:200px" style-hover="border-color:#DED8FD;background:#F6F4FF"><sc-if value="{{ l.aReg }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#6D5EF5">{{ l.aReg }}</span></sc-if><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ l.aTitle }}</span></button>
+                              <span style="color:#6D5EF5;font-size:13px">⇄</span>
+                              <button onClick="{{ l.openB }}" title="Open this source" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:650;color:#3A3A44;background:#F4F4F7;border:1px solid #EAEAEF;border-radius:7px;padding:3px 8px;max-width:200px" style-hover="border-color:#DED8FD;background:#F6F4FF"><sc-if value="{{ l.bReg }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#6D5EF5">{{ l.bReg }}</span></sc-if><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ l.bTitle }}</span></button>
+                              <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">{{ l.countLabel }}</span>
+                            </div>
+                            <div style="display:flex;gap:5px;flex-wrap:wrap;padding-left:2px">
+                              <sc-for list="{{ l.shared }}" as="sh"><button onClick="{{ sh.open }}" title="Open this shared figure" style="display:inline-flex;align-items:center;gap:5px;border:1px solid #E6E3FA;border-radius:20px;background:#fff;color:#3A3A44;padding:2px 9px;font-size:11px;font-weight:600" style-hover="background:#F6F4FF;border-color:#DED8FD"><span style="width:5px;height:5px;border-radius:50%;background:#6D5EF5"></span>{{ sh.label }}</button></sc-for>
+                            </div>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+
+                    <!-- PASSAGES — verbatim occurrences, the grounding floor -->
+                    <sc-if value="{{ sfrHasPassages }}">
+                      <div style="margin-bottom:8px">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.07em;color:#B4B4BE">PASSAGES</span><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C4C4CC">{{ sfrPasCount }}</span><span style="height:1px;background:#EFEFF3;flex:1"></span><span style="font-size:11px;color:#8A8A95">verbatim — open in the source</span></div>
+                        <sc-for list="{{ sfrPassages }}" as="p">
+                          <button onClick="{{ p.open }}" title="Open this passage in the source" style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;width:100%;text-align:left;border:none;border-left:2px solid #EDEBF9;background:transparent;padding:5px 0 5px 12px;margin-bottom:3px;font-family:'Newsreader',Georgia,serif;font-size:14.5px;line-height:1.55;color:#3A3A44" style-hover="border-color:#6D5EF5;background:#FAFAFE">
+                            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:#6D5EF5;background:#F1EFFE;border:1px solid #DED8FD;border-radius:6px;padding:1px 5px;align-self:start;margin-top:2px;white-space:nowrap">{{ p.reg }}</span>
+                            <span><sc-for list="{{ p.segs }}" as="sg"><sc-if value="{{ sg.hit }}"><span style="background:#FAEEDA;color:#4A1B0C;border-radius:2px;padding:0 1px">{{ sg.s }}</span></sc-if><sc-if value="{{ sg.plain }}"><span>{{ sg.s }}</span></sc-if></sc-for></span>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{ sfThin }}">
+                      <div style="padding:34px 4px;text-align:center;font-size:13.5px;color:#8A8A95;line-height:1.6">{{ sfThinLabel }}</div>
+                    </sc-if>
+                  </sc-if>
+
                   <!-- CONCORDANCE — every verbatim occurrence, grouped by source, terms lit -->
                   <sc-if value="{{ sfIsConcordance }}">
                     <sc-for list="{{ sfConcordance }}" as="h">
@@ -6140,6 +6220,25 @@ class Component extends DCLogic {
     this.setState({ sfDisabled: next });
   }
   _sfClear() { this.setState({ sfQuery: '', sfTemplate: 'auto' }); }
+  // _highlightTerms(text, terms) → [{ s, hit }] segments, the query terms lit — the search-engine
+  // snippet's highlighting, shared by the Results view's source snippets and passage rows. Verbatim:
+  // every character of `text` is kept, only sliced at term boundaries.
+  _highlightTerms(text, terms) {
+    const t = String(text || '');
+    const ts = [...new Set((terms || []).map((x) => String(x || '').toLowerCase()).filter((x) => x.length > 1))];
+    if (!ts.length || !t) return [{ s: t, hit: false }];
+    const re = new RegExp('(' + ts.map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'ig');
+    const segs = []; let last = 0, m;
+    const push = (s, hit) => segs.push({ s, hit, plain: !hit });
+    while ((m = re.exec(t))) {
+      if (m.index > last) push(t.slice(last, m.index), false);
+      push(m[0], true);
+      last = m.index + m[0].length;
+      if (re.lastIndex === m.index) re.lastIndex++;
+    }
+    if (last < t.length) push(t.slice(last), false);
+    return segs.length ? segs : [{ s: t, hit: false, plain: true }];
+  }
   // _surfaceVals(app, sources) → every val the Search-tab surface binds. Pure over app.searchSurface;
   // the source rail is rebuilt from the FULL source list so a disabled source stays visible (and
   // re-enable-able) even though the scan itself only reads the enabled ones.
@@ -6151,10 +6250,15 @@ class Component extends DCLogic {
     const all = sources || [];
     const base = {
       sfQuery: st.sfQuery || '', sfAsked: false, sfEmpty: !q,
-      sfIsConcordance: false, sfIsCast: false, sfIsContrast: false, sfThin: false,
+      sfIsResults: false, sfIsConcordance: false, sfIsCast: false, sfIsContrast: false, sfThin: false,
       sfRail: [], sfHasRail: all.length > 1, sfConcordance: [], sfCast: [], sfContrast: [],
       sfContrastNote: '', sfTotal: 0, sfTotalLabel: '', sfSignalLabel: '', sfThinLabel: '',
       sfTabs: [], sfSubject: q, sfElements: [], sfConcepts: [], sfHasConcepts: false,
+      // the grouped, search-engine RESULTS view — sources and entities on one page, plus the
+      // relationships (shared referents) that link the result sources. Empty on the cold path.
+      sfrEntities: [], sfrEntCount: 0, sfrSources: [], sfrSrcCount: 0, sfrPassages: [], sfrPasCount: 0,
+      sfrLinks: [], sfrHasLinks: false, sfrHasEntities: false, sfrHasSources: false, sfrHasPassages: false,
+      sfResultsSummary: '',
       onSfInput: (e) => this.onSfInput(e), sfClear: () => this._sfClear(),
       // Web-search escape hatch — Enter, and a visible button when the record has nothing (an empty
       // record on first load, or a query the sources don't carry). Lets a search "reach the web as
@@ -6189,18 +6293,119 @@ class Component extends DCLogic {
       };
     });
 
-    // the template switcher — auto + the three presets, the active one lit, each with its yield.
+    // ── the grouped RESULTS view — the search-engine landing (docs/search-and-pins.md) ──────────
+    // One query over the whole record, grouped by KIND: the figures on record and the sources that
+    // carry the query, on one page, each a card that opens (an entity → its profile; a source → its
+    // full Overview landing). Plus the RELATIONSHIPS among those sources — two sources are related
+    // when they share a referent, so the shared-entity count is the honest link weight. Computed
+    // from app.searchRecord (pure, grounded) + the merged entity rows' per-source `instances`.
+    const enabledSources = all.filter((s) => !disabled.has(s.sn));
+    let rec = null;
+    try { rec = app.searchRecord(q, enabledSources); } catch { rec = null; }
+    rec = rec || { parsed: null, entities: [], claims: [], passages: [], sources: [] };
+    const recTerms = (rec.parsed && rec.parsed.terms) || [];
+
+    const sfrEntities = (rec.entities || []).map((e) => {
+      const ty = e.type && e.type !== 'proper' ? e.type : '';
+      return {
+        label: e.label, type: ty, fav: (e.label || 'E').trim().charAt(0).toUpperCase(),
+        meta: [ty || null, e.mentions + ' mention' + (e.mentions === 1 ? '' : 's'), e.sourceCount + ' source' + (e.sourceCount === 1 ? '' : 's')].filter(Boolean).join('  ·  '),
+        open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); },
+      };
+    });
+
+    // sources — one result row per source that carries the query (its sources-group hit, or a source
+    // that a matching passage landed in), with a lit snippet and the way in (Overview).
+    const passBySn = new Map();
+    for (const p of rec.passages || []) if (!passBySn.has(p.sn)) passBySn.set(p.sn, p);
+    const srcSns = [], seenSrc = new Set();
+    for (const s of rec.sources || []) if (!seenSrc.has(s.sn)) { seenSrc.add(s.sn); srcSns.push(s.sn); }
+    for (const p of rec.passages || []) if (!seenSrc.has(p.sn)) { seenSrc.add(p.sn); srcSns.push(p.sn); }
+    const sfrSources = srcSns.map((sn) => {
+      const s = (app.sourceBySn && app.sourceBySn(sn)) || {};
+      const snip = passBySn.get(sn);
+      const pcount = (rec.passages || []).filter((p) => p.sn === sn).length;
+      return {
+        sn, reg: s.reg || '', title: s.title || s.domain || s.url || '(untitled source)',
+        domain: s.domain || (s.kind || 'source'), hasSnippet: !!snip,
+        segs: snip ? this._highlightTerms(snip.text, recTerms) : [],
+        hasMeta: !!pcount, meta: pcount ? (pcount + ' passage' + (pcount === 1 ? '' : 's')) : '',
+        open: () => this.openViewer(sn),
+      };
+    });
+
+    const sfrPassages = (rec.passages || []).slice(0, 8).map((p) => {
+      const s = (app.sourceBySn && app.sourceBySn(p.sn)) || {};
+      return {
+        sn: p.sn, reg: p.reg || s.reg || '', title: p.title || s.title || s.domain || '',
+        segs: this._highlightTerms(p.text, recTerms), open: () => this.openViewer(p.sn, p.text),
+      };
+    });
+
+    // relationships between the result sources — shared referents. Two sources are related when they
+    // name the same referent, so the tally of shared referents is the honest link weight. Entities
+    // don't always fold across sources ("Victor Frankenstein" in one, "Frankenstein" in another stay
+    // distinct rows without cross-source coref), so we group by a REFERENT CORE — the last proper-noun
+    // token — across each row's per-source `instances`. Each shared chip opens the figure; each end a source.
+    const resultSns = new Set(srcSns);
+    let sfrLinks = [];
+    if (resultSns.size >= 2) {
+      let ents = [];
+      try { ents = (app.entities && app.entities({ merge: true, level: 'names' })) || []; } catch { ents = []; }
+      const REF_STOP = new Set('the and for that this with from into over their there they them then than when what which while ice sea day time year years part end'.split(' '));
+      const refCore = (label) => {
+        const toks = String(label || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+        if (!toks.length) return '';
+        const core = toks.length > 1 ? toks[toks.length - 1] : toks[0];
+        return (core.length < 3 || REF_STOP.has(core)) ? '' : core;
+      };
+      // core → { sns spanned within the result set, best representative entity to open }
+      const coreMap = new Map();
+      for (const e of ents) {
+        const core = refCore(e.label); if (!core) continue;
+        let g = coreMap.get(core); if (!g) coreMap.set(core, g = { sns: new Set(), rep: null });
+        for (const i of e.instances || []) if (resultSns.has(i.sn)) g.sns.add(i.sn);
+        const len = String(e.label || '').length;
+        if (e.docId && e.entId && (!g.rep || len > g.rep.len)) g.rep = { label: e.label, docId: e.docId, entId: e.entId, len };
+      }
+      const pairs = new Map();
+      for (const g of coreMap.values()) {
+        const sns = [...g.sns]; if (sns.length < 2) continue;
+        const chip = g.rep ? { label: g.rep.label, docId: g.rep.docId, entId: g.rep.entId } : null;
+        if (!chip) continue;
+        for (let i = 0; i < sns.length; i++) for (let j = i + 1; j < sns.length; j++) {
+          const key = [String(sns[i]), String(sns[j])].sort().join('|');
+          let pr = pairs.get(key);
+          if (!pr) pairs.set(key, pr = { a: sns[i], b: sns[j], ents: [] });
+          pr.ents.push(chip);
+        }
+      }
+      sfrLinks = [...pairs.values()].sort((x, y) => y.ents.length - x.ents.length).slice(0, 8).map((pr) => {
+        const sa = (app.sourceBySn && app.sourceBySn(pr.a)) || {}, sb = (app.sourceBySn && app.sourceBySn(pr.b)) || {};
+        return {
+          aReg: sa.reg || '', aTitle: sa.title || sa.domain || ('S' + pr.a), openA: () => this.openViewer(pr.a),
+          bReg: sb.reg || '', bTitle: sb.title || sb.domain || ('S' + pr.b), openB: () => this.openViewer(pr.b),
+          countLabel: pr.ents.length + ' shared',
+          shared: pr.ents.slice(0, 6).map((x) => ({ label: x.label, open: () => { if (x.docId && x.entId) this.openEntity(x.docId, x.entId); } })),
+        };
+      });
+    }
+    const resultsEmpty = !sfrEntities.length && !sfrSources.length && !sfrPassages.length;
+
+    // the template switcher — the grouped Results landing + the three drill-in presets. Results is
+    // the default (template 'auto'); a preset takes over only when its tab is picked.
+    const showResults = template === 'auto' || template === 'results';
     const counts = { concordance: surf.total, cast: (surf.cast || []).length, contrast: (surf.contrast || []).length };
     const active = surf.template;
     const tabDefs = [
-      { key: 'auto', label: 'Auto', n: null },
+      { key: 'auto', label: 'Results', n: sfrEntities.length + sfrSources.length || null },
       { key: 'concordance', label: 'Occurrences', n: counts.concordance },
       { key: 'cast', label: 'Cast', n: counts.cast },
       { key: 'contrast', label: 'Contrast', n: counts.contrast },
     ];
     const sfTabs = tabDefs.map((t) => {
-      const on = template === t.key || (template === 'auto' && t.key === 'auto');
-      const isActiveSurface = t.key === active;
+      const on = t.key === 'auto' ? showResults : (template === t.key);
+      const isActiveSurface = !showResults && t.key === active;
       return {
         label: t.label, hasN: t.n != null, n: t.n,
         on, fg: on ? '#5B4BE6' : (isActiveSurface ? '#3A3A44' : '#8A8A95'),
@@ -6214,8 +6419,14 @@ class Component extends DCLogic {
     const out = {
       ...base, sfAsked: true, sfEmpty: false, sfSubject: surf.subject || q,
       sfRail, sfHasRail: all.length > 1, sfTabs,
-      sfIsConcordance: active === 'concordance', sfIsCast: active === 'cast', sfIsContrast: active === 'contrast',
-      sfTotal: surf.total, sfThin: surf.thin,
+      sfIsResults: showResults,
+      sfrEntities, sfrEntCount: sfrEntities.length, sfrHasEntities: !!sfrEntities.length,
+      sfrSources, sfrSrcCount: sfrSources.length, sfrHasSources: !!sfrSources.length,
+      sfrPassages, sfrPasCount: sfrPassages.length, sfrHasPassages: !!sfrPassages.length,
+      sfrLinks, sfrHasLinks: !!sfrLinks.length,
+      sfResultsSummary: resultsEmpty ? '' : [sfrEntities.length ? (sfrEntities.length + ' figure' + (sfrEntities.length === 1 ? '' : 's')) : null, sfrSources.length ? (sfrSources.length + ' source' + (sfrSources.length === 1 ? '' : 's')) : null].filter(Boolean).join('  ·  '),
+      sfIsConcordance: !showResults && active === 'concordance', sfIsCast: !showResults && active === 'cast', sfIsContrast: !showResults && active === 'contrast',
+      sfTotal: surf.total, sfThin: showResults ? resultsEmpty : surf.thin,
       sfElements: (surf.elements || []).map((e) => ({ label: e.label, value: e.total != null ? (e.count + '/' + e.total) : String(e.count || 0), tip: 'Show ' + e.label.toLowerCase(), open: () => this._sfSetTemplate(e.key === 'occurrences' ? 'concordance' : e.key === 'claims' ? 'contrast' : e.key === 'cast' ? 'cast' : 'auto') })),
       sfConcepts: (surf.concepts || []).slice(0, 14).map((g) => ({ label: g.label, meta: g.meta || g.kind || '', dot: g.kind === 'source' ? '#9A9AA4' : g.kind === 'claim' || g.kind === 'Contested' ? '#B23A2E' : '#6D5EF5', open: () => this.setState({ sfQuery: g.label, sfTemplate: 'auto' }) })),
       sfHasConcepts: !!(surf.concepts && surf.concepts.length),
@@ -6260,6 +6471,9 @@ class Component extends DCLogic {
       });
       out.sfThinLabel = 'No contested or bearing claims for “' + (surf.subject || q) + '”.';
     }
+    // The Results landing owns its own empty line — nothing on record for this query yet, so reach
+    // the web. (The presets set their own thin labels above.)
+    if (showResults) out.sfThinLabel = 'Nothing on record for “' + (surf.subject || q) + '” yet — search the web to pull sources in.';
     // Offer the web only when the record itself came up empty on this query — a full result set has
     // no need of it. With nothing recorded at all, say so plainly rather than "across the 0 sources".
     out.sfWebShow = !!q && !!out.sfThin;
