@@ -124,6 +124,8 @@ export const installSummaries = (appCtx) => {
   };
 
   // ── TEMPORARY — the fold at a cursor, made visible ──────────────────────────────────────────
+  // Reads Entity-terrain referent labels + Binding-stance salience (documentFieldAt) — a
+  // deliberate REC widening of this file's own eo-contract.js entry, not a silent one.
   // foldSummary REALIZES the fold as prose; this exposes the fold's own READING, unrealized, so a
   // surface can SEE what the engine is reading at a place rather than only its summary. Two channels
   // the prose deliberately drops:
