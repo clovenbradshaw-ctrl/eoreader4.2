@@ -7466,6 +7466,10 @@ class Component extends DCLogic {
     const show = this._filterTiered(data, w.hidden);
     this._tg = window.EO.mountTieredGraph(el, {
       nodes: show.nodes, edges: show.edges,
+      onOpen: (node) => { if (node && node.ref) this._webFocusEntity(node.ref); },
+      // Crosswalk shares the entity vocabulary (tier-1 referents carry a { docId, entId } ref), so
+      // a click loads that referent's profile into the details panel exactly like the entity web.
+      onSelect: (node) => { if (node && node.kind === 'entity' && node.ref) this._setWgPanel(node.ref.docId, node.ref.entId); },
       countsLabel: `${show.nodes.length} nodes · ${show.edges.length} edges`,
     });
   }
@@ -7595,7 +7599,7 @@ class Component extends DCLogic {
     // clicked). Entity kind only; its handlers stay INSIDE the overlay where they can
     // (pivot swaps the panel), and leave it deliberately where they can't (a mention or the
     // source chip closes the overlay and opens the viewer at the passage).
-    const panel = (isEnt && this._wgPanel) ? this._wgPanel : null;
+    const panel = ((isEnt || isCrosswalk) && this._wgPanel) ? this._wgPanel : null;
     const webProf = panel ? this._profFor(panel.docId, panel.entId, {
       pivot: (otherId) => this._setWgPanel(panel.docId, otherId),
       openSource: (sn) => { this.openViewer(sn); },
@@ -7632,7 +7636,7 @@ class Component extends DCLogic {
         : isNetwork
         ? 'The sources themselves, linked by what they corroborate — never merged on a bare label match. A source that shares nothing with the others stays visibly its own node.'
         : isCrosswalk
-        ? 'A referent folded across sources by corroborated identity, never spelling alone. Scrub the ⏱ time axis at the sequence grain for the corpus cursor (one band per source, in reading order); a "…" claim node marks where its dominant label changed.'
+        ? 'A referent folded across sources by corroborated identity, never spelling alone. Scrub the fold cursor for the corpus cursor (its discovery order); a "…" claim node marks where its dominant label changed. Click a referent to load its profile.'
         : isCompare
         ? 'A measure-by-source table read deterministically off the record — one row per figure (a budget, a completion year, an acreage), one column per source. A cell shows the value that source states, and the move if it revised one ("$120M → $145M"). Click any cell to open its passage.'
         : 'What the sources are read as asserting causes what. Open a node, then “focus the DAG here”.',
