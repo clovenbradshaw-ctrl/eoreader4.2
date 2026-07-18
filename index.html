@@ -245,8 +245,14 @@ table{border-collapse:collapse;width:100%}
   .eo-modal{left:8px !important;right:8px !important;width:auto !important;transform:none !important;top:12px !important;max-height:calc(100dvh - 24px) !important}
   .eo-tall{bottom:12px !important;max-height:none !important}
   .eo-sheet{left:8px !important;right:8px !important;width:auto !important;transform:none !important;max-height:calc(100dvh - 24px);overflow-y:auto}
-  .eo-wgbody{flex-direction:column !important}
-  .eo-wgside{flex:0 0 auto !important;max-height:36%;border-right:none !important;border-bottom:1px solid #EEEEF2}
+  /* The Graph tab is a three-pane row (checklist · graph · details). Stacked into a column on
+     mobile, the details pane kept its fixed 306px basis and crushed the graph mount to a ~57px
+     sliver its own drawing overflowed. Let the whole body scroll, cap the checklist, give the
+     graph a real height, and let the details pane size to its content beneath it. */
+  .eo-wgbody{flex-direction:column !important;overflow-y:auto !important}
+  .eo-wgside{flex:0 0 auto !important;max-height:42vh;border-right:none !important;border-bottom:1px solid #EEEEF2}
+  .eo-wgmount{flex:0 0 auto !important;height:min(56vh,420px) !important;overflow:hidden !important}
+  .eo-wgprof{flex:0 0 auto !important;border-left:none !important;border-top:1px solid #EEEEF2;max-height:none !important}
   .eo-drawer{width:min(94vw,440px) !important}
   .eo-toast{max-width:calc(100vw - 24px) !important;bottom:calc(18px + env(safe-area-inset-bottom)) !important}
 }
@@ -959,12 +965,12 @@ table{border-collapse:collapse;width:100%}
                 </sc-if>
               </div>
             </div>
-            <div ref="{{ setWebGraphEl }}" class="eo-scroll" style="flex:1;min-width:0;overflow:auto"></div>
+            <div ref="{{ setWebGraphEl }}" class="eo-scroll eo-wgmount" style="flex:1;min-width:0;overflow:auto"></div>
 
             <!-- THE DETAILS PANEL — the profile of the entity the web opened on, following every
                  node click. Same facts as the sidebar profile (one builder renders both). -->
             <sc-if value="{{ webProfShow }}">
-              <aside class="eo-scroll" style="flex:0 0 306px;border-left:1px solid #EEEEF2;overflow-y:auto;min-height:0;background:#fff">
+              <aside class="eo-scroll eo-wgprof" style="flex:0 0 306px;border-left:1px solid #EEEEF2;overflow-y:auto;min-height:0;background:#fff">
                 <div style="padding:13px 14px">
                   <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
                     <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ webProf.initials }}</span>
