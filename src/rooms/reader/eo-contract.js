@@ -6,6 +6,7 @@ import { contract } from '../../core/contract.js';
 
 export const CONTRACTS = Object.freeze({
   'src/rooms/reader/anchor.js': contract({ ops: ['CON', 'EVA'], targets: ['Field', 'Link'], products: ['Link'], stances: ['Binding', 'Tracing'], note: 'the durable passage anchor — mint, and resolve down the honesty ladder' }),
+  'src/rooms/reader/evidence.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field', 'Network'], products: ['Lens'], stances: ['Tracing', 'Tending'], note: 'the evidence-modal contract — a waveform mark → { locator, confidence, explanation, referents, propositions, correspondingEvidence }, the same five regions across every modality' }),
   'src/rooms/reader/app.js': contract({ ops: ['CON', 'INS'], targets: ['Network', 'Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'the reader session controller' }),
   'src/rooms/reader/app/api.js': contract({ ops: ['NUL'], targets: ['Network'], products: ['Void'], stances: ['Clearing'], note: 'the public membrane — the one frozen object the surface holds' }),
   'src/rooms/reader/app/trail.js': contract({ ops: ['SIG', 'INS'], targets: ['Atmosphere', 'Field'], products: ['Field', 'Entity'], stances: ['Tending', 'Making'], note: 'the research trail — the live what-am-I-doing stream' }),

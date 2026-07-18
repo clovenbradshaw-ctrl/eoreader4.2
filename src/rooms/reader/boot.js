@@ -77,6 +77,7 @@ import { mountConsole } from './console-surface.js';
 import { mountBinvis } from './binvis-surface.js';
 import * as binvis from '../../surfaces/binvis/index.js';
 import { createPipelineSurface } from './pipeline-surface.js';
+import * as evidence from './evidence.js';
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
 // background faculty that watches the same fold geometry the turn emits and raises IMPRESSIONS
@@ -338,6 +339,7 @@ window.EO = Object.freeze({
   // tab); the floating launcher below makes it visible now. Structural layer today, more to come.
   binvis: Object.freeze({ ...binvis, mount: mountBinvis }),
   firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
+  evidence,   // the evidence-modal contract — a waveform mark → the five-region modal shape (docs/omnimodal-waveform.md)
   projectTranscript, wordsToText,   // the interactive transcript fold (baseline + edits/redactions → live reading)
   encodeWav, applyRedactions,       // audio DSP for the Listen surface's redaction re-synthesis + WAV export
 
