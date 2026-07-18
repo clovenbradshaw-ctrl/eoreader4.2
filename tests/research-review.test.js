@@ -3,9 +3,13 @@ import assert from 'node:assert/strict';
 
 import {
   topTerms, clusterDuplicates, independentOriginCount, clusterOf, evidenceAreas, coverageDots,
-  sharedReferentLinks, connectionNarrative, researchReading, isPrimary, candidateRole,
+  sharedReferentLinks, researchReading, isPrimary, candidateRole,
 } from '../src/rooms/reader/research-review.js';
-import { corpusStats, corpusRecipes, researchReview } from '../src/rooms/reader/research-review-corpus.js';
+import {
+  connectionNarrative, identityCandidates, sourceNetwork, applyIndependentOverrides,
+} from '../src/rooms/reader/research-review-network.js';
+import { evidenceMatrix } from '../src/rooms/reader/research-review-matrix.js';
+import { corpusStats, corpusRecipes, researchReview, evidenceGaps, gapSearchQueries } from '../src/rooms/reader/research-review-corpus.js';
 
 // Research Review (docs/research-review.md): a search result becomes a provisional, inspectable
 // corpus — evidence areas, duplicate/derivative clusters, connections, agreements/disagreements,
@@ -161,4 +165,136 @@ test('researchReview — the one entrance composes everything and stays internal
   assert.equal(out.stats.independentOrigins, out.clusters.length);
   assert.ok(out.recipes.balanced && out.recipes.primary && out.recipes.smallest && out.recipes.perspectives && out.recipes.contradiction);
   assert.ok(out.reading.length > 0);
+});
+
+// ── §7.2/§7.3/§7.4 — typed source network, identity candidates, cluster overrides ─────────────
+
+const MATRIX = {
+  sources: ROWS.map((r) => ({ source: r.sn, label: r.title })),
+  rows: [{
+    measure: 'revenue', measureLabel: 'Revenue', subject: 'toll', conflict: true, changed: false,
+    reading: 'Sources disagree', sourceCount: 2,
+    cells: [
+      { source: 'S1', sourceLabel: 'MTA', value: 48.6, unit: 'M', raw: '$48.6M', bound: 'exact', transition: null, sentIdx: 2, text: 'Revenue collected reached $48.6 million.', display: '$48.6M' },
+      null,
+      { source: 'S3', sourceLabel: 'Comptroller', value: 51, unit: 'M', raw: '$51M', bound: 'exact', transition: null, sentIdx: 0, text: 'revenue of $51 million', display: '$51M' },
+      null,
+    ],
+  }],
+  counts: { rows: 1, measures: 1, conflicts: 1, sources: 4 },
+};
+
+test('sourceNetwork — mirrors (hash match) vs derives-from (host/author match), shares-a-referent, contests', () => {
+  const clusters = clusterDuplicates(ROWS_WITH_MIRROR);
+  const areas = evidenceAreas(ROWS_WITH_MIRROR);
+  const links = sharedReferentLinks(ROWS_WITH_MIRROR, ENTITIES);
+  const net = sourceNetwork(ROWS_WITH_MIRROR, { clusters, links, matrix: MATRIX, areas });
+  const mirror = net.edges.find((e) => e.type === 'mirrors' && [e.a, e.b].includes('S5'));
+  assert.ok(mirror, 'the byte-identical S5 reprint reads as a mirror, not a generic derives-from');
+  const referent = net.edges.find((e) => e.type === 'shares a referent' && [e.a, e.b].sort().join() === ['S1', 'S2'].sort().join());
+  assert.ok(referent, 'S1/S2 share the MTA referent');
+  const contest = net.edges.find((e) => e.type === 'contests' && [e.a, e.b].sort().join() === ['S1', 'S3'].sort().join());
+  assert.ok(contest, 'S1/S3 disagree on revenue in the matrix');
+  const corroborate = net.edges.find((e) => e.type === 'corroborates independently' && [e.a, e.b].sort().join() === ['S1', 'S3'].sort().join());
+  assert.ok(corroborate, 'S1 and S3 share a referent and sit in different clusters — independent corroboration');
+});
+
+test('sourceNetwork — never emits duplicate (a,b,type) edges even when multiple signals agree', () => {
+  const clusters = clusterDuplicates(ROWS);
+  const areas = evidenceAreas(ROWS);
+  const links = sharedReferentLinks(ROWS, ENTITIES);
+  const net = sourceNetwork(ROWS, { clusters, links, matrix: MATRIX, areas });
+  const seen = new Set();
+  for (const e of net.edges) {
+    const k = `${[e.a, e.b].sort().join('|')}::${e.type}`;
+    assert.equal(seen.has(k), false, `duplicate edge ${k}`);
+    seen.add(k);
+  }
+});
+
+test('identityCandidates — only referents shared by ≥2 candidates, always starting "candidate"', () => {
+  const ids = identityCandidates(ROWS, ENTITIES);
+  assert.ok(ids.length > 0);
+  for (const c of ids) {
+    assert.ok(c.sns.length >= 2);
+    assert.equal(c.state, 'candidate');
+  }
+});
+
+test('applyIndependentOverrides — pulls the overridden sn into its own singleton cluster', () => {
+  const clusters = clusterDuplicates(ROWS_WITH_MIRROR);
+  const before = clusterOf('S5', clusters);
+  assert.equal(before.members.length, 2, 'S5 starts fused with S1');
+  const after = applyIndependentOverrides(clusters, ['S5']);
+  const s5 = clusterOf('S5', after);
+  const s1 = clusterOf('S1', after);
+  assert.equal(s5.members.length, 1, 'S5 is now its own cluster');
+  assert.equal(s1.members.length, 1, 'S1 loses its derivative');
+  assert.equal(applyIndependentOverrides(clusters, []), clusters, 'no overrides → the same array, untouched');
+});
+
+// ── §7.1 — the evidence matrix ──────────────────────────────────────────────────────────────
+
+test('evidenceMatrix — measure rows map conflict/revision/absence to the spec cell-state vocabulary', () => {
+  const areas = evidenceAreas(ROWS);
+  const clusters = clusterDuplicates(ROWS);
+  const m = evidenceMatrix(ROWS, { matrix: MATRIX, areas, clusters });
+  const revenueRow = m.rows.find((r) => r.family === 'measure' && r.label === 'Revenue');
+  assert.ok(revenueRow);
+  assert.equal(revenueRow.cells.S1.state, 'contests');
+  assert.equal(revenueRow.cells.S3.state, 'contests');
+  assert.equal(revenueRow.cells.S2.state, 'silent', 'no cell for this source in the row');
+  assert.equal(m.sources.length, ROWS.length);
+});
+
+test('evidenceMatrix — proposition rows: a derivative reads "candidate correspondence", not "supports"', () => {
+  const clusters = clusterDuplicates(ROWS_WITH_MIRROR);
+  const areas = evidenceAreas(ROWS_WITH_MIRROR);
+  const m = evidenceMatrix(ROWS_WITH_MIRROR, { matrix: null, areas, clusters });
+  const area = areas.find((a) => a.sns.includes('S5'));
+  const row = m.rows.find((r) => r.family === 'proposition' && r.label === area.label);
+  assert.equal(row.cells.S5.state, 'candidate correspondence', 'S5 is a derivative of the S1 cluster');
+  assert.equal(row.cells.S1.state, 'supports');
+});
+
+// ── §9 — gap-directed research ──────────────────────────────────────────────────────────────
+
+test('evidenceGaps — tiers by independentOrigins: Strong ≥3, Partial =2, Missing ≤1', () => {
+  const areas = [
+    { label: 'a', independentOrigins: 3 }, { label: 'b', independentOrigins: 2 }, { label: 'c', independentOrigins: 1 },
+  ];
+  const gaps = evidenceGaps(areas);
+  assert.deepEqual(gaps.strong.map((a) => a.label), ['a']);
+  assert.deepEqual(gaps.partial.map((a) => a.label), ['b']);
+  assert.deepEqual(gaps.missing.map((a) => a.label), ['c']);
+});
+
+test('gapSearchQueries — deterministic templates over the review query and the area\'s own terms', () => {
+  const qs = gapSearchQueries('congestion pricing', { terms: ['equity', 'impacts'] });
+  assert.equal(qs.dataset, 'congestion pricing equity impacts dataset');
+  assert.equal(qs.government, 'congestion pricing equity impacts site:.gov');
+  assert.ok(qs.opposing.includes('criticism'));
+});
+
+// ── §8 — the Historical recipe ──────────────────────────────────────────────────────────────
+
+test('corpusRecipes — historical keeps the earliest and latest of every area, plus revisions and primary sources', () => {
+  const areas = evidenceAreas(ROWS);
+  const clusters = clusterDuplicates(ROWS);
+  const recipes = corpusRecipes(ROWS, { areas, clusters, matrix: MATRIX });
+  assert.ok(recipes.historical.sns.length >= 1);
+  assert.ok(recipes.historical.sns.includes('S1'), 'S1 is primary (.gov + pdf)');
+  assert.ok(recipes.historical.why);
+});
+
+// ── scope rule (§3.4) — the evidence matrix and selected-corpus stats scope to excludedSns ────
+
+test('researchReview — evidenceMatrix and selectedStats are scoped to the CURRENT selection, not the whole reviewed set', () => {
+  const full = researchReview({ rows: ROWS_WITH_MIRROR, entities: ENTITIES, matrix: MATRIX, query: 'q', excludedSns: [] });
+  const scoped = researchReview({ rows: ROWS_WITH_MIRROR, entities: ENTITIES, matrix: MATRIX, query: 'q', excludedSns: ['S3', 'S4', 'S5'] });
+  assert.equal(full.evidenceMatrix.sources.length, 5);
+  assert.equal(scoped.evidenceMatrix.sources.length, 2, 'only S1/S2 remain selected');
+  assert.equal(scoped.selectedStats.sourceCount, 2);
+  // the whole-reviewed-set read (areas/clusters/network) stays stable across the toggle
+  assert.equal(full.areas.length, scoped.areas.length);
 });

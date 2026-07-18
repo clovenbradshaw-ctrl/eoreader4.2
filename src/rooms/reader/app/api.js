@@ -49,6 +49,11 @@ export const buildApi = (appCtx) => {
     reviewAddUrl: appCtx.reviewAddUrl, reviewImportFile: appCtx.reviewImportFile,
     reviewToggleExclude: appCtx.reviewToggleExclude, reviewApplyRecipe: appCtx.reviewApplyRecipe,
     reviewAdmit: appCtx.reviewAdmit, reviewCompute: appCtx.reviewCompute,
+    // the newer §7/§9 actions (research-review-actions.js): overriding a computed duplicate
+    // cluster, confirming/rejecting a cross-source identity match, a gap-directed search that
+    // lands in the SAME review topic, and opening one waveform mark's evidence-modal payload.
+    reviewToggleIndependent: appCtx.reviewToggleIndependent, reviewClusterAction: appCtx.reviewClusterAction,
+    reviewSetIdentity: appCtx.reviewSetIdentity, reviewExpand: appCtx.reviewExpand, reviewOpenMark: appCtx.reviewOpenMark,
     sourceBySn: appCtx.sourceBySn, sourceRename: appCtx.sourceRename, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, topicSourcesAll: appCtx.topicSourcesAll, sourceToggleCollapse: appCtx.sourceToggleCollapse,
     // source export — full append-only history as JSONL, one JSON snapshot (or one folded at a
     // text/log cursor), and the ORIGINAL file/bytes as ingested (PDF/audio/video bytes, else text)
