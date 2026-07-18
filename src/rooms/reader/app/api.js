@@ -101,6 +101,9 @@ export const buildApi = (appCtx) => {
     // paragraph). foldSummary generates (telegram first, model refinement behind it);
     // foldSummaryFor reads the stored record back synchronously.
     foldSummary: appCtx.foldSummary, foldSummaryFor: appCtx.foldSummaryFor,
+    // TEMPORARY — the fold at a cursor made VISIBLE (the objects in focus + the reading's assertions,
+    // not just the spans); synchronous, model-free, unstored. Drives the reader's fold-peek overlay.
+    cursorFold: appCtx.cursorFold,
     // the entity explore surface — the deterministic chapter spine + on-demand important/surprising +
     // the fold-prompted per-chapter reading + the passage ZOOM, all pulled lazily as the reader digs
     // in and deeper (docs/topline.md)
