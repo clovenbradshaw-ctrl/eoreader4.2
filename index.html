@@ -4209,6 +4209,14 @@ class Component extends DCLogic {
     if (this._fileInput && document.body.contains(this._fileInput)) return this._fileInput;
     const inp = document.createElement('input');
     inp.type = 'file'; inp.multiple = true;
+    // Explicit, broad accept — matching every extension import-file.js's importAnyFile()
+    // knows how to read. Mobile browsers (notably Android Chrome) default the native picker
+    // to Photos/Camera when a file input has no accept hint; naming every supported
+    // extension here is what makes the OS show the general Files/Documents picker instead.
+    inp.accept = '.txt,.md,.markdown,.text,.log,.rst,.html,.htm,.xhtml,.pdf,.xlsx,.xls,.csv,.tsv,.json,'
+      + '.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff,.mp3,.m4a,.wav,.ogg,.oga,.flac,.aac,.opus,.weba,'
+      + '.mp4,.mov,.webm,.mkv,.avi,.m4v,.mid,.midi,.smf,.kar,.rmi,'
+      + 'text/*,image/*,audio/*,video/*,application/pdf,application/json';
     inp.setAttribute('data-eo-file', '1');
     inp.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0';
     inp.addEventListener('change', () => { [...inp.files].forEach((f) => this._ingestFile(f)); inp.value = ''; });
