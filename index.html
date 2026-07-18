@@ -1229,20 +1229,30 @@ table{border-collapse:collapse;width:100%}
           </div>
           </sc-if>
 
+          <!-- The overview spine — pinned between the provenance graph (above) and the claims list
+               (below), it is the hinge both elaborate: the four headline counts read left→right in
+               the SAME order as the graph's columns (claims → passages → sources) with the
+               contradictions flag last. Staying put as the list scrolls, it keeps the record's shape
+               in view instead of scrolling away with the claims. -->
+          <sc-if value="{{ hasOverview }}">
+          <div style="flex:0 0 auto;padding:14px 26px;border-bottom:1px solid #EFEFF3;background:#FCFCFD">
+            <div style="max-width:900px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+              <sc-for list="{{ overviewStats }}" as="st">
+                <div style="border:1px solid #EFEFF3;border-left:3px solid {{ st.color }};border-radius:10px;padding:11px 13px;background:#fff">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;line-height:1;color:{{ st.color }}">{{ st.value }}</div>
+                  <div style="font-size:11px;color:#8A8A95;margin-top:5px">{{ st.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          </sc-if>
+
           <!-- the claims list the graph above pivots -->
           <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:18px 26px">
             <div style="max-width:900px">
               <sc-if value="{{ evEmpty }}">
                 <div style="border:1px dashed #E0E0E6;border-radius:12px;padding:28px 24px;color:#8A8A95;font-size:13px;line-height:1.6;background:#fff">No claims yet. Record a source — the reading itself mints claims here the moment one lands, with their verbatim passages; searching and asking add more. Once there are claims, focus a node in the graph above to pivot this list to what it grounds.</div>
               </sc-if>
-              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
-                <sc-for list="{{ overviewStats }}" as="st">
-                  <div style="border:1px solid #EFEFF3;border-left:3px solid {{ st.color }};border-radius:10px;padding:11px 13px;background:#fff">
-                    <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;line-height:1;color:{{ st.color }}">{{ st.value }}</div>
-                    <div style="font-size:11px;color:#8A8A95;margin-top:5px">{{ st.label }}</div>
-                  </div>
-                </sc-for>
-              </div>
               <sc-if value="{{ hasSourceConflicts }}">
                 <div style="margin-bottom:14px;border:1px solid #F2D3CD;border-radius:12px;overflow:hidden;background:#FEF7F5">
                   <div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid #F6E0DB">
@@ -8119,10 +8129,15 @@ class Component extends DCLogic {
     // stack below ONLY when the tier is open. A collapsed tier's cards fold into the header
     // (they share its position) so edges into/out of the group route to the header, not to
     // scattered points, and are not drawn as cards.
+    // COLUMN ORDER FOLLOWS THE EDGE CHAIN so every arrow runs one column rightward, never
+    // backward. provenance() wires memo→claim (cite) → passage (grounds) → source (extract)
+    // → file (fixity); laying the columns out in that same order makes the DAG read as one
+    // clean left→right provenance funnel — the topic's synthesis on the left, drilling right
+    // through each claim to the verbatim passage, its source, and the file whose hash fixes it.
     const tiers = [
-      ['source', prov.nodes.sources, H.source],
-      ['passage', prov.nodes.passages, H.passage],
       ['claim', prov.nodes.claims, H.claim],
+      ['passage', prov.nodes.passages, H.passage],
+      ['source', prov.nodes.sources, H.source],
       ['file', prov.nodes.files, H.file],
     ];
     // Only the memo and the NON-EMPTY tiers take a column, laid out left→right — an empty claim or
@@ -8889,10 +8904,14 @@ class Component extends DCLogic {
     const sourceConflictNote = hasSourceConflicts
       ? `${sourceConflicts.length} measure${sourceConflicts.length === 1 ? '' : 's'} reported two ways`
       : '';
+    // The overview strip reads left→right in the SAME order as the provenance columns above it
+    // (claims → passages → sources), so the top and bottom of the tab tell one story in one
+    // direction; each card's accent matches its tier's node colour, and the contradictions flag
+    // sits last, next to the "Where the sources disagree" panel and the "Conflicts" toggle.
     const overviewStats = [
-      { value: String(findings.stats.sources), label: 'sources on record', color: '#6E7787' },
-      { value: String(findings.stats.passages), label: 'verbatim passages', color: '#C79A3A' },
       { value: String(findings.stats.claims), label: 'claims', color: '#6D5EF5' },
+      { value: String(findings.stats.passages), label: 'verbatim passages', color: '#C79A3A' },
+      { value: String(findings.stats.sources), label: 'sources on record', color: '#6E7787' },
       { value: String(flagN), label: 'contradictions', color: flagN ? '#B23A2E' : '#1E8A50' },
     ];
 
@@ -9185,7 +9204,7 @@ class Component extends DCLogic {
     // Which tiers are folded (collapsed by default): a tier is open only when graphOpen[key] is
     // explicitly true. The Expand-all / Collapse-all control reads whether every present tier is open.
     const gOpen = st.graphOpen || {};
-    const gTiers = [['source', prov.nodes.sources], ['passage', prov.nodes.passages], ['claim', prov.nodes.claims], ['file', prov.nodes.files]].filter(([, l]) => l.length);
+    const gTiers = [['claim', prov.nodes.claims], ['passage', prov.nodes.passages], ['source', prov.nodes.sources], ['file', prov.nodes.files]].filter(([, l]) => l.length);
     const allTiersOpen = gTiers.length > 0 && gTiers.every(([k]) => gOpen[k]);
     // Any expanded tier stacks a tall column; with everything folded the canvas is a single row,
     // so the panel shrinks to fit rather than floating that row in a tall void.
@@ -9220,10 +9239,12 @@ class Component extends DCLogic {
       // The fold headers — one per non-empty tier, sitting at each column's top. Each shows its
       // kind + count and a caret; collapsed by default, click to open. A header stays lit while
       // any of its nodes is in the highlighted neighbourhood, so a hover never dims a live group.
+      // Kept in the same left→right order as _layout's columns (claim → passage → source →
+      // file) so the header chips read in the same direction the provenance edges flow.
       const TIERS = [
-        { key: 'source',  label: 'SOURCES',  accent: '#6E7787', chipFg: '#4E5765', chipBg: '#EEF0F3', list: prov.nodes.sources },
-        { key: 'passage', label: 'PASSAGES', accent: '#C79A3A', chipFg: '#9A6B12', chipBg: '#FBF1DA', list: prov.nodes.passages },
         { key: 'claim',   label: 'CLAIMS',   accent: '#8A8A95', chipFg: '#7A7A85', chipBg: '#F2F2F6', list: prov.nodes.claims },
+        { key: 'passage', label: 'PASSAGES', accent: '#C79A3A', chipFg: '#9A6B12', chipBg: '#FBF1DA', list: prov.nodes.passages },
+        { key: 'source',  label: 'SOURCES',  accent: '#6E7787', chipFg: '#4E5765', chipBg: '#EEF0F3', list: prov.nodes.sources },
         { key: 'file',    label: 'FILES',    accent: '#1E8A50', chipFg: '#1E8A50', chipBg: '#E7F6EC', list: prov.nodes.files },
       ];
       const tierLit = (list) => !hi || list.some((n) => connected.has(n._nid));
@@ -9787,7 +9808,7 @@ class Component extends DCLogic {
       contraFg: st.hideContra ? '#8A8A95' : '#B23A2E', contraBg: st.hideContra ? '#F2F2F6' : '#FBE9E6', contraBd: st.hideContra ? '#EAEAEF' : '#F2D3CD',
       resetFg: st.focusId ? '#5B4BE6' : '#8A8A95', setViewport: (el) => this.setViewport(el),
       // findings + memo
-      evEmpty: claims.length === 0, evClaims, overviewStats,
+      evEmpty: claims.length === 0, hasOverview: claims.length > 0, evClaims, overviewStats,
       sourceConflicts, hasSourceConflicts, sourceConflictNote,
       // source explorer (the Drive) — breadcrumb, folder cards, file rows, and the move picker
       explorerCrumbs, explorerFolders, explorerFiles, explorerHasFolders, explorerHasFiles,
