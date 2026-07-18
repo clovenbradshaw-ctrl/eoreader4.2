@@ -236,6 +236,9 @@ table{border-collapse:collapse;width:100%}
   .eo-right{position:fixed !important;right:0;top:var(--eo-hdr);bottom:0;width:min(88vw,350px) !important;z-index:44;box-shadow:-14px 0 44px rgba(20,20,30,.18);animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)}
   .eo-backdrop{display:block;position:fixed;left:0;right:0;top:var(--eo-hdr);bottom:0;z-index:43;background:rgba(20,20,28,.32);animation:eoFade .16s ease}
   .eo-tabbar{padding:0 6px !important}
+  /* Tighten the five primary tabs so they fit without clipping the active one (Pins was cut to
+     "P" when count badges widened the row); the rail still scrolls if source tabs are added. */
+  .eo-tabbar .eo-scroll>button{padding:0 9px !important;gap:5px !important}
   .eo-chatscroll{padding:18px 12px !important}
   .eo-composer{padding:10px 10px calc(10px + env(safe-area-inset-bottom)) !important}
   .eo-chatinput{font-size:16px !important}
@@ -672,7 +675,7 @@ table{border-collapse:collapse;width:100%}
              the export button. Pinning overflow-y:hidden keeps this a horizontal-only rail. -->
         <div class="eo-scroll" style="flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:2px;height:46px;overflow-x:auto;overflow-y:hidden">
         <sc-for list="{{ tabs }}" as="tb">
-          <button onClick="{{ tb.select }}" style="flex:0 0 auto;height:46px;display:flex;align-items:center;gap:7px;padding:0 14px;color:{{ tb.fg }};font-size:13px;font-weight:{{ tb.weight }};border-bottom:2px solid {{ tb.ul }};margin-bottom:-1px">
+          <button onClick="{{ tb.select }}" data-eo-tab-active="{{ tb.activeFlag }}" style="flex:0 0 auto;height:46px;display:flex;align-items:center;gap:7px;padding:0 14px;color:{{ tb.fg }};font-size:13px;font-weight:{{ tb.weight }};border-bottom:2px solid {{ tb.ul }};margin-bottom:-1px">
             {{ tb.label }}
             <sc-if value="{{ tb.hasCount }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ tb.countFg }};background:{{ tb.countBg }};border-radius:5px;padding:1px 5px">{{ tb.count }}</span></sc-if>
             <sc-if value="{{ tb.beta }}"><span title="The conversational thread — deprioritised in favour of Ask, which measures every answer against the record" style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9A6B12;background:#FBF1DA;border:1px solid #EEDCA9;border-radius:4px;padding:0 4px">beta</span></sc-if>
@@ -4494,6 +4497,15 @@ class Component extends DCLogic {
     // focus. Initialise it lazily the first time we land here (whole-topic entity web).
     if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
     this.setState(patch);
+    // Keep the active tab visible in the horizontally-scrolling rail — with count badges or opened
+    // source tabs the row can overflow, and a clipped active tab (Pins showing as "P") reads as broken.
+    try {
+      requestAnimationFrame(() => {
+        const rail = document.querySelector('.eo-tabbar .eo-scroll');
+        const active = rail && rail.querySelector('[data-eo-tab-active="1"]');
+        if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      });
+    } catch { /* scroll-into-view is a nicety, never blocks navigation */ }
     // Switching to a source tab whose mode is Native kicks off (or reuses) its page fetch; a PDF tab
     // rehydrates its pages the same way (a no-op when the blob URL is already in hand).
     if (this.state.viewerTabs.includes(tab)) {
@@ -8554,6 +8566,7 @@ class Component extends DCLogic {
     const tabDefs = [['register', 'Sources', sources.length || null, false], ['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false]];
     const tabs = tabDefs.map(([id, label, count, beta]) => ({
       label, count: String(count || ''), hasCount: count != null, beta: !!beta,
+      activeFlag: st.tab === id ? '1' : '0',
       fg: st.tab === id ? '#1B1B22' : '#8A8A95', weight: st.tab === id ? 650 : 500,
       ul: st.tab === id ? '#6D5EF5' : 'transparent',
       countFg: st.tab === id ? '#5B4BE6' : '#9A9AA4', countBg: st.tab === id ? '#F1EFFE' : '#F2F2F6',
