@@ -11,7 +11,7 @@ export const buildApi = (appCtx) => {
   return Object.freeze({
     state, subscribe,
     // topics — a nested tree within a workspace
-    topicNew: appCtx.topicNew, setTopic: appCtx.setTopic, topicRename: appCtx.topicRename, topicDelete: appCtx.topicDelete, topic: appCtx.topic,
+    topicNew: appCtx.topicNew, setTopic: appCtx.setTopic, topicRename: appCtx.topicRename, topicDelete: appCtx.topicDelete, topic: appCtx.topic, topicById: appCtx.topicById,
     topicMove: appCtx.topicMove, topicToggleCollapse: appCtx.topicToggleCollapse, topicTree: appCtx.topicTree, topicRows: appCtx.topicRows,
     // evidence scope — a topic-wide, persistent source toggle (topics.js). topicSources (below)
     // reads it; topicSourcesAll ignores it (full membership, for the scope bar + navigation).
@@ -36,7 +36,19 @@ export const buildApi = (appCtx) => {
     // search — the sibling of ask(): a query opens a "search topic" and pulls sources into it.
     // specPrime warms that same web search speculatively while the user types (behind auto mode);
     // the surface calls it on a typing-settled debounce, and searchTopic takes the warmed entry.
+    // (Research Review's reviewStart, below, does not yet consume this quarantine — a warmed entry
+    // goes unused on that path and is swept by its own TTL; see docs/research-review.md.)
     searchTopic: appCtx.searchTopic, specPrime: appCtx.specPrime,
+    // Research Review (docs/research-review.md) — a search result becomes a provisional,
+    // inspectable corpus before anything is admitted to a "real" topic. reviewStart opens the
+    // review topic and reviews the first batch; reviewMore pulls in more discovered candidates;
+    // reviewToggleExclude/reviewApplyRecipe shape the working selection; reviewAdmit is the
+    // explicit act that copies the selection into a real topic; reviewCompute is the whole
+    // computed screen (evidence areas, duplicate clusters, connections, recipes, corpus preview).
+    reviewStart: appCtx.reviewStart, reviewMore: appCtx.reviewMore,
+    reviewAddUrl: appCtx.reviewAddUrl, reviewImportFile: appCtx.reviewImportFile,
+    reviewToggleExclude: appCtx.reviewToggleExclude, reviewApplyRecipe: appCtx.reviewApplyRecipe,
+    reviewAdmit: appCtx.reviewAdmit, reviewCompute: appCtx.reviewCompute,
     sourceBySn: appCtx.sourceBySn, sourceRename: appCtx.sourceRename, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, topicSourcesAll: appCtx.topicSourcesAll, sourceToggleCollapse: appCtx.sourceToggleCollapse,
     // source export — full append-only history as JSONL, one JSON snapshot (or one folded at a
     // text/log cursor), and the ORIGINAL file/bytes as ingested (PDF/audio/video bytes, else text)

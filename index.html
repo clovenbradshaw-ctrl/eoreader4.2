@@ -3572,6 +3572,27 @@ table{border-collapse:collapse;width:100%}
     </div>
   </sc-if>
 
+  <!-- RESEARCH REVIEW (docs/research-review.md) — a web search lands here: a provisional,
+       inspectable corpus (discovered/reviewed/admitted), never an instantly-admitted topic. The
+       screen itself is mounted (window.EO.researchReview.mount), the binvis/pipeline room idiom —
+       too much live, clickable structure for the sc-if/sc-for template to carry cleanly. -->
+  <sc-if value="{{ rrShow }}">
+    <div style="position:absolute;inset:0;z-index:49">
+      <div style="position:absolute;inset:0;background:rgba(20,20,28,.36)"></div>
+      <div class="eo-modal" style="position:absolute;left:50%;top:26px;transform:translateX(-50%);width:min(880px,96vw);height:calc(100vh - 52px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.3);display:flex;flex-direction:column;overflow:hidden">
+        <!-- rrTopicId is null until reviewStart's discover-and-review pass settles; the mounted
+             surface only exists once there is a real topic to read, so a slow search shows this
+             plain wait instead of the surface's "no longer available" (which means something else). -->
+        <sc-if value="{{ rrLoading }}">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite">Searching and reviewing candidates…</div>
+        </sc-if>
+        <sc-if value="{{ rrReady }}">
+          <div ref="{{ setResearchReviewEl }}" data-screen-label="Research Review" style="flex:1;min-height:0;overflow:auto"></div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- ⌘K SOURCE PALETTE — search THROUGH the record: titles, sites, and every recorded word -->
   <sc-if value="{{ cmdkShow }}">
     <div style="position:absolute;inset:0;z-index:55">
@@ -4176,6 +4197,10 @@ class Component extends DCLogic {
       // its own CUSTOMIZED SURFACE: articles, whole books, a media grid, repos. libId is the picked
       // shelf; libResults are the dressed hits (each carries its `surface` card). (docs/library-search.md)
       libOpen: false, libId: 'wikipedia', libQ: '', libBusy: false, libResults: null,
+      // RESEARCH REVIEW (docs/research-review.md) — a web search lands here first: a provisional,
+      // inspectable corpus (discovered/reviewed/admitted) rather than an instantly-admitted topic.
+      // rrOpen gates the modal; rrTopicId names the review topic the mounted surface reads.
+      rrOpen: false, rrTopicId: null, rrBusy: false,
       // ⌘K source palette — full-text search across every recorded source (title · site · body)
       cmdkOpen: false, cmdkQuery: '', cmdkSel: 0,
       // the search SURFACE (the Search tab) — a query routed to its best preset template, the
@@ -4810,21 +4835,14 @@ class Component extends DCLogic {
       this.setState({ omni: '' });
     }
   }
-  // A search typed in the omnibar is pulled STRAIGHT into the space — no results popup. SEARCH is
-  // the sibling of ASK: instead of answering the query, the engine opens a "search topic" on the
-  // left named for it and pulls the top salient web sources into it (_app.searchTopic). We land on
-  // the first pulled source so the result is visible at once; the topic + its sources are already
-  // in the sidebar. Cancellable + busy-pilled through the engine's runCancellable, same as ingest.
+  // A search typed in the omnibar opens Research Review (docs/research-review.md), not an
+  // instantly-admitted topic: the engine discovers candidates, reviews the first batch — fetched,
+  // hashed, citable, but not yet joined to any real topic — and the reader inspects the evidence
+  // map, the duplicate clusters, and the agreements/disagreements before choosing what to admit.
+  // (Formerly this called _app.searchTopic directly, which pulled every hit straight into a new
+  // topic with no review step — exactly the gap Research Review closes.)
   ingestSearch(q) {
-    if (!q || !this._app || !this._app.searchTopic) return;
-    this._app.searchTopic(q).then((r) => {
-      const n = (r && r.count) || 0;
-      if (n) { this.showToast(`Pulled ${n} source${n > 1 ? 's' : ''} into “${q}”`); if (r.first) this._revealImport(r.first); }
-      else this.showToast(`Nothing came back for “${q}” — try different words or a direct URL`);
-    }).catch((err) => {
-      if (err && (err.name === 'AbortError' || /abort/i.test(String((err && err.message) || err)))) return;  // Stop pressed
-      this.showToast(`Couldn’t search: ${String((err && err.message) || err).slice(0, 90)}`);
-    });
+    this.openResearchReview(q);
   }
   // The raw-results popup: search a query and list the hits for the user to preview + record by
   // hand. The confirm-mode proposal button no longer routes here — its go-ahead now runs a grounded
@@ -8570,6 +8588,55 @@ class Component extends DCLogic {
       el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Byte structure failed to mount: ' + String((e && e.message) || e) + '</div>';
     }
   }
+  // Research Review (docs/research-review.md) — mounted the same way Structure is: a ref'd
+  // container, one live handle, destroyed and re-mounted only when the container itself changes
+  // (show() re-scopes to a new review topic in place, same idiom as setStructureEl's show(sn)).
+  setResearchReviewEl(el) {
+    if (!el || !this.state.rrOpen) return;
+    const fresh = this._rrEl !== el;
+    if (!fresh && this._rrTopicId === this.state.rrTopicId) return;
+    this._rrEl = el; this._rrTopicId = this.state.rrTopicId;
+    try {
+      const RR = window.EO && window.EO.researchReview;
+      if (!RR || !RR.mount) { el.innerHTML = '<div style="padding:22px;color:#8A8A95;font-size:13px">Research Review is not available.</div>'; return; }
+      if (fresh || !this._rr) {
+        try { this._rr && this._rr.destroy(); } catch {}
+        el.innerHTML = '';
+        this._rr = RR.mount(el, {
+          app: this._app, topicId: this.state.rrTopicId,
+          onClose: (target) => this.closeResearchReview(target),
+          onOpenSource: (sn) => { this.closeResearchReview(); this.openViewer(sn); },
+        });
+      } else {
+        this._rr.show(this.state.rrTopicId);
+      }
+    } catch (e) {
+      el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Research Review failed to mount: ' + String((e && e.message) || e) + '</div>';
+    }
+  }
+  // openResearchReview(q) — the ONE way a web search starts now (the omnibox, the Search tab's
+  // "search the web" button, and the outward-extension row all call this): open the review modal
+  // and let reviewStart discover + review the first batch, so the reader inspects the candidate
+  // corpus BEFORE anything is admitted, instead of a query silently filling a new topic.
+  openResearchReview(q) {
+    const query = String(q || '').trim();
+    if (!query || !this._app || !this._app.reviewStart) return;
+    this.setState({ rrOpen: true, rrTopicId: null, rrBusy: true });
+    this._app.reviewStart(query).then((t) => {
+      if (!t) { this.setState({ rrOpen: false, rrBusy: false }); this.showToast(`Nothing came back for “${query}” — try different words or a direct URL`); return; }
+      this.setState({ rrTopicId: t.id, rrBusy: false });
+    }).catch((err) => {
+      this.setState({ rrOpen: false, rrBusy: false });
+      if (err && (err.name === 'AbortError' || /abort/i.test(String((err && err.message) || err)))) return;
+      this.showToast(`Couldn’t search: ${String((err && err.message) || err).slice(0, 90)}`);
+    });
+  }
+  closeResearchReview(target) {
+    try { this._rr && this._rr.destroy(); } catch {}
+    this._rr = null; this._rrEl = null; this._rrTopicId = null;
+    this.setState({ rrOpen: false, rrTopicId: null });
+    if (target) this.showToast(`Added sources to “${target.title}”`);
+  }
   // The per-source Graph tab's host — the same entity web the topic Graph tab draws
   // (topicTieredData / mountTieredGraph), scoped to just the active source. Same ref idiom as the
   // Structure tab: one container persists while the active source switches under it, so re-scope
@@ -11381,6 +11448,9 @@ class Component extends DCLogic {
       searchRows, closeSearch: () => this.closeSearch(), retrySearch: () => this.runSearch(st.searchQ),
       // the library shelf — one shelf searched on its own surface (article/book/media/code)
       ...libVals,
+      // Research Review (docs/research-review.md) — the modal that mounts window.EO.researchReview
+      rrShow: st.rrOpen, rrLoading: st.rrOpen && !st.rrTopicId, rrReady: st.rrOpen && !!st.rrTopicId,
+      setResearchReviewEl: (el) => this.setResearchReviewEl(el),
       // native preview of a search hit — the modal grows to a page frame while previewing
       searchModalW: preview ? 'min(1040px,96vw)' : 'min(640px,92vw)',
       searchModalH: preview ? 'calc(100vh - 120px)' : 'auto',

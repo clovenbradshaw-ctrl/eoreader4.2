@@ -76,7 +76,7 @@ import { installWorkspaces } from './app/workspaces.js';
 import { installRegistry } from './app/registry.js';
 import { installFolders } from './app/folders.js';
 import { installIngest } from './app/ingest.js';
-import { installSearch } from './app/search.js';
+import { installSearch } from './app/search.js'; import { installResearchReview } from './app/research-review.js';
 import { installAudio } from './app/audio.js';
 import { installTranscript } from './app/transcript.js';
 import { installPicture } from './app/picture.js';
@@ -215,7 +215,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installRegistry(appCtx);
   installFolders(appCtx);
   installIngest(appCtx);
-  installSearch(appCtx);
+  installSearch(appCtx); installResearchReview(appCtx);
   installAudio(appCtx);
   installTranscript(appCtx);
   installPicture(appCtx);
