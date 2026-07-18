@@ -2093,6 +2093,7 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">Facing</button>
                   <button onClick="{{ viewerModeStructure }}" title="Byte structure — the document's raw bytes on a Hilbert curve (Aldo Cortesi's binvis): its shape (structure), its packed regions (entropy), and where the reading turned (significance)" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmStructureFg }};background:{{ vmStructureBg }}">Structure</button>
+                  <button onClick="{{ viewerModeGraph }}" title="This source's knowledge graph — the figures it names and the bonds among them. Click a node to open its profile." style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmGraphFg }};background:{{ vmGraphBg }}">Graph</button>
                   <button onClick="{{ viewerModeEot }}" title="The reading, as EoT" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">EoT · {{ viewer.eotCount }}</button>
                 </span>
                 <span style="flex:1"></span>
@@ -2728,6 +2729,15 @@ table{border-collapse:collapse;width:100%}
                    regions, Significance = where the reading turned. The pure surface is mounted here
                    scoped to the active source (window.EO.binvis.mount, pickSource:false). -->
               <div ref="{{ setStructureEl }}" data-screen-label="Byte structure" class="eo-scroll" style="flex:1;min-height:0;overflow:auto;background:#0b0f18"></div>
+            </sc-if>
+
+            <sc-if value="{{ viewerIsGraph }}">
+              <!-- The per-source KNOWLEDGE GRAPH tab — the topic entity web (topicTieredData /
+                   mountTieredGraph) scoped to just this source: its figures at tier 1, the standing
+                   claims at tier 2, the bonds among them as edges. Same surface the Graph tab draws
+                   for the whole topic, mounted here over one source via setSourceGraphEl. Clicking a
+                   figure opens its profile in the entity panel. -->
+              <div ref="{{ setSourceGraphEl }}" data-screen-label="Source graph" class="eo-scroll" style="flex:1;min-height:0;overflow:auto;background:#F4F4F7"></div>
             </sc-if>
           </div>
           </sc-if>
@@ -5964,6 +5974,9 @@ class Component extends DCLogic {
     // Leaving the Structure tab tears down the binvis surface (and its app subscription) so it never
     // keeps rendering into a detached container; re-entering mounts it fresh.
     if (mode !== 'structure' && this._binvis) { try { this._binvis.destroy(); } catch {} this._binvis = null; this._binvisEl = null; this._binvisSn = null; }
+    // Leaving the source Graph tab tears down its tiered-graph mount so it never keeps drawing into
+    // a detached container; re-entering mounts it fresh via setSourceGraphEl.
+    if (mode !== 'graph' && this._srcGraph) { try { this._srcGraph.destroy(); } catch {} this._srcGraph = null; this._srcGraphEl = null; this._srcGraphSn = null; }
     this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false });
     if (mode === 'native') this.loadPage(sn);
     if (mode === 'pdf') this.loadPdf(sn);
@@ -8300,6 +8313,40 @@ class Component extends DCLogic {
       }
     } catch (e) {
       el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Byte structure failed to mount: ' + String((e && e.message) || e) + '</div>';
+    }
+  }
+  // The per-source Graph tab's host — the same entity web the topic Graph tab draws
+  // (topicTieredData / mountTieredGraph), scoped to just the active source. Same ref idiom as the
+  // Structure tab: one container persists while the active source switches under it, so re-scope
+  // in place (destroying the prior mount first so the surface never leaks). A node click opens
+  // that figure's profile in the entity panel.
+  setSourceGraphEl(el) {
+    if (!el) return;
+    const sn = this._activeSrc ? this._activeSrc() : null;
+    const fresh = this._srcGraphEl !== el;
+    if (!fresh && this._srcGraphSn === sn) return;   // same container + source — already drawn
+    this._srcGraphEl = el; this._srcGraphSn = sn;
+    try { this._srcGraph && this._srcGraph.destroy(); } catch {}
+    this._srcGraph = null;
+    el.innerHTML = '';
+    try {
+      const src = sn && this._app.sourceBySn ? this._app.sourceBySn(sn) : null;
+      if (!src) { el.innerHTML = '<div style="padding:22px;color:#8A8A95;font-size:13px">No source to graph.</div>'; return; }
+      const data = this._app.topicTieredData ? this._app.topicTieredData([src]) : { nodes: [], edges: [] };
+      if (!data.nodes || !data.nodes.length) {
+        el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:60ch;line-height:1.55">No figures read in this source yet — its knowledge graph fills once the reading names people, places, or things and the bonds among them.</div>';
+        return;
+      }
+      this._srcGraph = window.EO.mountTieredGraph(el, {
+        nodes: data.nodes, edges: data.edges,
+        // A figure node click opens its profile in the entity panel (openEntity keeps the source
+        // tab in front and opens the right rail on that entity).
+        onOpen: (node) => { if (node && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
+        onSelect: (node) => { if (node && node.kind === 'entity' && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
+        countsLabel: `${data.nodes.length} nodes · ${data.edges.length} edges`,
+      });
+    } catch (e) {
+      el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Graph failed to draw: ' + String((e && e.message) || e) + '</div>';
     }
   }
   setWebKind(kind) {
@@ -10927,6 +10974,7 @@ class Component extends DCLogic {
       viewerCanPage: !!viewer && viewer.hasUrl,
       viewerIsOverview: vMode === 'overview', viewerIsReader: vMode === 'reader', viewerIsPage: vMode === 'native', viewerIsFacing: vMode === 'facing', viewerIsEot: vMode === 'eot',
       viewerIsStructure: vMode === 'structure',
+      viewerIsGraph: vMode === 'graph',
       viewerIsListen: vMode === 'listen', viewerIsAudio: !!viewer && viewer.kind === 'audio',
       // PDF surface — the pages themselves, drawn by the browser's own PDF viewer from the blob URL.
       viewerIsPdf: vMode === 'pdf',
@@ -10952,6 +11000,8 @@ class Component extends DCLogic {
       viewerModeFacing: () => this.setSourceMode('facing'), viewerModeEot: () => this.setSourceMode('eot'),
       viewerModeStructure: () => this.setSourceMode('structure'),
       setStructureEl: (el) => this.setStructureEl(el),
+      viewerModeGraph: () => this.setSourceMode('graph'),
+      setSourceGraphEl: (el) => this.setSourceGraphEl(el),
       viewerModeListen: () => this.setSourceMode('listen'), viewerModePdf: () => this.setSourceMode('pdf'),
       vmOverviewFg: vMode === 'overview' ? '#1B1B22' : '#8A8A95', vmOverviewBg: vMode === 'overview' ? '#fff' : 'transparent',
       vmPdfFg: vMode === 'pdf' ? '#1B1B22' : '#8A8A95', vmPdfBg: vMode === 'pdf' ? '#fff' : 'transparent',
@@ -10960,6 +11010,7 @@ class Component extends DCLogic {
       vmPageFg: vMode === 'native' ? '#1B1B22' : '#8A8A95', vmPageBg: vMode === 'native' ? '#fff' : 'transparent',
       vmFacingFg: vMode === 'facing' ? '#1B1B22' : '#8A8A95', vmFacingBg: vMode === 'facing' ? '#fff' : 'transparent',
       vmStructureFg: vMode === 'structure' ? '#1B1B22' : '#8A8A95', vmStructureBg: vMode === 'structure' ? '#fff' : 'transparent',
+      vmGraphFg: vMode === 'graph' ? '#1B1B22' : '#8A8A95', vmGraphBg: vMode === 'graph' ? '#fff' : 'transparent',
       vmEotFg: vMode === 'eot' ? '#1B1B22' : '#8A8A95', vmEotBg: vMode === 'eot' ? '#fff' : 'transparent',
       // Listen surface — the interactive transcript refs + edit/redaction actions
       setListenAudio: (el) => this.setListenAudio(el),
