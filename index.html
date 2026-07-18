@@ -1647,6 +1647,76 @@ table{border-collapse:collapse;width:100%}
           <div data-screen-label="Rashomon" ref="{{ setRashomonEl }}" style="flex:1;min-height:0;position:relative;overflow:hidden"></div>
           </sc-if>
 
+          <!-- TOPIC OVERVIEW — the topic's landing page (workspace › TOPIC › source). Clicking a
+               topic in the rail lands here: the quest header, its sub-topics, and every recorded
+               source as a card that opens the source's own Overview (the integrated per-source
+               reading). One level up from the source landing page (viewerIsOverview). -->
+          <sc-if value="{{ isTopicOverview }}">
+          <div class="eo-scroll" style="flex:1;min-height:0;overflow:auto;background:#F5F5F7;padding:24px 28px">
+            <div style="max-width:1180px;margin:0 auto">
+              <div style="padding:0 0 16px;font-size:12px;color:#77717D;display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+                <button onClick="{{ topicOverview.openWorkspace }}" style="display:inline-flex;align-items:center;gap:6px;color:#5B4BE6;font-weight:600"><span style="width:16px;height:16px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;background:{{ topicOverview.wsDot }}">{{ topicOverview.wsInitial }}</span>{{ topicOverview.workspace }}</button><span>›</span>
+                <span style="font-weight:600;color:#2A2A32">{{ topicOverview.title }}</span>
+              </div>
+              <div style="padding:28px;border:1px solid #E3E0E7;border-radius:16px;background:#fff;display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;box-shadow:0 1px 2px rgba(24,24,32,.025)">
+                <div style="min-width:0;flex:1 1 340px">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:800;letter-spacing:.05em;color:#4E5765;background:#EEF0F3;border-radius:6px;padding:3px 8px">TOPIC</span>
+                  <h1 style="margin:10px 0 6px;font-family:'Newsreader',Georgia,serif;font-size:clamp(26px,3.6vw,34px);line-height:1.1;color:#202027;font-weight:500;overflow-wrap:anywhere;word-break:break-word">{{ topicOverview.title }}</h1>
+                  <div style="font-size:13px;color:#6E6E78;display:flex;gap:8px;flex-wrap:wrap"><span>{{ topicOverview.sourceCountLabel }}</span><span>·</span><span>{{ topicOverview.answersLabel }}</span></div>
+                </div>
+                <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;align-content:flex-start">
+                  <button onClick="{{ topicOverview.ask }}" style="background:#19191F;color:#fff;border-radius:8px;padding:10px 16px;font-size:12px;font-weight:700">Ask about this topic</button>
+                  <button onClick="{{ topicOverview.openExplorer }}" style="background:#F1EFFE;border:1px solid #DED8FD;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;color:#5B4BE6">＋ Add sources</button>
+                  <button onClick="{{ topicOverview.openFindings }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:650;color:#4E5765">Findings</button>
+                  <button onClick="{{ topicOverview.openGraph }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:650;color:#4E5765">Graph</button>
+                </div>
+              </div>
+
+              <sc-if value="{{ topicOverview.hasSubTopics }}">
+                <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff">
+                  <h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Sub-topics</h2>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:10px">
+                    <sc-for list="{{ topicOverview.subTopics }}" as="sub">
+                      <button onClick="{{ sub.open }}" title="Open this sub-topic" style="display:flex;gap:10px;align-items:center;text-align:left;background:#FAFAFC;border:1px solid #EEEFF4;border-radius:12px;padding:11px 12px" style-hover="border-color:#CFC7F7;background:#FCFBFF">
+                        <span style="flex:0 0 auto;color:#8C7DF3;font-size:15px;line-height:1">▸</span>
+                        <span style="min-width:0;flex:1"><span style="display:block;font-size:13.5px;font-weight:700;color:#24242C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sub.title }}</span><span style="display:block;font-size:11px;color:#9A9AA4;margin-top:1px">{{ sub.meta }}</span></span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </section>
+              </sc-if>
+
+              <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff">
+                <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 14px"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Sources</h2><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ topicOverview.sourceCount }}</span></div>
+                <sc-if value="{{ topicOverview.empty }}">
+                  <div style="padding:26px;border:1px dashed #E4E1E8;border-radius:12px;background:#FAFAFC;text-align:center">
+                    <div style="font-size:14px;color:#4E5765;font-weight:600;margin-bottom:6px">No sources in this topic yet</div>
+                    <div style="font-size:12.5px;color:#8A8A95;margin-bottom:14px">Record a source — a URL, a file, or a web search — and it lands here.</div>
+                    <button onClick="{{ topicOverview.openExplorer }}" style="background:#6D5EF5;color:#fff;border-radius:9px;padding:9px 15px;font-size:13px;font-weight:600">＋ Add a source</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ topicOverview.hasSources }}">
+                  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:12px">
+                    <sc-for list="{{ topicOverview.cards }}" as="c">
+                      <button onClick="{{ c.open }}" title="Open this source's overview" style="display:flex;flex-direction:column;gap:9px;text-align:left;background:#FAFAFC;border:1px solid #EEEFF4;border-radius:14px;padding:14px" style-hover="border-color:#CFC7F7;background:#FCFBFF">
+                        <div style="display:flex;gap:11px;align-items:center;min-width:0;width:100%">
+                          <span style="flex:0 0 auto;width:38px;height:38px;border-radius:10px;background:{{ c.favBg }};color:{{ c.favFg }};display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;font-family:'IBM Plex Mono',monospace">{{ c.favCh }}</span>
+                          <span style="min-width:0;flex:1">
+                            <span style="display:block;font-size:14px;font-weight:730;color:#24242C;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.title }}</span>
+                            <span style="display:block;font-size:11px;color:#9A9AA4;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.icon }} {{ c.typeLabel }} · {{ c.origin }}</span>
+                          </span>
+                        </div>
+                        <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#7B7881">{{ c.countLine }}</div>
+                        <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#9A9AA4;width:100%"><span style="font-weight:600;color:#4E5765;background:#EEF0F3;border-radius:5px;padding:1px 6px">{{ c.reg }}</span><span style="flex:1"></span><span>{{ c.when }}</span></div>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </section>
+            </div>
+          </div>
+          </sc-if>
+
           <!-- SOURCE STAGE — when a source tab is active it fills the main stage: Reader (themed
                book; the old Document paragraphs are folded in here, revealed by the Links toggle) ·
                Native (the real website) · Facing · EoT (the reading). -->
@@ -6852,6 +6922,69 @@ class Component extends DCLogic {
       lineageNote: canonical === s.sn ? 'This file supplies canonical evidence. Derived or duplicate representations stay visible for provenance and do not vote independently.' : 'A separate canonical evidence file supplies aggregate counts; this representation is retained for provenance.',
     };
   }
+  // ── topic overview page ──────────────────────────────────────────────────────
+  // The topic's landing page — one level up from the source Overview (workspace › TOPIC ›
+  // source). Clicking a topic in the rail lands here: the quest header, its sub-topics, and
+  // every source recorded under it as a card. A source card is the door DOWN to that source's
+  // own Overview (openViewer defaults the tab to 'overview'), where the integrated per-source
+  // reading lives. Built cheaply from topic.sourceSns / topicSources() — no per-source parse.
+  _topicOverviewVM() {
+    const app = this._app;
+    if (!app) return { has: false, cards: [], subTopics: [], empty: true, hasSources: false, hasSubTopics: false, title: 'Topic', workspace: 'Workspace', wsInitial: '?', wsDot: '#6D5EF5', sourceCount: '0', sourceCountLabel: '0 sources', answersLabel: '0 answers', ask: () => {}, openFindings: () => {}, openGraph: () => {}, openExplorer: () => {}, openWorkspace: () => {} };
+    const t = (app.topic && app.topic()) || null;
+    const ws = (app.activeWorkspace && app.activeWorkspace()) || null;
+    let sources = [];
+    try { sources = (app.topicSources && app.topicSources()) || []; } catch { sources = []; }
+    const roots = sources.filter((s) => !s.parentSn);   // a followed sub-page rides inside its site's card
+    const typeOf = (s) => {
+      const kind = String((s && s.kind) || '').toLowerCase();
+      const map = { pdf: ['📄', 'PDF'], audio: ['🎧', 'Audio'], video: ['🎬', 'Video'], image: ['🖼', 'Image'], dataset: ['▦', 'Dataset'], code: ['⌘', 'Code'], repository: ['⎇', 'Repository'], repo: ['⎇', 'Repository'], conversation: ['💬', 'Conversation'], web: ['🌐', 'Webpage'], html: ['🌐', 'Webpage'], book: ['📚', 'Book'], text: ['📝', 'Notes'] };
+      return map[kind] || ['□', kind ? kind.charAt(0).toUpperCase() + kind.slice(1) : 'Source'];
+    };
+    const FAV = [['#EEF0F3', '#4E5765'], ['#EEEBFE', '#5B4BE6'], ['#E7F6EC', '#1E8A50'], ['#FBF1DA', '#9A6B12'], ['#FBE9E6', '#B23A2E'], ['#E8F1FB', '#2C5C9E']];
+    const cards = roots.map((s, i) => {
+      const [icon, typeLabel] = typeOf(s);
+      const fav = FAV[i % FAV.length];
+      const entN = s.entCount == null ? 0 : Number(s.entCount) || 0;
+      const claimN = s.claimCount == null ? 0 : Number(s.claimCount) || 0;
+      const words = String(s.text || '').trim().split(/\s+/).filter(Boolean).length;
+      let origin = s.domain || '';
+      if (!origin && s.url) { try { origin = new URL(s.url, location.href).hostname; } catch { origin = ''; } }
+      const countLine = [`${entN} ${entN === 1 ? 'entity' : 'entities'}`, `${claimN} claim${claimN === 1 ? '' : 's'}`, words ? `${words.toLocaleString()} words` : null].filter(Boolean).join('  ·  ');
+      return {
+        sn: s.sn, title: s.title || s.domain || s.reg || 'Untitled source',
+        icon, typeLabel, reg: s.reg || '', origin: origin || 'Local record',
+        favCh: (String(s.domain || s.title || '?').trim().charAt(0).toUpperCase()) || 'S',
+        favBg: fav[0], favFg: fav[1], countLine,
+        when: (s.retrieved ? this._ago(s.retrieved) : '') || '',
+        open: () => this.openViewer(s.sn),
+      };
+    });
+    // sub-topics — the child quests directly under this one, each a door across (setTopic)
+    const kids = ((app.state && app.state.topics) || []).filter((x) => (x.parentId ?? null) === (t ? t.id : null) && x.workspaceId === (t ? t.workspaceId : null));
+    const subTopics = kids.map((k) => {
+      const n = (k.sourceSns || []).length;
+      return { title: k.title, meta: `${n} source${n === 1 ? '' : 's'}`, open: () => { app.setTopic(k.id); this.setTab('topic'); } };
+    });
+    const answers = t ? (t.messages || []).filter((m) => m.role === 'assistant' && !m.pending).length : 0;
+    return {
+      has: !!t,
+      title: t ? t.title : 'Topic',
+      workspace: ws ? ws.name : 'Workspace',
+      wsInitial: ws ? (((ws.name || '?').trim().charAt(0) || '?').toUpperCase()) : '?',
+      wsDot: ws ? (ws.color || '#6D5EF5') : '#6D5EF5',
+      sourceCount: String(roots.length),
+      sourceCountLabel: `${roots.length} source${roots.length === 1 ? '' : 's'}`,
+      answersLabel: `${answers} answer${answers === 1 ? '' : 's'}`,
+      hasSources: cards.length > 0, empty: cards.length === 0, cards,
+      hasSubTopics: subTopics.length > 0, subTopics,
+      ask: () => this.setTab('search'),
+      openFindings: () => this.setTab('evidence'),
+      openGraph: () => this.setTab('graph'),
+      openExplorer: () => this.setTab('register'),
+      openWorkspace: () => this.setTab('register'),
+    };
+  }
   _sourceStructureRows(s, type, paras) {
     const textOfPara = (p) => String(p && (p.label || p.heading || p.text || (p.segs && p.segs.map((x)=>x.s).join('')) || '') || '').replace(/\s+/g, ' ').trim();
     // A TRANSCRIBED clip's Contents opens on the WHOLE shape of the reading — its topic chapters — not the
@@ -8535,7 +8668,7 @@ class Component extends DCLogic {
       caretRot: collapsed ? '0deg' : '90deg',
       toggle: (e) => { if (e && e.stopPropagation) e.stopPropagation(); app.topicToggleCollapse(t.id); },
       menuOpen: st.topicMenu === t.id,
-      rowClick: () => { app.setTopic(t.id); this.setState({ topicMenu: null, ...(this._mob() ? { leftOpen: false } : {}) }); },
+      rowClick: () => { app.setTopic(t.id); this.setState({ topicMenu: null }); this.setTab('topic'); },
       menuClick: () => this.setState({ topicMenu: st.topicMenu === t.id ? null : t.id }),
       doRename: () => { const v = prompt('Rename topic', t.title); if (v) app.topicRename(t.id, v); this.setState({ topicMenu: null }); },
       doAddChild: () => { app.topicNew('New sub-topic', { parentId: t.id }); this.setState({ topicMenu: null }); this.setTab('search'); },
@@ -8731,10 +8864,10 @@ class Component extends DCLogic {
     // Search leads (docs/search-and-pins.md): the record is searched, not conversed with;
     // the question line inside Search is the fallback for what it hasn't pre-answered.
     const pinCount = (this._app && this._app.pins) ? this._app.pins().length : 0;
-    const tabDefs = [['register', 'Sources', sources.length || null, false], ['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false]];
+    const tabDefs = [['topic', 'Overview', null, false], ['register', 'Sources', sources.length || null, false], ['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false]];
     // An open source reads IN PLACE under the Sources tab — it no longer spawns its own nav-bar tab.
     // So the record's home ('register') stays lit whenever a source viewer is in front, keeping the
-    // rail to its five standard tabs no matter how many sources are open.
+    // rail to its standard tabs no matter how many sources are open.
     const viewingSource = st.viewerTabs.includes(st.tab);
     const tabs = tabDefs.map(([id, label, count, beta]) => {
       const on = st.tab === id || (id === 'register' && viewingSource);
@@ -9765,6 +9898,7 @@ class Component extends DCLogic {
       isSearch: st.tab === 'search', isGraph: st.tab === 'graph', isEvidence: st.tab === 'evidence', isPins: st.tab === 'pins',
       ...this._pinsVals(st),
       isRegister: st.tab === 'register', isMemo: st.tab === 'memo', isPlain: st.tab === 'plain', isRashomon: st.tab === 'rashomon',
+      isTopicOverview: st.tab === 'topic', topicOverview: this._topicOverviewVM(),
       setPlainEl: (el) => this.setPlainEl(el),   // the Plain host ref (mounts rooms/plain, like setWebGraphEl)
       setRashomonEl: (el) => this.setRashomonEl(el),   // the Rashomon host ref (mounts rooms/rashomon)
       // ask (the primary surface) — the latest exchange as one typed, cited answer
