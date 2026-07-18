@@ -681,15 +681,8 @@ table{border-collapse:collapse;width:100%}
             <sc-if value="{{ tb.beta }}"><span title="The conversational thread — deprioritised in favour of Ask, which measures every answer against the record" style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9A6B12;background:#FBF1DA;border:1px solid #EEDCA9;border-radius:4px;padding:0 4px">beta</span></sc-if>
           </button>
         </sc-for>
-        <!-- OPEN SOURCE TABS — each recorded source you open is a tab here, in the main stage -->
-        <sc-if value="{{ hasSrcTabs }}"><span style="flex:0 0 auto;width:1px;height:22px;background:#EAEAEF;margin:0 7px"></span></sc-if>
-        <sc-for list="{{ srcTabs }}" as="sct">
-          <div onClick="{{ sct.select }}" title="{{ sct.title }}" style="flex:0 0 auto;height:46px;display:flex;align-items:center;gap:7px;padding:0 9px 0 11px;max-width:212px;border-bottom:2px solid {{ sct.ul }};margin-bottom:-1px;cursor:pointer">
-            <span style="width:18px;height:18px;flex:0 0 auto;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;background:{{ sct.favBg }};color:{{ sct.favFg }}">{{ sct.favCh }}</span>
-            <span style="flex:1;min-width:0;font-size:13px;font-weight:600;color:{{ sct.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sct.title }}</span>
-            <button onClick="{{ sct.close }}" title="Close tab" style="width:17px;height:17px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;border-radius:5px;color:#9A9AA4" style-hover="background:#EEEEF2;color:#6E6E78"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-          </div>
-        </sc-for>
+        <!-- Sources read IN PLACE under the Sources tab — the nav bar stays standard (its five
+             tabs), so opening a source no longer appends a per-source tab to this rail. -->
         </div>
         <sc-if value="{{ hasFlagLine }}">
           <div style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:{{ flagFg }};background:{{ flagBg }};border:1px solid {{ flagBd }};border-radius:7px;padding:4px 9px">
@@ -8684,14 +8677,21 @@ class Component extends DCLogic {
     // the question line inside Search is the fallback for what it hasn't pre-answered.
     const pinCount = (this._app && this._app.pins) ? this._app.pins().length : 0;
     const tabDefs = [['register', 'Sources', sources.length || null, false], ['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false]];
-    const tabs = tabDefs.map(([id, label, count, beta]) => ({
-      label, count: String(count || ''), hasCount: count != null, beta: !!beta,
-      activeFlag: st.tab === id ? '1' : '0',
-      fg: st.tab === id ? '#1B1B22' : '#8A8A95', weight: st.tab === id ? 650 : 500,
-      ul: st.tab === id ? '#6D5EF5' : 'transparent',
-      countFg: st.tab === id ? '#5B4BE6' : '#9A9AA4', countBg: st.tab === id ? '#F1EFFE' : '#F2F2F6',
-      select: () => this.setTab(id),
-    }));
+    // An open source reads IN PLACE under the Sources tab — it no longer spawns its own nav-bar tab.
+    // So the record's home ('register') stays lit whenever a source viewer is in front, keeping the
+    // rail to its five standard tabs no matter how many sources are open.
+    const viewingSource = st.viewerTabs.includes(st.tab);
+    const tabs = tabDefs.map(([id, label, count, beta]) => {
+      const on = st.tab === id || (id === 'register' && viewingSource);
+      return {
+        label, count: String(count || ''), hasCount: count != null, beta: !!beta,
+        activeFlag: on ? '1' : '0',
+        fg: on ? '#1B1B22' : '#8A8A95', weight: on ? 650 : 500,
+        ul: on ? '#6D5EF5' : 'transparent',
+        countFg: on ? '#5B4BE6' : '#9A9AA4', countBg: on ? '#F1EFFE' : '#F2F2F6',
+        select: () => this.setTab(id),
+      };
+    });
     const contradictions = findings.stats.contradictions;
     // Two kinds feed the flag: answer-vs-source contradictions AND source-vs-source
     // conflicts (the record contesting itself). Only actual findings get a tab-bar badge;
