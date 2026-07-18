@@ -269,8 +269,12 @@ table{border-collapse:collapse;width:100%}
     <form onSubmit="{{ onOmniSubmit }}" style="flex:1;display:flex;justify-content:center">
       <div style="width:100%;max-width:540px;height:33px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;display:flex;align-items:center;gap:9px;padding:0 12px" style-focus-within="border-color:#DED8FD;background:#fff">
         <svg class="eo-hide-sm" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.8" style="flex:0 0 auto"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
-        <input id="eo-omnibox-input" value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Read a URL, drop a file, paste text, or search the web…" style="flex:1;border:none;outline:none;background:transparent;font-size:13px;color:#1B1B22" />
+        <input id="eo-omnibox-input" value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Read a URL, drop a file, paste text, or search the web…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:13px;color:#1B1B22" />
         <span class="eo-hide-sm" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C0C0C8;flex:0 0 auto">⏎ add</span>
+        <!-- One-tap upload — opens the device file picker directly (any file: PDF, image, audio,
+             video, text). type=button so it never submits the omnibar. The universal attach
+             affordance, always in reach; on mobile it's the obvious way to "upload anything". -->
+        <button type="button" onClick="{{ omniAttach }}" title="Upload a file — PDF, image, audio, video, or text" aria-label="Upload a file" style="flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;color:#5B4BE6;background:#EEEBFE" style-hover="background:#E1DCFA"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.48"/></svg></button>
       </div>
     </form>
 
@@ -8288,7 +8292,7 @@ class Component extends DCLogic {
       return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, onSfKey: () => {}, sfClear: () => {}, sfWebShow: false, sfWebGo: () => {}, sfWebLabel: '', sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
-        statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
+        statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', omniAttach: () => {}, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         mainDisplay: 'flex', rightWidth: '340px', rightFlex: '0 0 auto', rightBorder: '1px solid #EAEAEF', rightBodyPad: '14px 16px', rightBodyMax: 'none', rightBodyMargin: '0',
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals() };
@@ -8302,7 +8306,7 @@ class Component extends DCLogic {
       return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, onSfKey: () => {}, sfClear: () => {}, sfWebShow: false, sfWebGo: () => {}, sfWebLabel: '', sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Engine booting…', sub: 'Starting EO Reader…', chip: '…' },
-        statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
+        statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, omniAttach: () => this.pickFile(), chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals() };
     }
@@ -9520,6 +9524,7 @@ class Component extends DCLogic {
       panelBackdrop: !!st.isMobile && ((st.leftOpen && st.tab !== 'register') || st.rightOpen), closePanels: () => this.closePanels(),
       leftBtnFg: st.leftOpen ? '#5B4BE6' : '#9A9AA4', rightBtnFg: st.rightOpen ? '#5B4BE6' : '#9A9AA4',
       onOmniSubmit: (e) => this.onOmniSubmit(e), onOmniInput: (e) => this.onOmniInput(e),
+      omniAttach: () => this.pickFile(),
       openMonologue: () => this.openMonologue(), closeMonologue: () => this.closeMonologue(),
       toggleLeft: () => this.toggleLeft(), toggleRight: () => this.toggleRight(),
       // model
