@@ -92,6 +92,58 @@ test('richSurf is a byte-identical drop-in for surfFold on a single-source doc',
   }
 });
 
+// A chaptered "novel": three sections with their OWN vocabulary (so the boundary detector
+// finds the same nesting it finds in the journal), but ONE figure — Corin Vale — named
+// identically in the first and last section, the way a protagonist recurs across chapters.
+const NOVEL_SECTIONS = [
+  { lines: [
+    'Corin Vale mended the lighthouse lamp at dusk.',
+    'The keeper Corin Vale logged every ship that passed.',
+    'Storms battered the lighthouse through the long winter.',
+    'Corin Vale trimmed the wick and watched the dark water.',
+    'Fog rolled in and the lighthouse beam cut through it.',
+    'Sailors trusted the lighthouse to guide them home.',
+  ] },
+  { lines: [
+    'The orchard bloomed with apple and pear blossom in spring.',
+    'Bees moved between the orchard rows all morning.',
+    'The farmer pruned the orchard trees before the frost.',
+    'A good orchard harvest filled the barn with fruit.',
+    'The orchard soil was rich and well drained.',
+    'Cider was pressed from the orchard apples each autumn.',
+  ] },
+  { lines: [
+    'Corin Vale sailed north with the spring tide.',
+    'The astronomer aligned the telescope with the north star.',
+    'Corin Vale had not seen the lighthouse in a year.',
+    'Through the telescope the rings of Saturn were sharp.',
+    'Corin Vale remembered the keeper\'s lamp at dusk.',
+    'On clear nights the telescope gathered ancient starlight.',
+  ] },
+];
+const NOVEL = NOVEL_SECTIONS.map((s) => s.lines.join('\n')).join('\n');
+
+test('nestComposite: crossDocSyn defaults ON — a figure named identically in two nested parts is proposed as ONE referent', () => {
+  const flat = parseText(NOVEL, { docId: 'novel' });
+  const comp = nestComposite(flat, { alpha: 0.3, minGap: 3 });
+  const ranges = sourceRanges(comp);
+  assert.ok(ranges.length >= 2, `the novel nests into ${ranges.length} sections`);
+  // Corin Vale's two nested mentions (section 1 and section 3) must appear in DIFFERENT
+  // sections for this to be a real cross-doc test, not a within-doc coincidence.
+  const corinSections = ranges.filter((r) =>
+    NOVEL.split('\n').slice(r.lo, r.hi + 1).some((l) => l.includes('Corin Vale')));
+  assert.ok(corinSections.length >= 2, 'Corin Vale is named in more than one nested section');
+  // The cross-doc SYN pass (createCompositeDoc's default) proposes a merge for the SAME
+  // label across those sections — the fix that keeps a chaptered work's protagonist one
+  // referent after nesting, not fragmented per chapter (createCompositeDoc({crossDocSyn:false})
+  // would leave this list empty).
+  const events = comp.log.snapshot();
+  const corinMerges = events.filter((e) => e.op === 'SYN' && e.crossDoc && e.label === 'Corin Vale');
+  assert.ok(corinMerges.length > 0, 'a cross-doc merge is proposed for the recurring figure');
+  const spans2Sections = corinMerges.some((e) => e.from.split('␟')[0] !== e.to.split('␟')[0]);
+  assert.ok(spans2Sections, 'the merge spans two distinct nested sections, not a within-section duplicate');
+});
+
 test('richSurf triages the sources of a composite (reads the on-topic one)', () => {
   const comp = nestComposite(parseText(JOURNAL, { docId: 'journal' }), { alpha: 0.3, minGap: 3 });
   const ranges = sourceRanges(comp);

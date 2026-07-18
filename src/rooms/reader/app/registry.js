@@ -4,6 +4,7 @@
 // spine (state · emit · trail beats · client) is destructured once at install.
 // the S-registry
 import { parseText } from '../../../perceiver/parse/index.js';
+import { nestComposite } from '../../../perceiver/nest.js';
 import { projectGraph } from '../../../core/index.js';
 import { webContentHash } from '../../../organs/ingest/index.js';
 import { readIngest } from '../../../organs/ingest/index.js';
@@ -44,10 +45,10 @@ export const installRegistry = (appCtx) => {
     src.metadataLog = Array.isArray(src.metadataLog) ? src.metadataLog : [];
     if (!src.metadataLog.length) src.metadataLog.push({ at: nowIso(), action: 'extracted', fields: Object.keys(inferred).filter((k) => k !== 'extraction'), note: 'Best-effort metadata extracted on ingest; every field remains editable.' });
   };
-  const docFor = (src) => {
+  const docFor = (src) => {   // the reading every consumer shares; nestComposite recovers its own nesting
     if (!src) return null;
     if (!src._doc) {
-      src._doc = parseText(src.text, { docId: src.docId });
+      src._doc = nestComposite(parseText(src.text, { docId: src.docId }), { minGap: 20 });
       try {
         const g = projectGraph(src._doc.log);
         src.entCount = g.entities?.size || 0;
@@ -60,6 +61,14 @@ export const installRegistry = (appCtx) => {
   const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null, defer = false }) => {
     const body = String(text || '').trim();
     if (!body) throw new Error('nothing to record — the page had no readable text');
+    // A caller that already parsed (web/text ingest) hands docFor's doc PRE-BUILT, bypassing
+    // its lazy nesting — so nest it here too, on the same prose-shaped, non-composite docs
+    // docFor would. Scoped to web/text (a scraped page, a pasted book or journal — where a
+    // single file being many nested documents is the real case) and never allowed to cost the
+    // ingest: a boundary-detection fault degrades to the doc exactly as handed in.
+    if (doc && (kind === 'web' || kind === 'text') && !doc.isComposite && (doc.units || doc.sentences)) {
+      try { doc = nestComposite(doc, { minGap: 20 }); } catch { /* nesting is a courtesy, never a precondition */ }
+    }
     const hash = record?.content_hash || webContentHash(body);
     const dup = state.sources.find((s) => s.sha === hash);
     // Re-visiting a page already recorded is a no-op on the registry, but if it now arrives UNDER a
