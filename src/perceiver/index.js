@@ -34,6 +34,12 @@ export { referentialConfidence, REFERENT_MARGIN } from './referent.js';
 // A figure's perspective — when a referent is a person/agent, the reading as IT holds it:
 // its verbatim quotes, its speech acts, and the universe its own words instantiate.
 export { perspectiveOf, scanQuotes } from './perspective.js';
+// The attribution nest — who is speaking, and through whose mouth. A voice rarely reaches the
+// page bare: the narrator reports that a study found that the villagers said the river was
+// rising. Reads that Russian nest-doll of attribution — quote / reported-speech / "according
+// to" / citation frames, each recursed into its own content, cut where the stack would cycle
+// (novels → research → novels) — and derives the outward-in LENS CHAIN a claim is seen through.
+export { attributionNesting, nestFrames, attributionChains, innermostBearer, relaysOfPerspective } from './attribution-nesting.js';
 // The Rashomon fold — two figures' folds over the same events, and their DIFFERENCE (agree /
 // conflict / diverge / each own) as a first-class object. Pure lexical floor (diffPerspectives),
 // lifted by the learned same-assertion judgment when a meaning embedder is warm (learnedDiff);
