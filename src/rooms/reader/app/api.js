@@ -33,8 +33,10 @@ export const buildApi = (appCtx) => {
     // that re-runs them (so ingestion AND transcription survive a reload even part-way through)
     jobs: () => state.jobs.slice(),
     resumeJobs: appCtx.resumeJobs,
-    // search — the sibling of ask(): a query opens a "search topic" and pulls sources into it
-    searchTopic: appCtx.searchTopic,
+    // search — the sibling of ask(): a query opens a "search topic" and pulls sources into it.
+    // specPrime warms that same web search speculatively while the user types (behind auto mode);
+    // the surface calls it on a typing-settled debounce, and searchTopic takes the warmed entry.
+    searchTopic: appCtx.searchTopic, specPrime: appCtx.specPrime,
     sourceBySn: appCtx.sourceBySn, sourceRename: appCtx.sourceRename, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, topicSourcesAll: appCtx.topicSourcesAll, sourceToggleCollapse: appCtx.sourceToggleCollapse,
     // source export — full append-only history as JSONL, one JSON snapshot (or one folded at a
     // text/log cursor), and the ORIGINAL file/bytes as ingested (PDF/audio/video bytes, else text)
