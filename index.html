@@ -1345,6 +1345,7 @@ table{border-collapse:collapse;width:100%}
                     <button onClick="{{ setExplorerGrid }}" title="Grid" style="width:30px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:{{ gridBtnBg }};color:{{ gridBtnFg }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
                     <button onClick="{{ setExplorerList }}" title="List" style="width:30px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:{{ listBtnBg }};color:{{ listBtnFg }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
                   </div>
+                  <button onClick="{{ openSurface }}" title="Open the pipeline surface — wire any source's transcript, waveform, characters or motifs to a note, a download, a webhook, or TouchDesigner" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;background:#fff;color:#3A3A44;font-size:12.5px;font-weight:600;border:1px solid #E0E0E6;border-radius:9px;padding:8px 13px" style-hover="background:#F5F5F8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.6"/><circle cx="18" cy="12" r="2.6"/><circle cx="6" cy="18" r="2.6"/><path d="M8.3 7.1 15.7 10.9M8.3 16.9 15.7 13.1"/></svg>Surface</button>
                   <div style="flex:0 0 auto;position:relative">
                     <button onClick="{{ toggleExplorerIngest }}" title="Add a source — read a page, search the web, import a file, or paste text" style="display:inline-flex;align-items:center;gap:6px;background:#5B4BE6;color:#fff;font-size:12.5px;font-weight:600;border-radius:9px;padding:8px 13px" style-hover="filter:brightness(1.06)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Add source</button>
                     <sc-if value="{{ explorerIngestOpen }}">
@@ -8978,6 +8979,16 @@ class Component extends DCLogic {
     const explorerMenuOpen = !!st.explorerMenu;   // a transparent backdrop dismisses any open kebab
     const closeExplorerMenu = () => this.setState({ explorerMenu: null });
     const explorerNewFolder = () => { const v = prompt('New folder name', 'New folder'); if (v !== null) app.folderNew(v || 'New folder', { parentId: curFolderId }); this.setState({ explorerMenu: null }); };
+    // Open the pipeline surface (rooms/reader/pipeline-surface.js) — an n8n/TouchDesigner-style
+    // node graph wiring any source's derivations (transcript, waveform, characters, motifs) to a
+    // sink (a new note, a download, a webhook, TouchDesigner over OSC). Seeded with whatever the
+    // explorer currently has selected, so opening it from the Sources tab isn't a blank canvas.
+    const openSurface = () => {
+      try {
+        const sel = st.explorerSel ? [st.explorerSel] : [];
+        window.EO.pipeline.open({ sourceIds: sel.length ? sel : working.slice(0, 6).map((s) => s.sn) });
+      } catch (e) { console.warn('[EO] pipeline surface', e); }
+    };
 
     // ══ SOURCE EXPLORER — the three-column home view ═══════════════════════════════════════════
     // Left: Quick-Access shelves + the folder tree. Centre: a calm,
@@ -9780,7 +9791,7 @@ class Component extends DCLogic {
       sourceConflicts, hasSourceConflicts, sourceConflictNote,
       // source explorer (the Drive) — breadcrumb, folder cards, file rows, and the move picker
       explorerCrumbs, explorerFolders, explorerFiles, explorerHasFolders, explorerHasFiles,
-      explorerEmpty, explorerAtRoot, explorerNotRoot: !explorerAtRoot, explorerCount, explorerMenuOpen, closeExplorerMenu, explorerNewFolder,
+      explorerEmpty, explorerAtRoot, explorerNotRoot: !explorerAtRoot, explorerCount, explorerMenuOpen, closeExplorerMenu, explorerNewFolder, openSurface,
       moveOpen, moveTitle, moveDests, closeMove, moveStop,
       // ── Source Explorer home view (three columns) ──
       // left rail: workspace header + Quick Access shelves + folder tree + vault meter
