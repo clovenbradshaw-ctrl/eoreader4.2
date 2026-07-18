@@ -117,3 +117,7 @@ export { supersedeEntries, costOfSuperseding, standing, statusOf, unsettledRefs 
 // the witness axis of coref/identity resolution (docs/coreference-timeline.md consumes TIER to
 // render a SynonymEdge's tier — resolved/engine/mixed/model)
 export { TIER, needsWitness, SPECTRUM, spectrumOf, classifyResolutions } from './resolution-spectrum.js';
+// FoldTrace (docs/fold-trace-spec.md, docs/coil-surfaces.md §1) — the cube-labeled
+// projection of a WaveformModel, and the nearest-fold lookup every scrubber-driven
+// surface (poincare.js, operator-clock) reads instead of re-deriving its own.
+export { buildFoldTrace, nearestFoldIndex } from './fold-trace.js';
