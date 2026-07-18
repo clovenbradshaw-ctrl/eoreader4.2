@@ -145,10 +145,14 @@ const nowIso = () => { try { return new Date().toISOString(); } catch { return n
 // fetchYoutubeTranscript(ref, opts) → { doc, record, cues, videoId, track } | null — the
 // DELIBERATE "read this video's captions" path. Two GET fetches through the SAME client every
 // other web source uses: the watch page (for the caption track list), then the chosen track's
-// json3 payload (the cues). Null when the id doesn't resolve, the page carries no captions block,
-// or the video has no captions at all (auto-captions off, or captions disabled).
+// json3 payload (the cues). Null when the id doesn't resolve, or the page carries no captions
+// block (a video with auto-captions off and none uploaded genuinely has no track to read — no
+// retry spent on that, it will never resolve). A track that DOES exist but answers with an empty
+// body (YouTube's caption endpoint does this intermittently for a proxied, non-browser fetch even
+// off a freshly-signed URL) is worth one retry off an entirely fresh watch-page session before
+// giving up — most of these clear on the second try.
 export const fetchYoutubeTranscript = async (ref, {
-  client, store = null, rawStore = null, fetched_at = nowIso(), lang = 'en', hangGuard = 2_000_000,
+  client, store = null, rawStore = null, fetched_at = nowIso(), lang = 'en', hangGuard = 2_000_000, retries = 1,
 } = {}) => {
   const videoId = youtubeIdOf(ref);
   if (!videoId || !client) return null;
@@ -161,7 +165,10 @@ export const fetchYoutubeTranscript = async (ref, {
   const trackUrl = captionTrackUrl(track);
   if (!trackUrl) return null;
   const cues = parseJson3Captions((await client.fetchUrl(trackUrl)).text);
-  if (!cues.length) return null;
+  if (!cues.length) {
+    if (retries > 0) return fetchYoutubeTranscript(ref, { client, store, rawStore, fetched_at, lang, hangGuard, retries: retries - 1 });
+    return null;
+  }
 
   const details = player?.videoDetails || {};
   const title = details.title || titleFromHtml(html) || `YouTube video ${videoId}`;

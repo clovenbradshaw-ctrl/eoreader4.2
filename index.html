@@ -4824,16 +4824,9 @@ class Component extends DCLogic {
     if (e && e.preventDefault) e.preventDefault();
     const q = String(this.state.omni || '').trim();
     if (!q || !this._app) return;
-    const urlish = /^https?:\/\//.test(q) || (/^[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(q) && !q.includes(' '));
     if (q.length > 400) { this.setState({ pasteOpen: true, pasteBody: q, omni: '' }); return; }
-    if (urlish) {
-      this.setState({ omni: '' });
-      this._app.ingestUrl(q).then((s) => { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
-        .catch((err) => this.showToast(`Couldn't read that page: ${String(err && err.message || err).slice(0, 90)}`));
-    } else {
-      this.ingestSearch(q);
-      this.setState({ omni: '' });
-    }
+    this.setState({ omni: '' });
+    this.ingestSearch(q);
   }
   // A search typed in the omnibar opens Research Review (docs/research-review.md), not an
   // instantly-admitted topic: the engine discovers candidates, reviews the first batch — fetched,
@@ -4841,8 +4834,20 @@ class Component extends DCLogic {
   // map, the duplicate clusters, and the agreements/disagreements before choosing what to admit.
   // (Formerly this called _app.searchTopic directly, which pulled every hit straight into a new
   // topic with no review step — exactly the gap Research Review closes.)
+  // A URL-shaped ask (typed in the omnibox, pasted into the Search tab's field, or reached via the
+  // outward-extension row) is read directly instead — the same URL detection the omnibox used to
+  // gate on its own, now the ONE place every "search" entry point passes through, so a YouTube
+  // link pasted into Search ingests its captions exactly like one pasted into the top bar rather
+  // than running as a text query against the web-search engine.
   ingestSearch(q) {
-    this.openResearchReview(q);
+    const query = String(q || '').trim();
+    const urlish = /^https?:\/\//.test(query) || (/^[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(query) && !query.includes(' '));
+    if (urlish && this._app) {
+      this._app.ingestUrl(query).then((s) => { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
+        .catch((err) => this.showToast(`Couldn't read that page: ${String(err && err.message || err).slice(0, 90)}`));
+      return;
+    }
+    this.openResearchReview(query);
   }
   // The raw-results popup: search a query and list the hits for the user to preview + record by
   // hand. The confirm-mode proposal button no longer routes here — its go-ahead now runs a grounded
