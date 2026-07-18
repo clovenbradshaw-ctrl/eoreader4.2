@@ -330,6 +330,7 @@ window.EO = Object.freeze({
   murmur,   // the peripheral sense — the surface subscribes for the real-time murmur strip (audit-only)
   eot,               // the EOT operation ledger (docs/eot-ledger.md) — snapshot/subscribe/export the machine's own trail
   eotTerminal,       // the full activity terminal's mount handle — the murmur strip opens it on click (open/close/toggle)
+  console: eoConsole,   // the audit console's mount handle (docs above) — Settings' "Console" row opens/closes it
   workspace,
   mountTieredGraph,
   mountDagSurface,   // the two-cursor causal DAG surface (surfer/dag) — topic-wide + per-entity, with toggles
@@ -374,9 +375,9 @@ catch (e) { console.warn('[EO] chat launcher not mounted', e); }
 try { if (typeof document !== 'undefined') mountVaultLauncher(document.body, { vault, matrix }); }
 catch (e) { console.warn('[EO] vault launcher not mounted', e); }
 
-// …and the audit console — a bottom-docked developer terminal that streams, live,
-// every turn stage, session event, engine log, and stall, tapping ONLY this membrane
-// (audit + app + console.*). Its own no-progress detector mirrors the engine's stall
-// watchdog in the surface, so a freeze like the essay hang is visible as it happens.
-try { if (typeof document !== 'undefined') mountConsole(document.body, { audit, app, appName: APP_NAME, version: APP_VERSION }); }
+// …and the audit console — a bottom-docked developer terminal streaming, live, every turn
+// stage, session event, engine log, and stall. fab:false — no floating launcher of its own
+// (see console-surface.js); Settings is its one door in, via window.EO.console.open().
+let eoConsole = null;
+try { eoConsole = mountConsole(document.body, { audit, app, appName: APP_NAME, version: APP_VERSION, fab: false }); }
 catch (e) { console.warn('[EO] console not mounted', e); }

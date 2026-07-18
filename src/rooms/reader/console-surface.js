@@ -140,19 +140,19 @@ const fmtArg = (a) => {
 };
 
 // ── the docked terminal ───────────────────────────────────────────────────────
-// mountConsole(host, { audit, app, appName, version }) → unmount. Everything is
-// self-contained: a FAB toggles the panel, the panel streams the three taps and
-// runs the stall detector, and unmount restores console.* and drops the DOM.
-export function mountConsole(host, { audit, app, appName = 'EO Reader', version = '' } = {}) {
-  if (typeof document === 'undefined' || !host || !audit) return () => {};
+// mountConsole(host, { audit, app, appName, version, fab }) → { open, close, toggle, destroy }.
+// A FAB toggles the panel by default; fab:false skips the floating launcher — its fixed,
+// high-z-index button can otherwise sit on a field on a small phone screen — Settings then opens it via the handle.
+export function mountConsole(host, { audit, app, appName = 'EO Reader', version = '', fab = true } = {}) {
+  if (typeof document === 'undefined' || !host || !audit) return { open() {}, close() {}, toggle() {}, destroy() {} };
   if (!document.getElementById(STYLE_ID)) {
     const st = document.createElement('style'); st.id = STYLE_ID; st.textContent = CSS; document.head.appendChild(st);
   }
   const el = (t, cls, text) => { const e = document.createElement(t); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
-  // ── the launcher + panel shell ──────────────────────────────────────────────
-  const fab = el('button', 'eo-con-fab'); fab.title = 'Open the audit console';
-  const fabDot = el('span', 'eo-con-fab__dot'); fab.append(fabDot, el('span', 'eo-con-fab__label', 'Console'));
+  // ── the launcher + panel shell ── the FAB is optional; fab:false skips it ──
+  let fabEl = null;
+  if (fab) { fabEl = el('button', 'eo-con-fab'); fabEl.title = 'Open the audit console'; fabEl.append(el('span', 'eo-con-fab__dot'), el('span', 'eo-con-fab__label', 'Console')); }
 
   const panel = el('div', 'eo-con');
   const head = el('div', 'eo-con__head');
@@ -181,7 +181,7 @@ export function mountConsole(host, { audit, app, appName = 'EO Reader', version 
   body.append(empty);
 
   panel.append(head, status, body);
-  host.append(fab, panel);
+  host.append(...(fabEl ? [fabEl] : []), panel);
 
   // ── line ring ───────────────────────────────────────────────────────────────
   let autoscroll = true;
@@ -222,11 +222,11 @@ export function mountConsole(host, { audit, app, appName = 'EO Reader', version 
   // ── open / close / height ────────────────────────────────────────────────────
   const setOpen = (open) => {
     panel.setAttribute('data-open', open ? '1' : '0');
-    fab.setAttribute('data-open', open ? '1' : '0');
+    if (fabEl) fabEl.setAttribute('data-open', open ? '1' : '0');
     try { localStorage.setItem(OPEN_KEY, open ? '1' : '0'); } catch { /* session-only */ }
     if (open && autoscroll) body.scrollTop = body.scrollHeight;
   };
-  fab.addEventListener('click', () => setOpen(true));
+  if (fabEl) fabEl.addEventListener('click', () => setOpen(true));
   closeBtn.addEventListener('click', () => setOpen(false));
   const HEIGHTS = ['', 'tall', 'min'];
   const setHeight = (h) => { panel.setAttribute('data-h', h); try { localStorage.setItem(HEIGHT_KEY, h); } catch { /* ignore */ } };
@@ -267,7 +267,7 @@ export function mountConsole(host, { audit, app, appName = 'EO Reader', version 
   const setStatus = (state, text) => {
     status.setAttribute('data-state', state);
     stext.textContent = text;
-    fab.setAttribute('data-state', state === 'hard' ? 'soft' : state);
+    if (fabEl) fabEl.setAttribute('data-state', state === 'hard' ? 'soft' : state);
   };
 
   const tick = () => {
@@ -418,21 +418,21 @@ export function mountConsole(host, { audit, app, appName = 'EO Reader', version 
 
   pushLine({ chan: CH.con, level: 'muted', text: `console attached · watching audit + session + console · stall watch at ${STALL_SOFT / 1000}/${STALL_HARD / 1000}/${STALL_FROZEN / 1000}s` });
 
-  // restore last open/height
+  // restore last open/height (only with a FAB — fab:false mustn't silently reopen from a stale flag)
   try {
-    if (localStorage.getItem(OPEN_KEY) === '1') setOpen(true);
+    if (fab && localStorage.getItem(OPEN_KEY) === '1') setOpen(true);
     const h = localStorage.getItem(HEIGHT_KEY); if (h != null) setHeight(h);
   } catch { /* ignore */ }
   tick();
 
   // ── unmount ───────────────────────────────────────────────────────────────────
-  return () => {
+  const destroy = () => {
     clearInterval(stallTimer); clearInterval(provTimer);
     try { unsubAudit && unsubAudit(); } catch { /* ignore */ }
     try { unsubApp && unsubApp(); } catch { /* ignore */ }
     for (const method of Object.keys(METHODS)) { try { console[method] = original[method]; } catch { /* ignore */ } }
-    window.removeEventListener('error', onWinErr);
-    window.removeEventListener('unhandledrejection', onRej);
-    fab.remove(); panel.remove();
+    window.removeEventListener('error', onWinErr); window.removeEventListener('unhandledrejection', onRej);
+    if (fabEl) fabEl.remove(); panel.remove();
   };
+  return { panel, fab: fabEl, open: () => setOpen(true), close: () => setOpen(false), toggle: () => setOpen(panel.getAttribute('data-open') !== '1'), destroy };
 }

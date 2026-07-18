@@ -404,6 +404,16 @@ table{border-collapse:collapse;width:100%}
         </button>
         <div style="border-top:1px solid #F2F2F6;margin:6px 0 10px"></div>
 
+        <div style="padding:0 2px 4px"><span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">CONSOLE</span></div>
+        <button onClick="{{ openConsole }}" title="Open the live audit console — every turn stage, session event, and engine log, streamed as it happens" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;text-align:left;margin-bottom:4px" style-hover="background:#F7F7FA">
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+            <span style="font-size:12.5px;font-weight:600;color:#3A3A44">Open the audit console</span>
+            <span style="font-size:11px;color:#9A9AA4">Live turn/session/engine log, for diagnosing a stuck or misbehaving turn</span>
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+        <div style="border-top:1px solid #F2F2F6;margin:6px 0 10px"></div>
+
         <div style="display:flex;align-items:center;gap:8px;padding:0 2px 4px">
           <span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#9A9AA4">ROLL BACK TO A PRIOR PR</span>
           <sc-if value="{{ hasVersions }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#5B4BE6;background:#F1EFFE;border-radius:5px;padding:1px 6px">{{ verCount }}</span></sc-if>
@@ -5251,6 +5261,15 @@ class Component extends DCLogic {
     if (open && this.state.verList == null && !this.state.verBusy) this._loadVersions();
   }
   closeSettings() { this.setState({ settingsOpen: false }); }
+  // ── Settings → Console ───────────────────────────────────────────────────────
+  // The audit console (rooms/reader/console-surface.js) used to drop its own floating,
+  // always-on-top launcher onto the page — on a small phone screen a fixed bottom-corner
+  // button at that z-index could land on an ordinary field and swallow the tap meant for
+  // it. It now mounts with no launcher of its own; this is its one door in.
+  openConsole() {
+    this.setState({ settingsOpen: false });
+    try { window.EO && window.EO.console && window.EO.console.open(); } catch { /* not mounted */ }
+  }
   refreshVersions() { this._loadVersions(true); }
   _loadVersions(force) {
     const api = typeof window !== 'undefined' && window.EO && window.EO.versions;
@@ -5922,6 +5941,14 @@ class Component extends DCLogic {
     if (!sp) return;
     const i = +sp.dataset.i;
     if (ev.shiftKey && this._selA != null) { this._selB = i; this._paintSelection(); return; }
+    // A second tap on the SAME word, soon after the first, is the touch equivalent of a
+    // double-click — begin editing it. Native `dblclick` doesn't reliably synthesize from
+    // two taps on mobile browsers (tap-delay/zoom heuristics can eat the second one), which
+    // left the transcript's only edit entrance effectively unreachable by touch; this manual
+    // double-tap check (a click handler always fires, one tap at a time) is the fix.
+    const now = Date.now();
+    const isDoubleTap = this._selA === i && this._selB === i && this._lastWordTapAt != null && (now - this._lastWordTapAt) < 500;
+    this._lastWordTapAt = now;
     this._selA = this._selB = i;
     if (this._listenAudio && sp.dataset.t0 != null) { try { this._listenAudio.currentTime = +sp.dataset.t0; } catch { /* not ready */ } }
     this._paintSelection();
@@ -5929,6 +5956,7 @@ class Component extends DCLogic {
     // its layers" the surface is for). When the word names a figure the layers carry that figure with a
     // door to its full profile — and the .eo-ent underline (Links on) still marks it as a hyperlink.
     this._openSpanLayers(i);
+    if (isDoubleTap) this._beginWordEdit(sp);
   }
 
   // Open the clicked word's layers in the right panel, and mark the span (no full rebuild — the mark is
@@ -5962,8 +5990,14 @@ class Component extends DCLogic {
 
   // Double-click a word → edit it in place. Enter/blur commits an EDIT event (non-destructive: the
   // original rides in `from`); Escape cancels. The re-render rebuilds the transcript with the edit.
+  // A quick second tap on the same word (_onTranscriptClick's double-tap check, above) reaches the
+  // same entrance on touch, where native dblclick doesn't reliably fire.
   _onTranscriptDblClick(ev) {
     const sp = ev.target && ev.target.closest && ev.target.closest('.eo-w[data-i]');
+    if (!sp) return;
+    this._beginWordEdit(sp);
+  }
+  _beginWordEdit(sp) {
     if (!sp || sp.classList.contains('eo-w-redacted')) return;
     // The streaming partial isn't the editable baseline yet (its word indices still shift as more
     // audio is heard) — editing waits until the final transcript lands. Seeking on click is fine.
@@ -10088,6 +10122,7 @@ class Component extends DCLogic {
       settingsBtnFg: st.settingsOpen ? '#5B4BE6' : '#5A5A64',
       toggleSettings: () => this.toggleSettings(),
       closeSettings: () => this.closeSettings(),
+      openConsole: () => this.openConsole(),
       refreshVersions: () => this.refreshVersions(),
       verBusy: !!st.verBusy,
       verErrShow: !!st.verErr && !st.verBusy,
