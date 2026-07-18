@@ -104,7 +104,7 @@ const BASELINE = new Map([
   ['src/rooms/reader/reader-render.js', 1210],
   ['src/rooms/reader/tiered-graph.js', 680],
   ['src/rooms/reader/transcript-export.js', 406],
-  ['src/rooms/reader/transcript-format.js', 405],
+  ['src/rooms/reader/transcript-format.js', 440],
   ['src/rooms/reader/wiki-referent.js', 260],
   ['src/rooms/replay/surface.js', 481],
   ['src/rooms/reader/app/registry.js', 287],

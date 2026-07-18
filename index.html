@@ -6677,6 +6677,27 @@ class Component extends DCLogic {
   }
   _sourceStructureRows(s, type, paras) {
     const textOfPara = (p) => String(p && (p.label || p.heading || p.text || (p.segs && p.segs.map((x)=>x.s).join('')) || '') || '').replace(/\s+/g, ' ').trim();
+    // A TRANSCRIBED clip's Contents opens on the WHOLE shape of the reading — its topic chapters — not the
+    // raw audio segments underneath (transcript-format.transcriptContents; app/listen.js memoises it). The
+    // chapter is the highest structural level; clicking one DESCENDS into the clip (Listen, seeked to that
+    // instant, where the segments and words live). Only a clip too short/single-subject to show chapters
+    // falls back to its breath-group parts — the honest lower rung. Empty before words land (no ladder to
+    // draw yet), so it drops through to the paragraph path below, unchanged.
+    if (type === 'Audio' || type === 'Video') {
+      const contents = (() => { try { return (this._app && this._app.transcriptContents) ? this._app.transcriptContents(s.sn) : null; } catch { return null; } })();
+      const rows = contents && Array.isArray(contents.rows) ? contents.rows : [];
+      if (rows.length) {
+        const unitWord = contents.level === 'chapter' ? 'Chapter' : 'Part';
+        return rows.map((r, i) => ({
+          unit: r.mmss || `${unitWord} ${i + 1}`,
+          label: String(r.title || (Array.isArray(r.keywords) && r.keywords.length ? r.keywords.join(' · ') : '') || `${unitWord} ${i + 1}`).slice(0, 120),
+          level: 1, focus: r.title || '',
+          // Descend into the clip at this chapter/part. Audio seeks the Listen player to the instant;
+          // video keeps the generic reader-focus open (its Listen seek path is audio-only).
+          open: (r.startTime != null && s.kind === 'audio') ? () => this._listenSeek(s.sn, { t0: r.startTime }) : null,
+        }));
+      }
+    }
     const model = (() => { try { return this._render && this._render.readerModel ? this._render.readerModel(s) : null; } catch { return null; } })();
     const modelSections = model && Array.isArray(model.sections) ? model.sections : [];
     if (modelSections.length) return modelSections.map((sec) => ({
@@ -6718,9 +6739,11 @@ class Component extends DCLogic {
         unit: u.unit || `Section ${i + 1}`, label: cardOpen || !needsMore ? fullLabel : fullLabel.slice(0, 120) + '…',
         fullLabel, pad: String(8 + Math.max(0, (u.level || 1) - 1) * 16), cardOpen, needsMore,
         moreLabel: cardOpen ? 'Show less' : 'Show more', toggleMore: () => this.toggleSourceCard(cardKey),
-        open: () => {
+        // A row may carry its own descent (a transcript chapter seeks the Listen player to that instant);
+        // otherwise the default is to open the reader focused on the section.
+        open: u.open || (() => {
           this.setState({ viewerModes: { ...this.state.viewerModes, [s.sn]: 'reader' }, viewerFocus: { ...this.state.viewerFocus, [s.sn]: u.focus || fullLabel }, tocOpen: false, nativeToc: [] });
-        },
+        }),
       };
     });
   }
