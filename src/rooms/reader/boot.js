@@ -336,8 +336,9 @@ window.EO = Object.freeze({
   readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   reveal,   // the chat typewriter's pace (bounded catch-up) — pure, so the freeze regression is CI-tested
   // the byte-structure surface (Aldo Cortesi's binvis) — a loaded document's bytes on a Hilbert
-  // curve, coloured by byte class. The pure holon + mountBinvis (the dc surface can host it as a
-  // tab); the floating launcher below makes it visible now. Structural layer today, more to come.
+  // curve, coloured by byte class/entropy/reading-significance. The pure holon + mountBinvis;
+  // index.html wires it in as the source viewer's Structure tab (setStructureEl), scoped to the
+  // active source, beside Native/Overview/Reader/Facing/Graph — no separate launcher needed.
   binvis: Object.freeze({ ...binvis, mount: mountBinvis }),
   // Research Review (docs/research-review.md) — a search result becomes a provisional, inspectable
   // corpus (discovered/reviewed/admitted) before anything joins a real topic. Mounted, binvis-style.

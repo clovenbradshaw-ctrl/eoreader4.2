@@ -7,7 +7,7 @@
 //   mountBinvis(el, { app, sn, layer })  — drop the surface into any element. Returns { destroy, show }.
 // The surface reads the record, paints, wires clicks through callbacks, and logs nothing.
 
-import { renderToContainer, LAYERS, DEFAULT_LAYER } from '../../surfaces/binvis/index.js';
+import { renderToContainer, previewOf, LAYERS, DEFAULT_LAYER } from '../../surfaces/binvis/index.js';
 import { bytesOfSource, readingSignificance, MAX_BYTES } from './binvis-data.js';
 
 // Re-exported so the byte/signal seam stays reachable as one holon's public surface (tests +
@@ -28,7 +28,12 @@ const CSS = `
 .eo-binvis__stage{display:flex;justify-content:center;padding:6px;background:#05070c;border:1px solid #161d2b;border-radius:10px}
 .eo-binvis__stage canvas{border-radius:4px;background:#05070c}
 .eo-binvis__cap{font-size:11px;color:#8b98ad;text-align:center}
-.eo-binvis__read{min-height:34px;font-size:11.5px;color:#aeb9cb;background:#0f1420;border:1px solid #1c2333;border-radius:8px;padding:8px 10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.eo-binvis__read{min-height:34px;display:flex;flex-direction:column;gap:5px;background:#0f1420;border:1px solid #1c2333;border-radius:8px;padding:8px 10px}
+.eo-binvis__read-meta{font-size:11px;color:#8b98ad;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.eo-binvis__read-prev{font-size:11.5px;color:#aeb9cb;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em;word-break:break-word}
+.eo-binvis__read-prev[data-kind="text"]{font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:15px;line-height:1.4;color:#dce4f0}
+.eo-binvis__read-prev[data-kind="binary"]{color:#8b98ad}
+.eo-binvis__read.pinned{border-color:#3f5680}
 .eo-binvis__legend{display:flex;flex-direction:column;gap:4px}
 .eo-binvis__leg{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#9fb0c6}
 .eo-binvis__sw{width:12px;height:12px;border-radius:3px;flex:none;border:1px solid rgba(255,255,255,.12)}
@@ -105,7 +110,10 @@ export const mountBinvis = (host, { app, sn = null, layer = DEFAULT_LAYER, displ
     // stage + caption + readout + legend + note (filled by paint())
     const stage = el(doc, 'div', 'eo-binvis__stage'); root.appendChild(stage);
     const cap = el(doc, 'div', 'eo-binvis__cap'); root.appendChild(cap);
-    const read = el(doc, 'div', 'eo-binvis__read', 'Hover the mosaic to name the bytes under the pointer.'); root.appendChild(read);
+    const read = el(doc, 'div', 'eo-binvis__read'); root.appendChild(read);
+    const readMeta = el(doc, 'div', 'eo-binvis__read-meta', 'Hover the mosaic to see what is actually written there — click to hold it.');
+    const readPrev = el(doc, 'div', 'eo-binvis__read-prev');
+    read.appendChild(readMeta); read.appendChild(readPrev);
     const legend = el(doc, 'div', 'eo-binvis__legend'); root.appendChild(legend);
     const note = el(doc, 'div', 'eo-binvis__note'); root.appendChild(note);
 
@@ -148,13 +156,34 @@ export const mountBinvis = (host, { app, sn = null, layer = DEFAULT_LAYER, displ
         }
       }
 
-      const onHover = (info) => {
-        if (!info) { read.textContent = 'Hover the mosaic to name the bytes under the pointer.'; return; }
+      // Hovering names WHERE the pointer sits; previewOf names WHAT is actually there — the
+      // document's own words for a text span, or a short hex run for a packed/binary one. A
+      // click PINS the cell so its reading survives the mouse leaving the canvas (else the one
+      // instant you'd want to read it is the instant it vanishes) — click the same cell again,
+      // or pick another layer/source, to release it.
+      let pinned = null;
+      const describe = (info) => {
         const cls = info.length === 1 ? '' : ' · ' + info.length + ' bytes';
         const meaning = (sig && signal) ? ` · significance ${Math.round((signal[info.offset] || 0) * 100)}%` : '';
-        read.textContent = `offset ${hex(info.offset)} (${info.offset.toLocaleString()})${cls}${meaning}`;
+        const pin = (pinned && pinned.offset === info.offset) ? '📌 ' : '';
+        readMeta.textContent = `${pin}offset ${hex(info.offset)} (${info.offset.toLocaleString()})${cls}${meaning}`;
+        const prev = previewOf(bytes, info.offset, info.length);
+        if (prev.kind === 'text') { readPrev.textContent = `“${prev.text}”`; readPrev.setAttribute('data-kind', 'text'); }
+        else if (prev.kind === 'binary') { readPrev.textContent = prev.hex; readPrev.setAttribute('data-kind', 'binary'); }
+        else { readPrev.textContent = ''; readPrev.removeAttribute('data-kind'); }
+        read.classList.toggle('pinned', !!pinned);
       };
-      handle = renderToContainer(bytes, stage, { layer: curLayer, signal, display, onHover, onNavigate: onHover });
+      const onHover = (info) => {
+        if (info) { describe(info); return; }
+        if (pinned) { describe(pinned); return; }   // the mouse left, but a pinned reading holds
+        readMeta.textContent = 'Hover the mosaic to see what is actually written there — click to hold it.';
+        readPrev.textContent = ''; readPrev.removeAttribute('data-kind'); read.classList.remove('pinned');
+      };
+      const onNavigate = (info) => {
+        pinned = (pinned && pinned.offset === info.offset) ? null : info;   // click again to release
+        describe(pinned || info);
+      };
+      handle = renderToContainer(bytes, stage, { layer: curLayer, signal, display, onHover, onNavigate });
       const sc = handle.scene;
       const per = sc.bucket === 1 ? '1 byte / pixel' : `≈ ${sc.bucket.toLocaleString()} bytes / pixel`;
       cap.textContent = sig
