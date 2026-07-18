@@ -218,30 +218,44 @@ table{border-collapse:collapse;width:100%}
    820px the side panels become overlay drawers, the header sheds its labels,
    modals go edge-to-edge, and inputs hold 16px so iOS never auto-zooms. */
 @media (max-width: 820px){
+  /* The header can't fit the omnibar AND nine controls in one 50px row — squeezed to a
+     ~37px sliver, the search box read as broken and unusable. Below the breakpoint the
+     header becomes two rows: the icon/action buttons up top, and the omnibar full-width
+     on its own line beneath them (order:99 + 100% basis wraps it there). --eo-hdr is the
+     resulting two-row height; the side drawers and their backdrop hang off it so they
+     still start flush under the header. */
+  :root{--eo-hdr:calc(94px + env(safe-area-inset-top,0px))}
   .eo-root{height:100dvh !important}
   .eo-hide-sm{display:none !important}
-  .eo-header{gap:6px !important;padding:0 max(8px,env(safe-area-inset-right)) 0 max(8px,env(safe-area-inset-left)) !important}
-  /* The omnibar must be free to shrink — min-width:auto on the form/input otherwise
-     holds the input's intrinsic width and shoves the right-side buttons off-screen. */
-  .eo-header form{min-width:0}
-  .eo-header form>div{min-width:0;padding:0 10px !important;gap:6px !important}
+  .eo-header{height:var(--eo-hdr) !important;flex-wrap:wrap !important;align-content:flex-start !important;gap:6px !important;padding:calc(7px + env(safe-area-inset-top,0px)) max(8px,env(safe-area-inset-right)) 8px max(8px,env(safe-area-inset-left)) !important}
+  .eo-header>form{order:99;flex:1 1 100% !important;min-width:0;justify-content:stretch !important}
+  .eo-header form>div{min-width:0;max-width:none !important;height:40px;padding:0 13px !important;gap:9px !important}
   .eo-header input{font-size:16px !important;min-width:0;text-overflow:ellipsis}
   .eo-modelchip-label{display:none}
-  .eo-left{position:fixed !important;left:0;top:50px;bottom:0;width:min(86vw,330px) !important;z-index:44;box-shadow:14px 0 44px rgba(20,20,30,.18);animation:eoDrawerL .22s cubic-bezier(.4,0,.2,1)}
-  .eo-right{position:fixed !important;right:0;top:50px;bottom:0;width:min(88vw,350px) !important;z-index:44;box-shadow:-14px 0 44px rgba(20,20,30,.18);animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)}
-  .eo-backdrop{display:block;position:fixed;left:0;right:0;top:50px;bottom:0;z-index:43;background:rgba(20,20,28,.32);animation:eoFade .16s ease}
+  .eo-left{position:fixed !important;left:0;top:var(--eo-hdr);bottom:0;width:min(86vw,330px) !important;z-index:44;box-shadow:14px 0 44px rgba(20,20,30,.18);animation:eoDrawerL .22s cubic-bezier(.4,0,.2,1)}
+  .eo-right{position:fixed !important;right:0;top:var(--eo-hdr);bottom:0;width:min(88vw,350px) !important;z-index:44;box-shadow:-14px 0 44px rgba(20,20,30,.18);animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)}
+  .eo-backdrop{display:block;position:fixed;left:0;right:0;top:var(--eo-hdr);bottom:0;z-index:43;background:rgba(20,20,28,.32);animation:eoFade .16s ease}
   .eo-tabbar{padding:0 6px !important}
+  /* Tighten the five primary tabs so they fit without clipping the active one (Pins was cut to
+     "P" when count badges widened the row); the rail still scrolls if source tabs are added. */
+  .eo-tabbar .eo-scroll>button{padding:0 9px !important;gap:5px !important}
   .eo-chatscroll{padding:18px 12px !important}
   .eo-composer{padding:10px 10px calc(10px + env(safe-area-inset-bottom)) !important}
   .eo-chatinput{font-size:16px !important}
   .eo-graphhead{flex-wrap:wrap !important;height:auto !important;padding:10px 12px !important;gap:8px !important}
   .eo-graphtools{flex-wrap:wrap !important;row-gap:6px}
-  .eo-pop{max-width:calc(100vw - 16px) !important;right:8px !important}
+  .eo-pop{max-width:calc(100vw - 16px) !important;right:8px !important;left:auto !important;top:calc(var(--eo-hdr) + 4px) !important}
   .eo-modal{left:8px !important;right:8px !important;width:auto !important;transform:none !important;top:12px !important;max-height:calc(100dvh - 24px) !important}
   .eo-tall{bottom:12px !important;max-height:none !important}
   .eo-sheet{left:8px !important;right:8px !important;width:auto !important;transform:none !important;max-height:calc(100dvh - 24px);overflow-y:auto}
-  .eo-wgbody{flex-direction:column !important}
-  .eo-wgside{flex:0 0 auto !important;max-height:36%;border-right:none !important;border-bottom:1px solid #EEEEF2}
+  /* The Graph tab is a three-pane row (checklist · graph · details). Stacked into a column on
+     mobile, the details pane kept its fixed 306px basis and crushed the graph mount to a ~57px
+     sliver its own drawing overflowed. Let the whole body scroll, cap the checklist, give the
+     graph a real height, and let the details pane size to its content beneath it. */
+  .eo-wgbody{flex-direction:column !important;overflow-y:auto !important}
+  .eo-wgside{flex:0 0 auto !important;max-height:42vh;border-right:none !important;border-bottom:1px solid #EEEEF2}
+  .eo-wgmount{flex:0 0 auto !important;height:min(56vh,420px) !important;overflow:hidden !important}
+  .eo-wgprof{flex:0 0 auto !important;border-left:none !important;border-top:1px solid #EEEEF2;max-height:none !important}
   .eo-drawer{width:min(94vw,440px) !important}
   .eo-toast{max-width:calc(100vw - 24px) !important;bottom:calc(18px + env(safe-area-inset-bottom)) !important}
 }
@@ -264,8 +278,12 @@ table{border-collapse:collapse;width:100%}
     <form onSubmit="{{ onOmniSubmit }}" style="flex:1;display:flex;justify-content:center">
       <div style="width:100%;max-width:540px;height:33px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;display:flex;align-items:center;gap:9px;padding:0 12px" style-focus-within="border-color:#DED8FD;background:#fff">
         <svg class="eo-hide-sm" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.8" style="flex:0 0 auto"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
-        <input id="eo-omnibox-input" value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Read a URL, drop a file, paste text, or search the web…" style="flex:1;border:none;outline:none;background:transparent;font-size:13px;color:#1B1B22" />
+        <input id="eo-omnibox-input" value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Read a URL, drop a file, paste text, or search the web…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:13px;color:#1B1B22" />
         <span class="eo-hide-sm" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C0C0C8;flex:0 0 auto">⏎ add</span>
+        <!-- One-tap upload — opens the device file picker directly (any file: PDF, image, audio,
+             video, text). type=button so it never submits the omnibar. The universal attach
+             affordance, always in reach; on mobile it's the obvious way to "upload anything". -->
+        <button type="button" onClick="{{ omniAttach }}" title="Upload a file — PDF, image, audio, video, or text" aria-label="Upload a file" style="flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;color:#5B4BE6;background:#EEEBFE" style-hover="background:#E1DCFA"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.48"/></svg></button>
       </div>
     </form>
 
@@ -657,7 +675,7 @@ table{border-collapse:collapse;width:100%}
              the export button. Pinning overflow-y:hidden keeps this a horizontal-only rail. -->
         <div class="eo-scroll" style="flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:2px;height:46px;overflow-x:auto;overflow-y:hidden">
         <sc-for list="{{ tabs }}" as="tb">
-          <button onClick="{{ tb.select }}" style="flex:0 0 auto;height:46px;display:flex;align-items:center;gap:7px;padding:0 14px;color:{{ tb.fg }};font-size:13px;font-weight:{{ tb.weight }};border-bottom:2px solid {{ tb.ul }};margin-bottom:-1px">
+          <button onClick="{{ tb.select }}" data-eo-tab-active="{{ tb.activeFlag }}" style="flex:0 0 auto;height:46px;display:flex;align-items:center;gap:7px;padding:0 14px;color:{{ tb.fg }};font-size:13px;font-weight:{{ tb.weight }};border-bottom:2px solid {{ tb.ul }};margin-bottom:-1px">
             {{ tb.label }}
             <sc-if value="{{ tb.hasCount }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ tb.countFg }};background:{{ tb.countBg }};border-radius:5px;padding:1px 5px">{{ tb.count }}</span></sc-if>
             <sc-if value="{{ tb.beta }}"><span title="The conversational thread — deprioritised in favour of Ask, which measures every answer against the record" style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9A6B12;background:#FBF1DA;border:1px solid #EEDCA9;border-radius:4px;padding:0 4px">beta</span></sc-if>
@@ -740,11 +758,22 @@ table{border-collapse:collapse;width:100%}
                      the surface auto-pivots. ⌘K remains the quick palette; this tab IS the search. -->
                 <div style="position:relative;margin-bottom:14px">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round" style="position:absolute;left:2px;top:11px"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-                  <input id="eo-sf-input" value="{{ sfQuery }}" onChange="{{ onSfInput }}" placeholder="Search the record — a word, a name, or a question…" autocomplete="off" spellcheck="false" style="width:100%;border:none;border-bottom:2px solid #1B1B22;outline:none;background:transparent;font-size:22px;font-weight:300;color:#1B1B22;padding:5px 40px 11px 30px" />
+                  <input id="eo-sf-input" value="{{ sfQuery }}" onChange="{{ onSfInput }}" onKeyDown="{{ onSfKey }}" enterkeyhint="search" placeholder="Search the record — or press ⏎ to search the web…" autocomplete="off" spellcheck="false" style="width:100%;border:none;border-bottom:2px solid #1B1B22;outline:none;background:transparent;font-size:22px;font-weight:300;color:#1B1B22;padding:5px 40px 11px 30px" />
                   <sc-if value="{{ sfAsked }}">
                     <button onClick="{{ sfClear }}" title="Clear" style="position:absolute;right:0;bottom:10px;width:30px;height:30px;border-radius:8px;color:#8A8A95;display:flex;align-items:center;justify-content:center" style-hover="background:#F2F2F6;color:#3A3A44"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
                   </sc-if>
                 </div>
+
+                <!-- WEB FALLTHROUGH — when the record carries nothing on the query (an empty record on
+                     first load, or a query the sources don't hold), reach the web: pull the top salient
+                     sources into a new search topic. Enter does the same; this button makes it tappable
+                     on mobile, where there is no Enter hint and the omnibox is easy to miss. -->
+                <sc-if value="{{ sfWebShow }}">
+                  <button onClick="{{ sfWebGo }}" style="display:inline-flex;align-items:center;gap:8px;margin-bottom:16px;background:#6D5EF5;color:#fff;border-radius:10px;padding:9px 15px;font-size:13px;font-weight:600" style-hover="background:#5B4BE6">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    Search the web for {{ sfWebLabel }}
+                  </button>
+                </sc-if>
 
                 <!-- the source rail — signal from noise. A lit dot = this source carries the query;
                      click to drop a source and the surface re-scopes; click again to bring it back. -->
@@ -939,12 +968,12 @@ table{border-collapse:collapse;width:100%}
                 </sc-if>
               </div>
             </div>
-            <div ref="{{ setWebGraphEl }}" class="eo-scroll" style="flex:1;min-width:0;overflow:auto"></div>
+            <div ref="{{ setWebGraphEl }}" class="eo-scroll eo-wgmount" style="flex:1;min-width:0;overflow:auto"></div>
 
             <!-- THE DETAILS PANEL — the profile of the entity the web opened on, following every
                  node click. Same facts as the sidebar profile (one builder renders both). -->
             <sc-if value="{{ webProfShow }}">
-              <aside class="eo-scroll" style="flex:0 0 306px;border-left:1px solid #EEEEF2;overflow-y:auto;min-height:0;background:#fff">
+              <aside class="eo-scroll eo-wgprof" style="flex:0 0 306px;border-left:1px solid #EEEEF2;overflow-y:auto;min-height:0;background:#fff">
                 <div style="padding:13px 14px">
                   <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
                     <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ webProf.initials }}</span>
@@ -4468,6 +4497,15 @@ class Component extends DCLogic {
     // focus. Initialise it lazily the first time we land here (whole-topic entity web).
     if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
     this.setState(patch);
+    // Keep the active tab visible in the horizontally-scrolling rail — with count badges or opened
+    // source tabs the row can overflow, and a clipped active tab (Pins showing as "P") reads as broken.
+    try {
+      requestAnimationFrame(() => {
+        const rail = document.querySelector('.eo-tabbar .eo-scroll');
+        const active = rail && rail.querySelector('[data-eo-tab-active="1"]');
+        if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      });
+    } catch { /* scroll-into-view is a nicety, never blocks navigation */ }
     // Switching to a source tab whose mode is Native kicks off (or reuses) its page fetch; a PDF tab
     // rehydrates its pages the same way (a no-op when the blob URL is already in hand).
     if (this.state.viewerTabs.includes(tab)) {
@@ -5856,6 +5894,23 @@ class Component extends DCLogic {
   // concordance (verbatim occurrences, lit), the cast (the figures), or the contrast (the contested
   // claims). Less prose, more seeing. The source rail toggles what is in scope; the surface pivots.
   onSfInput(e) { this.setState({ sfQuery: e && e.target ? e.target.value : '' }); }
+  // Enter in the Search-the-record box grows the record from the web. On first load — and any time
+  // the record has nothing on the query — the record scan comes up empty, so the natural motion is
+  // to pull sources in. Mobile keyboards submit with a "Search"/"Go" key (no form, so we key off
+  // Enter directly), which is why "type on first load → web search" felt dead before this.
+  onSfKey(e) {
+    if (!e || (e.key !== 'Enter' && e.keyCode !== 13)) return;
+    if (e.preventDefault) e.preventDefault();
+    this.sfWebSearch(this.state.sfQuery);
+  }
+  // Pull the top salient web sources for the typed query into a new search topic (the same motion as
+  // the omnibox and the "Search the web" hero). ingestSearch reveals the first source on success, so
+  // we leave sfQuery in place: a fruitless search keeps the box filled with the words to retry.
+  sfWebSearch(q) {
+    const query = String(q || '').trim();
+    if (!query) return;
+    this.ingestSearch(query);
+  }
   _sfSetTemplate(t) { this.setState({ sfTemplate: t }); }
   _sfToggleSource(sn) {
     const cur = this.state.sfDisabled instanceof Set ? this.state.sfDisabled : new Set();
@@ -5880,6 +5935,13 @@ class Component extends DCLogic {
       sfContrastNote: '', sfTotal: 0, sfTotalLabel: '', sfSignalLabel: '', sfThinLabel: '',
       sfTabs: [], sfSubject: q, sfElements: [], sfConcepts: [], sfHasConcepts: false,
       onSfInput: (e) => this.onSfInput(e), sfClear: () => this._sfClear(),
+      // Web-search escape hatch — Enter, and a visible button when the record has nothing (an empty
+      // record on first load, or a query the sources don't carry). Lets a search "reach the web as
+      // needed" instead of dead-ending on "0 sources". sfWebShow: shown when there's a query and no
+      // record surface has been built yet (empty record / searchSurface unavailable).
+      onSfKey: (e) => this.onSfKey(e),
+      sfWebGo: () => this.sfWebSearch(q), sfWebLabel: '“' + q + '”',
+      sfWebShow: !!q,
     };
     if (!q || !app || !app.searchSurface) return base;
     let surf = null;
@@ -5977,6 +6039,10 @@ class Component extends DCLogic {
       });
       out.sfThinLabel = 'No contested or bearing claims for “' + (surf.subject || q) + '”.';
     }
+    // Offer the web only when the record itself came up empty on this query — a full result set has
+    // no need of it. With nothing recorded at all, say so plainly rather than "across the 0 sources".
+    out.sfWebShow = !!q && !!out.sfThin;
+    if (all.length === 0) out.sfThinLabel = 'Nothing recorded yet — search the web to pull sources in.';
     return out;
   }
   // ── pins — the durable write path (docs/search-and-pins.md) ─────────────────────────────────
@@ -8264,10 +8330,10 @@ class Component extends DCLogic {
   renderVals() {
     try { return this._vals(); }
     catch (err) {
-      return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, sfClear: () => {}, sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
+      return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, onSfKey: () => {}, sfClear: () => {}, sfWebShow: false, sfWebGo: () => {}, sfWebLabel: '', sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
-        statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
+        statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', omniAttach: () => {}, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         mainDisplay: 'flex', rightWidth: '340px', rightFlex: '0 0 auto', rightBorder: '1px solid #EAEAEF', rightBodyPad: '14px 16px', rightBodyMax: 'none', rightBodyMargin: '0',
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals() };
@@ -8278,10 +8344,10 @@ class Component extends DCLogic {
     const st = this.state;
     const app = this._app;
     if (!app) {
-      return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, sfClear: () => {}, sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
+      return { isSearch: true, askSurfaces: [], askTries: [], askHasTries: false, askEmpty: true, askHasSurface: false, sfQuery: '', onSfInput: () => {}, onSfKey: () => {}, sfClear: () => {}, sfWebShow: false, sfWebGo: () => {}, sfWebLabel: '', sfAsked: false, sfEmpty: true, sfHasRail: false, sfRail: [], sfTabs: [], sfSignalLabel: '', sfIsConcordance: false, sfConcordance: [], sfIsCast: false, sfCast: [], sfIsContrast: false, sfContrast: [], sfHasContrastNote: false, sfContrastNote: '', sfThin: false, sfThinLabel: '', messages: [], tabs: [], topics: [], leftSources: [], heroActions: [],
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Engine booting…', sub: 'Starting EO Reader…', chip: '…' },
-        statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
+        statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, omniAttach: () => this.pickFile(), chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals() };
     }
@@ -8523,6 +8589,7 @@ class Component extends DCLogic {
     const tabDefs = [['register', 'Sources', sources.length || null, false], ['search', 'Search', null, false], ['graph', 'Graph', null, false], ['evidence', 'Findings', findings.stats.claims || null, false], ['pins', 'Pins', pinCount || null, false]];
     const tabs = tabDefs.map(([id, label, count, beta]) => ({
       label, count: String(count || ''), hasCount: count != null, beta: !!beta,
+      activeFlag: st.tab === id ? '1' : '0',
       fg: st.tab === id ? '#1B1B22' : '#8A8A95', weight: st.tab === id ? 650 : 500,
       ul: st.tab === id ? '#6D5EF5' : 'transparent',
       countFg: st.tab === id ? '#5B4BE6' : '#9A9AA4', countBg: st.tab === id ? '#F1EFFE' : '#F2F2F6',
@@ -9499,6 +9566,7 @@ class Component extends DCLogic {
       panelBackdrop: !!st.isMobile && ((st.leftOpen && st.tab !== 'register') || st.rightOpen), closePanels: () => this.closePanels(),
       leftBtnFg: st.leftOpen ? '#5B4BE6' : '#9A9AA4', rightBtnFg: st.rightOpen ? '#5B4BE6' : '#9A9AA4',
       onOmniSubmit: (e) => this.onOmniSubmit(e), onOmniInput: (e) => this.onOmniInput(e),
+      omniAttach: () => this.pickFile(),
       openMonologue: () => this.openMonologue(), closeMonologue: () => this.closeMonologue(),
       toggleLeft: () => this.toggleLeft(), toggleRight: () => this.toggleRight(),
       // model
