@@ -51,9 +51,11 @@ export const installIngest = (appCtx) => {
       // (a re-fetch dedups by content hash, so a page that actually landed is a no-op on resume).
       const jid = appCtx.beginJob({ kind: 'url', url: norm });
       // A URL that names a WHOLE THING rather than a generic page — a Gutenberg book, a YouTube
-      // video's captions — is read by its own deliberate fetcher (strips the PG license furniture /
-      // pulls the two-hop watch-page→json3 caption fetch) and admitted straight away; each falls
-      // through to the generic page path below when the id can't be recovered or nothing came back.
+      // video's captions — is read by its own deliberate fetcher and admitted straight away.
+      // Gutenberg falls through to the generic page path below when the id can't be recovered (a
+      // Gutenberg URL is still a normal readable page either way); YouTube does NOT — the raw watch
+      // page is near-entirely JS-hydrated chrome, so a video whose captions can't be pulled reports
+      // the real reason instead of admitting a broken, unplayable "video" source.
       const bound = { ...client, fetchUrl: (u, o = {}) => client.fetchUrl(u, { signal, ...o }) };
       const admitWhole = (admitted) => {
         if (!admitted?.doc || !admitted?.record) return null;
@@ -72,6 +74,7 @@ export const installIngest = (appCtx) => {
         if (youtubeIdOf(norm) != null) {
           const src = admitWhole(await fetchYoutubeTranscript(norm, { client: bound, fetched_at: nowIso() }));
           if (src) return src;
+          throw new Error('No captions available for this video — YouTube may not have any, or is briefly blocking the fetch. Try again shortly.');
         }
         const raw = (await client.fetchUrl(norm, { signal })).text;
         const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
