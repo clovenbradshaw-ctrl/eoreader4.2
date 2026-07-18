@@ -1690,6 +1690,7 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ cycleReadWidth }}" title="Column width" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">▤ {{ readWidthLabel }}</button>
                   <button onClick="{{ cycleReadTheme }}" title="Paper theme" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:6px;padding:4px 9px" style-hover="background:#EAEAEF">{{ readThemeLabel }}</button>
                   <button onClick="{{ cycleReadingMode }}" title="{{ readingModeTitle }}" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ readingModeFg }};background:{{ readingModeBg }};border:1px solid {{ readingModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)">{{ readingModeLabel }}</button>
+                  <button onClick="{{ toggleFoldPeek }}" title="Temporary — show the summary fold at the cursor: the objects in focus and the reading's assertions (settled · held open · turns · properties · relations), not just the spans." style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ foldPeekFg }};background:{{ foldPeekBg }};border:1px dashed {{ foldPeekBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)">⌖ Fold</button>
                   <button onClick="{{ toggleEntityMode }}" title="{{ entModeTitle }}" style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ entModeFg }};background:{{ entModeBg }};border:1px solid {{ entModeBd }};border-radius:6px;padding:4px 9px" style-hover="filter:brightness(.97)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6.5h12"/><rect x="3" y="10" width="15" height="4" rx="1.6" fill="currentColor" stroke="none"/><path d="M4 17.5h8"/></svg>{{ entModeLabel }}</button>
                 </sc-if>
                 <sc-if value="{{ viewerIsPage }}">
@@ -2025,6 +2026,65 @@ table{border-collapse:collapse;width:100%}
                     <sc-for list="{{ readerToc }}" as="c">
                       <button onClick="{{ c.go }}" style="display:block;width:100%;text-align:left;font-family:'Newsreader',Georgia,serif;font-size:13.5px;color:#2A2A32;border-radius:7px;padding:7px 10px 7px {{ c.pad }}px" style-hover="background:#F2F2F6">{{ c.label }}</button>
                     </sc-for>
+                  </div>
+                </sc-if>
+                <!-- TEMPORARY — the fold-peek overlay: the summary fold at the cursor, made visible.
+                     Dashed and mono to read as provisional. Shows the OBJECTS the engine holds in focus
+                     and the READING'S ASSERTIONS (settled · held open · turns · properties · relations),
+                     with the verbatim spans kept apart below so it's plain that the fold is not the spans. -->
+                <sc-if value="{{ foldPeekOn }}">
+                  <div class="eo-scroll" style="position:absolute;top:10px;right:10px;bottom:10px;width:322px;overflow-y:auto;background:#0F1115;color:#E6E9EF;border:1px dashed #3D4657;border-radius:12px;box-shadow:0 14px 44px rgba(10,10,18,.3);padding:12px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.5">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                      <span style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#E0AF68">⌖ Fold · temporary</span>
+                      <span style="flex:1"></span>
+                      <span style="font-size:10px;color:#7AA2F7">{{ foldPeekCursorLabel }}</span>
+                      <button onClick="{{ toggleFoldPeek }}" title="Close" style="color:#8791A3;background:transparent;border:none;font-size:13px;line-height:1;padding:0 2px">✕</button>
+                    </div>
+                    <sc-if value="{{ foldPeekShow }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;color:#C0CAF5;background:#151922;border-radius:7px;padding:7px 9px;margin-bottom:9px">{{ foldPeekSentence }}</div>
+                      <sc-if value="{{ foldPeekHasObjects }}">
+                        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8791A3;margin:2px 0 4px">Objects in focus here</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px">
+                          <sc-for list="{{ foldPeekObjects }}" as="o">
+                            <span style="background:#1B2130;border:1px solid #2D3444;border-radius:5px;padding:2px 7px;color:#9ECE6A">{{ o.label }}<span style="color:#5A6274;margin-left:4px">{{ o.weight }}</span></span>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#E0AF68;margin:2px 0 4px">The reading — its assertions</div>
+                      <sc-if value="{{ foldPeekHasProps }}">
+                        <sc-for list="{{ foldPeekProps }}" as="p">
+                          <div style="margin:0 0 3px;padding-left:9px;border-left:2px solid #3D4657"><span style="color:#7AA2F7">{{ p.label }}</span> — {{ p.value }} <span style="color:#5A6274">{{ p.count }}</span></div>
+                        </sc-for>
+                      </sc-if>
+                      <sc-if value="{{ foldPeekHasRels }}">
+                        <sc-for list="{{ foldPeekRels }}" as="r">
+                          <div style="margin:0 0 3px;padding-left:9px;border-left:2px solid #BB9AF7;color:#C8CEDA">{{ r.text }}</div>
+                        </sc-for>
+                      </sc-if>
+                      <sc-if value="{{ foldPeekHasSettled }}">
+                        <div style="font-size:9px;font-weight:700;letter-spacing:.05em;color:#9ECE6A;margin:7px 0 3px">SETTLED</div>
+                        <sc-for list="{{ foldPeekSettled }}" as="x"><div style="margin:0 0 3px;color:#C8CEDA">{{ x.t }}</div></sc-for>
+                      </sc-if>
+                      <sc-if value="{{ foldPeekHasHeld }}">
+                        <div style="font-size:9px;font-weight:700;letter-spacing:.05em;color:#E0AF68;margin:7px 0 3px">HELD OPEN</div>
+                        <sc-for list="{{ foldPeekHeld }}" as="x"><div style="margin:0 0 3px;color:#C8CEDA">{{ x.t }}</div></sc-for>
+                      </sc-if>
+                      <sc-if value="{{ foldPeekHasTurns }}">
+                        <div style="font-size:9px;font-weight:700;letter-spacing:.05em;color:#F7768E;margin:7px 0 3px">TURNS</div>
+                        <sc-for list="{{ foldPeekTurns }}" as="x"><div style="margin:0 0 3px;color:#C8CEDA">{{ x.t }}</div></sc-for>
+                      </sc-if>
+                      <sc-if value="{{ foldPeekTelegram }}">
+                        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8791A3;margin:9px 0 4px">Fold summary</div>
+                        <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;color:#B7BFD1;margin-bottom:9px">{{ foldPeekTelegram }}</div>
+                      </sc-if>
+                      <sc-if value="{{ foldPeekHasSpans }}">
+                        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#5A6274;margin:2px 0 4px">Spans (verbatim — not the reading)</div>
+                        <sc-for list="{{ foldPeekSpans }}" as="s"><div style="margin:0 0 4px;color:#6E7688;font-style:italic">{{ s.t }}</div></sc-for>
+                      </sc-if>
+                    </sc-if>
+                    <sc-if value="{{ foldPeekEmpty }}">
+                      <div style="color:#8791A3;padding:14px 4px;text-align:center">Scroll to a passage — the fold at the top line appears here.</div>
+                    </sc-if>
                   </div>
                 </sc-if>
               </div>
@@ -3512,6 +3572,10 @@ class Component extends DCLogic {
       // Companion: co-read margin-thoughts appear where the reader dwells. Lit: Companion + lenses
       // (the Link lens on). Persisted; drives body classes on the open book iframe.
       readingMode: this._prefStr('eo_readingmode', 'paper'),
+      // TEMPORARY — the fold-peek overlay: make the summary fold at the cursor VISIBLE (the objects in
+      // focus + the reading's assertions, not just the spans). Session-only, off by default; `foldPeek`
+      // holds the last app.cursorFold read for the place under the eye.
+      foldPeekOn: false, foldPeek: null,
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, searchError: null, recordedUrls: {},
       // A search hit opens as a NATIVE PREVIEW first — the real page, loaded normally in a sandboxed
       // frame — and only becomes a recorded source when you choose to add it. { item, doc, busy, err }.
@@ -5514,6 +5578,31 @@ class Component extends DCLogic {
       if (r) { this._coReadAfter = r.peak; this._refreshMargins(); }
     } catch {}
   }
+  // ── TEMPORARY: the fold-peek overlay (make the summary fold at the cursor visible) ───────────
+  // Read WHERE THE EYE IS NOW and ask the app for the fold there — the objects the engine holds in
+  // focus (documentFieldAt) and the ASSERTIONS it has made (settled / held-open / turns / properties /
+  // relations), beside the verbatim spans. Synchronous, model-free (app.cursorFold), so it lands on
+  // the same dwell beat co-reading rides. Independent of the reading-mode ladder — its own toggle.
+  _foldPeekNow() {
+    if (!this.state.foldPeekOn) return;
+    const d = this._readerFrame && this._readerFrame.contentDocument, R = this._render, app = this._app;
+    if (!d || !d.body || !R || !R.topVisibleText || !app || !app.cursorFold) return;
+    const sn = this._activeSrc(); if (!sn) return;
+    let text = ''; try { text = R.topVisibleText(d); } catch {}
+    if (!text) return;
+    let peek = null;
+    try { peek = app.cursorFold({ sn, visibleText: text, after: this._foldPeekAfter || 0 }); } catch {}
+    if (!peek) return;
+    this._foldPeekAfter = peek.cursor;
+    this.setState({ foldPeek: peek });
+  }
+  // Toggle the fold-peek overlay on/off. On → read the place under the eye at once; off → clear it.
+  toggleFoldPeek() {
+    const on = !this.state.foldPeekOn;
+    this._foldPeekAfter = 0;
+    this.setState({ foldPeekOn: on, foldPeek: on ? this.state.foldPeek : null });
+    if (on) setTimeout(() => this._foldPeekNow(), 60);
+  }
   // The reader iframe ref — capture it, restore the saved scroll position, apply the current
   // theme, and (on a citation jump) scroll to the cited passage. Runs once per mount.
   setReaderFrame(el) {
@@ -5566,13 +5655,20 @@ class Component extends DCLogic {
       // fresh co-read when the reader settles (scroll stops for a beat), so a thought appears where
       // the eye lingers, not on every scroll tick. The engine governs whether anything fires.
       try { R && R.applyReadingMode && R.applyReadingMode(d, this.state.readingMode, { links: !!this.state.entityMode }); } catch {}
-      this._coReadAfter = 0;
+      this._coReadAfter = 0; this._foldPeekAfter = 0;
       if (this.state.readingMode !== 'paper') setTimeout(() => { this._refreshMargins(); this._coReadNow(); }, 140);
+      if (this.state.foldPeekOn) setTimeout(() => this._foldPeekNow(), 160);
       if (win) {
         win.addEventListener('scroll', () => {
-          if (this.state.readingMode === 'paper') return;
+          // The DWELL beat drives both co-reading (off Paper) and the fold peek (when toggled on) —
+          // one settle handler, so a thought and the fold at that place arrive together.
+          if (this.state.readingMode === 'paper' && !this.state.foldPeekOn) return;
           if (this._dwellT) clearTimeout(this._dwellT);
-          this._dwellT = setTimeout(() => { this._dwellT = null; this._coReadNow(); }, 550);
+          this._dwellT = setTimeout(() => {
+            this._dwellT = null;
+            if (this.state.readingMode !== 'paper') this._coReadNow();
+            if (this.state.foldPeekOn) this._foldPeekNow();
+          }, 550);
         }, { passive: true });
       }
     };
@@ -9873,6 +9969,32 @@ class Component extends DCLogic {
       readingModeFg: st.readingMode === 'paper' ? '#8A8A95' : '#5B4BE6',
       readingModeBg: st.readingMode === 'paper' ? '#F2F2F6' : '#F1EFFE',
       readingModeBd: st.readingMode === 'paper' ? '#EAEAEF' : '#DED8FD',
+      // TEMPORARY — the fold-peek overlay (the summary fold at the cursor: objects + assertions)
+      toggleFoldPeek: () => this.toggleFoldPeek(),
+      foldPeekOn: !!st.foldPeekOn,
+      foldPeekFg: st.foldPeekOn ? '#B58A2E' : '#8A8A95',
+      foldPeekBg: st.foldPeekOn ? '#FBF4E2' : '#F2F2F6',
+      foldPeekBd: st.foldPeekOn ? '#E7D08A' : '#D8D8DE',
+      ...(() => {
+        const fp = st.foldPeek, r = fp && fp.reading;
+        return {
+          foldPeekShow: !!fp,
+          foldPeekEmpty: !fp,
+          foldPeekCursorLabel: fp ? `cursor ${fp.cursor}${fp.peak !== fp.cursor ? ` · peak ${fp.peak}` : ''}` : '',
+          foldPeekSentence: fp ? fp.sentence : '',
+          foldPeekObjects: fp ? fp.objects.map((o) => ({ label: o.label, weight: (o.weight != null ? o.weight : 0).toFixed(3) })) : [],
+          foldPeekHasObjects: !!(fp && fp.objects.length),
+          foldPeekProps: r ? r.properties.map((p) => ({ label: p.label, value: p.value, count: p.count ? `×${p.count}` : '' })) : [],
+          foldPeekHasProps: !!(r && r.properties.length),
+          foldPeekRels: r ? r.relations.map((x) => ({ text: `${x.subject} ${x.polarity === '−' ? '¬' : ''}${x.verb} ${x.object}` })) : [],
+          foldPeekHasRels: !!(r && r.relations.length),
+          foldPeekSettled: r ? r.settled.map((t) => ({ t })) : [], foldPeekHasSettled: !!(r && r.settled.length),
+          foldPeekHeld: r ? r.heldOpen.map((t) => ({ t })) : [], foldPeekHasHeld: !!(r && r.heldOpen.length),
+          foldPeekTurns: r ? r.turns.map((t) => ({ t })) : [], foldPeekHasTurns: !!(r && r.turns.length),
+          foldPeekSpans: fp ? fp.spans.map((s) => ({ t: s.text })) : [], foldPeekHasSpans: !!(fp && fp.spans.length),
+          foldPeekTelegram: fp ? fp.telegram : '',
+        };
+      })(),
       // native render body — the live site, plus its own contents lifted into the reader's drawer
       pageDoc, pageShow: !!pageDoc, pageBusy, pageErr, hasPageErr: !!pageErr, retryPage: () => this.retryPage(),
       setNativeFrame: (el) => this.setNativeFrame(el),

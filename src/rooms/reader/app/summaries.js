@@ -17,8 +17,9 @@
 // pipeline's own: the deterministic telegram lands FIRST (stored at once, model-free),
 // the model only refines it, and a decode that adds a name or number the packet never
 // carried ships the telegram instead. A summary must never cost the caller its record.
-import { surfFold, detectGrain } from '../../../surfer/index.js';
+import { surfFold, detectGrain, sentenceIndexOfText } from '../../../surfer/index.js';
 import { summaryFold, telegramSummary, realizeSummary, SUMMARY_DETAILS } from '../../../surfer/fold/index.js';
+import { documentFieldAt } from '../../../enactor/factcheck/index.js';
 import { describeModel } from '../../../model/index.js';
 import { nowIso } from './util.js';
 
@@ -122,5 +123,64 @@ export const installSummaries = (appCtx) => {
     });
   };
 
-  Object.assign(appCtx, { foldSummary, foldSummaryFor });
+  // ── TEMPORARY — the fold at a cursor, made visible ──────────────────────────────────────────
+  // foldSummary REALIZES the fold as prose; this exposes the fold's own READING, unrealized, so a
+  // surface can SEE what the engine is reading at a place rather than only its summary. Two channels
+  // the prose deliberately drops:
+  //   · objects — the referents the engine holds in focus at the cursor (documentFieldAt: the
+  //               γ-salience field over the page's own mention positions), most salient first. This
+  //               is the "objects at the cursor" the summary never names.
+  //   · reading — the ASSERTIONS the fold has made there: the settled bonds, the held-open tensions,
+  //               the located turns, the ranked standing properties, the strongest relations. These
+  //               are the reading — NOT the verbatim spans (which are carried alongside, distinct):
+  //               a summary drawn from spans alone shows the prose, never what the system claims of it.
+  // Synchronous and model-free — a peek, not a summary. Nothing is stored (the caller renders it and
+  // lets it churn as the reader moves). The cursor is an explicit sentence index, or resolved from the
+  // block under the reader's eye (visibleText), exactly as co-reading resolves its position.
+  const cursorFold = ({ sn = null, cursor = null, visibleText = null, after = 0, maxObjects = 6 } = {}) => {
+    const src = appCtx.sourceBySn(sn);
+    const doc = src ? appCtx.docFor(src) : null;
+    if (!doc?.log) return null;
+    const sents = doc.units || doc.sentences || [];
+    if (!sents.length) return null;
+    let at = Number.isInteger(cursor) ? cursor
+      : (visibleText ? sentenceIndexOfText(doc, visibleText, { from: after | 0 }) : -1);
+    if (!Number.isInteger(at) || at < 0) return null;
+    at = Math.max(0, Math.min(sents.length - 1, at));
+
+    let packet = null;
+    try {
+      packet = summaryFold(doc, {
+        surf: surfFold, scope: 'cursor', cursor: at,
+        title: src.title || null, ...PACKET_CAPS.brief,
+      });
+    } catch { packet = null; }
+    if (!packet) return null;
+
+    // The objects the reading is ABOUT at this place — the salience field, labelled (never ids in
+    // the display; the referent id is the fallback only when the page carries no label for it).
+    const labelOf = (id) => doc.admission?.labelOf?.(id) || id;
+    const objects = documentFieldAt(doc, at).slice(0, maxObjects)
+      .map(({ id, w }) => ({ label: String(labelOf(id) || '').trim(), weight: Math.round(w * 1000) / 1000 }))
+      .filter((o) => o.label);
+
+    const g = packet.groups || {};
+    return Object.freeze({
+      sn, cursor: at, peak: packet.cursor,
+      sentence: String(sents[at] ?? '').trim(),
+      objects,
+      reading: Object.freeze({
+        settled: (g.settled || []).slice(),
+        heldOpen: (g.heldOpen || []).slice(),
+        turns: (g.turns || []).slice(),
+        properties: (packet.properties || []).map(({ label, value, count }) => ({ label, value, count })),
+        relations: (packet.relations || []).map(({ subject, verb, object, polarity }) => ({ subject, verb, object, polarity })),
+        figures: (packet.figures || []).slice(),
+      }),
+      spans: (packet.spans || []).slice(),
+      telegram: telegramSummary(packet, { maxSentences: SUMMARY_DETAILS.brief.maxSentences }),
+    });
+  };
+
+  Object.assign(appCtx, { foldSummary, foldSummaryFor, cursorFold });
 };
