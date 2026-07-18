@@ -95,10 +95,14 @@ const app = createReaderApp({ audit, murmur });
 // ledger's named verbs, so the full terminal shows the machine in its own syntax with
 // no instrumented call sites. It only READS those streams and writes to a ring buffer:
 // nothing enters the answer, and murmur lines ride the enactor door (witness:false), so
-// the §9 firewall holds. `notate` (core) prints each line's operator faces. The terminal
+// the §9 firewall holds — though the terminal surfaces murmur as its OWN filter bucket
+// (∿ sense), distinct from the model's real acts (◂). `notate` (core) prints each line's operator faces. The terminal
 // mounts with fab:false — the murmur strip is its sole opener (its click calls
 // eotTerminal.open()), so there is no second bottom-corner button beside the audit console.
-const eot = createEotLedger({ capacity: 500 });
+// Capacity is deep (not 500): the murmur voices CONTINUOUSLY, so a shallow ring fills with
+// murmur alone and rolls the sparse reads/searches/turns off the front — the terminal would
+// then show "just the murmur". A deep ring keeps the whole session's real operations too.
+const eot = createEotLedger({ capacity: 4000 });
 wireEotFeed({ app, audit, murmur, eot });
 let eotTerminal = null;
 try { eotTerminal = mountEotTerminal(eot, { hotkey: true, startOpen: false, fab: false, notate }); }
