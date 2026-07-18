@@ -5,7 +5,7 @@
 // entities (the explorer)
 import { projectGraph } from '../../../core/index.js';
 import { mergeEntitiesByReferent } from '../entity-merge.js';
-import { buildReferents } from '../../../perceiver/referents/index.js';
+import { referentApiFor } from '../../../perceiver/referents/index.js';
 
 export const installEntities = (appCtx) => {
   // ── entities (the explorer) ────────────────────────────────────────────────
@@ -23,22 +23,12 @@ export const installEntities = (appCtx) => {
   // union-find above never bridges them (no token overlap, and a contested surname
   // defeats the tail merge). It ships off by a parse-time flag (byte-identical when
   // unset) and no reading path threads that flag through, so it never actually ran.
-  // Built here instead, LAZILY and POST-HOC straight off the already-parsed doc's
-  // own log/sentences/admission/corefField — no re-parse, no change to parseText's
-  // default output, cached on the doc so a re-render doesn't rebuild it.
-  const referentApiFor = (doc) => {
-    if (!doc || !doc.log || doc.modality !== 'text') return null;
-    if (typeof doc.referents === 'function') return doc;   // flag was already on upstream
-    if (doc._referentApi === undefined) {
-      try {
-        doc._referentApi = buildReferents({
-          log: doc.log, sentences: doc.sentences, admission: doc.admission,
-          corefField: doc.corefField, docId: doc.docId,
-        });
-      } catch { doc._referentApi = null; }
-    }
-    return doc._referentApi;
-  };
+  // referentApiFor (perceiver/referents/index.js) builds it LAZILY and POST-HOC
+  // straight off the already-parsed doc's own log/sentences/admission/corefField —
+  // no re-parse, no change to parseText's default output, cached on the doc so a
+  // re-render doesn't rebuild it, and shared with the cross-source crosswalk
+  // (trajectory.js) so the two surfaces read the SAME referent quotient instead of
+  // one silently falling back to an empty one.
 
   // Which union-find root each referent's NAME/DESCRIPTION surfaces resolve to, so rows
   // built off the firm graph (below) can be folded by shared referent. A root absent from

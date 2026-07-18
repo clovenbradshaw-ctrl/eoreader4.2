@@ -270,3 +270,25 @@ export const buildReferents = ({ log, sentences, admission, corefField, docId = 
     },
   };
 };
+
+// referentApiFor(doc) — the referent-first identity API for a doc, built LAZILY and cached on
+// the doc itself (doc._referentApi). buildReferents ships off by a parse-time flag
+// (referentIdentity:'mention', byte-identical when unset) and no reading path threads that flag
+// through today, so `doc.referents` is never already a function on an ordinarily-parsed doc —
+// every caller that wants referent-quotient identity (not the raw union-find) must build it
+// post-hoc, off the already-parsed doc's own log/sentences/admission/corefField. The single
+// shared entry point, so a re-render or a second caller (the entity explorer, the cross-source
+// crosswalk) never rebuilds it twice, or worse, silently reads an empty `[]` because it forgot to.
+export const referentApiFor = (doc) => {
+  if (!doc || !doc.log || doc.modality !== 'text') return null;
+  if (typeof doc.referents === 'function') return doc;   // flag was already on upstream
+  if (doc._referentApi === undefined) {
+    try {
+      doc._referentApi = buildReferents({
+        log: doc.log, sentences: doc.sentences, admission: doc.admission,
+        corefField: doc.corefField, docId: doc.docId,
+      });
+    } catch { doc._referentApi = null; }
+  }
+  return doc._referentApi;
+};

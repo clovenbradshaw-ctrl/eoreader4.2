@@ -6,7 +6,7 @@
 // is a new resolution engine — every field on the `Trajectory` this module returns already exists
 // on `perceiver/referents/field.js`'s quotient or a document's own referent API; this module is the
 // composition of two existing folds that today never run together.
-import { foldReferents } from '../../../perceiver/referents/index.js';
+import { foldReferents, referentApiFor } from '../../../perceiver/referents/index.js';
 import { TIER } from '../../../core/index.js';
 import { createSynonymPromotion } from '../../../enactor/ground/index.js';
 
@@ -129,7 +129,12 @@ export const crosswalkCorpus = (sources, { corpus = Infinity, sameReferent = (a,
 
   for (let i = 0; i < n; i++) {
     const { id: sourceId, doc, t = 0 } = sources[i];
-    const refs = (doc.referents ? doc.referents() : []).filter((r) => r.status === 'firm');
+    // referentApiFor builds the referent quotient LAZILY when the parse-time flag never ran
+    // (the normal case for an app-ingested doc) — the same shared entry point entities.js's
+    // explorer reads, so the crosswalk stops silently reading [] for a doc no caller has ever
+    // asked to build the quotient for yet (was: `doc.referents ? doc.referents() : []`).
+    const api = referentApiFor(doc);
+    const refs = (api ? api.referents() : []).filter((r) => r.status === 'firm');
     for (const r of refs) {
       const label = r.display;
       const mentions = r.surfaces.length;

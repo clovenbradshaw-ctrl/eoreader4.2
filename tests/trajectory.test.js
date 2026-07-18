@@ -97,6 +97,27 @@ test('the corpus cursor scrubs — folding to 1 source shows only that source\'s
   assert.deepEqual(new Set(atTwo.nodes[0].sourceIds), new Set(['doc1', 'doc2']));
 });
 
+test('the crosswalk builds its own referent quotient when the parse-time flag never ran (an ordinary app-ingested doc)', () => {
+  // Every other test in this file parses with referentIdentity:'mention' set, so doc.referents
+  // is already a function and crosswalkCorpus's OLD `doc.referents ? doc.referents() : []` check
+  // always found data — masking a real bug. A doc ingested through the app's normal path never
+  // sets that flag (entities.js's own comment: "no reading path threads that flag through, so it
+  // never actually ran"), so doc.referents is undefined and the old code silently read every
+  // source as zero referents — the "0/0 corroboration" symptom. referentApiFor now builds the
+  // quotient lazily off the doc's own log/sentences/admission/corefField instead of requiring it
+  // pre-built, so the crosswalk finds the same corroboration the entity explorer already does.
+  const doc1 = parseText(repeat('The Barnes Fund provides down payment assistance to city residents.', 2), { docId: 'doc1' });
+  const doc2 = parseText(repeat('The Housing Trust provides down payment assistance to city residents.', 3), { docId: 'doc2' });
+  assert.equal(typeof doc1.referents, 'undefined', 'sanity: the flag genuinely never ran on this doc');
+
+  const sameReferent = () => true;
+  const sources = [{ id: 'doc1', doc: doc1, t: 1 }, { id: 'doc2', doc: doc2, t: 2 }];
+  const { nodes } = crosswalkCorpus(sources, { sameReferent });
+
+  assert.equal(nodes.length, 1, 'the two relabellings still fold into one referent — not 0/0');
+  assert.deepEqual(new Set(nodes[0].sourceIds), new Set(['doc1', 'doc2']));
+});
+
 test('crosswalkTieredData shapes the fold for mountTieredGraph — reusing its existing node/edge vocabulary', () => {
   const doc1 = docOf('doc1', repeat('The Barnes Fund provides down payment assistance to city residents.', 2));
   const doc2 = docOf('doc2', repeat('The Housing Trust provides down payment assistance to city residents.', 3));
