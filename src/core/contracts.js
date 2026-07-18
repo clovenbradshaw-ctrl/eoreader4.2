@@ -5,6 +5,7 @@
 import { CONTRACTS as answer } from '../enactor/answer/eo-contract.js';
 import { CONTRACTS as arc } from '../weave/arc/eo-contract.js';
 import { CONTRACTS as attest } from '../attest/eo-contract.js';
+import { CONTRACTS as binvis } from '../surfaces/binvis/eo-contract.js';
 import { CONTRACTS as archive } from '../rooms/archive/eo-contract.js';
 import { CONTRACTS as audit } from '../rooms/audit/eo-contract.js';
 import { CONTRACTS as chat } from '../rooms/chat/eo-contract.js';
@@ -64,7 +65,7 @@ import { CONTRACTS as wiki } from '../wiki/eo-contract.js';
 import { CONTRACTS as workspace } from '../rooms/workspace/eo-contract.js';
 import { CONTRACTS as write } from '../weave/write/eo-contract.js';
 
-export const CONTRACTS = Object.freeze({ ...answer, ...arc, ...attest, ...archive, ...audit, ...chat, ...chorus, ...classify, ...code, ...coder, ...commission, ...connect, ...converse, ...core_, ...credence, ...dag, ...data, ...doc, ...enact, ...enactor, ...essay, ...factcheck, ...flow, ...fold, ...frame, ...generation, ...ground, ...ingest, ...lineup, ...longgen, ...metabolism, ...model, ...models, ...murmur, ...murmurAudit, ...murmurLearn, ...murmurLink, ...murmurNarrate, ...murmurSense, ...murmurSteer, ...murmurValence, ...organs, ...perceiver, ...predict, ...reader, ...reason, ...render, ...replay, ...research, ...retrieve, ...store, ...surfaces, ...surfer, ...tasks, ...terrains, ...topline, ...turn, ...waveform, ...wiki, ...workspace, ...write });
+export const CONTRACTS = Object.freeze({ ...answer, ...arc, ...attest, ...binvis, ...archive, ...audit, ...chat, ...chorus, ...classify, ...code, ...coder, ...commission, ...connect, ...converse, ...core_, ...credence, ...dag, ...data, ...doc, ...enact, ...enactor, ...essay, ...factcheck, ...flow, ...fold, ...frame, ...generation, ...ground, ...ingest, ...lineup, ...longgen, ...metabolism, ...model, ...models, ...murmur, ...murmurAudit, ...murmurLearn, ...murmurLink, ...murmurNarrate, ...murmurSense, ...murmurSteer, ...murmurValence, ...organs, ...perceiver, ...predict, ...reader, ...reason, ...render, ...replay, ...research, ...retrieve, ...store, ...surfaces, ...surfer, ...tasks, ...terrains, ...topline, ...turn, ...waveform, ...wiki, ...workspace, ...write });
 
 export const contractOf = (repoRelPath) => CONTRACTS[repoRelPath] ?? null;
 export const contractedPaths = () => Object.freeze(Object.keys(CONTRACTS).sort());

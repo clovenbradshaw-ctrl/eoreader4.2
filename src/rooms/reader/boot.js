@@ -74,6 +74,8 @@ import { createChatRoom, mountChat, mountChatLauncher } from '../chat/index.js';
 import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
+import { mountBinvis, mountBinvisLauncher } from './binvis-surface.js';
+import * as binvis from '../../surfaces/binvis/index.js';
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
 // background faculty that watches the same fold geometry the turn emits and raises IMPRESSIONS
@@ -323,6 +325,10 @@ window.EO = Object.freeze({
   mountDagSurface,   // the two-cursor causal DAG surface (surfer/dag) — topic-wide + per-entity, with toggles
   readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   reveal,   // the chat typewriter's pace (bounded catch-up) — pure, so the freeze regression is CI-tested
+  // the byte-structure surface (Aldo Cortesi's binvis) — a loaded document's bytes on a Hilbert
+  // curve, coloured by byte class. The pure holon + mountBinvis (the dc surface can host it as a
+  // tab); the floating launcher below makes it visible now. Structural layer today, more to come.
+  binvis: Object.freeze({ ...binvis, mount: mountBinvis }),
   firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
   projectTranscript, wordsToText,   // the interactive transcript fold (baseline + edits/redactions → live reading)
   encodeWav, applyRedactions,       // audio DSP for the Listen surface's redaction re-synthesis + WAV export
@@ -361,3 +367,8 @@ catch (e) { console.warn('[EO] vault launcher not mounted', e); }
 // watchdog in the surface, so a freeze like the essay hang is visible as it happens.
 try { if (typeof document !== 'undefined') mountConsole(document.body, { audit, app, appName: APP_NAME, version: APP_VERSION }); }
 catch (e) { console.warn('[EO] console not mounted', e); }
+
+// …and the byte-structure launcher (rooms/reader/binvis-surface.js) — a corner button opening
+// Aldo Cortesi's binvis over ANY loaded document (its bytes on a Hilbert curve, coloured by byte class).
+try { if (typeof document !== 'undefined') mountBinvisLauncher(document.body, { app }); }
+catch (e) { console.warn('[EO] binvis launcher not mounted', e); }

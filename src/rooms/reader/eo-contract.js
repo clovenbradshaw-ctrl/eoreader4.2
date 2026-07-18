@@ -55,6 +55,7 @@ export const CONTRACTS = Object.freeze({
   'src/rooms/reader/app/util.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Clearing'], note: 'small shared utilities of the reader app' }),
   'src/rooms/reader/audio-dsp.js': contract({ ops: ['SEG', 'NUL'], targets: ['Field'], products: ['Void'], stances: ['Dissecting', 'Clearing'], note: 'audio DSP — waveform redaction + WAV encode' }),
   'src/rooms/reader/audio-store.js': contract({ ops: ['NUL'], targets: ['Void'], products: ['Void'], stances: ['Tending'], note: 'original-audio byte store (OPFS binary)' }),
+  'src/rooms/reader/binvis-surface.js': contract({ ops: ['SIG'], targets: ['Field', 'Lens'], products: ['Lens'], stances: ['Tending'], note: 'the binvis launcher — a loaded document’s bytes → the byte-structure surface' }),
   'src/rooms/reader/boot.js': contract({ ops: ['CON', 'SIG'], targets: ['Network', 'Field'], products: ['Link'], stances: ['Binding', 'Tending'], note: 'the surface↔engine membrane' }),
   'src/rooms/reader/source-export.js': contract({ ops: ['NUL', 'CON'], targets: ['Field', 'Network'], products: ['Field', 'Link'], stances: ['Clearing', 'Binding'], note: 'source export — source/doc/log folds and cursor snapshots for downloads' }),
   'src/rooms/reader/chat-export.js': contract({ ops: ['NUL', 'SEG'], targets: ['Field'], products: ['Void'], stances: ['Clearing', 'Dissecting'], note: 'chat + audit export renderer' }),
