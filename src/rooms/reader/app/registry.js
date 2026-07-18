@@ -254,14 +254,14 @@ export const installRegistry = (appCtx) => {
     appCtx.persist(); emit('sources');
   };
 
-  // Release the derived readings the active topic no longer needs. A parse (_doc), its EoT
+  // Release the derived readings stale topics no longer need. A parse (_doc), its EoT
   // reading (_eot — and readIngest's memo, a WeakMap keyed by the doc, dies with it), and the
   // deep reader pinning the doc all re-derive lazily from src.text; holding EVERY topic's
-  // parses at once (each several times its text's size) is session-long growth the tab —
-  // already carrying model weights — cannot afford.
-  const releaseParsesOutsideTopic = () => {
-    const t = appCtx.topic();
-    const keep = new Set(t ? t.sourceSns : []);
+  // parses at once (each several times its text's size) is session-long growth the tab cannot
+  // afford — kept warm for the last TOPIC_MRU_SIZE topics VISITED, so A→B→A skips a re-parse.
+  const TOPIC_MRU_SIZE = 3, _topicMru = [], releaseParsesOutsideTopic = () => {
+    const t = appCtx.topic(); if (t) { const i = _topicMru.indexOf(t.id); if (i !== -1) _topicMru.splice(i, 1); _topicMru.unshift(t.id); _topicMru.length = Math.min(_topicMru.length, TOPIC_MRU_SIZE); }
+    const keep = new Set(); for (const tid of _topicMru) { const tp = state.topics.find((x) => x.id === tid); if (tp) for (const sn of tp.sourceSns) keep.add(sn); }
     for (const s of state.sources) {
       if (keep.has(s.sn)) continue;
       appCtx.deepReaders.delete(s.docId); try { s._doc?.releaseEmbeddings?.(); s._nlDoc?.releaseEmbeddings?.(); } catch { /* */ }  // free matrices; re-hydrate from the embed cache on reopen

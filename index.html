@@ -4154,6 +4154,12 @@ class EoMurmurStrip {
 // wait and runs the search immediately (onSfKey), taking whatever was warmed.
 const SF_PREFETCH_MS = 3000;
 
+// How many topics' entity-explorer rows (_entCacheByTopic) stay warm at once. Rows are small
+// (label/mentions/links per entity, not the parsed doc itself) so this can afford to run ahead
+// of the parse-retention window in registry.js — bouncing between several recent topics never
+// re-runs projectGraph/referent-folding for one already computed this session.
+const ENT_CACHE_TOPICS = 8;
+
 // Plain-language vocabulary layer — every control leads with the ordinary-language name for what
 // it does; EO's own terms (the conceptual system the engine is built on) stay one Settings toggle
 // away rather than being the entry fee. Expert mode appends the EO term after the plain one.
@@ -4313,7 +4319,7 @@ class Component extends DCLogic {
       facingMsg: {},   // per-answer toggle: reveal the EoT "how it read it" facing page inline
       rev: 0,
     };
-    this._segCache = {}; this._viewCache = null; this._entCache = null; this._srcEntCache = null; this._readerCache = {};
+    this._segCache = {}; this._viewCache = null; this._entCacheByTopic = new Map(); this._srcEntCache = null; this._readerCache = {};
     // Per-character reveal (the typewriter): the engine writes the streamed answer to
     // m.text as fast as tokens decode; the surface REVEALS it one character at a time on a
     // steady rAF clock, with catch-up so a fast burst never lags far behind. _reveal maps a
@@ -4413,7 +4419,7 @@ class Component extends DCLogic {
 
   _onEngine(kind) {
     if (kind === 'sources') {
-      this._entCache = null; this._srcEntCache = null; this._viewCache = null; this._segCache = {};
+      this._entCacheByTopic.clear(); this._srcEntCache = null; this._viewCache = null; this._segCache = {};
       // A source's text can change AFTER it lands — an audio source is recorded from its
       // acoustic reading, then the transcript folds in as it is heard (throttled, ~every 4s
       // while a transcription runs) and again in full once it completes. Drop the cached reader
@@ -4426,11 +4432,14 @@ class Component extends DCLogic {
       }
     }
     if (kind === 'topics') {
-      // Entities are SILOED PER TOPIC: the explorer derives from the active topic's sources,
-      // so any cached list is stale the moment topics change — a fresh topic must open with
-      // no entities. And a profile or web overlay opened under the previous topic must not
-      // follow us in: on a real switch the selection drops back to the (empty) list.
-      this._entCache = null; this._srcEntCache = null;
+      // Entities are SILOED PER TOPIC: the explorer derives from the active topic's sources.
+      // _entCacheByTopic is keyed by topic id (+ level), so the silo holds without forcing a
+      // rebuild on every switch — a fresh topic simply has no entry yet and opens with no
+      // entities, while returning to a topic already visited (and unchanged since) reuses its
+      // rows instead of re-running projectGraph/referent-folding over every source again. (A
+      // profile or web overlay opened under the previous topic must still not follow us in: on
+      // a real switch the selection drops back below.)
+      this._srcEntCache = null;
       const tid = this._app && this._app.state ? this._app.state.activeTopicId : null;
       if (tid !== this._topicSeen) {
         this._topicSeen = tid;
@@ -8676,7 +8685,6 @@ class Component extends DCLogic {
     const order = ['names', 'signal', 'all'];
     const next = order[(order.indexOf(this.state.entLevel || 'names') + 1) % order.length];
     this._setPrefStr('eo_entlevel', next);
-    this._entCache = null;
     this.setState({ entLevel: next });
   }
   toggleEntityMode() {
@@ -10449,7 +10457,7 @@ class Component extends DCLogic {
 
     // findings — the provenance DAG (below) is the PIVOT; the claims list is what it pivots.
     const claims = findings.claims;
-    const prov = app.provenance();
+    const prov = app.provenance(findings);
     // Focusing a node in the Findings provenance graph narrows the list to that node's reach:
     // a claim → itself; a source/file → every claim it grounds; a passage → the claims it backs.
     const provFocus = st.tab === 'evidence' ? st.focusId : null;
@@ -10923,10 +10931,24 @@ class Component extends DCLogic {
     // right panel — entities or graph inspector.
     // TOPIC-WIDE explorer: the whole topic's merged entities at the panel's holonic LEVEL —
     // 'names' (natural-language referents, default), 'signal' (the acoustic signal/noise span
-    // holons an audio reading raises), or 'all'. Cached by level so a switch rebuilds once.
+    // holons an audio reading raises), or 'all'. Cached per (topic, level) in an LRU of
+    // ENT_CACHE_TOPICS entries, so switching among a handful of recent topics is instant —
+    // only a topic/level combination never seen (or evicted, or whose sources changed) rebuilds.
     const entLevel = st.entLevel || 'names';
-    if (!this._entCache || this._entCacheLevel !== entLevel) { this._entCache = app.entities({ level: entLevel }); this._entCacheLevel = entLevel; }
-    const allEnts = this._entCache;
+    const entCacheKey = `${app.state.activeTopicId}:${entLevel}`;
+    let allEnts = this._entCacheByTopic.get(entCacheKey);
+    if (!allEnts) {
+      allEnts = app.entities({ level: entLevel });
+      // Re-insert on write too, so a re-computed key (content changed) lands at the MRU end.
+      this._entCacheByTopic.delete(entCacheKey);
+      this._entCacheByTopic.set(entCacheKey, allEnts);
+      if (this._entCacheByTopic.size > ENT_CACHE_TOPICS) this._entCacheByTopic.delete(this._entCacheByTopic.keys().next().value);
+    } else {
+      // Touch on read too — an LRU, not just an MRU-on-write, so a topic being actively
+      // alternated into stays warm even if other topics' caches are being written meanwhile.
+      this._entCacheByTopic.delete(entCacheKey);
+      this._entCacheByTopic.set(entCacheKey, allEnts);
+    }
     // PER-SOURCE PIVOT: when a source is open in the stage the explorer narrows to that source's
     // own figures, read at a FINER level — the transcript's natural-language REFERENTS (default) or
     // the modality's raw SPANS underneath (an audio clip's words, an image's regions). entScopeAll
