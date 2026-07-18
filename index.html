@@ -3949,6 +3949,12 @@ class EoMurmurStrip {
   _closeCard() { this._open = false; if (this._card) this._card.style.display = 'none'; }
 }
 
+// How long the Search box waits after typing settles before it speculatively warms the web for
+// the in-progress query (docs/web-search.md). Deliberately unhurried — the network cost is real
+// and unbidden until Enter, so we only prime once the user has clearly paused. Enter flushes the
+// wait and runs the search immediately (onSfKey), taking whatever was warmed.
+const SF_PREFETCH_MS = 3000;
+
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -4195,6 +4201,7 @@ class Component extends DCLogic {
         // topic's query text sits in the box and re-runs against the new topic, and a source
         // disabled in the old topic stays disabled. Clear them on a real switch.
         if (this.state.sfQuery || this.state.sfTemplate !== 'auto' || (this.state.sfDisabled && this.state.sfDisabled.size)) {
+          this._cancelPrefetch();   // a pending warm for the old topic's query must not fire after the switch
           this.setState({ sfQuery: '', sfTemplate: 'auto', sfDisabled: new Set() });
         }
         // The peripheral sense (murmur) anchors its semantic-drift tracker on the topic it has
@@ -6576,7 +6583,25 @@ class Component extends DCLogic {
   // Every question over the record, rendered as its BEST preset surface (search-surface.js): the
   // concordance (verbatim occurrences, lit), the cast (the figures), or the contrast (the contested
   // claims). Less prose, more seeing. The source rail toggles what is in scope; the surface pivots.
-  onSfInput(e) { this.setState({ sfQuery: e && e.target ? e.target.value : '' }); }
+  onSfInput(e) {
+    const v = e && e.target ? e.target.value : '';
+    this.setState({ sfQuery: v });
+    this._schedulePrefetch(v);
+  }
+  // Speculative web prefetch, on a typing-settled debounce — NOT on every keystroke. Each edit
+  // resets the clock; only once typing has been quiet for SF_PREFETCH_MS do we warm the web for the
+  // in-progress query (or when Enter fires, which flushes the timer and runs the real search). The
+  // app's specPrime gates on web mode `auto`, so this is a no-op in off/confirm.
+  _schedulePrefetch(text) {
+    if (this._sfPrimeTimer) { clearTimeout(this._sfPrimeTimer); this._sfPrimeTimer = null; }
+    if (!this._app || typeof this._app.specPrime !== 'function') return;
+    const q = String(text || '');
+    this._sfPrimeTimer = setTimeout(() => {
+      this._sfPrimeTimer = null;
+      try { this._app.specPrime(q); } catch { /* a speculative miss must never surface to the user */ }
+    }, SF_PREFETCH_MS);
+  }
+  _cancelPrefetch() { if (this._sfPrimeTimer) { clearTimeout(this._sfPrimeTimer); this._sfPrimeTimer = null; } }
   // Enter in the Search-the-record box grows the record from the web. On first load — and any time
   // the record has nothing on the query — the record scan comes up empty, so the natural motion is
   // to pull sources in. Mobile keyboards submit with a "Search"/"Go" key (no form, so we key off
@@ -6584,6 +6609,7 @@ class Component extends DCLogic {
   onSfKey(e) {
     if (!e || (e.key !== 'Enter' && e.keyCode !== 13)) return;
     if (e.preventDefault) e.preventDefault();
+    this._cancelPrefetch();   // typing is over — the search runs now and takes whatever was warmed
     this.sfWebSearch(this.state.sfQuery);
   }
   // Pull the top salient web sources for the typed query into a new search topic (the same motion as
@@ -6601,7 +6627,7 @@ class Component extends DCLogic {
     if (next.has(sn)) next.delete(sn); else next.add(sn);
     this.setState({ sfDisabled: next });
   }
-  _sfClear() { this.setState({ sfQuery: '', sfTemplate: 'auto' }); }
+  _sfClear() { this._cancelPrefetch(); this.setState({ sfQuery: '', sfTemplate: 'auto' }); }
   // _highlightTerms(text, terms) → [{ s, hit }] segments, the query terms lit — the search-engine
   // snippet's highlighting, shared by the Results view's source snippets and passage rows. Verbatim:
   // every character of `text` is kept, only sliced at term boundaries.
