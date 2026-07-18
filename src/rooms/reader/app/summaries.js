@@ -17,7 +17,11 @@
 // pipeline's own: the deterministic telegram lands FIRST (stored at once, model-free),
 // the model only refines it, and a decode that adds a name or number the packet never
 // carried ships the telegram instead. A summary must never cost the caller its record.
-import { surfFold, detectGrain, sentenceIndexOfText } from '../../../surfer/index.js';
+// richSurf, not bare surfFold: the full-power surf (significance column + multi-level chorus).
+// A safe drop-in — byte-identical on a single-source doc — but when the reading doc is a
+// COMPOSITE (a multi-file source, a video's motion+transcript), the chorus reads the relevant
+// sub-document and drops the rest, instead of the single-ride surf drifting into one neighbourhood.
+import { richSurf, detectGrain, sentenceIndexOfText } from '../../../surfer/index.js';
 import { summaryFold, telegramSummary, realizeSummary, SUMMARY_DETAILS } from '../../../surfer/fold/index.js';
 import { documentFieldAt } from '../../../enactor/factcheck/index.js';
 import { groundText } from '../../../enactor/ground/index.js';
@@ -94,7 +98,7 @@ export const installSummaries = (appCtx) => {
       let packet = null;
       try {
         packet = summaryFold(doc, {
-          surf: surfFold,
+          surf: richSurf,
           grain: (d) => detectGrain(d, { grain: 'auto' }),
           scope: norm.scope, cursor: norm.cursor, entity: norm.entity, topic: norm.topic,
           title: src.title || null,
@@ -168,7 +172,7 @@ export const installSummaries = (appCtx) => {
     let packet = null;
     try {
       packet = summaryFold(doc, {
-        surf: surfFold, scope: 'cursor', cursor: at,
+        surf: richSurf, scope: 'cursor', cursor: at,
         title: src.title || null, ...PACKET_CAPS.brief,
       });
     } catch { packet = null; }

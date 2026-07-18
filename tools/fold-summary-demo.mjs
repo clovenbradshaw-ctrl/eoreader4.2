@@ -15,7 +15,10 @@
 
 import { readFileSync } from 'node:fs';
 import { parseText } from '../src/perceiver/parse/index.js';
-import { surfFold, detectGrain } from '../src/surfer/index.js';
+import { nestComposite } from '../src/perceiver/nest.js';
+// richSurf — the full-power surf (significance column + multi-level chorus). On a nested
+// composite it drops the off-topic sub-documents and reads only the one the ask concerns.
+import { richSurf, detectGrain } from '../src/surfer/index.js';
 import { summaryFold, telegramSummary, realizeSummary, SUMMARY_DETAILS } from '../src/surfer/fold/index.js';
 import { groundText } from '../src/enactor/ground/index.js';
 import { createModel } from '../src/model/interface.js';
@@ -29,7 +32,8 @@ const ENTITY = arg('entity', null);
 const CURSOR = arg('cursor', null);
 const CAP = Number(arg('cap', 120000));
 const DETAIL = arg('detail', 'standard');
-if (!FILE) { console.error('usage: node tools/fold-summary-demo.mjs <text-file> [--topic X] [--entity Y] [--cursor N]'); process.exit(1); }
+const NEST = process.argv.includes('--nest');
+if (!FILE) { console.error('usage: node tools/fold-summary-demo.mjs <text-file> [--nest] [--topic X] [--entity Y] [--cursor N]'); process.exit(1); }
 
 // Strip Project Gutenberg boilerplate the way the app's ingest would, so the fold reads the
 // work, not the license. (A real ingest also strips journal apparatus; the surfer's deep
@@ -45,9 +49,20 @@ const stripGutenberg = (raw) => {
 
 let text = stripGutenberg(readFileSync(FILE, 'utf8'));
 if (text.length > CAP) text = text.slice(0, CAP);
-const doc = parseText(text);
+let doc = parseText(text);
 const S = (doc.units || doc.sentences || []).length;
-console.log(`\n=== ${FILE} · ${text.length} chars · ${S} sentences ===\n`);
+// NEST: re-present a single-file composite (a journal of reviews, an mbox, a chaptered book)
+// as its nested sub-documents, so the chorus can drop the off-topic parts and read only the one
+// the ask concerns — the app finding the right sub-document on its own.
+if (NEST) {
+  const comp = nestComposite(doc);
+  const { sourceRanges } = await import('../src/surfer/index.js');
+  const n = sourceRanges(comp).length;
+  console.log(`\n=== ${FILE} · ${text.length} chars · ${S} sentences · NESTED into ${n} sub-documents ===\n`);
+  doc = comp;
+} else {
+  console.log(`\n=== ${FILE} · ${text.length} chars · ${S} sentences ===\n`);
+}
 
 const model = createModel('lmstudio', { baseURL: BASE });
 await model.load();
@@ -56,7 +71,7 @@ const phrase = (m, o) => model.phrase(m, o);
 const runFold = async (label, opts) => {
   let packet = null;
   try {
-    packet = summaryFold(doc, { surf: surfFold, grain: (d) => detectGrain(d, { grain: 'auto' }), ...opts });
+    packet = summaryFold(doc, { surf: richSurf, grain: (d) => detectGrain(d, { grain: 'auto' }), ...opts });
   } catch (e) { console.log(`── ${label}: fold error (${e.message})\n`); return; }
   if (!packet) { console.log(`── ${label}: no packet\n`); return; }
 
