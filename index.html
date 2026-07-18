@@ -2417,11 +2417,25 @@ table{border-collapse:collapse;width:100%}
                 </sc-if>
                 <sc-if value="{{ viewer.media.hasWave }}">
                   <div>
-                    <div class="eo-wave" onClick="{{ seekFromWave }}" title="Click to jump the player here" style="display:flex;align-items:center;gap:1px;height:62px;padding:7px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden;cursor:pointer">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+                      <button onClick="{{ viewer.waveRange.toggle }}" title="Set an in-point and an out-point on the waveform, then read a fold summary of exactly that stretch" style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ viewer.waveRange.toggleFg }};background:{{ viewer.waveRange.toggleBg }};border:1px dashed #C9BFF5;border-radius:6px;padding:3px 8px">✂ Select a range</button>
+                      <sc-if value="{{ viewer.waveRange.on }}">
+                        <span style="font-size:10px;color:#8A80C8;font-style:italic">click to set the in-point, click again for the out-point</span>
+                        <sc-if value="{{ viewer.waveRange.hasIn }}"><button onClick="{{ viewer.waveRange.clear }}" style="font-size:9.5px;font-weight:600;color:#6E6E78;background:#F0F0F5;border-radius:6px;padding:2px 7px">clear</button></sc-if>
+                      </sc-if>
+                    </div>
+                    <div class="eo-wave" onClick="{{ viewer.waveRange.onWaveClick }}" title="Click to jump the player here" style="position:relative;display:flex;align-items:center;gap:1px;height:62px;padding:7px 3px;background:#FAFAFC;border:1px solid #EEF0F3;border-radius:9px;overflow:hidden;cursor:pointer">
                       <sc-for list="{{ viewer.media.bars }}" as="b">
                         <div style="flex:1 1 0;min-width:1px;height:{{ b.hPct }}%;background:{{ b.bg }};border-radius:1px"></div>
                       </sc-for>
+                      <!-- the in/out markers, absolutely positioned over the bars by time fraction -->
+                      <sc-if value="{{ viewer.waveRange.hasIn }}"><div style="position:absolute;top:0;bottom:0;left:{{ viewer.waveRange.inPct }};width:2px;background:#6D5EF5;pointer-events:none"></div></sc-if>
+                      <sc-if value="{{ viewer.waveRange.hasOut }}"><div style="position:absolute;top:0;bottom:0;left:{{ viewer.waveRange.outPct }};width:2px;background:#1E9E7A;pointer-events:none"></div></sc-if>
+                      <sc-if value="{{ viewer.waveRange.ready }}"><div style="position:absolute;top:0;bottom:0;left:{{ viewer.waveRange.inPct }};right:0;background:rgba(109,94,245,.08);pointer-events:none"></div></sc-if>
                     </div>
+                    <sc-if value="{{ viewer.waveRange.hasIn }}">
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8A80C8;margin-top:3px">in {{ viewer.waveRange.inLabel }}<sc-if value="{{ viewer.waveRange.hasOut }}"> · out {{ viewer.waveRange.outLabel }}</sc-if></div>
+                    </sc-if>
                     <div class="eo-media-fold" style="display:flex;align-items:center;gap:12px;margin-top:5px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#9A9AA4">
                       <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#6D5EF5;display:inline-block"></span>signal</span>
                       <span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:#C9CBD6;display:inline-block"></span>noise / silence</span>
@@ -2448,6 +2462,44 @@ table{border-collapse:collapse;width:100%}
                 </sc-if>
               </div>
             </sc-if>
+
+            <!-- RANGE SUMMARY — a fold summary of exactly the waveform's in/out selection, entity
+                 toggles included. Deliberately OUTSIDE the eo-media strip above (max-height:44%,
+                 overflow-y:auto — a compact player dock, not a place for a growing summary panel
+                 to fight for scroll room in). Same fold-summary door, same AI badge discipline
+                 (never auto-fired; the badge only marks a via==='model' draft) as every other surface.
+                 Gated on mediaListenShow too — orphaned without it (its in/out markers live in the
+                 waveform above, which only renders in Listen mode). -->
+            <sc-if value="{{ mediaListenShow }}"><sc-if value="{{ viewer.waveRange.ready }}">
+              <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;padding:11px 20px">
+                <sc-if value="{{ viewer.waveRange.hasEntities }}">
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0;margin-bottom:5px">ENTITIES IN THIS RANGE — click to leave one out</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px">
+                    <sc-for list="{{ viewer.waveRange.entities }}" as="ent">
+                      <button onClick="{{ ent.toggle }}" style="font-size:10px;font-weight:600;border-radius:999px;padding:3px 9px;background:{{ ent.bg }};color:{{ ent.fg }};border:1px solid #E1DDF2">{{ ent.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ viewer.waveRange.has }}">
+                  <sc-if value="{{ viewer.waveRange.isAi }}">
+                    <div class="eo-ai-summary">
+                      <div class="eo-ai-badge">{{ viewer.waveRange.badgeLabel }}<sc-if value="{{ viewer.waveRange.hasGroundDot }}"><span class="dot" title="{{ viewer.waveRange.groundLabel }}" style="background:{{ viewer.waveRange.groundDot }}"></span></sc-if></div>
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32">{{ viewer.waveRange.text }}</div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ !viewer.waveRange.isAi }}">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                      <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">RANGE SUMMARY</span>
+                      <sc-if value="{{ viewer.waveRange.composing }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">the local model is composing…</span></sc-if>
+                    </div>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32">{{ viewer.waveRange.text }}</div>
+                  </sc-if>
+                </sc-if>
+                <sc-if value="{{ !viewer.waveRange.has }}">
+                  <button onClick="{{ viewer.waveRange.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px" style-hover="background:#E7E3FD">✨ Summarize this range</button>
+                </sc-if>
+              </div>
+            </sc-if></sc-if>
 
             <!-- MEDIA DOCK (every non-Listen mode) — a compact, hideable strip at the foot of the
                  reading. The handle carries the essentials: a scrubbable mini-waveform, the length,
@@ -4243,6 +4295,9 @@ class Component extends DCLogic {
       // focus + the reading's assertions, not just the spans). Session-only, off by default; `foldPeek`
       // holds the last app.cursorFold read for the place under the eye.
       foldPeekOn: false, foldPeek: null,
+      // Waveform range-select (§waveRange VM): per-source { on, inT, outT, excluded } — session-only,
+      // off by default. See toggleWaveSelect/waveRangeClick and the "✂ Select a range" button.
+      waveSelect: {},
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, searchError: null, recordedUrls: {},
       // A search hit opens as a NATIVE PREVIEW first — the real page, loaded normally in a sandboxed
       // frame — and only becomes a recorded source when you choose to add it. { item, doc, busy, err }.
@@ -5544,6 +5599,54 @@ class Component extends DCLogic {
     if (dur > 0 && isFinite(dur)) { try { audio.currentTime = frac * dur; } catch { /* not seekable yet */ } }
   }
 
+  // ── waveform RANGE SELECT — an in-point/out-point on the clip, fold-summarized ──────────
+  // Session-only, per-source, off by default (the same "temporary reading" posture as foldPeek):
+  // toggled on, the waveform's click stops seeking the player and instead SETS a point — first
+  // click the in-point, second the out-point, a third starts a fresh selection. Once both stand,
+  // app.sentenceAtTime resolves each to a sentence index and app.foldSummary({scope:'range', …})
+  // reads exactly that stretch, with any toggled-off entity dropped from the structured reading
+  // (excludeEntities) — the SAME fold-summary door and AI badge every other surface uses.
+  _waveSel(sn) { return (this.state.waveSelect || {})[sn] || { on: false, inT: null, outT: null, excluded: [] }; }
+  _setWaveSel(sn, patch) {
+    const all = this.state.waveSelect || {};
+    this.setState({ waveSelect: { ...all, [sn]: { ...this._waveSel(sn), ...patch } } });
+  }
+  toggleWaveSelect(sn) {
+    const cur = this._waveSel(sn);
+    this._setWaveSel(sn, { on: !cur.on, inT: null, outT: null });
+  }
+  clearWaveSelect(sn) { this._setWaveSel(sn, { inT: null, outT: null }); }
+  // `dur` is the CLIP's own known duration (viewer.media.dur — analysis/metadata, always
+  // available once the source is decoded) — not the live <audio> element's .duration, which
+  // stays 0 until a real playable blob has loaded its metadata. seekFromWave needs the element
+  // (it drives playback); a range mark does not, so it should not wait on the player to be ready.
+  waveRangeClick(sn, dur, e) {
+    if (!e || !e.currentTarget) return;
+    if (!(dur > 0 && isFinite(dur))) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+    const t = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)) * dur;
+    const cur = this._waveSel(sn);
+    // first click (or a completed pair) starts a fresh in-point; a lone in-point takes an
+    // out-point, ordered low→high regardless of which edge the user actually clicked second.
+    if (cur.inT == null || cur.outT != null) this._setWaveSel(sn, { inT: t, outT: null });
+    else this._setWaveSel(sn, cur.inT <= t ? { outT: t } : { inT: t, outT: cur.inT });
+  }
+  toggleRangeEntity(sn, label) {
+    const cur = this._waveSel(sn);
+    const on = cur.excluded.includes(label);
+    this._setWaveSel(sn, { excluded: on ? cur.excluded.filter((x) => x !== label) : [...cur.excluded, label] });
+  }
+  generateRangeSummary(sn) {
+    const app = this._app;
+    const cur = this._waveSel(sn);
+    if (!app || !app.sentenceAtTime || cur.inT == null || cur.outT == null) return;
+    const from = app.sentenceAtTime(sn, cur.inT);
+    const to = app.sentenceAtTime(sn, cur.outT);
+    if (from == null || to == null) return;
+    app.foldSummary({ sn, scope: 'range', from, to, detail: 'standard', excludeEntities: cur.excluded }).catch(() => {});
+  }
+
   // ── click-through from the entity panel to the source span ────────────────────────────────
   // A mention or a base word/segment is CLICK-THROUGH: it opens the source at that exact span.
   // For a prose source that is a scroll-and-flash in the reader; for a CLIP it seeks the player to
@@ -6192,7 +6295,7 @@ class Component extends DCLogic {
       showAudio: !!(url && !isVideo),
       mediaMissing,
       hasWave: bars.length > 0,
-      bars,
+      bars, dur,
       stats,
       hasStats: stats.length > 0,
       asrShow, asrLabel, asrTone, asrBg, asrBusy, asrPartial,
@@ -7705,6 +7808,45 @@ class Component extends DCLogic {
       isAi: badge.isAi, badgeLabel: badge.badgeLabel || '',
       hasGroundDot: !!badge.hasGroundDot, groundDot: badge.groundDot || '', groundLabel: badge.groundLabel || '',
       generate: () => { app.foldSummary(q).catch(() => {}); },
+    };
+  }
+
+  // ── the waveform range-select view-model — markers, entity toggles, the fold summary ───────
+  _waveRangeVM(sn, dur) {
+    const app = this._app;
+    const sel = this._waveSel(sn);
+    const clock = (t) => { const x = Math.max(0, t || 0); const m = Math.floor(x / 60); const r = Math.round(x - m * 60); return `${m}:${String(r).padStart(2, '0')}`; };
+    const pct = (t) => (dur > 0 ? `${Math.max(0, Math.min(100, (t / dur) * 100))}%` : '0%');
+    const entities = (() => { try { return (app.sourceEntities ? app.sourceEntities(sn) : []).slice(0, 12); } catch { return []; } })()
+      .map((x) => {
+        const on = !sel.excluded.includes(x.label);
+        return { label: x.label, toggle: () => this.toggleRangeEntity(sn, x.label),
+          bg: on ? '#F1EFFE' : '#F5F5F5', fg: on ? '#5B4BE6' : '#B4B4BE' };
+      });
+    const ready = sel.inT != null && sel.outT != null;
+    const q = ready ? {
+      sn, scope: 'range',
+      from: app.sentenceAtTime ? app.sentenceAtTime(sn, sel.inT) : null,
+      to: app.sentenceAtTime ? app.sentenceAtTime(sn, sel.outT) : null,
+      detail: 'standard', excludeEntities: sel.excluded,
+    } : null;
+    const rec = (q && q.from != null && q.to != null && app.foldSummaryFor) ? app.foldSummaryFor(q) : null;
+    const badge = rec ? this.summaryBadge(rec) : { isAi: false };
+    return {
+      on: !!sel.on, toggle: () => this.toggleWaveSelect(sn),
+      toggleFg: sel.on ? '#5B4BE6' : '#8A8A95', toggleBg: sel.on ? '#E7E2FD' : '#F1EFFE',
+      // ONE click target for the waveform, mode-aware: select-on routes to the in/out setter,
+      // select-off keeps the ordinary seek-the-player click every other waveform instance uses.
+      onWaveClick: (e) => { if (sel.on) this.waveRangeClick(sn, dur, e); else this.seekFromWave(e); },
+      hasIn: sel.inT != null, hasOut: sel.outT != null, ready,
+      inPct: sel.inT != null ? pct(sel.inT) : '0%', outPct: sel.outT != null ? pct(sel.outT) : '0%',
+      inLabel: sel.inT != null ? clock(sel.inT) : '', outLabel: sel.outT != null ? clock(sel.outT) : '',
+      clear: () => this.clearWaveSelect(sn),
+      hasEntities: entities.length > 0, entities,
+      generate: () => this.generateRangeSummary(sn),
+      has: !!rec, text: rec ? rec.text : '', composing: !!(rec && rec.modelless && app.optionalModel && app.optionalModel()),
+      isAi: badge.isAi, badgeLabel: badge.badgeLabel || '',
+      hasGroundDot: !!badge.hasGroundDot, groundDot: badge.groundDot || '', groundLabel: badge.groundLabel || '',
     };
   }
 
@@ -11073,6 +11215,7 @@ class Component extends DCLogic {
         // The media panel — player + waveform + signal/noise holons + transcription status —
         // shown above the reading for a decoded audio/video source, in every viewer mode.
         viewer.media = this._mediaVM(s) || { show: false };
+        viewer.waveRange = viewer.media.hasWave ? this._waveRangeVM(s.sn, viewer.media.dur) : { on: false };
         viewer.listen = this._listenVM(s);
         // The themed book — built once per source (cached by sn); prefs are baked in, then applied
         // LIVE on the mounted iframe, so a theme change never rebuilds this string / reloads. The

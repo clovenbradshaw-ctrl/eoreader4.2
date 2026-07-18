@@ -56,15 +56,27 @@ export const installSummaries = (appCtx) => {
 
   const normalize = (q = {}) => {
     const detail = SUMMARY_DETAILS[q.detail] ? q.detail : 'standard';
-    const scope = ['full', 'cursor', 'entity', 'topic'].includes(q.scope) ? q.scope : 'full';
+    const scope = ['full', 'cursor', 'entity', 'topic', 'range'].includes(q.scope) ? q.scope : 'full';
+    // excludeEntities rides EVERY scope (not range-only — excluding a figure from a full-document
+    // reading is just as sensible), normalized once here so a caller's array order never fragments
+    // the cache key or the packet's own filter (surfer/fold/summary.js lowercases on its own end).
+    const excludeEntities = Array.isArray(q.excludeEntities) && q.excludeEntities.length
+      ? [...new Set(q.excludeEntities.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean))].sort()
+      : null;
     return {
-      sn: q.sn ?? null, scope, detail,
+      sn: q.sn ?? null, scope, detail, excludeEntities,
       cursor: scope === 'cursor' ? (q.cursor | 0) : null,
       entity: scope === 'entity' ? (q.entity || null) : null,
       topic: scope === 'topic' ? (q.topic || null) : null,
+      // range — an in-point/out-point on the reader's own axis (a waveform selection resolved to
+      // sentence indices, or any bounded window a caller already knows). `to` defaults to `from`
+      // (a single-sentence range) rather than the whole document, so a caller can never accidentally
+      // widen the ask by omitting it.
+      from: scope === 'range' ? (q.from | 0) : null,
+      to: scope === 'range' ? (Number.isFinite(q.to) ? (q.to | 0) : (q.from | 0)) : null,
     };
   };
-  const keyOf = (q) => `${q.sn}|${q.scope}|${q.cursor ?? ''}|${q.entity || ''}|${q.topic || ''}|${q.detail}`;
+  const keyOf = (q) => `${q.sn}|${q.scope}|${q.cursor ?? ''}|${q.entity || ''}|${q.topic || ''}|${q.from ?? ''}|${q.to ?? ''}|${(q.excludeEntities || []).join(',')}|${q.detail}`;
 
   const folds = () => (state.summaries.folds || (state.summaries.folds = {}));
   const store = (key, rec) => {
@@ -101,6 +113,7 @@ export const installSummaries = (appCtx) => {
           surf: richSurf,
           grain: (d) => detectGrain(d, { grain: 'auto' }),
           scope: norm.scope, cursor: norm.cursor, entity: norm.entity, topic: norm.topic,
+          from: norm.from, to: norm.to, excludeEntities: norm.excludeEntities,
           title: src.title || null,
           coverage: norm.detail === 'paragraph' && norm.scope === 'full' ? 'arc' : 'peak',
           ...PACKET_CAPS[norm.detail],
@@ -110,7 +123,8 @@ export const installSummaries = (appCtx) => {
       const tier = SUMMARY_DETAILS[norm.detail];
       const base = {
         key, sn: norm.sn, scope: norm.scope, detail: norm.detail, coverage: packet.coverage,
-        cursor: packet.cursor, entity: norm.entity, topic: norm.topic, sha: src.sha || null,
+        cursor: packet.cursor, entity: norm.entity, topic: norm.topic, range: packet.range,
+        excludeEntities: norm.excludeEntities, sha: src.sha || null,
       };
       // Phase A — the deterministic floor, stored at once so the surface always has something.
       const telegram = telegramSummary(packet, { maxSentences: tier.maxSentences });
@@ -203,5 +217,18 @@ export const installSummaries = (appCtx) => {
     });
   };
 
-  Object.assign(appCtx, { foldSummary, foldSummaryFor, cursorFold });
+  // sentenceAtTime — a waveform TIME (seconds) resolved to the sentence index a 'range' scope
+  // ask wants (doc.utteranceAt, ingestAudio's own time→utterance lookup; null on a non-audio
+  // doc or a doc that carries no timing). The UI reads an in/out point off the waveform click
+  // fraction × duration; this is the one place that becomes a sentence index, so the waveform
+  // and the fold never have to agree on anything beyond "seconds since the clip started".
+  const sentenceAtTime = (sn, t) => {
+    const src = appCtx.sourceBySn(sn);
+    const doc = src ? appCtx.docFor(src) : null;
+    if (!doc || typeof doc.utteranceAt !== 'function') return null;
+    const at = doc.utteranceAt(Math.max(0, Number(t) || 0));
+    return at >= 0 ? at : null;
+  };
+
+  Object.assign(appCtx, { foldSummary, foldSummaryFor, cursorFold, sentenceAtTime });
 };
