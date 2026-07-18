@@ -5,6 +5,7 @@ import { d2xy, xy2d, sideFor } from '../src/surfaces/binvis/curve.js';
 import { byteClass, byteColor, BINVIS_PALETTE, LAYERS, DEFAULT_LAYER } from '../src/surfaces/binvis/classify.js';
 import { buildScene, locate, toBytes } from '../src/surfaces/binvis/render.strict.js';
 import { windowedEntropy, entropyColor, ENTROPY_STOPS } from '../src/surfaces/binvis/entropy.js';
+import { significanceColor, SIGNIFICANCE_STOPS } from '../src/surfaces/binvis/significance.js';
 
 // THE BINVIS SURFACE — the prior art (Cortesi's binvis) as a pure, testable holon: a
 // Hilbert layout, a byte-class palette, and the Scene the canvas adapter blits. The DOM
@@ -113,8 +114,8 @@ test('buildScene: a big file aggregates into buckets, one averaged pixel each', 
   assert.deepEqual([s.pixels[i], s.pixels[i + 1], s.pixels[i + 2]], [pr, pg, pb]);
 });
 
-test('buildScene: an unavailable layer falls back to the structural default', () => {
-  const s = buildScene(new Uint8Array([0x41]), { layer: 'significance' });
+test('buildScene: an unknown/unavailable layer falls back to the structural default', () => {
+  const s = buildScene(new Uint8Array([0x41]), { layer: 'no-such-layer' });
   assert.equal(s.layer, DEFAULT_LAYER);
   assert.equal(s.layerAvailable, true);
 });
@@ -184,11 +185,52 @@ test('buildScene: structure stays the classes legend (no regression)', () => {
   assert.equal(s.gradient, null);
 });
 
-test('LAYERS: structure + entropy paint today; significance is declared but not yet', () => {
+test('LAYERS: structure, entropy, and significance all paint', () => {
   assert.equal(LAYERS.structure.available, true);
   assert.equal(typeof LAYERS.structure.build, 'function');
   assert.equal(LAYERS.entropy.available, true);
   assert.equal(typeof LAYERS.entropy.build, 'function');
-  assert.equal(LAYERS.significance.available, false);
-  assert.equal(LAYERS.significance.build, null);
+  assert.equal(LAYERS.significance.available, true);
+  assert.equal(typeof LAYERS.significance.build, 'function');
+  assert.equal(LAYERS.significance.needsSignal, true);
+  assert.equal(LAYERS.significance.legendKind, 'gradient');
+});
+
+// ---- the significance layer -------------------------------------------------
+
+test('significanceColor: clamps its input and lands on the ramp endpoints', () => {
+  assert.deepEqual(significanceColor(0), [...SIGNIFICANCE_STOPS[0].color]);
+  assert.deepEqual(significanceColor(1), [...SIGNIFICANCE_STOPS[SIGNIFICANCE_STOPS.length - 1].color]);
+  assert.deepEqual(significanceColor(-3), [...SIGNIFICANCE_STOPS[0].color]);   // clamps low
+  assert.deepEqual(significanceColor(7), [...SIGNIFICANCE_STOPS[SIGNIFICANCE_STOPS.length - 1].color]);   // clamps high
+  const mid = significanceColor(0.5);
+  assert.ok(mid.every((c) => c >= 0 && c <= 255));
+});
+
+test('buildScene: significance without a signal is available but paints a uniform flat field', () => {
+  const s = buildScene(new Uint8Array([0x41, 0x42, 0x43, 0x44]), { layer: 'significance' });
+  assert.equal(s.layer, 'significance');            // available now — no fallback to structure
+  assert.equal(s.legendKind, 'gradient');
+  assert.ok(Array.isArray(s.gradient) && s.gradient.length >= 2);
+  // every covered pixel is the ramp's flat (zero) colour — a signal-less significance layer is honest, not blank
+  const flat = SIGNIFICANCE_STOPS[0].color;
+  for (let p = 0; p < s.cells; p++) {
+    const i = p * 4;
+    if (s.pixels[i + 3] !== 255) continue;          // uncovered tail
+    assert.deepEqual([s.pixels[i], s.pixels[i + 1], s.pixels[i + 2]], [...flat]);
+  }
+});
+
+test('buildScene: significance WITH a signal paints the ramp — a turned byte is brighter than a flat one', () => {
+  const bytes = new Uint8Array([0x41, 0x42, 0x43, 0x44]);   // 4 bytes → side 2, one byte per pixel
+  const signal = new Float32Array([0, 0, 1, 0]);            // byte 2 is the turn
+  const s = buildScene(bytes, { layer: 'significance', signal });
+  assert.equal(s.layer, 'significance');
+  // byte 0 (signal 0) lands at d2xy(2,0); byte 2 (signal 1) at d2xy(2,2). The turn is the ramp's bright end.
+  const px = (d) => { const [x, y] = d2xy(2, d); const i = (y * 2 + x) * 4; return [s.pixels[i], s.pixels[i + 1], s.pixels[i + 2]]; };
+  assert.deepEqual(px(0), [...SIGNIFICANCE_STOPS[0].color]);
+  assert.deepEqual(px(2), [...SIGNIFICANCE_STOPS[SIGNIFICANCE_STOPS.length - 1].color]);
+  // brightness (sum of channels) strictly increases from the flat byte to the turned one
+  const sum = (c) => c[0] + c[1] + c[2];
+  assert.ok(sum(px(2)) > sum(px(0)), 'the turn is brighter than the flat run');
 });

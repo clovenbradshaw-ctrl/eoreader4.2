@@ -10,9 +10,13 @@
 // The surface reads the record, paints, wires clicks through callbacks, and logs nothing.
 
 import { renderToContainer, LAYERS, DEFAULT_LAYER } from '../../surfaces/binvis/index.js';
+import { bytesOfSource, readingSignificance, MAX_BYTES } from './binvis-data.js';
+
+// Re-exported so the byte/signal seam stays reachable as one holon's public surface (tests +
+// any consumer import from here); the implementations live in binvis-data.js.
+export { bytesOfSource, readingSignificance };
 
 const STYLE_ID = 'eo-binvis-style';
-const MAX_BYTES = 6 * 1024 * 1024;   // read at most 6 MB — past that we sample the head and say so
 
 const CSS = `
 .eo-binvis-fab{position:fixed;left:18px;bottom:66px;z-index:2147482880;display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #263042;border-radius:9px;background:#0f1420;color:#c7d2e2;cursor:pointer;font:600 12px/1 ui-sans-serif,system-ui,sans-serif;box-shadow:0 3px 14px rgba(0,0,0,.35)}
@@ -57,43 +61,10 @@ const el = (doc, tag, cls, text) => { const e = doc.createElement(tag); if (cls)
 const hex = (n) => '0x' + n.toString(16).toUpperCase();
 const kb = (n) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(2)} MB`);
 
-// Pull a source's bytes: original bytes when kept (PDF/audio/video), else the live in-tab clip,
-// else the admitted text as UTF-8. `media` flags a media source so empty reads as "its clip is
-// gone", not "empty file". A zero-length Uint8Array is truthy, so every step guards on length —
-// else an evicted/partial clip shadows the transcript fallback (the "0 B over audio" bug).
-const nonEmpty = (a) => !!a && a.length > 0;
-
-export const bytesOfSource = async (app, sn) => {
-  const src = (app && app.sourceBySn) ? app.sourceBySn(sn) : null;
-  const media = !!(src && (src.audioRef || src.pdfRef || src.kind === 'audio' || src.kind === 'video' || (src._media && src._media.url)));
-  let bytes = null, kind = 'none';
-  const asText = (t) => { if (!bytes && typeof t === 'string' && t.length) { bytes = new TextEncoder().encode(t); kind = 'text'; } };
-
-  try {
-    const orig = await app.sourceOriginalExport(sn);
-    if (orig && nonEmpty(orig.bytes)) { bytes = orig.bytes instanceof Uint8Array ? orig.bytes : new Uint8Array(orig.bytes); kind = 'original'; }
-    else if (orig) asText(orig.text);
-  } catch { /* fall through to the live blob / registry text */ }
-
-  // A media source whose persisted bytes are gone may still be loaded in THIS tab as a blob:
-  // URL — the very bytes the player reads. Recover them so what's playing stays visible.
-  if (!bytes && src && src._media && src._media.url && typeof fetch === 'function') {
-    try {
-      const buf = await fetch(src._media.url).then((r) => r.arrayBuffer());
-      if (buf && buf.byteLength) { bytes = new Uint8Array(buf); kind = 'original'; }
-    } catch { /* the blob URL died with a prior tab — nothing to recover */ }
-  }
-  asText(src && src.text);   // last resort: a transcript, a page's admitted text
-
-  bytes = bytes || new Uint8Array(0);
-  const total = bytes.length;
-  const truncated = total > MAX_BYTES;
-  if (truncated) bytes = bytes.subarray(0, MAX_BYTES);
-  return { bytes, truncated, total, kind, media };
-};
-
-// mountBinvis — the surface itself, into `el`. Reusable (launcher below, or a dc tab).
-export const mountBinvis = (host, { app, sn = null, layer = DEFAULT_LAYER, display = 340 } = {}) => {
+// mountBinvis — the surface itself, into `el`. Reusable (launcher below, or a dc tab). Pass
+// `pickSource: false` to lock the surface to one source and drop the picker — the source-viewer
+// tab already IS a single source, so its Structure tab scopes here and re-scopes via `show(sn)`.
+export const mountBinvis = (host, { app, sn = null, layer = DEFAULT_LAYER, display = 340, pickSource = true } = {}) => {
   const doc = host.ownerDocument || document;
   ensureStyle(doc);
   const root = el(doc, 'div', 'eo-binvis__body');
@@ -117,17 +88,19 @@ export const mountBinvis = (host, { app, sn = null, layer = DEFAULT_LAYER, displ
     }
     curSn = pick();
 
-    // source picker
-    const srow = el(doc, 'div', 'eo-binvis__row');
-    srow.appendChild(el(doc, 'div', 'eo-binvis__lbl', 'Document'));
-    const sel = el(doc, 'select');
-    for (const s of list) {
-      const o = el(doc, 'option', null, `${s.title || 'source ' + s.sn}${s.kind ? '  ·  ' + s.kind : ''}`);
-      o.value = String(s.sn); if (s.sn === curSn) o.selected = true;
-      sel.appendChild(o);
+    // source picker — omitted when the surface is locked to one source (a source-viewer tab)
+    if (pickSource) {
+      const srow = el(doc, 'div', 'eo-binvis__row');
+      srow.appendChild(el(doc, 'div', 'eo-binvis__lbl', 'Document'));
+      const sel = el(doc, 'select');
+      for (const s of list) {
+        const o = el(doc, 'option', null, `${s.title || 'source ' + s.sn}${s.kind ? '  ·  ' + s.kind : ''}`);
+        o.value = String(s.sn); if (s.sn === curSn) o.selected = true;
+        sel.appendChild(o);
+      }
+      sel.addEventListener('change', () => { curSn = Number(sel.value); paint(); });
+      srow.appendChild(sel); root.appendChild(srow);
     }
-    sel.addEventListener('change', () => { curSn = Number(sel.value); paint(); });
-    srow.appendChild(sel); root.appendChild(srow);
 
     // layer switch
     const lrow = el(doc, 'div', 'eo-binvis__row');
@@ -153,37 +126,60 @@ export const mountBinvis = (host, { app, sn = null, layer = DEFAULT_LAYER, displ
       // reflect the active layer chip without a full re-render
       chips.querySelectorAll('.eo-binvis__layer').forEach((c, i) => c.classList.toggle('on', Object.keys(LAYERS)[i] === curLayer));
       const my = ++token;
-      cap.textContent = 'reading bytes…'; stage.innerHTML = '';
+      const sig = curLayer === 'significance';
+      cap.textContent = sig ? 'reading the reading…' : 'reading bytes…'; stage.innerHTML = '';
       legend.innerHTML = ''; note.textContent = '';
-      const { bytes, truncated, total, media } = await bytesOfSource(app, curSn);
-      if (my !== token) return;   // a newer pick/layer won
 
-      // Nothing to draw — say so plainly rather than paint a blank 1×1 mosaic that reads as a
-      // loaded-but-empty file (media that lost its bytes gets the reason; else the honest note).
-      if (total === 0) {
-        try { handle && handle.destroy(); } catch {} handle = null;
-        stage.appendChild(el(doc, 'div', 'eo-binvis__empty', media
-          ? "This clip's original bytes aren't available in this session — a large file kept playable only for this tab, or evicted since. Reimport it to see its byte structure."
-          : 'This source carries no bytes yet — nothing to visualise. Once it has text or an original file, its structure appears here.'));
-        cap.textContent = '0 B · nothing to render';
-        return;
+      // The significance layer paints over the reading's OWN text bytes + a per-byte signal (this
+      // is the meaning-keyed layer); every other layer paints over the source's raw bytes.
+      let bytes, truncated = false, total = 0, media = false, signal = null, sigMeta = null;
+      if (sig) {
+        sigMeta = readingSignificance(app, curSn);
+        if (my !== token) return;
+        if (!sigMeta || !sigMeta.bytes.length) {
+          try { handle && handle.destroy(); } catch {} handle = null;
+          stage.appendChild(el(doc, 'div', 'eo-binvis__empty',
+            'Significance keys to the reading the perceiver maintains. This source has no reading yet — open it in Reader or EoT once, and its meaning-map appears here.'));
+          cap.textContent = 'significance · no reading-keyed signal yet';
+          return;
+        }
+        bytes = sigMeta.bytes; total = sigMeta.bytes.length; truncated = sigMeta.truncated; signal = sigMeta.signal;
+      } else {
+        const r = await bytesOfSource(app, curSn);
+        if (my !== token) return;   // a newer pick/layer won
+        bytes = r.bytes; truncated = r.truncated; total = r.total; media = r.media;
+
+        // Nothing to draw — say so plainly rather than paint a blank 1×1 mosaic that reads as a
+        // loaded-but-empty file (media that lost its bytes gets the reason; else the honest note).
+        if (total === 0) {
+          try { handle && handle.destroy(); } catch {} handle = null;
+          stage.appendChild(el(doc, 'div', 'eo-binvis__empty', media
+            ? "This clip's original bytes aren't available in this session — a large file kept playable only for this tab, or evicted since. Reimport it to see its byte structure."
+            : 'This source carries no bytes yet — nothing to visualise. Once it has text or an original file, its structure appears here.'));
+          cap.textContent = '0 B · nothing to render';
+          return;
+        }
       }
 
       const onHover = (info) => {
         if (!info) { read.textContent = 'Hover the mosaic to name the bytes under the pointer.'; return; }
         const cls = info.length === 1 ? '' : ' · ' + info.length + ' bytes';
-        read.textContent = `offset ${hex(info.offset)} (${info.offset.toLocaleString()})${cls}`;
+        const meaning = (sig && signal) ? ` · significance ${Math.round((signal[info.offset] || 0) * 100)}%` : '';
+        read.textContent = `offset ${hex(info.offset)} (${info.offset.toLocaleString()})${cls}${meaning}`;
       };
-      handle = renderToContainer(bytes, stage, { layer: curLayer, display, onHover, onNavigate: onHover });
+      handle = renderToContainer(bytes, stage, { layer: curLayer, signal, display, onHover, onNavigate: onHover });
       const sc = handle.scene;
       const per = sc.bucket === 1 ? '1 byte / pixel' : `≈ ${sc.bucket.toLocaleString()} bytes / pixel`;
-      cap.textContent = `${kb(total)}${truncated ? ' (head sampled)' : ''} · ${sc.side}×${sc.side} Hilbert · ${per}`;
+      cap.textContent = sig
+        ? `${sigMeta.units.toLocaleString()} units · ${sigMeta.turns} turning point${sigMeta.turns === 1 ? '' : 's'}${truncated ? ' (head sampled)' : ''} · ${sc.side}×${sc.side} Hilbert`
+        : `${kb(total)}${truncated ? ' (head sampled)' : ''} · ${sc.side}×${sc.side} Hilbert · ${per}`;
       if (sc.legendKind === 'gradient' && sc.gradient) {
         const bar = el(doc, 'div', 'eo-binvis__bar');
         bar.style.background = `linear-gradient(90deg,${sc.gradient.map((s) => `rgb(${s.color.join(',')}) ${Math.round(s.at * 100)}%`).join(',')})`;
         legend.appendChild(bar);
         const ends = el(doc, 'div', 'eo-binvis__ends');
-        ends.appendChild(el(doc, 'span', null, 'low entropy — ordered')); ends.appendChild(el(doc, 'span', null, 'high — packed'));
+        const [loLbl, hiLbl] = sig ? ['flat — ran steady', 'high — the reading turned'] : ['low entropy — ordered', 'high — packed'];
+        ends.appendChild(el(doc, 'span', null, loLbl)); ends.appendChild(el(doc, 'span', null, hiLbl));
         legend.appendChild(ends);
       } else {
         for (const L of sc.legend) {
@@ -196,7 +192,7 @@ export const mountBinvis = (host, { app, sn = null, layer = DEFAULT_LAYER, displ
         }
       }
       note.textContent = truncated
-        ? `Showing the first ${kb(MAX_BYTES)} of ${kb(total)}.`
+        ? (sig ? `Showing the reading's first ${kb(MAX_BYTES)}.` : `Showing the first ${kb(MAX_BYTES)} of ${kb(total)}.`)
         : (curLayer === DEFAULT_LAYER ? "Structure layer — Aldo Cortesi's binvis byte-class colouring." : LAYERS[curLayer].blurb);
     };
     paint();
@@ -228,7 +224,7 @@ export const mountBinvisLauncher = (host, { app } = {}) => {
   const head = el(doc, 'div', 'eo-binvis__head');
   const titles = el(doc, 'div');
   titles.appendChild(el(doc, 'div', 'eo-binvis__title', 'Byte structure'));
-  titles.appendChild(el(doc, 'div', 'eo-binvis__sub', "binvis · Hilbert curve · structure + entropy"));
+  titles.appendChild(el(doc, 'div', 'eo-binvis__sub', "binvis · Hilbert curve · structure · entropy · significance"));
   head.appendChild(titles);
   const x = el(doc, 'button', 'eo-binvis__x', '×');
   head.appendChild(x);

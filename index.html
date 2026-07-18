@@ -1676,6 +1676,7 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ viewerModeOverview }}" title="Source landing page — provenance, counts, ways in, findings, pins and synthesis" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmOverviewFg }};background:{{ vmOverviewBg }}">Overview</button>
                   <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">Facing</button>
+                  <button onClick="{{ viewerModeStructure }}" title="Byte structure — the document's raw bytes on a Hilbert curve (Aldo Cortesi's binvis): its shape (structure), its packed regions (entropy), and where the reading turned (significance)" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmStructureFg }};background:{{ vmStructureBg }}">Structure</button>
                   <button onClick="{{ viewerModeEot }}" title="The reading, as EoT" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">EoT · {{ viewer.eotCount }}</button>
                 </span>
                 <span style="flex:1"></span>
@@ -2304,6 +2305,13 @@ table{border-collapse:collapse;width:100%}
                   <sc-if value="{{ eotTruncated }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8B93A3;padding:14px 0 0 60px">… {{ eotMore }} more lines — download the full .eot above.</div></sc-if>
                 </div>
               </div>
+            </sc-if>
+            <sc-if value="{{ viewerIsStructure }}">
+              <!-- The BYTE-STRUCTURE tab — Aldo Cortesi's binvis over this source's bytes on a
+                   Hilbert curve (src/surfaces/binvis). Structure = the raw shape, Entropy = packed
+                   regions, Significance = where the reading turned. The pure surface is mounted here
+                   scoped to the active source (window.EO.binvis.mount, pickSource:false). -->
+              <div ref="{{ setStructureEl }}" data-screen-label="Byte structure" class="eo-scroll" style="flex:1;min-height:0;overflow:auto;background:#0b0f18"></div>
             </sc-if>
           </div>
           </sc-if>
@@ -5393,6 +5401,9 @@ class Component extends DCLogic {
   setSourceMode(mode) {
     const sn = this._activeSrc(); if (!sn) return;
     this._readerFrame = null; this._nativeFrame = null;
+    // Leaving the Structure tab tears down the binvis surface (and its app subscription) so it never
+    // keeps rendering into a detached container; re-entering mounts it fresh.
+    if (mode !== 'structure' && this._binvis) { try { this._binvis.destroy(); } catch {} this._binvis = null; this._binvisEl = null; this._binvisSn = null; }
     this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false });
     if (mode === 'native') this.loadPage(sn);
     if (mode === 'pdf') this.loadPdf(sn);
@@ -7348,6 +7359,31 @@ class Component extends DCLogic {
       this._rashomon = R.mount(el, { app: this._app, scope: 'topic', sn: null });
     } catch (e) {
       el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Rashomon failed to mount: ' + String((e && e.message) || e) + '</div>';
+    }
+  }
+  // The Structure tab's host — the byte-structure surface (Aldo Cortesi's binvis, window.EO.binvis)
+  // over the ACTIVE source's bytes on a Hilbert curve: structure · entropy · significance. Same ref
+  // idiom as the Graph/Plain tabs, but this one re-scopes when the active source changes without a
+  // fresh mount (the sc-if keeps one container while the source switches under it), and destroys the
+  // prior handle before any fresh mount so binvis's app subscription never leaks.
+  setStructureEl(el) {
+    if (!el) return;
+    const sn = this._activeSrc ? this._activeSrc() : null;
+    const fresh = this._binvisEl !== el;
+    if (!fresh && this._binvisSn === sn) return;   // same container + source — already drawn
+    this._binvisEl = el; this._binvisSn = sn;
+    try {
+      const B = window.EO && window.EO.binvis;
+      if (!B || !B.mount) { el.innerHTML = '<div style="padding:22px;color:#8A8A95;font-size:13px">The byte-structure surface is not available.</div>'; return; }
+      if (fresh || !this._binvis) {
+        try { this._binvis && this._binvis.destroy(); } catch {}
+        el.innerHTML = '';
+        this._binvis = B.mount(el, { app: this._app, sn, pickSource: false });
+      } else {
+        this._binvis.show(sn);   // same container, new source — re-scope in place
+      }
+    } catch (e) {
+      el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Byte structure failed to mount: ' + String((e && e.message) || e) + '</div>';
     }
   }
   setWebKind(kind) {
@@ -9943,6 +9979,7 @@ class Component extends DCLogic {
       // (real site) · Facing · EoT
       viewerCanPage: !!viewer && viewer.hasUrl,
       viewerIsOverview: vMode === 'overview', viewerIsReader: vMode === 'reader', viewerIsPage: vMode === 'native', viewerIsFacing: vMode === 'facing', viewerIsEot: vMode === 'eot',
+      viewerIsStructure: vMode === 'structure',
       viewerIsListen: vMode === 'listen', viewerIsAudio: !!viewer && viewer.kind === 'audio',
       // PDF surface — the pages themselves, drawn by the browser's own PDF viewer from the blob URL.
       viewerIsPdf: vMode === 'pdf',
@@ -9966,6 +10003,8 @@ class Component extends DCLogic {
       hideMedia: () => this.hideMedia(), showMedia: () => this.showMedia(),
       viewerModeOverview: () => this.setSourceMode('overview'), viewerOverviewContext: (e) => { if (e && e.preventDefault) e.preventDefault(); const a = this._activeSrc(); if (a) this.openReReadModal(a); }, viewerModeReader: () => this.setSourceMode('reader'), viewerModePage: () => this.setSourceMode('native'),
       viewerModeFacing: () => this.setSourceMode('facing'), viewerModeEot: () => this.setSourceMode('eot'),
+      viewerModeStructure: () => this.setSourceMode('structure'),
+      setStructureEl: (el) => this.setStructureEl(el),
       viewerModeListen: () => this.setSourceMode('listen'), viewerModePdf: () => this.setSourceMode('pdf'),
       vmOverviewFg: vMode === 'overview' ? '#1B1B22' : '#8A8A95', vmOverviewBg: vMode === 'overview' ? '#fff' : 'transparent',
       vmPdfFg: vMode === 'pdf' ? '#1B1B22' : '#8A8A95', vmPdfBg: vMode === 'pdf' ? '#fff' : 'transparent',
@@ -9973,6 +10012,7 @@ class Component extends DCLogic {
       vmReaderFg: vMode === 'reader' ? '#1B1B22' : '#8A8A95', vmReaderBg: vMode === 'reader' ? '#fff' : 'transparent',
       vmPageFg: vMode === 'native' ? '#1B1B22' : '#8A8A95', vmPageBg: vMode === 'native' ? '#fff' : 'transparent',
       vmFacingFg: vMode === 'facing' ? '#1B1B22' : '#8A8A95', vmFacingBg: vMode === 'facing' ? '#fff' : 'transparent',
+      vmStructureFg: vMode === 'structure' ? '#1B1B22' : '#8A8A95', vmStructureBg: vMode === 'structure' ? '#fff' : 'transparent',
       vmEotFg: vMode === 'eot' ? '#1B1B22' : '#8A8A95', vmEotBg: vMode === 'eot' ? '#fff' : 'transparent',
       // Listen surface — the interactive transcript refs + edit/redaction actions
       setListenAudio: (el) => this.setListenAudio(el),

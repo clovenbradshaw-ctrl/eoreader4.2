@@ -12,12 +12,16 @@
 //   high        0x80–0xFE          extended / non-ASCII — packed or binary        → red
 //   ones        0xFF               a run of 0xFF — the other padding value        → white
 //
-// This is the "structural" layer. The entropy layer (entropy.js) is the second binvis view;
-// a significance layer keyed to the reading the perceiver maintains is declared in LAYERS but
-// not yet painted — the surface reads that registry so a new layer slots in without touching
-// the render.
+// This is the "structural" layer. The entropy layer (entropy.js) is the second binvis view; the
+// significance layer (significance.js) is the third — keyed to the reading the perceiver
+// maintains, it paints a per-byte SIGNAL the caller supplies (bright where the reading turned,
+// dark where it ran flat) rather than anything read off the bytes. Its `build` takes an optional
+// second argument — `build(bytes, { signal })` — so the modality-blind render never learns what
+// the signal means; the reader room (binvis-surface.js) is the one storey allowed to derive it
+// from a Reading. Adding a layer is still one entry here, nowhere else.
 
 import { windowedEntropy, entropyColor, ENTROPY_STOPS } from './entropy.js';
+import { significanceColor, SIGNIFICANCE_STOPS } from './significance.js';
 
 export const CLASSES = Object.freeze(['null', 'low', 'printable', 'high', 'ones']);
 
@@ -53,10 +57,12 @@ export const byteClass = (b) => {
 export const byteColor = (b) => BINVIS_PALETTE[byteClass(b)];
 
 // The layer registry — the surface's "which meaning are we colouring by" axis. A layer is a
-// `build(bytes) → (i) → rgb`: given the whole byte array it returns a per-index colourer, so a
-// pointwise layer (structure: colour byte i by its class) and a windowed one (entropy: colour
-// byte i by the local entropy around it) share one contract. `legendKind` tells the surface
-// which scale to draw. A future contributor adds one entry here, nowhere else.
+// `build(bytes, opts) → (i) → rgb`: given the whole byte array (and optional opts) it returns a
+// per-index colourer, so a pointwise layer (structure: colour byte i by its class), a windowed
+// one (entropy: colour byte i by the local entropy around it), and a signal-keyed one
+// (significance: colour byte i by opts.signal[i]) all share one contract. `legendKind` tells the
+// surface which scale to draw; `needsSignal` flags a layer whose colourer is uniform unless the
+// caller hands it a per-byte signal. A contributor adds one entry here, nowhere else.
 export const LAYERS = Object.freeze({
   structure: Object.freeze({
     id: 'structure', label: 'Structure', available: true, legendKind: 'classes', gradient: null,
@@ -69,9 +75,18 @@ export const LAYERS = Object.freeze({
     build: (bytes) => { const e = windowedEntropy(bytes); return (i) => entropyColor(e[i]); },
   }),
   significance: Object.freeze({
-    id: 'significance', label: 'Significance', available: false, legendKind: 'gradient', gradient: null,
-    blurb: 'Keyed to the reading the perceiver maintains — where the meaning is. Coming.',
-    build: null,
+    id: 'significance', label: 'Significance', available: true, legendKind: 'gradient', gradient: SIGNIFICANCE_STOPS,
+    needsSignal: true,
+    blurb: 'Keyed to the reading the perceiver maintains — bright where the reading turned, dark where it ran flat.',
+    // The one layer coloured by MEANING, not by the bytes: opts.signal is a per-byte weight in
+    // [0,1] the reader room derives from the Reading. With no signal the colourer is uniform
+    // (the ramp's flat end), so a direct buildScene({layer:'significance'}) never throws — it
+    // just paints an even field until a signal arrives.
+    build: (bytes, opts = {}) => {
+      const sig = opts && opts.signal;
+      if (!sig || !sig.length) { const flat = SIGNIFICANCE_STOPS[0].color; return () => flat; }
+      return (i) => significanceColor(sig[i] || 0);
+    },
   }),
 });
 
