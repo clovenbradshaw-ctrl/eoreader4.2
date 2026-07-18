@@ -1,56 +1,43 @@
 // EO: SIG(Field → Lens, Tending) — the binvis launcher, the reader room's app-glue
-// The seam between the pure binvis surface (src/surfaces/binvis — Aldo Cortesi's
-// byte-structure render) and a real loaded document. The surface holon knows only bytes;
-// THIS knows how to get the bytes of any source the reader holds (app.sourceOriginalExport
-// — a PDF/audio/video's true bytes, or a text source's own text as UTF-8) and paints the
-// picture beside a source picker, a layer switch, a legend, and a live byte readout.
-//
-// Two entrances:
-//   mountBinvis(el, { app, sn, layer })   — drop the surface into any element (a panel, a
-//                                            future dc-surface tab). Returns { destroy, show }.
-//   mountBinvisLauncher(host, { app })     — the floating launcher: a corner button that
-//                                            opens the surface over whatever is loaded, so it
-//                                            is visible in the main app with no dc-surface edit.
-//
-// Everything the surface can't assert it doesn't: this reads the record, paints, and wires
-// clicks back through callbacks. It appends nothing to any log.
+// The seam between the pure binvis surface (src/surfaces/binvis — Aldo Cortesi's byte-structure
+// render) and a real loaded document. The surface holon knows only bytes; THIS knows how to get
+// the bytes of any source the reader holds (app.sourceOriginalExport — a PDF/audio/video's true
+// bytes, or a text source's own text as UTF-8) and paints the picture beside a source picker, a
+// layer switch, a legend, and a live byte readout. Two entrances:
+//   mountBinvis(el, { app, sn, layer })  — drop the surface into any element. Returns { destroy, show }.
+//   mountBinvisLauncher(host, { app })   — the floating launcher: a corner button that opens the
+//                                          surface over whatever is loaded, no dc-surface edit.
+// The surface reads the record, paints, wires clicks through callbacks, and logs nothing.
 
-import { buildScene, renderToContainer, LAYERS, DEFAULT_LAYER } from '../../surfaces/binvis/index.js';
+import { renderToContainer, LAYERS, DEFAULT_LAYER } from '../../surfaces/binvis/index.js';
 
 const STYLE_ID = 'eo-binvis-style';
 const MAX_BYTES = 6 * 1024 * 1024;   // read at most 6 MB — past that we sample the head and say so
 
 const CSS = `
-.eo-binvis-fab{position:fixed;left:18px;bottom:66px;z-index:2147482880;display:flex;align-items:center;gap:7px;
-  padding:9px 12px;border:1px solid #263042;border-radius:9px;background:#0f1420;color:#c7d2e2;cursor:pointer;
-  font:600 12px/1 ui-sans-serif,system-ui,sans-serif;box-shadow:0 3px 14px rgba(0,0,0,.35)}
+.eo-binvis-fab{position:fixed;left:18px;bottom:66px;z-index:2147482880;display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #263042;border-radius:9px;background:#0f1420;color:#c7d2e2;cursor:pointer;font:600 12px/1 ui-sans-serif,system-ui,sans-serif;box-shadow:0 3px 14px rgba(0,0,0,.35)}
 .eo-binvis-fab:hover{background:#151d2c;color:#eaf1fb}
 .eo-binvis-fab svg{display:block}
 @media (max-width:640px){.eo-binvis-fab{left:10px;bottom:calc(58px + env(safe-area-inset-bottom));padding:8px}}
-.eo-binvis{position:fixed;right:0;top:0;bottom:0;width:min(430px,94vw);z-index:2147482881;display:none;
-  flex-direction:column;background:#0b0f18;color:#c9d3e2;border-left:1px solid #1c2333;
-  box-shadow:-8px 0 30px rgba(0,0,0,.4);font:13px/1.5 ui-sans-serif,system-ui,sans-serif}
+.eo-binvis{position:fixed;right:0;top:0;bottom:0;width:min(430px,94vw);z-index:2147482881;display:none;flex-direction:column;background:#0b0f18;color:#c9d3e2;border-left:1px solid #1c2333;box-shadow:-8px 0 30px rgba(0,0,0,.4);font:13px/1.5 ui-sans-serif,system-ui,sans-serif}
 .eo-binvis.open{display:flex}
 .eo-binvis__head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #1c2333}
 .eo-binvis__title{font-weight:700;font-size:13px;color:#eaf1fb;letter-spacing:.01em}
 .eo-binvis__sub{font-size:11px;color:#6f7d92}
-.eo-binvis__x{margin-left:auto;background:none;border:1px solid #263042;color:#8b98ad;border-radius:6px;
-  width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1}
+.eo-binvis__x{margin-left:auto;background:none;border:1px solid #263042;color:#8b98ad;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1}
 .eo-binvis__x:hover{color:#eaf1fb;border-color:#3a4863}
 .eo-binvis__body{padding:12px;overflow:auto;display:flex;flex-direction:column;gap:12px}
 .eo-binvis__row{display:flex;flex-direction:column;gap:5px}
 .eo-binvis__lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5f6d82}
 .eo-binvis select{background:#0f1420;color:#dce4f0;border:1px solid #263042;border-radius:7px;padding:7px 9px;font:inherit;width:100%}
 .eo-binvis__layers{display:flex;gap:6px;flex-wrap:wrap}
-.eo-binvis__layer{padding:6px 10px;border:1px solid #263042;border-radius:999px;background:#0f1420;color:#9fb0c6;
-  font:600 11.5px/1 inherit;cursor:pointer}
+.eo-binvis__layer{padding:6px 10px;border:1px solid #263042;border-radius:999px;background:#0f1420;color:#9fb0c6;font:600 11.5px/1 inherit;cursor:pointer}
 .eo-binvis__layer.on{background:#1b2740;color:#eaf1fb;border-color:#3f5680}
 .eo-binvis__layer:disabled{opacity:.42;cursor:not-allowed}
 .eo-binvis__stage{display:flex;justify-content:center;padding:6px;background:#05070c;border:1px solid #161d2b;border-radius:10px}
 .eo-binvis__stage canvas{border-radius:4px;background:#05070c}
 .eo-binvis__cap{font-size:11px;color:#8b98ad;text-align:center}
-.eo-binvis__read{min-height:34px;font-size:11.5px;color:#aeb9cb;background:#0f1420;border:1px solid #1c2333;
-  border-radius:8px;padding:8px 10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.eo-binvis__read{min-height:34px;font-size:11.5px;color:#aeb9cb;background:#0f1420;border:1px solid #1c2333;border-radius:8px;padding:8px 10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .eo-binvis__legend{display:flex;flex-direction:column;gap:4px}
 .eo-binvis__leg{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#9fb0c6}
 .eo-binvis__sw{width:12px;height:12px;border-radius:3px;flex:none;border:1px solid rgba(255,255,255,.12)}
@@ -70,23 +57,39 @@ const el = (doc, tag, cls, text) => { const e = doc.createElement(tag); if (cls)
 const hex = (n) => '0x' + n.toString(16).toUpperCase();
 const kb = (n) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(2)} MB`);
 
-// Pull a source's bytes: the true original bytes when the reader kept them (PDF/audio/
-// video), else the admitted text as UTF-8. Returns { bytes, truncated, total }.
-const bytesOfSource = async (app, sn) => {
-  let bytes = null, total = 0;
+// Pull a source's bytes: original bytes when kept (PDF/audio/video), else the live in-tab clip,
+// else the admitted text as UTF-8. `media` flags a media source so empty reads as "its clip is
+// gone", not "empty file". A zero-length Uint8Array is truthy, so every step guards on length —
+// else an evicted/partial clip shadows the transcript fallback (the "0 B over audio" bug).
+const nonEmpty = (a) => !!a && a.length > 0;
+
+export const bytesOfSource = async (app, sn) => {
+  const src = (app && app.sourceBySn) ? app.sourceBySn(sn) : null;
+  const media = !!(src && (src.audioRef || src.pdfRef || src.kind === 'audio' || src.kind === 'video' || (src._media && src._media.url)));
+  let bytes = null, kind = 'none';
+  const asText = (t) => { if (!bytes && typeof t === 'string' && t.length) { bytes = new TextEncoder().encode(t); kind = 'text'; } };
+
   try {
     const orig = await app.sourceOriginalExport(sn);
-    if (orig && orig.bytes) bytes = orig.bytes instanceof Uint8Array ? orig.bytes : new Uint8Array(orig.bytes);
-    else if (orig && typeof orig.text === 'string') bytes = new TextEncoder().encode(orig.text);
-  } catch { /* fall through to the registry text */ }
-  if (!bytes) {
-    const src = app.sourceBySn ? app.sourceBySn(sn) : null;
-    bytes = new TextEncoder().encode(String((src && src.text) || ''));
+    if (orig && nonEmpty(orig.bytes)) { bytes = orig.bytes instanceof Uint8Array ? orig.bytes : new Uint8Array(orig.bytes); kind = 'original'; }
+    else if (orig) asText(orig.text);
+  } catch { /* fall through to the live blob / registry text */ }
+
+  // A media source whose persisted bytes are gone may still be loaded in THIS tab as a blob:
+  // URL — the very bytes the player reads. Recover them so what's playing stays visible.
+  if (!bytes && src && src._media && src._media.url && typeof fetch === 'function') {
+    try {
+      const buf = await fetch(src._media.url).then((r) => r.arrayBuffer());
+      if (buf && buf.byteLength) { bytes = new Uint8Array(buf); kind = 'original'; }
+    } catch { /* the blob URL died with a prior tab — nothing to recover */ }
   }
-  total = bytes.length;
+  asText(src && src.text);   // last resort: a transcript, a page's admitted text
+
+  bytes = bytes || new Uint8Array(0);
+  const total = bytes.length;
   const truncated = total > MAX_BYTES;
   if (truncated) bytes = bytes.subarray(0, MAX_BYTES);
-  return { bytes, truncated, total };
+  return { bytes, truncated, total, kind, media };
 };
 
 // mountBinvis — the surface itself, into `el`. Reusable (launcher below, or a dc tab).
@@ -151,8 +154,21 @@ export const mountBinvis = (host, { app, sn = null, layer = DEFAULT_LAYER, displ
       chips.querySelectorAll('.eo-binvis__layer').forEach((c, i) => c.classList.toggle('on', Object.keys(LAYERS)[i] === curLayer));
       const my = ++token;
       cap.textContent = 'reading bytes…'; stage.innerHTML = '';
-      const { bytes, truncated, total } = await bytesOfSource(app, curSn);
+      legend.innerHTML = ''; note.textContent = '';
+      const { bytes, truncated, total, media } = await bytesOfSource(app, curSn);
       if (my !== token) return;   // a newer pick/layer won
+
+      // Nothing to draw — say so plainly rather than paint a blank 1×1 mosaic that reads as a
+      // loaded-but-empty file (media that lost its bytes gets the reason; else the honest note).
+      if (total === 0) {
+        try { handle && handle.destroy(); } catch {} handle = null;
+        stage.appendChild(el(doc, 'div', 'eo-binvis__empty', media
+          ? "This clip's original bytes aren't available in this session — a large file kept playable only for this tab, or evicted since. Reimport it to see its byte structure."
+          : 'This source carries no bytes yet — nothing to visualise. Once it has text or an original file, its structure appears here.'));
+        cap.textContent = '0 B · nothing to render';
+        return;
+      }
+
       const onHover = (info) => {
         if (!info) { read.textContent = 'Hover the mosaic to name the bytes under the pointer.'; return; }
         const cls = info.length === 1 ? '' : ' · ' + info.length + ' bytes';
@@ -162,7 +178,6 @@ export const mountBinvis = (host, { app, sn = null, layer = DEFAULT_LAYER, displ
       const sc = handle.scene;
       const per = sc.bucket === 1 ? '1 byte / pixel' : `≈ ${sc.bucket.toLocaleString()} bytes / pixel`;
       cap.textContent = `${kb(total)}${truncated ? ' (head sampled)' : ''} · ${sc.side}×${sc.side} Hilbert · ${per}`;
-      legend.innerHTML = '';
       if (sc.legendKind === 'gradient' && sc.gradient) {
         const bar = el(doc, 'div', 'eo-binvis__bar');
         bar.style.background = `linear-gradient(90deg,${sc.gradient.map((s) => `rgb(${s.color.join(',')}) ${Math.round(s.at * 100)}%`).join(',')})`;
