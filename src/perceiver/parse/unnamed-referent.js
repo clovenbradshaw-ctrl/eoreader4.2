@@ -34,14 +34,44 @@ const MODS = String.raw`(?:[a-z][a-z'’-]+\s+){0,3}`;
 const HEAD = String.raw`([a-z][a-z'’-]{2,})`;
 const DESC_RE = new RegExp(String.raw`\b${DET}\s+${MODS}?${HEAD}\b`, 'g');
 
-// Heads that recur yet name no referent — the same inhibitor entities.js's common-noun catalyst
-// carries, kept here so a description built on one ("the same", "the way") never reacts into a
-// body. The language-specific classes (function / starter / role / calendar / demonym) are read
-// from the conventions ledger; only these purely abstract heads are held locally.
-const ABSTRACT_HEADS = new Set(['way', 'time', 'thing', 'matter', 'fact', 'case', 'point', 'kind',
-  'sort', 'moment', 'sense', 'part', 'whole', 'same', 'other', 'first', 'last', 'rest', 'one',
-  'day', 'night', 'morning', 'evening', 'while', 'end', 'side', 'reason', 'idea', 'word', 'name',
-  'sake', 'use', 'need', 'place', 'world', 'life', 'people', 'man', 'woman', 'men', 'women']);
+// Heads that recur yet name no FIGURE — the same inhibitor entities.js's common-noun catalyst
+// carries, kept here so a description built on one ("the same", "the way", "the storm") never reacts
+// into a body. The language-specific classes (function / starter / role / calendar / demonym) are
+// read from the conventions ledger. LUMINOSITY (animacy) is the principled test that a setting is not
+// a figure — a body pronouns fly through, not one they bind to — but it needs enough sightings to be
+// trustworthy; this curated set is the backstop for the low-count tail (a weather noun met a handful
+// of times whose animate rate the gate cannot yet judge). Three groups: abstract-relational, natural
+// world / weather / place, and temporal — none of which a reader ever means as a person.
+const ABSTRACT_HEADS = new Set([
+  // abstract / relational
+  'way', 'time', 'thing', 'matter', 'fact', 'case', 'point', 'kind', 'sort', 'moment', 'sense',
+  'part', 'whole', 'same', 'other', 'first', 'last', 'rest', 'one', 'while', 'end', 'side', 'reason',
+  'idea', 'word', 'name', 'sake', 'use', 'need', 'life', 'people', 'man', 'woman', 'men', 'women',
+  'question', 'condition', 'threat', 'voyage', 'news', 'crime', 'trial', 'science', 'soul', 'evil',
+  'degree', 'figure', 'present', 'leave', 'period',
+  // natural world / weather / place
+  'world', 'place', 'sun', 'moon', 'sky', 'star', 'sea', 'earth', 'ground', 'air', 'light', 'fire',
+  'water', 'wind', 'rain', 'snow', 'ice', 'cloud', 'storm', 'thunder', 'mist', 'breeze', 'wave',
+  'frost', 'weather', 'blood', 'mountain', 'river', 'lake', 'tree', 'wood', 'forest', 'field', 'road',
+  'house', 'room', 'door', 'window', 'wall', 'heaven',
+  // temporal
+  'day', 'night', 'morning', 'evening', 'year', 'hour', 'week', 'month', 'season', 'age', 'winter',
+  'summer', 'spring', 'autumn']);
+
+// PERSON-ROLE heads — a role names MANY bearers ("the father", "the sailor", "the professor" are
+// different people at different turns), so a role is not the ONE nameless protagonist the unnamed
+// read is for. The creature's epithets (creature/monster/wretch/fiend/devil) are UNIQUE descriptors,
+// never roles. This is the seed of the ledger's own (learn-only) role register, kept here so a role
+// noun is not folded onto the nameless body it is not — the coreference of distinct minor figures is
+// a later, field-based job; this backstop keeps the obvious ones off the protagonist.
+const PERSON_ROLE = new Set([
+  'father', 'mother', 'brother', 'sister', 'son', 'daughter', 'parent', 'child', 'baby', 'boy', 'girl',
+  'man', 'woman', 'lad', 'youth', 'maiden', 'wife', 'husband', 'widow', 'uncle', 'aunt', 'cousin',
+  'lady', 'gentleman', 'sir', 'master', 'mistress', 'servant', 'maid', 'nurse', 'sailor', 'soldier',
+  'officer', 'captain', 'doctor', 'professor', 'teacher', 'student', 'judge', 'lawyer', 'priest',
+  'king', 'queen', 'prince', 'princess', 'lord', 'peasant', 'friend', 'stranger', 'neighbour',
+  'neighbor', 'companion', 'fellow', 'guest', 'host', 'guard', 'guide', 'clerk', 'merchant',
+  'traveller', 'traveler', 'villain', 'hero', 'heroine', 'witness', 'prisoner', 'victim']);
 
 // A content head — an open-class word (a verb/noun, not a function word) — so a description
 // followed by one stands where an agent's verb stands ("the creature STRETCHED"). Lowercase-
@@ -77,7 +107,7 @@ const singular = (h) => (h.length > 4 && h.endsWith('s') && !h.endsWith('ss')) ?
 const PERSONAL_PRONOUN = /\b(?:he|him|his|she|her|hers|himself|herself)\b/i;
 const RUN_RE = new RegExp(String.raw`\b(?:[Tt]he|[Aa]n?)\s+((?:[a-z][a-z'’-]+\s+){0,4}[a-z][a-z'’-]{2,})\b`, 'g');
 export const censusUnnamedCentres = (sentences, { conventions,
-  minSightings = 3, minAgency = 2, restMassFloor = 0.35, luminosityFloor = 0.5 } = {}) => {
+  minSightings = 3, minAgency = 2, restMassFloor = 0.6, luminosityFloor = 0.5 } = {}) => {
   if (!Array.isArray(sentences) || !sentences.length) return new Map();
   const C = {
     isFunction:    (w) => conventions?.isFunction?.(w) ?? false,
@@ -100,7 +130,9 @@ export const censusUnnamedCentres = (sentences, { conventions,
     ws.forEach((w, i) => { if (i > 0 && /^\p{Lu}/u.test(w)) nameTokens.add(w.toLowerCase()); });
   }
   const excluded = (h) => h.length < 3 || C.isFunction(h) || C.isStarter(h) || C.isRole(h)
-    || C.isCalendar(h) || C.isDemonym(h) || ABSTRACT_HEADS.has(h) || isModifierHead(h) || nameTokens.has(h);
+    || C.isCalendar(h) || C.isDemonym(h) || ABSTRACT_HEADS.has(h) || isModifierHead(h) || nameTokens.has(h)
+    || PERSON_ROLE.has(h)          // a role names MANY bearers ("the father", "the sailor"), not the ONE nameless body
+    || h.endsWith('est');          // a superlative ("the highest", "the greatest") is an adjective, not a body
 
   // Pass 1 — the dominance census (rest mass): attrib vs asHead over every "the …" run. A head is
   // ATTRIB only when the next content word is a DETERMINER-TAKER (a noun the text fronts with the/a
@@ -185,7 +217,7 @@ export const discoverUnnamedReferents = (sentences, { conventions } = {}) => {
   const centres = censusUnnamedCentres(sentences, { conventions });
   const out = [...centres.values()].map((c) => ({
     id: c.id, label: c.label, head: c.head, count: c.count, subj: c.subj, obl: c.obl,
-    mass: c.count, mentions: c.mentions, surfaces: c.surfaces,
+    mass: c.count, mentions: c.mentions, surfaces: c.surfaces, animacy: c.animacy, dominance: c.dominance,
   }));
   // the heaviest body first — the referent the name scan could not anchor.
   out.sort((a, b) => b.mass - a.mass || b.subj - a.subj || (a.label < b.label ? -1 : 1));
@@ -226,18 +258,30 @@ const bothActInOneSentence = (sentences, headA, headB, C) => {
 };
 
 // foldUnnamedReferents(proposals, sentences, C) → proposals
-//   The heaviest body absorbs each other body it does not co-act with; each absorbed body rides
-//   on as a `mergedFrom` alias (carrying its head, so its description surface can be registered),
-//   and the survivor's mentions are the union. A genuinely distinct nameless figure (the co-actor)
-//   is kept as its own body. Idempotent-shaped: with 0/1 proposals, or no fold, the input stands.
+//   The heaviest body absorbs each other body it does not co-act with AND whose LUMINOSITY is
+//   compatible — an epithet of one body shares its animate signature, so a low-animacy remnant a
+//   noun-filter let through ("the utmost", "the fallen") is NOT folded onto the creature. Compatible
+//   means the absorbed body's animate rate is near the primary's (so two neuter epithets on a short
+//   passage — creature/wretch, both "it" — still fold) OR clearly animate on its own. Each absorbed
+//   body rides on as a `mergedFrom` alias; the survivor's mentions are the union. A distinct nameless
+//   figure (a co-actor) or a luminosity-incompatible remnant is kept apart. Idempotent-shaped.
 export const foldUnnamedReferents = (proposals, sentences = [], C = { isFunction: () => false }) => {
   if (!Array.isArray(proposals) || proposals.length < 2) return proposals;
   const sorted = [...proposals].sort((a, b) => (b.mass || 0) - (a.mass || 0) || (a.label < b.label ? -1 : 1));
   const primary = sorted[0];
-  const distinct = [];       // unnamed bodies that ACT alongside the primary → not the same figure
+  const pa = primary.animacy;
+  // An epithet of the body is a SYNONYM — a highly nominal (rest-mass ≥ 0.8) name-substitute, not a
+  // substantivized adjective ("the utmost", "the deadly") that a lower noun-floor let through. And it
+  // is LUMINOSITY-compatible: its animate rate near the primary's (so two neuter epithets on a short
+  // passage — creature/wretch, both "it" — still fold) or clearly animate on its own. Undefined
+  // fields (a caller that did not measure them) never block, so a hand-built proposal folds as before.
+  const compatible = (p) =>
+    (p.dominance == null || p.dominance >= 0.8)
+    && (p.animacy == null || pa == null || p.animacy >= 0.5 || Math.abs(p.animacy - pa) <= 0.25);
+  const distinct = [];       // unnamed bodies that ACT alongside the primary, or a luminosity mismatch
   const folded = [];         // unnamed bodies with no such conflict → the primary under another description
   for (const p of sorted.slice(1))
-    (bothActInOneSentence(sentences, primary.head, p.head, C) ? distinct : folded).push(p);
+    (bothActInOneSentence(sentences, primary.head, p.head, C) || !compatible(p) ? distinct : folded).push(p);
   if (!folded.length) return proposals;
   const mentions = [...new Set([...(primary.mentions || []), ...folded.flatMap((f) => f.mentions || [])])]
     .sort((a, b) => a - b);
