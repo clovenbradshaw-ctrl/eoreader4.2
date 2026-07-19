@@ -382,7 +382,14 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     g.appendChild(pin); g.appendChild(c);
     // a drag that lands on a node also fires the circle's click — swallow that one so a pull-to-pin
     // never doubles as a select (which would flip the host's details panel).
-    g.addEventListener('click', (ev) => { ev.stopPropagation(); if (justDragged) { justDragged = false; return; } select(n.id); });
+    g.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (justDragged) { justDragged = false; return; }
+      // A node that carries a ref IS a point of view to pivot/open to — the click itself does
+      // that immediately, not a second click on a button gated behind selecting it first.
+      if (onOpen && n.ref) { try { onOpen(n); } catch {} return; }
+      select(n.id);
+    });
     g.addEventListener('mouseenter', () => { if (!state.sel) { state.hover = n.id; refine(); } });
     g.addEventListener('mouseleave', () => { if (!state.sel) { state.hover = null; refine(); } });
     gN.appendChild(g); nodeEls[n.id] = { g, c, pin };
@@ -522,14 +529,9 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
       '<span style="color:var(--ink3,#999);">' + TIER[n.tier].name + (n.terrain ? ' · ' + esc(n.terrain) : '') + '</span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">in <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(glyphs(ins)) + '</span></span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">out <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(glyphs(outs)) + '</span></span>';
-    // "open →" navigates via the node's ref, so it belongs to exactly the nodes that carry one —
-    // the entities (a source/claim has none). Gating on ref, not a kind string, keeps the button
-    // honest: it appears iff onOpen has somewhere to go. (The old 'ent'/'doc' test matched neither
-    // the 'entity' the builder emits nor a real ref, so the button never showed.)
-    if (onOpen && n.ref) {
-      const b = el('button', { class: 'tg-btn', text: 'open →' }); b.style.marginLeft = 'auto'; b.style.flex = '0 0 auto';
-      b.addEventListener('click', () => onOpen(n)); detail.appendChild(b);
-    }
+    // A ref-carrying node never reaches select() at all (its click short-circuits straight to
+    // onOpen, above) — so select() only ever inspects a claim/source in place, with nowhere to
+    // navigate, and needs no "open →" button.
     if (onSelect) { try { onSelect(n); } catch { /* the host's mirror must never break the select */ } }
   }
   function deselect() {
