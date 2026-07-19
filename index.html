@@ -1751,6 +1751,17 @@ table{border-collapse:collapse;width:100%}
                   <sc-for list="{{ kindChips }}" as="kc"><button onClick="{{ kc.go }}" style="flex:0 0 auto;font-size:12px;font-weight:550;color:{{ kc.fg }};background:{{ kc.bg }};border:1px solid {{ kc.bd }};border-radius:8px;padding:5px 11px">{{ kc.label }}</button></sc-for>
                 </div>
 
+                <!-- cross-source sync — appears once 2+ sources are checked; compares their
+                     timestamped word tokens, gated so a wrong pairing correctly abstains rather
+                     than force-fitting a guess (app/sync.js, core/sync/align.js) -->
+                <sc-if value="{{ syncSelHas }}">
+                  <div style="flex:0 0 auto;margin:10px 20px 0;padding:8px 12px;display:flex;align-items:center;gap:10px;background:#EEEBFE;border:1px solid #DED8FD;border-radius:10px">
+                    <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#4A3FCC">{{ syncSelLabel }}</span>
+                    <button onClick="{{ clearSyncSel }}" style="font-size:12px;font-weight:600;color:#8A8A95;background:none;padding:4px 8px">Clear</button>
+                    <button onClick="{{ openSyncModal }}" style="font-size:12.5px;font-weight:650;color:#fff;background:#5B4BE6;border-radius:8px;padding:7px 14px" style-hover="filter:brightness(1.06)">Sync selected…</button>
+                  </div>
+                </sc-if>
+
                 <!-- scroll body -->
                 <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:18px 20px 40px">
 
@@ -1805,6 +1816,11 @@ table{border-collapse:collapse;width:100%}
                     <div style="display:grid;grid-template-columns:{{ cardCols }};gap:12px">
                       <sc-for list="{{ cardSources }}" as="cd">
                         <div style="position:relative;border:1px solid {{ cd.selBd }};border-radius:12px;background:{{ cd.selBg }};overflow:hidden" style-hover="border-color:#E2E2E7">
+                          <button title="Pick for Sync…" onClick="{{ cd.toggleSync }}" style="position:absolute;top:8px;left:8px;z-index:2;width:22px;height:22px;border-radius:6px;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;border:1px solid {{ cd.syncBd }}">
+                            <span style="width:13px;height:13px;border-radius:3px;border:1.6px solid {{ cd.syncBd }};background:{{ cd.syncBg }};display:flex;align-items:center;justify-content:center">
+                              <sc-if value="{{ cd.syncChecked }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></sc-if>
+                            </span>
+                          </button>
                           <sc-if value="{{ explorerViewGrid }}">
                           <button onClick="{{ cd.select }}" style="width:100%;display:block;text-align:left;background:none;padding:0">
                             <span style="display:flex;align-items:center;justify-content:center;height:64px;background:#F3F3F5;color:#A0A0AA;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em">{{ cd.kindTag }}</span>
@@ -1919,6 +1935,61 @@ table{border-collapse:collapse;width:100%}
                   </div>
                   <div style="flex:0 0 auto;padding:10px 16px;border-top:1px solid #F2F2F6;text-align:right">
                     <button onClick="{{ closeMove }}" style="font-size:12.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border-radius:8px;padding:7px 14px" style-hover="background:#EAEAEF">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- SYNC — confirm modal: pick the clock, the threshold, the format, watch the preview,
+                 then confirm. (app/sync.js). The preview recomputes live as the threshold moves —
+                 alignSequences is synchronous, so no debounce is needed; raising alpha visibly
+                 drops low-confidence anchors, which is what makes a wrong pairing's rejection
+                 tangible rather than a number to trust blindly. -->
+            <sc-if value="{{ syncModalOpen }}">
+              <div onClick="{{ closeSyncModal }}" style="position:absolute;inset:0;z-index:21;background:rgba(20,20,30,.30);display:flex;align-items:center;justify-content:center;padding:16px">
+                <div onClick="{{ moveStop }}" style="width:100%;max-width:520px;max-height:86%;display:flex;flex-direction:column;background:#fff;border:1px solid #E6E6EC;border-radius:14px;box-shadow:0 20px 50px rgba(20,20,30,.24);overflow:hidden">
+                  <div style="flex:0 0 auto;padding:14px 16px;border-bottom:1px solid #F2F2F6">
+                    <div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#9A9AA4">SYNC SOURCES</div>
+                    <div style="font-size:13.5px;font-weight:600;color:#2A2A32;margin-top:3px">{{ syncPairA }} ↔ {{ syncPairB }}</div>
+                  </div>
+                  <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px">
+
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">CLOCK — WHICH SOURCE'S TIMING WINS</div>
+                    <div style="display:flex;gap:8px;margin-bottom:16px">
+                      <sc-for list="{{ syncClockChips }}" as="cc">
+                        <button onClick="{{ cc.go }}" style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:{{ cc.fg }};background:{{ cc.bg }};border:1px solid {{ cc.bd }};border-radius:9px;padding:9px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ cc.label }}</button>
+                      </sc-for>
+                    </div>
+
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">CONFIDENCE THRESHOLD — α = {{ syncAlpha }}</div>
+                    <input type="range" min="0.01" max="0.20" step="0.01" value="{{ syncAlpha }}" onChange="{{ onSyncAlphaInput }}" style="width:100%;margin-bottom:4px" />
+                    <div style="font-size:11.5px;color:#9A9AA4;margin-bottom:16px">Lower α accepts more, weaker matches; higher α accepts only the clearest correspondence.</div>
+
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">EXPORT FORMAT</div>
+                    <div style="display:flex;gap:8px;margin-bottom:16px">
+                      <sc-for list="{{ syncFormatChips }}" as="fc">
+                        <button onClick="{{ fc.go }}" style="flex:1;min-width:0;font-size:12px;font-weight:600;color:{{ fc.fg }};background:{{ fc.bg }};border:1px solid {{ fc.bd }};border-radius:9px;padding:9px 8px">{{ fc.label }}</button>
+                      </sc-for>
+                    </div>
+
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">PREVIEW</div>
+                    <sc-if value="{{ syncAbstain }}">
+                      <div style="background:#FBE9E6;border:1px solid #F2D3CD;border-radius:9px;padding:10px 12px;font-size:12.5px;color:#B23A2E;margin-bottom:8px">No confident alignment at this threshold — these two may not actually correspond, or α is set too strict. Nothing will be exported.</div>
+                    </sc-if>
+                    <sc-if value="{{ syncPreviewHas }}">
+                      <div style="font-size:11.5px;color:#8A8A95;margin-bottom:8px">{{ syncCoveragePct }}% covered · {{ syncPreviewTotal }} anchor(s) — showing the first few</div>
+                      <sc-for list="{{ syncPreviewRows }}" as="pr">
+                        <div style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid #F4F4F7;font-size:12px">
+                          <span style="flex:0 0 44px;font-family:'IBM Plex Mono',monospace;color:#9A9AA4">{{ pr.t }}</span>
+                          <span style="flex:1;min-width:0;color:#3A3A44;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pr.textA }} → {{ pr.textB }}</span>
+                          <span style="flex:0 0 auto;font-family:'IBM Plex Mono',monospace;color:#6E6E78">{{ pr.conf }}</span>
+                        </div>
+                      </sc-for>
+                    </sc-if>
+                  </div>
+                  <div style="flex:0 0 auto;padding:10px 16px;border-top:1px solid #F2F2F6;display:flex;justify-content:flex-end;gap:8px">
+                    <button onClick="{{ closeSyncModal }}" style="font-size:12.5px;font-weight:600;color:#6E6E78;background:#F2F2F6;border-radius:8px;padding:7px 14px" style-hover="background:#EAEAEF">Cancel</button>
+                    <button onClick="{{ confirmSync }}" disabled="{{ syncBusy }}" style="font-size:12.5px;font-weight:650;color:#fff;background:#5B4BE6;border-radius:8px;padding:7px 16px" style-hover="filter:brightness(1.06)">{{ confirmSyncLabel }}</button>
                   </div>
                 </div>
               </div>
@@ -4399,6 +4470,12 @@ class Component extends DCLogic {
       explorerBucket: 'all', explorerSel: null, inspectorTab: 'read', explorerQuery: '',
       explorerView: 'grid', explorerSort: 'name', explorerKind: null, explorerShowAll: false,
       explorerCollapsed: [], explorerIngestOpen: false,
+      // Cross-source sync (app/sync.js): syncSel is the ordered pick-list of checked source
+      // sn's (only the first two are used — pairwise in v1); syncModalOpen drives the confirm
+      // dialog; syncAlpha/syncFormat/syncClockSn are its live-editable parameters, previewed
+      // against app.syncPreview on every change (a synchronous call — no debounce needed).
+      syncSel: [], syncModalOpen: false, syncAlpha: 0.05, syncFormat: 'srt', syncClockSn: null,
+      syncBusy: false,
       // Ask surface: where the next question lands — 'follow' (a child quest under the current
       // topic) or 'new' (a fresh top-level quest); and the per-answer "Download audit" menu.
       askScope: 'follow', askAuditMenuOpen: false,
@@ -6952,6 +7029,31 @@ class Component extends DCLogic {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     this.showToast('Source exported — ' + out.filename);
+  }
+  // Save the confirm modal's sync (app/sync.js syncSave) and download its export — SRT
+  // (re-timed captions) or raw JSONL anchors. A run that abstains (no confident alignment —
+  // the wrong-caption-file case) is still saved as a standing fold, for the record, but
+  // exports nothing: there is no re-timed file to hand back for a pairing the born-rule
+  // gate would not vouch for.
+  async runSyncAndDownload(snA, snB, opts, format, exportOpts) {
+    if (!this._app || !this._app.syncSave) return;
+    this.setState({ syncBusy: true });
+    try {
+      const saved = await this._app.syncSave(snA, snB, opts);
+      if (!saved) { this.showToast('Could not align these two sources'); return; }
+      if (saved.snapshot.header.abstain) { this.showToast('No confident alignment — nothing to export'); return; }
+      const out = await this._app.syncExport(saved.id, format, exportOpts);
+      if (out && out.text) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([out.text], { type: out.mime || 'text/plain' }));
+        a.download = out.filename || `sync.${out.ext || 'txt'}`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        this.showToast(`Synced — ${saved.snapshot.summary.count} anchors · ${out.filename}`);
+      }
+    } finally {
+      this.setState({ syncBusy: false, syncModalOpen: false, syncSel: [] });
+    }
   }
   exportChatAs(format) {
     this.setState({ exportMenuOpen: false });
@@ -10961,6 +11063,11 @@ class Component extends DCLogic {
     // — the source cards themselves (virtualised: first 12, "show all" expands) —
     const CARD_CAP = 12;
     const shownN = st.explorerShowAll ? working.length : Math.min(working.length, CARD_CAP);
+    const syncSelArr = st.syncSel || [];
+    const toggleSyncSel = (sn) => () => {
+      const has = syncSelArr.includes(sn);
+      this.setState({ syncSel: has ? syncSelArr.filter((x) => x !== sn) : [...syncSelArr, sn] });
+    };
     const cardSources = working.slice(0, shownN).map((s) => {
       const genre = this._genre(s); const cites = citeCounts[s.sn] || 0;
       return {
@@ -10977,6 +11084,13 @@ class Component extends DCLogic {
         doMove: () => this.setState({ moveTarget: { kind: 'source', id: s.sn }, explorerMenu: null }),
         doReRead: () => { this.reReadSourceWithOptions(s.sn); this.setState({ explorerMenu: null }); },
         doRemove: () => { if (confirm(`Remove “${s.title}” from the record? This deletes the source and its readings.`)) app.removeSource(s.sn); this.setState({ explorerMenu: null }); },
+        // Cross-source sync — a checkbox alongside the star/kebab, so picking two sources to
+        // sync never requires opening either of them first (research-review-cards.js's checkbox
+        // idiom, reused here for the source explorer, which had no multi-select before this).
+        syncChecked: syncSelArr.includes(s.sn),
+        syncBd: syncSelArr.includes(s.sn) ? '#5B4BE6' : '#C4C4CC',
+        syncBg: syncSelArr.includes(s.sn) ? '#5B4BE6' : '#fff',
+        toggleSync: toggleSyncSel(s.sn),
       };
     });
     const moreN = working.length - shownN;
@@ -11057,6 +11171,49 @@ class Component extends DCLogic {
     }
     const closeMove = () => this.setState({ moveTarget: null });
     const moveStop = (e) => { if (e && e.stopPropagation) e.stopPropagation(); };
+
+    // ── cross-source sync — checkbox pick → confirm modal (app/sync.js) ──
+    const syncSelHas = syncSelArr.length >= 2;
+    const syncSelLabel = syncSelArr.length > 2
+      ? `${syncSelArr.length} selected — the first two will be synced`
+      : `${syncSelArr.length} selected`;
+    const clearSyncSel = () => this.setState({ syncSel: [] });
+    const openSyncModal = () => this.setState({ syncModalOpen: true, syncClockSn: null });
+    const syncPair = syncSelArr.slice(0, 2).map((sn) => app.sourceBySn(sn)).filter(Boolean);
+    const syncModalOpen = !!st.syncModalOpen && syncPair.length === 2;
+    let syncPreviewRows = [], syncPreviewHeader = null, syncPreviewTotal = 0, syncClockSn = null, syncClockChips = [];
+    if (syncModalOpen) {
+      const [pA, pB] = syncPair;
+      syncClockSn = st.syncClockSn || pA.sn;
+      syncClockChips = syncPair.map((s) => {
+        const on = syncClockSn === s.sn;
+        return { sn: s.sn, label: s.title, on, go: () => this.setState({ syncClockSn: s.sn }),
+          fg: on ? '#fff' : '#3A3A44', bg: on ? '#5B4BE6' : '#F2F2F6', bd: on ? '#5B4BE6' : '#EAEAEF' };
+      });
+      const preview = app.syncPreview(pA.sn, pB.sn, { alpha: st.syncAlpha });
+      if (preview) {
+        syncPreviewHeader = preview.header; syncPreviewTotal = preview.total;
+        syncPreviewRows = preview.anchors.slice(0, 8).map((a) => ({
+          t: `${a.tA.toFixed(1)}s`, textA: a.textA, textB: a.textB, conf: `${Math.round(a.confidence * 100)}%`,
+        }));
+      }
+    }
+    const syncAbstain = !syncPreviewHeader || syncPreviewHeader.abstain;
+    const syncCoveragePct = syncPreviewHeader ? Math.round((syncPreviewHeader.coverage || 0) * 100) : 0;
+    const syncFormatChips = [['srt', 'SRT — re-timed captions'], ['jsonl', 'JSONL — raw anchors']].map(([k, lbl]) => {
+      const on = st.syncFormat === k;
+      return { k, label: lbl, on, go: () => this.setState({ syncFormat: k }),
+        fg: on ? '#fff' : '#3A3A44', bg: on ? '#2A2A32' : '#F2F2F6', bd: on ? '#2A2A32' : '#EAEAEF' };
+    });
+    const closeSyncModal = () => this.setState({ syncModalOpen: false });
+    const onSyncAlphaInput = (e) => { const v = Number(e.target.value); if (Number.isFinite(v)) this.setState({ syncAlpha: v }); };
+    const confirmSync = () => {
+      if (syncPair.length !== 2 || st.syncBusy) return;
+      const [pA, pB] = syncPair;
+      const timeSide = syncClockSn === pA.sn ? 'A' : 'B';
+      const textSide = timeSide === 'A' ? 'B' : 'A';
+      this.runSyncAndDownload(pA.sn, pB.sn, { alpha: st.syncAlpha, label: `Sync · ${pA.title} ↔ ${pB.title}` }, st.syncFormat, { timeSide, textSide });
+    };
 
     // memo
     const memoClaims = claims.slice(-8).map((c) => {
@@ -11729,6 +11886,14 @@ class Component extends DCLogic {
       explorerCrumbs, explorerFolders, explorerFiles, explorerHasFolders, explorerHasFiles,
       explorerEmpty, explorerAtRoot, explorerNotRoot: !explorerAtRoot, explorerCount, explorerMenuOpen, closeExplorerMenu, explorerNewFolder, openSurface,
       moveOpen, moveTitle, moveDests, closeMove, moveStop,
+      // cross-source sync — the toolbar bar + confirm modal (app/sync.js)
+      syncSelHas, syncSelLabel, clearSyncSel, openSyncModal,
+      syncModalOpen, syncPairA: syncPair[0] ? syncPair[0].title : '', syncPairB: syncPair[1] ? syncPair[1].title : '',
+      syncClockChips, syncFormatChips, syncAlpha: st.syncAlpha, onSyncAlphaInput,
+      syncPreviewRows, syncPreviewHas: syncPreviewRows.length > 0, syncPreviewTotal: String(syncPreviewTotal),
+      syncAbstain, syncCoveragePct: String(syncCoveragePct), syncBusy: !!st.syncBusy,
+      confirmSyncLabel: st.syncBusy ? 'Syncing…' : 'Confirm & export',
+      closeSyncModal, confirmSync,
       // ── Source Explorer home view (three columns) ──
       // left rail: workspace header + Quick Access shelves + folder tree + vault meter
       wsName, wsInitial: (wsName[0] || '·').toUpperCase(), wsSourceCount: String(drive.length),

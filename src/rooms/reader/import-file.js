@@ -31,7 +31,7 @@ const IN = () => import(new URL('../../organs/in/index.js', import.meta.url).hre
 // The MIDI reader is a pure, dependency-free local module (no CDN, no browser API), so —
 // unlike the heavy extractors — it is safe to bind statically; the summary uses its
 // pitch-namer directly rather than a lazily-rebound global.
-import { parseMidi, midiNoteName } from './midi.js';
+import { parseMidi, midiNoteName } from './midi.js'; import { fromSubtitle } from './import-subtitle.js';
 
 // WebGPU if the browser offers it, else WASM — the same probe transcribe.html uses.
 let _device = null;
@@ -42,12 +42,10 @@ const device = async () => {
   return _device;
 };
 
-const TEXT_EXT  = ['txt', 'md', 'markdown', 'text', 'log', 'rst'];
-const HTML_EXT  = ['html', 'htm', 'xhtml'];
+const TEXT_EXT  = ['txt', 'md', 'markdown', 'text', 'log', 'rst'], HTML_EXT = ['html', 'htm', 'xhtml'];
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
-const AUDIO_EXT = ['mp3', 'm4a', 'wav', 'ogg', 'oga', 'flac', 'aac', 'opus', 'weba'];
-const VIDEO_EXT = ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v'];
-const MIDI_EXT  = ['mid', 'midi', 'smf', 'kar', 'rmi'];
+const AUDIO_EXT = ['mp3', 'm4a', 'wav', 'ogg', 'oga', 'flac', 'aac', 'opus', 'weba'], VIDEO_EXT = ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v'];
+const MIDI_EXT  = ['mid', 'midi', 'smf', 'kar', 'rmi'], SUBTITLE_EXT = ['srt', 'vtt'];
 const extOf  = (name) => (String(name || '').split('.').pop() || '').toLowerCase();
 const titleOf = (name) => String(name || 'file').replace(/\.[^.]+$/, '');
 
@@ -58,6 +56,8 @@ export async function importAnyFile(file, opts = {}) {
   const mime = (file.type || '').toLowerCase();
   const title = titleOf(name);
   const say = typeof opts.onProgress === 'function' ? opts.onProgress : () => {};
+
+  if (mime.includes('subrip') || mime.includes('vtt') || SUBTITLE_EXT.includes(ext)) { say('Reading the captions…'); return await fromSubtitle(file, title, name); }   // timed cues (import-subtitle.js) — checked before plain-text below
 
   // TEXT / Markdown — no extractor, no module load.
   if (mime.startsWith('text/plain') || TEXT_EXT.includes(ext)) {
