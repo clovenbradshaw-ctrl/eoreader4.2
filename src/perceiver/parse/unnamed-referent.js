@@ -1,21 +1,21 @@
-// EO: INS·SYN·EVA·DEF(Void → Entity,Network, Composing) — the dark-referent read
-// FINDING THE FIGURE THAT HAS NO NAME. The capital scanner (entities.js) anchors on a proper name;
-// the uncased read (uncased.js) on the case-particle a nameless script marks its figures with —
-// both assume the figure has a NAME the writing spells somewhere. Many never do: Frankenstein's
-// *creature* is only ever "the creature", "the monster", "the wretch" — a definite description and a
-// hail of pronouns, no proper name — so the name scan admits nothing and half the novel's protagonist never enters the graph.
+// EO: INS·SYN·EVA·DEF(Void → Entity,Network, Composing) — a referent pointed at without a name
+// A REFERENT IS NEVER IN THE TEXT. It is a centre of mass the mind mints to point at something out
+// there; every surface — name, definite description, pronoun — is one of its MANIFESTATIONS, none
+// privileged. There is no "light" referent (with a name) and no "dark" one (without): every referent
+// is pointed at, and a name is merely the brightest handle one may wear.
+// The capital scanner (entities.js) and the uncased read (uncased.js) are conveniences that anchor
+// on that bright handle because it is cheapest. When a figure wears none — Frankenstein's *creature*
+// is only ever "the creature", "the monster", "the wretch" and a hail of pronouns — the convenience
+// finds nothing, yet the referent is as present as any named one. This leaf finds that SAME centre
+// by the only manifestations it has: the descriptions and pronouns that point at it.
 //
-// You cannot see the body; you can see the GRAVITY WARPING AROUND IT — a dark mass read off the
-// orbits it bends. A nameless figure bends the discourse as a named one does: a description the text
-// keeps RETURNING to, standing where an AGENT stands (a subject that ACTS — "the creature
-// stretched"), carrying a mass that RIVALS the named cast. That warp (recurrence × agency × mass) is
-// the signature — the same read entities.js/grain.js run, with no name at its centre. It is the
-// SETTING's opposite: "the room" recurs too but is moved THROUGH — oblique, never acting — so the
-// figure test (subject-dominant) separates the creature from the room, and the MASS gate keeps an
-// incidental "the soldier" out. A crucial NON-fire: where a description already orbits a NAMED star
-// it is that star's — in *Metamorphosis* "the creature" IS Gregor, and beside a name sighted 25× an
-// unnamed description sighted twice never clears star-scale, so no phantom is minted. And an elided
-// adjective ("the old") is refused a body outright (modifier-law.js) — a modifier is not a figure.
+// You read it off the orbits it bends: a description the text keeps RETURNING to, standing where an
+// AGENT stands (a subject that ACTS — "the creature stretched"), carrying real mass. That is the
+// ordinary signature of a referent (recurrence × agency), the same read entities.js/grain.js run,
+// with no name at its centre. It is the SETTING's opposite: "the room" recurs too but is moved
+// THROUGH — oblique, never acting — so the figure test (subject-dominant) separates the creature
+// from the room. An elided adjective ("the old") is refused outright (modifier-law.js). And where a
+// description already orbits a NAMED centre it is that centre's — in *Metamorphosis* "the creature" IS Gregor.
 //
 // MECHANICAL AND MODELLESS, like every leaf here: it names the body by its own dominant description
 // ("the creature"). Whether "the monster" and "the wretch" are the SAME body is world knowledge the
@@ -49,7 +49,7 @@ const ABSTRACT_HEADS = new Set(['way', 'time', 'thing', 'matter', 'fact', 'case'
 const isContent = (w, C) => !!w && /^\p{Ll}[\p{Ll}'’]*$/u.test(w) && w.length >= 2 && !C.isFunction(w);
 
 // A stable id from a label — lowercased, spaces → hyphens, letters/numbers of any script kept.
-// The same normalisation entities.js's `idFor` uses, so a dark referent's id is minted exactly
+// The same normalisation entities.js's `idFor` uses, so an unnamed referent's id is minted exactly
 // like a named one's and the projection treats it identically.
 const idFor = (label) =>
   label.toLowerCase().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}-]/gu, '');
@@ -59,16 +59,16 @@ const idFor = (label) =>
 // over-eager stemmer merges distinct heads, the error this read most wants to avoid.
 const singular = (h) => (h.length > 4 && h.endsWith('s') && !h.endsWith('ss')) ? h.slice(0, -1) : h;
 
-// discoverDarkReferents(sentences, opts) → proposal[]
+// discoverUnnamedReferents(sentences, opts) → proposal[]
 //   Each proposal: { id, label, head, count, subj, obl, mass, mentions:[sentIdx], surfaces:[form] }
 //   admission     the live entity admission (its counts/mentions give the named cast's mass, and
 //                 its admitted names are excluded so a name is never re-read as a description).
 //   conventions   the ledger the inhibitor classes are read from (function/starter/role/…).
 //   minSightings  a body must recur at least this often (a one-off description is not a figure).
 //   minAgency     subject-position sightings required — the figure test (it ACTS), not a setting.
-//   massFraction  the dark body's count must reach this fraction of the top named referent's, so
+//   massFraction  the unnamed body's count must reach this fraction of the top named referent's, so
 //                 only a STAR-SCALE nameless mass is inferred (the "a name should be here" gate).
-export const discoverDarkReferents = (sentences, {
+export const discoverUnnamedReferents = (sentences, {
   admission, conventions,
   minSightings = 3, minAgency = 2, massFraction = 0.5,
 } = {}) => {
@@ -83,7 +83,7 @@ export const discoverDarkReferents = (sentences, {
   };
   const isModifierHead = censusModifiers(sentences, C);   // an elided adjective ("the old") is no body (modifier-law.js)
 
-  // The named cast's mass — the top merged referent's sighting count. A dark body is measured
+  // The named cast's mass — the top merged referent's sighting count. An unnamed body is measured
   // against this: it must rival a real name, not merely recur. Read off the admission's own
   // mention stream (post-merge), so an aliased name ("Victor"/"Frankenstein") counts once.
   let topNamed = 0;
@@ -143,23 +143,23 @@ export const discoverDarkReferents = (sentences, {
       surfaces: [...h.surfaces.keys()],
     });
   }
-  // the heaviest dark body first — the protagonist the name scan lost.
+  // the heaviest body first — the referent the name scan could not anchor.
   out.sort((a, b) => b.mass - a.mass || b.subj - a.subj || (a.label < b.label ? -1 : 1));
   return out;
 };
 
-export { idFor as darkReferentId };
+export { idFor as unnamedReferentId };
 
 // ── The coreference fold — many descriptions, one nameless body ─────────────
 // The mechanics find each recurring nameless description on its own ("the creature", "the
 // wretch", "the monster"). Whether they are ONE body is world knowledge the read abstains on —
 // deferred to `nameReferent` when a talker is present. Absent one, the DEFAULT reading folds
-// every surviving dark body onto the HEAVIEST: a document almost never carries two nameless
+// every surviving unnamed body onto the HEAVIEST: a document almost never carries two nameless
 // star-scale protagonists, so "the wretch" is the creature under another description. The one
 // refusal keeps the honest case apart — two descriptions that each stand as a SUBJECT (the head
 // immediately followed by a content word) in the SAME sentence are two figures on stage at once
 // ("the plaintiff alleges … the defendant denies"), and are left as distinct bodies. The fold is
-// PROPOSED here; admitDarkReferents commits it as a DEFEASIBLE SYN, overturnable like a surname.
+// PROPOSED here; admitUnnamedReferents commits it as a DEFEASIBLE SYN, overturnable like a surname.
 // The word after a description that is NOT its verb — a particle ("drove the wretch AWAY"), a
 // preposition ("the creature IN the woods"), or a bleached adverb/connector. A follower in this
 // class means the description did not ACT there, so it does not witness two figures on stage.
@@ -181,17 +181,17 @@ const bothActInOneSentence = (sentences, headA, headB, C) => {
   return false;
 };
 
-// foldDarkReferents(proposals, sentences, C) → proposals
+// foldUnnamedReferents(proposals, sentences, C) → proposals
 //   The heaviest body absorbs each other body it does not co-act with; each absorbed body rides
 //   on as a `mergedFrom` alias (carrying its head, so its description surface can be registered),
 //   and the survivor's mentions are the union. A genuinely distinct nameless figure (the co-actor)
 //   is kept as its own body. Idempotent-shaped: with 0/1 proposals, or no fold, the input stands.
-export const foldDarkReferents = (proposals, sentences = [], C = { isFunction: () => false }) => {
+export const foldUnnamedReferents = (proposals, sentences = [], C = { isFunction: () => false }) => {
   if (!Array.isArray(proposals) || proposals.length < 2) return proposals;
   const sorted = [...proposals].sort((a, b) => (b.mass || 0) - (a.mass || 0) || (a.label < b.label ? -1 : 1));
   const primary = sorted[0];
-  const distinct = [];       // dark bodies that ACT alongside the primary → not the same figure
-  const folded = [];         // dark bodies with no such conflict → the primary under another description
+  const distinct = [];       // unnamed bodies that ACT alongside the primary → not the same figure
+  const folded = [];         // unnamed bodies with no such conflict → the primary under another description
   for (const p of sorted.slice(1))
     (bothActInOneSentence(sentences, primary.head, p.head, C) ? distinct : folded).push(p);
   if (!folded.length) return proposals;
@@ -202,7 +202,7 @@ export const foldDarkReferents = (proposals, sentences = [], C = { isFunction: (
   return [{ ...primary, mentions, surfaces, mergedFrom }, ...distinct];
 };
 
-// admitDarkReferents(ctx) — the pipeline's whole dark-referent pass, kept in this holon so the
+// admitUnnamedReferents(ctx) — the pipeline's whole unnamed-referent pass, kept in this holon so the
 // orchestrator gains only a call. Detects the nameless bodies (above), lets an injected
 // `nameReferent(proposals,{sentences}) → proposals` hook rename/fold them (ideally the talker;
 // the mechanical labels stand if it is absent or throws), then admits each like a scanned name:
@@ -210,17 +210,17 @@ export const foldDarkReferents = (proposals, sentences = [], C = { isFunction: (
 // folding any hook-merged synonym onto the body, and a defeasible figure-grain DEF. Returns the
 // last INS `{ id, sentIdx }` so the orchestrator can advance its arrow of time. Pure but for the
 // log/admission/coref it is handed — the same injected-substrate discipline the pipeline uses.
-export const admitDarkReferents = ({ sentences, admission, conventions, corefField, log, emit,
+export const admitUnnamedReferents = ({ sentences, admission, conventions, corefField, log, emit,
                                      nameReferent, npEndpoints } = {}) => {
-  if (!log || !admission) return { lastIns: null, darkRefs: [] };
-  let proposals = discoverDarkReferents(sentences, { admission, conventions });
+  if (!log || !admission) return { lastIns: null, unnamedRefs: [] };
+  let proposals = discoverUnnamedReferents(sentences, { admission, conventions });
   if (proposals.length && typeof nameReferent === 'function') {
     try { const named = nameReferent(proposals, { sentences }); if (Array.isArray(named)) proposals = named; }
     catch { /* naming is optional — the mechanical labels stand */ }
   } else if (proposals.length > 1) {
     // No talker: fold the coreferent descriptions onto one body, mechanically and defeasibly.
     const C = { isFunction: (w) => conventions?.isFunction?.(w) ?? false };
-    proposals = foldDarkReferents(proposals, sentences, C);
+    proposals = foldUnnamedReferents(proposals, sentences, C);
   }
   // The np-object endpoints the main read already emitted (ids the relation parser minted from
   // a bare description in OBJECT position, e.g. "Frankenstein pursued the wretch" → tgt "wretch").
@@ -229,13 +229,13 @@ export const admitDarkReferents = ({ sentences, admission, conventions, corefFie
   const npEnd = npEndpoints instanceof Set ? npEndpoints : new Set();
   const headOf = (label) => { const t = String(label || '').trim().toLowerCase().split(/\s+/); return singular(t[t.length - 1] || ''); };
   let lastIns = null;
-  const darkRefs = [];
+  const unnamedRefs = [];
   for (const p of proposals) {
     if (!p || !p.label || !Array.isArray(p.mentions) || !p.mentions.length) continue;
     let id = null;
     for (const si of p.mentions) {
       id = admission.admit(p.label, si);
-      log.append({ op: 'INS', id, label: p.label, sentIdx: si, kind: 'dark' }, emit);
+      log.append({ op: 'INS', id, label: p.label, sentIdx: si }, emit);   // shape-identical to a name's INS — no species tag
       corefField?.note?.(id, si);
       lastIns = { id, sentIdx: si };
     }
@@ -245,9 +245,9 @@ export const admitDarkReferents = ({ sentences, admission, conventions, corefFie
       const aliasId = admission.admit(alias.label, p.mentions[0]);
       if (aliasId && aliasId !== id) {
         const syn = log.append({ op: 'SYN', kind: 'merge', from: aliasId, to: id, label: p.label,
-                                 sentIdx: 0, match: 'dark-alias', warrant: 'coreference' }, emit);
+                                 sentIdx: 0, match: 'unnamed-alias', warrant: 'coreference' }, emit);
         log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
-                     reason: 'dark-referent-coreference', sentIdx: 0 }, emit);
+                     reason: 'unnamed-referent-coreference', sentIdx: 0 }, emit);
       }
     }
     // Register every description HEAD this body wears — its own and each merged alias's — onto the
@@ -259,14 +259,14 @@ export const admitDarkReferents = ({ sentences, admission, conventions, corefFie
       admission.aliasTo?.(h, id);
       if (idFor(h) !== id && npEnd.has(h)) {
         const syn = log.append({ op: 'SYN', kind: 'merge', from: idFor(h), to: id, label: p.label,
-                                 sentIdx: 0, match: 'dark-surface', warrant: 'description' }, emit);
+                                 sentIdx: 0, match: 'unnamed-surface', warrant: 'description' }, emit);
         log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
-                     reason: 'dark-referent-description', head: h, sentIdx: 0 }, emit);
+                     reason: 'unnamed-referent-description', head: h, sentIdx: 0 }, emit);
       }
     }
     log.append({ op: 'DEF', id, key: 'grain', value: 'figure', grain: 'Figure',
-                 cue: 'dark-referent', defeasible: true, sentIdx: 0 }, emit);
-    darkRefs.push({ id, label: p.label, head: p.head, heads, mentions: [...p.mentions].sort((a, b) => a - b) });
+                 cue: 'unnamed-referent', defeasible: true, sentIdx: 0 }, emit);
+    unnamedRefs.push({ id, label: p.label, head: p.head, heads, mentions: [...p.mentions].sort((a, b) => a - b) });
   }
-  return { lastIns, darkRefs };
+  return { lastIns, unnamedRefs };
 };

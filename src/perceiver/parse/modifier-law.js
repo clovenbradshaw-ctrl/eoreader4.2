@@ -12,7 +12,7 @@
 // word is in the MODIFIER slot only when the word after it is a DETERMINER-TAKER (a head the text
 // elsewhere fronts with the/a); otherwise it is in the HEAD slot.
 //
-// Shared leaf: any description read (dark-referent, uncased, the referent layer's mention scan) can
+// Shared leaf: any description read (unnamed-referent, uncased, the referent layer's mention scan) can
 // refuse a modifier-dominated head the same way, so the law lives once here, not per silo.
 
 const DET  = String.raw`(?:[Tt]he|[Aa]n?)`;

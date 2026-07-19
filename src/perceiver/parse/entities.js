@@ -711,7 +711,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
       return id;
     },
     // Point a surface at an ALREADY-KNOWN referent id, the way registerInitialism re-points a
-    // bare acronym onto its expansion. The dark-referent read uses it to register a nameless
+    // bare acronym onto its expansion. The unnamed-referent read uses it to register a nameless
     // figure's description HEADS ("creature", "wretch") on the ONE body it admitted, so the
     // relation parser's definite-common-noun subject path (relations.js: "the creature <verb>")
     // resolves them to that body when the read is re-run at the retroactive cursor. Never mints

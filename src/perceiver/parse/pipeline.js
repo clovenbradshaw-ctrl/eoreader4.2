@@ -29,7 +29,7 @@ import { discoverNamings }      from './naming.js';
 import { distinctReferentCount } from './name-variants.js';
 import { induceInflections } from './inflection.js';
 import { discoverUncasedReferents } from './uncased.js';
-import { admitDarkReferents } from './dark-referent.js';
+import { admitUnnamedReferents } from './unnamed-referent.js';
 import { readUncasedGrain } from './grain.js';
 import { induceAdpositions } from './adpositions.js';
 import { buildReferents }       from '../referents/index.js';
@@ -129,13 +129,13 @@ export const createParser = ({
   // edges) and it abstains — no event — wherever the signal is not clean, the no-commit
   // discipline; the full suite reads identically with it on. Off restores the ungraded log.
   grainRead          = true,
-  // The DARK-REFERENT read (dark-referent.js) — admit a figure that has NO proper name, only a
-  // definite description the text keeps returning to ("the creature"), detected by the gravity
-  // warping around it (recurrence × subject-agency × star-scale mass). OFF by default → byte-
-  // identical (the gate is distributional, not a hard binary like the uncased read's, so it could
-  // nudge a golden); the reader turns it ON (organs/in/text.js). `nameReferent` is the optional
-  // injected hook (ideally the talker) that may rename/fold bodies before they are admitted.
-  darkReferents      = false,
+  // A referent has no name of its own — a name is just its brightest manifestation (unnamed-
+  // referent.js). This resolves a figure that wears none, only a description the text keeps returning
+  // to ("the creature"), off the descriptions and pronouns that point at it (recurrence × subject-
+  // agency). OFF by default HERE → a minimal, byte-identical parse (distributional, could nudge a
+  // golden); the reader turns it ON (organs/in/text.js) as ordinary reading. `nameReferent` is the
+  // optional injected hook (ideally the talker) that may rename/fold bodies before they are admitted.
+  unnamedReferents      = false,
   nameReferent       = null,
   // REFERENT-FIRST IDENTITY (perceiver/referents/). OFF by default → byte-identical (the whole
   // layer is skipped, no surface/denotation events are appended). Set to 'mention' to build the
@@ -810,32 +810,32 @@ export const createParser = ({
       }
     }
 
-    // ── The DARK-REFERENT read — admit the figure that has no name ──────────────
+    // ── Referents pointed at without a name — admit the figure the name scan can't see ──────────
     // LAST in finalize (purely additive — every event above is byte-identical) and after the whole
     // named cast is assembled (so a body's mass is measured against real, merged names). The whole
-    // pass lives in the dark-referent holon; it returns the last INS so the arrow of time advances.
-    if (darkReferents) {
+    // pass lives in the unnamed-referent holon; it returns the last INS so the arrow of time advances.
+    if (unnamedReferents) {
       // The np-object lemma ids the main read already minted from a bare description in object
-      // position — handed to the dark read so a folded head can union its orphaned node onto the body.
+      // position — handed to the read so a folded head can union its orphaned node onto the body.
       const npEndpoints = new Set();
       for (const { rel } of candidates)
         if ((rel.op === 'CON' || rel.op === 'SIG') && rel.tgtKind === 'np') npEndpoints.add(rel.tgt);
 
-      const dr = admitDarkReferents({ sentences, admission, conventions, corefField, log, emit: EMIT, nameReferent, npEndpoints });
+      const dr = admitUnnamedReferents({ sentences, admission, conventions, corefField, log, emit: EMIT, nameReferent, npEndpoints });
       if (dr.lastIns) lastIns = dr.lastIns;
 
       // ── The retroactive structure re-read — the second cursor ─────────────────────
       // The main read scanned each sentence in READING ORDER, where a nameless figure's
       // description was not yet a referent, so "the creature stretched…" bonded NOTHING — the
-      // subject slot fell to silence. admitDarkReferents has since admitted the body and
+      // subject slot fell to silence. admitUnnamedReferents has since admitted the body and
       // registered its description heads. Now re-read ONLY the sentences that mention it, with
       // pronoun coref OFF (the descriptions resolve on their own; the pronouns were read in the
       // main pass), and append every SUBJECT-side bond the referent now anchors. This is a
       // DIFFERENT cursor than the course of the text: the record realizes, after the fact, what
       // the reading was doing — the same append-only move the surname unmerge makes, adding real
       // relational structure under the referent rather than a cosmetic identity merge over it.
-      if (dr.darkRefs && dr.darkRefs.length) {
-        const darkIds = new Set(dr.darkRefs.map((d) => d.id));
+      if (dr.unnamedRefs && dr.unnamedRefs.length) {
+        const unnamedIds = new Set(dr.unnamedRefs.map((d) => d.id));
         const edgeKey = (r) => r.op === 'DEF' ? `DEF|${r.id}|${r.value}` : `${r.op}|${r.src}|${r.tgt}|${r.via || ''}`;
         const seen = new Set(candidates.map(({ rel }) => edgeKey(rel)));
         // A coref with an empty field and no deixis: a description-surface or a name resolves, a
@@ -844,12 +844,12 @@ export const createParser = ({
         const staticCoref = { field: () => [], resolve: () => null, lastIns: () => null };
         const relRead = { isSpeech, isCopula: conventions.isCopula, isModifier: conventions.isModifier,
                           isConjunction: conventions.isConjunction, referents: true, coordSubjects, totalRead };
-        const mentionSents = [...new Set(dr.darkRefs.flatMap((d) => d.mentions))].sort((a, b) => a - b);
+        const mentionSents = [...new Set(dr.unnamedRefs.flatMap((d) => d.mentions))].sort((a, b) => a - b);
         for (const si of mentionSents) {
           const sent = sentences[si];
           if (sent == null) continue;
           for (const rel of parseRelations(sent, admission, staticCoref, { ...relRead, sentIdx: si })) {
-            const anchors = rel.op === 'DEF' ? darkIds.has(rel.id) : (darkIds.has(rel.src) || darkIds.has(rel.tgt));
+            const anchors = rel.op === 'DEF' ? unnamedIds.has(rel.id) : (unnamedIds.has(rel.src) || unnamedIds.has(rel.tgt));
             if (!anchors) continue;   // own structure: subject, and (total read) object of a figure's act
             const k = edgeKey(rel);
             if (seen.has(k)) continue; seen.add(k);       // never double-count a bond the main read made
@@ -879,7 +879,7 @@ export const createParser = ({
 
     const tokensBySentence = sentences.map(s => new Set(tok(s)));
 
-    // REFERENT-FIRST IDENTITY — built LAST, once the whole read (and its dark referents / merges)
+    // REFERENT-FIRST IDENTITY — built LAST, once the whole read (and its unnamed referents / merges)
     // is on the log, so the mention→referent quotient seeds from the finished label quotient. OFF
     // → skipped entirely, so the doc and log are byte-identical (acceptance 10).
     const referentApi = referentIdentity === 'mention'

@@ -22,8 +22,8 @@ export { argumentSpanSeg, positionElements, argumentSpansHold,
 export { nameTokens, isSubsequence, clusterAnchors, distinctReferentCount, epithetReducedHead } from './name-variants.js';
 export { TITLE_WORDS } from './entities.js';
 export { discoverUncasedReferents, discoverUncasedRelations } from './uncased.js';
-export { discoverDarkReferents, admitDarkReferents, darkReferentId } from './dark-referent.js';
-export { proposeReferentNames } from './dark-referent-name.js';
+export { discoverUnnamedReferents, admitUnnamedReferents, unnamedReferentId } from './unnamed-referent.js';
+export { proposeReferentNames } from './unnamed-referent-name.js';
 export { readGrain, readUncasedGrain } from './grain.js';
 export { induceAdpositions } from './adpositions.js';
 export { createDeixisFrame } from './deixis.js';

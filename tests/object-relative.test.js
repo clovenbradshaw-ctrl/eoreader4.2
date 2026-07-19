@@ -11,7 +11,7 @@ import { parseText } from '../src/perceiver/parse/index.js';
 // relative clause is still read. The person-relation is exactly what a figure test needs to tell a
 // creature (acts on / is acted on by people) from a setting (the sun, which takes none).
 
-// The creature recurs enough (with agency) to be admitted as a dark figure, so "the creature" is a
+// The creature recurs enough (with agency) to be admitted as an unnamed-referent figure, so "the creature" is a
 // resolvable HEAD the relative clause can hang off.
 const T = [
   'Victor Frankenstein toiled for months.',
@@ -29,8 +29,8 @@ const edges = (doc) => (doc.log.snapshot ? doc.log.snapshot() : doc.log.events)
 const has = (evs, via, tgtRe) => evs.some((e) => e.via === via && tgtRe.test(String(e.tgt)));
 
 test('an object-relative emits SUBJECT –verb→ antecedent (the fronted object)', () => {
-  const doc = parseText(T, { docId: 'or', darkReferents: true, totalRead: true });
-  assert.ok(doc.admission.isAdmitted('creature'), 'the creature is a dark figure (a resolvable head)');
+  const doc = parseText(T, { docId: 'or', unnamedReferents: true, totalRead: true });
+  assert.ok(doc.admission.isAdmitted('creature'), 'the creature is an unnamed-referent figure (a resolvable head)');
   const evs = edges(doc);
   // "the creature whom Victor had created escaped" → Victor –created→ the creature
   const created = evs.find((e) => e.via === 'created' && /creature/.test(String(e.tgt)));
@@ -44,15 +44,15 @@ test('an object-relative emits SUBJECT –verb→ antecedent (the fronted object
 });
 
 test("HEAD's own main verb after the relative clause is still read", () => {
-  const doc = parseText(T, { docId: 'or', darkReferents: true, totalRead: true });
+  const doc = parseText(T, { docId: 'or', unnamedReferents: true, totalRead: true });
   // "the creature whom Victor pursued FLED north" → the creature –fled→ north
   assert.ok(edges(doc).some((e) => e.via === 'fled' && /creature/.test(String(e.src))),
     'the matrix verb (fled) binds the creature as its subject, past the embedded relative clause');
 });
 
 test('OFF the total read the object-relative adds nothing (byte-identical path)', () => {
-  const on  = parseText(T, { docId: 'or', darkReferents: true, totalRead: true });
-  const off = parseText(T, { docId: 'or', darkReferents: true });
+  const on  = parseText(T, { docId: 'or', unnamedReferents: true, totalRead: true });
+  const off = parseText(T, { docId: 'or', unnamedReferents: true });
   assert.ok(has(edges(on), 'created', /creature/), 'on: the buried edge is recovered');
   assert.ok(!edges(off).some((e) => e.via === 'created' && /creature/.test(String(e.tgt))),
     'off: no object-relative edge is invented (the total read gates it)');

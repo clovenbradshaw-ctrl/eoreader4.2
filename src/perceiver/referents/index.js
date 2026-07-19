@@ -70,7 +70,7 @@ export const buildReferents = ({ log, sentences, admission, corefField, docId = 
 
   // ── Seed: emit one denotes per resolvable mention ──────────────────────────────
   // A NAME resolves to the firm root of its admitted id; a DESCRIPTION to the figure its head was
-  // admitted as (a dark referent / common noun), else it opens a HELD referent of its own; a
+  // admitted as (a unnamed referent / common noun), else it opens a HELD referent of its own; a
   // PRONOUN/DEIXIS resolves through the coreference field at its sentence, if that field is
   // concentrated enough to name one referent. Nothing borrows a label it did not earn — an
   // unresolved anaphor stays held (referentOf → null), an identity void, never a silent merge.
@@ -87,7 +87,7 @@ export const buildReferents = ({ log, sentences, admission, corefField, docId = 
         seedDenote(m.id, refForRoot(root), 'legacy-label-quotient', 0.95, ['name-admission']);
       }
     } else if (m.form === 'description') {
-      // A description whose head was admitted as a figure (a dark referent / common noun) denotes
+      // A description whose head was admitted as a figure (a unnamed referent / common noun) denotes
       // that figure; an ordinary setting-description ("the room") stays HELD.
       if (admission.isAdmitted(m.normalized)) {
         const root = rep(admission.idOf(m.normalized));
@@ -258,7 +258,7 @@ export const buildReferents = ({ log, sentences, admission, corefField, docId = 
         if (e.srcKind === 'prop' || e.tgtKind === 'prop') continue;   // proposition-to-proposition links
         const srcRef = rootToRef(rep(e.src));
         // The target resolves to a referent through the SAME rep→ref path — including an np-lemma
-        // node the dark read unioned onto a figure ("the wretch" pursued → the creature). Only when
+        // node the unnamed-referent read unioned onto a figure ("the wretch" pursued → the creature). Only when
         // no referent claims it does the bare lemma stand as the endpoint (a genuine np referent).
         const tgtRef = rootToRef(rep(e.tgt)) || e.tgt;
         if (!srcRef) continue;   // subject is not a referent figure (an np subject etc.)
