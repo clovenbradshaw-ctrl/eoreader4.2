@@ -296,6 +296,12 @@ table{border-collapse:collapse;width:100%}
   /* Tighten the five primary tabs so they fit without clipping the active one (Pins was cut to
      "P" when count badges widened the row); the rail still scrolls if source tabs are added. */
   .eo-tabbar .eo-scroll>button{padding:0 9px !important;gap:5px !important}
+  /* The source-viewer toolbar (mode chips +, in Reader mode, a second row of font/width/theme
+     controls) had no mobile treatment: with nothing to stop it wrapping, up to 16 buttons stacked
+     into several rows and ate most of the screen before any document content showed. Same fix as
+     the tab rail above — one row, scrolled horizontally, nothing squeezed. */
+  .eo-viewerbar{flex-wrap:nowrap !important;overflow-x:auto !important;-webkit-overflow-scrolling:touch;margin-left:-2px;padding:0 2px 3px}
+  .eo-viewerbar>*{flex:0 0 auto !important}
   .eo-chatscroll{padding:18px 12px !important}
   .eo-composer{padding:10px 10px calc(10px + env(safe-area-inset-bottom)) !important}
   .eo-chatinput{font-size:16px !important}
@@ -2152,7 +2158,7 @@ table{border-collapse:collapse;width:100%}
                 <sc-if value="{{ viewer.hasUrl }}"><a href="{{ viewer.url }}" target="_blank" rel="noopener" style="flex:0 0 auto;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:#5B4BE6;text-decoration:none">original ↗</a></sc-if>
                 <button onClick="{{ removeViewerSource }}" title="Remove from the record" style="flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#B23A2E" style-hover="background:#FBE9E6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
               </div>
-              <div style="display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap">
+              <div class="eo-viewerbar" style="display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap">
                 <span style="display:flex;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:2px">
                   <sc-if value="{{ viewerIsAudio }}"><button onClick="{{ viewerModeListen }}" title="Listen — player, waveform + interactive transcript" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmListenFg }};background:{{ vmListenBg }}">Listen</button></sc-if>
                   <sc-if value="{{ viewer.isPdf }}"><button onClick="{{ viewerModePdf }}" title="The pages themselves — the document as a PDF" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmPdfFg }};background:{{ vmPdfBg }}">PDF</button></sc-if>
@@ -2815,7 +2821,7 @@ table{border-collapse:collapse;width:100%}
                   </div>
                 </sc-if>
                 <sc-if value="{{ pdfShow }}">
-                  <iframe src="{{ pdfUrl }}" title="{{ viewer.title }}" style="width:100%;height:100%;border:none;display:block;background:#525659"></iframe>
+                  <div ref="{{ setPdfViewEl }}" title="{{ viewer.title }}" style="width:100%;height:100%;overflow:hidden;background:#525659"></div>
                 </sc-if>
               </div>
             </sc-if>
@@ -9020,6 +9026,30 @@ class Component extends DCLogic {
       el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Byte structure failed to mount: ' + String((e && e.message) || e) + '</div>';
     }
   }
+  // The PDF tab's host — pdf.js draws each page to its own canvas (window.EO.pdfView), replacing
+  // the old blob:-iframe surface that read blank on Android Chrome / iOS Safari. Same ref idiom as
+  // Structure: re-scopes in place when the active source changes, destroyed and re-mounted only
+  // when the container itself changes.
+  setPdfViewEl(el) {
+    if (!el) return;
+    const sn = this._activeSrc ? this._activeSrc() : null;
+    const fresh = this._pdfViewEl !== el;
+    if (!fresh && this._pdfViewSn === sn) return;
+    this._pdfViewEl = el; this._pdfViewSn = sn;
+    try {
+      const P = window.EO && window.EO.pdfView;
+      if (!P || !P.mount) { el.innerHTML = '<div style="padding:22px;color:#D8D8DE;font-size:13px">The PDF surface is not available.</div>'; return; }
+      if (fresh || !this._pdfView) {
+        try { this._pdfView && this._pdfView.destroy(); } catch {}
+        el.innerHTML = '';
+        this._pdfView = P.mount(el, { app: this._app, sn });
+      } else {
+        this._pdfView.show(sn);
+      }
+    } catch (e) {
+      el.innerHTML = '<div style="padding:22px;color:#f2b8ae;font-size:12.5px">PDF surface failed to mount: ' + String((e && e.message) || e) + '</div>';
+    }
+  }
   // Research Review (docs/research-review.md) — mounted the same way Structure is: a ref'd
   // container, one live handle, destroyed and re-mounted only when the container itself changes
   // (show() re-scopes to a new review topic in place, same idiom as setStructureEl's show(sn)).
@@ -11813,6 +11843,7 @@ class Component extends DCLogic {
       viewerModeFacing: () => this.setSourceMode('facing'), viewerModeEot: () => this.setSourceMode('eot'),
       viewerModeStructure: () => this.setSourceMode('structure'),
       setStructureEl: (el) => this.setStructureEl(el),
+      setPdfViewEl: (el) => this.setPdfViewEl(el),
       viewerModeGraph: () => this.setSourceMode('graph'),
       setSourceGraphEl: (el) => this.setSourceGraphEl(el),
       viewerModeListen: () => this.setSourceMode('listen'), viewerModePdf: () => this.setSourceMode('pdf'),
