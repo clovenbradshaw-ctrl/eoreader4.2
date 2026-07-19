@@ -137,3 +137,49 @@ export const induceAttributions = (conventions, segments) => {
   for (const { token, count } of fr.sourceNouns) conventions.learnSourceNoun(token, count);
   return fr;
 };
+
+// ── Pass 0 (cont.) — calendar-token induction ──────────────────────────────────────────────
+// A citation-heavy source (a government report's endnotes: "Jan. 5, 2004") capitalises the
+// month before nearly every date, and a bare month recurring hundreds of times earns admission
+// gravity the same way any other capitalised word does (§ entities.js sightingGravity's
+// preposition cue — "on July 5" is shaped exactly like "unto Noah"). The SEED calendar register
+// (ledger.js SEED_CALENDAR) already denies the unambiguous months; it deliberately OMITS
+// March–August because those words double as real given names (April, June, August…) and a
+// blanket seed would cost a document that uses one as a person's name. This pass reads the
+// DOCUMENT'S OWN numerals instead of a list: a capitalised token running beside a day-of-month
+// or a year FAR more often than not is a date in THIS document, whatever the word is and in
+// whatever language — the shape is a numeral, never an English month name.
+const CAL_TOKEN = /\p{Lu}[\p{Ll}]*\.?/gu;
+// A day-of-month (optional, with an ordinal suffix or trailing comma) followed by a plausible
+// year — "5, 2001" / "2001" / "15, 2004" — right after the token (an optional abbreviation dot
+// first). No day is required ("July 2001"); no comma is required ("Apr 15 2004").
+const DATE_TAIL = /^\.?\s+(?:\d{1,2}(?:st|nd|rd|th)?,?\s+)?(?:1[5-9]|20)\d{2}\b/;
+
+export const induceCalendarTokens = (segments, { minCount = 4, minRate = 0.5 } = {}) => {
+  const total = new Map();   // normalised token → occurrences
+  const dated = new Map();   // normalised token → occurrences immediately beside a date numeral
+  for (const s of segments) {
+    const seg = String(s || '');
+    const re = new RegExp(CAL_TOKEN.source, CAL_TOKEN.flags);
+    let m;
+    while ((m = re.exec(seg)) !== null) {
+      const tok = m[0].replace(/\.$/, '').toLowerCase();
+      if (tok.length < 3) continue;
+      total.set(tok, (total.get(tok) || 0) + 1);
+      if (DATE_TAIL.test(seg.slice(m.index + m[0].length))) dated.set(tok, (dated.get(tok) || 0) + 1);
+    }
+  }
+  const out = [];
+  for (const [tok, n] of total) {
+    const d = dated.get(tok) || 0;
+    if (n >= minCount && (d / n) >= minRate) out.push({ token: tok, count: d });
+  }
+  return out.sort((a, b) => b.count - a.count);
+};
+
+// One call the parse pipeline runs alongside induceAttributions — each learned token becomes a
+// counted, defeasible REC entry in the SAME 'calendar' register the seed occupies, so
+// C.isCalendar (entities.js sightingGravity) denies it gravity exactly as a seeded month would.
+export const induceCalendar = (conventions, segments) => {
+  for (const { token, count } of induceCalendarTokens(segments)) conventions.learnCalendar(token, count);
+};

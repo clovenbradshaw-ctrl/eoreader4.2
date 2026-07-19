@@ -484,6 +484,13 @@ export const createConventions = ({ seeds = true, inherit = null, induce = null,
     // A calendar token (weekday / month) — read by entity admission to deny referential
     // gravity ("reconvene Monday" is not a character), seed ∪ learned.
     isCalendar: (v) => has('calendar', v),
+    // learnCalendar feeds induceCalendar (conventions/induce.js) — a capitalised token this
+    // DOCUMENT'S own numerals show running mostly beside a day/year is a date, not a name.
+    // The seed omits the March–August family wholesale (they collide with real given names:
+    // April, June, August…); this teaches the ones a document's own citation habit vouches
+    // for, so "Jan Lodal" (the person) is untouched while bare "Jan." (the footnote month)
+    // stops feeding his mass.
+    learnCalendar: (token, weight = 1) => learn('calendar', token, weight),
     // A free-capital that names no person ("God", "Christmas") — read by the naming
     // discovery to refuse a coreference merge onto a non-person vocative, seed ∪ learned.
     isNonPerson: (v) => has('nonperson', v),

@@ -8,6 +8,26 @@ is reproduced by one probe, `probes/reading-diagnostic.mjs`, over the real
 deterministic. Each entry names the operator layer a fix would land on, so the backlog maps
 onto the codebase.
 
+## Status: P6's date-citation half is fixed — the calendar register is now document-taught
+
+`July`/`Apr`/`Mar`/`June` (and the abbreviated month family the seed omits — see P6 below) were
+admitting as bare figures off the report's endnote dates ("Jan. 5, 2004"), and — worse —
+inflating a REAL name that shares a month's spelling (`Jan Lodal`, a witness, absorbed every
+bare "Jan." citation in the document via the given-name alias, 2 genuine mentions → 506).
+`conventions/induce.js` now runs a Pass 0 calendar induction alongside the existing attribution
+induction: a capitalised token this document's own numerals show running mostly beside a
+day-of-month or year is taught into the SAME `calendar` register a seeded month already occupies
+(`ledger.js` `learnCalendar`), so `entities.js`'s existing `C.isCalendar` denial (already wired,
+previously starved of evidence for the March–August family the seed deliberately omits) now
+fires for THIS document's own dates. No month-name list — the signal is the numeral shape beside
+the token, so it generalises to any language's dates and never touches a document that uses the
+word as a person's name (a low date-adjacency rate teaches nothing). Measured: 911's `July`(397)
+/ `Apr`(363) / `June`(357) / `Mar`(345) drop out of the top-20 entirely, `Jan Lodal` falls from
+506 to its true mass; non-regression checked across all seven battery sources. Full suite green.
+The OTHER half of P6 — literal PDF furniture (running headers, page-footer stamps) — did not
+reproduce with the extraction used to verify this fix (extractor-dependent) and is still open;
+see P6 below for what it would take.
+
 ## Status: one law now covers P1, P2, P3, P7
 
 `entities.js` no longer treats apparatus as figures. Rather than a `{Enter, Exit, See, …}`
@@ -29,9 +49,10 @@ Measured: **P1** Don Quijote recovered (0 → #1, 2 057); **P2/P3** stage direct
 Verified non-regression on War & Peace (Natásha 1 175) and the 9/11 compounds. Full suite green.
 Residual (different law): a merged figure can still wear a weld as its canonical label
 (`Legitimate Edgar` = the complete Edgar entity) — a representative-label choice in `coref`.
-The remaining unfixed items below (**P4/P5** verse function words & structural headers, **P6/P8**
-PDF furniture & editorial apparatus, **P9** variant unification, **P10** Spanish enclitics,
-**P11** the void boundary) are still open.
+The remaining unfixed items below (**P4/P5** verse function words & structural headers, **P6**'s
+literal-furniture half & **P8** editorial apparatus, **P9** variant unification, **P10** Spanish
+enclitics, **P11** the void boundary) are still open — see the status note above P6's
+date-citation half, now fixed.
 
 ## The sources and why they were chosen
 
@@ -144,20 +165,41 @@ Quijote: Capítulo II…LXXIV  (70+ "Capítulo N" pseudo-figures)
 
 ---
 
-## P6 — PDF furniture is admitted as figures  (911)
+## P6 — PDF furniture is admitted as figures  (911)  — date-citation half FIXED
 
-Extraction of the GPO PDF leaves running headers and page footers inline; the reading admits them
-as top-20 figures:
+Two distinct phenomena were filed under one label; they turned out to need two different fixes.
+
+**The date-citation half (fixed, `conventions/induce.js` `induceCalendar`).** The report's
+endnotes cite dates in the shape `Jan. 5, 2004`; the capitalised month earns ordinary admission
+gravity (it sits as a preposition's object — "on July 5" — exactly the cue `unto Noah` earns) and
+recurs hundreds of times:
 
 ```
-July 386 · Apr 354 · June 349 · Mar 336     (month names from dated footnotes)
-PM Page 325 · AM Page 252                    (page-footer stamps "5:25 PM  Page ii")
-COMMISSION REPORT Final 93                    (running header)
-Jan Lodal 489                                 (a name inflated by "Jan" footnote stamps)
+July 397 · Apr 363 · June 357 · Mar 345      (month names from dated footnotes — GONE from top-20)
+Jan Lodal 506 → true mass                     (a witness's name absorbed "Jan." citations via
+                                                the given-name alias — Jan is a real given name)
 ```
 
-**Fix lands on:** an ingest-time **de-furniture** pass for PDF-born text (repeated header/footer
-lines, `\d+:\d\d [AP]M Page` stamps), before `parseText`. This is upstream of the operators.
+`entities.js` already denies admission gravity to a `C.isCalendar` token (`sightingGravity`), and
+the seed (`ledger.js` `SEED_CALENDAR`) already covers the unambiguous months — it deliberately
+OMITS the March–August family because those words double as real given names, and a blanket
+seed addition would cost any document that uses one as a person's name. The fix reads the
+DOCUMENT'S OWN evidence instead of extending the list: a Pass 0 induction
+(`induceCalendarTokens`) counts, per capitalised token, how often it runs beside a day-of-month
+or year numeral; a token whose own document shows that shape ≥50% of the time is taught into the
+same `calendar` register a seed entry occupies (`learnCalendar`), so `C.isCalendar` denies it
+exactly as if it had been seeded — and a document where the same spelling is mostly a person's
+name (low date-adjacency rate) teaches nothing. No month list; the signal is a numeral, so it is
+omnilingual. Verified non-regression on all seven battery sources plus the existing golden suite.
+
+**The literal-furniture half (still open).** Running headers/footers, page-footer stamps
+(`5:25 PM  Page ii`), and rotated/vertical photo-credit text did not reproduce with the PDF
+extraction used to verify the date-citation fix (pdfminer.six) — they are shaped differently by
+different extractors and this document's own running headers happened to fold harmlessly into
+existing figure mass rather than polluting the top-20. **Fix, if a future extraction resurfaces
+it, lands on:** an ingest-time **de-furniture** pass for PDF-born text (a line repeated
+near-verbatim across the document, or a bare page-number line, is boilerplate — frequency-based,
+not tied to one extractor's exact spacing), before `parseText`. Upstream of the operators.
 
 ---
 
@@ -245,9 +287,12 @@ Fixing P6 (de-furniture) upstream also repairs the coarse spine's titles.
 
 ## Suggested order of attack
 
-1. **P1** (Don Quijote protagonist) — highest reader-visible value, known fix template.
-2. **P2 + P3** (stage directions + speaker cues) — one frame mechanism, repairs all five plays.
-3. **P6 + P7 + P8** (PDF furniture, citation frames, apparatus) — one de-furniture pass repairs 911
-   and Tempest and the coarse-region titles.
-4. **P4, P5** (function words, structural headers) — omni-lingual filter tuning.
-5. **P9, P10, P11** — coref unification, Spanish enclitics, the void boundary.
+1. ~~**P1** (Don Quijote protagonist)~~ — done, the three-face moon law.
+2. ~~**P2 + P3** (stage directions + speaker cues)~~ — done, the same law.
+3. ~~**P7**~~ — done, the same law. ~~**P6 date-citations**~~ — done, `induceCalendar`.
+4. **P6 literal furniture + P8** (running headers/page stamps if a future extraction resurfaces
+   them; Tempest's editorial apparatus) — the frequency-based de-furniture pass described in P6,
+   and — separately — either a cleaner Tempest source or an apparatus-block detector for P8 (its
+   textual notes are not repeated lines, so P6's mechanism won't reach it unmodified).
+5. **P4, P5** (verse function words, structural headers) — omni-lingual filter tuning.
+6. **P9, P10, P11** — coref unification, Spanish enclitics, the void boundary.
