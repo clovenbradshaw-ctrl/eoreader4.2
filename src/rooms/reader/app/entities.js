@@ -166,18 +166,53 @@ export const installEntities = (appCtx) => {
   // the base spans (a clip's segments/words, an image's regions) are NOT entities, so they never
   // leak into the names list — the bug that filled it with 'the/of/court' word-holons and, before a
   // clip was transcribed, with the acoustic summary's own 'Signal/Noise/Dynamic'.
+  // The record is append-only (topicSources() only grows, a source's own doc only ever gains
+  // sentences as it structures) — so this is a FOLD, not a recompute: each source's own rows are
+  // extracted once and cached per source (entitiesInDoc already folds referent + spelling variants
+  // WITHIN that one doc, so it's a pure function of that source alone), and adding an Nth source
+  // just extracts source N's rows and folds them into the ones already sitting in the cache for
+  // 1..N-1, instead of re-walking projectGraph + the referent API for every source on every call.
+  // The whole-result memo below is the fast path for "nothing changed at all" (e.g. typing in an
+  // unrelated field); the per-source cache underneath is the fold path for "one source changed."
+  const _srcRowCache = new Map(); // sn -> { rdSig, nameRows, convName, bdSig, baseRows, convBase }
+  const _rowsForSource = (src, level) => {
+    let c = _srcRowCache.get(src.sn);
+    if (!c) { c = {}; _srcRowCache.set(src.sn, c); }
+    if (level !== 'signal') {                 // 'names' + 'all' want the referents (the meaning)
+      const rd = appCtx.referentDocFor(src);
+      const rdSig = rd ? (rd.sentences || []).length : -1;
+      if (c.rdSig !== rdSig) {
+        c.rdSig = rdSig;
+        c.nameRows = rd ? entitiesInDoc(rd, src.sn) : [];
+        c.convName = (rd && rd.conventions) || null;
+      }
+    }
+    if (level !== 'names') {                  // 'signal' + 'all' want the raw base spans underneath
+      const bd = appCtx.docFor(src);
+      const bdSig = bd ? (bd.sentences || []).length : -1;
+      if (c.bdSig !== bdSig) {
+        c.bdSig = bdSig;
+        c.baseRows = bd ? entitiesInDoc(bd, src.sn) : [];
+        c.convBase = (bd && bd.conventions) || null;
+      }
+    }
+    return c;
+  };
+  let _entMemo = { sig: null, val: [] };
   const entities = ({ merge = true, level = 'names' } = {}) => {
+    const srcs = appCtx.topicSources();
+    const sig = `${merge}:${level}:` + srcs.map((s) => `${s.sn}:${(appCtx.docFor(s)?.sentences || []).length}`).join('|');
+    if (_entMemo.sig === sig) return _entMemo.val;
+    const val = _computeEntities(merge, level, srcs);
+    _entMemo = { sig, val };
+    return val;
+  };
+  const _computeEntities = (merge, level, srcs) => {
     const nameRows = [], baseRows = [], convs = [];
-    for (const src of appCtx.topicSources()) {
-      if (level !== 'signal') {                 // 'names' + 'all' want the referents (the meaning)
-        const rd = appCtx.referentDocFor(src);
-        if (rd) { nameRows.push(...entitiesInDoc(rd, src.sn)); if (rd.conventions) convs.push(rd.conventions); }
-      }
-      if (level !== 'names') {                  // 'signal' + 'all' want the raw base spans underneath
-        const bd = appCtx.docFor(src);
-        baseRows.push(...entitiesInDoc(bd, src.sn));
-        if (bd?.conventions) convs.push(bd.conventions);
-      }
+    for (const src of srcs) {
+      const c = _rowsForSource(src, level);
+      if (level !== 'signal' && c.nameRows) { nameRows.push(...c.nameRows); if (c.convName) convs.push(c.convName); }
+      if (level !== 'names' && c.baseRows) { baseRows.push(...c.baseRows); if (c.convBase) convs.push(c.convBase); }
     }
     // The epithet-fold signal, unioned over every source read (a register is live if ANY
     // source learned it): "God" is a unique non-person referent and "Good"/"Great" are its
