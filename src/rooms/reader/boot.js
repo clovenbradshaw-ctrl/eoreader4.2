@@ -58,6 +58,7 @@ import { createReaderApp } from './app.js';
 import { wireEotFeed } from './eot-feed.js';
 import { APP_NAME, APP_VERSION } from './provenance.js';
 import { mountTieredGraph } from './tiered-graph.js';
+import { mountSolarSystem } from './solar-system.js';
 import { mountFacingRenderer, assembleDocument, splitSource, runnableSrcdoc } from '../render/index.js';
 import * as readerRender from './reader-render.js';
 import * as reveal from './reveal.js';
@@ -340,7 +341,7 @@ window.EO = Object.freeze({
   eotTerminal,       // the full activity terminal's mount handle — the murmur strip opens it on click (open/close/toggle)
   console: eoConsole,   // the audit console's mount handle (docs above) — Settings' "Console" row opens/closes it
   workspace,
-  mountTieredGraph,
+  mountTieredGraph, mountSolarSystem,   // …and the EOGraph solar surface (rooms/reader/solar-system): an egocentric, POV-pivoting view — an entity at the centre, its existence/structure/meaning ringing out as three regimes (quantum · chemistry · orbital), wired as the Graph tab's EOGraph kind
   mountDagSurface,   // the two-cursor causal DAG surface (surfer/dag) — topic-wide + per-entity, with toggles
   readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   reveal,   // the chat typewriter's pace (bounded catch-up) — pure, so the freeze regression is CI-tested
