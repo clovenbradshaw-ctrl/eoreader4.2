@@ -95,7 +95,7 @@ import { installEntities } from './app/entities.js';
 import { installLevels } from './app/levels.js';
 import { installTransmission } from './app/transmission.js';
 import { installStanding } from './app/standing.js';
-import { installListen } from './app/listen.js';
+import { installSync } from './app/sync.js'; import { installListen } from './app/listen.js';
 import { installToplines } from './app/toplines.js';
 import { installSummaries } from './app/summaries.js';
 import { installDigest } from './app/digest.js';
@@ -233,7 +233,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installEntities(appCtx);
   installLevels(appCtx);
   installTransmission(appCtx);
-  installStanding(appCtx);
+  installSync(appCtx); installStanding(appCtx);
   installListen(appCtx);
   installToplines(appCtx);
   installSummaries(appCtx);
