@@ -378,7 +378,12 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
   nodes.forEach((n) => {
     const g = sv('g', { class: 'tg-node' }); g.style.transform = 'translate(' + n.x + 'px,' + n.y + 'px)';
     const pin = sv('circle', { r: (isRoot(n) ? 9 : 7) + 4, class: 'tg-pin' }); pin.style.display = 'none';
-    const c = sv('circle', { r: isRoot(n) ? 9 : 7, fill: TIER[n.tier].fill, stroke: TIER[n.tier].stroke, 'stroke-width': 1.2 });
+    // antimatter: a referent that's real in the structure but never earned a name (EMANON/
+    // PROTOGON, individuation.js) — hollow and dashed, never the tier's solid fill, so it
+    // reads as present-but-nameless at a glance, not as just another figure.
+    const c = n.antimatter
+      ? sv('circle', { r: 6, fill: 'none', stroke: '#5A5A64', 'stroke-width': 1.3, 'stroke-dasharray': '2 2' })
+      : sv('circle', { r: isRoot(n) ? 9 : 7, fill: TIER[n.tier].fill, stroke: TIER[n.tier].stroke, 'stroke-width': 1.2 });
     g.appendChild(pin); g.appendChild(c);
     // a drag that lands on a node also fires the circle's click — swallow that one so a pull-to-pin
     // never doubles as a select (which would flip the host's details panel).
@@ -488,7 +493,11 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
       t.style.strokeWidth = sw + 'px';
       t.setAttribute('x', (centred ? n.x : n.x + (left ? -11 : 11)).toFixed(1));
       t.setAttribute('y', (centred ? n.y - 13 : n.y + 3.5).toFixed(1));
-      t.textContent = n.label; gL.appendChild(t);
+      // antimatter carries a description, never a name — parenthesised and muted so it never
+      // reads as just another figure once it clears the collision test above.
+      t.textContent = n.antimatter ? '(' + n.label + ')' : n.label;
+      if (n.antimatter) t.style.opacity = '0.65';
+      gL.appendChild(t);
       const bb = t.getBBox(), box = { x: bb.x - 1, y: bb.y - 1, w: bb.width + 2, h: bb.height + 2 };
       const priv = centred || privileged.has(n.id);   // the anchor and the local focus must read
       const hitLabel = placed.some((pp) => rectHit(box, pp));
@@ -526,7 +535,7 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     countsEl.style.display = 'none';   // the inspector needs the full footer row
     detail.innerHTML = '<span style="width:16px;height:16px;flex:0 0 auto;border-radius:5px;background:' + TIER[n.tier].fill + ';display:inline-block;"></span>' +
       '<span style="color:var(--ink,#15181e);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34%;">' + esc(n.label) + '</span>' +
-      '<span style="color:var(--ink3,#999);">' + TIER[n.tier].name + (n.terrain ? ' · ' + esc(n.terrain) : '') + '</span>' +
+      '<span style="color:var(--ink3,#999);">' + TIER[n.tier].name + (n.terrain ? ' · ' + esc(n.terrain) : '') + (n.antimatter ? ' · antimatter (' + esc(n.antimatter) + ')' : '') + '</span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">in <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(glyphs(ins)) + '</span></span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">out <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(glyphs(outs)) + '</span></span>';
     // A ref-carrying node never reaches select() at all (its click short-circuits straight to

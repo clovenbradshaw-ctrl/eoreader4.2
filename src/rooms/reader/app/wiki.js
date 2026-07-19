@@ -4,7 +4,7 @@
 // spine (state · emit · trail beats · client) is destructured once at install.
 // the wiki referent (the entity panel's encyclopedia lookup)
 import { projectGraph, operatorsOf, glyphOf } from '../../../core/index.js';
-import { figureSurface } from '../../../perceiver/index.js';
+import { figureSurface, typeReferents } from '../../../perceiver/index.js';
 import { wikiReferent } from '../wiki-referent.js';
 import { networkGraphData } from '../../../wiki/index.js';
 
@@ -132,6 +132,19 @@ export const installWiki = (appCtx) => {
         const sid = `src:${sn}`; const s = srcById.get(sn);
         push(sid, 0, s ? (s.title || s.reg || 'source') : 'source', 'source', null, srcTimeMs(s));
         edges.push({ a: sid, b: m.id, tier: 0, gl: '●', code: 'INS' });
+      }
+    }
+    // The cast's unnamed presences (individuation.js) — a referent that recurs and acts, or
+    // is heavily coupled, yet never earned a name: EMANON ("the creature"), PROTOGON ("Kurtz
+    // before he arrives"). In truth every referent starts this way; these are simply the ones
+    // the record never gave a door onto a name. Shown as antimatter — present in the structure,
+    // carrying no name to hang a normal figure on, so never a pivot/open target (ref stays null).
+    for (const src of srcs) {
+      const doc = appCtx.docFor(src); if (!doc?.log) continue;
+      for (const c of typeReferents(doc)) {
+        if (c.ins || !c.onCast || seen.has(c.id)) continue;
+        seen.add(c.id);
+        nodes.push({ id: c.id, tier: 1, label: c.label, kind: 'entity', antimatter: c.type, terrain: 'Entity', ref: null, t: 0 });
       }
     }
     const agg = new Map();
