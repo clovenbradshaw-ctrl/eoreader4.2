@@ -400,6 +400,24 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     const c = capCount.get(lc) || 0, l = lowCount.get(lc) || 0, total = c + l;
     return total >= 5 && (c / total) < 0.35;
   };
+  // isFiller — a STRICTER cap-rate floor than isFunctionWord: a token capitalised almost only by
+  // sentence position (an opener "About"/"Now", cap-rate < 0.2), NOT a title that heads names
+  // ("Count" .40, "Countess" .25, "Prince" .82, kept). Byte-distributional; casing only sharpens it.
+  const isFiller = (tok) => {
+    const lc = String(tok).toLowerCase();
+    const c = capCount.get(lc) || 0, l = lowCount.get(lc) || 0, total = c + l;
+    return total >= 8 && (c / total) < 0.2;
+  };
+  // trimWeld — the greedy scanner concatenates any run of capitals, so a span can absorb a filler
+  // an opener glued to a name ("About Mikhelson"→"Mikhelson"). Trim filler off the EDGES only (a
+  // two-name weld is separate), keeping ≥1 word; `lead` = chars trimmed off the front, so the
+  // caller moves the sighting onto the real name. A no-op on a clean (high cap-rate) name.
+  const trimWeld = (label) => {
+    let words = label.split(' '), lead = 0;
+    while (words.length > 1 && isFiller(words[0])) { lead += words[0].length + 1; words = words.slice(1); }
+    while (words.length > 1 && isFiller(words[words.length - 1])) words = words.slice(0, -1);
+    return { label: words.join(' '), lead };
+  };
 
 
   const admissionProfile = (() => {
@@ -408,7 +426,8 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
       const re = new RegExp(CAP_RE.source, 'gu'); let m;
       while ((m = re.exec(unit)) !== null) {
         const cleaned = cleanLabel(m[0], C); if (!cleaned) continue;
-        const label = canon(cleaned), cue = sightingGravity(unit, m.index, m.index + m[0].length, C, label);
+        const wt = trimWeld(canon(cleaned)), label = wt.label;
+        const cue = sightingGravity(unit, m.index + wt.lead, m.index + wt.lead + label.length, C, label);
         const e = stats.get(label) || { count: 0, gravity: 0, strong: false, subject: 0, multiword: label.includes(' ') };
         e.count += 1; e.gravity += Math.max(0, cue.g); e.strong ||= cue.strong && cue.g > 0;
         const nx = (unit.slice(m.index + m[0].length).match(/^\s*([\p{L}'’]+)/u) || [])[1];
@@ -483,7 +502,9 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     while ((m = re.exec(sentence)) !== null) {
       const cleaned = cleanLabel(m[0], C);
       if (!cleaned) continue;
-      const label = canon(cleaned);   // fold an ALL-CAPS cue/heading onto its mixed-case referent
+      const wt = trimWeld(canon(cleaned));   // canon folds an ALL-CAPS cue onto its mixed-case referent; trim a welded opener
+      const label = wt.label;
+      const mStart = m.index + wt.lead, mEnd = mStart + label.length;   // the real name's span (past any trimmed filler)
       if (seenInSentence.has(label)) continue;
       seenInSentence.add(label);
 
@@ -499,7 +520,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
       // Accrue this sighting's gravity. A multi-word proper name is referential on its face
       // (it is not a clause-opener accident), so it carries the floor and counts as strong.
       let strongCue = true;
-      const cue = sightingGravity(sentence, m.index, m.index + m[0].length, C, label);
+      const cue = sightingGravity(sentence, mStart, mEnd, C, label);
       strongCue = multiword ? (cue.strong || (admissionProfile.stats.get(label)?.count || 0) >= 2) : cue.strong;
       const sightGravity = multiword ? GRAVITY_FLOOR : cue.g;
       gravity.set(label, (gravity.get(label) || 0) + sightGravity);
@@ -510,9 +531,9 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
       // tells a declension from an independent name that merely shares a stem (Франция the
       // subject vs Франца the genitive of Франц). OBLIQUE position (preceded by an adposition —
       // "in London", "unto Nineveh"): what is moved THROUGH and seldom acts is a setting.
-      const nx = (sentence.slice(m.index + m[0].length).match(/^\s*([\p{L}'’]+)/u) || [])[1];
+      const nx = (sentence.slice(mEnd).match(/^\s*([\p{L}'’]+)/u) || [])[1];
       if (isContent(nx, C)) subjSight.set(label, (subjSight.get(label) || 0) + 1);
-      const pv = (sentence.slice(0, m.index).match(/([\p{L}'’]+)\s*$/u) || [])[1];
+      const pv = (sentence.slice(0, mStart).match(/([\p{L}'’]+)\s*$/u) || [])[1];
       if (pv && C.isPreposition(pv.toLowerCase())) oblSight.set(label, (oblSight.get(label) || 0) + 1);
       const g = gravity.get(label);
 
