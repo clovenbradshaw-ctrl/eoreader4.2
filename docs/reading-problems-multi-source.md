@@ -5,8 +5,33 @@
 essay questions it was written for, and read what the reading *cannot* do. Every problem below
 is reproduced by one probe, `probes/reading-diagnostic.mjs`, over the real
 `perceiver/parse` → `core.projectGraph` → `surfer/levels` pipeline. Model-free, offline,
-deterministic. This document asserts the problems; it does not fix them. Each entry names the
-operator layer a fix would land on, so the backlog maps onto the codebase.
+deterministic. Each entry names the operator layer a fix would land on, so the backlog maps
+onto the codebase.
+
+## Status: one law now covers P1, P2, P3, P7
+
+`entities.js` no longer treats apparatus as figures. Rather than a `{Enter, Exit, See, …}`
+list, the moon phenomenon was split into three by mass, read on the cube's three faces — no
+word list, and every example falls out of the law:
+
+- **Existence** (gravity): a head that *stands alone* with its own referential mass (gravity,
+  not raw count — a bare `Exeunt.` line acts on nothing) is a **planet**.
+- **Structure** (bonding): a head with no mass of its own is a **moon** its welds orbit —
+  orbiting *many* distinct planets makes it **apparatus** (`Enter`/`Exeunt`/`See`), orbiting
+  *few* makes it a **title** (`Prince`/`Lady`).
+- **Meaning** (resolution): an apparatus label is an orbital view of its planet, so `Enter
+  Ross → Ross`. Possibility rises from existence (fold only if the remainder stands alone);
+  probability falls from the compound holon (fold only if the remainder out-masses the
+  compound, so `United States` / `Bin Ladin` / `Central Intelligence Agency` stay whole).
+
+Measured: **P1** Don Quijote recovered (0 → #1, 2 057); **P2/P3** stage directions and the
+`Enter/Exeunt/Exit` welds fold into the cast across all five plays; **P7** `See CIA` → `CIA`.
+Verified non-regression on War & Peace (Natásha 1 175) and the 9/11 compounds. Full suite green.
+Residual (different law): a merged figure can still wear a weld as its canonical label
+(`Legitimate Edgar` = the complete Edgar entity) — a representative-label choice in `coref`.
+The remaining unfixed items below (**P4/P5** verse function words & structural headers, **P6/P8**
+PDF furniture & editorial apparatus, **P9** variant unification, **P10** Spanish enclitics,
+**P11** the void boundary) are still open.
 
 ## The sources and why they were chosen
 
