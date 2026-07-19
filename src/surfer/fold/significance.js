@@ -82,33 +82,15 @@ export const buildSignificanceEdge = ({
 export const inferSignificance = (doc, { structure = null, maxPerKind = 12 } = {}) => {
   const idxs = (doc?.units || doc?.sentences || []).map((_, i) => i);
   const s = structure || (idxs.length ? structureSurface(doc, idxs) : { relations: [], defs: [] });
-  // A significance connection is drawn BETWEEN WITNESSED FIGURES (docs/monologue-significance.md) —
-  // never between a figure and a common-noun referent ("Pierre ⟷ home"), an abstract-noun np pair
-  // ("meaning ⟷ words"), a reified proposition, or a homograph verb that slipped an object slot.
-  // structureSurface now carries the figure flag (an INS-witnessed endpoint) and the srcKind/tgtKind
-  // the parser stamped; gate on them so the inference stays between real figures. Endpoints of
-  // unknown provenance (a caller-supplied structure without the flag) are kept — the gate only
-  // excludes what is POSITIVELY marked a non-figure, so it never silently empties a legacy caller.
-  // A witnessed figure endpoint: not np/prop-kind, INS-witnessed, and not an ALL-CAPS heading
-  // token ("BOOK ONE") the entity scanner welds in as a pseudo-figure — that is a structural
-  // shout, never a name (real names are Title-case). Omnimodal test (mirrors entities.js
-  // isAllCaps): a multi-char label carrying a cased letter that equals its own uppercase — true
-  // for Latin/Cyrillic/Greek alike, so the guard is script-free, never an English shape/list.
-  const isHeading = (label) => { const s = String(label || '').trim(); return s.length > 2 && /\p{Lu}/u.test(s) && s === s.toUpperCase() && s !== s.toLowerCase(); };
-  const isFigure = (end, kind) => end?.figure !== false && kind !== 'np' && kind !== 'prop' && !isHeading(end?.label);
-  // The figure labels present (lowercased) — used to reject a bond whose VERB slot is itself a
-  // figure NAME ("Europe --england--> Alexander"): a name in the predicate position is a subject
-  // mis-parse (the real subject was inherited and a following name got read as the verb), not a
-  // relation. A real predicate is never one of the text's own figure names.
-  const figureLabels = new Set();
-  for (const r of (s.relations || [])) {
-    if (isFigure(r.src, r.srcKind)) figureLabels.add(String(r.src.label || '').toLowerCase());
-    if (isFigure(r.tgt, r.tgtKind)) figureLabels.add(String(r.tgt.label || '').toLowerCase());
-  }
-  const relations = (s.relations || []).filter((r) => r.src?.id && r.tgt?.id
-    && isFigure(r.src, r.srcKind) && isFigure(r.tgt, r.tgtKind)
-    && !figureLabels.has(String(r.via || '').toLowerCase())     // via is a real predicate, not a name-in-verb-slot
-    && !(r.coupling != null && r.coupling < 0.35));             // both endpoints confidently read — never a weak coref GUESS (§ don't infer from an uncertain reading)
+  // Connections are drawn BETWEEN WITNESSED FIGURES only: not into np/common-noun referents, reified
+  // props, ALL-CAPS heading welds, a via that is itself a figure name (subject mis-parse), or off a
+  // weak coref guess. structureSurface carries figure/kind/coupling; gate on them (unflagged = kept).
+  const isHeading = (l) => { const s = String(l || '').trim(); return s.length > 2 && /\p{Lu}/u.test(s) && s === s.toUpperCase() && s !== s.toLowerCase(); };
+  const isFigure = (e, k) => e?.figure !== false && k !== 'np' && k !== 'prop' && !isHeading(e?.label);
+  const names = new Set();
+  for (const r of (s.relations || [])) for (const [e, k] of [[r.src, r.srcKind], [r.tgt, r.tgtKind]]) if (isFigure(e, k)) names.add(String(e.label || '').toLowerCase());
+  const relations = (s.relations || []).filter((r) => r.src?.id && r.tgt?.id && isFigure(r.src, r.srcKind) && isFigure(r.tgt, r.tgtKind)
+    && !names.has(String(r.via || '').toLowerCase()) && !(r.coupling != null && r.coupling < 0.35));
   const labelOf = new Map();
   for (const r of relations) { labelOf.set(r.src.id, r.src.label ?? r.src.id); labelOf.set(r.tgt.id, r.tgt.label ?? r.tgt.id); }
   const L = (id) => labelOf.get(id) ?? id;

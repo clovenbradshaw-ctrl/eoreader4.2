@@ -32,13 +32,7 @@ export const structureSurface = (doc, idxs) => {
   const events = snapshot(doc);
   const label = new Map();
   for (const e of events) if (e.op === 'INS' && !label.has(e.id)) label.set(e.id, e.label);
-  // An endpoint is a witnessed FIGURE iff it was instantiated (has an INS record).
-  // np-referent lemma nodes ("home", "meaning"), reified proposition ids, and the
-  // occasional homograph verb that slips into an object slot never carry an INS, so
-  // `figure:false` marks them — the distinction the parser stamps as srcKind/tgtKind
-  // but that this surface used to discard. Figure-level readers (fold/significance)
-  // consume it to stay between real figures; the fine-grained fold still sees all.
-  const name = (id) => ({ id, label: label.get(id) || id, figure: label.has(id) });
+  const name = (id) => ({ id, label: label.get(id) || id, figure: label.has(id) });   // figure: INS-witnessed endpoint
 
   const figures = new Map();
   const relations = [];

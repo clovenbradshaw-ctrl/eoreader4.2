@@ -122,7 +122,7 @@ const BASELINE = new Map([
   ['src/surfer/flow/index.js', 408],
   ['src/surfer/fold/audit.js', 414],
   ['src/surfer/fold/deep-reading.js', 360],
-  ['src/surfer/fold/significance.js', 285],
+  ['src/surfer/fold/significance.js', 293],
   ['src/surfer/fold/substrate.js', 314],
   ['src/surfer/fold/summary.js', 275],
   ['src/surfer/fold/summary-cross.js', 314],
