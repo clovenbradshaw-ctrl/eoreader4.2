@@ -2,30 +2,28 @@
 // FINDING THE FIGURE THAT HAS NO NAME. The capital scanner (entities.js) anchors on a proper name;
 // the uncased read (uncased.js) on the case-particle a nameless script marks its figures with —
 // both assume the figure has a NAME the writing spells somewhere. Many never do: Frankenstein's
-// *creature* is only ever "the creature", "the monster", "the wretch" — a definite description and
-// a hail of pronouns, no proper name in the book — so the name scan admits nothing and the
-// protagonist of half the novel never enters the entity graph.
+// *creature* is only ever "the creature", "the monster", "the wretch" — a definite description and a
+// hail of pronouns, no proper name — so the name scan admits nothing and half the novel's protagonist never enters the graph.
 //
 // You cannot see the body; you can see the GRAVITY WARPING AROUND IT — a dark mass read off the
-// orbits it bends, not off light it emits. A nameless figure bends the discourse as a named one
-// does: a description the text keeps RETURNING to, standing where an AGENT stands (a subject that
-// ACTS — "the creature stretched"), carrying a mass that RIVALS the named cast. That warp
-// (recurrence × agency × mass) is the signature — the same distributional read entities.js and
-// grain.js already run, with no name at its centre. It is the SETTING's opposite: "the room",
-// "the door" recur too but are moved THROUGH — oblique, never acting (grain.js) — so the figure
-// test (subject-dominant) separates the creature from the room, and the MASS gate (rival the named
-// cast, not merely recur) keeps an incidental "the soldier" out. A crucial NON-fire: where a
-// description already orbits a NAMED star it is that star's — in *Metamorphosis* "the creature" IS
-// Gregor, and beside a name sighted 25× an unnamed description sighted twice never clears star-
-// scale, so no phantom is minted. Only a genuinely nameless mass survives.
+// orbits it bends. A nameless figure bends the discourse as a named one does: a description the text
+// keeps RETURNING to, standing where an AGENT stands (a subject that ACTS — "the creature
+// stretched"), carrying a mass that RIVALS the named cast. That warp (recurrence × agency × mass) is
+// the signature — the same read entities.js/grain.js run, with no name at its centre. It is the
+// SETTING's opposite: "the room" recurs too but is moved THROUGH — oblique, never acting — so the
+// figure test (subject-dominant) separates the creature from the room, and the MASS gate keeps an
+// incidental "the soldier" out. A crucial NON-fire: where a description already orbits a NAMED star
+// it is that star's — in *Metamorphosis* "the creature" IS Gregor, and beside a name sighted 25× an
+// unnamed description sighted twice never clears star-scale, so no phantom is minted. And an elided
+// adjective ("the old") is refused a body outright (modifier-law.js) — a modifier is not a figure.
 //
 // MECHANICAL AND MODELLESS, like every leaf here: it names the body by its own dominant description
-// ("the creature"). Whether that is the name a reader would give, and whether "the monster" and
-// "the wretch" are the SAME body, is world knowledge the mechanics abstain on — `nameReferent` (the
-// injected hook, ideally the talker) MAY rename/merge before admission. Mechanics propose; the
-// hook, if present, disposes — the coref-as-proposal discipline (enactor/factcheck/coref.js).
+// ("the creature"). Whether "the monster" and "the wretch" are the SAME body is world knowledge the
+// mechanics abstain on — `nameReferent` (the injected hook, ideally the talker) MAY rename/merge
+// before admission. Mechanics propose; the hook disposes — the coref-as-proposal discipline.
 
 import { VERDICTS } from '../../core/index.js';
+import { censusModifiers } from './modifier-law.js';
 
 // The determiner that fronts a definite/indefinite description. Sentence-initial "The" is caught
 // by allowing the leading capital; the HEAD stays strictly lowercase so a proper name ("the White
@@ -83,6 +81,7 @@ export const discoverDarkReferents = (sentences, {
     isDemonym:     (w) => conventions?.isDemonym?.(w) ?? false,
     isPreposition: (w) => conventions?.isPreposition?.(w) ?? false,
   };
+  const isModifierHead = censusModifiers(sentences, C);   // an elided adjective ("the old") is no body (modifier-law.js)
 
   // The named cast's mass — the top merged referent's sighting count. A dark body is measured
   // against this: it must rival a real name, not merely recur. Read off the admission's own
@@ -107,6 +106,7 @@ export const discoverDarkReferents = (sentences, {
       if (head.length < 3) continue;
       if (C.isFunction(head) || C.isStarter(head) || C.isRole(head)
           || C.isCalendar(head) || C.isDemonym(head) || ABSTRACT_HEADS.has(head)) continue;
+      if (isModifierHead(head)) continue;   // an elided adjective ("the old"), not a body — the modifier law
       if (nameTokens.has(head) || nameTokens.has(raw.toLowerCase())) continue;
       const headStart = m.index + m[0].length - raw.length;
       const before = s.slice(0, m.index);
