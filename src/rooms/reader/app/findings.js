@@ -74,10 +74,33 @@ export const installFindings = (appCtx) => {
   // the reading's own topline (composed on record), the entity toplines, murmur's promoted
   // connections, and the turns — not just the last few chat answers. Display ids (C1, P1) stay
   // positional and per-render; the durable identity is each row's `key` (claims.js claimKey).
+  // Memoized on a cheap signature — the topic id, the same per-source doc signature
+  // sourceConflicts/comparisonMatrix use, the message count, and the last message's id/pending/
+  // cite-count (a turn completing or a new one starting is the only thing that should invalidate
+  // this). recordClaims() below re-derives claims from every message + source doc on each call,
+  // real work that index.html's Logic class alone calls 5+ times per render, including on every
+  // keystroke in an unrelated input, so it recomputed unconditionally on every render.
+  let _findingsMemo = { sig: null, val: null };
   const findings = () => {
     const t = appCtx.topic();
+    const srcs = appCtx.topicSources();
+    const msgs = t?.messages || [];
+    const last = msgs[msgs.length - 1];
+    const sig = [
+      t ? t.id : '',
+      srcs.map((s) => `${s.sn}:${(appCtx.docFor(s)?.sentences || []).length}`).join('|'),
+      msgs.length,
+      last ? `${last.id}:${!!last.pending}:${(last.cites || []).length}` : '',
+      Object.keys(appCtx.state.summaries.entities || {}).length,
+    ].join('~');
+    if (_findingsMemo.sig === sig) return _findingsMemo.val;
+    const val = _computeFindings(t, msgs);
+    _findingsMemo = { sig, val };
+    return val;
+  };
+  const _computeFindings = (t, msgs) => {
     const proj = recordClaims({
-      messages: t?.messages || [],
+      messages: msgs,
       sources: appCtx.topicSources(),
       docFor: (s) => appCtx.docFor(s),
       entitySummaries: topicEntitySummaries(),
@@ -92,7 +115,7 @@ export const installFindings = (appCtx) => {
     };
     // Cited passages keyed by their SOURCE-LOCAL unit (cite.unit; composite idx only as a legacy
     // fallback for messages recorded before units rode the cite), then every mint quote.
-    for (const m of t?.messages || []) {
+    for (const m of msgs) {
       if (m.role !== 'assistant') continue;
       for (const c of m.cites || []) addPassage(c.docId, Number.isInteger(c.unit) ? c.unit : c.idx, c.sn, c.reg, c.text);
     }

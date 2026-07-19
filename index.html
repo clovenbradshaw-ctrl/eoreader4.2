@@ -137,6 +137,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
 <style>
+/* ── MOBILE DESIGN TOKENS — scoped to the isMobile shell's own inline styles (index.html:376+)
+   only; the isDesktop shell keeps its existing literal hex values untouched. A first design-token
+   layer for the mobile redesign, not a repo-wide theme system. */
+:root{
+  --eo-m-accent:#6355F2; --eo-m-accent-tint:#ECE9FE;
+  --eo-m-ink:#17171A; --eo-m-text:#1B1B22; --eo-m-muted:#7A7A83; --eo-m-faint:#9B9BA3;
+  --eo-m-border:#ECECF0; --eo-m-canvas:#F4F4F6;
+  --eo-m-success-fg:#1E8A50; --eo-m-success-bg:#E7F6EC;
+  --eo-m-danger-fg:#B23A2E; --eo-m-danger-bg:#FBE9E6;
+}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{background:#F4F4F7}
@@ -388,40 +398,43 @@ table{border-collapse:collapse;width:100%}
 
     <!-- OVERVIEW -->
     <sc-if value="{{ mobile.isOverview }}">
-      <div style="padding:14px 14px 28px;display:flex;flex-direction:column;gap:13px">
-        <div style="background:#fff;border:1px solid #EAEAEF;border-radius:18px;padding:18px 16px">
-          <span style="display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:800;letter-spacing:.05em;color:#4E5765;background:#EEF0F3;border-radius:6px;padding:3px 8px">TOPIC</span>
-          <div style="font-family:'Newsreader',Georgia,serif;font-size:22px;line-height:1.18;font-weight:500;color:#17171A;margin:12px 0 8px;overflow-wrap:anywhere">{{ mobile.overview.title }}</div>
-          <div style="font-size:12.5px;color:#7A7A83;line-height:1.5">{{ mobile.overview.sourceCountLabel }} · {{ mobile.overview.entityLabel }} · {{ mobile.overview.findingLabel }}</div>
-          <button onClick="{{ mobile.overview.ask }}" style="width:100%;margin-top:14px;background:#17171A;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14.5px;font-weight:650;cursor:pointer;font-family:inherit">Ask about this topic</button>
+      <div style="padding:16px 14px 28px;display:flex;flex-direction:column;gap:14px">
+        <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:22px;padding:20px 18px">
+          <span style="display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:800;letter-spacing:.05em;color:var(--eo-m-muted);background:var(--eo-m-canvas);border-radius:6px;padding:3px 8px">TOPIC</span>
+          <div style="font-family:'Newsreader',Georgia,serif;font-size:26px;line-height:1.16;font-weight:500;color:var(--eo-m-ink);margin:12px 0 8px;overflow-wrap:anywhere">{{ mobile.overview.title }}</div>
+          <div style="font-size:12.5px;color:var(--eo-m-muted);line-height:1.5">{{ mobile.overview.sourceCountLabel }} · {{ mobile.overview.entityLabel }} · {{ mobile.overview.findingLabel }}</div>
+          <button onClick="{{ mobile.overview.ask }}" style="width:100%;margin-top:16px;background:var(--eo-m-ink);color:#fff;border:none;border-radius:13px;padding:13px;font-size:14.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit">Ask about this topic</button>
           <div style="display:flex;gap:8px;margin-top:9px">
-            <button onClick="{{ mobile.openAdd }}" style="flex:1;background:#EEEBFE;color:#5B4BE6;border:none;border-radius:11px;padding:11px;font-size:13px;font-weight:650;cursor:pointer;font-family:inherit">+ Add source</button>
-            <button onClick="{{ mobile.overview.openFindings }}" style="flex:1;background:#F2F2F6;color:#44444C;border:none;border-radius:11px;padding:11px;font-size:13px;font-weight:650;cursor:pointer;font-family:inherit">Findings</button>
+            <button onClick="{{ mobile.openAdd }}" style="flex:1;background:var(--eo-m-accent-tint);color:var(--eo-m-accent);border:none;border-radius:11px;padding:11px;font-size:13px;font-weight:650;cursor:pointer;font-family:'Onest',inherit">+ Add source</button>
+            <button onClick="{{ mobile.overview.openFindings }}" style="flex:1;background:var(--eo-m-canvas);color:#44444C;border:none;border-radius:11px;padding:11px;font-size:13px;font-weight:650;cursor:pointer;font-family:'Onest',inherit">Findings</button>
           </div>
         </div>
 
-        <button onClick="{{ mobile.openScope }}" style="display:flex;align-items:center;gap:11px;background:#fff;border:1px solid #EAEAEF;border-radius:14px;padding:13px 14px;cursor:pointer;font-family:inherit;text-align:left">
-          <div style="width:32px;height:32px;border-radius:9px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;flex:0 0 auto">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B4BE6" stroke-width="1.8"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><circle cx="18" cy="6" r="2.4"/><path d="M8 7.6l8.2 8.8M8.6 6h6.8M6 8.4v7.2" stroke-linecap="round"/></svg>
+        <button onClick="{{ mobile.openScope }}" style="display:flex;align-items:center;gap:11px;background:#fff;border:1px solid var(--eo-m-border);border-radius:14px;padding:13px 14px;cursor:pointer;font-family:'Onest',inherit;text-align:left">
+          <div style="width:34px;height:34px;border-radius:9px;background:var(--eo-m-accent-tint);display:flex;align-items:center;justify-content:center;flex:0 0 auto">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--eo-m-accent)" stroke-width="1.8"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><circle cx="18" cy="6" r="2.4"/><path d="M8 7.6l8.2 8.8M8.6 6h6.8M6 8.4v7.2" stroke-linecap="round"/></svg>
           </div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;color:#9A9AA4">EVIDENCE SCOPE</div>
-            <div style="font-size:13.5px;font-weight:650;color:#1B1B22;margin-top:2px">{{ mobile.scope.activeCount }} of {{ mobile.scope.total }} sources</div>
+            <div style="font-size:9.5px;font-weight:700;letter-spacing:.05em;color:var(--eo-m-faint)">EVIDENCE SCOPE</div>
+            <div style="font-size:13.5px;font-weight:650;color:var(--eo-m-text);margin-top:2px">{{ mobile.scope.activeCount }} of {{ mobile.scope.total }} sources</div>
           </div>
-          <span style="font-size:12.5px;font-weight:650;color:#5B4BE6;flex:0 0 auto">Manage</span>
+          <span style="font-size:12.5px;font-weight:650;color:var(--eo-m-accent);flex:0 0 auto">Manage</span>
         </button>
 
         <sc-if value="{{ mobile.overviewHasFindings }}">
           <div>
             <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 8px">
-              <span style="font-size:10.5px;font-weight:700;letter-spacing:.05em;color:#9A9AA4">FINDINGS</span>
-              <button onClick="{{ mobile.overview.openFindings }}" style="background:none;border:none;font-size:12px;font-weight:650;color:#5B4BE6;cursor:pointer;font-family:inherit">See all {{ mobile.findingsCount }}</button>
+              <span style="font-size:10.5px;font-weight:700;letter-spacing:.05em;color:var(--eo-m-faint)">FINDINGS</span>
+              <button onClick="{{ mobile.overview.openFindings }}" style="background:none;border:none;font-size:12px;font-weight:650;color:var(--eo-m-accent);cursor:pointer;font-family:'Onest',inherit">See all {{ mobile.findingsCount }}</button>
             </div>
             <div style="display:flex;flex-direction:column;gap:9px">
               <sc-for list="{{ mobile.overviewFindings }}" as="f">
-                <div style="background:#fff;border:1px solid #EAEAEF;border-radius:14px;padding:13px">
+                <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:14px;padding:13px">
                   <span style="display:inline-block;font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:5px;color:{{ f.stFg }};background:{{ f.stBg }}">{{ f.stLabel }}</span>
                   <div style="font-size:13.5px;line-height:1.4;color:#26262B;margin-top:8px">{{ f.text }}</div>
+                  <sc-if value="{{ f.srcReg }}">
+                    <span style="display:inline-block;margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:650;color:var(--eo-m-accent);background:var(--eo-m-accent-tint);border-radius:20px;padding:3px 8px">{{ f.srcReg }}</span>
+                  </sc-if>
                 </div>
               </sc-for>
             </div>
@@ -430,22 +443,22 @@ table{border-collapse:collapse;width:100%}
 
         <div>
           <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 2px 8px">
-            <span style="font-size:10.5px;font-weight:700;letter-spacing:.05em;color:#9A9AA4">SOURCES</span>
-            <button onClick="{{ mobile.overview.openExplorer }}" style="background:none;border:none;font-size:12px;font-weight:650;color:#5B4BE6;cursor:pointer;font-family:inherit">Manage</button>
+            <span style="font-size:10.5px;font-weight:700;letter-spacing:.05em;color:var(--eo-m-faint)">SOURCES</span>
+            <button onClick="{{ mobile.overview.openExplorer }}" style="background:none;border:none;font-size:12px;font-weight:650;color:var(--eo-m-accent);cursor:pointer;font-family:'Onest',inherit">Manage</button>
           </div>
-          <div style="background:#fff;border:1px solid #EAEAEF;border-radius:14px;overflow:hidden">
+          <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:14px;overflow:hidden">
             <sc-for list="{{ mobile.overviewSources }}" as="src">
-              <div style="display:flex;align-items:center;gap:11px;padding:12px 13px;border-top:1px solid #F4F4F6">
+              <div style="display:flex;align-items:center;gap:11px;padding:12px 13px;border-top:1px solid var(--eo-m-canvas)">
                 <span style="width:32px;height:32px;border-radius:9px;background:{{ src.favBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:14px">{{ src.icon }}</span>
                 <span style="flex:1;min-width:0">
-                  <span style="display:block;font-size:13.5px;font-weight:650;color:#1B1B22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ src.title }}</span>
-                  <span style="display:block;font-size:11.5px;color:#9A9AA4;margin-top:1px">{{ src.countLine }}</span>
+                  <span style="display:block;font-size:13.5px;font-weight:650;color:var(--eo-m-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ src.title }}</span>
+                  <span style="display:block;font-size:11.5px;color:var(--eo-m-faint);margin-top:1px">{{ src.countLine }}</span>
                 </span>
                 <span style="font-size:10px;font-weight:650;padding:3px 8px;border-radius:20px;color:{{ src.scopeFg }};background:{{ src.scopeBg }};flex:0 0 auto">{{ src.scopeLabel }}</span>
               </div>
             </sc-for>
             <sc-if value="{{ mobile.overview.empty }}">
-              <div style="padding:20px;text-align:center;color:#9A9AA4;font-size:12.5px">No sources yet.</div>
+              <div style="padding:20px;text-align:center;color:var(--eo-m-faint);font-size:12.5px">No sources yet.</div>
             </sc-if>
           </div>
         </div>
@@ -454,41 +467,44 @@ table{border-collapse:collapse;width:100%}
 
     <!-- SOURCES -->
     <sc-if value="{{ mobile.isSources }}">
-      <div style="padding:14px 14px 28px;display:flex;flex-direction:column;gap:11px">
+      <div style="padding:16px 14px 28px;display:flex;flex-direction:column;gap:11px">
         <div style="display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:18px;font-weight:700;color:#17171A">Sources</span>
-          <button onClick="{{ mobile.openAdd }}" style="background:#5B4BE6;color:#fff;border:none;border-radius:11px;padding:9px 14px;font-size:13px;font-weight:650;cursor:pointer;font-family:inherit">+ Add</button>
+          <span style="font-size:18px;font-weight:700;color:var(--eo-m-ink);font-family:'Onest',inherit">Sources</span>
+          <button onClick="{{ mobile.openAdd }}" style="background:var(--eo-m-accent);color:#fff;border:none;border-radius:11px;padding:9px 14px;font-size:13px;font-weight:650;cursor:pointer;font-family:'Onest',inherit">+ Add</button>
         </div>
-        <button onClick="{{ mobile.openScope }}" style="display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #EAEAEF;border-radius:12px;padding:10px 13px;cursor:pointer;font-family:inherit;text-align:left">
-          <span style="width:7px;height:7px;border-radius:50%;background:#1E8A50;flex:0 0 auto"></span>
-          <span style="flex:1;font-size:12.5px;font-weight:650;color:#1B1B22">{{ mobile.scope.activeCount }} of {{ mobile.scope.total }} in scope</span>
-          <span style="font-size:12px;font-weight:650;color:#5B4BE6;flex:0 0 auto">Change</span>
+        <button onClick="{{ mobile.openScope }}" style="display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--eo-m-border);border-radius:12px;padding:10px 13px;cursor:pointer;font-family:'Onest',inherit;text-align:left">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--eo-m-success-fg);flex:0 0 auto"></span>
+          <span style="flex:1;font-size:12.5px;font-weight:650;color:var(--eo-m-text)">{{ mobile.scope.activeCount }} of {{ mobile.scope.total }} in scope</span>
+          <span style="font-size:12px;font-weight:650;color:var(--eo-m-accent);flex:0 0 auto">Change</span>
         </button>
         <sc-if value="{{ mobile.kindHasMany }}">
           <div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px">
             <sc-for list="{{ mobile.kindItems }}" as="k">
-              <button onClick="{{ k.select }}" style="flex:0 0 auto;border:none;border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:650;cursor:pointer;color:{{ k.fg }};background:{{ k.bg }};font-family:inherit">{{ k.label }}</button>
+              <button onClick="{{ k.select }}" style="flex:0 0 auto;border:none;border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:650;cursor:pointer;color:{{ k.fg }};background:{{ k.bg }};font-family:'Onest',inherit">{{ k.label }}</button>
             </sc-for>
           </div>
         </sc-if>
         <div style="display:flex;flex-direction:column;gap:10px">
           <sc-for list="{{ mobile.sourceCards }}" as="src">
-            <div style="background:#fff;border:1px solid #EAEAEF;border-radius:15px;padding:13px 14px">
+            <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:15px;padding:13px 14px">
               <div style="display:flex;align-items:flex-start;gap:11px">
                 <span style="width:34px;height:34px;border-radius:9px;background:{{ src.favBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:15px">{{ src.icon }}</span>
                 <span style="flex:1;min-width:0">
-                  <span style="display:block;font-size:14px;font-weight:650;color:#17171A;line-height:1.25">{{ src.title }}</span>
-                  <span style="display:block;font-size:11.5px;color:#9A9AA4;margin-top:2px">{{ src.typeLabel }} · {{ src.countLine }}</span>
+                  <span style="display:block;font-size:14px;font-weight:650;color:var(--eo-m-ink);line-height:1.25">{{ src.title }}</span>
+                  <span style="display:block;font-size:11.5px;color:var(--eo-m-faint);margin-top:2px">{{ src.typeLabel }} · {{ src.countLine }}</span>
                 </span>
                 <span style="font-size:10px;font-weight:650;padding:3px 8px;border-radius:20px;color:{{ src.scopeFg }};background:{{ src.scopeBg }};flex:0 0 auto">{{ src.scopeLabel }}</span>
               </div>
-              <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:11px;padding-top:11px;border-top:1px solid #F4F4F6">
-                <button onClick="{{ src.toggleScope }}" style="background:none;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:650;color:#5A5A64">{{ src.toggleScopeLabel }}</button>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:11px;padding-top:11px;border-top:1px solid var(--eo-m-canvas)">
+                <sc-if value="{{ src.reg }}">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:650;color:var(--eo-m-accent);background:var(--eo-m-accent-tint);border-radius:20px;padding:3px 8px">{{ src.reg }}</span>
+                </sc-if>
+                <button onClick="{{ src.toggleScope }}" style="margin-left:auto;background:none;border:none;cursor:pointer;font-family:'Onest',inherit;font-size:12px;font-weight:650;color:#5A5A64">{{ src.toggleScopeLabel }}</button>
               </div>
             </div>
           </sc-for>
           <sc-if value="{{ mobile.sourceCardsEmpty }}">
-            <div style="text-align:center;padding:30px 20px;color:#9A9AA4;font-size:13px">No sources in this filter.</div>
+            <div style="text-align:center;padding:30px 20px;color:var(--eo-m-faint);font-size:13px">No sources in this filter.</div>
           </sc-if>
         </div>
       </div>
@@ -646,33 +662,83 @@ table{border-collapse:collapse;width:100%}
 
         <sc-if value="{{ mobile.sheetIsScope }}">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-            <span style="font-size:17px;font-weight:700;color:#17171A">Evidence scope</span>
-            <span style="font-size:12.5px;font-weight:650;color:#9A9AA4">{{ mobile.scope.activeCount }} of {{ mobile.scope.total }}</span>
+            <span style="font-size:17px;font-weight:700;color:var(--eo-m-ink)">Evidence scope</span>
+            <span style="font-size:12.5px;font-weight:650;color:var(--eo-m-faint)">{{ mobile.scope.activeCount }} of {{ mobile.scope.total }}</span>
           </div>
-          <div style="font-size:12.5px;color:#8A8A95;margin-bottom:13px;line-height:1.4">Answers and findings use only the sources kept in scope.</div>
+          <div style="font-size:12.5px;color:var(--eo-m-muted);margin-bottom:13px;line-height:1.4">Answers and findings use only the sources kept in scope.</div>
           <div style="display:flex;gap:8px;margin-bottom:13px">
-            <button onClick="{{ mobile.scope.all }}" style="flex:1;background:#EEEBFE;color:#5B4BE6;border:none;border-radius:11px;padding:10px;font-size:13px;font-weight:650;cursor:pointer;font-family:inherit">All sources</button>
-            <button onClick="{{ mobile.scope.none }}" style="flex:1;background:#F2F2F6;color:#5A5A64;border:none;border-radius:11px;padding:10px;font-size:13px;font-weight:650;cursor:pointer;font-family:inherit">None</button>
+            <button onClick="{{ mobile.scope.all }}" style="flex:1;background:var(--eo-m-accent-tint);color:var(--eo-m-accent);border:none;border-radius:11px;padding:10px;font-size:13px;font-weight:650;cursor:pointer;font-family:'Onest',inherit">All sources</button>
+            <button onClick="{{ mobile.scope.none }}" style="flex:1;background:var(--eo-m-canvas);color:#5A5A64;border:none;border-radius:11px;padding:10px;font-size:13px;font-weight:650;cursor:pointer;font-family:'Onest',inherit">None</button>
           </div>
           <div style="display:flex;flex-direction:column;gap:9px">
             <sc-for list="{{ mobile.scope.chips }}" as="c">
-              <button onClick="{{ c.toggle }}" style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid {{ c.bd }};background:{{ c.bg }};border-radius:13px;cursor:pointer;font-family:inherit;text-align:left">
+              <button onClick="{{ c.toggle }}" style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid {{ c.bd }};background:{{ c.bg }};border-radius:13px;cursor:pointer;font-family:'Onest',inherit;text-align:left">
                 <span style="width:17px;height:17px;border-radius:5px;border:1.5px solid {{ c.boxBd }};background:{{ c.boxBg }};flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff">{{ c.boxCheck }}</span>
                 <span style="flex:1;min-width:0;font-size:13.5px;color:{{ c.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.title }}</span>
               </button>
             </sc-for>
           </div>
-          <button onClick="{{ mobile.closeSheet }}" style="width:100%;margin-top:16px;background:#17171A;color:#fff;border:none;border-radius:13px;padding:13px;font-size:14.5px;font-weight:650;cursor:pointer;font-family:inherit">Done</button>
+          <button onClick="{{ mobile.closeSheet }}" style="width:100%;margin-top:16px;background:var(--eo-m-ink);color:#fff;border:none;border-radius:13px;padding:13px;font-size:14.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit">Done</button>
         </sc-if>
 
         <sc-if value="{{ mobile.sheetIsAdd }}">
-          <div style="font-size:17px;font-weight:700;color:#17171A;margin-bottom:5px">Add a source</div>
-          <div style="font-size:12.5px;color:#8A8A95;margin-bottom:14px;line-height:1.4">Paste a link, drop a file, or add text. New sources are scanned for entities and findings.</div>
-          <form onSubmit="{{ onOmniSubmit }}" style="display:flex;align-items:center;gap:9px;background:#F7F7FA;border:1px solid #E6E6EC;border-radius:12px;padding:12px 14px;margin-bottom:14px">
-            <input value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Read a URL, drop a file, paste text…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:14.5px;color:#1B1B22;font-family:inherit" />
-            <button type="button" onClick="{{ omniAttach }}" title="Upload a file" style="flex:0 0 auto;width:30px;height:30px;border-radius:9px;background:#EEEBFE;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5B4BE6" stroke-width="1.9"><path d="M21 11l-9 9a5 5 0 01-7-7l9-9a3.5 3.5 0 015 5l-9 9a2 2 0 01-3-3l8-8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-          </form>
-          <button onClick="{{ mobile.closeSheet }}" style="width:100%;background:#17171A;color:#fff;border:none;border-radius:13px;padding:13px;font-size:14.5px;font-weight:650;cursor:pointer;font-family:inherit">Done</button>
+          <div style="font-size:17px;font-weight:700;color:var(--eo-m-ink);margin-bottom:5px">Add a source</div>
+
+          <!-- method tiles — each a real ingestion path, not a shared decorative omnibar -->
+          <sc-if value="{{ mobile.add.isTiles }}">
+            <div style="font-size:12.5px;color:var(--eo-m-muted);margin-bottom:14px;line-height:1.4">Paste a link, drop a file, or add text. New sources are scanned for entities and findings.</div>
+            <div style="display:flex;gap:8px;margin-bottom:16px">
+              <button onClick="{{ mobile.add.openUrl }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;background:var(--eo-m-canvas);border:none;border-radius:13px;padding:14px 6px;cursor:pointer;font-family:'Onest',inherit">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--eo-m-accent)" stroke-width="1.8"><path d="M9 15l6-6M10 7l1-1a4 4 0 015.5 5.5l-1 1M14 17l-1 1A4 4 0 017.5 12.5l1-1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span style="font-size:11.5px;font-weight:650;color:var(--eo-m-text)">Paste URL</span>
+              </button>
+              <button onClick="{{ mobile.add.openFile }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;background:var(--eo-m-canvas);border:none;border-radius:13px;padding:14px 6px;cursor:pointer;font-family:'Onest',inherit">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--eo-m-accent)" stroke-width="1.8"><path d="M21 11l-9 9a5 5 0 01-7-7l9-9a3.5 3.5 0 015 5l-9 9a2 2 0 01-3-3l8-8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span style="font-size:11.5px;font-weight:650;color:var(--eo-m-text)">Upload file</span>
+              </button>
+              <button onClick="{{ mobile.add.openText }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;background:var(--eo-m-canvas);border:none;border-radius:13px;padding:14px 6px;cursor:pointer;font-family:'Onest',inherit">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--eo-m-accent)" stroke-width="1.8"><path d="M6 4h9l3 3v13H6z" stroke-linejoin="round"/><path d="M9 11h6M9 15h6" stroke-linecap="round"/></svg>
+                <span style="font-size:11.5px;font-weight:650;color:var(--eo-m-text)">Paste text</span>
+              </button>
+            </div>
+            <button onClick="{{ mobile.closeSheet }}" style="width:100%;background:var(--eo-m-canvas);color:#44444C;border:none;border-radius:13px;padding:13px;font-size:14.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit">Done</button>
+          </sc-if>
+
+          <!-- URL / text draft — a single small form that always calls straight into
+               ingestUrl/ingestText (mAddSubmit), never the top omnibar's Research Review fallback -->
+          <sc-if value="{{ mobile.add.isUrl }}">
+            <button onClick="{{ mobile.add.back }}" style="background:none;border:none;padding:0;margin-bottom:10px;font-size:12.5px;font-weight:650;color:var(--eo-m-accent);cursor:pointer;font-family:'Onest',inherit">‹ Add a source</button>
+            <form onSubmit="{{ mobile.add.submit }}">
+              <input value="{{ mobile.add.draft }}" onChange="{{ mobile.add.input }}" placeholder="https://…" autocomplete="off" spellcheck="false" style="width:100%;border:1px solid var(--eo-m-border);border-radius:12px;background:#F7F7FA;padding:12px 14px;font-size:14.5px;color:var(--eo-m-text);outline:none;font-family:'Onest',inherit;margin-bottom:10px" />
+              <sc-if value="{{ mobile.add.busy }}">
+                <div style="display:flex;align-items:center;gap:8px;padding:2px 2px 12px;font-size:12.5px;color:var(--eo-m-muted)">
+                  <span style="width:13px;height:13px;border-radius:50%;border:2px solid var(--eo-m-border);border-top-color:var(--eo-m-accent);animation:eoSpin .8s linear infinite;flex:0 0 auto"></span>
+                  Reading…
+                </div>
+              </sc-if>
+              <sc-if value="{{ mobile.add.hasErr }}">
+                <div style="padding:2px 2px 12px;font-size:12.5px;color:var(--eo-m-danger-fg)">{{ mobile.add.err }}</div>
+              </sc-if>
+              <button type="submit" disabled="{{ mobile.add.submitDisabled }}" style="width:100%;background:var(--eo-m-ink);color:#fff;border:none;border-radius:13px;padding:13px;font-size:14.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;opacity:{{ mobile.add.submitOpacity }}">Add to topic</button>
+            </form>
+          </sc-if>
+
+          <sc-if value="{{ mobile.add.isText }}">
+            <button onClick="{{ mobile.add.back }}" style="background:none;border:none;padding:0;margin-bottom:10px;font-size:12.5px;font-weight:650;color:var(--eo-m-accent);cursor:pointer;font-family:'Onest',inherit">‹ Add a source</button>
+            <form onSubmit="{{ mobile.add.submit }}">
+              <textarea value="{{ mobile.add.draft }}" onChange="{{ mobile.add.input }}" placeholder="Paste text…" style="width:100%;min-height:120px;border:1px solid var(--eo-m-border);border-radius:12px;background:#F7F7FA;padding:12px 14px;font-size:14.5px;color:var(--eo-m-text);outline:none;font-family:'Onest',inherit;resize:vertical;margin-bottom:10px"></textarea>
+              <sc-if value="{{ mobile.add.busy }}">
+                <div style="display:flex;align-items:center;gap:8px;padding:2px 2px 12px;font-size:12.5px;color:var(--eo-m-muted)">
+                  <span style="width:13px;height:13px;border-radius:50%;border:2px solid var(--eo-m-border);border-top-color:var(--eo-m-accent);animation:eoSpin .8s linear infinite;flex:0 0 auto"></span>
+                  Reading…
+                </div>
+              </sc-if>
+              <sc-if value="{{ mobile.add.hasErr }}">
+                <div style="padding:2px 2px 12px;font-size:12.5px;color:var(--eo-m-danger-fg)">{{ mobile.add.err }}</div>
+              </sc-if>
+              <button type="submit" disabled="{{ mobile.add.submitDisabled }}" style="width:100%;background:var(--eo-m-ink);color:#fff;border:none;border-radius:13px;padding:13px;font-size:14.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;opacity:{{ mobile.add.submitOpacity }}">Add to topic</button>
+            </form>
+          </sc-if>
         </sc-if>
 
       </div>
@@ -4431,7 +4497,7 @@ table{border-collapse:collapse;width:100%}
 </sc-if>
 <!-- shared by both shells -->
   <sc-if value="{{ toast }}">
-    <div class="eo-toast" style="position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;background:#1B1B22;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(20,20,30,.3);animation:eoToast .2s ease;max-width:520px">{{ toast }}</div>
+    <div class="eo-toast" style="position:absolute;left:50%;bottom:{{ toastBottom }};transform:translateX(-50%);z-index:60;background:#1B1B22;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(20,20,30,.3);animation:eoToast .2s ease;max-width:520px">{{ toast }}</div>
   </sc-if>
 
   <!-- DRAG OVERLAY -->
@@ -4688,6 +4754,10 @@ class Component extends DCLogic {
       // The mobile shell's own bottom sheet (null | 'scope' | 'add') and Sources-tab kind filter —
       // separate from the desktop drawer/modal state above, which the mobile shell doesn't use.
       mSheet: null, mKind: 'All',
+      // The Add-source sheet's own mode ('tiles' | 'url' | 'text') — kept separate from the shared
+      // top omnibar's `omni`/`onOmniSubmit` (index.html:5441) so this sheet always just adds a
+      // source; it never falls through to Research Review the way a non-URL omnibar submit does.
+      mAddMode: 'tiles', mAddDraft: '', mAddBusy: false, mAddErr: '',
       leftOpen: mobile ? false : this._pref('eo_left', true), rightOpen: mobile ? false : this._pref('eo_right', true),
       // The entity panel can be PROMOTED from the 340px right rail to the main stage (hero) — a
       // figure's profile then reads like a page, with the moment-by-moment drill it holds given room.
@@ -5585,6 +5655,32 @@ class Component extends DCLogic {
     } catch { /* the record already landed — the reveal never blocks it */ }
   }
   pickFile() { this._ensureFileInput().click(); }
+  // The mobile Add-source sheet — three real ingestion paths (URL / file / pasted text), each
+  // calling straight into app.ingestUrl/ingestFile/ingestText. Deliberately separate from the top
+  // omnibar's onOmniSubmit → ingestSearch (5462/5481): that path treats non-URL text as a WEB
+  // SEARCH and opens Research Review — right for "ask the omnibar something," wrong here, where
+  // the user explicitly chose to add exactly what they typed as a source, nothing else.
+  mAddOpenUrl() { this.setState({ mAddMode: 'url', mAddDraft: '', mAddErr: '' }); }
+  mAddOpenText() { this.setState({ mAddMode: 'text', mAddDraft: '', mAddErr: '' }); }
+  mAddOpenFile() { this.pickFile(); this.setState({ mSheet: null }); }
+  mAddBack() { this.setState({ mAddMode: 'tiles', mAddDraft: '', mAddErr: '' }); }
+  mAddDraftInput(e) { this.setState({ mAddDraft: e.target.value, mAddErr: '' }); }
+  mAddSubmit(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const text = String(this.state.mAddDraft || '').trim();
+    if (!text || !this._app) return;
+    this.setState({ mAddBusy: true, mAddErr: '' });
+    const done = (s) => {
+      this.setState({ mAddBusy: false, mAddMode: 'tiles', mAddDraft: '', mSheet: null });
+      this.showToast(`Recorded ${s.reg} — ${s.title}`);
+      this._revealImport(s);
+    };
+    const fail = (err) => this.setState({ mAddBusy: false, mAddErr: String((err && err.message) || err).slice(0, 120) });
+    try {
+      if (this.state.mAddMode === 'url') this._app.ingestUrl(text).then(done).catch(fail);
+      else Promise.resolve(this._app.ingestText(text)).then(done).catch(fail);
+    } catch (err) { fail(err); }
+  }
 
   openPaste() { this.setState({ pasteOpen: true, pasteTitle: '', pasteBody: '' }); }
   closePaste() { this.setState({ pasteOpen: false }); }
@@ -8776,6 +8872,23 @@ class Component extends DCLogic {
       lineageNote: canonical === s.sn ? 'This file supplies canonical evidence. Derived or duplicate representations stay visible for provenance and do not vote independently.' : 'A separate canonical evidence file supplies aggregate counts; this representation is retained for provenance.',
     };
   }
+  // A tiny dependency-ordered fold cache, mirroring the one app/entities.js and app/findings.js
+  // use for the same reason: `renderVals()` runs this whole Logic class fresh on every React
+  // render — including one per keystroke in ANY input, anywhere in the app — so a method with no
+  // gate of its own recomputed on every keystroke regardless of whether its own inputs changed.
+  // Callers build a cheap signature from the LEAF facts a method actually depends on (a topic id,
+  // a per-source sn+count list, a scope-disabled set — never the full state) and only the method
+  // body runs when that signature moves; two calls in the same render with an unchanged signature
+  // (e.g. _topicOverviewVM() is called once for the desktop fields and again inside _mobileVals())
+  // collapse into one.
+  _memo(key, sig, computeFn) {
+    this.__memoCache ||= {};
+    const c = this.__memoCache[key];
+    if (c && c.sig === sig) return c.val;
+    const val = computeFn();
+    this.__memoCache[key] = { sig, val };
+    return val;
+  }
   // ── topic overview page ──────────────────────────────────────────────────────
   // The topic's landing page — one level up from the source Overview (workspace › TOPIC ›
   // source). Clicking a topic in the rail lands here: the quest header, its sub-topics, and
@@ -8783,6 +8896,22 @@ class Component extends DCLogic {
   // own Overview (openViewer defaults the tab to 'overview'), where the integrated per-source
   // reading lives. Built cheaply from topic.sourceSns / topicSources() — no per-source parse.
   _topicOverviewVM() {
+    const app = this._app;
+    if (!app || !app.topic) return this._computeTopicOverviewVM();
+    const t = app.topic();
+    if (!t) return this._computeTopicOverviewVM();
+    let all = []; try { all = (app.topicSourcesAll ? app.topicSourcesAll() : []); } catch { all = []; }
+    const disabled = new Set(app.topicScopeDisabledSns ? app.topicScopeDisabledSns(t.id) : []);
+    const kids = ((app.state && app.state.topics) || []).filter((x) => (x.parentId ?? null) === t.id && x.workspaceId === t.workspaceId);
+    const answers = (t.messages || []).filter((m) => m.role === 'assistant' && !m.pending).length;
+    const sig = [
+      t.id,
+      all.map((s) => `${s.sn}:${s.entCount}:${disabled.has(s.sn)}:${s.retrieved || ''}`).join('|'),
+      kids.length, answers,
+    ].join('~');
+    return this._memo('topicOverviewVM', sig, () => this._computeTopicOverviewVM());
+  }
+  _computeTopicOverviewVM() {
     const app = this._app;
     if (!app) return { has: false, cards: [], subTopics: [], empty: true, hasSources: false, hasSubTopics: false, eventsShow: false, events: [], eventCount: '0 events', title: 'Topic', workspace: 'Workspace', wsInitial: '?', wsDot: '#6D5EF5', sourceCount: '0', sourceCountLabel: '0 sources', answersLabel: '0 answers', entityLabel: '0 entities', findingLabel: '0 findings', ask: () => {}, openFindings: () => {}, openGraph: () => {}, openExplorer: () => {}, openWorkspace: () => {} };
     const t = (app.topic && app.topic()) || null;
@@ -8943,8 +9072,20 @@ class Component extends DCLogic {
     if (!app || !app.topic) return empty;
     const t = app.topic();
     if (!t) return empty;
-    let all = []; try { all = (app.topicSourcesAll ? app.topicSourcesAll() : []).filter((s) => !s.parentSn); } catch { all = []; }
-    const disabled = new Set(app.topicScopeDisabledSns ? app.topicScopeDisabledSns(t.id) : []);
+    let all0 = []; try { all0 = (app.topicSourcesAll ? app.topicSourcesAll() : []).filter((s) => !s.parentSn); } catch { all0 = []; }
+    const disabled0 = new Set(app.topicScopeDisabledSns ? app.topicScopeDisabledSns(t.id) : []);
+    // Includes st.scopeSearch/st.scopePopoverOpen — this VM's own output (visibleChips, popoverOpen)
+    // reads them directly, so they're part of what it depends on, not just topic/source facts. A
+    // keystroke in the scope search box SHOULD invalidate this (cheaply — it's a filter over an
+    // already-small chip list); a keystroke anywhere else in the app should not.
+    const sig = [
+      t.id, all0.map((s) => `${s.sn}:${disabled0.has(s.sn)}`).join('|'),
+      (t.savedScopes || []).length, st.scopeSearch || '', !!st.scopePopoverOpen,
+    ].join('~');
+    return this._memo('evidenceScopeVM', sig, () => this._computeEvidenceScopeVM(t, all0, disabled0));
+  }
+  _computeEvidenceScopeVM(t, all, disabled) {
+    const app = this._app; const st = this.state;
     const total = all.length;
     const activeCount = total - all.filter((s) => disabled.has(s.sn)).length;
     const COLLAPSE_AT = 6;
@@ -9089,9 +9230,20 @@ class Component extends DCLogic {
         topEntities, topEntitiesEmpty: topEntities.length === 0, entityCount,
         findingsList, findingsCount: findingsList.length, findingsEmpty: findingsList.length === 0,
         sheet: st.mSheet, sheetIsScope: st.mSheet === 'scope', sheetIsAdd: st.mSheet === 'add', sheetOpen: !!st.mSheet,
-        openScope: () => this.setState({ mSheet: 'scope' }), openAdd: () => this.setState({ mSheet: 'add' }),
-        closeSheet: () => this.setState({ mSheet: null }),
+        openScope: () => this.setState({ mSheet: 'scope' }),
+        openAdd: () => this.setState({ mSheet: 'add', mAddMode: 'tiles', mAddDraft: '', mAddErr: '' }),
+        closeSheet: () => this.setState({ mSheet: null, mAddMode: 'tiles', mAddDraft: '', mAddErr: '' }),
         stopTap: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+        // Add-source sheet — tiles/url/text submodes, wired to real ingestion (mAddSubmit, 5608+).
+        // submitDisabled/submitOpacity are precomputed here (not a template-side `!x`/ternary) —
+        // the dc template expression evaluator is a small hand-rolled one, not full JS.
+        add: ((draft) => ({
+          isTiles: st.mAddMode === 'tiles', isUrl: st.mAddMode === 'url', isText: st.mAddMode === 'text',
+          draft: st.mAddDraft, busy: st.mAddBusy, err: st.mAddErr, hasErr: !!st.mAddErr,
+          openUrl: () => this.mAddOpenUrl(), openText: () => this.mAddOpenText(), openFile: () => this.mAddOpenFile(),
+          back: () => this.mAddBack(), input: (e) => this.mAddDraftInput(e), submit: (e) => this.mAddSubmit(e),
+          submitDisabled: st.mAddBusy || !draft, submitOpacity: (st.mAddBusy || !draft) ? '.5' : '1',
+        }))(String(st.mAddDraft || '').trim()),
       },
     };
   }
@@ -10081,7 +10233,7 @@ class Component extends DCLogic {
         : isCompare
         ? 'A measure-by-source table read deterministically off the record — one row per figure (a budget, a completion year, an acreage), one column per source. A cell shows the value that source states, and the move if it revised one ("$120M → $145M"). Click any cell to open its passage.'
         : isSolar
-        ? 'One entity at the centre — its point of view. You don’t see everything at once: you start at the highest level (meaning) and zoom DOWN, one holon level at a time, each a different kind of math with its own visual — meaning is the physics of orbital attraction, structure is the geometry of bonds, existence is the arithmetic of coming-into-being, and the floor is the raw spans it was read from. Click any body to pivot the whole view to its POV.'
+        ? 'One entity at the centre — its point of view. You don’t see everything at once: you start at the highest level (meaning) and zoom DOWN, one holon level at a time, each a different kind of math with its own visual — meaning is the physics of orbital attraction, structure is the chemistry of bonds read as a DAG, and existence is the quantum arithmetic of coming-into-being: a metrics dashboard sitting directly over the raw sentences it tallies. Click any body to pivot the whole view to its POV.'
         : 'What the sources are read as asserting causes what. Open a node, then “focus the DAG here”.',
       webToggleHead: `${(isEnt || isSolar) ? 'ENTITIES' : isNetwork ? 'SOURCES' : isCrosswalk ? 'REFERENTS' : isCompare ? 'MEASURES' : 'NODES'} ${onCount}/${toggles.length}`,
       // Show the filter once the list is long enough to be worth searching.
@@ -12277,7 +12429,9 @@ class Component extends DCLogic {
     return {
       // chrome
       crumb,
-      omni: st.omni, toast: st.toast, dragOver: !!st.dragOver,
+      // toastBottom clears the mobile shell's bottom tab bar (index.html:4500's toast is shared by
+      // both shells and otherwise sits at the same height as that bar on mobile).
+      omni: st.omni, toast: st.toast, toastBottom: st.isMobile ? '84px' : '26px', dragOver: !!st.dragOver,
       // live recording — the mic button + the take panel
       // The Home tab (Source Explorer) is a self-contained surface with its OWN left rail (Quick
       // Access · Folders · Vault), so the app's global topic/source rail stands down there — otherwise
