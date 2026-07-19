@@ -61,6 +61,7 @@ export { createCompositeDoc, proposeCrossDocSyn, compositeDocIdOf } from './comp
 export { ingestImage }       from './image.js';
 export { composeScene }      from './scene.js';
 export { ingestAudio }       from './audio.js';
+export { guessSpeakerNames } from './audio-speakers.js';
 export { ingestAcoustic, waveformPeaks, analyzeAudio, separateHolons, acousticSummary, toDb } from './acoustic.js';
 export { acousticSignal, resolveTranscript } from './hear.js';
 export { diarize, analyzeUtterance } from './voices.js';

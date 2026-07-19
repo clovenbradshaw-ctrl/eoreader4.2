@@ -7,6 +7,7 @@ import { contract } from '../core/contract.js';
 export const CONTRACTS = Object.freeze({
   'src/organs/in/acoustic.js': contract({ ops: ['SEG', 'INS', 'CON', 'DEF', 'EVA'], targets: ['Field'], products: ['Entity', 'Link', 'Kind', 'Field'], stances: ['Dissecting', 'Making', 'Binding', 'Tracing'], note: 'pre-transcription cochlea — signal/noise nested holons' }),
   'src/organs/in/audio.js': contract({ ops: ['INS', 'CON', 'EVA', 'DEF', 'SYN', 'REC'], targets: ['Void'], products: ['Entity', 'Link', 'Lens'], stances: ['Making', 'Binding', 'Tracing'], note: 'audio-transcription adapter (speech)' }),
+  'src/organs/in/audio-speakers.js': contract({ ops: ['DEF', 'EVA'], targets: ['Void'], products: ['Entity', 'Kind'], stances: ['Tracing', 'Binding'], note: 'speaker-name guesses from transcript self-identifications' }),
   'src/organs/in/code.js': contract({ ops: ['SEG', 'SYN'], targets: ['Void'], products: ['Network'], stances: ['Dissecting', 'Composing'], note: 'code adapter — source → EOT graph' }),
   'src/organs/in/codon.js': contract({ ops: ['INS', 'CON'], targets: ['Void'], products: ['Entity', 'Link', 'Field'], stances: ['Making', 'Binding'], note: 'codon adapter (DNA/RNA frame)' }),
   'src/organs/in/composite.js': contract({ ops: ['SYN', 'SEG'], targets: ['Network', 'Entity'], products: ['Network', 'Link'], stances: ['Composing', 'Unraveling'], note: 'composite document (multi-doc)' }),
