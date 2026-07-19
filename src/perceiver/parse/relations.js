@@ -1,17 +1,14 @@
 // EO: CON·SIG·DEF(Field,Entity → Link,Lens, Binding,Tracing) — relation extraction (CON/SIG/DEF)
 // Relation extraction → CON (bond), SIG (attribution/speech), DEF (define).
 //
-// The contract is unchanged: never invent a node. Every endpoint of an edge
-// is an admitted entity, or a pronoun resolved by coreference to one. The
-// gains over the single rigid SVO regex are where the weakness was:
-//
-//   - Coreference. A leading subject pronoun resolves to the most recent mention;
-//     first-person "I" resolves via the deixis channel to the grounded teller (else HOLD).
-//   - Verb classification. Speech / attribution verbs ("said", "told",
-//     "asked") emit SIG; copulas ("is", "was") emit DEF; everything else
-//     that links two entities emits CON.
-//   - Kinship apposition. "his sister Grete", "Gregor's father" bond the
-//     owner to the named relative through the kin term.
+// The contract is unchanged: never invent a node. Every endpoint of an edge is an admitted entity,
+// or a pronoun resolved by coreference to one. The gains over a rigid SVO regex are where the
+// weakness was:
+//   - Coreference. A leading subject pronoun resolves to the most recent mention; first-person "I"
+//     resolves via the deixis channel to the grounded teller (else HOLD).
+//   - Verb classification. Speech verbs emit SIG; copulas emit DEF; everything else linking two
+//     entities emits CON.
+//   - Kinship apposition. "his sister Grete", "Gregor's father" bond owner to relative via the kin term.
 
 import { scanEntities } from './entities.js';
 import { segmentClauses, SEED_CLAUSE_BOUNDARY } from './clauses.js';
@@ -32,14 +29,10 @@ const defIsConjunction = (w) => DEF_C.isConjunction(w);  // learn-only: taught, 
 
 const SUBJECT_PRONOUN = new Set(['He', 'She', 'They', 'We', 'It', 'I', 'You']);
 
-// Relative pronouns that open a clause whose subject is the ANTECEDENT, not the
-// running sentence subject ("…an unspeaking jazz player who refuses to speak" — the
-// one refusing is the player, not the narrator). The clause splitter consumes the
-// pronoun, so the relative clause arrives subjectless. Without the total read we do
-// not resolve antecedents and let it fail toward silence; under the total read the
-// antecedent is the running figure, and the embedded clause is read as a full
-// proposition with that antecedent as subject (§2 — closing the "arrives subjectless"
-// gap), graded by the `relative` prior so the harder read carries its own number.
+// Relative pronouns opening a clause whose subject is the ANTECEDENT, not the running subject
+// ("…a jazz player who refuses to speak" — the player refuses, not the narrator). Under the total
+// read a subject-relative reads the antecedent as subject; an object-relative ("the wretch whom S
+// V") reads S–V→antecedent (emitClause) — both graded by the `relative` prior, dropped off it.
 const RELATIVE_OPENER = new Set(['who', 'whom', 'whose', 'which', 'that']);
 
 // §3 — inter-proposition links. A subordinator that opens a clause is not noise to be
@@ -104,18 +97,13 @@ const propIdOf = (edge) =>
     ? `prop:${edge.id}~is~${slugProp(edge.value).slice(0, 24)}`
     : `prop:${edge.src}~${slugProp(edge.via)}~${edge.tgt}`;
 
-// Words that are not verbs: if the head slot lands on one of these, there is no
-// relation here — better silence than "Grete who Just" or "Gregor -> spoke :
-// between". Prepositions, indefinite pronouns, and bare cardinals are added because
-// they were the surface words the flat extractor mistook for predicates
-// ("Gregor -> awful : something", "Gregor -> whole : two") — exactly the junk the
-// note format forbids in the relation slot.
+// Words that are not verbs: if the head slot lands on one of these, there is no relation here —
+// better silence than "Grete who Just". Prepositions, indefinite pronouns, and bare cardinals are
+// added because the flat extractor mistook them for predicates ("Gregor -> awful : something").
 const NOT_HEAD = new Set([
   'who', 'whom', 'whose', 'which', 'that', 'what', 'where', 'when', 'why', 'how',
-  // Expletive / deictic adverbs: "there is an unspeaking jazz player", "here stands a
-  // man" front a clause but are no predicate. Without them the head-verb walk took the
-  // existential "there" as the relation ("X -> player : there"), inventing a bond out of
-  // a presentational clause. Same closed-class footing as the wh-adverbs above.
+  // Expletive / deictic adverbs ("there is a player", "here stands a man") front a clause but are
+  // no predicate; without them the head-verb walk mints "X -> player : there" out of thin air.
   'there', 'here',
   'by', 'of', 'in', 'on', 'at', 'to', 'from', 'with', 'for', 'as', 'than', 'about',
   'and', 'but', 'or', 'nor', 'so', 'because', 'although', 'while', 'if', 'unless',
@@ -128,13 +116,9 @@ const NOT_HEAD = new Set([
   'something', 'nothing', 'anything', 'everything', 'someone', 'anyone', 'everyone',
   'somebody', 'anybody', 'everybody', 'nobody', 'none', 'one',
   'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
-  // Determiners and quantifiers that open a NOUN PHRASE, never a predicate. When a
-  // clause has no admitted subject and falls to the inherited/last-INS fill, its head
-  // walk would otherwise take the leading quantifier as the verb — "All these families
-  // belong to Odontoceti" bonding an unrelated running figure via "all", a quarter of
-  // a real run's triples (the audit's "X -> Y : All", "X -> Y : Several", "X -> Y : Some" junk).
-  // A determiner-headed clause is a noun phrase the name-only reader cannot subject, so
-  // it fails toward silence here rather than minting a bond on a non-verb. (more/most/
+  // Determiners / quantifiers open a NOUN PHRASE, never a predicate. On the inherited/last-INS
+  // fill the head walk would otherwise take the leading quantifier as the verb ("All these families
+  // belong…" bonding via "all"), so a determiner-headed clause fails to silence here. (more/most/
   // less/much/such/so are already modifiers — stepped over to the real verb, not here.)
   'all', 'some', 'any', 'each', 'every', 'both', 'either', 'neither', 'several',
   'many', 'few', 'fewer', 'other', 'another', 'various', 'numerous', 'multiple',
@@ -759,14 +743,10 @@ export const parseRelations = (sentence, admission, coref = {}, opts = {}) => {
       // biggest well. Its weight rides as coupling: a witnessed deposit, not a
       // certain claim.
       const lead = (clause.text.match(LEAD_COORD) || [''])[0].length;
-      // A relative clause ("…player WHO refuses…") binds its subject to the ANTECEDENT,
-      // the head noun the splitter dropped, never an arbitrary running subject. Without
-      // the total read there is no antecedent resolver, so it fails toward silence (the
-      // wrong-subject read — "refuses to speak" pinned on the narrator — is worse than a
-      // missed edge). Under the total read the antecedent IS the running figure (the head
-      // the relative clause modifies, established by the clause just before it), so the
-      // embedded clause is read as a full proposition with that figure as subject (§2),
-      // graded by the `relative` prior — present and low, never dropped (§1).
+      // A subject-relative ("…player WHO refuses…") binds its subject to the ANTECEDENT — the head
+      // the splitter dropped — never an arbitrary running subject. Off the total read there is no
+      // resolver, so it fails to silence (a wrong-subject read is worse than a miss); on, the
+      // antecedent IS the running figure, read as the embedded clause's subject, graded `relative`.
       if (relativeAntecedent) {
         if (running && running.id && headVerb(clause.text.slice(lead), verbOpts))
           subj = { id: running.id, start: lead, end: lead, text: '', kind: 'relative', w: running.w ?? 1 };
@@ -807,6 +787,25 @@ export const parseRelations = (sentence, admission, coref = {}, opts = {}) => {
     }
     running = { id: subjects[subjects.length - 1].id,
                 w: subjects[subjects.length - 1].kind === 'name' ? 1 : (subjects[subjects.length - 1].w ?? 0) };
+
+    // OBJECT-RELATIVE (total read) — "the HEAD whom/which/that S V …": the object is FRONTED as the
+    // relative pronoun, so an explicit subject S follows. The subject-relative path can't reach this
+    // (it reads HEAD as subject) and drops the person-relation S–V→HEAD. Read it directly, then
+    // ADVANCE past the embedded verb so HEAD's own main predicate is read next. Off → byte-identical.
+    const relLead = totalRead && subj.kind !== 'relative' && clause.text.slice(afterStart).match(/^\s*(?:who|whom|which|that)\b/i);
+    const relBase = relLead ? afterStart + relLead[0].length : -1;
+    const relS = relLead ? leadingSubject(clause.text.slice(relBase), admission, coref, opts.sentIdx ?? 0) : null;
+    const relV = relS && relS.id && relS.id !== subj.id ? headVerb(clause.text.slice(relBase + relS.end), verbOpts) : null;
+    if (relV && !relV.copular) {
+      const b0 = base + relBase, vAt = b0 + relS.end + relV.at, vEnd = b0 + relS.end + relV.restStart;
+      const rop = isSpeech(relV.verb) ? 'SIG' : 'CON';
+      out.push(graded({ op: rop, src: relS.id, tgt: subj.id, via: relV.verb, ...coupling(relS), ...polmod(relV),
+        args: { subject: { text: s.slice(b0 + relS.start, b0 + relS.end), start: b0 + relS.start, end: b0 + relS.end, id: relS.id },
+                verb: { text: s.slice(vAt, vEnd), start: vAt, end: vEnd },
+                object: { text: s.slice(base + subj.start, base + subj.end), start: base + subj.start, end: base + subj.end, id: subj.id }, op: rop } },
+        'relative', relS.kind, subj.kind === 'np' ? 'np' : null));
+      afterStart = relBase + relS.end + relV.restStart;   // HEAD's main verb is read from here
+    }
 
     const after = clause.text.slice(afterStart);
     const head  = headVerb(after, verbOpts);

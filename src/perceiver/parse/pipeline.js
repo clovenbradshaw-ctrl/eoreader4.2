@@ -849,8 +849,8 @@ export const createParser = ({
           const sent = sentences[si];
           if (sent == null) continue;
           for (const rel of parseRelations(sent, admission, staticCoref, { ...relRead, sentIdx: si })) {
-            const anchors = rel.op === 'DEF' ? darkIds.has(rel.id) : darkIds.has(rel.src);
-            if (!anchors) continue;                       // only the referent's OWN agency
+            const anchors = rel.op === 'DEF' ? darkIds.has(rel.id) : (darkIds.has(rel.src) || darkIds.has(rel.tgt));
+            if (!anchors) continue;   // own structure: subject, and (total read) object of a figure's act
             const k = edgeKey(rel);
             if (seen.has(k)) continue; seen.add(k);       // never double-count a bond the main read made
             const { args, coord, ...edge } = rel;
