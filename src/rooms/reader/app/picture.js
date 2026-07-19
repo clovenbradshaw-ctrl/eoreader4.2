@@ -178,7 +178,7 @@ export const installPicture = (appCtx) => {
         }
         return src;
       }
-      const structured = ['table', 'json', 'binary', 'music'].includes(got.meta?.modality) && got.meta?.doc;
+      const structured = ['table', 'json', 'binary', 'music', 'subtitle'].includes(got.meta?.modality) && got.meta?.doc;
       // The coverage receipt — proof that 100% of the file was processed, or the named account of
       // what could not be (import-file.js) — rides the source and the ledger, whichever path lands it.
       const cov = got.meta?.coverage;
@@ -198,6 +198,9 @@ export const installPicture = (appCtx) => {
         const src = appCtx.addSource({ title: got.title || file.name, text: got.text, kind: got.meta?.modality || 'file', rights: 'local file', doc: got.meta.doc });
         settleFile('done');
         recordCoverage(src);
+        // A caption's cues carry real timing, interpolated to word-level tokens — the same
+        // src.words shape an ASR transcript lands on, so sync-reduce.js reads either uniformly.
+        if (src && got.meta?.modality === 'subtitle' && Array.isArray(got.meta.words)) { src.words = got.meta.words; appCtx.persist(); }
         return src;
       }
 

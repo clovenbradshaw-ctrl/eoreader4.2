@@ -111,6 +111,12 @@ export const buildApi = (appCtx) => {
     rashomonSource: () => null, rashomonTopic: () => null, rashomonCandidates: () => [],
     // standing folds — save a comparison/trace and see what changed since (docs: the living fold).
     standingSave: appCtx.standingSave, standingRefresh: appCtx.standingRefresh, standingRemove: appCtx.standingRemove, standingList: appCtx.standingList,
+    // cross-source sync — align two sources' timestamped word tokens, gated so a wrong pairing
+    // abstains rather than force-fitting a guess (core/sync/align.js, docs: the born-rule gate).
+    // syncPreview is a fast unsaved run for the confirm-modal's live threshold preview; syncRun
+    // persists the anchor JSONL to OPFS; syncSave additionally saves it as a standing fold;
+    // syncExport projects a saved sync's anchors through an organs/out/sync format.
+    syncPreview: appCtx.syncPreview, syncRun: appCtx.syncRun, syncSave: appCtx.syncSave, syncExport: appCtx.syncExport,
     // fragility — the record's contested claims ranked by how much of the record hangs off them.
     fragilitySource: appCtx.fragilitySource, fragilityTopic: appCtx.fragilityTopic,
     // chronology — the order events are told vs. happened; a timeline with flashbacks flagged.

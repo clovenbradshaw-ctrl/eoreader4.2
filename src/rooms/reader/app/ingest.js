@@ -3,12 +3,7 @@
 // VERBATIM from the closure; cross-section reach rides ctx (call-time), the core
 // spine (state · emit · trail beats · client) is destructured once at install.
 // ingest: URL / search / file / paste
-import { htmlToText, searchAndAdmit } from '../../../organs/ingest/index.js';
-import { admitWebSource } from '../../../organs/ingest/index.js';
-import { fetchGithubRepo } from '../../../organs/ingest/index.js';
-import { fetchGutenbergBook, gutenbergIdOf } from '../../../organs/ingest/index.js';
-import { fetchYoutubeTranscript, youtubeIdOf } from '../../../organs/ingest/index.js';
-import { LIBRARIES, surfaceCard } from '../../../organs/ingest/index.js';
+import { htmlToText, searchAndAdmit, admitWebSource, fetchGithubRepo, fetchGutenbergBook, gutenbergIdOf, fetchYoutubeTranscript, youtubeIdOf, LIBRARIES, surfaceCard } from '../../../organs/ingest/index.js';
 import { FULL_TEXT } from './net.js';
 import { nowIso, domainOf } from './util.js';
 import { fetchFeedSource, ingestFeed as runIngestFeed, isFeed } from './feed.js';

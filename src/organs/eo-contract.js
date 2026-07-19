@@ -26,6 +26,8 @@ export const CONTRACTS = Object.freeze({
   'src/organs/in/ocr-context.js': contract({ ops: ['SEG', 'INS', 'DEF', 'EVA', 'REC'], targets: ['Field', 'Lens'], products: ['Entity', 'Lens', 'Paradigm'], stances: ['Dissecting', 'Making', 'Binding', 'Tracing'], note: 'the OCR reading that edits itself in context — belief-marked, auditable, revertible guesses' }),
   'src/organs/in/pdf.js': contract({ ops: ['SEG', 'DEF', 'EVA', 'REC'], targets: ['Void', 'Lens'], products: ['Field', 'Lens', 'Paradigm'], stances: ['Dissecting', 'Binding', 'Tracing', 'Composing'], note: 'PDF adapter — text layer + rendered-raster OCR, reconciled by the quorum' }),
   'src/organs/in/scene.js': contract({ ops: ['CON', 'SYN'], targets: ['Void'], products: ['Link', 'Field'], stances: ['Binding', 'Composing'], note: 'scene composer (vision, pure)' }),
+  'src/organs/in/subtitle.js': contract({ ops: ['INS', 'CON'], targets: ['Void'], products: ['Entity', 'Link'], stances: ['Making', 'Binding'], note: 'subtitle/caption ingest (SRT/VTT) — a score for the sync feature' }),
+  'src/organs/in/sync-reduce.js': contract({ ops: ['INS'], targets: ['Void'], products: ['Entity'], stances: ['Making'], note: 'timestamped-words → sync feature sequence' }),
   'src/organs/in/table.js': contract({ ops: ['INS', 'DEF', 'CON'], targets: ['Void'], products: ['Entity', 'Link', 'Field'], stances: ['Making', 'Binding', 'Dissecting'], note: 'tabular adapter (CSV/xlsx)' }),
   'src/organs/in/reading-dispatch.js': contract({ ops: ['NUL', 'SIG'], targets: ['Void'], products: ['Field'], stances: ['Clearing', 'Tending'], note: 'buildReadingFromBytes — the generalized deviation-waveform entry point: sniffs WAV/text, falls through to the generic binary perceiver' }),
   'src/organs/in/text.js': contract({ ops: ['INS', 'SIG'], targets: ['Void'], products: ['Entity', 'Field', 'Network'], stances: ['Making', 'Tending'], note: 'text ingest' }),
@@ -54,5 +56,8 @@ export const CONTRACTS = Object.freeze({
   'src/organs/out/speech/index.js': contract({ ops: ['SEG', 'EVA'], targets: ['Void', 'Network'], products: ['Field', 'Lens'], stances: ['Dissecting', 'Binding'], note: 'speech output organ (SEG murmur → enactor gate)' }),
   'src/organs/out/speech/schema.js': contract({ ops: ['DEF', 'SEG'], targets: ['Network', 'Void'], products: ['Lens', 'Field'], stances: ['Dissecting', 'Binding'], note: 'STRUCTURE — seat committed props into the answer\'s typed frame' }),
   'src/organs/out/speech/segment.js': contract({ ops: ['SEG'], targets: ['Void'], products: ['Field'], stances: ['Dissecting'], note: 'SEG the murmur → candidate propositions' }),
+  'src/organs/out/sync/index.js': contract({ ops: ['SIG', 'NUL'], targets: ['Field'], products: ['Void'], stances: ['Tending', 'Clearing'], note: 'barrel — sync export family' }),
+  'src/organs/out/sync/jsonl.js': contract({ ops: ['SIG', 'NUL'], targets: ['Field'], products: ['Void'], stances: ['Tending', 'Clearing'], note: 'sync export: raw JSONL' }),
+  'src/organs/out/sync/srt.js': contract({ ops: ['SIG', 'NUL'], targets: ['Field'], products: ['Void'], stances: ['Tending', 'Clearing'], note: 'sync export: re-timed SRT' }),
   'src/organs/out/text.js': contract({ ops: ['NUL'], targets: ['Lens'], products: ['Void'], stances: ['Clearing'], note: 'text output organ (bare renderer)' }),
 });
