@@ -4,8 +4,12 @@
 // a Powers-of-Ten descent through three physical regimes, each a different KIND OF MATH:
 //
 //   level 0 · meaning   — orbital PHYSICS: the claims that hold about the entity, orbiting
-//                         under the gravity of significance (⊢⊨⊛). Curved trajectories, a
-//                         gravity well. Where you land.
+//                         under the gravity of significance (⊢⊨⊛), LIVE and continuous —
+//                         each on its own period and phase, never resetting. Click any body
+//                         (the sun or a claim) and the CAMERA re-anchors to it right there:
+//                         the true motion never changes, only which body sits still at the
+//                         centre, so the old centre visibly starts orbiting whatever you
+//                         clicked. Pausable; the time cursor can be scrubbed by hand too.
 //   level 1 · structure — molecular CHEMISTRY: the figures it bonds to, read as a DAG — the
 //                         real bond graph ringed out by rank (sun-adjacent, or reached only
 //                         through another bond), every edge directed and glyphed (｜⋈△).
@@ -40,6 +44,7 @@ const LEVELS = [
   { key: 'existence', math: 'quantum · arithmetic',  tier: 0,  fill: '#7F77DD', stroke: '#534AB7', chipBg: '#EEEDFE', chipFg: '#3C3489', glyphs: '∅○● “ ”' },
 ];
 const SUN = { fill: '#FBF3E6', stroke: '#BA7517' };
+const SCRUB_MAX = 60;   // seconds the meaning-level time cursor's slider spans
 
 const STYLE_ID = 'eo-ss-style';
 const CSS = `
@@ -55,6 +60,7 @@ const CSS = `
 .eo-ss .ss-glyph{paint-order:stroke;stroke:var(--card,#fff);stroke-width:3px;stroke-linejoin:round;pointer-events:none;font-family:var(--mono,ui-monospace,Menlo,monospace);}
 .eo-ss .ss-body{cursor:pointer;}
 .eo-ss .ss-span{cursor:pointer;}
+.eo-ss input[type=range].ss-scrub{width:110px;accent-color:var(--ink,#15181e);cursor:pointer;height:4px;}
 `;
 
 export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [], centreId = null, spans = [], count = 0, onPivot = null, onSelect = null, onOpen = null, onSpan = null, countsLabel = '' } = {}) {
@@ -82,9 +88,30 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   const sources = nodes.filter((n) => n.tier === 0 && n !== sun);
   const tally = count || spans.length || 0;
 
+  // Meaning-level orbital mechanics — each claim gets its OWN period and phase (organic,
+  // never a shared drift angle), computed once so the simulation never resets on re-render.
+  // The sun is the root of this little system: its TRUE position is always (0,0); it's the
+  // camera (placeMeaning) that moves when the meaning-level focus changes, never the bodies'
+  // real motion — exactly a change of reference frame, not a re-layout.
+  const mOrbit = {};
+  const mRings = Math.min(3, Math.ceil(claims.length / 5)) || 1;
+  claims.forEach((n, i) => {
+    const ring = i % mRings, rx = 96 + ring * 62;
+    mOrbit[n.id] = {
+      rx, ry: rx * 0.62,
+      phase: (Math.floor(i / mRings) / Math.max(1, Math.ceil(claims.length / mRings))) * Math.PI * 2 + ring * 0.7,
+      omega: (Math.PI * 2) / (16 + (i % 5) * 6 + ring * 5),
+    };
+  });
+  const trueOf = (id, t) => { const o = mOrbit[id];
+    return o ? { x: Math.cos(o.phase + t * o.omega) * o.rx, y: Math.sin(o.phase + t * o.omega) * o.ry } : { x: 0, y: 0 }; };
+
   const W = 700, H = 470, cx = W / 2, cy = H / 2;
   // depth is the continuous descent dial; the integer level is what we draw. Start at meaning (0).
-  const state = { depth: 0, level: 0, playing: true, spin: 0, sel: null };
+  // mFocus is the meaning level's OWN camera anchor — separate from `sun` (the entity POV the
+  // structure/existence levels and onPivot use), since re-anchoring onto a claim never fetches
+  // new data, it just re-centres the same already-loaded bodies.
+  const state = { depth: 0, level: 0, playing: true, simTime: 0, mFocus: sun.id, sel: null };
   const pan = { x: 0, y: 0 };
 
   // ── shell ──────────────────────────────────────────────────────────────────
@@ -93,7 +120,8 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     '<div style="border:1px solid var(--line,#e5e7eb);border-radius:12px;overflow:hidden;background:var(--card,#fff);">' +
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line,#e5e7eb);background:var(--app,#f7f8fb);">' +
       '<span class="ss-btn" style="cursor:default;color:var(--ink2,#555);">☉ EOGraph</span>' +
-      '<button class="ss-btn" data-play title="Pause or resume the orbital drift (meaning level)">❚❚ <span data-playlbl>drift</span></button>' +
+      '<button class="ss-btn" data-play title="Pause or resume the live orbit (meaning level)">❚❚ <span data-playlbl>drift</span></button>' +
+      '<input class="ss-scrub" data-scrub type="range" min="0" max="' + SCRUB_MAX + '" step="0.1" value="0" title="Scrub the orbital simulation time by hand" aria-label="orbital time cursor">' +
       '<div style="display:flex;gap:5px;margin-left:auto;">' +
         '<button class="ss-btn" data-up title="Zoom out — ascend a level">−</button>' +
         '<button class="ss-btn" data-down title="Zoom in — descend a level toward the raw spans">+</button>' +
@@ -128,39 +156,49 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   // orbiters carry the live meaning-level bodies so the drift can re-place them each frame
   let orbiters = [];
 
-  // ── level 0 · meaning — the physics of orbital attraction ───────────────────
+  // ── level 0 · meaning — a live orbital simulation, egocentric within itself too ─────────
   function renderMeaning(g) {
     g.appendChild(sv('rect', { x: cx - 260, y: cy - 190, width: 520, height: 380, fill: 'url(#' + uid + '-well)' }));
-    drawSun(g, '☉');
+    g.appendChild(sv('circle', { 'data-focusring': '1', cx, cy, r: 30, fill: 'none', stroke: 'var(--ink3,#999)', 'stroke-opacity': 0.4, 'stroke-dasharray': '2 3' }));
     orbiters = [];
+    // the orbit-path guide is only geometrically honest in the SUN's own frame — once the
+    // camera re-anchors onto a claim, a static ellipse would just be a stale decoration.
+    if (state.mFocus === sun.id) claims.forEach((n) => { const o = mOrbit[n.id];
+      g.appendChild(sv('ellipse', { cx, cy, rx: o.rx, ry: o.ry, fill: 'none', stroke: LEVELS[0].fill, 'stroke-opacity': 0.22, 'stroke-dasharray': '2 5' })); });
+    orbiters.push({ id: sun.id, ...drawSun(g, '☉', () => focusMeaning(sun.id)) });
     if (!claims.length) {
       g.appendChild(text(cx, cy + 70, 'no standing claims yet — its meaning ring is empty', { anchor: 'middle', size: 11.5, fill: '#8A8A95' }));
-      return;
+      placeMeaning(); return;
     }
-    const rings = Math.min(3, Math.ceil(claims.length / 5));
-    claims.forEach((n, i) => {
-      const ring = i % rings, rx = 96 + ring * 62, ry = rx * 0.62;
-      const baseAng = (Math.floor(i / rings) / Math.max(1, Math.ceil(claims.length / rings))) * Math.PI * 2 + ring * 0.7;
-      // the elliptical orbit + a leading trajectory arc (the "physics")
-      g.appendChild(sv('ellipse', { cx, cy, rx, ry, fill: 'none', stroke: LEVELS[0].fill, 'stroke-opacity': 0.28, 'stroke-dasharray': '2 5' }));
+    claims.forEach((n) => {
       const grp = sv('g', { class: 'ss-body' });
-      const dot = sv('circle', { r: 5.5, fill: LEVELS[0].fill, stroke: LEVELS[0].stroke, 'stroke-width': 1.1 });
-      grp.appendChild(dot);
-      grp.addEventListener('click', (ev) => { ev.stopPropagation(); clickBody(n); });
+      grp.appendChild(sv('circle', { r: 5.5, fill: LEVELS[0].fill, stroke: LEVELS[0].stroke, 'stroke-width': 1.1 }));
+      grp.addEventListener('click', (ev) => { ev.stopPropagation(); focusMeaning(n.id); });
       g.appendChild(grp);
       const lab = text(0, 0, clip(n.label, 26), { anchor: 'start', size: 10.5, cls: 'ss-plabel' });
       g.appendChild(lab);
-      orbiters.push({ grp, lab, rx, ry, baseAng });
+      orbiters.push({ id: n.id, grp, lab });
     });
-    placeOrbiters();
+    placeMeaning();
   }
-  function placeOrbiters() {
+  // Every body's TRUE position never changes with focus — only the camera offset (target)
+  // does, so re-centring on a claim makes the sun (and every other claim) visibly move,
+  // exactly as their real relative motion always was.
+  function placeMeaning() {
+    const t = state.simTime, target = trueOf(state.mFocus, t), onSun = state.mFocus === sun.id;
+    const ring = stage.querySelector('[data-focusring]'); if (ring) ring.setAttribute('r', onSun ? 30 : 12);
     orbiters.forEach((o) => {
-      const a = o.baseAng + state.spin;
-      const x = cx + Math.cos(a) * o.rx, y = cy + Math.sin(a) * o.ry;
+      const p = trueOf(o.id, t), x = cx + (p.x - target.x), y = cy + (p.y - target.y);
       o.grp.setAttribute('transform', 'translate(' + x.toFixed(1) + ',' + y.toFixed(1) + ')');
-      o.lab.setAttribute('x', (x + 9).toFixed(1)); o.lab.setAttribute('y', (y + 3.5).toFixed(1));
+      if (o.id === sun.id) { o.lab.setAttribute('x', x.toFixed(1)); o.lab.setAttribute('y', (y - 26).toFixed(1)); }
+      else { o.lab.setAttribute('x', (x + 9).toFixed(1)); o.lab.setAttribute('y', (y + 3.5).toFixed(1)); }
     });
+  }
+  // The meaning-level camera pivot: re-anchor to id, snap the frame immediately (even
+  // paused), and mirror the usual selection detail so the footer still names what's focused.
+  function focusMeaning(id) {
+    state.mFocus = id; placeMeaning();
+    const n = byId[id]; if (n) select(n);
   }
 
   // ── level 1 · structure — the chemistry of bonds, read as a DAG ─────────────
@@ -236,15 +274,20 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     if (spans.length > list.length) g.appendChild(text(cx, top + list.length * rowH + 6, '+ ' + (spans.length - list.length) + ' more mention' + (spans.length - list.length === 1 ? '' : 's') + ' on record', { anchor: 'middle', size: 10.5, fill: '#8A8A95' }));
   }
 
-  function drawSun(g, glyph) {
+  // onClick defaults to the structure level's plain clickBody (inspect only — the sun can't
+  // pivot to itself); renderMeaning passes its own live camera-reframe instead. Returns the
+  // body + label refs so a caller that moves its own sun (renderMeaning) can reposition them.
+  function drawSun(g, glyph, onClick) {
     const grp = sv('g', { class: 'ss-body' });
     grp.appendChild(sv('circle', { r: 22, fill: SUN.fill, opacity: 0.35 }));
     grp.appendChild(sv('circle', { r: 14, fill: SUN.fill, stroke: SUN.stroke, 'stroke-width': 2 }));
     grp.appendChild(text(0, 5, glyph, { anchor: 'middle', size: 14, cls: 'ss-glyph', fill: SUN.stroke }));
     grp.setAttribute('transform', 'translate(' + cx + ',' + cy + ')');
-    grp.addEventListener('click', (ev) => { ev.stopPropagation(); clickBody(sun); });
+    grp.addEventListener('click', (ev) => { ev.stopPropagation(); (onClick || (() => clickBody(sun)))(); });
     g.appendChild(grp);
-    g.appendChild(text(cx, cy - 26, clip(sun.label, 30), { anchor: 'middle', size: 12, cls: 'ss-plabel' }));
+    const lab = text(cx, cy - 26, clip(sun.label, 30), { anchor: 'middle', size: 12, cls: 'ss-plabel' });
+    g.appendChild(lab);
+    return { grp, lab };
   }
   function text(x, y, s, { anchor = 'start', size = 11, fill = 'var(--ink,#15181e)', cls = '' } = {}) {
     const t = sv('text', { x: x.toFixed ? x.toFixed(1) : x, y: y.toFixed ? y.toFixed(1) : y, 'text-anchor': anchor, 'font-size': size, fill });
@@ -306,18 +349,28 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   wrap.querySelectorAll('[data-lvl]').forEach((c) => c.addEventListener('click', () => setLevel(+c.dataset.lvl)));
   wrap.querySelector('[data-down]').addEventListener('click', () => setLevel(state.level + 1));
   wrap.querySelector('[data-up]').addEventListener('click', () => setLevel(state.level - 1));
-  wrap.querySelector('[data-reset]').addEventListener('click', () => { pan.x = pan.y = 0; applyPan(); setLevel(0); if (state.level === 0) renderLevel(); });
+  wrap.querySelector('[data-reset]').addEventListener('click', () => { pan.x = pan.y = 0; applyPan(); state.mFocus = sun.id; setLevel(0); if (state.level === 0) renderLevel(); });
 
-  // ── the calm orbital drift (meaning level only) ─────────────────────────────
+  // ── the live orbital simulation — always runs while playing, never just while you watch:
+  // placeMeaning() is a harmless no-op away from the meaning level (no orbiters mounted), so
+  // returning to it later shows time having genuinely passed, not a diorama that only moved
+  // while you looked at it. ──────────────────────────────────────────────────────────────
   let raf = null, last = 0;
-  const OMEGA = 0.05;
   function tick(t) {
     if (!last) last = t; const dt = Math.min(0.05, (t - last) / 1000); last = t;
-    if (state.playing && state.level === 0 && orbiters.length) { state.spin = (state.spin + OMEGA * dt) % (Math.PI * 2); placeOrbiters(); }
+    if (state.playing) { state.simTime += dt; placeMeaning(); scrubEl.value = (state.simTime % SCRUB_MAX).toFixed(1); }
     raf = requestAnimationFrame(tick);
   }
   function setPlay(on) { state.playing = on; playBtn.firstChild.textContent = on ? '❚❚ ' : '▶ '; playLbl.textContent = on ? 'drift' : 'parked'; }
   playBtn.addEventListener('click', () => setPlay(!state.playing));
+  const scrubEl = wrap.querySelector('[data-scrub]');
+  // Dragging the time cursor by hand pauses autoplay — same convention as the tiered graph's
+  // own fold cursor — and snaps the meaning level to that instant immediately.
+  scrubEl.addEventListener('input', () => {
+    if (state.playing) setPlay(false);
+    state.simTime = +scrubEl.value;
+    if (state.level === 0) placeMeaning();
+  });
 
   // ── pan (translate only) + wheel = semantic descend/ascend ──────────────────
   function applyPan() { panG.setAttribute('transform', 'translate(' + pan.x.toFixed(1) + ',' + pan.y.toFixed(1) + ')'); }
