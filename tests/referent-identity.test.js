@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { parseText } from '../src/perceiver/parse/index.js';
+import { referentApiFor } from '../src/perceiver/referents/index.js';
+import { projectGraph } from '../src/core/index.js';
 
 // REFERENT-FIRST IDENTITY (src/perceiver/referents/). A spelling is an observed SURFACE MENTION
 // that DENOTES a latent, opaque referent; identity is shared denotation, never string-merging.
@@ -70,6 +72,36 @@ test('the nameless creature is ONE referent — all its descriptions converge (t
   assert.ok(creature && wretch, 'both descriptions were observed as surfaces');
   assert.equal(doc.referentOf(creature.id), doc.referentOf(wretch.id),
     '"the creature" and "the wretch" denote the same referent, though the strings are disjoint (invariant 4)');
+});
+
+test('Assembly B — referentApiFor builds the center POST-HOC, without the parse-time flag', () => {
+  // The plan's Assembly B: on an ordinarily-parsed doc (NO referentIdentity flag), the referent API
+  // is built lazily off the doc's own log/admission/corefField and STILL yields one opaque center for
+  // the nameless creature. This proves the fold composes over a plain parse — the path every reader
+  // consumer will take when the layer is promoted (Assembly C).
+  const doc = parseText(FRANK, { docId: 'pg84', darkReferents: true });   // no referentIdentity — plain parse
+  assert.equal(doc.referentOf, undefined, 'plainly parsed: no referent API is threaded');
+  const api = referentApiFor(doc);
+  assert.ok(api && typeof api.referents === 'function', 'the API is built post-hoc off the parsed doc');
+
+  const creature = api.surfaceMentions().find((m) => m.form === 'description' && /creature/.test(m.text));
+  const wretch   = api.surfaceMentions().find((m) => m.form === 'description' && /wretch/.test(m.text));
+  const rc = api.referentOf(creature.id);
+  assert.ok(rc && rc.startsWith('ref-') && !/creature|wretch/i.test(rc), 'the center is OPAQUE, not a slug (invariant 2)');
+  assert.equal(rc, api.referentOf(wretch.id), 'creature and wretch converge on the one post-hoc center');
+
+  const center = api.referents().find((r) => r.id === rc);
+  assert.ok(/creature/i.test(center.display) && /wretch/i.test(center.display),
+    'its display reads the epithets it was seen under, not one canonical name');
+  // Consumer-safety: the center aggregates its mentions as PROVENANCE; it did not inflate the firm
+  // entity graph — the same doc parsed without the API has the identical firm sightings.
+  const firmSightings = (d) => {
+    const g = projectGraph(d.log); let total = 0;
+    for (const [, ent] of g.entities) total += ent.sightings || 0;
+    return total;
+  };
+  const plain = parseText(FRANK, { docId: 'pg84', darkReferents: true });
+  assert.equal(firmSightings(doc), firmSightings(plain), 'building the referent layer added zero firm sightings');
 });
 
 test('invariant 7 — relations bind REFERENT ids, with the surface span kept as provenance', () => {
