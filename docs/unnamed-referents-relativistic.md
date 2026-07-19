@@ -1,9 +1,29 @@
 # Unnamed referents: the gravitational read, threaded relativistically through the meaning level
 
-**Status:** design spec. Companion to `docs/reading-problems-multi-source.md` (P1 arc) and the
-referent-first identity work (`src/perceiver/referents/`, PR #406). Written from the empirical
-investigation logged below — every claim here is reproduced on the real *Frankenstein* and
+**Status:** design spec + landed milestone. Companion to `docs/reading-problems-multi-source.md`
+(P1 arc) and the referent-first identity work (`src/perceiver/referents/`, PR #406). Written from the
+empirical investigation logged below — every claim here is reproduced on the real *Frankenstein* and
 *Metamorphosis* texts.
+
+## What landed (and what is still spec)
+
+The gravitational **census** (rest-mass = head-dominance; luminosity = animacy) and the
+**fold-before-gate** correction are IMPLEMENTED (`censusUnnamedCentres` + `discoverUnnamedReferents`
++ `admitUnnamedReferents` in `unnamed-referent.js`): epithets are discovered, folded onto one body
+(the prior `foldUnnamedReferents`, "one nameless protagonist"), and the star-scale test is applied to
+the POOLED mass — so **the creature now enters Frankenstein's cast as the protagonist**, its mass
+gathered across creature/monster/wretch/devil, while *Metamorphosis* stays clean. Full suite green.
+
+The **relativistic, per-proposition, main-pass integration** described below is the FUTURE ideal, not
+yet landed. The current read still runs as a finalize-time pass with the crude "one nameless
+protagonist" fold, which over-pools on a full novel (substantivized adjectives and weather/settings
+whose animate rate the gate can't reach at low counts fold into the body, inflating its mass; two
+genuinely distinct nameless figures are not yet held apart). Trimming that flood and separating
+distinct bodies is exactly what the proposition-grain field integration below is for — the centre a
+first-class coref candidate, so binding and pooling happen frame-relative through the real engine
+rather than by a heaviest-wins heuristic. An over-engineered first cut of that scanner was explored
+and removed in favour of the simpler landed path; the design is kept here for when the refinement is
+taken up.
 
 ## The thesis
 
