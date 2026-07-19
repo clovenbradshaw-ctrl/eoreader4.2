@@ -90,6 +90,17 @@ meaning-level reading:** the unnamed centre must be a first-class candidate in t
 This is the dependency-order / wave-fold point made concrete: instantiate the centre (INS) **before**
 the bonding pass (CON), so the fold happens once, in order, with no retroactive second cursor.
 
+### The frame is the PROPOSITION, not the sentence
+
+Relativism lives at the meaning level, and meaning lives in propositions. A sentence may carry two
+agents in two clauses — *"Victor fled, but the creature stretched out its hand"* — with two local
+frames; the "its" is zero propositions from the creature's clause and one from Victor's. Binding at
+sentence grain smears the two. So the field is read and deposited at **proposition grain**: a
+position `sentIdx + (clause ordinal / clause count)`, a fractional coordinate the γ kernel (a numeric
+distance, `Math.pow(gamma, d)`) carries with no change. Clause spans come from the total read's own
+`segmentClauses` (§3); named traces stay at integer positions; mixing is arithmetic. The local sun
+is therefore the sun **of the proposition** an epithet sits in.
+
 ## Implementation path
 
 The read stops being a `finalize()` census and becomes part of the main pass:

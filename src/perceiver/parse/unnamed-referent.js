@@ -24,6 +24,7 @@
 
 import { VERDICTS } from '../../core/index.js';
 import { censusModifiers } from './modifier-law.js';
+import { segmentClauses } from './clauses.js';
 
 // The determiner that fronts a definite/indefinite description. Sentence-initial "The" is caught
 // by allowing the leading capital; the HEAD stays strictly lowercase so a proper name ("the White
@@ -58,6 +59,99 @@ const idFor = (label) =>
 // timid — plain trailing -s only, never -es/-ies (which mangle more than they help) — because an
 // over-eager stemmer merges distinct heads, the error this read most wants to avoid.
 const singular = (h) => (h.length > 4 && h.endsWith('s') && !h.endsWith('ss')) ? h.slice(0, -1) : h;
+
+// ── The gravitational census: which "the X" heads are BODIES the reading can point at ──────────
+// A referent is weighed by the bound orbit it captures, not its own light. Two measurements decide
+// whether a recurring description head is a body worth tracking (docs/unnamed-referents-relativistic.md):
+//   REST MASS   — head-dominance = asHead / (asHead + attrib), where `attrib` counts the head standing
+//                 BEFORE another content word in a "the …" run ("the great house") and `asHead` counts
+//                 it ending the run ("the creature"). A substantivized adjective ("the great") is
+//                 attributive even when it heads an elided NP, so it sits LOW; a figure-noun sits high.
+//                 This is the adjective filter the modifier law misses when prose substantivizes freely.
+//   LUMINOSITY  — animacy = the rate at which the head co-occurs with a personal pronoun (he/she/him/
+//                 her). A FIGURE binds animate satellites; a SETTING ("the sea", "the door") is a dark
+//                 medium pronouns fly through. This is the one thing rest-mass and raw mass cannot tell
+//                 apart, and the reason a crude mass gate was the only thing that ever worked.
+// Plus AGENCY (subject-dominant — it ACTS) and RECURRENCE. No star-scale gate here: a body's mass is
+// often SCATTERED across epithets (creature/monster/wretch), so admission is decided later, on the
+// POOLED virial mass, against a born/null floor — never per-head against the top name.
+const PERSONAL_PRONOUN = /\b(?:he|him|his|she|her|hers|himself|herself)\b/i;
+const RUN_RE = new RegExp(String.raw`\b(?:[Tt]he|[Aa]n?)\s+((?:[a-z][a-z'’-]+\s+){0,4}[a-z][a-z'’-]{2,})\b`, 'g');
+export const censusUnnamedCentres = (sentences, { conventions,
+  minSightings = 3, minAgency = 2, restMassFloor = 0.35, luminosityFloor = 0.5 } = {}) => {
+  if (!Array.isArray(sentences) || !sentences.length) return new Map();
+  const C = {
+    isFunction:    (w) => conventions?.isFunction?.(w) ?? false,
+    isStarter:     (w) => conventions?.isStarter?.(w) ?? false,
+    isRole:        (w) => conventions?.isRole?.(w) ?? false,
+    isCalendar:    (w) => conventions?.isCalendar?.(w) ?? false,
+    isDemonym:     (w) => conventions?.isDemonym?.(w) ?? false,
+    isPreposition: (w) => conventions?.isPreposition?.(w) ?? false,
+  };
+  const isModifierHead = censusModifiers(sentences, C);
+  // A head that is really a NAME (lowercased) is dropped. Read the names off the document's own
+  // casing law, not admission — so the census is admission-INDEPENDENT and runs up front (before the
+  // main loop admits anyone), exactly as the uncased read discovers its figures up front. A NAME's
+  // capital is INTRINSIC: it appears capital-initial MID-sentence ("met Victor"), where a mere
+  // sentence-initial capital ("Wretch swore…") is positional — so "Wretch"/"Devil" stay candidates
+  // while "Victor"/"Frankenstein" are excluded.
+  const nameTokens = new Set();
+  for (const sent of sentences) {
+    const ws = String(sent).match(/[\p{L}'’]+/gu) || [];
+    ws.forEach((w, i) => { if (i > 0 && /^\p{Lu}/u.test(w)) nameTokens.add(w.toLowerCase()); });
+  }
+  const excluded = (h) => h.length < 3 || C.isFunction(h) || C.isStarter(h) || C.isRole(h)
+    || C.isCalendar(h) || C.isDemonym(h) || ABSTRACT_HEADS.has(h) || isModifierHead(h) || nameTokens.has(h);
+
+  // Pass 1 — the dominance census (rest mass): attrib vs asHead over every "the …" run.
+  const attrib = new Map(), asHead = new Map();
+  for (const sent of sentences) {
+    const s = String(sent); const re = new RegExp(RUN_RE.source, 'g'); let m;
+    while ((m = re.exec(s)) !== null) {
+      const ws = m[1].split(/\s+/).map((w) => singular(w.toLowerCase())).filter((w) => w.length >= 3 && !C.isFunction(w));
+      for (let i = 0; i < ws.length; i++) (i < ws.length - 1 ? attrib : asHead).set(ws[i], ((i < ws.length - 1 ? attrib : asHead).get(ws[i]) || 0) + 1);
+    }
+  }
+  const dominance = (h) => { const a = attrib.get(h) || 0, hd = asHead.get(h) || 0; return (a + hd) ? hd / (a + hd) : 0; };
+
+  // Pass 2 — per-head sightings, agency, animacy, surfaces.
+  const heads = new Map();
+  sentences.forEach((sent, sentIdx) => {
+    const s = String(sent); const re = new RegExp(DESC_RE.source, 'g'); let m;
+    const near = s + ' ' + String(sentences[sentIdx + 1] || '');
+    const animateHere = PERSONAL_PRONOUN.test(near);
+    const seen = new Set();
+    while ((m = re.exec(s)) !== null) {
+      const raw = m[1], head = singular(raw.toLowerCase());
+      if (excluded(head)) continue;
+      const before = s.slice(0, m.index), after = s.slice(m.index + m[0].length);
+      const prev = (before.match(/([\p{L}'’]+)\s*$/u) || [])[1];
+      const next = (after.match(/^\s*([\p{L}'’]+)/u) || [])[1];
+      let h = heads.get(head);
+      if (!h) heads.set(head, h = { head, count: 0, subj: 0, obl: 0, animate: 0, appears: 0, mentions: new Set(), surfaces: new Map() });
+      h.count++;
+      h.mentions.add(sentIdx);
+      const surface = m[0].replace(/^\s*[A-Z]/, (c) => c.toLowerCase()).replace(/\s+/g, ' ').trim();
+      h.surfaces.set(surface, (h.surfaces.get(surface) || 0) + 1);
+      if (isContent(next, C)) h.subj++;
+      if (prev && C.isPreposition(prev.toLowerCase())) h.obl++;
+      if (!seen.has(head)) { seen.add(head); h.appears++; if (animateHere) h.animate++; }
+    }
+  });
+
+  // The bodies: recurring, agentive, with rest mass (a noun) and luminosity (binds animate satellites).
+  const centres = new Map();   // head → { head, id, dominance, animacy, subj, obl, count, mentions, surfaces }
+  for (const h of heads.values()) {
+    const count = h.mentions.size;
+    if (count < minSightings || h.subj < minAgency || h.subj <= h.obl) continue;
+    const dom = dominance(h.head), anim = h.appears ? h.animate / h.appears : 0;
+    if (dom < restMassFloor || anim < luminosityFloor) continue;
+    const label = [...h.surfaces.entries()].sort((a, b) => b[1] - a[1] || (a[0].length - b[0].length) || (a[0] < b[0] ? -1 : 1))[0][0];
+    centres.set(h.head, { head: h.head, id: idFor(label), label, dominance: dom, animacy: anim,
+      subj: h.subj, obl: h.obl, count, mentions: [...h.mentions].sort((a, b) => a - b), surfaces: [...h.surfaces.keys()] });
+  }
+  return centres;
+};
 
 // discoverUnnamedReferents(sentences, opts) → proposal[]
 //   Each proposal: { id, label, head, count, subj, obl, mass, mentions:[sentIdx], surfaces:[form] }
@@ -149,6 +243,66 @@ export const discoverUnnamedReferents = (sentences, {
 };
 
 export { idFor as unnamedReferentId };
+
+// ── The centre scanner — relativistic admission of an unnamed referent DURING the main pass ──────
+// The census (above) proposes the candidate BODIES up front. This scanner puts them into the reading
+// as first-class coreference candidates, so the SAME machinery a named figure rides — the activation
+// field, the gendered pronoun binding — resolves them too. That is the whole correction
+// (docs/unnamed-referents-relativistic.md): reference is RELATIVISTIC, so an epithet binds relative
+// to its LOCAL FRAME, and the frame is the PROPOSITION, not the sentence. A sentence may hold two
+// agents ("Victor fled, but the creature stretched out its hand"); the "its" belongs to the
+// creature's clause, zero propositions away, and to Victor's clause one away — so the field is read
+// and deposited at PROPOSITION grain: sentIdx + (clause ordinal / clause count), a fractional
+// position the γ kernel (a numeric distance) carries without change.
+//
+// When "the creature" first acts, no compatible centre is the local sun, so it OPENS a body; the
+// following "it"/"he" then bind to it through the field; when "the wretch" acts and that body is the
+// LOCAL SUN of its proposition — it dominates the full field (names included) — the epithet MERGES
+// into it, its mass adding at a shared barycenter. Where a NAME is the local sun instead
+// (Metamorphosis: Gregor), no unnamed body opens — "the creature" is his.
+//
+// scan(sent, sentIdx, corefField) → [{ id, label, head, at }] : the bodies this sentence mentions as
+// agents, each resolved to its (possibly merged) centre and tagged with its proposition position
+// `at`. The caller admits + INS + notes each at `at`, so the field and the arrow of time carry them
+// at proposition grain exactly like a scanned name.
+export const createCentreScanner = (sentences, { admission, conventions } = {}) => {
+  const centres = censusUnnamedCentres(sentences, { admission, conventions });
+  if (!centres.size) return { active: false, centres, scan: () => [] };
+  const C = { isFunction: (w) => conventions?.isFunction?.(w) ?? false };
+  const centreOf = new Map();   // head → the live centre id it belongs to (merge mutates this)
+  const labelOf  = new Map();   // centre id → its canonical (dominant-epithet) label
+  const live     = new Set();   // centre ids that have opened (are candidates in the field)
+  for (const c of centres.values()) { centreOf.set(c.head, c.id); labelOf.set(c.id, c.label); }
+  const scan = (sent, sentIdx, corefField) => {
+    const clauses = segmentClauses(sent);
+    const spans = clauses.length ? clauses : [{ text: String(sent), start: 0 }];
+    const out = []; const seen = new Set();
+    spans.forEach((clause, k) => {
+      const at = sentIdx + (spans.length > 1 ? k / spans.length : 0);   // PROPOSITION-grain position
+      const s = String(clause.text || ''); const re = new RegExp(DESC_RE.source, 'g'); let m;
+      while ((m = re.exec(s)) !== null) {
+        const head = singular(m[1].toLowerCase());
+        if (!centres.has(head) || seen.has(head)) continue;
+        seen.add(head);
+        const after = s.slice(m.index + m[0].length);
+        const next = (after.match(/^\s*([\p{L}'’]+)/u) || [])[1];
+        if (!isContent(next, C)) continue;   // only an AGENT mention seats the body (it acts here)
+        let id = centreOf.get(head);
+        // relativistic merge: if a DIFFERENT already-open body is the LOCAL SUN of THIS proposition
+        // (top of the full field, names included, read at `at`), the epithet is that body under
+        // another description — bind to it, its mass adding at the shared barycenter.
+        const top = (corefField?.field?.(at) || [])[0];
+        if (top && live.has(top.id) && top.id !== id && (top.w ?? 0) >= 0.34) {
+          id = top.id; centreOf.set(head, id);
+        }
+        live.add(id);
+        out.push({ id, label: labelOf.get(id) || centres.get(head).label, head, at });
+      }
+    });
+    return out;
+  };
+  return { active: true, centres, scan };
+};
 
 // ── The coreference fold — many descriptions, one nameless body ─────────────
 // The mechanics find each recurring nameless description on its own ("the creature", "the
