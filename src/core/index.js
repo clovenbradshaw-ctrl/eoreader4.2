@@ -83,6 +83,11 @@ export { deriveNull, boundedNull, createNoiseFloor, extremeValueZ, MIN_SAMPLES,
 // column is omnimodal for free, and shaped to feed deriveNull (the Born rule) above.
 export { buildDensity, eigenLenses, vonNeumann, relEntropy, commutator,
          projectorFrom, symmetricEig, applyStance, SIG, REC, EVA, NUL, CON } from './spectral.js';
+// The one segmentation operator, named (docs/segment-by-significance.md): the public
+// face of SEG (the 1-D curve case) and buildDensity→eigenLenses→DEF (the graph/
+// community case), plus the switch arm neither covered alone — is a dominant-group
+// CHANGE a real boundary, null-gated the same way a score-curve peak is.
+export { segmentCurve, segmentGroups, segmentSwitches } from './segment.js';
 export { surpriseAt, forwardDist, forwardScore, feltSurprise, noveltyAmplitude, noveltyFromLensEntropy, NOVELTY_RESERVE } from './surprise.js';
 // The connectivity surprise — the structural sibling of surpriseAt. The mass channel
 // moves on what arrived; this one moves on how a bond COLLAPSES the prior separation
