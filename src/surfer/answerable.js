@@ -69,10 +69,17 @@ const QWORD = new Set(['who', 'what', 'where', 'when', 'why', 'how', 'is', 'are'
   'will', 'which', 'whose', 'i', "i'm"]);
 const absentProperNoun = (doc, question) => {
   const byIdx = doc?.tokensBySentence || [];
-  const names = String(question || '').match(/\b[A-Z][A-Za-z'’-]{2,}\b/g) || [];
+  const q = String(question || '');
+  const names = q.match(/\b[A-Z][A-Za-z'’-]{2,}\b/g) || [];
+  // A question's LEADING word is capitalised by convention — an imperative ("Analyze", "Trace")
+  // or a wh-word — so its capital is positional, not a proper-noun signal, exactly as a
+  // sentence-initial capital is in the document. Skip it, so "Analyze the creature…" never reads
+  // "Analyze" as an absent referent.
+  const lead = (q.match(/[A-Za-z'’-]+/) || [])[0];
   for (const nm of names) {
-    if (QWORD.has(nm.toLowerCase())) continue;
-    const t = nm.toLowerCase();
+    if (nm === lead) continue;
+    const t = nm.toLowerCase().replace(/['’]s$/, '');   // a possessive names its owner
+    if (QWORD.has(t)) continue;
     const inDoc = byIdx.some((set) => set && set.has && set.has(t));
     if (!inDoc) return nm;
   }

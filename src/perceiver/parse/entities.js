@@ -338,7 +338,9 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
   const docLowerVocab = new Set();   // words seen lowercase in the source
   const capCount      = new Map();   // lowercased form → times it appeared CAPITAL-initial
   const lowCount      = new Map();   // lowercased form → times it appeared lowercase-initial
+  const internalCap   = new Map();   // lowercased form → CAPITAL-initial times NOT at a unit boundary (intrinsic caps)
   const moonCache     = new Map();   // leading token → { size, val } (recomputed only as the set grows)
+  const boundMassCache = new Map();  // leading token → Σ sightings where it is only a prefix (planet-dominance)
   const preferredCase = new Map();   // idFor(label) → the first MIXED-case spelling seen (canonical form)
   const notePlanet = (label) => {
     const w = label.split(' ');
@@ -363,12 +365,19 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     // CAP-RATE — how often a form is capital-initial — separates a NAME (always capital) from a
     // function/common word capitalised only by sentence position (mostly lowercase), in any
     // language and with no list.
-    for (const t of String(text).split(/[^\p{L}'’]+/u)) {
-      const w = t && t.replace(/['’].*$/, '');
-      if (!w) continue;
-      const lc = w.toLowerCase();
-      if (w[0] === lc[0]) { docLowerVocab.add(lc); lowCount.set(lc, (lowCount.get(lc) || 0) + 1); }
-      else capCount.set(lc, (capCount.get(lc) || 0) + 1);
+    // Position-aware: a word capitalised only at a unit BOUNDARY (line/sentence start) is
+    // capitalised by POSITION; a referent's capital is INTRINSIC — it also appears MID-unit.
+    // internalCap records the intrinsic caps, so a positional word (verse-initial "Come"/"Ay"/
+    // "Mas": high cap-rate yet never mid-sentence) is told from a name with no word list.
+    for (const unit of String(text).split(/(?<=[.!?])\s+|\n+/u)) {
+      const ws = unit.match(/[\p{L}'’]+/gu) || [];
+      ws.forEach((raw, i) => {
+        const w = raw.replace(/^['’]+/, '').replace(/['’].*$/, '');   // strip leading apostrophe ("'Tis") and possessive
+        if (!w) return;
+        const lc = w.toLowerCase();
+        if (w[0] === lc[0]) { docLowerVocab.add(lc); lowCount.set(lc, (lowCount.get(lc) || 0) + 1); }
+        else { capCount.set(lc, (capCount.get(lc) || 0) + 1); if (i > 0) internalCap.set(lc, (internalCap.get(lc) || 0) + 1); }
+      });
     }
     const pre = new RegExp(CAP_RE.source, 'gu');
     const labels = [];
@@ -379,18 +388,42 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     // scan glues a one-off two-name weld ("Natásha Prince Andrew") as readily as a real second
     // identity, so a hapax label must never feed the orbital count — it would wrongly moon the
     // head and refuse a real, well-attested bare figure (Natásha, 1213 sightings) admission.
-    const planetCounts = new Map();
-    for (const lab of labels) { const c = canon(lab); planetCounts.set(c, (planetCounts.get(c) || 0) + 1); }
-    for (const [lab, n] of planetCounts) if (n >= 2) notePlanet(lab);
+    // Feed EVERY weld to its head's orbit — even a one-off ("Exeunt Macbeth" seen once still shows
+    // Exeunt orbiting Macbeth). No recurrence proxy is needed: THE LAW (isMoon) protects a real
+    // figure by planet dominance — a head that stands alone as an attested figure is never mooned,
+    // however many clause-edge welds land under it.
+    for (const lab of labels) notePlanet(canon(lab));
   }
-  // A moon heads ≥2 distinct PEOPLE — distinct name-variant CLUSTERS, so co-referential
-  // variants of one person collapse to a single planet before the count.
+  // THE MOON LAW — the gravity law one level up, told by which body dominates, no word list.
+  //   PLANET: a head whose OWN referential mass (gravity, standing alone) strictly outweighs the
+  //     mass it lends to its orbit (appearances as a bare prefix on a bound name). "Quijote",
+  //     "Natásha", "Ross" stand alone and prefix almost nothing → planets, never mooned by a
+  //     clause-edge weld. Self-mass is GRAVITY, not raw count, so a bare "Exeunt."/"Enter." line —
+  //     which acts on nothing — earns none and cannot masquerade as standing alone.
+  //   MOON: a head that exists only bound — a shared prefix orbiting ≥2 distinct planets. isOrbital
+  //     then splits it: apparatus (orbits many — "Enter"/"Exeunt"/"See") vs title (few — "Prince").
+  // Each planet is a name-variant CLUSTER, so co-referential variants collapse before the count.
+  const orbitPlanets = (tok) => {   // the labels welded under tok, filler trimmed ("Quijote De" → bare head, no rival)
+    const set = headNames.get(tok);
+    if (!set) return [];
+    return [...set].map((l) => trimWeld(l).label).filter((l) => l !== tok && l.includes(' '));
+  };
+  const orbitCount = (tok) => new Set(clusterAnchors(orbitPlanets(tok)).values()).size;
+  const boundMass = (tok) => {      // Σ sightings where tok is only a prefix on a longer name
+    if (boundMassCache.has(tok)) return boundMassCache.get(tok);
+    let m = 0;
+    for (const [lab, e] of admissionProfile.stats) if (lab.length > tok.length && lab.startsWith(tok + ' ')) m += e.count;
+    boundMassCache.set(tok, m);
+    return m;
+  };
+  const standsAlone = (tok) => (admissionProfile.stats.get(tok)?.gravity || 0) > boundMass(tok);
   const isMoon = (tok) => {
+    if (standsAlone(tok)) return false;   // own mass dominates → a planet, not a moon
     const set = headNames.get(tok);
     if (!set || set.size < 2) return false;
     const cached = moonCache.get(tok);
     if (cached && cached.size === set.size) return cached.val;
-    const val = new Set(clusterAnchors([...set]).values()).size >= 2;
+    const val = orbitPlanets(tok).length >= 2 && orbitCount(tok) >= 2;
     moonCache.set(tok, { size: set.size, val });
     return val;
   };
@@ -405,6 +438,16 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     const lc = String(tok).toLowerCase();
     const c = capCount.get(lc) || 0, l = lowCount.get(lc) || 0, total = c + l;
     return total >= 5 && (c / total) < 0.35;
+  };
+  // isPositional — the casing law where cap-rate fails: a token that ALSO appears lowercase yet is
+  // almost never capitalised MID-unit is capitalised by POSITION, not because it names anything
+  // ("Come"/"Ay"/"Mas"/"Tis" at a verse-line start — high cap-rate, but intrinsic caps ~0). A real
+  // referent's capital is intrinsic (it appears mid-sentence), so a name (never lowercase, or richly
+  // mid-unit) is untouched. Omnilingual, no word list — the document's own positional casing.
+  const isPositional = (tok) => {
+    const lc = String(tok).toLowerCase();
+    const c = capCount.get(lc) || 0, l = lowCount.get(lc) || 0, ic = internalCap.get(lc) || 0;
+    return l > 0 && c >= 4 && (ic / c) < 0.2;
   };
   // isFiller — a STRICTER cap-rate floor than isFunctionWord: a token capitalised almost only by
   // sentence position (an opener "About"/"Now", cap-rate < 0.2), NOT a title that heads names
@@ -450,6 +493,27 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     }
     return { floor, allowed, stats };
   })();
+
+  // An APPARATUS label ("Enter Ross", "See CIA") is an orbital VIEW of its planet, not a referent —
+  // resolve it to the planet so the figure emerges. Two directions of the nested law decide it:
+  //   POSSIBILITY (low → high): the fold is possible only if the remainder standsAlone — the gravity
+  //     law must already admit it as a figure ("Ross" acts; "States" barely does).
+  //   PROBABILITY (high → low): the compound holon conditions its parts. Dissolve only when the
+  //     remainder OUT-MASSES the compound it sits in — "Enter Ross"/"See CIA" (the figure dwarfs the
+  //     stage-cue/citation) go; "United States"/"Bin Ladin"/"Central Intelligence Agency" (the
+  //     compound is the heavier mass) stay whole, though "United"/"Bin"/"Central" each head many
+  //     names. The tie keeps the compound — the holon's existence is a prior in its favour.
+  const isOrbital = (tok) => isMoon(tok) && orbitCount(tok) >= 3;   // orbits many → apparatus, not a title
+  const planetOf = (label) => {
+    const sp = label.indexOf(' ');
+    if (sp < 0) return label;
+    const head = label.slice(0, sp), rest = label.slice(sp + 1);
+    if (!isOrbital(head)) return label;
+    const gRest = admissionProfile.stats.get(rest)?.gravity || 0;
+    const gWhole = admissionProfile.stats.get(label)?.gravity || 0;
+    if (gRest > gWhole && standsAlone(rest)) return rest;
+    return label;
+  };
 
   // Sediment a learned acronym↔expansion alias into admission state: a bare acronym
   // now RESOLVES to the expansion's id without re-deriving (the §8 ORG-1 promise).
@@ -509,8 +573,12 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
       const cleaned = cleanLabel(m[0], C);
       if (!cleaned) continue;
       const wt = trimWeld(canon(cleaned));   // canon folds an ALL-CAPS cue onto its mixed-case referent; trim a welded opener
-      const label = wt.label;
-      const mStart = m.index + wt.lead, mEnd = mStart + label.length;   // the real name's span (past any trimmed filler)
+      // An orbital-moon head ("Enter Ross", "See CIA") is apparatus, not a name — resolve the span
+      // onto the planet it orbits, so the figure emerges (the remainder is a suffix of the label).
+      const planet = planetOf(wt.label);
+      const lead = wt.lead + (planet.length < wt.label.length ? wt.label.length - planet.length : 0);
+      const label = planet;
+      const mStart = m.index + lead, mEnd = mStart + label.length;   // the real name's span (past any trimmed filler / orbital head)
       if (seenInSentence.has(label)) continue;
       seenInSentence.add(label);
 
@@ -554,7 +622,8 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
       const bareRefused = !multiword &&
         (isMoon(label)
          || (isUnstable(label) && !strongSeen.has(label) && c < 2)
-         || (isFunctionWord(label) && !strongSeen.has(label)));   // predominantly-lowercase → function/common word
+         || (isFunctionWord(label) && !strongSeen.has(label))     // predominantly-lowercase → function/common word
+         || isPositional(label));    // capital only by line position → not a referent, even inset by commas (it appears lowercase, so no name is caught)
       // A still-ALL-CAPS multi-word label (canon found no mixed-case twin) of ≥3 words is a
       // section HEADING shouted in caps ("KINGDOM OF DARIUS", "CONCERNING NEW PRINCIPALITIES…"),
       // not a figure — the document's own casing says so. Refuse it.
@@ -565,9 +634,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
         noteMention(id, sentIdx);
         out.push({ status: 'present', id, label });
       } else if (g >= GRAVITY_FLOOR && !bareRefused && !headingRefused && !(multiword && !admissionProfile.allowed.has(label) && (admissionProfile.stats.get(label)?.count || 0) < 2 && sentence.replace(/^[\s"'“”‘’(]+|[\s"'“”‘’).,;:!?]+$/g, '') === m[0].replace(/^[\s"'“”‘’(]+|[\s"'“”‘’).,;:!?]+$/g, ''))) {
-        // Same recurrence floor as the pre-scan feed above — a first-sighting admission must not
-        // feed the orbital/moon statistic off that one sighting.
-        if (multiword && (admissionProfile.stats.get(label)?.count || 0) >= 2) notePlanet(label);
+        if (multiword) notePlanet(label);   // feed the orbit; THE LAW protects real figures by dominance
         const rawId = idFor(label);
         let alias = aliasOf(label);
         // A HEAD (given-name) containment unifies the id — but NOT through a MOON token:
