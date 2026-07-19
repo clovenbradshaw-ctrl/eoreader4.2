@@ -23,7 +23,7 @@ export { nameTokens, isSubsequence, clusterAnchors, distinctReferentCount, epith
 export { TITLE_WORDS } from './entities.js';
 export { discoverUncasedReferents, discoverUncasedRelations } from './uncased.js';
 export { discoverUnnamedReferents, admitUnnamedReferents, unnamedReferentId,
-         censusUnnamedCentres } from './unnamed-referent.js';
+         censusUnnamedCentres, createCentreScanner } from './unnamed-referent.js';
 export { proposeReferentNames } from './unnamed-referent-name.js';
 export { readGrain, readUncasedGrain } from './grain.js';
 export { induceAdpositions } from './adpositions.js';

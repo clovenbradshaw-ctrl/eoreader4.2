@@ -5,25 +5,31 @@
 empirical investigation logged below — every claim here is reproduced on the real *Frankenstein* and
 *Metamorphosis* texts.
 
-## What landed (and what is still spec)
+## What landed
 
-The gravitational **census** (rest-mass = head-dominance; luminosity = animacy) and the
-**fold-before-gate** correction are IMPLEMENTED (`censusUnnamedCentres` + `discoverUnnamedReferents`
-+ `admitUnnamedReferents` in `unnamed-referent.js`): epithets are discovered, folded onto one body
-(the prior `foldUnnamedReferents`, "one nameless protagonist"), and the star-scale test is applied to
-the POOLED mass — so **the creature now enters Frankenstein's cast as the protagonist**, its mass
-gathered across creature/monster/wretch/devil, while *Metamorphosis* stays clean. Full suite green.
+The whole arc below is now IMPLEMENTED. In reading order:
 
-The **relativistic, per-proposition, main-pass integration** described below is the FUTURE ideal, not
-yet landed. The current read still runs as a finalize-time pass with the crude "one nameless
-protagonist" fold, which over-pools on a full novel (substantivized adjectives and weather/settings
-whose animate rate the gate can't reach at low counts fold into the body, inflating its mass; two
-genuinely distinct nameless figures are not yet held apart). Trimming that flood and separating
-distinct bodies is exactly what the proposition-grain field integration below is for — the centre a
-first-class coref candidate, so binding and pooling happen frame-relative through the real engine
-rather than by a heaviest-wins heuristic. An over-engineered first cut of that scanner was explored
-and removed in favour of the simpler landed path; the design is kept here for when the refinement is
-taken up.
+1. **The gravitational census** (`censusUnnamedCentres`) — rest-mass = head-dominance (a noun vs a
+   substantivized adjective, via the determiner-taker discriminator), luminosity = animacy (a figure
+   binds he/she satellites; a setting is a medium pronouns fly through), plus agency and recurrence.
+   A person-role inhibitor keeps a bit-player ("the father", "the sailor") off the one nameless body.
+2. **Fold before gate** — epithets pool onto one body (`foldUnnamedReferents`, absorbing only a
+   luminosity-compatible synonym), and the star-scale test is applied to the POOLED mass. So the
+   creature enters Frankenstein's cast as `creature/monster/wretch/devil`, not a scattered handful,
+   and not inflated by adjectives/weather/roles.
+3. **The relativistic, per-proposition, main-pass integration** (`createCentreScanner`, wired in
+   `pipeline.js`) — the body is discovered up front (like the uncased read) and admitted INLINE as
+   its epithets are read, a first-class coref candidate in the activation field at PROPOSITION grain.
+   So its "it/he" chain binds to it by activation instead of leaking to the last-named figure: on
+   *Frankenstein* the creature is the subject of ~53 of its own actions (stretched, swore, strangled,
+   begged, murdered), and "Frankenstein pursued the wretch" resolves the object onto the creature.
+   No retroactive second cursor — the centre is instantiated (INS) before it is bonded (CON), in
+   reading order. *Metamorphosis* stays clean: the named Gregor is the local sun, so "the creature"
+   is his. Full suite green.
+
+Still open: distinct minor nameless figures are held off the protagonist by the person-role inhibitor
+(a backstop), not yet separated by full coreference; and the creature's mass reported in the cast is
+still its explicit-description count (its pronoun activity rides the edges, as a named figure's does).
 
 ## The thesis
 

@@ -24,6 +24,7 @@
 
 import { VERDICTS } from '../../core/index.js';
 import { censusModifiers } from './modifier-law.js';
+import { segmentClauses } from './clauses.js';
 
 // The determiner that fronts a definite/indefinite description. Sentence-initial "The" is caught
 // by allowing the leading capital; the HEAD stays strictly lowercase so a proper name ("the White
@@ -288,6 +289,78 @@ export const foldUnnamedReferents = (proposals, sentences = [], C = { isFunction
   const mergedFrom = folded.map((f) => ({ id: f.id, label: f.label, head: f.head }));
   const surfaces = [...new Set([...(primary.surfaces || []), ...folded.flatMap((f) => f.surfaces || [])])];
   return [{ ...primary, mentions, surfaces, mergedFrom }, ...distinct];
+};
+
+// ── The centre scanner — seat the unnamed body in the reading, so its pronouns bind by activation ──
+// The census proposes the bodies and the fold pools their epithets — all admission-independent, so
+// this runs UP FRONT (like the uncased read). The pipeline then admits the body INLINE as its
+// epithets are read and notes it in the coref field, so the SAME activation + gendered pronoun
+// binding a named figure gets now resolves the creature too: "the creature stretched. It fled." —
+// "It" finds the creature freshly activated in the field and binds to IT, not to a named figure the
+// reading last saw. No retroactive second cursor: the centre is instantiated (INS) before it is
+// bonded (CON), in reading order (docs/unnamed-referents-relativistic.md).
+//
+// Only bodies that reach STAR-SCALE are seated — a pooled mass ≥ ½ the top named mass (estimated up
+// front from the document's own intrinsic-capital name frequencies, so the seat decision needs no
+// finished admission). A distinct low-mass remnant the fold kept apart is therefore never seated,
+// and never pollutes the field. Returns { active, headToBody, bodies, scan }.
+export const createCentreScanner = (sentences, { conventions, nameReferent } = {}) => {
+  const centres = censusUnnamedCentres(sentences, { conventions });
+  if (!centres.size) return { active: false, headToBody: new Map(), bodies: [], scan: () => [] };
+  const C = { isFunction: (w) => conventions?.isFunction?.(w) ?? false };
+  const proposals = [...centres.values()];
+  // Mechanics propose; the talker disposes (the coref-as-proposal discipline). An injected
+  // `nameReferent(proposals,{sentences})` — ideally a talker with the world knowledge that "the
+  // wretch" IS "the creature" — MAY rename a body and fold synonyms, and it does so over the RAW,
+  // unfolded proposals (so it can see each epithet). Absent or on any fault, the mechanical fold
+  // stands. The id is re-derived from the (possibly new) label so admission and aliasing stay sound.
+  let pooled;
+  if (typeof nameReferent === 'function') {
+    try { const named = nameReferent(proposals, { sentences }); pooled = Array.isArray(named) ? named : foldUnnamedReferents(proposals, sentences, C); }
+    catch { pooled = foldUnnamedReferents(proposals, sentences, C); }
+  } else {
+    pooled = foldUnnamedReferents(proposals, sentences, C);
+  }
+  for (const b of pooled) b.id = idFor(b.label);
+  // Estimate the top named mass from intrinsic-capital name frequency (a name's capital is mid-unit;
+  // a sentence-initial capital is positional and skipped), so a body is seated only if it rivals a
+  // real name — the star-scale test, made up front and admission-free.
+  const nameFreq = new Map();
+  for (const sent of sentences) {
+    const ws = String(sent).match(/[\p{L}'’]+/gu) || [];
+    // length ≥ 2 skips the mid-sentence pronoun "I" (and "A"), which is capital-initial everywhere
+    // and would otherwise dwarf every real name and set the floor impossibly high.
+    ws.forEach((w, i) => { if (i > 0 && w.length >= 2 && /^\p{Lu}/u.test(w)) { const lc = w.toLowerCase(); nameFreq.set(lc, (nameFreq.get(lc) || 0) + 1); } });
+  }
+  const topNamed = Math.max(0, ...nameFreq.values());
+  const massFloor = Math.max(3, Math.ceil(0.5 * topNamed));
+  const bodies = pooled.filter((b) => (b.mentions?.length || 0) >= massFloor);
+  if (!bodies.length) return { active: false, headToBody: new Map(), bodies: [], scan: () => [] };
+  const headToBody = new Map();   // bare epithet head → { id, label } of its seated body
+  const headOfLabel = (l) => { const t = String(l || '').trim().toLowerCase().split(/\s+/); return singular(t[t.length - 1] || ''); };
+  for (const b of bodies)
+    for (const h of [b.head || headOfLabel(b.label), ...(b.mergedFrom || []).map((m) => m.head || headOfLabel(m.label))].filter(Boolean))
+      headToBody.set(h, { id: b.id, label: b.label });
+  // scan(sent, sentIdx) → [{ id, label, head, at }] — the body mentions in this sentence, each at its
+  // PROPOSITION position `at` (sentIdx + clause ordinal / clause count) so the field decays by clause.
+  const scan = (sent, sentIdx) => {
+    const clauses = segmentClauses(sent);
+    const spans = clauses.length ? clauses : [{ text: String(sent) }];
+    const out = []; const seen = new Set();
+    spans.forEach((clause, k) => {
+      const at = sentIdx + (spans.length > 1 ? k / spans.length : 0);
+      const s = String(clause.text || ''); const re = new RegExp(DESC_RE.source, 'g'); let m;
+      while ((m = re.exec(s)) !== null) {
+        const head = singular(m[1].toLowerCase());
+        const body = headToBody.get(head);
+        if (!body || seen.has(head + '@' + at)) continue;
+        seen.add(head + '@' + at);
+        out.push({ id: body.id, label: body.label, head, at });
+      }
+    });
+    return out;
+  };
+  return { active: true, headToBody, bodies, scan };
 };
 
 // admitUnnamedReferents(ctx) — the pipeline's whole unnamed-referent pass, kept in this holon so the
