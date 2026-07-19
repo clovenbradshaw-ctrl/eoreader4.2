@@ -178,7 +178,7 @@ export const deriveNull = (background, { scale = 'linear', alpha = 0.01, N, grai
 // never mutates the array (parity: same spectrum, same reading count, forever).
 export const DEF = (eigenvalues, { alpha = 0.05, maxK = 12, window = 20 } = {}) => {
   const ev = (eigenvalues || []).filter(Number.isFinite);
-  if (ev.length < 2) return { k: ev.length, gap: 0, floor: null, abstain: true };
+  if (ev.length < 2) return { k: ev.length, gap: 0, floor: null, abstain: true, idx: 0 };
   const lim = Math.min(ev.length, Math.max(2, window | 0));
   const gaps = [];
   for (let i = 1; i < lim; i++) gaps.push(ev[i - 1] - ev[i]);   // descending → gaps ≥ 0
@@ -188,10 +188,13 @@ export const DEF = (eigenvalues, { alpha = 0.05, maxK = 12, window = 20 } = {}) 
   // A cleared gap is a drop BETWEEN a top group and the tail — by construction that is
   // at least two distinguishable reading groups, so a significant elbow reads ≥2. A flat
   // spectrum clears nothing and abstains to one reading. (The min-2 only ever applies on
-  // the structure branch; noise never reaches it.)
+  // the structure branch; noise never reaches it.) `idx` is the elbow's own position
+  // (kGap) regardless of the maxK cap — the boundary between ev[idx-1] (the top group)
+  // and ev[idx] (the rest), for a caller that needs the SPLIT, not just the count (e.g.
+  // acoustic.js's window threshold, which reads a two-tier amplitude split off it).
   if (Number.isFinite(floor) && maxGap > floor)
-    return { k: Math.max(2, Math.min(maxK, kGap)), gap: maxGap, floor, abstain: false };
-  return { k: 1, gap: Number.isFinite(maxGap) ? maxGap : 0, floor: Number.isFinite(floor) ? floor : null, abstain: true };
+    return { k: Math.max(2, Math.min(maxK, kGap)), gap: maxGap, floor, abstain: false, idx: kGap };
+  return { k: 1, gap: Number.isFinite(maxGap) ? maxGap : 0, floor: Number.isFinite(floor) ? floor : null, abstain: true, idx: kGap };
 };
 
 // ---- the bounded-signal boundary: a per-decision Born line -----------------

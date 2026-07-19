@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { segmentGroups, segmentSwitches } from '../src/core/segment.js';
+import { DEF } from '../src/core/voidnull.js';
 
 // Two well-separated clusters in an 8-dim space — enough eigenvalues (dims) for DEF's
 // own gap-null to clear MIN_SAMPLES; a 4-dim space only yields 3 gaps, one short of
@@ -113,4 +114,23 @@ test('segmentSwitches: cold start (too few candidates to derive a null) falls ba
   assert.equal(acceptedByLength[3], 1, 'run of length 5 clears a minRun of 2');
   const rejectedByLength = segmentSwitches(raw, { minRun: 10 });
   assert.equal(rejectedByLength[3], 0, 'run of length 5 does not clear a minRun of 10 — carried');
+});
+
+// ---- DEF.idx (the elbow's own position, added for organs/in/acoustic.js's window split) ----
+
+test('DEF.idx: the elbow position lands between the two tiers of a real two-tier spectrum', () => {
+  // Descending "eigenvalues": three high, then a big drop, then five low — idx should
+  // land at 3 (between ev[2] and ev[3], where the real gap is).
+  const ev = [0.9, 0.85, 0.8, 0.05, 0.04, 0.03, 0.02, 0.01];
+  const r = DEF(ev, { alpha: 0.2, window: ev.length });
+  assert.equal(r.abstain, false);
+  assert.equal(r.idx, 3, 'the elbow sits right after the top group');
+  assert.ok(ev[r.idx - 1] > ev[r.idx], 'idx-1 is the top group, idx is the rest');
+});
+
+test('DEF.idx: a flat spectrum abstains but still returns a finite idx (never used, never undefined)', () => {
+  const ev = [0.5, 0.501, 0.499, 0.502, 0.498];
+  const r = DEF(ev, { alpha: 0.05, window: ev.length });
+  assert.equal(r.abstain, true);
+  assert.equal(Number.isInteger(r.idx), true, 'idx is always a real index, even on abstain');
 });
