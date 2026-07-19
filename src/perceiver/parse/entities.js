@@ -338,6 +338,7 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
   const docLowerVocab = new Set();   // words seen lowercase in the source
   const capCount      = new Map();   // lowercased form → times it appeared CAPITAL-initial
   const lowCount      = new Map();   // lowercased form → times it appeared lowercase-initial
+  const internalCap   = new Map();   // lowercased form → CAPITAL-initial times NOT at a unit boundary (intrinsic caps)
   const moonCache     = new Map();   // leading token → { size, val } (recomputed only as the set grows)
   const boundMassCache = new Map();  // leading token → Σ sightings where it is only a prefix (planet-dominance)
   const preferredCase = new Map();   // idFor(label) → the first MIXED-case spelling seen (canonical form)
@@ -364,12 +365,19 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     // CAP-RATE — how often a form is capital-initial — separates a NAME (always capital) from a
     // function/common word capitalised only by sentence position (mostly lowercase), in any
     // language and with no list.
-    for (const t of String(text).split(/[^\p{L}'’]+/u)) {
-      const w = t && t.replace(/['’].*$/, '');
-      if (!w) continue;
-      const lc = w.toLowerCase();
-      if (w[0] === lc[0]) { docLowerVocab.add(lc); lowCount.set(lc, (lowCount.get(lc) || 0) + 1); }
-      else capCount.set(lc, (capCount.get(lc) || 0) + 1);
+    // Position-aware: a word capitalised only at a unit BOUNDARY (line/sentence start) is
+    // capitalised by POSITION; a referent's capital is INTRINSIC — it also appears MID-unit.
+    // internalCap records the intrinsic caps, so a positional word (verse-initial "Come"/"Ay"/
+    // "Mas": high cap-rate yet never mid-sentence) is told from a name with no word list.
+    for (const unit of String(text).split(/(?<=[.!?])\s+|\n+/u)) {
+      const ws = unit.match(/[\p{L}'’]+/gu) || [];
+      ws.forEach((raw, i) => {
+        const w = raw.replace(/^['’]+/, '').replace(/['’].*$/, '');   // strip leading apostrophe ("'Tis") and possessive
+        if (!w) return;
+        const lc = w.toLowerCase();
+        if (w[0] === lc[0]) { docLowerVocab.add(lc); lowCount.set(lc, (lowCount.get(lc) || 0) + 1); }
+        else { capCount.set(lc, (capCount.get(lc) || 0) + 1); if (i > 0) internalCap.set(lc, (internalCap.get(lc) || 0) + 1); }
+      });
     }
     const pre = new RegExp(CAP_RE.source, 'gu');
     const labels = [];
@@ -430,6 +438,16 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     const lc = String(tok).toLowerCase();
     const c = capCount.get(lc) || 0, l = lowCount.get(lc) || 0, total = c + l;
     return total >= 5 && (c / total) < 0.35;
+  };
+  // isPositional — the casing law where cap-rate fails: a token that ALSO appears lowercase yet is
+  // almost never capitalised MID-unit is capitalised by POSITION, not because it names anything
+  // ("Come"/"Ay"/"Mas"/"Tis" at a verse-line start — high cap-rate, but intrinsic caps ~0). A real
+  // referent's capital is intrinsic (it appears mid-sentence), so a name (never lowercase, or richly
+  // mid-unit) is untouched. Omnilingual, no word list — the document's own positional casing.
+  const isPositional = (tok) => {
+    const lc = String(tok).toLowerCase();
+    const c = capCount.get(lc) || 0, l = lowCount.get(lc) || 0, ic = internalCap.get(lc) || 0;
+    return l > 0 && c >= 4 && (ic / c) < 0.2;
   };
   // isFiller — a STRICTER cap-rate floor than isFunctionWord: a token capitalised almost only by
   // sentence position (an opener "About"/"Now", cap-rate < 0.2), NOT a title that heads names
@@ -604,7 +622,8 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
       const bareRefused = !multiword &&
         (isMoon(label)
          || (isUnstable(label) && !strongSeen.has(label) && c < 2)
-         || (isFunctionWord(label) && !strongSeen.has(label)));   // predominantly-lowercase → function/common word
+         || (isFunctionWord(label) && !strongSeen.has(label))     // predominantly-lowercase → function/common word
+         || isPositional(label));    // capital only by line position → not a referent, even inset by commas (it appears lowercase, so no name is caught)
       // A still-ALL-CAPS multi-word label (canon found no mixed-case twin) of ≥3 words is a
       // section HEADING shouted in caps ("KINGDOM OF DARIUS", "CONCERNING NEW PRINCIPALITIES…"),
       // not a figure — the document's own casing says so. Refuse it.
