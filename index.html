@@ -8,12 +8,17 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#F4F4F7">
-<!-- Static copies of the dc template's <helmet> resource hints (see <x-dc><helmet> below).
-     The helmet mechanism only injects these into the real <head> once React has mounted and
-     compiled the template — i.e. after react/react-dom/support.js have already downloaded and
-     run. Declaring the SAME hints here up front lets the browser's HTML preload scanner start
-     the font connection/fetch immediately, in parallel with everything else, instead of waiting
-     on the whole boot chain. Harmless duplicate with the helmet-injected copy (identical hrefs). -->
+<!-- Static copies of the dc template's helmet resource hints (see the x-dc / helmet element
+     further down this file). The helmet mechanism only injects these into the real head once
+     React has mounted and compiled the template — i.e. after react/react-dom/support.js have
+     already downloaded and run. Declaring the SAME hints here up front lets the browser's HTML
+     preload scanner start the font connection/fetch immediately, in parallel with everything
+     else, instead of waiting on the whole boot chain. Harmless duplicate with the
+     helmet-injected copy (identical hrefs).
+     NB: never write the app root tag or the helmet tag, angle bracket and all, anywhere in this
+     static head (comments included) — support.js locates the app template by scanning the raw
+     page text for the first such tag, and a stray occurrence here gets mistaken for the real
+     one, which swallows this entire head block into a phantom helmet and breaks boot. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">

@@ -318,6 +318,13 @@ const render = Object.freeze({
 
 // The n8n/TouchDesigner-style wiring surface — a source's derivations to a sink (pipeline-*.js).
 const pipeline = createPipelineSurface({ app });
+
+// The audit console (see console-surface.js). Mounted here, before window.EO is built, so
+// the frozen object below captures the real handle rather than the pre-mount null.
+let eoConsole = null;
+try { eoConsole = mountConsole(document.body, { audit, app, appName: APP_NAME, version: APP_VERSION, fab: false }); }
+catch (e) { console.warn('[EO] console not mounted', e); }
+
 window.EO = Object.freeze({
   app,
   render,   // the facing-page WYSIWYG renderer — open a source (HTML/CSS/JS) rendered live beside its code
@@ -376,10 +383,3 @@ catch (e) { console.warn('[EO] chat launcher not mounted', e); }
 // …and the encrypted-vault launcher, gated the same way (sits just above the chat FAB).
 try { if (typeof document !== 'undefined') mountVaultLauncher(document.body, { vault, matrix }); }
 catch (e) { console.warn('[EO] vault launcher not mounted', e); }
-
-// …and the audit console — a bottom-docked developer terminal streaming, live, every turn
-// stage, session event, engine log, and stall. fab:false — no floating launcher of its own
-// (see console-surface.js); Settings is its one door in, via window.EO.console.open().
-let eoConsole = null;
-try { eoConsole = mountConsole(document.body, { audit, app, appName: APP_NAME, version: APP_VERSION, fab: false }); }
-catch (e) { console.warn('[EO] console not mounted', e); }
