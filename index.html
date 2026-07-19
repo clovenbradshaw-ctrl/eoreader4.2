@@ -387,11 +387,25 @@ table{border-collapse:collapse;width:100%}
 <div data-screen-label="EOReader Mobile" style="position:relative;display:flex;flex-direction:column;height:100%;width:100%;overflow:hidden">
 
   <header style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;background:#fff;border-bottom:1px solid #EAEAEF">
-    <div style="width:27px;height:27px;border-radius:8px;background:#6D5EF5;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;flex:0 0 auto">EO</div>
-    <div style="flex:1;min-width:0">
-      <div style="font-size:10px;font-weight:700;color:#5B4BE6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mobile.overview.workspace }}</div>
-      <div style="font-size:13.5px;font-weight:650;color:#1B1B22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mobile.overview.title }}</div>
-    </div>
+    <!-- Reading a source replaces the workspace/topic identity with a back button + the source's
+         own title — the bottom tab bar stays put underneath (tapping any of the five tabs also
+         navigates away, same as setTab always has), this is just the more direct way back. -->
+    <sc-if value="{{ mobile.sourceView.active }}">
+      <button onClick="{{ mobile.sourceView.back }}" title="Back" style="width:32px;height:32px;border-radius:9px;background:var(--eo-m-canvas);border:none;display:flex;align-items:center;justify-content:center;flex:0 0 auto;cursor:pointer;color:#44444C">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:700;color:#5B4BE6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mobile.sourceView.reg }} {{ mobile.sourceView.typeLabel }}</div>
+        <div style="font-size:13.5px;font-weight:650;color:#1B1B22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mobile.sourceView.title }}</div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ !mobile.sourceView.active }}">
+      <div style="width:27px;height:27px;border-radius:8px;background:#6D5EF5;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;flex:0 0 auto">EO</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:700;color:#5B4BE6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mobile.overview.workspace }}</div>
+        <div style="font-size:13.5px;font-weight:650;color:#1B1B22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mobile.overview.title }}</div>
+      </div>
+    </sc-if>
   </header>
 
   <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;background:#F4F4F7">
@@ -429,7 +443,7 @@ table{border-collapse:collapse;width:100%}
             </div>
             <div style="display:flex;flex-direction:column;gap:9px">
               <sc-for list="{{ mobile.overviewFindings }}" as="f">
-                <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:14px;padding:13px">
+                <div onClick="{{ f.open }}" style="background:#fff;border:1px solid var(--eo-m-border);border-radius:14px;padding:13px;cursor:pointer">
                   <span style="display:inline-block;font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:5px;color:{{ f.stFg }};background:{{ f.stBg }}">{{ f.stLabel }}</span>
                   <div style="font-size:13.5px;line-height:1.4;color:#26262B;margin-top:8px">{{ f.text }}</div>
                   <sc-if value="{{ f.srcReg }}">
@@ -448,7 +462,7 @@ table{border-collapse:collapse;width:100%}
           </div>
           <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:14px;overflow:hidden">
             <sc-for list="{{ mobile.overviewSources }}" as="src">
-              <div style="display:flex;align-items:center;gap:11px;padding:12px 13px;border-top:1px solid var(--eo-m-canvas)">
+              <div onClick="{{ src.open }}" style="display:flex;align-items:center;gap:11px;padding:12px 13px;border-top:1px solid var(--eo-m-canvas);cursor:pointer">
                 <span style="width:32px;height:32px;border-radius:9px;background:{{ src.favBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:14px">{{ src.icon }}</span>
                 <span style="flex:1;min-width:0">
                   <span style="display:block;font-size:13.5px;font-weight:650;color:var(--eo-m-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ src.title }}</span>
@@ -486,7 +500,7 @@ table{border-collapse:collapse;width:100%}
         </sc-if>
         <div style="display:flex;flex-direction:column;gap:10px">
           <sc-for list="{{ mobile.sourceCards }}" as="src">
-            <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:15px;padding:13px 14px">
+            <div onClick="{{ src.open }}" style="background:#fff;border:1px solid var(--eo-m-border);border-radius:15px;padding:13px 14px;cursor:pointer">
               <div style="display:flex;align-items:flex-start;gap:11px">
                 <span style="width:34px;height:34px;border-radius:9px;background:{{ src.favBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:15px">{{ src.icon }}</span>
                 <span style="flex:1;min-width:0">
@@ -525,11 +539,19 @@ table{border-collapse:collapse;width:100%}
           <div style="text-align:center;padding:30px 20px 8px">
             <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#D2D2DA" stroke-width="1.6" style="margin:0 auto;display:block"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5 5-2z" stroke-linejoin="round"/></svg>
             <div style="font-size:13.5px;font-weight:650;color:#8A8A95;margin-top:12px">Answers cite only your active sources</div>
-            <div style="font-size:12px;color:#A6A6AE;margin-top:4px;line-height:1.45">Type a question above to search the record.</div>
+            <div style="font-size:12px;color:#A6A6AE;margin-top:4px;line-height:1.45">Type a question above to search the record — press ⏎ any time to also pull in the web.</div>
           </div>
         </sc-if>
 
         <sc-if value="{{ mobile.sf.sfAsked }}">
+          <!-- Always visible once a question's been typed — not just when the record comes up
+               thin: search-the-web is a standing option, not a hidden fallback (sfWebGo/sfQuery
+               are always populated, docs/search-and-pins.md's Enter-triggers-web motion made
+               visible instead of needing a reader to discover the keyboard shortcut). -->
+          <button onClick="{{ mobile.sf.sfWebGo }}" style="display:flex;align-items:center;gap:9px;background:#F1EFFE;border:1px solid #DED8FD;border-radius:13px;padding:11px 13px;font-size:12.5px;font-weight:650;color:#5B4BE6;cursor:pointer;font-family:inherit;text-align:left">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5B4BE6" stroke-width="1.8" style="flex:0 0 auto"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Also search the web for {{ mobile.sf.sfWebLabel }}</span>
+          </button>
           <sc-if value="{{ mobile.sf.sfIsResults }}">
             <sc-if value="{{ mobile.sf.sfHasConcepts }}">
               <div style="display:flex;align-items:baseline;gap:7px;padding:2px 2px 0">
@@ -578,11 +600,10 @@ table{border-collapse:collapse;width:100%}
                 </sc-for>
               </div>
             </sc-if>
+            <!-- No separate "search the web" CTA here — the standing button above (right under
+                 the input) already covers it; this just explains why the record came up thin. -->
             <sc-if value="{{ mobile.sf.sfThin }}">
               <div style="text-align:center;padding:20px 10px;color:#9A9AA4;font-size:12.5px;line-height:1.5">{{ mobile.sf.sfThinLabel }}</div>
-              <sc-if value="{{ mobile.sf.sfWebShow }}">
-                <button onClick="{{ mobile.sf.sfWebGo }}" style="background:#fff;border:1px solid #EAEAEF;border-radius:13px;padding:12px;font-size:13px;font-weight:650;color:#5B4BE6;cursor:pointer;font-family:inherit">Search the web for {{ mobile.sf.sfWebLabel }}</button>
-              </sc-if>
             </sc-if>
           </sc-if>
         </sc-if>
@@ -597,7 +618,7 @@ table{border-collapse:collapse;width:100%}
           <div style="font-size:12px;color:#7A7A83;margin-bottom:12px;line-height:1.4">{{ mobile.entityCount }} distinct entities across your active sources — the most connected:</div>
           <div style="display:flex;flex-direction:column;gap:2px">
             <sc-for list="{{ mobile.topEntities }}" as="e">
-              <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #F4F4F6">
+              <div onClick="{{ e.open }}" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #F4F4F6;cursor:pointer">
                 <span style="width:25px;height:25px;border-radius:50%;background:#E7F0FE;color:#2563C9;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto">{{ e.fav }}</span>
                 <span style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#1B1B22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.label }}</span>
                 <span style="font-size:10.5px;color:#A6A6AE;flex:0 0 auto;white-space:nowrap">{{ e.meta }}</span>
@@ -623,7 +644,7 @@ table{border-collapse:collapse;width:100%}
           <span style="font-size:11.5px;font-weight:650;color:#9A9AA4">{{ mobile.findingsCount }}</span>
         </div>
         <sc-for list="{{ mobile.findingsList }}" as="f">
-          <div style="background:#fff;border:1px solid #EAEAEF;border-radius:16px;padding:14px">
+          <div onClick="{{ f.open }}" style="background:#fff;border:1px solid #EAEAEF;border-radius:16px;padding:14px;cursor:pointer">
             <div style="display:flex;align-items:center;justify-content:space-between">
               <span style="display:inline-block;font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:5px;color:{{ f.stFg }};background:{{ f.stBg }}">{{ f.stLabel }}</span>
               <button onClick="{{ f.pin }}" style="background:none;border:none;cursor:pointer;font-size:11px;font-weight:650;color:{{ f.pinFg }};font-family:inherit">{{ f.pinLabel }}</button>
@@ -634,6 +655,113 @@ table{border-collapse:collapse;width:100%}
         </sc-for>
         <sc-if value="{{ mobile.findingsEmpty }}">
           <div style="text-align:center;padding:30px 20px;color:#9A9AA4;font-size:13px">No findings yet.</div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- SOURCE — the full-screen reader a tap on any source (a card, a finding, an Ask result, an
+         entity mention…) opens into. Replaces the five tabs above (mutually exclusive: they're all
+         gated on !openSn in _mobileVals) while state.tab holds this source's sn; the header grows a
+         back button and the bottom tab bar's own taps double as a way out too.
+         Reader/Native is a real mode switch (state.viewerModes, shared with desktop); Entities /
+         Surprising / Cast are opt-in overlays on the Reader (mReaderShow, mobile-only, off by
+         default) — see _mobileSourceVM for what each reads and how they stay in sync with desktop. -->
+    <sc-if value="{{ mobile.sourceView.active }}">
+      <div style="padding:16px 14px 40px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <sc-if value="{{ mobile.sourceView.reg }}">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:var(--eo-m-accent);background:var(--eo-m-accent-tint);border-radius:20px;padding:3px 8px">{{ mobile.sourceView.reg }}</span>
+          </sc-if>
+          <span style="font-size:11px;color:var(--eo-m-faint)">{{ mobile.sourceView.typeLabel }}</span>
+          <sc-if value="{{ mobile.sourceView.countLine }}">
+            <span style="font-size:11px;color:var(--eo-m-faint)">· {{ mobile.sourceView.countLine }}</span>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ mobile.sourceView.missing }}">
+          <div style="text-align:center;padding:40px 20px;color:var(--eo-m-faint);font-size:13px">This source could not be found.</div>
+        </sc-if>
+
+        <sc-if value="{{ !mobile.sourceView.missing }}">
+          <!-- Reader / Original mode switch — only when this source actually has a native format. -->
+          <sc-if value="{{ mobile.sourceView.hasNative }}">
+            <div style="display:flex;background:#F2F2F6;border-radius:11px;padding:3px;gap:3px">
+              <button onClick="{{ mobile.sourceView.setModeReader }}" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:12.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;background:{{ mobile.sourceView.readerBg }};color:{{ mobile.sourceView.readerFg }}">Reader</button>
+              <button onClick="{{ mobile.sourceView.setModeNative }}" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:12.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;background:{{ mobile.sourceView.nativeBg }};color:{{ mobile.sourceView.nativeFg }}">Original</button>
+            </div>
+          </sc-if>
+
+          <!-- READER — the clear default: plain paragraphs, three opt-in overlays. -->
+          <sc-if value="{{ mobile.sourceView.isReader }}">
+            <div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px">
+              <button onClick="{{ mobile.sourceView.toggleEntities }}" style="flex:0 0 auto;border:none;border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;background:{{ mobile.sourceView.entitiesBg }};color:{{ mobile.sourceView.entitiesFg }}">◉ Entities</button>
+              <button onClick="{{ mobile.sourceView.toggleSurprise }}" style="flex:0 0 auto;border:none;border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;background:{{ mobile.sourceView.surpriseBg }};color:{{ mobile.sourceView.surpriseFg }}">✦ Surprising</button>
+              <button onClick="{{ mobile.sourceView.toggleCast }}" style="flex:0 0 auto;border:none;border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;background:{{ mobile.sourceView.castBg }};color:{{ mobile.sourceView.castFg }}">☰ Cast</button>
+            </div>
+
+            <sc-if value="{{ mobile.sourceView.showCast }}">
+              <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:14px;overflow:hidden">
+                <sc-for list="{{ mobile.sourceView.cast }}" as="c">
+                  <div onClick="{{ c.open }}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--eo-m-canvas);cursor:pointer">
+                    <span style="width:26px;height:26px;border-radius:50%;background:var(--eo-m-accent-tint);color:var(--eo-m-accent);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto">{{ c.fav }}</span>
+                    <span style="flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--eo-m-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.label }}</span>
+                    <span style="font-size:11px;color:var(--eo-m-faint);flex:0 0 auto;white-space:nowrap">{{ c.meta }}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ mobile.sourceView.castEmpty }}">
+                  <div style="padding:16px;text-align:center;color:var(--eo-m-faint);font-size:12.5px">No figures recorded in this source yet.</div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:16px;padding:19px 18px 4px;font-family:'Newsreader',Georgia,serif;font-size:16.5px;line-height:1.75;color:#26262B">
+              <sc-for list="{{ mobile.sourceView.paras }}" as="p">
+                <p ref="{{ p.ref }}" style="{{ p.style }}">
+                  <sc-for list="{{ p.segs }}" as="sg">
+                    <sc-if value="{{ sg.isText }}"><span>{{ sg.s }}</span></sc-if>
+                    <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;background:none;color:#5B4BE6;border-bottom:1px dotted #B9AEF8;font-size:inherit;line-height:inherit;font-family:inherit;cursor:pointer">{{ sg.s }}</button></sc-if>
+                  </sc-for>
+                  <sc-if value="{{ p.surprise }}">
+                    <span style="display:block;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#7A6AE8">✦ {{ p.surpriseReason }} <sc-if value="{{ p.surpriseBits }}">· {{ p.surpriseBits }}</sc-if></span>
+                  </sc-if>
+                </p>
+              </sc-for>
+            </div>
+            <sc-if value="{{ mobile.sourceView.parasEmpty }}">
+              <div style="text-align:center;padding:40px 20px;color:var(--eo-m-faint);font-size:13px">No readable text extracted for this source yet.</div>
+            </sc-if>
+          </sc-if>
+
+          <!-- ORIGINAL — the same fetched page / PDF blob desktop's own Native/PDF modes produce,
+               just a plain iframe over it instead of desktop's toolbar+iframe or canvas surface. -->
+          <sc-if value="{{ mobile.sourceView.isNative }}">
+            <sc-if value="{{ mobile.sourceView.isWeb }}">
+              <sc-if value="{{ mobile.sourceView.nativeBusy }}">
+                <div style="text-align:center;padding:60px 20px;color:var(--eo-m-faint);font-size:13px">Fetching the original page…</div>
+              </sc-if>
+              <sc-if value="{{ mobile.sourceView.hasNativeErr }}">
+                <div style="text-align:center;padding:40px 20px;color:var(--eo-m-danger-fg);font-size:12.5px">{{ mobile.sourceView.nativeErr }}</div>
+              </sc-if>
+              <sc-if value="{{ mobile.sourceView.hasNativeHtml }}">
+                <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:16px;overflow:hidden;height:70vh">
+                  <iframe ref="{{ mobile.sourceView.setNativeFrame }}" srcdoc="{{ mobile.sourceView.nativeHtml }}" sandbox="allow-same-origin allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
+                </div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ mobile.sourceView.isPdf }}">
+              <sc-if value="{{ mobile.sourceView.pdfBusy }}">
+                <div style="text-align:center;padding:60px 20px;color:var(--eo-m-faint);font-size:13px">Preparing the PDF…</div>
+              </sc-if>
+              <sc-if value="{{ mobile.sourceView.pdfReady }}">
+                <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:16px;overflow:hidden;height:70vh">
+                  <iframe src="{{ mobile.sourceView.pdfUrl }}" style="width:100%;height:100%;border:none;display:block"></iframe>
+                </div>
+              </sc-if>
+              <sc-if value="{{ mobile.sourceView.pdfUnavailable }}">
+                <div style="text-align:center;padding:40px 20px;color:var(--eo-m-faint);font-size:13px">The original PDF isn't kept for this session — only the extracted reading.</div>
+              </sc-if>
+            </sc-if>
+          </sc-if>
         </sc-if>
       </div>
     </sc-if>
@@ -739,6 +867,100 @@ table{border-collapse:collapse;width:100%}
               <button type="submit" disabled="{{ mobile.add.submitDisabled }}" style="width:100%;background:var(--eo-m-ink);color:#fff;border:none;border-radius:13px;padding:13px;font-size:14.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;opacity:{{ mobile.add.submitOpacity }}">Add to topic</button>
             </form>
           </sc-if>
+        </sc-if>
+
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ENTITY SHEET — the same profile builder the desktop sidebar reads (_profFor / _mobileEntityVM),
+       reshaped as a bottom sheet: opened by any "see this entity" tap on mobile (the Graph tab, an
+       Ask result, a source's connected figures…). Tapping a connected figure re-seats the sheet on
+       it in place; tapping the source chip leaves for the full-screen reader (which dismisses this). -->
+  <sc-if value="{{ mobile.entitySheet.open }}">
+    <div onClick="{{ mobile.entitySheet.close }}" style="position:absolute;inset:0;background:rgba(20,20,25,.4);z-index:40;display:flex;flex-direction:column;justify-content:flex-end">
+      <div onClick="{{ mobile.stopTap }}" style="background:#fff;border-radius:22px 22px 0 0;padding:12px 16px calc(20px + env(safe-area-inset-bottom,0px));max-height:84%;overflow-y:auto;animation:eoSheetUp .2s cubic-bezier(.4,0,.2,1)">
+        <div style="width:36px;height:4px;border-radius:3px;background:#E0E0E6;margin:0 auto 14px"></div>
+
+        <div style="display:flex;align-items:center;gap:11px;margin-bottom:4px">
+          <span style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:var(--eo-m-accent-tint);color:var(--eo-m-accent)">{{ mobile.entitySheet.prof.initials }}</span>
+          <span style="flex:1;min-width:0">
+            <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600;color:var(--eo-m-ink);line-height:1.2">{{ mobile.entitySheet.prof.label }}</span>
+            <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--eo-m-faint);margin-top:2px">{{ mobile.entitySheet.prof.counts }}</span>
+          </span>
+          <button onClick="{{ mobile.entitySheet.prof.pin }}" title="{{ mobile.entitySheet.prof.pinTip }}" style="flex:0 0 auto;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--eo-m-canvas);color:{{ mobile.entitySheet.prof.pinFg }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l1 7 3 2H5l3-2z"/></svg></button>
+          <button onClick="{{ mobile.entitySheet.close }}" title="Close" style="flex:0 0 auto;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--eo-m-canvas);color:#7A7A83"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+
+        <sc-if value="{{ mobile.entitySheet.prof.srcTitle }}">
+          <button onClick="{{ mobile.entitySheet.prof.openSource }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:6px;padding:3px 8px;margin:6px 0 10px;cursor:pointer">{{ mobile.entitySheet.prof.srcReg }} · {{ mobile.entitySheet.prof.srcTitle }}</button>
+        </sc-if>
+
+        <div style="margin-top:6px">
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--eo-m-faint);margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
+          <sc-if value="{{ mobile.entitySheet.prof.wikiWait }}">
+            <div style="font-size:12.5px;color:var(--eo-m-faint);font-style:italic;line-height:1.5">Looking for a matching article…</div>
+          </sc-if>
+          <sc-if value="{{ mobile.entitySheet.prof.hasWiki }}">
+            <div style="border:1px solid var(--eo-m-border);border-radius:9px;padding:9px 12px;background:#FBFBFD">
+              <sc-if value="{{ mobile.entitySheet.prof.hasWikiDesc }}">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--eo-m-faint);margin-bottom:4px">{{ mobile.entitySheet.prof.wikiDesc }}</div>
+              </sc-if>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ mobile.entitySheet.prof.wikiText }}</div>
+              <a href="{{ mobile.entitySheet.prof.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:var(--eo-m-accent);margin-top:7px;text-decoration:none">{{ mobile.entitySheet.prof.wikiTitle }} ↗</a>
+            </div>
+          </sc-if>
+          <sc-if value="{{ mobile.entitySheet.prof.wikiAbsent }}">
+            <div style="font-size:12.5px;color:var(--eo-m-faint);font-style:italic;line-height:1.5">No confirmed Wikipedia match for this referent.</div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ mobile.entitySheet.prof.hasDefs }}">
+          <div style="margin-top:16px">
+            <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--eo-m-faint);margin-bottom:8px">STANDING PROPERTIES</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ mobile.entitySheet.prof.defs }}" as="d">
+                <div style="border:1px solid var(--eo-m-border);border-radius:10px;padding:9px 11px">
+                  <div style="font-size:13.5px;color:var(--eo-m-text);line-height:1.4">{{ d.value }}</div>
+                  <div style="font-size:10.5px;color:var(--eo-m-faint);margin-top:5px">{{ d.prov }} · {{ d.conf }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ mobile.entitySheet.prof.hasRelations }}">
+          <div style="margin-top:16px">
+            <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--eo-m-faint);margin-bottom:8px">CONNECTED</div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <sc-for list="{{ mobile.entitySheet.prof.relations }}" as="r">
+                <button onClick="{{ r.pivot }}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--eo-m-canvas);border:none;border-radius:10px;padding:9px 11px;text-align:left;cursor:pointer;font-family:'Onest',inherit">
+                  <span style="font-size:13px;font-weight:600;color:var(--eo-m-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.other }}</span>
+                  <span style="font-size:11px;color:var(--eo-m-faint);flex:0 0 auto;white-space:nowrap">{{ r.via }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <sc-if value="{{ mobile.entitySheet.prof.relExpandShow }}">
+              <button onClick="{{ mobile.entitySheet.prof.toggleRelExpanded }}" style="margin-top:9px;background:none;border:none;font-size:12px;font-weight:650;color:var(--eo-m-accent);cursor:pointer;font-family:'Onest',inherit">{{ mobile.entitySheet.prof.relExpandLabel }}</button>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ mobile.entitySheet.prof.hasMentions }}">
+          <div style="margin-top:16px">
+            <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--eo-m-faint);margin-bottom:8px">MENTIONS · {{ mobile.entitySheet.prof.mentionCount }}</div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <sc-for list="{{ mobile.entitySheet.prof.mentions }}" as="m">
+                <button onClick="{{ m.jump }}" style="display:block;width:100%;text-align:left;background:var(--eo-m-canvas);border:none;border-radius:10px;padding:9px 11px;cursor:pointer;font-family:'Onest',inherit">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:650;color:var(--eo-m-accent)">¶{{ m.idx }}</span>
+                  <span style="display:block;font-size:12.5px;color:var(--eo-m-text);line-height:1.45;margin-top:3px">{{ m.text }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <sc-if value="{{ mobile.entitySheet.prof.mentionExpandShow }}">
+              <button onClick="{{ mobile.entitySheet.prof.toggleMentionExpanded }}" style="margin-top:9px;background:none;border:none;font-size:12px;font-weight:650;color:var(--eo-m-accent);cursor:pointer;font-family:'Onest',inherit">{{ mobile.entitySheet.prof.mentionExpandLabel }}</button>
+            </sc-if>
+          </div>
         </sc-if>
 
       </div>
@@ -4754,6 +4976,13 @@ class Component extends DCLogic {
       // The mobile shell's own bottom sheet (null | 'scope' | 'add') and Sources-tab kind filter —
       // separate from the desktop drawer/modal state above, which the mobile shell doesn't use.
       mSheet: null, mKind: 'All',
+      // Which of the five bottom tabs to return to when backing out of the full-screen mobile
+      // source reader (openViewer sets this; mobileBackFromSource reads it). 'topic' (Overview)
+      // is a safe default for the case a source opens before any tab was ever visited.
+      mReturnTab: 'topic',
+      // The mobile reader's opt-in overlays (entities/surprise/cast), keyed per source sn so
+      // switching sources doesn't carry a stale toggle over. { [sn]: { entities, surprise, cast } }
+      mReaderShow: {},
       // The Add-source sheet's own mode ('tiles' | 'url' | 'text') — kept separate from the shared
       // top omnibar's `omni`/`onOmniSubmit` (index.html:5441) so this sheet always just adds a
       // source; it never falls through to Research Review the way a non-URL omnibar submit does.
@@ -7021,8 +7250,16 @@ class Component extends DCLogic {
     // remain one click away on the mode row and persist only while the user stays in that source.
     const modes = { ...this.state.viewerModes, [sn]: 'overview' };
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
+    // On mobile there's no tab strip — a source opens as its own full screen, so remember which
+    // of the five bottom tabs to return to (only when we're LEAVING one of them; chaining from
+    // one source into another, e.g. a related-entity jump, must keep the original tab as home).
+    // The entity sheet (rightOpen) is a mobile overlay, not a screen of its own — opening a
+    // source always dismisses it rather than stacking a full-screen view under a sheet.
+    const mobilePatch = this._mob()
+      ? { leftOpen: false, rightOpen: false, ...(this.state.viewerTabs.includes(this.state.tab) ? {} : { mReturnTab: this.state.tab }) }
+      : {};
     // Open the source AS A TAB in the main stage and make it the active tab.
-    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) });
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...mobilePatch });
     if (modes[sn] === 'native') this.loadPage(sn);
     if (modes[sn] === 'pdf') this.loadPdf(sn);
     this._syncRoute();
@@ -8069,7 +8306,21 @@ class Component extends DCLogic {
     });
     return { pinRows: rows, pinsEmpty: rows.length === 0 };
   }
-  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: this.state.tab === 'graph' ? 'search' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
+  // On desktop the Graph tab has no room for the sidebar profile, so opening an entity there
+  // hands off to Search (which does). On mobile the profile is its own overlay sheet drawn on
+  // top of whatever screen is active — jumping the underlying tab would mean closing the sheet
+  // lands somewhere the reader never asked to go, so mobile always keeps its current tab.
+  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: (!this._mob() && this.state.tab === 'graph') ? 'search' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
+  mobileCloseEntity() { this.setState({ rightOpen: false, entitySel: null }); }
+  mobileBackFromSource() { this.setTab(this.state.mReturnTab || 'topic'); }
+  // Guards a scrollIntoView so it fires once per (source, focus target) rather than on every
+  // re-render — refs re-fire whenever their closure identity changes (every _vals() call makes a
+  // fresh one), so the guard has to live on the element itself, same idiom as _mountPropDag.
+  _mobileScrollToFocus(el, key) {
+    if (!el || el.__scrollKey === key) return;
+    el.__scrollKey = key;
+    requestAnimationFrame(() => { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch {} });
+  }
   backToEntities() { this.setState({ entitySel: null, focusId: null, rightHero: false }); }
   // The wiki referent for the open entity — 4.1's entity-panel Wikipedia search, restored.
   // Fired once per (doc, entity): the engine searches Wikipedia and confirms (or refuses)
@@ -9135,21 +9386,200 @@ class Component extends DCLogic {
         : `Based on ${activeCount} of ${total} topic sources. ${excludedRegs.join(', ')} excluded.`,
     };
   }
+  // A full-screen mobile READING view for one source — a clear Reader (plain paragraphs, opt-in
+  // overlays) plus, when the source has one, its Native original (the same fetched/sanitized page
+  // or PDF blob desktop's own Native/PDF modes already produce — this just points a plain iframe
+  // at it instead of desktop's toolbar+iframe or canvas surface). Title/reg/counts are borrowed
+  // from the same card the Sources/Overview lists already show (`cards`) so the two never
+  // disagree. This is what makes every "open a source" handler that's been wired for desktop all
+  // along (Ask results, Findings, entity mentions, the source cards themselves) actually land
+  // somewhere on mobile, instead of silently moving state.tab to a source id underneath an
+  // unchanged screen (see openViewer's mobilePatch/mReturnTab).
+  _mobileSourceVM(sn, cards) {
+    const app = this._app;
+    const back = () => this.mobileBackFromSource();
+    const s = app && app.sourceBySn ? app.sourceBySn(sn) : null;
+    if (!s) return { active: true, missing: true, back, title: 'Source', reg: '', typeLabel: '', icon: '□', countLine: '', hasNative: false, isReader: true, isNative: false, paras: [], parasEmpty: true, cast: [], castEmpty: true };
+    const card = (cards || []).find((c) => c.sn === sn) || {};
+    const kind = String(s.kind || '').toLowerCase();
+    const isPdf = kind === 'pdf';
+    const isWeb = (kind === 'web' || kind === 'html') && !!s.url;
+    const hasNative = isPdf || isWeb;
+
+    // Reader/Native rides desktop's own per-source mode (state.viewerModes) through the SAME
+    // setSourceMode desktop uses — it also kicks off loadPage/loadPdf, and keeps the two shells
+    // agreeing if the same source is later opened on desktop too. A fresh open (openViewer) always
+    // resets to 'overview', which reads as Reader here; 'native'/'pdf' both read as Native.
+    const rawMode = this.state.viewerModes[sn] || 'overview';
+    const isNative = rawMode === 'native' || rawMode === 'pdf';
+
+    // Per-source display toggles — mobile-only overlays on the plain reader (entity links, the
+    // reading's own surprise turns, a cast index), OFF by default so the base reader stays plain;
+    // each is opt-in, namespaced per source so switching sources doesn't carry a stale toggle over.
+    const show = this.state.mReaderShow[sn] || {};
+    const showEntities = !!show.entities, showSurprise = !!show.surprise, showCast = !!show.cast;
+    const toggle = (key) => () => this.setState({ mReaderShow: { ...this.state.mReaderShow, [sn]: { ...show, [key]: !show[key] } } });
+
+    const textOf = (p) => String(p && (p.text || p.s || (p.segs && p.segs.map((x) => x.s).join('')) || '') || '').trim();
+    let rawParas = [];
+    try { rawParas = app.viewerParas(sn, { entities: showEntities }) || []; } catch { rawParas = []; }
+
+    // A jump-to-passage focus (a Findings quote, a search hit, an entity mention) highlights and
+    // auto-scrolls to the FIRST paragraph that contains it — a substring match on normalized text
+    // since the focus text and the paragraph text aren't always byte-identical (whitespace, a
+    // trailing citation mark). Only the first match takes the highlight so a short, common quote
+    // never lights up the whole source.
+    const focusText = String((this.state.viewerFocus || {})[sn] || '').trim();
+    const norm = (x) => x.replace(/\s+/g, ' ').toLowerCase();
+    const focusNeedle = focusText ? norm(focusText).slice(0, 80) : '';
+
+    // SURPRISE — the reading's own top turning points (eot.turns, the same spine the desktop
+    // waveform draws from), matched to a paragraph by its sentence text rather than by index:
+    // viewerParas splits on blank lines, eot's units are sentences, so the two indices don't align.
+    let surpriseHits = [];
+    if (showSurprise) {
+      try {
+        const eot = app.eotFor ? app.eotFor(sn) : null;
+        const turns = (eot && Array.isArray(eot.turns)) ? eot.turns : [];
+        surpriseHits = turns.slice()
+          .sort((a, b) => Math.max(b.bayesBits || 0, b.surprisalBits || 0) - Math.max(a.bayesBits || 0, a.surprisalBits || 0))
+          .slice(0, 10)
+          .map((t) => ({
+            needle: norm(String(t.sentence || '').trim()).slice(0, 80),
+            reason: (t.surprises && t.surprises[0] && t.surprises[0].text) || '',
+            bits: t.bayesBits != null ? `${t.bayesBits}b Δbelief` : (t.surprisalBits != null ? `${t.surprisalBits}b` : ''),
+          }))
+          .filter((x) => x.needle);
+      } catch { surpriseHits = []; }
+    }
+
+    // style is precomputed here, not a template-side ternary — the dc expression evaluator is a
+    // small hand-rolled one (no ternaries/string-building), same reason _mobileVals precomputes
+    // submitOpacity/submitDisabled for the Add-source sheet instead of inlining `!x` there.
+    const PSTYLE = 'margin:0 0 16px';
+    const PSTYLE_FOCUS = 'margin:0 0 16px;background:#FAEEDA;border-radius:6px;padding:8px 10px 8px 12px;margin-left:-12px;margin-right:-12px;box-shadow:0 0 0 1px #F0DFC0';
+    const PSTYLE_SURPRISE = 'margin:0 0 16px;background:#F1EFFE;border-radius:6px;padding:8px 10px 8px 12px;margin-left:-12px;margin-right:-12px;box-shadow:0 0 0 1px #DED8FD';
+    let matchedFocus = false;
+    const usedSurprise = new Set();
+    const paras = rawParas.map((p) => {
+      const text = textOf(p);
+      const normText = norm(text);
+      const isFocus = !matchedFocus && !!focusNeedle && normText.includes(focusNeedle);
+      if (isFocus) matchedFocus = true;
+      let surpriseHit = null;
+      if (!isFocus && showSurprise) {
+        const i = surpriseHits.findIndex((h, hi) => !usedSurprise.has(hi) && normText.includes(h.needle));
+        if (i >= 0) { surpriseHit = surpriseHits[i]; usedSurprise.add(i); }
+      }
+      // Same seg shape (isEnt/isText) the desktop Document and Facing leaves already render —
+      // segs always populate (a single plain run when Entities is off) so the template has one
+      // uniform sc-for regardless of the toggle.
+      const segs = (showEntities && Array.isArray(p.segs))
+        ? p.segs.map((sg) => sg.t === 'ent'
+          ? { isEnt: true, isText: false, s: sg.s, open: () => this.openEntity(sg.docId, sg.entId) }
+          : { isEnt: false, isText: true, s: sg.s })
+        : [{ isEnt: false, isText: true, s: text }];
+      return {
+        text, segs, focus: isFocus, surprise: !!surpriseHit,
+        surpriseReason: surpriseHit ? surpriseHit.reason : '', surpriseBits: surpriseHit ? surpriseHit.bits : '',
+        style: isFocus ? PSTYLE_FOCUS : (surpriseHit ? PSTYLE_SURPRISE : PSTYLE),
+        ref: (el) => { if (isFocus) this._mobileScrollToFocus(el, sn + ':' + focusNeedle); },
+      };
+    }).filter((p) => p.text);
+
+    // CAST — this source's own entity index (app.sourceEntities), the same rows the desktop
+    // source-index panel reads, capped for a phone screen; each opens the shared entity sheet.
+    let cast = [];
+    if (showCast) {
+      try {
+        cast = (app.sourceEntities ? app.sourceEntities(sn) : [])
+          .slice().sort((a, b) => ((b.mentions || 0) + (b.links || 0)) - ((a.mentions || 0) + (a.links || 0)))
+          .slice(0, 24)
+          .map((e) => ({
+            label: e.label, fav: (e.label || 'E').trim().charAt(0).toUpperCase(),
+            meta: `${e.mentions || 0} mention${(e.mentions || 0) === 1 ? '' : 's'}`,
+            open: (e.docId != null && e.entId != null) ? (() => this.openEntity(e.docId, e.entId)) : (() => {}),
+          }));
+      } catch { cast = []; }
+    }
+
+    // NATIVE — the web page reuses setNativeFrame verbatim (the same ref desktop's Native iframe
+    // uses): it decorates the fetched page in place with entity links + cited-passage marking and
+    // in-app link-following, all keyed off _activeSrc()/entityMode, neither of which is desktop-
+    // specific. A PDF skips desktop's canvas surface (built for a wide toolbar+page layout) for a
+    // plain iframe over the same blob URL — mobile browsers already render PDFs natively in one.
+    const pageState = this.state.viewerPages[sn] || {};
+    const nativeBusy = isWeb && !!pageState.busy;
+    const nativeErr = isWeb ? (pageState.err || '') : '';
+    const nativeHtml = isWeb ? (pageState.doc || '') : '';
+    const pdfReady = isPdf && !!s._pdfUrl;
+    const pdfBusy = isPdf && !pdfReady && !!(app.pdfRenderable && app.pdfRenderable(s));
+
+    // Colors are precomputed pairs (active/inactive), not template-side ternaries — same reason
+    // the style strings above are. readerFg/nativeFg mirror the segmented-control pattern; the
+    // three overlay chips mirror the Sources-tab kind filter's pill (kindItems, above).
+    const chipOn = { bg: 'var(--eo-m-accent-tint)', fg: 'var(--eo-m-accent)' };
+    const chipOff = { bg: '#F2F2F6', fg: '#5A5A64' };
+    const segOn = { bg: '#fff', fg: '#19191F' };
+    const segOff = { bg: 'transparent', fg: '#8A8A95' };
+    return {
+      active: true, missing: false, back,
+      sn, title: s.title || s.domain || s.url || card.title || ('Source ' + sn),
+      reg: s.reg || card.reg || '', typeLabel: card.typeLabel || '', icon: card.icon || '□',
+      countLine: card.countLine || '',
+      hasNative, isReader: !isNative, isNative,
+      setModeReader: () => this.setSourceMode('reader'),
+      setModeNative: () => this.setSourceMode(isPdf ? 'pdf' : 'native'),
+      readerBg: (isNative ? segOff : segOn).bg, readerFg: (isNative ? segOff : segOn).fg,
+      nativeBg: (isNative ? segOn : segOff).bg, nativeFg: (isNative ? segOn : segOff).fg,
+      showEntities, toggleEntities: toggle('entities'),
+      entitiesBg: (showEntities ? chipOn : chipOff).bg, entitiesFg: (showEntities ? chipOn : chipOff).fg,
+      showSurprise, toggleSurprise: toggle('surprise'),
+      surpriseBg: (showSurprise ? chipOn : chipOff).bg, surpriseFg: (showSurprise ? chipOn : chipOff).fg,
+      showCast, toggleCast: toggle('cast'),
+      castBg: (showCast ? chipOn : chipOff).bg, castFg: (showCast ? chipOn : chipOff).fg,
+      cast, castEmpty: showCast && cast.length === 0,
+      paras, parasEmpty: paras.length === 0,
+      isPdf, isWeb, setNativeFrame: (el) => this.setNativeFrame(el),
+      nativeBusy, hasNativeErr: !!nativeErr, nativeErr, nativeHtml, hasNativeHtml: !!nativeHtml,
+      pdfReady, pdfBusy, pdfUrl: pdfReady ? s._pdfUrl : '',
+      pdfUnavailable: isPdf && !pdfReady && !pdfBusy,
+    };
+  }
+  // The entity profile, mobile-shaped: reuses _profFor — the SAME builder the desktop sidebar and
+  // the web-graph overlay's details panel both already read (docs: "one builder for both surfaces
+  // that show a profile") — with mobile's own handlers wired to the new mobile source screen and
+  // to re-seating this same sheet on a connected figure. A distinct statePrefix ('mprof') keeps
+  // its own search/expand toggles from clobbering the desktop sidebar's ('prof').
+  _mobileEntityVM(docId, entId) {
+    const prof = this._profFor(docId, entId, {
+      openSource: (sn) => this.openViewer(sn),
+      jump: (sn, text) => this.openViewer(sn, text),
+      pivot: (otherId) => this.openEntity(docId, otherId),
+    }, { statePrefix: 'mprof' });
+    return { open: !!prof, prof: prof || {}, close: () => this.mobileCloseEntity() };
+  }
   // MOBILE SHELL — a purpose-built phone UI (a bottom tab bar and five card screens: Overview /
-  // Sources / Ask / Graph / Findings) instead of the desktop shell squeezed into overlay drawers.
-  // It reads the SAME facts everything else does — _topicOverviewVM, _evidenceScopeVM,
-  // _surfaceVals, app.findings/app.entities — so there is no parallel data model, only a second
+  // Sources / Ask / Graph / Findings, plus a full-screen source reader and an entity sheet that
+  // overlay them) instead of the desktop shell squeezed into overlay drawers. It reads the SAME
+  // facts everything else does — _topicOverviewVM, _evidenceScopeVM, _surfaceVals,
+  // app.findings/app.entities, _profFor — so there is no parallel data model, only a second
   // rendering of them. Deliberately narrower than the desktop shell for v1: no Murmur strip,
-  // Vault, chat, Provenance DAG, workspace/folder browser, audit log, or per-source viewer (the
-  // graph and sources screens below are honest snapshots, not the full desktop explorers) — those
-  // stay desktop-only until there's a real mobile design for each. `st.tab` stays the single
-  // source of truth for which screen is showing, so Overview's "Ask about this topic" etc. (which
-  // call the existing this.setTab(...)) already land on the right mobile screen for free.
+  // Vault, chat, Provenance DAG, workspace/folder browser, or audit log — those stay desktop-only
+  // until there's a real mobile design for each. `st.tab` stays the single source of truth for
+  // which screen is showing (a source's own sn while it's open, same as desktop), so Overview's
+  // "Ask about this topic" etc. (which call the existing this.setTab(...)) already land on the
+  // right mobile screen for free.
   _mobileVals() {
     const st = this.state;
     if (!st.isMobile) return { isMobile: false, isDesktop: true };
     const app = this._app;
     const STAB = { topic: 'overview', register: 'sources', search: 'ask', graph: 'graph', evidence: 'findings' };
+    // A source counts as "open" exactly the way desktop's own setTab already treats it — st.tab
+    // holding a value that's sitting in viewerTabs — so a fresh openViewer (from a card, a
+    // finding, an Ask result, an entity mention…) lands on the mobile reading screen below
+    // instead of silently changing state.tab underneath whichever of the five tabs was showing.
+    const openSn = (Array.isArray(st.viewerTabs) && st.viewerTabs.includes(st.tab)) ? st.tab : null;
     const tab = STAB[st.tab] || 'overview';
     const tabDefs = [
       ['topic', 'overview', 'Overview'],
@@ -9159,9 +9589,9 @@ class Component extends DCLogic {
       ['evidence', 'findings', 'Findings'],
     ];
     const mtabs = tabDefs.map(([id, key, label]) => ({
-      id, key, label, on: tab === key,
+      id, key, label, on: !openSn && tab === key,
       isOverview: key === 'overview', isSources: key === 'sources', isAsk: key === 'ask', isGraph: key === 'graph', isFindings: key === 'findings',
-      fg: tab === key ? '#5B4BE6' : '#8A8A95',
+      fg: !openSn && tab === key ? '#5B4BE6' : '#8A8A95',
       select: () => this.setTab(id),
     }));
 
@@ -9172,8 +9602,10 @@ class Component extends DCLogic {
     const sf = this._surfaceVals(app, sources);
 
     // SOURCES — the same per-source cards the Overview preview draws from (icon, counts, the
-    // real scope toggle), with a kind filter. No per-source viewer yet: a card's only tap target
-    // is its scope switch (opening one lands nowhere useful while the viewer stays desktop-only).
+    // real scope toggle), with a kind filter. Each card's `open` (already wired for desktop,
+    // topicOverview.cards above) is bound in the template; tapping the card body reads the
+    // source on the full-screen mobile viewer below, while its own scope-toggle button stays a
+    // separate tap target (stopPropagation, same as desktop).
     const kindSet = ['All', ...new Set(topicOverview.cards.map((c) => c.typeLabel))];
     const mKind = kindSet.includes(st.mKind) ? st.mKind : 'All';
     const kindItems = kindSet.map((k) => ({
@@ -9184,7 +9616,8 @@ class Component extends DCLogic {
 
     // GRAPH — an honest snapshot (most-connected figures by weight), not the interactive desktop
     // web; same scoring as search-surface.js's castFrom so "connected" means the same thing here
-    // as it does in Ask's Cast preset.
+    // as it does in Ask's Cast preset. Tapping a figure opens the same entity sheet every other
+    // "see this entity" tap on mobile opens (openEntity → mobile.entitySheet, below).
     let topEntities = [], entityCount = 0;
     try {
       const ents = (app && app.entities && app.entities({ merge: true, level: 'names' })) || [];
@@ -9196,11 +9629,14 @@ class Component extends DCLogic {
         .map(({ e }) => ({
           label: e.label, fav: (e.label || 'E').trim().charAt(0).toUpperCase(),
           meta: `${e.mentions || 0} mention${(e.mentions || 0) === 1 ? '' : 's'} · ${e.sourceCount || 1} source${(e.sourceCount || 1) === 1 ? '' : 's'}`,
+          open: (e.docId != null && e.entId != null) ? (() => this.openEntity(e.docId, e.entId)) : (() => {}),
         }));
     } catch { topEntities = []; entityCount = 0; }
 
     // FINDINGS — the same claim rows the Findings tab renders, minus the provenance-graph pivot
-    // (a desktop-only lens over the same list).
+    // (a desktop-only lens over the same list). Tapping a card opens its source at the grounding
+    // quote (same open() shape desktop's own claim rows use); pinning is a second tap target
+    // nested inside the card, so it stops propagation rather than also opening the source.
     let findingsList = [];
     try {
       const claims = ((app && app.findings ? app.findings() : null) || { claims: [] }).claims || [];
@@ -9212,16 +9648,20 @@ class Component extends DCLogic {
           id: c.id, text: c.text, stLabel: c.status, stFg: chip.fg, stBg: chip.bg, stBd: chip.bd,
           srcReg: c.reg || '', srcTitle: (app && app.sourceBySn && app.sourceBySn(c.sn) || {}).title || '',
           pinned, pinLabel: pinned ? 'Pinned' : 'Pin', pinFg: pinned ? '#5B4BE6' : '#B4B4BE',
-          pin: () => this._pinClaim(c),
+          pin: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this._pinClaim(c); },
+          open: () => { if (c.sn != null) this.openViewer(c.sn, c.quote || undefined); },
         };
       });
     } catch { findingsList = []; }
+
+    const sourceView = openSn != null ? this._mobileSourceVM(openSn, topicOverview.cards) : { active: false };
+    const entitySheet = (st.rightOpen && st.entitySel) ? this._mobileEntityVM(st.entitySel.docId, st.entitySel.entId) : { open: false, prof: {}, close: () => this.mobileCloseEntity() };
 
     return {
       isMobile: true, isDesktop: false,
       mobile: {
         tab, tabs: mtabs,
-        isOverview: tab === 'overview', isSources: tab === 'sources', isAsk: tab === 'ask', isGraph: tab === 'graph', isFindings: tab === 'findings',
+        isOverview: !openSn && tab === 'overview', isSources: !openSn && tab === 'sources', isAsk: !openSn && tab === 'ask', isGraph: !openSn && tab === 'graph', isFindings: !openSn && tab === 'findings',
         overview: topicOverview, overviewSources: topicOverview.cards.slice(0, 3),
         overviewFindings: findingsList.slice(0, 2), overviewHasFindings: findingsList.length > 0,
         scope,
@@ -9229,6 +9669,7 @@ class Component extends DCLogic {
         sf,
         topEntities, topEntitiesEmpty: topEntities.length === 0, entityCount,
         findingsList, findingsCount: findingsList.length, findingsEmpty: findingsList.length === 0,
+        sourceView, entitySheet,
         sheet: st.mSheet, sheetIsScope: st.mSheet === 'scope', sheetIsAdd: st.mSheet === 'add', sheetOpen: !!st.mSheet,
         openScope: () => this.setState({ mSheet: 'scope' }),
         openAdd: () => this.setState({ mSheet: 'add', mAddMode: 'tiles', mAddDraft: '', mAddErr: '' }),
