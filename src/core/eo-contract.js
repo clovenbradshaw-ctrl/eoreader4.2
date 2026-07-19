@@ -45,6 +45,7 @@ export const CONTRACTS = Object.freeze({
   'src/core/seams.js': contract({ ops: ['CON'], targets: ['Network'], products: ['Link'], stances: ['Binding'], note: 'the declared cross-holon seams (§7.5 — a crossing is legal when declared)', floor: true }),
   'src/core/resolution-spectrum.js': contract({ ops: ['DEF', 'EVA'], targets: ['Network', 'Paradigm'], products: ['Lens', 'Paradigm'], stances: ['Dissecting', 'Tracing'], note: 'witness axis of coref' }),
   'src/core/self/index.js': contract({ ops: ['NUL', 'SIG'], targets: ['Entity'], products: ['Entity'], stances: ['Clearing', 'Tending'], note: 'the self/world line' }),
+  'src/core/segment.js': contract({ ops: ['DEF', 'SEG'], targets: ['Field'], products: ['Field', 'Lens'], stances: ['Clearing', 'Dissecting'], note: 'segment by significance — the named public face of SEG + buildDensity→eigenLenses→DEF (docs/segment-by-significance.md)' }),
   'src/core/spectral.js': contract({ ops: ['SYN', 'DEF', 'EVA'], targets: ['Field', 'Lens'], products: ['Lens', 'Paradigm'], stances: ['Composing', 'Dissecting', 'Tracing'], note: 'the density operator rho' }),
   'src/core/supersede.js': contract({ ops: ['REC', 'DEF'], targets: ['Lens', 'Paradigm'], products: ['Lens', 'Paradigm'], stances: ['Composing', 'Dissecting'], note: 'supersession (σ) — the cost of being wrong' }),
   'src/core/surprise.js': contract({ ops: ['EVA', 'SIG'], targets: ['Field'], products: ['Field', 'Atmosphere'], stances: ['Tracing', 'Tending'], note: 'the one surprise (KL)' }),

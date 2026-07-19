@@ -20,14 +20,17 @@
 //               closure mass. This is exactly the Born rule the surfer reads the field with.
 //   4. Assign — each unit goes to the lens it expresses with maximal Born probability
 //               |⟨lens|a_u⟩|². A unit "is in" the holon whose cast is on stage in it.
-//   5. Holons — maximal contiguous runs of one dominant lens. The lens SWITCH is the boundary —
-//               which is the cast-turnover surprise (the coarse-grain surprise the sentence
-//               cursor cannot see). Detecting holons and encoding multi-grain surprise are the
-//               same operation; the seams fall out together, σ-side and deterministic.
-//   6. Grain  — k (lenses retained) is the resolution: few lenses → coarse arcs, more → finer
-//               scenes. The eigenspectrum's drop suggests the natural k; `holarchy` nests them.
+//   5. Holons — maximal contiguous runs of one dominant lens. The lens SWITCH is a boundary
+//               only where it beats the void the reading's OWN candidate switches produce
+//               (segmentSwitches, core/segment.js) — the cast-turnover surprise (the coarse-
+//               grain surprise the sentence cursor cannot see), null-gated the same way any
+//               other structure is, not asserted on every flicker.
+//   6. Grain  — k (lenses retained) is DERIVED from the spectrum's own eigen-gap (DEF, via
+//               segmentGroups), never a caller-supplied count: few lenses → coarse arcs, more
+//               → finer scenes, and a flat spectrum abstains to one reading. `holarchy` nests
+//               levels by re-deriving k locally within each coarse holon's span.
 
-import { buildDensity, eigenLenses, vonNeumann, projectGraph } from '../core/index.js';
+import { vonNeumann, projectGraph, segmentGroups, segmentSwitches } from '../core/index.js';
 
 const round = (x) => Math.round(x * 1e4) / 1e4;
 const dot = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
@@ -65,51 +68,58 @@ const castActivations = (doc, { topFigures, lo, hi }) => {
   return { A, top, idx, K, labelOf, rep };
 };
 
-// detectHolons — the Born-rule closure detection at one grain (k lenses), optionally over a
-// `range` {lo, hi} of units (the holarchy passes a coarse holon's span for local re-detection).
-export const detectHolons = (doc, { k = 8, minLen = 3, topFigures = 48, range = null } = {}) => {
+// detectHolons — the Born-rule closure detection at one grain, optionally over a `range`
+// {lo, hi} of units (the holarchy passes a coarse holon's span for local re-detection).
+// The two former reinventions this used to carry — a caller-hardcoded lens count and an
+// unconditional lens-switch-is-a-boundary rule with only a fixed-length flicker absorb —
+// are both routed through core/segment.js now: `maxK` is a CAP, the actual count `k` is
+// DERIVED from the spectrum's own eigen-gap (segmentGroups → DEF); a switch is a boundary
+// only where it beats the void the reading's own candidate switches produce
+// (segmentSwitches), with `minRun` demoted to the cold-start fallback boundedNull itself
+// uses — the constant holds only at the edge the physics cannot reach.
+export const detectHolons = (doc, { maxK = 8, minRun = 3, alpha = 0.05, topFigures = 48, range = null } = {}) => {
   const units = doc?.units || doc?.sentences || [];
   const lo = range?.lo ?? 0, hi = range?.hi ?? units.length;
-  const empty = { k, holons: [], boundaries: [], lenses: [], spectrum: [], entropy: 0, units: hi - lo };
+  const empty = { k: 0, abstain: true, holons: [], boundaries: [], lenses: [], spectrum: [], entropy: 0, units: hi - lo };
   if (hi <= lo) return empty;
   const { A, top, K, labelOf } = castActivations(doc, { topFigures, lo, hi });
   if (!K) return empty;
 
-  // ρ over the cast, its eigenlenses the self-coupled communities (the Born rule).
+  // ρ over the cast, its eigenlenses the self-coupled communities (the Born rule); k is
+  // the null-gated group count (segmentGroups → DEF), never a caller-supplied number.
   const active = A.slice(lo, hi).filter((v) => v.some((x) => x !== 0));
   if (!active.length) return empty;
-  const { rho } = buildDensity(active);
-  const lenses = eigenLenses(rho, { k }).filter((l) => l.weight > 1e-9);
-  if (!lenses.length) return empty;
+  const g = segmentGroups(active, null, { maxK });
+  if (!g.lenses.length) return empty;
+  const lenses = g.lenses;
   const spectrum = lenses.map((l) => round(l.weight));
   const entropy = round(vonNeumann(lenses.map((l) => l.weight)));
 
-  // Assign each unit to the lens it expresses with maximal BORN probability |⟨lens|a⟩|².
-  // A unit with no cast carries the previously active lens (the holon persists across a
-  // descriptive lull rather than spawning a phantom boundary).
-  const dom = new Array(units.length).fill(-1);
-  let carry = 0;
+  // Per-unit best-lens score (Born winner + runner-up), the switch-confidence signal
+  // segmentSwitches null-gates — -1/zero at a unit with no cast on stage at all.
+  const raw = [];
   for (let u = lo; u < hi; u++) {
     const a = A[u];
-    if (!a.some((x) => x !== 0)) { dom[u] = carry; continue; }
-    let best = 0, bi = 0;
-    for (let l = 0; l < lenses.length; l++) { const p = dot(a, lenses[l].lens) ** 2; if (p > best) { best = p; bi = l; } }
-    dom[u] = bi; carry = bi;
+    raw.push(a.some((x) => x !== 0) ? g.score(a) : { dom: -1, top1: 0, top2: 0 });
   }
+  const resolved = segmentSwitches(raw, { alpha, minRun });
+  // A leading span with no cast at all (no signal yet to instantiate a group) has
+  // nothing to carry FROM — back-fill it from the first real assignment, so the holon
+  // span still covers the whole range rather than leaving an unassigned prefix.
+  const firstReal = resolved.findIndex((v) => v !== -1);
+  if (firstReal > 0) for (let i = 0; i < firstReal; i++) resolved[i] = resolved[firstReal];
+  const dom = new Array(units.length).fill(-1);
+  for (let u = lo; u < hi; u++) dom[u] = resolved[u - lo];
 
-  // Maximal contiguous runs of one dominant lens; a run shorter than minLen is absorbed into
-  // the preceding holon (a flicker is not a scene). The runs are the holons; their starts the
-  // boundaries (= the cast-turnover surprise).
-  const runs = [];
-  for (let u = lo; u < hi; u++) {
-    const last = runs[runs.length - 1];
-    if (last && last.lens === dom[u]) last.hi = u + 1;
-    else if (last && (last.hi - last.lo) < minLen) { last.lens = dom[u]; last.hi = u + 1; }  // absorb a flicker
-    else runs.push({ lens: dom[u], lo: u, hi: u + 1 });
-  }
-  // merge adjacent runs that ended up on the same lens after absorption
+  // Maximal contiguous runs of one (already null-gated) dominant lens — segmentSwitches
+  // has already decided which switches are real, so the runs fall straight out of the
+  // resolved assignment; no further absorption needed here.
   const merged = [];
-  for (const r of runs) { const last = merged[merged.length - 1]; if (last && last.lens === r.lens) last.hi = r.hi; else merged.push({ ...r }); }
+  for (let u = lo; u < hi; u++) {
+    const last = merged[merged.length - 1];
+    if (last && last.lens === dom[u]) last.hi = u + 1;
+    else merged.push({ lens: dom[u], lo: u, hi: u + 1 });
+  }
 
   const castOf = (lensIdx) => {
     const lens = lenses[lensIdx]?.lens || [];
@@ -138,7 +148,7 @@ export const detectHolons = (doc, { k = 8, minLen = 3, topFigures = 48, range = 
   });
 
   return Object.freeze({
-    k, units: hi - lo, entropy, spectrum,
+    k: g.k, abstain: g.abstain, units: hi - lo, entropy, spectrum,
     lenses: lenses.map((l, i) => ({ weight: round(l.weight), cast: castOf(i) })),
     holons, boundaries: holons.map((h) => h.lo).filter((b) => b > lo),
   });
@@ -148,10 +158,12 @@ export const detectHolons = (doc, { k = 8, minLen = 3, topFigures = 48, range = 
 // span (range) at finer resolution, so a coarse arc (the Rostov family, the war) resolves into
 // its scenes — and on its OWN local cast, so a figure central to the span but globally minor
 // (Karataev in the captivity) heads a fine holon. Recursing deeper is the same call per child.
-export const holarchy = (doc, { coarseK = 6, fineK = 5, minLen = 4, topFigures = 48 } = {}) => {
-  const coarse = detectHolons(doc, { k: coarseK, minLen, topFigures });
+// coarseMaxK/fineMaxK are CAPS, not counts — each level derives its own k from its own local
+// spectrum (DEF), so coarse and fine naturally differ without two hardcoded target counts.
+export const holarchy = (doc, { coarseMaxK = 8, fineMaxK = 6, minRun = 4, topFigures = 48 } = {}) => {
+  const coarse = detectHolons(doc, { maxK: coarseMaxK, minRun, topFigures });
   const levels = coarse.holons.map((h) => {
-    const fine = detectHolons(doc, { k: fineK, minLen: Math.max(2, minLen >> 1), topFigures,
+    const fine = detectHolons(doc, { maxK: fineMaxK, minRun: Math.max(2, minRun >> 1), topFigures,
                                      range: { lo: h.lo, hi: h.hi } });
     return { holon: h, children: fine.holons };
   });

@@ -16,14 +16,16 @@ Then a violent earthquake split the ground apart and swallowed the old stone lig
 const QUERY = 'list the best US presidents according to historians';
 
 // ── PARITY: the chorus is a true no-op when opts.chorus is unset ────────────────
-test('chorus off → surfFold is byte-identical (parity gate)', () => {
+test('chorus off → surfFold is deterministic and carries no chorus fields (parity gate)', () => {
   const doc = parseText(STORY, { docId: 's' });
   const a = surfFold(doc, 1);
   const b = surfFold(doc, 1, {});
   const c = surfFold(doc, 1, { chorus: undefined });
   assert.equal(JSON.stringify(a), JSON.stringify(b));
   assert.equal(JSON.stringify(a), JSON.stringify(c));
-  assert.equal(a.rode, 'bayesian-figure');
+  // The median-band fallback is retired (docs/segment-by-significance.md): the null is
+  // the sole arrest rule now, on every reach, not only the adaptive one.
+  assert.equal(a.rode, 'bayesian-void');
   assert.ok(!('chorus' in a) && !('report' in a));
 });
 
