@@ -1463,6 +1463,7 @@ table{border-collapse:collapse;width:100%}
               <button onClick="{{ setWebKindNetwork }}" title="The sources themselves, linked by what they corroborate" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindNetworkFg }};background:{{ webKindNetworkBg }}">Network</button>
               <button onClick="{{ setWebKindCrosswalk }}" title="A referent's identity scrubbed across sources — what it was called, and what it merged with, as the selected sources were read" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCrosswalkFg }};background:{{ webKindCrosswalkBg }}">Crosswalk</button>
               <button onClick="{{ setWebKindCompare }}" title="A measure-by-source table — what each source says a value is, and the value it revised from; every cell opens its passage" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindCompareFg }};background:{{ webKindCompareBg }}">Compare</button>
+              <button onClick="{{ setWebKindSolar }}" title="An entity at the centre, its existence · structure · meaning ringing out as three physical regimes (quantum · chemistry · orbital). Click a body to pivot the whole view to its point of view" style="padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;color:{{ webKindSolarFg }};background:{{ webKindSolarBg }}">EOGraph</button>
             </div>
             </sc-if>
           </div>
@@ -4959,7 +4960,7 @@ class Component extends DCLogic {
         // scope, keeping the current kind) and redraw in place if the tab is showing — so a topic
         // switch never strands the previous topic's web nor blanks the canvas.
         if (this._wg) {
-          this._wg = { kind: ['causal', 'network', 'crosswalk', 'compare'].includes(this._wg.kind) ? this._wg.kind : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
+          this._wg = { kind: ['causal', 'network', 'crosswalk', 'compare', 'solar'].includes(this._wg.kind) ? this._wg.kind : 'entity', scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
           this._tgToggles = []; this._wgPanel = null; this._seedWgPanel();
           this.setState({ webGraphFor: this._wgMirror() });
           if (this.state.tab === 'graph' && this._tgEl) this._drawWebGraph();
@@ -9496,7 +9497,7 @@ class Component extends DCLogic {
   openTopicGraph(kind, opts = {}) {
     // The causal DAG surface stays hidden until its reader is reliable enough to expose — any
     // kind outside this allowlist (same one setWebKind guards with) lands on the entity web.
-    kind = (kind === 'network' || kind === 'crosswalk' || kind === 'compare') ? kind : 'entity';
+    kind = (kind === 'network' || kind === 'crosswalk' || kind === 'compare' || kind === 'solar') ? kind : 'entity';
     this._wg = { kind, scope: 'topic', docId: null, entId: null, entLabel: null, focusKey: null, focusLabel: null, hidden: new Set() };
     this._tgToggles = [];
     this._seedWgPanel();   // entity kind: the details panel opens on the topic's top figure
@@ -9521,7 +9522,7 @@ class Component extends DCLogic {
   // entity profile to show — the panel stays empty there.
   _seedWgPanel() {
     this._wgPanel = null;
-    if (!this._wg || this._wg.kind !== 'entity' || !this._app) return;
+    if (!this._wg || (this._wg.kind !== 'entity' && this._wg.kind !== 'solar') || !this._app) return;
     try {
       const top = (this._app.entities() || [])[0];
       if (top) this._setWgPanel(top.docId, top.entId);
@@ -9711,7 +9712,7 @@ class Component extends DCLogic {
     }
   }
   setWebKind(kind) {
-    kind = (kind === 'network' || kind === 'crosswalk' || kind === 'compare') ? kind : 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
+    kind = (kind === 'network' || kind === 'crosswalk' || kind === 'compare' || kind === 'solar') ? kind : 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
     if (!this._wg || this._wg.kind === kind) return;
     this._wg.kind = kind;
     this._wg.hidden = new Set();                            // so reset the toggles and any focus and
@@ -9769,6 +9770,7 @@ class Component extends DCLogic {
       if (w.kind === 'network') this._drawNetwork(el, w);
       else if (w.kind === 'crosswalk') this._drawCrosswalk(el, w);
       else if (w.kind === 'compare') this._drawCompare(el, w);
+      else if (w.kind === 'solar') this._drawSolar(el, w);
       else this._drawEntity(el, w);
     } catch (e) {
       el.innerHTML = '<div style="padding:20px;color:#B23A2E;font-size:12.5px">Graph failed to draw: ' + String((e && e.message) || e) + '</div>';
@@ -9804,6 +9806,54 @@ class Component extends DCLogic {
     const kept = nodes.filter((n) => n.kind === 'entity' || (deg.get(n.id) || 0) > 0);
     const keptIds = new Set(kept.map((n) => n.id));
     return { nodes: kept, edges: edges.filter((e) => keptIds.has(e.a) && keptIds.has(e.b)) };
+  }
+  // The EOGraph solar surface (src/rooms/reader/solar-system.js) — the SAME honest tiered data as
+  // the entity web, read egocentrically: one entity at the centre (its POV), its existence /
+  // structure / meaning ringing out as three physical regimes. It reuses the entity vocabulary, so
+  // the entity on/off toggles filter it exactly like the entity web. A body click pivots the POV.
+  _drawSolar(el, w) {
+    // Solar is inherently egocentric — it needs ONE entity to centre. Seed on the topic's most
+    // salient figure when no focus is set yet, so landing on the kind still has a sun to draw.
+    if (w.scope !== 'entity' || w.entId == null) {
+      const top = (this._app.entities() || [])[0];
+      if (!top) { el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:60ch;line-height:1.55">No figures read yet — the solar view centres on an entity, so it fills once the reading names people, places, or things. Record a source, then reopen EOGraph.</div>'; this._tgToggles = []; return; }
+      w.scope = 'entity'; w.docId = top.docId; w.entId = top.entId;
+      w.entLabel = (this._app.entityProfile(top.docId, top.entId) || {}).label || '';
+      this._setWgPanel(top.docId, top.entId);
+    }
+    const data = this._app.tieredData(w.docId, w.entId);
+    this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
+      .map((n) => ({ id: n.id, label: n.label }))
+      .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    const show = this._filterTiered(data, w.hidden);
+    // the floor of the descent: the focus entity's raw mention sentences (level 3, the substrate)
+    // and the arithmetic tally — how many times it was witnessed into being (level 2, existence).
+    const prof = this._app.entityProfile(w.docId, w.entId) || {};
+    const spans = (prof.mentions || []).map((m) => ({ idx: m.idx, text: m.text, t0: m.t0, t1: m.t1 }));
+    // the sun is the focus entity — its node id in tieredData is `e:${entId}`
+    this._tg = window.EO.mountSolarSystem(el, {
+      nodes: show.nodes, edges: show.edges, centreId: `e:${w.entId}`,
+      spans, count: prof.mentionCount || spans.length,
+      // a raw span jumps to its passage in the source — the deepest descent lands on the record
+      onSpan: (sp) => { if (prof.sn != null && sp) { try { this._jumpTo(prof.sn, sp.text, sp.t0, sp.t1); } catch {} } },
+      // a body click pivots the whole view to that entity's point of view
+      onPivot: (node) => { if (node && node.ref) this._solarPivot(node.ref); },
+      onOpen: (node) => { if (node && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
+      // any selection turns the details panel to that entity's profile (entities carry a ref)
+      onSelect: (node) => { if (node && node.kind === 'entity' && node.ref) this._setWgPanel(node.ref.docId, node.ref.entId); },
+      countsLabel: `${show.nodes.length} bodies · ${show.edges.length} bonds`,
+    });
+  }
+  // Pivot the solar view to a clicked entity — it becomes the new sun; the panel follows.
+  _solarPivot(ref) {
+    if (!this._wg || !ref) return;
+    this._wg.scope = 'entity'; this._wg.docId = ref.docId; this._wg.entId = ref.entId;
+    this._wg.entLabel = (this._app.entityProfile(ref.docId, ref.entId) || {}).label || '';
+    this._wg.hidden = new Set();
+    this._setWgPanel(ref.docId, ref.entId);
+    this.setState({ webGraphFor: this._wgMirror() });
+    this._drawWebGraph();
+    this._syncRoute();
   }
   // The Crosswalk surface (docs/coreference-timeline.md; src/rooms/reader/app/trajectory.js) — a
   // referent's identity scrubbed across the corpus, folded by CORROBORATED identity, never a bare
@@ -9947,13 +9997,14 @@ class Component extends DCLogic {
     const isNetwork = kind === 'network';
     const isCrosswalk = kind === 'crosswalk';
     const isCompare = kind === 'compare';
-    const focusName = isEnt ? (wg.entLabel || 'this entity') : (wg.focusLabel || 'this node');
-    const hasFocus = scope === 'entity' && (isEnt ? wg.entId != null : !!wg.focusKey);
+    const isSolar = kind === 'solar';
+    const focusName = (isEnt || isSolar) ? (wg.entLabel || 'this entity') : (wg.focusLabel || 'this node');
+    const hasFocus = scope === 'entity' && ((isEnt || isSolar) ? wg.entId != null : !!wg.focusKey);
     // The details panel — the profile of the entity the overlay opened on (or the one last
     // clicked). Entity kind only; its handlers stay INSIDE the overlay where they can
     // (pivot swaps the panel), and leave it deliberately where they can't (a mention or the
     // source chip closes the overlay and opens the viewer at the passage).
-    const panel = ((isEnt || isCrosswalk) && this._wgPanel) ? this._wgPanel : null;
+    const panel = ((isEnt || isCrosswalk || kind === 'solar') && this._wgPanel) ? this._wgPanel : null;
     const webProf = panel ? this._profFor(panel.docId, panel.entId, {
       pivot: (otherId) => this._setWgPanel(panel.docId, otherId),
       openSource: (sn) => { this.openViewer(sn); },
@@ -9972,11 +10023,13 @@ class Component extends DCLogic {
       setWebKindNetwork: () => this.setWebKind('network'),
       setWebKindCrosswalk: () => this.setWebKind('crosswalk'),
       setWebKindCompare: () => this.setWebKind('compare'),
+      setWebKindSolar: () => this.setWebKind('solar'),
       setWebKindCausal: () => this.setWebKind('causal'),
       webKindEntFg: isEnt ? '#1B1B22' : '#8A8A95', webKindEntBg: isEnt ? '#fff' : 'transparent',
       webKindNetworkFg: isNetwork ? '#1B1B22' : '#8A8A95', webKindNetworkBg: isNetwork ? '#fff' : 'transparent',
       webKindCrosswalkFg: isCrosswalk ? '#1B1B22' : '#8A8A95', webKindCrosswalkBg: isCrosswalk ? '#fff' : 'transparent',
       webKindCompareFg: isCompare ? '#1B1B22' : '#8A8A95', webKindCompareBg: isCompare ? '#fff' : 'transparent',
+      webKindSolarFg: isSolar ? '#1B1B22' : '#8A8A95', webKindSolarBg: isSolar ? '#fff' : 'transparent',
       webKindCausalFg: !isEnt ? '#1B1B22' : '#8A8A95', webKindCausalBg: !isEnt ? '#fff' : 'transparent',
       webGraphTitle: hasFocus ? focusName : 'Whole topic',
       setWebScopeTopic: () => this.setWebScope('topic'),
@@ -9993,11 +10046,13 @@ class Component extends DCLogic {
         ? 'A referent folded across sources by corroborated identity, never spelling alone. Scrub the fold cursor for the corpus cursor (its discovery order); a "…" claim node marks where its dominant label changed. Click a referent to load its profile.'
         : isCompare
         ? 'A measure-by-source table read deterministically off the record — one row per figure (a budget, a completion year, an acreage), one column per source. A cell shows the value that source states, and the move if it revised one ("$120M → $145M"). Click any cell to open its passage.'
+        : isSolar
+        ? 'One entity at the centre — its point of view. You don’t see everything at once: you start at the highest level (meaning) and zoom DOWN, one holon level at a time, each a different kind of math with its own visual — meaning is the physics of orbital attraction, structure is the geometry of bonds, existence is the arithmetic of coming-into-being, and the floor is the raw spans it was read from. Click any body to pivot the whole view to its POV.'
         : 'What the sources are read as asserting causes what. Open a node, then “focus the DAG here”.',
-      webToggleHead: `${isEnt ? 'ENTITIES' : isNetwork ? 'SOURCES' : isCrosswalk ? 'REFERENTS' : isCompare ? 'MEASURES' : 'NODES'} ${onCount}/${toggles.length}`,
+      webToggleHead: `${(isEnt || isSolar) ? 'ENTITIES' : isNetwork ? 'SOURCES' : isCrosswalk ? 'REFERENTS' : isCompare ? 'MEASURES' : 'NODES'} ${onCount}/${toggles.length}`,
       // Show the filter once the list is long enough to be worth searching.
       webSearchShow: toggles.length >= 8,
-      webSearchPlaceholder: `Filter ${isEnt ? 'entities' : isNetwork ? 'sources' : isCrosswalk ? 'referents' : 'nodes'}…`,
+      webSearchPlaceholder: `Filter ${(isEnt || isSolar) ? 'entities' : isNetwork ? 'sources' : isCrosswalk ? 'referents' : 'nodes'}…`,
       webEntQuery: query,
       webSearchHasQuery: ql.length > 0,
       onWebEntSearch: (e) => this.setState({ webEntQuery: e && e.target ? e.target.value : '' }),
