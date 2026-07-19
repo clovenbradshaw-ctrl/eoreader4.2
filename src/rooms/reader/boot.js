@@ -75,6 +75,7 @@ import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
 import { mountBinvis } from './binvis-surface.js';
+import { mountPdfView } from './pdf-view-surface.js';
 import { mountResearchReview } from './research-review-surface.js';
 import * as binvis from '../../surfaces/binvis/index.js';
 import { createPipelineSurface } from './pipeline-surface.js';
@@ -338,6 +339,7 @@ window.EO = Object.freeze({
   // the byte-structure surface (Aldo Cortesi's binvis) — a document's bytes on a Hilbert curve,
   // coloured by class/entropy/significance. index.html wires mountBinvis into the Structure tab.
   binvis: Object.freeze({ ...binvis, mount: mountBinvis }),
+  pdfView: Object.freeze({ mount: mountPdfView }),   // the PDF page surface (pdf.js → canvas) — index.html wires it into the PDF tab
   // Research Review (docs/research-review.md) — a search result becomes a provisional, inspectable
   // corpus (discovered/reviewed/admitted) before anything joins a real topic. Mounted, binvis-style.
   researchReview: Object.freeze({ mount: mountResearchReview }),
