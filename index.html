@@ -42,12 +42,19 @@
 <style>x-dc{display:none!important}</style>
 <script>
 (function () {
+  function clearShell() {
+    var shell = document.getElementById('eo-boot-shell');
+    if (shell && shell.parentNode) shell.parentNode.removeChild(shell);
+  }
   function booted() {
     // Healthy boot removes the dc template element and inserts #dc-root; either signal is enough.
-    return !!document.getElementById('dc-root') || !document.querySelector('x-dc');
+    var ok = !!document.getElementById('dc-root') || !document.querySelector('x-dc');
+    if (ok) clearShell();
+    return ok;
   }
   function showFallback() {
     if (document.getElementById('eo-boot-fallback') || booted()) return;
+    clearShell();
     var d = document.createElement('div');
     d.id = 'eo-boot-fallback';
     d.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:24px;background:#F4F4F7;color:#1a1a2e;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-align:center';
@@ -78,7 +85,14 @@
     } catch (e) { done(); }
   }
   window.hardReset = hardReset; // reachable from the app's Settings ("Reset app / clear cache")
-  window.addEventListener('load', function () { setTimeout(showFallback, 5000); });
+  var bootWatch = setInterval(function () { if (booted()) clearInterval(bootWatch); }, 120);
+  setTimeout(function () { clearInterval(bootWatch); }, 10000);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(showFallback, 2500); });
+  } else {
+    setTimeout(showFallback, 2500);
+  }
+  window.addEventListener('load', function () { setTimeout(showFallback, 2500); });
 
   // Freshness guard: register the network-revalidating worker (see sw.js) so a returning phone can
   // never boot a stale build while online. `updateViaCache:'none'` means the worker script itself is
@@ -101,6 +115,12 @@
 </script>
 </head>
 <body>
+<div id="eo-boot-shell" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;padding:24px;background:#F4F4F7;color:#1a1a2e;font:16px/1.5 system-ui,-apple-system,&quot;Segoe UI&quot;,Roboto,sans-serif;text-align:center">
+  <div style="max-width:34rem">
+    <div style="font-size:2rem;font-weight:600;margin-bottom:.5rem">EO Reader</div>
+    <p style="margin:.25rem 0;color:#4a4a63">Loading the reader…</p>
+  </div>
+</div>
 <x-dc>
 <helmet>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -4829,8 +4849,8 @@ class Component extends DCLogic {
   }
   // Writes the current state into the URL if it doesn't already match — never fires a hashchange
   // (pushState/replaceState don't), so this can never re-trigger _applyRoute itself. `replace`
-  // (true only for the boot-time default) avoids planting a spurious history entry before the
-  // user has navigated anywhere.
+  // is reserved for callers that deliberately canonicalize an existing route; a fresh homepage
+  // load does not call this, so the entry URL stays clean until the user navigates.
   _syncRoute(replace) {
     if (this._routerApplying || typeof window === 'undefined' || !window.history) return;
     const hash = this._routeHash();
@@ -4858,18 +4878,25 @@ class Component extends DCLogic {
     try {
       if (route.topicId && app.state.activeTopicId !== route.topicId) {
         const exists = (app.state.topics || []).some((t) => t.id === route.topicId);
-        if (!exists) { this.showToast('That topic could not be found.'); return; }
+        if (!exists) { this.showToast('That topic could not be found.'); this._clearRouteHash(); return; }
         app.setTopic(route.topicId);
       }
       if (route.sourceId) {
         const src = app.sourceBySn ? app.sourceBySn(route.sourceId) : null;
         if (src) { this.openViewer(route.sourceId); this.setSourceMode(route.sourceMode || 'overview'); }
-        else this.showToast('That source could not be found.');
+        else { this.showToast('That source could not be found.'); this._clearRouteHash(); }
       } else if (route.screen) {
         this.setTab(route.screen);
         if (route.screen === 'graph' && route.graphKind) this.setWebKind(route.graphKind);
       }
     } finally { this._routerApplying = false; }
+  }
+  // Drop a stale deep-link hash when it names a topic/source this browser no longer has.
+  // GitHub Pages keeps the fragment client-side, so clearing it returns the address bar to the
+  // real app entry without a network navigation or another history entry.
+  _clearRouteHash() {
+    if (typeof window === 'undefined' || !window.history || !window.location.hash) return;
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch {}
   }
   // Both the 'ready' engine event and componentDidMount can reach this on boot (whichever loses
   // the race calls it second); _initialRouteApplied makes the one-time boot routing idempotent so
@@ -4880,7 +4907,9 @@ class Component extends DCLogic {
     this._initialRouteApplied = true;
     const route = this._parseRouteHash(window.location.hash);
     if (route) this._applyRoute(route);
-    else this._syncRoute(true);   // no hash yet (fresh load) — stamp the current default landing state in, no history entry
+    // No hash means the canonical GitHub Pages entry URL. Leave it alone: stamping the
+    // current default tab into the fragment made the homepage appear to "redirect" to
+    // #/topic/<id>/search before the user had navigated anywhere.
   }
   componentDidMount() {
     if (typeof window === 'undefined') return;
