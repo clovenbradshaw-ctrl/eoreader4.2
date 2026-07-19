@@ -224,7 +224,7 @@ export const surfFold = (doc, anchor = 0, opts = {}) => {
   // fields never appear). The passes read off ONE density operator ρ built over the
   // doc's significance activations (core/spectral.js), each gated by deriveNull. Pure on
   // vectors, so this runs unchanged on text, music, video — omnimodal for free.
-  const wantSig = activations && (opts.atmosphere || opts.lensReport || opts.lens || opts.paradigm || opts.stance);
+  const wantSig = activations && (opts.atmosphere || opts.lensReport || opts.lens || opts.paradigm || opts.stance || opts.unnamedFrames);
   if (!wantSig) return base;
   return { ...base, ...significancePass(activations, opts, { field, peak }) };
 };
@@ -241,17 +241,31 @@ export const significancePass = (activations, opts, surf = {}) => {
   // by a spectral null — a lens is REAL only when its weight beats what a random
   // spectrum of this rank throws up by chance (deriveNull on the eigenvalues). The von
   // Neumann entropy is the NPOV scalar AND the predictive uncertainty of the next unit.
-  if (opts.lensReport || opts.lens || opts.paradigm) {
-    const spectrum = eigenLenses(rho).map(l => l.weight);
+  if (opts.lensReport || opts.lens || opts.paradigm || opts.unnamedFrames) {
+    const alpha = opts.alpha ?? 0.05;
+    const fullSpectrum = eigenLenses(rho);
+    const spectrum = fullSpectrum.map(l => l.weight);
     const lensEntropy = vonNeumann(spectrum);
     const k = Number.isFinite(opts.k) ? opts.k : 4;
     const top = eigenLenses(rho, { k });
     const lenses = top.map(({ lens, weight }) => {
-      const nul = deriveNull(spectrum, { scale: 'linear', alpha: opts.alpha ?? 0.05, leaveOut: weight });
+      const nul = deriveNull(spectrum, { scale: 'linear', alpha, leaveOut: weight });
       return { weight: round(weight), real: Number.isFinite(nul) ? weight > nul : false, lens };
     });
     out.lenses = lenses;
     out.lensEntropy = round(lensEntropy);
+
+    // UNNAMED FRAMES (Track C, fold-before-gate — docs/referents-recursed-up-the-domain-axis.md
+    // D3). The per-eigenvector null above is the star-scale gate: a frame whose Born mass is
+    // SCATTERED across several weak eigen-directions — each below the null — is dropped, exactly
+    // as the creature's mass, scattered across creature/monster/wretch, fell below the
+    // per-epithet gate. The recovery is the referent recovery verbatim: pool directions that
+    // share a BARYCENTER (read in the same passages) and gate the POOLED mass. Report-only,
+    // opt-in, byte-identical when off — and measurement-first: whether a real frame is ever
+    // split-mass this way is an open measurement (the spec's honest seam), so it defaults off.
+    if (opts.unnamedFrames)
+      out.unnamedFrames = foldUnnamedFrames(fullSpectrum, activations, spectrum,
+                                            { alpha, supportTau: opts.frameSupportTau });
   }
 
   // ATMOSPHERE (Track B): the Ground-grain tone + KL departure from the corpus prior.
@@ -367,6 +381,73 @@ const bornWeight = (lens, v) => {
 };
 
 const round = (x) => Math.round(x * 1e4) / 1e4;
+
+// cosine of two non-negative support profiles — the barycenter overlap test below.
+const cosineSupport = (a, b) => {
+  let dot = 0, na = 0, nb = 0;
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  const d = Math.sqrt(na) * Math.sqrt(nb);
+  return d > 1e-12 ? dot / d : 0;
+};
+
+// foldUnnamedFrames — the fold-before-gate recovery for the Lens
+// (docs/referents-recursed-up-the-domain-axis.md, D3). The individual-eigenvector null is the
+// star-scale gate that kills a split-mass frame; this pools the sub-null directions that ORBIT
+// ONE BARYCENTER (read in the same passages) and gates the POOLED mass, the referent recovery
+// one Domain up. Pure over the spectrum + activations; returns the admitted unnamed frames.
+//   fullSpectrum  eigenLenses(rho) — every {weight, lens}, the whole spectrum
+//   activations   the per-unit significance vectors — the frame's SUPPORT is read off these
+//   spectrum      the bare eigenvalue list (the null's background)
+// A frame is admitted only when (a) it pools ≥2 directions each individually sub-null and (b)
+// those directions share support above supportTau (so two DISTINCT nameless frames stay apart —
+// the spec's held-apart bodies) and (c) the pooled mass beats the null over the rest of the
+// spectrum. Report-only: nothing is merged into any Lens, it is a surfaced candidate.
+export const foldUnnamedFrames = (fullSpectrum, activations, spectrum, { alpha = 0.05, supportTau = 0.5 } = {}) => {
+  const acts = activations || [];
+  // Candidates: the individually sub-null directions, each carrying its support profile
+  // (per-unit Born weight |⟨L|vᵤ⟩|²) — its barycenter over the reading. A direction already
+  // admitted as a real Lens is not "unnamed" and is excluded.
+  const cand = [];
+  fullSpectrum.forEach(({ lens, weight }, idx) => {
+    const nul = deriveNull(spectrum, { scale: 'linear', alpha, leaveOut: weight });
+    if (Number.isFinite(nul) && weight > nul) return;
+    cand.push({ idx, lens, weight, support: acts.map((v) => bornWeight(lens, v)) });
+  });
+  if (cand.length < 2) return [];
+
+  // Single-link clustering by support overlap: two weak directions belong to ONE frame when
+  // their support profiles align (they read in the same passages). This is the barycenter test.
+  const n = cand.length;
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const find = (x) => { while (parent[x] !== x) x = parent[x] = parent[parent[x]]; return x; };
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++)
+      if (cosineSupport(cand[i].support, cand[j].support) >= supportTau) parent[find(i)] = find(j);
+  const groups = new Map();
+  for (let i = 0; i < n; i++) { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(i); }
+
+  const frames = [];
+  for (const idxs of groups.values()) {
+    if (idxs.length < 2) continue;                       // a lone weak direction is just weak
+    const members = idxs.map((i) => cand[i]);
+    const pooled = members.reduce((s, m) => s + m.weight, 0);
+    // Gate the pooled body against the spectrum with ALL members left out (the leave-one-out
+    // of evaluate.js, generalised to the group — the pool is tested against the bulk it is not).
+    // Exclusion is by spectrum INDEX, not by value: degenerate eigenvalues collide, and a
+    // value filter would wrongly evict every background direction that happens to share a
+    // member's weight, starving the null below MIN_SAMPLES.
+    const memberIdx = new Set(members.map((m) => m.idx));
+    const bg = spectrum.filter((_, i) => !memberIdx.has(i));
+    const nul = deriveNull(bg, { scale: 'linear', alpha });
+    frames.push({
+      pooledWeight: round(pooled), rank: idxs.length,
+      real: Number.isFinite(nul) && pooled > nul,
+      members: members.map((m) => ({ weight: round(m.weight), lens: m.lens })),
+    });
+  }
+  return frames.filter((f) => f.real);
+};
 
 const clampIdx = (x, S) => Math.max(0, Math.min(S - 1, x | 0));
 const medianOf = (xs) => {

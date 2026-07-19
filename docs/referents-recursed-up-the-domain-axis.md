@@ -1,13 +1,40 @@
 # Referents, recursed: the identity discoveries climbing the Domain axis
 
-**Status:** design spec. Companion to `docs/unnamed-referents-relativistic.md` (the referent
-work), `docs/cube.md` (the generator), and `docs/prompt-as-site.md` (the prompt terrains). Nothing
-here is a measured result yet; it is the claim that the referent work is not a local fix to
-coreference but the **Existence/Structure-row instance of a law the cube says holds at every
-Domain**, and a point-by-point account of what that law predicts one row up — at Atmosphere, Lens,
-and Paradigm — and therefore for reading, surfing, and prompting.
+**Status:** design spec + landed primitives. Companion to `docs/unnamed-referents-relativistic.md`
+(the referent work), `docs/cube.md` (the generator), and `docs/prompt-as-site.md` (the prompt
+terrains). The argument is that the referent work is not a local fix to coreference but the
+**Existence/Structure-row instance of a law the cube says holds at every Domain**, and a
+point-by-point account of what that law predicts one row up — at Atmosphere, Lens, and Paradigm —
+and therefore for reading, surfing, and prompting. Nothing here is a measured result yet; the
+primitives ship behind opts, report-only, measurement-first — the honest seam at the end still binds.
 
-Status key inside the recursion tables: ● already partly built · ◐ instrumented / half-there · ○ new.
+Status key inside the recursion tables: ● built · ◐ instrumented / half-there · ○ new.
+
+## What landed (primitives, behind opts, tested)
+
+Four leaves that carry the recursion, each additive and byte-identical when its opt is off:
+
+- **Fold-before-gate for the Lens** — `foldUnnamedFrames` in `src/surfer/surf.js`, surfaced as
+  `out.unnamedFrames` under `opts.unnamedFrames`. Pools sub-null eigen-directions that share a
+  barycenter (read in the same passages) and gates the POOLED mass — the creature recovery, one
+  Domain up. `tests/unnamed-frame.test.js`.
+- **Relativistic Atmosphere** — each anomalous window in `src/surfer/atmosphere.js` now carries its
+  own **local tone**, so a document surfaces its several local keys instead of one global weather.
+  `tests/atmosphere-local-tone.test.js`.
+- **The append-only frame channel** — `src/surfer/frame-channel.js`:
+  `proposeFrame / assertFrame / splitFrame / retractFrame` over a `foldFrames` quotient, checked by
+  `evaluateFrameConvergence` with INCOMMENSURABILITY as the negative evidence (conflict defeats
+  convergence, a split dominates a proposed merge, undo is a retraction). The referent trio
+  (`field.js` + `evaluate.js` + `index.js`) recursed to the Lens/Paradigm grain.
+  `tests/frame-channel.test.js`.
+- **The steer as a re-rank** — `src/surfer/frame-rerank.js`: a pure primitive that points at the
+  frame by ARRANGEMENT (selection + order, a SEG·EVA act OFF the SYN·Cultivating desert cell), with
+  the fold-before-gate recovery of a scattered frame from the material itself. The grounder adopts
+  it; it emits no prose. `tests/frame-rerank.test.js`.
+
+Still ahead (deliberately, gated on measurement): the proposition-grain γ-kernel integration in the
+main reading pass (D4's deepest form), wiring the frame channel and the re-rank into the live
+grounder/turn pipeline, and the blind-frame membrane paralleling `src/model/blind-structure.js`.
 
 ## The one move this document makes
 
@@ -92,9 +119,9 @@ There is no "stated" vs "tacit" frame species, exactly as there is no light vs d
 | referent row | recursed to Atmosphere/Lens | status |
 |---|---|---|
 | `censusUnnamedCentres` (rest-mass, luminosity) | a census of candidate frames by their bound orbit of readings | ○ |
-| fold epithets onto one barycenter, gate the POOL | fold weak eigen-directions onto one frame, gate the pool | ○ |
-| born/null floor over candidate-mass | `deriveNull` over per-window KL (Atmosphere) / eigenvalues (Lens) | ● / ◐ |
-| the creature enters the cast | an unnamed register/paradigm enters the reading | ○ |
+| fold epithets onto one barycenter, gate the POOL | fold weak eigen-directions onto one frame, gate the pool (`foldUnnamedFrames`) | ● |
+| born/null floor over candidate-mass | `deriveNull` over per-window KL (Atmosphere) / eigenvalues (Lens) | ● |
+| the creature enters the cast | an unnamed frame surfaces (`out.unnamedFrames`); entering the reading proper | ◐ |
 
 ### D4 → the whole significance column is computed in the wrong basis of frames
 
