@@ -1,46 +1,43 @@
 // EO: GEO(Gravity → Existence Orbit) — the EOGraph solar surface, semantic-zoom cut.
 // mountSolarSystem — an EGOCENTRIC, POV-pivoting view of the record that DOES NOT show
 // everything at once. It centres ONE entity — its point of view — and reads the record as
-// a Powers-of-Ten descent: you start at the highest level (meaning) and zoom DOWN, one
-// holon level at a time, to the raw spans underneath. Each level is a different KIND OF
-// MATH, so each gets its own visual grammar:
+// a Powers-of-Ten descent through three physical regimes, each a different KIND OF MATH:
 //
-//   level 0 · meaning   — the PHYSICS of orbital attraction: the claims that hold about the
-//                         entity, orbiting under the gravity of significance (⊢⊨⊛). Curved
-//                         trajectories, a gravity well. Where you land.
-//   level 1 · structure — the GEOMETRY of bonds: the entities it bonds to, drawn as an
-//                         angular lattice — straight spokes, a connecting polygon, angle ticks
-//                         at the centre (｜⋈△).
-//   level 2 · existence — the ARITHMETIC of coming-into-being: the source(s) it collapsed out
-//                         of, and a TALLY of how many times it was witnessed into existence
-//                         (∅ → ○○○ → ●). Discrete, countable quanta.
-//   level 3 · spans     — the SUBSTRATE: the literal mention sentences, the raw spans the
-//                         reading folded everything above out of.
+//   level 0 · meaning   — orbital PHYSICS: the claims that hold about the entity, orbiting
+//                         under the gravity of significance (⊢⊨⊛). Curved trajectories, a
+//                         gravity well. Where you land.
+//   level 1 · structure — molecular CHEMISTRY: the figures it bonds to, read as a DAG — the
+//                         real bond graph ringed out by rank (sun-adjacent, or reached only
+//                         through another bond), every edge directed and glyphed (｜⋈△).
+//   level 2 · existence — subatomic QUANTUM arithmetic: a metrics dashboard (bonds, claims,
+//                         mentions) sitting directly over the raw spans it's a tally OF — a
+//                         count with nothing under it is unverifiable, so the two are one
+//                         holon, not two (∅○●, “ ”).
 //
 // "Zoom" here is SEMANTIC, not optical — a wheel notch (or the level rail, or +/−) descends
 // or ascends one level; only the current level is drawn, cross-fading as you move. Pan slides
-// within a level. Click an entity body (meaning/structure) and the POV PIVOTS — that entity
-// becomes the new centre and the host reseeds the egocentric web around it (onPivot).
+// within a level. Click an entity body and the POV PIVOTS IMMEDIATELY — the click IS the
+// pivot, not a button gated behind one — that entity becomes the new centre and the host
+// reseeds the egocentric web around it (onPivot).
 //
 // Fed the SAME honest tiered data as the entity web (app.tieredData) — the source at tier 0,
 // bonded figures at tier 1, standing claims at tier 2 — plus the focus entity's `spans` (its
-// mentions) for the floor. Pure DOM + SVG, no deps; returns { destroy }.
+// mentions) for level 2's floor. Pure DOM + SVG, no deps; returns { destroy }.
 //
 //   nodes: [{ id, tier:0|1|2, label, kind, ref }]   edges: [{ a, b, tier, gl, code }]
 //   centreId  the id to seat at the centre (the sun / POV)
-//   spans:  [{ idx, text }]   the focus entity's raw mention sentences (level 3)
-//   count:  number           how many times it was witnessed (the arithmetic tally)
+//   spans:  [{ idx, text }]   the focus entity's raw mention sentences (level 2's floor)
+//   count:  number           how many times it was witnessed (the dashboard's tally)
 //   onPivot(node) · onSelect(node) · onOpen(node) · onSpan(span)
 
 const NS = 'http://www.w3.org/2000/svg';
 
-// The four descent levels — each a kind of math with its own palette (shared with the tiered
+// The three descent levels — each a kind of math with its own palette (shared with the tiered
 // graph's tiers so the two surfaces read as one system) and its own glyph vocabulary.
 const LEVELS = [
   { key: 'meaning',   math: 'physics · orbital',    tier: 2,  fill: '#EF9F27', stroke: '#BA7517', chipBg: '#FAEEDA', chipFg: '#633806', glyphs: '⊢⊨⊛' },
-  { key: 'structure', math: 'geometry · lattice',   tier: 1,  fill: '#1D9E75', stroke: '#0F6E56', chipBg: '#E1F5EE', chipFg: '#085041', glyphs: '｜⋈△' },
-  { key: 'existence', math: 'arithmetic · quanta',  tier: 0,  fill: '#7F77DD', stroke: '#534AB7', chipBg: '#EEEDFE', chipFg: '#3C3489', glyphs: '∅○●' },
-  { key: 'spans',     math: 'the raw sentences',    tier: -1, fill: '#5A5A64', stroke: '#33333B', chipBg: '#EEECEF', chipFg: '#33333B', glyphs: '“ ”' },
+  { key: 'structure', math: 'chemistry · geometry', tier: 1,  fill: '#1D9E75', stroke: '#0F6E56', chipBg: '#E1F5EE', chipFg: '#085041', glyphs: '｜⋈△' },
+  { key: 'existence', math: 'quantum · arithmetic',  tier: 0,  fill: '#7F77DD', stroke: '#534AB7', chipBg: '#EEEDFE', chipFg: '#3C3489', glyphs: '∅○● “ ”' },
 ];
 const SUN = { fill: '#FBF3E6', stroke: '#BA7517' };
 
@@ -58,7 +55,6 @@ const CSS = `
 .eo-ss .ss-glyph{paint-order:stroke;stroke:var(--card,#fff);stroke-width:3px;stroke-linejoin:round;pointer-events:none;font-family:var(--mono,ui-monospace,Menlo,monospace);}
 .eo-ss .ss-body{cursor:pointer;}
 .eo-ss .ss-span{cursor:pointer;}
-.eo-ss .ss-tick{stroke-dasharray:1 3;}
 `;
 
 export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [], centreId = null, spans = [], count = 0, onPivot = null, onSelect = null, onOpen = null, onSpan = null, countsLabel = '' } = {}) {
@@ -80,12 +76,11 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   let sun = (centreId && byId[centreId]) || ents.slice().sort((a, b) => deg[b.id] - deg[a.id])[0] || nodes[0] || null;
   if (!sun) { root.appendChild(el('div', { html: '<div style="padding:22px;color:#8A8A95;font-size:13px">Nothing to place in orbit yet.</div>' })); return { destroy() {} }; }
 
-  // The three regimes' bodies, partitioned off the sun's own tiers.
+  // The regimes' bodies, partitioned off the sun's own tiers.
   const claims = nodes.filter((n) => n.tier === 2 && n !== sun);
   const bonded = nodes.filter((n) => n.tier === 1 && n !== sun);
   const sources = nodes.filter((n) => n.tier === 0 && n !== sun);
   const tally = count || spans.length || 0;
-  const bondEdge = (id) => edges.find((e) => (e.a === sun.id && e.b === id) || (e.b === sun.id && e.a === id));
 
   const W = 700, H = 470, cx = W / 2, cy = H / 2;
   // depth is the continuous descent dial; the integer level is what we draw. Start at meaning (0).
@@ -93,7 +88,7 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   const pan = { x: 0, y: 0 };
 
   // ── shell ──────────────────────────────────────────────────────────────────
-  const wrap = el('div', { class: 'eo-ss', role: 'region', 'aria-label': 'Solar view: one entity at the centre; zoom descends from meaning to structure to existence to the raw spans' });
+  const wrap = el('div', { class: 'eo-ss', role: 'region', 'aria-label': 'Solar view: one entity at the centre; zoom descends from meaning to structure to existence' });
   wrap.innerHTML =
     '<div style="border:1px solid var(--line,#e5e7eb);border-radius:12px;overflow:hidden;background:var(--card,#fff);">' +
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line,#e5e7eb);background:var(--app,#f7f8fb);">' +
@@ -107,7 +102,7 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     '</div>' +
     '<div data-rail style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line,#e5e7eb);flex-wrap:wrap;">' +
       '<span style="font-size:11px;color:var(--ink3,#999);letter-spacing:.04em;margin-right:2px;" title="One level on screen at a time — zoom, or click a level, to descend from meaning to the raw spans">zoom</span>' +
-      LEVELS.map((L, i) => '<span class="ss-lvl" data-lvl="' + i + '" title="' + L.math + '" style="background:' + L.chipBg + ';color:' + L.chipFg + ';"><span class="gl">' + L.glyphs + '</span>' + L.key + ' <small>' + L.math + '</small></span>' + (i < 3 ? '<span style="color:var(--ink3,#bbb);font-size:11px;">›</span>' : '')).join('') +
+      LEVELS.map((L, i) => '<span class="ss-lvl" data-lvl="' + i + '" title="' + L.math + '" style="background:' + L.chipBg + ';color:' + L.chipFg + ';"><span class="gl">' + L.glyphs + '</span>' + L.key + ' <small>' + L.math + '</small></span>' + (i < LEVELS.length - 1 ? '<span style="color:var(--ink3,#bbb);font-size:11px;">›</span>' : '')).join('') +
     '</div>' +
     '<div style="position:relative;background:var(--card,#fff);background-image:radial-gradient(var(--line,#e5e7eb) 0.5px,transparent 0.5px);background-size:16px 16px;">' +
       '<svg data-svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;touch-action:none;cursor:grab;">' +
@@ -151,7 +146,7 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
       const grp = sv('g', { class: 'ss-body' });
       const dot = sv('circle', { r: 5.5, fill: LEVELS[0].fill, stroke: LEVELS[0].stroke, 'stroke-width': 1.1 });
       grp.appendChild(dot);
-      grp.addEventListener('click', (ev) => { ev.stopPropagation(); select(n); });
+      grp.addEventListener('click', (ev) => { ev.stopPropagation(); clickBody(n); });
       g.appendChild(grp);
       const lab = text(0, 0, clip(n.label, 26), { anchor: 'start', size: 10.5, cls: 'ss-plabel' });
       g.appendChild(lab);
@@ -168,77 +163,77 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     });
   }
 
-  // ── level 1 · structure — the geometry of bonds ─────────────────────────────
+  // ── level 1 · structure — the chemistry of bonds, read as a DAG ─────────────
+  // rank = BFS hops from the sun over the REAL bond edges among sun+bonded (not just the
+  // sun's own direct ties) — a figure reached only THROUGH another bonded figure rings one
+  // band further out, so a genuine chain reads as a chain instead of a false single ring.
+  // Every real bond draws, sun-adjacent or not, each wearing an arrowhead + its glyph.
   function renderStructure(g) {
     drawSun(g, '◈');
     if (!bonded.length) { g.appendChild(text(cx, cy + 70, 'no bonds read yet — nothing to build a structure from', { anchor: 'middle', size: 11.5, fill: '#8A8A95' })); return; }
-    const R = 150, n = bonded.length;
-    const pts = bonded.map((nd, i) => { const a = -Math.PI / 2 + (i / n) * Math.PI * 2; return { nd, a, x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R }; });
-    // the connecting polygon (the lattice) — the geometry the bonds trace
-    if (n >= 3) { const d = pts.map((p, i) => (i ? 'L' : 'M') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ') + ' Z';
-      g.appendChild(sv('path', { d, fill: LEVELS[1].fill, 'fill-opacity': 0.05, stroke: LEVELS[1].fill, 'stroke-opacity': 0.3, 'stroke-width': 1 })); }
-    // angle ticks at the centre — geometry names its angles
-    pts.forEach((p) => g.appendChild(sv('line', { class: 'ss-tick', x1: cx, y1: cy, x2: (cx + Math.cos(p.a) * 30).toFixed(1), y2: (cy + Math.sin(p.a) * 30).toFixed(1), stroke: LEVELS[1].stroke, 'stroke-opacity': 0.45 })));
-    pts.forEach((p) => {
-      const e = bondEdge(p.nd.id);
-      // straight spoke, sun → vertex, wearing the bond glyph
-      g.appendChild(sv('line', { x1: cx, y1: cy, x2: p.x.toFixed(1), y2: p.y.toFixed(1), stroke: LEVELS[1].fill, 'stroke-opacity': 0.5, 'stroke-width': 1.2, 'marker-end': 'url(#' + mk + ')' }));
-      if (e && e.gl) g.appendChild(text((cx + p.x) / 2, (cy + p.y) / 2, e.gl, { anchor: 'middle', size: 12, cls: 'ss-glyph', fill: LEVELS[1].stroke }));
-      // a geometric vertex — a diamond, not a circle
+    const ids = new Set([sun.id, ...bonded.map((n) => n.id)]);
+    const structEdges = edges.filter((e) => e.tier === 1 && ids.has(e.a) && ids.has(e.b));
+    const adj = {}; ids.forEach((id) => adj[id] = []);
+    structEdges.forEach((e) => { adj[e.a].push(e.b); adj[e.b].push(e.a); });
+    const rank = new Map([[sun.id, 0]]), bq = [sun.id];
+    while (bq.length) { const id = bq.shift(); for (const nb of adj[id]) if (!rank.has(nb)) { rank.set(nb, rank.get(id) + 1); bq.push(nb); } }
+    bonded.forEach((n) => { if (!rank.has(n.id)) rank.set(n.id, 1); });   // unreached (shouldn't happen) still rings at 1
+    const byRank = new Map();
+    bonded.forEach((n) => { const r = rank.get(n.id); if (!byRank.has(r)) byRank.set(r, []); byRank.get(r).push(n); });
+    const rings = [...byRank.keys()].sort((a, b) => a - b);
+    const pos = { [sun.id]: { x: cx, y: cy, a: 0 } };
+    const meanAng = (id) => { const ns = adj[id].filter((x) => pos[x]);
+      if (!ns.length) return 0; let sx = 0, sy = 0; ns.forEach((x) => { sx += Math.cos(pos[x].a); sy += Math.sin(pos[x].a); }); return Math.atan2(sy, sx); };
+    rings.forEach((r, ri) => {
+      const arr = byRank.get(r), n = arr.length, R = Math.min(cy - 24, 88 + ri * 70);
+      arr.sort((a, b) => meanAng(a.id) - meanAng(b.id));
+      arr.forEach((nd, k) => { const ang = ri * 0.6 + (k / n) * Math.PI * 2; pos[nd.id] = { x: cx + Math.cos(ang) * R, y: cy + Math.sin(ang) * R * 0.86, a: ang }; });
+    });
+    structEdges.forEach((e) => {
+      const A = pos[e.a], B = pos[e.b]; if (!A || !B) return;
+      g.appendChild(sv('line', { x1: A.x.toFixed(1), y1: A.y.toFixed(1), x2: B.x.toFixed(1), y2: B.y.toFixed(1), stroke: LEVELS[1].fill, 'stroke-opacity': 0.42, 'stroke-width': 1.1, 'marker-end': 'url(#' + mk + ')' }));
+      if (e.gl) g.appendChild(text((A.x + B.x) / 2, (A.y + B.y) / 2, e.gl, { anchor: 'middle', size: 11, cls: 'ss-glyph', fill: LEVELS[1].stroke }));
+    });
+    bonded.forEach((nd) => {
+      const p = pos[nd.id]; if (!p) return;
       const s = 7, grp = sv('g', { class: 'ss-body' });
       grp.appendChild(sv('path', { d: 'M0,' + (-s) + ' L' + s + ',0 L0,' + s + ' L' + (-s) + ',0 Z', fill: LEVELS[1].fill, stroke: LEVELS[1].stroke, 'stroke-width': 1.2 }));
       grp.setAttribute('transform', 'translate(' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ')');
-      grp.addEventListener('click', (ev) => { ev.stopPropagation(); select(p.nd); });
+      grp.addEventListener('click', (ev) => { ev.stopPropagation(); clickBody(nd); });
       g.appendChild(grp);
       const left = p.x < cx;
-      g.appendChild(text(p.x + (left ? -11 : 11), p.y + 3.5, clip(p.nd.label, 22), { anchor: left ? 'end' : 'start', size: 10.5, cls: 'ss-plabel' }));
+      g.appendChild(text(p.x + (left ? -11 : 11), p.y + 3.5, clip(nd.label, 22), { anchor: left ? 'end' : 'start', size: 10.5, cls: 'ss-plabel' }));
     });
   }
 
-  // ── level 2 · existence — the arithmetic of coming-into-being ────────────────
+  // ── level 2 · existence — the quantum tally, over its own raw substrate ─────
+  // A metrics dashboard (how many bonds, claims, mentions) sitting directly above the raw
+  // excerpts it's a count OF: a number with nothing under it is unverifiable, and spans with
+  // no tally is untotalled — the two read as one holon here, not two separate screens.
   function renderExistence(g) {
-    // the void it collapsed from — a dashed ∅ far out
-    g.appendChild(sv('circle', { cx, cy, r: 168, fill: 'none', stroke: LEVELS[2].fill, 'stroke-opacity': 0.35, 'stroke-dasharray': '2 6' }));
-    g.appendChild(text(cx, cy - 176, '∅ void', { anchor: 'middle', size: 10, cls: 'ss-glyph', fill: LEVELS[2].stroke }));
-    // the source(s) it precipitated out of, on the void ring — started at the BOTTOM so they never
-    // collide with the "∅ void" caption at the top.
-    const n = Math.max(1, sources.length);
-    sources.forEach((s, i) => { const a = Math.PI / 2 + (i / n) * Math.PI * 2, x = cx + Math.cos(a) * 168, y = cy + Math.sin(a) * 168;
-      const grp = sv('g', { class: 'ss-body' });
-      grp.appendChild(sv('circle', { r: 6, fill: 'var(--card,#fff)', stroke: LEVELS[2].stroke, 'stroke-width': 1.4, 'stroke-dasharray': '2 2' }));
-      grp.setAttribute('transform', 'translate(' + x.toFixed(1) + ',' + y.toFixed(1) + ')');
-      grp.addEventListener('click', (ev) => { ev.stopPropagation(); select(s); });
-      g.appendChild(grp);
-      g.appendChild(text(x, y + 18, clip(s.label, 20), { anchor: 'middle', size: 10, cls: 'ss-plabel' }));
+    g.appendChild(text(cx, 20, sun.label, { anchor: 'middle', size: 12.5, cls: 'ss-plabel' }));
+    const stats = [['mentions', tally], ['bonds', bonded.length], ['claims', claims.length], ['sources', Math.max(1, sources.length)]];
+    const sw = Math.min(150, (W - 40) / stats.length), sx0 = cx - (stats.length * sw) / 2, sy = 32;
+    stats.forEach(([label, v], i) => {
+      const x = sx0 + i * sw + sw / 2;
+      g.appendChild(sv('rect', { x: (x - sw / 2 + 6).toFixed(1), y: sy, width: (sw - 12).toFixed(1), height: 44, rx: 8, fill: LEVELS[2].chipBg, stroke: LEVELS[2].fill, 'stroke-opacity': 0.35 }));
+      g.appendChild(text(x, sy + 22, String(v), { anchor: 'middle', size: 17, cls: 'ss-glyph', fill: LEVELS[2].stroke }));
+      g.appendChild(text(x, sy + 37, label, { anchor: 'middle', size: 9.5, fill: '#8A8A95' }));
     });
-    // the tally — how many times it was WITNESSED into being (arithmetic, grouped in fives), sitting
-    // ABOVE the sun so it never crosses the disc.
-    const groups = Math.ceil(tally / 5), gy = cy - 46;
-    for (let k = 0; k < tally; k++) {
-      const grp = Math.floor(k / 5), within = k % 5;
-      const bx = cx - (Math.min(tally, 5) * 5.5) / 2 + (grp * 34) + within * 5.5, by = gy;
-      g.appendChild(sv('circle', { cx: bx.toFixed(1), cy: by, r: 2.6, fill: LEVELS[2].fill }));
-    }
-    drawSun(g, '●');
-    // ∅ → count → ● : the collapse spelled as a sum, BELOW the sun so the disc stays clear.
-    g.appendChild(text(cx, cy + 52, '∅ → ' + tally + ' × ○ → ●', { anchor: 'middle', size: 15, cls: 'ss-glyph', fill: LEVELS[2].stroke }));
-    g.appendChild(text(cx, cy + 72, 'witnessed ' + tally + ' time' + (tally === 1 ? '' : 's') + ' into existence', { anchor: 'middle', size: 10.5, fill: '#8A8A95' }));
-  }
-
-  // ── level 3 · spans — the raw substrate ─────────────────────────────────────
-  function renderSpans(g) {
-    if (!spans.length) { drawSun(g, '“”'); g.appendChild(text(cx, cy + 70, 'no raw spans on record for this entity', { anchor: 'middle', size: 11.5, fill: '#8A8A95' })); return; }
-    g.appendChild(text(cx, 34, 'the raw sentences ' + sun.label + ' was read from', { anchor: 'middle', size: 11, fill: '#8A8A95' }));
-    const list = spans.slice(0, 7);
-    const rowH = 50, top = cy - (list.length * rowH) / 2 + 18;
+    const sepY = sy + 60;
+    g.appendChild(sv('line', { x1: 24, y1: sepY, x2: W - 24, y2: sepY, stroke: 'var(--line,#e5e7eb)' }));
+    if (!spans.length) { g.appendChild(text(cx, sepY + 44, 'no raw spans on record for this entity', { anchor: 'middle', size: 11.5, fill: '#8A8A95' })); return; }
+    g.appendChild(text(cx, sepY + 20, 'the raw sentences ' + sun.label + ' was read from', { anchor: 'middle', size: 11, fill: '#8A8A95' }));
+    const list = spans.slice(0, 6), rowH = 44, top = sepY + 32;
     list.forEach((sp, i) => {
       const y = top + i * rowH, grp = sv('g', { class: 'ss-span' });
-      grp.appendChild(sv('rect', { x: cx - 250, y: y - 16, width: 500, height: rowH - 8, rx: 8, fill: 'var(--app,#f7f8fb)', stroke: 'var(--line,#e5e7eb)' }));
-      grp.appendChild(text(cx - 238, y + 2, '¶' + (sp.idx != null ? sp.idx : i), { anchor: 'start', size: 11, cls: 'ss-glyph', fill: LEVELS[3].stroke }));
-      grp.appendChild(text(cx - 200, y + 2, clip(sp.text, 82), { anchor: 'start', size: 11.5, fill: 'var(--ink,#15181e)' }));
+      grp.appendChild(sv('rect', { x: cx - 250, y: y - 15, width: 500, height: rowH - 8, rx: 8, fill: 'var(--app,#f7f8fb)', stroke: 'var(--line,#e5e7eb)' }));
+      grp.appendChild(text(cx - 238, y + 3, '¶' + (sp.idx != null ? sp.idx : i), { anchor: 'start', size: 11, cls: 'ss-glyph', fill: LEVELS[2].stroke }));
+      grp.appendChild(text(cx - 200, y + 3, clip(sp.text, 78), { anchor: 'start', size: 11.5, fill: 'var(--ink,#15181e)' }));
       if (onSpan) grp.addEventListener('click', (ev) => { ev.stopPropagation(); try { onSpan(sp); } catch {} });
       g.appendChild(grp);
     });
+    if (spans.length > list.length) g.appendChild(text(cx, top + list.length * rowH + 6, '+ ' + (spans.length - list.length) + ' more mention' + (spans.length - list.length === 1 ? '' : 's') + ' on record', { anchor: 'middle', size: 10.5, fill: '#8A8A95' }));
   }
 
   function drawSun(g, glyph) {
@@ -247,7 +242,7 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     grp.appendChild(sv('circle', { r: 14, fill: SUN.fill, stroke: SUN.stroke, 'stroke-width': 2 }));
     grp.appendChild(text(0, 5, glyph, { anchor: 'middle', size: 14, cls: 'ss-glyph', fill: SUN.stroke }));
     grp.setAttribute('transform', 'translate(' + cx + ',' + cy + ')');
-    grp.addEventListener('click', (ev) => { ev.stopPropagation(); select(sun); });
+    grp.addEventListener('click', (ev) => { ev.stopPropagation(); clickBody(sun); });
     g.appendChild(grp);
     g.appendChild(text(cx, cy - 26, clip(sun.label, 30), { anchor: 'middle', size: 12, cls: 'ss-plabel' }));
   }
@@ -261,8 +256,7 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     stage.innerHTML = ''; orbiters = [];
     if (state.level === 0) renderMeaning(stage);
     else if (state.level === 1) renderStructure(stage);
-    else if (state.level === 2) renderExistence(stage);
-    else renderSpans(stage);
+    else renderExistence(stage);
     wrap.querySelectorAll('[data-lvl]').forEach((c) => c.classList.toggle('off', +c.dataset.lvl !== state.level));
     const L = LEVELS[state.level];
     const trail = LEVELS.map((x, i) => i === state.level ? x.key : '·').join(' ');
@@ -276,14 +270,21 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     stage.style.opacity = '0.35'; requestAnimationFrame(() => { stage.style.opacity = '1'; });
   }
   function setLevel(l, keepSel) {
-    l = Math.max(0, Math.min(3, l | 0));
+    l = Math.max(0, Math.min(LEVELS.length - 1, l | 0));
     if (l === state.level) return;
     state.level = l; state.depth = l;
     if (!keepSel) { state.sel = null; }
     renderLevel();
   }
 
-  // ── selection + POV pivot ───────────────────────────────────────────────────
+  // ── body click: pivot immediately, or select-in-place when there's nowhere to pivot ────────
+  // A click IS the pivot — no button gated behind it: an entity other than the sun becomes
+  // the new centre right away; a claim, or the sun clicking itself, has no POV to pivot TO,
+  // so it just selects in place.
+  function clickBody(n) {
+    if (onPivot && n.kind === 'entity' && n.ref && n.id !== sun.id) onPivot(n);
+    else select(n);
+  }
   function select(n) {
     state.sel = n.id;
     const L = LEVELS[state.level];
@@ -294,10 +295,7 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
       '<span style="color:var(--ink3,#999);">' + esc(n.kind || '') + '</span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">in <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(g0) + '</span></span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">out <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(g1) + '</span></span>';
-    if (onPivot && n.kind === 'entity' && n.ref && n.id !== sun.id) {
-      const b = el('button', { class: 'ss-btn', text: '☉ pivot POV →' }); b.style.marginLeft = 'auto'; b.style.flex = '0 0 auto';
-      b.addEventListener('click', () => onPivot(n)); detail.appendChild(b);
-    } else if (onOpen && n.ref) {
+    if (onOpen && n.ref) {
       const b = el('button', { class: 'ss-btn', text: 'open →' }); b.style.marginLeft = 'auto'; b.style.flex = '0 0 auto';
       b.addEventListener('click', () => onOpen(n)); detail.appendChild(b);
     }
