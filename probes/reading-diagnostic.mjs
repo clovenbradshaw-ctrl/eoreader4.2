@@ -48,11 +48,11 @@ for (const src of sources) {
   const raw = stripFrame(fs.readFileSync(path, 'utf8'));
   console.log(`\n${'='.repeat(78)}\n${src.title}  [${src.id}, ${src.lang}]  (${raw.length} chars)\n${'='.repeat(78)}`);
   console.time('parse');
-  // Match how the reader actually parses: the dark-referent read (a nameless figure known only by
+  // Match how the reader actually parses: the unnamed-referent read (a nameless figure known only by
   // description — Frankenstein's "creature") is OFF by default, so a bare parse would miss it and
   // misreport a solved problem as open. Its synonym-fold ("monster"/"wretch" → one body) still
   // needs the talker's nameReferent hook (world knowledge), absent in this model-free probe.
-  const doc = parseText(raw, { docId: src.id, genderCoref: true, lang: src.lang, darkReferents: true });
+  const doc = parseText(raw, { docId: src.id, genderCoref: true, lang: src.lang, unnamedReferents: true });
   console.timeEnd('parse');
   const log = doc.log.snapshot ? doc.log.snapshot() : doc.log;
   const graph = projectGraph(doc.log);

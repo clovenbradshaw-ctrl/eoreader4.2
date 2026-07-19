@@ -11,7 +11,8 @@ export { createConventions, SEED_SPEECH, SEED_ABBREVIATIONS,
          SEED_COPULA, SEED_MODIFIER, SEED_RELATION_TYPES,
          SEED_PREPOSITION, SEED_FUNCTION, SEED_STARTER,
          SEED_DEMONYM, SEED_CALENDAR } from './ledger.js';
-export { induceAttributionVerbs, induceAttributionFrames, induceAttributions }  from './induce.js';
+export { induceAttributionVerbs, induceAttributionFrames, induceAttributions,
+         induceCalendarTokens, induceCalendar } from './induce.js';
 // The scale-free slot-induction primitive (slots.js): units → company → slots → lift, one
 // operation at every scale and modality. The ledger builds a field from it when handed a token
 // stream; a consumer can also use it directly to climb rungs (words → phrases → …).

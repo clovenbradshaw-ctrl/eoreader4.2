@@ -25,12 +25,12 @@ const FRANK =
   'When Victor destroyed the half-made bride, the creature vowed to ruin him. ' +
   'The creature murdered Elizabeth, and Frankenstein pursued the wretch into the frozen north.';
 
-const on = () => parseText(FRANK, { docId: 'pg84', darkReferents: true, referentIdentity: 'mention' });
+const on = () => parseText(FRANK, { docId: 'pg84', unnamedReferents: true, referentIdentity: 'mention' });
 const nameMention = (doc, text) => doc.surfaceMentions().find((m) => m.form === 'name' && m.text === text);
 const events = (doc) => (doc.log.snapshot ? doc.log.snapshot() : doc.log.events);
 
 test('acceptance 10 — the layer is OFF by default and byte-identical (only appends when on)', () => {
-  const off = parseText(FRANK, { docId: 'pg84', darkReferents: true });
+  const off = parseText(FRANK, { docId: 'pg84', unnamedReferents: true });
   const withRef = on();
   assert.equal(off.referentOf, undefined, 'no referent API when the flag is off');
   // The on-stream is the off-stream plus APPENDED denotation events — nothing rewritten. Compare
@@ -79,7 +79,7 @@ test('Assembly B — referentApiFor builds the center POST-HOC, without the pars
   // is built lazily off the doc's own log/admission/corefField and STILL yields one opaque center for
   // the nameless creature. This proves the fold composes over a plain parse — the path every reader
   // consumer will take when the layer is promoted (Assembly C).
-  const doc = parseText(FRANK, { docId: 'pg84', darkReferents: true });   // no referentIdentity — plain parse
+  const doc = parseText(FRANK, { docId: 'pg84', unnamedReferents: true });   // no referentIdentity — plain parse
   assert.equal(doc.referentOf, undefined, 'plainly parsed: no referent API is threaded');
   const api = referentApiFor(doc);
   assert.ok(api && typeof api.referents === 'function', 'the API is built post-hoc off the parsed doc');
@@ -100,7 +100,7 @@ test('Assembly B — referentApiFor builds the center POST-HOC, without the pars
     for (const [, ent] of g.entities) total += ent.sightings || 0;
     return total;
   };
-  const plain = parseText(FRANK, { docId: 'pg84', darkReferents: true });
+  const plain = parseText(FRANK, { docId: 'pg84', unnamedReferents: true });
   assert.equal(firmSightings(doc), firmSightings(plain), 'building the referent layer added zero firm sightings');
 });
 

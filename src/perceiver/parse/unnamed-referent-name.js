@@ -1,6 +1,6 @@
 // EO: SYN·EVA·SIG(Entity,Field → Network,Lens, Composing) — the talker's turn on a nameless body
-// Name the nameless, merge the synonyms (optional, model-backed). The dark-referent read
-// (dark-referent.js) named each body by its own dominant description and abstained on two
+// Name the nameless, merge the synonyms (optional, model-backed). The unnamed-referent read
+// (unnamed-referent.js) named each body by its own dominant description and abstained on two
 // world-knowledge judgments: is "the creature" the name a reader would give, and are
 // "the monster"/"the wretch" the SAME figure? A talker knows both. `proposeReferentNames` lets it
 // PROPOSE — rename a body, fold synonyms onto one — returning proposals of the shape admission
@@ -8,7 +8,7 @@
 // any model fault or unparseable reply and the mechanical labels stand (no-worse-than-mechanics).
 // The model proposes; only the caller admits — nothing here writes to the log.
 
-import { darkReferentId as idFor } from './dark-referent.js';
+import { unnamedReferentId as idFor } from './unnamed-referent.js';
 
 const SYSTEM_NAME = 'You name the nameless figures a reader found in a text. Each figure has no '
   + 'proper name — only a description the text repeats. Given each description and example '

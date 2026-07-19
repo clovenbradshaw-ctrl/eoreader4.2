@@ -84,7 +84,7 @@ const scanDescriptorMentions = (sentences, roleKey) => {
 
 // buildReferentsAndSightings — the cast, in the omnimodal vocabulary. Named
 // entities come straight off the projection (graph.entities — this already
-// includes any dark-referent promotion, itself a legitimate "earned an
+// includes any unnamed-referent promotion, itself a legitimate "earned an
 // identity" event, not something this perceiver special-cases). Still-unbound
 // descriptor referents (coref's standing-role channel) are re-scanned against
 // the sentence text for their own direct mentions, since createCorefField

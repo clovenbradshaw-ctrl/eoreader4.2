@@ -16,7 +16,7 @@
 import { scanEntities } from '../parse/entities.js';
 
 // The determiner + up-to-three-modifier + lowercase-head shape of a description, mirroring the
-// dark-referent scan (parse/dark-referent.js) so the two read the same surfaces. A leading capital
+// unnamed-referent scan (parse/unnamed-referent.js) so the two read the same surfaces. A leading capital
 // is allowed for a sentence-initial "The"; the HEAD stays lowercase so a proper name is never
 // mistaken for a description.
 const DET  = String.raw`(?:[Tt]he|[Aa]n?)`;
@@ -31,7 +31,7 @@ const PRONOUN = new Set(['he', 'him', 'his', 'she', 'her', 'hers', 'it', 'its',
 const DEIXIS = new Set(['i', 'me', 'my', 'mine', 'myself']);
 const WORD_RE = /[A-Za-z][A-Za-z'’]*/g;
 
-// Approximate singularisation, matching the dark-referent read so "the creatures"/"the creature"
+// Approximate singularisation, matching the unnamed-referent read so "the creatures"/"the creature"
 // normalise to one head. Timid on purpose (plain trailing -s only).
 const singular = (h) => (h.length > 4 && h.endsWith('s') && !h.endsWith('ss')) ? h.slice(0, -1) : h;
 

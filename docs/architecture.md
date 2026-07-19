@@ -86,7 +86,10 @@ A module is a holon when:
 
 ## Anti-patterns avoided
 
-- **No god module.** No file is over ~250 lines.
+- **Decompose god modules.** Prefer small, single-purpose leaves over
+  sprawling orchestrators. (The mechanical ~250-line ratchet that once
+  enforced this was retired — it fought legitimate explanatory prose and
+  a line count is a poor proxy for the thing that matters, cohesion.)
 - **No 760-line orchestrator.** The turn pipeline is a list of named
   pure stages (`turn/stages.js`).
 - **No silent feedback loops.** Every cross-holon influence is explicit
