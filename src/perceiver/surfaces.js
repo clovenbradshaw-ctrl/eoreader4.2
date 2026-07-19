@@ -76,14 +76,15 @@ export const structureSurface = (doc, idxs) => {
 // Grete's id). The display name is layered on top (admission.labelOf), never the
 // identity itself. Matching is against the ADMITTED figures only — never an
 // arbitrary noun — so a sentence cannot fuzz its way onto a figure it never named.
+const bare = (t) => t.replace(/['’]s$/, '');       // a possessive names its owner: "Raskolnikov's" → Raskolnikov
 export const namedReferents = (doc, question) => {
   if (!doc?.admission?.admitted || !doc.log) return [];
-  const qset = new Set(tok(question));
+  const qset = new Set(tok(question).map(bare));
   if (qset.size === 0) return [];
   const rep = projectGraph(doc.log).representative || ((id) => id);
   const ids = new Set();
   for (const [label, id] of doc.admission.admitted) {
-    const lt = tok(label);                       // a label matches only if every
+    const lt = tok(label).map(bare);             // a label matches only if every
     if (lt.length && lt.every((t) => qset.has(t))) ids.add(rep(id));  // word is named
   }
   return [...ids];

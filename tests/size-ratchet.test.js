@@ -79,7 +79,7 @@ const BASELINE = new Map([
   ['src/perceiver/referents/index.js', 294],
   ['src/perceiver/predict/grained.js', 308],
   ['src/perceiver/reading.js', 314],
-  ['src/perceiver/surfaces.js', 369],
+  ['src/perceiver/surfaces.js', 370],
   ['src/rooms/archive/matrix.js', 298],
   ['src/rooms/audit/eot-terminal.js', 333],
   ['src/rooms/chat/crypto.js', 306],
