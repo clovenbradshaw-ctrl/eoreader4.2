@@ -74,6 +74,20 @@ into the cross-source crosswalk, where its conflict actually fires); **hold** M1
 meaning-basis run says whether a real frame is ever split-mass there. The re-rank (Track 4) is
 orthogonal to all three and adoptable whenever the grounder wants it.
 
+**Wired (the two the measurement endorsed).**
+
+- **M2** — `structuralHorizon` (`structure-basis.js`) now returns `localKeys`: the per-window
+  dominant tone, the distinct-key count, and the divergence-from-global fraction — the exact signal
+  the probe measured, now a first-class field of the model-free reader. The reader's interpretive
+  line (`fold-narrative.js`) surfaces "N local keys" when the atmosphere's departed windows carry
+  ≥2 distinct local tones. `tests/frame-wiring.test.js`.
+- **M3** — `crossSourceFrameVerdicts` (`structure-basis.js`) runs the frame channel across sources
+  (incommensurability → `converge`/`conflict`/`held`) and the crosswalk (`trajectory.js`
+  `crosswalkCorpus`) surfaces it as `frameVerdicts`, beside the shared-referent fold — report-only,
+  routed through the surfer entrance (a declared boundary, not a deep import). `tests/frame-wiring.test.js`.
+
+M1 stays held. Full suite green.
+
 ## The one move this document makes
 
 `docs/cube.md` §"The recursion is the Domain axis" states the generator's own law:

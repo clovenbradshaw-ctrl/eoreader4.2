@@ -7,6 +7,7 @@
 // on `perceiver/referents/field.js`'s quotient or a document's own referent API; this module is the
 // composition of two existing folds that today never run together.
 import { foldReferents, referentApiFor } from '../../../perceiver/referents/index.js';
+import { crossSourceFrameVerdicts } from '../../../surfer/index.js';
 import { TIER } from '../../../core/index.js';
 import { createSynonymPromotion } from '../../../enactor/ground/index.js';
 
@@ -165,10 +166,16 @@ export const crosswalkCorpus = (sources, { corpus = Infinity, sameReferent = (a,
       }
     }
   }
+  // The frame channel across sources (D5; the frame-scatter probe's M3, which measured
+  // incommensurability firing BETWEEN documents). Report-only, beside the shared-referent fold:
+  // which source pairs read under one frame and which are held apart as incommensurable. A `held`
+  // pair (too thin to measure) is simply absent from a conflict/converge count.
+  const frameVerdicts = crossSourceFrameVerdicts(sources.slice(0, n));
   return {
     nodes: nodes.map((n2) => ({ id: n2.id, label: n2.dominant, mentions: n2.mentions,
                                  t: n2.t, sourceIds: [...n2.sourceIds] })),
     labelShifts,
+    frameVerdicts,
     promotion,
   };
 };
