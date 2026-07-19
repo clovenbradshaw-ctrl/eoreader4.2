@@ -16,7 +16,7 @@ import { ingestAudio }      from '../src/organs/in/audio.js';
 import { assembleDocument } from '../src/organs/in/document.js';
 import { emitEot }          from '../src/organs/ingest/eot-emit.js';
 import { readIngest }       from '../src/organs/ingest/read.js';
-import { _tableFromGrid, _keepExtract, _printableRuns } from '../src/rooms/reader/import-file.js';
+import { importAnyFile, _tableFromGrid, _keepExtract, _printableRuns } from '../src/rooms/reader/import-file.js';
 
 // ── the table organ: every cell of every row lands ─────────────────────────────
 
@@ -80,6 +80,22 @@ test('pdf: every page contributes its lines; a multi-page doc loses nothing', ()
   const doc = ingestPdf({ name: 'p', pages });
   assert.ok(doc.text.includes('Page one line') && doc.text.includes('Page two line'));
   assert.equal(doc.pageCount, 2);
+});
+
+test('pdf: when pdf.js is unavailable, import records the PDF bytes instead of failing', async () => {
+  const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37, 0x0a, 0x25, 0xff, 0xff, 0xff, 0xff]);
+  const file = {
+    name: 'blocked.pdf',
+    type: 'application/pdf',
+    size: bytes.length,
+    async arrayBuffer() { return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength); },
+  };
+  const got = await importAnyFile(file, { onProgress() {} });
+  assert.equal(got.meta.modality, 'pdf', 'the source still lands as a PDF so its original page surface can keep the bytes');
+  assert.equal(got.meta.extraction, 'binary-fallback', 'the fallback is explicit for the coverage receipt');
+  assert.equal(got.meta.coverage.complete, false, 'coverage is honest that text extraction did not run');
+  assert.ok(got.meta.coverage.dropped.some((d) => d.includes('PDF text extraction unavailable')));
+  assert.ok(got.text.includes('%PDF-1.7') || got.text.includes('binary file'), 'the byte-level floor is readable');
 });
 
 test('webpage: every markdown block lands — headings, lists, quotes, code, tables', () => {
