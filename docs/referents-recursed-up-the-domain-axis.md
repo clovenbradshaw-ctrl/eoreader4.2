@@ -36,6 +36,44 @@ Still ahead (deliberately, gated on measurement): the proposition-grain γ-kerne
 main reading pass (D4's deepest form), wiring the frame channel and the re-rank into the live
 grounder/turn pipeline, and the blind-frame membrane paralleling `src/model/blind-structure.js`.
 
+## Measured (the frame-scatter probe)
+
+`probes/frame-scatter.mjs` runs the three primitives over real texts (*Frankenstein*,
+*Metamorphosis*, *Alice*) in the **structural significance basis** (`structure-basis.js` — operator
+profiles, no embedder, the basis the column now prefers). It asserts nothing; it reports, and it
+came back **mixed — which is the point.** Each measurement carries its own falsifier.
+
+**M1 — fold-before-gate: NEGATIVE (in this basis).** Real lenses / total: 6/16 (*Frankenstein*),
+4/16 (*Metamorphosis*), 6/16 (*Alice*); **unnamed frames recovered: 0 everywhere.** The operator
+spectrum is steep (≈0.68, 0.21, 0.05, …) — the dominant readings clear the null individually and
+the tail is too thin to pool. So in the operator basis, a frame is *not* split-mass, and
+`foldUnnamedFrames` is **correctly inert** — do not wire it here. The original creature-scatter
+claim was made in the MiniLM *meaning* basis; reproducing it there needs a meaning embedder and is
+the outstanding measurement. Until it runs, the Lens fold stays a measured-inert primitive.
+
+**M2 — relativistic reading: POSITIVE, and it reproduces the spec's own contrast.** Distinct local
+keys per document (60-unit windows): 5 / 3 / 4. The sharp result is *Frankenstein*: its global key
+"relate · interpretation" is the dominant key of **zero** local windows (99% diverge) — locally the
+book reads "differentiate · structure/existence" throughout. The global reading is a diffuse signal
+present everywhere and dominant nowhere: **the reconstructed-global-field pathology, reproduced** (a
+body that "appears to dominate everywhere" but rules no frame). *Metamorphosis* is the control — the
+most locally coherent (35% diverge, its global key *is* its dominant local key), exactly as it is
+the clean non-firing case in the referent spec. **A relativistic, local-key read has real signal;
+surfacing the per-window local tone (already landed) is worth wiring into the reader.**
+
+**M3 — incommensurability: a CROSS-SOURCE signal, not a within-document one.** Within each work,
+region 0 vs region 2 stays *below* the within-document baseline (0.11 vs 0.16; 0.15 vs 0.71; 0.17 vs
+0.25) — one paradigm per work, commensurable, as it should be. Across works the commutator is far
+larger (*Frankenstein*∦*Alice* 0.81, *Frankenstein*∦*Metamorphosis* 0.71, *Metamorphosis*∦*Alice*
+0.50). So the frame channel's incommensurability conflict **fires between documents, not between
+regions of one** — which says wire it into the **cross-source / crosswalk** path
+(`docs/coreference-timeline.md`, multi-source corroboration), not the single-document read.
+
+**What the measurement decides.** Wire M2 (local tone into the reader); wire M3 (the frame channel
+into the cross-source crosswalk, where its conflict actually fires); **hold** M1 until a
+meaning-basis run says whether a real frame is ever split-mass there. The re-rank (Track 4) is
+orthogonal to all three and adoptable whenever the grounder wants it.
+
 ## The one move this document makes
 
 `docs/cube.md` §"The recursion is the Domain axis" states the generator's own law:
