@@ -390,7 +390,16 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     if (!set || set.size < 2) return false;
     const cached = moonCache.get(tok);
     if (cached && cached.size === set.size) return cached.val;
-    const val = new Set(clusterAnchors([...set]).values()).size >= 2;
+    // A genuine second identity is a REAL name welded to the head — never the head glued to a
+    // capitalised FUNCTION word the greedy scan swept in at a clause edge ("Quijote De", "Quijote
+    // Del", "Quijote Donde"; "Don Quijote" is written with a lowercase honorific, so a capitalised
+    // neighbour here is a connector/adverb, not a surname). trimWeld strips such filler; a member
+    // that collapses to the bare head contributes no rival, so a head carrying one massive bare
+    // identity (Quijote, 2000+ sightings) is not mooned out of existence by scanner welds. The
+    // pre-scan feeds this set UNTRIMMED (trimWeld is not yet defined there), so trim it here — the
+    // same weld discipline observe() already applies to every sighting.
+    const identities = [...set].map((l) => trimWeld(l).label).filter((l) => l !== tok && l.includes(' '));
+    const val = identities.length >= 2 && new Set(clusterAnchors(identities).values()).size >= 2;
     moonCache.set(tok, { size: set.size, val });
     return val;
   };
