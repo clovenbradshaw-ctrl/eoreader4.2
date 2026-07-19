@@ -184,6 +184,40 @@ test('fetchFeed returns null for a non-feed body', async () => {
   assert.equal(await fetchFeed('https://x.example/j', { client }), null);
 });
 
+
+test('reader ingestUrl auto-detects RSS/Atom feeds and registers a feed source with pointers', async () => {
+  const { installIngest } = await import('../src/rooms/reader/app/ingest.js');
+  const added = [];
+  const appCtx = {
+    client: ctxFor({ 'https://city.example.gov/rss': RSS }),
+    state: {},
+    emit: () => {},
+    logIt: () => {},
+    beginJob: () => 'job:1',
+    settleJob: () => {},
+    addSource: (src) => { added.push(src); return { sn: 'S1', ...src }; },
+  };
+  installIngest(appCtx);
+  const src = await appCtx.ingestUrl('https://city.example.gov/rss');
+  assert.equal(src.kind, 'feed');
+  assert.equal(src.title, 'City Hall Notices');
+  assert.equal(src.feed.pointers.length, 2);
+  assert.match(src.text, /Boil-water notice/);
+});
+
+test('reader exposes a deliberate ingestFeed API for feed URLs', async () => {
+  const { installIngest } = await import('../src/rooms/reader/app/ingest.js');
+  const appCtx = {
+    client: ctxFor({ 'https://city.example.gov/rss': RSS }),
+    state: {}, emit: () => {}, logIt: () => {},
+    addSource: (src) => ({ sn: 'S1', ...src }),
+  };
+  installIngest(appCtx);
+  const src = await appCtx.ingestFeed('https://city.example.gov/rss');
+  assert.equal(src.kind, 'feed');
+  assert.equal(src.feed.meta.title, 'City Hall Notices');
+});
+
 test('routeKind sends a bare URL and rss/feed phrasing to feed', () => {
   assert.equal(routeKind('https://city.example.gov/rss.xml'), 'feed');
   assert.equal(routeKind('subscribe to the council rss'), 'feed');
