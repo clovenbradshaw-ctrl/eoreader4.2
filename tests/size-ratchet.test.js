@@ -102,7 +102,7 @@ const BASELINE = new Map([
   ['src/rooms/reader/midi.js', 294],
   ['src/rooms/reader/monologue-surface.js', 607],
   ['src/rooms/reader/reader-render.js', 1210],
-  ['src/rooms/reader/solar-system.js', 304],
+  ['src/rooms/reader/solar-system.js', 339],
   ['src/rooms/reader/tiered-graph.js', 680],
   ['src/rooms/reader/transcript-export.js', 406],
   ['src/rooms/reader/transcript-format.js', 440],

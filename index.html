@@ -9400,9 +9400,16 @@ class Component extends DCLogic {
       .map((n) => ({ id: n.id, label: n.label }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
     const show = this._filterTiered(data, w.hidden);
+    // the floor of the descent: the focus entity's raw mention sentences (level 3, the substrate)
+    // and the arithmetic tally — how many times it was witnessed into being (level 2, existence).
+    const prof = this._app.entityProfile(w.docId, w.entId) || {};
+    const spans = (prof.mentions || []).map((m) => ({ idx: m.idx, text: m.text, t0: m.t0, t1: m.t1 }));
     // the sun is the focus entity — its node id in tieredData is `e:${entId}`
     this._tg = window.EO.mountSolarSystem(el, {
       nodes: show.nodes, edges: show.edges, centreId: `e:${w.entId}`,
+      spans, count: prof.mentionCount || spans.length,
+      // a raw span jumps to its passage in the source — the deepest descent lands on the record
+      onSpan: (sp) => { if (prof.sn != null && sp) { try { this._jumpTo(prof.sn, sp.text, sp.t0, sp.t1); } catch {} } },
       // a body click pivots the whole view to that entity's point of view
       onPivot: (node) => { if (node && node.ref) this._solarPivot(node.ref); },
       onOpen: (node) => { if (node && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
@@ -9614,7 +9621,7 @@ class Component extends DCLogic {
         : isCompare
         ? 'A measure-by-source table read deterministically off the record — one row per figure (a budget, a completion year, an acreage), one column per source. A cell shows the value that source states, and the move if it revised one ("$120M → $145M"). Click any cell to open its passage.'
         : isSolar
-        ? 'One entity at the centre — its point of view. Its existence (the source it collapsed out of), structure (what it bonds to), and meaning (the claims orbiting it) ring out as three physical regimes: quantum · chemistry · orbital. Toggle a regime to peel to one level; click any body to pivot the whole view to its POV.'
+        ? 'One entity at the centre — its point of view. You don’t see everything at once: you start at the highest level (meaning) and zoom DOWN, one holon level at a time, each a different kind of math with its own visual — meaning is the physics of orbital attraction, structure is the geometry of bonds, existence is the arithmetic of coming-into-being, and the floor is the raw spans it was read from. Click any body to pivot the whole view to its POV.'
         : 'What the sources are read as asserting causes what. Open a node, then “focus the DAG here”.',
       webToggleHead: `${(isEnt || isSolar) ? 'ENTITIES' : isNetwork ? 'SOURCES' : isCrosswalk ? 'REFERENTS' : isCompare ? 'MEASURES' : 'NODES'} ${onCount}/${toggles.length}`,
       // Show the filter once the list is long enough to be worth searching.
