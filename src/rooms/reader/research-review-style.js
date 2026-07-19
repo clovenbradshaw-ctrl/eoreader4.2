@@ -8,6 +8,13 @@ const CSS = `
 .eo-rr__crumb{font-size:11px;color:#9A9AA4;text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace}
 .eo-rr__title{font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:600;margin:2px 0 6px}
 .eo-rr__stats{font-size:12px;color:#8A8A95;margin-bottom:14px}
+.eo-rr__answer{border:1px solid #EEEEF2;background:#FBFAFF;border-radius:12px;padding:15px 17px;margin-bottom:18px}
+.eo-rr__answerText{font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.6;color:#24242C;margin:0 0 9px}
+.eo-rr__answerSrc{font-size:11.5px;font-weight:600;color:#5B4BE6;background:none;border:none;cursor:pointer;padding:0}
+.eo-rr__answerSrc:hover{text-decoration:underline}
+.eo-rr__advToggle{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#5B4BE6;background:none;border:none;cursor:pointer;padding:9px 2px;margin:2px 0}
+.eo-rr__advToggle:hover{color:#4B3FC7}
+.eo-rr__advWrap{margin-top:4px}
 .eo-rr__toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
 .eo-rr__toolbar input[type=text]{flex:1;min-width:160px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;padding:8px 11px;font-size:13px;color:#1B1B22}
 .eo-rr__btn{font-size:12px;font-weight:600;color:#3A3A44;background:#fff;border:1px solid #E0E0E6;border-radius:9px;padding:7px 12px;cursor:pointer}
@@ -105,6 +112,8 @@ const CSS = `
   .eo-rr__card,.eo-rr__measureRow,.eo-rr__table th,.eo-rr__table td{border-color:#2E2E38}
   .eo-rr__btn,.eo-rr__recipe,.eo-rr__idRowBtn{background:#1E1E26;border-color:#33333E;color:#D6D6DE}
   .eo-rr__footer{background:#17171D;border-color:#2E2E38}
+  .eo-rr__answer{background:#1E1E26;border-color:#2E2E38}
+  .eo-rr__answerText{color:#EDEDF2}
 }
 `;
 export const ensureStyle = (doc) => { if (doc.getElementById(STYLE_ID)) return; const s = doc.createElement('style'); s.id = STYLE_ID; s.textContent = CSS; doc.head.appendChild(s); };

@@ -156,6 +156,28 @@ export const gapSearchQueries = (baseQuery, area) => {
   };
 };
 
+// ── the lead excerpt (an answer-first read, model-free) ──────────────────────────────────────
+
+// leadExcerpt(rows, max) → { sn, title, domain, url, text, truncated } | null — the opening of the
+// top-ranked reviewed candidate's own text, verbatim, cut near `max` chars at a sentence boundary.
+// For a plain factual question ("who is X", "what is Y") the top source's own lead paragraph
+// already IS the answer — quoting it beats composing a fresh sentence that risks saying something
+// the source didn't. `rows` arrives in fetch order (the search engine's own rank), so rows[0] is
+// the top hit — the same "the first result is the best guess" prior a search box already leans on.
+export const leadExcerpt = (rows, max = 600) => {
+  const row = (rows || []).find((r) => r && String(r.text || '').trim().length > 40);
+  if (!row) return null;
+  const text = String(row.text).trim();
+  if (text.length <= max) return { sn: row.sn, title: row.title, domain: row.domain, url: row.url, text, truncated: false };
+  const win = text.slice(0, max);
+  const sentEnd = /[.!?](?=[)\]"'”’]?\s)/g;
+  let cut = -1, m;
+  while ((m = sentEnd.exec(win))) cut = m.index + 1;
+  if (cut < max * 0.4) cut = win.lastIndexOf(' ');
+  if (cut <= 0) cut = win.length;
+  return { sn: row.sn, title: row.title, domain: row.domain, url: row.url, text: text.slice(0, cut).trim(), truncated: true };
+};
+
 // ── the one entrance ─────────────────────────────────────────────────────────────────────────
 
 // researchReview({ rows, entities, matrix, query, independentOverrides, identityDecisions,
@@ -196,8 +218,10 @@ export const researchReview = ({
   const evidenceMatrix = buildEvidenceMatrix(selectedRows, { matrix, areas: selectedAreas, clusters: selectedClusters });
   const selectedStats = corpusStats(selectedRows, { matrix, entities, clusters: selectedClusters, identity: selectedIdentity, areas: selectedAreas });
 
+  const answer = leadExcerpt(rows);
+
   return {
     rows, clusters, areas: areasWithDots, links, narrative, reading, recipes, stats, cards, query,
-    network, identity, gaps, evidenceMatrix, selectedStats,
+    network, identity, gaps, evidenceMatrix, selectedStats, answer,
   };
 };

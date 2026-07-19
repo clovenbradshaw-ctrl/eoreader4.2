@@ -16,6 +16,24 @@ const section = (doc, label, body) => {
   return wrap;
 };
 
+// renderToolbarSection(doc, view, ctx) → the refine-search / add-URL row. A small presentational
+// unit, homed here (not research-review-surface.js) to keep that file under the god-module ratchet.
+// ctx: { onRefine(query), onAddUrl(url) }.
+export const renderToolbarSection = (doc, view, ctx) => {
+  const toolbar = el(doc, 'div', 'eo-rr__toolbar');
+  const input = doc.createElement('input'); input.type = 'text'; input.value = view.query; input.placeholder = 'Refine search…';
+  toolbar.appendChild(input);
+  const refineBtn = el(doc, 'button', 'eo-rr__btn', 'Refine search');
+  refineBtn.addEventListener('click', () => ctx.onRefine(input.value.trim()));
+  toolbar.appendChild(refineBtn);
+  const urlInput = doc.createElement('input'); urlInput.type = 'text'; urlInput.placeholder = 'Add URL…'; urlInput.style.maxWidth = '220px';
+  toolbar.appendChild(urlInput);
+  const addUrlBtn = el(doc, 'button', 'eo-rr__btn', 'Add URL');
+  addUrlBtn.addEventListener('click', () => { const u = urlInput.value.trim(); if (u) ctx.onAddUrl(u); urlInput.value = ''; });
+  toolbar.appendChild(addUrlBtn);
+  return toolbar;
+};
+
 // renderEvidenceMatrixSection(doc, view, ctx) → §7.1. Columns are the CURRENT proposed-corpus
 // selection (view.evidenceMatrix is already scoped to it) — the header states that scope so a
 // reader never mistakes it for "every reviewed candidate".

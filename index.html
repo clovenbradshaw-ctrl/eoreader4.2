@@ -4381,23 +4381,24 @@ table{border-collapse:collapse;width:100%}
   </sc-if>
 
   <!-- RESEARCH REVIEW (docs/research-review.md) — a web search lands here: a provisional,
-       inspectable corpus (discovered/reviewed/admitted), never an instantly-admitted topic. The
-       screen itself is mounted (window.EO.researchReview.mount), the binvis/pipeline room idiom —
-       too much live, clickable structure for the sc-if/sc-for template to carry cleanly. -->
+       inspectable corpus (discovered/reviewed/admitted), never an instantly-admitted topic. Lives
+       IN the content pane — to the right of the topics sidebar, below the topbar — rather than a
+       full-viewport dialog, so a search reads as "this page now shows results", not as a popup
+       interrupting whatever else was on screen; the sidebar and the search field stay visible and
+       usable underneath it. (rrLeft tracks the sidebar's own open/closed width so the two never
+       overlap.) The screen itself is mounted (window.EO.researchReview.mount), the binvis/pipeline
+       room idiom — too much live, clickable structure for the sc-if/sc-for template to carry cleanly. -->
   <sc-if value="{{ rrShow }}">
-    <div style="position:absolute;inset:0;z-index:49">
-      <div style="position:absolute;inset:0;background:rgba(20,20,28,.36)"></div>
-      <div class="eo-modal" style="position:absolute;left:50%;top:26px;transform:translateX(-50%);width:min(880px,96vw);height:calc(100vh - 52px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.3);display:flex;flex-direction:column;overflow:hidden">
-        <!-- rrTopicId is null until reviewStart's discover-and-review pass settles; the mounted
-             surface only exists once there is a real topic to read, so a slow search shows this
-             plain wait instead of the surface's "no longer available" (which means something else). -->
-        <sc-if value="{{ rrLoading }}">
-          <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite">Searching and reviewing candidates…</div>
-        </sc-if>
-        <sc-if value="{{ rrReady }}">
-          <div ref="{{ setResearchReviewEl }}" data-screen-label="Research Review" style="flex:1;min-height:0;overflow:auto"></div>
-        </sc-if>
-      </div>
+    <div style="position:absolute;left:{{ rrLeft }};right:0;top:50px;bottom:0;z-index:49;background:#fff;border-left:1px solid #EAEAEF;display:flex;flex-direction:column;animation:eoFade .14s ease">
+      <!-- rrTopicId is null until reviewStart's discover-and-review pass settles; the mounted
+           surface only exists once there is a real topic to read, so a slow search shows this
+           plain wait instead of the surface's "no longer available" (which means something else). -->
+      <sc-if value="{{ rrLoading }}">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite">Searching and reviewing candidates…</div>
+      </sc-if>
+      <sc-if value="{{ rrReady }}">
+        <div ref="{{ setResearchReviewEl }}" data-screen-label="Research Review" class="eo-scroll" style="flex:1;min-height:0;overflow:auto"></div>
+      </sc-if>
     </div>
   </sc-if>
 
@@ -13277,8 +13278,12 @@ class Component extends DCLogic {
       searchRows, closeSearch: () => this.closeSearch(), retrySearch: () => this.runSearch(st.searchQ),
       // the library shelf — one shelf searched on its own surface (article/book/media/code)
       ...libVals,
-      // Research Review (docs/research-review.md) — the modal that mounts window.EO.researchReview
+      // Research Review (docs/research-review.md) — the content-pane panel that mounts
+      // window.EO.researchReview. rrLeft mirrors the SAME condition that gates <aside class="eo-left">
+      // (index.html leftOpen sc-if) so the panel's edge always lines up with the sidebar's, open or
+      // collapsed — the same width literal (312px) that aside is styled with.
       rrShow: st.rrOpen, rrLoading: st.rrOpen && !st.rrTopicId, rrReady: st.rrOpen && !!st.rrTopicId,
+      rrLeft: (st.leftOpen && st.tab !== 'register') ? '312px' : '0px',
       setResearchReviewEl: (el) => this.setResearchReviewEl(el),
       // native preview of a search hit — the modal grows to a page frame while previewing
       searchModalW: preview ? 'min(1040px,96vw)' : 'min(640px,92vw)',

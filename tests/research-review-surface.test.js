@@ -257,9 +257,24 @@ test('mountResearchReview — clicking a waveform bar calls reviewOpenMark and b
   const { app, calls } = makeFakeApp();
   let opened = null;
   mountResearchReview(host, { app, topicId: 't1', onOpenMark: (payload) => { opened = payload; } });
+  // the waveform preview is per-candidate DETAIL (research-review.md redesign: slim by default,
+  // cards start compact) — it only renders once "research tools" is expanded.
+  findByText(host, 'Show research tools ▾').fire('click');
   const bar = flatten(host).find((n) => (n.className || '').includes('eo-rr__bar--turn'));
-  assert.ok(bar, 'a turn bar rendered for a waveform with hasTurn:true');
+  assert.ok(bar, 'a turn bar rendered for a waveform with hasTurn:true once expanded');
   bar.fire('click');
   assert.ok(calls.some((c) => c[0] === 'mark'));
   assert.ok(opened && opened.mark);
+});
+
+test('mountResearchReview — cards start compact (no waveform/contributes detail) until "Show research tools" is clicked', () => {
+  const doc = makeFakeDoc();
+  const host = makeEl('div', doc);
+  const { app } = makeFakeApp();
+  mountResearchReview(host, { app, topicId: 't1' });
+  assert.equal(flatten(host).some((n) => (n.className || '').includes('eo-rr__bar--turn')), false, 'compact by default — no waveform bar yet');
+  assert.ok(findByText(host, 'Show research tools ▾'), 'the advanced toggle is present, collapsed');
+  findByText(host, 'Show research tools ▾').fire('click');
+  assert.ok(flatten(host).some((n) => (n.className || '').includes('eo-rr__bar--turn')), 'expanding reveals the waveform detail');
+  assert.ok(findByText(host, 'Hide research tools ▴'), 'the toggle relabels once expanded');
 });
