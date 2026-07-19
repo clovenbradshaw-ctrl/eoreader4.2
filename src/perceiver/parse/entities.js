@@ -375,7 +375,13 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
     let pm; while ((pm = pre.exec(text)) !== null) { const lab = cleanLabel(pm[0], C); if (lab) labels.push(lab); }
     // The canonical spelling of a name is its cleanest cased form — no word shouted in caps.
     for (const lab of labels) if (!hasCapsWord(lab)) { const id = idFor(lab); if (!preferredCase.has(id)) preferredCase.set(id, lab); }
-    for (const lab of labels) notePlanet(canon(lab));
+    // A moon claim (≥2 distinct identities under one head) needs RECURRING evidence: the greedy
+    // scan glues a one-off two-name weld ("Natásha Prince Andrew") as readily as a real second
+    // identity, so a hapax label must never feed the orbital count — it would wrongly moon the
+    // head and refuse a real, well-attested bare figure (Natásha, 1213 sightings) admission.
+    const planetCounts = new Map();
+    for (const lab of labels) { const c = canon(lab); planetCounts.set(c, (planetCounts.get(c) || 0) + 1); }
+    for (const [lab, n] of planetCounts) if (n >= 2) notePlanet(lab);
   }
   // A moon heads ≥2 distinct PEOPLE — distinct name-variant CLUSTERS, so co-referential
   // variants of one person collapse to a single planet before the count.
@@ -559,7 +565,9 @@ export const createEntityAdmission = ({ conventions, commonNouns = false, text =
         noteMention(id, sentIdx);
         out.push({ status: 'present', id, label });
       } else if (g >= GRAVITY_FLOOR && !bareRefused && !headingRefused && !(multiword && !admissionProfile.allowed.has(label) && (admissionProfile.stats.get(label)?.count || 0) < 2 && sentence.replace(/^[\s"'“”‘’(]+|[\s"'“”‘’).,;:!?]+$/g, '') === m[0].replace(/^[\s"'“”‘’(]+|[\s"'“”‘’).,;:!?]+$/g, ''))) {
-        if (multiword) notePlanet(label);          // this name feeds the orbital (moon) statistic
+        // Same recurrence floor as the pre-scan feed above — a first-sighting admission must not
+        // feed the orbital/moon statistic off that one sighting.
+        if (multiword && (admissionProfile.stats.get(label)?.count || 0) >= 2) notePlanet(label);
         const rawId = idFor(label);
         let alias = aliasOf(label);
         // A HEAD (given-name) containment unifies the id — but NOT through a MOON token:
