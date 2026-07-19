@@ -107,10 +107,11 @@ export const createParser = ({
   // byte-identical; on, the parse additionally learns which units are one KIND from company.
   induceSlots        = false,
   // Fold morphological variants (declensions) of a name onto one referent — Наташу→Наташа,
-  // Ἕκτορα→Ἕκτωρ — using the case-suffix set induced from the document (inflection.js), anchored
-  // on the nominatives (forms that behave as subjects) so two names sharing a stem (Франц/Франция)
-  // never merge. OFF by default → English (barely inflected) folds nothing and the read is
-  // byte-identical; on, an inflected language's cast stops fracturing across cases.
+  // Aranak→Arana. Morphology PROPOSES (a shared stem, inflection.js), COMPLEMENTARY DISTRIBUTION
+  // disposes (a case-mate never co-occurs with its base in a clause; a distinct name sharing a stem
+  // does — Франц/Франция, French/Frenchman — and is vetoed), and the asterisk carries each survivor
+  // as a `*` it promotes on that evidence, still splittable by conflict. No nominative anchor, so an
+  // ergative/agglutinative cast folds too. OFF by default → English folds nothing, byte-identical.
   foldInflections    = false,
   // Discover the figures of an UNCASED document (Japanese, Chinese, Arabic, Hebrew) by gravity
   // (parse/uncased.js), where a name carries no capital for the scanner to anchor on. Unlike the
@@ -564,24 +565,42 @@ export const createParser = ({
     }
 
     // ── Declension fold (opt-in) — a name's cases are one referent ──────────────
-    // Induce the case-suffix set from the admitted single-token names (inflection.js) and fold
-    // each oblique onto its nominative, anchored on the forms that behave as subjects so two names
-    // that merely share a stem (Франц / Франция) stay apart. Each fold is a SYN merge the
-    // projection unions, exactly like a surname or naming-scene merge. English induces ~no case
-    // set, so this is a no-op there; an inflected language stops fracturing across cases.
+    // Morphology PROPOSES, DISTRIBUTION disposes, the asterisk HOLDS IT OPEN. Identity is relational,
+    // not orthographic (core/asterisk.js): so a shared stem only nominates a candidate (inflection.js,
+    // no nominative anchor — it makes no nominative–accusative assumption an ergative or agglutinative
+    // cast would break). The verdict is COMPLEMENTARY DISTRIBUTION: you never name one person twice in
+    // a clause, so a true case-mate co-occurs with its base ~never ("Aranak"/"Arana" 0.04, "Rostóv"/
+    // "Rostóva" 0.00), while a DISTINCT name sharing a stem co-occurs and is vetoed ("French"/
+    // "Frenchman" 0.11, "Prussia"/"Prussian" 0.15). Each survivor is emitted as a same_as? the
+    // projection's asterisk carries as `*` — held open, promoted on this evidence, still splittable by
+    // a functional conflict. English induces ~no case set → no candidates → a no-op.
     if (foldInflections) {
-      const forms = new Map();
+      const COMP_VETO = 0.08;   // co-occurrence rate above which a shared-stem pair is two referents
+      const forms = new Map(), sight = admission.sightSent;
       for (const [label, id] of admission.admitted)
         if (!label.includes(' ')) forms.set(label, (admission.mentions.get(id) || []).length || 1);
-      const { fold } = induceInflections(forms, { nominatives: admission.nominativeForms() });
-      for (const [form, canonical] of fold) {
-        if (form === canonical) continue;
-        const from = admission.idOf(form), to = admission.idOf(canonical);
-        if (!from || !to || from === to) continue;
-        const syn = log.append({ op: 'SYN', kind: 'merge', from, to,
-                                 label: canonical, sentIdx: 0, match: 'inflection', warrant: 'declension' });
-        log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
-                     reason: 'declension-fold', form, sentIdx: 0 });
+      const { fold } = induceInflections(forms);   // the proposer — plain same-stem union, no anchor
+      // Group each cluster and name it by its BASE — the LEAST-MARKED form (an oblique only ADDS an
+      // ending, so the base is the shortest; frequency breaks a fusional tie where a nominative is no
+      // shorter than its cases). This is the bare stem in an agglutinative language ("Arana", not the
+      // frequency-topped oblique "Aranaren") and the nominative in a fusional one ("Rostóv").
+      const groups = new Map();
+      for (const [form, canon] of fold) { let g = groups.get(canon); if (!g) groups.set(canon, g = new Set()); g.add(form); g.add(canon); }
+      for (const members of groups.values()) {
+        const base = [...members].sort((a, b) => a.length - b.length || (forms.get(b) || 0) - (forms.get(a) || 0) || (a < b ? -1 : 1))[0];
+        const to = admission.idOf(base);
+        if (!to) continue;
+        const B = new Set(sight.get(base) || []);
+        for (const form of members) {
+          if (form === base) continue;
+          const from = admission.idOf(form);
+          if (!from || from === to) continue;
+          const A = new Set(sight.get(form) || []);
+          const co = [...A].filter((x) => B.has(x)).length;
+          if (co / Math.max(1, Math.min(A.size, B.size)) >= COMP_VETO) continue;   // they co-occur → distinct
+          log.append({ op: 'SYN', kind: 'same_as?', from, to,
+                       label: base, sentIdx: 0, match: 'inflection', warrant: 'declension' });
+        }
       }
     }
 
@@ -830,8 +849,8 @@ export const createParser = ({
           const sent = sentences[si];
           if (sent == null) continue;
           for (const rel of parseRelations(sent, admission, staticCoref, { ...relRead, sentIdx: si })) {
-            const anchors = rel.op === 'DEF' ? darkIds.has(rel.id) : darkIds.has(rel.src);
-            if (!anchors) continue;                       // only the referent's OWN agency
+            const anchors = rel.op === 'DEF' ? darkIds.has(rel.id) : (darkIds.has(rel.src) || darkIds.has(rel.tgt));
+            if (!anchors) continue;   // own structure: subject, and (total read) object of a figure's act
             const k = edgeKey(rel);
             if (seen.has(k)) continue; seen.add(k);       // never double-count a bond the main read made
             const { args, coord, ...edge } = rel;

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { induceInflections } from '../src/perceiver/parse/inflection.js';
 import { parseText } from '../src/perceiver/parse/pipeline.js';
+import { projectGraph } from '../src/core/index.js';
 
 // A ROBUST BATTERY for inflection folding (the gutenberg branch: induce a language's case suffixes
 // from the surface forms, then fold declensions of one name onto one referent). It exercises the
@@ -118,17 +119,21 @@ const RU = `Иван пришёл. Иван сел. Иван встал. Ива�
 Все ждали Ивана. Мы видели Бориса. Она позвала Антона.
 Никто не видел Ивана. Гости ждали Бориса. Дети звали Антона.`;
 
-test('the pipeline commits a declension fold as a fully-formed SYN + EVA pair', () => {
+test('the pipeline PROPOSES a declension fold as a same_as? the asterisk promotes on distribution', () => {
+  // Identity is relational, not orthographic: morphology only proposes the case-mate as a same_as?
+  // candidate; the projection's asterisk carries it as `*` and promotes it because the two forms are
+  // in complementary distribution (a case-mate never co-occurs with its base), still splittable by a
+  // functional conflict. So the event is a held-open candidate, not a force-merge.
   const doc = parseText(RU, { docId: 'ru', foldInflections: true });
   const syn = doc.log.events.find((e) => e.op === 'SYN' && e.match === 'inflection');
-  assert.ok(syn, 'a SYN inflection merge was committed');
-  assert.equal(syn.kind, 'merge');
+  assert.ok(syn, 'a SYN inflection candidate was proposed');
+  assert.equal(syn.kind, 'same_as?', 'held open as a candidate, never a raw force-merge');
   assert.equal(syn.warrant, 'declension');
   assert.equal(syn.from, syn.from.toLowerCase(), 'ids are lowercase');
   assert.equal(syn.to, syn.to.toLowerCase());
-  const eva = doc.log.events.find((e) => e.op === 'EVA' && e.reason === 'declension-fold');
-  assert.ok(eva, 'a paired EVA corroborates the fold');
-  assert.equal(eva.verdict, 'corroborated');
+  // and the projection PROMOTES it — the oblique and its base land in one referent cluster.
+  const g = projectGraph(doc.log), rep = g.representative;
+  assert.equal(rep(syn.from), rep(syn.to), 'the case-mate folds onto its base (complementary distribution → one referent)');
 });
 
 test('the pipeline never folds one nominative onto another (the anchored guard holds end to end)', () => {

@@ -168,7 +168,7 @@ const computeProjection = (log, frame) => {
         // never enter union-find as a hard union — it is HELD as a candidate and
         // resolved later by discriminator convergence (the asterisk block below).
         else if (e.kind === 'same_as?')
-          sameAsRaw.push({ from: e.from, to: e.to, seq: e.seq, label: e.label, sentIdx: e.sentIdx ?? null });
+          sameAsRaw.push({ from: e.from, to: e.to, seq: e.seq, label: e.label, sentIdx: e.sentIdx ?? null, match: e.match ?? null });
         // A confirmed split: identity is asserted UNestablished-as-one, not merely
         // undiscriminated. Held on the SIDE the same way same_as? is — it never
         // touches `parent` directly, it is read by the asterisk block below, which
@@ -232,8 +232,14 @@ const computeProjection = (log, frame) => {
           conflicts: [{ via: 'user', a: [], b: [], conflict: 1, reason: 'asserted distinct' }],
           user: !!s.user };
       }
+      // An INFLECTION candidate arrives already carrying its evidence: a shared stem that survived
+      // the complementary-distribution veto (pipeline.js). Its convergence is that distributional
+      // fact, not a shared discriminator edge — which within one document is too sparse to read — so
+      // it promotes unless the field finds a functional CONFLICT (minConvergence 0). A cross-source
+      // label echo still needs positive edge convergence: there the label alone is not evidence.
+      const mc = c.match === 'inflection' ? 0 : minConv;
       const ev = evaluateSameAs(ra, rb,
-        { discriminatorsOf: (r) => discr.get(r), minConvergence: minConv, functionalVias: fvias });
+        { discriminatorsOf: (r) => discr.get(r), minConvergence: mc, functionalVias: fvias });
       return { c, ...ev };
     });
     for (const d of decided) if (d.verdict === 'promote') parent.set(find(d.c.from), find(d.c.to));

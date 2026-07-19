@@ -19,6 +19,7 @@ export const CONTRACTS = Object.freeze({
   'src/perceiver/parse/entities.js': contract({ ops: ['INS', 'SIG', 'SYN'], targets: ['Void'], products: ['Entity', 'Network'], stances: ['Making'], note: 'entity admission by gravity' }),
   'src/perceiver/parse/dark-referent.js': contract({ ops: ['INS', 'SYN', 'EVA', 'DEF'], targets: ['Void'], products: ['Entity', 'Network'], stances: ['Composing'], note: 'dark-referent read — a nameless figure found by the gravity warping around it' }),
   'src/perceiver/parse/dark-referent-name.js': contract({ ops: ['SYN', 'EVA', 'SIG'], targets: ['Entity', 'Field'], products: ['Network', 'Lens'], stances: ['Composing'], note: 'the talker names a nameless body / folds its synonyms (optional, model-backed)' }),
+  'src/perceiver/parse/modifier-law.js': contract({ ops: ['NUL', 'SEG'], targets: ['Kind'], products: ['Kind'], stances: ['Clearing'], note: 'the modifier law — a determiner-run census refuses an elided adjective ("the old") a body' }),
   'src/perceiver/parse/frame.js': contract({ ops: ['SEG'], targets: ['Field'], products: ['Field'], stances: ['Clearing'], note: 'structural frame (banner bracket)' }),
   'src/perceiver/parse/fuzzy.js': contract({ ops: ['SIG'], targets: ['Field'], products: ['Link'], stances: ['Binding'], note: 'bounded edit distance' }),
   'src/perceiver/parse/grain.js': contract({ ops: ['DEF'], targets: ['Field', 'Network'], products: ['Lens', 'Paradigm', 'Atmosphere'], stances: ['Dissecting', 'Unraveling', 'Clearing'], note: 'the grain reader — figure / kind / setting from a span’s company' }),
