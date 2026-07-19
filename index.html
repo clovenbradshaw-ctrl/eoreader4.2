@@ -700,7 +700,7 @@ table{border-collapse:collapse;width:100%}
     <form onSubmit="{{ onOmniSubmit }}" style="flex:1;display:flex;justify-content:center">
       <div style="width:100%;max-width:540px;height:33px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;display:flex;align-items:center;gap:9px;padding:0 12px" style-focus-within="border-color:#DED8FD;background:#fff">
         <svg class="eo-hide-sm" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9A9AA4" stroke-width="1.8" style="flex:0 0 auto"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
-        <input id="eo-omnibox-input" value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Read a URL, drop a file, paste text, or search the web…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:13px;color:#1B1B22" />
+        <input id="eo-omnibox-input" value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Read a URL, drop a file, paste text, or search the web…" autocomplete="off" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:13px;color:#1B1B22" />
         <span class="eo-hide-sm" style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#C0C0C8;flex:0 0 auto">⏎ add</span>
         <!-- One-tap upload — opens the device file picker directly (any file: PDF, image, audio,
              video, text). type=button so it never submits the omnibar. The universal attach
@@ -1221,7 +1221,7 @@ table{border-collapse:collapse;width:100%}
                      the surface auto-pivots. ⌘K remains the quick palette; this tab IS the search. -->
                 <div style="position:relative;margin-bottom:14px">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round" style="position:absolute;left:2px;top:11px"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-                  <input id="eo-sf-input" value="{{ sfQuery }}" onChange="{{ onSfInput }}" onKeyDown="{{ onSfKey }}" enterkeyhint="search" placeholder="Search the record — or press ⏎ to search the web…" autocomplete="off" spellcheck="false" style="width:100%;border:none;border-bottom:2px solid #1B1B22;outline:none;background:transparent;font-size:22px;font-weight:300;color:#1B1B22;padding:5px 40px 11px 30px" />
+                  <input id="eo-sf-input" value="{{ sfQuery }}" onChange="{{ onSfInput }}" onKeyDown="{{ onSfKey }}" enterkeyhint="search" placeholder="Search the record — or press ⏎ to search the web…" autocomplete="off" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" style="width:100%;border:none;border-bottom:2px solid #1B1B22;outline:none;background:transparent;font-size:22px;font-weight:300;color:#1B1B22;padding:5px 40px 11px 30px" />
                   <sc-if value="{{ sfAsked }}">
                     <button onClick="{{ sfClear }}" title="Clear" style="position:absolute;right:0;bottom:10px;width:30px;height:30px;border-radius:8px;color:#8A8A95;display:flex;align-items:center;justify-content:center" style-hover="background:#F2F2F6;color:#3A3A44"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
                   </sc-if>
@@ -4048,7 +4048,7 @@ table{border-collapse:collapse;width:100%}
       <div class="eo-modal" style="position:absolute;left:50%;top:72px;transform:translateX(-50%);width:min(680px,94vw);max-height:calc(100vh - 150px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 28px 80px rgba(20,20,30,.32);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
         <div style="flex:0 0 auto;display:flex;align-items:center;gap:11px;padding:15px 18px;border-bottom:1px solid #F0F0F4">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          <input id="eo-cmdk-input" value="{{ cmdkQuery }}" onChange="{{ onCmdkInput }}" onKeyDown="{{ onCmdkKey }}" placeholder="Search the record — entities, claims, passages, and every recorded word…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;font-size:15px;color:#1B1B22;background:transparent" />
+          <input id="eo-cmdk-input" value="{{ cmdkQuery }}" onChange="{{ onCmdkInput }}" onKeyDown="{{ onCmdkKey }}" placeholder="Search the record — entities, claims, passages, and every recorded word…" autocomplete="off" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" style="flex:1;min-width:0;border:none;outline:none;font-size:15px;color:#1B1B22;background:transparent" />
           <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#B4B4BE;background:#F2F2F6;border:1px solid #EAEAEF;border-radius:5px;padding:2px 6px">ESC</span>
         </div>
         <!-- operator chips — the facets as clickable affordances, so the syntax never has to be memorized -->
