@@ -29,7 +29,7 @@ import { discoverNamings }      from './naming.js';
 import { distinctReferentCount } from './name-variants.js';
 import { induceInflections } from './inflection.js';
 import { discoverUncasedReferents } from './uncased.js';
-import { admitUnnamedReferents } from './unnamed-referent.js';
+import { createCentreScanner } from './unnamed-referent.js';
 import { readUncasedGrain } from './grain.js';
 import { induceAdpositions } from './adpositions.js';
 import { buildReferents }       from '../referents/index.js';
@@ -204,6 +204,24 @@ export const createParser = ({
       return new Map(discoverUncasedReferents(text, opts).referents.map((r) => [r.form, r]));
     })();
     const uncasedForms = [...uncasedByForm.keys()].sort((a, b) => b.length - a.length);
+
+    // Referents pointed at without a name — Frankenstein's creature (only "the creature"/"the
+    // monster"/"the wretch"). Discovered up front (like the uncased read) and admitted INLINE in the
+    // main loop as first-class coref candidates, so the activation field and the gendered pronoun
+    // binding resolve them exactly as a scanned name — the creature captures its own "it/he" chain
+    // instead of leaking it to the last-named figure. OFF unless `unnamedReferents` is set → the
+    // census never runs and the parse is byte-identical.
+    const centreScanner = unnamedReferents ? createCentreScanner(sentences, { conventions, nameReferent })
+                                           : { active: false, headToBody: new Map(), bodies: [], scan: () => [] };
+    // Alias every epithet head → its body id up front, so the relation parser resolves a definite-
+    // description subject ("the wretch <verb>") to the one body from the first sentence it reads
+    // (leadingSubject looks the bare head up in admission). The id is deterministic (idFor(label)),
+    // so aliasing before the body is first sighted is sound; its mass accrues as it is admitted below.
+    // The canonical label ("the creature") is aliased FIRST so labelOf returns it, not a bare head.
+    for (const body of (centreScanner.bodies || [])) {
+      admission.aliasTo?.(body.label, body.id);
+      for (const [head, b] of centreScanner.headToBody) if (b.id === body.id) admission.aliasTo?.(head, body.id);
+    }
 
     // Transcript detection — the handler is injected, not imported.
     if (transcriptHandler && transcriptHandler.detect && transcriptHandler.detect(text)) {
@@ -406,6 +424,21 @@ export const createParser = ({
           const id = admission.admit(form, sentIdx);
           log.append({ op: 'INS', id, label: form, sentIdx }, EMIT);
           corefField.note(id, sentIdx);
+          lastIns = { id, sentIdx };
+        }
+      }
+
+      // Admit any UNNAMED referent body sighted here (the creature) BEFORE the relation parser reads
+      // this sentence, so "the creature stretched" bonds in reading order and the following "it"/"he"
+      // — resolved by the relation parser through the field below — binds to the freshly-noted body,
+      // not to the last-named figure. Noted at PROPOSITION grain (`at`) so the field decays by clause.
+      // One INS per body per sentence (its mass is its description sightings, like a name's).
+      if (centreScanner.active) {
+        const seenBody = new Set();
+        for (const c of centreScanner.scan(sent, sentIdx)) {
+          const id = admission.admit(c.label, sentIdx);
+          if (!seenBody.has(id)) { seenBody.add(id); log.append({ op: 'INS', id, label: c.label, sentIdx }, EMIT); }
+          corefField.note(id, c.at);
           lastIns = { id, sentIdx };
         }
       }
@@ -810,69 +843,38 @@ export const createParser = ({
       }
     }
 
-    // ── Referents pointed at without a name — admit the figure the name scan can't see ──────────
-    // LAST in finalize (purely additive — every event above is byte-identical) and after the whole
-    // named cast is assembled (so a body's mass is measured against real, merged names). The whole
-    // pass lives in the unnamed-referent holon; it returns the last INS so the arrow of time advances.
-    if (unnamedReferents) {
-      // The np-object lemma ids the main read already minted from a bare description in object
-      // position — handed to the read so a folded head can union its orphaned node onto the body.
-      const npEndpoints = new Set();
+    // Referents pointed at without a name are admitted INLINE in the main pass now (the centre
+    // scanner in processSentence): their subject bonds land in reading order and their pronouns bind
+    // through the field as they are read — no retroactive second cursor, no star-scale finalize pass.
+    // The dependency order is honoured: the centre is instantiated (INS) before it is bonded (CON).
+    // A defeasible figure-grain DEF marks each seated body a figure — its cue records HOW it was
+    // found (by description, unnamed), not that it is a different kind of thing. And where the main
+    // read minted an np-object LEMMA from a bare description in object position ("Frankenstein
+    // pursued the wretch" → tgt lemma "wretch"), union that orphaned node onto the body, so the bond
+    // the read DID make lands on the referent too — the object resolves to the creature, not a lemma.
+    if (centreScanner.active) {
+      const npEnd = new Set();
       for (const { rel } of candidates)
-        if ((rel.op === 'CON' || rel.op === 'SIG') && rel.tgtKind === 'np') npEndpoints.add(rel.tgt);
-
-      const dr = admitUnnamedReferents({ sentences, admission, conventions, corefField, log, emit: EMIT, nameReferent, npEndpoints });
-      if (dr.lastIns) lastIns = dr.lastIns;
-
-      // ── The retroactive structure re-read — the second cursor ─────────────────────
-      // The main read scanned each sentence in READING ORDER, where a nameless figure's
-      // description was not yet a referent, so "the creature stretched…" bonded NOTHING — the
-      // subject slot fell to silence. admitUnnamedReferents has since admitted the body and
-      // registered its description heads. Now re-read ONLY the sentences that mention it, with
-      // pronoun coref OFF (the descriptions resolve on their own; the pronouns were read in the
-      // main pass), and append every SUBJECT-side bond the referent now anchors. This is a
-      // DIFFERENT cursor than the course of the text: the record realizes, after the fact, what
-      // the reading was doing — the same append-only move the surname unmerge makes, adding real
-      // relational structure under the referent rather than a cosmetic identity merge over it.
-      if (dr.unnamedRefs && dr.unnamedRefs.length) {
-        const unnamedIds = new Set(dr.unnamedRefs.map((d) => d.id));
-        const edgeKey = (r) => r.op === 'DEF' ? `DEF|${r.id}|${r.value}` : `${r.op}|${r.src}|${r.tgt}|${r.via || ''}`;
-        const seen = new Set(candidates.map(({ rel }) => edgeKey(rel)));
-        // A coref with an empty field and no deixis: a description-surface or a name resolves, a
-        // pronoun does not — so the re-read adds no guessed pronoun subjects (the main pass owns
-        // those), only the structure the newly-admitted description makes reachable.
-        const staticCoref = { field: () => [], resolve: () => null, lastIns: () => null };
-        const relRead = { isSpeech, isCopula: conventions.isCopula, isModifier: conventions.isModifier,
-                          isConjunction: conventions.isConjunction, referents: true, coordSubjects, totalRead };
-        const mentionSents = [...new Set(dr.unnamedRefs.flatMap((d) => d.mentions))].sort((a, b) => a - b);
-        for (const si of mentionSents) {
-          const sent = sentences[si];
-          if (sent == null) continue;
-          for (const rel of parseRelations(sent, admission, staticCoref, { ...relRead, sentIdx: si })) {
-            const anchors = rel.op === 'DEF' ? unnamedIds.has(rel.id) : (unnamedIds.has(rel.src) || unnamedIds.has(rel.tgt));
-            if (!anchors) continue;   // own structure: subject, and (total read) object of a figure's act
-            const k = edgeKey(rel);
-            if (seen.has(k)) continue; seen.add(k);       // never double-count a bond the main read made
-            const { args, coord, ...edge } = rel;
-            if (edge.op === 'CON' || edge.op === 'SIG') {
-              // The SAME recurrence physics the candidate loop uses: a one-off verb rides weak.
-              const recurrent = (viaCount.get(edge.via) || 1) >= 2 || conventions.isRelation(edge.via);
-              let factor = recurrent ? 1 : 0.5;
-              if (edge.tgtKind === 'np' && (nounCount.get(edge.tgt) || 1) < 2) factor *= 0.5;
-              const base = edge.w == null ? 1 : edge.w;
-              const w = Math.round(base * factor * 1000) / 1000;
-              if (w < 1) edge.w = w; else delete edge.w;
-              const relType = conventions.relationType(edge.via);
-              if (relType) edge.relType = relType;
-            }
-            // `retro` marks the second cursor — a bond realized after the reading order, not on it.
-            if (args) {
-              const seg = log.append(argumentSpanSeg(args, si));
-              log.append({ ...edge, sentIdx: si, argspan: seg.seq, retro: true }, EMIT);
-            } else {
-              log.append({ ...edge, sentIdx: si, retro: true }, EMIT);
-            }
-          }
+        if ((rel.op === 'CON' || rel.op === 'SIG') && rel.tgtKind === 'np') npEnd.add(rel.tgt);
+      for (const body of centreScanner.bodies) {
+        log.append({ op: 'DEF', id: body.id, key: 'grain', value: 'figure', grain: 'Figure',
+                     cue: 'unnamed-referent', defeasible: true, sentIdx: 0 }, EMIT);
+        // A talker-declared synonym ("the wretch" IS the creature, via nameReferent) is an auditable
+        // SYN merge onto the body — the coref-as-proposal record.
+        for (const alias of (body.mergedFrom || [])) {
+          const from = alias.id || (alias.label && alias.label.toLowerCase().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}-]/gu, ''));
+          if (!from || from === body.id) continue;
+          const syn = log.append({ op: 'SYN', kind: 'merge', from, to: body.id, label: body.label,
+                                   sentIdx: 0, match: 'unnamed-alias', warrant: 'coreference' }, EMIT);
+          log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
+                       reason: 'unnamed-referent-coreference', sentIdx: 0 }, EMIT);
+        }
+        for (const [head, b] of centreScanner.headToBody) {
+          if (b.id !== body.id || head === body.id || !npEnd.has(head)) continue;
+          const syn = log.append({ op: 'SYN', kind: 'merge', from: head, to: body.id, label: body.label,
+                                   sentIdx: 0, match: 'unnamed-surface', warrant: 'description' }, EMIT);
+          log.append({ op: 'EVA', site: 'merge', ref: syn.seq, verdict: VERDICTS.CORROBORATED,
+                       reason: 'unnamed-referent-description', head, sentIdx: 0 }, EMIT);
         }
       }
     }
