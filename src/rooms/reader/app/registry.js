@@ -22,8 +22,8 @@ export const installRegistry = (appCtx) => {
     const k = String(kind || '').toLowerCase();
     return k === 'pdf' ? 'PDF' : k === 'web' || k === 'html' ? 'Webpage' : k === 'audio' ? 'Audio'
       : k === 'video' ? 'Video' : k === 'image' ? 'Image' : k === 'table' ? 'Dataset'
-        : k === 'json' ? 'JSON' : k === 'music' ? 'Music/score' : k === 'text' ? 'Plain text/notes'
-          : k === 'file' ? 'File' : k || 'Document';
+        : k === 'json' ? 'JSON' : k === 'music' ? 'Music/score' : k === 'subtitle' ? 'Captions'
+          : k === 'text' ? 'Plain text/notes' : k === 'file' ? 'File' : k || 'Document';
   };
   const inferSourceMetadata = ({ title, url = null, kind = 'web', record = null, doc = null } = {}, src = null) => {
     const md = { ...(doc?.metadata || {}), ...(record?.metadata || {}) };

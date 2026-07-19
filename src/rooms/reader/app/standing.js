@@ -14,9 +14,11 @@ export const installStanding = (appCtx) => {
   const { state, emit } = appCtx;
 
   // Re-run the fold a record names, at its scope — the one place the standing kinds dispatch to
-  // the live transmission methods. Compare folds (rashomon) are no longer available.
+  // the live transmission methods. Compare folds (rashomon) are no longer available; sync folds
+  // (app/sync.js) are a different axis — a cross-source alignment, not an entity-claim diff.
   const runFold = async (rec) => {
     if (rec.kind === 'trace') return rec.scope === 'source' ? appCtx.transmissionSource(rec.sn) : appCtx.transmissionTopic();
+    if (rec.kind === 'sync') return appCtx.syncRunFold(rec);
     return null;   // compare folds (rashomon) removed — return null for backward compat
   };
   const autoLabel = (rec) => rec.kind === 'trace'

@@ -76,6 +76,8 @@ export { ingestTable }       from './table.js';
 export { ingestJson }        from './json.js';
 export { readWarc, ingestWarc } from './warc.js';
 export { ingestMusic }       from './music.js';
+export { ingestSubtitle, parseSrt, parseVtt, cuesToWords } from './subtitle.js';
+export { reduceWordsToFeatures } from './sync-reduce.js';
 export { ingestFrequencies } from './frequency.js';
 export { ingestFrames }      from './video.js';
 export {
