@@ -22,7 +22,7 @@
 // no read dependency), so this import stays acyclic.
 
 import { readingAt } from '../perceiver/index.js';
-import { deriveNull, buildDensity, eigenLenses, vonNeumann, commutator, projectorFrom, cellAt } from '../core/index.js';
+import { deriveNull, boundedNull, buildDensity, eigenLenses, vonNeumann, commutator, projectorFrom, cellAt } from '../core/index.js';
 import { createEnactedLoop, calibrateReader } from '../enactor/enact/index.js';
 import { atmosphereFromActivations, corpusSigma, centroidBasis } from './atmosphere.js';
 import { updateStance } from './stance.js';
@@ -36,18 +36,17 @@ const DEFAULT_REACH = Object.freeze({ behind: 4, ahead: 16, maxStops: 5 });
 export const surfFold = (doc, anchor = 0, opts = {}) => {
   const units = doc?.units || doc?.sentences || [];
   const S = units.length;
-  const empty = { anchor: 0, stops: [], peak: 0, focus: null, field: [], recCursors: [], recAxes: [], rode: 'bayesian-figure' };
+  const empty = { anchor: 0, stops: [], peak: 0, focus: null, field: [], recCursors: [], recAxes: [], rode: 'bayesian-void' };
   if (S === 0) return empty;
 
   // ADAPTIVE REACH (opt-in, opts.reach === 'adaptive'): let the surf get as much as it needs.
   // The fixed window (behind/ahead) bounds the surf by an arbitrary distance — too narrow for
   // a whole-arc question (the anchor's frame and the crisis it builds to can be 30 sentences
   // apart). Adaptive reach reads the field over the WHOLE document and lets the NOISE NULL
-  // decide how much is structure: the boundary mode (deriveNull) is forced on, and the stop
-  // count is uncapped, so a cursor arrests iff its surprise beats what the document's own
-  // non-cohering bulk throws up by chance. "As much as it needs" is then bounded by signal,
-  // not by a window — the same self-terminating discipline the idle/think loops use. Default
-  // (no opts.reach) is byte-identical: the fixed window, the median rule, maxStops = 5.
+  // decide how much is structure, and the stop count is uncapped, so a cursor arrests iff its
+  // surprise beats what the document's own non-cohering bulk throws up by chance. "As much as
+  // it needs" is then bounded by signal, not by a window — the same self-terminating
+  // discipline the idle/think loops use.
   const adaptive = opts.reach === 'adaptive';
   const { behind, ahead, maxStops } = adaptive
     ? { behind: S, ahead: S, maxStops: Infinity }
@@ -164,29 +163,32 @@ export const surfFold = (doc, anchor = 0, opts = {}) => {
   const scoreAt = (c) => (cond ? bayesAt(c) * cond(c) : bayesAt(c));
   const scoreSeries = cond ? field.map(scoreOf) : reachBayes;
 
-  // Adaptive reach reads structure off the noise null (the principled "how much"), so the
-  // boundary mode is forced on there — with a default alpha if the caller named none. A fixed
-  // window keeps the median rule unless the caller opts into a boundary alpha (byte-identical).
-  const alpha = Number.isFinite(opts.alpha) ? opts.alpha : (adaptive ? 0.05 : null);
-  const useBoundary = Number.isFinite(alpha);
-  const band = useBoundary ? null : medianOf(scoreSeries);
-  let isPeak;
-  if (useBoundary) {
-    for (const f of field) {
-      const sc = scoreOf(f);
-      const nul = deriveNull(scoreSeries, { scale: 'linear', alpha, leaveOut: sc });
-      f.verdict = sc > nul ? 'SYN' : 'NUL';   // beats the noise null → structure; else held
-    }
-    isPeak = (f) => f.verdict === 'SYN';
-  } else {
-    isPeak = (f) => scoreOf(f) > band;
+  // The noise null is the sole arrest rule (docs/segment-by-significance.md — "no
+  // hand-picked threshold where deriveNull can decide") — but the QUESTION each cursor
+  // answers is "is THIS ONE candidate real, against the reach's background," not "is this
+  // the most extreme of N repeated draws": a single decision, the same discipline SEG
+  // itself uses for exactly this shape of question (voidnull.js boundedNull, N=2), not
+  // deriveNull's full multi-comparison correction — which barely loosens across the
+  // realistic range of reach sizes (z≈2.57 at 10 candidates, 2.81 at 21, 3.08 at 50: an
+  // email and this default window are almost equally strict under it) and so silently
+  // starved short/normal-length reaches of any candidate at all. boundedNull's own
+  // fallback (the reach's median, when the derived line can't be trusted) replaces the
+  // old separate median MODE with the median as this primitive's own designed edge case —
+  // "the constant holds only at the edge the physics cannot reach" (voidnull.js), not a
+  // second competing arrest rule.
+  const alpha = Number.isFinite(opts.alpha) ? opts.alpha : 0.05;
+  for (const f of field) {
+    const sc = scoreOf(f);
+    const nul = boundedNull(scoreSeries, { alpha, leaveOut: sc, ceiling: Infinity, fallback: medianOf(scoreSeries) });
+    f.verdict = sc > nul ? 'SYN' : 'NUL';   // beats the noise null → structure; else held
   }
+  const isPeak = (f) => f.verdict === 'SYN';
   // THE CHORUS (opts.chorus, chorus.js). Off (the default) → `chorus` is null and the
-  // incumbent median-rule / void-boundary arrest below runs VERBATIM, byte-identical to
-  // today. On, several rides (significance, novelty, and — with a thread — the relevance
-  // channels) each nominate against their own noise null and merge born-soft; the chorus
-  // returns the stop list, or null to defer to the incumbent arrest when the reach was too
-  // thin to tell signal from chance. A pure read of the field/readings already computed.
+  // void-boundary arrest below runs. On, several rides (significance, novelty, and — with
+  // a thread — the relevance channels) each nominate against their own noise null and
+  // merge born-soft; the chorus returns the stop list, or null to defer to the incumbent
+  // arrest when the reach was too thin to tell signal from chance. A pure read of the
+  // field/readings already computed.
   const chorus = opts.chorus
     ? chorusStops({ field, readings, a, recCursors, maxStops, doc, alpha: alpha ?? 0.05 }, opts)
     : null;
@@ -217,7 +219,7 @@ export const surfFold = (doc, anchor = 0, opts = {}) => {
   let best  = votes.get(focus) || 0;
   for (const [f, v] of votes) if (v > best) { best = v; focus = f; }
 
-  const base = { anchor: a, stops: stopList, peak, focus, field, recCursors, recAxes, rode: chorus ? 'chorus' : (useBoundary ? 'bayesian-void' : 'bayesian-figure') };
+  const base = { anchor: a, stops: stopList, peak, focus, field, recCursors, recAxes, rode: chorus ? 'chorus' : 'bayesian-void' };
 
   // THE SIGNIFICANCE COLUMN (Tracks B/C/D). Off unless activations are supplied AND at
   // least one significance opt is set — so the default surf is byte-identical (the new
