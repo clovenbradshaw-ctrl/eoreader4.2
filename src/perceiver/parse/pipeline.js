@@ -580,15 +580,27 @@ export const createParser = ({
       for (const [label, id] of admission.admitted)
         if (!label.includes(' ')) forms.set(label, (admission.mentions.get(id) || []).length || 1);
       const { fold } = induceInflections(forms);   // the proposer — plain same-stem union, no anchor
-      for (const [form, canonical] of fold) {
-        if (form === canonical) continue;
-        const from = admission.idOf(form), to = admission.idOf(canonical);
-        if (!from || !to || from === to) continue;
-        const A = new Set(sight.get(form) || []), B = new Set(sight.get(canonical) || []);
-        const co = [...A].filter((x) => B.has(x)).length;
-        if (co / Math.max(1, Math.min(A.size, B.size)) >= COMP_VETO) continue;   // they co-occur → distinct
-        log.append({ op: 'SYN', kind: 'same_as?', from, to,
-                     label: canonical, sentIdx: 0, match: 'inflection', warrant: 'declension' });
+      // Group each cluster and name it by its BASE — the LEAST-MARKED form (an oblique only ADDS an
+      // ending, so the base is the shortest; frequency breaks a fusional tie where a nominative is no
+      // shorter than its cases). This is the bare stem in an agglutinative language ("Arana", not the
+      // frequency-topped oblique "Aranaren") and the nominative in a fusional one ("Rostóv").
+      const groups = new Map();
+      for (const [form, canon] of fold) { let g = groups.get(canon); if (!g) groups.set(canon, g = new Set()); g.add(form); g.add(canon); }
+      for (const members of groups.values()) {
+        const base = [...members].sort((a, b) => a.length - b.length || (forms.get(b) || 0) - (forms.get(a) || 0) || (a < b ? -1 : 1))[0];
+        const to = admission.idOf(base);
+        if (!to) continue;
+        const B = new Set(sight.get(base) || []);
+        for (const form of members) {
+          if (form === base) continue;
+          const from = admission.idOf(form);
+          if (!from || from === to) continue;
+          const A = new Set(sight.get(form) || []);
+          const co = [...A].filter((x) => B.has(x)).length;
+          if (co / Math.max(1, Math.min(A.size, B.size)) >= COMP_VETO) continue;   // they co-occur → distinct
+          log.append({ op: 'SYN', kind: 'same_as?', from, to,
+                       label: base, sentIdx: 0, match: 'inflection', warrant: 'declension' });
+        }
       }
     }
 
