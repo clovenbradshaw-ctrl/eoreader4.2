@@ -32,7 +32,13 @@ export const structureSurface = (doc, idxs) => {
   const events = snapshot(doc);
   const label = new Map();
   for (const e of events) if (e.op === 'INS' && !label.has(e.id)) label.set(e.id, e.label);
-  const name = (id) => ({ id, label: label.get(id) || id });
+  // An endpoint is a witnessed FIGURE iff it was instantiated (has an INS record).
+  // np-referent lemma nodes ("home", "meaning"), reified proposition ids, and the
+  // occasional homograph verb that slips into an object slot never carry an INS, so
+  // `figure:false` marks them — the distinction the parser stamps as srcKind/tgtKind
+  // but that this surface used to discard. Figure-level readers (fold/significance)
+  // consume it to stay between real figures; the fine-grained fold still sees all.
+  const name = (id) => ({ id, label: label.get(id) || id, figure: label.has(id) });
 
   const figures = new Map();
   const relations = [];
@@ -48,7 +54,7 @@ export const structureSurface = (doc, idxs) => {
       // the noun (sister → sibling, captain → leads) — null when it doesn't. The
       // type is the projection the relation algebra reasons over; the surface
       // string stays untouched for the notes register.
-      case 'SIG': relations.push({ op: e.op, src: name(e.src), tgt: name(e.tgt), via: e.via, type: typeOf(e.via)?.type || null, polarity: e.polarity || '+', modality: e.modality || 'realis', idx: e.sentIdx }); break;
+      case 'SIG': relations.push({ op: e.op, src: name(e.src), tgt: name(e.tgt), via: e.via, type: typeOf(e.via)?.type || null, srcKind: e.srcKind || null, tgtKind: e.tgtKind || null, coupling: e.w ?? null, confidence: e.confidence ?? null, polarity: e.polarity || '+', modality: e.modality || 'realis', idx: e.sentIdx }); break;
       case 'SYN': if (e.kind === 'merge') merges.push({ from: name(e.from), to: name(e.to), idx: e.sentIdx }); break;
       case 'SEG': if (e.kind === 'retract') splits.push({ refSeq: e.refSeq, idx: e.sentIdx }); break;
     }
