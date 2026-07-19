@@ -8,12 +8,26 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#F4F4F7">
-<script src="vendor/react.production.min.js"></script>
-<script src="vendor/react-dom.production.min.js"></script>
+<!-- Static copies of the dc template's <helmet> resource hints (see <x-dc><helmet> below).
+     The helmet mechanism only injects these into the real <head> once React has mounted and
+     compiled the template — i.e. after react/react-dom/support.js have already downloaded and
+     run. Declaring the SAME hints here up front lets the browser's HTML preload scanner start
+     the font connection/fetch immediately, in parallel with everything else, instead of waiting
+     on the whole boot chain. Harmless duplicate with the helmet-injected copy (identical hrefs). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
+<!-- defer (not a blocking classic <script>) so the HTML parser isn't stalled fetching+running
+     ~140KB of vendor JS before it can even reach the rest of the page; defer preserves this
+     document order (react → react-dom → olm → support.js) and all three still run before the
+     module-deferred boot.js, exactly as before — only the parser stops waiting on them. -->
+<script defer src="vendor/react.production.min.js"></script>
+<script defer src="vendor/react-dom.production.min.js"></script>
 <!-- libolm (vendored) — the Olm/Megolm primitive behind the optional E2EE chat. Sets
      window.Olm; the wasm is fetched lazily on Olm.init() the first time chat opens. -->
 <script defer src="vendor/olm/olm.js"></script>
-<script src="./support.js"></script>
+<script defer src="./support.js"></script>
 <script type="module" src="src/rooms/reader/boot.js"></script>
 <!-- Boot failsafe. The app renders through the dc surface: support.js mounts React
      into #dc-root, replacing the dc template element in the body. If that never
