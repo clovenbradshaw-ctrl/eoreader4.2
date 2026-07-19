@@ -539,11 +539,19 @@ table{border-collapse:collapse;width:100%}
           <div style="text-align:center;padding:30px 20px 8px">
             <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#D2D2DA" stroke-width="1.6" style="margin:0 auto;display:block"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5 5-2z" stroke-linejoin="round"/></svg>
             <div style="font-size:13.5px;font-weight:650;color:#8A8A95;margin-top:12px">Answers cite only your active sources</div>
-            <div style="font-size:12px;color:#A6A6AE;margin-top:4px;line-height:1.45">Type a question above to search the record.</div>
+            <div style="font-size:12px;color:#A6A6AE;margin-top:4px;line-height:1.45">Type a question above to search the record — press ⏎ any time to also pull in the web.</div>
           </div>
         </sc-if>
 
         <sc-if value="{{ mobile.sf.sfAsked }}">
+          <!-- Always visible once a question's been typed — not just when the record comes up
+               thin: search-the-web is a standing option, not a hidden fallback (sfWebGo/sfQuery
+               are always populated, docs/search-and-pins.md's Enter-triggers-web motion made
+               visible instead of needing a reader to discover the keyboard shortcut). -->
+          <button onClick="{{ mobile.sf.sfWebGo }}" style="display:flex;align-items:center;gap:9px;background:#F1EFFE;border:1px solid #DED8FD;border-radius:13px;padding:11px 13px;font-size:12.5px;font-weight:650;color:#5B4BE6;cursor:pointer;font-family:inherit;text-align:left">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5B4BE6" stroke-width="1.8" style="flex:0 0 auto"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Also search the web for {{ mobile.sf.sfWebLabel }}</span>
+          </button>
           <sc-if value="{{ mobile.sf.sfIsResults }}">
             <sc-if value="{{ mobile.sf.sfHasConcepts }}">
               <div style="display:flex;align-items:baseline;gap:7px;padding:2px 2px 0">
@@ -592,11 +600,10 @@ table{border-collapse:collapse;width:100%}
                 </sc-for>
               </div>
             </sc-if>
+            <!-- No separate "search the web" CTA here — the standing button above (right under
+                 the input) already covers it; this just explains why the record came up thin. -->
             <sc-if value="{{ mobile.sf.sfThin }}">
               <div style="text-align:center;padding:20px 10px;color:#9A9AA4;font-size:12.5px;line-height:1.5">{{ mobile.sf.sfThinLabel }}</div>
-              <sc-if value="{{ mobile.sf.sfWebShow }}">
-                <button onClick="{{ mobile.sf.sfWebGo }}" style="background:#fff;border:1px solid #EAEAEF;border-radius:13px;padding:12px;font-size:13px;font-weight:650;color:#5B4BE6;cursor:pointer;font-family:inherit">Search the web for {{ mobile.sf.sfWebLabel }}</button>
-              </sc-if>
             </sc-if>
           </sc-if>
         </sc-if>
@@ -655,7 +662,10 @@ table{border-collapse:collapse;width:100%}
     <!-- SOURCE — the full-screen reader a tap on any source (a card, a finding, an Ask result, an
          entity mention…) opens into. Replaces the five tabs above (mutually exclusive: they're all
          gated on !openSn in _mobileVals) while state.tab holds this source's sn; the header grows a
-         back button and the bottom tab bar's own taps double as a way out too. -->
+         back button and the bottom tab bar's own taps double as a way out too.
+         Reader/Native is a real mode switch (state.viewerModes, shared with desktop); Entities /
+         Surprising / Cast are opt-in overlays on the Reader (mReaderShow, mobile-only, off by
+         default) — see _mobileSourceVM for what each reads and how they stay in sync with desktop. -->
     <sc-if value="{{ mobile.sourceView.active }}">
       <div style="padding:16px 14px 40px;display:flex;flex-direction:column;gap:12px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -667,17 +677,90 @@ table{border-collapse:collapse;width:100%}
             <span style="font-size:11px;color:var(--eo-m-faint)">· {{ mobile.sourceView.countLine }}</span>
           </sc-if>
         </div>
+
         <sc-if value="{{ mobile.sourceView.missing }}">
           <div style="text-align:center;padding:40px 20px;color:var(--eo-m-faint);font-size:13px">This source could not be found.</div>
         </sc-if>
+
         <sc-if value="{{ !mobile.sourceView.missing }}">
-          <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:16px;padding:19px 18px 4px;font-family:'Newsreader',Georgia,serif;font-size:16.5px;line-height:1.75;color:#26262B">
-            <sc-for list="{{ mobile.sourceView.paras }}" as="p">
-              <p ref="{{ p.ref }}" style="{{ p.style }}">{{ p.text }}</p>
-            </sc-for>
-          </div>
-          <sc-if value="{{ mobile.sourceView.parasEmpty }}">
-            <div style="text-align:center;padding:40px 20px;color:var(--eo-m-faint);font-size:13px">No readable text extracted for this source yet.</div>
+          <!-- Reader / Original mode switch — only when this source actually has a native format. -->
+          <sc-if value="{{ mobile.sourceView.hasNative }}">
+            <div style="display:flex;background:#F2F2F6;border-radius:11px;padding:3px;gap:3px">
+              <button onClick="{{ mobile.sourceView.setModeReader }}" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:12.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;background:{{ mobile.sourceView.readerBg }};color:{{ mobile.sourceView.readerFg }}">Reader</button>
+              <button onClick="{{ mobile.sourceView.setModeNative }}" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:12.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;background:{{ mobile.sourceView.nativeBg }};color:{{ mobile.sourceView.nativeFg }}">Original</button>
+            </div>
+          </sc-if>
+
+          <!-- READER — the clear default: plain paragraphs, three opt-in overlays. -->
+          <sc-if value="{{ mobile.sourceView.isReader }}">
+            <div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px">
+              <button onClick="{{ mobile.sourceView.toggleEntities }}" style="flex:0 0 auto;border:none;border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;background:{{ mobile.sourceView.entitiesBg }};color:{{ mobile.sourceView.entitiesFg }}">◉ Entities</button>
+              <button onClick="{{ mobile.sourceView.toggleSurprise }}" style="flex:0 0 auto;border:none;border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;background:{{ mobile.sourceView.surpriseBg }};color:{{ mobile.sourceView.surpriseFg }}">✦ Surprising</button>
+              <button onClick="{{ mobile.sourceView.toggleCast }}" style="flex:0 0 auto;border:none;border-radius:20px;padding:7px 13px;font-size:12.5px;font-weight:650;cursor:pointer;font-family:'Onest',inherit;background:{{ mobile.sourceView.castBg }};color:{{ mobile.sourceView.castFg }}">☰ Cast</button>
+            </div>
+
+            <sc-if value="{{ mobile.sourceView.showCast }}">
+              <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:14px;overflow:hidden">
+                <sc-for list="{{ mobile.sourceView.cast }}" as="c">
+                  <div onClick="{{ c.open }}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--eo-m-canvas);cursor:pointer">
+                    <span style="width:26px;height:26px;border-radius:50%;background:var(--eo-m-accent-tint);color:var(--eo-m-accent);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto">{{ c.fav }}</span>
+                    <span style="flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--eo-m-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.label }}</span>
+                    <span style="font-size:11px;color:var(--eo-m-faint);flex:0 0 auto;white-space:nowrap">{{ c.meta }}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ mobile.sourceView.castEmpty }}">
+                  <div style="padding:16px;text-align:center;color:var(--eo-m-faint);font-size:12.5px">No figures recorded in this source yet.</div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:16px;padding:19px 18px 4px;font-family:'Newsreader',Georgia,serif;font-size:16.5px;line-height:1.75;color:#26262B">
+              <sc-for list="{{ mobile.sourceView.paras }}" as="p">
+                <p ref="{{ p.ref }}" style="{{ p.style }}">
+                  <sc-for list="{{ p.segs }}" as="sg">
+                    <sc-if value="{{ sg.isText }}"><span>{{ sg.s }}</span></sc-if>
+                    <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;background:none;color:#5B4BE6;border-bottom:1px dotted #B9AEF8;font-size:inherit;line-height:inherit;font-family:inherit;cursor:pointer">{{ sg.s }}</button></sc-if>
+                  </sc-for>
+                  <sc-if value="{{ p.surprise }}">
+                    <span style="display:block;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#7A6AE8">✦ {{ p.surpriseReason }} <sc-if value="{{ p.surpriseBits }}">· {{ p.surpriseBits }}</sc-if></span>
+                  </sc-if>
+                </p>
+              </sc-for>
+            </div>
+            <sc-if value="{{ mobile.sourceView.parasEmpty }}">
+              <div style="text-align:center;padding:40px 20px;color:var(--eo-m-faint);font-size:13px">No readable text extracted for this source yet.</div>
+            </sc-if>
+          </sc-if>
+
+          <!-- ORIGINAL — the same fetched page / PDF blob desktop's own Native/PDF modes produce,
+               just a plain iframe over it instead of desktop's toolbar+iframe or canvas surface. -->
+          <sc-if value="{{ mobile.sourceView.isNative }}">
+            <sc-if value="{{ mobile.sourceView.isWeb }}">
+              <sc-if value="{{ mobile.sourceView.nativeBusy }}">
+                <div style="text-align:center;padding:60px 20px;color:var(--eo-m-faint);font-size:13px">Fetching the original page…</div>
+              </sc-if>
+              <sc-if value="{{ mobile.sourceView.hasNativeErr }}">
+                <div style="text-align:center;padding:40px 20px;color:var(--eo-m-danger-fg);font-size:12.5px">{{ mobile.sourceView.nativeErr }}</div>
+              </sc-if>
+              <sc-if value="{{ mobile.sourceView.hasNativeHtml }}">
+                <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:16px;overflow:hidden;height:70vh">
+                  <iframe ref="{{ mobile.sourceView.setNativeFrame }}" srcdoc="{{ mobile.sourceView.nativeHtml }}" sandbox="allow-same-origin allow-popups" referrerpolicy="no-referrer" style="width:100%;height:100%;border:none;display:block;background:#fff"></iframe>
+                </div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ mobile.sourceView.isPdf }}">
+              <sc-if value="{{ mobile.sourceView.pdfBusy }}">
+                <div style="text-align:center;padding:60px 20px;color:var(--eo-m-faint);font-size:13px">Preparing the PDF…</div>
+              </sc-if>
+              <sc-if value="{{ mobile.sourceView.pdfReady }}">
+                <div style="background:#fff;border:1px solid var(--eo-m-border);border-radius:16px;overflow:hidden;height:70vh">
+                  <iframe src="{{ mobile.sourceView.pdfUrl }}" style="width:100%;height:100%;border:none;display:block"></iframe>
+                </div>
+              </sc-if>
+              <sc-if value="{{ mobile.sourceView.pdfUnavailable }}">
+                <div style="text-align:center;padding:40px 20px;color:var(--eo-m-faint);font-size:13px">The original PDF isn't kept for this session — only the extracted reading.</div>
+              </sc-if>
+            </sc-if>
           </sc-if>
         </sc-if>
       </div>
@@ -4897,6 +4980,9 @@ class Component extends DCLogic {
       // source reader (openViewer sets this; mobileBackFromSource reads it). 'topic' (Overview)
       // is a safe default for the case a source opens before any tab was ever visited.
       mReturnTab: 'topic',
+      // The mobile reader's opt-in overlays (entities/surprise/cast), keyed per source sn so
+      // switching sources doesn't carry a stale toggle over. { [sn]: { entities, surprise, cast } }
+      mReaderShow: {},
       // The Add-source sheet's own mode ('tiles' | 'url' | 'text') — kept separate from the shared
       // top omnibar's `omni`/`onOmniSubmit` (index.html:5441) so this sheet always just adds a
       // source; it never falls through to Research Review the way a non-URL omnibar submit does.
@@ -9300,22 +9386,44 @@ class Component extends DCLogic {
         : `Based on ${activeCount} of ${total} topic sources. ${excludedRegs.join(', ')} excluded.`,
     };
   }
-  // A full-screen mobile READING view for one source — plain paragraphs (viewerParas with
-  // entities:false; mobile has no inline panel for entity links to open into), under the same
-  // title/reg/counts its card already shows elsewhere (borrowed from that same card, `cards`,
-  // so the two never disagree). This is what makes every "open a source" handler that's been
-  // wired for desktop all along (Ask results, Findings, entity mentions, the source cards
-  // themselves) actually land somewhere on mobile, instead of silently moving state.tab to a
-  // source id underneath an unchanged screen (see openViewer's mobilePatch/mReturnTab).
+  // A full-screen mobile READING view for one source — a clear Reader (plain paragraphs, opt-in
+  // overlays) plus, when the source has one, its Native original (the same fetched/sanitized page
+  // or PDF blob desktop's own Native/PDF modes already produce — this just points a plain iframe
+  // at it instead of desktop's toolbar+iframe or canvas surface). Title/reg/counts are borrowed
+  // from the same card the Sources/Overview lists already show (`cards`) so the two never
+  // disagree. This is what makes every "open a source" handler that's been wired for desktop all
+  // along (Ask results, Findings, entity mentions, the source cards themselves) actually land
+  // somewhere on mobile, instead of silently moving state.tab to a source id underneath an
+  // unchanged screen (see openViewer's mobilePatch/mReturnTab).
   _mobileSourceVM(sn, cards) {
     const app = this._app;
     const back = () => this.mobileBackFromSource();
     const s = app && app.sourceBySn ? app.sourceBySn(sn) : null;
-    if (!s) return { active: true, missing: true, back, title: 'Source', reg: '', typeLabel: '', icon: '□', countLine: '', paras: [], parasEmpty: true };
+    if (!s) return { active: true, missing: true, back, title: 'Source', reg: '', typeLabel: '', icon: '□', countLine: '', hasNative: false, isReader: true, isNative: false, paras: [], parasEmpty: true, cast: [], castEmpty: true };
     const card = (cards || []).find((c) => c.sn === sn) || {};
+    const kind = String(s.kind || '').toLowerCase();
+    const isPdf = kind === 'pdf';
+    const isWeb = (kind === 'web' || kind === 'html') && !!s.url;
+    const hasNative = isPdf || isWeb;
+
+    // Reader/Native rides desktop's own per-source mode (state.viewerModes) through the SAME
+    // setSourceMode desktop uses — it also kicks off loadPage/loadPdf, and keeps the two shells
+    // agreeing if the same source is later opened on desktop too. A fresh open (openViewer) always
+    // resets to 'overview', which reads as Reader here; 'native'/'pdf' both read as Native.
+    const rawMode = this.state.viewerModes[sn] || 'overview';
+    const isNative = rawMode === 'native' || rawMode === 'pdf';
+
+    // Per-source display toggles — mobile-only overlays on the plain reader (entity links, the
+    // reading's own surprise turns, a cast index), OFF by default so the base reader stays plain;
+    // each is opt-in, namespaced per source so switching sources doesn't carry a stale toggle over.
+    const show = this.state.mReaderShow[sn] || {};
+    const showEntities = !!show.entities, showSurprise = !!show.surprise, showCast = !!show.cast;
+    const toggle = (key) => () => this.setState({ mReaderShow: { ...this.state.mReaderShow, [sn]: { ...show, [key]: !show[key] } } });
+
     const textOf = (p) => String(p && (p.text || p.s || (p.segs && p.segs.map((x) => x.s).join('')) || '') || '').trim();
     let rawParas = [];
-    try { rawParas = app.viewerParas(sn, { entities: false }) || []; } catch { rawParas = []; }
+    try { rawParas = app.viewerParas(sn, { entities: showEntities }) || []; } catch { rawParas = []; }
+
     // A jump-to-passage focus (a Findings quote, a search hit, an entity mention) highlights and
     // auto-scrolls to the FIRST paragraph that contains it — a substring match on normalized text
     // since the focus text and the paragraph text aren't always byte-identical (whitespace, a
@@ -9324,27 +9432,118 @@ class Component extends DCLogic {
     const focusText = String((this.state.viewerFocus || {})[sn] || '').trim();
     const norm = (x) => x.replace(/\s+/g, ' ').toLowerCase();
     const focusNeedle = focusText ? norm(focusText).slice(0, 80) : '';
-    let matched = false;
+
+    // SURPRISE — the reading's own top turning points (eot.turns, the same spine the desktop
+    // waveform draws from), matched to a paragraph by its sentence text rather than by index:
+    // viewerParas splits on blank lines, eot's units are sentences, so the two indices don't align.
+    let surpriseHits = [];
+    if (showSurprise) {
+      try {
+        const eot = app.eotFor ? app.eotFor(sn) : null;
+        const turns = (eot && Array.isArray(eot.turns)) ? eot.turns : [];
+        surpriseHits = turns.slice()
+          .sort((a, b) => Math.max(b.bayesBits || 0, b.surprisalBits || 0) - Math.max(a.bayesBits || 0, a.surprisalBits || 0))
+          .slice(0, 10)
+          .map((t) => ({
+            needle: norm(String(t.sentence || '').trim()).slice(0, 80),
+            reason: (t.surprises && t.surprises[0] && t.surprises[0].text) || '',
+            bits: t.bayesBits != null ? `${t.bayesBits}b Δbelief` : (t.surprisalBits != null ? `${t.surprisalBits}b` : ''),
+          }))
+          .filter((x) => x.needle);
+      } catch { surpriseHits = []; }
+    }
+
     // style is precomputed here, not a template-side ternary — the dc expression evaluator is a
     // small hand-rolled one (no ternaries/string-building), same reason _mobileVals precomputes
     // submitOpacity/submitDisabled for the Add-source sheet instead of inlining `!x` there.
     const PSTYLE = 'margin:0 0 16px';
     const PSTYLE_FOCUS = 'margin:0 0 16px;background:#FAEEDA;border-radius:6px;padding:8px 10px 8px 12px;margin-left:-12px;margin-right:-12px;box-shadow:0 0 0 1px #F0DFC0';
+    const PSTYLE_SURPRISE = 'margin:0 0 16px;background:#F1EFFE;border-radius:6px;padding:8px 10px 8px 12px;margin-left:-12px;margin-right:-12px;box-shadow:0 0 0 1px #DED8FD';
+    let matchedFocus = false;
+    const usedSurprise = new Set();
     const paras = rawParas.map((p) => {
       const text = textOf(p);
-      const isFocus = !matched && !!focusNeedle && norm(text).includes(focusNeedle);
-      if (isFocus) matched = true;
+      const normText = norm(text);
+      const isFocus = !matchedFocus && !!focusNeedle && normText.includes(focusNeedle);
+      if (isFocus) matchedFocus = true;
+      let surpriseHit = null;
+      if (!isFocus && showSurprise) {
+        const i = surpriseHits.findIndex((h, hi) => !usedSurprise.has(hi) && normText.includes(h.needle));
+        if (i >= 0) { surpriseHit = surpriseHits[i]; usedSurprise.add(i); }
+      }
+      // Same seg shape (isEnt/isText) the desktop Document and Facing leaves already render —
+      // segs always populate (a single plain run when Entities is off) so the template has one
+      // uniform sc-for regardless of the toggle.
+      const segs = (showEntities && Array.isArray(p.segs))
+        ? p.segs.map((sg) => sg.t === 'ent'
+          ? { isEnt: true, isText: false, s: sg.s, open: () => this.openEntity(sg.docId, sg.entId) }
+          : { isEnt: false, isText: true, s: sg.s })
+        : [{ isEnt: false, isText: true, s: text }];
       return {
-        text, focus: isFocus, cited: !!p.cited, style: isFocus ? PSTYLE_FOCUS : PSTYLE,
+        text, segs, focus: isFocus, surprise: !!surpriseHit,
+        surpriseReason: surpriseHit ? surpriseHit.reason : '', surpriseBits: surpriseHit ? surpriseHit.bits : '',
+        style: isFocus ? PSTYLE_FOCUS : (surpriseHit ? PSTYLE_SURPRISE : PSTYLE),
         ref: (el) => { if (isFocus) this._mobileScrollToFocus(el, sn + ':' + focusNeedle); },
       };
     }).filter((p) => p.text);
+
+    // CAST — this source's own entity index (app.sourceEntities), the same rows the desktop
+    // source-index panel reads, capped for a phone screen; each opens the shared entity sheet.
+    let cast = [];
+    if (showCast) {
+      try {
+        cast = (app.sourceEntities ? app.sourceEntities(sn) : [])
+          .slice().sort((a, b) => ((b.mentions || 0) + (b.links || 0)) - ((a.mentions || 0) + (a.links || 0)))
+          .slice(0, 24)
+          .map((e) => ({
+            label: e.label, fav: (e.label || 'E').trim().charAt(0).toUpperCase(),
+            meta: `${e.mentions || 0} mention${(e.mentions || 0) === 1 ? '' : 's'}`,
+            open: (e.docId != null && e.entId != null) ? (() => this.openEntity(e.docId, e.entId)) : (() => {}),
+          }));
+      } catch { cast = []; }
+    }
+
+    // NATIVE — the web page reuses setNativeFrame verbatim (the same ref desktop's Native iframe
+    // uses): it decorates the fetched page in place with entity links + cited-passage marking and
+    // in-app link-following, all keyed off _activeSrc()/entityMode, neither of which is desktop-
+    // specific. A PDF skips desktop's canvas surface (built for a wide toolbar+page layout) for a
+    // plain iframe over the same blob URL — mobile browsers already render PDFs natively in one.
+    const pageState = this.state.viewerPages[sn] || {};
+    const nativeBusy = isWeb && !!pageState.busy;
+    const nativeErr = isWeb ? (pageState.err || '') : '';
+    const nativeHtml = isWeb ? (pageState.doc || '') : '';
+    const pdfReady = isPdf && !!s._pdfUrl;
+    const pdfBusy = isPdf && !pdfReady && !!(app.pdfRenderable && app.pdfRenderable(s));
+
+    // Colors are precomputed pairs (active/inactive), not template-side ternaries — same reason
+    // the style strings above are. readerFg/nativeFg mirror the segmented-control pattern; the
+    // three overlay chips mirror the Sources-tab kind filter's pill (kindItems, above).
+    const chipOn = { bg: 'var(--eo-m-accent-tint)', fg: 'var(--eo-m-accent)' };
+    const chipOff = { bg: '#F2F2F6', fg: '#5A5A64' };
+    const segOn = { bg: '#fff', fg: '#19191F' };
+    const segOff = { bg: 'transparent', fg: '#8A8A95' };
     return {
       active: true, missing: false, back,
       sn, title: s.title || s.domain || s.url || card.title || ('Source ' + sn),
       reg: s.reg || card.reg || '', typeLabel: card.typeLabel || '', icon: card.icon || '□',
       countLine: card.countLine || '',
+      hasNative, isReader: !isNative, isNative,
+      setModeReader: () => this.setSourceMode('reader'),
+      setModeNative: () => this.setSourceMode(isPdf ? 'pdf' : 'native'),
+      readerBg: (isNative ? segOff : segOn).bg, readerFg: (isNative ? segOff : segOn).fg,
+      nativeBg: (isNative ? segOn : segOff).bg, nativeFg: (isNative ? segOn : segOff).fg,
+      showEntities, toggleEntities: toggle('entities'),
+      entitiesBg: (showEntities ? chipOn : chipOff).bg, entitiesFg: (showEntities ? chipOn : chipOff).fg,
+      showSurprise, toggleSurprise: toggle('surprise'),
+      surpriseBg: (showSurprise ? chipOn : chipOff).bg, surpriseFg: (showSurprise ? chipOn : chipOff).fg,
+      showCast, toggleCast: toggle('cast'),
+      castBg: (showCast ? chipOn : chipOff).bg, castFg: (showCast ? chipOn : chipOff).fg,
+      cast, castEmpty: showCast && cast.length === 0,
       paras, parasEmpty: paras.length === 0,
+      isPdf, isWeb, setNativeFrame: (el) => this.setNativeFrame(el),
+      nativeBusy, hasNativeErr: !!nativeErr, nativeErr, nativeHtml, hasNativeHtml: !!nativeHtml,
+      pdfReady, pdfBusy, pdfUrl: pdfReady ? s._pdfUrl : '',
+      pdfUnavailable: isPdf && !pdfReady && !pdfBusy,
     };
   }
   // The entity profile, mobile-shaped: reuses _profFor — the SAME builder the desktop sidebar and
