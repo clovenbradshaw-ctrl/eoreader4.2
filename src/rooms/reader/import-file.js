@@ -76,7 +76,23 @@ export async function importAnyFile(file, opts = {}) {
   // a clean born-digital page takes the text-layer-only fast path. Geometry kept as spans.
   if (mime === 'application/pdf' || ext === 'pdf') {
     say('Reading the PDF…');
-    return await fromPdf(file, title, name, say, opts);
+    try { return await fromPdf(file, title, name, say, opts); }
+    catch (e) {
+      // pdf.js is a browser-side, CDN-loaded extractor. If that loader is offline/blocked (or a
+      // browser refuses the worker module), the import must still LAND as a PDF source: the original
+      // bytes are preserved by app/paper.js for the PDF surface, and the universal byte reader gives
+      // the record a fixity-backed floor instead of failing the whole ingestion.
+      say('PDF text extraction is unavailable — recording the PDF bytes…');
+      const got = await fromBinary(file, title, name, mime || 'application/pdf');
+      const reason = `PDF text extraction unavailable: ${String(e?.message || e).slice(0, 140)}`;
+      return { ...got, meta: {
+        ...got.meta,
+        modality: 'pdf',
+        extraction: 'binary-fallback',
+        coverage: { ...(got.meta?.coverage || {}), complete: false,
+          dropped: [...(got.meta?.coverage?.dropped || []), reason] },
+      } };
+    }
   }
 
   // Spreadsheet — SheetJS rows; CSV/TSV — Papaparse (table organ).
