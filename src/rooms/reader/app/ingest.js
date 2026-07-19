@@ -11,6 +11,7 @@ import { fetchYoutubeTranscript, youtubeIdOf } from '../../../organs/ingest/inde
 import { LIBRARIES, surfaceCard } from '../../../organs/ingest/index.js';
 import { FULL_TEXT } from './net.js';
 import { nowIso, domainOf } from './util.js';
+import { fetchFeedSource, ingestFeed as runIngestFeed, isFeed } from './feed.js';
 
 export const installIngest = (appCtx) => {
   const { client, emit, logIt, state } = appCtx;
@@ -76,7 +77,13 @@ export const installIngest = (appCtx) => {
           if (src) return src;
           throw new Error('No captions available for this video — YouTube may not have any, or is briefly blocking the fetch. Try again shortly.');
         }
+        const feedSrc = await fetchFeedSource(appCtx, norm, { client, signal });
+        if (feedSrc) { appCtx.settleJob(jid, 'done'); return feedSrc; }
         const raw = (await client.fetchUrl(norm, { signal })).text;
+        if (isFeed(raw)) {
+          const src = await fetchFeedSource(appCtx, norm, { client, signal, raw });
+          if (src) { appCtx.settleJob(jid, 'done'); return src; }
+        }
         const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
         const text = htmlToText(raw);
         const { doc, record } = admitWebSource({ url: norm, title, text, fetched_at: nowIso(), engine: 'feed-proxy' });
@@ -90,9 +97,6 @@ export const installIngest = (appCtx) => {
     });
   };
 
-  // Each hit is dressed in the CUSTOMIZED SURFACE its kind of thing deserves (libraries.js): an
-  // article card, a book card, a media card, a code card — `it.surface` is what the results list
-  // paints. Additive: the raw item fields are untouched, so recordHit/preview still read them.
   const dress = (items) => (items || []).map((it) => ({ ...it, surface: surfaceCard(it) }));
 
   const search = (query, { kind = 'auto', k = 8 } = {}) =>
@@ -102,9 +106,6 @@ export const installIngest = (appCtx) => {
       return dress(items);
     });
 
-  // searchLibrary(libId, query) → search ONE named shelf (wikipedia · gutenberg · commons · github)
-  // on its own kind, so the reader gets the media grid / book list / repo list that shelf is for,
-  // not the auto-routed grab-bag. Returns dressed hits; the surface renders them by `it.surface`.
   const searchLibrary = (libId, query, { k = 12 } = {}) => {
     const lib = LIBRARIES[libId];
     return search(query, { kind: lib ? lib.kind : 'auto', k });
@@ -126,6 +127,8 @@ export const installIngest = (appCtx) => {
         });
       } catch { return null; /* dup — the codebase still read */ }
     });
+
+  const ingestFeed = (url) => runIngestFeed(appCtx, url);
 
   const recordHit = (item, query = null) =>
     runCancellable({ kind: 'fetch', label: `Reading ${item.title || item.url}…` }, async (signal) => {
@@ -245,5 +248,5 @@ export const installIngest = (appCtx) => {
   // Louis-vs-Neil separation the bag-of-words frame could never make (drops the off-topic sources).
   const walkEmbed = () => (appCtx.minilm?.isWarm?.() ? (t) => appCtx.minilm.embed(t) : null);
 
-  Object.assign(appCtx, { fetchPage, ingestRepo, ingestUrl, navigatePage, recordHit, runCancellable, saveWalkDoc, search, searchLibrary, setBusy, sourceToggleCollapse, walkEmbed, webSearchAdmit });
+  Object.assign(appCtx, { fetchPage, ingestFeed, ingestRepo, ingestUrl, navigatePage, recordHit, runCancellable, saveWalkDoc, search, searchLibrary, setBusy, sourceToggleCollapse, walkEmbed, webSearchAdmit });
 };
