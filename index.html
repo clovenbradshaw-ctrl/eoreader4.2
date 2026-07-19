@@ -4841,11 +4841,18 @@ class Component extends DCLogic {
     this._reveal = {}; this._typeRaf = null; this._typeLast = 0;
     this._chatStick = true;   // is the chat parked at the live bottom? (drives stream auto-scroll)
     try { this._rmq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(prefers-reduced-motion: reduce)') : null; } catch { this._rmq = null; }
-    this._app = (typeof window !== 'undefined' && window.EO && window.EO.app) || null;
-    this._render = (typeof window !== 'undefined' && window.EO && window.EO.readerRender) || null;
-    this._matrix = (typeof window !== 'undefined' && window.EO && window.EO.matrix) || null;
-    this._genome = (typeof window !== 'undefined' && window.EO && window.EO.genome) || null;
-    this._murmur = (typeof window !== 'undefined' && window.EO && window.EO.murmur) || null;
+    // The engine bridge (window.EO) is published by boot.js — a module script whose graph can resolve
+    // AFTER this surface has already mounted (support.js boots the DC surface the moment it parses).
+    // So these handles must not be captured once-and-final: if the bridge isn't up yet they stay null
+    // and _adoptEngine() (run below, again on mount, and on the 'eo:ready' signal boot.js fires) wires
+    // them the instant window.EO exists. Without this the surface latched this._app = null forever and
+    // never left the "Engine booting…" state — a blank page once the shell became isDesktop-gated.
+    this._app = null;
+    this._render = null;
+    this._matrix = null;
+    this._genome = null;
+    this._murmur = null;
+    this._engineAdopted = false;
     // The murmur strip's native-EOT vocabulary — the canonical glyphs (core/operators.js) and the
     // per-feeling ink the prose is tinted by. The tuple's op/sites/res come off the murmur snapshot
     // (voice.js); these only DRAW it. Kept off the render path (instance maps, set once).
@@ -4865,23 +4872,46 @@ class Component extends DCLogic {
     };
     this._mmStrip = null;       // the live EoMurmurStrip controller (built on mount, torn down on hide)
     this._mmLastState = null;   // the last murmur snapshot, so a late-mounting strip can seed itself
-    if (this._app) {
-      this._app.subscribe((kind) => this._onEngine(kind));
-      if (window.EO.audit && window.EO.audit.subscribe) window.EO.audit.subscribe(() => this._poke());
-      // hand the engine the persisted murmur mode so the at-rest wander gates on it from boot
-      try { if (this._app.setMurmurMode) this._app.setMurmurMode(this._murmurMode()); } catch { /* engine optional */ }
-    }
     // The topic whose entities the surface last showed — _onEngine compares against it so a
     // real topic change (new/switch/delete) drops the entity selection, while a mere rename
-    // (same active topic, same 'topics' emit) leaves an open profile alone.
-    this._topicSeen = this._app && this._app.state ? this._app.state.activeTopicId : null;
+    // (same active topic, same 'topics' emit) leaves an open profile alone. Seeded in _adoptEngine.
+    this._topicSeen = null;
+    // Wire the engine now if the bridge is already up; otherwise adopt it when boot.js signals ready
+    // (and once more on mount, as an idempotent backstop). _engineAdopted keeps every path single-shot.
+    this._adoptEngine();
+    if (!this._engineAdopted && typeof window !== 'undefined') {
+      this._onEoReady = () => this._adoptEngine();
+      window.addEventListener('eo:ready', this._onEoReady);
+    }
+    this._wireDom();
+  }
+
+  // Bind the surface to the engine bridge (window.EO) once it exists. Idempotent — the constructor,
+  // componentDidMount, and the 'eo:ready' event may all reach here, but only the first call with a
+  // live bridge wires the subscriptions; the rest are no-ops. A late adoption ends with a _poke() so
+  // the surface leaves its "Engine booting…" placeholder and paints the real reader.
+  _adoptEngine() {
+    if (this._engineAdopted) return;
+    if (typeof window === 'undefined' || !window.EO || !window.EO.app) return;
+    this._engineAdopted = true;
+    this._app = window.EO.app;
+    this._render = window.EO.readerRender || null;
+    this._matrix = window.EO.matrix || null;
+    this._genome = window.EO.genome || null;
+    this._murmur = window.EO.murmur || null;
+    this._app.subscribe((kind) => this._onEngine(kind));
+    if (window.EO.audit && window.EO.audit.subscribe) window.EO.audit.subscribe(() => this._poke());
+    // hand the engine the persisted murmur mode so the at-rest wander gates on it from boot
+    try { if (this._app.setMurmurMode) this._app.setMurmurMode(this._murmurMode()); } catch { /* engine optional */ }
+    this._topicSeen = this._app.state ? this._app.state.activeTopicId : null;
     if (this._matrix && this._matrix.subscribe) this._matrix.subscribe(() => this._poke());
     if (this._genome && this._genome.subscribe) this._genome.subscribe(() => this._poke());
     // The murmur strip feeds off the peripheral sense as it raises impressions (once per turn's fold
     // stop, plus at-rest wander mutters). Off the critical path — the snapshot flows straight to the
     // canvas controller (feed), and a light poke keeps the Settings learn-count fresh. Never a turn cost.
     if (this._murmur && this._murmur.subscribe) this._murmur.subscribe((s) => this._onMurmur(s));
-    this._wireDom();
+    if (this._onEoReady && typeof window !== 'undefined') { window.removeEventListener('eo:ready', this._onEoReady); this._onEoReady = null; }
+    this._poke();
   }
 
   _pref(k, dflt) { try { const v = localStorage.getItem(k); return v == null ? dflt : v === '1'; } catch { return dflt; } }
@@ -5321,6 +5351,9 @@ class Component extends DCLogic {
   }
   componentDidMount() {
     if (typeof window === 'undefined') return;
+    // Backstop for the boot race: if the engine bridge came up between construction and mount
+    // (so the 'eo:ready' listener was added a beat too late), bind to it now. Idempotent.
+    this._adoptEngine();
     this._onPopStateBound = () => this._onPopState();
     window.addEventListener('popstate', this._onPopStateBound);
     // If the engine already finished its IndexedDB restore before this mounted, _onEngine('ready')
@@ -5333,8 +5366,9 @@ class Component extends DCLogic {
     if (route) this._applyRoute(route);
   }
   componentWillUnmount() {
-    if (typeof window === 'undefined' || !this._onPopStateBound) return;
-    window.removeEventListener('popstate', this._onPopStateBound);
+    if (typeof window === 'undefined') return;
+    if (this._onEoReady) { window.removeEventListener('eo:ready', this._onEoReady); this._onEoReady = null; }
+    if (this._onPopStateBound) window.removeEventListener('popstate', this._onPopStateBound);
   }
 
   _ensureFileInput() {
@@ -10874,6 +10908,9 @@ class Component extends DCLogic {
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Something broke in the surface', sub: String(err && err.message || err), chip: '!' },
         crumb: { show: false },
+        // Without isMobile/isDesktop the shell's gates are both false and this error state renders as a
+        // blank page instead of the message above — carry them so the failure is at least visible.
+        isMobile: !!this.state.isMobile, isDesktop: !this.state.isMobile,
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', omniAttach: () => {}, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         mainDisplay: 'flex', rightWidth: '340px', rightFlex: '0 0 auto', rightBorder: '1px solid #EAEAEF', rightBodyPad: '14px 16px', rightBodyMax: 'none', rightBodyMargin: '0',
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
@@ -10889,6 +10926,10 @@ class Component extends DCLogic {
         workspaces: [], wsMenuOpen: false, wsName: 'Workspace', wsInitial: '·', wsDot: '#6D5EF5', wsShared: false,
         status: { title: 'Engine booting…', sub: 'Starting EO Reader…', chip: '…' },
         crumb: { show: false },
+        // The shell is isMobile/isDesktop-gated (mobile card UI vs desktop drawers). A fallback that
+        // omitted these left BOTH gates false and rendered nothing — a blank page during boot. Carry
+        // them so the booting placeholder paints in the right shell.
+        isMobile: !!st.isMobile, isDesktop: !st.isMobile,
         statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, omniAttach: () => this.pickFile(), chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
         statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };

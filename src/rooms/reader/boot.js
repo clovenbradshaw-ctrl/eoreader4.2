@@ -375,6 +375,9 @@ window.EO = Object.freeze({
 });
 
 console.info('[EO] engine bridge up — window.EO', Object.keys(window.EO));
+// Signal any DC surface that support.js mounted before this deferred module ran (it captured a null
+// engine and waits on 'eo:ready' to bind to window.EO). A later-mounting surface reads window.EO direct.
+try { if (typeof window !== 'undefined' && window.dispatchEvent) window.dispatchEvent(new Event('eo:ready')); } catch { /* no window (tests/node) */ }
 
 // Drop the floating E2EE-chat launcher into the page. It stays hidden until a Matrix
 // session is live (reusing the archive login) and never touches the reader surface.
