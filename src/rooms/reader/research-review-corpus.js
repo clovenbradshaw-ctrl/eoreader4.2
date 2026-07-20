@@ -17,7 +17,7 @@ import {
 import { evidenceMatrix as buildEvidenceMatrix } from './research-review-matrix.js';
 import { tok } from '../../perceiver/parse/index.js';
 import { bornSalience } from '../../surfer/index.js';
-import { deriveNull } from '../../core/index.js';
+import { boundedNull } from '../../core/index.js';
 
 // ── corpus stats (the header count AND the selected-corpus preview share this) ───────────────
 
@@ -161,67 +161,85 @@ export const gapSearchQueries = (baseQuery, area) => {
 
 // ── the lead excerpt (an answer-first read, model-free) ──────────────────────────────────────
 
-// leadExcerpt(rows, query, max) → { sn, title, domain, url, text, truncated, confident } | null —
-// the opening of the candidate whose OWN TEXT actually clears the query's Born salience floor,
-// quoted verbatim, cut near `max` chars at a sentence boundary. Ranking is the SAME token-space
-// Born rule the surfer already runs against a conversation thread (surfer/salience.js
-// bornSalience: |cosine(query, candidate)|² in the discrete term space — embedder-free, no
-// frontier model). The query becomes a one-shot "thread"; each candidate's title + the window
-// that would actually be quoted is its span. Blind rank-0 picking used to be the whole rule (rows[0]
-// off the search engine's own order) — that is exactly how an unrelated top hit ("Who's on First?"
-// for "who was the first Black Canadian president?") could win: nothing ever checked it against
-// the question.
+// leadExcerpt(rows, query, max) → { sn, title, domain, url, text, truncated, confident, onTopic } |
+// null — the opening of the candidate whose OWN TEXT actually clears the query's Born salience void
+// boundary, quoted verbatim, cut near `max` chars at a sentence boundary. Ranking is the SAME
+// token-space Born rule the surfer already runs against a conversation thread (surfer/index.js
+// bornSalience: |cosine(query, candidate)|² in the discrete term space — embedder-free, no frontier
+// model). Blind rank-0 picking used to be the whole rule (rows[0] off the search engine's own
+// order) — that is exactly how an unrelated top hit ("Who's on First?" for "who was the first Black
+// Canadian president?") could win: nothing ever checked it against the question.
 //
-// `confident` is the SAME admission test core/voidnull.js runs everywhere else in this codebase
-// (deriveNull, the Born/null rule): the winner must clear the noise floor derived from the OTHER
-// candidates' scores (leave-one-out), not merely be the biggest score in a field that is all noise.
-// A thin candidate set (<4 background samples) or a query with no salient terms abstains
-// (`confident: false`) rather than asserting a guess — the void discipline this app holds
-// everywhere else. `confident: false` is the caller's signal that a mechanical term-space read
-// could not clear the bar here and a real semantic judgment (a warmed local model, scored as an
-// entailment check — never a generator) is what closing the gap would take.
-// bestSentenceSpan(basis, title, text) → the highest bornSalience across the candidate's OWN
-// sentences (the title folded into each), rather than one score for the whole text. Scoring the
-// whole document penalizes a longer, more detailed source purely for carrying more vocabulary (the
-// Born rule's cosine divides by span size, so a one-sentence candidate would always out-score a
-// three-sentence one even when both actually address the query equally) — comparing at
-// sentence-span granularity is what salienceField already does elsewhere for exactly this reason.
-const bestSentenceSpan = (basis, title, text) => {
-  const sentences = String(text || '').split(/(?<=[.!?])\s+/).filter(Boolean);
-  if (!sentences.length) sentences.push(String(text || ''));
-  let best = 0;
-  for (const s of sentences) {
-    const score = bornSalience(basis, tok(`${title || ''} ${s}`));
-    if (score > best) best = score;
-  }
-  return best;
-};
-
+// `confident` is the SAME salience-vs-void admission test surfer/chorus.js already runs for every
+// ride in its chorus: boundedNull (core/voidnull.js) over a bounded [0,1] Born score, derived over
+// the WHOLE REACH — every sentence in every reviewed candidate, not just one best-per-candidate
+// score. This matters, and an earlier version of this function got it wrong: comparing the winner
+// only against the OTHER CANDIDATES' single best scores starves the null of its real background and
+// can be fooled the moment the whole reviewed set shares generic vocabulary ("first", "president"
+// appear on every president-related page regardless of country) — the least-generic member of a
+// uniformly off-topic field can still look like a relative standout with nothing to compare it
+// against. Scored over every sentence instead, the low/zero-scoring ones (chorus.js's own words)
+// "ARE the non-aligned bulk the Born-rule void boundary is defined against" — a sentence that merely
+// echoes vocabulary common across the whole reach sits INSIDE that bulk, not above it, because many
+// other sentences (in this candidate and others) score just as unremarkably.
+//
+// `onTopic` is looser than `confident`: at least some real, nonzero salience exists, even if it
+// never separated from the void — the caller's cue to frame the excerpt as a best-effort read
+// ("of what was reviewed, this looks closest") rather than either a settled answer or a flat void.
+// A thin reach, a query with no salient terms, or a corpus with no real signal at all abstains
+// (`confident: false`, `onTopic` reflecting whatever nonzero salience remains) rather than asserting
+// a guess — the void discipline this app holds everywhere else.
 export const leadExcerpt = (rows, query = '', max = 600) => {
   const candidates = (rows || []).filter((r) => r && String(r.text || '').trim().length > 40);
   if (!candidates.length) return null;
 
+  // salientTokens(text) → tok(), minus the WH-words, minus a crude plural 's'. Two fixes tok() alone
+  // doesn't give a QUESTION matcher:
+  //   · WH-words ("who", "what", "where"…) are not in tok()'s stopword list (they carry real
+  //     content elsewhere — "the reason why"), but a QUESTION's "who" names no topic, and the same
+  //     literal word turns up constantly as an ordinary relative pronoun in unrelated prose ("a
+  //     statesman WHO served…") — left in, it hands a wrong candidate free credit for a query word
+  //     it never actually addressed.
+  //   · tok() does no stemming, so the query's "canadian" and a candidate's own "Canadians" are
+  //     different tokens and never match at all — a real match reads as no overlap. Stripping a
+  //     trailing 's' (never on short words or a double-s) is the smallest fix that closes it without
+  //     inventing a stemmer.
+  const WH = new Set(['who', 'what', 'where', 'when', 'which', 'how', 'why', 'whom', 'whose']);
+  const singularize = (t) => (t.length > 4 && t.endsWith('s') && !t.endsWith('ss') ? t.slice(0, -1) : t);
+  const salientTokens = (text) => tok(text).filter((t) => !WH.has(t)).map(singularize);
+
   const basis = new Map();
-  for (const t of tok(query)) basis.set(t, (basis.get(t) || 0) + 1);
+  for (const t of salientTokens(query)) basis.set(t, (basis.get(t) || 0) + 1);
 
-  const scores = candidates.map((row) => bestSentenceSpan(basis, row.title, row.text));
-  let best = 0;
-  for (let i = 1; i < scores.length; i++) if (scores[i] > scores[best]) best = i;
+  // The reach: every sentence of every reviewed candidate (title folded into each), each scored
+  // against the query — the same span granularity salienceField already uses elsewhere, so a
+  // three-sentence source is never penalized relative to a one-sentence one purely for carrying
+  // more vocabulary (the Born rule's cosine divides by span size).
+  const reach = [];
+  for (let ci = 0; ci < candidates.length; ci++) {
+    const row = candidates[ci];
+    const sentences = String(row.text).trim().split(/(?<=[.!?])\s+/).filter(Boolean);
+    if (!sentences.length) sentences.push(String(row.text).trim());
+    for (const s of sentences) reach.push({ ci, score: bornSalience(basis, salientTokens(`${row.title || ''} ${s}`)) });
+  }
 
-  const background = scores.filter((_, i) => i !== best);
-  const floor = deriveNull(background, { scale: 'linear' });
-  const confident = basis.size > 0 && scores[best] > 0 && scores[best] >= floor;
+  let bestAt = 0;
+  for (let i = 1; i < reach.length; i++) if (reach[i].score > reach[bestAt].score) bestAt = i;
+  const bestScore = reach[bestAt].score;
+  const floor = boundedNull(reach.map((r) => r.score), { ceiling: 1, fallback: Infinity });
+  const confident = basis.size > 0 && bestScore > 0 && bestScore > floor;
+  const onTopic = basis.size > 0 && bestScore > 0;
 
-  const row = candidates[best];
+  const row = candidates[reach[bestAt].ci];
   const text = String(row.text).trim();
-  if (text.length <= max) return { sn: row.sn, title: row.title, domain: row.domain, url: row.url, text, truncated: false, confident };
+  if (text.length <= max) return { sn: row.sn, title: row.title, domain: row.domain, url: row.url, text, truncated: false, confident, onTopic };
   const win = text.slice(0, max);
   const sentEnd = /[.!?](?=[)\]"'”’]?\s)/g;
   let cut = -1, m;
   while ((m = sentEnd.exec(win))) cut = m.index + 1;
   if (cut < max * 0.4) cut = win.lastIndexOf(' ');
   if (cut <= 0) cut = win.length;
-  return { sn: row.sn, title: row.title, domain: row.domain, url: row.url, text: text.slice(0, cut).trim(), truncated: true, confident };
+  return { sn: row.sn, title: row.title, domain: row.domain, url: row.url, text: text.slice(0, cut).trim(), truncated: true, confident, onTopic };
 };
 
 // ── the one entrance ─────────────────────────────────────────────────────────────────────────

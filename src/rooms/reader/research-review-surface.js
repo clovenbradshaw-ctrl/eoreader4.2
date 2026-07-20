@@ -46,24 +46,32 @@ const ledgerFromView = (view) => {
 // evidenceMatrix's proposition rows has only a term-cluster label to show ("american · armstrong ·
 // first"), not a sentence.
 //
-// `answer.confident` is leadExcerpt's own admission test (deriveNull over the OTHER candidates'
-// scores) — when it did not clear, this is a mechanical BEST GUESS, not a settled read, and says so
-// rather than dressing a guess as an answer. `verify` (optional: { verifying, onVerify }) offers the
-// one bounded, user-triggered escalation this app allows: a local model asked a single yes/no
-// classification against this EXACT excerpt (app/research-review-actions.js reviewVerifyAnswer) —
-// it may confirm or refute the badge, never rewrite the quoted text.
+// `answer.confident` is leadExcerpt's own salience-vs-void admission test (boundedNull over the
+// WHOLE reviewed reach) — when it did not clear, this is a mechanical BEST GUESS, not a settled
+// read, and is framed that way rather than dressed up as an answer: the kicker and caption shift to
+// "of what was reviewed, this reads closest" — a reader describing their own best-effort pick, not
+// an error banner. `answer.onTopic` (real, nonzero salience, even without clearing the void)
+// distinguishes "this is the field's closest lead" from a corpus that shares no vocabulary with the
+// question at all. `verify` (optional: { verifying, onVerify }) offers the one bounded,
+// user-triggered escalation this app allows: the local model WEIGHING this exact field
+// (app/research-review-actions.js reviewVerifyAnswer) — it may confirm or refute the badge, never
+// rewrite the quoted text.
 const renderAnswerExcerpt = (doc, answer, onOpenSource, verify = null) => {
   const box = el(doc, 'div', 'eo-rr__answer');
-  box.appendChild(el(doc, 'div', 'eo-rr__answerKicker', 'IN THE SOURCE’S OWN WORDS'));
+  const kicker = answer.confident ? 'IN THE SOURCE’S OWN WORDS' : 'OF WHAT WAS REVIEWED, THIS READS CLOSEST';
+  box.appendChild(el(doc, 'div', 'eo-rr__answerKicker', kicker));
   box.appendChild(el(doc, 'p', 'eo-rr__answerText', answer.text + (answer.truncated ? '…' : '')));
   const attrLabel = [answer.title, answer.domain].filter(Boolean).join(' · ') || answer.sn;
   const attr = el(doc, 'button', 'eo-rr__answerSrc', attrLabel);
   attr.addEventListener('click', () => { if (onOpenSource) onOpenSource(answer.sn); });
   box.appendChild(attr);
   if (!answer.confident) {
-    box.appendChild(el(doc, 'div', 'eo-rr__caution', answer.modelChecked
-      ? 'The local model could not confirm this passage answers the question — read it as a lead, not a verdict.'
-      : 'Unconfirmed match — a term-overlap read could not confirm this source answers the question.'));
+    const caption = answer.modelChecked
+      ? 'The local model could not confirm this passage answers the question — read it as the closest lead, not a verdict.'
+      : answer.onTopic
+        ? 'This is the closest a term-overlap read found among what was reviewed — not a confirmed answer, worth a second look.'
+        : 'Nothing reviewed appears to address this question directly — this is the least-unrelated source on hand.';
+    box.appendChild(el(doc, 'div', 'eo-rr__caution', caption));
     if (!answer.modelChecked && verify && verify.onVerify) {
       const btn = el(doc, 'button', 'eo-rr__btn eo-rr__btn--sm', verify.verifying ? 'Checking…' : 'Check with local model');
       btn.disabled = !!verify.verifying;
