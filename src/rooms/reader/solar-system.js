@@ -60,6 +60,7 @@ const CSS = `
 .eo-ss .ss-glyph{paint-order:stroke;stroke:var(--card,#fff);stroke-width:3px;stroke-linejoin:round;pointer-events:none;font-family:var(--mono,ui-monospace,Menlo,monospace);}
 .eo-ss .ss-body{cursor:pointer;}
 .eo-ss .ss-span{cursor:pointer;}
+.eo-ss .ss-span:hover td{background:var(--app,#f4f5f7);}
 .eo-ss input[type=range].ss-scrub{width:110px;accent-color:var(--ink,#15181e);cursor:pointer;height:4px;}
 `;
 
@@ -138,6 +139,7 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
           '<marker data-marker markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L5,3 L0,6 Z" fill="#B4B2A9"/></marker></defs>' +
         '<g data-pan><g data-stage class="ss-stage"></g></g>' +
       '</svg>' +
+      '<div data-tablewrap style="display:none;padding:14px 16px;overflow:auto;"></div>' +
     '</div>' +
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:9px;padding:9px 13px;border-top:1px solid var(--line,#e5e7eb);background:var(--app,#f7f8fb);font-size:12px;color:var(--ink2,#555);min-height:20px;">' +
       '<div data-detail style="display:flex;align-items:center;gap:9px;min-width:0;flex:1;flex-wrap:wrap;"></div>' +
@@ -150,6 +152,7 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   const well = wrap.querySelector('[data-well]'); well.setAttribute('id', uid + '-well');
   const mk = uid + '-mk'; wrap.querySelector('[data-marker]').setAttribute('id', mk);
   const svg = wrap.querySelector('[data-svg]'), stage = wrap.querySelector('[data-stage]'), panG = wrap.querySelector('[data-pan]');
+  const tableWrap = wrap.querySelector('[data-tablewrap]');
   const detail = wrap.querySelector('[data-detail]'), countsEl = wrap.querySelector('[data-counts]');
   const playBtn = wrap.querySelector('[data-play]'), playLbl = wrap.querySelector('[data-playlbl]');
 
@@ -244,34 +247,41 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     });
   }
 
-  // ── level 2 · existence — the quantum tally, over its own raw substrate ─────
-  // A metrics dashboard (how many bonds, claims, mentions) sitting directly above the raw
-  // excerpts it's a count OF: a number with nothing under it is unverifiable, and spans with
-  // no tally is untotalled — the two read as one holon here, not two separate screens.
-  function renderExistence(g) {
-    g.appendChild(text(cx, 20, sun.label, { anchor: 'middle', size: 12.5, cls: 'ss-plabel' }));
+  // ── level 2 · existence — a literal table over the raw substrate, not a diagram ─────
+  // Existence is what structure's bonds are read from: a tally (how many bonds, claims,
+  // mentions) sitting directly above the rows it's a count OF — a number with nothing under
+  // it is unverifiable, and spans with no tally is untotalled, so both render together.
+  function renderExistence(container) {
     const stats = [['mentions', tally], ['bonds', bonded.length], ['claims', claims.length], ['sources', Math.max(1, sources.length)]];
-    const sw = Math.min(150, (W - 40) / stats.length), sx0 = cx - (stats.length * sw) / 2, sy = 32;
-    stats.forEach(([label, v], i) => {
-      const x = sx0 + i * sw + sw / 2;
-      g.appendChild(sv('rect', { x: (x - sw / 2 + 6).toFixed(1), y: sy, width: (sw - 12).toFixed(1), height: 44, rx: 8, fill: LEVELS[2].chipBg, stroke: LEVELS[2].fill, 'stroke-opacity': 0.35 }));
-      g.appendChild(text(x, sy + 22, String(v), { anchor: 'middle', size: 17, cls: 'ss-glyph', fill: LEVELS[2].stroke }));
-      g.appendChild(text(x, sy + 37, label, { anchor: 'middle', size: 9.5, fill: '#8A8A95' }));
-    });
-    const sepY = sy + 60;
-    g.appendChild(sv('line', { x1: 24, y1: sepY, x2: W - 24, y2: sepY, stroke: 'var(--line,#e5e7eb)' }));
-    if (!spans.length) { g.appendChild(text(cx, sepY + 44, 'no raw spans on record for this entity', { anchor: 'middle', size: 11.5, fill: '#8A8A95' })); return; }
-    g.appendChild(text(cx, sepY + 20, 'the raw sentences ' + sun.label + ' was read from', { anchor: 'middle', size: 11, fill: '#8A8A95' }));
-    const list = spans.slice(0, 6), rowH = 44, top = sepY + 32;
-    list.forEach((sp, i) => {
-      const y = top + i * rowH, grp = sv('g', { class: 'ss-span' });
-      grp.appendChild(sv('rect', { x: cx - 250, y: y - 15, width: 500, height: rowH - 8, rx: 8, fill: 'var(--app,#f7f8fb)', stroke: 'var(--line,#e5e7eb)' }));
-      grp.appendChild(text(cx - 238, y + 3, '¶' + (sp.idx != null ? sp.idx : i), { anchor: 'start', size: 11, cls: 'ss-glyph', fill: LEVELS[2].stroke }));
-      grp.appendChild(text(cx - 200, y + 3, clip(sp.text, 78), { anchor: 'start', size: 11.5, fill: 'var(--ink,#15181e)' }));
-      if (onSpan) grp.addEventListener('click', (ev) => { ev.stopPropagation(); try { onSpan(sp); } catch {} });
-      g.appendChild(grp);
-    });
-    if (spans.length > list.length) g.appendChild(text(cx, top + list.length * rowH + 6, '+ ' + (spans.length - list.length) + ' more mention' + (spans.length - list.length === 1 ? '' : 's') + ' on record', { anchor: 'middle', size: 10.5, fill: '#8A8A95' }));
+    const statsHtml = stats.map(([label, v]) =>
+      '<span style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;padding:6px 16px;border-radius:8px;background:' + LEVELS[2].chipBg + ';color:' + LEVELS[2].chipFg + ';min-width:60px;">' +
+      '<b style="font-family:var(--mono,ui-monospace,monospace);font-size:16px;">' + v + '</b>' +
+      '<span style="font-size:9.5px;color:#8A8A95;">' + esc(label) + '</span></span>').join('');
+    let rowsHtml;
+    if (!spans.length) {
+      rowsHtml = '<tr><td colspan="2" style="padding:20px 10px;color:#8A8A95;text-align:center;font-size:11.5px;">no raw spans on record for this entity</td></tr>';
+    } else {
+      rowsHtml = spans.map((sp, i) =>
+        '<tr' + (onSpan ? ' class="ss-span" style="cursor:pointer;"' : '') + ' data-span-idx="' + i + '">' +
+        '<td style="font-family:var(--mono,ui-monospace,monospace);color:' + LEVELS[2].stroke + ';padding:7px 10px;white-space:nowrap;vertical-align:top;">¶' + esc(sp.idx != null ? sp.idx : i) + '</td>' +
+        '<td style="padding:7px 10px;color:var(--ink,#15181e);">' + esc(sp.text) + '</td>' +
+        '</tr>').join('');
+    }
+    container.innerHTML =
+      '<div style="text-align:center;font-weight:500;padding:2px 0 10px;">' + esc(sun.label) + '</div>' +
+      '<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;padding-bottom:16px;">' + statsHtml + '</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px;">' +
+      '<caption style="text-align:left;font-size:11px;color:#8A8A95;padding-bottom:8px;">the raw sentences ' + esc(sun.label) + ' was read from</caption>' +
+      '<thead><tr>' +
+        '<th scope="col" style="text-align:left;font-size:10.5px;font-weight:600;color:#8A8A95;border-bottom:1px solid var(--line,#e5e7eb);padding:6px 10px;">¶</th>' +
+        '<th scope="col" style="text-align:left;font-size:10.5px;font-weight:600;color:#8A8A95;border-bottom:1px solid var(--line,#e5e7eb);padding:6px 10px;">span</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rowsHtml + '</tbody></table>';
+    if (onSpan) {
+      container.querySelectorAll('[data-span-idx]').forEach((tr) => {
+        tr.addEventListener('click', () => { try { onSpan(spans[+tr.dataset.spanIdx]); } catch { /* best-effort */ } });
+      });
+    }
   }
 
   // onClick defaults to the structure level's plain clickBody (inspect only — the sun can't
@@ -297,9 +307,12 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   // ── the descent: swap the level, cross-fading, and light the rail ───────────
   function renderLevel() {
     stage.innerHTML = ''; orbiters = [];
+    const isTable = state.level === 2;
+    svg.style.display = isTable ? 'none' : '';
+    tableWrap.style.display = isTable ? 'block' : 'none';
     if (state.level === 0) renderMeaning(stage);
     else if (state.level === 1) renderStructure(stage);
-    else renderExistence(stage);
+    else renderExistence(tableWrap);
     wrap.querySelectorAll('[data-lvl]').forEach((c) => c.classList.toggle('off', +c.dataset.lvl !== state.level));
     const L = LEVELS[state.level];
     const trail = LEVELS.map((x, i) => i === state.level ? x.key : '·').join(' ');
@@ -310,7 +323,8 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
       '<span style="color:var(--ink3,#bbb);font-family:var(--mono,monospace);font-size:11px;">' + esc(trail) + '</span>' +
       '<span style="color:var(--ink3,#999);margin-left:6px;">— zoom to descend</span>';
     // a quick fade for the swap
-    stage.style.opacity = '0.35'; requestAnimationFrame(() => { stage.style.opacity = '1'; });
+    const fading = isTable ? tableWrap : stage;
+    fading.style.opacity = '0.35'; requestAnimationFrame(() => { fading.style.opacity = '1'; });
   }
   function setLevel(l, keepSel) {
     l = Math.max(0, Math.min(LEVELS.length - 1, l | 0));
