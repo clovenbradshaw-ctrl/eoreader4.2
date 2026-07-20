@@ -145,6 +145,22 @@ test('comparisonMatrix: agreeing sources produce a Consistent row, not a conflic
   assert.equal(homes.reading, 'Consistent');
 });
 
+test('comparisonMatrix: a third source with an unrelated figure is not buried under "Revised upward"', () => {
+  // One source states a clean revision ($120M -> $145M); a second independently claims
+  // $300M, a real disagreement the revision says nothing about. The row must still read
+  // as a live dispute, not as a settled "Revised upward" that only the first two sources
+  // (old figure vs new figure) would justify.
+  const m = comparisonMatrix([
+    { doc: P('The Harbor City Capital Budget Update revises the seawall budget from $120M to $145M.', 'a'), source: 'S-A' },
+    { doc: P('The Harbor City seawall will cost $300M according to independent auditors.', 'b'), source: 'S-B' },
+    { doc: P('The Harbor City seawall has an approved budget of $145M.', 'c'), source: 'S-C' },
+  ]);
+  const cost = m.rows.find((r) => r.measure === 'cost');
+  assert.ok(cost, 'a cost row exists');
+  assert.equal(cost.conflict, true);
+  assert.equal(cost.reading, 'Sources disagree');
+});
+
 test('comparisonMatrix: empty corpus is empty, never throws', () => {
   const m = comparisonMatrix([]);
   assert.deepEqual(m.rows, []);
