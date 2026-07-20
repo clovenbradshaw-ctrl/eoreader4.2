@@ -10136,11 +10136,14 @@ class Component extends DCLogic {
     this.setState({ webGraphTick: (this.state.webGraphTick || 0) + 1 });
   }
   // Seed the panel for a whole-topic open: the most salient entity across the topic
-  // (app.entities() is already sorted by mentions + links). Causal kind has no
-  // entity profile to show — the panel stays empty there.
+  // (app.entities() is already sorted by mentions + links). Causal kind has no entity profile
+  // to show — the panel stays empty there. Solar is excluded too: it is inherently egocentric
+  // and now lands on an explicit chooser (_drawSolarChooser) rather than auto-picking a focus,
+  // so seeding the side panel with a "top" entity here would show a profile for a figure the
+  // main canvas is not actually centred on — a mismatch, not a convenience.
   _seedWgPanel() {
     this._wgPanel = null; this._wgNetPanel = null;
-    if (!this._wg || (this._wg.kind !== 'entity' && this._wg.kind !== 'solar') || !this._app) return;
+    if (!this._wg || this._wg.kind !== 'entity' || !this._app) return;
     try {
       const top = (this._app.entities() || [])[0];
       if (top) this._setWgPanel(top.docId, top.entId);
@@ -10439,17 +10442,39 @@ class Component extends DCLogic {
   // the entity web, read egocentrically: one entity at the centre (its POV), its existence /
   // structure / meaning ringing out as three physical regimes. It reuses the entity vocabulary, so
   // the entity on/off toggles filter it exactly like the entity web. A body click pivots the POV.
+  // A searchable "choose an entity" list — the honest landing state for anything egocentric
+  // (Solar/EOGraph) that has no focus yet, instead of silently guessing one. Reused for both
+  // the no-focus prompt and the "this entity turned out to have nothing to orbit" fallback.
+  _drawSolarChooser(el, message) {
+    this._tgToggles = [];
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const top = (this._app.entities() || []).slice(0, 40);
+    const rows = top.map((e, i) => `<button class="solar-pick" data-i="${i}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:#fff;border:1px solid #EAEAEF;border-radius:11px;padding:10px 12px;cursor:pointer;font-family:inherit;margin-bottom:7px">`
+      + `<span style="width:26px;height:26px;border-radius:50%;background:#EEEBFE;color:#5B4BE6;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto">${esc((e.label || 'E').trim().charAt(0).toUpperCase())}</span>`
+      + `<span style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#1B1B22;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.label)}</span></button>`).join('');
+    el.innerHTML = '<div style="padding:20px 16px;max-width:62ch">'
+      + `<div style="font-size:13.5px;color:${message ? '#B23A2E' : '#3A3A44'};line-height:1.5;margin-bottom:14px">${esc(message || 'Choose a person, organization, place, or concept to explore how the sources hold it.')}</div>`
+      + (top.length ? rows : '<div style="color:#9A9AA4;font-size:13px">No figures read yet — record a source, then reopen EOGraph.</div>')
+      + '</div>';
+    el.querySelectorAll('.solar-pick').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const e = top[+btn.getAttribute('data-i')]; if (!e) return;
+        this._solarPivot({ docId: e.docId, entId: e.entId });
+      });
+    });
+  }
   _drawSolar(el, w) {
-    // Solar is inherently egocentric — it needs ONE entity to centre. Seed on the topic's most
-    // salient figure when no focus is set yet, so landing on the kind still has a sun to draw.
-    if (w.scope !== 'entity' || w.entId == null) {
-      const top = (this._app.entities() || [])[0];
-      if (!top) { el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:60ch;line-height:1.55">No figures read yet — the solar view centres on an entity, so it fills once the reading names people, places, or things. Record a source, then reopen EOGraph.</div>'; this._tgToggles = []; return; }
-      w.scope = 'entity'; w.docId = top.docId; w.entId = top.entId;
-      w.entLabel = (this._app.entityProfile(top.docId, top.entId) || {}).label || '';
-      this._setWgPanel(top.docId, top.entId);
-    }
+    // Solar is inherently egocentric — it needs ONE entity to centre, and (the reported
+    // failure) auto-seeding one silently could land on a "top" figure whose own ego-network
+    // happens to be empty, reading as an unexplained void ("0/0 entities") right next to a
+    // DIFFERENT entity's profile whose embedded EOGraph works fine. Never guess: land on an
+    // explicit chooser instead, so every state is either a real orbit or an honest prompt.
+    if (w.scope !== 'entity' || w.entId == null) { this._drawSolarChooser(el); return; }
     const data = this._app.tieredData(w.docId, w.entId);
+    if (!data.nodes || !data.nodes.length) {
+      this._drawSolarChooser(el, `“${w.entLabel || 'This entity'}” has nothing to place in orbit yet — pick another figure.`);
+      return;
+    }
     this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
       .map((n) => ({ id: n.id, label: n.label }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
