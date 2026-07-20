@@ -4671,7 +4671,9 @@ table{border-collapse:collapse;width:100%}
 <!-- shared by both shells -->
   <!-- QUESTION RESULT (docs/EOReader_Question_Result_Update_Spec.md) — a web search lands on
        a first-class result page, not a centered modal. Candidate sources remain provisional until
-       the reader explicitly admits selected sources to a topic. -->
+       the reader explicitly admits selected sources to a topic. Full-bleed inset:0 works the same
+       way on both shells (no sidebar-width dependency), so this is one shared block, not a
+       mobile/desktop split. -->
   <sc-if value="{{ rrShow }}">
     <div style="position:absolute;inset:0;z-index:49;background:#FAFAFC;overflow:auto">
       <div style="min-height:100%;background:#FAFAFC;display:flex;flex-direction:column">
@@ -13235,7 +13237,8 @@ class Component extends DCLogic {
       searchRows, closeSearch: () => this.closeSearch(), retrySearch: () => this.runSearch(st.searchQ),
       // the library shelf — one shelf searched on its own surface (article/book/media/code)
       ...libVals,
-      // Research Review (docs/research-review.md) — the modal that mounts window.EO.researchReview
+      // Question Result (docs/EOReader_Question_Result_Update_Spec.md) — a full-bleed page, the
+      // same on both shells (no sidebar/header offsets to compute).
       rrShow: st.rrOpen, rrLoading: st.rrOpen && !st.rrTopicId, rrReady: st.rrOpen && !!st.rrTopicId,
       setResearchReviewEl: (el) => this.setResearchReviewEl(el),
       // native preview of a search hit — the modal grows to a page frame while previewing

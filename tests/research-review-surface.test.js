@@ -233,11 +233,52 @@ test('mountResearchReview — mounts the Question Result with direct answer, led
   handle.destroy();
 });
 
-test('mountResearchReview — evidence expands inline on a verdict card', () => {
+// A hybrid this app's redesign adds on top of the Question Result page (docs/EOReader_Question_
+// Result_Update_Spec.md): the direct-answer slot leads with a verbatim, attributed excerpt off
+// the top source's own text (research-review-corpus.js leadExcerpt) rather than a verdict card
+// built from evidenceMatrix — a proposition row's "label" is a term-cluster ("congestion · mta ·
+// pricing"), not a sentence, so it only earns a card once it reflects REAL multi-source structure
+// (origins ≥ 2). The five-source MTA fixture above is deliberately thin on that axis (every
+// evidence area collapses to one independent origin, and the sole measure conflict currently reads
+// through ledgerFromView as 0 origins — a pre-existing quirk of that derivation, unrelated to this
+// redesign), so it now mounts with the excerpt as the ONLY thing in "Direct answer".
+test('mountResearchReview — direct answer leads with the source excerpt, not a fabricated single-source verdict card', () => {
   const doc = makeFakeDoc();
   const host = makeEl('div', doc);
   const { app } = makeFakeApp();
   mountResearchReview(host, { app, topicId: 't1' });
+  assert.ok(findByText(host, 'IN THE SOURCE’S OWN WORDS'), 'the excerpt kicker painted');
+  assert.ok(findByTextPrefix(host, 'The Metropolitan Transportation Authority congestion pricing program'), 'S1’s own lead text painted verbatim');
+  assert.ok(findByText(host, 'MTA report · mta.gov'), 'the excerpt is attributed to its source');
+  // none of this fixture's ledger rows clear the origins≥2 floor, so no verdict card belongs in
+  // the direct-answer slot — every "Show evidence"/kicker here would be reading a claim built off
+  // a single voice.
+  assert.equal(!!findByText(host, 'Show evidence'), false);
+  assert.equal(!!findByText(host, 'Compare evidence'), false);
+  // the full claim ledger still lists every row underneath, thin ones included — this only trims
+  // what stands in as the PRIMARY answer, nothing computed is hidden.
+  assert.ok(findByTextPrefix(host, 'Claims in this result · '));
+});
+
+// Two independent, near-paraphrase sources of the same event — evidenceAreas clusters them into
+// one area with independentOrigins:2, so THIS claim clears the floor and belongs beside the excerpt.
+test('mountResearchReview — a claim with real multi-source support gets a verdict card beside the excerpt, and its evidence expands inline', () => {
+  const doc = makeFakeDoc();
+  const host = makeEl('div', doc);
+  const A1 = { sn: 'A1', title: 'Wire report', domain: 'wire.test', url: 'https://wire.test/a', kind: 'web', retrieved: '2026-05-01T00:00:00Z', text: 'The city council approved the downtown rezoning plan on Tuesday after months of contentious debate among residents.' };
+  const A2 = { sn: 'A2', title: 'Local paper', domain: 'localpaper.test', url: 'https://localpaper.test/b', kind: 'web', retrieved: '2026-05-02T00:00:00Z', text: 'City council members approved the downtown rezoning plan Tuesday, capping months of contentious debate among residents.' };
+  const topic = { id: 't2', title: null, review: { query: 'downtown rezoning', excludedSns: [], recipe: 'balanced', identityDecisions: {}, independentOverrides: [] } };
+  const app = {
+    reviewCompute: (topicId) => {
+      if (topicId !== topic.id) return null;
+      const view = researchReview({ rows: [A1, A2], entities: [], matrix: null, query: topic.review.query, excludedSns: topic.review.excludedSns });
+      return { ...view, topic, excludedSns: new Set(topic.review.excludedSns), discovered: [], waveforms: {} };
+    },
+    reviewToggleExclude: () => {}, reviewAdmit: () => null, subscribe: () => () => {},
+  };
+  mountResearchReview(host, { app, topicId: 't2' });
+  assert.ok(findByText(host, 'IN THE SOURCE’S OWN WORDS'), 'the excerpt still leads');
+  assert.ok(findByTextPrefix(host, 'SUPPORTED BY 2 INDEPENDENT ORIGIN'), 'the corroborated claim earned its card');
   findByText(host, 'Show evidence').fire('click');
   assert.ok(findByText(host, 'SUPPORTING EVIDENCE'));
 });

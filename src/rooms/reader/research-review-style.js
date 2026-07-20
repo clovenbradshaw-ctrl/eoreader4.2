@@ -8,6 +8,11 @@ const CSS = `
 .eo-rr__crumb{font-size:11px;color:#9A9AA4;text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace}
 .eo-rr__title{font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:600;margin:2px 0 6px}
 .eo-rr__stats{font-size:12px;color:#8A8A95;margin-bottom:14px}
+.eo-rr__answer{border:1px solid #E5E5EC;background:#fff;border-radius:16px;padding:16px 18px;margin:0 0 12px;box-shadow:0 8px 24px rgba(20,20,30,.04)}
+.eo-rr__answerKicker{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:800;letter-spacing:.08em;color:#6D5EF5;text-transform:uppercase;margin-bottom:8px}
+.eo-rr__answerText{font-family:'Newsreader',Georgia,serif;font-size:18px;line-height:1.55;color:#1B1B22;margin:0 0 10px}
+.eo-rr__answerSrc{font-size:12px;font-weight:600;color:#5B4BE6;background:none;border:none;cursor:pointer;padding:0}
+.eo-rr__answerSrc:hover{text-decoration:underline}
 .eo-rr__toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
 .eo-rr__toolbar input[type=text]{flex:1;min-width:160px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;padding:8px 11px;font-size:13px;color:#1B1B22}
 .eo-rr__btn{font-size:12px;font-weight:600;color:#3A3A44;background:#fff;border:1px solid #E0E0E6;border-radius:9px;padding:7px 12px;cursor:pointer}
