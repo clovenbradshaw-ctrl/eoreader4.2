@@ -45,14 +45,17 @@ function shouldRevalidate(request, url) {
   return true;
 }
 
-// The one exception to "always revalidate": the deploy-bundled entry (build/build.mjs), whose
-// URL is tagged `?v=<commit>` by pages.yml. That query makes the URL itself content-addressed —
-// a stale copy under the SAME URL is structurally impossible, so there is nothing to revalidate.
-// Cache-first here trades the 858-file "no request is ever stale" guarantee (still true for
-// everything else this worker touches) for skipping a round trip on every repeat load; a NEW
-// deploy is a NEW URL, so it is always a cache miss and fetched fresh regardless.
+// The one exception to "always revalidate": assets pages.yml tags `?v=<commit>` at deploy time —
+// the bundled entry (build/build.mjs) plus the fixed-path vendored/generated shell scripts (react,
+// react-dom, olm, support.js) that only ever change alongside a new commit. That query makes the
+// URL itself content-addressed — a stale copy under the SAME URL is structurally impossible, so
+// there is nothing to revalidate. Nothing else in the app ever adds a `v` param, so this is a safe,
+// single invariant rather than a per-file allowlist that has to be kept in sync with pages.yml.
+// Cache-first here trades the "no request is ever stale" guarantee (still true for everything else
+// this worker touches) for skipping a round trip on every repeat load; a NEW deploy stamps a NEW
+// `?v=`, so it is always a cache miss and fetched fresh regardless.
 function isVersionedBundle(url) {
-  return url.searchParams.has('v') && /\/boot\.bundle\.js$/.test(url.pathname);
+  return url.searchParams.has('v');
 }
 
 self.addEventListener('fetch', (event) => {

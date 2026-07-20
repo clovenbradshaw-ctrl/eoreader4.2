@@ -74,11 +74,27 @@ jobs:
         # entry produced above, tagged with this commit so the SAME URL can never serve two
         # different builds — sw.js trusts that to skip revalidation for this one file (see its
         # `?v=` handling) instead of a 304 round trip on every load.
+        #
+        # The same tag is stamped on the vendored/generated shell scripts (react, react-dom, olm,
+        # support.js) for the same reason: each is committed as a fixed path with no content hash,
+        # so it only ever changes alongside a new commit. Tagging them `?v=<sha>` makes every one
+        # of those URLs content-addressed too, so sw.js can skip the conditional-GET round trip for
+        # all four on every load, not just the bundle — index.html itself stays untagged (it's the
+        # one shell file whose content sw.js must always revalidate, since it's what the pipeline
+        # just edited).
         run: |
           sed -i \
-            "s#<script type=\"module\" src=\"src/rooms/reader/boot.js\"></script>#<script type=\"module\" src=\"src/rooms/reader/boot.bundle.js?v=${SHORT_SHA}\"></script>#" \
+            -e "s#<script type=\"module\" src=\"src/rooms/reader/boot.js\"></script>#<script type=\"module\" src=\"src/rooms/reader/boot.bundle.js?v=${SHORT_SHA}\"></script>#" \
+            -e "s#<script defer src=\"vendor/react.production.min.js\"></script>#<script defer src=\"vendor/react.production.min.js?v=${SHORT_SHA}\"></script>#" \
+            -e "s#<script defer src=\"vendor/react-dom.production.min.js\"></script>#<script defer src=\"vendor/react-dom.production.min.js?v=${SHORT_SHA}\"></script>#" \
+            -e "s#<script defer src=\"vendor/olm/olm.js\"></script>#<script defer src=\"vendor/olm/olm.js?v=${SHORT_SHA}\"></script>#" \
+            -e "s#<script defer src=\"./support.js\"></script>#<script defer src=\"./support.js?v=${SHORT_SHA}\"></script>#" \
             _site/index.html
           grep -q "boot.bundle.js?v=${SHORT_SHA}" _site/index.html
+          grep -q "vendor/react.production.min.js?v=${SHORT_SHA}" _site/index.html
+          grep -q "vendor/react-dom.production.min.js?v=${SHORT_SHA}" _site/index.html
+          grep -q "vendor/olm/olm.js?v=${SHORT_SHA}" _site/index.html
+          grep -q "./support.js?v=${SHORT_SHA}" _site/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
