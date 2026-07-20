@@ -2,26 +2,22 @@
 // docs/generate-row-stance-templates.md §3: the row-stance chooser, a direct sibling of
 // surfer/stance.js's updateStance — reads the field around a ledger row's own evidence
 // and returns the ONE diagonal-legal shape that field supports, never an authored choice.
+// docs/universalizing-stance-face.md: the "does this spectrum clear one component,
+// several orderable ones, or none" test and the desert-cell guard now live in the one
+// shared instrument, core/stance-face.js, alongside surfer/stance.js's identical test.
+// This file keeps everything ROW-SPECIFIC: the join-axis construction (activationVectors)
+// and the public {op, site, stance} cell shape both existing callers and tests depend on.
 //
-// Implementation note (this file, not the doc): §3's literal pseudocode calls
-// core/voidnull.js deriveNull directly on the joined propositions' spectrum. deriveNull
-// abstains (returns Infinity) below MIN_SAMPLES=4 background samples — the documented,
-// correct behavior for a thin background (voidnull.js: "cold start... the engine then
-// holds NUL... rather than forcing a SYN off a null it cannot trust"). A row join is
-// almost always 2-6 propositions, i.e. almost always below that floor, so deriveNull
-// would abstain on nearly every real row and stanceLegality would never resolve past
-// Cultivating. That is not what §3's worked examples (§10.3 n=2→making, §10.4 n=3→
-// composing) describe, so this file uses deriveNull only where it has enough background
-// to mean something (spectrum.length >= MIN_SAMPLES) and a closed-form structural-rank
-// test below that floor: count eigenvalues clearing a fixed epsilon above numerical
-// noise. The epsilon test does not ask "does this exceed chance" (there's no chance
-// distribution to estimate from 2-3 samples) — it asks "is there real, non-negligible
-// mass on this axis at all", which is exactly what a hand-built axis structure (below)
-// needs. Composing vs Cultivating is then NOT decided by eigenvalue magnitude at all —
-// it is decided by whether the joins that created multi-axis structure are themselves
-// ORDERABLE (an OrderSlot grounded, §5) — magnitude only ever decides Making vs
-// (Composing|Cultivating), matching §3.1's own "the ordering slot must be filled or this
-// degrades to Cultivating" clause, which already anticipated exactly this branch.
+// legalCellFor's small per-shape (mode, domain, grain) table below is the ROW's own
+// declared reach — every shape it can ever name — resolved through cellForGrain's real
+// operator lookup instead of a hand-rolled CELLS table naming an operator directly.
+// `domainHint` is accepted for backward compatibility (existing callers/tests pass it)
+// but never changes the resolved domain: this caller only ever fires REC (for
+// making/cultivating/composing) or CON (for readout), so it structurally cannot reach
+// SYN·Field·Cultivating — the desert cell — regardless of the hint (finding #3: the
+// original re-homing branch was dead code for exactly this reason). The dynamic guard
+// that makes a GENUINE Structure-domain caller's desert cell impossible to construct
+// lives in core/stance-face.js's cellForGrain (§6), for whichever future caller adds one.
 //
 // The activation vectors themselves are also this file's own construction, not
 // re-derived from surfer/stance.js (which reads a genuinely continuous field over
@@ -33,10 +29,8 @@
 // (for §6 rendering) but never merge two propositions onto one axis — two opposed
 // readings must not spuriously look like one commanding reading.
 
-import { buildDensity, eigenLenses, deriveNull, MIN_SAMPLES, cellAt } from '../../core/index.js';
+import { buildDensity, eigenLenses, readStanceFace, cellForGrain, makeStanceCapability } from '../../core/index.js';
 import { proposeJoin } from './join.js';
-
-const EPS = 0.05; // §3's small-n structural-rank floor — see the file header.
 
 const COHERENCE_KINDS = new Set(['agree', 'causal']);
 
@@ -84,49 +78,49 @@ const activationVectors = (propositions, joins) => {
   return { vectors, weights };
 };
 
-// clearedComponents(spectrum) -> number[] — the eigenvalues carrying real, non-negligible
-// mass. See the file header for why this is not one uniform rule across every n.
-const clearedComponents = (spectrum) => {
-  // deriveNull's own leave-one-out drops the background by one sample before checking
-  // MIN_SAMPLES, so it only ever produces a finite (non-abstaining) null when the full
-  // spectrum has MORE than MIN_SAMPLES entries — `>` here, not `>=`, matches that.
-  if (spectrum.length > MIN_SAMPLES) {
-    const nul = deriveNull(spectrum, { alpha: 0.05, leaveOut: spectrum[0] });
-    return spectrum.filter((w) => w > nul);
-  }
-  return spectrum.filter((w) => w > EPS);
+// This caller's own declared reach (docs/universalizing-stance-face.md §7): a row's
+// join graph can reach every grain — Ground (nothing rises above noise, or multi-part
+// structure with no order to name it by), Figure (one clean axis), Pattern (multi-axis
+// structure an OrderSlot actually grounds).
+const ROW_CAPABILITY = makeStanceCapability({
+  mode: 'Generate',
+  reachableGrains: ['Ground', 'Figure', 'Pattern'],
+  unreachable: {},
+});
+
+// The (mode, domain, grain) each of the four row shapes resolves at. `readout` (a
+// single sourced proposition, nothing to measure) is the Relate×Structure Figure cell —
+// CON(Link, Binding), the bond that cites a source — never REC; the other three are
+// Generate×Interpretation, one per grain.
+const SHAPE_FACE = Object.freeze({
+  readout:     Object.freeze({ mode: 'Relate',   domain: 'Structure' }),
+  cultivating: Object.freeze({ mode: 'Generate', domain: 'Interpretation', grain: 'Ground' }),
+  making:      Object.freeze({ mode: 'Generate', domain: 'Interpretation', grain: 'Figure' }),
+  composing:   Object.freeze({ mode: 'Generate', domain: 'Interpretation', grain: 'Pattern' }),
+});
+
+const cellObjectFor = (mode, domain, grain) => {
+  const cell = cellForGrain(mode, domain, grain);
+  return cell.refused ? null : Object.freeze({ op: cell.op, site: cell.terrain, stance: cell.stance });
 };
 
 // legalCellFor(shape, domainHint) -> { op, site, stance } | null
-// §3.1: the forbidden desert cell. A Cultivating-shaped row whose content sits in the
-// Structure domain (a Field-terrain absence) must re-home to the Significance-domain
-// Cultivating cell (REC·Atmosphere·Cultivating) — it must never resolve to
-// SYN·Field·Cultivating, the one cell core/contract.js's DESERT_CELL forbids outright.
 export const legalCellFor = (shape, domainHint) => {
-  const CELLS = {
-    readout:     { op: 'CON', site: 'Link',      stance: 'Binding' },
-    cultivating: { op: 'REC', site: 'Atmosphere', stance: 'Cultivating' },
-    making:      { op: 'REC', site: 'Lens',       stance: 'Making' },
-    composing:   { op: 'REC', site: 'Paradigm',   stance: 'Composing' },
-  };
-  const base = CELLS[shape];
-  if (!base) return null;
-  if (shape === 'cultivating' && domainHint === 'Field') {
-    // Never SYN·Field·Cultivating — re-home to the Significance-domain cell instead.
-    return legalCellFor('cultivating', null);
-  }
-  const cell = cellAt(base.op, { site: base.site, stance: base.stance });
-  return cell ? Object.freeze({ op: base.op, site: base.site, stance: base.stance }) : null;
+  const face = SHAPE_FACE[shape];
+  if (!face) return null;
+  if (shape === 'readout') return cellObjectFor(face.mode, face.domain, 'Figure');
+  return cellObjectFor(face.mode, face.domain, face.grain);
 };
+
+const SHAPE_OF_GRAIN = Object.freeze({ Figure: 'making', Pattern: 'composing', Ground: 'cultivating' });
 
 // stanceLegality(propositions, options) -> { shape, cell, relations, order } | null
 //
 //   propositions  PropositionGroup[] — closed fields (id, verdict, subject, predicate,
 //                 value, originWeight/originIds, date?, isMeasure?), never free text.
 //   options.spans EvidenceSpan[] — passed through to proposeJoin for causal grounding.
-//   options.domainHint the terrain the joined content's own site resolves to, for §3.1's
-//                 desert-cell re-homing (pass 'Field' when the propositions are
-//                 themselves about an unstated Structure-domain rule).
+//   options.domainHint accepted for backward compatibility; never changes the resolved
+//                 cell (see the file header — this caller cannot reach the desert cell).
 //
 // Returns null for n === 0 (nothing to measure — the caller renders the fixed void
 // template, §10.5, not a shape).
@@ -142,34 +136,24 @@ export const stanceLegality = (propositions, { spans = [], domainHint = null } =
   const { vectors, weights } = activationVectors(props, joins);
   const { rho } = buildDensity(vectors, weights);
   const spectrum = eigenLenses(rho).map((l) => l.weight);
-  const cleared = clearedComponents(spectrum);
 
   // cleared.length === 0: nothing rises above noise at all — the maximally diffuse
   // reading, the honest reserve regardless of whether a date happens to sequence the
   // propositions (an order over evidence too weak to clear at all is not a regularity).
   // cleared.length === 1: one axis carries real, unshared structure — commit.
   // cleared.length >= 2: genuine multi-part structure — an essay if it is orderable,
-  // otherwise the survey (§3.1's degrade clause).
-  if (cleared.length === 1) {
-    return Object.freeze({
-      shape: 'making',
-      cell: legalCellFor('making'),
-      relations: joins.relations,
-      order: null,
-    });
-  }
-  if (cleared.length >= 2 && joins.order) {
-    return Object.freeze({
-      shape: 'composing',
-      cell: legalCellFor('composing'),
-      relations: joins.relations,
-      order: joins.order,
-    });
-  }
+  // otherwise the survey (§3.1's degrade clause) — readStanceFace makes exactly this
+  // three-way call (core/stance-face.js §4), shared with surfer/stance.js.
+  const reading = readStanceFace({
+    spectrum, mode: 'Generate', domain: 'Interpretation',
+    capability: ROW_CAPABILITY, orderable: Boolean(joins.order),
+  });
+
+  const shape = SHAPE_OF_GRAIN[reading.grain];
   return Object.freeze({
-    shape: 'cultivating',
-    cell: legalCellFor('cultivating', domainHint),
+    shape,
+    cell: legalCellFor(shape, domainHint),
     relations: joins.relations,
-    order: null,
+    order: shape === 'composing' ? joins.order : null,
   });
 };

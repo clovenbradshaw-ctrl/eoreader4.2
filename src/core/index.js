@@ -4,7 +4,7 @@
 // the nine-operator vocabulary, the append-only log" — is this module.
 
 export { MODES, DOMAINS, GRAINS, OPERATORS, isOperator, glyphOf,
-         operatorsByMode, operatorsByDomain } from './operators.js';
+         operatorsByMode, operatorsByDomain, operatorForMode } from './operators.js';
 export { createLog, isLog } from './log.js';
 export { eoAddressOfEvent, eoNotation } from './address.js';
 export { projectGraph, projectionStats, DEFAULT_PROJECTION_RULES } from './project.js';
@@ -114,6 +114,10 @@ export { createConventions, induceAttributionFrames } from './conventions/index.
 // operation lands on, by path and hashId, grain preserved).
 export { COGNITION, COGNITION_ORDER, facultyOfOperator, facultyOf } from './cognition.js';
 export { FACES, facesOf, notate, notateHolon, cellAt, cellsOf, siteStanceAt } from './faces.js';
+// The shared Stance-face reading instrument (docs/universalizing-stance-face.md): the
+// one module every caller that needs to know "how something should resolve" asks,
+// instead of a hand-rolled copy of the null-vs-epsilon branch.
+export { readStanceFace, clearedComponents, cellForGrain, makeStanceCapability } from './stance-face.js';
 export { holonId, parseHolon, holonLevels, depthOf, parentOf, leafOf, joinHolon, containsHolon } from './holon.js';
 
 // (seam healing) re-exported so the module stays behind the entrance

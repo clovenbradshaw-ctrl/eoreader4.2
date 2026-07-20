@@ -10,6 +10,7 @@ export const CONTRACTS = Object.freeze({
   'src/surfer/dag/discourse.js': contract({ ops: ['CON', 'SYN'], targets: ['Field', 'Link'], products: ['Network'], stances: ['Tracing', 'Composing'], note: 'cursor 1 — discourse DAG' }),
   'src/surfer/dag/index.js': contract({ ops: ['CON', 'SYN', 'EVA'], targets: ['Link', 'Network'], products: ['Network', 'Lens'], stances: ['Tracing', 'Composing'], note: 'asserted/corpus DAG, barrel' }),
   'src/surfer/dag/nul.js': contract({ ops: ['NUL', 'DEF'], targets: ['Network'], products: ['Lens'], stances: ['Dissecting', 'Clearing'], note: 'typed NUL for causal edge' }),
-  'src/surfer/dag/stance.js': contract({ ops: ['DEF'], targets: ['Field'], products: ['Lens', 'Atmosphere'], stances: ['Dissecting'], note: 'dialectical CON stance' }),
+  'src/surfer/dag/causal-warrant.js': contract({ ops: ['DEF'], targets: ['Field'], products: ['Lens', 'Atmosphere'], stances: ['Dissecting'], note: 'the dialectical CON warrant (accidental/essential/generative) — renamed from stance.js, docs/universalizing-stance-face.md §3' }),
+  'src/surfer/dag/stance.js': contract({ ops: ['DEF'], targets: ['Field'], products: ['Lens', 'Atmosphere'], stances: ['Dissecting'], note: 're-export shim -> causal-warrant.js' }),
   'src/surfer/dag/surface.js': contract({ ops: ['NUL'], targets: ['Network', 'Lens'], products: ['Void'], stances: ['Clearing'], note: 'mountDagSurface renderer' }),
 });

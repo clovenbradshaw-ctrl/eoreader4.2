@@ -44,3 +44,10 @@ export const operatorsByMode = (mode) =>
 
 export const operatorsByDomain = (domain) =>
   Object.values(OPERATORS).filter(o => o.domain === domain);
+
+// The Act face read the other way: each of the nine operators has a unique (Mode,
+// Domain) pair, so this is a TOTAL lookup over the 3×3 grid — the operator a caller
+// gets by declaring what it does (Mode) and where it does it (Domain), instead of a
+// caller naming an operator by hand (core/stance-face.js's cellForGrain).
+const BY_MODE_DOMAIN = new Map(Object.values(OPERATORS).map(o => [`${o.mode}|${o.domain}`, o]));
+export const operatorForMode = (mode, domain) => BY_MODE_DOMAIN.get(`${mode}|${domain}`) ?? null;
