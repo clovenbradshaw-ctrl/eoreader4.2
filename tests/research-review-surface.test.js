@@ -247,7 +247,10 @@ test('mountResearchReview — direct answer leads with the source excerpt, not a
   const host = makeEl('div', doc);
   const { app } = makeFakeApp();
   mountResearchReview(host, { app, topicId: 't1' });
-  assert.ok(findByText(host, 'IN THE SOURCE’S OWN WORDS'), 'the excerpt kicker painted');
+  // This 5-source fixture's best sentence-level score does not clear leadExcerpt's void boundary
+  // (boundedNull over the whole reviewed reach), so the kicker reads as a best-effort pick rather
+  // than a settled one — the excerpt still leads, just honestly framed.
+  assert.ok(findByText(host, 'OF WHAT WAS REVIEWED, THIS READS CLOSEST'), 'the excerpt kicker painted');
   assert.ok(findByTextPrefix(host, 'The Metropolitan Transportation Authority congestion pricing program'), 'S1’s own lead text painted verbatim');
   assert.ok(findByText(host, 'MTA report · mta.gov'), 'the excerpt is attributed to its source');
   // none of this fixture's ledger rows clear the origins≥2 floor, so no verdict card belongs in
@@ -277,7 +280,9 @@ test('mountResearchReview — a claim with real multi-source support gets a verd
     reviewToggleExclude: () => {}, reviewAdmit: () => null, subscribe: () => () => {},
   };
   mountResearchReview(host, { app, topicId: 't2' });
-  assert.ok(findByText(host, 'IN THE SOURCE’S OWN WORDS'), 'the excerpt still leads');
+  // Same honesty framing as the MTA fixture above — this 2-source fixture's reach is too thin to
+  // clear the void boundary either, so the excerpt still leads but as a best-effort pick.
+  assert.ok(findByText(host, 'OF WHAT WAS REVIEWED, THIS READS CLOSEST'), 'the excerpt still leads');
   assert.ok(findByTextPrefix(host, 'SUPPORTED BY 2 INDEPENDENT ORIGIN'), 'the corroborated claim earned its card');
   findByText(host, 'Show evidence').fire('click');
   assert.ok(findByText(host, 'SUPPORTING EVIDENCE'));
