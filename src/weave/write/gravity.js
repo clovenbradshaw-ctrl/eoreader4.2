@@ -37,29 +37,21 @@
 // itself decays to the flat surface — which is the correct failure.
 
 import { deriveNull, terrainInfo } from '../../core/index.js';
-import { linkSalience, siteTerrainAt } from '../../surfer/index.js';
+import { linkSalience, siteTerrainAt, GRAIN_WEIGHT } from '../../surfer/index.js';
 import { toPast } from './morph.js';
 import { createRule } from './eva.js';
 import { claimsOf } from './witness.js';
 
 // Terrain-aware weighting (opt-in — docs/referents-recursed-up-the-domain-axis.md's D4,
 // "still ahead": the significance column and the weight-of-the-turn were computed as two
-// parallel systems that never met). A REC always fires at the Interpretation domain by
-// construction (REC's own Act-face domain, core/operators.js) — what terrain adds is the
-// GRAIN: Ground (ambient, not yet concentrated into anything specific — Atmosphere/Field/
-// Void), Figure (a specific instance — Lens/Entity/Link), Pattern (a recurring regularity —
-// Paradigm/Kind/Network). A Ground-grain REC lands before the reading has concentrated into
-// a claim at all, and earns LESS; a Figure-grain one, the ordinary case, is the baseline.
-// The schedule keeps a Pattern entry too — a REC that reorganises a recurring regularity
-// (surf.js's own Paradigm pass only ascends past a 1.5×-baseline, SUSTAINED defeat,
-// paradigmHysteresis — a stricter bar than a routine Figure-grain reconsolidation clears)
-// should earn MORE, not the same — but siteTerrainAt's plain per-cursor read (below) only
-// ever resolves Ground or Figure (`recurrent` defaults false); Pattern is defined for
-// completeness against the cube's three grains, matching the terrain system's own honesty
-// about sparse cells (wiki/terrains.js), not currently reachable through this call — a
-// caller with real per-cursor recurrence information (surf.paradigmRec is reach-wide, not
-// cursor-keyed, so it cannot supply that yet) is the documented extension point.
-const GRAIN_WEIGHT = Object.freeze({ Ground: 0.75, Figure: 1, Pattern: 1.25 });
+// parallel systems that never met). GRAIN_WEIGHT (surfer/terrain.js) is the shared law: a
+// Ground-grain REC lands before the reading has concentrated into a claim at all and earns
+// LESS; Figure, the ordinary case, is the baseline; Pattern — a REC that reorganises a
+// recurring regularity, which already cleared a stricter bar to register as one (surf.js's
+// own Paradigm-pass hysteresis) — would earn MORE, though siteTerrainAt's plain per-cursor
+// read below only ever resolves Ground or Figure (`recurrent` defaults false); surf.js's own
+// arrest conditioning reads the SAME schedule (surf.js's terrainCond), so a turn's weight and
+// where the surf stopped agree on what a grain is worth, not two independently-tuned numbers.
 
 // Env-gated bench flag (organs/out/speech/index.js's RULES_REV convention): off by default,
 // so the coupling stays unmeasured-inert in the live pipeline until a bench opts in —

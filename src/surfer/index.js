@@ -47,7 +47,7 @@ export { trajectory, speakTrajectory } from './trajectory.js';
 // there and the grain, never words. Closes the gap where the Structure row (Field/Link/
 // Network) was never created: a CON bond is a Link, a regularity of links a Network, ambient
 // connectivity a Field. Modality-blind — the same typing for text, video, audio, or sensors.
-export { siteTerrain, siteTerrainAt, bondTerrain, arcTerrain } from './terrain.js';
+export { siteTerrain, siteTerrainAt, bondTerrain, arcTerrain, GRAIN_WEIGHT } from './terrain.js';
 // The Significance column's Ground terrain (cube.md #5): the Atmosphere pass and the
 // shared significance-basis projection every pass reads off. Pure on vectors past the
 // projection — omnimodal for free. The corpus prior is INJECTED, never imported, so the

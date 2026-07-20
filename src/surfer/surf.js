@@ -22,13 +22,14 @@
 // no read dependency), so this import stays acyclic.
 
 import { readingAt } from '../perceiver/index.js';
-import { deriveNull, boundedNull, buildDensity, eigenLenses, vonNeumann, commutator, projectorFrom, cellAt } from '../core/index.js';
+import { deriveNull, boundedNull, buildDensity, eigenLenses, vonNeumann, commutator, projectorFrom, cellAt, terrainInfo } from '../core/index.js';
 import { createEnactedLoop, calibrateReader } from '../enactor/enact/index.js';
 import { atmosphereFromActivations, corpusSigma, centroidBasis } from './atmosphere.js';
 import { updateStance } from './stance.js';
 import { bornSalience, figureSalience, linkSalience, linksBySentence } from './salience.js';
 import { chorusStops } from './chorus.js';
 import { topDims, labelPattern, nameDivergence } from './lens-naming.js';
+import { siteTerrainAt, GRAIN_WEIGHT } from './terrain.js';
 
 // The reach: a little behind the anchor (to read the frame it sits inside), mostly
 // ahead (a surf rides forward, and the arrow of time orders the frame axis).
@@ -156,10 +157,21 @@ export const surfFold = (doc, anchor = 0, opts = {}) => {
         threadLinks ? Math.max(0, ...(threadLinks.get(c) || []).map((l) => linkSalience(threadFigs, l))) : 0,  // the link
       )
     : null;
-  // Compose the conditioners multiplicatively — a cursor must be both on the chosen reading
-  // (lens) and on the thread (salience) to score. Either alone is the single-condition case.
-  const cond = (lensCond && threadCond) ? (c) => lensCond(c) * threadCond(c)
-    : (lensCond || threadCond || null);
+  // TERRAIN CONDITIONING (surfer/terrain.js GRAIN_WEIGHT, shared with write/gravity.js's
+  // turnWeights): condition the score by the Site-face GRAIN at each cursor — Ground weighs
+  // less, Figure is the baseline, Pattern would weigh more (docs/referents-recursed-up-the-
+  // domain-axis.md D4: terrain typing and the surf's own arrest physics were two parallel
+  // systems that never met). opts.terrainAware defaults false → terrainCond is null → byte-
+  // identical to today, matching the same default-off discipline as the weight-of-the-turn
+  // coupling (write/gravity.js TERRAIN_GRAVITY).
+  const terrainCond = opts.terrainAware
+    ? (c) => { const t = siteTerrainAt(doc, c); const info = t ? terrainInfo(t) : null; return info ? (GRAIN_WEIGHT[info.grain] ?? 1) : 1; }
+    : null;
+  // Compose the conditioners multiplicatively — a cursor must be on the chosen reading
+  // (lens), the thread (salience), AND its terrain's own weight to score. Any subset present
+  // reduces to that subset's product; none present → null → byte-identical.
+  const conditioners = [lensCond, threadCond, terrainCond].filter(Boolean);
+  const cond = conditioners.length ? (c) => conditioners.reduce((acc, f) => acc * f(c), 1) : null;
   const scoreOf = (f) => (cond ? f.bayes * cond(f.idx) : f.bayes);
   const scoreAt = (c) => (cond ? bayesAt(c) * cond(c) : bayesAt(c));
   const scoreSeries = cond ? field.map(scoreOf) : reachBayes;
