@@ -25,6 +25,7 @@ import { parseRelations, scanDescriptors } from './relations.js';
 import { argumentSpanSeg }      from './proposition.js';
 import { createCorefField }     from './coref.js';
 import { createDeixisFrame }    from './deixis.js';
+import { induceNarrativeDepth } from './narrative-depth.js';
 import { discoverNamings }      from './naming.js';
 import { distinctReferentCount } from './name-variants.js';
 import { induceInflections } from './inflection.js';
@@ -287,7 +288,12 @@ export const createParser = ({
     // this sentence* and the strongest candidate's weight becomes the bond's
     // coupling. Nothing is committed — the weight carries the uncertainty.
     const corefField = createCorefField({ ...corefOpts, ...(rolesConflict ? { rolesConflict } : {}) });
-    const deixis = createDeixisFrame({ field: (idx) => corefField.field(idx) });
+    // The structural run a first-person mention sits in (parse/narrative-depth.js) — a
+    // labelled numbered-heading series (Letter N / Chapter N) and “ ” nesting, read from the
+    // document's own shape. A document with neither stays at depth 0 throughout, so this is
+    // byte-identical wherever no such structure exists.
+    const depthAt = induceNarrativeDepth(sentences);
+    const deixis = createDeixisFrame({ field: (idx) => corefField.field(idx), depthAt });
     // Derived descriptor edges (owner->bearer:role), logged after the candidates, marked `derived` (defeasible).
     const derivedEdges = [];
 
@@ -896,7 +902,7 @@ export const createParser = ({
     // is on the log, so the mention→referent quotient seeds from the finished label quotient. OFF
     // → skipped entirely, so the doc and log are byte-identical (acceptance 10).
     const referentApi = referentIdentity === 'mention'
-      ? buildReferents({ log, sentences, admission, corefField, docId })
+      ? buildReferents({ log, sentences, admission, corefField, deixis, docId })
       : null;
 
     return {
@@ -914,6 +920,7 @@ export const createParser = ({
       units: sentences,
       modality: 'text',
       corefField,    // the referent field, incl. held standing descriptors (inspection)
+      deixis,        // the first-person teller channel (inspection; post-hoc referentApiFor reads it)
       state, // exposed for inspection; not for outside mutation
     };
     };  // end finalize
