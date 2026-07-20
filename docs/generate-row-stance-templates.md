@@ -1,7 +1,13 @@
 
 # Row-Stance Templates: generating a claim-ledger row
 
-**Status:** Implementation spec. No production code changed by this document.
+**Status:** Landed. `src/weave/generate-row/` (`stance.js`, `join.js`, `slots.js`,
+`render.js`, `plan.js`, `tokenize.js`, `index.js`) and `src/enactor/ground/row-veto.js`
+implement §§2–11; `tests/row-stance-templates.test.js` and `tests/row-plans.test.js`
+are the regression guard (65 tests, all green under `npm test`, 3047 tests total). The
+sections below are unchanged from the original spec except where the **As built** block
+immediately following notes a real divergence between the pseudocode and the shipped
+code.
 **Depends on:** `core/cube.js` (the Object diagonal), `core/faces.js` (`cellAt`),
 `core/contract.js` (`DESERT_CELL`), `surfer/stance.js` (`updateStance`,
 `applyMeasuredStance`), `core/verdicts.js` (`VERDICTS`), `weave/topline/phrase.js`
@@ -13,8 +19,72 @@ already-computed signal with the cube's own vocabulary) — this spec does the
 same thing one face over: **template chosen by Resolution position**, for one
 row of the claim ledger rather than one wiki article.
 
-> Status key: ● landed · ◐ instrumented, measurement open · ○ future work (this
-> whole document, unless marked otherwise — nothing here has shipped).
+> Status key: ● landed · ◐ instrumented, measurement open · ○ future work. Every
+> section below is now ● unless marked otherwise.
+
+> ## As built — implementation status
+>
+> Four points where the shipped code is not a literal transcription of this document's
+> original pseudocode, each because the pseudocode was tried first and did not survive
+> contact with real numbers or a real architecture guard:
+>
+> 1. **§3's `deriveNull` call does not fire at row scale.** `core/voidnull.js`
+>    `deriveNull` abstains (returns `Infinity`) below `MIN_SAMPLES = 4` background
+>    samples, and its own `leaveOut` drops one more before that check — so it only ever
+>    returns a finite null when the full spectrum has *more than* 4 entries. A row join
+>    is almost always 2–6 propositions; literally following §3's pseudocode would mean
+>    `stanceLegality` never clears past Cultivating for nearly every real row, which
+>    contradicts §10.3/§10.4's own worked examples. `stance.js`'s `clearedComponents`
+>    uses `deriveNull` only when `spectrum.length > MIN_SAMPLES`, and below that a
+>    closed-form test instead: count eigenvalues exceeding a fixed `epsilon = 0.05`
+>    above numerical noise. This does not ask "does this exceed chance" (there is no
+>    chance distribution estimable from 2–3 samples) — it asks "is there real,
+>    non-negligible mass on this axis at all". Making-versus-Composing-versus-Cultivating
+>    is then decided by whether that count is 1, ≥2-with-a-groundable-order, or
+>    ≥2-without-one — never by eigenvalue magnitude beyond that floor, which is exactly
+>    what §3.1's original "the ordering slot must be filled or this degrades to
+>    Cultivating" clause already anticipated. Verified against all four worked examples
+>    of §10 by direct numeric construction before the test suite was written.
+> 2. **The activation vectors are join-axis vectors, not a generic "significance
+>    activation".** §3's pseudocode says "one vector per proposition's significance
+>    activation... the same construction `surfer/stance.js`'s caller already builds" —
+>    but that caller reads a genuinely continuous field over reading positions, and no
+>    such field exists for a handful of discrete propositions. `stance.js`'s
+>    `activationVectors` instead gives each **coherence-creating join** (an `agree` or
+>    `causal` `RelationSlot`, or each adjacent pair of a dated `OrderSlot`) its own
+>    orthogonal axis; a proposition projects onto every axis it participates in, and
+>    gets a private axis only when it touches none. `oppose`/`measure`/`contrasts`/
+>    `qualifies` joins are recorded (for §6 rendering) but never merge two propositions
+>    onto one axis, so two opposed readings cannot spuriously read as one commanding
+>    one. This is closed, deterministic, and reuses nothing outside the propositions'
+>    own grounded joins and verdicts — §16's "never consults... any signal outside the
+>    propositions' own significance activations and verdicts" still holds, it is just
+>    now precise about what that vector space *is*.
+> 3. **`bidirectionallyEntails` takes the row's trace, not bare text.** §7's signature,
+>    `bidirectionallyEntails(text, propositions)`, has nothing to check text-only
+>    entailment WITH — there is no NLI model in this codebase, nor should there be
+>    (§16). The shipped signature is `bidirectionallyEntails(row, propositions)` where
+>    `row = { renderedText, trace }`: forward entailment is "every declared proposition
+>    is traced somewhere"; backward entailment is "every traced proposition-token points
+>    at a declared proposition, and every non-proposition token points at a *registered*
+>    fixed lexicon/heading id" (`render.js`'s own closed `KNOWN_CONNECTIVE_IDS`). Weaker
+>    than true semantic entailment — it cannot catch a proposition-tagged fragment whose
+>    words quietly drifted from what the proposition says — but it exactly catches the
+>    two failure modes §7 names by name (a dropped counter-reading, an unfounded
+>    connective/hedge word), because `realizeSlot`'s own construction (§9) guarantees
+>    every token traces to something, so "something" is exactly what this checks the
+>    identity of.
+> 4. **An explicit `domain` field disambiguates agree/oppose beyond subject+predicate.**
+>    §11.1's own example — "Python is a programming language" vs "Python is a snake" —
+>    cannot be told apart from a genuine same-subject disagreement by subject+predicate
+>    string matching alone; both read as `subject: python, predicate: is`. `join.js`
+>    lets a `PropositionGroup` carry an optional `domain` tag; `proposeAgree`/
+>    `proposeOppose`/`proposeMeasure` all refuse to relate two propositions that both
+>    carry an explicit, *different* domain. Silent (no tag on one or both sides) never
+>    blocks a relation — most propositions carry no domain tag, and its absence is not
+>    evidence of a mismatch. This is what makes §11.1's own worked distinction
+>    ("never merely because they occupy different domains") actually computable rather
+>    than aspirational.
 
 ## 0. What this is, in one paragraph
 
