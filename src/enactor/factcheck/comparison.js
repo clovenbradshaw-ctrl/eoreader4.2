@@ -15,7 +15,7 @@
 // bound records into measure × source, and reads the row's shape off the pivot. It never
 // reads the sources a second way, so the matrix and the conflict banner can never disagree.
 
-import { extractQuantities, subjectOf, measureTol } from './crosscheck.js';
+import { extractQuantities, subjectOf, subjectsCompatible, measureTol } from './crosscheck.js';
 import { measureLabel } from './quantities.js';
 import { quantitiesConflict } from '../../core/index.js';
 
@@ -118,40 +118,73 @@ export const comparisonMatrix = (sources = [], opts = {}) => {
 
   const rows = [];
   for (const [measure, recs] of byMeasure) {
-    // The matrix is scoped to a topic the reader assembled, so it folds every value of a
-    // measure across the corpus into one row — unlike the strict conflict pass, it does not
-    // drop a value whose bound subject differs (the reader's own "wetland acreage" is one
-    // row whether a source binds it to the seawall or to the agency that recommended it).
-    // `subjectOf` still names the row's dominant subject for the header.
-    const subject = subjectOf(recs);
-    const kept = recs;
-    if (!kept.length) continue;
-    // One operative record per source, placed in its column.
-    const bySource = new Map();
-    for (const r of kept) { let a = bySource.get(r.source); if (!a) bySource.set(r.source, a = []); a.push(r); }
-    const cells = cols.map(() => null);
-    const present = [];
-    for (const [src, srcRecs] of bySource) {
-      const op = operativeFor(srcRecs);
-      if (!op) continue;
-      const cell = {
-        source: src, sourceLabel: op.sourceLabel, value: op.value, unit: op.unit, raw: op.raw,
-        bound: op.bound || 'exact', transition: op.transition || null,
-        sentIdx: op.sentIdx, text: op.text,
-      };
-      cell.display = cellDisplay(cell);
-      const ci = colIndex.get(src);
-      if (ci != null) cells[ci] = cell;
-      present.push(cell);
+    // The row key is subject × measure, not measure alone: a bare same-measure match ("cost
+    // (USD)") is not enough to call two magnitudes the same thing — a $15 accessory and a
+    // company's $2.2T valuation share a measure and nothing else. Cluster this measure's
+    // records: two join the same row if EITHER both name a subject and those subjects don't
+    // positively split (subjectsCompatible, the same gate the strict conflict pass uses) OR
+    // their magnitudes are within the same rough order of size. Note this is a STRICTER read
+    // of subjectsCompatible than its own pairwise contract: that helper treats an unresolved
+    // subject on either side as "defer to true", which is right for asking about one specific
+    // pair but wrong here — clustering is transitive, so a single unresolved-subject record
+    // would silently bridge every other subject in the measure into one row. Requiring both
+    // sides resolved keeps that leniency from leaking across the union-find; an unresolved
+    // record still joins a row, but only via the magnitude leg below.
+    // The magnitude leg is what keeps the reader's own "wetland acreage" in one row whether a
+    // source binds it to the seawall (60 acres) or to the agency that recommended it (240
+    // acres) — real same-topic figures stay within a bounded ratio of each other even when the
+    // sentence-level subject differs — while still splitting apart values that share nothing
+    // but a measure: a $15 accessory is >10^8x a $2.2T valuation, nowhere near "the same kind
+    // of figure" no matter what either sentence's subject resolved to.
+    const MAGNITUDE_SPLIT_RATIO = 25;
+    const namedSubjectsCompatible = (a, b) => !!a && !!b && subjectsCompatible(a, b);
+    const magnitudeClose = (a, b) => {
+      const x = Math.abs(a), y = Math.abs(b);
+      if (!x || !y) return x === y;
+      return Math.max(x, y) / Math.min(x, y) <= MAGNITUDE_SPLIT_RATIO;
+    };
+    const parent = recs.map((_, i) => i);
+    const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+    const union = (i, j) => { const ri = find(i), rj = find(j); if (ri !== rj) parent[ri] = rj; };
+    for (let i = 0; i < recs.length; i++) {
+      for (let j = i + 1; j < recs.length; j++) {
+        if (namedSubjectsCompatible(recs[i].subjLabel, recs[j].subjLabel) || magnitudeClose(recs[i].value, recs[j].value)) union(i, j);
+      }
     }
-    if (!present.length) continue;
-    const conflict = rowConflict(measure, present, opts);
-    const changed = present.some((c) => c.transition);
-    rows.push({
-      measure, measureLabel: measureLabel(measure, present[0]?.unit), subject,
-      conflict, changed, reading: readingFor(measure, present, conflict, opts),
-      sourceCount: new Set(present.map((c) => c.source)).size, cells,
-    });
+    const clusters = new Map();
+    for (let i = 0; i < recs.length; i++) {
+      const root = find(i); let a = clusters.get(root); if (!a) clusters.set(root, a = []); a.push(recs[i]);
+    }
+    for (const kept of clusters.values()) {
+      if (!kept.length) continue;
+      const subject = subjectOf(kept);
+      // One operative record per source, placed in its column.
+      const bySource = new Map();
+      for (const r of kept) { let a = bySource.get(r.source); if (!a) bySource.set(r.source, a = []); a.push(r); }
+      const cells = cols.map(() => null);
+      const present = [];
+      for (const [src, srcRecs] of bySource) {
+        const op = operativeFor(srcRecs);
+        if (!op) continue;
+        const cell = {
+          source: src, sourceLabel: op.sourceLabel, value: op.value, unit: op.unit, raw: op.raw,
+          bound: op.bound || 'exact', transition: op.transition || null,
+          sentIdx: op.sentIdx, text: op.text,
+        };
+        cell.display = cellDisplay(cell);
+        const ci = colIndex.get(src);
+        if (ci != null) cells[ci] = cell;
+        present.push(cell);
+      }
+      if (!present.length) continue;
+      const conflict = rowConflict(measure, present, opts);
+      const changed = present.some((c) => c.transition);
+      rows.push({
+        measure, measureLabel: measureLabel(measure, present[0]?.unit), subject,
+        conflict, changed, reading: readingFor(measure, present, conflict, opts),
+        sourceCount: new Set(present.map((c) => c.source)).size, cells,
+      });
+    }
   }
 
   // Salience: disagreements first, then revisions, then multi-source agreements, then the

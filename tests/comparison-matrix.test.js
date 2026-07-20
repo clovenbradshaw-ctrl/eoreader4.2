@@ -166,3 +166,35 @@ test('comparisonMatrix: empty corpus is empty, never throws', () => {
   assert.deepEqual(m.rows, []);
   assert.equal(m.counts.rows, 0);
 });
+
+// ── row key is subject × measure, not measure alone (reported bug) ───────────
+
+test('comparisonMatrix: a $15 accessory and a $2.2T valuation never share a "cost" row', () => {
+  // Five unrelated cost mentions from unrelated documents — a laptop charger, a gadget, a
+  // salary, a national debt figure, a price range — sharing nothing but the "cost" measure.
+  // The live app was folding all five into one manufactured "Sources disagree" row; the
+  // matrix must split them into separate rows keyed by subject instead.
+  const m = comparisonMatrix([
+    { doc: P('The replacement charger for the laptop costs $15 from the manufacturer.', 'a'), source: 'S-A' },
+    { doc: P('The national debt of the United States has reached $2.221 trillion this quarter.', 'b'), source: 'S-B' },
+    { doc: P('Total compensation for the role is set at $125,000 per year.', 'c'), source: 'S-C' },
+  ]);
+  const costRows = m.rows.filter((r) => r.measure === 'cost');
+  assert.ok(costRows.length > 1, `expected multiple cost rows, got ${costRows.length}`);
+  for (const row of costRows) {
+    const values = row.cells.filter(Boolean).map((c) => c.value);
+    const hi = Math.max(...values), lo = Math.min(...values.map(Math.abs));
+    assert.ok(hi / lo <= 25, `row mixes wildly unrelated magnitudes: ${values}`);
+  }
+});
+
+test('comparisonMatrix: same-project figures with different grammatical subjects still merge (magnitude leg)', () => {
+  const m = comparisonMatrix([
+    { doc: P('The Coastal Ecology Alliance review finds the Harbor City seawall will cost at least $145M and will not be complete before 2032.\nThe review recommends 240 acres of wetland restoration.', 'review'), source: 'S-0002' },
+    { doc: P('The Harbor City seawall has an approved budget of $145M and a target completion of 2032.\nThe seawall includes 60 acres of wetland.', 'csv'), source: 'S-0003' },
+  ]);
+  const acres = m.rows.find((r) => r.measure === 'acres');
+  assert.ok(acres, 'the acreage figures still land in one row despite differing sentence subjects');
+  const vals = acres.cells.filter(Boolean).map((c) => c.value).sort((a, b) => a - b);
+  assert.deepEqual(vals, [60, 240]);
+});

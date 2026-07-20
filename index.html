@@ -7228,8 +7228,13 @@ class Component extends DCLogic {
     const mobilePatch = this._mob()
       ? { leftOpen: false, rightOpen: false, ...(this.state.viewerTabs.includes(this.state.tab) ? {} : { mReturnTab: this.state.tab }) }
       : {};
+    // An entity profile is scoped to the document it was opened from (entitySel.docId). Landing
+    // on a different source — via Compare, a citation, the library, anywhere — must not leave that
+    // profile sitting in the sidebar looking like it belongs to the source now on screen. Desktop
+    // previously only cleared this on a topic switch; a same-topic source change leaked it too.
+    const entityScopePatch = (this.state.entitySel && this.state.entitySel.docId !== sn) ? { entitySel: null } : {};
     // Open the source AS A TAB in the main stage and make it the active tab.
-    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...mobilePatch });
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...mobilePatch, ...entityScopePatch });
     if (modes[sn] === 'native') this.loadPage(sn);
     if (modes[sn] === 'pdf') this.loadPdf(sn);
     this._syncRoute();
@@ -10480,13 +10485,13 @@ class Component extends DCLogic {
           + 'style="padding:7px 12px;border-bottom:1px solid #F2F2F5;cursor:pointer;font-size:12.5px" class="cmp-cell">'
           + `<span${badge}>${esc(cell.display)}</span></td>`;
       }).join('');
-      const measCell = `<th style="text-align:left;padding:7px 12px;position:sticky;left:0;background:#fff;font-size:12.5px;font-weight:650;color:#1B1B22;border-bottom:1px solid #F2F2F5;white-space:nowrap">${esc(r.measureLabel)}</th>`;
+      const measCell = `<th style="text-align:left;padding:7px 12px;position:sticky;left:0;background:#fff;font-size:12.5px;font-weight:650;color:#1B1B22;border-bottom:1px solid #F2F2F5;white-space:nowrap">${esc(r.measureLabel)}`
+        + (r.subject ? `<div style="font-size:10.5px;font-weight:500;color:#8A8A95">${esc(r.subject)}</div>` : '') + '</th>';
       const reading = `<td style="padding:7px 12px;border-bottom:1px solid #F2F2F5"><span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;color:${readTint(r)};background:${readBg(r)}">${esc(r.reading)}</span></td>`;
       return `<tr>${measCell}${cells}${reading}</tr>`;
     }).join('');
-    const subj = m.rows.find((r) => r.subject) ? m.rows.find((r) => r.subject).subject : null;
     el.innerHTML = '<div style="padding:6px 2px 2px;overflow:auto;max-height:100%">'
-      + (subj ? `<div style="padding:2px 12px 10px;font-size:12px;color:#8A8A95">Subject: <b style="color:#5A5A64">${esc(subj)}</b> · ${m.counts.conflicts} disagreement${m.counts.conflicts === 1 ? '' : 's'} across ${cols.length} source${cols.length === 1 ? '' : 's'}</div>` : '')
+      + `<div style="padding:2px 12px 10px;font-size:12px;color:#8A8A95">${m.rows.length} value${m.rows.length === 1 ? '' : 's'} compared · ${m.counts.conflicts} disagreement${m.counts.conflicts === 1 ? '' : 's'} across ${cols.length} source${cols.length === 1 ? '' : 's'}</div>`
       + '<table style="border-collapse:collapse;width:100%;font-family:inherit"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>';
     // Every cell opens the exact passage it was read from — the matrix is an index into the record.
     el.querySelectorAll('.cmp-cell').forEach((td) => {
