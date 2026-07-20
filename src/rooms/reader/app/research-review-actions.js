@@ -10,6 +10,7 @@ import { gapSearchQueries } from '../research-review-corpus.js';
 import { markPayload } from '../research-review-waveform.js';
 import { nowIso } from './util.js';
 import { deriveNull } from '../../../core/index.js';
+import { joinTopline } from '../../../weave/topline/index.js';
 
 export const installResearchReviewActions = (appCtx) => {
   const { client, emit, logIt, state } = appCtx;
@@ -137,6 +138,32 @@ export const installResearchReviewActions = (appCtx) => {
       return verdict;
     });
 
+  // reviewFeedback(topicId) → the local model reads the result back to the reader as one fluent
+  // paragraph — "prompted by the fold" the exact way every source and entity topline already is
+  // (weave/topline/join.js, docs/topline.md): `view.reading` (research-review.js researchReading) is
+  // ALREADY pass one of that pipeline — the machinery's own deterministic, falsifiable sentences
+  // (evidence coverage, derivative-cluster caution, independent-origin count, measure agreement/
+  // conflict, thin-area caution), never generated. This runs ONLY pass two: the model is handed
+  // those sentences and asked to join them — reorder, add connectives, elide repetition — gated by
+  // the same set-containment check topline uses everywhere else (weave/topline/contain.js): every
+  // content word and number in the output must already appear in the input, or the telegram (the
+  // plain sentences, joined as-is) ships instead. The model can rearrange this result's own words;
+  // it can never add one. Model-optional and user-triggered — with no model the telegram already
+  // reads as a feedback paragraph on its own, so this only asks for more fluency, never more claims.
+  const reviewFeedback = (topicId) =>
+    appCtx.runCancellable({ kind: 'review-feedback', label: 'Asking the local model to read this result back to you…' }, async (signal) => {
+      const t = appCtx.topicById(topicId); if (!t || !t.review) return null;
+      const view = appCtx.reviewCompute(topicId);
+      if (!view || !view.reading || !view.reading.length) return null;
+      const m = await appCtx.ensureModel().catch(() => null);
+      if (signal.aborted) return null;
+      const joined = await joinTopline(view.reading, { model: m, signal });
+      t.review.feedback = { ...joined, readingKey: view.reading.join('|'), generatedAt: nowIso() };
+      logIt('review', joined.joined ? 'Local model read this result back, fluently' : 'Local model unavailable — showing the plain reading', topicId);
+      appCtx.persist(); emit('topics');
+      return t.review.feedback;
+    });
+
   // reviewOpenMark(topicId, sn, ordinal) → the shared evidence-modal payload for one waveform mark
   // (§6.1), computed lazily on click rather than for every bar up front. `ordinal` is the turn's
   // own `idx` (research-review-waveform.js's bars carry it).
@@ -153,6 +180,6 @@ export const installResearchReviewActions = (appCtx) => {
 
   Object.assign(appCtx, {
     reviewToggleIndependent, reviewClusterAction, reviewSetIdentity, reviewExpand, reviewOpenMark,
-    reviewVerifyAnswer,
+    reviewVerifyAnswer, reviewFeedback,
   });
 };

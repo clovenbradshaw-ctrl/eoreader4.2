@@ -54,7 +54,7 @@ export const buildApi = (appCtx) => {
     // lands in the SAME review topic, and opening one waveform mark's evidence-modal payload.
     reviewToggleIndependent: appCtx.reviewToggleIndependent, reviewClusterAction: appCtx.reviewClusterAction,
     reviewSetIdentity: appCtx.reviewSetIdentity, reviewExpand: appCtx.reviewExpand, reviewOpenMark: appCtx.reviewOpenMark,
-    reviewVerifyAnswer: appCtx.reviewVerifyAnswer,
+    reviewVerifyAnswer: appCtx.reviewVerifyAnswer, reviewFeedback: appCtx.reviewFeedback,
     sourceBySn: appCtx.sourceBySn, sourceRename: appCtx.sourceRename, removeSource: appCtx.removeSource, topicSources: appCtx.topicSources, topicSourcesAll: appCtx.topicSourcesAll, sourceToggleCollapse: appCtx.sourceToggleCollapse,
     // source export — full append-only history as JSONL, one JSON snapshot (or one folded at a
     // text/log cursor), and the ORIGINAL file/bytes as ingested (PDF/audio/video bytes, else text)
