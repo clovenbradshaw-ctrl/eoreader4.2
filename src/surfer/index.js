@@ -79,7 +79,7 @@ export { createLayeredGenerator } from './layered-generator.js';
 // The structural significance basis: ρ built from OPERATIONS (the cube's Act face read
 // off the log), not embeddings — meaning as what the operators do to the field, not as
 // distributional company. The embedder stays in VOX; the column reads structure.
-export { OPS, RELTYPES, operatorProfiles, structuralActivations, structuralHorizon, structuralCommutator, structuralParadigmDivergence, structuralGround, crossSourceFrameVerdicts } from './structure-basis.js';
+export { OPS, RELTYPES, operatorProfiles, structuralActivations, structuralHorizon, structuralCommutator, structuralParadigmDivergence, structuralParadigmScan, structuralGround, crossSourceFrameVerdicts } from './structure-basis.js';
 // Naming a Lens/Paradigm reading in the cube's own operator vocabulary (never invented
 // words): which dimensions load a direction heaviest, and the phrase that reads off them.
 // Basis-agnostic — the same namer serves the structural (operator-code) and embedding

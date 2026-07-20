@@ -201,6 +201,56 @@ export const structuralParadigmDivergence = (profilesA, profilesB, dims, { m = 3
   return { incommensurability, pattern: named.pattern, label: named.label };
 };
 
+// structuralParadigmScan(profiles, dims, { window, stride, lag, m, hyst }) — WHERE within a
+// document a paradigm shift happens, not just whether one exists anywhere (docs/referents-
+// recursed-up-the-domain-axis.md D4; the frame-scatter probe's M3 measured incommensurability
+// firing cross-document but never within one — a FIXED two/three-way split of a single
+// document can miss a shift local to one stretch: the 9/11 Commission Report reads as one
+// commensurable paradigm region0-vs-region2 despite visibly turning from narrative to policy
+// recommendation partway through). Slides a window across the document (M2's own windowing,
+// re-used) and reads the commutator between each window and the one `lag` windows ahead — a
+// spike THERE is a transition, not merely a difference from the document's average. Gated
+// against a baseline built the paradigm pass's own way (two halves of one interior stretch —
+// material everyone agrees is commensurable), scaled by the same hysteresis margin
+// (paradigmHysteresis in surf.js) so a lone noisy window does not read as a shift. Every real
+// shift is named (lens-naming.js) off what actually changed between the two windows —
+// location AND content, not a bare scalar.
+export const structuralParadigmScan = (profiles, dims, { window = 60, stride = 30, lag = 1, m = 3, hyst = 1.5 } = {}) => {
+  const proj = (ps) => projectorFrom(eigenLenses(buildDensity(ps.filter(p => p.some(x => x > 0))).rho, { k: m }).map(l => l.lens));
+  const win = Math.min(window, profiles.length);
+  const empty = { windows: 0, series: [], shifts: [], baseline: 0, bar: 0 };
+  if (win < 2 * m) return empty;
+
+  const starts = [];
+  for (let i = 0; i + win <= profiles.length; i += stride) starts.push(i);
+  if (starts.length <= lag) return { ...empty, windows: starts.length };
+  const projs = starts.map((i) => proj(profiles.slice(i, i + win)));
+
+  // baseline: two halves of the MIDDLE window's own material — a chance distribution over a
+  // stretch nobody disputes is commensurable, the same discipline paradigmReading's own
+  // baseline uses at document grain, run here at window grain.
+  const midStart = starts[starts.length >> 1] ?? 0;
+  const mid = profiles.slice(midStart, midStart + win);
+  const half = mid.length >> 1;
+  const baseline = half >= m ? round(commutator(proj(mid.slice(0, half)), proj(mid.slice(half)))) : 0;
+  const bar = round(baseline * hyst);
+
+  const diagOf = (p) => dims.map((_, i) => p[i]?.[i] ?? 0);
+  const series = [];
+  for (let i = 0; i + lag < projs.length; i++) {
+    const incommensurability = round(commutator(projs[i], projs[i + lag]));
+    const real = baseline > 0 ? incommensurability > bar : incommensurability > 0;
+    const entry = { at: starts[i], to: starts[i + lag] + win, incommensurability, real };
+    if (real) {
+      const named = nameDivergence(diagOf(projs[i]), diagOf(projs[i + lag]), dims);
+      entry.pattern = named.pattern;
+      entry.label = named.label;
+    }
+    series.push(entry);
+  }
+  return { windows: starts.length, baseline, bar, series, shifts: series.filter((s) => s.real) };
+};
+
 // crossSourceFrameVerdicts(sources, { rank, hyst }) — the frame channel applied across SOURCES
 // (docs/referents-recursed-up-the-domain-axis.md, D5; the frame-scatter probe's M3, which measured
 // incommensurability firing BETWEEN documents, not between regions of one). For each pair of
