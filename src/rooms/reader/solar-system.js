@@ -28,7 +28,10 @@
 // bonded figures at tier 1, standing claims at tier 2 — plus the focus entity's `spans` (its
 // mentions) for level 2's floor. Pure DOM + SVG, no deps; returns { destroy }.
 //
-//   nodes: [{ id, tier:0|1|2, label, kind, ref }]   edges: [{ a, b, tier, gl, code }]
+//   nodes: [{ id, tier:0|1|2, label, kind, ref, color? }]   edges: [{ a, b, tier, gl, code, dashed? }]
+//   node.color overrides the tier's shared fill (e.g. a verdict color on a claim body or a bonded
+//   figure); edge.dashed draws a structure-level bond dashed instead of solid (e.g. a candidate/
+//   single-source relation vs. a corroborated one). Both are optional — omit for the tier's default.
 //   centreId  the id to seat at the centre (the sun / POV)
 //   spans:  [{ idx, text }]   the focus entity's raw mention sentences (level 2's floor)
 //   count:  number           how many times it was witnessed (the dashboard's tally)
@@ -175,7 +178,7 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     }
     claims.forEach((n) => {
       const grp = sv('g', { class: 'ss-body' });
-      grp.appendChild(sv('circle', { r: 5.5, fill: LEVELS[0].fill, stroke: LEVELS[0].stroke, 'stroke-width': 1.1 }));
+      grp.appendChild(sv('circle', { r: 5.5, fill: n.color || LEVELS[0].fill, stroke: LEVELS[0].stroke, 'stroke-width': 1.1 }));
       grp.addEventListener('click', (ev) => { ev.stopPropagation(); focusMeaning(n.id); });
       g.appendChild(grp);
       const lab = text(0, 0, clip(n.label, 26), { anchor: 'start', size: 10.5, cls: 'ss-plabel' });
@@ -232,13 +235,15 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     });
     structEdges.forEach((e) => {
       const A = pos[e.a], B = pos[e.b]; if (!A || !B) return;
-      g.appendChild(sv('line', { x1: A.x.toFixed(1), y1: A.y.toFixed(1), x2: B.x.toFixed(1), y2: B.y.toFixed(1), stroke: LEVELS[1].fill, 'stroke-opacity': 0.42, 'stroke-width': 1.1, 'marker-end': 'url(#' + mk + ')' }));
+      const line = { x1: A.x.toFixed(1), y1: A.y.toFixed(1), x2: B.x.toFixed(1), y2: B.y.toFixed(1), stroke: LEVELS[1].fill, 'stroke-opacity': 0.42, 'stroke-width': 1.1, 'marker-end': 'url(#' + mk + ')' };
+      if (e.dashed) line['stroke-dasharray'] = '3 4';
+      g.appendChild(sv('line', line));
       if (e.gl) g.appendChild(text((A.x + B.x) / 2, (A.y + B.y) / 2, e.gl, { anchor: 'middle', size: 11, cls: 'ss-glyph', fill: LEVELS[1].stroke }));
     });
     bonded.forEach((nd) => {
       const p = pos[nd.id]; if (!p) return;
       const s = 7, grp = sv('g', { class: 'ss-body' });
-      grp.appendChild(sv('path', { d: 'M0,' + (-s) + ' L' + s + ',0 L0,' + s + ' L' + (-s) + ',0 Z', fill: LEVELS[1].fill, stroke: LEVELS[1].stroke, 'stroke-width': 1.2 }));
+      grp.appendChild(sv('path', { d: 'M0,' + (-s) + ' L' + s + ',0 L0,' + s + ' L' + (-s) + ',0 Z', fill: nd.color || LEVELS[1].fill, stroke: LEVELS[1].stroke, 'stroke-width': 1.2 }));
       grp.setAttribute('transform', 'translate(' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ')');
       grp.addEventListener('click', (ev) => { ev.stopPropagation(); clickBody(nd); });
       g.appendChild(grp);

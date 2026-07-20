@@ -33,10 +33,13 @@ export const measureRows = (rows, matrix) => {
 };
 
 // propositionRows(rows, areas, clusters) → one PROPOSITION row per evidence area — its label IS the
-// shared vocabulary that put the members there, never an invented claim text. A member reads
-// 'supports' when it is the cluster's origin or an independent voice; 'candidate correspondence'
-// when it is a DERIVATIVE of another member already in the area (the same origin restated, not a
-// second witness); 'silent' when the candidate's own reviewed text never entered this area at all.
+// shared vocabulary that put the members there, never an invented claim text. `reading`, when an
+// area carries a representativeSentence (research-review.js evidenceAreas), is a real sentence
+// already in the record — the row's own display text should prefer this over the term-cluster
+// label, the same way a MEASURE row's `reading` already does. A member reads 'supports' when it is
+// the cluster's origin or an independent voice; 'candidate correspondence' when it is a DERIVATIVE
+// of another member already in the area (the same origin restated, not a second witness); 'silent'
+// when the candidate's own reviewed text never entered this area at all.
 export const propositionRows = (rows, areas, clusters) => (areas || []).map((area) => {
   const memberSns = new Set(area.sns);
   const cells = {};
@@ -46,7 +49,11 @@ export const propositionRows = (rows, areas, clusters) => (areas || []).map((are
     const isDerivative = !!(cluster && cluster.origin && cluster.origin.sn !== r.sn && cluster.members.length > 1);
     cells[r.sn] = { state: isDerivative ? 'candidate correspondence' : 'supports', originSn: isDerivative ? cluster.origin.sn : null };
   }
-  return { family: 'proposition', label: area.label, terms: area.terms, independentOrigins: area.independentOrigins, cells };
+  return {
+    family: 'proposition', label: area.label, terms: area.terms, independentOrigins: area.independentOrigins,
+    reading: area.sentence ? area.sentence.text : null, readingSource: area.sentence ? area.sentence.sn : null,
+    cells,
+  };
 });
 
 // evidenceMatrix(rows, { matrix, areas, clusters }) → { rows:[...], sources:[{source,label}] } — the

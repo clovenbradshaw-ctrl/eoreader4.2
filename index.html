@@ -4715,26 +4715,24 @@ table{border-collapse:collapse;width:100%}
 
 </sc-if>
 <!-- shared by both shells -->
-  <!-- QUESTION RESULT (docs/EOReader_Question_Result_Update_Spec.md) — MOBILE ONLY. On desktop
-       this renders inline in the Search tab's own pane (see isSearch below) instead of a modal,
-       so the reader stays oriented in that tab's normal layout rather than losing it under a
-       dimmed overlay. The mobile shell has no such pane to render into, so it keeps the centered-
-       modal treatment (dimmed backdrop, click to close) as its one code path. Candidate sources
-       remain provisional until the reader explicitly admits selected sources to a topic. -->
-  <sc-if value="{{ rrShowModal }}">
-    <div style="position:absolute;inset:0;z-index:49">
-      <div onClick="{{ closeResearchReviewBackdrop }}" style="position:absolute;inset:0;background:rgba(20,20,28,.32);animation:eoFade .16s ease"></div>
-      <div class="eo-modal" style="position:absolute;left:50%;top:40px;transform:translateX(-50%);width:min(1020px,96vw);max-height:calc(100vh - 80px);background:#FAFAFC;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
-        <!-- rrTopicId is null until reviewStart's discover-and-review pass settles; the mounted
-             surface only exists once there is a real topic to read, so a slow search shows this
-             plain wait instead of the surface's "no longer available" (which means something else). -->
-        <sc-if value="{{ rrLoading }}">
-          <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite;padding:60px 20px">Searching and reviewing candidates…</div>
-        </sc-if>
-        <sc-if value="{{ rrReady }}">
-          <div ref="{{ setResearchReviewEl }}" data-screen-label="Question Result" style="flex:1;min-height:0;overflow:auto"></div>
-        </sc-if>
-      </div>
+  <!-- QUESTION RESULT (docs/EOReader_Question_Result_Update_Spec.md) — MOBILE. On desktop this
+       renders inline in the Search tab's own pane (see isSearch below); the mobile shell has no
+       such pane, so it fills the screen edge-to-edge instead — a real full-screen page, driven by
+       the same #/research/{id} route as desktop (see _routeHash/_applyRoute), not an overlay: no
+       dimmed backdrop, no floating centered card, no click-outside-to-dismiss. The surface's own
+       close button (research-review-surface.js) is the only way out, same as any other route.
+       Candidate sources remain provisional until the reader explicitly admits selected sources. -->
+  <sc-if value="{{ rrShowSheet }}">
+    <div style="position:absolute;inset:0;z-index:49;background:#FAFAFC;display:flex;flex-direction:column;overflow:hidden">
+      <!-- rrTopicId is null until reviewStart's discover-and-review pass settles; the mounted
+           surface only exists once there is a real topic to read, so a slow search shows this
+           plain wait instead of the surface's "no longer available" (which means something else). -->
+      <sc-if value="{{ rrLoading }}">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite;padding:60px 20px">Searching and reviewing candidates…</div>
+      </sc-if>
+      <sc-if value="{{ rrReady }}">
+        <div ref="{{ setResearchReviewEl }}" data-screen-label="Question Result" style="flex:1;min-height:0;overflow:auto"></div>
+      </sc-if>
     </div>
   </sc-if>
 
@@ -5599,6 +5597,10 @@ class Component extends DCLogic {
   // graph subview — not every fold/panel toggle; those stay session-only, same as today.
   _routeHash() {
     const app = this._app;
+    // A Question Result in progress owns the address bar while it's open — #/research/pending
+    // until reviewStart's topic settles, then #/research/{reviewTopicId}, so refresh and Back/
+    // Forward can restore it (see _applyRoute's questionTopicId branch below).
+    if (this.state.rrOpen) return this.state.rrTopicId ? `#/research/${encodeURIComponent(this.state.rrTopicId)}` : '#/research/pending';
     const topicId = app && app.state ? app.state.activeTopicId : null;
     if (!topicId) return '#/';
     let path = `#/topic/${encodeURIComponent(topicId)}`;
@@ -5629,6 +5631,9 @@ class Component extends DCLogic {
     const raw = String(hash || '').replace(/^#\/?/, '');
     if (!raw) return null;
     const parts = raw.split('/').filter(Boolean).map((p) => { try { return decodeURIComponent(p); } catch { return p; } });
+    // A Question Result still mid-search ("pending") has no topic yet to restore — nothing to do
+    // on a hard refresh in that split second; the reader just lands on the normal entry route.
+    if (parts[0] === 'research' && parts[1] && parts[1] !== 'pending') return { questionTopicId: parts[1] };
     if (parts[0] !== 'topic' || !parts[1]) return null;
     const route = { topicId: parts[1] };
     if (parts[2] === 'source' && parts[3]) { route.sourceId = parts[3]; route.sourceMode = parts[4] || 'overview'; }
@@ -5643,6 +5648,13 @@ class Component extends DCLogic {
     if (!app || !route) return;
     this._routerApplying = true;
     try {
+      if (route.questionTopicId) {
+        const t = (app.state.topics || []).find((x) => x.id === route.questionTopicId && x.review);
+        if (!t) { this.showToast('That question result could not be found.'); this._clearRouteHash(); return; }
+        if (this.state.tab !== 'search') this.setTab('search');
+        this.setState({ rrOpen: true, rrTopicId: t.id, rrBusy: false });
+        return;
+      }
       if (route.topicId && app.state.activeTopicId !== route.topicId) {
         const exists = (app.state.topics || []).some((t) => t.id === route.topicId);
         if (!exists) { this.showToast('That topic could not be found.'); this._clearRouteHash(); return; }
@@ -10390,13 +10402,14 @@ class Component extends DCLogic {
     if (!query || !this._app || !this._app.reviewStart) return;
     if (this.state.tab !== 'search') this.setTab('search');
     this.setState({ rrOpen: true, rrTopicId: null, rrBusy: true });
-    try { window.history.pushState({ eoQuestionResult: true }, '', '#/research/pending'); } catch {}
+    this._syncRoute();
     this._app.reviewStart(query).then((t) => {
-      if (!t) { this.setState({ rrOpen: false, rrBusy: false }); this.showToast(`Nothing came back for “${query}” — try different words or a direct URL`); return; }
+      if (!t) { this.setState({ rrOpen: false, rrBusy: false }); this._syncRoute(true); this.showToast(`Nothing came back for “${query}” — try different words or a direct URL`); return; }
       this.setState({ rrTopicId: t.id, rrBusy: false });
-      try { window.history.replaceState({ eoQuestionResult: true, topicId: t.id }, '', '#/research/' + encodeURIComponent(t.id)); } catch {}
+      this._syncRoute(true);
     }).catch((err) => {
       this.setState({ rrOpen: false, rrBusy: false });
+      this._syncRoute(true);
       if (err && (err.name === 'AbortError' || /abort/i.test(String((err && err.message) || err)))) return;
       this.showToast(`Couldn’t search: ${String((err && err.message) || err).slice(0, 90)}`);
     });
@@ -10405,6 +10418,7 @@ class Component extends DCLogic {
     try { this._rr && this._rr.destroy(); } catch {}
     this._rr = null; this._rrEl = null; this._rrTopicId = null;
     this.setState({ rrOpen: false, rrTopicId: null });
+    this._syncRoute();
     if (target) this.showToast(`Added sources to “${target.title}”`);
   }
   // The per-source Graph tab's host — the same entity web the topic Graph tab draws
@@ -13512,12 +13526,12 @@ class Component extends DCLogic {
       // the library shelf — one shelf searched on its own surface (article/book/media/code)
       ...libVals,
       // Question Result (docs/EOReader_Question_Result_Update_Spec.md) — renders inline in the
-      // Search tab's own pane on desktop (isSearch, below); rrShowModal is the mobile-only
-      // fallback, since the mobile shell has no Search-tab pane of its own to render into.
+      // Search tab's own pane on desktop (isSearch, below); rrShowSheet is the mobile fallback, a
+      // full-screen page (no dimmed backdrop, no floating centered card) rather than a modal,
+      // since the mobile shell has no Search-tab pane of its own to render into.
       rrShow: st.rrOpen, rrHidden: !st.rrOpen, rrLoading: st.rrOpen && !st.rrTopicId, rrReady: st.rrOpen && !!st.rrTopicId,
-      rrShowModal: st.rrOpen && st.isMobile,
+      rrShowSheet: st.rrOpen && st.isMobile,
       setResearchReviewEl: (el) => this.setResearchReviewEl(el),
-      closeResearchReviewBackdrop: () => this.closeResearchReview(),
       // native preview of a search hit — the modal grows to a page frame while previewing
       searchModalW: preview ? 'min(1040px,96vw)' : 'min(640px,92vw)',
       searchModalH: preview ? 'calc(100vh - 120px)' : 'auto',

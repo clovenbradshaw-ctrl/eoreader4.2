@@ -109,9 +109,21 @@ const CSS = `
 .eo-rr__evidenceHead{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:800;letter-spacing:.07em;color:#8A8A95;margin:8px 0 5px}
 .eo-rr__evidenceRow{display:block;width:100%;text-align:left;border:none;background:#F7F7FA;border-radius:9px;padding:8px 10px;margin:5px 0;font-size:12px;color:#3A3A44;cursor:pointer}
 .eo-rr__evidenceSilent{font-size:11.5px;color:#9A9AA4;margin-top:8px}
-.eo-qr__meaning{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid #E9E8F6;background:#FBFAFF;border-radius:16px;padding:14px;margin-bottom:10px}
-.eo-qr__meaningCenter{border-radius:999px;background:#6D5EF5;color:#fff;padding:8px 12px;font-size:12.5px;font-weight:750}
-.eo-qr__meaningNode{border:1px solid #DED8FD;background:#fff;color:#4E4E58;border-radius:999px;padding:7px 11px;font-size:12px;cursor:pointer}.eo-qr__meaningNode--contested{border-color:#F1C8C0}.eo-qr__meaningNode--supported{border-color:#CFEBD9}
+.eo-qr__convergence{border:1px solid #ECECF0;background:#fff;border-radius:20px;padding:16px;margin-bottom:12px}
+.eo-qr__convergenceStats{display:flex;gap:8px;margin-bottom:14px}
+.eo-qr__convergenceStat{flex:1;text-align:center}
+.eo-qr__convergenceN{font-family:'IBM Plex Mono',monospace;font-size:25px;font-weight:600;line-height:1}
+.eo-qr__convergenceN--supported{color:#1E8A50}.eo-qr__convergenceN--contested{color:#C2410C}.eo-qr__convergenceN--unresolved{color:#9AA0AD}
+.eo-qr__convergenceLbl{font-size:10px;color:#9B9BA3;margin-top:5px}
+.eo-qr__convergenceBar{display:flex;height:13px;border-radius:7px;overflow:hidden;gap:2px;background:#F4F4F6}
+.eo-qr__convergenceSeg{height:100%}
+.eo-qr__convergenceSeg--supported{background:#3F9D6D}.eo-qr__convergenceSeg--contested{background:#E0863F}.eo-qr__convergenceSeg--unresolved{background:repeating-linear-gradient(45deg,#D5D5DD,#D5D5DD 3px,#E6E6EC 3px,#E6E6EC 6px)}
+.eo-qr__convergenceSummary{font-size:12.5px;line-height:1.5;color:#3A3A41;margin-top:13px}
+.eo-qr__meaningCard{border:1px solid #211F30;background:#0D0D15;border-radius:18px;overflow:hidden;margin-bottom:12px}
+.eo-qr__meaningHead{display:flex;align-items:center;gap:8px;padding:10px 12px}
+.eo-qr__meaningKicker{font-size:10px;font-weight:700;letter-spacing:1px;color:#8B83C9;flex:1}
+.eo-qr__meaningHead .eo-rr__btn{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#CFC9EE}
+.eo-qr__meaningStage{min-height:150px}
 .eo-qr__ledger{border:1px solid #EEEEF2;border-radius:14px;overflow:hidden;background:#fff}.eo-qr__ledgerRow{display:grid;grid-template-columns:minmax(0,1fr) 120px 60px;gap:10px;width:100%;border:none;border-bottom:1px solid #F4F4F8;background:#fff;padding:10px 12px;text-align:left;cursor:pointer;font-size:12.5px;color:#2A2A32}.eo-qr__ledgerRow b{font-size:12px;color:#4E5765}.eo-qr__ledgerRow em{font-family:'IBM Plex Mono',monospace;font-style:normal;color:#8A8A95;text-align:right}
 
 @media (max-width:640px){
@@ -132,6 +144,8 @@ const CSS = `
   .eo-rr__card,.eo-rr__measureRow,.eo-rr__table th,.eo-rr__table td{border-color:#2E2E38}
   .eo-rr__btn,.eo-rr__recipe,.eo-rr__idRowBtn{background:#1E1E26;border-color:#33333E;color:#D6D6DE}
   .eo-rr__footer{background:#17171D;border-color:#2E2E38}
+  .eo-qr__convergence{background:#17171D;border-color:#2E2E38}
+  .eo-qr__convergenceSummary{color:#D6D6DE}
 }
 `;
 export const ensureStyle = (doc) => { if (doc.getElementById(STYLE_ID)) return; const s = doc.createElement('style'); s.id = STYLE_ID; s.textContent = CSS; doc.head.appendChild(s); };
