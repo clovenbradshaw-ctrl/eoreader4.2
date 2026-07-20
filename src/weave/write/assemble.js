@@ -14,7 +14,7 @@ import { surfFold, threadBasis, trajectory, linksBySentence, linkSalience, bornS
 import { deriveNull } from '../../core/index.js';
 import { rdfRealizationPrompt, briefRDF } from './rdf.js';
 import { speakTriples } from './brief.js';
-import { arcGravity, speakArc, arcLines, ARC_CUE } from './gravity.js';
+import { arcGravity, speakArc, arcLines, ARC_CUE, TERRAIN_GRAVITY } from './gravity.js';
 
 // the doc's CON/SIG edges at the given sentence stops, as {subj, verb, obj} label triples,
 // in arrow-of-time order — the salient propositions, the content the prompt is built from.
@@ -151,7 +151,7 @@ export const assembleBrief = (doc, { question = '', history = [], max = 24, surf
   // teaches turn-rendering. No turn on the log → arc is silent → both surfaces are
   // byte-identical to before, which is the correct failure: a turn is only ever rendered
   // where a REC actually fired.
-  const arc = traj ? arcGravity(traj, { surf: surfRead, thread }) : null;
+  const arc = traj ? arcGravity(traj, { surf: surfRead, thread, doc, terrainAware: TERRAIN_GRAVITY }) : null;
   const arcSpeech = arc ? speakArc(arc, {}) : null;
   const arcSection = arc ? arcLines(arc) : '';
 
