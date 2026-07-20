@@ -14,6 +14,8 @@
 // this; every sentence the reading produces is assembled from the numbers computed here.
 
 import { witnessDescriptor, sameWitness } from '../../enactor/ground/index.js';
+import { tok } from '../../perceiver/parse/index.js';
+import { bornSalience } from '../../surfer/index.js';
 
 // ── term profiling (evidence areas) ──────────────────────────────────────────────────────────
 
@@ -76,6 +78,31 @@ export const clusterOf = (sn, clusters) => (clusters || []).find((c) => c.member
 
 // ── evidence areas ────────────────────────────────────────────────────────────────────────────
 
+// representativeSentence(members, terms) → { text, sn } | null — the single verbatim sentence,
+// across an evidence area's own member rows, that most concentrates the area's shared vocabulary
+// (the SAME token-space Born rule leadExcerpt runs against the whole query, run here against an
+// area's own top terms instead). An area's label is a fair GROUPING key but a poor thing to show as
+// a claim's text — "eviction · filings · moratorium" names the cluster, it is not a sentence. This
+// picks the one sentence already in the record that most concentrates that vocabulary, so a claim
+// row can quote real evidence instead of the term cluster that produced it. Null when no member has
+// a scoreable sentence — never a fabricated placeholder.
+const representativeSentence = (members, terms) => {
+  const basis = new Map();
+  for (const t of terms || []) basis.set(t, (basis.get(t) || 0) + 1);
+  if (!basis.size) return null;
+  let best = null;
+  for (const row of members || []) {
+    const sentences = String(row.text || '').split(/(?<=[.!?])\s+/).filter(Boolean);
+    for (const s of sentences) {
+      const trimmed = s.trim();
+      if (!trimmed) continue;
+      const score = bornSalience(basis, tok(trimmed));
+      if (!best || score > best.score) best = { score, text: trimmed, sn: row.sn };
+    }
+  }
+  return best ? { text: best.text, sn: best.sn } : null;
+};
+
 // evidenceAreas(rows) → [{ label, terms:[…], sns:[…], sourceCount, independentOrigins }] — a greedy
 // clustering of candidates by shared salient terms (Jaccard over each row's top terms), NOT an
 // invented editorial taxonomy: the label is the shared vocabulary itself, so it stays inspectable —
@@ -120,6 +147,7 @@ export const evidenceAreas = (rows, { maxAreas = 8, minMembers = 1 } = {}) => {
       sns: members.map((r) => r.sn),
       sourceCount: members.length,
       independentOrigins: independentOriginCount(members),
+      sentence: representativeSentence(members, label),
     });
   }
   areas.sort((a, b) => b.sourceCount - a.sourceCount);

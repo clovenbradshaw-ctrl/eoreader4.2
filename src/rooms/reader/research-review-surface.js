@@ -1,9 +1,12 @@
 // EO: SIG(Lens → Lens, Tending) — Question Result, the mounted web-search result page.
-// A web search is a durable question result: direct verdict objects first, a compact meaning
-// projection, an inspectable claim ledger, then provisional sources. It deliberately avoids the
-// older modal review's recipes, identity workbench, source network, waveforms, JSON, and prose.
+// A web search is a durable question result: direct verdict objects first, a convergence tally, a
+// compact meaning projection, an inspectable claim ledger, then provisional sources. It deliberately
+// avoids the older modal review's recipes, identity workbench, source network, waveforms, JSON, and
+// prose.
 import { el, renderCandidateCard } from './research-review-cards.js';
 import { ensureStyle } from './research-review-style.js';
+import { mountSolarSystem } from './solar-system.js';
+import { questionMeaningData } from './question-result.js';
 
 const FILTERS = [['all', 'All'], ['supported', 'Supported'], ['contested', 'Contested'], ['single_source', 'One source'], ['void', 'Unknown']];
 const labelForVerdict = (v) => ({ supported: 'Supported', contested: 'Contested', single_source: 'One source', void: 'Not found', no_commit: 'No commit' }[v] || v);
@@ -36,6 +39,67 @@ const ledgerFromView = (view) => {
   });
   if (!out.length) out.push({ id: 'void-0', kind: 'absence', text: view.query, verdict: 'void', standing: 'witnessed', support: [], contest: [], silent: [...selected], candidate: [], origins: 0, row: null });
   return out.sort((a, b) => ({ contested: 0, supported: 1, single_source: 2, void: 3 }[a.verdict] - { contested: 0, supported: 1, single_source: 2, void: 3 }[b.verdict]));
+};
+
+// renderConvergence(doc, ledger) → the tally strip (spec §22.4's own suggested phrasing: "3
+// supported · 1 contested · 2 unresolved"). single_source and void share the "unresolved" bucket —
+// neither is a settled read, and the spec is explicit that "settled" is the wrong word for either.
+const renderConvergence = (doc, ledger) => {
+  const supported = ledger.filter((c) => c.verdict === 'supported').length;
+  const contested = ledger.filter((c) => c.verdict === 'contested').length;
+  const unresolved = ledger.filter((c) => c.verdict === 'single_source' || c.verdict === 'void').length;
+  const total = Math.max(1, supported + contested + unresolved);
+  const box = el(doc, 'div', 'eo-qr__convergence');
+  box.appendChild(el(doc, 'div', 'eo-rr__section', 'Convergence'));
+  const stats = el(doc, 'div', 'eo-qr__convergenceStats');
+  const stat = (n, label, cls) => {
+    const s = el(doc, 'div', 'eo-qr__convergenceStat');
+    s.appendChild(el(doc, 'div', `eo-qr__convergenceN eo-qr__convergenceN--${cls}`, String(n)));
+    s.appendChild(el(doc, 'div', 'eo-qr__convergenceLbl', label));
+    return s;
+  };
+  stats.appendChild(stat(supported, 'supported', 'supported'));
+  stats.appendChild(stat(contested, 'contested', 'contested'));
+  stats.appendChild(stat(unresolved, 'unresolved', 'unresolved'));
+  box.appendChild(stats);
+  const bar = el(doc, 'div', 'eo-qr__convergenceBar');
+  [[supported, 'supported'], [contested, 'contested'], [unresolved, 'unresolved']].forEach(([n, cls]) => {
+    if (!n) return;
+    const seg = el(doc, 'div', `eo-qr__convergenceSeg eo-qr__convergenceSeg--${cls}`);
+    seg.style.width = `${Math.round((n / total) * 100)}%`;
+    bar.appendChild(seg);
+  });
+  box.appendChild(bar);
+  const parts = [];
+  if (supported) parts.push(`supported on ${supported} claim${supported === 1 ? '' : 's'}`);
+  if (contested) parts.push(`contested on ${contested} claim${contested === 1 ? '' : 's'}`);
+  if (unresolved) parts.push(`${unresolved} claim${unresolved === 1 ? '' : 's'} unresolved`);
+  if (parts.length) box.appendChild(el(doc, 'div', 'eo-qr__convergenceSummary', `${parts.join(' · ')}.`));
+  return box;
+};
+
+// renderVoidCard(doc, view, ledger, { onSearchMore }) → the scoped-void answer (spec §6.4): never
+// "no answer exists", only "the active record does not establish it" — plus whatever near-miss
+// material the ledger already found, labeled as related, not as an answer.
+const renderVoidCard = (doc, view, ledger, { onSearchMore } = {}) => {
+  const card = el(doc, 'section', 'eo-rr__verdict eo-rr__verdict--void');
+  card.appendChild(el(doc, 'div', 'eo-rr__verdictKicker', 'NOT ESTABLISHED BY THESE SOURCES'));
+  card.appendChild(el(doc, 'div', 'eo-rr__verdictText', view.query));
+  const selectedCount = (view.rows || []).filter((r) => !view.excludedSns.has(r.sn)).length;
+  card.appendChild(el(doc, 'div', 'eo-rr__verdictMeta', `None of the ${selectedCount} active source${selectedCount === 1 ? '' : 's'} clearly addresses this.`));
+  const related = ledger.filter((c) => c.id !== 'void-0' && c.text).slice(0, 3);
+  if (related.length) {
+    const ev = el(doc, 'div', 'eo-rr__evidence');
+    ev.appendChild(el(doc, 'div', 'eo-rr__evidenceHead', 'RELATED MATERIAL ON RECORD'));
+    for (const c of related) ev.appendChild(el(doc, 'div', 'eo-rr__evidenceSilent', c.text));
+    card.appendChild(ev);
+  }
+  if (onSearchMore) {
+    const btn = el(doc, 'button', 'eo-rr__btn eo-rr__btn--sm', 'Search for more sources');
+    btn.addEventListener('click', onSearchMore);
+    card.appendChild(btn);
+  }
+  return card;
 };
 
 // renderAnswerExcerpt(doc, answer, onOpenSource, verify) → the primary direct answer: a verbatim,
@@ -82,16 +146,25 @@ const renderAnswerExcerpt = (doc, answer, onOpenSource, verify = null) => {
   return box;
 };
 
-const renderVerdictCard = (doc, claim, view, { expanded, onToggle }) => {
+const renderVerdictCard = (doc, claim, view, { expanded, onToggle, onOpenSource }) => {
   const card = el(doc, 'section', `eo-rr__verdict eo-rr__verdict--${claim.verdict}`);
   card.appendChild(el(doc, 'div', 'eo-rr__verdictKicker', claim.verdict === 'void' ? 'NOT ESTABLISHED BY THESE SOURCES' : claim.verdict === 'contested' ? 'CONTESTED' : claim.verdict === 'single_source' ? 'ONE SOURCE STATES THIS' : `SUPPORTED BY ${claim.origins} INDEPENDENT ORIGIN${claim.origins === 1 ? '' : 'S'}`));
   card.appendChild(el(doc, 'div', 'eo-rr__verdictText', claim.text));
+  if (claim.row && claim.row.readingSource) card.appendChild(el(doc, 'div', 'eo-rr__answerSrc', `— according to ${sourceLabel(claim.row.readingSource, view)}`));
   card.appendChild(el(doc, 'div', 'eo-rr__verdictMeta', `${claim.standing} standing · ${claim.support.length} support · ${claim.contest.length} contest · ${claim.silent.length} source${claim.silent.length === 1 ? '' : 's'} silent`));
   const btn = el(doc, 'button', 'eo-rr__btn eo-rr__btn--sm', expanded ? 'Hide evidence' : (claim.verdict === 'contested' ? 'Compare evidence' : 'Show evidence'));
   btn.addEventListener('click', onToggle); card.appendChild(btn);
   if (expanded) {
     const ev = el(doc, 'div', 'eo-rr__evidence');
-    const appendRoster = (title, list) => { if (!list.length) return; ev.appendChild(el(doc, 'div', 'eo-rr__evidenceHead', title)); for (const w of list) { const row = el(doc, 'button', 'eo-rr__evidenceRow', `${w.sn} · ${sourceLabel(w.sn, view)}${w.cell?.display ? ' · ' + w.cell.display : ''}`); row.addEventListener('click', () => {}); ev.appendChild(row); } };
+    const appendRoster = (title, list) => {
+      if (!list.length) return;
+      ev.appendChild(el(doc, 'div', 'eo-rr__evidenceHead', title));
+      for (const w of list) {
+        const row = el(doc, 'button', 'eo-rr__evidenceRow', `${w.sn} · ${sourceLabel(w.sn, view)}${w.cell?.display ? ' · ' + w.cell.display : ''}`);
+        row.addEventListener('click', () => { if (onOpenSource) onOpenSource(w.sn); });
+        ev.appendChild(row);
+      }
+    };
     appendRoster('SUPPORTING EVIDENCE', claim.support); appendRoster('CONTESTING EVIDENCE', claim.contest); if (claim.silent.length) ev.appendChild(el(doc, 'div', 'eo-rr__evidenceSilent', `Silent: ${claim.silent.map((sn) => sourceLabel(sn, view)).join(' · ')}`)); card.appendChild(ev);
   }
   return card;
@@ -121,7 +194,7 @@ const renderFeedback = (doc, view, { loading = false, onRefine = null } = {}) =>
 export const mountResearchReview = (host, { app, topicId, onClose = () => {}, onOpenSource = null } = {}) => {
   const doc = host.ownerDocument || document; ensureStyle(doc);
   const root = el(doc, 'div', 'eo-rr__body eo-qr'); root.setAttribute('role', 'main'); root.setAttribute('aria-label', 'Question Result'); host.appendChild(root);
-  let curTopicId = topicId, filter = 'all', verifyingAnswer = false, feedbackLoading = false; const expanded = new Set(); const announce = (m) => { try { app.showToast ? app.showToast(m) : null; } catch {} };
+  let curTopicId = topicId, filter = 'all', verifyingAnswer = false, feedbackLoading = false, meaningExpanded = false; const expanded = new Set(); const announce = (m) => { try { app.showToast ? app.showToast(m) : null; } catch {} };
   const verifyAnswer = () => {
     if (verifyingAnswer || !app.reviewVerifyAnswer) return;
     verifyingAnswer = true; render();
@@ -131,6 +204,14 @@ export const mountResearchReview = (host, { app, topicId, onClose = () => {}, on
     if (feedbackLoading || !app.reviewFeedback) return;
     feedbackLoading = true; render();
     Promise.resolve(app.reviewFeedback(curTopicId)).catch(() => {}).then(() => { feedbackLoading = false; render(); });
+  };
+  // A claim node in the Meaning map selects, in place, the same ledger row its own text was drawn
+  // from (question-result.js namespaces claim node ids "c:<ledgerRowId>") — never a modal, and never
+  // hiding the other rows: the point is to bring THIS row into view, not to prune the ledger.
+  const onMeaningSelect = (node) => {
+    if (!node || node.kind !== 'claim' || !node.id.startsWith('c:')) return;
+    const claimId = node.id.slice(2);
+    filter = 'all'; expanded.add(claimId); render();
   };
   const render = () => {
     root.innerHTML = ''; const view = app.reviewCompute(curTopicId); if (!view) { root.appendChild(el(doc, 'div', 'eo-rr__empty', 'This question result is no longer available.')); return; }
@@ -147,13 +228,47 @@ export const mountResearchReview = (host, { app, topicId, onClose = () => {}, on
     // restate the excerpt above, worse, off a proposition-row label rather than a real sentence.
     // The full claim ledger below still lists every row, weak ones included, behind its filters.
     const structured = ledger.filter((c) => c.origins >= 2).slice(0, 3);
-    for (const c of structured) root.appendChild(renderVerdictCard(doc, c, view, { expanded: expanded.has(c.id), onToggle: () => { expanded.has(c.id) ? expanded.delete(c.id) : expanded.add(c.id); render(); } }));
-    if (!view.answer && !structured.length) root.appendChild(el(doc, 'div', 'eo-rr__empty', 'Nothing establishes an answer yet.'));
-    const meaningRows = ledger.filter((c) => c.verdict !== 'void').slice(0, 6); if (meaningRows.length) { root.appendChild(el(doc, 'div', 'eo-rr__section', 'Meaning')); const map = el(doc, 'div', 'eo-qr__meaning'); map.appendChild(el(doc, 'div', 'eo-qr__meaningCenter', view.query)); for (const c of meaningRows) map.appendChild(el(doc, 'button', `eo-qr__meaningNode eo-qr__meaningNode--${c.verdict}`, `${c.text} · ${c.origins}`)); root.appendChild(map); }
+    for (const c of structured) root.appendChild(renderVerdictCard(doc, c, view, { expanded: expanded.has(c.id), onToggle: () => { expanded.has(c.id) ? expanded.delete(c.id) : expanded.add(c.id); render(); }, onOpenSource }));
+    if (!view.answer && !structured.length) {
+      root.appendChild(renderVoidCard(doc, view, ledger, {
+        onSearchMore: (view.discovered && view.discovered.length && app.reviewMore) ? () => { app.reviewMore(curTopicId).then(() => render()); } : null,
+      }));
+    }
+    root.appendChild(renderConvergence(doc, ledger));
+    // Meaning — the query-conditioned EOGraph (spec §10), fed only the CURRENT ledger's non-void
+    // claims and the sources that witness them (question-result.js questionMeaningData); reusing
+    // mountSolarSystem rather than a bespoke SVG, same renderer the topic Graph tab uses.
+    const meaningData = questionMeaningData(view, ledger);
+    if (meaningData.nodes.length > 1) {
+      root.appendChild(el(doc, 'div', 'eo-rr__section', 'Meaning'));
+      const card = el(doc, 'div', 'eo-qr__meaningCard');
+      const head = el(doc, 'div', 'eo-qr__meaningHead');
+      head.appendChild(el(doc, 'span', 'eo-qr__meaningKicker', 'QUESTION-SCOPED'));
+      const toggle = el(doc, 'button', 'eo-rr__btn eo-rr__btn--sm', meaningExpanded ? 'Collapse' : 'Explore ›');
+      toggle.addEventListener('click', () => { meaningExpanded = !meaningExpanded; render(); });
+      head.appendChild(toggle);
+      card.appendChild(head);
+      const stage = el(doc, 'div', 'eo-qr__meaningStage');
+      card.appendChild(stage);
+      root.appendChild(card);
+      // Mounted AFTER the stage is attached to `root` (which is already in `host`, in the live
+      // document) so solar-system.js's own root.isConnected liveness check reads correctly from
+      // the first frame. This whole page rebuilds on every interaction (root.innerHTML = '' above),
+      // so the map remounts on every render — it self-tears-down (see solar-system.js's own header)
+      // rather than leaking a orphaned rAF loop; the live orbital drift simply restarts each time,
+      // an accepted cost of this file's existing full-rebuild render discipline, not a new one.
+      try {
+        mountSolarSystem(stage, {
+          ...meaningData, width: 460, height: meaningExpanded ? 420 : 190,
+          onSelect: onMeaningSelect,
+          onOpen: (node) => { if (node && node.ref && node.ref.sn) onOpenSource && onOpenSource(node.ref.sn); },
+        });
+      } catch { stage.appendChild(el(doc, 'div', 'eo-rr__empty', 'Meaning map failed to render.')); }
+    }
     root.appendChild(el(doc, 'div', 'eo-rr__section', 'Feedback'));
     root.appendChild(renderFeedback(doc, view, { loading: feedbackLoading, onRefine: app.reviewFeedback ? refineFeedback : null }));
     root.appendChild(el(doc, 'div', 'eo-rr__section', `Claims in this result · ${ledger.length}`)); const fr = el(doc, 'div', 'eo-rr__filters'); for (const [k, label] of FILTERS) { const n = k === 'all' ? ledger.length : ledger.filter((c) => c.verdict === k).length; const b = el(doc, 'button', 'eo-rr__filter' + (filter === k ? ' eo-rr__filter--on' : ''), `${label} ${n}`); b.addEventListener('click', () => { filter = k; render(); }); fr.appendChild(b); } root.appendChild(fr);
-    const table = el(doc, 'div', 'eo-qr__ledger'); for (const c of ledger.filter((x) => filter === 'all' || x.verdict === filter)) { const row = el(doc, 'button', 'eo-qr__ledgerRow', ''); row.addEventListener('click', () => { expanded.has(c.id) ? expanded.delete(c.id) : expanded.add(c.id); render(); }); row.appendChild(el(doc, 'span', null, c.text)); row.appendChild(el(doc, 'b', null, labelForVerdict(c.verdict))); row.appendChild(el(doc, 'em', null, String(c.origins))); table.appendChild(row); if (expanded.has(c.id)) table.appendChild(renderVerdictCard(doc, c, view, { expanded: true, onToggle: () => { expanded.delete(c.id); render(); } })); } root.appendChild(table);
+    const table = el(doc, 'div', 'eo-qr__ledger'); for (const c of ledger.filter((x) => filter === 'all' || x.verdict === filter)) { const row = el(doc, 'button', 'eo-qr__ledgerRow', ''); row.addEventListener('click', () => { expanded.has(c.id) ? expanded.delete(c.id) : expanded.add(c.id); render(); }); row.appendChild(el(doc, 'span', null, c.text)); row.appendChild(el(doc, 'b', null, labelForVerdict(c.verdict))); row.appendChild(el(doc, 'em', null, String(c.origins))); table.appendChild(row); if (expanded.has(c.id)) table.appendChild(renderVerdictCard(doc, c, view, { expanded: true, onToggle: () => { expanded.delete(c.id); render(); }, onOpenSource })); } root.appendChild(table);
     root.appendChild(el(doc, 'div', 'eo-rr__section', `Sources · ${selectedCount} of ${(view.rows || []).length} selected`)); const cards = el(doc, 'div', 'eo-rr__cards'); for (const card of view.cards) cards.appendChild(renderCandidateCard(doc, card, { checked: !view.excludedSns.has(card.row.sn), onToggle: (sn) => { app.reviewToggleExclude(curTopicId, sn); announce('Source scope updated; verdicts recomputed.'); render(); }, onOpen: (sn) => onOpenSource ? onOpenSource(sn) : null, connections: [] })); root.appendChild(cards);
     const footer = el(doc, 'div', 'eo-rr__footer'); footer.appendChild(el(doc, 'div', 'eo-rr__footerStats', `${selectedCount} selected · candidates remain provisional until admitted`)); const admit = el(doc, 'button', 'eo-rr__btn eo-rr__btn--accent', `Add ${selectedCount} selected sources`); admit.disabled = !selectedCount; admit.addEventListener('click', () => { const target = app.reviewAdmit(curTopicId, { newTitle: view.query }); if (target) onClose(target); }); footer.appendChild(admit); root.appendChild(footer);
   };
