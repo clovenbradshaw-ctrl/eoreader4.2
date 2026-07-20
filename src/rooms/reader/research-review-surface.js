@@ -1,244 +1,102 @@
-// EO: SIG(Lens → Lens, Tending) — Research Review, the mounted surface (docs/research-review.md).
-// Search results become a provisional, inspectable corpus before anything is admitted to a real
-// topic. Vanilla DOM, own CSS-in-JS, no framework — the same room idiom as binvis-surface.js:
-//   mountResearchReview(host, { app, topicId, onClose, onOpenSource, onOpenMark }) → { show, destroy }
-// The engine (research-review.js / research-review-corpus.js) computes everything; this only
-// paints it and wires clicks through app.review* calls. The newer §7/§9 sections (evidence matrix,
-// source network, identity review, derivative-cluster actions, gap-directed research) render
-// through research-review-surface2.js — split out under the god-module ratchet (~250 lines/file).
-import { el, renderCandidateCard, renderArea, renderMeasureRow } from './research-review-cards.js';
-import {
-  renderEvidenceMatrixSection, renderSourceNetworkSection, renderIdentityReviewSection,
-  renderDerivativeClustersSection, renderGapDirectedSection, renderToolbarSection,
-} from './research-review-surface2.js';
+// EO: SIG(Lens → Lens, Tending) — Question Result, the mounted web-search result page.
+// A web search is a durable question result: direct verdict objects first, a compact meaning
+// projection, an inspectable claim ledger, then provisional sources. It deliberately avoids the
+// older modal review's recipes, identity workbench, source network, waveforms, JSON, and prose.
+import { el, renderCandidateCard } from './research-review-cards.js';
 import { ensureStyle } from './research-review-style.js';
 
-const RECIPES = [['balanced', 'Balanced'], ['primary', 'Primary evidence'], ['smallest', 'Smallest sufficient'], ['perspectives', 'Perspectives'], ['contradiction', 'Contradiction-seeking'], ['historical', 'Historical']];
-const FILTERS = [['all', 'All'], ['recommended', 'Recommended'], ['primary', 'Primary'], ['duplicates', 'Duplicates']];
+const FILTERS = [['all', 'All'], ['supported', 'Supported'], ['contested', 'Contested'], ['single_source', 'One source'], ['void', 'Unknown']];
+const labelForVerdict = (v) => ({ supported: 'Supported', contested: 'Contested', single_source: 'One source', void: 'Not found', no_commit: 'No commit' }[v] || v);
+const norm = (s) => String(s || '').trim();
+const sourceLabel = (sn, view) => ((view.rows || []).find((r) => r.sn === sn)?.title || (view.rows || []).find((r) => r.sn === sn)?.domain || sn);
 
-export const mountResearchReview = (host, { app, topicId, onClose = () => {}, onOpenSource = null, onOpenMark = null } = {}) => {
-  const doc = host.ownerDocument || document;
-  ensureStyle(doc);
-  const root = el(doc, 'div', 'eo-rr__body');
-  root.setAttribute('role', 'region');
-  root.setAttribute('aria-label', 'Research Review');
-  const live = el(doc, 'div', 'eo-rr__live');
-  live.setAttribute('aria-live', 'polite');
-  live.setAttribute('role', 'status');
-  host.appendChild(root);
-  host.appendChild(live);
+const ledgerFromView = (view) => {
+  const selected = new Set((view.rows || []).map((r) => r.sn).filter((sn) => !view.excludedSns.has(sn)));
+  const rows = (view.evidenceMatrix && view.evidenceMatrix.rows) || [];
+  const out = rows.map((row, idx) => {
+    const entries = Object.entries(row.cells || {}).filter(([sn]) => selected.has(sn));
+    const support = entries.filter(([, c]) => ['supports', 'revises'].includes(c.state)).map(([sn, c]) => ({ sn, cell: c }));
+    const contest = entries.filter(([, c]) => c.state === 'contests').map(([sn, c]) => ({ sn, cell: c }));
+    const silent = entries.filter(([, c]) => c.state === 'silent').map(([sn]) => sn);
+    const candidate = entries.filter(([, c]) => c.state === 'candidate correspondence').map(([sn, c]) => ({ sn, cell: c }));
+    let verdict = 'void';
+    if (contest.length && support.length) verdict = 'contested';
+    else if (support.length >= 2 || row.independentOrigins >= 2) verdict = 'supported';
+    else if (support.length === 1 || candidate.length) verdict = 'single_source';
+    return {
+      id: `${row.family || 'claim'}-${idx}`,
+      kind: row.family || 'state',
+      text: norm(row.reading) || norm(row.label) || 'Claim',
+      verdict,
+      standing: candidate.length && !support.length ? 'candidate' : 'witnessed',
+      support, contest, silent, candidate,
+      origins: Math.max(support.length, row.independentOrigins || 0),
+      row,
+    };
+  });
+  if (!out.length) out.push({ id: 'void-0', kind: 'absence', text: view.query, verdict: 'void', standing: 'witnessed', support: [], contest: [], silent: [...selected], candidate: [], origins: 0, row: null });
+  return out.sort((a, b) => ({ contested: 0, supported: 1, single_source: 2, void: 3 }[a.verdict] - { contested: 0, supported: 1, single_source: 2, void: 3 }[b.verdict]));
+};
 
-  let curTopicId = topicId, filter = 'all', areaFilter = null, admitTargetId = null;
-  let netExpanded = false, advanced = false;
-  const diffOpenSet = new Set();
+// renderAnswerExcerpt(doc, answer, onOpenSource) → the primary direct answer: a verbatim,
+// attributed excerpt from the top reviewed source's own opening text (research-review-corpus.js
+// leadExcerpt). Model-free — it quotes, it never composes — and unlike a verdict card it needs no
+// multi-source structure to be worth showing, which is exactly why it leads: for a single-source
+// or lightly-sourced question (most of them), a verdict card built off evidenceMatrix's proposition
+// rows has only a term-cluster label to show ("american · armstrong · first"), not a sentence.
+const renderAnswerExcerpt = (doc, answer, onOpenSource) => {
+  const box = el(doc, 'div', 'eo-rr__answer');
+  box.appendChild(el(doc, 'div', 'eo-rr__answerKicker', 'IN THE SOURCE’S OWN WORDS'));
+  box.appendChild(el(doc, 'p', 'eo-rr__answerText', answer.text + (answer.truncated ? '…' : '')));
+  const attrLabel = [answer.title, answer.domain].filter(Boolean).join(' · ') || answer.sn;
+  const attr = el(doc, 'button', 'eo-rr__answerSrc', attrLabel);
+  attr.addEventListener('click', () => { if (onOpenSource) onOpenSource(answer.sn); });
+  box.appendChild(attr);
+  return box;
+};
 
-  const announce = (msg) => { live.textContent = ''; setTimeout(() => { live.textContent = msg; }, 30); };
-  const openSource = (sn) => { if (onOpenSource) onOpenSource(sn); };
-  const openMark = (sn, ordinal) => { if (!onOpenMark) return; const payload = app.reviewOpenMark ? app.reviewOpenMark(curTopicId, sn, ordinal) : null; if (payload) onOpenMark(payload); };
-  const titleOf = (sn, view) => { const r = view.rows.find((x) => x.sn === sn); return (r && (r.title || r.domain)) || sn; };
+const renderVerdictCard = (doc, claim, view, { expanded, onToggle }) => {
+  const card = el(doc, 'section', `eo-rr__verdict eo-rr__verdict--${claim.verdict}`);
+  card.appendChild(el(doc, 'div', 'eo-rr__verdictKicker', claim.verdict === 'void' ? 'NOT ESTABLISHED BY THESE SOURCES' : claim.verdict === 'contested' ? 'CONTESTED' : claim.verdict === 'single_source' ? 'ONE SOURCE STATES THIS' : `SUPPORTED BY ${claim.origins} INDEPENDENT ORIGIN${claim.origins === 1 ? '' : 'S'}`));
+  card.appendChild(el(doc, 'div', 'eo-rr__verdictText', claim.text));
+  card.appendChild(el(doc, 'div', 'eo-rr__verdictMeta', `${claim.standing} standing · ${claim.support.length} support · ${claim.contest.length} contest · ${claim.silent.length} source${claim.silent.length === 1 ? '' : 's'} silent`));
+  const btn = el(doc, 'button', 'eo-rr__btn eo-rr__btn--sm', expanded ? 'Hide evidence' : (claim.verdict === 'contested' ? 'Compare evidence' : 'Show evidence'));
+  btn.addEventListener('click', onToggle); card.appendChild(btn);
+  if (expanded) {
+    const ev = el(doc, 'div', 'eo-rr__evidence');
+    const appendRoster = (title, list) => { if (!list.length) return; ev.appendChild(el(doc, 'div', 'eo-rr__evidenceHead', title)); for (const w of list) { const row = el(doc, 'button', 'eo-rr__evidenceRow', `${w.sn} · ${sourceLabel(w.sn, view)}${w.cell?.display ? ' · ' + w.cell.display : ''}`); row.addEventListener('click', () => {}); ev.appendChild(row); } };
+    appendRoster('SUPPORTING EVIDENCE', claim.support); appendRoster('CONTESTING EVIDENCE', claim.contest); if (claim.silent.length) ev.appendChild(el(doc, 'div', 'eo-rr__evidenceSilent', `Silent: ${claim.silent.map((sn) => sourceLabel(sn, view)).join(' · ')}`)); card.appendChild(ev);
+  }
+  return card;
+};
 
+export const mountResearchReview = (host, { app, topicId, onClose = () => {}, onOpenSource = null } = {}) => {
+  const doc = host.ownerDocument || document; ensureStyle(doc);
+  const root = el(doc, 'div', 'eo-rr__body eo-qr'); root.setAttribute('role', 'main'); root.setAttribute('aria-label', 'Question Result'); host.appendChild(root);
+  let curTopicId = topicId, filter = 'all'; const expanded = new Set(); const announce = (m) => { try { app.showToast ? app.showToast(m) : null; } catch {} };
   const render = () => {
-    root.innerHTML = '';
-    const view = app.reviewCompute(curTopicId);
-    if (!view) { root.appendChild(el(doc, 'div', 'eo-rr__empty', 'This research review is no longer available.')); return; }
-    const titleFor = (sn) => titleOf(sn, view);
-
-    // header — plain and short: the query, a bare source count, done. The detailed corpus-analysis
-    // stats (independent origins, source types, …) move into "Show research tools" below; a reader
-    // asking "who is Neil Armstrong" has no use for them at the top of the page.
-    root.appendChild(el(doc, 'div', 'eo-rr__crumb', 'Research Review'));
-    const titleRow = el(doc, 'div'); titleRow.style.cssText = 'display:flex;align-items:flex-start;gap:10px';
-    titleRow.appendChild(el(doc, 'div', 'eo-rr__title', view.topic.title || view.query));
-    const closeBtn = el(doc, 'button', 'eo-rr__closeBtn', '×'); closeBtn.setAttribute('aria-label', 'Close Research Review'); closeBtn.addEventListener('click', () => onClose());
-    titleRow.appendChild(closeBtn);
-    root.appendChild(titleRow);
-    root.appendChild(el(doc, 'div', 'eo-rr__stats', `${view.stats.sourceCount} source${view.stats.sourceCount === 1 ? '' : 's'} found`));
-
-    // THE ANSWER — a verbatim excerpt from the top source's own opening text, plainly attributed.
-    // Model-free, same discipline as everything else here: this quotes, it never composes. For a
-    // "who is X" / "what is Y" question the lead source's own lead paragraph already IS the answer.
-    if (view.answer) {
-      const ans = el(doc, 'div', 'eo-rr__answer');
-      ans.appendChild(el(doc, 'p', 'eo-rr__answerText', view.answer.text + (view.answer.truncated ? '…' : '')));
-      const attrLabel = [view.answer.title, view.answer.domain].filter(Boolean).join(' · ') || view.answer.sn;
-      const attr = el(doc, 'button', 'eo-rr__answerSrc', attrLabel);
-      attr.addEventListener('click', () => openSource(view.answer.sn));
-      ans.appendChild(attr);
-      root.appendChild(ans);
-    }
-
-    // corpus recipes/knobs computed regardless of whether the recipe UI itself is shown below —
-    // the "recommended" card filter and the admit footer both read curRecipe.
-    const curRecipeKey = view.topic.review.recipe;
-    const curRecipe = view.recipes[curRecipeKey] || view.recipes.balanced;
-    const recommendedSns = new Set(curRecipe ? curRecipe.sns : []);
-    const linksBySn = new Map();
-    const pushLink = (sn, l) => { let a = linksBySn.get(sn); if (!a) linksBySn.set(sn, a = []); a.push(l); };
-    for (const l of view.links) { pushLink(l.a, l); pushLink(l.b, l); }
-
-    // SOURCES — always visible, compact by default (just enough to pick and open one); the filter
-    // row only matters once there is a recipe/area to filter BY, so it lives behind "advanced" too.
-    root.appendChild(el(doc, 'div', 'eo-rr__section', 'Sources'));
-    const filterRow = el(doc, 'div', 'eo-rr__filters');
-    for (const [key, label] of FILTERS) {
-      const b = el(doc, 'button', 'eo-rr__filter' + (filter === key ? ' eo-rr__filter--on' : ''), label);
-      b.addEventListener('click', () => { filter = key; render(); });
-      filterRow.appendChild(b);
-    }
-    filterRow.style.display = advanced ? '' : 'none';
-    root.appendChild(filterRow);
-
-    const activeFilter = advanced ? filter : 'all';
-    const activeAreaFilter = advanced ? areaFilter : null;
-    const cardsWrap = el(doc, 'div', 'eo-rr__cards');
-    const visible = view.cards.filter((c) => {
-      if (activeAreaFilter && !view.areas.find((a) => a.label === activeAreaFilter)?.sns.includes(c.row.sn)) return false;
-      if (activeFilter === 'recommended') return recommendedSns.has(c.row.sn);
-      if (activeFilter === 'primary') return c.role.primary;
-      if (activeFilter === 'duplicates') return c.role.isDerivative || c.role.isOrigin;
-      return true;
-    });
-    for (const card of visible) {
-      cardsWrap.appendChild(renderCandidateCard(doc, card, {
-        checked: !view.excludedSns.has(card.row.sn), compact: !advanced,
-        onToggle: (sn) => { app.reviewToggleExclude(curTopicId, sn); announce('Selection updated'); render(); },
-        onOpen: openSource, onOpenMark: openMark, connections: linksBySn.get(card.row.sn) || [],
-        waveform: view.waveforms && view.waveforms[card.row.sn],
-      }));
-    }
-    root.appendChild(cardsWrap);
-
-    // ADVANCED — everything a real corroboration question needs (recipes, the evidence map,
-    // connections, disagreements, gap-directed search) and a simple factual lookup never does.
-    // Collapsed by default; nothing here is removed, only deferred behind one click.
-    const advToggle = el(doc, 'button', 'eo-rr__advToggle');
-    advToggle.setAttribute('aria-expanded', String(advanced));
-    advToggle.textContent = advanced ? 'Hide research tools ▴' : 'Show research tools ▾';
-    advToggle.addEventListener('click', () => { advanced = !advanced; render(); });
-    root.appendChild(advToggle);
-
-    const advWrap = el(doc, 'div', 'eo-rr__advWrap');
-    advWrap.style.display = advanced ? '' : 'none';
-
-    // toolbar — refine search, add URL
-    advWrap.appendChild(renderToolbarSection(doc, view, {
-      onRefine: (q) => { if (!q) return; app.reviewStart(q).then((t) => { if (t) { curTopicId = t.id; render(); } }); },
-      onAddUrl: (u) => { app.reviewAddUrl(curTopicId, u).then(() => render()); },
-    }));
-
-    // corpus recipes
-    const recipeRow = el(doc, 'div', 'eo-rr__recipes');
-    for (const [key, label] of RECIPES) {
-      const b = el(doc, 'button', 'eo-rr__recipe' + (curRecipeKey === key ? ' eo-rr__recipe--on' : ''), label);
-      b.addEventListener('click', () => { app.reviewApplyRecipe(curTopicId, key); announce(`${label} recipe applied`); render(); });
-      recipeRow.appendChild(b);
-    }
-    advWrap.appendChild(recipeRow);
-    if (curRecipe) advWrap.appendChild(el(doc, 'div', 'eo-rr__why', curRecipe.why));
-
-    // the detailed corpus stats the header used to carry
-    advWrap.appendChild(el(doc, 'div', 'eo-rr__stats',
-      `${view.stats.independentOrigins} independent origin${view.stats.independentOrigins === 1 ? '' : 's'} · ${view.stats.sourceTypeCount} source type${view.stats.sourceTypeCount === 1 ? '' : 's'} · No frontier LLM used`));
-
-    // research reading
-    advWrap.appendChild(el(doc, 'div', 'eo-rr__section', 'Research reading'));
-    const reading = el(doc, 'div', 'eo-rr__reading');
-    for (const line of view.reading) reading.appendChild(el(doc, 'p', null, line));
-    advWrap.appendChild(reading);
-
-    // evidence map
-    if (view.areas.length) {
-      advWrap.appendChild(el(doc, 'div', 'eo-rr__section', 'Evidence map'));
-      for (const a of view.areas) advWrap.appendChild(renderArea(doc, a, { active: areaFilter === a.label, onClick: (label) => { areaFilter = areaFilter === label ? null : label; render(); } }));
-    }
-
-    // what the corpus covers (§9 gap-directed research)
-    const gapSec = renderGapDirectedSection(doc, view, {
-      onSearch: (area, key) => { app.reviewExpand(curTopicId, { template: key, area }).then((n) => { announce(`${n || 0} candidate${n === 1 ? '' : 's'} added`); render(); }); },
-    });
-    if (gapSec) advWrap.appendChild(gapSec);
-
-    // how the sources connect
-    if (view.narrative.length) {
-      advWrap.appendChild(el(doc, 'div', 'eo-rr__section', 'How the sources connect'));
-      const nar = el(doc, 'div', 'eo-rr__narrative');
-      for (const line of view.narrative) nar.appendChild(el(doc, 'p', null, line));
-      advWrap.appendChild(nar);
-    }
-    const netSec = renderSourceNetworkSection(doc, view, {
-      titleOf: titleFor, onOpenSource: openSource, expanded: netExpanded,
-      onToggleExpand: () => { netExpanded = !netExpanded; render(); },
-    });
-    if (netSec) advWrap.appendChild(netSec);
-    const clusterSec = renderDerivativeClustersSection(doc, view, {
-      titleOf: titleFor, diffOpenSet,
-      onAction: (originSn, action) => { app.reviewClusterAction(curTopicId, originSn, action); render(); },
-      onToggleDiff: (originSn) => { if (diffOpenSet.has(originSn)) diffOpenSet.delete(originSn); else diffOpenSet.add(originSn); render(); },
-      onMarkIndependent: (sn) => { app.reviewToggleIndependent(curTopicId, sn); render(); },
-    });
-    if (clusterSec) advWrap.appendChild(clusterSec);
-
-    // identity review (§7.3)
-    const idSec = renderIdentityReviewSection(doc, view, {
-      titleOf: titleFor,
-      onSet: (key, decision) => { app.reviewSetIdentity(curTopicId, key, decision); render(); },
-    });
-    if (idSec) advWrap.appendChild(idSec);
-
-    // agreements / disagreements (measure prose) + the unified evidence matrix (§7.1)
-    if (view.topic.review && app.comparisonMatrix) {
-      let matrix = null; try { matrix = app.comparisonMatrix(); } catch { matrix = null; }
-      if (matrix && matrix.rows.length) {
-        advWrap.appendChild(el(doc, 'div', 'eo-rr__section', 'Agreements and disagreements'));
-        for (const row of matrix.rows.slice(0, 10)) advWrap.appendChild(renderMeasureRow(doc, row, matrix.sources, { onOpen: openSource }));
-      }
-    }
-    const matrixSec = renderEvidenceMatrixSection(doc, view, { onOpenSource: openSource });
-    if (matrixSec) advWrap.appendChild(matrixSec);
-
-    // discovered — not yet reviewed
-    if (view.discovered.length) {
-      advWrap.appendChild(el(doc, 'div', 'eo-rr__section', `Discovered — not yet reviewed (${view.discovered.length})`));
-      const disc = el(doc, 'div', 'eo-rr__discovered');
-      for (const item of view.discovered.slice(0, 8)) {
-        const row = el(doc, 'div', 'eo-rr__discoveredRow');
-        row.appendChild(el(doc, 'span', null, item.title || item.url));
-        disc.appendChild(row);
-      }
-      advWrap.appendChild(disc);
-      const moreBtn = el(doc, 'button', 'eo-rr__btn', `Review ${Math.min(6, view.discovered.length)} more`);
-      moreBtn.addEventListener('click', () => { app.reviewMore(curTopicId, 6).then(() => render()); });
-      advWrap.appendChild(moreBtn);
-    }
-    root.appendChild(advWrap);
-
-    // footer — selected corpus preview (§5.7, scoped to the current selection) + admission. Plain
-    // "N selected" by default; the jargon-heavy breakdown only once "research tools" is open.
-    const s = view.selectedStats || view.stats;
-    const kept = view.rows.map((r) => r.sn).filter((sn) => !view.excludedSns.has(sn));
-    const footer = el(doc, 'div', 'eo-rr__footer');
-    let footerText = `${kept.length} selected`;
-    if (advanced) {
-      footerText += ` · ${s.independentOrigins} origin${s.independentOrigins === 1 ? '' : 's'} · `
-        + `${s.sharedReferents} shared referent${s.sharedReferents === 1 ? '' : 's'} · ${s.comparablePropositions ?? 0} comparable proposition${s.comparablePropositions === 1 ? '' : 's'} · `
-        + `${s.comparableMeasures} measure${s.comparableMeasures === 1 ? '' : 's'} · ${s.disagreements} disagreement${s.disagreements === 1 ? '' : 's'} · `
-        + `${s.unresolvedIdentityCount ?? 0} unresolved identity match${s.unresolvedIdentityCount === 1 ? '' : 'es'}`;
-    }
-    footer.appendChild(el(doc, 'div', 'eo-rr__footerStats', footerText));
-    const admitBtn = el(doc, 'button', 'eo-rr__btn eo-rr__btn--accent', `Add ${kept.length} selected to topic`);
-    admitBtn.disabled = !kept.length;
-    admitBtn.addEventListener('click', () => {
-      const target = app.reviewAdmit(curTopicId, admitTargetId ? { targetTopicId: admitTargetId } : { newTitle: view.query });
-      if (target) onClose(target);
-    });
-    footer.appendChild(admitBtn);
-    root.appendChild(footer);
+    root.innerHTML = ''; const view = app.reviewCompute(curTopicId); if (!view) { root.appendChild(el(doc, 'div', 'eo-rr__empty', 'This question result is no longer available.')); return; }
+    const ledger = ledgerFromView(view); const selectedCount = (view.rows || []).filter((r) => !view.excludedSns.has(r.sn)).length;
+    root.appendChild(el(doc, 'div', 'eo-rr__crumb', 'QUESTION'));
+    const titleRow = el(doc, 'div', 'eo-qr__header'); const input = doc.createElement('input'); input.value = view.query; input.setAttribute('aria-label', 'Question'); input.className = 'eo-qr__questionInput'; titleRow.appendChild(input);
+    const refine = el(doc, 'button', 'eo-rr__btn', 'Search for more'); refine.addEventListener('click', () => { const q = input.value.trim(); if (q) app.reviewStart(q).then((t) => { if (t) { curTopicId = t.id; render(); } }); }); titleRow.appendChild(refine);
+    const close = el(doc, 'button', 'eo-rr__closeBtn', '×'); close.setAttribute('aria-label', 'Close Question Result'); close.addEventListener('click', () => onClose()); titleRow.appendChild(close); root.appendChild(titleRow);
+    const s = view.selectedStats || view.stats; root.appendChild(el(doc, 'div', 'eo-rr__stats', `Based on ${selectedCount} selected source${selectedCount === 1 ? '' : 's'} · ${s.independentOrigins} independent origin${s.independentOrigins === 1 ? '' : 's'}`));
+    root.appendChild(el(doc, 'div', 'eo-rr__section', 'Direct answer'));
+    if (view.answer) root.appendChild(renderAnswerExcerpt(doc, view.answer, onOpenSource));
+    // A verdict card earns its place here only once there is real multi-source structure to
+    // adjudicate (corroborated or contested) — a lone "single_source"/"void" ledger row would just
+    // restate the excerpt above, worse, off a proposition-row label rather than a real sentence.
+    // The full claim ledger below still lists every row, weak ones included, behind its filters.
+    const structured = ledger.filter((c) => c.origins >= 2).slice(0, 3);
+    for (const c of structured) root.appendChild(renderVerdictCard(doc, c, view, { expanded: expanded.has(c.id), onToggle: () => { expanded.has(c.id) ? expanded.delete(c.id) : expanded.add(c.id); render(); } }));
+    if (!view.answer && !structured.length) root.appendChild(el(doc, 'div', 'eo-rr__empty', 'Nothing establishes an answer yet.'));
+    const meaningRows = ledger.filter((c) => c.verdict !== 'void').slice(0, 6); if (meaningRows.length) { root.appendChild(el(doc, 'div', 'eo-rr__section', 'Meaning')); const map = el(doc, 'div', 'eo-qr__meaning'); map.appendChild(el(doc, 'div', 'eo-qr__meaningCenter', view.query)); for (const c of meaningRows) map.appendChild(el(doc, 'button', `eo-qr__meaningNode eo-qr__meaningNode--${c.verdict}`, `${c.text} · ${c.origins}`)); root.appendChild(map); }
+    root.appendChild(el(doc, 'div', 'eo-rr__section', `Claims in this result · ${ledger.length}`)); const fr = el(doc, 'div', 'eo-rr__filters'); for (const [k, label] of FILTERS) { const n = k === 'all' ? ledger.length : ledger.filter((c) => c.verdict === k).length; const b = el(doc, 'button', 'eo-rr__filter' + (filter === k ? ' eo-rr__filter--on' : ''), `${label} ${n}`); b.addEventListener('click', () => { filter = k; render(); }); fr.appendChild(b); } root.appendChild(fr);
+    const table = el(doc, 'div', 'eo-qr__ledger'); for (const c of ledger.filter((x) => filter === 'all' || x.verdict === filter)) { const row = el(doc, 'button', 'eo-qr__ledgerRow', ''); row.addEventListener('click', () => { expanded.has(c.id) ? expanded.delete(c.id) : expanded.add(c.id); render(); }); row.appendChild(el(doc, 'span', null, c.text)); row.appendChild(el(doc, 'b', null, labelForVerdict(c.verdict))); row.appendChild(el(doc, 'em', null, String(c.origins))); table.appendChild(row); if (expanded.has(c.id)) table.appendChild(renderVerdictCard(doc, c, view, { expanded: true, onToggle: () => { expanded.delete(c.id); render(); } })); } root.appendChild(table);
+    root.appendChild(el(doc, 'div', 'eo-rr__section', `Sources · ${selectedCount} of ${(view.rows || []).length} selected`)); const cards = el(doc, 'div', 'eo-rr__cards'); for (const card of view.cards) cards.appendChild(renderCandidateCard(doc, card, { checked: !view.excludedSns.has(card.row.sn), onToggle: (sn) => { app.reviewToggleExclude(curTopicId, sn); announce('Source scope updated; verdicts recomputed.'); render(); }, onOpen: (sn) => onOpenSource ? onOpenSource(sn) : null, connections: [] })); root.appendChild(cards);
+    const footer = el(doc, 'div', 'eo-rr__footer'); footer.appendChild(el(doc, 'div', 'eo-rr__footerStats', `${selectedCount} selected · candidates remain provisional until admitted`)); const admit = el(doc, 'button', 'eo-rr__btn eo-rr__btn--accent', `Add ${selectedCount} selected sources`); admit.disabled = !selectedCount; admit.addEventListener('click', () => { const target = app.reviewAdmit(curTopicId, { newTitle: view.query }); if (target) onClose(target); }); footer.appendChild(admit); root.appendChild(footer);
   };
-
-  render();
-  const unsub = app.subscribe ? app.subscribe((kind) => { if (kind === 'topics' || kind === 'sources') render(); }) : () => {};
-  return {
-    show: (nextTopicId) => { curTopicId = nextTopicId; render(); },
-    destroy: () => { try { unsub(); } catch {} host.innerHTML = ''; },
-  };
+  render(); const unsub = app.subscribe ? app.subscribe((kind) => { if (kind === 'topics' || kind === 'sources') render(); }) : () => {};
+  return { show: (nextTopicId) => { curTopicId = nextTopicId; render(); }, destroy: () => { try { unsub(); } catch {} host.innerHTML = ''; } };
 };

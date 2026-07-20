@@ -223,3 +223,54 @@ test('routeKind sends a bare URL and rss/feed phrasing to feed', () => {
   assert.equal(routeKind('subscribe to the council rss'), 'feed');
   assert.equal(routeKind('atom feed for the state register'), 'feed');
 });
+
+// ── a .pdf URL is read as BYTES, never as lossy text (the bug: PDF syntax admitted as prose) ──
+
+const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37, 0x0a, 0x25, 0xff, 0xff, 0xff, 0xff]);
+
+const pdfClient = (bytes) => ({
+  fetchUrl: async () => { throw new Error('a .pdf URL must never be read through fetchUrl (lossy text)'); },
+  fetchUrlBytes: async () => ({ bytes }),
+});
+
+test('reader ingestUrl reads a .pdf URL as bytes, never as text — no silent "obj<<" prose', async () => {
+  const { installIngest } = await import('../src/rooms/reader/app/ingest.js');
+  const added = [];
+  const appCtx = {
+    client: pdfClient(PDF_BYTES),
+    state: {}, emit: () => {}, logIt: () => {},
+    beginJob: () => 'job:1', settleJob: () => {},
+    addSource: (src) => { const s = { sn: 'S1', reg: 'S1', docId: 'doc-1', ...src }; added.push(s); return s; },
+    finishReading: () => {},
+  };
+  installIngest(appCtx);
+  const src = await appCtx.ingestUrl('https://www.example.gov/report.pdf');
+  // Offline in tests, pdf.js's CDN load fails — the SAME resilient fallback a file upload gets
+  // (import-file.js) lands: an honest binary-fallback reading, never a bare "Ready" web page.
+  assert.equal(src.kind, 'pdf');
+  assert.equal(src.coverage.complete, false, 'never marked complete/ready when text extraction did not run');
+  assert.ok(src.coverage.dropped.some((d) => d.includes('PDF text extraction unavailable')));
+});
+
+test('reader ingestUrl detects PDF syntax that survived a lossy text fetch and re-reads as bytes', async () => {
+  const { installIngest } = await import('../src/rooms/reader/app/ingest.js');
+  const garbageText = '%PDF-1.7\n1 0 obj<</Type/Catalog>>\nendobj\n2 0 obj<</Type/Pages>>\nendobj\nxref\ntrailer<<>>';
+  let fetchBytesCalled = false;
+  const added = [];
+  const appCtx = {
+    client: {
+      fetchUrl: async () => ({ text: garbageText }),
+      fetchUrlBytes: async () => { fetchBytesCalled = true; return { bytes: PDF_BYTES }; },
+    },
+    state: {}, emit: () => {}, logIt: () => {},
+    beginJob: () => 'job:1', settleJob: () => {},
+    addSource: (src) => { const s = { sn: 'S1', reg: 'S1', docId: 'doc-1', ...src }; added.push(s); return s; },
+    finishReading: () => {},
+  };
+  installIngest(appCtx);
+  // No .pdf extension here — a URL a user might paste for a report served without one.
+  const src = await appCtx.ingestUrl('https://www.example.gov/reports/911');
+  assert.equal(fetchBytesCalled, true, 'the garbage-text guard re-fetched as bytes instead of admitting the mangled text');
+  assert.notEqual(src.kind, 'web', 'never admitted through admitWebSource as an ordinary clean page');
+  assert.ok(!src.text.includes('1 0 obj<<'), 'the raw PDF object syntax is not what landed as the "page" text');
+});

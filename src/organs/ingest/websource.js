@@ -55,6 +55,7 @@ export const webRecord = (payload = {}) => {
     // Distinct from fetched_at (when WE read it); supplied by the fetcher/metadata when known,
     // so the grounding can re-date a present-tense claim against now rather than assume it holds.
     published: payload.published || payload.date || payload.published_at || null,
+    salient_image: payload.salient_image || payload.salientImage || payload.thumbnail || payload.thumb || null,
     content_hash, status: 'active',
   });
 };
@@ -143,6 +144,7 @@ export const admitWebSource = (payload = {}, { hangGuard = HANG_GUARD } = {}) =>
     url: record.url, final_url: record.final_url, title: record.title,
     fetched_at: record.fetched_at, published: record.published, content_hash: record.content_hash,
     retrieval_query: record.retrieval_query, engine: record.engine,
+    salient_image: record.salient_image,
   };
   doc._webRecord = record;
   return { doc, record };

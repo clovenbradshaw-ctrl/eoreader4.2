@@ -294,7 +294,17 @@ export const createWebClient = ({
     return { url, text: await res.text(), ok: res.ok !== false, status: res.status ?? 200 };
   };
   const fetchUrl = (url, opts = {}) => fetchRaw(proxied(url), opts);   // a page, through the feed proxy
-  const ctx = { proxyBase, proxied, fetchRaw, fetchUrl, searchUrl };
+  // fetchBytes — the same proxy hop as fetchUrl, but read as bytes, not `res.text()`. A binary
+  // format (a PDF, a zip) put through a UTF-8 text decode loses the bytes it can't represent —
+  // � is a one-way trip, not a format the file can be re-parsed from. Anything that needs its
+  // OWN parser reading real bytes (import-file.js's pdf.js path) must fetch this way, not fetchUrl's.
+  const fetchBytes = async (url, opts = {}) => {
+    if (!fetchImpl) throw new Error('webfetch: no fetch implementation available');
+    const res = await fetchImpl(url, opts);
+    return { url, bytes: new Uint8Array(await res.arrayBuffer()), ok: res.ok !== false, status: res.status ?? 200 };
+  };
+  const fetchUrlBytes = (url, opts = {}) => fetchBytes(proxied(url), opts);
+  const ctx = { proxyBase, proxied, fetchRaw, fetchUrl, fetchUrlBytes, searchUrl };
   const search = async (query, { kind = 'auto', k = 8, signal = null } = {}) => {
     const resolved = kind === 'auto' ? routeKind(query) : kind;
     // Bind the abort signal into the ctx a KIND reads, so its ctx.fetchUrl calls carry it
@@ -315,7 +325,41 @@ export const createWebClient = ({
     if (!hits.length && resolved !== 'wikipedia' && !signal?.aborted) hits = await run('wikipedia');
     return hits;
   };
-  return { proxy, proxyBase, proxied, fetchRaw, fetchUrl, search };
+  return { proxy, proxyBase, proxied, fetchRaw, fetchUrl, fetchUrlBytes, search };
+};
+
+
+const absolutizeUrl = (url, base) => {
+  try { return new URL(String(url || '').trim(), base || undefined).href; } catch { return ''; }
+};
+
+// Pick the first content-like image the page declares, preferring explicit social/lead metadata
+// and then the first non-icon <img> in document order. This runs on the raw HTML before htmlToText
+// discards media, so source cards can show the page's first salient image instead of a generic tag.
+export const firstSalientImage = (html, baseUrl = '') => {
+  const h = String(html || '');
+  const metaRe = /<meta\b[^>]*(?:property|name)=["'](?:og:image(?::url)?|twitter:image(?::src)?)["'][^>]*>/ig;
+  for (const m of h.matchAll(metaRe)) {
+    const url = /\bcontent=["']([^"']+)["']/i.exec(m[0])?.[1];
+    const abs = absolutizeUrl(url, baseUrl);
+    if (abs) return abs;
+  }
+  const imgRe = /<img\b[^>]*>/ig;
+  for (const m of h.matchAll(imgRe)) {
+    const tag = m[0];
+    const src = /\b(?:data-src|data-original|data-lazy-src|src)=["']([^"']+)["']/i.exec(tag)?.[1]
+      || /\bsrcset=["']([^"',\s]+)[^"']*["']/i.exec(tag)?.[1];
+    const abs = absolutizeUrl(src, baseUrl);
+    if (!abs) continue;
+    const low = (tag + ' ' + abs).toLowerCase();
+    if (/\b(?:avatar|icon|logo|sprite|tracking|pixel|spacer|loader|placeholder)\b/.test(low)) continue;
+    if (/\.(?:ico|svg)(?:[?#]|$)/i.test(abs)) continue;
+    const w = Number(/\bwidth=["']?(\d+)/i.exec(tag)?.[1] || 0);
+    const ht = Number(/\bheight=["']?(\d+)/i.exec(tag)?.[1] || 0);
+    if ((w && w < 80) || (ht && ht < 80)) continue;
+    return abs;
+  }
+  return '';
 };
 
 const nowIso = () => { try { return new Date().toISOString(); } catch { return null; } };
@@ -345,9 +389,50 @@ export const fetchAndAdmit = async (url, { client, store = null, rawStore = null
   const c = client || createWebClient();
   const { text } = await c.fetchUrl(url);
   const reduced = htmlToText(text);
-  const payload = { url, text: reduced, fetched_at, engine: 'feed-proxy' };
+  const payload = { url, text: reduced, salient_image: firstSalientImage(text, url), fetched_at, engine: 'feed-proxy' };
   const admitted = store ? store.admit(payload) : admitWebSource(payload);
   return keepRaw(rawStore, admitted, reduced);
+};
+
+// Word-overlap relevance — is this hit actually ABOUT what was asked, or just sharing an
+// incidental keyword? A search provider (Wikipedia's included) routinely returns tangential
+// results — a shared place name, a shared common word — and admitting every one turns "search
+// the web" into "admit noise as evidence": the observed failure was a query about a 1919 Boston
+// disaster returning eight Wikipedia pages (a Honolulu spill, "Boston" itself, New Orleans
+// history, a subway line, Italian-American history) that all reduce to one real match, yet all
+// got treated as corroborating sources feeding entity/finding extraction. Lexical, not semantic —
+// no embeddings required offline — but it catches the cheap, common case: a result that shares
+// almost none of the query's own distinctive words is not what was searched for.
+const STOPWORDS = new Set([
+  'the', 'a', 'an', 'of', 'in', 'on', 'at', 'to', 'for', 'and', 'or', 'is', 'are', 'was', 'were',
+  'what', 'which', 'who', 'whom', 'how', 'why', 'when', 'where', 'did', 'does', 'do', 'be', 'been',
+  'being', 'this', 'that', 'these', 'those', 'with', 'from', 'by', 'as', 'it', 'its', 'their', 'than',
+]);
+const contentWords = (s) => (String(s || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [])
+  .filter((w) => w.length > 2 && !STOPWORDS.has(w));
+
+// relevanceScore(query, item) → the fraction of the QUERY's own distinctive words that actually
+// appear in the hit's title+snippet. 1.0 means every content word of the query showed up; 0 means
+// none did. A query with no distinctive words (all stopwords) scores everything 1 — nothing to
+// gate on, so nothing is refused on that account.
+export const relevanceScore = (query, item) => {
+  const qWords = [...new Set(contentWords(query))];
+  if (!qWords.length) return 1;
+  const hay = new Set(contentWords(`${item?.title || ''} ${item?.text || ''}`));
+  return qWords.filter((w) => hay.has(w)).length / qWords.length;
+};
+
+// Below this fraction, a hit shares too little of what was actually asked to stand as a source —
+// a shared place name is not the same question. A query with only ONE distinctive word carries no
+// way to distinguish "off-topic" from "on-topic phrased differently" (a search engine's own
+// relevance ranking is the only signal there is), so it is never gated; a 2-word query only asks
+// that at least ONE of them show up, since a fraction of 2 is too coarse to threshold sensibly.
+const MIN_RELEVANCE = 0.34;
+export const isRelevant = (query, item) => {
+  const distinctive = new Set(contentWords(query)).size;
+  if (distinctive <= 1) return true;
+  if (distinctive === 2) return relevanceScore(query, item) > 0;
+  return relevanceScore(query, item) >= MIN_RELEVANCE;
 };
 
 // searchAndAdmit(query, { kind, fetchPages }) → search a source (or auto-route), then admit the
@@ -372,6 +457,10 @@ export const searchAndAdmit = async (query, { client, store = null, rawStore = n
   const out = [];
   for (const it of items) {
     if (signal?.aborted) break;
+    // Gate BEFORE spending a full-page fetch on it: a hit that shares almost none of the query's
+    // own distinctive words is skipped rather than admitted as a "source" the answer then leans
+    // on. Admitting fewer (or zero) real hits beats admitting several off-topic ones.
+    if (!isRelevant(query, it)) continue;
     let text = it.text || it.title || '';
     if (fetchPages && it.url) {
       try {
@@ -379,12 +468,16 @@ export const searchAndAdmit = async (query, { client, store = null, rawStore = n
         // Wikimedia family, the ENTIRE BOOK for Gutenberg, the rendered claims for Wikidata.
         // Anything else → fetch the page and reduce its HTML, with the chrome stripped.
         const full = FULL_TEXT[it.source] || FULL_TEXT[it.kind];
-        text = (full
-          ? await full(fc, it)
-          : htmlToText((await fc.fetchUrl(it.url)).text)) || text;
+        if (full) text = (await full(fc, it)) || text;
+        else {
+          const fetched = await fc.fetchUrl(it.url);
+          it.salient_image = firstSalientImage(fetched.text, it.url);
+          text = htmlToText(fetched.text) || text;
+        }
       } catch { /* keep the snippet */ }
     }
     const payload = { url: it.url || c.proxied(query), title: it.title, text,
+                      salient_image: it.salient_image || it.thumbUrl || it.thumb || '',
                       excerpt: it.text, retrieval_query: query, engine: `web:${it.source || it.kind || kind}`, fetched_at };
     const admitted = store ? store.admit(payload) : admitWebSource(payload);
     await keepRaw(rawStore, admitted, text);   // retain the full page bytes (OPFS) when threaded

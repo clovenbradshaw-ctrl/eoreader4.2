@@ -215,29 +215,72 @@ const makeFakeApp = () => {
   return { app, topic, calls };
 };
 
-test('mountResearchReview — mounts the real engine output without throwing: header, cards, footer all present', () => {
+test('mountResearchReview — mounts the Question Result with direct answer, ledger, sources, and admission', () => {
   const doc = makeFakeDoc();
   const host = makeEl('div', doc);
   const { app } = makeFakeApp();
   let closed = null;
   const handle = mountResearchReview(host, { app, topicId: 't1', onClose: (t) => { closed = t; } });
-  assert.ok(findByText(host, 'Research Review'), 'header crumb painted');
-  assert.equal(allByText(host, 'MTA report').length >= 1, true, 'a candidate card title painted');
+  assert.ok(findByText(host, 'QUESTION'), 'question header painted');
+  assert.ok(findByText(host, 'Direct answer'), 'direct answer section painted');
+  assert.ok(flatten(host).some((n) => String(n.textContent || '').startsWith('Claims in this result')), 'claim ledger painted');
+  assert.equal(allByText(host, 'MTA report').length >= 1, true, 'a source card title painted');
   assert.ok(findByTextPrefix(host, '5 selected') || findByTextPrefix(host, '4 selected') || findByTextPrefix(host, '3 selected'), 'a footer selection count painted');
-  const admit = flatten(host).find((n) => typeof n.textContent === 'string' && n.textContent.startsWith('Add ') && n.textContent.endsWith('selected to topic'));
+  const admit = flatten(host).find((n) => typeof n.textContent === 'string' && n.textContent.startsWith('Add ') && n.textContent.endsWith('selected sources'));
   assert.ok(admit);
   admit.fire('click');
   assert.deepEqual(closed, { id: 'target' });
   handle.destroy();
 });
 
-test('mountResearchReview — clicking the Historical recipe calls reviewApplyRecipe', () => {
+// A hybrid this app's redesign adds on top of the Question Result page (docs/EOReader_Question_
+// Result_Update_Spec.md): the direct-answer slot leads with a verbatim, attributed excerpt off
+// the top source's own text (research-review-corpus.js leadExcerpt) rather than a verdict card
+// built from evidenceMatrix — a proposition row's "label" is a term-cluster ("congestion · mta ·
+// pricing"), not a sentence, so it only earns a card once it reflects REAL multi-source structure
+// (origins ≥ 2). The five-source MTA fixture above is deliberately thin on that axis (every
+// evidence area collapses to one independent origin, and the sole measure conflict currently reads
+// through ledgerFromView as 0 origins — a pre-existing quirk of that derivation, unrelated to this
+// redesign), so it now mounts with the excerpt as the ONLY thing in "Direct answer".
+test('mountResearchReview — direct answer leads with the source excerpt, not a fabricated single-source verdict card', () => {
   const doc = makeFakeDoc();
   const host = makeEl('div', doc);
-  const { app, calls } = makeFakeApp();
+  const { app } = makeFakeApp();
   mountResearchReview(host, { app, topicId: 't1' });
-  findByText(host, 'Historical').fire('click');
-  assert.deepEqual(calls, [['recipe', 'historical']]);
+  assert.ok(findByText(host, 'IN THE SOURCE’S OWN WORDS'), 'the excerpt kicker painted');
+  assert.ok(findByTextPrefix(host, 'The Metropolitan Transportation Authority congestion pricing program'), 'S1’s own lead text painted verbatim');
+  assert.ok(findByText(host, 'MTA report · mta.gov'), 'the excerpt is attributed to its source');
+  // none of this fixture's ledger rows clear the origins≥2 floor, so no verdict card belongs in
+  // the direct-answer slot — every "Show evidence"/kicker here would be reading a claim built off
+  // a single voice.
+  assert.equal(!!findByText(host, 'Show evidence'), false);
+  assert.equal(!!findByText(host, 'Compare evidence'), false);
+  // the full claim ledger still lists every row underneath, thin ones included — this only trims
+  // what stands in as the PRIMARY answer, nothing computed is hidden.
+  assert.ok(findByTextPrefix(host, 'Claims in this result · '));
+});
+
+// Two independent, near-paraphrase sources of the same event — evidenceAreas clusters them into
+// one area with independentOrigins:2, so THIS claim clears the floor and belongs beside the excerpt.
+test('mountResearchReview — a claim with real multi-source support gets a verdict card beside the excerpt, and its evidence expands inline', () => {
+  const doc = makeFakeDoc();
+  const host = makeEl('div', doc);
+  const A1 = { sn: 'A1', title: 'Wire report', domain: 'wire.test', url: 'https://wire.test/a', kind: 'web', retrieved: '2026-05-01T00:00:00Z', text: 'The city council approved the downtown rezoning plan on Tuesday after months of contentious debate among residents.' };
+  const A2 = { sn: 'A2', title: 'Local paper', domain: 'localpaper.test', url: 'https://localpaper.test/b', kind: 'web', retrieved: '2026-05-02T00:00:00Z', text: 'City council members approved the downtown rezoning plan Tuesday, capping months of contentious debate among residents.' };
+  const topic = { id: 't2', title: null, review: { query: 'downtown rezoning', excludedSns: [], recipe: 'balanced', identityDecisions: {}, independentOverrides: [] } };
+  const app = {
+    reviewCompute: (topicId) => {
+      if (topicId !== topic.id) return null;
+      const view = researchReview({ rows: [A1, A2], entities: [], matrix: null, query: topic.review.query, excludedSns: topic.review.excludedSns });
+      return { ...view, topic, excludedSns: new Set(topic.review.excludedSns), discovered: [], waveforms: {} };
+    },
+    reviewToggleExclude: () => {}, reviewAdmit: () => null, subscribe: () => () => {},
+  };
+  mountResearchReview(host, { app, topicId: 't2' });
+  assert.ok(findByText(host, 'IN THE SOURCE’S OWN WORDS'), 'the excerpt still leads');
+  assert.ok(findByTextPrefix(host, 'SUPPORTED BY 2 INDEPENDENT ORIGIN'), 'the corroborated claim earned its card');
+  findByText(host, 'Show evidence').fire('click');
+  assert.ok(findByText(host, 'SUPPORTING EVIDENCE'));
 });
 
 test('mountResearchReview — toggling a candidate checkbox calls reviewToggleExclude', () => {
@@ -251,30 +294,12 @@ test('mountResearchReview — toggling a candidate checkbox calls reviewToggleEx
   assert.equal(calls.some((c) => c[0] === 'toggle'), true);
 });
 
-test('mountResearchReview — clicking a waveform bar calls reviewOpenMark and bubbles onOpenMark', () => {
-  const doc = makeFakeDoc();
-  const host = makeEl('div', doc);
-  const { app, calls } = makeFakeApp();
-  let opened = null;
-  mountResearchReview(host, { app, topicId: 't1', onOpenMark: (payload) => { opened = payload; } });
-  // the waveform preview is per-candidate DETAIL (research-review.md redesign: slim by default,
-  // cards start compact) — it only renders once "research tools" is expanded.
-  findByText(host, 'Show research tools ▾').fire('click');
-  const bar = flatten(host).find((n) => (n.className || '').includes('eo-rr__bar--turn'));
-  assert.ok(bar, 'a turn bar rendered for a waveform with hasTurn:true once expanded');
-  bar.fire('click');
-  assert.ok(calls.some((c) => c[0] === 'mark'));
-  assert.ok(opened && opened.mark);
-});
-
-test('mountResearchReview — cards start compact (no waveform/contributes detail) until "Show research tools" is clicked', () => {
+test('mountResearchReview — does not render retired recipe or waveform controls', () => {
   const doc = makeFakeDoc();
   const host = makeEl('div', doc);
   const { app } = makeFakeApp();
   mountResearchReview(host, { app, topicId: 't1' });
-  assert.equal(flatten(host).some((n) => (n.className || '').includes('eo-rr__bar--turn')), false, 'compact by default — no waveform bar yet');
-  assert.ok(findByText(host, 'Show research tools ▾'), 'the advanced toggle is present, collapsed');
-  findByText(host, 'Show research tools ▾').fire('click');
-  assert.ok(flatten(host).some((n) => (n.className || '').includes('eo-rr__bar--turn')), 'expanding reveals the waveform detail');
-  assert.ok(findByText(host, 'Hide research tools ▴'), 'the toggle relabels once expanded');
+  assert.equal(!!findByText(host, 'Historical'), false);
+  assert.equal(flatten(host).some((n) => (n.className || '').includes('eo-rr__bar--turn')), false);
 });
+

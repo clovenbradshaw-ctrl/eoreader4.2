@@ -44,36 +44,30 @@ export const renderCandidateCard = (doc, card, ctx) => {
   wrap.appendChild(title);
   wrap.appendChild(el(doc, 'div', 'eo-rr__cardMeta', [row.domain, row.kind, fmtAgo(row.retrieved)].filter(Boolean).join(' · ')));
 
-  // ctx.compact — the slim default (docs/research-review.md redesign): just enough to pick and
-  // open a source. The structural detail below (waveform, contributes/measures/connections, the
-  // duplicate caution) is real and stays available, just gated behind "Show research tools" —
-  // a plain factual lookup never needs it; a real corroboration question does.
-  if (!ctx.compact) {
-    if (ctx.waveform && ctx.waveform.bars && ctx.waveform.bars.length) {
-      wrap.appendChild(renderWaveformBars(doc, ctx.waveform, { onOpen: (ordinal) => ctx.onOpenMark && ctx.onOpenMark(row.sn, ordinal) }));
-    }
-    if (role.contributes.length) {
-      const c = el(doc, 'div', 'eo-rr__cardRow');
-      c.appendChild(el(doc, 'span', 'eo-rr__cardLbl', 'Contributes'));
-      c.appendChild(el(doc, 'span', null, role.contributes.join(' · ')));
-      wrap.appendChild(c);
-    }
-    if (role.measures.length) {
-      const m = el(doc, 'div', 'eo-rr__cardRow');
-      m.appendChild(el(doc, 'span', 'eo-rr__cardLbl', 'Measures'));
-      m.appendChild(el(doc, 'span', null, [...new Set(role.measures)].join(' · ')));
-      wrap.appendChild(m);
-    }
-    if (ctx.connections && ctx.connections.length) {
-      const cx = el(doc, 'div', 'eo-rr__cardRow');
-      cx.appendChild(el(doc, 'span', 'eo-rr__cardLbl', 'Connects to'));
-      cx.appendChild(el(doc, 'span', null, `${ctx.connections.length} other candidate${ctx.connections.length === 1 ? '' : 's'} through shared referents`));
-      wrap.appendChild(cx);
-    }
-    if (role.isDerivative) {
-      const caution = el(doc, 'div', 'eo-rr__caution', 'Shares an identity fact (host, hash, or byline) with another reviewed source — likely the same voice, not independent corroboration.');
-      wrap.appendChild(caution);
-    }
+  if (ctx.waveform && ctx.waveform.bars && ctx.waveform.bars.length) {
+    wrap.appendChild(renderWaveformBars(doc, ctx.waveform, { onOpen: (ordinal) => ctx.onOpenMark && ctx.onOpenMark(row.sn, ordinal) }));
+  }
+  if (role.contributes.length) {
+    const c = el(doc, 'div', 'eo-rr__cardRow');
+    c.appendChild(el(doc, 'span', 'eo-rr__cardLbl', 'Contributes'));
+    c.appendChild(el(doc, 'span', null, role.contributes.join(' · ')));
+    wrap.appendChild(c);
+  }
+  if (role.measures.length) {
+    const m = el(doc, 'div', 'eo-rr__cardRow');
+    m.appendChild(el(doc, 'span', 'eo-rr__cardLbl', 'Measures'));
+    m.appendChild(el(doc, 'span', null, [...new Set(role.measures)].join(' · ')));
+    wrap.appendChild(m);
+  }
+  if (ctx.connections && ctx.connections.length) {
+    const cx = el(doc, 'div', 'eo-rr__cardRow');
+    cx.appendChild(el(doc, 'span', 'eo-rr__cardLbl', 'Connects to'));
+    cx.appendChild(el(doc, 'span', null, `${ctx.connections.length} other candidate${ctx.connections.length === 1 ? '' : 's'} through shared referents`));
+    wrap.appendChild(cx);
+  }
+  if (role.isDerivative) {
+    const caution = el(doc, 'div', 'eo-rr__caution', 'Shares an identity fact (host, hash, or byline) with another reviewed source — likely the same voice, not independent corroboration.');
+    wrap.appendChild(caution);
   }
 
   const open = el(doc, 'button', 'eo-rr__openLink', 'Open source ↗');

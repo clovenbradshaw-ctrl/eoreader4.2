@@ -502,7 +502,7 @@ table{border-collapse:collapse;width:100%}
           <sc-for list="{{ mobile.sourceCards }}" as="src">
             <div onClick="{{ src.open }}" style="background:#fff;border:1px solid var(--eo-m-border);border-radius:15px;padding:13px 14px;cursor:pointer">
               <div style="display:flex;align-items:flex-start;gap:11px">
-                <span style="width:34px;height:34px;border-radius:9px;background:{{ src.favBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:15px">{{ src.icon }}</span>
+                <span style="width:42px;height:42px;border-radius:10px;background:{{ src.favBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:15px;overflow:hidden"><sc-if value="{{ src.hasThumb }}"><img src="{{ src.thumb }}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;display:block" /></sc-if><sc-if value="{{ src.noThumb }}">{{ src.icon }}</sc-if></span>
                 <span style="flex:1;min-width:0">
                   <span style="display:block;font-size:14px;font-weight:650;color:var(--eo-m-ink);line-height:1.25">{{ src.title }}</span>
                   <span style="display:block;font-size:11.5px;color:var(--eo-m-faint);margin-top:2px">{{ src.typeLabel }} · {{ src.countLine }}</span>
@@ -2420,7 +2420,7 @@ table{border-collapse:collapse;width:100%}
                           </button>
                           <sc-if value="{{ explorerViewGrid }}">
                           <button onClick="{{ cd.select }}" style="width:100%;display:block;text-align:left;background:none;padding:0">
-                            <span style="display:flex;align-items:center;justify-content:center;height:64px;background:#F3F3F5;color:#A0A0AA;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em">{{ cd.kindTag }}</span>
+                            <span style="display:block;height:82px;background:#F3F3F5;color:#A0A0AA;overflow:hidden"><sc-if value="{{ cd.hasThumb }}"><img src="{{ cd.thumb }}" alt="" loading="lazy" referrerpolicy="no-referrer" style="display:block;width:100%;height:100%;object-fit:cover" /></sc-if><sc-if value="{{ cd.noThumb }}"><span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em">{{ cd.kindTag }}</span></sc-if></span>
                             <span style="display:block;padding:11px 12px 12px">
                               <span style="display:block;font-size:13px;font-weight:600;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cd.title }}</span>
                               <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:6px">{{ cd.sub }}</span>
@@ -4669,35 +4669,14 @@ table{border-collapse:collapse;width:100%}
 
 </sc-if>
 <!-- shared by both shells -->
-  <!-- RESEARCH REVIEW (docs/research-review.md) — a web search lands here: a provisional,
-       inspectable corpus (discovered/reviewed/admitted), never an instantly-admitted topic. Lives
-       in the shared section (not either shell) so a web search shows results on mobile too — but
-       the two shells render it differently. Desktop: the panel sits IN the content pane, right of
-       the topics sidebar and below the topbar, rather than a full-viewport dialog, so a search
-       reads as "this page now shows results", not a popup interrupting whatever else was on
-       screen; the sidebar and topbar stay visible and usable underneath it (rrLeft tracks the
-       sidebar's own open/closed width so the two never overlap). Mobile has no sidebar and no
-       fixed-height header to dodge, so it keeps the original centered full-viewport dialog
-       (unchanged — this is the layout the mobile-search fix just landed and verified). The screen
-       itself is mounted (window.EO.researchReview.mount), the binvis/pipeline room idiom — too
-       much live, clickable structure for the sc-if/sc-for template to carry cleanly. -->
-  <sc-if value="{{ rrShowDesktop }}">
-    <div style="position:absolute;left:{{ rrLeft }};right:0;top:50px;bottom:0;z-index:49;background:#fff;border-left:1px solid #EAEAEF;display:flex;flex-direction:column;animation:eoFade .14s ease">
-      <!-- rrTopicId is null until reviewStart's discover-and-review pass settles; the mounted
-           surface only exists once there is a real topic to read, so a slow search shows this
-           plain wait instead of the surface's "no longer available" (which means something else). -->
-      <sc-if value="{{ rrLoading }}">
-        <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite">Searching and reviewing candidates…</div>
-      </sc-if>
-      <sc-if value="{{ rrReady }}">
-        <div ref="{{ setResearchReviewEl }}" data-screen-label="Research Review" class="eo-scroll" style="flex:1;min-height:0;overflow:auto"></div>
-      </sc-if>
-    </div>
-  </sc-if>
-  <sc-if value="{{ rrShowMobile }}">
-    <div style="position:absolute;inset:0;z-index:49">
-      <div style="position:absolute;inset:0;background:rgba(20,20,28,.36)"></div>
-      <div class="eo-modal" style="position:absolute;left:50%;top:26px;transform:translateX(-50%);width:min(880px,96vw);height:calc(100vh - 52px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.3);display:flex;flex-direction:column;overflow:hidden">
+  <!-- QUESTION RESULT (docs/EOReader_Question_Result_Update_Spec.md) — a web search lands on
+       a first-class result page, not a centered modal. Candidate sources remain provisional until
+       the reader explicitly admits selected sources to a topic. Full-bleed inset:0 works the same
+       way on both shells (no sidebar-width dependency), so this is one shared block, not a
+       mobile/desktop split. -->
+  <sc-if value="{{ rrShow }}">
+    <div style="position:absolute;inset:0;z-index:49;background:#FAFAFC;overflow:auto">
+      <div style="min-height:100%;background:#FAFAFC;display:flex;flex-direction:column">
         <!-- rrTopicId is null until reviewStart's discover-and-review pass settles; the mounted
              surface only exists once there is a real topic to read, so a slow search shows this
              plain wait instead of the surface's "no longer available" (which means something else). -->
@@ -4705,7 +4684,7 @@ table{border-collapse:collapse;width:100%}
           <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite">Searching and reviewing candidates…</div>
         </sc-if>
         <sc-if value="{{ rrReady }}">
-          <div ref="{{ setResearchReviewEl }}" data-screen-label="Research Review" style="flex:1;min-height:0;overflow:auto"></div>
+          <div ref="{{ setResearchReviewEl }}" data-screen-label="Question Result" style="flex:1;min-height:0;overflow:auto"></div>
         </sc-if>
       </div>
     </div>
@@ -8063,7 +8042,7 @@ class Component extends DCLogic {
       return {
         label: e.label, type: ty, fav: (e.label || 'E').trim().charAt(0).toUpperCase(),
         meta: [ty || null, e.mentions + ' mention' + (e.mentions === 1 ? '' : 's'), e.sourceCount + ' source' + (e.sourceCount === 1 ? '' : 's')].filter(Boolean).join('  ·  '),
-        open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); },
+        open: () => this.openEntityRow(e),
       };
     });
 
@@ -8212,7 +8191,7 @@ class Component extends DCLogic {
         meta: [e.type || null, e.mentions + ' mention' + (e.mentions === 1 ? '' : 's'), e.sourceCount + ' source' + (e.sourceCount === 1 ? '' : 's')].filter(Boolean).join('  ·  '),
         fav: (e.label || 'E').trim().charAt(0).toUpperCase(),
         weight: Math.max(6, Math.min(100, (e.mentions || 1) * 12)) + '%',
-        open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); },
+        open: () => this.openEntityRow(e),
       }));
       out.sfThinLabel = 'No figures on record for “' + (surf.subject || q) + '”.';
     } else if (active === 'contrast') {
@@ -8315,6 +8294,17 @@ class Component extends DCLogic {
   // top of whatever screen is active — jumping the underlying tab would mean closing the sheet
   // lands somewhere the reader never asked to go, so mobile always keeps its current tab.
   openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: (!this._mob() && this.state.tab === 'graph') ? 'search' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
+  // Rows can be folded across referents/sources. If the displayed row's lead pointer no
+  // longer resolves (for example after a live transcript re-fold), walk its concrete
+  // instances and open the first profile that still exists so the click always lands.
+  openEntityRow(row) {
+    const app = this._app;
+    const candidates = [row, ...((row && Array.isArray(row.instances)) ? row.instances : [])]
+      .filter((r) => r && r.docId != null && r.entId != null);
+    for (const r of candidates) {
+      if (!app || !app.entityProfile || app.entityProfile(r.docId, r.entId)) { this.openEntity(r.docId, r.entId); return; }
+    }
+  }
   mobileCloseEntity() { this.setState({ rightOpen: false, entitySel: null }); }
   mobileBackFromSource() { this.setTab(this.state.mReturnTab || 'topic'); }
   // Guards a scrollIntoView so it fires once per (source, focus target) rather than on every
@@ -8886,13 +8876,13 @@ class Component extends DCLogic {
         label: e.label, initials: this._initials(e.label), type: e.kind || '',
         meta: [e.kind || null, `${e.mentions || 0} mention${e.mentions === 1 ? '' : 's'}`, `${e.links || 0} link${e.links === 1 ? '' : 's'}`].filter(Boolean).join('  ·  '),
         weight: Math.max(6, Math.round((mass / castMax) * 100)) + '%',
-        open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); },
+        open: () => this.openEntityRow(e),
       };
     });
     const docEntityNeighbors = castSorted.slice(0, 10).map((e) => ({
       label: e.label || e.name || e.text || 'Entity',
       via: `${e.mentions || 0}m · ${e.links || 0}l`,
-      pivot: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); },
+      pivot: () => this.openEntityRow(e),
     }));
     const castNoun = (app.sourceBaseNoun ? app.sourceBaseNoun(s.sn) : 'Figures');
     // TWIN WAVEFORMS, read like an audio track — the reading's turning points (eot.turns) plotted
@@ -8925,7 +8915,7 @@ class Component extends DCLogic {
     const referentsFor = (t) => linkedThreadIndexes(t)
       .map((i) => threadEntities.find((e) => e._threadIdx === i))
       .filter(Boolean)
-      .map((e) => ({ label: e.label || 'Entity', open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); } }));
+      .map((e) => ({ label: e.label || 'Entity', open: () => this.openEntityRow(e) }));
     const turnPayload = (t) => {
       const mark = window.EO.evidence.buildMark({
         sourceId: s.sn, idx: t.idx, total: sourceUnits.length,
@@ -9052,12 +9042,12 @@ class Component extends DCLogic {
       toggleStructure: () => this.toggleOverviewStructureDots(),
       structureFg: this.state.overviewStructureDots ? '#5140C8' : '#8A8A95', structureBg: this.state.overviewStructureDots ? '#F1EFFE' : '#fff', structureBd: this.state.overviewStructureDots ? '#DED8FD' : '#EAEAEF',
       showEntities: !!this.state.overviewEntitiesOn,
-      entityPills: castSorted.slice(0, 25).map((e) => ({ label: e.label || 'Entity', open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); } })),
+      entityPills: castSorted.slice(0, 25).map((e) => ({ label: e.label || 'Entity', open: () => this.openEntityRow(e) })),
       toggleEntities: () => this.toggleOverviewEntities(),
       entitiesFg: this.state.overviewEntitiesOn ? '#5140C8' : '#8A8A95', entitiesBg: this.state.overviewEntitiesOn ? '#F1EFFE' : '#fff', entitiesBd: this.state.overviewEntitiesOn ? '#DED8FD' : '#EAEAEF',
       showXkcd: !!this.state.overviewXkcd,
       showEntityThreads: !!this.state.overviewXkcd && entityThreads.length > 0, entityThreads, threadLabels,
-      xkcdEntities: castSorted.slice(0, 25).map((e, i) => ({ label: e.label || 'Entity', short: this._initials(e.label || 'E'), title: `${e.label || 'Entity'} · ${e.mentions || 0} mentions`, hPct: Math.max(18, Math.min(100, 22 + ((e.mentions || 0) / castMax) * 78)) + '%', tilt: ((i % 5) - 2) * 2, open: () => { if (e.docId && e.entId) this.openEntity(e.docId, e.entId); } })),
+      xkcdEntities: castSorted.slice(0, 25).map((e, i) => ({ label: e.label || 'Entity', short: this._initials(e.label || 'E'), title: `${e.label || 'Entity'} · ${e.mentions || 0} mentions`, hPct: Math.max(18, Math.min(100, 22 + ((e.mentions || 0) / castMax) * 78)) + '%', tilt: ((i % 5) - 2) * 2, open: () => this.openEntityRow(e) })),
       toggleXkcd: () => this.toggleOverviewXkcd(),
       xkcdFg: this.state.overviewXkcd ? '#5140C8' : '#8A8A95', xkcdBg: this.state.overviewXkcd ? '#F1EFFE' : '#fff', xkcdBd: this.state.overviewXkcd ? '#DED8FD' : '#EAEAEF',
       foldOpen: !!this.state.overviewFoldOpen, toggleFold: () => this.toggleOverviewFoldOpen(),
@@ -9192,6 +9182,7 @@ class Component extends DCLogic {
         icon, typeLabel, reg: s.reg || '', origin: origin || 'Local record',
         favCh: (String(s.domain || s.title || '?').trim().charAt(0).toUpperCase()) || 'S',
         favBg: active ? fav[0] : '#F0F0F3', favFg: active ? fav[1] : '#ABABB4', countLine,
+        thumb: s.thumbnail || '', hasThumb: !!s.thumbnail, noThumb: !s.thumbnail,
         when: (s.retrieved ? this._ago(s.retrieved) : '') || '',
         active, cardOpacity: active ? '1' : '.55',
         scopeLabel: active ? 'Active' : 'Excluded',
@@ -9491,7 +9482,7 @@ class Component extends DCLogic {
           .map((e) => ({
             label: e.label, fav: (e.label || 'E').trim().charAt(0).toUpperCase(),
             meta: `${e.mentions || 0} mention${(e.mentions || 0) === 1 ? '' : 's'}`,
-            open: (e.docId != null && e.entId != null) ? (() => this.openEntity(e.docId, e.entId)) : (() => {}),
+            open: () => this.openEntityRow(e),
           }));
       } catch { cast = []; }
     }
@@ -9622,7 +9613,7 @@ class Component extends DCLogic {
         .map(({ e }) => ({
           label: e.label, fav: (e.label || 'E').trim().charAt(0).toUpperCase(),
           meta: `${e.mentions || 0} mention${(e.mentions || 0) === 1 ? '' : 's'} · ${e.sourceCount || 1} source${(e.sourceCount || 1) === 1 ? '' : 's'}`,
-          open: (e.docId != null && e.entId != null) ? (() => this.openEntity(e.docId, e.entId)) : (() => {}),
+          open: () => this.openEntityRow(e),
         }));
     } catch { topEntities = []; entityCount = 0; }
 
@@ -10202,7 +10193,7 @@ class Component extends DCLogic {
     this._rrEl = el; this._rrTopicId = this.state.rrTopicId;
     try {
       const RR = window.EO && window.EO.researchReview;
-      if (!RR || !RR.mount) { el.innerHTML = '<div style="padding:22px;color:#8A8A95;font-size:13px">Research Review is not available.</div>'; return; }
+      if (!RR || !RR.mount) { el.innerHTML = '<div style="padding:22px;color:#8A8A95;font-size:13px">Question Result is not available.</div>'; return; }
       if (fresh || !this._rr) {
         try { this._rr && this._rr.destroy(); } catch {}
         el.innerHTML = '';
@@ -10216,20 +10207,20 @@ class Component extends DCLogic {
         this._rr.show(this.state.rrTopicId);
       }
     } catch (e) {
-      el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Research Review failed to mount: ' + String((e && e.message) || e) + '</div>';
+      el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Question Result failed to mount: ' + String((e && e.message) || e) + '</div>';
     }
   }
-  // openResearchReview(q) — the ONE way a web search starts now (the omnibox, the Search tab's
-  // "search the web" button, and the outward-extension row all call this): open the review modal
-  // and let reviewStart discover + review the first batch, so the reader inspects the candidate
-  // corpus BEFORE anything is admitted, instead of a query silently filling a new topic.
+  // openResearchReview(q) — the ONE way a web search starts now: open a durable Question Result
+  // page and let reviewStart discover + provisionally read the first batch before admission.
   openResearchReview(q) {
     const query = String(q || '').trim();
     if (!query || !this._app || !this._app.reviewStart) return;
     this.setState({ rrOpen: true, rrTopicId: null, rrBusy: true });
+    try { window.history.pushState({ eoQuestionResult: true }, '', '#/research/pending'); } catch {}
     this._app.reviewStart(query).then((t) => {
       if (!t) { this.setState({ rrOpen: false, rrBusy: false }); this.showToast(`Nothing came back for “${query}” — try different words or a direct URL`); return; }
       this.setState({ rrTopicId: t.id, rrBusy: false });
+      try { window.history.replaceState({ eoQuestionResult: true, topicId: t.id }, '', '#/research/' + encodeURIComponent(t.id)); } catch {}
     }).catch((err) => {
       this.setState({ rrOpen: false, rrBusy: false });
       if (err && (err.name === 'AbortError' || /abort/i.test(String((err && err.message) || err)))) return;
@@ -10347,6 +10338,11 @@ class Component extends DCLogic {
     const data = (w.scope === 'entity' && w.entId != null)
       ? this._app.tieredData(w.docId, w.entId)
       : this._app.topicTieredData();
+    if (!data.nodes || !data.nodes.length) {
+      this._tgToggles = [];
+      el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:60ch;line-height:1.55">No figures read yet — the entity web fills once the reading names people, places, or things and the bonds among them.</div>';
+      return;
+    }
     this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
       .map((n) => ({ id: n.id, label: n.label }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
@@ -10429,6 +10425,19 @@ class Component extends DCLogic {
   // 'sequence' grain unfolds one band per source in ingestion order (the corpus cursor).
   _drawCrosswalk(el, w) {
     const data = this._app.crosswalkTieredData();
+    // A referent confined to ONE source is not crossed — it is just an ordinary entity, and
+    // drawing every single-source referent here (the reported failure: 174 referents from one
+    // source, nothing actually crossed) misrepresents a plain entity list as cross-source
+    // identity work. Only draw once at least one referent is corroborated by ≥2 sources — a
+    // real tier-0 (source → entity) edge count of 2+ on the same entity.
+    const srcHitsByEntity = new Map();
+    for (const e of (data.edges || [])) if (e.tier === 0) srcHitsByEntity.set(e.b, (srcHitsByEntity.get(e.b) || 0) + 1);
+    const crossed = [...srcHitsByEntity.values()].some((n) => n >= 2);
+    if (!crossed) {
+      this._tgToggles = [];
+      el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:62ch;line-height:1.55">Crosswalk needs a referent that shows up in more than one source to compare identity across them — right now every referent here is confined to a single source. Record another source that mentions the same figure, then reopen Crosswalk.</div>';
+      return;
+    }
     this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
       .map((n) => ({ id: n.id, label: n.label }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
@@ -10495,6 +10504,14 @@ class Component extends DCLogic {
   // Network node drop with it, exactly as _filterTiered drops context nodes for the entity web.
   _drawNetwork(el, w) {
     const data = this._app.networkTieredData();
+    // Network draws the sources' CORROBORATION links, not the sources themselves — with no link
+    // there is nothing but a stray "Network (not yet coherent)" node on an otherwise empty canvas
+    // (the reported failure). Only draw once at least one source pair actually links.
+    if (!(data.nodes || []).some((n) => n.kind === 'link')) {
+      this._tgToggles = [];
+      el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:60ch;line-height:1.55">Network needs at least two sources that corroborate each other to draw a link — record another source on this topic, then reopen Network.</div>';
+      return;
+    }
     this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'source')
       .map((n) => ({ id: n.id, label: n.label }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
@@ -12129,6 +12146,7 @@ class Component extends DCLogic {
       const genre = this._genre(s); const cites = citeCounts[s.sn] || 0;
       return {
         sn: s.sn, title: s.title, kindTag: genre.toUpperCase(),
+        thumb: s.thumbnail || '', hasThumb: !!s.thumbnail, noThumb: !s.thumbnail,
         sub: cites > 0 ? `${genre} · ${cites} span${cites === 1 ? '' : 's'}` : `${genre} · ${this._bytes(s.bytes)}`,
         favCh: (s.domain || s.title || '?')[0].toUpperCase(),
         starred: !!s.starred, starFg: s.starred ? '#3A3A44' : 'none', starStroke: s.starred ? '#3A3A44' : '#C4C4CC',
@@ -12448,7 +12466,7 @@ class Component extends DCLogic {
       meta: entPivot
         ? `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'}`
         : `${e.mentions} mention${e.mentions === 1 ? '' : 's'} · ${e.links} link${e.links === 1 ? '' : 's'} · ${e.sourceCount > 1 ? `${e.sourceCount} sources` : ((app.sourceBySn(e.sn) || {}).reg || '')}`,
-      open: () => this.openEntity(e.docId, e.entId),
+      open: () => this.openEntityRow(e),
     }));
     // The level segmented control (only when the source offers more than the one level) and the
     // pivot banner, both surfaced in the entity-list header below.
@@ -13219,14 +13237,9 @@ class Component extends DCLogic {
       searchRows, closeSearch: () => this.closeSearch(), retrySearch: () => this.runSearch(st.searchQ),
       // the library shelf — one shelf searched on its own surface (article/book/media/code)
       ...libVals,
-      // Research Review (docs/research-review.md) — desktop mounts it as a content-pane panel;
-      // mobile keeps the original full-viewport dialog (no sidebar/fixed header to position
-      // against there). rrLeft mirrors the SAME condition that gates <aside class="eo-left">
-      // (index.html leftOpen sc-if) so the panel's edge always lines up with the sidebar's, open or
-      // collapsed — the same width literal (312px) that aside is styled with.
+      // Question Result (docs/EOReader_Question_Result_Update_Spec.md) — a full-bleed page, the
+      // same on both shells (no sidebar/header offsets to compute).
       rrShow: st.rrOpen, rrLoading: st.rrOpen && !st.rrTopicId, rrReady: st.rrOpen && !!st.rrTopicId,
-      rrShowDesktop: st.rrOpen && !st.isMobile, rrShowMobile: st.rrOpen && !!st.isMobile,
-      rrLeft: (st.leftOpen && st.tab !== 'register') ? '312px' : '0px',
       setResearchReviewEl: (el) => this.setResearchReviewEl(el),
       // native preview of a search hit — the modal grows to a page frame while previewing
       searchModalW: preview ? 'min(1040px,96vw)' : 'min(640px,92vw)',
