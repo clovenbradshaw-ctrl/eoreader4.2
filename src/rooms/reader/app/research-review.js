@@ -182,6 +182,12 @@ export const installResearchReview = (appCtx) => {
     if (view.answer && check && check.sn === view.answer.sn && check.query === t.review.query) {
       view.answer = { ...view.answer, confident: check.verdict, modelChecked: true };
     }
+    // A prior reviewFeedback (research-review-actions.js) already ran the model's join pass over
+    // view.reading — fold it back in rather than re-asking on every recompute. Scoped to the SAME
+    // reading content (readingKey) so stale feedback never survives new sources landing or the
+    // exclusion scope changing — the fold moved, so the feedback about it is no longer current.
+    const fb = t.review.feedback;
+    if (fb && fb.readingKey === (view.reading || []).join('|')) view.feedback = fb;
     const waveforms = {};
     for (const row of rows) {
       try { waveforms[row.sn] = candidateWaveform(appCtx.eotFor(row.sn), { matrix, sn: row.sn }); }

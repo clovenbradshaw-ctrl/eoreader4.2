@@ -89,14 +89,40 @@ const renderVerdictCard = (doc, claim, view, { expanded, onToggle }) => {
   return card;
 };
 
+// renderFeedback(doc, view, { loading, onRefine }) → the result read back as one paragraph.
+// `view.reading` (research-review.js researchReading) is the machinery's own deterministic,
+// falsifiable sentences — never generated — joined as-is by default (the telegram, always
+// available, no model). `view.feedback` (set by reviewFeedback → weave/topline/join.js) is the
+// SAME sentences after the model's join pass: reordered, connected, gated by set-containment so it
+// can rearrange this result's own words but never add one. Always renders something — a thin or
+// empty reading still gets researchReading's own "nothing reviewed yet" sentence.
+const renderFeedback = (doc, view, { loading = false, onRefine = null } = {}) => {
+  const box = el(doc, 'div', 'eo-rr__answer');
+  box.appendChild(el(doc, 'div', 'eo-rr__answerKicker', 'HOW THIS RESULT READS'));
+  const text = (view.feedback && view.feedback.text) || (view.reading || []).join(' ') || 'Nothing has been reviewed yet.';
+  box.appendChild(el(doc, 'p', 'eo-rr__answerText', text));
+  if (!view.feedback?.joined && onRefine) {
+    const btn = el(doc, 'button', 'eo-rr__btn eo-rr__btn--sm', loading ? 'Asking the local model…' : 'Ask local model to read this back');
+    btn.disabled = loading;
+    btn.addEventListener('click', onRefine);
+    box.appendChild(btn);
+  }
+  return box;
+};
+
 export const mountResearchReview = (host, { app, topicId, onClose = () => {}, onOpenSource = null } = {}) => {
   const doc = host.ownerDocument || document; ensureStyle(doc);
   const root = el(doc, 'div', 'eo-rr__body eo-qr'); root.setAttribute('role', 'main'); root.setAttribute('aria-label', 'Question Result'); host.appendChild(root);
-  let curTopicId = topicId, filter = 'all', verifyingAnswer = false; const expanded = new Set(); const announce = (m) => { try { app.showToast ? app.showToast(m) : null; } catch {} };
+  let curTopicId = topicId, filter = 'all', verifyingAnswer = false, feedbackLoading = false; const expanded = new Set(); const announce = (m) => { try { app.showToast ? app.showToast(m) : null; } catch {} };
   const verifyAnswer = () => {
     if (verifyingAnswer || !app.reviewVerifyAnswer) return;
     verifyingAnswer = true; render();
     Promise.resolve(app.reviewVerifyAnswer(curTopicId)).catch(() => {}).then(() => { verifyingAnswer = false; render(); });
+  };
+  const refineFeedback = () => {
+    if (feedbackLoading || !app.reviewFeedback) return;
+    feedbackLoading = true; render();
+    Promise.resolve(app.reviewFeedback(curTopicId)).catch(() => {}).then(() => { feedbackLoading = false; render(); });
   };
   const render = () => {
     root.innerHTML = ''; const view = app.reviewCompute(curTopicId); if (!view) { root.appendChild(el(doc, 'div', 'eo-rr__empty', 'This question result is no longer available.')); return; }
@@ -116,6 +142,8 @@ export const mountResearchReview = (host, { app, topicId, onClose = () => {}, on
     for (const c of structured) root.appendChild(renderVerdictCard(doc, c, view, { expanded: expanded.has(c.id), onToggle: () => { expanded.has(c.id) ? expanded.delete(c.id) : expanded.add(c.id); render(); } }));
     if (!view.answer && !structured.length) root.appendChild(el(doc, 'div', 'eo-rr__empty', 'Nothing establishes an answer yet.'));
     const meaningRows = ledger.filter((c) => c.verdict !== 'void').slice(0, 6); if (meaningRows.length) { root.appendChild(el(doc, 'div', 'eo-rr__section', 'Meaning')); const map = el(doc, 'div', 'eo-qr__meaning'); map.appendChild(el(doc, 'div', 'eo-qr__meaningCenter', view.query)); for (const c of meaningRows) map.appendChild(el(doc, 'button', `eo-qr__meaningNode eo-qr__meaningNode--${c.verdict}`, `${c.text} · ${c.origins}`)); root.appendChild(map); }
+    root.appendChild(el(doc, 'div', 'eo-rr__section', 'Feedback'));
+    root.appendChild(renderFeedback(doc, view, { loading: feedbackLoading, onRefine: app.reviewFeedback ? refineFeedback : null }));
     root.appendChild(el(doc, 'div', 'eo-rr__section', `Claims in this result · ${ledger.length}`)); const fr = el(doc, 'div', 'eo-rr__filters'); for (const [k, label] of FILTERS) { const n = k === 'all' ? ledger.length : ledger.filter((c) => c.verdict === k).length; const b = el(doc, 'button', 'eo-rr__filter' + (filter === k ? ' eo-rr__filter--on' : ''), `${label} ${n}`); b.addEventListener('click', () => { filter = k; render(); }); fr.appendChild(b); } root.appendChild(fr);
     const table = el(doc, 'div', 'eo-qr__ledger'); for (const c of ledger.filter((x) => filter === 'all' || x.verdict === filter)) { const row = el(doc, 'button', 'eo-qr__ledgerRow', ''); row.addEventListener('click', () => { expanded.has(c.id) ? expanded.delete(c.id) : expanded.add(c.id); render(); }); row.appendChild(el(doc, 'span', null, c.text)); row.appendChild(el(doc, 'b', null, labelForVerdict(c.verdict))); row.appendChild(el(doc, 'em', null, String(c.origins))); table.appendChild(row); if (expanded.has(c.id)) table.appendChild(renderVerdictCard(doc, c, view, { expanded: true, onToggle: () => { expanded.delete(c.id); render(); } })); } root.appendChild(table);
     root.appendChild(el(doc, 'div', 'eo-rr__section', `Sources · ${selectedCount} of ${(view.rows || []).length} selected`)); const cards = el(doc, 'div', 'eo-rr__cards'); for (const card of view.cards) cards.appendChild(renderCandidateCard(doc, card, { checked: !view.excludedSns.has(card.row.sn), onToggle: (sn) => { app.reviewToggleExclude(curTopicId, sn); announce('Source scope updated; verdicts recomputed.'); render(); }, onOpen: (sn) => onOpenSource ? onOpenSource(sn) : null, connections: [] })); root.appendChild(cards);
