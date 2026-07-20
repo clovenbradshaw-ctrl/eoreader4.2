@@ -44,6 +44,15 @@
     border-radius:0 10px 10px 0;padding:11px 14px;font-size:13.5px}
   .ft-finding .n{color:var(--faint);font-size:11.5px;margin-left:6px}
 
+  /* ── the lens bar — axes used to FILTER the meaning space, never a section of their own ── */
+  .ft-lens{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:16px;padding:10px 13px;
+    background:var(--panel);border:1px solid var(--line);border-radius:11px;font-size:12px;color:var(--dim)}
+  .ft-lens .lens-kick{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .ft-lens select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:4px 7px;font-size:12px}
+  .ft-lens select.active{border-color:var(--accent);color:var(--ink);font-weight:600}
+  .ft-lens .lens-count{margin-left:auto;font-family:var(--mono);color:var(--faint)}
+  .ft-lens .lens-clear{color:var(--accent);cursor:pointer;text-decoration:underline;background:none;border:none;font-size:12px;padding:0}
+
   /* ── the meaning space — populated categories only, biggest first, no domain/grain chrome ── */
   .ft-space{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch}
   .ft-mcard{position:relative;border:1px solid var(--line);background:var(--panel);border-radius:12px;
@@ -60,21 +69,11 @@
   .ft-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px;font-size:11.5px;color:var(--dim)}
   .ft-legend .sw{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
 
-  /* ── stacked bars (cross-tabs) ── */
+  /* ── numeric bars ── */
   .ft-facet{margin-bottom:20px}
   .ft-facet-name{font-size:11.5px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
-  .ft-row{display:grid;grid-template-columns:120px 1fr auto;gap:10px;align-items:center;margin:5px 0}
-  .ft-row .lbl{font-size:12.5px;color:var(--ink);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ft-row .n{font-size:11px;color:var(--faint);font-family:var(--mono)}
-  .ft-stack{display:flex;height:22px;border-radius:5px;overflow:hidden;background:var(--panel2);border:1px solid var(--line)}
-  .ft-seg{height:100%;position:relative;min-width:2px;transition:filter .1s}
-  .ft-seg:hover{filter:brightness(1.12)}
-  .ft-seg+.ft-seg{border-left:2px solid var(--bg)}
-  .ft-seg .seglbl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9.5px;
-    font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);white-space:nowrap;overflow:hidden}
-
-  /* ── numeric bars ── */
   .ft-numbar-row{display:grid;grid-template-columns:150px 1fr 70px;gap:10px;align-items:center;margin:6px 0;font-size:12.5px}
+  .ft-numbar-row .lbl{font-size:12.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ft-numbar-track{height:14px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
   .ft-numbar-fill{height:100%;background:var(--series-1,#2a78d6)}
   .ft-numbar-val{font-family:var(--mono);font-size:11.5px;color:var(--dim);text-align:right}
@@ -104,7 +103,7 @@
 <script type="module">
 import {
   parseCSV, detectTextColumn, detectFacetColumns, detectNumericColumns,
-  buildFeedbackReading, terrainDistribution, crossTab, numericAverageByTerrain,
+  buildFeedbackReading, terrainDistribution, numericAverageByTerrain,
   dominantTerrainInsights, samplesByTerrain, ALL_TERRAINS,
 } from './probes/feedback-csv-terrain.mjs';
 
@@ -130,10 +129,8 @@ const plainLabel = (t) => PLAIN[t]?.label || t;
 const plainGloss = (t) => PLAIN[t]?.gloss || '';
 
 // Validated categorical palette (dataviz skill, references/palette.md), assigned to the internal
-// terrain keys IN THEIR FIXED ORDER — the order every stacked bar and legend renders in — so the
-// validated adjacent-pair CVD/contrast guarantees hold regardless of which categories a given
-// dataset happens to populate. The rarest category takes the muted/ink tone rather than an
-// invented ninth hue (never generate a hue — fold instead). Purely a lookup key; never shown.
+// terrain keys IN THEIR FIXED ORDER, so the validated adjacent-pair CVD/contrast guarantees hold
+// regardless of which categories a given dataset happens to populate. Purely a lookup key; never shown.
 const TERRAIN_COLOR = {
   Void:       { light: '#2a78d6', dark: '#3987e5' },  // blue
   Entity:     { light: '#008300', dark: '#008300' },  // green
@@ -155,13 +152,16 @@ const colorOf = (terrain) => TERRAIN_COLOR[terrain]?.[prefersDark() ? 'dark' : '
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const pct = (x) => `${Math.round(x * 100)}%`;
+const naturalSort = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 
 const mount = document.getElementById('mount');
 
 // ── app state ──
 let CSV = null;          // { header, records }
 let TEXT_COLUMN = null;
-let READING = null;      // { doc, mode, aligned, terrainOfRow }
+let READING = null;      // { doc, mode, aligned, terrainOfRow } — over ALL rows, never refiltered
+let FACETS = [];         // column names available as a lens on the meaning space
+let LENS = {};           // column -> selected value, or absent/'' for "all"
 let SELECTED_TERRAIN = null;
 
 const renderEmpty = () => {
@@ -177,7 +177,7 @@ const renderEmpty = () => {
       <input type="file" id="file" accept=".csv,text/csv" />
       <div><b>Click to choose a CSV</b>, or drag one here.</div>
       <div style="margin-top:4px;font-size:11.5px">Needs one column of free-text comments; any other columns
-      (sentiment, area, score…) become the categories it reads the meaning space by.</div>
+      (sentiment, area, score…) become lenses you can look at the meaning space through.</div>
     </label>
   `;
   wireDrop();
@@ -198,6 +198,7 @@ const loadCSV = (raw) => {
   if (!parsed.records.length) { mount.innerHTML = '<div class="ft-empty">No rows found in that file.</div>'; return; }
   CSV = parsed;
   TEXT_COLUMN = detectTextColumn(CSV.header, CSV.records);
+  LENS = {};
   SELECTED_TERRAIN = null;
   analyzeAndRender();
 };
@@ -207,18 +208,29 @@ const analyzeAndRender = () => {
   mount.innerHTML = `<div class="ft-empty">Reading ${CSV.records.length} rows…</div>`;
   setTimeout(() => {
     READING = buildFeedbackReading(CSV.records, TEXT_COLUMN);
+    FACETS = detectFacetColumns(CSV.header, CSV.records, { exclude: [TEXT_COLUMN] });
     render();
   }, 30);
 };
 
+// The current lens applied to the full reading — every dependent section (the meaning space,
+// its legend, the averages, the sample browser) reads THIS, never the raw facet columns
+// directly. A facet is a way of looking at the content, not a section of its own.
+const currentView = () => {
+  const active = Object.entries(LENS).filter(([, v]) => v);
+  if (!active.length) return { records: CSV.records, terrainOfRow: READING.terrainOfRow };
+  const records = [], terrainOfRow = [];
+  CSV.records.forEach((r, i) => {
+    if (active.every(([col, v]) => String(r[col] ?? '') === v)) { records.push(r); terrainOfRow.push(READING.terrainOfRow[i]); }
+  });
+  return { records, terrainOfRow };
+};
+
 const render = () => {
   const { header, records } = CSV;
-  const { mode, aligned, terrainOfRow } = READING;
-  const facets = detectFacetColumns(header, records, { exclude: [TEXT_COLUMN] });
-  const numerics = detectNumericColumns(header, records, { exclude: [TEXT_COLUMN] });
-  const { counts, total } = terrainDistribution(terrainOfRow);
-  const present = ALL_TERRAINS.filter((t) => counts[t] > 0);
-  const insights = dominantTerrainInsights(records, terrainOfRow, facets);
+  const { aligned, mode } = READING;
+  const numerics = detectNumericColumns(header, records, { exclude: [TEXT_COLUMN, ...FACETS] });
+  const insights = dominantTerrainInsights(records, READING.terrainOfRow, FACETS);
 
   mount.innerHTML = `
     <div class="ft-head">
@@ -241,7 +253,7 @@ const render = () => {
     <div class="ft-section">
       <div class="ft-h">What the feedback is actually doing</div>
       <div class="ft-h-sub">What a comment is doing, compared against how this whole dataset reads on
-        average — a category only makes the list once it clears a real sample size and is common
+        average — a lens only makes the list once it clears a real sample size and is common
         enough in this dataset to trust a percentage about it.</div>
       <div class="ft-findings" id="findings"></div>
     </div>
@@ -249,28 +261,24 @@ const render = () => {
     <div class="ft-section">
       <div class="ft-h">The meaning space</div>
       <div class="ft-h-sub">Not sentiment, not a keyword list — each comment is read for what it's actually
-        doing, and grouped by the shape that reading takes. Bigger means more common. Click one to read
-        the actual comments behind it.</div>
+        doing, and grouped by the shape that reading takes. Bigger means more common. Click a group to read
+        the actual comments behind it. The columns your file already had (sentiment, area, score…) are lenses
+        below, not their own charts — pick one to look at this same space through it.</div>
+      <div class="ft-lens" id="lens"></div>
       <div class="ft-space" id="space"></div>
       <div class="ft-legend" id="legend"></div>
     </div>
 
-    ${facets.length ? `<div class="ft-section">
-      <div class="ft-h">Broken down by ${facets.map(esc).join(', ')}</div>
-      <div class="ft-h-sub">Same categories and colors as above, one full bar per value — composition, not just a count.</div>
-      <div id="facets"></div>
-    </div>` : ''}
-
     ${numerics.length ? `<div class="ft-section">
-      <div class="ft-h">Average ${numerics.map(esc).join(', ')}, by category</div>
-      <div class="ft-h-sub">Does the category a comment falls into line up with how the customer scored the
-        interaction? Sorted high to low.</div>
+      <div class="ft-h">Average ${numerics.map(esc).join(', ')}, by group</div>
+      <div class="ft-h-sub">Does the group a comment falls into line up with how the customer scored the
+        interaction? Sorted high to low; follows the lens above.</div>
       <div id="numerics"></div>
     </div>` : ''}
 
     <div class="ft-section">
       <details class="ft-details" id="drill">
-        <summary>Read the actual comments behind a category</summary>
+        <summary>Read the actual comments behind a group</summary>
         <div class="ft-details-body">
           <div class="ft-terrain-picker" id="picker"></div>
           <div id="samples"></div>
@@ -286,19 +294,15 @@ const render = () => {
   document.getElementById('new-file').addEventListener('click', () => { CSV = null; READING = null; renderEmpty(); });
 
   renderFindings(insights);
-  renderMeaningSpace(counts, total);
-  renderLegend(present);
-  if (facets.length) renderFacets(facets, records, terrainOfRow);
-  if (numerics.length) renderNumerics(numerics, records, terrainOfRow, present);
-  renderPicker(present);
-  renderSamples(records, terrainOfRow);
+  renderLens();
+  renderDependent(numerics);
 };
 
 const renderFindings = (insights) => {
   const el = document.getElementById('findings');
   if (!insights.length) {
-    el.innerHTML = `<div class="ft-h-sub" style="margin:0">No category clears the sample-size bar yet —
-      try a larger export, or a dataset with more than one comment per category.</div>`;
+    el.innerHTML = `<div class="ft-h-sub" style="margin:0">Nothing clears the sample-size bar yet —
+      try a larger export, or a dataset with more than one comment per group.</div>`;
     return;
   }
   el.innerHTML = insights.map((ins) => `
@@ -311,12 +315,56 @@ const renderFindings = (insights) => {
     </div>`).join('');
 };
 
-// The meaning space: only categories that actually appear, biggest first — an organic
-// landscape of what's there, not a fixed matrix with dead cells front and center.
+// The lens bar: one dropdown per column the file already had, "all" by default. Picking a
+// value FILTERS the meaning space below to that slice — the column never gets a chart section
+// of its own, it only ever changes which slice of the SAME space you're looking at.
+const renderLens = () => {
+  const el = document.getElementById('lens');
+  if (!FACETS.length) { el.style.display = 'none'; return; }
+  const anyActive = Object.values(LENS).some(Boolean);
+  el.innerHTML = `<span class="lens-kick">look through</span>` +
+    FACETS.map((col) => {
+      const values = [...new Set(CSV.records.map((r) => String(r[col] ?? '').trim()).filter(Boolean))].sort(naturalSort);
+      const sel = LENS[col] || '';
+      return `<select data-col="${esc(col)}" class="${sel ? 'active' : ''}">
+        <option value="">${esc(col)}: all</option>
+        ${values.map((v) => `<option value="${esc(v)}"${v === sel ? ' selected' : ''}>${esc(col)}: ${esc(v)}</option>`).join('')}
+      </select>`;
+    }).join('') +
+    (anyActive ? `<button class="lens-clear" id="lens-clear">clear</button>` : '');
+  el.querySelectorAll('select').forEach((s) => s.addEventListener('change', (e) => {
+    LENS[e.target.dataset.col] = e.target.value; SELECTED_TERRAIN = null; renderLens(); renderDependent();
+  }));
+  const clearBtn = document.getElementById('lens-clear');
+  if (clearBtn) clearBtn.addEventListener('click', () => { LENS = {}; SELECTED_TERRAIN = null; renderLens(); renderDependent(); });
+  if (FACETS.length) el.insertAdjacentHTML('beforeend', '<span class="lens-count"></span>');
+};
+
+// Everything downstream of the lens: recomputed against currentView() only. `numerics` is
+// passed through from render() so a lens change doesn't need to re-detect columns; renderLens()
+// must run first each time, since it rebuilds #lens (and would wipe the count badge otherwise).
+const renderDependent = (numerics) => {
+  const { records, terrainOfRow } = currentView();
+  const { counts, total } = terrainDistribution(terrainOfRow);
+  const present = ALL_TERRAINS.filter((t) => counts[t] > 0);
+  const numCols = numerics || detectNumericColumns(CSV.header, CSV.records, { exclude: [TEXT_COLUMN, ...FACETS] });
+
+  const countBadge = document.querySelector('#lens .lens-count');
+  if (countBadge) countBadge.textContent = `${records.length} of ${CSV.records.length}`;
+
+  renderMeaningSpace(counts, total);
+  renderLegend(present);
+  if (document.getElementById('numerics')) renderNumerics(numCols, records, terrainOfRow, present);
+  renderPicker(present);
+  renderSamples(records, terrainOfRow);
+};
+
+// The meaning space: only groups that actually appear in the current view, biggest first — an
+// organic landscape of what's there, not a fixed matrix with dead cells.
 const renderMeaningSpace = (counts, total) => {
   const el = document.getElementById('space');
   const rows = ALL_TERRAINS.filter((t) => counts[t] > 0).map((t) => ({ t, n: counts[t] })).sort((a, b) => b.n - a.n);
-  if (!rows.length) { el.innerHTML = `<div class="ft-h-sub" style="margin:0">Nothing recognizable in this column yet.</div>`; return; }
+  if (!rows.length) { el.innerHTML = `<div class="ft-h-sub" style="margin:0">Nothing recognizable in this slice.</div>`; return; }
   el.innerHTML = rows.map(({ t, n }, i) => {
     const p = total ? n / total : 0;
     const c = colorOf(t);
@@ -336,33 +384,9 @@ const renderLegend = (present) => {
     `<span><span class="sw" style="background:${colorOf(t)}"></span>${esc(plainLabel(t))}</span>`).join('');
 };
 
-const renderFacets = (facets, records, terrainOfRow) => {
-  const el = document.getElementById('facets');
-  el.innerHTML = facets.map((col) => {
-    const table = crossTab(records, terrainOfRow, col);
-    const rows = [...table.entries()].sort((a, b) =>
-      Object.values(b[1]).reduce((x, y) => x + y, 0) - Object.values(a[1]).reduce((x, y) => x + y, 0));
-    return `<div class="ft-facet">
-      <div class="ft-facet-name">${esc(col)}</div>
-      ${rows.map(([value, dist]) => {
-        const n = Object.values(dist).reduce((a, b) => a + b, 0);
-        const segs = ALL_TERRAINS.filter((t) => dist[t]).map((t) => {
-          const w = (100 * dist[t] / n).toFixed(1);
-          return `<div class="ft-seg" style="width:${w}%;background:${colorOf(t)}" title="${esc(plainLabel(t))}: ${dist[t]} (${w}%)">
-            ${dist[t] / n > 0.12 ? `<span class="seglbl">${esc(plainLabel(t))}</span>` : ''}</div>`;
-        }).join('');
-        return `<div class="ft-row">
-          <div class="lbl">${esc(value)}</div>
-          <div class="ft-stack">${segs}</div>
-          <div class="n">n=${n}</div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }).join('');
-};
-
 const renderNumerics = (numerics, records, terrainOfRow, present) => {
   const el = document.getElementById('numerics');
+  if (!el) return;
   el.innerHTML = numerics.map((col) => {
     const avgs = numericAverageByTerrain(records, terrainOfRow, col);
     const rows = present.filter((t) => avgs[t]).map((t) => ({ t, ...avgs[t] })).sort((a, b) => b.avg - a.avg);
@@ -371,8 +395,8 @@ const renderNumerics = (numerics, records, terrainOfRow, present) => {
     return `<div class="ft-facet">
       <div class="ft-facet-name">${esc(col)}</div>
       ${rows.map((r) => `<div class="ft-numbar-row">
-        <div class="lbl" style="text-align:right">${esc(plainLabel(r.t))}</div>
-        <div class="ft-numbar-track"><div class="ft-numbar-fill" style="width:${(100 * r.avg / max).toFixed(1)}%"></div></div>
+        <div class="lbl" style="color:${colorOf(r.t)}">${esc(plainLabel(r.t))}</div>
+        <div class="ft-numbar-track"><div class="ft-numbar-fill" style="width:${(100 * r.avg / max).toFixed(1)}%;background:${colorOf(r.t)}"></div></div>
         <div class="ft-numbar-val">${r.avg.toFixed(2)} <span style="color:var(--faint)">(n=${r.n})</span></div>
       </div>`).join('')}
     </div>`;
@@ -381,6 +405,7 @@ const renderNumerics = (numerics, records, terrainOfRow, present) => {
 
 const renderPicker = (present) => {
   const el = document.getElementById('picker');
+  if (!present.includes(SELECTED_TERRAIN)) SELECTED_TERRAIN = null;
   el.innerHTML = present.map((t) =>
     `<button data-terrain="${esc(t)}" style="--dot:${colorOf(t)};--dotbg:${colorOf(t)}22" class="${t === SELECTED_TERRAIN ? 'on' : ''}">${esc(plainLabel(t))}</button>`).join('');
   el.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => selectTerrain(b.dataset.terrain)));
@@ -389,21 +414,23 @@ const renderPicker = (present) => {
 const selectTerrain = (terrain) => {
   SELECTED_TERRAIN = SELECTED_TERRAIN === terrain ? null : terrain;
   document.getElementById('drill').open = true;
-  renderPicker(ALL_TERRAINS.filter((t) => (terrainDistribution(READING.terrainOfRow).counts[t] || 0) > 0));
-  renderSamples(CSV.records, READING.terrainOfRow);
+  const { records, terrainOfRow } = currentView();
+  const present = ALL_TERRAINS.filter((t) => (terrainDistribution(terrainOfRow).counts[t] || 0) > 0);
+  renderPicker(present);
+  renderSamples(records, terrainOfRow);
   document.getElementById('drill').scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
 const renderSamples = (records, terrainOfRow) => {
   const el = document.getElementById('samples');
-  if (!SELECTED_TERRAIN) { el.innerHTML = `<div class="ft-h-sub" style="margin:0">Pick a category above to read the actual comments behind it.</div>`; return; }
+  if (!SELECTED_TERRAIN) { el.innerHTML = `<div class="ft-h-sub" style="margin:0">Pick a group above to read the actual comments behind it.</div>`; return; }
   const samples = samplesByTerrain(records, terrainOfRow, SELECTED_TERRAIN, TEXT_COLUMN, { limit: 12 });
   const otherCols = CSV.header.filter((h) => h !== TEXT_COLUMN);
   el.innerHTML = samples.map((s) => `
     <div class="ft-sample">
       <div>${esc(s.text)}</div>
       <div class="meta">${otherCols.map((c) => `<span>${esc(c)}: ${esc(s.record[c])}</span>`).join('')}</div>
-    </div>`).join('') || `<div class="ft-h-sub" style="margin:0">No comments fell into "${esc(plainLabel(SELECTED_TERRAIN))}".</div>`;
+    </div>`).join('') || `<div class="ft-h-sub" style="margin:0">No comments in this slice fell into "${esc(plainLabel(SELECTED_TERRAIN))}".</div>`;
 };
 
 renderEmpty();
