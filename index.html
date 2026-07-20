@@ -4695,18 +4695,20 @@ table{border-collapse:collapse;width:100%}
 </sc-if>
 <!-- shared by both shells -->
   <!-- QUESTION RESULT (docs/EOReader_Question_Result_Update_Spec.md) — a web search lands on
-       a first-class result page, not a centered modal. Candidate sources remain provisional until
-       the reader explicitly admits selected sources to a topic. Full-bleed inset:0 works the same
-       way on both shells (no sidebar-width dependency), so this is one shared block, not a
-       mobile/desktop split. -->
+       a centered modal over the current page, matching the other overlays (search/libraries): a
+       dimmed backdrop keeps the reader oriented in the app underneath instead of navigating away
+       to a full-bleed page. Candidate sources remain provisional until the reader explicitly
+       admits selected sources to a topic. Same modal shell on both shells (no sidebar-width
+       dependency), so this is one shared block, not a mobile/desktop split. -->
   <sc-if value="{{ rrShow }}">
-    <div style="position:absolute;inset:0;z-index:49;background:#FAFAFC;overflow:auto">
-      <div style="min-height:100%;background:#FAFAFC;display:flex;flex-direction:column">
+    <div style="position:absolute;inset:0;z-index:49">
+      <div onClick="{{ closeResearchReviewBackdrop }}" style="position:absolute;inset:0;background:rgba(20,20,28,.32);animation:eoFade .16s ease"></div>
+      <div class="eo-modal" style="position:absolute;left:50%;top:40px;transform:translateX(-50%);width:min(1020px,96vw);max-height:calc(100vh - 80px);background:#FAFAFC;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
         <!-- rrTopicId is null until reviewStart's discover-and-review pass settles; the mounted
              surface only exists once there is a real topic to read, so a slow search shows this
              plain wait instead of the surface's "no longer available" (which means something else). -->
         <sc-if value="{{ rrLoading }}">
-          <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite">Searching and reviewing candidates…</div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite;padding:60px 20px">Searching and reviewing candidates…</div>
         </sc-if>
         <sc-if value="{{ rrReady }}">
           <div ref="{{ setResearchReviewEl }}" data-screen-label="Question Result" style="flex:1;min-height:0;overflow:auto"></div>
@@ -13484,10 +13486,11 @@ class Component extends DCLogic {
       searchRows, closeSearch: () => this.closeSearch(), retrySearch: () => this.runSearch(st.searchQ),
       // the library shelf — one shelf searched on its own surface (article/book/media/code)
       ...libVals,
-      // Question Result (docs/EOReader_Question_Result_Update_Spec.md) — a full-bleed page, the
-      // same on both shells (no sidebar/header offsets to compute).
+      // Question Result (docs/EOReader_Question_Result_Update_Spec.md) — a centered modal over
+      // the current page, the same on both shells (no sidebar/header offsets to compute).
       rrShow: st.rrOpen, rrLoading: st.rrOpen && !st.rrTopicId, rrReady: st.rrOpen && !!st.rrTopicId,
       setResearchReviewEl: (el) => this.setResearchReviewEl(el),
+      closeResearchReviewBackdrop: () => this.closeResearchReview(),
       // native preview of a search hit — the modal grows to a page frame while previewing
       searchModalW: preview ? 'min(1040px,96vw)' : 'min(640px,92vw)',
       searchModalH: preview ? 'calc(100vh - 120px)' : 'auto',
