@@ -4669,15 +4669,12 @@ table{border-collapse:collapse;width:100%}
 
 </sc-if>
 <!-- shared by both shells -->
-  <!-- RESEARCH REVIEW (docs/research-review.md) — a web search lands here: a provisional,
-       inspectable corpus (discovered/reviewed/admitted), never an instantly-admitted topic. The
-       screen itself is mounted (window.EO.researchReview.mount), the binvis/pipeline room idiom —
-       too much live, clickable structure for the sc-if/sc-for template to carry cleanly. Lives in
-       the shared section (not either shell) so a web search shows results on mobile too. -->
+  <!-- QUESTION RESULT (docs/EOReader_Question_Result_Update_Spec.md) — a web search lands on
+       a first-class result page, not a centered modal. Candidate sources remain provisional until
+       the reader explicitly admits selected sources to a topic. -->
   <sc-if value="{{ rrShow }}">
-    <div style="position:absolute;inset:0;z-index:49">
-      <div style="position:absolute;inset:0;background:rgba(20,20,28,.36)"></div>
-      <div class="eo-modal" style="position:absolute;left:50%;top:26px;transform:translateX(-50%);width:min(880px,96vw);height:calc(100vh - 52px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.3);display:flex;flex-direction:column;overflow:hidden">
+    <div style="position:absolute;inset:0;z-index:49;background:#FAFAFC;overflow:auto">
+      <div style="min-height:100%;background:#FAFAFC;display:flex;flex-direction:column">
         <!-- rrTopicId is null until reviewStart's discover-and-review pass settles; the mounted
              surface only exists once there is a real topic to read, so a slow search shows this
              plain wait instead of the surface's "no longer available" (which means something else). -->
@@ -4685,7 +4682,7 @@ table{border-collapse:collapse;width:100%}
           <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite">Searching and reviewing candidates…</div>
         </sc-if>
         <sc-if value="{{ rrReady }}">
-          <div ref="{{ setResearchReviewEl }}" data-screen-label="Research Review" style="flex:1;min-height:0;overflow:auto"></div>
+          <div ref="{{ setResearchReviewEl }}" data-screen-label="Question Result" style="flex:1;min-height:0;overflow:auto"></div>
         </sc-if>
       </div>
     </div>
@@ -10182,7 +10179,7 @@ class Component extends DCLogic {
     this._rrEl = el; this._rrTopicId = this.state.rrTopicId;
     try {
       const RR = window.EO && window.EO.researchReview;
-      if (!RR || !RR.mount) { el.innerHTML = '<div style="padding:22px;color:#8A8A95;font-size:13px">Research Review is not available.</div>'; return; }
+      if (!RR || !RR.mount) { el.innerHTML = '<div style="padding:22px;color:#8A8A95;font-size:13px">Question Result is not available.</div>'; return; }
       if (fresh || !this._rr) {
         try { this._rr && this._rr.destroy(); } catch {}
         el.innerHTML = '';
@@ -10196,20 +10193,20 @@ class Component extends DCLogic {
         this._rr.show(this.state.rrTopicId);
       }
     } catch (e) {
-      el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Research Review failed to mount: ' + String((e && e.message) || e) + '</div>';
+      el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Question Result failed to mount: ' + String((e && e.message) || e) + '</div>';
     }
   }
-  // openResearchReview(q) — the ONE way a web search starts now (the omnibox, the Search tab's
-  // "search the web" button, and the outward-extension row all call this): open the review modal
-  // and let reviewStart discover + review the first batch, so the reader inspects the candidate
-  // corpus BEFORE anything is admitted, instead of a query silently filling a new topic.
+  // openResearchReview(q) — the ONE way a web search starts now: open a durable Question Result
+  // page and let reviewStart discover + provisionally read the first batch before admission.
   openResearchReview(q) {
     const query = String(q || '').trim();
     if (!query || !this._app || !this._app.reviewStart) return;
     this.setState({ rrOpen: true, rrTopicId: null, rrBusy: true });
+    try { window.history.pushState({ eoQuestionResult: true }, '', '#/research/pending'); } catch {}
     this._app.reviewStart(query).then((t) => {
       if (!t) { this.setState({ rrOpen: false, rrBusy: false }); this.showToast(`Nothing came back for “${query}” — try different words or a direct URL`); return; }
       this.setState({ rrTopicId: t.id, rrBusy: false });
+      try { window.history.replaceState({ eoQuestionResult: true, topicId: t.id }, '', '#/research/' + encodeURIComponent(t.id)); } catch {}
     }).catch((err) => {
       this.setState({ rrOpen: false, rrBusy: false });
       if (err && (err.name === 'AbortError' || /abort/i.test(String((err && err.message) || err)))) return;

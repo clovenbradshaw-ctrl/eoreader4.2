@@ -89,9 +89,29 @@ const CSS = `
 .eo-rr__gapTierLabel{font-size:11px;font-weight:700;color:#4E4E58;margin-bottom:4px}
 .eo-rr__gapArea{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#4E4E58;padding:4px 2px;flex-wrap:wrap}
 .eo-rr__clusterActions{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px}
+
+.eo-qr{max-width:980px;padding-top:28px}
+.eo-qr__header{display:flex;gap:10px;align-items:center;margin:3px 0 6px}
+.eo-qr__questionInput{flex:1;min-width:0;border:none;background:transparent;font-family:'Newsreader',Georgia,serif;font-size:28px;font-weight:650;color:#1B1B22;outline:none}
+.eo-rr__verdict{border:1px solid #E5E5EC;border-radius:16px;background:#fff;padding:16px 18px;margin:0 0 12px;box-shadow:0 8px 24px rgba(20,20,30,.04)}
+.eo-rr__verdict--supported{border-color:#CFEBD9}.eo-rr__verdict--contested{border-color:#F1C8C0}.eo-rr__verdict--single_source{border-color:#E8DCF8}.eo-rr__verdict--void{border-style:dashed;background:#FDFDFE}
+.eo-rr__verdictKicker{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:800;letter-spacing:.08em;color:#6D5EF5;text-transform:uppercase;margin-bottom:8px}
+.eo-rr__verdictText{font-family:'Newsreader',Georgia,serif;font-size:22px;line-height:1.25;color:#1B1B22;margin-bottom:8px}
+.eo-rr__verdictMeta{font-size:12.5px;color:#6E6E78;margin-bottom:12px}
+.eo-rr__evidence{border-top:1px solid #EFEFF3;margin-top:12px;padding-top:12px}
+.eo-rr__evidenceHead{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:800;letter-spacing:.07em;color:#8A8A95;margin:8px 0 5px}
+.eo-rr__evidenceRow{display:block;width:100%;text-align:left;border:none;background:#F7F7FA;border-radius:9px;padding:8px 10px;margin:5px 0;font-size:12px;color:#3A3A44;cursor:pointer}
+.eo-rr__evidenceSilent{font-size:11.5px;color:#9A9AA4;margin-top:8px}
+.eo-qr__meaning{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid #E9E8F6;background:#FBFAFF;border-radius:16px;padding:14px;margin-bottom:10px}
+.eo-qr__meaningCenter{border-radius:999px;background:#6D5EF5;color:#fff;padding:8px 12px;font-size:12.5px;font-weight:750}
+.eo-qr__meaningNode{border:1px solid #DED8FD;background:#fff;color:#4E4E58;border-radius:999px;padding:7px 11px;font-size:12px;cursor:pointer}.eo-qr__meaningNode--contested{border-color:#F1C8C0}.eo-qr__meaningNode--supported{border-color:#CFEBD9}
+.eo-qr__ledger{border:1px solid #EEEEF2;border-radius:14px;overflow:hidden;background:#fff}.eo-qr__ledgerRow{display:grid;grid-template-columns:minmax(0,1fr) 120px 60px;gap:10px;width:100%;border:none;border-bottom:1px solid #F4F4F8;background:#fff;padding:10px 12px;text-align:left;cursor:pointer;font-size:12.5px;color:#2A2A32}.eo-qr__ledgerRow b{font-size:12px;color:#4E5765}.eo-qr__ledgerRow em{font-family:'IBM Plex Mono',monospace;font-style:normal;color:#8A8A95;text-align:right}
+
 @media (max-width:640px){
   .eo-rr__body{padding:14px 14px 90px}
   .eo-rr__title{font-size:19px}
+  .eo-qr__questionInput{font-size:22px}
+  .eo-qr__ledgerRow{grid-template-columns:1fr;gap:3px}
   .eo-rr__toolbar,.eo-rr__recipes{gap:6px}
   .eo-rr__toolbar input[type=text]{min-width:0;width:100%}
   .eo-rr__footer{flex-direction:column;align-items:stretch}
