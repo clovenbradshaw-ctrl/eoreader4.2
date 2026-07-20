@@ -619,9 +619,11 @@ table{border-collapse:collapse;width:100%}
       </div>
     </sc-if>
 
-    <!-- GRAPH — the real entity web (same mountTieredGraph surface as desktop; setWebGraphEl
-         shares the tg/wg draw state across both shells since they key off the same state.tab),
-         sized to the phone's width instead of a fixed desktop pane. -->
+    <!-- GRAPH — a capped, honest snapshot (the same top-12-by-weight list Ask's Cast preset
+         uses), NOT the full interactive desktop web. That graph can hold thousands of nodes on
+         a real topic; mounting it unscoped on a phone canvas is both unreadable and a real perf
+         hazard, so mobile gets a tappable list instead — each row opens the same entity bottom
+         sheet every other "see this entity" tap on mobile opens. -->
     <sc-if value="{{ mobile.isGraph }}">
       <div style="padding:14px 14px 28px;display:flex;flex-direction:column;gap:14px">
         <span style="font-size:18px;font-weight:700;color:#17171A">Graph</span>
@@ -629,8 +631,18 @@ table{border-collapse:collapse;width:100%}
           <div style="background:#fff;border:1px solid #EAEAEF;border-radius:16px;padding:30px 16px;text-align:center;color:#9A9AA4;font-size:12.5px">No entities yet.</div>
         </sc-if>
         <sc-if value="{{ mobile.hasEntities }}">
-          <div style="font-size:12px;color:#7A7A83;line-height:1.4">{{ mobile.entityCount }} distinct entities across your active sources — tap a node to inspect, drag to pan, pinch or scroll to zoom.</div>
-          <div ref="{{ setWebGraphEl }}"></div>
+          <div style="font-size:12px;color:#7A7A83;line-height:1.4">Top {{ mobile.topEntities.length }} of {{ mobile.entityCount }} figures across your active sources, by how much of the reading they carry — tap one to open its profile.</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ mobile.topEntities }}" as="e">
+              <button onClick="{{ e.open }}" style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #EAEAEF;border-radius:13px;padding:11px 13px;text-align:left;cursor:pointer;font-family:inherit">
+                <span style="width:26px;height:26px;border-radius:50%;background:#EEEBFE;color:#5B4BE6;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto">{{ e.fav }}</span>
+                <span style="flex:1;min-width:0">
+                  <span style="display:block;font-size:13.5px;font-weight:650;color:#1B1B22">{{ e.label }}</span>
+                  <span style="display:block;font-size:11px;color:#9A9AA4;margin-top:1px">{{ e.meta }}</span>
+                </span>
+              </button>
+            </sc-for>
+          </div>
         </sc-if>
       </div>
     </sc-if>
@@ -1861,9 +1873,11 @@ table{border-collapse:collapse;width:100%}
               </sc-if>
               <div class="eo-scroll" style="flex:1;min-height:60px;overflow-y:auto;padding:0 8px 12px">
                 <sc-for list="{{ webToggles }}" as="t">
-                  <div onClick="{{ t.toggle }}" title="{{ t.label }}" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12px;color:{{ t.fg }}" style-hover="background:#F4F4F7">
-                    <span style="width:15px;height:15px;border-radius:4px;border:1.5px solid {{ t.boxBd }};background:{{ t.boxBg }};flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;line-height:1">{{ t.check }}</span>
-                    <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</span>
+                  <div title="{{ t.label }}" style="display:flex;align-items:center;gap:8px;padding:1px 2px;border-radius:7px;font-size:12px;color:{{ t.fg }}" style-hover="background:#F4F4F7">
+                    <span onClick="{{ t.toggle }}" title="Show/hide" style="padding:4px;cursor:pointer;flex:0 0 auto;display:flex;align-items:center">
+                      <span style="width:15px;height:15px;border-radius:4px;border:1.5px solid {{ t.boxBd }};background:{{ t.boxBg }};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;line-height:1">{{ t.check }}</span>
+                    </span>
+                    <span onClick="{{ t.labelClick }}" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;padding:4px 2px">{{ t.label }}</span>
                   </div>
                 </sc-for>
                 <sc-if value="{{ webTogglesEmpty }}">
@@ -1964,6 +1978,17 @@ table{border-collapse:collapse;width:100%}
                     </div>
                   </sc-if>
                 </div>
+              </aside>
+            </sc-if>
+            <!-- Network's own details panel — a link node isn't an entity, so it gets its own
+                 small inspector instead of the entity profile above: the shared referents that
+                 earned the connection, with both sources it connects one click away. -->
+            <sc-if value="{{ webNetLinkShow }}">
+              <aside class="eo-scroll eo-wgprof" style="flex:0 0 306px;border-left:1px solid #EEEEF2;overflow-y:auto;min-height:0;background:#fff;padding:13px 14px">
+                <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WHAT CONNECTS THESE SOURCES</div>
+                <div style="font-size:13.5px;line-height:1.5;color:#26262B;margin-bottom:14px">{{ webNetLinkEvidence }}</div>
+                <button onClick="{{ webNetLinkOpenA }}" style="display:block;width:100%;text-align:left;font-size:12.5px;font-weight:600;color:#1B1B22;border:1px solid #EAEAEF;border-radius:8px;padding:9px 11px;margin-bottom:8px;background:#fff" style-hover="background:#F5F5F8">{{ webNetLinkA }} →</button>
+                <button onClick="{{ webNetLinkOpenB }}" style="display:block;width:100%;text-align:left;font-size:12.5px;font-weight:600;color:#1B1B22;border:1px solid #EAEAEF;border-radius:8px;padding:9px 11px;background:#fff" style-hover="background:#F5F5F8">{{ webNetLinkB }} →</button>
               </aside>
             </sc-if>
           </div>
@@ -4942,15 +4967,25 @@ class Component extends DCLogic {
     // start CLOSED there regardless of the desktop prefs — the chat is the whole stage.
     let mobile = false;
     try { this._mq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(max-width: 820px)') : null; mobile = !!(this._mq && this._mq.matches); } catch { this._mq = null; }
+    // The mobile view stack — instance state, not React state, mutated and read imperatively
+    // (same convention as this._wg for the graph overlay): a real chain of every screen a
+    // forward navigation left behind (root tab, source w/ mode+focus, entity sheet), so Back
+    // can pop ONE step at a time however deep the chain runs — openViewer(A) → mention → open
+    // Entity → openViewer(B) → Back → Back used to lose A entirely, because the single
+    // mReturnTab slot below was only ever set on the FIRST hop off a root tab and silently
+    // never updated on the second hop (A → B). mReturnTab stays as the FLOOR under the stack —
+    // once the stack empties, Back still falls back to it exactly as before. See mobileBack(),
+    // _mPushCurrent(), _mRestoreFrame().
+    this._mStack = [];
     this.state = {
       tab: 'search', omni: '', chatInput: '', toast: null,
       isMobile: mobile,
       // The mobile shell's own bottom sheet (null | 'scope' | 'add') and Sources-tab kind filter —
       // separate from the desktop drawer/modal state above, which the mobile shell doesn't use.
       mSheet: null, mKind: 'All',
-      // Which of the five bottom tabs to return to when backing out of the full-screen mobile
-      // source reader (openViewer sets this; mobileBackFromSource reads it). 'topic' (Overview)
-      // is a safe default for the case a source opens before any tab was ever visited.
+      // The floor under this._mStack (above) — which of the five bottom tabs to land on once
+      // the stack has nothing left to pop. 'topic' (Overview) is a safe default for the case a
+      // source opens before any tab was ever visited.
       mReturnTab: 'topic',
       // The mobile reader's opt-in overlays (entities/surprise/cast), keyed per source sn so
       // switching sources doesn't carry a stale toggle over. { [sn]: { entities, surprise, cast } }
@@ -6325,6 +6360,13 @@ class Component extends DCLogic {
     if (this.state.tab === 'rashomon' && tab !== 'rashomon' && this._rashomon) { try { this._rashomon.destroy(); } catch {} this._rashomon = null; this._rashomonEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
     const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
+    // Jumping straight to a root screen (the bottom tabs, or any of the "Ask about this topic" /
+    // "View findings" style CTAs that land on the same five ids) is a deliberate reset of the
+    // mobile view stack, not one more hop to chain onto — Back from a fresh root should never
+    // resurrect whatever was open before the reset. Skipped for a plain source-tab switch (this
+    // still tab-switches between already-open sources) and while a Back/forward restoration is
+    // itself in progress (_mRestoring), which calls setTab as part of REPLAYING a popped frame.
+    if (this._mob() && !this._mRestoring && !(this.state.viewerTabs || []).includes(tab)) this._mStack = [];
     // The Graph tab now hosts the real graph — the entity web of everything in
     // focus. Initialise it lazily the first time we land here (whole-topic entity web).
     if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
@@ -7222,16 +7264,26 @@ class Component extends DCLogic {
     // remain one click away on the mode row and persist only while the user stays in that source.
     const modes = { ...this.state.viewerModes, [sn]: 'overview' };
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
-    // On mobile there's no tab strip — a source opens as its own full screen, so remember which
-    // of the five bottom tabs to return to (only when we're LEAVING one of them; chaining from
-    // one source into another, e.g. a related-entity jump, must keep the original tab as home).
+    // On mobile there's no tab strip — a source opens as its own full screen, so push whatever
+    // screen is currently showing onto the view stack (_mPushCurrent) before navigating away,
+    // so Back can walk back one hop at a time through however long a chain this becomes —
+    // unless this open IS a Back/forward restoration in progress (_mRestoring), which must
+    // never re-push the screen it is itself in the middle of leaving. mReturnTab remains the
+    // floor under the stack for the case a source opens before any tab was ever visited.
     // The entity sheet (rightOpen) is a mobile overlay, not a screen of its own — opening a
-    // source always dismisses it rather than stacking a full-screen view under a sheet.
+    // source always dismisses it rather than stacking a full-screen view under a sheet (its own
+    // frame, if one was open, was already captured into the pushed frame above).
+    if (this._mob() && !this._mRestoring) this._mPushCurrent();
     const mobilePatch = this._mob()
       ? { leftOpen: false, rightOpen: false, ...(this.state.viewerTabs.includes(this.state.tab) ? {} : { mReturnTab: this.state.tab }) }
       : {};
+    // An entity profile is scoped to the document it was opened from (entitySel.docId). Landing
+    // on a different source — via Compare, a citation, the library, anywhere — must not leave that
+    // profile sitting in the sidebar looking like it belongs to the source now on screen. Desktop
+    // previously only cleared this on a topic switch; a same-topic source change leaked it too.
+    const entityScopePatch = (this.state.entitySel && this.state.entitySel.docId !== sn) ? { entitySel: null } : {};
     // Open the source AS A TAB in the main stage and make it the active tab.
-    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...mobilePatch });
+    this.setState({ viewerTabs: tabs, tab: sn, viewerModes: modes, viewerFocus: focus, tocOpen: false, readerProgress: 0, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...mobilePatch, ...entityScopePatch });
     if (modes[sn] === 'native') this.loadPage(sn);
     if (modes[sn] === 'pdf') this.loadPdf(sn);
     this._syncRoute();
@@ -7258,6 +7310,13 @@ class Component extends DCLogic {
     // Leaving the source Graph tab tears down its tiered-graph mount so it never keeps drawing into
     // a detached container; re-entering mounts it fresh via setSourceGraphEl.
     if (mode !== 'graph' && this._srcGraph) { try { this._srcGraph.destroy(); } catch {} this._srcGraph = null; this._srcGraphEl = null; this._srcGraphSn = null; }
+    // Keep the mobile view stack's top frame (if it's this same source) in sync with a live mode
+    // switch, so navigating away and later Back-ing all the way through to this source restores
+    // the mode actually left showing, not whatever it was at the moment it was first opened.
+    if (this._mob() && this._mStack.length) {
+      const top = this._mStack[this._mStack.length - 1];
+      if (top && top.tab === sn && top.mode != null) top.mode = mode;
+    }
     this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false });
     if (mode === 'native') this.loadPage(sn);
     if (mode === 'pdf') this.loadPdf(sn);
@@ -7510,6 +7569,16 @@ class Component extends DCLogic {
           ev.preventDefault();
           this.openEntity(a.getAttribute('data-doc'), a.getAttribute('data-ent'));
         });
+        // Enter/Space activate a focused mention exactly like a click — the span carries
+        // role="link" + tabindex (readerHtml), so it is a real keyboard stop, not just a
+        // mouse target.
+        d.addEventListener('keydown', (ev) => {
+          if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+          const a = ev.target && ev.target.closest && ev.target.closest('.eo-ent[data-doc][data-ent]');
+          if (!a || !this.state.entityMode) return;
+          ev.preventDefault();
+          this.openEntity(a.getAttribute('data-doc'), a.getAttribute('data-ent'));
+        });
       } catch {}
       const win = d.defaultView;
       if (focus && R) { R.scrollToText(d, focus); }
@@ -7612,6 +7681,16 @@ class Component extends DCLogic {
           if (href.split('#')[0] === String(pageUrl).split('#')[0]) return;   // same page, different hash
           if (this._sameSite(href, pageUrl)) { ev.preventDefault(); this.visitLink(tabSn, href); }
           // off-site: fall through — the anchor opens in a new browser tab as before.
+        });
+        // Enter/Space activate a focused entity span exactly like a click. Real <a href> links
+        // need no equivalent here — the browser already synthesizes a click on Enter for a
+        // focused anchor, which the click listener above already handles.
+        d.addEventListener('keydown', (ev) => {
+          if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+          const ent = ev.target && ev.target.closest && ev.target.closest('.eo-ent[data-doc][data-ent]');
+          if (!ent || !this.state.entityMode) return;
+          ev.preventDefault();
+          this.openEntity(ent.getAttribute('data-doc'), ent.getAttribute('data-ent'));
         });
       } catch {}
       // Publish the page's own contents into the drawer (only if it found a real one).
@@ -8293,7 +8372,12 @@ class Component extends DCLogic {
   // hands off to Search (which does). On mobile the profile is its own overlay sheet drawn on
   // top of whatever screen is active — jumping the underlying tab would mean closing the sheet
   // lands somewhere the reader never asked to go, so mobile always keeps its current tab.
-  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: (!this._mob() && this.state.tab === 'graph') ? 'search' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
+  openEntity(docId, entId) {
+    // Push the screen this sheet is opening OVER onto the view stack first, so Back can pop
+    // straight back out of it (see openViewer's matching push, and mobileBack/_mRestoreFrame).
+    if (this._mob() && !this._mRestoring) this._mPushCurrent();
+    this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: (!this._mob() && this.state.tab === 'graph') ? 'search' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId);
+  }
   // Rows can be folded across referents/sources. If the displayed row's lead pointer no
   // longer resolves (for example after a live transcript re-fold), walk its concrete
   // instances and open the first profile that still exists so the click always lands.
@@ -8305,8 +8389,52 @@ class Component extends DCLogic {
       if (!app || !app.entityProfile || app.entityProfile(r.docId, r.entId)) { this.openEntity(r.docId, r.entId); return; }
     }
   }
-  mobileCloseEntity() { this.setState({ rightOpen: false, entitySel: null }); }
-  mobileBackFromSource() { this.setTab(this.state.mReturnTab || 'topic'); }
+  // Capture whatever is CURRENTLY on screen as one stack frame — a source (with its live mode
+  // and passage focus) or a root tab, plus an open entity sheet riding on top of either. Called
+  // right before a forward navigation (openViewer/openEntity) leaves this screen behind.
+  _mPushCurrent() {
+    const st = this.state;
+    const isSource = Array.isArray(st.viewerTabs) && st.viewerTabs.includes(st.tab);
+    this._mStack.push({
+      tab: st.tab,
+      mode: isSource ? (st.viewerModes[st.tab] || 'overview') : null,
+      focus: isSource ? (st.viewerFocus[st.tab] || null) : null,
+      entity: (st.rightOpen && st.entitySel) ? { docId: st.entitySel.docId, entId: st.entitySel.entId } : null,
+    });
+  }
+  // Restore a popped frame exactly: a source frame reopens at its recorded mode + passage
+  // (openViewer always resets to Overview for a FRESH open, which is right for a citation but
+  // wrong for a Back — so setSourceMode reapplies the real mode right after); a root-tab frame
+  // just re-selects that tab. Either way, the frame's own entity sheet (or lack of one) is
+  // reapplied last so it always rides on top of whichever screen just came back.
+  _mRestoreFrame(frame) {
+    this._mRestoring = true;
+    try {
+      if (frame.mode != null) { this.openViewer(frame.tab, frame.focus || undefined); this.setSourceMode(frame.mode); }
+      else this.setTab(frame.tab);
+      this.setState(frame.entity
+        ? { rightOpen: true, entitySel: { docId: frame.entity.docId, entId: frame.entity.entId } }
+        : { rightOpen: false, entitySel: null });
+    } finally { this._mRestoring = false; }
+  }
+  // The mobile Back button (the source screen's chevron) AND the entity sheet's own close both
+  // land here — dismissing the sheet is the same "go back one step" as the chevron, just from a
+  // layer with no chevron of its own. With nothing left on the stack, fall back to mReturnTab
+  // exactly as before (a fresh session, or a source opened before any tab was ever visited).
+  mobileBack() {
+    if (this._mStack.length) { this._mRestoreFrame(this._mStack.pop()); return; }
+    this.setTab(this.state.mReturnTab || 'topic');
+  }
+  mobileCloseEntity() {
+    // The frame openEntity pushed describes THIS SAME screen minus the sheet (opening a sheet
+    // never changes state.tab) — so whenever the sheet is open, the stack's top frame is that
+    // one exactly. Pop it here too, so a later Back doesn't spend a hop re-showing a sheet the
+    // user just explicitly dismissed.
+    const top = this._mStack[this._mStack.length - 1];
+    if (top && top.tab === this.state.tab) this._mStack.pop();
+    this.setState({ rightOpen: false, entitySel: null });
+  }
+  mobileBackFromSource() { this.mobileBack(); }
   // Guards a scrollIntoView so it fires once per (source, focus target) rather than on every
   // re-render — refs re-fire whenever their closure identity changes (every _vals() call makes a
   // fresh one), so the guard has to live on the element itself, same idiom as _mountEntitySolar.
@@ -10007,16 +10135,25 @@ class Component extends DCLogic {
     this._setPrefStr('eo_entlevel', next);
     this.setState({ entLevel: next });
   }
+  // Every mention's tabindex follows the same on/off the CSS class does — off, a mention is
+  // not a hyperlink at all (the click delegate no-ops on !entityMode too), so it must not be a
+  // stray Tab stop either.
+  _setEntSpansFocusable(doc, on) {
+    if (!doc || !doc.querySelectorAll) return;
+    try { doc.querySelectorAll('.eo-ent').forEach((s) => { s.tabIndex = on ? 0 : -1; }); } catch {}
+  }
   toggleEntityMode() {
     const on = !this.state.entityMode; this._setPref('eo_entmode', on); this._segCache = {}; this._viewCache = null;
     // The Reader carries the merged Document links; show/hide them live on the open book (flip the
     // class the baked CSS keys off), so the toggle never reloads the iframe or loses scroll.
     const d = this._readerFrame && this._readerFrame.contentDocument;
     if (d && d.documentElement) { try { d.documentElement.classList.toggle('eo-links-on', on); } catch {} }
+    this._setEntSpansFocusable(d, on);
     // The live-site view carries the same baked links — flip the class on it too, so the toggle works
     // in Native without a reload (no scroll lost).
     const nd = this._nativeFrame && this._nativeFrame.contentDocument;
     if (nd && nd.documentElement) { try { nd.documentElement.classList.toggle('eo-links-on', on); } catch {} }
+    this._setEntSpansFocusable(nd, on);
     // The Listen transcript bakes the same .eo-ent links — flip the class on it too, so entity
     // underlines reveal/hide live without rebuilding the word spans (or losing a selection).
     if (this._listenTx) { try { this._listenTx.classList.toggle('eo-links-on', on); } catch {} }
@@ -10073,12 +10210,22 @@ class Component extends DCLogic {
     if (cur && cur.docId === docId && cur.entId === entId) return;
     this.setState({ webGraphTick: (this.state.webGraphTick || 0) + 1 });
   }
+  // The Network kind's own panel content — a link node isn't an entity, so it can't go through
+  // _setWgPanel/_profFor; it carries the two sources it corroborates and the shared referents
+  // that earned the connection (networkGraphData's ref: { a, b, evidence }).
+  _setWgNetLink(ref) {
+    this._wgNetPanel = ref ? { a: ref.a, b: ref.b, evidence: ref.evidence || [] } : null;
+    this.setState({ webGraphTick: (this.state.webGraphTick || 0) + 1 });
+  }
   // Seed the panel for a whole-topic open: the most salient entity across the topic
-  // (app.entities() is already sorted by mentions + links). Causal kind has no
-  // entity profile to show — the panel stays empty there.
+  // (app.entities() is already sorted by mentions + links). Causal kind has no entity profile
+  // to show — the panel stays empty there. Solar is excluded too: it is inherently egocentric
+  // and now lands on an explicit chooser (_drawSolarChooser) rather than auto-picking a focus,
+  // so seeding the side panel with a "top" entity here would show a profile for a figure the
+  // main canvas is not actually centred on — a mismatch, not a convenience.
   _seedWgPanel() {
-    this._wgPanel = null;
-    if (!this._wg || (this._wg.kind !== 'entity' && this._wg.kind !== 'solar') || !this._app) return;
+    this._wgPanel = null; this._wgNetPanel = null;
+    if (!this._wg || this._wg.kind !== 'entity' || !this._app) return;
     try {
       const top = (this._app.entities() || [])[0];
       if (top) this._setWgPanel(top.docId, top.entId);
@@ -10090,7 +10237,7 @@ class Component extends DCLogic {
   }
   closeWebGraph() {
     if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; }
-    this._tgEl = null; this._wg = null; this._tgToggles = []; this._wgPanel = null;
+    this._tgEl = null; this._wg = null; this._tgToggles = []; this._wgPanel = null; this._wgNetPanel = null;
     this.setState({ webGraphFor: null, webEntQuery: '' });
   }
   setWebGraphEl(el) {
@@ -10274,6 +10421,7 @@ class Component extends DCLogic {
     this._wg.hidden = new Set();                            // so reset the toggles and any focus and
     this._wg.focusKey = null; this._wg.focusLabel = null;  // land on the whole topic in the new kind
     this._wg.scope = 'topic';
+    this._wg.query = '';   // drop any stale crosswalk search scope too — the vocabularies differ
     this._seedWgPanel();   // entity kind reopens the panel on the top figure; network/causal have none
     this.setState({ webGraphFor: this._wgMirror(), webEntQuery: '' });   // the vocabularies differ — drop any stale filter
     this._drawWebGraph();
@@ -10344,12 +10492,17 @@ class Component extends DCLogic {
       return;
     }
     this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
-      .map((n) => ({ id: n.id, label: n.label }))
+      .map((n) => ({ id: n.id, label: n.label, ref: n.ref }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
     const show = this._filterTiered(data, w.hidden);
     this._tg = window.EO.mountTieredGraph(el, {
       nodes: show.nodes, edges: show.edges,
-      onOpen: (node) => { if (node && node.ref) this._webFocusEntity(node.ref); },
+      // Desktop has room to drill the whole web into a clicked node's ego-network (the side
+      // panel follows along). Mobile has no side panel and no "graph" concept of its own — a
+      // tap there needs to open the entity BOTTOM SHEET directly, the same one every other
+      // "see this entity" tap on mobile opens, or the tap does nothing visible at all (the
+      // reported failure: mobile nodes silently refocusing an invisible desktop panel).
+      onOpen: (node) => { if (!node || !node.ref) return; if (this._mob()) this.openEntity(node.ref.docId, node.ref.entId); else this._webFocusEntity(node.ref); },
       // A click on any entity node turns the details panel to that entity's profile.
       onSelect: (node) => { if (node && node.kind === 'entity' && node.ref) this._setWgPanel(node.ref.docId, node.ref.entId); },
       countsLabel: `${show.nodes.length} nodes · ${show.edges.length} edges`,
@@ -10372,19 +10525,41 @@ class Component extends DCLogic {
   // the entity web, read egocentrically: one entity at the centre (its POV), its existence /
   // structure / meaning ringing out as three physical regimes. It reuses the entity vocabulary, so
   // the entity on/off toggles filter it exactly like the entity web. A body click pivots the POV.
+  // A searchable "choose an entity" list — the honest landing state for anything egocentric
+  // (Solar/EOGraph) that has no focus yet, instead of silently guessing one. Reused for both
+  // the no-focus prompt and the "this entity turned out to have nothing to orbit" fallback.
+  _drawSolarChooser(el, message) {
+    this._tgToggles = [];
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const top = (this._app.entities() || []).slice(0, 40);
+    const rows = top.map((e, i) => `<button class="solar-pick" data-i="${i}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:#fff;border:1px solid #EAEAEF;border-radius:11px;padding:10px 12px;cursor:pointer;font-family:inherit;margin-bottom:7px">`
+      + `<span style="width:26px;height:26px;border-radius:50%;background:#EEEBFE;color:#5B4BE6;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto">${esc((e.label || 'E').trim().charAt(0).toUpperCase())}</span>`
+      + `<span style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#1B1B22;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.label)}</span></button>`).join('');
+    el.innerHTML = '<div style="padding:20px 16px;max-width:62ch">'
+      + `<div style="font-size:13.5px;color:${message ? '#B23A2E' : '#3A3A44'};line-height:1.5;margin-bottom:14px">${esc(message || 'Choose a person, organization, place, or concept to explore how the sources hold it.')}</div>`
+      + (top.length ? rows : '<div style="color:#9A9AA4;font-size:13px">No figures read yet — record a source, then reopen EOGraph.</div>')
+      + '</div>';
+    el.querySelectorAll('.solar-pick').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const e = top[+btn.getAttribute('data-i')]; if (!e) return;
+        this._solarPivot({ docId: e.docId, entId: e.entId });
+      });
+    });
+  }
   _drawSolar(el, w) {
-    // Solar is inherently egocentric — it needs ONE entity to centre. Seed on the topic's most
-    // salient figure when no focus is set yet, so landing on the kind still has a sun to draw.
-    if (w.scope !== 'entity' || w.entId == null) {
-      const top = (this._app.entities() || [])[0];
-      if (!top) { el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:60ch;line-height:1.55">No figures read yet — the solar view centres on an entity, so it fills once the reading names people, places, or things. Record a source, then reopen EOGraph.</div>'; this._tgToggles = []; return; }
-      w.scope = 'entity'; w.docId = top.docId; w.entId = top.entId;
-      w.entLabel = (this._app.entityProfile(top.docId, top.entId) || {}).label || '';
-      this._setWgPanel(top.docId, top.entId);
-    }
+    // Solar is inherently egocentric — it needs ONE entity to centre, and (the reported
+    // failure) auto-seeding one silently could land on a "top" figure whose own ego-network
+    // happens to be empty, reading as an unexplained void ("0/0 entities") right next to a
+    // DIFFERENT entity's profile whose embedded EOGraph works fine. Never guess: land on an
+    // explicit chooser instead, so every state is either a real orbit or an honest prompt.
+    if (w.scope !== 'entity' || w.entId == null) { this._drawSolarChooser(el); return; }
     const data = this._app.tieredData(w.docId, w.entId);
+    if (!data.nodes || !data.nodes.length) {
+      this._drawSolarChooser(el, `“${w.entLabel || 'This entity'}” has nothing to place in orbit yet — pick another figure.`);
+      return;
+    }
     this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
-      .map((n) => ({ id: n.id, label: n.label }))
+      .map((n) => ({ id: n.id, label: n.label, ref: n.ref }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
     const show = this._filterTiered(data, w.hidden);
     // the floor of the descent: the focus entity's raw mention sentences (level 3, the substrate)
@@ -10438,10 +10613,32 @@ class Component extends DCLogic {
       el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:62ch;line-height:1.55">Crosswalk needs a referent that shows up in more than one source to compare identity across them — right now every referent here is confined to a single source. Record another source that mentions the same figure, then reopen Crosswalk.</div>';
       return;
     }
-    this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
-      .map((n) => ({ id: n.id, label: n.label }))
+    // Rank referents by corroboration strength (how many sources actually align on them) —
+    // the honest "most crossed" ordering, not corpus order — and CAP the default draw to the
+    // strongest CROSSWALK_CAP instead of the whole corpus (the reported failure: 2,121 nodes /
+    // 2,201 edges, an uninspectable hairball on every load). A search isolates its matches
+    // instead: the reported bug was that webEntQuery only narrowed the sidebar checklist while
+    // the canvas kept drawing everything — search now scopes the DRAWN graph too, via the same
+    // one-hop-context drop _filterTiered already does for manual hide/show.
+    const entityNodes = (data.nodes || []).filter((n) => n.kind === 'entity');
+    const byStrength = entityNodes.slice().sort((a, b) =>
+      (srcHitsByEntity.get(b.id) || 0) - (srcHitsByEntity.get(a.id) || 0) || String(a.label).localeCompare(String(b.label)));
+    const CROSSWALK_CAP = 20;
+    // w.query mirrors state.webEntQuery but is set synchronously alongside it (onWebEntSearch),
+    // so a redraw triggered in that same handler always scopes off the value just typed rather
+    // than whatever state.webEntQuery last committed to.
+    const query = String((w.query != null ? w.query : (this.state && this.state.webEntQuery)) || '').trim().toLowerCase();
+    const scoped = query ? byStrength.filter((n) => String(n.label).toLowerCase().includes(query)) : byStrength.slice(0, CROSSWALK_CAP);
+    const scopedIds = new Set(scoped.map((n) => n.id));
+    this._tgToggles = scoped.map((n) => ({ id: n.id, label: n.label, ref: n.ref }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
-    const show = this._filterTiered(data, w.hidden);
+    // How much of the corpus this view is actually showing — read back by _webGraphVals to
+    // explain the cap/search scope in the panel note, since a bare cap with no explanation
+    // just relocates the "why is most of it missing" confusion instead of resolving it.
+    this._crosswalkShown = scoped.length; this._crosswalkTotal = entityNodes.length;
+    const outOfScope = new Set(entityNodes.filter((n) => !scopedIds.has(n.id)).map((n) => n.id));
+    const scopedData = this._filterTiered(data, outOfScope);
+    const show = this._filterTiered(scopedData, w.hidden);
     this._tg = window.EO.mountTieredGraph(el, {
       nodes: show.nodes, edges: show.edges,
       onOpen: (node) => { if (node && node.ref) this._webFocusEntity(node.ref); },
@@ -10482,13 +10679,13 @@ class Component extends DCLogic {
           + 'style="padding:7px 12px;border-bottom:1px solid #F2F2F5;cursor:pointer;font-size:12.5px" class="cmp-cell">'
           + `<span${badge}>${esc(cell.display)}</span></td>`;
       }).join('');
-      const measCell = `<th style="text-align:left;padding:7px 12px;position:sticky;left:0;background:#fff;font-size:12.5px;font-weight:650;color:#1B1B22;border-bottom:1px solid #F2F2F5;white-space:nowrap">${esc(r.measureLabel)}</th>`;
+      const measCell = `<th style="text-align:left;padding:7px 12px;position:sticky;left:0;background:#fff;font-size:12.5px;font-weight:650;color:#1B1B22;border-bottom:1px solid #F2F2F5;white-space:nowrap">${esc(r.measureLabel)}`
+        + (r.subject ? `<div style="font-size:10.5px;font-weight:500;color:#8A8A95">${esc(r.subject)}</div>` : '') + '</th>';
       const reading = `<td style="padding:7px 12px;border-bottom:1px solid #F2F2F5"><span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;color:${readTint(r)};background:${readBg(r)}">${esc(r.reading)}</span></td>`;
       return `<tr>${measCell}${cells}${reading}</tr>`;
     }).join('');
-    const subj = m.rows.find((r) => r.subject) ? m.rows.find((r) => r.subject).subject : null;
     el.innerHTML = '<div style="padding:6px 2px 2px;overflow:auto;max-height:100%">'
-      + (subj ? `<div style="padding:2px 12px 10px;font-size:12px;color:#8A8A95">Subject: <b style="color:#5A5A64">${esc(subj)}</b> · ${m.counts.conflicts} disagreement${m.counts.conflicts === 1 ? '' : 's'} across ${cols.length} source${cols.length === 1 ? '' : 's'}</div>` : '')
+      + `<div style="padding:2px 12px 10px;font-size:12px;color:#8A8A95">${m.rows.length} value${m.rows.length === 1 ? '' : 's'} compared · ${m.counts.conflicts} disagreement${m.counts.conflicts === 1 ? '' : 's'} across ${cols.length} source${cols.length === 1 ? '' : 's'}</div>`
       + '<table style="border-collapse:collapse;width:100%;font-family:inherit"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>';
     // Every cell opens the exact passage it was read from — the matrix is an index into the record.
     el.querySelectorAll('.cmp-cell').forEach((td) => {
@@ -10516,8 +10713,20 @@ class Component extends DCLogic {
       .map((n) => ({ id: n.id, label: n.label }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
     const show = this._filterNetwork(data, w.hidden);
+    // A source node opens straight to that source's overview; a link node isn't itself a place
+    // to go — it's the connection between two sources — so it loads the Network kind's own
+    // panel content (_wgNetPanel, rendered in _webGraphVals) showing exactly what corroborates
+    // the two, with both sources one tap away. Both kinds now carry `ref` (networkGraphData), so
+    // mountTieredGraph's own "a node with a ref is a destination, click opens it immediately"
+    // rule (tiered-graph.js) fires for them — Network nodes were previously un-openable because
+    // that rule requires a ref and only entity nodes ever carried one.
     this._tg = window.EO.mountTieredGraph(el, {
       nodes: show.nodes, edges: show.edges,
+      onOpen: (node) => {
+        if (!node || !node.ref) return;
+        if (node.ref.kind === 'source') this.openViewer(String(node.ref.id).replace(/^src:/, ''));
+        else if (node.ref.kind === 'link') this._setWgNetLink(node.ref);
+      },
       countsLabel: `${show.nodes.length} nodes · ${show.edges.length} edges`,
     });
   }
@@ -10592,7 +10801,17 @@ class Component extends DCLogic {
       openSource: (sn) => { this.openViewer(sn); },
       jump: (sn, text, t0, t1) => this._jumpTo(sn, text, t0, t1),
     }, { statePrefix: 'webProf' }) : null;
+    // The Network kind's own panel — a link node isn't an entity (no docId/entId to hand
+    // _profFor), so it gets its own small inspector: the shared referents that earned the
+    // connection, with both sources it connects one click away.
+    const netLink = (isNetwork && this._wgNetPanel) ? this._wgNetPanel : null;
+    const netLabelOf = (id) => (toggles.find((t) => t.id === id) || {}).label || String(id).replace(/^src:/, '');
     return {
+      webNetLinkShow: !!netLink,
+      webNetLinkEvidence: netLink ? (netLink.evidence.length ? netLink.evidence.join(', ') : 'A shared referent') : '',
+      webNetLinkA: netLink ? netLabelOf(netLink.a) : '', webNetLinkB: netLink ? netLabelOf(netLink.b) : '',
+      webNetLinkOpenA: () => { if (netLink) this.openViewer(String(netLink.a).replace(/^src:/, '')); },
+      webNetLinkOpenB: () => { if (netLink) this.openViewer(String(netLink.b).replace(/^src:/, '')); },
       webProfShow: !!webProf, webProf,
       // Skip the embedded EOGraph when the main canvas already IS the EOGraph (kind
       // 'solar') for this same entity — this panel's own copy would just duplicate
@@ -10629,7 +10848,12 @@ class Component extends DCLogic {
         : isNetwork
         ? 'The sources themselves, linked by what they corroborate — never merged on a bare label match. A source that shares nothing with the others stays visibly its own node.'
         : isCrosswalk
-        ? 'A referent folded across sources by corroborated identity, never spelling alone. Scrub the fold cursor for the corpus cursor (its discovery order); a "…" claim node marks where its dominant label changed. Click a referent to load its profile.'
+        ? 'A referent folded across sources by corroborated identity, never spelling alone. Scrub the fold cursor for the corpus cursor (its discovery order); a "…" claim node marks where its dominant label changed. Click a referent’s name to load its profile; the checkbox only shows or hides it.'
+          + (query
+            ? ` Showing ${this._crosswalkShown || 0} referent${(this._crosswalkShown || 0) === 1 ? '' : 's'} matching “${query}”.`
+            : (this._crosswalkTotal || 0) > (this._crosswalkShown || 0)
+            ? ` Showing the ${this._crosswalkShown || 0} most-corroborated of ${this._crosswalkTotal} referents — search a name to look at the rest.`
+            : '')
         : isCompare
         ? 'A measure-by-source table read deterministically off the record — one row per figure (a budget, a completion year, an acreage), one column per source. A cell shows the value that source states, and the move if it revised one ("$120M → $145M"). Click any cell to open its passage.'
         : isSolar
@@ -10641,15 +10865,38 @@ class Component extends DCLogic {
       webSearchPlaceholder: `Filter ${(isEnt || isSolar) ? 'entities' : isNetwork ? 'sources' : isCrosswalk ? 'referents' : 'nodes'}…`,
       webEntQuery: query,
       webSearchHasQuery: ql.length > 0,
-      onWebEntSearch: (e) => this.setState({ webEntQuery: e && e.target ? e.target.value : '' }),
-      webSearchClear: () => this.setState({ webEntQuery: '' }),
+      // Crosswalk scopes the DRAWN graph off the query, not just this checklist (_drawCrosswalk)
+      // — that scoping is imperative, so a query edit must re-trigger the draw explicitly, reading
+      // the SAME instant value the draw uses (this._wg.query, mirroring how this._wg itself is
+      // "mutated and redrawn imperatively" rather than trusted through async setState) or the
+      // canvas would sit stale (or race the state update) while only the sidebar list narrowed live.
+      onWebEntSearch: (e) => {
+        const v = e && e.target ? e.target.value : '';
+        if (this._wg) this._wg.query = v;
+        this.setState({ webEntQuery: v });
+        if (isCrosswalk) this._drawWebGraph();
+      },
+      webSearchClear: () => {
+        if (this._wg) this._wg.query = '';
+        this.setState({ webEntQuery: '' });
+        if (isCrosswalk) this._drawWebGraph();
+      },
       // All/None act on what's in view — with a filter active they scope to the matches, so you
       // can show or hide just the entities you searched for; with no filter they cover everything.
       webAllOn: () => this.webEntitiesAll(true),
       webNoneOn: () => this.webEntitiesAll(false),
       webToggles: shownToggles.map((t) => {
         const on = !hidden.has(t.id);
-        return { id: t.id, label: t.label, toggle: () => this.toggleWebEntity(t.id),
+        const toggle = () => this.toggleWebEntity(t.id);
+        // Crosswalk's own note promises "click a referent to load its profile" — the NAME gets
+        // its own click target for that (loads the side panel, same as clicking its graph node),
+        // separate from the checkbox, which only ever shows/hides it. Every other kind keeps
+        // exactly the behaviour it always had: both targets just toggle.
+        const openable = isCrosswalk && !!t.ref;
+        const labelClick = openable
+          ? (e) => { if (e && e.stopPropagation) e.stopPropagation(); this._setWgPanel(t.ref.docId, t.ref.entId); }
+          : toggle;
+        return { id: t.id, label: t.label, toggle, labelClick, openable,
           fg: on ? '#33333B' : '#9A9AA4', boxBg: on ? '#5B4BE6' : 'transparent',
           boxBd: on ? '#5B4BE6' : '#CBCBD4', check: on ? '✓' : '' };
       }),

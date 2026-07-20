@@ -194,7 +194,7 @@ test('readerHtml bakes entity links + cited rule when the surface supplies a lin
   const isCited = (t) => t.includes('built an engine');
   const { html } = readerHtml(m, {}, { segsOf, isCited, linksOn: true });
   assert.ok(html.includes('<html class="eo-links-on">'), 'links start visible when linksOn');
-  assert.ok(/<span class="eo-ent" data-doc="d1" data-ent="e_babbage">Babbage<\/span>/.test(html), 'entity wrapped as a clickable span carrying its ids');
+  assert.ok(/<span class="eo-ent" data-doc="d1" data-ent="e_babbage" tabindex="0" role="link" aria-label="[^"]*">Babbage<\/span>/.test(html), 'entity wrapped as a clickable, keyboard-reachable span carrying its ids');
   assert.ok(/<p id="eo-p-\d+" data-para="\d+" class="eo-cited">/.test(html), 'the cited paragraph carries the gold-rule class and its stable address');
   assert.ok(html.includes('.eo-links-on .eo-ent'), 'the links-on CSS gate is present');
 });
@@ -213,6 +213,7 @@ test('readerHtml still escapes entity text inside the baked span', () => {
   const { html } = readerHtml(m, {}, { segsOf, linksOn: false });
   assert.ok(!/<script>/.test(html.replace(/data-[^=]*="[^"]*"/g, '')), 'body script escaped even inside a span');
   assert.ok(html.includes('data-doc="d&quot;1"') && html.includes('data-ent="&lt;e&gt;"'), 'ids are attribute-escaped');
+  assert.ok(html.includes('tabindex="-1"'), 'a mention is not a keyboard stop while Links starts off');
 });
 
 test('nativePageHtml sanitizes scripts and injects a base href', () => {
