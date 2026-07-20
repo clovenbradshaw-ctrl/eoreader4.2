@@ -85,10 +85,15 @@ from a bad plan from a bad chunk prompt, and tune the right dial. `src/metabolis
 
 ## The surface
 
-`index.html` is the new dc surface (screens: **EOReader** and **Provenance DAG**),
-running on `support.js` (the dc runtime) + vendored React. It boots the engine
-bridge at `src/rooms/reader/boot.js`, which exposes exactly one membrane to the
-surface: `window.EO` — the reader session controller (`app`), parse, readingAt,
+`index.html` is a thin static boot shell (~9KB): metadata, resource hints, the
+loading/failure markup, and one module entry, `src/rooms/reader/ui/shell-loader.js`.
+That loader fetches the DC template and controller — `shell.template.html` and
+`shell.logic.js`, alongside `shell.css` — in parallel and installs them into
+`support.js` (the dc runtime) + vendored React, the same way they used to sit
+inline in `index.html` before the holon-architecture-refactor split them out
+(screens: **EOReader** and **Provenance DAG**). It boots the engine bridge at
+`src/rooms/reader/boot.js`, which exposes exactly one membrane to the surface:
+`window.EO` — the reader session controller (`app`), parse, readingAt,
 groundSpans, factCheck, the DAG cursors, the audit log, the workspace, and the
 tiered-graph mount. The surface never imports engine internals.
 

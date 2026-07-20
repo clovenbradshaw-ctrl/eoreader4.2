@@ -4,18 +4,14 @@
 //   1. installPaper's byte-keeping — persistPdfBytes stashes the original bytes (keyed by content
 //      hash) and pdfUrl rehydrates a renderable blob URL from them after a reload, exactly the way
 //      an audio clip's bytes survive; pdfRenderable is the pure predicate the viewer's default-mode
-//      pick rides on (index.html openViewer).
-//   2. that index.html's openViewer routes a renderable PDF source to the 'pdf' mode, and falls
-//      back to the reader when there is nothing to draw — the routing the reveal lands on.
+//      pick rides on (the reader surface's openViewer).
+//   2. that the reader surface's openViewer routes a renderable PDF source to the 'pdf' mode, and
+//      falls back to the reader when there is nothing to draw — the routing the reveal lands on.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 
 import { installPaper } from '../src/rooms/reader/app/paper.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { readShellTemplate, readShellLogic } from './helpers/dc-shell.js';
 
 // A minimal appCtx — installPaper reaches only emit/logIt/persist off it.
 const makeCtx = () => {
@@ -68,20 +64,22 @@ test('a too-large PDF is not persisted, but never throws the import', async () =
   assert.equal(src.pdfRef, undefined, 'nothing is stashed for an over-cap PDF');
 });
 
-// The routing in index.html openViewer — every source now opens on the Overview landing page;
-// the PDF surface (and every reading mode) is reachable from the mode row, and switching to it
-// still loads the PDF bytes lazily via setSourceMode → loadPdf.
-test('index.html openViewer routes each source open to the overview surface', () => {
-  const html = readFileSync(join(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /const modes = \{ \.\.\.this\.state\.viewerModes, \[sn\]: 'overview' \}/, 'openViewer resets each source open to the overview landing');
-  assert.match(html, /viewerIsOverview:\s*vMode === 'overview'/, 'the overview surface is a real viewer mode');
-  assert.match(html, /viewerIsPdf:\s*vMode === 'pdf'/, 'the pdf surface remains a real viewer mode');
-  assert.match(html, /if \(mode === 'pdf'\) this\.loadPdf\(sn\)/, 'switching to the pdf mode still loads the pdf lazily');
+// The routing in the reader surface's openViewer (src/rooms/reader/ui/shell.logic.js) — every
+// source now opens on the Overview landing page; the PDF surface (and every reading mode) is
+// reachable from the mode row, and switching to it still loads the PDF bytes lazily via
+// setSourceMode → loadPdf.
+test('openViewer routes each source open to the overview surface', () => {
+  const logic = readShellLogic();
+  assert.match(logic, /const modes = \{ \.\.\.this\.state\.viewerModes, \[sn\]: 'overview' \}/, 'openViewer resets each source open to the overview landing');
+  assert.match(logic, /viewerIsOverview:\s*vMode === 'overview'/, 'the overview surface is a real viewer mode');
+  assert.match(logic, /viewerIsPdf:\s*vMode === 'pdf'/, 'the pdf surface remains a real viewer mode');
+  assert.match(logic, /if \(mode === 'pdf'\) this\.loadPdf\(sn\)/, 'switching to the pdf mode still loads the pdf lazily');
 });
 
 test('source overview header wraps long titles and uses the active workspace name', () => {
-  const html = readFileSync(join(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(html, /grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,520px\),1fr\)\)/, 'hero actions wrap below the title instead of overlapping it');
-  assert.match(html, /overflow-wrap:anywhere/, 'long imported filenames can break inside the title');
-  assert.match(html, /w\.id === app\.state\.activeWorkspaceId/, 'breadcrumbs read the active workspace, not a stale workspace id');
+  const template = readShellTemplate();
+  const logic = readShellLogic();
+  assert.match(template, /grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,520px\),1fr\)\)/, 'hero actions wrap below the title instead of overlapping it');
+  assert.match(template, /overflow-wrap:anywhere/, 'long imported filenames can break inside the title');
+  assert.match(logic, /w\.id === app\.state\.activeWorkspaceId/, 'breadcrumbs read the active workspace, not a stale workspace id');
 });

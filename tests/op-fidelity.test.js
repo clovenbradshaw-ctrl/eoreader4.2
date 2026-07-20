@@ -37,6 +37,7 @@ const EXEMPT = new Map([
   ['src/rooms/generation/intents.js', 'the few-shot EXAMPLE is a literal illustration of the intent shape the model should return; this module\'s own act is DEF·SEG (schema + parse), not INS'],
   ['src/core/fold-trace.js', 'the grain-mixed check PROBES the coherence guard with a candidate (REC, Entity) pairing to see whether it diagonals — asking the guard is not firing REC; this module\'s own act is EVA (labeling an already-built WaveformModel)'],
   ['src/perceiver/code/events.js', 'narrates a reconciliation\'s findings using the nine-operator vocabulary as data (docs/code-holons.md §9) — op labels the narrated finding (an INS admission, a DEF contract assertion, a NUL gap), not an act this module itself performs; its own act is SIG·SYN (registering and composing the log)'],
+  ['src/rooms/reader/ui/shell.logic.js', 'the source inspector\'s EoT tab lists a source\'s already-logged events (registered/attested/recorded) with the op that named each one, for display — narrating those acts is not this module performing SIG; its own act is CON·INS·SEG (rendering screens + mounts)'],
 ]);
 
 const stripComments = (s) =>

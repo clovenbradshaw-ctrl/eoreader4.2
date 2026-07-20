@@ -1,24 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+
+import { evalShellComponent } from './helpers/dc-shell.js';
 
 // GRAPH GATING — an empty or uninformative graph must say so, not draw a stray/misleading node.
 // The reported failures: the entity web silently mounting on zero nodes; Network drawing a lone
 // "Network (not yet coherent)" node on a one-source topic (nothing to link); Crosswalk drawing
 // every single-source referent as if identity had been crossed between sources, when none had.
-// That wiring lives in the dc app script inside index.html — pull it out and exercise the real
-// _drawEntity/_drawNetwork/_drawCrosswalk methods against a stubbed app + DOM.
+// That wiring lives in the reader surface's Component logic (src/rooms/reader/ui/shell.logic.js)
+// — pull it out and exercise the real _drawEntity/_drawNetwork/_drawCrosswalk methods against a
+// stubbed app + DOM.
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const html = readFileSync(join(__dirname, '..', 'index.html'), 'utf8');
-const block = html.match(/<script type="text\/x-dc"[^>]*>([\s\S]*?)<\/script>/);
-assert.ok(block, 'the dc app script is present in index.html');
-const Component = (() => {
-  class DCLogic { constructor() {} setState() {} subscribe() { return () => {}; } }
-  return new Function('DCLogic', block[1] + '\nreturn Component;')(DCLogic);
-})();
+const Component = evalShellComponent();
 const proto = Component.prototype;
 
 const withMountStub = (fn) => {

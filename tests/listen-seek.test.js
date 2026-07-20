@@ -1,24 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+
+import { evalShellComponent } from './helpers/dc-shell.js';
 
 // CLICK-THROUGH FROM THE ENTITY PANEL TO THE SOURCE SPAN.
 //
 // A mention or a base word/segment is click-through: on a clip it SEEKS the player to the instant
-// it was said and flashes the word(s). That wiring lives in the dc app script inside index.html, not
-// in an importable module — so pull the script out of the page and evaluate it against a stubbed base
-// class, and exercise the REAL helpers (not a copy) the way the entity panel calls them.
+// it was said and flashes the word(s). That wiring lives in the reader surface's Component logic
+// (src/rooms/reader/ui/shell.logic.js), not in an importable module — so pull the script out and
+// evaluate it against a stubbed base class, and exercise the REAL helpers (not a copy) the way the
+// entity panel calls them.
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const html = readFileSync(join(__dirname, '..', 'index.html'), 'utf8');
-const block = html.match(/<script type="text\/x-dc"[^>]*>([\s\S]*?)<\/script>/);
-assert.ok(block, 'the dc app script is present in index.html');
-const Component = (() => {
-  class DCLogic { constructor() {} setState() {} subscribe() { return () => {}; } }
-  return new Function('DCLogic', block[1] + '\nreturn Component;')(DCLogic);
-})();
+const Component = evalShellComponent();
 const proto = Component.prototype;
 
 const stream = (n) => Array.from({ length: n }, (_, i) => ({ text: 'w' + i, start: i * 0.5, end: i * 0.5 + 0.4 }));

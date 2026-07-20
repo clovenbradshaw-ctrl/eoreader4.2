@@ -1,0 +1,237 @@
+/* ── MOBILE DESIGN TOKENS — scoped to the isMobile shell's own inline styles (shell.template.html)
+   only; the isDesktop shell keeps its existing literal hex values untouched. A first design-token
+   layer for the mobile redesign, not a repo-wide theme system. */
+:root{
+  --eo-m-accent:#6355F2; --eo-m-accent-tint:#ECE9FE;
+  --eo-m-ink:#17171A; --eo-m-text:#1B1B22; --eo-m-muted:#7A7A83; --eo-m-faint:#9B9BA3;
+  --eo-m-border:#ECECF0; --eo-m-canvas:#F4F4F6;
+  --eo-m-success-fg:#1E8A50; --eo-m-success-bg:#E7F6EC;
+  --eo-m-danger-fg:#B23A2E; --eo-m-danger-bg:#FBE9E6;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:#F4F4F7}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;text-align:left}
+input,textarea{font:inherit}
+::selection{background:#DED8FD}
+mark{background:#FBECC8;color:#2A2A32;border-radius:2px;padding:.02em 2px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+table{border-collapse:collapse;width:100%}
+@keyframes eoPulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
+@keyframes eoDrawer{from{transform:translateX(24px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes eoFade{from{opacity:0}to{opacity:1}}
+@keyframes eoToast{from{transform:translate(-50%,10px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+@keyframes eoBlink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes eoSpin{to{transform:rotate(360deg)}}
+/* the summary skeleton while the local model turns the machinery's telegram into a reading */
+@keyframes eoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.eo-skel{background:linear-gradient(90deg,#ECEAF6 25%,#F4F2FC 50%,#ECEAF6 75%);background-size:200% 100%;animation:eoShimmer 1.5s ease-in-out infinite;border-radius:5px}
+/* ── AI-GENERATED SUMMARY — the fold→summary pipeline's model voice (docs/fold-summary-pipeline.md),
+   made explicitly visible wherever it renders (the cursor peek, a source card, an entity profile). This
+   is NOT the same treatment as the topline's purple (an inventory composed from the record's own
+   objects) — a fold summary is a small CPU/local model's own reading, phrased and gated (the referential
+   + grounding firewalls, src/surfer/fold/summary-prompt.js), and the surface says so plainly: a sparkle
+   badge, a soft violet→cyan wash, a dashed border (echoing the "temporary reading" dashed convention
+   the fold-peek toggle already uses). Only rendered when `via==='model'` — the deterministic telegram
+   floor a caller falls back to on a gate/ground rejection is NOT relabeled as AI-generated; that would
+   be exactly the honesty failure the grounding firewall exists to prevent. See summaryBadgeHtml(). */
+@keyframes eoAiSheen{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+.eo-ai-summary{position:relative;border:1px dashed #C9BFF5;border-radius:10px;padding:10px 12px 9px;
+  background:linear-gradient(120deg,#F6F3FF 0%,#F1FBFA 55%,#F6F3FF 100%);background-size:220% 100%}
+.eo-ai-badge{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;
+  font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#6D5EF5;
+  background:linear-gradient(90deg,#EDE8FF,#E3F7F4,#EDE8FF);background-size:220% 100%;
+  animation:eoAiSheen 5s ease-in-out infinite;border-radius:999px;padding:3px 8px 3px 7px;margin-bottom:6px}
+.eo-ai-badge .dot{width:5px;height:5px;border-radius:50%;flex:0 0 auto}
+/* ── MURMUR — the peripheral sense as a light TERMINAL LOG under the tab bar ──
+   The reader's real voiced thoughts (src/murmur/narrate/voice.js — the read side-channel, §9.4) tail
+   in as one monospace log line: a dim timestamp, the operator's glyph tinted by the feeling, a › prompt,
+   then the thought — prosified by the CPU model when it is warm (app/deep.js prosifyMurmurTick), template
+   otherwise — with a soft caret blinking at the tail, the compact holonic address trailing dim, and a
+   tiny register meter. Only what SURPRISES the sense passes the gate and appends at all (the filter —
+   never a label). Clicking the line opens the FULL activity terminal (window.EO.eotTerminal — every
+   read/search/route/prompt/generation/bind/veto, each with its organ.document.record.parameter address);
+   clicking the glyph opens a card that NAMES the feeling (the native-EOT tuple + honest gloss). Nothing
+   here is fabricated — text, register, and sites all come off window.EO.murmur.state(); the strip only
+   tails them. Built imperatively (setMurmurStrip → EoMurmurStrip); the caret/dot blink is pure CSS, so
+   nothing loops off-screen. A LIGHT terminal — dark ink on the page's own band — so it reads as part of
+   the chrome, not a dropped-in dark console. --mm-accent is the ambient hue; --mm-h the band height. */
+.eo-murmur{
+  --mm-accent:#8b7bff;--mm-h:46px;
+  position:relative;z-index:3;display:flex;align-items:stretch;flex:0 0 auto;height:var(--mm-h);
+  border-bottom:1px solid #EAEAEF;background:#F7F6FC;
+  font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  transition:border-color .5s ease,background .5s ease
+}
+/* At rest — nothing has passed the gate — the strip goes plain white and drops its seam, dissolving
+   into the white chrome above (the tab bar) and below (the reading) so an idle murmur is never an
+   obstruction. It only tints faintly and firms its hairline when a thought actually appends. */
+.eo-murmur.eo-mm-quiet{border-bottom-color:transparent;background:#fff}
+.eo-murmur.eo-mm-quiet .eo-mm-badge{opacity:.5;border-right-color:transparent}
+.eo-murmur.eo-mm-quiet .eo-mm-dot{animation:none}
+.eo-murmur.eo-mm-quiet .eo-mm-cursor{opacity:.35}
+.eo-mm-badge{display:flex;align-items:center;gap:7px;padding:0 12px;border-right:1px solid #EEEEF2;flex:0 0 auto;transition:opacity .5s ease,border-color .5s ease}
+.eo-mm-dot{width:5px;height:5px;border-radius:50%;background:var(--mm-accent);animation:mmpulse 1.9s ease-in-out infinite}
+.eo-mm-mark{font-size:9.5px;letter-spacing:1.5px;color:#AEAEB8;text-transform:uppercase}
+/* the tailing log line — one row, the newest gated thought; the full history is a click away */
+.eo-mm-term{flex:1;min-width:0;display:flex;align-items:center;overflow:hidden;cursor:pointer;padding:0 30px 0 13px}
+.eo-mm-row{display:flex;align-items:baseline;gap:7px;width:100%;min-width:0;font-size:13px;line-height:1.4;white-space:nowrap}
+.eo-mm-row.eo-mm-fresh{animation:mm-in .42s ease-out both}
+.eo-mm-time{flex:0 0 auto;color:#B4B4C0;font-size:12px}
+.eo-mm-sigil{flex:0 0 auto;width:15px;text-align:center;font-weight:600;cursor:pointer}
+.eo-mm-gt{flex:0 0 auto;color:#C2C2CB}
+.eo-mm-text{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:#26262E}
+.eo-mm-row.eo-mm-idle .eo-mm-text{color:#9A9AA4;font-style:italic}
+.eo-mm-cursor{flex:0 0 auto;align-self:center;width:6px;height:14px;border-radius:1px;background:var(--mm-accent);animation:mm-blink 1.05s step-end infinite}
+.eo-mm-addr{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;margin-left:auto;padding-left:10px;color:#B2B2BE;font-size:10.5px}
+.eo-mm-bars{flex:0 0 auto;display:flex;align-items:center;gap:2px}
+.eo-mm-bar{width:3px;height:9px;border-radius:1px}
+.eo-mm-mode{flex:0 0 auto;align-self:center;margin-right:34px;font-size:9px;letter-spacing:.5px;color:#9A9AA4;border:1px solid #E9E9EF;border-radius:5px;padding:2px 7px;white-space:nowrap;text-transform:lowercase}
+.eo-mm-x{position:absolute;top:50%;right:8px;transform:translateY(-50%);z-index:4;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#B4B4BE;border:1px solid #EAEAEF;background:rgba(255,255,255,.7);cursor:pointer;opacity:.55;transition:opacity .16s,border-color .12s,color .12s}
+.eo-murmur:hover .eo-mm-x{opacity:1}
+.eo-mm-x:hover{border-color:var(--mm-accent);color:#3A3A44}
+/* the click-through detail card — the mote's full thought + its native-EOT reading + the feeling's gloss */
+.eo-mm-card{position:absolute;z-index:20;top:calc(100% + 6px);width:380px;max-width:calc(100vw - 24px);border:1px solid #E6E6EC;border-radius:14px;background:#fff;box-shadow:0 26px 60px -24px rgba(20,20,30,.3);padding:18px 20px 20px;animation:mmcard .22s ease-out both}
+.eo-mm-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}
+.eo-mm-card-tag{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:1px;text-transform:uppercase;border-radius:6px;padding:3px 8px}
+.eo-mm-card-src{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:#9A9AA4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eo-mm-card-x{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#9A9AA4;background:transparent;border:1px solid #E6E6EC;border-radius:8px;width:28px;height:28px;cursor:pointer;flex:0 0 auto;transition:border-color .12s,color .12s}
+.eo-mm-card-x:hover{border-color:var(--mm-accent);color:#3A3A44}
+.eo-mm-card-text{font-family:'Newsreader',Georgia,serif;font-size:21px;line-height:1.4;color:#23262e;text-wrap:pretty}
+.eo-mm-card-note{font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:15px;line-height:1.5;color:#8A8A95;margin-top:11px;text-wrap:pretty}
+@keyframes mmpulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
+@keyframes mmcard{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+/* a new line appends from just below and settles — the log tailing in (never a cross-fade) */
+@keyframes mm-in{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@keyframes mm-blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .eo-mm-dot{animation:none}
+  .eo-mm-card{animation:none}
+  .eo-mm-row.eo-mm-fresh{animation:none}
+  .eo-mm-cursor{animation:none}
+  .eo-murmur{transition:none}
+}
+@media (max-width:720px){
+  /* an even slimmer band on the phone layer so it never crowds the chat stage; the address trailer
+     and the mode chip drop away first — the glyph + the thought are what must read. */
+  .eo-murmur{--mm-h:42px}
+  .eo-mm-badge{padding:0 10px}
+  .eo-mm-mark{font-size:9px;letter-spacing:1.2px}
+  .eo-mm-addr{display:none}
+  .eo-mm-mode{display:none}
+  .eo-mm-term{padding-right:26px}
+}
+/* Interactive transcript (Listen surface) — a word is a clickable, editable, redactable holon. */
+.eo-w{border-radius:3px;padding:0 1px;cursor:pointer;transition:background .12s,color .12s}
+.eo-w:hover{background:rgba(109,94,245,.12)}
+.eo-w-now{background:#EDE9FE;color:#4A3AD6;box-shadow:0 0 0 2px #EDE9FE}
+/* a mention/segment jumped to from the entity panel — flashes, then fades on the .eo-w transition */
+.eo-w-flash{background:#FDE68A;color:#7A5B00;box-shadow:0 0 0 3px #FDE68A}
+.eo-w-edited{border-bottom:1px dashed #C79A3A}
+.eo-w-sel{background:#DED8FD}
+.eo-w-redacted{color:#2A2A32;cursor:default;letter-spacing:-2px}
+.eo-w-input{font:inherit;color:inherit;background:#fff;border:1px solid #6D5EF5;border-radius:4px;padding:0 3px;outline:none}
+/* A named figure the transcript mentions — its word(s) wrapped as a hyperlink into the entity panel,
+   revealed (like the Reader/Native reading layers) only when Links is on. Colour rides the wrapper so
+   the inner words inherit it, while a sounding/selected/edited/redacted word keeps its own state hue. */
+.eo-ent{border-radius:3px}
+.eo-links-on .eo-ent{color:#5B4BE6;cursor:pointer;border-bottom:1px dotted rgba(91,75,230,.55)}
+.eo-links-on .eo-ent:hover{background:rgba(109,94,245,.1)}
+/* the reading layer — a word HEARD but not yet folded by EO shows grey; once read it goes black (the
+   stream turning into a reading in real time). A figure the words name is lit in the accent. */
+.eo-w-unread{color:#B7B7C0}
+.eo-w-ref{color:#5B4BE6;border-bottom:1px dotted #C6BFF7}
+.eo-w-ref.eo-w-unread{color:#B9B2E4;border-bottom-color:#E6E2FA}
+/* the clicked span whose layers the right panel is showing */
+.eo-w-inspect{background:rgba(109,94,245,.14);box-shadow:0 0 0 2px #B9AEF8}
+/* a detected chapter heading dropped inline into the transcript (click to seek there) */
+.eo-chap-h{font-family:'Newsreader',Georgia,serif;font-weight:700;font-size:20px;line-height:1.3;color:#23272e;margin:26px 0 10px;padding-top:14px;border-top:1px solid #EDEDF1;cursor:pointer;transition:color .12s}
+.eo-chap-h:first-child{margin-top:2px;padding-top:0;border-top:none}
+.eo-chap-h:hover{color:#5B4BE6}
+.eo-chap-h .eo-chap-t{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#A6A6B0;margin-left:9px;vertical-align:middle}
+/* Listen surface — the media panel (player + waveform + stats + transcription) is the hero at the top
+   of the reading; once the reader scrolls into the transcript it FOLDS to a slim, still-scrubbable
+   waveform strip and hands the reclaimed height to the words. A scroll listener on the transcript adds
+   .eo-media-min (with hysteresis, so it doesn't flicker at the seam); the waveform height and the panel
+   padding transition so the fold reads as one motion, and the bars keep their full width so click-to-
+   seek still maps straight onto the timeline. The stats/legend/transcription rows (.eo-media-fold) drop
+   out of flow entirely, so no leftover gap. */
+.eo-media{transition:padding .25s ease}
+.eo-media .eo-wave{transition:height .25s ease,padding .25s ease}
+.eo-media-min{padding-top:8px!important;padding-bottom:8px!important;gap:7px!important}
+.eo-media-min .eo-wave{height:30px!important;padding-top:2px!important;padding-bottom:2px!important}
+.eo-media-min .eo-media-fold{display:none!important}
+/* Media dock — the compact, hideable player that rides the foot of the reading in every non-Listen
+   mode. A slim handle bar (mini scrubbable waveform + length + live transcription state) that
+   expands to the full player, stats and streaming transcript, or is dismissed to a small restore
+   pill. The handle is the only thing that shows when collapsed. */
+.eo-media-dock{flex:0 0 auto;background:#fff;border-top:1px solid #EAEAEF;box-shadow:0 -2px 14px rgba(20,20,30,.04)}
+.eo-media-handle{display:flex;align-items:center;gap:11px;padding:8px 16px}
+.eo-media-handle .eo-dockbtn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:7px;color:#9A9AA4;flex:0 0 auto;transition:background .12s,color .12s}
+.eo-media-handle .eo-dockbtn:hover{background:#F2F2F6;color:#5A5A64}
+.eo-wave-mini{display:flex;align-items:center;gap:1px;height:26px;flex:1 1 auto;min-width:70px;max-width:420px;overflow:hidden;cursor:pointer;opacity:.9}
+.eo-wave-mini:hover{opacity:1}
+.eo-media-body{padding:0 16px 13px;display:flex;flex-direction:column;gap:11px;max-height:46vh;overflow-y:auto}
+.eo-media-restore{position:absolute;right:18px;bottom:16px;z-index:12;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #E6E6EC;border-radius:999px;padding:7px 13px;font-size:11.5px;font-weight:600;color:#5A5A64;box-shadow:0 6px 20px rgba(20,20,30,.12)}
+.eo-media-restore:hover{background:#F7F7FA;color:#3A3A44}
+.eo-scroll::-webkit-scrollbar{width:11px;height:11px}
+.eo-scroll::-webkit-scrollbar-thumb{background:#dadae1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
+.eo-scroll::-webkit-scrollbar-thumb:hover{background:#c7c7d0;background-clip:content-box}
+@keyframes eoDrawerL{from{transform:translateX(-24px);opacity:0}to{transform:translateX(0);opacity:1}}
+/* The mobile shell's bottom sheets (Evidence scope, Add source) — a slide-up panel, distinct from
+   the centred .eo-modal dialogs above (which the mobile shell doesn't use at all). */
+@keyframes eoSheetUp{from{transform:translateY(28px);opacity:.4}to{transform:translateY(0);opacity:1}}
+/* The panel backdrop exists only on small screens — desktop panels sit in the flex row. */
+.eo-backdrop{display:none}
+/* ── MOBILE ──────────────────────────────────────────────────────────────────
+   The surface is styled inline (the dc idiom), so the small-screen layer lives
+   here as !important overrides on structural class hooks. One breakpoint: below
+   820px the side panels become overlay drawers, the header sheds its labels,
+   modals go edge-to-edge, and inputs hold 16px so iOS never auto-zooms. */
+@media (max-width: 820px){
+  /* The header can't fit the omnibar AND nine controls in one 50px row — squeezed to a
+     ~37px sliver, the search box read as broken and unusable. Below the breakpoint the
+     header becomes two rows: the icon/action buttons up top, and the omnibar full-width
+     on its own line beneath them (order:99 + 100% basis wraps it there). --eo-hdr is the
+     resulting two-row height; the side drawers and their backdrop hang off it so they
+     still start flush under the header. */
+  :root{--eo-hdr:calc(94px + env(safe-area-inset-top,0px))}
+  .eo-root{height:100dvh !important}
+  .eo-hide-sm{display:none !important}
+  .eo-header{height:var(--eo-hdr) !important;flex-wrap:wrap !important;align-content:flex-start !important;gap:6px !important;padding:calc(7px + env(safe-area-inset-top,0px)) max(8px,env(safe-area-inset-right)) 8px max(8px,env(safe-area-inset-left)) !important}
+  .eo-header>form{order:99;flex:1 1 100% !important;min-width:0;justify-content:stretch !important}
+  .eo-header form>div{min-width:0;max-width:none !important;height:40px;padding:0 13px !important;gap:9px !important}
+  .eo-header input{font-size:16px !important;min-width:0;text-overflow:ellipsis}
+  .eo-modelchip-label{display:none}
+  .eo-left{position:fixed !important;left:0;top:var(--eo-hdr);bottom:0;width:min(86vw,330px) !important;z-index:44;box-shadow:14px 0 44px rgba(20,20,30,.18);animation:eoDrawerL .22s cubic-bezier(.4,0,.2,1)}
+  .eo-right{position:fixed !important;right:0;top:var(--eo-hdr);bottom:0;width:min(88vw,350px) !important;z-index:44;box-shadow:-14px 0 44px rgba(20,20,30,.18);animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)}
+  .eo-backdrop{display:block;position:fixed;left:0;right:0;top:var(--eo-hdr);bottom:0;z-index:43;background:rgba(20,20,28,.32);animation:eoFade .16s ease}
+  .eo-tabbar{padding:0 6px !important}
+  /* Tighten the five primary tabs so they fit without clipping the active one (Pins was cut to
+     "P" when count badges widened the row); the rail still scrolls if source tabs are added. */
+  .eo-tabbar .eo-scroll>button{padding:0 9px !important;gap:5px !important}
+  /* The source-viewer toolbar (mode chips +, in Reader mode, a second row of font/width/theme
+     controls) had no mobile treatment: with nothing to stop it wrapping, up to 16 buttons stacked
+     into several rows and ate most of the screen before any document content showed. Same fix as
+     the tab rail above — one row, scrolled horizontally, nothing squeezed. */
+  .eo-viewerbar{flex-wrap:nowrap !important;overflow-x:auto !important;-webkit-overflow-scrolling:touch;margin-left:-2px;padding:0 2px 3px}
+  .eo-viewerbar>*{flex:0 0 auto !important}
+  .eo-chatscroll{padding:18px 12px !important}
+  .eo-composer{padding:10px 10px calc(10px + env(safe-area-inset-bottom)) !important}
+  .eo-chatinput{font-size:16px !important}
+  .eo-graphhead{flex-wrap:wrap !important;height:auto !important;padding:10px 12px !important;gap:8px !important}
+  .eo-graphtools{flex-wrap:wrap !important;row-gap:6px}
+  .eo-pop{max-width:calc(100vw - 16px) !important;right:8px !important;left:auto !important;top:calc(var(--eo-hdr) + 4px) !important}
+  .eo-modal{left:8px !important;right:8px !important;width:auto !important;transform:none !important;top:12px !important;max-height:calc(100dvh - 24px) !important}
+  .eo-tall{bottom:12px !important;max-height:none !important}
+  .eo-sheet{left:8px !important;right:8px !important;width:auto !important;transform:none !important;max-height:calc(100dvh - 24px);overflow-y:auto}
+  /* The Graph tab is a three-pane row (checklist · graph · details). Stacked into a column on
+     mobile, the details pane kept its fixed 306px basis and crushed the graph mount to a ~57px
+     sliver its own drawing overflowed. Let the whole body scroll, cap the checklist, give the
+     graph a real height, and let the details pane size to its content beneath it. */
+  .eo-wgbody{flex-direction:column !important;overflow-y:auto !important}
+  .eo-wgside{flex:0 0 auto !important;max-height:42vh;border-right:none !important;border-bottom:1px solid #EEEEF2}
+  .eo-wgmount{flex:0 0 auto !important;height:min(56vh,420px) !important;overflow:hidden !important}
+  .eo-wgprof{flex:0 0 auto !important;border-left:none !important;border-top:1px solid #EEEEF2;max-height:none !important}
+  .eo-drawer{width:min(94vw,440px) !important}
+  .eo-toast{max-width:calc(100vw - 24px) !important;bottom:calc(18px + env(safe-area-inset-bottom)) !important}
+}
