@@ -72,6 +72,8 @@ const CSS = `
 .eo-tg .tg-seg .tg-btn{border:none;border-radius:0;}
 .eo-tg .tg-node{cursor:pointer;}
 .eo-tg .tg-node circle{transition:r .15s;}
+.eo-tg .tg-node:focus{outline:none;}
+.eo-tg .tg-node:focus-visible{outline:2px solid #5B4BE6;outline-offset:3px;border-radius:50%;}
 .eo-tg .tg-plabel{paint-order:stroke;stroke:var(--card,#fff);stroke-linejoin:round;fill:var(--ink,#15181e);pointer-events:none;}
 .eo-tg .tg-eglyph{paint-order:stroke;stroke:var(--card,#fff);stroke-linejoin:round;pointer-events:none;font-family:var(--mono,ui-monospace,Menlo,monospace);}
 .eo-tg .tg-fold{font-size:11px;padding:4px 8px;}
@@ -375,8 +377,19 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
 
   // ── marks: each edge is a group of path + bare glyph with a paper halo ───
   const nodeEls = {}, edgeEls = [];
+  // A node that carries a ref IS a point of view to pivot/open to — activating it does that
+  // immediately, not a second step gated behind selecting it first. Shared by click and the
+  // keyboard so both land on the exact same behaviour (report: nodes were mouse-only <g>
+  // elements with no role/tabindex/keyboard handling — Tab could never reach one at all).
+  const activate = (n) => {
+    if (onOpen && n.ref) { try { onOpen(n); } catch {} return; }
+    select(n.id);
+  };
   nodes.forEach((n) => {
-    const g = sv('g', { class: 'tg-node' }); g.style.transform = 'translate(' + n.x + 'px,' + n.y + 'px)';
+    const g = sv('g', {
+      class: 'tg-node', tabindex: '0', role: 'button', 'aria-label': String(n.label || 'node'),
+    });
+    g.style.transform = 'translate(' + n.x + 'px,' + n.y + 'px)';
     const pin = sv('circle', { r: (isRoot(n) ? 9 : 7) + 4, class: 'tg-pin' }); pin.style.display = 'none';
     // antimatter: a referent that's real in the structure but never earned a name (EMANON/
     // PROTOGON, individuation.js) — hollow and dashed, never the tier's solid fill, so it
@@ -390,11 +403,18 @@ export function mountTieredGraph(root, { nodes: inNodes = [], edges: inEdges = [
     g.addEventListener('click', (ev) => {
       ev.stopPropagation();
       if (justDragged) { justDragged = false; return; }
-      // A node that carries a ref IS a point of view to pivot/open to — the click itself does
-      // that immediately, not a second click on a button gated behind selecting it first.
-      if (onOpen && n.ref) { try { onOpen(n); } catch {} return; }
-      select(n.id);
+      activate(n);
     });
+    // Enter/Space activate a focused node exactly like a click; Space is also the page's
+    // scroll key, so it must be prevented here or focusing a node would silently scroll the
+    // graph's parent instead of doing anything to the node.
+    g.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+      ev.preventDefault(); ev.stopPropagation();
+      activate(n);
+    });
+    g.addEventListener('focus', () => { if (!state.sel) { state.hover = n.id; refine(); } });
+    g.addEventListener('blur', () => { if (!state.sel && state.hover === n.id) { state.hover = null; refine(); } });
     g.addEventListener('mouseenter', () => { if (!state.sel) { state.hover = n.id; refine(); } });
     g.addEventListener('mouseleave', () => { if (!state.sel) { state.hover = null; refine(); } });
     gN.appendChild(g); nodeEls[n.id] = { g, c, pin };
