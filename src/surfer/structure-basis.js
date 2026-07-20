@@ -26,6 +26,7 @@
 // what the label-feedback basis (learn-links.js) grows new specific types for.
 
 import { buildDensity, eigenLenses, vonNeumann, relEntropy, commutator, projectorFrom, OPERATORS } from '../core/index.js';
+import { frameIncommensurability, evaluateFrameConvergence } from './frame-channel.js';
 
 // the operational vocabulary: the nine operators (Act face = Mode × Domain).
 export const OPS = Object.freeze(Object.keys(OPERATORS));
@@ -120,13 +121,36 @@ const toneOf = (rho, dims) => {
   });
 };
 
+// localKeyReading(acts, dims, globalLabel, { W, stride }) — the relativistic read
+// (docs/referents-recursed-up-the-domain-axis.md, D4). A single global tone is one reading off
+// one ρ; a document reads in SEVERAL LOCAL KEYS. Slide a window, read each window's dominant
+// tone, and report how many distinct keys appear and how far they depart the global one. The
+// frame-scatter probe measured this POSITIVE (Frankenstein's global key rules no local window);
+// this makes it a first-class field of the reader instead of a one-off in the probe.
+const localKeyReading = (acts, dims, globalLabel, { W = 60, stride = 30 } = {}) => {
+  const win = Math.min(W, acts.length);
+  if (win < 2) return { distinct: 0, diverged: 0, windows: 0, spread: [] };
+  const counts = new Map();
+  let windows = 0, diverged = 0;
+  for (let i = 0; i + win <= acts.length; i += stride) {
+    const { rho } = buildDensity(acts.slice(i, i + win));
+    const label = rho.length ? toneOf(rho, dims).label : null;
+    if (!label) continue;
+    counts.set(label, (counts.get(label) || 0) + 1);
+    windows += 1;
+    if (globalLabel && label !== globalLabel) diverged += 1;
+  }
+  const spread = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([label, n]) => ({ label, n }));
+  return { distinct: counts.size, diverged: windows ? round(diverged / windows) : 0, windows, spread };
+};
+
 // structuralHorizon(doc | profiles, { k, relations, signs, learner }) → the embedder-free
 // significance reading. Same shape as the embedding column (departure · tone · lenses ·
-// lensEntropy) but every number is operational. `relations` adds the fixed relation-
-// semantic dimensions; `signs` lets a defeated reading subtract (contradiction-interferes
-// ρ); `learner` reads the document through the GROWN basis (operators + the types the
-// engine has learned for itself), so the reading is constituted partly through distinctions
-// it was not shipped with — the label-feedback loop, closed.
+// lensEntropy) but every number is operational, PLUS localKeys — the relativistic read (D4).
+// `relations` adds the fixed relation-semantic dimensions; `signs` lets a defeated reading
+// subtract (contradiction-interferes ρ); `learner` reads the document through the GROWN basis
+// (operators + the types the engine has learned for itself), so the reading is constituted
+// partly through distinctions it was not shipped with — the label-feedback loop, closed.
 export const structuralHorizon = (docOrProfiles, { k = 4, relations = false, signs = false, learner = null } = {}) => {
   let dims, profiles, sgnAll = null;
   if (Array.isArray(docOrProfiles?.[0])) { dims = OPS; profiles = docOrProfiles; }
@@ -137,7 +161,7 @@ export const structuralHorizon = (docOrProfiles, { k = 4, relations = false, sig
   const keep = profiles.map((p, i) => (p.some(x => x > 0) ? i : -1)).filter(i => i >= 0);
   const acts = keep.map(i => profiles[i]);
   const sgn = sgnAll ? keep.map(i => sgnAll[i]) : null;
-  if (acts.length < 2) return { units: 0, departure: 0, tone: null, lenses: [], lensEntropy: 0, dims, rho: [] };
+  if (acts.length < 2) return { units: 0, departure: 0, tone: null, lenses: [], lensEntropy: 0, localKeys: { distinct: 0, diverged: 0, windows: 0, spread: [] }, dims, rho: [] };
 
   const { rho } = buildDensity(acts, null, sgn);
   const spectrum = eigenLenses(rho).map(l => l.weight);
@@ -148,6 +172,7 @@ export const structuralHorizon = (docOrProfiles, { k = 4, relations = false, sig
     lensEntropy: round(vonNeumann(spectrum)),
     tone: toneOf(rho, dims),
     lenses: top.map(({ lens, weight }) => ({ weight: round(weight), pattern: lensTop(lens, dims), lens })),
+    localKeys: localKeyReading(acts, dims, toneOf(rho, dims)?.label),
     rho,
   };
 };
@@ -158,4 +183,27 @@ export const structuralHorizon = (docOrProfiles, { k = 4, relations = false, sig
 export const structuralCommutator = (profilesA, profilesB, { m = 3 } = {}) => {
   const proj = (ps) => projectorFrom(eigenLenses(buildDensity(ps.filter(p => p.some(x => x > 0))).rho, { k: m }).map(l => l.lens));
   return round(commutator(proj(profilesA), proj(profilesB)));
+};
+
+// crossSourceFrameVerdicts(sources, { rank, hyst }) — the frame channel applied across SOURCES
+// (docs/referents-recursed-up-the-domain-axis.md, D5; the frame-scatter probe's M3, which measured
+// incommensurability firing BETWEEN documents, not between regions of one). For each pair of
+// sources it reads the structural incommensurability of their operational bases and runs the
+// frame channel's evaluator: `converge` (the two read under one frame), `conflict` (incommensurable
+// — held apart, the paradigm's negative evidence), or `held` (too thin to measure). Report-only —
+// the crosswalk surfaces it beside the shared-referent fold; nothing is merged or forced.
+//   sources: [{ id, doc }] — docs already parsed
+export const crossSourceFrameVerdicts = (sources, { rank = 3, hyst = 1.5 } = {}) => {
+  const withActs = (sources || []).map((s) => ({ id: s.id, acts: structuralActivations(s.doc).activations }))
+    .filter((s) => Array.isArray(s.acts) && s.acts.length >= rank);
+  const out = [];
+  for (let i = 0; i < withActs.length; i++)
+    for (let j = i + 1; j < withActs.length; j++) {
+      const a = withActs[i], b = withActs[j];
+      const facts = frameIncommensurability(a.acts, b.acts, { rank });
+      const ev = evaluateFrameConvergence(`src:${a.id}`, `src:${b.id}`, facts, { hyst });
+      out.push({ a: a.id, b: b.id, verdict: ev.verdict, reason: ev.reason,
+                 incommensurability: facts.incommensurability, baseline: facts.baseline });
+    }
+  return out;
 };

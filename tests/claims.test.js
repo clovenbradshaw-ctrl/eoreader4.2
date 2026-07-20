@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { claimKey, sameClaim, turnClaims, readingClaims, summaryClaims, murmurClaims, recordClaims } from '../src/rooms/reader/claims.js';
+import { claimKey, sameClaim, turnClaims, readingClaims, summaryClaims, murmurClaims, recordClaims, corroborateClaims } from '../src/rooms/reader/claims.js';
 
 // The findings projection (docs/search-and-pins.md): claims from every mint, with the two turn
 // joins fixed. These tests pin the joins the old derivation got wrong, the standing→status
@@ -140,6 +140,51 @@ test('recordClaims — merged, deduped by key; a Contested duplicate upgrades th
   assert.equal(dupes[0].origin, 'reading', 'first mint wins the row');
   assert.equal(dupes[0].status, 'Contested', 'the contradiction is never hidden by dedup');
   assert.ok(contradictions >= 1);
+});
+
+test('corroborateClaims — the SAME claim from two DIFFERENT sources is marked Corroborated', () => {
+  const claims = [
+    { key: 'a', text: 'The seawall will cost $145M.', status: 'Stated', docId: 'dA' },
+    { key: 'b', text: 'The seawall will cost $145M.', status: 'Stated', docId: 'dB' },
+  ];
+  const { corroboratedGroups } = corroborateClaims(claims);
+  assert.equal(corroboratedGroups, 1);
+  assert.equal(claims[0].status, 'Corroborated');
+  assert.equal(claims[1].status, 'Corroborated');
+});
+
+test('corroborateClaims — the SAME claim repeated within ONE source is not corroboration', () => {
+  const claims = [
+    { key: 'a', text: 'The seawall will cost $145M.', status: 'Stated', docId: 'dA' },
+    { key: 'b', text: 'The seawall will cost $145M.', status: 'Stated', docId: 'dA' },
+  ];
+  const { corroboratedGroups } = corroborateClaims(claims);
+  assert.equal(corroboratedGroups, 0);
+  assert.equal(claims[0].status, 'Stated');
+});
+
+test('corroborateClaims — never downgrades a Contested claim to Corroborated', () => {
+  const claims = [
+    { key: 'a', text: 'The bridge opened in 1990.', status: 'Contested', docId: 'dA' },
+    { key: 'b', text: 'The bridge opened in 1990.', status: 'Stated', docId: 'dB' },
+  ];
+  corroborateClaims(claims);
+  assert.equal(claims[0].status, 'Contested', 'a contested claim keeps its dispute visible');
+  assert.equal(claims[1].status, 'Corroborated');
+});
+
+test('recordClaims — a claim stated by two distinct sources reads Corroborated end to end', () => {
+  const mk = (docId, sn) => ({ sn, reg: 'S-000' + sn, docId, title: 'T',
+    summary: { objects: [{ key: 'claim:0', type: 'claim', relational: false, standing: 'stated', cite: [0],
+      fields: { subject: 'The seawall', value: 'projected to cost $145M', polarity: '+' } }] } });
+  const docA = { sentences: ['The seawall is projected to cost $145M.'], log: { events: [] } };
+  const docB = { sentences: ['The seawall is projected to cost $145M, per the audit.'], log: { events: [] } };
+  const { claims, corroboratedGroups } = recordClaims({
+    sources: [mk('dA', 1), mk('dB', 2)],
+    docFor: (s) => (s.docId === 'dA' ? docA : docB),
+  });
+  assert.equal(corroboratedGroups, 1);
+  assert.ok(claims.every((c) => c.status === 'Corroborated'));
 });
 
 test('sameClaim — canon equality and containment, both ways', () => {

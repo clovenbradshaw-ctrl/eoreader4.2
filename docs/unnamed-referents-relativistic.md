@@ -26,10 +26,43 @@ The whole arc below is now IMPLEMENTED. In reading order:
    No retroactive second cursor — the centre is instantiated (INS) before it is bonded (CON), in
    reading order. *Metamorphosis* stays clean: the named Gregor is the local sun, so "the creature"
    is his. Full suite green.
+4. **The first-person teller channel actually separates tellers** (`parse/narrative-depth.js`,
+   `parse/deixis.js`, wired in `pipeline.js` and `referents/index.js`). "It/he" is one relativistic
+   frame problem; "I" is another — a first-person mention names whoever is currently TELLING, not
+   the nearest named figure, and a novel can nest several tellers (Frankenstein: Walton's letters,
+   Victor's own account, the creature's tale quoted inside it). The deixis frame
+   (`createDeixisFrame`) already modelled this as depth-keyed teller runs, but `depthAt` was never
+   wired — it defaulted to a constant 0, so the whole book read as ONE flat teller, sticky from
+   first grounding (empirically: on the real *Frankenstein* text, all 5,658 "I" mentions collapsed
+   onto a single wrong bearer). `induceNarrativeDepth` reads the depth purely from the document's
+   own shape — no speech-verb lexicon: a labelled numbered-heading series (Letter N / Chapter N)
+   is one teller run per recurring-kind series (an epoch bump only on a KIND change, never on every
+   heading, so 24 chapters of the same teller stay one run), and each “ ” span gets its own quote
+   id (a stack, so nesting resumes the outer voice on close, and a chapter break sitting inside one
+   continuous telling — closed before the heading, reopened after — is read as a continuation, not
+   a new speaker). Landing this exposed two dormant bugs in `deixis.js` itself (latent because only
+   one depth value ever occurred before): frame lookup only ever consulted the LAST-pushed frame,
+   so dipping into a nested depth and back destroyed the outer run's sticky bearer instead of
+   resuming it; and `groundTeller` read the field frozen at the run's opening sentence forever, so
+   a run that started before any candidate had accrued mass could never ground. Both fixed
+   (`frameAt` searches by depth across the whole history; grounding prefers the run's own opening
+   but falls back to the calling sentence if that was empty). `buildReferents` (referents/index.js)
+   had its own, separate resolution for deixis-form mentions that bypassed the teller channel
+   entirely (raw field-concentration, the same "scatters onto whoever is momentarily hot" bug) —
+   now it consults `deixis.tellerAt` when a deixis frame is threaded through. Net, measured on the
+   real *Frankenstein* text: the creature's referent gained deixis surfaces (18 → 51) purely from
+   this wiring, no other change. Full suite green.
 
 Still open: distinct minor nameless figures are held off the protagonist by the person-role inhibitor
-(a backstop), not yet separated by full coreference; and the creature's mass reported in the cast is
-still its explicit-description count (its pronoun activity rides the edges, as a named figure's does).
+(a backstop), not yet separated by full coreference. The teller channel's REMAINING gap is grounding
+quality, not structure: `corefField`'s "grounded" mass only deposits on a fresh NAMED/epithet
+sighting (never on a bare pronoun resolution) and decays over a short window (`maxDist`, default 8
+sentences) with no notion of animacy — so a teller run that opens after a long pronoun-only stretch,
+or whose own content happens to name a place before it names any person, can ground onto that place
+and stay sticky for the whole run (measured: Victor's own 24-chapter narration and the creature's
+quoted tale each currently ground this way, dominating the leftover wrong-bearer mass). Fixing that
+needs the coref field to carry an animacy/person signal, or the teller anchor to reach further back
+than one field read — a follow-on, not a depth-wiring problem.
 
 ## The thesis
 

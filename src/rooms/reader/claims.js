@@ -163,6 +163,41 @@ export const turnClaims = (messages) => {
   return { rows, contradictions };
 };
 
+// Cross-source corroboration — the one comparison claimKey's dedup CANNOT make, because claimKey
+// embeds docId by design (a claim's identity is content + the place it stands on, so a pin never
+// drifts). That means two DIFFERENT sources asserting the same claim keep two different keys and
+// are never merged by the byKey pass above — there was no mechanism anywhere that noticed a claim
+// is corroborated by an independent source, only the turn-verdict path that notices a claim was
+// CONTESTED. This closes the other half: group the deduped rows by canon-folded text (sameClaim,
+// docId-blind on purpose) and, where a group spans ≥2 distinct docIds, mark every row in it
+// Corroborated — unless it is already Contested, which a corroboration must never downgrade (a
+// claim can be both independently asserted AND independently disputed; the dispute stays visible).
+export const corroborateClaims = (claims) => {
+  const n = claims.length;
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const find = (x) => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+  const union = (a, b) => { a = find(a); b = find(b); if (a !== b) parent[a] = b; };
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (claims[i].docId != null && claims[i].docId === claims[j].docId) continue; // same-source dup, not corroboration
+      if (sameClaim(claims[i].text, claims[j].text)) union(i, j);
+    }
+  }
+  const groups = new Map();
+  for (let i = 0; i < n; i++) { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(i); }
+  let corroboratedGroups = 0;
+  for (const idxs of groups.values()) {
+    const docIds = new Set(idxs.map((i) => claims[i].docId).filter((d) => d != null));
+    if (docIds.size < 2) continue;
+    corroboratedGroups++;
+    for (const i of idxs) {
+      if (claims[i].status === 'Contested') continue;
+      claims[i].status = 'Corroborated'; claims[i].band = 'corroborated';
+    }
+  }
+  return { claims, corroboratedGroups };
+};
+
 // The whole projection: every mint, merged and deduped by claimKey. First mint wins a duplicate
 // (reading before summary before murmur before turn), except that a Contested duplicate upgrades
 // the kept row — a contradiction is never hidden by dedup.
@@ -191,6 +226,7 @@ export const recordClaims = ({ messages = [], sources = [], docFor = () => null,
     if (row.status === 'Contested' && kept.status !== 'Contested') { kept.status = 'Contested'; kept.band = 'contested'; }
   }
   const claims = [...byKey.values()];
+  const { corroboratedGroups } = corroborateClaims(claims);
   const contested = claims.filter((c) => c.status === 'Contested').length;
-  return { claims, contradictions: Math.max(turns.contradictions, contested) };
+  return { claims, contradictions: Math.max(turns.contradictions, contested), corroboratedGroups };
 };

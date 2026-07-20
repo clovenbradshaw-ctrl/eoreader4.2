@@ -79,7 +79,7 @@ export { createLayeredGenerator } from './layered-generator.js';
 // The structural significance basis: ρ built from OPERATIONS (the cube's Act face read
 // off the log), not embeddings — meaning as what the operators do to the field, not as
 // distributional company. The embedder stays in VOX; the column reads structure.
-export { OPS, RELTYPES, operatorProfiles, structuralActivations, structuralHorizon, structuralCommutator, structuralGround } from './structure-basis.js';
+export { OPS, RELTYPES, operatorProfiles, structuralActivations, structuralHorizon, structuralCommutator, structuralGround, crossSourceFrameVerdicts } from './structure-basis.js';
 // Label feedback (word → concept): grow specific link-types from the recurring links the
 // closed vocabulary leaves untyped, and MEASURE whether structure alone carves each one
 // (deriveNull over random same-size groups) — `structureGrows` is the empirical answer to

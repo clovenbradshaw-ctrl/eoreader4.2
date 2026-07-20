@@ -13,6 +13,24 @@
 
 import { parseQuery, hasQuery } from './search-record.js';
 import { scanAll, sourceRail, OCC_CAP } from './search-surface-scan.js';
+import { crossSourceConflicts } from '../../enactor/factcheck/index.js';
+import { fieldVerdict } from '../../surfer/index.js';
+
+// A cross-source numeric conflict (crosscheck.js — "18,000 homes" vs "9,000") read into a contrast
+// row. This is the one real disagreement signal that existed in the engine but never reached this
+// page: it was computed only for the Findings tab's conflict banner, so a plain search's Contrast
+// tab could show "no contested claims" while the very same sources disagreed on a hard number.
+const measureConflictRows = (conflicts) => conflicts.map((c) => {
+  const vs = c.values.slice(0, 2);
+  const spread = vs.map((v) => v.raw + (v.sourceLabel ? ` (${v.sourceLabel})` : '')).join(' vs ');
+  const extra = c.values.length > 2 ? `, +${c.values.length - 2} more` : '';
+  return {
+    subject: c.measureLabel + (c.subject ? ` · ${c.subject}` : ''),
+    text: `Sources disagree: ${spread}${extra}.`,
+    quote: vs[0]?.text || '', status: 'Contested', origin: 'measure',
+    sn: vs[0]?.source ?? null, reg: vs[0]?.sourceLabel || '',
+  };
+});
 
 // The intent vocabularies — the question words that name a KIND of surface, not a subject. Kept
 // here (not a shared stoplist) because the job is narrow: read what the reader is after, and strip
@@ -84,8 +102,27 @@ export const routeSurface = (query, providers = {}, opts = {}) => {
     concordance: [], cast: [], contrast: [], contrastKind: '',
     elements: [], concepts: [],
     empty: !asked, thin: false,
+    answerable: { void: false },
   };
   if (!asked) return out;
+
+  // Void, honestly: does ANY enabled source's field even hold this question, or is the corpus
+  // silent on it entirely? Reuses the same measurement the pre-generation void gate runs
+  // (surfer/answerable.js) — a named referent that resolves, or real retrieved material, means
+  // notVoid; per-source spans aren't threaded through here, so this checks referent/never-set
+  // absence only (fieldVerdict's spans=[] branch), never the Bayesian-surprise arm, which needs a
+  // real retrieval reach this surface doesn't compute. Void only when EVERY checked source agrees
+  // — one source that has it is enough to answer.
+  const questionText = parsed.text || out.subject;
+  const railDocs = rail
+    .map((r) => { const s = sources.find((x) => x.sn === r.sn); return s ? docFor(s) : null; })
+    .filter(Boolean);
+  if (railDocs.length) {
+    const verdicts = railDocs.map((d) => { try { return fieldVerdict(d, questionText, []); } catch { return { void: false }; } });
+    if (verdicts.every((v) => v.void)) {
+      out.answerable = { void: true, kind: verdicts[0].kind, term: verdicts[0].term || null, checked: verdicts.length };
+    }
+  }
 
   // All three yields, always — they are cheap given the scan/record already in hand, and the tab
   // counts must be honest even for the surface not currently shown (so switching is instant and the
@@ -100,6 +137,20 @@ export const routeSurface = (query, providers = {}, opts = {}) => {
     subject: c.subject || '', text: c.text, quote: c.quote || '', status: c.status || '',
     origin: c.origin || '', sn: c.sn ?? null, reg: c.reg || '',
   }));
+  // Cross-source numeric disagreement — scoped to the enabled sources, same reading the Findings
+  // conflict banner runs (app/findings.js), so a plain search sees the same disagreements the
+  // record already knows about instead of only chat-surfaced or turn-verdict contradictions.
+  let measureConflicts = [];
+  try {
+    const entries = sources
+      .map((s) => ({ doc: docFor(s), source: s.sn, label: s.title }))
+      .filter((e) => e.doc && e.doc.admission);
+    measureConflicts = crossSourceConflicts(entries).conflicts;
+  } catch { measureConflicts = []; }
+  if (measureConflicts.length) {
+    out.contrast = [...measureConflictRows(measureConflicts), ...out.contrast];
+    out.contrastKind = 'contested';
+  }
   out.elements = [
     { key: 'sources', label: 'Sources', count: signalCount, total: rail.length },
     { key: 'occurrences', label: 'Occurrences', count: total },

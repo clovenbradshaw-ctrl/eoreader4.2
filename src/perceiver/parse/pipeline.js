@@ -25,6 +25,7 @@ import { parseRelations, scanDescriptors } from './relations.js';
 import { argumentSpanSeg }      from './proposition.js';
 import { createCorefField }     from './coref.js';
 import { createDeixisFrame }    from './deixis.js';
+import { induceNarrativeDepth } from './narrative-depth.js';
 import { discoverNamings }      from './naming.js';
 import { distinctReferentCount } from './name-variants.js';
 import { induceInflections } from './inflection.js';
@@ -287,7 +288,12 @@ export const createParser = ({
     // this sentence* and the strongest candidate's weight becomes the bond's
     // coupling. Nothing is committed — the weight carries the uncertainty.
     const corefField = createCorefField({ ...corefOpts, ...(rolesConflict ? { rolesConflict } : {}) });
-    const deixis = createDeixisFrame({ field: (idx) => corefField.field(idx) });
+    // The structural run a first-person mention sits in (parse/narrative-depth.js) — a
+    // labelled numbered-heading series (Letter N / Chapter N) and “ ” nesting, read from the
+    // document's own shape. A document with neither stays at depth 0 throughout, so this is
+    // byte-identical wherever no such structure exists.
+    const depthAt = induceNarrativeDepth(sentences);
+    const deixis = createDeixisFrame({ field: (idx) => corefField.field(idx), depthAt });
     // Derived descriptor edges (owner->bearer:role), logged after the candidates, marked `derived` (defeasible).
     const derivedEdges = [];
 
@@ -718,29 +724,36 @@ export const createParser = ({
         viaCount.set(rel.via, (viaCount.get(rel.via) || 0) + 1);
         if (rel.tgtKind === 'np') nounCount.set(rel.tgt, (nounCount.get(rel.tgt) || 0) + 1);
       }
-    for (const [via, n] of viaCount) if (via && n >= 2) conventions.learn('relation', via, n);
+    // The recurrence coupling: a one-off relation verb (or NP referent) is held weak, a
+    // repeated one nearly full-strength, on ONE curve — n/(n+1) — not a picked "recurrent
+    // enough" cutoff with a picked discount below it. n=1 gives 0.5 (a single sighting
+    // compounds no more surely than a coin flip); it climbs toward 1 as sightings recur,
+    // smoothly, so there is no threshold to invent and no sharp jump at it either (the old
+    // rule went straight from ×0.5 to ×1 the instant a second sighting landed). The learn
+    // pass below (isRelation's INHERITED-prior exemption) runs AFTER this loop, not
+    // before: learning "walked" into the ledger the moment THIS document's own second
+    // sighting arrives would let a same-document recurrence exempt itself through the
+    // corpus-prior door, silently reintroducing the old hard cliff at n=2 that the curve
+    // exists to remove. isRelation here can only ever mean a PRIOR document taught it.
+    const confidenceOf = (n) => n / (n + 1);
 
     for (const { rel, sentIdx } of candidates) {
       const { args, coord, ...edge } = rel;   // `coord` is read by the gate below, then dropped (never logged)
-      // The recurrence coupling: a one-off relation verb is held weak (×0.5),
-      // compounding with any pronoun coupling already on the edge. A bond on a
-      // recurrent verb keeps full coupling. The argument-span SEG is still written
-      // before the bond and cited by it, so a CON walks back to the text (§3).
       if (edge.op === 'CON' || edge.op === 'SIG') {
         // A coordinated-subject convergence edge is held FIRM on a single sighting: a
         // reveal's verb ("listed") is single by nature, and the edge's warrant is the
         // construction, not the verb's recurrence — so it is not held weak and dropped
         // from the firm graph the bridge channel reads.
-        // A corpus-attested relation verb (inherited prior) counts as recurrent even on a
-        // single sighting: the corpus already saw it bond hundreds of times, so a new short
+        // A corpus-attested relation verb (inherited prior) is held FIRM even on a single
+        // sighting: the corpus already saw it bond hundreds of times, so a new short
         // document need not re-earn it. With no corpus prior, isRelation is empty here and
         // this OR changes nothing — reading stays byte-identical.
-        const recurrent = (viaCount.get(edge.via) || 1) >= 2 || coord === true || conventions.isRelation(edge.via);
-        let factor = recurrent ? 1 : 0.5;
-        // An NP referent rides the SAME recurrence gate as the verb and the figure: a
-        // common noun seen once across the document is held weak, never dropped — the
-        // uncertainty rides as reduced coupling, the physics the pronoun field uses.
-        if (edge.tgtKind === 'np' && (nounCount.get(edge.tgt) || 1) < 2) factor *= 0.5;
+        const exempt = coord === true || conventions.isRelation(edge.via);
+        let factor = exempt ? 1 : confidenceOf(viaCount.get(edge.via) || 1);
+        // An NP referent rides the SAME sighting-confidence curve as the verb, compounding
+        // with it — a common noun this document has barely seen is held weak regardless of
+        // how well-attested its verb is, the physics the pronoun field already uses.
+        if (edge.tgtKind === 'np') factor *= confidenceOf(nounCount.get(edge.tgt) || 1);
         const base = edge.w == null ? 1 : edge.w;          // existing (pronoun) coupling
         const w = Math.round(base * factor * 1000) / 1000;
         if (w < 1) edge.w = w; else delete edge.w;         // sub-unit coupling rides along
@@ -758,6 +771,10 @@ export const createParser = ({
         log.append({ ...edge, sentIdx });
       }
     }
+    // Learned AFTER this document's own coupling is computed (see the comment above the
+    // curve): so the ledger's 'relation' kind means "a PRIOR document taught this," never
+    // "this document just saw it twice a moment ago."
+    for (const [via, n] of viaCount) if (via && n >= 2) conventions.learn('relation', via, n);
 
     // The derived descriptor edges, after the witnessed candidates. They carry
     // `derived: true` so the projection and the edge-grounding veto treat them as
@@ -885,7 +902,7 @@ export const createParser = ({
     // is on the log, so the mention→referent quotient seeds from the finished label quotient. OFF
     // → skipped entirely, so the doc and log are byte-identical (acceptance 10).
     const referentApi = referentIdentity === 'mention'
-      ? buildReferents({ log, sentences, admission, corefField, docId })
+      ? buildReferents({ log, sentences, admission, corefField, deixis, docId })
       : null;
 
     return {
@@ -903,6 +920,7 @@ export const createParser = ({
       units: sentences,
       modality: 'text',
       corefField,    // the referent field, incl. held standing descriptors (inspection)
+      deixis,        // the first-person teller channel (inspection; post-hoc referentApiFor reads it)
       state, // exposed for inspection; not for outside mutation
     };
     };  // end finalize

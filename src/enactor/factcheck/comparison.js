@@ -43,15 +43,29 @@ const rowConflict = (measure, cells, opts) => {
 // DIRECTION is only claimed when a source states the move itself (a "revised from X to Y"
 // transition); ingestion order is not asserted time, so absent an explicit change the
 // reading names the disagreement without inventing which way it went.
-const readingFor = (measure, cells, conflict) => {
+//
+// A transition explains a disagreement only between the figure it names as old and the
+// figure it names as new. A cell that matches NEITHER — a third source with its own,
+// different number — is a disagreement the revision says nothing about; calling the row
+// "Revised" would bury that second, unexplained dispute behind a reading that sounds
+// resolved. So a transition only licenses a "Revised …" reading when every other cell's
+// value lands within tolerance of one side of it; otherwise this falls through to the
+// plain "Sources disagree", same as a row with no transition at all.
+const readingFor = (measure, cells, conflict, opts) => {
   const sched = measure === 'schedule';
   const withTr = cells.filter((c) => c.transition);
   if (withTr.length) {
-    const up = withTr.some((c) => c.value > c.transition.from);
-    const down = withTr.some((c) => c.value < c.transition.from);
-    if (up && !down) return sched ? 'Pushed later' : 'Revised upward';
-    if (down && !up) return sched ? 'Pulled earlier' : 'Revised downward';
-    return sched ? 'Schedule changed' : 'Revised';
+    const tol = measureTol(measure, opts);
+    const explained = withTr.flatMap((c) => [c.value, c.transition.from]);
+    const isExplained = (v) => explained.some((e) => !quantitiesConflict(v, e, tol).conflict);
+    const unexplained = cells.some((c) => !c.transition && !isExplained(c.value));
+    if (!unexplained) {
+      const up = withTr.some((c) => c.value > c.transition.from);
+      const down = withTr.some((c) => c.value < c.transition.from);
+      if (up && !down) return sched ? 'Pushed later' : 'Revised upward';
+      if (down && !up) return sched ? 'Pulled earlier' : 'Revised downward';
+      return sched ? 'Schedule changed' : 'Revised';
+    }
   }
   if (new Set(cells.map((c) => c.source)).size < 2) return 'Only one source';
   if (!conflict) return 'Consistent';
@@ -135,7 +149,7 @@ export const comparisonMatrix = (sources = [], opts = {}) => {
     const changed = present.some((c) => c.transition);
     rows.push({
       measure, measureLabel: measureLabel(measure, present[0]?.unit), subject,
-      conflict, changed, reading: readingFor(measure, present, conflict),
+      conflict, changed, reading: readingFor(measure, present, conflict, opts),
       sourceCount: new Set(present.map((c) => c.source)).size, cells,
     });
   }
