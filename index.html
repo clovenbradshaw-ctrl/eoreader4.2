@@ -1481,6 +1481,26 @@ table{border-collapse:collapse;width:100%}
           <sc-if value="{{ isSearch }}">
           <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:#fff">
             <div class="eo-scroll" style="flex:1;min-height:0;overflow-y:auto;padding:30px 24px 96px">
+
+              <!-- QUESTION RESULT, inline (docs/EOReader_Question_Result_Update_Spec.md) — a web
+                   search lands right in this tab's own pane instead of a modal over the app;
+                   openResearchReview() switches to this tab first, so there's always somewhere
+                   for it to land. The mounted surface (research-review-surface.js) carries its
+                   own question header, close button, and source cards, so nothing else from this
+                   tab needs to show alongside it while it's up. rrTopicId is null until
+                   reviewStart's discover-and-review pass settles, so a slow search shows this
+                   plain wait instead of the surface's "no longer available" (which means
+                   something else). -->
+              <sc-if value="{{ rrShow }}">
+                <sc-if value="{{ rrLoading }}">
+                  <div style="padding:110px 4px;text-align:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite">Searching and reviewing candidates…</div>
+                </sc-if>
+                <sc-if value="{{ rrReady }}">
+                  <div ref="{{ setResearchReviewEl }}" data-screen-label="Question Result"></div>
+                </sc-if>
+              </sc-if>
+
+              <sc-if value="{{ rrHidden }}">
               <div style="max-width:680px;margin:0 auto">
 
                 <!-- ASK CONTEXT — the quest you're in (workspace › topic path) and where the next
@@ -1747,6 +1767,7 @@ table{border-collapse:collapse;width:100%}
                   </div>
                 </sc-if>
               </div>
+              </sc-if>
             </div>
           </div>
           </sc-if>
@@ -4694,13 +4715,13 @@ table{border-collapse:collapse;width:100%}
 
 </sc-if>
 <!-- shared by both shells -->
-  <!-- QUESTION RESULT (docs/EOReader_Question_Result_Update_Spec.md) — a web search lands on
-       a centered modal over the current page, matching the other overlays (search/libraries): a
-       dimmed backdrop keeps the reader oriented in the app underneath instead of navigating away
-       to a full-bleed page. Candidate sources remain provisional until the reader explicitly
-       admits selected sources to a topic. Same modal shell on both shells (no sidebar-width
-       dependency), so this is one shared block, not a mobile/desktop split. -->
-  <sc-if value="{{ rrShow }}">
+  <!-- QUESTION RESULT (docs/EOReader_Question_Result_Update_Spec.md) — MOBILE ONLY. On desktop
+       this renders inline in the Search tab's own pane (see isSearch below) instead of a modal,
+       so the reader stays oriented in that tab's normal layout rather than losing it under a
+       dimmed overlay. The mobile shell has no such pane to render into, so it keeps the centered-
+       modal treatment (dimmed backdrop, click to close) as its one code path. Candidate sources
+       remain provisional until the reader explicitly admits selected sources to a topic. -->
+  <sc-if value="{{ rrShowModal }}">
     <div style="position:absolute;inset:0;z-index:49">
       <div onClick="{{ closeResearchReviewBackdrop }}" style="position:absolute;inset:0;background:rgba(20,20,28,.32);animation:eoFade .16s ease"></div>
       <div class="eo-modal" style="position:absolute;left:50%;top:40px;transform:translateX(-50%);width:min(1020px,96vw);max-height:calc(100vh - 80px);background:#FAFAFC;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.28);display:flex;flex-direction:column;overflow:hidden;animation:eoFade .18s ease">
@@ -10360,10 +10381,14 @@ class Component extends DCLogic {
     }
   }
   // openResearchReview(q) — the ONE way a web search starts now: open a durable Question Result
-  // page and let reviewStart discover + provisionally read the first batch before admission.
+  // page and let reviewStart discover + provisionally read the first batch before admission. It
+  // renders inline in the Search tab's own pane (not a modal over whatever tab was showing), so
+  // switch there first — otherwise a search fired from the top omnibar while on Graph/Findings/
+  // etc. would have nowhere on screen to land.
   openResearchReview(q) {
     const query = String(q || '').trim();
     if (!query || !this._app || !this._app.reviewStart) return;
+    if (this.state.tab !== 'search') this.setTab('search');
     this.setState({ rrOpen: true, rrTopicId: null, rrBusy: true });
     try { window.history.pushState({ eoQuestionResult: true }, '', '#/research/pending'); } catch {}
     this._app.reviewStart(query).then((t) => {
@@ -13486,9 +13511,11 @@ class Component extends DCLogic {
       searchRows, closeSearch: () => this.closeSearch(), retrySearch: () => this.runSearch(st.searchQ),
       // the library shelf — one shelf searched on its own surface (article/book/media/code)
       ...libVals,
-      // Question Result (docs/EOReader_Question_Result_Update_Spec.md) — a centered modal over
-      // the current page, the same on both shells (no sidebar/header offsets to compute).
-      rrShow: st.rrOpen, rrLoading: st.rrOpen && !st.rrTopicId, rrReady: st.rrOpen && !!st.rrTopicId,
+      // Question Result (docs/EOReader_Question_Result_Update_Spec.md) — renders inline in the
+      // Search tab's own pane on desktop (isSearch, below); rrShowModal is the mobile-only
+      // fallback, since the mobile shell has no Search-tab pane of its own to render into.
+      rrShow: st.rrOpen, rrHidden: !st.rrOpen, rrLoading: st.rrOpen && !st.rrTopicId, rrReady: st.rrOpen && !!st.rrTopicId,
+      rrShowModal: st.rrOpen && st.isMobile,
       setResearchReviewEl: (el) => this.setResearchReviewEl(el),
       closeResearchReviewBackdrop: () => this.closeResearchReview(),
       // native preview of a search hit — the modal grows to a page frame while previewing
