@@ -8,6 +8,7 @@
 // for gap search, the same reviewFetchOne pipeline reviewStart already uses.
 import { gapSearchQueries } from '../research-review-corpus.js';
 import { markPayload } from '../research-review-waveform.js';
+import { nowIso } from './util.js';
 
 export const installResearchReviewActions = (appCtx) => {
   const { client, emit, logIt, state } = appCtx;
@@ -83,6 +84,33 @@ export const installResearchReviewActions = (appCtx) => {
       return count;
     });
 
+  // reviewVerifyAnswer(topicId) → the one place a model may touch this screen, and only as a
+  // CLASSIFIER, never a generator. leadExcerpt's Born-rule margin test (research-review-corpus.js:
+  // bornSalience ranks, deriveNull gates) already abstained — confident:false — before this is ever
+  // reachable; a real semantic read is exactly what that abstention said a term-space score
+  // couldn't give. Asks the warmed local model ONE bounded yes/no question against the excerpt
+  // ALREADY chosen and quoted verbatim — only the verdict is kept, never any model prose, so the
+  // displayed excerpt text never changes, only its confidence badge does. User-triggered (never
+  // fired on render) so opening a thin result never silently downloads or warms a model.
+  const reviewVerifyAnswer = (topicId) =>
+    appCtx.runCancellable({ kind: 'review-verify', label: 'Checking this answer with the local model…' }, async (signal) => {
+      const t = appCtx.topicById(topicId); if (!t || !t.review) return null;
+      const view = appCtx.reviewCompute(topicId);
+      const answer = view && view.answer;
+      if (!answer || answer.confident) return answer ? answer.confident : null;
+      const m = await appCtx.ensureModel();
+      if (signal.aborted || !m) return null;
+      const prompt = `Question: ${t.review.query}\nPassage: "${answer.text}"\n\nDoes the passage directly answer the question? Reply with exactly one word: yes or no.`;
+      let reply = '';
+      try { reply = await m.phrase([{ role: 'user', content: prompt }], { maxTokens: 4, temperature: 0, signal }); }
+      catch (e) { if (signal.aborted) throw e; return null; }
+      const verdict = /^\s*yes\b/i.test(String(reply || '').trim());
+      t.review.answerCheck = { sn: answer.sn, query: t.review.query, verdict, checkedAt: nowIso() };
+      logIt('review', verdict ? 'Local model confirmed this answer' : 'Local model could not confirm this answer', answer.sn);
+      appCtx.persist(); emit('topics');
+      return verdict;
+    });
+
   // reviewOpenMark(topicId, sn, ordinal) → the shared evidence-modal payload for one waveform mark
   // (§6.1), computed lazily on click rather than for every bar up front. `ordinal` is the turn's
   // own `idx` (research-review-waveform.js's bars carry it).
@@ -99,5 +127,6 @@ export const installResearchReviewActions = (appCtx) => {
 
   Object.assign(appCtx, {
     reviewToggleIndependent, reviewClusterAction, reviewSetIdentity, reviewExpand, reviewOpenMark,
+    reviewVerifyAnswer,
   });
 };

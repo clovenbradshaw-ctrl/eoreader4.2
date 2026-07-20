@@ -174,6 +174,14 @@ export const installResearchReview = (appCtx) => {
       identityDecisions: t.review.identityDecisions || {},
       excludedSns: t.review.excludedSns || [],
     });
+    // A prior reviewVerifyAnswer (research-review-actions.js) already asked the local model this
+    // EXACT question against this EXACT excerpt — fold its verdict back in rather than re-abstaining
+    // on every recompute. Scoped to the same sn + query so a stale check never survives a refined
+    // search or a re-ranked excerpt (a new leadExcerpt winner never inherits an old verdict).
+    const check = t.review.answerCheck;
+    if (view.answer && check && check.sn === view.answer.sn && check.query === t.review.query) {
+      view.answer = { ...view.answer, confident: check.verdict, modelChecked: true };
+    }
     const waveforms = {};
     for (const row of rows) {
       try { waveforms[row.sn] = candidateWaveform(appCtx.eotFor(row.sn), { matrix, sn: row.sn }); }

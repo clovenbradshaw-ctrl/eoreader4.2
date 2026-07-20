@@ -38,13 +38,21 @@ const ledgerFromView = (view) => {
   return out.sort((a, b) => ({ contested: 0, supported: 1, single_source: 2, void: 3 }[a.verdict] - { contested: 0, supported: 1, single_source: 2, void: 3 }[b.verdict]));
 };
 
-// renderAnswerExcerpt(doc, answer, onOpenSource) → the primary direct answer: a verbatim,
-// attributed excerpt from the top reviewed source's own opening text (research-review-corpus.js
-// leadExcerpt). Model-free — it quotes, it never composes — and unlike a verdict card it needs no
-// multi-source structure to be worth showing, which is exactly why it leads: for a single-source
-// or lightly-sourced question (most of them), a verdict card built off evidenceMatrix's proposition
-// rows has only a term-cluster label to show ("american · armstrong · first"), not a sentence.
-const renderAnswerExcerpt = (doc, answer, onOpenSource) => {
+// renderAnswerExcerpt(doc, answer, onOpenSource, verify) → the primary direct answer: a verbatim,
+// attributed excerpt from the candidate research-review-corpus.js leadExcerpt ranked highest
+// against the query (its own token-space Born rule, embedder-free) and unlike a verdict card it
+// needs no multi-source structure to be worth showing, which is exactly why it leads: for a
+// single-source or lightly-sourced question (most of them), a verdict card built off
+// evidenceMatrix's proposition rows has only a term-cluster label to show ("american · armstrong ·
+// first"), not a sentence.
+//
+// `answer.confident` is leadExcerpt's own admission test (deriveNull over the OTHER candidates'
+// scores) — when it did not clear, this is a mechanical BEST GUESS, not a settled read, and says so
+// rather than dressing a guess as an answer. `verify` (optional: { verifying, onVerify }) offers the
+// one bounded, user-triggered escalation this app allows: a local model asked a single yes/no
+// classification against this EXACT excerpt (app/research-review-actions.js reviewVerifyAnswer) —
+// it may confirm or refute the badge, never rewrite the quoted text.
+const renderAnswerExcerpt = (doc, answer, onOpenSource, verify = null) => {
   const box = el(doc, 'div', 'eo-rr__answer');
   box.appendChild(el(doc, 'div', 'eo-rr__answerKicker', 'IN THE SOURCE’S OWN WORDS'));
   box.appendChild(el(doc, 'p', 'eo-rr__answerText', answer.text + (answer.truncated ? '…' : '')));
@@ -52,6 +60,17 @@ const renderAnswerExcerpt = (doc, answer, onOpenSource) => {
   const attr = el(doc, 'button', 'eo-rr__answerSrc', attrLabel);
   attr.addEventListener('click', () => { if (onOpenSource) onOpenSource(answer.sn); });
   box.appendChild(attr);
+  if (!answer.confident) {
+    box.appendChild(el(doc, 'div', 'eo-rr__caution', answer.modelChecked
+      ? 'The local model could not confirm this passage answers the question — read it as a lead, not a verdict.'
+      : 'Unconfirmed match — a term-overlap read could not confirm this source answers the question.'));
+    if (!answer.modelChecked && verify && verify.onVerify) {
+      const btn = el(doc, 'button', 'eo-rr__btn eo-rr__btn--sm', verify.verifying ? 'Checking…' : 'Check with local model');
+      btn.disabled = !!verify.verifying;
+      btn.addEventListener('click', verify.onVerify);
+      box.appendChild(btn);
+    }
+  }
   return box;
 };
 
@@ -73,7 +92,12 @@ const renderVerdictCard = (doc, claim, view, { expanded, onToggle }) => {
 export const mountResearchReview = (host, { app, topicId, onClose = () => {}, onOpenSource = null } = {}) => {
   const doc = host.ownerDocument || document; ensureStyle(doc);
   const root = el(doc, 'div', 'eo-rr__body eo-qr'); root.setAttribute('role', 'main'); root.setAttribute('aria-label', 'Question Result'); host.appendChild(root);
-  let curTopicId = topicId, filter = 'all'; const expanded = new Set(); const announce = (m) => { try { app.showToast ? app.showToast(m) : null; } catch {} };
+  let curTopicId = topicId, filter = 'all', verifyingAnswer = false; const expanded = new Set(); const announce = (m) => { try { app.showToast ? app.showToast(m) : null; } catch {} };
+  const verifyAnswer = () => {
+    if (verifyingAnswer || !app.reviewVerifyAnswer) return;
+    verifyingAnswer = true; render();
+    Promise.resolve(app.reviewVerifyAnswer(curTopicId)).catch(() => {}).then(() => { verifyingAnswer = false; render(); });
+  };
   const render = () => {
     root.innerHTML = ''; const view = app.reviewCompute(curTopicId); if (!view) { root.appendChild(el(doc, 'div', 'eo-rr__empty', 'This question result is no longer available.')); return; }
     const ledger = ledgerFromView(view); const selectedCount = (view.rows || []).filter((r) => !view.excludedSns.has(r.sn)).length;
@@ -83,7 +107,7 @@ export const mountResearchReview = (host, { app, topicId, onClose = () => {}, on
     const close = el(doc, 'button', 'eo-rr__closeBtn', '×'); close.setAttribute('aria-label', 'Close Question Result'); close.addEventListener('click', () => onClose()); titleRow.appendChild(close); root.appendChild(titleRow);
     const s = view.selectedStats || view.stats; root.appendChild(el(doc, 'div', 'eo-rr__stats', `Based on ${selectedCount} selected source${selectedCount === 1 ? '' : 's'} · ${s.independentOrigins} independent origin${s.independentOrigins === 1 ? '' : 's'}`));
     root.appendChild(el(doc, 'div', 'eo-rr__section', 'Direct answer'));
-    if (view.answer) root.appendChild(renderAnswerExcerpt(doc, view.answer, onOpenSource));
+    if (view.answer) root.appendChild(renderAnswerExcerpt(doc, view.answer, onOpenSource, { verifying: verifyingAnswer, onVerify: verifyAnswer }));
     // A verdict card earns its place here only once there is real multi-source structure to
     // adjudicate (corroborated or contested) — a lone "single_source"/"void" ledger row would just
     // restate the excerpt above, worse, off a proposition-row label rather than a real sentence.
