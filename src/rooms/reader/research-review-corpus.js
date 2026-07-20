@@ -15,6 +15,9 @@ import {
   connectionNarrative, identityCandidates, sourceNetwork, applyIndependentOverrides,
 } from './research-review-network.js';
 import { evidenceMatrix as buildEvidenceMatrix } from './research-review-matrix.js';
+import { tok } from '../../perceiver/parse/index.js';
+import { bornSalience } from '../../surfer/salience.js';
+import { deriveNull } from '../../core/voidnull.js';
 
 // ── corpus stats (the header count AND the selected-corpus preview share this) ───────────────
 
@@ -158,24 +161,67 @@ export const gapSearchQueries = (baseQuery, area) => {
 
 // ── the lead excerpt (an answer-first read, model-free) ──────────────────────────────────────
 
-// leadExcerpt(rows, max) → { sn, title, domain, url, text, truncated } | null — the opening of the
-// top-ranked reviewed candidate's own text, verbatim, cut near `max` chars at a sentence boundary.
-// For a plain factual question ("who is X", "what is Y") the top source's own lead paragraph
-// already IS the answer — quoting it beats composing a fresh sentence that risks saying something
-// the source didn't. `rows` arrives in fetch order (the search engine's own rank), so rows[0] is
-// the top hit — the same "the first result is the best guess" prior a search box already leans on.
-export const leadExcerpt = (rows, max = 600) => {
-  const row = (rows || []).find((r) => r && String(r.text || '').trim().length > 40);
-  if (!row) return null;
+// leadExcerpt(rows, query, max) → { sn, title, domain, url, text, truncated, confident } | null —
+// the opening of the candidate whose OWN TEXT actually clears the query's Born salience floor,
+// quoted verbatim, cut near `max` chars at a sentence boundary. Ranking is the SAME token-space
+// Born rule the surfer already runs against a conversation thread (surfer/salience.js
+// bornSalience: |cosine(query, candidate)|² in the discrete term space — embedder-free, no
+// frontier model). The query becomes a one-shot "thread"; each candidate's title + the window
+// that would actually be quoted is its span. Blind rank-0 picking used to be the whole rule (rows[0]
+// off the search engine's own order) — that is exactly how an unrelated top hit ("Who's on First?"
+// for "who was the first Black Canadian president?") could win: nothing ever checked it against
+// the question.
+//
+// `confident` is the SAME admission test core/voidnull.js runs everywhere else in this codebase
+// (deriveNull, the Born/null rule): the winner must clear the noise floor derived from the OTHER
+// candidates' scores (leave-one-out), not merely be the biggest score in a field that is all noise.
+// A thin candidate set (<4 background samples) or a query with no salient terms abstains
+// (`confident: false`) rather than asserting a guess — the void discipline this app holds
+// everywhere else. `confident: false` is the caller's signal that a mechanical term-space read
+// could not clear the bar here and a real semantic judgment (a warmed local model, scored as an
+// entailment check — never a generator) is what closing the gap would take.
+// bestSentenceSpan(basis, title, text) → the highest bornSalience across the candidate's OWN
+// sentences (the title folded into each), rather than one score for the whole text. Scoring the
+// whole document penalizes a longer, more detailed source purely for carrying more vocabulary (the
+// Born rule's cosine divides by span size, so a one-sentence candidate would always out-score a
+// three-sentence one even when both actually address the query equally) — comparing at
+// sentence-span granularity is what salienceField already does elsewhere for exactly this reason.
+const bestSentenceSpan = (basis, title, text) => {
+  const sentences = String(text || '').split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (!sentences.length) sentences.push(String(text || ''));
+  let best = 0;
+  for (const s of sentences) {
+    const score = bornSalience(basis, tok(`${title || ''} ${s}`));
+    if (score > best) best = score;
+  }
+  return best;
+};
+
+export const leadExcerpt = (rows, query = '', max = 600) => {
+  const candidates = (rows || []).filter((r) => r && String(r.text || '').trim().length > 40);
+  if (!candidates.length) return null;
+
+  const basis = new Map();
+  for (const t of tok(query)) basis.set(t, (basis.get(t) || 0) + 1);
+
+  const scores = candidates.map((row) => bestSentenceSpan(basis, row.title, row.text));
+  let best = 0;
+  for (let i = 1; i < scores.length; i++) if (scores[i] > scores[best]) best = i;
+
+  const background = scores.filter((_, i) => i !== best);
+  const floor = deriveNull(background, { scale: 'linear' });
+  const confident = basis.size > 0 && scores[best] > 0 && scores[best] >= floor;
+
+  const row = candidates[best];
   const text = String(row.text).trim();
-  if (text.length <= max) return { sn: row.sn, title: row.title, domain: row.domain, url: row.url, text, truncated: false };
+  if (text.length <= max) return { sn: row.sn, title: row.title, domain: row.domain, url: row.url, text, truncated: false, confident };
   const win = text.slice(0, max);
   const sentEnd = /[.!?](?=[)\]"'”’]?\s)/g;
   let cut = -1, m;
   while ((m = sentEnd.exec(win))) cut = m.index + 1;
   if (cut < max * 0.4) cut = win.lastIndexOf(' ');
   if (cut <= 0) cut = win.length;
-  return { sn: row.sn, title: row.title, domain: row.domain, url: row.url, text: text.slice(0, cut).trim(), truncated: true };
+  return { sn: row.sn, title: row.title, domain: row.domain, url: row.url, text: text.slice(0, cut).trim(), truncated: true, confident };
 };
 
 // ── the one entrance ─────────────────────────────────────────────────────────────────────────
@@ -218,7 +264,7 @@ export const researchReview = ({
   const evidenceMatrix = buildEvidenceMatrix(selectedRows, { matrix, areas: selectedAreas, clusters: selectedClusters });
   const selectedStats = corpusStats(selectedRows, { matrix, entities, clusters: selectedClusters, identity: selectedIdentity, areas: selectedAreas });
 
-  const answer = leadExcerpt(rows);
+  const answer = leadExcerpt(rows, query);
 
   return {
     rows, clusters, areas: areasWithDots, links, narrative, reading, recipes, stats, cards, query,

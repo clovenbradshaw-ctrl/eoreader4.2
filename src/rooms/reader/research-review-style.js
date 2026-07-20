@@ -13,6 +13,8 @@ const CSS = `
 .eo-rr__answerText{font-family:'Newsreader',Georgia,serif;font-size:18px;line-height:1.55;color:#1B1B22;margin:0 0 10px}
 .eo-rr__answerSrc{font-size:12px;font-weight:600;color:#5B4BE6;background:none;border:none;cursor:pointer;padding:0}
 .eo-rr__answerSrc:hover{text-decoration:underline}
+.eo-rr__answer .eo-rr__caution{margin-top:8px}
+.eo-rr__answer .eo-rr__btn--sm{display:block;margin-top:8px}
 .eo-rr__toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
 .eo-rr__toolbar input[type=text]{flex:1;min-width:160px;border:1px solid #E6E6EC;background:#F7F7FA;border-radius:9px;padding:8px 11px;font-size:13px;color:#1B1B22}
 .eo-rr__btn{font-size:12px;font-weight:600;color:#3A3A44;background:#fff;border:1px solid #E0E0E6;border-radius:9px;padding:7px 12px;cursor:pointer}
