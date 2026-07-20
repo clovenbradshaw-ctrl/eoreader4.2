@@ -619,29 +619,19 @@ table{border-collapse:collapse;width:100%}
       </div>
     </sc-if>
 
-    <!-- GRAPH -->
+    <!-- GRAPH — the real entity web (same mountTieredGraph surface as desktop; setWebGraphEl
+         shares the tg/wg draw state across both shells since they key off the same state.tab),
+         sized to the phone's width instead of a fixed desktop pane. -->
     <sc-if value="{{ mobile.isGraph }}">
       <div style="padding:14px 14px 28px;display:flex;flex-direction:column;gap:14px">
         <span style="font-size:18px;font-weight:700;color:#17171A">Graph</span>
-        <div style="background:#fff;border:1px solid #EAEAEF;border-radius:16px;padding:15px 16px">
-          <div style="font-size:12px;color:#7A7A83;margin-bottom:12px;line-height:1.4">{{ mobile.entityCount }} distinct entities across your active sources — the most connected:</div>
-          <div style="display:flex;flex-direction:column;gap:2px">
-            <sc-for list="{{ mobile.topEntities }}" as="e">
-              <div onClick="{{ e.open }}" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #F4F4F6;cursor:pointer">
-                <span style="width:25px;height:25px;border-radius:50%;background:#E7F0FE;color:#2563C9;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto">{{ e.fav }}</span>
-                <span style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#1B1B22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.label }}</span>
-                <span style="font-size:10.5px;color:#A6A6AE;flex:0 0 auto;white-space:nowrap">{{ e.meta }}</span>
-              </div>
-            </sc-for>
-          </div>
-          <sc-if value="{{ mobile.topEntitiesEmpty }}">
-            <div style="text-align:center;padding:16px;color:#9A9AA4;font-size:12.5px">No entities yet.</div>
-          </sc-if>
-        </div>
-        <div style="display:flex;gap:11px;align-items:flex-start;background:#EEEBFE;border-radius:14px;padding:14px">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B4BE6" stroke-width="1.9" style="flex:0 0 auto;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01" stroke-linecap="round"/></svg>
-          <span style="font-size:12.5px;line-height:1.45;color:#4B45C6">Full graph exploration lives on desktop. This is a snapshot of the most-connected entities across your active sources.</span>
-        </div>
+        <sc-if value="{{ mobile.topEntitiesEmpty }}">
+          <div style="background:#fff;border:1px solid #EAEAEF;border-radius:16px;padding:30px 16px;text-align:center;color:#9A9AA4;font-size:12.5px">No entities yet.</div>
+        </sc-if>
+        <sc-if value="{{ mobile.hasEntities }}">
+          <div style="font-size:12px;color:#7A7A83;line-height:1.4">{{ mobile.entityCount }} distinct entities across your active sources — tap a node to inspect, drag to pan, pinch or scroll to zoom.</div>
+          <div ref="{{ setWebGraphEl }}"></div>
+        </sc-if>
       </div>
     </sc-if>
 
@@ -4362,27 +4352,6 @@ table{border-collapse:collapse;width:100%}
     </div>
   </sc-if>
 
-  <!-- RESEARCH REVIEW (docs/research-review.md) — a web search lands here: a provisional,
-       inspectable corpus (discovered/reviewed/admitted), never an instantly-admitted topic. The
-       screen itself is mounted (window.EO.researchReview.mount), the binvis/pipeline room idiom —
-       too much live, clickable structure for the sc-if/sc-for template to carry cleanly. -->
-  <sc-if value="{{ rrShow }}">
-    <div style="position:absolute;inset:0;z-index:49">
-      <div style="position:absolute;inset:0;background:rgba(20,20,28,.36)"></div>
-      <div class="eo-modal" style="position:absolute;left:50%;top:26px;transform:translateX(-50%);width:min(880px,96vw);height:calc(100vh - 52px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.3);display:flex;flex-direction:column;overflow:hidden">
-        <!-- rrTopicId is null until reviewStart's discover-and-review pass settles; the mounted
-             surface only exists once there is a real topic to read, so a slow search shows this
-             plain wait instead of the surface's "no longer available" (which means something else). -->
-        <sc-if value="{{ rrLoading }}">
-          <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite">Searching and reviewing candidates…</div>
-        </sc-if>
-        <sc-if value="{{ rrReady }}">
-          <div ref="{{ setResearchReviewEl }}" data-screen-label="Research Review" style="flex:1;min-height:0;overflow:auto"></div>
-        </sc-if>
-      </div>
-    </div>
-  </sc-if>
-
   <!-- ⌘K SOURCE PALETTE — search THROUGH the record: titles, sites, and every recorded word -->
   <sc-if value="{{ cmdkShow }}">
     <div style="position:absolute;inset:0;z-index:55">
@@ -4700,6 +4669,28 @@ table{border-collapse:collapse;width:100%}
 
 </sc-if>
 <!-- shared by both shells -->
+  <!-- RESEARCH REVIEW (docs/research-review.md) — a web search lands here: a provisional,
+       inspectable corpus (discovered/reviewed/admitted), never an instantly-admitted topic. The
+       screen itself is mounted (window.EO.researchReview.mount), the binvis/pipeline room idiom —
+       too much live, clickable structure for the sc-if/sc-for template to carry cleanly. Lives in
+       the shared section (not either shell) so a web search shows results on mobile too. -->
+  <sc-if value="{{ rrShow }}">
+    <div style="position:absolute;inset:0;z-index:49">
+      <div style="position:absolute;inset:0;background:rgba(20,20,28,.36)"></div>
+      <div class="eo-modal" style="position:absolute;left:50%;top:26px;transform:translateX(-50%);width:min(880px,96vw);height:calc(100vh - 52px);background:#fff;border:1px solid #EAEAEF;border-radius:16px;box-shadow:0 24px 70px rgba(20,20,30,.3);display:flex;flex-direction:column;overflow:hidden">
+        <!-- rrTopicId is null until reviewStart's discover-and-review pass settles; the mounted
+             surface only exists once there is a real topic to read, so a slow search shows this
+             plain wait instead of the surface's "no longer available" (which means something else). -->
+        <sc-if value="{{ rrLoading }}">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A8A95;font-size:13px;animation:eoBlink 1.4s ease-in-out infinite">Searching and reviewing candidates…</div>
+        </sc-if>
+        <sc-if value="{{ rrReady }}">
+          <div ref="{{ setResearchReviewEl }}" data-screen-label="Research Review" style="flex:1;min-height:0;overflow:auto"></div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ toast }}">
     <div class="eo-toast" style="position:absolute;left:50%;bottom:{{ toastBottom }};transform:translateX(-50%);z-index:60;background:#1B1B22;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(20,20,30,.3);animation:eoToast .2s ease;max-width:520px">{{ toast }}</div>
   </sc-if>
@@ -9649,7 +9640,7 @@ class Component extends DCLogic {
         scope,
         sourceCards, sourceCardsEmpty: sourceCards.length === 0, kindItems, kindHasMany: kindSet.length > 2,
         sf,
-        topEntities, topEntitiesEmpty: topEntities.length === 0, entityCount,
+        topEntities, topEntitiesEmpty: topEntities.length === 0, hasEntities: entityCount > 0, entityCount,
         findingsList, findingsCount: findingsList.length, findingsEmpty: findingsList.length === 0,
         sourceView, entitySheet,
         sheet: st.mSheet, sheetIsScope: st.mSheet === 'scope', sheetIsAdd: st.mSheet === 'add', sheetOpen: !!st.mSheet,
