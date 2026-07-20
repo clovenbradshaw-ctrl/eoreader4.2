@@ -9,6 +9,8 @@
 import { gapSearchQueries } from '../research-review-corpus.js';
 import { markPayload } from '../research-review-waveform.js';
 import { nowIso } from './util.js';
+import { deriveNull } from '../../../core/index.js';
+import { joinTopline } from '../../../weave/topline/index.js';
 
 export const installResearchReviewActions = (appCtx) => {
   const { client, emit, logIt, state } = appCtx;
@@ -84,31 +86,82 @@ export const installResearchReviewActions = (appCtx) => {
       return count;
     });
 
-  // reviewVerifyAnswer(topicId) → the one place a model may touch this screen, and only as a
-  // CLASSIFIER, never a generator. leadExcerpt's Born-rule margin test (research-review-corpus.js:
-  // bornSalience ranks, deriveNull gates) already abstained — confident:false — before this is ever
-  // reachable; a real semantic read is exactly what that abstention said a term-space score
-  // couldn't give. Asks the warmed local model ONE bounded yes/no question against the excerpt
-  // ALREADY chosen and quoted verbatim — only the verdict is kept, never any model prose, so the
-  // displayed excerpt text never changes, only its confidence badge does. User-triggered (never
-  // fired on render) so opening a thin result never silently downloads or warms a model.
+  // reviewVerifyAnswer(topicId) → the one place a model may touch this screen, and it never
+  // generates displayed text or asserts a verdict — it WEIGHS THE SAME FIELD leadExcerpt already
+  // scored mechanically (research-review-corpus.js: bornSalience ranks, deriveNull gates), and gets
+  // gated by the identical rule. A first version asked the model a yes/no QUESTION and parsed the
+  // sampled word as a verdict — that is generation wearing a classifier's clothes, and it measured
+  // worse than useless: a real CPU probe (tools/e2e-local-llm) showed a 135M model saying "no" to
+  // demonstrably correct excerpts, and even reading its raw next-token probability directly (no
+  // sampling) showed it barely separating a right passage (~0.23–0.27) from a wrong one (~0.19) —
+  // the model's belief state itself carries little signal at this size, so treating either its
+  // words OR a single bare probability as a fact would be asserting noise as a verdict.
+  //
+  // The fix is architectural, not a better prompt: model.weigh() (model/wllama.js, an OPTIONAL
+  // decode-path capability — model/interface.js) reads the model's actual "yes" vs "no" belief for
+  // ONE candidate via ONE forward pass (tokenize → decode → getLogits; no sampling loop, no parsed
+  // prose). Every REVIEWED row gets this read — a second field over the SAME candidate set the
+  // term-overlap field already covers — and deriveNull runs over it exactly as leadExcerpt runs it
+  // over bornSalience scores: the model's field only counts as a confirmation when its own top pick
+  // agrees with the mechanical pick AND clears a margin over the OTHER rows' weights, not because a
+  // lone number crossed some invented cutoff. A weak, undiscriminating model then correctly fails
+  // to move anything (its weights cluster near chance, deriveNull finds no margin) rather than
+  // flipping a coin dressed as a judgment. User-triggered — never fired on render — so opening a
+  // thin result never silently downloads, warms, or runs a model.
   const reviewVerifyAnswer = (topicId) =>
-    appCtx.runCancellable({ kind: 'review-verify', label: 'Checking this answer with the local model…' }, async (signal) => {
+    appCtx.runCancellable({ kind: 'review-verify', label: 'Weighing this answer against the local model…' }, async (signal) => {
       const t = appCtx.topicById(topicId); if (!t || !t.review) return null;
       const view = appCtx.reviewCompute(topicId);
       const answer = view && view.answer;
       if (!answer || answer.confident) return answer ? answer.confident : null;
       const m = await appCtx.ensureModel();
-      if (signal.aborted || !m) return null;
-      const prompt = `Question: ${t.review.query}\nPassage: "${answer.text}"\n\nDoes the passage directly answer the question? Reply with exactly one word: yes or no.`;
-      let reply = '';
-      try { reply = await m.phrase([{ role: 'user', content: prompt }], { maxTokens: 4, temperature: 0, signal }); }
-      catch (e) { if (signal.aborted) throw e; return null; }
-      const verdict = /^\s*yes\b/i.test(String(reply || '').trim());
-      t.review.answerCheck = { sn: answer.sn, query: t.review.query, verdict, checkedAt: nowIso() };
-      logIt('review', verdict ? 'Local model confirmed this answer' : 'Local model could not confirm this answer', answer.sn);
+      if (signal.aborted || !m || typeof m.weigh !== 'function') return null;
+      const rows = (view.rows || []).filter((r) => !view.excludedSns.has(r.sn) && String(r.text || '').trim().length > 40);
+      const weighed = [];
+      for (const row of rows) {
+        if (signal.aborted) return null;
+        const prompt = `Question: ${t.review.query}\nPassage: "${String(row.text).slice(0, 600)}"\n\nDoes the passage answer the question?\nAnswer:`;
+        let w = null;
+        try { w = await m.weigh([{ role: 'user', content: prompt }], ['yes', 'no']); }
+        catch (e) { if (signal.aborted) throw e; }
+        if (w && Number.isFinite(w.yes)) weighed.push({ sn: row.sn, yes: w.yes });
+      }
+      if (!weighed.length) return null;
+      let best = weighed[0];
+      for (const w of weighed) if (w.yes > best.yes) best = w;
+      const background = weighed.filter((w) => w.sn !== best.sn).map((w) => w.yes);
+      const floor = deriveNull(background, { scale: 'linear' });
+      const verdict = best.sn === answer.sn && best.yes > 0.5 && best.yes >= floor;
+      t.review.answerCheck = { sn: answer.sn, query: t.review.query, verdict, checkedAt: nowIso(), weighed };
+      logIt('review', verdict ? 'The model’s own belief field confirms this answer' : 'The model’s own belief field did not confirm this answer', answer.sn);
       appCtx.persist(); emit('topics');
       return verdict;
+    });
+
+  // reviewFeedback(topicId) → the local model reads the result back to the reader as one fluent
+  // paragraph — "prompted by the fold" the exact way every source and entity topline already is
+  // (weave/topline/join.js, docs/topline.md): `view.reading` (research-review.js researchReading) is
+  // ALREADY pass one of that pipeline — the machinery's own deterministic, falsifiable sentences
+  // (evidence coverage, derivative-cluster caution, independent-origin count, measure agreement/
+  // conflict, thin-area caution), never generated. This runs ONLY pass two: the model is handed
+  // those sentences and asked to join them — reorder, add connectives, elide repetition — gated by
+  // the same set-containment check topline uses everywhere else (weave/topline/contain.js): every
+  // content word and number in the output must already appear in the input, or the telegram (the
+  // plain sentences, joined as-is) ships instead. The model can rearrange this result's own words;
+  // it can never add one. Model-optional and user-triggered — with no model the telegram already
+  // reads as a feedback paragraph on its own, so this only asks for more fluency, never more claims.
+  const reviewFeedback = (topicId) =>
+    appCtx.runCancellable({ kind: 'review-feedback', label: 'Asking the local model to read this result back to you…' }, async (signal) => {
+      const t = appCtx.topicById(topicId); if (!t || !t.review) return null;
+      const view = appCtx.reviewCompute(topicId);
+      if (!view || !view.reading || !view.reading.length) return null;
+      const m = await appCtx.ensureModel().catch(() => null);
+      if (signal.aborted) return null;
+      const joined = await joinTopline(view.reading, { model: m, signal });
+      t.review.feedback = { ...joined, readingKey: view.reading.join('|'), generatedAt: nowIso() };
+      logIt('review', joined.joined ? 'Local model read this result back, fluently' : 'Local model unavailable — showing the plain reading', topicId);
+      appCtx.persist(); emit('topics');
+      return t.review.feedback;
     });
 
   // reviewOpenMark(topicId, sn, ordinal) → the shared evidence-modal payload for one waveform mark
@@ -127,6 +180,6 @@ export const installResearchReviewActions = (appCtx) => {
 
   Object.assign(appCtx, {
     reviewToggleIndependent, reviewClusterAction, reviewSetIdentity, reviewExpand, reviewOpenMark,
-    reviewVerifyAnswer,
+    reviewVerifyAnswer, reviewFeedback,
   });
 };

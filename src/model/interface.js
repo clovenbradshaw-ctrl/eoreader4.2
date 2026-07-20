@@ -4,8 +4,9 @@
 // A backend is a factory: createBackend(opts) → {
 //   id, kind, isLoaded(),
 //   load(onProgress) → Promise<void>,
-//   phrase(messages, opts) → Promise<string>,        // the golden path — sample-then-return
-//   propose?(messages, opts) → AsyncIterator<Dist>,  // OPTIONAL — the grounded-speech path
+//   phrase(messages, opts) → Promise<string>,          // the golden path — sample-then-return
+//   propose?(messages, opts) → AsyncIterator<Dist>,    // OPTIONAL — the grounded-speech path
+//   weigh?(messages, choices) → Promise<Record<string, number>>,  // OPTIONAL — the field-weight path
 // }
 //
 // `phrase` is the sample-then-return contract: the backend draws the whole
@@ -25,6 +26,21 @@
 // The consumer drives the iterator with `.next(pick)`: it inspects the yielded
 // Dist, chooses a token (the gate's sampler), and passes it back to commit that
 // token and advance. No weights are touched — `propose` is a decode-path read.
+//
+// `weigh` is the other OPTIONAL decode-path read, for a closed-set judgment (does
+// this span answer this question — yes/no; which of these labels fits — A/B/C)
+// where the caller wants a WEIGHT, not generated prose. It decodes the prompt
+// once (no sampling loop) and reads the softmax'd probability the model already
+// assigns to each candidate's first token (summed over that token's casing/
+// tokenization variants), returned normalized over `choices` — e.g.
+// `weigh([...], ['yes', 'no'])` → `{ yes: 0.62, no: 0.38 }`. This is the SAME
+// discipline as core/voidnull.js's deriveNull elsewhere in this codebase: the
+// caller gates the returned weight against a noise floor derived from the SAME
+// weigh() call run over the other candidates in its own field, rather than
+// trusting a bare "yes" as a fact — a weak model then correctly fails to move
+// the needle (all weights cluster near chance) instead of asserting a wrong
+// verdict. A backend that cannot read logits omits `weigh`; the caller detects
+// its absence (model.weigh == null) and has no field-weight signal to gate on.
 //
 // An embedder is a separate thing entirely:
 //   { id, isWarm(), warm() → Promise, embed(text) → Promise<Float32Array> }
@@ -87,6 +103,10 @@ const guardContext = (backend) => {
     wrapped.propose = async function* (messages, opts = {}) {
       yield* backend.propose(fitMessages(messages, inputLimit(opts)).messages, opts);
     };
+  }
+  if (typeof backend.weigh === 'function') {
+    wrapped.weigh = (messages, choices, opts = {}) =>
+      backend.weigh(fitMessages(messages, inputLimit(opts)).messages, choices, opts);
   }
   return wrapped;
 };

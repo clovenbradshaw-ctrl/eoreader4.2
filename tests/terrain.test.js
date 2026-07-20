@@ -1,6 +1,8 @@
-// surfer/terrain.js — site typing by operators. siteTerrain stays a pure label function;
-// siteTerrainAt now MEASURES recurrence (Kind via kinds.js, Network via holons.js) instead
-// of defaulting every Pattern-grain cell to false forever.
+// surfer/terrain.js — site typing by operators. siteTerrain stays a pure label function.
+// siteTerrainAt's Network/Paradigm recurrence (cheap log-repetition checks) is covered by
+// tests/terrain-recurrence.test.js; this file covers what this branch adds — Kind, via
+// kinds.js's Born-rule entity clustering, the one Pattern cell the log's cheap repetition
+// checks cannot shortcut (no membership-criterion edge exists at this layer).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -8,7 +10,7 @@ import { createLog } from '../src/core/log.js';
 import { siteTerrain, siteTerrainAt, bondTerrain, arcTerrain } from '../src/surfer/terrain.js';
 import { OPS } from '../src/surfer/structure-basis.js';
 
-test('siteTerrain: pure label function, unchanged by the measurement wiring', () => {
+test('siteTerrain: pure label function, unaffected by the recurrence wiring', () => {
   assert.equal(siteTerrain({ ops: ['INS'] }), 'Entity');
   assert.equal(siteTerrain({ ops: ['CON'] }), 'Link');
   assert.equal(siteTerrain({ ops: ['DEF'] }), 'Lens');
@@ -20,33 +22,12 @@ test('siteTerrain: pure label function, unchanged by the measurement wiring', ()
   assert.equal(arcTerrain(), 'Network');
 });
 
-test('siteTerrainAt: an explicit recurrent override bypasses measurement', () => {
+test('siteTerrainAt: an explicit recurrent override still wins over the Kind measurement', () => {
   const log = createLog({ docId: 'd' });
-  log.append({ op: 'CON', src: 'a', tgt: 'b', sentIdx: 0 });
+  log.append({ op: 'INS', id: 'a', sentIdx: 0 });
   const doc = { log, units: [0] };
-  assert.equal(siteTerrainAt(doc, 0, { recurrent: false }), 'Link');
-  assert.equal(siteTerrainAt(doc, 0, { recurrent: true }), 'Network');
-});
-
-test('siteTerrainAt: a lone bond with no document-wide holonic structure reads as a Link, not a Network', () => {
-  const log = createLog({ docId: 'd' });
-  log.append({ op: 'CON', src: 'a', tgt: 'b', sentIdx: 0 });
-  const doc = { log, units: [0] };
-  assert.equal(siteTerrainAt(doc, 0), 'Link', 'one bond, one cast, no real multi-holon split — the honest default');
-});
-
-test('siteTerrainAt: a genuinely recurring bond structure measures as Network', () => {
-  const log = createLog({ docId: 'd' });
-  const castA = ['a1', 'a2', 'a3', 'a4', 'a5'];
-  const castB = ['b1', 'b2', 'b3', 'b4', 'b5'];
-  let u = 0;
-  for (let r = 0; r < 15; r++) { for (const id of castA) log.append({ op: 'INS', id, sentIdx: u }); u++; }
-  for (let r = 0; r < 15; r++) { for (const id of castB) log.append({ op: 'INS', id, sentIdx: u }); u++; }
-  // a CON bond sitting inside the clean two-cast document — its locus should now measure
-  // as Network (a real holonic partition exists) rather than defaulting to a bare Link.
-  log.append({ op: 'CON', src: 'a1', tgt: 'a2', sentIdx: 5 });
-  const doc = { log, units: new Array(u).fill(0) };
-  assert.equal(siteTerrainAt(doc, 5), 'Network');
+  assert.equal(siteTerrainAt(doc, 0, { recurrent: false }), 'Entity');
+  assert.equal(siteTerrainAt(doc, 0, { recurrent: true }), 'Kind');
 });
 
 test('siteTerrainAt: an entity in a genuinely recurring behavioral class measures as Kind', () => {
@@ -77,12 +58,13 @@ test('siteTerrainAt: an entity in a genuinely recurring behavioral class measure
   assert.equal(siteTerrainAt(doc, firstInsIdx), 'Kind');
 });
 
-test('siteTerrainAt: the Interpretation row holds at Lens — Paradigm needs a meaning prior this reader does not have', () => {
+test('siteTerrainAt: a flat entity population (no real behavioral distinction) stays Entity, not Kind', () => {
   const log = createLog({ docId: 'd' });
-  log.append({ op: 'INS', id: 'x', sentIdx: 0 });   // inscribed content, so grain is not Ground
-  log.append({ op: 'REC', id: 'x', sentIdx: 0 });
-  const doc = { log, units: [0] };
-  assert.equal(siteTerrainAt(doc, 0), 'Lens', 'no synchronous measurement claims Paradigm off the log alone');
+  const ids = ['x1', 'x2', 'x3', 'x4', 'x5'];
+  let u = 0;
+  for (let r = 0; r < 10; r++) for (const id of ids) { log.append({ op: 'INS', id, sentIdx: u }); u++; }
+  const doc = { log, units: new Array(u).fill(0) };
+  assert.equal(siteTerrainAt(doc, 0), 'Entity');
 });
 
 test('siteTerrainAt: a thin locus (no inscribed content) is Void, regardless of recurrence', () => {
