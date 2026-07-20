@@ -84,13 +84,17 @@ These are stated plainly because they govern what is and is not true today.
    classifier is spelling-distance wearing a cosine, and no-commit is the only
    honest output. The guard enforces this.
 2. **Construction grain.** The classifier must embed the proposition the same
-   way the centroids were built. The registry's attested verbs are *lemmas*; the
-   per-cell clause exemplars that would build clause-grain centroids live in an
-   unfetchable Drive folder (the registry's own `data_source` says so). The
-   centroid bundle therefore carries `meta.construction` (`clause` | `verb`), and
-   the classifier embeds its query at that grain so the cosine is measured
-   in-space. Clause-level is the design target; verb-grain is a construction
-   mismatch to fix by **rebuilding** the centroids, not by downgrading the query.
+   way the centroids were built. Verb-grain centroids (seeded from lemmas) are the
+   old, sparse construction; the per-cell clause exemplars that would build
+   clause-grain centroids live in an unfetchable Drive folder (the registry's own
+   `data_source` says so). The centroid bundle therefore carries
+   `meta.construction` (`clause` | `verb`), and the classifier embeds its query at
+   that grain so the cosine is measured in-space. Clause-level is the design
+   target; verb-grain is a construction mismatch to fix by **rebuilding** the
+   centroids, not by downgrading the query. Note this is strictly about how a
+   CENTROID VECTOR was constructed — the classifier never falls back to matching
+   a clause against a verb list; below the construction-grain check it either
+   measures a real cosine or holds at no-commit.
 3. **No verified centroids ship here.** Consequently the geometric reader boots
    to **unavailable**, and the animation says so. That is correct, not a gap to
    paper over — see the guard.
