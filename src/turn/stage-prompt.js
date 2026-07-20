@@ -5,7 +5,7 @@
 // into the one named-stage map the pipeline walks. Same holon, same seams.
 import { selectExcerpts } from '../surfer/retrieve/index.js';
 import { trajectory, threadBasis } from '../surfer/index.js';
-import { arcGravity, arcLines } from '../weave/write/index.js';
+import { arcGravity, arcLines, TERRAIN_GRAVITY } from '../weave/write/index.js';
 import { serializeEOT } from '../perceiver/index.js';
 import { foldConversation, groundedThread } from './converse/index.js';
 import { buildGroundedMessages, buildChatMessages, projectGroundedBands, judgePrompt } from '../model/index.js';
@@ -148,7 +148,7 @@ export const STAGES = {
         if (focusLabel) {
           const traj = trajectory(ctx.doc, { focus: focusLabel, segments: ctx.surf.recCursors || [] });
           const thread = threadBasis({ query: ctx.question, history: ctx.history || [], doc: ctx.doc });
-          arcBlock = arcLines(arcGravity(traj, { surf: ctx.surf, thread }));
+          arcBlock = arcLines(arcGravity(traj, { surf: ctx.surf, thread, doc: ctx.doc, terrainAware: TERRAIN_GRAVITY }));
         }
       } catch { arcBlock = ''; }
     }

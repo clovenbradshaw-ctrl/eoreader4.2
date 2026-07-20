@@ -36,28 +36,58 @@
 // system can only render a revision it genuinely underwent. Gravity that cannot earn
 // itself decays to the flat surface — which is the correct failure.
 
-import { deriveNull } from '../../core/index.js';
-import { linkSalience } from '../../surfer/index.js';
+import { deriveNull, terrainInfo } from '../../core/index.js';
+import { linkSalience, siteTerrainAt, GRAIN_WEIGHT } from '../../surfer/index.js';
 import { toPast } from './morph.js';
 import { createRule } from './eva.js';
 import { claimsOf } from './witness.js';
 
+// Terrain-aware weighting (opt-in — docs/referents-recursed-up-the-domain-axis.md's D4,
+// "still ahead": the significance column and the weight-of-the-turn were computed as two
+// parallel systems that never met). GRAIN_WEIGHT (surfer/terrain.js) is the shared law: a
+// Ground-grain REC lands before the reading has concentrated into a claim at all and earns
+// LESS; Figure, the ordinary case, is the baseline; Pattern — a REC that reorganises a
+// recurring regularity, which already cleared a stricter bar to register as one (surf.js's
+// own Paradigm-pass hysteresis) — would earn MORE, though siteTerrainAt's plain per-cursor
+// read below only ever resolves Ground or Figure (`recurrent` defaults false); surf.js's own
+// arrest conditioning reads the SAME schedule (surf.js's terrainCond), so a turn's weight and
+// where the surf stopped agree on what a grain is worth, not two independently-tuned numbers.
+
+// Env-gated bench flag (organs/out/speech/index.js's RULES_REV convention): off by default,
+// so the coupling stays unmeasured-inert in the live pipeline until a bench opts in —
+// TERRAIN_GRAVITY=1 flips it without touching code. Unlike RULES_REV's golden-gated path,
+// this is a pure re-weighting of an already-computed number (no new prose, no new claims),
+// so the honest default is still off until it is measured on real readings, not because the
+// blast radius is large.
+export const TERRAIN_GRAVITY =
+  (typeof process !== 'undefined' && process.env && /^(1|true|on)$/i.test(process.env.TERRAIN_GRAVITY || '')) || false;
+
 // ── move 4 (the measure): the rewrite magnitude per turn ─────────────────────
-// turnWeights(surf) → [{ cursor, weight }] — for each REC frame-break, how hard the
-// reading was rewritten there: the surf field's Bayesian surprise at the cursor over the
-// field's median (the same margin frame.js reads at the peak), normalised so the
-// strongest turn weighs 1. A surf with no field (the EOT path) yields no weights — the
-// turns are still real (they are on the log), they just carry no measured magnitude.
-export const turnWeights = (surf) => {
+// turnWeights(surf, { doc, terrainAware }) → [{ cursor, weight }] — for each REC frame-
+// break, how hard the reading was rewritten there: the surf field's Bayesian surprise at
+// the cursor over the field's median (the same margin frame.js reads at the peak), scaled
+// by the locus's terrain grain when terrainAware is set AND a doc is supplied (both must be
+// present — the coupling is opt-in and reads the SAME doc/log the surf rode), then
+// normalised so the strongest turn weighs 1. A surf with no field (the EOT path) yields no
+// weights — the turns are still real (they are on the log), they just carry no measured
+// magnitude. Byte-identical to the pre-coupling behaviour when terrainAware is left off
+// (the default) — the grain multiplier is 1 everywhere until asked for.
+export const turnWeights = (surf, { doc = null, terrainAware = false } = {}) => {
   const recs = surf?.recCursors || [];
   if (!recs.length) return [];
   const field = surf?.field || [];
   const bayes = new Map(field.filter(f => Number.isFinite(f?.bayes)).map(f => [f.idx, f.bayes]));
   const xs = [...bayes.values()];
   const med = median(xs);
+  const grainWeightAt = (c) => {
+    if (!terrainAware || !doc) return 1;
+    const terrain = siteTerrainAt(doc, c);
+    const info = terrain ? terrainInfo(terrain) : null;
+    return info ? (GRAIN_WEIGHT[info.grain] ?? 1) : 1;
+  };
   const raw = [...new Set(recs)].map(c => ({
     cursor: c,
-    margin: Math.max(0, (bayes.get(c) ?? med) - med),
+    margin: Math.max(0, (bayes.get(c) ?? med) - med) * grainWeightAt(c),
   }));
   const top = Math.max(0, ...raw.map(r => r.margin));
   return raw
@@ -73,16 +103,17 @@ const median = (xs) => {
 };
 
 // ── move 1: the arc lifted into a weighted brief ─────────────────────────────
-// arcGravity(traj, { surf, thread }) → the trajectory (surfer/trajectory.js) with its
-// dynamics made carryable: each turn weighted by rewrite magnitude, each relation scored
-// against the live thread (the Born weight of the link's participants), the off-thread
-// ones SUBORDINATED below the thread's own noise null — marked, never erased (suppress-
-// never-erase). Null when there is no trajectory to lift.
-export const arcGravity = (traj, { surf = null, thread = null } = {}) => {
+// arcGravity(traj, { surf, thread, doc, terrainAware }) → the trajectory (surfer/
+// trajectory.js) with its dynamics made carryable: each turn weighted by rewrite magnitude
+// (terrain-scaled when terrainAware+doc are supplied — see turnWeights), each relation
+// scored against the live thread (the Born weight of the link's participants), the off-
+// thread ones SUBORDINATED below the thread's own noise null — marked, never erased
+// (suppress-never-erase). Null when there is no trajectory to lift.
+export const arcGravity = (traj, { surf = null, thread = null, doc = null, terrainAware = false } = {}) => {
   if (!traj || !traj.phases?.length) return null;
 
   // every REC boundary the trajectory pivots on, weighted where the surf measured it
-  const measured = new Map(turnWeights(surf).map(t => [t.cursor, t.weight]));
+  const measured = new Map(turnWeights(surf, { doc, terrainAware }).map(t => [t.cursor, t.weight]));
   const turns = [...new Set(traj.turns || [])].sort((a, b) => a - b)
     .map(c => Object.freeze({ cursor: c, weight: measured.get(c) ?? 0 }));
   let heaviest = null;

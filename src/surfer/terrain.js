@@ -110,3 +110,14 @@ export const bondTerrain = () => terrainOf('Structure', 'Figure');   // 'Link'
 // A REGULARITY over links — a trajectory's segmented arc, an aggregated relation — IS a
 // Network (Structure × Pattern). The trajectory is a Network reading: a pattern of Links.
 export const arcTerrain = () => terrainOf('Structure', 'Pattern');   // 'Network'
+
+// GRAIN_WEIGHT — how much a locus's GRAIN (Ground/Figure/Pattern) should scale a measured
+// quantity, shared by every terrain-aware consumer so the law is stated once: a Ground-grain
+// locus is ambient, not yet concentrated into anything specific (Atmosphere/Field/Void), and
+// weighs LESS; Figure, a specific instance (Lens/Entity/Link), is the baseline; Pattern, a
+// recurring regularity (Paradigm/Kind/Network), weighs MORE — it already clears a stricter
+// measurement bar to register as a regularity at all (surf.js's own Paradigm-pass hysteresis).
+// Consumed by write/gravity.js's turnWeights (how heavily a rendered turn is emphasized) and
+// surf.js's own arrest conditioning (where the reading stops) — two readings of the SAME cube
+// law, not two independently-invented schedules.
+export const GRAIN_WEIGHT = Object.freeze({ Ground: 0.75, Figure: 1, Pattern: 1.25 });
