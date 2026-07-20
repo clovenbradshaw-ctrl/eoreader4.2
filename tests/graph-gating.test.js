@@ -108,3 +108,39 @@ test('_drawCrosswalk: a referent corroborated by two sources draws normally', ()
   const { calls } = withMountStub(() => proto._drawCrosswalk.call(ctx, el, {}));
   assert.equal(calls.length, 1, 'mountTieredGraph draws once a referent is genuinely corroborated across two sources');
 });
+
+// A wide corpus — 25 crossed referents sharing the same two sources — the reported hairball
+// shape (2,121 nodes in the live app). Crosswalk must cap the default draw and let a search
+// isolate its matches instead of only narrowing the sidebar checklist while the canvas kept
+// drawing everything.
+const wideCrosswalkData = () => {
+  const nodes = [{ id: 'src:1', kind: 'source', label: 'S1' }, { id: 'src:2', kind: 'source', label: 'S2' }];
+  const edges = [];
+  for (let i = 0; i < 25; i++) {
+    const id = `xref-${String(i).padStart(2, '0')}`;
+    nodes.push({ id, kind: 'entity', label: `Referent ${String(i).padStart(2, '0')}`, ref: { docId: 'd', entId: id } });
+    edges.push({ a: 'src:1', b: id, tier: 0, code: 'INS' }, { a: 'src:2', b: id, tier: 0, code: 'INS' });
+  }
+  return { nodes, edges };
+};
+
+test('_drawCrosswalk: defaults to the 20 most-corroborated referents, not the whole corpus', () => {
+  const el = { innerHTML: '' };
+  const ctx = { _app: { crosswalkTieredData: wideCrosswalkData }, _filterTiered: proto._filterTiered, state: {}, setState() {} };
+  const { calls } = withMountStub(() => proto._drawCrosswalk.call(ctx, el, {}));
+  assert.equal(ctx._tgToggles.length, 20, 'the checklist caps at 20 referents by default');
+  assert.equal(calls.length, 1);
+  const drawnEntities = calls[0].nodes.filter((n) => n.kind === 'entity');
+  assert.equal(drawnEntities.length, 20, 'the DRAWN graph is capped too, not just the sidebar list');
+  assert.equal(ctx._crosswalkTotal, 25);
+});
+
+test('_drawCrosswalk: a search query isolates its matches on the canvas, not only the checklist', () => {
+  const el = { innerHTML: '' };
+  const ctx = { _app: { crosswalkTieredData: wideCrosswalkData }, _filterTiered: proto._filterTiered, state: {}, setState() {} };
+  const { calls } = withMountStub(() => proto._drawCrosswalk.call(ctx, el, { query: 'Referent 07' }));
+  assert.equal(ctx._tgToggles.length, 1, 'the checklist narrows to the one match');
+  const drawnEntities = calls[0].nodes.filter((n) => n.kind === 'entity');
+  assert.equal(drawnEntities.length, 1, 'the drawn graph narrows to the match too — not the full 25-referent corpus');
+  assert.equal(drawnEntities[0].label, 'Referent 07');
+});

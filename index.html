@@ -1873,9 +1873,11 @@ table{border-collapse:collapse;width:100%}
               </sc-if>
               <div class="eo-scroll" style="flex:1;min-height:60px;overflow-y:auto;padding:0 8px 12px">
                 <sc-for list="{{ webToggles }}" as="t">
-                  <div onClick="{{ t.toggle }}" title="{{ t.label }}" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12px;color:{{ t.fg }}" style-hover="background:#F4F4F7">
-                    <span style="width:15px;height:15px;border-radius:4px;border:1.5px solid {{ t.boxBd }};background:{{ t.boxBg }};flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;line-height:1">{{ t.check }}</span>
-                    <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</span>
+                  <div title="{{ t.label }}" style="display:flex;align-items:center;gap:8px;padding:1px 2px;border-radius:7px;font-size:12px;color:{{ t.fg }}" style-hover="background:#F4F4F7">
+                    <span onClick="{{ t.toggle }}" title="Show/hide" style="padding:4px;cursor:pointer;flex:0 0 auto;display:flex;align-items:center">
+                      <span style="width:15px;height:15px;border-radius:4px;border:1.5px solid {{ t.boxBd }};background:{{ t.boxBg }};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;line-height:1">{{ t.check }}</span>
+                    </span>
+                    <span onClick="{{ t.labelClick }}" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;padding:4px 2px">{{ t.label }}</span>
                   </div>
                 </sc-for>
                 <sc-if value="{{ webTogglesEmpty }}">
@@ -10339,6 +10341,7 @@ class Component extends DCLogic {
     this._wg.hidden = new Set();                            // so reset the toggles and any focus and
     this._wg.focusKey = null; this._wg.focusLabel = null;  // land on the whole topic in the new kind
     this._wg.scope = 'topic';
+    this._wg.query = '';   // drop any stale crosswalk search scope too — the vocabularies differ
     this._seedWgPanel();   // entity kind reopens the panel on the top figure; network/causal have none
     this.setState({ webGraphFor: this._wgMirror(), webEntQuery: '' });   // the vocabularies differ — drop any stale filter
     this._drawWebGraph();
@@ -10409,7 +10412,7 @@ class Component extends DCLogic {
       return;
     }
     this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
-      .map((n) => ({ id: n.id, label: n.label }))
+      .map((n) => ({ id: n.id, label: n.label, ref: n.ref }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
     const show = this._filterTiered(data, w.hidden);
     this._tg = window.EO.mountTieredGraph(el, {
@@ -10476,7 +10479,7 @@ class Component extends DCLogic {
       return;
     }
     this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
-      .map((n) => ({ id: n.id, label: n.label }))
+      .map((n) => ({ id: n.id, label: n.label, ref: n.ref }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
     const show = this._filterTiered(data, w.hidden);
     // the floor of the descent: the focus entity's raw mention sentences (level 3, the substrate)
@@ -10530,10 +10533,32 @@ class Component extends DCLogic {
       el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:62ch;line-height:1.55">Crosswalk needs a referent that shows up in more than one source to compare identity across them — right now every referent here is confined to a single source. Record another source that mentions the same figure, then reopen Crosswalk.</div>';
       return;
     }
-    this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
-      .map((n) => ({ id: n.id, label: n.label }))
+    // Rank referents by corroboration strength (how many sources actually align on them) —
+    // the honest "most crossed" ordering, not corpus order — and CAP the default draw to the
+    // strongest CROSSWALK_CAP instead of the whole corpus (the reported failure: 2,121 nodes /
+    // 2,201 edges, an uninspectable hairball on every load). A search isolates its matches
+    // instead: the reported bug was that webEntQuery only narrowed the sidebar checklist while
+    // the canvas kept drawing everything — search now scopes the DRAWN graph too, via the same
+    // one-hop-context drop _filterTiered already does for manual hide/show.
+    const entityNodes = (data.nodes || []).filter((n) => n.kind === 'entity');
+    const byStrength = entityNodes.slice().sort((a, b) =>
+      (srcHitsByEntity.get(b.id) || 0) - (srcHitsByEntity.get(a.id) || 0) || String(a.label).localeCompare(String(b.label)));
+    const CROSSWALK_CAP = 20;
+    // w.query mirrors state.webEntQuery but is set synchronously alongside it (onWebEntSearch),
+    // so a redraw triggered in that same handler always scopes off the value just typed rather
+    // than whatever state.webEntQuery last committed to.
+    const query = String((w.query != null ? w.query : (this.state && this.state.webEntQuery)) || '').trim().toLowerCase();
+    const scoped = query ? byStrength.filter((n) => String(n.label).toLowerCase().includes(query)) : byStrength.slice(0, CROSSWALK_CAP);
+    const scopedIds = new Set(scoped.map((n) => n.id));
+    this._tgToggles = scoped.map((n) => ({ id: n.id, label: n.label, ref: n.ref }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
-    const show = this._filterTiered(data, w.hidden);
+    // How much of the corpus this view is actually showing — read back by _webGraphVals to
+    // explain the cap/search scope in the panel note, since a bare cap with no explanation
+    // just relocates the "why is most of it missing" confusion instead of resolving it.
+    this._crosswalkShown = scoped.length; this._crosswalkTotal = entityNodes.length;
+    const outOfScope = new Set(entityNodes.filter((n) => !scopedIds.has(n.id)).map((n) => n.id));
+    const scopedData = this._filterTiered(data, outOfScope);
+    const show = this._filterTiered(scopedData, w.hidden);
     this._tg = window.EO.mountTieredGraph(el, {
       nodes: show.nodes, edges: show.edges,
       onOpen: (node) => { if (node && node.ref) this._webFocusEntity(node.ref); },
@@ -10743,7 +10768,12 @@ class Component extends DCLogic {
         : isNetwork
         ? 'The sources themselves, linked by what they corroborate — never merged on a bare label match. A source that shares nothing with the others stays visibly its own node.'
         : isCrosswalk
-        ? 'A referent folded across sources by corroborated identity, never spelling alone. Scrub the fold cursor for the corpus cursor (its discovery order); a "…" claim node marks where its dominant label changed. Click a referent to load its profile.'
+        ? 'A referent folded across sources by corroborated identity, never spelling alone. Scrub the fold cursor for the corpus cursor (its discovery order); a "…" claim node marks where its dominant label changed. Click a referent’s name to load its profile; the checkbox only shows or hides it.'
+          + (query
+            ? ` Showing ${this._crosswalkShown || 0} referent${(this._crosswalkShown || 0) === 1 ? '' : 's'} matching “${query}”.`
+            : (this._crosswalkTotal || 0) > (this._crosswalkShown || 0)
+            ? ` Showing the ${this._crosswalkShown || 0} most-corroborated of ${this._crosswalkTotal} referents — search a name to look at the rest.`
+            : '')
         : isCompare
         ? 'A measure-by-source table read deterministically off the record — one row per figure (a budget, a completion year, an acreage), one column per source. A cell shows the value that source states, and the move if it revised one ("$120M → $145M"). Click any cell to open its passage.'
         : isSolar
@@ -10755,15 +10785,38 @@ class Component extends DCLogic {
       webSearchPlaceholder: `Filter ${(isEnt || isSolar) ? 'entities' : isNetwork ? 'sources' : isCrosswalk ? 'referents' : 'nodes'}…`,
       webEntQuery: query,
       webSearchHasQuery: ql.length > 0,
-      onWebEntSearch: (e) => this.setState({ webEntQuery: e && e.target ? e.target.value : '' }),
-      webSearchClear: () => this.setState({ webEntQuery: '' }),
+      // Crosswalk scopes the DRAWN graph off the query, not just this checklist (_drawCrosswalk)
+      // — that scoping is imperative, so a query edit must re-trigger the draw explicitly, reading
+      // the SAME instant value the draw uses (this._wg.query, mirroring how this._wg itself is
+      // "mutated and redrawn imperatively" rather than trusted through async setState) or the
+      // canvas would sit stale (or race the state update) while only the sidebar list narrowed live.
+      onWebEntSearch: (e) => {
+        const v = e && e.target ? e.target.value : '';
+        if (this._wg) this._wg.query = v;
+        this.setState({ webEntQuery: v });
+        if (isCrosswalk) this._drawWebGraph();
+      },
+      webSearchClear: () => {
+        if (this._wg) this._wg.query = '';
+        this.setState({ webEntQuery: '' });
+        if (isCrosswalk) this._drawWebGraph();
+      },
       // All/None act on what's in view — with a filter active they scope to the matches, so you
       // can show or hide just the entities you searched for; with no filter they cover everything.
       webAllOn: () => this.webEntitiesAll(true),
       webNoneOn: () => this.webEntitiesAll(false),
       webToggles: shownToggles.map((t) => {
         const on = !hidden.has(t.id);
-        return { id: t.id, label: t.label, toggle: () => this.toggleWebEntity(t.id),
+        const toggle = () => this.toggleWebEntity(t.id);
+        // Crosswalk's own note promises "click a referent to load its profile" — the NAME gets
+        // its own click target for that (loads the side panel, same as clicking its graph node),
+        // separate from the checkbox, which only ever shows/hides it. Every other kind keeps
+        // exactly the behaviour it always had: both targets just toggle.
+        const openable = isCrosswalk && !!t.ref;
+        const labelClick = openable
+          ? (e) => { if (e && e.stopPropagation) e.stopPropagation(); this._setWgPanel(t.ref.docId, t.ref.entId); }
+          : toggle;
+        return { id: t.id, label: t.label, toggle, labelClick, openable,
           fg: on ? '#33333B' : '#9A9AA4', boxBg: on ? '#5B4BE6' : 'transparent',
           boxBd: on ? '#5B4BE6' : '#CBCBD4', check: on ? '✓' : '' };
       }),
