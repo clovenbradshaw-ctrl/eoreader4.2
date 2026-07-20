@@ -22,10 +22,10 @@ const EMIT = Object.freeze({ src: 'src/perceiver/referents/index.js' });
 const tokensOf = (label) => String(label || '').trim().split(/\s+/).filter(Boolean);
 
 // buildReferents(ctx) → the doc.* referent API. ctx carries the leaf state the layer reads:
-//   { log, sentences, admission, corefField, docId }
+//   { log, sentences, admission, corefField, deixis, docId }
 // Called ONLY under referentIdentity:'mention'; when off it never runs, so the parse is
 // byte-identical (acceptance 10).
-export const buildReferents = ({ log, sentences, admission, corefField, docId = 'doc' } = {}) => {
+export const buildReferents = ({ log, sentences, admission, corefField, deixis, docId = 'doc' } = {}) => {
   const snapshot = () => (log.snapshot ? log.snapshot() : log.events);
   const mentions = observeMentions(sentences, { docId });
   const mentionById = new Map(mentions.map((m) => [m.id, m]));
@@ -93,9 +93,22 @@ export const buildReferents = ({ log, sentences, admission, corefField, docId = 
         const root = rep(admission.idOf(m.normalized));
         seedDenote(m.id, refForRoot(root), 'legacy-label-quotient', 0.8, ['description-figure']);
       }
+    } else if (m.form === 'deixis' && deixis?.tellerAt) {
+      // First person names the current TELLER, not the nearest named figure — the same deixis
+      // frame the main read binds "I" through (parse/deixis.js), never the raw field-concentration
+      // test below: an addressee this very sentence happens to be hottest about is exactly what
+      // the teller channel exists to NOT borrow salience from.
+      const teller = deixis.tellerAt(m.sentIdx);
+      if (teller?.id) {
+        const root = rep(teller.id);
+        seedDenote(m.id, refForRoot(root), 'deixis-teller', Math.min(0.9, teller.w ?? 0.5),
+                   ['first-person-continuity']);
+      }
+      // else: held — the teller channel has not grounded a bearer here yet (fails toward silence).
     } else {
-      // pronoun / deixis — resolve through the field's posterior BEFORE this sentence would be
-      // circular; the field at the mention's own sentIdx already reflects the reading to here.
+      // pronoun (third person) — resolve through the field's posterior BEFORE this sentence
+      // would be circular; the field at the mention's own sentIdx already reflects the reading
+      // to here. Also the fallback for deixis when no deixis frame was threaded through.
       const field = corefField?.field ? corefField.field(m.sentIdx) : [];
       const top = field[0], next = field[1];
       const concentrated = top && (!next || (top.w ?? 0) - (next.w ?? 0) >= 0.15);
@@ -286,7 +299,7 @@ export const referentApiFor = (doc) => {
     try {
       doc._referentApi = buildReferents({
         log: doc.log, sentences: doc.sentences, admission: doc.admission,
-        corefField: doc.corefField, docId: doc.docId,
+        corefField: doc.corefField, deixis: doc.deixis, docId: doc.docId,
       });
     } catch { doc._referentApi = null; }
   }

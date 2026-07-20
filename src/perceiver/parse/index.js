@@ -28,3 +28,4 @@ export { proposeReferentNames } from './unnamed-referent-name.js';
 export { readGrain, readUncasedGrain } from './grain.js';
 export { induceAdpositions } from './adpositions.js';
 export { createDeixisFrame } from './deixis.js';
+export { induceNarrativeDepth } from './narrative-depth.js';
