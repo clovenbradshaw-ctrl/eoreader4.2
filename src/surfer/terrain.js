@@ -24,8 +24,31 @@
 //     thin (no inscribed content)        → Ground   (the ambient medium: Void/Field/Atmosphere)
 //     a regularity (recurrent/aggregate) → Pattern  (Kind/Network/Paradigm)
 //     a specific instance                → Figure   (Entity/Link/Lens)
+//
+// `recurrent` USED to be a flag every caller had to invent — and none ever did (every real
+// call site omitted it), so the three Pattern cells were reachable in name only. All three
+// are now COMPUTED, never a hand-picked flag, each off the cheapest real signal its domain
+// actually has:
+//
+//   Network   (Structure × Pattern)      the same (src, tgt) pair bonded more than once
+//                                        elsewhere in the log — id-based, not word-based.
+//   Paradigm  (Interpretation × Pattern) the same entity characterized (DEF/predicate)
+//                                        more than once with a genuinely different value.
+//   Kind      (Existence × Pattern)      detectKinds (kinds.js) — a Born-rule density
+//                                        operator over ENTITIES (the sibling of holons.js's
+//                                        detectHolons over TIME, and surf.js's own
+//                                        paradigmReading), gated against a calibrated null.
+//                                        Existence had no cheap repetition signal the way
+//                                        Network/Paradigm do (no membership-criterion edge
+//                                        exists at this layer), so this is a real measurement
+//                                        rather than a repetition check — the honest answer
+//                                        to a gap the log alone cannot shortcut.
+//
+// siteTerrainAt still accepts an explicit `recurrent` override (a caller who already knows
+// better, or a test), but its DEFAULT is now a measurement, not an always-false assumption.
 
-import { terrainOf } from '../core/index.js';
+import { terrainOf, memoizeOnLog } from '../core/index.js';
+import { detectKinds } from './kinds.js';
 
 // siteTerrain(profile) → the terrain at a locus, from its operator profile and grain signals.
 //   ops        the operators that landed at the locus (e.g. ['INS','CON'])
@@ -41,24 +64,31 @@ export const siteTerrain = ({ ops = [], recurrent = false, thin = false } = {}) 
   return terrainOf(domain, grain);
 };
 
-// recurrenceAt(events, cursor, ops) — recurrent, COMPUTED from the log instead of trusted
-// from the caller. A locus is a regularity, not an instance, when what it names keeps
-// happening elsewhere in the SAME log:
-//   Interpretation (DEF/EVA/REC present) — the entity this DEF characterizes (op:DEF,
-//     key:'predicate') has been characterized more than once, at more than one sentIdx,
-//     with a genuinely different value: the reading has been held, then re-held
-//     differently. That is a Paradigm's own identity condition (>=2 instancing readings),
-//     read off the log the parser already keeps — no new signal, just an unignored one.
+// kindsOf(doc): memoized per-doc (keyed on doc.log identity + length) — detectKinds is
+// O(document); a caller typing every event in a log (weave/write/rdf.js) must not
+// recompute it from scratch per event, unlike the cheap linear scans below.
+const kindsOf = memoizeOnLog((log, doc) => detectKinds(doc));
+
+// recurrenceAt(doc, events, cursor, ops, entityIds) — recurrent, COMPUTED from the log
+// instead of trusted from the caller. A locus is a regularity, not an instance, when what
+// it names keeps happening elsewhere in the SAME log:
 //   Structure (CON/SEG/SYN present) — the same PAIR of ids is bonded (CON) at more than
 //     one distinct sentIdx elsewhere in the log — a relationship that recurs, not a
 //     single instance of one. Deliberately id-based, not word-based (relType/via are
 //     often a raw verb string from the reader, e.g. "admired" or, on a misparse, a bare
 //     pronoun like "i"/"you" — a real recurring signal on the WORD would inherit that
 //     noise; the ids the parser already resolved do not).
-//   Existence (INS/SIG/NUL present) — left false. Kind's identity condition is a
-//     membership CRITERION, and nothing the base parser emits states one (no
-//     `instance_of`-shaped edge exists yet at this layer). An honest gap, not a computed no.
-const recurrenceAt = (events, cursor, ops) => {
+//   Interpretation (DEF/EVA/REC present) — the entity this DEF characterizes (op:DEF,
+//     key:'predicate') has been characterized more than once, at more than one sentIdx,
+//     with a genuinely different value: the reading has been held, then re-held
+//     differently. That is a Paradigm's own identity condition (>=2 instancing readings),
+//     read off the log the parser already keeps — no new signal, just an unignored one.
+//   Existence (INS/SIG/NUL present) — no cheap repetition signal exists here (no
+//     `instance_of`-shaped membership-criterion edge at this layer), so this is a real
+//     measurement rather than a shortcut: detectKinds (kinds.js) clusters entities by their
+//     operational profile and reports whether any entity touched at this locus belongs to a
+//     REAL (non-abstaining) recurring class.
+const recurrenceAt = (doc, events, cursor, ops, entityIds) => {
   const present = new Set(ops);
   // Same domain precedence as siteTerrain's own domain pick (Structure before
   // Interpretation before Existence) — a locus with BOTH a CON and a bookkeeping DEF
@@ -80,26 +110,33 @@ const recurrenceAt = (events, cursor, ops) => {
       values.add(String(e.value == null ? '' : e.value).trim().toLowerCase());
     return values.size >= 2;
   }
-  return false;
+  if (!doc?.log || !entityIds.length) return false;
+  const kinds = kindsOf(doc.log, doc);
+  return entityIds.some((id) => kinds.kindOf(id) != null);
 };
 
 // siteTerrainAt(doc, cursor, opts) → the terrain of one locus, read off the log.
 //   The ops are every operator that landed at this cursor (sentIdx); thin when no inscribed
 //   content (no INS/CON/SIG) is there — the ambient case. recurrent defaults to a REAL read
 //   of the log (recurrenceAt), not a fixed false — a single locus is an instance (Figure)
-//   only until the same reading or relation recurs elsewhere in the document; an explicit
-//   true/false from the caller still wins (an aggregate object like a trajectory's arc types
-//   itself — see arcTerrain — and should not be re-derived here). Modality-blind: reads only ops.
+//   only until the same reading/relation/behavioral class recurs elsewhere in the document;
+//   an explicit true/false from the caller still wins (an aggregate object like a
+//   trajectory's arc types itself — see arcTerrain — and should not be re-derived here).
+//   Modality-blind: reads only ops (+ the touched entity ids, for the Kind measurement).
 export const siteTerrainAt = (doc, cursor, { recurrent = null, thin = null } = {}) => {
   const events = typeof doc?.log?.snapshot === 'function' ? doc.log.snapshot() : (doc?.log?.events || []);
   const ops = [];
+  const entityIds = [];
   let content = false;
   for (const e of events) {
     if (e.sentIdx !== cursor) continue;
     ops.push(e.op);
     if (e.op === 'INS' || e.op === 'CON' || e.op === 'SIG') content = true;
+    if (e.id != null) entityIds.push(e.id);
+    if (e.src != null) entityIds.push(e.src);
+    if (e.tgt != null) entityIds.push(e.tgt);
   }
-  const rec = recurrent == null ? recurrenceAt(events, cursor, ops) : recurrent;
+  const rec = recurrent == null ? recurrenceAt(doc, events, cursor, ops, entityIds) : recurrent;
   return siteTerrain({ ops, recurrent: rec, thin: thin == null ? !content : thin });
 };
 
