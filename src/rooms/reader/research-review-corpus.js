@@ -16,8 +16,8 @@ import {
 } from './research-review-network.js';
 import { evidenceMatrix as buildEvidenceMatrix } from './research-review-matrix.js';
 import { tok } from '../../perceiver/parse/index.js';
-import { bornSalience } from '../../surfer/salience.js';
-import { deriveNull } from '../../core/voidnull.js';
+import { bornSalience } from '../../surfer/index.js';
+import { deriveNull } from '../../core/index.js';
 
 // ── corpus stats (the header count AND the selected-corpus preview share this) ───────────────
 
