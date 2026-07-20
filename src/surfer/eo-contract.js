@@ -24,6 +24,7 @@ export const CONTRACTS = Object.freeze({
   'src/surfer/layered-generator.js': contract({ ops: ['SYN', 'REC'], targets: ['Field', 'Paradigm'], products: ['Network'], stances: ['Composing', 'Making'], note: 'layered generative stack' }),
   'src/surfer/learn-links.js': contract({ ops: ['REC', 'EVA'], targets: ['Link', 'Field'], products: ['Kind', 'Paradigm'], stances: ['Composing', 'Binding'], note: 'grow link-types from labels' }),
   'src/surfer/levels.js': contract({ ops: ['SEG', 'SYN', 'EVA'], targets: ['Field', 'Network'], products: ['Network', 'Field'], stances: ['Unraveling', 'Composing', 'Tracing'], note: 'multi-grain coarse spine' }),
+  'src/surfer/lens-naming.js': contract({ ops: ['DEF'], targets: ['Lens', 'Paradigm'], products: ['Lens', 'Paradigm'], stances: ['Dissecting'], note: 'name a Lens/Paradigm direction off the cube\'s own operator vocabulary — which dimensions load it, in words, never invented' }),
   'src/surfer/metacognition.js': contract({ ops: ['EVA', 'NUL'], targets: ['Field'], products: ['Lens', 'Void'], stances: ['Binding', 'Clearing'], note: 'meaningfulness + visible trace' }),
   'src/surfer/multilevel.js': contract({ ops: ['SEG', 'SIG', 'SYN'], targets: ['Network'], products: ['Field', 'Network'], stances: ['Dissecting', 'Tending', 'Composing'], note: 'multi-level surf — sources then content' }),
   'src/surfer/reader.js': contract({ ops: ['EVA', 'REC'], targets: ['Field', 'Lens'], products: ['Lens', 'Field'], stances: ['Binding', 'Tracing', 'Composing'], note: 'the reader — ρ-side surprise' }),

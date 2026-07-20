@@ -27,6 +27,7 @@
 
 import { buildDensity, eigenLenses, vonNeumann, relEntropy, commutator, projectorFrom, OPERATORS } from '../core/index.js';
 import { frameIncommensurability, evaluateFrameConvergence } from './frame-channel.js';
+import { topDims, labelPattern, nameDivergence } from './lens-naming.js';
 
 // the operational vocabulary: the nine operators (Act face = Mode × Domain).
 export const OPS = Object.freeze(Object.keys(OPERATORS));
@@ -95,9 +96,8 @@ export const structuralGround = ({ relations = false } = {}) => {
 };
 
 // name an eigen-lens by its heaviest dimensions — the operational/relational pattern.
-const lensTop = (lens, dims, n = 3) => dims.map((d, i) => ({ d, w: lens[i] }))
-  .sort((a, b) => Math.abs(b.w) - Math.abs(a.w)).slice(0, n)
-  .filter(o => Math.abs(o.w) > 0.15).map(o => ({ op: o.d, w: round(o.w) }));
+// (lens-naming.js's topDims, kept under the old { op, w } shape every existing caller reads.)
+const lensTop = (lens, dims, n = 3) => topDims(lens, dims, { n }).map(({ d, w }) => ({ op: d, w }));
 
 // the structural tone: dominant operator + the Domain/Mode mix over the operator
 // dimensions, plus the dominant relation class when the basis carries them.
@@ -171,7 +171,7 @@ export const structuralHorizon = (docOrProfiles, { k = 4, relations = false, sig
     departure: round(relEntropy(rho, groundSigma(dims.length))),
     lensEntropy: round(vonNeumann(spectrum)),
     tone: toneOf(rho, dims),
-    lenses: top.map(({ lens, weight }) => ({ weight: round(weight), pattern: lensTop(lens, dims), lens })),
+    lenses: top.map(({ lens, weight }) => ({ weight: round(weight), pattern: lensTop(lens, dims), label: labelPattern(topDims(lens, dims)), lens })),
     localKeys: localKeyReading(acts, dims, toneOf(rho, dims)?.label),
     rho,
   };
@@ -183,6 +183,22 @@ export const structuralHorizon = (docOrProfiles, { k = 4, relations = false, sig
 export const structuralCommutator = (profilesA, profilesB, { m = 3 } = {}) => {
   const proj = (ps) => projectorFrom(eigenLenses(buildDensity(ps.filter(p => p.some(x => x > 0))).rho, { k: m }).map(l => l.lens));
   return round(commutator(proj(profilesA), proj(profilesB)));
+};
+
+// structuralParadigmDivergence(profilesA, profilesB, dims, { m }) — structuralCommutator's
+// own naming: not just HOW incommensurable two operational bases are, but WHICH commitments
+// separate them. Each projector's diagonal is how much of its top-m subspace's mass sits on
+// each dimension; the dimensions where A's and B's diagonals differ most are read off with
+// the same operator vocabulary as a Lens (lens-naming.js) — "reads more into synthesize,
+// reads less into evaluate". A new function, not a changed return shape on
+// structuralCommutator, so every existing caller of the bare-scalar form is untouched.
+export const structuralParadigmDivergence = (profilesA, profilesB, dims, { m = 3 } = {}) => {
+  const proj = (ps) => projectorFrom(eigenLenses(buildDensity(ps.filter(p => p.some(x => x > 0))).rho, { k: m }).map(l => l.lens));
+  const pa = proj(profilesA), pb = proj(profilesB);
+  const incommensurability = round(commutator(pa, pb));
+  const diagOf = (p) => dims.map((_, i) => p[i]?.[i] ?? 0);
+  const named = (pa.length && pb.length) ? nameDivergence(diagOf(pa), diagOf(pb), dims) : { pattern: [], label: null };
+  return { incommensurability, pattern: named.pattern, label: named.label };
 };
 
 // crossSourceFrameVerdicts(sources, { rank, hyst }) — the frame channel applied across SOURCES
