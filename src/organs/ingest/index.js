@@ -18,7 +18,7 @@ export { readIngest, readingJsonl, attachReading } from './read.js';
 export { admitWebSource, createWebStore, webRecord, webContentHash,
          toWebCitation, verifyCitation, engineDocId, recordIdForDoc, recordIdOf } from './websource.js';
 // The live fetch/search client over a CORS feed proxy (search-by-feed → admit into scope).
-export { createWebClient, searchAndAdmit, fetchAndAdmit, parseFeed, htmlToText,
+export { createWebClient, searchAndAdmit, fetchAndAdmit, parseFeed, htmlToText, firstSalientImage,
          SEARCH_SOURCES, routeKind, DEFAULT_FEED_PROXY } from './webfetch.js';
 // RSS/Atom feeds read WHOLE: every item with its date/author, as sources, as a data-room table,
 // or as one dated doc; the linked article pulled under fetchPages (docs/civic-apis.md "Feeds").

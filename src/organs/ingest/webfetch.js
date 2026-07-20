@@ -318,6 +318,40 @@ export const createWebClient = ({
   return { proxy, proxyBase, proxied, fetchRaw, fetchUrl, search };
 };
 
+
+const absolutizeUrl = (url, base) => {
+  try { return new URL(String(url || '').trim(), base || undefined).href; } catch { return ''; }
+};
+
+// Pick the first content-like image the page declares, preferring explicit social/lead metadata
+// and then the first non-icon <img> in document order. This runs on the raw HTML before htmlToText
+// discards media, so source cards can show the page's first salient image instead of a generic tag.
+export const firstSalientImage = (html, baseUrl = '') => {
+  const h = String(html || '');
+  const metaRe = /<meta\b[^>]*(?:property|name)=["'](?:og:image(?::url)?|twitter:image(?::src)?)["'][^>]*>/ig;
+  for (const m of h.matchAll(metaRe)) {
+    const url = /\bcontent=["']([^"']+)["']/i.exec(m[0])?.[1];
+    const abs = absolutizeUrl(url, baseUrl);
+    if (abs) return abs;
+  }
+  const imgRe = /<img\b[^>]*>/ig;
+  for (const m of h.matchAll(imgRe)) {
+    const tag = m[0];
+    const src = /\b(?:data-src|data-original|data-lazy-src|src)=["']([^"']+)["']/i.exec(tag)?.[1]
+      || /\bsrcset=["']([^"',\s]+)[^"']*["']/i.exec(tag)?.[1];
+    const abs = absolutizeUrl(src, baseUrl);
+    if (!abs) continue;
+    const low = (tag + ' ' + abs).toLowerCase();
+    if (/\b(?:avatar|icon|logo|sprite|tracking|pixel|spacer|loader|placeholder)\b/.test(low)) continue;
+    if (/\.(?:ico|svg)(?:[?#]|$)/i.test(abs)) continue;
+    const w = Number(/\bwidth=["']?(\d+)/i.exec(tag)?.[1] || 0);
+    const ht = Number(/\bheight=["']?(\d+)/i.exec(tag)?.[1] || 0);
+    if ((w && w < 80) || (ht && ht < 80)) continue;
+    return abs;
+  }
+  return '';
+};
+
 const nowIso = () => { try { return new Date().toISOString(); } catch { return null; } };
 
 // Persist the full fetched text as binary to the OPFS raw store (ingest/opfs-store.js), keyed by
@@ -345,7 +379,7 @@ export const fetchAndAdmit = async (url, { client, store = null, rawStore = null
   const c = client || createWebClient();
   const { text } = await c.fetchUrl(url);
   const reduced = htmlToText(text);
-  const payload = { url, text: reduced, fetched_at, engine: 'feed-proxy' };
+  const payload = { url, text: reduced, salient_image: firstSalientImage(text, url), fetched_at, engine: 'feed-proxy' };
   const admitted = store ? store.admit(payload) : admitWebSource(payload);
   return keepRaw(rawStore, admitted, reduced);
 };
@@ -379,12 +413,16 @@ export const searchAndAdmit = async (query, { client, store = null, rawStore = n
         // Wikimedia family, the ENTIRE BOOK for Gutenberg, the rendered claims for Wikidata.
         // Anything else → fetch the page and reduce its HTML, with the chrome stripped.
         const full = FULL_TEXT[it.source] || FULL_TEXT[it.kind];
-        text = (full
-          ? await full(fc, it)
-          : htmlToText((await fc.fetchUrl(it.url)).text)) || text;
+        if (full) text = (await full(fc, it)) || text;
+        else {
+          const fetched = await fc.fetchUrl(it.url);
+          it.salient_image = firstSalientImage(fetched.text, it.url);
+          text = htmlToText(fetched.text) || text;
+        }
       } catch { /* keep the snippet */ }
     }
     const payload = { url: it.url || c.proxied(query), title: it.title, text,
+                      salient_image: it.salient_image || it.thumbUrl || it.thumb || '',
                       excerpt: it.text, retrieval_query: query, engine: `web:${it.source || it.kind || kind}`, fetched_at };
     const admitted = store ? store.admit(payload) : admitWebSource(payload);
     await keepRaw(rawStore, admitted, text);   // retain the full page bytes (OPFS) when threaded
