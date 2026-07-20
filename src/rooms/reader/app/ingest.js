@@ -3,7 +3,7 @@
 // VERBATIM from the closure; cross-section reach rides ctx (call-time), the core
 // spine (state · emit · trail beats · client) is destructured once at install.
 // ingest: URL / search / file / paste
-import { htmlToText, searchAndAdmit, admitWebSource, fetchGithubRepo, fetchGutenbergBook, gutenbergIdOf, fetchYoutubeTranscript, youtubeIdOf, LIBRARIES, surfaceCard } from '../../../organs/ingest/index.js';
+import { htmlToText, firstSalientImage, searchAndAdmit, admitWebSource, fetchGithubRepo, fetchGutenbergBook, gutenbergIdOf, fetchYoutubeTranscript, youtubeIdOf, LIBRARIES, surfaceCard } from '../../../organs/ingest/index.js';
 import { FULL_TEXT } from './net.js';
 import { nowIso, domainOf } from './util.js';
 import { fetchFeedSource, ingestFeed as runIngestFeed, isFeed } from './feed.js';
@@ -136,7 +136,7 @@ export const installIngest = (appCtx) => {
         }
         const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
         const text = htmlToText(raw);
-        const { doc, record } = admitWebSource({ url: norm, title, text, fetched_at: nowIso(), engine: 'feed-proxy' });
+        const { doc, record } = admitWebSource({ url: norm, title, text, salient_image: firstSalientImage(raw, norm), fetched_at: nowIso(), engine: 'feed-proxy' });
         const src = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc });
         appCtx.settleJob(jid, 'done');
         return src;
@@ -226,7 +226,7 @@ export const installIngest = (appCtx) => {
       try {
         const text = htmlToText(raw);
         if (text && text.trim()) {
-          const { doc, record } = admitWebSource({ url: norm, title, text, fetched_at: nowIso(), engine: 'feed-proxy' });
+          const { doc, record } = admitWebSource({ url: norm, title, text, salient_image: firstSalientImage(raw, norm), fetched_at: nowIso(), engine: 'feed-proxy' });
           const child = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, parentSn });
           childSn = child.sn;
         }

@@ -94,6 +94,7 @@ export const installRegistry = (appCtx) => {
       // so it inherits its parent's folder and is never shown as its own file in the explorer.
       folderId: parentSn ? (sourceBySn(parentSn)?.folderId || null) : null,
       text: body, entCount: null, _doc: doc || null,
+      thumbnail: record?.salient_image || doc?.web?.salient_image || doc?.metadata?.salient_image || null,
     };
     mergeSourceMetadata(src, inferSourceMetadata({ title, url, kind, record, doc }, src));
     if (doc) { try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; } }

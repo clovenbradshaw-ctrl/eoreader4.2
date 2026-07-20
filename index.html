@@ -502,7 +502,7 @@ table{border-collapse:collapse;width:100%}
           <sc-for list="{{ mobile.sourceCards }}" as="src">
             <div onClick="{{ src.open }}" style="background:#fff;border:1px solid var(--eo-m-border);border-radius:15px;padding:13px 14px;cursor:pointer">
               <div style="display:flex;align-items:flex-start;gap:11px">
-                <span style="width:34px;height:34px;border-radius:9px;background:{{ src.favBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:15px">{{ src.icon }}</span>
+                <span style="width:42px;height:42px;border-radius:10px;background:{{ src.favBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:15px;overflow:hidden"><sc-if value="{{ src.hasThumb }}"><img src="{{ src.thumb }}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;display:block" /></sc-if><sc-if value="{{ src.noThumb }}">{{ src.icon }}</sc-if></span>
                 <span style="flex:1;min-width:0">
                   <span style="display:block;font-size:14px;font-weight:650;color:var(--eo-m-ink);line-height:1.25">{{ src.title }}</span>
                   <span style="display:block;font-size:11.5px;color:var(--eo-m-faint);margin-top:2px">{{ src.typeLabel }} · {{ src.countLine }}</span>
@@ -2420,7 +2420,7 @@ table{border-collapse:collapse;width:100%}
                           </button>
                           <sc-if value="{{ explorerViewGrid }}">
                           <button onClick="{{ cd.select }}" style="width:100%;display:block;text-align:left;background:none;padding:0">
-                            <span style="display:flex;align-items:center;justify-content:center;height:64px;background:#F3F3F5;color:#A0A0AA;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em">{{ cd.kindTag }}</span>
+                            <span style="display:block;height:82px;background:#F3F3F5;color:#A0A0AA;overflow:hidden"><sc-if value="{{ cd.hasThumb }}"><img src="{{ cd.thumb }}" alt="" loading="lazy" referrerpolicy="no-referrer" style="display:block;width:100%;height:100%;object-fit:cover" /></sc-if><sc-if value="{{ cd.noThumb }}"><span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em">{{ cd.kindTag }}</span></sc-if></span>
                             <span style="display:block;padding:11px 12px 12px">
                               <span style="display:block;font-size:13px;font-weight:600;color:#2A2A32;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cd.title }}</span>
                               <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:6px">{{ cd.sub }}</span>
@@ -9172,6 +9172,7 @@ class Component extends DCLogic {
         icon, typeLabel, reg: s.reg || '', origin: origin || 'Local record',
         favCh: (String(s.domain || s.title || '?').trim().charAt(0).toUpperCase()) || 'S',
         favBg: active ? fav[0] : '#F0F0F3', favFg: active ? fav[1] : '#ABABB4', countLine,
+        thumb: s.thumbnail || '', hasThumb: !!s.thumbnail, noThumb: !s.thumbnail,
         when: (s.retrieved ? this._ago(s.retrieved) : '') || '',
         active, cardOpacity: active ? '1' : '.55',
         scopeLabel: active ? 'Active' : 'Excluded',
@@ -12135,6 +12136,7 @@ class Component extends DCLogic {
       const genre = this._genre(s); const cites = citeCounts[s.sn] || 0;
       return {
         sn: s.sn, title: s.title, kindTag: genre.toUpperCase(),
+        thumb: s.thumbnail || '', hasThumb: !!s.thumbnail, noThumb: !s.thumbnail,
         sub: cites > 0 ? `${genre} · ${cites} span${cites === 1 ? '' : 's'}` : `${genre} · ${this._bytes(s.bytes)}`,
         favCh: (s.domain || s.title || '?')[0].toUpperCase(),
         starred: !!s.starred, starFg: s.starred ? '#3A3A44' : 'none', starStroke: s.starred ? '#3A3A44' : '#C4C4CC',
