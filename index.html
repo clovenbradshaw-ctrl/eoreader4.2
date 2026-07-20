@@ -10409,6 +10409,11 @@ class Component extends DCLogic {
     const data = (w.scope === 'entity' && w.entId != null)
       ? this._app.tieredData(w.docId, w.entId)
       : this._app.topicTieredData();
+    if (!data.nodes || !data.nodes.length) {
+      this._tgToggles = [];
+      el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:60ch;line-height:1.55">No figures read yet — the entity web fills once the reading names people, places, or things and the bonds among them.</div>';
+      return;
+    }
     this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
       .map((n) => ({ id: n.id, label: n.label }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
@@ -10491,6 +10496,19 @@ class Component extends DCLogic {
   // 'sequence' grain unfolds one band per source in ingestion order (the corpus cursor).
   _drawCrosswalk(el, w) {
     const data = this._app.crosswalkTieredData();
+    // A referent confined to ONE source is not crossed — it is just an ordinary entity, and
+    // drawing every single-source referent here (the reported failure: 174 referents from one
+    // source, nothing actually crossed) misrepresents a plain entity list as cross-source
+    // identity work. Only draw once at least one referent is corroborated by ≥2 sources — a
+    // real tier-0 (source → entity) edge count of 2+ on the same entity.
+    const srcHitsByEntity = new Map();
+    for (const e of (data.edges || [])) if (e.tier === 0) srcHitsByEntity.set(e.b, (srcHitsByEntity.get(e.b) || 0) + 1);
+    const crossed = [...srcHitsByEntity.values()].some((n) => n >= 2);
+    if (!crossed) {
+      this._tgToggles = [];
+      el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:62ch;line-height:1.55">Crosswalk needs a referent that shows up in more than one source to compare identity across them — right now every referent here is confined to a single source. Record another source that mentions the same figure, then reopen Crosswalk.</div>';
+      return;
+    }
     this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'entity')
       .map((n) => ({ id: n.id, label: n.label }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
@@ -10557,6 +10575,14 @@ class Component extends DCLogic {
   // Network node drop with it, exactly as _filterTiered drops context nodes for the entity web.
   _drawNetwork(el, w) {
     const data = this._app.networkTieredData();
+    // Network draws the sources' CORROBORATION links, not the sources themselves — with no link
+    // there is nothing but a stray "Network (not yet coherent)" node on an otherwise empty canvas
+    // (the reported failure). Only draw once at least one source pair actually links.
+    if (!(data.nodes || []).some((n) => n.kind === 'link')) {
+      this._tgToggles = [];
+      el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:60ch;line-height:1.55">Network needs at least two sources that corroborate each other to draw a link — record another source on this topic, then reopen Network.</div>';
+      return;
+    }
     this._tgToggles = (data.nodes || []).filter((n) => n.kind === 'source')
       .map((n) => ({ id: n.id, label: n.label }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));

@@ -7,6 +7,7 @@ import { htmlToText, searchAndAdmit, admitWebSource, fetchGithubRepo, fetchGuten
 import { FULL_TEXT } from './net.js';
 import { nowIso, domainOf } from './util.js';
 import { fetchFeedSource, ingestFeed as runIngestFeed, isFeed } from './feed.js';
+import { parseText } from '../../../perceiver/parse/index.js';
 
 export const installIngest = (appCtx) => {
   const { client, emit, logIt, state } = appCtx;
@@ -40,9 +41,49 @@ export const installIngest = (appCtx) => {
     }
   };
 
+  // A binary format (a PDF, chiefly) fetched as TEXT (client.fetchUrl → res.text()) is already
+  // lossy: bytes the decoder can't represent as UTF-8 become �, and PDF structural syntax that
+  // DOES survive as ASCII (`1 0 obj<<`, `endobj`, `stream`, `/Type /Page`) reads as if it were
+  // prose — the exact bug that admitted a report's raw PDF internals as "sections" and
+  // "entities". Read as real BYTES instead (fetchUrlBytes) and hand them to the SAME router a
+  // file upload goes through (import-file.js's importAnyFile) — a real File object, so a `.pdf`
+  // URL takes the pdf.js + eyes + quorum path (with its own binary-fallback safety net) instead
+  // of silently landing as "Ready" prose built from mangled syntax.
+  const admitBytesAsFile = async (norm, signal, progress, { name, type } = {}) => {
+    if (typeof progress === 'function') progress({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` });
+    const { bytes } = await client.fetchUrlBytes(norm, { signal });
+    const { importAnyFile } = await import('../import-file.js');
+    const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const file = {
+      name: name || (norm.split('/').pop() || 'file').split('?')[0] || 'file',
+      type: type || '', size: bytes.length,
+      async arrayBuffer() { return buf; },
+    };
+    const got = await importAnyFile(file, {
+      signal, onProgress: (msg) => { if (typeof progress === 'function') progress({ kind: 'fetch', label: String(msg) }); },
+    });
+    const title = domainOf(norm);
+    // STRUCTURED modalities (table/json/binary/music/subtitle) carry their organ doc AS the
+    // reading — attach it directly, exactly as a local upload does (app/picture.js). Everything
+    // else (pdf/webpage/ocr/text) lands from its extracted text and re-parses in the background,
+    // so the source appears at once without a long parse blocking it.
+    const structured = ['table', 'json', 'binary', 'music', 'subtitle'].includes(got.meta?.modality) && got.meta?.doc;
+    const src = appCtx.addSource({
+      title: got.title || title, url: norm, text: got.text, kind: got.meta?.modality || 'file',
+      ...(structured ? { doc: got.meta.doc } : { defer: true }),
+    });
+    if (src && got.meta?.coverage) src.coverage = got.meta.coverage;
+    if (src && !structured) {
+      try { appCtx.finishReading(src, await parseText(got.text, { docId: src.docId })); }
+      catch (e) { logIt('skip', `Reading failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
+    }
+    return src;
+  };
+
   const ingestUrl = (url) => {
     const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
-    return runCancellable({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` }, async (signal) => {
+    const looksLikePdfUrl = /\.pdf(?:[?#]|$)/i.test(norm);
+    return runCancellable({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` }, async (signal, progress) => {
       // Open a durable job FIRST — a reload while the proxy is still fetching picks the URL back up
       // (a re-fetch dedups by content hash, so a page that actually landed is a no-op on resume).
       const jid = appCtx.beginJob({ kind: 'url', url: norm });
@@ -63,6 +104,11 @@ export const installIngest = (appCtx) => {
         return src;
       };
       try {
+        if (looksLikePdfUrl) {
+          const src = await admitBytesAsFile(norm, signal, progress, { name: 'document.pdf', type: 'application/pdf' });
+          if (src) { appCtx.settleJob(jid, 'done'); return src; }
+          throw new Error('this PDF has no recoverable text');
+        }
         if (gutenbergIdOf(norm) != null) {
           const src = admitWhole(await fetchGutenbergBook(norm, { client: bound, fetched_at: nowIso() }));
           if (src) return src;
@@ -78,6 +124,15 @@ export const installIngest = (appCtx) => {
         if (isFeed(raw)) {
           const src = await fetchFeedSource(appCtx, norm, { client, signal, raw });
           if (src) { appCtx.settleJob(jid, 'done'); return src; }
+        }
+        // The extension didn't give it away, but the bytes did: this "page" is binary/PDF syntax
+        // that survived (mangled) a UTF-8 decode. Re-fetch it as real bytes and read it properly
+        // rather than admitting `1 0 obj<<`/`endobj` as prose and calling the source "Ready".
+        const { _looksLikeBinaryGarbage } = await import('../import-file.js');
+        if (_looksLikeBinaryGarbage(raw)) {
+          const src = await admitBytesAsFile(norm, signal, progress);
+          if (src) { appCtx.settleJob(jid, 'done'); return src; }
+          throw new Error('this page is a binary file, not readable text — try uploading it directly');
         }
         const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
         const text = htmlToText(raw);

@@ -10,6 +10,53 @@ import { claimsFromDoc, claimPhrase, rankFragility, buildChronology } from '../.
 import { recordClaims } from '../claims.js';
 import { shaShort } from './util.js';
 
+// The document's OWN rhetoric outranks an incidental sentence: a report that titles a section
+// "General Findings" or "Recommendations" is telling the reader directly what its findings ARE —
+// that beats whatever the claim miner happened to mint most recently. Sentence indices under such
+// a heading (up to the next heading of the same or higher level) are the boost set; only doc
+// shapes that carry headings (assembleDocument's `kind:'heading'|'title'` spans — a webpage or a
+// PDF whose adapter marks them) can be boosted at all, everything else is untouched.
+const PRIORITY_HEADING_RE = /\b(?:general\s+findings|specific\s+findings|findings?|recommendations?|conclusions?)\b/i;
+const _boostCache = new WeakMap();
+const boostUnitsFor = (doc) => {
+  if (!doc || !Array.isArray(doc.spans) || !doc.spans.length) return null;
+  if (_boostCache.has(doc)) return _boostCache.get(doc);
+  const units = new Set();
+  let active = false, activeLevel = null;
+  doc.spans.forEach((s, i) => {
+    if (s.kind === 'heading' || s.kind === 'title') {
+      if (PRIORITY_HEADING_RE.test(s.text || '')) { active = true; activeLevel = s.level ?? null; return; }
+      active = active && !(activeLevel == null || s.level == null || s.level <= activeLevel);
+      return;
+    }
+    if (active) units.add(i);
+  });
+  _boostCache.set(doc, units);
+  return units;
+};
+
+// Stable-partition claims so any doc's own findings/recommendations sentences land at the TAIL —
+// where every existing `.slice(-N)` consumer here (the returned claims list, provenance's rail,
+// index.html's memo "grounded in" list) already looks first. Ordinary claims keep their original
+// relative order; nothing is dropped, only reordered.
+const prioritizeClaims = (claims, appCtx) => {
+  const docCache = new Map();
+  const docForClaim = (c) => {
+    if (c.docId == null) return null;
+    if (docCache.has(c.docId)) return docCache.get(c.docId);
+    const src = (appCtx.topicSources() || []).find((s) => s.docId === c.docId);
+    const doc = src ? appCtx.docFor(src) : null;
+    docCache.set(c.docId, doc);
+    return doc;
+  };
+  const boosted = [], rest = [];
+  for (const c of claims) {
+    const units = c.unit != null ? boostUnitsFor(docForClaim(c)) : null;
+    (units && units.has(c.unit) ? boosted : rest).push(c);
+  }
+  return [...rest, ...boosted];
+};
+
 export const installFindings = (appCtx) => {
   // The cross-source pass (P3) — do the topic's SOURCES disagree with EACH OTHER, not
   // just an answer with the sources? The two answer-vetoes are answer-vs-graph, so a
@@ -134,7 +181,7 @@ export const installFindings = (appCtx) => {
     // report a disagreement that exists whether or not anyone has asked a question yet.
     const xs = sourceConflicts();
     return {
-      claims: claims.slice(-24), passages: [...passages.values()].slice(-32),
+      claims: prioritizeClaims(claims, appCtx).slice(-24), passages: [...passages.values()].slice(-32),
       contradictions, sourceConflicts: xs,
       stats: { claims: claims.length, passages: passages.size, sources: appCtx.topicSources().length, recordPassages, contradictions, sourceConflicts: xs.length },
     };
