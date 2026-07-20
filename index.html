@@ -322,9 +322,25 @@ table{border-collapse:collapse;width:100%}
   .eo-drawer{width:min(94vw,440px) !important}
   .eo-toast{max-width:calc(100vw - 24px) !important;bottom:calc(18px + env(safe-area-inset-bottom)) !important}
 }
+/* ── MOBILE APP — a purpose-built phone surface (Overview/Sources/Ask/Graph/Findings on a
+   bottom tab bar), not the desktop chrome squeezed narrower. Renders instead of `.eo-root`
+   when isMobile; same palette (violet #6D5EF5, ink #1B1B22, the existing hairline/mute greys)
+   so it reads as the same app, just re-cut for one hand. */
+@keyframes eoSheetUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+.eo-mobapp{position:fixed;inset:0;z-index:1;display:flex;flex-direction:column;background:#F4F4F7;overflow:hidden}
+.eo-mob-top{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;background:#fff;border-bottom:1px solid #EAEAEF}
+.eo-mob-body{flex:1;min-height:0;overflow-y:auto;background:#F4F4F7;-webkit-overflow-scrolling:touch}
+.eo-mob-tabbar{flex:0 0 auto;display:flex;background:#fff;border-top:1px solid #EAEAEF;padding:7px 4px calc(7px + env(safe-area-inset-bottom,0px))}
+.eo-mob-tabbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 0;min-width:0}
+.eo-mob-chiprail{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+.eo-mob-chiprail::-webkit-scrollbar{display:none}
+.eo-mob-card{background:#fff;border:1px solid #EAEAEF;border-radius:16px}
+.eo-mob-sheet-backdrop{position:fixed;inset:0;z-index:48;background:rgba(20,20,28,.36);animation:eoFade .16s ease}
+.eo-mob-sheet{position:fixed;left:0;right:0;bottom:0;z-index:49;background:#fff;border-radius:20px 20px 0 0;padding:12px 16px calc(22px + env(safe-area-inset-bottom,0px));max-height:82vh;overflow-y:auto;box-shadow:0 -10px 40px rgba(20,20,30,.22);animation:eoSheetUp .2s cubic-bezier(.4,0,.2,1)}
 </style>
 </helmet>
 
+<sc-if value="{{ !isMobile }}">
 <div data-screen-label="EOReader" class="eo-root" style="position:relative;display:flex;flex-direction:column;height:100vh;width:100%;background:#F4F4F7;color:#1B1B22;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased">
 
   <header class="eo-header" style="height:50px;flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:0 14px;background:#fff;border-bottom:1px solid #EAEAEF;position:relative;z-index:5">
@@ -4009,6 +4025,424 @@ table{border-collapse:collapse;width:100%}
   </sc-if>
 
 </div>
+</sc-if>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     MOBILE APP — Overview / Sources / Ask / Graph / Findings on a bottom tab bar.
+     A simplified SHAPE over the same record the desktop tabs read: every field here
+     (mobOverview, mobSources, mobFindings, mobAsk, mobGraph, mobScope) is reused straight
+     from _topicOverviewVM / _evidenceScopeVM / findings() / the Ask surface — no shadow data.
+     ══════════════════════════════════════════════════════════════════════════ -->
+<sc-if value="{{ isMobile }}">
+<div class="eo-mobapp">
+
+  <div class="eo-mob-top">
+    <button onClick="{{ mobGoOverview }}" style="width:32px;height:32px;border-radius:9px;background:#6D5EF5;color:#fff;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;flex:none;letter-spacing:.3px">EO</button>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:10.5px;font-weight:600;color:#6D5EF5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mobWorkspace }}</div>
+      <div style="font-size:13.5px;font-weight:650;color:#1B1B22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mobTopicTitle }}</div>
+    </div>
+    <sc-if value="{{ mobActive }}">
+      <span title="Working" style="width:8px;height:8px;border-radius:50%;background:#59C08A;flex:none;box-shadow:0 0 0 3px rgba(89,192,138,.18)"></span>
+    </sc-if>
+    <button onClick="{{ toggleAccount }}" title="Account" style="width:30px;height:30px;border-radius:50%;background:#F0F0F3;display:flex;align-items:center;justify-content:center;flex:none">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A8A95" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c1.2-3.6 4-5 7-5s5.8 1.4 7 5"/></svg>
+    </button>
+  </div>
+
+  <div class="eo-mob-body eo-scroll">
+
+    <!-- OVERVIEW -->
+    <sc-if value="{{ mobShowOverview }}">
+      <div style="padding:14px 14px 28px;display:flex;flex-direction:column;gap:14px">
+        <sc-if value="{{ mobOverview.has }}">
+          <div class="eo-mob-card" style="padding:18px 16px">
+            <div style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;background:#F2F2F5;padding:3px 8px;border-radius:6px">TOPIC</div>
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:23px;line-height:1.2;font-weight:500;color:#17171A;margin:12px 0 10px;overflow-wrap:anywhere">{{ mobTopicTitle }}</div>
+            <div style="font-size:12.5px;color:#7A7A83;margin-bottom:16px">{{ mobOverview.sourceCountLabel }} · {{ mobOverview.entityLabel }} · {{ mobOverview.findingLabel }}</div>
+            <button onClick="{{ mobOverview.ask }}" style="width:100%;background:#17171A;color:#fff;border:none;border-radius:13px;padding:13px;font-size:15px;font-weight:600">Ask about this topic</button>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button onClick="{{ openMobAdd }}" style="flex:1;background:#EEEBFE;color:#5B4BE6;border:none;border-radius:12px;padding:11px;font-size:13.5px;font-weight:600">+ Add source</button>
+              <button onClick="{{ mobOverview.openFindings }}" style="flex:1;background:#F2F2F5;color:#44444C;border:none;border-radius:12px;padding:11px;font-size:13.5px;font-weight:600">Findings</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <button onClick="{{ openMobScope }}" style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #EAEAEF;border-radius:16px;padding:13px 15px;text-align:left">
+          <div style="width:32px;height:32px;border-radius:9px;background:#EEEBFE;display:flex;align-items:center;justify-content:center;flex:none">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><circle cx="18" cy="6" r="2.4"/><path d="M8 7.6l8.2 8.8M8.6 6h6.8M6 8.4v7.2" stroke-linecap="round"/></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:#9A9AA4">EVIDENCE SCOPE</div>
+            <div style="font-size:13.5px;font-weight:600;color:#1B1B22;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mobScope.summaryLabel }}</div>
+          </div>
+          <span style="font-size:12.5px;font-weight:600;color:#6D5EF5;flex:none">Manage</span>
+        </button>
+
+        <sc-if value="{{ !mobFindingsEmpty }}">
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 4px 9px">
+              <span style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#9A9AA4">FINDINGS · {{ mobFindingsCount }}</span>
+              <button onClick="{{ mobGoFindings }}" style="font-size:12.5px;font-weight:600;color:#6D5EF5">See all</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ mobOverviewFindingsPreview }}" as="f" hint-placeholder-count="2">
+                <button onClick="{{ f.open }}" class="eo-mob-card" style="padding:13px;text-align:left;display:block">
+                  <span style="display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.04em;padding:3px 7px;border-radius:5px;color:{{ f.stFg }};background:{{ f.stBg }}">{{ f.stLabel }}</span>
+                  <div style="font-size:13.5px;line-height:1.4;color:#26262B;margin-top:8px">{{ f.text }}</div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ mobOverview.hasSources }}">
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 4px 9px">
+              <span style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#9A9AA4">SOURCES · {{ mobOverview.sourceCount }}</span>
+              <button onClick="{{ mobGoSources }}" style="font-size:12.5px;font-weight:600;color:#6D5EF5">Manage</button>
+            </div>
+            <div class="eo-mob-card" style="overflow:hidden">
+              <sc-for list="{{ mobOverviewSourcesPreview }}" as="src" hint-placeholder-count="3">
+                <button onClick="{{ src.open }}" style="display:flex;align-items:center;gap:11px;padding:12px 14px;border-top:1px solid #F4F4F6;width:100%;text-align:left" style-hover="background:#FAFAFB">
+                  <span style="width:32px;height:32px;border-radius:9px;background:{{ src.favBg }};color:{{ src.favFg }};font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex:none">{{ src.favCh }}</span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-size:13.5px;font-weight:600;color:#1B1B22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ src.title }}</span>
+                    <span style="display:block;font-size:11px;color:#9A9AA4">{{ src.countLine }}</span>
+                  </span>
+                  <span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;color:{{ src.scopeFg }};background:{{ src.scopeBg }};flex:none">{{ src.scopeLabel }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- SOURCES -->
+    <sc-if value="{{ mobShowSources }}">
+      <div style="padding:14px 14px 28px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:19px;font-weight:700;color:#17171A">Sources</div>
+          <button onClick="{{ openMobAdd }}" style="background:#6D5EF5;color:#fff;border:none;border-radius:11px;padding:8px 14px;font-size:13px;font-weight:600">+ Add</button>
+        </div>
+        <button onClick="{{ openMobScope }}" style="display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #EAEAEF;border-radius:12px;padding:10px 13px;text-align:left">
+          <span style="width:7px;height:7px;border-radius:50%;background:#59C08A;flex:none"></span>
+          <span style="font-size:13px;font-weight:600;color:#1B1B22;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mobScope.summaryLabel }}</span>
+          <span style="font-size:12px;font-weight:600;color:#6D5EF5;flex:none">Change</span>
+        </button>
+        <div class="eo-mob-chiprail">
+          <sc-for list="{{ mobKindChips }}" as="k" hint-placeholder-count="4">
+            <button onClick="{{ k.pick }}" style="flex:none;border:none;border-radius:20px;padding:7px 14px;font-size:12.5px;font-weight:600;color:{{ k.fg }};background:{{ k.bg }}">{{ k.label }}</button>
+          </sc-for>
+        </div>
+        <sc-if value="{{ mobSourcesEmpty }}">
+          <div style="text-align:center;padding:34px 20px;color:#A6A6AE">
+            <div style="font-size:13.5px;font-weight:600;color:#8A8A92">No sources of this kind</div>
+          </div>
+        </sc-if>
+        <div style="display:flex;flex-direction:column;gap:11px">
+          <sc-for list="{{ mobSources }}" as="src" hint-placeholder-count="3">
+            <div class="eo-mob-card" style="padding:14px">
+              <button onClick="{{ src.open }}" style="display:flex;align-items:flex-start;gap:11px;width:100%;text-align:left">
+                <span style="width:36px;height:36px;border-radius:10px;background:{{ src.favBg }};color:{{ src.favFg }};font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex:none">{{ src.favCh }}</span>
+                <span style="flex:1;min-width:0">
+                  <span style="display:block;font-size:14.5px;font-weight:600;color:#17171A;line-height:1.25">{{ src.title }}</span>
+                  <span style="display:block;font-size:11.5px;color:#9A9AA4;margin-top:3px">{{ src.typeLabel }} · {{ src.origin }}</span>
+                </span>
+                <span style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;color:{{ src.scopeFg }};background:{{ src.scopeBg }};flex:none">{{ src.scopeLabel }}</span>
+              </button>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:11px;padding-top:11px;border-top:1px solid #F4F4F6">
+                <span style="font-size:11.5px;color:#9A9AA4">{{ src.countLine }}</span>
+                <button onClick="{{ src.toggleScope }}" style="font-size:12px;font-weight:600;color:#5B4BE6;background:#EEEBFE;border:none;border-radius:8px;padding:5px 10px">{{ src.toggleScopeLabel }}</button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ASK -->
+    <sc-if value="{{ mobShowAsk }}">
+      <div style="padding:16px 14px 30px;display:flex;flex-direction:column;gap:13px">
+        <div style="font-size:19px;font-weight:700;color:#17171A">Ask</div>
+        <div style="display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #E4E4EA;border-radius:14px;padding:11px 13px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B0B0B8" stroke-width="2" style="flex:none"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21" stroke-linecap="round"/></svg>
+          <input value="{{ mobChatInput }}" onChange="{{ onMobChatInput }}" placeholder="Ask about this topic…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:16px;color:#1B1B22" />
+          <button onClick="{{ sendMobAsk }}" style="flex:none;background:#17171A;color:#fff;border:none;border-radius:9px;padding:7px 13px;font-size:12.5px;font-weight:600">Ask</button>
+        </div>
+
+        <sc-if value="{{ askEmpty }}">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:#9A9AA4">TRY ASKING</div>
+            <sc-for list="{{ askTries }}" as="t" hint-placeholder-count="3">
+              <button onClick="{{ t.go }}" style="display:block;width:100%;text-align:left;background:#fff;border:1px solid #EAEAEF;border-radius:12px;padding:12px 14px;font-size:14px;color:#2F2F36">{{ t.label }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ mobAsk.pending }}">
+          <div style="display:flex;align-items:center;gap:10px;padding:22px 4px;color:#8A8A95;font-size:13px">
+            <span style="width:14px;height:14px;border:2px solid #DED8FD;border-top-color:#5B4BE6;border-radius:50%;animation:eoSpin .7s linear infinite;flex:none"></span>
+            Reading the record…
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ mobAsk.hasAnswer }}">
+          <div style="display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #E4E4EA;border-radius:14px;padding:11px 13px">
+            <span style="flex:1;min-width:0;font-size:13px;font-weight:500;color:#2F2F36;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mobAsk.askedQ }}</span>
+            <button onClick="{{ mobAsk.newQuestion }}" style="flex:none;background:#F2F2F5;color:#5A5A64;border:none;border-radius:9px;padding:6px 11px;font-size:11.5px;font-weight:600">New</button>
+          </div>
+
+          <sc-if value="{{ mobAsk.hasGap }}">
+            <div style="display:flex;gap:10px;align-items:flex-start;background:#FDF4EC;border:1px solid #F6E3D2;border-radius:14px;padding:12px 13px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="1.9" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01" stroke-linecap="round"/></svg>
+              <div style="font-size:12.5px;line-height:1.45;color:#9A5326"><b style="color:#C2410C">{{ mobAsk.gapLabel }}.</b> {{ mobAsk.gapText }}</div>
+            </div>
+          </sc-if>
+
+          <div style="display:flex;align-items:baseline;gap:8px;padding:4px 2px 0">
+            <span style="font-size:12px;font-weight:700;color:#17171A">At a glance</span>
+            <span style="flex:1"></span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:#C0BCE8">01</span>
+          </div>
+          <div class="eo-mob-card" style="padding:14px">
+            <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+              <span style="display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.04em;padding:3px 8px;border-radius:5px;color:{{ mobAsk.kindFg }};background:#F2F2F5">{{ mobAsk.kind }}</span>
+              <sc-if value="{{ mobAsk.hasCorr }}">
+                <span style="display:inline-block;font-size:9.5px;font-weight:600;padding:3px 8px;border-radius:5px;color:{{ mobAsk.corrFg }};background:{{ mobAsk.corrBg }}">{{ mobAsk.corrLabel }}</span>
+              </sc-if>
+            </div>
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:16px;line-height:1.55;color:#2F2F36;margin-top:11px">
+              <sc-for list="{{ mobAsk.paras }}" as="p" hint-placeholder-count="2">
+                <div style="{{ p.style }}">
+                  <sc-if value="{{ p.hasPrefix }}"><span style="color:#8A8A95">{{ p.prefix }}</span></sc-if>
+                  <sc-for list="{{ p.segs }}" as="sg" hint-placeholder-count="6">
+                    <sc-if value="{{ sg.isText }}"><span style="{{ sg.style }}">{{ sg.s }}</span></sc-if>
+                    <sc-if value="{{ sg.isEnt }}"><button onClick="{{ sg.open }}" style="display:inline;padding:0;color:#5B4BE6;border-bottom:1px dotted #B9AEF8;font-size:inherit;font-family:inherit">{{ sg.s }}</button></sc-if>
+                    <sc-if value="{{ sg.isCite }}"><button onClick="{{ sg.open }}" style="display:inline-flex;padding:0 4px;margin:0 1px;color:{{ sg.cfg }};background:{{ sg.cbg }};border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600">{{ sg.label }}</button></sc-if>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ mobAsk.hasReceipt }}">
+              <div style="margin-top:11px;padding:10px 12px;background:#F8F7FF;border:1px dashed #D8D2F7;border-radius:11px">
+                <div style="font-size:9px;font-weight:700;letter-spacing:.05em;color:#A6A0E6;margin-bottom:4px">HOW THIS WAS DECIDED</div>
+                <div style="font-size:12px;line-height:1.45;color:#5A5A64">{{ mobAsk.receiptA }} — {{ mobAsk.receiptWhy }}</div>
+              </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ mobAsk.hasDoors }}">
+            <div style="display:flex;align-items:baseline;gap:8px;padding:4px 2px 0">
+              <span style="font-size:12px;font-weight:700;color:#17171A">In the sources</span>
+              <span style="flex:1"></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;color:#C0BCE8">02</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ mobAsk.doors }}" as="d" hint-placeholder-count="2">
+                <button onClick="{{ d.open }}" class="eo-mob-card" style="padding:12px 14px;text-align:left;display:block">
+                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ d.pc }};text-transform:uppercase">{{ d.pre }}</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#B0B0B8">{{ d.reg }}</span>
+                  </div>
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.5;color:#3A3A41">“{{ d.quote }}”</div>
+                  <div style="font-size:11px;color:#9A9AA4;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.title }}</div>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <button onClick="{{ mobAsk.toggleJson }}" style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:4px;background:#fff;border:1px solid #EAEAEF;border-radius:13px;padding:12px;font-size:12.5px;font-weight:600;color:#5A5A64">{{ mobAsk.jsonLabel }}</button>
+          <sc-if value="{{ mobAsk.showJson }}">
+            <div style="background:#17171A;border-radius:14px;padding:13px;overflow-x:auto">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.55;color:#C9C9D2;white-space:pre">{{ mobAsk.answerJson }}</div>
+            </div>
+          </sc-if>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- GRAPH -->
+    <sc-if value="{{ mobShowGraph }}">
+      <div style="padding:18px 14px 28px;display:flex;flex-direction:column;gap:14px">
+        <div style="font-size:19px;font-weight:700;color:#17171A">Graph</div>
+        <sc-if value="{{ mobGraph.hasEntities }}">
+          <div class="eo-mob-card" style="padding:10px">
+            <svg viewBox="0 0 300 236" width="100%" style="display:block">
+              <sc-for list="{{ mobGraph.nodes }}" as="n" hint-placeholder-count="6">
+                <line x1="150" y1="118" x2="{{ n.cx }}" y2="{{ n.cy }}" stroke="#E4E4EA" stroke-width="1.5"></line>
+              </sc-for>
+              <circle cx="150" cy="118" r="11" fill="#6D5EF5"></circle>
+              <sc-for list="{{ mobGraph.nodes }}" as="n" hint-placeholder-count="6">
+                <circle cx="{{ n.cx }}" cy="{{ n.cy }}" r="{{ n.r }}" fill="{{ n.color }}" onClick="{{ n.open }}" style="cursor:pointer"></circle>
+                <text x="{{ n.tx }}" y="{{ n.ty }}" text-anchor="{{ n.anchor }}" font-family="Onest,sans-serif" font-size="9.5" font-weight="600" fill="#5A5A64">{{ n.label }}</text>
+              </sc-for>
+              <text x="150" y="121" text-anchor="middle" font-family="Onest,sans-serif" font-size="8.5" font-weight="700" fill="#fff">{{ mobGraph.topicLabel }}</text>
+            </svg>
+          </div>
+        </sc-if>
+        <sc-if value="{{ mobGraph.noEntities }}">
+          <div style="text-align:center;padding:34px 20px;color:#A6A6AE">
+            <div style="font-size:13.5px;font-weight:600;color:#8A8A92">No entities yet</div>
+            <div style="font-size:12.5px;color:#A6A6AE;margin-top:4px">Add a source to see its connections.</div>
+          </div>
+        </sc-if>
+        <div style="display:flex;gap:10px;align-items:flex-start;background:#EEEBFE;border-radius:14px;padding:13px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6D5EF5" stroke-width="1.8" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01" stroke-linecap="round"/></svg>
+          <div style="font-size:12px;line-height:1.45;color:#5A4FCE">Full graph exploration lives on desktop. This is a snapshot of the most-connected entities across your active sources.</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- FINDINGS -->
+    <sc-if value="{{ mobShowFindings }}">
+      <div style="padding:16px 14px 28px;display:flex;flex-direction:column;gap:11px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:19px;font-weight:700;color:#17171A">Findings</div>
+          <span style="font-size:12px;font-weight:600;color:#9A9AA4">{{ mobFindingsCount }} cross-source</span>
+        </div>
+        <sc-if value="{{ mobFindingsEmpty }}">
+          <div style="text-align:center;padding:34px 20px;color:#A6A6AE">
+            <div style="font-size:13.5px;font-weight:600;color:#8A8A92">No cross-source findings yet</div>
+          </div>
+        </sc-if>
+        <sc-for list="{{ mobFindings }}" as="f" hint-placeholder-count="5">
+          <button onClick="{{ f.open }}" class="eo-mob-card" style="padding:15px;text-align:left;display:block">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.04em;padding:3px 8px;border-radius:5px;color:{{ f.stFg }};background:{{ f.stBg }}">{{ f.stLabel }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#B0B0B8">{{ f.id }}</span>
+            </div>
+            <div style="font-size:14.5px;line-height:1.4;color:#26262B;margin-top:10px">{{ f.text }}</div>
+            <sc-if value="{{ f.srcTitle }}">
+              <div style="display:flex;align-items:center;gap:6px;margin-top:10px">
+                <span style="font-size:11px;color:#B0B0B8">{{ f.rel }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500;color:#7A6EF0;background:#F0EEFE;padding:2px 7px;border-radius:5px">{{ f.srcReg }}</span>
+              </div>
+            </sc-if>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+
+  </div>
+
+  <div class="eo-mob-tabbar">
+    <button class="eo-mob-tabbtn" onClick="{{ mobGoOverview }}" style="color:{{ mobOvFg }}">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5z"></path><path d="M3 12l9 5 9-5"></path></svg>
+      <span style="font-size:9.5px;font-weight:600">Overview</span>
+    </button>
+    <button class="eo-mob-tabbtn" onClick="{{ mobGoSources }}" style="color:{{ mobSrcFg }}">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><path d="M9 8h6M9 12h6M9 16h3"></path></svg>
+      <span style="font-size:9.5px;font-weight:600">Sources</span>
+    </button>
+    <button class="eo-mob-tabbtn" onClick="{{ mobGoAsk }}" style="color:{{ mobAskFg }}">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M16.5 16.5L21 21"></path></svg>
+      <span style="font-size:9.5px;font-weight:600">Ask</span>
+    </button>
+    <button class="eo-mob-tabbtn" onClick="{{ mobGoGraph }}" style="color:{{ mobGraphFg }}">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="2.3"></circle><circle cx="18" cy="6" r="2.3"></circle><circle cx="12" cy="18" r="2.3"></circle><path d="M8 8l3 8M16.5 8l-4 8.5"></path></svg>
+      <span style="font-size:9.5px;font-weight:600">Graph</span>
+    </button>
+    <button class="eo-mob-tabbtn" onClick="{{ mobGoFindings }}" style="color:{{ mobFindFg }}">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M15.5 8.5l-2 5-5 2 2-5 5-2z"></path></svg>
+      <span style="font-size:9.5px;font-weight:600">Findings</span>
+    </button>
+  </div>
+
+  <!-- bottom sheet: evidence scope -->
+  <sc-if value="{{ mobSheetScope }}">
+    <div class="eo-mob-sheet-backdrop" onClick="{{ closeMobSheet }}"></div>
+    <div class="eo-mob-sheet" onClick="{{ stopMobSheetClick }}">
+      <div style="width:38px;height:4px;border-radius:3px;background:#E0E0E6;margin:0 auto 16px"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div style="font-size:17px;font-weight:700;color:#17171A">Evidence scope</div>
+        <span style="font-size:12.5px;font-weight:600;color:#9A9AA4">{{ mobScope.activeCount }} / {{ mobScope.total }}</span>
+      </div>
+      <div style="font-size:12.5px;color:#8A8A95;margin-bottom:13px;line-height:1.4">Answers and findings use only the sources you keep in scope.</div>
+      <div style="display:flex;gap:8px;margin-bottom:13px">
+        <button onClick="{{ mobScope.all }}" style="flex:1;background:#EEEBFE;color:#5B4BE6;border:none;border-radius:11px;padding:10px;font-size:13px;font-weight:600">All sources</button>
+        <button onClick="{{ mobScope.none }}" style="flex:1;background:#F2F2F5;color:#5A5A64;border:none;border-radius:11px;padding:10px;font-size:13px;font-weight:600">None</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <sc-for list="{{ mobScope.allChips }}" as="c" hint-placeholder-count="3">
+          <button onClick="{{ c.toggle }}" style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid {{ c.bd }};border-radius:14px;background:{{ c.bg }};width:100%;text-align:left">
+            <span style="width:22px;height:22px;border-radius:7px;border:1.5px solid {{ c.boxBd }};background:{{ c.boxBg }};color:#fff;display:flex;align-items:center;justify-content:center;flex:none;font-size:12px;font-weight:700">{{ c.boxCheck }}</span>
+            <span style="flex:1;min-width:0">
+              <span style="display:block;font-size:13.5px;font-weight:600;color:{{ c.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.title }}</span>
+              <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A0A0A8">{{ c.reg }}</span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+      <button onClick="{{ closeMobSheet }}" style="width:100%;margin-top:16px;background:#17171A;color:#fff;border:none;border-radius:13px;padding:13px;font-size:14.5px;font-weight:600">Done</button>
+    </div>
+  </sc-if>
+
+  <!-- bottom sheet: add a source -->
+  <sc-if value="{{ mobSheetAdd }}">
+    <div class="eo-mob-sheet-backdrop" onClick="{{ closeMobSheet }}"></div>
+    <div class="eo-mob-sheet" onClick="{{ stopMobSheetClick }}">
+      <div style="width:38px;height:4px;border-radius:3px;background:#E0E0E6;margin:0 auto 16px"></div>
+      <div style="font-size:17px;font-weight:700;color:#17171A;margin-bottom:5px">Add a source</div>
+      <div style="font-size:12.5px;color:#8A8A95;margin-bottom:15px;line-height:1.4">Paste a link, upload a file, or paste text. New sources are scanned for entities and findings.</div>
+      <div style="display:flex;align-items:center;gap:9px;background:#F6F6F8;border:1px solid #E4E4EA;border-radius:13px;padding:12px 14px;margin-bottom:12px">
+        <input value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Paste a URL…" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:16px;color:#1B1B22" />
+        <button onClick="{{ mobIngestUrl }}" style="flex:none;background:#6D5EF5;color:#fff;border:none;border-radius:9px;padding:7px 12px;font-size:12.5px;font-weight:600">Add</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onClick="{{ mobPickFile }}" style="flex:1;text-align:center;background:#F2F2F5;border-radius:11px;padding:11px;font-size:12.5px;font-weight:600;color:#5A5A64">Upload file</button>
+        <button onClick="{{ mobOpenPaste }}" style="flex:1;text-align:center;background:#F2F2F5;border-radius:11px;padding:11px;font-size:12.5px;font-weight:600;color:#5A5A64">Paste text</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- bottom sheet: paste text (shares the desktop paste modal's own state/handlers) -->
+  <sc-if value="{{ pasteShow }}">
+    <div class="eo-mob-sheet-backdrop" onClick="{{ closePaste }}"></div>
+    <div class="eo-mob-sheet" onClick="{{ stopMobSheetClick }}">
+      <div style="width:38px;height:4px;border-radius:3px;background:#E0E0E6;margin:0 auto 16px"></div>
+      <div style="font-size:17px;font-weight:700;color:#17171A;margin-bottom:11px">Paste text</div>
+      <input value="{{ pasteTitle }}" onChange="{{ onPasteTitle }}" placeholder="Title (optional)" style="width:100%;border:1px solid #E4E4EA;border-radius:11px;padding:11px 13px;font-size:16px;color:#1B1B22;margin-bottom:10px;outline:none" />
+      <textarea value="{{ pasteBody }}" onChange="{{ onPasteBody }}" placeholder="Paste the text…" style="width:100%;min-height:160px;border:1px solid #E4E4EA;border-radius:11px;padding:11px 13px;font-size:15px;color:#1B1B22;font-family:inherit;outline:none;resize:vertical"></textarea>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button onClick="{{ closePaste }}" style="flex:1;background:#F2F2F5;color:#5A5A64;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600">Cancel</button>
+        <button onClick="{{ submitPaste }}" style="flex:1;background:#17171A;color:#fff;border:none;border-radius:12px;padding:12px;font-size:14px;font-weight:600">Add to topic</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- bottom sheet: account (reuses the same signed-in/out state as the desktop popover) -->
+  <sc-if value="{{ acctOpen }}">
+    <div class="eo-mob-sheet-backdrop" onClick="{{ toggleAccount }}"></div>
+    <div class="eo-mob-sheet" onClick="{{ stopMobSheetClick }}">
+      <div style="width:38px;height:4px;border-radius:3px;background:#E0E0E6;margin:0 auto 16px"></div>
+      <sc-if value="{{ signedOut }}">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">MATRIX ACCOUNT · OPTIONAL</div>
+        <div style="font-size:13px;color:#6E6E78;line-height:1.5;margin-bottom:14px">The reader works fully signed out. Sign in only to save permanent checkpoints of a source to Archive.org.</div>
+        <button onClick="{{ openLogin }}" style="width:100%;background:#EEEBFE;border:1px solid #DED8FD;color:#5B4BE6;font-weight:600;font-size:13.5px;border-radius:12px;padding:12px">Sign in with Matrix</button>
+      </sc-if>
+      <sc-if value="{{ signedIn }}">
+        <div style="font-size:14px;font-weight:650;color:#2A2A32">{{ acctUserId }}</div>
+        <div style="font-size:12px;color:#9A9AA4;margin-top:2px;margin-bottom:16px">signed in · {{ acctHomeserver }}</div>
+        <button onClick="{{ signOut }}" style="width:100%;border:1px solid #EAEAEF;border-radius:11px;padding:11px;font-size:13.5px;font-weight:600;color:#6E6E78">Sign out</button>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <!-- toast + drag overlay — shared global state, own mobile-native presentation -->
+  <sc-if value="{{ toast }}">
+    <div style="position:fixed;left:50%;bottom:calc(78px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:#1B1B22;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(20,20,30,.3);max-width:calc(100vw - 32px);animation:eoToast .2s ease">{{ toast }}</div>
+  </sc-if>
+  <sc-if value="{{ dragOver }}">
+    <div style="position:fixed;inset:10px;z-index:70;border:2px dashed #6D5EF5;border-radius:18px;background:rgba(109,94,245,.06);display:flex;align-items:center;justify-content:center;pointer-events:none">
+      <div style="background:#fff;border:1px solid #DED8FD;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:600;color:#5B4BE6;box-shadow:0 12px 34px rgba(20,20,30,.14);text-align:center">Drop to record</div>
+    </div>
+  </sc-if>
+
+</div>
+</sc-if>
+
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
 // ── EoMurmurStrip — the peripheral sense as a night-sky canvas band ─────────────────────────────────
@@ -4252,6 +4686,10 @@ class Component extends DCLogic {
     this.state = {
       tab: 'search', omni: '', chatInput: '', toast: null,
       isMobile: mobile,
+      // The mobile app's own bottom sheet — 'scope' (evidence scope) | 'add' (add a source) | null.
+      // Independent of the desktop popover/modal state (settingsOpen, acctOpen, pasteOpen, …), which
+      // the mobile screens reuse directly since only one of the two trees ever renders at a time.
+      mobSheet: null, mobKind: 'All', mobGraphNote: false,
       leftOpen: mobile ? false : this._pref('eo_left', true), rightOpen: mobile ? false : this._pref('eo_right', true),
       // The entity panel can be PROMOTED from the 340px right rail to the main stage (hero) — a
       // figure's profile then reads like a page, with the moment-by-moment drill it holds given room.
@@ -5103,6 +5541,14 @@ class Component extends DCLogic {
 
   openPaste() { this.setState({ pasteOpen: true, pasteTitle: '', pasteBody: '' }); }
   closePaste() { this.setState({ pasteOpen: false }); }
+  // The mobile app's bottom sheets — evidence scope and add-a-source. Reuse the real ingest
+  // methods (pickFile/openPaste/ingestSearch) rather than a mobile-only stand-in.
+  openMobScope() { this.setState({ mobSheet: 'scope' }); }
+  openMobAdd() { this.setState({ mobSheet: 'add' }); }
+  closeMobSheet() { this.setState({ mobSheet: null }); }
+  mobPickFile() { this.closeMobSheet(); this.pickFile(); }
+  mobOpenPaste() { this.closeMobSheet(); this.openPaste(); }
+  mobIngestUrl() { const q = String(this.state.omni || '').trim(); if (!q) return; this.setState({ omni: '' }); this.closeMobSheet(); this.ingestSearch(q); }
   // The waveform of surprise → one turning point, held up in a modal. `turn` carries the source, the
   // line, the full sentence, the EO surprise operations that fired there, and the belief/pull labels.
   openSurprise(turn) { if (turn) this.setState({ surpriseModal: turn }); }
@@ -8484,6 +8930,122 @@ class Component extends DCLogic {
         : `Based on ${activeCount} of ${total} topic sources. ${excludedRegs.join(', ')} excluded.`,
     };
   }
+  // ── MOBILE APP — Overview / Sources / Ask / Graph / Findings on one phone-width surface.
+  // A simplified SHAPE over the same record the desktop tabs read — _topicOverviewVM(),
+  // _evidenceScopeVM(), findings()'s evClaims, and the Ask surface's askSurfaces are all reused
+  // verbatim (passed in from _vals(), already computed once per render), never recomputed twice.
+  _mobileVals(app, st, evClaims, askSurfaces, askQuestion, askEmpty, askTries, generating) {
+    const violet = '#6D5EF5', ink = '#1B1B22', muted = '#8A8A95';
+    const noop = () => {};
+    if (!app) {
+      return {
+        isMobile: !!st.isMobile, mobShowOverview: true, mobShowSources: false, mobShowAsk: false, mobShowGraph: false, mobShowFindings: false,
+        mobOvFg: violet, mobSrcFg: muted, mobAskFg: muted, mobGraphFg: muted, mobFindFg: muted,
+        mobGoOverview: noop, mobGoSources: noop, mobGoAsk: noop, mobGoGraph: noop, mobGoFindings: noop,
+        mobWorkspace: 'Workspace', mobTopicTitle: 'EO Reader', mobActive: false,
+        mobOverview: null, mobSources: [], mobKindChips: [], mobSourcesEmpty: true,
+        mobFindings: [], mobFindingsCount: '0', mobFindingsEmpty: true,
+        askTries: [], askEmpty: true, askQuestion: '', mobAsk: null,
+        mobGraph: { hasEntities: false, noEntities: true, nodes: [], topicLabel: '' },
+        mobSheetOpen: false, mobSheetScope: false, mobSheetAdd: false,
+        openMobScope: noop, openMobAdd: noop, closeMobSheet: noop, stopMobSheetClick: (e) => e.stopPropagation(),
+        mobScope: { chips: [] }, mobPickFile: noop, mobOpenPaste: noop, mobIngestUrl: noop,
+        mobChatInput: '', onMobChatInput: noop, sendMobAsk: noop,
+      };
+    }
+    const viewingSource = st.viewerTabs.includes(st.tab);
+    const KNOWN = ['topic', 'register', 'search', 'graph', 'evidence'];
+    const activeTab = KNOWN.includes(st.tab) ? st.tab : (viewingSource ? 'register' : 'topic');
+    const fg = (id) => activeTab === id ? violet : muted;
+
+    const ov = this._topicOverviewVM();
+    const scope = this._evidenceScopeVM();
+
+    // Sources — the same per-source cards Topic Overview builds, plus a kind filter derived
+    // from whatever kinds are actually present (never a fixed list the record might not fill).
+    const KIND_ORDER = ['Article', 'Webpage', 'PDF', 'Book', 'Audio', 'Video', 'Image', 'Dataset', 'Code', 'Repository', 'Conversation', 'Notes', 'Source'];
+    const kindsPresent = Array.from(new Set(ov.cards.map((c) => c.typeLabel)));
+    const kinds = ['All', ...KIND_ORDER.filter((k) => kindsPresent.includes(k))];
+    const kind = kinds.includes(st.mobKind) ? st.mobKind : 'All';
+    const mobKindChips = kinds.map((k) => ({
+      label: k, pick: () => this.setState({ mobKind: k }),
+      fg: k === kind ? '#fff' : '#5A5A64', bg: k === kind ? ink : '#F2F2F6',
+    }));
+    const mobSources = kind === 'All' ? ov.cards : ov.cards.filter((c) => c.typeLabel === kind);
+
+    // Findings — the Findings tab's own claim rows, reused verbatim.
+    const mobFindings = evClaims;
+
+    // Ask — the same grounded-answer classification the desktop Ask surface renders (kind,
+    // corroboration, the honest gap/receipt, and the cited passages), never a re-derived one.
+    const a = askSurfaces[0] || null;
+    const answerObj = a ? {
+      question: askQuestion, kind: a.kind,
+      corroboration: a.hasCorr ? a.corrLabel : null,
+      gap: a.hasGap ? { label: a.gapLabel, text: a.gapText } : null,
+      receipt: a.hasReceipt ? { summary: a.receiptA, why: a.receiptWhy } : null,
+      sources: (a.doors || []).map((d) => ({ source: d.reg, title: d.title, standing: d.pre, quote: d.quote })),
+    } : null;
+    const askJsonOpen = !!st.mobAskJson;
+    const mobAsk = {
+      hasAnswer: !askEmpty && !!a && !a.isPending, pending: a ? !!a.isPending : false,
+      askedQ: askQuestion,
+      kind: a ? a.kind : '', kindNo: a ? !!a.kindNo : false, kindFg: a ? a.kindFg : muted,
+      hasCorr: a ? !!a.hasCorr : false, corrLabel: a ? (a.corrLabel || '') : '', corrFg: a ? a.corrFg : muted, corrBg: a ? a.corrBg : '#F2F2F6',
+      hasGap: a ? !!a.hasGap : false, gapLabel: a ? a.gapLabel : '', gapText: a ? a.gapText : '',
+      hasReceipt: a ? !!a.hasReceipt : false, receiptA: a ? a.receiptA : '', receiptWhy: a ? a.receiptWhy : '',
+      hasDoors: a ? !!a.hasDoors : false, doors: a ? a.doors : [],
+      paras: a ? (a.paras || []) : [],
+      showJson: askJsonOpen, jsonLabel: askJsonOpen ? 'Hide the structure' : 'See the structure',
+      toggleJson: () => this.setState((s2) => ({ mobAskJson: !s2.mobAskJson })),
+      answerJson: answerObj ? JSON.stringify(answerObj, null, 2) : '',
+      newQuestion: () => this.setState({ chatInput: '', mobAskJson: false }),
+    };
+
+    // Graph snapshot — the top connected entities across the active scope (app.entities() is
+    // already ranked by mentions+links), laid out radially. Full exploration stays on desktop.
+    let ents = []; try { ents = app.entities({ merge: true, level: 'names' }) || []; } catch { ents = []; }
+    const top = ents.slice(0, 7);
+    const cx = 150, cy = 118, R = 78;
+    const maxW = Math.max(1, ...top.map((e) => (e.mentions || 0) + (e.links || 0)), 1);
+    const nodes = top.map((e, i) => {
+      const ang = (2 * Math.PI * i / Math.max(1, top.length)) - Math.PI / 2;
+      const w = (e.mentions || 0) + (e.links || 0);
+      const r = 5 + Math.round((w / maxW) * 7);
+      const nx = cx + Math.cos(ang) * R, ny = cy + Math.sin(ang) * R;
+      const tx = cx + Math.cos(ang) * (R + 18), ty = cy + Math.sin(ang) * (R + 18);
+      const label = String(e.label || '');
+      return {
+        cx: String(Math.round(nx)), cy: String(Math.round(ny)), r: String(r),
+        color: i === 0 ? '#6D5EF5' : '#2563C9',
+        tx: String(Math.round(tx)), ty: String(Math.round(ty)),
+        anchor: Math.cos(ang) > 0.3 ? 'start' : Math.cos(ang) < -0.3 ? 'end' : 'middle',
+        label: label.length > 16 ? label.slice(0, 15) + '…' : label,
+        open: () => this.openEntity(e.docId, e.entId),
+      };
+    });
+    const topicLabel = String(ov.title || '');
+
+    return {
+      isMobile: !!st.isMobile,
+      mobShowOverview: activeTab === 'topic', mobShowSources: activeTab === 'register', mobShowAsk: activeTab === 'search', mobShowGraph: activeTab === 'graph', mobShowFindings: activeTab === 'evidence',
+      mobOvFg: fg('topic'), mobSrcFg: fg('register'), mobAskFg: fg('search'), mobGraphFg: fg('graph'), mobFindFg: fg('evidence'),
+      mobGoOverview: () => this.setTab('topic'), mobGoSources: () => this.setTab('register'), mobGoAsk: () => this.setTab('search'), mobGoGraph: () => this.setTab('graph'), mobGoFindings: () => this.setTab('evidence'),
+      mobWorkspace: ov.workspace, mobTopicTitle: ov.title, mobActive: !!generating || !!(app.state && app.state.busy),
+      mobOverview: ov, mobOverviewFindingsPreview: mobFindings.slice(0, 2), mobOverviewSourcesPreview: ov.cards.slice(0, 3),
+      mobSources, mobKindChips, mobSourcesEmpty: mobSources.length === 0,
+      mobFindings, mobFindingsCount: String(mobFindings.length), mobFindingsEmpty: mobFindings.length === 0,
+      askTries, askEmpty, askQuestion,
+      mobAsk,
+      mobGraph: { hasEntities: nodes.length > 0, noEntities: nodes.length === 0, nodes, topicLabel: topicLabel.length > 14 ? topicLabel.slice(0, 13) + '…' : topicLabel },
+      mobSheetOpen: !!st.mobSheet, mobSheetScope: st.mobSheet === 'scope', mobSheetAdd: st.mobSheet === 'add',
+      openMobScope: () => this.openMobScope(), openMobAdd: () => this.openMobAdd(), closeMobSheet: () => this.closeMobSheet(),
+      stopMobSheetClick: (e) => e.stopPropagation(),
+      mobScope: scope,
+      mobPickFile: () => this.mobPickFile(), mobOpenPaste: () => this.mobOpenPaste(), mobIngestUrl: () => this.mobIngestUrl(),
+      mobChatInput: st.chatInput || '', onMobChatInput: (e) => this.setState({ chatInput: e.target.value }), sendMobAsk: () => this.sendChat(),
+    };
+  }
   _sourceStructureRows(s, type, paras) {
     const textOfPara = (p) => String(p && (p.label || p.heading || p.text || (p.segs && p.segs.map((x)=>x.s).join('')) || '') || '').replace(/\s+/g, ' ').trim();
     // A TRANSCRIBED clip's Contents opens on the WHOLE shape of the reading — its topic chapters — not the
@@ -11548,6 +12110,9 @@ class Component extends DCLogic {
     };
 
     return {
+      // The mobile app — Overview/Sources/Ask/Graph/Findings on one phone-width surface,
+      // reading the exact same computed values (evClaims, askSurfaces, findings) as the tabs below.
+      ...this._mobileVals(app, st, evClaims, askSurfaces, askQuestion, askEmpty, askTries, generating),
       // chrome
       crumb,
       omni: st.omni, toast: st.toast, dragOver: !!st.dragOver,
