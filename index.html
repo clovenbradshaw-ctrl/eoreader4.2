@@ -924,17 +924,10 @@ table{border-collapse:collapse;width:100%}
           </sc-if>
         </div>
 
-        <sc-if value="{{ mobile.entitySheet.prof.hasDefs }}">
+        <sc-if value="{{ mobile.entitySheet.prof.hasSolar }}">
           <div style="margin-top:16px">
-            <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--eo-m-faint);margin-bottom:8px">STANDING PROPERTIES</div>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <sc-for list="{{ mobile.entitySheet.prof.defs }}" as="d">
-                <div style="border:1px solid var(--eo-m-border);border-radius:10px;padding:9px 11px">
-                  <div style="font-size:13.5px;color:var(--eo-m-text);line-height:1.4">{{ d.value }}</div>
-                  <div style="font-size:10.5px;color:var(--eo-m-faint);margin-top:5px">{{ d.prov }} · {{ d.conf }}</div>
-                </div>
-              </sc-for>
-            </div>
+            <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:var(--eo-m-faint);margin-bottom:8px">MEANING · STRUCTURE · EXISTENCE</div>
+            <div ref="{{ mobile.entitySheet.prof.setSolarEl }}"></div>
           </div>
         </sc-if>
 
@@ -1931,26 +1924,12 @@ table{border-collapse:collapse;width:100%}
                     </sc-if>
                   </div>
 
-                  <sc-if value="{{ webProf.hasDefs }}">
+                  <!-- Skipped when the main canvas already IS the EOGraph (kind 'solar') — this
+                       panel's own copy would just duplicate what's drawn full-size beside it. -->
+                  <sc-if value="{{ webProfShowSolar }}">
                     <div style="margin-top:15px">
-                      <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">KEY FACTS <span style="color:#C0C0C8;font-weight:600">· ranked</span></div>
-                      <sc-for list="{{ webProf.defs }}" as="d">
-                        <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">
-                          <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ d.value }}</div>
-                          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px">
-                            <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ d.prov }} · {{ d.conf }}</span>
-                            <sc-for list="{{ d.cites }}" as="w">
-                              <button onClick="{{ w.jump }}" title="Jump to this passage in the source" style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#0F6E56;background:#E1F5EE;border-radius:5px;padding:1px 6px" style-hover="background:#D2EFE4">{{ w.label }}</button>
-                            </sc-for>
-                          </div>
-                        </div>
-                      </sc-for>
-                      <sc-if value="{{ webProf.hasDag }}">
-                        <div style="margin-top:6px;border:1px solid #EFEFF3;border-radius:9px;padding:10px 8px 6px;background:#fff">
-                          <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 4px">PROVENANCE</div>
-                          <div ref="{{ webProf.setDagEl }}"></div>
-                        </div>
-                      </sc-if>
+                      <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">MEANING · STRUCTURE · EXISTENCE</div>
+                      <div ref="{{ webProf.setSolarEl }}"></div>
                     </div>
                   </sc-if>
 
@@ -4013,26 +3992,10 @@ table{border-collapse:collapse;width:100%}
                 </div>
               </sc-if>
 
-              <sc-if value="{{ prof.hasDefs }}">
+              <sc-if value="{{ prof.hasSolar }}">
                 <div style="margin-top:16px">
-                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">KEY FACTS <span style="color:#C0C0C8;font-weight:600">· ranked by what the record witnesses</span></div>
-                  <sc-for list="{{ prof.defs }}" as="d">
-                    <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;margin-bottom:6px;background:#FBFBFD">
-                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ d.value }}</div>
-                      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px">
-                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#9A9AA4">{{ d.prov }} · {{ d.conf }}</span>
-                        <sc-for list="{{ d.cites }}" as="w">
-                          <button onClick="{{ w.jump }}" title="Jump to this passage in the source" style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:#0F6E56;background:#E1F5EE;border-radius:5px;padding:1px 6px" style-hover="background:#D2EFE4">{{ w.label }}</button>
-                        </sc-for>
-                      </div>
-                    </div>
-                  </sc-for>
-                  <sc-if value="{{ prof.hasDag }}">
-                    <div style="margin-top:6px;border:1px solid #EFEFF3;border-radius:9px;padding:10px 8px 6px;background:#fff">
-                      <div style="font-size:8.5px;font-weight:700;letter-spacing:.06em;color:#B4B4BE;margin:0 4px 4px">PROVENANCE</div>
-                      <div ref="{{ prof.setDagEl }}"></div>
-                    </div>
-                  </sc-if>
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">MEANING · STRUCTURE · EXISTENCE <span style="color:#C0C0C8;font-weight:600">· zoom to descend</span></div>
+                  <div ref="{{ prof.setSolarEl }}"></div>
                 </div>
               </sc-if>
 
@@ -8345,7 +8308,7 @@ class Component extends DCLogic {
   mobileBackFromSource() { this.setTab(this.state.mReturnTab || 'topic'); }
   // Guards a scrollIntoView so it fires once per (source, focus target) rather than on every
   // re-render — refs re-fire whenever their closure identity changes (every _vals() call makes a
-  // fresh one), so the guard has to live on the element itself, same idiom as _mountPropDag.
+  // fresh one), so the guard has to live on the element itself, same idiom as _mountEntitySolar.
   _mobileScrollToFocus(el, key) {
     if (!el || el.__scrollKey === key) return;
     el.__scrollKey = key;
@@ -8368,12 +8331,12 @@ class Component extends DCLogic {
       this.setState({ wikiDefs: { ...this.state.wikiDefs, [key]: { none: true } } });
     });
   }
-  // The entity profile's render values — one builder for BOTH surfaces that show a
-  // profile (the right sidebar and the graph overlay's details panel), so the wiki
-  // referent, standing properties, connected entities and mentions always read the
-  // same. The handlers differ per surface: `pivot(otherId)` follows a connected
-  // entity, `openSource(sn)`/`jump(sn, text)` leave for the source viewer, and an
-  // optional `openWeb()` renders the sidebar's "Open the web graph" button.
+  // The entity profile's render values — one builder for ALL THREE surfaces that show
+  // a profile (the right sidebar, the graph overlay's details panel, the mobile sheet),
+  // so the wiki referent, the embedded EOGraph, connected entities and mentions always
+  // read the same. The handlers differ per surface: `pivot(otherId)` follows a
+  // connected entity, `openSource(sn)`/`jump(sn, text)` leave for the source viewer,
+  // and an optional `openWeb()` renders the sidebar's "Open the web graph" button.
   _profFor(docId, entId, h, opts = {}) {
     const app = this._app;
     const p = app && app.entityProfile ? app.entityProfile(docId, entId) : null;
@@ -8402,33 +8365,22 @@ class Component extends DCLogic {
       wikiAbsent: !!(wk && !wk.busy && !wkHit),
       srcReg: src.reg || '', srcTitle: src.title || '', openSource: () => h.openSource(p.sn),
       openWeb: h.openWeb || (() => {}),
-      // STANDING PROPERTIES — ranked (app.rankProperties), each carrying its provenance:
-      // how many passages witness it, the source it came from, and clickable ¶ chips that
-      // jump straight to the witnessing sentence. The value alone is no longer the whole row.
-      hasDefs: p.defs.length > 0,
-      defs: p.defs.slice(0, 8).map((d) => {
-        const cites = (d.witnesses || []).slice(0, 8).map((w) => ({
-          label: '¶' + w.idx, jump: () => h.jump(p.sn, w.text),
-        }));
-        const conf = Math.max(0, Math.min(100, Math.round((d.confidence || 0) * 100)));
-        return {
-          value: d.value,
-          prov: (d.count > 1 ? d.count + ' passages' : '1 passage') + (src.reg ? ' · ' + src.reg : ''),
-          conf: conf + '% read', hasCites: cites.length > 0, cites,
-        };
-      }),
-      // The provenance DAG over those properties (SOURCE → PASSAGE → PROPERTY). Mounted
-      // imperatively; the key changes only when the entity or its property set does, so a
-      // re-render never redraws it in place. See _mountPropDag / _renderPropDag.
-      hasDag: p.defs.length > 0,
-      setDagEl: (el) => this._mountPropDag(el, {
-        source: { title: src.title || p.sourceTitle || 'this source', reg: src.reg || '' },
-        props: p.defs.slice(0, 8).map((d) => ({
-          value: d.value, count: d.count, score: d.score,
-          witnesses: (d.witnesses || []).map((w) => ({ idx: w.idx, text: w.text })),
-        })),
-        onJump: (text) => h.jump(p.sn, text),
-      }, docId + '#' + entId + '#' + p.defs.length),
+      // A flat "standing properties" list read as facts told nothing about how they hang
+      // together — no sense of what the entity MEANS (what claims orbit it), how it's
+      // STRUCTURED (what it bonds to), or how it came to EXIST (how many times, from what
+      // spans). So instead of that list, embed the EOGraph's own three-level descent
+      // (src/rooms/reader/solar-system.js), scoped to just this entity, right where the
+      // property list used to sit — the same meaning/structure/existence regimes the Graph
+      // tab's EOGraph draws full-size, at a size that fits this panel. Mounted imperatively,
+      // guarded by a key so a re-render never restarts the live orbit; see _mountEntitySolar.
+      hasSolar: true,
+      setSolarEl: (el) => this._mountEntitySolar(el, {
+        tiered: app.tieredData(docId, entId),
+        entId,
+        spans: p.mentions.map((m) => ({ idx: m.idx, text: m.text, t0: m.t0, t1: m.t1 })),
+        count: p.mentionCount || p.mentions.length,
+        sn: p.sn,
+      }, docId + '#' + entId + '#' + p.mentions.length + '#' + p.relations.length),
       hasRelations: p.relations.length > 0,
       // CONNECTED ENTITIES is a list of the DISTINCT neighbours the focus bonds to —
       // one row per entity, not one per edge. figureSurface yields a separate relation
@@ -9872,8 +9824,8 @@ class Component extends DCLogic {
   // panel becomes that figure's dossier rather than a machine telegram: the model-WRITTEN reading of
   // the figure IN THIS DOCUMENT on the left (its info in the context of the reading, span-grounded and
   // steerable — never the raw encyclopedia lead), and on the right the settled Wikipedia referent with
-  // its lead image, over the provenance DAG that receipts every standing property. It reuses the entity
-  // machinery whole — the contextual summary (chorus/definer), the wiki referent + image, _renderPropDag
+  // its lead image, over the entity DAG (who this figure connects to). It reuses the entity
+  // machinery whole — the contextual summary (chorus/definer), the wiki referent + image, _renderEntityDag
   // — laid out full-width for the reading stage. A diffuse / figure-less source returns { show:false }
   // and keeps its plain source SUMMARY.
   _sourceDossierVM(s) {
@@ -9944,92 +9896,37 @@ class Component extends DCLogic {
     this._wikiKicked.add(key);
     Promise.resolve().then(() => this._ensureWiki(docId, entId));
   }
-  // ── the property provenance DAG ─────────────────────────────────────────────
-  // A self-contained little DAG that answers "where does this property come from?":
-  // SOURCE → the PASSAGES that assert each property → the PROPERTIES themselves, ranked.
-  // It makes a junk property visible for what it is — a lone edge from one passage — and
-  // shows a well-witnessed one fanning in from several. Pure DOM/SVG, no dependency on the
-  // full graph overlay; it lives right under the properties list the user is reading.
-  _mountPropDag(el, data, key) {
+  // ── the embedded EOGraph (meaning · structure · existence) ──────────────────
+  // Where the flat property list used to sit: the SAME three-level descent the Graph
+  // tab's EOGraph draws full-size (src/rooms/reader/solar-system.js), scoped to just
+  // this entity and sized to fit a side panel instead of a full canvas. The guard
+  // lives ON THE ELEMENT (same idiom as _mountEntityDag), not on `this`:
+  // an inline ref callback's identity changes on every parent re-render, so React
+  // fires the OLD ref with `null` and the NEW ref with the same real element on every
+  // unrelated re-render, not just on a genuine unmount — tearing the widget down on
+  // `el === null` here would restart the live orbit constantly. So a null call is a
+  // pure no-op; the widget's own tick() loop (solar-system.js) checks its OWN
+  // connectedness and lets itself lapse once the element is genuinely gone.
+  _mountEntitySolar(el, data, key) {
     if (!el) return;
-    if (el.__dagKey === key) return;   // same entity + property set across re-renders — already drawn
-    el.__dagKey = key;
-    try { this._renderPropDag(el, data); }
-    catch (e) { el.innerHTML = ''; el.__dagKey = null; }
-  }
-  _renderPropDag(el, data) {
+    if (el.__ssKey === key) return;   // same entity + bond/mention counts — already drawn
+    if (el.__ssInst) { try { el.__ssInst.destroy(); } catch {} }
+    el.__ssKey = key;
     el.innerHTML = '';
-    const props = (data.props || []).filter((p) => p && p.value);
-    if (!props.length) return;
-    const NS = 'http://www.w3.org/2000/svg';
-    const sv = (t, a = {}) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
-    const clip = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
-    // Tier palette shared with the tiered graph: existence (source) · structure (passage) · significance (property).
-    const C = { src: '#7F77DD', pass: '#1D9E75', prop: '#EF9F27' };
-    // One node per DISTINCT witnessing passage, in first-seen order (top to bottom).
-    const passIdx = [];
-    for (const p of props) for (const w of (p.witnesses || [])) if (!passIdx.includes(w.idx)) passIdx.push(w.idx);
-    const passText = {}; for (const p of props) for (const w of (p.witnesses || [])) passText[w.idx] = w.text;
-    const VW = 320, PAD = 12, HEAD = 22;
-    const rowH = 30, propTop = HEAD + 8;
-    const rows = props.length;
-    const H = propTop + rows * rowH + PAD;
-    const svg = sv('svg', { viewBox: `0 0 ${VW} ${H}`, width: '100%', height: H, style: 'display:block;overflow:visible' });
-    // columns
-    const xSrc = 22, xPass = 92, xPropL = 132, xPropR = VW - 6;
-    const propY = (i) => propTop + i * rowH + rowH / 2;
-    // passage y = barycentre of the properties it witnesses, then spread to avoid overlap
-    const passOf = {};
-    passIdx.forEach((idx) => {
-      const ys = [];
-      props.forEach((p, i) => { if ((p.witnesses || []).some((w) => w.idx === idx)) ys.push(propY(i)); });
-      passOf[idx] = ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : propTop;
-    });
-    const ordered = passIdx.slice().sort((a, b) => passOf[a] - passOf[b]);
-    for (let i = 1; i < ordered.length; i++) {
-      const min = passOf[ordered[i - 1]] + 22;
-      if (passOf[ordered[i]] < min) passOf[ordered[i]] = min;
-    }
-    const ySrc = H / 2;
-    // headers
-    const head = (x, t, c, anchor) => { const e = sv('text', { x, y: 13, 'font-size': 8.5, 'font-weight': 700, 'letter-spacing': '.06em', fill: c, 'text-anchor': anchor }); e.textContent = t; svg.appendChild(e); };
-    head(xSrc, 'SOURCE', C.src, 'middle');
-    head(xPass, 'PASSAGE', C.pass, 'middle');
-    head(xPropL, 'PROPERTY', C.prop, 'start');
-    // edges: source → passage
-    const edge = (x1, y1, x2, y2, c) => {
-      const mx = (x1 + x2) / 2;
-      svg.appendChild(sv('path', { d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`, fill: 'none', stroke: c, 'stroke-width': 1.3, 'stroke-opacity': 0.5 }));
-    };
-    ordered.forEach((idx) => edge(xSrc + 8, ySrc, xPass - 8, passOf[idx], C.src));
-    // edges: passage → property (each witness)
-    props.forEach((p, i) => (p.witnesses || []).forEach((w) => edge(xPass + 8, passOf[w.idx], xPropL - 2, propY(i), C.pass)));
-    // source node
-    const gSrc = sv('g'); gSrc.appendChild(sv('circle', { cx: xSrc, cy: ySrc, r: 9, fill: C.src }));
-    const sl = sv('text', { x: xSrc, y: ySrc + 20, 'font-size': 8, fill: '#7A7A85', 'text-anchor': 'middle' }); sl.textContent = clip(data.source && (data.source.reg || data.source.title), 10); gSrc.appendChild(sl);
-    const stitle = sv('title'); stitle.textContent = (data.source && data.source.title) || 'source'; gSrc.appendChild(stitle);
-    svg.appendChild(gSrc);
-    // passage nodes
-    ordered.forEach((idx) => {
-      const y = passOf[idx];
-      const g = sv('g', { style: 'cursor:pointer' });
-      g.appendChild(sv('circle', { cx: xPass, cy: y, r: 8, fill: '#fff', stroke: C.pass, 'stroke-width': 1.6 }));
-      const t = sv('text', { x: xPass, y: y + 2.6, 'font-size': 7, 'font-weight': 700, fill: C.pass, 'text-anchor': 'middle' }); t.textContent = '¶' + idx; g.appendChild(t);
-      const tt = sv('title'); tt.textContent = passText[idx] || ('passage ' + idx); g.appendChild(tt);
-      if (data.onJump) g.addEventListener('click', () => data.onJump(passText[idx] || ''));
-      svg.appendChild(g);
-    });
-    // property nodes (ranked rows)
-    props.forEach((p, i) => {
-      const y = propY(i), h = rowH - 8;
-      const g = sv('g');
-      g.appendChild(sv('rect', { x: xPropL, y: y - h / 2, width: xPropR - xPropL, height: h, rx: 6, fill: i === 0 ? '#FCF3E2' : '#FBFBFD', stroke: i === 0 ? C.prop : '#EAEAEF', 'stroke-width': i === 0 ? 1.4 : 1 }));
-      const t = sv('text', { x: xPropL + 8, y: y + 3, 'font-size': 9.5, fill: '#2A2A32', 'font-family': "'Newsreader',Georgia,serif" }); t.textContent = clip(p.value, 30); g.appendChild(t);
-      const badge = sv('text', { x: xPropR - 6, y: y + 3, 'font-size': 7.5, fill: '#A0A0AA', 'text-anchor': 'end' }); badge.textContent = '×' + (p.count || 1); g.appendChild(badge);
-      const tt = sv('title'); tt.textContent = p.value; g.appendChild(tt);
-      svg.appendChild(g);
-    });
-    el.appendChild(svg);
+    try {
+      el.__ssInst = window.EO.mountSolarSystem(el, {
+        nodes: data.tiered.nodes, edges: data.tiered.edges, centreId: 'e:' + data.entId,
+        spans: data.spans, count: data.count, width: 280, height: 188,
+        onSpan: (sp) => { if (data.sn != null && sp) { try { this._jumpTo(data.sn, sp.text, sp.t0, sp.t1); } catch {} } },
+        // Both a pivot (clicking a bonded entity) and an open (a claim, or the sun's
+        // own "open →") land the same place here — there is no separate destination
+        // inside this embed, so either just re-seats THIS profile on the clicked
+        // entity, which remounts the widget centred on it in turn.
+        onPivot: (node) => { if (node && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
+        onOpen: (node) => { if (node && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
+        countsLabel: data.tiered.nodes.length + ' bodies · ' + data.tiered.edges.length + ' bonds',
+      });
+    } catch (e) { el.innerHTML = ''; el.__ssKey = null; el.__ssInst = null; }
   }
   // ── the entity DAG ──────────────────────────────────────────────────────────
   // A small hub-and-spoke DAG for the source dossier: the dominant FIGURE on the left, fanning out
@@ -10669,6 +10566,10 @@ class Component extends DCLogic {
     }, { statePrefix: 'webProf' }) : null;
     return {
       webProfShow: !!webProf, webProf,
+      // Skip the embedded EOGraph when the main canvas already IS the EOGraph (kind
+      // 'solar') for this same entity — this panel's own copy would just duplicate
+      // what's drawn full-size right beside it.
+      webProfShowSolar: !!webProf && !isSolar,
       // focus the web on the panel's entity — the panel-side twin of a node's "open →"
       webProfFocus: () => { if (panel) this._webFocusEntity({ docId: panel.docId, entId: panel.entId }); },
       // leave for the full sidebar profile (opens the entities panel; openEntity drops the graph tab)

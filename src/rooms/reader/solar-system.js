@@ -63,7 +63,7 @@ const CSS = `
 .eo-ss input[type=range].ss-scrub{width:110px;accent-color:var(--ink,#15181e);cursor:pointer;height:4px;}
 `;
 
-export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [], centreId = null, spans = [], count = 0, onPivot = null, onSelect = null, onOpen = null, onSpan = null, countsLabel = '' } = {}) {
+export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [], centreId = null, spans = [], count = 0, onPivot = null, onSelect = null, onOpen = null, onSpan = null, countsLabel = '', width = 700, height = 470 } = {}) {
   if (!document.getElementById(STYLE_ID)) {
     const st = document.createElement('style'); st.id = STYLE_ID; st.textContent = CSS; document.head.appendChild(st);
   }
@@ -106,7 +106,7 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   const trueOf = (id, t) => { const o = mOrbit[id];
     return o ? { x: Math.cos(o.phase + t * o.omega) * o.rx, y: Math.sin(o.phase + t * o.omega) * o.ry } : { x: 0, y: 0 }; };
 
-  const W = 700, H = 470, cx = W / 2, cy = H / 2;
+  const W = width, H = height, cx = W / 2, cy = H / 2;
   // depth is the continuous descent dial; the integer level is what we draw. Start at meaning (0).
   // mFocus is the meaning level's OWN camera anchor — separate from `sun` (the entity POV the
   // structure/existence levels and onPivot use), since re-anchoring onto a claim never fetches
@@ -355,8 +355,15 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   // placeMeaning() is a harmless no-op away from the meaning level (no orbiters mounted), so
   // returning to it later shows time having genuinely passed, not a diorama that only moved
   // while you looked at it. ──────────────────────────────────────────────────────────────
+  // A caller embedding this in a framework panel may never get a reliable destroy() call —
+  // an inline ref callback's identity can change on every parent re-render, firing a null
+  // call that means nothing about the DOM actually going away. So the loop checks its OWN
+  // connectedness rather than trusting an external teardown signal: once `root` is genuinely
+  // removed from the document, isConnected goes false and the loop lets itself lapse instead
+  // of running forever against an orphaned subtree.
   let raf = null, last = 0;
   function tick(t) {
+    if (!root.isConnected) { raf = null; return; }
     if (!last) last = t; const dt = Math.min(0.05, (t - last) / 1000); last = t;
     if (state.playing) { state.simTime += dt; placeMeaning(); scrubEl.value = (state.simTime % SCRUB_MAX).toFixed(1); }
     raf = requestAnimationFrame(tick);
