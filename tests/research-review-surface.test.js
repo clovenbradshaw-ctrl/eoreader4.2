@@ -215,29 +215,31 @@ const makeFakeApp = () => {
   return { app, topic, calls };
 };
 
-test('mountResearchReview — mounts the real engine output without throwing: header, cards, footer all present', () => {
+test('mountResearchReview — mounts the Question Result with direct answer, ledger, sources, and admission', () => {
   const doc = makeFakeDoc();
   const host = makeEl('div', doc);
   const { app } = makeFakeApp();
   let closed = null;
   const handle = mountResearchReview(host, { app, topicId: 't1', onClose: (t) => { closed = t; } });
-  assert.ok(findByText(host, 'Research Review'), 'header crumb painted');
-  assert.equal(allByText(host, 'MTA report').length >= 1, true, 'a candidate card title painted');
+  assert.ok(findByText(host, 'QUESTION'), 'question header painted');
+  assert.ok(findByText(host, 'Direct answer'), 'direct answer section painted');
+  assert.ok(flatten(host).some((n) => String(n.textContent || '').startsWith('Claims in this result')), 'claim ledger painted');
+  assert.equal(allByText(host, 'MTA report').length >= 1, true, 'a source card title painted');
   assert.ok(findByTextPrefix(host, '5 selected') || findByTextPrefix(host, '4 selected') || findByTextPrefix(host, '3 selected'), 'a footer selection count painted');
-  const admit = flatten(host).find((n) => typeof n.textContent === 'string' && n.textContent.startsWith('Add ') && n.textContent.endsWith('selected to topic'));
+  const admit = flatten(host).find((n) => typeof n.textContent === 'string' && n.textContent.startsWith('Add ') && n.textContent.endsWith('selected sources'));
   assert.ok(admit);
   admit.fire('click');
   assert.deepEqual(closed, { id: 'target' });
   handle.destroy();
 });
 
-test('mountResearchReview — clicking the Historical recipe calls reviewApplyRecipe', () => {
+test('mountResearchReview — evidence expands inline on a verdict card', () => {
   const doc = makeFakeDoc();
   const host = makeEl('div', doc);
-  const { app, calls } = makeFakeApp();
+  const { app } = makeFakeApp();
   mountResearchReview(host, { app, topicId: 't1' });
-  findByText(host, 'Historical').fire('click');
-  assert.deepEqual(calls, [['recipe', 'historical']]);
+  findByText(host, 'Show evidence').fire('click');
+  assert.ok(findByText(host, 'SUPPORTING EVIDENCE'));
 });
 
 test('mountResearchReview — toggling a candidate checkbox calls reviewToggleExclude', () => {
@@ -251,15 +253,12 @@ test('mountResearchReview — toggling a candidate checkbox calls reviewToggleEx
   assert.equal(calls.some((c) => c[0] === 'toggle'), true);
 });
 
-test('mountResearchReview — clicking a waveform bar calls reviewOpenMark and bubbles onOpenMark', () => {
+test('mountResearchReview — does not render retired recipe or waveform controls', () => {
   const doc = makeFakeDoc();
   const host = makeEl('div', doc);
-  const { app, calls } = makeFakeApp();
-  let opened = null;
-  mountResearchReview(host, { app, topicId: 't1', onOpenMark: (payload) => { opened = payload; } });
-  const bar = flatten(host).find((n) => (n.className || '').includes('eo-rr__bar--turn'));
-  assert.ok(bar, 'a turn bar rendered for a waveform with hasTurn:true');
-  bar.fire('click');
-  assert.ok(calls.some((c) => c[0] === 'mark'));
-  assert.ok(opened && opened.mark);
+  const { app } = makeFakeApp();
+  mountResearchReview(host, { app, topicId: 't1' });
+  assert.equal(!!findByText(host, 'Historical'), false);
+  assert.equal(flatten(host).some((n) => (n.className || '').includes('eo-rr__bar--turn')), false);
 });
+
