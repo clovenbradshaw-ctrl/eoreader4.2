@@ -7536,6 +7536,16 @@ class Component extends DCLogic {
           ev.preventDefault();
           this.openEntity(a.getAttribute('data-doc'), a.getAttribute('data-ent'));
         });
+        // Enter/Space activate a focused mention exactly like a click — the span carries
+        // role="link" + tabindex (readerHtml), so it is a real keyboard stop, not just a
+        // mouse target.
+        d.addEventListener('keydown', (ev) => {
+          if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+          const a = ev.target && ev.target.closest && ev.target.closest('.eo-ent[data-doc][data-ent]');
+          if (!a || !this.state.entityMode) return;
+          ev.preventDefault();
+          this.openEntity(a.getAttribute('data-doc'), a.getAttribute('data-ent'));
+        });
       } catch {}
       const win = d.defaultView;
       if (focus && R) { R.scrollToText(d, focus); }
@@ -7638,6 +7648,16 @@ class Component extends DCLogic {
           if (href.split('#')[0] === String(pageUrl).split('#')[0]) return;   // same page, different hash
           if (this._sameSite(href, pageUrl)) { ev.preventDefault(); this.visitLink(tabSn, href); }
           // off-site: fall through — the anchor opens in a new browser tab as before.
+        });
+        // Enter/Space activate a focused entity span exactly like a click. Real <a href> links
+        // need no equivalent here — the browser already synthesizes a click on Enter for a
+        // focused anchor, which the click listener above already handles.
+        d.addEventListener('keydown', (ev) => {
+          if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+          const ent = ev.target && ev.target.closest && ev.target.closest('.eo-ent[data-doc][data-ent]');
+          if (!ent || !this.state.entityMode) return;
+          ev.preventDefault();
+          this.openEntity(ent.getAttribute('data-doc'), ent.getAttribute('data-ent'));
         });
       } catch {}
       // Publish the page's own contents into the drawer (only if it found a real one).
@@ -10033,16 +10053,25 @@ class Component extends DCLogic {
     this._setPrefStr('eo_entlevel', next);
     this.setState({ entLevel: next });
   }
+  // Every mention's tabindex follows the same on/off the CSS class does — off, a mention is
+  // not a hyperlink at all (the click delegate no-ops on !entityMode too), so it must not be a
+  // stray Tab stop either.
+  _setEntSpansFocusable(doc, on) {
+    if (!doc || !doc.querySelectorAll) return;
+    try { doc.querySelectorAll('.eo-ent').forEach((s) => { s.tabIndex = on ? 0 : -1; }); } catch {}
+  }
   toggleEntityMode() {
     const on = !this.state.entityMode; this._setPref('eo_entmode', on); this._segCache = {}; this._viewCache = null;
     // The Reader carries the merged Document links; show/hide them live on the open book (flip the
     // class the baked CSS keys off), so the toggle never reloads the iframe or loses scroll.
     const d = this._readerFrame && this._readerFrame.contentDocument;
     if (d && d.documentElement) { try { d.documentElement.classList.toggle('eo-links-on', on); } catch {} }
+    this._setEntSpansFocusable(d, on);
     // The live-site view carries the same baked links — flip the class on it too, so the toggle works
     // in Native without a reload (no scroll lost).
     const nd = this._nativeFrame && this._nativeFrame.contentDocument;
     if (nd && nd.documentElement) { try { nd.documentElement.classList.toggle('eo-links-on', on); } catch {} }
+    this._setEntSpansFocusable(nd, on);
     // The Listen transcript bakes the same .eo-ent links — flip the class on it too, so entity
     // underlines reveal/hide live without rebuilding the word spans (or losing a selection).
     if (this._listenTx) { try { this._listenTx.classList.toggle('eo-links-on', on); } catch {} }
