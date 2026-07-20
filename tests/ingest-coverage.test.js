@@ -16,7 +16,7 @@ import { ingestAudio }      from '../src/organs/in/audio.js';
 import { assembleDocument } from '../src/organs/in/document.js';
 import { emitEot }          from '../src/organs/ingest/eot-emit.js';
 import { readIngest }       from '../src/organs/ingest/read.js';
-import { importAnyFile, _tableFromGrid, _keepExtract, _printableRuns } from '../src/rooms/reader/import-file.js';
+import { importAnyFile, _tableFromGrid, _keepExtract, _printableRuns, _looksLikeBinaryGarbage } from '../src/rooms/reader/import-file.js';
 
 // ── the table organ: every cell of every row lands ─────────────────────────────
 
@@ -164,6 +164,26 @@ test('_keepExtract: a Readability sliver is rejected, a majority extraction kept
   assert.equal(_keepExtract(900, 1000), true, 'kept 90% — use the extraction');
   assert.equal(_keepExtract(100, 1000), false, 'kept 10% — fall back to the full body');
   assert.equal(_keepExtract(0, 0), true, 'an empty page has nothing to lose');
+});
+
+test('_looksLikeBinaryGarbage: PDF object syntax that survived a lossy text decode is caught', () => {
+  const garbage = '%PDF-1.7\n1 0 obj<</Type/Catalog/Pages 2 0 R>>\nendobj\n2 0 obj<</Type/Pages>>\nendobj\n'
+    + 'stream\n����endstream\nxref\n0 3\ntrailer<</Root 1 0 R>>';
+  assert.equal(_looksLikeBinaryGarbage(garbage), true, 'PDF structural syntax is not ordinary prose');
+});
+
+test('_looksLikeBinaryGarbage: a heavily-corrupted (mostly replacement-char) decode is caught', () => {
+  const corrupt = '�'.repeat(200) + 'a few readable words';
+  assert.equal(_looksLikeBinaryGarbage(corrupt), true);
+});
+
+test('_looksLikeBinaryGarbage: ordinary prose is not flagged, even a mention of PDF internals', () => {
+  const prose = 'This is a normal executive summary describing the Commission\'s findings in plain '
+    + 'English, at some length, across several paragraphs, with no structural file syntax at all — '
+    + 'just an account of what investigators concluded and why it mattered to policy going forward.';
+  assert.equal(_looksLikeBinaryGarbage(prose), false);
+  assert.equal(_looksLikeBinaryGarbage(''), false);
+  assert.equal(_looksLikeBinaryGarbage(null), false);
 });
 
 test('_printableRuns: sweeps every byte, returns every printable run with offsets', () => {

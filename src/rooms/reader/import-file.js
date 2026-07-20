@@ -195,6 +195,20 @@ export const _printableRuns = (bytes, min = 4) => {
   return runs;
 };
 
+// The signature of a binary/structured format (PDF object syntax, mostly) surviving a UTF-8 text
+// decode it was never meant for — `1 0 obj<<`, `endobj`, `stream`, `/Type /Page`, `xref`, `trailer`
+// — plus the replacement-character scar (�) that decode leaves on the bytes it couldn't
+// represent. Either signal alone can be a false positive (a paper THAT DISCUSSES PDF internals, a
+// glyph); together, at these thresholds, they mark text a caller must not admit as ordinary prose.
+const PDF_SYNTAX_RE = /\d+\s+\d+\s+obj\b|\bendobj\b|\bendstream\b|\/Type\s*\/(?:Page|Catalog|Font|XObject|Pages)\b|^\s*%PDF-\d|\bxref\b|\btrailer\b/m;
+export const _looksLikeBinaryGarbage = (text) => {
+  const sample = String(text || '').slice(0, 20000);
+  if (!sample.trim()) return false;
+  const replacementRatio = (sample.match(/�/g) || []).length / sample.length;
+  const pdfHits = (sample.match(new RegExp(PDF_SYNTAX_RE, 'gm')) || []).length;
+  return replacementRatio > 0.02 || pdfHits >= 3;
+};
+
 // mm:ss for a duration in seconds — the reader's clock, so a 3-minute piece reads "3:04".
 const _clock = (sec) => {
   const s = Math.max(0, Math.round(sec));
