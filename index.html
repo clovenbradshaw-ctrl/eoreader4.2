@@ -4965,15 +4965,25 @@ class Component extends DCLogic {
     // start CLOSED there regardless of the desktop prefs — the chat is the whole stage.
     let mobile = false;
     try { this._mq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(max-width: 820px)') : null; mobile = !!(this._mq && this._mq.matches); } catch { this._mq = null; }
+    // The mobile view stack — instance state, not React state, mutated and read imperatively
+    // (same convention as this._wg for the graph overlay): a real chain of every screen a
+    // forward navigation left behind (root tab, source w/ mode+focus, entity sheet), so Back
+    // can pop ONE step at a time however deep the chain runs — openViewer(A) → mention → open
+    // Entity → openViewer(B) → Back → Back used to lose A entirely, because the single
+    // mReturnTab slot below was only ever set on the FIRST hop off a root tab and silently
+    // never updated on the second hop (A → B). mReturnTab stays as the FLOOR under the stack —
+    // once the stack empties, Back still falls back to it exactly as before. See mobileBack(),
+    // _mPushCurrent(), _mRestoreFrame().
+    this._mStack = [];
     this.state = {
       tab: 'search', omni: '', chatInput: '', toast: null,
       isMobile: mobile,
       // The mobile shell's own bottom sheet (null | 'scope' | 'add') and Sources-tab kind filter —
       // separate from the desktop drawer/modal state above, which the mobile shell doesn't use.
       mSheet: null, mKind: 'All',
-      // Which of the five bottom tabs to return to when backing out of the full-screen mobile
-      // source reader (openViewer sets this; mobileBackFromSource reads it). 'topic' (Overview)
-      // is a safe default for the case a source opens before any tab was ever visited.
+      // The floor under this._mStack (above) — which of the five bottom tabs to land on once
+      // the stack has nothing left to pop. 'topic' (Overview) is a safe default for the case a
+      // source opens before any tab was ever visited.
       mReturnTab: 'topic',
       // The mobile reader's opt-in overlays (entities/surprise/cast), keyed per source sn so
       // switching sources doesn't carry a stale toggle over. { [sn]: { entities, surprise, cast } }
@@ -6348,6 +6358,13 @@ class Component extends DCLogic {
     if (this.state.tab === 'rashomon' && tab !== 'rashomon' && this._rashomon) { try { this._rashomon.destroy(); } catch {} this._rashomon = null; this._rashomonEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
     const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
+    // Jumping straight to a root screen (the bottom tabs, or any of the "Ask about this topic" /
+    // "View findings" style CTAs that land on the same five ids) is a deliberate reset of the
+    // mobile view stack, not one more hop to chain onto — Back from a fresh root should never
+    // resurrect whatever was open before the reset. Skipped for a plain source-tab switch (this
+    // still tab-switches between already-open sources) and while a Back/forward restoration is
+    // itself in progress (_mRestoring), which calls setTab as part of REPLAYING a popped frame.
+    if (this._mob() && !this._mRestoring && !(this.state.viewerTabs || []).includes(tab)) this._mStack = [];
     // The Graph tab now hosts the real graph — the entity web of everything in
     // focus. Initialise it lazily the first time we land here (whole-topic entity web).
     if (tab === 'graph' && this._ensureTopicGraph()) patch.webGraphFor = this._wgMirror();
@@ -7245,11 +7262,16 @@ class Component extends DCLogic {
     // remain one click away on the mode row and persist only while the user stays in that source.
     const modes = { ...this.state.viewerModes, [sn]: 'overview' };
     const focus = { ...this.state.viewerFocus }; if (focusText) focus[sn] = focusText; else delete focus[sn];
-    // On mobile there's no tab strip — a source opens as its own full screen, so remember which
-    // of the five bottom tabs to return to (only when we're LEAVING one of them; chaining from
-    // one source into another, e.g. a related-entity jump, must keep the original tab as home).
+    // On mobile there's no tab strip — a source opens as its own full screen, so push whatever
+    // screen is currently showing onto the view stack (_mPushCurrent) before navigating away,
+    // so Back can walk back one hop at a time through however long a chain this becomes —
+    // unless this open IS a Back/forward restoration in progress (_mRestoring), which must
+    // never re-push the screen it is itself in the middle of leaving. mReturnTab remains the
+    // floor under the stack for the case a source opens before any tab was ever visited.
     // The entity sheet (rightOpen) is a mobile overlay, not a screen of its own — opening a
-    // source always dismisses it rather than stacking a full-screen view under a sheet.
+    // source always dismisses it rather than stacking a full-screen view under a sheet (its own
+    // frame, if one was open, was already captured into the pushed frame above).
+    if (this._mob() && !this._mRestoring) this._mPushCurrent();
     const mobilePatch = this._mob()
       ? { leftOpen: false, rightOpen: false, ...(this.state.viewerTabs.includes(this.state.tab) ? {} : { mReturnTab: this.state.tab }) }
       : {};
@@ -7286,6 +7308,13 @@ class Component extends DCLogic {
     // Leaving the source Graph tab tears down its tiered-graph mount so it never keeps drawing into
     // a detached container; re-entering mounts it fresh via setSourceGraphEl.
     if (mode !== 'graph' && this._srcGraph) { try { this._srcGraph.destroy(); } catch {} this._srcGraph = null; this._srcGraphEl = null; this._srcGraphSn = null; }
+    // Keep the mobile view stack's top frame (if it's this same source) in sync with a live mode
+    // switch, so navigating away and later Back-ing all the way through to this source restores
+    // the mode actually left showing, not whatever it was at the moment it was first opened.
+    if (this._mob() && this._mStack.length) {
+      const top = this._mStack[this._mStack.length - 1];
+      if (top && top.tab === sn && top.mode != null) top.mode = mode;
+    }
     this.setState({ viewerModes: { ...this.state.viewerModes, [sn]: mode }, tocOpen: false, nativeToc: [], listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false });
     if (mode === 'native') this.loadPage(sn);
     if (mode === 'pdf') this.loadPdf(sn);
@@ -8341,7 +8370,12 @@ class Component extends DCLogic {
   // hands off to Search (which does). On mobile the profile is its own overlay sheet drawn on
   // top of whatever screen is active — jumping the underlying tab would mean closing the sheet
   // lands somewhere the reader never asked to go, so mobile always keeps its current tab.
-  openEntity(docId, entId) { this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: (!this._mob() && this.state.tab === 'graph') ? 'search' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId); }
+  openEntity(docId, entId) {
+    // Push the screen this sheet is opening OVER onto the view stack first, so Back can pop
+    // straight back out of it (see openViewer's matching push, and mobileBack/_mRestoreFrame).
+    if (this._mob() && !this._mRestoring) this._mPushCurrent();
+    this.setState({ rightOpen: true, entitySel: { docId, entId }, tab: (!this._mob() && this.state.tab === 'graph') ? 'search' : this.state.tab, focusId: null, ...(this._mob() ? { leftOpen: false } : {}) }); if (!this._mob()) this._setPref('eo_right', true); this._ensureWiki(docId, entId);
+  }
   // Rows can be folded across referents/sources. If the displayed row's lead pointer no
   // longer resolves (for example after a live transcript re-fold), walk its concrete
   // instances and open the first profile that still exists so the click always lands.
@@ -8353,8 +8387,52 @@ class Component extends DCLogic {
       if (!app || !app.entityProfile || app.entityProfile(r.docId, r.entId)) { this.openEntity(r.docId, r.entId); return; }
     }
   }
-  mobileCloseEntity() { this.setState({ rightOpen: false, entitySel: null }); }
-  mobileBackFromSource() { this.setTab(this.state.mReturnTab || 'topic'); }
+  // Capture whatever is CURRENTLY on screen as one stack frame — a source (with its live mode
+  // and passage focus) or a root tab, plus an open entity sheet riding on top of either. Called
+  // right before a forward navigation (openViewer/openEntity) leaves this screen behind.
+  _mPushCurrent() {
+    const st = this.state;
+    const isSource = Array.isArray(st.viewerTabs) && st.viewerTabs.includes(st.tab);
+    this._mStack.push({
+      tab: st.tab,
+      mode: isSource ? (st.viewerModes[st.tab] || 'overview') : null,
+      focus: isSource ? (st.viewerFocus[st.tab] || null) : null,
+      entity: (st.rightOpen && st.entitySel) ? { docId: st.entitySel.docId, entId: st.entitySel.entId } : null,
+    });
+  }
+  // Restore a popped frame exactly: a source frame reopens at its recorded mode + passage
+  // (openViewer always resets to Overview for a FRESH open, which is right for a citation but
+  // wrong for a Back — so setSourceMode reapplies the real mode right after); a root-tab frame
+  // just re-selects that tab. Either way, the frame's own entity sheet (or lack of one) is
+  // reapplied last so it always rides on top of whichever screen just came back.
+  _mRestoreFrame(frame) {
+    this._mRestoring = true;
+    try {
+      if (frame.mode != null) { this.openViewer(frame.tab, frame.focus || undefined); this.setSourceMode(frame.mode); }
+      else this.setTab(frame.tab);
+      this.setState(frame.entity
+        ? { rightOpen: true, entitySel: { docId: frame.entity.docId, entId: frame.entity.entId } }
+        : { rightOpen: false, entitySel: null });
+    } finally { this._mRestoring = false; }
+  }
+  // The mobile Back button (the source screen's chevron) AND the entity sheet's own close both
+  // land here — dismissing the sheet is the same "go back one step" as the chevron, just from a
+  // layer with no chevron of its own. With nothing left on the stack, fall back to mReturnTab
+  // exactly as before (a fresh session, or a source opened before any tab was ever visited).
+  mobileBack() {
+    if (this._mStack.length) { this._mRestoreFrame(this._mStack.pop()); return; }
+    this.setTab(this.state.mReturnTab || 'topic');
+  }
+  mobileCloseEntity() {
+    // The frame openEntity pushed describes THIS SAME screen minus the sheet (opening a sheet
+    // never changes state.tab) — so whenever the sheet is open, the stack's top frame is that
+    // one exactly. Pop it here too, so a later Back doesn't spend a hop re-showing a sheet the
+    // user just explicitly dismissed.
+    const top = this._mStack[this._mStack.length - 1];
+    if (top && top.tab === this.state.tab) this._mStack.pop();
+    this.setState({ rightOpen: false, entitySel: null });
+  }
+  mobileBackFromSource() { this.mobileBack(); }
   // Guards a scrollIntoView so it fires once per (source, focus target) rather than on every
   // re-render — refs re-fire whenever their closure identity changes (every _vals() call makes a
   // fresh one), so the guard has to live on the element itself, same idiom as _mountEntitySolar.
