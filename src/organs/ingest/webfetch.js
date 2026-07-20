@@ -15,7 +15,6 @@ import { ARXIV_SOURCES, ARXIV_FULLTEXT } from './arxiv.js';
 import { OPENALEX_SOURCES, OPENALEX_FULLTEXT } from './openalex.js';
 import { FEED_SOURCES, FEED_FULLTEXT } from './feed.js';
 import { API_SOURCES, API_FULLTEXT } from './api.js';
-import { CIVIC_SOURCES, CIVIC_FULLTEXT } from './civic.js';
 import { GITHUB_SOURCES, GITHUB_FULLTEXT } from './github.js';
 
 // The proxy the user pointed us at. Overridable per client; no auto-fire is wired here — a
@@ -187,8 +186,13 @@ export const SEARCH_SOURCES = {
   ...API_SOURCES,
   // CIVIC — find AND navigate government/open-data APIs (ingest/civic.js): a curated catalog
   // (which API answers this?) plus live CKAN (data.gov) + Socrata dataset discovery with the
-  // importable resource URLs api.js then loads.
-  ...CIVIC_SOURCES,
+  // importable resource URLs api.js then loads. Its catalog + CKAN/Socrata URL builders are a
+  // real chunk of source (civic.js) that only a civic-shaped query ever touches, so it is
+  // fetched lazily on first actual use rather than bundled into every session's boot cost.
+  civic: async (ctx, query, k) => {
+    const { CIVIC_SOURCES } = await import('./civic.js');
+    return CIVIC_SOURCES.civic(ctx, query, k);
+  },
   // THE LIBRARY — Project Gutenberg (whole books, gutenberg.js), the Wikimedia reference shelf +
   // Wikidata (wikimedia.js), and the OPEN ACADEMIC SHELVES: arXiv preprints read whole (arxiv.js)
   // and the OpenAlex catalog for scholarly discovery + the citation prior (openalex.js). Each a
@@ -211,7 +215,10 @@ const FULL_TEXT = {
   wikipedia: (client, item) => wikiExtract(client, item?.title),
   ...FEED_FULLTEXT,
   ...API_FULLTEXT,
-  ...CIVIC_FULLTEXT,
+  civic: async (client, item) => {
+    const { CIVIC_FULLTEXT } = await import('./civic.js');
+    return CIVIC_FULLTEXT.civic(client, item);
+  },
   ...GUTENBERG_FULLTEXT,
   ...WIKIMEDIA_FULLTEXT,
   ...ARXIV_FULLTEXT,

@@ -28,12 +28,11 @@ export { fetchFeed, parseFeedItems, feedMeta, feedToTable, feedToProse, isFeed, 
 // rows as a groundable source + a data-room table (docs/civic-apis.md "Navigating an API").
 export { fetchJsonApi, pickRecords, getPath, flattenRecord, recordsToTable, summarizeApi,
          parseJson, recordId, apiPointer, API_SOURCES, API_FULLTEXT } from './api.js';
-// Civic/government APIs — find AND navigate: a curated catalog (which API answers this?) plus the
-// two open-data protocols, CKAN (data.gov) and Socrata, for live dataset discovery + import URLs.
-export { CIVIC_CATALOG, searchCatalog, renderCatalogEntry, discoverCivic, fetchCivicCatalog,
-         ckanSearchUrl, ckanPackageUrl, parseCkanSearch, renderCkanDataset,
-         socrataCatalogUrl, socrataResourceUrl, parseSocrataCatalog,
-         CIVIC_SOURCES, CIVIC_FULLTEXT } from './civic.js';
+// Civic/government APIs (CIVIC_CATALOG, searchCatalog, CKAN/Socrata discovery, CIVIC_SOURCES/
+// CIVIC_FULLTEXT, …) are no longer re-exported here — nothing imports them off this barrel
+// (organs/ingest/webfetch.js lazy-imports './civic.js' directly on first civic-shaped query;
+// tests/civic.test.js imports the file directly too), so keeping the re-export here would just
+// drag civic.js's catalog/CKAN/Socrata code back into every eager consumer of this barrel.
 // Which endpoints answer a browser cross-origin, so the fetch can skip the proxy chain entirely —
 // the Wikimedia API family and OpenAlex. Keeps the common search routes alive through a proxy outage.
 export { directCorsUrl } from './direct-cors.js';

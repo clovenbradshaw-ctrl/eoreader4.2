@@ -57,7 +57,6 @@ import * as workspace from '../workspace/index.js';
 import { createReaderApp } from './app.js';
 import { wireEotFeed } from './eot-feed.js';
 import { APP_NAME, APP_VERSION } from './provenance.js';
-import { mountTieredGraph } from './tiered-graph.js';
 import { mountFacingRenderer, assembleDocument, splitSource, runnableSrcdoc } from '../render/index.js';
 import * as readerRender from './reader-render.js';
 import * as reveal from './reveal.js';
@@ -73,13 +72,49 @@ import {
 import { createChatRoom, mountChat, mountChatLauncher } from '../chat/index.js';
 import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
-import { mountConsole } from './console-surface.js';
-import { mountBinvis } from './binvis-surface.js';
-import { mountPdfView } from './pdf-view-surface.js';
-import { mountResearchReview } from './research-review-surface.js';
 import * as binvis from '../../surfaces/binvis/index.js';
 import { createPipelineSurface } from './pipeline-surface.js';
 import * as evidence from './evidence.js';
+
+// Lazy-mount helper for optional, tab/panel-gated UI surfaces — the byte-structure
+// (binvis), PDF, research-review, entity-web and causal-DAG surfaces. None of these run
+// on boot or first paint (every call site only reaches them once the user opens that
+// specific tab), so importing their modules eagerly buys nothing but slower startup for
+// the overwhelming majority of sessions that never open them. `mount()` still returns its
+// handle SYNCHRONOUSLY — the exact shape every call site already holds and later calls
+// `.destroy()`/`.show()` on — so no caller elsewhere needs to change; the real module is
+// fetched only on the first actual mount() call, and any handle method invoked before it
+// resolves is queued and replayed, in order, once the real mount has run.
+const lazyMount = (loadModule, exportName) => (el, opts) => {
+  let real = null;
+  const queue = [];
+  const proxy = {
+    destroy: (...a) => (real ? real.destroy(...a) : queue.push(() => proxy.destroy(...a))),
+    show: (...a) => (real ? real.show(...a) : queue.push(() => proxy.show(...a))),
+  };
+  loadModule()
+    .then((mod) => { real = mod[exportName](el, opts); queue.splice(0).forEach((fn) => fn()); })
+    .catch((e) => console.warn(`[EO] lazy mount '${exportName}' failed`, e));
+  return proxy;
+};
+
+// Same idea for the audit console (rooms/reader/console-surface.js): its DOM build,
+// console.* monkey-patch, and its two setInterval timers only start on the FIRST
+// open()/close()/toggle() call (today that's Settings' "Console" row calling .open()),
+// instead of unconditionally at boot — a real, continuous cost most sessions never need.
+const lazyConsole = (host, opts) => {
+  let real = null;
+  const queue = [];
+  const ensure = () => {
+    if (real) return;
+    import('./console-surface.js')
+      .then((mod) => { real = mod.mountConsole(host, opts); queue.splice(0).forEach((fn) => fn()); })
+      .catch((e) => console.warn('[EO] console not mounted', e));
+  };
+  const call = (method) => (...a) => { if (real) return real[method](...a); queue.push(() => call(method)(...a)); ensure(); };
+  return { open: call('open'), close: call('close'), toggle: call('toggle') };
+};
+
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
 // background faculty that watches the same fold geometry the turn emits and raises IMPRESSIONS
@@ -318,6 +353,13 @@ const render = Object.freeze({
 
 // The n8n/TouchDesigner-style wiring surface — a source's derivations to a sink (pipeline-*.js).
 const pipeline = createPipelineSurface({ app });
+
+// The audit console — a bottom-docked developer terminal streaming, live, every turn
+// stage, session event, engine log, and stall. fab:false — no floating launcher of its
+// own (see console-surface.js); Settings is its one door in, via window.EO.console.open(),
+// which is also what triggers the lazy import + real mount on first use.
+const eoConsole = lazyConsole(document.body, { audit, app, appName: APP_NAME, version: APP_VERSION, fab: false });
+
 window.EO = Object.freeze({
   app,
   render,   // the facing-page WYSIWYG renderer — open a source (HTML/CSS/JS) rendered live beside its code
@@ -333,17 +375,23 @@ window.EO = Object.freeze({
   eotTerminal,       // the full activity terminal's mount handle — the murmur strip opens it on click (open/close/toggle)
   console: eoConsole,   // the audit console's mount handle (docs above) — Settings' "Console" row opens/closes it
   workspace,
-  mountTieredGraph,
+  // The entity-web graph (tiered-graph.js) — Graph-tab-only, never needed at boot or first
+  // paint; fetched on first actual mount() call (see lazyMount above).
+  mountTieredGraph: lazyMount(() => import('./tiered-graph.js'), 'mountTieredGraph'),
+  // NOT lazy: mountDagSurface lives in the same file (surfer/dag/surface.js) as dagNodeLabel,
+  // which index.html calls synchronously just above every mountDagSurface call to build the
+  // toggle list — dagNodeLabel must stay eager, and since it and mountDagSurface share one
+  // module, deferring just the mount fn buys nothing (the file loads eagerly regardless).
   mountDagSurface,   // the two-cursor causal DAG surface (surfer/dag) — topic-wide + per-entity, with toggles
   readerRender,   // source→book reader + native-page render, for the source viewer's tabs
   reveal,   // the chat typewriter's pace (bounded catch-up) — pure, so the freeze regression is CI-tested
   // the byte-structure surface (Aldo Cortesi's binvis) — a document's bytes on a Hilbert curve,
   // coloured by class/entropy/significance. index.html wires mountBinvis into the Structure tab.
-  binvis: Object.freeze({ ...binvis, mount: mountBinvis }),
-  pdfView: Object.freeze({ mount: mountPdfView }),   // the PDF page surface (pdf.js → canvas) — index.html wires it into the PDF tab
+  binvis: Object.freeze({ ...binvis, mount: lazyMount(() => import('./binvis-surface.js'), 'mountBinvis') }),
+  pdfView: Object.freeze({ mount: lazyMount(() => import('./pdf-view-surface.js'), 'mountPdfView') }),   // the PDF page surface (pdf.js → canvas) — index.html wires it into the PDF tab
   // Research Review (docs/research-review.md) — a search result becomes a provisional, inspectable
   // corpus (discovered/reviewed/admitted) before anything joins a real topic. Mounted, binvis-style.
-  researchReview: Object.freeze({ mount: mountResearchReview }),
+  researchReview: Object.freeze({ mount: lazyMount(() => import('./research-review-surface.js'), 'mountResearchReview') }),
   firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
   evidence,   // the evidence-modal contract — a waveform mark → the five-region modal shape (docs/omnimodal-waveform.md)
   projectTranscript, wordsToText,   // the interactive transcript fold (baseline + edits/redactions → live reading)
@@ -376,10 +424,3 @@ catch (e) { console.warn('[EO] chat launcher not mounted', e); }
 // …and the encrypted-vault launcher, gated the same way (sits just above the chat FAB).
 try { if (typeof document !== 'undefined') mountVaultLauncher(document.body, { vault, matrix }); }
 catch (e) { console.warn('[EO] vault launcher not mounted', e); }
-
-// …and the audit console — a bottom-docked developer terminal streaming, live, every turn
-// stage, session event, engine log, and stall. fab:false — no floating launcher of its own
-// (see console-surface.js); Settings is its one door in, via window.EO.console.open().
-let eoConsole = null;
-try { eoConsole = mountConsole(document.body, { audit, app, appName: APP_NAME, version: APP_VERSION, fab: false }); }
-catch (e) { console.warn('[EO] console not mounted', e); }
