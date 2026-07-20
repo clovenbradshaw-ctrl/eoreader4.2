@@ -619,9 +619,11 @@ table{border-collapse:collapse;width:100%}
       </div>
     </sc-if>
 
-    <!-- GRAPH — the real entity web (same mountTieredGraph surface as desktop; setWebGraphEl
-         shares the tg/wg draw state across both shells since they key off the same state.tab),
-         sized to the phone's width instead of a fixed desktop pane. -->
+    <!-- GRAPH — a capped, honest snapshot (the same top-12-by-weight list Ask's Cast preset
+         uses), NOT the full interactive desktop web. That graph can hold thousands of nodes on
+         a real topic; mounting it unscoped on a phone canvas is both unreadable and a real perf
+         hazard, so mobile gets a tappable list instead — each row opens the same entity bottom
+         sheet every other "see this entity" tap on mobile opens. -->
     <sc-if value="{{ mobile.isGraph }}">
       <div style="padding:14px 14px 28px;display:flex;flex-direction:column;gap:14px">
         <span style="font-size:18px;font-weight:700;color:#17171A">Graph</span>
@@ -629,8 +631,18 @@ table{border-collapse:collapse;width:100%}
           <div style="background:#fff;border:1px solid #EAEAEF;border-radius:16px;padding:30px 16px;text-align:center;color:#9A9AA4;font-size:12.5px">No entities yet.</div>
         </sc-if>
         <sc-if value="{{ mobile.hasEntities }}">
-          <div style="font-size:12px;color:#7A7A83;line-height:1.4">{{ mobile.entityCount }} distinct entities across your active sources — tap a node to inspect, drag to pan, pinch or scroll to zoom.</div>
-          <div ref="{{ setWebGraphEl }}"></div>
+          <div style="font-size:12px;color:#7A7A83;line-height:1.4">Top {{ mobile.topEntities.length }} of {{ mobile.entityCount }} figures across your active sources, by how much of the reading they carry — tap one to open its profile.</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ mobile.topEntities }}" as="e">
+              <button onClick="{{ e.open }}" style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #EAEAEF;border-radius:13px;padding:11px 13px;text-align:left;cursor:pointer;font-family:inherit">
+                <span style="width:26px;height:26px;border-radius:50%;background:#EEEBFE;color:#5B4BE6;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto">{{ e.fav }}</span>
+                <span style="flex:1;min-width:0">
+                  <span style="display:block;font-size:13.5px;font-weight:650;color:#1B1B22">{{ e.label }}</span>
+                  <span style="display:block;font-size:11px;color:#9A9AA4;margin-top:1px">{{ e.meta }}</span>
+                </span>
+              </button>
+            </sc-for>
+          </div>
         </sc-if>
       </div>
     </sc-if>
@@ -1964,6 +1976,17 @@ table{border-collapse:collapse;width:100%}
                     </div>
                   </sc-if>
                 </div>
+              </aside>
+            </sc-if>
+            <!-- Network's own details panel — a link node isn't an entity, so it gets its own
+                 small inspector instead of the entity profile above: the shared referents that
+                 earned the connection, with both sources it connects one click away. -->
+            <sc-if value="{{ webNetLinkShow }}">
+              <aside class="eo-scroll eo-wgprof" style="flex:0 0 306px;border-left:1px solid #EEEEF2;overflow-y:auto;min-height:0;background:#fff;padding:13px 14px">
+                <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WHAT CONNECTS THESE SOURCES</div>
+                <div style="font-size:13.5px;line-height:1.5;color:#26262B;margin-bottom:14px">{{ webNetLinkEvidence }}</div>
+                <button onClick="{{ webNetLinkOpenA }}" style="display:block;width:100%;text-align:left;font-size:12.5px;font-weight:600;color:#1B1B22;border:1px solid #EAEAEF;border-radius:8px;padding:9px 11px;margin-bottom:8px;background:#fff" style-hover="background:#F5F5F8">{{ webNetLinkA }} →</button>
+                <button onClick="{{ webNetLinkOpenB }}" style="display:block;width:100%;text-align:left;font-size:12.5px;font-weight:600;color:#1B1B22;border:1px solid #EAEAEF;border-radius:8px;padding:9px 11px;background:#fff" style-hover="background:#F5F5F8">{{ webNetLinkB }} →</button>
               </aside>
             </sc-if>
           </div>
@@ -10076,11 +10099,18 @@ class Component extends DCLogic {
     if (cur && cur.docId === docId && cur.entId === entId) return;
     this.setState({ webGraphTick: (this.state.webGraphTick || 0) + 1 });
   }
+  // The Network kind's own panel content — a link node isn't an entity, so it can't go through
+  // _setWgPanel/_profFor; it carries the two sources it corroborates and the shared referents
+  // that earned the connection (networkGraphData's ref: { a, b, evidence }).
+  _setWgNetLink(ref) {
+    this._wgNetPanel = ref ? { a: ref.a, b: ref.b, evidence: ref.evidence || [] } : null;
+    this.setState({ webGraphTick: (this.state.webGraphTick || 0) + 1 });
+  }
   // Seed the panel for a whole-topic open: the most salient entity across the topic
   // (app.entities() is already sorted by mentions + links). Causal kind has no
   // entity profile to show — the panel stays empty there.
   _seedWgPanel() {
-    this._wgPanel = null;
+    this._wgPanel = null; this._wgNetPanel = null;
     if (!this._wg || (this._wg.kind !== 'entity' && this._wg.kind !== 'solar') || !this._app) return;
     try {
       const top = (this._app.entities() || [])[0];
@@ -10093,7 +10123,7 @@ class Component extends DCLogic {
   }
   closeWebGraph() {
     if (this._tg) { try { this._tg.destroy(); } catch {} this._tg = null; }
-    this._tgEl = null; this._wg = null; this._tgToggles = []; this._wgPanel = null;
+    this._tgEl = null; this._wg = null; this._tgToggles = []; this._wgPanel = null; this._wgNetPanel = null;
     this.setState({ webGraphFor: null, webEntQuery: '' });
   }
   setWebGraphEl(el) {
@@ -10352,7 +10382,12 @@ class Component extends DCLogic {
     const show = this._filterTiered(data, w.hidden);
     this._tg = window.EO.mountTieredGraph(el, {
       nodes: show.nodes, edges: show.edges,
-      onOpen: (node) => { if (node && node.ref) this._webFocusEntity(node.ref); },
+      // Desktop has room to drill the whole web into a clicked node's ego-network (the side
+      // panel follows along). Mobile has no side panel and no "graph" concept of its own — a
+      // tap there needs to open the entity BOTTOM SHEET directly, the same one every other
+      // "see this entity" tap on mobile opens, or the tap does nothing visible at all (the
+      // reported failure: mobile nodes silently refocusing an invisible desktop panel).
+      onOpen: (node) => { if (!node || !node.ref) return; if (this._mob()) this.openEntity(node.ref.docId, node.ref.entId); else this._webFocusEntity(node.ref); },
       // A click on any entity node turns the details panel to that entity's profile.
       onSelect: (node) => { if (node && node.kind === 'entity' && node.ref) this._setWgPanel(node.ref.docId, node.ref.entId); },
       countsLabel: `${show.nodes.length} nodes · ${show.edges.length} edges`,
@@ -10519,8 +10554,20 @@ class Component extends DCLogic {
       .map((n) => ({ id: n.id, label: n.label }))
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
     const show = this._filterNetwork(data, w.hidden);
+    // A source node opens straight to that source's overview; a link node isn't itself a place
+    // to go — it's the connection between two sources — so it loads the Network kind's own
+    // panel content (_wgNetPanel, rendered in _webGraphVals) showing exactly what corroborates
+    // the two, with both sources one tap away. Both kinds now carry `ref` (networkGraphData), so
+    // mountTieredGraph's own "a node with a ref is a destination, click opens it immediately"
+    // rule (tiered-graph.js) fires for them — Network nodes were previously un-openable because
+    // that rule requires a ref and only entity nodes ever carried one.
     this._tg = window.EO.mountTieredGraph(el, {
       nodes: show.nodes, edges: show.edges,
+      onOpen: (node) => {
+        if (!node || !node.ref) return;
+        if (node.ref.kind === 'source') this.openViewer(String(node.ref.id).replace(/^src:/, ''));
+        else if (node.ref.kind === 'link') this._setWgNetLink(node.ref);
+      },
       countsLabel: `${show.nodes.length} nodes · ${show.edges.length} edges`,
     });
   }
@@ -10595,7 +10642,17 @@ class Component extends DCLogic {
       openSource: (sn) => { this.openViewer(sn); },
       jump: (sn, text, t0, t1) => this._jumpTo(sn, text, t0, t1),
     }, { statePrefix: 'webProf' }) : null;
+    // The Network kind's own panel — a link node isn't an entity (no docId/entId to hand
+    // _profFor), so it gets its own small inspector: the shared referents that earned the
+    // connection, with both sources it connects one click away.
+    const netLink = (isNetwork && this._wgNetPanel) ? this._wgNetPanel : null;
+    const netLabelOf = (id) => (toggles.find((t) => t.id === id) || {}).label || String(id).replace(/^src:/, '');
     return {
+      webNetLinkShow: !!netLink,
+      webNetLinkEvidence: netLink ? (netLink.evidence.length ? netLink.evidence.join(', ') : 'A shared referent') : '',
+      webNetLinkA: netLink ? netLabelOf(netLink.a) : '', webNetLinkB: netLink ? netLabelOf(netLink.b) : '',
+      webNetLinkOpenA: () => { if (netLink) this.openViewer(String(netLink.a).replace(/^src:/, '')); },
+      webNetLinkOpenB: () => { if (netLink) this.openViewer(String(netLink.b).replace(/^src:/, '')); },
       webProfShow: !!webProf, webProf,
       // Skip the embedded EOGraph when the main canvas already IS the EOGraph (kind
       // 'solar') for this same entity — this panel's own copy would just duplicate
