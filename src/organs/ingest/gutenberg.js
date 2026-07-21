@@ -219,7 +219,12 @@ export const gutenbergIdOf = (ref) => {
 // source. Because this read is chosen, not ambient, it carries a higher hang guard than a
 // search hop: a long novel (War and Peace runs ~3.2M chars) is read entire rather than cut at
 // the page-safety backstop.
-export const fetchGutenbergBook = async (ref, { client, store = null, rawStore = null, fetched_at = nowIso(), hangGuard = 6_000_000, unzip = null } = {}) => {
+//
+// `onProgress` (optional) rides straight into admitWebSource's own escape hatch — without it a
+// whole novel parses in one synchronous sweep and locks the tab for the whole read; with it the
+// parse yields as it goes. Threaded only to the direct admission: `store` (an in-memory dedup
+// layer no production caller currently supplies) keeps its own synchronous admit() contract.
+export const fetchGutenbergBook = async (ref, { client, store = null, rawStore = null, fetched_at = nowIso(), hangGuard = 6_000_000, unzip = null, onProgress = null } = {}) => {
   const id = gutenbergIdOf(ref);
   if (!id || !client) return null;
   const text = await readGutenbergBook(id, { client, unzip });
@@ -229,7 +234,7 @@ export const fetchGutenbergBook = async (ref, { client, store = null, rawStore =
     url: gutenbergBookUrl(id), title, text,
     retrieval_query: String(ref), engine: 'web:gutenberg', fetched_at,
   };
-  const admitted = store ? store.admit(payload, { hangGuard }) : admitWebSource(payload, { hangGuard });
+  const admitted = store ? store.admit(payload, { hangGuard }) : await admitWebSource(payload, { hangGuard, onProgress });
   if (rawStore && admitted?.record?.content_hash) {
     try {
       await rawStore.put(admitted.record.content_hash, text,
