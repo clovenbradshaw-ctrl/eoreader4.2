@@ -1362,16 +1362,14 @@ table{border-collapse:collapse;width:100%}
                 <sc-if value="{{ mvpBriefShow }}">
                   <div style="font-size:14px;font-style:italic;color:#5a5a63;line-height:1.5">{{ mvpBriefText }}</div>
                 </sc-if>
+                <!-- mvpLedeShow is only ever true for a model-composed paragraph (see _mvpLede) —
+                     the deterministic telegram floor never renders here unbadged as if it were
+                     prose someone wrote. -->
                 <sc-if value="{{ mvpLedeShow }}">
-                  <sc-if value="{{ mvpLedeIsAi }}">
-                    <div class="eo-ai-summary" style="margin-top:12px">
-                      <div class="eo-ai-badge">{{ mvpLedeBadge }}</div>
-                      <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;line-height:1.6;color:#2a2a32">{{ mvpLedeText }}</div>
-                    </div>
-                  </sc-if>
-                  <sc-if value="{{ !mvpLedeIsAi }}">
-                    <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;line-height:1.6;color:#2a2a32;margin-top:12px">{{ mvpLedeText }}</div>
-                  </sc-if>
+                  <div class="eo-ai-summary" style="margin-top:12px">
+                    <div class="eo-ai-badge">{{ mvpLedeBadge }}</div>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;line-height:1.6;color:#2a2a32">{{ mvpLedeText }}</div>
+                  </div>
                 </sc-if>
                 <sc-if value="{{ mvpLedePending }}">
                   <div style="font-size:12.5px;color:#b0b0b8;font-style:italic;margin-top:12px">Reading the lead…</div>
@@ -12500,12 +12498,19 @@ class Component extends DCLogic {
     const paraRec = app.foldSummaryFor(paraQ);
     const briefBadge = briefRec ? this.summaryBadge(briefRec) : { isAi: false };
     const paraBadge = paraRec ? this.summaryBadge(paraRec) : { isAi: false };
+    // A wiki lede reads as an editorial sentence, not a mail-merge — the deterministic telegram
+    // floor (via==='telegram', summaryBadge().isAi false) is honest everywhere else it appears
+    // (a badge-less line, clearly the reader's own mechanical read), but here, unbadged, it reads
+    // as prose someone wrote. So the lede shows ONLY the model-composed text; while only the
+    // telegram floor has landed, it's treated exactly like nothing has landed yet — `composing`
+    // (a model is actually available and still working) or the plain topic-meta fallback
+    // (`!mvpLedeHas`, synthesis is off) rather than a fabricated-looking paragraph.
     const composing = !!((briefRec && briefRec.modelless) || (paraRec && paraRec.modelless)) && !!(app.optionalModel && app.optionalModel());
     return {
-      has: !!(briefRec || paraRec), sn, pending: !briefRec && !paraRec,
-      hasBrief: !!briefRec, briefText: briefRec ? briefRec.text : '',
+      has: briefBadge.isAi || paraBadge.isAi, sn, pending: composing,
+      hasBrief: briefBadge.isAi, briefText: briefBadge.isAi ? briefRec.text : '',
       briefIsAi: briefBadge.isAi, briefBadgeLabel: briefBadge.badgeLabel || '',
-      hasLede: !!paraRec, ledeText: paraRec ? paraRec.text : '',
+      hasLede: paraBadge.isAi, ledeText: paraBadge.isAi ? paraRec.text : '',
       ledeIsAi: paraBadge.isAi, ledeBadgeLabel: paraBadge.badgeLabel || '',
       composing,
     };
@@ -12629,10 +12634,7 @@ class Component extends DCLogic {
         // the wiki-style lede — one sentence + a lead paragraph, off the primary source
         mvpLedeHas: lede.has, mvpLedePending: !!lede.pending,
         mvpBriefShow: lede.hasBrief, mvpBriefText: lede.briefText,
-        mvpBriefIsAi: lede.briefIsAi, mvpBriefBadge: lede.briefBadgeLabel,
-        mvpLedeShow: lede.hasLede, mvpLedeText: lede.ledeText,
-        mvpLedeIsAi: lede.ledeIsAi, mvpLedeBadge: lede.ledeBadgeLabel,
-        mvpLedeComposing: lede.composing,
+        mvpLedeShow: lede.hasLede, mvpLedeText: lede.ledeText, mvpLedeBadge: lede.ledeBadgeLabel,
         // MEANING SPACE — the orbit, folded in from the old right rail (light-themed now that it
         // sits in the main column — see _mvpMountStage)
         mvpSetStage: (el) => this._mvpMountStage(el, meaning, stageKey),
@@ -12658,8 +12660,8 @@ class Component extends DCLogic {
         mvpOvBtnBg: '#17171a', mvpOvBtnFg: '#fff', mvpResBtnBg: '#f2f2f5', mvpResBtnFg: '#5a5a63',
         mvpHeadline: 'Reader', mvpTopicMeta: '', mvpByline: '',
         mvpLedeHas: false, mvpLedePending: false,
-        mvpBriefShow: false, mvpBriefText: '', mvpBriefIsAi: false, mvpBriefBadge: '',
-        mvpLedeShow: false, mvpLedeText: '', mvpLedeIsAi: false, mvpLedeBadge: '', mvpLedeComposing: false,
+        mvpBriefShow: false, mvpBriefText: '',
+        mvpLedeShow: false, mvpLedeText: '', mvpLedeBadge: '',
         mvpSetStage: () => {}, mvpMeaningCounts: '', mvpHasMeaning: false,
         mvpAddSource: () => {}, mvpUpload: () => { try { this.pickFile(); } catch {} },
         mvpInfobox: [], mvpCast: [], mvpCastCount: '0', mvpHasCast: false,
