@@ -5354,7 +5354,7 @@ table{border-collapse:collapse;width:100%}
   </sc-if>
 
   <sc-if value="{{ toast }}">
-    <div class="eo-toast" style="position:absolute;left:50%;bottom:{{ toastBottom }};transform:translateX(-50%);z-index:60;background:#1B1B22;color:#fff;font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(20,20,30,.3);animation:eoToast .2s ease;max-width:520px">{{ toast }}</div>
+    <div class="eo-toast" role="{{ toastRole }}" style="position:absolute;left:50%;bottom:{{ toastBottom }};transform:translateX(-50%);z-index:60;background:{{ toastBg }};color:{{ toastFg }};font-size:12.5px;padding:10px 16px;border-radius:10px;border:{{ toastBorder }};box-shadow:0 10px 30px rgba(20,20,30,.3);animation:eoToast .2s ease;max-width:520px">{{ toastPrefix }}{{ toast }}</div>
   </sc-if>
 
   <!-- DRAG OVERLAY -->
@@ -6377,16 +6377,22 @@ class Component extends DCLogic {
       else this.showToast('Re-read complete');
     }).catch((err) => {
       if (err && (err.name === 'AbortError' || /abort/i.test(String((err && err.message) || err)))) return;
-      this.showToast(`Couldn’t re-read: ${String((err && err.message) || err).slice(0, 90)}`);
+      this.showToast(`Couldn’t re-read: ${String((err && err.message) || err).slice(0, 90)}`, { error: true });
     });
   }
   reReadSourceWithOptions(sn) { this.openReReadModal(sn); }
 
   // ── ingest ────────────────────────────────────────────────────────────────
-  showToast(msg) {
-    this.setState({ toast: msg });
+  // A plain toast (recorded/renamed/exported…) and a FAILURE toast used to look and behave
+  // identically — same dark pill, same 3.2s fade — so a failed import was as easy to miss as a
+  // routine confirmation: drop a file, glance away, look back, nothing in the sidebar, no error
+  // left on screen. opts.error marks this one as a failure: it reads distinctly (red, ⚠, role=
+  // alert) and holds twice as long, so "why didn't that work" has something to actually read.
+  showToast(msg, opts = {}) {
+    const isError = !!(opts && opts.error);
+    this.setState({ toast: msg, toastError: isError });
     clearTimeout(this._toastT);
-    this._toastT = setTimeout(() => this.setState({ toast: null }), 3200);
+    this._toastT = setTimeout(() => this.setState({ toast: null, toastError: false }), isError ? 6000 : 3200);
   }
   focusOmnibox(msg) {
     const el = document.getElementById('eo-omnibox-input');
@@ -6432,7 +6438,7 @@ class Component extends DCLogic {
     const urlish = /^https?:\/\//.test(query) || (/^[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(query) && !query.includes(' '));
     if (urlish && this._app) {
       this._app.ingestUrl(query).then((s) => { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
-        .catch((err) => this.showToast(`Couldn't read that page: ${String(err && err.message || err).slice(0, 90)}`));
+        .catch((err) => this.showToast(`Couldn't read that page: ${String(err && err.message || err).slice(0, 90)}`, { error: true }));
       return;
     }
     this.openResearchReview(query);
@@ -6457,7 +6463,7 @@ class Component extends DCLogic {
     this._beginPendingRead(item, key);
     this._app.recordHit(item, this.state.searchQ)
       .then((s) => { this._finishPendingRead(key); this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'done' } }); this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
-      .catch((err) => { this._failPendingRead(key); this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: null } }); this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`); });
+      .catch((err) => { this._failPendingRead(key); this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: null } }); this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`, { error: true }); });
   }
   // ── the live read — a source's card, streaming, before it settles ───────────────────────────
   // A clicked hit lands in the left rail at once (modal closed) and READS ON SCREEN: a phase label
@@ -6561,7 +6567,7 @@ class Component extends DCLogic {
         if (s) { this.showToast(`Ingested ${item.owner}/${item.repo} — the code organ read it`); this.setState({ libOpen: false }); this._revealImport(s); }
         else this.showToast(`Nothing to ingest in ${item.title}`);
       })
-      .catch((err) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: null } }); this.showToast(`Couldn't ingest: ${String(err && err.message || err).slice(0, 90)}`); });
+      .catch((err) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: null } }); this.showToast(`Couldn't ingest: ${String(err && err.message || err).slice(0, 90)}`, { error: true }); });
   }
   _ingestFile(f) {
     if (!this._app) return;
@@ -6570,7 +6576,7 @@ class Component extends DCLogic {
     let revealed = false;
     this._app.ingestFile(f, { onSource: (s) => { revealed = true; this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); } })
       .then((s) => { if (s && !revealed) { this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); } })
-      .catch((err) => this.showToast(`Couldn't read ${f.name}: ${String(err && err.message || err).slice(0, 90)}`));
+      .catch((err) => this.showToast(`Couldn't read ${f.name}: ${String(err && err.message || err).slice(0, 90)}`, { error: true }));
   }
   // ── the import reveal — the first surface a new source renders ─────────────
   // The moment a source lands (any modality — a PDF, a photo's scene, an audio
@@ -11230,14 +11236,14 @@ class Component extends DCLogic {
     this.setState({ rrOpen: true, rrTopicId: null, rrBusy: true });
     this._syncRoute();
     this._app.reviewStart(query).then((t) => {
-      if (!t) { this.setState({ rrOpen: false, rrBusy: false }); this._syncRoute(true); this.showToast(`Nothing came back for “${query}” — try different words or a direct URL`); return; }
+      if (!t) { this.setState({ rrOpen: false, rrBusy: false }); this._syncRoute(true); this.showToast(`Nothing came back for “${query}” — try different words or a direct URL`, { error: true }); return; }
       this.setState({ rrTopicId: t.id, rrBusy: false });
       this._syncRoute(true);
     }).catch((err) => {
       this.setState({ rrOpen: false, rrBusy: false });
       this._syncRoute(true);
       if (err && (err.name === 'AbortError' || /abort/i.test(String((err && err.message) || err)))) return;
-      this.showToast(`Couldn’t search: ${String((err && err.message) || err).slice(0, 90)}`);
+      this.showToast(`Couldn’t search: ${String((err && err.message) || err).slice(0, 90)}`, { error: true });
     });
   }
   closeResearchReview(target) {
@@ -13014,8 +13020,20 @@ class Component extends DCLogic {
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', omniAttach: () => {}, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         mainDisplay: 'flex', rightWidth: '340px', rightFlex: '0 0 auto', rightBorder: '1px solid #EAEAEF', rightBodyPad: '14px 16px', rightBodyMax: 'none', rightBodyMargin: '0',
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, mvpEnt: { open: false }, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
+        statusPeek: [], toast: this.state.toast, ...this._toastVals(this.state), entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, mvpEnt: { open: false }, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
     }
+  }
+
+  // The failure-toast styling (red pill, ⚠, role=alert) vs. the plain one (dark, no icon) —
+  // shared by every _vals() branch (booting / broken-surface / normal) so a toast reads the
+  // same regardless of which state the shell happens to be in when it fires.
+  _toastVals(st) {
+    const err = !!st.toastError;
+    return {
+      toastBg: err ? '#4A1414' : '#1B1B22', toastFg: err ? '#FFD9D2' : '#fff',
+      toastBorder: err ? '1px solid #7A2A20' : '1px solid transparent',
+      toastPrefix: err ? '⚠ ' : '', toastRole: err ? 'alert' : 'status',
+    };
   }
 
   _vals() {
@@ -13032,7 +13050,7 @@ class Component extends DCLogic {
         isMobile: !!st.isMobile, isDesktop: !st.isMobile,
         statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, omniAttach: () => this.pickFile(), chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, mvpEnt: { open: false }, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
+        statusPeek: [], toast: st.toast, ...this._toastVals(st), entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, mvpEnt: { open: false }, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
     }
     const topic = app.topic();
     // The sidebar/Sources-tab list is MEMBERSHIP, not the active evidence scope — an excluded
@@ -14387,7 +14405,7 @@ class Component extends DCLogic {
       crumb,
       // toastBottom clears the mobile shell's bottom tab bar (index.html:4500's toast is shared by
       // both shells and otherwise sits at the same height as that bar on mobile).
-      omni: st.omni, toast: st.toast, toastBottom: st.isMobile ? '84px' : '26px', dragOver: !!st.dragOver,
+      omni: st.omni, toast: st.toast, toastBottom: st.isMobile ? '84px' : '26px', ...this._toastVals(st), dragOver: !!st.dragOver,
       // live recording — the mic button + the take panel
       // The Home tab (Source Explorer) is a self-contained surface with its OWN left rail (Quick
       // Access · Folders · Vault), so the app's global topic/source rail stands down there — otherwise
