@@ -78,6 +78,8 @@ import { mountConsole } from './console-surface.js';
 import { mountBinvis } from './binvis-surface.js';
 import { mountPdfView } from './pdf-view-surface.js';
 import { mountResearchReview } from './research-review-surface.js';
+import { mountReaderSurface } from './reader-surface.js';
+import { assembleQuestionResult, buildLedger, holonMeaningData } from './question-result.js';
 import * as binvis from '../../surfaces/binvis/index.js';
 import { createPipelineSurface } from './pipeline-surface.js';
 import * as evidence from './evidence.js';
@@ -359,6 +361,12 @@ window.EO = Object.freeze({
   // the article; this is only the render function + its scoped CSS.
   // (docs/entity-panel-terrain-hero.md)
   wiki: Object.freeze({ renderArticleHTML, WIKI_PANEL_CSS }),
+  // The reader room, one engine at two widths (docs/EO_MVP_Integration_Guide.md): the holonic
+  // reading (paradigm ⊃ atmosphere ⊃ lens) and the grounding standing (corroborated · contested ·
+  // single-source · void), rendered as two projections of one tree — a collapsible ledger outline
+  // and the mountSolarSystem orbit — with the full click-down to the base spans each claim stands on.
+  // mount(el, { reading, onOpenSource, resolveSpan }); the pure assembly layer is exposed too.
+  reader: Object.freeze({ mount: mountReaderSurface, assembleQuestionResult, buildLedger, holonMeaningData }),
   firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
   evidence,   // the evidence-modal contract — a waveform mark → the five-region modal shape (docs/omnimodal-waveform.md)
   projectTranscript, wordsToText,   // the interactive transcript fold (baseline + edits/redactions → live reading)
