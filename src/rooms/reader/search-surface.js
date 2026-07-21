@@ -62,8 +62,14 @@ export const subjectTerms = (parsed) => {
 // falling back to the whole cast when the subject names no one (so "who is here" shows everyone,
 // not nothing). Drawn from the full merged entity list, NOT searchRecord's terms filter, because
 // the intent word ("who") is not a name and must never narrow the cast to itself.
+// A referent the grain reader (perceiver/parse/grain.js) confidently read as a SETTING or a KIND
+// — Geneva moved through, "the soldiers" ranging over many — is not a figure, however often it is
+// named; excluded here so "who is in this" answers with the cast, not the atlas. A referent the
+// grain reader HELD (thin evidence, e.g. every non-text entity, which carries no grain at all)
+// stays IN — abstention is not evidence of absence, and the pre-grain cast is untouched by this.
+const isFigure = (e) => e.grain !== 'setting' && e.grain !== 'kind';
 const castFrom = (entities, terms) => {
-  const all = (entities || []).filter((e) => e && e.label);
+  const all = (entities || []).filter((e) => e && e.label && isFigure(e));
   const named = terms.length ? all.filter((e) => terms.some((t) => String(e.label).toLowerCase().includes(t))) : [];
   const pool = named.length ? named : all;
   return pool

@@ -99,5 +99,30 @@ export const nestComposite = (doc, { alpha = 0.06, minGap = 6, minSegments = 2, 
     parts.push(parseText(segText, { docId: nameOf(segText, k, doc.docId), unnamedReferents, nameReferent }));
   }
   if (parts.length < minSegments) return doc;
-  return createCompositeDoc(parts);
+  return reseatWholeDocGrain(doc, createCompositeDoc(parts));
+};
+
+// GRAIN (grain.js: figure / kind / setting) is a company-distribution judgment — it reads
+// cleanly only off a referent's FULL sighting history. Geneva oblique in most of its 30+
+// book-wide sightings reads as a clean setting; the 3-6 sightings any ONE re-parsed segment
+// carries are too thin, so the per-segment grainRead pass above mostly abstains, and where it
+// does commit the verdict is whichever segment's namespaced id the cross-doc union-find
+// happens to keep (core/project.js's merge takes the first-seen id's props, the rest are
+// lost) — not the best-evidenced one. The whole, UNSEGMENTED `doc` already read every
+// sighting together and graded accordingly; re-seat its verdicts onto the composite's own
+// admitted id for the same label, appended last so they win the DEF overwrite over any
+// thin per-segment guess. Additive only: a label the whole read never graded (HELD) leaves
+// the composite exactly as the segments produced it.
+const reseatWholeDocGrain = (doc, composite) => {
+  if (!composite || !composite.isComposite || !composite.admission) return composite;
+  const wholeGrain = (doc.log?.snapshot?.() || []).filter((e) => e.op === 'DEF' && e.key === 'grain');
+  for (const e of wholeGrain) {
+    const label = doc.admission?.labelOf?.(e.id);
+    if (!label) continue;
+    const id = composite.admission.idOf(label);
+    if (id == null) continue;
+    composite.log.append({ op: 'DEF', id, key: 'grain', value: e.value, grain: e.grain,
+                            cue: e.cue, defeasible: true, sentIdx: 0 });
+  }
+  return composite;
 };

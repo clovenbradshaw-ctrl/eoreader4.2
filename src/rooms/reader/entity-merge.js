@@ -27,7 +27,7 @@
 //   · the merged row OPENS on the full-name node — its label, and so its Wikipedia referent, resolve
 //     the right person — while its mention/link counts still aggregate the surname's reach.
 //
-// Pure over the per-source rows (each { label, mentions, links, sn, docId, entId, key, kind, level }).
+// Pure over the per-source rows (each { label, mentions, links, sn, docId, entId, key, kind, level, grain }).
 // Same input → same output; no clock, no Map-order dependence leaks into a tie (every max is the
 // first-seen on a tie, and the rows arrive in a deterministic reading order).
 
@@ -140,7 +140,7 @@ export const mergeEntitiesByReferent = (rows, { entityKey = DEFAULT_KEY, isEpith
       key: open.key, entId: open.entId, docId: open.docId, sn: open.sn,
       label: grp.label, mentions: grp.mentions, links: grp.links,
       sourceCount: grp.sns.size, instances: grp.instances,
-      kind: open.kind, level: open.level,
+      kind: open.kind, level: open.level, grain: open.grain,
     };
   });
   merged.sort((a, b) => (b.mentions + b.links) - (a.mentions + a.links));
