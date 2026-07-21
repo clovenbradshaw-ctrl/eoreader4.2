@@ -1237,12 +1237,30 @@ table{border-collapse:collapse;width:100%}
         </div>
       </div>
 
+      <!-- TOPICS — each its own universe: own sources, own reading, own cast, own meaning
+           space (app/topics.js's sourceSns keeps them fully separate). Switch or start a
+           fresh one without leaving this shell. -->
+      <div style="padding:14px 18px 8px;flex:none;border-bottom:1px solid #efeff2">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:9.5px;font-weight:700;letter-spacing:0.8px;color:#9b9ba3">TOPICS</span>
+          <button onClick="{{ mvpNewTopic }}" title="Start a new topic — its own sources, its own reading" style="font-size:11px;font-weight:700;color:#5a49e8;background:#ece9fe;border:none;border-radius:7px;padding:3px 8px;cursor:pointer;font-family:inherit" style-hover="background:#e4dffb">+ New</button>
+        </div>
+        <div style="max-height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;margin:0 -6px">
+          <sc-for list="{{ mvpTopics }}" as="tp">
+            <button onClick="{{ tp.onTap }}" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:{{ tp.bg }};border:none;border-radius:8px;padding:6px 8px;cursor:pointer;font-family:inherit" style-hover="background:#f2f2f5">
+              <span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:{{ tp.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tp.title }}</span>
+              <span style="flex:none;font-size:10px;color:#a6a6ae">{{ tp.meta }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
       <div style="padding:16px 18px 8px;flex:none">
         <div style="display:flex;align-items:center;justify-content:space-between">
           <span style="font-size:9.5px;font-weight:700;letter-spacing:0.8px;color:#9b9ba3">EVIDENCE SCOPE</span>
           <span style="font-size:11px;font-weight:600;color:#7a7a83">{{ mvpScopeLine }}</span>
         </div>
-        <div style="font-size:11px;color:#a0a0a8;line-height:1.4;margin-top:6px">Toggling a source recomputes the answer, the ledger and the meaning space in place.</div>
+        <div style="font-size:11px;color:#a0a0a8;line-height:1.4;margin-top:6px">Toggling a source recomputes the reading and the meaning space in place.</div>
         <div style="display:flex;gap:7px;margin-top:11px">
           <button onClick="{{ mvpAllOn }}" style="flex:1;background:#ece9fe;color:#5a49e8;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">All</button>
           <button onClick="{{ mvpAllOff }}" style="flex:1;background:#f2f2f5;color:#5a5a63;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">None</button>
@@ -1297,40 +1315,52 @@ table{border-collapse:collapse;width:100%}
       </div>
 
       <div style="flex:1;min-height:0;overflow-y:auto">
-        <div style="max-width:720px;margin:0 auto;padding:26px 32px 48px;display:flex;flex-direction:column;gap:15px">
+        <div style="max-width:860px;margin:0 auto;padding:26px 32px 48px;display:flex;flex-direction:column;gap:15px">
+          <!-- THE LEDE — a wikipedia-style header: title, a byline, a one-sentence short
+               description, then the lead paragraph, with an infobox of settled facts
+               alongside — read off the topic's primary source via the same fold→summary
+               pipeline every source Overview and entity profile already uses. -->
           <div style="background:#fff;border:1px solid #ececf0;border-radius:20px;padding:22px 24px">
             <div style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:1px;color:#9b9ba3;background:#f2f2f5;padding:4px 9px;border-radius:6px">RESEARCH TOPIC</div>
-            <div style="font-family:'Newsreader',Georgia,serif;font-size:30px;line-height:1.14;font-weight:500;margin:15px 0 12px;color:#17171a;overflow-wrap:anywhere">{{ mvpHeadline }}</div>
-            <div style="font-size:13px;color:#7a7a83">{{ mvpTopicMeta }}</div>
-            <!-- INFOBOX — a wikipedia-style facts strip, read straight from the topic's own reading -->
-            <sc-if value="{{ mvpInfobox.length }}">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:15px;padding-top:15px;border-top:1px solid #f1f1f4">
-              <sc-for list="{{ mvpInfobox }}" as="f">
-                <div style="flex:0 0 auto;min-width:120px;background:#fafafb;border:1px solid #efeff2;border-radius:11px;padding:9px 12px">
-                  <div style="font-size:9.5px;font-weight:700;letter-spacing:0.6px;color:#a0a0a8;text-transform:uppercase">{{ f.k }}</div>
-                  <div style="font-size:13px;font-weight:600;color:#2f2f36;margin-top:3px">{{ f.v }}</div>
-                </div>
-              </sc-for>
-            </div>
-            </sc-if>
-          </div>
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:30px;line-height:1.14;font-weight:500;margin:15px 0 4px;color:#17171a;overflow-wrap:anywhere">{{ mvpHeadline }}</div>
+            <div style="font-size:12px;font-style:italic;color:#9b9ba3">{{ mvpByline }}</div>
 
-          <div style="background:#fff;border:1px solid #ececf0;border-radius:20px;padding:18px 20px">
-            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
-              <span style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:#5a5a63">CONVERGENCE</span>
-              <span style="font-size:10.5px;color:#a6a6ae">{{ mvpActiveCountLabel }}</span>
+            <div style="display:flex;gap:22px;flex-wrap:wrap;margin-top:14px">
+              <div style="flex:1;min-width:260px">
+                <sc-if value="{{ mvpBriefShow }}">
+                  <div style="font-size:14px;font-style:italic;color:#5a5a63;line-height:1.5">{{ mvpBriefText }}</div>
+                </sc-if>
+                <sc-if value="{{ mvpLedeShow }}">
+                  <sc-if value="{{ mvpLedeIsAi }}">
+                    <div class="eo-ai-summary" style="margin-top:12px">
+                      <div class="eo-ai-badge">{{ mvpLedeBadge }}</div>
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;line-height:1.6;color:#2a2a32">{{ mvpLedeText }}</div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ !mvpLedeIsAi }}">
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;line-height:1.6;color:#2a2a32;margin-top:12px">{{ mvpLedeText }}</div>
+                  </sc-if>
+                </sc-if>
+                <sc-if value="{{ mvpLedePending }}">
+                  <div style="font-size:12.5px;color:#b0b0b8;font-style:italic;margin-top:12px">Reading the lead…</div>
+                </sc-if>
+                <sc-if value="{{ !mvpLedeHas }}">
+                  <div style="font-size:13px;color:#7a7a83;margin-top:10px">{{ mvpTopicMeta }}</div>
+                </sc-if>
+              </div>
+              <!-- INFOBOX — a wikipedia-style facts panel, read straight from the topic's own reading -->
+              <sc-if value="{{ mvpInfobox.length }}">
+              <div style="flex:0 0 200px;border:1px solid #ececf0;border-radius:12px;overflow:hidden;align-self:flex-start">
+                <div style="background:#f7f7fa;padding:8px 12px;font-size:10.5px;font-weight:700;letter-spacing:0.4px;color:#6a6a73;border-bottom:1px solid #ececf0">AT A GLANCE</div>
+                <sc-for list="{{ mvpInfobox }}" as="f">
+                  <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid #f4f4f6">
+                    <span style="font-size:11px;font-weight:600;color:#9b9ba3">{{ f.k }}</span>
+                    <span style="font-size:11.5px;font-weight:600;color:#2f2f36;text-align:right">{{ f.v }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              </sc-if>
             </div>
-            <div style="display:flex;gap:10px;margin-bottom:14px">
-              <div style="flex:1;text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:600;color:#3f9d6d;line-height:1">{{ mvpSettled }}</div><div style="font-size:10.5px;color:#9b9ba3;margin-top:6px">settled</div></div>
-              <div style="flex:1;text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:600;color:#d97a34;line-height:1">{{ mvpContested }}</div><div style="font-size:10.5px;color:#9b9ba3;margin-top:6px">contested</div></div>
-              <div style="flex:1;text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:600;color:#9aa0ad;line-height:1">{{ mvpVoid }}</div><div style="font-size:10.5px;color:#9b9ba3;margin-top:6px">void</div></div>
-            </div>
-            <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px;background:#f4f4f6">
-              <div style="width:{{ mvpBarSettled }};background:#3f9d6d;border-radius:6px 0 0 6px"></div>
-              <div style="width:{{ mvpBarContested }};background:#e0863f"></div>
-              <div style="width:{{ mvpBarVoid }};background:repeating-linear-gradient(45deg,#d5d5dd,#d5d5dd 3px,#e6e6ec 3px,#e6e6ec 6px);border-radius:0 6px 6px 0"></div>
-            </div>
-            <div style="font-size:13px;line-height:1.5;color:#3a3a41;margin-top:14px">{{ mvpConvNote }}</div>
           </div>
 
           <!-- CAST — the figures across the active sources, by how much of the reading they carry.
@@ -1363,38 +1393,55 @@ table{border-collapse:collapse;width:100%}
           </div>
           </sc-if>
 
-          <!-- THE READING — the claim rows themselves, newest first, each with its verbatim passage
-               and a jump back to the source at that exact span. Not a summary: the sentences. -->
+          <!-- MEANING SPACE — the orbit, folded in from the old right rail. The EOGraph widget
+               draws its own bordered card in its native light palette (_mvpMountStage no longer
+               overrides it dark — that override existed only to sit on the rail's dark ground),
+               so it reads as one more section of the page, full width, not a caged sidebar. -->
+          <sc-if value="{{ mvpHasMeaning }}">
+          <div style="background:#fff;border:1px solid #ececf0;border-radius:20px;padding:18px 20px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+              <span style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:#5a5a63">MEANING SPACE</span>
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:10.5px;color:#a6a6ae">{{ mvpMeaningCounts }}</span>
+                <button onClick="{{ mvpUseClassic }}" title="Switch to the classic shell" style="flex:none;background:#f2f2f5;color:#7a7a83;border:1px solid #ececf0;border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:700;letter-spacing:0.4px;cursor:pointer;font-family:inherit" style-hover="background:#ececf0">CLASSIC VIEW</button>
+              </div>
+            </div>
+            <div ref="{{ mvpSetStage }}" style="min-height:40px"></div>
+          </div>
+          </sc-if>
+
+          <!-- THE READING — the claim rows, grouped by cross-source standing (contested first,
+               then corroborated, then single-source — the old right-rail ledger's own grouping),
+               each with its verbatim passage and a jump back to the source at that exact span.
+               Not a summary: the sentences. -->
           <sc-if value="{{ mvpHasReading }}">
           <div style="background:#fff;border:1px solid #ececf0;border-radius:20px;padding:18px 20px">
-            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
               <span style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:#5a5a63">THE READING · findings</span>
               <span style="font-size:10.5px;color:#a6a6ae">{{ mvpReadingCount }} on record</span>
             </div>
-            <sc-if value="{{ mvpHasStanding }}">
-            <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap">
-              <sc-for list="{{ mvpStanding }}" as="s">
-                <div style="display:flex;align-items:center;gap:7px">
-                  <span style="width:8px;height:8px;border-radius:50%;background:{{ s.color }};flex:none"></span>
-                  <span style="font-size:11.5px;color:#6a6a73">{{ s.label }}</span>
-                  <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:#2f2f36">{{ s.count }}</span>
-                </div>
-              </sc-for>
-            </div>
-            </sc-if>
-            <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;flex-direction:column;gap:6px">
               <sc-for list="{{ mvpReading }}" as="r">
-                <button onClick="{{ r.onTap }}" style="display:block;width:100%;text-align:left;background:#fafafb;border:1px solid #efeff2;border-left:3px solid {{ r.stFg }};border-radius:5px 13px 13px 5px;padding:12px 14px;cursor:pointer;font-family:inherit" style-hover="background:#f5f5f8">
-                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;flex-wrap:wrap">
-                    <span style="font-size:8.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;padding:2px 7px;border-radius:5px;color:{{ r.stFg }};background:{{ r.stBg }}">{{ r.stLabel }}</span>
-                    <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#a99bff;background:#f1eefe;padding:2px 6px;border-radius:5px">{{ r.srcReg }}</span>
-                    <span style="font-size:10.5px;color:#a0a0a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">{{ r.srcTitle }}</span>
+                <sc-if value="{{ r.isGroup }}">
+                  <div style="display:flex;align-items:center;gap:8px;margin:10px 0 0;padding:0 2px">
+                    <span style="width:8px;height:8px;border-radius:50%;background:{{ r.color }};flex:none;box-shadow:0 0 0 3px {{ r.halo }}"></span>
+                    <span style="font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a8a95">{{ r.label }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:#b0b0b8">{{ r.count }}</span>
                   </div>
-                  <div style="font-size:13.5px;line-height:1.5;color:#2a2a32">{{ r.text }}</div>
-                  <sc-if value="{{ r.hasQuote }}">
-                    <div style="font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:13px;line-height:1.5;color:#6a6a73;border-left:2px solid #e6e6ea;padding-left:11px;margin-top:9px">“{{ r.quote }}”</div>
-                  </sc-if>
-                </button>
+                </sc-if>
+                <sc-if value="{{ r.isClaim }}">
+                  <button onClick="{{ r.onTap }}" style="display:block;width:100%;text-align:left;background:#fafafb;border:1px solid #efeff2;border-left:3px solid {{ r.stFg }};border-radius:5px 13px 13px 5px;padding:12px 14px;cursor:pointer;font-family:inherit" style-hover="background:#f5f5f8">
+                    <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;flex-wrap:wrap">
+                      <span style="font-size:8.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;padding:2px 7px;border-radius:5px;color:{{ r.stFg }};background:{{ r.stBg }}">{{ r.stLabel }}</span>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#a99bff;background:#f1eefe;padding:2px 6px;border-radius:5px">{{ r.srcReg }}</span>
+                      <span style="font-size:10.5px;color:#a0a0a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">{{ r.srcTitle }}</span>
+                    </div>
+                    <div style="font-size:13.5px;line-height:1.5;color:#2a2a32">{{ r.text }}</div>
+                    <sc-if value="{{ r.hasQuote }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:13px;line-height:1.5;color:#6a6a73;border-left:2px solid #e6e6ea;padding-left:11px;margin-top:9px">“{{ r.quote }}”</div>
+                    </sc-if>
+                  </button>
+                </sc-if>
               </sc-for>
             </div>
           </div>
@@ -1402,81 +1449,11 @@ table{border-collapse:collapse;width:100%}
 
           <div style="display:flex;gap:11px;align-items:flex-start;background:#f8f7ff;border:1px dashed #e6e1f7;border-radius:14px;padding:15px 17px">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a6a0e6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/></svg>
-            <div style="font-size:12.5px;color:#8580ab;line-height:1.5">The meaning space and the ledger on the right are two projections of the same reading — the orbit places each claim, the ledger lists it by cross-source standing. Click a claim in either to open the passage it was read from.</div>
+            <div style="font-size:12.5px;color:#8580ab;line-height:1.5">The meaning space and the reading below are two projections of the same claims — the orbit places each one, the list groups it by cross-source standing. Click either to open the passage it was read from.</div>
           </div>
         </div>
       </div>
     </main>
-
-    <!-- RIGHT RAIL — meaning space + ledger -->
-    <sc-if value="{{ mvpRightOpen }}">
-    <aside style="width:352px;flex:none;min-height:0;background:#0d0d15;border-left:1px solid #211f30;display:flex;flex-direction:column;overflow:hidden;color:#eceaf5">
-      <div style="flex:none;display:flex;align-items:center;gap:9px;padding:16px 16px 12px">
-        <button onClick="{{ mvpToggleOrbit }}" title="Collapse or expand the meaning space" style="flex:none;width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#cfc9ee;cursor:pointer;display:flex;align-items:center;justify-content:center">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ mvpOrbitChev }};transition:transform .15s"><path d="M9 6l6 6-6 6"/></svg>
-        </button>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:9.5px;font-weight:700;letter-spacing:1.2px;color:#8b83c9">MEANING SPACE</div>
-          <div style="font-size:11.5px;color:#7c779e;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mvpMeaningCounts }}</div>
-        </div>
-        <button onClick="{{ mvpToggleRight }}" title="Collapse the panel" style="flex:none;width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#cfc9ee;cursor:pointer;display:flex;align-items:center;justify-content:center">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6l6 6-6 6M6 6l6 6-6 6"/></svg>
-        </button>
-      </div>
-
-      <sc-if value="{{ mvpOrbitOpen }}">
-        <div style="flex:none;padding:0 14px 14px">
-          <div ref="{{ mvpSetStage }}" style="min-height:40px"></div>
-        </div>
-      </sc-if>
-
-      <div style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px 22px;border-top:1px solid rgba(255,255,255,0.07)">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <span style="font-size:9.5px;font-weight:700;letter-spacing:1px;color:#6f6a90">THE LEDGER · claims by standing</span>
-          <span style="flex:1"></span>
-          <button onClick="{{ mvpUseClassic }}" title="Switch to the classic shell" style="flex:none;background:rgba(255,255,255,0.06);color:#8b83c9;border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:700;letter-spacing:0.4px;cursor:pointer;font-family:inherit">CLASSIC VIEW</button>
-        </div>
-        <sc-if value="{{ mvpLedgerEmpty }}">
-          <div style="font-size:12px;color:#7c779e;line-height:1.55;padding:8px 2px 4px">No claims on record yet. Read a source or ask a question — every claim lands here with its cross-source standing and a jump to the passage it was read from.</div>
-        </sc-if>
-        <sc-for list="{{ mvpLedgerRows }}" as="r">
-          <sc-if value="{{ r.isNode }}">
-            <div style="display:flex;align-items:center;gap:8px;padding:14px 2px 7px">
-              <span style="width:9px;height:9px;border-radius:50%;background:{{ r.color }};flex:none;box-shadow:0 0 0 4px {{ r.halo }}"></span>
-              <span style="flex:1;min-width:0;font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#cfc9ee">{{ r.label }}</span>
-              <span style="font-size:10px;font-weight:600;color:#565274;font-family:'JetBrains Mono',monospace">{{ r.count }}</span>
-            </div>
-          </sc-if>
-          <sc-if value="{{ r.isClaim }}">
-            <button onClick="{{ r.onTap }}" style="display:block;width:100%;text-align:left;margin:4px 0;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.07);border-left:3px solid {{ r.stColor }};border-radius:4px 11px 11px 4px;padding:11px 12px;cursor:pointer;font-family:inherit" style-hover="background:rgba(255,255,255,0.06)">
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;flex-wrap:wrap">
-                <span style="font-size:8.5px;font-weight:700;letter-spacing:0.4px;padding:2px 6px;border-radius:5px;color:{{ r.stColor }};background:{{ r.stBg }}">{{ r.stLabel }}</span>
-                <span style="font-size:9.5px;color:#565274">{{ r.meta }}</span>
-              </div>
-              <div style="font-size:12.5px;line-height:1.45;color:#cbc7e0">{{ r.text }}</div>
-              <sc-if value="{{ r.hasSrc }}">
-                <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">
-                  <sc-for list="{{ r.src }}" as="sid">
-                    <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:500;color:#a99bff;background:rgba(124,116,230,0.16);padding:2px 6px;border-radius:5px">{{ sid }}</span>
-                  </sc-for>
-                </div>
-              </sc-if>
-            </button>
-          </sc-if>
-        </sc-for>
-      </div>
-    </aside>
-    </sc-if>
-
-    <sc-if value="{{ mvpRightClosed }}">
-    <aside onClick="{{ mvpToggleRight }}" style="width:46px;flex:none;background:#0d0d15;border-left:1px solid #211f30;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:14px;cursor:pointer">
-      <button onClick="{{ mvpToggleRight }}" style="flex:none;width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#cfc9ee;cursor:pointer;display:flex;align-items:center;justify-content:center">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 6l-6 6 6 6M18 6l-6 6 6 6"/></svg>
-      </button>
-      <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;font-weight:700;letter-spacing:1.5px;color:#8b83c9">MEANING SPACE · LEDGER</div>
-    </aside>
-    </sc-if>
-
   </div>
   </sc-if>
 
@@ -4812,6 +4789,95 @@ table{border-collapse:collapse;width:100%}
     </div>
   </sc-if>
 
+  <!-- THE MVP ENTITY SHEET — a figure's profile (CAST chip, MEANING SPACE bubble) shown in place
+       over the topic page instead of navigating away. Global overlay (works regardless of shell,
+       same reasoning as the evidence modal above); reuses _profFor, the same builder the classic
+       sidebar / graph overlay / mobile sheet already share. -->
+  <sc-if value="{{ mvpEnt.open }}">
+    <div style="position:absolute;inset:0;z-index:45">
+      <div onClick="{{ mvpEnt.close }}" style="position:absolute;inset:0;background:rgba(20,20,28,.24);animation:eoFade .16s ease"></div>
+      <div class="eo-scroll eo-drawer" style="position:absolute;right:0;top:0;height:100%;width:min(420px,92vw);background:#fff;border-left:1px solid #EAEAEF;box-shadow:-12px 0 40px rgba(20,20,30,.12);overflow-y:auto;animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)">
+        <div style="position:sticky;top:0;background:#fff;border-bottom:1px solid #EAEAEF;padding:16px 18px;z-index:2;display:flex;align-items:center;gap:11px">
+          <span style="width:36px;height:36px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ mvpEnt.prof.initials }}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600;color:#1B1B22;line-height:1.2;overflow-wrap:anywhere">{{ mvpEnt.prof.label }}</div>
+            <div style="font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ mvpEnt.prof.counts }}</div>
+          </div>
+          <button onClick="{{ mvpEnt.prof.pin }}" title="{{ mvpEnt.prof.pinTip }}" style="flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:{{ mvpEnt.prof.pinFg }}" style-hover="background:#F2F2F6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l1 7 3 2H5l3-2z"/></svg></button>
+          <button onClick="{{ mvpEnt.close }}" title="Close" style="flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+
+        <div style="padding:16px 18px 28px">
+          <!-- the settled Wikipedia referent, when confirmed -->
+          <sc-if value="{{ mvpEnt.prof.wikiWait }}"><div style="font-size:11.5px;color:#B0AACF;font-style:italic;margin-bottom:12px">Checking Wikipedia…</div></sc-if>
+          <sc-if value="{{ mvpEnt.prof.hasWiki }}">
+            <div style="border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px;margin-bottom:14px">
+              <sc-if value="{{ mvpEnt.prof.hasWikiDesc }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ mvpEnt.prof.wikiDesc }}</div></sc-if>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ mvpEnt.prof.wikiText }}</div>
+              <a href="{{ mvpEnt.prof.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:#5B4BE6;margin-top:7px;text-decoration:none">{{ mvpEnt.prof.wikiTitle }} ↗</a>
+            </div>
+          </sc-if>
+
+          <!-- the fold summary — a real reading of this figure, gated + badged exactly like the
+               topic lede above (same discipline, docs/fold-summary-pipeline.md) -->
+          <sc-if value="{{ mvpEnt.prof.foldSummary.has }}">
+            <sc-if value="{{ mvpEnt.prof.foldSummary.isAi }}">
+              <div class="eo-ai-summary" style="margin-bottom:14px">
+                <div class="eo-ai-badge">{{ mvpEnt.prof.foldSummary.badgeLabel }}<sc-if value="{{ mvpEnt.prof.foldSummary.hasGroundDot }}"><span class="dot" title="{{ mvpEnt.prof.foldSummary.groundLabel }}" style="background:{{ mvpEnt.prof.foldSummary.groundDot }}"></span></sc-if></div>
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ mvpEnt.prof.foldSummary.text }}</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ !mvpEnt.prof.foldSummary.isAi }}">
+              <div style="border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px;margin-bottom:14px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                  <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
+                  <sc-if value="{{ mvpEnt.prof.foldSummary.composing }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">the local model is composing…</span></sc-if>
+                </div>
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ mvpEnt.prof.foldSummary.text }}</div>
+              </div>
+            </sc-if>
+          </sc-if>
+          <sc-if value="{{ !mvpEnt.prof.foldSummary.has }}">
+            <button onClick="{{ mvpEnt.prof.foldSummary.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px;margin-bottom:14px" style-hover="background:#E7E3FD">✨ Read the fold — a real summary of this figure</button>
+          </sc-if>
+
+          <!-- the meaning-space mini-orbit, scoped to just this figure -->
+          <sc-if value="{{ mvpEnt.prof.hasSolar }}">
+            <div style="margin-bottom:16px;border-radius:12px;overflow:hidden" ref="{{ mvpEnt.prof.setSolarEl }}"></div>
+          </sc-if>
+
+          <!-- connected entities -->
+          <sc-if value="{{ mvpEnt.prof.hasRelations }}">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.04em;color:#8A8A95;text-transform:uppercase;margin-bottom:8px">Connected figures</div>
+            <sc-for list="{{ mvpEnt.prof.relations }}" as="r">
+              <button onClick="{{ r.pivot }}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;background:none;border:none;border-top:1px solid #F4F4F6;padding:8px 2px;cursor:pointer;font-family:inherit" style-hover="background:#FAFAFB">
+                <span style="font-size:12.5px;font-weight:600;color:#2A2A32">{{ r.other }}</span>
+                <span style="font-size:10.5px;color:#A6A6AE;flex:0 0 auto">{{ r.via }}</span>
+              </button>
+            </sc-for>
+            <sc-if value="{{ mvpEnt.prof.relExpandShow }}"><button onClick="{{ mvpEnt.prof.toggleRelExpanded }}" style="font-size:11px;font-weight:600;color:#5B4BE6;background:none;border:none;padding:8px 2px;cursor:pointer">{{ mvpEnt.prof.relExpandLabel }}</button></sc-if>
+          </sc-if>
+
+          <!-- mentions — each jumps to its passage in the shared evidence modal, staying in place -->
+          <sc-if value="{{ mvpEnt.prof.hasMentions }}">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.04em;color:#8A8A95;text-transform:uppercase;margin:16px 0 8px">Mentions · {{ mvpEnt.prof.mentionCount }}</div>
+            <sc-for list="{{ mvpEnt.prof.mentions }}" as="m">
+              <button onClick="{{ m.jump }}" style="display:block;width:100%;text-align:left;background:#FAFAFB;border:1px solid #F1F1F4;border-radius:9px;padding:9px 11px;margin-bottom:6px;cursor:pointer;font-family:inherit" style-hover="background:#F5F5F8">
+                <span style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.5;color:#3A3A44">{{ m.text }}</span>
+              </button>
+            </sc-for>
+            <sc-if value="{{ mvpEnt.prof.mentionExpandShow }}"><button onClick="{{ mvpEnt.prof.toggleMentionExpanded }}" style="font-size:11px;font-weight:600;color:#5B4BE6;background:none;border:none;padding:2px;cursor:pointer">{{ mvpEnt.prof.mentionExpandLabel }}</button></sc-if>
+          </sc-if>
+
+          <div style="display:flex;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid #F1F1F4">
+            <button onClick="{{ mvpEnt.prof.openSource }}" title="{{ mvpEnt.prof.srcReg }} · {{ mvpEnt.prof.srcTitle }}" style="flex:1;font-size:11.5px;font-weight:600;color:#4E5765;background:#F2F2F6;border:none;border-radius:8px;padding:8px" style-hover="background:#EAEAEF">Open source</button>
+            <button onClick="{{ mvpEnt.prof.openWeb }}" style="flex:1;font-size:11.5px;font-weight:600;color:#5B4BE6;background:#EEEBFE;border:none;border-radius:8px;padding:8px" style-hover="background:#E7E2FD">Full profile ↗</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- MATRIX SIGN-IN (OPTIONAL) -->
   <sc-if value="{{ loginShow }}">
     <div style="position:absolute;inset:0;z-index:47">
@@ -5280,10 +5346,6 @@ class Component extends DCLogic {
       // three-pane, EO_Desktop_MVP_v2) or 'classic' (the original topic-tree + tabs + entities shell).
       // Both share the same header, overlays and engine; only the body between them differs. Persisted.
       shell: this._prefStr('eo_shell', 'mvp'),
-      // The MVP right rail (meaning space + ledger): panel open/closed, and the orbit sub-panel
-      // open/collapsed. The orbit's own drift/zoom/focus state lives inside the shared EOGraph widget
-      // (solar-system.js), which owns its play control and self-lapsing loop — not in React state.
-      mvpRightOpen: true, mvpOrbitOpen: true,
       // The mobile shell's own bottom sheet (null | 'scope' | 'add') and Sources-tab kind filter —
       // separate from the desktop drawer/modal state above, which the mobile shell doesn't use.
       mSheet: null, mKind: 'All',
@@ -5388,6 +5450,9 @@ class Component extends DCLogic {
       // A turning point clicked open in the waveform of surprise: the surprising sentence held up
       // in a modal (line, Δbelief/pull, the EO operations that fired), with a jump into the reader.
       surpriseModal: null,
+      // The MVP shell's entity sheet — a figure clicked from CAST or a MEANING SPACE bubble,
+      // shown in-place as a drawer so the reader never leaves the topic page (see _mvpEntityVm).
+      mvpEntitySel: null,
       modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
@@ -8827,6 +8892,7 @@ class Component extends DCLogic {
         spans: p.mentions.map((m) => ({ idx: m.idx, text: m.text, t0: m.t0, t1: m.t1 })),
         count: p.mentionCount || p.mentions.length,
         sn: p.sn,
+        onNode: opts.onEntityNode || null,
       }, docId + '#' + entId + '#' + p.mentions.length + '#' + p.relations.length),
       hasRelations: p.relations.length > 0,
       // CONNECTED ENTITIES is a list of the DISTINCT neighbours the focus bonds to —
@@ -10422,9 +10488,11 @@ class Component extends DCLogic {
         // Both a pivot (clicking a bonded entity) and an open (a claim, or the sun's
         // own "open →") land the same place here — there is no separate destination
         // inside this embed, so either just re-seats THIS profile on the clicked
-        // entity, which remounts the widget centred on it in turn.
-        onPivot: (node) => { if (node && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
-        onOpen: (node) => { if (node && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
+        // entity, which remounts the widget centred on it in turn. data.onNode lets a
+        // caller re-seat its OWN panel state instead (the MVP entity sheet does; classic's
+        // sidebar and the mobile sheet omit it and keep this exact default).
+        onPivot: (node) => { if (node && node.ref) (data.onNode || ((d, e) => this.openEntity(d, e)))(node.ref.docId, node.ref.entId); },
+        onOpen: (node) => { if (node && node.ref) (data.onNode || ((d, e) => this.openEntity(d, e)))(node.ref.docId, node.ref.entId); },
         countsLabel: data.tiered.nodes.length + ' bodies · ' + data.tiered.edges.length + ' bonds',
       });
     } catch (e) { el.innerHTML = ''; el.__ssKey = null; el.__ssInst = null; }
@@ -12116,9 +12184,10 @@ class Component extends DCLogic {
   };
   _mvpBucket(status) { return status === 'Corroborated' ? 'corr' : status === 'Contested' ? 'cont' : 'single'; }
   _mvpOriginLabel(o) { return ({ reading: 'source reading', summary: 'entity summary', murmur: 'connection', turn: 'answer' })[o] || ''; }
-  // Clicking a ledger claim opens the shared evidence modal (the one global overlay, so it works on
-  // this shell where the centre has no source reader) at that claim's witnessing passage — the same
-  // hand-built mark shape the topic-overview corpus events use, no window.EO.evidence.buildMark needed.
+  // Clicking a claim (in THE READING or a MEANING SPACE bubble) opens the shared evidence modal
+  // (the one global overlay, so it works on this shell where the centre has no source reader) at
+  // that claim's witnessing passage — the same hand-built mark shape the topic-overview corpus
+  // events use, no window.EO.evidence.buildMark needed.
   _mvpOpenClaim(c) {
     if (!c || c.sn == null) return;
     const app = this._app;
@@ -12126,7 +12195,7 @@ class Component extends DCLogic {
     const label = c.reg || ('S-' + c.sn);
     this.openSurprise({
       sn: c.sn, sourceTitle: (src && src.title) || '', sourceLabel: label,
-      origin: 'Ledger · ' + (this._mvpOriginLabel(c.origin) || 'claim'),
+      origin: 'The reading · ' + (this._mvpOriginLabel(c.origin) || 'claim'),
       line: '', sentence: c.quote || c.text, contextBefore: '', contextAfter: '',
       surprises: [], bits: '', pull: '',
       mark: {
@@ -12160,7 +12229,9 @@ class Component extends DCLogic {
     const srcNodes = new Map(), bonds = new Map();
     shown.forEach((c, i) => {
       const st = ST[this._mvpBucket(c.status)];
-      nodes.push({ id: 'c:' + i, tier: 2, kind: 'claim', label: clip(c.subject || c.text, 42), color: st.c });
+      // ref: the claim itself, so a click opens the SAME passage modal Findings-style rows
+      // use (_mvpOpenClaim) — this bubble and its Reading card are two views of one claim.
+      nodes.push({ id: 'c:' + i, tier: 2, kind: 'claim', label: clip(c.subject || c.text, 42), color: st.c, ref: { claim: c } });
       if (c.sn == null) return;
       const sid = 's:' + c.sn;
       if (!srcNodes.has(sid)) srcNodes.set(sid, { id: sid, tier: 1, kind: 'source', label: clip(c.reg || ('S-' + c.sn), 22), ref: { sn: c.sn } });
@@ -12177,57 +12248,41 @@ class Component extends DCLogic {
     };
   }
 
-  // Mount (or idempotently re-mount) the real EOGraph orbit into the right-rail stage. Same keyed
-  // guard idiom as _mountEntitySolar: an inline ref callback's identity changes every render, so
-  // React fires the OLD ref with null then the NEW one with the same element — a null call is a pure
-  // no-op and a matching key short-circuits, so the live orbit (which owns its own self-lapsing rAF
-  // loop and play/zoom controls) is never torn down or restarted on an unrelated re-render. The stage
-  // carries the dark theme via the same CSS custom properties mountSolarExplorer overrides, so the
-  // light-default widget renders correctly on the rail's dark ground.
+  // Mount (or idempotently re-mount) the real EOGraph orbit into the MEANING SPACE card, now a
+  // section of the main centre column rather than a separate dark rail. Same keyed guard idiom as
+  // _mountEntitySolar: an inline ref callback's identity changes every render, so React fires the
+  // OLD ref with null then the NEW one with the same element — a null call is a pure no-op and a
+  // matching key short-circuits, so the live orbit (which owns its own self-lapsing rAF loop and
+  // play/zoom controls) is never torn down or restarted on an unrelated re-render. The widget's own
+  // UNSET defaults are already this page's exact light palette (solar-system.js: --card:#fff,
+  // --line:#e5e7eb, …) — CSS vars set here just pin them precisely instead of leaving them to
+  // fallback values, so it reads as one more card in the stack, not a dropped-in dark console.
   _mvpMountStage(el, data, key) {
     if (!el) return;
     if (el.__ssKey === key) return;
     const mss = window.EO && window.EO.mountSolarSystem;
-    if (!mss) { el.innerHTML = '<div style="padding:20px 6px;color:#7c779e;font-size:12.5px;line-height:1.5">The meaning space loads with the reader…</div>'; return; }
+    if (!mss) { el.innerHTML = '<div style="padding:20px 6px;color:#9b9ba3;font-size:12.5px;line-height:1.5">The meaning space loads with the reader…</div>'; return; }
     if (el.__ssInst) { try { el.__ssInst.destroy(); } catch {} el.__ssInst = null; }
     el.__ssKey = key;
     el.innerHTML = '';
-    el.style.cssText = 'display:block;--card:#0d0d15;--app:#14131f;--ink:#eceaf5;--ink2:#b8b3d6;--ink3:#7c779e;--line:#242a35;--line2:#2c2a3d';
+    el.style.cssText = 'display:block;--card:#fff;--app:#fafafb;--ink:#17171a;--ink2:#5a5a63;--ink3:#9b9ba3;--line:#ececf0;--line2:#e4e4ea';
+    // A claim bubble opens the same passage modal its Reading card does; an entity bubble opens
+    // the MVP entity sheet in place (_mvpOpenEntity's drawer, same as a CAST chip). A source
+    // bubble has nowhere to open IN this shell (no source reader here), so it hops to classic —
+    // the one cross-reference this centre genuinely can't render itself.
+    const openNode = (node) => {
+      const r = node && node.ref; if (!r) return;
+      if (r.claim) { this._mvpOpenClaim(r.claim); return; }
+      if (r.docId != null) { this.setState({ mvpEntitySel: { docId: r.docId, entId: r.entId } }); return; }
+      if (r.sn != null) { this._useShell('classic'); this.openViewer(r.sn); }
+    };
     try {
       el.__ssInst = mss(el, {
         nodes: data.nodes, edges: data.edges, centreId: data.centreId, countsLabel: data.countsLabel,
         width: 318, height: 300,
-        onPivot: (node) => { const r = node && node.ref; if (r && r.docId != null) this.openEntity(r.docId, r.entId); else if (r && r.sn != null) this.openViewer(r.sn); },
-        onOpen: (node) => { const r = node && node.ref; if (r && r.sn != null) this.openViewer(r.sn); else if (r && r.docId != null) this.openEntity(r.docId, r.entId); },
+        onPivot: openNode, onOpen: openNode,
       });
     } catch (e) { el.innerHTML = ''; el.__ssKey = null; el.__ssInst = null; }
-  }
-
-  // The claim ledger — the topic's REAL claims grouped by cross-source standing (contested first,
-  // then corroborated, then single-source), each row opening its source at the witnessing passage.
-  // Empty (returns []) until a source is read or a question asked; no fabricated placeholder claims.
-  _mvpLedgerRows(claims) {
-    const ST = this.MVP_ST;
-    const groups = { cont: [], corr: [], single: [] };
-    (claims || []).forEach((c) => { (groups[this._mvpBucket(c.status)] || groups.single).push(c); });
-    const order = [['cont', 'Contested'], ['corr', 'Corroborated'], ['single', 'Single source']];
-    const rows = [];
-    order.forEach(([k, label]) => {
-      const list = groups[k]; if (!list.length) return;
-      const st = ST[k];
-      rows.push({ isNode: true, isClaim: false, color: st.c, halo: st.c + '22', label, count: String(list.length) });
-      list.slice(0, 14).forEach((c) => {
-        const srcLabel = c.reg || (c.sn != null ? 'S-' + c.sn : '');
-        rows.push({
-          isNode: false, isClaim: true,
-          stLabel: st.label, stColor: st.c, stBg: st.bg,
-          meta: [srcLabel, this._mvpOriginLabel(c.origin)].filter(Boolean).join(' · '),
-          text: c.text, src: srcLabel ? [srcLabel] : [], hasSrc: !!srcLabel,
-          onTap: (c.sn != null) ? () => this._mvpOpenClaim(c) : () => {},
-        });
-      });
-    });
-    return rows;
   }
 
   // ── the older surfaces, folded back into the MVP centre ──────────────────────
@@ -12248,49 +12303,170 @@ class Component extends DCLogic {
       label: e.label,
       fav: (e.label || 'E').trim().charAt(0).toUpperCase(),
       meta: `${e.mentions || 0} mention${(e.mentions || 0) === 1 ? '' : 's'} · ${e.sourceCount || 1} source${(e.sourceCount || 1) === 1 ? '' : 's'}`,
-      onTap: () => { try { this.openEntityRow(e); } catch { /* profile not ready */ } },
+      onTap: () => this._mvpOpenEntity(e),
     }));
     const topBars = scored.slice(0, 8);
     const maxM = Math.max(1, ...topBars.map((s) => s.e.mentions || 0));
     const bars = topBars.map(({ e }) => ({
       label: e.label, val: String(e.mentions || 0),
       w: Math.max(3, Math.round(((e.mentions || 0) / maxM) * 100)) + '%',
-      onTap: () => { try { this.openEntityRow(e); } catch { /* profile not ready */ } },
+      onTap: () => this._mvpOpenEntity(e),
     }));
     return { rows, bars, count: ents.length };
   }
 
-  // The reading — the claim rows the Findings tab renders, newest first, each carrying
-  // its verbatim passage and a jump back to the source at that exact span. This is the
-  // "content" the topic overview was missing: not a summary, the sentences themselves,
-  // gated and traced. Same open() shape the mobile findings cards use.
+  // A figure's chip opens the MVP entity sheet — a drawer over the page (see _mvpEntityVm),
+  // not classic's rightOpen sidebar (that state exists but nothing in this shell's template
+  // renders it). Same candidate-search openEntityRow uses: a merged row's own docId/entId
+  // first, falling back to its instances, so a click always lands even if the lead pointer
+  // no longer resolves after a re-fold.
+  _mvpOpenEntity(e) {
+    const app = this._app;
+    const candidates = [e, ...((e && Array.isArray(e.instances)) ? e.instances : [])]
+      .filter((r) => r && r.docId != null && r.entId != null);
+    for (const r of candidates) {
+      if (!app || !app.entityProfile || app.entityProfile(r.docId, r.entId)) {
+        this.setState({ mvpEntitySel: { docId: r.docId, entId: r.entId } }); return;
+      }
+    }
+  }
+
+  // A mention row in the MVP entity sheet opens the SAME passage modal Reading/claim clicks do
+  // (openSurprise — the one global overlay), instead of the classic viewer's tab jump, so reading
+  // a passage never leaves the topic page either.
+  _mvpOpenEntityMention(sn, text, label) {
+    if (sn == null) return;
+    const app = this._app;
+    const src = (app && app.sourceBySn) ? app.sourceBySn(sn) : null;
+    const srcLabel = (src && src.reg) || ('S-' + sn);
+    this.openSurprise({
+      sn, sourceTitle: (src && src.title) || '', sourceLabel: srcLabel,
+      origin: 'Entity sheet · mention',
+      line: '', sentence: text || '', contextBefore: '', contextAfter: '',
+      surprises: [], bits: '', pull: '',
+      mark: { locatorLabel: srcLabel + ' · mention', kindLabel: label || 'Mention', confidenceLabel: '', referents: [], explanation: text || '', correspondingEvidence: null },
+    });
+  }
+
+  // ── the MVP entity sheet — a figure's profile shown in place, over the topic page, instead
+  // of classic's rightOpen sidebar (which this shell's template never renders). Reuses _profFor,
+  // the SAME builder the classic sidebar / graph overlay / mobile sheet already share, so the
+  // wiki referent, the fold summary, the embedded meaning-space mini-orbit and the connected-
+  // entities list read identically everywhere an entity profile appears. Two handlers
+  // deliberately escape this page (openSource, openWeb) — both ask for something this centre
+  // genuinely has no surface for yet (a source landing page, the full graph explorer); a mention
+  // click and a pivot to a connected figure both stay in place.
+  _mvpEntityVm() {
+    const sel = this.state.mvpEntitySel;
+    if (!sel) return { open: false };
+    const docId = sel.docId, entId = sel.entId;
+    const prof = this._profFor(docId, entId, {
+      pivot: (otherId) => this.setState({ mvpEntitySel: { docId, entId: otherId } }),
+      openSource: (sn) => { this._useShell('classic'); this.openViewer(sn); },
+      jump: (sn, text) => this._mvpOpenEntityMention(sn, text),
+      openWeb: () => { this._useShell('classic'); this.openEntity(docId, entId); },
+    }, { statePrefix: 'mvpProf', onEntityNode: (d, en) => this.setState({ mvpEntitySel: { docId: d, entId: en } }) });
+    return { open: !!prof, prof: prof || {}, close: () => this.setState({ mvpEntitySel: null }) };
+  }
+
+  // The reading — the claim rows the Findings tab renders, grouped by cross-source standing
+  // (contested first, then corroborated, then single-source — the same grouping the old
+  // right-rail ledger used), each carrying its verbatim passage. This is the "content" the
+  // topic overview was missing: not a summary, the sentences themselves, gated and traced.
   _mvpReading() {
     const app = this._app;
-    if (!app || !app.findings) return { rows: [], count: 0, standing: [] };
+    if (!app || !app.findings) return { rows: [], count: 0 };
     let claims = [];
     try { claims = ((app.findings() || { claims: [] }).claims) || []; } catch { claims = []; }
-    const rows = claims.slice().reverse().slice(0, 40).map((c) => {
-      const chip = this._stChip ? this._stChip(c.status) : { fg: '#5a5a63', bg: '#f2f2f5', bd: '#e6e6ea' };
-      const srcTitle = (app.sourceBySn && app.sourceBySn(c.sn) || {}).title || '';
-      return {
-        text: c.text,
-        stLabel: c.status, stFg: chip.fg, stBg: chip.bg, stBd: chip.bd,
-        srcReg: c.reg || (c.sn != null ? 'S-' + c.sn : ''),
-        srcTitle,
-        quote: c.quote || '', hasQuote: !!(c.quote && c.quote !== c.text),
-        onTap: () => { if (c.sn != null) this.openViewer(c.sn, c.quote || undefined); },
-      };
-    });
-    // a compact "findings by standing" chart — how the reading currently distributes
-    // across contested / corroborated / single-source, over the whole claim set.
-    const buckets = { cont: 0, corr: 0, single: 0 };
-    claims.forEach((c) => { buckets[this._mvpBucket(c.status)] = (buckets[this._mvpBucket(c.status)] || 0) + 1; });
     const ST = this.MVP_ST;
-    const totC = Math.max(1, buckets.cont + buckets.corr + buckets.single);
-    const standing = [['cont', 'Contested'], ['corr', 'Corroborated'], ['single', 'Single source']]
-      .map(([k, label]) => ({ label, count: buckets[k] || 0, color: ST[k].c, w: Math.round(((buckets[k] || 0) / totC) * 100) + '%' }))
-      .filter((s) => s.count > 0);
-    return { rows, count: claims.length, standing };
+    const groups = { cont: [], corr: [], single: [] };
+    claims.forEach((c) => { (groups[this._mvpBucket(c.status)] || groups.single).push(c); });
+    const order = [['cont', 'Contested'], ['corr', 'Corroborated'], ['single', 'Single source']];
+    const rows = [];
+    order.forEach(([k, label]) => {
+      const list = groups[k]; if (!list.length) return;
+      const st = ST[k];
+      rows.push({ isGroup: true, isClaim: false, label, count: String(list.length), color: st.c, halo: st.c + '22' });
+      list.slice().reverse().slice(0, 20).forEach((c) => {
+        const chip = this._stChip ? this._stChip(c.status) : { fg: st.c, bg: st.bg, bd: 'transparent' };
+        const srcTitle = (app.sourceBySn && app.sourceBySn(c.sn) || {}).title || '';
+        rows.push({
+          isGroup: false, isClaim: true,
+          text: c.text,
+          stLabel: c.status, stFg: chip.fg, stBg: chip.bg, stBd: chip.bd,
+          srcReg: c.reg || (c.sn != null ? 'S-' + c.sn : ''),
+          srcTitle,
+          quote: c.quote || '', hasQuote: !!(c.quote && c.quote !== c.text),
+          onTap: (c.sn != null) ? () => this._mvpOpenClaim(c) : () => {},
+        });
+      });
+    });
+    return { rows, count: claims.length };
+  }
+
+  // ── the wiki-style lede — one sentence + a lead paragraph, read off the topic's primary
+  // source via the SAME fold→summary pipeline every source Overview and entity profile uses
+  // (docs/fold-summary-pipeline.md, rooms/reader/app/summaries.js). 'brief' reads as a
+  // Wikidata-style short description under the title; 'paragraph' reads as the lead section.
+  // Both auto-request: foldSummary resolves the deterministic telegram the instant the
+  // source's doc exists (free, no model needed, stored at once) and only refines further if
+  // a model is warm — the exact "safe to call every render" idiom the fold-peek cursor
+  // summary already relies on (line ~7836: "idempotent for an unchanged key… costs nothing
+  // once settled"). Never fabricated: an ungrounded draft ships the telegram floor instead.
+  _mvpLede(cards) {
+    const app = this._app;
+    const primary = (cards || []).find((c) => c.active) || (cards || [])[0] || null;
+    if (!app || !app.foldSummaryFor || !primary || primary.sn == null) return { has: false, sn: null };
+    const sn = primary.sn;
+    const briefQ = { sn, scope: 'full', detail: 'brief' };
+    const paraQ = { sn, scope: 'full', detail: 'paragraph' };
+    if (app.foldSummary) { app.foldSummary(briefQ).catch(() => {}); app.foldSummary(paraQ).catch(() => {}); }
+    const briefRec = app.foldSummaryFor(briefQ);
+    const paraRec = app.foldSummaryFor(paraQ);
+    const briefBadge = briefRec ? this.summaryBadge(briefRec) : { isAi: false };
+    const paraBadge = paraRec ? this.summaryBadge(paraRec) : { isAi: false };
+    const composing = !!((briefRec && briefRec.modelless) || (paraRec && paraRec.modelless)) && !!(app.optionalModel && app.optionalModel());
+    return {
+      has: !!(briefRec || paraRec), sn, pending: !briefRec && !paraRec,
+      hasBrief: !!briefRec, briefText: briefRec ? briefRec.text : '',
+      briefIsAi: briefBadge.isAi, briefBadgeLabel: briefBadge.badgeLabel || '',
+      hasLede: !!paraRec, ledeText: paraRec ? paraRec.text : '',
+      ledeIsAi: paraBadge.isAi, ledeBadgeLabel: paraBadge.badgeLabel || '',
+      composing,
+    };
+  }
+
+  // ── topics — each its own self-contained universe (own sources, own reading, own cast,
+  // own findings, own meaning space: app/topics.js's sourceSns plus every scoped
+  // entities()/findings() call already keep topics fully separate at the data layer).
+  // The MVP rail had no way to SEE another one or make one — this was the classic shell's
+  // tree-switcher only. Flattened (no nesting UI here, just active + switch + create),
+  // reusing the exact same engine calls the classic switcher does (topicRows/topicNew/
+  // setTopic), scoped to the current workspace by topicRows()'s own default.
+  _mvpTopics() {
+    const app = this._app;
+    if (!app || !app.topicRows) return { rows: [], newTopic: () => {} };
+    let rows = [];
+    try {
+      rows = app.topicRows().map(({ topic: t }) => {
+        const active = t.id === app.state.activeTopicId;
+        return {
+          id: t.id, title: t.title || 'New topic', active,
+          bg: active ? '#f1effe' : 'transparent', fg: active ? '#4b3fd0' : '#2f2f36',
+          meta: (t.sourceSns || []).length + ' source' + ((t.sourceSns || []).length === 1 ? '' : 's'),
+          onTap: () => { app.setTopic(t.id); this.setTab && this.setTab('topic'); },
+        };
+      });
+    } catch { rows = []; }
+    return {
+      rows,
+      newTopic: () => {
+        let v = 'New topic';
+        try { const p = prompt('Name the new topic', 'New topic'); if (p == null) return; v = p.trim() || 'New topic'; } catch { /* prompt unavailable */ }
+        app.topicNew(v);
+        this.setTab && this.setTab('topic');
+      },
+    };
   }
 
   // The MVP surface's bindings. Left rail + centre are wired to real topic data; the right rail's
@@ -12318,23 +12494,24 @@ class Component extends DCLogic {
         };
       });
       const setAll = (v) => { if (t && this._toggleEvidenceScope) cards.forEach((c) => { if (c.active !== v && c.sn != null) this._toggleEvidenceScope(t.id, c.sn, v); }); };
+      // Cross-source measures — feeds only the infobox's one summary fact now (the standalone
+      // settled/contested/void card was removed; toggling scope on the left still recomputes it).
       let matrix = { rows: [] }; try { matrix = (app && app.comparisonMatrix) ? app.comparisonMatrix() : matrix; } catch { matrix = { rows: [] }; }
-      const mrows = matrix.rows || [];
-      let settled = 0, contested = 0, voidn = 0;
-      mrows.forEach((r) => { if (r.conflict) contested++; else if ((r.cells || []).filter(Boolean).length) settled++; else voidn++; });
-      const tot = Math.max(1, settled + contested + voidn);
+      let settled = 0, contested = 0;
+      (matrix.rows || []).forEach((r) => { if (r.conflict) contested++; else if ((r.cells || []).filter(Boolean).length) settled++; });
       const isOverview = st.tab === 'topic' || st.tab === 'overview';
       const isResult = !isOverview;
       const scopeLine = ac + ' of ' + total + ' source' + (total === 1 ? '' : 's');
       const headline = ov.title || (t && t.title) || 'New topic';
-      // The right rail — meaning space + ledger — now reads the topic's REAL claims. findings() is
-      // memoized (app/findings.js) so calling it here and building both projections off it is cheap.
+      // Every centre surface — cast, the reading, meaning space, the lede — reads the topic's REAL
+      // claims. findings() is memoized (app/findings.js) so building every projection off it here is
+      // cheap.
       const claims = this._mvpClaims();
-      const ledgerRows = this._mvpLedgerRows(claims);
       const meaning = this._mvpMeaningData(claims, headline);
-      // the older surfaces, read from the same record: the cast and the reading.
       const cast = this._mvpCast();
       const reading = this._mvpReading();
+      const lede = this._mvpLede(cards);
+      const topicsVm = this._mvpTopics();
       const entityCount = cast.count;
       const findingCount = reading.count;
       // the wiki-style infobox — key facts about the topic as it currently reads.
@@ -12351,6 +12528,8 @@ class Component extends DCLogic {
         // left rail
         mvpWsInitial: ov.wsInitial || '·', mvpWsDot: ov.wsDot || '#6D5EF5',
         mvpWsLine: (ov.workspace || 'Workspace'), mvpTopicTitle: headline,
+        // topics — each its own universe; switch or start a fresh one without leaving this shell
+        mvpTopics: topicsVm.rows, mvpHasTopics: topicsVm.rows.length > 0, mvpNewTopic: topicsVm.newTopic,
         mvpScopeLine: scopeLine, mvpSources, mvpHasSources: total > 0, mvpSourcesEmpty: total === 0,
         mvpAllOn: () => setAll(true), mvpAllOff: () => setAll(false),
         mvpAddSource: () => { try { this.openLibraries && this.openLibraries(); } catch {} },
@@ -12363,26 +12542,20 @@ class Component extends DCLogic {
         mvpResBtnBg: isResult ? '#17171a' : '#f2f2f5', mvpResBtnFg: isResult ? '#fff' : '#5a5a63',
         mvpHeadline: headline,
         mvpTopicMeta: [scopeLine, ov.entityLabel, ov.findingLabel].filter(Boolean).join(' · '),
-        mvpSettled: String(settled), mvpContested: String(contested), mvpVoid: String(voidn),
-        mvpBarSettled: Math.round((settled / tot) * 100) + '%',
-        mvpBarContested: Math.round((contested / tot) * 100) + '%',
-        mvpBarVoid: Math.round((voidn / tot) * 100) + '%',
-        mvpActiveCountLabel: 'across ' + ac + ' active source' + (ac === 1 ? '' : 's'),
-        mvpHasClaims: mrows.length > 0,
-        mvpConvNote: mrows.length
-          ? 'Convergence recomputes in place as you toggle scope on the left.'
-          : (ledgerRows.length
-            ? 'No cross-source measures to weigh yet — the ledger on the right lists every claim as it lands, traced to its origin.'
-            : 'Nothing on record yet. Add a source or ask a question — every claim lands in the ledger traced to its origin.'),
-        // right rail (meaning space + ledger)
-        mvpRightOpen: st.mvpRightOpen, mvpRightClosed: !st.mvpRightOpen, mvpOrbitOpen: st.mvpOrbitOpen,
-        mvpToggleRight: () => this.setState((s) => ({ mvpRightOpen: !s.mvpRightOpen })),
-        mvpToggleOrbit: () => this.setState((s) => ({ mvpOrbitOpen: !s.mvpOrbitOpen })),
-        mvpOrbitChev: st.mvpOrbitOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+        mvpByline: 'From the reading — ' + (ov.workspace || 'Workspace'),
+        // the wiki-style lede — one sentence + a lead paragraph, off the primary source
+        mvpLedeHas: lede.has, mvpLedePending: !!lede.pending,
+        mvpBriefShow: lede.hasBrief, mvpBriefText: lede.briefText,
+        mvpBriefIsAi: lede.briefIsAi, mvpBriefBadge: lede.briefBadgeLabel,
+        mvpLedeShow: lede.hasLede, mvpLedeText: lede.ledeText,
+        mvpLedeIsAi: lede.ledeIsAi, mvpLedeBadge: lede.ledeBadgeLabel,
+        mvpLedeComposing: lede.composing,
+        // MEANING SPACE — the orbit, folded in from the old right rail (light-themed now that it
+        // sits in the main column — see _mvpMountStage)
         mvpSetStage: (el) => this._mvpMountStage(el, meaning, stageKey),
         mvpMeaningCounts: meaning.countsLabel,
-        mvpLedgerRows: ledgerRows,
-        mvpLedgerEmpty: ledgerRows.length === 0,
+        mvpHasMeaning: claims.length > 0,
+        mvpUseClassic: () => this._useShell('classic'),
         // ── centre content — the older surfaces folded in ──
         mvpInfobox: infobox,
         mvpCast: cast.rows, mvpCastCount: String(entityCount),
@@ -12390,29 +12563,26 @@ class Component extends DCLogic {
         mvpCastBars: cast.bars, mvpHasCastBars: cast.bars.length > 0,
         mvpReading: reading.rows, mvpReadingCount: String(findingCount),
         mvpHasReading: reading.rows.length > 0,
-        mvpStanding: reading.standing, mvpHasStanding: reading.standing.length > 0,
-        mvpUseClassic: () => this._useShell('classic'),
         mvpUseMvp: () => this._useShell('mvp'),
       };
     } catch (e) {
       return {
         mvpWsInitial: '·', mvpWsDot: '#6D5EF5', mvpWsLine: 'Workspace', mvpTopicTitle: 'Reader',
+        mvpTopics: [], mvpHasTopics: false, mvpNewTopic: () => {},
         mvpScopeLine: '0 of 0 sources', mvpSources: [], mvpHasSources: false, mvpSourcesEmpty: true,
         mvpAllOn: () => {}, mvpAllOff: () => {}, mvpAddSource: () => {},
         mvpIsOverview: true, mvpIsResult: false, mvpShowOverview: () => {}, mvpShowResult: () => {},
         mvpOvBtnBg: '#17171a', mvpOvBtnFg: '#fff', mvpResBtnBg: '#f2f2f5', mvpResBtnFg: '#5a5a63',
-        mvpHeadline: 'Reader', mvpTopicMeta: '', mvpSettled: '0', mvpContested: '0', mvpVoid: '0',
-        mvpBarSettled: '0%', mvpBarContested: '0%', mvpBarVoid: '0%', mvpActiveCountLabel: '',
-        mvpHasClaims: false, mvpConvNote: 'Add sources or ask a question to begin.',
-        mvpRightOpen: true, mvpRightClosed: false, mvpOrbitOpen: true,
-        mvpToggleRight: () => {}, mvpToggleOrbit: () => {}, mvpOrbitChev: 'rotate(90deg)',
-        mvpSetStage: () => {}, mvpMeaningCounts: '',
+        mvpHeadline: 'Reader', mvpTopicMeta: '', mvpByline: '',
+        mvpLedeHas: false, mvpLedePending: false,
+        mvpBriefShow: false, mvpBriefText: '', mvpBriefIsAi: false, mvpBriefBadge: '',
+        mvpLedeShow: false, mvpLedeText: '', mvpLedeIsAi: false, mvpLedeBadge: '', mvpLedeComposing: false,
+        mvpSetStage: () => {}, mvpMeaningCounts: '', mvpHasMeaning: false,
         mvpAddSource: () => {}, mvpUpload: () => { try { this.pickFile(); } catch {} },
         mvpInfobox: [], mvpCast: [], mvpCastCount: '0', mvpHasCast: false,
         mvpCastBars: [], mvpHasCastBars: false,
         mvpReading: [], mvpReadingCount: '0', mvpHasReading: false,
-        mvpStanding: [], mvpHasStanding: false,
-        mvpLedgerRows: [], mvpLedgerEmpty: true, mvpUseClassic: () => this._useShell('classic'), mvpUseMvp: () => this._useShell('mvp'),
+        mvpUseClassic: () => this._useShell('classic'), mvpUseMvp: () => this._useShell('mvp'),
       };
     }
   }
@@ -12430,7 +12600,7 @@ class Component extends DCLogic {
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', omniAttach: () => {}, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         mainDisplay: 'flex', rightWidth: '340px', rightFlex: '0 0 auto', rightBorder: '1px solid #EAEAEF', rightBodyPad: '14px 16px', rightBodyMax: 'none', rightBodyMargin: '0',
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
+        statusPeek: [], toast: this.state.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, mvpEnt: { open: false }, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
     }
   }
 
@@ -12448,7 +12618,7 @@ class Component extends DCLogic {
         isMobile: !!st.isMobile, isDesktop: !st.isMobile,
         statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, omniAttach: () => this.pickFile(), chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
+        statusPeek: [], toast: st.toast, entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, mvpEnt: { open: false }, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
     }
     const topic = app.topic();
     // The sidebar/Sources-tab list is MEMBERSHIP, not the active evidence scope — an excluded
@@ -14262,6 +14432,8 @@ class Component extends DCLogic {
       closePaste: () => this.closePaste(), submitPaste: () => this.submitPaste(),
       // the waveform of surprise → a turning point held up in a modal
       ...this._surpriseModalVals(st.surpriseModal),
+      // the MVP entity sheet — a figure's profile shown in place over the topic page
+      mvpEnt: this._mvpEntityVm(),
       // optional Matrix account + the quiet "save system genome online?" setting
       ...this._acctVals(),
       // Settings → roll back to a prior PR (the version time-machine)
