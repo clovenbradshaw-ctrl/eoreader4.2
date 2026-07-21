@@ -133,7 +133,10 @@ export const admitWebSource = (payload = {}, { hangGuard = HANG_GUARD } = {}) =>
   const record = webRecord(payload);
   const docId  = engineDocId(record.id);
   const stripped = stripWebBoilerplate(String(payload.text || ''));
-  const doc    = parseText(stripped.slice(0, hangGuard), { docId });
+  // unnamedReferents: true — the reader's ordinary reading (see rooms/reader/app/registry.js#docFor).
+  // A fetched page or a whole Gutenberg book (ingest/gutenberg.js) resolves a figure named only by
+  // description ("the creature") instead of dropping it from the Source Index.
+  const doc    = parseText(stripped.slice(0, hangGuard), { docId, unnamedReferents: true });
   doc.sourceKind = 'web-source';
   // When the backstop DOES trip, it says so — a coverage receipt, never a silent cut.
   // The full original is still retained as binary by the fetch layer (opfs-store.js).

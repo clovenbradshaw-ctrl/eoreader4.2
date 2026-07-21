@@ -29,7 +29,9 @@ export const installLevels = (appCtx) => {
     if (!src || !String(src.text || '').trim()) return null;
     if (!src._nlDoc || src._nlDoc._sig !== src.sha) {
       try {
-        const d = parseText(src.text, { docId: `${src.docId}${NL_SUFFIX}` });
+        // unnamedReferents: true — the reader's ordinary reading (see docFor); the natural-language
+        // layer resolves a nameless recurring figure the same way the base prose reading does.
+        const d = parseText(src.text, { docId: `${src.docId}${NL_SUFFIX}`, unnamedReferents: true });
         if (d) d._sig = src.sha;
         src._nlDoc = d || null;
       } catch { src._nlDoc = null; }

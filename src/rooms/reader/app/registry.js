@@ -48,7 +48,12 @@ export const installRegistry = (appCtx) => {
   const docFor = (src) => {   // the reading every consumer shares; nestComposite recovers its own nesting
     if (!src) return null;
     if (!src._doc) {
-      src._doc = nestComposite(parseText(src.text, { docId: src.docId }), { minGap: 20 });
+      // `unnamedReferents: true` — ordinary reading, not a special capability (organs/in/text.js
+      // documents the intent). A figure the text only ever points at by description — Frankenstein's
+      // creature ("the creature"/"the monster"/"the wretch") — is resolved off its recurring
+      // descriptions and pronouns instead of vanishing, so it reaches the Source Index. Precision-
+      // gated, so a document whose figures are all named parses unchanged.
+      src._doc = nestComposite(parseText(src.text, { docId: src.docId, unnamedReferents: true }), { minGap: 20, unnamedReferents: true });
       try {
         const g = projectGraph(src._doc.log);
         src.entCount = g.entities?.size || 0;
@@ -67,7 +72,7 @@ export const installRegistry = (appCtx) => {
     // single file being many nested documents is the real case) and never allowed to cost the
     // ingest: a boundary-detection fault degrades to the doc exactly as handed in.
     if (doc && (kind === 'web' || kind === 'text') && !doc.isComposite && (doc.units || doc.sentences)) {
-      try { doc = nestComposite(doc, { minGap: 20 }); } catch { /* nesting is a courtesy, never a precondition */ }
+      try { doc = nestComposite(doc, { minGap: 20, unnamedReferents: true }); } catch { /* nesting is a courtesy, never a precondition */ }
     }
     const hash = record?.content_hash || webContentHash(body);
     const dup = state.sources.find((s) => s.sha === hash);

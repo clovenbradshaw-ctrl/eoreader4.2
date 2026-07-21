@@ -74,7 +74,8 @@ export const installIngest = (appCtx) => {
     });
     if (src && got.meta?.coverage) src.coverage = got.meta.coverage;
     if (src && !structured) {
-      try { appCtx.finishReading(src, await parseText(got.text, { docId: src.docId })); }
+      // unnamedReferents: true — the reader's ordinary reading (see registry.js#docFor).
+      try { appCtx.finishReading(src, await parseText(got.text, { docId: src.docId, unnamedReferents: true })); }
       catch (e) { logIt('skip', `Reading failed for ${src.reg} — ${String(e?.message || e).slice(0, 90)}`); }
     }
     return src;
