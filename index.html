@@ -1014,6 +1014,12 @@ table{border-collapse:collapse;width:100%}
       <span class="eo-hide-sm">{{ auditLabel }}</span>
     </button>
 
+    <sc-if value="{{ shellClassic }}">
+      <button onClick="{{ mvpUseMvp }}" title="Switch to the new evidence-scope surface" style="display:flex;align-items:center;gap:6px;background:#EEEBFE;color:#5B4BE6;border:1px solid #DED8FD;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;flex:0 0 auto" style-hover="background:#E7E2FD">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/></svg>
+        <span class="eo-hide-sm">New surface</span>
+      </button>
+    </sc-if>
     <button onClick="{{ toggleSettings }}" title="Settings — roll back to a prior version" style="width:31px;height:31px;display:flex;align-items:center;justify-content:center;border:1px solid #E6E6EC;background:{{ settingsBtnBg }};border-radius:999px;color:{{ settingsBtnFg }};flex:0 0 auto" style-hover="background:#F2F2F6">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
@@ -1217,6 +1223,192 @@ table{border-collapse:collapse;width:100%}
     </sc-if>
   </header>
 
+  <!-- ══════════ MVP DESKTOP SURFACE (EO_Desktop_MVP_v2) — the newer three-pane style ══════════ -->
+  <sc-if value="{{ shellMvp }}">
+  <div style="flex:1;display:flex;min-height:0;overflow:hidden;font-family:'Onest',system-ui,sans-serif;color:#1b1b1f;background:#f4f4f6">
+
+    <!-- LEFT RAIL — scope + real sources -->
+    <aside style="width:258px;flex:none;min-height:0;background:#fafafb;border-right:1px solid #ececf0;display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:18px 18px 16px;border-bottom:1px solid #efeff2;flex:none">
+        <div style="width:32px;height:32px;border-radius:9px;background:{{ mvpWsDot }};color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;letter-spacing:0.5px">{{ mvpWsInitial }}</div>
+        <div style="min-width:0;flex:1">
+          <div style="font-size:10.5px;font-weight:600;color:#6355f2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mvpWsLine }}</div>
+          <div style="font-size:13px;font-weight:600;color:#1b1b1f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mvpTopicTitle }}</div>
+        </div>
+      </div>
+
+      <div style="padding:16px 18px 8px;flex:none">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:9.5px;font-weight:700;letter-spacing:0.8px;color:#9b9ba3">EVIDENCE SCOPE</span>
+          <span style="font-size:11px;font-weight:600;color:#7a7a83">{{ mvpScopeLine }}</span>
+        </div>
+        <div style="font-size:11px;color:#a0a0a8;line-height:1.4;margin-top:6px">Toggling a source recomputes the answer, the ledger and the meaning space in place.</div>
+        <div style="display:flex;gap:7px;margin-top:11px">
+          <button onClick="{{ mvpAllOn }}" style="flex:1;background:#ece9fe;color:#5a49e8;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">All</button>
+          <button onClick="{{ mvpAllOff }}" style="flex:1;background:#f2f2f5;color:#5a5a63;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">None</button>
+        </div>
+        <button onClick="{{ mvpAddSource }}" style="width:100%;margin-top:9px;background:#ece9fe;color:#5a49e8;border:none;border-radius:10px;padding:10px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit">+ Add source</button>
+      </div>
+
+      <div style="flex:1;min-height:0;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column;gap:8px">
+        <sc-if value="{{ mvpSourcesEmpty }}">
+          <div style="font-size:11.5px;color:#a0a0a8;line-height:1.5;padding:10px 6px">Nothing recorded yet. Read a URL, drop a file, or search the web from the bar up top — every source lands here with its hash.</div>
+        </sc-if>
+        <sc-for list="{{ mvpSources }}" as="src">
+          <div style="background:{{ src.rowBg }};border:1px solid {{ src.rowBorder }};border-radius:13px;padding:12px 12px">
+            <div style="display:flex;align-items:flex-start;gap:10px">
+              <div style="width:30px;height:30px;border-radius:8px;background:{{ src.abg }};color:{{ src.afg }};font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;font-family:'JetBrains Mono',monospace">{{ src.letter }}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#1b1b1f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ src.host }}</div>
+                <div style="font-size:10.5px;color:#9b9ba3;margin-top:2px">{{ src.contrib }}</div>
+              </div>
+              <button onClick="{{ src.onToggle }}" style="background:none;border:none;cursor:pointer;padding:0;flex:none">
+                <span style="width:38px;height:22px;border-radius:20px;background:{{ src.trackBg }};position:relative;display:inline-block">
+                  <span style="position:absolute;top:2px;left:{{ src.knobX }};width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.25)"></span>
+                </span>
+              </button>
+            </div>
+            <sc-if value="{{ src.badges.length }}">
+            <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:9px">
+              <sc-for list="{{ src.badges }}" as="b">
+                <span style="font-size:8px;font-weight:700;letter-spacing:0.4px;padding:2px 6px;border-radius:5px;color:{{ b.c }};background:{{ b.bg }}">{{ b.t }}</span>
+              </sc-for>
+            </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </aside>
+
+    <!-- CENTER — ask bar + Overview / Question result -->
+    <main style="flex:1;min-width:0;min-height:0;background:#f4f4f6;display:flex;flex-direction:column;overflow:hidden">
+      <div style="flex:none;padding:20px 34px 14px;border-bottom:1px solid #ececf0;background:#f4f4f6">
+        <form onSubmit="{{ onOmniSubmit }}" style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e4e4ea;border-radius:14px;padding:13px 16px;box-shadow:0 1px 2px rgba(20,20,25,0.03)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b0b0b8" stroke-width="2" style="flex:none"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21" stroke-linecap="round"/></svg>
+          <input value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Ask about this topic — or read a URL, paste text, search the web…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:15px;font-weight:500;color:#2f2f36;font-family:inherit" />
+          <div style="display:flex;gap:7px;flex:none">
+            <button type="button" onClick="{{ mvpShowOverview }}" style="background:{{ mvpOvBtnBg }};color:{{ mvpOvBtnFg }};border:none;border-radius:9px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Overview</button>
+            <button type="button" onClick="{{ mvpShowResult }}" style="background:{{ mvpResBtnBg }};color:{{ mvpResBtnFg }};border:none;border-radius:9px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Question result</button>
+          </div>
+        </form>
+      </div>
+
+      <div style="flex:1;min-height:0;overflow-y:auto">
+        <div style="max-width:680px;margin:0 auto;padding:26px 32px 48px;display:flex;flex-direction:column;gap:15px">
+          <div style="background:#fff;border:1px solid #ececf0;border-radius:20px;padding:22px 24px">
+            <div style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:1px;color:#9b9ba3;background:#f2f2f5;padding:4px 9px;border-radius:6px">RESEARCH TOPIC</div>
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:30px;line-height:1.14;font-weight:500;margin:15px 0 12px;color:#17171a;overflow-wrap:anywhere">{{ mvpHeadline }}</div>
+            <div style="font-size:13px;color:#7a7a83">{{ mvpTopicMeta }}</div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #ececf0;border-radius:20px;padding:18px 20px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+              <span style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:#5a5a63">CONVERGENCE</span>
+              <span style="font-size:10.5px;color:#a6a6ae">{{ mvpActiveCountLabel }}</span>
+            </div>
+            <div style="display:flex;gap:10px;margin-bottom:14px">
+              <div style="flex:1;text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:600;color:#3f9d6d;line-height:1">{{ mvpSettled }}</div><div style="font-size:10.5px;color:#9b9ba3;margin-top:6px">settled</div></div>
+              <div style="flex:1;text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:600;color:#d97a34;line-height:1">{{ mvpContested }}</div><div style="font-size:10.5px;color:#9b9ba3;margin-top:6px">contested</div></div>
+              <div style="flex:1;text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:600;color:#9aa0ad;line-height:1">{{ mvpVoid }}</div><div style="font-size:10.5px;color:#9b9ba3;margin-top:6px">void</div></div>
+            </div>
+            <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px;background:#f4f4f6">
+              <div style="width:{{ mvpBarSettled }};background:#3f9d6d;border-radius:6px 0 0 6px"></div>
+              <div style="width:{{ mvpBarContested }};background:#e0863f"></div>
+              <div style="width:{{ mvpBarVoid }};background:repeating-linear-gradient(45deg,#d5d5dd,#d5d5dd 3px,#e6e6ec 3px,#e6e6ec 6px);border-radius:0 6px 6px 0"></div>
+            </div>
+            <div style="font-size:13px;line-height:1.5;color:#3a3a41;margin-top:14px">{{ mvpConvNote }}</div>
+          </div>
+
+          <div style="display:flex;gap:11px;align-items:flex-start;background:#f8f7ff;border:1px dashed #e6e1f7;border-radius:14px;padding:15px 17px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a6a0e6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/></svg>
+            <div style="font-size:12.5px;color:#8580ab;line-height:1.5">The meaning space and the ledger on the right are two projections of one nested reading — paradigm ▸ atmosphere ▸ lens. Click any body or ledger row to pivot the whole picture to it.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT RAIL — meaning space + ledger -->
+    <sc-if value="{{ mvpRightOpen }}">
+    <aside style="width:352px;flex:none;min-height:0;background:#0d0d15;border-left:1px solid #211f30;display:flex;flex-direction:column;overflow:hidden;color:#eceaf5">
+      <div style="flex:none;display:flex;align-items:center;gap:8px;padding:16px 16px 10px">
+        <button onClick="{{ mvpToggleOrbit }}" style="flex:none;width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#cfc9ee;cursor:pointer;display:flex;align-items:center;justify-content:center">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ mvpOrbitChev }};transition:transform .15s"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:1.2px;color:#8b83c9">MEANING SPACE</div>
+          <div style="font-size:11.5px;color:#7c779e;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">click a body or ledger row to pivot</div>
+        </div>
+        <button onClick="{{ mvpReset }}" style="flex:none;background:rgba(255,255,255,0.08);color:#cfc9ee;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 9px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">core</button>
+        <button onClick="{{ mvpTogglePlay }}" style="flex:none;background:rgba(255,255,255,0.08);color:#cfc9ee;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 9px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">{{ mvpPlayLabel }}</button>
+        <button onClick="{{ mvpToggleRight }}" style="flex:none;width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#cfc9ee;cursor:pointer;display:flex;align-items:center;justify-content:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6l6 6-6 6M6 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+
+      <sc-if value="{{ mvpOrbitOpen }}">
+        <div ref="{{ mvpSetStage }}" style="flex:none;height:300px;position:relative;overflow:hidden;background:radial-gradient(120% 100% at 50% 42%,#14131f 0%,#0b0b12 70%,#08080e 100%)"></div>
+      </sc-if>
+
+      <sc-if value="{{ mvpHasSel }}">
+        <div style="flex:none;padding:13px 18px 14px;border-top:1px solid rgba(255,255,255,0.07);border-bottom:1px solid rgba(255,255,255,0.07);background:rgba(18,16,26,0.6)">
+          <div style="display:flex;align-items:center;gap:9px">
+            <span style="width:12px;height:12px;border-radius:50%;background:{{ mvpSel.color }};flex:none;box-shadow:0 0 11px {{ mvpSel.color }}"></span>
+            <span style="font-size:15px;font-weight:600;color:#f6f4fc;flex:1;min-width:0">{{ mvpSel.label }}</span>
+            <span style="font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:{{ mvpSel.color }};background:rgba(255,255,255,0.06);padding:4px 8px;border-radius:6px">{{ mvpSel.tierName }}</span>
+          </div>
+          <div style="font-size:12px;line-height:1.5;color:#a29bcf;margin-top:9px">{{ mvpSel.rel }}</div>
+        </div>
+      </sc-if>
+
+      <div style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px 22px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:9.5px;font-weight:700;letter-spacing:1px;color:#6f6a90">THE LEDGER · claims by frame</span>
+          <span style="flex:1"></span>
+          <button onClick="{{ mvpUseClassic }}" title="Switch to the classic shell" style="flex:none;background:rgba(255,255,255,0.06);color:#8b83c9;border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:700;letter-spacing:0.4px;cursor:pointer;font-family:inherit">CLASSIC VIEW</button>
+        </div>
+        <sc-for list="{{ mvpLedgerRows }}" as="r">
+          <sc-if value="{{ r.isNode }}">
+            <button onClick="{{ r.onTap }}" style="display:flex;align-items:center;gap:9px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;width:100%;padding:9px 2px 5px {{ r.pl }}">
+              <span style="width:{{ r.dot }};height:{{ r.dot }};border-radius:50%;background:{{ r.color }};flex:none;box-shadow:0 0 0 4px {{ r.halo }}"></span>
+              <span style="flex:1;min-width:0;font-size:{{ r.fs }};font-weight:{{ r.fw }};color:{{ r.labelColor }}">{{ r.label }}</span>
+              <span style="font-size:8px;font-weight:700;letter-spacing:0.7px;color:#565274">{{ r.tierName }}</span>
+            </button>
+          </sc-if>
+          <sc-if value="{{ r.isClaim }}">
+            <div style="margin:4px 0 4px {{ r.pl }};background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.07);border-left:3px solid rgba(255,255,255,0.09);border-radius:4px 11px 11px 4px;padding:11px 12px">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;flex-wrap:wrap">
+                <span style="display:flex;align-items:center;gap:5px;font-size:8.5px;font-weight:600;letter-spacing:0.4px;color:#8983a5"><span style="width:6px;height:6px;border-radius:50%;background:{{ r.stColor }}"></span>{{ r.stLabel }}</span>
+                <span style="font-size:9.5px;color:#565274">· {{ r.meta }}</span>
+              </div>
+              <div style="font-size:12.5px;line-height:1.45;color:#cbc7e0">{{ r.text }}</div>
+              <sc-if value="{{ r.hasSrc }}">
+                <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap">
+                  <sc-for list="{{ r.src }}" as="sid">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:500;color:#a99bff;background:rgba(124,116,230,0.16);padding:2px 6px;border-radius:5px">{{ sid }}</span>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+        </sc-for>
+      </div>
+    </aside>
+    </sc-if>
+
+    <sc-if value="{{ mvpRightClosed }}">
+    <aside onClick="{{ mvpToggleRight }}" style="width:46px;flex:none;background:#0d0d15;border-left:1px solid #211f30;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:14px;cursor:pointer">
+      <button onClick="{{ mvpToggleRight }}" style="flex:none;width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#cfc9ee;cursor:pointer;display:flex;align-items:center;justify-content:center">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 6l-6 6 6 6M18 6l-6 6 6 6"/></svg>
+      </button>
+      <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;font-weight:700;letter-spacing:1.5px;color:#8b83c9">MEANING SPACE · LEDGER</div>
+    </aside>
+    </sc-if>
+
+  </div>
+  </sc-if>
+
+  <!-- ══════════ CLASSIC DESKTOP SHELL ══════════ -->
+  <sc-if value="{{ shellClassic }}">
   <div style="flex:1;display:flex;min-height:0">
 
     <!-- On small screens the side panels are overlay drawers; this backdrop closes them. -->
@@ -4245,6 +4437,7 @@ table{border-collapse:collapse;width:100%}
       </div>
     </main>
   </div>
+  </sc-if>
 
   <!-- WEB SEARCH OVERLAY -->
   <sc-if value="{{ searchShow }}">
@@ -5010,6 +5203,13 @@ class Component extends DCLogic {
     this.state = {
       tab: 'search', omni: '', chatInput: '', toast: null,
       isMobile: mobile,
+      // Desktop surface style — 'mvp' (the newer evidence-scope / overview / meaning-space + ledger
+      // three-pane, EO_Desktop_MVP_v2) or 'classic' (the original topic-tree + tabs + entities shell).
+      // Both share the same header, overlays and engine; only the body between them differs. Persisted.
+      shell: this._prefStr('eo_shell', 'mvp'),
+      // The MVP right rail (meaning space + ledger): open/closed, orbit sub-panel open/closed, whether
+      // the orbit drifts, and which body the ledger/orbit is currently pivoted onto (null = the core).
+      mvpRightOpen: true, mvpOrbitOpen: true, mvpPlaying: true, mvpSel: null,
       // The mobile shell's own bottom sheet (null | 'scope' | 'add') and Sources-tab kind filter —
       // separate from the desktop drawer/modal state above, which the mobile shell doesn't use.
       mSheet: null, mKind: 'All',
@@ -11823,6 +12023,277 @@ class Component extends DCLogic {
     };
   }
 
+  // ══════════════════════════════════════════════════════════════════════════════════════════
+  //  MVP DESKTOP SURFACE (EO_Desktop_MVP_v2) — the newer three-pane style. Left rail is the live
+  //  evidence scope + real sources; the centre is the real ask + overview/result over real topic
+  //  data; the right rail is the meaning space (a self-contained orbit of paradigm ▸ atmosphere ▸
+  //  lens) and the claim ledger. Header + overlays + engine are shared with the classic shell; the
+  //  toggle (mvpUseClassic / _useShell) flips state.shell and persists it. Everything here is defensive
+  //  — _mvpVals never throws, so a data gap degrades to an empty state, it never blanks the surface.
+  // ══════════════════════════════════════════════════════════════════════════════════════════
+  MVP_BODIES = {
+    corpus: { parent: null, r: 0, period: 0, phase: 0, size: 8, tier: 'core', color: '#d7d2f2', label: 'Question' },
+    polic:  { parent: 'corpus', r: 150, period: 160, phase: -0.6, size: 26, tier: 'paradigm', color: '#f0a02a', label: 'Policy-cause frame' },
+    court:  { parent: 'corpus', r: 150, period: 160, phase: Math.PI - 0.6, size: 23, tier: 'paradigm', color: '#e8842a', label: 'Court-backlog frame' },
+    alarm:  { parent: 'polic', r: 74, period: 30, phase: 0.4, size: 14, tier: 'atmosphere', color: '#8078e8', label: 'Alarm' },
+    advoc:  { parent: 'polic', r: 74, period: 40, phase: 2.7, size: 14, tier: 'atmosphere', color: '#7c74e6', label: 'Advocacy' },
+    proc:   { parent: 'court', r: 70, period: 34, phase: 1.3, size: 13, tier: 'atmosphere', color: '#8a6fd6', label: 'Procedural' },
+    tenant: { parent: 'alarm', r: 30, period: 8, phase: 0.2, size: 7, tier: 'lens', color: '#38cf93', label: 'Tenant impact' },
+    counts: { parent: 'advoc', r: 32, period: 9, phase: 1.9, size: 7, tier: 'lens', color: '#35c98f', label: 'Filing counts' },
+    load:   { parent: 'proc', r: 28, period: 7, phase: 3.0, size: 7, tier: 'lens', color: '#3fc0b0', label: 'Caseload' },
+    statute:{ parent: 'proc', r: 44, period: 12, phase: 0.7, size: 7, tier: 'lens', color: '#3fc0b0', label: 'Statute' },
+  };
+  MVP_ST = {
+    corr:   { label: 'CORROBORATED',  c: '#3f9d6d', bg: 'rgba(63,157,109,0.16)' },
+    cont:   { label: 'CONTESTED',     c: '#e0863f', bg: 'rgba(224,134,63,0.18)' },
+    single: { label: 'SINGLE SOURCE', c: '#9aa0c0', bg: 'rgba(255,255,255,0.06)' },
+    void:   { label: 'VOID',          c: '#9aa0ad', bg: 'rgba(255,255,255,0.05)' },
+  };
+  MVP_LEDGER = [
+    { node: 'polic', level: 0, claims: [ { text: 'Eviction filings fell about 38% during the moratorium period.', st: 'corr', meta: '6 passages · 3 origins', src: ['S-1', 'S-2', 'S-5'] } ] },
+      { node: 'advoc', level: 1, claims: [ { text: 'Filing volume tracked the order’s start and end dates closely.', st: 'corr', meta: '2 passages', src: ['S-2'] } ] },
+        { node: 'counts', level: 2, claims: [ { text: '2,140 filings the prior year fell to 1,327 during the order.', st: 'corr', meta: 'origin', src: ['S-2'] } ] },
+      { node: 'alarm', level: 1, claims: [ { text: 'Advocates warned thousands still faced removal once protections lapsed.', st: 'single', meta: '1 passage', src: ['S-1'] } ] },
+        { node: 'tenant', level: 2, claims: [ { text: 'Families reported staying housed only because filings had stopped.', st: 'single', meta: '1 passage', src: ['S-1'] } ] },
+    { node: 'court', level: 0, claims: [ { text: 'A court backlog, not the order, drove the decline in cases.', st: 'cont', meta: 'vs Policy-cause frame', src: ['S-5'] } ] },
+      { node: 'proc', level: 1, claims: [ { text: 'Clerks cited staffing gaps and a paused docket through the summer.', st: 'single', meta: '1 passage', src: ['S-5'] } ] },
+        { node: 'load', level: 2, claims: [ { text: 'Pending caseload rose even as new filings dropped.', st: 'single', meta: '1 passage', src: ['S-5'] } ] },
+        { node: 'statute', level: 2, claims: [ { text: 'The CDC order suspended certain evictions but not all case types.', st: 'corr', meta: '2 passages', src: ['S-2', 'S-5'] } ] },
+    { void: true, level: 0, label: 'Uncovered', color: '#9aa0ad', claims: [ { text: 'No source covers eviction judgments — only filings appear in scope.', st: 'void', meta: 'asked, not answerable', src: [] } ] },
+  ];
+
+  _useShell(which) { this.setState({ shell: which }); try { localStorage.setItem('eo_shell', which); } catch {} }
+  _mvpPick(id) { this._mvpFocus = id || 'corpus'; this.setState({ mvpSel: id }); }
+  _mvpSetStage = (el) => { if (el) this._mvpMount(el); };
+
+  _mvpMount(el) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const ORBIT = this.MVP_BODIES, ids = Object.keys(ORBIT);
+    const W = 400, H = 300, cx = W / 2, cy = H / 2;
+    el.innerHTML = '';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+    svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%'); svg.style.display = 'block';
+    let seed = 11; const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    for (let i = 0; i < 70; i++) {
+      const s = document.createElementNS(NS, 'circle');
+      s.setAttribute('cx', (rnd() * W).toFixed(1)); s.setAttribute('cy', (rnd() * H).toFixed(1));
+      s.setAttribute('r', (rnd() * 1.2 + 0.2).toFixed(2)); s.setAttribute('fill', '#fff');
+      s.setAttribute('opacity', (rnd() * 0.4 + 0.05).toFixed(2)); svg.appendChild(s);
+    }
+    const focusRing = document.createElementNS(NS, 'circle');
+    focusRing.setAttribute('cx', cx); focusRing.setAttribute('cy', cy); focusRing.setAttribute('fill', 'none');
+    focusRing.setAttribute('stroke', 'rgba(255,255,255,0.3)'); focusRing.setAttribute('stroke-dasharray', '2 5'); focusRing.setAttribute('r', 30);
+    svg.appendChild(focusRing);
+    const uni = document.createElementNS(NS, 'g'); svg.appendChild(uni);
+    const ringEls = {}, edgeEls = {}, bodyEls = {}, labelEls = {};
+    ids.forEach((id) => {
+      if (!ORBIT[id].parent) return;
+      const ring = document.createElementNS(NS, 'ellipse'); ring.setAttribute('fill', 'none');
+      ring.setAttribute('stroke', ORBIT[id].tier === 'lens' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)'); ring.setAttribute('stroke-width', '1');
+      uni.appendChild(ring); ringEls[id] = ring;
+      const ln = document.createElementNS(NS, 'line'); ln.setAttribute('stroke', 'rgba(255,255,255,0.1)'); ln.setAttribute('stroke-width', '0.6');
+      uni.appendChild(ln); edgeEls[id] = ln;
+    });
+    ids.forEach((id) => {
+      const n = ORBIT[id];
+      const g = document.createElementNS(NS, 'g'); g.style.cursor = 'pointer';
+      if (n.tier === 'paradigm' || n.tier === 'core') {
+        const glow = document.createElementNS(NS, 'circle');
+        glow.setAttribute('r', n.size + (n.tier === 'paradigm' ? 16 : 9));
+        glow.setAttribute('fill', n.tier === 'paradigm' ? n.color : '#d7d2f2'); glow.setAttribute('opacity', n.tier === 'paradigm' ? '0.14' : '0.12'); g.appendChild(glow);
+      }
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('r', n.size); c.setAttribute('fill', n.color); c.setAttribute('stroke', 'rgba(0,0,0,0.28)'); c.setAttribute('stroke-width', '1'); g.appendChild(c);
+      const lab = document.createElementNS(NS, 'text');
+      lab.setAttribute('font-family', 'Onest, sans-serif');
+      lab.setAttribute('font-size', n.tier === 'lens' ? '10' : (n.tier === 'paradigm' ? '12.5' : '11'));
+      lab.setAttribute('font-weight', n.tier === 'paradigm' ? '600' : '500'); lab.setAttribute('fill', '#eceaf5');
+      lab.setAttribute('paint-order', 'stroke'); lab.setAttribute('stroke', '#0b0b12'); lab.setAttribute('stroke-width', '3.5'); lab.setAttribute('stroke-linejoin', 'round');
+      lab.textContent = n.label;
+      g.addEventListener('click', (e) => { e.stopPropagation(); this._mvpPick(id); });
+      uni.appendChild(g); uni.appendChild(lab);
+      bodyEls[id] = c; labelEls[id] = lab; c._g = g;
+    });
+    svg.addEventListener('click', () => this._mvpPick(null));
+    el.appendChild(svg);
+    const om = {}; ids.forEach((id) => { om[id] = ORBIT[id].period ? (2 * Math.PI) / ORBIT[id].period : 0; });
+    const getPos = (id, t, cache) => {
+      if (cache[id]) return cache[id];
+      const n = ORBIT[id]; if (!n.parent) { cache[id] = { x: 0, y: 0 }; return cache[id]; }
+      const p = getPos(n.parent, t, cache); const ang = n.phase + t * om[id];
+      const pos = { x: p.x + n.r * Math.cos(ang), y: p.y + n.r * Math.sin(ang) * 0.8 }; cache[id] = pos; return pos;
+    };
+    const ctx = { elapsed: 0, lastNow: performance.now() };
+    uni.setAttribute('transform', `translate(${cx},${cy})`);
+    const frame = (now) => {
+      if (!el.isConnected) { return; }   // node gone (shell switched / unmounted) — stop the loop
+      if (this.state.mvpPlaying) ctx.elapsed += (now - ctx.lastNow) / 1000;
+      ctx.lastNow = now;
+      const t = ctx.elapsed, cache = {}, pos = {}; ids.forEach((id) => pos[id] = getPos(id, t, cache));
+      const focus = this._mvpFocus || 'corpus';
+      const target = pos[focus] || pos.corpus;
+      uni.setAttribute('transform', `translate(${(cx - target.x).toFixed(1)},${(cy - target.y).toFixed(1)})`);
+      focusRing.setAttribute('r', focus === 'corpus' ? 30 : (ORBIT[focus].size + 8));
+      ids.forEach((id) => {
+        const p = pos[id], n = ORBIT[id];
+        bodyEls[id]._g.setAttribute('transform', `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`);
+        let dx = 0, dy = -1;
+        if (n.parent) { const pp = pos[n.parent]; const ax = p.x - pp.x, ay = p.y - pp.y, L = Math.hypot(ax, ay) || 1; dx = ax / L; dy = ay / L; }
+        const gap = n.size + 12;
+        labelEls[id].setAttribute('x', (p.x + dx * gap).toFixed(1)); labelEls[id].setAttribute('y', (p.y + dy * gap + 4).toFixed(1));
+        labelEls[id].setAttribute('text-anchor', dx > 0.3 ? 'start' : (dx < -0.3 ? 'end' : 'middle'));
+        const showLab = (n.tier !== 'lens' || this.state.mvpSel === id);
+        labelEls[id].setAttribute('opacity', showLab ? '1' : '0');
+        bodyEls[id].setAttribute('stroke', this.state.mvpSel === id ? '#fff' : 'rgba(0,0,0,0.28)');
+        bodyEls[id].setAttribute('stroke-width', this.state.mvpSel === id ? '2.5' : '1');
+        if (ringEls[id]) { const pp = pos[n.parent]; ringEls[id].setAttribute('cx', pp.x.toFixed(1)); ringEls[id].setAttribute('cy', pp.y.toFixed(1)); ringEls[id].setAttribute('rx', n.r); ringEls[id].setAttribute('ry', (n.r * 0.8).toFixed(1)); }
+        if (edgeEls[id]) { const pp = pos[n.parent]; edgeEls[id].setAttribute('x1', pp.x.toFixed(1)); edgeEls[id].setAttribute('y1', pp.y.toFixed(1)); edgeEls[id].setAttribute('x2', p.x.toFixed(1)); edgeEls[id].setAttribute('y2', p.y.toFixed(1)); }
+      });
+      ctx.raf = requestAnimationFrame(frame);
+    };
+    ctx.raf = requestAnimationFrame(frame);
+  }
+
+  _mvpSelView() {
+    const id = this.state.mvpSel; if (!id) return null;
+    const B = this.MVP_BODIES, n = B[id]; if (!n) return null;
+    const tierName = { core: 'CORE', paradigm: 'PARADIGM · SUN', atmosphere: 'ATMOSPHERE · PLANET', lens: 'LENS · MOON' }[n.tier];
+    const parentLabel = n.parent ? B[n.parent].label : null;
+    const kids = Object.keys(B).filter((k) => B[k].parent === id);
+    const rel = (n.parent
+      ? `Standing on ${n.label}. It holds still; ${parentLabel} — and everything above it — swing around it.`
+      : `At the core. Both paradigms swing around this point.`)
+      + (kids.length ? ` ${kids.map((k) => B[k].label).join(', ')} still ${kids.length > 1 ? 'orbit' : 'orbits'} it.` : '');
+    return { label: n.label, color: n.color, tierName, rel };
+  }
+
+  _mvpLedgerRows() {
+    const B = this.MVP_BODIES, ST = this.MVP_ST;
+    const tierName = { paradigm: 'PARADIGM', atmosphere: 'ATMOSPHERE', lens: 'LENS' };
+    const nodeStyle = [
+      { pl: '0px', dot: '13px', fs: '14px', fw: '700', labelColor: '#f2f0fa' },
+      { pl: '18px', dot: '10px', fs: '12.5px', fw: '600', labelColor: '#d8d3ef' },
+      { pl: '36px', dot: '7px', fs: '12px', fw: '600', labelColor: '#9a95ba' },
+    ];
+    const claimPl = ['18px', '36px', '54px'];
+    const rows = [];
+    this.MVP_LEDGER.forEach((item) => {
+      const lv = item.level;
+      const node = item.void ? null : B[item.node];
+      const color = item.void ? item.color : node.color;
+      const label = item.void ? item.label : node.label;
+      const ns = nodeStyle[lv];
+      rows.push({
+        isNode: true, isClaim: false,
+        pl: ns.pl, dot: ns.dot, fs: ns.fs, fw: ns.fw, labelColor: ns.labelColor,
+        color, halo: color + '22', label,
+        tierName: item.void ? '' : tierName[node.tier],
+        onTap: item.void ? () => {} : () => this._mvpPick(item.node),
+      });
+      (item.claims || []).forEach((cl) => {
+        const st = ST[cl.st];
+        rows.push({
+          isNode: false, isClaim: true,
+          pl: claimPl[lv], stLabel: st.label, stColor: st.c, stBg: st.bg,
+          meta: cl.meta, text: cl.text, src: cl.src, hasSrc: (cl.src && cl.src.length > 0),
+        });
+      });
+    });
+    return rows;
+  }
+
+  // The MVP surface's bindings. Left rail + centre are wired to real topic data; the right rail's
+  // meaning space + ledger are the illustrative EO_Desktop_MVP_v2 projection until a live question
+  // result is routed in (that swap is the next stage — see docs/research-review.md).
+  _mvpVals() {
+    try {
+      const st = this.state, app = this._app;
+      const violet = '#6355f2';
+      const ov = (this._topicOverviewVM ? this._topicOverviewVM() : null) || {};
+      const t = (app && app.topic && app.topic()) || null;
+      const cards = ov.cards || [];
+      const total = cards.length;
+      const ac = cards.filter((c) => c.active).length;
+      const PAL = [['#eceafd', '#6355f2'], ['#e7f0fe', '#2563c9'], ['#fbe4d3', '#c2410c'], ['#f6efd8', '#8a6d1f'], ['#dcf0e5', '#2f7a55'], ['#e8f1fb', '#2c5c9e']];
+      const mvpSources = cards.map((c, i) => {
+        const active = c.active, pal = PAL[i % PAL.length];
+        return {
+          letter: (c.favCh || String((i + 1))), abg: active ? pal[0] : '#f0f0f3', afg: active ? pal[1] : '#abb0bb',
+          host: c.origin || c.title || 'source', contrib: c.countLine || '',
+          onToggle: c.toggleScope || (() => {}),
+          trackBg: active ? violet : '#dcdce2', knobX: active ? '18px' : '2px',
+          rowBg: active ? '#fff' : '#f6f6f8', rowBorder: active ? '#ececf0' : '#efeff2',
+          badges: c.reg ? [{ t: String(c.reg).slice(0, 14), c: '#6355f2', bg: '#ebe9fe' }] : [],
+        };
+      });
+      const setAll = (v) => { if (t && this._toggleEvidenceScope) cards.forEach((c) => { if (c.active !== v && c.sn != null) this._toggleEvidenceScope(t.id, c.sn, v); }); };
+      let matrix = { rows: [] }; try { matrix = (app && app.comparisonMatrix) ? app.comparisonMatrix() : matrix; } catch { matrix = { rows: [] }; }
+      const mrows = matrix.rows || [];
+      let settled = 0, contested = 0, voidn = 0;
+      mrows.forEach((r) => { if (r.conflict) contested++; else if ((r.cells || []).filter(Boolean).length) settled++; else voidn++; });
+      const tot = Math.max(1, settled + contested + voidn);
+      const isOverview = st.tab === 'topic' || st.tab === 'overview';
+      const isResult = !isOverview;
+      const sel = this._mvpSelView();
+      const scopeLine = ac + ' of ' + total + ' source' + (total === 1 ? '' : 's');
+      const headline = ov.title || (t && t.title) || 'New topic';
+      return {
+        // left rail
+        mvpWsInitial: ov.wsInitial || '·', mvpWsDot: ov.wsDot || '#6D5EF5',
+        mvpWsLine: (ov.workspace || 'Workspace'), mvpTopicTitle: headline,
+        mvpScopeLine: scopeLine, mvpSources, mvpHasSources: total > 0, mvpSourcesEmpty: total === 0,
+        mvpAllOn: () => setAll(true), mvpAllOff: () => setAll(false),
+        mvpAddSource: () => { try { this.openLibraries && this.openLibraries(); } catch {} },
+        // centre
+        mvpIsOverview: isOverview, mvpIsResult: isResult,
+        mvpShowOverview: () => this.setTab && this.setTab(t ? 'topic' : 'search'),
+        mvpShowResult: () => this.setTab && this.setTab('search'),
+        mvpOvBtnBg: isOverview ? '#17171a' : '#f2f2f5', mvpOvBtnFg: isOverview ? '#fff' : '#5a5a63',
+        mvpResBtnBg: isResult ? '#17171a' : '#f2f2f5', mvpResBtnFg: isResult ? '#fff' : '#5a5a63',
+        mvpHeadline: headline,
+        mvpTopicMeta: [scopeLine, ov.entityLabel, ov.findingLabel].filter(Boolean).join(' · '),
+        mvpSettled: String(settled), mvpContested: String(contested), mvpVoid: String(voidn),
+        mvpBarSettled: Math.round((settled / tot) * 100) + '%',
+        mvpBarContested: Math.round((contested / tot) * 100) + '%',
+        mvpBarVoid: Math.round((voidn / tot) * 100) + '%',
+        mvpActiveCountLabel: 'across ' + ac + ' active source' + (ac === 1 ? '' : 's'),
+        mvpHasClaims: mrows.length > 0,
+        mvpConvNote: mrows.length
+          ? 'Convergence recomputes in place as you toggle scope on the left.'
+          : 'No claims on record yet. Add sources or ask a question — every result lands here traced to its origin.',
+        // right rail (meaning space + ledger)
+        mvpRightOpen: st.mvpRightOpen, mvpRightClosed: !st.mvpRightOpen, mvpOrbitOpen: st.mvpOrbitOpen,
+        mvpToggleRight: () => this.setState((s) => ({ mvpRightOpen: !s.mvpRightOpen })),
+        mvpToggleOrbit: () => this.setState((s) => ({ mvpOrbitOpen: !s.mvpOrbitOpen })),
+        mvpReset: () => this._mvpPick(null),
+        mvpTogglePlay: () => this.setState((s) => ({ mvpPlaying: !s.mvpPlaying })),
+        mvpPlayLabel: st.mvpPlaying ? '❚❚ drift' : '▶ parked',
+        mvpOrbitChev: st.mvpOrbitOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+        mvpSetStage: this._mvpSetStage,
+        mvpHasSel: !!sel, mvpSel: sel || {},
+        mvpLedgerRows: this._mvpLedgerRows(),
+        mvpUseClassic: () => this._useShell('classic'),
+        mvpUseMvp: () => this._useShell('mvp'),
+      };
+    } catch (e) {
+      return {
+        mvpWsInitial: '·', mvpWsDot: '#6D5EF5', mvpWsLine: 'Workspace', mvpTopicTitle: 'Reader',
+        mvpScopeLine: '0 of 0 sources', mvpSources: [], mvpHasSources: false, mvpSourcesEmpty: true,
+        mvpAllOn: () => {}, mvpAllOff: () => {}, mvpAddSource: () => {},
+        mvpIsOverview: true, mvpIsResult: false, mvpShowOverview: () => {}, mvpShowResult: () => {},
+        mvpOvBtnBg: '#17171a', mvpOvBtnFg: '#fff', mvpResBtnBg: '#f2f2f5', mvpResBtnFg: '#5a5a63',
+        mvpHeadline: 'Reader', mvpTopicMeta: '', mvpSettled: '0', mvpContested: '0', mvpVoid: '0',
+        mvpBarSettled: '0%', mvpBarContested: '0%', mvpBarVoid: '0%', mvpActiveCountLabel: '',
+        mvpHasClaims: false, mvpConvNote: 'Add sources or ask a question to begin.',
+        mvpRightOpen: true, mvpRightClosed: false, mvpOrbitOpen: true,
+        mvpToggleRight: () => {}, mvpToggleOrbit: () => {}, mvpReset: () => {}, mvpTogglePlay: () => {},
+        mvpPlayLabel: '❚❚ drift', mvpOrbitChev: 'rotate(90deg)', mvpSetStage: this._mvpSetStage,
+        mvpHasSel: false, mvpSel: {}, mvpLedgerRows: [], mvpUseClassic: () => this._useShell('classic'), mvpUseMvp: () => this._useShell('mvp'),
+      };
+    }
+  }
+
   renderVals() {
     try { return this._vals(); }
     catch (err) {
@@ -13693,6 +14164,11 @@ class Component extends DCLogic {
       logView, logEmpty: logView.length === 0, turnViews, turnsEmpty: turnViews.length === 0,
       reflectionViews, reflectionsEmpty: reflectionViews.length === 0, reflectionCount: String(reflectionViews.length),
       ...this._mobileVals(),
+      // Desktop shell selection — the header + overlays are shared; only the body differs. On mobile
+      // both are false (the mobile shell renders instead). shellMvp is the default going wide.
+      shellMvp: !st.isMobile && st.shell !== 'classic',
+      shellClassic: !st.isMobile && st.shell === 'classic',
+      ...this._mvpVals(),
     };
   }
 
