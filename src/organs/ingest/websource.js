@@ -129,28 +129,41 @@ const HANG_GUARD = 2_000_000;
 // `hangGuard` is overridable per admission: an ambient page fetch keeps the default backstop,
 // while a DELIBERATE whole-book read (ingest/gutenberg.js fetchGutenbergBook) raises it so a
 // long novel is read entire — the caller chose that read, so the caller sets its ceiling.
-export const admitWebSource = (payload = {}, { hangGuard = HANG_GUARD } = {}) => {
+//
+// `onProgress` (+ `chunkSize`) is parseText's own large-document escape hatch (pipeline.js),
+// threaded through rather than re-implemented: without it this stays the one synchronous sweep
+// it always was (every existing caller/test, byte-identical); with it, parsing a whole book's
+// worth of text yields to the event loop as it goes instead of locking the tab for the whole
+// read — the same freeze registry.js's docFor comment documents ("froze the tab right after
+// every large import"), which a Gutenberg "Read" hit hits every time (recordHit fetches the
+// ENTIRE book before this ever runs) unless the caller opts in.
+export const admitWebSource = (payload = {}, { hangGuard = HANG_GUARD, onProgress, chunkSize } = {}) => {
   const record = webRecord(payload);
   const docId  = engineDocId(record.id);
   const stripped = stripWebBoilerplate(String(payload.text || ''));
+  const finish = (doc) => {
+    doc.sourceKind = 'web-source';
+    // When the backstop DOES trip, it says so — a coverage receipt, never a silent cut.
+    // The full original is still retained as binary by the fetch layer (opfs-store.js).
+    if (stripped.length > hangGuard)
+      doc.coverage = { complete: false, chars: hangGuard, sourceChars: stripped.length,
+                       dropped: [`hang-guard: read the first ${hangGuard.toLocaleString()} of ${stripped.length.toLocaleString()} chars (raise hangGuard for a whole read)`] };
+    doc.web = {
+      url: record.url, final_url: record.final_url, title: record.title,
+      fetched_at: record.fetched_at, published: record.published, content_hash: record.content_hash,
+      retrieval_query: record.retrieval_query, engine: record.engine,
+      salient_image: record.salient_image,
+    };
+    doc._webRecord = record;
+    return { doc, record };
+  };
   // unnamedReferents: true — the reader's ordinary reading (see rooms/reader/app/registry.js#docFor).
   // A fetched page or a whole Gutenberg book (ingest/gutenberg.js) resolves a figure named only by
   // description ("the creature") instead of dropping it from the Source Index.
-  const doc    = parseText(stripped.slice(0, hangGuard), { docId, unnamedReferents: true });
-  doc.sourceKind = 'web-source';
-  // When the backstop DOES trip, it says so — a coverage receipt, never a silent cut.
-  // The full original is still retained as binary by the fetch layer (opfs-store.js).
-  if (stripped.length > hangGuard)
-    doc.coverage = { complete: false, chars: hangGuard, sourceChars: stripped.length,
-                     dropped: [`hang-guard: read the first ${hangGuard.toLocaleString()} of ${stripped.length.toLocaleString()} chars (raise hangGuard for a whole read)`] };
-  doc.web = {
-    url: record.url, final_url: record.final_url, title: record.title,
-    fetched_at: record.fetched_at, published: record.published, content_hash: record.content_hash,
-    retrieval_query: record.retrieval_query, engine: record.engine,
-    salient_image: record.salient_image,
-  };
-  doc._webRecord = record;
-  return { doc, record };
+  const parsed = parseText(stripped.slice(0, hangGuard), { docId, unnamedReferents: true, onProgress, chunkSize });
+  // parseText itself returns a Promise only when `onProgress` is supplied — mirror that duality
+  // here rather than forcing every caller to await, so the many synchronous call sites are unaffected.
+  return onProgress ? parsed.then(finish) : finish(parsed);
 };
 
 // The citation a web-grounded claim carries — the same char_span the veto's token check reads.

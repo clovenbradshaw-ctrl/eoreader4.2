@@ -188,14 +188,21 @@ export const installIngest = (appCtx) => {
   const ingestFeed = (url) => runIngestFeed(appCtx, url);
 
   const recordHit = (item, query = null) =>
-    runCancellable({ kind: 'fetch', label: `Reading ${item.title || item.url}…` }, async (signal) => {
+    runCancellable({ kind: 'fetch', label: `Reading ${item.title || item.url}…` }, async (signal, progress) => {
       const full = FULL_TEXT[item.source] || FULL_TEXT[item.kind];
       let text = '';
       try { text = full ? await full(client, item) : htmlToText((await client.fetchUrl(item.url, { signal })).text); } catch (e) { if (signal.aborted) throw e; /* else fall through */ }
       if (!text) text = item.text || item.title || '';
-      const { doc, record } = admitWebSource({
+      // onProgress → admitWebSource's chunked, yielding parse (websource.js) instead of one
+      // synchronous sweep. A library "Read" hit (a Gutenberg book, chiefly) hands this the
+      // ENTIRE text — parsed eagerly, that locks the tab for the whole read, freezing the left
+      // rail's live "reading" card (index.html's _beginPendingRead) mid-animation right along
+      // with it: no tick, no advancing %, until the sweep finally finished.
+      const { doc, record } = await admitWebSource({
         url: item.url, title: item.title, text,
         retrieval_query: query, engine: `web:${item.source || item.kind || 'search'}`, fetched_at: nowIso(),
+      }, {
+        onProgress: (p) => { if (p && p.phase === 'parse' && p.total) progress({ kind: 'fetch', label: `Reading ${item.title || item.url} — ${p.done.toLocaleString()} / ${p.total.toLocaleString()} sentences` }); },
       });
       return appCtx.addSource({ title: item.title, url: item.url, text: doc.text, kind: 'web', record, doc });
     });

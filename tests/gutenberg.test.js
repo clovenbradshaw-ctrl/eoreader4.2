@@ -178,3 +178,18 @@ test('fetchGutenbergBook: admits the EPUB-derived book when bytes+unzip are avai
   assert.match(admitted.doc.text, /You will rejoice to hear/);
   assert.equal(admitted.record.title, 'Frankenstein');
 });
+
+// A "Read" hit on a library search result (recordHit, rooms/reader/app/ingest.js) fetches the
+// WHOLE book and admits it in one go — parsed eagerly (admitWebSource's plain synchronous call),
+// that locks the tab for the whole read and freezes any progress UI riding on the same thread
+// (the "freezes and stops showing the name" report). onProgress must reach admitWebSource so a
+// deliberate whole-book read can opt into the chunked, yielding parse instead.
+test('fetchGutenbergBook: threads onProgress through to the admission, without changing the result', async () => {
+  const calls = [];
+  const admitted = await fetchGutenbergBook('84', { client: epubClient(), unzip: fakeUnzip, onProgress: (p) => calls.push(p) });
+  assert.ok(admitted?.doc);
+  assert.match(admitted.doc.text, /You will rejoice to hear/);
+  assert.equal(admitted.record.title, 'Frankenstein');
+  assert.ok(calls.length >= 2, 'onProgress fired (at least the start and end of the parse)');
+  assert.equal(calls.at(-1).done, calls.at(-1).total);
+});
