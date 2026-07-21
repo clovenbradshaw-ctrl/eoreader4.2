@@ -1423,63 +1423,48 @@ table{border-collapse:collapse;width:100%}
           </div>
           </sc-if>
 
-          <!-- MEANING SPACE — the orbit, folded in from the old right rail. The EOGraph widget
-               draws its own bordered card in its native light palette (_mvpMountStage no longer
-               overrides it dark — that override existed only to sit on the rail's dark ground),
-               so it reads as one more section of the page, full width, not a caged sidebar. -->
+          <!-- MEANING SPACE — the orbit, folded in from the old right rail. Themeable via the
+               {{ mvpCardVars }} custom properties: light by default (its native palette = this page's),
+               flipping to the darkroom it was first designed against with the sun/moon toggle, which
+               themes this card, the orbit, and THE READING below in one switch. -->
           <sc-if value="{{ mvpHasMeaning }}">
-          <div style="background:#fff;border:1px solid #ececf0;border-radius:20px;padding:18px 20px">
+          <div style="{{ mvpCardVars }};background:var(--rl-bg);border:1px solid var(--rl-line);border-radius:20px;padding:18px 20px">
             <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
-              <span style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:#5a5a63">MEANING SPACE</span>
+              <span style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:var(--rl-kicker)">MEANING SPACE</span>
               <div style="display:flex;align-items:center;gap:10px">
-                <span style="font-size:10.5px;color:#a6a6ae">{{ mvpMeaningCounts }}</span>
-                <button onClick="{{ mvpUseClassic }}" title="Switch to the classic shell" style="flex:none;background:#f2f2f5;color:#7a7a83;border:1px solid #ececf0;border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:700;letter-spacing:0.4px;cursor:pointer;font-family:inherit" style-hover="background:#ececf0">CLASSIC VIEW</button>
+                <span style="font-size:10.5px;color:var(--rl-dim)">{{ mvpMeaningCounts }}</span>
+                <button onClick="{{ mvpToggleTheme }}" title="Toggle light / dark" style="flex:none;width:26px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--rl-btn-bg);color:var(--rl-btn-ink);border:1px solid var(--rl-btn-line);border-radius:7px;cursor:pointer">
+                  <sc-if value="{{ mvpThemeDark }}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+                  </sc-if>
+                  <sc-if value="{{ mvpThemeLight }}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  </sc-if>
+                </button>
+                <button onClick="{{ mvpUseClassic }}" title="Switch to the classic shell" style="flex:none;background:var(--rl-btn-bg);color:var(--rl-btn-ink);border:1px solid var(--rl-btn-line);border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:700;letter-spacing:0.4px;cursor:pointer;font-family:inherit">CLASSIC VIEW</button>
               </div>
             </div>
             <div ref="{{ mvpSetStage }}" style="min-height:40px"></div>
           </div>
           </sc-if>
 
-          <!-- THE READING — the claim rows, grouped by cross-source standing (contested first,
-               then corroborated, then single-source — the old right-rail ledger's own grouping),
-               each with its verbatim passage and a jump back to the source at that exact span.
-               Not a summary: the sentences. -->
+          <!-- THE READING — the holon (paradigm ⊃ atmosphere ⊃ claim ⊃ base span), mounted as the real
+               collapsible ledger (ledger-surface.js). The frames sit at the top and are opened INTO;
+               each claim carries its cross-source standing as a muted dot-label and drills down to the
+               verbatim passage it stands on. Themed with the meaning space above (see {{ mvpCardVars }}). -->
           <sc-if value="{{ mvpHasReading }}">
-          <div style="background:#fff;border:1px solid #ececf0;border-radius:20px;padding:18px 20px">
+          <div style="{{ mvpCardVars }};background:var(--rl-bg);border:1px solid var(--rl-line);border-radius:20px;padding:18px 20px">
             <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
-              <span style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:#5a5a63">THE READING · findings</span>
-              <span style="font-size:10.5px;color:#a6a6ae">{{ mvpReadingCount }} on record</span>
+              <span style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:var(--rl-kicker)">THE READING · nested by frame</span>
+              <span style="font-size:10.5px;color:var(--rl-dim)">{{ mvpReadingCount }} on record</span>
             </div>
-            <div style="display:flex;flex-direction:column;gap:6px">
-              <sc-for list="{{ mvpReading }}" as="r">
-                <sc-if value="{{ r.isGroup }}">
-                  <div style="display:flex;align-items:center;gap:8px;margin:10px 0 0;padding:0 2px">
-                    <span style="width:8px;height:8px;border-radius:50%;background:{{ r.color }};flex:none;box-shadow:0 0 0 3px {{ r.halo }}"></span>
-                    <span style="font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#8a8a95">{{ r.label }}</span>
-                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:#b0b0b8">{{ r.count }}</span>
-                  </div>
-                </sc-if>
-                <sc-if value="{{ r.isClaim }}">
-                  <button onClick="{{ r.onTap }}" style="display:block;width:100%;text-align:left;background:#fafafb;border:1px solid #efeff2;border-left:3px solid {{ r.stFg }};border-radius:5px 13px 13px 5px;padding:12px 14px;cursor:pointer;font-family:inherit" style-hover="background:#f5f5f8">
-                    <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;flex-wrap:wrap">
-                      <span style="font-size:8.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;padding:2px 7px;border-radius:5px;color:{{ r.stFg }};background:{{ r.stBg }}">{{ r.stLabel }}</span>
-                      <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#a99bff;background:#f1eefe;padding:2px 6px;border-radius:5px">{{ r.srcReg }}</span>
-                      <span style="font-size:10.5px;color:#a0a0a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">{{ r.srcTitle }}</span>
-                    </div>
-                    <div style="font-size:13.5px;line-height:1.5;color:#2a2a32">{{ r.text }}</div>
-                    <sc-if value="{{ r.hasQuote }}">
-                      <div style="font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:13px;line-height:1.5;color:#6a6a73;border-left:2px solid #e6e6ea;padding-left:11px;margin-top:9px">“{{ r.quote }}”</div>
-                    </sc-if>
-                  </button>
-                </sc-if>
-              </sc-for>
-            </div>
+            <div ref="{{ mvpSetReading }}"></div>
           </div>
           </sc-if>
 
           <div style="display:flex;gap:11px;align-items:flex-start;background:#f8f7ff;border:1px dashed #e6e1f7;border-radius:14px;padding:15px 17px">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a6a0e6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/></svg>
-            <div style="font-size:12.5px;color:#8580ab;line-height:1.5">The meaning space and the reading below are two projections of the same claims — the orbit places each one, the list groups it by cross-source standing. Click either to open the passage it was read from.</div>
+            <div style="font-size:12.5px;color:#8580ab;line-height:1.5">The meaning space and the reading below are two projections of the same claims — the orbit places each one, the reading nests it holonically under its paradigm and atmosphere. Open a frame to descend into it, and a claim to read the passage it stands on.</div>
           </div>
         </div>
       </div>
@@ -5515,6 +5500,11 @@ class Component extends DCLogic {
       // three-pane, EO_Desktop_MVP_v2) or 'classic' (the original topic-tree + tabs + entities shell).
       // Both share the same header, overlays and engine; only the body between them differs. Persisted.
       shell: this._prefStr('eo_shell', 'mvp'),
+      // Light/dark for the folded-in MEANING SPACE + THE READING cards — persisted, defaulting to
+      // light so the two sit as ordinary sections of the (light) centre column; flipping to dark
+      // restores the darkroom the meaning space was first designed against. Drives the two cards'
+      // chrome, the orbit's CSS custom properties, and the ledger's own `dark` flag.
+      mvpTheme: this._prefStr('eo_mvp_theme', 'light'),
       // The mobile shell's own bottom sheet (null | 'scope' | 'add') and Sources-tab kind filter —
       // separate from the desktop drawer/modal state above, which the mobile shell doesn't use.
       mSheet: null, mKind: 'All',
@@ -12475,6 +12465,100 @@ class Component extends DCLogic {
   };
   _mvpBucket(status) { return status === 'Corroborated' ? 'corr' : status === 'Contested' ? 'cont' : 'single'; }
   _mvpOriginLabel(o) { return ({ reading: 'source reading', summary: 'entity summary', murmur: 'connection', turn: 'answer' })[o] || ''; }
+
+  // ── THE READING as a HOLON, not a flat list ────────────────────────────────────────────────────
+  // The reading is a holon — paradigm ⊃ atmosphere ⊃ claim ⊃ base span — and reads best disclosed
+  // that way: the frames at the top, opened INTO, rather than one flat run grouped by standing. We
+  // have no interpretive-frame classifier over findings yet, so the honest tree from the data on hand:
+  //   · paradigm    — the MINT the claim entered through (reading / summary / murmur / turn): four
+  //                   genuinely distinct ways of reading a source into a claim.
+  //   · atmosphere  — the SUBJECT it concerns (a source's title, or an entity's label): the ground it
+  //                   sits in. Subject-less claims hang straight off their paradigm.
+  //   · claim       — grouped by canon text inside its atmosphere, so two sources asserting the same
+  //                   thing merge into one corroborated claim carrying both base spans.
+  //   · base span   — the verbatim witnessing passage, opening its source at that exact span.
+  // Standing stays the muted dot-label on each claim (question-result.js's two-axis rule: the holon is
+  // the load-bearing structure, the standing is secondary metadata) — it no longer does the grouping.
+  MVP_PARADIGM = {
+    reading: { label: 'Source readings',  color: '#f0a02a' },
+    summary: { label: 'Entity summaries', color: '#7c74e6' },
+    murmur:  { label: 'Connections',      color: '#35c98f' },
+    turn:    { label: 'Answers',          color: '#e0863f' },
+  };
+  _mvpStanding(status) { return status === 'Corroborated' ? 'corroborated' : status === 'Contested' ? 'contested' : 'single-source'; }
+  _mvpFrameTree(claims) {
+    const clip = (s, n) => { const x = String(s || '').trim(); return x.length > n ? x.slice(0, n - 1) + '…' : x; };
+    const order = ['reading', 'summary', 'murmur', 'turn'];
+    const paras = new Map();   // origin → { frame, atmos:Map<subjectKey, atmosphereFrame> }
+    (claims || []).forEach((c) => {
+      const o = order.includes(c.origin) ? c.origin : 'reading';
+      if (!paras.has(o)) {
+        const meta = this.MVP_PARADIGM[o] || this.MVP_PARADIGM.reading;
+        paras.set(o, { frame: { id: 'p:' + o, tier: 'paradigm', label: meta.label, color: meta.color, claims: [], children: [] }, atmos: new Map() });
+      }
+      const P = paras.get(o), meta = this.MVP_PARADIGM[o] || this.MVP_PARADIGM.reading;
+      const claimObj = {
+        text: c.text, standing: this._mvpStanding(c.status),
+        rows: [{ sn: c.sn, docId: c.docId, unit: c.unit, quote: c.quote || c.text, host: c.reg || (c.sn != null ? 'S-' + c.sn : '') }],
+      };
+      const subj = String(c.subject || '').trim();
+      if (subj) {
+        const k = subj.toLowerCase();
+        if (!P.atmos.has(k)) { const af = { id: 'a:' + o + ':' + k, tier: 'atmosphere', label: clip(subj, 34), color: meta.color, claims: [], children: [] }; P.atmos.set(k, af); P.frame.children.push(af); }
+        P.atmos.get(k).claims.push(claimObj);
+      } else {
+        P.frame.claims.push(claimObj);
+      }
+    });
+    return order.filter((o) => paras.has(o)).map((o) => paras.get(o).frame);
+  }
+
+  // Mount (or idempotently re-mount) the real holonic ledger (ledger-surface.js's mountLedger, exposed
+  // on window.EO.reader) into THE READING card. Same keyed-guard idiom as _mvpMountStage: the ledger
+  // owns its OWN collapse/expand state, so we remount only when the claims or the theme actually change
+  // — never on an unrelated re-render (which would fold every open frame shut). A base-span tap opens
+  // the source at that passage through the same shared evidence modal a flat claim row used to.
+  _mvpMountLedger(el, ledger, dark, key) {
+    if (!el) return;
+    if (el.__lgKey === key) return;
+    const R = window.EO && window.EO.reader;
+    const mlg = R && R.mountLedger;
+    if (!mlg) { el.innerHTML = '<div style="padding:8px 2px;color:var(--rl-dim,#9b9ba3);font-size:12px;line-height:1.55">The reading loads with the reader…</div>'; return; }
+    if (el.__lgInst) { try { el.__lgInst.destroy(); } catch {} el.__lgInst = null; }
+    el.__lgKey = key;
+    el.innerHTML = '';
+    try {
+      el.__lgInst = mlg(el, {
+        ledger, standings: R.STANDINGS, dark, intro: false, head: false,
+        onOpenSpan: (span) => this._mvpOpenSpan(span),
+      });
+    } catch (e) { el.innerHTML = ''; el.__lgKey = null; el.__lgInst = null; }
+  }
+
+  // A base span tapped in the reading → open its source at the witnessing passage, through the one
+  // global evidence modal (mirrors _mvpOpenClaim's hand-built mark, no window.EO.evidence needed).
+  _mvpOpenSpan(span) {
+    if (!span || span.sn == null) return;
+    const app = this._app;
+    const src = (app && app.sourceBySn) ? app.sourceBySn(span.sn) : null;
+    const label = span.host || ('S-' + span.sn);
+    this.openSurprise({
+      sn: span.sn, sourceTitle: (src && src.title) || '', sourceLabel: label,
+      origin: 'The reading · base span', line: '', sentence: span.quote || '', contextBefore: '', contextAfter: '',
+      surprises: [], bits: '', pull: '',
+      mark: { locatorLabel: label + ' · passage', kindLabel: 'Base span', confidenceLabel: '', referents: [], explanation: span.quote || '', correspondingEvidence: null },
+    });
+  }
+
+  // The two folded-in cards' light/dark palette — one string of CSS custom properties stamped on each
+  // card, so its chrome reads its colour off var(--rl-*) and a theme flip is a single attribute swap.
+  // Kept in step with the ledger's own DARK_VARS and the orbit's stage vars (three surfaces, one switch).
+  _mvpCardVars(dark) {
+    return dark
+      ? '--rl-bg:#0d0d15;--rl-line:#211f30;--rl-ink:#eceaf5;--rl-kicker:#8b83c9;--rl-dim:#7c779e;--rl-btn-bg:rgba(255,255,255,0.08);--rl-btn-line:rgba(255,255,255,0.1);--rl-btn-ink:#cfc9ee'
+      : '--rl-bg:#fff;--rl-line:#ececf0;--rl-ink:#17171a;--rl-kicker:#5a5a63;--rl-dim:#a6a6ae;--rl-btn-bg:#f2f2f5;--rl-btn-line:#ececf0;--rl-btn-ink:#7a7a83';
+  }
+
   // Clicking a claim (in THE READING or a MEANING SPACE bubble) opens the shared evidence modal
   // (the one global overlay, so it works on this shell where the centre has no source reader) at
   // that claim's witnessing passage — the same hand-built mark shape the topic-overview corpus
@@ -12548,15 +12632,24 @@ class Component extends DCLogic {
   // UNSET defaults are already this page's exact light palette (solar-system.js: --card:#fff,
   // --line:#e5e7eb, …) — CSS vars set here just pin them precisely instead of leaving them to
   // fallback values, so it reads as one more card in the stack, not a dropped-in dark console.
-  _mvpMountStage(el, data, key) {
+  // The orbit is light by default (its native palette = this page's), but the meaning-space card can
+  // be flipped dark with the two cards' theme toggle — the solar widget reads its whole palette off
+  // CSS custom properties, so a theme is just which set we stamp on the stage element (the same trick
+  // mountSolarExplorer uses for its dark shell). `dark` rides the remount key, so the flip re-themes it.
+  _mvpStageVars(dark) {
+    return dark
+      ? '--card:#0d0d15;--app:#14131f;--ink:#eceaf5;--ink2:#b8b3d6;--ink3:#7c779e;--line:#242a35;--line2:#2c2a3d'
+      : '--card:#fff;--app:#fafafb;--ink:#17171a;--ink2:#5a5a63;--ink3:#9b9ba3;--line:#ececf0;--line2:#e4e4ea';
+  }
+  _mvpMountStage(el, data, key, dark) {
     if (!el) return;
     if (el.__ssKey === key) return;
     const mss = window.EO && window.EO.mountSolarSystem;
-    if (!mss) { el.innerHTML = '<div style="padding:20px 6px;color:#9b9ba3;font-size:12.5px;line-height:1.5">The meaning space loads with the reader…</div>'; return; }
+    if (!mss) { el.innerHTML = '<div style="padding:20px 6px;color:var(--rl-dim,#9b9ba3);font-size:12.5px;line-height:1.5">The meaning space loads with the reader…</div>'; return; }
     if (el.__ssInst) { try { el.__ssInst.destroy(); } catch {} el.__ssInst = null; }
     el.__ssKey = key;
     el.innerHTML = '';
-    el.style.cssText = 'display:block;--card:#fff;--app:#fafafb;--ink:#17171a;--ink2:#5a5a63;--ink3:#9b9ba3;--line:#ececf0;--line2:#e4e4ea';
+    el.style.cssText = 'display:block;' + this._mvpStageVars(dark);
     // A claim bubble opens the same passage modal its Reading card does; an entity bubble opens
     // the MVP entity sheet in place (_mvpOpenEntity's drawer, same as a CAST chip). A source
     // bubble has nowhere to open IN this shell (no source reader here), so it hops to classic —
@@ -12660,40 +12753,9 @@ class Component extends DCLogic {
     return { open: !!prof, prof: prof || {}, close: () => this.setState({ mvpEntitySel: null }) };
   }
 
-  // The reading — the claim rows the Findings tab renders, grouped by cross-source standing
-  // (contested first, then corroborated, then single-source — the same grouping the old
-  // right-rail ledger used), each carrying its verbatim passage. This is the "content" the
-  // topic overview was missing: not a summary, the sentences themselves, gated and traced.
-  _mvpReading() {
-    const app = this._app;
-    if (!app || !app.findings) return { rows: [], count: 0 };
-    let claims = [];
-    try { claims = ((app.findings() || { claims: [] }).claims) || []; } catch { claims = []; }
-    const ST = this.MVP_ST;
-    const groups = { cont: [], corr: [], single: [] };
-    claims.forEach((c) => { (groups[this._mvpBucket(c.status)] || groups.single).push(c); });
-    const order = [['cont', 'Contested'], ['corr', 'Corroborated'], ['single', 'Single source']];
-    const rows = [];
-    order.forEach(([k, label]) => {
-      const list = groups[k]; if (!list.length) return;
-      const st = ST[k];
-      rows.push({ isGroup: true, isClaim: false, label, count: String(list.length), color: st.c, halo: st.c + '22' });
-      list.slice().reverse().slice(0, 20).forEach((c) => {
-        const chip = this._stChip ? this._stChip(c.status) : { fg: st.c, bg: st.bg, bd: 'transparent' };
-        const srcTitle = (app.sourceBySn && app.sourceBySn(c.sn) || {}).title || '';
-        rows.push({
-          isGroup: false, isClaim: true,
-          text: c.text,
-          stLabel: c.status, stFg: chip.fg, stBg: chip.bg, stBd: chip.bd,
-          srcReg: c.reg || (c.sn != null ? 'S-' + c.sn : ''),
-          srcTitle,
-          quote: c.quote || '', hasQuote: !!(c.quote && c.quote !== c.text),
-          onTap: (c.sn != null) ? () => this._mvpOpenClaim(c) : () => {},
-        });
-      });
-    });
-    return { rows, count: claims.length };
-  }
+  // THE READING is now the mounted holon (see _mvpFrameTree + _mvpMountLedger above) — the flat
+  // group-by-standing row builder it used to be was replaced by the real collapsible ledger, so the
+  // claim count is read straight off findings and the rows are the ledger's own to render.
 
   // ── the wiki-style lede — one sentence + a lead paragraph, read off the topic's primary
   // source via the SAME fold→summary pipeline every source Overview and entity profile uses
@@ -12807,11 +12869,20 @@ class Component extends DCLogic {
       const claims = this._mvpClaims();
       const meaning = this._mvpMeaningData(claims, headline);
       const cast = this._mvpCast();
-      const reading = this._mvpReading();
       const lede = this._mvpLede(cards);
       const topicsVm = this._mvpTopics();
       const entityCount = cast.count;
-      const findingCount = reading.count;
+      const findingCount = (claims || []).length;
+      const hasReading = findingCount > 0;
+      // THE READING as the HOLON projection — buildLedger over a paradigm ⊃ atmosphere tree of the same
+      // claims, mounted as the real collapsible ledger (mountLedger) so it discloses frame-by-frame down
+      // to the base spans. The orbit stays the standing-coloured meaning map — two projections of one reading.
+      const R = window.EO && window.EO.reader;
+      const frames = this._mvpFrameTree(claims);
+      const ledger = (R && R.buildLedger) ? R.buildLedger({ query: headline, frames }) : { nodes: [], byId: {}, roots: [] };
+      // The two folded-in cards' own light/dark switch — one palette, three surfaces (card chrome, orbit, ledger).
+      const dark = st.mvpTheme === 'dark';
+      const cardVars = this._mvpCardVars(dark);
       // the wiki-style infobox — key facts about the topic as it currently reads.
       const infobox = [
         { k: 'Sources', v: scopeLine },
@@ -12819,9 +12890,12 @@ class Component extends DCLogic {
         { k: 'Findings', v: String(findingCount) },
         { k: 'Cross-source', v: (settled + contested) + ' weighed · ' + contested + ' contested' },
       ];
-      // A cheap remount key so the orbit only rebuilds when its bodies actually change — derived from
-      // the projection already computed (id + colour per node), never a fresh graph pass per render.
-      const stageKey = (t ? t.id : 'none') + '~' + meaning.nodes.map((n) => n.id + n.color).join('|');
+      // Cheap remount keys so the orbit and ledger only rebuild when their bodies (or the theme) change,
+      // never on an unrelated re-render — the ledger owns its collapse state, so a needless remount would
+      // fold every open frame shut. The theme rides both keys so a flip re-themes both surfaces.
+      const themeTag = dark ? 'd' : 'l';
+      const stageKey = (t ? t.id : 'none') + '~' + themeTag + '~' + meaning.nodes.map((n) => n.id + n.color).join('|');
+      const ledgerKey = (t ? t.id : 'none') + '~' + themeTag + '~' + ledger.nodes.map((n) => n.id + ':' + (n.claims ? n.claims.length : 0)).join('|');
       return {
         // left rail
         mvpWsInitial: ov.wsInitial || '·', mvpWsDot: ov.wsDot || '#6D5EF5',
@@ -12853,19 +12927,23 @@ class Component extends DCLogic {
         mvpLedeHas: lede.has, mvpLedePending: !!lede.pending,
         mvpBriefShow: lede.hasBrief, mvpBriefText: lede.briefText,
         mvpLedeShow: lede.hasLede, mvpLedeText: lede.ledeText, mvpLedeBadge: lede.ledeBadgeLabel,
-        // MEANING SPACE — the orbit, folded in from the old right rail (light-themed now that it
-        // sits in the main column — see _mvpMountStage)
-        mvpSetStage: (el) => this._mvpMountStage(el, meaning, stageKey),
+        // MEANING SPACE — the orbit, folded in from the old right rail. Light by default; the two
+        // cards' theme toggle can flip it (and the reading) dark — see _mvpMountStage / _mvpCardVars.
+        mvpSetStage: (el) => this._mvpMountStage(el, meaning, stageKey, dark),
         mvpMeaningCounts: meaning.countsLabel,
         mvpHasMeaning: claims.length > 0,
         mvpUseClassic: () => this._useShell('classic'),
+        // light/dark for the two folded-in cards (meaning space + the reading)
+        mvpCardVars: cardVars, mvpThemeDark: dark, mvpThemeLight: !dark,
+        mvpToggleTheme: () => { const next = st.mvpTheme === 'dark' ? 'light' : 'dark'; this.setState({ mvpTheme: next }); try { localStorage.setItem('eo_mvp_theme', next); } catch {} },
         // ── centre content — the older surfaces folded in ──
         mvpInfobox: infobox,
         mvpCast: cast.rows, mvpCastCount: String(entityCount),
         mvpHasCast: cast.rows.length > 0,
         mvpCastBars: cast.bars, mvpHasCastBars: cast.bars.length > 0,
-        mvpReading: reading.rows, mvpReadingCount: String(findingCount),
-        mvpHasReading: reading.rows.length > 0,
+        // THE READING — the holon, mounted (paradigm ⊃ atmosphere ⊃ claim ⊃ base span)
+        mvpSetReading: (el) => this._mvpMountLedger(el, ledger, dark, ledgerKey),
+        mvpReadingCount: String(findingCount), mvpHasReading: hasReading,
         mvpUseMvp: () => this._useShell('mvp'),
       };
     } catch (e) {
@@ -12881,10 +12959,12 @@ class Component extends DCLogic {
         mvpBriefShow: false, mvpBriefText: '',
         mvpLedeShow: false, mvpLedeText: '', mvpLedeBadge: '',
         mvpSetStage: () => {}, mvpMeaningCounts: '', mvpHasMeaning: false,
+        mvpCardVars: this._mvpCardVars(this.state.mvpTheme === 'dark'), mvpThemeDark: this.state.mvpTheme === 'dark', mvpThemeLight: this.state.mvpTheme !== 'dark',
+        mvpToggleTheme: () => { const next = this.state.mvpTheme === 'dark' ? 'light' : 'dark'; this.setState({ mvpTheme: next }); try { localStorage.setItem('eo_mvp_theme', next); } catch {} },
         mvpAddSource: () => {}, mvpUpload: () => { try { this.pickFile(); } catch {} },
         mvpInfobox: [], mvpCast: [], mvpCastCount: '0', mvpHasCast: false,
         mvpCastBars: [], mvpHasCastBars: false,
-        mvpReading: [], mvpReadingCount: '0', mvpHasReading: false,
+        mvpSetReading: () => {}, mvpReadingCount: '0', mvpHasReading: false,
         mvpUseClassic: () => this._useShell('classic'), mvpUseMvp: () => this._useShell('mvp'),
       };
     }

@@ -189,7 +189,9 @@ export const mountLedger = (host, opts = {}) => {
 
   const render = () => {
     root.innerHTML = '';
-    root.appendChild(Object.assign(doc.createElement('div'), { className: 'eo-lg__head', textContent: 'THE LEDGER · claims by frame' }));
+    // The kicker + intro are on by default; a host that already frames this surface with its own
+    // section header (index.html's THE READING card) passes head:false / intro:false to drop them.
+    if (o.head !== false) root.appendChild(Object.assign(doc.createElement('div'), { className: 'eo-lg__head', textContent: 'THE LEDGER · claims by frame' }));
     if (o.intro !== false) root.appendChild(Object.assign(doc.createElement('div'), { className: 'eo-lg__intro', textContent: 'The reading, as an outline — each claim sits inside the lens, atmosphere and paradigm it belongs to, and carries how it stands against the sources. Tap a frame to pivot the meaning space; tap a claim to read its base spans.' }));
     const rows = visibleRows();
     if (!rows.length) { root.appendChild(Object.assign(doc.createElement('div'), { className: 'eo-lg__empty', textContent: 'No claims in scope yet.' })); return; }
