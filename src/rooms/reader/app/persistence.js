@@ -160,7 +160,12 @@ export const installPersistence = (appCtx) => {
       // background, at the moments recovery is likely to work, instead of on the next question's
       // critical path. Browser-only, like the prewarm; the 30s watch is a few property reads
       // when nothing is wrong.
-      document.addEventListener('visibilitychange', () => { if (!document.hidden) appCtx.healModel(); });
+      // A backgrounded tab is the same lost-GPU-device risk a bfcache restore is (keeper.js) —
+      // isLoaded() answers true for a zombie engine either way — so clicking back in gets the
+      // same probe-verified path as pageshow, not the trust-isLoaded() healModel() alone. Without
+      // this, the zombie is only caught when the next question stalls out the full watchdog
+      // window, which is what reads as "it doesn't load back quickly".
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) appCtx.verifyRestoredModel(); });
       window.addEventListener('online', () => appCtx.healModel());
       window.addEventListener('pageshow', (e) => { if (e && e.persisted) appCtx.verifyRestoredModel(); });
       setInterval(() => appCtx.healModel(), appCtx.HEAL_WATCH_MS);
