@@ -15,6 +15,9 @@
 //   render    the narrow-panel + hero HTML view
 //   network-article  a corpus-level Network article — sources linked by what they
 //             corroborate, built bottom-up from Link members (docs/terrain-typed-templates.md)
+//   from-profile  adapter: the live reader's entityProfile() packet → an article
+//             (docs/entity-panel-terrain-hero.md) — the one non-engine module in this
+//             holon; it exists only to feed renderArticle from a pre-existing data shape.
 
 export { TERRAINS, TERRAIN_NAMES, profileOf, identityKeyOf, sameArticle, foldFacets } from './terrains.js';
 export { SPINE, HELIX_POSITION, slotOf, contractOf, sectionFor, sectionsOf } from './spine.js';
@@ -26,3 +29,4 @@ export { renderArticle, ledeAt } from './project.js';
 export { proposeMigration, applyMigration, migrationPathsFrom } from './migrate.js';
 export { articleView, renderArticleHTML, promoteToHero, accentOf, WIKI_PANEL_CSS } from './render.js';
 export { buildSourceLinks, topologyOf, buildNetworkArticle, networkGraphData } from './network-article.js';
+export { profileToEventLog, articleFromProfile } from './from-profile.js';

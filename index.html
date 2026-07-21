@@ -4174,6 +4174,15 @@ table{border-collapse:collapse;width:100%}
                     <div ref="{{ viewer.dossier.setEntityDagEl }}"></div>
                   </div>
                 </sc-if>
+
+                <!-- the TERRAIN-TYPED HERO (docs/entity-panel-terrain-hero.md) — the same
+                     Site-face article render src/wiki/render.js already proves out in
+                     probes/wiki-terrain-demo.html and tests/wiki.test.js, now reading a live
+                     entity. Additive: everything above (summary, Wikipedia referent, entity
+                     DAG) is unchanged. One flag in _sourceDossierVM turns this block off. -->
+                <sc-if value="{{ viewer.dossier.hasWikiHero }}">
+                  <div style="margin-top:14px" ref="{{ viewer.dossier.setWikiHeroEl }}"></div>
+                </sc-if>
               </div>
             </sc-if>
 
@@ -10088,6 +10097,18 @@ class Component extends DCLogic {
       hasEntityDag: neighbors.length > 0,
       setEntityDagEl: (el) => this._mountEntityDag(el, { label, neighbors },
         'edag:' + docId + '#' + entId + '#' + neighbors.length),
+      // The terrain-typed hero (docs/entity-panel-terrain-hero.md) — an ADDITIVE render
+      // alongside everything above; nothing existing here is removed or replaced. One flag,
+      // flip to false to pull it without touching markup. app.heroArticleFor is pure/sync
+      // (src/wiki/from-profile.js), so this costs nothing extra to compute per render.
+      ...(() => {
+        const WIKI_HERO_ENABLED = true;
+        const article = (WIKI_HERO_ENABLED && app.heroArticleFor) ? app.heroArticleFor(docId, entId) : null;
+        return {
+          hasWikiHero: !!article,
+          setWikiHeroEl: (el) => this._mountWikiHero(el, article, 'hero:' + docId + '#' + entId),
+        };
+      })(),
     };
   }
   // Kick the dominant figure's Wikipedia lookup (referent + lead image) exactly once, deferred a
@@ -10147,6 +10168,26 @@ class Component extends DCLogic {
     el.__edagKey = key;
     try { this._renderEntityDag(el, data); }
     catch (e) { el.innerHTML = ''; el.__edagKey = null; }
+  }
+  // _mountWikiHero — same guard idiom as _mountEntityDag (a keyed, idempotent DOM write on
+  // the element itself, not on `this`, since an inline ref callback's identity changes every
+  // render). window.EO.wiki.renderArticleHTML is pure string-in/string-out (src/wiki/render.js);
+  // this only injects its scoped CSS once per page and writes the returned markup. A null
+  // article (entity not yet resolved, or the flag is off) clears the slot rather than leaving
+  // stale content. docs/entity-panel-terrain-hero.md.
+  _mountWikiHero(el, article, key) {
+    if (!el) return;
+    if (el.__heroKey === key) return;
+    el.__heroKey = key;
+    const wiki = window.EO && window.EO.wiki;
+    if (!article || !wiki) { el.innerHTML = ''; return; }
+    if (!document.getElementById('eo-wiki-hero-css')) {
+      const st = document.createElement('style');
+      st.id = 'eo-wiki-hero-css'; st.textContent = wiki.WIKI_PANEL_CSS;
+      document.head.appendChild(st);
+    }
+    try { el.innerHTML = wiki.renderArticleHTML(article, { hero: true }); }
+    catch (e) { el.innerHTML = ''; el.__heroKey = null; }
   }
   _renderEntityDag(el, data) {
     el.innerHTML = '';

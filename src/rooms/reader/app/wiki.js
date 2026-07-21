@@ -6,7 +6,7 @@
 import { projectGraph, operatorsOf, glyphOf } from '../../../core/index.js';
 import { figureSurface, typeReferents } from '../../../perceiver/index.js';
 import { wikiReferent } from '../wiki-referent.js';
-import { networkGraphData } from '../../../wiki/index.js';
+import { networkGraphData, articleFromProfile } from '../../../wiki/index.js';
 
 export const installWiki = (appCtx) => {
   const { client } = appCtx;
@@ -31,6 +31,18 @@ export const installWiki = (appCtx) => {
     }).catch(() => null).then((def) => { wikiCache.set(key, def); return def; });
     wikiCache.set(key, pending);
     return pending;
+  };
+
+  // heroArticleFor(docId, entId) — the SAME entity profile, read through src/wiki/'s
+  // terrain-typed article projection instead of the Wikipedia-referent lookup above.
+  // Pure and synchronous (entityProfile already is; the adapter is pure) — no cache
+  // needed, matching project.js's own "never cached, a fresh projection every call"
+  // discipline. Returns null for an unresolved entity, never a fabricated shell.
+  // docs/entity-panel-terrain-hero.md is the spec this wires.
+  const heroArticleFor = (docId, entId) => {
+    const p = appCtx.entityProfile(docId, entId);
+    if (!p || !p.label) return null;
+    return articleFromProfile(p, { terrain: 'Entity' });
   };
 
   // When a source entered the record, in epoch-ms — the graphs' time axis reads this off
@@ -224,5 +236,5 @@ export const installWiki = (appCtx) => {
 
   // srcTimeMs re-exported: the crosswalk surface (app/trajectory.js) needs the SAME "earliest
   // recording" time reading topicTieredData's own node.t uses, rather than a second copy of it.
-  Object.assign(appCtx, { dagSources, entityWiki, tieredData, topicTieredData, networkTieredData, networkOf, wikiCache, srcTimeMs });
+  Object.assign(appCtx, { dagSources, entityWiki, heroArticleFor, tieredData, topicTieredData, networkTieredData, networkOf, wikiCache, srcTimeMs });
 };

@@ -16,4 +16,5 @@ export const CONTRACTS = Object.freeze({
   'src/wiki/render.js': contract({ ops: ['SIG', 'CON'], targets: ['Entity'], products: ['Lens', 'Atmosphere'], stances: ['Binding', 'Tending'], note: 'the narrow-panel + hero article view' }),
   'src/wiki/index.js': contract({ ops: ['SYN', 'SIG'], targets: ['Kind'], products: ['Network', 'Field'], stances: ['Composing', 'Binding'], note: 'the wiki holon barrel' }),
   'src/wiki/network-article.js': contract({ ops: ['SYN', 'DEF'], targets: ['Entity'], products: ['Link', 'Network'], stances: ['Making', 'Composing'], note: 'a corpus-level Network article, built bottom-up from cross-source Links' }),
+  'src/wiki/from-profile.js': contract({ ops: ['SIG', 'INS', 'DEF', 'CON'], targets: ['Entity'], products: ['Lens', 'Field'], stances: ['Making', 'Tracing'], note: 'adapter: the live reader entityProfile() packet folded into an event log renderArticle can project — emits SIG (registration), INS (attestation), DEF (the lede), CON (relations), one synthetic event per profile field, never a fabricated REC' }),
 });
