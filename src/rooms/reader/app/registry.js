@@ -87,7 +87,11 @@ export const installRegistry = (appCtx) => {
     const src = {
       sn: id, reg: `S-${String(appCtx.sn).padStart(4, '0')}`,
       docId: doc?.docId || `doc-${shaShort(hash)}`,
-      title: title || url || 'Untitled', url, domain: url ? domainOf(url) : (kind === 'file' || kind === 'audio' || kind === 'video' ? 'local file' : 'pasted text'),
+      // A file upload passes `rights: 'local file'` regardless of its modality (`kind` is the
+      // reading's modality — text/pdf/table/… — not "how it arrived", so checking `kind` here used
+      // to mislabel every uploaded PDF/text/table/etc. as "pasted text"). Real pasted/typed text
+      // (ingestText) never sets `rights`, so it still reads as `local` and keeps its own label.
+      title: title || url || 'Untitled', url, domain: url ? domainOf(url) : (rights === 'local file' ? 'local file' : 'pasted text'),
       kind, retrieved: nowIso(), recordedAt: nowMs(), sha: hash, bytes: bytesOf(body),
       rights: rights || (url ? 'web — verify before reuse' : 'local'),
       // parentSn: a page reached by following a link inside another source's site is recorded as a
