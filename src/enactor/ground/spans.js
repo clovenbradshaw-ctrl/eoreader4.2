@@ -38,19 +38,28 @@ export const CITE_VERBATIM = 0.6;
 // a citation there severs it from the claim it is meant to carry — the exact failure that retired the
 // essay pipeline (eo-gen.js). So below the verbatim floor the passage must actually WITNESS the claim:
 // classifyProvenance asks the propositional question (the SAME figures in the SAME relation, coref by
-// label) that raw overlap cannot. A near-verbatim overlap needs no such check — it is the lift itself.
+// label) that raw overlap cannot.
+//
+// A near-verbatim SCORE alone still isn't a free pass once the claim parses into a checkable
+// proposition: "chose A over B" and "chose B over A" share every token (identical bag of words,
+// reordered), so lexical overlap can't distinguish the true claim from its false inversion — only
+// the propositional check can. The floor only stands on its own when there is NOTHING to check
+// (no proposition parsed at all — a bare name, a fragment, a copular aside): there, "near-verbatim
+// score, nothing structural to weigh it against" is rightly treated as the lift itself.
 //
 // Fail SAFE, not silent: a parse fault (or an empty parse the caller cannot interpret) must never cost
 // a citation on its own, so on any throw we degrade to the lexical verdict the caller already had. The
 // gate only ever DEMOTES a match that made lexical contact but no propositional one — it never invents
-// a citation, and it never fires above the verbatim floor.
+// a citation.
 export const citationHolds = (claim, passageText, lexScore) => {
-  if (!(lexScore < CITE_VERBATIM)) return true;   // near-verbatim (or NaN) → a genuine lift, it stands
+  let c;
   try {
-    return classifyProvenance(String(claim ?? ''), [String(passageText ?? '')]).anyWitnessed;
+    c = classifyProvenance(String(claim ?? ''), [String(passageText ?? '')]);
   } catch {
     return true;   // the parser must never be the reason a citation is dropped
   }
+  if (!(lexScore < CITE_VERBATIM) && !c.propositions.length) return true;   // near-verbatim, nothing structural to check
+  return c.anyWitnessed;
 };
 
 // The content terms a span binds on — the same shape the reader's _researchTerms and the
@@ -173,8 +182,21 @@ export const groundSpans = (spans, { passages = [], doc = null, minOverlap = 0.3
       // definitive deny, 'witnessed' a definitive pass); else whether the CITED PASSAGE itself
       // witnesses the claim (citationHolds — the SAME propositional gate the render binder reads,
       // one rule for the inline citation and the badge alike). A parse fault degrades to the lift.
-      if (wit === 'void' && lex.score < CITE_VERBATIM) return llm(text, 'assertion');
-      if (lex.score >= CITE_VERBATIM || wit === 'witnessed') return sourced(text, { ...lex.passage, score: lex.score });
+      // An explicit doc-level 'void' is authoritative: classifyProvenance looked at this
+      // exact claim's own proposition(s), against the doc's coref-intact graph, and found no
+      // witness — so a bag-of-words overlap score does not get to override that. "Armstrong
+      // chose Purdue over Cincinnati" (false) scores the SAME lexical overlap as the true
+      // "chose Cincinnati over Purdue" (identical multiset of words, reordered), so letting a
+      // high score readmit it here would defeat the doc-witness check for exactly the claims
+      // it exists to catch.
+      if (wit === 'void') return llm(text, 'assertion');
+      if (wit === 'witnessed') return sourced(text, { ...lex.passage, score: lex.score });
+      // No doc verdict to consult (wit === null: no doc supplied, or a parse gap) — the cited
+      // PASSAGE is the only witness available. citationHolds carries the same near-verbatim
+      // floor this used to apply directly, but structurally: it only lets a high score stand
+      // on its own when the claim has no checkable proposition at all (a fragment/name/aside);
+      // once a proposition parses, score alone can no longer paper over an unwitnessed one —
+      // the same comparative-reordering failure mode, closed once instead of twice.
       if (citationHolds(text, lex.passage.text, lex.score)) return sourced(text, { ...lex.passage, score: lex.score });
       return llm(text, 'assertion');
     }

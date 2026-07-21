@@ -381,17 +381,48 @@ const passiveParticiple = (rest) => {
 // "reboot" NP head. Truncating here lets the NP head ("reboot") win, and attributionEdges
 // records Carter as the SIG source separately.
 const ATTRIBUTION_CUT = /\b(?:per|according to|as per|citing)\s+/i;
-const objectEntities = (text, admission, excludeId) => {
+// Comparative/exclusion connectives — "chose A over B", "preferred A to B", "picked A instead
+// of B": on the surface this reads as an ordinary SVO with two objects (objectEntities finds
+// both A and B as admitted entities in the post-verb text), so without this check both bond to
+// the verb the same way and "chose A over B" / "chose B over A" parse to the IDENTICAL pair of
+// relations — neither entity marked as the one that lost. The connective directly preceding the
+// second (or later) entity marks it EXCLUDED: still bonded (total capture — B is still read,
+// still an edge, never silently dropped) but with NEGATIVE polarity on the existing
+// polarity/modality channel (`polmod`), so "chose A over B" reads as chose(A) ∧ ¬chose(B) rather
+// than chose(A) ∧ chose(B). Once a connective fires, later entities in the same list stay
+// excluded too ("over B and C") — they are the rejected group, not a fresh coordination.
+// Anchored at the END, not the start: the connective must directly govern the entity it
+// precedes, but an NP can sit between the FIRST object and it ("chose Cincinnati's aerospace
+// program OVER Purdue" — the between-text is "'s aerospace program over ", which ends in the
+// connective even though it doesn't start with one).
+const EXCLUSION_CONNECTIVE = /\b(?:rather\s+than|instead\s+of|as\s+opposed\s+to|over)\s*$/i;
+// Bare "to" only marks exclusion after a comparison verb ("preferred A TO B"); elsewhere ("gave
+// the letter to Mary") "to" marks an ordinary indirect object, so it is gated on the verb rather
+// than treated as an exclusion connective on its own.
+const COMPARISON_TO_VERB = new Set(['prefer', 'prefers', 'preferred', 'favor', 'favors', 'favored', 'favour', 'favours', 'favoured']);
+const TO_CONNECTIVE = /\bto\s*$/i;
+// Known gap, left for a later pass: a LEADING contrastive ("Unlike B, A chose…") puts the
+// rejected figure before the subject, outside objectEntities' post-verb scope entirely — this
+// only catches the trailing comparative, not that construction.
+const objectEntities = (text, admission, excludeId, verb = null) => {
   const cut = text.match(ATTRIBUTION_CUT);
   const scope = cut ? text.slice(0, cut.index) : text;
   const out = [];
   const seen = new Set([excludeId]);
+  let prevEnd = null;
+  let excluding = false;
   for (const e of scanEntities(scope)) {
     if (!admission.isAdmitted(e.label)) continue;
     const id = admission.idOf(e.label);
     if (seen.has(id)) continue;
     seen.add(id);
-    out.push({ id, label: e.label, start: e.start, end: e.end });
+    if (prevEnd != null) {
+      const between = scope.slice(prevEnd, e.start);
+      if (EXCLUSION_CONNECTIVE.test(between)) excluding = true;
+      else if (verb && COMPARISON_TO_VERB.has(verb) && TO_CONNECTIVE.test(between)) excluding = true;
+    }
+    out.push({ id, label: e.label, start: e.start, end: e.end, excluded: excluding });
+    prevEnd = e.end;
   }
   return out;
 };
@@ -710,20 +741,21 @@ export const parseRelations = (sentence, admission, coref = {}, opts = {}) => {
           // Shared object: a named patient if present (excluding the subjects), else
           // the NP head — the SAME object both conjuncts converge on. One edge per
           // conjunct to it.
-          const named = objectEntities(head.rest, admission, null)
+          const named = objectEntities(head.rest, admission, null, head.verb)
                           .filter(o => !coord.subjects.some(su => su.id === o.id));
           const targets = named.length
-            ? named.map(o => ({ id: o.id, start: o.start, end: o.end, kind: undefined }))
+            ? named.map(o => ({ id: o.id, start: o.start, end: o.end, kind: undefined, excluded: o.excluded }))
             : (() => { const np = wantReferents ? npObject(head.rest, npGuards) : null;
                        return np ? [{ id: np.lemma, start: np.start, end: np.end, kind: 'np' }] : []; })();
           for (const t of targets) {
             const oStart = restBase + t.start, oEnd = restBase + t.end;
             const object = { text: s.slice(oStart, oEnd), start: oStart, end: oEnd, id: t.id };
             const verb   = { text: head.verb, start: base + coord.end + head.at, end: restBase };
+            const pol = t.excluded ? { polarity: '−' } : polmod(head);
             for (const su of coord.subjects) {
               const subject = { text: su.text, start: base + su.start, end: base + su.end, id: su.id };
               out.push(graded({ op, src: su.id, tgt: t.id, via: head.verb,
-                         ...(t.kind ? { tgtKind: t.kind } : {}), ...polmod(head),
+                         ...(t.kind ? { tgtKind: t.kind } : {}), ...pol,
                          coord: true, args: { subject, verb, object, op } },
                        clauseSite || 'coordSubject', 'name', t.kind));
             }
@@ -871,10 +903,11 @@ export const parseRelations = (sentence, admission, coref = {}, opts = {}) => {
       const cw = coupling(csub);
       const subject = { text: csub.text, start: base + csub.start, end: base + csub.end, id: csub.id };
       let bonded = false;
-      for (const obj of objectEntities(head.rest, admission, csub.id)) {
+      for (const obj of objectEntities(head.rest, admission, csub.id, head.verb)) {
         const oStart = restBase + obj.start, oEnd = restBase + obj.end;
         const object = { text: s.slice(oStart, oEnd), start: oStart, end: oEnd, id: obj.id };
-        out.push(graded({ op, src: csub.id, tgt: obj.id, via: head.verb, ...cw, ...polmod(head), args: { subject, verb, object, op } },
+        const pol = obj.excluded ? { polarity: '−' } : polmod(head);
+        out.push(graded({ op, src: csub.id, tgt: obj.id, via: head.verb, ...cw, ...pol, args: { subject, verb, object, op } },
                  clauseSite || 'main', csub.kind));
         bonded = true;
       }

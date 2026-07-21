@@ -31,9 +31,24 @@
 // label, relations by operator/verb; verbatim is the one place a literal span check is
 // correct, because verbatim IS about the surface.
 
-import { parseText } from '../../perceiver/parse/index.js';
+import { parseText, nameTokens, isSubsequence } from '../../perceiver/parse/index.js';
+
+// Same figure, possibly under a shorter name — "Atlas" ⊑ "Project Atlas" (name-variants.js's
+// token-subsequence containment, the SAME rule the within-document alias folds on), not naive
+// substring: "purdue" and "cincinnati" share no tokens, so a role-swapped comparative claim
+// still fails this, while a claim keying on a document's own shortened reference still passes.
+const sameFigure = (a, b) => {
+  if (a === b) return true;
+  if (a == null || b == null) return false;
+  const ta = nameTokens(a), tb = nameTokens(b);
+  return isSubsequence(ta, tb) || isSubsequence(tb, ta);
+};
 
 // the propositions of a text — subject–relation–object bonds, figures as lowercased labels.
+// `neg` carries the parser's polarity channel: a comparative/exclusion reading ("chose A over
+// B") bonds the rejected figure with polarity '−' (relations.js), so "B" here means "NOT B",
+// not a second, equally-asserted object — the distinction the OLD shape (no neg field) erased,
+// making "chose A over B" and "chose B over A" produce the identical prop set.
 const propsOf = (text) => {
   const doc = parseText(String(text || ''), { docId: 'prov' });
   const events = doc.log.snapshot();
@@ -43,7 +58,7 @@ const propsOf = (text) => {
   const props = [];
   for (const e of events) {
     if ((e.op === 'CON' || e.op === 'SIG') && e.via && e.src != null) {
-      props.push({ subj: L(e.src), via: String(e.via).toLowerCase(), obj: e.tgt != null ? L(e.tgt) : null });
+      props.push({ subj: L(e.src), via: String(e.via).toLowerCase(), obj: e.tgt != null ? L(e.tgt) : null, neg: e.polarity === '−' });
     }
   }
   return props;
@@ -65,7 +80,7 @@ const docPropositions = (doc, spanIdxs = null) => {
       // reafference (the model's interpretation — an EOT note, which cannot witness). Prose
       // events carry no door → exafference (the text WAS the world read), so prose is unchanged.
       const door = e.door ?? e.prov?.door ?? 'perceiver';
-      props.push({ subj: L(e.src), via: String(e.via).toLowerCase(), obj: e.tgt != null ? L(e.tgt) : null, door });
+      props.push({ subj: L(e.src), via: String(e.via).toLowerCase(), obj: e.tgt != null ? L(e.tgt) : null, door, neg: e.polarity === '−' });
     }
   }
   return props;
@@ -81,14 +96,21 @@ const docPropositions = (doc, spanIdxs = null) => {
 export const classifyProvenance = (answer, source = []) => {
   const fromDoc = source && !Array.isArray(source) && source.doc;
   const spans = Array.isArray(source) ? source : (source.spans || source.doc?.sentences || []);
-  const spanLC = spans.map((s) => String(s).toLowerCase());   // for the verbatim substring check only
+  // Each span's OWN structural reading — the verbatim ground truth. Re-parsed independently
+  // (not read off docProps/the doc graph) because verbatim is specifically about what THIS one
+  // span's surface supports, the same scope the old substring check ran over — just read as a
+  // proposition instead of a bag of words.
+  const spanProps = spans.map((sp) => propsOf(String(sp)));
   const docProps = fromDoc ? docPropositions(source.doc, source.spanIdxs) : spans.flatMap(propsOf);
   // GROUNDED requires the same RELATION between the same FIGURES, not merely the same figures:
   // "Gregor married Grete" is fabricated even though the doc relates Gregor and Grete, because
   // it relates them by other verbs — the meaning of a proposition is its relation, not just
   // who it is about. Figures are order-insensitive (a passive/role-swapped rewording still
-  // grounds: "Ben was trusted by Anna" ↔ "Anna trusted Ben"); the relation must match.
-  const relKey = (p) => `${[p.subj, p.obj || ''].sort().join('~')}|${p.via}`;
+  // grounds: "Ben was trusted by Anna" ↔ "Anna trusted Ben"); the relation must match — and, so
+  // a comparative's rejected figure ("chose A over B") never grounds a claim asserting it was
+  // chosen, the polarity must match too: a proposition and its negation are different relations,
+  // not the same relation twice.
+  const relKey = (p) => `${[p.subj, p.obj || ''].sort().join('~')}|${p.via}|${p.neg ? 'neg' : 'pos'}`;
   const docRel = new Set(docProps.map(relKey));
   // the relations the WORLD witnesses — grounded by at least one exafferent (perceiver) doc
   // event. A relation present only through reafference (the model's EOT notes) is grounded but
@@ -108,7 +130,17 @@ export const classifyProvenance = (answer, source = []) => {
   const spansAreWorld = !(fromDoc && source.doc?.eot);
 
   const out = propsOf(answer).map((p) => {
-    const inSpan = spanLC.some((s) => s.includes(p.subj) && s.includes(p.via) && (!p.obj || s.includes(p.obj)));
+    // VERBATIM is a per-span STRUCTURAL match — the same subject, relation, object, AND
+    // polarity, read off one span in isolation — not "do these three words all occur somewhere
+    // in the span" (the old substring test): that reads "chose Purdue" as verbatim against a
+    // span reading "chose Cincinnati over Purdue" (every token present, wrong clause), and would
+    // do the same for any role-swap ("the janitor fired the CEO" against "the CEO fired the
+    // janitor" — same three words, opposite relation). Requiring the actual parsed tuple closes
+    // both: a claim only reads verbatim off a span that independently parses to it.
+    const inSpan = spanProps.some((props) => props.some((q) =>
+      sameFigure(q.subj, p.subj) && q.via === p.via &&
+      (p.obj == null ? q.obj == null : sameFigure(q.obj, p.obj)) &&
+      !!q.neg === !!p.neg));
     const grounded = docRel.has(relKey(p));
     const grounding = inSpan ? 'verbatim' : grounded ? 'grounded' : 'fabricated';
     // the GROUND each proposition stands on — nothing is groundless: a lifted claim stands on
