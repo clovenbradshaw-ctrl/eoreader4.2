@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  pickTextFormat, parseGutendex, gutenbergTextUrl, gutenbergBookUrl,
-  GUTENBERG_FULLTEXT, looksLikeBook, stripGutenbergBoilerplate,
+  pickTextFormat, parseGutendex, gutenbergTextUrl, gutenbergBookUrl, gutenbergEpubUrl,
+  GUTENBERG_FULLTEXT, looksLikeBook, stripGutenbergBoilerplate, readGutenbergBook, fetchGutenbergBook,
 } from '../src/organs/ingest/gutenberg.js';
 
 // THE GUTENBERG SEARCH READS THE ACTUAL .txt, NEVER PG's MALFORMED REDIRECT / A LANDING PAGE.
@@ -99,4 +99,82 @@ test('GUTENBERG_FULLTEXT: reads the id from the ebooks URL when no textUrl/id is
   const text = await GUTENBERG_FULLTEXT.gutenberg(fakeClient(), { source: 'gutenberg', url: 'https://www.gutenberg.org/ebooks/84' });
   assert.ok(looksLikeBook(text));
   assert.match(text, /You will rejoice to hear/);
+});
+
+// ── EPUB-first ingestion ─────────────────────────────────────────────────────────────────────
+// gutenbergEpubUrl is the stable direct file, never the catalog's redirect form.
+test('gutenbergEpubUrl: the stable direct "-images.epub" file, matching the cache .txt pattern', () => {
+  assert.equal(gutenbergEpubUrl(84), 'https://www.gutenberg.org/cache/epub/84/pg84-images.epub');
+  assert.doesNotMatch(gutenbergEpubUrl(84), /\/ebooks\//, 'never the catalog redirect form');
+});
+
+// A fake EPUB archive (the same shape epub.test.js exercises directly) with its own PG START/END
+// markers — proves the boilerplate strip runs on the EPUB path exactly as it does for .txt.
+const EPUB_CONTAINER = '<container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>';
+const EPUB_OPF = `<package>
+  <metadata><dc:title xmlns:dc="x">Frankenstein</dc:title></metadata>
+  <manifest>
+    <item id="hdr" href="header.html" media-type="application/xhtml+xml"/>
+    <item id="c1" href="chapter1.html" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine><itemref idref="hdr"/><itemref idref="c1"/></spine>
+</package>`;
+const EPUB_ENTRIES = {
+  'META-INF/container.xml': EPUB_CONTAINER,
+  'OEBPS/content.opf': EPUB_OPF,
+  'OEBPS/header.html': '<p>Title: Frankenstein</p><p>Author: Mary Shelley</p>'
+    + '<p>*** START OF THE PROJECT GUTENBERG EBOOK FRANKENSTEIN ***</p>',
+  'OEBPS/chapter1.html': '<p>' + 'You will rejoice to hear that no disaster has accompanied the start. '.repeat(10) + '</p>'
+    + '<p>*** END OF THE PROJECT GUTENBERG EBOOK FRANKENSTEIN ***</p><p>License text follows.</p>',
+};
+
+// A client that can fetch bytes (any non-empty payload — the fake `unzip` below ignores the
+// actual bytes and returns the fixed archive above, so the test never needs a real zip file).
+const epubClient = ({ bytesOk = true, txtOk = true } = {}) => ({
+  fetchUrlBytes: async (url) => ({ url, bytes: bytesOk ? new Uint8Array([1, 2, 3]) : new Uint8Array(0), ok: bytesOk }),
+  fetchUrl: async (url) => ({ url, text: txtOk ? REAL_BOOK : HTML_404, ok: txtOk, status: txtOk ? 200 : 404 }),
+});
+const fakeUnzip = () => EPUB_ENTRIES;
+
+test('readGutenbergBook: reads the EPUB when bytes+unzip are available, boilerplate stripped', async () => {
+  const text = await readGutenbergBook(84, { client: epubClient(), unzip: fakeUnzip });
+  assert.ok(looksLikeBook(text));
+  assert.match(text, /You will rejoice to hear/);
+  assert.match(text, /Author: Mary Shelley/);
+  assert.doesNotMatch(text, /License text follows/, 'the EPUB footer chapter is stripped like the .txt footer');
+});
+
+test('readGutenbergBook: falls back to the canonical .txt when the client has no fetchUrlBytes', async () => {
+  // No `fetchUrlBytes` on the client at all (an older/minimal client) — readGutenbergEpub must
+  // no-op rather than throw, and the .txt path still delivers the book.
+  const text = await readGutenbergBook(84, { client: { fetchUrl: epubClient().fetchUrl } });
+  assert.ok(looksLikeBook(text));
+  assert.match(text, /You will rejoice to hear/);
+});
+
+test('readGutenbergBook: falls back to .txt when the EPUB bytes fetch fails', async () => {
+  const text = await readGutenbergBook(84, { client: epubClient({ bytesOk: false }), unzip: fakeUnzip });
+  assert.ok(looksLikeBook(text));
+  assert.match(text, /You will rejoice to hear/);
+});
+
+test('readGutenbergBook: falls back to .txt when unzip throws (no zip support / corrupt archive)', async () => {
+  const throwingUnzip = () => { throw new Error('not a zip'); };
+  const text = await readGutenbergBook(84, { client: epubClient(), unzip: throwingUnzip });
+  assert.ok(looksLikeBook(text));
+  assert.match(text, /You will rejoice to hear/);
+});
+
+test('readGutenbergBook: empty string when both the EPUB and the .txt fail', async () => {
+  const client = { fetchUrlBytes: async () => ({ ok: false, bytes: new Uint8Array(0) }),
+                    fetchUrl: async () => { throw new Error('network down'); } };
+  const text = await readGutenbergBook(84, { client, unzip: fakeUnzip });
+  assert.equal(text, '');
+});
+
+test('fetchGutenbergBook: admits the EPUB-derived book when bytes+unzip are available', async () => {
+  const admitted = await fetchGutenbergBook('84', { client: epubClient(), unzip: fakeUnzip });
+  assert.ok(admitted?.doc);
+  assert.match(admitted.doc.text, /You will rejoice to hear/);
+  assert.equal(admitted.record.title, 'Frankenstein');
 });

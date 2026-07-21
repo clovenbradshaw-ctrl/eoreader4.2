@@ -40,8 +40,12 @@ export { directCorsUrl } from './direct-cors.js';
 // The library sources: Project Gutenberg (search the catalog, read ENTIRE BOOKS as needed) and
 // the Wikimedia reference shelf — every sister project plus Wikidata — as search kinds that ride
 // the same fetch-through-proxy, admit-with-provenance path (docs/web-search.md).
-export { fetchGutenbergBook, stripGutenbergBoilerplate, gutenbergIdOf,
+export { fetchGutenbergBook, readGutenbergBook, stripGutenbergBoilerplate, gutenbergIdOf,
+         gutenbergEpubUrl, gutenbergTextUrl, gutenbergBookUrl,
          GUTENBERG_SOURCES, GUTENBERG_FULLTEXT } from './gutenberg.js';
+// EPUB parsing core — the OPF/spine reader epub.js exports for testing and for any caller that
+// wants to read an already-unzipped EPUB archive directly.
+export { epubTextFromEntries, parseOpf, parseContainerPath } from './epub.js';
 // YouTube — a video's CAPTIONS read as a timestamped, groundable transcript. Two GET fetches
 // (the watch page, then the chosen caption track's json3 payload), no media pipeline touched.
 export { fetchYoutubeTranscript, youtubeIdOf, youtubeWatchUrl, parsePlayerResponse,

@@ -111,8 +111,14 @@ export const installIngest = (appCtx) => {
           throw new Error('this PDF has no recoverable text');
         }
         if (gutenbergIdOf(norm) != null) {
-          const src = admitWhole(await fetchGutenbergBook(norm, { client: bound, fetched_at: nowIso() }));
+          const bytesBound = { ...bound, fetchUrlBytes: (u, o = {}) => client.fetchUrlBytes(u, { signal, ...o }) };
+          const src = admitWhole(await fetchGutenbergBook(norm, { client: bytesBound, fetched_at: nowIso() }));
           if (src) return src;
+          // A Gutenberg URL that couldn't be read as a book (EPUB unreadable AND the canonical
+          // .txt failed too) must never fall through to the generic page-fetch below — `norm` is
+          // typically the /ebooks/{id} OVERVIEW page, and admitting that landed the exact bug this
+          // guards against: the "book" turning out to be Gutenberg's site chrome, not the novel.
+          throw new Error('this Project Gutenberg book could not be read (no readable EPUB or plain-text edition)');
         }
         if (youtubeIdOf(norm) != null) {
           const src = admitWhole(await fetchYoutubeTranscript(norm, { client: bound, fetched_at: nowIso() }));
