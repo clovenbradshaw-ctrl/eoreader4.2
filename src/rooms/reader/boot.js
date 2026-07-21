@@ -81,6 +81,7 @@ import { mountResearchReview } from './research-review-surface.js';
 import * as binvis from '../../surfaces/binvis/index.js';
 import { createPipelineSurface } from './pipeline-surface.js';
 import * as evidence from './evidence.js';
+import { renderArticleHTML, WIKI_PANEL_CSS } from '../../wiki/index.js';
 const audit = createAuditLog({ capacity: 200 });   // deep enough to audit a session; the ring's bytes, not its count, were the cost
 // The peripheral sense (src/murmur, docs/murmur.md) — a continuously-running, near-zero-cost
 // background faculty that watches the same fold geometry the turn emits and raises IMPRESSIONS
@@ -352,6 +353,12 @@ window.EO = Object.freeze({
   // Research Review (docs/research-review.md) — a search result becomes a provisional, inspectable
   // corpus (discovered/reviewed/admitted) before anything joins a real topic. Mounted, binvis-style.
   researchReview: Object.freeze({ mount: mountResearchReview }),
+  // the terrain-typed article renderer (docs/terrain-typed-templates.md, src/wiki/render.js)
+  // — pure string-in/string-out, so the dc surface can render a hero without importing
+  // engine internals. app.heroArticleFor(docId, entId) (rooms/reader/app/wiki.js) supplies
+  // the article; this is only the render function + its scoped CSS.
+  // (docs/entity-panel-terrain-hero.md)
+  wiki: Object.freeze({ renderArticleHTML, WIKI_PANEL_CSS }),
   firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
   evidence,   // the evidence-modal contract — a waveform mark → the five-region modal shape (docs/omnimodal-waveform.md)
   projectTranscript, wordsToText,   // the interactive transcript fold (baseline + edits/redactions → live reading)
