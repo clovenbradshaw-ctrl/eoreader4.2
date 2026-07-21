@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EO Reader — the reading room</title>
+<link rel="icon" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{ --sans:'Onest',system-ui,sans-serif; --serif:'Newsreader',Georgia,serif; --mono:'JetBrains Mono',ui-monospace,Menlo,monospace; }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;background:#e9e9ee;font-family:var(--sans);color:#1b1b1f;}
+  #bar{display:flex;align-items:center;gap:10px;padding:9px 14px;background:#17171a;color:#fff;font-size:12px;}
+  #bar b{font-weight:600;letter-spacing:.02em;}
+  #bar .sp{flex:1;}
+  #bar button{background:#2a2a30;color:#cfcfd6;border:1px solid #3a3a42;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
+  #bar button.on{background:#6355f2;color:#fff;border-color:#6355f2;}
+  #frame{height:calc(100% - 39px);width:100%;}
+  #mount{height:100%;width:100%;background:#f4f4f6;}
+  #mount.mobile{max-width:430px;margin:0 auto;box-shadow:0 0 0 1px #dcdce2;}
+  .fallback{padding:40px 20px;color:#8b93a2;max-width:70ch;font-family:var(--sans);}
+  .fallback code{font-family:var(--mono);color:#6355f2;}
+</style>
+</head>
+<body>
+<div id="bar">
+  <b>EO Reader · the reading room</b>
+  <span style="opacity:.6;">one corpus, two widths — the reading (paradigm ⊃ atmosphere ⊃ lens) and its standing, clickable all the way down to the base spans</span>
+  <span class="sp"></span>
+  <button id="bDesktop" class="on">Desktop</button>
+  <button id="bMobile">Mobile</button>
+</div>
+<div id="frame"><div id="mount"><div class="fallback">Loading the reading room… if this stays, serve the folder over HTTP (<code>npm run serve</code>) so the ES modules load — opening the file directly will not work.</div></div></div>
+
+<script type="module">
+  import { mountReaderSurface, anchorFor, resolveAnchor } from './src/rooms/reader/index.js';
+
+  // ── the worked example, as the holon reading (integration guide §0) ──────────────────────────
+  // The reading is a paradigm ⊃ atmosphere ⊃ lens tree; each claim carries the verbatim base spans
+  // that witness it. The one fact everyone agrees on (filings FELL) is corroborated across three
+  // origins; the CAUSE is contested; the judgments question is a scoped void. Standings are DERIVED
+  // from independent origins (honest: a source repeating itself is not two origins) except the
+  // cross-frame rival, which is explicitly contested because it opposes a sibling paradigm.
+  const S = {
+    'S-1': { sn:'S-1', docId:'d1', sha:'sha-1', host:'nashville-scene.com',
+      text:'Filings dropped sharply once the moratorium took effect. Advocates warned thousands still faced removal once protections lapsed. Families reported staying housed only because filings had stopped. The moratorium caused the decline, tenant groups said.' },
+    'S-2': { sn:'S-2', docId:'d2', sha:'sha-2', host:'tncourts.gov/dockets',
+      text:'Total eviction filings fell 38% during the order period. Filing volume tracked the order’s start and end dates closely. 2,140 filings the prior year fell to 1,327 during the order. The CDC order suspended certain evictions but not all case types.' },
+    'S-4': { sn:'S-4', docId:'d4', sha:'sha-4', host:'landlordvoice.org',
+      text:'The moratorium caused the decline, landlords conceded, even as they disputed the policy. Filings did fall during the order.' },
+    'S-5': { sn:'S-5', docId:'d5', sha:'sha-5', host:'contributor.org',
+      text:'A court backlog, not the order, drove the decline in cases. Clerks cited staffing gaps and a paused docket through the summer. Pending caseload rose even as new filings dropped. Total eviction filings fell during the order period. The CDC order suspended certain evictions but not all case types.' },
+  };
+  const sp = (sn, quote) => ({ sn, host: S[sn].host, docId: S[sn].docId, quote });
+
+  const frames = [
+    { id:'polic', tier:'paradigm', label:'Policy-cause frame', color:'#f0a02a', claims:[
+        // three verbatim origins agree filings FELL → corroborated (derived from independent origins)
+        { text:'Eviction filings fell about 38% during the moratorium period.',
+          rows:[sp('S-1','Filings dropped sharply once the moratorium took effect.'),
+                sp('S-2','Total eviction filings fell 38% during the order period.'),
+                sp('S-5','Total eviction filings fell during the order period.')] },
+      ], children:[
+      { id:'advoc', tier:'atmosphere', label:'Advocacy', color:'#7c74e6', claims:[
+          { text:'Filing volume tracked the order’s start and end dates closely.', ...spread(sp('S-2','Filing volume tracked the order’s start and end dates closely.')) } ],
+        children:[
+        { id:'counts', tier:'lens', label:'Filing counts', color:'#35c98f', claims:[
+          { text:'2,140 filings the prior year fell to 1,327 during the order.', ...spread(sp('S-2','2,140 filings the prior year fell to 1,327 during the order.')) } ] } ] },
+      { id:'alarm', tier:'atmosphere', label:'Alarm', color:'#8078e8', claims:[
+          { text:'Advocates warned thousands still faced removal once protections lapsed.', ...spread(sp('S-1','Advocates warned thousands still faced removal once protections lapsed.')) } ],
+        children:[
+        { id:'tenant', tier:'lens', label:'Tenant impact', color:'#38cf93', claims:[
+          { text:'Families reported staying housed only because filings had stopped.', ...spread(sp('S-1','Families reported staying housed only because filings had stopped.')) } ] } ] },
+      ] },
+    { id:'court', tier:'paradigm', label:'Court-backlog frame', color:'#e8842a', claims:[
+        { text:'A court backlog, not the order, drove the decline in cases.', standing:'contested',
+          rival:{ text:'The moratorium caused the decline.', sns:['S-1','S-4'] },
+          ...spread(sp('S-5','A court backlog, not the order, drove the decline in cases.')) } ],
+      children:[
+      { id:'proc', tier:'atmosphere', label:'Procedural', color:'#8a6fd6', claims:[
+          { text:'Clerks cited staffing gaps and a paused docket through the summer.', ...spread(sp('S-5','Clerks cited staffing gaps and a paused docket through the summer.')) } ],
+        children:[
+        { id:'load', tier:'lens', label:'Caseload', color:'#3fc0b0', claims:[
+          { text:'Pending caseload rose even as new filings dropped.', ...spread(sp('S-5','Pending caseload rose even as new filings dropped.')) } ] },
+        { id:'statute', tier:'lens', label:'Statute', color:'#3fc0b0', claims:[
+          { text:'The CDC order suspended certain evictions but not all case types.',
+            rows:[sp('S-2','The CDC order suspended certain evictions but not all case types.'), sp('S-5','The CDC order suspended certain evictions but not all case types.')] } ] },
+      ] } ] },
+    { id:'uncovered', tier:'paradigm', label:'Uncovered', void:true, claims:[
+        { text:'No source covers eviction judgments — only filings appear in scope.', quote:'' } ] },
+  ];
+
+  // spread() lets a single-witness claim carry one span row inline without the rows[] boilerplate.
+  function spread(row){ return { rows:[row] }; }
+
+  const sources = [
+    { sn:'S-2', letter:'2', abg:'#eceafd', afg:'#6355f2', host:'tncourts.gov/dockets', contrib:'5 claims · 4 corroborated', active:true, badges:[{t:'RECOMMENDED',c:'#2f7a55',bg:'#dcf0e5'},{t:'PRIMARY',c:'#6355f2',bg:'#ebe9fe'}] },
+    { sn:'S-1', letter:'1', abg:'#e7f0fe', afg:'#2563c9', host:'nashville-scene.com', contrib:'3 claims · 2 corroborated', active:true, badges:[{t:'RECOMMENDED',c:'#2f7a55',bg:'#dcf0e5'}] },
+    { sn:'S-4', letter:'4', abg:'#fbe4d3', afg:'#c2410c', host:'landlordvoice.org', contrib:'2 claims · disputes the cause', active:true, badges:[{t:'DISPUTES',c:'#c2410c',bg:'#fbe4d3'}] },
+    { sn:'S-5', letter:'5', abg:'#f6efd8', afg:'#8a6d1f', host:'contributor.org', contrib:'1 claim · uncorroborated', active:true, badges:[{t:'APPARENT ORIGIN',c:'#8a6d1f',bg:'#f6efd8'}] },
+  ];
+
+  // The REAL span resolver: mint an anchor from the quote and resolve it against the source text —
+  // exactly the anchor.js ladder the app uses. So clicking a base span resolves to an exact offset
+  // (status EXACT), proving the descent is wired to the real machinery, not a stub.
+  const resolveSpan = (span) => {
+    const src = S[span.sn]; if (!src) return null;
+    const a = anchorFor({ src, quote: span.quote }); if (!a) return null;
+    return resolveAnchor(a, src);
+  };
+
+  const reading = { query:'Did the eviction moratorium reduce filings in Nashville?', title:'Did the eviction moratorium reduce filings in Nashville?', sources, frames };
+
+  const mount = document.getElementById('mount');
+  let handle = null;
+  const boot = () => {
+    try {
+      mount.innerHTML = '';
+      handle = mountReaderSurface(mount, { reading, resolveSpan });
+      window.__eoReader = handle;   // for the smoke test
+    } catch (e) {
+      mount.innerHTML = '<div class="fallback">Could not start the reading room: ' + String(e && e.message || e) + '</div>';
+      console.error(e);
+    }
+  };
+  boot();
+
+  // demo width toggle (the surface is also auto-responsive to its container)
+  const bD = document.getElementById('bDesktop'), bM = document.getElementById('bMobile');
+  bD.addEventListener('click', () => { mount.classList.remove('mobile'); bD.classList.add('on'); bM.classList.remove('on'); handle && handle.setMode('desktop'); });
+  bM.addEventListener('click', () => { mount.classList.add('mobile'); bM.classList.add('on'); bD.classList.remove('on'); handle && handle.setMode('mobile'); });
+</script>
+</body>
+</html>
