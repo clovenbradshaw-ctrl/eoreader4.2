@@ -5,7 +5,7 @@
 // prose.
 import { el, renderCandidateCard } from './research-review-cards.js';
 import { ensureStyle } from './research-review-style.js';
-import { mountSolarSystem } from './solar-system.js';
+import { mountSolarSystem, mountSolarExplorer } from './solar-system.js';
 import { questionMeaningData } from './question-result.js';
 
 const FILTERS = [['all', 'All'], ['supported', 'Supported'], ['contested', 'Contested'], ['single_source', 'One source'], ['void', 'Unknown']];
@@ -170,6 +170,63 @@ const renderVerdictCard = (doc, claim, view, { expanded, onToggle, onOpenSource 
   return card;
 };
 
+// renderMeaningDetail(doc, node, { ledger, nodes, view, onOpenSource }, onPivot) → the meaning
+// explorer's bottom-sheet content for whichever body is currently focused: what it is, which other
+// bodies in THIS map you can pivot to next (every other node — the map is flat, sun + claims, so
+// there's no deeper hierarchy to route through), and — for a claim — the real sources that support
+// or contest it, each opening straight to that passage via the same onOpenSource every other source
+// row in this surface already uses. Never fabricates a quote or a relation the ledger doesn't have.
+const renderMeaningDetail = (doc, node, { ledger, nodes, view, onOpenSource }, onPivot) => {
+  const wrap = el(doc, 'div', 'eo-mx-sheetBody');
+  const head = el(doc, 'div', 'eo-mx-sheetHead');
+  const dot = el(doc, 'span', 'eo-mx-dot'); dot.style.background = node.color || '#D7D2F2'; dot.style.color = node.color || '#D7D2F2';
+  head.appendChild(dot);
+  head.appendChild(el(doc, 'span', 'eo-mx-sheetLabel', node.label));
+  wrap.appendChild(head);
+
+  const claim = (node.kind === 'claim' && node.id.startsWith('c:')) ? ledger.find((c) => c.id === node.id.slice(2)) : null;
+  const about = claim
+    ? (claim.verdict === 'contested' ? `Contested — ${claim.origins} independent origin${claim.origins === 1 ? '' : 's'} disagree.`
+      : claim.verdict === 'supported' ? `Supported by ${claim.origins} independent origin${claim.origins === 1 ? '' : 's'}.`
+      : claim.verdict === 'single_source' ? 'Stated by one source only — nothing else corroborates it yet.'
+      : 'Not established by these sources.')
+    : 'The question this map is scoped to — every claim here orbits it.';
+  wrap.appendChild(el(doc, 'div', 'eo-mx-about', about));
+
+  const pivots = nodes.filter((n) => n.id !== node.id);
+  if (pivots.length) {
+    wrap.appendChild(el(doc, 'span', 'eo-mx-pivotLabel', 'PIVOT TO'));
+    const row = el(doc, 'div', 'eo-mx-pivotRow');
+    for (const p of pivots) {
+      const chip = el(doc, 'button', 'eo-mx-pivotChip', p.label);
+      chip.style.setProperty('--pv-color', p.color || '#D7D2F2');
+      chip.addEventListener('click', () => onPivot(p.id));
+      row.appendChild(chip);
+    }
+    wrap.appendChild(row);
+  }
+
+  if (claim) {
+    const roster = [...claim.support.map((w) => ({ ...w, tag: 'supports' })), ...claim.contest.map((w) => ({ ...w, tag: 'contests' }))];
+    if (roster.length) {
+      wrap.appendChild(el(doc, 'span', 'eo-mx-srcLabel', `IN THE SOURCES · ${roster.length}`));
+      const list = el(doc, 'div', 'eo-mx-srcList');
+      for (const w of roster) {
+        const rowBtn = el(doc, 'button', 'eo-mx-srcRow');
+        const idLine = el(doc, 'span');
+        idLine.appendChild(el(doc, 'span', 'eo-mx-srcId', w.sn));
+        idLine.appendChild(el(doc, 'span', 'eo-mx-srcHost', sourceLabel(w.sn, view)));
+        rowBtn.appendChild(idLine);
+        if (w.cell && w.cell.display) rowBtn.appendChild(el(doc, 'div', 'eo-mx-srcQuote', w.cell.display));
+        rowBtn.addEventListener('click', () => onOpenSource && onOpenSource(w.sn));
+        list.appendChild(rowBtn);
+      }
+      wrap.appendChild(list);
+    }
+  }
+  return wrap;
+};
+
 // renderFeedback(doc, view, { loading, onRefine }) → the result read back as one paragraph.
 // `view.reading` (research-review.js researchReading) is the machinery's own deterministic,
 // falsifiable sentences — never generated — joined as-is by default (the telegram, always
@@ -194,7 +251,11 @@ const renderFeedback = (doc, view, { loading = false, onRefine = null } = {}) =>
 export const mountResearchReview = (host, { app, topicId, onClose = () => {}, onOpenSource = null } = {}) => {
   const doc = host.ownerDocument || document; ensureStyle(doc);
   const root = el(doc, 'div', 'eo-rr__body eo-qr'); root.setAttribute('role', 'main'); root.setAttribute('aria-label', 'Question Result'); host.appendChild(root);
-  let curTopicId = topicId, filter = 'all', verifyingAnswer = false, feedbackLoading = false, meaningExpanded = false; const expanded = new Set(); const announce = (m) => { try { app.showToast ? app.showToast(m) : null; } catch {} };
+  // meaningFocus survives across render()'s full root.innerHTML rebuild (mountSolarSystem itself
+  // remounts fresh every render — see the note below) so a click that locks the orbital camera on
+  // a claim stays locked instead of snapping back to the sun the instant the click's own onSelect
+  // triggers this page's next render.
+  let curTopicId = topicId, filter = 'all', verifyingAnswer = false, feedbackLoading = false, meaningFocus = null; const expanded = new Set(); const announce = (m) => { try { app.showToast ? app.showToast(m) : null; } catch {} };
   const verifyAnswer = () => {
     if (verifyingAnswer || !app.reviewVerifyAnswer) return;
     verifyingAnswer = true; render();
@@ -244,8 +305,18 @@ export const mountResearchReview = (host, { app, topicId, onClose = () => {}, on
       const card = el(doc, 'div', 'eo-qr__meaningCard');
       const head = el(doc, 'div', 'eo-qr__meaningHead');
       head.appendChild(el(doc, 'span', 'eo-qr__meaningKicker', 'QUESTION-SCOPED'));
-      const toggle = el(doc, 'button', 'eo-rr__btn eo-rr__btn--sm', meaningExpanded ? 'Collapse' : 'Explore ›');
-      toggle.addEventListener('click', () => { meaningExpanded = !meaningExpanded; render(); });
+      const toggle = el(doc, 'button', 'eo-rr__btn eo-rr__btn--sm', 'Explore ›');
+      toggle.addEventListener('click', () => {
+        try {
+          mountSolarExplorer(doc, {
+            ...meaningData, subtitle: view.query,
+            focusId: meaningFocus, onFocus: (id) => { meaningFocus = id; },
+            onSelect: onMeaningSelect,
+            onOpen: (node) => { if (node && node.ref && node.ref.sn) onOpenSource && onOpenSource(node.ref.sn); },
+            renderDetail: (node, onPivot) => renderMeaningDetail(doc, node, { ledger, nodes: meaningData.nodes, view, onOpenSource }, onPivot),
+          });
+        } catch { announce('Meaning explorer failed to open.'); }
+      });
       head.appendChild(toggle);
       card.appendChild(head);
       const stage = el(doc, 'div', 'eo-qr__meaningStage');
@@ -255,11 +326,15 @@ export const mountResearchReview = (host, { app, topicId, onClose = () => {}, on
       // document) so solar-system.js's own root.isConnected liveness check reads correctly from
       // the first frame. This whole page rebuilds on every interaction (root.innerHTML = '' above),
       // so the map remounts on every render — it self-tears-down (see solar-system.js's own header)
-      // rather than leaking a orphaned rAF loop; the live orbital drift simply restarts each time,
-      // an accepted cost of this file's existing full-rebuild render discipline, not a new one.
+      // rather than leaking a orphaned rAF loop; the live orbital drift's TIME simply restarts each
+      // render, an accepted cost of this file's full-rebuild render discipline. The camera LOCK does
+      // NOT restart, though: meaningFocus (above) is threaded back in as focusId, so clicking a claim
+      // — which selects it, which triggers this very render() — keeps that claim centred instead of
+      // snapping back to the sun on remount.
       try {
         mountSolarSystem(stage, {
-          ...meaningData, width: 460, height: meaningExpanded ? 420 : 190,
+          ...meaningData, width: 460, height: 190,
+          focusId: meaningFocus, onFocus: (id) => { meaningFocus = id; },
           onSelect: onMeaningSelect,
           onOpen: (node) => { if (node && node.ref && node.ref.sn) onOpenSource && onOpenSource(node.ref.sn); },
         });
