@@ -1260,10 +1260,13 @@ table{border-collapse:collapse;width:100%}
         </div>
         <div style="max-height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;margin:0 -6px">
           <sc-for list="{{ mvpTopics }}" as="tp">
-            <button onClick="{{ tp.onTap }}" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:{{ tp.bg }};border:none;border-radius:8px;padding:6px 8px;cursor:pointer;font-family:inherit" style-hover="background:#f2f2f5">
-              <span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:{{ tp.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tp.title }}</span>
-              <span style="flex:none;font-size:10px;color:#a6a6ae">{{ tp.meta }}</span>
-            </button>
+            <div style="display:flex;align-items:center;gap:2px;border-radius:8px;background:{{ tp.bg }}" style-hover="background:#f2f2f5">
+              <button onClick="{{ tp.onTap }}" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;text-align:left;background:none;border:none;padding:6px 8px;cursor:pointer;font-family:inherit">
+                <span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:{{ tp.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tp.title }}</span>
+                <span style="flex:none;font-size:10px;color:#a6a6ae">{{ tp.meta }}</span>
+              </button>
+              <button onClick="{{ tp.doRename }}" title="Rename topic" aria-label="Rename topic" style="flex:none;width:24px;height:24px;margin-right:4px;display:flex;align-items:center;justify-content:center;color:#b4b4be;background:none;border:none;border-radius:6px;cursor:pointer" style-hover="color:#6e6e78;background:#e9e9ee"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg></button>
+            </div>
           </sc-for>
         </div>
       </div>
@@ -9743,7 +9746,7 @@ class Component extends DCLogic {
     const kids = ((app.state && app.state.topics) || []).filter((x) => (x.parentId ?? null) === t.id && x.workspaceId === t.workspaceId);
     const answers = (t.messages || []).filter((m) => m.role === 'assistant' && !m.pending).length;
     const sig = [
-      t.id,
+      t.id, t.title,
       all.map((s) => `${s.sn}:${s.entCount}:${disabled.has(s.sn)}:${s.retrieved || ''}`).join('|'),
       kids.length, answers,
     ].join('~');
@@ -12530,6 +12533,7 @@ class Component extends DCLogic {
           bg: active ? '#f1effe' : 'transparent', fg: active ? '#4b3fd0' : '#2f2f36',
           meta: (t.sourceSns || []).length + ' source' + ((t.sourceSns || []).length === 1 ? '' : 's'),
           onTap: () => { app.setTopic(t.id); this.setTab && this.setTab('topic'); },
+          doRename: () => { const v = prompt('Rename topic', t.title); if (v) app.topicRename(t.id, v); },
         };
       });
     } catch { rows = []; }
