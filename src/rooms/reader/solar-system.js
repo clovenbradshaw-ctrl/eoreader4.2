@@ -67,7 +67,7 @@ const CSS = `
 .eo-ss input[type=range].ss-scrub{width:110px;accent-color:var(--ink,#15181e);cursor:pointer;height:4px;}
 `;
 
-export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [], centreId = null, spans = [], count = 0, onPivot = null, onSelect = null, onOpen = null, onSpan = null, countsLabel = '', width = 700, height = 470 } = {}) {
+export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [], centreId = null, spans = [], count = 0, onPivot = null, onSelect = null, onOpen = null, onSpan = null, onFocus = null, focusId = null, countsLabel = '', width = 700, height = 470 } = {}) {
   if (!document.getElementById(STYLE_ID)) {
     const st = document.createElement('style'); st.id = STYLE_ID; st.textContent = CSS; document.head.appendChild(st);
   }
@@ -115,7 +115,7 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   // mFocus is the meaning level's OWN camera anchor — separate from `sun` (the entity POV the
   // structure/existence levels and onPivot use), since re-anchoring onto a claim never fetches
   // new data, it just re-centres the same already-loaded bodies.
-  const state = { depth: 0, level: 0, playing: true, simTime: 0, mFocus: sun.id, sel: null };
+  const state = { depth: 0, level: 0, playing: true, simTime: 0, mFocus: (focusId && byId[focusId]) ? focusId : sun.id, sel: null };
   const pan = { x: 0, y: 0 };
 
   // ── shell ──────────────────────────────────────────────────────────────────
@@ -202,8 +202,12 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   }
   // The meaning-level camera pivot: re-anchor to id, snap the frame immediately (even
   // paused), and mirror the usual selection detail so the footer still names what's focused.
+  // onFocus fires BEFORE select()/onSelect() — a host that re-renders (and so remounts this
+  // whole component) in response to selection needs the new focus id already in hand so the
+  // next mount can seed `focusId` and keep the camera locked instead of snapping back to the sun.
   function focusMeaning(id) {
     state.mFocus = id; placeMeaning();
+    if (onFocus) { try { onFocus(id); } catch { /* best-effort */ } }
     const n = byId[id]; if (n) select(n);
   }
 
@@ -368,7 +372,7 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   wrap.querySelectorAll('[data-lvl]').forEach((c) => c.addEventListener('click', () => setLevel(+c.dataset.lvl)));
   wrap.querySelector('[data-down]').addEventListener('click', () => setLevel(state.level + 1));
   wrap.querySelector('[data-up]').addEventListener('click', () => setLevel(state.level - 1));
-  wrap.querySelector('[data-reset]').addEventListener('click', () => { pan.x = pan.y = 0; applyPan(); state.mFocus = sun.id; setLevel(0); if (state.level === 0) renderLevel(); });
+  wrap.querySelector('[data-reset]').addEventListener('click', () => { pan.x = pan.y = 0; applyPan(); state.mFocus = sun.id; if (onFocus) { try { onFocus(sun.id); } catch { /* best-effort */ } } setLevel(0); if (state.level === 0) renderLevel(); });
 
   // ── the live orbital simulation — always runs while playing, never just while you watch:
   // placeMeaning() is a harmless no-op away from the meaning level (no orbiters mounted), so
@@ -412,5 +416,104 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   if (onSelect) { try { onSelect(sun); } catch { /* best-effort */ } }
   void countsEl;
 
-  return { destroy() { if (raf) cancelAnimationFrame(raf); wrap.remove(); } };
+  return {
+    destroy() { if (raf) cancelAnimationFrame(raf); wrap.remove(); },
+    // Lets a host drive the meaning-level camera from OUTSIDE the SVG (e.g. a "pivot to" chip in
+    // an external detail panel) using the exact same lock-at-centre pivot a body click does.
+    focus(id) { if (byId[id] && state.level === 0) focusMeaning(id); },
+  };
+}
+
+// ── mountSolarExplorer ─────────────────────────────────────────────────────────────────────
+// A full-screen, immersive presentation of the SAME live orbital system mountSolarSystem draws —
+// same nodes/edges, same click-to-centre mechanics, same data — for a host whose trigger (a small
+// embedded "Explore ›" card, say) wants the meaning map to open into its own dedicated space
+// instead of staying cramped inline. It does not reimplement the orbit: it mounts a normal
+// mountSolarSystem instance inside a dark full-viewport shell and dark-themes it for free by
+// overriding the SAME CSS custom properties mountSolarSystem's own markup already reads
+// (var(--card), var(--ink), var(--line), var(--app), …) rather than duplicating any of its rules.
+// The one thing it adds beyond the embedded card: a bottom sheet the HOST populates via
+// `renderDetail(node, onPivot)` whenever the live selection changes — solar-system.js stays
+// domain-ignorant (it only knows nodes/edges/tiers), so a claim's witnessing sources and quoted
+// text, which live in the host's own ledger, are the host's to render, not this file's to fake.
+// Appended straight to `doc.body`, mirroring this app's one other full-viewport overlay
+// (rooms/reader/pipeline-surface.js) — same z-index idiom, same "an explicit button is the only
+// way out" convention (no Escape/backdrop-click here either, for consistency with that surface).
+const MX_STYLE_ID = 'eo-mx-style';
+const MX_CSS = `
+.eo-mx-overlay{position:fixed;inset:0;z-index:2147482850;display:flex;flex-direction:column;background:radial-gradient(120% 90% at 50% 38%,#14131f 0%,#0b0b12 62%,#08080e 100%);color:#eceaf5;font-family:var(--sans,system-ui,sans-serif);}
+.eo-mx-head{flex:none;display:flex;align-items:center;gap:12px;padding:16px 18px;}
+.eo-mx-close{flex:none;width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#cfc9ee;cursor:pointer;font-size:15px;line-height:1;}
+.eo-mx-close:hover{background:rgba(255,255,255,0.14);}
+.eo-mx-titles{flex:1;min-width:0;}
+.eo-mx-kicker{font-size:10px;font-weight:700;letter-spacing:1.4px;color:#8b83c9;}
+.eo-mx-title{font-size:13.5px;font-weight:600;color:#f6f4fc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.eo-mx-body{flex:1;min-height:0;position:relative;display:flex;align-items:flex-start;justify-content:center;padding:0 18px 18px;overflow:auto;}
+.eo-mx-stage{--card:#0d0d15;--app:#14131f;--ink:#eceaf5;--ink2:#b8b3d6;--ink3:#7c779e;--line:#242a35;--line2:#2c2a3d;width:100%;max-width:760px;}
+.eo-mx-sheet{flex:none;max-height:44%;overflow-y:auto;background:rgba(18,16,26,0.97);border-top:1px solid rgba(255,255,255,0.09);border-radius:20px 20px 0 0;box-shadow:0 -14px 46px rgba(0,0,0,0.5);}
+.eo-mx-sheetBody{padding:16px 20px 24px;}
+.eo-mx-sheetHead{display:flex;align-items:center;gap:10px;}
+.eo-mx-dot{width:13px;height:13px;border-radius:50%;flex:none;box-shadow:0 0 12px currentColor;}
+.eo-mx-sheetLabel{font-size:15.5px;font-weight:600;color:#f6f4fc;flex:1;min-width:0;}
+.eo-mx-about{font-size:13px;line-height:1.55;color:#c7c2e0;margin-top:10px;}
+.eo-mx-pivotLabel,.eo-mx-srcLabel{display:block;font-size:9.5px;font-weight:700;letter-spacing:0.8px;color:#6f6a90;margin:15px 0 8px;}
+.eo-mx-pivotRow{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;}
+.eo-mx-pivotChip{flex:none;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:7px 12px;cursor:pointer;font-family:inherit;font-size:12px;color:#d8d3ef;}
+.eo-mx-pivotChip:hover{background:rgba(255,255,255,0.09);}
+.eo-mx-pivotChip::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--pv-color,#D7D2F2);flex:none;}
+.eo-mx-srcList{display:flex;flex-direction:column;gap:9px;}
+.eo-mx-srcRow{display:block;width:100%;text-align:left;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:10px 12px;cursor:pointer;font-family:inherit;color:inherit;}
+.eo-mx-srcRow:hover{background:rgba(255,255,255,0.06);}
+.eo-mx-srcId{font-family:var(--mono,ui-monospace,monospace);font-size:10px;font-weight:600;color:#a99bff;background:rgba(124,116,230,0.15);padding:2px 7px;border-radius:5px;margin-right:8px;}
+.eo-mx-srcHost{font-family:var(--mono,ui-monospace,monospace);font-size:11px;color:#7e79a0;}
+.eo-mx-srcQuote{font-size:12.5px;line-height:1.5;color:#d9d5ec;margin-top:6px;}
+`;
+
+export function mountSolarExplorer(doc, { title = 'Meaning', subtitle = '', onClose = null, renderDetail = null, onSelect: userOnSelect = null, ...ssOpts } = {}) {
+  if (!doc.getElementById(MX_STYLE_ID)) {
+    const st = doc.createElement('style'); st.id = MX_STYLE_ID; st.textContent = MX_CSS; doc.head.appendChild(st);
+  }
+  const mk = (t, cls) => { const e = doc.createElement(t); if (cls) e.className = cls; return e; };
+
+  const overlay = mk('div', 'eo-mx-overlay');
+  overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-label', title);
+
+  const head = mk('div', 'eo-mx-head');
+  const closeBtn = mk('button', 'eo-mx-close'); closeBtn.textContent = '←'; closeBtn.setAttribute('aria-label', 'Close ' + title);
+  head.appendChild(closeBtn);
+  const titles = mk('div', 'eo-mx-titles');
+  const kicker = mk('div', 'eo-mx-kicker'); kicker.textContent = title.toUpperCase(); titles.appendChild(kicker);
+  if (subtitle) { const tt = mk('div', 'eo-mx-title'); tt.textContent = subtitle; titles.appendChild(tt); }
+  head.appendChild(titles);
+  overlay.appendChild(head);
+
+  const body = mk('div', 'eo-mx-body');
+  const stageHost = mk('div', 'eo-mx-stage');
+  body.appendChild(stageHost);
+  overlay.appendChild(body);
+
+  const sheet = mk('div', 'eo-mx-sheet'); sheet.style.display = 'none';
+  overlay.appendChild(sheet);
+
+  const showDetail = (node) => {
+    if (!renderDetail || !node) { sheet.style.display = 'none'; return; }
+    sheet.innerHTML = '';
+    sheet.appendChild(renderDetail(node, (id) => { if (ssHandle) ssHandle.focus(id); }));
+    sheet.style.display = '';
+  };
+
+  const ssHandle = mountSolarSystem(stageHost, {
+    ...ssOpts, width: 760, height: 560,
+    onSelect: (node) => { if (userOnSelect) { try { userOnSelect(node); } catch { /* best-effort */ } } showDetail(node); },
+  });
+
+  const close = () => {
+    try { ssHandle.destroy(); } catch { /* best-effort */ }
+    overlay.remove();
+    if (onClose) { try { onClose(); } catch { /* best-effort */ } }
+  };
+  closeBtn.addEventListener('click', close);
+
+  doc.body.appendChild(overlay);
+  return { close, destroy: close };
 }
