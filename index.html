@@ -2273,46 +2273,43 @@ table{border-collapse:collapse;width:100%}
 
                   <!-- FOLD SUMMARY — the same real reading + grounding-link door every other
                        entity profile offers (see _foldSummaryVM); the graph overlay's own
-                       compact inspector just never had this section wired in. -->
+                       compact inspector just never had this section wired in.
+                       has REQUIRES isAi — the deterministic telegram floor never renders here as
+                       if it were a composed reading (a912054's MVP-lede precedent). composing and
+                       the explicit ask are siblings of the AI block, not nested under has, so
+                       neither is stranded while a real draft hasn't landed yet. -->
                   <div style="margin-top:15px">
                     <sc-if value="{{ webProf.foldSummary.has }}">
-                      <sc-if value="{{ webProf.foldSummary.isAi }}">
-                        <div class="eo-ai-summary">
-                          <div class="eo-ai-badge">{{ webProf.foldSummary.badgeLabel }}<sc-if value="{{ webProf.foldSummary.hasGroundDot }}"><span class="dot" title="{{ webProf.foldSummary.groundLabel }}" style="background:{{ webProf.foldSummary.groundDot }}"></span></sc-if></div>
-                          <sc-if value="{{ webProf.foldSummary.hasSpans }}">
-                            <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.55;color:#2A2A32"><sc-for list="{{ webProf.foldSummary.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span onClick="{{ sp.jump }}" title="{{ sp.cite }}" style="cursor:pointer;text-decoration:underline;text-decoration-color:#B7ADF3;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing read witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.plain }}">{{ sp.s }}</sc-if></sc-for></div>
-                            <div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap">
-                              <sc-if value="{{ webProf.foldSummary.anyGrounded }}"><span style="font-size:9.5px;color:#8B84C0">— linked text jumps to its source</span></sc-if>
-                              <sc-if value="{{ webProf.foldSummary.anyFlagged }}"><span style="font-size:9.5px;color:#B08A4A">⋯ dotted — the model's own words, not found in the source</span></sc-if>
-                            </div>
-                          </sc-if>
-                          <sc-if value="{{ !webProf.foldSummary.hasSpans }}">
-                            <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.55;color:#2A2A32">{{ webProf.foldSummary.text }}</div>
-                          </sc-if>
-                        </div>
-                      </sc-if>
-                      <sc-if value="{{ !webProf.foldSummary.isAi }}">
-                        <div style="border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
-                          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                            <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
-                            <sc-if value="{{ webProf.foldSummary.composing }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">reading the fold…</span></sc-if>
+                      <div class="eo-ai-summary">
+                        <div class="eo-ai-badge">{{ webProf.foldSummary.badgeLabel }}<sc-if value="{{ webProf.foldSummary.hasGroundDot }}"><span class="dot" title="{{ webProf.foldSummary.groundLabel }}" style="background:{{ webProf.foldSummary.groundDot }}"></span></sc-if></div>
+                        <sc-if value="{{ webProf.foldSummary.hasSpans }}">
+                          <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.55;color:#2A2A32"><sc-for list="{{ webProf.foldSummary.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span onClick="{{ sp.jump }}" title="{{ sp.cite }}" style="cursor:pointer;text-decoration:underline;text-decoration-color:#B7ADF3;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing read witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.plain }}">{{ sp.s }}</sc-if></sc-for></div>
+                          <div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap">
+                            <sc-if value="{{ webProf.foldSummary.anyGrounded }}"><span style="font-size:9.5px;color:#8B84C0">— linked text jumps to its source</span></sc-if>
+                            <sc-if value="{{ webProf.foldSummary.anyFlagged }}"><span style="font-size:9.5px;color:#B08A4A">⋯ dotted — the model's own words, not found in the source</span></sc-if>
                           </div>
-                          <sc-if value="{{ webProf.foldSummary.composing }}">
-                            <div style="animation:eoFade .2s ease">
-                              <div class="eo-skel" style="height:10px;width:96%;margin-bottom:7px"></div>
-                              <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
-                              <div class="eo-skel" style="height:10px;width:61%"></div>
-                            </div>
-                          </sc-if>
-                          <sc-if value="{{ !webProf.foldSummary.composing }}">
-                            <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.55;color:#2A2A32">{{ webProf.foldSummary.text }}</div>
-                          </sc-if>
+                        </sc-if>
+                        <sc-if value="{{ !webProf.foldSummary.hasSpans }}">
+                          <div style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.55;color:#2A2A32">{{ webProf.foldSummary.text }}</div>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ webProf.foldSummary.composing }}">
+                      <div style="border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                          <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
+                          <span style="font-size:10px;color:#B0AACF;font-style:italic">reading the fold…</span>
                         </div>
-                      </sc-if>
+                        <div style="animation:eoFade .2s ease">
+                          <div class="eo-skel" style="height:10px;width:96%;margin-bottom:7px"></div>
+                          <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
+                          <div class="eo-skel" style="height:10px;width:61%"></div>
+                        </div>
+                      </div>
                     </sc-if>
-                    <sc-if value="{{ !webProf.foldSummary.has }}">
+                    <sc-if value="{{ !webProf.foldSummary.has }}"><sc-if value="{{ !webProf.foldSummary.composing }}">
                       <button onClick="{{ webProf.foldSummary.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px" style-hover="background:#E7E3FD">✨ Read the fold — a real summary of this figure</button>
-                    </sc-if>
+                    </sc-if></sc-if>
                   </div>
                 </div>
               </aside>
@@ -3482,45 +3479,41 @@ table{border-collapse:collapse;width:100%}
                  mechanical telegram floor (summaryBadge() only badges via==='model'). -->
             <sc-if value="{{ viewer.showFoldSummary }}">
               <div style="flex:0 0 auto;border-bottom:1px solid #EAEAEF;padding:11px 20px">
+                <!-- has REQUIRES isAi (see _foldSummaryVM) — the deterministic telegram floor
+                     never renders here as if it were a composed reading; composing and the
+                     explicit ask are siblings, not nested under has. -->
                 <sc-if value="{{ viewer.foldSummary.has }}">
-                  <sc-if value="{{ viewer.foldSummary.isAi }}">
-                    <div class="eo-ai-summary">
-                      <div class="eo-ai-badge">{{ viewer.foldSummary.badgeLabel }}<sc-if value="{{ viewer.foldSummary.hasGroundDot }}"><span class="dot" title="{{ viewer.foldSummary.groundLabel }}" style="background:{{ viewer.foldSummary.groundDot }}"></span></sc-if></div>
-                      <sc-if value="{{ viewer.foldSummary.hasSpans }}">
-                        <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32"><sc-for list="{{ viewer.foldSummary.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span onClick="{{ sp.jump }}" title="{{ sp.cite }}" style="cursor:pointer;text-decoration:underline;text-decoration-color:#B7ADF3;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing read witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.plain }}">{{ sp.s }}</sc-if></sc-for></div>
-                        <div style="display:flex;gap:12px;margin-top:5px;flex-wrap:wrap">
-                          <sc-if value="{{ viewer.foldSummary.anyGrounded }}"><span style="font-size:9.5px;color:#8B84C0">— linked text jumps to its source</span></sc-if>
-                          <sc-if value="{{ viewer.foldSummary.anyFlagged }}"><span style="font-size:9.5px;color:#B08A4A">⋯ dotted — the model's own words, not found in the source</span></sc-if>
-                        </div>
-                      </sc-if>
-                      <sc-if value="{{ !viewer.foldSummary.hasSpans }}">
-                        <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32">{{ viewer.foldSummary.text }}</div>
-                      </sc-if>
-                    </div>
-                  </sc-if>
-                  <sc-if value="{{ !viewer.foldSummary.isAi }}">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                      <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
-                      <sc-if value="{{ viewer.foldSummary.composing }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">reading the fold…</span></sc-if>
-                    </div>
-                    <!-- LOADING — the deterministic telegram is machinery, not prose (subject-verb- -->
-                    <!-- object triples with no discourse glue); a skeleton stands in rather than -->
-                    <!-- flashing it while a warm local model is about to turn it into a real reading. -->
-                    <sc-if value="{{ viewer.foldSummary.composing }}">
-                      <div style="animation:eoFade .2s ease">
-                        <div class="eo-skel" style="height:10px;width:96%;margin-bottom:7px"></div>
-                        <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
-                        <div class="eo-skel" style="height:10px;width:61%"></div>
+                  <div class="eo-ai-summary">
+                    <div class="eo-ai-badge">{{ viewer.foldSummary.badgeLabel }}<sc-if value="{{ viewer.foldSummary.hasGroundDot }}"><span class="dot" title="{{ viewer.foldSummary.groundLabel }}" style="background:{{ viewer.foldSummary.groundDot }}"></span></sc-if></div>
+                    <sc-if value="{{ viewer.foldSummary.hasSpans }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32"><sc-for list="{{ viewer.foldSummary.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span onClick="{{ sp.jump }}" title="{{ sp.cite }}" style="cursor:pointer;text-decoration:underline;text-decoration-color:#B7ADF3;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing read witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.plain }}">{{ sp.s }}</sc-if></sc-for></div>
+                      <div style="display:flex;gap:12px;margin-top:5px;flex-wrap:wrap">
+                        <sc-if value="{{ viewer.foldSummary.anyGrounded }}"><span style="font-size:9.5px;color:#8B84C0">— linked text jumps to its source</span></sc-if>
+                        <sc-if value="{{ viewer.foldSummary.anyFlagged }}"><span style="font-size:9.5px;color:#B08A4A">⋯ dotted — the model's own words, not found in the source</span></sc-if>
                       </div>
                     </sc-if>
-                    <sc-if value="{{ !viewer.foldSummary.composing }}">
+                    <sc-if value="{{ !viewer.foldSummary.hasSpans }}">
                       <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32">{{ viewer.foldSummary.text }}</div>
                     </sc-if>
-                  </sc-if>
+                  </div>
                 </sc-if>
-                <sc-if value="{{ !viewer.foldSummary.has }}">
+                <!-- LOADING — the deterministic telegram is machinery, not prose (subject-verb- -->
+                <!-- object triples with no discourse glue); a skeleton stands in rather than -->
+                <!-- flashing it while a warm local model is about to turn it into a real reading. -->
+                <sc-if value="{{ viewer.foldSummary.composing }}">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
+                    <span style="font-size:10px;color:#B0AACF;font-style:italic">reading the fold…</span>
+                  </div>
+                  <div style="animation:eoFade .2s ease">
+                    <div class="eo-skel" style="height:10px;width:96%;margin-bottom:7px"></div>
+                    <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
+                    <div class="eo-skel" style="height:10px;width:61%"></div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ !viewer.foldSummary.has }}"><sc-if value="{{ !viewer.foldSummary.composing }}">
                   <button onClick="{{ viewer.foldSummary.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px" style-hover="background:#E7E3FD">✨ Read the fold — a real summary of this source</button>
-                </sc-if>
+                </sc-if></sc-if>
               </div>
             </sc-if>
 
@@ -3600,42 +3593,37 @@ table{border-collapse:collapse;width:100%}
                     </sc-for>
                   </div>
                 </sc-if>
+                <!-- has REQUIRES isAi (see _foldSummaryVM) — never the telegram floor as if it
+                     were a composed reading; composing and the explicit ask are siblings. -->
                 <sc-if value="{{ viewer.waveRange.has }}">
-                  <sc-if value="{{ viewer.waveRange.isAi }}">
-                    <div class="eo-ai-summary">
-                      <div class="eo-ai-badge">{{ viewer.waveRange.badgeLabel }}<sc-if value="{{ viewer.waveRange.hasGroundDot }}"><span class="dot" title="{{ viewer.waveRange.groundLabel }}" style="background:{{ viewer.waveRange.groundDot }}"></span></sc-if></div>
-                      <sc-if value="{{ viewer.waveRange.hasSpans }}">
-                        <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32"><sc-for list="{{ viewer.waveRange.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span onClick="{{ sp.jump }}" title="{{ sp.cite }}" style="cursor:pointer;text-decoration:underline;text-decoration-color:#B7ADF3;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing read witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.plain }}">{{ sp.s }}</sc-if></sc-for></div>
-                        <div style="display:flex;gap:12px;margin-top:5px;flex-wrap:wrap">
-                          <sc-if value="{{ viewer.waveRange.anyGrounded }}"><span style="font-size:9.5px;color:#8B84C0">— linked text jumps to its source</span></sc-if>
-                          <sc-if value="{{ viewer.waveRange.anyFlagged }}"><span style="font-size:9.5px;color:#B08A4A">⋯ dotted — the model's own words, not found in the source</span></sc-if>
-                        </div>
-                      </sc-if>
-                      <sc-if value="{{ !viewer.waveRange.hasSpans }}">
-                        <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32">{{ viewer.waveRange.text }}</div>
-                      </sc-if>
-                    </div>
-                  </sc-if>
-                  <sc-if value="{{ !viewer.waveRange.isAi }}">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                      <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">RANGE SUMMARY</span>
-                      <sc-if value="{{ viewer.waveRange.composing }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">reading the fold…</span></sc-if>
-                    </div>
-                    <sc-if value="{{ viewer.waveRange.composing }}">
-                      <div style="animation:eoFade .2s ease">
-                        <div class="eo-skel" style="height:10px;width:96%;margin-bottom:7px"></div>
-                        <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
-                        <div class="eo-skel" style="height:10px;width:61%"></div>
+                  <div class="eo-ai-summary">
+                    <div class="eo-ai-badge">{{ viewer.waveRange.badgeLabel }}<sc-if value="{{ viewer.waveRange.hasGroundDot }}"><span class="dot" title="{{ viewer.waveRange.groundLabel }}" style="background:{{ viewer.waveRange.groundDot }}"></span></sc-if></div>
+                    <sc-if value="{{ viewer.waveRange.hasSpans }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32"><sc-for list="{{ viewer.waveRange.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span onClick="{{ sp.jump }}" title="{{ sp.cite }}" style="cursor:pointer;text-decoration:underline;text-decoration-color:#B7ADF3;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing read witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.plain }}">{{ sp.s }}</sc-if></sc-for></div>
+                      <div style="display:flex;gap:12px;margin-top:5px;flex-wrap:wrap">
+                        <sc-if value="{{ viewer.waveRange.anyGrounded }}"><span style="font-size:9.5px;color:#8B84C0">— linked text jumps to its source</span></sc-if>
+                        <sc-if value="{{ viewer.waveRange.anyFlagged }}"><span style="font-size:9.5px;color:#B08A4A">⋯ dotted — the model's own words, not found in the source</span></sc-if>
                       </div>
                     </sc-if>
-                    <sc-if value="{{ !viewer.waveRange.composing }}">
+                    <sc-if value="{{ !viewer.waveRange.hasSpans }}">
                       <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;line-height:1.55;color:#2A2A32">{{ viewer.waveRange.text }}</div>
                     </sc-if>
-                  </sc-if>
+                  </div>
                 </sc-if>
-                <sc-if value="{{ !viewer.waveRange.has }}">
+                <sc-if value="{{ viewer.waveRange.composing }}">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">RANGE SUMMARY</span>
+                    <span style="font-size:10px;color:#B0AACF;font-style:italic">reading the fold…</span>
+                  </div>
+                  <div style="animation:eoFade .2s ease">
+                    <div class="eo-skel" style="height:10px;width:96%;margin-bottom:7px"></div>
+                    <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
+                    <div class="eo-skel" style="height:10px;width:61%"></div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ !viewer.waveRange.has }}"><sc-if value="{{ !viewer.waveRange.composing }}">
                   <button onClick="{{ viewer.waveRange.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px" style-hover="background:#E7E3FD">✨ Summarize this range</button>
-                </sc-if>
+                </sc-if></sc-if>
               </div>
             </sc-if></sc-if>
 
@@ -4233,46 +4221,41 @@ table{border-collapse:collapse;width:100%}
 
               <!-- FOLD SUMMARY — a REAL reading of THIS figure (scope 'entity': the surf thread-
                    conditioned on it, coref-collapsed, gated referentially and against the record).
-                   Independent of the topline above; never auto-fired (see _foldSummaryVM). -->
+                   Independent of the topline above; never auto-fired (see _foldSummaryVM).
+                   has REQUIRES isAi — never the telegram floor as if it were a composed reading;
+                   composing and the explicit ask are siblings, not nested under has. -->
               <div style="margin-top:13px">
                 <sc-if value="{{ prof.foldSummary.has }}">
-                  <sc-if value="{{ prof.foldSummary.isAi }}">
-                    <div class="eo-ai-summary">
-                      <div class="eo-ai-badge">{{ prof.foldSummary.badgeLabel }}<sc-if value="{{ prof.foldSummary.hasGroundDot }}"><span class="dot" title="{{ prof.foldSummary.groundLabel }}" style="background:{{ prof.foldSummary.groundDot }}"></span></sc-if></div>
-                      <sc-if value="{{ prof.foldSummary.hasSpans }}">
-                        <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32"><sc-for list="{{ prof.foldSummary.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span onClick="{{ sp.jump }}" title="{{ sp.cite }}" style="cursor:pointer;text-decoration:underline;text-decoration-color:#B7ADF3;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing read witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.plain }}">{{ sp.s }}</sc-if></sc-for></div>
-                        <div style="display:flex;gap:12px;margin-top:5px;flex-wrap:wrap">
-                          <sc-if value="{{ prof.foldSummary.anyGrounded }}"><span style="font-size:9.5px;color:#8B84C0">— linked text jumps to its source</span></sc-if>
-                          <sc-if value="{{ prof.foldSummary.anyFlagged }}"><span style="font-size:9.5px;color:#B08A4A">⋯ dotted — the model's own words, not found in the source</span></sc-if>
-                        </div>
-                      </sc-if>
-                      <sc-if value="{{ !prof.foldSummary.hasSpans }}">
-                        <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ prof.foldSummary.text }}</div>
-                      </sc-if>
-                    </div>
-                  </sc-if>
-                  <sc-if value="{{ !prof.foldSummary.isAi }}">
-                    <div style="border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
-                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                        <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
-                        <sc-if value="{{ prof.foldSummary.composing }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">reading the fold…</span></sc-if>
+                  <div class="eo-ai-summary">
+                    <div class="eo-ai-badge">{{ prof.foldSummary.badgeLabel }}<sc-if value="{{ prof.foldSummary.hasGroundDot }}"><span class="dot" title="{{ prof.foldSummary.groundLabel }}" style="background:{{ prof.foldSummary.groundDot }}"></span></sc-if></div>
+                    <sc-if value="{{ prof.foldSummary.hasSpans }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32"><sc-for list="{{ prof.foldSummary.spans }}" as="sp"><sc-if value="{{ sp.grounded }}"><span onClick="{{ sp.jump }}" title="{{ sp.cite }}" style="cursor:pointer;text-decoration:underline;text-decoration-color:#B7ADF3;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.flagged }}"><span title="the model's own words — nothing read witnesses this" style="color:#9A6A1E;text-decoration:underline dotted #D6B36A;text-underline-offset:2px">{{ sp.s }}</span></sc-if><sc-if value="{{ sp.plain }}">{{ sp.s }}</sc-if></sc-for></div>
+                      <div style="display:flex;gap:12px;margin-top:5px;flex-wrap:wrap">
+                        <sc-if value="{{ prof.foldSummary.anyGrounded }}"><span style="font-size:9.5px;color:#8B84C0">— linked text jumps to its source</span></sc-if>
+                        <sc-if value="{{ prof.foldSummary.anyFlagged }}"><span style="font-size:9.5px;color:#B08A4A">⋯ dotted — the model's own words, not found in the source</span></sc-if>
                       </div>
-                      <sc-if value="{{ prof.foldSummary.composing }}">
-                        <div style="animation:eoFade .2s ease">
-                          <div class="eo-skel" style="height:10px;width:96%;margin-bottom:7px"></div>
-                          <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
-                          <div class="eo-skel" style="height:10px;width:61%"></div>
-                        </div>
-                      </sc-if>
-                      <sc-if value="{{ !prof.foldSummary.composing }}">
-                        <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ prof.foldSummary.text }}</div>
-                      </sc-if>
+                    </sc-if>
+                    <sc-if value="{{ !prof.foldSummary.hasSpans }}">
+                      <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ prof.foldSummary.text }}</div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ prof.foldSummary.composing }}">
+                  <div style="border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                      <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
+                      <span style="font-size:10px;color:#B0AACF;font-style:italic">reading the fold…</span>
                     </div>
-                  </sc-if>
+                    <div style="animation:eoFade .2s ease">
+                      <div class="eo-skel" style="height:10px;width:96%;margin-bottom:7px"></div>
+                      <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
+                      <div class="eo-skel" style="height:10px;width:61%"></div>
+                    </div>
+                  </div>
                 </sc-if>
-                <sc-if value="{{ !prof.foldSummary.has }}">
+                <sc-if value="{{ !prof.foldSummary.has }}"><sc-if value="{{ !prof.foldSummary.composing }}">
                   <button onClick="{{ prof.foldSummary.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px" style-hover="background:#E7E3FD">✨ Read the fold — a real summary of this figure</button>
-                </sc-if>
+                </sc-if></sc-if>
               </div>
 
               <!-- The settled referent — demoted below the fold summary and visually marked as an
@@ -4969,27 +4952,31 @@ table{border-collapse:collapse;width:100%}
         <div style="padding:16px 18px 28px">
           <!-- the fold summary — a real reading of this figure, gated + badged exactly like the
                topic lede above (same discipline, docs/fold-summary-pipeline.md). Leads the panel;
-               the Wikipedia referent (an external lookup, not a finding) is demoted below it. -->
+               the Wikipedia referent (an external lookup, not a finding) is demoted below it.
+               has REQUIRES isAi — never the telegram floor as if it were a composed reading;
+               composing and the explicit ask are siblings, not nested under has. -->
           <sc-if value="{{ mvpEnt.prof.foldSummary.has }}">
-            <sc-if value="{{ mvpEnt.prof.foldSummary.isAi }}">
-              <div class="eo-ai-summary" style="margin-bottom:14px">
-                <div class="eo-ai-badge">{{ mvpEnt.prof.foldSummary.badgeLabel }}<sc-if value="{{ mvpEnt.prof.foldSummary.hasGroundDot }}"><span class="dot" title="{{ mvpEnt.prof.foldSummary.groundLabel }}" style="background:{{ mvpEnt.prof.foldSummary.groundDot }}"></span></sc-if></div>
-                <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ mvpEnt.prof.foldSummary.text }}</div>
-              </div>
-            </sc-if>
-            <sc-if value="{{ !mvpEnt.prof.foldSummary.isAi }}">
-              <div style="border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px;margin-bottom:14px">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                  <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
-                  <sc-if value="{{ mvpEnt.prof.foldSummary.composing }}"><span style="font-size:10px;color:#B0AACF;font-style:italic">the local model is composing…</span></sc-if>
-                </div>
-                <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ mvpEnt.prof.foldSummary.text }}</div>
-              </div>
-            </sc-if>
+            <div class="eo-ai-summary" style="margin-bottom:14px">
+              <div class="eo-ai-badge">{{ mvpEnt.prof.foldSummary.badgeLabel }}<sc-if value="{{ mvpEnt.prof.foldSummary.hasGroundDot }}"><span class="dot" title="{{ mvpEnt.prof.foldSummary.groundLabel }}" style="background:{{ mvpEnt.prof.foldSummary.groundDot }}"></span></sc-if></div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ mvpEnt.prof.foldSummary.text }}</div>
+            </div>
           </sc-if>
-          <sc-if value="{{ !mvpEnt.prof.foldSummary.has }}">
+          <sc-if value="{{ mvpEnt.prof.foldSummary.composing }}">
+            <div style="border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px;margin-bottom:14px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
+                <span style="font-size:10px;color:#B0AACF;font-style:italic">the local model is composing…</span>
+              </div>
+              <div style="animation:eoFade .2s ease">
+                <div class="eo-skel" style="height:10px;width:96%;margin-bottom:7px"></div>
+                <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
+                <div class="eo-skel" style="height:10px;width:61%"></div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ !mvpEnt.prof.foldSummary.has }}"><sc-if value="{{ !mvpEnt.prof.foldSummary.composing }}">
             <button onClick="{{ mvpEnt.prof.foldSummary.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px;margin-bottom:14px" style-hover="background:#E7E3FD">✨ Read the fold — a real summary of this figure</button>
-          </sc-if>
+          </sc-if></sc-if>
 
           <!-- the settled Wikipedia referent — demoted below the fold summary, visually marked as
                an external lookup, not a finding: nothing here is something the record witnessed. -->
@@ -9452,8 +9439,12 @@ class Component extends DCLogic {
     // still-modelless floor is a compose in flight, worth a "composing…" note.
     const composing = !!(rec && rec.modelless && app.optionalModel && app.optionalModel());
     const spans = badge.isAi ? this._groundedSpans(rec, sn) : [];
+    // has requires isAi (the MVP lede precedent — never show the deterministic telegram floor
+    // as if it were a composed reading): a badge-less card whose header reads "FOLD SUMMARY"
+    // is a claim of a finished summary, which the mechanical floor isn't. Until a model-voiced
+    // draft clears both firewalls, the card shows only the composing state or the explicit ask.
     return {
-      show: true, has: !!rec, text: rec ? rec.text : '', composing,
+      show: true, has: badge.isAi, text: badge.isAi ? rec.text : '', composing,
       isAi: badge.isAi, badgeLabel: badge.badgeLabel || '',
       hasGroundDot: !!badge.hasGroundDot, groundDot: badge.groundDot || '', groundLabel: badge.groundLabel || '',
       spans, hasSpans: spans.length > 0,
@@ -9495,7 +9486,9 @@ class Component extends DCLogic {
       clear: () => this.clearWaveSelect(sn),
       hasEntities: entities.length > 0, entities,
       generate: () => this.generateRangeSummary(sn),
-      has: !!rec, text: rec ? rec.text : '', composing: !!(rec && rec.modelless && app.optionalModel && app.optionalModel()),
+      // has requires isAi — see _foldSummaryVM; the range card never shows the telegram floor
+      // as if it were a composed reading either.
+      has: badge.isAi, text: badge.isAi ? rec.text : '', composing: !!(rec && rec.modelless && app.optionalModel && app.optionalModel()),
       isAi: badge.isAi, badgeLabel: badge.badgeLabel || '',
       hasGroundDot: !!badge.hasGroundDot, groundDot: badge.groundDot || '', groundLabel: badge.groundLabel || '',
       ...(() => { const spans = badge.isAi ? this._groundedSpans(rec, sn) : [];
