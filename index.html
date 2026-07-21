@@ -164,6 +164,19 @@ table{border-collapse:collapse;width:100%}
 /* the summary skeleton while the local model turns the machinery's telegram into a reading */
 @keyframes eoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .eo-skel{background:linear-gradient(90deg,#ECEAF6 25%,#F4F2FC 50%,#ECEAF6 75%);background-size:200% 100%;animation:eoShimmer 1.5s ease-in-out infinite;border-radius:5px}
+/* ── SOURCE READING ANIMATION — a clicked source lands in the left rail the instant the
+   Add-sources modal closes, and reads LIVE (a small streaming box + a moving progress bar)
+   before it settles into a recorded source card. State lives in `pendingReads`; the motion
+   is CSS so it stays smooth between the ~90ms setState ticks that stream the text in. */
+@keyframes eoReadIn{from{opacity:0;transform:translateY(-7px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes eoReadCaret{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes eoReadSheen{0%{transform:translateX(-120%)}100%{transform:translateX(420%)}}
+.eo-read-card{animation:eoReadIn .28s cubic-bezier(.2,.9,.3,1)}
+.eo-read-caret{display:inline-block;width:5px;height:11px;margin-left:1px;background:#6355f2;border-radius:1px;vertical-align:-1px;animation:eoReadCaret 1s steps(1) infinite}
+.eo-read-stream{font-family:'IBM Plex Mono',monospace;font-size:9.5px;line-height:1.55;color:#5a5568;background:#faf9ff;border:1px solid #e7e3fb;border-radius:8px;padding:7px 8px;height:50px;overflow:hidden;white-space:pre-wrap;word-break:break-word}
+.eo-read-track{position:relative;height:3px;border-radius:3px;background:#e9e6f7;overflow:hidden}
+.eo-read-fill{position:absolute;top:0;bottom:0;left:0;border-radius:3px;transition:width .18s linear}
+.eo-read-sheen{position:absolute;top:0;bottom:0;left:0;width:32%;border-radius:3px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);animation:eoReadSheen 1.15s linear infinite}
 /* ── AI-GENERATED SUMMARY — the fold→summary pipeline's model voice (docs/fold-summary-pipeline.md),
    made explicitly visible wherever it renders (the cursor peek, a source card, an entity profile). This
    is NOT the same treatment as the topline's purple (an inventory composed from the record's own
@@ -1254,6 +1267,25 @@ table{border-collapse:collapse;width:100%}
         <sc-if value="{{ mvpSourcesEmpty }}">
           <div style="font-size:11.5px;color:#a0a0a8;line-height:1.5;padding:10px 6px">Nothing recorded yet. Read a URL, drop a file, or search the web from the bar up top — every source lands here with its hash.</div>
         </sc-if>
+        <!-- LIVE READS — a clicked source, reading on screen (streaming box + progress bar) until it
+             settles into a recorded card below. Driven by `pendingReads`; motion is pure CSS. -->
+        <sc-for list="{{ mvpPendingReads }}" as="pr">
+          <div class="eo-read-card" style="background:#fff;border:1px solid #e2ddf7;border-radius:13px;padding:11px 12px;box-shadow:0 1px 4px rgba(99,85,242,0.09)">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:30px;height:30px;border-radius:8px;background:#eceafd;display:flex;align-items:center;justify-content:center;flex:none;font-size:14px">{{ pr.glyph }}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#1b1b1f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pr.title }}</div>
+                <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:{{ pr.phaseColor }};margin-top:3px;font-family:'IBM Plex Mono',monospace">{{ pr.phase }}</div>
+              </div>
+              <span style="font-size:10px;font-weight:700;color:#8a86a0;font-family:'IBM Plex Mono',monospace;flex:none">{{ pr.pct }}</span>
+            </div>
+            <div class="eo-read-track" style="margin-top:9px">
+              <span class="eo-read-fill" style="width:{{ pr.pct }};background:{{ pr.fillBg }}"></span>
+              <sc-if value="{{ pr.showSheen }}"><span class="eo-read-sheen"></span></sc-if>
+            </div>
+            <div class="eo-read-stream" style="margin-top:9px">{{ pr.shown }}<span class="eo-read-caret"></span></div>
+          </div>
+        </sc-for>
         <sc-for list="{{ mvpSources }}" as="src">
           <div style="background:{{ src.rowBg }};border:1px solid {{ src.rowBorder }};border-radius:13px;padding:12px 12px">
             <div style="display:flex;align-items:flex-start;gap:10px">
@@ -5286,6 +5318,10 @@ class Component extends DCLogic {
       // off by default. See toggleWaveSelect/waveRangeClick and the "✂ Select a range" button.
       waveSelect: {},
       searchOpen: false, searchQ: '', searchResults: null, searchBusy: false, searchError: null, recordedUrls: {},
+      // Sources being READ RIGHT NOW — a clicked hit lands here the instant the modal closes and
+      // animates (a small streaming box + progress bar) until its real read resolves. See recordHit
+      // and _beginPendingRead/_finishPendingRead; rendered in the left rail's source list.
+      pendingReads: [],
       // A search hit opens as a NATIVE PREVIEW first — the real page, loaded normally in a sandboxed
       // frame — and only becomes a recorded source when you choose to add it. { item, doc, busy, err }.
       searchPreview: null,
@@ -6026,9 +6062,48 @@ class Component extends DCLogic {
   recordHit(item) {
     const key = item.url || item.title;
     this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'busy' } });
+    // Close the Add-sources modal AT ONCE and drop a live "reading" card into the left rail, so the
+    // source is visibly being read the moment it's clicked — not only after the whole fetch resolves.
+    this._beginPendingRead(item, key);
     this._app.recordHit(item, this.state.searchQ)
-      .then((s) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'done' } }); this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
-      .catch((err) => { this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: null } }); this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`); });
+      .then((s) => { this._finishPendingRead(key); this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: 'done' } }); this.showToast(`Recorded ${s.reg} — ${s.title}`); this._revealImport(s); })
+      .catch((err) => { this._failPendingRead(key); this.setState({ recordedUrls: { ...this.state.recordedUrls, [key]: null } }); this.showToast(`Couldn't record: ${String(err && err.message || err).slice(0, 90)}`); });
+  }
+  // ── the live read — a source's card, streaming, before it settles ───────────────────────────
+  // A clicked hit lands in the left rail at once (modal closed) and READS ON SCREEN: a phase label
+  // cycles (Fetching → Parsing → Reading → Extracting), a progress bar ramps toward — but never
+  // reaches — done while the real fetch is in flight, and the hit's own summary/text streams into a
+  // small monospace box a couple of characters per tick. The real read resolving is what finishes it.
+  _beginPendingRead(item, key) {
+    const surf = (item && item.surface) || {};
+    const glyph = surf.surface === 'book' ? '📚' : surf.surface === 'code' ? '💻' : surf.surface === 'media' ? '🖼️' : '📖';
+    const title = surf.title || (item && (item.title || item.url)) || 'source';
+    const sample = String(surf.summary || (item && item.text) || surf.lede || (item && item.title) || '')
+      .replace(/\s+/g, ' ').trim() || `Reading ${title} — pulling the full text through the reader…`;
+    const pending = { key, glyph, title, sample, shown: '', phase: 'Fetching', pct: 5, tick: 0, done: false };
+    this.setState((s) => ({ libOpen: false, pendingReads: [...(s.pendingReads || []).filter((p) => p.key !== key), pending] }));
+    this._pendingTimers = this._pendingTimers || {};
+    clearInterval(this._pendingTimers[key]);
+    const PHASES = ['Fetching', 'Parsing pages', 'Reading', 'Extracting claims'];
+    this._pendingTimers[key] = setInterval(() => {
+      const p = (this.state.pendingReads || []).find((x) => x.key === key);
+      if (!p || p.done) { clearInterval(this._pendingTimers[key]); return; }
+      const tick = p.tick + 1;
+      const shown = p.sample.slice(0, Math.min(p.sample.length, tick * 2)); // ~22 chars/sec
+      const pct = Math.min(93, p.pct + (p.pct < 55 ? 2.6 : 1.0));           // ramp, but never claim done
+      const phase = PHASES[Math.min(PHASES.length - 1, Math.floor(tick / 16))];
+      this.setState((s) => ({ pendingReads: (s.pendingReads || []).map((x) => x.key === key ? { ...x, tick, shown, pct, phase } : x) }));
+    }, 90);
+  }
+  _finishPendingRead(key) {
+    if (this._pendingTimers) clearInterval(this._pendingTimers[key]);
+    // a brief 100% "Recorded" beat, then the live card retires as the real source card takes its place
+    this.setState((s) => ({ pendingReads: (s.pendingReads || []).map((x) => x.key === key ? { ...x, done: true, phase: 'Recorded', pct: 100 } : x) }));
+    setTimeout(() => this.setState((s) => ({ pendingReads: (s.pendingReads || []).filter((x) => x.key !== key) })), 640);
+  }
+  _failPendingRead(key) {
+    if (this._pendingTimers) clearInterval(this._pendingTimers[key]);
+    this.setState((s) => ({ pendingReads: (s.pendingReads || []).filter((x) => x.key !== key) }));
   }
   // ── search hit → native preview → add as source ────────────────────────────
   // Clicking a search result LOADS THE SITE NORMALLY first (the real page, through the same proxy
@@ -12195,7 +12270,15 @@ class Component extends DCLogic {
         // left rail
         mvpWsInitial: ov.wsInitial || '·', mvpWsDot: ov.wsDot || '#6D5EF5',
         mvpWsLine: (ov.workspace || 'Workspace'), mvpTopicTitle: headline,
-        mvpScopeLine: scopeLine, mvpSources, mvpHasSources: total > 0, mvpSourcesEmpty: total === 0,
+        mvpScopeLine: scopeLine, mvpSources, mvpHasSources: total > 0, mvpSourcesEmpty: total === 0 && (st.pendingReads || []).length === 0,
+        mvpPendingReads: (st.pendingReads || []).map((p) => ({
+          glyph: p.glyph, title: p.title, shown: p.shown || '',
+          phase: p.done ? 'Recorded' : (p.phase + '…'),
+          pct: Math.round(p.pct) + '%',
+          phaseColor: p.done ? '#2f7a55' : '#6355f2',
+          fillBg: p.done ? '#2f7a55' : 'linear-gradient(90deg,#8b7ef5,#6355f2)',
+          showSheen: !p.done,
+        })),
         mvpAllOn: () => setAll(true), mvpAllOff: () => setAll(false),
         mvpAddSource: () => { try { this.openLibraries && this.openLibraries(); } catch {} },
         // centre
@@ -12232,7 +12315,7 @@ class Component extends DCLogic {
     } catch (e) {
       return {
         mvpWsInitial: '·', mvpWsDot: '#6D5EF5', mvpWsLine: 'Workspace', mvpTopicTitle: 'Reader',
-        mvpScopeLine: '0 of 0 sources', mvpSources: [], mvpHasSources: false, mvpSourcesEmpty: true,
+        mvpScopeLine: '0 of 0 sources', mvpSources: [], mvpHasSources: false, mvpSourcesEmpty: true, mvpPendingReads: [],
         mvpAllOn: () => {}, mvpAllOff: () => {}, mvpAddSource: () => {},
         mvpIsOverview: true, mvpIsResult: false, mvpShowOverview: () => {}, mvpShowResult: () => {},
         mvpOvBtnBg: '#17171a', mvpOvBtnFg: '#fff', mvpResBtnBg: '#f2f2f5', mvpResBtnFg: '#5a5a63',
