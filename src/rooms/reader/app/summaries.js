@@ -145,7 +145,12 @@ export const installSummaries = (appCtx) => {
             additions: out.additions && (out.additions.names?.length || out.additions.numbers?.length) ? out.additions : null,
             // The grounding badge for the shipped voice — source/void span tally + the
             // support kind — so the surface can say whether the summary stands on the record.
-            ground: out.ground ? { kind: out.ground.kind, supported: out.ground.supported, source: out.ground.source, claims: out.ground.claims } : null,
+            // `verdicts` rides along too (groundText's per-SENTENCE read, ground/spans.js
+            // groundSpans): text + which source line it came from, so a surface can render
+            // the summary sentence by sentence and let the reader jump to exactly where each
+            // one came from — only ever present when text===out.text (the 'model' via; a
+            // gate/ground rejection ships the telegram, which these verdicts were never read against).
+            ground: out.ground ? { kind: out.ground.kind, supported: out.ground.supported, source: out.ground.source, claims: out.ground.claims, verdicts: out.ground.verdicts || null } : null,
             modelless: out.via !== 'model',
             model: describeModel(appCtx.model)?.label || describeModel(appCtx.model)?.backend || null,
             generatedAt: nowIso(),

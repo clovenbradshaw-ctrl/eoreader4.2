@@ -20,7 +20,7 @@
 //
 // Pure and DOM-free (like ground/reflect.js): the chat renders what this returns.
 
-import { classifyProvenance } from './provenance.js';
+import { classifyProvenance, namedFigures, isContrastiveLoser } from './provenance.js';
 import { STOPWORDS } from '../../core/index.js';
 
 // CITE_VERBATIM — the overlap at or above which a lexical match is a genuine LIFT: so much of the
@@ -170,10 +170,22 @@ export const groundSpans = (spans, { passages = [], doc = null, minOverlap = 0.3
       // conservation passages: every sentence touches "conservation / species / international", so
       // raw overlap marked fabricated IUCN/WWF/right-whale claims "sourced" and the badge read
       // "matched"). Three witnesses, strongest first: the doc's coref-intact reading ('void' is a
-      // definitive deny, 'witnessed' a definitive pass); else whether the CITED PASSAGE itself
+      // DEFINITIVE deny — checked before the verbatim-lift shortcut below, never overridable by
+      // lexical overlap alone, or a claim that shares a passage's words while asserting the relation
+      // that passage actually denies would still "lift" — e.g. a passage naming two contrasted
+      // figures, "chose Cincinnati over Purdue": a claim about EITHER one scores near-verbatim
+      // against the very same sentence, so only the coref-intact reading can tell which one it
+      // actually witnesses; 'witnessed' a definitive pass); else whether the CITED PASSAGE itself
       // witnesses the claim (citationHolds — the SAME propositional gate the render binder reads,
       // one rule for the inline citation and the badge alike). A parse fault degrades to the lift.
-      if (wit === 'void' && lex.score < CITE_VERBATIM) return llm(text, 'assertion');
+      if (wit === 'void') return llm(text, 'assertion');
+      // The same guard, run directly against the MATCHED passage: the CITE_VERBATIM shortcut
+      // below is a bag-of-words score that never consults classifyProvenance at all, so a short
+      // claim that fails to parse into a clean relation (wit null, not 'void') — or one whose
+      // own phrasing happens to echo BOTH sides of the passage's comparison, rescuing `wit` to
+      // 'witnessed' — would otherwise sail through on lexical overlap alone. Ask directly: does
+      // this claim even NAME a figure the passage itself marks as the rejected side?
+      if ([...namedFigures(text)].some((f) => isContrastiveLoser(lex.passage.text, f))) return llm(text, 'assertion');
       if (lex.score >= CITE_VERBATIM || wit === 'witnessed') return sourced(text, { ...lex.passage, score: lex.score });
       if (citationHolds(text, lex.passage.text, lex.score)) return sourced(text, { ...lex.passage, score: lex.score });
       return llm(text, 'assertion');
