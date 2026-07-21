@@ -1321,7 +1321,7 @@ table{border-collapse:collapse;width:100%}
 
           <div style="display:flex;gap:11px;align-items:flex-start;background:#f8f7ff;border:1px dashed #e6e1f7;border-radius:14px;padding:15px 17px">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a6a0e6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/></svg>
-            <div style="font-size:12.5px;color:#8580ab;line-height:1.5">The meaning space and the ledger on the right are two projections of one nested reading — paradigm ▸ atmosphere ▸ lens. Click any body or ledger row to pivot the whole picture to it.</div>
+            <div style="font-size:12.5px;color:#8580ab;line-height:1.5">The meaning space and the ledger on the right are two projections of the same reading — the orbit places each claim, the ledger lists it by cross-source standing. Click a claim in either to open the passage it was read from.</div>
           </div>
         </div>
       </div>
@@ -1330,55 +1330,47 @@ table{border-collapse:collapse;width:100%}
     <!-- RIGHT RAIL — meaning space + ledger -->
     <sc-if value="{{ mvpRightOpen }}">
     <aside style="width:352px;flex:none;min-height:0;background:#0d0d15;border-left:1px solid #211f30;display:flex;flex-direction:column;overflow:hidden;color:#eceaf5">
-      <div style="flex:none;display:flex;align-items:center;gap:8px;padding:16px 16px 10px">
-        <button onClick="{{ mvpToggleOrbit }}" style="flex:none;width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#cfc9ee;cursor:pointer;display:flex;align-items:center;justify-content:center">
+      <div style="flex:none;display:flex;align-items:center;gap:9px;padding:16px 16px 12px">
+        <button onClick="{{ mvpToggleOrbit }}" title="Collapse or expand the meaning space" style="flex:none;width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#cfc9ee;cursor:pointer;display:flex;align-items:center;justify-content:center">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ mvpOrbitChev }};transition:transform .15s"><path d="M9 6l6 6-6 6"/></svg>
         </button>
         <div style="flex:1;min-width:0">
           <div style="font-size:9.5px;font-weight:700;letter-spacing:1.2px;color:#8b83c9">MEANING SPACE</div>
-          <div style="font-size:11.5px;color:#7c779e;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">click a body or ledger row to pivot</div>
+          <div style="font-size:11.5px;color:#7c779e;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mvpMeaningCounts }}</div>
         </div>
-        <button onClick="{{ mvpReset }}" style="flex:none;background:rgba(255,255,255,0.08);color:#cfc9ee;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 9px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">core</button>
-        <button onClick="{{ mvpTogglePlay }}" style="flex:none;background:rgba(255,255,255,0.08);color:#cfc9ee;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 9px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">{{ mvpPlayLabel }}</button>
-        <button onClick="{{ mvpToggleRight }}" style="flex:none;width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#cfc9ee;cursor:pointer;display:flex;align-items:center;justify-content:center">
+        <button onClick="{{ mvpToggleRight }}" title="Collapse the panel" style="flex:none;width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#cfc9ee;cursor:pointer;display:flex;align-items:center;justify-content:center">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 6l6 6-6 6M6 6l6 6-6 6"/></svg>
         </button>
       </div>
 
       <sc-if value="{{ mvpOrbitOpen }}">
-        <div ref="{{ mvpSetStage }}" style="flex:none;height:300px;position:relative;overflow:hidden;background:radial-gradient(120% 100% at 50% 42%,#14131f 0%,#0b0b12 70%,#08080e 100%)"></div>
-      </sc-if>
-
-      <sc-if value="{{ mvpHasSel }}">
-        <div style="flex:none;padding:13px 18px 14px;border-top:1px solid rgba(255,255,255,0.07);border-bottom:1px solid rgba(255,255,255,0.07);background:rgba(18,16,26,0.6)">
-          <div style="display:flex;align-items:center;gap:9px">
-            <span style="width:12px;height:12px;border-radius:50%;background:{{ mvpSel.color }};flex:none;box-shadow:0 0 11px {{ mvpSel.color }}"></span>
-            <span style="font-size:15px;font-weight:600;color:#f6f4fc;flex:1;min-width:0">{{ mvpSel.label }}</span>
-            <span style="font-size:8.5px;font-weight:700;letter-spacing:0.8px;color:{{ mvpSel.color }};background:rgba(255,255,255,0.06);padding:4px 8px;border-radius:6px">{{ mvpSel.tierName }}</span>
-          </div>
-          <div style="font-size:12px;line-height:1.5;color:#a29bcf;margin-top:9px">{{ mvpSel.rel }}</div>
+        <div style="flex:none;padding:0 14px 14px">
+          <div ref="{{ mvpSetStage }}" style="min-height:40px"></div>
         </div>
       </sc-if>
 
-      <div style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px 22px">
+      <div style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px 22px;border-top:1px solid rgba(255,255,255,0.07)">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <span style="font-size:9.5px;font-weight:700;letter-spacing:1px;color:#6f6a90">THE LEDGER · claims by frame</span>
+          <span style="font-size:9.5px;font-weight:700;letter-spacing:1px;color:#6f6a90">THE LEDGER · claims by standing</span>
           <span style="flex:1"></span>
           <button onClick="{{ mvpUseClassic }}" title="Switch to the classic shell" style="flex:none;background:rgba(255,255,255,0.06);color:#8b83c9;border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:700;letter-spacing:0.4px;cursor:pointer;font-family:inherit">CLASSIC VIEW</button>
         </div>
+        <sc-if value="{{ mvpLedgerEmpty }}">
+          <div style="font-size:12px;color:#7c779e;line-height:1.55;padding:8px 2px 4px">No claims on record yet. Read a source or ask a question — every claim lands here with its cross-source standing and a jump to the passage it was read from.</div>
+        </sc-if>
         <sc-for list="{{ mvpLedgerRows }}" as="r">
           <sc-if value="{{ r.isNode }}">
-            <button onClick="{{ r.onTap }}" style="display:flex;align-items:center;gap:9px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;width:100%;padding:9px 2px 5px {{ r.pl }}">
-              <span style="width:{{ r.dot }};height:{{ r.dot }};border-radius:50%;background:{{ r.color }};flex:none;box-shadow:0 0 0 4px {{ r.halo }}"></span>
-              <span style="flex:1;min-width:0;font-size:{{ r.fs }};font-weight:{{ r.fw }};color:{{ r.labelColor }}">{{ r.label }}</span>
-              <span style="font-size:8px;font-weight:700;letter-spacing:0.7px;color:#565274">{{ r.tierName }}</span>
-            </button>
+            <div style="display:flex;align-items:center;gap:8px;padding:14px 2px 7px">
+              <span style="width:9px;height:9px;border-radius:50%;background:{{ r.color }};flex:none;box-shadow:0 0 0 4px {{ r.halo }}"></span>
+              <span style="flex:1;min-width:0;font-size:10px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#cfc9ee">{{ r.label }}</span>
+              <span style="font-size:10px;font-weight:600;color:#565274;font-family:'JetBrains Mono',monospace">{{ r.count }}</span>
+            </div>
           </sc-if>
           <sc-if value="{{ r.isClaim }}">
-            <div style="margin:4px 0 4px {{ r.pl }};background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.07);border-left:3px solid rgba(255,255,255,0.09);border-radius:4px 11px 11px 4px;padding:11px 12px">
+            <button onClick="{{ r.onTap }}" style="display:block;width:100%;text-align:left;margin:4px 0;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.07);border-left:3px solid {{ r.stColor }};border-radius:4px 11px 11px 4px;padding:11px 12px;cursor:pointer;font-family:inherit" style-hover="background:rgba(255,255,255,0.06)">
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;flex-wrap:wrap">
-                <span style="display:flex;align-items:center;gap:5px;font-size:8.5px;font-weight:600;letter-spacing:0.4px;color:#8983a5"><span style="width:6px;height:6px;border-radius:50%;background:{{ r.stColor }}"></span>{{ r.stLabel }}</span>
-                <span style="font-size:9.5px;color:#565274">· {{ r.meta }}</span>
+                <span style="font-size:8.5px;font-weight:700;letter-spacing:0.4px;padding:2px 6px;border-radius:5px;color:{{ r.stColor }};background:{{ r.stBg }}">{{ r.stLabel }}</span>
+                <span style="font-size:9.5px;color:#565274">{{ r.meta }}</span>
               </div>
               <div style="font-size:12.5px;line-height:1.45;color:#cbc7e0">{{ r.text }}</div>
               <sc-if value="{{ r.hasSrc }}">
@@ -1388,7 +1380,7 @@ table{border-collapse:collapse;width:100%}
                   </sc-for>
                 </div>
               </sc-if>
-            </div>
+            </button>
           </sc-if>
         </sc-for>
       </div>
@@ -5207,9 +5199,10 @@ class Component extends DCLogic {
       // three-pane, EO_Desktop_MVP_v2) or 'classic' (the original topic-tree + tabs + entities shell).
       // Both share the same header, overlays and engine; only the body between them differs. Persisted.
       shell: this._prefStr('eo_shell', 'mvp'),
-      // The MVP right rail (meaning space + ledger): open/closed, orbit sub-panel open/closed, whether
-      // the orbit drifts, and which body the ledger/orbit is currently pivoted onto (null = the core).
-      mvpRightOpen: true, mvpOrbitOpen: true, mvpPlaying: true, mvpSel: null,
+      // The MVP right rail (meaning space + ledger): panel open/closed, and the orbit sub-panel
+      // open/collapsed. The orbit's own drift/zoom/focus state lives inside the shared EOGraph widget
+      // (solar-system.js), which owns its play control and self-lapsing loop — not in React state.
+      mvpRightOpen: true, mvpOrbitOpen: true,
       // The mobile shell's own bottom sheet (null | 'scope' | 'add') and Sources-tab kind filter —
       // separate from the desktop drawer/modal state above, which the mobile shell doesn't use.
       mSheet: null, mKind: 'All',
@@ -12026,177 +12019,130 @@ class Component extends DCLogic {
   // ══════════════════════════════════════════════════════════════════════════════════════════
   //  MVP DESKTOP SURFACE (EO_Desktop_MVP_v2) — the newer three-pane style. Left rail is the live
   //  evidence scope + real sources; the centre is the real ask + overview/result over real topic
-  //  data; the right rail is the meaning space (a self-contained orbit of paradigm ▸ atmosphere ▸
-  //  lens) and the claim ledger. Header + overlays + engine are shared with the classic shell; the
-  //  toggle (mvpUseClassic / _useShell) flips state.shell and persists it. Everything here is defensive
-  //  — _mvpVals never throws, so a data gap degrades to an empty state, it never blanks the surface.
+  //  data; the right rail is the meaning space (the shared EOGraph orbit, solar-system.js) and the
+  //  claim ledger — both now driven by the topic's REAL claims (the findings projection). Header +
+  //  overlays + engine are shared with the classic shell; the toggle (mvpUseClassic / _useShell)
+  //  flips state.shell and persists it. Everything here is defensive — _mvpVals never throws, so a
+  //  data gap degrades to an empty state, it never blanks the surface.
   // ══════════════════════════════════════════════════════════════════════════════════════════
-  MVP_BODIES = {
-    corpus: { parent: null, r: 0, period: 0, phase: 0, size: 8, tier: 'core', color: '#d7d2f2', label: 'Question' },
-    polic:  { parent: 'corpus', r: 150, period: 160, phase: -0.6, size: 26, tier: 'paradigm', color: '#f0a02a', label: 'Policy-cause frame' },
-    court:  { parent: 'corpus', r: 150, period: 160, phase: Math.PI - 0.6, size: 23, tier: 'paradigm', color: '#e8842a', label: 'Court-backlog frame' },
-    alarm:  { parent: 'polic', r: 74, period: 30, phase: 0.4, size: 14, tier: 'atmosphere', color: '#8078e8', label: 'Alarm' },
-    advoc:  { parent: 'polic', r: 74, period: 40, phase: 2.7, size: 14, tier: 'atmosphere', color: '#7c74e6', label: 'Advocacy' },
-    proc:   { parent: 'court', r: 70, period: 34, phase: 1.3, size: 13, tier: 'atmosphere', color: '#8a6fd6', label: 'Procedural' },
-    tenant: { parent: 'alarm', r: 30, period: 8, phase: 0.2, size: 7, tier: 'lens', color: '#38cf93', label: 'Tenant impact' },
-    counts: { parent: 'advoc', r: 32, period: 9, phase: 1.9, size: 7, tier: 'lens', color: '#35c98f', label: 'Filing counts' },
-    load:   { parent: 'proc', r: 28, period: 7, phase: 3.0, size: 7, tier: 'lens', color: '#3fc0b0', label: 'Caseload' },
-    statute:{ parent: 'proc', r: 44, period: 12, phase: 0.7, size: 7, tier: 'lens', color: '#3fc0b0', label: 'Statute' },
-  };
+  // Verdict styling, shared by the meaning-space orbit (a body's colour) and the ledger (its badge).
+  // Keyed by the cross-source STANDING the findings projection stamps on every claim (claims.js):
+  // Corroborated / Contested / everything-else (one witnessed assertion) → a single 'single' bucket.
   MVP_ST = {
     corr:   { label: 'CORROBORATED',  c: '#3f9d6d', bg: 'rgba(63,157,109,0.16)' },
     cont:   { label: 'CONTESTED',     c: '#e0863f', bg: 'rgba(224,134,63,0.18)' },
-    single: { label: 'SINGLE SOURCE', c: '#9aa0c0', bg: 'rgba(255,255,255,0.06)' },
-    void:   { label: 'VOID',          c: '#9aa0ad', bg: 'rgba(255,255,255,0.05)' },
+    single: { label: 'SINGLE SOURCE', c: '#8078e8', bg: 'rgba(128,120,232,0.16)' },
   };
-  MVP_LEDGER = [
-    { node: 'polic', level: 0, claims: [ { text: 'Eviction filings fell about 38% during the moratorium period.', st: 'corr', meta: '6 passages · 3 origins', src: ['S-1', 'S-2', 'S-5'] } ] },
-      { node: 'advoc', level: 1, claims: [ { text: 'Filing volume tracked the order’s start and end dates closely.', st: 'corr', meta: '2 passages', src: ['S-2'] } ] },
-        { node: 'counts', level: 2, claims: [ { text: '2,140 filings the prior year fell to 1,327 during the order.', st: 'corr', meta: 'origin', src: ['S-2'] } ] },
-      { node: 'alarm', level: 1, claims: [ { text: 'Advocates warned thousands still faced removal once protections lapsed.', st: 'single', meta: '1 passage', src: ['S-1'] } ] },
-        { node: 'tenant', level: 2, claims: [ { text: 'Families reported staying housed only because filings had stopped.', st: 'single', meta: '1 passage', src: ['S-1'] } ] },
-    { node: 'court', level: 0, claims: [ { text: 'A court backlog, not the order, drove the decline in cases.', st: 'cont', meta: 'vs Policy-cause frame', src: ['S-5'] } ] },
-      { node: 'proc', level: 1, claims: [ { text: 'Clerks cited staffing gaps and a paused docket through the summer.', st: 'single', meta: '1 passage', src: ['S-5'] } ] },
-        { node: 'load', level: 2, claims: [ { text: 'Pending caseload rose even as new filings dropped.', st: 'single', meta: '1 passage', src: ['S-5'] } ] },
-        { node: 'statute', level: 2, claims: [ { text: 'The CDC order suspended certain evictions but not all case types.', st: 'corr', meta: '2 passages', src: ['S-2', 'S-5'] } ] },
-    { void: true, level: 0, label: 'Uncovered', color: '#9aa0ad', claims: [ { text: 'No source covers eviction judgments — only filings appear in scope.', st: 'void', meta: 'asked, not answerable', src: [] } ] },
-  ];
+  _mvpBucket(status) { return status === 'Corroborated' ? 'corr' : status === 'Contested' ? 'cont' : 'single'; }
+  _mvpOriginLabel(o) { return ({ reading: 'source reading', summary: 'entity summary', murmur: 'connection', turn: 'answer' })[o] || ''; }
+  // Clicking a ledger claim opens the shared evidence modal (the one global overlay, so it works on
+  // this shell where the centre has no source reader) at that claim's witnessing passage — the same
+  // hand-built mark shape the topic-overview corpus events use, no window.EO.evidence.buildMark needed.
+  _mvpOpenClaim(c) {
+    if (!c || c.sn == null) return;
+    const app = this._app;
+    const src = (app && app.sourceBySn) ? app.sourceBySn(c.sn) : null;
+    const label = c.reg || ('S-' + c.sn);
+    this.openSurprise({
+      sn: c.sn, sourceTitle: (src && src.title) || '', sourceLabel: label,
+      origin: 'Ledger · ' + (this._mvpOriginLabel(c.origin) || 'claim'),
+      line: '', sentence: c.quote || c.text, contextBefore: '', contextAfter: '',
+      surprises: [], bits: '', pull: '',
+      mark: {
+        locatorLabel: label + ' · claim', kindLabel: c.status || 'Claim', confidenceLabel: '',
+        referents: [], explanation: c.text, correspondingEvidence: null,
+      },
+    });
+  }
 
   _useShell(which) { this.setState({ shell: which }); try { localStorage.setItem('eo_shell', which); } catch {} }
-  _mvpPick(id) { this._mvpFocus = id || 'corpus'; this.setState({ mvpSel: id }); }
-  _mvpSetStage = (el) => { if (el) this._mvpMount(el); };
+  // The topic's REAL claims (the findings projection — src/rooms/reader/claims.js via app/findings.js),
+  // each already phrased deterministically (phraseMechanical, or the talker's veto-passed sentence)
+  // and stamped with its cross-source standing. Defensive: an empty list when there is no topic yet.
+  _mvpClaims() {
+    const app = this._app;
+    try { return ((app && app.findings ? app.findings() : null) || { claims: [] }).claims || []; }
+    catch { return []; }
+  }
 
-  _mvpMount(el) {
-    const NS = 'http://www.w3.org/2000/svg';
-    const ORBIT = this.MVP_BODIES, ids = Object.keys(ORBIT);
-    const W = 400, H = 300, cx = W / 2, cy = H / 2;
+  // The meaning-space projection, scoped to THIS topic's real claims — the { nodes, edges, centreId }
+  // shape the shared EOGraph renderer (solar-system.js mountSolarSystem) draws. Mirrors
+  // question-result.js's questionMeaningData: a synthetic topic centre (the sun), each claim a
+  // tier-2 body coloured by its standing, each witnessing source a tier-1 body bonded to the centre
+  // (solid when it carries a corroborated/contested claim, hollow otherwise). Mints nothing — every
+  // body resolves to a real findings row or a source that witnesses one.
+  _mvpMeaningData(claims, title) {
+    const ST = this.MVP_ST;
+    const clip = (s, n) => { const x = String(s || '').trim(); return x.length > n ? x.slice(0, n - 1) + '…' : x; };
+    const shown = (claims || []).slice(0, 7);
+    const nodes = [{ id: 'q', tier: 1, kind: 'question', label: clip(title || 'This topic', 40), color: '#d7d2f2' }];
+    const srcNodes = new Map(), bonds = new Map();
+    shown.forEach((c, i) => {
+      const st = ST[this._mvpBucket(c.status)];
+      nodes.push({ id: 'c:' + i, tier: 2, kind: 'claim', label: clip(c.subject || c.text, 42), color: st.c });
+      if (c.sn == null) return;
+      const sid = 's:' + c.sn;
+      if (!srcNodes.has(sid)) srcNodes.set(sid, { id: sid, tier: 1, kind: 'source', label: clip(c.reg || ('S-' + c.sn), 22), ref: { sn: c.sn } });
+      const b = bonds.get(sid) || { solid: false };
+      b.solid = b.solid || c.status === 'Corroborated' || c.status === 'Contested';
+      bonds.set(sid, b);
+    });
+    for (const n of srcNodes.values()) nodes.push(n);
+    const edges = [...bonds.entries()].map(([sid, b]) => ({ a: 'q', b: sid, tier: 1, gl: b.solid ? '●' : '○', code: 'INS', dashed: !b.solid }));
+    const nS = srcNodes.size;
+    return {
+      nodes, edges, centreId: 'q',
+      countsLabel: shown.length + ' claim' + (shown.length === 1 ? '' : 's') + ' · ' + nS + ' source' + (nS === 1 ? '' : 's'),
+    };
+  }
+
+  // Mount (or idempotently re-mount) the real EOGraph orbit into the right-rail stage. Same keyed
+  // guard idiom as _mountEntitySolar: an inline ref callback's identity changes every render, so
+  // React fires the OLD ref with null then the NEW one with the same element — a null call is a pure
+  // no-op and a matching key short-circuits, so the live orbit (which owns its own self-lapsing rAF
+  // loop and play/zoom controls) is never torn down or restarted on an unrelated re-render. The stage
+  // carries the dark theme via the same CSS custom properties mountSolarExplorer overrides, so the
+  // light-default widget renders correctly on the rail's dark ground.
+  _mvpMountStage(el, data, key) {
+    if (!el) return;
+    if (el.__ssKey === key) return;
+    const mss = window.EO && window.EO.mountSolarSystem;
+    if (!mss) { el.innerHTML = '<div style="padding:20px 6px;color:#7c779e;font-size:12.5px;line-height:1.5">The meaning space loads with the reader…</div>'; return; }
+    if (el.__ssInst) { try { el.__ssInst.destroy(); } catch {} el.__ssInst = null; }
+    el.__ssKey = key;
     el.innerHTML = '';
-    const svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
-    svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%'); svg.style.display = 'block';
-    let seed = 11; const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-    for (let i = 0; i < 70; i++) {
-      const s = document.createElementNS(NS, 'circle');
-      s.setAttribute('cx', (rnd() * W).toFixed(1)); s.setAttribute('cy', (rnd() * H).toFixed(1));
-      s.setAttribute('r', (rnd() * 1.2 + 0.2).toFixed(2)); s.setAttribute('fill', '#fff');
-      s.setAttribute('opacity', (rnd() * 0.4 + 0.05).toFixed(2)); svg.appendChild(s);
-    }
-    const focusRing = document.createElementNS(NS, 'circle');
-    focusRing.setAttribute('cx', cx); focusRing.setAttribute('cy', cy); focusRing.setAttribute('fill', 'none');
-    focusRing.setAttribute('stroke', 'rgba(255,255,255,0.3)'); focusRing.setAttribute('stroke-dasharray', '2 5'); focusRing.setAttribute('r', 30);
-    svg.appendChild(focusRing);
-    const uni = document.createElementNS(NS, 'g'); svg.appendChild(uni);
-    const ringEls = {}, edgeEls = {}, bodyEls = {}, labelEls = {};
-    ids.forEach((id) => {
-      if (!ORBIT[id].parent) return;
-      const ring = document.createElementNS(NS, 'ellipse'); ring.setAttribute('fill', 'none');
-      ring.setAttribute('stroke', ORBIT[id].tier === 'lens' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.08)'); ring.setAttribute('stroke-width', '1');
-      uni.appendChild(ring); ringEls[id] = ring;
-      const ln = document.createElementNS(NS, 'line'); ln.setAttribute('stroke', 'rgba(255,255,255,0.1)'); ln.setAttribute('stroke-width', '0.6');
-      uni.appendChild(ln); edgeEls[id] = ln;
-    });
-    ids.forEach((id) => {
-      const n = ORBIT[id];
-      const g = document.createElementNS(NS, 'g'); g.style.cursor = 'pointer';
-      if (n.tier === 'paradigm' || n.tier === 'core') {
-        const glow = document.createElementNS(NS, 'circle');
-        glow.setAttribute('r', n.size + (n.tier === 'paradigm' ? 16 : 9));
-        glow.setAttribute('fill', n.tier === 'paradigm' ? n.color : '#d7d2f2'); glow.setAttribute('opacity', n.tier === 'paradigm' ? '0.14' : '0.12'); g.appendChild(glow);
-      }
-      const c = document.createElementNS(NS, 'circle');
-      c.setAttribute('r', n.size); c.setAttribute('fill', n.color); c.setAttribute('stroke', 'rgba(0,0,0,0.28)'); c.setAttribute('stroke-width', '1'); g.appendChild(c);
-      const lab = document.createElementNS(NS, 'text');
-      lab.setAttribute('font-family', 'Onest, sans-serif');
-      lab.setAttribute('font-size', n.tier === 'lens' ? '10' : (n.tier === 'paradigm' ? '12.5' : '11'));
-      lab.setAttribute('font-weight', n.tier === 'paradigm' ? '600' : '500'); lab.setAttribute('fill', '#eceaf5');
-      lab.setAttribute('paint-order', 'stroke'); lab.setAttribute('stroke', '#0b0b12'); lab.setAttribute('stroke-width', '3.5'); lab.setAttribute('stroke-linejoin', 'round');
-      lab.textContent = n.label;
-      g.addEventListener('click', (e) => { e.stopPropagation(); this._mvpPick(id); });
-      uni.appendChild(g); uni.appendChild(lab);
-      bodyEls[id] = c; labelEls[id] = lab; c._g = g;
-    });
-    svg.addEventListener('click', () => this._mvpPick(null));
-    el.appendChild(svg);
-    const om = {}; ids.forEach((id) => { om[id] = ORBIT[id].period ? (2 * Math.PI) / ORBIT[id].period : 0; });
-    const getPos = (id, t, cache) => {
-      if (cache[id]) return cache[id];
-      const n = ORBIT[id]; if (!n.parent) { cache[id] = { x: 0, y: 0 }; return cache[id]; }
-      const p = getPos(n.parent, t, cache); const ang = n.phase + t * om[id];
-      const pos = { x: p.x + n.r * Math.cos(ang), y: p.y + n.r * Math.sin(ang) * 0.8 }; cache[id] = pos; return pos;
-    };
-    const ctx = { elapsed: 0, lastNow: performance.now() };
-    uni.setAttribute('transform', `translate(${cx},${cy})`);
-    const frame = (now) => {
-      if (!el.isConnected) { return; }   // node gone (shell switched / unmounted) — stop the loop
-      if (this.state.mvpPlaying) ctx.elapsed += (now - ctx.lastNow) / 1000;
-      ctx.lastNow = now;
-      const t = ctx.elapsed, cache = {}, pos = {}; ids.forEach((id) => pos[id] = getPos(id, t, cache));
-      const focus = this._mvpFocus || 'corpus';
-      const target = pos[focus] || pos.corpus;
-      uni.setAttribute('transform', `translate(${(cx - target.x).toFixed(1)},${(cy - target.y).toFixed(1)})`);
-      focusRing.setAttribute('r', focus === 'corpus' ? 30 : (ORBIT[focus].size + 8));
-      ids.forEach((id) => {
-        const p = pos[id], n = ORBIT[id];
-        bodyEls[id]._g.setAttribute('transform', `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`);
-        let dx = 0, dy = -1;
-        if (n.parent) { const pp = pos[n.parent]; const ax = p.x - pp.x, ay = p.y - pp.y, L = Math.hypot(ax, ay) || 1; dx = ax / L; dy = ay / L; }
-        const gap = n.size + 12;
-        labelEls[id].setAttribute('x', (p.x + dx * gap).toFixed(1)); labelEls[id].setAttribute('y', (p.y + dy * gap + 4).toFixed(1));
-        labelEls[id].setAttribute('text-anchor', dx > 0.3 ? 'start' : (dx < -0.3 ? 'end' : 'middle'));
-        const showLab = (n.tier !== 'lens' || this.state.mvpSel === id);
-        labelEls[id].setAttribute('opacity', showLab ? '1' : '0');
-        bodyEls[id].setAttribute('stroke', this.state.mvpSel === id ? '#fff' : 'rgba(0,0,0,0.28)');
-        bodyEls[id].setAttribute('stroke-width', this.state.mvpSel === id ? '2.5' : '1');
-        if (ringEls[id]) { const pp = pos[n.parent]; ringEls[id].setAttribute('cx', pp.x.toFixed(1)); ringEls[id].setAttribute('cy', pp.y.toFixed(1)); ringEls[id].setAttribute('rx', n.r); ringEls[id].setAttribute('ry', (n.r * 0.8).toFixed(1)); }
-        if (edgeEls[id]) { const pp = pos[n.parent]; edgeEls[id].setAttribute('x1', pp.x.toFixed(1)); edgeEls[id].setAttribute('y1', pp.y.toFixed(1)); edgeEls[id].setAttribute('x2', p.x.toFixed(1)); edgeEls[id].setAttribute('y2', p.y.toFixed(1)); }
+    el.style.cssText = 'display:block;--card:#0d0d15;--app:#14131f;--ink:#eceaf5;--ink2:#b8b3d6;--ink3:#7c779e;--line:#242a35;--line2:#2c2a3d';
+    try {
+      el.__ssInst = mss(el, {
+        nodes: data.nodes, edges: data.edges, centreId: data.centreId, countsLabel: data.countsLabel,
+        width: 318, height: 300,
+        onPivot: (node) => { const r = node && node.ref; if (r && r.docId != null) this.openEntity(r.docId, r.entId); else if (r && r.sn != null) this.openViewer(r.sn); },
+        onOpen: (node) => { const r = node && node.ref; if (r && r.sn != null) this.openViewer(r.sn); else if (r && r.docId != null) this.openEntity(r.docId, r.entId); },
       });
-      ctx.raf = requestAnimationFrame(frame);
-    };
-    ctx.raf = requestAnimationFrame(frame);
+    } catch (e) { el.innerHTML = ''; el.__ssKey = null; el.__ssInst = null; }
   }
 
-  _mvpSelView() {
-    const id = this.state.mvpSel; if (!id) return null;
-    const B = this.MVP_BODIES, n = B[id]; if (!n) return null;
-    const tierName = { core: 'CORE', paradigm: 'PARADIGM · SUN', atmosphere: 'ATMOSPHERE · PLANET', lens: 'LENS · MOON' }[n.tier];
-    const parentLabel = n.parent ? B[n.parent].label : null;
-    const kids = Object.keys(B).filter((k) => B[k].parent === id);
-    const rel = (n.parent
-      ? `Standing on ${n.label}. It holds still; ${parentLabel} — and everything above it — swing around it.`
-      : `At the core. Both paradigms swing around this point.`)
-      + (kids.length ? ` ${kids.map((k) => B[k].label).join(', ')} still ${kids.length > 1 ? 'orbit' : 'orbits'} it.` : '');
-    return { label: n.label, color: n.color, tierName, rel };
-  }
-
-  _mvpLedgerRows() {
-    const B = this.MVP_BODIES, ST = this.MVP_ST;
-    const tierName = { paradigm: 'PARADIGM', atmosphere: 'ATMOSPHERE', lens: 'LENS' };
-    const nodeStyle = [
-      { pl: '0px', dot: '13px', fs: '14px', fw: '700', labelColor: '#f2f0fa' },
-      { pl: '18px', dot: '10px', fs: '12.5px', fw: '600', labelColor: '#d8d3ef' },
-      { pl: '36px', dot: '7px', fs: '12px', fw: '600', labelColor: '#9a95ba' },
-    ];
-    const claimPl = ['18px', '36px', '54px'];
+  // The claim ledger — the topic's REAL claims grouped by cross-source standing (contested first,
+  // then corroborated, then single-source), each row opening its source at the witnessing passage.
+  // Empty (returns []) until a source is read or a question asked; no fabricated placeholder claims.
+  _mvpLedgerRows(claims) {
+    const ST = this.MVP_ST;
+    const groups = { cont: [], corr: [], single: [] };
+    (claims || []).forEach((c) => { (groups[this._mvpBucket(c.status)] || groups.single).push(c); });
+    const order = [['cont', 'Contested'], ['corr', 'Corroborated'], ['single', 'Single source']];
     const rows = [];
-    this.MVP_LEDGER.forEach((item) => {
-      const lv = item.level;
-      const node = item.void ? null : B[item.node];
-      const color = item.void ? item.color : node.color;
-      const label = item.void ? item.label : node.label;
-      const ns = nodeStyle[lv];
-      rows.push({
-        isNode: true, isClaim: false,
-        pl: ns.pl, dot: ns.dot, fs: ns.fs, fw: ns.fw, labelColor: ns.labelColor,
-        color, halo: color + '22', label,
-        tierName: item.void ? '' : tierName[node.tier],
-        onTap: item.void ? () => {} : () => this._mvpPick(item.node),
-      });
-      (item.claims || []).forEach((cl) => {
-        const st = ST[cl.st];
+    order.forEach(([k, label]) => {
+      const list = groups[k]; if (!list.length) return;
+      const st = ST[k];
+      rows.push({ isNode: true, isClaim: false, color: st.c, halo: st.c + '22', label, count: String(list.length) });
+      list.slice(0, 14).forEach((c) => {
+        const srcLabel = c.reg || (c.sn != null ? 'S-' + c.sn : '');
         rows.push({
           isNode: false, isClaim: true,
-          pl: claimPl[lv], stLabel: st.label, stColor: st.c, stBg: st.bg,
-          meta: cl.meta, text: cl.text, src: cl.src, hasSrc: (cl.src && cl.src.length > 0),
+          stLabel: st.label, stColor: st.c, stBg: st.bg,
+          meta: [srcLabel, this._mvpOriginLabel(c.origin)].filter(Boolean).join(' · '),
+          text: c.text, src: srcLabel ? [srcLabel] : [], hasSrc: !!srcLabel,
+          onTap: (c.sn != null) ? () => this._mvpOpenClaim(c) : () => {},
         });
       });
     });
@@ -12235,9 +12181,16 @@ class Component extends DCLogic {
       const tot = Math.max(1, settled + contested + voidn);
       const isOverview = st.tab === 'topic' || st.tab === 'overview';
       const isResult = !isOverview;
-      const sel = this._mvpSelView();
       const scopeLine = ac + ' of ' + total + ' source' + (total === 1 ? '' : 's');
       const headline = ov.title || (t && t.title) || 'New topic';
+      // The right rail — meaning space + ledger — now reads the topic's REAL claims. findings() is
+      // memoized (app/findings.js) so calling it here and building both projections off it is cheap.
+      const claims = this._mvpClaims();
+      const ledgerRows = this._mvpLedgerRows(claims);
+      const meaning = this._mvpMeaningData(claims, headline);
+      // A cheap remount key so the orbit only rebuilds when its bodies actually change — derived from
+      // the projection already computed (id + colour per node), never a fresh graph pass per render.
+      const stageKey = (t ? t.id : 'none') + '~' + meaning.nodes.map((n) => n.id + n.color).join('|');
       return {
         // left rail
         mvpWsInitial: ov.wsInitial || '·', mvpWsDot: ov.wsDot || '#6D5EF5',
@@ -12261,18 +12214,18 @@ class Component extends DCLogic {
         mvpHasClaims: mrows.length > 0,
         mvpConvNote: mrows.length
           ? 'Convergence recomputes in place as you toggle scope on the left.'
-          : 'No claims on record yet. Add sources or ask a question — every result lands here traced to its origin.',
+          : (ledgerRows.length
+            ? 'No cross-source measures to weigh yet — the ledger on the right lists every claim as it lands, traced to its origin.'
+            : 'Nothing on record yet. Add a source or ask a question — every claim lands in the ledger traced to its origin.'),
         // right rail (meaning space + ledger)
         mvpRightOpen: st.mvpRightOpen, mvpRightClosed: !st.mvpRightOpen, mvpOrbitOpen: st.mvpOrbitOpen,
         mvpToggleRight: () => this.setState((s) => ({ mvpRightOpen: !s.mvpRightOpen })),
         mvpToggleOrbit: () => this.setState((s) => ({ mvpOrbitOpen: !s.mvpOrbitOpen })),
-        mvpReset: () => this._mvpPick(null),
-        mvpTogglePlay: () => this.setState((s) => ({ mvpPlaying: !s.mvpPlaying })),
-        mvpPlayLabel: st.mvpPlaying ? '❚❚ drift' : '▶ parked',
         mvpOrbitChev: st.mvpOrbitOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-        mvpSetStage: this._mvpSetStage,
-        mvpHasSel: !!sel, mvpSel: sel || {},
-        mvpLedgerRows: this._mvpLedgerRows(),
+        mvpSetStage: (el) => this._mvpMountStage(el, meaning, stageKey),
+        mvpMeaningCounts: meaning.countsLabel,
+        mvpLedgerRows: ledgerRows,
+        mvpLedgerEmpty: ledgerRows.length === 0,
         mvpUseClassic: () => this._useShell('classic'),
         mvpUseMvp: () => this._useShell('mvp'),
       };
@@ -12287,9 +12240,9 @@ class Component extends DCLogic {
         mvpBarSettled: '0%', mvpBarContested: '0%', mvpBarVoid: '0%', mvpActiveCountLabel: '',
         mvpHasClaims: false, mvpConvNote: 'Add sources or ask a question to begin.',
         mvpRightOpen: true, mvpRightClosed: false, mvpOrbitOpen: true,
-        mvpToggleRight: () => {}, mvpToggleOrbit: () => {}, mvpReset: () => {}, mvpTogglePlay: () => {},
-        mvpPlayLabel: '❚❚ drift', mvpOrbitChev: 'rotate(90deg)', mvpSetStage: this._mvpSetStage,
-        mvpHasSel: false, mvpSel: {}, mvpLedgerRows: [], mvpUseClassic: () => this._useShell('classic'), mvpUseMvp: () => this._useShell('mvp'),
+        mvpToggleRight: () => {}, mvpToggleOrbit: () => {}, mvpOrbitChev: 'rotate(90deg)',
+        mvpSetStage: () => {}, mvpMeaningCounts: '',
+        mvpLedgerRows: [], mvpLedgerEmpty: true, mvpUseClassic: () => this._useShell('classic'), mvpUseMvp: () => this._useShell('mvp'),
       };
     }
   }
