@@ -3254,6 +3254,17 @@ table{border-collapse:collapse;width:100%}
                       <button style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:650;color:#4E5765">•••</button>
                     </div>
                   </div>
+                  <!-- PROVENANCE ABOVE THE FOLD — fixity, then what this source actually contributes,
+                       then its corroboration status in one line, then a verbatim excerpt. This is
+                       what makes a source a first-class object instead of a pasted URL; it used to
+                       be one section deep, under "Source details" near the bottom of the page. -->
+                  <div style="margin-top:14px;padding:16px 20px;border:1px solid #E4E1E8;border-radius:14px;background:#FAFAFC;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#4E5765;line-height:1.7">
+                    <sc-if value="{{ sourceLanding.hasIntegrity }}"><div>{{ sourceLanding.integrityLine }}</div></sc-if>
+                    <div>{{ sourceLanding.contribLine }}<sc-if value="{{ sourceLanding.hasCorrob }}"> · {{ sourceLanding.corrobLine }}</sc-if></div>
+                    <sc-if value="{{ sourceLanding.hasFirstLine }}">
+                      <div style="margin-top:10px;padding-top:10px;border-top:1px solid #EAEAEF;font-family:'Newsreader',Georgia,serif;font-style:italic;font-size:13.5px;color:#2A2A32;line-height:1.55">"{{ sourceLanding.firstLine }}"</div>
+                    </sc-if>
+                  </div>
                   <div style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(260px,.55fr);gap:14px;margin-top:14px">
                     <section style="padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 14px">Overview</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px"><sc-for list="{{ sourceLanding.coreCounts }}" as="c"><button onClick="{{ c.open }}" style="text-align:left;background:#FAFAFC;border:1px solid #EEEFF4;border-radius:10px;padding:11px 12px;font-size:13px;color:#202027">{{ c.label }}</button></sc-for></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px"><sc-for list="{{ sourceLanding.glance }}" as="g"><div style="background:#FAFAFC;border:1px solid #EEEFF4;border-radius:10px;padding:10px"><div style="font-size:10px;font-weight:800;color:#9A9AA4;text-transform:uppercase">{{ g.label }}</div><div style="font-size:13px;color:#2A2A32;margin-top:4px;line-height:1.4">{{ g.value }}</div></div></sc-for></div><p style="font-size:12.5px;color:#5A6F65;margin:14px 0 0">The source can be searched and explored without synthesis. Optional prose synthesis is {{ sourceLanding.synthesisState }}.</p></section>
                     <aside style="padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Workspace</h2><sc-for list="{{ sourceLanding.pins }}" as="p"><div style="font-size:12px;color:#4E5765;margin:7px 0">{{ p.label }}</div></sc-for><button onClick="{{ sourceLanding.openPins }}" style="margin-top:8px;color:#5B4BE6;font-size:12px;font-weight:700">Open workspace</button></aside>
@@ -3377,7 +3388,10 @@ table{border-collapse:collapse;width:100%}
                   <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><div style="display:flex;align-items:baseline;gap:8px;margin:0 0 12px"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Metadata</h2><span style="font-size:11px;color:#9A9AA4">best-effort · click any field to revise</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px"><sc-for list="{{ sourceLanding.metadataRows }}" as="md"><button onClick="{{ md.edit }}" title="Revise {{ md.label }}" style="text-align:left;background:#FAFAFC;border:1px solid #ECECF2;border-radius:11px;padding:10px 12px" style-hover="border-color:#CFC7F7;background:#FCFBFF"><div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9A9AA4;margin-bottom:5px">{{ md.label }}</div><div style="font-size:13px;font-weight:650;color:#2A2A32;line-height:1.35;word-break:break-word">{{ md.value }}</div></button></sc-for></div><sc-if value="{{ sourceLanding.metadataLogShow }}"><div style="margin-top:12px;border-top:1px solid #F1F1F4;padding-top:9px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#7B7881;line-height:1.7"><sc-for list="{{ sourceLanding.metadataLog }}" as="ml"><div>{{ ml.text }}</div></sc-for></div></sc-if></section>
                   <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Major ideas in this source</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px"><sc-for list="{{ sourceLanding.ideas }}" as="idea"><button onClick="{{ idea.open }}" style="text-align:left;background:#FFFFFF;border:1px solid #E9E6DC;border-radius:12px;padding:13px 14px;box-shadow:0 1px 0 rgba(32,32,39,.03)" style-hover="border-color:#CFC7F7;background:#FCFBFF"><div style="display:flex;gap:8px;align-items:flex-start"><span style="color:#5B4BE6;font-size:15px;line-height:1">◉</span><div style="min-width:0"><div style="font-size:14px;font-weight:760;color:#24242C;line-height:1.25">{{ idea.title }}</div><p style="font-size:12.5px;color:#5F626B;line-height:1.48;margin:7px 0 10px">{{ idea.summary }}</p><span style="font-size:11.5px;color:#6B5BE8;font-weight:700">Evidence: {{ idea.evidenceLabel }}</span></div></div></button></sc-for></div><div style="margin-top:10px;font-size:11.5px;color:#8A8A95">Advanced operator details stay available in the EoT view; this overview leads with reader-facing concepts.</div></section>
                   <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Findings as candidates with evidence</h2><sc-for list="{{ sourceLanding.findings }}" as="f"><button onClick="{{ f.open }}" style="display:block;width:100%;text-align:left;padding:8px 0;border-top:1px solid #F1F1F4;font-size:13px;color:#2A2A32">{{ f.label }}</button></sc-for></section>
-                  <section style="margin-top:14px;padding:18px 24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 10px">▸ Source details</h2><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#555;line-height:1.8">{{ sourceLanding.recordId }} · SHA {{ sourceLanding.sha }} · {{ sourceLanding.provenance }} · Rights: {{ sourceLanding.rights }}</div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px"><sc-for list="{{ sourceLanding.reviewItems }}" as="r"><button onClick="{{ r.open }}" style="background:#FFF8EC;border:1px solid #F0DFC0;border-radius:8px;padding:7px 9px;font-size:12px;color:#7A5416">{{ r.label }}</button></sc-for></div></section>
+                  <!-- The hash + read date now live above the fold in the provenance strip; this
+                       section keeps the detail that doesn't (the record id, capture origin, rights)
+                       plus any data-quality review flags. -->
+                  <section style="margin-top:14px;padding:18px 24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 10px">▸ Source details</h2><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#555;line-height:1.8">{{ sourceLanding.recordId }} · {{ sourceLanding.provenance }} · Rights: {{ sourceLanding.rights }}</div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px"><sc-for list="{{ sourceLanding.reviewItems }}" as="r"><button onClick="{{ r.open }}" style="background:#FFF8EC;border:1px solid #F0DFC0;border-radius:8px;padding:7px 9px;font-size:12px;color:#7A5416">{{ r.label }}</button></sc-for></div></section>
                   <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Source family</h2><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.8;color:#4E5765;white-space:pre-wrap">{{ sourceLanding.lineage }}</div><p style="font-size:12px;color:#7B7881;margin:10px 0 0">{{ sourceLanding.lineageNote }}</p></section>
                   <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 8px">Optional narrative synthesis</h2><p style="font-size:13px;color:#4E5765;margin:0 0 12px">The source is already indexed and explorable. Connect a model only if you want a prose interpretation.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:7px 10px;font-size:12px;color:#6E6E78">Use CPU model</button><button style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:7px 10px;font-size:12px;color:#6E6E78">Use WebGPU</button><button style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:8px;padding:7px 10px;font-size:12px;color:#6E6E78">Connect hosted model</button></div></section>
                 </div>
@@ -4052,9 +4066,15 @@ table{border-collapse:collapse;width:100%}
                 <span onClick="{{ heroPromote }}" title="{{ heroPromoteTitle }}" style="width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6;cursor:{{ heroPromoteCursor }}">{{ prof.initials }}</span>
                 <span onClick="{{ heroPromote }}" title="{{ heroPromoteTitle }}" style="flex:1;min-width:0;cursor:{{ heroPromoteCursor }}">
                   <span style="display:block;font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:600;color:#1B1B22;line-height:1.2">{{ prof.label }}</span>
-                  <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ prof.counts }}</span>
                 </span>
                 <button onClick="{{ prof.pin }}" title="{{ prof.pinTip }}" style="flex:0 0 auto;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:{{ prof.pinFg }}" style-hover="background:#F2F2F6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l1 7 3 2H5l3-2z"/></svg></button>
+              </div>
+              <!-- MASS — above the fold, before anything else: how much of the reading this figure
+                   carries, promoted out of small gray list-row meta text. This is what tells you
+                   whether the rest of the panel is load-bearing or peripheral. -->
+              <div style="display:flex;align-items:center;gap:8px;margin:2px 0 4px">
+                <span style="flex:1;height:6px;border-radius:4px;background:#F0F0F5;position:relative;overflow:hidden;max-width:120px"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ prof.massPct }};background:linear-gradient(90deg,#8b7bf0,#6355f2);border-radius:4px"></span></span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8A95;white-space:nowrap">{{ prof.massLabel }}</span>
               </div>
               <button onClick="{{ prof.openSource }}" style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:#6E7787;background:#EEF0F3;border-radius:6px;padding:3px 8px;margin:6px 0 2px" style-hover="background:#E5E8EC">{{ prof.srcReg }} · {{ prof.srcTitle }}</button>
 
@@ -4154,26 +4174,28 @@ table{border-collapse:collapse;width:100%}
                 </sc-if>
               </div>
 
-              <!-- The settled referent in its DEFAULT position — moved up near the top of the panel -->
-              <!-- (ahead of the web-graph button and the chapter spine) unless it has already been -->
-              <!-- promoted to the lead above (prof.leadWithWiki). -->
+              <!-- The settled referent — demoted below the fold summary and visually marked as an
+                   EXTERNAL lookup, not a finding: nothing here is something the record itself
+                   witnessed, so it shouldn't wear the same visual weight as what is. Only renders
+                   in this position (prof.notLeadWithWiki); the lead position above is dormant while
+                   the topline shaping is stubbed (see _toplineVM). -->
               <sc-if value="{{ prof.notLeadWithWiki }}">
-              <div style="margin-top:16px">
-                <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#9A9AA4;margin-bottom:8px">WIKIPEDIA · THE SETTLED REFERENT</div>
+              <div style="margin-top:14px;opacity:.82">
+                <div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#B0AEB8;margin-bottom:6px">EXTERNAL · WIKIPEDIA</div>
                 <sc-if value="{{ prof.wikiWait }}">
-                  <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">Looking for a matching article…</div>
+                  <div style="font-size:11.5px;color:#ABABB2;font-style:italic;line-height:1.5">Looking for a matching article…</div>
                 </sc-if>
                 <sc-if value="{{ prof.hasWiki }}">
-                  <div style="border:1px solid #EFEFF3;border-radius:9px;padding:9px 12px;background:#FBFBFD">
+                  <div style="border:1px dashed #E7E7EC;border-radius:8px;padding:7px 10px;background:#FCFCFD">
                     <sc-if value="{{ prof.hasWikiDesc }}">
-                      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ prof.wikiDesc }}</div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#ABABB2;margin-bottom:3px">{{ prof.wikiDesc }}</div>
                     </sc-if>
-                    <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.5;color:#2A2A32">{{ prof.wikiText }}</div>
-                    <a href="{{ prof.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:#5B4BE6;margin-top:7px;text-decoration:none">{{ prof.wikiTitle }} ↗</a>
+                    <div style="font-family:'Newsreader',Georgia,serif;font-size:12px;line-height:1.45;color:#5A5A63">{{ prof.wikiText }}</div>
+                    <a href="{{ prof.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:10.5px;font-weight:600;color:#8A84C0;margin-top:5px;text-decoration:none">{{ prof.wikiTitle }} ↗</a>
                   </div>
                 </sc-if>
                 <sc-if value="{{ prof.wikiAbsent }}">
-                  <div style="font-size:12.5px;color:#9A9AA4;font-style:italic;line-height:1.5">No confirmed Wikipedia match for this referent.</div>
+                  <div style="font-size:11.5px;color:#ABABB2;font-style:italic;line-height:1.5">No confirmed Wikipedia match for this referent.</div>
                 </sc-if>
               </div>
               </sc-if>
@@ -4831,25 +4853,22 @@ table{border-collapse:collapse;width:100%}
           <span style="width:36px;height:36px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ mvpEnt.prof.initials }}</span>
           <div style="flex:1;min-width:0">
             <div style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600;color:#1B1B22;line-height:1.2;overflow-wrap:anywhere">{{ mvpEnt.prof.label }}</div>
-            <div style="font-size:10.5px;color:#9A9AA4;margin-top:2px">{{ mvpEnt.prof.counts }}</div>
           </div>
           <button onClick="{{ mvpEnt.prof.pin }}" title="{{ mvpEnt.prof.pinTip }}" style="flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:{{ mvpEnt.prof.pinFg }}" style-hover="background:#F2F2F6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l1 7 3 2H5l3-2z"/></svg></button>
           <button onClick="{{ mvpEnt.close }}" title="Close" style="flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         </div>
 
-        <div style="padding:16px 18px 28px">
-          <!-- the settled Wikipedia referent, when confirmed -->
-          <sc-if value="{{ mvpEnt.prof.wikiWait }}"><div style="font-size:11.5px;color:#B0AACF;font-style:italic;margin-bottom:12px">Checking Wikipedia…</div></sc-if>
-          <sc-if value="{{ mvpEnt.prof.hasWiki }}">
-            <div style="border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px;margin-bottom:14px">
-              <sc-if value="{{ mvpEnt.prof.hasWikiDesc }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#9A9AA4;margin-bottom:4px">{{ mvpEnt.prof.wikiDesc }}</div></sc-if>
-              <div style="font-family:'Newsreader',Georgia,serif;font-size:13px;line-height:1.5;color:#2A2A32">{{ mvpEnt.prof.wikiText }}</div>
-              <a href="{{ mvpEnt.prof.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:11px;font-weight:600;color:#5B4BE6;margin-top:7px;text-decoration:none">{{ mvpEnt.prof.wikiTitle }} ↗</a>
-            </div>
-          </sc-if>
+        <!-- MASS — above the fold, right under the header: how much of the reading this figure
+             carries, before anything else. Same weight-first discipline as the topic lede above. -->
+        <div style="padding:10px 18px 4px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #F4F4F6">
+          <span style="flex:1;height:6px;border-radius:4px;background:#F0F0F5;position:relative;overflow:hidden;max-width:120px"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ mvpEnt.prof.massPct }};background:linear-gradient(90deg,#8b7bf0,#6355f2);border-radius:4px"></span></span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8A95;white-space:nowrap">{{ mvpEnt.prof.massLabel }}</span>
+        </div>
 
+        <div style="padding:16px 18px 28px">
           <!-- the fold summary — a real reading of this figure, gated + badged exactly like the
-               topic lede above (same discipline, docs/fold-summary-pipeline.md) -->
+               topic lede above (same discipline, docs/fold-summary-pipeline.md). Leads the panel;
+               the Wikipedia referent (an external lookup, not a finding) is demoted below it. -->
           <sc-if value="{{ mvpEnt.prof.foldSummary.has }}">
             <sc-if value="{{ mvpEnt.prof.foldSummary.isAi }}">
               <div class="eo-ai-summary" style="margin-bottom:14px">
@@ -4869,6 +4888,25 @@ table{border-collapse:collapse;width:100%}
           </sc-if>
           <sc-if value="{{ !mvpEnt.prof.foldSummary.has }}">
             <button onClick="{{ mvpEnt.prof.foldSummary.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px;margin-bottom:14px" style-hover="background:#E7E3FD">✨ Read the fold — a real summary of this figure</button>
+          </sc-if>
+
+          <!-- the settled Wikipedia referent — demoted below the fold summary, visually marked as
+               an external lookup, not a finding: nothing here is something the record witnessed. -->
+          <sc-if value="{{ mvpEnt.prof.wikiWait }}">
+            <div style="margin-bottom:12px;opacity:.82">
+              <div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#B0AEB8;margin-bottom:5px">EXTERNAL · WIKIPEDIA</div>
+              <div style="font-size:11px;color:#ABABB2;font-style:italic">Checking Wikipedia…</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ mvpEnt.prof.hasWiki }}">
+            <div style="margin-bottom:14px;opacity:.82">
+              <div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#B0AEB8;margin-bottom:5px">EXTERNAL · WIKIPEDIA</div>
+              <div style="border:1px dashed #E7E7EC;border-radius:9px;background:#FCFCFD;padding:9px 11px">
+                <sc-if value="{{ mvpEnt.prof.hasWikiDesc }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#ABABB2;margin-bottom:3px">{{ mvpEnt.prof.wikiDesc }}</div></sc-if>
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:12px;line-height:1.45;color:#5A5A63">{{ mvpEnt.prof.wikiText }}</div>
+                <a href="{{ mvpEnt.prof.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:10.5px;font-weight:600;color:#8A84C0;margin-top:5px;text-decoration:none">{{ mvpEnt.prof.wikiTitle }} ↗</a>
+              </div>
+            </div>
           </sc-if>
 
           <!-- the meaning-space mini-orbit, scoped to just this figure -->
@@ -8938,9 +8976,19 @@ class Component extends DCLogic {
     const wkHit = !!(wk && wk.confirmed && wk.text);
     const tl = this._toplineVM('entity', { docId, entId }, p.label);
     const pinned = (app.pins ? app.pins() : []).some((x) => x.refKey === 'entity:' + String(p.label || '').trim().toLowerCase());
+    // MASS — how much of the reading this figure carries, promoted out of small gray meta text
+    // (where it sits on entity LIST rows) into the dossier header itself: this is what tells you
+    // whether the rest of the panel is load-bearing or peripheral, before you read a word of it.
+    // Scoped to this one document (mentions + links here) — not a cross-source merge, which
+    // would need the topic-wide app.entities() row for this label and isn't cheaply available
+    // at this per-document layer.
+    const mass = p.mentions.length + p.relations.length;
+    const massPct = Math.max(4, Math.min(100, Math.round((mass / 16) * 100)));
     return {
       label: p.label, initials: this._initials(p.label),
       counts: `${p.mentions.length} mentions · ${p.relations.length} links`,
+      mass, massPct: massPct + '%',
+      massLabel: `mass ${mass} · ${p.mentions.length} mention${p.mentions.length === 1 ? '' : 's'} · ${p.relations.length} link${p.relations.length === 1 ? '' : 's'}`,
       pinned, pinFg: pinned ? '#5B4BE6' : '#B4B4BE',
       pinTip: pinned ? 'Pinned — this figure is kept' : 'Pin this figure',
       pin: () => this._pinEntity(docId, entId, p.label),
@@ -9422,6 +9470,41 @@ class Component extends DCLogic {
     const claimLabel = sourceClaimN == null
       ? 'Claim candidates: Not examined — still structuring'
       : `${sourceClaimN} claim candidate${sourceClaimN === 1 ? '' : 's'}`;
+    // ── PROVENANCE ABOVE THE FOLD ────────────────────────────────────────────────
+    // A source's fixity is its whole reason for being a first-class object instead of a pasted
+    // URL — that fact used to live one section deep, under "Source details" near the bottom of
+    // a long scroll. Promote it (+ what the source actually contributes, before reading a word)
+    // to the hero, right under the title.
+    const shaShort = String(s.sha || '').replace(/^[^:]*:/, '').slice(0, 16) || '';
+    // Not a live drift check (nothing recomputes the source's hash from its stored bytes on
+    // every render) — the record is content-addressed and immutable once ingested, so "unaltered
+    // since ingest" states a structural invariant of how sources are stored here, the same
+    // assertion the Inspector's own download button already makes (index.html "untouched since
+    // import"), not a check that could someday fail.
+    const integrityLine = shaShort ? `SHA ${shaShort} · read ${this._ago(s.retrieved) || 'at ingest'} · unaltered since ingest` : '';
+    const contribLine = entPending
+      ? 'Still structuring…'
+      : `${sourceClaimN == null ? '—' : sourceClaimN} claim${sourceClaimN === 1 ? '' : 's'} drawn · ${entN} ${entN === 1 ? 'entity' : 'entities'}`;
+    // Corroboration in one line, not the full matrix — app.comparisonMatrix() is the SAME
+    // cross-source computation the Overview/Findings tabs already read, filtered here to just
+    // the rows this source itself contributes a cell to.
+    let corrobLine = '';
+    try {
+      const matrix = app.comparisonMatrix ? app.comparisonMatrix() : null;
+      const contribRows = (matrix && matrix.rows) ? matrix.rows.filter((r) => (r.cells || []).some((c) => c && c.source === s.sn)) : [];
+      if (contribRows.length) {
+        const corroborated = contribRows.filter((r) => r.sourceCount > 1 && !r.conflict).length;
+        const contested = contribRows.filter((r) => r.conflict).length;
+        corrobLine = `${corroborated} measure${corroborated === 1 ? '' : 's'} corroborated` + (contested ? ` · ${contested} contested` : '');
+      }
+    } catch { corrobLine = ''; }
+    // The first real paragraph, verbatim — an excerpt to eyeball against what you expect this
+    // source to be, not a summary (nothing here is generated).
+    const firstLine = (() => {
+      const first = paras.find((p) => p && (p.text || p.s));
+      const t = String((first && (first.text || first.s)) || '').replace(/\s+/g, ' ').trim();
+      return t ? (t.length > 220 ? t.slice(0, 220).trim() + '…' : t) : '';
+    })();
     const findings = [
       { label: claimLabel, open: () => this.setTab('findings') },
       { label: `${paras.length || 0} passages in this source`, open: () => this.setSourceMode('facing') },
@@ -9673,7 +9756,11 @@ class Component extends DCLogic {
       workspace: ws.name || 'Workspace', topic: topic.title || 'Topic', sourceLabel: s.reg || 'Source', icon, typeLabel: type.toUpperCase(), title,
       origin, verification: s.verified === false ? 'UNVERIFIED' : 'VERIFIED', rights: this._rights(s).label, retrieved: this._ago(s.retrieved) || 'captured',
       primaryLabel, primary: () => this.setSourceMode(primaryMode), search: () => this.setTab('search'), explore: () => this.setTab('graph'), pin: () => this._pinSource?.(s.sn), reread: () => this.openReReadModal(s.sn), openWorkspace: () => this.setTab('register'), openTopic: () => this.setTab('chat'),
-      coreCounts: baseCounts, synthesisState: 'off', glance, recordId: s.reg || `S-${s.sn}`, sha: String(s.sha || '').replace(/^[^:]*:/, '').slice(0, 16) || 'Unknown', provenance: s.url ? `Captured from ${s.domain || 'web'}` : 'Local/imported source',
+      coreCounts: baseCounts, synthesisState: 'off', glance, recordId: s.reg || `S-${s.sn}`, provenance: s.url ? `Captured from ${s.domain || 'web'}` : 'Local/imported source',
+      // provenance above the fold — hero-level facts (see above)
+      integrityLine, hasIntegrity: !!integrityLine,
+      contribLine, corrobLine, hasCorrob: !!corrobLine,
+      firstLine, hasFirstLine: !!firstLine,
       reviewItems, lenses, ideas, currentLens: ideas[0] ? `${ideas[0].title} · complete source` : 'Source overview · complete record',
       pins: [{ label: `${pinnedFigures} pinned figure${pinnedFigures === 1 ? '' : 's'}` }, { label: `${pinnedPassages} pinned passage${pinnedPassages === 1 ? '' : 's'}` }, { label: `${pinnedClaims} pinned claim${pinnedClaims === 1 ? '' : 's'}` }, { label: s.recentPosition || 'Recent position: start' }], openPins: () => this.setTab('pins'),
       processingStage,
