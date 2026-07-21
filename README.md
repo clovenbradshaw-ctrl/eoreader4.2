@@ -198,6 +198,31 @@ file with `render.html?src=<url>`, hand a source in from the reader via `window.
 or start from the built-in demo. The iframe is sandboxed `allow-scripts` (no same-origin) so the
 rendered code runs its own JS but can't reach the page. Full write-up: [`docs/library-search.md`](docs/library-search.md).
 
+## Feedback terrains — a CSV's own meaning, not its rows
+
+Open **`feedback-terrains.html`** (`npm run serve`) to read a CSV of short comments —
+customer feedback, a survey export, a review dump — by what the comments are actually
+doing, not by handing each row back as a passage. The tabular adapter
+(`organs/in/table.js`) already turns a sheet into per-row DEF facts, the right shape for
+quantitative Q&A over columns (`rooms/data`) — but it has nothing to say about the
+free-text column itself. This screen instead runs that one column through the real
+reading pipeline (`perceiver/parse`) as ONE corpus, one row per paragraph, so the generic
+nouns a feedback form's own template repeats ("the company", "customer support") get the
+cross-row recurrence common-noun admission needs to become figures — a single row read
+alone repeats nothing and reads flat Void. Every row's own terrain is then typed straight
+off the resulting log (`surfer/terrain.js` `siteTerrainAt`), the same Site-face cube
+`terrains.html` paints over one hand-annotated passage, now a read-time projection over
+however many rows were dropped in. The page leads with the finding, not the table: which
+facet value (a sentiment, a service area, a score) reads as which terrain, how far above
+this dataset's *own* baseline, ranked by lift and gated on sample size so a terrain that
+occurs once in the whole sheet can't look like a headline. The landscape and its
+cross-tabs come next; the actual per-row comments sit one click away, never the default
+view. `probes/feedback-csv-terrain.mjs` is the pure logic (CSV parsing, the
+row↔sentence alignment the joint read depends on, the aggregation); the same reading runs
+from a terminal as `node probes/feedback-terrain-census.mjs file.csv`.
+`tests/feedback-csv-terrain.test.js` pins the alignment invariant against adversarial
+punctuation and the id-column / sample-size guards the findings depend on.
+
 ## Run the big models locally (LM Studio / Ollama)
 
 The in-browser backends (`webllm`, `wllama`) run the weights *inside the tab*, so

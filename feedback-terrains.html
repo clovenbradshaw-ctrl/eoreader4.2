@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Meaning space — read a feedback CSV</title>
+<link rel="icon" href="favicon.svg" />
+<style>
+  :root{ --bg:#0c0e12; --panel:#15181f; --panel2:#1b1f28; --ink:#e7ecf3; --dim:#8b93a2; --faint:#606a7b;
+    --line:#242a35; --accent:#7bd0ff;
+    --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
+  @media (prefers-color-scheme:light){ :root{ --bg:#f9f9f7; --panel:#fcfcfb; --panel2:#f0f2f6; --ink:#141821; --dim:#5a6474; --faint:#898781; --line:#e5e9ef; --accent:#2a7fd0 } }
+  :root[data-theme="dark"]{ --bg:#0c0e12; --panel:#15181f; --panel2:#1b1f28; --ink:#e7ecf3; --dim:#8b93a2; --faint:#606a7b; --line:#242a35 }
+  :root[data-theme="light"]{ --bg:#f9f9f7; --panel:#fcfcfb; --panel2:#f0f2f6; --ink:#141821; --dim:#5a6474; --faint:#898781; --line:#e5e9ef }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.55}
+  .ft{max-width:1040px;margin:0 auto;padding:28px 22px 90px}
+  .ft-head{margin-bottom:22px}
+  .ft-kick{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:0 0 6px}
+  .ft-title{font-weight:700;font-size:22px;letter-spacing:-.01em;margin:0}
+  .ft-sub{color:var(--dim);font-size:13px;margin-top:6px;max-width:74ch}
+
+  /* ── upload ── */
+  .ft-drop{border:1.5px dashed var(--line);border-radius:14px;padding:26px;text-align:center;color:var(--dim);
+    background:var(--panel);cursor:pointer;transition:border-color .15s,background .15s;margin-top:18px}
+  .ft-drop:hover,.ft-drop.drag{border-color:var(--accent);background:var(--panel2)}
+  .ft-drop input{display:none}
+  .ft-drop b{color:var(--ink)}
+  .ft-controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:14px;font-size:12.5px;color:var(--dim)}
+  .ft-controls select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:12.5px}
+  .ft-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:11.5px}
+  .ft-badge.warn{border-color:#c98500;color:#c98500}
+  .ft-warn-note{margin-top:10px;font-size:12px;color:#c98500;background:rgba(201,133,0,.1);border:1px solid rgba(201,133,0,.3);border-radius:9px;padding:9px 12px}
+
+  .ft-section{margin-top:34px}
+  .ft-h{font-weight:700;font-size:15px;letter-spacing:-.01em;margin:0 0 4px}
+  .ft-h-sub{color:var(--dim);font-size:12px;margin:0 0 14px;max-width:80ch}
+
+  /* ── headline findings (the highest level of meaning) ── */
+  .ft-findings{display:flex;flex-direction:column;gap:9px}
+  .ft-finding{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:0 10px 10px 0;padding:11px 14px;font-size:13.5px}
+  .ft-finding .n{color:var(--faint);font-size:11.5px;margin-left:6px}
+
+  /* ── the lens bar — axes used to FILTER the meaning space, never a section of their own ── */
+  .ft-lens{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:16px;padding:10px 13px;
+    background:var(--panel);border:1px solid var(--line);border-radius:11px;font-size:12px;color:var(--dim)}
+  .ft-lens .lens-kick{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .ft-lens select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:4px 7px;font-size:12px}
+  .ft-lens select.active{border-color:var(--accent);color:var(--ink);font-weight:600}
+  .ft-lens .lens-count{margin-left:auto;font-family:var(--mono);color:var(--faint)}
+  .ft-lens .lens-clear{color:var(--accent);cursor:pointer;text-decoration:underline;background:none;border:none;font-size:12px;padding:0}
+
+  /* ── the meaning space — populated categories only, biggest first, no domain/grain chrome ── */
+  .ft-space{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch}
+  .ft-mcard{position:relative;border:1px solid var(--line);background:var(--panel);border-radius:12px;
+    padding:13px 16px 12px;cursor:pointer;transition:transform .1s,border-color .12s;overflow:hidden;text-align:left;flex:1 1 200px}
+  .ft-mcard:hover{transform:translateY(-1px);border-color:var(--dot)}
+  .ft-mcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--dot);opacity:.6}
+  .ft-mcard.lead{flex-basis:100%}
+  .ft-mcard .tn{font-weight:700;font-size:14.5px;letter-spacing:-.01em;color:var(--dot)}
+  .ft-mcard .tp{font-family:var(--mono);font-size:20px;font-weight:600;margin-top:6px}
+  .ft-mcard .tc{font-size:11px;color:var(--dim);margin-top:1px}
+  .ft-mcard .tg{font-size:11px;color:var(--faint);margin-top:8px;line-height:1.4}
+
+  /* ── legend ── */
+  .ft-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px;font-size:11.5px;color:var(--dim)}
+  .ft-legend .sw{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+
+  /* ── numeric bars ── */
+  .ft-facet{margin-bottom:20px}
+  .ft-facet-name{font-size:11.5px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+  .ft-numbar-row{display:grid;grid-template-columns:150px 1fr 70px;gap:10px;align-items:center;margin:6px 0;font-size:12.5px}
+  .ft-numbar-row .lbl{font-size:12.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ft-numbar-track{height:14px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+  .ft-numbar-fill{height:100%;background:var(--series-1,#2a78d6)}
+  .ft-numbar-val{font-family:var(--mono);font-size:11.5px;color:var(--dim);text-align:right}
+
+  /* ── sample browser (secondary / low-level, collapsed by default) ── */
+  .ft-details{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden}
+  .ft-details summary{cursor:pointer;padding:13px 16px;font-size:13px;font-weight:600;color:var(--dim);list-style:none;display:flex;align-items:center;gap:8px}
+  .ft-details summary::-webkit-details-marker{display:none}
+  .ft-details summary::before{content:'▸';color:var(--faint);transition:transform .12s}
+  .ft-details[open] summary::before{transform:rotate(90deg)}
+  .ft-details-body{padding:0 16px 16px}
+  .ft-terrain-picker{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .ft-terrain-picker button{font-size:11.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);cursor:pointer}
+  .ft-terrain-picker button.on{border-color:var(--dot);background:var(--dotbg);color:var(--dot);font-weight:600}
+  .ft-sample{border-top:1px solid var(--line);padding:11px 0;font-size:12.5px}
+  .ft-sample:first-child{border-top:none}
+  .ft-sample .meta{color:var(--faint);font-size:10.5px;margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}
+  .ft-view-toggle{font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;margin-left:8px}
+
+  .ft-empty{color:var(--dim);font-size:13px;padding:50px 0;text-align:center}
+  .ft-footer-note{margin-top:38px;font-size:11.5px;color:var(--faint);line-height:1.6;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div id="mount" class="ft"><div class="ft-empty">Loading…</div></div>
+
+<script type="module">
+import {
+  parseCSV, detectTextColumn, detectFacetColumns, detectNumericColumns,
+  buildFeedbackReading, terrainDistribution, numericAverageByTerrain,
+  dominantTerrainInsights, samplesByTerrain, ALL_TERRAINS,
+} from './probes/feedback-csv-terrain.mjs';
+
+// The engine types each comment against its own nine-way internal vocabulary (see
+// probes/feedback-csv-terrain.mjs / src/surfer/terrain.js) — that vocabulary is what makes the
+// read REAL rather than a per-dataset keyword rule, but it was never meant to be read by a
+// person looking at their own feedback. PLAIN is the one place that internal name is translated
+// to a phrase about what the comment is DOING — nothing downstream of this map ever prints the
+// internal name. The typing drives the surface; the surface never repeats the typing's own
+// vocabulary back at the person reading it.
+const PLAIN = {
+  Void:       { label: 'No specifics',        gloss: 'nothing concrete named or connected' },
+  Entity:     { label: 'Concrete detail',     gloss: 'names a specific thing — a person, product, or feature' },
+  Kind:       { label: 'General category',    gloss: 'talks about a type, not one instance' },
+  Field:      { label: 'Loose atmosphere',    gloss: 'a lot going on, nothing pinned down' },
+  Link:       { label: 'Direct connection',   gloss: 'one clear tie between two specific things' },
+  Network:    { label: 'Cause and effect',    gloss: 'one thing led to another' },
+  Atmosphere: { label: 'Overall tone',        gloss: 'a mood, more than a fact' },
+  Lens:       { label: 'A particular framing', gloss: 'one way of reading a word or phrase' },
+  Paradigm:   { label: 'Hedged or mixed',     gloss: 'reconsidering, or holding two things at once' },
+};
+const plainLabel = (t) => PLAIN[t]?.label || t;
+const plainGloss = (t) => PLAIN[t]?.gloss || '';
+
+// Validated categorical palette (dataviz skill, references/palette.md), assigned to the internal
+// terrain keys IN THEIR FIXED ORDER, so the validated adjacent-pair CVD/contrast guarantees hold
+// regardless of which categories a given dataset happens to populate. Purely a lookup key; never shown.
+const TERRAIN_COLOR = {
+  Void:       { light: '#2a78d6', dark: '#3987e5' },  // blue
+  Entity:     { light: '#008300', dark: '#008300' },  // green
+  Kind:       { light: '#898781', dark: '#898781' },  // muted (rarest category, no invented hue)
+  Field:      { light: '#e87ba4', dark: '#d55181' },  // magenta
+  Link:       { light: '#eda100', dark: '#c98500' },  // yellow
+  Network:    { light: '#1baf7a', dark: '#199e70' },  // aqua
+  Atmosphere: { light: '#eb6834', dark: '#d95926' },  // orange
+  Lens:       { light: '#4a3aa7', dark: '#9085e9' },  // violet
+  Paradigm:   { light: '#e34948', dark: '#e66767' },  // red
+};
+const prefersDark = () => {
+  const stamp = document.documentElement.getAttribute('data-theme');
+  if (stamp === 'light') return false;
+  if (stamp === 'dark') return true;
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true;
+};
+const colorOf = (terrain) => TERRAIN_COLOR[terrain]?.[prefersDark() ? 'dark' : 'light'] || '#8b93a2';
+
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const pct = (x) => `${Math.round(x * 100)}%`;
+const naturalSort = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+
+const mount = document.getElementById('mount');
+
+// ── app state ──
+let CSV = null;          // { header, records }
+let TEXT_COLUMN = null;
+let READING = null;      // { doc, mode, aligned, terrainOfRow } — over ALL rows, never refiltered
+let FACETS = [];         // column names available as a lens on the meaning space
+let LENS = {};           // column -> selected value, or absent/'' for "all"
+let SELECTED_TERRAIN = null;
+
+const renderEmpty = () => {
+  mount.innerHTML = `
+    <div class="ft-head">
+      <div class="ft-kick">Meaning space</div>
+      <h1 class="ft-title">The meaning in a feedback CSV, not just the rows</h1>
+      <p class="ft-sub">Drop a CSV of short comments (a customer-feedback export, a survey, a review dump).
+      Every comment is read once, together, so what you see below is computed off what people actually
+      wrote — not a keyword list, not a template.</p>
+    </div>
+    <label class="ft-drop" id="drop">
+      <input type="file" id="file" accept=".csv,text/csv" />
+      <div><b>Click to choose a CSV</b>, or drag one here.</div>
+      <div style="margin-top:4px;font-size:11.5px">Needs one column of free-text comments; any other columns
+      (sentiment, area, score…) become lenses you can look at the meaning space through.</div>
+    </label>
+  `;
+  wireDrop();
+};
+
+const wireDrop = () => {
+  const drop = document.getElementById('drop');
+  const input = document.getElementById('file');
+  const onFile = (file) => { if (file) file.text().then(loadCSV); };
+  input.addEventListener('change', (e) => onFile(e.target.files[0]));
+  ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('drag'); }));
+  drop.addEventListener('drop', (e) => onFile(e.dataTransfer.files[0]));
+};
+
+const loadCSV = (raw) => {
+  const parsed = parseCSV(raw);
+  if (!parsed.records.length) { mount.innerHTML = '<div class="ft-empty">No rows found in that file.</div>'; return; }
+  CSV = parsed;
+  TEXT_COLUMN = detectTextColumn(CSV.header, CSV.records);
+  LENS = {};
+  SELECTED_TERRAIN = null;
+  analyzeAndRender();
+};
+
+// Deferred so the "reading…" state paints before the (synchronous) parse runs.
+const analyzeAndRender = () => {
+  mount.innerHTML = `<div class="ft-empty">Reading ${CSV.records.length} rows…</div>`;
+  setTimeout(() => {
+    READING = buildFeedbackReading(CSV.records, TEXT_COLUMN);
+    FACETS = detectFacetColumns(CSV.header, CSV.records, { exclude: [TEXT_COLUMN] });
+    render();
+  }, 30);
+};
+
+// The current lens applied to the full reading — every dependent section (the meaning space,
+// its legend, the averages, the sample browser) reads THIS, never the raw facet columns
+// directly. A facet is a way of looking at the content, not a section of its own.
+const currentView = () => {
+  const active = Object.entries(LENS).filter(([, v]) => v);
+  if (!active.length) return { records: CSV.records, terrainOfRow: READING.terrainOfRow };
+  const records = [], terrainOfRow = [];
+  CSV.records.forEach((r, i) => {
+    if (active.every(([col, v]) => String(r[col] ?? '') === v)) { records.push(r); terrainOfRow.push(READING.terrainOfRow[i]); }
+  });
+  return { records, terrainOfRow };
+};
+
+const render = () => {
+  const { header, records } = CSV;
+  const { aligned, mode } = READING;
+  const numerics = detectNumericColumns(header, records, { exclude: [TEXT_COLUMN, ...FACETS] });
+  const insights = dominantTerrainInsights(records, READING.terrainOfRow, FACETS);
+
+  mount.innerHTML = `
+    <div class="ft-head">
+      <div class="ft-kick">Meaning space</div>
+      <h1 class="ft-title">${records.length} comments, read as meaning</h1>
+      <div class="ft-controls">
+        <span class="ft-badge">reading column
+          <select id="col-picker">${header.map((h) => `<option value="${esc(h)}"${h === TEXT_COLUMN ? ' selected' : ''}>${esc(h)}</option>`).join('')}</select>
+        </span>
+        <span class="ft-badge">${records.length} rows</span>
+        <span class="ft-badge${aligned ? '' : ' warn'}">${mode === 'joint' ? 'reading together' : 'reading each row alone'}</span>
+        <label style="cursor:pointer"><input type="checkbox" id="reload-btn" style="display:none" />
+          <span class="ft-view-toggle" id="new-file">load a different file</span></label>
+      </div>
+      ${aligned ? '' : `<div class="ft-warn-note">Some rows' own formatting broke the shared reading, so this
+        fell back to reading each comment alone. Reading alone can't recognize the words other comments repeat
+        ("the company", "customer support"), so more rows will land in "No specifics" than usual.</div>`}
+    </div>
+
+    <div class="ft-section">
+      <div class="ft-h">What the feedback is actually doing</div>
+      <div class="ft-h-sub">What a comment is doing, compared against how this whole dataset reads on
+        average — a lens only makes the list once it clears a real sample size and is common
+        enough in this dataset to trust a percentage about it.</div>
+      <div class="ft-findings" id="findings"></div>
+    </div>
+
+    <div class="ft-section">
+      <div class="ft-h">The meaning space</div>
+      <div class="ft-h-sub">Not sentiment, not a keyword list — each comment is read for what it's actually
+        doing, and grouped by the shape that reading takes. Bigger means more common. Click a group to read
+        the actual comments behind it. The columns your file already had (sentiment, area, score…) are lenses
+        below, not their own charts — pick one to look at this same space through it.</div>
+      <div class="ft-lens" id="lens"></div>
+      <div class="ft-space" id="space"></div>
+      <div class="ft-legend" id="legend"></div>
+    </div>
+
+    ${numerics.length ? `<div class="ft-section">
+      <div class="ft-h">Average ${numerics.map(esc).join(', ')}, by group</div>
+      <div class="ft-h-sub">Does the group a comment falls into line up with how the customer scored the
+        interaction? Sorted high to low; follows the lens above.</div>
+      <div id="numerics"></div>
+    </div>` : ''}
+
+    <div class="ft-section">
+      <details class="ft-details" id="drill">
+        <summary>Read the actual comments behind a group</summary>
+        <div class="ft-details-body">
+          <div class="ft-terrain-picker" id="picker"></div>
+          <div id="samples"></div>
+        </div>
+      </details>
+    </div>
+
+    <div class="ft-footer-note">Every number here comes from actually reading the text, once, together —
+      not a pre-set keyword rule for this dataset. Nothing is saved; reloading re-reads the file from scratch.</div>
+  `;
+
+  document.getElementById('col-picker').addEventListener('change', (e) => { TEXT_COLUMN = e.target.value; analyzeAndRender(); });
+  document.getElementById('new-file').addEventListener('click', () => { CSV = null; READING = null; renderEmpty(); });
+
+  renderFindings(insights);
+  renderLens();
+  renderDependent(numerics);
+};
+
+const renderFindings = (insights) => {
+  const el = document.getElementById('findings');
+  if (!insights.length) {
+    el.innerHTML = `<div class="ft-h-sub" style="margin:0">Nothing clears the sample-size bar yet —
+      try a larger export, or a dataset with more than one comment per group.</div>`;
+    return;
+  }
+  el.innerHTML = insights.map((ins) => `
+    <div class="ft-finding" style="border-left-color:${colorOf(ins.terrain)}">
+      <strong>${esc(ins.column)} = "${esc(ins.value)}"</strong> reads as
+      <strong style="color:${colorOf(ins.terrain)}">${esc(plainLabel(ins.terrain))}</strong>
+      ${ins.lift.toFixed(1)}× this dataset's own baseline
+      <span class="n">(${pct(ins.shareHere)} vs ${pct(ins.shareOverall)} overall · n=${ins.sampleSize})</span>
+      — <span style="color:var(--dim)">${esc(plainGloss(ins.terrain))}</span>
+    </div>`).join('');
+};
+
+// The lens bar: one dropdown per column the file already had, "all" by default. Picking a
+// value FILTERS the meaning space below to that slice — the column never gets a chart section
+// of its own, it only ever changes which slice of the SAME space you're looking at.
+const renderLens = () => {
+  const el = document.getElementById('lens');
+  if (!FACETS.length) { el.style.display = 'none'; return; }
+  const anyActive = Object.values(LENS).some(Boolean);
+  el.innerHTML = `<span class="lens-kick">look through</span>` +
+    FACETS.map((col) => {
+      const values = [...new Set(CSV.records.map((r) => String(r[col] ?? '').trim()).filter(Boolean))].sort(naturalSort);
+      const sel = LENS[col] || '';
+      return `<select data-col="${esc(col)}" class="${sel ? 'active' : ''}">
+        <option value="">${esc(col)}: all</option>
+        ${values.map((v) => `<option value="${esc(v)}"${v === sel ? ' selected' : ''}>${esc(col)}: ${esc(v)}</option>`).join('')}
+      </select>`;
+    }).join('') +
+    (anyActive ? `<button class="lens-clear" id="lens-clear">clear</button>` : '');
+  el.querySelectorAll('select').forEach((s) => s.addEventListener('change', (e) => {
+    LENS[e.target.dataset.col] = e.target.value; SELECTED_TERRAIN = null; renderLens(); renderDependent();
+  }));
+  const clearBtn = document.getElementById('lens-clear');
+  if (clearBtn) clearBtn.addEventListener('click', () => { LENS = {}; SELECTED_TERRAIN = null; renderLens(); renderDependent(); });
+  if (FACETS.length) el.insertAdjacentHTML('beforeend', '<span class="lens-count"></span>');
+};
+
+// Everything downstream of the lens: recomputed against currentView() only. `numerics` is
+// passed through from render() so a lens change doesn't need to re-detect columns; renderLens()
+// must run first each time, since it rebuilds #lens (and would wipe the count badge otherwise).
+const renderDependent = (numerics) => {
+  const { records, terrainOfRow } = currentView();
+  const { counts, total } = terrainDistribution(terrainOfRow);
+  const present = ALL_TERRAINS.filter((t) => counts[t] > 0);
+  const numCols = numerics || detectNumericColumns(CSV.header, CSV.records, { exclude: [TEXT_COLUMN, ...FACETS] });
+
+  const countBadge = document.querySelector('#lens .lens-count');
+  if (countBadge) countBadge.textContent = `${records.length} of ${CSV.records.length}`;
+
+  renderMeaningSpace(counts, total);
+  renderLegend(present);
+  if (document.getElementById('numerics')) renderNumerics(numCols, records, terrainOfRow, present);
+  renderPicker(present);
+  renderSamples(records, terrainOfRow);
+};
+
+// The meaning space: only groups that actually appear in the current view, biggest first — an
+// organic landscape of what's there, not a fixed matrix with dead cells.
+const renderMeaningSpace = (counts, total) => {
+  const el = document.getElementById('space');
+  const rows = ALL_TERRAINS.filter((t) => counts[t] > 0).map((t) => ({ t, n: counts[t] })).sort((a, b) => b.n - a.n);
+  if (!rows.length) { el.innerHTML = `<div class="ft-h-sub" style="margin:0">Nothing recognizable in this slice.</div>`; return; }
+  el.innerHTML = rows.map(({ t, n }, i) => {
+    const p = total ? n / total : 0;
+    const c = colorOf(t);
+    return `<button class="ft-mcard${i === 0 ? ' lead' : ''}" data-terrain="${esc(t)}" style="--dot:${c};--dotbg:${c}22"
+      title="${esc(plainGloss(t))}">
+      <div class="tn">${esc(plainLabel(t))}</div>
+      <div class="tp">${pct(p)}</div>
+      <div class="tc">${n} comment${n === 1 ? '' : 's'}</div>
+      <div class="tg">${esc(plainGloss(t))}</div>
+    </button>`;
+  }).join('');
+  el.querySelectorAll('.ft-mcard').forEach((cell) => cell.addEventListener('click', () => selectTerrain(cell.dataset.terrain)));
+};
+
+const renderLegend = (present) => {
+  document.getElementById('legend').innerHTML = present.map((t) =>
+    `<span><span class="sw" style="background:${colorOf(t)}"></span>${esc(plainLabel(t))}</span>`).join('');
+};
+
+const renderNumerics = (numerics, records, terrainOfRow, present) => {
+  const el = document.getElementById('numerics');
+  if (!el) return;
+  el.innerHTML = numerics.map((col) => {
+    const avgs = numericAverageByTerrain(records, terrainOfRow, col);
+    const rows = present.filter((t) => avgs[t]).map((t) => ({ t, ...avgs[t] })).sort((a, b) => b.avg - a.avg);
+    if (!rows.length) return '';
+    const max = Math.max(...rows.map((r) => r.avg), 1e-9);
+    return `<div class="ft-facet">
+      <div class="ft-facet-name">${esc(col)}</div>
+      ${rows.map((r) => `<div class="ft-numbar-row">
+        <div class="lbl" style="color:${colorOf(r.t)}">${esc(plainLabel(r.t))}</div>
+        <div class="ft-numbar-track"><div class="ft-numbar-fill" style="width:${(100 * r.avg / max).toFixed(1)}%;background:${colorOf(r.t)}"></div></div>
+        <div class="ft-numbar-val">${r.avg.toFixed(2)} <span style="color:var(--faint)">(n=${r.n})</span></div>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+};
+
+const renderPicker = (present) => {
+  const el = document.getElementById('picker');
+  if (!present.includes(SELECTED_TERRAIN)) SELECTED_TERRAIN = null;
+  el.innerHTML = present.map((t) =>
+    `<button data-terrain="${esc(t)}" style="--dot:${colorOf(t)};--dotbg:${colorOf(t)}22" class="${t === SELECTED_TERRAIN ? 'on' : ''}">${esc(plainLabel(t))}</button>`).join('');
+  el.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => selectTerrain(b.dataset.terrain)));
+};
+
+const selectTerrain = (terrain) => {
+  SELECTED_TERRAIN = SELECTED_TERRAIN === terrain ? null : terrain;
+  document.getElementById('drill').open = true;
+  const { records, terrainOfRow } = currentView();
+  const present = ALL_TERRAINS.filter((t) => (terrainDistribution(terrainOfRow).counts[t] || 0) > 0);
+  renderPicker(present);
+  renderSamples(records, terrainOfRow);
+  document.getElementById('drill').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+const renderSamples = (records, terrainOfRow) => {
+  const el = document.getElementById('samples');
+  if (!SELECTED_TERRAIN) { el.innerHTML = `<div class="ft-h-sub" style="margin:0">Pick a group above to read the actual comments behind it.</div>`; return; }
+  const samples = samplesByTerrain(records, terrainOfRow, SELECTED_TERRAIN, TEXT_COLUMN, { limit: 12 });
+  const otherCols = CSV.header.filter((h) => h !== TEXT_COLUMN);
+  el.innerHTML = samples.map((s) => `
+    <div class="ft-sample">
+      <div>${esc(s.text)}</div>
+      <div class="meta">${otherCols.map((c) => `<span>${esc(c)}: ${esc(s.record[c])}</span>`).join('')}</div>
+    </div>`).join('') || `<div class="ft-h-sub" style="margin:0">No comments in this slice fell into "${esc(plainLabel(SELECTED_TERRAIN))}".</div>`;
+};
+
+renderEmpty();
+</script>
+</body>
+</html>
