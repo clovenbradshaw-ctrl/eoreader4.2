@@ -2987,7 +2987,7 @@ table{border-collapse:collapse;width:100%}
                     <aside style="padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0 0 12px">Workspace</h2><sc-for list="{{ sourceLanding.pins }}" as="p"><div style="font-size:12px;color:#4E5765;margin:7px 0">{{ p.label }}</div></sc-for><button onClick="{{ sourceLanding.openPins }}" style="margin-top:8px;color:#5B4BE6;font-size:12px;font-weight:700">Open workspace</button></aside>
                   </div>
 
-                  <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><div style="display:flex;align-items:baseline;gap:9px;margin:0 0 12px"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">Contents</h2><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ sourceLanding.structureCount }}</span></div><p style="font-size:12.5px;color:#6E6E78;margin:0 0 10px">Detected sections are shown in source order.</p><sc-for list="{{ sourceLanding.structure }}" as="u"><div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;padding:8px 0;border-top:1px solid #F1F1F4"><b style="font-size:12px;color:#4E5765;padding-left:{{ u.pad }}px">{{ u.unit }}</b><span style="font-size:13px;color:#2A2A32;line-height:1.45">{{ u.label }} <sc-if value="{{ u.needsMore }}"><button onClick="{{ u.toggleMore }}" style="display:inline;color:#5B4BE6;font-size:12px;font-weight:700;margin-left:6px">{{ u.moreLabel }}</button></sc-if></span><button onClick="{{ u.open }}" style="font-size:12px;color:#5B4BE6;font-weight:700;white-space:nowrap">Open →</button></div></sc-for><sc-if value="{{ sourceLanding.structureExpandShow }}"><div style="display:flex;justify-content:center;margin-top:14px"><button onClick="{{ sourceLanding.toggleStructureExpanded }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:999px;padding:8px 13px;font-size:12px;font-weight:700;color:#5B4BE6">{{ sourceLanding.structureExpandLabel }}</button></div></sc-if></section>
+                  <section style="margin-top:14px;padding:24px;border:1px solid #E4E1E8;border-radius:16px;background:#fff"><div style="display:flex;align-items:baseline;gap:9px;margin:0 0 12px"><h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8A8A95;margin:0">{{ sourceLanding.contentsLabel }}</h2><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#A6A6B0">{{ sourceLanding.structureCount }}</span></div><p style="font-size:12.5px;color:#6E6E78;margin:0 0 10px">{{ sourceLanding.contentsCaption }}</p><sc-if value="{{ sourceLanding.dataTable.show }}"><div style="overflow-x:auto;border:1px solid #F1F1F4;border-radius:10px"><table style="border-collapse:collapse;width:100%;font-size:12.5px"><thead><tr><sc-for list="{{ sourceLanding.dataTable.columns }}" as="col"><th style="text-align:left;padding:7px 10px;border-bottom:1px solid #EAEAEF;background:#FAFAFC;font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#8A8A95;white-space:nowrap;position:sticky;top:0">{{ col.label }}</th></sc-for></tr></thead><tbody><sc-for list="{{ sourceLanding.dataTable.rows }}" as="row"><tr onClick="{{ row.open }}" style="cursor:pointer" style-hover="background:#FAFAFC"><sc-for list="{{ row.cells }}" as="cell"><td title="{{ cell.value }}" style="padding:7px 10px;border-bottom:1px solid #F1F1F4;color:#2A2A32;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ cell.value }}</td></sc-for></tr></sc-for></tbody></table></div></sc-if><sc-if value="{{ !sourceLanding.dataTable.show }}"><sc-for list="{{ sourceLanding.structure }}" as="u"><div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;align-items:start;padding:8px 0;border-top:1px solid #F1F1F4"><b style="font-size:12px;color:#4E5765;padding-left:{{ u.pad }}px">{{ u.unit }}</b><span style="font-size:13px;color:#2A2A32;line-height:1.45">{{ u.label }} <sc-if value="{{ u.needsMore }}"><button onClick="{{ u.toggleMore }}" style="display:inline;color:#5B4BE6;font-size:12px;font-weight:700;margin-left:6px">{{ u.moreLabel }}</button></sc-if></span><button onClick="{{ u.open }}" style="font-size:12px;color:#5B4BE6;font-weight:700;white-space:nowrap">Open →</button></div></sc-for></sc-if><sc-if value="{{ sourceLanding.structureExpandShow }}"><div style="display:flex;justify-content:center;margin-top:14px"><button onClick="{{ sourceLanding.toggleStructureExpanded }}" style="background:#F2F2F6;border:1px solid #EAEAEF;border-radius:999px;padding:8px 13px;font-size:12px;font-weight:700;color:#5B4BE6">{{ sourceLanding.structureExpandLabel }}</button></div></sc-if></section>
 
                   <!-- CHARACTERS — the figures on record for this source, weighted by their mention + -->
                   <!-- link mass. Each opens the figure's profile. (app.sourceEntities → sfCast shape.) -->
@@ -8908,9 +8908,14 @@ class Component extends DCLogic {
   // in stable positions; only the source-specific terms change.
   _sourceLandingVM(s, eot) {
     const app = this._app;
+    // The structured reading behind a CSV/xlsx source (organs/in/table.js#ingestTable) — its
+    // columns and per-row cells, when this source's kind ('table', from file/URL import) or
+    // 'dataset' carried one in. Fetched once so the type classification, the Overview glance
+    // stats, AND the Contents section below all read the SAME row data.
+    const tableDoc = (() => { try { const d = app.docFor ? app.docFor(s) : null; return d && d.modality === 'table' && Array.isArray(d.columns) && Array.isArray(d.records) && d.records.length ? d : null; } catch { return null; } })();
     const kind = String(s && s.kind || 'unknown').toLowerCase();
     const type = kind === 'pdf' ? 'PDF' : kind === 'audio' ? 'Audio' : kind === 'video' ? 'Video'
-      : kind === 'image' ? 'Image' : kind === 'dataset' ? 'Dataset' : kind === 'code' ? 'Code file'
+      : kind === 'image' ? 'Image' : kind === 'dataset' || kind === 'table' ? 'Dataset' : kind === 'code' ? 'Code file'
         : kind === 'repository' || kind === 'repo' ? 'Repository' : kind === 'conversation' ? 'Conversation'
           : kind === 'web' || kind === 'html' ? 'Webpage' : kind === 'book' ? 'Book' : kind === 'text' ? 'Plain text/notes' : 'Unknown file';
     const icon = type === 'PDF' ? '📄' : type === 'Audio' ? '🎧' : type === 'Video' ? '🎬' : type === 'Image' ? '🖼' : type === 'Dataset' ? '▦' : type === 'Code file' ? '⌘' : type === 'Repository' ? '⎇' : type === 'Conversation' ? '💬' : type === 'Book' ? '📚' : type === 'Webpage' ? '🌐' : '□';
@@ -8946,7 +8951,11 @@ class Component extends DCLogic {
     ];
     const size = this._bytes(s.bytes || String(s.text || '').length || 0);
     const statsByType = {
-      'Dataset': [['Rows', s.rows || 'Unknown'], ['Columns', s.columns || 'Unknown'], ['Schema', s.schema || 'Detected structure'], ['Missing values', s.missingValues || 'Unknown']],
+      'Dataset': tableDoc
+        ? [['Rows', tableDoc.records.length], ['Columns', tableDoc.columns.length],
+           ['Schema', tableDoc.columns.slice(0, 6).join(', ') + (tableDoc.columns.length > 6 ? `, +${tableDoc.columns.length - 6} more` : '')],
+           ['Missing values', (() => { const n = tableDoc.records.reduce((sum, r) => sum + tableDoc.columns.filter((c, i) => !((r.cells || {})[(tableDoc.keys || tableDoc.columns)[i]] || '')).length, 0); return n ? `${n} empty cell${n === 1 ? '' : 's'}` : 'None detected'; })()]]
+        : [['Rows', s.rows || 'Unknown'], ['Columns', s.columns || 'Unknown'], ['Schema', s.schema || 'Detected structure'], ['Missing values', s.missingValues || 'Unknown']],
       'Audio': [['Duration', s.durationLabel || 'Unknown'], ['Speakers', s.speakerCount || 'Unknown'], ['Transcript coverage', s.transcriptCoverage || (s.text ? 'Available' : 'Unknown')], ['Confidence', s.confidence || 'Unknown']],
       'Video': [['Duration', s.durationLabel || 'Unknown'], ['Speakers', s.speakerCount || 'Unknown'], ['Scenes', s.scenes || 'Unknown'], ['Transcript', s.text ? 'Available' : 'Unknown']],
       // OCR coverage / layout quality — read the real coverage receipt (import-file.js) instead of
@@ -9003,6 +9012,7 @@ class Component extends DCLogic {
     ];
     const structureRows = this._sourceStructureRows(s, type, paras);
     const landingStructure = this._sourceStructureVM(s, structureRows);
+    const dataTable = this._sourceDataTableVM(s, tableDoc);
     const topic = (app.activeTopic && app.activeTopic()) || (app.state && app.state.topics && app.state.topics.find((t) => t.id === app.state.topicId)) || {};
     const ws = (app.state && app.state.workspaces && app.state.workspaces.find((w) => w.id === app.state.activeWorkspaceId)) || {};
     const canonical = s.canonicalEvidenceSn || s.sn;
@@ -9245,7 +9255,14 @@ class Component extends DCLogic {
       reviewItems, lenses, ideas, currentLens: ideas[0] ? `${ideas[0].title} · complete source` : 'Source overview · complete record',
       pins: [{ label: `${pinnedFigures} pinned figure${pinnedFigures === 1 ? '' : 's'}` }, { label: `${pinnedPassages} pinned passage${pinnedPassages === 1 ? '' : 's'}` }, { label: `${pinnedClaims} pinned claim${pinnedClaims === 1 ? '' : 's'}` }, { label: s.recentPosition || 'Recent position: start' }], openPins: () => this.setTab('pins'),
       processingStage,
-      structure: landingStructure, structureCount: `${structureRows.length} detected`, structureExpandShow: structureRows.length > 12, structureExpandLabel: this.state.sourceStructureExpanded ? 'Show fewer' : `Show more (${structureRows.length - 12} more)`, toggleStructureExpanded: () => this.toggleSourceStructureExpanded(), findings,
+      structure: landingStructure,
+      structureCount: dataTable.show ? `${dataTable.rowCount} row${dataTable.rowCount === 1 ? '' : 's'}` : `${structureRows.length} detected`,
+      structureExpandShow: dataTable.show ? dataTable.limited : structureRows.length > 12,
+      structureExpandLabel: dataTable.show ? dataTable.moreLabel : (this.state.sourceStructureExpanded ? 'Show fewer' : `Show more (${structureRows.length - 12} more)`),
+      toggleStructureExpanded: () => this.toggleSourceStructureExpanded(), findings,
+      dataTable,
+      contentsLabel: dataTable.show ? 'Rows' : 'Contents',
+      contentsCaption: dataTable.show ? `${dataTable.rowCount} row${dataTable.rowCount === 1 ? '' : 's'} × ${dataTable.columns.length} column${dataTable.columns.length === 1 ? '' : 's'}, in source order.` : 'Detected sections are shown in source order.',
       cast, castShow: !!castRows.length, castEmpty: castRows.length > 0 && castSorted.length === 0,
       castCount: castQuery ? `${castSorted.length} of ${castRows.length} on record` : `${castRows.length} on record`, castNoun,
       hasDocEntityDag: docEntityNeighbors.length > 0,
@@ -9906,6 +9923,30 @@ class Component extends DCLogic {
         }),
       };
     });
+  }
+  // A CSV/xlsx source's Contents: real columns × rows (organs/in/table.js#ingestTable), not one
+  // "Passage N" bullet per row cramming every field into a single flattened line. `tableDoc` is
+  // null for anything not actually tabular, so this is a no-op VM (dataTable.show:false) for
+  // every other source type — the Contents section falls back to the passage list unchanged.
+  _sourceDataTableVM(s, tableDoc) {
+    if (!tableDoc) return { show: false, columns: [], rows: [], rowCount: 0, limited: false, moreLabel: '' };
+    const keys = Array.isArray(tableDoc.keys) && tableDoc.keys.length === tableDoc.columns.length ? tableDoc.keys : tableDoc.columns;
+    const ROW_LIMIT = 20;
+    const expanded = !!this.state.sourceStructureExpanded;
+    const limit = expanded ? tableDoc.records.length : Math.min(ROW_LIMIT, tableDoc.records.length);
+    const rows = tableDoc.records.slice(0, limit).map((r) => ({
+      cells: tableDoc.columns.map((label, i) => ({ value: String((r.cells && r.cells[keys[i]]) || '') })),
+      open: () => this.setState({
+        viewerModes: { ...this.state.viewerModes, [s.sn]: 'reader' },
+        viewerFocus: { ...this.state.viewerFocus, [s.sn]: (tableDoc.sentences && tableDoc.sentences[r.index]) || '' },
+        tocOpen: false, nativeToc: [],
+      }),
+    }));
+    const limited = !expanded && tableDoc.records.length > ROW_LIMIT;
+    return {
+      show: true, columns: tableDoc.columns.map((label) => ({ label })), rows, rowCount: tableDoc.records.length, limited,
+      moreLabel: expanded ? 'Show fewer' : `Show more (${tableDoc.records.length - ROW_LIMIT} more)`,
+    };
   }
 
   _sourceMajorIdeas(s, paras, ents, type) {
