@@ -12,7 +12,7 @@ export { bindAndVeto } from './section.js';
 // rests on the model's own training). Nothing is groundless: void is the ground of last
 // resort, named so the surface can raise it. A response can be a mix; the void-grounded
 // propositions are the ones a veto flags.
-export { classifyProvenance } from './provenance.js';
+export { classifyProvenance, namedFigures, isContrastiveLoser } from './provenance.js';
 // Per-SPAN provenance — the answer-grain projection of the type law. Every span the reader
 // hovers is grounded EITHER to a source (with the precise line it came from — the jumpable
 // "where") OR to the void (the model's own words). So "every span needs to be grounded" is
