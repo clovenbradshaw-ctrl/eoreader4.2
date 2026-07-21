@@ -921,6 +921,14 @@ export const createParser = ({
       modality: 'text',
       corefField,    // the referent field, incl. held standing descriptors (inspection)
       deixis,        // the first-person teller channel (inspection; post-hoc referentApiFor reads it)
+      // The nameless bodies this read seated (creature/monster/wretch → one), already conventions-
+      // filtered and past the whole-document star-scale floor — the clean, floor-passed centres,
+      // NOT the raw census. Exposed so a re-parse at a SMALLER scope (nest.js segments a book into
+      // chapters, and no single chapter carries enough of the epithet mass to re-clear the floor)
+      // can inject them as `nameReferent`, keeping the figure the whole read already earned. Empty
+      // ([]) whenever `unnamedReferents` is off, so the field is additive and never changes a
+      // byte-identical parse.
+      unnamedReferentBodies: centreScanner.bodies || [],
       state, // exposed for inspection; not for outside mutation
     };
     };  // end finalize

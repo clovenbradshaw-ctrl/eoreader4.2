@@ -57,7 +57,12 @@ const nameOf = (text, k, docId) => {
 // specific label across parts (the same Victor); it does not merge distinct labels that merely
 // share a surname (Neil Armstrong stays apart from Louis Armstrong) — so a journal's unrelated
 // reviews are no more at risk here than any other composite already accepts.
-export const nestComposite = (doc, { alpha = 0.06, minGap = 6, minSegments = 2 } = {}) => {
+// `unnamedReferents` is forwarded to the per-segment re-parse below. The composite's figures come
+// ENTIRELY from those re-parses (createCompositeDoc folds them), so a figure the whole-file parse
+// admitted only by description — Frankenstein's creature ("the creature"/"the monster"/"the wretch")
+// — is lost the moment the file nests into chapters UNLESS the re-parse also resolves it. OFF by
+// default so every other caller stays byte-identical; the reader turns it on (registry.js#docFor).
+export const nestComposite = (doc, { alpha = 0.06, minGap = 6, minSegments = 2, unnamedReferents = false } = {}) => {
   if (!doc) return doc;
   const units = doc.units || doc.sentences || [];
   if (units.length < 2 * minGap) return doc;                    // too short to carry a nesting
@@ -77,12 +82,21 @@ export const nestComposite = (doc, { alpha = 0.06, minGap = 6, minSegments = 2 }
   }
   if (ranges.length < minSegments) return doc;                  // it was one document after all
 
+  // The whole-file read already seated the nameless bodies at full scope (doc.unnamedReferentBodies:
+  // conventions-filtered, past the star-scale floor — the creature, folded from creature/monster/
+  // wretch). Hand them to each segment's re-parse as the `nameReferent` talker, so a chapter carrying
+  // only a few of those epithets still resolves them to the ONE body the whole read earned, instead of
+  // falling under that chapter's own floor and dropping the figure the composite exists to show. Only
+  // when the reader asked for unnamed referents; otherwise null and the re-parse is exactly as before.
+  const seededBodies = unnamedReferents ? (doc.unnamedReferentBodies || []) : [];
+  const nameReferent = seededBodies.length ? () => seededBodies.map((b) => ({ ...b })) : null;
+
   const parts = [];
   for (let k = 0; k < ranges.length; k++) {
     const [lo, hi] = ranges[k];
     const segText = units.slice(lo, hi).join('\n');
     if (segText.trim().length < 20) continue;                   // an empty cut carries no document
-    parts.push(parseText(segText, { docId: nameOf(segText, k, doc.docId) }));
+    parts.push(parseText(segText, { docId: nameOf(segText, k, doc.docId), unnamedReferents, nameReferent }));
   }
   if (parts.length < minSegments) return doc;
   return createCompositeDoc(parts);

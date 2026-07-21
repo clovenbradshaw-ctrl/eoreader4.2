@@ -105,7 +105,9 @@ export const installSearch = (appCtx) => {
     });
 
   const ingestText = (text, title = 'Pasted text') => {
-    const doc = parseText(String(text), { docId: `doc-${shaShort(webContentHash(text))}` });
+    // unnamedReferents: true — the reader's ordinary reading (see registry.js#docFor); a nameless
+    // recurring figure ("the creature") reaches the Source Index instead of vanishing.
+    const doc = parseText(String(text), { docId: `doc-${shaShort(webContentHash(text))}`, unnamedReferents: true });
     return appCtx.addSource({ title, text: String(text), kind: 'text', doc });
   };
 
