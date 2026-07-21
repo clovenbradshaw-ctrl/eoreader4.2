@@ -158,7 +158,7 @@ const groupClaims = (rows = []) => {
     const text = String(r.text || r.quote || '').trim();
     if (!text) continue;
     const k = canon(text);
-    if (!byText.has(k)) byText.set(k, { text, support: [], contest: [], rows: [], standing: null, rival: null });
+    if (!byText.has(k)) byText.set(k, { text, support: [], contest: [], rows: [], standing: null, rival: null, op: null });
     const g = byText.get(k);
     g.rows.push(r);
     // A row is a positive assertion by its source; `contests:true` marks a within-group counter-
@@ -167,6 +167,10 @@ const groupClaims = (rows = []) => {
     (r.contests ? g.contest : g.support).push(spanRef(r));
     if (r.standing && !g.standing) g.standing = r.standing;
     if (r.rival && !g.rival) g.rival = r.rival;
+    // The manner the claim was asserted in (core/operators.js's Act face: DEF/CON/SIG) — every
+    // witnessing row of the same proposition was parsed under the same operator, so the first one
+    // present wins; absent when the row carries none (an older/seed shape never fabricates one).
+    if (r.op && !g.op) g.op = r.op;
   }
   return [...byText.values()];
 };
@@ -227,6 +231,7 @@ export const buildLedger = (reading = {}) => {
         standing,
         meta, origins: Math.max(supportOrigins, contestOrigins, 1),
         sourceIds, spanRefs: spans, support: g.support, contest: g.contest, rival: g.rival || null,
+        op: g.op || null,
       };
     });
     const node = {
@@ -281,7 +286,7 @@ export const holonMeaningData = (ledger, { query = '', centreId = 'q' } = {}) =>
     const para = paradigmOf(node);
     for (const c of node.claims) {
       const cid = `c:${c.id}`;
-      nodes.push({ id: cid, tier: 2, kind: 'claim', label: clip(c.text, 60), color: (para && para.color) || node.color, ref: c.sourceIds[0] ? { sn: c.sourceIds[0] } : null });
+      nodes.push({ id: cid, tier: 2, kind: 'claim', label: clip(c.text, 60), color: (para && para.color) || node.color, ref: c.sourceIds[0] ? { sn: c.sourceIds[0] } : null, op: c.op || null });
       spansByClaim[c.id] = c.spanRefs;
       c.spanRefs.forEach((s, i) => { if (s.quote) spans.push({ idx: s.unit != null ? s.unit : `${c.id}.${i}`, text: s.quote, sn: s.sn, claimId: c.id }); });
     }

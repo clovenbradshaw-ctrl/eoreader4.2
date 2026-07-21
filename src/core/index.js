@@ -4,7 +4,7 @@
 // the nine-operator vocabulary, the append-only log" — is this module.
 
 export { MODES, DOMAINS, GRAINS, OPERATORS, isOperator, glyphOf,
-         operatorsByMode, operatorsByDomain, operatorForMode } from './operators.js';
+         operatorsByMode, operatorsByDomain, operatorForMode, MODE_MANNER, mannerOf } from './operators.js';
 export { createLog, isLog } from './log.js';
 export { eoAddressOfEvent, eoNotation } from './address.js';
 export { projectGraph, projectionStats, DEFAULT_PROJECTION_RULES } from './project.js';
