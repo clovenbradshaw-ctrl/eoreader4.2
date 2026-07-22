@@ -42,10 +42,25 @@ const device = async () => {
   return _device;
 };
 
-const TEXT_EXT  = ['txt', 'md', 'markdown', 'text', 'log', 'rst'], HTML_EXT = ['html', 'htm', 'xhtml'];
+const TEXT_EXT  = ['txt', 'text', 'log', 'rst'], HTML_EXT = ['html', 'htm', 'xhtml'];
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
 const AUDIO_EXT = ['mp3', 'm4a', 'wav', 'ogg', 'oga', 'flac', 'aac', 'opus', 'weba'], VIDEO_EXT = ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v'];
 const MIDI_EXT  = ['mid', 'midi', 'smf', 'kar', 'rmi'], SUBTITLE_EXT = ['srt', 'vtt'];
+// Markdown is its OWN modality (not folded into TEXT_EXT above) so the Native tab can render
+// it typeset (markdown-render.js) instead of the plain reflow every other text file gets.
+const MD_EXT = ['md', 'markdown'];
+// A recognised source-code extension → the language name code-highlight.js's LANGS table
+// keys on, so `source.language` needs no translation to reach the highlighter. This is the
+// kind:'code' the source-viewer UI already has a landing-page case and an explorer genre
+// chip for (index.html's _sourceLandingVM, _genre) — nothing before this ever produced it.
+const CODE_LANG_BY_EXT = {
+  js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript',
+  ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript',
+  py: 'python', rb: 'ruby', go: 'go', rs: 'rust', java: 'java',
+  c: 'c', h: 'c', cpp: 'cpp', cc: 'cpp', hpp: 'cpp', cs: 'csharp', php: 'php',
+  sh: 'shell', bash: 'shell', sql: 'sql', css: 'css', scss: 'css', less: 'css',
+  yml: 'yaml', yaml: 'yaml',
+};
 const extOf  = (name) => (String(name || '').split('.').pop() || '').toLowerCase();
 const titleOf = (name) => String(name || 'file').replace(/\.[^.]+$/, '');
 
@@ -59,7 +74,22 @@ export async function importAnyFile(file, opts = {}) {
 
   if (mime.includes('subrip') || mime.includes('vtt') || SUBTITLE_EXT.includes(ext)) { say('Reading the captions…'); return await fromSubtitle(file, title, name); }   // timed cues (import-subtitle.js) — checked before plain-text below
 
-  // TEXT / Markdown — no extractor, no module load.
+  // Markdown — read verbatim (no extractor, no module load); the Native tab typesets it.
+  if (MD_EXT.includes(ext)) {
+    const text = await file.text();
+    return { text, title, meta: { modality: 'markdown', coverage: { complete: true, chars: text.length, dropped: [] } } };
+  }
+
+  // Source code — checked by extension, not mime (a code file's browser-reported mime is
+  // inconsistent — often empty or generic — so the extension is the only reliable signal).
+  // Read verbatim, same as plain text below; the background read (parseText) is the same
+  // one a text file gets too, so this costs nothing extra — it only tags what the file IS.
+  if (CODE_LANG_BY_EXT[ext]) {
+    const text = await file.text();
+    return { text, title, meta: { modality: 'code', language: CODE_LANG_BY_EXT[ext], coverage: { complete: true, chars: text.length, dropped: [] } } };
+  }
+
+  // TEXT — no extractor, no module load.
   if (mime.startsWith('text/plain') || TEXT_EXT.includes(ext)) {
     const text = await file.text();
     return { text, title, meta: { modality: 'text', coverage: { complete: true, chars: text.length, dropped: [] } } };

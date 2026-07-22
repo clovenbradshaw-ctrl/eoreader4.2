@@ -71,6 +71,30 @@ test('a prose file lands in the sources IMMEDIATELY, then its reading folds in',
   assert.ok(typeof finalRow.ent === 'number' && finalRow.ent > 0, 'a later sources emit shows the entity count');
 });
 
+test('a markdown file lands with kind:markdown, read verbatim, and its reading folds in', async () => {
+  const app = await freshApp();
+  const md = '# Gregor Samsa\n\nGregor woke to find himself changed into an insect. Grete brought him food.';
+  const src = await app.ingestFile(new FakeFile(md, 'notes.md', 'text/markdown'));
+  assert.ok(src && src.sn);
+  assert.equal(src.kind, 'markdown');
+  assert.equal(src.text, md, 'the raw markdown, not a reflowed/stripped version');
+  const now = app.sourceBySn(src.sn);
+  await new Promise((res) => { const un = app.subscribe((k) => { if (k === 'sources' && now._doc) { un(); res(); } }); if (now._doc) res(); });
+  assert.ok(app.sourceBySn(src.sn)._doc, 'the reading folded in the same way a plain-text import does');
+});
+
+test('a code file lands with kind:code and its language, read verbatim', async () => {
+  const app = await freshApp();
+  // addSource trims the body (registry.js), same as every other import — so the source's own
+  // leading/trailing whitespace, not this test, decides the exact stored string.
+  const code = 'def add(a, b):\n    return a + b';
+  const src = await app.ingestFile(new FakeFile(code, 'add.py', 'text/x-python'));
+  assert.ok(src && src.sn);
+  assert.equal(src.kind, 'code');
+  assert.equal(src.language, 'python');
+  assert.equal(src.text, code);
+});
+
 test('a structured file (json) still lands with its reading in one step', async () => {
   const app = await freshApp();
   const snaps = watchSources(app);
