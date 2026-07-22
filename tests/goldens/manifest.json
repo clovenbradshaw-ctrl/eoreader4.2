@@ -4,27 +4,6 @@
   "note": "A curated corpus of real, diverse documents used as reading goldens: public-domain literary works (English), non-English / non-whitespace language samples (Basque, Japanese), and academic PDFs (a Nobel lecture, Descartes's Meditations, the Watson–Crick 1953 DNA paper). Each row pins the golden's bytes (sha256) and the reader's reading of it (reading.*). License is per-row: the literary/language texts are public domain; the three PDF-derived academic texts are IN COPYRIGHT and stored as internal research/test fixtures — see each row's license field.",
   "goldens": [
     {
-      "id": "literary-war-and-peace",
-      "category": "literary",
-      "path": "texts/war-and-peace.txt",
-      "title": "War and Peace",
-      "author": "Leo Tolstoy",
-      "translator": "Louise and Aylmer Maude",
-      "language": "en",
-      "year": 1869,
-      "sha256": "6846e36589859a4b678b8f5ef1d5dbbe1ca82611935b3087fcacaae27d6e2bd0",
-      "bytes": 3274305,
-      "reading": {
-        "sentences": 30936,
-        "clauses": 50689,
-        "mentions": 0,
-        "unnamedReferents": 0
-      },
-      "source": "Project Gutenberg #2600 (https://www.gutenberg.org/ebooks/2600), text/plain UTF-8 rendition; the PG license header/footer stripped with src/organs/ingest/gutenberg.js stripGutenbergBoilerplate — the same normalization the reader applies when it ingests a PG book, so the golden is byte-for-byte what the reader would read from this ebook.",
-      "license": "public domain — the Maude English translation (pre-1928) and the original are both PD; PG boilerplate removed",
-      "notes": "the heaviest golden by far (~3.2 MB, ~31k sentences); the reader stress-scale case. Kept out of the default goldens test parse (guarded behind GOLDENS_HEAVY=1) so `npm test` stays fast; its bytes are still sha256-pinned on every run."
-    },
-    {
       "id": "literary-heart-of-darkness",
       "category": "literary",
       "path": "texts/heart-of-darkness.txt",
