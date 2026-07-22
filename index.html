@@ -10023,7 +10023,9 @@ class Component extends DCLogic {
     let surpriseHits = [];
     if (showSurprise) {
       try {
-        const eot = app.eotFor ? app.eotFor(sn) : null;
+        // eotReady (background, non-blocking) so toggling the surprise overlay on a long source
+        // never freezes the frame recomputing the whole-document spine — the hits fill in when ready.
+        const eot = app.eotReady ? app.eotReady(sn) : (app.eotFor ? app.eotFor(sn) : null);
         const turns = (eot && Array.isArray(eot.turns)) ? eot.turns : [];
         surpriseHits = turns.slice()
           .sort((a, b) => Math.max(b.bayesBits || 0, b.surprisalBits || 0) - Math.max(a.bayesBits || 0, a.surprisalBits || 0))
@@ -13437,7 +13439,11 @@ class Component extends DCLogic {
         if (vMode === 'structure') vMode = 'overview';
         const r = this._rights(s);
         let eot = null;
-        try { eot = app.eotFor(s.sn); } catch { eot = null; }
+        // eotReady, not eotFor: the turning-point spine is O(budget · events) and used to run
+        // synchronously in this very render the first frame after a big source landed, freezing the
+        // tab. eotReady returns it if ready, else reads it in the background (one source at a time)
+        // and re-renders when it lands — so the viewer opens at once and the reading fills in after.
+        try { eot = app.eotReady ? app.eotReady(s.sn) : app.eotFor(s.sn); } catch { eot = null; }
         viewer = {
           reg: s.reg, title: s.title, domain: s.domain, kind: s.kind,
           hasUrl: !!s.url, url: s.url || '#',

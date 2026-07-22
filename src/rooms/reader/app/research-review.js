@@ -188,9 +188,16 @@ export const installResearchReview = (appCtx) => {
     // exclusion scope changing — the fold moved, so the feedback about it is no longer current.
     const fb = t.review.feedback;
     if (fb && fb.readingKey === (view.reading || []).join('|')) view.feedback = fb;
+    // The per-candidate bar track reads the surprise spine — O(budget · events) on first compute.
+    // eotReady, not eotFor: computing every reviewed source's spine synchronously in this loop ran a
+    // whole book's worth of calculation PER ROW, all at once, every recompute. eotReady returns the
+    // reading if it is ready, else schedules it on the ONE background queue (one source at a time) and
+    // returns null — candidateWaveform already renders an empty track for null — so the bars fill in
+    // per source as each spine lands (emit('sources') recomputes), never in a single blocking burst.
+    const eotOf = appCtx.eotReady || appCtx.eotFor;
     const waveforms = {};
     for (const row of rows) {
-      try { waveforms[row.sn] = candidateWaveform(appCtx.eotFor(row.sn), { matrix, sn: row.sn }); }
+      try { waveforms[row.sn] = candidateWaveform(eotOf(row.sn), { matrix, sn: row.sn }); }
       catch { waveforms[row.sn] = { bars: [], turns: [] }; }
     }
     return { ...view, topic: t, excludedSns: new Set(t.review.excludedSns || []), discovered: t.review.discovered || [], waveforms };
