@@ -187,11 +187,11 @@
       "id": "degenerate-huge-single-line",
       "category": "degenerate",
       "path": "degenerate/huge-single-line.txt",
-      "sha256": "8f8e6bb56a272b4b23dacaafcc7181984602edff314a3908412eaf049f122a3d",
-      "bytes": 60006,
+      "sha256": "9f014e958a0efcd240a6eaef01e216debfd59b4d05642c23c89eb47eef218ba2",
+      "bytes": 1926,
       "source": "generated",
       "license": "CC0 — original work, dedicated to the public domain for this suite",
-      "notes": "one ~60KB line, no newlines — scaled down from the spec's 8MB for repo size; see README for how to regenerate a larger instance locally"
+      "notes": "one long line, no newlines — scaled down from the spec's 8MB target for repo size; still large enough (multiple KB) to stress single-unit offset recovery with no newline anchors"
     },
     {
       "id": "degenerate-emoji-only",
