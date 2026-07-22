@@ -16,33 +16,59 @@
 // This file is L3. Prediction reads only events *before* the cursor; surprise
 // reads events *at* the cursor; the scalar surprise is the mean surprisal in
 // bits of what the line did under the prior the reading had built.
+//
+// THE GROUND COLUMN IS THE PRIOR COLUMN (docs/ground-column §0). The three prior
+// channels this file maintains are the three Ground terrains of the cube — not
+// terrains anchored to a span, but the channels of EXPECTATION against which figures
+// become legible. They correspond one-to-one with the three rows of core/cube.js
+// TERRAINS:
+//
+//   row            Ground terrain   channel here   a prior over…
+//   Existence      Void             NOVELTY        what has not yet been seen (cold-start reserve)
+//   Structure      Field            priorBond      what is connected to what
+//   Interpretation Atmosphere       priorProp      what is taken to be the case
+//
+// A Lens (perceiver/lens.js) CONDITIONS these channels: it selects WHICH events
+// constitute the prior (opts.horizon) and how far back it reaches (opts.gamma), and
+// carries the optional Atmosphere corpus seed (§3). Every reading records the Lens it
+// was read under (L2); the default Lens leaves output byte-identical (L4).
 
 import { CONVERSATIONAL_CAP } from '../turn/converse/index.js';
 import { surpriseAt, forwardDist, bridgeSurprise, noveltyAmplitude } from '../core/index.js';
+import { resolveLens, lensId } from './lens.js';
 
-const GAMMA = 0.7;     // DEFAULT recency decay, matches DEFAULT_PROJECTION_RULES.decay_gamma
-const NOVELTY = 1.0;   // reserved prior mass for an as-yet-unseen figure (the SEED / cold-start)
+const NOVELTY = 1.0;   // the VOID prior (Existence × Ground): reserved prior mass for an
+                       // as-yet-unseen figure (the SEED / cold-start). See lens.js / cube.js.
 
 export const readingAt = (doc, cursor, opts = {}) => {
   const units = doc.units || doc.sentences || [];
   const S = units.length;
   const at = Math.max(0, Math.min(S - 1, cursor | 0));
-  // THE HORIZON. The prior is γ-decayed in READING-TIME distance, so γ sets how far
-  // back the reading still feels: at 0.7 the prior is effectively the last ~5–6 lines
-  // (0.7^8 ≈ 0.06) — a tight recency window; a wider γ keeps distant context alive
+  // THE LENS (perceiver/lens.js) — the named, addressable selection rule this reading is
+  // read under. γ and horizon are its two coordinates (§1.2); opts.lens carries them as one
+  // object, and the loose opts.gamma / opts.horizon still resolve into a Lens for backward
+  // compatibility. No lens hints ⇒ the DEFAULT Lens (recency at γ=0.7) ⇒ byte-identical (L4).
+  const lens = resolveLens(opts);
+  // THE HORIZON's DEPTH (lens.gamma). The prior is γ-decayed in READING-TIME distance, so γ
+  // sets how far back the reading still feels: at 0.7 the prior is effectively the last ~5–6
+  // lines (0.7^8 ≈ 0.06) — a tight recency window; a wider γ keeps distant context alive
   // (0.95^12 ≈ 0.54). It is parametrised so the SAME fixed log can be re-read against a
-  // different horizon — the move-1 question of whether `bayes` even moves with the
-  // horizon (docs/bayesian-surprise.md). Defaults to GAMMA, so a standard reading is
-  // byte-identical; only an explicit opts.gamma shifts the window.
-  const γ = Number.isFinite(opts.gamma) ? opts.gamma : GAMMA;
+  // different horizon — the move-1 question of whether `bayes` even moves with the horizon.
+  // Defaults to the Lens's gamma (0.7), so a standard reading is byte-identical; only an
+  // explicit lens/gamma shifts the window.
+  const γ = lens.gamma;
   const events = typeof doc.log.snapshot === 'function' ? doc.log.snapshot() : (doc.log.events || []);
 
   const label     = new Map(); // id → label
   const firstIns  = new Map(); // id → first INS sentIdx (admission line)
   const priorMass = new Map(); // id → γ-decayed presence before `at`  (the ∫, figure field)
+  // The FIELD prior (Structure × Ground): what is connected to what, before `at`. The
+  // structural channel of expectation — a bond already in priorBond is unremarkable, an
+  // unseen one is the structural reveal `bayes` is blind to (opts.bridge reads its collapse).
   const priorBond = new Set(); // 'src|tgt' bonded before `at`
-  // The PROPOSITION field — the belief state widened past the cast. The reading
-  // believes not just who is on stage but what it takes to be the case: the
+  // The ATMOSPHERE prior (Interpretation × Ground) — the PROPOSITION field, the belief
+  // state widened past the cast. The reading believes not just who is on stage but what it
+  // takes to be the case: the
   // participants (figures AND the referents they act on), the propositions
   // themselves (src|via|tgt triples), and the predicates. γ-decayed like the figure
   // mass, so a recurring proposition confirms and a new event moves belief. This is
@@ -62,7 +88,7 @@ export const readingAt = (doc, cursor, opts = {}) => {
   const relAt = [];            // { op, src, tgt, via } at `at`
   const defAt = [];            // { id, value } at `at`
 
-  // THE HORIZON's REACH (opts.horizon). Beyond γ (how FAR back), the horizon also
+  // THE HORIZON's REACH (lens.horizon). Beyond γ (how FAR back), the horizon also
   // selects WHICH events build the prior — the same fixed log read against a different
   // ground. 'recency' (default) admits every figure, so a line is read against the
   // recent mixed window. 'entity' admits only the events of the figures THIS line acts
@@ -70,8 +96,8 @@ export const readingAt = (doc, cursor, opts = {}) => {
   // the household's decline — the SELECTIVE horizon no temporal γ can give (a wider γ
   // holds the decline HARDER, not the care, so it damps the rupture; only a figure
   // filter can promote it). The line's own deposit at `at` is never filtered; the
-  // prior is. Default leaves the filter open → byte-identical to today.
-  const horizon = opts.horizon || 'recency';
+  // prior is (L3). Default leaves the filter open → byte-identical to today.
+  const horizon = lens.horizon;
   let actors = null;
   if (horizon === 'entity') {
     actors = new Set();
@@ -269,6 +295,11 @@ export const readingAt = (doc, cursor, opts = {}) => {
   const out = {
     sentIdx: at,
     sentence: units[at],
+    // THE LENS this surprise was measured under (L2) — its address (perceiver/lens.js). A
+    // surprise value without a named Lens is unaddressed and must not be persisted; every
+    // reading carries one, the default resolving to `recency@γ0.70`. When a corpus seeds the
+    // Atmosphere channel it appends `+name@hash`, so the surprise carries its calibration (C5).
+    lens: lensId(lens),
     chrome: presentIds.size === 0 && surprises.length === 0,
     predicted: { op: 'REC', figures: predFigures.map(name), bonds: predBonds },
     evaluation: { op: 'EVA', held, surprise, bits: round(surprisal) },
