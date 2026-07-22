@@ -3,7 +3,7 @@
 // VERBATIM from the closure; cross-section reach rides ctx (call-time), the core
 // spine (state · emit · trail beats · client) is destructured once at install.
 // the wiki referent (the entity panel's encyclopedia lookup)
-import { projectGraph, operatorsOf, glyphOf } from '../../../core/index.js';
+import { projectGraph, operatorsOf, glyphOf, mannerOf } from '../../../core/index.js';
 import { figureSurface, typeReferents } from '../../../perceiver/index.js';
 import { wikiReferent } from '../wiki-referent.js';
 import { networkGraphData, articleFromProfile } from '../../../wiki/index.js';
@@ -91,6 +91,74 @@ export const installWiki = (appCtx) => {
       const id = `c:${i}`;
       nodes.push({ id, tier: 2, label: d.value, kind: 'claim', terrain: 'Lens', t: srcT });
       edges.push({ a: focus, b: id, tier: 2, gl: '⊢', code: 'DEF' });
+    });
+    return { nodes, edges };
+  };
+
+  // ── the SOLAR meaning ring, enriched — the two "astronomy" reads on top of tieredData ────────
+  // The solar surface (rooms/reader/solar-system.js) descends its meaning level from these bodies.
+  // tieredData draws them honestly but flat; the meaning ring wants two things a bare position
+  // can't say — never shown by the tiered/entity web, so this is a solar-only view over the same
+  // data (tieredData stays byte-identical for the web, which only wants positions):
+  //
+  //   MANNER (the spectrum) — never show a claim's position without saying what KIND of act it
+  //   was. Read off the operator's Mode (core/operators.js): a standing property DEF-distinguishes
+  //   (⊢), a bond CON/SIG-links (⋈○), a generation INS-introduces (●). A DEF property is uniformly
+  //   "distinguishes", so the ring would read one-note — but the figure's own bonds ARE claims that
+  //   hold about it (operatorsOf types each: parent→INS "introduces", sibling/leads→CON "links",
+  //   becomes→SEG "distinguishes"), so folding them in as meaning-ring bodies is what makes the
+  //   spectrum genuinely vary. Bounded so a hub figure's ring stays legible.
+  //
+  //   STANDING (the settledness drift) — how firmly does the record HOLD this claim? The honest,
+  //   log-backed read available today: `firming` when a property is multiply witnessed and asserted
+  //   flat (count ≥ 2, realis, positive) — corroboration accumulating; `unsettled` when it is negated
+  //   or hedged (a denial, or an epistemic/deontic/irrealis mood — "may be", "must be" — stands over
+  //   it); `fresh` when it is a single, plain assertion. The surface reads this as motion — a firmer
+  //   claim falls to a tighter, higher-gravity orbit; an unsettled one is marked — so confidence shows
+  //   as position, never a number. This is SETTLEDNESS (corroboration + hedging), NOT "coming apart"
+  //   in the full sense: detecting a LATER source contradicting an earlier free-text predicate does
+  //   not exist yet (a real project), so `unsettled` means the record itself hedges/denies the claim,
+  //   not that two sources disagree. Scoped to this one figure's reading (the solar view's own scope),
+  //   so corroboration is this source's repeated witnesses, not a topic-wide tally.
+  const standingOf = (d) => {
+    const neg = d.polarity === '−' || d.polarity === '-';
+    const hedged = d.modality && d.modality !== 'realis';
+    if (neg || hedged) return 'unsettled';
+    return (d.count || 1) >= 2 ? 'firming' : 'fresh';
+  };
+  const solarMeaningData = (docId, entId, { maxBonds = 10 } = {}) => {
+    const base = tieredData(docId, entId);
+    if (!base.nodes || !base.nodes.length) return base;
+    const p = appCtx.entityProfile(docId, entId);
+    if (!p) return base;
+    // 1) tag the DEF claim bodies with their manner + standing (the flat tieredData carries neither)
+    const nodes = base.nodes.map((n) => {
+      if (n.kind !== 'claim' || !/^c:\d+$/.test(String(n.id))) return n;
+      const d = p.defs[+String(n.id).slice(2)];
+      if (!d) return { ...n, op: 'DEF', manner: mannerOf('DEF') };
+      return { ...n, op: 'DEF', manner: mannerOf('DEF'), standing: standingOf(d),
+               count: d.count || 1, polarity: d.polarity || '+', modality: d.modality || 'realis' };
+    });
+    const edges = base.edges.slice();
+    // 2) fold the figure's OWN bonds into the ring as manner-varied claims (links/introduces),
+    //    so the spectrum reads as more than a wall of "distinguishes". Each is typed by the act it
+    //    records (operatorsOf), labelled by the figure at the other end, and — like a bond — carries
+    //    a ref so a click still pivots the whole view onto that figure.
+    const focusId = `e:${entId}`;
+    const srcT = base.nodes.find((n) => n.id === focusId)?.t || 0;
+    (p.relations || []).slice(0, maxBonds).forEach((r, i) => {
+      const isSrc = r.srcId === entId, isTgt = r.tgtId === entId;
+      if (!isSrc && !isTgt) return;                       // keep the ring egocentric to the sun
+      const otherId = isSrc ? r.tgtId : r.srcId, otherLabel = isSrc ? r.tgtLabel : r.srcLabel;
+      if (otherId === entId) return;                      // never a self-loop claim
+      const op = operatorsOf(r.via, r.op || 'CON')[0] || 'CON';
+      const via = String(r.via || '').trim();
+      const id = `rc:${i}`;
+      nodes.push({ id, tier: 2, kind: 'claim', terrain: 'Lens', bond: true,
+        label: (via ? via + ' ' : '') + otherLabel, op, manner: mannerOf(op),
+        standing: (r.polarity === '−' || r.polarity === '-') ? 'unsettled' : 'fresh',
+        ref: { docId, entId: otherId }, t: srcT });
+      edges.push({ a: focusId, b: id, tier: 2, gl: glyphOf(op), code: op });
     });
     return { nodes, edges };
   };
@@ -236,5 +304,5 @@ export const installWiki = (appCtx) => {
 
   // srcTimeMs re-exported: the crosswalk surface (app/trajectory.js) needs the SAME "earliest
   // recording" time reading topicTieredData's own node.t uses, rather than a second copy of it.
-  Object.assign(appCtx, { dagSources, entityWiki, heroArticleFor, tieredData, topicTieredData, networkTieredData, networkOf, wikiCache, srcTimeMs });
+  Object.assign(appCtx, { dagSources, entityWiki, heroArticleFor, tieredData, solarMeaningData, topicTieredData, networkTieredData, networkOf, wikiCache, srcTimeMs });
 };

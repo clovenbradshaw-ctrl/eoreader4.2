@@ -14,6 +14,16 @@
 //
 // Async (a model call + two embeddings), so it runs in reading mode where a
 // per-step model call is affordable — not in the synchronous parse.
+//
+// PROVENANCE NOTE (docs/ground-column §3.2, §7). This channel is a prior too — a MODEL
+// Atmosphere prior. `1 − cosine(prediction, actual)` measures deviation from what the
+// model expects to come next, i.e. from a corpus baked into the model's weights. That
+// baseline is opaque, unversioned, vendor-controlled, and not preserved — strictly LESS
+// auditable than a hashed, versioned, retained reference corpus would be. This module is a
+// non-goal to replace (§7): the model channel may remain, but under the Ground-column spec
+// it becomes one more prior contributor subject to §3.3 — addressed to a Lens, tagged and
+// capped separately from the γ-mass prior, and separable so a reading can be recomputed with
+// it subtracted. It is NOT a source (C1): it contributes expectation only, never a claim.
 
 export const predictNext = async (doc, cursor, { model, embedder, window = 4 } = {}) => {
   const units = doc.units || doc.sentences || [];

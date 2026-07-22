@@ -1027,12 +1027,6 @@ table{border-collapse:collapse;width:100%}
       <span class="eo-hide-sm">{{ auditLabel }}</span>
     </button>
 
-    <sc-if value="{{ shellClassic }}">
-      <button onClick="{{ mvpUseMvp }}" title="Switch to the new evidence-scope surface" style="display:flex;align-items:center;gap:6px;background:#EEEBFE;color:#5B4BE6;border:1px solid #DED8FD;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;flex:0 0 auto" style-hover="background:#E7E2FD">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/></svg>
-        <span class="eo-hide-sm">New surface</span>
-      </button>
-    </sc-if>
     <button onClick="{{ toggleSettings }}" title="Settings — roll back to a prior version" style="width:31px;height:31px;display:flex;align-items:center;justify-content:center;border:1px solid #E6E6EC;background:{{ settingsBtnBg }};border-radius:999px;color:{{ settingsBtnFg }};flex:0 0 auto" style-hover="background:#F2F2F6">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
@@ -1236,244 +1230,6 @@ table{border-collapse:collapse;width:100%}
     </sc-if>
   </header>
 
-  <!-- ══════════ MVP DESKTOP SURFACE (EO_Desktop_MVP_v2) — the newer three-pane style ══════════ -->
-  <sc-if value="{{ shellMvp }}">
-  <div style="flex:1;display:flex;min-height:0;overflow:hidden;font-family:'Onest',system-ui,sans-serif;color:#1b1b1f;background:#f4f4f6">
-
-    <!-- LEFT RAIL — scope + real sources -->
-    <aside style="width:258px;flex:none;min-height:0;background:#fafafb;border-right:1px solid #ececf0;display:flex;flex-direction:column;overflow:hidden">
-      <div style="display:flex;align-items:center;gap:10px;padding:18px 18px 16px;border-bottom:1px solid #efeff2;flex:none">
-        <div style="width:32px;height:32px;border-radius:9px;background:{{ mvpWsDot }};color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;letter-spacing:0.5px">{{ mvpWsInitial }}</div>
-        <div style="min-width:0;flex:1">
-          <div style="font-size:10.5px;font-weight:600;color:#6355f2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mvpWsLine }}</div>
-          <div style="font-size:13px;font-weight:600;color:#1b1b1f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mvpTopicTitle }}</div>
-        </div>
-      </div>
-
-      <!-- TOPICS — each its own universe: own sources, own reading, own cast, own meaning
-           space (app/topics.js's sourceSns keeps them fully separate). Switch or start a
-           fresh one without leaving this shell. -->
-      <div style="padding:14px 18px 8px;flex:none;border-bottom:1px solid #efeff2">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <span style="font-size:9.5px;font-weight:700;letter-spacing:0.8px;color:#9b9ba3">TOPICS</span>
-          <button onClick="{{ mvpNewTopic }}" title="Start a new topic — its own sources, its own reading" style="font-size:11px;font-weight:700;color:#5a49e8;background:#ece9fe;border:none;border-radius:7px;padding:3px 8px;cursor:pointer;font-family:inherit" style-hover="background:#e4dffb">+ New</button>
-        </div>
-        <div style="max-height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;margin:0 -6px">
-          <sc-for list="{{ mvpTopics }}" as="tp">
-            <button onClick="{{ tp.onTap }}" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:{{ tp.bg }};border:none;border-radius:8px;padding:6px 8px;cursor:pointer;font-family:inherit" style-hover="background:#f2f2f5">
-              <span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:{{ tp.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tp.title }}</span>
-              <span style="flex:none;font-size:10px;color:#a6a6ae">{{ tp.meta }}</span>
-            </button>
-          </sc-for>
-        </div>
-      </div>
-
-      <div style="padding:16px 18px 8px;flex:none">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:9.5px;font-weight:700;letter-spacing:0.8px;color:#9b9ba3">EVIDENCE SCOPE</span>
-          <span style="font-size:11px;font-weight:600;color:#7a7a83">{{ mvpScopeLine }}</span>
-        </div>
-        <div style="font-size:11px;color:#a0a0a8;line-height:1.4;margin-top:6px">Toggling a source recomputes the reading and the meaning space in place.</div>
-        <div style="display:flex;gap:7px;margin-top:11px">
-          <button onClick="{{ mvpAllOn }}" style="flex:1;background:#ece9fe;color:#5a49e8;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">All</button>
-          <button onClick="{{ mvpAllOff }}" style="flex:1;background:#f2f2f5;color:#5a5a63;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">None</button>
-        </div>
-        <div style="display:flex;gap:7px;margin-top:9px">
-          <button onClick="{{ mvpAddSource }}" title="Search Wikipedia, Project Gutenberg, Wikimedia Commons or the web" style="flex:1;background:#ece9fe;color:#5a49e8;border:none;border-radius:10px;padding:10px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit" style-hover="background:#e4dffb">+ Add source</button>
-          <button onClick="{{ mvpUpload }}" title="Upload a file — PDF, image, audio, video, or text" aria-label="Upload a file" style="flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:40px;background:#f2f2f5;color:#5a5a63;border:none;border-radius:10px;padding:10px;cursor:pointer;font-family:inherit" style-hover="background:#eaeaef;color:#5a49e8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/></svg></button>
-        </div>
-      </div>
-
-      <div style="flex:1;min-height:0;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column;gap:8px">
-        <sc-if value="{{ mvpSourcesEmpty }}">
-          <div style="font-size:11.5px;color:#a0a0a8;line-height:1.5;padding:10px 6px">Nothing recorded yet. Read a URL, drop a file, or search the web from the bar up top — every source lands here with its hash.</div>
-        </sc-if>
-        <!-- LIVE READS — a clicked source, reading on screen (streaming box + progress bar) until it
-             settles into a recorded card below. Driven by `pendingReads`; motion is pure CSS. -->
-        <sc-for list="{{ mvpPendingReads }}" as="pr">
-          <div class="eo-read-card" style="background:#fff;border:1px solid #e2ddf7;border-radius:13px;padding:11px 12px;box-shadow:0 1px 4px rgba(99,85,242,0.09)">
-            <div style="display:flex;align-items:center;gap:10px">
-              <div style="width:30px;height:30px;border-radius:8px;background:#eceafd;display:flex;align-items:center;justify-content:center;flex:none;font-size:14px">{{ pr.glyph }}</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#1b1b1f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pr.title }}</div>
-                <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:{{ pr.phaseColor }};margin-top:3px;font-family:'IBM Plex Mono',monospace">{{ pr.phase }}</div>
-              </div>
-              <span style="font-size:10px;font-weight:700;color:#8a86a0;font-family:'IBM Plex Mono',monospace;flex:none">{{ pr.pct }}</span>
-            </div>
-            <div class="eo-read-track" style="margin-top:9px">
-              <span class="eo-read-fill" style="width:{{ pr.pct }};background:{{ pr.fillBg }}"></span>
-              <sc-if value="{{ pr.showSheen }}"><span class="eo-read-sheen"></span></sc-if>
-            </div>
-            <div class="eo-read-stream" style="margin-top:9px">{{ pr.shown }}<span class="eo-read-caret"></span></div>
-          </div>
-        </sc-for>
-        <sc-for list="{{ mvpSources }}" as="src">
-          <div style="background:{{ src.rowBg }};border:1px solid {{ src.rowBorder }};border-radius:13px;padding:12px 12px">
-            <div style="display:flex;align-items:flex-start;gap:10px">
-              <div style="width:30px;height:30px;border-radius:8px;background:{{ src.abg }};color:{{ src.afg }};font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;font-family:'JetBrains Mono',monospace">{{ src.letter }}</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#1b1b1f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ src.host }}</div>
-                <div style="font-size:10.5px;color:#9b9ba3;margin-top:2px">{{ src.contrib }}</div>
-              </div>
-              <button onClick="{{ src.onToggle }}" style="background:none;border:none;cursor:pointer;padding:0;flex:none">
-                <span style="width:38px;height:22px;border-radius:20px;background:{{ src.trackBg }};position:relative;display:inline-block">
-                  <span style="position:absolute;top:2px;left:{{ src.knobX }};width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.25)"></span>
-                </span>
-              </button>
-            </div>
-            <sc-if value="{{ src.badges.length }}">
-            <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:9px">
-              <sc-for list="{{ src.badges }}" as="b">
-                <span style="font-size:8px;font-weight:700;letter-spacing:0.4px;padding:2px 6px;border-radius:5px;color:{{ b.c }};background:{{ b.bg }}">{{ b.t }}</span>
-              </sc-for>
-            </div>
-            </sc-if>
-          </div>
-        </sc-for>
-      </div>
-    </aside>
-
-    <!-- CENTER — ask bar + Overview / Question result -->
-    <main style="flex:1;min-width:0;min-height:0;background:#f4f4f6;display:flex;flex-direction:column;overflow:hidden">
-      <div style="flex:none;padding:20px 34px 14px;border-bottom:1px solid #ececf0;background:#f4f4f6">
-        <form onSubmit="{{ onOmniSubmit }}" style="display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e4e4ea;border-radius:14px;padding:13px 16px;box-shadow:0 1px 2px rgba(20,20,25,0.03)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b0b0b8" stroke-width="2" style="flex:none"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21" stroke-linecap="round"/></svg>
-          <input value="{{ omni }}" onChange="{{ onOmniInput }}" placeholder="Ask about this topic — or read a URL, paste text, search the web…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:15px;font-weight:500;color:#2f2f36;font-family:inherit" />
-          <div style="display:flex;gap:7px;flex:none">
-            <button type="button" onClick="{{ mvpShowOverview }}" style="background:{{ mvpOvBtnBg }};color:{{ mvpOvBtnFg }};border:none;border-radius:9px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Overview</button>
-            <button type="button" onClick="{{ mvpShowResult }}" style="background:{{ mvpResBtnBg }};color:{{ mvpResBtnFg }};border:none;border-radius:9px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Question result</button>
-          </div>
-        </form>
-      </div>
-
-      <div style="flex:1;min-height:0;overflow-y:auto">
-        <div style="max-width:860px;margin:0 auto;padding:26px 32px 48px;display:flex;flex-direction:column;gap:15px">
-          <!-- THE LEDE — a wikipedia-style header: title, a byline, a one-sentence short
-               description, then the lead paragraph, with an infobox of settled facts
-               alongside — read off the topic's primary source via the same fold→summary
-               pipeline every source Overview and entity profile already uses. -->
-          <div style="background:#fff;border:1px solid #ececf0;border-radius:20px;padding:22px 24px">
-            <div style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:1px;color:#9b9ba3;background:#f2f2f5;padding:4px 9px;border-radius:6px">RESEARCH TOPIC</div>
-            <div style="font-family:'Newsreader',Georgia,serif;font-size:30px;line-height:1.14;font-weight:500;margin:15px 0 4px;color:#17171a;overflow-wrap:anywhere">{{ mvpHeadline }}</div>
-            <div style="font-size:12px;font-style:italic;color:#9b9ba3">{{ mvpByline }}</div>
-
-            <div style="display:flex;gap:22px;flex-wrap:wrap;margin-top:14px">
-              <div style="flex:1;min-width:260px">
-                <sc-if value="{{ mvpBriefShow }}">
-                  <div style="font-size:14px;font-style:italic;color:#5a5a63;line-height:1.5">{{ mvpBriefText }}</div>
-                </sc-if>
-                <!-- mvpLedeShow is only ever true for a model-composed paragraph (see _mvpLede) —
-                     the deterministic telegram floor never renders here unbadged as if it were
-                     prose someone wrote. -->
-                <sc-if value="{{ mvpLedeShow }}">
-                  <div class="eo-ai-summary" style="margin-top:12px">
-                    <div class="eo-ai-badge">{{ mvpLedeBadge }}</div>
-                    <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;line-height:1.6;color:#2a2a32">{{ mvpLedeText }}</div>
-                  </div>
-                </sc-if>
-                <sc-if value="{{ mvpLedePending }}">
-                  <div style="font-size:12.5px;color:#b0b0b8;font-style:italic;margin-top:12px">Reading the lead…</div>
-                </sc-if>
-                <sc-if value="{{ !mvpLedeHas }}">
-                  <div style="font-size:13px;color:#7a7a83;margin-top:10px">{{ mvpTopicMeta }}</div>
-                </sc-if>
-              </div>
-              <!-- INFOBOX — a wikipedia-style facts panel, read straight from the topic's own reading -->
-              <sc-if value="{{ mvpInfobox.length }}">
-              <div style="flex:0 0 200px;border:1px solid #ececf0;border-radius:12px;overflow:hidden;align-self:flex-start">
-                <div style="background:#f7f7fa;padding:8px 12px;font-size:10.5px;font-weight:700;letter-spacing:0.4px;color:#6a6a73;border-bottom:1px solid #ececf0">AT A GLANCE</div>
-                <sc-for list="{{ mvpInfobox }}" as="f">
-                  <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid #f4f4f6">
-                    <span style="font-size:11px;font-weight:600;color:#9b9ba3">{{ f.k }}</span>
-                    <span style="font-size:11.5px;font-weight:600;color:#2f2f36;text-align:right">{{ f.v }}</span>
-                  </div>
-                </sc-for>
-              </div>
-              </sc-if>
-            </div>
-          </div>
-
-          <!-- CAST — the figures across the active sources, by how much of the reading they carry.
-               Read from the merged entity index; each chip opens the figure's profile. -->
-          <sc-if value="{{ mvpHasCast }}">
-          <div style="background:#fff;border:1px solid #ececf0;border-radius:20px;padding:18px 20px">
-            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
-              <span style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:#5a5a63">CAST · figures across the reading</span>
-              <span style="font-size:10.5px;color:#a6a6ae">{{ mvpCastCount }} on record</span>
-            </div>
-            <sc-if value="{{ mvpHasCastBars }}">
-            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
-              <sc-for list="{{ mvpCastBars }}" as="b">
-                <button onClick="{{ b.onTap }}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:2px 0;font-family:inherit" style-hover="opacity:.82">
-                  <span style="flex:0 0 130px;min-width:0;font-size:12px;color:#3a3a41;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.label }}</span>
-                  <span style="flex:1;height:9px;border-radius:5px;background:#f2f2f5;position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ b.w }};background:linear-gradient(90deg,#8b7bf0,#6355f2);border-radius:5px"></span></span>
-                  <span style="flex:0 0 auto;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#9b9ba3">{{ b.val }}</span>
-                </button>
-              </sc-for>
-            </div>
-            </sc-if>
-            <div style="display:flex;gap:7px;flex-wrap:wrap">
-              <sc-for list="{{ mvpCast }}" as="c">
-                <button onClick="{{ c.onTap }}" title="{{ c.meta }}" style="display:inline-flex;align-items:center;gap:7px;background:#fafafb;border:1px solid #efeff2;border-radius:999px;padding:5px 11px 5px 6px;cursor:pointer;font-family:inherit" style-hover="background:#f1effe;border-color:#ded8fd">
-                  <span style="width:22px;height:22px;border-radius:50%;background:#eceafd;color:#6355f2;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;flex:none">{{ c.fav }}</span>
-                  <span style="font-size:12.5px;font-weight:600;color:#2f2f36">{{ c.label }}</span>
-                </button>
-              </sc-for>
-            </div>
-          </div>
-          </sc-if>
-
-          <!-- MEANING SPACE — the orbit, folded in from the old right rail. Themeable via the
-               {{ mvpCardVars }} custom properties: light by default (its native palette = this page's),
-               flipping to the darkroom it was first designed against with the sun/moon toggle, which
-               themes this card, the orbit, and THE READING below in one switch. -->
-          <sc-if value="{{ mvpHasMeaning }}">
-          <div style="{{ mvpCardVars }};background:var(--rl-bg);border:1px solid var(--rl-line);border-radius:20px;padding:18px 20px">
-            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
-              <span style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:var(--rl-kicker)">MEANING SPACE</span>
-              <div style="display:flex;align-items:center;gap:10px">
-                <span style="font-size:10.5px;color:var(--rl-dim)">{{ mvpMeaningCounts }}</span>
-                <button onClick="{{ mvpToggleTheme }}" title="Toggle light / dark" style="flex:none;width:26px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--rl-btn-bg);color:var(--rl-btn-ink);border:1px solid var(--rl-btn-line);border-radius:7px;cursor:pointer">
-                  <sc-if value="{{ mvpThemeDark }}">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-                  </sc-if>
-                  <sc-if value="{{ mvpThemeLight }}">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                  </sc-if>
-                </button>
-                <button onClick="{{ mvpUseClassic }}" title="Switch to the classic shell" style="flex:none;background:var(--rl-btn-bg);color:var(--rl-btn-ink);border:1px solid var(--rl-btn-line);border-radius:7px;padding:4px 8px;font-size:9.5px;font-weight:700;letter-spacing:0.4px;cursor:pointer;font-family:inherit">CLASSIC VIEW</button>
-              </div>
-            </div>
-            <div ref="{{ mvpSetStage }}" style="min-height:40px"></div>
-          </div>
-          </sc-if>
-
-          <!-- THE READING — the holon (paradigm ⊃ atmosphere ⊃ claim ⊃ base span), mounted as the real
-               collapsible ledger (ledger-surface.js). The frames sit at the top and are opened INTO;
-               each claim carries its cross-source standing as a muted dot-label and drills down to the
-               verbatim passage it stands on. Themed with the meaning space above (see {{ mvpCardVars }}). -->
-          <sc-if value="{{ mvpHasReading }}">
-          <div style="{{ mvpCardVars }};background:var(--rl-bg);border:1px solid var(--rl-line);border-radius:20px;padding:18px 20px">
-            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
-              <span style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:var(--rl-kicker)">THE READING · nested by frame</span>
-              <span style="font-size:10.5px;color:var(--rl-dim)">{{ mvpReadingCount }} on record</span>
-            </div>
-            <div ref="{{ mvpSetReading }}"></div>
-          </div>
-          </sc-if>
-
-          <div style="display:flex;gap:11px;align-items:flex-start;background:#f8f7ff;border:1px dashed #e6e1f7;border-radius:14px;padding:15px 17px">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a6a0e6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/></svg>
-            <div style="font-size:12.5px;color:#8580ab;line-height:1.5">The meaning space and the reading below are two projections of the same claims — the orbit places each one, the reading nests it holonically under its paradigm and atmosphere. Open a frame to descend into it, and a claim to read the passage it stands on.</div>
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
-  </sc-if>
-
-  <!-- ══════════ CLASSIC DESKTOP SHELL ══════════ -->
-  <sc-if value="{{ shellClassic }}">
   <div style="flex:1;display:flex;min-height:0">
 
     <!-- On small screens the side panels are overlay drawers; this backdrop closes them. -->
@@ -3325,7 +3081,9 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">{{ vmFacingLabel }}</button>
                   <button onClick="{{ viewerModeRaw }}" title="The raw text — every character, exactly as stored, line by line" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmRawFg }};background:{{ vmRawBg }}">Raw</button>
-                  <button onClick="{{ viewerModeStructure }}" title="Byte structure — the document's raw bytes on a Hilbert curve (Aldo Cortesi's binvis): its shape (structure), its packed regions (entropy), and where the reading turned (significance)" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmStructureFg }};background:{{ vmStructureBg }}">Structure</button>
+                  <!-- Structure tab (byte-structure binvis surface) hidden — not useful enough to earn its
+                       place in the bar. Mount code (setStructureEl, mountBinvis) stays intact below in case
+                       it's worth resurfacing later; only the entrance is gone. -->
                   <button onClick="{{ viewerModeGraph }}" title="This source's knowledge graph — the figures it names and the bonds among them. Click a node to open its profile." style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmGraphFg }};background:{{ vmGraphBg }}">Graph</button>
                   <button onClick="{{ viewerModeEot }}" title="Every proposition this reading admitted, with its own thinking alongside" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">{{ vmEotLabel }} · {{ viewer.eotCount }}</button>
                 </span>
@@ -4115,11 +3873,13 @@ table{border-collapse:collapse;width:100%}
             </sc-if>
 
             <sc-if value="{{ viewerIsGraph }}">
-              <!-- The per-source KNOWLEDGE GRAPH tab — the topic entity web (topicTieredData /
-                   mountTieredGraph) scoped to just this source: its figures at tier 1, the standing
-                   claims at tier 2, the bonds among them as edges. Same surface the Graph tab draws
-                   for the whole topic, mounted here over one source via setSourceGraphEl. Clicking a
-                   figure opens its profile in the entity panel. -->
+              <!-- The per-source KNOWLEDGE GRAPH tab — the EOGraph solar surface (solar-system.js
+                   mountSolarSystem) scoped to just this source: one of its own figures at the centre,
+                   its bonds (tier 1) and standing claims (tier 2) ringing out as the structure and
+                   meaning regimes. Same egocentric surface the topic Graph tab's EOGraph kind draws,
+                   mounted here over one source via setSourceGraphEl/_drawSourceGraph. No focus yet
+                   lands on an explicit chooser (_drawSourceGraphChooser); clicking a bonded figure
+                   pivots the sun onto it and turns the entity panel to match. -->
               <div ref="{{ setSourceGraphEl }}" data-screen-label="Source graph" class="eo-scroll" style="flex:1;min-height:0;overflow:auto;background:#f4f4f6"></div>
             </sc-if>
           </div>
@@ -4724,7 +4484,6 @@ table{border-collapse:collapse;width:100%}
       </div>
     </main>
   </div>
-  </sc-if>
 
   <!-- WEB SEARCH OVERLAY -->
   <sc-if value="{{ searchShow }}">
@@ -5021,115 +4780,6 @@ table{border-collapse:collapse;width:100%}
           <sc-if value="{{ surpriseXsShow }}"><button onClick="{{ openEvidenceMatrix }}" style="border:1px solid #DED8FD;background:#F1EFFE;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:600;color:#5140C8" style-hover="background:#E7E2FD">Open evidence matrix</button></sc-if>
           <sc-if value="{{ surpriseOriginalShow }}"><button onClick="{{ openSurpriseOriginal }}" style="border:1px solid #EAEAEF;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:600;color:#4E5765" style-hover="background:#F5F5F8">{{ surpriseOriginalLabel }}</button></sc-if>
           <sc-if value="{{ surpriseHasSingleSource }}"><button onClick="{{ readSurpriseInContext }}" style="display:inline-flex;align-items:center;gap:6px;background:#6D5EF5;color:#fff;border-radius:9px;padding:8px 16px;font-size:12.5px;font-weight:600" style-hover="background:#5B4BE6">Open in Reader <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></sc-if>
-        </div>
-      </div>
-    </div>
-  </sc-if>
-
-  <!-- THE MVP ENTITY SHEET — a figure's profile (CAST chip, MEANING SPACE bubble) shown in place
-       over the topic page instead of navigating away. Global overlay (works regardless of shell,
-       same reasoning as the evidence modal above); reuses _profFor, the same builder the classic
-       sidebar / graph overlay / mobile sheet already share. -->
-  <sc-if value="{{ mvpEnt.open }}">
-    <div style="position:absolute;inset:0;z-index:45">
-      <div onClick="{{ mvpEnt.close }}" style="position:absolute;inset:0;background:rgba(20,20,28,.24);animation:eoFade .16s ease"></div>
-      <div class="eo-scroll eo-drawer" style="position:absolute;right:0;top:0;height:100%;width:min(420px,92vw);background:#fff;border-left:1px solid #EAEAEF;box-shadow:-12px 0 40px rgba(20,20,30,.12);overflow-y:auto;animation:eoDrawer .22s cubic-bezier(.4,0,.2,1)">
-        <div style="position:sticky;top:0;background:#fff;border-bottom:1px solid #EAEAEF;padding:16px 18px;z-index:2;display:flex;align-items:center;gap:11px">
-          <span style="width:36px;height:36px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEEBFE;color:#5B4BE6">{{ mvpEnt.prof.initials }}</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:600;color:#1B1B22;line-height:1.2;overflow-wrap:anywhere">{{ mvpEnt.prof.label }}</div>
-          </div>
-          <button onClick="{{ mvpEnt.prof.pin }}" title="{{ mvpEnt.prof.pinTip }}" style="flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:{{ mvpEnt.prof.pinFg }}" style-hover="background:#F2F2F6"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l1 7 3 2H5l3-2z"/></svg></button>
-          <button onClick="{{ mvpEnt.close }}" title="Close" style="flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#8A8A95" style-hover="background:#F2F2F6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-        </div>
-
-        <!-- MASS — above the fold, right under the header: how much of the reading this figure
-             carries, before anything else. Same weight-first discipline as the topic lede above. -->
-        <div style="padding:10px 18px 4px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #F4F4F6">
-          <span style="flex:1;height:6px;border-radius:4px;background:#F0F0F5;position:relative;overflow:hidden;max-width:120px"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ mvpEnt.prof.massPct }};background:linear-gradient(90deg,#8b7bf0,#6355f2);border-radius:4px"></span></span>
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A8A95;white-space:nowrap">{{ mvpEnt.prof.massLabel }}</span>
-        </div>
-
-        <div style="padding:16px 18px 28px">
-          <!-- the fold summary — a real reading of this figure, gated + badged exactly like the
-               topic lede above (same discipline, docs/fold-summary-pipeline.md). Leads the panel;
-               the Wikipedia referent (an external lookup, not a finding) is demoted below it.
-               has REQUIRES isAi — never the telegram floor as if it were a composed reading;
-               composing and the explicit ask are siblings, not nested under has. -->
-          <sc-if value="{{ mvpEnt.prof.foldSummary.has }}">
-            <div class="eo-ai-summary" style="margin-bottom:14px">
-              <div class="eo-ai-badge">{{ mvpEnt.prof.foldSummary.badgeLabel }}<sc-if value="{{ mvpEnt.prof.foldSummary.hasGroundDot }}"><span class="dot" title="{{ mvpEnt.prof.foldSummary.groundLabel }}" style="background:{{ mvpEnt.prof.foldSummary.groundDot }}"></span></sc-if></div>
-              <div style="font-family:'Newsreader',Georgia,serif;font-size:13.5px;line-height:1.55;color:#2A2A32">{{ mvpEnt.prof.foldSummary.text }}</div>
-            </div>
-          </sc-if>
-          <sc-if value="{{ mvpEnt.prof.foldSummary.composing }}">
-            <div style="border:1px solid #E7E4F7;border-radius:11px;background:#FAFAFE;padding:11px 13px;margin-bottom:14px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#8B84C0">FOLD SUMMARY</span>
-                <span style="font-size:10px;color:#B0AACF;font-style:italic">the local model is composing…</span>
-              </div>
-              <div style="animation:eoFade .2s ease">
-                <div class="eo-skel" style="height:10px;width:96%;margin-bottom:7px"></div>
-                <div class="eo-skel" style="height:10px;width:100%;margin-bottom:7px"></div>
-                <div class="eo-skel" style="height:10px;width:61%"></div>
-              </div>
-            </div>
-          </sc-if>
-          <sc-if value="{{ !mvpEnt.prof.foldSummary.has }}"><sc-if value="{{ !mvpEnt.prof.foldSummary.composing }}">
-            <button onClick="{{ mvpEnt.prof.foldSummary.generate }}" style="font-size:11px;font-weight:600;color:#6D5EF5;background:#F1EFFE;border-radius:7px;padding:6px 12px;margin-bottom:14px" style-hover="background:#E7E3FD">✨ Read the fold — a real summary of this figure</button>
-          </sc-if></sc-if>
-
-          <!-- the settled Wikipedia referent — demoted below the fold summary, visually marked as
-               an external lookup, not a finding: nothing here is something the record witnessed. -->
-          <sc-if value="{{ mvpEnt.prof.wikiWait }}">
-            <div style="margin-bottom:12px;opacity:.82">
-              <div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#B0AEB8;margin-bottom:5px">EXTERNAL · WIKIPEDIA</div>
-              <div style="font-size:11px;color:#ABABB2;font-style:italic">Checking Wikipedia…</div>
-            </div>
-          </sc-if>
-          <sc-if value="{{ mvpEnt.prof.hasWiki }}">
-            <div style="margin-bottom:14px;opacity:.82">
-              <div style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#B0AEB8;margin-bottom:5px">EXTERNAL · WIKIPEDIA</div>
-              <div style="border:1px dashed #E7E7EC;border-radius:9px;background:#FCFCFD;padding:9px 11px">
-                <sc-if value="{{ mvpEnt.prof.hasWikiDesc }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#ABABB2;margin-bottom:3px">{{ mvpEnt.prof.wikiDesc }}</div></sc-if>
-                <div style="font-family:'Newsreader',Georgia,serif;font-size:12px;line-height:1.45;color:#5A5A63">{{ mvpEnt.prof.wikiText }}</div>
-                <a href="{{ mvpEnt.prof.wikiUrl }}" target="_blank" rel="noopener" style="display:inline-block;font-size:10.5px;font-weight:600;color:#8A84C0;margin-top:5px;text-decoration:none">{{ mvpEnt.prof.wikiTitle }} ↗</a>
-              </div>
-            </div>
-          </sc-if>
-
-          <!-- the meaning-space mini-orbit, scoped to just this figure -->
-          <sc-if value="{{ mvpEnt.prof.hasSolar }}">
-            <div style="margin-bottom:16px;border-radius:12px;overflow:hidden" ref="{{ mvpEnt.prof.setSolarEl }}"></div>
-          </sc-if>
-
-          <!-- connected entities -->
-          <sc-if value="{{ mvpEnt.prof.hasRelations }}">
-            <div style="font-size:11px;font-weight:700;letter-spacing:.04em;color:#8A8A95;text-transform:uppercase;margin-bottom:8px">Connected figures</div>
-            <sc-for list="{{ mvpEnt.prof.relations }}" as="r">
-              <button onClick="{{ r.pivot }}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;background:none;border:none;border-top:1px solid #F4F4F6;padding:8px 2px;cursor:pointer;font-family:inherit" style-hover="background:#FAFAFB">
-                <span style="font-size:12.5px;font-weight:600;color:#2A2A32">{{ r.other }}</span>
-                <span style="font-size:10.5px;color:#A6A6AE;flex:0 0 auto">{{ r.via }}</span>
-              </button>
-            </sc-for>
-            <sc-if value="{{ mvpEnt.prof.relExpandShow }}"><button onClick="{{ mvpEnt.prof.toggleRelExpanded }}" style="font-size:11px;font-weight:600;color:#5B4BE6;background:none;border:none;padding:8px 2px;cursor:pointer">{{ mvpEnt.prof.relExpandLabel }}</button></sc-if>
-          </sc-if>
-
-          <!-- mentions — each jumps to its passage in the shared evidence modal, staying in place -->
-          <sc-if value="{{ mvpEnt.prof.hasMentions }}">
-            <div style="font-size:11px;font-weight:700;letter-spacing:.04em;color:#8A8A95;text-transform:uppercase;margin:16px 0 8px">Mentions · {{ mvpEnt.prof.mentionCount }}</div>
-            <sc-for list="{{ mvpEnt.prof.mentions }}" as="m">
-              <button onClick="{{ m.jump }}" style="display:block;width:100%;text-align:left;background:#FAFAFB;border:1px solid #F1F1F4;border-radius:9px;padding:9px 11px;margin-bottom:6px;cursor:pointer;font-family:inherit" style-hover="background:#F5F5F8">
-                <span style="font-family:'Newsreader',Georgia,serif;font-size:12.5px;line-height:1.5;color:#3A3A44">{{ m.text }}</span>
-              </button>
-            </sc-for>
-            <sc-if value="{{ mvpEnt.prof.mentionExpandShow }}"><button onClick="{{ mvpEnt.prof.toggleMentionExpanded }}" style="font-size:11px;font-weight:600;color:#5B4BE6;background:none;border:none;padding:2px;cursor:pointer">{{ mvpEnt.prof.mentionExpandLabel }}</button></sc-if>
-          </sc-if>
-
-          <div style="display:flex;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid #F1F1F4">
-            <button onClick="{{ mvpEnt.prof.openSource }}" title="{{ mvpEnt.prof.srcReg }} · {{ mvpEnt.prof.srcTitle }}" style="flex:1;font-size:11.5px;font-weight:600;color:#4E5765;background:#F2F2F6;border:none;border-radius:8px;padding:8px" style-hover="background:#EAEAEF">Open source</button>
-            <button onClick="{{ mvpEnt.prof.openWeb }}" style="flex:1;font-size:11.5px;font-weight:600;color:#5B4BE6;background:#EEEBFE;border:none;border-radius:8px;padding:8px" style-hover="background:#E7E2FD">Full profile ↗</button>
-          </div>
         </div>
       </div>
     </div>
@@ -5599,15 +5249,6 @@ class Component extends DCLogic {
     this.state = {
       tab: 'search', omni: '', chatInput: '', toast: null,
       isMobile: mobile,
-      // Desktop surface style — 'mvp' (the newer evidence-scope / overview / meaning-space + ledger
-      // three-pane, EO_Desktop_MVP_v2) or 'classic' (the original topic-tree + tabs + entities shell).
-      // Both share the same header, overlays and engine; only the body between them differs. Persisted.
-      shell: this._prefStr('eo_shell', 'mvp'),
-      // Light/dark for the folded-in MEANING SPACE + THE READING cards — persisted, defaulting to
-      // light so the two sit as ordinary sections of the (light) centre column; flipping to dark
-      // restores the darkroom the meaning space was first designed against. Drives the two cards'
-      // chrome, the orbit's CSS custom properties, and the ledger's own `dark` flag.
-      mvpTheme: this._prefStr('eo_mvp_theme', 'light'),
       // The mobile shell's own bottom sheet (null | 'scope' | 'add') and Sources-tab kind filter —
       // separate from the desktop drawer/modal state above, which the mobile shell doesn't use.
       mSheet: null, mKind: 'All',
@@ -5716,9 +5357,6 @@ class Component extends DCLogic {
       // A turning point clicked open in the waveform of surprise: the surprising sentence held up
       // in a modal (line, Δbelief/pull, the EO operations that fired), with a jump into the reader.
       surpriseModal: null,
-      // The MVP shell's entity sheet — a figure clicked from CAST or a MEANING SPACE bubble,
-      // shown in-place as a drawer so the reader never leaves the topic page (see _mvpEntityVm).
-      mvpEntitySel: null,
       modelOpen: false, topicMenu: null, exportMenuOpen: false, transcriptMenuOpen: false,
       // navigation: the workspace switcher menu, and the per-topic kebab menu (topicMenu)
       wsMenuOpen: false, wsRenameId: null,
@@ -7053,7 +6691,12 @@ class Component extends DCLogic {
     // current source/topic and picks fresh figures.
     if (this.state.tab === 'rashomon' && tab !== 'rashomon' && this._rashomon) { try { this._rashomon.destroy(); } catch {} this._rashomon = null; this._rashomonEl = null; }
     // Picking a destination from the left drawer on mobile is a navigation — the drawer yields.
-    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}) };
+    // Landing fresh on the Sources tab (not just re-rendering while already on it) points the Drive
+    // at THIS topic's shelf rather than wherever explorerBucket was last left — otherwise the tab's
+    // own "Sources N" badge promises this topic's sources but the Drive opens on a stale "All
+    // sources" (or another topic's) view instead.
+    const enteringRegister = tab === 'register' && this.state.tab !== 'register';
+    const patch = { tab, topicMenu: null, modelOpen: false, exportMenuOpen: false, askAuditMenuOpen: false, transcriptMenuOpen: false, tocOpen: false, listenMediaMin: false, listenVoicesOpen: false, listenRedactOpen: false, ...(this._mob() ? { leftOpen: false } : {}), ...(enteringRegister ? { explorerBucket: 'topic', explorerFolder: null, explorerSel: null, explorerShowAll: false } : {}) };
     // Jumping straight to a root screen (the bottom tabs, or any of the "Ask about this topic" /
     // "View findings" style CTAs that land on the same five ids) is a deliberate reset of the
     // mobile view stack, not one more hop to chain onto — Back from a fresh root should never
@@ -8003,9 +7646,9 @@ class Component extends DCLogic {
     if (mode !== 'structure' && this._binvis) { try { this._binvis.destroy(); } catch {} this._binvis = null; this._binvisEl = null; this._binvisSn = null; }
     // Leaving the Raw tab tears down the raw-text surface, same idiom as Structure/binvis.
     if (mode !== 'raw' && this._rawtext) { try { this._rawtext.destroy(); } catch {} this._rawtext = null; this._rawtextEl = null; this._rawtextSn = null; }
-    // Leaving the source Graph tab tears down its tiered-graph mount so it never keeps drawing into
+    // Leaving the source Graph tab tears down its EOGraph solar mount so it never keeps drawing into
     // a detached container; re-entering mounts it fresh via setSourceGraphEl.
-    if (mode !== 'graph' && this._srcGraph) { try { this._srcGraph.destroy(); } catch {} this._srcGraph = null; this._srcGraphEl = null; this._srcGraphSn = null; }
+    if (mode !== 'graph' && this._srcGraph) { try { this._srcGraph.destroy(); } catch {} this._srcGraph = null; this._srcGraphEl = null; this._srcGraphSn = null; this._srcGraphEntId = null; }
     // Keep the mobile view stack's top frame (if it's this same source) in sync with a live mode
     // switch, so navigating away and later Back-ing all the way through to this source restores
     // the mode actually left showing, not whatever it was at the moment it was first opened.
@@ -10920,8 +10563,8 @@ class Component extends DCLogic {
         // own "open →") land the same place here — there is no separate destination
         // inside this embed, so either just re-seats THIS profile on the clicked
         // entity, which remounts the widget centred on it in turn. data.onNode lets a
-        // caller re-seat its OWN panel state instead (the MVP entity sheet does; classic's
-        // sidebar and the mobile sheet omit it and keep this exact default).
+        // caller re-seat its OWN panel state instead; classic's sidebar and the mobile
+        // sheet omit it and keep this exact default.
         onPivot: (node) => { if (node && node.ref) (data.onNode || ((d, e) => this.openEntity(d, e)))(node.ref.docId, node.ref.entId); },
         onOpen: (node) => { if (node && node.ref) (data.onNode || ((d, e) => this.openEntity(d, e)))(node.ref.docId, node.ref.entId); },
         countsLabel: data.tiered.nodes.length + ' bodies · ' + data.tiered.edges.length + ' bonds',
@@ -11299,17 +10942,31 @@ class Component extends DCLogic {
     this._syncRoute();
     if (target) this.showToast(`Added sources to “${target.title}”`);
   }
-  // The per-source Graph tab's host — the same entity web the topic Graph tab draws
-  // (topicTieredData / mountTieredGraph), scoped to just the active source. Same ref idiom as the
-  // Structure tab: one container persists while the active source switches under it, so re-scope
-  // in place (destroying the prior mount first so the surface never leaks). A node click opens
-  // that figure's profile in the entity panel.
+  // The per-source Graph tab's host — the EOGraph solar surface (solar-system.js
+  // mountSolarSystem), scoped to just the active source: one of ITS OWN figures at the
+  // centre, its bonds + standing claims ringing out, same honest tiered data the topic
+  // Graph tab's EOGraph kind draws (_drawSolar), just fed by this one source's entity
+  // profile instead of the whole topic's. Same ref idiom as the Structure tab: one
+  // container persists while the active source switches under it, so re-scope in place
+  // (destroying the prior mount first so the surface never leaks).
   setSourceGraphEl(el) {
     if (!el) return;
     const sn = this._activeSrc ? this._activeSrc() : null;
     const fresh = this._srcGraphEl !== el;
     if (!fresh && this._srcGraphSn === sn) return;   // same container + source — already drawn
+    if (this._srcGraphSn !== sn) this._srcGraphEntId = null;   // a different source starts with no sun chosen
     this._srcGraphEl = el; this._srcGraphSn = sn;
+    this._drawSourceGraph(el);
+  }
+  // Solar is inherently egocentric — it needs ONE of this source's own figures to centre.
+  // Mirroring _drawSolar/_drawSolarChooser's rule: never silently guess a "top" figure (a
+  // past regression — see _drawSolarChooser's note), land on an explicit chooser instead.
+  // The one exception: an entity already open in the right panel (entitySel) is not a
+  // guess — it's the reader's own prior, explicit choice — so it seeds the first orbit
+  // when it belongs to this source. _srcGraphEntId remembers the chosen sun per source so
+  // a pivot (or a chooser pick) redraws in place without re-seeding from entitySel.
+  _drawSourceGraph(el) {
+    const sn = this._srcGraphSn;
     try { this._srcGraph && this._srcGraph.destroy(); } catch {}
     this._srcGraph = null;
     el.innerHTML = '';
@@ -11317,21 +10974,62 @@ class Component extends DCLogic {
       const src = sn && this._app.sourceBySn ? this._app.sourceBySn(sn) : null;
       if (!src) { el.innerHTML = '<div style="padding:22px;color:#8A8A95;font-size:13px">No source to graph.</div>'; return; }
       const data = this._app.topicTieredData ? this._app.topicTieredData([src]) : { nodes: [], edges: [] };
-      if (!data.nodes || !data.nodes.length) {
+      const ents = (data.nodes || []).filter((n) => n.kind === 'entity' && n.ref);
+      if (!ents.length) {
         el.innerHTML = '<div style="padding:22px 16px;color:#8A8A95;font-size:13px;max-width:60ch;line-height:1.55">No figures read in this source yet — its knowledge graph fills once the reading names people, places, or things and the bonds among them.</div>';
         return;
       }
-      this._srcGraph = window.EO.mountTieredGraph(el, {
-        nodes: data.nodes, edges: data.edges,
-        // A figure node click opens its profile in the entity panel (openEntity keeps the source
-        // tab in front and opens the right rail on that entity).
+      let ref = this._srcGraphEntId;
+      if (ref && !ents.some((n) => n.ref.docId === ref.docId && n.ref.entId === ref.entId)) ref = null;
+      if (!ref) {
+        const sel = this.state.entitySel;
+        const seeded = sel && ents.find((n) => n.ref.docId === sel.docId && n.ref.entId === sel.entId);
+        ref = seeded ? seeded.ref : null;
+      }
+      this._srcGraphEntId = ref;
+      if (!ref) { this._drawSourceGraphChooser(el, ents); return; }
+      const ego = this._app.solarMeaningData ? this._app.solarMeaningData(ref.docId, ref.entId) : this._app.tieredData(ref.docId, ref.entId);
+      if (!ego.nodes || !ego.nodes.length) {
+        this._srcGraphEntId = null;
+        this._drawSourceGraphChooser(el, ents, 'Nothing to place in orbit yet for that figure — pick another.');
+        return;
+      }
+      const prof = this._app.entityProfile(ref.docId, ref.entId) || {};
+      const spans = (prof.mentions || []).map((m) => ({ idx: m.idx, text: m.text, t0: m.t0, t1: m.t1 }));
+      // the sun is the focus entity — its node id in tieredData is `e:${entId}`
+      this._srcGraph = window.EO.mountSolarSystem(el, {
+        nodes: ego.nodes, edges: ego.edges, centreId: `e:${ref.entId}`,
+        spans, count: prof.mentionCount || spans.length,
+        // a raw span jumps to its passage in the source — the deepest descent lands on the record
+        onSpan: (sp) => { if (prof.sn != null && sp) { try { this._jumpTo(prof.sn, sp.text, sp.t0, sp.t1); } catch {} } },
+        // a body click pivots this source's own sun onto it, in place (openEntity keeps the
+        // source tab in front and turns the right rail to the new focus)
+        onPivot: (node) => { if (!node || !node.ref) return; this._srcGraphEntId = node.ref; this.openEntity(node.ref.docId, node.ref.entId); this._drawSourceGraph(el); },
         onOpen: (node) => { if (node && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
         onSelect: (node) => { if (node && node.kind === 'entity' && node.ref) this.openEntity(node.ref.docId, node.ref.entId); },
-        countsLabel: `${data.nodes.length} nodes · ${data.edges.length} edges`,
+        countsLabel: `${ego.nodes.length} bodies · ${ego.edges.length} bonds`,
       });
     } catch (e) {
       el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Graph failed to draw: ' + String((e && e.message) || e) + '</div>';
     }
+  }
+  // A searchable "choose a figure" landing state, scoped to just this source's own entities —
+  // the honest default for an egocentric view with no focus yet, instead of guessing one.
+  _drawSourceGraphChooser(el, ents, message) {
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const top = ents.slice(0, 40);
+    const rows = top.map((n, i) => `<button class="solar-pick" data-i="${i}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:#fff;border:1px solid #EAEAEF;border-radius:11px;padding:10px 12px;cursor:pointer;font-family:inherit;margin-bottom:7px">`
+      + `<span style="width:26px;height:26px;border-radius:50%;background:#EEEBFE;color:#5B4BE6;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto">${esc((n.label || 'E').trim().charAt(0).toUpperCase())}</span>`
+      + `<span style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#1B1B22;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n.label)}</span></button>`).join('');
+    el.innerHTML = '<div style="padding:20px 16px;max-width:62ch">'
+      + `<div style="font-size:13.5px;color:${message ? '#B23A2E' : '#3A3A44'};line-height:1.5;margin-bottom:14px">${esc(message || 'Choose a person, organization, place, or concept from this source to see how it holds — its bonds, standing claims, and raw mentions ring out from its own point of view.')}</div>`
+      + rows + '</div>';
+    el.querySelectorAll('.solar-pick').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const n = top[+btn.getAttribute('data-i')]; if (!n) return;
+        this._srcGraphEntId = n.ref; this.openEntity(n.ref.docId, n.ref.entId); this._drawSourceGraph(el);
+      });
+    });
   }
   setWebKind(kind) {
     kind = (kind === 'network' || kind === 'crosswalk' || kind === 'compare' || kind === 'solar') ? kind : 'entity'; // Hide the causal DAG; keep legacy callers landing on the entity web.
@@ -11472,7 +11170,7 @@ class Component extends DCLogic {
     // DIFFERENT entity's profile whose embedded EOGraph works fine. Never guess: land on an
     // explicit chooser instead, so every state is either a real orbit or an honest prompt.
     if (w.scope !== 'entity' || w.entId == null) { this._drawSolarChooser(el); return; }
-    const data = this._app.tieredData(w.docId, w.entId);
+    const data = this._app.solarMeaningData ? this._app.solarMeaningData(w.docId, w.entId) : this._app.tieredData(w.docId, w.entId);
     if (!data.nodes || !data.nodes.length) {
       this._drawSolarChooser(el, `“${w.entLabel || 'This entity'}” has nothing to place in orbit yet — pick another figure.`);
       return;
@@ -12619,536 +12317,6 @@ class Component extends DCLogic {
     };
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════════════════
-  //  MVP DESKTOP SURFACE (EO_Desktop_MVP_v2) — the newer three-pane style. Left rail is the live
-  //  evidence scope + real sources; the centre is the real ask + overview/result over real topic
-  //  data; the right rail is the meaning space (the shared EOGraph orbit, solar-system.js) and the
-  //  claim ledger — both now driven by the topic's REAL claims (the findings projection). Header +
-  //  overlays + engine are shared with the classic shell; the toggle (mvpUseClassic / _useShell)
-  //  flips state.shell and persists it. Everything here is defensive — _mvpVals never throws, so a
-  //  data gap degrades to an empty state, it never blanks the surface.
-  // ══════════════════════════════════════════════════════════════════════════════════════════
-  // Verdict styling, shared by the meaning-space orbit (a body's colour) and the ledger (its badge).
-  // Keyed by the cross-source STANDING the findings projection stamps on every claim (claims.js):
-  // Corroborated / Contested / everything-else (one witnessed assertion) → a single 'single' bucket.
-  MVP_ST = {
-    corr:   { label: 'CORROBORATED',  c: '#3f9d6d', bg: 'rgba(63,157,109,0.16)' },
-    cont:   { label: 'CONTESTED',     c: '#e0863f', bg: 'rgba(224,134,63,0.18)' },
-    single: { label: 'SINGLE SOURCE', c: '#8078e8', bg: 'rgba(128,120,232,0.16)' },
-  };
-  _mvpBucket(status) { return status === 'Corroborated' ? 'corr' : status === 'Contested' ? 'cont' : 'single'; }
-  _mvpOriginLabel(o) { return ({ reading: 'source reading', summary: 'entity summary', murmur: 'connection', turn: 'answer' })[o] || ''; }
-
-  // ── THE READING as a HOLON, not a flat list ────────────────────────────────────────────────────
-  // The reading is a holon — paradigm ⊃ atmosphere ⊃ claim ⊃ base span — and reads best disclosed
-  // that way: the frames at the top, opened INTO, rather than one flat run grouped by standing. We
-  // have no interpretive-frame classifier over findings yet, so the honest tree from the data on hand:
-  //   · paradigm    — the MINT the claim entered through (reading / summary / murmur / turn): four
-  //                   genuinely distinct ways of reading a source into a claim.
-  //   · atmosphere  — the SUBJECT it concerns (a source's title, or an entity's label): the ground it
-  //                   sits in. Subject-less claims hang straight off their paradigm.
-  //   · claim       — grouped by canon text inside its atmosphere, so two sources asserting the same
-  //                   thing merge into one corroborated claim carrying both base spans.
-  //   · base span   — the verbatim witnessing passage, opening its source at that exact span.
-  // Standing stays the muted dot-label on each claim (question-result.js's two-axis rule: the holon is
-  // the load-bearing structure, the standing is secondary metadata) — it no longer does the grouping.
-  MVP_PARADIGM = {
-    reading: { label: 'Source readings',  color: '#f0a02a' },
-    summary: { label: 'Entity summaries', color: '#7c74e6' },
-    murmur:  { label: 'Connections',      color: '#35c98f' },
-    turn:    { label: 'Answers',          color: '#e0863f' },
-  };
-  _mvpStanding(status) { return status === 'Corroborated' ? 'corroborated' : status === 'Contested' ? 'contested' : 'single-source'; }
-  _mvpFrameTree(claims) {
-    const clip = (s, n) => { const x = String(s || '').trim(); return x.length > n ? x.slice(0, n - 1) + '…' : x; };
-    const order = ['reading', 'summary', 'murmur', 'turn'];
-    const paras = new Map();   // origin → { frame, atmos:Map<subjectKey, atmosphereFrame> }
-    (claims || []).forEach((c) => {
-      const o = order.includes(c.origin) ? c.origin : 'reading';
-      if (!paras.has(o)) {
-        const meta = this.MVP_PARADIGM[o] || this.MVP_PARADIGM.reading;
-        paras.set(o, { frame: { id: 'p:' + o, tier: 'paradigm', label: meta.label, color: meta.color, claims: [], children: [] }, atmos: new Map() });
-      }
-      const P = paras.get(o), meta = this.MVP_PARADIGM[o] || this.MVP_PARADIGM.reading;
-      const claimObj = {
-        text: c.text, standing: this._mvpStanding(c.status),
-        rows: [{ sn: c.sn, docId: c.docId, unit: c.unit, quote: c.quote || c.text, host: c.reg || (c.sn != null ? 'S-' + c.sn : '') }],
-      };
-      const subj = String(c.subject || '').trim();
-      if (subj) {
-        const k = subj.toLowerCase();
-        if (!P.atmos.has(k)) { const af = { id: 'a:' + o + ':' + k, tier: 'atmosphere', label: clip(subj, 34), color: meta.color, claims: [], children: [] }; P.atmos.set(k, af); P.frame.children.push(af); }
-        P.atmos.get(k).claims.push(claimObj);
-      } else {
-        P.frame.claims.push(claimObj);
-      }
-    });
-    return order.filter((o) => paras.has(o)).map((o) => paras.get(o).frame);
-  }
-
-  // Mount (or idempotently re-mount) the real holonic ledger (ledger-surface.js's mountLedger, exposed
-  // on window.EO.reader) into THE READING card. Same keyed-guard idiom as _mvpMountStage: the ledger
-  // owns its OWN collapse/expand state, so we remount only when the claims or the theme actually change
-  // — never on an unrelated re-render (which would fold every open frame shut). A base-span tap opens
-  // the source at that passage through the same shared evidence modal a flat claim row used to.
-  _mvpMountLedger(el, ledger, dark, key) {
-    if (!el) return;
-    if (el.__lgKey === key) return;
-    const R = window.EO && window.EO.reader;
-    const mlg = R && R.mountLedger;
-    if (!mlg) { el.innerHTML = '<div style="padding:8px 2px;color:var(--rl-dim,#9b9ba3);font-size:12px;line-height:1.55">The reading loads with the reader…</div>'; return; }
-    if (el.__lgInst) { try { el.__lgInst.destroy(); } catch {} el.__lgInst = null; }
-    el.__lgKey = key;
-    el.innerHTML = '';
-    try {
-      el.__lgInst = mlg(el, {
-        ledger, standings: R.STANDINGS, dark, intro: false, head: false,
-        onOpenSpan: (span) => this._mvpOpenSpan(span),
-      });
-    } catch (e) { el.innerHTML = ''; el.__lgKey = null; el.__lgInst = null; }
-  }
-
-  // A base span tapped in the reading → open its source at the witnessing passage, through the one
-  // global evidence modal (mirrors _mvpOpenClaim's hand-built mark, no window.EO.evidence needed).
-  _mvpOpenSpan(span) {
-    if (!span || span.sn == null) return;
-    const app = this._app;
-    const src = (app && app.sourceBySn) ? app.sourceBySn(span.sn) : null;
-    const label = span.host || ('S-' + span.sn);
-    this.openSurprise({
-      sn: span.sn, sourceTitle: (src && src.title) || '', sourceLabel: label,
-      origin: 'The reading · base span', line: '', sentence: span.quote || '', contextBefore: '', contextAfter: '',
-      surprises: [], bits: '', pull: '',
-      mark: { locatorLabel: label + ' · passage', kindLabel: 'Base span', confidenceLabel: '', referents: [], explanation: span.quote || '', correspondingEvidence: null },
-    });
-  }
-
-  // The two folded-in cards' light/dark palette — one string of CSS custom properties stamped on each
-  // card, so its chrome reads its colour off var(--rl-*) and a theme flip is a single attribute swap.
-  // Kept in step with the ledger's own DARK_VARS and the orbit's stage vars (three surfaces, one switch).
-  _mvpCardVars(dark) {
-    return dark
-      ? '--rl-bg:#0d0d15;--rl-line:#211f30;--rl-ink:#eceaf5;--rl-kicker:#8b83c9;--rl-dim:#7c779e;--rl-btn-bg:rgba(255,255,255,0.08);--rl-btn-line:rgba(255,255,255,0.1);--rl-btn-ink:#cfc9ee'
-      : '--rl-bg:#fff;--rl-line:#ececf0;--rl-ink:#17171a;--rl-kicker:#5a5a63;--rl-dim:#a6a6ae;--rl-btn-bg:#f2f2f5;--rl-btn-line:#ececf0;--rl-btn-ink:#7a7a83';
-  }
-
-  // Clicking a claim (in THE READING or a MEANING SPACE bubble) opens the shared evidence modal
-  // (the one global overlay, so it works on this shell where the centre has no source reader) at
-  // that claim's witnessing passage — the same hand-built mark shape the topic-overview corpus
-  // events use, no window.EO.evidence.buildMark needed.
-  _mvpOpenClaim(c) {
-    if (!c || c.sn == null) return;
-    const app = this._app;
-    const src = (app && app.sourceBySn) ? app.sourceBySn(c.sn) : null;
-    const label = c.reg || ('S-' + c.sn);
-    this.openSurprise({
-      sn: c.sn, sourceTitle: (src && src.title) || '', sourceLabel: label,
-      origin: 'The reading · ' + (this._mvpOriginLabel(c.origin) || 'claim'),
-      line: '', sentence: c.quote || c.text, contextBefore: '', contextAfter: '',
-      surprises: [], bits: '', pull: '',
-      mark: {
-        locatorLabel: label + ' · claim', kindLabel: c.status || 'Claim', confidenceLabel: '',
-        referents: [], explanation: c.text, correspondingEvidence: null,
-      },
-    });
-  }
-
-  _useShell(which) { this.setState({ shell: which }); try { localStorage.setItem('eo_shell', which); } catch {} }
-  // The topic's REAL claims (the findings projection — src/rooms/reader/claims.js via app/findings.js),
-  // each already phrased deterministically (phraseMechanical, or the talker's veto-passed sentence)
-  // and stamped with its cross-source standing. Defensive: an empty list when there is no topic yet.
-  _mvpClaims() {
-    const app = this._app;
-    try { return ((app && app.findings ? app.findings() : null) || { claims: [] }).claims || []; }
-    catch { return []; }
-  }
-
-  // The meaning-space projection, scoped to THIS topic's real claims — the { nodes, edges, centreId }
-  // shape the shared EOGraph renderer (solar-system.js mountSolarSystem) draws. Mirrors
-  // question-result.js's questionMeaningData: a synthetic topic centre (the sun), each claim a
-  // tier-2 body coloured by its standing, each witnessing source a tier-1 body bonded to the centre
-  // (solid when it carries a corroborated/contested claim, hollow otherwise). Mints nothing — every
-  // body resolves to a real findings row or a source that witnesses one.
-  _mvpMeaningData(claims, title) {
-    const ST = this.MVP_ST;
-    const clip = (s, n) => { const x = String(s || '').trim(); return x.length > n ? x.slice(0, n - 1) + '…' : x; };
-    const shown = (claims || []).slice(0, 7);
-    const nodes = [{ id: 'q', tier: 1, kind: 'question', label: clip(title || 'This topic', 40), color: '#d7d2f2' }];
-    const srcNodes = new Map(), bonds = new Map();
-    shown.forEach((c, i) => {
-      const st = ST[this._mvpBucket(c.status)];
-      // ref: the claim itself, so a click opens the SAME passage modal Findings-style rows
-      // use (_mvpOpenClaim) — this bubble and its Reading card are two views of one claim.
-      nodes.push({ id: 'c:' + i, tier: 2, kind: 'claim', label: clip(c.subject || c.text, 42), color: st.c, ref: { claim: c } });
-      if (c.sn == null) return;
-      const sid = 's:' + c.sn;
-      if (!srcNodes.has(sid)) srcNodes.set(sid, { id: sid, tier: 1, kind: 'source', label: clip(c.reg || ('S-' + c.sn), 22), ref: { sn: c.sn } });
-      const b = bonds.get(sid) || { solid: false };
-      b.solid = b.solid || c.status === 'Corroborated' || c.status === 'Contested';
-      bonds.set(sid, b);
-    });
-    for (const n of srcNodes.values()) nodes.push(n);
-    const edges = [...bonds.entries()].map(([sid, b]) => ({ a: 'q', b: sid, tier: 1, gl: b.solid ? '●' : '○', code: 'INS', dashed: !b.solid }));
-    const nS = srcNodes.size;
-    return {
-      nodes, edges, centreId: 'q',
-      countsLabel: shown.length + ' claim' + (shown.length === 1 ? '' : 's') + ' · ' + nS + ' source' + (nS === 1 ? '' : 's'),
-    };
-  }
-
-  // Mount (or idempotently re-mount) the real EOGraph orbit into the MEANING SPACE card, now a
-  // section of the main centre column rather than a separate dark rail. Same keyed guard idiom as
-  // _mountEntitySolar: an inline ref callback's identity changes every render, so React fires the
-  // OLD ref with null then the NEW one with the same element — a null call is a pure no-op and a
-  // matching key short-circuits, so the live orbit (which owns its own self-lapsing rAF loop and
-  // play/zoom controls) is never torn down or restarted on an unrelated re-render. The widget's own
-  // UNSET defaults are already this page's exact light palette (solar-system.js: --card:#fff,
-  // --line:#e5e7eb, …) — CSS vars set here just pin them precisely instead of leaving them to
-  // fallback values, so it reads as one more card in the stack, not a dropped-in dark console.
-  // The orbit is light by default (its native palette = this page's), but the meaning-space card can
-  // be flipped dark with the two cards' theme toggle — the solar widget reads its whole palette off
-  // CSS custom properties, so a theme is just which set we stamp on the stage element (the same trick
-  // mountSolarExplorer uses for its dark shell). `dark` rides the remount key, so the flip re-themes it.
-  _mvpStageVars(dark) {
-    return dark
-      ? '--card:#0d0d15;--app:#14131f;--ink:#eceaf5;--ink2:#b8b3d6;--ink3:#7c779e;--line:#242a35;--line2:#2c2a3d'
-      : '--card:#fff;--app:#fafafb;--ink:#17171a;--ink2:#5a5a63;--ink3:#9b9ba3;--line:#ececf0;--line2:#e4e4ea';
-  }
-  _mvpMountStage(el, data, key, dark) {
-    if (!el) return;
-    if (el.__ssKey === key) return;
-    const mss = window.EO && window.EO.mountSolarSystem;
-    if (!mss) { el.innerHTML = '<div style="padding:20px 6px;color:var(--rl-dim,#9b9ba3);font-size:12.5px;line-height:1.5">The meaning space loads with the reader…</div>'; return; }
-    if (el.__ssInst) { try { el.__ssInst.destroy(); } catch {} el.__ssInst = null; }
-    el.__ssKey = key;
-    el.innerHTML = '';
-    el.style.cssText = 'display:block;' + this._mvpStageVars(dark);
-    // A claim bubble opens the same passage modal its Reading card does; an entity bubble opens
-    // the MVP entity sheet in place (_mvpOpenEntity's drawer, same as a CAST chip). A source
-    // bubble has nowhere to open IN this shell (no source reader here), so it hops to classic —
-    // the one cross-reference this centre genuinely can't render itself.
-    const openNode = (node) => {
-      const r = node && node.ref; if (!r) return;
-      if (r.claim) { this._mvpOpenClaim(r.claim); return; }
-      if (r.docId != null) { this.setState({ mvpEntitySel: { docId: r.docId, entId: r.entId } }); return; }
-      if (r.sn != null) { this._useShell('classic'); this.openViewer(r.sn); }
-    };
-    try {
-      el.__ssInst = mss(el, {
-        nodes: data.nodes, edges: data.edges, centreId: data.centreId, countsLabel: data.countsLabel,
-        width: 318, height: 300,
-        onPivot: openNode, onOpen: openNode,
-      });
-    } catch (e) { el.innerHTML = ''; el.__ssKey = null; el.__ssInst = null; }
-  }
-
-  // ── the older surfaces, folded back into the MVP centre ──────────────────────
-  // The cast — every figure the active sources name, weighted by how much of the
-  // reading it carries (source spread first, then raw mentions), the same ordering
-  // the mobile Overview and Ask's Cast preset use. Read straight from the merged
-  // entity index (app.entities); tapping a figure opens the same entity profile
-  // every other "see this entity" affordance opens.
-  _mvpCast() {
-    const app = this._app;
-    if (!app || !app.entities) return { rows: [], bars: [], count: 0 };
-    let ents = [];
-    try { ents = app.entities({ merge: true, level: 'names' }) || []; } catch { ents = []; }
-    // "figures across the reading" — a referent the grain reader (perceiver/parse/grain.js)
-    // confidently read as a SETTING (Geneva, moved through) or a KIND (a category, true of many)
-    // is not a figure and does not belong in the cast, however often it is named. A referent it
-    // HELD (thin evidence — grain is null) stays IN: abstention is not evidence of absence, and
-    // every non-text entity carries no grain at all, so this must not empty a working cast.
-    const figures = ents.filter((e) => e.grain !== 'setting' && e.grain !== 'kind');
-    const scored = figures.slice()
-      .map((e) => ({ e, score: (e.sourceCount || 1) * 100 + (e.mentions || 0) }))
-      .sort((a, b) => b.score - a.score);
-    const rows = scored.slice(0, 30).map(({ e }) => ({
-      label: e.label,
-      fav: (e.label || 'E').trim().charAt(0).toUpperCase(),
-      meta: `${e.mentions || 0} mention${(e.mentions || 0) === 1 ? '' : 's'} · ${e.sourceCount || 1} source${(e.sourceCount || 1) === 1 ? '' : 's'}`,
-      onTap: () => this._mvpOpenEntity(e),
-    }));
-    const topBars = scored.slice(0, 8);
-    const maxM = Math.max(1, ...topBars.map((s) => s.e.mentions || 0));
-    const bars = topBars.map(({ e }) => ({
-      label: e.label, val: String(e.mentions || 0),
-      w: Math.max(3, Math.round(((e.mentions || 0) / maxM) * 100)) + '%',
-      onTap: () => this._mvpOpenEntity(e),
-    }));
-    return { rows, bars, count: figures.length };
-  }
-
-  // A figure's chip opens the MVP entity sheet — a drawer over the page (see _mvpEntityVm),
-  // not classic's rightOpen sidebar (that state exists but nothing in this shell's template
-  // renders it). Same candidate-search openEntityRow uses: a merged row's own docId/entId
-  // first, falling back to its instances, so a click always lands even if the lead pointer
-  // no longer resolves after a re-fold.
-  _mvpOpenEntity(e) {
-    const app = this._app;
-    const candidates = [e, ...((e && Array.isArray(e.instances)) ? e.instances : [])]
-      .filter((r) => r && r.docId != null && r.entId != null);
-    for (const r of candidates) {
-      if (!app || !app.entityProfile || app.entityProfile(r.docId, r.entId)) {
-        this.setState({ mvpEntitySel: { docId: r.docId, entId: r.entId } }); return;
-      }
-    }
-  }
-
-  // A mention row in the MVP entity sheet opens the SAME passage modal Reading/claim clicks do
-  // (openSurprise — the one global overlay), instead of the classic viewer's tab jump, so reading
-  // a passage never leaves the topic page either.
-  _mvpOpenEntityMention(sn, text, label) {
-    if (sn == null) return;
-    const app = this._app;
-    const src = (app && app.sourceBySn) ? app.sourceBySn(sn) : null;
-    const srcLabel = (src && src.reg) || ('S-' + sn);
-    this.openSurprise({
-      sn, sourceTitle: (src && src.title) || '', sourceLabel: srcLabel,
-      origin: 'Entity sheet · mention',
-      line: '', sentence: text || '', contextBefore: '', contextAfter: '',
-      surprises: [], bits: '', pull: '',
-      mark: { locatorLabel: srcLabel + ' · mention', kindLabel: label || 'Mention', confidenceLabel: '', referents: [], explanation: text || '', correspondingEvidence: null },
-    });
-  }
-
-  // ── the MVP entity sheet — a figure's profile shown in place, over the topic page, instead
-  // of classic's rightOpen sidebar (which this shell's template never renders). Reuses _profFor,
-  // the SAME builder the classic sidebar / graph overlay / mobile sheet already share, so the
-  // wiki referent, the fold summary, the embedded meaning-space mini-orbit and the connected-
-  // entities list read identically everywhere an entity profile appears. Two handlers
-  // deliberately escape this page (openSource, openWeb) — both ask for something this centre
-  // genuinely has no surface for yet (a source landing page, the full graph explorer); a mention
-  // click and a pivot to a connected figure both stay in place.
-  _mvpEntityVm() {
-    const sel = this.state.mvpEntitySel;
-    if (!sel) return { open: false };
-    const docId = sel.docId, entId = sel.entId;
-    const prof = this._profFor(docId, entId, {
-      pivot: (otherId) => this.setState({ mvpEntitySel: { docId, entId: otherId } }),
-      openSource: (sn) => { this._useShell('classic'); this.openViewer(sn); },
-      jump: (sn, text) => this._mvpOpenEntityMention(sn, text),
-      openWeb: () => { this._useShell('classic'); this.openEntity(docId, entId); },
-    }, { statePrefix: 'mvpProf', onEntityNode: (d, en) => this.setState({ mvpEntitySel: { docId: d, entId: en } }) });
-    return { open: !!prof, prof: prof || {}, close: () => this.setState({ mvpEntitySel: null }) };
-  }
-
-  // THE READING is now the mounted holon (see _mvpFrameTree + _mvpMountLedger above) — the flat
-  // group-by-standing row builder it used to be was replaced by the real collapsible ledger, so the
-  // claim count is read straight off findings and the rows are the ledger's own to render.
-
-  // ── the wiki-style lede — one sentence + a lead paragraph, read off the topic's primary
-  // source via the SAME fold→summary pipeline every source Overview and entity profile uses
-  // (docs/fold-summary-pipeline.md, rooms/reader/app/summaries.js). 'brief' reads as a
-  // Wikidata-style short description under the title; 'paragraph' reads as the lead section.
-  // Both auto-request: foldSummary resolves the deterministic telegram the instant the
-  // source's doc exists (free, no model needed, stored at once) and only refines further if
-  // a model is warm — the exact "safe to call every render" idiom the fold-peek cursor
-  // summary already relies on (line ~7836: "idempotent for an unchanged key… costs nothing
-  // once settled"). Never fabricated: an ungrounded draft ships the telegram floor instead.
-  _mvpLede(cards) {
-    const app = this._app;
-    const primary = (cards || []).find((c) => c.active) || (cards || [])[0] || null;
-    if (!app || !app.foldSummaryFor || !primary || primary.sn == null) return { has: false, sn: null };
-    const sn = primary.sn;
-    const briefQ = { sn, scope: 'full', detail: 'brief' };
-    const paraQ = { sn, scope: 'full', detail: 'paragraph' };
-    if (app.foldSummary) { app.foldSummary(briefQ).catch(() => {}); app.foldSummary(paraQ).catch(() => {}); }
-    const briefRec = app.foldSummaryFor(briefQ);
-    const paraRec = app.foldSummaryFor(paraQ);
-    const briefBadge = briefRec ? this.summaryBadge(briefRec) : { isAi: false };
-    const paraBadge = paraRec ? this.summaryBadge(paraRec) : { isAi: false };
-    // A wiki lede reads as an editorial sentence, not a mail-merge — the deterministic telegram
-    // floor (via==='telegram', summaryBadge().isAi false) is honest everywhere else it appears
-    // (a badge-less line, clearly the reader's own mechanical read), but here, unbadged, it reads
-    // as prose someone wrote. So the lede shows ONLY the model-composed text; while only the
-    // telegram floor has landed, it's treated exactly like nothing has landed yet — `composing`
-    // (a model is actually available and still working) or the plain topic-meta fallback
-    // (`!mvpLedeHas`, synthesis is off) rather than a fabricated-looking paragraph.
-    const composing = !!((briefRec && briefRec.modelless) || (paraRec && paraRec.modelless)) && !!(app.optionalModel && app.optionalModel());
-    return {
-      has: briefBadge.isAi || paraBadge.isAi, sn, pending: composing,
-      hasBrief: briefBadge.isAi, briefText: briefBadge.isAi ? briefRec.text : '',
-      briefIsAi: briefBadge.isAi, briefBadgeLabel: briefBadge.badgeLabel || '',
-      hasLede: paraBadge.isAi, ledeText: paraBadge.isAi ? paraRec.text : '',
-      ledeIsAi: paraBadge.isAi, ledeBadgeLabel: paraBadge.badgeLabel || '',
-      composing,
-    };
-  }
-
-  // ── topics — each its own self-contained universe (own sources, own reading, own cast,
-  // own findings, own meaning space: app/topics.js's sourceSns plus every scoped
-  // entities()/findings() call already keep topics fully separate at the data layer).
-  // The MVP rail had no way to SEE another one or make one — this was the classic shell's
-  // tree-switcher only. Flattened (no nesting UI here, just active + switch + create),
-  // reusing the exact same engine calls the classic switcher does (topicRows/topicNew/
-  // setTopic), scoped to the current workspace by topicRows()'s own default.
-  _mvpTopics() {
-    const app = this._app;
-    if (!app || !app.topicRows) return { rows: [], newTopic: () => {} };
-    let rows = [];
-    try {
-      rows = app.topicRows().map(({ topic: t }) => {
-        const active = t.id === app.state.activeTopicId;
-        return {
-          id: t.id, title: t.title || 'New topic', active,
-          bg: active ? '#f1effe' : 'transparent', fg: active ? '#4b3fd0' : '#2f2f36',
-          meta: (t.sourceSns || []).length + ' source' + ((t.sourceSns || []).length === 1 ? '' : 's'),
-          onTap: () => { app.setTopic(t.id); this.setTab && this.setTab('topic'); },
-        };
-      });
-    } catch { rows = []; }
-    return {
-      rows,
-      newTopic: () => {
-        let v = 'New topic';
-        try { const p = prompt('Name the new topic', 'New topic'); if (p == null) return; v = p.trim() || 'New topic'; } catch { /* prompt unavailable */ }
-        app.topicNew(v);
-        this.setTab && this.setTab('topic');
-      },
-    };
-  }
-
-  // The MVP surface's bindings. Left rail + centre are wired to real topic data; the right rail's
-  // meaning space + ledger are the illustrative EO_Desktop_MVP_v2 projection until a live question
-  // result is routed in (that swap is the next stage — see docs/research-review.md).
-  _mvpVals() {
-    try {
-      const st = this.state, app = this._app;
-      const violet = '#6355f2';
-      const ov = (this._topicOverviewVM ? this._topicOverviewVM() : null) || {};
-      const t = (app && app.topic && app.topic()) || null;
-      const cards = ov.cards || [];
-      const total = cards.length;
-      const ac = cards.filter((c) => c.active).length;
-      const PAL = [['#eceafd', '#6355f2'], ['#e7f0fe', '#2563c9'], ['#fbe4d3', '#c2410c'], ['#f6efd8', '#8a6d1f'], ['#dcf0e5', '#2f7a55'], ['#e8f1fb', '#2c5c9e']];
-      const mvpSources = cards.map((c, i) => {
-        const active = c.active, pal = PAL[i % PAL.length];
-        return {
-          letter: (c.favCh || String((i + 1))), abg: active ? pal[0] : '#f0f0f3', afg: active ? pal[1] : '#abb0bb',
-          host: c.origin || c.title || 'source', contrib: c.countLine || '',
-          onToggle: c.toggleScope || (() => {}),
-          trackBg: active ? violet : '#dcdce2', knobX: active ? '18px' : '2px',
-          rowBg: active ? '#fff' : '#f6f6f8', rowBorder: active ? '#ececf0' : '#efeff2',
-          badges: c.reg ? [{ t: String(c.reg).slice(0, 14), c: '#6355f2', bg: '#ebe9fe' }] : [],
-        };
-      });
-      const setAll = (v) => { if (t && this._toggleEvidenceScope) cards.forEach((c) => { if (c.active !== v && c.sn != null) this._toggleEvidenceScope(t.id, c.sn, v); }); };
-      // Cross-source measures — feeds only the infobox's one summary fact now (the standalone
-      // settled/contested/void card was removed; toggling scope on the left still recomputes it).
-      let matrix = { rows: [] }; try { matrix = (app && app.comparisonMatrix) ? app.comparisonMatrix() : matrix; } catch { matrix = { rows: [] }; }
-      let settled = 0, contested = 0;
-      (matrix.rows || []).forEach((r) => { if (r.conflict) contested++; else if ((r.cells || []).filter(Boolean).length) settled++; });
-      const isOverview = st.tab === 'topic' || st.tab === 'overview';
-      const isResult = !isOverview;
-      const scopeLine = ac + ' of ' + total + ' source' + (total === 1 ? '' : 's');
-      const headline = ov.title || (t && t.title) || 'New topic';
-      // Every centre surface — cast, the reading, meaning space, the lede — reads the topic's REAL
-      // claims. findings() is memoized (app/findings.js) so building every projection off it here is
-      // cheap.
-      const claims = this._mvpClaims();
-      const meaning = this._mvpMeaningData(claims, headline);
-      const cast = this._mvpCast();
-      const lede = this._mvpLede(cards);
-      const topicsVm = this._mvpTopics();
-      const entityCount = cast.count;
-      const findingCount = (claims || []).length;
-      const hasReading = findingCount > 0;
-      // THE READING as the HOLON projection — buildLedger over a paradigm ⊃ atmosphere tree of the same
-      // claims, mounted as the real collapsible ledger (mountLedger) so it discloses frame-by-frame down
-      // to the base spans. The orbit stays the standing-coloured meaning map — two projections of one reading.
-      const R = window.EO && window.EO.reader;
-      const frames = this._mvpFrameTree(claims);
-      const ledger = (R && R.buildLedger) ? R.buildLedger({ query: headline, frames }) : { nodes: [], byId: {}, roots: [] };
-      // The two folded-in cards' own light/dark switch — one palette, three surfaces (card chrome, orbit, ledger).
-      const dark = st.mvpTheme === 'dark';
-      const cardVars = this._mvpCardVars(dark);
-      // the wiki-style infobox — key facts about the topic as it currently reads.
-      const infobox = [
-        { k: 'Sources', v: scopeLine },
-        { k: 'Figures', v: String(entityCount) },
-        { k: 'Findings', v: String(findingCount) },
-        { k: 'Cross-source', v: (settled + contested) + ' weighed · ' + contested + ' contested' },
-      ];
-      // Cheap remount keys so the orbit and ledger only rebuild when their bodies (or the theme) change,
-      // never on an unrelated re-render — the ledger owns its collapse state, so a needless remount would
-      // fold every open frame shut. The theme rides both keys so a flip re-themes both surfaces.
-      const themeTag = dark ? 'd' : 'l';
-      const stageKey = (t ? t.id : 'none') + '~' + themeTag + '~' + meaning.nodes.map((n) => n.id + n.color).join('|');
-      const ledgerKey = (t ? t.id : 'none') + '~' + themeTag + '~' + ledger.nodes.map((n) => n.id + ':' + (n.claims ? n.claims.length : 0)).join('|');
-      return {
-        // left rail
-        mvpWsInitial: ov.wsInitial || '·', mvpWsDot: ov.wsDot || '#6D5EF5',
-        mvpWsLine: (ov.workspace || 'Workspace'), mvpTopicTitle: headline,
-        // topics — each its own universe; switch or start a fresh one without leaving this shell
-        mvpTopics: topicsVm.rows, mvpHasTopics: topicsVm.rows.length > 0, mvpNewTopic: topicsVm.newTopic,
-        mvpScopeLine: scopeLine, mvpSources, mvpHasSources: total > 0, mvpSourcesEmpty: total === 0 && (st.pendingReads || []).length === 0,
-        mvpPendingReads: (st.pendingReads || []).map((p) => ({
-          glyph: p.glyph, title: p.title, shown: p.shown || '',
-          phase: p.done ? 'Recorded' : (p.phase + '…'),
-          pct: Math.round(p.pct) + '%',
-          phaseColor: p.done ? '#2f7a55' : '#6355f2',
-          fillBg: p.done ? '#2f7a55' : 'linear-gradient(90deg,#8b7ef5,#6355f2)',
-          showSheen: !p.done,
-        })),
-        mvpAllOn: () => setAll(true), mvpAllOff: () => setAll(false),
-        mvpAddSource: () => { try { this.openLibraries && this.openLibraries(); } catch {} },
-        mvpUpload: () => { try { this.pickFile(); } catch {} },
-        // centre
-        mvpIsOverview: isOverview, mvpIsResult: isResult,
-        mvpShowOverview: () => this.setTab && this.setTab(t ? 'topic' : 'search'),
-        mvpShowResult: () => this.setTab && this.setTab('search'),
-        mvpOvBtnBg: isOverview ? '#17171a' : '#f2f2f5', mvpOvBtnFg: isOverview ? '#fff' : '#5a5a63',
-        mvpResBtnBg: isResult ? '#17171a' : '#f2f2f5', mvpResBtnFg: isResult ? '#fff' : '#5a5a63',
-        mvpHeadline: headline,
-        mvpTopicMeta: [scopeLine, ov.entityLabel, ov.findingLabel].filter(Boolean).join(' · '),
-        mvpByline: 'From the reading — ' + (ov.workspace || 'Workspace'),
-        // the wiki-style lede — one sentence + a lead paragraph, off the primary source
-        mvpLedeHas: lede.has, mvpLedePending: !!lede.pending,
-        mvpBriefShow: lede.hasBrief, mvpBriefText: lede.briefText,
-        mvpLedeShow: lede.hasLede, mvpLedeText: lede.ledeText, mvpLedeBadge: lede.ledeBadgeLabel,
-        // MEANING SPACE — the orbit, folded in from the old right rail. Light by default; the two
-        // cards' theme toggle can flip it (and the reading) dark — see _mvpMountStage / _mvpCardVars.
-        mvpSetStage: (el) => this._mvpMountStage(el, meaning, stageKey, dark),
-        mvpMeaningCounts: meaning.countsLabel,
-        mvpHasMeaning: claims.length > 0,
-        mvpUseClassic: () => this._useShell('classic'),
-        // light/dark for the two folded-in cards (meaning space + the reading)
-        mvpCardVars: cardVars, mvpThemeDark: dark, mvpThemeLight: !dark,
-        mvpToggleTheme: () => { const next = st.mvpTheme === 'dark' ? 'light' : 'dark'; this.setState({ mvpTheme: next }); try { localStorage.setItem('eo_mvp_theme', next); } catch {} },
-        // ── centre content — the older surfaces folded in ──
-        mvpInfobox: infobox,
-        mvpCast: cast.rows, mvpCastCount: String(entityCount),
-        mvpHasCast: cast.rows.length > 0,
-        mvpCastBars: cast.bars, mvpHasCastBars: cast.bars.length > 0,
-        // THE READING — the holon, mounted (paradigm ⊃ atmosphere ⊃ claim ⊃ base span)
-        mvpSetReading: (el) => this._mvpMountLedger(el, ledger, dark, ledgerKey),
-        mvpReadingCount: String(findingCount), mvpHasReading: hasReading,
-        mvpUseMvp: () => this._useShell('mvp'),
-      };
-    } catch (e) {
-      return {
-        mvpWsInitial: '·', mvpWsDot: '#6D5EF5', mvpWsLine: 'Workspace', mvpTopicTitle: 'Reader',
-        mvpTopics: [], mvpHasTopics: false, mvpNewTopic: () => {},
-        mvpScopeLine: '0 of 0 sources', mvpSources: [], mvpHasSources: false, mvpSourcesEmpty: true, mvpPendingReads: [],
-        mvpAllOn: () => {}, mvpAllOff: () => {}, mvpAddSource: () => {},
-        mvpIsOverview: true, mvpIsResult: false, mvpShowOverview: () => {}, mvpShowResult: () => {},
-        mvpOvBtnBg: '#17171a', mvpOvBtnFg: '#fff', mvpResBtnBg: '#f2f2f5', mvpResBtnFg: '#5a5a63',
-        mvpHeadline: 'Reader', mvpTopicMeta: '', mvpByline: '',
-        mvpLedeHas: false, mvpLedePending: false,
-        mvpBriefShow: false, mvpBriefText: '',
-        mvpLedeShow: false, mvpLedeText: '', mvpLedeBadge: '',
-        mvpSetStage: () => {}, mvpMeaningCounts: '', mvpHasMeaning: false,
-        mvpCardVars: this._mvpCardVars(this.state.mvpTheme === 'dark'), mvpThemeDark: this.state.mvpTheme === 'dark', mvpThemeLight: this.state.mvpTheme !== 'dark',
-        mvpToggleTheme: () => { const next = this.state.mvpTheme === 'dark' ? 'light' : 'dark'; this.setState({ mvpTheme: next }); try { localStorage.setItem('eo_mvp_theme', next); } catch {} },
-        mvpAddSource: () => {}, mvpUpload: () => { try { this.pickFile(); } catch {} },
-        mvpInfobox: [], mvpCast: [], mvpCastCount: '0', mvpHasCast: false,
-        mvpCastBars: [], mvpHasCastBars: false,
-        mvpSetReading: () => {}, mvpReadingCount: '0', mvpHasReading: false,
-        mvpUseClassic: () => this._useShell('classic'), mvpUseMvp: () => this._useShell('mvp'),
-      };
-    }
-  }
-
   renderVals() {
     try { return this._vals(); }
     catch (err) {
@@ -13162,7 +12330,7 @@ class Component extends DCLogic {
         statusColor: '#B23A2E', leftOpen: !this.state.isMobile, rightOpen: false, omni: '', omniAttach: () => {}, chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         mainDisplay: 'flex', rightWidth: '340px', rightFlex: '0 0 auto', rightBorder: '1px solid #EAEAEF', rightBodyPad: '14px 16px', rightBodyMax: 'none', rightBodyMargin: '0',
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: this.state.toast, ...this._toastVals(this.state), entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, mvpEnt: { open: false }, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
+        statusPeek: [], toast: this.state.toast, ...this._toastVals(this.state), entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
     }
   }
 
@@ -13192,7 +12360,7 @@ class Component extends DCLogic {
         isMobile: !!st.isMobile, isDesktop: !st.isMobile,
         statusColor: '#C79A3A', leftOpen: !this.state.isMobile, rightOpen: false, omni: st.omni, omniAttach: () => this.pickFile(), chatInput: '', notGenerating: true, canStop: false, stopGen: () => {}, showSend: true,
         chatPlaceholder: 'Ask about what you’ve read…', modelChip: 'model', modelDot: '#B4B4BE',
-        statusPeek: [], toast: st.toast, ...this._toastVals(st), entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, mvpEnt: { open: false }, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
+        statusPeek: [], toast: st.toast, ...this._toastVals(st), entListShow: false, srcTabs: [], hasSrcTabs: false, isSource: false, viewerParas: [], readerToc: [], eotLines: [], eotLegend: [], eotKindLegend: [], eotHasKinds: false, facingLines: [], facingLegend: [], facingKindLegend: [], facingHasKinds: false, ...this._acctVals(), ...this._versionVals(), ...this._murmurVals(), ...this._termVals() };
     }
     const topic = app.topic();
     // The sidebar/Sources-tab list is MEMBERSHIP, not the active evidence scope — an excluded
@@ -13788,7 +12956,9 @@ class Component extends DCLogic {
     const wsObj = app.activeWorkspace();
     const wsName = wsObj ? wsObj.name : 'Workspace';
     const bucket = st.explorerFolder ? 'folder' : (st.explorerBucket || 'all');
-    const bucketLabel = { recent: 'Recent', starred: 'Starred', topic: 'In ' + this._term('corpus'), all: 'All sources' }[bucket] || 'All sources';
+    // Bare noun, not "In <corpus>" — scopeName below feeds sourcesHeading's own "SOURCES · N IN
+    // {scopeName}", so a pre-prefixed label here doubled up into "N IN IN SELECTED SOURCES".
+    const bucketLabel = { recent: 'Recent', starred: 'Starred', topic: this._term('corpus'), all: 'All sources' }[bucket] || 'All sources';
     const gotoBucket = (b) => () => this.setState({ explorerBucket: b, explorerFolder: null, explorerSel: null, explorerMenu: null, explorerShowAll: false });
     const gotoFolder = (id) => () => this.setState({ explorerFolder: id, explorerBucket: null, explorerSel: null, explorerMenu: null, explorerShowAll: false });
 
@@ -14262,6 +13432,9 @@ class Component extends DCLogic {
         vMode = st.viewerModes[activeSn] || 'overview';
         // 'text' (the old Document tab) is now the Reader with links on — fold any saved value in.
         if (vMode === 'text') vMode = 'reader';
+        // The Structure tab (byte-structure binvis surface) is hidden — not useful enough to earn
+        // its place in the bar. Fold any session that was left sitting on it back to Overview.
+        if (vMode === 'structure') vMode = 'overview';
         const r = this._rights(s);
         let eot = null;
         try { eot = app.eotFor(s.sn); } catch { eot = null; }
@@ -14553,11 +13726,13 @@ class Component extends DCLogic {
       // both shells and otherwise sits at the same height as that bar on mobile).
       omni: st.omni, toast: st.toast, toastBottom: st.isMobile ? '84px' : '26px', ...this._toastVals(st), dragOver: !!st.dragOver,
       // live recording — the mic button + the take panel
-      // The Home tab (Source Explorer) is a self-contained surface with its OWN left rail (Quick
-      // Access · Folders · Vault), so the app's global topic/source rail stands down there — otherwise
-      // the sources list twice and two left rails compete. It returns on every other tab.
-      leftOpen: st.leftOpen && st.tab !== 'register', rightOpen: st.rightOpen,
-      panelBackdrop: !!st.isMobile && ((st.leftOpen && st.tab !== 'register') || st.rightOpen), closePanels: () => this.closePanels(),
+      // The Sources tab (Source Explorer) used to stand the app's global topic/source rail down
+      // and swap in its own left rail (Quick Access · Folders · Vault) instead — but that made the
+      // workspace/topic nav disappear and reappear on every tab switch. Now it stays put like every
+      // other tab; setTab's enteringRegister branch scopes the Drive to the current topic so its
+      // own rail doesn't just repeat the same source list.
+      leftOpen: st.leftOpen, rightOpen: st.rightOpen,
+      panelBackdrop: !!st.isMobile && (st.leftOpen || st.rightOpen), closePanels: () => this.closePanels(),
       leftBtnFg: st.leftOpen ? '#5B4BE6' : '#9A9AA4', rightBtnFg: st.rightOpen ? '#5B4BE6' : '#9A9AA4',
       onOmniSubmit: (e) => this.onOmniSubmit(e), onOmniInput: (e) => this.onOmniInput(e),
       omniAttach: () => this.pickFile(),
@@ -15022,8 +14197,6 @@ class Component extends DCLogic {
       closePaste: () => this.closePaste(), submitPaste: () => this.submitPaste(),
       // the waveform of surprise → a turning point held up in a modal
       ...this._surpriseModalVals(st.surpriseModal),
-      // the MVP entity sheet — a figure's profile shown in place over the topic page
-      mvpEnt: this._mvpEntityVm(),
       // optional Matrix account + the quiet "save system genome online?" setting
       ...this._acctVals(),
       // Settings → roll back to a prior PR (the version time-machine)
@@ -15049,11 +14222,6 @@ class Component extends DCLogic {
       logView, logEmpty: logView.length === 0, turnViews, turnsEmpty: turnViews.length === 0,
       reflectionViews, reflectionsEmpty: reflectionViews.length === 0, reflectionCount: String(reflectionViews.length),
       ...this._mobileVals(),
-      // Desktop shell selection — the header + overlays are shared; only the body differs. On mobile
-      // both are false (the mobile shell renders instead). shellMvp is the default going wide.
-      shellMvp: !st.isMobile && st.shell !== 'classic',
-      shellClassic: !st.isMobile && st.shell === 'classic',
-      ...this._mvpVals(),
     };
   }
 

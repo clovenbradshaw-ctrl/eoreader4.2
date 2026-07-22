@@ -31,6 +31,7 @@ const EXEMPT = new Map([
   ['src/metabolism/organ.js', 'organ specs name the CELL an organ claims; organ.js\'s own act is building the contract'],
   ['src/model/bands.js', 'prompt bands carry the cube cell they speak FROM; band assembly itself is the declared SEG·SIG'],
   ['src/perceiver/reading.js', 'the reading narrates events already in the log; op labels what was READ, not an act performed'],
+  ['src/rooms/reader/app/wiki.js', 'solarMeaningData labels each meaning-ring body with the operator its claim/bond was READ as (the spectrum), not an act performed — the module appends to no log; its own act is the SIG·CON projection its face declares'],
   ['src/surfer/fold/verdict.js', 're-shapes the surf\'s already-produced REC axes into verdict records'],
   ['src/surfer/metacognition.js', 'narrates logged events into EOT lines; op labels the narrated event'],
   ['src/weave/topline/surface.js', 'drift classifications label a divergence by the op it resembles'],

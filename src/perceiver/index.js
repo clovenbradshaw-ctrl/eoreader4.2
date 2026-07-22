@@ -22,6 +22,11 @@ export {
   composeGroupedNote, NOTE_GROUPS, plainRel, rankProperties,
 } from './surfaces.js';
 export { readingAt } from './reading.js';
+// The Lens — the named, addressable selection rule a reading is read under (§1). A Lens
+// conditions the three Ground-column prior channels (Void / Field / Atmosphere); every
+// reading records its lensId (L2). Carries the two horizon coordinates (gamma, horizon) and
+// the optional Atmosphere corpus seed as one object.
+export { makeLens, lensId, resolveLens, DEFAULT_LENS, DEFAULT_GAMMA, HORIZONS } from './lens.js';
 export { significanceSpine } from './spine.js';
 export { predictNext } from './predict.js';
 export { mutualNearestPairs, discoverEquivalences } from './equivalence.js';

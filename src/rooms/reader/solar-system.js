@@ -51,6 +51,21 @@ const LEVELS = [
 const SUN = { fill: '#FBF3E6', stroke: '#BA7517' };
 const SCRUB_MAX = 60;   // seconds the meaning-level time cursor's slider spans
 
+// The meaning ring's SPECTRUM: never a claim's position without saying what KIND of act it is.
+// Each body is tinted by the manner of the act it records — the Act face's three Modes said the way
+// a reader reads them (core/operators.js MODE_MANNER) — reusing the tier palette so a manner and a
+// tier never disagree on colour. A claim with no operator falls back to the meaning tier's amber.
+const MANNER_COLOR = {
+  distinguishes: { fill: '#EF9F27', stroke: '#BA7517' },   // Differentiate — amber (assert/resplit)
+  links:         { fill: '#1D9E75', stroke: '#0F6E56' },   // Relate — green (bond/attribute)
+  introduces:    { fill: '#7F77DD', stroke: '#534AB7' },   // Generate — indigo (instantiate/synthesize)
+};
+// Settledness as MOTION: a claim's standing places it in the well. A firming claim (corroboration
+// accumulating) hugs the sun — more gravity; a fresh one rides the middle; an unsettled one (hedged
+// or denied) drifts to the edge. Confidence shown as position, never a number.
+const STANDING_RING = { firming: 0, fresh: 1, unsettled: 2 };
+const STANDING_LABEL = { firming: 'firming up', fresh: 'fresh', unsettled: 'unsettled' };
+
 const STYLE_ID = 'eo-ss-style';
 const CSS = `
 .eo-ss{font-family:var(--sans,system-ui,sans-serif);color:var(--ink,#15181e);}
@@ -99,13 +114,23 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   // The sun is the root of this little system: its TRUE position is always (0,0); it's the
   // camera (placeMeaning) that moves when the meaning-level focus changes, never the bodies'
   // real motion — exactly a change of reference frame, not a re-layout.
+  // Ring assignment: when a claim carries a STANDING (solarMeaningData's settledness read), the ring
+  // IS the standing — firming inner, fresh middle, unsettled outer — so the orbit itself reads as
+  // confidence. Absent that (the plain tieredData feed), fall back to the old even round-robin so the
+  // component stays byte-identical for any caller not passing standing. Bodies sharing a ring are
+  // fanned evenly in phase so a crowded standing band never stacks on one angle.
   const mOrbit = {};
   const mRings = Math.min(3, Math.ceil(claims.length / 5)) || 1;
+  const hasStanding = claims.some((n) => n.standing != null && STANDING_RING[n.standing] != null);
+  const ringOf = (n, i) => (hasStanding && STANDING_RING[n.standing] != null) ? STANDING_RING[n.standing] : (i % mRings);
+  const ringPop = {}; claims.forEach((n, i) => { const r = ringOf(n, i); ringPop[r] = (ringPop[r] || 0) + 1; });
+  const ringSeen = {};
   claims.forEach((n, i) => {
-    const ring = i % mRings, rx = 96 + ring * 62;
+    const ring = ringOf(n, i), rx = 96 + ring * 62;
+    const k = (ringSeen[ring] = (ringSeen[ring] || 0)); ringSeen[ring] = k + 1;
     mOrbit[n.id] = {
       rx, ry: rx * 0.62,
-      phase: (Math.floor(i / mRings) / Math.max(1, Math.ceil(claims.length / mRings))) * Math.PI * 2 + ring * 0.7,
+      phase: (k / Math.max(1, ringPop[ring])) * Math.PI * 2 + ring * 0.7,
       omega: (Math.PI * 2) / (16 + (i % 5) * 6 + ring * 5),
     };
   });
@@ -180,12 +205,24 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     }
     claims.forEach((n) => {
       const grp = sv('g', { class: 'ss-body' });
-      grp.appendChild(sv('circle', { r: 5.5, fill: n.color || LEVELS[0].fill, stroke: LEVELS[0].stroke, 'stroke-width': 1.1 }));
-      // The claim's SPECTRUM, next to its position: the manner it was asserted in (distinguishes/
-      // links/introduces), read off the same operator glyph the tier legends already use — never
-      // drawn for a claim that carries none, so an unread claim shows a bare body, not a fabricated
-      // mark.
-      if (n.op) { const ti = sv('title', {}); ti.textContent = mannerOf(n.op) || ''; grp.appendChild(ti); }
+      // The claim's SPECTRUM shows in its very colour: the body is tinted by the MANNER of the act it
+      // records (distinguishes/links/introduces), so a linking claim and a distinguishing one never
+      // read the same at a glance. A claim carrying no operator falls back to the meaning tier's amber.
+      const man = n.manner || (n.op ? mannerOf(n.op) : null);
+      const pal = (man && MANNER_COLOR[man]) || LEVELS[0];
+      const unsettled = n.standing === 'unsettled';
+      const body = sv('circle', { r: 5.5, fill: n.color || pal.fill, stroke: pal.stroke, 'stroke-width': 1.1 });
+      // An unsettled claim (the record hedges or denies it) wears a broken outline — it has not
+      // firmed. A firming one gets a faint corroboration halo. Both are silent unless the standing
+      // read is present, so a plain feed draws the same bare bodies as before.
+      if (unsettled) { body.setAttribute('stroke-dasharray', '2 2'); body.setAttribute('fill-opacity', '0.45'); }
+      grp.appendChild(body);
+      if (n.standing === 'firming') grp.appendChild(sv('circle', { r: 8.5, fill: 'none', stroke: pal.stroke, 'stroke-opacity': 0.28, 'stroke-width': 1 }));
+      if (n.op || n.manner || n.standing) {
+        const ti = sv('title', {});
+        ti.textContent = [man, n.standing && STANDING_LABEL[n.standing]].filter(Boolean).join(' · ');
+        grp.appendChild(ti);
+      }
       grp.addEventListener('click', (ev) => { ev.stopPropagation(); focusMeaning(n.id); });
       g.appendChild(grp);
       const glyph = n.op ? glyphOf(n.op) + ' ' : '';
@@ -333,12 +370,23 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     wrap.querySelectorAll('[data-lvl]').forEach((c) => c.classList.toggle('off', +c.dataset.lvl !== state.level));
     const L = LEVELS[state.level];
     const trail = LEVELS.map((x, i) => i === state.level ? x.key : '·').join(' ');
+    // On the meaning level, the footer's resting state is the SPECTRUM KEY — the manners actually
+    // present in this ring (never the ones that aren't, so a one-manner figure reads honestly) plus
+    // the orbit's own legend (firm claims inner, unsettled outer). Elsewhere it's the plain descent hint.
+    const present = [...new Set(claims.map((n) => n.manner || (n.op ? mannerOf(n.op) : null)).filter((m) => MANNER_COLOR[m]))];
+    const anyStanding = claims.some((n) => n.standing != null && STANDING_RING[n.standing] != null);
+    const tail = (state.level === 0 && (present.length || anyStanding))
+      ? '<span style="display:inline-flex;align-items:center;gap:9px;margin-left:6px;font-size:11px;color:var(--ink3,#999);flex-wrap:wrap;">'
+          + present.map((m) => '<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:' + MANNER_COLOR[m].fill + ';display:inline-block;"></span>' + esc(m) + '</span>').join('')
+          + (anyStanding ? '<span style="color:var(--line2,#ccc);">|</span><span>firm inner · unsettled outer</span>' : '')
+        + '</span>'
+      : '<span style="color:var(--ink3,#999);margin-left:6px;">— zoom to descend</span>';
     detail.innerHTML = state.sel ? detail.innerHTML :
       '<span style="width:14px;height:14px;flex:0 0 auto;border-radius:4px;background:' + L.fill + ';display:inline-block;"></span>' +
       '<span style="color:var(--ink,#15181e);font-weight:600;">' + esc(L.key) + '</span>' +
       '<span style="color:var(--ink3,#999);">' + esc(L.math) + '</span>' +
       '<span style="color:var(--ink3,#bbb);font-family:var(--mono,monospace);font-size:11px;">' + esc(trail) + '</span>' +
-      '<span style="color:var(--ink3,#999);margin-left:6px;">— zoom to descend</span>';
+      tail;
     // a quick fade for the swap
     const fading = isTable ? tableWrap : stage;
     fading.style.opacity = '0.35'; requestAnimationFrame(() => { fading.style.opacity = '1'; });
@@ -364,9 +412,16 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
     const L = LEVELS[state.level];
     const g0 = edges.filter((e) => e.b === n.id).map((e) => e.gl).join(' ') || '—';
     const g1 = edges.filter((e) => e.a === n.id).map((e) => e.gl).join(' ') || '—';
+    // A selected claim names its manner (what KIND of act) and its standing (how firmly the record
+    // holds it) in words — the spectrum + drift, said plainly, next to the raw in/out glyph tally.
+    const man = n.manner || (n.op ? mannerOf(n.op) : null);
+    const pal = (man && MANNER_COLOR[man]) || null;
+    const mannerChip = man ? '<span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:' + (pal ? pal.fill : '#999') + ';display:inline-block;"></span>' + esc(man) + '</span>' : '';
+    const standChip = (n.standing && STANDING_LABEL[n.standing])
+      ? '<span style="white-space:nowrap;color:' + (n.standing === 'unsettled' ? 'var(--ink3,#999)' : 'var(--ink2,#555)') + ';">' + esc(STANDING_LABEL[n.standing]) + '</span>' : '';
     detail.innerHTML = '<span style="width:14px;height:14px;flex:0 0 auto;border-radius:4px;background:' + L.fill + ';display:inline-block;"></span>' +
-      '<span style="color:var(--ink,#15181e);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34%;">' + esc(n.label) + '</span>' +
-      '<span style="color:var(--ink3,#999);">' + esc(n.kind || '') + '</span>' +
+      '<span style="color:var(--ink,#15181e);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:30%;">' + esc(n.label) + '</span>' +
+      mannerChip + standChip +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">in <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(g0) + '</span></span>' +
       '<span style="color:var(--ink2,#555);white-space:nowrap;">out <span style="font-size:14px;font-family:var(--mono,monospace);">' + esc(g1) + '</span></span>';
     if (onOpen && n.ref) {
