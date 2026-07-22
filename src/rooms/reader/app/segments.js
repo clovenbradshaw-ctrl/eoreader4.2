@@ -26,12 +26,21 @@ export const installSegments = (appCtx) => {
     return lex;
   };
 
-  const linkifySegs = (text, lex) => {
-    const segs = [];
-    const rest = String(text);
-    if (!lex.length) return rest ? [{ t: 'text', s: rest }] : [];
-    // one pass, longest-label-first alternation; word-bounded, case-insensitive so EVERY
-    // mention links — "the dolphin's sonar" reaches the same entity as "Dolphin" in a heading.
+  // Match a surface span back to its label period- and whitespace-insensitive, so the reverse
+  // lookup survives the same normalisation the forward pattern tolerates. Hoisted here so the
+  // compiled matcher and the linkifier share one definition of the key.
+  const linkKey = (s) => String(s).replace(/\./g, '').replace(/\s+/g, ' ').trim();
+
+  // Compile a lexicon into its reusable matcher: the longest-label-first alternation regex AND
+  // the reverse label→entity lookups. This is a PURE function of `lex`, but the surface calls
+  // linkifySegs ONCE PER PARAGRAPH with the SAME lex (readerLink / viewerParas / answerSegments
+  // each close over one lex for the life of a render). Rebuilding a several-hundred-alternative
+  // regex — and re-scanning `lex` with two Array.find per match — on every paragraph turned a
+  // large PDF's book render into a multi-second main-thread freeze (a 330-page source split into
+  // ~12,000 line-blocks rebuilt it ~12,000 times: ~8s, and the peak allocation crashed the tab).
+  // So compile once and memoise on the lex identity (below); a fresh render builds a fresh lex,
+  // so the WeakMap entry is dropped with it — no staleness, no leak.
+  const compileLexicon = (lex) => {
     const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // A label is matched as a run of its TOKENS, not as a literal string, because admission
     // NORMALISES what it admits: a leading title's trailing period is dropped and the title joined
@@ -49,9 +58,33 @@ export const installSegments = (appCtx) => {
       return toks.map((t, i) => escRe(t) + (i === 0 && toks.length > 1 && LINK_TITLES.has(t.toLowerCase()) ? '\\.?' : '')).join('\\s+');
     };
     const re = new RegExp(`\\b(${lex.map((e) => labelRe(e.label)).join('|')})\\b`, 'gi');
-    // Match a surface span back to its label the same way — period- and whitespace-insensitive —
-    // so the reverse lookup survives the very normalisation the forward pattern had to tolerate.
-    const key = (s) => String(s).replace(/\./g, '').replace(/\s+/g, ' ').trim();
+    // The reverse lookups, first-match-wins to mirror the Array.find over the (longest-first) lex
+    // this replaced: set-if-absent while iterating lex IN ORDER preserves exactly which entry
+    // `find` returned, so the elected span is byte-identical to the per-match scan.
+    const byExact = new Map(), byLower = new Map();
+    for (const e of lex) {
+      const k = linkKey(e.label);
+      if (!byExact.has(k)) byExact.set(k, e);
+      const kl = k.toLowerCase();
+      if (!byLower.has(kl)) byLower.set(kl, e);
+    }
+    return { re, byExact, byLower };
+  };
+  const compiledLex = new WeakMap();
+  const matcherFor = (lex) => {
+    let m = compiledLex.get(lex);
+    if (!m) { m = compileLexicon(lex); compiledLex.set(lex, m); }
+    return m;
+  };
+
+  const linkifySegs = (text, lex) => {
+    const segs = [];
+    const rest = String(text);
+    if (!lex.length) return rest ? [{ t: 'text', s: rest }] : [];
+    // one pass, longest-label-first alternation; word-bounded, case-insensitive so EVERY
+    // mention links — "the dolphin's sonar" reaches the same entity as "Dolphin" in a heading.
+    const { re, byExact, byLower } = matcherFor(lex);
+    re.lastIndex = 0;   // the matcher's regex is shared across paragraphs — reset before each scan
     let last = 0, mArr;
     while ((mArr = re.exec(rest)) !== null) {
       const matched = mArr[1];
@@ -60,12 +93,13 @@ export const installSegments = (appCtx) => {
       // figure ("dolphins" for the admitted "Dolphins") still renders as its entity — but the
       // relaxed match is only trusted for labels long enough that it can't grab a common word off
       // a short acronym ("who" for "WHO"), which falls back to plain text.
-      const mk = key(matched);
-      const exact = lex.find((e) => key(e.label) === mk);
-      const hit = exact || lex.find((e) => key(e.label).toLowerCase() === mk.toLowerCase());
+      const mk = linkKey(matched);
+      const exact = byExact.get(mk);
+      const hit = exact || byLower.get(mk.toLowerCase());
       if (hit && (exact || hit.label.length >= 4)) segs.push({ t: 'ent', s: matched, docId: hit.docId, entId: hit.entId });
       else segs.push({ t: 'text', s: matched });
       last = mArr.index + matched.length;
+      if (mArr.index === re.lastIndex) re.lastIndex++;   // a reused /g regex must never spin on a zero-width hit
     }
     if (last < rest.length) segs.push({ t: 'text', s: rest.slice(last) });
     return segs;
