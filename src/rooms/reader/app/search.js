@@ -54,7 +54,7 @@ export const installSearch = (appCtx) => {
       try {
         const s = appCtx.addSource({
           title: a.record.title || a.item?.title, url: a.record.url || a.item?.url || null,
-          text: a.doc.text, kind: 'web', record: a.record, doc: a.doc,
+          text: a.doc.text, kind: 'web', record: a.record, doc: a.doc, topicId: t.id,
         });
         // addSource files a NEW source into the active (search) topic itself, but a hit that was
         // already recorded elsewhere returns as a dedup WITHOUT joining this topic — link it
@@ -104,11 +104,11 @@ export const installSearch = (appCtx) => {
       return { topic: t, count, first };
     });
 
-  const ingestText = (text, title = 'Pasted text') => {
+  const ingestText = (text, title = 'Pasted text', opts = {}) => {
     // unnamedReferents: true — the reader's ordinary reading (see registry.js#docFor); a nameless
     // recurring figure ("the creature") reaches the Source Index instead of vanishing.
     const doc = parseText(String(text), { docId: `doc-${shaShort(webContentHash(text))}`, unnamedReferents: true });
-    return appCtx.addSource({ title, text: String(text), kind: 'text', doc });
+    return appCtx.addSource({ title, text: String(text), kind: 'text', doc, topicId: opts.topicId || null });
   };
 
   Object.assign(appCtx, { fillSearchTopic, ingestText, searchTopic, specPrime, specClear });

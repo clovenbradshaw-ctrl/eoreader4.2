@@ -49,7 +49,7 @@ export const installIngest = (appCtx) => {
   // file upload goes through (import-file.js's importAnyFile) — a real File object, so a `.pdf`
   // URL takes the pdf.js + eyes + quorum path (with its own binary-fallback safety net) instead
   // of silently landing as "Ready" prose built from mangled syntax.
-  const admitBytesAsFile = async (norm, signal, progress, { name, type } = {}) => {
+  const admitBytesAsFile = async (norm, signal, progress, { name, type, topicId = null } = {}) => {
     if (typeof progress === 'function') progress({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` });
     const { bytes } = await client.fetchUrlBytes(norm, { signal });
     const { importAnyFile } = await import('../import-file.js');
@@ -70,7 +70,7 @@ export const installIngest = (appCtx) => {
     const structured = ['table', 'json', 'binary', 'music', 'subtitle'].includes(got.meta?.modality) && got.meta?.doc;
     const src = appCtx.addSource({
       title: got.title || title, url: norm, text: got.text, kind: got.meta?.modality || 'file',
-      ...(structured ? { doc: got.meta.doc } : { defer: true }),
+      ...(structured ? { doc: got.meta.doc } : { defer: true }), topicId,
     });
     if (src && got.meta?.coverage) src.coverage = got.meta.coverage;
     if (src && !structured) {
@@ -81,7 +81,8 @@ export const installIngest = (appCtx) => {
     return src;
   };
 
-  const ingestUrl = (url) => {
+  const ingestUrl = (url, opts = {}) => {
+    const targetTopicId = opts.topicId || state.activeTopicId;
     const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
     const looksLikePdfUrl = /\.pdf(?:[?#]|$)/i.test(norm);
     return runCancellable({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` }, async (signal, progress) => {
@@ -99,14 +100,14 @@ export const installIngest = (appCtx) => {
         if (!admitted?.doc || !admitted?.record) return null;
         const src = appCtx.addSource({
           title: admitted.record.title, url: admitted.record.url || norm,
-          text: admitted.doc.text, kind: 'web', record: admitted.record, doc: admitted.doc,
+          text: admitted.doc.text, kind: 'web', record: admitted.record, doc: admitted.doc, topicId: targetTopicId,
         });
         appCtx.settleJob(jid, 'done');
         return src;
       };
       try {
         if (looksLikePdfUrl) {
-          const src = await admitBytesAsFile(norm, signal, progress, { name: 'document.pdf', type: 'application/pdf' });
+          const src = await admitBytesAsFile(norm, signal, progress, { name: 'document.pdf', type: 'application/pdf', topicId: targetTopicId });
           if (src) { appCtx.settleJob(jid, 'done'); return src; }
           throw new Error('this PDF has no recoverable text');
         }
@@ -144,14 +145,14 @@ export const installIngest = (appCtx) => {
         // rather than admitting `1 0 obj<<`/`endobj` as prose and calling the source "Ready".
         const { _looksLikeBinaryGarbage } = await import('../import-file.js');
         if (_looksLikeBinaryGarbage(raw)) {
-          const src = await admitBytesAsFile(norm, signal, progress);
+          const src = await admitBytesAsFile(norm, signal, progress, { topicId: targetTopicId });
           if (src) { appCtx.settleJob(jid, 'done'); return src; }
           throw new Error('this page is a binary file, not readable text — try uploading it directly');
         }
         const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
         const text = htmlToText(raw);
         const { doc, record } = admitWebSource({ url: norm, title, text, salient_image: firstSalientImage(raw, norm), fetched_at: nowIso(), engine: 'feed-proxy' });
-        const src = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc });
+        const src = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, topicId: targetTopicId });
         appCtx.settleJob(jid, 'done');
         return src;
       } catch (e) {

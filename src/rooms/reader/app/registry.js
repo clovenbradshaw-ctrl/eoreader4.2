@@ -64,7 +64,7 @@ export const installRegistry = (appCtx) => {
     return src._doc;
   };
 
-  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null, defer = false }) => {
+  const addSource = ({ title, url = null, text, kind = 'web', rights = null, record = null, doc = null, parentSn = null, defer = false, topicId = null } = {}) => {
     const body = String(text || '').trim();
     if (!body) throw new Error('nothing to record — the page had no readable text');
     // A caller that already parsed (web/text ingest) hands docFor's doc PRE-BUILT, bypassing
@@ -81,6 +81,12 @@ export const installRegistry = (appCtx) => {
     // parent (a link we followed inside that parent's site) and had none before, adopt it — so a
     // page first seen on its own, then reached by clicking through its site, nests where expected.
     if (dup) {
+      const targetTopic = topicId ? appCtx.topicById(topicId) : appCtx.topic();
+      if (targetTopic && !targetTopic.sourceSns.includes(dup.sn)) {
+        targetTopic.sourceSns.push(dup.sn);
+        appCtx.topicAutoName(targetTopic, { silent: true });
+        appCtx.persist(); emit('topics'); emit('sources');
+      }
       if (parentSn && !dup.parentSn && dup.sn !== parentSn) {
         dup.parentSn = parentSn;
         const par = sourceBySn(parentSn); if (par && par.collapsed) par.collapsed = false;   // unfold, so the adopted page shows at once
@@ -113,7 +119,7 @@ export const installRegistry = (appCtx) => {
     mergeSourceMetadata(src, inferSourceMetadata({ title, url, kind, record, doc }, src));
     if (doc) { try { src.entCount = projectGraph(doc.log).entities?.size || 0; } catch { src.entCount = 0; } }
     state.sources.push(src);
-    const t = appCtx.topic();
+    const t = topicId ? appCtx.topicById(topicId) : appCtx.topic();
     if (t && !t.sourceSns.includes(id)) t.sourceSns.push(id);
     if (t) appCtx.topicAutoName(t, { silent: true });   // a first source names a placeholder topic (persist/emit follow below)
     if (parentSn) {
