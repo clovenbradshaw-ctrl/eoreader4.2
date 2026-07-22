@@ -169,8 +169,11 @@ export const installTranscript = (appCtx) => {
   // Shared by the first import AND by a resume after a reload (there the thunk comes from a fresh
   // import of the same OPFS bytes). Idempotent — applyTranscript rewrites by content hash, and the
   // job is keyed by the source, so a resume finds and closes the same job.
-  const runTranscription = async (src, transcribe, { signal, progress } = {}) => {
-    const jid = appCtx.beginJob({ kind: 'transcribe', sn: src.sn });   // idempotent (keyed by sn); carries attempts
+  const runTranscription = async (src, transcribe, { signal, progress, force = false } = {}) => {
+    // idempotent (keyed by sn); carries attempts. `force` rides the job so a reload mid-run
+    // resumes it as the SAME forced transcription (resume.js reads job.force back out) rather
+    // than reverting to the automated gate's original verdict.
+    const jid = appCtx.beginJob({ kind: 'transcribe', sn: src.sn, ...(force ? { force: true } : {}) });
     setAsr(src, { state: 'running' });
     emit('sources');
     const paint = (label) => { try { progress && progress({ kind: 'file', label }); } catch { /* pill is best-effort */ } };
@@ -245,5 +248,41 @@ export const installTranscript = (appCtx) => {
     }
   };
 
-  Object.assign(appCtx, { keepPartialTranscript, runTranscription, setAsr, transcriptExport, transcriptFormats });
+  // Force a transcript over the AUTOMATED gate's objection — the listener's own call that a clip
+  // IS worth transcribing even though the signal/noise holon split found nothing to hear (a
+  // heavily mastered/compressed podcast whose loud tier never clears the derived floor,
+  // acoustic.js's windowThreshold; or any other clip the split misreads). Re-decodes the source's
+  // own kept bytes into a fresh `transcribe` thunk with the gate bypassed (import-file.js's
+  // `forceTranscribe` option — every window gets whispered, not just the ones the holon split
+  // called signal), then runs it exactly like a first-pass transcription. The click-triggered
+  // twin of resumeTranscribe (resume.js), which does the same rebuild-from-bytes after a reload.
+  const forceTranscribe = (snId) =>
+    appCtx.runCancellable({ kind: 'file', label: 'Transcribing…' }, async (signal, progress) => {
+      const src = appCtx.sourceBySn(snId);
+      if (!src || (src._asr && ['running', 'pending'].includes(src._asr.state))) return;
+      const bytes = await appCtx.audioBytes(src);
+      if (!bytes) {
+        setAsr(src, { state: 'error', pct: 0, partial: '', reason: 'original audio unavailable — re-import to transcribe' });
+        appCtx.persist(); emit('sources');
+        return;
+      }
+      setAsr(src, { state: 'pending', pct: 0, partial: '' });
+      emit('sources');
+      const ref = src.audioRef || {};
+      const file = new File([bytes], src.title || 'clip', { type: ref.mime || 'audio/mpeg' });
+      const { importAnyFile } = await import('../import-file.js');
+      const got = await importAnyFile(file, { signal, forceTranscribe: true, onProgress: (msg) => progress({ kind: 'file', label: String(msg) }) });
+      // Re-hydrate the session-only visualization artefacts (a fresh decode redraws the same clip).
+      if (got.meta) { src._wave = got.meta.waveform || src._wave; src._analysis = got.meta.analysis || src._analysis; src._holons = got.meta.holons || src._holons; }
+      if (got.meta?.watch) await appCtx.runWatch(src, got.meta.watch, { signal, progress });
+      if (got.meta?.transcribe) { await runTranscription(src, got.meta.transcribe, { signal, progress, force: true }); }
+      else {
+        // A truly silent clip (true digital silence, not just below the auto floor) — forcing
+        // still finds nothing to whisper. Say so plainly rather than leaving the pending spinner.
+        setAsr(src, { state: 'error', pct: 0, partial: '', reason: 'nothing to transcribe — the clip decoded to true silence' });
+        appCtx.persist(); emit('sources');
+      }
+    });
+
+  Object.assign(appCtx, { forceTranscribe, keepPartialTranscript, runTranscription, setAsr, transcriptExport, transcriptFormats });
 };

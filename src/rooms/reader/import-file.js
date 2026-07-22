@@ -662,6 +662,13 @@ export async function _transcribeWindows(asr, mono, SR, duration, norm, { onPart
 // its waveform and its holons, but transcription is skipped — "THEN transcribe IF NECESSARY".
 const MIN_SIGNAL_SECONDS = 0.3;
 
+// The manual override for that same gate. The holon separation reads a WINDOW's own loud/quiet
+// split (acoustic.js's windowThreshold) — a real recording can still defeat it (a heavily
+// mastered/compressed podcast whose loud tier never opens a wide enough gap over its quiet tier,
+// or simply an unusual room/mic), landing a source that is plainly speech but scores no signal
+// holons at all. `opts.forceTranscribe` is the listener's own call overriding that verdict: skip
+// the "is there anything to hear" question entirely and whisper the WHOLE clip, window by window.
+
 async function fromMedia(file, title, name, say, opts = {}) {
   const SR = 16000;
   // Decode to mono 16 kHz — the rate whisper wants — via an offline graph.
@@ -747,19 +754,21 @@ async function fromMedia(file, title, name, say, opts = {}) {
   const holons = separateHolons(mono, SR);
   const acousticDoc = ingestAcoustic({ name, title, duration, sampleRate: SR, analysis, holons, peaks, media, mediaKind });
 
-  const necessary = holons.signalSeconds >= MIN_SIGNAL_SECONDS;
+  const forced = !!opts.forceTranscribe;
+  const necessary = forced || holons.signalSeconds >= MIN_SIGNAL_SECONDS;
   const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
 
   // ── PHASE 2 — transcription, DEFERRED. ────────────────────────────────────────────────
   // Handed back as a thunk the caller runs in the background AFTER the source has landed, so
   // loading whisper never blocks the source from appearing. Null when there is no signal to
-  // hear (the "if necessary" gate). It transcribes only the windows a signal holon covers.
+  // hear (the "if necessary" gate). It transcribes only the windows a signal holon covers —
+  // unless forced, where every window is whispered regardless of what the holon split found.
   const transcribe = necessary ? async ({ onPartial, signal, twoWitness } = {}) => {
     if (signal && signal.aborted) throw new DOMException('aborted', 'AbortError');
     const { asr, dev } = await _loadWhisper();
     const witness = `whisper-base · ${dev}`;
     const { utterances, text: liveText } = await _transcribeWindows(asr, mono, SR, duration, norm, {
-      onPartial, signalSpans: holons.signalSpans, signal,
+      onPartial, signalSpans: forced ? null : holons.signalSpans, signal,
     });
 
     // A transcript is one READING, not the objective truth of the waveform. When "audit
@@ -822,6 +831,7 @@ async function fromMedia(file, title, name, say, opts = {}) {
     signalSeconds: Math.round(holons.signalSeconds * 10) / 10,
     signalHolons: holons.signalSpans.length,
     transcribable: necessary,
+    forced,
     dropped: necessary ? [] : ['no signal above the noise floor — not transcribed'],
   };
 
