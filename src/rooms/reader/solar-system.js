@@ -119,23 +119,45 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   // confidence. Absent that (the plain tieredData feed), fall back to the old even round-robin so the
   // component stays byte-identical for any caller not passing standing. Bodies sharing a ring are
   // fanned evenly in phase so a crowded standing band never stacks on one angle.
-  const mOrbit = {};
-  const mRings = Math.min(3, Math.ceil(claims.length / 5)) || 1;
+  // NESTED, not flat: a meaning body orbits its PARENT, not always the sun. When the feed carries a
+  // hierarchy (solarMeaningData sets node.parent — the sun's standing claims and bonded figures are
+  // planets around the sun; each figure's own claims are moons around it), the system reads as a real
+  // sun · planets · moons descent. A feed that sets no parent (the plain tieredData ring) leaves every
+  // body a direct child of the sun — a single flat ring, exactly what those callers always drew.
+  const parentOf = (n) => { const p = n.parent; return (p && byId[p] && p !== n.id) ? p : sun.id; };
+  const depthOf = (id) => { let d = 0, cur = byId[id];
+    while (cur && cur.id !== sun.id && d < 8) { const p = parentOf(cur); if (p === cur.id) break; cur = byId[p]; d++; } return d; };
+  const nestedMeaning = claims.some((n) => byId[parentOf(n)] && parentOf(n) !== sun.id);   // any moon ⇒ a real hierarchy
+  const mOrbit = { [sun.id]: { parent: null, depth: 0, rx: 0, ry: 0, phase: 0, omega: 0 } };
   const hasStanding = claims.some((n) => n.standing != null && STANDING_RING[n.standing] != null);
-  const ringOf = (n, i) => (hasStanding && STANDING_RING[n.standing] != null) ? STANDING_RING[n.standing] : (i % mRings);
-  const ringPop = {}; claims.forEach((n, i) => { const r = ringOf(n, i); ringPop[r] = (ringPop[r] || 0) + 1; });
-  const ringSeen = {};
-  claims.forEach((n, i) => {
-    const ring = ringOf(n, i), rx = 96 + ring * 62;
-    const k = (ringSeen[ring] = (ringSeen[ring] || 0)); ringSeen[ring] = k + 1;
-    mOrbit[n.id] = {
-      rx, ry: rx * 0.62,
-      phase: (k / Math.max(1, ringPop[ring])) * Math.PI * 2 + ring * 0.7,
-      omega: (Math.PI * 2) / (16 + (i % 5) * 6 + ring * 5),
-    };
+  // Fan siblings (bodies sharing a parent) evenly in phase so a crowded parent never stacks them on
+  // one angle; standing still chooses the ring for planets (firm inner · unsettled outer).
+  const kids = {}; claims.forEach((n) => { const p = parentOf(n); (kids[p] || (kids[p] = [])).push(n); });
+  Object.keys(kids).forEach((pid) => {
+    const arr = kids[pid], pd = byId[pid] ? depthOf(pid) : 0;    // parent depth: 0 = the sun (wide planet rings), ≥1 = a planet (tight moon rings)
+    arr.forEach((n, k) => {
+      const ring = (hasStanding && STANDING_RING[n.standing] != null) ? STANDING_RING[n.standing] : (k % 3);
+      const rx = pd === 0 ? (96 + ring * 62) : (24 + ring * 8);   // planets orbit the sun wide; moons hug their planet
+      mOrbit[n.id] = {
+        parent: pid, depth: pd + 1, rx, ry: rx * (pd === 0 ? 0.62 : 0.7),
+        phase: (k / Math.max(1, arr.length)) * Math.PI * 2 + ring * 0.7,
+        // moons run faster than planets (shorter period), like a real system
+        omega: (Math.PI * 2) / ((pd === 0 ? 16 : 6) + (k % 5) * (pd === 0 ? 6 : 1.4) + ring * (pd === 0 ? 5 : 2)),
+      };
+    });
   });
-  const trueOf = (id, t) => { const o = mOrbit[id];
-    return o ? { x: Math.cos(o.phase + t * o.omega) * o.rx, y: Math.sin(o.phase + t * o.omega) * o.ry } : { x: 0, y: 0 }; };
+  // A body's TRUE position is its parent's position plus its own orbital offset — recursion is what
+  // makes the nesting real (a moon rides its planet, which rides the sun). Memoised per frame; the
+  // provisional {0,0} write breaks any accidental cycle in malformed data instead of recursing forever.
+  const trueOf = (id, t, cache) => {
+    cache = cache || {};
+    if (id in cache) return cache[id];
+    const o = mOrbit[id];
+    if (!o || o.parent == null) { cache[id] = { x: 0, y: 0 }; return cache[id]; }
+    cache[id] = { x: 0, y: 0 };
+    const par = trueOf(o.parent, t, cache), ang = o.phase + t * o.omega;
+    return (cache[id] = { x: par.x + Math.cos(ang) * o.rx, y: par.y + Math.sin(ang) * o.ry });
+  };
 
   const W = width, H = height, cx = W / 2, cy = H / 2;
   // depth is the continuous descent dial; the integer level is what we draw. Start at meaning (0).
@@ -186,19 +208,33 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
   const detail = wrap.querySelector('[data-detail]'), countsEl = wrap.querySelector('[data-counts]');
   const playBtn = wrap.querySelector('[data-play]'), playLbl = wrap.querySelector('[data-playlbl]');
 
-  // orbiters carry the live meaning-level bodies so the drift can re-place them each frame
-  let orbiters = [];
+  // orbiters carry the live meaning-level bodies so the drift can re-place them each frame;
+  // mEdges are the parent→child bond lines that must follow the same live motion.
+  let orbiters = [], mEdges = [];
 
   // ── level 0 · meaning — a live orbital simulation, egocentric within itself too ─────────
   function renderMeaning(g) {
     g.appendChild(sv('rect', { x: cx - 260, y: cy - 190, width: 520, height: 380, fill: 'url(#' + uid + '-well)' }));
     g.appendChild(sv('circle', { 'data-focusring': '1', cx, cy, r: 30, fill: 'none', stroke: 'var(--ink3,#999)', 'stroke-opacity': 0.4, 'stroke-dasharray': '2 3' }));
-    orbiters = [];
-    // the orbit-path guide is only geometrically honest in the SUN's own frame — once the
-    // camera re-anchors onto a claim, a static ellipse would just be a stale decoration.
-    if (state.mFocus === sun.id) claims.forEach((n) => { const o = mOrbit[n.id];
-      g.appendChild(sv('ellipse', { cx, cy, rx: o.rx, ry: o.ry, fill: 'none', stroke: LEVELS[0].fill, 'stroke-opacity': 0.22, 'stroke-dasharray': '2 5' })); });
-    orbiters.push({ id: sun.id, ...drawSun(g, '☉', () => focusMeaning(sun.id)) });
+    orbiters = []; mEdges = [];
+    if (nestedMeaning) {
+      // A real hierarchy: draw the parent→child bonds first (so bodies sit on top) and let them
+      // follow the live orbit each frame — the same lines the reference system draws between a
+      // planet and its moons. Orbit-guide ellipses are dropped here: with moving parents they'd be
+      // stale decoration, and the bond lines already read the structure.
+      claims.forEach((n) => {
+        const pid = mOrbit[n.id] && mOrbit[n.id].parent; if (!pid || !byId[pid]) return;
+        const line = sv('line', { stroke: 'var(--line2,#d3d5dc)', 'stroke-width': pid === sun.id ? 0.9 : 0.7, 'stroke-opacity': 0.75 });
+        g.appendChild(line); mEdges.push({ line, parent: pid, child: n.id });
+      });
+    } else if (state.mFocus === sun.id) {
+      // The flat ring (a feed with no hierarchy): the orbit-path guide is only geometrically honest
+      // in the SUN's own frame — once the camera re-anchors onto a claim, a static ellipse would be
+      // stale — so it draws only while the sun is centred, exactly as before.
+      claims.forEach((n) => { const o = mOrbit[n.id];
+        g.appendChild(sv('ellipse', { cx, cy, rx: o.rx, ry: o.ry, fill: 'none', stroke: LEVELS[0].fill, 'stroke-opacity': 0.22, 'stroke-dasharray': '2 5' })); });
+    }
+    orbiters.push({ id: sun.id, r: 14, ...drawSun(g, '☉', () => focusMeaning(sun.id)) });
     if (!claims.length) {
       g.appendChild(text(cx, cy + 70, 'no standing claims yet — its meaning ring is empty', { anchor: 'middle', size: 11.5, fill: '#8A8A95' }));
       placeMeaning(); return;
@@ -211,13 +247,14 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
       const man = n.manner || (n.op ? mannerOf(n.op) : null);
       const pal = (man && MANNER_COLOR[man]) || LEVELS[0];
       const unsettled = n.standing === 'unsettled';
-      const body = sv('circle', { r: 5.5, fill: n.color || pal.fill, stroke: pal.stroke, 'stroke-width': 1.1 });
+      const r = (mOrbit[n.id] && mOrbit[n.id].depth >= 2) ? 4 : 5.5;   // a moon reads a touch smaller than a planet
+      const body = sv('circle', { r, fill: n.color || pal.fill, stroke: pal.stroke, 'stroke-width': 1.1 });
       // An unsettled claim (the record hedges or denies it) wears a broken outline — it has not
       // firmed. A firming one gets a faint corroboration halo. Both are silent unless the standing
       // read is present, so a plain feed draws the same bare bodies as before.
       if (unsettled) { body.setAttribute('stroke-dasharray', '2 2'); body.setAttribute('fill-opacity', '0.45'); }
       grp.appendChild(body);
-      if (n.standing === 'firming') grp.appendChild(sv('circle', { r: 8.5, fill: 'none', stroke: pal.stroke, 'stroke-opacity': 0.28, 'stroke-width': 1 }));
+      if (n.standing === 'firming') grp.appendChild(sv('circle', { r: r + 3, fill: 'none', stroke: pal.stroke, 'stroke-opacity': 0.28, 'stroke-width': 1 }));
       if (n.op || n.manner || n.standing) {
         const ti = sv('title', {});
         ti.textContent = [man, n.standing && STANDING_LABEL[n.standing]].filter(Boolean).join(' · ');
@@ -228,21 +265,36 @@ export function mountSolarSystem(root, { nodes: inNodes = [], edges: inEdges = [
       const glyph = n.op ? glyphOf(n.op) + ' ' : '';
       const lab = text(0, 0, clip(glyph + n.label, 26), { anchor: 'start', size: 10.5, cls: 'ss-plabel' });
       g.appendChild(lab);
-      orbiters.push({ id: n.id, grp, lab });
+      orbiters.push({ id: n.id, grp, lab, r });
     });
     placeMeaning();
   }
-  // Every body's TRUE position never changes with focus — only the camera offset (target)
-  // does, so re-centring on a claim makes the sun (and every other claim) visibly move,
-  // exactly as their real relative motion always was.
+  // Every body's TRUE position never changes with focus — only the camera offset (target) does, so
+  // re-centring on a body makes its parent (and everything else) visibly move relative to it, exactly
+  // as their real relative motion always was. One position cache per frame, shared by bodies, labels
+  // and bond lines, so the recursion runs once per body.
   function placeMeaning() {
-    const t = state.simTime, target = trueOf(state.mFocus, t), onSun = state.mFocus === sun.id;
+    const t = state.simTime, cache = {}, onSun = state.mFocus === sun.id;
+    const target = trueOf(state.mFocus, t, cache);
+    const scr = (id) => { const p = trueOf(id, t, cache); return { x: cx + (p.x - target.x), y: cy + (p.y - target.y) }; };
     const ring = stage.querySelector('[data-focusring]'); if (ring) ring.setAttribute('r', onSun ? 30 : 12);
     orbiters.forEach((o) => {
-      const p = trueOf(o.id, t), x = cx + (p.x - target.x), y = cy + (p.y - target.y);
-      o.grp.setAttribute('transform', 'translate(' + x.toFixed(1) + ',' + y.toFixed(1) + ')');
-      if (o.id === sun.id) { o.lab.setAttribute('x', x.toFixed(1)); o.lab.setAttribute('y', (y - 26).toFixed(1)); }
-      else { o.lab.setAttribute('x', (x + 9).toFixed(1)); o.lab.setAttribute('y', (y + 3.5).toFixed(1)); }
+      const s = scr(o.id);
+      o.grp.setAttribute('transform', 'translate(' + s.x.toFixed(1) + ',' + s.y.toFixed(1) + ')');
+      if (o.id === sun.id) { o.lab.setAttribute('x', s.x.toFixed(1)); o.lab.setAttribute('y', (s.y - 26).toFixed(1)); o.lab.setAttribute('text-anchor', 'middle'); }
+      else if (nestedMeaning) {
+        // label rides outward from the parent, so a moon's name never lands under its planet
+        const pid = mOrbit[o.id] && mOrbit[o.id].parent, ps = pid ? scr(pid) : { x: cx, y: cy };
+        let dx = s.x - ps.x, dy = s.y - ps.y; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+        const gap = (o.r || 6) + 9;
+        o.lab.setAttribute('x', (s.x + dx * gap).toFixed(1)); o.lab.setAttribute('y', (s.y + dy * gap + 3.5).toFixed(1));
+        o.lab.setAttribute('text-anchor', dx > 0.3 ? 'start' : (dx < -0.3 ? 'end' : 'middle'));
+      } else { o.lab.setAttribute('x', (s.x + 9).toFixed(1)); o.lab.setAttribute('y', (s.y + 3.5).toFixed(1)); o.lab.setAttribute('text-anchor', 'start'); }
+    });
+    mEdges.forEach((e) => {
+      const a = scr(e.parent), b = scr(e.child);
+      e.line.setAttribute('x1', a.x.toFixed(1)); e.line.setAttribute('y1', a.y.toFixed(1));
+      e.line.setAttribute('x2', b.x.toFixed(1)); e.line.setAttribute('y2', b.y.toFixed(1));
     });
   }
   // The meaning-level camera pivot: re-anchor to id, snap the frame immediately (even

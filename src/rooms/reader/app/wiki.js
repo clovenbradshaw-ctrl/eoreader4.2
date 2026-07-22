@@ -126,39 +126,73 @@ export const installWiki = (appCtx) => {
     if (neg || hedged) return 'unsettled';
     return (d.count || 1) >= 2 ? 'firming' : 'fresh';
   };
-  const solarMeaningData = (docId, entId, { maxBonds = 10 } = {}) => {
+  const solarMeaningData = (docId, entId, { maxBonds = 10, maxMoonPlanets = 8, maxMoons = 3 } = {}) => {
     const base = tieredData(docId, entId);
     if (!base.nodes || !base.nodes.length) return base;
     const p = appCtx.entityProfile(docId, entId);
     if (!p) return base;
-    // 1) tag the DEF claim bodies with their manner + standing (the flat tieredData carries neither)
+    // The meaning system is NESTED, not a flat ring: the focus is the sun; its standing claims and
+    // bonded figures are PLANETS orbiting it (parent = the focus); each bonded figure's OWN standing
+    // claims and further associates are MOONS orbiting that figure (parent = the figure's body). The
+    // renderer (solar-system.js) reads node.parent to build the sun · planets · moons descent.
+    const focusId = `e:${entId}`;
+    // 1) the focus's own DEF claims (planets): tag them with manner + standing and parent them to the sun.
     const nodes = base.nodes.map((n) => {
       if (n.kind !== 'claim' || !/^c:\d+$/.test(String(n.id))) return n;
       const d = p.defs[+String(n.id).slice(2)];
-      if (!d) return { ...n, op: 'DEF', manner: mannerOf('DEF') };
+      if (!d) return { ...n, op: 'DEF', manner: mannerOf('DEF'), parent: focusId };
       return { ...n, op: 'DEF', manner: mannerOf('DEF'), standing: standingOf(d),
-               count: d.count || 1, polarity: d.polarity || '+', modality: d.modality || 'realis' };
+               count: d.count || 1, polarity: d.polarity || '+', modality: d.modality || 'realis', parent: focusId };
     });
     const edges = base.edges.slice();
-    // 2) fold the figure's OWN bonds into the ring as manner-varied claims (links/introduces),
-    //    so the spectrum reads as more than a wall of "distinguishes". Each is typed by the act it
-    //    records (operatorsOf), labelled by the figure at the other end, and — like a bond — carries
-    //    a ref so a click still pivots the whole view onto that figure.
-    const focusId = `e:${entId}`;
     const srcT = base.nodes.find((n) => n.id === focusId)?.t || 0;
+    // 2) fold the figure's OWN bonds into the ring as manner-varied planets (links/introduces), so the
+    //    spectrum reads as more than a wall of "distinguishes". Each is typed by the act it records
+    //    (operatorsOf), labelled by the figure at the other end, and — like a bond — carries a ref so a
+    //    click still pivots the whole view onto that figure. Then hang that figure's own meaning as MOONS.
+    const bondClaim = (op, via, label, otherId, id, parent) => {
+      nodes.push({ id, parent, tier: 2, kind: 'claim', terrain: 'Lens', bond: true,
+        label: (via ? via + ' ' : '') + label, op, manner: mannerOf(op),
+        standing: 'fresh', ref: { docId, entId: otherId }, t: srcT });
+      edges.push({ a: parent, b: id, tier: 2, gl: glyphOf(op), code: op });
+    };
     (p.relations || []).slice(0, maxBonds).forEach((r, i) => {
       const isSrc = r.srcId === entId, isTgt = r.tgtId === entId;
-      if (!isSrc && !isTgt) return;                       // keep the ring egocentric to the sun
+      if (!isSrc && !isTgt) return;                       // keep the top ring egocentric to the sun
       const otherId = isSrc ? r.tgtId : r.srcId, otherLabel = isSrc ? r.tgtLabel : r.srcLabel;
       if (otherId === entId) return;                      // never a self-loop claim
       const op = operatorsOf(r.via, r.op || 'CON')[0] || 'CON';
-      const via = String(r.via || '').trim();
-      const id = `rc:${i}`;
-      nodes.push({ id, tier: 2, kind: 'claim', terrain: 'Lens', bond: true,
-        label: (via ? via + ' ' : '') + otherLabel, op, manner: mannerOf(op),
+      const planetId = `rc:${i}`;
+      nodes.push({ id: planetId, parent: focusId, tier: 2, kind: 'claim', terrain: 'Lens', bond: true,
+        label: (String(r.via || '').trim() ? String(r.via).trim() + ' ' : '') + otherLabel, op, manner: mannerOf(op),
         standing: (r.polarity === '−' || r.polarity === '-') ? 'unsettled' : 'fresh',
         ref: { docId, entId: otherId }, t: srcT });
-      edges.push({ a: focusId, b: id, tier: 2, gl: glyphOf(op), code: op });
+      edges.push({ a: focusId, b: planetId, tier: 2, gl: glyphOf(op), code: op });
+      // MOONS — descend one hop into the bonded figure: its own standing properties first, then its
+      // further associates (2-hop figures other than the sun), so a planet genuinely holds a little
+      // system instead of being a bare dot. Bounded per planet, and to the most salient planets.
+      if (i >= maxMoonPlanets) return;
+      const px = appCtx.entityProfile(docId, otherId);
+      if (!px) return;
+      let m = 0;
+      for (const d of (px.defs || [])) {
+        if (m >= maxMoons) break;
+        nodes.push({ id: `rm:${i}:${m}`, parent: planetId, tier: 2, kind: 'claim', terrain: 'Lens',
+          label: d.value, op: 'DEF', manner: mannerOf('DEF'), standing: standingOf(d),
+          count: d.count || 1, polarity: d.polarity || '+', modality: d.modality || 'realis', t: srcT });
+        edges.push({ a: planetId, b: `rm:${i}:${m}`, tier: 2, gl: '⊢', code: 'DEF' });
+        m++;
+      }
+      for (const rr of (px.relations || [])) {
+        if (m >= maxMoons) break;
+        const oSrc = rr.srcId === otherId, oTgt = rr.tgtId === otherId;
+        if (!oSrc && !oTgt) continue;
+        const thirdId = oSrc ? rr.tgtId : rr.srcId, thirdLabel = oSrc ? rr.tgtLabel : rr.srcLabel;
+        if (thirdId === otherId || thirdId === entId) continue;   // not itself, not straight back to the sun
+        const op2 = operatorsOf(rr.via, rr.op || 'CON')[0] || 'CON';
+        bondClaim(op2, String(rr.via || '').trim(), thirdLabel, thirdId, `rm:${i}:${m}`, planetId);
+        m++;
+      }
     });
     return { nodes, edges };
   };
