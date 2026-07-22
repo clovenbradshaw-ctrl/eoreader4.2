@@ -5,7 +5,7 @@
 // ingest: URL / search / file / paste
 import { htmlToText, firstSalientImage, searchAndAdmit, admitWebSource, fetchGithubRepo, fetchGutenbergBook, gutenbergIdOf, fetchYoutubeTranscript, youtubeIdOf, LIBRARIES, surfaceCard } from '../../../organs/ingest/index.js';
 import { FULL_TEXT } from './net.js';
-import { nowIso, domainOf } from './util.js';
+import { nowIso, domainOf, sameRegistrableDomain } from './util.js';
 import { fetchFeedSource, ingestFeed as runIngestFeed, isFeed } from './feed.js';
 import { parseText } from '../../../perceiver/parse/index.js';
 
@@ -237,18 +237,27 @@ export const installIngest = (appCtx) => {
   // one site stays one source, every page you click through logged beneath it (dedup keeps a
   // re-visit a no-op on the registry). Returns { html, url, childSn } — childSn null if the page had
   // no readable text (nothing to record) or admission failed; the page still renders either way.
+  //
+  // The nesting is DOMAIN-GATED: a followed page is a child of the site it was clicked on only while
+  // it stays on that site's own registrable domain. A link that leaves for ANOTHER domain is still
+  // recorded (the page you navigated to always joins the record) but as its OWN top-level source,
+  // never a cross-domain child — the authoritative form of the Native surface's same-site rule, so
+  // the "child ⟺ same domain" invariant holds for any caller, not just the click delegate.
   const navigatePage = (parentSn, url) => {
     const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
     return runCancellable({ kind: 'fetch', label: `Loading ${domainOf(norm)}…` }, async (signal) => {
       const res = await client.fetchUrl(norm, { signal });
       const raw = res.text || '';
       const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
+      // Keep the page under its parent only if it is the same domain; otherwise land it as a root.
+      const par = parentSn ? appCtx.sourceBySn(parentSn) : null;
+      const nestUnder = (par && par.url && !sameRegistrableDomain(par.url, norm)) ? null : parentSn;
       let childSn = null;
       try {
         const text = htmlToText(raw);
         if (text && text.trim()) {
           const { doc, record } = admitWebSource({ url: norm, title, text, salient_image: firstSalientImage(raw, norm), fetched_at: nowIso(), engine: 'feed-proxy' });
-          const child = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, parentSn });
+          const child = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, parentSn: nestUnder });
           childSn = child.sn;
         }
       } catch { /* un-admittable (empty/dup-of-parent) — still render the page */ }

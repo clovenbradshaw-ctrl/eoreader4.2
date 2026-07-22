@@ -81,7 +81,11 @@ export const installRegistry = (appCtx) => {
     // parent (a link we followed inside that parent's site) and had none before, adopt it — so a
     // page first seen on its own, then reached by clicking through its site, nests where expected.
     if (dup) {
-      if (parentSn && !dup.parentSn && dup.sn !== parentSn) { dup.parentSn = parentSn; appCtx.persist(); emit('sources'); }
+      if (parentSn && !dup.parentSn && dup.sn !== parentSn) {
+        dup.parentSn = parentSn;
+        const par = sourceBySn(parentSn); if (par && par.collapsed) par.collapsed = false;   // unfold, so the adopted page shows at once
+        appCtx.persist(); emit('sources');
+      }
       logIt('skip', `Already recorded — ${dup.title}`, dup.sn); return dup;
     }
     const id = `S${++appCtx.sn}`;
@@ -114,6 +118,10 @@ export const installRegistry = (appCtx) => {
     if (t) appCtx.topicAutoName(t, { silent: true });   // a first source names a placeholder topic (persist/emit follow below)
     if (parentSn) {
       const par = sourceBySn(parentSn);
+      // Unfold the site the moment a followed page lands beneath it — a sub-object recorded into a
+      // COLLAPSED parent renders nowhere (the sidebar only descends an open parent), which read as
+      // "navigating the site records nothing". A page you just navigated to must never be hidden.
+      if (par && par.collapsed) par.collapsed = false;
       logIt('nav', `Followed link on ${par ? par.domain : 'a source'} → ${src.title}`, src.reg);
     }
     logIt('record', `Recorded ${src.domain} — ${src.title}`, src.reg);

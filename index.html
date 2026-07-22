@@ -8028,8 +8028,6 @@ class Component extends DCLogic {
           const t = ev.target;
           const ent = t && t.closest && t.closest('.eo-ent[data-doc][data-ent]');
           if (ent && this.state.entityMode) { ev.preventDefault(); this.openEntity(ent.getAttribute('data-doc'), ent.getAttribute('data-ent')); return; }
-          // In-app link-following is part of the Links layer — off, links behave as the site's own.
-          if (!this.state.entityMode) return;
           // Plain left-clicks only — let modified clicks (new tab / download) pass through.
           if (ev.button != null && ev.button !== 0) return;
           if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
@@ -8040,8 +8038,11 @@ class Component extends DCLogic {
           const href = a.href || '';   // absolute — the frame's <base href> resolves it
           if (!/^https?:/i.test(href)) return;                 // skip mailto:/tel:/javascript:
           if (href.split('#')[0] === String(pageUrl).split('#')[0]) return;   // same page, different hash
+          // Follow a SAME-DOMAIN link in-app and record it as a sub-object — INDEPENDENT of the Links
+          // lens, so browsing the site always grows the record (that gating meant a reader with Links
+          // off could click through a whole site and record nothing). Off-domain links fall through to
+          // the site's own new-tab behaviour and are never nested as a cross-domain child.
           if (this._sameSite(href, pageUrl)) { ev.preventDefault(); this.visitLink(tabSn, href); }
-          // off-site: fall through — the anchor opens in a new browser tab as before.
         });
         // Enter/Space activate a focused entity span exactly like a click. Real <a href> links
         // need no equivalent here — the browser already synthesizes a click on Enter for a

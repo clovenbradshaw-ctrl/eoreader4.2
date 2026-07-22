@@ -20,6 +20,13 @@ export const LONGFORM_RE = /\b(essays?|treatise|report|deep[\s-]?dive|comprehens
 export const wantsLongform = (q) => LONGFORM_RE.test(String(q || ''));
 export const LONGFORM_MAX_TOKENS = 1600;
 export const domainOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
+// The registrable-ish domain (last two labels of the host, www dropped) — npr.org for www.npr.org
+// AND for text.npr.org. The engine-side twin of the Native surface's _sameSite: a page reached by
+// following a link is nested as a SUB-OBJECT of the source it was clicked on only while it stays on
+// that source's own domain ("one site stays one source"); a link that leaves for another domain is
+// still recorded, but as its own top-level source, never a cross-domain child.
+export const registrableDomain = (url) => { try { const h = new URL(url).hostname.replace(/^www\./, '').toLowerCase(); return h.split('.').slice(-2).join('.'); } catch { return ''; } };
+export const sameRegistrableDomain = (a, b) => { const ra = registrableDomain(a); return !!ra && ra === registrableDomain(b); };
 export const shaShort = (h) => String(h || '').replace(/^[^:]*:/, '').slice(0, 12);
 // Honorifics whose trailing period admission drops when it joins them to a name ("Mr." → the
 // label "Mr Dupree"). Lowercased once, from the admission's own list, so the reader's entity
