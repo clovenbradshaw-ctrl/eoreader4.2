@@ -23,7 +23,8 @@ export const installRegistry = (appCtx) => {
     return k === 'pdf' ? 'PDF' : k === 'web' || k === 'html' ? 'Webpage' : k === 'audio' ? 'Audio'
       : k === 'video' ? 'Video' : k === 'image' ? 'Image' : k === 'table' ? 'Dataset'
         : k === 'json' ? 'JSON' : k === 'music' ? 'Music/score' : k === 'subtitle' ? 'Captions'
-          : k === 'text' ? 'Plain text/notes' : k === 'file' ? 'File' : k || 'Document';
+          : k === 'markdown' ? 'Markdown' : k === 'code' ? 'Code'
+            : k === 'text' ? 'Plain text/notes' : k === 'file' ? 'File' : k || 'Document';
   };
   const inferSourceMetadata = ({ title, url = null, kind = 'web', record = null, doc = null } = {}, src = null) => {
     const md = { ...(doc?.metadata || {}), ...(record?.metadata || {}) };

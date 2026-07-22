@@ -217,6 +217,9 @@ export const installPicture = (appCtx) => {
       // window the file job covered is over. Drop it — a reload re-derives the reading lazily.
       settleFile('done');
       recordCoverage(src);
+      // A code file's language (import-file.js's CODE_LANG_BY_EXT) — read by the Native tab's
+      // highlighter (code-highlight.js) and the Overview landing page's "Language" row.
+      if (src && got.meta?.language) src.language = got.meta.language;
       // A PDF opens AS A PDF first — the real pages, not the reflowed book — so keep its original
       // bytes for that surface (the reader is one tab away). Best-effort, off the critical path:
       // fired, not awaited, so the (background) OCR read never waits on the OPFS write, and a fault

@@ -3324,6 +3324,7 @@ table{border-collapse:collapse;width:100%}
                   <button onClick="{{ viewerModeOverview }}" title="Source landing page — provenance, counts, ways in, findings, pins and synthesis" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmOverviewFg }};background:{{ vmOverviewBg }}">Overview</button>
                   <button onClick="{{ viewerModeReader }}" title="Read it as a clean book — toggle Links to reveal entities and cited passages" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmReaderFg }};background:{{ vmReaderBg }}">Reader</button>
                   <button onClick="{{ viewerModeFacing }}" title="The document beside how the system read it" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmFacingFg }};background:{{ vmFacingBg }}">{{ vmFacingLabel }}</button>
+                  <button onClick="{{ viewerModeRaw }}" title="The raw text — every character, exactly as stored, line by line" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmRawFg }};background:{{ vmRawBg }}">Raw</button>
                   <button onClick="{{ viewerModeStructure }}" title="Byte structure — the document's raw bytes on a Hilbert curve (Aldo Cortesi's binvis): its shape (structure), its packed regions (entropy), and where the reading turned (significance)" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmStructureFg }};background:{{ vmStructureBg }}">Structure</button>
                   <button onClick="{{ viewerModeGraph }}" title="This source's knowledge graph — the figures it names and the bonds among them. Click a node to open its profile." style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmGraphFg }};background:{{ vmGraphBg }}">Graph</button>
                   <button onClick="{{ viewerModeEot }}" title="Every proposition this reading admitted, with its own thinking alongside" style="padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;color:{{ vmEotFg }};background:{{ vmEotBg }}">{{ vmEotLabel }} · {{ viewer.eotCount }}</button>
@@ -4097,6 +4098,14 @@ table{border-collapse:collapse;width:100%}
                 </div>
               </div>
             </sc-if>
+            <sc-if value="{{ viewerIsRaw }}">
+              <!-- The RAW tab — this source's own text, line-numbered, exactly as stored, no
+                   interpretation (src/surfaces/rawtext). Sits between the Native tab's kind-aware
+                   render above and the Structure tab's raw-byte mosaic below: rendered → raw text →
+                   binary. The pure surface is mounted here scoped to the active source. -->
+              <div ref="{{ setRawEl }}" data-screen-label="Raw text" class="eo-scroll" style="flex:1;min-height:0;overflow:auto;background:#0b0f18"></div>
+            </sc-if>
+
             <sc-if value="{{ viewerIsStructure }}">
               <!-- The BYTE-STRUCTURE tab — Aldo Cortesi's binvis over this source's bytes on a
                    Hilbert curve (src/surfaces/binvis). Structure = the raw shape, Entropy = packed
@@ -7992,6 +8001,8 @@ class Component extends DCLogic {
     // Leaving the Structure tab tears down the binvis surface (and its app subscription) so it never
     // keeps rendering into a detached container; re-entering mounts it fresh.
     if (mode !== 'structure' && this._binvis) { try { this._binvis.destroy(); } catch {} this._binvis = null; this._binvisEl = null; this._binvisSn = null; }
+    // Leaving the Raw tab tears down the raw-text surface, same idiom as Structure/binvis.
+    if (mode !== 'raw' && this._rawtext) { try { this._rawtext.destroy(); } catch {} this._rawtext = null; this._rawtextEl = null; this._rawtextSn = null; }
     // Leaving the source Graph tab tears down its tiered-graph mount so it never keeps drawing into
     // a detached container; re-entering mounts it fresh via setSourceGraphEl.
     if (mode !== 'graph' && this._srcGraph) { try { this._srcGraph.destroy(); } catch {} this._srcGraph = null; this._srcGraphEl = null; this._srcGraphSn = null; }
@@ -8065,13 +8076,35 @@ class Component extends DCLogic {
     if (s._pdfUrl || !(s.pdfRef && s.pdfRef.opfs)) return;   // already renderable, or nothing to rehydrate
     this._app.pdfUrl(s).catch(() => { /* the mode chip still offers the Reader book */ });
   }
-  // The native render — fetch the real page's HTML through the app's proxy, sanitize it, hand it to
-  // a sandboxed iframe. Cached per source in viewerPages; a plain-text URL reflows into the reader.
+  // The native render — a URL-bearing source fetches the real page's HTML through the app's proxy
+  // and sanitizes it (nativePageHtml); everything else renders synchronously off its OWN text (or
+  // structured doc, for json/table) through the kind dispatch (renderNativeKindHtml) — no fetch, no
+  // busy state needed. Cached per source in viewerPages either way.
   loadPage(sn) {
     const s = this._app && this._app.sourceBySn(sn);
-    if (!s || !s.url || !this._app.fetchPage || !this._render) return;
+    if (!s || !this._render) return;
     const cur = this.state.viewerPages[sn];
     if (cur && (cur.doc || cur.busy)) return;
+
+    if (!s.url) {
+      if (!this._render.isNativelyRenderable || !this._render.isNativelyRenderable(s)) return;
+      const kind = this._render.renderKindOf ? this._render.renderKindOf(s) : 'text';
+      // Only json/table read the structured doc — everything else reads just source.text, so this
+      // never forces the eager entity/relation parse `defer` exists to avoid for a big document.
+      // app.docFor takes the source ID, not the record (app/api.js: docFor: (snId) => …) — passing
+      // `s` here instead of `sn` would silently resolve to null (sourceBySn(s) finds nothing).
+      let structDoc = null;
+      if ((kind === 'json' || kind === 'table') && this._app.docFor) { try { structDoc = this._app.docFor(sn); } catch { structDoc = null; } }
+      let doc = null;
+      try { doc = this._render.renderNativeKindHtml({ source: s, doc: structDoc, prefs: this.state.readPrefs }).html; }
+      catch (e) {
+        this.setState({ viewerPages: { ...this.state.viewerPages, [sn]: { doc: null, err: String((e && e.message) || e), busy: false } } });
+        return;
+      }
+      this.setState({ viewerPages: { ...this.state.viewerPages, [sn]: { doc, err: null, busy: false, url: '', sn } } });
+      return;
+    }
+    if (!this._app.fetchPage) return;
     this.setState({ viewerPages: { ...this.state.viewerPages, [sn]: { doc: null, err: null, busy: true } } });
     const url = s.url;
     this._app.fetchPage(url).then((r) => {
@@ -10313,9 +10346,13 @@ class Component extends DCLogic {
     // Reader/Native rides desktop's own per-source mode (state.viewerModes) through the SAME
     // setSourceMode desktop uses — it also kicks off loadPage/loadPdf, and keeps the two shells
     // agreeing if the same source is later opened on desktop too. A fresh open (openViewer) always
-    // resets to 'overview', which reads as Reader here; 'native'/'pdf' both read as Native.
+    // resets to 'overview', which reads as Reader here; 'native'/'pdf' both read as Native. Mobile
+    // has no kind-aware dispatch of its own (desktop's Native tab now also renders a url-less
+    // markdown/json/table/code source, but mobile's segmented control only ever offers Reader vs. a
+    // fetched page/PDF) — `native` reads as Native here only when this source actually IS one, so
+    // a narrower viewport falls back to Reader instead of an empty pane for anything else.
     const rawMode = this.state.viewerModes[sn] || 'overview';
-    const isNative = rawMode === 'native' || rawMode === 'pdf';
+    const isNative = (rawMode === 'native' && isWeb) || (rawMode === 'pdf' && isPdf);
 
     // Per-source display toggles — mobile-only overlays on the plain reader (entity links, the
     // reading's own surprise turns, a cast index), OFF by default so the base reader stays plain;
@@ -11157,6 +11194,29 @@ class Component extends DCLogic {
       }
     } catch (e) {
       el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Byte structure failed to mount: ' + String((e && e.message) || e) + '</div>';
+    }
+  }
+  // The Raw tab's host — the source's own text, line-numbered, uninterpreted (window.EO.rawtext).
+  // Same ref idiom as Structure: re-scopes in place when the active source changes, destroyed and
+  // re-mounted only when the container itself changes.
+  setRawEl(el) {
+    if (!el) return;
+    const sn = this._activeSrc ? this._activeSrc() : null;
+    const fresh = this._rawtextEl !== el;
+    if (!fresh && this._rawtextSn === sn) return;
+    this._rawtextEl = el; this._rawtextSn = sn;
+    try {
+      const RT = window.EO && window.EO.rawtext;
+      if (!RT || !RT.mount) { el.innerHTML = '<div style="padding:22px;color:#8A8A95;font-size:13px">The raw-text surface is not available.</div>'; return; }
+      if (fresh || !this._rawtext) {
+        try { this._rawtext && this._rawtext.destroy(); } catch {}
+        el.innerHTML = '';
+        this._rawtext = RT.mount(el, { app: this._app, sn });
+      } else {
+        this._rawtext.show(sn);
+      }
+    } catch (e) {
+      el.innerHTML = '<div style="padding:22px;color:#B23A2E;font-size:12.5px">Raw text failed to mount: ' + String((e && e.message) || e) + '</div>';
     }
   }
   // The PDF tab's host — pdf.js draws each page to its own canvas (window.EO.pdfView), replacing
@@ -14208,6 +14268,10 @@ class Component extends DCLogic {
         viewer = {
           reg: s.reg, title: s.title, domain: s.domain, kind: s.kind,
           hasUrl: !!s.url, url: s.url || '#',
+          // Does this source's OWN kind (markdown/json/table/code/sniffed html) give the Native tab
+          // something to show beyond the Reader tab's prose reflow? doc-kind.js's call — cheap, no
+          // structured-doc read, safe to compute on every render pass.
+          canRenderKind: !!(this._render && this._render.isNativelyRenderable && this._render.isNativelyRenderable(s)),
           // PDF surface — this source renders as a PDF (its own pages) when it is a PDF; pdfUrl is the
           // live/rehydrated blob (empty until ready), pdfHasBytes says a URL is coming or already here.
           isPdf: s.kind === 'pdf', pdfUrl: s._pdfUrl || '',
@@ -14758,9 +14822,11 @@ class Component extends DCLogic {
       // and when a source tab is active the stage shows it (isSource) instead of a fixed view.
       srcTabs, hasSrcTabs: srcTabs.length > 0, isSource: !!viewer, viewer: viewer || {}, sourceLanding: sourceLanding || {}, viewerParas,
       // per-source render modes: Reader (themed book, with the Document's links merged in) · Native
-      // (real site) · Facing · EoT
-      viewerCanPage: !!viewer && viewer.hasUrl,
+      // (real site, or — with no url — the source's own kind: markdown/json/table/code/html) ·
+      // Facing · Raw · EoT
+      viewerCanPage: !!viewer && (viewer.hasUrl || viewer.canRenderKind),
       viewerIsOverview: vMode === 'overview', viewerIsReader: vMode === 'reader', viewerIsPage: vMode === 'native', viewerIsFacing: vMode === 'facing', viewerIsEot: vMode === 'eot',
+      viewerIsRaw: vMode === 'raw',
       viewerIsStructure: vMode === 'structure',
       viewerIsGraph: vMode === 'graph',
       viewerIsListen: vMode === 'listen', viewerIsAudio: !!viewer && viewer.kind === 'audio',
@@ -14786,6 +14852,8 @@ class Component extends DCLogic {
       hideMedia: () => this.hideMedia(), showMedia: () => this.showMedia(),
       viewerModeOverview: () => this.setSourceMode('overview'), viewerOverviewContext: (e) => { if (e && e.preventDefault) e.preventDefault(); const a = this._activeSrc(); if (a) this.openReReadModal(a); }, viewerModeReader: () => this.setSourceMode('reader'), viewerModePage: () => this.setSourceMode('native'),
       viewerModeFacing: () => this.setSourceMode('facing'), viewerModeEot: () => this.setSourceMode('eot'),
+      viewerModeRaw: () => this.setSourceMode('raw'),
+      setRawEl: (el) => this.setRawEl(el),
       viewerModeStructure: () => this.setSourceMode('structure'),
       setStructureEl: (el) => this.setStructureEl(el),
       setPdfViewEl: (el) => this.setPdfViewEl(el),
@@ -14798,6 +14866,7 @@ class Component extends DCLogic {
       vmReaderFg: vMode === 'reader' ? '#1B1B22' : '#8A8A95', vmReaderBg: vMode === 'reader' ? '#fff' : 'transparent',
       vmPageFg: vMode === 'native' ? '#1B1B22' : '#8A8A95', vmPageBg: vMode === 'native' ? '#fff' : 'transparent',
       vmFacingFg: vMode === 'facing' ? '#1B1B22' : '#8A8A95', vmFacingBg: vMode === 'facing' ? '#fff' : 'transparent',
+      vmRawFg: vMode === 'raw' ? '#1B1B22' : '#8A8A95', vmRawBg: vMode === 'raw' ? '#fff' : 'transparent',
       vmStructureFg: vMode === 'structure' ? '#1B1B22' : '#8A8A95', vmStructureBg: vMode === 'structure' ? '#fff' : 'transparent',
       vmGraphFg: vMode === 'graph' ? '#1B1B22' : '#8A8A95', vmGraphBg: vMode === 'graph' ? '#fff' : 'transparent',
       vmEotFg: vMode === 'eot' ? '#1B1B22' : '#8A8A95', vmEotBg: vMode === 'eot' ? '#fff' : 'transparent',

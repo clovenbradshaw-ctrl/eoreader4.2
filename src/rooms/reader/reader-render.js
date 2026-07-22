@@ -1220,3 +1220,10 @@ export const inlineMdMarks = (segsIn) => {
   }
   return { pieces, opaque };
 };
+
+// ── kind-aware Native-tab rendering — split into sibling modules (doc-kind.js,
+// markdown-render.js, data-render.js, code-highlight.js, native-render.js) and re-exported
+// here so the surface's one membrane (window.EO.readerRender) still reaches everything the
+// source viewer's tabs need, without this file growing into the dispatcher itself.
+export { renderKindOf, isNativelyRenderable, RENDER_KINDS } from './doc-kind.js';
+export { renderNativeKindHtml } from './native-render.js';

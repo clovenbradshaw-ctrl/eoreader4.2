@@ -76,12 +76,14 @@ import { createDatabase } from '../../store/index.js';
 import { loadVersions, rollbackUrl, GITHACK_HOST } from './versions.js';
 import { mountConsole } from './console-surface.js';
 import { mountBinvis } from './binvis-surface.js';
+import { mountRawText } from './rawtext-surface.js';
 import { mountPdfView } from './pdf-view-surface.js';
 import { mountResearchReview } from './research-review-surface.js';
 import { mountReaderSurface } from './reader-surface.js';
 import { mountLedger } from './ledger-surface.js';
 import { assembleQuestionResult, buildLedger, holonMeaningData, STANDINGS } from './question-result.js';
 import * as binvis from '../../surfaces/binvis/index.js';
+import * as rawtext from '../../surfaces/rawtext/index.js';
 import { createPipelineSurface } from './pipeline-surface.js';
 import * as evidence from './evidence.js';
 import { renderArticleHTML, WIKI_PANEL_CSS } from '../../wiki/index.js';
@@ -352,6 +354,10 @@ window.EO = Object.freeze({
   // the byte-structure surface (Aldo Cortesi's binvis) — a document's bytes on a Hilbert curve,
   // coloured by class/entropy/significance. index.html wires mountBinvis into the Structure tab.
   binvis: Object.freeze({ ...binvis, mount: mountBinvis }),
+  // the raw-text surface — a source's own text, line-numbered, uninterpreted: the layer
+  // between the Native tab's kind-aware render and Structure's raw-byte mosaic above.
+  // index.html wires mountRawText into the Raw tab.
+  rawtext: Object.freeze({ ...rawtext, mount: mountRawText }),
   pdfView: Object.freeze({ mount: mountPdfView }),   // the PDF page surface (pdf.js → canvas) — index.html wires it into the PDF tab
   // Research Review (docs/research-review.md) — a search result becomes a provisional, inspectable
   // corpus (discovered/reviewed/admitted) before anything joins a real topic. Mounted, binvis-style.

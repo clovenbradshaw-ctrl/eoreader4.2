@@ -50,6 +50,7 @@ import { CONTRACTS as operatorClock } from '../surfaces/operator-clock/eo-contra
 import { CONTRACTS as organs } from '../organs/eo-contract.js';
 import { CONTRACTS as perceiver } from '../perceiver/eo-contract.js';
 import { CONTRACTS as predict } from '../perceiver/predict/eo-contract.js';
+import { CONTRACTS as rawtext } from '../surfaces/rawtext/eo-contract.js';
 import { CONTRACTS as reader } from '../rooms/reader/eo-contract.js';
 import { CONTRACTS as reason } from '../surfer/reason/eo-contract.js';
 import { CONTRACTS as render } from '../rooms/render/eo-contract.js';
@@ -69,7 +70,7 @@ import { CONTRACTS as wiki } from '../wiki/eo-contract.js';
 import { CONTRACTS as workspace } from '../rooms/workspace/eo-contract.js';
 import { CONTRACTS as write } from '../weave/write/eo-contract.js';
 
-export const CONTRACTS = Object.freeze({ ...answer, ...arc, ...attest, ...binvis, ...archive, ...audit, ...chat, ...chorus, ...classify, ...code, ...codeHolons, ...coder, ...commission, ...connect, ...converse, ...core_, ...credence, ...dag, ...data, ...doc, ...enact, ...enactor, ...essay, ...factcheck, ...flow, ...fold, ...frame, ...generateRow, ...generation, ...ground, ...ingest, ...lineup, ...longgen, ...metabolism, ...model, ...models, ...murmur, ...murmurAudit, ...murmurLearn, ...murmurLink, ...murmurNarrate, ...murmurSense, ...murmurSteer, ...murmurValence, ...operatorClock, ...organs, ...perceiver, ...predict, ...reader, ...reason, ...render, ...replay, ...research, ...retrieve, ...scrubber, ...store, ...surfaces, ...surfer, ...tasks, ...terrains, ...topline, ...turn, ...waveform, ...wiki, ...workspace, ...write });
+export const CONTRACTS = Object.freeze({ ...answer, ...arc, ...attest, ...binvis, ...archive, ...audit, ...chat, ...chorus, ...classify, ...code, ...codeHolons, ...coder, ...commission, ...connect, ...converse, ...core_, ...credence, ...dag, ...data, ...doc, ...enact, ...enactor, ...essay, ...factcheck, ...flow, ...fold, ...frame, ...generateRow, ...generation, ...ground, ...ingest, ...lineup, ...longgen, ...metabolism, ...model, ...models, ...murmur, ...murmurAudit, ...murmurLearn, ...murmurLink, ...murmurNarrate, ...murmurSense, ...murmurSteer, ...murmurValence, ...operatorClock, ...organs, ...perceiver, ...predict, ...rawtext, ...reader, ...reason, ...render, ...replay, ...research, ...retrieve, ...scrubber, ...store, ...surfaces, ...surfer, ...tasks, ...terrains, ...topline, ...turn, ...waveform, ...wiki, ...workspace, ...write });
 
 export const contractOf = (repoRelPath) => CONTRACTS[repoRelPath] ?? null;
 export const contractedPaths = () => Object.freeze(Object.keys(CONTRACTS).sort());
