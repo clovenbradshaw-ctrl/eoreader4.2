@@ -30,11 +30,11 @@ import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
 import { attachReading }     from '../ingest/index.js';
 import { resolveTranscript, hearingBelief, transcriptViews } from './hear.js';
+import { guessSpeakerNames } from './audio-speakers.js';
 import { createEmbeddingMemo } from '../../model/embed-store.js';
 
 const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
 
-// A long enough silence to read as a breath group / paragraph break, in seconds.
 const PARA_GAP = 0.9;
 
 // Accept either the nested shape the front-end emits ({ utterances:[{words:[…]}] })
@@ -227,7 +227,7 @@ export const ingestAudio = (transcript = {}) => {
     peaks, analysis, holons, sampleRate,
     // WHO is speaking — the roster of voices the diarization separated from the waveform, each
     // with its measured pitch/brightness. Empty when diarization found or attributed no speaker.
-    speakers: Array.isArray(speakers) ? speakers : [],
+    speakers: guessSpeakerNames(utterances, Array.isArray(speakers) ? speakers : []),
     diarizeWitnesses: Array.isArray(diarizeWitnesses) ? diarizeWitnesses : [],
     transcribed: true,
     // The readings on record — the primary hearing plus every alternate witness — and the
