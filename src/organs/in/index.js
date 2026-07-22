@@ -96,3 +96,13 @@ export {
   codonVector, vectorDim, codonReadings, frameReading, sixFrameReadings,
   rcCanonical, complementSignedReadings, ALL_DNA_CODONS, codonContextVectors,
 } from './locus.js';
+
+// The web organ (docs/the-web-organ-spec.md) — the open-web intake collapse: the four
+// gates + the MDL keep-criterion decide whether a span earns custody, never a scalar
+// threshold. `collapseDecision`/`webOrgan` are the organ; the rest is the keep-criterion
+// and witness it runs on (web-keep.js), re-exported through the same one entrance.
+export {
+  INTAKE_FATES, INTAKE_REASONS, collapseDecision, provenanceBundle, webOrgan,
+  stripStructure, contentTokens, hasSource, explanatoryGain, keepAmplitude,
+  intakeCuts, intakeVerdict, contestFlag,
+} from './web.js';

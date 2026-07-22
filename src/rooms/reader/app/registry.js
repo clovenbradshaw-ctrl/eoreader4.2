@@ -161,6 +161,7 @@ export const installRegistry = (appCtx) => {
       // loaded talker refines the join in the background. Fire-and-forget — never blocks the record.
       appCtx.sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
       appCtx.autoEntitySummaries(src);   // …and a topline for each of its dominant figures (telegram-only)
+      appCtx.judgeWebIntake?.(src);      // …and the web organ's four gates, for a web-kind source (intake.js)
     }, 0);
     return src;
   };
@@ -194,6 +195,7 @@ export const installRegistry = (appCtx) => {
     }, { key: `eotlog:${src.docId}` });
     appCtx.sourceSummary(src.sn).catch(() => { /* a summary must never cost the record */ });
     appCtx.autoEntitySummaries(src);   // …and a topline for each of its dominant figures (telegram-only)
+    appCtx.judgeWebIntake?.(src);      // …and the web organ's four gates, for a web-kind source (intake.js)
   };
 
   // The source's reading as one EoT document (structure + thinking). Memoised on the
