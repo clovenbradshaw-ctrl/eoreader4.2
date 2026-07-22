@@ -14,6 +14,7 @@ const PAGES = {
   'npr.org/story-a': '<html><head><title>Story A — NPR</title></head><body><article><p>The first story runs long and has plenty of readable prose to admit as a record.</p></article></body></html>',
   'npr.org/story-b': '<html><head><title>Story B — NPR</title></head><body><article><p>A second, entirely different story with its own distinct readable body of prose here.</p></article></body></html>',
   'npr.org': '<html><head><title>NPR — Home</title></head><body><nav><a href="/story-a">A</a></nav><main><p>The NPR home page carries a masthead and a river of headlines linking onward.</p></main></body></html>',
+  'example.com': '<html><head><title>Example — off-site</title></head><body><article><p>A wholly separate site on a different registrable domain, with its own readable prose to admit.</p></article></body></html>',
 };
 const pageFor = (url) => {
   // The client fetches THROUGH a feed proxy (…?url=<encoded real url>); decode before matching.
@@ -53,6 +54,26 @@ test('navigatePage records the followed page as a sub-object of the site', async
   assert.equal(app.topicSources().length, before + 1, 'exactly one new source joined the record');
   // the parent stays a single top-level source
   assert.equal(app.sourceBySn(parent.sn).parentSn, null, 'the site itself remains a root');
+});
+
+test('following a link unfolds its site so the new sub-object is visible at once', async () => {
+  const app = await freshApp();
+  const parent = await app.ingestUrl('https://www.npr.org');
+  assert.equal(app.sourceBySn(parent.sn).collapsed, true, 'the site starts folded');
+
+  await app.navigatePage(parent.sn, 'https://www.npr.org/story-a');
+  // A sub-object recorded into a COLLAPSED parent renders nowhere (the sidebar only descends an open
+  // parent) — the "navigating the site records nothing" report. The followed page must unfold it.
+  assert.equal(app.sourceBySn(parent.sn).collapsed, false, 'the site is unfolded so the followed page shows');
+});
+
+test('an off-domain link is recorded as its own top-level source, never a cross-domain child', async () => {
+  const app = await freshApp();
+  const parent = await app.ingestUrl('https://www.npr.org');
+  const r = await app.navigatePage(parent.sn, 'https://example.com/off');
+  assert.ok(r && r.childSn, 'the off-domain page is still recorded');
+  const rec = app.sourceBySn(r.childSn);
+  assert.equal(rec.parentSn, null, 'it lands at the top level, not nested under npr.org');
 });
 
 test('re-visiting a followed page is a no-op on the registry (dedup by content)', async () => {
