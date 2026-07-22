@@ -18,6 +18,8 @@
 //   onOpenSpan(spanRef)     a base span tapped — jump to the source at that exact passage
 //   resolveSpan(spanRef)    optional: resolveAnchor wrapper → { status, text } for the drift badge
 
+import { mannerOf } from '../../core/index.js';
+
 const STYLE_ID = 'eo-ledger-style';
 const CSS = `
 .eo-lg{font-family:var(--sans,system-ui,sans-serif);color:var(--lg-ink,#1b1b1f);font-size:13px;}
@@ -36,6 +38,7 @@ const CSS = `
 .eo-lg__claimHead{display:flex;align-items:center;gap:6px;margin-bottom:7px;flex-wrap:wrap;}
 .eo-lg__standing{display:flex;align-items:center;gap:5px;font-size:8.5px;font-weight:600;letter-spacing:0.4px;color:var(--lg-dim,#8a8a92);}
 .eo-lg__standingDot{width:6px;height:6px;border-radius:50%;flex:none;}
+.eo-lg__manner{font-size:9.5px;font-style:italic;color:var(--lg-tier,#a6a0b8);}
 .eo-lg__meta{font-size:9.5px;color:var(--lg-tier,#a6a0b8);}
 .eo-lg__claimText{font-size:12.5px;line-height:1.45;color:var(--lg-ink,#26262b);text-wrap:pretty;}
 .eo-lg__srcRow{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;}
@@ -137,9 +140,14 @@ export const mountLedger = (host, opts = {}) => {
     const srcChips = (claim.sourceIds || []).map((s) => `<span class="eo-lg__srcChip">${esc(s)}</span>`).join('');
     const nSpans = (claim.spanRefs || []).filter((s) => s.quote).length;
     const open = state.expanded.has(claim.id);
+    // The manner the claim was asserted in — distinguishes/links/introduces — is the SPECTRUM
+    // reading next to the standing's POSITION: never shown as a code, only its plain English word,
+    // and only when the claim actually carries one (an older/seed shape without it draws nothing).
+    const manner = mannerOf(claim.op);
     card.innerHTML =
       '<div class="eo-lg__claimHead">' +
         `<span class="eo-lg__standing"><span class="eo-lg__standingDot" style="background:${standColor};"></span>${esc(standLabel)}</span>` +
+        (manner ? `<span class="eo-lg__manner">${esc(manner)}</span>` : '') +
         (claim.meta ? `<span class="eo-lg__meta">· ${esc(claim.meta)}</span>` : '') +
       '</div>' +
       `<div class="eo-lg__claimText">${esc(claim.text)}</div>` +

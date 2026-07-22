@@ -51,3 +51,15 @@ export const operatorsByDomain = (domain) =>
 // caller naming an operator by hand (core/stance-face.js's cellForGrain).
 const BY_MODE_DOMAIN = new Map(Object.values(OPERATORS).map(o => [`${o.mode}|${o.domain}`, o]));
 export const operatorForMode = (mode, domain) => BY_MODE_DOMAIN.get(`${mode}|${domain}`) ?? null;
+
+// The manner a claim reads as, in the words a reader recognises without the cube's own
+// vocabulary — the same three Modes, said the way a person would read them off a claim: an act
+// that DIFFERENTIATES pulls two things apart ("distinguishes"), one that RELATES draws them
+// together ("links"), one that GENERATES brings something new into the record ("introduces").
+// Never a fourth word invented beyond the three Modes already define.
+export const MODE_MANNER = Object.freeze({
+  Differentiate: 'distinguishes',
+  Relate: 'links',
+  Generate: 'introduces',
+});
+export const mannerOf = (op) => (op && OPERATORS[op]) ? MODE_MANNER[OPERATORS[op].mode] : null;
