@@ -29,6 +29,7 @@ const EXEMPT = new Map([
   ['src/rooms/plain/terrain.js', 'the three-questions table lists a domain\'s operators for the popover'],
   ['src/rooms/audit/eot-ledger.js', 'the ledger witnesses other doors\' acts; op names the witnessed act, the ledger\'s own act is the recording'],
   ['src/metabolism/organ.js', 'organ specs name the CELL an organ claims; organ.js\'s own act is building the contract'],
+  ['src/rooms/competencies/catalog.js', 'competency specs name the CELL a competency claims (its cube coordinate), the same as organ.js above; the catalog\'s own act is the install-fold and checkpoint, not firing each named operator'],
   ['src/model/bands.js', 'prompt bands carry the cube cell they speak FROM; band assembly itself is the declared SEG·SIG'],
   ['src/perceiver/reading.js', 'the reading narrates events already in the log; op labels what was READ, not an act performed'],
   ['src/rooms/reader/app/wiki.js', 'solarMeaningData labels each meaning-ring body with the operator its claim/bond was READ as (the spectrum), not an act performed — the module appends to no log; its own act is the SIG·CON projection its face declares'],

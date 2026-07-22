@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>EO Reader — Competencies</title>
+<link rel="icon" href="favicon.svg" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<meta name="theme-color" content="#0c0e12" />
+<style>
+  :root{ --bg:#0c0e12; --ink:#e7ecf3; --dim:#8b93a2; --accent:#7bd0ff;
+    --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace; --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
+  @media (prefers-color-scheme:light){ :root{ --bg:#f4f6fa; --ink:#141821; --dim:#5a6474; --accent:#2a7fd0 } }
+  :root[data-theme="dark"]{ --bg:#0c0e12; --ink:#e7ecf3; --dim:#8b93a2 }
+  :root[data-theme="light"]{ --bg:#f4f6fa; --ink:#141821; --dim:#5a6474 }
+  *{box-sizing:border-box}
+  html,body{min-height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px}
+  #mount{min-height:100vh}
+  .fallback{padding:40px 20px;color:var(--dim);max-width:70ch;font-family:var(--sans)}
+  .fallback code{font-family:var(--mono);color:var(--accent)}
+  .fallback a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="mount"><div class="fallback">Loading the competencies surface… if this stays, serve the folder over HTTP (<code>npm run serve</code>) so the ES modules load — opening the file directly will not work. Then open <a href="./index.html">the reader</a>.</div></div>
+
+<script type="module">
+  // The Competencies surface: a real place to install a faculty by hand — the person-facing
+  // front door to organogenesis, alongside the metabolism's automatic growth under scarcity
+  // (src/metabolism/soma.js). Installing here claims a cube cell through the same three gates
+  // the engine already runs: the checkpoint, the dependency order, and the upkeep budget.
+  import { mountCompetenciesSurface } from './src/rooms/competencies/index.js';
+  const mount = document.getElementById('mount');
+  try {
+    mount.innerHTML = '';
+    mountCompetenciesSurface(mount);
+  } catch (e) {
+    mount.innerHTML = '<div class="fallback">Could not start the competencies surface: ' + String(e && e.message || e) + '</div>';
+    console.error(e);
+  }
+</script>
+</body>
+</html>

@@ -83,6 +83,25 @@ its own unconstrained IDEAL answer to the task — so the breeder can tell a bad
 from a bad plan from a bad chunk prompt, and tune the right dial. `src/metabolism/calibrate.js`
 + `fold-plan-judge.js`; full write-up: [`docs/calibration-mode.md`](docs/calibration-mode.md).
 
+## Competencies — install a faculty by hand
+
+Open **`competencies.html`** (`npm run serve`) for the human-facing front door to
+organogenesis, alongside `soma.js`'s automatic growth under scarcity: a **competency** is
+formally the same object an **organ** is (`metabolism/organ.js`) — a contract claiming one or
+more diagonal cells of the cube — so installing one is not a new abstraction, it's a person
+choosing which cell of the desert the body grows into. The catalog (`src/rooms/competencies/`)
+ships five built-in founders (the faculties a reader has before installing anything) plus nine
+installable extensions, gated by three borrowed checks: the **checkpoint** (`constitution.js`'s
+`wellFormedOrgan` — well-formed on the cube, never fabricating from the Void), **requires**
+(a dependency order along the helix — you cannot trace a paradigm shift before you can bind a
+citation), and the **budget** (every installed faculty costs real upkeep, forever, priced by
+the same `UPKEEP_BY_OP` the metabolism pays from). The one card that can never install —
+`SYN` resolving at Ground, the desert cell — is in the catalog on purpose, always shown
+refused, so the void-law is visible rather than merely obeyed. Everything is a pure fold over
+one array of installed ids (`catalog.js`); the surface (`surface.js`) is a framework-free
+projection of it, plus a budget dial to feel the third gate directly. Pinned by
+`tests/competencies-catalog.test.js`.
+
 ## The surface
 
 `index.html` is the new dc surface (screens: **EOReader** and **Provenance DAG**),
