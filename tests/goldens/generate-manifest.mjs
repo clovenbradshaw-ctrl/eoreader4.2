@@ -15,8 +15,10 @@
 // it, and that claim has to be written by whoever added the file. sha256, bytes,
 // and the `reading` snapshot are the only fields computed here.
 //
-// Note: running the reader over War & Peace (~3.2 MB) takes ~70 s; the whole
-// regen is dominated by that one book. Everything else is sub-second.
+// Kept intentionally SMALL: whole-book-scale goldens (e.g. War & Peace) were dropped
+// in favor of targeted excerpts and shorter complete works — real diagnostic value
+// per committed byte, not bulk. Nothing here should need more than a few seconds to
+// read.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -36,14 +38,6 @@ const PG = (id) => `Project Gutenberg #${id} (https://www.gutenberg.org/ebooks/$
 // (used by tests/individuation.test.js and the Frankenstein cast golden) rather
 // than duplicating a 428 KB file.
 const GOLDENS = [
-  {
-    id: 'literary-war-and-peace', category: 'literary', path: 'texts/war-and-peace.txt',
-    title: 'War and Peace', author: 'Leo Tolstoy', translator: 'Louise and Aylmer Maude',
-    language: 'en', year: 1869,
-    source: PG(2600),
-    license: 'public domain — the Maude English translation (pre-1928) and the original are both PD; PG boilerplate removed',
-    notes: 'the heaviest golden by far (~3.2 MB, ~31k sentences); the reader stress-scale case. Kept out of the default goldens test parse (guarded behind GOLDENS_HEAVY=1) so `npm test` stays fast; its bytes are still sha256-pinned on every run.',
-  },
   {
     id: 'literary-heart-of-darkness', category: 'literary', path: 'texts/heart-of-darkness.txt',
     title: 'Heart of Darkness', author: 'Joseph Conrad', language: 'en', year: 1899,

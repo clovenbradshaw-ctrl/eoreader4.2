@@ -3,8 +3,10 @@
 //
 // WHY a separate corpus (not the conformance manifest): the conformance fast gate
 // (tests/conformance-tier2-*.test.js) parses EVERY manifest fixture on every commit.
-// These goldens are whole books — War & Peace alone is ~3.2 MB and ~70 s to parse —
-// so they live in their own corpus with their own manifest, out of that gate.
+// These goldens are real-world texts rather than synthetic ones, so they live in
+// their own corpus with their own manifest, out of that gate. Kept deliberately
+// SMALL — targeted excerpts and short complete works, not whole novels — so every
+// golden here reads in well under a second.
 //
 // WHAT this guards:
 //   • integrity   — the golden bytes still hash to what the manifest recorded, so a
@@ -16,10 +18,7 @@
 //                   it, regenerate: `node tests/goldens/generate-manifest.mjs`.
 //   • partition   — every sentence the reader emits can be relocated in the source
 //                   text, in order and in range (the Tier 2 accountability property,
-//                   here applied to real books / non-English / OCR'd scientific text).
-//
-// War & Peace's full parse is skipped by default (its bytes are still hash-pinned);
-// set GOLDENS_HEAVY=1 to include it.
+//                   here applied to real, non-English, and OCR'd scientific text).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -34,13 +33,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const GOLDENS_DIR = path.join(HERE, 'goldens');
 const manifest = JSON.parse(readFileSync(path.join(GOLDENS_DIR, 'manifest.json'), 'utf8'));
 
-const HEAVY = new Set(['literary-war-and-peace']);
-const runHeavy = process.env.GOLDENS_HEAVY === '1';
-
 const bytesOf = (row) => readFileSync(path.join(GOLDENS_DIR, row.path));
 
 test('goldens: manifest is non-empty and every row is fully described', () => {
-  assert.ok(manifest.goldens.length >= 8, 'expected at least the 8 seeded goldens');
+  assert.ok(manifest.goldens.length >= 7, 'expected at least the 7 seeded goldens');
   for (const row of manifest.goldens) {
     for (const field of ['id', 'path', 'title', 'author', 'language', 'sha256', 'bytes', 'reading', 'source', 'license']) {
       assert.ok(row[field] != null && row[field] !== '', `${row.id}: manifest row is missing "${field}"`);
@@ -48,7 +44,6 @@ test('goldens: manifest is non-empty and every row is fully described', () => {
   }
 });
 
-// Integrity runs on EVERY golden, heavy ones included — it only hashes bytes.
 for (const row of manifest.goldens) {
   test(`golden integrity: ${row.id} — bytes match the manifest sha256/size`, () => {
     const bytes = bytesOf(row);
@@ -60,9 +55,7 @@ for (const row of manifest.goldens) {
   });
 }
 
-// The read + partition law run on every non-heavy golden (sub-second each).
 for (const row of manifest.goldens) {
-  if (HEAVY.has(row.id) && !runHeavy) continue;
   test(`golden read: ${row.id} — reader ingests it and the reading matches the captured baseline`, async () => {
     const text = bytesOf(row).toString('utf8');
     const doc = await ingestText(text, {});
