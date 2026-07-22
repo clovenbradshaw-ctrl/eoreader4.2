@@ -49,7 +49,7 @@ export const installIngest = (appCtx) => {
   // file upload goes through (import-file.js's importAnyFile) — a real File object, so a `.pdf`
   // URL takes the pdf.js + eyes + quorum path (with its own binary-fallback safety net) instead
   // of silently landing as "Ready" prose built from mangled syntax.
-  const admitBytesAsFile = async (norm, signal, progress, { name, type } = {}) => {
+  const admitBytesAsFile = async (norm, signal, progress, { name, type, topicId = null } = {}) => {
     if (typeof progress === 'function') progress({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` });
     const { bytes } = await client.fetchUrlBytes(norm, { signal });
     const { importAnyFile } = await import('../import-file.js');
@@ -70,7 +70,7 @@ export const installIngest = (appCtx) => {
     const structured = ['table', 'json', 'binary', 'music', 'subtitle'].includes(got.meta?.modality) && got.meta?.doc;
     const src = appCtx.addSource({
       title: got.title || title, url: norm, text: got.text, kind: got.meta?.modality || 'file',
-      ...(structured ? { doc: got.meta.doc } : { defer: true }),
+      ...(structured ? { doc: got.meta.doc } : { defer: true }), topicId,
     });
     if (src && got.meta?.coverage) src.coverage = got.meta.coverage;
     if (src && !structured) {
@@ -81,7 +81,8 @@ export const installIngest = (appCtx) => {
     return src;
   };
 
-  const ingestUrl = (url) => {
+  const ingestUrl = (url, opts = {}) => {
+    const targetTopicId = opts.topicId || state.activeTopicId;
     const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
     const looksLikePdfUrl = /\.pdf(?:[?#]|$)/i.test(norm);
     return runCancellable({ kind: 'fetch', label: `Reading ${domainOf(norm)}…` }, async (signal, progress) => {
@@ -99,14 +100,14 @@ export const installIngest = (appCtx) => {
         if (!admitted?.doc || !admitted?.record) return null;
         const src = appCtx.addSource({
           title: admitted.record.title, url: admitted.record.url || norm,
-          text: admitted.doc.text, kind: 'web', record: admitted.record, doc: admitted.doc,
+          text: admitted.doc.text, kind: 'web', record: admitted.record, doc: admitted.doc, topicId: targetTopicId,
         });
         appCtx.settleJob(jid, 'done');
         return src;
       };
       try {
         if (looksLikePdfUrl) {
-          const src = await admitBytesAsFile(norm, signal, progress, { name: 'document.pdf', type: 'application/pdf' });
+          const src = await admitBytesAsFile(norm, signal, progress, { name: 'document.pdf', type: 'application/pdf', topicId: targetTopicId });
           if (src) { appCtx.settleJob(jid, 'done'); return src; }
           throw new Error('this PDF has no recoverable text');
         }
@@ -132,11 +133,11 @@ export const installIngest = (appCtx) => {
           if (src) return src;
           throw new Error('No captions available for this video — YouTube may not have any, or is briefly blocking the fetch. Try again shortly.');
         }
-        const feedSrc = await fetchFeedSource(appCtx, norm, { client, signal });
+        const feedSrc = await fetchFeedSource(appCtx, norm, { client, signal, topicId: targetTopicId });
         if (feedSrc) { appCtx.settleJob(jid, 'done'); return feedSrc; }
         const raw = (await client.fetchUrl(norm, { signal })).text;
         if (isFeed(raw)) {
-          const src = await fetchFeedSource(appCtx, norm, { client, signal, raw });
+          const src = await fetchFeedSource(appCtx, norm, { client, signal, raw, topicId: targetTopicId });
           if (src) { appCtx.settleJob(jid, 'done'); return src; }
         }
         // The extension didn't give it away, but the bytes did: this "page" is binary/PDF syntax
@@ -144,14 +145,14 @@ export const installIngest = (appCtx) => {
         // rather than admitting `1 0 obj<<`/`endobj` as prose and calling the source "Ready".
         const { _looksLikeBinaryGarbage } = await import('../import-file.js');
         if (_looksLikeBinaryGarbage(raw)) {
-          const src = await admitBytesAsFile(norm, signal, progress);
+          const src = await admitBytesAsFile(norm, signal, progress, { topicId: targetTopicId });
           if (src) { appCtx.settleJob(jid, 'done'); return src; }
           throw new Error('this page is a binary file, not readable text — try uploading it directly');
         }
         const title = (/<title[^>]*>([^<]*)</i.exec(raw)?.[1] || '').trim() || norm;
         const text = htmlToText(raw);
         const { doc, record } = admitWebSource({ url: norm, title, text, salient_image: firstSalientImage(raw, norm), fetched_at: nowIso(), engine: 'feed-proxy' });
-        const src = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc });
+        const src = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, topicId: targetTopicId });
         appCtx.settleJob(jid, 'done');
         return src;
       } catch (e) {
@@ -178,8 +179,9 @@ export const installIngest = (appCtx) => {
   // ingestRepo(ref) → the deliberate "ingest all code" path: pull a repo's source through the code
   // organ and admit the whole codebase as one reading + register it. Mirrors webSearchAdmit's
   // addSource wiring so the codebase lands in the S-registry like any source.
-  const ingestRepo = (ref, opts = {}) =>
-    runCancellable({ kind: 'fetch', label: `Ingesting ${ref}…` }, async (signal) => {
+  const ingestRepo = (ref, opts = {}) => {
+    const targetTopicId = opts.topicId || state.activeTopicId;
+    return runCancellable({ kind: 'fetch', label: `Ingesting ${ref}…` }, async (signal) => {
       // A signal-bound view of the client so a Stop cancels the in-flight tree/blob fetches.
       const bound = { ...client, fetchUrl: (u, o = {}) => client.fetchUrl(u, { signal, ...o }) };
       const res = await fetchGithubRepo(ref, { ...opts, client: bound });
@@ -187,15 +189,17 @@ export const installIngest = (appCtx) => {
       try {
         return appCtx.addSource({
           title: res.record.title, url: res.record.url || null,
-          text: res.doc.text, kind: 'web', record: res.record, doc: res.doc,
+          text: res.doc.text, kind: 'web', record: res.record, doc: res.doc, topicId: targetTopicId,
         });
       } catch { return null; /* dup — the codebase still read */ }
     });
+  };
 
-  const ingestFeed = (url) => runIngestFeed(appCtx, url);
+  const ingestFeed = (url, opts = {}) => runIngestFeed(appCtx, url, opts);
 
-  const recordHit = (item, query = null) =>
-    runCancellable({ kind: 'fetch', label: `Reading ${item.title || item.url}…` }, async (signal, progress) => {
+  const recordHit = (item, query = null, opts = {}) => {
+    const targetTopicId = opts.topicId || state.activeTopicId;
+    return runCancellable({ kind: 'fetch', label: `Reading ${item.title || item.url}…` }, async (signal, progress) => {
       const full = FULL_TEXT[item.source] || FULL_TEXT[item.kind];
       let text = '';
       try { text = full ? await full(client, item) : htmlToText((await client.fetchUrl(item.url, { signal })).text); } catch (e) { if (signal.aborted) throw e; /* else fall through */ }
@@ -211,8 +215,9 @@ export const installIngest = (appCtx) => {
       }, {
         onProgress: (p) => { if (p && p.phase === 'parse' && p.total) progress({ kind: 'fetch', label: `Reading ${item.title || item.url} — ${p.done.toLocaleString()} / ${p.total.toLocaleString()} sentences` }); },
       });
-      return appCtx.addSource({ title: item.title, url: item.url, text: doc.text, kind: 'web', record, doc });
+      return appCtx.addSource({ title: item.title, url: item.url, text: doc.text, kind: 'web', record, doc, topicId: targetTopicId });
     });
+  };
 
   // The page's own HTML, fetched through the same proxy chain ingest uses — for the source
   // viewer's native "Native" tab, which renders the REAL website (sanitized + sandboxed by the
@@ -243,7 +248,9 @@ export const installIngest = (appCtx) => {
   // recorded (the page you navigated to always joins the record) but as its OWN top-level source,
   // never a cross-domain child — the authoritative form of the Native surface's same-site rule, so
   // the "child ⟺ same domain" invariant holds for any caller, not just the click delegate.
-  const navigatePage = (parentSn, url) => {
+  const navigatePage = (parentSn, url, opts = {}) => {
+    const parentTopic = parentSn ? state.topics.find((t) => (t.sourceSns || []).includes(parentSn)) : null;
+    const targetTopicId = opts.topicId || parentTopic?.id || state.activeTopicId;
     const norm = /^https?:\/\//.test(url) ? url : `https://${url}`;
     return runCancellable({ kind: 'fetch', label: `Loading ${domainOf(norm)}…` }, async (signal) => {
       const res = await client.fetchUrl(norm, { signal });
@@ -257,7 +264,7 @@ export const installIngest = (appCtx) => {
         const text = htmlToText(raw);
         if (text && text.trim()) {
           const { doc, record } = admitWebSource({ url: norm, title, text, salient_image: firstSalientImage(raw, norm), fetched_at: nowIso(), engine: 'feed-proxy' });
-          const child = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, parentSn: nestUnder });
+          const child = appCtx.addSource({ title: record.title || title, url: norm, text: doc.text, kind: 'web', record, doc, parentSn: nestUnder, topicId: targetTopicId });
           childSn = child.sn;
         }
       } catch { /* un-admittable (empty/dup-of-parent) — still render the page */ }
@@ -286,7 +293,7 @@ export const installIngest = (appCtx) => {
     // The multi-hop curiosity walk passes this so a page it fetches while chasing a lead is read, yet
     // only saved if the walk KEEPS it on topic (via onKeep → saveWalkDoc). Single-shot paths
     // (verify/corroborate/follow-up) leave it true and save every admitted page, as before.
-    const { register = true, ...searchOpts } = opts;
+    const { register = true, topicId = state.activeTopicId, ...searchOpts } = opts;
     // Each fetched+admitted page re-arms the no-progress watchdog: a hop pulling five full pages
     // through the proxy is slow but ALIVE, and without this beat the 45s stall guard was aborting
     // the whole turn mid-walk ("the web lookup stalled"). onAdmit is set AFTER the spread so the
@@ -298,7 +305,7 @@ export const installIngest = (appCtx) => {
       try {
         appCtx.addSource({
           title: a.record.title || a.item?.title, url: a.record.url || a.item?.url || null,
-          text: a.doc.text, kind: 'web', record: a.record, doc: a.doc,
+          text: a.doc.text, kind: 'web', record: a.record, doc: a.doc, topicId,
         });
       } catch { /* empty page or dup — the doc still grounds the turn */ }
     }
@@ -310,14 +317,15 @@ export const installIngest = (appCtx) => {
   // time), then hands back each KEPT hop's docs through onKeep, and only those land as sources. So a
   // strayed namesake page (Louis Armstrong under a Neil Armstrong ask) is read for grounding but
   // never fills the sidebar. Dedup, persistence and the EoT read are addSource's, unchanged.
-  const saveWalkDoc = (doc) => {
+  const saveWalkDoc = (doc, opts = {}) => {
+    const topicId = opts.topicId || state.activeTopicId;
     if (!doc || !doc.text) return;
     try {
       appCtx.addSource({
         title: doc.web?.title || doc.title || null,
         url: doc.web?.url || doc.web?.final_url || null,
         text: doc.text, kind: 'web', doc,
-        record: doc.web?.content_hash ? { content_hash: doc.web.content_hash, title: doc.web.title, url: doc.web.url } : null,
+        record: doc.web?.content_hash ? { content_hash: doc.web.content_hash, title: doc.web.title, url: doc.web.url } : null, topicId,
       });
     } catch { /* empty page or dup — the doc still grounded the turn */ }
   };

@@ -6,7 +6,7 @@ import { projectGraph } from '../../../core/index.js';
 import { nowIso, nowMs, domainOf, shaShort, bytesOf } from './util.js';
 
 export const installReread = (appCtx) => {
-  const { client, emit, logIt } = appCtx;
+  const { client, emit, logIt, state } = appCtx;
 
   const replaceSourceReading = (src, { title = null, url = null, text, kind = null, record = null, doc = null } = {}) => {
     const body = String(text || '').trim();
@@ -46,6 +46,8 @@ export const installReread = (appCtx) => {
     const overwrite = mode === 'overwrite';
     const src = appCtx.sourceBySn(sn);
     if (!src) return Promise.resolve(null);
+    const owningTopic = state.topics.find((t) => (t.sourceSns || []).includes(src.sn));
+    const targetTopicId = opts.topicId || owningTopic?.id || state.activeTopicId;
     return appCtx.runCancellable({ kind: 'fetch', label: `Re-reading ${src.title || src.reg}…` }, async (signal) => {
       let text = src.text || '';
       let title = src.title || src.url || 'Untitled';
@@ -61,14 +63,14 @@ export const installReread = (appCtx) => {
       }
       const reread = overwrite
         ? replaceSourceReading(src, { title, url, text, kind: src.kind, record, doc })
-        : appCtx.addSource({ title: `${title} (re-read ${new Date().toISOString().slice(0, 10)})`, url, text, kind: src.kind || 'web', record, doc, parentSn: src.parentSn || null });
+        : appCtx.addSource({ title: `${title} (re-read ${new Date().toISOString().slice(0, 10)})`, url, text, kind: src.kind || 'web', record, doc, parentSn: src.parentSn || null, topicId: targetTopicId });
       const extras = [];
       if (withContext && (src.url || title)) {
         const query = opts.query || `${title} ${src.domain || ''}`.trim();
         const admitted = await searchAndAdmit(query, { client, k: 3, kind: 'auto', fetchPages: true, signal, onAdmit: () => appCtx.stallGuard?.feed() });
         for (const a of admitted || []) {
           if (!a?.doc || !a?.record) continue;
-          try { extras.push(appCtx.addSource({ title: a.record.title || a.item?.title, url: a.record.url || a.item?.url || null, text: a.doc.text, kind: 'web', record: a.record, doc: a.doc })); }
+          try { extras.push(appCtx.addSource({ title: a.record.title || a.item?.title, url: a.record.url || a.item?.url || null, text: a.doc.text, kind: 'web', record: a.record, doc: a.doc, topicId: targetTopicId })); }
           catch { /* duplicate/empty context source */ }
         }
         logIt('search', `Added context for re-read — ${query}`, `${extras.length} source${extras.length === 1 ? '' : 's'}`);
