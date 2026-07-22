@@ -10535,8 +10535,11 @@ class Component extends DCLogic {
     let topEntities = [], entityCount = 0;
     try {
       const ents = (app && app.entities && app.entities({ merge: true, level: 'names' })) || [];
-      entityCount = ents.length;
-      topEntities = ents.slice()
+      // Same grain filter castFrom applies (search-surface.js) — a setting or a kind is not a
+      // figure, however connected; a HELD referent (no grain signal) stays in.
+      const figures = ents.filter((e) => e.grain !== 'setting' && e.grain !== 'kind');
+      entityCount = figures.length;
+      topEntities = figures.slice()
         .map((e) => ({ e, score: (e.sourceCount || 1) * 100 + (e.mentions || 0) }))
         .sort((a, b) => b.score - a.score)
         .slice(0, 12)
@@ -12697,7 +12700,13 @@ class Component extends DCLogic {
     if (!app || !app.entities) return { rows: [], bars: [], count: 0 };
     let ents = [];
     try { ents = app.entities({ merge: true, level: 'names' }) || []; } catch { ents = []; }
-    const scored = ents.slice()
+    // "figures across the reading" — a referent the grain reader (perceiver/parse/grain.js)
+    // confidently read as a SETTING (Geneva, moved through) or a KIND (a category, true of many)
+    // is not a figure and does not belong in the cast, however often it is named. A referent it
+    // HELD (thin evidence — grain is null) stays IN: abstention is not evidence of absence, and
+    // every non-text entity carries no grain at all, so this must not empty a working cast.
+    const figures = ents.filter((e) => e.grain !== 'setting' && e.grain !== 'kind');
+    const scored = figures.slice()
       .map((e) => ({ e, score: (e.sourceCount || 1) * 100 + (e.mentions || 0) }))
       .sort((a, b) => b.score - a.score);
     const rows = scored.slice(0, 30).map(({ e }) => ({
@@ -12713,7 +12722,7 @@ class Component extends DCLogic {
       w: Math.max(3, Math.round(((e.mentions || 0) / maxM) * 100)) + '%',
       onTap: () => this._mvpOpenEntity(e),
     }));
-    return { rows, bars, count: ents.length };
+    return { rows, bars, count: figures.length };
   }
 
   // A figure's chip opens the MVP entity sheet — a drawer over the page (see _mvpEntityVm),

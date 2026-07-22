@@ -155,7 +155,12 @@ export const installEntities = (appCtx) => {
       const links = degree.get(r) || 0;
       const kind = (ent.props && ent.props.kind) || null;
       const lvl = (ent.props && ent.props.level != null) ? +ent.props.level : null;
-      rows.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn, label, mentions: ent.sightings || 0, links, sourceCount: 1, kind, level: lvl });
+      // grain (perceiver/parse/grain.js: 'figure' | 'kind' | 'setting') — the company-distribution
+      // read of what TERRAIN this referent occupies, off the DEF a grain-graded parse left on the
+      // graph node. Carried through so a cast/figures panel can tell Elizabeth from Geneva; a
+      // referent the grain reader HELD (thin evidence) stays null, never guessed.
+      const grain = (ent.props && ent.props.grain) || null;
+      rows.push({ key: `${doc.docId}#${r}`, entId: r, docId: doc.docId, sn, label, mentions: ent.sightings || 0, links, sourceCount: 1, kind, level: lvl, grain });
     }
     return foldSpellingVariants(foldRowsByReferent(doc, rows));
   };

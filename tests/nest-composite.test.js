@@ -9,6 +9,7 @@ import { parseText } from '../src/perceiver/parse/index.js';
 import { nestComposite, nestBoundaries } from '../src/perceiver/nest.js';
 import { surfFold, richSurf } from '../src/surfer/index.js';
 import { sourceRanges, keepSources } from '../src/surfer/multilevel.js';
+import { projectGraph } from '../src/core/index.js';
 
 // A synthetic "journal": three clearly distinct sub-documents, each with its own vocabulary and
 // its own repeated template, run together into ONE file — the nesting the extractor must recover.
@@ -154,4 +155,77 @@ test('richSurf triages the sources of a composite (reads the on-topic one)', () 
   // the peak lands in the telescope source's range — the chorus read the relevant sub-document
   assert.ok(surf.peak >= telRange.lo && surf.peak <= telRange.hi,
     `the peak (${surf.peak}) is inside the telescope source [${telRange.lo}, ${telRange.hi}]`);
+});
+
+// ── grain (perceiver/parse/grain.js: figure / kind / setting) survives nesting ──────────────────
+//
+// grain is a company-distribution judgment — it needs a referent's FULL sighting history to read
+// cleanly (docs/grain.js's own comment: a bare "Geneva" oblique in 30 book-wide sightings reads
+// as a clean setting; the 2-3 sightings any ONE re-parsed chapter carries are too thin). Each
+// nested part above is re-parsed from its own slice alone, so per-part grainRead mostly abstains
+// on split evidence, and — worse — projectGraph's union-find merge keeps only the FIRST-SEEN
+// constituent's props when several parts' ids collapse onto one referent, so whichever thin
+// per-part guess happened to land first is what would survive. nestComposite carries the WHOLE,
+// unsegmented read's verdicts (computed once, over every sighting together) onto the composite's
+// own id for that label — this is what that reseat buys back.
+//
+// "Dunmere" is named obliquely twice in the opening section and twice again in the closing one —
+// 4 sightings book-wide, comfortably past readGrain's floor (count >= 3) for a setting verdict —
+// but NEVER 3 in any ONE nested part, so no per-part re-parse can grade it at all standing alone.
+const GRAIN_NOVEL_SECTIONS = [
+  { lines: [
+    'Corin Vale mended the lighthouse lamp at dusk.',
+    'The keeper Corin Vale logged every ship that passed.',
+    'Storms battered the lighthouse through the long winter.',
+    'Corin Vale trimmed the wick and watched the dark water.',
+    'Sailors spoke of the voyage to Dunmere.',
+    'The ship set out from Dunmere.',
+  ] },
+  { lines: [
+    'The orchard bloomed with apple and pear blossom in spring.',
+    'Bees moved between the orchard rows all morning.',
+    'The farmer pruned the orchard trees before the frost.',
+    'A good orchard harvest filled the barn with fruit.',
+    'The orchard soil was rich and well drained.',
+    'Cider was pressed from the orchard apples each autumn.',
+  ] },
+  { lines: [
+    'Corin Vale sailed north with the spring tide.',
+    'The astronomer aligned the telescope with the north star.',
+    'Corin Vale had not seen the lighthouse in a year.',
+    'Through the telescope the rings of Saturn were sharp.',
+    'A merchant ship put in at Dunmere.',
+    'Grain was carried south from Dunmere.',
+  ] },
+];
+const GRAIN_NOVEL = GRAIN_NOVEL_SECTIONS.map((s) => s.lines.join('\n')).join('\n');
+
+test('nestComposite carries the whole read\'s grain onto the composite — a figure grades a figure', () => {
+  const flat = parseText(GRAIN_NOVEL, { docId: 'gnovel' });
+  const comp = nestComposite(flat, { alpha: 0.3, minGap: 3 });
+  assert.ok(comp.isComposite, 'the novel nests');
+  const g = projectGraph(comp.log);
+  const rep = g.representative || ((x) => x);
+  const id = comp.admission.idOf('Corin Vale');
+  assert.ok(id != null, 'Corin Vale is admitted in the composite');
+  assert.equal(g.entities.get(rep(id))?.props?.grain, 'figure', 'the recurring agent still grades a figure');
+});
+
+test('nestComposite carries the whole read\'s grain onto the composite — a setting too thin in any ONE part still grades a setting', () => {
+  const flat = parseText(GRAIN_NOVEL, { docId: 'gnovel' });
+  // Confirm the premise: the WHOLE, unsegmented read has enough evidence to grade Dunmere at all.
+  const flatGrain = flat.log.snapshot().find((e) => e.op === 'DEF' && e.key === 'grain' && e.id === 'dunmere');
+  assert.equal(flatGrain?.value, 'setting', 'the whole book reads Dunmere as a setting');
+
+  const comp = nestComposite(flat, { alpha: 0.3, minGap: 3 });
+  assert.ok(comp.isComposite, 'the novel nests');
+  const ranges = sourceRanges(comp);
+  assert.ok(ranges.length >= 3, `nests into ${ranges.length} parts — Dunmere\'s 2 book-end mentions land in separate parts`);
+
+  const g = projectGraph(comp.log);
+  const rep = g.representative || ((x) => x);
+  const id = comp.admission.idOf('Dunmere');
+  assert.ok(id != null, 'Dunmere is admitted in the composite');
+  assert.equal(g.entities.get(rep(id))?.props?.grain, 'setting',
+    'carried from the whole read — no single nested part alone ever saw 3 sightings to grade it');
 });

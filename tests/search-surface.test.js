@@ -92,6 +92,24 @@ test('cast filters to the subject when one is named, else shows everyone', () =>
   assert.equal(none.cast.length, 2);                        // → the whole cast, not empty
 });
 
+// ── the cast excludes what grain (perceiver/parse/grain.js) confidently reads as NOT a figure ──
+// "who is here" used to answer with every admitted referent — a place named as often as a
+// character was as much "cast" as Walton. A referent graded 'setting' or 'kind' is excluded; one
+// the grain reader HELD (no `grain` field at all, same as every pre-grain entity) stays in, so an
+// ordinary record with no grain signal answers exactly as it always did.
+test('cast excludes a referent graded setting or kind, keeps one the grain reader held', () => {
+  const entities = [
+    { label: 'Walton', docId: 'd1', entId: 'e1', sn: 1, mentions: 3, sourceCount: 1, grain: 'figure' },
+    { label: 'Geneva', docId: 'd1', entId: 'e2', sn: 1, mentions: 30, sourceCount: 1, grain: 'setting' },
+    { label: 'the crew', docId: 'd1', entId: 'e3', sn: 1, mentions: 8, sourceCount: 1, grain: 'kind' },
+    { label: 'Margaret', docId: 'd1', entId: 'e4', sn: 1, mentions: 2, sourceCount: 1 },   // grain undefined: held
+  ];
+  const surf = routeSurface('who is here', providers({ record: { entities: [], claims: [] }, entities }), { template: 'cast' });
+  assert.equal(surf.template, 'cast');
+  assert.deepEqual(surf.cast.map((c) => c.label).sort(), ['Margaret', 'Walton'],
+    'Geneva (setting) and "the crew" (kind) are excluded; Margaret (held) stays');
+});
+
 test('contrast surface prefers contested claims', () => {
   const surf = routeSurface('where do the sources disagree', providers());
   assert.equal(surf.template, 'contrast');
