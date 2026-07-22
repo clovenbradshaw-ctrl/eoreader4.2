@@ -79,7 +79,8 @@ import { mountBinvis } from './binvis-surface.js';
 import { mountPdfView } from './pdf-view-surface.js';
 import { mountResearchReview } from './research-review-surface.js';
 import { mountReaderSurface } from './reader-surface.js';
-import { assembleQuestionResult, buildLedger, holonMeaningData } from './question-result.js';
+import { mountLedger } from './ledger-surface.js';
+import { assembleQuestionResult, buildLedger, holonMeaningData, STANDINGS } from './question-result.js';
 import * as binvis from '../../surfaces/binvis/index.js';
 import { createPipelineSurface } from './pipeline-surface.js';
 import * as evidence from './evidence.js';
@@ -365,8 +366,10 @@ window.EO = Object.freeze({
   // reading (paradigm ⊃ atmosphere ⊃ lens) and the grounding standing (corroborated · contested ·
   // single-source · void), rendered as two projections of one tree — a collapsible ledger outline
   // and the mountSolarSystem orbit — with the full click-down to the base spans each claim stands on.
-  // mount(el, { reading, onOpenSource, resolveSpan }); the pure assembly layer is exposed too.
-  reader: Object.freeze({ mount: mountReaderSurface, assembleQuestionResult, buildLedger, holonMeaningData }),
+  // mount(el, { reading, onOpenSource, resolveSpan }); the pure assembly layer is exposed too, plus
+  // mountLedger (the standalone collapsible-outline projection) and STANDINGS so a host that owns its
+  // own shell (index.html's MVP centre) can build a holon tree and mount just the ledger.
+  reader: Object.freeze({ mount: mountReaderSurface, mountLedger, assembleQuestionResult, buildLedger, holonMeaningData, STANDINGS }),
   firstSurfaceKind,   // which surface a fresh import opens first (causal DAG / entity web) — pure, CI-tested
   evidence,   // the evidence-modal contract — a waveform mark → the five-region modal shape (docs/omnimodal-waveform.md)
   projectTranscript, wordsToText,   // the interactive transcript fold (baseline + edits/redactions → live reading)
