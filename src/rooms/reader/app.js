@@ -74,6 +74,7 @@ import { installJobs } from './app/jobs.js';
 import { installTopics } from './app/topics.js';
 import { installWorkspaces } from './app/workspaces.js';
 import { installRegistry } from './app/registry.js'; import { installSourceStage } from './app/source-stage.js';
+import { installIntakeGate } from './app/intake.js';
 import { installFolders } from './app/folders.js';
 import { installIngest } from './app/ingest.js';
 import { installSearch } from './app/search.js'; import { installResearchReview } from './app/research-review.js'; import { installResearchReviewActions } from './app/research-review-actions.js';
@@ -108,7 +109,7 @@ import { installPins } from './app/pins.js';
 import { installReread } from './app/reread.js';
 import { installDeep } from './app/deep.js';
 
-export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch } = {}) => {
+export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch, intake: intakeOpts = {} } = {}) => {
   // The shared spine every section stands on. Sections are install()ed in the
   // closure's original order; each publishes its public functions onto ctx, and
   // cross-section calls ride ctx at CALL time — so order only matters for the
@@ -213,6 +214,7 @@ export const createReaderApp = ({ audit, murmur = null, fetchImpl = chainFetch }
   installTopics(appCtx);
   installWorkspaces(appCtx);
   installRegistry(appCtx); installSourceStage(appCtx);
+  installIntakeGate(appCtx, intakeOpts);
   installFolders(appCtx);
   installIngest(appCtx);
   installSearch(appCtx); installResearchReview(appCtx); installResearchReviewActions(appCtx);

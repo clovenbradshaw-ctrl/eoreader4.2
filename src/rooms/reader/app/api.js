@@ -59,6 +59,10 @@ export const buildApi = (appCtx) => {
     // source export — full append-only history as JSONL, one JSON snapshot (or one folded at a
     // text/log cursor), and the ORIGINAL file/bytes as ingested (PDF/audio/video bytes, else text)
     sourceExport: appCtx.sourceExport, sourceHistoryJsonl: appCtx.sourceHistoryJsonl, sourceCursorJson: appCtx.sourceCursorJson, sourceOriginalExport: appCtx.sourceOriginalExport,
+    // the web organ's session-long intake ledger (docs/the-web-organ-spec.md, intake.js) — every
+    // INTAKE DEF (collapsed or rejected) any web-kind source has earned this session, full witness
+    // included; the per-source summary (src.intake) is the capped view, this is the whole record.
+    intakeLog: () => appCtx.intake.log.all(),
     // chat — with source
     chat: appCtx.chat, ask: appCtx.chat, askQuestion: appCtx.askQuestion, stop: appCtx.stop, exportChat: appCtx.exportChat,
     // askFigureSource and askFigureTopic removed (see rashomon) — stubs for backward compat
