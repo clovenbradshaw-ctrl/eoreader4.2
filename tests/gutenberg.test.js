@@ -5,6 +5,8 @@ import {
   pickTextFormat, parseGutendex, gutenbergTextUrl, gutenbergBookUrl, gutenbergEpubUrl,
   GUTENBERG_FULLTEXT, looksLikeBook, stripGutenbergBoilerplate, readGutenbergBook, fetchGutenbergBook,
 } from '../src/organs/ingest/gutenberg.js';
+import { createReaderApp } from '../src/rooms/reader/app.js';
+import { createAuditLog } from '../src/rooms/audit/index.js';
 
 // THE GUTENBERG SEARCH READS THE ACTUAL .txt, NEVER PG's MALFORMED REDIRECT / A LANDING PAGE.
 //
@@ -192,4 +194,54 @@ test('fetchGutenbergBook: threads onProgress through to the admission, without c
   assert.equal(admitted.record.title, 'Frankenstein');
   assert.ok(calls.length >= 2, 'onProgress fired (at least the start and end of the parse)');
   assert.equal(calls.at(-1).done, calls.at(-1).total);
+});
+
+// ── ingestUrl: the SAME freeze, hit through the plainer path ───────────────────────────────────
+// recordHit (a library-search "Read" hit) threads onProgress into admitWebSource, above. But a
+// Gutenberg link pasted straight into the address bar / Add-source modal goes through ingestUrl
+// (rooms/reader/app/ingest.js), which called fetchGutenbergBook with no onProgress at all — so
+// THAT path still ran the whole book through parseText's one synchronous sweep and froze the tab
+// (the reported "gutenberg import… freezes"). This pins the fix at the app level.
+const LONG_BOOK_BODY = Array.from({ length: 600 }, (_, i) =>
+  `You will rejoice to hear that no disaster has accompanied chapter ${i}.`).join(' ');
+const LONG_REAL_BOOK = 'The Project Gutenberg eBook of Frankenstein\n\n'
+  + '*** START OF THE PROJECT GUTENBERG EBOOK FRANKENSTEIN ***\n\n'
+  + 'Title: Frankenstein\nAuthor: Mary Shelley\n\n'
+  + LONG_BOOK_BODY
+  + '\n\n*** END OF THE PROJECT GUTENBERG EBOOK FRANKENSTEIN ***\nLicense text follows.';
+
+// Stands in for the proxy chain: no EPUB bytes available (readGutenbergEpub no-ops before ever
+// touching the fflate CDN import), so the canonical cache .txt carries the book — same fallback
+// exercised by readGutenbergBook's own "no fetchUrlBytes" test above, just through the real client.
+const gutenbergFetchImpl = async (proxiedUrl) => {
+  const u = String(proxiedUrl);
+  if (u.includes('pg84-images.epub')) return { ok: false, status: 404, text: async () => '', arrayBuffer: async () => new ArrayBuffer(0) };
+  if (u.includes('pg84.txt')) return { ok: true, status: 200, text: async () => LONG_REAL_BOOK, arrayBuffer: async () => new ArrayBuffer(0) };
+  return { ok: false, status: 404, text: async () => '', arrayBuffer: async () => new ArrayBuffer(0) };
+};
+
+test('ingestUrl: a pasted Gutenberg link threads onProgress too — the parse yields instead of freezing the busy pill', async () => {
+  const app = createReaderApp({ audit: createAuditLog({ capacity: 16 }), fetchImpl: gutenbergFetchImpl });
+  if (!app.state.ready) {
+    await new Promise((res) => { const un = app.subscribe((k) => { if (k === 'ready') { un(); res(); } }); });
+  }
+
+  // Subscribing BEFORE the ingest starts and reading state.busy synchronously inside the callback
+  // (emit() invokes subscribers synchronously) captures every transition with no polling — every
+  // onProgress tick from inside the chunked parse loop lands here exactly when it fires.
+  const busyLabels = [];
+  const unsub = app.subscribe((k) => { if (k === 'busy' && app.state.busy) busyLabels.push(app.state.busy.label); });
+
+  const src = await app.ingestUrl('https://www.gutenberg.org/ebooks/84');
+  unsub();
+
+  assert.ok(src, 'the pasted Gutenberg URL admitted a source');
+  assert.match(src.text, /You will rejoice to hear/);
+
+  // Without onProgress threaded, parseText takes its one-synchronous-sweep path and the pill never
+  // shows a "done / total" tick — only the generic "Reading …" label. With it threaded, the 600-
+  // sentence body crosses the parser's 250-sentence chunk boundary, so at least two such ticks land.
+  const progressTicks = busyLabels.filter((l) => /\d+ \/ \d+ sentences/.test(l || ''));
+  assert.ok(progressTicks.length >= 2,
+    `expected multiple incremental "N / total sentences" ticks (the chunked, yielding parse); saw busy labels: ${JSON.stringify(busyLabels)}`);
 });

@@ -112,7 +112,14 @@ export const installIngest = (appCtx) => {
         }
         if (gutenbergIdOf(norm) != null) {
           const bytesBound = { ...bound, fetchUrlBytes: (u, o = {}) => client.fetchUrlBytes(u, { signal, ...o }) };
-          const src = admitWhole(await fetchGutenbergBook(norm, { client: bytesBound, fetched_at: nowIso() }));
+          // onProgress → admitWebSource's chunked, yielding parse (same wiring as recordHit's
+          // library-search "Read" hit below) — without it a whole novel parses in one synchronous
+          // sweep and freezes the tab for the length of the read (the reported "import freezes";
+          // a URL pasted straight into the address bar hit this every time, unlike a search hit).
+          const src = admitWhole(await fetchGutenbergBook(norm, {
+            client: bytesBound, fetched_at: nowIso(),
+            onProgress: (p) => { if (p && p.phase === 'parse' && p.total) progress({ kind: 'fetch', label: `Reading ${domainOf(norm)} — ${p.done.toLocaleString()} / ${p.total.toLocaleString()} sentences` }); },
+          }));
           if (src) return src;
           // A Gutenberg URL that couldn't be read as a book (EPUB unreadable AND the canonical
           // .txt failed too) must never fall through to the generic page-fetch below — `norm` is
