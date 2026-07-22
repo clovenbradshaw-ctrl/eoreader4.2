@@ -36,7 +36,7 @@ const manifest = JSON.parse(readFileSync(path.join(GOLDENS_DIR, 'manifest.json')
 const bytesOf = (row) => readFileSync(path.join(GOLDENS_DIR, row.path));
 
 test('goldens: manifest is non-empty and every row is fully described', () => {
-  assert.ok(manifest.goldens.length >= 7, 'expected at least the 7 seeded goldens');
+  assert.ok(manifest.goldens.length >= 4, 'expected at least the 4 seeded goldens');
   for (const row of manifest.goldens) {
     for (const field of ['id', 'path', 'title', 'author', 'language', 'sha256', 'bytes', 'reading', 'source', 'license']) {
       assert.ok(row[field] != null && row[field] !== '', `${row.id}: manifest row is missing "${field}"`);

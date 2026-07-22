@@ -75,41 +75,6 @@ const GOLDENS = [
       'it opens with the digitizer\'s short English note (encoding + modernized orthography) before the Japanese body, ' +
       'exactly as the reader would ingest it.',
   },
-  {
-    id: 'academic-ostrom-lecture', category: 'academic', path: 'texts/ostrom-lecture.txt',
-    title: 'Beyond Markets and States: Polycentric Governance of Complex Economic Systems (Nobel Prize Lecture)',
-    author: 'Elinor Ostrom', language: 'en', year: 2009,
-    source: 'https://www.nobelprize.org/uploads/2018/06/ostrom_lecture.pdf — 37-page single-column PDF with a clean ' +
-      'text layer; extracted with PyMuPDF, de-hyphenated at line-wraps, ligatures normalized, page numbers / running ' +
-      'heads dropped.',
-    license: 'IN COPYRIGHT — © The Nobel Foundation 2009. Stored as an internal research/test fixture, not redistributed as a publication. Replace with a checksum-only manifest entry if that is preferred.',
-    notes: 'academic prose with a large numbered bibliography — citation-furniture stress test.',
-  },
-  {
-    id: 'academic-descartes-meditations', category: 'academic', path: 'texts/descartes-meditations.txt',
-    title: 'Meditations on First Philosophy',
-    author: 'René Descartes', translator: 'Michael Moriarty', language: 'en', year: 1641,
-    source: 'https://personal.lse.ac.uk/ROBERT49/teaching/ph103/pdf/Descartes_1641Meditations.pdf — the Oxford ' +
-      'World\'s Classics edition. The source PDF is the full 330-page critical edition (editor\'s introduction, the ' +
-      'Meditations, selections from the Objections and Replies, notes, index); this golden is scoped to Descartes\'s ' +
-      '1641 work proper — the Preface to the Reader, the Synopsis, and the Six Meditations — with per-page running ' +
-      'heads removed and line-wrap hyphenation / ligatures normalized.',
-    license: 'IN COPYRIGHT — the 1641 work is public domain, but THIS is the modern Michael Moriarty translation © Oxford University Press (Oxford World\'s Classics). Stored as an internal research/test fixture. Swap for a public-domain translation (e.g. Veitch/Haldane) or a checksum-only entry if preferred.',
-    notes: 'sustained philosophical argument, long periodic sentences — clause-segmentation stress test.',
-  },
-  {
-    id: 'academic-watson-crick-1953', category: 'academic', path: 'texts/watson-crick-1953.txt',
-    title: 'Molecular Structure of Nucleic Acids: A Structure for Deoxyribose Nucleic Acid',
-    author: 'J. D. Watson and F. H. C. Crick', language: 'en', year: 1953,
-    source: 'https://dosequis.colorado.edu/Courses/MethodsLogic/papers/WatsonCrick1953.pdf — the two-page Nature ' +
-      'facsimile (vol. 171, pp. 737–738). The page is a two-column journal scan interleaved with neighbouring ' +
-      'articles; this golden is the Watson–Crick article ONLY, reconstructed column-aware (preceding oceanography ' +
-      'article and following Wilkins paper excluded, the Fig. 1 caption moved out of the sentence it floated into).',
-    license: 'IN COPYRIGHT — © Nature Publishing Group 1953. Stored as an internal research/test fixture, not redistributed. Replace with a checksum-only manifest entry if preferred.',
-    notes: 'The source PDF\'s text layer is OCR of a 1953 scan and carries authentic OCR artifacts ("van del\' Waals", ' +
-      '"z-direetion", "es~aped", "cl1ain", garbled reference markers), PRESERVED faithfully — this doubles as an ' +
-      'OCR-damaged + hard-multi-column-layout golden. Dense scientific prose with inline citations.',
-  },
 ];
 
 const sha256Of = (abs) => createHash('sha256').update(readFileSync(abs)).digest('hex');
@@ -145,11 +110,9 @@ const manifest = {
   version: 1,
   generatedBy: 'tests/goldens/generate-manifest.mjs',
   note: 'A curated corpus of real, diverse documents used as reading goldens: public-domain literary works ' +
-    '(English), non-English / non-whitespace language samples (Basque, Japanese), and academic PDFs (a Nobel ' +
-    'lecture, Descartes\'s Meditations, the Watson–Crick 1953 DNA paper). Each row pins the golden\'s bytes ' +
-    '(sha256) and the reader\'s reading of it (reading.*). License is per-row: the literary/language texts are ' +
-    'public domain; the three PDF-derived academic texts are IN COPYRIGHT and stored as internal research/test ' +
-    'fixtures — see each row\'s license field.',
+    '(English) and non-English / non-whitespace language samples (Basque, Japanese). Each row pins the golden\'s ' +
+    'bytes (sha256) and the reader\'s reading of it (reading.*). Every golden here is public domain — see each ' +
+    'row\'s license field.',
   goldens,
 };
 

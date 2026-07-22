@@ -1,7 +1,7 @@
 {
   "version": 1,
   "generatedBy": "tests/goldens/generate-manifest.mjs",
-  "note": "A curated corpus of real, diverse documents used as reading goldens: public-domain literary works (English), non-English / non-whitespace language samples (Basque, Japanese), and academic PDFs (a Nobel lecture, Descartes's Meditations, the Watson–Crick 1953 DNA paper). Each row pins the golden's bytes (sha256) and the reader's reading of it (reading.*). License is per-row: the literary/language texts are public domain; the three PDF-derived academic texts are IN COPYRIGHT and stored as internal research/test fixtures — see each row's license field.",
+  "note": "A curated corpus of real, diverse documents used as reading goldens: public-domain literary works (English) and non-English / non-whitespace language samples (Basque, Japanese). Each row pins the golden's bytes (sha256) and the reader's reading of it (reading.*). Every golden here is public domain — see each row's license field.",
   "goldens": [
     {
       "id": "literary-heart-of-darkness",
@@ -82,67 +82,6 @@
       "source": "Project Gutenberg #1982 (https://www.gutenberg.org/ebooks/1982), text/plain UTF-8 rendition; the PG license header/footer stripped with src/organs/ingest/gutenberg.js stripGutenbergBoilerplate — the same normalization the reader applies when it ingests a PG book, so the golden is byte-for-byte what the reader would read from this ebook.",
       "license": "public domain — Akutagawa died in 1927; PG boilerplate removed",
       "notes": "complete Japanese short story. No inter-word spaces; mixed kana/kanji, full-width punctuation, and digitizer furigana in parentheses — a non-whitespace-segmentation stress test. Faithful to the PG ebook: it opens with the digitizer's short English note (encoding + modernized orthography) before the Japanese body, exactly as the reader would ingest it."
-    },
-    {
-      "id": "academic-ostrom-lecture",
-      "category": "academic",
-      "path": "texts/ostrom-lecture.txt",
-      "title": "Beyond Markets and States: Polycentric Governance of Complex Economic Systems (Nobel Prize Lecture)",
-      "author": "Elinor Ostrom",
-      "language": "en",
-      "year": 2009,
-      "sha256": "cc35849e79e67bcefa5f40252ce5c64a7b8241fb2c0ccdff3e7639c7535fa2de",
-      "bytes": 112635,
-      "reading": {
-        "sentences": 882,
-        "clauses": 1289,
-        "mentions": 0,
-        "unnamedReferents": 0
-      },
-      "source": "https://www.nobelprize.org/uploads/2018/06/ostrom_lecture.pdf — 37-page single-column PDF with a clean text layer; extracted with PyMuPDF, de-hyphenated at line-wraps, ligatures normalized, page numbers / running heads dropped.",
-      "license": "IN COPYRIGHT — © The Nobel Foundation 2009. Stored as an internal research/test fixture, not redistributed as a publication. Replace with a checksum-only manifest entry if that is preferred.",
-      "notes": "academic prose with a large numbered bibliography — citation-furniture stress test."
-    },
-    {
-      "id": "academic-descartes-meditations",
-      "category": "academic",
-      "path": "texts/descartes-meditations.txt",
-      "title": "Meditations on First Philosophy",
-      "author": "René Descartes",
-      "translator": "Michael Moriarty",
-      "language": "en",
-      "year": 1641,
-      "sha256": "c3ea9f565189ddde253dbcd23010ea1bb6b9daad54fd56c1a3370c2c85ede696",
-      "bytes": 144866,
-      "reading": {
-        "sentences": 636,
-        "clauses": 1703,
-        "mentions": 0,
-        "unnamedReferents": 0
-      },
-      "source": "https://personal.lse.ac.uk/ROBERT49/teaching/ph103/pdf/Descartes_1641Meditations.pdf — the Oxford World's Classics edition. The source PDF is the full 330-page critical edition (editor's introduction, the Meditations, selections from the Objections and Replies, notes, index); this golden is scoped to Descartes's 1641 work proper — the Preface to the Reader, the Synopsis, and the Six Meditations — with per-page running heads removed and line-wrap hyphenation / ligatures normalized.",
-      "license": "IN COPYRIGHT — the 1641 work is public domain, but THIS is the modern Michael Moriarty translation © Oxford University Press (Oxford World's Classics). Stored as an internal research/test fixture. Swap for a public-domain translation (e.g. Veitch/Haldane) or a checksum-only entry if preferred.",
-      "notes": "sustained philosophical argument, long periodic sentences — clause-segmentation stress test."
-    },
-    {
-      "id": "academic-watson-crick-1953",
-      "category": "academic",
-      "path": "texts/watson-crick-1953.txt",
-      "title": "Molecular Structure of Nucleic Acids: A Structure for Deoxyribose Nucleic Acid",
-      "author": "J. D. Watson and F. H. C. Crick",
-      "language": "en",
-      "year": 1953,
-      "sha256": "8ed93524281656c95593bb0439c1feca4921bef0a36dfe8349c9701f6a9e1529",
-      "bytes": 6545,
-      "reading": {
-        "sentences": 73,
-        "clauses": 97,
-        "mentions": 0,
-        "unnamedReferents": 1
-      },
-      "source": "https://dosequis.colorado.edu/Courses/MethodsLogic/papers/WatsonCrick1953.pdf — the two-page Nature facsimile (vol. 171, pp. 737–738). The page is a two-column journal scan interleaved with neighbouring articles; this golden is the Watson–Crick article ONLY, reconstructed column-aware (preceding oceanography article and following Wilkins paper excluded, the Fig. 1 caption moved out of the sentence it floated into).",
-      "license": "IN COPYRIGHT — © Nature Publishing Group 1953. Stored as an internal research/test fixture, not redistributed. Replace with a checksum-only manifest entry if preferred.",
-      "notes": "The source PDF's text layer is OCR of a 1953 scan and carries authentic OCR artifacts (\"van del' Waals\", \"z-direetion\", \"es~aped\", \"cl1ain\", garbled reference markers), PRESERVED faithfully — this doubles as an OCR-damaged + hard-multi-column-layout golden. Dense scientific prose with inline citations."
     }
   ]
 }
