@@ -22,7 +22,7 @@
 
 import { createLog }         from '../../core/index.js';
 import { projectGraph }      from '../../core/index.js';
-import { DEF }                from '../../core/index.js';
+import { DEF, deriveNull }    from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
 import { attachReading }     from '../ingest/index.js';
@@ -177,9 +177,24 @@ const flagWindow = (energies, times, a, b, thresholdLin) => {
 // floors what counts as "energy" at all (the mic/quantisation floor), same role it always
 // had. Computing this per window is what makes the holons NEST: a phrase-level signal
 // holon re-reads its own two-tier split, so the louder syllables inside it rise as
-// sub-holons. One tier only (a flat window, or too thin to tell) abstains to Infinity —
-// nothing clears it, and the window reads as noise rather than forcing a split it cannot
-// trust.
+// sub-holons.
+//
+// DEF's own null is an EXTREME-VALUE bound: "is the single largest of N gaps bigger than
+// the max N chance draws would produce" (voidnull.js) — the right question for a spectrum
+// with a few dominant components over a flat tail, where N is a handful of eigenvalues.
+// Here N is the frame count, and a real clip runs thousands of 20ms frames — long before a
+// word is ever heard, N alone can put the bound several σ out of reach of any gap a smooth,
+// continuously-varying energy track (real speech breathing, room tone under a broadcast
+// compressor — no true digital silence, no sharp two-level step) will ever produce, correction
+// scaling being what it is. That is a DIFFERENT question from the one this window actually
+// asks: not "is this gap a freak outlier among thousands", but "does this window's own louder
+// half sit a real ratio above its own quieter half" — ONE decision, not a bound on the max of
+// many. So when the many-gap bound abstains, retry the SAME largest gap as that one decision:
+// N=2, the minimal multiple-comparison, exactly the fix boundedNull already applies to this
+// identical overshoot for bounded signals (voidnull.js) — ported to the log scale energy
+// needs (boundedNull itself is linear-only, unsuited to a dB-wide range). A window that is
+// genuinely flat (true noise/silence, no tier to find) still abstains at N=2 — nothing there
+// for even the gentler bound to clear — so a hush still reads as a hush.
 const windowThreshold = (eWin, alpha, absFloorLin) => {
   // Floor, never discard: a frame of true digital silence (energy exactly 0) is the
   // clearest possible instance of the quiet tier, not a missing sample — dropping it
@@ -187,9 +202,14 @@ const windowThreshold = (eWin, alpha, absFloorLin) => {
   const logE = eWin.map((e) => Math.log(Math.max(e, absFloorLin)));
   if (logE.length < 2) return Infinity;
   const sorted = logE.slice().sort((a, b) => b - a);   // descending, log-space
-  const { idx, abstain } = DEF(sorted, { alpha, window: sorted.length });
-  if (abstain) return Infinity;
-  return Math.exp((sorted[idx - 1] + sorted[idx]) / 2);   // the midpoint back in linear energy
+  const { idx, gap, abstain } = DEF(sorted, { alpha, window: sorted.length });
+  if (!abstain) return Math.exp((sorted[idx - 1] + sorted[idx]) / 2);   // the midpoint back in linear energy
+  const gaps = [];
+  for (let i = 1; i < sorted.length; i++) gaps.push(sorted[i - 1] - sorted[i]);
+  const floor2 = deriveNull(gaps, { scale: 'log', alpha, N: 2, leaveOut: gap });
+  if (Number.isFinite(floor2) && gap > floor2 && idx > 0 && idx < sorted.length)
+    return Math.exp((sorted[idx - 1] + sorted[idx]) / 2);
+  return Infinity;
 };
 
 // ── the nested holons ────────────────────────────────────────────────────────────────────
