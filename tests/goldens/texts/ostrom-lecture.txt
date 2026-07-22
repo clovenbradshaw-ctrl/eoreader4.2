@@ -1,0 +1,1551 @@
+Beyond Markets and States: Polycentric
+Governance of Complex Economic
+Systems
+Prize Lecture, December 8, 2009
+by
+Elinor Ostrom
+Workshop in Political Theory and Policy Analysis, Indiana University,
+Bloomington, IN 47408, and Center for the Study of Institutional Diversity,
+Arizona State University, Tempe, AZ, U.S.A.
+Contemporary research on the outcomes of diverse institutional arrangements for governing common-pool resources (CPRs) and public goods at
+multiple scales builds on classical economic theory while developing new
+theory to explain phenomena that do not fit in a dichotomous world of “the
+market” and “the state.” Scholars are slowly shifting from positing simple
+systems to using more complex frameworks, theories, and models to understand the diversity of puzzles and problems facing humans interacting
+in contemporary societies. The humans we study have complex motivational
+structures and establish diverse private-for-profit, governmental, and
+community institutional arrangements that operate at multiple scales to
+generate productive and innovative as well as destructive and perverse
+outcomes (North 1990, 2005).
+In this article, I will describe the intellectual journey that I have taken the
+last half century from when I began graduate studies in the late 1950s. The
+early efforts to understand the polycentric water industry in California were
+formative for me. In addition to working with Vincent Ostrom and Charles
+Tiebout as they formulated the concept of polycentric systems for governing
+metropolitan areas, I studied the efforts of a large group of private and
+public water producers facing the problem of an overdrafted groundwater
+basin on the coast and watching saltwater intrusion threaten the possibility
+of long-term use. Then, in the 1970s, I participated with colleagues in the
+study of polycentric police industries serving U.S. metropolitan areas to find
+that the dominant theory underlying massive reform proposals was incorrect.
+Metropolitan areas served by a combination of large and small producers
+could achieve economies of scale in the production of some police services
+and avoid diseconomies of scale in the production of others.
+These early empirical studies led over time to the development of the
+Institutional Analysis and Development (IAD) framework. A common
+framework consistent with game theory enabled us to undertake a variety
+of empirical studies including a meta-analysis of a large number of existing
+case studies on common-pool resource systems around the world. Carefully
+designed experimental studies in the lab have enabled us to test precise
+combinations of structural variables to find that isolated, anonymous individuals overharvest from common-pool resources. Simply allowing communication, or “cheap talk,” enables participants to reduce overharvesting and
+increase joint payoffs, contrary to game-theoretical predictions. Large studies
+of irrigation systems in Nepal and forests around the world challenge the
+presumption that governments always do a better job than users in organizing
+and protecting important resources.
+Currently, many scholars are undertaking new theoretical efforts. A core effort is developing a more general theory of individual choice that recognizes
+the central role of trust in coping with social dilemmas. Over time, a clear
+set of findings from the microsituational level has emerged regarding
+structural factors affecting the likelihood of increased cooperation. Due
+to the complexity of broader field settings, one needs to develop more
+configural approaches to the study of factors that enhance or detract from
+the emergence and robustness of self-organized efforts within multilevel,
+polycentric systems. Further, the application of empirical studies to the policy
+world leads one to stress the importance of fitting institutional rules to a
+specific social-ecological setting. “One-size-fits-all” policies are not effective.
+1. The Earlier World View of Simple Systems
+In the mid-twentieth century, the dominant scholarly effort was to try to fit
+the world into simple models and to criticize institutional arrangements that
+did not fit. I will briefly review the basic assumptions that were made at that
+time but have been challenged by scholars around the world, including the
+work of Herbert Simon (1955) and Vincent Ostrom (2008).
+A. Two Optimal Organizational Forms
+The market was seen as the optimal institution for the production and
+exchange of private goods. For nonprivate goods, on the other hand, one
+needed “the” government to impose rules and taxes to force self-interested
+individuals to contribute necessary resources and refrain from self-seeking
+activities. Without a hierarchical government to induce compliance, selfseeking citizens and officials would fail to generate efficient levels of public
+goods, such as peace and security, at multiple scales (Hobbes [1651] 1960;
+W. Wilson 1885). A single governmental unit, for example, was strongly
+recommended to reduce the “chaotic” structure of metropolitan governance,
+increase efficiency, limit conflict among governmental units, and best serve a
+homogeneous view of the public (Anderson and Weidner 1950; Gulick 1957;
+Friesema 1966). This dichotomous view of the world explained patterns of
+interaction and outcomes related to markets for the production and exchange
+of strictly private goods (Alchian 1950), but it has not adequately accounted
+for internal dynamics within private firms (Williamson 1975, 1986). Nor does
+it adequately deal with the wide diversity of institutional arrangements that
+humans craft to govern, provide, and manage public goods and commonpool resources.
+B. Two Types of Goods
+In his classic definitional essay, Paul Samuelson (1954) divided goods
+into two types. Pure private goods are both excludable (individual A can be
+excluded from consuming private goods unless paid for) and rivalrous
+(whatever individual A consumes, no one else can consume). Public goods
+are both nonexcludable (impossible to keep those who have not paid for a
+good from consuming it) and nonrivalrous (whatever individual A consumes
+does not limit the consumption by others). This basic division was consistent
+with the dichotomy of the institutional world into private property exchanges
+in a market setting and government-owned property organized by a public
+hierarchy. The people of the world were viewed primarily as consumers or
+voters.
+C. One Model of the Individual
+The assumption that all individuals are fully rational was generally accepted
+in mainstream economics and game theory. Fully rational individuals are
+presumed to know (1) all possible strategies available in a particular situation,
+(2) which outcomes are linked to each strategy given the likely behavior of
+others in a situation, and (3) a rank order for each of these outcomes in
+terms of the individual’s own preferences as measured by utility. The rational
+strategy for such an individual in every situation is to maximize expected
+utility. While utility was originally conceived of as a way of combining a diversity of external values on a single internal scale, in practice, it has come to
+be equated with one externalized unit of measure – such as expected profits.
+This model of the individual has fruitfully generated useful and empirically
+validated predictions about the results of exchange transactions related to
+goods with specific attributes in a competitive market but not in a diversity
+of social dilemmas. I will return to a discussion of the theory of individual
+behavior in section 7A.
+2. Early Efforts to Develop a Fuller Understanding of
+Complex Human Systems
+The mid-twentieth-century world views of simple systems have slowly been
+transformed as a result of extensive empirical research and the development
+of a framework consistent with game-theoretical models for the analysis of a
+broad array of questions.
+A. Studying Polycentric Public Industries
+Undertaking empirical studies of how citizens, local public entrepreneurs,
+and public officials engage in diverse ways of providing, producing, and
+managing public service industries and common-property regimes at
+multiple scales has generated substantial knowledge that is not explained
+by two models of optimal organizational forms. Vincent Ostrom, Charles
+Tiebout, and Robert Warren (1961) introduced the concept of polycentricity
+in their effort to understand whether the activities of a diverse array of
+public and private agencies engaged in providing and producing of public
+services in metropolitan areas was chaotic, as charged by other scholars – or
+potentially a productive arrangement.
+‘Polycentric’ connotes many centers of decision making that are
+formally independent of each other. Whether they actually function
+independently, or instead constitute an interdependent system of
+relations, is an empirical question in particular cases. To the extent
+that they take each other into account in competitive relationships,
+enter into various contractual and cooperative undertakings or have
+recourse to central mechanisms to resolve conflicts, the various political
+jurisdictions in a metropolitan area may function in a coherent manner
+with consistent and predictable patterns of interacting behavior. To
+the extent that this is so, they may be said to function as a ‘system’.
+(V. Ostrom, Tiebout, and Warren 1961: 831–32)
+Drawing on the concept of a public service industry (Bain 1959; Caves
+1964; V. Ostrom and E. Ostrom 1965), several studies of water industry
+performance were carried out in diverse regions of California during the
+1960s (V. Ostrom 1962; Weschler 1968; Warren 1966; E. Ostrom 1965).
+Substantial evidence was found that multiple public and private agencies
+had searched out productive ways of organizing water resources at multiple
+scales contrary to the view that the presence of multiple governmental units
+without a clear hierarchy was chaotic. Further, evidence pointed out three
+mechanisms that increase productivity in polycentric metropolitan areas: (1)
+small- to medium-sized cities are more effective than large cities in monitoring performance of their citizens and relevant costs, (2) citizens who are
+dissatisfied with service provision can “vote with their feet” and move to
+jurisdictions that come closer to their preferred mix and costs of public
+services, and (3) local incorporated communities can contract with larger
+producers and change contracts if not satisfied with the services provided,
+while neighborhoods inside a large city have no voice.
+In the 1970s, the earlier work on effects of diverse ways of organizing the
+provision of water in metropolitan areas was extended to policing and public
+safety. We found that while many police departments served 80 metropolitan
+areas that we studied, duplication of services by more than one department
+to the same set of citizens rarely occurred (E. Ostrom, Parks, and Whitaker
+1978). Further, the widely held belief that a multiplicity of departments
+in a metropolitan area was less efficient was not found. In fact, the “most
+efficient producers supply more output for given inputs in high multiplicity
+metropolitan areas than do the efficient producers in metropolitan areas
+with fewer producers” (E. Ostrom and Parks 1999: 287). Metropolitan areas
+with large numbers of autonomous direct service producers achieved higher
+levels of technical efficiency (ibid.: 290). Technical efficiency was also enhanced in those metropolitan areas with a small number of producers providing indirect services such as radio communication and criminal laboratory
+analyses. We were able to reject the theory underlying the proposals of the
+metropolitan reform approach. We demonstrated that complexity is not the
+same as chaos in regard to metropolitan governance. That lesson has carried
+forth as we have undertaken further empirical studies of polycentric governance of resource and infrastructure systems across the world (Andersson
+and Ostrom 2008; E. Ostrom, Schroeder, and Wynne 1993).
+B. Doubling the Types of Goods
+Studying how individuals cope with diverse public problems in the world led
+us to reject Samuelson’s two-fold classification of goods. Buchanan (1965)
+had already added a third type of good, which he called “club goods.” In
+relation to these kinds of goods, it was feasible for groups of individuals
+to create private associations (clubs) to provide themselves nonrivalrous
+but small-scale goods and services that they could enjoy while excluding
+nonmembers from participation and consumption of benefits.
+In light of further empirical and theoretical research, we proposed
+additional modifications to the classification of goods to identify fundamental
+differences that affect the incentives facing individuals (V. Ostrom and E.
+Ostrom 1977).
+1. Replacing the term “rivalry of consumption” with “subtractability of
+use.”
+2. Conceptualizing subtractability of use and excludability to vary from
+low to high rather than characterizing them as either present or absent.
+3. Overtly adding a very important fourth type of good – common-pool
+resources – that shares the attribute of subtractability with private
+goods and difficulty of exclusion with public goods (V. Ostrom and E.
+Ostrom 1977). Forests, water systems, fisheries, and the global atmos--
+phere are all common-pool resources of immense importance for
+the survival of humans on this earth.
+4. Changing the name of a “club” good to a “toll” good, since many
+goods that share these characteristics are provided by small-scale
+public as well as private associations.
+Figure 1 provides an overview of four broad types of goods that differentially affect the problems individuals face in devising institutions to enable
+them to provide, produce, and consume diverse goods. These four broad
+types of goods contain many subtypes of goods that vary substantially in
+regard to many attributes. For example, a river and a forest are both commonpool resources. They differ substantially, however, in regard to the mobility
+of the resource units produced, the ease of measurement, the time scale for
+regeneration, and other attributes. Specific common-pool resources also
+differ in regard to spatial extent, number of users, and many other factors.
+Subtractability of Use
+High
+Low
+Difficulty of
+Excluding
+Potential
+Beneficiaries
+High
+Common-pool resources:
+groundwater basins, lakes,
+irrigation systems, fisheries,
+forests, etc.
+Public goods: peace and security
+of a community, national defense,
+knowledge, fire protection,
+weather forecasts, etc.
+Low
+Private goods: food, clothing,
+automobiles, etc.
+Toll goods: theaters, private clubs,
+daycare centers
+Figure 1. Four types of goods. Source: Adapted from E. Ostrom, 2005: 24.
+When one engages in substantial fieldwork, one confronts an immense
+diversity of situations in which humans interact. Riding as an observer in a
+patrol car in the central district of a large American city at midnight on a
+Saturday evening, one sees different patterns of human interaction than in a
+suburb on a weekday afternoon when school is letting out. In both cases, one
+observes the production of a public good – local safety – by an official of a
+local government. Others who are involved in each situation differ in regard
+to age, sobriety, why they are there, and what they are trying to accomplish.
+And this context affects the strategies of the police officer one is observing.
+Contrast observing the production of a public good to watching private
+water companies, city utilities, private oil companies, and local citizens
+meeting in diverse settings to assess who is to blame for overdrafting their
+groundwater basin, causing massive saltwater intrusion, and what to do next.
+These individuals all face the same problem – the overdraft of a commonpool resource – but their behavior differs substantially when they meet
+monthly in a private water association, when they face each other in a courtroom, and when they go to the legislature and eventually to the citizens to
+sponsor a Special Replenishment District. These and many other situations
+observed in irrigation systems and forests in multiple countries do not closely
+resemble the standard models of a market or a hierarchy.
+3. Developing a Framework for Analyzing the Diversity of
+Human Situations
+The complexity and diversity of the field settings we have studied has generated an extended effort by colleagues associated with the Workshop in Political
+Theory and Policy Analysis (the Workshop) to develop the IAD framework (V.
+Ostrom 1975; Kiser and Ostrom 1982; McGinnis 1999a, b, 2000; E. Ostrom
+1986, 2005). The framework contains a nested set of building blocks that
+social scientists can use in efforts to understand human interactions and outcomes across diverse settings. The IAD builds on earlier work on transactions
+(Commons [1924] 1968), logic of the situation (Popper 1961), collective structures (Allport 1962), frames (Goffman 1974), and scripts (Schank and Abelson
+1977). The approach also draws inspiration from the work of Koestler
+(1973) and Simon (1981, 1995), who both challenged the assumption
+that human behavior and outcomes are entirely based on a small set of
+irreducible building blocks.
+While the terms frameworks, theories, and models are used interchangeably by many scholars, we use these concepts in a nested manner to range
+from the most general to the most precise set of assumptions made by a
+scholar. The IAD framework is intended to contain the most general set of
+variables that an institutional analyst may want to use to examine a diversity of institutional settings including human interactions within markets,
+private firms, families, community organizations, legislatures, and government
+agencies. It provides a metatheoretical language to enable scholars to discuss
+any particular theory or to compare theories.
+A specific theory is used by an analyst to specify which working parts of a
+framework are considered useful to explain diverse outcomes and how they
+relate to one another. Microlevel theories including game theory, microeconomic theory, transaction cost theory, and public goods/common-pool
+resource theories are examples of specific theories compatible with the IAD
+framework. Models make precise assumptions about a limited number of
+variables in a theory that scholars use to examine the formal consequences of
+these specific assumptions about the motivation of actors and the structure
+of the situation they face.
+The IAD framework is designed to enable scholars to analyze systems that
+are composed of a cluster of variables, each of which can then be unpacked
+multiple times depending on the question of immediate interest. At the
+core of the IAD framework is the concept of an action situation affected by
+external variables (see Figure 2). The broadest categories of external factors
+affecting an action situation at a particular time include:
+1. Biophysical conditions, which may be simplified in some analyses to be
+one of the four types of goods defined in Figure 1.
+2. Attributes of a community, which may include the history of prior
+interactions, internal homogeneity or heterogeneity of key attributes, and
+the knowledge and social capital of those who may participate or be
+affected by others.
+3. Rules-in-use, which specify common understanding of those involved
+related to who must, must not, or may take which actions affecting others
+subject to sanctions (Crawford and Ostrom 2005). The rules-in-use may
+evolve over time as those involved in one action situation interact with
+others in a variety of settings (E. Ostrom 2008; E. Ostrom and Basurto
+forthcoming; Boyd and Richerson 1985) or self-consciously change the
+rules in a collective-choice or constitutional-choice setting.
+The set of external variables impacts an action situation to generate patterns
+of interactions and outcomes that are evaluated by participants in the action
+situation (and potentially by scholars) and feed back on both the external
+variables and the action situation.
+Figure 2. A framework for institutional analysis. Source: Adapted from E. Ostrom, 2005:
+15.
+The internal working parts of an action situation are overtly consistent with
+the variables that a theorist uses to analyze a formal game.1 This has meant
+that colleagues have been able to use formal game theory models consistent
+with the IAD framework to analyze simplified but interesting combinations of
+theoretical variables and derive testable conclusions from them (see Acheson
+and Gardner 2005; Gardner et al. 2000; Weissing and Ostrom 1993) as well
+as agent-based models (ABMs) (Jager and Janssen 2002; Janssen 2008). It
+is not feasible to develop a formal game (or even an ABM) to analyze the
+more complex empirical settings with many variables of relevance affecting
+outcomes and of importance for institutional analysis. It is possible, however,
+to use a common set of structural elements to develop structured coding
+forms for data collection and analysis. And one can design experiments
+using a common set of variables for many situations of interest to political
+economists and then examine why particular behavior and outcomes occur
+in some situations and not in others.
+To specify the structure of a game and predict outcomes, the theorist
+needs to posit the:
+1. characteristics of the actors involved (including the model of human
+choice adopted by the theorist);
+2. positions they hold (e.g., first mover or row player);
+3. set of actions that actors can take at specific nodes in a decision tree;
+4. amount of information available at a decision node;
+5. outcomes that actors jointly affect;
+6. set of functions that map actors and actions at decision nodes into
+intermediate or final outcomes; and
+7. benefits and costs assigned to the linkage of actions chosen and out
+comes obtained.
+1 I am much appreciative of the many hours of productive discussions that I had with Reinhard Selten in the
+early 1980s as we started to develop the IAD framework about the internal working parts of a formal game that
+could be used in the framework.
+External Variables
+Interactions
+Outcomes
+Evaluative
+Criteria
+Biophysical
+Conditions
+Attributes of
+Community
+Rules-in-Use
+Action
+Situations
+These are also the internal working parts of an action situation as shown
+in Figure 3. As discussed below, using a common framework across a wide
+diversity of studies has enabled a greater cumulation of understanding of
+interactions and outcomes in very complex environments. The IAD framework overtly embeds a particular situation of interest in a broader setting of
+external variables, some of which can be self-consciously revised over time.
+Figure 3. The internal structure of an action situation. Source: Adapted from E. Ostrom,
+2005: 33.
+4. Are Rational Individuals Helplessly Trapped in Social
+Dilemmas?
+The classic assumptions about rational individuals facing a dichotomy of organizational forms and of goods hide the potentially productive efforts of individuals and groups to organize and solve social dilemmas such as the overharvesting of common-pool resources and the underprovision of local public
+goods. The classic models have been used to view those who are involved in
+a Prisoner’s Dilemma game or other social dilemmas as always trapped in the
+situation without capabilities to change the structure themselves. This analytical step was a retrogressive step in the theories used to analyze the human
+condition. Whether or not the individuals who are in a situation have capacities to transform the external variables affecting their own situation varies
+dramatically from one situation to the next. It is an empirical condition that
+varies from situation to situation rather than a logical universality. Public investigators purposely keep prisoners separated so they cannot communicate.
+The users of a common-pool resource are not so limited.
+When analysts perceive the human beings they model as being trapped
+inside perverse situations, they then assume that other human beings external to those involved – scholars and public officials – are able to analyze
+the situation, ascertain why counterproductive outcomes are reached, and
+posit what changes in the rules-in-use will enable participants to improve outcomes. Then, external officials are expected to impose an optimal set of rules
+on those individuals involved. It is assumed that the momentum for change
+must come from outside the situation rather than from the self-reflection
+and creativity of those within a situation to restructure their own patterns of
+interaction. As Sugden has described this approach:
+Most modern economic theory describes a world presided over by a
+government (not, significantly, by governments), and sees this world
+through the government’s eyes. The government is supposed to have
+the responsibility, the will and the power to restructure society in
+whatever way maximizes social welfare; like the US Cavalry in a good
+Western, the government stands ready to rush to the rescue whenever
+the market ‘fails’, and the economist’s job is to advise it on when and
+how to do so. Private individuals, in contrast, are credited with little or
+no ability to solve collective problems among themselves. This makes
+for a distorted view of some important economic and political issues.
+(Sugden 1986: 3; emphasis in original)
+Garrett Hardin’s (1968) portrayal of the users of a common-pool resource
+– a pasture open to all – being trapped in an inexorable tragedy of overuse
+and destruction has been widely accepted since it was consistent with the prediction of no cooperation in a Prisoner’s Dilemma or other social dilemma
+games. It captured the attention of scholars and policymakers across the
+world. Many presumed that all common-pool resources were owned by no
+one. Thus, it was thought that government officials had to impose new external variables (e.g., new policies) to prevent destruction by users who could
+not do anything other than destroy the resources on which their own future
+(as well as the rest of our futures) depended.
+A. Scholars from Diverse Disciplines Examine Whether Resource Users are Always
+Trapped
+Dramatic incidents of overharvested resources had captured widespread attention, while studies by anthropologists, economic historians, engineers,
+historians, philosophers, and political scientists of local governance of small
+to medium-scale common-pool resources over long periods of time were not
+noticed by many theorists and public officials (see Netting 1972; McCay and
+Acheson 1987; Coward 1980). Cumulation of the knowledge contained in
+these studies did not occur, due to the fact that the studies were written by
+scholars in diverse disciplines focusing on different types of resources located
+in many countries.
+Fortunately, the National Research Council (NRC) established a committee in the mid-1980s to assess diverse institutional arrangements for effective
+conservation and utilization of jointly managed resources. The NRC committee brought scholars from multiple disciplines together and used the
+IAD framework in an effort to begin to identify common variables in cases
+where users had organized or failed to organize (Oakerson 1986; NRC 1986).
+Finding multiple cases where resource users were successful in organizing
+themselves challenged the presumption that it was impossible for resource
+users to solve their own problems of overuse. The NRC report opened up the
+possibility of a diversity of studies using multiple methods. The NRC effort
+also stimulated an extended research program at the Workshop that involved
+coding and analyzing case studies of common-pool resources written by
+other scholars.
+B. Meta-Analyses of Common-Pool Resource Cases
+In an effort to learn more than just the existence of multiple cases where
+resource users had self-organized, colleagues at the Workshop undertook
+a meta-analysis of existing case studies that were identified as a result of the
+activities of the NRC panel.2 Because of our prior studies of complex urban
+systems and the development of a framework and common language for linking the parts of complex systems, we could use the framework to help organize our efforts. The IAD framework became the foundation for designing a
+coding manual that was used to record a consistent set of variables for each
+common-pool resource study.
+This was an immense effort. More than two years was devoted to developing the final coding manual (E. Ostrom et al. 1989). A key problem was the
+minimal overlap of variables identified by case study authors from diverse disciplines. The team had to read and screen over 500 case studies in order to
+identify a small set of cases that recorded information about the actors, their
+strategies, the condition of the resource, and the rules-in-use.3 A common
+set of variables was recorded for 44 subgroups of fishers who harvested from
+inshore fisheries (Schlager 1990, 1994) and 47 irrigation systems that were
+managed either by farmers or by a government (Tang 1992, 1994).
+Of the 47 irrigation systems included in the analysis, 12 were managed by
+governmental agencies of which only 40 percent (n = 7) had high performance. Of the 25 farmer-managed, over 70 percent (n = 18) had high performance (Tang 1994: 234). Rule conformance was a key variable affecting the
+adequacy of water over time (ibid.: 229). None of the inshore fishery groups
+analyzed by Schlager were government-managed and 11 (25 percent) were
+not organized in any way. The other 33 subgroups had a diversity of informal
+rules to define who was allowed to fish in a particular location and how harvesting was restricted (Schlager 1994: 260).
+2 This meta-analysis effort is described in chapter 4 of Poteete, Janssen, and Ostrom (2010).
+3 Scholars across disciplines tend to use very different vocabularies and theoretical frameworks when they
+describe empirical settings. Other scholars, who have used metaanalysis, have also needed to screen many
+publications to obtain consistent data about human used resource systems. Pagdee, Kim, and Daugherty
+(2006) report screening over 100 articles in order to analyze 31 cases related to forest management. Rudel
+(2008) reported that he had screened nearly 1,200 studies for a meta-analysis of 268 cases of tropical forest
+cover change.
+In addition to finding significant levels of cooperation, we found some
+support for earlier theoretical predictions of no cooperation in particular
+settings.
+In CPR dilemmas where individuals do not know one another, cannot
+communicate effectively, and thus cannot develop agreements, norms,
+and sanctions, aggregate predictions derived from models of rational
+individuals in a noncooperative game receive substantial support. These
+are sparse environments and full rationality appears to be a reasonable
+assumption in them. (E. Ostrom, Gardner, and Walker 1994: 319)
+On the other hand, the capacity to overcome dilemmas and create effective governance occurred far more frequently than expected and depended
+upon the structure of the resource itself and whether the rules-in-use developed by users were linked effectively to this structure (Blomquist et al. 1994).
+In all self-organized systems, we found that users had created boundary rules
+for determining who could use the resource, choice rules related to the allocation of the flow of resource units, and active forms of monitoring and
+local sanctioning of rule breakers (ibid.: 301). On the other hand, we did not
+find a single case where harvesters used the “grim trigger” strategy – a form
+of punishment that was posited in many theoretical arguments for how individuals could solve repeated dilemmas (Dutta 1990: 264).
+C. The Bundles of Property Rights Related to Common-Pool Resources
+Resource economists have used the term “common property resource” to
+refer to fisheries and water resources (Gordon 1954; Scott 1955; Bell 1972).
+Combining the term “property” with “resource” introduced considerable
+confusion between the nature of a good and the absence or presence of
+a property regime (Ciriacy-Wantrup and Bishop 1975). A common-pool
+resource can be owned and managed as government property, private property, community property, or owned by no one (Bromley 1986). A further
+reason for the lack of awareness about property systems developed by local
+users was that many scholars presumed that unless users possessed alienation
+rights – the right to sell their property – they did not have any property rights
+(Alchian and Demsetz 1973; Anderson and Hill 1990; Posner 1975).
+Schlager and Ostrom (1992) drew on the earlier work of John R. Commons
+([1924] 1968) to conceptualize property-rights systems as containing bundles
+of rights rather than a single right. The meta-analysis of existing field cases
+helped to identify five property rights that individuals using a common-pool
+resource might cumulatively have: (1) Access – the right to enter a specified
+property,4 (2) Withdrawal – the right to harvest specific products from a resource, (3) Management – the right to transform the resource and regulate
+4 The concept of access rights has puzzled some scholars. An everyday example of an access right is the
+buying of a permit to enter a public park. This assigns the holder of a permit the right to enter and enjoy
+ hiking and other nonharvesting activities for a defined period of time.
+internal use patterns, (4) Exclusion – the right to decide who will have access,
+withdrawal, or management rights, and (5) Alienation – the right to lease or
+sell any of the other four rights. Conceiving of property-rights bundles is now
+widely accepted by scholars who have studied diverse property-rights systems
+around the world (Brunckhorst 2000; Degnbol and McCay 2007; Paavola and
+Adger 2005; Trawick 2001; J. Wilson et al. 1994).
+D. Linking the Internal Parts of an Action Situation to External Rules
+Actors who have specific property rights to a resource also face more fundamental rules that affect the structure of the action situations they are in.
+In our meta-analysis, we found an incredible array of specific rules used in
+different settings (e.g., who could withdraw how many resource units at what
+location and time, what information was required of all users, what costs
+and benefits were attached to which actions, etc.). As we attempted to find a
+consistent way of coding and analyzing this rich diversity of specific rules described by case authors, we turned again to the IAD framework. Since we had
+identified seven working parts of a game or action situation itself, it seemed
+reasonable to think of seven broad types of rules operating as external variables affecting the individual working parts of action situations (see Figure
+4). The seven types of rules are:
+1. Boundary rules that specify how actors were to be chosen to enter or
+leave these positions;
+2. Position rules that specify a set of positions and how many actors hold
+each one;
+3. Choice rules that specify which actions are assigned to an actor in a position;
+4. Information rules that specify channels of communication among actors
+and what information must, may, or must not be shared;
+5. Scope rules that specify the outcomes that could be affected;
+6. Aggregation rules (such as majority or unanimity rules) that specify how
+the decisions of actors at a node were to be mapped to intermediate or
+final outcomes; and
+7. Payoff rules that specify how benefits and costs were to be distributed to
+actors in positions (Crawford and Ostrom 2005).
+A useful way of thinking about institutional rules is to conceptualize what
+part of an action situation is affected by a rule (see Figure 4).
+Conceptualizing seven broad types of rules (rather than one or two) has
+been upsetting to scholars who wanted to rely on simple models of interactions among humans. In addition to finding seven broad types of rules, however, we also found multiple variants of each type. For example, we found
+27 boundary rules described by case study authors as used in at least one
+common-pool resource setting (E. Ostrom 1999: 510). Some rules specified
+diverse forms of residence, organizational memberships, or personal attributes that are ascribed or acquired. Similarly, we found 112 different choice
+rules that were usually composed of two parts – an allocation formula specifying where, when, or how resource units could be harvested and a specific basis for the implementation of the formula (such as the amount of land held,
+historical use patterns, or assignment through lottery) (ibid.: 512).
+E. Long-Surviving Resource Institutions
+After working for several years with colleagues to code cases of successful
+and failed systems, I thought my next task would be to undertake careful
+statistical analysis to identify which specific rules were associated with successful systems. I had not yet fully absorbed the incredible number and
+diversity of rules that the team had recorded. In 1988, I spent a sabbatical
+leave in a research group organized by Reinhard Selten at the Center for
+Interdisciplinary Research at Bielefeld University. I struggled to find rules
+that worked across ecological, social, and economic environments, but the
+specific rules associated with success or failure varied extensively across sites.
+Finally, I had to give up the idea that specific rules might be associated with
+successful cases.
+Figure 4. Rules as exogenous variables directly affecting the elements of an action situation.
+Source: Adapted from E. Ostrom, 2005: 189.
+Moving up a level in generality, I tried to understand the broader institutional regularities among the systems that were sustained over a long period of time and were absent in the failed systems. I used the term “design
+principle” to characterize these regularities. I did not mean that the fishers,
+irrigators, pastoralists, and others overtly had these principles in their minds
+when they developed systems that survived for long periods of time. My effort
+was to identify a set of core underlying lessons that characterized the long
+sustained regimes as contrasted to the cases of failure (E. Ostrom 1990).5
+Since the design principles are described extensively in E. Ostrom (1990,
+2005), I will list only a brief updated list as developed by Cox, Arnold, and
+Villamayor-Tomás (2009):
+ 1A. User Boundaries: Clear and locally understood boundaries between
+legitimate users and nonusers are present.
+ 1B. Resource Boundaries: Clear boundaries that separate a specific commonpool resource from a larger social-ecological system are present.
+ 2A. Congruence with Local Conditions: Appropriation and provision rules
+are congruent with local social and environmental conditions.
+ 2B. Appropriation and Provision: Appropriation rules are congruent with
+provision rules; the distribution of costs is proportional to the
+distribution of benefits.
+ 3.
+Collective-Choice Arrangements: Most individuals affected by a resource
+regime are authorized to participate in making and modifying its
+rules.
+ 4A. Monitoring Users: Individuals who are accountable to or are the
+users monitor the appropriation and provision levels of the users.
+ 4B. Monitoring the Resource: Individuals who are accountable to or are
+the users monitor the condition of the resource.
+ 5.
+Graduated Sanctions: Sanctions for rule violations start very low but
+become stronger if a user repeatedly violates a rule.
+ 6. Conflict-Resolution Mechanisms: Rapid, low-cost, local arenas exist for
+resolving conflicts among users or with officials.
+ 7.
+Minimal Recognition of Rights: The rights of local users to make their
+own rules are recognized by the government.
+ 8.
+Nested Enterprises: When a common-pool resource is closely connected
+to a larger social-ecological system, governance activities are organized
+in multiple nested layers.
+The design principles appear to synthesize core factors that affect the probability of long-term survival of an institution developed by the users of a resource. Cox, Arnold, and Villamayor-Tomás (2009) analyzed over 100 studies
+by scholars who assessed the relevance of the principles as an explanation of
+the success or failure of diverse common-pool resources. Two-thirds of these
+5 The term “design principle” has confused many readers. Perhaps I should have used the term “best
+practices” to describe the rules and structure of robust institutions.
+studies confirm that robust resource systems are characterized by most of
+the design principles and that failures are not. The authors of some studies
+that found the design principles inadequate tended to interpret them very
+rigidly and felt that successful systems were characterized by more flexibility.
+In three instances, the initial wording of the design principles was too general and did not distinguish between ecological and social conditions. Thus,
+I have adopted the improvements to principles 1, 2, and 4 suggested by Cox
+and coauthors.
+5. Conducting Experiments to Study Common-Pool
+Resource Problems
+The existence of a large number of cases where users had overcome social
+dilemmas in order to sustain long-term use of common-pool resources successfully challenged the presumption that this was impossible. Many variables
+simultaneously affect these outcomes in the field. Developing game-theoretical models of common-pool resource situations (Weissing and Ostrom 1993;
+E. Ostrom and Gardner 1993) has been one strategy we have used to assess
+the theoretical outcomes of a set of variables we have observed in the field.
+We have also thought it was important to examine the effect of precise combinations of variables in an experimental setting.
+A. Common-Pool Resource Experiments in University Laboratories
+Roy Gardner and James Walker joined me in an extended effort to build and
+test well-specified, game-theoretical models consistent with the IAD framework (see E. Ostrom, Walker, and Gardner 1992; E. Ostrom, Gardner, and
+Walker 1994). The initial CPR experiments started with a static, baseline situation that was as simple as could be specified without losing crucial aspects
+of the appropriation problems facing harvesters in the field. We used a quadratic payoff production function based on Gordon’s (1954) classic model.
+The initial resource endowment ω for each of eight subjects was a set of
+tokens that the subject could allocate between Market 1 (which had a fixed
+return) and Market 2 (which functioned as a common-pool resource with
+a return affected by the actions of all subjects in the experiment). Subjects
+received aggregated information so they did not know each individual’s
+actions. Each subject i could invest a portion xi of his/her endowment in
+the common resource (Market 2) and the remaining portion would then be
+invested in Market 1. The payoff function we used (E. Ostrom, Gardner, and
+Walker 1994: 110) was:
+ui(x) = we
+if xi = 0
+(1)
+ui(x) = w(e – xi) + (xi/Σxi)F(Σxi)
+if xi > 0.
+(2)
+The baseline experiment was a commons dilemma in which the gametheoretic outcome involved substantial overuse of a resource while a much
+better outcome could be reached if subjects were to reduce their joint
+allocation. The prediction from noncooperative game theory was that
+subjects would invest according to the Nash equilibrium – 8 tokens each
+for a total of 64 tokens. Subjects could earn considerably more if they reduced their allocation to a total of 36 tokens in the common-pool resource.
+Subjects in baseline experiments with multiple decision rounds substantially
+overinvested – they invested even more tokens than predicted, so the joint
+outcome was worse than the predicted Nash equilibrium.6
+Building off prior public goods research (Isaac and Walker 1988), we then
+conducted a series of face-to-face communication experiments in which
+the same payoff function was retained. After an initial ten rounds without
+communication, subjects were told they could communicate with each other
+in a group setting before returning to their terminals to make their own
+private decisions. This provided an opportunity for “cheap talk.” The same
+outcome was predicted in these experiments as in the baseline since a subject
+could promise to cooperate but no external “third party” ensured that the
+promise was fulfilled.
+Subjects used face-to-face communication to discuss strategies to gain the
+best outcomes and then to agree – if possible – on what each subject should
+invest. They learned about their aggregate investments after each round,
+but not the decision of individual subjects. This gave them information as
+to whether the total investments were greater than agreed upon. In many
+rounds, subjects kept their promises to each other. In other rounds, some
+defections did occur. Subjects used information about the aggregate investment levels to scold their unknown fellow subjects if the total investment was
+higher than they had agreed upon. The opportunity for repeated face-to-face
+communication was extremely successful in increasing joint returns. Findings
+from communication experiments are consistent with a large number of
+studies of the impact of face-to-face communication on the capacity of subjects to solve a variety of social dilemma problems (see E. Ostrom and Walker
+1991; Orbell, van de Kragt, and Dawes 1988; Sally 1995; Balliet 2010).
+In many field settings, resource users have devised a variety of formal or
+informal ways of sanctioning one another if rules are broken, even though
+this behavior is not consistent with the theory of norm-free, complete
+rationality (Elster 1989: 40–41). It was thus important to see if subjects in
+a controlled experimental setting would actually use their own assets to
+financially punish other subjects. After subjects played ten rounds of the
+baseline common-pool resource game, they were told that in the subsequent
+rounds they would have an opportunity to pay a fee in order to impose a
+fine on another subject. We found much more sanctioning occurred in this
+6 In simple, repeated public goods experiments, subjects initially tended to contribute at a higher level than
+predicted by the Nash equilibrium (Isaac et al. 1984, 1985, 1994; Isaac and Walker 1988, Marwell and Ames
+1979) and outcomes slowly approach the predicted Nash equilibrium from a higher level. In common-pool
+resource games, on the other hand, subjects initially achieved outcomes that were much worse than the
+Nash equilibrium that they then slowly approached from below (see also Casari and Plott 2003).
+design than the zero level predicted.7 Subjects did increase gross benefits
+through their sanctioning but substantially reduced net returns due to the
+overuse of costly sanctions.8 Sanctioning was primarily directed at those who
+defected, but a few sanctions appeared to be directed at low contributors as
+a form of revenge by those who had fined themselves. In a further design,
+subjects were given a chance to communicate and decide whether or not
+to adopt a sanctioning system of their own. Subjects who decided to adopt
+their own sanctioning system achieved the highest returns achieved in any of
+the common-pool resource laboratory experiments – 90 percent of optimal
+after the fines related to the small number of defections were subtracted
+(E. Ostrom, Walker, and Gardner 1992).
+The predictions of noncooperative game theory are roughly supported
+only when participants in a laboratory experiment do not know the
+reputation of the others involved in a common-pool resource dilemma
+and cannot communicate with them. On the other hand, when subjects
+communicate face-to-face, they frequently agree on joint strategies and keep
+to their agreements – substantially increasing their net returns. Further,
+communication to decide on and design a sanctioning system enables those
+choosing this option to achieve close to optimal returns.
+B. Studying Common-Pool Resources in Field Experiments
+A series of field experiments have now been conducted by colleagues in
+Colombia to assess whether experienced villagers who are dependent on
+resources make decisions about the “time spent in a forest” in a design that
+is mathematically consistent with those reported on above. Cardenas (2000)
+conducted field experiments in rural schoolhouses with over 200 users of
+local forests. He modified the design of the common-pool resource experiments without, and with, face-to-face communication so that villagers were
+asked to make decisions regarding “harvesting trees.” The outcomes of
+these experiments were broadly consistent with the findings obtained with
+university students.
+In a different design, Cardenas, Stranlund, and Willis (2000) ran ten
+rounds of baseline experiments with resource users from five villages who
+were then given a chance to communicate face-to-face for the next set of
+experiments. In five additional villages, participants were told after the
+baseline rounds that a new regulation would go into force that mandated them
+to spend no more than the optimal time in the forest each round. The probability of an inspection was 1/16 per round – a low but realistic probability
+for monitoring rule conformance in rural areas in developing countries. If
+the person was over the limit imposed, a penalty was subtracted from that
+7 See Henrich et al. (2006) in which field experiments were conducted in multiple countries testing whether
+a much broader set of participants would also use punishments in public goods experiments. See
+also Henrich et al. (2004) for the reports of earlier field experiments of social dilemmas in fifteen small
+communities.
+8 Similar findings exist for public goods experiments where punishers typically punish low contributors
+(Yamagishi 1986; Fehr and Gächter 2002).
+person’s payoff, but the penalty was not revealed to the others. Subjects in this
+experimental condition increased their withdrawal levels when compared to
+the outcomes obtained when face-to-face communication was allowed and
+no rule was imposed. Other scholars have also found that externally imposed
+regulation that would theoretically lead to higher joint returns “crowded
+out” voluntary behavior to cooperate (see Frey and Oberholzer-Gee 1997;
+Reeson and Tisdell 2008).
+Fehr and Leibbrandt (2008) conducted an interesting set of public goods
+experiments with fishers who harvest from an “open-access” inland lake
+in northeastern Brazil. They found that a high percentage (87 percent) of
+fishers contributed in the first period of the field experiment and that contributions leveled off in the remaining periods. Fehr and Leibbrandt examined
+the mesh size of the nets used by individual fishermen and found that those
+who contributed more in the public goods experiment used nets with bigger
+mesh sizes. Larger mesh sizes allow young fish to escape, grow larger, and
+reproduce at a higher level than if they are caught when they are still small.
+In other words, cooperation in the field experiment was consistent with
+observed cooperation related to a real CPR dilemma. They conclude that
+the “fact that our laboratory measure for other-regarding preferences
+predicts field behavior increases our confidence about the behavioral relevance of other-regarding preferences gained from laboratory experiments”
+(ibid.: 17).
+In summary, experiments on CPRs and public goods have shown that
+many predictions of the conventional theory of collective action do not hold.
+More cooperation occurs than predicted, “cheap talk” increases cooperation,
+and subjects invest in sanctioning free-riders. Experiments also establish that
+motivational heterogeneity exists in harvesting or contribution decisions as
+well as decisions on sanctioning.
+6. Studying Common-Pool Resource Problems in the Field
+Having conducted extensive meta-analyses of case studies and experiments,
+we also needed to undertake field studies where we could draw on the IAD
+framework to design questions to obtain consistent information about key
+theoretically important variables across sites.
+A. Comparing Farmer- and Government-Managed Irrigation Systems in Nepal
+An opportunity to visit Nepal in 1988 led to the discovery of a large number
+of written studies of farmer-built and maintained irrigation systems as well
+as some government-constructed and managed systems. Ganesh Shivakoti,
+Paul Benjamin, and I were able to revise the CPR coding manual so as to
+include variables of specific relevance to understanding irrigation systems in
+a new coding manual for the Nepal Irrigation and Institutions (NIIS) project.
+We coded existing cases and again found numerous “missing variables” not
+discussed by the original author. Colleagues made several trips to Nepal to
+visit previously described systems in written case studies to fill in missing data
+and verify the data in the original study. While in the field, we were able to
+add new cases to the data set (Benjamin et al. 1994).
+In undertaking analysis of this large data set, Lam (1998) developed three
+performance measures that could be applied to all systems: (1) the physical
+condition of irrigation systems, (2) the quantity of water available to farmers
+at the tail end of a system at different seasons of the year, and (3) the agricultural productivity of the systems. Controlling for environmental differences
+among systems, Lam found that irrigation systems governed by the farmers
+themselves perform significantly better on all three performance measures.
+On the farmer-governed systems, farmers communicate with one another at
+annual meetings and informally on a regular basis, develop their own agreements, establish the positions of monitors, and sanction those who do not
+conform to their own rules. Consequently, farmer-managed systems are likely
+to grow more rice, distribute water more equitably, and keep their systems
+in better repair than government systems. While farmer systems do vary in
+performance, few perform as poorly as government systems – holding other
+relevant variables constant.
+Over time, colleagues have visited and coded still further irrigation
+systems in Nepal. The earlier findings regarding the higher level of performance of farmer-managed systems was again confirmed using the expanded
+database containing 229 irrigation systems (Joshi et al. 2000; Shivakoti and
+Ostrom 2002). Our findings are not unique to Nepal. Scholars have carefully
+documented effective farmer-designed and operated systems in many countries including Japan (Aoki 2001), India (Meinzen-Dick 2007; Bardhan
+2000), and Sri Lanka (Uphoff 1991).
+B. Studying Forests around the World
+In 1992, Dr. Marilyn Hoskins, who headed the Forest, Trees and People
+Program at the Food and Agriculture Organization (FAO) of the United
+Nations, asked colleagues at the Workshop to draw on our experience in
+studying irrigation systems to develop methods for assessing the impact of
+diverse forest governance arrangements in multiple countries. Two years of
+intense development and review by ecologists and social scientists around the
+world led to the development of ten research protocols to obtain reliable information about users and forest governance as well as about the ecological
+conditions of sampled forests. A long-term collaborative research network
+– the International Forestry Resources and Institutions (IFRI) research
+program – was established with centers now located in Bolivia, Colombia,
+Guatemala, India, Kenya, Mexico, Nepal, Tanzania, Thailand, Uganda,
+and the United States, with new centers being established in Ethiopia and
+China (see Gibson, McKean, and Ostrom 2000; Poteete and Ostrom 2004;
+Wollenberg et al. 2007). IFRI is unique among efforts to study forests as it
+is the only interdisciplinary long-term monitoring and research program
+studying forests in multiple countries owned by governments, private
+organizations, and communities.
+Forests are a particularly important form of common-pool resource given
+their role in climate change-related emissions and carbon sequestration
+(Canadell and Raupach 2008), the biodiversity they contain, and their contribution to rural livelihoods in developing countries. A “favorite” policy recommendation for protecting forests and biodiversity is government-owned
+protected areas (Terborgh 1999). In an effort to examine whether government ownership of protected areas is a necessary condition for improving
+forest density, Hayes (2006) used IFRI data to compare the rating of forest
+density (on a five-point scale) assigned to a forest by the forester or ecologist
+who had supervised the forest mensuration of trees, shrubs, and groundcover in a random sample of forest plots.9 Of the 163 forests included in the
+analysis, 76 were government-owned forests legally designated as protected forests
+and 87 were public, private, or communally owned forested lands used for
+a diversity of purposes. No statistical difference existed between the forest
+density in officially designated protected areas versus other forested areas.
+Gibson, Williams, and Ostrom (2005) examined the monitoring behavior of 178 forest user groups and found a strong correlation between the
+level of monitoring and a forester’s assessment of forest density even when
+controlling for whether users were formally organized, whether the users
+were heavily dependent on a forest, and the level of social capital within a
+group.
+Chhatre and Agrawal (2008) have now examined the changes in the
+condition of 152 forests under diverse governance arrangements as affected
+by the size of the forest, collective action around forests related to improvement activities, size of the user group, and the dependence of local users on
+a forest. They found that “forests with a higher probability of regeneration
+are likely to be small to medium in size with low levels of subsistence dependence, low commercial value, high levels of local enforcement, and strong
+collective action for improving the quality of the forest” (ibid.: 1327). In a
+second major analysis, Chhatre and Agrawal (2009) focus on factors that
+affect tradeoffs and synergies between the level of carbon storage in forests
+and their contributions to livelihoods. They find that larger forests are more
+effective in enhancing both carbon and livelihoods outcomes, particularly
+when local communities also have high levels of rule-making autonomy.
+Recent studies by Coleman (2009) and Coleman and Steed (2009) also find
+that a major variable affecting forest conditions is the investment by local users in monitoring. Further, when local users are given harvesting rights, they
+are more likely to monitor illegal uses themselves. Other focused studies also
+stress the relationship between local monitoring and better forest conditions
+(Ghate and Nagendra 2005; E. Ostrom and Nagendra 2006; Banana and
+Gombya-Ssembajjwe 2000; Webb and Shivakoti 2008).
+9 Extensive forest mensuration is conducted at every IFRI site at the same time that information is obtained
+about forest users, their activities and organization, and about governance arrangements. Comparing
+forest measures across ecological zones is misleading since the average diameter at breast height in a forest
+is strongly affected by precipitation, soils, elevation, and other factors that vary dramatically across
+ecological zones. Thus, we ask the forester or ecologist who has just supervised the collection of forest data
+to rate the forest on a five-point scale from very sparse to very abundant.
+The legal designation of a forest as a protected area is not by itself related to
+forest density. Detailed field studies of monitoring and enforcement as they
+are conducted on the ground, however, illustrate the challenge of achieving
+high levels of forest regrowth without active involvement of local forest users
+(see Batistella, Robeson, and Moran 2003; Agrawal 2005; Andersson, Gibson,
+and Lehoucq 2006; Tucker 2008). Our research shows that forests under
+different property regimes – government, private, communal – sometimes meet enhanced social goals such as biodiversity protection, carbon
+storage, or improved livelihoods. At other times, these property regimes fail to
+provide
+such
+goals. Indeed,
+when
+governments
+adopt
+top-down
+decentralization policies leaving local officials and users in the dark, stable
+forests may become subject to deforestation (Banana et al., 2007). Thus, it is
+not the general type of forest governance that is crucial in explaining forest
+conditions; rather, it is how a particular governance arrangement fits the
+local ecology, how specific rules are developed and adapted over time, and
+whether users consider the system to be legitimate and equitable (for a more
+detailed overview of the IFRI research program, see Poteete, Janssen, and
+Ostrom 2010: chap. 5).
+7. Current Theoretical Developments
+Given the half century of our own extensive empirical research and that of
+many distinguished scholars (e.g., Baland and Platteau 2005; Berkes 2007;
+Berkes, Colding, and Folke 2003; Clark 2006; Marshall 2008; Schelling 1960,
+1978, 1984), where are we now? What have we learned? We now know that
+the earlier theories of rational, but helpless, individuals who are trapped in
+social dilemmas are not supported by a large number of studies using diverse
+methods (Faysse 2005; Poteete, Janssen, and Ostrom 2010). On the other
+hand, we cannot be overly optimistic and presume that dilemmas will always
+be solved by those involved. Many groups have struggled and failed (Dietz,
+Ostrom, and Stern 2003). Further, simple policy prescriptions to turn over
+resources to a government, to privatize, or more recently to decentralize,
+may also fail (Berkes 2007; Brock and Carpenter 2007; Meinzen-Dick 2007).
+We thus face the tough task of further developing our theories to help
+understand and predict when those involved in a common-pool resource
+dilemma will be able to self-organize and how various aspects of the broad
+context they face affect their strategies, the short-term success of their
+efforts, and the long-term robustness of their initial achievements. We need
+to develop a better theoretical understanding of human behavior as well as of
+the impact of the diverse contexts that humans face.
+A. Developing a More General Theory of the Individual
+As discussed earlier in section 3, efforts to explain phenomena in the social
+world are organized at three levels of generality. Frameworks such as the
+IAD that have been used to organize diverse efforts to study common-pool
+resources are meta-theoretical devices that help provide a general language
+for describing relationships at multiple levels and scales. Theories are efforts to build understanding by making core assumptions about specific
+working parts of frequently encountered phenomena and predicting general
+outcomes. Models are very specific working examples of a theory – and
+they are frequently confused with being theories themselves. As Alchian
+(1950) pointed out long ago, what is called “rational choice theory” is not
+a broad theory of human behavior but rather a useful model to predict
+behavior in a particular situation – a highly competitive market for private
+goods. Predictions derived from the rational choice model are empirically
+supported in open markets for private goods and other competitive environments (Holt 2007; Smith and Walker 1993; Satz and Ferejohn 1994). Thus,
+it is a useful model to retain for predicting outcomes in competitive settings
+related to excludable and divisible outcomes.
+While it is not possible yet to point to a single theory of human behavior
+that has been successfully formulated and tested in a variety of settings,
+scholars are currently positing and testing assumptions that are likely to be at
+the core of future developments (Smith 2003, 2010). These relate to (1) the
+capability of boundedly rational individuals to learn fuller and more reliable
+information in repeated situations when reliable feedback is present, (2)
+the use of heuristics in making daily decisions, and (3) the preferences that
+individuals have related to benefits for self as well as norms and preferences
+related to benefits for others (see Poteete, Janssen, and Ostrom 2010: chap.
+9; E. Ostrom 1998).
+The assumption that individuals have complete information about all
+actions available to them, the likely strategies that others will adopt, and the
+probabilities of specific consequences that will result from their own choices,
+must be rejected in any but the very simplest of repeated settings. When
+boundedly rational individuals do interact over time, it is reasonable to
+assume that they learn more accurate information about the actions they can
+take and the likely actions of other individuals (Selten 1990; Simon 1955,
+1999). Some highly complex common-pool resource environments, however,
+approach mathematical chaos (J. Wilson et al., 1994) in which resource users
+cannot gain complete information about all likely combinations of future
+events.
+In many situations, individuals use rules of thumb – heuristics – that they
+have learned over time that work relatively well in a particular setting. Fishers
+end up “fishing for knowledge” (J. Wilson 1990) where using heuristics over
+time enables them to recognize diverse clues of environmental processes
+that they need to take into account when making their own decisions. When
+individuals do interact repeatedly, it is possible to learn heuristics that
+approach “best-response” strategies and achieve close to local optima
+(Gigerenzer and Selten 2001). In eras of rapid change or sudden shocks,
+however, heuristics may not enable individuals to achieve high payoffs.
+Individuals also learn norms – internal valuations that are negative or
+positive related to specific actions such as lying or being brave in particular
+situations (Crawford and Ostrom 2005). The strength of an internal commitment (Sen 1977) may be represented in the size of the internal weight that
+an individual assigns to actions and outcomes in a particular setting. Among
+individual norms are those related to valuing outcomes achieved by others
+(Cox and Deck 2005; Cox, Sadiraj, and Sadiraj 2008; Andreoni 1989; Bolton
+and Ockenfels 2000). Fehr and Schmidt (1999) propose that individuals
+dislike unequal outcomes of interactions and thus have an internal norm
+of “inequity aversion.” Axelrod (1986) posits that individuals who adopt
+meta norms related to whether others follow the norms that have evolved
+in a group, increase the probability that norms will be followed. Leibbrandt,
+Gneezy, and List (2010) show that individuals who regularly work in teams
+are more likely to adopt norms and trust each other more than individuals
+working alone. Frohlich and Oppenheimer (1992) posit that many
+individuals adopt norms of fairness and justice. Not all individuals have the
+same norms or perceptions of a situation (Ones and Putterman 2007), and
+they may differ substantially in whether they consider a way of sharing costs
+to be fair (Eckel and Grossman 1996).
+Simply assuming that humans adopt norms, however, is not sufficient to
+predict behavior in a social dilemma, especially in very large groups with no
+arrangements for communication. Even with strong preferences to follow
+norms, “observed behavior may vary by context because the perception of
+the ‘right thing’ would change” (de Oliveira, Croson, and Eckel 2009: 19).
+Various aspects of the context in which individuals interact affect how individuals learn about the situation they are in and about the others with whom
+they are interacting. Individual differences do make a difference, but the
+context of interactions also affects behavior over time (Walker and Ostrom
+2009). Biologists recognize that an organism’s appearance and behavior are
+affected by the environment in which it develops.
+For example, some plants produce large, thin leaves (which enhance
+photosynthetic photon harvest) in low light, and narrow, thicker leaves
+(which conserve water) in high light; certain insects develop wings
+only if they live in crowded conditions (and hence are likely to run
+out of adequate food in their current location). Such environmentally
+contingent development is so commonplace that it can be regarded as
+a universal property of living things. (Pfennig and Ledón-Rettig 2009:
+268)
+Social scientists also need to recognize that individual behavior is strongly
+affected by the context in which interactions take place rather than being
+simply a result of individual differences.
+B. The Central Role of Trust in Coping with Dilemmas
+Even though Arrow (1974) long ago pointed to the crucial role of
+trust among participants as the most efficient mechanism to enhance
+transactional outcomes, collective-action theory has paid more attention to
+payoff functions than to how individuals build trust where others are reciprocators of costly cooperative efforts. Empirical studies, however, confirm the
+important role of trust in overcoming social dilemmas (Rothstein 2005). As
+illustrated in Figure 5, the updated theoretical assumptions of learning and
+norm-adopting individuals can be used as the foundation for understanding
+how individuals may gain increased levels of trust in others, leading to more
+cooperation and higher benefits with feedback mechanisms that reinforce
+positive or negative learning. It is not only that individuals adopt norms but
+also that the structure of the situation generates sufficient information about
+the likely behavior of others to be trustworthy reciprocators who will bear
+their share of the costs of overcoming a dilemma. Thus, in some contexts,
+one can move beyond the presumption that rational individuals are helpless
+in overcoming social dilemma situations.
+Figure 5. Microsituational and broader contexts of social dilemmas affect levels of trust
+and cooperation. Source: Poteete, Janssen, and Ostrom, 2010: 227. © Princeton University
+Press 2010. Republished by permission of Princeton University Press.
+C. The Microsituational Level of Analysis
+Asserting that context makes a difference in building or destroying trust
+and reciprocity is not a sufficient theoretical answer to how and why
+individuals sometimes solve and sometimes fail to solve dilemmas. Individuals
+interacting in a dilemma situation face two contexts: (1) a microcontext
+related to the specific attributes of an action situation in which individuals
+are directly interacting and (2) the broader context of the social-ecological
+system in which groups of individuals make decisions. A major advantage of
+studies conducted in an experimental lab or in field experiments is that the
+researcher designs the microsetting in which the experiment is conducted.
+Thus, empirical results are growing (and are summarized in Poteete, Janssen,
+and Ostrom 2010) to establish that the following attributes of microsituations
+affect the level of cooperation that participants achieve in social dilemma settings (including both public goods and common-pool resource dilemmas).
+1. Communication is feasible with the full set of participants. When
+face-to-face communication is possible, participants use facial
+expressions, physical actions, and the way that words are expressed to
+judge the trustworthiness of the others involved.
+2. Reputations of participants are known. Knowing the past history of
+other participants, who may not be personally known prior to inter
+action, increases the likelihood of cooperation.
+3. High marginal per capita return (MPCR). When MPCR is high, each
+participant can know that their own contributions make a bigger
+difference than with low MPCR and that others are more likely to
+recognize this relationship.
+4. Entry or exit capabilities. If participants can exit a situation at low
+cost, this gives them an opportunity not to be a sucker and others can
+recognize that cooperators may leave (and enter other situations) if
+their cooperation is not reciprocated.
+5. Longer time horizon. Participants can anticipate that more could be
+earned through cooperation over a long time period versus a short
+time.
+6. Agreed-upon sanctioning capabilities. While external sanctions or
+imposed sanctioning systems may reduce cooperation, when participants themselves agree to a sanctioning system they frequently do
+not need to use sanctions at a high volume and net benefits can be
+improved substantially.
+Other microsituational variables are being tested in experiments around
+the world. The central core of the findings is that when individuals face a
+social dilemma in a microsetting, they are more likely to cooperate when
+situational variables increase the likelihood of gaining trust that others will
+reciprocate.
+D. The Broader Context in the Field
+Individuals coping with common-pool resource dilemmas in the field are
+also affected by a broader set of contextual variables related to the attributes
+of the social-ecological system (SES) in which they are interacting. A group
+of scholars in Europe and the U.S. are currently working on the further
+development of a framework that links the IAD and its interactions and
+outcomes at a micro level with a broader set of variables observed in the
+field.10 As illustrated in Figure 6, one can think of individuals interacting in
+10 Scholars at the Stockholm Environment Institute, the International Institute for Applied Systems Analysis,
+Delft University of Technology, the University of Zurich, the Nordland Research Institute of Bodø
+University College, the Potsdam Institute for Climate Impact Research (PIK), Humboldt University,
+Marburg University, and the EU NeWATER project located at the University of Osnabrück have had several
+meetings in Europe to begin plans for using a common framework (initially developed by E. Ostrom
+2007) to study a variety of resource systems. Scholars at the Workshop in Bloomington and the Center for
+the Study of Institutional Diversity at Arizona State University will also participate in this effort. A core
+problem identified by these scholars is the lack of cumulation across studies on diverse natural resource
+systems as well as humanly engineered resources.
+an Action Situation generating Interactions and Outcomes that are affected
+by and affect a Resource System, Resource Units, Governance System, and
+Users who affect and are affected by Social, Economic, and Political Settings
+and Related Ecosystems (see E. Ostrom 2007, 2009). Figure 6 provides an
+overview of the highest tier of variables that exist in all field settings. The
+highest tier can be unpacked several times when one is trying to analyze
+specific questions related to SESs in the field, but there is not enough time or
+space to undertake a thorough unpacking in this article.
+Figure 6. Action situations embedded in broader social-ecological systems. Source: Adapted
+from E. Ostrom, 2007: 15182.
+Experimental researchers have reached a higher level of agreement about the
+impact of microsituational variables on the incentives, levels of trust, and behavior of individuals in dilemma situations than exists among field researchers. Few SES variables have a fully independent impact on the action situations
+that participants face and their likely behavior. The SES variables that are
+most important differ depending on which interactions (such as monitoring,
+conflict, lobbying, self-organization) or longer-term outcomes (such as
+overharvesting, regeneration of biodiversity, resilience of an ecological
+system to human and nature-induced disturbances) one wishes to predict. A
+set of ten variables have been identified across many field studies as impacting
+the likelihood of users self-organizing in order to overcome a common-pool
+resource dilemma (E. Ostrom 2009; Basurto and Ostrom 2009). These include: the size, productivity,/and predictability of the resource system; the
+extent of mobility of the resource units; the existence of collective-choice
+rules that the users may adopt authoritatively in order to change their own
+operational rules; and four attributes of users (the number, the existence
+of leadership/entrepreneurship, knowledge about the SES, and the importance of the SES to the users). Linking the broader contextual variables and
+microcontextual variables is one of the major tasks facing scientists who work
+across disciplinary lines to understand how both social and ecological factors
+affect human behavior.11
+8. Complexity and Reform
+The economic and social sciences have significantly moved ahead over the
+past five decades since scholars posited two optimal organizational forms,
+two types of goods, and one model of the individual. Extensive empirical
+research documents the diversity of settings in which individuals solve
+common-pool resource problems on their own, when these solutions are sustainable over long periods of time, and how larger institutional arrangements
+enhance or detract from the capabilities of individuals at smaller scales to
+solve problems efficiently and sustainably (see, for example, Agrawal and
+Gibson 2001; Gibson et al. 2005; Schlager and Blomquist 2008). While there
+is not yet a single well-developed theory that explains all of the diverse outcomes obtained in microsettings, such as the experimental lab, or broader
+contextual settings of fisheries, irrigation systems, forests, lakes, and other
+common-pool resources, considerable agreement does exist. Nor do we have
+a single normative theory of justice that can unambiguously be applied to all
+settings (Sen 2009).
+Building trust in one another and developing institutional rules that are
+well matched to the ecological systems being used are of central importance
+for solving social dilemmas. The surprising but repeated finding that users
+of resources that are in relatively good condition – or even improving – do
+invest in various ways of monitoring one another relates to the core problem
+of building trust.
+Unfortunately, policy analysts, public officials, and scholars who still
+apply simple mathematical models to the analysis of field settings have
+not yet absorbed the central lessons articulated here. All too often a single
+policy prescription – such as Individual Transferable Quotas (ITQs) – is
+recommended for all resources of a particular type, such as all fisheries.
+While several ITQ systems are working successfully, the time and effort
+needed to tailor the broad theoretical concept of an ITQ system into an
+operational system in a particular location involves multiple years of hard
+work by the fishers involved as well as the government officials (see Clark
+2006; Yandle 2007; Yandle and Dewees 2003; Eggertsson 1990).
+The most important lesson for public policy analysis derived from the
+intellectual journey I have outlined here is that humans have a more
+complex motivational structure and more capability to solve social dilemmas
+than posited in earlier rational-choice theory. Designing institutions to force
+(or nudge) entirely self-interested individuals to achieve better outcomes has
+been the major goal posited by policy analysts for governments to accomplish
+for much of the past half century. Extensive empirical research leads me to
+argue that instead, a core goal of public policy should be to facilitate the
+11 See Stewart (2009) for an important study that links size of group, acceptance of norms of cooperation, and
+support of property rights in twenty-five mining camps in the American Southwest.
+development of institutions that bring out the best in humans. We need to
+ask how diverse polycentric institutions help or hinder the innovativeness,
+learning, adapting, trustworthiness, levels of cooperation of participants, and
+the achievement of more effective, equitable, and sustainable outcomes at
+multiple scales (Toonen 2010).
+To explain the world of interactions and outcomes occurring at multiple
+levels, we also have to be willing to deal with complexity instead of rejecting
+it. Some mathematical models are very useful for explaining outcomes in
+particular settings. We should continue to use simple models where they
+capture enough of the core underlying structure and incentives that they
+usefully predict outcomes. When the world we are trying to explain and
+improve, however, is not well described by a simple model, we must continue
+to improve our frameworks and theories so as to be able to understand
+complexity and not simply reject it.
+ACKNOWLEDGMENTS
+I wish to thank Vincent Ostrom and my many colleagues at the Workshop
+who have worked with me throughout the years to develop the research
+program that is briefly discussed herein. I appreciate the helpful suggestions
+given me by Arun Agrawal, Andreas Leibbrandt, Mike McGinnis, Jimmy
+Walker, Tom Wisdom, and by the Applied Theory Working Group and
+the Experimental Reading Group, and the excellent editing skills of Patty
+Lezotte. Essential support received over the years from the Ford Foundation,
+the MacArthur Foundation, and the National Science Foundation is gratefully acknowledged.
+References
+1.
+Acheson, James M. and Roy Gardner (2005), “Spatial Strategies and Territoriality in
+the Maine Lobster Industry,” Rationality and Society, 17(3), 309–341.
+2.
+Agrawal, Arun (2005), Environmentality: Technologies of Government and the Making of
+Environmental Subjects, Durham, NC: Duke University Press.
+3.
+Agrawal, Arun and Clark Gibson, eds. (2001), Communities and the Environment:
+Ethnicity, Gender, and the State in Community-Based Conservation, New Brunswick, NJ:
+Rutgers University Press.
+4.
+Alchian, Armen A. (1950), “Uncertainty, Evolution, and Economic Theory,” Journal of
+Political Economy, 58(3), 211–221.
+5.
+Alchian, Armen A. and Harold Demsetz (1973), “The Property Rights Paradigm,”
+Journal of Economic History, 33(1), 16–27.
+6.
+Allport, Floyd H. (1962), “A Structuronomic Conception of Behavior: Individual and
+Collective,” Journal of Abnormal and Social Psychology, 64, 3–30.
+7.
+Anderson, Terry L. and Peter J. Hill (1990), “The Race for Property Rights,” Journal of
+Law and Economics, 33, 117–197.
+8.
+Anderson, William and Edward W. Weidner (1950), American City Government, New
+York: Henry Holt.
+9.
+Andersson, Krister, Clark Gibson, and Fabrice Lehoucq (2006), “Municipal Politics
+and Forest Governance: Comparative Analysis of Decentralization in Bolivia and
+Guatemala,” World Development, 34(3), 576–595.
+10. Andersson, Krister and Elinor Ostrom (2008), “Analyzing Decentralized Resource
+Regimes from a Polycentric Perspective,” Policy Perspective, 41(1), 71–93.
+11. Andreoni, James (1989), “Giving with Impure Altruism: Applications to Charity and
+Ricardian Equivalence,” Journal of Political Economy, 97(6), 1447–1458.
+12. Aoki, Masahiko (2001), Toward a Comparative Institutional Analysis, Cambridge, MA:
+MIT Press.
+13. Arrow, Kenneth J. (1974), The Limits of Organization, New York: W. W. Norton.
+14. Axelrod, Robert (1986), “An Evolutionary Approach to Norms,” American Political
+Science Review, 80(4), 1095–1111.
+15. Bain, Joe S. (1959), Industrial Organization, New York: Wiley.
+16. Baland, Jean-Marie and Jean-Philippe Platteau (2005), Halting Degradation of Natural
+Resources: Is There a Role for Rural Communities?, Oxford: Clarendon Press.
+17. Balliet, Daniel (2010), “Communication and Cooperation in Social Dilemmas: A
+Meta-Analytic Review,” Journal of Conflict Resolution, 54(1), 39–57.
+18. Banana, Abwoli Y. and William Gombya-Ssembajjwe (2000), “Successful Forest
+Management: The Importance of Security of Tenure and Rule Enforcement in
+Ugandan Forests,” in Clark C. Gibson, Margaret A. McKean, and Elinor Ostrom
+(eds.), People and Forests: Communities, Institutions, and Governance, Cambridge, MA:
+MIT Press, 87–98.
+19. Banana, Abwoli, Nathan Vogt, Joseph Bahati, and William Gombya-Ssembajjwe
+(2007), “Decentralized Governance and Ecological Health: Why Local Institutions
+Fail to Moderate Deforestation in Mpigi District of Uganda,” Scientific Research and
+Essays, 2(10), 434–445.
+20. Bardhan, Pranab K. (2000), “Irrigation and Cooperation: An Empirical Analysis of
+48 Irrigation Communities in South India,” Economic Development and Cultural Change,
+48(4), 847–865.
+21. Basurto, Xavier and Elinor Ostrom (2009), “Beyond the Tragedy of the Commons,”
+Economia delle fonti di energia e dell’ambiente, 52(1), 35–60.
+22. Batistella, Mateus, Scott Robeson, and Emilio F. Moran (2003), “Settlement
+Design, Forest Fragmentation, and Landscape Change in Rondônia, Amazônia,”
+Photogrammetric Engineering and Remote Sensing, 69(7), 805–812.
+23. Bell, Frederick W. (1972), “Technological Externalities and Common Property
+Resources: An Empirical Study of the U.S. Lobster Industry,” Journal of Political
+Economy, 80, 148–158.
+24. Benjamin, Paul, Wai Fung Lam, Elinor Ostrom, and Ganesh Shivakoti (1994),
+Institutions, Incentives, and Irrigation in Nepal, Decentralization: Finance &
+Management Project Report, Burlington, VT: Associates in Rural Development.
+25. Berkes, Fikret (2007), “Community-Based Conservation in a Globalized World,”
+Proceedings of the National Academy of Sciences, 104(39), 15188–15193.
+26. Berkes, Fikret, Johan Colding, and Carl Folke (2003), Navigating Social-Ecological
+Systems: Building Resilience for Complexity and Change, New York: Cambridge University
+Press.
+27. Blomquist, William, Edella Schlager, Shui Yan Tang, and Elinor Ostrom (1994),
+“Regularities from the Field and Possible Explanations,” in Elinor Ostrom, Roy
+Gardner, and James Walker (eds.), Rules, Games, and Common-Pool Resources, Ann
+Arbor: University of Michigan Press, 301–319.
+28. Bolton, Gary E. and Axel Ockenfels (2000), “ERC: A Theory of Equity, Reciprocity,
+and Competition,” American Economic Review, 90, 166–193.
+29. Boyd, Robert and Peter J. Richerson (1985), Culture and the Evolutionary Process,
+Chicago: University of Chicago Press.
+30. Brock, William A. and Stephen R. Carpenter (2007), “Panaceas and Diversification
+of Environmental Policy,” Proceedings of the National Academy of Sciences, 104(39),
+15206–15211.
+31. Bromley, Daniel W. (1986), “Closing Comments at the Conference on Common
+Property Resource Management,” in National Research Council, Proceedings of
+the Conference on Common Property Resource Management, Washington, DC: National
+Academies Press, 591–598.
+32. Brunckhorst, David J. (2000), Bioregional Planning: Resource Management beyond the New
+Millennium, Amsterdam: Harwood Academic.
+33. Buchanan, James (1965), “An Economic Theory of Clubs,” Economica, 32(125),
+1–14.
+34. Canadell, Josep G. and Michael R. Raupach (2008), “Managing Forests for Climate
+Change Mitigation,” Science, 320(5882), 1456–1457.
+35. Cardenas, Juan-Camilo (2000), “How Do Groups Solve Local Commons Dilemmas?
+Lessons from Experimental Economics in the Field,” Environment, Development and
+Sustainability, 2, 305–322.
+36. Cardenas, Juan-Camilo, John K. Stranlund, and Cleve E. Willis (2000), “Local
+Environmental Control and Institutional Crowding-Out,” World Development, 28(10),
+1719–1733.
+37. Casari, Marco and Charles R. Plott (2003), “Decentralized Management of Common
+Property Resources: Experiments with a Centuries-Old Institution,” Journal of
+Economic Behavior and Organization, 51, 217–247.
+38. Caves, Richard (1964), American Industry: Structure, Conduct, Performance, 3d ed.,
+Englewood Cliffs, NJ: Prentice-Hall.
+39. Chhatre, Ashwini and Arun Agrawal (2008), “Forest Commons and Local
+Enforcement,” Proceedings of the National Academy of Sciences, 105(36), 13286–13291.
+40. Chhatre, Ashwini and Arun Agrawal (2009), “Tradeoffs and Synergies between
+Carbon Storage and Livelihood Benefits from Forest Commons,” Proceedings of the
+National Academy of Sciences, 106(42), 17667–17670.
+41. Ciriacy-Wantrup, Siegfried V. and Richard C. Bishop (1975), “‘Common Property’ as
+a Concept in Natural Resource Policy,” Natural Resources Journal, 15(4), 713–727.
+42. Clark, Colin W. (2006), The Worldwide Crisis in Fisheries: Economic Models and Human
+Behavior, Cambridge: Cambridge University Press.
+43. Coleman, Eric (2009), “Institutional Factors Affecting Ecological Outcomes in Forest
+Management,” Journal of Policy Analysis and Management, 28(1), 122–146.
+44. Coleman, Eric and Brian Steed (2009), “Monitoring and Sanctioning in the
+Commons: An Application to Forestry,” Ecological Economics, 68(7), 2106–2113.
+45. Commons, John R. ([1924] 1968), Legal Foundations of Capitalism, Madison: University
+of Wisconsin Press.
+46. Coward, E. Walter (1980), Irrigation and Agricultural Development in Asia, Ithaca, NY:
+Cornell University Press.
+47. Cox, James and Cary Deck (2005), “On the Nature of Reciprocal Motives,” Economic
+Inquiry, 43(3), 623–635.
+48. Cox, James, Klarita Sadiraj, and Vjollca Sadiraj (2008), “Implications of Trust, Fear,
+and Reciprocity for Modeling Economic Behavior,” Experimental Economics, 11(1),
+1–24.
+49. Cox, Michael, Gwen Arnold, and Sergio Villamayor-Tomás (2009), “A Review
+and Reassessment of Design Principles for Community-Based Natural Resource
+Management,” submitted to Ecology and Society.
+50. Crawford, Sue E. S. and Elinor Ostrom (2005), “A Grammar of Institutions,” in Elinor
+Ostrom, Understanding Institutional Diversity, Princeton, NJ: Princeton University
+Press, 137–174. Originally published in American Political Science Review, 89(3) (1995),
+582–600.
+51. Degnbol, P. and Bonnie J. McCay (2007), “Unintended and Perverse Consequences
+of Ignoring Linkages in Fisheries Systems,” ICES Journal of Marine Science, 64(4),
+793–797.
+52. de Oliveira, Angela., Rachel Croson, and Catherine Eckel (2009), “Are Preferences
+Stable across Domains? An Experimental Investigation of Social Preferences in the
+Field,” CBEES Working Paper #2008–3, Dallas: University of Texas.
+53. Dietz, Tom, Elinor Ostrom, and Paul Stern (2003), “The Struggle to Govern the
+Commons,” Science, 302(5652), 1907–1912.
+54. Dutta, Prajit K. (1990), Strategies and Games: Theories and Practice, Cambridge, MA: MIT
+Press.
+55. Eckel, Catherine and Philip J. Grossman (1996), “The Relative Price of Fairness:
+Gender Difference in a Punishment Game,” Journal of Economic Behavior and
+Organization, 30, 143–158.
+56. Eggertsson, Thráinn (1990), Economic Behavior and Institutions, New York: Cambridge
+University Press.
+57. Elster, Jon (1989), Solomonic Judgements: Studies in the Limitations of Rationality,
+Cambridge: Cambridge University Press.
+58. Faysse, Nicolas (2005), “Coping with the Tragedy of the Commons: Game Structure
+and Design of Rules,” Journal of Economic Surveys, 19(2), 239–267.
+59. Fehr, Ernst and Simon Gächter (2002), “Altruistic Punishment in Humans,” Nature,
+415, 137–140.
+60. Fehr, Ernst and Andreas Leibbrandt (2008), “Cooperativeness and Impatience in the
+Tragedy of the Commons,” IZA Discussion Paper no. 3625, University of Zurich.
+61. Fehr, Ernst and Klaus Schmidt (1999), “A Theory of Fairness, Competition, and
+Cooperation,” Quarterly Journal of Economics, 114(3), 817–868.
+62. Frey, Bruno S. and Felix Oberholzer-Gee (1997), “The Cost of Price Incentives: An
+Empirical Analysis of Motivation Crowding-Out,” American Economic Review, 87(4),
+746–755.
+63. Friesema, H. Paul (1966), “The Metropolis and the Maze of Local Government,”
+Urban Affairs Review 2, 68–90.
+64. Frohlich, Norman and Joe A. Oppenheimer (1992), Choosing Justice: An Experimental
+Approach to Ethical Theory, Berkeley and Los Angeles: University of California Press.
+65. Gardner, Roy, Andrew Herr, Elinor Ostrom, and James A. Walker (2000), “The Power
+and Limitations of Proportional Cutbacks in Common-Pool Resources,” Journal of
+Development Economics, 62, 515–533.
+66. Ghate, Rucha and Harini Nagendra (2005), “Role of Monitoring in Institutional
+Performance: Forest Management in Maharashtra, India,” Conservation and Society,
+3(2), 509–532.
+67. Gibson, Clark, Krister Andersson, Elinor Ostrom, and Sujai Shivakumar (2005),
+The Samaritan’s Dilemma: The Political Economy of Development Aid, New York: Oxford
+University Press.
+68. Gibson, Clark, Margaret McKean, and Elinor Ostrom, eds. (2000), People and Forests:
+Communities, Institutions, and Governance, Cambridge, MA: MIT Press.
+69. Gibson, Clark, John Williams, and Elinor Ostrom (2005), “Local Enforcement and
+Better Forests,” World Development, 33(2), 273–284.
+70. Gigerenzer, Gerd and Reinhard Selten, eds. (2001), Bounded Rationality: The Adaptive
+Toolbox, Cambridge, MA: MIT Press.
+71. Goffman, Irving (1974), Frame Analysis: An Essay on the Organization of Experience,
+Cambridge, MA: Harvard University Press.
+72. Gordon, H. Scott (1954), “The Economic Theory of a Common-Property Resource:
+The Fishery,” Journal of Political Economy, 62, 124–142.
+73. Gulick, Luther (1957), “Metropolitan Organization,” Annals of the American Academy of
+Political and Social Science, 314, 57–65.
+74. Hardin, Garrett (1968), “The Tragedy of the Commons,” Science, 162, 1243–1248.
+75. Hayes, Tanya (2006), “Parks, People, and Forest Protection: An Institutional
+Assessment of the Effectiveness of Protected Areas,” World Development, 34(12), 2064–
+2075.
+76. Henrich, Joseph, Robert Boyd, Samuel Bowles, Colin Camerer, Ernst Fehr, and
+Herbert Gintis, eds. (2004), Foundations of Human Sociality: Economic Experiments and
+Ethnographic Evidence from Fifteen Small-Scale Societies, Oxford: Oxford University Press.
+77. Henrich, Joseph, Richard McElreath, Abigail Barr, Jean Ensminger, Clark Barrett,
+Alexander Bolyanatz, Juan-Camilo Cardenas, Michael Gurven, Edwins Gwako,
+Natalie Henrich, et al. (2006), “Costly Punishment across Human Societies,” Science,
+312, 1767–1770.
+78. Hobbes, Thomas ([1651] 1960), Leviathan or the Matter, Forme and Power of a
+Commonwealth Ecclesiasticall and Civil, Ed. Michael Oakeshott, Oxford: Basil
+Blackwell.
+79. Holt, Charles A. (2007), Markets, Games, and Strategic Behavior, Boston, MA: Addison
+Wesley.
+80. Isaac, R. Mark, Kenneth McCue, and Charles R. Plott (1985), “Public Goods Provision
+in an Experimental Environment,” Journal of Public Economics, 26(1), 51–74.
+81. Isaac, R. Mark and James Walker (1988), “Communication and Free-Riding Behavior:
+The Voluntary Contribution Mechanism,” Economic Inquiry, 26(4), 585–608.
+82. Isaac, R. Mark, James Walker, and Susan Thomas (1984), “Divergent Evidence on
+Free Riding: An Experimental Examination of Some Possible Explanations,” Public
+Choice, 43(2), 113–149.
+83. Isaac, R. Mark, James Walker, and Arlington Williams (1994), “Group Size and
+the Voluntary Provision of Public Goods: Experimental Evidence Utilizing Large
+Groups,” Journal of Public Economics, 54(1), 1–36.
+84. Jager, Wander and Marco A. Janssen (2002), “Using Artificial Agents to Understand
+Laboratory Experiments of Common-Pool Resources with Real Agents,” in Marco A.
+Janssen (ed.), Complexity and Ecosystem Management: The Theory and Practice of Multi-
+Agent Systems, Cheltenham, UK: Edward Elgar, 75–102.
+85. Janssen, Marco A. (2008), “Evolution of Cooperation in a One-Shot Prisoner’s
+Dilemma Based on Recognition of Trustworthy and Untrustworthy Agents,” Journal of
+Economic Behavior and Organization, 65, 458–471.
+86. Joshi, Neeraj N., Elinor Ostrom, Ganesh P. Shivakoti, and Wai Fung Lam (2000),
+“Institutional Opportunities and Constraints in the Performance of Farmer-Managed
+Irrigation Systems in Nepal,” Asia-Pacific Journal of Rural Development, 10(2), 67–92.
+87. Kiser, Larry L. and Elinor Ostrom (1982), “The Three Worlds of Action: A
+Metatheoretical Synthesis of Institutional Approaches,” in Elinor Ostrom (ed.),
+Strategies of Political Inquiry, Beverly Hills, CA: Sage, 179–222.
+88. Koestler, Arthur (1973), “The Tree and the Candle,” in William Gray and Nicholas
+D. Rizzo (eds.), Unity through Diversity, part I, New York: Gordon and Breach Science
+Publishers, 287–314.
+89. Lam, Wai Fung (1998), Governing Irrigation Systems in Nepal: Institutions, Infrastructure,
+and Collective Action, Oakland, CA: ICS Press.
+90. Leibbrandt, Andreas, Uri Gneezy, and John List (2010), “Ode to the Sea: The Socio-
+Ecological Underpinnings of Social Norms,” unpublished manuscript.
+91. Marshall, Graham R. (2008), “Nesting, Subsidiarity, and Community-Based
+Environmental Governance beyond the Local Level,” International Journal of the
+Commons, 2(1), 75–97.
+92. Marwell, Gerald and Ruth E. Ames (1979), “Experiments on the Provision of Public
+Goods I: Resources, Interest, Group Size, and the Free Rider Problem,” American
+Journal of Sociology, 84, 1335–1360.
+93. McCay, Bonnie J. and James M. Acheson (1987), The Question of the Commons: The
+Culture and Ecology of Communal Resources, Tucson: University of Arizona Press.
+94. McGinnis, Michael, ed. (1999a), Polycentric Governance and Development: Readings from
+the Workshop in Political Theory and Policy Analysis, Ann Arbor: University of Michigan
+Press.
+95. McGinnis, Michael, ed. (1999b), Polycentricity and Local Public Economies: Readings from
+the Workshop in Political Theory and Policy Analysis, Ann Arbor: University of Michigan
+Press.
+96. McGinnis, Michael, ed. (2000), Polycentric Games and Institutions: Readings from the Workshop in Political Theory and Policy Analysis, Ann Arbor: University of Michigan Press.
+97. Meinzen-Dick, Ruth (2007), “Beyond Panaceas in Water Institutions,” Proceedings of
+the National Academy of Sciences, 104, 15200–15206.
+98. Netting, Robert McC. (1972), “Of Men and Meadows: Strategies of Alpine Land Use,”
+Anthropological Quarterly, 45, 132–144.
+99. North, Douglass C. (1990), Institutions, Institutional Change and Economic Performance,
+New York: Cambridge University Press.
+100. North, Douglass C. (2005), Understanding the Process of Institutional Change, Princeton,
+NJ: Princeton University Press.
+101. NRC (National Research Council) (1986), Proceedings of the Conference on Common
+Property Resource Management, Washington, DC: National Academies Press.
+102. NRC (National Research Council) (2002), The Drama of the Commons, Committee
+on the Human Dimensions of Global Change, Elinor Ostrom, Thomas Dietz, Nives
+Dolšak, Paul Stern, Susan Stonich, and Elke Weber (eds.), Washington, DC: National
+Academies Press.
+103. Oakerson, Ronald J. (1986), “A Model for the Analysis of Common Property
+Problems,” in National Research Council, Proceedings of the Conference on Common
+Property Resource Management, Washington, DC: National Academies Press, 13–30.
+104. Ones, Umut and Louis Putterman (2007), “The Ecology of Collective Action: A
+Public Goods and Sanctions Experiment with Controlled Group Formation,” Journal
+of Economic Behavior and Organization, 62, 495–521.
+105. Orbell, John M., Alphons van de Kragt, and Robyn M. Dawes (1988), “Explaining
+Discussion-Induced Cooperation,” Journal of Personality and Social Psychology, 54(5),
+811–819.
+106. Ostrom, Elinor (1965), “Public Entrepreneurship: A Case Study in Ground Water
+Basin Management,” Ph.D. dissertation, University of California, Los Angeles.
+107. Ostrom, Elinor (1986), “An Agenda for the Study of Institutions,” Public Choice, 48(1),
+3–25.
+108. Ostrom, Elinor (1990), Governing the Commons: The Evolution of Institutions for Collective
+Action, New York: Cambridge University Press.
+109. Ostrom, Elinor (1998), “A Behavioral Approach to the Rational Choice Theory of
+Collective Action,” American Political Science Review, 92(1), 1–22.
+110. Ostrom, Elinor (1999), “Coping with Tragedies of the Commons,” Annual Review of
+Political Science, 2, 493–535.
+111. Ostrom, Elinor (2005), Understanding Institutional Diversity, Princeton, NJ: Princeton
+University Press.
+112. Ostrom, Elinor (2007), “A Diagnostic Approach for Going beyond Panaceas,”
+Proceedings of the National Academy of Sciences, 104(39), 15181–15187.
+113. Ostrom, Elinor (2008), “Developing a Method for Analyzing Institutional Change,”
+in Sandra Batie and Nicholas Mercuro (eds.), Alternative Institutional Structures:
+Evolution and Impact, New York: Routledge, 48–76.
+114. Ostrom, Elinor (2009), “A General Framework for Analyzing the Sustainability of
+Social-Ecological Systems,” Science, 325(5939), 419–422.
+115. Ostrom, Elinor, Arun Agrawal, William Blomquist, Edella Schlager, and S. Y. Tang
+(1989), CPR Coding Manual, Bloomington: Indiana University, Workshop in Political
+Theory and Policy Analysis.
+116. Ostrom, Elinor and Xavier Basurto (Forthcoming), “Crafting Analytical Tools to
+Study Institutional Change,” Journal of Institutional Economics.
+117. Ostrom, Elinor and Roy Gardner (1993), “Coping with Asymmetries in the Commons:
+Self-Governing Irrigation Systems Can Work,” Journal of Economic Perspectives, 7(4),
+93–112.
+118. Ostrom, Elinor, Roy Gardner, and James Walker (1994), Rules, Games, and Common-
+Pool Resources, Ann Arbor: University of Michigan Press.
+119. Ostrom, Elinor and Harini Nagendra (2006), “Insights on Linking Forests, Trees, and
+People from the Air, on the Ground, and in the Laboratory,” Proceedings of the National
+Academy of Sciences, 103(51): 19224–19231.
+120. Ostrom, Elinor and Roger B. Parks (1999), “Neither Gargantua nor the Land of
+Lilliputs: Conjectures on Mixed Systems of Metropolitan Organization,” in Michael
+McGinnis (ed.), Polycentricity and Local Public Economies: Readings from the Workshop in
+Political Theory and Policy Analysis, Ann Arbor: University of Michigan Press, 284–305.
+121. Ostrom, Elinor, Roger B. Parks, and Gordon P. Whitaker (1978), Patterns of
+Metropolitan Policing, Cambridge, MA: Ballinger.
+122. Ostrom, Elinor, Larry Schroeder, and Susan Wynne (1993), Institutional Incentives
+and Sustainable Development: Infrastructure Policies in Perspective, Boulder, CO: Westview
+Press.
+123. Ostrom, Elinor, and James Walker (1991), “Communication in a Commons:
+Cooperation without External Enforcement,” in Thomas R. Palfrey (ed.), Laboratory
+Research in Political Economy, Ann Arbor: University of Michigan Press, 287–322.
+124. Ostrom, Elinor, James Walker, and Roy Gardner (1992), “Covenants with and without a Sword: Self-Governance is Possible,” American Political Science Review, 86(2),
+404–417.
+125. Ostrom, Vincent (1962), “The Political Economy of Water Development,” The
+American Economic Review, 52(2), 450–458.
+126. Ostrom, Vincent (1975), “Language, Theory and Empirical Research in Policy
+Analysis,” Policy Studies Journal, 3, 274–281.
+127. Ostrom, Vincent (2008), The Intellectual Crisis in American Public Administration, 3rd ed,
+Tuscaloosa: University of Alabama Press.
+128. Ostrom, Vincent and Elinor Ostrom (1965), “A Behavioral Approach to the Study of
+Intergovernmental Relations,” The Annals of the American Academy of Political and Social
+Science, 359, 137–146.
+129. Ostrom, Vincent and Elinor Ostrom (1977), “Public Goods and Public Choices,” in
+E. S. Savas (ed.), Alternatives for Delivering Public Services: Toward Improved Performance,
+Boulder, CO: Westview Press, 7–49.
+130. Ostrom, Vincent, Charles M. Tiebout, and Robert Warren (1961), “The Organization
+of Government in Metropolitan Areas: A Theoretical Inquiry,” American Political
+Science Review, 55(4), 831–842.
+131. Paavola, Jouni and W. Neil Adger (2005), “Institutional Ecological Economics,”
+Ecological Economics, 53(3), 353–368.
+132. Pagdee, Adcharaporn, Yeon-Su Kim, and P. J. Daugherty (2006), “What Makes
+Community Forest Management Successful: A Meta-Study from Community Forests
+throughout the World,” Society and Natural Resources, 19(1), 33–52.
+133. Pfennig, David W. and Cris Ledón-Rettig (2009), “The Flexible Organism,” Science,
+325, 268–269.
+134. Popper, Karl R. (1961), The Poverty of Historicism, New York: Harper & Row.
+135. Posner, Richard (1975), “Economic Analysis of Law,” in Bruce Ackerman (ed.),
+Economic Foundation of Property Law, Boston, MA: Little, Brown.
+136. Poteete, Amy, Marco Janssen, and Elinor Ostrom (2010), Working Together: Collective
+Action, the Commons, and Multiple Methods in Practice, Princeton, NJ: Princeton
+University Press.
+137. Poteete, Amy and Elinor Ostrom (2004), “In Pursuit of Comparable Concepts and
+Data about Collective Action,” Agricultural Systems, 82(3), 215–232.
+138. Reeson, Andrew F. and John G. Tisdell (2008), “Institutions, Motivations and Public
+Goods: An Experimental Test of Motivational Crowding,” Journal of Economic Behavior
+and Organization, 68(1), 273–281.
+139. Rothstein, Bo (2005), Social Traps and the Problem of Trust: Theories of Institutional
+Design, Cambridge: Cambridge University Press.
+140. Rudel, Thomas K. (2008), “Meta-Analyses of Case Studies: A Method for Studying
+Regional and Global Environmental Change,” Global Environmental Change, 18(1),
+18–25.
+141. Sally, David (1995), “Conservation and Cooperation in Social Dilemmas: A Meta-
+Analysis of Experiments from 1958 to 1992,” Rationality and Society, 7, 58–92.
+142. Samuelson, Paul (1954), “The Pure Theory of Public Expenditure,” Review of
+Economics and Statistics, 36, 387–389.
+143. Satz, Debra and John Ferejohn (1994), “Rational Choice and Social Theory,” Journal
+of Philosophy, 91(2), 71–87.
+144. Schank, Roger C. and Robert P. Abelson (1977), Scripts, Plans, Goals, and
+Understanding: An Inquiry in Human Knowledge Structures, Hillsdale, NJ: Lawrence
+Erlbaum Associates.
+145. Schelling, Thomas C. (1960), The Strategy of Conflict, Oxford: Oxford University
+Press.
+146. Schelling, Thomas C. (1978), Micromotives and Macrobehavior, New York: W. W.
+Norton.
+147. Schelling, Thomas C. (1984), Choice and Consequence: Perspectives of an Errant Economist,
+Cambridge, MA: Harvard University Press.
+148. Schlager, Edella (1990), “Model Specification and Policy Analysis: The Governance of
+Coastal Fisheries,” Ph.D. dissertation, Indiana University.
+149. Schlager, Edella (1994), “Fishers’ Institutional Responses to Common-Pool Resource
+Dilemmas,” in Elinor Ostrom, Roy Gardner, and James Walker (eds.), Rules, Games,
+and Common-Pool Resources, Ann Arbor: University of Michigan Press, 247–265.
+150. Schlager, Edella and William Blomquist (2008), Embracing Watershed Politics, Boulder:
+University Press of Colorado.
+151. Schlager, Edella and Elinor Ostrom (1992), “Property-Rights Regimes and Natural
+Resources: A Conceptual Analysis,” Land Economics, 68(3), 249–262.
+152. Scott, Anthony D. (1955), “The Fishery: The Objectives of Sole Ownership,” Journal of
+Political Economy, 63, 116–124.
+153. Selten, Reinhard (1990), “Bounded Rationality,” Journal of Institutional and Theoretical
+Politics, 146, 649–658.
+154. Sen, Amartya K. (1977), “Rational Fools: A Critique of the Behavioral Foundations of
+Economic Theory,” Philosophy and Public Affairs, 6(4), 317–344.
+155. Sen, Amartya K. (2009), The Idea of Justice, Cambridge, MA: Harvard University Press.
+156. Shivakoti, Ganesh and Elinor Ostrom, eds. (2002), Improving Irrigation Governance and
+Management in Nepal, Oakland, CA: ICS Press.
+157. Simon, Herbert A. (1955), “A Behavioural Model of Rational Choice,” Quarterly
+Journal of Economics, 69, 99–188.
+158. Simon, Herbert A. (1981), The Sciences of the Artificial, 2d ed, Cambridge, MA: MIT
+Press.
+159. Simon, Herbert A. (1995), “Near Decomposability and Complexity: How a Mind
+Resides in a Brain,” in Harold J. Morowitz and Jerome L. Singer (eds.), The Mind, the
+Brain, and Complex Adaptive Systems, Reading, MA: Addison-Wesley, 25–44.
+160. Simon, Herbert A. (1999), “The Potlatch between Political Science and Economics,”
+in James Alt, Margaret Levi, and Elinor Ostrom (eds.), Competition and Cooperation:
+Conversations with Nobelists about Economics and Political Science, New York: Russell Sage
+Foundation, 112–119.
+161. Smith, Vernon L. (2003), “Constructivist and Ecological Rationality in Economics,”
+American Economic Review, 93(3), 465–508.
+162. Smith, Vernon L. (2010), “Theory and Experiment: What are the Questions?,” Journal
+of Economic Behavior and Organization, 73, 3–15.
+163. Smith, Vernon L. and James Walker (1993), “Rewards, Experience and Decision
+Costs in First Price Auctions,” Economic Inquiry, 31(2), 237–245.
+164. Stewart, James I. (2009), “Cooperation when N is Large: Evidence from the Mining
+Camps of the American West,” Journal of Economic Behavior and Organization, 69(3),
+213–235.
+165. Sugden, Richard (1986), The Economics of Rights, Co-operation, and Welfare, Oxford:
+Basil Blackwell.
+166. Tang, Shui Yan (1992), Institutions and Collective Action: Self-Governance in Irrigation,
+San Francisco, CA: ICS Press.
+167. Tang, Shui Yan (1994), “Institutions and Performance in Irrigation Systems,” in
+Elinor Ostrom, Roy Gardner, and James Walker (eds.), Rules, Games, and Common-Pool
+Resources, Ann Arbor: University of Michigan Press, 225–245.
+168. Terborgh, J. (1999), Requiem for Nature, Washington, DC: Island Press.
+169. Toonen, Theo (2010), “Resilience in Public Administration: The Work of Elinor
+and Vincent Ostrom from a Public Administration Perspective,” Public Administration
+Review, 70(2) (March/April): 193–202.
+170. Trawick, Paul B. (2001), “Successfully Governing the Commons: Principles of Social
+Organization in an Andean Irrigation System,” Human Ecology, 29(1), 1–25.
+171. Tucker, Catherine M. (2008), Changing Forests: Collective Action, Common Property, and
+Coffee in Honduras, New York: Springer.
+172. Uphoff, Norman T., with Priti Ramamurthy and Roy Steiner (1991), Managing
+Irrigation: Analyzing and Improving the Performance of Bureaucracies, New Delhi: Sage.
+173. Walker, James and Elinor Ostrom (2009), “Trust and Reciprocity as Foundations for
+Cooperation,” in Karen Cook, Margaret Levi, and Russell Hardin (eds.), Whom Can
+We Trust?: How Groups, Networks, and Institutions Make Trust Possible, New York: Russell
+Sage Foundation, 91–124.
+174. Warren, Robert O. (1966), Government of Metropolitan Regions: A Reappraisal of
+Fractionated Political Organization, Davis: University of California, Institute of
+Governmental Affairs.
+175. Webb, Edward and Ganesh P. Shivakoti, eds. (2008), Decentralization, Forests and Rural
+Communities: Policy Outcomes in South and Southeast Asia, New Delhi: Sage India.
+176. Weissing, Franz and Elinor Ostrom (1993), “Irrigation Institutions and the Games
+Irrigators Play: Rule Enforcement on Government- and Farmer-Managed Systems,”
+in Fritz W. Scharpf (ed.), Games in Hierarchies and Networks: Analytical and Empirical
+Approaches to the Study of Governance Institutions, Frankfurt: Campus Verlag; Boulder,
+CO: Westview Press, 387–428.
+177. Weschler, Louis F. (1968), Water Resources Management: The Orange County Experience,
+California Government Series no. 14, Davis: University of California, Institute of
+Governmental Affairs.
+178. Williamson, Oliver E. (1975), Markets and Hierarchies: Analysis and Antitrust Implications,
+New York: Free Press.
+179. Williamson, Oliver E. (1986), “The Economics of Governance: Framework and
+Implications,” in R. Langlois (ed.), Economics as a Process, New York: Cambridge
+University Press.
+180. Wilson, James A. (1990), “Fishing for Knowledge,” Land Economics, 66, 12–29.
+181. Wilson, James A., James M. Acheson, Mark Metcalfe, and Peter Kleban (1994),
+“Chaos, Complexity, and Community Management of Fisheries,” Marine Policy, 18,
+291–305.
+182. Wilson, Woodrow (1885), Congressional Government: A Study in American Politics,
+Boston: Houghton Mifflin.
+183. Wollenberg, Eva, Leticia Merino, Arun Agrawal, and Elinor Ostrom (2007),
+“Fourteen Years of Monitoring Community-Managed Forests: Learning from IFRI’s
+Experience,” International Forestry Review, 9(2), 670–684.
+184. Yamagishi, Toshio (1986), “The Provision of a Sanctioning System as a Public Good,”
+Journal of Personality and Social Psychology, 51(1), 110–116.
+185. Yandle, Tracy (2007), “Understanding the Consequence of Property Rights
+Mismatches: A Case Study of New Zealand’s Marine Resources,” Ecology and Society,
+12(2), http://www.ecologyandsociety.org/vol12/iss2/art27/.
+186. Yandle, Tracy and Christopher Dewees (2003), “Privatizing the Commons . . . Twelve
+Years Later: Fischers’ Experiences with New Zealand’s Market-Based Fisheries
+Management,” in Nives Dolšak and Elinor Ostrom (eds.), The Commons in the New
+Millennium: Challenges and Adaptations, Cambridge, MA: MIT Press, 101–128.
+Portrait photo of Professor Ostrom by photographer Ulla Montan.
