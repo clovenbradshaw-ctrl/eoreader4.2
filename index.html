@@ -3186,6 +3186,24 @@ table{border-collapse:collapse;width:100%}
                     </section>
                   </sc-if>
 
+                  <!-- MEANING SYSTEM — the SAME nested EOGraph solar surface the Graph tab draws
+                       (solar-system.js mountSolarSystem, mounted via setSourceGraphEl/_drawSourceGraph),
+                       embedded inline so the Overview opens ON the graph, never a "pick a figure" list:
+                       the source's most salient figure at the centre, its standing claims and bonded
+                       figures orbiting it as planets, and each figure's own meaning ringing out as moons.
+                       Click a body to re-centre in place; the Graph tab adds the structure + existence
+                       levels. Shown whenever the source has figures (same gate as the cast index). -->
+                  <sc-if value="{{ sourceLanding.castShow }}">
+                    <section style="margin-top:14px;padding:24px;border:1px solid #ececf0;border-radius:16px;background:#fff">
+                      <div style="display:flex;align-items:baseline;gap:9px;margin:0 0 6px;flex-wrap:wrap">
+                        <h2 style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8a8a95;margin:0">Meaning system</h2>
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#a6a6ae">EOGraph</span>
+                      </div>
+                      <p style="font-size:12.5px;color:#6a6a73;margin:0 0 12px">A figure at the centre, its claims and bonds orbiting it as planets, and each figure's own meaning ringing out as moons. Click a body to re-centre; open the Graph tab for the structure and existence levels.</p>
+                      <div ref="{{ setSourceGraphEl }}" data-screen-label="Source graph" class="eo-scroll" style="height:600px;max-width:900px;margin:0 auto;overflow:auto;border:1px solid #efeff2;border-radius:12px;background:#f4f4f6"></div>
+                    </section>
+                  </sc-if>
+
                   <!-- TWIN WAVEFORMS — the reading's turning points (eot.turns), drawn like an audio -->
                   <!-- track (mirrored around a centre line, not bar-chart columns): BELIEF (Δbelief/KL, -->
                   <!-- the mass channel) and GRAVITATIONAL PULL (the bridge/connectivity channel — how -->
@@ -7646,9 +7664,12 @@ class Component extends DCLogic {
     if (mode !== 'structure' && this._binvis) { try { this._binvis.destroy(); } catch {} this._binvis = null; this._binvisEl = null; this._binvisSn = null; }
     // Leaving the Raw tab tears down the raw-text surface, same idiom as Structure/binvis.
     if (mode !== 'raw' && this._rawtext) { try { this._rawtext.destroy(); } catch {} this._rawtext = null; this._rawtextEl = null; this._rawtextSn = null; }
-    // Leaving the source Graph tab tears down its EOGraph solar mount so it never keeps drawing into
-    // a detached container; re-entering mounts it fresh via setSourceGraphEl.
-    if (mode !== 'graph' && this._srcGraph) { try { this._srcGraph.destroy(); } catch {} this._srcGraph = null; this._srcGraphEl = null; this._srcGraphSn = null; this._srcGraphEntId = null; }
+    // Leaving the EOGraph solar mount tears it down so it never keeps drawing into a detached
+    // container; re-entering mounts it fresh via setSourceGraphEl. The Overview embeds the SAME
+    // graph inline (setSourceGraphEl re-scopes to whichever container is live), so only a mode that
+    // hosts neither the Graph tab nor the Overview tears it down — switching graph↔overview keeps
+    // the chosen sun and just re-mounts in place.
+    if (mode !== 'graph' && mode !== 'overview' && this._srcGraph) { try { this._srcGraph.destroy(); } catch {} this._srcGraph = null; this._srcGraphEl = null; this._srcGraphSn = null; this._srcGraphEntId = null; }
     // Keep the mobile view stack's top frame (if it's this same source) in sync with a live mode
     // switch, so navigating away and later Back-ing all the way through to this source restores
     // the mode actually left showing, not whatever it was at the moment it was first opened.
@@ -10987,7 +11008,13 @@ class Component extends DCLogic {
       if (!ref) {
         const sel = this.state.entitySel;
         const seeded = sel && ents.find((n) => n.ref.docId === sel.docId && n.ref.entId === sel.entId);
-        ref = seeded ? seeded.ref : null;
+        // LAND ON A LIVE GRAPH, NOT A LIST. Prefer an entity already open in the panel (the reader's
+        // own explicit prior); otherwise seed the source's most salient figure — topicTieredData ranks
+        // `ents` by mention mass, so ents[0] is the figure the source is most about. The Graph tab and
+        // the Overview then OPEN on the meaning system instead of the "pick a figure" chooser (the
+        // reported "no graph visible here"). Clicking any bonded body still pivots the sun in place, and
+        // the chooser remains the honest fallback below when a seeded figure has nothing to orbit.
+        ref = seeded ? seeded.ref : (ents[0] ? ents[0].ref : null);
       }
       this._srcGraphEntId = ref;
       if (!ref) { this._drawSourceGraphChooser(el, ents); return; }

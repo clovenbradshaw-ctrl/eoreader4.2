@@ -78,6 +78,36 @@ test('a claim\'s standing reads firming / fresh / unsettled from the log, never 
     'a hedged property reads as unsettled (the record does not hold it flat)');
 });
 
+test('the meaning system is NESTED — the sun\'s planets, and each planet\'s own moons', async () => {
+  const app = await freshApp();
+  // Mulder (sun) → Scully (a planet, a bond). Scully in turn holds her own meaning: a standing
+  // property ("a skeptical doctor") and a further associate (Skinner) — those become MOONS around
+  // the Scully planet, so the system reads as sun · planets · moons instead of one flat ring.
+  const src = app.ingestText([
+    'Fox Mulder works with Dana Scully.',
+    'Dana Scully is a skeptical doctor.',
+    'Dana Scully reports to Walter Skinner.',
+  ].join(' '), 'Mulder');
+  const data = app.topicTieredData([src]);
+  const mulder = (data.nodes || []).find((n) => n.kind === 'entity' && /mulder/i.test(n.label) && n.ref);
+  assert.ok(mulder, 'Mulder is admitted as a figure');
+  const { nodes } = app.solarMeaningData(mulder.ref.docId, mulder.ref.entId);
+  const focusId = `e:${mulder.ref.entId}`;
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const claims = nodes.filter((n) => n.kind === 'claim');
+  // every claim names its parent, and that parent is a real body in the same graph
+  assert.ok(claims.every((c) => c.parent && byId.has(c.parent)),
+    'every meaning body carries a parent that exists in the graph');
+  // planets (the sun's own claims + bonds) orbit the sun directly
+  const planets = claims.filter((c) => c.parent === focusId);
+  assert.ok(planets.length > 0, 'the sun has planets (its standing claims and bonded figures)');
+  // moons orbit a planet, NOT the sun — this is the nesting the flat ring never had
+  const moons = claims.filter((c) => c.parent !== focusId);
+  assert.ok(moons.length > 0, 'at least one moon orbits a planet rather than the sun');
+  assert.ok(moons.every((m) => byId.get(m.parent) && byId.get(m.parent).parent === focusId),
+    'a moon\'s parent is itself a planet of the sun (a genuine two-level descent)');
+});
+
 test('solarMeaningData leaves tieredData (the entity web\'s feed) untouched', async () => {
   const app = await freshApp();
   const src = app.ingestText(TEXT, 'Darcy');
