@@ -178,6 +178,9 @@ export const buildApi = (appCtx) => {
     // transcript export — subtitles (SRT/VTT), the elegant by-speaker read, the full-processing JSON,
     // and the process trace — built from the live organ doc or rebuilt from the persisted substrate.
     transcriptExport: appCtx.transcriptExport, transcriptFormats: appCtx.transcriptFormats,
+    // the manual override for the automated signal/noise gate — "transcribe this anyway" (skipped),
+    // or a retry after a stop/error, rebuilt from the source's own kept audio bytes (transcript.js).
+    forceTranscribe: appCtx.forceTranscribe,
     // the Listen surface's layered reading: the whole formatted/raw word view with read-state +
     // referents + chapters (transcriptView), the topic chapters alone, and the per-word span inspector.
     transcriptView: appCtx.transcriptView, transcriptChapters: appCtx.transcriptChapters, spanLayers: appCtx.spanLayers,
