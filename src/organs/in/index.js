@@ -63,7 +63,7 @@ export { composeScene }      from './scene.js';
 export { ingestAudio }       from './audio.js';
 export { guessSpeakerNames } from './audio-speakers.js';
 export { ingestAcoustic, waveformPeaks, analyzeAudio, separateHolons, acousticSummary, toDb } from './acoustic.js';
-export { acousticSignal, resolveTranscript } from './hear.js';
+export { acousticSignal, resolveTranscript, detectRepetitionLoops } from './hear.js';
 export { diarize, analyzeUtterance } from './voices.js';
 export { assembleDocument }  from './document.js';
 export { ingestPdf, pdfTextReading } from './pdf.js';

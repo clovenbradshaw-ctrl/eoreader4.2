@@ -279,6 +279,10 @@ table{border-collapse:collapse;width:100%}
 /* a mention/segment jumped to from the entity panel — flashes, then fades on the .eo-w transition */
 .eo-w-flash{background:#FDE68A;color:#7A5B00;box-shadow:0 0 0 3px #FDE68A}
 .eo-w-edited{border-bottom:1px dashed #C79A3A}
+/* a suspected decode-loop repeat (hear.js detectRepetitionLoops) — likely a stuck ASR decoder,
+   not repeated speech; the dashed underline reuses the "contested" red the reader elsewhere flags a
+   disagreement with, since this too is a reading the record itself doubts. */
+.eo-w-repeatloop{border-bottom:1px dashed #C2410C}
 .eo-w-sel{background:#DED8FD}
 .eo-w-redacted{color:#2A2A32;cursor:default;letter-spacing:-2px}
 .eo-w-input{font:inherit;color:inherit;background:#fff;border:1px solid #6D5EF5;border-radius:4px;padding:0 3px;outline:none}
@@ -7074,17 +7078,21 @@ class Component extends DCLogic {
     if (w.redacted) return '<span class="eo-w eo-w-redacted"' + attrs + '>▮▮▮</span>';
     let cls = 'eo-w', style = '';
     if (w.edited) cls += ' eo-w-edited';
+    if (w.repeatLoop) cls += ' eo-w-repeatloop';
     if (w.i === inspectI) cls += ' eo-w-inspect';
     if (layer === 'reading' || layer === 'plain') {
       if (!w.read) cls += ' eo-w-unread';
       if (layer === 'reading' && w.ref) cls += ' eo-w-ref';
     } else if (layer === 'confidence') {
-      const c = (w.acous != null) ? w.acous : (w.conf != null ? w.conf : null);
+      // A repetition-loop word reads as barely-heard regardless of the model's own reported
+      // confidence — the problem is structural (a stuck decoder), not acoustic uncertainty.
+      const c = w.repeatLoop ? 0 : (w.acous != null) ? w.acous : (w.conf != null ? w.conf : null);
       style = 'color:' + this._confColor(c, w.read) + (w.ref ? ';font-weight:600' : '');
     } else if (layer === 'speakers') {
       style = 'color:' + this._speakerColor(w.speaker, w.read) + (w.ref ? ';font-weight:600' : '');
     }
-    const title = (w.edited && w.origText != null) ? ' title="was: ' + esc(w.origText) + '"' : '';
+    const title = w.repeatLoop ? ' title="likely a stuck decoder repeating this span, not repeated speech"'
+      : (w.edited && w.origText != null) ? ' title="was: ' + esc(w.origText) + '"' : '';
     return '<span class="' + cls + '"' + attrs + (style ? ' style="' + style + '"' : '') + title + '>' + esc(w.text) + '</span>';
   }
 
@@ -7400,6 +7408,7 @@ class Component extends DCLogic {
     let L = null; try { L = this._app.spanLayers(activeSn, ins.i); } catch { L = null; }
     if (!L) return null;
     const confBits = [];
+    if (L.repeatLoop) confBits.push('repetition loop — likely a stuck decoder, not repeated speech');
     if (L.conf != null) confBits.push(`model ${L.conf.toFixed(2)}`);
     if (L.acous != null) confBits.push(`acoustic ${L.acous.toFixed(2)}`);
     if (L.snr != null) confBits.push(`SNR ${L.snr} dB`);

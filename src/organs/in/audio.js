@@ -29,7 +29,7 @@ import { projectGraph }      from '../../core/index.js';
 import { createConventions } from '../../core/conventions/index.js';
 import { tok }               from '../../perceiver/parse/index.js';
 import { attachReading }     from '../ingest/index.js';
-import { resolveTranscript, hearingBelief, transcriptViews } from './hear.js';
+import { resolveTranscript, hearingBelief, transcriptViews, detectRepetitionLoops } from './hear.js';
 import { guessSpeakerNames } from './audio-speakers.js';
 import { createEmbeddingMemo } from '../../model/embed-store.js';
 
@@ -116,6 +116,10 @@ export const ingestAudio = (transcript = {}) => {
   } = transcript;
 
   const utterances = asUtterances(transcript);
+  // A small speech model's OTHER failure mode: the decoder stuck re-emitting the same
+  // phrase instead of advancing. Judged against THIS recording's own other spans, never a
+  // universal constant (hear.js §1b) — marks `w.repeatLoop` on every suspect word in place.
+  const repetitionLoops = detectRepetitionLoops(utterances);
   // Every alternate reading, flattened to timed words, for the contest audit below.
   const altReadings = (alternates || []).map((a, i) => ({
     id: `alt-${i}`, label: a.label || `witness ${i + 2}`, words: flatWords(a),
@@ -159,12 +163,15 @@ export const ingestAudio = (transcript = {}) => {
       // WHO said it — the voice the diarization attributed this span to, on the record (auditable).
       if (Number.isInteger(w.speaker)) log.append({ op: 'DEF', id, key: 'speaker', value: `S${w.speaker + 1}`, sentIdx: unitIdx });
 
-      // EVA — the reading is EVALUATED, not taken as given. Two ways a word is contestable:
-      //   • a low-confidence hearing the ear itself flagged (a shaky reading), and
-      //   • a divergence: another witness heard a different word in this same span.
-      // Either raises an EVA on the log and a contested row for the audit surface.
+      // EVA — the reading is EVALUATED, not taken as given. Three ways a word is contestable:
+      //   • a low-confidence hearing the ear itself flagged (a shaky reading),
+      //   • a divergence: another witness heard a different word in this same span, and
+      //   • a repetition loop: the decoder stuck re-emitting this span instead of advancing.
+      // Any of these raises an EVA on the log and a row for the audit surface.
       if (w.conf != null && isFinite(w.conf) && w.conf < 0.5)
         log.append({ op: 'EVA', id, reason: 'low-confidence-reading', value: String(+(+w.conf).toFixed(3)), sentIdx: unitIdx });
+      if (w.repeatLoop)
+        log.append({ op: 'EVA', id, reason: 'repetition-loop', value: 'paced faster or steadier than this recording ever speaks — likely a stuck decoder, not repeated speech', sentIdx: unitIdx });
       const rivals = [];
       for (const alt of altReadings) {
         const o = overlapAt(alt.words, wa, wb);
@@ -192,7 +199,8 @@ export const ingestAudio = (transcript = {}) => {
         conf: (w.conf != null && isFinite(w.conf)) ? +w.conf : null,
         acous: (w.acous != null && isFinite(w.acous)) ? +w.acous : null,
         snr:   (w.snr   != null && isFinite(w.snr))   ? +w.snr   : null,
-        speaker: Number.isInteger(w.speaker) ? w.speaker : null });
+        speaker: Number.isInteger(w.speaker) ? w.speaker : null,
+        repeatLoop: !!w.repeatLoop });
     }
   });
 
@@ -239,9 +247,15 @@ export const ingestAudio = (transcript = {}) => {
       contested,                                  // span-by-span divergences, for a UI to walk
       contestedCount: contested.length,
       lowConfidence: tokens.filter(t => t.conf != null && t.conf < 0.5).length,
+      repetitionLoops,                            // run-level view: { start, end, phrase, ngram, repeats, words }
+      repetitionLoopCount: repetitionLoops.length,
+      repetitionLoopWords: tokens.filter(t => t.repeatLoop).length,
     },
     // The contested readings overlapping time t — what a "audit this moment" click resolves to.
     contestedAt: (t) => contested.filter(c => t >= c.span[0] - 0.05 && t <= c.span[1] + 0.05),
+    // The repetition-loop runs overlapping time t — the same "audit this moment" click,
+    // pointed at a stuck decoder instead of a name disagreement.
+    repetitionLoopsAt: (t) => repetitionLoops.filter(r => t >= r.start - 0.05 && t <= r.end + 0.05),
     conventions: createConventions(),
     // The universal contract's metadata slot (organs/in: every doc carries one). A
     // clip's front matter is its container tags (title, speaker, date) plus the
